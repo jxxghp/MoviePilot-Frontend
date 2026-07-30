@@ -1399,6 +1399,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let resumePromise: Promise<void> | null = null
   let resumeVersion = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
+  const usesDynamicsOnly = () =>
+    presentationSpace === 'scroll' || (presentationSpace === 'fixed' && toValue(options.appearance) === 'frosted')
   const wallpaperSourceCache = options.wallpaperSourceCache ?? createGlassWallpaperSourceCache()
 
   /** 滚动期间由原生 backdrop 接管壁纸；稳定态恢复完整纹理折射与流体反馈。 */
@@ -3664,7 +3666,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uBackgroundVisibility: { value: materialResponse.backgroundVisibility },
         uCoverScale: { value: new three.Vector2(1, 1) },
         uDeformationStrength: { value: getDeformationStrengthScale() },
-        uDynamicsOnly: { value: presentationSpace === 'scroll' ? 1 : 0 },
+        uDynamicsOnly: { value: usesDynamicsOnly() ? 1 : 0 },
         uFlowTexture: { value: null },
         uFlowStrength: { value: getFlowStrengthScale() },
         uHasFlowTexture: { value: 0 },
@@ -3818,6 +3820,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         )
         resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(appearance)
         resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
+        resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
         resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
         resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
         resources.uniforms.uTintDensity.value = materialResponse.tintDensity

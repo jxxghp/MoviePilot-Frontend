@@ -33,13 +33,19 @@ describe('glass overlay material styles', () => {
     )
   })
 
-  it('keeps frosted CSS fixed shells on the stable wallpaper backplate', () => {
+  it('keeps Chromium frosted fixed shells on the stable wallpaper backplate', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const backplate = readFileSync(resolve(cwd(), 'src/components/theme/GlassFixedShellBackplate.vue'), 'utf8')
 
     expect(styles).toContain('--glass-fixed-shell-backplate-filter: blur(min(var(--glass-blur-raised), 60px))')
     expect(styles).toMatch(
       /&\[data-glass-appearance='frosted'\]\[data-glass-quality='css'\][\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-vertical-nav::before,[\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-navbar,[\s\S]*?backdrop-filter:\s*none\s*!important;/,
+    )
+    expect(styles).toMatch(
+      /\[data-glass-appearance='frosted'\]\[data-glass-quality='balanced'\]\s*\{[\s\S]*?--glass-fixed-shell-backplate-filter:\s*var\(--glass-native-surface-backdrop-filter\);/,
+    )
+    expect(styles).toMatch(
+      /\[data-glass-appearance='frosted'\]\[data-glass-quality='high'\]\s*\{[\s\S]*?--glass-fixed-shell-backplate-filter:\s*var\(--glass-native-surface-backdrop-filter\);/,
     )
     expect(backplate).toContain('filter: var(--glass-fixed-shell-backplate-filter)')
     expect(backplate).not.toContain('backdrop-filter')
@@ -120,6 +126,9 @@ describe('glass overlay material styles', () => {
     )
     expect(styles).toMatch(
       /\[data-glass-renderer-state='ready'\][\s\S]*?\.app-hover-lift-card:not\(\.media-card--image-loaded\)[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
+    )
+    expect(styles).toMatch(
+      /\.layout-wrapper:not\(\.layout-fixed-shell-backplate-active\) \.layout-vertical-nav::before,[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
     )
     expect(styles).toMatch(
       /\.settings-section-card\.app-grouped-list\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,

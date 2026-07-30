@@ -1,6 +1,8 @@
 /* stylelint-disable no-descending-specificity */
 /* stylelint-disable scss/at-rule-no-unknown */
 
+@use '@configured-variables' as variables;
+
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
   --glass-surface: rgba(11, 19, 34, calc(0.02 + var(--glass-surface-density, 0.62) * 0.3));
@@ -462,7 +464,7 @@ html[data-theme='glass'] {
     }
   }
 
-  // Chromium 磨砂标准直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
+  // Chromium 磨砂 fixed 层直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
   &[data-glass-appearance='frosted'][data-glass-quality='css'] body[data-theme='glass'] {
     .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before,
     .layout-wrapper.layout-fixed-shell-backplate-active .layout-navbar,
@@ -1193,6 +1195,7 @@ html[data-theme='glass'] {
 
 .glass-optical-layer--fixed {
   position: fixed;
+  z-index: variables.$layout-vertical-nav-layout-navbar-z-index;
 }
 
 // 文档表面与该呈现层共享滚动坐标，canvas backing buffer 仍由 renderer 的质量预算约束。
@@ -1256,6 +1259,12 @@ html[data-glass-appearance='frosted']:is(
     backdrop-filter: none !important;
   }
 
+  .layout-wrapper:not(.layout-fixed-shell-backplate-active) .layout-vertical-nav::before,
+  .layout-wrapper:not(.layout-fixed-shell-backplate-active) .layout-navbar {
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+  }
+
   .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
   .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
     -webkit-backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
@@ -1280,12 +1289,14 @@ html[data-glass-appearance='frosted'][data-glass-quality='balanced'] {
   --glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-native-surface-backdrop-filter: blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)
     brightness(var(--glass-transmission-brightness));
+  --glass-fixed-shell-backplate-filter: var(--glass-native-surface-backdrop-filter);
 }
 
 html[data-glass-appearance='frosted'][data-glass-quality='high'] {
   --glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-native-surface-backdrop-filter: blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)
     brightness(var(--glass-transmission-brightness));
+  --glass-fixed-shell-backplate-filter: var(--glass-native-surface-backdrop-filter);
 }
 
 // 异步滚动期间只暂停 GPU 动态层；原生壁纸基底不发生材质切换。

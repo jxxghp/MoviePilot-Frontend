@@ -56,14 +56,13 @@ export function isChromiumFixedShellBackplateBrowser(browserIdentity: GlassFixed
   return /\b(?:Chrome|Chromium)\/\d+/u.test(browserIdentity.userAgent)
 }
 
-/** 只有需要稳定 fixed 背板的 Chromium 磨砂标准布局使用直接壁纸采样。 */
+/** Chromium 磨砂 fixed 层使用稳定壁纸背板，避免读取随页面重绘的 document backdrop。 */
 export function shouldUseGlassFixedShellBackplate(options: GlassFixedShellBackplateEligibility) {
   return (
     options.isAuthenticated &&
     options.needsStableFixedBackdrop &&
     options.themeName === 'glass' &&
     options.appearance === 'frosted' &&
-    options.quality === 'css' &&
     options.hasWallpaper
   )
 }
