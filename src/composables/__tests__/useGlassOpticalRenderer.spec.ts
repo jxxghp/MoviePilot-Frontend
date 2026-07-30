@@ -1746,7 +1746,7 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('clips nested hover-card dynamics on shared page surfaces without allocating another material slot', async () => {
+  it('shares dynamics across nested hover cards without allocating another material slot', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
     const three = await import('three')
@@ -1756,14 +1756,20 @@ describe('glass optical surface discovery', () => {
     const outerSurface = document.createElement('section')
     outerSurface.className = 'v-card'
     setOpticalSurfaceBounds(outerSurface, { height: 420, width: 900, x: 40, y: 80 })
-    const nestedCard = document.createElement('article')
-    nestedCard.className = 'app-hover-lift-card'
-    nestedCard.style.borderTopLeftRadius = '16px'
-    nestedCard.style.borderTopRightRadius = '16px'
-    nestedCard.style.borderBottomRightRadius = '16px'
-    nestedCard.style.borderBottomLeftRadius = '16px'
-    setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x: 80, y: 140 })
-    outerSurface.append(nestedCard)
+    const nestedCardSpecs = [
+      { radius: 16, x: 80 },
+      { radius: 20, x: 400 },
+    ]
+    nestedCardSpecs.forEach(({ radius, x }) => {
+      const nestedCard = document.createElement('article')
+      nestedCard.className = 'app-hover-lift-card'
+      nestedCard.style.borderTopLeftRadius = `${radius}px`
+      nestedCard.style.borderTopRightRadius = `${radius}px`
+      nestedCard.style.borderBottomRightRadius = `${radius}px`
+      nestedCard.style.borderBottomLeftRadius = `${radius}px`
+      setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x, y: 140 })
+      outerSurface.append(nestedCard)
+    })
     pageContent.append(outerSurface)
     document.body.append(pageContent)
     const scope = effectScope()
@@ -1789,9 +1795,9 @@ describe('glass optical surface discovery', () => {
         material: {
           fragmentShader: string
           uniforms: {
-            uHasInteractionClip: { value: number }
-            uInteractionRadii: { value: { toArray: () => number[] } }
-            uInteractionRect: { value: { toArray: () => number[] } }
+            uInteractionRadii: { value: Array<{ toArray: () => number[] }> }
+            uInteractionRectCount: { value: number }
+            uInteractionRects: { value: Array<{ toArray: () => number[] }> }
             uRectCount: { value: number }
           }
         }
@@ -1800,15 +1806,23 @@ describe('glass optical surface discovery', () => {
     const material = scene.children[0].material
 
     expect(material.uniforms.uRectCount.value).toBe(1)
-    expect(material.uniforms.uHasInteractionClip.value).toBe(1)
-    expect(material.uniforms.uInteractionRect.value.toArray()).toEqual([
+    expect(material.uniforms.uInteractionRectCount.value).toBe(2)
+    expect(material.uniforms.uInteractionRects.value[0].toArray()).toEqual([
       80 / 1200,
       1 - (140 + 160) / 800,
       280 / 1200,
       160 / 800,
     ])
-    expect(material.uniforms.uInteractionRadii.value.toArray()).toEqual([16, 16, 16, 16])
-    expect(material.fragmentShader).toContain('uniform vec4 uInteractionRect')
+    expect(material.uniforms.uInteractionRects.value[1].toArray()).toEqual([
+      400 / 1200,
+      1 - (140 + 160) / 800,
+      280 / 1200,
+      160 / 800,
+    ])
+    expect(material.uniforms.uInteractionRadii.value[0].toArray()).toEqual([16, 16, 16, 16])
+    expect(material.uniforms.uInteractionRadii.value[1].toArray()).toEqual([20, 20, 20, 20])
+    expect(material.fragmentShader).toContain('uniform vec4 uInteractionRects[8]')
+    expect(material.fragmentShader).toContain('interactionMask = max(')
     expect(material.fragmentShader).toContain('surfaceDynamic * interactionMask')
     scope.stop()
   })
@@ -2251,6 +2265,80 @@ describe('glass optical surface discovery', () => {
     expect(callbacks.size).toBe(0)
   })
 
+  it('hands wallpaper sampling to the native scroll material before wheel movement and restores it after settling', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const wallpaperSampling: number[] = []
+    render.mockImplementation(scene => {
+      const uniforms = (
+        scene as unknown as {
+          children: Array<{
+            material?: {
+              uniforms?: {
+                uHasWallpaperTexture?: { value: number }
+              }
+            }
+          }>
+        }
+      ).children[0]?.material?.uniforms
+      if (uniforms?.uHasWallpaperTexture) wallpaperSampling.push(uniforms.uHasWallpaperTexture.value)
+    })
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(wallpaperSampling.at(-1)).toBe(1)
+
+    window.dispatchEvent(new WheelEvent('wheel'))
+
+    expect(wallpaperSampling.at(-1)).toBe(0)
+    expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+
+    scrollY = 240
+    window.dispatchEvent(new Event('scroll'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+
+    expect(wallpaperSampling.at(-1)).toBe(1)
+    expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
+    expect(callbacks.size).toBe(0)
+
+    scope.stop()
+  })
+
   it('redraws a high-quality scroll layer without advancing its flow targets', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
@@ -2410,6 +2498,8 @@ describe('glass optical surface discovery', () => {
     Object.defineProperty(transitionRun, 'propertyName', { value: 'transform' })
     surface.dispatchEvent(transitionRun)
     expect(callbacks.size).toBeGreaterThan(0)
+    window.dispatchEvent(new Event('scroll'))
+    expect(callbacks.size).toBe(1)
 
     const scheduledCallbacks = [...callbacks.values()]
     callbacks.clear()
@@ -2457,6 +2547,7 @@ describe('glass optical surface discovery', () => {
       x: 80,
       y: 1100,
     })
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
@@ -2478,11 +2569,13 @@ describe('glass optical surface discovery', () => {
       scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
     }
     expect(callbacks.size).toBe(0)
+    querySelectorAll.mockClear()
 
     scrollY = 1000
     setOpticalSurfaceBounds(firstSurface, { height: 240, width: 360, x: 80, y: -900 })
     setOpticalSurfaceBounds(secondSurface, { height: 240, width: 360, x: 80, y: 100 })
     window.dispatchEvent(new Event('scroll'))
+    expect(callbacks.size).toBe(1)
     const firstScrollFrame = [...callbacks.values()]
     callbacks.clear()
     firstScrollFrame.forEach(callback => callback(performance.now() + 100))
@@ -2496,6 +2589,7 @@ describe('glass optical surface discovery', () => {
       }>
     }
     expect(firstScrollScene.children[0].material.uniforms.uRects.value[0].y).toBeCloseTo(1 - (1100 + 240) / 2000)
+    expect(querySelectorAll).not.toHaveBeenCalled()
 
     for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
       const scheduledCallbacks = [...callbacks.values()]
@@ -2503,6 +2597,13 @@ describe('glass optical surface discovery', () => {
       scheduledCallbacks.forEach(callback => callback(performance.now() + 116 + pass * 16))
     }
     expect(callbacks.size).toBe(0)
+    window.dispatchEvent(new Event('scrollend'))
+    for (let pass = 0; pass < 2 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 164 + pass * 16))
+    }
+    expect(querySelectorAll).not.toHaveBeenCalled()
 
     render.mockClear()
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 160 }))
@@ -2523,6 +2624,208 @@ describe('glass optical surface discovery', () => {
     const uniforms = scene.children[0].material.uniforms
     expect(uniforms.uMotion.value).toBeGreaterThan(0)
     expect(uniforms.uRects.value[0].y).toBeCloseTo(1 - (1100 + 240) / 2000)
+    scope.stop()
+  })
+
+  it('refreshes affected surface geometry in the first nested scroll frame', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(1200)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const scroller = document.createElement('div')
+    document.body.append(scroller)
+    const surface = appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    scroller.append(surface)
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+    querySelectorAll.mockClear()
+
+    setOpticalSurfaceBounds(surface, { height: 300, width: 400, x: 40, y: 180 })
+    scroller.dispatchEvent(new Event('scroll'))
+    expect(callbacks.size).toBe(1)
+    const firstScrollFrame = [...callbacks.values()]
+    callbacks.clear()
+    firstScrollFrame.forEach(callback => callback(performance.now() + 100))
+
+    const firstScrollScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uRects: { value: Array<{ y: number }> }
+          }
+        }
+      }>
+    }
+    expect(firstScrollScene.children[0].material.uniforms.uRects.value[0].y).toBeCloseTo(1 - (180 + 300) / 1200)
+    expect(querySelectorAll).toHaveBeenCalled()
+
+    scope.stop()
+  })
+
+  it('coalesces virtual-list replacements into one scroll geometry pass', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(2400)
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/resource'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+    querySelectorAll.mockClear()
+
+    scrollY = 400
+    window.dispatchEvent(new Event('scroll'))
+    surface.remove()
+    appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    await nextTick()
+
+    expect(callbacks.size).toBe(1)
+    const firstScrollFrame = [...callbacks.values()]
+    callbacks.clear()
+    firstScrollFrame.forEach(callback => callback(performance.now() + 100))
+    expect(querySelectorAll).toHaveBeenCalledTimes(5)
+
+    scope.stop()
+  })
+
+  it('commits a virtual-list replacement that lands after the scroll frame before the next paint', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(2400)
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/resource'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+
+    scrollY = 400
+    window.dispatchEvent(new Event('scroll'))
+    const firstScrollFrame = [...callbacks.values()]
+    callbacks.clear()
+    firstScrollFrame.forEach(callback => callback(performance.now() + 100))
+    expect(callbacks.size).toBe(1)
+    querySelectorAll.mockClear()
+
+    surface.remove()
+    appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    await nextTick()
+
+    expect(querySelectorAll).toHaveBeenCalledTimes(5)
+    expect(callbacks.size).toBe(1)
+
     scope.stop()
   })
 
@@ -2597,6 +2900,7 @@ describe('glass optical surface discovery', () => {
         material: {
           uniforms: {
             uDeformationStrength: { value: number }
+            uDynamicsOnly: { value: number }
             uFlowStrength: { value: number }
             uMaxRefractionPixels: { value: number }
             uMotionExpansion: { value: number }
@@ -2608,6 +2912,8 @@ describe('glass optical surface discovery', () => {
             uTintDensity: { value: number }
             uTransmissionStrength: { value: number }
             uTranslationStrength: { value: number }
+            uInteractionRectCount: { value: number }
+            uTrail: { value: Array<{ z: number }> }
             uSurfaceWeights: { value: number[] }
           }
           fragmentShader: string
@@ -2629,8 +2935,11 @@ describe('glass optical surface discovery', () => {
     expect(cardBIndex).toBeGreaterThanOrEqual(0)
     expect(uniforms.uSurfaceWeights.value[cardAIndex]).toBe(1)
     expect(uniforms.uSurfaceWeights.value[cardBIndex]).toBe(1)
+    expect(uniforms.uInteractionRectCount.value).toBe(2)
+    expect(uniforms.uTrail.value[1].z).toBeGreaterThan(0)
     expect(uniforms.uTranslationStrength.value).toBe(1)
     expect(uniforms.uDeformationStrength.value).toBe(1)
+    expect(uniforms.uDynamicsOnly.value).toBe(1)
     expect(uniforms.uFlowStrength.value).toBe(1)
     expect(uniforms.uMotionExpansion.value).toBeCloseTo(0.5 ** 1.4)
     expect(uniforms.uMaxRefractionPixels.value).toBe(6)
@@ -2659,6 +2968,7 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain(
       'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask)',
     )
+    expect(scene.children[0].material.fragmentShader).toContain('uniform vec4 uInteractionRects[8]')
     expect(scene.children[0].material.fragmentShader).toContain('softLimitDynamicRefraction')
     expect(scene.children[0].material.fragmentShader).toContain('getContentProtection')
     expect(scene.children[0].material.fragmentShader).toContain('sampleHighQualityDiffuse')
@@ -2672,12 +2982,28 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uMotionExpansion')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTranslationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uDeformationStrength')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uDynamicsOnly')
+    expect(scene.children[0].material.fragmentShader).toContain('float sharedWaveDensity = mix(2.81, 1.63')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'float sharedDirectionality = smoothstep(0.015, 0.18, trailSpatialSpan)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'mix(radialPointerShape, directionalPointerShape, sharedDirectionality)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'mix(radialSharedWave, directionalSharedWave, sharedDirectionality)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain('mix(1.0, 0.78, sharedDirectionality)')
+    expect(scene.children[0].material.fragmentShader).toContain('uMotion *\n      uMotion')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'float dynamicsPresence = max(materialEnergy, sharedMotionPresence * 0.36)',
+    )
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFlowStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')
     expect(scene.children[0].material.fragmentShader).not.toContain('temporalEnergy')
-    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.65')
-    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 2.367')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.40')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 6.250')
     expect(scene.children[0].material.fragmentShader).toContain('float pointerSpread = mix(26.0, 17.0, uQuality)')
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted)',

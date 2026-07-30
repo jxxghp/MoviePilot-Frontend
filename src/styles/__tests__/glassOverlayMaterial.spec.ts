@@ -64,4 +64,21 @@ describe('glass overlay material styles', () => {
     expect(layerRule).not.toMatch(/transition\s*:/)
     expect(styles).toMatch(/\[data-glass-renderer-state='ready'\]\s*\.glass-optical-layer\s*\{\s*opacity:\s*1;/)
   })
+
+  it('keeps the native scroll backplate stable while suspending only GPU dynamics', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain('--glass-native-surface-backdrop-filter')
+    expect(styles).toContain('blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)')
+    expect(styles).toContain('blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)')
+    expect(styles).toMatch(
+      /\[data-glass-scroll-presentation='native'\][\s\S]*?\.glass-optical-layer--scroll\s*\{\s*opacity:\s*0\s*!important;/,
+    )
+    expect(styles).toMatch(
+      /\[data-glass-renderer-state='ready'\][\s\S]*?\.app-hover-lift-card:not\(\.media-card--image-loaded\)[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
+    )
+    expect(styles).not.toMatch(
+      /\[data-glass-scroll-presentation='native'\][\s\S]*?:where\([\s\S]*?--glass-native-surface-backdrop-filter/,
+    )
+  })
 })

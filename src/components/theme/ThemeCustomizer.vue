@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  getDefaultGlassCustomizerSettings,
   themeCustomizerPrimaryColors,
   themeCustomizerShadowLevels,
   useThemeCustomizer,
@@ -12,7 +13,6 @@ import {
 import { usePWA } from '@/composables/usePWA'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
-import { GLASS_OPTICAL_STRENGTH_DEFAULT, getGlassOpticalPresetParameters } from '@/utils/glassOptics'
 
 const emit = defineEmits<{
   'close': []
@@ -38,7 +38,7 @@ const { appMode } = usePWA()
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
-const defaultGlassTransmissionStrength = getGlassOpticalPresetParameters('clear', 'balanced', 'natural').transmission
+const defaultAppModeGlassSettings = getDefaultGlassCustomizerSettings('css')
 
 // 将主题定制器打开状态同步到根节点，供全局悬浮按钮避让右侧面板。
 function syncThemeCustomizerOpenState(isOpen: boolean) {
@@ -141,14 +141,14 @@ const showShadowSection = computed(() => globalTheme.name.value !== 'glass')
 const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
-    settings.value.glassAppearance !== 'clear' ||
-    settings.value.glassDeformationStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
-    settings.value.glassFlowStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
-    settings.value.glassQuality !== 'css' ||
-    settings.value.glassReflectionStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
-    settings.value.glassTransmissionStrength !== defaultGlassTransmissionStrength ||
-    settings.value.glassTranslationStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
-    settings.value.glassTransparencyStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassAppearance !== defaultAppModeGlassSettings.glassAppearance ||
+    settings.value.glassDeformationStrength !== defaultAppModeGlassSettings.glassDeformationStrength ||
+    settings.value.glassFlowStrength !== defaultAppModeGlassSettings.glassFlowStrength ||
+    settings.value.glassQuality !== defaultAppModeGlassSettings.glassQuality ||
+    settings.value.glassReflectionStrength !== defaultAppModeGlassSettings.glassReflectionStrength ||
+    settings.value.glassTransmissionStrength !== defaultAppModeGlassSettings.glassTransmissionStrength ||
+    settings.value.glassTranslationStrength !== defaultAppModeGlassSettings.glassTranslationStrength ||
+    settings.value.glassTransparencyStrength !== defaultAppModeGlassSettings.glassTransparencyStrength ||
     settings.value.radius !== 'default' ||
     settings.value.shadow !== '0' ||
     settings.value.skin !== 'default' ||

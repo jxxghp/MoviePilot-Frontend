@@ -237,14 +237,15 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uBackgroundVisibility: IUniform<number>
   uCoverScale: IUniform<Vector2>
   uDeformationStrength: IUniform<number>
+  uDynamicsOnly: IUniform<number>
   uFlowTexture: IUniform<Texture | null>
   uFlowStrength: IUniform<number>
   uHasWallpaperTexture: IUniform<number>
   uHasFlowTexture: IUniform<number>
   uHasFrostedTexture: IUniform<number>
-  uHasInteractionClip: IUniform<number>
-  uInteractionRadii: IUniform<Vector4>
-  uInteractionRect: IUniform<Vector4>
+  uInteractionRadii: IUniform<Vector4[]>
+  uInteractionRectCount: IUniform<number>
+  uInteractionRects: IUniform<Vector4[]>
   uMotion: IUniform<number>
   uMotionExpansion: IUniform<number>
   uMaxRefractionPixels: IUniform<number>
@@ -423,7 +424,7 @@ void main() {
 }
 `
 
-const DYNAMIC_RANGE_SCALE = 0.65
+const DYNAMIC_RANGE_SCALE = 0.4
 const DYNAMIC_RANGE_DENSITY = 1 / DYNAMIC_RANGE_SCALE ** 2
 
 const FLOW_FRAGMENT_SHADER = `
@@ -526,13 +527,14 @@ uniform vec2 uPresentationSize;
 uniform vec2 uScrollOffset;
 uniform vec2 uVisibleViewportSize;
 uniform float uDeformationStrength;
+uniform float uDynamicsOnly;
 uniform float uFlowStrength;
 uniform float uHasWallpaperTexture;
 uniform float uHasFlowTexture;
 uniform float uHasFrostedTexture;
-uniform float uHasInteractionClip;
-uniform vec4 uInteractionRadii;
-uniform vec4 uInteractionRect;
+uniform vec4 uInteractionRadii[8];
+uniform vec4 uInteractionRects[8];
+uniform int uInteractionRectCount;
 uniform float uMotion;
 uniform float uMotionExpansion;
 uniform float uMaxRefractionPixels;
@@ -627,7 +629,10 @@ vec3 toneMapWallpaper(vec3 color, vec2 uv, float wallpaperExposure) {
   float highTransmissionProgress =
     clamp((uTransmissionStrength - 1.0) / 0.3, 0.0, 1.0);
   float transmissionMaterialScale = mix(1.0, 0.9, tinted);
-  transmissionMaterialScale = mix(transmissionMaterialScale, 0.42, frosted);
+  float frostedTransparencyProgress =
+    smoothstep(0.6, 0.96, uBackgroundVisibility);
+  float frostedTransmissionScale = mix(0.42, 0.72, frostedTransparencyProgress);
+  transmissionMaterialScale = mix(transmissionMaterialScale, frostedTransmissionScale, frosted);
   float highlightProtection = smoothstep(0.68, 0.92, luminance);
   vec3 transmissionReference = normalized;
   float referenceLift =
@@ -763,6 +768,7 @@ void main() {
   float topPrism = 0.0;
   float backlightAbsorption = 0.0;
   float materialEnergy = 0.0;
+  float sharedMotionPresence = 0.0;
   float dynamicMask = 0.0;
   vec2 staticRefraction = vec2(0.0);
   vec2 dynamicRefraction = vec2(0.0);
@@ -770,16 +776,23 @@ void main() {
   vec2 wakePerpendicular = vec2(-wakeDirection.y, wakeDirection.x);
   vec2 trailRefraction = vec2(0.0);
   float trailEnergy = 0.0;
+  float trailSpatialSpan = 0.0;
   float motionRangeCompression = mix(1.0, 1.34, uMotionExpansion);
   const float dynamicRangeScale = ${DYNAMIC_RANGE_SCALE.toFixed(2)};
   const float dynamicRangeDensity = ${DYNAMIC_RANGE_DENSITY.toFixed(3)};
-  float interactionMask = 1.0;
-  if (uHasInteractionClip > 0.5) {
-    vec2 interactionLocal = (vUv - uInteractionRect.xy) / max(uInteractionRect.zw, vec2(0.0001));
-    interactionMask = roundedRectMask(
-      interactionLocal,
-      uInteractionRect.zw * uPresentationSize,
-      uInteractionRadii
+  float interactionMask = uInteractionRectCount > 0 ? 0.0 : 1.0;
+  for (int interactionIndex = 0; interactionIndex < 8; interactionIndex++) {
+    if (interactionIndex >= uInteractionRectCount) break;
+
+    vec4 interactionRect = uInteractionRects[interactionIndex];
+    vec2 interactionLocal = (vUv - interactionRect.xy) / max(interactionRect.zw, vec2(0.0001));
+    interactionMask = max(
+      interactionMask,
+      roundedRectMask(
+        interactionLocal,
+        interactionRect.zw * uPresentationSize,
+        uInteractionRadii[interactionIndex]
+      )
     );
   }
 
@@ -789,6 +802,9 @@ void main() {
     vec4 trail = uTrail[trailIndex];
     vec2 trailDelta = vUv - trail.xy;
     trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
+    vec2 trailSpanDelta = trail.xy - uPointer;
+    trailSpanDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
+    trailSpatialSpan = max(trailSpatialSpan, length(trailSpanDelta) * trail.z);
     float along = dot(trailDelta, wakeDirection);
     float across = dot(trailDelta, wakePerpendicular);
     float trailAlongDensity = mix(42.0, 22.0, uMotionExpansion) * dynamicRangeDensity;
@@ -858,8 +874,33 @@ void main() {
     // 三材质共享指针几何足迹；磨砂身份由位移幅度、低通扩散和材质合成表达。
     float pointerSpread = mix(26.0, 17.0, uQuality);
     pointerSpread *= dynamicRangeDensity * mix(1.0, 0.46, uMotionExpansion);
+    float sharedDirectionality = smoothstep(0.015, 0.18, trailSpatialSpan);
+    float pointerAlong = dot(-pointerDeltaAspect, wakeDirection);
+    float pointerAcross = dot(-pointerDeltaAspect, wakePerpendicular);
+    float sharedWakeTravel =
+      0.08 * sharedDirectionality * mix(0.86, 1.18, uMotionExpansion);
+    float radialPointerShape = exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread);
+    float directionalPointerShape =
+      exp(-(
+        pow(pointerAlong + sharedWakeTravel * 0.45, 2.0) * pointerSpread * 0.72 +
+        pointerAcross * pointerAcross * pointerSpread * 1.35
+      ));
     float pointerEnergy =
-      clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);
+      clamp(mix(radialPointerShape, directionalPointerShape, sharedDirectionality) * uMotion, 0.0, 1.0);
+    float sharedWaveDensity = mix(2.81, 1.63, uMotionExpansion);
+    float radialSharedWave =
+      exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * sharedWaveDensity);
+    float directionalSharedWave =
+      exp(-(
+        pow(pointerAlong + sharedWakeTravel, 2.0) * sharedWaveDensity * 0.62 +
+        pointerAcross * pointerAcross * sharedWaveDensity * 2.2
+      ));
+    float sharedWaveEnergy =
+      mix(radialSharedWave, directionalSharedWave, sharedDirectionality) *
+      clamp(length(uPointerVelocity) * 14.0 * uTranslationStrength, 0.0, 1.0) *
+      mix(1.0, 0.78, sharedDirectionality) *
+      uMotion *
+      uMotion;
     vec2 wakeDelta = vUv - uPointer;
     wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float wakeAlong = dot(wakeDelta, wakeDirection);
@@ -930,6 +971,10 @@ void main() {
     topPrism = max(topPrism, localTopPrism);
     backlightAbsorption = max(backlightAbsorption, localBacklightAbsorption);
     materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask);
+    sharedMotionPresence = max(
+      sharedMotionPresence,
+      sharedWaveEnergy * rectMask * surfaceDynamic * interactionMask
+    );
     dynamicMask = max(dynamicMask, rectMask * surfaceDynamic * interactionMask);
     mask = max(mask, rectMask);
   }
@@ -1003,7 +1048,7 @@ void main() {
     highlight = vec3(0.94, 0.97, 1.0);
     edgeHighlightMix = 0.15;
     causticHighlightMix = 0.042;
-    float frostedBaseAlpha = mix(0.72, 0.9, uSurfaceDensity);
+    float frostedBaseAlpha = mix(0.46, 0.88, uSurfaceDensity);
     materialAlpha = frostedBaseAlpha * mix(0.9, 1.0, liquidPresence);
     proceduralEdgeAlpha = 0.16;
     proceduralCausticAlpha = 0.045;
@@ -1046,6 +1091,14 @@ void main() {
   refracted *= 1.0 - absorption;
   refracted = mix(refracted, highlight, reflectionMix);
   refracted += highlight * caustic * causticHighlightMix * uReflectionStrength * highlightBudget;
+
+  if (uDynamicsOnly > 0.5) {
+    float dynamicsPresence = max(materialEnergy, sharedMotionPresence * 0.36);
+    float dynamicsAlpha =
+      clamp(dynamicsPresence * mix(0.5, 0.72, uQuality) * mix(1.0, 1.12, frosted), 0.0, 0.82);
+    gl_FragColor = vec4(refracted, dynamicsAlpha);
+    return;
+  }
 
   gl_FragColor = vec4(
     refracted,
@@ -1120,6 +1173,8 @@ function collectGlassOpticalSurfaceDescriptors(
   viewportHeight: number,
   appearance: ThemeCustomizerGlassAppearance,
   surfaceSpace: GlassPresentationSpace | 'all' = 'all',
+  includeOutsideViewport = false,
+  collectedElements?: HTMLElement[],
 ) {
   const candidates: Array<GlassOpticalSurfaceDescriptor & { visibleArea: number }> = []
   const seen = new Set<HTMLElement>()
@@ -1134,6 +1189,7 @@ function collectGlassOpticalSurfaceDescriptors(
       if (seen.has(element)) continue
       seen.add(element)
       if (element.closest('.v-overlay')) continue
+      collectedElements?.push(element)
 
       const bounds = element.getBoundingClientRect()
       if (!isVisibleSurface(element, bounds)) continue
@@ -1144,7 +1200,7 @@ function collectGlassOpticalSurfaceDescriptors(
       const bottom = Math.min(viewportHeight, bounds.bottom)
       const visibleHeight = Math.max(0, bottom - top)
       const visibleWidth = Math.max(0, right - left)
-      if (visibleWidth < 24 || visibleHeight < 24) continue
+      if (!includeOutsideViewport && (visibleWidth < 24 || visibleHeight < 24)) continue
       const coordinateOffsetX = resolvedSpace === 'scroll' ? window.scrollX : 0
       const coordinateOffsetY = resolvedSpace === 'scroll' ? window.scrollY : 0
 
@@ -1187,6 +1243,24 @@ function collectGlassOpticalSurfaceDescriptors(
   }
 
   return selected
+}
+
+/** 从已测量的 presentation 坐标中选择当前视口可见表面，不触发 DOM 布局读取。 */
+function selectVisibleGlassOpticalSurfaceDescriptors(
+  surfaces: GlassOpticalSurfaceDescriptor[],
+  viewportWidth: number,
+  viewportHeight: number,
+  surfaceSpace: GlassPresentationSpace,
+) {
+  const viewportX = surfaceSpace === 'scroll' ? window.scrollX : 0
+  const viewportY = surfaceSpace === 'scroll' ? window.scrollY : 0
+
+  return surfaces.filter(({ rect }) => {
+    const visibleWidth = Math.min(viewportX + viewportWidth, rect.x + rect.width) - Math.max(viewportX, rect.x)
+    const visibleHeight = Math.min(viewportY + viewportHeight, rect.y + rect.height) - Math.max(viewportY, rect.y)
+
+    return visibleWidth >= 24 && visibleHeight >= 24
+  })
 }
 
 /** 将活动界面中的高价值材质面集中转换为 renderer 矩形预算。 */
@@ -1237,6 +1311,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let activeFrostedTarget: WebGLRenderTarget | null = null
   let activeTextureHeight = 1
   let activeTextureWidth = 1
+  let activeHasWallpaperTexture = false
   let activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
   let previousTexture: Texture | null = null
   let previousFrostedTarget: WebGLRenderTarget | null = null
@@ -1268,7 +1343,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let lastInteractionAt = 0
   let lastInteractionFrameAt = 0
   let lastPointerAt = 0
-  let lastTrailAt = 0
+  let lastTrailAt = Number.NEGATIVE_INFINITY
   let lastPointerX = window.innerWidth * 0.5
   let lastPointerY = window.innerHeight * 0.5
   let pointerTargetX = 0.5
@@ -1283,7 +1358,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let presentationResizeTimer: number | null = null
   let scrollAnimationFrame: number | null = null
   let scrollDirty = false
-  let scrollSurfaceRefreshPending = false
+  let scrollPresentationRestoreTimer: number | null = null
+  let scrollWallpaperSamplingSuppressed = false
+  let scrollFrameCommitted = false
+  let scrollGeometryRefreshPending = false
+  let scrollLateGeometryCommitted = false
+  let scrollSurfaceStabilityPending = false
   let scrollStableFrameCount = 0
   let lastRenderedScrollX = window.scrollX
   let lastRenderedScrollY = window.scrollY
@@ -1291,8 +1371,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let resizeObserver: ResizeObserver | null = null
   let surfaceMutationObserver: MutationObserver | null = null
   let observedSurfaces: HTMLElement[] = []
+  let surfaceRegistry: GlassOpticalSurfaceDescriptor[] = []
   let availableSurfaces: GlassOpticalSurfaceDescriptor[] = []
   let surfaceSlots: GlassOpticalSurfaceSlot<HTMLElement>[] = []
+  let interactionClips: GlassOpticalSurfaceDescriptor[] = []
   let activeSurface: HTMLElement | null = null
   let activeInteractionClip: HTMLElement | null = null
   let outgoingSurface: HTMLElement | null = null
@@ -1307,6 +1389,59 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let resumeVersion = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
   const wallpaperSourceCache = options.wallpaperSourceCache ?? createGlassWallpaperSourceCache()
+
+  /** 滚动期间由原生 backdrop 接管壁纸；稳定态恢复完整纹理折射与流体反馈。 */
+  function syncWallpaperSamplingMode() {
+    if (!resources) return
+
+    resources.uniforms.uHasWallpaperTexture.value =
+      activeHasWallpaperTexture && !(presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed) ? 1 : 0
+  }
+
+  function clearScrollPresentationRestoreTimer() {
+    if (scrollPresentationRestoreTimer === null) return
+
+    window.clearTimeout(scrollPresentationRestoreTimer)
+    scrollPresentationRestoreTimer = null
+  }
+
+  function finishNativeScrollPresentation(timestamp = performance.now()) {
+    clearScrollPresentationRestoreTimer()
+    if (presentationSpace !== 'scroll' || !scrollWallpaperSamplingSuppressed) return
+
+    scrollWallpaperSamplingSuppressed = false
+    syncWallpaperSamplingMode()
+    renderFrame(timestamp, false)
+    document.documentElement.removeAttribute('data-glass-scroll-presentation')
+  }
+
+  function beginNativeScrollPresentation() {
+    if (presentationSpace !== 'scroll' || !resources) return
+
+    clearScrollPresentationRestoreTimer()
+    scrollPresentationRestoreTimer = window.setTimeout(() => finishNativeScrollPresentation(), 180)
+    if (scrollWallpaperSamplingSuppressed) return
+
+    scrollWallpaperSamplingSuppressed = true
+    syncWallpaperSamplingMode()
+    document.documentElement.dataset.glassScrollPresentation = 'native'
+    renderFrame(performance.now(), false)
+  }
+
+  function handleScrollIntent(event: Event) {
+    if (event instanceof KeyboardEvent) {
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
+      ) {
+        return
+      }
+      if (!['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)) return
+    }
+
+    beginNativeScrollPresentation()
+  }
 
   function updateRendererState(value: GlassRendererState) {
     if (options.syncDocumentState === false) {
@@ -1383,8 +1518,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scrollAnimationFrame !== null) cancelAnimationFrame(scrollAnimationFrame)
     scrollAnimationFrame = null
     scrollDirty = false
-    scrollSurfaceRefreshPending = false
+    scrollFrameCommitted = false
+    scrollGeometryRefreshPending = false
+    scrollLateGeometryCommitted = false
+    scrollSurfaceStabilityPending = false
     scrollStableFrameCount = 0
+    clearScrollPresentationRestoreTimer()
   }
 
   function cancelWallpaperTransitionFrame() {
@@ -1674,20 +1813,22 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     const presentation = getCommittedPresentationSize()
-    const interactionClipRect =
-      activeInteractionClip?.isConnected && activeSurface?.contains(activeInteractionClip)
-        ? getElementPresentationRect(activeInteractionClip)
-        : null
-    const normalizedInteractionClip = interactionClipRect
-      ? normalizeGlassOpticalRect(interactionClipRect, presentation.width, presentation.height)
-      : null
-    if (normalizedInteractionClip) {
-      resources.uniforms.uInteractionRect.value.set(...normalizedInteractionClip.rect)
-      resources.uniforms.uInteractionRadii.value.set(...normalizedInteractionClip.radii)
-      resources.uniforms.uHasInteractionClip.value = 1
-    } else {
-      resources.uniforms.uHasInteractionClip.value = 0
+    const normalizedInteractionClips = interactionClips.map(clip => {
+      const rect =
+        clip.key === activeInteractionClip && clip.key.isConnected ? getElementPresentationRect(clip.key) : clip.rect
+
+      return normalizeGlassOpticalRect(rect, presentation.width, presentation.height)
+    })
+    const uniformInteractionRects = resources.uniforms.uInteractionRects.value
+    const uniformInteractionRadii = resources.uniforms.uInteractionRadii.value
+    for (let index = 0; index < 8; index += 1) {
+      const clip = normalizedInteractionClips[index]
+      const rect = clip?.rect ?? [0, 0, 0, 0]
+      const radii = clip?.radii ?? [0, 0, 0, 0]
+      uniformInteractionRects[index].set(rect[0], rect[1], rect[2], rect[3])
+      uniformInteractionRadii[index].set(radii[0], radii[1], radii[2], radii[3])
     }
+    resources.uniforms.uInteractionRectCount.value = normalizedInteractionClips.length
     const normalized = surfaceSlots.map(slot =>
       normalizeGlassOpticalRect(slot.rect, presentation.width, presentation.height),
     )
@@ -1724,14 +1865,54 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uRectCount.value = normalized.length
   }
 
-  function updateSurfaceUniforms(timestamp = performance.now(), scheduleRender = true) {
-    if (!resources) return
+  /**
+   * 材质父表面可折叠多个交互卡片；共享动态场只在最终输出时按真实卡片边界裁剪。
+   * 活动卡优先占用固定预算，其余可见卡片继续消费同一时序场。
+   */
+  function updateInteractionClips() {
+    const seen = new Set<HTMLElement>()
+    const candidates: GlassOpticalSurfaceDescriptor[] = []
+    const append = (element: HTMLElement, mode: GlassOpticalSurfaceMode) => {
+      if (seen.has(element) || !element.isConnected || resolveGlassOpticalSurfaceMode(element) !== mode) return
 
+      const rect = getElementPresentationRect(element)
+      if (rect.width < 24 || rect.height < 24) return
+
+      seen.add(element)
+      candidates.push({ key: element, mode, rect })
+    }
+
+    for (const slot of surfaceSlots) {
+      const mode = slot.mode ?? 'dynamic'
+      if (mode === 'static-material') continue
+
+      const nestedClips = [
+        ...(slot.key.matches(INTERACTION_CLIP_SELECTOR) ? [slot.key] : []),
+        ...slot.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR),
+      ]
+      if (nestedClips.length > 0) {
+        nestedClips.forEach(clip => append(clip, mode))
+      } else {
+        append(slot.key, mode)
+      }
+    }
+
+    const activeIndex = activeInteractionClip
+      ? candidates.findIndex(candidate => candidate.key === activeInteractionClip)
+      : -1
+    if (activeIndex > 0) candidates.unshift(...candidates.splice(activeIndex, 1))
+    const maxCount =
+      window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
+    interactionClips = candidates.slice(0, maxCount)
+  }
+
+  /** 从缓存的 document-space 几何选择当前可见表面并提交 shader slot。 */
+  function updateVisibleSurfaceUniforms(timestamp: number) {
     const viewportWidth = window.innerWidth
-    availableSurfaces = collectGlassOpticalSurfaceDescriptors(
+    availableSurfaces = selectVisibleGlassOpticalSurfaceDescriptors(
+      surfaceRegistry,
       viewportWidth,
       window.innerHeight,
-      toValue(options.appearance),
       presentationSpace,
     )
     const availableKeys = new Set(availableSurfaces.map(surface => surface.key))
@@ -1748,19 +1929,25 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       activeSurface ?? undefined,
       outgoingSurface ?? undefined,
     )
+    updateInteractionClips()
     writeSurfaceUniforms(timestamp)
+  }
 
-    const nextObservedSurfaces = Array.from(
-      new Set(
-        SURFACE_SELECTORS.filter(
-          ({ selector, space }) => getSurfacePresentationSpace(selector, space) === presentationSpace,
-        ).flatMap(({ selector }) =>
-          Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(
-            element => !element.closest('.v-overlay'),
-          ),
-        ),
-      ),
+  function updateSurfaceUniforms(timestamp = performance.now(), scheduleRender = true) {
+    if (!resources) return
+
+    const viewportWidth = window.innerWidth
+    const nextObservedSurfaces: HTMLElement[] = []
+    surfaceRegistry = collectGlassOpticalSurfaceDescriptors(
+      viewportWidth,
+      window.innerHeight,
+      toValue(options.appearance),
+      presentationSpace,
+      true,
+      nextObservedSurfaces,
     )
+    updateVisibleSurfaceUniforms(timestamp)
+
     const observedSurfacesChanged =
       nextObservedSurfaces.length !== observedSurfaces.length ||
       nextObservedSurfaces.some((element, index) => element !== observedSurfaces[index])
@@ -1772,7 +1959,31 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scheduleRender) scheduleFrame()
   }
 
+  /**
+   * 滚动事务内的几何失效共用一个稳定尾帧。
+   * 虚拟列表若在当前滚动帧提交后才挂载节点，必须在本次绘制前同步新蒙版。
+   */
+  function queueScrollGeometryRefresh(stabilize: boolean) {
+    if (presentationSpace !== 'scroll' || scrollAnimationFrame === null || !resources) return false
+
+    scrollSurfaceStabilityPending ||= stabilize
+    scrollStableFrameCount = 0
+    if (!scrollFrameCommitted) {
+      scrollGeometryRefreshPending = true
+      return true
+    }
+    if (scrollLateGeometryCommitted) return true
+
+    scrollLateGeometryCommitted = true
+    scrollGeometryRefreshPending = false
+    const timestamp = performance.now()
+    updateSurfaceUniforms(timestamp, false)
+    renderFrame(timestamp, false)
+    return true
+  }
+
   function scheduleSurfaceUpdate() {
+    if (queueScrollGeometryRefresh(false)) return
     if (surfaceUpdateFrame !== null || !resources) return
 
     surfaceUpdateFrame = requestAnimationFrame(timestamp => {
@@ -1785,6 +1996,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** DOM 重排后连续采样少量帧，避免把虚拟列表的中间几何误认为最终表面。 */
   function scheduleSurfaceStabilityUpdate() {
+    if (queueScrollGeometryRefresh(true)) return
     surfaceStabilityPass = 0
     surfaceStableFrameCount = 0
     lastSurfaceGeometrySignature = ''
@@ -1877,6 +2089,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (presentationChanged && commitActivePagePresentation()) return
     if (presentationChanged) schedulePresentationResizeUpdate()
     if (!entries.some(entry => entry.target !== presentationRoot)) return
+    if (queueScrollGeometryRefresh(false)) return
 
     const timestamp = performance.now()
     updateSurfaceUniforms(timestamp, false)
@@ -1885,6 +2098,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** CSS transform 不改变布局尺寸，过渡期间用有界帧同步真实几何并清除旧蒙版。 */
   function scheduleSurfaceTransformFrame() {
+    if (queueScrollGeometryRefresh(false)) return
     if (surfaceTransformFrame !== null || !resources) return
 
     surfaceTransformFrame = requestAnimationFrame(timestamp => {
@@ -2137,6 +2351,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
    */
   function activateInteractionSurface(surface: HTMLElement, timestamp: number, reducedMotion: boolean) {
     if (activeSurface === surface) {
+      updateInteractionClips()
       writeSurfaceUniforms(timestamp)
       return false
     }
@@ -2145,15 +2360,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     outgoingSurface = reducedMotion || surfaceAlreadyHasSlot ? null : activeSurface
     activeSurface = surface
     surfaceTransitionStartedAt = timestamp
-    lastTrailAt = Number.NEGATIVE_INFINITY
-    pendingFlowInjection = 0
-    if (resources) {
-      for (const trail of resources.uniforms.uTrail.value) trail.z = 0
-    }
-    if (flowResources) {
-      flowResources.uniforms.uDecay.value = 0
-      flowResources.uniforms.uInjection.value = 0
-    }
     const maxCount = window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
     surfaceSlots = reconcileGlassOpticalSurfaceSlots(
       surfaceSlots,
@@ -2162,6 +2368,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       activeSurface,
       outgoingSurface ?? undefined,
     )
+    updateInteractionClips()
     writeSurfaceUniforms(timestamp)
 
     return true
@@ -2236,11 +2443,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function resetInteractionState() {
     pendingFlowInjection = 0
     lastInteractionFrameAt = 0
+    lastTrailAt = Number.NEGATIVE_INFINITY
     activeInteractionClip = null
+    interactionClips = []
     if (!resources) return
 
     snapPointer(pointerTargetX, pointerTargetY)
-    resources.uniforms.uHasInteractionClip.value = 0
+    resources.uniforms.uInteractionRectCount.value = 0
     resources.uniforms.uMotion.value = 0
     resources.uniforms.uPointerVelocity.value.set(0, 0)
     for (const trail of resources.uniforms.uTrail.value) trail.z = 0
@@ -2325,19 +2534,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeInteractionClip = interactionTarget.clip
     const surfaceChanged = activateInteractionSurface(interactionTarget.surface.key, timestamp, reducedMotion)
     if (interactionClipChanged && !surfaceChanged) {
-      lastTrailAt = Number.NEGATIVE_INFINITY
-      pendingFlowInjection = 0
-      for (const trail of resources.uniforms.uTrail.value) trail.z = 0
-      if (flowResources) {
-        flowResources.uniforms.uDecay.value = 0
-        flowResources.uniforms.uInjection.value = 0
-      }
+      updateInteractionClips()
       writeSurfaceUniforms(timestamp)
     }
-    const restartsWake = surfaceChanged || interactionClipChanged || !interactionAnimating
+    const startsInteraction = !interactionAnimating
+    const hasTrailAnchor = Number.isFinite(lastTrailAt)
     const normalizedX = point.x / Math.max(presentation.width, 1)
     const normalizedY = 1 - point.y / Math.max(presentation.height, 1)
-    if (surfaceChanged) {
+    if (startsInteraction && !hasTrailAnchor) {
       snapPointer(normalizedX, normalizedY)
       updateTrail(point.x, point.y, timestamp, normalizedX, normalizedY)
     } else {
@@ -2352,7 +2556,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       wakeDirection,
       scaledVelocity,
       Math.hypot(scaledVelocity.x, scaledVelocity.y),
-      restartsWake,
+      startsInteraction,
     )
     resources.uniforms.uPointerVelocity.value.set(scaledVelocity.x, scaledVelocity.y)
     resources.uniforms.uWakeDirection.value.set(wakeDirection.x, wakeDirection.y)
@@ -2421,6 +2625,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         matchMedia('(prefers-reduced-motion: reduce)').matches,
       )
       snapPointer(point.x / Math.max(presentation.width, 1), 1 - point.y / Math.max(presentation.height, 1))
+      updateTrail(
+        point.x,
+        point.y,
+        timestamp,
+        point.x / Math.max(presentation.width, 1),
+        1 - point.y / Math.max(presentation.height, 1),
+      )
       scheduleFrame()
     }
   }
@@ -2456,12 +2667,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     handleTouchEnd(event as TouchEvent)
   }
 
-  /**
-   * 每个滚动帧原子提交采样坐标和可见表面；稳定尾帧只负责确认 compositor 已停止移动。
-   * 嵌套滚动容器不会改变 window scroll，因此表面几何不能延迟到 scrollend 才刷新。
-   */
+  /** 文档滚动只更新采样坐标和缓存可见性；嵌套滚动仍在首帧刷新受影响的表面几何。 */
   function renderScrollFrame(timestamp: number) {
     scrollAnimationFrame = null
+    scrollFrameCommitted = false
+    scrollLateGeometryCommitted = false
     if (
       presentationSpace !== 'scroll' ||
       !resources ||
@@ -2481,15 +2691,34 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     lastRenderedScrollX = scrollX
     lastRenderedScrollY = scrollY
     resources.uniforms.uScrollOffset.value.set(scrollX, scrollY)
-    const shouldRefreshSurfaces = scrollSurfaceRefreshPending || receivedScrollEvent || coordinatesChanged
-    scrollSurfaceRefreshPending = false
-    if (shouldRefreshSurfaces) updateSurfaceUniforms(timestamp, false)
+    if (scrollGeometryRefreshPending) {
+      scrollGeometryRefreshPending = false
+      updateSurfaceUniforms(timestamp, false)
+    } else if (receivedScrollEvent || coordinatesChanged) {
+      updateVisibleSurfaceUniforms(timestamp)
+    }
 
     scrollStableFrameCount = receivedScrollEvent || coordinatesChanged ? 0 : scrollStableFrameCount + 1
     if (!interactionAnimating) renderFrame(timestamp, false)
+    scrollFrameCommitted = true
+    if (transformingSurfaces.size > 0) {
+      if (timestamp < surfaceTransformTrackingDeadline) {
+        scrollGeometryRefreshPending = true
+        scrollStableFrameCount = 0
+      } else {
+        transformingSurfaces.clear()
+        scrollSurfaceStabilityPending = true
+      }
+    }
 
     if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
       scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
+    } else {
+      finishNativeScrollPresentation(timestamp)
+      if (scrollSurfaceStabilityPending) {
+        scrollSurfaceStabilityPending = false
+        scheduleSurfaceStabilityUpdate()
+      }
     }
   }
 
@@ -2499,20 +2728,54 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
   }
 
-  function handleScroll() {
-    if (presentationSpace === 'scroll' && resources) {
-      scrollDirty = true
-      scrollSurfaceRefreshPending = true
-      scheduleScrollFrame()
-      return
+  function handleScroll(event: Event) {
+    if (presentationSpace !== 'scroll' || !resources) return
+
+    beginNativeScrollPresentation()
+    scrollFrameCommitted = false
+    scrollLateGeometryCommitted = false
+    const target = event.target
+    const isDocumentScroll =
+      !(target instanceof Element) || target === document.documentElement || target === document.body
+    if (!isDocumentScroll) {
+      if (!(target instanceof Element) || !observedSurfaces.some(surface => target.contains(surface))) return
+      scrollGeometryRefreshPending = true
+    } else {
+      resources.uniforms.uScrollOffset.value.set(window.scrollX, window.scrollY)
+    }
+
+    scrollDirty = true
+    scheduleScrollFrame()
+    if (surfaceUpdateFrame !== null) {
+      cancelAnimationFrame(surfaceUpdateFrame)
+      surfaceUpdateFrame = null
+      queueScrollGeometryRefresh(false)
+    }
+    if (surfaceStabilityFrame !== null) {
+      cancelAnimationFrame(surfaceStabilityFrame)
+      surfaceStabilityFrame = null
+      queueScrollGeometryRefresh(true)
+    }
+    if (surfaceTransformFrame !== null) {
+      cancelAnimationFrame(surfaceTransformFrame)
+      surfaceTransformFrame = null
+      queueScrollGeometryRefresh(false)
     }
   }
 
-  function handleScrollEnd() {
+  function handleScrollEnd(event: Event) {
     if (presentationSpace !== 'scroll' || !resources) return
 
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target !== document.documentElement &&
+      target !== document.body &&
+      observedSurfaces.some(surface => target.contains(surface))
+    ) {
+      scrollGeometryRefreshPending = true
+    }
     scrollDirty = false
-    scrollSurfaceRefreshPending = true
     scrollStableFrameCount = 0
     scheduleScrollFrame()
   }
@@ -2521,6 +2784,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function pauseRenderer() {
     cancelScheduledFrame()
     cancelScrollFrame()
+    finishNativeScrollPresentation()
     cancelWallpaperTransitionFrame()
     cancelSurfaceTransformFrame()
     interactionAnimating = false
@@ -2671,6 +2935,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     window.addEventListener('transitionend', handleSurfaceTransitionEnd, { capture: true, passive: true })
     window.addEventListener('transitioncancel', handleSurfaceTransitionEnd, { capture: true, passive: true })
     if (presentationSpace === 'scroll') {
+      window.addEventListener('wheel', handleScrollIntent, { capture: true, passive: true })
+      window.addEventListener('touchmove', handleScrollIntent, { capture: true, passive: true })
+      window.addEventListener('keydown', handleScrollIntent, { capture: true })
       window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
       window.addEventListener('scrollend', handleScrollEnd, { passive: true })
     }
@@ -2693,6 +2960,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     window.removeEventListener('transitionend', handleSurfaceTransitionEnd, true)
     window.removeEventListener('transitioncancel', handleSurfaceTransitionEnd, true)
     if (presentationSpace === 'scroll') {
+      window.removeEventListener('wheel', handleScrollIntent, true)
+      window.removeEventListener('touchmove', handleScrollIntent, true)
+      window.removeEventListener('keydown', handleScrollIntent, true)
       window.removeEventListener('scroll', handleScroll, true)
       window.removeEventListener('scrollend', handleScrollEnd)
     }
@@ -2731,8 +3001,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceMutationObserver?.disconnect()
     surfaceMutationObserver = null
     observedSurfaces = []
+    surfaceRegistry = []
     availableSurfaces = []
     surfaceSlots = []
+    interactionClips = []
     activeSurface = null
     activeInteractionClip = null
     outgoingSurface = null
@@ -2740,6 +3012,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     wakeDirection = { x: 0, y: -1 }
     document.documentElement.removeAttribute('data-glass-wallpaper-loading')
     activeTouchIdentifier = null
+    if (presentationSpace === 'scroll') {
+      scrollWallpaperSamplingSuppressed = false
+      document.documentElement.removeAttribute('data-glass-scroll-presentation')
+    }
     lastPointerX = window.innerWidth * 0.5
     lastPointerY = window.innerHeight * 0.5
     pointerTargetX = 0.5
@@ -2763,6 +3039,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeFrostedTarget = null
     activeTextureHeight = 1
     activeTextureWidth = 1
+    activeHasWallpaperTexture = false
     activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
     activeWallpaperUrl.value = ''
     activeWallpaperRevision.value = 0
@@ -2893,7 +3170,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       syncCoverScale()
     }
 
-    resources.uniforms.uHasWallpaperTexture.value = hasWallpaperTexture ? 1 : 0
+    activeHasWallpaperTexture = hasWallpaperTexture
+    syncWallpaperSamplingMode()
     resources.uniforms.uHasFrostedTexture.value = hasWallpaperTexture && frostedTarget ? 1 : 0
   }
 
@@ -3124,7 +3402,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const rollback = {
       activatedRevision: revision,
       activatedUrl: url,
-      previousHasWallpaperTexture: resources?.uniforms.uHasWallpaperTexture.value === 1,
+      previousHasWallpaperTexture: activeHasWallpaperTexture,
       previousPreparationKey: activeWallpaperPreparationKey.value,
       previousRevision: activeWallpaperRevision.value,
       previousUrl: activeWallpaperUrl.value,
@@ -3203,7 +3481,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uTextureMix.value = 1
-    resources.uniforms.uHasWallpaperTexture.value = rollback.previousHasWallpaperTexture ? 1 : 0
+    activeHasWallpaperTexture = rollback.previousHasWallpaperTexture
+    syncWallpaperSamplingMode()
     resources.uniforms.uHasFrostedTexture.value = rollback.previousHasWallpaperTexture && activeFrostedTarget ? 1 : 0
     syncCoverScale()
     resetInteractionState()
@@ -3254,14 +3533,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uBackgroundVisibility: { value: materialResponse.backgroundVisibility },
         uCoverScale: { value: new three.Vector2(1, 1) },
         uDeformationStrength: { value: getDeformationStrengthScale() },
+        uDynamicsOnly: { value: presentationSpace === 'scroll' ? 1 : 0 },
         uFlowTexture: { value: null },
         uFlowStrength: { value: getFlowStrengthScale() },
         uHasFlowTexture: { value: 0 },
         uHasFrostedTexture: { value: 0 },
-        uHasInteractionClip: { value: 0 },
         uHasWallpaperTexture: { value: 0 },
-        uInteractionRadii: { value: new Vector4Class() },
-        uInteractionRect: { value: new Vector4Class() },
+        uInteractionRadii: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
+        uInteractionRectCount: { value: 0 },
+        uInteractionRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uMotion: { value: 0 },
         uMotionExpansion: { value: getMotionExpansion() },
         uMaxRefractionPixels: { value: getMaxRefractionPixels() },

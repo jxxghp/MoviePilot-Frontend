@@ -153,47 +153,47 @@ type GlassOpticalCapabilityPresets = {
 const GLASS_OPTICAL_PRESET_MATRIX: Record<GlassAppearance, GlassOpticalCapabilityPresets> = {
   clear: {
     css: {
-      natural: { deformation: 40, flow: 40, reflection: 35, transmission: 56, translation: 40, transparency: 48 },
+      natural: { deformation: 48, flow: 48, reflection: 42, transmission: 67, translation: 48, transparency: 52 },
     },
     balanced: {
-      natural: { deformation: 40, flow: 40, reflection: 35, transmission: 54, translation: 40, transparency: 46 },
-      glide: { deformation: 24, flow: 35, reflection: 29, transmission: 58, translation: 58, transparency: 56 },
-      liquid: { deformation: 56, flow: 61, reflection: 36, transmission: 51, translation: 45, transparency: 51 },
+      natural: { deformation: 48, flow: 48, reflection: 42, transmission: 65, translation: 48, transparency: 50 },
+      glide: { deformation: 29, flow: 42, reflection: 35, transmission: 70, translation: 70, transparency: 60 },
+      liquid: { deformation: 67, flow: 73, reflection: 43, transmission: 61, translation: 54, transparency: 55 },
     },
     high: {
-      natural: { deformation: 40, flow: 40, reflection: 32, transmission: 53, translation: 40, transparency: 45 },
-      glide: { deformation: 26, flow: 37, reflection: 28, transmission: 56, translation: 59, transparency: 54 },
-      liquid: { deformation: 59, flow: 64, reflection: 35, transmission: 50, translation: 46, transparency: 50 },
+      natural: { deformation: 48, flow: 48, reflection: 38, transmission: 64, translation: 48, transparency: 49 },
+      glide: { deformation: 31, flow: 44, reflection: 34, transmission: 67, translation: 71, transparency: 59 },
+      liquid: { deformation: 71, flow: 77, reflection: 42, transmission: 60, translation: 55, transparency: 54 },
     },
   },
   tinted: {
     css: {
-      natural: { deformation: 40, flow: 40, reflection: 38, transmission: 54, translation: 40, transparency: 34 },
+      natural: { deformation: 48, flow: 48, reflection: 46, transmission: 65, translation: 48, transparency: 37 },
     },
     balanced: {
-      natural: { deformation: 42, flow: 40, reflection: 38, transmission: 56, translation: 40, transparency: 32 },
-      glide: { deformation: 26, flow: 35, reflection: 34, transmission: 61, translation: 56, transparency: 40 },
-      liquid: { deformation: 58, flow: 61, reflection: 39, transmission: 53, translation: 45, transparency: 36 },
+      natural: { deformation: 50, flow: 48, reflection: 46, transmission: 67, translation: 48, transparency: 34 },
+      glide: { deformation: 31, flow: 42, reflection: 41, transmission: 73, translation: 67, transparency: 43 },
+      liquid: { deformation: 70, flow: 73, reflection: 47, transmission: 64, translation: 54, transparency: 39 },
     },
     high: {
-      natural: { deformation: 42, flow: 40, reflection: 35, transmission: 54, translation: 40, transparency: 30 },
-      glide: { deformation: 27, flow: 37, reflection: 32, transmission: 59, translation: 58, transparency: 38 },
-      liquid: { deformation: 61, flow: 64, reflection: 38, transmission: 51, translation: 46, transparency: 34 },
+      natural: { deformation: 50, flow: 48, reflection: 42, transmission: 65, translation: 48, transparency: 32 },
+      glide: { deformation: 32, flow: 44, reflection: 38, transmission: 71, translation: 70, transparency: 41 },
+      liquid: { deformation: 73, flow: 77, reflection: 46, transmission: 61, translation: 55, transparency: 37 },
     },
   },
   frosted: {
     css: {
-      natural: { deformation: 40, flow: 40, reflection: 31, transmission: 50, translation: 40, transparency: 31 },
+      natural: { deformation: 48, flow: 48, reflection: 37, transmission: 60, translation: 48, transparency: 43 },
     },
     balanced: {
-      natural: { deformation: 46, flow: 42, reflection: 31, transmission: 52, translation: 38, transparency: 29 },
-      glide: { deformation: 30, flow: 35, reflection: 27, transmission: 56, translation: 54, transparency: 40 },
-      liquid: { deformation: 62, flow: 61, reflection: 32, transmission: 49, translation: 42, transparency: 34 },
+      natural: { deformation: 55, flow: 50, reflection: 37, transmission: 62, translation: 46, transparency: 40 },
+      glide: { deformation: 36, flow: 42, reflection: 32, transmission: 67, translation: 65, transparency: 55 },
+      liquid: { deformation: 74, flow: 73, reflection: 38, transmission: 59, translation: 50, transparency: 47 },
     },
     high: {
-      natural: { deformation: 48, flow: 42, reflection: 29, transmission: 50, translation: 38, transparency: 27 },
-      glide: { deformation: 32, flow: 37, reflection: 25, transmission: 54, translation: 56, transparency: 38 },
-      liquid: { deformation: 66, flow: 64, reflection: 31, transmission: 47, translation: 43, transparency: 32 },
+      natural: { deformation: 58, flow: 50, reflection: 35, transmission: 60, translation: 46, transparency: 37 },
+      glide: { deformation: 38, flow: 44, reflection: 30, transmission: 65, translation: 67, transparency: 53 },
+      liquid: { deformation: 79, flow: 77, reflection: 37, transmission: 56, translation: 52, transparency: 44 },
     },
   },
 }
@@ -240,15 +240,16 @@ const GLASS_RESPONSE_STOPS = [0, 20, 50, 70, 85, 100] as const
 const GLASS_BACKGROUND_VISIBILITY: Record<GlassAppearance, readonly number[]> = {
   clear: [0.18, 0.3, 0.58, 0.77, 0.9, 0.96],
   tinted: [0.08, 0.2, 0.48, 0.7, 0.84, 0.92],
-  frosted: [0.04, 0.14, 0.35, 0.6, 0.78, 0.88],
+  frosted: [0.04, 0.22, 0.52, 0.72, 0.89, 0.98],
 }
 const GLASS_SURFACE_DENSITY: Record<GlassAppearance, readonly number[]> = {
   clear: [1, 0.88, 0.62, 0.42, 0.26, 0.18],
   tinted: [1, 0.92, 0.72, 0.52, 0.39, 0.3],
-  frosted: [1, 0.96, 0.86, 0.68, 0.5, 0.4],
+  frosted: [1, 0.9, 0.7, 0.52, 0.36, 0.22],
 }
 const GLASS_TINT_DENSITY = [1, 0.9, 0.65, 0.48, 0.36, 0.28] as const
-const GLASS_FROST_DENSITY = [1, 0.9, 0.7, 0.4, 0.18, 0.1] as const
+const GLASS_FROST_DENSITY = [1, 0.9, 0.7, 0.34, 0.12, 0.04] as const
+const GLASS_FROSTED_DENSITY = [1, 0.82, 0.55, 0.28, 0.1, 0.025] as const
 
 /** 在相邻业务锚点之间使用零斜率边界插值，避免滑杆经过锚点时出现视觉折线。 */
 function interpolateGlassResponse(value: unknown, anchors: readonly number[]) {
@@ -269,7 +270,10 @@ function interpolateGlassResponse(value: unknown, anchors: readonly number[]) {
  * 一个通透度输入派生互不混用的材质响应；tone、曝光和透射亮度不在此处计算。
  */
 export function getGlassMaterialResponse(appearance: GlassAppearance, value: unknown): GlassMaterialResponse {
-  const frostDensity = interpolateGlassResponse(value, GLASS_FROST_DENSITY)
+  const frostDensity = interpolateGlassResponse(
+    value,
+    appearance === 'frosted' ? GLASS_FROSTED_DENSITY : GLASS_FROST_DENSITY,
+  )
 
   return {
     backgroundVisibility: interpolateGlassResponse(value, GLASS_BACKGROUND_VISIBILITY[appearance]),
@@ -283,8 +287,8 @@ export function getGlassMaterialResponse(appearance: GlassAppearance, value: unk
 /** 标准档磨砂使用独立的 surface/raised 半径锚点，不借用背景亮度制造厚度。 */
 export function getGlassCssFrostBlur(value: unknown) {
   return {
-    raised: interpolateGlassResponse(value, [84, 76, 62, 46, 34, 26]),
-    surface: interpolateGlassResponse(value, [64, 58, 44, 30, 22, 16]),
+    raised: interpolateGlassResponse(value, [84, 70, 50, 35, 24, 16]),
+    surface: interpolateGlassResponse(value, [64, 52, 36, 24, 15, 8]),
   }
 }
 

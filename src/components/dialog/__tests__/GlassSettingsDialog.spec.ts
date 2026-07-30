@@ -157,8 +157,8 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'frosted',
-      glassDeformationStrength: 66,
-      glassFlowStrength: 64,
+      glassDeformationStrength: 79,
+      glassFlowStrength: 77,
       glassPreset: 'liquid',
       glassPresetOverrides: {
         'clear:balanced:glide': {
@@ -171,10 +171,10 @@ describe('GlassSettingsDialog', () => {
         },
       },
       glassQuality: 'high',
-      glassReflectionStrength: 31,
-      glassTransmissionStrength: 47,
-      glassTranslationStrength: 43,
-      glassTransparencyStrength: 32,
+      glassReflectionStrength: 37,
+      glassTransmissionStrength: 56,
+      glassTranslationStrength: 52,
+      glassTransparencyStrength: 44,
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })

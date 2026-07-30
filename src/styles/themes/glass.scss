@@ -42,7 +42,8 @@ html[data-theme='glass'] {
   --glass-control-prominent-focus-shadow:
     0 0 0 2px rgba(var(--v-theme-primary), 16%), inset 0 1px 0 rgba(255, 255, 255, 24%),
     inset 0 -1px 0 rgba(2, 6, 16, 16%);
-  --glass-surface-backdrop-filter: brightness(var(--glass-transmission-brightness));
+  --glass-native-surface-backdrop-filter: brightness(var(--glass-transmission-brightness));
+  --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-raised-backdrop-filter: brightness(var(--glass-transmission-brightness));
   --glass-fixed-shell-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-control-backdrop-filter: none;
@@ -200,8 +201,9 @@ html[data-theme='glass'] {
     --glass-control-prominent-focus-shadow:
       0 0 0 2px rgba(var(--v-theme-primary), 17%), inset 0 1px 0 rgba(255, 255, 255, 34%),
       inset 0 -1px 0 rgba(2, 6, 16, 18%);
-    --glass-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
+    --glass-native-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
+    --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
     --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     // 固定全高导航限制采样半径，避免页面重绘扩大其 backdrop 栅格化区域。
@@ -1215,12 +1217,6 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
     -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
     backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
   }
-
-  .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
-  .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-  }
 }
 
 // 磨砂材质的散射由 renderer 统一完成，避免 CSS 再次模糊折射结果。
@@ -1234,12 +1230,41 @@ html[data-glass-appearance='frosted']:is(
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
+}
 
+// 滚动表面始终由原生 backdrop 持有壁纸基底；GPU 层只叠加局部动态折射。
+html:is(
+    [data-glass-quality='balanced'],
+    [data-glass-quality='high']
+  )[data-glass-renderer-state='ready']
+  body[data-theme='glass'] {
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
-  .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
+  .dashboard-grid-item-content
+    > .dashboard-grid-auto-size
+    > .dashboard-grid-content-measure
+    > :first-child
+    > .v-card,
+  [data-glass-optical-surface],
+  .app-hover-lift-card:not(.media-card--image-loaded) {
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
   }
+}
+
+// 实时档缩小原生磨砂核；通透度继续通过 frost scale 控制纹理保留程度。
+html[data-glass-appearance='frosted'][data-glass-quality='balanced'][data-glass-renderer-state='ready'] {
+  --glass-native-surface-backdrop-filter: blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)
+    brightness(var(--glass-transmission-brightness));
+}
+
+html[data-glass-appearance='frosted'][data-glass-quality='high'][data-glass-renderer-state='ready'] {
+  --glass-native-surface-backdrop-filter: blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)
+    brightness(var(--glass-transmission-brightness));
+}
+
+// 异步滚动期间只暂停 GPU 动态层；原生壁纸基底不发生材质切换。
+html[data-glass-scroll-presentation='native'][data-glass-renderer-state='ready'] .glass-optical-layer--scroll {
+  opacity: 0 !important;
 }
 
 // 登录页只保留内容保护表面；折射、方向反射和唯一动态焦散均由共享 renderer 负责。

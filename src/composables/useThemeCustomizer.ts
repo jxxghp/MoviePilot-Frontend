@@ -134,6 +134,20 @@ const legacyShadowMap: Record<string, ThemeCustomizerShadow> = {
 
 let themeApplyVersion = 0
 
+type DefaultGlassCustomizerSettings = Pick<
+  ThemeCustomizerSettings,
+  | 'glassAppearance'
+  | 'glassDeformationStrength'
+  | 'glassFlowStrength'
+  | 'glassPreset'
+  | 'glassPresetOverrides'
+  | 'glassQuality'
+  | 'glassReflectionStrength'
+  | 'glassTransmissionStrength'
+  | 'glassTranslationStrength'
+  | 'glassTransparencyStrength'
+>
+
 /** 判断当前代码是否运行在浏览器环境。 */
 function isBrowser() {
   return typeof window !== 'undefined'
@@ -153,9 +167,11 @@ function readStoredThemePreference(): ThemeCustomizerTheme {
   return validThemes.includes(storedTheme as ThemeCustomizerTheme) ? (storedTheme as ThemeCustomizerTheme) : 'auto'
 }
 
-/** 生成与当前主题偏好一致的定制器默认设置。 */
-function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
-  const glassParameters = getGlassOpticalPresetParameters('clear', defaultGlassQuality, 'natural')
+/** 从预设矩阵生成指定质量的清透自然玻璃默认设置。 */
+export function getDefaultGlassCustomizerSettings(
+  quality: ThemeCustomizerGlassQuality = defaultGlassQuality,
+): DefaultGlassCustomizerSettings {
+  const glassParameters = getGlassOpticalPresetParameters('clear', quality, 'natural')
 
   return {
     glassAppearance: 'clear',
@@ -163,11 +179,18 @@ function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
     glassFlowStrength: glassParameters.flow,
     glassPreset: 'natural',
     glassPresetOverrides: {},
-    glassQuality: defaultGlassQuality,
+    glassQuality: quality,
     glassReflectionStrength: glassParameters.reflection,
     glassTransmissionStrength: glassParameters.transmission,
     glassTranslationStrength: glassParameters.translation,
     glassTransparencyStrength: glassParameters.transparency,
+  }
+}
+
+/** 生成与当前主题偏好一致的定制器默认设置。 */
+function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
+  return {
+    ...getDefaultGlassCustomizerSettings(),
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -608,18 +631,8 @@ export function cancelGlassPreview() {
 
 /** 判断当前主题定制设置是否仍为默认值。 */
 export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
-  const glassParameters = getGlassOpticalPresetParameters('clear', defaultGlassQuality, 'natural')
   const defaults = normalizeThemeCustomizerSettings({
-    glassAppearance: 'clear',
-    glassDeformationStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
-    glassFlowStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
-    glassPreset: 'natural',
-    glassPresetOverrides: {},
-    glassQuality: defaultGlassQuality,
-    glassReflectionStrength: glassParameters.reflection,
-    glassTransmissionStrength: glassParameters.transmission,
-    glassTranslationStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
-    glassTransparencyStrength: glassParameters.transparency,
+    ...getDefaultGlassCustomizerSettings(),
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -849,19 +862,8 @@ export function useThemeCustomizer() {
 
   /** 将主题定制器恢复到默认设置。 */
   async function resetSettings() {
-    const glassParameters = getGlassOpticalPresetParameters('clear', defaultGlassQuality, 'natural')
-
     await updateSettings({
-      glassAppearance: 'clear',
-      glassDeformationStrength: glassParameters.deformation,
-      glassFlowStrength: glassParameters.flow,
-      glassPreset: 'natural',
-      glassPresetOverrides: {},
-      glassQuality: defaultGlassQuality,
-      glassReflectionStrength: glassParameters.reflection,
-      glassTransmissionStrength: glassParameters.transmission,
-      glassTranslationStrength: glassParameters.translation,
-      glassTransparencyStrength: glassParameters.transparency,
+      ...getDefaultGlassCustomizerSettings(),
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       radius: 'default',
