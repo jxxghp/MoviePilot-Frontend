@@ -263,6 +263,37 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('routes desktop pointer input when the browser does not expose TouchEvent', () => {
+    vi.stubGlobal('TouchEvent', undefined)
+    const scrollListener = vi.fn()
+    const scope = effectScope()
+    scope.run(() => {
+      const source = useGlassOpticalInteractionSource()
+      source.subscribe('scroll', scrollListener)
+    })
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 400, clientY: 400 }))
+
+    expect(scrollListener).toHaveBeenCalledOnce()
+    scope.stop()
+  })
+
+  it('keeps touch ownership when the browser does not expose TouchEvent', () => {
+    vi.stubGlobal('TouchEvent', undefined)
+    const scrollListener = vi.fn()
+    const scope = effectScope()
+    scope.run(() => {
+      const source = useGlassOpticalInteractionSource()
+      source.subscribe('scroll', scrollListener)
+    })
+
+    dispatchTouchEvent('touchstart', [{ clientX: 400, clientY: 400, identifier: 7 }])
+    dispatchTouchEvent('touchmove', [{ clientX: 420, clientY: 420, identifier: 7 }])
+
+    expect(scrollListener).toHaveBeenCalledTimes(2)
+    scope.stop()
+  })
+
   it('detects a target surface added directly', () => {
     const surface = document.createElement('section')
     surface.dataset.glassOpticalSurface = ''
