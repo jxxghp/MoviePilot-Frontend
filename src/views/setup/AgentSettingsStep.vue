@@ -353,7 +353,7 @@ onMounted(async () => {
 
           <VCol v-if="showBaseUrlField" cols="12" md="6">
             <VCombobox
-              :model-value="wizardData.agent.baseUrl"
+              :model-value="wizardData.agent.baseUrl || null"
               @update:model-value="
                 (value: any) => {
                   if (typeof value === 'object' && value !== null) {
@@ -365,11 +365,12 @@ onMounted(async () => {
               "
               :label="t('setting.system.llmBaseUrl')"
               :hint="t('setting.system.llmBaseUrlHint')"
-              :placeholder="selectedProvider?.default_base_url || 'https://api.deepseek.com'"
+              :placeholder="selectedProvider?.default_base_url || t('setting.system.llmBaseUrlPlaceholder')"
               :items="baseUrlPresetItems"
               item-title="title"
               item-value="value"
               persistent-hint
+              persistent-placeholder
               prepend-inner-icon="mdi-link-variant"
             >
               <template #item="{ props, item }">
@@ -397,6 +398,7 @@ onMounted(async () => {
               :error="validationErrors.agent.apiKey"
               :error-messages="validationErrors.agent.apiKey ? [t('setupWizard.agent.authOrApiKeyRequired')] : []"
               persistent-hint
+              persistent-placeholder
               prepend-inner-icon="mdi-key-variant"
               type="password"
             />
@@ -445,7 +447,7 @@ onMounted(async () => {
 
           <VCol cols="12" md="6">
             <VCombobox
-              :model-value="wizardData.agent.model"
+              :model-value="wizardData.agent.model || null"
               @update:model-value="
                 (val: any) => {
                   wizardData.agent.model = typeof val === 'object' && val !== null ? val.id : val
@@ -454,6 +456,7 @@ onMounted(async () => {
               "
               :label="t('setting.system.llmModel')"
               :hint="t('setting.system.llmModelHint')"
+              :placeholder="t('setting.system.llmModelPlaceholder')"
               :items="llmModels"
               item-title="name"
               item-value="id"
@@ -461,6 +464,7 @@ onMounted(async () => {
               :error="validationErrors.agent.model"
               :error-messages="validationErrors.agent.model ? [t('setupWizard.agent.modelRequired')] : []"
               persistent-hint
+              persistent-placeholder
               prepend-inner-icon="mdi-brain"
             >
               <template #append-inner>
@@ -500,7 +504,9 @@ onMounted(async () => {
               v-model="wizardData.agent.userAgent"
               :label="t('setting.system.llmUserAgent')"
               :hint="t('setting.system.llmUserAgentHint')"
+              :placeholder="t('setting.system.llmUserAgentPlaceholder')"
               persistent-hint
+              persistent-placeholder
               prepend-inner-icon="mdi-card-account-details-outline"
             />
           </VCol>

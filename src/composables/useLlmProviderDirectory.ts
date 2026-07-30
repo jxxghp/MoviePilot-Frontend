@@ -128,7 +128,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   )
   const showApiKeyField = computed(() => selectedProvider.value?.supports_api_key !== false)
   // OpenAI 兼容接口才需要选择 API 协议（Chat Completions / Responses）。
-  const showApiProtocolField = computed(() => selectedProvider.value?.runtime === 'openai')
+  const showApiProtocolField = computed(() => selectedProvider.value?.runtime === 'openai_compatible')
   const hasUsableCredential = computed(() => {
     if (providerConnected.value) return true
     return Boolean(normalizeValue(options.apiKey.value))

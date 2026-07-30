@@ -1766,6 +1766,7 @@ export default {
       llmProviderHint: 'Select the LLM service provider to use',
       llmModel: 'LLM Model Name',
       llmModelHint: 'Specify the LLM model to use, such as deepseek-v4-flash, gpt-5.4, etc.',
+      llmModelPlaceholder: 'Enter or select an LLM model name',
       llmModelResolvedHint: 'Max context has been auto-filled to {context}K from the model catalog. Source: {source}',
       llmThinking: 'Thinking Mode / Depth',
       llmThinkingHint:
@@ -1794,11 +1795,13 @@ export default {
       llmApiKeyPlaceholder: 'Please enter API key',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
+      llmBaseUrlPlaceholder: 'Enter the LLM API base URL',
       llmUseProxy: 'Use System Proxy',
       llmUseProxyHint:
         'When enabled, Agent connections to the current LLM provider use the system proxy from advanced settings.',
       llmUserAgent: 'User-Agent',
       llmUserAgentHint: 'User-Agent sent to OpenAI-compatible APIs. Leave empty to use the SDK default.',
+      llmUserAgentPlaceholder: 'Leave empty to use the SDK default User-Agent',
       llmApiProtocol: 'API Protocol',
       llmApiProtocolHint:
         'Request protocol for OpenAI-compatible APIs: auto-select by model capability, or force Chat Completions / Responses.',

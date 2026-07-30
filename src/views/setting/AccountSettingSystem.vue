@@ -1243,7 +1243,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
                       <VCombobox
-                        :model-value="SystemSettings.Basic.LLM_BASE_URL"
+                        :model-value="SystemSettings.Basic.LLM_BASE_URL || null"
                         @update:model-value="
                           (value: any) => {
                             if (typeof value === 'object' && value !== null) {
@@ -1255,25 +1255,20 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         "
                         :label="t('setting.system.llmBaseUrl')"
                         :hint="t('setting.system.llmBaseUrlHint')"
-                        :placeholder="selectedLlmProvider?.default_base_url || 'https://api.deepseek.com'"
+                        :placeholder="
+                          selectedLlmProvider?.default_base_url || t('setting.system.llmBaseUrlPlaceholder')
+                        "
                         :items="llmBaseUrlPresetItems"
                         item-title="title"
                         item-value="value"
                         persistent-hint
+                        persistent-placeholder
                         prepend-inner-icon="mdi-link"
                       >
                         <template #item="{ props, item }">
                           <VListItem v-bind="props" :subtitle="item.raw.subtitle" />
                         </template>
                       </VCombobox>
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.LLM_USE_PROXY"
-                        :label="t('setting.system.llmUseProxy')"
-                        :hint="t('setting.system.llmUseProxyHint')"
-                        persistent-hint
-                      />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showApiKeyField" cols="12" md="6">
                       <VTextField
@@ -1282,6 +1277,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         :hint="selectedLlmProvider?.api_key_hint || t('setting.system.llmApiKeyHint')"
                         :placeholder="t('setting.system.llmApiKeyPlaceholder')"
                         persistent-hint
+                        persistent-placeholder
                         type="password"
                         prepend-inner-icon="mdi-key-variant"
                       />
@@ -1331,7 +1327,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                       <div>
                         <VCombobox
-                          :model-value="SystemSettings.Basic.LLM_MODEL"
+                          :model-value="SystemSettings.Basic.LLM_MODEL || null"
                           @update:model-value="
                             (val: any) => {
                               SystemSettings.Basic.LLM_MODEL = typeof val === 'object' && val !== null ? val.id : val
@@ -1340,8 +1336,9 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                           "
                           :label="t('setting.system.llmModel')"
                           :hint="t('setting.system.llmModelHint')"
-                          :placeholder="t('setting.system.llmModelHint')"
+                          :placeholder="t('setting.system.llmModelPlaceholder')"
                           persistent-hint
+                          persistent-placeholder
                           :items="llmModels"
                           item-title="name"
                           item-value="id"
@@ -1407,7 +1404,9 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         v-model="SystemSettings.Basic.LLM_USER_AGENT"
                         :label="t('setting.system.llmUserAgent')"
                         :hint="t('setting.system.llmUserAgentHint')"
+                        :placeholder="t('setting.system.llmUserAgentPlaceholder')"
                         persistent-hint
+                        persistent-placeholder
                         prepend-inner-icon="mdi-card-account-details-outline"
                       />
                     </VCol>
@@ -1481,7 +1480,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     </VCol>
                   </VRow>
                   <VRow>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="4">
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                      <VSwitch
+                        v-model="SystemSettings.Basic.LLM_USE_PROXY"
+                        :label="t('setting.system.llmUseProxy')"
+                        :hint="t('setting.system.llmUseProxyHint')"
+                        persistent-hint
+                      />
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                       <VSwitch
                         v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
                         :label="t('setting.system.llmSupportImageInput')"
