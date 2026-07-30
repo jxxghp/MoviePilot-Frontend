@@ -1839,6 +1839,10 @@ export interface RecognitionCacheData {
   recognized: number
   // 未识别数量
   unrecognized: number
+  // 共享识别成功命中数量
+  shared_recognized: number
+  // 是否开启共享识别
+  shared_recognize_enabled: boolean
   // 缓存数据
   data: RecognitionCacheItem[]
 }

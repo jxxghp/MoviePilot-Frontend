@@ -2536,6 +2536,7 @@ export default {
       totalCount: 'Total Count',
       siteCount: 'Site Count',
       recognized: 'Recognized',
+      sharedRecognized: 'Shared Recognition',
       recognizedOnly: 'Recognized Only',
       unrecognizedOnly: 'Unrecognized Only',
       allStatuses: 'All Statuses',

@@ -45,6 +45,8 @@ const cacheData = ref<RecognitionCacheData>({
   count: 0,
   recognized: 0,
   unrecognized: 0,
+  shared_recognized: 0,
+  shared_recognize_enabled: false,
   data: [],
 })
 const mobileVisibleCount = ref(MOBILE_CACHE_PAGE_SIZE)
@@ -111,9 +113,18 @@ async function loadCacheData(showSuccess = false) {
     loading.value = true
     const response = (await api.get(recognitionCacheEndpoint.value)) as unknown as ApiResponse<RecognitionCacheData>
     if (requestId !== cacheLoadRequestId) return
-    const responseData = response.data ?? { count: 0, recognized: 0, unrecognized: 0, data: [] }
+    const responseData = response.data ?? {
+      count: 0,
+      recognized: 0,
+      unrecognized: 0,
+      shared_recognized: 0,
+      shared_recognize_enabled: false,
+      data: [],
+    }
     cacheData.value = {
       ...responseData,
+      shared_recognized: responseData.shared_recognized ?? 0,
+      shared_recognize_enabled: responseData.shared_recognize_enabled ?? false,
       data: responseData.data.map(item => ({ ...item, recognition_id: getRecognitionId(item) })),
     }
     selectedItems.value = selectedItems.value.filter(key => cacheData.value.data.some(item => item.key === key))
@@ -276,11 +287,18 @@ watch(recognitionSource, () => {
             <span>{{ t('setting.cache.recognized') }}</span>
           </div>
         </div>
-        <div v-if="!isMobile" class="cache-panel-stat cache-panel-stat--warning">
+        <div v-if="!isMobile || cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--warning">
           <VIcon icon="mdi-help-circle-outline" size="22" />
           <div>
             <strong>{{ cacheData.unrecognized }}</strong>
             <span>{{ t('setting.cache.unrecognized') }}</span>
+          </div>
+        </div>
+        <div v-if="cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--info">
+          <VIcon icon="mdi-cloud-check-outline" :size="isMobile ? 32 : 22" />
+          <div>
+            <strong>{{ cacheData.shared_recognized }}</strong>
+            <span>{{ t('setting.cache.sharedRecognized') }}</span>
           </div>
         </div>
       </div>
@@ -548,6 +566,10 @@ watch(recognitionSource, () => {
 
 .cache-panel-stat--warning {
   color: rgb(var(--v-theme-warning));
+}
+
+.cache-panel-stat--info {
+  color: rgb(var(--v-theme-info));
 }
 
 .cache-panel-actions {

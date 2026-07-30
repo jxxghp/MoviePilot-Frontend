@@ -2484,6 +2484,7 @@ export default {
       totalCount: '總條數',
       siteCount: '站點數',
       recognized: '已識別',
+      sharedRecognized: '共享識別',
       recognizedOnly: '僅已識別',
       unrecognizedOnly: '僅未識別',
       allStatuses: '全部狀態',
