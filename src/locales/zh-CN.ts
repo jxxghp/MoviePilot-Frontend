@@ -2348,6 +2348,8 @@ export default {
       organizeAndScrapDesc: '设置重命名格式、刮削选项等。',
       scrapSource: '刮削数据源',
       scrapSourceHint: '刮削时的元数据来源',
+      mountedLocalDiskDeleteEmptyDirs: '挂载盘删除空目录',
+      mountedLocalDiskDeleteEmptyDirsHint: '关闭后，移动整理不会清理网络或 FUSE 挂载的本地源目录。',
       movieRenameFormat: '电影重命名格式',
       movieRenameFormatHint: '使用Jinja2语法，格式参考：https://jinja.palletsprojects.com/en/3.0.x/templates',
       tvRenameFormat: '电视剧重命名格式',

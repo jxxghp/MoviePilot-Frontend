@@ -66,6 +66,10 @@ const SystemSettings = ref<any>({
   },
 })
 
+// 挂载型本地盘删除空目录开关
+const mountedLocalDiskDeleteEmptyDirs = ref(true)
+const mountedLocalDiskDeleteEmptyDirsKey = 'MountedLocalDiskDeleteEmptyDirs'
+
 // 编辑器主题
 // Ace 跟随 Vuetify 当前生效主题，auto 模式下也按实际明暗色渲染。
 const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
@@ -115,6 +119,18 @@ async function loadSystemSettings() {
         })
       }
     }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 加载挂载盘空目录清理设置
+async function loadMountedLocalDiskDeleteEmptyDirs() {
+  try {
+    const result: { data?: { value?: boolean | null } } = await api.get(
+      `system/setting/${mountedLocalDiskDeleteEmptyDirsKey}`,
+    )
+    mountedLocalDiskDeleteEmptyDirs.value = result.data?.value ?? true
   } catch (error) {
     console.log(error)
   }
@@ -256,8 +272,11 @@ function removeStorage(storage: StorageConf) {
 // 保存设置
 async function saveSystemSettings(value: any) {
   try {
-    const result: { [key: string]: any } = await api.post('system/env', value)
-    if (result.success) {
+    const [envResult, mountedDiskResult] = await Promise.all([
+      api.post('system/env', value),
+      api.post(`system/setting/${mountedLocalDiskDeleteEmptyDirsKey}`, mountedLocalDiskDeleteEmptyDirs.value),
+    ])
+    if (envResult.success && mountedDiskResult.success) {
       $toast.success(t('setting.directory.organizeSaveSuccess'))
     } else $toast.error(t('setting.directory.organizeSaveFailed'))
   } catch (error) {
@@ -266,7 +285,13 @@ async function saveSystemSettings(value: any) {
 }
 
 async function loadPageData() {
-  await Promise.all([loadDirectories(), loadStorages(), loadMediaCategories(), loadSystemSettings()])
+  await Promise.all([
+    loadDirectories(),
+    loadStorages(),
+    loadMediaCategories(),
+    loadSystemSettings(),
+    loadMountedLocalDiskDeleteEmptyDirs(),
+  ])
 }
 
 // 加载数据
@@ -393,6 +418,16 @@ useSilentSettingRefresh(loadPageData, {
                 :hint="t('setting.directory.scrapSourceHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-database"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VSwitch
+                v-model="mountedLocalDiskDeleteEmptyDirs"
+                :label="t('setting.directory.mountedLocalDiskDeleteEmptyDirs')"
+                :hint="t('setting.directory.mountedLocalDiskDeleteEmptyDirsHint')"
+                color="primary"
+                persistent-hint
+                inset
               />
             </VCol>
             <VCol cols="12">

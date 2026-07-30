@@ -2394,6 +2394,9 @@ export default {
       organizeAndScrapDesc: 'Set rename format, scraping options, etc.',
       scrapSource: 'Scraping Data Source',
       scrapSourceHint: 'Metadata source for scraping',
+      mountedLocalDiskDeleteEmptyDirs: 'Delete Empty Directories on Mounted Drives',
+      mountedLocalDiskDeleteEmptyDirsHint:
+        'When disabled, move operations keep source directories on local network or FUSE mounts.',
       movieRenameFormat: 'Movie Rename Format',
       movieRenameFormatHint:
         'Using Jinja2 syntax, format reference: https://jinja.palletsprojects.com/en/3.0.x/templates',
