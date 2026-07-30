@@ -251,6 +251,10 @@ export default defineConfig(({ command, mode, isPreview }) => ({
   },
   css: {
     preprocessorOptions: {
+      sass: {
+        api: 'modern-compiler',
+        quietDeps: true,
+      },
       scss: {
         api: 'modern-compiler',
         quietDeps: true,
