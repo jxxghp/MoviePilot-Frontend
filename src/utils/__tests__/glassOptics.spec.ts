@@ -93,12 +93,12 @@ describe('glass optics geometry', () => {
     const liquid = getGlassOpticalPresetParameters('frosted', 'high', 'liquid')
 
     expect(natural).toEqual({
-      deformation: 40,
-      flow: 40,
-      reflection: 35,
-      transmission: 54,
-      translation: 40,
-      transparency: 46,
+      deformation: 48,
+      flow: 48,
+      reflection: 42,
+      transmission: 65,
+      translation: 48,
+      transparency: 55,
     })
     expect(glide.translation).toBeGreaterThan(glide.deformation)
     expect(liquid.deformation).toBeGreaterThan(glide.deformation)
@@ -110,42 +110,42 @@ describe('glass optics geometry', () => {
   it('keeps every preset dynamic parameter at the approved material calibration', () => {
     const expected = {
       clear: {
-        css: { natural: { deformation: 40, flow: 40, translation: 40 } },
+        css: { natural: { deformation: 48, flow: 48, translation: 48 } },
         balanced: {
-          natural: { deformation: 40, flow: 40, translation: 40 },
-          glide: { deformation: 24, flow: 35, translation: 58 },
-          liquid: { deformation: 56, flow: 61, translation: 45 },
+          natural: { deformation: 48, flow: 48, translation: 48 },
+          glide: { deformation: 29, flow: 42, translation: 70 },
+          liquid: { deformation: 67, flow: 73, translation: 54 },
         },
         high: {
-          natural: { deformation: 40, flow: 40, translation: 40 },
-          glide: { deformation: 26, flow: 37, translation: 59 },
-          liquid: { deformation: 59, flow: 64, translation: 46 },
+          natural: { deformation: 48, flow: 48, translation: 48 },
+          glide: { deformation: 31, flow: 44, translation: 71 },
+          liquid: { deformation: 71, flow: 77, translation: 55 },
         },
       },
       tinted: {
-        css: { natural: { deformation: 40, flow: 40, translation: 40 } },
+        css: { natural: { deformation: 48, flow: 48, translation: 48 } },
         balanced: {
-          natural: { deformation: 42, flow: 40, translation: 40 },
-          glide: { deformation: 26, flow: 35, translation: 56 },
-          liquid: { deformation: 58, flow: 61, translation: 45 },
+          natural: { deformation: 50, flow: 48, translation: 48 },
+          glide: { deformation: 31, flow: 42, translation: 67 },
+          liquid: { deformation: 70, flow: 73, translation: 54 },
         },
         high: {
-          natural: { deformation: 42, flow: 40, translation: 40 },
-          glide: { deformation: 27, flow: 37, translation: 58 },
-          liquid: { deformation: 61, flow: 64, translation: 46 },
+          natural: { deformation: 50, flow: 48, translation: 48 },
+          glide: { deformation: 32, flow: 44, translation: 70 },
+          liquid: { deformation: 73, flow: 77, translation: 55 },
         },
       },
       frosted: {
-        css: { natural: { deformation: 40, flow: 40, translation: 40 } },
+        css: { natural: { deformation: 48, flow: 48, translation: 48 } },
         balanced: {
-          natural: { deformation: 46, flow: 42, translation: 38 },
-          glide: { deformation: 30, flow: 35, translation: 54 },
-          liquid: { deformation: 62, flow: 61, translation: 42 },
+          natural: { deformation: 55, flow: 50, translation: 46 },
+          glide: { deformation: 36, flow: 42, translation: 65 },
+          liquid: { deformation: 74, flow: 73, translation: 50 },
         },
         high: {
-          natural: { deformation: 48, flow: 42, translation: 38 },
-          glide: { deformation: 32, flow: 37, translation: 56 },
-          liquid: { deformation: 66, flow: 64, translation: 43 },
+          natural: { deformation: 58, flow: 50, translation: 46 },
+          glide: { deformation: 38, flow: 44, translation: 67 },
+          liquid: { deformation: 79, flow: 77, translation: 52 },
         },
       },
     } as const
@@ -189,19 +189,19 @@ describe('glass optics geometry', () => {
   it('uses the approved transparency and transmission matrix for all effective presets', () => {
     const expected = {
       clear: {
-        css: { natural: [48, 56] },
-        balanced: { natural: [46, 54], glide: [56, 58], liquid: [51, 51] },
-        high: { natural: [45, 53], glide: [54, 56], liquid: [50, 50] },
+        css: { natural: [52, 67] },
+        balanced: { natural: [50, 65], glide: [60, 70], liquid: [55, 61] },
+        high: { natural: [49, 64], glide: [59, 67], liquid: [54, 60] },
       },
       tinted: {
-        css: { natural: [34, 54] },
-        balanced: { natural: [32, 56], glide: [40, 61], liquid: [36, 53] },
-        high: { natural: [30, 54], glide: [38, 59], liquid: [34, 51] },
+        css: { natural: [37, 65] },
+        balanced: { natural: [34, 67], glide: [43, 73], liquid: [39, 64] },
+        high: { natural: [32, 65], glide: [41, 71], liquid: [37, 61] },
       },
       frosted: {
-        css: { natural: [31, 50] },
-        balanced: { natural: [29, 52], glide: [40, 56], liquid: [34, 49] },
-        high: { natural: [27, 50], glide: [38, 54], liquid: [32, 47] },
+        css: { natural: [43, 60] },
+        balanced: { natural: [40, 62], glide: [55, 67], liquid: [47, 59] },
+        high: { natural: [37, 60], glide: [53, 65], liquid: [44, 56] },
       },
     } as const
 
@@ -233,20 +233,27 @@ describe('glass optics geometry', () => {
     })
     const frostedLow = getGlassMaterialResponse('frosted', 20)
     expect(frostedLow).toMatchObject({
-      backgroundVisibility: 0.14,
-      frostBlurScale: 1.48,
-      surfaceDensity: 0.96,
+      backgroundVisibility: 0.22,
+      frostBlurScale: 1.384,
+      surfaceDensity: 0.9,
     })
-    expect(frostedLow.frostDetailLevel).toBeCloseTo(0.1)
+    expect(frostedLow.frostDetailLevel).toBeCloseTo(0.18)
+    const frostedMid = getGlassMaterialResponse('frosted', 50)
+    expect(frostedMid).toMatchObject({
+      backgroundVisibility: 0.52,
+      frostBlurScale: 1.06,
+      surfaceDensity: 0.7,
+    })
+    expect(frostedMid.frostDetailLevel).toBeCloseTo(0.45)
     expect(getGlassMaterialResponse('frosted', 100)).toMatchObject({
-      backgroundVisibility: 0.88,
-      frostBlurScale: 0.52,
-      frostDetailLevel: 0.9,
-      surfaceDensity: 0.4,
+      backgroundVisibility: 0.98,
+      frostBlurScale: 0.43,
+      frostDetailLevel: 0.975,
+      surfaceDensity: 0.22,
     })
     expect(getGlassCssFrostBlur(0)).toEqual({ raised: 84, surface: 64 })
-    expect(getGlassCssFrostBlur(50)).toEqual({ raised: 62, surface: 44 })
-    expect(getGlassCssFrostBlur(100)).toEqual({ raised: 26, surface: 16 })
+    expect(getGlassCssFrostBlur(50)).toEqual({ raised: 50, surface: 36 })
+    expect(getGlassCssFrostBlur(100)).toEqual({ raised: 16, surface: 8 })
 
     const samples = [0, 10, 20, 35, 50, 60, 70, 78, 85, 92, 100].map(value =>
       getGlassMaterialResponse('frosted', value),
@@ -266,7 +273,7 @@ describe('glass optics geometry', () => {
     const first = getGlassOpticalPresetParameters('tinted', 'high', 'glide')
     first.translation = 0
 
-    expect(getGlassOpticalPresetParameters('tinted', 'high', 'glide').translation).toBe(58)
+    expect(getGlassOpticalPresetParameters('tinted', 'high', 'glide').translation).toBe(70)
   })
 
   it('matches the monotonic CSS ease timeline used by wallpaper crossfades', () => {

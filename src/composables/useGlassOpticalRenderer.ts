@@ -629,7 +629,10 @@ vec3 toneMapWallpaper(vec3 color, vec2 uv, float wallpaperExposure) {
   float highTransmissionProgress =
     clamp((uTransmissionStrength - 1.0) / 0.3, 0.0, 1.0);
   float transmissionMaterialScale = mix(1.0, 0.9, tinted);
-  transmissionMaterialScale = mix(transmissionMaterialScale, 0.42, frosted);
+  float frostedTransparencyProgress =
+    smoothstep(0.6, 0.96, uBackgroundVisibility);
+  float frostedTransmissionScale = mix(0.42, 0.72, frostedTransparencyProgress);
+  transmissionMaterialScale = mix(transmissionMaterialScale, frostedTransmissionScale, frosted);
   float highlightProtection = smoothstep(0.68, 0.92, luminance);
   vec3 transmissionReference = normalized;
   float referenceLift =
@@ -1045,7 +1048,7 @@ void main() {
     highlight = vec3(0.94, 0.97, 1.0);
     edgeHighlightMix = 0.15;
     causticHighlightMix = 0.042;
-    float frostedBaseAlpha = mix(0.72, 0.9, uSurfaceDensity);
+    float frostedBaseAlpha = mix(0.46, 0.88, uSurfaceDensity);
     materialAlpha = frostedBaseAlpha * mix(0.9, 1.0, liquidPresence);
     proceduralEdgeAlpha = 0.16;
     proceduralCausticAlpha = 0.045;
