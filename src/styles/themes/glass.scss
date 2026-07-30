@@ -49,6 +49,7 @@ html[data-theme='glass'] {
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
+  --glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%);
   --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
   --glass-overlay-blur: 3px;
   --glass-overlay-saturate: 115%;
@@ -623,17 +624,19 @@ html[data-theme='glass'] {
     transform: none;
   }
 
-  // 透明材质在内容上滚后复用移动底栏材质，顶部时则保持原有透光感。
-  &[data-glass-appearance='clear'] {
+  // 透明与色调材质在内容上滚后增强顶栏表面，顶部时仍保持原有透光感。
+  &:is([data-glass-appearance='clear'], [data-glass-appearance='tinted']) {
     .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
     .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
       border-color: var(--glass-border-raised) !important;
-      -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
-      backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+      -webkit-backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
+      backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
       background-color: var(--glass-overlay-surface) !important;
       background-image: var(--glass-sheen) !important;
     }
+  }
 
+  &[data-glass-appearance='clear'] {
     // contained navbar 会把 %blurry-bg 扩展到内部容器，透明材质不生成这层滚动磨砂。
     .navbar-blur.layout-navbar .navbar-content-container::before {
       display: none !important;
@@ -941,6 +944,12 @@ html[data-theme='glass'] {
 
   // “更多”应用列表的分组卡片存在局部固定模糊，需要在完整小屏区间跟随玻璃材质。
   .settings-section-card.app-grouped-list {
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+  }
+
+  // 文件地址栏与下方内容卡属于同一工作表面，不使用更强的 raised 材质。
+  .file-browser-toolbar.v-toolbar {
     -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
     backdrop-filter: var(--glass-surface-backdrop-filter) !important;
   }
@@ -1187,7 +1196,7 @@ html[data-glass-renderer-state='ready'] .app-wrapper--login-glass-high .glass-op
   opacity: 1;
 }
 
-// 光学档位下顶栏滚动前后共用同一 filter，避免滚动态重新叠加高强度模糊。
+// 光学档位先交由 renderer 接管标准表面；各材质在后续规则恢复必要的原生背板。
 html[data-theme='glass']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
@@ -1202,6 +1211,8 @@ html[data-theme='glass'][data-glass-appearance='frosted']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready'] {
+  // 标准表面始终保留稳定磨砂基底；renderer 只叠加折射与交互动态，静态页面也遵守同一材质契约。
+  --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-navbar-backdrop-filter: none;
 }
 
@@ -1219,7 +1230,7 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
   }
 }
 
-// 磨砂材质的散射由 renderer 统一完成，避免 CSS 再次模糊折射结果。
+// 磨砂顶栏在页面顶部不重复采样；内容上滚到其下方后仅补一层轻量原生磨砂以保护可读性。
 html[data-glass-appearance='frosted']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
@@ -1230,20 +1241,19 @@ html[data-glass-appearance='frosted']:is(
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
+
+  .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
+  .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+    -webkit-backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
+    backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
+  }
 }
 
 // 滚动表面始终由原生 backdrop 持有壁纸基底；GPU 层只叠加局部动态折射。
-html:is(
-    [data-glass-quality='balanced'],
-    [data-glass-quality='high']
-  )[data-glass-renderer-state='ready']
+html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   body[data-theme='glass'] {
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
-  .dashboard-grid-item-content
-    > .dashboard-grid-auto-size
-    > .dashboard-grid-content-measure
-    > :first-child
-    > .v-card,
+  .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card,
   [data-glass-optical-surface],
   .app-hover-lift-card:not(.media-card--image-loaded) {
     -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;

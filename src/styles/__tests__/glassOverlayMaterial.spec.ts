@@ -43,6 +43,18 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(/\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/)
   })
 
+  it('shares the same light frost when glass navbars overlap scrolled content', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain('--glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%)')
+    expect(styles).toMatch(
+      /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-wrapper\.window-scrolled\.layout-navbar-fixed \.layout-navbar,[\s\S]*?backdrop-filter:\s*var\(--glass-navbar-scrolled-backdrop-filter\)\s*!important;/,
+    )
+    expect(styles).toMatch(
+      /\[data-glass-appearance='frosted'\][\s\S]*?\.layout-wrapper\.window-scrolled\.layout-navbar-fixed \.layout-navbar,[\s\S]*?\.layout-horizontal-nav-scrolled[\s\S]*?backdrop-filter:\s*var\(--glass-navbar-scrolled-backdrop-filter\)\s*!important;/,
+    )
+  })
+
   it('uses the shared hover-card contract instead of a Dashboard-specific shadow rule', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
@@ -72,10 +84,19 @@ describe('glass overlay material styles', () => {
     expect(styles).toContain('blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)')
     expect(styles).toContain('blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)')
     expect(styles).toMatch(
+      /\[data-glass-appearance='frosted'\][\s\S]*?\[data-glass-renderer-state='ready'\]\s*\{[\s\S]*?--glass-surface-backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\);/,
+    )
+    expect(styles).toMatch(
       /\[data-glass-scroll-presentation='native'\][\s\S]*?\.glass-optical-layer--scroll\s*\{\s*opacity:\s*0\s*!important;/,
     )
     expect(styles).toMatch(
       /\[data-glass-renderer-state='ready'\][\s\S]*?\.app-hover-lift-card:not\(\.media-card--image-loaded\)[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
+    )
+    expect(styles).toMatch(
+      /\.settings-section-card\.app-grouped-list\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
+    )
+    expect(styles).toMatch(
+      /\.file-browser-toolbar\.v-toolbar\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-surface-backdrop-filter\)\s*!important;/,
     )
     expect(styles).not.toMatch(
       /\[data-glass-scroll-presentation='native'\][\s\S]*?:where\([\s\S]*?--glass-native-surface-backdrop-filter/,

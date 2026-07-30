@@ -75,7 +75,7 @@ const storageObject = computed(() => {
 
 // 切换存储
 function changeStorage(code: string) {
-  if (inProps.item.storage!== code) {
+  if (inProps.item.storage !== code) {
     emit('storagechanged', code)
   }
 }
@@ -147,7 +147,7 @@ defineExpose({
 </script>
 
 <template>
-  <VToolbar flat dense class="rounded-t-lg border-b overflow-hidden">
+  <VToolbar flat dense class="file-browser-toolbar rounded-t-lg border-b overflow-hidden" data-glass-optical-surface>
     <VToolbarItems class="overflow-hidden">
       <VMenu v-if="storages?.length || 0 > 1" offset-y>
         <template #activator="{ props }">
