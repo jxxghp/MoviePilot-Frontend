@@ -1746,7 +1746,7 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('clips nested hover-card dynamics on shared page surfaces without allocating another material slot', async () => {
+  it('shares dynamics across nested hover cards without allocating another material slot', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
     const three = await import('three')
@@ -1756,14 +1756,20 @@ describe('glass optical surface discovery', () => {
     const outerSurface = document.createElement('section')
     outerSurface.className = 'v-card'
     setOpticalSurfaceBounds(outerSurface, { height: 420, width: 900, x: 40, y: 80 })
-    const nestedCard = document.createElement('article')
-    nestedCard.className = 'app-hover-lift-card'
-    nestedCard.style.borderTopLeftRadius = '16px'
-    nestedCard.style.borderTopRightRadius = '16px'
-    nestedCard.style.borderBottomRightRadius = '16px'
-    nestedCard.style.borderBottomLeftRadius = '16px'
-    setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x: 80, y: 140 })
-    outerSurface.append(nestedCard)
+    const nestedCardSpecs = [
+      { radius: 16, x: 80 },
+      { radius: 20, x: 400 },
+    ]
+    nestedCardSpecs.forEach(({ radius, x }) => {
+      const nestedCard = document.createElement('article')
+      nestedCard.className = 'app-hover-lift-card'
+      nestedCard.style.borderTopLeftRadius = `${radius}px`
+      nestedCard.style.borderTopRightRadius = `${radius}px`
+      nestedCard.style.borderBottomRightRadius = `${radius}px`
+      nestedCard.style.borderBottomLeftRadius = `${radius}px`
+      setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x, y: 140 })
+      outerSurface.append(nestedCard)
+    })
     pageContent.append(outerSurface)
     document.body.append(pageContent)
     const scope = effectScope()
@@ -1789,9 +1795,9 @@ describe('glass optical surface discovery', () => {
         material: {
           fragmentShader: string
           uniforms: {
-            uHasInteractionClip: { value: number }
-            uInteractionRadii: { value: { toArray: () => number[] } }
-            uInteractionRect: { value: { toArray: () => number[] } }
+            uInteractionRadii: { value: Array<{ toArray: () => number[] }> }
+            uInteractionRectCount: { value: number }
+            uInteractionRects: { value: Array<{ toArray: () => number[] }> }
             uRectCount: { value: number }
           }
         }
@@ -1800,15 +1806,23 @@ describe('glass optical surface discovery', () => {
     const material = scene.children[0].material
 
     expect(material.uniforms.uRectCount.value).toBe(1)
-    expect(material.uniforms.uHasInteractionClip.value).toBe(1)
-    expect(material.uniforms.uInteractionRect.value.toArray()).toEqual([
+    expect(material.uniforms.uInteractionRectCount.value).toBe(2)
+    expect(material.uniforms.uInteractionRects.value[0].toArray()).toEqual([
       80 / 1200,
       1 - (140 + 160) / 800,
       280 / 1200,
       160 / 800,
     ])
-    expect(material.uniforms.uInteractionRadii.value.toArray()).toEqual([16, 16, 16, 16])
-    expect(material.fragmentShader).toContain('uniform vec4 uInteractionRect')
+    expect(material.uniforms.uInteractionRects.value[1].toArray()).toEqual([
+      400 / 1200,
+      1 - (140 + 160) / 800,
+      280 / 1200,
+      160 / 800,
+    ])
+    expect(material.uniforms.uInteractionRadii.value[0].toArray()).toEqual([16, 16, 16, 16])
+    expect(material.uniforms.uInteractionRadii.value[1].toArray()).toEqual([20, 20, 20, 20])
+    expect(material.fragmentShader).toContain('uniform vec4 uInteractionRects[8]')
+    expect(material.fragmentShader).toContain('interactionMask = max(')
     expect(material.fragmentShader).toContain('surfaceDynamic * interactionMask')
     scope.stop()
   })
@@ -2897,6 +2911,8 @@ describe('glass optical surface discovery', () => {
             uTintDensity: { value: number }
             uTransmissionStrength: { value: number }
             uTranslationStrength: { value: number }
+            uInteractionRectCount: { value: number }
+            uTrail: { value: Array<{ z: number }> }
             uSurfaceWeights: { value: number[] }
           }
           fragmentShader: string
@@ -2918,6 +2934,8 @@ describe('glass optical surface discovery', () => {
     expect(cardBIndex).toBeGreaterThanOrEqual(0)
     expect(uniforms.uSurfaceWeights.value[cardAIndex]).toBe(1)
     expect(uniforms.uSurfaceWeights.value[cardBIndex]).toBe(1)
+    expect(uniforms.uInteractionRectCount.value).toBe(2)
+    expect(uniforms.uTrail.value[1].z).toBeGreaterThan(0)
     expect(uniforms.uTranslationStrength.value).toBe(1)
     expect(uniforms.uDeformationStrength.value).toBe(1)
     expect(uniforms.uFlowStrength.value).toBe(1)
@@ -2948,6 +2966,7 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain(
       'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask)',
     )
+    expect(scene.children[0].material.fragmentShader).toContain('uniform vec4 uInteractionRects[8]')
     expect(scene.children[0].material.fragmentShader).toContain('softLimitDynamicRefraction')
     expect(scene.children[0].material.fragmentShader).toContain('getContentProtection')
     expect(scene.children[0].material.fragmentShader).toContain('sampleHighQualityDiffuse')
@@ -2965,8 +2984,8 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')
     expect(scene.children[0].material.fragmentShader).not.toContain('temporalEnergy')
-    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.65')
-    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 2.367')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.40')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 6.250')
     expect(scene.children[0].material.fragmentShader).toContain('float pointerSpread = mix(26.0, 17.0, uQuality)')
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted)',

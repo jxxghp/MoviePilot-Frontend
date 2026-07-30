@@ -242,9 +242,9 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uHasWallpaperTexture: IUniform<number>
   uHasFlowTexture: IUniform<number>
   uHasFrostedTexture: IUniform<number>
-  uHasInteractionClip: IUniform<number>
-  uInteractionRadii: IUniform<Vector4>
-  uInteractionRect: IUniform<Vector4>
+  uInteractionRadii: IUniform<Vector4[]>
+  uInteractionRectCount: IUniform<number>
+  uInteractionRects: IUniform<Vector4[]>
   uMotion: IUniform<number>
   uMotionExpansion: IUniform<number>
   uMaxRefractionPixels: IUniform<number>
@@ -423,7 +423,7 @@ void main() {
 }
 `
 
-const DYNAMIC_RANGE_SCALE = 0.65
+const DYNAMIC_RANGE_SCALE = 0.4
 const DYNAMIC_RANGE_DENSITY = 1 / DYNAMIC_RANGE_SCALE ** 2
 
 const FLOW_FRAGMENT_SHADER = `
@@ -530,9 +530,9 @@ uniform float uFlowStrength;
 uniform float uHasWallpaperTexture;
 uniform float uHasFlowTexture;
 uniform float uHasFrostedTexture;
-uniform float uHasInteractionClip;
-uniform vec4 uInteractionRadii;
-uniform vec4 uInteractionRect;
+uniform vec4 uInteractionRadii[8];
+uniform vec4 uInteractionRects[8];
+uniform int uInteractionRectCount;
 uniform float uMotion;
 uniform float uMotionExpansion;
 uniform float uMaxRefractionPixels;
@@ -773,13 +773,19 @@ void main() {
   float motionRangeCompression = mix(1.0, 1.34, uMotionExpansion);
   const float dynamicRangeScale = ${DYNAMIC_RANGE_SCALE.toFixed(2)};
   const float dynamicRangeDensity = ${DYNAMIC_RANGE_DENSITY.toFixed(3)};
-  float interactionMask = 1.0;
-  if (uHasInteractionClip > 0.5) {
-    vec2 interactionLocal = (vUv - uInteractionRect.xy) / max(uInteractionRect.zw, vec2(0.0001));
-    interactionMask = roundedRectMask(
-      interactionLocal,
-      uInteractionRect.zw * uPresentationSize,
-      uInteractionRadii
+  float interactionMask = uInteractionRectCount > 0 ? 0.0 : 1.0;
+  for (int interactionIndex = 0; interactionIndex < 8; interactionIndex++) {
+    if (interactionIndex >= uInteractionRectCount) break;
+
+    vec4 interactionRect = uInteractionRects[interactionIndex];
+    vec2 interactionLocal = (vUv - interactionRect.xy) / max(interactionRect.zw, vec2(0.0001));
+    interactionMask = max(
+      interactionMask,
+      roundedRectMask(
+        interactionLocal,
+        interactionRect.zw * uPresentationSize,
+        uInteractionRadii[interactionIndex]
+      )
     );
   }
 
@@ -1290,7 +1296,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let lastInteractionAt = 0
   let lastInteractionFrameAt = 0
   let lastPointerAt = 0
-  let lastTrailAt = 0
+  let lastTrailAt = Number.NEGATIVE_INFINITY
   let lastPointerX = window.innerWidth * 0.5
   let lastPointerY = window.innerHeight * 0.5
   let pointerTargetX = 0.5
@@ -1321,6 +1327,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let surfaceRegistry: GlassOpticalSurfaceDescriptor[] = []
   let availableSurfaces: GlassOpticalSurfaceDescriptor[] = []
   let surfaceSlots: GlassOpticalSurfaceSlot<HTMLElement>[] = []
+  let interactionClips: GlassOpticalSurfaceDescriptor[] = []
   let activeSurface: HTMLElement | null = null
   let activeInteractionClip: HTMLElement | null = null
   let outgoingSurface: HTMLElement | null = null
@@ -1759,20 +1766,22 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     const presentation = getCommittedPresentationSize()
-    const interactionClipRect =
-      activeInteractionClip?.isConnected && activeSurface?.contains(activeInteractionClip)
-        ? getElementPresentationRect(activeInteractionClip)
-        : null
-    const normalizedInteractionClip = interactionClipRect
-      ? normalizeGlassOpticalRect(interactionClipRect, presentation.width, presentation.height)
-      : null
-    if (normalizedInteractionClip) {
-      resources.uniforms.uInteractionRect.value.set(...normalizedInteractionClip.rect)
-      resources.uniforms.uInteractionRadii.value.set(...normalizedInteractionClip.radii)
-      resources.uniforms.uHasInteractionClip.value = 1
-    } else {
-      resources.uniforms.uHasInteractionClip.value = 0
+    const normalizedInteractionClips = interactionClips.map(clip => {
+      const rect =
+        clip.key === activeInteractionClip && clip.key.isConnected ? getElementPresentationRect(clip.key) : clip.rect
+
+      return normalizeGlassOpticalRect(rect, presentation.width, presentation.height)
+    })
+    const uniformInteractionRects = resources.uniforms.uInteractionRects.value
+    const uniformInteractionRadii = resources.uniforms.uInteractionRadii.value
+    for (let index = 0; index < 8; index += 1) {
+      const clip = normalizedInteractionClips[index]
+      const rect = clip?.rect ?? [0, 0, 0, 0]
+      const radii = clip?.radii ?? [0, 0, 0, 0]
+      uniformInteractionRects[index].set(rect[0], rect[1], rect[2], rect[3])
+      uniformInteractionRadii[index].set(radii[0], radii[1], radii[2], radii[3])
     }
+    resources.uniforms.uInteractionRectCount.value = normalizedInteractionClips.length
     const normalized = surfaceSlots.map(slot =>
       normalizeGlassOpticalRect(slot.rect, presentation.width, presentation.height),
     )
@@ -1809,6 +1818,47 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uRectCount.value = normalized.length
   }
 
+  /**
+   * 材质父表面可折叠多个交互卡片；共享动态场只在最终输出时按真实卡片边界裁剪。
+   * 活动卡优先占用固定预算，其余可见卡片继续消费同一时序场。
+   */
+  function updateInteractionClips() {
+    const seen = new Set<HTMLElement>()
+    const candidates: GlassOpticalSurfaceDescriptor[] = []
+    const append = (element: HTMLElement, mode: GlassOpticalSurfaceMode) => {
+      if (seen.has(element) || !element.isConnected || resolveGlassOpticalSurfaceMode(element) !== mode) return
+
+      const rect = getElementPresentationRect(element)
+      if (rect.width < 24 || rect.height < 24) return
+
+      seen.add(element)
+      candidates.push({ key: element, mode, rect })
+    }
+
+    for (const slot of surfaceSlots) {
+      const mode = slot.mode ?? 'dynamic'
+      if (mode === 'static-material') continue
+
+      const nestedClips = [
+        ...(slot.key.matches(INTERACTION_CLIP_SELECTOR) ? [slot.key] : []),
+        ...slot.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR),
+      ]
+      if (nestedClips.length > 0) {
+        nestedClips.forEach(clip => append(clip, mode))
+      } else {
+        append(slot.key, mode)
+      }
+    }
+
+    const activeIndex = activeInteractionClip
+      ? candidates.findIndex(candidate => candidate.key === activeInteractionClip)
+      : -1
+    if (activeIndex > 0) candidates.unshift(...candidates.splice(activeIndex, 1))
+    const maxCount =
+      window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
+    interactionClips = candidates.slice(0, maxCount)
+  }
+
   /** 从缓存的 document-space 几何选择当前可见表面并提交 shader slot。 */
   function updateVisibleSurfaceUniforms(timestamp: number) {
     const viewportWidth = window.innerWidth
@@ -1832,6 +1882,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       activeSurface ?? undefined,
       outgoingSurface ?? undefined,
     )
+    updateInteractionClips()
     writeSurfaceUniforms(timestamp)
   }
 
@@ -2253,6 +2304,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
    */
   function activateInteractionSurface(surface: HTMLElement, timestamp: number, reducedMotion: boolean) {
     if (activeSurface === surface) {
+      updateInteractionClips()
       writeSurfaceUniforms(timestamp)
       return false
     }
@@ -2261,15 +2313,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     outgoingSurface = reducedMotion || surfaceAlreadyHasSlot ? null : activeSurface
     activeSurface = surface
     surfaceTransitionStartedAt = timestamp
-    lastTrailAt = Number.NEGATIVE_INFINITY
-    pendingFlowInjection = 0
-    if (resources) {
-      for (const trail of resources.uniforms.uTrail.value) trail.z = 0
-    }
-    if (flowResources) {
-      flowResources.uniforms.uDecay.value = 0
-      flowResources.uniforms.uInjection.value = 0
-    }
     const maxCount = window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
     surfaceSlots = reconcileGlassOpticalSurfaceSlots(
       surfaceSlots,
@@ -2278,6 +2321,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       activeSurface,
       outgoingSurface ?? undefined,
     )
+    updateInteractionClips()
     writeSurfaceUniforms(timestamp)
 
     return true
@@ -2352,11 +2396,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function resetInteractionState() {
     pendingFlowInjection = 0
     lastInteractionFrameAt = 0
+    lastTrailAt = Number.NEGATIVE_INFINITY
     activeInteractionClip = null
+    interactionClips = []
     if (!resources) return
 
     snapPointer(pointerTargetX, pointerTargetY)
-    resources.uniforms.uHasInteractionClip.value = 0
+    resources.uniforms.uInteractionRectCount.value = 0
     resources.uniforms.uMotion.value = 0
     resources.uniforms.uPointerVelocity.value.set(0, 0)
     for (const trail of resources.uniforms.uTrail.value) trail.z = 0
@@ -2441,19 +2487,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeInteractionClip = interactionTarget.clip
     const surfaceChanged = activateInteractionSurface(interactionTarget.surface.key, timestamp, reducedMotion)
     if (interactionClipChanged && !surfaceChanged) {
-      lastTrailAt = Number.NEGATIVE_INFINITY
-      pendingFlowInjection = 0
-      for (const trail of resources.uniforms.uTrail.value) trail.z = 0
-      if (flowResources) {
-        flowResources.uniforms.uDecay.value = 0
-        flowResources.uniforms.uInjection.value = 0
-      }
+      updateInteractionClips()
       writeSurfaceUniforms(timestamp)
     }
-    const restartsWake = surfaceChanged || interactionClipChanged || !interactionAnimating
+    const startsInteraction = !interactionAnimating
+    const hasTrailAnchor = Number.isFinite(lastTrailAt)
     const normalizedX = point.x / Math.max(presentation.width, 1)
     const normalizedY = 1 - point.y / Math.max(presentation.height, 1)
-    if (surfaceChanged) {
+    if (startsInteraction && !hasTrailAnchor) {
       snapPointer(normalizedX, normalizedY)
       updateTrail(point.x, point.y, timestamp, normalizedX, normalizedY)
     } else {
@@ -2468,7 +2509,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       wakeDirection,
       scaledVelocity,
       Math.hypot(scaledVelocity.x, scaledVelocity.y),
-      restartsWake,
+      startsInteraction,
     )
     resources.uniforms.uPointerVelocity.value.set(scaledVelocity.x, scaledVelocity.y)
     resources.uniforms.uWakeDirection.value.set(wakeDirection.x, wakeDirection.y)
@@ -2537,6 +2578,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         matchMedia('(prefers-reduced-motion: reduce)').matches,
       )
       snapPointer(point.x / Math.max(presentation.width, 1), 1 - point.y / Math.max(presentation.height, 1))
+      updateTrail(
+        point.x,
+        point.y,
+        timestamp,
+        point.x / Math.max(presentation.width, 1),
+        1 - point.y / Math.max(presentation.height, 1),
+      )
       scheduleFrame()
     }
   }
@@ -2909,6 +2957,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceRegistry = []
     availableSurfaces = []
     surfaceSlots = []
+    interactionClips = []
     activeSurface = null
     activeInteractionClip = null
     outgoingSurface = null
@@ -3441,10 +3490,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uFlowStrength: { value: getFlowStrengthScale() },
         uHasFlowTexture: { value: 0 },
         uHasFrostedTexture: { value: 0 },
-        uHasInteractionClip: { value: 0 },
         uHasWallpaperTexture: { value: 0 },
-        uInteractionRadii: { value: new Vector4Class() },
-        uInteractionRect: { value: new Vector4Class() },
+        uInteractionRadii: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
+        uInteractionRectCount: { value: 0 },
+        uInteractionRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uMotion: { value: 0 },
         uMotionExpansion: { value: getMotionExpansion() },
         uMaxRefractionPixels: { value: getMaxRefractionPixels() },
