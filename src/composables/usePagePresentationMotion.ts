@@ -10,7 +10,7 @@ export const PAGE_PRESENTATION_LAYOUT_HOLD_MAX_MS = 480
 export interface PagePresentationMotionReader {
   /** 页面是否处于共享呈现事务中。 */
   active: Readonly<Ref<boolean>>
-  /** 当前页面材质与 DOM 共同使用的透明度。 */
+  /** 页面内容的呈现透明度；renderer 按材质合成约束决定是否使用。 */
   opacity: Readonly<Ref<number>>
   /** 每次 DOM motion 样式提交后递增，renderer 据此在同一帧刷新表面。 */
   revision: Readonly<Ref<number>>
@@ -28,6 +28,7 @@ let layoutHoldStartedAt = 0
 let layoutStableSince = 0
 let layoutSignature = ''
 let startedAt = 0
+let preserveFrostedMaterial = false
 
 function sampleBezier(time: number, start: number, end: number) {
   const inverse = 1 - time
@@ -64,8 +65,9 @@ function clearDocumentMotionState() {
 /** 先提交 DOM 样式，再发布 revision，保证 renderer 读取到同一帧的真实矩形。 */
 function applyMotionFrame(nextProgress: number) {
   const root = document.documentElement
-  const nextOpacity =
-    PAGE_PRESENTATION_MOTION_START_OPACITY + (1 - PAGE_PRESENTATION_MOTION_START_OPACITY) * nextProgress
+  const nextOpacity = preserveFrostedMaterial
+    ? 1
+    : PAGE_PRESENTATION_MOTION_START_OPACITY + (1 - PAGE_PRESENTATION_MOTION_START_OPACITY) * nextProgress
   const nextTranslateY = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y * (1 - nextProgress)
 
   root.dataset.pagePresentationMotion = 'active'
@@ -82,9 +84,9 @@ function applyLayoutHoldFrame() {
   const root = document.documentElement
 
   root.dataset.pagePresentationMotion = 'active'
-  root.style.setProperty('--mp-page-motion-opacity', '0')
+  root.style.setProperty('--mp-page-motion-opacity', preserveFrostedMaterial ? '1' : '0')
   root.style.setProperty('--mp-page-motion-translate-y', `${PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y}px`)
-  opacity.value = 0
+  opacity.value = preserveFrostedMaterial ? 1 : 0
   progress.value = 0
   translateY.value = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
   revision.value += 1
@@ -175,6 +177,7 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
   epoch.value += 1
   const motionEpoch = epoch.value
   routeKey.value = nextRouteKey
+  preserveFrostedMaterial = document.documentElement.dataset.glassAppearance === 'frosted'
 
   // 启动屏已完整遮罩页面；在其背后再等待布局稳定会把一次启动拆成两次可见揭示。
   if (document.documentElement.dataset.launchLoading === 'true' && document.getElementById('loading-bg')) {

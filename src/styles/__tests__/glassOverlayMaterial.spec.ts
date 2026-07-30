@@ -131,4 +131,12 @@ describe('glass overlay material styles', () => {
       /\[data-glass-scroll-presentation='native'\][\s\S]*?:where\([\s\S]*?--glass-native-surface-backdrop-filter/,
     )
   })
+
+  it('keeps frosted route opacity static while preserving its short movement', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toMatch(
+      /\[data-glass-appearance='frosted'\]\[data-page-presentation-motion='active'\]\s+\.mp-page-route\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?transform:\s*translate3d\(0,\s*var\(--mp-page-motion-translate-y,\s*0\),\s*0\);/,
+    )
+  })
 })

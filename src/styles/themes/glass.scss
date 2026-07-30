@@ -341,6 +341,14 @@ html[data-theme='glass'] {
     will-change: opacity, transform;
   }
 
+  // 磨砂保持最终材质权重，只复用页面呈现时间线做短距离位移。
+  &[data-glass-appearance='frosted'][data-page-presentation-motion='active'] .mp-page-route {
+    filter: none;
+    opacity: 1;
+    transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);
+    will-change: transform;
+  }
+
   :where(
     .app-surface:not(.no-blur),
     .v-card:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),

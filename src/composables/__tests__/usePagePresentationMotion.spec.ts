@@ -16,6 +16,7 @@ beforeEach(() => {
   callbacks = new Map()
   frameId = 0
   document.documentElement.dataset.theme = 'glass'
+  document.documentElement.dataset.glassAppearance = 'clear'
   delete document.documentElement.dataset.launchLoading
   vi.spyOn(performance, 'now').mockReturnValue(1000)
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
@@ -33,6 +34,7 @@ afterEach(() => {
   motion.cancel()
   document.getElementById('loading-bg')?.remove()
   delete document.documentElement.dataset.theme
+  delete document.documentElement.dataset.glassAppearance
   delete document.documentElement.dataset.launchLoading
   delete document.documentElement.dataset.pagePresentationMotion
   document.documentElement.style.removeProperty('--mp-page-motion-opacity')
@@ -91,6 +93,33 @@ describe('page presentation motion', () => {
     ;[1231].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
     expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
     expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
+
+    routeRoot.remove()
+  })
+
+  it('keeps frosted material fully composed while waiting for route geometry', () => {
+    document.documentElement.dataset.glassAppearance = 'frosted'
+    const routeRoot = document.createElement('div')
+    Object.defineProperties(routeRoot, {
+      offsetHeight: { configurable: true, get: () => 1520 },
+      offsetWidth: { configurable: true, get: () => 1200 },
+      scrollHeight: { configurable: true, get: () => 1520 },
+      scrollWidth: { configurable: true, get: () => 1200 },
+    })
+    document.body.append(routeRoot)
+
+    expect(motion.start('/dashboard', routeRoot)).toBe(true)
+    expect(motion.active.value).toBe(true)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
+    expect(document.documentElement.style.getPropertyValue('--mp-page-motion-opacity')).toBe('1')
+    expect(document.documentElement.style.getPropertyValue('--mp-page-motion-translate-y')).toBe('4px')
+
+    ;[1016, 1140, 1260, 1440].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
+    expect(motion.active.value).toBe(false)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.translateY.value).toBe(0)
+    expect(document.documentElement.dataset.pagePresentationMotion).toBeUndefined()
 
     routeRoot.remove()
   })

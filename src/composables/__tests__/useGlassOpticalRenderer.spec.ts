@@ -476,11 +476,12 @@ describe('glass optical surface discovery', () => {
     const active = ref(true)
     const opacity = ref(1)
     const revision = ref(0)
+    const appearance = ref<'clear' | 'frosted'>('clear')
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
         active: ref(true),
-        appearance: ref('clear'),
+        appearance,
         canvas: ref(canvas),
         pageMotion: { active, opacity, revision },
         quality: ref('balanced'),
@@ -518,6 +519,12 @@ describe('glass optical surface discovery', () => {
     const uniforms = motionScene.children[0].material.uniforms
     expect(uniforms.uRects.value[0].y).not.toBe(initialY)
     expect(uniforms.uSurfaceWeights.value[0]).toBeCloseTo(0.42)
+
+    appearance.value = 'frosted'
+    opacity.value = 0.18
+    revision.value += 1
+    const frostedScene = render.mock.calls.at(-1)?.[0] as unknown as typeof initialScene
+    expect(frostedScene.children[0].material.uniforms.uSurfaceWeights.value[0]).toBe(1)
 
     const observer = ResizeObserverMock.instances.find(instance => instance.targets.has(root))
     expect(observer).toBeDefined()

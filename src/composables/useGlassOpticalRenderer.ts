@@ -1889,7 +1889,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       ? getGlassOpticalSurfaceTransitionWeights(timestamp - surfaceTransitionStartedAt, SURFACE_TRANSITION_DURATION_MS)
       : { incoming: 1, outgoing: 0 }
     const pageMotionOpacity =
-      presentationSpace === 'scroll' ? Math.min(1, Math.max(0, toValue(options.pageMotion?.opacity ?? 1))) : 1
+      presentationSpace === 'scroll' && toValue(options.appearance) !== 'frosted'
+        ? Math.min(1, Math.max(0, toValue(options.pageMotion?.opacity ?? 1)))
+        : 1
     const pagePresentationWeight = pagePresentationGeometryReady ? pageMotionOpacity : 0
 
     for (let index = 0; index < 8; index += 1) {
