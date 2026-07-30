@@ -1573,17 +1573,18 @@ defineExpose({
   /* 保持机器人和提示气泡高于 Vuetify 弹窗（2400）及全局 Toast（2500）。 */
   z-index: 2600;
 
-  --agent-assistant-robot-outline: #5b00c5;
-  --agent-assistant-robot-outline-soft: #7432df;
-  --agent-assistant-robot-shell-start: #d3bbff;
-  --agent-assistant-robot-shell-mid: #a576ff;
-  --agent-assistant-robot-shell-end: #8d51f9;
-  --agent-assistant-robot-face-start: #24124e;
-  --agent-assistant-robot-face-end: #100525;
-  --agent-assistant-robot-eye: #f1dcff;
-  --agent-assistant-robot-play: #fff;
-  --agent-assistant-robot-shadow: rgba(54, 0, 126, 28%);
-  --agent-assistant-robot-shadow-strong: rgba(54, 0, 126, 34%);
+  --agent-assistant-robot-outline: color-mix(in srgb, rgb(var(--v-theme-primary)) 72%, #090510 28%);
+  --agent-assistant-robot-outline-soft: color-mix(in srgb, rgb(var(--v-theme-primary)) 84%, #090510 16%);
+  --agent-assistant-robot-shell-start: color-mix(in srgb, rgb(var(--v-theme-primary)) 38%, white 62%);
+  --agent-assistant-robot-shell-mid: color-mix(in srgb, rgb(var(--v-theme-primary)) 74%, white 26%);
+  --agent-assistant-robot-shell-end: rgb(var(--v-theme-primary));
+  --agent-assistant-robot-face-start: color-mix(in srgb, rgb(var(--v-theme-primary)) 30%, #080a12 70%);
+  --agent-assistant-robot-face-end: color-mix(in srgb, rgb(var(--v-theme-primary)) 14%, #03050a 86%);
+  --agent-assistant-robot-eye: color-mix(in srgb, rgb(var(--v-theme-primary)) 12%, white 88%);
+  --agent-assistant-robot-play: rgb(var(--v-theme-on-primary));
+  --agent-assistant-robot-shadow: color-mix(in srgb, rgb(var(--v-theme-primary)) 28%, transparent);
+  --agent-assistant-robot-shadow-strong: color-mix(in srgb, rgb(var(--v-theme-primary)) 36%, transparent);
+  --agent-assistant-robot-shade: color-mix(in srgb, rgb(var(--v-theme-primary)) 25%, transparent);
   --agent-assistant-bubble-bg: rgba(var(--v-theme-surface), 0.92);
   --agent-assistant-bot-scale: 1;
   --agent-assistant-bot-pressed-scale: 0.96;

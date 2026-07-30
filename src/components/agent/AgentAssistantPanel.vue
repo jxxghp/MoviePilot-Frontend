@@ -2425,14 +2425,15 @@ onScopeDispose(() => {
   justify-content: center;
   border-radius: var(--app-control-radius);
 
-  --agent-assistant-mini-robot-outline: #5b00c5;
-  --agent-assistant-mini-robot-outline-soft: #7432df;
-  --agent-assistant-mini-robot-shell-start: #d3bbff;
-  --agent-assistant-mini-robot-shell-mid: #a576ff;
-  --agent-assistant-mini-robot-shell-end: #8d51f9;
-  --agent-assistant-mini-robot-face-start: #24124e;
-  --agent-assistant-mini-robot-face-end: #100525;
-  --agent-assistant-mini-robot-eye: #f1dcff;
+  --agent-assistant-mini-robot-outline: color-mix(in srgb, rgb(var(--v-theme-primary)) 72%, #090510 28%);
+  --agent-assistant-mini-robot-outline-soft: color-mix(in srgb, rgb(var(--v-theme-primary)) 84%, #090510 16%);
+  --agent-assistant-mini-robot-shell-start: color-mix(in srgb, rgb(var(--v-theme-primary)) 38%, white 62%);
+  --agent-assistant-mini-robot-shell-mid: color-mix(in srgb, rgb(var(--v-theme-primary)) 74%, white 26%);
+  --agent-assistant-mini-robot-shell-end: rgb(var(--v-theme-primary));
+  --agent-assistant-mini-robot-face-start: color-mix(in srgb, rgb(var(--v-theme-primary)) 30%, #080a12 70%);
+  --agent-assistant-mini-robot-face-end: color-mix(in srgb, rgb(var(--v-theme-primary)) 14%, #03050a 86%);
+  --agent-assistant-mini-robot-eye: color-mix(in srgb, rgb(var(--v-theme-primary)) 12%, white 88%);
+  --agent-assistant-mini-robot-shade: color-mix(in srgb, rgb(var(--v-theme-primary)) 22%, transparent);
 
   background: rgba(var(--v-theme-primary), 0.12);
   block-size: 2.5rem;
@@ -2489,7 +2490,7 @@ onScopeDispose(() => {
   );
   block-size: 1.04rem;
   box-shadow:
-    inset 0 -0.12rem 0 rgba(54, 0, 126, 22%),
+    inset 0 -0.12rem 0 var(--agent-assistant-mini-robot-shade),
     inset 0.08rem 0.08rem 0 rgba(255, 255, 255, 22%);
   inline-size: 1.45rem;
   inset-block-start: 0.42rem;
