@@ -85,6 +85,7 @@ interface UseLlmProviderDirectoryOptions {
   baseUrlPreset?: Ref<string>
   useProxy?: Ref<boolean>
   userAgent?: Ref<string>
+  apiProtocol?: Ref<string>
   model: Ref<string>
   maxContextTokens?: Ref<number>
   authConnected?: Ref<boolean>
@@ -122,10 +123,12 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     })),
   )
   const providerConnected = computed(() => Boolean(selectedProvider.value?.auth_status?.connected))
-  const showBaseUrlField = computed(
-    () => Boolean(selectedProvider.value && (selectedProvider.value.oauth_methods || []).length === 0),
+  const showBaseUrlField = computed(() =>
+    Boolean(selectedProvider.value && (selectedProvider.value.oauth_methods || []).length === 0),
   )
   const showApiKeyField = computed(() => selectedProvider.value?.supports_api_key !== false)
+  // OpenAI 兼容接口才需要选择 API 协议（Chat Completions / Responses）。
+  const showApiProtocolField = computed(() => selectedProvider.value?.runtime === 'openai')
   const hasUsableCredential = computed(() => {
     if (providerConnected.value) return true
     return Boolean(normalizeValue(options.apiKey.value))
@@ -194,6 +197,9 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     options.apiKey.value = ''
     if (options.maxContextTokens) {
       options.maxContextTokens.value = 64
+    }
+    if (options.apiProtocol) {
+      options.apiProtocol.value = 'auto'
     }
     models.value = []
     options.model.value = ''
@@ -269,9 +275,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
       updateProviderAuthStatus(normalizeValue(options.provider.value), payload.auth_status)
 
       const currentModelId = normalizeValue(options.model.value)
-      const matchedModel = currentModelId
-        ? models.value.find(item => item.id === currentModelId)
-        : null
+      const matchedModel = currentModelId ? models.value.find(item => item.id === currentModelId) : null
 
       if (matchedModel) {
         applyModelMetadata(matchedModel.id)
@@ -301,9 +305,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     authPolling.value = true
     clearPollTimer()
     try {
-      const result: { [key: string]: any } = await api.post(
-        `llm/provider-auth/${authSession.value.session_id}/poll`,
-      )
+      const result: { [key: string]: any } = await api.post(`llm/provider-auth/${authSession.value.session_id}/poll`)
       if (!result.success) {
         throw new Error(result.message || 'Poll LLM auth failed')
       }
@@ -393,6 +395,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     providerConnected,
     showBaseUrlField,
     showApiKeyField,
+    showApiProtocolField,
     hasUsableCredential,
     canRefreshModels,
     setBaseUrlPreset,

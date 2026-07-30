@@ -56,6 +56,7 @@ export interface WizardData {
     authConnected: boolean
     model: string
     thinkingLevel: string
+    apiProtocol: string
     supportImageInput: boolean
     supportAudioInput: boolean
     supportAudioOutput: boolean
@@ -142,7 +143,9 @@ export interface ValidationErrorState {
 }
 
 function normalizeThinkingLevelValue(value?: unknown) {
-  const normalized = String(value ?? '').trim().toLowerCase()
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
   if (!normalized) return ''
 
   const aliasMap: Record<string, string> = {
@@ -245,6 +248,7 @@ const wizardData = ref<WizardData>({
     authConnected: false,
     model: 'deepseek-chat',
     thinkingLevel: 'off',
+    apiProtocol: 'auto',
     supportImageInput: true,
     supportAudioInput: false,
     supportAudioOutput: false,
@@ -593,10 +597,7 @@ export function useSetupWizard() {
         errors.push(t('downloader.passwordRequired'))
         validationErrors.value.downloader.password = true
       }
-    } else if (
-      wizardData.value.downloader.type === 'transmission'
-      || wizardData.value.downloader.type === 'rtorrent'
-    ) {
+    } else if (wizardData.value.downloader.type === 'transmission' || wizardData.value.downloader.type === 'rtorrent') {
       if (!wizardData.value.downloader.config?.username?.trim()) {
         errors.push(t('downloader.usernameRequired'))
         validationErrors.value.downloader.username = true
@@ -799,7 +800,10 @@ export function useSetupWizard() {
       validationErrors.value.agent.maxContextTokens = true
     }
 
-    if (wizardData.value.agent.recommendEnabled && (!wizardData.value.agent.recommendMaxItems || wizardData.value.agent.recommendMaxItems < 1)) {
+    if (
+      wizardData.value.agent.recommendEnabled &&
+      (!wizardData.value.agent.recommendMaxItems || wizardData.value.agent.recommendMaxItems < 1)
+    ) {
       errors.push(t('setupWizard.agent.recommendMaxItemsRequired'))
       validationErrors.value.agent.recommendMaxItems = true
     }
@@ -1446,6 +1450,7 @@ export function useSetupWizard() {
         LLM_PROVIDER: wizardData.value.agent.provider,
         LLM_MODEL: wizardData.value.agent.model,
         LLM_THINKING_LEVEL: wizardData.value.agent.thinkingLevel,
+        LLM_API_PROTOCOL: wizardData.value.agent.apiProtocol || 'auto',
         LLM_SUPPORT_IMAGE_INPUT: wizardData.value.agent.supportImageInput,
         LLM_SUPPORT_AUDIO_INPUT: wizardData.value.agent.supportAudioInput,
         LLM_SUPPORT_AUDIO_OUTPUT: wizardData.value.agent.supportAudioOutput,
@@ -1469,8 +1474,7 @@ export function useSetupWizard() {
         AUDIO_OUTPUT_INCLUDE_TEXT: wizardData.value.agent.audioOutputIncludeText,
         AI_AGENT_JOB_INTERVAL: wizardData.value.agent.enabled ? wizardData.value.agent.jobInterval : 0,
         AI_AGENT_RETRY_TRANSFER: wizardData.value.agent.enabled ? wizardData.value.agent.retryTransfer : false,
-        AI_RECOMMEND_ENABLED:
-          wizardData.value.agent.enabled && wizardData.value.agent.recommendEnabled,
+        AI_RECOMMEND_ENABLED: wizardData.value.agent.enabled && wizardData.value.agent.recommendEnabled,
         AI_RECOMMEND_USER_PREFERENCE: wizardData.value.agent.recommendUserPreference,
         AI_RECOMMEND_MAX_ITEMS: wizardData.value.agent.recommendMaxItems,
       }
@@ -1562,6 +1566,7 @@ export function useSetupWizard() {
         wizardData.value.agent.authConnected = false
         wizardData.value.agent.model = result.data.LLM_MODEL || ''
         wizardData.value.agent.thinkingLevel = resolveThinkingLevelValue(result.data)
+        wizardData.value.agent.apiProtocol = result.data.LLM_API_PROTOCOL || 'auto'
         wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true
         wizardData.value.agent.supportAudioInput = Boolean(result.data.LLM_SUPPORT_AUDIO_INPUT)
         wizardData.value.agent.supportAudioOutput = Boolean(result.data.LLM_SUPPORT_AUDIO_OUTPUT)
