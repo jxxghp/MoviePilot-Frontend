@@ -1,5 +1,6 @@
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
+import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { createSite, createSiteDownloader } from '@tests/support/factories/site'
@@ -11,7 +12,7 @@ import {
 } from '@tests/support/msw/handlers/site'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   done: vi.fn(),
@@ -30,8 +31,10 @@ vi.mock('@/api/nprogress', () => ({
   startNProgress: mocks.start,
 }))
 
-async function renderDialog(oper: 'add' | 'edit', siteid?: number) {
+async function renderDialog(oper: 'add' | 'edit', siteid?: number, downloaders = [createSiteDownloader()]) {
   const events = { close: vi.fn(), save: vi.fn() }
+  const downloaderRequested = vi.fn()
+  server.use(siteDownloadersHandler(downloaders, 200, downloaderRequested))
   const result = await renderWithProviders(SiteAddEditDialog, {
     props: {
       modelValue: true,
@@ -42,22 +45,17 @@ async function renderDialog(oper: 'add' | 'edit', siteid?: number) {
     },
     global: { components: { VDialogCloseBtn: DialogCloseBtn } },
   })
+  await waitFor(() => expect(downloaderRequested).toHaveBeenCalledOnce())
+  await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
   return { ...result, events }
 }
 
 describe('SiteAddEditDialog', () => {
-  beforeEach(() => {
-    server.use(siteDownloadersHandler())
-  })
-
   it('creates a site with the entered form values and loaded downloader', async () => {
     const saved = vi.fn()
-    server.use(
-      siteDownloadersHandler([createSiteDownloader({ name: '下载器 A' })]),
-      addSiteHandler({ success: true }, 200, saved),
-    )
+    server.use(addSiteHandler({ success: true }, 200, saved))
     const user = userEvent.setup()
-    const { events } = await renderDialog('add')
+    const { events } = await renderDialog('add', undefined, [createSiteDownloader({ name: '下载器 A' })])
 
     await user.type(screen.getByLabelText('站点地址'), 'https://new.example.com/')
     await fireEvent.update(screen.getByLabelText('RSS地址'), 'https://new.example.com/rss')
@@ -125,6 +123,7 @@ describe('SiteAddEditDialog', () => {
   })
 
   it('restores progress and keeps the dialog open after an HTTP creation failure', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(addSiteHandler({ message: '服务异常', success: false }, 500))
     const user = userEvent.setup()
     const { events } = await renderDialog('add')
@@ -135,6 +134,7 @@ describe('SiteAddEditDialog', () => {
     await waitFor(() => expect(mocks.done).toHaveBeenCalledOnce())
     expect(events.save).not.toHaveBeenCalled()
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('restores numeric flags and API mode when editing a rate-limited site', async () => {
@@ -148,8 +148,8 @@ describe('SiteAddEditDialog', () => {
       render: 0,
       token: 'token',
     })
-    server.use(siteDetailsHandler(site.id, site), siteDownloadersHandler([createSiteDownloader({ name: '下载器 A' })]))
-    await renderDialog('edit', site.id)
+    server.use(siteDetailsHandler(site.id, site))
+    await renderDialog('edit', site.id, [createSiteDownloader({ name: '下载器 A' })])
 
     expect(await screen.findByText(site.name)).toBeInTheDocument()
     expect(screen.getByLabelText('使用代理访问')).toBeChecked()
@@ -178,6 +178,7 @@ describe('SiteAddEditDialog', () => {
     ['business', 200, { message: '不允许更新', success: false }, '限流站点 更新失败：不允许更新'],
     ['HTTP', 500, { message: '服务异常', success: false }, '限流站点 更新失败！'],
   ])('keeps the dialog open on %s update failure', async (_case, status, response, message) => {
+    const consoleError = status === 500 ? vi.spyOn(console, 'error').mockImplementation(() => {}) : undefined
     const site = createSite({ name: '限流站点' })
     server.use(siteDetailsHandler(site.id, site), updateSiteHandler(response, status))
     const { events } = await renderDialog('edit', site.id)
@@ -187,6 +188,7 @@ describe('SiteAddEditDialog', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(message))
     expect(events.save).not.toHaveBeenCalled()
     expect(mocks.done).toHaveBeenCalledOnce()
+    if (status === 500) expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('emits close from the dialog close button', async () => {

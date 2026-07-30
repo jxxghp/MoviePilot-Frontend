@@ -1420,6 +1420,7 @@ describe('glass optical surface discovery', () => {
   })
 
   it('publishes only the current pending preparation failure identity', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const three = await import('three')
     const pendingWallpaperUrl = ref('')
     const pendingWallpaperRevision = ref(0)
@@ -1445,6 +1446,10 @@ describe('glass optical surface discovery', () => {
     pendingWallpaperUrl.value = 'https://example.com/wallpaper-next.jpg'
     await vi.waitFor(() => expect(renderer?.failedWallpaperRevision.value).toBe(51))
 
+    expect(consoleWarn).toHaveBeenCalledWith(
+      '玻璃光学壁纸预备失败，继续使用当前纹理:',
+      expect.objectContaining({ message: 'pending source failed' }),
+    )
     expect(renderer?.failedWallpaperUrl.value).toBe('https://example.com/wallpaper-next.jpg')
     expect(renderer?.failedWallpaperPreparationKey.value).toContain('frosted:balanced:')
 

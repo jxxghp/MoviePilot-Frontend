@@ -83,15 +83,23 @@ describe('SiteImportDialog', () => {
     expect(screen.getByLabelText('选择文件')).toBeInTheDocument()
   })
 
-  it.each([
-    ['invalid JSON', brokenJsonFile(), '文件解析失败，请检查文件格式'],
-    ['non-array JSON', jsonFile({ name: 'single' }), '文件格式无效，请检查文件内容'],
-  ])('rejects %s', async (_case, file, message) => {
+  it('rejects invalid JSON', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     await renderDialog()
 
-    await chooseFile(file)
+    await chooseFile(brokenJsonFile())
 
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(message))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('文件解析失败，请检查文件格式'))
+    expect(screen.getByLabelText('选择文件')).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalledWith('Parse file error:', expect.any(SyntaxError))
+  })
+
+  it('rejects non-array JSON', async () => {
+    await renderDialog()
+
+    await chooseFile(jsonFile({ name: 'single' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('文件格式无效，请检查文件内容'))
     expect(screen.getByLabelText('选择文件')).toBeInTheDocument()
   })
 
@@ -169,6 +177,7 @@ describe('SiteImportDialog', () => {
   })
 
   it('reports partial success and preserves the HTTP error message', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const sites = [createSite({ name: '成功站点' }), createSite({ name: '失败站点' })]
     let requestIndex = 0
     server.use(
@@ -188,6 +197,7 @@ describe('SiteImportDialog', () => {
     expect(mocks.toastError).toHaveBeenCalledWith('导入完成，成功 1 个，失败 1 个')
     await fireEvent.click(screen.getByText('失败站点 - 错误详情'))
     expect(await screen.findByText('Request failed with status code 500')).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalledWith('Import site 失败站点 failed:', expect.any(Error))
   })
 
   it('does not start a request when every record is invalid', async () => {

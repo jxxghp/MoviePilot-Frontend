@@ -7,6 +7,7 @@ import {
   type SubscribeMode,
   useMediaSubscribe,
 } from '@/composables/useMediaSubscribe'
+import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createSubscribe, createSubscribeMovie, createSubscribeTv } from '@tests/support/factories/subscribe'
 import {
@@ -18,8 +19,9 @@ import {
 } from '@tests/support/msw/handlers/subscribe'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
+import { flushPromises } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   cacheStatus: vi.fn(),
@@ -223,6 +225,11 @@ describe('useMediaSubscribe entry flows', () => {
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
   })
 
+  afterEach(async () => {
+    await flushPromises()
+    await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
+  })
+
   it('creates a normal movie subscription and synchronizes public state', async () => {
     const media = createSubscribeMovie({ title: '普通电影', tmdb_id: 101, year: '2025' })
     const created = vi.fn()
@@ -302,7 +309,7 @@ describe('useMediaSubscribe entry flows', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledOnce()
     expect(mocks.toastError).not.toHaveBeenCalled()
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
-    consoleLog.mockRestore()
+    expect(consoleLog).toHaveBeenCalledOnce()
   })
 
   it('opens the mode chooser for an existing movie and creates the selected mode', async () => {
@@ -544,7 +551,7 @@ describe('useMediaSubscribe entry flows', () => {
     ['business failure', 200, { message: 'duplicate', success: false }],
     ['HTTP failure', 500, { message: 'server down', success: false }],
   ])('keeps state unchanged when create returns a %s', async (_case, status, response) => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleError = status === 500 ? vi.spyOn(console, 'error').mockImplementation(() => {}) : undefined
     server.use(createSubscribeHandler(response, status))
     await renderSubscribeHarness({ media: createSubscribeMovie({ tmdb_id: 107 }) })
 
@@ -555,14 +562,14 @@ describe('useMediaSubscribe entry flows', () => {
     expect(mocks.cacheStatus).not.toHaveBeenCalled()
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
-    consoleError.mockRestore()
+    if (status === 500) expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it.each([
     ['business failure', 200, { message: 'delete rejected', success: false }],
     ['HTTP failure', 500, { message: 'server down', success: false }],
   ])('keeps subscription state when removal returns a %s', async (_case, status, response) => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleError = status === 500 ? vi.spyOn(console, 'error').mockImplementation(() => {}) : undefined
     const deleted = vi.fn()
     server.use(deleteSubscribeByMediaHandler('tmdb:108', response, status, url => deleted(url)))
     await renderSubscribeHarness({
@@ -586,14 +593,14 @@ describe('useMediaSubscribe entry flows', () => {
     expect(screen.getByTestId('modes')).toHaveTextContent('"2":"best_version"')
     expect(mocks.cacheStatus).not.toHaveBeenCalled()
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
-    consoleError.mockRestore()
+    if (status === 500) expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it.each([
     ['business failure', 200, { message: 'update rejected', success: false }],
     ['HTTP failure', 500, { message: 'server down', success: false }],
   ])('keeps the subscribed mode when an update returns a %s', async (_case, status, response) => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleError = status === 500 ? vi.spyOn(console, 'error').mockImplementation(() => {}) : undefined
     const media = createSubscribeTv({ title: '模式更新失败剧集', tmdb_id: 110 })
     const updated = vi.fn()
     server.use(
@@ -621,7 +628,7 @@ describe('useMediaSubscribe entry flows', () => {
     expect(screen.getByTestId('modes')).toHaveTextContent('"2":"normal"')
     expect(mocks.cacheStatus).not.toHaveBeenCalled()
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
-    consoleError.mockRestore()
+    if (status === 500) expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('maps a 404 query to missing and propagates other HTTP errors', async () => {
