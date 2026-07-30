@@ -152,6 +152,7 @@ describe('dashboard media server cards', () => {
     [MediaServerPlaying, 'mediaserver/playing', '暂无继续观看记录'],
     [MediaServerLibrary, 'mediaserver/library', '暂无媒体库数据'],
   ])('keeps the successful empty snapshot when %s later fails', async (component, endpoint, emptyText) => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     let endpointReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
@@ -172,6 +173,7 @@ describe('dashboard media server cards', () => {
     expect(screen.getByText(emptyText)).toBeInTheDocument()
     expect(screen.queryByText('媒体服务器数据加载失败')).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+    expect(consoleLog).toHaveBeenCalledOnce()
   })
 
   it.each([
@@ -179,6 +181,7 @@ describe('dashboard media server cards', () => {
     [MediaServerPlaying, 'mediaserver/playing', '恢复的继续观看'],
     [MediaServerLibrary, 'mediaserver/library', '恢复的媒体库'],
   ])('shows a retry state when %s fails without a snapshot', async (component, endpoint, recoveredText) => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     let endpointReads = 0
     let shouldFail = true
     mocks.apiGet.mockImplementation((url: string) => {
@@ -202,6 +205,7 @@ describe('dashboard media server cards', () => {
     await fireEvent.click(screen.getByRole('button', { name: '媒体服务器数据加载失败' }))
     expect(await screen.findByText(recoveredText)).toBeInTheDocument()
     expect(endpointReads).toBe(failedReads + 1)
+    expect(consoleLog).toHaveBeenCalledOnce()
   })
 
   it('restores the last successful library snapshot before F5 revalidation completes', async () => {
@@ -256,6 +260,7 @@ describe('dashboard media server cards', () => {
   })
 
   it('keeps continue-watching content when a warm refresh fails', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     const refresh = deferred<Array<{ id: string; title: string }>>()
     let playingReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
@@ -281,9 +286,11 @@ describe('dashboard media server cards', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(screen.getByText('旧继续观看')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+    expect(consoleLog).toHaveBeenCalledOnce()
   })
 
   it('keeps recent-library content when a warm refresh fails', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     const refresh = deferred<Array<{ id: string; title: string }>>()
     let latestReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
@@ -307,9 +314,11 @@ describe('dashboard media server cards', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(screen.getByText('旧最近入库')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+    expect(consoleLog).toHaveBeenCalledOnce()
   })
 
   it('keeps media-library content when a warm refresh fails', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     const refresh = deferred<Array<{ id: string; name: string }>>()
     let libraryReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
@@ -330,6 +339,7 @@ describe('dashboard media server cards', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(screen.getByText('旧媒体库')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+    expect(consoleLog).toHaveBeenCalledOnce()
   })
 
   it('replaces the media-library snapshot atomically after a warm refresh', async () => {

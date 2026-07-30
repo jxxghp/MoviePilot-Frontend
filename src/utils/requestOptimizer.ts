@@ -83,8 +83,6 @@ export function initializeRequestOptimizer(axiosInstance: any) {
       return Promise.reject(error)
     },
   )
-
-  console.log('Request optimizer initialized - all requests will be auto-managed')
 }
 
 // 获取当前活跃请求数量（调试用）

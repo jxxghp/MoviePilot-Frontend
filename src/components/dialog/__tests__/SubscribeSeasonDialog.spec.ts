@@ -2,6 +2,7 @@ import type { MediaInfo, MediaSeason, NotExistMediaInfo } from '@/api/types'
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import SubscribeSeasonDialog from '@/components/dialog/SubscribeSeasonDialog.vue'
 import type { SubscribeMode } from '@/composables/useMediaSubscribe'
+import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { createMediaInfo, createMediaSeason, createNotExistMediaInfo } from '@tests/support/factories/media'
@@ -14,7 +15,7 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /** 季订阅弹窗测试属性。 */
 interface SeasonDialogProps {
@@ -102,9 +103,8 @@ async function settleRequests() {
 }
 
 describe('SubscribeSeasonDialog', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  afterEach(async () => {
+    await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
   })
 
   it('loads the default TMDB seasons once with exact requests and renders season states', async () => {
@@ -250,7 +250,9 @@ describe('SubscribeSeasonDialog', () => {
       },
       'tmdb:source-7306',
     ],
-  ] as const)('uses the %s media identifier without requesting TMDB groups', async (_label, overrides, mediaId) => {
+  ] as const)('uses the %s media identifier without requesting TMDB groups', async (label, overrides, mediaId) => {
+    const consoleWarn =
+      label === 'source-only TMDB' ? vi.spyOn(console, 'warn').mockImplementation(() => {}) : undefined
     const media = createTvMedia(overrides)
     const requested = vi.fn()
     server.use(
@@ -264,6 +266,7 @@ describe('SubscribeSeasonDialog', () => {
     await settleRequests()
     expect(requested).toHaveBeenCalledOnce()
     expect(requested.mock.calls[0][0].searchParams.get('mediaid')).toBe(mediaId)
+    if (label === 'source-only TMDB') expect(consoleWarn).toHaveBeenCalledWith('tmdbid is not set or is empty')
   })
 
   it.each([
@@ -417,6 +420,7 @@ describe('SubscribeSeasonDialog', () => {
   })
 
   it('exits Loading after the default season request fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const media = createTvMedia({ tmdb_id: 7310 })
     const requested = vi.fn()
     server.use(
@@ -431,9 +435,11 @@ describe('SubscribeSeasonDialog', () => {
 
     expect(document.querySelector('.initial-loading-container')).not.toBeInTheDocument()
     expect(screen.getByText(`${media.title} 未查询到季集信息`)).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('keeps season selection usable when the missing-state request fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const media = createTvMedia({ tmdb_id: 7313 })
     const missingRequested = vi.fn()
     server.use(
@@ -452,9 +458,11 @@ describe('SubscribeSeasonDialog', () => {
 
     expect(events.subscribe).toHaveBeenCalledOnce()
     expect(events.subscribe.mock.calls[0][1]).toEqual({})
+    expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('keeps season selection usable when optional episode groups fail to load', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const media = createTvMedia({ tmdb_id: 7314 })
     const groupsRequested = vi.fn()
     server.use(
@@ -473,6 +481,7 @@ describe('SubscribeSeasonDialog', () => {
 
     expect(events.subscribe).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: /^默认/ })).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('renders the successful empty state and emits close without submitting', async () => {

@@ -90,6 +90,7 @@ describe('SiteCookieUpdateDialog', () => {
     ['detail', { detail: '站点不存在' }, '站点不存在'],
     ['message', { message: '认证服务异常' }, '认证服务异常'],
   ])('shows an HTTP %s response and restores pending state', async (_case, body, message) => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(http.post('http://localhost/api/v1/site/cookie/701', () => HttpResponse.json(body, { status: 500 })))
     const user = userEvent.setup()
     await renderDialog()
@@ -100,6 +101,7 @@ describe('SiteCookieUpdateDialog', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(`Cookie 站点 更新失败：${message}`))
     expect(screen.getByRole('button', { name: '开始更新' })).toBeEnabled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalledOnce()
   })
 
   it('disables the update action while the request is pending and restores it afterward', async () => {
