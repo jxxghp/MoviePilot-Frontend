@@ -462,11 +462,12 @@ html[data-theme='glass'] {
     }
   }
 
-  // 磨砂标准直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
+  // Chrome 磨砂标准直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
   &[data-glass-appearance='frosted'][data-glass-quality='css'] body[data-theme='glass'] {
-    .layout-vertical-nav::before,
-    .layout-navbar,
-    .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+    .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before,
+    .layout-wrapper.layout-fixed-shell-backplate-active .layout-navbar,
+    .layout-wrapper.layout-fixed-shell-backplate-active.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .layout-navbar {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
     }

@@ -29,6 +29,7 @@ import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composab
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import { useGlassWallpaperTransaction } from '@/composables/useGlassWallpaperTransaction'
 import {
+  isChromeFixedShellBackplateBrowser,
   provideGlassFixedShellBackplate,
   shouldUseGlassFixedShellBackplate,
   type GlassFixedShellBackplateLayer,
@@ -308,6 +309,7 @@ function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
   }
 }
 
+const needsStableFixedBackdrop = isChromeFixedShellBackplateBrowser()
 const fixedShellBackplateLayers = computed<readonly GlassFixedShellBackplateLayer[]>(() => {
   const hasWallpaper = renderedBackgroundLayers.value.some(layer => Boolean(layer.url))
   if (
@@ -315,6 +317,7 @@ const fixedShellBackplateLayers = computed<readonly GlassFixedShellBackplateLaye
       appearance: effectiveGlassSettings.value.glassAppearance,
       hasWallpaper,
       isAuthenticated: Boolean(isLogin.value),
+      needsStableFixedBackdrop,
       quality: effectiveGlassSettings.value.glassQuality,
       themeName: globalTheme.name.value,
     })

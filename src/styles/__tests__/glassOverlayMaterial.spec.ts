@@ -39,7 +39,7 @@ describe('glass overlay material styles', () => {
 
     expect(styles).toContain('--glass-fixed-shell-backplate-filter: blur(min(var(--glass-blur-raised), 60px))')
     expect(styles).toMatch(
-      /&\[data-glass-appearance='frosted'\]\[data-glass-quality='css'\][\s\S]*?\.layout-vertical-nav::before,[\s\S]*?\.layout-navbar,[\s\S]*?backdrop-filter:\s*none\s*!important;/,
+      /&\[data-glass-appearance='frosted'\]\[data-glass-quality='css'\][\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-vertical-nav::before,[\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-navbar,[\s\S]*?backdrop-filter:\s*none\s*!important;/,
     )
     expect(backplate).toContain('filter: var(--glass-fixed-shell-backplate-filter)')
     expect(backplate).not.toContain('backdrop-filter')

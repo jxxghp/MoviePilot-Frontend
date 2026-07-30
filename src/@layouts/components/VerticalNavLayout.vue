@@ -76,6 +76,8 @@ export default defineComponent({
     })
 
     return () => {
+      const hasFixedShellBackplate = fixedShellBackplate.layers.value.length > 0
+
       // 👉 Vertical nav
       const verticalNav = h(
         VerticalNav,
@@ -88,15 +90,14 @@ export default defineComponent({
         },
       )
 
-      const fixedShellBackplateNode =
-        fixedShellBackplate.layers.value.length > 0
-          ? h(GlassFixedShellBackplate, {
-              isOverlayNav: mdAndDown.value,
-              isOverlayNavActive: isOverlayNavActive.value,
-              layers: fixedShellBackplate.layers.value,
-              transitionDurationMs: fixedShellBackplate.transitionDurationMs,
-            })
-          : null
+      const fixedShellBackplateNode = hasFixedShellBackplate
+        ? h(GlassFixedShellBackplate, {
+            isOverlayNav: mdAndDown.value,
+            isOverlayNavActive: isOverlayNavActive.value,
+            layers: fixedShellBackplate.layers.value,
+            transitionDurationMs: fixedShellBackplate.transitionDurationMs,
+          })
+        : null
 
       // 👉 Navbar
       const navbar = h(
@@ -158,6 +159,7 @@ export default defineComponent({
             isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
             isHorizontalLayout.value && 'layout-horizontal-nav-active',
             isHorizontalLayout.value && isNavbarScrolled && 'layout-horizontal-nav-scrolled',
+            hasFixedShellBackplate && 'layout-fixed-shell-backplate-active',
             route.meta.layoutWrapperClasses,
             !isHorizontalLayout.value && isNavbarScrolled && 'window-scrolled',
           ],
