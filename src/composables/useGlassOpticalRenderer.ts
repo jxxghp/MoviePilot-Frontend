@@ -1930,7 +1930,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (seen.has(element) || !element.isConnected || resolveGlassOpticalSurfaceMode(element) !== mode) return
 
       const rect = committedRect ?? getElementPresentationRect(element)
-      if (rect.width < 24 || rect.height < 24) return
 
       seen.add(element)
       candidates.push({ key: element, mode, owner, rect })
@@ -1968,10 +1967,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       }
 
       const rect = committedSurfaces.get(clip.key)?.rect ?? getElementPresentationRect(clip.key)
-      if (rect.width < 24 || rect.height < 24) return []
-
       return [{ ...clip, rect }]
     })
+  }
+
+  function isInteractionClipRenderable(rect: GlassOpticalRect) {
+    return rect.width >= 24 && rect.height >= 24
   }
 
   function updateInteractionClips() {
@@ -2003,7 +2004,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           inOverscan,
         }
       })
-      .filter(entry => entry.candidate.key === activeInteractionClip || entry.inOverscan)
+      .filter(
+        entry =>
+          isInteractionClipRenderable(entry.candidate.rect) &&
+          (entry.candidate.key === activeInteractionClip || entry.inOverscan),
+      )
       .sort((left, right) => {
         const leftActive = left.candidate.key === activeInteractionClip
         const rightActive = right.candidate.key === activeInteractionClip
@@ -2445,7 +2450,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!surface) return null
 
     const matchingClips = interactionClipRegistry
-      .filter(candidate => candidate.owner === surface.key && rectContainsPoint(candidate.rect, x, y))
+      .filter(
+        candidate =>
+          candidate.owner === surface.key &&
+          isInteractionClipRenderable(candidate.rect) &&
+          rectContainsPoint(candidate.rect, x, y),
+      )
       .sort((left, right) => left.rect.width * left.rect.height - right.rect.width * right.rect.height)
 
     return {
