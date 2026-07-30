@@ -25,8 +25,8 @@ const props = withDefaults(
     scrollToIndex: undefined,
     gap: 16,
     columns: undefined,
-    initialCount: 24,
-    batchSize: 24,
+    initialCount: 6,
+    batchSize: 6,
     overscanRows: 4,
     getItemKey: undefined,
   },
@@ -54,6 +54,8 @@ const viewportBottom = ref(0)
 const heightVersion = ref(0)
 const frozenVisibleRange = ref<VirtualRange | null>(null)
 const isOverlayGrid = ref(false)
+const progressiveStartIndex = ref(0)
+const progressiveEndIndex = ref(0)
 
 const itemHeights = new Map<ItemKey, number>()
 const observedElements = new Map<HTMLElement, ItemKey>()
@@ -66,6 +68,7 @@ let overlayLockObserver: MutationObserver | null = null
 let scrollTarget: ScrollTarget | null = null
 let layoutFrameId: number | null = null
 let scrollFrameId: number | null = null
+let progressiveFrameId: number | null = null
 let mounted = false
 let pendingRevealIndex: number | null = null
 let lastMeasuredColumnCount = 0
@@ -73,6 +76,8 @@ let lastMeasuredColumnWidth = 0
 let documentOverlayLocked = false
 
 const safeGap = computed(() => Math.max(0, props.gap))
+const safeInitialCount = computed(() => Math.max(1, Math.floor(props.initialCount)))
+const safeBatchSize = computed(() => Math.max(1, Math.floor(props.batchSize)))
 const safeMinItemWidth = computed(() => Math.max(1, props.minItemWidth))
 const safeOverscanRows = computed(() => Math.max(1, props.overscanRows))
 
@@ -160,7 +165,7 @@ const rowMetrics = computed(() => {
 
 const totalHeight = computed(() => rowMetrics.value.totalHeight)
 
-const calculatedVisibleRange = computed<VirtualRange>(() => {
+const calculatedViewportRange = computed<VirtualRange>(() => {
   if (isOverlayGrid.value) {
     const rowCount = Math.max(1, Math.ceil(props.items.length / columnCount.value))
 
@@ -187,8 +192,24 @@ const calculatedVisibleRange = computed<VirtualRange>(() => {
   const bottom = Math.max(top, Math.min(viewportBottom.value, totalHeight.value))
   const firstVisibleRow = findFirstRowAtOrAfterOffset(offsets, heights, top)
   const lastVisibleRow = findLastRowAtOrBeforeOffset(offsets, rowCount, bottom)
-  const startRow = clamp(firstVisibleRow - safeOverscanRows.value, 0, rowCount - 1)
-  const endRow = clamp(lastVisibleRow + safeOverscanRows.value, startRow, rowCount - 1)
+
+  return {
+    endIndex: Math.min(props.items.length, (lastVisibleRow + 1) * columnCount.value),
+    endRow: lastVisibleRow,
+    startIndex: firstVisibleRow * columnCount.value,
+    startRow: firstVisibleRow,
+  }
+})
+
+const calculatedVisibleRange = computed<VirtualRange>(() => {
+  if (isOverlayGrid.value || !props.items.length) {
+    return calculatedViewportRange.value
+  }
+
+  const viewportRange = calculatedViewportRange.value
+  const rowCount = rowMetrics.value.rowCount
+  const startRow = clamp(viewportRange.startRow - safeOverscanRows.value, 0, rowCount - 1)
+  const endRow = clamp(viewportRange.endRow + safeOverscanRows.value, startRow, rowCount - 1)
 
   return {
     endIndex: Math.min(props.items.length, (endRow + 1) * columnCount.value),
@@ -200,10 +221,45 @@ const calculatedVisibleRange = computed<VirtualRange>(() => {
 
 const visibleRange = computed(() => frozenVisibleRange.value ?? calculatedVisibleRange.value)
 
+// 视口首批内容同步提交，额外 overscan 分帧挂载；完整列表高度仍由 spacer 立即占位。
+const renderedVisibleRange = computed<VirtualRange>(() => {
+  const range = visibleRange.value
+
+  if (isOverlayGrid.value || frozenVisibleRange.value || range.endIndex <= range.startIndex) {
+    return range
+  }
+
+  const viewportRange = calculatedViewportRange.value
+  const initialEndIndex = Math.min(
+    range.endIndex,
+    Math.max(
+      viewportRange.endIndex,
+      Math.ceil((viewportRange.startIndex + safeInitialCount.value) / columnCount.value) * columnCount.value,
+    ),
+  )
+  const stagedStartIndex = clamp(progressiveStartIndex.value, range.startIndex, viewportRange.startIndex)
+  const stagedEndIndex = clamp(
+    Math.max(progressiveEndIndex.value, initialEndIndex),
+    viewportRange.endIndex,
+    range.endIndex,
+  )
+  const startRow = Math.max(range.startRow, Math.floor(stagedStartIndex / columnCount.value))
+  const endRow = Math.min(range.endRow, Math.max(range.startRow, Math.ceil(stagedEndIndex / columnCount.value) - 1))
+
+  return {
+    ...range,
+    endIndex: Math.min(range.endIndex, (endRow + 1) * columnCount.value),
+    endRow,
+    startIndex: startRow * columnCount.value,
+    startRow,
+  }
+})
+
 const visibleCells = computed<VirtualCell[]>(() => {
   const cells: VirtualCell[] = []
+  const range = renderedVisibleRange.value
 
-  for (let index = visibleRange.value.startIndex; index < visibleRange.value.endIndex; index += 1) {
+  for (let index = range.startIndex; index < range.endIndex; index += 1) {
     cells.push({
       item: props.items[index],
       index,
@@ -219,18 +275,20 @@ const topSpacerHeight = computed(() => {
     return 0
   }
 
-  return rowMetrics.value.offsets[visibleRange.value.startRow] ?? 0
+  return rowMetrics.value.offsets[renderedVisibleRange.value.startRow] ?? 0
 })
 
 const visibleBlockHeight = computed(() => {
-  if (!props.items.length || visibleRange.value.endIndex <= visibleRange.value.startIndex) {
+  const range = renderedVisibleRange.value
+
+  if (!props.items.length || range.endIndex <= range.startIndex) {
     return 0
   }
 
   return Math.max(
-    (rowMetrics.value.offsets[visibleRange.value.endRow] ?? 0) +
-      (rowMetrics.value.heights[visibleRange.value.endRow] ?? 0) -
-      (rowMetrics.value.offsets[visibleRange.value.startRow] ?? 0),
+    (rowMetrics.value.offsets[range.endRow] ?? 0) +
+      (rowMetrics.value.heights[range.endRow] ?? 0) -
+      (rowMetrics.value.offsets[range.startRow] ?? 0),
     0,
   )
 })
@@ -331,11 +389,14 @@ function freezeVisibleRange() {
   }
 
   // 弹窗打开期间固定当前渲染窗口，防止 body 锁滚动造成坐标跳变并卸载触发弹窗的卡片。
-  frozenVisibleRange.value = { ...calculatedVisibleRange.value }
+  cancelProgressiveRender()
+  frozenVisibleRange.value = { ...renderedVisibleRange.value }
 }
 
 function releaseVisibleRange() {
   frozenVisibleRange.value = null
+  syncProgressiveWindow()
+  queueProgressiveRender()
 }
 
 function handleOverlayLockChange() {
@@ -646,6 +707,74 @@ function queueViewportSync() {
   })
 }
 
+function cancelProgressiveRender() {
+  if (progressiveFrameId === null) {
+    return
+  }
+
+  window.cancelAnimationFrame(progressiveFrameId)
+  progressiveFrameId = null
+}
+
+function syncProgressiveWindow() {
+  if (isOverlayGrid.value || frozenVisibleRange.value) {
+    return
+  }
+
+  const range = calculatedVisibleRange.value
+  const viewportRange = calculatedViewportRange.value
+  const overlapsViewport =
+    progressiveEndIndex.value > viewportRange.startIndex && progressiveStartIndex.value < viewportRange.endIndex
+
+  if (!overlapsViewport) {
+    progressiveStartIndex.value = viewportRange.startIndex
+    progressiveEndIndex.value = viewportRange.endIndex
+  } else {
+    progressiveStartIndex.value = clamp(progressiveStartIndex.value, range.startIndex, viewportRange.startIndex)
+    progressiveEndIndex.value = clamp(progressiveEndIndex.value, viewportRange.endIndex, range.endIndex)
+  }
+
+  const initialEndIndex = Math.min(
+    range.endIndex,
+    Math.max(
+      viewportRange.endIndex,
+      Math.ceil((viewportRange.startIndex + safeInitialCount.value) / columnCount.value) * columnCount.value,
+    ),
+  )
+  progressiveEndIndex.value = Math.max(progressiveEndIndex.value, initialEndIndex)
+}
+
+function queueProgressiveRender() {
+  if (
+    typeof window === 'undefined' ||
+    !mounted ||
+    progressiveFrameId !== null ||
+    isOverlayGrid.value ||
+    frozenVisibleRange.value
+  ) {
+    return
+  }
+
+  const range = renderedVisibleRange.value
+  const targetRange = visibleRange.value
+  if (range.endIndex >= targetRange.endIndex && range.startIndex <= targetRange.startIndex) {
+    return
+  }
+
+  progressiveFrameId = window.requestAnimationFrame(() => {
+    progressiveFrameId = null
+    const batchRows = Math.max(1, Math.floor(safeBatchSize.value / columnCount.value))
+    const batchItems = batchRows * columnCount.value
+
+    if (range.endIndex < targetRange.endIndex) {
+      progressiveEndIndex.value = Math.min(targetRange.endIndex, range.endIndex + batchItems)
+    } else {
+      progressiveStartIndex.value = Math.max(targetRange.startIndex, range.startIndex - batchItems)
+    }
+    queueProgressiveRender()
+  })
+}
+
 function getTrackScrollTop() {
   const element = trackRef.value
 
@@ -821,17 +950,20 @@ onMounted(() => {
   window.addEventListener('resize', handleWindowResize, { passive: true })
 
   queueLayoutSync()
+  queueProgressiveRender()
 })
 
 onActivated(() => {
   mounted = true
   refreshScrollTarget()
   queueLayoutSync()
+  queueProgressiveRender()
   requestAnimationFrame(queueLayoutSync)
 })
 
 onDeactivated(() => {
   mounted = false
+  cancelProgressiveRender()
   removeScrollListener(scrollTarget)
   scrollTarget = null
 })
@@ -858,13 +990,22 @@ onUnmounted(() => {
     window.cancelAnimationFrame(scrollFrameId)
     scrollFrameId = null
   }
+
+  cancelProgressiveRender()
 })
 
 watch(
   itemKeys,
   (nextKeys, previousKeys) => {
+    if (!didKeysAppend(nextKeys, previousKeys)) {
+      cancelProgressiveRender()
+      progressiveStartIndex.value = 0
+      progressiveEndIndex.value = 0
+    }
     syncMeasurementsForItems(nextKeys, previousKeys)
+    syncProgressiveWindow()
     queueLayoutSync()
+    queueProgressiveRender()
   },
   { immediate: true },
 )
@@ -876,15 +1017,29 @@ watch(
     () => props.estimatedItemHeight,
     () => props.itemAspectRatio,
     () => props.columns,
+    () => props.initialCount,
+    () => props.batchSize,
   ],
   () => {
+    cancelProgressiveRender()
+    syncProgressiveWindow()
     queueLayoutSync()
+    queueProgressiveRender()
   },
 )
 
 watch([columnCount, columnWidth], () => {
+  cancelProgressiveRender()
   invalidateMeasurementsForLayoutChange()
+  syncProgressiveWindow()
   queueViewportSync()
+  queueProgressiveRender()
+})
+
+watch([calculatedViewportRange, calculatedVisibleRange], () => {
+  cancelProgressiveRender()
+  syncProgressiveWindow()
+  queueProgressiveRender()
 })
 
 watch(
