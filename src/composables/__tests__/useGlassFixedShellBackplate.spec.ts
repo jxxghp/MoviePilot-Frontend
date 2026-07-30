@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  isChromeFixedShellBackplateBrowser,
+  isChromiumFixedShellBackplateBrowser,
   shouldUseGlassFixedShellBackplate,
 } from '@/composables/useGlassFixedShellBackplate'
 
@@ -14,7 +14,7 @@ describe('shouldUseGlassFixedShellBackplate', () => {
     themeName: 'glass',
   }
 
-  it('enables the direct wallpaper backplate only for affected authenticated Chrome rendering', () => {
+  it('enables the direct wallpaper backplate only for affected authenticated Chromium rendering', () => {
     expect(shouldUseGlassFixedShellBackplate(eligible)).toBe(true)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, needsStableFixedBackdrop: false })).toBe(false)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, appearance: 'clear' })).toBe(false)
@@ -27,10 +27,10 @@ describe('shouldUseGlassFixedShellBackplate', () => {
   })
 })
 
-describe('isChromeFixedShellBackplateBrowser', () => {
-  it('uses Chrome browser identity without applying the workaround to other Chromium brands', () => {
+describe('isChromiumFixedShellBackplateBrowser', () => {
+  it('uses the Chromium engine brand for Chrome and Edge', () => {
     expect(
-      isChromeFixedShellBackplateBrowser({
+      isChromiumFixedShellBackplateBrowser({
         userAgent: 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36',
         userAgentData: {
           brands: [{ brand: 'Chromium' }, { brand: 'Google Chrome' }],
@@ -38,28 +38,44 @@ describe('isChromeFixedShellBackplateBrowser', () => {
       }),
     ).toBe(true)
     expect(
-      isChromeFixedShellBackplateBrowser({
+      isChromiumFixedShellBackplateBrowser({
         userAgent: 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0',
         userAgentData: {
           brands: [{ brand: 'Chromium' }, { brand: 'Microsoft Edge' }],
         },
       }),
+    ).toBe(true)
+    expect(
+      isChromiumFixedShellBackplateBrowser({
+        userAgent: 'Mozilla/5.0 Version/26.4 Safari/605.1.15',
+        userAgentData: {
+          brands: [{ brand: 'Safari' }],
+        },
+      }),
     ).toBe(false)
   })
 
-  it('falls back to the traditional user agent while leaving Safari and iOS Chrome unchanged', () => {
+  it.each([
+    ['Chrome', 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36'],
+    ['Edge', 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0'],
+    ['Opera', 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36 OPR/121.0.0.0'],
+    ['Vivaldi', 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36 Vivaldi/7.6.0.0'],
+    ['Yandex Browser', 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36 YaBrowser/25.8.0.0'],
+    ['Samsung Internet', 'Mozilla/5.0 Chrome/140.0.0.0 Mobile Safari/537.36 SamsungBrowser/28.0'],
+    ['Android WebView', 'Mozilla/5.0; wv) Version/4.0 Chrome/140.0.0.0 Mobile Safari/537.36'],
+    ['Chromium', 'Mozilla/5.0 Chromium/140.0.0.0 Safari/537.36'],
+  ])('falls back to Chromium UA tokens for %s', (_browser, userAgent) => {
+    expect(isChromiumFixedShellBackplateBrowser({ userAgent })).toBe(true)
+  })
+
+  it('leaves Safari and iOS Chrome on the native backdrop path', () => {
     expect(
-      isChromeFixedShellBackplateBrowser({
-        userAgent: 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36',
-      }),
-    ).toBe(true)
-    expect(
-      isChromeFixedShellBackplateBrowser({
+      isChromiumFixedShellBackplateBrowser({
         userAgent: 'Mozilla/5.0 Version/26.4 Safari/605.1.15',
       }),
     ).toBe(false)
     expect(
-      isChromeFixedShellBackplateBrowser({
+      isChromiumFixedShellBackplateBrowser({
         userAgent: 'Mozilla/5.0 CriOS/140.0.0.0 Mobile/15E148 Safari/604.1',
       }),
     ).toBe(false)

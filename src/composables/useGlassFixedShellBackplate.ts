@@ -21,7 +21,7 @@ interface GlassFixedShellBackplateEligibility {
   hasWallpaper: boolean
   /** 当前页面是否处于认证后的主布局。 */
   isAuthenticated: boolean
-  /** 当前浏览器是否需要绕开 Chrome fixed document backdrop 的重合成路径。 */
+  /** 当前浏览器是否需要绕开 Chromium fixed document backdrop 的重合成路径。 */
   needsStableFixedBackdrop: boolean
   /** 当前玻璃渲染质量。 */
   quality: ThemeCustomizerGlassQuality
@@ -48,15 +48,15 @@ const EMPTY_FIXED_SHELL_CONTEXT: GlassFixedShellBackplateContext = {
   transitionDurationMs: 0,
 }
 
-/** Chrome 使用独立 fixed 背板规避 document backdrop 重合成；Safari 保留原生采样路径。 */
-export function isChromeFixedShellBackplateBrowser(browserIdentity: GlassFixedShellBrowserIdentity = navigator) {
+/** Chromium 使用独立 fixed 背板规避 document backdrop 重合成；WebKit 保留原生采样路径。 */
+export function isChromiumFixedShellBackplateBrowser(browserIdentity: GlassFixedShellBrowserIdentity = navigator) {
   const brands = browserIdentity.userAgentData?.brands
-  if (brands?.length) return brands.some(({ brand }) => brand === 'Google Chrome')
+  if (brands?.length) return brands.some(({ brand }) => brand === 'Chromium')
 
-  return /\bChrome\/\d+/u.test(browserIdentity.userAgent) && !/\b(?:Edg|OPR)\/\d+/u.test(browserIdentity.userAgent)
+  return /\b(?:Chrome|Chromium)\/\d+/u.test(browserIdentity.userAgent)
 }
 
-/** 只有需要稳定 fixed 背板的 Chrome 磨砂标准布局使用直接壁纸采样。 */
+/** 只有需要稳定 fixed 背板的 Chromium 磨砂标准布局使用直接壁纸采样。 */
 export function shouldUseGlassFixedShellBackplate(options: GlassFixedShellBackplateEligibility) {
   return (
     options.isAuthenticated &&

@@ -462,7 +462,7 @@ html[data-theme='glass'] {
     }
   }
 
-  // Chrome 磨砂标准直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
+  // Chromium 磨砂标准直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
   &[data-glass-appearance='frosted'][data-glass-quality='css'] body[data-theme='glass'] {
     .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before,
     .layout-wrapper.layout-fixed-shell-backplate-active .layout-navbar,
