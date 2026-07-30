@@ -1858,6 +1858,108 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('keeps the active and nearby visible clips when a long list exceeds the shader budget', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const outerSurface = appendOpticalSurface('v-card', { height: 2200, width: 900, x: 80, y: -1200 })
+    outerSurface.dataset.glassOpticalSurface = ''
+    const cards = Array.from({ length: 12 }, (_, index) => {
+      const card = document.createElement('article')
+      card.className = 'app-hover-lift-card'
+      setOpticalSurfaceBounds(card, {
+        height: 120,
+        width: 360,
+        x: index % 2 === 0 ? 100 : 500,
+        y: -1100 + Math.floor(index / 2) * 180,
+      })
+      outerSurface.append(card)
+
+      return card
+    })
+    setOpticalSurfaceBounds(cards[10], { height: 120, width: 360, x: 100, y: 620 })
+    setOpticalSurfaceBounds(cards[11], { height: 120, width: 360, x: 500, y: 620 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 560, clientY: 680 }))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uInteractionRectCount: { value: number }
+            uInteractionRects: { value: Array<{ toArray: () => number[] }> }
+          }
+        }
+      }>
+    }
+    const rects = scene.children[0].material.uniforms.uInteractionRects.value
+      .slice(0, scene.children[0].material.uniforms.uInteractionRectCount.value)
+      .map(rect => rect.toArray())
+
+    expect(rects[0][0]).toBeCloseTo(500 / 1200)
+    expect(rects.some(rect => Math.abs(rect[0] - 100 / 1200) < 0.001 && Math.abs(rect[1] - 60 / 800) < 0.001)).toBe(
+      true,
+    )
+    expect(rects.every(rect => rect[1] >= -96 / 800)).toBe(true)
+    scope.stop()
+  })
+
+  it('hits cached interaction clips without rescanning nested cards on pointermove', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const outerSurface = appendOpticalSurface('v-card', { height: 500, width: 900, x: 80, y: 100 })
+    outerSurface.dataset.glassOpticalSurface = ''
+    const card = document.createElement('article')
+    card.className = 'app-hover-lift-card'
+    setOpticalSurfaceBounds(card, { height: 180, width: 360, x: 100, y: 140 })
+    outerSurface.append(card)
+    const querySelectorAll = vi.spyOn(outerSurface, 'querySelectorAll')
+    const measureCard = vi.spyOn(card, 'getBoundingClientRect')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    querySelectorAll.mockClear()
+    measureCard.mockClear()
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 180, clientY: 200 }))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 200, clientY: 220 }))
+
+    expect(querySelectorAll).not.toHaveBeenCalled()
+    expect(measureCard).not.toHaveBeenCalled()
+
+    ResizeObserverMock.instances.forEach(observer => observer.trigger())
+    expect(querySelectorAll).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
   it('keeps the active texture and ready state when a replacement wallpaper fails', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
@@ -2350,7 +2452,7 @@ describe('glass optical surface discovery', () => {
     }
     expect(wallpaperSampling.at(-1)).toBe(1)
 
-    window.dispatchEvent(new WheelEvent('wheel'))
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
 
     expect(wallpaperSampling.at(-1)).toBe(0)
     expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
@@ -2367,6 +2469,84 @@ describe('glass optical surface discovery', () => {
     expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
     expect(callbacks.size).toBe(0)
 
+    scope.stop()
+  })
+
+  it('ignores scroll intent and movement that cannot move a managed glass surface', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const unrelatedScroller = document.createElement('div')
+    unrelatedScroller.style.overflowY = 'auto'
+    Object.defineProperties(unrelatedScroller, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, value: 600 },
+      scrollTop: { configurable: true, value: 0, writable: true },
+    })
+    document.body.append(unrelatedScroller)
+    const unrelatedContent = document.createElement('div')
+    unrelatedScroller.append(unrelatedContent)
+    const overlay = document.createElement('div')
+    overlay.className = 'v-overlay'
+    const overlayScroller = unrelatedScroller.cloneNode() as HTMLElement
+    overlay.append(overlayScroller)
+    document.body.append(overlay)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    unrelatedContent.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 80 }))
+    unrelatedContent.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'PageDown' }))
+    unrelatedScroller.dispatchEvent(new Event('scroll', { bubbles: false }))
+    overlayScroller.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 80 }))
+    overlayScroller.dispatchEvent(new Event('scroll', { bubbles: false }))
+
+    expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
+    scope.stop()
+  })
+
+  it('starts native scroll presentation for a nested scroller that moves managed surfaces', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const scroller = document.createElement('div')
+    scroller.style.overflowY = 'auto'
+    Object.defineProperties(scroller, {
+      clientHeight: { configurable: true, value: 300 },
+      scrollHeight: { configurable: true, value: 900 },
+      scrollTop: { configurable: true, value: 0, writable: true },
+    })
+    document.body.append(scroller)
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    scroller.append(surface)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    surface.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 80 }))
+
+    expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
     scope.stop()
   })
 

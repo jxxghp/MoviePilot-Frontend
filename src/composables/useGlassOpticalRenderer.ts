@@ -359,6 +359,11 @@ type GlassOpticalSurfaceDescriptor = GlassOpticalSurfaceCandidate<HTMLElement> &
   mode: GlassOpticalSurfaceMode
 }
 
+interface GlassInteractionClipDescriptor extends GlassOpticalSurfaceDescriptor {
+  /** 拥有该局部裁剪的顶层材质面。 */
+  owner: HTMLElement
+}
+
 interface PreparedWallpaperTexture {
   /** 单次预滤后的低分辨率壁纸；中间 RenderTarget 不跨准备阶段保留。 */
   frostedTarget: WebGLRenderTarget | null
@@ -400,6 +405,7 @@ const SURFACE_SELECTORS = [
 ] as const
 const SURFACE_SELECTOR_QUERY = SURFACE_SELECTORS.map(({ selector }) => selector).join(',')
 const INTERACTION_CLIP_SELECTOR = '.app-hover-lift-card'
+const INTERACTION_CLIP_OVERSCAN_PX = 96
 
 /** 登录卡片随文档弹性合成，其余固定表面继续使用 viewport 坐标。 */
 function getSurfacePresentationSpace(
@@ -1377,6 +1383,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let availableSurfaces: GlassOpticalSurfaceDescriptor[] = []
   let surfaceSlots: GlassOpticalSurfaceSlot<HTMLElement>[] = []
   let interactionClips: GlassOpticalSurfaceDescriptor[] = []
+  let interactionClipRegistry: GlassInteractionClipDescriptor[] = []
+  let interactionClipMembershipDirty = true
   let activeSurface: HTMLElement | null = null
   let activeInteractionClip: HTMLElement | null = null
   let outgoingSurface: HTMLElement | null = null
@@ -1430,7 +1438,47 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     renderFrame(performance.now(), false)
   }
 
+  /** 找到本次输入实际可能推动的最近滚动容器。 */
+  function resolveScrollIntentTarget(event: Event): Element | null {
+    const documentScroller = document.scrollingElement ?? document.documentElement
+    const eventTarget = event.target
+    if (!(eventTarget instanceof Element)) return documentScroller
+    if (eventTarget.closest('.v-overlay')) return null
+
+    const wheel = event instanceof WheelEvent ? event : null
+    for (
+      let candidate: Element | null = eventTarget;
+      candidate && candidate !== document.body;
+      candidate = candidate.parentElement
+    ) {
+      const style = getComputedStyle(candidate)
+      const canScrollY =
+        /(auto|overlay|scroll)/.test(style.overflowY) &&
+        candidate.scrollHeight > candidate.clientHeight &&
+        (!wheel ||
+          (wheel.deltaY < 0 && candidate.scrollTop > 0) ||
+          (wheel.deltaY > 0 && candidate.scrollTop + candidate.clientHeight < candidate.scrollHeight))
+      const canScrollX =
+        /(auto|overlay|scroll)/.test(style.overflowX) &&
+        candidate.scrollWidth > candidate.clientWidth &&
+        (!wheel ||
+          (wheel.deltaX < 0 && candidate.scrollLeft > 0) ||
+          (wheel.deltaX > 0 && candidate.scrollLeft + candidate.clientWidth < candidate.scrollWidth))
+      if (canScrollX || canScrollY) return candidate
+    }
+
+    return documentScroller
+  }
+
+  /** 只有会移动文档或已管理玻璃表面的滚动才需要切换 scroll 材质路径。 */
+  function isRelevantScrollTarget(target: EventTarget | null) {
+    if (!(target instanceof Element) || target === document.documentElement || target === document.body) return true
+
+    return observedSurfaces.some(surface => target.contains(surface))
+  }
+
   function handleScrollIntent(event: Event) {
+    if (event instanceof WheelEvent && event.deltaX === 0 && event.deltaY === 0) return
     if (event instanceof KeyboardEvent) {
       const target = event.target
       if (
@@ -1442,6 +1490,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (!['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)) return
     }
 
+    const scrollTarget = resolveScrollIntentTarget(event)
+    if (!scrollTarget || !isRelevantScrollTarget(scrollTarget)) return
     beginNativeScrollPresentation()
   }
 
@@ -1815,12 +1865,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     const presentation = getCommittedPresentationSize()
-    const normalizedInteractionClips = interactionClips.map(clip => {
-      const rect =
-        clip.key === activeInteractionClip && clip.key.isConnected ? getElementPresentationRect(clip.key) : clip.rect
-
-      return normalizeGlassOpticalRect(rect, presentation.width, presentation.height)
-    })
+    const normalizedInteractionClips = interactionClips.map(clip =>
+      normalizeGlassOpticalRect(clip.rect, presentation.width, presentation.height),
+    )
     const uniformInteractionRects = resources.uniforms.uInteractionRects.value
     const uniformInteractionRadii = resources.uniforms.uInteractionRadii.value
     for (let index = 0; index < 8; index += 1) {
@@ -1871,38 +1918,102 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
    * 材质父表面可折叠多个交互卡片；共享动态场只在最终输出时按真实卡片边界裁剪。
    * 活动卡优先占用固定预算，其余可见卡片继续消费同一时序场。
    */
-  function updateInteractionClips() {
+  function refreshInteractionClipRegistry() {
     const seen = new Set<HTMLElement>()
-    const candidates: GlassOpticalSurfaceDescriptor[] = []
-    const append = (element: HTMLElement, mode: GlassOpticalSurfaceMode) => {
+    const candidates: GlassInteractionClipDescriptor[] = []
+    const append = (
+      element: HTMLElement,
+      owner: HTMLElement,
+      mode: GlassOpticalSurfaceMode,
+      committedRect?: GlassOpticalRect,
+    ) => {
       if (seen.has(element) || !element.isConnected || resolveGlassOpticalSurfaceMode(element) !== mode) return
 
-      const rect = getElementPresentationRect(element)
+      const rect = committedRect ?? getElementPresentationRect(element)
       if (rect.width < 24 || rect.height < 24) return
 
       seen.add(element)
-      candidates.push({ key: element, mode, rect })
+      candidates.push({ key: element, mode, owner, rect })
     }
 
-    for (const slot of surfaceSlots) {
-      const mode = slot.mode ?? 'dynamic'
+    for (const surface of surfaceRegistry) {
+      const mode = surface.mode ?? 'dynamic'
       if (mode === 'static-material') continue
 
-      const nestedClips = [
-        ...(slot.key.matches(INTERACTION_CLIP_SELECTOR) ? [slot.key] : []),
-        ...slot.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR),
-      ]
+      const surfaceIsClip = surface.key.matches(INTERACTION_CLIP_SELECTOR)
+      if (surfaceIsClip) append(surface.key, surface.key, mode, surface.rect)
+      const nestedClips = [...surface.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR)]
       if (nestedClips.length > 0) {
-        nestedClips.forEach(clip => append(clip, mode))
-      } else {
-        append(slot.key, mode)
+        nestedClips.forEach(clip => append(clip, surface.key, mode))
+      } else if (!surfaceIsClip) {
+        append(surface.key, surface.key, mode, surface.rect)
       }
     }
 
-    const activeIndex = activeInteractionClip
-      ? candidates.findIndex(candidate => candidate.key === activeInteractionClip)
-      : -1
-    if (activeIndex > 0) candidates.unshift(...candidates.splice(activeIndex, 1))
+    interactionClipRegistry = candidates
+    interactionClipMembershipDirty = false
+  }
+
+  /** 稳定帧复用成员集合；顶层 clip 直接复用 surface collector 已提交的矩形。 */
+  function refreshInteractionClipGeometry() {
+    const committedSurfaces = new Map(surfaceRegistry.map(surface => [surface.key, surface]))
+    interactionClipRegistry = interactionClipRegistry.flatMap(clip => {
+      if (
+        !clip.key.isConnected ||
+        !clip.owner.isConnected ||
+        resolveGlassOpticalSurfaceMode(clip.key) !== clip.mode ||
+        !committedSurfaces.has(clip.owner)
+      ) {
+        return []
+      }
+
+      const rect = committedSurfaces.get(clip.key)?.rect ?? getElementPresentationRect(clip.key)
+      if (rect.width < 24 || rect.height < 24) return []
+
+      return [{ ...clip, rect }]
+    })
+  }
+
+  function updateInteractionClips() {
+    const slotKeys = new Set(surfaceSlots.map(slot => slot.key))
+    const viewportX = presentationSpace === 'scroll' ? window.scrollX : 0
+    const viewportY = presentationSpace === 'scroll' ? window.scrollY : 0
+    const interactionPoint = getPresentationPoint(lastPointerX, lastPointerY)
+    const candidates = interactionClipRegistry
+      .filter(candidate => slotKeys.has(candidate.owner))
+      .map(candidate => {
+        const { rect } = candidate
+        const visibleWidth = Math.min(viewportX + window.innerWidth, rect.x + rect.width) - Math.max(viewportX, rect.x)
+        const visibleHeight =
+          Math.min(viewportY + window.innerHeight, rect.y + rect.height) - Math.max(viewportY, rect.y)
+        const inOverscan =
+          rect.x + rect.width >= viewportX - INTERACTION_CLIP_OVERSCAN_PX &&
+          rect.x <= viewportX + window.innerWidth + INTERACTION_CLIP_OVERSCAN_PX &&
+          rect.y + rect.height >= viewportY - INTERACTION_CLIP_OVERSCAN_PX &&
+          rect.y <= viewportY + window.innerHeight + INTERACTION_CLIP_OVERSCAN_PX
+        const distance = Math.hypot(
+          rect.x + rect.width * 0.5 - interactionPoint.x,
+          rect.y + rect.height * 0.5 - interactionPoint.y,
+        )
+
+        return {
+          candidate,
+          distance,
+          visible: visibleWidth >= 24 && visibleHeight >= 24,
+          inOverscan,
+        }
+      })
+      .filter(entry => entry.candidate.key === activeInteractionClip || entry.inOverscan)
+      .sort((left, right) => {
+        const leftActive = left.candidate.key === activeInteractionClip
+        const rightActive = right.candidate.key === activeInteractionClip
+        if (leftActive !== rightActive) return leftActive ? -1 : 1
+        if (left.visible !== right.visible) return left.visible ? -1 : 1
+
+        return left.distance - right.distance
+      })
+      .map(entry => entry.candidate)
+
     const maxCount = window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
     interactionClips = candidates.slice(0, maxCount)
   }
@@ -1947,6 +2058,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       true,
       nextObservedSurfaces,
     )
+    if (interactionClipMembershipDirty) refreshInteractionClipRegistry()
+    else refreshInteractionClipGeometry()
     updateVisibleSurfaceUniforms(timestamp)
 
     const observedSurfacesChanged =
@@ -2331,17 +2444,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const surface = availableSurfaces.find(candidate => rectContainsPoint(candidate.rect, x, y))
     if (!surface) return null
 
-    const interactionClips = [
-      ...(surface.key.matches(INTERACTION_CLIP_SELECTOR) ? [surface.key] : []),
-      ...surface.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR),
-    ]
-      .filter(element => resolveGlassOpticalSurfaceMode(element) === surface.mode)
-      .map(element => ({ element, rect: getElementPresentationRect(element) }))
-      .filter(candidate => rectContainsPoint(candidate.rect, x, y))
+    const matchingClips = interactionClipRegistry
+      .filter(candidate => candidate.owner === surface.key && rectContainsPoint(candidate.rect, x, y))
       .sort((left, right) => left.rect.width * left.rect.height - right.rect.width * right.rect.height)
 
     return {
-      clip: interactionClips[0]?.element ?? surface.key,
+      clip: matchingClips[0]?.key ?? surface.key,
       surface,
     }
   }
@@ -2352,8 +2460,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
    */
   function activateInteractionSurface(surface: HTMLElement, timestamp: number, reducedMotion: boolean) {
     if (activeSurface === surface) {
-      updateInteractionClips()
-      writeSurfaceUniforms(timestamp)
       return false
     }
 
@@ -2732,10 +2838,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function handleScroll(event: Event) {
     if (presentationSpace !== 'scroll' || !resources) return
 
+    const target = event.target
+    if (!isRelevantScrollTarget(target)) return
+
     beginNativeScrollPresentation()
     scrollFrameCommitted = false
     scrollLateGeometryCommitted = false
-    const target = event.target
     const isDocumentScroll =
       !(target instanceof Element) || target === document.documentElement || target === document.body
     if (!isDocumentScroll) {
@@ -2909,6 +3017,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       observeMutationRoot(document.querySelector('.v-overlay-container'), true)
       if (!mutationTouchesOpticalSurface(mutations)) return
 
+      interactionClipMembershipDirty = true
       commitActivePagePresentation()
       scheduleSurfaceStabilityUpdate()
     })
@@ -3006,6 +3115,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     availableSurfaces = []
     surfaceSlots = []
     interactionClips = []
+    interactionClipRegistry = []
+    interactionClipMembershipDirty = true
     activeSurface = null
     activeInteractionClip = null
     outgoingSurface = null
