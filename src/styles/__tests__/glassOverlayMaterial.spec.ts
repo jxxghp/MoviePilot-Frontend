@@ -46,6 +46,15 @@ describe('glass overlay material styles', () => {
     expect(backplate).toContain('var(--glass-fixed-shell-nav-inline-size) 100%')
     expect(backplate).toContain('.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)')
     expect(backplate).toContain('.glass-fixed-shell-backplate--overlay-nav')
+    const mainBackplateRule = backplate.match(/\.glass-fixed-shell-backplate--main\s*\{(?<declarations>[\s\S]*?)\n\}/u)
+      ?.groups?.declarations
+    const overlayBackplateRule = backplate.match(
+      /\.glass-fixed-shell-backplate--overlay-nav\s*\{(?<declarations>[\s\S]*?)\n\}/u,
+    )?.groups?.declarations
+
+    expect(mainBackplateRule).toBeDefined()
+    expect(mainBackplateRule).not.toMatch(/transition:\s*clip-path/u)
+    expect(overlayBackplateRule).toMatch(/transition:\s*clip-path 0\.25s ease-in-out/u)
     expect(styles).toMatch(/\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/)
   })
 
@@ -85,10 +94,24 @@ describe('glass overlay material styles', () => {
 
   it('keeps the native scroll backplate stable while suspending only GPU dynamics', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const balancedRuleStart = styles.indexOf("html[data-glass-appearance='frosted'][data-glass-quality='balanced'] {")
+    const balancedRuleEnd = styles.indexOf('\n}', balancedRuleStart)
+    const balancedRule = styles.slice(balancedRuleStart, balancedRuleEnd)
+    const highRuleStart = styles.indexOf("html[data-glass-appearance='frosted'][data-glass-quality='high'] {")
+    const highRuleEnd = styles.indexOf('\n}', highRuleStart)
+    const highRule = styles.slice(highRuleStart, highRuleEnd)
 
     expect(styles).toContain('--glass-native-surface-backdrop-filter')
-    expect(styles).toContain('blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)')
-    expect(styles).toContain('blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)')
+    expect(balancedRuleStart).toBeGreaterThanOrEqual(0)
+    expect(balancedRuleEnd).toBeGreaterThan(balancedRuleStart)
+    expect(balancedRule).toContain('blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)')
+    expect(balancedRule).toContain('--glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter)')
+    expect(balancedRule).not.toContain('data-glass-renderer-state')
+    expect(highRuleStart).toBeGreaterThanOrEqual(0)
+    expect(highRuleEnd).toBeGreaterThan(highRuleStart)
+    expect(highRule).toContain('blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)')
+    expect(highRule).toContain('--glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter)')
+    expect(highRule).not.toContain('data-glass-renderer-state')
     expect(styles).toMatch(
       /\[data-glass-appearance='frosted'\][\s\S]*?\[data-glass-renderer-state='ready'\]\s*\{[\s\S]*?--glass-surface-backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\);/,
     )
