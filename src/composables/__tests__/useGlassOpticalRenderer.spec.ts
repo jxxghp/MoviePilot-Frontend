@@ -2983,7 +2983,11 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTranslationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uDeformationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uDynamicsOnly')
-    expect(scene.children[0].material.fragmentShader).toContain('materialEnergy * mix(0.5, 0.72, uQuality)')
+    expect(scene.children[0].material.fragmentShader).toContain('float sharedWaveDensity = mix(2.81, 1.63')
+    expect(scene.children[0].material.fragmentShader).toContain('uMotion *\n      uMotion')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'float dynamicsPresence = max(materialEnergy, sharedMotionPresence * 0.36)',
+    )
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFlowStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')

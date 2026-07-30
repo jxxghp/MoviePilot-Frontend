@@ -765,6 +765,7 @@ void main() {
   float topPrism = 0.0;
   float backlightAbsorption = 0.0;
   float materialEnergy = 0.0;
+  float sharedMotionPresence = 0.0;
   float dynamicMask = 0.0;
   vec2 staticRefraction = vec2(0.0);
   vec2 dynamicRefraction = vec2(0.0);
@@ -868,6 +869,12 @@ void main() {
     pointerSpread *= dynamicRangeDensity * mix(1.0, 0.46, uMotionExpansion);
     float pointerEnergy =
       clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);
+    float sharedWaveDensity = mix(2.81, 1.63, uMotionExpansion);
+    float sharedWaveEnergy =
+      exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * sharedWaveDensity) *
+      clamp(length(uPointerVelocity) * 14.0 * uTranslationStrength, 0.0, 1.0) *
+      uMotion *
+      uMotion;
     vec2 wakeDelta = vUv - uPointer;
     wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float wakeAlong = dot(wakeDelta, wakeDirection);
@@ -938,6 +945,10 @@ void main() {
     topPrism = max(topPrism, localTopPrism);
     backlightAbsorption = max(backlightAbsorption, localBacklightAbsorption);
     materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask);
+    sharedMotionPresence = max(
+      sharedMotionPresence,
+      sharedWaveEnergy * rectMask * surfaceDynamic * interactionMask
+    );
     dynamicMask = max(dynamicMask, rectMask * surfaceDynamic * interactionMask);
     mask = max(mask, rectMask);
   }
@@ -1056,8 +1067,9 @@ void main() {
   refracted += highlight * caustic * causticHighlightMix * uReflectionStrength * highlightBudget;
 
   if (uDynamicsOnly > 0.5) {
+    float dynamicsPresence = max(materialEnergy, sharedMotionPresence * 0.36);
     float dynamicsAlpha =
-      clamp(materialEnergy * mix(0.5, 0.72, uQuality) * mix(1.0, 1.12, frosted), 0.0, 0.82);
+      clamp(dynamicsPresence * mix(0.5, 0.72, uQuality) * mix(1.0, 1.12, frosted), 0.0, 0.82);
     gl_FragColor = vec4(refracted, dynamicsAlpha);
     return;
   }
