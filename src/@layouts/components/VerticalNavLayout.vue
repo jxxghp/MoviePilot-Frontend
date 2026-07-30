@@ -1,11 +1,13 @@
 <script lang="ts">
 import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
+import GlassFixedShellBackplate from '@/components/theme/GlassFixedShellBackplate.vue'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
+import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBackplate'
 import { usePWA } from '@/composables/usePWA'
 
 export default defineComponent({
@@ -17,6 +19,7 @@ export default defineComponent({
     const route = useRoute()
     const { mdAndDown } = useDisplay()
     const { appMode } = usePWA()
+    const fixedShellBackplate = useGlassFixedShellBackplate()
     const themeLayout = ref(readThemeCustomizerSettings().layout)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
@@ -85,6 +88,16 @@ export default defineComponent({
         },
       )
 
+      const fixedShellBackplateNode =
+        fixedShellBackplate.layers.value.length > 0
+          ? h(GlassFixedShellBackplate, {
+              isOverlayNav: mdAndDown.value,
+              isOverlayNavActive: isOverlayNavActive.value,
+              layers: fixedShellBackplate.layers.value,
+              transitionDurationMs: fixedShellBackplate.transitionDurationMs,
+            })
+          : null
+
       // 👉 Navbar
       const navbar = h(
         'header',
@@ -149,7 +162,12 @@ export default defineComponent({
             !isHorizontalLayout.value && isNavbarScrolled && 'window-scrolled',
           ],
         },
-        [verticalNav, h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]), layoutOverlay],
+        [
+          fixedShellBackplateNode,
+          verticalNav,
+          h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]),
+          layoutOverlay,
+        ],
       )
     }
   },

@@ -1,0 +1,57 @@
+import { inject, provide, shallowRef, type InjectionKey, type Ref, type StyleValue } from 'vue'
+import type { ThemeCustomizerGlassAppearance, ThemeCustomizerGlassQuality } from '@/composables/useThemeCustomizer'
+import type { LoginBackgroundLayer } from '@/utils/loginPresentation'
+
+export interface GlassFixedShellBackplateLayer extends LoginBackgroundLayer {
+  /** 当前槽位直接采样壁纸所需的背景图与色调变量。 */
+  style: StyleValue
+}
+
+export interface GlassFixedShellBackplateContext {
+  /** App 持有的稳定双槽位；布局只消费，不建立第二套壁纸生命周期。 */
+  layers: Readonly<Ref<readonly GlassFixedShellBackplateLayer[]>>
+  /** 双槽位角色交换时使用的统一交叉淡化时长。 */
+  transitionDurationMs: number
+}
+
+interface GlassFixedShellBackplateEligibility {
+  /** 当前玻璃材质。 */
+  appearance: ThemeCustomizerGlassAppearance
+  /** 稳定双槽位中是否已经存在可显示的壁纸。 */
+  hasWallpaper: boolean
+  /** 当前页面是否处于认证后的主布局。 */
+  isAuthenticated: boolean
+  /** 当前玻璃渲染质量。 */
+  quality: ThemeCustomizerGlassQuality
+  /** Vuetify 当前解析后的主题名。 */
+  themeName: string
+}
+
+const GLASS_FIXED_SHELL_BACKPLATE_KEY: InjectionKey<GlassFixedShellBackplateContext> =
+  Symbol('glass-fixed-shell-backplate')
+const EMPTY_FIXED_SHELL_LAYERS = shallowRef<readonly GlassFixedShellBackplateLayer[]>([])
+const EMPTY_FIXED_SHELL_CONTEXT: GlassFixedShellBackplateContext = {
+  layers: EMPTY_FIXED_SHELL_LAYERS,
+  transitionDurationMs: 0,
+}
+
+/** 只有磨砂标准使用直接壁纸背板；其他材质和 GPU 质量继续走既有呈现路径。 */
+export function shouldUseGlassFixedShellBackplate(options: GlassFixedShellBackplateEligibility) {
+  return (
+    options.isAuthenticated &&
+    options.themeName === 'glass' &&
+    options.appearance === 'frosted' &&
+    options.quality === 'css' &&
+    options.hasWallpaper
+  )
+}
+
+/** 从 App 向认证后布局提供唯一的 fixed-shell 壁纸双槽位。 */
+export function provideGlassFixedShellBackplate(context: GlassFixedShellBackplateContext) {
+  provide(GLASS_FIXED_SHELL_BACKPLATE_KEY, context)
+}
+
+/** 读取 fixed-shell 双槽位；不在 App 树下时返回稳定空上下文。 */
+export function useGlassFixedShellBackplate() {
+  return inject(GLASS_FIXED_SHELL_BACKPLATE_KEY, EMPTY_FIXED_SHELL_CONTEXT)
+}

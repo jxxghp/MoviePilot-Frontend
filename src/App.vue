@@ -29,6 +29,11 @@ import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composab
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import { useGlassWallpaperTransaction } from '@/composables/useGlassWallpaperTransaction'
 import {
+  provideGlassFixedShellBackplate,
+  shouldUseGlassFixedShellBackplate,
+  type GlassFixedShellBackplateLayer,
+} from '@/composables/useGlassFixedShellBackplate'
+import {
   BACKGROUND_ROTATION_GRACE_MS,
   createBackgroundCandidateOrderResolver,
   findFirstAvailableBackground,
@@ -302,6 +307,31 @@ function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
     '--glass-wallpaper-brightness': String(materialExposure * profile.exposure),
   }
 }
+
+const fixedShellBackplateLayers = computed<readonly GlassFixedShellBackplateLayer[]>(() => {
+  const hasWallpaper = renderedBackgroundLayers.value.some(layer => Boolean(layer.url))
+  if (
+    !shouldUseGlassFixedShellBackplate({
+      appearance: effectiveGlassSettings.value.glassAppearance,
+      hasWallpaper,
+      isAuthenticated: Boolean(isLogin.value),
+      quality: effectiveGlassSettings.value.glassQuality,
+      themeName: globalTheme.name.value,
+    })
+  ) {
+    return []
+  }
+
+  return renderedBackgroundLayers.value.map(layer => ({
+    ...layer,
+    style: getBackgroundLayerStyle(layer),
+  }))
+})
+
+provideGlassFixedShellBackplate({
+  layers: fixedShellBackplateLayers,
+  transitionDurationMs: BACKGROUND_CROSSFADE_DURATION_MS,
+})
 
 applyTransparentBackgroundSettings()
 

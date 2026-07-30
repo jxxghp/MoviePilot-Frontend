@@ -33,13 +33,19 @@ describe('glass overlay material styles', () => {
     )
   })
 
-  it('keeps the fixed navigation backdrop isolated from route content and its scrollbar', () => {
+  it('keeps frosted CSS fixed shells on the stable wallpaper backplate', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const backplate = readFileSync(resolve(cwd(), 'src/components/theme/GlassFixedShellBackplate.vue'), 'utf8')
 
-    expect(styles).toContain('--glass-fixed-shell-backdrop-filter: blur(min(var(--glass-blur-raised), 60px))')
+    expect(styles).toContain('--glass-fixed-shell-backplate-filter: blur(min(var(--glass-blur-raised), 60px))')
     expect(styles).toMatch(
-      /\.layout-vertical-nav\s*\{[\s\S]*?isolation:\s*isolate;[\s\S]*?backdrop-filter:\s*none;[\s\S]*?&::before\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-fixed-shell-backdrop-filter\);/,
+      /&\[data-glass-appearance='frosted'\]\[data-glass-quality='css'\][\s\S]*?\.layout-vertical-nav::before,[\s\S]*?\.layout-navbar,[\s\S]*?backdrop-filter:\s*none\s*!important;/,
     )
+    expect(backplate).toContain('filter: var(--glass-fixed-shell-backplate-filter)')
+    expect(backplate).not.toContain('backdrop-filter')
+    expect(backplate).toContain('var(--glass-fixed-shell-nav-inline-size) 100%')
+    expect(backplate).toContain('.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)')
+    expect(backplate).toContain('.glass-fixed-shell-backplate--overlay-nav')
     expect(styles).toMatch(/\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/)
   })
 
