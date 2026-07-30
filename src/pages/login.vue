@@ -799,7 +799,7 @@ onUnmounted(() => {
         <!-- 卡片头部：Logo + 标题 + 欢迎语 -->
         <div class="login-head">
           <OpticalLogoLab class="login-logo" :locale="currentLocale" @logo-click="handleLabTap('logo')">
-            <h1 class="login-title" @click="handleLabTap('title')">MoviePilot</h1>
+            <h1 class="login-title moviepilot-wordmark" @click="handleLabTap('title')">MoviePilot</h1>
             <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
           </OpticalLogoLab>
         </div>
@@ -1141,14 +1141,7 @@ onUnmounted(() => {
 .login-title {
   margin: 0;
   animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
-  background: linear-gradient(135deg, rgb(var(--v-theme-on-surface)) 30%, rgba(var(--v-theme-primary), 1) 100%);
-  background-clip: text;
   font-size: 1.85rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-  -webkit-text-fill-color: transparent;
-  text-transform: uppercase;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;

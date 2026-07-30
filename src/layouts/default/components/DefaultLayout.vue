@@ -513,7 +513,7 @@ onMounted(async () => {
       >
         <RouterLink v-if="showHorizontalThemeNav" :to="canAdmin ? '/dashboard' : '/apps'" class="theme-horizontal-logo">
           <ThemeLogoMark class="theme-horizontal-logo__mark" />
-          <span class="theme-horizontal-logo__text">MOVIEPILOT</span>
+          <span class="theme-horizontal-logo__text moviepilot-wordmark">MOVIEPILOT</span>
         </RouterLink>
         <!-- 👉 Vertical Nav Toggle -->
         <IconBtn v-if="!appMode && display.mdAndDown.value" class="ms-n2" @click="toggleVerticalOverlayNavActive(true)">

@@ -1407,6 +1407,17 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
   --tw-gradient-to: #c084fc;
 }
 
+// 登录页与主框架共用的品牌文字效果。
+.moviepilot-wordmark {
+  background: linear-gradient(135deg, rgb(var(--v-theme-on-surface)) 30%, rgba(var(--v-theme-primary), 1) 100%);
+  background-clip: text;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+}
+
 .text-shadow {
   text-shadow: 1px 1px #777;
 }

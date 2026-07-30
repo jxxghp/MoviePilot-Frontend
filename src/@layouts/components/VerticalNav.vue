@@ -53,8 +53,8 @@ function handleNavScroll(evt: Event) {
         <RouterLink to="/" class="app-logo d-flex align-center app-title-wrapper">
           <ThemeLogoMark />
 
-          <h1 class="font-weight-bold leading-normal text-xl">
-            MOVIEPILOT <span class="text-sm text-gray-500">v2</span>
+          <h1 class="leading-normal text-xl">
+            <span class="moviepilot-wordmark">MOVIEPILOT</span> <span class="text-sm text-gray-500">v2</span>
           </h1>
         </RouterLink>
       </slot>
