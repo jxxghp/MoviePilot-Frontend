@@ -193,15 +193,17 @@ export function useGlassOpticalInteractionSource(): GlassOpticalInteractionSourc
     return touchOwners.get(changedTouch.identifier) ?? null
   }
 
+  const isTouchInteractionEvent = (event: PointerEvent | TouchEvent): event is TouchEvent =>
+    event.type.startsWith('touch')
+
   const dispatch = (event: PointerEvent | TouchEvent) => {
-    const owner =
-      event instanceof TouchEvent
-        ? resolveTouchOwner(event)
-        : resolvePointOwner((event as PointerEvent).clientX, (event as PointerEvent).clientY)
+    const owner = isTouchInteractionEvent(event)
+      ? resolveTouchOwner(event)
+      : resolvePointOwner(event.clientX, event.clientY)
     if (!owner) return
 
     for (const listener of listeners[owner]) listener(event)
-    if (event instanceof TouchEvent && (event.type === 'touchend' || event.type === 'touchcancel')) {
+    if (isTouchInteractionEvent(event) && (event.type === 'touchend' || event.type === 'touchcancel')) {
       for (const touch of Array.from(event.changedTouches)) touchOwners.delete(touch.identifier)
     }
   }
