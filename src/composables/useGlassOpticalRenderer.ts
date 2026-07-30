@@ -1903,8 +1903,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       ? candidates.findIndex(candidate => candidate.key === activeInteractionClip)
       : -1
     if (activeIndex > 0) candidates.unshift(...candidates.splice(activeIndex, 1))
-    const maxCount =
-      window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
+    const maxCount = window.innerWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
     interactionClips = candidates.slice(0, maxCount)
   }
 
