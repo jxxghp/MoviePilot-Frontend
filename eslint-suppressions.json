@@ -1041,7 +1041,7 @@
   },
   "src/views/setting/AccountSettingDirectory.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 10
+      "count": 9
     },
     "no-prototype-builtins": {
       "count": 1

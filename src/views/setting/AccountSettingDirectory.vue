@@ -2,7 +2,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import { TransferDirectoryConf, StorageConf } from '@/api/types'
+import type { ApiResponse, StorageConf, TransferDirectoryConf } from '@/api/types'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 import StorageCard from '@/components/cards/StorageCard.vue'
 import { useI18n } from 'vue-i18n'
@@ -272,9 +272,13 @@ function removeStorage(storage: StorageConf) {
 // 保存设置
 async function saveSystemSettings(value: any) {
   try {
+    // 响应拦截器返回业务响应体，并行组合前需收窄 Axios 的静态返回类型。
     const [envResult, mountedDiskResult] = await Promise.all([
-      api.post('system/env', value),
-      api.post(`system/setting/${mountedLocalDiskDeleteEmptyDirsKey}`, mountedLocalDiskDeleteEmptyDirs.value),
+      api.post('system/env', value) as unknown as Promise<ApiResponse>,
+      api.post(
+        `system/setting/${mountedLocalDiskDeleteEmptyDirsKey}`,
+        mountedLocalDiskDeleteEmptyDirs.value,
+      ) as unknown as Promise<ApiResponse>,
     ])
     if (envResult.success && mountedDiskResult.success) {
       $toast.success(t('setting.directory.organizeSaveSuccess'))
