@@ -2900,6 +2900,7 @@ describe('glass optical surface discovery', () => {
         material: {
           uniforms: {
             uDeformationStrength: { value: number }
+            uDynamicsOnly: { value: number }
             uFlowStrength: { value: number }
             uMaxRefractionPixels: { value: number }
             uMotionExpansion: { value: number }
@@ -2938,6 +2939,7 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uTrail.value[1].z).toBeGreaterThan(0)
     expect(uniforms.uTranslationStrength.value).toBe(1)
     expect(uniforms.uDeformationStrength.value).toBe(1)
+    expect(uniforms.uDynamicsOnly.value).toBe(1)
     expect(uniforms.uFlowStrength.value).toBe(1)
     expect(uniforms.uMotionExpansion.value).toBeCloseTo(0.5 ** 1.4)
     expect(uniforms.uMaxRefractionPixels.value).toBe(6)
@@ -2980,6 +2982,8 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uMotionExpansion')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTranslationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uDeformationStrength')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uDynamicsOnly')
+    expect(scene.children[0].material.fragmentShader).toContain('materialEnergy * mix(0.5, 0.72, uQuality)')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFlowStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')

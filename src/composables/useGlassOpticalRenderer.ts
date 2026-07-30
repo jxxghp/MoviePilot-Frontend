@@ -237,6 +237,7 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uBackgroundVisibility: IUniform<number>
   uCoverScale: IUniform<Vector2>
   uDeformationStrength: IUniform<number>
+  uDynamicsOnly: IUniform<number>
   uFlowTexture: IUniform<Texture | null>
   uFlowStrength: IUniform<number>
   uHasWallpaperTexture: IUniform<number>
@@ -526,6 +527,7 @@ uniform vec2 uPresentationSize;
 uniform vec2 uScrollOffset;
 uniform vec2 uVisibleViewportSize;
 uniform float uDeformationStrength;
+uniform float uDynamicsOnly;
 uniform float uFlowStrength;
 uniform float uHasWallpaperTexture;
 uniform float uHasFlowTexture;
@@ -1052,6 +1054,13 @@ void main() {
   refracted *= 1.0 - absorption;
   refracted = mix(refracted, highlight, reflectionMix);
   refracted += highlight * caustic * causticHighlightMix * uReflectionStrength * highlightBudget;
+
+  if (uDynamicsOnly > 0.5) {
+    float dynamicsAlpha =
+      clamp(materialEnergy * mix(0.5, 0.72, uQuality) * mix(1.0, 1.12, frosted), 0.0, 0.82);
+    gl_FragColor = vec4(refracted, dynamicsAlpha);
+    return;
+  }
 
   gl_FragColor = vec4(
     refracted,
@@ -3486,6 +3495,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uBackgroundVisibility: { value: materialResponse.backgroundVisibility },
         uCoverScale: { value: new three.Vector2(1, 1) },
         uDeformationStrength: { value: getDeformationStrengthScale() },
+        uDynamicsOnly: { value: presentationSpace === 'scroll' ? 1 : 0 },
         uFlowTexture: { value: null },
         uFlowStrength: { value: getFlowStrengthScale() },
         uHasFlowTexture: { value: 0 },
