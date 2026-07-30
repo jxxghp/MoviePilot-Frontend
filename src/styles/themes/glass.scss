@@ -1275,13 +1275,15 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
   }
 }
 
-// 实时档缩小原生磨砂核；通透度继续通过 frost scale 控制纹理保留程度。
-html[data-glass-appearance='frosted'][data-glass-quality='balanced'][data-glass-renderer-state='ready'] {
+// 质量档从首帧起固定原生磨砂核；renderer 就绪只叠加光学层，不再切换静态材质密度。
+html[data-glass-appearance='frosted'][data-glass-quality='balanced'] {
+  --glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-native-surface-backdrop-filter: blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)
     brightness(var(--glass-transmission-brightness));
 }
 
-html[data-glass-appearance='frosted'][data-glass-quality='high'][data-glass-renderer-state='ready'] {
+html[data-glass-appearance='frosted'][data-glass-quality='high'] {
+  --glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-native-surface-backdrop-filter: blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)
     brightness(var(--glass-transmission-brightness));
 }

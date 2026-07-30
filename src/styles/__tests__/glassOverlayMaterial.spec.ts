@@ -94,10 +94,24 @@ describe('glass overlay material styles', () => {
 
   it('keeps the native scroll backplate stable while suspending only GPU dynamics', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const balancedRuleStart = styles.indexOf("html[data-glass-appearance='frosted'][data-glass-quality='balanced'] {")
+    const balancedRuleEnd = styles.indexOf('\n}', balancedRuleStart)
+    const balancedRule = styles.slice(balancedRuleStart, balancedRuleEnd)
+    const highRuleStart = styles.indexOf("html[data-glass-appearance='frosted'][data-glass-quality='high'] {")
+    const highRuleEnd = styles.indexOf('\n}', highRuleStart)
+    const highRule = styles.slice(highRuleStart, highRuleEnd)
 
     expect(styles).toContain('--glass-native-surface-backdrop-filter')
-    expect(styles).toContain('blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)')
-    expect(styles).toContain('blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)')
+    expect(balancedRuleStart).toBeGreaterThanOrEqual(0)
+    expect(balancedRuleEnd).toBeGreaterThan(balancedRuleStart)
+    expect(balancedRule).toContain('blur(calc(16px * var(--glass-frost-blur-scale, 1))) saturate(162%)')
+    expect(balancedRule).toContain('--glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter)')
+    expect(balancedRule).not.toContain('data-glass-renderer-state')
+    expect(highRuleStart).toBeGreaterThanOrEqual(0)
+    expect(highRuleEnd).toBeGreaterThan(highRuleStart)
+    expect(highRule).toContain('blur(calc(10px * var(--glass-frost-blur-scale, 1))) saturate(154%)')
+    expect(highRule).toContain('--glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter)')
+    expect(highRule).not.toContain('data-glass-renderer-state')
     expect(styles).toMatch(
       /\[data-glass-appearance='frosted'\][\s\S]*?\[data-glass-renderer-state='ready'\]\s*\{[\s\S]*?--glass-surface-backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\);/,
     )
