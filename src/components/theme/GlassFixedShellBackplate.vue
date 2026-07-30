@@ -81,7 +81,6 @@ const transitionStyle = computed(() => ({
     var(--glass-fixed-shell-nav-inline-size) 100%,
     0 100%
   );
-  transition: clip-path 0.25s ease-in-out;
 }
 
 .layout-wrapper.layout-vertical-nav-collapsed > .glass-fixed-shell-backplate--main {

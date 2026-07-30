@@ -46,6 +46,15 @@ describe('glass overlay material styles', () => {
     expect(backplate).toContain('var(--glass-fixed-shell-nav-inline-size) 100%')
     expect(backplate).toContain('.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)')
     expect(backplate).toContain('.glass-fixed-shell-backplate--overlay-nav')
+    const mainBackplateRule = backplate.match(/\.glass-fixed-shell-backplate--main\s*\{(?<declarations>[\s\S]*?)\n\}/u)
+      ?.groups?.declarations
+    const overlayBackplateRule = backplate.match(
+      /\.glass-fixed-shell-backplate--overlay-nav\s*\{(?<declarations>[\s\S]*?)\n\}/u,
+    )?.groups?.declarations
+
+    expect(mainBackplateRule).toBeDefined()
+    expect(mainBackplateRule).not.toMatch(/transition:\s*clip-path/u)
+    expect(overlayBackplateRule).toMatch(/transition:\s*clip-path 0\.25s ease-in-out/u)
     expect(styles).toMatch(/\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/)
   })
 
