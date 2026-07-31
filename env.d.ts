@@ -6,8 +6,6 @@ declare module 'vue-router' {
     subject?: string
     keepAlive?: boolean
     keepAliveKey?: string
-    /** 来源页面停用成本较高时，分阶段把目标页起始态交给 compositor。 */
-    pagePresentationHandoff?: 'staged'
     layoutWrapperClasses?: string
     navActiveLink?: RouteLocationRaw
     requiresAuth?: boolean

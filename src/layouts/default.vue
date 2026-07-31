@@ -19,26 +19,17 @@ const routeCacheKey = computed(() => {
 
 // 页面过渡按实际页面身份触发；keep-alive 页面避免 query 变化时反复入场。
 const routeTransitionKey = computed(() => (route.meta.keepAlive ? routeCacheKey.value : route.fullPath))
-const routePresentationState = computed(() => ({
-  handoff: route.meta.pagePresentationHandoff,
-  key: routeTransitionKey.value,
-}))
 const pageRouteRef = ref<HTMLElement | null>(null)
 
 // 默认布局只编排路由事务；普通页面与玻璃材质分别由各自 driver 执行动画。
-function playPageEnterMotion(
-  nextPresentation = routePresentationState.value,
-  previousPresentation?: typeof routePresentationState.value,
-) {
+function playPageEnterMotion() {
   routeEnterMotion.cancel()
-  if (pagePresentationMotion.start(nextPresentation.key, pageRouteRef.value)) return
+  if (pagePresentationMotion.start(routeTransitionKey.value, pageRouteRef.value)) return
 
-  routeEnterMotion.start(pageRouteRef.value, {
-    stagedHandoff: previousPresentation?.handoff === 'staged',
-  })
+  routeEnterMotion.start(pageRouteRef.value)
 }
 
-watch(routePresentationState, playPageEnterMotion, { flush: 'post' })
+watch(routeTransitionKey, playPageEnterMotion, { flush: 'post' })
 
 onMounted(playPageEnterMotion)
 

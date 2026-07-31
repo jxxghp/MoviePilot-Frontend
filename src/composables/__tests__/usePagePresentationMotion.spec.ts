@@ -143,6 +143,38 @@ describe('page presentation motion', () => {
     routeRoot.remove()
   })
 
+  it('ignores a late geometry acknowledgement after reveal has started', () => {
+    const routeRoot = document.createElement('div')
+    Object.defineProperties(routeRoot, {
+      offsetHeight: { configurable: true, get: () => 2096 },
+      offsetWidth: { configurable: true, get: () => 1200 },
+      scrollHeight: { configurable: true, get: () => 2096 },
+      scrollWidth: { configurable: true, get: () => 1200 },
+    })
+    document.body.append(routeRoot)
+
+    expect(motion.start('/dashboard', routeRoot)).toBe(true)
+    const motionEpoch = motion.epoch.value
+    expect(motion.reader.acknowledgeGeometryReady(motionEpoch, 1040)).toBe(true)
+
+    const revealFrame = [...callbacks.values()].at(-1)!
+    revealFrame(1120)
+    const currentFrame = [...callbacks.values()].at(-1)!
+    const currentOpacity = motion.opacity.value
+    const currentProgress = motion.progress.value
+    const currentRevision = motion.revision.value
+    const currentTranslateY = motion.translateY.value
+
+    expect(motion.reader.acknowledgeGeometryReady(motionEpoch, 1160)).toBe(false)
+    expect(motion.opacity.value).toBe(currentOpacity)
+    expect(motion.progress.value).toBe(currentProgress)
+    expect(motion.revision.value).toBe(currentRevision)
+    expect(motion.translateY.value).toBe(currentTranslateY)
+    expect([...callbacks.values()].at(-1)).toBe(currentFrame)
+
+    routeRoot.remove()
+  })
+
   it('keeps frosted material fully composed when the renderer releases its geometry hold', () => {
     document.documentElement.dataset.glassAppearance = 'frosted'
     const routeRoot = document.createElement('div')

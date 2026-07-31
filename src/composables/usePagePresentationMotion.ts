@@ -29,6 +29,7 @@ const revision = ref(0)
 const routeKey = ref('')
 const translateY = ref(0)
 let animationFrame: number | null = null
+let layoutHoldActive = false
 let layoutHoldStartedAt = 0
 let layoutStableSince = 0
 let layoutSignature = ''
@@ -105,6 +106,7 @@ function getLayoutSignature(root: HTMLElement) {
 function beginReveal(timestamp: number, motionEpoch: number) {
   if (!active.value || epoch.value !== motionEpoch) return
 
+  layoutHoldActive = false
   startedAt = timestamp
   applyMotionFrame(0)
   animationFrame = window.requestAnimationFrame(nextTimestamp => renderFrame(nextTimestamp, motionEpoch))
@@ -112,7 +114,7 @@ function beginReveal(timestamp: number, motionEpoch: number) {
 
 /** GPU surface 比整页高度更早稳定时，直接结束布局等待。 */
 function acknowledgeGeometryReady(motionEpoch: number, timestamp = performance.now()) {
-  if (!active.value || epoch.value !== motionEpoch) return false
+  if (!active.value || epoch.value !== motionEpoch || !layoutHoldActive) return false
 
   if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
   animationFrame = null
@@ -144,6 +146,7 @@ function sampleLayoutHold(timestamp: number, motionEpoch: number, root: HTMLElem
 }
 
 function settleMotion() {
+  layoutHoldActive = false
   active.value = false
   opacity.value = 1
   progress.value = 1
@@ -191,6 +194,7 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
 
   if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
   animationFrame = null
+  layoutHoldActive = false
   epoch.value += 1
   const motionEpoch = epoch.value
   routeKey.value = nextRouteKey
@@ -222,6 +226,7 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
   active.value = true
   const timestamp = performance.now()
   if (layoutRoot && !usesCssQuality) {
+    layoutHoldActive = true
     layoutHoldStartedAt = timestamp
     layoutStableSince = timestamp
     layoutSignature = getLayoutSignature(layoutRoot)
