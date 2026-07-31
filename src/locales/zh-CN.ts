@@ -2212,7 +2212,7 @@ export default {
       tokenizedSearchHint: '提升整理历史记录搜索精度，但可能增加性能开销和意外结果',
       monitorNetworkFastMode: '网络存储快速监控',
       monitorNetworkFastModeHint:
-        '允许网络/FUSE 挂载目录使用内核通知的快速监控模式，仅当确认挂载能正常下发文件变更通知时开启，否则新文件将无法被监控发现，修改后重启生效',
+        '允许网络/FUSE 挂载目录使用内核通知的快速监控模式，仅当确认挂载能正常下发文件变更通知时开启，否则新文件将无法被监控发现，保存后将自动重建监控并即时生效',
       tmdbLanguage: {
         zhCN: '简体中文',
         zhTW: '繁体中文',
