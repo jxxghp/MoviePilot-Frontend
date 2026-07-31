@@ -173,7 +173,7 @@ onActivated(() => {
       </template>
     </DashboardMediaState>
 
-    <VCard v-if="displayedPlayingList.length > 0" class="dashboard-media-card">
+    <VCard v-if="displayedPlayingList.length > 0" class="dashboard-media-card" data-glass-optical-boundary>
       <VCardItem class="dashboard-media-header">
         <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
         <template v-if="loadFailed" #append>

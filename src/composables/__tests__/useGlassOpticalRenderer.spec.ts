@@ -1974,6 +1974,73 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('keeps an explicit optical boundary as the interaction clip without allocating nested slots', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const pageContent = document.createElement('main')
+    pageContent.className = 'layout-page-content'
+    const outerSurface = document.createElement('section')
+    outerSurface.className = 'v-card'
+    outerSurface.dataset.glassOpticalBoundary = ''
+    outerSurface.style.borderTopLeftRadius = '24px'
+    outerSurface.style.borderTopRightRadius = '24px'
+    outerSurface.style.borderBottomRightRadius = '24px'
+    outerSurface.style.borderBottomLeftRadius = '24px'
+    setOpticalSurfaceBounds(outerSurface, { height: 420, width: 900, x: 40, y: 80 })
+    for (const x of [80, 400]) {
+      const nestedCard = document.createElement('article')
+      nestedCard.className = 'app-hover-lift-card'
+      setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x, y: 140 })
+      outerSurface.append(nestedCard)
+    }
+    pageContent.append(outerSurface)
+    document.body.append(pageContent)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    render.mockClear()
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 200 }))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uInteractionRadii: { value: Array<{ toArray: () => number[] }> }
+            uInteractionRectCount: { value: number }
+            uInteractionRects: { value: Array<{ toArray: () => number[] }> }
+            uRectCount: { value: number }
+          }
+        }
+      }>
+    }
+    const material = scene.children[0].material
+
+    expect(material.uniforms.uRectCount.value).toBe(1)
+    expect(material.uniforms.uInteractionRectCount.value).toBe(1)
+    expect(material.uniforms.uInteractionRects.value[0].toArray()).toEqual([
+      40 / 1200,
+      1 - (80 + 420) / 800,
+      900 / 1200,
+      420 / 800,
+    ])
+    expect(material.uniforms.uInteractionRadii.value[0].toArray()).toEqual([24, 24, 24, 24])
+    scope.stop()
+  })
+
   it('keeps the active and nearby visible clips when a long list exceeds the shader budget', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)

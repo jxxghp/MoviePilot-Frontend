@@ -165,7 +165,12 @@ onActivated(() => {
       </template>
     </DashboardMediaState>
 
-    <VCard v-for="(data, name) in latestList" :key="name" class="dashboard-work-card dashboard-media-card">
+    <VCard
+      v-for="(data, name) in latestList"
+      :key="name"
+      class="dashboard-work-card dashboard-media-card"
+      data-glass-optical-boundary
+    >
       <VCardItem class="dashboard-media-header">
         <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
         <template v-if="loadFailed" #append>

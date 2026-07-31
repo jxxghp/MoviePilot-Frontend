@@ -405,6 +405,7 @@ const SURFACE_SELECTORS = [
 ] as const
 const SURFACE_SELECTOR_QUERY = SURFACE_SELECTORS.map(({ selector }) => selector).join(',')
 const INTERACTION_CLIP_SELECTOR = '.app-hover-lift-card'
+const OPTICAL_BOUNDARY_SELECTOR = '[data-glass-optical-boundary]'
 const INTERACTION_CLIP_OVERSCAN_PX = 96
 
 /** 登录卡片随文档弹性合成，其余固定表面继续使用 viewport 坐标。 */
@@ -1944,6 +1945,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const mode = surface.mode ?? 'dynamic'
       if (mode === 'static-material') continue
 
+      // 显式 optical boundary 自身定义完整材质边界；嵌套交互卡只承载其内部内容。
+      if (surface.key.matches(OPTICAL_BOUNDARY_SELECTOR)) {
+        append(surface.key, surface.key, mode, surface.rect)
+        continue
+      }
+
       const surfaceIsClip = surface.key.matches(INTERACTION_CLIP_SELECTOR)
       if (surfaceIsClip) append(surface.key, surface.key, mode, surface.rect)
       const nestedClips = [...surface.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR)]
@@ -3026,7 +3033,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       observedMutationRoots.add(root)
       surfaceMutationObserver?.observe(root, {
-        attributeFilter: ['data-glass-optical-mode'],
+        attributeFilter: ['data-glass-optical-boundary', 'data-glass-optical-mode'],
         attributes: true,
         childList: true,
         subtree,
