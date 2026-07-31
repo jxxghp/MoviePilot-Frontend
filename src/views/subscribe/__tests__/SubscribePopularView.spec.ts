@@ -241,13 +241,49 @@ describe('SubscribePopularView', () => {
     expect(screen.getByText('热门第二页')).toBeInTheDocument()
   })
 
+  it('deduplicates media across pages and stops when an identity set repeats', async () => {
+    const first = createSubscribeMovie({ title: '热门去重第一页', tmdb_id: 810 })
+    const second = createSubscribeMovie({ title: '热门去重第二页', tmdb_id: 820 })
+    const requestedPages: string[] = []
+    server.use(
+      http.get(subscribeApiUrls.popular, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? ''
+        requestedPages.push(page)
+        if (page === '1') return HttpResponse.json([first])
+        if (page === '2') {
+          return HttpResponse.json([{ ...first, title: '第一页跨页重复项' }, second])
+        }
+        return HttpResponse.json([
+          { ...second, title: '第二页乱序重复项' },
+          { ...first, title: '第一页乱序重复项' },
+          { ...first, title: '第一页页内重复项' },
+        ])
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    expect(await screen.findByText('热门去重第一页')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+    expect(await screen.findByText('热门去重第二页')).toBeInTheDocument()
+    expect(screen.queryByText('第一页跨页重复项')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+    await waitFor(() => expect(requestedPages).toEqual(['1', '2', '3']))
+    expect(screen.getByRole('status', { name: '热门订阅无限列表状态' })).toHaveTextContent('empty')
+    expect(screen.queryByText('第二页乱序重复项')).not.toBeInTheDocument()
+    expect(screen.queryByText('第一页乱序重复项')).not.toBeInTheDocument()
+    expect(screen.queryByText('第一页页内重复项')).not.toBeInTheDocument()
+  })
+
   it('loads consecutive pages until an underfilled viewport becomes scrollable', async () => {
     const first = createSubscribeMovie({ title: '未满屏第一页' })
     const second = createSubscribeMovie({ title: '未满屏第二页' })
     const requestedPages: string[] = []
-    const scrollHeight = vi.spyOn(document.body, 'scrollHeight', 'get').mockImplementation(() =>
-      requestedPages.length >= 2 ? 900 : 500,
-    )
+    const scrollHeight = vi
+      .spyOn(document.body, 'scrollHeight', 'get')
+      .mockImplementation(() => (requestedPages.length >= 2 ? 900 : 500))
     server.use(
       http.get(subscribeApiUrls.popular, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
@@ -396,9 +432,20 @@ describe('SubscribePopularView', () => {
     expect(await screen.findByText('同剧第一季')).toBeInTheDocument()
     expect(screen.getByText('同剧第二季')).toBeInTheDocument()
 
-    // 新的 getMediaIdentity 使用 JSON.stringify(dedupFields.map(...))
-    // dedupFields: ['source', 'type', 'season', 'tmdb_id', 'imdb_id', 'tvdb_id', 'douban_id', 'bangumi_id', 'anilist_id', 'mediaid_prefix', 'media_id']
-    const identityFields = ['source', 'type', 'season', 'tmdb_id', 'imdb_id', 'tvdb_id', 'douban_id', 'bangumi_id', 'anilist_id', 'mediaid_prefix', 'media_id'] as const
+    // 渲染键与生产媒体身份字段保持一致，避免不同季条目发生键冲突。
+    const identityFields = [
+      'source',
+      'type',
+      'season',
+      'tmdb_id',
+      'imdb_id',
+      'tvdb_id',
+      'douban_id',
+      'bangumi_id',
+      'anilist_id',
+      'mediaid_prefix',
+      'media_id',
+    ] as const
     const item1 = createSubscribeTv({ season: 1, source: undefined, title: '同剧第一季', tmdb_id: 880 })
     const item2 = createSubscribeTv({ season: 2, source: undefined, title: '同剧第二季', tmdb_id: 880 })
     const expectedKeys = [
