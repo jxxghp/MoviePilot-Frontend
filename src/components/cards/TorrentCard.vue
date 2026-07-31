@@ -76,9 +76,12 @@ async function handleAddDownload(item: Context | null = null) {
   openSharedDialog(
     AddDownloadDialog,
     {
-      title: `${downloadItem.value?.media_info?.title_year || downloadItem.value?.meta_info?.name} ${
-        downloadItem.value?.meta_info?.season_episode
-      }`,
+      title: [
+        downloadItem.value?.media_info?.title_year || downloadItem.value?.meta_info?.name,
+        downloadItem.value?.meta_info?.season_episode,
+      ]
+        .filter(Boolean)
+        .join(' '),
       media: downloadItem.value?.media_info,
       torrent: downloadItem.value?.torrent_info,
     },
@@ -92,16 +95,10 @@ async function handleAddDownload(item: Context | null = null) {
 
 // 打开种子详情页面
 function openTorrentDetail(item: Context | null = null) {
-  if (item && !isNullOrEmptyObject(item) && !isNullOrEmptyObject(item.torrent_info)) {
-    window.open(item.torrent_info.page_url, '_blank')
-    return
+  const pageUrl = item && !isNullOrEmptyObject(item) ? item.torrent_info?.page_url : torrent.value?.page_url
+  if (pageUrl) {
+    window.open(pageUrl, '_blank')
   }
-  window.open(torrent.value?.page_url, '_blank')
-}
-
-// 下载种子文件
-async function downloadTorrentFile() {
-  window.open(torrent.value?.enclosure, '_blank')
 }
 
 // 获取优惠类型样式

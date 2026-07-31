@@ -29,15 +29,16 @@ const siteIcon = ref('')
 const isDownloaded = computed(() => Boolean(torrent.value?.enclosure && downloadedTorrentMap[torrent.value.enclosure]))
 
 // 查询站点图标
-async function getSiteIcon() {
-  if (!torrent?.value?.site) {
+async function getSiteIcon(site: number | undefined) {
+  if (!site) {
+    siteIcon.value = ''
     return
   }
 
   try {
-    siteIcon.value = await getCachedSiteIcon(torrent.value.site, async () => {
+    const icon = await getCachedSiteIcon(site, async () => {
       try {
-        const response = await api.get(`site/icon/${torrent.value?.site}`)
+        const response = await api.get(`site/icon/${site}`)
 
         return response?.data?.icon || ''
       } catch (error) {
@@ -45,9 +46,15 @@ async function getSiteIcon() {
         return ''
       }
     })
+    // 只提交当前站点的响应，避免 Context 快速切换时旧请求覆盖新图标。
+    if (torrent.value?.site === site) {
+      siteIcon.value = icon
+    }
   } catch (error) {
     console.error('Failed to load site icon:', error)
-    siteIcon.value = ''
+    if (torrent.value?.site === site) {
+      siteIcon.value = ''
+    }
   }
 }
 
@@ -57,15 +64,6 @@ function getPromotionClass(downloadVolumeFactor: number | undefined, uploadVolum
   if (downloadVolumeFactor === 0) return 'bg-success'
   else if (downloadVolumeFactor < 1) return 'bg-orange'
   else if (uploadVolumeFactor !== undefined && uploadVolumeFactor > 1) return 'bg-purple'
-  else return ''
-}
-
-// 获取优惠标签类
-function getPromotionChipClass(downloadVolumeFactor: number | undefined, uploadVolumeFactor: number | undefined) {
-  if (!downloadVolumeFactor) return 'chip-free'
-  if (downloadVolumeFactor === 0) return 'chip-free'
-  else if (downloadVolumeFactor < 1) return 'chip-discount'
-  else if (uploadVolumeFactor !== undefined && uploadVolumeFactor > 1) return 'chip-bonus'
   else return ''
 }
 
@@ -99,7 +97,9 @@ function addDownloadError(error: string) {
 
 // 打开种子详情页面
 function openTorrentDetail() {
-  window.open(torrent.value?.page_url, '_blank')
+  if (torrent.value?.page_url) {
+    window.open(torrent.value.page_url, '_blank')
+  }
 }
 
 watch(
@@ -108,7 +108,7 @@ watch(
     torrent.value = value?.torrent_info
     media.value = value?.media_info
     meta.value = value?.meta_info
-    getSiteIcon()
+    getSiteIcon(value?.torrent_info?.site)
   },
   { immediate: true },
 )
