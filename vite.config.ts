@@ -284,6 +284,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
       include: [
         'src/utils/recommendSources.ts',
         'src/utils/permission.ts',
+        'src/utils/requestOptimizer.ts',
+        'src/utils/sseManager.ts',
         'src/stores/auth.ts',
         'src/pages/recommend.vue',
         'src/pages/discover.vue',
@@ -497,6 +499,18 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 80,
           lines: 80,
           statements: 80,
+        },
+        'src/utils/requestOptimizer.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/utils/sseManager.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/utils/searchStream.ts': {
           branches: 85,
