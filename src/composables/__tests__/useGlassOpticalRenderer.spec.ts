@@ -456,6 +456,47 @@ describe('glass optical surface discovery', () => {
     ])
   })
 
+  it('keeps frosted fixed surfaces on dynamics-only GPU composition', async () => {
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const canvas = document.createElement('canvas')
+    const appearance = ref<'clear' | 'frosted' | 'tinted'>('clear')
+    appendOpticalSurface('layout-vertical-nav', { height: 800, width: 260, x: 0, y: 0 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance,
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'fixed',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uDynamicsOnly: { value: number }
+          }
+        }
+      }>
+    }
+    const dynamicsOnly = scene.children[0].material.uniforms.uDynamicsOnly
+    expect(dynamicsOnly.value).toBe(0)
+
+    appearance.value = 'frosted'
+    await vi.waitFor(() => expect(dynamicsOnly.value).toBe(1))
+
+    appearance.value = 'tinted'
+    await vi.waitFor(() => expect(dynamicsOnly.value).toBe(0))
+    scope.stop()
+  })
+
   it('re-samples scroll surfaces and material weight on a shared page motion revision', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)

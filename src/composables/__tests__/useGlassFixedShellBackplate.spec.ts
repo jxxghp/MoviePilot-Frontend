@@ -14,13 +14,13 @@ describe('shouldUseGlassFixedShellBackplate', () => {
     themeName: 'glass',
   }
 
-  it('enables the direct wallpaper backplate only for affected authenticated Chromium rendering', () => {
+  it('enables the direct wallpaper backplate for every frosted Chromium quality', () => {
     expect(shouldUseGlassFixedShellBackplate(eligible)).toBe(true)
+    expect(shouldUseGlassFixedShellBackplate({ ...eligible, quality: 'balanced' })).toBe(true)
+    expect(shouldUseGlassFixedShellBackplate({ ...eligible, quality: 'high' })).toBe(true)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, needsStableFixedBackdrop: false })).toBe(false)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, appearance: 'clear' })).toBe(false)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, appearance: 'tinted' })).toBe(false)
-    expect(shouldUseGlassFixedShellBackplate({ ...eligible, quality: 'balanced' })).toBe(false)
-    expect(shouldUseGlassFixedShellBackplate({ ...eligible, quality: 'high' })).toBe(false)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, themeName: 'transparent' })).toBe(false)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, isAuthenticated: false })).toBe(false)
     expect(shouldUseGlassFixedShellBackplate({ ...eligible, hasWallpaper: false })).toBe(false)

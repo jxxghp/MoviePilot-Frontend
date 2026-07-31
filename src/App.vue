@@ -1141,35 +1141,35 @@ onUnmounted(() => {
       <!-- 全局磨砂层 -->
       <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
     </div>
-    <GlassOpticalLayer
-      v-if="shouldRenderGlassOpticalLayer"
-      :appearance="effectiveGlassSettings.glassAppearance"
-      :deformation-strength="opticalDeformationStrength"
-      :flow-strength="opticalFlowStrength"
-      :quality="opticalQuality === 'high' ? 'high' : 'balanced'"
-      :reflection-strength="opticalReflectionStrength"
-      :transparency-strength="opticalTransparencyStrength"
-      :transmission-strength="opticalTransmissionStrength"
-      :translation-strength="opticalTranslationStrength"
-      :route-key="route.fullPath"
-      :tint-color="globalTheme.current.value.colors.primary"
-      :transition-duration="BACKGROUND_CROSSFADE_DURATION_MS"
-      :transition-started-at="backgroundCrossfadeStartedAt"
-      :wallpaper-url="activeOpticalBackgroundImage"
-      :previous-wallpaper-url="previousOpticalBackgroundImage"
-      :pending-wallpaper-url="pendingOpticalBackgroundImage"
-      :pending-wallpaper-revision="pendingOpticalWallpaperRevision"
-      :activate-wallpaper-revision="activateOpticalWallpaperRevision"
-      @wallpaper-activation-failed="handleOpticalWallpaperActivationFailed"
-      @wallpaper-activated="handleOpticalWallpaperActivated"
-      @wallpaper-preparation-failed="handleOpticalWallpaperPreparationFailed"
-      @wallpaper-prepared="handleOpticalWallpaperPrepared"
-    />
     <!-- 页面内容 -->
     <VApp
       :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }"
       :data-login-visual-profile="isLoginWallpaperRoute ? loginVisualProfile : undefined"
     >
+      <GlassOpticalLayer
+        v-if="shouldRenderGlassOpticalLayer"
+        :appearance="effectiveGlassSettings.glassAppearance"
+        :deformation-strength="opticalDeformationStrength"
+        :flow-strength="opticalFlowStrength"
+        :quality="opticalQuality === 'high' ? 'high' : 'balanced'"
+        :reflection-strength="opticalReflectionStrength"
+        :transparency-strength="opticalTransparencyStrength"
+        :transmission-strength="opticalTransmissionStrength"
+        :translation-strength="opticalTranslationStrength"
+        :route-key="route.fullPath"
+        :tint-color="globalTheme.current.value.colors.primary"
+        :transition-duration="BACKGROUND_CROSSFADE_DURATION_MS"
+        :transition-started-at="backgroundCrossfadeStartedAt"
+        :wallpaper-url="activeOpticalBackgroundImage"
+        :previous-wallpaper-url="previousOpticalBackgroundImage"
+        :pending-wallpaper-url="pendingOpticalBackgroundImage"
+        :pending-wallpaper-revision="pendingOpticalWallpaperRevision"
+        :activate-wallpaper-revision="activateOpticalWallpaperRevision"
+        @wallpaper-activation-failed="handleOpticalWallpaperActivationFailed"
+        @wallpaper-activated="handleOpticalWallpaperActivated"
+        @wallpaper-preparation-failed="handleOpticalWallpaperPreparationFailed"
+        @wallpaper-prepared="handleOpticalWallpaperPrepared"
+      />
       <RouterView />
       <!-- 全局共享弹窗入口，列表与卡片按需在这里挂载业务弹窗。 -->
       <SharedDialogHost />
