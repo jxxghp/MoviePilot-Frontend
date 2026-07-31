@@ -2,14 +2,8 @@ import { onScopeDispose, readonly, ref } from 'vue'
 
 export const ROUTE_ENTER_MOTION_DURATION_MS = 180
 export const ROUTE_ENTER_MOTION_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
-export const ROUTE_ENTER_STAGED_PAINT_BOUNDARIES = 1
 
 export type RouteEnterMotionPhase = 'idle' | 'armed' | 'running'
-
-export interface RouteEnterMotionOptions {
-  /** 重页面离场时多保留一个绘制边界，确保目标页起始态已交给 compositor。 */
-  stagedHandoff?: boolean
-}
 
 function shouldSkipRouteEnterMotion() {
   const launchScreenActive =
@@ -39,22 +33,18 @@ export function useRouteEnterMotion() {
     phase.value = 'idle'
   }
 
-  function playAfterPaints(animation: Animation, remainingPaints: number, motionEpoch: number) {
+  function playAfterPaint(animation: Animation, motionEpoch: number) {
     if (motionEpoch !== epoch || animation !== activeAnimation) return
-
-    if (remainingPaints <= 0) {
-      phase.value = 'running'
-      animation.play()
-      return
-    }
 
     animationFrame = window.requestAnimationFrame(() => {
       animationFrame = null
-      playAfterPaints(animation, remainingPaints - 1, motionEpoch)
+      if (motionEpoch !== epoch || animation !== activeAnimation) return
+      phase.value = 'running'
+      animation.play()
     })
   }
 
-  function start(root: HTMLElement | null | undefined, options: RouteEnterMotionOptions = {}) {
+  function start(root: HTMLElement | null | undefined) {
     cancel()
     if (!root || shouldSkipRouteEnterMotion() || typeof root.animate !== 'function') return false
 
@@ -94,7 +84,7 @@ export function useRouteEnterMotion() {
         // cancel() 会拒绝 finished；epoch 已负责丢弃过期事务。
       })
 
-    playAfterPaints(animation, options.stagedHandoff ? ROUTE_ENTER_STAGED_PAINT_BOUNDARIES : 1, motionEpoch)
+    playAfterPaint(animation, motionEpoch)
     return true
   }
 

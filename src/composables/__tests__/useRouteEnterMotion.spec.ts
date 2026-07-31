@@ -88,17 +88,6 @@ describe('route enter motion', () => {
     expect(motion.phase.value).toBe('running')
   })
 
-  it('commits one paint boundary before a staged handoff', () => {
-    const root = document.createElement('div')
-    const stub = createAnimationStub()
-    root.animate = vi.fn(() => stub.animation)
-    const motion = createMotion()
-
-    motion.start(root, { stagedHandoff: true })
-    runNextFrame()
-    expect(stub.play).toHaveBeenCalledOnce()
-  })
-
   it('cancels the previous animation and pending frame on rapid navigation', () => {
     const root = document.createElement('div')
     const first = createAnimationStub()
