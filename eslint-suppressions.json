@@ -208,19 +208,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/AddDownloadDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/AddSubtitleDownloadDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "src/components/dialog/AgentMcpSettingsDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
