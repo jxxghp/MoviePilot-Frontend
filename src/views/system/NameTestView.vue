@@ -32,6 +32,13 @@ interface MediaSourceDisplay {
   label: string
 }
 
+interface NameTestForm {
+  customWords: string | null
+  source: MediaDataSource
+  subtitle: string | null
+  title: string | null
+}
+
 const MEDIA_SOURCE_LABELS: Record<string, string> = {
   anilist: 'AniList',
   bangumi: 'Bangumi',
@@ -74,7 +81,7 @@ const $toast = useToast()
 const nameTestResult = ref<Context>()
 
 // 名称识别表单
-const nameTestForm = reactive({
+const nameTestForm = reactive<NameTestForm>({
   title: null,
   subtitle: null,
   customWords: null,
