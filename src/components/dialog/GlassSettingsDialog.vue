@@ -19,6 +19,7 @@ import {
   type GlassOpticalPreset,
   type GlassOpticalPresetOverrides,
 } from '@/utils/glassOptics'
+import { useGlassMobilePresentation } from '@/composables/useGlassPresentationCapabilities'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 
@@ -38,6 +39,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const display = useDisplay()
+const usesMobilePresentation = useGlassMobilePresentation()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
 const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
@@ -51,7 +53,7 @@ const draftTranslationStrength = ref(settings.value.glassTranslationStrength)
 const draftTransparencyStrength = ref(settings.value.glassTransparencyStrength)
 const isSaving = ref(false)
 const usesRealtimeOptics = computed(() => draftQuality.value !== 'css')
-const showsDynamicTuning = computed(() => usesRealtimeOptics.value)
+const showsDynamicTuning = computed(() => usesRealtimeOptics.value && !usesMobilePresentation.value)
 const availablePresets = computed(() => getAvailableGlassOpticalPresets(draftQuality.value))
 const activePreset = computed<GlassOpticalPreset>(() =>
   availablePresets.value.includes(draftPreset.value) ? draftPreset.value : 'natural',
@@ -105,7 +107,11 @@ const qualityOptions: Array<{
   { hint: 'theme.glassQualityBalancedHint', label: 'theme.glassQualityBalanced', value: 'balanced' },
   { hint: 'theme.glassQualityHighHint', label: 'theme.glassQualityHigh', value: 'high' },
 ]
-const qualityHint = computed(() => qualityOptions.find(option => option.value === draftQuality.value)?.hint ?? '')
+const qualityHint = computed(() => {
+  if (usesMobilePresentation.value && draftQuality.value !== 'css') return 'theme.glassQualityMobileHint'
+
+  return qualityOptions.find(option => option.value === draftQuality.value)?.hint ?? ''
+})
 const presetOptions: Array<{ label: string; value: GlassOpticalPreset }> = [
   { label: 'theme.glassPresetNatural', value: 'natural' },
   { label: 'theme.glassPresetGlide', value: 'glide' },
@@ -410,6 +416,9 @@ onScopeDispose(cancelGlassPreview)
             thumb-label
             @update:model-value="updateReflectionStrength"
           />
+          <p class="glass-settings-dialog__hint">
+            {{ t('theme.glassMaterialStrengthHint') }}
+          </p>
 
           <div v-if="showsDynamicTuning" class="glass-settings-dialog__live-controls">
             <h3 class="glass-settings-dialog__group-label">{{ t('theme.glassDynamicTuning') }}</h3>
@@ -463,10 +472,10 @@ onScopeDispose(cancelGlassPreview)
               thumb-label
               @update:model-value="updateFlowStrength"
             />
+            <p class="glass-settings-dialog__hint">
+              {{ t('theme.glassOpticalStrengthHint') }}
+            </p>
           </div>
-          <p class="glass-settings-dialog__hint">
-            {{ t(showsDynamicTuning ? 'theme.glassOpticalStrengthHint' : 'theme.glassOpticalStrengthUnavailableHint') }}
-          </p>
         </section>
       </VCardText>
 

@@ -23,6 +23,10 @@ const mocks = vi.hoisted(() => ({
   cancelGlassPreview: vi.fn(),
   commitGlassPreview: vi.fn(),
   previewGlassSettings: vi.fn(),
+  usesMobilePresentation: null as { value: boolean } | null,
+  display: {
+    smAndDown: { value: false },
+  },
   settings: {
     value: {
       glassAppearance: 'clear',
@@ -53,14 +57,25 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('vuetify', () => ({
-  useDisplay: () => ({ smAndDown: { value: true } }),
+  useDisplay: () => mocks.display,
 }))
+
+vi.mock('@/composables/useGlassPresentationCapabilities', async () => {
+  const { ref } = await vi.importActual<typeof import('vue')>('vue')
+  mocks.usesMobilePresentation = ref(false)
+
+  return {
+    useGlassMobilePresentation: () => mocks.usesMobilePresentation,
+  }
+})
 
 describe('GlassSettingsDialog', () => {
   beforeEach(() => {
     mocks.cancelGlassPreview.mockClear()
     mocks.commitGlassPreview.mockClear()
     mocks.previewGlassSettings.mockClear()
+    mocks.usesMobilePresentation!.value = false
+    mocks.display.smAndDown.value = false
     mocks.settings.value.glassAppearance = 'clear'
     mocks.settings.value.glassDeformationStrength = 50
     mocks.settings.value.glassFlowStrength = 50
@@ -74,6 +89,7 @@ describe('GlassSettingsDialog', () => {
   })
 
   it('cancels an active preview when the parent closes the dialog', async () => {
+    mocks.display.smAndDown.value = true
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
         stubs: {
@@ -366,5 +382,41 @@ describe('GlassSettingsDialog', () => {
       'theme.glassDeformationStrength',
       'theme.glassFlowStrength',
     ])
+  })
+
+  it('restores motion tuning when a mobile presentation returns to desktop', async () => {
+    mocks.usesMobilePresentation!.value = true
+    mocks.settings.value.glassQuality = 'high'
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardActions: slotStub,
+          VCardText: slotStub,
+          VDialog: dialogStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+
+    expect(wrapper.findAll('.slider-stub').map(slider => slider.attributes('aria-label'))).toEqual([
+      'theme.glassTransparencyStrength',
+      'theme.glassTransmissionStrength',
+      'theme.glassReflectionStrength',
+    ])
+    expect(wrapper.find('.glass-settings-dialog__live-controls').exists()).toBe(false)
+    expect(wrapper.text()).toContain('theme.glassMaterialStrengthHint')
+    expect(wrapper.text()).not.toContain('theme.glassOpticalStrengthHint')
+    expect(wrapper.text()).toContain('theme.glassQualityMobileHint')
+
+    mocks.usesMobilePresentation!.value = false
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('.slider-stub')).toHaveLength(6)
+    expect(wrapper.find('.glass-settings-dialog__live-controls').exists()).toBe(true)
+    expect(wrapper.text()).toContain('theme.glassMaterialStrengthHint')
+    expect(wrapper.text()).toContain('theme.glassOpticalStrengthHint')
   })
 })

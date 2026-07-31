@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ThemeCustomizerGlassAppearance, ThemeCustomizerGlassQuality } from '@/composables/useThemeCustomizer'
+import { useGlassMobilePresentation } from '@/composables/useGlassPresentationCapabilities'
 import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
 import {
   createGlassWallpaperSourceCache,
@@ -72,7 +73,9 @@ const emit = defineEmits<{
 
 const fixedCanvas = ref<HTMLCanvasElement | null>(null)
 const scrollCanvas = ref<HTMLCanvasElement | null>(null)
-const interactionSource = useGlassOpticalInteractionSource()
+const usesMobilePresentation = useGlassMobilePresentation()
+const dynamicsActive = computed(() => !usesMobilePresentation.value)
+const interactionSource = useGlassOpticalInteractionSource(dynamicsActive)
 const pagePresentationMotion = usePagePresentationMotion()
 const wallpaperSourceCache = createGlassWallpaperSourceCache()
 const fixedRenderer = useGlassOpticalRenderer({
@@ -80,6 +83,7 @@ const fixedRenderer = useGlassOpticalRenderer({
   appearance: () => props.appearance,
   canvas: fixedCanvas,
   deformationStrength: () => props.deformationStrength,
+  dynamicsActive,
   flowStrength: () => props.flowStrength,
   interactionSource,
   quality: () => props.quality,
@@ -104,6 +108,7 @@ const scrollRenderer = useGlassOpticalRenderer({
   appearance: () => props.appearance,
   canvas: scrollCanvas,
   deformationStrength: () => props.deformationStrength,
+  dynamicsActive,
   flowStrength: () => props.flowStrength,
   interactionSource,
   pageMotion: pagePresentationMotion.reader,

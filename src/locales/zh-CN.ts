@@ -157,6 +157,7 @@ export default {
     glassQualityCssHint: '静态 CSS 材质，资源占用最低，保留通透、透射与反射，不启用实时流动。',
     glassQualityBalancedHint: '共享实时折射，优先平衡流动反馈与 GPU 占用。',
     glassQualityHighHint: '完整时序流场、扩散细节与内容保护，GPU 占用更高。',
+    glassQualityMobileHint: '保留所选档位的材质精度；移动端不启用实时流动。',
     glassPreset: '方案',
     glassPresetNatural: '自然',
     glassPresetGlide: '滑移',
@@ -169,8 +170,9 @@ export default {
     glassReflectionStrength: '反射亮度',
     glassTransmissionStrength: '透射亮度',
     glassTransparencyStrength: '通透度',
+    glassMaterialStrengthHint:
+      '通透度控制壁纸纹理的可见程度，透射亮度控制玻璃内的背景明暗，反射亮度控制表面反射与高光强度。',
     glassOpticalStrengthHint: '采样平移控制整体滑移，形变强度控制局部弯曲，流动强度控制轨迹范围与惯性。',
-    glassOpticalStrengthUnavailableHint: '标准质量保留三项材质参数，切换到均衡或高质量后，可调整采样平移、形变和流动。',
     purple: '幻紫',
     custom: '附加样式',
     transparency: '透明度',
