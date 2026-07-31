@@ -315,7 +315,7 @@
   },
   "src/components/dialog/ReorganizeDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 14
+      "count": 10
     },
     "sonarjs/super-linear-regex": {
       "count": 1
