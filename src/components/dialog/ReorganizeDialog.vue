@@ -85,6 +85,9 @@ const progressText = ref(t('dialog.reorganize.processing'))
 // 整理进度
 const progressValue = ref(0)
 
+// 整理请求执行期间保持单一提交，避免同一批源文件被重复处理。
+const transferSubmitting = ref(false)
+
 // 进度SSE连接
 const progressSSE = ref<any>(null)
 
@@ -299,7 +302,7 @@ const dialogSubtitle = computed(() => {
     }
 
     return t('dialog.reorganize.singleItemTitle', { path: normalizedItems.value[0].path })
-  } else if (props.logids) {
+  } else if (props.logids?.length) {
     return t('dialog.reorganize.multipleItemsTitle', { count: props.logids.length })
   }
 })
@@ -922,7 +925,7 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
 }
 
 // 请求整理接口
-async function requestManualTransfer<T = any>(
+async function requestManualTransfer<T = unknown>(
   payload: ManualTransferPayload,
   background: boolean = false,
 ): Promise<ApiResponse<T>> {
@@ -1128,7 +1131,7 @@ function resolvePreviewResponseData(result: ApiResponse<ManualTransferPreviewDat
 
 // 预览整理结果
 async function previewTransfer() {
-  if (!props.logids && !normalizedItems.value.length) return
+  if (!props.logids?.length && !normalizedItems.value.length) return
 
   previewLoading.value = true
   resetPreviewState()
@@ -1203,7 +1206,7 @@ async function previewTransfer() {
       }
     }
 
-    if (props.logids) {
+    if (props.logids?.length) {
       tasks.push(
         ...props.logids.map(async logid => {
           try {
@@ -1269,33 +1272,51 @@ async function togglePreview() {
 // 整理文件
 async function handleTransfer(item: FileItem, background: boolean = false) {
   try {
-    const result: { [key: string]: any } = await requestManualTransfer(createTransferPayload({ item }), background)
-    if (!result.success) $toast.error(result.message)
-    else if (background) $toast.success(t('dialog.reorganize.successMessage', { name: item.name }))
-  } catch (e) {
-    console.log(e)
+    const result = await requestManualTransfer(createTransferPayload({ item }), background)
+    if (!result.success) {
+      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
+      return false
+    }
+    if (background) $toast.success(t('dialog.reorganize.successMessage', { name: item.name }))
+    return true
+  } catch (error: unknown) {
+    console.log(error)
+    if (error instanceof Error) $toast.error(error.message)
+    return false
   }
 }
 
 // 批量整理文件并按后台模式决定是否提示入队成功。
 async function handleTransferBatch(items: FileItem[], background: boolean = false) {
   try {
-    const result: { [key: string]: any } = await requestManualTransfer(createTransferPayload({ items }), background)
-    if (!result.success) $toast.error(result.message)
-    else if (background) $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
-  } catch (e) {
-    console.log(e)
+    const result = await requestManualTransfer(createTransferPayload({ items }), background)
+    if (!result.success) {
+      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
+      return false
+    }
+    if (background) $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
+    return true
+  } catch (error: unknown) {
+    console.log(error)
+    if (error instanceof Error) $toast.error(error.message)
+    return false
   }
 }
 
 // 整理日志
 async function handleTransferLog(logid: number, background: boolean = false) {
   try {
-    const result: { [key: string]: any } = await requestManualTransfer(createTransferPayload({ logid }), background)
-    if (!result.success) $toast.error(result.message)
-    else if (background) $toast.success(`历史记录 ${logid} 已加入整理队列！`)
-  } catch (e) {
-    console.log(e)
+    const result = await requestManualTransfer(createTransferPayload({ logid }), background)
+    if (!result.success) {
+      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
+      return false
+    }
+    if (background) $toast.success(`历史记录 ${logid} 已加入整理队列！`)
+    return true
+  } catch (error: unknown) {
+    console.log(error)
+    if (error instanceof Error) $toast.error(error.message)
+    return false
   }
 }
 
@@ -1337,51 +1358,51 @@ function stopLoadingProgress() {
 
 // 整理文件
 async function transfer(background: boolean = false) {
-  if (!props.logids && !normalizedItems.value.length) return
+  if ((!props.logids?.length && !normalizedItems.value.length) || transferSubmitting.value) return
 
-  // 显示进度条
+  transferSubmitting.value = true
   progressDialog.value = true
+  let allSucceeded = true
 
-  // 文件整理
-  if (normalizedItems.value.length) {
-    if (shouldUseBatchFileItems(normalizedItems.value)) {
+  try {
+    // 文件整理
+    if (normalizedItems.value.length) {
+      if (shouldUseBatchFileItems(normalizedItems.value)) {
+        if (!background) {
+          startLoadingProgress('filetransfer')
+        }
+        allSucceeded = (await handleTransferBatch(normalizedItems.value, background)) && allSucceeded
+      } else {
+        for (const item of normalizedItems.value) {
+          if (!background) {
+            // 如果是文件，计算MD5
+            const key = item.type === 'dir' ? 'filetransfer' : CryptoJS.MD5(item.path).toString()
+
+            // 开始监听进度
+            startLoadingProgress(key)
+          }
+          allSucceeded = (await handleTransfer(item, background)) && allSucceeded
+        }
+      }
+    }
+
+    // 日志整理
+    if (props.logids?.length) {
       if (!background) {
+        // 为日志整理任务开启进度监听
         startLoadingProgress('filetransfer')
       }
-      await handleTransferBatch(normalizedItems.value, background)
-    } else {
-      for (const item of normalizedItems.value) {
-        if (!background) {
-          // 如果是文件，计算MD5
-          const key = item.type === 'dir' ? 'filetransfer' : CryptoJS.MD5(item.path).toString()
-
-          // 开始监听进度
-          startLoadingProgress(key)
-        }
-        await handleTransfer(item, background)
+      for (const logid of props.logids) {
+        allSucceeded = (await handleTransferLog(logid, background)) && allSucceeded
       }
     }
-  }
 
-  // 日志整理
-  if (props.logids) {
-    if (!background) {
-      // 为日志整理任务开启进度监听
-      startLoadingProgress('filetransfer')
-    }
-    for (const logid of props.logids) {
-      await handleTransferLog(logid, background)
-    }
+    if (allSucceeded) emit('done')
+  } finally {
+    if (!background) stopLoadingProgress()
+    progressDialog.value = false
+    transferSubmitting.value = false
   }
-  if (!background) {
-    // 停止监听进度
-    stopLoadingProgress()
-  }
-
-  // 关闭进度条
-  progressDialog.value = false
-  // 重新加载
-  emit('done')
 }
 
 onMounted(async () => {
@@ -1636,7 +1657,7 @@ onUnmounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="6" v-if="props.logids">
+                  <VCol cols="12" md="6" v-if="props.logids?.length">
                     <VSwitch
                       v-model="transferForm.from_history"
                       :label="t('dialog.reorganize.fromHistoryOption')"
@@ -1665,6 +1686,8 @@ onUnmounted(() => {
                 @click="transfer(true)"
                 prepend-icon="mdi-plus"
                 class="reorganize-action-btn reorganize-action-btn--queue"
+                :loading="transferSubmitting"
+                :disabled="transferSubmitting"
               >
                 {{ t('dialog.reorganize.addToQueue') }}
               </VBtn>
@@ -1675,7 +1698,8 @@ onUnmounted(() => {
                 @click="transfer(false)"
                 :prepend-icon="isReorganize ? 'mdi-refresh' : 'mdi-arrow-right-bold'"
                 class="reorganize-action-btn reorganize-action-btn--primary"
-                :loading="manualHistoryLoading"
+                :loading="manualHistoryLoading || transferSubmitting"
+                :disabled="transferSubmitting"
               >
                 {{ isReorganize ? t('dialog.reorganize.reorganizeAgain') : t('dialog.reorganize.reorganizeNow') }}
               </VBtn>

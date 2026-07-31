@@ -3175,6 +3175,7 @@ export default {
       previewResult: 'Preview',
       previewLoading: 'Generating preview result...',
       previewRequestFailed: 'Preview request failed',
+      transferRequestFailed: 'Organization request failed',
       previewTotal: 'Total {count}',
       previewSuccess: 'Success {count}',
       previewFailed: 'Failed {count}',

@@ -3117,6 +3117,7 @@ export default {
       previewResult: '預覽',
       previewLoading: '正在生成預覽結果...',
       previewRequestFailed: '預覽請求失敗',
+      transferRequestFailed: '整理請求失敗',
       previewTotal: '總數 {count}',
       previewSuccess: '成功 {count}',
       previewFailed: '失敗 {count}',

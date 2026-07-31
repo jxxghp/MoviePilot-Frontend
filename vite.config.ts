@@ -323,6 +323,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/dialog/SiteUserDataDialog.vue',
         'src/components/dialog/AddDownloadDialog.vue',
         'src/components/dialog/AddSubtitleDownloadDialog.vue',
+        'src/components/dialog/ReorganizeDialog.vue',
         'src/views/discover/TheMovieDbView.vue',
         'src/views/discover/DoubanView.vue',
         'src/views/discover/BangumiView.vue',
@@ -590,6 +591,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/components/dialog/AddSubtitleDownloadDialog.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/components/dialog/ReorganizeDialog.vue': {
           branches: 75,
           functions: 80,
           lines: 80,
