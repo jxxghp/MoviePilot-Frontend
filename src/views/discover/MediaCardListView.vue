@@ -147,7 +147,14 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading
 
 <template>
   <LoadingBanner v-if="!isRefreshed && !loadFailed" class="mt-12" />
-  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible pt-3 px-2" @load="fetchData">
+  <VInfiniteScroll
+    mode="intersect"
+    side="end"
+    :items="dataList"
+    :margin="dataList.length > 0 ? 600 : 0"
+    class="overflow-visible pt-3 px-2"
+    @load="fetchData"
+  >
     <template #loading />
     <template #empty />
     <template #error="{ props: retryProps }">

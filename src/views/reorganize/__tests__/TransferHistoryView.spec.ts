@@ -129,21 +129,36 @@ type InfiniteStatus = 'empty' | 'error' | 'ok'
 
 const InfiniteScrollStub = defineComponent({
   name: 'VInfiniteScroll',
+  props: {
+    margin: {
+      type: Number,
+      required: true,
+    },
+  },
   emits: ['load'],
-  setup(_props, { emit, slots }) {
+  setup(props, { emit, slots }) {
     const status = ref('idle')
     function load() {
+      status.value = 'loading'
       emit('load', {
         done(nextStatus: InfiniteStatus) {
-          status.value = nextStatus
+          status.value = nextStatus === 'ok' ? 'idle' : nextStatus
         },
       })
     }
     return () =>
-      h('section', { 'aria-label': '整理历史无限列表' }, [
+      h('section', { 'aria-label': '整理历史无限列表', 'data-margin': String(props.margin) }, [
         h('output', { 'aria-label': '整理历史无限列表状态' }, status.value),
+        status.value === 'loading' ? slots.loading?.({}) : null,
+        status.value === 'error'
+          ? slots.error?.({
+              side: 'end',
+              props: { color: undefined, onClick: load },
+            })
+          : null,
+        status.value === 'empty' ? slots.empty?.({}) : null,
         slots.default?.(),
-        h('button', { onClick: load, type: 'button' }, '加载下一页'),
+        status.value === 'idle' ? h('button', { onClick: load, type: 'button' }, '加载下一页') : null,
       ])
   },
 })
@@ -445,8 +460,10 @@ describe('TransferHistoryView', () => {
 
     await renderHistory('/history?search=%E7%A7%BB%E5%8A%A8')
 
+    expect(screen.getByLabelText('整理历史无限列表')).toHaveAttribute('data-margin', '0')
     await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
     expect(await screen.findByText('记录 25')).toBeInTheDocument()
+    expect(screen.getByLabelText('整理历史无限列表')).toHaveAttribute('data-margin', '280')
     await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
     expect(await screen.findByText('追加 4')).toBeInTheDocument()
     expect(document.querySelectorAll('[data-mobile-key="25"]')).toHaveLength(1)
@@ -467,7 +484,7 @@ describe('TransferHistoryView', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
     await waitFor(() => expect(screen.getByRole('status', { name: '整理历史无限列表状态' })).toHaveTextContent('error'))
-    await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    await fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(await screen.findByText('重试结果')).toBeInTheDocument()
   })
 

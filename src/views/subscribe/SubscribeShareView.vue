@@ -269,6 +269,7 @@ function removeData(id: number) {
     mode="intersect"
     side="end"
     :items="dataList"
+    :margin="dataList.length > 0 ? 480 : 0"
     class="overflow-visible px-2"
     @load="fetchData"
     :key="currentKey"

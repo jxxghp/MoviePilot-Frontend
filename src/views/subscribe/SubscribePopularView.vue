@@ -309,6 +309,7 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
     mode="intersect"
     side="end"
     :items="dataList"
+    :margin="dataList.length > 0 ? 480 : 0"
     class="overflow-visible px-2"
     @load="fetchData"
     :key="currentKey"

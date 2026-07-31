@@ -12,14 +12,22 @@ import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type InfiniteScrollStatus = 'empty' | 'error' | 'ok'
+const initialLoadMargins: number[] = []
 
 const InfiniteScrollStub = defineComponent({
   name: 'VInfiniteScroll',
+  props: {
+    margin: {
+      type: Number,
+      required: true,
+    },
+  },
   emits: ['load'],
-  setup(_props, { emit, slots }) {
+  setup(props, { emit, slots }) {
     const status = ref<'empty' | 'error' | 'idle' | 'loading'>('idle')
 
     function load() {
+      initialLoadMargins.push(props.margin)
       status.value = 'loading'
       emit('load', {
         done(nextStatus: InfiniteScrollStatus) {
@@ -31,7 +39,7 @@ const InfiniteScrollStub = defineComponent({
     onMounted(load)
 
     return () =>
-      h('section', { 'aria-label': '热门订阅无限列表' }, [
+      h('section', { 'aria-label': '热门订阅无限列表', 'data-margin': String(props.margin) }, [
         h('output', { 'aria-label': '热门订阅无限列表状态' }, status.value),
         status.value === 'loading' ? slots.loading?.({}) : null,
         status.value === 'error'
@@ -142,6 +150,7 @@ async function renderPopular(type: '电影' | '电视剧' = '电影') {
 
 describe('SubscribePopularView', () => {
   beforeEach(() => {
+    initialLoadMargins.length = 0
     vi.spyOn(console, 'error').mockImplementation(() => {})
     setHasScroll(true)
   })
@@ -160,6 +169,8 @@ describe('SubscribePopularView', () => {
     await renderPopular(type)
 
     expect(await screen.findByText(type === '电影' ? '默认热门电影' : '默认热门剧集')).toBeInTheDocument()
+    expect(screen.getByLabelText('热门订阅无限列表')).toHaveAttribute('data-margin', '480')
+    expect(initialLoadMargins[0]).toBe(0)
     expect(screen.getByText(type === '电影' ? '18' : '27')).toBeInTheDocument()
     expect(requests).toHaveLength(1)
     expect(requests[0].searchParams.get('stype')).toBe(type)
