@@ -1,9 +1,11 @@
 <script lang="ts" setup>
 import DefaultLayout from './default/components/DefaultLayout.vue'
 import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
+import { useRouteEnterMotion } from '@/composables/useRouteEnterMotion'
 
 const route = useRoute()
 const pagePresentationMotion = usePagePresentationMotion()
+const routeEnterMotion = useRouteEnterMotion()
 
 // keep-alive 缓存按页面身份命中，避免 query 变化导致同一页面反复新建实例。
 const routeCacheKey = computed(() => {
@@ -17,43 +19,31 @@ const routeCacheKey = computed(() => {
 
 // 页面过渡按实际页面身份触发；keep-alive 页面避免 query 变化时反复入场。
 const routeTransitionKey = computed(() => (route.meta.keepAlive ? routeCacheKey.value : route.fullPath))
-const isPageEntering = ref(false)
+const routePresentationState = computed(() => ({
+  handoff: route.meta.pagePresentationHandoff,
+  key: routeTransitionKey.value,
+}))
 const pageRouteRef = ref<HTMLElement | null>(null)
-let pageMotionTimer: number | null = null
-let pageMotionFrame: number | null = null
 
-// 使用稳定容器触发轻量入场动画，避免重建 keep-alive 导致页面缓存失效。
-function playPageEnterMotion() {
-  if (pageMotionTimer) {
-    window.clearTimeout(pageMotionTimer)
-    pageMotionTimer = null
-  }
+// 默认布局只编排路由事务；普通页面与玻璃材质分别由各自 driver 执行动画。
+function playPageEnterMotion(
+  nextPresentation = routePresentationState.value,
+  previousPresentation?: typeof routePresentationState.value,
+) {
+  routeEnterMotion.cancel()
+  if (pagePresentationMotion.start(nextPresentation.key, pageRouteRef.value)) return
 
-  if (pageMotionFrame) {
-    window.cancelAnimationFrame(pageMotionFrame)
-    pageMotionFrame = null
-  }
-
-  isPageEntering.value = false
-  if (pagePresentationMotion.start(routeTransitionKey.value, pageRouteRef.value)) return
-
-  pageMotionFrame = window.requestAnimationFrame(() => {
-    pageMotionFrame = null
-    isPageEntering.value = true
-    pageMotionTimer = window.setTimeout(() => {
-      isPageEntering.value = false
-      pageMotionTimer = null
-    }, 220)
+  routeEnterMotion.start(pageRouteRef.value, {
+    stagedHandoff: previousPresentation?.handoff === 'staged',
   })
 }
 
-watch(routeTransitionKey, playPageEnterMotion, { flush: 'post' })
+watch(routePresentationState, playPageEnterMotion, { flush: 'post' })
 
 onMounted(playPageEnterMotion)
 
 onBeforeUnmount(() => {
-  if (pageMotionTimer) window.clearTimeout(pageMotionTimer)
-  if (pageMotionFrame) window.cancelAnimationFrame(pageMotionFrame)
+  routeEnterMotion.cancel()
   pagePresentationMotion.cancel()
 })
 </script>
@@ -61,7 +51,7 @@ onBeforeUnmount(() => {
 <template>
   <DefaultLayout>
     <router-view v-slot="{ Component }">
-      <div ref="pageRouteRef" class="mp-page-route" :class="{ 'mp-page-route--entering': isPageEntering }">
+      <div ref="pageRouteRef" class="mp-page-route">
         <keep-alive :max="24">
           <component :is="Component" v-if="route.meta.keepAlive" :key="routeCacheKey" />
         </keep-alive>
