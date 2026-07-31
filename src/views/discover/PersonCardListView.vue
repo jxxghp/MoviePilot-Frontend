@@ -29,6 +29,9 @@ const loading = ref(false)
 // 是否加载完成
 const isRefreshed = ref(false)
 
+// 首次成功响应前，请求失败只展示错误和重试入口。
+const loadFailed = ref(false)
+
 // 使用 shallowRef 避免长列表中的深层代理开销
 const dataList = shallowRef<Person[]>([])
 
@@ -56,6 +59,7 @@ function getParams() {
 async function fetchData({ done }: { done: any }) {
   try {
     if (!props.apipath) return
+    loadFailed.value = false
 
     // 如果正在加载中，直接返回
     if (loading.value) {
@@ -71,8 +75,6 @@ async function fetchData({ done }: { done: any }) {
         loading.value = true
         // 请求API
         const currentData = await loadPageData()
-        // 取消加载中
-        loading.value = false
         // 标计为已请求完成
         isRefreshed.value = true
         if (currentData.length === 0) {
@@ -108,22 +110,38 @@ async function fetchData({ done }: { done: any }) {
         // 返回加载成功
         done('ok')
       }
-      // 取消加载中
-      loading.value = false
     }
   } catch (error) {
     console.error(error)
+    loadFailed.value = true
     // 返回加载失败
     done('error')
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <template>
-  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-3" @load="fetchData">
+  <LoadingBanner v-if="!isRefreshed && !loadFailed" class="mt-12" />
+  <VInfiniteScroll
+    mode="intersect"
+    side="end"
+    :items="dataList"
+    :margin="dataList.length > 0 ? 600 : 0"
+    class="overflow-visible px-3"
+    @load="fetchData"
+  >
     <template #loading />
     <template #empty />
+    <template #error="{ props: retryProps }">
+      <div class="d-flex flex-column align-center ga-2 py-4" role="alert">
+        <span class="text-body-2 text-medium-emphasis">{{ t('error.networkError') }}</span>
+        <VBtn v-bind="retryProps" prepend-icon="mdi-refresh" size="small" variant="tonal">
+          {{ t('common.retry') }}
+        </VBtn>
+      </div>
+    </template>
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"

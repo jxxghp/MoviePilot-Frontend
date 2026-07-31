@@ -12,14 +12,22 @@ import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type InfiniteScrollStatus = 'empty' | 'error' | 'ok'
+const initialLoadMargins: number[] = []
 
 const InfiniteScrollStub = defineComponent({
   name: 'VInfiniteScroll',
+  props: {
+    margin: {
+      type: Number,
+      required: true,
+    },
+  },
   emits: ['load'],
-  setup(_props, { emit, slots }) {
+  setup(props, { emit, slots }) {
     const status = ref<'empty' | 'error' | 'idle' | 'loading'>('idle')
 
     function load() {
+      initialLoadMargins.push(props.margin)
       status.value = 'loading'
       emit('load', {
         done(nextStatus: InfiniteScrollStatus) {
@@ -31,7 +39,7 @@ const InfiniteScrollStub = defineComponent({
     onMounted(load)
 
     return () =>
-      h('section', { 'aria-label': '订阅分享无限列表' }, [
+      h('section', { 'aria-label': '订阅分享无限列表', 'data-margin': String(props.margin) }, [
         h('output', { 'aria-label': '订阅分享无限列表状态' }, status.value),
         status.value === 'loading' ? slots.loading?.({}) : null,
         status.value === 'error'
@@ -162,6 +170,7 @@ async function renderShare(keyword = '') {
 
 describe('SubscribeShareView', () => {
   beforeEach(() => {
+    initialLoadMargins.length = 0
     vi.spyOn(console, 'error').mockImplementation(() => {})
     setHasScroll(true)
   })
@@ -178,6 +187,8 @@ describe('SubscribeShareView', () => {
     await renderShare()
 
     expect(await screen.findByText('默认分享卡片')).toBeInTheDocument()
+    expect(screen.getByLabelText('订阅分享无限列表')).toHaveAttribute('data-margin', '480')
+    expect(initialLoadMargins[0]).toBe(0)
     expect(requests).toHaveLength(1)
     expect(requests[0].searchParams.get('page')).toBe('1')
     expect(requests[0].searchParams.get('count')).toBe('30')
@@ -262,9 +273,9 @@ describe('SubscribeShareView', () => {
     const first = createSubscribeShare({ share_title: '未满屏分享第一页' })
     const second = createSubscribeShare({ share_title: '未满屏分享第二页' })
     const requestedPages: string[] = []
-    const scrollHeight = vi.spyOn(document.body, 'scrollHeight', 'get').mockImplementation(() =>
-      requestedPages.length >= 2 ? 900 : 500,
-    )
+    const scrollHeight = vi
+      .spyOn(document.body, 'scrollHeight', 'get')
+      .mockImplementation(() => (requestedPages.length >= 2 ? 900 : 500))
     server.use(
       http.get(subscribeApiUrls.shares, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''

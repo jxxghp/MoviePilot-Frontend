@@ -1706,6 +1706,7 @@ onUnmounted(() => {
       mode="intersect"
       side="end"
       :items="mobileDataList"
+      :margin="mobileDataList.length > 0 ? 280 : 0"
       class="transfer-history-mobile-scroll"
       @load="loadMobileHistory"
     >
@@ -1715,6 +1716,14 @@ onUnmounted(() => {
         </div>
       </template>
       <template #empty />
+      <template #error="{ props: retryProps }">
+        <div class="transfer-history-mobile-state d-flex flex-column ga-2" role="alert">
+          <span class="text-body-2 text-medium-emphasis">{{ t('common.serverConnectionFailed') }}</span>
+          <VBtn v-bind="retryProps" prepend-icon="mdi-refresh" size="small" variant="tonal">
+            {{ t('common.retry') }}
+          </VBtn>
+        </div>
+      </template>
 
       <ProgressiveCardGrid
         v-if="mobileDataList.length > 0"

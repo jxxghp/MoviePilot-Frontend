@@ -14,6 +14,7 @@ const LIST_PATH = 'test/discover/list'
 const LIST_URL = new URL(LIST_PATH, API_BASE_URL).href
 
 type InfiniteScrollStatus = 'empty' | 'error' | 'ok'
+const initialLoadMargins: number[] = []
 
 const InfiniteScrollStub = defineComponent({
   name: 'VInfiniteScroll',
@@ -22,12 +23,17 @@ const InfiniteScrollStub = defineComponent({
       type: Array as PropType<MediaInfo[]>,
       default: () => [],
     },
+    margin: {
+      type: Number,
+      required: true,
+    },
   },
   emits: ['load'],
-  setup(_props, { emit, slots }) {
+  setup(props, { emit, slots }) {
     const status = ref<'empty' | 'error' | 'idle' | 'loading'>('idle')
 
     function load() {
+      initialLoadMargins.push(props.margin)
       status.value = 'loading'
       emit('load', {
         done(nextStatus: InfiniteScrollStatus) {
@@ -39,7 +45,7 @@ const InfiniteScrollStub = defineComponent({
     onMounted(load)
 
     return () =>
-      h('section', { 'aria-label': '媒体无限列表' }, [
+      h('section', { 'aria-label': '媒体无限列表', 'data-margin': String(props.margin) }, [
         h('output', { 'aria-label': '媒体无限列表状态' }, status.value),
         status.value === 'error'
           ? slots.error?.({
@@ -162,6 +168,7 @@ function gridKeys() {
 
 describe('MediaCardListView', () => {
   beforeEach(() => {
+    initialLoadMargins.length = 0
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -178,6 +185,8 @@ describe('MediaCardListView', () => {
     await renderList({ params: { genre: '科幻', page: '99' } })
 
     expect(await screen.findByRole('article', { name: '媒体卡片 内部页码结果' })).toBeInTheDocument()
+    expect(screen.getByLabelText('媒体无限列表')).toHaveAttribute('data-margin', '600')
+    expect(initialLoadMargins[0]).toBe(0)
     expect(requests).toHaveLength(1)
     expect(requests[0].searchParams.get('page')).toBe('1')
     expect(requests[0].searchParams.get('genre')).toBe('科幻')
