@@ -18,6 +18,7 @@ beforeEach(() => {
   frameId = 0
   document.documentElement.dataset.theme = 'glass'
   document.documentElement.dataset.glassAppearance = 'clear'
+  document.documentElement.dataset.glassQuality = 'high'
   delete document.documentElement.dataset.launchLoading
   vi.spyOn(performance, 'now').mockReturnValue(1000)
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
@@ -36,6 +37,7 @@ afterEach(() => {
   document.getElementById('loading-bg')?.remove()
   delete document.documentElement.dataset.theme
   delete document.documentElement.dataset.glassAppearance
+  delete document.documentElement.dataset.glassQuality
   delete document.documentElement.dataset.launchLoading
   delete document.documentElement.dataset.pagePresentationMotion
   document.documentElement.style.removeProperty('--mp-page-motion-opacity')
@@ -43,6 +45,25 @@ afterEach(() => {
 })
 
 describe('page presentation motion', () => {
+  it('delegates standard clear glass to the ordinary compositor animation', () => {
+    document.documentElement.dataset.glassQuality = 'css'
+
+    expect(motion.start('/dashboard', document.createElement('div'))).toBe(false)
+    expect(motion.active.value).toBe(false)
+    expect(callbacks.size).toBe(0)
+  })
+
+  it('starts standard frosted motion without waiting for a renderer geometry acknowledgement', () => {
+    document.documentElement.dataset.glassAppearance = 'frosted'
+    document.documentElement.dataset.glassQuality = 'css'
+
+    expect(motion.start('/dashboard', document.createElement('div'))).toBe(true)
+    expect(motion.active.value).toBe(true)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.translateY.value).toBe(PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y)
+    expect(callbacks.size).toBe(1)
+  })
+
   it('does not add a second reveal gate behind the initial launch screen', () => {
     document.documentElement.dataset.launchLoading = 'true'
     const launchScreen = document.createElement('div')
@@ -98,7 +119,31 @@ describe('page presentation motion', () => {
     routeRoot.remove()
   })
 
-  it('keeps frosted material fully composed while waiting for route geometry', () => {
+  it('reveals clear glass when the renderer confirms current surface geometry', () => {
+    const routeRoot = document.createElement('div')
+    Object.defineProperties(routeRoot, {
+      offsetHeight: { configurable: true, get: () => 2096 },
+      offsetWidth: { configurable: true, get: () => 1200 },
+      scrollHeight: { configurable: true, get: () => 2096 },
+      scrollWidth: { configurable: true, get: () => 1200 },
+    })
+    document.body.append(routeRoot)
+
+    expect(motion.start('/dashboard', routeRoot)).toBe(true)
+    const motionEpoch = motion.epoch.value
+    expect(motion.opacity.value).toBe(0)
+    expect(motion.reader.acknowledgeGeometryReady(motionEpoch - 1, 1040)).toBe(false)
+    expect(motion.opacity.value).toBe(0)
+
+    expect(motion.reader.acknowledgeGeometryReady(motionEpoch, 1040)).toBe(true)
+    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
+    expect(callbacks.size).toBe(1)
+
+    routeRoot.remove()
+  })
+
+  it('keeps frosted material fully composed when the renderer releases its geometry hold', () => {
     document.documentElement.dataset.glassAppearance = 'frosted'
     const routeRoot = document.createElement('div')
     Object.defineProperties(routeRoot, {
@@ -115,6 +160,7 @@ describe('page presentation motion', () => {
     expect(motion.translateY.value).toBe(PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y)
     expect(document.documentElement.style.getPropertyValue('--mp-page-motion-opacity')).toBe('1')
     expect(document.documentElement.style.getPropertyValue('--mp-page-motion-translate-y')).toBe('8px')
+    expect(motion.reader.acknowledgeGeometryReady(motion.epoch.value, 1040)).toBe(true)
 
     ;[1016, 1140, 1260, 1440].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
     expect(motion.active.value).toBe(false)

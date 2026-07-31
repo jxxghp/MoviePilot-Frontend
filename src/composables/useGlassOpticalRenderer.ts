@@ -1393,6 +1393,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let surfaceTransformTrackingDeadline = 0
   const transformingSurfaces = new Set<HTMLElement>()
   let pagePresentationGeometryReady = true
+  let pagePresentationMotionEpoch: number | null = null
   let wakeDirection = { x: 0, y: -1 }
   let contextRecoveryPending = false
   let resumePromise: Promise<void> | null = null
@@ -2116,7 +2117,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /** DOM 重排后连续采样少量帧，避免把虚拟列表的中间几何误认为最终表面。 */
-  function scheduleSurfaceStabilityUpdate() {
+  function scheduleSurfaceStabilityUpdate(motionEpoch?: number) {
+    if (motionEpoch !== undefined) pagePresentationMotionEpoch = motionEpoch
     if (queueScrollGeometryRefresh(true)) return
     surfaceStabilityPass = 0
     surfaceStableFrameCount = 0
@@ -2149,6 +2151,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         pagePresentationGeometryReady = true
         writeSurfaceUniforms(timestamp)
         renderFrame(timestamp, false)
+        const acknowledgedEpoch = pagePresentationMotionEpoch
+        pagePresentationMotionEpoch = null
+        if (acknowledgedEpoch !== null) {
+          options.pageMotion?.acknowledgeGeometryReady(acknowledgedEpoch, timestamp)
+        }
       }
     }
 
@@ -3942,6 +3949,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   )
 
   watch(
+    () => [toValue(options.pageMotion?.active ?? false), toValue(options.pageMotion?.epoch ?? 0)] as const,
+    ([motionActive, motionEpoch]) => {
+      if (!resources || presentationSpace !== 'scroll' || !motionActive) return
+
+      // motion epoch 是页面事务的唯一身份；同步重置稳定采样，避免旧路由的尾帧释放新事务。
+      pagePresentationGeometryReady = false
+      scheduleSurfaceStabilityUpdate(motionEpoch)
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
     () => toValue(options.routeKey),
     async (routeKey, previousRouteKey) => {
       const previousProfile = getRenderProfile(previousRouteKey ?? '')
@@ -3953,6 +3972,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (previousKey !== nextKey) invalidatePreparedWallpaper()
       if (resources && presentationSpace === 'scroll' && options.pageMotion) {
         pagePresentationGeometryReady = false
+        pagePresentationMotionEpoch = toValue(options.pageMotion.epoch)
         const timestamp = performance.now()
         updateSurfaceUniforms(timestamp, false)
         renderFrame(timestamp, false)
@@ -3968,8 +3988,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           return
         }
       }
-      if (presentationSpace === 'scroll' && options.pageMotion) scheduleSurfaceStabilityUpdate()
-      else scheduleSurfaceUpdate()
+      if (presentationSpace === 'scroll' && options.pageMotion) {
+        scheduleSurfaceStabilityUpdate(toValue(options.pageMotion.epoch))
+      } else scheduleSurfaceUpdate()
     },
   )
 
