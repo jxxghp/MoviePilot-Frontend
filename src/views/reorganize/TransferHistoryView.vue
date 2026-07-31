@@ -6,8 +6,7 @@ import type { StorageConf, TransferHistory } from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
-import { useRoute } from 'vue-router'
-import router from '@/router'
+import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
@@ -48,6 +47,7 @@ const $toast = useToast()
 
 // 路由
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 const canManage = computed(() =>
   hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'manage'),
@@ -55,6 +55,7 @@ const canManage = computed(() =>
 let syncingRouteQuery = false
 let fetchDataRequestSeed = 0
 let mobileFetchDataRequestSeed = 0
+let componentUnmounted = false
 
 // 组合式输入法状态
 const isComposing = ref(false)
@@ -396,9 +397,9 @@ const debouncedReloadSearchPage = debounce(() => {
   void reloadPage(true)
 }, 1000)
 
-// 延迟刷新移动端无限列表，输入完成后再从第一页重新加载。
+// 延迟同步移动端搜索参数，路由监听会按新查询重置无限列表。
 const debouncedReloadMobileSearchPage = debounce(() => {
-  resetMobileHistory()
+  void reloadMobileSearchPage()
 }, 600)
 
 // 切换页签
@@ -499,8 +500,15 @@ function updateSearchHintList(list: TransferHistory[]) {
   )
 }
 
+interface MobileHistoryResetOptions {
+  /** 是否保持批量模式，通常用于失败项重试。 */
+  preserveBatchMode?: boolean
+  /** 重置分页时仍需保持选中的记录。 */
+  selectedItems?: TransferHistory[]
+}
+
 // 重置移动端无限列表，让 VInfiniteScroll 从第一页重新触发加载。
-function resetMobileHistory() {
+function resetMobileHistory(options: MobileHistoryResetOptions = {}) {
   mobileFetchDataRequestSeed++
   mobileDataList.value = []
   mobileCurrentPage.value = 1
@@ -509,8 +517,8 @@ function resetMobileHistory() {
   isRefreshed.value = false
   totalItems.value = 0
   mobileExpandedPathIds.value = []
-  selected.value = []
-  mobileBatchMode.value = false
+  selected.value = options.selectedItems ?? []
+  mobileBatchMode.value = Boolean(options.preserveBatchMode && selected.value.length > 0)
   mobileInfiniteKey.value++
 }
 
@@ -584,6 +592,10 @@ function appendMobileHistory(list: TransferHistory[], total: number) {
   const newItems = list.filter(item => !existingIds.has(item.id))
 
   mobileDataList.value = [...mobileDataList.value, ...newItems]
+  if (selected.value.length > 0) {
+    const refreshedItems = new Map(mobileDataList.value.map(item => [item.id, item]))
+    selected.value = selected.value.map(item => refreshedItems.get(item.id) ?? item)
+  }
   mobileCurrentPage.value++
   mobileHasMore.value = mobileDataList.value.length < total && list.length >= mobilePageSize
   updateSearchHintList(mobileDataList.value)
@@ -619,9 +631,12 @@ async function refreshDataFromRouteQuery(options: { silent?: boolean } = {}) {
 }
 
 // 操作完成后刷新列表；如果当前页被删空，则跳回最后一个有效页。
-async function refreshDataAfterOperation() {
+async function refreshDataAfterOperation(mobileSelection: TransferHistory[] = []) {
   if (isMobile.value) {
-    resetMobileHistory()
+    resetMobileHistory({
+      preserveBatchMode: mobileSelection.length > 0,
+      selectedItems: mobileSelection,
+    })
     return
   }
 
@@ -632,7 +647,6 @@ async function refreshDataAfterOperation() {
   if (currentPage.value <= lastAvailablePage) return
 
   await router.replace(createHistoryUrl(false, lastAvailablePage))
-  await refreshDataFromRouteQuery()
 }
 
 // 根据 type 返回不同的图标
@@ -666,7 +680,7 @@ async function removeHistory(item: TransferHistory) {
 }
 
 // 调用API删除记录
-async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean) {
+async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean, notifyError = true) {
   try {
     // 调用删除API
     const result: {
@@ -675,9 +689,19 @@ async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boo
       data: item,
     })
 
-    if (!result.success) $toast.error(`删除失败: ${result.message}`)
+    if (!result.success) {
+      if (notifyError) {
+        $toast.error(t('transferHistory.deleteFailed', { message: result.message || '' }))
+      }
+      return false
+    }
+    return true
   } catch (error) {
     console.error(error)
+    if (notifyError) {
+      $toast.error(t('transferHistory.deleteRequestFailed'))
+    }
+    return false
   }
 }
 
@@ -704,27 +728,36 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
 
   // 已处理条数
   let handled = 0
+  const failedItems: TransferHistory[] = []
   // 显示进度条
   openProgressDialog()
   // 循环调用removeHistory
   for (const item of selected.value) {
     // 开始删除
-    progressText.value = `正在删除 ${item.title} ${item.seasons}${item.episodes} ...`
-    await remove(item, deleteSrc, deleteDest)
+    const seasonEpisode = `${item.seasons || ''}${item.episodes || ''}`
+    const name = [item.title, seasonEpisode].filter(Boolean).join(' ')
+    progressText.value = t('transferHistory.deleting', { name })
+    const success = await remove(item, deleteSrc, deleteDest, false)
+    if (!success) {
+      failedItems.push(item)
+    }
     // 删除完成
     handled++
     progressValue.value = (handled / total) * 100
     progressDialogController?.updateProps({ text: progressText.value, value: progressValue.value })
   }
-  // 清空选中项
-  selected.value = []
-  if (isMobile.value) {
+  // 失败项保持选中，方便用户修正条件后重试。
+  selected.value = failedItems
+  if (isMobile.value && failedItems.length === 0) {
     mobileBatchMode.value = false
   }
   // 隐藏进度条
   closeProgressDialog()
+  if (failedItems.length > 0) {
+    $toast.error(t('transferHistory.batchDeleteFailed', { failed: failedItems.length, total }))
+  }
   // 重新获取数据
-  await refreshDataAfterOperation()
+  await refreshDataAfterOperation(failedItems)
 }
 
 // 响应删除操作
@@ -865,6 +898,7 @@ async function triggerAiRedo(item: TransferHistory) {
   let progressStarted = false
   try {
     const result: { [key: string]: any } = await api.post(`history/transfer/${item.id}/ai-redo`)
+    if (componentUnmounted) return
 
     const progressKey = result.data?.progress_key
 
@@ -876,7 +910,9 @@ async function triggerAiRedo(item: TransferHistory) {
     progressStarted = true
   } catch (error) {
     console.error(error)
-    $toast.error(t('transferHistory.aiRedoFailed'))
+    if (!componentUnmounted) {
+      $toast.error(t('transferHistory.aiRedoFailed'))
+    }
   } finally {
     if (!progressStarted) {
       aiRedoIds.value = aiRedoIds.value.filter(id => id !== item.id)
@@ -901,6 +937,7 @@ async function triggerBatchAiRedo() {
     const result: { [key: string]: any } = await api.post('history/transfer/ai-redo', {
       history_ids: historyIds,
     })
+    if (componentUnmounted) return
 
     const progressKey = result.data?.progress_key
     const acceptedIds = (result.data?.history_ids as number[] | undefined) ?? historyIds
@@ -917,7 +954,9 @@ async function triggerBatchAiRedo() {
     progressStarted = true
   } catch (error) {
     console.error(error)
-    $toast.error(t('transferHistory.aiRedoFailed'))
+    if (!componentUnmounted) {
+      $toast.error(t('transferHistory.aiRedoFailed'))
+    }
   } finally {
     if (!progressStarted) {
       aiRedoIds.value = aiRedoIds.value.filter(id => !historyIds.includes(id))
@@ -991,6 +1030,11 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
 // 重载页面，先更新路由，再由路由监听统一拉取列表数据。
 async function reloadPage(resetPage = false) {
   await router.push(createHistoryUrl(resetPage))
+}
+
+// 移动端搜索同样以 URL 为持久事实源，刷新和断点切换后可恢复同一查询。
+async function reloadMobileSearchPage() {
+  await router.push(createHistoryUrl(true))
 }
 
 // 确保值为number类型
@@ -1354,6 +1398,7 @@ onActivated(() => {
 })
 
 onUnmounted(() => {
+  componentUnmounted = true
   debouncedReloadPage.cancel()
   debouncedReloadSearchPage.cancel()
   debouncedReloadMobileSearchPage.cancel()
@@ -1704,14 +1749,15 @@ onUnmounted(() => {
                     </div>
                   </template>
                   <template #error>
-                    <VImg :src="noImage" cover :alt="item.title" class="transfer-history-mobile-record__poster-fallback" />
+                    <VImg
+                      :src="noImage"
+                      cover
+                      :alt="item.title"
+                      class="transfer-history-mobile-record__poster-fallback"
+                    />
                   </template>
                 </VImg>
-                <VIcon
-                  class="transfer-history-mobile-record__poster-type"
-                  :icon="getIcon(item.type || '')"
-                  size="14"
-                />
+                <VIcon class="transfer-history-mobile-record__poster-type" :icon="getIcon(item.type || '')" size="14" />
               </div>
 
               <div class="transfer-history-mobile-record__heading">
