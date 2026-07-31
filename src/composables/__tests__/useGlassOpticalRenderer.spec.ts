@@ -474,15 +474,18 @@ describe('glass optical surface discovery', () => {
     const bounds = { height: 240, width: 360, x: 80, y: 100 }
     appendOpticalSurface('app-hover-lift-card', bounds)
     const active = ref(true)
+    const acknowledgeGeometryReady = vi.fn()
+    const epoch = ref(1)
     const opacity = ref(1)
     const revision = ref(0)
+    const appearance = ref<'clear' | 'frosted'>('clear')
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
         active: ref(true),
-        appearance: ref('clear'),
+        appearance,
         canvas: ref(canvas),
-        pageMotion: { active, opacity, revision },
+        pageMotion: { acknowledgeGeometryReady, active, epoch, opacity, revision },
         quality: ref('balanced'),
         routeKey: ref('/dashboard'),
         surfaceSpace: 'scroll',
@@ -519,6 +522,12 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uRects.value[0].y).not.toBe(initialY)
     expect(uniforms.uSurfaceWeights.value[0]).toBeCloseTo(0.42)
 
+    appearance.value = 'frosted'
+    opacity.value = 0.18
+    revision.value += 1
+    const frostedScene = render.mock.calls.at(-1)?.[0] as unknown as typeof initialScene
+    expect(frostedScene.children[0].material.uniforms.uSurfaceWeights.value[0]).toBe(1)
+
     const observer = ResizeObserverMock.instances.find(instance => instance.targets.has(root))
     expect(observer).toBeDefined()
     setSize.mockClear()
@@ -529,6 +538,67 @@ describe('glass optical surface discovery', () => {
     expect(setSize).toHaveBeenCalledOnce()
     expect(setSize).toHaveBeenCalledWith(1200, 1400, false)
     expect(render).toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('acknowledges the current page motion only after route surfaces remain stable', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const canvas = document.createElement('canvas')
+    const root = document.createElement('div')
+    root.append(canvas)
+    document.body.append(root)
+    appendOpticalSurface('app-hover-lift-card', { height: 240, width: 360, x: 80, y: 100 })
+    const acknowledgeGeometryReady = vi.fn()
+    const active = ref(true)
+    const epoch = ref(7)
+    const routeKey = ref('/dashboard')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        pageMotion: {
+          acknowledgeGeometryReady,
+          active,
+          epoch,
+          opacity: ref(0),
+          revision: ref(1),
+        },
+        quality: ref('balanced'),
+        routeKey,
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    routeKey.value = '/discover'
+    await nextTick()
+    epoch.value = 8
+    routeKey.value = '/dashboard'
+    await nextTick()
+    await nextTick()
+
+    for (let pass = 0; pass < 8 && !acknowledgeGeometryReady.mock.calls.length; pass += 1) {
+      const queued = [...callbacks.entries()]
+      callbacks.clear()
+      queued.forEach(([, callback]) => callback(1000 + pass * 16))
+      await nextTick()
+    }
+
+    expect(acknowledgeGeometryReady).toHaveBeenCalledOnce()
+    expect(acknowledgeGeometryReady).toHaveBeenCalledWith(8, expect.any(Number))
     scope.stop()
   })
 

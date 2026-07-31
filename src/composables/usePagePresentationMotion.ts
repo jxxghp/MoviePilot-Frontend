@@ -3,14 +3,19 @@ import { readonly, ref, type Ref } from 'vue'
 export const PAGE_PRESENTATION_MOTION_DURATION_MS = 180
 export const PAGE_PRESENTATION_MOTION_START_OPACITY = 0.88
 export const PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y = 4
+export const PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y = 8
 export const PAGE_PRESENTATION_LAYOUT_STABLE_MS = 120
 export const PAGE_PRESENTATION_LAYOUT_HOLD_MAX_MS = 480
 
 /** renderer 只读取同一帧已经提交到 DOM 的页面呈现状态。 */
 export interface PagePresentationMotionReader {
+  /** renderer 确认当前事务的 surface 几何已稳定后，允许页面开始 reveal。 */
+  acknowledgeGeometryReady: (motionEpoch: number, timestamp?: number) => boolean
   /** 页面是否处于共享呈现事务中。 */
   active: Readonly<Ref<boolean>>
-  /** 当前页面材质与 DOM 共同使用的透明度。 */
+  /** 当前呈现事务版本；旧 surface 采样不得完成新事务。 */
+  epoch: Readonly<Ref<number>>
+  /** 页面内容的呈现透明度；renderer 按材质合成约束决定是否使用。 */
   opacity: Readonly<Ref<number>>
   /** 每次 DOM motion 样式提交后递增，renderer 据此在同一帧刷新表面。 */
   revision: Readonly<Ref<number>>
@@ -27,7 +32,9 @@ let animationFrame: number | null = null
 let layoutHoldStartedAt = 0
 let layoutStableSince = 0
 let layoutSignature = ''
+let motionStartTranslateY = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
 let startedAt = 0
+let preserveFrostedMaterial = false
 
 function sampleBezier(time: number, start: number, end: number) {
   const inverse = 1 - time
@@ -64,9 +71,10 @@ function clearDocumentMotionState() {
 /** 先提交 DOM 样式，再发布 revision，保证 renderer 读取到同一帧的真实矩形。 */
 function applyMotionFrame(nextProgress: number) {
   const root = document.documentElement
-  const nextOpacity =
-    PAGE_PRESENTATION_MOTION_START_OPACITY + (1 - PAGE_PRESENTATION_MOTION_START_OPACITY) * nextProgress
-  const nextTranslateY = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y * (1 - nextProgress)
+  const nextOpacity = preserveFrostedMaterial
+    ? 1
+    : PAGE_PRESENTATION_MOTION_START_OPACITY + (1 - PAGE_PRESENTATION_MOTION_START_OPACITY) * nextProgress
+  const nextTranslateY = motionStartTranslateY * (1 - nextProgress)
 
   root.dataset.pagePresentationMotion = 'active'
   root.style.setProperty('--mp-page-motion-opacity', nextOpacity.toFixed(4))
@@ -82,11 +90,11 @@ function applyLayoutHoldFrame() {
   const root = document.documentElement
 
   root.dataset.pagePresentationMotion = 'active'
-  root.style.setProperty('--mp-page-motion-opacity', '0')
-  root.style.setProperty('--mp-page-motion-translate-y', `${PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y}px`)
-  opacity.value = 0
+  root.style.setProperty('--mp-page-motion-opacity', preserveFrostedMaterial ? '1' : '0')
+  root.style.setProperty('--mp-page-motion-translate-y', `${motionStartTranslateY}px`)
+  opacity.value = preserveFrostedMaterial ? 1 : 0
   progress.value = 0
-  translateY.value = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
+  translateY.value = motionStartTranslateY
   revision.value += 1
 }
 
@@ -100,6 +108,17 @@ function beginReveal(timestamp: number, motionEpoch: number) {
   startedAt = timestamp
   applyMotionFrame(0)
   animationFrame = window.requestAnimationFrame(nextTimestamp => renderFrame(nextTimestamp, motionEpoch))
+}
+
+/** GPU surface 比整页高度更早稳定时，直接结束布局等待。 */
+function acknowledgeGeometryReady(motionEpoch: number, timestamp = performance.now()) {
+  if (!active.value || epoch.value !== motionEpoch) return false
+
+  if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
+  animationFrame = null
+  beginReveal(timestamp, motionEpoch)
+
+  return true
 }
 
 /** 页面根持续稳定后才开始 reveal；上限避免持续布局页面永久不可见。 */
@@ -161,7 +180,7 @@ function renderFrame(timestamp: number, motionEpoch: number) {
 }
 
 /**
- * 玻璃主题由共享控制器接管页面入场；其他主题继续使用既有 CSS keyframe。
+ * 需要 renderer 同步或保持磨砂密度的玻璃页面由共享控制器接管；其他页面交给普通 WAAPI。
  * 返回 true 表示本次路由变化已经处理，包括 reduced-motion 的即时提交。
  */
 function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
@@ -175,6 +194,17 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
   epoch.value += 1
   const motionEpoch = epoch.value
   routeKey.value = nextRouteKey
+  preserveFrostedMaterial = document.documentElement.dataset.glassAppearance === 'frosted'
+  const usesCssQuality = document.documentElement.dataset.glassQuality === 'css'
+  if (usesCssQuality && !preserveFrostedMaterial) {
+    settleMotion()
+    revision.value += 1
+    return false
+  }
+
+  motionStartTranslateY = preserveFrostedMaterial
+    ? PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y
+    : PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
 
   // 启动屏已完整遮罩页面；在其背后再等待布局稳定会把一次启动拆成两次可见揭示。
   if (document.documentElement.dataset.launchLoading === 'true' && document.getElementById('loading-bg')) {
@@ -191,7 +221,7 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
 
   active.value = true
   const timestamp = performance.now()
-  if (layoutRoot) {
+  if (layoutRoot && !usesCssQuality) {
     layoutHoldStartedAt = timestamp
     layoutStableSince = timestamp
     layoutSignature = getLayoutSignature(layoutRoot)
@@ -207,7 +237,9 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
 }
 
 const reader: PagePresentationMotionReader = {
+  acknowledgeGeometryReady,
   active: readonly(active),
+  epoch: readonly(epoch),
   opacity: readonly(opacity),
   revision: readonly(revision),
 }

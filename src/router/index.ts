@@ -50,6 +50,7 @@ const router = createRouter({
           component: () => import('../pages/recommend.vue'),
           meta: {
             keepAlive: true,
+            pagePresentationHandoff: 'staged',
             requiresAuth: true,
             permission: 'discovery',
             feature: PERMISSION_FEATURE.DISCOVERY_RECOMMEND,

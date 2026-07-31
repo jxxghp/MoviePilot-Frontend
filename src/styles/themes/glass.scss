@@ -325,20 +325,20 @@ html[data-theme='glass'] {
   }
 
   // 页面 DOM 与 scroll renderer 共用同一 motion 时钟；canvas 本身保持壁纸坐标不动。
-  .mp-page-route--entering {
-    animation: none;
-    filter: none;
-    opacity: 1;
-    transform: none;
-    will-change: auto;
-  }
-
   &[data-page-presentation-motion='active'] .mp-page-route {
     filter: none;
     opacity: var(--mp-page-motion-opacity, 1);
     transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);
     transform-origin: center top;
     will-change: opacity, transform;
+  }
+
+  // 磨砂保持最终材质权重，只复用页面呈现时间线做短距离位移。
+  &[data-glass-appearance='frosted'][data-page-presentation-motion='active'] .mp-page-route {
+    filter: none;
+    opacity: 1;
+    transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);
+    will-change: transform;
   }
 
   :where(
