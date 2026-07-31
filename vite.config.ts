@@ -318,6 +318,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/dialog/SubscribeSeasonDialog.vue',
         'src/components/dialog/SubscribeShareDialog.vue',
         'src/components/dialog/SubscribeShareStatisticsDialog.vue',
+        'src/components/filebrowser/FileList.vue',
         'src/components/dialog/DiscoverTabOrderDialog.vue',
         'src/components/dialog/SiteResourceDialog.vue',
         'src/components/dialog/SiteUserDataDialog.vue',
@@ -396,6 +397,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 85,
           lines: 85,
           statements: 85,
+        },
+        'src/components/filebrowser/FileList.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
         },
         'src/utils/torrentDownloadCache.ts': {
           branches: 85,

@@ -4,7 +4,7 @@ import type { PropType } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
 import { formatBytes } from '@core/utils/formatters'
-import type { Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
+import type { ApiResponse, Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -36,8 +36,9 @@ const { availableHeight: listAvailableHeight } = useAvailableHeight(100, 300)
 const inProps = defineProps({
   icons: Object,
   endpoints: Object as PropType<EndPoints>,
+  // Axios 实例是可调用函数，运行时 prop 类型需与其实际形态一致。
   axios: {
-    type: Object as PropType<AxiosInstance>,
+    type: Function as PropType<AxiosInstance>,
     required: true,
   },
   refreshpending: Boolean,
@@ -225,6 +226,11 @@ const transferItems = ref<FileItem[]>([])
 // 当前图片地址
 const currentImgLink = ref('')
 
+let imageRequestSeed = 0
+// request seed 决定响应提交和内部 loading 归属；外部 loading 按非静默调用配对，重叠时也分别完成事件收口。
+let listLoadingRequestSeed = 0
+let listRequestSeed = 0
+
 // 释放当前图片预览使用的临时对象地址。
 function revokeCurrentImgLink() {
   if (!currentImgLink.value) return
@@ -253,11 +259,11 @@ function exitSelectMode() {
 
 // 调API加载文件夹内的内容
 async function list_files(context: KeepAliveRefreshContext = {}) {
+  const requestSeed = ++listRequestSeed
   const silentRefresh = Boolean(context.silent && items.value.length > 0)
-  const takeURISnapshot = () => [inProps.item.storage, inProps.item.path].join(':/')
-  const prevURI = takeURISnapshot()
 
   if (!silentRefresh) {
+    listLoadingRequestSeed = requestSeed
     loading.value = true
     emit('loading', true)
   }
@@ -274,10 +280,8 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
 
     // 加载数据
     const data = (await inProps.axios.request<FileItem[], FileItem[]>(config)) ?? []
-    // 如果当前路径已经变化，则放弃此次加载结果
-    if (prevURI !== takeURISnapshot()) {
-      return
-    }
+    if (requestSeed !== listRequestSeed) return
+
     items.value = data
     syncSelectedItems(data)
 
@@ -288,9 +292,19 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
   } finally {
     if (!silentRefresh) {
       emit('loading', false)
-      loading.value = false
+      if (requestSeed === listLoadingRequestSeed) loading.value = false
     }
   }
+}
+
+// 请求删除文件项，由单项或批量操作分别决定反馈和刷新策略。
+async function requestDeleteItem(item: FileItem) {
+  const config: AxiosRequestConfig<FileItem> = {
+    url: inProps.endpoints?.delete.url,
+    method: inProps.endpoints?.delete.method || 'post',
+    data: item,
+  }
+  return inProps.axios.request<ApiResponse<unknown>, ApiResponse<unknown>>(config)
 }
 
 // 删除项目
@@ -309,21 +323,23 @@ async function deleteItem(item: FileItem, confirm: boolean = true) {
   // 加载中
   emit('loading', true)
 
-  // 请求API
-  const url = inProps.endpoints?.delete.url
-  const config: AxiosRequestConfig<FileItem> = {
-    url,
-    method: inProps.endpoints?.delete.method || 'post',
-    data: item,
+  try {
+    const result = await requestDeleteItem(item)
+    if (!result.success) {
+      $toast.error(result.message || t('common.error'))
+      return false
+    }
+
+    emit('filedeleted')
+    await list_files()
+    return true
+  } catch (error) {
+    console.error(error)
+    $toast.error(error instanceof Error ? error.message : t('common.error'))
+    return false
+  } finally {
+    emit('loading', false)
   }
-  await inProps.axios.request(config)
-
-  // 删除完成
-  emit('loading', false)
-  emit('filedeleted')
-
-  // 重新加载
-  list_files()
 }
 
 // 批量删除
@@ -340,24 +356,42 @@ async function batchDelete() {
   // 显示进度条
   progressValue.value = 0
   openProgressDialog(progressText.value, progressValue.value)
+  emit('loading', true)
 
   try {
     const selectedItems = dedupeFileItems(selected.value)
+    const failedItems: FileItem[] = []
 
     // 删除选中的项目
-    for (const item of selectedItems) {
+    for (const [index, item] of selectedItems.entries()) {
       progressText.value = t('file.deleting', { name: item.name })
-      progressDialogController?.updateProps({ text: progressText.value })
-      await deleteItem(item, false)
+      progressValue.value = Math.round(((index + 1) / selectedItems.length) * 100)
+      progressDialogController?.updateProps({ text: progressText.value, value: progressValue.value })
+      try {
+        const result = await requestDeleteItem(item)
+        if (!result.success) failedItems.push(item)
+      } catch (error) {
+        console.error(error)
+        failedItems.push(item)
+      }
     }
 
-    exitSelectMode()
+    if (failedItems.length) {
+      selected.value = failedItems
+      $toast.error(`${t('common.error')}: ${failedItems.map(item => item.name).join(', ')}`)
+    } else {
+      exitSelectMode()
+    }
   } finally {
     // 关闭进度条
     closeProgressDialog()
 
     // 重新加载
-    list_files()
+    try {
+      await list_files({ silent: true })
+    } finally {
+      emit('loading', false)
+    }
   }
 }
 
@@ -399,7 +433,8 @@ async function download(item: FileItem) {
 
 // 获取图片地址
 async function getImgLink(item: FileItem) {
-  let url = inProps.endpoints?.image.url
+  const requestSeed = ++imageRequestSeed
+  const url = inProps.endpoints?.image.url
   // 下载文件
   const config: AxiosRequestConfig<FileItem> = {
     url,
@@ -409,7 +444,7 @@ async function getImgLink(item: FileItem) {
   }
   // 加载二进制数据
   const result: Blob = await inProps.axios.request<Blob, Blob>(config)
-  if (result) {
+  if (result && requestSeed === imageRequestSeed) {
     // 创建图片地址
     revokeCurrentImgLink()
     currentImgLink.value = URL.createObjectURL(result)
@@ -420,12 +455,11 @@ async function getImgLink(item: FileItem) {
 watch(
   () => inProps.item,
   async () => {
+    imageRequestSeed += 1
+    revokeCurrentImgLink()
     if (isImage.value && isFile.value) {
       await getImgLink(inProps.item)
-      return
     }
-
-    revokeCurrentImgLink()
   },
   { immediate: true },
 )
@@ -487,51 +521,51 @@ async function get_recommend_name() {
   renameDialogController?.updateProps({ loading: false, name: newName.value })
 }
 
-// 重命名
+// 仅在后端确认成功后关闭编辑弹窗并通知刷新；失败时保留输入以便重试。
 async function rename() {
   emit('loading', true)
+  const recursive = renameAll.value
 
   // 显示进度条
   progressValue.value = 0
-  if (renameAll.value) {
+  if (recursive) {
     progressText.value = t('file.renamingAll', { path: currentItem.value?.path })
   } else {
     progressText.value = t('file.renaming', { name: currentItem.value?.name })
   }
   openProgressDialog(progressText.value, progressValue.value)
-  if (renameAll.value) {
+  if (recursive) {
     startLoadingProgress()
   }
 
-  // 调API
-  let url = inProps.endpoints?.rename.url.replace(/{newname}/g, encodeURIComponent(newName.value))
-  if (renameAll.value) {
-    url += '&recursive=true'
-  }
+  try {
+    let url = inProps.endpoints?.rename.url.replace(/{newname}/g, encodeURIComponent(newName.value))
+    if (recursive) url += '&recursive=true'
 
-  const config: AxiosRequestConfig<FileItem> = {
-    url,
-    method: inProps.endpoints?.rename.method || 'post',
-    data: currentItem.value,
-  }
-  const result: { [key: string]: any } = await inProps.axios?.request<any, { [key: string]: any }>(config)
-  if (!result.success) {
-    $toast.error(result.message)
-  }
+    const config: AxiosRequestConfig<FileItem> = {
+      url,
+      method: inProps.endpoints?.rename.method || 'post',
+      data: currentItem.value,
+    }
+    const result: { [key: string]: any } = await inProps.axios.request<any, { [key: string]: any }>(config)
+    if (!result.success) {
+      $toast.error(result.message || t('common.error'))
+      return
+    }
 
-  // 关闭进度条
-  if (renameAll.value) {
-    stopLoadingProgress()
+    newName.value = ''
+    renameAll.value = false
+    renameDialogController?.close()
+    renameDialogController = null
+    emit('renamed')
+  } catch (error) {
+    console.error(error)
+    $toast.error(error instanceof Error ? error.message : t('common.error'))
+  } finally {
+    if (recursive) stopLoadingProgress()
+    closeProgressDialog()
+    emit('loading', false)
   }
-  closeProgressDialog()
-
-  // 通知重新加载
-  newName.value = ''
-  renameAll.value = false
-  renameDialogController?.close()
-  renameDialogController = null
-  emit('loading', false)
-  emit('renamed')
 }
 
 // 显示整理对话框
@@ -590,7 +624,7 @@ watch(
 
 // 监听item变化
 watch(
-  [() => inProps.item],
+  () => inProps.item,
   async () => {
     // 清空列表
     items.value = []
@@ -776,6 +810,8 @@ useKeepAliveRefresh(list_files, {
 })
 
 onUnmounted(() => {
+  imageRequestSeed += 1
+  listLoadingRequestSeed = ++listRequestSeed
   revokeCurrentImgLink()
   stopLoadingProgress()
   closeProgressDialog()

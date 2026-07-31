@@ -43,7 +43,7 @@ function mountNavigator(
   request = vi.fn().mockResolvedValue([]),
   overrides: { currentPath?: string; items?: FileItem[] } = {},
 ) {
-  const axios = { request } as unknown as AxiosInstance
+  const axios = Object.assign(vi.fn(), { request }) as unknown as AxiosInstance
   const endpoint = { method: 'post', url: '/unused' }
   const endpoints: EndPoints = {
     delete: endpoint,

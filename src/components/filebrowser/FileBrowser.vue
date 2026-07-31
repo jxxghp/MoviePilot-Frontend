@@ -20,8 +20,9 @@ const props = defineProps({
   storages: Array as PropType<StorageConf[]>,
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
+  // Axios 实例是可调用函数，运行时 prop 类型需与其实际形态一致。
   axios: {
-    type: Object as PropType<AxiosInstance>,
+    type: Function as PropType<AxiosInstance>,
     required: true,
   },
   axiosconfig: Object,
