@@ -4,7 +4,9 @@ import { useEventListener } from '@vueuse/core'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const TorrentAllFiltersDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentAllFiltersDialog.vue'))
-const TorrentSingleFilterDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentSingleFilterDialog.vue'))
+const TorrentSingleFilterDialog = defineAsyncComponent(
+  () => import('@/components/dialog/TorrentSingleFilterDialog.vue'),
+)
 
 // 国际化
 const { t } = useI18n()
@@ -287,6 +289,11 @@ onMounted(() => {
       }
     }, 500)
   })
+})
+
+onUnmounted(() => {
+  closeAllFilterDialog()
+  closeFilterDialog()
 })
 </script>
 
@@ -593,7 +600,6 @@ onMounted(() => {
       </div>
     </div>
   </VCard>
-
 </template>
 
 <style scoped>

@@ -171,7 +171,7 @@ export function useTorrentFilter() {
   function filterRowData(items: Context[] | undefined): Context[] {
     // 重置状态
     filteredIndices.value = []
-    
+
     // 清空并重新初始化过滤选项
     for (const key in filterOptions) {
       filterOptions[key] = []
@@ -255,8 +255,8 @@ export function useTorrentFilter() {
     // 筛选数据
     const filteredData: SearchTorrent[] = []
     let matchCount = 0
-    // 临时存储：每个分组的第一个原始索引
-    const groupIndexMap = new Map<SearchTorrent, number>()
+    // 每张分组卡片保留全部匹配资源的原始索引，供后续批量处理复用。
+    const groupIndicesMap = new Map<SearchTorrent, number[]>()
 
     groupMap.forEach(value => {
       if (value.length > 0) {
@@ -278,8 +278,10 @@ export function useTorrentFilter() {
           const firstData = cloneDeepWith(firstItem.data) as SearchTorrent
           if (matchData.length > 1) firstData.more = matchData.slice(1).map(x => x.data)
           filteredData.push(firstData)
-          // 存储该分组的第一个原始索引
-          groupIndexMap.set(firstData, firstItem.originalIndex)
+          groupIndicesMap.set(
+            firstData,
+            matchData.map(item => item.originalIndex),
+          )
         }
       }
     })
@@ -289,8 +291,8 @@ export function useTorrentFilter() {
     // 排序数据
     const sortedData = sortCardData(filteredData)
 
-    // 在排序后重新构建 filteredIndices，保持与排序后顺序一致
-    filteredIndices.value = sortedData.map(item => groupIndexMap.get(item) || 0)
+    // 索引顺序跟随排序后的卡片分组，同时保留组内的原始资源顺序。
+    filteredIndices.value = sortedData.flatMap(item => groupIndicesMap.get(item) ?? [])
 
     // 确保季集选项排序
     if (filterOptions.season.length > 0) {
