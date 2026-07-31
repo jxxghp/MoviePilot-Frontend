@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import CryptoJS from 'crypto-js'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { useToast } from 'vue-toastification'
 import noImage from '@images/no-image.jpeg'
 import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
@@ -12,10 +13,12 @@ import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 type TransferTask = TransferQueue['tasks'][number]
+type FileProgressSSE = ReturnType<ReturnType<typeof useBackground>['useProgressSSE']>
 
 interface MediaTaskGroup {
+  key: string
   media: TransferQueue['media']
-  titleYear: string
+  season?: number
   tasks: TransferTask[]
   total: number
   completed: number
@@ -24,6 +27,7 @@ interface MediaTaskGroup {
 // 多语言支持
 const { t } = useI18n()
 const { useProgressSSE } = useBackground()
+const toast = useToast()
 
 // 显示器宽度
 const display = useDisplay()
@@ -38,6 +42,8 @@ const emit = defineEmits(['close'])
 // 数据列表
 const dataList = ref<TransferQueue[]>([])
 
+const queueLoadFailed = ref(false)
+
 // 文件进度映射
 const fileProgressMap = ref<Map<string, { enable: boolean; value: number }>>(new Map())
 
@@ -51,7 +57,14 @@ const activeTab = ref('')
 const queueTimer = ref<NodeJS.Timeout | null>(null)
 
 // 文件进度SSE连接映射
-const fileProgressSSEMap = ref<Map<string, any>>(new Map())
+const fileProgressSSEMap = ref<Map<string, FileProgressSSE>>(new Map())
+
+// 请求只能覆盖更早提交的快照，较新的未完成请求不阻塞当前可用结果。
+let nextQueueRequestId = 0
+let latestCommittedQueueRequestId = 0
+
+// 异步操作完成后只有仍挂载的弹窗可以继续刷新队列或提示错误。
+let isMounted = false
 
 // 状态标签
 const stateDict = computed<Record<string, string>>(() => ({
@@ -62,23 +75,35 @@ const stateDict = computed<Record<string, string>>(() => ({
   cancelled: t('dialog.transferQueue.cancelledState'),
 }))
 
-// 按媒体聚合队列，避免模板中重复扫描 dataList
+// 队列作业由来源原生媒体 ID 与季号共同标识；缺少媒体 ID 时才退回展示标题。
+function getMediaIdentity(item: TransferQueue) {
+  const source = item.media.mediaid_prefix || item.media.source
+  const mediaIdentity =
+    source && item.media.media_id
+      ? `${source}:${item.media.media_id}`
+      : `title:${item.media.title_year || item.media.title || ''}`
+
+  return `${mediaIdentity}:season:${item.season ?? ''}`
+}
+
+// 按真实媒体标识聚合队列，避免同名同年但来源不同的媒体互相合并。
 const mediaTaskGroups = computed<MediaTaskGroup[]>(() => {
   const groupMap = new Map<string, MediaTaskGroup>()
 
   dataList.value.forEach(item => {
-    const titleYear = item.media.title_year || ''
-    let group = groupMap.get(titleYear)
+    const key = getMediaIdentity(item)
+    let group = groupMap.get(key)
 
     if (!group) {
       group = {
+        key,
         media: item.media,
-        titleYear,
+        season: item.season,
         tasks: [],
         total: 0,
         completed: 0,
       }
-      groupMap.set(titleYear, group)
+      groupMap.set(key, group)
     }
 
     group.tasks.push(...item.tasks)
@@ -91,7 +116,7 @@ const mediaTaskGroups = computed<MediaTaskGroup[]>(() => {
 
 // 当前选中的媒体分组
 const activeMediaGroup = computed(() => {
-  return mediaTaskGroups.value.find(item => item.titleYear === activeTab.value)
+  return mediaTaskGroups.value.find(item => item.key === activeTab.value)
 })
 
 // 当前媒体的文件任务
@@ -139,10 +164,12 @@ function getStateIcon(state: string) {
 }
 
 // 获取媒体显示标题。
-function getMediaTitle(media?: MediaInfo) {
+function getMediaTitle(media?: MediaInfo, season?: number) {
   if (!media) return '-'
-  if (media.title_year) return media.title_year
-  return [media.title, media.year ? `（${media.year}）` : ''].filter(Boolean).join('') || '-'
+  const title = media.title_year || [media.title, media.year ? `（${media.year}）` : ''].filter(Boolean).join('') || '-'
+  if (season === undefined || season === null) return title
+
+  return `${title} S${String(season).padStart(2, '0')}`
 }
 
 // 获取适配全局图片设置的媒体海报地址。
@@ -150,12 +177,9 @@ function getPosterUrl(media?: MediaInfo) {
   const posterPath = media?.poster_path
   if (!posterPath) return noImage
 
-  let posterUrl = posterPath
-  if (posterPath.startsWith('/')) {
-    posterUrl = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${posterPath}`
-  } else {
-    posterUrl = posterPath.replace('original', 'w500')
-  }
+  const posterUrl = posterPath.startsWith('/')
+    ? `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${posterPath}`
+    : posterPath.replace('original', 'w500')
 
   return getDisplayImageUrl(posterUrl, globalSettings.GLOBAL_IMAGE_CACHE)
 }
@@ -187,16 +211,27 @@ function getTaskProgress(task: TransferTask) {
 
 // 调用API获取队列信息。
 async function get_transfer_queue() {
+  const requestId = ++nextQueueRequestId
+
   try {
-    dataList.value = await api.get('transfer/queue')
+    const queue = (await api.get('transfer/queue')) as TransferQueue[]
+    if (!isMounted || requestId < latestCommittedQueueRequestId) return
+
+    latestCommittedQueueRequestId = requestId
+    queueLoadFailed.value = false
+    dataList.value = queue
     if (dataList.value.length > 0) {
-      if (!activeTab.value || activeTasks.value.length === 0) activeTab.value = dataList.value[0].media.title_year || ''
+      if (!activeTab.value || activeTasks.value.length === 0) activeTab.value = mediaTaskGroups.value[0].key
 
       if (!progressActive.value) startLoadingProgress()
     } else if (progressActive.value) {
       stopLoadingProgress()
     }
   } catch (error) {
+    if (!isMounted || requestId < latestCommittedQueueRequestId) return
+
+    latestCommittedQueueRequestId = requestId
+    queueLoadFailed.value = true
     console.error(error)
   }
 }
@@ -205,9 +240,14 @@ async function get_transfer_queue() {
 async function remove_queue_task(fileitem: FileItem) {
   try {
     await api.delete('transfer/queue', { data: fileitem })
-    get_transfer_queue()
+    if (!isMounted) return
+
+    void get_transfer_queue()
   } catch (error) {
+    if (!isMounted) return
+
     console.error(error)
+    toast.error(t('common.serverConnectionFailed'))
   }
 }
 
@@ -310,18 +350,23 @@ function stopQueueTimer() {
   }
 }
 
-onMounted(() => startQueueTimer())
+onMounted(() => {
+  isMounted = true
+  startQueueTimer()
+})
 
 onUnmounted(() => {
+  isMounted = false
   stopQueueTimer()
-  stopLoadingProgress()
+  progressActive.value = false
+  stopAllFileProgress()
 })
 </script>
 
 <template>
   <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="mx-auto" width="100%">
-      <VCardItem :class="{'py-2': dataList.length > 0}">
+      <VCardItem :class="{ 'py-2': dataList.length > 0 }">
         <VDialogCloseBtn @click="emit('close')" />
         <template #prepend>
           <VIcon icon="mdi-menu" color="primary" size="28" class="me-2" />
@@ -339,7 +384,17 @@ onUnmounted(() => {
 
       <VDivider />
 
-      <VCardText v-if="dataList.length === 0" class="transfer-queue-empty">
+      <VCardText v-if="queueLoadFailed" class="transfer-queue-empty">
+        <VIcon class="transfer-queue-empty__icon" icon="mdi-alert-outline" size="30" />
+        <div class="transfer-queue-empty__headline">
+          {{ t('common.serverConnectionFailed') }}
+        </div>
+        <VBtn color="primary" variant="tonal" @click="get_transfer_queue">
+          {{ t('common.retry') }}
+        </VBtn>
+      </VCardText>
+
+      <VCardText v-else-if="dataList.length === 0" class="transfer-queue-empty">
         <VIcon class="transfer-queue-empty__icon" icon="mdi-sync" size="30" />
         <div class="transfer-queue-empty__headline">
           {{ t('dialog.transferQueue.noTasks') }}
@@ -375,21 +430,21 @@ onUnmounted(() => {
           <nav class="media-selector" :aria-label="t('dialog.transferQueue.mediaList')">
             <button
               v-for="group in mediaTaskGroups"
-              :key="group.titleYear"
+              :key="group.key"
               type="button"
               class="media-selector__item app-surface-shape"
-              :class="{ 'media-selector__item--active': activeTab === group.titleYear }"
-              :aria-current="activeTab === group.titleYear ? 'true' : undefined"
-              @click="activeTab = group.titleYear"
+              :class="{ 'media-selector__item--active': activeTab === group.key }"
+              :aria-current="activeTab === group.key ? 'true' : undefined"
+              @click="activeTab = group.key"
             >
               <VImg
                 class="media-selector__poster"
                 :src="getPosterUrl(group.media)"
-                :alt="getMediaTitle(group.media)"
+                :alt="getMediaTitle(group.media, group.season)"
                 cover
               />
               <div class="media-selector__info">
-                <div class="media-selector__title">{{ getMediaTitle(group.media) }}</div>
+                <div class="media-selector__title">{{ getMediaTitle(group.media, group.season) }}</div>
                 <div class="media-selector__meta">
                   <span>{{ getMediaCount(group) }}</span>
                   <span class="media-selector__percent">{{ Math.round(getMediaProgress(group)) }}%</span>
@@ -410,11 +465,13 @@ onUnmounted(() => {
               <VImg
                 class="active-media__poster"
                 :src="getPosterUrl(activeMediaGroup?.media)"
-                :alt="getMediaTitle(activeMediaGroup?.media)"
+                :alt="getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season)"
                 cover
               />
               <div class="active-media__info">
-                <h3 class="active-media__title">{{ getMediaTitle(activeMediaGroup?.media) }}</h3>
+                <h3 class="active-media__title">
+                  {{ getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season) }}
+                </h3>
                 <p class="active-media__meta">
                   {{
                     t('dialog.transferQueue.mediaFileSummary', {

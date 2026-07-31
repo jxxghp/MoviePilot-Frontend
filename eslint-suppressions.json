@@ -385,17 +385,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/TransferQueueDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "no-useless-assignment": {
-      "count": 1
-    },
-    "sonarjs/no-dead-store": {
-      "count": 1
-    }
-  },
   "src/components/dialog/U115AuthDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
