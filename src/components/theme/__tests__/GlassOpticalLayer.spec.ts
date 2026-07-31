@@ -1,5 +1,5 @@
 import { shallowMount } from '@vue/test-utils'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import GlassOpticalLayer from '@/components/theme/GlassOpticalLayer.vue'
 
@@ -24,6 +24,9 @@ const rendererResults = vi.hoisted(
     }>,
 )
 const interactionSource = vi.hoisted(() => ({ subscribe: vi.fn() }))
+const mobilePresentationState = vi.hoisted(() => ({
+  current: null as { value: boolean } | null,
+}))
 const wallpaperSourceCache = vi.hoisted(() => ({ get: vi.fn() }))
 const setRendererState = vi.hoisted(() =>
   vi.fn((state: { value: string }, value: string) => {
@@ -100,7 +103,17 @@ vi.mock('@/composables/useGlassOpticalRenderer', () => ({
   }),
 }))
 
+vi.mock('@/composables/useGlassPresentationCapabilities', async () => {
+  const { ref: createRef } = await vi.importActual<typeof import('vue')>('vue')
+  mobilePresentationState.current = createRef(false)
+
+  return {
+    useGlassMobilePresentation: () => mobilePresentationState.current,
+  }
+})
+
 afterEach(() => {
+  mobilePresentationState.current!.value = false
   vi.unstubAllGlobals()
 })
 
@@ -135,6 +148,7 @@ describe('GlassOpticalLayer', () => {
     expect(rendererCalls.every(options => options.interactionSource === interactionSource)).toBe(true)
     expect(rendererCalls.every(options => options.wallpaperSourceCache === wallpaperSourceCache)).toBe(true)
     expect(rendererCalls.every(options => options.syncDocumentState === false)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
     expect(rendererCalls[0].pageMotion).toBeUndefined()
     expect(rendererCalls[1].pageMotion).toEqual(
       expect.objectContaining({
@@ -145,6 +159,39 @@ describe('GlassOpticalLayer', () => {
 
     wrapper.unmount()
     expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
+  })
+
+  it('keeps both material contexts while disabling dynamics on mobile presentations', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    mobilePresentationState.current!.value = true
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'frosted',
+        deformationStrength: 50,
+        flowStrength: 50,
+        previousWallpaperUrl: '',
+        quality: 'high',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+
+    expect(wrapper.findAll('canvas')).toHaveLength(2)
+    expect(rendererCalls.every(options => !(options.dynamicsActive as { value: boolean }).value)).toBe(true)
+
+    mobilePresentationState.current!.value = false
+    await nextTick()
+
+    expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    wrapper.unmount()
   })
 
   it('activates matching resource bundles in one shared animation frame', async () => {

@@ -150,7 +150,9 @@ export function setGlassRendererState(state: Ref<GlassRendererState>, value: Gla
 }
 
 /** 为有界的多个呈现 context 建立唯一的全局指针与触摸事件源。 */
-export function useGlassOpticalInteractionSource(): GlassOpticalInteractionSource {
+export function useGlassOpticalInteractionSource(
+  active: MaybeRefOrGetter<boolean> = true,
+): GlassOpticalInteractionSource {
   const listeners: Record<GlassPresentationSpace, Set<(event: PointerEvent | TouchEvent) => void>> = {
     fixed: new Set(),
     scroll: new Set(),
@@ -197,6 +199,13 @@ export function useGlassOpticalInteractionSource(): GlassOpticalInteractionSourc
     event.type.startsWith('touch')
 
   const dispatch = (event: PointerEvent | TouchEvent) => {
+    if (!toValue(active)) {
+      if (isTouchInteractionEvent(event) && (event.type === 'touchend' || event.type === 'touchcancel')) {
+        for (const touch of Array.from(event.changedTouches)) touchOwners.delete(touch.identifier)
+      }
+      return
+    }
+
     const owner = isTouchInteractionEvent(event)
       ? resolveTouchOwner(event)
       : resolvePointOwner(event.clientX, event.clientY)
@@ -327,6 +336,8 @@ interface UseGlassOpticalRendererOptions {
   appearance: MaybeRefOrGetter<ThemeCustomizerGlassAppearance>
   canvas: Ref<HTMLCanvasElement | null>
   deformationStrength?: MaybeRefOrGetter<number>
+  /** 是否启用交互形变、尾迹和 temporal flow；静态材质不受影响。 */
+  dynamicsActive?: MaybeRefOrGetter<boolean>
   flowStrength?: MaybeRefOrGetter<number>
   interactionSource?: GlassOpticalInteractionSource
   /** 旧调用方的单一动态强度仅作为三个独立维度的兼容回退。 */
@@ -1768,7 +1779,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!resources || !three) return
 
     const profile = getRenderProfile()
-    if (!profile.flowField) {
+    if (!hasDynamicCapability() || !profile.flowField) {
       disposeFlowResources()
       return
     }
@@ -2343,23 +2354,37 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     return toValue(options.motionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT)
   }
 
+  function hasDynamicCapability() {
+    return toValue(options.dynamicsActive ?? true)
+  }
+
   function getTranslationStrengthScale() {
+    if (!hasDynamicCapability()) return 0
+
     return getGlassOpticalTranslationStrengthScale(toValue(options.translationStrength ?? getLegacyDynamicStrength()))
   }
 
   function getDeformationStrengthScale() {
+    if (!hasDynamicCapability()) return 0
+
     return getGlassOpticalDeformationStrengthScale(toValue(options.deformationStrength ?? getLegacyDynamicStrength()))
   }
 
   function getFlowStrengthScale() {
+    if (!hasDynamicCapability()) return 0
+
     return getGlassOpticalFlowStrengthScale(toValue(options.flowStrength ?? getLegacyDynamicStrength()))
   }
 
   function getMotionExpansion() {
+    if (!hasDynamicCapability()) return 0
+
     return getGlassOpticalMotionExpansion(toValue(options.flowStrength ?? getLegacyDynamicStrength()))
   }
 
   function getMaxRefractionPixels() {
+    if (!hasDynamicCapability()) return 0
+
     return getGlassOpticalMaxRefractionPixels(
       getRenderProfile().maxRefractionPixels,
       toValue(options.deformationStrength ?? getLegacyDynamicStrength()),
@@ -2639,6 +2664,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     timestamp: number,
     velocityOverride?: { x: number; y: number },
   ) {
+    if (!hasDynamicCapability()) return
+
     const viewportWidth = Math.max(window.innerWidth, 1)
     const viewportHeight = Math.max(window.innerHeight, 1)
     const presentation = getCommittedPresentationSize()
@@ -2779,6 +2806,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function handleInteractionEvent(event: PointerEvent | TouchEvent) {
+    if (!hasDynamicCapability()) return
+
     if (event.type === 'pointermove') {
       handlePointerMove(event as PointerEvent)
       return
@@ -3707,7 +3736,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         },
         uTranslationStrength: { value: getTranslationStrengthScale() },
         uTrail: { value: Array.from({ length: 4 }, () => new Vector4Class(0.5, 0.5, 0, 0)) },
-        uTrailCount: { value: getRenderProfile().trailCount },
+        uTrailCount: { value: hasDynamicCapability() ? getRenderProfile().trailCount : 0 },
         uVisibleViewportSize: { value: new three.Vector2(window.innerWidth, window.innerHeight) },
         uScrollOffset: { value: new three.Vector2(0, 0) },
         uWakeDirection: { value: new three.Vector2(0, -1) },
@@ -3848,6 +3877,31 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   )
 
   watch(
+    () => toValue(options.dynamicsActive ?? true),
+    active => {
+      if (!resources) return
+
+      interactionAnimating = false
+      activeTouchIdentifier = null
+      cancelScheduledFrame()
+      resetInteractionState()
+      resources.uniforms.uTranslationStrength.value = active ? getTranslationStrengthScale() : 0
+      resources.uniforms.uDeformationStrength.value = active ? getDeformationStrengthScale() : 0
+      resources.uniforms.uFlowStrength.value = active ? getFlowStrengthScale() : 0
+      resources.uniforms.uMotionExpansion.value = active ? getMotionExpansion() : 0
+      resources.uniforms.uMaxRefractionPixels.value = active
+        ? getGlassOpticalMaxRefractionPixels(
+            getRenderProfile().maxRefractionPixels,
+            toValue(options.deformationStrength ?? getLegacyDynamicStrength()),
+          )
+        : 0
+      resources.uniforms.uTrailCount.value = active ? getRenderProfile().trailCount : 0
+      syncFlowResources()
+      scheduleFrame()
+    },
+  )
+
+  watch(
     () => toValue(options.quality),
     async (quality, previousQuality) => {
       if (!resources) return
@@ -3857,12 +3911,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const applyQuality = () => {
         if (!resources || toValue(options.quality) !== quality) return
 
-        resources.uniforms.uMaxRefractionPixels.value = getGlassOpticalMaxRefractionPixels(
-          nextProfile.maxRefractionPixels,
-          toValue(options.deformationStrength ?? getLegacyDynamicStrength()),
-        )
+        resources.uniforms.uMaxRefractionPixels.value = hasDynamicCapability()
+          ? getGlassOpticalMaxRefractionPixels(
+              nextProfile.maxRefractionPixels,
+              toValue(options.deformationStrength ?? getLegacyDynamicStrength()),
+            )
+          : 0
         resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
-        resources.uniforms.uTrailCount.value = nextProfile.trailCount
+        resources.uniforms.uTrailCount.value = hasDynamicCapability() ? nextProfile.trailCount : 0
         interactionAnimating = false
         cancelScheduledFrame()
         resetInteractionState()
@@ -3912,14 +3968,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     ]) => {
       if (!resources) return
 
-      resources.uniforms.uTranslationStrength.value = getGlassOpticalTranslationStrengthScale(translationStrength)
-      resources.uniforms.uDeformationStrength.value = getGlassOpticalDeformationStrengthScale(deformationStrength)
-      resources.uniforms.uFlowStrength.value = getGlassOpticalFlowStrengthScale(flowStrength)
-      resources.uniforms.uMotionExpansion.value = getGlassOpticalMotionExpansion(flowStrength)
-      resources.uniforms.uMaxRefractionPixels.value = getGlassOpticalMaxRefractionPixels(
-        getRenderProfile().maxRefractionPixels,
-        deformationStrength,
-      )
+      const dynamicsActive = hasDynamicCapability()
+      resources.uniforms.uTranslationStrength.value = dynamicsActive
+        ? getGlassOpticalTranslationStrengthScale(translationStrength)
+        : 0
+      resources.uniforms.uDeformationStrength.value = dynamicsActive
+        ? getGlassOpticalDeformationStrengthScale(deformationStrength)
+        : 0
+      resources.uniforms.uFlowStrength.value = dynamicsActive ? getGlassOpticalFlowStrengthScale(flowStrength) : 0
+      resources.uniforms.uMotionExpansion.value = dynamicsActive ? getGlassOpticalMotionExpansion(flowStrength) : 0
+      resources.uniforms.uMaxRefractionPixels.value = dynamicsActive
+        ? getGlassOpticalMaxRefractionPixels(getRenderProfile().maxRefractionPixels, deformationStrength)
+        : 0
       resources.uniforms.uReflectionStrength.value = getGlassOpticalReflectionStrengthScale(reflectionStrength)
       const materialResponse = getGlassMaterialResponse(toValue(options.appearance), transparencyStrength)
       resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility

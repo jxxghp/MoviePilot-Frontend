@@ -157,6 +157,7 @@ export default {
     glassQualityCssHint: '靜態 CSS 材質，資源佔用最低，保留通透、透射與反射，不啟用即時流動。',
     glassQualityBalancedHint: '共享即時折射，優先平衡流動回饋與 GPU 佔用。',
     glassQualityHighHint: '完整時序流場、擴散細節與內容保護，GPU 佔用更高。',
+    glassQualityMobileHint: '保留所選檔位的材質精度；行動裝置不啟用即時流動。',
     glassPreset: '方案',
     glassPresetNatural: '自然',
     glassPresetGlide: '滑移',
@@ -169,8 +170,9 @@ export default {
     glassReflectionStrength: '反射亮度',
     glassTransmissionStrength: '透射亮度',
     glassTransparencyStrength: '通透度',
+    glassMaterialStrengthHint:
+      '通透度控制桌布紋理的可見程度，透射亮度控制玻璃內的背景明暗，反射亮度控制表面反射與高光強度。',
     glassOpticalStrengthHint: '採樣平移控制整體滑移，形變強度控制局部彎曲，流動強度控制軌跡範圍與慣性。',
-    glassOpticalStrengthUnavailableHint: '標準品質保留三項材質參數，切換到均衡或高品質後，可調整採樣平移、形變和流動。',
     purple: '幻紫',
     custom: '附加樣式',
     transparency: '透明度',

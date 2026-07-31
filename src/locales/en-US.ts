@@ -160,6 +160,7 @@ export default {
       'Static CSS material with the lowest resource use; clarity, transmission, and reflection remain available.',
     glassQualityBalancedHint: 'Shared live refraction that balances liquid feedback and GPU use.',
     glassQualityHighHint: 'Full temporal flow, diffusion detail, and content protection at a higher GPU cost.',
+    glassQualityMobileHint: 'Keeps the selected material quality; real-time motion is disabled on mobile.',
     glassPreset: 'Preset',
     glassPresetNatural: 'Natural',
     glassPresetGlide: 'Glide',
@@ -172,10 +173,10 @@ export default {
     glassReflectionStrength: 'Reflection Brightness',
     glassTransmissionStrength: 'Transmission Brightness',
     glassTransparencyStrength: 'Clarity',
+    glassMaterialStrengthHint:
+      'Clarity controls wallpaper texture visibility. Transmission Brightness controls the background inside the glass. Reflection Brightness controls surface reflections and highlights.',
     glassOpticalStrengthHint:
       'Sample Translation moves the shared wallpaper. Deformation controls local bending. Flow Strength controls trail range and inertia.',
-    glassOpticalStrengthUnavailableHint:
-      'Standard quality keeps all three material controls; switch to Balanced or High to adjust sample translation, deformation, and flow.',
     purple: 'Purple',
     custom: 'Custom Style',
     transparency: 'Transparency',

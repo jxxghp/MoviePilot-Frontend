@@ -2408,6 +2408,87 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('keeps high-quality material rendering while mobile dynamics are disabled', async () => {
+    stubMediaPreferences({ coarsePointer: true })
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const canvas = document.createElement('canvas')
+    const deformationStrength = ref(80)
+    const dynamicsActive = ref(false)
+    const flowStrength = ref(80)
+    const reflectionStrength = ref(80)
+    const translationStrength = ref(80)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(canvas),
+        deformationStrength,
+        dynamicsActive,
+        flowStrength,
+        quality: ref('high'),
+        reflectionStrength,
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        transmissionStrength: ref(80),
+        translationStrength,
+        transparencyStrength: ref(80),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uDeformationStrength: { value: number }
+            uFlowStrength: { value: number }
+            uHasFlowTexture: { value: number }
+            uReflectionStrength: { value: number }
+            uTrailCount: { value: number }
+            uTranslationStrength: { value: number }
+          }
+        }
+      }>
+    }
+    const uniforms = scene.children[0].material.uniforms
+    expect(uniforms.uTranslationStrength.value).toBe(0)
+    expect(uniforms.uDeformationStrength.value).toBe(0)
+    expect(uniforms.uFlowStrength.value).toBe(0)
+    expect(uniforms.uTrailCount.value).toBe(0)
+    expect(uniforms.uHasFlowTexture.value).toBe(0)
+    expect(uniforms.uReflectionStrength.value).toBeGreaterThan(0)
+
+    const renderedFrames = renderer?.renderedFrames.value
+    dispatchTouchEvent('touchstart', [{ clientX: 80, clientY: 180, identifier: 7 }])
+    dispatchTouchEvent('touchmove', [{ clientX: 180, clientY: 320, identifier: 7 }])
+    await nextTick()
+    expect(renderer?.renderedFrames.value).toBe(renderedFrames)
+
+    translationStrength.value = 100
+    deformationStrength.value = 100
+    flowStrength.value = 100
+    reflectionStrength.value = 100
+    await nextTick()
+    expect(uniforms.uTranslationStrength.value).toBe(0)
+    expect(uniforms.uDeformationStrength.value).toBe(0)
+    expect(uniforms.uFlowStrength.value).toBe(0)
+    expect(uniforms.uReflectionStrength.value).toBeGreaterThan(1)
+
+    dynamicsActive.value = true
+    await nextTick()
+    expect(uniforms.uTranslationStrength.value).toBeGreaterThan(0)
+    expect(uniforms.uDeformationStrength.value).toBeGreaterThan(0)
+    expect(uniforms.uFlowStrength.value).toBeGreaterThan(0)
+    expect(uniforms.uTrailCount.value).toBe(4)
+    expect(uniforms.uHasFlowTexture.value).toBe(1)
+    scope.stop()
+  })
+
   it('keeps scroll-space surface geometry stable while updating the visible viewport offset', async () => {
     stubMediaPreferences({ coarsePointer: true })
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
