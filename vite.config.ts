@@ -324,6 +324,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/dialog/AddDownloadDialog.vue',
         'src/components/dialog/AddSubtitleDownloadDialog.vue',
         'src/components/dialog/ReorganizeDialog.vue',
+        'src/components/dialog/TransferQueueDialog.vue',
         'src/views/discover/TheMovieDbView.vue',
         'src/views/discover/DoubanView.vue',
         'src/views/discover/BangumiView.vue',
@@ -445,6 +446,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 80,
           lines: 80,
           statements: 80,
+        },
+        'src/components/dialog/TransferQueueDialog.vue': {
+          branches: 80,
+          functions: 85,
+          lines: 85,
+          statements: 85,
         },
         'src/composables/useMediaSubscribe.ts': {
           branches: 75,
