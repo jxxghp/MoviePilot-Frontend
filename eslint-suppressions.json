@@ -115,11 +115,6 @@
       "count": 27
     }
   },
-  "src/components/cards/DownloadingCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/components/cards/FilterRuleCard.vue": {
     "vue/no-mutating-props": {
       "count": 1
@@ -993,11 +988,6 @@
     },
     "sonarjs/no-ignored-exceptions": {
       "count": 4
-    }
-  },
-  "src/views/reorganize/DownloadingListView.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
     }
   },
   "src/views/reorganize/FileBrowserView.vue": {
