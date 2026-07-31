@@ -408,13 +408,29 @@ html[data-theme='glass'] {
     }
   }
 
-  :where(.layout-navbar, .Vue-Toastification__toast) {
+  .layout-navbar {
     border-color: var(--glass-border-raised) !important;
     -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);
     backdrop-filter: var(--glass-raised-backdrop-filter);
     background-color: var(--glass-surface-raised) !important;
     background-image: var(--glass-sheen) !important;
     box-shadow: var(--glass-shadow-raised) !important;
+  }
+
+  // Toast 与助手气泡属于临时浮层，直接复用菜单材质 token，避免磨砂档出现不同的底色与模糊强度。
+  :where(.Vue-Toastification__toast, .agent-assistant-fab__bubble) {
+    border-color: var(--glass-border-raised) !important;
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    background-color: var(--glass-overlay-surface) !important;
+    background-image: var(--glass-sheen) !important;
+    box-shadow: var(--glass-shadow-raised) !important;
+  }
+
+  // 气泡箭头与主体使用同一菜单表面，避免边缘露出组件默认的不透明底色。
+  .agent-assistant-fab__bubbles::before {
+    background-color: var(--glass-overlay-surface) !important;
+    background-image: var(--glass-sheen) !important;
   }
 
   // 固定浮层、移动底栏与 Vuetify 弹出层共用材质参数，避免各入口出现不同的模糊和底色。
@@ -586,7 +602,6 @@ html[data-theme='glass'] {
     --agent-assistant-assistant-bg: var(--glass-surface);
   }
 
-  .agent-assistant-fab__bubble,
   .nav-button,
   .compact-fab .v-btn,
   .global-action-buttons .v-btn {
