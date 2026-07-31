@@ -230,6 +230,21 @@ function preventSelect(event: Event) {
   return false
 }
 
+interface DocumentDragStyle extends CSSStyleDeclaration {
+  MozUserSelect: string
+  webkitUserSelect: string
+}
+
+/** 拖动期间写入 document 全局样式，停止拖动或卸载时必须成对恢复。 */
+function setDocumentDragStyles(active: boolean) {
+  const value = active ? 'none' : ''
+  const style = document.body.style as DocumentDragStyle
+  style.cursor = active ? 'col-resize' : ''
+  style.userSelect = value
+  style.webkitUserSelect = value
+  style.MozUserSelect = value
+}
+
 // 拖动分隔条相关方法
 function startDrag(event: MouseEvent) {
   event.preventDefault() // 阻止默认行为
@@ -243,10 +258,7 @@ function startDrag(event: MouseEvent) {
   document.addEventListener('mouseup', stopDrag, { passive: false })
   document.addEventListener('selectstart', preventSelect) // 阻止选择开始
 
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-  ;(document.body.style as any).webkitUserSelect = 'none' // Safari兼容
-  ;(document.body.style as any).mozUserSelect = 'none' // Firefox兼容
+  setDocumentDragStyles(true)
 }
 
 function handleDrag(event: MouseEvent) {
@@ -270,11 +282,17 @@ function stopDrag() {
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('selectstart', preventSelect)
 
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  ;(document.body.style as any).webkitUserSelect = ''
-  ;(document.body.style as any).mozUserSelect = ''
+  setDocumentDragStyles(false)
 }
+
+function cleanupDrag() {
+  if (isDragging.value) {
+    stopDrag()
+  }
+}
+
+onDeactivated(cleanupDrag)
+onUnmounted(cleanupDrag)
 </script>
 
 <template>

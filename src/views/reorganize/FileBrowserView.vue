@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import { FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
+import { ApiResponse, FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
 import FileBrowser from '@/components/filebrowser/FileBrowser.vue'
 
 const endpoints = {
@@ -51,7 +51,7 @@ function findCommonPath(paths: string[]): string {
   } else {
     const normalizedPaths = paths.map(path => path.replace(/\\/g, '/'))
     const splitPaths = normalizedPaths.map(path => path.split('/'))
-    let commonParts: string[] = []
+    const commonParts: string[] = []
     for (let i = 0; i < splitPaths[0].length; i++) {
       const part = splitPaths[0][i]
       if (splitPaths.every(pathParts => pathParts[i] === part)) {
@@ -81,7 +81,8 @@ interface BrowserInitialParams {
   path: string
   name: string
 }
-// determine which entry to select initially
+
+/** 从可用存储和下载目录中选择初始入口，未配置有效目录时回退到存储根路径。 */
 function determineBrowserInitialParams(downloadDirectories: TransferDirectoryConf[]): BrowserInitialParams {
   const isAvailable = (storage: string) => storageTypes.value.includes(storage)
   const buckets = downloadDirectories.reduce<Map<string, string[]>>((dict, item) => {
@@ -131,12 +132,17 @@ function determineBrowserInitialParams(downloadDirectories: TransferDirectoryCon
 async function loadDownloadDirectories() {
   try {
     // fetch available storages
-    const storageResult: { [key: string]: any } = await api.get('system/setting/public/Storages')
+    const storageResult = await api.get<unknown, ApiResponse<{ value?: StorageConf[] | null }>>(
+      'system/setting/public/Storages',
+    )
     storages.value = storageResult.data?.value ?? []
 
-    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
-    if (result.success && result.data?.value) {
-      const { storage, path, name } = determineBrowserInitialParams(result.data.value)
+    const result = await api.get<unknown, ApiResponse<{ value?: TransferDirectoryConf[] | null }>>(
+      'system/setting/public/Directories',
+    )
+    if (result.success) {
+      const directories = Array.isArray(result.data?.value) ? result.data.value : []
+      const { storage, path, name } = determineBrowserInitialParams(directories)
       // operItem初始化
       operItem.value = {
         type: 'dir',
