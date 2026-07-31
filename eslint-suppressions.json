@@ -187,16 +187,6 @@
       "count": 2
     }
   },
-  "src/components/cards/TorrentCard.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/components/cards/TorrentItem.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/components/cards/UserCard.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
