@@ -1,21 +1,27 @@
 <script lang="ts" setup>
 import type { AxiosRequestConfig, AxiosInstance } from 'axios'
-import type { EndPoints, FileItem } from '@/api/types'
+import type { ApiResponse, EndPoints, FileItem } from '@/api/types'
 import { useDisplay } from 'vuetify'
-import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const FileNewFolderDialog = defineAsyncComponent(() => import('../dialog/FileNewFolderDialog.vue'))
 
-// 国际化
-const { t } = useI18n()
-
 // 显示器宽度
 const display = useDisplay()
 
+/** 工具栏存储选择项，由文件浏览器从存储配置映射得到。 */
+interface StorageOption {
+  // 存储类型对应的展示图标
+  icon: string
+  // 存储显示名称
+  title: string
+  // 存储类型标识
+  value: string
+}
+
 // 输入参数
 const inProps = defineProps({
-  storages: Array as PropType<any[]>,
+  storages: Array as PropType<StorageOption[]>,
   item: {
     type: Object as PropType<FileItem>,
     required: true,
@@ -95,24 +101,29 @@ function goUp() {
 // 创建目录
 async function mkdir() {
   emit('loading', true)
-  const url = inProps.endpoints?.mkdir.url.replace(/{name}/g, newFolderName.value)
+  try {
+    const url = inProps.endpoints?.mkdir.url.replace(/{name}/g, newFolderName.value)
 
-  const config: AxiosRequestConfig<FileItem> = {
-    url,
-    method: inProps.endpoints?.mkdir.method || 'post',
-    data: inProps.item,
+    const config: AxiosRequestConfig<FileItem> = {
+      url,
+      method: inProps.endpoints?.mkdir.method || 'post',
+      data: inProps.item,
+    }
+
+    const result = await inProps.axios.request<unknown, ApiResponse<unknown>>(config)
+    if (!result?.success) {
+      return
+    }
+
+    newFolderDialogController?.close()
+    newFolderDialogController = null
+    newFolderName.value = ''
+    emit('foldercreated')
+  } catch (error) {
+    console.error('创建目录失败:', error)
+  } finally {
+    emit('loading', false)
   }
-
-  // 调API
-  await inProps.axios.request(config)
-
-  newFolderDialogController?.close()
-  newFolderDialogController = null
-  newFolderName.value = ''
-  emit('loading', false)
-
-  // 通知重新加载
-  emit('foldercreated')
 }
 
 function openNewFolderDialog() {
