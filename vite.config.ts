@@ -334,6 +334,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/cards/DownloadingCard.vue',
         'src/components/slide/VirtualSlideView.vue',
         'src/views/discover/PersonCardSlideView.vue',
+        'src/views/reorganize/TransferHistoryView.vue',
         'src/utils/mediaStatusCache.ts',
         'src/utils/searchStream.ts',
         'src/views/site/SiteCardListView.vue',
@@ -427,6 +428,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 90,
         },
         'src/components/dialog/SubscribeShareDialog.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/views/reorganize/TransferHistoryView.vue': {
           branches: 75,
           functions: 80,
           lines: 80,
