@@ -2209,6 +2209,9 @@ export default {
       transferThreadsHint: '多線程整理文件可以提高速度，但可能增加系統資源佔用',
       tokenizedSearch: '分詞搜索',
       tokenizedSearchHint: '提升整理歷史記錄搜索精度，但可能增加性能開銷和意外結果',
+      monitorNetworkFastMode: '網路儲存快速監控',
+      monitorNetworkFastModeHint:
+        '允許網路/FUSE 掛載目錄使用內核通知的快速監控模式，僅當確認掛載能正常下發檔案變更通知時開啟，否則新檔案將無法被監控發現，修改後重啟生效',
       tmdbLanguage: {
         zhCN: '簡體中文',
         zhTW: '繁體中文',

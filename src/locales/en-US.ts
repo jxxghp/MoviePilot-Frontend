@@ -2246,6 +2246,9 @@ export default {
       tokenizedSearch: 'Tokenized Search',
       tokenizedSearchHint:
         'Improve organization history search precision, but may increase performance overhead and unexpected results',
+      monitorNetworkFastMode: 'Fast Monitoring for Network Storage',
+      monitorNetworkFastModeHint:
+        'Allow kernel-notification (fast) monitoring on network/FUSE mounts. Enable only if the mount reliably delivers file change notifications, otherwise new files will not be detected. Restart required.',
       tmdbLanguage: {
         zhCN: 'Simplified Chinese',
         zhTW: 'Traditional Chinese',

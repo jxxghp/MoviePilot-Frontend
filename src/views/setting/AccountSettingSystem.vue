@@ -134,6 +134,7 @@ const SystemSettings = ref<any>({
     RUST_ACCEL: false,
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
     TRANSFER_THREADS: 1,
+    MONITOR_NETWORK_FAST_MODE: false,
   },
 })
 
@@ -2580,6 +2581,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :label="t('setting.system.rustAccel')"
                     :hint="rustAccelHint"
                     :disabled="!rustAccelAvailable"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.MONITOR_NETWORK_FAST_MODE"
+                    :label="t('setting.system.monitorNetworkFastMode')"
+                    :hint="t('setting.system.monitorNetworkFastModeHint')"
                     persistent-hint
                   />
                 </VCol>
