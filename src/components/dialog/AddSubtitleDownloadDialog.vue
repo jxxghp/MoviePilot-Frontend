@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import type { MediaDataSource, SubtitleInfo, TransferDirectoryConf } from '@/api/types'
+import type { ApiResponse, MediaDataSource, SubtitleInfo, TransferDirectoryConf } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
@@ -75,7 +75,10 @@ const buttonText = computed(() =>
 // 加载目录设置
 async function loadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
+    const result = await api.get<
+      ApiResponse<{ value?: TransferDirectoryConf[] }>,
+      ApiResponse<{ value?: TransferDirectoryConf[] }>
+    >('system/setting/public/Directories')
     directories.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)
@@ -86,7 +89,8 @@ function convertToUri(item: TransferDirectoryConf) {
   if (!item.download_path) {
     return undefined
   }
-  if (item.storage === 'local') {
+  // storage 缺省是受支持的本地目录配置，不能生成 undefined/null 前缀。
+  if (item.storage === undefined || item.storage === null || item.storage === 'local') {
     return item.download_path
   }
   return item.storage + ':' + item.download_path
@@ -105,7 +109,12 @@ async function addSubtitleDownload() {
   startNProgress()
   loading.value = true
   try {
-    const payload: any = {
+    const payload: {
+      media_id?: string
+      media_source?: MediaDataSource
+      save_path: string | null
+      subtitle_in: SubtitleInfo | undefined
+    } = {
       subtitle_in: props.subtitle,
       save_path: selectedDirectory.value,
     }
@@ -115,7 +124,7 @@ async function addSubtitleDownload() {
       payload.media_id = mediaId.value
     }
 
-    const result: { [key: string]: any } = await api.post('download/subtitle', payload)
+    const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('download/subtitle', payload)
 
     if (result && result.success) {
       $toast.success(

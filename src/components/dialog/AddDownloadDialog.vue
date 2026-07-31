@@ -2,7 +2,14 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import type { DownloaderConf, MediaDataSource, MediaInfo, TorrentInfo, TransferDirectoryConf } from '@/api/types'
+import type {
+  ApiResponse,
+  DownloaderConf,
+  MediaDataSource,
+  MediaInfo,
+  TorrentInfo,
+  TransferDirectoryConf,
+} from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
 import { useI18n } from 'vue-i18n'
@@ -44,7 +51,7 @@ const selectedDownloader = ref<string | null>(null)
 const selectedDirectory = ref<string | null>(null)
 
 // 下载器
-const downloaders = ref<DownloaderConf[]>([])
+const downloaders = ref<Array<Pick<DownloaderConf, 'name' | 'type'>>>([])
 
 // 所有目录设置
 const directories = ref<TransferDirectoryConf[]>([])
@@ -91,7 +98,10 @@ const dialogSubtitle = computed(() => {
 // 加载目录设置
 async function loadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
+    const result = await api.get<
+      ApiResponse<{ value?: TransferDirectoryConf[] }>,
+      ApiResponse<{ value?: TransferDirectoryConf[] }>
+    >('system/setting/public/Directories')
     directories.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)
@@ -103,7 +113,8 @@ function convertToUri(item: TransferDirectoryConf) {
   if (!item.download_path) {
     return undefined
   }
-  if (item.storage === 'local') {
+  // storage 缺省是受支持的本地目录配置，不能生成 undefined/null 前缀。
+  if (item.storage === undefined || item.storage === null || item.storage === 'local') {
     return item.download_path
   }
   return item.storage + ':' + item.download_path
@@ -120,7 +131,10 @@ const targetDirectories = computed(() => {
 // 调用API查询下载器设置
 async function loadDownloaderSetting() {
   try {
-    downloaders.value = await api.get('download/clients')
+    downloaders.value = await api.get<
+      Array<Pick<DownloaderConf, 'name' | 'type'>>,
+      Array<Pick<DownloaderConf, 'name' | 'type'>>
+    >('download/clients')
   } catch (error) {
     console.log(error)
   }
@@ -139,9 +153,14 @@ async function addDownload() {
   startNProgress()
   loading.value = true
   try {
-    let result: { [key: string]: any }
-
-    const payload: any = {
+    const payload: {
+      downloader: string | null
+      media_id?: string
+      media_in?: MediaInfo
+      media_source?: MediaDataSource
+      save_path: string | null
+      torrent_in: TorrentInfo | undefined
+    } = {
       torrent_in: props.torrent,
       downloader: selectedDownloader.value,
       save_path: selectedDirectory.value,
@@ -159,7 +178,7 @@ async function addDownload() {
 
     const endpoint = props.media ? 'download/' : 'download/add'
 
-    result = await api.post(endpoint, payload)
+    const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>(endpoint, payload)
 
     if (result && result.success) {
       // 添加下载成功
