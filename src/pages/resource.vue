@@ -64,6 +64,9 @@ interface LastSearchContextResponse {
 }
 
 const resourceSearchParamsStorageKey = 'MP_ResourceSearchParams'
+type TorrentViewType = 'card' | 'row'
+// 只有最新搜索可以提交结果和可重放参数，避免旧请求覆盖新查询。
+let activeSearchRequestId = 0
 
 function createSearchParams(query: LocationQuery): SearchParams {
   return {
@@ -99,6 +102,10 @@ function hasSearchKeyword(params: SearchParams): boolean {
 
 function createSearchRequestToken(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function normalizeTorrentViewType(value: string | null): TorrentViewType {
+  return value === 'row' ? 'row' : 'card'
 }
 
 function loadStoredSearchParams(): SearchParams | null {
@@ -150,9 +157,12 @@ if (hasSearchKeyword(initialSearchParams)) {
 }
 
 async function fetchLastSearchContext() {
+  const requestId = activeSearchRequestId
   try {
     const result = (await api.get('search/last/context')) as LastSearchContextResponse
-    applyRememberedSearchParams(result?.data?.params, true)
+    if (requestId === activeSearchRequestId) {
+      applyRememberedSearchParams(result?.data?.params, true)
+    }
     return Array.isArray(result?.data?.results) ? result.data.results : []
   } catch (error) {
     console.warn('读取上次搜索上下文失败，回退到仅加载结果:', error)
@@ -211,7 +221,7 @@ const resultType = computed(() => (activeSearchParams.value.result_type === 'sub
 const isSubtitleSearch = computed(() => resultType.value === 'subtitle')
 
 // 视图类型，从localStorage中读取
-const viewType = ref<string>(localStorage.getItem('MPTorrentsViewType') ?? 'card')
+const viewType = ref<TorrentViewType>(normalizeTorrentViewType(localStorage.getItem('MPTorrentsViewType')))
 
 // 智能推荐相关
 // 从全局设置中获取 AI_RECOMMEND_ENABLED 状态
@@ -309,6 +319,7 @@ const errorDescription = ref(t('resource.noResourceFound'))
 
 let searchEventSource: EventSource | null = null
 let searchStreamIdleTimer: ReturnType<typeof setTimeout> | null = null
+let cancelActiveSearchStream: (() => void) | null = null
 
 const streamPreviewLimit = 24
 const streamUiFlushDelay = 1000
@@ -581,6 +592,7 @@ function resetSearchResults() {
   clearStreamPreviewState(true)
   // 新搜索开始时先回到未完成态，避免上一轮空态在 SSE 返回前抢先显示。
   isRefreshed.value = false
+  errorDescription.value = t('resource.noResourceFound')
   rawDataList.value = []
   rawSubtitleDataList.value = []
   originalDataList.value = []
@@ -758,14 +770,18 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
 }
 
 // 按请求搜索
-async function searchByRequest(params: SearchParams, requestToken?: string) {
+async function searchByRequest(params: SearchParams, requestToken: string | undefined, requestId: number) {
   const items = await requestSearchResults(params, requestToken)
+  if (requestId !== activeSearchRequestId) return false
+
+  errorDescription.value = t('resource.noResourceFound')
   streamTotalCount.value = items.length
   if (params.result_type === 'subtitle') {
     setSubtitleStreamResults(items as SubtitleInfo[])
   } else {
     setStreamResults(items as Context[])
   }
+  return true
 }
 
 // 静默刷新使用普通请求，保留当前结果直到新数据完整返回，避免返回页面时露出搜索进度态。
@@ -820,15 +836,15 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
     return (result.data || []) as Array<Context | SubtitleInfo>
   }
 
-  errorDescription.value = result?.message || t('resource.noResourceFound')
-  throw new Error(errorDescription.value)
+  throw new Error(result?.message || t('resource.noResourceFound'))
 }
 
 // 按流搜索
 function searchByStream(params: SearchParams, requestToken?: string) {
-  return new Promise<void>((resolve, reject) => {
-    closeSearchEventSource()
+  // 新搜索必须显式结束上一轮 Promise；EventSource.close() 本身不会触发 error。
+  cancelActiveSearchStream?.()
 
+  return new Promise<void>((resolve, reject) => {
     let settled = false
     let receivedDone = false
     const source = new EventSource(buildSearchStreamUrl(params, requestToken))
@@ -838,9 +854,14 @@ function searchByStream(params: SearchParams, requestToken?: string) {
       if (settled) return
 
       settled = true
+      if (cancelActiveSearchStream === cancelThisSearch) {
+        cancelActiveSearchStream = null
+      }
       closeSearchEventSource(source)
       callback()
     }
+    const cancelThisSearch = () => settleSearchStream(resolve)
+    cancelActiveSearchStream = cancelThisSearch
 
     const resetIdleTimeout = () => {
       clearSearchStreamIdleTimer()
@@ -893,7 +914,7 @@ function searchByStream(params: SearchParams, requestToken?: string) {
 }
 
 // 设置视图类型
-function changeViewType(newType: string) {
+function changeViewType(newType: TorrentViewType) {
   if (viewType.value !== newType) {
     // 立即更新视图类型
     viewType.value = newType
@@ -906,6 +927,7 @@ function changeViewType(newType: string) {
 
 // 获取搜索列表数据
 async function fetchData(options: { force?: boolean; params?: SearchParams; silent?: boolean } = {}) {
+  const requestId = ++activeSearchRequestId
   const currentSearchParams = { ...(options.params ?? activeSearchParams.value) }
   if (hasSearchKeyword(currentSearchParams)) {
     activeSearchParams.value = { ...currentSearchParams }
@@ -920,6 +942,7 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
     if (!hasSearchKeyword(currentSearchParams)) {
       // 查询上次搜索结果，并同步可重放的搜索参数
       const results = await fetchLastSearchContext()
+      if (requestId !== activeSearchRequestId) return
       if (activeSearchParams.value.result_type === 'subtitle') {
         setSubtitleStreamResults((results || []) as SubtitleInfo[])
       } else {
@@ -927,7 +950,16 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
       }
     } else if (silentRefresh) {
       // keep-alive 重新进入时后台刷新，旧结果继续显示，等新结果完整返回后一次性替换。
-      const results = await requestSearchResults(currentSearchParams, requestToken)
+      let results: Array<Context | SubtitleInfo>
+      try {
+        results = await requestSearchResults(currentSearchParams, requestToken)
+      } catch (error) {
+        if (requestId !== activeSearchRequestId) return
+        errorDescription.value = error instanceof Error ? error.message : t('resource.noResourceFound')
+        throw error
+      }
+      if (requestId !== activeSearchRequestId) return
+      errorDescription.value = t('resource.noResourceFound')
       streamTotalCount.value = results.length
       if (currentSearchParams.result_type === 'subtitle') {
         setSubtitleStreamResults(results as SubtitleInfo[])
@@ -943,21 +975,26 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
         const streamErrorMessage = error instanceof Error ? error.message : t('resource.searchStreamDisconnected')
         console.warn('渐进式搜索连接失败，回退到普通搜索:', error)
         try {
-          await searchByRequest(currentSearchParams, requestToken)
+          const applied = await searchByRequest(currentSearchParams, requestToken, requestId)
+          if (!applied) return
         } catch (fallbackError) {
+          if (requestId !== activeSearchRequestId) return
           errorDescription.value = streamErrorMessage
           throw fallbackError
         }
       }
+      if (requestId !== activeSearchRequestId) return
       stopLoadingProgress()
       // 搜索完成后移除地址栏参数，避免分享/刷新残留搜索条件
       if (Object.keys(route.query).length > 0) {
         await router.replace({ path: route.path, query: {} })
       }
     }
+    if (requestId !== activeSearchRequestId) return
     // 标记已刷新
     isRefreshed.value = true
   } catch (error) {
+    if (requestId !== activeSearchRequestId) return
     console.error(error)
     closeSearchEventSource()
     stopLoadingProgress()
@@ -1306,8 +1343,10 @@ useKeepAliveRefresh(async () => {
   await fetchData({ force: true, params: refreshParams, silent: true })
 })
 
-// 卸载时停止轮询
+// 卸载时先让所有在途请求失效，并结束 EventSource.close() 不会主动完成的搜索 Promise。
 onUnmounted(() => {
+  activeSearchRequestId += 1
+  cancelActiveSearchStream?.()
   closeSearchEventSource()
   stopLoadingProgress()
   clearProgressResetTimer()
@@ -1432,12 +1471,7 @@ onUnmounted(() => {
 
           <VExpandXTransition>
             <div v-if="aiRecommended || isRecommending" class="ai-action-group__more">
-              <IconBtn
-                variant="text"
-                color="gray"
-                :disabled="isRecommending || !aiStatusChecked"
-                @click="reRecommend"
-              >
+              <IconBtn variant="text" color="gray" :disabled="isRecommending || !aiStatusChecked" @click="reRecommend">
                 <VIcon :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-auto-fix'" />
                 <VTooltip activator="parent" location="top">
                   {{ t('resource.reRecommend') }}
