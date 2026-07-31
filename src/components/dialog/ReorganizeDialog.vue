@@ -1274,7 +1274,7 @@ async function handleTransfer(item: FileItem, background: boolean = false) {
   try {
     const result = await requestManualTransfer(createTransferPayload({ item }), background)
     if (!result.success) {
-      if (result.message) $toast.error(result.message)
+      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
       return false
     }
     if (background) $toast.success(t('dialog.reorganize.successMessage', { name: item.name }))
@@ -1291,7 +1291,7 @@ async function handleTransferBatch(items: FileItem[], background: boolean = fals
   try {
     const result = await requestManualTransfer(createTransferPayload({ items }), background)
     if (!result.success) {
-      if (result.message) $toast.error(result.message)
+      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
       return false
     }
     if (background) $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
@@ -1308,7 +1308,7 @@ async function handleTransferLog(logid: number, background: boolean = false) {
   try {
     const result = await requestManualTransfer(createTransferPayload({ logid }), background)
     if (!result.success) {
-      if (result.message) $toast.error(result.message)
+      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
       return false
     }
     if (background) $toast.success(`历史记录 ${logid} 已加入整理队列！`)

@@ -387,6 +387,17 @@ describe('ReorganizeDialog submission safety', () => {
     expect(onDone).not.toHaveBeenCalled()
   })
 
+  it('shows a fallback error when a business failure has no message', async () => {
+    server.use(http.post(new URL('transfer/manual', API_BASE_URL).href, () => HttpResponse.json({ success: false })))
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog()
+
+    await user.click(screen.getByRole('button', { name: '立即整理' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('整理请求失败'))
+    expect(onDone).not.toHaveBeenCalled()
+  })
+
   it('keeps the dialog open when the transfer request fails over HTTP', async () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, () =>

@@ -3118,6 +3118,7 @@ export default {
       previewResult: '预览',
       previewLoading: '正在生成预览结果...',
       previewRequestFailed: '预览请求失败',
+      transferRequestFailed: '整理请求失败',
       previewTotal: '总数 {count}',
       previewSuccess: '成功 {count}',
       previewFailed: '失败 {count}',
