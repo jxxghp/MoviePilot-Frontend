@@ -445,9 +445,6 @@
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     },
-    "prefer-const": {
-      "count": 1
-    },
     "vue/no-v-text-v-html-on-component": {
       "count": 2
     }
