@@ -1,5 +1,6 @@
 import {
   getPagePresentationMotionProgress,
+  PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y,
   PAGE_PRESENTATION_MOTION_DURATION_MS,
   PAGE_PRESENTATION_MOTION_START_OPACITY,
   PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y,
@@ -111,9 +112,9 @@ describe('page presentation motion', () => {
     expect(motion.start('/dashboard', routeRoot)).toBe(true)
     expect(motion.active.value).toBe(true)
     expect(motion.opacity.value).toBe(1)
-    expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
+    expect(motion.translateY.value).toBe(PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y)
     expect(document.documentElement.style.getPropertyValue('--mp-page-motion-opacity')).toBe('1')
-    expect(document.documentElement.style.getPropertyValue('--mp-page-motion-translate-y')).toBe('4px')
+    expect(document.documentElement.style.getPropertyValue('--mp-page-motion-translate-y')).toBe('8px')
 
     ;[1016, 1140, 1260, 1440].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
     expect(motion.active.value).toBe(false)

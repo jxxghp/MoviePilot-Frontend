@@ -3,6 +3,7 @@ import { readonly, ref, type Ref } from 'vue'
 export const PAGE_PRESENTATION_MOTION_DURATION_MS = 180
 export const PAGE_PRESENTATION_MOTION_START_OPACITY = 0.88
 export const PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y = 4
+export const PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y = 8
 export const PAGE_PRESENTATION_LAYOUT_STABLE_MS = 120
 export const PAGE_PRESENTATION_LAYOUT_HOLD_MAX_MS = 480
 
@@ -27,6 +28,7 @@ let animationFrame: number | null = null
 let layoutHoldStartedAt = 0
 let layoutStableSince = 0
 let layoutSignature = ''
+let motionStartTranslateY = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
 let startedAt = 0
 let preserveFrostedMaterial = false
 
@@ -68,7 +70,7 @@ function applyMotionFrame(nextProgress: number) {
   const nextOpacity = preserveFrostedMaterial
     ? 1
     : PAGE_PRESENTATION_MOTION_START_OPACITY + (1 - PAGE_PRESENTATION_MOTION_START_OPACITY) * nextProgress
-  const nextTranslateY = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y * (1 - nextProgress)
+  const nextTranslateY = motionStartTranslateY * (1 - nextProgress)
 
   root.dataset.pagePresentationMotion = 'active'
   root.style.setProperty('--mp-page-motion-opacity', nextOpacity.toFixed(4))
@@ -85,10 +87,10 @@ function applyLayoutHoldFrame() {
 
   root.dataset.pagePresentationMotion = 'active'
   root.style.setProperty('--mp-page-motion-opacity', preserveFrostedMaterial ? '1' : '0')
-  root.style.setProperty('--mp-page-motion-translate-y', `${PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y}px`)
+  root.style.setProperty('--mp-page-motion-translate-y', `${motionStartTranslateY}px`)
   opacity.value = preserveFrostedMaterial ? 1 : 0
   progress.value = 0
-  translateY.value = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
+  translateY.value = motionStartTranslateY
   revision.value += 1
 }
 
@@ -178,6 +180,9 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
   const motionEpoch = epoch.value
   routeKey.value = nextRouteKey
   preserveFrostedMaterial = document.documentElement.dataset.glassAppearance === 'frosted'
+  motionStartTranslateY = preserveFrostedMaterial
+    ? PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y
+    : PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
 
   // 启动屏已完整遮罩页面；在其背后再等待布局稳定会把一次启动拆成两次可见揭示。
   if (document.documentElement.dataset.launchLoading === 'true' && document.getElementById('loading-bg')) {
