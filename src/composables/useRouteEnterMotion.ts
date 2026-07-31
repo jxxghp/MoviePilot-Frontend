@@ -2,6 +2,7 @@ import { onScopeDispose, readonly, ref } from 'vue'
 
 export const ROUTE_ENTER_MOTION_DURATION_MS = 180
 export const ROUTE_ENTER_MOTION_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+export const ROUTE_ENTER_STAGED_PAINT_BOUNDARIES = 1
 
 export type RouteEnterMotionPhase = 'idle' | 'armed' | 'running'
 
@@ -93,7 +94,7 @@ export function useRouteEnterMotion() {
         // cancel() 会拒绝 finished；epoch 已负责丢弃过期事务。
       })
 
-    playAfterPaints(animation, options.stagedHandoff ? 2 : 1, motionEpoch)
+    playAfterPaints(animation, options.stagedHandoff ? ROUTE_ENTER_STAGED_PAINT_BOUNDARIES : 1, motionEpoch)
     return true
   }
 

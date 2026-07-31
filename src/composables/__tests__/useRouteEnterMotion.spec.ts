@@ -88,16 +88,13 @@ describe('route enter motion', () => {
     expect(motion.phase.value).toBe('running')
   })
 
-  it('uses two paint boundaries for a staged handoff', () => {
+  it('commits one paint boundary before a staged handoff', () => {
     const root = document.createElement('div')
     const stub = createAnimationStub()
     root.animate = vi.fn(() => stub.animation)
     const motion = createMotion()
 
     motion.start(root, { stagedHandoff: true })
-    runNextFrame()
-    expect(stub.play).not.toHaveBeenCalled()
-
     runNextFrame()
     expect(stub.play).toHaveBeenCalledOnce()
   })
