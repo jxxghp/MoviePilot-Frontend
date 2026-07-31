@@ -100,11 +100,20 @@ const versionStatisticLoading = ref(false)
 // 版本统计数据
 const versionStatistic = ref<any>({})
 
+const MIN_VISIBLE_VERSION_INSTALLS = 2
+
+/** 过滤安装实例过少的版本，避免在版本统计中展示孤立记录。 */
+function filterVersionStatistics(items: unknown) {
+  if (!Array.isArray(items)) return []
+
+  return items.filter(item => Number(item?.count || 0) >= MIN_VISIBLE_VERSION_INSTALLS)
+}
+
 // 后端版本统计
-const backendVersionStatistics = computed(() => versionStatistic.value?.backend_versions ?? [])
+const backendVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.backend_versions))
 
 // 前端版本统计
-const frontendVersionStatistics = computed(() => versionStatistic.value?.frontend_versions ?? [])
+const frontendVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.frontend_versions))
 
 // 活跃用户统计
 const activeUsers = computed(() => versionStatistic.value?.active_users ?? {})

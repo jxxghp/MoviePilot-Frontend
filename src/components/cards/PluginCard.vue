@@ -16,6 +16,7 @@ const PluginDataDialog = defineAsyncComponent(() => import('../dialog/PluginData
 const ProgressDialog = defineAsyncComponent(() => import('../dialog/ProgressDialog.vue'))
 const PluginCloneDialog = defineAsyncComponent(() => import('../dialog/PluginCloneDialog.vue'))
 const PluginLogDialog = defineAsyncComponent(() => import('../dialog/PluginLogDialog.vue'))
+const PluginMarketDetailDialog = defineAsyncComponent(() => import('../dialog/PluginMarketDetailDialog.vue'))
 const PluginVersionHistoryDialog = defineAsyncComponent(() => import('../dialog/PluginVersionHistoryDialog.vue'))
 
 // 输入参数
@@ -69,6 +70,7 @@ const imageLoadError = ref(false)
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let cloneDialogController: ReturnType<typeof openSharedDialog> | null = null
+let marketDetailDialogController: ReturnType<typeof openSharedDialog> | null = null
 let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 /** 打开插件操作进度弹窗，插件卡片自身不再持有进度弹窗实例。 */
@@ -305,10 +307,7 @@ function hasRemoteRepoUrl(plugin?: Plugin) {
 function resolvePluginPageUrl(plugin?: Plugin) {
   if (!plugin) return ''
 
-  const repoUrl =
-    hasRemoteRepoUrl(plugin)
-      ? normalizePluginRepoUrl(plugin.repo_url)
-      : plugin.author_url
+  const repoUrl = hasRemoteRepoUrl(plugin) ? normalizePluginRepoUrl(plugin.repo_url) : plugin.author_url
 
   return repoUrl || plugin.author_url || ''
 }
@@ -332,27 +331,49 @@ async function fetchMarketPlugin(pluginId?: string) {
   }
 }
 
-// 访问插件项目主页
-async function visitPluginPage() {
-  const popup = window.open('about:blank', '_blank')
+/** 读取已安装插件的最新市场详情，并保留本地运行状态字段。 */
+async function fetchInstalledPluginDetail() {
   let pluginDetail = props.plugin
-
-  if (popup) popup.opener = null
+  if (!props.plugin?.id) return pluginDetail
 
   try {
-    if (props.plugin?.id) {
-      const historyPlugin: Plugin = await api.get(`plugin/history/${props.plugin.id}`, {
-        params: {
-          force: false,
-        },
-      })
-
-      // 历史接口可能只返回部分字段，合并原卡片数据避免丢失 author_url 兜底。
-      pluginDetail = { ...(props.plugin || {}), ...(historyPlugin || {}) } as Plugin
-    }
+    const historyPlugin: Plugin = await api.get(`plugin/history/${props.plugin.id}`, {
+      params: {
+        force: false,
+      },
+    })
+    pluginDetail = { ...(props.plugin || {}), ...(historyPlugin || {}), installed: true } as Plugin
   } catch (error) {
     console.error(error)
   }
+  return pluginDetail
+}
+
+/** 使用插件市场详情弹窗展示已安装插件信息和评分入口。 */
+async function showPluginAbout() {
+  const pluginDetail = await fetchInstalledPluginDetail()
+  if (!pluginDetail) return
+
+  marketDetailDialogController?.close()
+  marketDetailDialogController = openSharedDialog(
+    PluginMarketDetailDialog,
+    {
+      plugin: pluginDetail,
+      count: props.count,
+    },
+    {
+      install: () => emit('save'),
+    },
+    { closeOn: ['close', 'install', 'update:modelValue'] },
+  )
+}
+
+// 访问插件项目主页
+async function visitPluginPage() {
+  const popup = window.open('about:blank', '_blank')
+  let pluginDetail = await fetchInstalledPluginDetail()
+
+  if (popup) popup.opener = null
 
   if (!hasRemoteRepoUrl(pluginDetail)) {
     const marketPlugin = await fetchMarketPlugin(props.plugin?.id)
@@ -409,7 +430,13 @@ function showPluginClone() {
 }
 
 // 执行插件分身
-async function executePluginClone(cloneForm: { suffix: string; name: string; description: string; version: string; icon: string }) {
+async function executePluginClone(cloneForm: {
+  suffix: string
+  name: string
+  description: string
+  version: string
+  icon: string
+}) {
   if (!cloneForm.suffix.trim()) {
     $toast.error(t('plugin.suffixRequired'))
     return
@@ -447,10 +474,21 @@ async function executePluginClone(cloneForm: { suffix: string; name: string; des
 onUnmounted(() => {
   closePluginProgress()
   cloneDialogController?.close()
+  marketDetailDialogController?.close()
+  versionHistoryDialogController?.close()
 })
 
 // 弹出菜单
 const dropdownItems = ref([
+  {
+    title: t('plugin.about'),
+    value: 10,
+    show: true,
+    props: {
+      prependIcon: 'mdi-information-outline',
+      click: showPluginAbout,
+    },
+  },
   {
     title: t('plugin.viewData'),
     value: 1,
@@ -581,97 +619,96 @@ watch(
             :style="{ '--plugin-card-accent-rgb': accentRgb }"
             :ripple="!props.sortable"
           >
-          <div class="plugin-card__banner flex-grow">
-            <VCardText class="px-2 pt-2 pb-0">
-              <VCardTitle
-                class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
-              >
-                <VBadge dot inline :color="props.plugin?.state ? 'success' : 'secondary'" />
-                {{ props.plugin?.plugin_name }}
-                <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
-              </VCardTitle>
-            </VCardText>
-            <div class="relative flex flex-row items-start px-2 justify-between grow">
-              <div class="relative flex-1 min-w-0">
-                <div class="px-2 py-1 text-white text-sm text-shadow overflow-hidden line-clamp-3 ...">
-                  {{ props.plugin?.plugin_desc }}
+            <div class="plugin-card__banner flex-grow">
+              <VCardText class="px-2 pt-2 pb-0">
+                <VCardTitle
+                  class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
+                >
+                  <VBadge dot inline :color="props.plugin?.state ? 'success' : 'secondary'" />
+                  {{ props.plugin?.plugin_name }}
+                  <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
+                </VCardTitle>
+              </VCardText>
+              <div class="relative flex flex-row items-start px-2 justify-between grow">
+                <div class="relative flex-1 min-w-0">
+                  <div class="px-2 py-1 text-white text-sm text-shadow overflow-hidden line-clamp-3 ...">
+                    {{ props.plugin?.plugin_desc }}
+                  </div>
+                </div>
+                <div
+                  class="relative flex-shrink-0 self-center pb-3"
+                  :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
+                >
+                  <VAvatar size="48">
+                    <VImg
+                      ref="imageRef"
+                      :src="iconPath"
+                      aspect-ratio="4/3"
+                      cover
+                      @load="imageLoaded"
+                      @error="imageLoadError = true"
+                    />
+                  </VAvatar>
                 </div>
               </div>
-              <div
-                class="relative flex-shrink-0 self-center pb-3"
-                :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
-              >
-                <VAvatar size="48">
-                  <VImg
-                    ref="imageRef"
-                    :src="iconPath"
-                    aspect-ratio="4/3"
-                    cover
-                    @load="imageLoaded"
-                    @error="imageLoadError = true"
-                  />
-                </VAvatar>
-              </div>
             </div>
-          </div>
-          <VCardText
-            class="flex flex-col align-self-baseline justify-between px-2 py-2 w-full overflow-hidden max-h-10 min-h-10"
-          >
-            <div class="flex flex-nowrap items-center w-full pe-10">
-              <div class="flex flex-nowrap max-w-40 items-center align-middle">
-                <VImg :src="authorPath" class="author-avatar" @load="isAvatarLoaded = true">
-                  <template #default>
-                    <VIcon v-if="!isAvatarLoaded" size="small" icon="mdi-github" class="me-1" />
-                  </template>
-                </VImg>
-                <span v-if="props.sortable" class="overflow-hidden text-ellipsis whitespace-nowrap">
-                  {{ props.plugin?.plugin_author }}
+            <VCardText
+              class="flex flex-col align-self-baseline justify-between px-2 py-2 w-full overflow-hidden max-h-10 min-h-10"
+            >
+              <div class="flex flex-nowrap items-center w-full pe-10">
+                <div class="flex flex-nowrap max-w-40 items-center align-middle">
+                  <VImg :src="authorPath" class="author-avatar" @load="isAvatarLoaded = true">
+                    <template #default>
+                      <VIcon v-if="!isAvatarLoaded" size="small" icon="mdi-github" class="me-1" />
+                    </template>
+                  </VImg>
+                  <span v-if="props.sortable" class="overflow-hidden text-ellipsis whitespace-nowrap">
+                    {{ props.plugin?.plugin_author }}
+                  </span>
+                  <a
+                    v-else
+                    :href="props.plugin?.author_url"
+                    target="_blank"
+                    @click.stop
+                    class="overflow-hidden text-ellipsis whitespace-nowrap"
+                  >
+                    {{ props.plugin?.plugin_author }}
+                  </a>
+                </div>
+                <span v-if="props.count" class="ms-2 flex-shrink-0 download-count items-center align-middle">
+                  <VIcon size="small" icon="mdi-download" />
+                  <span class="text-sm">{{ formatDownloadCount(props.count) }}</span>
                 </span>
-                <a
-                  v-else
-                  :href="props.plugin?.author_url"
-                  target="_blank"
-                  @click.stop
-                  class="overflow-hidden text-ellipsis whitespace-nowrap"
-                >
-                  {{ props.plugin?.plugin_author }}
-                </a>
               </div>
-              <span v-if="props.count" class="ms-2 flex-shrink-0 download-count items-center align-middle">
-                <VIcon size="small" icon="mdi-download" />
-                <span class="text-sm">{{ formatDownloadCount(props.count) }}</span>
-              </span>
+              <div v-if="!props.sortable" class="absolute bottom-0 right-0">
+                <IconBtn @click.stop>
+                  <VIcon icon="mdi-dots-vertical" />
+                  <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
+                    <VList>
+                      <VListItem
+                        v-for="(item, i) in dropdownItems"
+                        v-show="item.show"
+                        :key="i"
+                        :base-color="item.props.color"
+                        @click="item.props.click"
+                      >
+                        <template #prepend>
+                          <VIcon :icon="item.props.prependIcon" />
+                        </template>
+                        <VListItemTitle v-text="item.title" />
+                      </VListItem>
+                    </VList>
+                  </VMenu>
+                </IconBtn>
+              </div>
+            </VCardText>
+            <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 right-5">
+              <VIcon icon="mdi-new-box" class="text-white" />
             </div>
-            <div v-if="!props.sortable" class="absolute bottom-0 right-0">
-              <IconBtn @click.stop>
-                <VIcon icon="mdi-dots-vertical" />
-                <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
-                  <VList>
-                    <VListItem
-                      v-for="(item, i) in dropdownItems"
-                      v-show="item.show"
-                      :key="i"
-                      :base-color="item.props.color"
-                      @click="item.props.click"
-                    >
-                      <template #prepend>
-                        <VIcon :icon="item.props.prependIcon" />
-                      </template>
-                      <VListItemTitle v-text="item.title" />
-                    </VListItem>
-                  </VList>
-                </VMenu>
-              </IconBtn>
-            </div>
-          </VCardText>
-          <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 right-5">
-            <VIcon icon="mdi-new-box" class="text-white" />
-          </div>
           </VCard>
         </div>
       </template>
     </VHover>
-
   </div>
 </template>
 

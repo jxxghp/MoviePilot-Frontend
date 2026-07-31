@@ -242,88 +242,113 @@ onUnmounted(() => {
             }"
             :style="{ '--plugin-card-accent-rgb': accentRgb }"
           >
-          <div class="plugin-card__banner flex-grow">
-            <VCardText class="px-2 pt-2 pb-0">
-              <VCardTitle
-                class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
-              >
-                {{ props.plugin?.plugin_name }}
-                <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
-              </VCardTitle>
-            </VCardText>
-            <div class="relative flex flex-row items-start px-2 justify-between grow">
-              <div class="relative flex-1 min-w-0">
-                <div
-                  class="text-white text-sm px-2 py-1 text-shadow overflow-hidden ..."
-                  :class="{ 'line-clamp-3': !props.plugin?.plugin_label, 'line-clamp-2': props.plugin?.plugin_label }"
+            <div class="plugin-card__banner flex-grow">
+              <VCardText class="px-2 pt-2 pb-0">
+                <VCardTitle
+                  class="plugin-app-card__title text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
+                  :class="{ 'plugin-app-card__title--with-rating': (props.plugin?.rating_count || 0) > 0 }"
                 >
-                  {{ props.plugin?.plugin_desc }}
-                </div>
-                <!-- 插件标签 -->
-                <div v-if="pluginLabels.length > 0" class="plugin-app-card__tags-section px-2 mb-2">
-                  <VChip
-                    v-for="tag in pluginLabels"
-                    :key="tag"
-                    size="x-small"
-                    variant="tonal"
-                    color="info"
-                    class="plugin-app-card__tag"
-                    tile
+                  {{ props.plugin?.plugin_name }}
+                  <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
+                </VCardTitle>
+              </VCardText>
+              <div class="relative flex flex-row items-start px-2 justify-between grow">
+                <div class="relative flex-1 min-w-0">
+                  <div
+                    class="text-white text-sm px-2 py-1 text-shadow overflow-hidden ..."
+                    :class="{ 'line-clamp-3': !props.plugin?.plugin_label, 'line-clamp-2': props.plugin?.plugin_label }"
                   >
-                    {{ tag }}
-                  </VChip>
+                    {{ props.plugin?.plugin_desc }}
+                  </div>
+                  <!-- 插件标签 -->
+                  <div v-if="pluginLabels.length > 0" class="plugin-app-card__tags-section px-2 mb-2">
+                    <VChip
+                      v-for="tag in pluginLabels"
+                      :key="tag"
+                      size="x-small"
+                      variant="tonal"
+                      color="info"
+                      class="plugin-app-card__tag"
+                      tile
+                    >
+                      {{ tag }}
+                    </VChip>
+                  </div>
+                </div>
+                <div class="relative flex-shrink-0 self-center pb-3">
+                  <VAvatar size="48">
+                    <VImg
+                      ref="imageRef"
+                      :src="iconPath"
+                      aspect-ratio="4/3"
+                      cover
+                      @load="imageLoaded"
+                      @error="imageLoadError = true"
+                    />
+                  </VAvatar>
                 </div>
               </div>
-              <div class="relative flex-shrink-0 self-center pb-3">
-                <VAvatar size="48">
-                  <VImg
-                    ref="imageRef"
-                    :src="iconPath"
-                    aspect-ratio="4/3"
-                    cover
-                    @load="imageLoaded"
-                    @error="imageLoadError = true"
-                  />
-                </VAvatar>
-              </div>
             </div>
-          </div>
-          <VCardText
-            class="flex flex-col align-self-baseline justify-between px-2 py-2 w-full overflow-hidden max-h-10 min-h-10"
-          >
-            <div class="flex flex-nowrap items-center w-full pe-10">
-              <div class="flex flex-nowrap max-w-40 items-center align-middle">
-                <VIcon icon="mdi-github" class="me-1" />
-                <a
-                  class="overflow-hidden text-ellipsis whitespace-nowrap"
-                  :href="props.plugin?.author_url"
-                  target="_blank"
-                  @click.stop
-                >
-                  {{ props.plugin?.plugin_author }}
-                </a>
+            <VCardText
+              class="flex flex-col align-self-baseline justify-between px-2 py-2 w-full overflow-hidden max-h-10 min-h-10"
+            >
+              <div class="flex flex-nowrap items-center w-full pe-10">
+                <div class="flex flex-nowrap max-w-40 items-center align-middle">
+                  <VIcon icon="mdi-github" class="me-1" />
+                  <a
+                    class="overflow-hidden text-ellipsis whitespace-nowrap"
+                    :href="props.plugin?.author_url"
+                    target="_blank"
+                    @click.stop
+                  >
+                    {{ props.plugin?.plugin_author }}
+                  </a>
+                </div>
+                <div v-if="props.count" class="ms-2 flex-shrink-0 download-count align-middle items-center">
+                  <VIcon size="small" icon="mdi-download" />
+                  <span class="text-sm">{{ formatDownloadCount(props.count) }}</span>
+                </div>
               </div>
-              <div v-if="props.count" class="ms-2 flex-shrink-0 download-count align-middle items-center">
-                <VIcon size="small" icon="mdi-download" />
-                <span class="text-sm">{{ formatDownloadCount(props.count) }}</span>
+              <div class="absolute bottom-0 right-0">
+                <IconBtn @click.stop>
+                  <VIcon size="small" icon="mdi-dots-vertical" />
+                  <VMenu activator="parent" close-on-content-click>
+                    <VList>
+                      <VListItem
+                        v-for="(item, i) in dropdownItems"
+                        v-show="item.show"
+                        :key="i"
+                        @click="item.props.click"
+                      >
+                        <template #prepend>
+                          <VIcon :icon="item.props.prependIcon" />
+                        </template>
+                        <VListItemTitle v-text="item.title" />
+                      </VListItem>
+                    </VList>
+                  </VMenu>
+                </IconBtn>
               </div>
+            </VCardText>
+            <div
+              v-if="(props.plugin?.rating_count || 0) > 0"
+              class="plugin-app-card__rating"
+              :aria-label="
+                t('plugin.ratingSummary', {
+                  rating: Number(props.plugin?.average_rating || 0).toFixed(1),
+                  count: props.plugin?.rating_count || 0,
+                })
+              "
+              :title="
+                t('plugin.ratingSummary', {
+                  rating: Number(props.plugin?.average_rating || 0).toFixed(1),
+                  count: props.plugin?.rating_count || 0,
+                })
+              "
+            >
+              <VIcon icon="mdi-star" color="warning" size="16" />
+              <span>{{ Number(props.plugin?.average_rating || 0).toFixed(1) }}</span>
             </div>
-            <div class="absolute bottom-0 right-0">
-              <IconBtn @click.stop>
-                <VIcon size="small" icon="mdi-dots-vertical" />
-                <VMenu activator="parent" close-on-content-click>
-                  <VList>
-                    <VListItem v-for="(item, i) in dropdownItems" v-show="item.show" :key="i" @click="item.props.click">
-                      <template #prepend>
-                        <VIcon :icon="item.props.prependIcon" />
-                      </template>
-                      <VListItemTitle v-text="item.title" />
-                    </VListItem>
-                  </VList>
-                </VMenu>
-              </IconBtn>
-            </div>
-          </VCardText>
           </VCard>
         </div>
       </template>
@@ -344,10 +369,29 @@ onUnmounted(() => {
   max-inline-size: 100%;
 }
 
+.plugin-app-card__title--with-rating {
+  padding-inline-end: 4rem !important;
+}
+
 .plugin-app-card__tag {
   flex: 0 0 auto;
   max-inline-size: 100%;
   min-inline-size: 0;
+}
+
+.plugin-app-card__rating {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  inset-block-start: 0.625rem;
+  inset-inline-end: 0.625rem;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 65%);
 }
 
 .plugin-app-card__tag :deep(.v-chip__content) {

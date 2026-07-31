@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
 import { formatDownloadCount } from '@/@core/utils/formatters'
+import PluginRatingDisplay from '@/components/common/PluginRatingDisplay.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
@@ -45,6 +46,18 @@ const visible = computed({
     if (!value) emit('close')
   },
 })
+
+const isInstalled = computed(() => Boolean(props.plugin?.installed))
+
+const rating = ref<PluginRating>({
+  plugin_id: props.plugin?.id,
+  average_rating: props.plugin?.average_rating || 0,
+  rating_count: props.plugin?.rating_count || 0,
+  user_rating: props.plugin?.user_rating,
+})
+const selectedRating = ref(props.plugin?.user_rating || 0)
+const ratingLoading = ref(false)
+const ratingSubmitting = ref(false)
 
 // 图片对象
 const imageRef = ref<any>()
@@ -125,10 +138,12 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
 
   try {
     showInstallProgress(
-      t('plugin.installing', {
-        name: props.plugin?.plugin_name,
-        version: releaseVersion || props?.plugin?.plugin_version,
-      }),
+      isInstalled.value && !releaseVersion
+        ? t('plugin.updating', { name: props.plugin?.plugin_name })
+        : t('plugin.installing', {
+            name: props.plugin?.plugin_name,
+            version: releaseVersion || props?.plugin?.plugin_version,
+          }),
     )
 
     const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
@@ -142,7 +157,11 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     closeInstallProgress()
 
     if (result.success) {
-      $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
+      $toast.success(
+        isInstalled.value
+          ? t('plugin.updateSuccess', { name: props.plugin?.plugin_name })
+          : t('plugin.installSuccess', { name: props.plugin?.plugin_name }),
+      )
       versionHistoryDialogController?.close()
       versionHistoryDialogController = null
       visible.value = false
@@ -161,13 +180,65 @@ function showUpdateHistory() {
   versionHistoryDialogController?.close()
   versionHistoryDialogController = openSharedDialog(
     PluginVersionHistoryDialog,
-    { plugin: props.plugin, actionMode: 'install' },
+    {
+      plugin: props.plugin,
+      actionMode: isInstalled.value ? 'update' : 'install',
+      showUpdateAction: isInstalled.value && Boolean(props.plugin?.has_update),
+    },
     {
       update: installPlugin,
     },
     { closeOn: ['close', 'update:modelValue'] },
   )
 }
+
+/** 查询插件平均分和当前安装实例评分。 */
+async function loadPluginRating() {
+  if (!props.plugin?.id) return
+
+  ratingLoading.value = true
+  try {
+    const result: PluginRating = await api.get(`plugin/rating/${props.plugin.id}`)
+    rating.value = result
+    selectedRating.value = result.user_rating || 0
+  } catch (error) {
+    console.error(error)
+  } finally {
+    ratingLoading.value = false
+  }
+}
+
+/** 提交已安装插件的当前安装实例评分。 */
+async function submitPluginRating() {
+  if (!props.plugin?.id || !isInstalled.value || selectedRating.value <= 0) return
+
+  ratingSubmitting.value = true
+  try {
+    const result: ApiResponse<PluginRating> = await api.post(`plugin/rating/${props.plugin.id}`, {
+      rating: selectedRating.value,
+    })
+    if (result.success) {
+      rating.value = result.data
+      selectedRating.value = result.data.user_rating || selectedRating.value
+      $toast.success(t('plugin.ratingSuccess', { name: props.plugin?.plugin_name }))
+    } else {
+      $toast.error(t('plugin.ratingFailed', { message: result.message || t('common.unknown') }))
+    }
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('plugin.ratingFailed', { message: t('common.serverConnectionFailed') }))
+  } finally {
+    ratingSubmitting.value = false
+  }
+}
+
+watch(
+  () => [visible.value, props.plugin?.id],
+  ([isVisible]) => {
+    if (isVisible) loadPluginRating()
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
   closeInstallProgress()
@@ -218,6 +289,16 @@ onUnmounted(() => {
                       <span class="text-body-1">{{ props.plugin?.system_version }}</span>
                     </VListItemTitle>
                   </VListItem>
+                  <VListItem v-if="rating.rating_count > 0" class="ps-0">
+                    <VListItemTitle class="plugin-market-detail-rating-row text-center text-md-left">
+                      <span class="font-weight-medium">{{ t('plugin.rating') }}：</span>
+                      <PluginRatingDisplay
+                        :rating="rating.average_rating"
+                        :count="rating.rating_count"
+                        :icon-size="18"
+                      />
+                    </VListItemTitle>
+                  </VListItem>
                 </VList>
                 <VAlert
                   v-if="props.plugin?.system_version_compatible === false"
@@ -230,12 +311,22 @@ onUnmounted(() => {
                 <div class="plugin-market-detail-actions">
                   <div class="plugin-market-detail-actions__buttons">
                     <VBtn
+                      v-if="!isInstalled"
                       color="primary"
                       @click="installPlugin()"
                       prepend-icon="mdi-download"
                       :disabled="props.plugin?.system_version_compatible === false"
                     >
                       {{ t('plugin.installToLocal') }}
+                    </VBtn>
+                    <VBtn
+                      v-else-if="props.plugin?.has_update"
+                      color="primary"
+                      prepend-icon="mdi-arrow-up-circle-outline"
+                      :disabled="props.plugin?.system_version_compatible === false"
+                      @click="installPlugin()"
+                    >
+                      {{ t('plugin.update') }}
                     </VBtn>
                     <VBtn variant="tonal" @click="showUpdateHistory" prepend-icon="mdi-update">
                       {{ t('plugin.versionHistory') }}
@@ -244,6 +335,31 @@ onUnmounted(() => {
                   <div class="plugin-market-detail-actions__downloads" v-if="props.count">
                     <VIcon icon="mdi-fire" />
                     {{ t('plugin.totalDownloads', { count: formatDownloadCount(props.count) }) }}
+                  </div>
+                </div>
+                <div v-if="isInstalled" class="plugin-market-detail-user-rating mt-5">
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    {{ t('plugin.yourRating') }}
+                  </div>
+                  <div class="plugin-market-detail-user-rating__controls">
+                    <VRating
+                      v-model="selectedRating"
+                      :disabled="ratingLoading || ratingSubmitting"
+                      half-increments
+                      hover
+                      density="compact"
+                      active-color="warning"
+                    />
+                    <VBtn
+                      size="small"
+                      variant="tonal"
+                      prepend-icon="mdi-star-check-outline"
+                      :loading="ratingSubmitting"
+                      :disabled="ratingLoading || selectedRating <= 0"
+                      @click="submitPluginRating"
+                    >
+                      {{ t('plugin.submitRating') }}
+                    </VBtn>
                   </div>
                 </div>
               </VCardItem>
@@ -279,6 +395,27 @@ onUnmounted(() => {
   text-align: center;
 }
 
+.plugin-market-detail-rating-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+.plugin-market-detail-user-rating {
+  padding-block-start: 1rem;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.plugin-market-detail-user-rating__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 @media (width >= 960px) {
   .plugin-market-detail-actions {
     justify-content: flex-start;
@@ -290,6 +427,10 @@ onUnmounted(() => {
 
   .plugin-market-detail-actions__downloads {
     text-align: start;
+  }
+
+  .plugin-market-detail-rating-row {
+    justify-content: flex-start;
   }
 }
 </style>

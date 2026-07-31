@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type { Plugin, PluginRating } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -176,6 +176,9 @@ const PluginAppDialog = ref(false)
 
 // 插件安装统计
 const PluginStatistics = ref<{ [key: string]: number }>({})
+
+// 插件评分
+const PluginRatings = ref<{ [key: string]: PluginRating }>({})
 
 // 插件市场刷新状态
 const isMarketRefreshing = ref(false)
@@ -905,11 +908,46 @@ async function getPluginStatistics() {
   }
 }
 
+/** 批量加载插件评分并合并到已安装和市场插件对象。 */
+async function getPluginRatings() {
+  const pluginIds = Array.from(
+    new Set([...dataList.value, ...marketList.value].map(plugin => plugin.id).filter(Boolean)),
+  )
+  if (pluginIds.length === 0) {
+    PluginRatings.value = {}
+    return
+  }
+
+  try {
+    const ratings: { [key: string]: PluginRating } = {}
+    for (let start = 0; start < pluginIds.length; start += 100) {
+      const chunk = pluginIds.slice(start, start + 100)
+      const response: { [key: string]: PluginRating } = await api.get('plugin/rating', {
+        params: {
+          plugin_ids: chunk.join(','),
+        },
+      })
+      Object.assign(ratings, response)
+    }
+    PluginRatings.value = ratings
+
+    for (const plugin of [...dataList.value, ...uninstalledList.value, ...marketList.value]) {
+      const pluginRating = ratings[plugin.id]
+      if (!pluginRating) continue
+      plugin.average_rating = pluginRating.average_rating
+      plugin.rating_count = pluginRating.rating_count
+      plugin.user_rating = pluginRating.user_rating
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 // 加载所有数据
 async function refreshData(context: KeepAliveRefreshContext = {}) {
   await fetchInstalledPlugins(context)
   await fetchUninstalledPlugins(false, context)
-  await getPluginStatistics()
+  await Promise.all([getPluginStatistics(), getPluginRatings()])
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
 }
@@ -985,7 +1023,7 @@ async function refreshMarket() {
   isMarketRefreshing.value = true
   try {
     await fetchUninstalledPlugins(true, { silent: false, source: 'manual' })
-    await getPluginStatistics()
+    await Promise.all([getPluginStatistics(), getPluginRatings()])
   } catch (error) {
     console.error(error)
   } finally {
@@ -998,13 +1036,13 @@ async function refreshActiveTabData(context: KeepAliveRefreshContext = {}) {
 
   if (activeTab.value === 'market') {
     await fetchUninstalledPlugins(false, context)
-    await getPluginStatistics()
+    await Promise.all([getPluginStatistics(), getPluginRatings()])
     return
   }
 
   await fetchInstalledPlugins(context)
   await fetchUninstalledPlugins(false, context)
-  await getPluginStatistics()
+  await Promise.all([getPluginStatistics(), getPluginRatings()])
   // 文件夹配置可能在其它入口被插件操作改变，重新进入时同步一次。
   await loadPluginFolders()
 }

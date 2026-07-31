@@ -706,6 +706,20 @@ export interface Plugin {
   add_time?: number
   // 页面打开状态
   page_open?: boolean
+  // 平均评分
+  average_rating?: number
+  // 评分人数
+  rating_count?: number
+  // 当前安装实例评分
+  user_rating?: number | null
+}
+
+// 插件评分结果
+export interface PluginRating {
+  plugin_id: string
+  average_rating: number
+  rating_count: number
+  user_rating?: number | null
 }
 
 // 插件 Release 可安装版本
