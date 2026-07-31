@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { DownloadingInfo } from '@/api/types'
+import type { ApiResponse, DownloadingInfo } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 
 // 输入参数
@@ -35,19 +35,11 @@ watch(
   },
 )
 
-// 图片是否加载完成
-const imageLoaded = ref(false)
-
-// 图片加载完成响应
-function imageLoadHandler() {
-  imageLoaded.value = true
-}
-
 // 下载状态控制
 async function toggleDownload() {
   const operation = isDownloading.value ? 'stop' : 'start'
   try {
-    const result: { [key: string]: any } = await api.get(`download/${operation}/${props.info?.hash}`, {
+    const result: ApiResponse<unknown> = await api.get(`download/${operation}/${props.info?.hash}`, {
       params: {
         name: props.downloaderName,
       },
@@ -59,11 +51,13 @@ async function toggleDownload() {
   }
 }
 
-// 删除下截
+// 删除下载任务
 async function deleteDownload() {
   try {
-    await api.delete(`download/${props.info?.hash}`, { params: { name: props.downloaderName } })
-    cardState.value = false
+    const result: ApiResponse<unknown> = await api.delete(`download/${props.info?.hash}`, {
+      params: { name: props.downloaderName },
+    })
+    if (result.success) cardState.value = false
   } catch (error) {
     console.error(error)
   }
@@ -83,53 +77,46 @@ async function deleteDownload() {
           }"
           min-height="150"
         >
-        <template #image>
-          <VImg
-            :src="props.info?.media.image"
-            class="downloading-card-image"
-            aspect-ratio="2/3"
-            cover
-            @load="imageLoadHandler"
-            position="top"
-          >
-            <template #placeholder>
-              <div class="w-full h-full">
-                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-              </div>
-            </template>
-            <template #default>
-              <div class="absolute inset-0 outline-none downloading-card-background"></div>
-            </template>
-          </VImg>
-        </template>
+          <template #image>
+            <VImg :src="props.info?.media.image" class="downloading-card-image" aspect-ratio="2/3" cover position="top">
+              <template #placeholder>
+                <div class="w-full h-full">
+                  <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                </div>
+              </template>
+              <template #default>
+                <div class="absolute inset-0 outline-none downloading-card-background"></div>
+              </template>
+            </VImg>
+          </template>
 
-        <div>
-          <VCardTitle class="break-words whitespace-normal text-white">
-            {{ props.info?.media.title || props.info?.name }}
-            {{
-              props.info?.media.episode
-                ? `${props.info?.media.season} ${props.info?.media.episode}`
-                : props.info?.season_episode
-            }}
-          </VCardTitle>
+          <div>
+            <VCardTitle class="break-words whitespace-normal text-white">
+              {{ props.info?.media.title || props.info?.name }}
+              {{
+                props.info?.media.episode
+                  ? `${props.info?.media.season} ${props.info?.media.episode}`
+                  : props.info?.season_episode
+              }}
+            </VCardTitle>
 
-          <VCardSubtitle class="break-words whitespace-normal text-white">
-            {{ props.info?.title }}
-          </VCardSubtitle>
+            <VCardSubtitle class="break-words whitespace-normal text-white">
+              {{ props.info?.title }}
+            </VCardSubtitle>
 
-          <VCardText class="text-subtitle-1 pt-3 pb-1 text-white">
-            {{ getSpeedText() }}
-          </VCardText>
+            <VCardText class="text-subtitle-1 pt-3 pb-1 text-white">
+              {{ getSpeedText() }}
+            </VCardText>
 
-          <VCardText v-if="getPercentage() > 0" class="text-white">
-            <VProgressLinear :model-value="getPercentage()" bg-color="success" color="success" />
-          </VCardText>
+            <VCardText v-if="getPercentage() > 0" class="text-white">
+              <VProgressLinear :model-value="getPercentage()" bg-color="success" color="success" />
+            </VCardText>
 
-          <VCardActions class="justify-space-between">
-            <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
-            <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
-          </VCardActions>
-        </div>
+            <VCardActions class="justify-space-between">
+              <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
+              <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
+            </VCardActions>
+          </div>
         </VCard>
       </div>
     </template>
