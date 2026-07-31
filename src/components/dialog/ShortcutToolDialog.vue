@@ -63,6 +63,10 @@ const bodyClasses = computed(() => [
   },
 ])
 
+// 允许工具视图在执行后续操作前主动关闭外层弹窗。
+function closeDialog() {
+  visible.value = false
+}
 </script>
 
 <template>
@@ -77,7 +81,7 @@ const bodyClasses = computed(() => [
       </VCardItem>
       <VDivider />
       <VCardText :class="bodyClasses">
-        <Component :is="props.view" v-bind="props.viewProps" />
+        <Component :is="props.view" v-bind="props.viewProps" @close="closeDialog" />
       </VCardText>
     </VCard>
   </VDialog>

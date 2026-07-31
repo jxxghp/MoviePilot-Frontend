@@ -1614,9 +1614,13 @@ export default {
         title: '元信息',
         caption: '解析出的名称、季集和资源信息',
       },
+      source: {
+        title: '识别数据源',
+        caption: '本次识别匹配到的媒体数据源',
+      },
       media: {
-        title: '媒体匹配',
-        caption: '最终匹配到的媒体数据源',
+        title: '媒体 ID',
+        caption: '最终匹配到的媒体数据源原生 ID',
       },
     },
   },

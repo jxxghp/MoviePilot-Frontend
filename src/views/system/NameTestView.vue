@@ -1,19 +1,54 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Context, MediaDataSource, MediaInfo } from '@/api/types'
-import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
+import { getMediaSubscribeId, getMediaSubscribeIdentity } from '@/composables/useMediaSubscribe'
 import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
+import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 
 interface PipelineStep {
   icon: string
+  identity?: MediaIdentity
+  source?: MediaSourceDisplay
   title: string
   value: string
 }
+
+interface MediaIdentity {
+  id: string
+  link?: string
+  source: string
+  sourceKey: string
+}
+
+interface MediaSourceDisplay {
+  icon?: string
+  image?: string
+  key: string
+  label: string
+}
+
+const MEDIA_SOURCE_LABELS: Record<string, string> = {
+  anilist: 'AniList',
+  bangumi: 'Bangumi',
+  douban: 'Douban',
+  themoviedb: 'TheMovieDb',
+}
+
+const MEDIA_SOURCE_LOGOS: Record<string, string> = {
+  bangumi: getLogoUrl('bangumi'),
+  douban: getLogoUrl('douban'),
+  themoviedb: getLogoUrl('tmdb'),
+}
+
+const NAME_TEST_TITLE_HISTORY_KEY = 'MP_NAME_TEST_TITLE_HISTORY'
+const NAME_TEST_TITLE_HISTORY_LIMIT = 5
+
+const emit = defineEmits<{ close: [] }>()
 
 // 国际化
 const { t } = useI18n()
@@ -40,11 +75,46 @@ const nameTestResult = ref<Context>()
 
 // 名称识别表单
 const nameTestForm = reactive({
-  title: '',
-  subtitle: '',
-  customWords: '',
+  title: null,
+  subtitle: null,
+  customWords: null,
   source: getDefaultMediaSource(),
 })
+
+/** 从本地存储读取最近使用的识别标题。 */
+function loadTitleHistory() {
+  try {
+    const storedHistory: unknown = JSON.parse(localStorage.getItem(NAME_TEST_TITLE_HISTORY_KEY) || '[]')
+    if (!Array.isArray(storedHistory)) return []
+
+    return storedHistory
+      .filter((title): title is string => typeof title === 'string' && Boolean(title.trim()))
+      .map(title => title.trim())
+      .filter((title, index, titles) => titles.indexOf(title) === index)
+      .slice(0, NAME_TEST_TITLE_HISTORY_LIMIT)
+  } catch {
+    return []
+  }
+}
+
+const nameTestTitleHistory = ref<string[]>(loadTitleHistory())
+
+/** 将本次提交的标题移到历史记录首位，并只保留最新五条。 */
+function saveTitleHistory(title: string) {
+  const normalizedTitle = title.trim()
+  if (!normalizedTitle) return
+
+  nameTestTitleHistory.value = [
+    normalizedTitle,
+    ...nameTestTitleHistory.value.filter(historyTitle => historyTitle !== normalizedTitle),
+  ].slice(0, NAME_TEST_TITLE_HISTORY_LIMIT)
+
+  try {
+    localStorage.setItem(NAME_TEST_TITLE_HISTORY_KEY, JSON.stringify(nameTestTitleHistory.value))
+  } catch {
+    // 本地存储不可用时仍继续执行本次识别。
+  }
+}
 
 // 识别按钮状态
 const nameTestLoading = ref(false)
@@ -91,16 +161,52 @@ const canViewMediaDetail = computed(() =>
   ),
 )
 
-/** 生成识别结果中的数据源原生ID摘要，并兼容旧接口字段。 */
-function getMediaIdentityLabel(media?: MediaInfo) {
-  if (!media) return t('nameTest.unrecognized')
-  if (media.media_id) return `${media.source || media.mediaid_prefix} ${media.media_id}`
-  if (media.tmdb_id) return `TMDB ${media.tmdb_id}`
-  if (media.douban_id) return `Douban ${media.douban_id}`
-  if (media.bangumi_id) return `Bangumi ${media.bangumi_id}`
-  if (media.anilist_id) return `AniList ${media.anilist_id}`
-  return media.title || t('nameTest.unrecognized')
+/** 生成媒体源官方详情页地址。 */
+function getMediaOfficialLink(media: MediaInfo, source: string, mediaId: string) {
+  const encodedId = encodeURIComponent(mediaId)
+
+  switch (source) {
+    case 'themoviedb': {
+      const mediaType = media.type?.trim().toLowerCase()
+      return `https://www.themoviedb.org/${mediaType === '电影' || mediaType === 'movie' ? 'movie' : 'tv'}/${encodedId}`
+    }
+    case 'douban':
+      return `https://movie.douban.com/subject/${encodedId}`
+    case 'bangumi':
+      return `https://bgm.tv/subject/${encodedId}`
+    case 'anilist':
+      return `https://anilist.co/anime/${encodedId}`
+    default:
+      return undefined
+  }
 }
+
+/** 生成识别结果中的数据源原生 ID，并兼容旧接口字段。 */
+function getMediaIdentity(media?: MediaInfo): MediaIdentity | undefined {
+  if (!media) return undefined
+
+  const identity = getMediaSubscribeIdentity(media)
+  if (!identity) return undefined
+
+  return {
+    id: identity.mediaId,
+    link: getMediaOfficialLink(media, identity.source, identity.mediaId),
+    source: MEDIA_SOURCE_LABELS[identity.source] || identity.source,
+    sourceKey: identity.source,
+  }
+}
+
+const mediaIdentity = computed(() => getMediaIdentity(mediaInfo.value))
+const recognizedMediaSource = computed<MediaSourceDisplay>(() => {
+  const sourceKey = mediaIdentity.value?.sourceKey || nameTestForm.source
+
+  return {
+    icon: sourceKey === 'anilist' ? 'mdi-alpha-a-circle' : undefined,
+    image: MEDIA_SOURCE_LOGOS[sourceKey],
+    key: sourceKey,
+    label: mediaIdentity.value?.source || MEDIA_SOURCE_LABELS[sourceKey] || sourceKey,
+  }
+})
 
 const pipelineSteps = computed<PipelineStep[]>(() => [
   {
@@ -117,9 +223,16 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
         .join(' · ') || '-',
   },
   {
-    icon: 'mdi-movie-search-outline',
+    icon: 'mdi-database-search-outline',
+    source: recognizedMediaSource.value,
+    title: t('nameTest.steps.source.title'),
+    value: recognizedMediaSource.value.label,
+  },
+  {
+    icon: 'mdi-identifier',
+    identity: mediaIdentity.value,
     title: t('nameTest.steps.media.title'),
-    value: getMediaIdentityLabel(mediaInfo.value),
+    value: mediaIdentity.value?.id || t('nameTest.unrecognized'),
   },
 ])
 
@@ -129,11 +242,11 @@ function getPosterImage(url = '') {
   return url.replace('original', 'w500')
 }
 
-/** 跳转查看当前识别结果匹配到的媒体详情。 */
-function viewMediaDetail() {
+/** 关闭识别测试弹窗后，跳转查看当前识别结果匹配到的媒体详情。 */
+async function viewMediaDetail() {
   if (!canViewMediaDetail.value || !mediaInfo.value) return
 
-  router.push({
+  const target = {
     path: '/media',
     query: {
       mediaid: getMediaSubscribeId(mediaInfo.value),
@@ -141,12 +254,20 @@ function viewMediaDetail() {
       year: mediaInfo.value.year,
       type: mediaInfo.value.type,
     },
-  })
+  }
+
+  emit('close')
+  await nextTick()
+  await router.push(target)
 }
 
 /** 调用媒体识别接口并刷新解析工作台，输入的识别词会临时应用于本次识别测试。 */
 async function nameTest() {
-  if (!nameTestForm.title) return
+  const normalizedTitle = nameTestForm.title?.trim() || ''
+  if (!normalizedTitle) return
+
+  nameTestForm.title = normalizedTitle
+  saveTitleHistory(normalizedTitle)
 
   try {
     nameTestLoading.value = true
@@ -157,7 +278,7 @@ async function nameTest() {
       params: {
         title: nameTestForm.title,
         subtitle: nameTestForm.subtitle,
-        custom_words: nameTestForm.customWords || undefined,
+        custom_words: nameTestForm.customWords?.trim() || undefined,
         source: nameTestForm.source,
       },
     })
@@ -180,7 +301,7 @@ function parseCustomWordLines(text: string) {
 async function saveCustomWords() {
   if (savingCustomWords.value) return
 
-  const newLines = parseCustomWordLines(nameTestForm.customWords)
+  const newLines = parseCustomWordLines(nameTestForm.customWords || '')
   if (!newLines.length) return
 
   savingCustomWords.value = true
@@ -216,8 +337,9 @@ async function saveCustomWords() {
       <VForm validate-on="submit lazy" @submit.prevent="nameTest">
         <VRow class="shortcut-form">
           <VCol cols="12" class="shortcut-form-col">
-            <VTextField
+            <VCombobox
               v-model="nameTestForm.title"
+              :items="nameTestTitleHistory"
               :label="t('nameTest.title')"
               :hint="t('nameTest.titleHint')"
               persistent-hint
@@ -263,7 +385,7 @@ async function saveCustomWords() {
                 size="small"
                 variant="tonal"
                 color="primary"
-                :disabled="!nameTestForm.customWords.trim()"
+                :disabled="!nameTestForm.customWords?.trim()"
                 :loading="savingCustomWords"
                 @click="saveCustomWords"
               >
@@ -359,7 +481,42 @@ async function saveCustomWords() {
                 {{ step.title }}
               </div>
               <div class="text-body-2 font-weight-medium pipeline-value">
-                {{ step.value }}
+                <span
+                  v-if="step.source"
+                  class="media-source-display"
+                  :aria-label="step.source.label"
+                  :data-source="step.source.key"
+                  :title="step.source.label"
+                  data-testid="recognition-source"
+                >
+                  <VImg
+                    v-if="step.source.image"
+                    class="media-source-logo"
+                    :src="step.source.image"
+                    :alt="step.source.label"
+                  />
+                  <VIcon
+                    v-else-if="step.source.icon"
+                    class="media-source-logo"
+                    color="#02a9ff"
+                    :icon="step.source.icon"
+                  />
+                  <span>{{ step.source.label }}</span>
+                </span>
+                <template v-else-if="step.identity">
+                  <a
+                    v-if="step.identity.link"
+                    class="media-id-link"
+                    :href="step.identity.link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click.stop
+                  >
+                    {{ step.identity.id }}
+                  </a>
+                  <span v-else>{{ step.identity.id }}</span>
+                </template>
+                <template v-else>{{ step.value }}</template>
               </div>
             </div>
           </div>
@@ -532,6 +689,24 @@ async function saveCustomWords() {
   margin-block-start: 0.2rem;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.media-id-link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.media-source-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.media-source-logo {
+  flex: 0 0 1.4rem;
+  block-size: 1.4rem;
+  inline-size: 1.4rem;
 }
 
 .applied-words {

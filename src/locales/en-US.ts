@@ -1625,9 +1625,13 @@ export default {
         title: 'Meta Info',
         caption: 'Parsed name, episodes, and resource terms',
       },
+      source: {
+        title: 'Recognition Source',
+        caption: 'The media source matched by this recognition',
+      },
       media: {
-        title: 'Media Match',
-        caption: 'Final matched media source',
+        title: 'Media ID',
+        caption: 'The native media ID from the matched source',
       },
     },
   },
