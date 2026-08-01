@@ -41,6 +41,7 @@ const DASHBOARD_GRID_CELL_HEIGHT = 16
 const DASHBOARD_GRID_FALLBACK_ROWS = 4
 const DASHBOARD_GRID_MARGIN = 8
 const DASHBOARD_GRID_CONTENT_RESIZE_THRESHOLD = 4
+const DASHBOARD_GRID_SIZE_SOURCE_SELECTOR = '[data-layout-size-source]'
 const DASHBOARD_ENABLE_STORAGE_KEY = 'MP_DASHBOARD'
 const DASHBOARD_ORDER_STORAGE_KEY = 'MP_DASHBOARD_ORDER'
 const DASHBOARD_GRID_LAYOUT_STORAGE_KEY_PREFIX = 'MP_DASHBOARD_GRID_LAYOUT'
@@ -141,8 +142,10 @@ let isLegacyDashboardEnableConfigLoaded = false
 const dashboardGridResizeStartHeights = new Map<string, number | undefined>()
 const dashboardGridPendingContentResize = new Set<GridItemHTMLElement>()
 const dashboardGridObservedContentHeights = new Map<string, number>()
+const dashboardGridObservedSizeSources = new Set<Element>()
 
 let dashboardGridContentObserver: ResizeObserver | null = null
+let dashboardGridContentMutationObserver: MutationObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
 let dashboardGridResizeRefreshFrame: number | null = null
 let dashboardGridAnimationFrame: number | null = null
@@ -1326,16 +1329,24 @@ function syncDashboardFillContentState(element?: GridItemHTMLElement) {
 // 监听仪表板组件内容尺寸变化，让未手动调高的组件按内容高度自适应。
 function observeDashboardGridContent() {
   const gridElement = dashboardGridRef.value
+  dashboardGridContentMutationObserver?.disconnect()
+  dashboardGridContentMutationObserver = null
+  dashboardGridContentObserver?.disconnect()
+  dashboardGridContentObserver = null
+  dashboardGridPendingContentResize.clear()
+  dashboardGridObservedContentHeights.clear()
+  dashboardGridObservedSizeSources.clear()
   if (!gridElement || typeof ResizeObserver === 'undefined') return
 
   syncDashboardFillContentState()
-  dashboardGridContentObserver?.disconnect()
-  dashboardGridPendingContentResize.clear()
-  dashboardGridObservedContentHeights.clear()
   dashboardGridContentObserver = new ResizeObserver(entries => {
     entries.forEach(entry => {
       const itemElement = entry.target.closest('.dashboard-grid-item') as GridItemHTMLElement | null
-      if (itemElement && shouldScheduleDashboardContentResize(itemElement, entry.contentRect.height)) {
+      const isSizeSource = entry.target.matches(DASHBOARD_GRID_SIZE_SOURCE_SELECTOR)
+      if (
+        itemElement &&
+        (isSizeSource || shouldScheduleDashboardContentResize(itemElement, entry.contentRect.height))
+      ) {
         scheduleDashboardItemContentResize(itemElement)
       }
     })
@@ -1344,6 +1355,46 @@ function observeDashboardGridContent() {
   gridElement.querySelectorAll<HTMLElement>('.dashboard-grid-auto-size').forEach(element => {
     dashboardGridContentObserver?.observe(element)
   })
+  gridElement.querySelectorAll<HTMLElement>(DASHBOARD_GRID_SIZE_SOURCE_SELECTOR).forEach(observeDashboardGridSizeSource)
+
+  if (typeof MutationObserver === 'undefined') return
+
+  dashboardGridContentMutationObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      mutation.removedNodes.forEach(node => {
+        findDashboardGridSizeSources(node).forEach(unobserveDashboardGridSizeSource)
+      })
+      mutation.addedNodes.forEach(node => {
+        findDashboardGridSizeSources(node).forEach(observeDashboardGridSizeSource)
+      })
+    })
+  })
+  dashboardGridContentMutationObserver.observe(gridElement, { childList: true, subtree: true })
+}
+
+// 返回节点自身及后代声明的真实尺寸源，普通子节点变化不进入测高路径。
+function findDashboardGridSizeSources(node: Node) {
+  if (!(node instanceof Element)) return []
+
+  const sources = Array.from(node.querySelectorAll<Element>(DASHBOARD_GRID_SIZE_SOURCE_SELECTOR))
+  if (node.matches(DASHBOARD_GRID_SIZE_SOURCE_SELECTOR)) sources.unshift(node)
+
+  return sources
+}
+
+// 注册异步挂载的尺寸源；ResizeObserver 的首次回调负责触发实际测高。
+function observeDashboardGridSizeSource(element: Element) {
+  if (!dashboardGridContentObserver || dashboardGridObservedSizeSources.has(element)) return
+
+  dashboardGridObservedSizeSources.add(element)
+  dashboardGridContentObserver.observe(element)
+}
+
+// 节点卸载后同步解除观察，避免 KeepAlive 与布局重建保留失效引用。
+function unobserveDashboardGridSizeSource(element: Element) {
+  if (!dashboardGridContentObserver || !dashboardGridObservedSizeSources.delete(element)) return
+
+  dashboardGridContentObserver.unobserve(element)
 }
 
 // 判断内容高度变化是否足够触发 GridStack 行高重算，避免 hover 级微小波动造成布局抖动。
@@ -1648,6 +1699,8 @@ onDeactivated(() => {
 
 onBeforeUnmount(() => {
   Object.keys(refreshTimers.value).forEach(clearPluginDashboardTimer)
+  dashboardGridContentMutationObserver?.disconnect()
+  dashboardGridContentMutationObserver = null
   dashboardGridContentObserver?.disconnect()
   dashboardGridContentObserver = null
   if (dashboardGridContentResizeFrame !== null) {
@@ -1668,6 +1721,7 @@ onBeforeUnmount(() => {
   }
   dashboardGridPendingContentResize.clear()
   dashboardGridObservedContentHeights.clear()
+  dashboardGridObservedSizeSources.clear()
   dashboardGridResizeStartHeights.clear()
   dashboardGrid.value?.destroy(false)
   dashboardGrid.value = null
@@ -1676,11 +1730,7 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- 仪表板 -->
-  <div
-    ref="dashboardGridRef"
-    class="grid-stack dashboard-grid"
-    :class="{ 'is-editing': isLayoutEditing }"
-  >
+  <div ref="dashboardGridRef" class="grid-stack dashboard-grid" :class="{ 'is-editing': isLayoutEditing }">
     <div
       v-for="gridItem in dashboardGridItems"
       :key="gridItem.id"
@@ -1876,5 +1926,4 @@ onBeforeUnmount(() => {
   inset-block-end: -4px;
   inset-inline-end: -4px;
 }
-
 </style>
