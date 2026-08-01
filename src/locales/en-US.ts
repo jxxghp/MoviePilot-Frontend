@@ -790,6 +790,7 @@ export default {
     choiceExpired: 'This choice expired. Please ask again.',
     error: 'Assistant response failed',
     noStream: 'This browser cannot read streaming responses',
+    recoveryFailed: 'Failed to recover the background response. Please try again later.',
   },
   workflow: {
     components: 'Action Components',

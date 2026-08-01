@@ -780,6 +780,7 @@ export default {
     choiceExpired: '該選擇已失效，請重新發起選擇',
     error: '智能助手響應失敗',
     noStream: '目前瀏覽器無法讀取串流響應',
+    recoveryFailed: '後台回覆恢復失敗，請稍後重試',
   },
   workflow: {
     components: '動作組件',
