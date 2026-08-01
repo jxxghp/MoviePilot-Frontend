@@ -1057,7 +1057,8 @@ watch(
 
 <template>
   <div ref="containerRef" class="progressive-card-grid">
-    <div ref="trackRef" class="progressive-card-grid__track">
+    <!-- 完整高度由虚拟占位与可见网格共同承载，供上层自适应布局观察稳定的尺寸语义。 -->
+    <div ref="trackRef" class="progressive-card-grid__track" data-layout-size-source>
       <div
         v-if="topSpacerHeight > 0"
         class="progressive-card-grid__spacer"

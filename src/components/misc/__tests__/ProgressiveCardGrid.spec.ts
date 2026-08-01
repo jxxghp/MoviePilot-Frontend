@@ -35,6 +35,20 @@ describe('ProgressiveCardGrid scroll target lifecycle', () => {
       expect(addScrollListener).toHaveBeenCalledWith('scroll', expect.any(Function), { passive: true })
     })
   })
+
+  it('exposes the complete virtual track as a layout size source', () => {
+    const { container } = render(ProgressiveCardGrid, {
+      props: {
+        items: [{ id: 1 }],
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: {
+        default: '<div>item</div>',
+      },
+    })
+
+    expect(container.querySelector('.progressive-card-grid__track')).toHaveAttribute('data-layout-size-source')
+  })
 })
 
 describe('ProgressiveCardGrid mount scheduling', () => {

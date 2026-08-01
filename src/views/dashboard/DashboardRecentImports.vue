@@ -52,15 +52,20 @@ onActivated(loadRecentImports)
     </VCardItem>
 
     <VCardText class="recent-import-list">
-      <div v-for="item in recentImports" :key="item.id" class="recent-import-item">
-        <VImg :src="getPosterUrl(item)" :alt="item.title" class="recent-import-poster" cover />
-        <div class="recent-import-copy">
-          <div class="recent-import-title">{{ item.title }}<span v-if="item.year"> ({{ item.year }})</span></div>
-          <div class="recent-import-meta">{{ getImportMeta(item) }}</div>
-        </div>
-        <div class="recent-import-time">
-          {{ item.date ? formatDateDifference(item.date) : '' }}
-          <VIcon icon="mdi-check-circle" color="success" size="16" />
+      <!-- 非空列表使用自然内容高度，避免外层填充布局隐藏异步增长。 -->
+      <div v-if="recentImports.length > 0" data-layout-size-source>
+        <div v-for="item in recentImports" :key="item.id" class="recent-import-item">
+          <VImg :src="getPosterUrl(item)" :alt="item.title" class="recent-import-poster" cover />
+          <div class="recent-import-copy">
+            <div class="recent-import-title">
+              {{ item.title }}<span v-if="item.year"> ({{ item.year }})</span>
+            </div>
+            <div class="recent-import-meta">{{ getImportMeta(item) }}</div>
+          </div>
+          <div class="recent-import-time">
+            {{ item.date ? formatDateDifference(item.date) : '' }}
+            <VIcon icon="mdi-check-circle" color="success" size="16" />
+          </div>
         </div>
       </div>
 
