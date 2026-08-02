@@ -183,6 +183,7 @@ useDataRefresh(
   flex: 1 1 auto;
   min-block-size: 0;
   overscroll-behavior: contain;
+  scrollbar-width: none;
 }
 
 .background-task-item {
@@ -242,8 +243,10 @@ useDataRefresh(
   min-block-size: 0;
 }
 
-.card-list::-webkit-scrollbar {
-  display: none;
+@supports not (scrollbar-width: none) {
+  .card-list::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes background-task-rotate {

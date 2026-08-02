@@ -213,7 +213,7 @@ export default defineComponent({
     // 单独提升顶栏图层可避免导航栏短暂上移到安全区下方。
     backface-visibility: hidden;
     block-size: var(--layout-navbar-block-size);
-    inline-size: calc(100vw - variables.$layout-vertical-nav-width - 0.5rem);
+    inline-size: calc(100% - variables.$layout-vertical-nav-width);
     inset-block-start: 0;
     transform: translate3d(0, 0, 0);
 
@@ -277,7 +277,7 @@ export default defineComponent({
   }
 
   &.layout-vertical-nav-collapsed .layout-navbar {
-    inline-size: calc(100vw - variables.$layout-vertical-nav-collapsed-width - 0.5rem);
+    inline-size: calc(100% - variables.$layout-vertical-nav-collapsed-width);
   }
 
   &.layout-vertical-nav-collapsed .layout-vertical-nav:not(.overlay-nav) {
