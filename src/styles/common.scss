@@ -1420,32 +1420,25 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
   }
 }
 
-// 滚动条样式
-::-webkit-scrollbar {
-  block-size: 4px;
-  inline-size: 4px;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: rgb(var(--v-theme-perfect-scrollbar-thumb));
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 20%);
-
-  @media (hover) {
-    &:hover {
-      background: #a1a1a1;
-    }
+// 原生滚动条沿用浏览器的几何与显隐行为，只统一窄宽度和主题色。
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-color: rgba(var(--v-theme-perfect-scrollbar-thumb), 60%) transparent;
+    scrollbar-width: thin;
   }
 }
 
-*:hover::-webkit-scrollbar {
-  opacity: 1;
-}
+// 旧版 WebKit 不支持标准滚动条属性，仅保留基础几何与主题色。
+@supports not (scrollbar-width: thin) {
+  ::-webkit-scrollbar {
+    block-size: 4px;
+    inline-size: 4px;
+  }
 
-*:active::-webkit-scrollbar {
-  opacity: 1;
+  ::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: rgb(var(--v-theme-perfect-scrollbar-thumb));
+  }
 }
 
 // 组件样式

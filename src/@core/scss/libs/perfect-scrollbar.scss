@@ -33,16 +33,3 @@ $ps-track-size: 0.5rem;
 .ps__rail-y:hover > .ps__thumb-y {
   inline-size: $ps-hover-size;
 }
-
-// 滚动条只反馈实际滚动状态，鼠标经过容器或键盘聚焦不应让轨道常驻。
-.ps:hover > .ps__rail-x,
-.ps:hover > .ps__rail-y,
-.ps--focus > .ps__rail-x,
-.ps--focus > .ps__rail-y {
-  opacity: 0 !important;
-}
-
-.ps.ps--scrolling-x > .ps__rail-x,
-.ps.ps--scrolling-y > .ps__rail-y {
-  opacity: 0.6 !important;
-}

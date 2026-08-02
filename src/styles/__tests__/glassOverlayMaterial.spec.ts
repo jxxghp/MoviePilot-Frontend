@@ -61,7 +61,6 @@ describe('glass overlay material styles', () => {
     expect(mainBackplateRule).toBeDefined()
     expect(mainBackplateRule).not.toMatch(/transition:\s*clip-path/u)
     expect(overlayBackplateRule).toMatch(/transition:\s*clip-path 0\.25s ease-in-out/u)
-    expect(styles).toMatch(/\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/)
   })
 
   it('shares the same light frost when glass navbars overlap scrolled content', () => {

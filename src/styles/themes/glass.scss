@@ -491,25 +491,6 @@ html[data-theme='glass'] {
     }
   }
 
-  // 滚动条与导航材质边界保持间距，避免窄轨道参与全高背板的合成。
-  .layout-vertical-nav .ps__rail-y {
-    inset-inline-end: 0.5rem !important;
-    transition: opacity 120ms linear;
-  }
-
-  .layout-vertical-nav .ps__thumb-y,
-  .layout-vertical-nav .ps__rail-y:focus > .ps__thumb-y,
-  .layout-vertical-nav .ps__rail-y:hover > .ps__thumb-y,
-  .layout-vertical-nav .ps__rail-y.ps--clicking .ps__thumb-y {
-    background-color: rgba(255, 255, 255, 28%) !important;
-    inline-size: 2px !important;
-    inset-inline-end: 0.1875rem;
-  }
-
-  .layout-vertical-nav .nav-items.ps--scrolling-y > .ps__rail-y {
-    opacity: 0.42;
-  }
-
   .layout-vertical-nav .nav-link > .router-link-exact-active {
     border: var(--glass-nav-active-border);
     background: var(--glass-nav-active-background) !important;

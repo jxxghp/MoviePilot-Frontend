@@ -185,9 +185,12 @@ onActivated(() => {
   flex-direction: column;
   min-block-size: 0;
   overflow: auto;
+  scrollbar-width: none;
 }
 
-.dashboard-media-content::-webkit-scrollbar {
-  display: none;
+@supports not (scrollbar-width: none) {
+  .dashboard-media-content::-webkit-scrollbar {
+    display: none;
+  }
 }
 </style>
