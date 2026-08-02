@@ -2212,6 +2212,9 @@ export default {
       monitorNetworkFastMode: '網路儲存快速監控',
       monitorNetworkFastModeHint:
         '允許網路/FUSE 掛載目錄使用內核通知的快速監控模式，僅當確認掛載能正常下發檔案變更通知時開啟，否則新檔案將無法被監控發現，保存後將自動重建監控並即時生效',
+      transferMaxFailedRetries: '整理失敗重試次數',
+      transferMaxFailedRetriesHint:
+        '自動整理失敗後允許重試的最大次數，避免一次網路或辨識抖動讓檔案永久漏整理；次數用盡後需手動整理或刪除整理記錄。取值 1-10，整理成功或刪除記錄時計數歸零，保存後即時生效',
       tmdbLanguage: {
         zhCN: '簡體中文',
         zhTW: '繁體中文',

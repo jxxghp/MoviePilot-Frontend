@@ -135,6 +135,7 @@ const SystemSettings = ref<any>({
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
     TRANSFER_THREADS: 1,
     MONITOR_NETWORK_FAST_MODE: false,
+    TRANSFER_MAX_FAILED_RETRIES: 3,
   },
 })
 
@@ -2555,6 +2556,18 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     type="number"
                     min="1"
                     prepend-inner-icon="mdi-swap-horizontal"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Advanced.TRANSFER_MAX_FAILED_RETRIES"
+                    :label="t('setting.system.transferMaxFailedRetries')"
+                    :hint="t('setting.system.transferMaxFailedRetriesHint')"
+                    persistent-hint
+                    type="number"
+                    min="1"
+                    max="10"
+                    prepend-inner-icon="mdi-refresh-alert"
                   />
                 </VCol>
               </VRow>

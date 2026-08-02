@@ -2249,6 +2249,9 @@ export default {
       monitorNetworkFastMode: 'Fast Monitoring for Network Storage',
       monitorNetworkFastModeHint:
         'Allow kernel-notification (fast) monitoring on network/FUSE mounts. Enable only if the mount reliably delivers file change notifications, otherwise new files will not be detected. Takes effect immediately after saving (monitors are rebuilt automatically).',
+      transferMaxFailedRetries: 'Transfer Retries on Failure',
+      transferMaxFailedRetriesHint:
+        'Maximum automatic retries after a failed transfer, so a transient network or recognition glitch cannot permanently skip a file. Once exhausted, transfer it manually or delete the transfer history. Range 1-10; the counter resets on a successful transfer or when the record is deleted. Takes effect immediately after saving.',
       tmdbLanguage: {
         zhCN: 'Simplified Chinese',
         zhTW: 'Traditional Chinese',
