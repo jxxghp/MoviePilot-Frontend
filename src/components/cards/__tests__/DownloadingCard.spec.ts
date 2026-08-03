@@ -5,8 +5,14 @@ import { renderWithProviders } from '@tests/support/render'
 import { deleteDownloadHandler, downloadActionHandler } from '@tests/support/msw/handlers/download'
 import { server } from '@tests/support/msw/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 
-function downloading(overrides: Partial<DownloadingInfo> = {}): DownloadingInfo {
+type DownloadingCardInfo = DownloadingInfo & {
+  site_name?: string
+  trackers?: string[]
+}
+
+function downloading(overrides: Partial<DownloadingCardInfo> = {}): DownloadingCardInfo {
   return {
     dlspeed: '2 MiB',
     hash: 'hash-1',
@@ -95,6 +101,96 @@ describe('DownloadingCard display and pause state', () => {
 
     await fireEvent.mouseLeave(hoverArea)
     await waitFor(() => expect(shell).not.toHaveClass('app-hover-lift-card--hovering'))
+  })
+
+  it('normalizes media type, source host, speeds and missing time without exposing tracker details', async () => {
+    await renderCard(
+      downloading({
+        dlspeed: '2 MiB/s',
+        left_time: ' ',
+        media: {
+          poster: 'https://images.example.com/movie.jpg',
+          season: 'S01',
+          title: '测试电影',
+          type: 'movie',
+        },
+        trackers: ['', 'invalid tracker', 'https://www.tracker.example/announce?passkey=private'],
+        upspeed: '',
+        year: ' 2026 ',
+      }),
+    )
+
+    expect(screen.getByText('电影')).toBeInTheDocument()
+    expect(screen.getByText('tracker.example')).toBeInTheDocument()
+    expect(screen.queryByText(/passkey|private/)).not.toBeInTheDocument()
+    expect(screen.getByText(/2026/)).toBeInTheDocument()
+    expect(screen.getByText('2 MiB/s')).toBeInTheDocument()
+    expect(screen.getByText('0 B/s')).toBeInTheDocument()
+    expect(screen.getByText(/--/)).toBeInTheDocument()
+  })
+
+  it('uses explicit site and TV metadata before inferred fallbacks', async () => {
+    await renderCard(
+      downloading({
+        media: {
+          poster: '',
+          title: '测试剧集',
+          type: '电视剧',
+        },
+        season_episode: '',
+        site_name: '主站点',
+        trackers: ['https://tracker.example/announce'],
+      }),
+    )
+
+    expect(screen.getByText('电视剧')).toBeInTheDocument()
+    expect(screen.getByText('主站点')).toBeInTheDocument()
+    expect(screen.queryByText('tracker.example')).not.toBeInTheDocument()
+  })
+
+  it('clamps finite progress and hides invalid or non-positive progress', async () => {
+    const { container, rerender } = await renderCard(downloading({ progress: Number.NaN }))
+
+    expect(container.querySelector('.v-card-text .v-progress-linear')).not.toBeInTheDocument()
+
+    await rerender({ downloaderName: 'qb-main', info: downloading({ progress: 150 }) })
+    expect(screen.getByText('100%')).toBeInTheDocument()
+
+    await rerender({ downloaderName: 'qb-main', info: downloading({ progress: -10 }) })
+    expect(container.querySelector('.v-card-text .v-progress-linear')).not.toBeInTheDocument()
+  })
+
+  it('hides a failed poster and restores image rendering when the media poster changes', async () => {
+    const ImageStub = defineComponent({
+      name: 'VImg',
+      emits: ['error'],
+      setup(_, { attrs, emit }) {
+        return () =>
+          h('img', {
+            ...attrs,
+            'data-testid': 'poster-image',
+            onError: () => emit('error'),
+          })
+      },
+    })
+    const { container, rerender } = await renderWithProviders(DownloadingCard, {
+      global: { stubs: { VImg: ImageStub } },
+      props: { downloaderName: 'qb-main', info: downloading() },
+    })
+
+    await fireEvent.error(screen.getByTestId('poster-image'))
+    await waitFor(() => expect(container.querySelector('.downloading-card__poster')).not.toBeInTheDocument())
+
+    await rerender({
+      downloaderName: 'qb-main',
+      info: downloading({
+        media: {
+          poster: 'https://images.example.com/replacement.jpg',
+          title: '替换海报',
+        },
+      }),
+    })
+    await waitFor(() => expect(container.querySelector('.downloading-card__poster')).toBeInTheDocument())
   })
 
   it('uses the current operation and downloader name, changing state only on business success', async () => {
