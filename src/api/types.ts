@@ -672,7 +672,26 @@ export interface SiteUserData {
 }
 
 // 正在下载
+export interface DownloadingMediaInfo {
+  // TMDB ID
+  tmdbid?: number
+  // 类型：电影、电视剧
+  type?: string
+  // 识别后的标题
+  title?: string
+  // 季
+  season?: string
+  // 集
+  episode?: string
+  // 海报
+  image?: string
+}
+
 export interface DownloadingInfo {
+  // 下载器名称
+  downloader?: string
+  // 来源站点
+  site_name?: string
   // HASH
   hash?: string
   // 种子名称
@@ -693,8 +712,14 @@ export interface DownloadingInfo {
   dlspeed?: string
   // 上传速度
   upspeed?: string
+  // 下载器分类
+  category?: string
+  // 下载器标签
+  tags?: string
+  // Tracker 地址
+  trackers?: string[]
   // 媒体信息
-  media: { [key: string]: any }
+  media?: DownloadingMediaInfo
   // 下载用户ID
   userid?: string
   // 下载用户名称

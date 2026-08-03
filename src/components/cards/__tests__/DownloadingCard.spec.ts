@@ -16,14 +16,17 @@ function downloading(overrides: Partial<DownloadingInfo> = {}): DownloadingInfo 
       image: 'https://images.example.com/poster.jpg',
       season: 'S01',
       title: '测试媒体',
+      type: '电视剧',
     },
     name: 'fallback-name',
     progress: 40,
     season_episode: 'S01E02',
     size: 1024,
+    site_name: '馒头',
     state: 'downloading',
     title: '下载任务标题',
     upspeed: '1 MiB',
+    year: '2026',
     ...overrides,
   }
 }
@@ -49,10 +52,18 @@ describe('DownloadingCard display and pause state', () => {
     const { container } = await renderCard()
 
     expect(screen.getByText(/测试媒体/)).toBeInTheDocument()
-    expect(screen.getByText(/S01 E02/)).toBeInTheDocument()
+    expect(screen.getByText(/2026 · S01 E02/)).toBeInTheDocument()
     expect(screen.getByText('下载任务标题')).toBeInTheDocument()
-    expect(screen.getByText(/1 小时/)).toBeInTheDocument()
-    expect(container.querySelector('.v-card-text .v-progress-linear')).toBeInTheDocument()
+    expect(screen.getByText('电视剧')).toBeInTheDocument()
+    expect(screen.getByText('馒头')).toBeInTheDocument()
+    expect(screen.getByText('1.00 KB')).toBeInTheDocument()
+    expect(screen.getByText('2 MiB/s')).toBeInTheDocument()
+    expect(screen.getByText('1 MiB/s')).toBeInTheDocument()
+    expect(screen.getByText('1 小时')).toBeInTheDocument()
+    expect(screen.getAllByText('40%')).toHaveLength(2)
+    expect(container.querySelector('.downloading-card__progress .v-progress-linear')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '暂停任务' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除任务' })).toBeInTheDocument()
   })
 
   it('falls back to the task name and season string when media recognition is incomplete', async () => {
@@ -62,13 +73,32 @@ describe('DownloadingCard display and pause state', () => {
         name: '未识别任务',
         progress: 0,
         season_episode: 'S03E04',
+        site_name: undefined,
         state: 'stopped',
       }),
     )
 
     expect(screen.getByText(/未识别任务/)).toBeInTheDocument()
     expect(screen.getByText(/S03E04/)).toBeInTheDocument()
-    expect(container.querySelector('.v-card-text .v-progress-linear')).not.toBeInTheDocument()
+    expect(screen.getByText('未知')).toBeInTheDocument()
+    expect(screen.getByText('未知站点')).toBeInTheDocument()
+    expect(screen.getAllByText('0%')).toHaveLength(2)
+    expect(container.querySelector('.downloading-card__progress .v-progress-linear')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '继续任务' })).toBeInTheDocument()
+  })
+
+  it('clamps invalid progress and avoids appending a duplicate speed unit', async () => {
+    await renderCard(
+      downloading({
+        dlspeed: '3 MiB/s',
+        progress: 140,
+        upspeed: '',
+      }),
+    )
+
+    expect(screen.getAllByText('100%')).toHaveLength(2)
+    expect(screen.getByText('3 MiB/s')).toBeInTheDocument()
+    expect(screen.getByText('0 B/s')).toBeInTheDocument()
   })
 
   it('uses the current operation and downloader name, changing state only on business success', async () => {
