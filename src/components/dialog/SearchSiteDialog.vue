@@ -88,7 +88,7 @@ const filteredSites = computed(() => {
 </script>
 <template>
   <!-- Site Selection Dialog -->
-  <VDialog max-width="40rem" :fullscreen="!display.smAndUp.value">
+  <VDialog scrollable max-width="40rem" :fullscreen="!display.smAndUp.value">
     <VCard class="site-dialog">
       <VCardItem>
         <template #prepend>
@@ -100,7 +100,7 @@ const filteredSites = computed(() => {
       </VCardItem>
       <VDialogCloseBtn @click="emit('close')" />
       <VDivider />
-      <VCardText style="max-block-size: 420px" class="overflow-y-auto px-4 py-4">
+      <VCardText class="site-dialog__content overflow-y-auto px-4 py-4">
         <!-- 站点列表 -->
         <div v-if="filteredSites.length > 0">
           <!-- 选择操作 -->
@@ -203,6 +203,12 @@ const filteredSites = computed(() => {
   transition:
     transform 0.2s ease,
     background-color 0.2s ease;
+}
+
+@media (min-width: 600px) {
+  .site-dialog__content {
+    max-block-size: 420px;
+  }
 }
 
 .site-checkbox-wrapper:hover {
