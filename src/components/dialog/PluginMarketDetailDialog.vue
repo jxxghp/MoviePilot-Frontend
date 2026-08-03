@@ -129,6 +129,8 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     if (!isConfirmed) return
   }
 
+  const failureMessageKey = isInstalled.value ? 'plugin.updateFailed' : 'plugin.installFailed'
+
   try {
     showInstallProgress(
       isInstalled.value && !releaseVersion
@@ -158,11 +160,11 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       visible.value = false
       emit('install')
     } else {
-      $toast.error(t('plugin.installFailed', { name: props.plugin?.plugin_name, message: result.message }))
+      $toast.error(t(failureMessageKey, { name: props.plugin?.plugin_name, message: result.message }))
     }
   } catch (error) {
     $toast.error(
-      t('plugin.installFailed', {
+      t(failureMessageKey, {
         name: props.plugin?.plugin_name,
         message: t('common.serverConnectionFailed'),
       }),

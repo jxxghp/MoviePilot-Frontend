@@ -236,6 +236,37 @@ describe('PluginMarketDetailDialog', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')
   })
 
+  it('reports an HTTP update failure with update semantics', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      return Promise.reject(new Error('network unavailable'))
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '更新' }))
+
+    expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 更新失败：服务器连接失败')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(emitted()).not.toHaveProperty('install')
+    expect(emitted()).not.toHaveProperty('update:modelValue')
+    expect(mocks.dialogClose).toHaveBeenCalled()
+  })
+
+  it('reports a business update failure with the backend message', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      return Promise.resolve({ success: false, message: '更新包损坏' })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '更新' }))
+
+    expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 更新失败：更新包损坏')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(emitted()).not.toHaveProperty('install')
+    expect(emitted()).not.toHaveProperty('update:modelValue')
+  })
+
   it('forces a latest Release update when the installed plugin snapshot has no update flag', async () => {
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: false, release: true })
 
