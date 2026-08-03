@@ -118,7 +118,7 @@ function getSeasonEpisode(item: DownloadHistory) {
         <template #empty />
 
         <VList lines="three" class="download-history-dialog__content py-0">
-          <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="112">
+          <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="136">
             <template #default="{ item, itemRef }">
               <div :ref="itemRef">
                 <VListItem class="download-history-item">
@@ -145,14 +145,20 @@ function getSeasonEpisode(item: DownloadHistory) {
                     <VChip v-if="getSeasonEpisode(item)" color="primary" size="x-small" variant="tonal">
                       {{ getSeasonEpisode(item) }}
                     </VChip>
-                    <VChip v-if="item.torrent_site" color="secondary" size="x-small" variant="tonal">
+                    <VChip v-if="item.torrent_site" color="info" size="x-small" variant="tonal">
                       {{ item.torrent_site }}
                     </VChip>
                   </div>
-                  <VListItemSubtitle v-if="item.torrent_name" class="download-history-item__torrent mt-1">
+                  <VListItemSubtitle
+                    v-if="item.torrent_name"
+                    class="download-history-item__torrent download-history-item__meta mt-1"
+                  >
                     {{ item.torrent_name }}
                   </VListItemSubtitle>
-                  <VListItemSubtitle v-if="item.date" class="mt-1">
+                  <VListItemSubtitle
+                    v-if="item.date"
+                    class="download-history-item__date download-history-item__meta mt-1"
+                  >
                     {{ formatDateDifference(item.date) }}
                   </VListItemSubtitle>
 
@@ -209,7 +215,7 @@ function getSeasonEpisode(item: DownloadHistory) {
 }
 
 .download-history-item {
-  min-block-size: 7rem;
+  min-block-size: 8.5rem;
 }
 
 .download-history-item__image {
@@ -229,9 +235,17 @@ function getSeasonEpisode(item: DownloadHistory) {
 }
 
 .download-history-item__torrent {
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.download-history-item__meta {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)) !important;
+  opacity: 1;
 }
 
 .download-history-empty {
