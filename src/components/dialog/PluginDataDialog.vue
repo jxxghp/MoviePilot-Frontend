@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
-import type { Plugin } from '@/api/types'
+import type { Plugin, RenderProps } from '@/api/types'
 import PageRender from '@/components/render/PageRender.vue'
 import api from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
+import RemoteComponentLoading from '@/components/misc/RemoteComponentLoading.vue'
 
 // 输入参数
 const props = defineProps({
@@ -38,16 +40,23 @@ provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
 // 是否刷新
 const isRefreshed = ref(false)
+// 只有成功取得合法页面响应时才允许展示空页面状态。
+const loadError = ref(false)
 // 组件是否已加载成功
 const componentLoaded = ref(false)
 // 是否正在加载数据
 const isLoading = ref(false)
 
 // 渲染模式: 'vuetify' 或 'vue'
-const renderMode = ref('vuetify')
+type PluginRenderMode = 'vue' | 'vuetify'
+const renderMode = ref<PluginRenderMode>('vuetify')
 
 // 插件数据页面配置项
-let pluginPageItems = ref([])
+const pluginPageItems = ref<RenderProps[]>([])
+
+function isPluginRenderMode(value: unknown): value is PluginRenderMode {
+  return value === 'vue' || value === 'vuetify'
+}
 
 // Vue 模式：动态加载的组件
 const dynamicComponent = defineAsyncComponent({
@@ -65,22 +74,13 @@ const dynamicComponent = defineAsyncComponent({
     } catch (error) {
       console.error('加载远程组件失败:', error)
       componentLoaded.value = false
+      throw error
     }
   },
   // 加载中显示的组件
-  loadingComponent: {
-    template: '<VSkeletonLoader type="card"></VSkeletonLoader>',
-  },
+  loadingComponent: RemoteComponentLoading,
   // 添加错误处理
-  errorComponent: {
-    template: `
-      <div class="pa-4">
-        <VAlert type="error" title="组件加载错误">
-          无法加载组件，请稍后再试
-        </VAlert>
-      </div>
-    `,
-  },
+  errorComponent: RemoteComponentError,
   // 添加超时设置
   timeout: 20000,
 })
@@ -92,6 +92,7 @@ async function loadPluginUIData() {
 
   isLoading.value = true
   isRefreshed.value = false
+  loadError.value = false
   pluginPageItems.value = []
 
   try {
@@ -102,9 +103,13 @@ async function loadPluginUIData() {
       return
     }
 
-    const result: { [key: string]: any } = await api.get(`plugin/page/${props.plugin?.id}`)
-    if (!result || !result.render_mode) {
+    const result = (await api.get(`plugin/page/${props.plugin?.id}`)) as {
+      page?: RenderProps[]
+      render_mode?: string
+    }
+    if (!result || !isPluginRenderMode(result.render_mode)) {
       console.error(`插件 ${props.plugin?.plugin_name} UI数据加载失败：无效的响应`)
+      loadError.value = true
       return
     }
     renderMode.value = result.render_mode
@@ -112,8 +117,9 @@ async function loadPluginUIData() {
       // Vuetify模式
       pluginPageItems.value = result.page || []
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error(error)
+    loadError.value = true
   } finally {
     isRefreshed.value = true
     isLoading.value = false
@@ -121,16 +127,16 @@ async function loadPluginUIData() {
 }
 
 // 重新加载数据（可由 PageRender 或 Vue component 触发）
-function handleAction(event: any) {
+function handleAction() {
   // 避免在组件已加载的情况下重复调用loadPluginUIData
   if (renderMode.value === 'vue' && componentLoaded.value) {
     return
   }
-  loadPluginUIData()
+  void loadPluginUIData()
 }
 
 onMounted(() => {
-  loadPluginUIData()
+  void loadPluginUIData()
 })
 </script>
 <template>
@@ -139,6 +145,12 @@ onMounted(() => {
     <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name}`">
       <VDialogCloseBtn @click="emit('close')" />
       <LoadingBanner v-if="!isRefreshed" class="mt-5" />
+      <VCardText v-else-if="loadError" class="min-h-40">
+        <VAlert type="error" title="数据加载失败">
+          <div>插件数据加载失败，请稍后重试</div>
+          <VBtn class="mt-3" color="error" variant="tonal" @click="loadPluginUIData">重试</VBtn>
+        </VAlert>
+      </VCardText>
       <VCardText v-else class="min-h-40">
         <div>
           <PageRender @action="handleAction" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
