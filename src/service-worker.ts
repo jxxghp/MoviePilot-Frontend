@@ -4,6 +4,7 @@ import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategi
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import * as navigationPreload from 'workbox-navigation-preload'
+import { corsSafeCachePlugin } from '@/utils/serviceWorkerCache'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
@@ -97,6 +98,7 @@ registerRoute(
   new CacheFirst({
     cacheName: `image-cache-${RESOURCE_VERSION}`,
     plugins: [
+      corsSafeCachePlugin,
       new CacheableResponsePlugin({
         statuses: [0, 200],
       }),
@@ -131,6 +133,7 @@ registerRoute(
   new CacheFirst({
     cacheName: `tmdb-image-cache-${RESOURCE_VERSION}`,
     plugins: [
+      corsSafeCachePlugin,
       new CacheableResponsePlugin({
         statuses: [0, 200],
       }),
@@ -157,7 +160,7 @@ registerRoute(
     !url.pathname.includes('/api/v1/mfa/') && // 多因素认证接口
     !url.pathname.includes('/api/v1/auth/') && // 登录认证入口与票据交换
     !url.pathname.includes('/api/v1/dashboard/') && // Dashboard实时监控数据
-    !url.pathname.includes('/api/v1/plugin/')&& // 插件接口
+    !url.pathname.includes('/api/v1/plugin/') && // 插件接口
     !url.pathname.includes('/api/v1/subscribe/'), // 订阅接口
   new NetworkFirst({
     cacheName: `api-cache-${CACHE_VERSION}`,
