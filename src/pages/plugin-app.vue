@@ -12,6 +12,7 @@ const navKey = computed(() => (route.params.navKey as string) || 'main')
 
 const RemoteView = shallowRef<Component | null>(null)
 const loadError = ref(false)
+let loadGeneration = 0
 
 // 侧栏联邦页面复用主应用 Toast 实例。
 const $toast = useToast()
@@ -24,16 +25,19 @@ provide('moviepilot:nativeSubscribe', nativeSubscribe)
 watch(
   [pluginId, navKey],
   async ([pid, nk]) => {
+    const generation = ++loadGeneration
     loadError.value = false
+    RemoteView.value = null
     if (!pid) {
-      RemoteView.value = null
       return
     }
     try {
-      RemoteView.value = (await loadRemoteAppPageComponent(pid, nk)) as Component
+      const remoteView = (await loadRemoteAppPageComponent(pid, nk)) as Component
+      if (generation !== loadGeneration) return
+      RemoteView.value = remoteView
     } catch (e) {
+      if (generation !== loadGeneration) return
       console.error(e)
-      RemoteView.value = null
       loadError.value = true
     }
   },
