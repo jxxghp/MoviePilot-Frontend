@@ -13,7 +13,7 @@ function downloading(overrides: Partial<DownloadingInfo> = {}): DownloadingInfo 
     left_time: '1 小时',
     media: {
       episode: 'E02',
-      image: 'https://images.example.com/poster.jpg',
+      poster: 'https://images.example.com/poster.jpg',
       season: 'S01',
       title: '测试媒体',
     },
@@ -69,6 +69,32 @@ describe('DownloadingCard display and pause state', () => {
     expect(screen.getByText(/未识别任务/)).toBeInTheDocument()
     expect(screen.getByText(/S03E04/)).toBeInTheDocument()
     expect(container.querySelector('.v-card-text .v-progress-linear')).not.toBeInTheDocument()
+  })
+
+  it('only renders a centered cover image when a poster is available', async () => {
+    const { container, rerender } = await renderCard()
+
+    expect(container.querySelector('.downloading-card__image')).toBeInTheDocument()
+
+    await rerender({
+      downloaderName: 'qb-main',
+      info: downloading({ media: { backdrop: 'https://images.example.com/backdrop.jpg' } }),
+    })
+
+    expect(container.querySelector('.downloading-card')).toHaveClass('downloading-card--no-image')
+    expect(container.querySelector('.downloading-card__image')).not.toBeInTheDocument()
+  })
+
+  it('applies the shared lift state to the outer shell on hover', async () => {
+    const { container } = await renderCard()
+    const hoverArea = container.querySelector('.downloading-card-hover-area')!
+    const shell = container.querySelector('.downloading-card-shell')!
+
+    await fireEvent.mouseEnter(hoverArea)
+    await waitFor(() => expect(shell).toHaveClass('app-hover-lift-card--hovering'))
+
+    await fireEvent.mouseLeave(hoverArea)
+    await waitFor(() => expect(shell).not.toHaveClass('app-hover-lift-card--hovering'))
   })
 
   it('uses the current operation and downloader name, changing state only on business success', async () => {

@@ -300,8 +300,10 @@ export interface DownloadHistory {
   seasons?: string
   // 集 Exx
   episodes?: string
-  // 海报或背景图
+  // 背景图
   image?: string
+  // 海报
+  poster?: string
   // 下载器 Hash
   download_hash?: string
   // 种子名称

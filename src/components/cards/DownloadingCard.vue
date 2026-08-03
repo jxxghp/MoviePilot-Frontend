@@ -25,13 +25,13 @@ const imageLoadError = ref(false)
 const media = computed(() => props.info?.media ?? {})
 
 watch(
-  () => media.value.image,
+  () => media.value.poster,
   () => {
     imageLoadError.value = false
   },
 )
 
-const hasPosterImage = computed(() => Boolean(media.value.image && !imageLoadError.value))
+const hasPosterImage = computed(() => Boolean(media.value.poster && !imageLoadError.value))
 
 const mediaTitle = computed(() => media.value.title || props.info?.name || props.info?.title || t('common.unknown'))
 
@@ -149,111 +149,124 @@ async function deleteDownload() {
     <template #default="hover">
       <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
       <div v-if="cardState" v-bind="hover.props" class="downloading-card-hover-area h-full">
-        <VCard
-          :key="props.info?.hash"
-          class="downloading-card app-hover-lift-card app-surface h-full overflow-hidden"
-          :class="{
-            'app-hover-lift-card--hovering': hover.isHovering,
-            'downloading-card--hovering': hover.isHovering,
-            'downloading-card--no-image': !hasPosterImage,
-          }"
+        <div
+          class="downloading-card-shell app-hover-lift-card h-full"
+          :class="{ 'app-hover-lift-card--hovering': hover.isHovering }"
         >
-          <div v-if="hasPosterImage" class="downloading-card__poster">
-            <VImg :src="media.image" class="downloading-card__image" position="center" @error="imageLoadError = true">
-              <template #placeholder>
-                <VSkeletonLoader class="downloading-card__image-loader h-full" />
-              </template>
-            </VImg>
-            <div class="downloading-card__poster-edge" />
-          </div>
-
-          <VCardText class="downloading-card__body">
-            <div class="downloading-card__chips">
-              <VChip v-if="mediaTypeText" :prepend-icon="mediaTypeIcon" color="primary" size="x-small" variant="tonal">
-                {{ mediaTypeText }}
-              </VChip>
-              <VChip v-if="sourceSiteText" prepend-icon="mdi-web" size="x-small" variant="tonal">
-                {{ sourceSiteText }}
-              </VChip>
-              <VChip v-else prepend-icon="mdi-harddisk" size="x-small" variant="tonal">
-                {{ sizeText }}
-              </VChip>
+          <VCard
+            :key="props.info?.hash"
+            class="downloading-card h-full overflow-hidden"
+            :class="{ 'downloading-card--no-image': !hasPosterImage }"
+          >
+            <div v-if="hasPosterImage" class="downloading-card__poster">
+              <VImg
+                :src="media.poster"
+                class="downloading-card__image"
+                cover
+                position="center"
+                @error="imageLoadError = true"
+              >
+                <template #placeholder>
+                  <VSkeletonLoader class="downloading-card__image-loader h-full" />
+                </template>
+              </VImg>
+              <div class="downloading-card__poster-edge" />
             </div>
 
-            <div class="downloading-card__heading">
-              <div class="downloading-card__title" :title="mediaTitle">
-                <span>{{ mediaTitle }}</span>
-                <span v-if="titleMetaText" class="downloading-card__title-meta">{{ titleMetaText }}</span>
-              </div>
-              <div class="downloading-card__torrent-title" :title="props.info?.title">
-                {{ props.info?.title || t('common.unknown') }}
-              </div>
-            </div>
-
-            <div v-if="progressValue > 0" class="downloading-card__progress">
-              <div class="downloading-card__progress-label">
-                <span>
-                  {{ isDownloading ? t('common.download') : t('common.pause') }}
-                  <span class="downloading-card__progress-separator">·</span>
-                  {{ remainingTimeText }}
-                </span>
-                <strong>{{ progressText }}</strong>
-              </div>
-              <VProgressLinear
-                :aria-label="t('common.download')"
-                :model-value="progressValue"
-                :color="isDownloading ? 'success' : 'warning'"
-                bg-color="surface-variant"
-                height="6"
-                rounded
-              />
-            </div>
-
-            <div class="downloading-card__footer">
-              <div class="downloading-card__speeds">
-                <div class="downloading-card__speed downloading-card__speed--download">
-                  <VIcon icon="mdi-arrow-down" size="16" />
-                  <strong :title="downloadSpeedText">{{ downloadSpeedText }}</strong>
-                </div>
-                <div class="downloading-card__speed downloading-card__speed--upload">
-                  <VIcon icon="mdi-arrow-up" size="16" />
-                  <strong :title="uploadSpeedText">{{ uploadSpeedText }}</strong>
-                </div>
-              </div>
-
-              <VCardActions class="downloading-card__actions pa-0">
-                <VBtn
-                  :aria-label="isDownloading ? t('common.pause') : t('common.download')"
-                  :disabled="pendingAction === 'delete'"
-                  icon
-                  :loading="pendingAction === 'toggle'"
+            <VCardText class="downloading-card__body">
+              <div class="downloading-card__chips">
+                <VChip
+                  v-if="mediaTypeText"
+                  :prepend-icon="mediaTypeIcon"
                   color="primary"
-                  size="small"
+                  size="x-small"
                   variant="tonal"
-                  @click="toggleDownload"
                 >
-                  <VIcon :icon="isDownloading ? 'mdi-pause' : 'mdi-play'" />
-                  <VTooltip activator="parent" location="top">
-                    {{ isDownloading ? t('common.pause') : t('common.download') }}
-                  </VTooltip>
-                </VBtn>
-                <VBtn
-                  :aria-label="t('common.delete')"
-                  :disabled="pendingAction === 'toggle'"
-                  :loading="pendingAction === 'delete'"
-                  color="error"
-                  icon
-                  size="small"
-                  variant="text"
-                  @click="deleteDownload"
-                >
-                  <VIcon icon="mdi-trash-can-outline" />
-                  <VTooltip activator="parent" location="top">{{ t('common.delete') }}</VTooltip>
-                </VBtn>
-              </VCardActions>
-            </div>
-          </VCardText>
-        </VCard>
+                  {{ mediaTypeText }}
+                </VChip>
+                <VChip v-if="sourceSiteText" prepend-icon="mdi-web" size="x-small" variant="tonal">
+                  {{ sourceSiteText }}
+                </VChip>
+                <VChip v-else prepend-icon="mdi-harddisk" size="x-small" variant="tonal">
+                  {{ sizeText }}
+                </VChip>
+              </div>
+
+              <div class="downloading-card__heading">
+                <div class="downloading-card__title" :title="mediaTitle">
+                  <span>{{ mediaTitle }}</span>
+                  <span v-if="titleMetaText" class="downloading-card__title-meta">{{ titleMetaText }}</span>
+                </div>
+                <div class="downloading-card__torrent-title" :title="props.info?.title">
+                  {{ props.info?.title || t('common.unknown') }}
+                </div>
+              </div>
+
+              <div v-if="progressValue > 0" class="downloading-card__progress">
+                <div class="downloading-card__progress-label">
+                  <span>
+                    {{ isDownloading ? t('common.download') : t('common.pause') }}
+                    <span class="downloading-card__progress-separator">·</span>
+                    {{ remainingTimeText }}
+                  </span>
+                  <strong>{{ progressText }}</strong>
+                </div>
+                <VProgressLinear
+                  :aria-label="t('common.download')"
+                  :model-value="progressValue"
+                  :color="isDownloading ? 'success' : 'warning'"
+                  bg-color="surface-variant"
+                  height="6"
+                  rounded
+                />
+              </div>
+
+              <div class="downloading-card__footer">
+                <div class="downloading-card__speeds">
+                  <div class="downloading-card__speed downloading-card__speed--download">
+                    <VIcon icon="mdi-arrow-down" size="16" />
+                    <strong :title="downloadSpeedText">{{ downloadSpeedText }}</strong>
+                  </div>
+                  <div class="downloading-card__speed downloading-card__speed--upload">
+                    <VIcon icon="mdi-arrow-up" size="16" />
+                    <strong :title="uploadSpeedText">{{ uploadSpeedText }}</strong>
+                  </div>
+                </div>
+
+                <VCardActions class="downloading-card__actions pa-0">
+                  <VBtn
+                    :aria-label="isDownloading ? t('common.pause') : t('common.download')"
+                    :disabled="pendingAction === 'delete'"
+                    icon
+                    :loading="pendingAction === 'toggle'"
+                    color="primary"
+                    size="small"
+                    variant="tonal"
+                    @click="toggleDownload"
+                  >
+                    <VIcon :icon="isDownloading ? 'mdi-pause' : 'mdi-play'" />
+                    <VTooltip activator="parent" location="top">
+                      {{ isDownloading ? t('common.pause') : t('common.download') }}
+                    </VTooltip>
+                  </VBtn>
+                  <VBtn
+                    :aria-label="t('common.delete')"
+                    :disabled="pendingAction === 'toggle'"
+                    :loading="pendingAction === 'delete'"
+                    color="error"
+                    icon
+                    size="small"
+                    variant="text"
+                    @click="deleteDownload"
+                  >
+                    <VIcon icon="mdi-trash-can-outline" />
+                    <VTooltip activator="parent" location="top">{{ t('common.delete') }}</VTooltip>
+                  </VBtn>
+                </VCardActions>
+              </div>
+            </VCardText>
+          </VCard>
+        </div>
       </div>
     </template>
   </VHover>
@@ -268,11 +281,15 @@ async function deleteDownload() {
   inline-size: 100%;
 }
 
+.downloading-card-shell {
+  border-radius: var(--app-surface-radius);
+}
+
 .downloading-card {
   display: grid;
   min-block-size: 12rem;
   color: rgb(var(--v-theme-on-surface));
-  grid-template-columns: 8.25rem minmax(0, 1fr);
+  grid-template-columns: 8rem minmax(0, 1fr);
 }
 
 .downloading-card__poster {
@@ -339,9 +356,9 @@ async function deleteDownload() {
 
 .downloading-card__title-meta {
   margin-inline-start: 0.35rem;
-  color: rgb(var(--v-theme-primary));
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.76rem;
-  font-weight: 650;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -444,7 +461,7 @@ async function deleteDownload() {
 @container (width <= 25rem) {
   .downloading-card {
     min-block-size: 11rem;
-    grid-template-columns: 6.75rem minmax(0, 1fr);
+    grid-template-columns: 7.333rem minmax(0, 1fr);
   }
 
   .downloading-card__poster {
@@ -478,10 +495,6 @@ async function deleteDownload() {
 }
 
 @container (width <= 21rem) {
-  .downloading-card {
-    grid-template-columns: 6.25rem minmax(0, 1fr);
-  }
-
   .downloading-card__body {
     padding-inline: 0.65rem !important;
   }
