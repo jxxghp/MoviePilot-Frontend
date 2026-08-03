@@ -688,14 +688,6 @@
       "count": 1
     }
   },
-  "src/layouts/default/components/DefaultLayout.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "vue/valid-v-for": {
-      "count": 5
-    }
-  },
   "src/layouts/default/components/Footer.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 6
@@ -812,14 +804,6 @@
   "src/stores/global.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "src/stores/pluginSidebarNav.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 1
     }
   },
   "src/stores/types.ts": {
