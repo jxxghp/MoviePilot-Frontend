@@ -233,6 +233,23 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
   })
 
+  it('applies mobile wash visuals to movies without episode progress', async () => {
+    setViewport(480)
+    const { container } = await renderCard({
+      best_version: true,
+      state: 'R',
+      total_episode: undefined,
+      type: '电影',
+    })
+
+    expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
+    expect(container.querySelector('[data-subscribe-state-icon="mdi-shimmer"]')).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card-mobile-state')).toHaveStyle({
+      color: 'rgb(var(--v-theme-success))',
+    })
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
   it('synchronizes desktop P, S, and R state from updated media props', async () => {
     const { container, media, rerender } = await renderCard({ state: 'P' })
     const lastUpdateText = formatDateDifference(media.last_update)

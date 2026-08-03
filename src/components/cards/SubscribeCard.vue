@@ -79,8 +79,11 @@ const downloadedEpisode = computed(() => {
   return Math.min(Math.max(total - (props.media?.lack_episode || 0), 0), total)
 })
 
-// 是否为洗版订阅（影响进度条与 tooltip 的展示分支）
-const isBestVersion = computed(() => isEnabledFlag(props.media?.best_version) && isTvSubscribe(props.media))
+// 是否开启洗版，供电影和电视剧共用洗版标识与配色。
+const hasBestVersion = computed(() => isEnabledFlag(props.media?.best_version))
+
+// 是否为电视剧洗版订阅，仅影响分集进度条与 tooltip 的展示分支。
+const isBestVersion = computed(() => hasBestVersion.value && isTvSubscribe(props.media))
 
 const rightBottomStateDisplay = computed(() => {
   if (subscribeState.value === 'S') {
@@ -100,7 +103,7 @@ const compactStateDisplay = computed(() => {
   if (subscribeState.value === 'P') {
     return { color: 'info', icon: 'mdi-timer-sand', label: t('subscribe.cardStatePending') }
   }
-  if (isBestVersion.value) {
+  if (hasBestVersion.value) {
     return { color: 'success', icon: 'mdi-shimmer', label: t('subscribe.subscribing') }
   }
   return { color: 'primary', icon: 'mdi-rss', label: t('subscribe.subscribing') }
@@ -108,7 +111,7 @@ const compactStateDisplay = computed(() => {
 
 // 洗版徽标：共用 mdi-shimmer 图标，分集 / 全集 由 full 标记区分背景
 const bestVersionBadge = computed(() => {
-  if (!isEnabledFlag(props.media?.best_version)) return null
+  if (!hasBestVersion.value) return null
   return {
     icon: 'mdi-shimmer',
     full: isEnabledFlag(props.media?.best_version_full),
@@ -443,7 +446,7 @@ function handleCardClick() {
               :class="{
                 'subscribe-card-paused': subscribeState === 'S',
                 'subscribe-card-pending-tint': subscribeState === 'P',
-                'subscribe-card-best-version-tint': display.xs.value && isBestVersion && subscribeState === 'R',
+                'subscribe-card-best-version-tint': display.xs.value && hasBestVersion && subscribeState === 'R',
                 'cursor-move': props.sortable,
               }"
               min-height="150"
@@ -542,7 +545,11 @@ function handleCardClick() {
                         :title="compactStateDisplay.label"
                         :aria-label="compactStateDisplay.label"
                       >
-                        <VIcon :icon="compactStateDisplay.icon" size="16" />
+                        <VIcon
+                          :icon="compactStateDisplay.icon"
+                          :data-subscribe-state-icon="compactStateDisplay.icon"
+                          size="16"
+                        />
                         <span v-if="subscribeProgressText" class="subscribe-card-mobile-progress-text">
                           {{ subscribeProgressText }}
                         </span>
@@ -938,6 +945,12 @@ function handleCardClick() {
 @media (width <= 599px) {
   .subscribe-card {
     min-block-size: 0 !important;
+  }
+
+  .subscribe-card-background.subscribe-card-mobile-image-scrim {
+    background-image:
+      linear-gradient(180deg, rgba(8, 12, 18, 0.28) 0%, rgba(8, 12, 18, 0) 44%),
+      linear-gradient(0deg, rgba(8, 12, 18, 0.7) 0%, rgba(8, 12, 18, 0) 72%);
   }
 
   .subscribe-card-paused {
