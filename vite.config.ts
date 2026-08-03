@@ -354,6 +354,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/dialog/AddSubtitleDownloadDialog.vue',
         'src/components/dialog/ReorganizeDialog.vue',
         'src/components/dialog/TransferQueueDialog.vue',
+        'src/components/dialog/PluginConfigDialog.vue',
+        'src/components/dialog/PluginDataDialog.vue',
         'src/views/reorganize/FileBrowserView.vue',
         'src/components/filebrowser/FileBrowser.vue',
         'src/components/filebrowser/FileToolbar.vue',
@@ -511,6 +513,18 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/components/dialog/TransferQueueDialog.vue': {
+          branches: 80,
+          functions: 85,
+          lines: 85,
+          statements: 85,
+        },
+        'src/components/dialog/PluginConfigDialog.vue': {
+          branches: 80,
+          functions: 85,
+          lines: 85,
+          statements: 85,
+        },
+        'src/components/dialog/PluginDataDialog.vue': {
           branches: 80,
           functions: 85,
           lines: 85,

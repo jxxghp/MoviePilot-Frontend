@@ -7,6 +7,7 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import RemoteComponentError from './RemoteComponentError.vue'
 
 type DashboardComponentLoader = () => Promise<any>
 
@@ -114,50 +115,50 @@ const isDashboardElementLoaded = ref(false)
 
 let isDashboardElementUnmounted = false
 let pluginDashboardComponentLoadPromise: Promise<any> | null = null
+let dashboardLoadGeneration = 0
 
 // 插件UI渲染模式 ('vuetify' 或 'vue')
 const pluginRenderMode = computed(() => props.config?.render_mode || 'vuetify')
 
-// 加载 Vue 模式的插件仪表盘远程组件，并缓存当前节点的加载 Promise。
-function loadPluginDashboardComponent() {
-  if (!props.config?.id) return Promise.reject(new Error('插件ID不存在'))
+// 插件节点身份变化时重建异步组件，使失败后的远程模块可以再次加载。
+const pluginDashboardIdentity = computed(
+  () => `${props.config?.id ?? ''}:${props.config?.key ?? ''}:${pluginRenderMode.value}`,
+)
 
+// 加载 Vue 模式的插件仪表盘远程组件，并缓存当前节点的加载 Promise。
+function loadPluginDashboardComponent(pluginId: string) {
   if (!pluginDashboardComponentLoadPromise) {
-    pluginDashboardComponentLoadPromise = loadRemoteComponent(props.config.id, 'Dashboard').catch(error => {
-      pluginDashboardComponentLoadPromise = null
+    const loadPromise = loadRemoteComponent(pluginId, 'Dashboard')
+    const guardedPromise = loadPromise.catch(error => {
+      if (pluginDashboardComponentLoadPromise === guardedPromise) {
+        pluginDashboardComponentLoadPromise = null
+      }
       throw error
     })
+    pluginDashboardComponentLoadPromise = guardedPromise
   }
 
   return pluginDashboardComponentLoadPromise
 }
 
-// Vue 模式：动态加载的组件
-const dynamicPluginComponent = defineAsyncComponent({
-  // 工厂函数
-  loader: async () => {
-    try {
-      const module = await loadPluginDashboardComponent()
+// 每个插件节点身份使用独立异步组件，避免 Vue 复用前一个 remote 的成功解析结果。
+const dynamicPluginComponent = computed(() => {
+  const pluginId = props.config?.id
+  const identity = pluginDashboardIdentity.value
 
-      // 直接返回加载的组件，无需再获取default
-      return module
-    } catch (error) {
-      console.error('加载远程组件失败:', error)
-      throw error
-    }
-  },
-  // 加载中显示的组件
-  loadingComponent: DashboardSkeleton,
-  // 添加错误处理
-  errorComponent: {
-    template: `
-      <div class="pa-4">
-        <VAlert type="error" title="组件加载错误">
-          无法加载组件，请稍后再试
-        </VAlert>
-      </div>
-    `,
-  },
+  return defineAsyncComponent({
+    loader: async () => {
+      try {
+        if (!pluginId) throw new Error(`插件ID不存在: ${identity}`)
+        return await loadPluginDashboardComponent(pluginId)
+      } catch (error) {
+        console.error('加载远程组件失败:', error)
+        throw error
+      }
+    },
+    loadingComponent: DashboardSkeleton,
+    errorComponent: RemoteComponentError,
+  })
 })
 
 // 判断当前配置是否对应内置异步仪表盘组件。
@@ -179,28 +180,38 @@ function emitDashboardElementLoaded() {
 }
 
 // 等待当前仪表盘节点的异步组件加载完成，静态渲染模式则等待一次 DOM 更新。
-async function waitForDashboardElementLoaded() {
+async function waitForDashboardElementLoaded(generation: number) {
   if (isDashboardElementLoaded.value) return
 
   try {
     if (isBuiltInDashboardElement() && props.config?.id) {
       await loadBuiltInDashboardComponent(props.config.id)
-    } else if (isVuePluginDashboardElement()) {
-      await loadPluginDashboardComponent()
+    } else if (isVuePluginDashboardElement() && props.config?.id) {
+      await loadPluginDashboardComponent(props.config.id)
     }
 
     await nextTick()
   } catch (error) {
     console.error(error)
   } finally {
-    emitDashboardElementLoaded()
+    if (generation === dashboardLoadGeneration) emitDashboardElementLoaded()
   }
 }
 
 watch(
   () => [props.config?.id, props.config?.key, pluginRenderMode.value],
-  () => {
-    void waitForDashboardElementLoaded()
+  (_identity, previousIdentity) => {
+    const pluginIdentityChanged =
+      previousIdentity &&
+      (pluginRenderMode.value === 'vue' || previousIdentity[2] === 'vue') &&
+      previousIdentity.some((value, index) => value !== _identity[index])
+    if (pluginIdentityChanged) {
+      isDashboardElementLoaded.value = false
+      pluginDashboardComponentLoadPromise = null
+    }
+
+    const generation = ++dashboardLoadGeneration
+    void waitForDashboardElementLoaded(generation)
   },
   { immediate: true },
 )
@@ -233,6 +244,7 @@ onUnmounted(() => {
     <!-- Vue 渲染模式 -->
     <div v-if="pluginRenderMode === 'vue'" class="dashboard-plugin-vue-renderer">
       <component
+        :key="pluginDashboardIdentity"
         :is="dynamicPluginComponent"
         :config="props.config"
         :allow-refresh="props.allowRefresh"

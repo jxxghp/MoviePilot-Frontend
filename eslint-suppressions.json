@@ -270,25 +270,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/PluginConfigDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    },
-    "vue/valid-v-else": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/PluginDataDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
   "src/components/dialog/PluginMarketDetailDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
