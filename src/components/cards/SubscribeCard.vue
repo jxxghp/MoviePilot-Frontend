@@ -100,6 +100,9 @@ const compactStateDisplay = computed(() => {
   if (subscribeState.value === 'P') {
     return { color: 'info', icon: 'mdi-timer-sand', label: t('subscribe.cardStatePending') }
   }
+  if (isBestVersion.value) {
+    return { color: 'success', icon: 'mdi-shimmer', label: t('subscribe.subscribing') }
+  }
   return { color: 'primary', icon: 'mdi-rss', label: t('subscribe.subscribing') }
 })
 
@@ -440,6 +443,7 @@ function handleCardClick() {
               :class="{
                 'subscribe-card-paused': subscribeState === 'S',
                 'subscribe-card-pending-tint': subscribeState === 'P',
+                'subscribe-card-best-version-tint': display.xs.value && isBestVersion && subscribeState === 'R',
                 'cursor-move': props.sortable,
               }"
               min-height="150"
@@ -517,13 +521,6 @@ function handleCardClick() {
                   </div>
 
                   <div class="subscribe-card-mobile-title">
-                    <span
-                      v-if="bestVersionBadge && imageLoaded"
-                      class="best-version-badge subscribe-card-mobile-best-version-badge"
-                      :class="{ 'best-version-badge-full': bestVersionBadge.full }"
-                    >
-                      <VIcon :icon="bestVersionBadge.icon" color="white" size="14" />
-                    </span>
                     <div class="subscribe-card-mobile-title-text">
                       <span>{{ props.media?.name }}</span>
                       <span
@@ -790,9 +787,6 @@ function handleCardClick() {
 .subscribe-card-mobile-title {
   position: absolute;
   z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.375rem;
   color: white;
   font-size: 1rem;
   font-weight: 650;
@@ -805,21 +799,10 @@ function handleCardClick() {
 
 .subscribe-card-mobile-title-text {
   display: -webkit-box;
-  min-inline-size: 0;
   max-block-size: 3.9em;
   overflow: hidden;
-  flex: 1 1 auto;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
-}
-
-.best-version-badge.subscribe-card-mobile-best-version-badge {
-  position: static;
-  z-index: auto;
-  block-size: 1.25rem;
-  flex: 0 0 1.25rem;
-  inline-size: 1.25rem;
-  margin-block-start: 0.05rem;
 }
 
 .subscribe-card-mobile-season {
@@ -926,7 +909,7 @@ function handleCardClick() {
 }
 
 /**
- * 洗版标识：桌面端左上角使用 24x24 圆形徽标，移动端缩小后放在标题前。
+ * 洗版标识：桌面端左上角使用 24x24 圆形徽标。
  * 分集：深色半透底 + 模糊
  * 全集：磨砂玻璃半透白底 + 大模糊
  */
@@ -970,6 +953,22 @@ function handleCardClick() {
     box-shadow:
       inset 0 0 0 1px rgba(var(--v-theme-info), 0.28),
       inset 0 -4rem 5rem rgba(var(--v-theme-info), 0.08);
+  }
+
+  .subscribe-card-best-version-tint {
+    position: relative;
+  }
+
+  .subscribe-card-best-version-tint::after {
+    position: absolute;
+    z-index: 3;
+    border-radius: inherit;
+    box-shadow:
+      inset 0 0 0 1px rgba(var(--v-theme-success), 0.34),
+      inset 0 -4rem 5rem rgba(var(--v-theme-success), 0.12);
+    content: '';
+    inset: 0;
+    pointer-events: none;
   }
 }
 </style>

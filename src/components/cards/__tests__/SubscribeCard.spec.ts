@@ -191,6 +191,7 @@ describe('SubscribeCard display and progress', () => {
       expect(progress.querySelector('.v-progress-linear__buffer')).toHaveStyle({ width: expectedWash ? '80%' : '0%' })
       expect(Boolean(container.querySelector('.best-version-badge'))).toBe(expectedWash)
       expect(Boolean(container.querySelector('.best-version-badge-full'))).toBe(expectedFull)
+      expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-best-version-tint')
     },
   )
 
@@ -217,23 +218,19 @@ describe('SubscribeCard display and progress', () => {
     expect(document.querySelector('.subscribe-card-mobile-body')).not.toHaveTextContent('卡片测试媒体')
     expect(document.querySelector('.subscribe-card-mobile-season')).toHaveTextContent('S01')
     expect(document.querySelector('.subscribe-card-mobile-title-text')).toHaveTextContent('卡片测试媒体S01')
-    const image = container.querySelector<HTMLImageElement>('img')
-    expect(image).not.toBeNull()
-    await fireEvent.load(image as HTMLImageElement)
-    expect(document.querySelector('.subscribe-card-mobile-title')).toContainElement(
-      document.querySelector('.subscribe-card-mobile-best-version-badge'),
-    )
-    expect(document.querySelector('.subscribe-card-mobile-image-meta')).not.toHaveClass(
-      'subscribe-card-mobile-image-meta--with-badge',
-    )
+    expect(document.querySelector('.subscribe-card-mobile-best-version-badge')).not.toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-pending-tint')
+    expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-best-version-tint')
 
     await rerender({ media: { ...media, state: 'S' } })
     expect(screen.getByLabelText('已暂停')).toBeInTheDocument()
     expect(screen.getByText(lastUpdateText)).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-best-version-tint')
 
     await rerender({ media: { ...media, state: 'R' } })
     expect(screen.getByLabelText('订阅中')).toBeInTheDocument()
     expect(screen.getByText(lastUpdateText)).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
   })
 
   it('synchronizes desktop P, S, and R state from updated media props', async () => {
