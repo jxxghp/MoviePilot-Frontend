@@ -81,6 +81,31 @@ const MenuStub = defineComponent({
   },
 })
 
+const ImageStub = defineComponent({
+  name: 'VImg',
+  inheritAttrs: false,
+  props: {
+    aspectRatio: [String, Number],
+    cover: Boolean,
+    height: [String, Number],
+    position: String,
+    src: String,
+    width: [String, Number],
+  },
+  setup(props, { attrs }) {
+    return () =>
+      h('img', {
+        ...attrs,
+        src: props.src,
+        'data-aspect-ratio': props.aspectRatio,
+        'data-cover': String(props.cover),
+        'data-height': props.height,
+        'data-position': props.position,
+        'data-width': props.width,
+      })
+  },
+})
+
 let historySeed = 5000
 
 function createHistory(overrides: Partial<DownloadHistory> = {}): DownloadHistory {
@@ -90,7 +115,8 @@ function createHistory(overrides: Partial<DownloadHistory> = {}): DownloadHistor
     download_hash: `hash-${historySeed}`,
     episodes: 'E01-E02',
     id: historySeed,
-    image: `https://images.example.com/history-${historySeed}.jpg`,
+    image: `https://images.example.com/backdrop-${historySeed}.jpg`,
+    poster: `https://images.example.com/poster-${historySeed}.jpg`,
     path: `/downloads/history-${historySeed}`,
     seasons: 'S01',
     title: `历史媒体 ${historySeed}`,
@@ -123,6 +149,7 @@ async function renderDialog() {
       },
       stubs: {
         VInfiniteScroll: InfiniteScrollStub,
+        VImg: ImageStub,
         VMenu: MenuStub,
         VVirtualScroll: VirtualScrollStub,
       },
@@ -138,9 +165,10 @@ describe('DownloadHistoryDialog', () => {
 
   it('loads and renders download history with page parameters', async () => {
     const item = createHistory({ title: '首载剧集' })
+    const backdropItem = createHistory({ poster: undefined, title: '背景图历史' })
     const requests: URL[] = []
     server.use(
-      downloadHistoryHandler([item], 200, url => {
+      downloadHistoryHandler([item, backdropItem], 200, url => {
         requests.push(url)
       }),
     )
@@ -148,9 +176,9 @@ describe('DownloadHistoryDialog', () => {
     await renderDialog()
 
     expect(await screen.findByText('首载剧集')).toBeInTheDocument()
-    expect(screen.getByText('(2026)')).toBeInTheDocument()
-    expect(screen.getByText('S01E01-E02').closest('.v-chip')).toBeInTheDocument()
-    expect(screen.getByText('示例站').closest('.v-chip')).toHaveClass('text-info')
+    expect(screen.getAllByText('(2026)')).toHaveLength(2)
+    expect(within(historyRow(item)).getByText('S01E01-E02').closest('.v-chip')).toBeInTheDocument()
+    expect(within(historyRow(item)).getByText('示例站').closest('.v-chip')).toHaveClass('text-info')
     const resourceTitle = screen.getByText(item.torrent_name!)
     expect(resourceTitle).toHaveClass('download-history-item__torrent', 'download-history-item__meta')
     expect(document.querySelector('.download-history-item__date')).toHaveClass('download-history-item__meta')
@@ -159,6 +187,16 @@ describe('DownloadHistoryDialog', () => {
     expect(requests).toHaveLength(1)
     expect(requests[0].searchParams.get('page')).toBe('1')
     expect(requests[0].searchParams.get('count')).toBe('30')
+    const posterImage = historyRow(item).querySelector<HTMLImageElement>('img.download-history-item__image')
+    const backdropImage = historyRow(backdropItem).querySelector<HTMLImageElement>('img.download-history-item__image')
+
+    expect(posterImage).toHaveAttribute('src', item.poster)
+    expect(backdropImage).toHaveAttribute('src', backdropItem.image)
+    expect(posterImage).toHaveAttribute('data-aspect-ratio', '2/3')
+    expect(posterImage).toHaveAttribute('data-cover', 'true')
+    expect(posterImage).toHaveAttribute('data-height', '96')
+    expect(posterImage).toHaveAttribute('data-position', 'center')
+    expect(posterImage).toHaveAttribute('data-width', '64')
   })
 
   it('appends later pages and preserves existing rows at the end', async () => {

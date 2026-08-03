@@ -22,6 +22,7 @@ const pageSize = 30
 const loading = ref(false)
 const isRefreshed = ref(false)
 
+/** 分页加载下载历史，并将新页追加到现有列表。 */
 async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') => void }) {
   if (loading.value) {
     done('ok')
@@ -54,6 +55,7 @@ async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') 
   }
 }
 
+/** 删除指定下载历史，并在成功后同步移除当前列表项。 */
 async function deleteHistory(item: DownloadHistory) {
   try {
     const result: { success?: boolean } = await api.delete('history/download', { data: item })
@@ -68,15 +70,19 @@ async function deleteHistory(item: DownloadHistory) {
   }
 }
 
+/** 优先返回海报，缺失时使用背景图，并统一转换为可展示地址。 */
 function getHistoryImage(item: DownloadHistory) {
-  if (!item.image) return noImage
-  return getDisplayImageUrl(item.image, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
+  const image = item.poster || item.image
+  if (!image) return noImage
+  return getDisplayImageUrl(image, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
+/** 返回下载历史的主标题。 */
 function getHistoryTitle(item: DownloadHistory) {
   return item.title || item.torrent_name || t('dialog.downloadHistory.unknownTitle')
 }
 
+/** 合并下载历史的季号和集号。 */
 function getSeasonEpisode(item: DownloadHistory) {
   return `${item.seasons || ''}${item.episodes || ''}`
 }
@@ -118,18 +124,19 @@ function getSeasonEpisode(item: DownloadHistory) {
         <template #empty />
 
         <VList lines="three" class="download-history-dialog__content py-0">
-          <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="136">
+          <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="120">
             <template #default="{ item, itemRef }">
               <div :ref="itemRef">
                 <VListItem class="download-history-item">
                   <template #prepend>
                     <VImg
-                      height="64"
-                      width="96"
+                      height="96"
+                      width="64"
                       :src="getHistoryImage(item)"
-                      aspect-ratio="3/2"
+                      aspect-ratio="2/3"
                       class="download-history-item__image me-3 rounded-md"
                       cover
+                      position="center"
                     >
                       <template #placeholder>
                         <VSkeletonLoader class="h-100 w-100" />
@@ -215,7 +222,8 @@ function getSeasonEpisode(item: DownloadHistory) {
 }
 
 .download-history-item {
-  min-block-size: 8.5rem;
+  min-block-size: 7rem;
+  padding-block: 0.5rem !important;
 }
 
 .download-history-item__image {
@@ -248,6 +256,11 @@ function getSeasonEpisode(item: DownloadHistory) {
   opacity: 1;
 }
 
+.download-history-item__date {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
 .download-history-empty {
   display: flex;
   flex-direction: column;
@@ -277,9 +290,13 @@ function getSeasonEpisode(item: DownloadHistory) {
 }
 
 @media (width <= 600px) {
+  .download-history-item {
+    min-block-size: 6.5rem;
+  }
+
   .download-history-item__image {
-    block-size: 54px !important;
-    inline-size: 81px !important;
+    block-size: 84px !important;
+    inline-size: 56px !important;
   }
 }
 </style>

@@ -86,6 +86,7 @@ function closeDialog() {
           variant="solo"
           prepend-inner-icon="mdi-magnify"
           flat
+          autofocus
           class="mx-1"
         />
       </VToolbar>
