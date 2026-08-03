@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { Plugin, PluginRating } from '@/api/types'
+import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
-import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -14,7 +13,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { useUserStore } from '@/stores'
+import { usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
@@ -22,6 +21,29 @@ const { t } = useI18n()
 
 const route = useRoute()
 const userStore = useUserStore()
+const pluginSidebarNavStore = usePluginSidebarNavStore()
+
+/** 用户保存的插件与文件夹混合顺序。 */
+interface PluginOrderItem {
+  id: string
+  type: 'folder' | 'plugin'
+  order: number
+}
+
+/** 插件文件夹的成员和展示配置。 */
+interface PluginFolderConfig {
+  plugins: string[]
+  order: number
+  background: string
+  icon: string
+  color: string
+  gradient: string
+  showIcon: boolean
+}
+
+type PluginFolderEntry = PluginFolderConfig | string[]
+type PluginFolderMap = Record<string, PluginFolderEntry>
+type PluginSortKey = 'count' | 'plugin_name' | 'plugin_author' | 'repo_url' | 'add_time'
 
 // 市场卡片、拖拽排序和市场设置只在对应标签/操作中需要，延迟到真正使用时加载。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -32,9 +54,6 @@ const PluginMarketSettingDialog = defineAsyncComponent(
 )
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 const PluginSearchDialog = defineAsyncComponent(() => import('@/components/dialog/PluginSearchDialog.vue'))
-
-// 显示器宽度
-const display = useDisplay()
 
 // APP
 // PWA模式检测
@@ -125,22 +144,19 @@ registerHeaderTab({
 const pluginId = ref(route.query.id)
 
 // 当前排序字段
-const activeSort = ref<string | null>(null)
+const activeSort = ref<PluginSortKey | null>(null)
 
 // 插件顺序配置
-const orderConfig = ref<{ id: string; type?: string; order?: number }[]>([])
+const orderConfig = ref<PluginOrderItem[]>([])
 
 // 排序选项
-const sortOptions = computed(() => [
+const sortOptions = computed<{ title: string; value: PluginSortKey }[]>(() => [
   { title: t('plugin.sort.popular'), value: 'count' },
   { title: t('plugin.sort.name'), value: 'plugin_name' },
   { title: t('plugin.sort.author'), value: 'plugin_author' },
   { title: t('plugin.sort.repository'), value: 'repo_url' },
   { title: t('plugin.sort.latest'), value: 'add_time' },
 ])
-
-// 加载中
-const loading = ref(false)
 
 // 已安装插件列表
 const dataList = ref<Plugin[]>([])
@@ -168,8 +184,13 @@ const displayUninstalledList = ref<Plugin[]>([])
 // 是否刷新过
 const isRefreshed = ref(false)
 
+// 首次列表失败与真实空数组必须保持为不同状态，便于用户原地重试。
+const installedLoadError = ref(false)
+
 // APP市场是否加载完成
 const isAppMarketLoaded = ref(false)
+
+const marketLoadError = ref(false)
 
 // APP市场窗口
 const PluginAppDialog = ref(false)
@@ -182,6 +203,12 @@ const PluginRatings = ref<{ [key: string]: PluginRating }>({})
 
 // 插件市场刷新状态
 const isMarketRefreshing = ref(false)
+
+// 每类远程快照独立管理 writer 代际，旧请求只能完成自身 Promise，不能覆盖新状态。
+let installedWriterGeneration = 0
+let marketWriterGeneration = 0
+let ratingWriterGeneration = 0
+let statisticWriterGeneration = 0
 
 // 搜索关键字
 const keyword = ref('')
@@ -225,23 +252,13 @@ const isFilterFormEmpty = computed(() => {
   )
 })
 
-// 切换市场过滤器多选项
-function toggleMarketFilter(field: 'author' | 'label' | 'repo', value: string) {
-  const index = filterForm[field].indexOf(value)
-  if (index > -1) {
-    filterForm[field].splice(index, 1)
-  } else {
-    filterForm[field].push(value)
-  }
-}
-
 // 关闭插件市场过滤菜单。
 function closeMarketFilterMenu() {
   filterMarketPluginDialog.value = false
 }
 
 // 选择插件市场排序项并关闭过滤菜单。
-function selectMarketSort(value: string) {
+function selectMarketSort(value: PluginSortKey) {
   activeSort.value = value
   closeMarketFilterMenu()
 }
@@ -298,7 +315,7 @@ const labelFilterOptions = ref<string[]>([])
 const repoFilterOptions = ref<string[]>([])
 
 // 插件文件夹配置
-const pluginFolders: Ref<{ [key: string]: any }> = ref({})
+const pluginFolders = ref<PluginFolderMap>({})
 
 // 文件夹排序
 const folderOrder = ref<string[]>([])
@@ -395,7 +412,7 @@ const displayedPlugins = computed(() => {
 interface MixedSortItem {
   type: 'folder' | 'plugin'
   id: string
-  data: any
+  data: Plugin | { name: string; pluginCount: number; config: Partial<PluginFolderConfig> }
   order: number
 }
 
@@ -452,7 +469,7 @@ function updateMixedSortList() {
     const items: MixedSortItem[] = []
 
     // 始终使用全局排序配置来创建混合列表
-    const allItems: { type: 'folder' | 'plugin'; id: string; data: any; order: number }[] = []
+    const allItems: MixedSortItem[] = []
 
     // 添加文件夹项目
     displayedFolders.value.forEach(folder => {
@@ -524,14 +541,21 @@ async function loadPluginOrderConfig() {
   try {
     const response = await api.get('/user/config/PluginOrder')
     if (response && response.data && response.data.value) {
-      const serverData = response.data.value
+      const serverData = response.data.value as Array<string | Partial<PluginOrderItem>>
       // 兼容服务端的旧格式和新格式
-      if (serverData.length > 0 && typeof serverData[0] === 'object' && 'type' in serverData[0]) {
-        orderConfig.value = serverData
+      if (serverData.length > 0 && typeof serverData[0] === 'object' && serverData[0] && 'type' in serverData[0]) {
+        orderConfig.value = serverData.map((item, index) => {
+          const orderItem = item as Partial<PluginOrderItem>
+          return {
+            id: orderItem.id || '',
+            type: orderItem.type === 'folder' ? 'folder' : 'plugin',
+            order: orderItem.order ?? index,
+          }
+        })
       } else {
         // 旧格式，转换为新格式
-        orderConfig.value = serverData.map((item: any, index: number) => ({
-          id: typeof item === 'string' ? item : item.id,
+        orderConfig.value = serverData.map((item, index) => ({
+          id: typeof item === 'string' ? item : item.id || '',
           type: 'plugin',
           order: index,
         }))
@@ -541,6 +565,51 @@ async function loadPluginOrderConfig() {
     console.error('Failed to load plugin order config:', error)
     orderConfig.value = []
   }
+}
+
+/** 保存插件混合顺序，业务失败与 HTTP 失败使用同一回滚路径。 */
+async function savePluginOrderConfig(items: PluginOrderItem[]) {
+  const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('/user/config/PluginOrder', items)
+  if (!result?.success) {
+    throw new Error(result?.message || t('plugin.operationFailed'))
+  }
+}
+
+function clonePluginFolders(source: PluginFolderMap = pluginFolders.value): PluginFolderMap {
+  return Object.fromEntries(
+    Object.entries(source).map(([name, folder]) => [
+      name,
+      Array.isArray(folder) ? [...folder] : { ...folder, plugins: [...folder.plugins] },
+    ]),
+  )
+}
+
+interface FolderStateSnapshot {
+  currentFolder: string
+  folderOrder: string[]
+  folders: PluginFolderMap
+}
+
+/** 捕获一次文件夹写操作开始前的完整本地快照。 */
+function captureFolderState(): FolderStateSnapshot {
+  return {
+    currentFolder: currentFolder.value,
+    folderOrder: [...folderOrder.value],
+    folders: clonePluginFolders(),
+  }
+}
+
+function restoreFolderState(snapshot: FolderStateSnapshot) {
+  pluginFolders.value = clonePluginFolders(snapshot.folders)
+  folderOrder.value = [...snapshot.folderOrder]
+  currentFolder.value = snapshot.currentFolder
+}
+
+/** 双写发生部分提交时，按服务端已持久化的两个事实源重建排序状态。 */
+async function reloadPersistedOrderingState() {
+  await loadPluginOrderConfig()
+  await loadPluginFolders()
+  sortPluginOrder()
 }
 
 // 按order的顺序对插件进行排序
@@ -561,6 +630,11 @@ function sortPluginOrder() {
 
 // 保存混合排序
 async function saveMixedSortOrder() {
+  const folderSnapshot = captureFolderState()
+  const previousOrder = orderConfig.value.map(item => ({ ...item }))
+  const previousFilteredData = [...filteredDataList.value]
+  let orderPersisted = false
+
   try {
     // 分离文件夹和插件，并记录它们的全局排序位置
     const newFolderOrder: string[] = []
@@ -577,7 +651,7 @@ async function saveMixedSortOrder() {
       if (item.type === 'folder') {
         newFolderOrder.push(item.id)
       } else if (item.type === 'plugin') {
-        newPluginOrder.push(item.data)
+        newPluginOrder.push(item.data as Plugin)
       }
     })
 
@@ -587,7 +661,10 @@ async function saveMixedSortOrder() {
       if (pluginFolders.value[folderName]) {
         // 找到该文件夹在全局排序中的位置
         const globalOrderItem = globalOrder.find(item => item.type === 'folder' && item.id === folderName)
-        pluginFolders.value[folderName].order = globalOrderItem ? globalOrderItem.order : index
+        const folderData = pluginFolders.value[folderName]
+        if (!Array.isArray(folderData)) {
+          folderData.order = globalOrderItem ? globalOrderItem.order : index
+        }
       }
     })
 
@@ -614,12 +691,21 @@ async function saveMixedSortOrder() {
     orderConfig.value = orderObj
 
     // 保存到服务端
-    await api.post('/user/config/PluginOrder', orderObj)
+    await savePluginOrderConfig(orderObj)
+    orderPersisted = true
 
     // 保存文件夹排序
     await savePluginFolders()
   } catch (error) {
     console.error(error)
+    if (orderPersisted) {
+      await reloadPersistedOrderingState()
+    } else {
+      restoreFolderState(folderSnapshot)
+      orderConfig.value = previousOrder
+      filteredDataList.value = previousFilteredData
+    }
+    $toast.error(t('plugin.operationFailed'))
   } finally {
     // 清除拖拽标志
     isDraggingSortMode.value = false
@@ -632,6 +718,10 @@ async function saveMixedSortOrder() {
 // 保存文件夹内插件顺序
 async function saveFolderPluginOrder() {
   if (!currentFolder.value) return
+
+  const folderSnapshot = captureFolderState()
+  const previousOrder = orderConfig.value.map(item => ({ ...item }))
+  let orderPersisted = false
 
   try {
     // 更新文件夹内插件顺序
@@ -648,14 +738,12 @@ async function saveFolderPluginOrder() {
       }
 
       // 更新全局排序配置中文件夹内插件的顺序
-      const folderOrderItem = orderConfig.value.find(
-        (item: any) => item.type === 'folder' && item.id === currentFolder.value,
-      )
+      const folderOrderItem = orderConfig.value.find(item => item.type === 'folder' && item.id === currentFolder.value)
       const folderGlobalOrder = folderOrderItem?.order ?? 999
 
       // 为文件夹内的插件分配连续的order值
       newPluginIds.forEach((pluginId, index) => {
-        const existingItem = orderConfig.value.find((item: any) => item.type === 'plugin' && item.id === pluginId)
+        const existingItem = orderConfig.value.find(item => item.type === 'plugin' && item.id === pluginId)
         if (existingItem) {
           existingItem.order = folderGlobalOrder + 0.1 + index * 0.01 // 使用小数确保在文件夹后面
         } else {
@@ -668,16 +756,25 @@ async function saveFolderPluginOrder() {
       })
 
       // 保存全局排序配置
-      await api.post('/user/config/PluginOrder', orderConfig.value)
+      await savePluginOrderConfig(orderConfig.value)
+      orderPersisted = true
 
       // 保存到后端
       await savePluginFolders()
     }
   } catch (error) {
     console.error(error)
+    if (orderPersisted) {
+      await reloadPersistedOrderingState()
+    } else {
+      restoreFolderState(folderSnapshot)
+      orderConfig.value = previousOrder
+    }
+    $toast.error(t('plugin.operationFailed'))
   } finally {
     // 清除拖拽标志
     isDraggingSortMode.value = false
+    updateMixedSortList()
   }
 }
 
@@ -716,7 +813,7 @@ function isLocalRepoSource(item: Plugin | string | undefined) {
 function decodeLocalRepoPath(value: string) {
   try {
     return decodeURIComponent(value)
-  } catch (error) {
+  } catch {
     return value
   }
 }
@@ -766,15 +863,12 @@ async function installPlugin(item: Plugin) {
     progressText.value = t('plugin.installing', { name: item?.plugin_name, version: item?.plugin_version })
     openPluginProgressDialog(progressText.value)
 
-    const result: { [key: string]: any } = await api.get(`plugin/install/${item?.id}`, {
+    const result = await api.get<ApiResponse<unknown>, ApiResponse<unknown>>(`plugin/install/${item?.id}`, {
       params: {
         repo_url: item?.repo_url,
         force: item?.has_update,
       },
     })
-
-    // 隐藏等待提示框
-    closePluginProgressDialog()
 
     if (result.success) {
       $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
@@ -784,12 +878,15 @@ async function installPlugin(item: Plugin) {
       installedFilter.value = null
       // 刷新
       await refreshData()
+      await pluginSidebarNavStore.ensureSidebarNav(true)
     } else {
       $toast.error(t('plugin.installFailed', { name: item?.plugin_name, message: result.message }))
     }
   } catch (error) {
-    closePluginProgressDialog()
     console.error(error)
+    $toast.error(t('plugin.installFailed', { name: item?.plugin_name, message: '' }))
+  } finally {
+    closePluginProgressDialog()
   }
 }
 
@@ -828,58 +925,67 @@ const filterPlugins = computed(() => {
 
 // 获取插件列表数据
 async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}) {
-  const showLoading = !context.silent || !isRefreshed.value
+  const generation = ++installedWriterGeneration
+  if (!context.silent || !isRefreshed.value) {
+    installedLoadError.value = false
+  }
 
   try {
-    if (showLoading) {
-      loading.value = true
-    }
-    dataList.value = await api.get('plugin/', {
+    const installedPlugins: Plugin[] = await api.get('plugin/', {
       params: {
         state: 'installed',
       },
     })
+    if (generation !== installedWriterGeneration) return
+
+    dataList.value = installedPlugins
+    mergeMarketMetadataIntoInstalled()
     // 排序
     sortPluginOrder()
     isRefreshed.value = true
+    installedLoadError.value = false
   } catch (error) {
     console.error(error)
-  } finally {
-    if (showLoading) {
-      loading.value = false
+    if (generation === installedWriterGeneration && !isRefreshed.value) {
+      installedLoadError.value = true
     }
   }
 }
 
+/** 将市场更新元数据投影到当前已安装快照。 */
+function mergeMarketMetadataIntoInstalled() {
+  const marketById = new Map(uninstalledList.value.map(plugin => [plugin.id, plugin]))
+  dataList.value.forEach(plugin => {
+    const marketPlugin = marketById.get(plugin.id)
+    if (!marketPlugin) return
+
+    plugin.has_update = true
+    plugin.repo_url = marketPlugin.repo_url
+    plugin.history = marketPlugin.history
+    plugin.system_version = marketPlugin.system_version
+    plugin.system_version_compatible = marketPlugin.system_version_compatible
+    plugin.system_version_message = marketPlugin.system_version_message
+  })
+}
+
 // 获取未安装插件列表数据
 async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliveRefreshContext = {}) {
-  const showLoading = !context.silent || !isAppMarketLoaded.value
+  const generation = ++marketWriterGeneration
+  if (!context.silent || !isAppMarketLoaded.value) {
+    marketLoadError.value = false
+  }
 
   try {
-    if (showLoading) {
-      loading.value = true
-    }
-    const marketResponse = await api.get('plugin/', {
+    const marketResponse: Plugin[] = await api.get('plugin/', {
       params: {
         state: 'market',
         force: force,
       },
     })
-    uninstalledList.value = Array.isArray(marketResponse) ? marketResponse : []
-    // 设置更新状态
-    for (const uninstalled of uninstalledList.value) {
-      for (const data of dataList.value) {
-        if (uninstalled.id === data.id) {
-          data.has_update = true
-          data.repo_url = uninstalled.repo_url
-          data.history = uninstalled.history
-          data.system_version = uninstalled.system_version
-          data.system_version_compatible = uninstalled.system_version_compatible
-          data.system_version_message = uninstalled.system_version_message
-        }
-      }
-    }
-    isRefreshed.value = true
+    if (generation !== marketWriterGeneration) return
+
+    uninstalledList.value = marketResponse
+    mergeMarketMetadataIntoInstalled()
     // 更新插件市场列表
     // 排除已安装且有更新的，上面的问题在于"本地存在未安装的旧版本插件且云端有更新时"不会在插件市场展示
     marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
@@ -890,19 +996,23 @@ async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliv
     marketList.value.forEach(initOptions)
     // 设置APP市场加载完成
     isAppMarketLoaded.value = true
+    marketLoadError.value = false
   } catch (error) {
     console.error(error)
-  } finally {
-    if (showLoading) {
-      loading.value = false
+    if (generation === marketWriterGeneration && !isAppMarketLoaded.value) {
+      marketLoadError.value = true
     }
   }
 }
 
 // 加载插件统计数据
 async function getPluginStatistics() {
+  const generation = ++statisticWriterGeneration
   try {
-    PluginStatistics.value = await api.get('plugin/statistic')
+    const statistics = await api.get<Record<string, number>, Record<string, number>>('plugin/statistic')
+    if (generation === statisticWriterGeneration) {
+      PluginStatistics.value = statistics
+    }
   } catch (error) {
     console.error(error)
   }
@@ -910,11 +1020,14 @@ async function getPluginStatistics() {
 
 /** 批量加载插件评分并合并到已安装和市场插件对象。 */
 async function getPluginRatings() {
+  const generation = ++ratingWriterGeneration
   const pluginIds = Array.from(
     new Set([...dataList.value, ...marketList.value].map(plugin => plugin.id).filter(Boolean)),
   )
   if (pluginIds.length === 0) {
-    PluginRatings.value = {}
+    if (generation === ratingWriterGeneration) {
+      PluginRatings.value = {}
+    }
     return
   }
 
@@ -929,6 +1042,12 @@ async function getPluginRatings() {
       })
       Object.assign(ratings, response)
     }
+
+    const currentPluginIds = Array.from(
+      new Set([...dataList.value, ...marketList.value].map(plugin => plugin.id).filter(Boolean)),
+    )
+    if (generation !== ratingWriterGeneration || currentPluginIds.join('\0') !== pluginIds.join('\0')) return
+
     PluginRatings.value = ratings
 
     for (const plugin of [...dataList.value, ...uninstalledList.value, ...marketList.value]) {
@@ -994,8 +1113,15 @@ watch([marketList, filterForm, activeSort, PluginStatistics], () => {
         return (PluginStatistics.value[b.id || '0'] ?? 0) - (PluginStatistics.value[a.id || '0'] ?? 0)
       })
     } else if (activeSort.value) {
-      sortedUninstalledList.value = sortedUninstalledList.value.sort((a: any, b: any) => {
-        return a[activeSort.value ?? ''] > b[activeSort.value ?? ''] ? 1 : -1
+      const sortKey = activeSort.value
+      sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
+        if (sortKey === 'add_time') {
+          return a.add_time !== undefined && b.add_time !== undefined && a.add_time > b.add_time ? 1 : -1
+        }
+
+        const aValue = a[sortKey]
+        const bValue = b[sortKey]
+        return aValue !== undefined && bValue !== undefined && aValue > bValue ? 1 : -1
       })
     }
   }
@@ -1008,6 +1134,7 @@ watch([marketList, filterForm, activeSort, PluginStatistics], () => {
 async function pluginInstalled() {
   pluginDialogClose()
   await refreshData()
+  await pluginSidebarNavStore.ensureSidebarNav(true)
 }
 
 // 插件市场设置完成
@@ -1053,7 +1180,7 @@ function parseLocalRepoPath(repoUrl: string | undefined) {
 
   try {
     return new URL(text).searchParams.get('path') || ''
-  } catch (error) {
+  } catch {
     return decodeLocalRepoPath(text.match(/[?&]path=([^&]+)/)?.[1] || '')
   }
 }
@@ -1083,7 +1210,7 @@ watch([dataList, installedFilter, hasUpdateFilter, enabledFilter], () => {
 })
 
 // 插件市场加载更多数据
-function loadMarketMore({ done }: { done: any }) {
+function loadMarketMore({ done }: { done: (status: 'ok' | 'empty' | 'loading' | 'error') => void }) {
   // 从 dataList 中获取最前面的 20 个元素
   const itemsToMove = sortedUninstalledList.value.splice(0, 20)
   if (itemsToMove.length === 0) {
@@ -1205,12 +1332,14 @@ useDynamicButton({
 // 获取插件文件夹配置
 async function loadPluginFolders() {
   try {
-    const response = await api.get('plugin/folders')
-    const foldersData: any = response && typeof response === 'object' ? response : {}
+    const foldersData = await api.get<
+      Record<string, string[] | Partial<PluginFolderConfig>>,
+      Record<string, string[] | Partial<PluginFolderConfig>>
+    >('plugin/folders')
 
     // 处理旧格式兼容性（array）和新格式（object with config）
-    const processedFolders: any = {}
-    const order = []
+    const processedFolders: Record<string, PluginFolderConfig> = {}
+    const order: string[] = []
 
     Object.keys(foldersData).forEach(folderName => {
       const folderData = foldersData[folderName]
@@ -1253,6 +1382,7 @@ async function loadPluginFolders() {
       return aOrder - bOrder
     })
   } catch (error) {
+    console.error(error)
     pluginFolders.value = {}
     folderOrder.value = []
   }
@@ -1260,40 +1390,52 @@ async function loadPluginFolders() {
 
 // 保存插件文件夹配置
 async function savePluginFolders() {
-  try {
-    // 更新排序信息
-    const foldersToSave: any = {}
-    Object.keys(pluginFolders.value).forEach(folderName => {
-      const folderData = pluginFolders.value[folderName]
-      const orderIndex = folderOrder.value.indexOf(folderName)
+  const foldersToSave: Record<string, PluginFolderConfig> = {}
+  Object.keys(pluginFolders.value).forEach(folderName => {
+    const folderData = pluginFolders.value[folderName]
+    const orderIndex = folderOrder.value.indexOf(folderName)
+    const normalizedFolder = Array.isArray(folderData)
+      ? {
+          plugins: [...folderData],
+          order: orderIndex,
+          icon: defaultIcon,
+          color: defaultColor,
+          gradient: defaultGradient,
+          background: '',
+          showIcon: true,
+        }
+      : folderData
 
-      foldersToSave[folderName] = {
-        ...folderData,
-        order: orderIndex >= 0 ? orderIndex : 999,
-      }
-    })
+    foldersToSave[folderName] = {
+      ...normalizedFolder,
+      order: orderIndex >= 0 ? orderIndex : 999,
+    }
+  })
 
-    await api.post('plugin/folders', foldersToSave)
-  } catch (error) {
-    throw error
+  const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('plugin/folders', foldersToSave)
+  if (!result?.success) {
+    throw new Error(result?.message || t('plugin.operationFailed'))
   }
 }
 
 // 创建新文件夹
 async function createNewFolder() {
-  if (!newFolderName.value.trim()) {
+  const folderName = newFolderName.value.trim()
+  if (!folderName) {
     $toast.error(t('plugin.folderNameEmpty'))
     return
   }
 
-  if (pluginFolders.value[newFolderName.value]) {
+  if (pluginFolders.value[folderName]) {
     $toast.error(t('plugin.folderExists'))
     return
   }
 
+  const snapshot = captureFolderState()
+
   try {
     // 直接在本地添加文件夹
-    pluginFolders.value[newFolderName.value] = {
+    pluginFolders.value[folderName] = {
       plugins: [],
       order: folderOrder.value.length,
       icon: defaultIcon,
@@ -1304,7 +1446,7 @@ async function createNewFolder() {
     }
 
     // 添加到排序列表
-    folderOrder.value.push(newFolderName.value)
+    folderOrder.value.push(folderName)
 
     // 保存到后端
     await savePluginFolders()
@@ -1314,10 +1456,9 @@ async function createNewFolder() {
     newFolderName.value = ''
     $toast.success(t('plugin.folderCreateSuccess'))
   } catch (error) {
-    // 回滚本地更改
-    delete pluginFolders.value[newFolderName.value]
-    folderOrder.value = folderOrder.value.filter(name => name !== newFolderName.value)
-    $toast.error(t('plugin.folderCreateFailed'))
+    console.error(error)
+    restoreFolderState(snapshot)
+    $toast.error(t('plugin.operationFailed'))
   }
 }
 
@@ -1338,6 +1479,7 @@ async function renameFolder(oldName: string, newName: string) {
     return
   }
 
+  const snapshot = captureFolderState()
   try {
     // 更新本地状态
     const folderData = pluginFolders.value[oldName] || { plugins: [] }
@@ -1361,24 +1503,14 @@ async function renameFolder(oldName: string, newName: string) {
     $toast.success(t('plugin.folderRenameSuccess'))
   } catch (error) {
     console.error(error)
-    // 回滚本地更改
-    pluginFolders.value[oldName] = pluginFolders.value[newName] || { plugins: [] }
-    delete pluginFolders.value[newName]
-    const orderIndex = folderOrder.value.indexOf(newName)
-    if (orderIndex >= 0) {
-      folderOrder.value[orderIndex] = oldName
-    }
-    if (currentFolder.value === newName) {
-      currentFolder.value = oldName
-    }
+    restoreFolderState(snapshot)
     $toast.error(t('plugin.folderRenameFailed'))
   }
 }
 
 // 删除文件夹
 async function deleteFolder(folderName: string) {
-  // 保存被删除的文件夹内容以便回滚
-  const deletedFolder = { ...pluginFolders.value[folderName] }
+  const snapshot = captureFolderState()
   try {
     delete pluginFolders.value[folderName]
 
@@ -1395,11 +1527,8 @@ async function deleteFolder(folderName: string) {
 
     $toast.success(t('plugin.folderDeleteSuccess'))
   } catch (error) {
-    // 回滚本地更改
-    pluginFolders.value[folderName] = deletedFolder
-    if (!folderOrder.value.includes(folderName)) {
-      folderOrder.value.push(folderName)
-    }
+    console.error(error)
+    restoreFolderState(snapshot)
     $toast.error(t('plugin.folderDeleteFailed'))
   }
 }
@@ -1425,6 +1554,7 @@ function showNewFolderDialog() {
 async function removeFromFolder(pluginId: string) {
   if (!currentFolder.value) return
 
+  const snapshot = captureFolderState()
   try {
     // 从当前文件夹中移除插件
     const folderData = pluginFolders.value[currentFolder.value]
@@ -1443,12 +1573,14 @@ async function removeFromFolder(pluginId: string) {
     }
   } catch (error) {
     console.error(error)
+    restoreFolderState(snapshot)
     $toast.error(t('plugin.operationFailed'))
   }
 }
 
 // 更新文件夹配置
-async function updateFolderConfig(folderName: string, config: any) {
+async function updateFolderConfig(folderName: string, config: Partial<PluginFolderConfig>) {
+  const snapshot = captureFolderState()
   try {
     // 更新本地配置
     if (pluginFolders.value[folderName]) {
@@ -1459,8 +1591,11 @@ async function updateFolderConfig(folderName: string, config: any) {
 
       // 保存到后端
       await savePluginFolders()
+      $toast.success(t('folder.folderSettingsSaved'))
     }
   } catch (error) {
+    console.error(error)
+    restoreFolderState(snapshot)
     $toast.error(t('plugin.saveFolderConfigFailed'))
   }
 }
@@ -1482,6 +1617,7 @@ async function handleDropToFolder(event: DragEvent, folderName: string) {
     return
   }
 
+  const snapshot = captureFolderState()
   try {
     // 检查是否是文件夹名（忽略文件夹拖入文件夹的情况）
     if (Object.keys(pluginFolders.value).includes(pluginId)) {
@@ -1555,12 +1691,17 @@ async function handleDropToFolder(event: DragEvent, folderName: string) {
 
     $toast.success(`插件已移动到文件夹 "${folderName}"`)
   } catch (error) {
+    console.error(error)
+    restoreFolderState(snapshot)
+    isDraggingSortMode.value = false
+    currentDraggedPluginId.value = ''
+    updateMixedSortList()
     $toast.error('操作失败')
   }
 }
 
-// 拖拽开始事件（修复版本）
-function onDragStartPlugin(evt: any) {
+// 记录拖拽起点对应的插件 ID
+function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
   // 设置拖拽模式标志
   isDraggingSortMode.value = true
 
@@ -1598,7 +1739,7 @@ function onDragStartPlugin(evt: any) {
 
   // 直接从元素属性获取
   if (item && item.getAttribute && item.getAttribute('data-plugin-id')) {
-    currentDraggedPluginId.value = item.getAttribute('data-plugin-id')
+    currentDraggedPluginId.value = item.getAttribute('data-plugin-id') || ''
   }
 }
 </script>
@@ -1756,7 +1897,19 @@ function onDragStartPlugin(evt: any) {
       <VWindowItem value="installed">
         <div>
           <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
-          <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+          <LoadingBanner v-if="!isRefreshed && !installedLoadError" class="mt-12" />
+          <NoDataFound
+            v-if="installedLoadError && !isRefreshed"
+            error-code="500"
+            :error-title="t('common.serverConnectionFailed')"
+            :error-description="t('common.troubleshooting')"
+          >
+            <template #button>
+              <VBtn color="primary" variant="tonal" @click="refreshData()">
+                {{ t('common.retry') }}
+              </VBtn>
+            </template>
+          </NoDataFound>
           <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 py-0 app-surface-static">
             <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">
               <span>{{ t('common.sortModeHint') }}</span>
@@ -1901,9 +2054,23 @@ function onDragStartPlugin(evt: any) {
       <VWindowItem value="market">
         <div>
           <LoadingBanner
-            v-if="!isAppMarketLoaded || (isMarketRefreshing && displayUninstalledList.length === 0)"
+            v-if="
+              (!isAppMarketLoaded && !marketLoadError) || (isMarketRefreshing && displayUninstalledList.length === 0)
+            "
             class="mt-12"
           />
+          <NoDataFound
+            v-if="marketLoadError && !isAppMarketLoaded"
+            error-code="500"
+            :error-title="t('common.serverConnectionFailed')"
+            :error-description="t('common.troubleshooting')"
+          >
+            <template #button>
+              <VBtn color="primary" variant="tonal" @click="refreshMarket()">
+                {{ t('common.retry') }}
+              </VBtn>
+            </template>
+          </NoDataFound>
           <!-- 资源列表 -->
           <VInfiniteScroll
             v-if="isAppMarketLoaded && !(isMarketRefreshing && displayUninstalledList.length === 0)"

@@ -1,0 +1,1355 @@
+import type { Plugin, PluginRating } from '@/api/types'
+import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
+import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
+import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { DEFAULT_PERMISSIONS } from '@/utils/permission'
+import { getActiveRequestsCount } from '@/utils/requestOptimizer'
+import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
+import { server } from '@tests/support/msw/server'
+import { renderWithProviders } from '@tests/support/render'
+import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { computed, defineComponent, h, nextTick, unref, type ComputedRef, type PropType, type Ref } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const API_BASE_URL = 'http://localhost/api/v1/'
+const apiUrls = {
+  folders: new URL('plugin/folders', API_BASE_URL).href,
+  install: (pluginId: string) => new URL(`plugin/install/${pluginId}`, API_BASE_URL).href,
+  list: new URL('plugin/', API_BASE_URL).href,
+  order: new URL('user/config/PluginOrder', API_BASE_URL).href,
+  rating: new URL('plugin/rating', API_BASE_URL).href,
+  sidebar: new URL('plugin/sidebar_nav', API_BASE_URL).href,
+  statistic: new URL('plugin/statistic', API_BASE_URL).href,
+}
+
+const mocks = vi.hoisted(() => ({
+  appMode: false,
+  keepAliveHandler: undefined as undefined | ((context?: Record<string, unknown>) => Promise<void>),
+  infiniteDone: vi.fn(),
+  openSharedDialog: vi.fn(),
+  registerHeaderTab: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
+  useDynamicButton: vi.fn(),
+}))
+
+vi.mock('vue-toastification', () => ({
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess, warning: mocks.toastWarning }),
+}))
+
+vi.mock('@/composables/useDynamicButton', () => ({
+  useDynamicButton: (options: unknown) => mocks.useDynamicButton(options),
+}))
+
+vi.mock('@/composables/useDynamicHeaderTab', () => ({
+  useDynamicHeaderTab: () => ({ registerHeaderTab: mocks.registerHeaderTab }),
+}))
+
+vi.mock('@/composables/useKeepAliveRefresh', () => ({
+  useKeepAliveRefresh: (handler: (context?: Record<string, unknown>) => Promise<void>) => {
+    mocks.keepAliveHandler = handler
+    return { refresh: handler }
+  },
+}))
+
+vi.mock('@/composables/useCardAccentColor', () => ({
+  getCardAccentRgbFromImage: vi.fn().mockResolvedValue('40, 169, 225'),
+}))
+
+vi.mock('@/composables/usePWA', () => ({
+  usePWA: () => ({ appMode: computed(() => mocks.appMode) }),
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
+}))
+
+type MaybeRef<T> = T | Ref<T> | ComputedRef<T>
+
+interface HeaderButton {
+  action?: () => void | Promise<void>
+  dataAttr?: string
+  icon: string
+}
+
+interface HeaderConfig {
+  appendButtons: HeaderButton[]
+  modelValue: Ref<string>
+}
+
+interface DynamicButtonConfig {
+  menuItems?: MaybeRef<DynamicButtonMenuItem[] | undefined>
+  onClick: () => void
+}
+
+interface Deferred<T> {
+  promise: Promise<T>
+  resolve: (value: T) => void
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(nextResolve => {
+    resolve = nextResolve
+  })
+  return { promise, resolve }
+}
+
+function createPlugin(overrides: Partial<Plugin> = {}): Plugin {
+  return {
+    id: 'DemoPlugin',
+    plugin_name: '演示插件',
+    plugin_author: 'MoviePilot',
+    plugin_desc: '插件市场测试数据',
+    plugin_label: '工具,整理',
+    plugin_version: '1.0.0',
+    repo_url: 'https://github.com/example/plugins',
+    ...overrides,
+  }
+}
+
+const PassthroughStub = defineComponent({
+  name: 'PassthroughStub',
+  setup(_props, { slots }) {
+    return () => h('div', slots.default?.())
+  },
+})
+
+const ProgressiveCardGridStub = defineComponent({
+  name: 'ProgressiveCardGrid',
+  props: {
+    getItemKey: { type: Function as PropType<(item: unknown) => string>, default: undefined },
+    items: { type: Array as PropType<unknown[]>, required: true },
+  },
+  setup(props, { slots }) {
+    return () =>
+      h(
+        'section',
+        props.items.flatMap(item => {
+          props.getItemKey?.(item)
+          return slots.default?.({ item }) ?? []
+        }),
+      )
+  },
+})
+
+const PluginMixedSortCardStub = defineComponent({
+  name: 'PluginMixedSortCard',
+  props: {
+    item: { type: Object as PropType<Record<string, unknown>>, required: true },
+    pluginStatistics: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
+    sortable: Boolean,
+  },
+  emits: [
+    'delete-folder',
+    'drop-to-folder',
+    'open-folder',
+    'refresh-data',
+    'rename-folder',
+    'remove-from-folder',
+    'update-folder-config',
+  ],
+  setup(props, { emit }) {
+    return () => {
+      const item = props.item
+      const type = String(item.type)
+      const id = String(item.id)
+      const data = item.data as
+        | {
+            average_rating?: number
+            config?: { color?: string }
+            has_update?: boolean
+            plugin_name?: string
+            repo_url?: string
+          }
+        | undefined
+      const name = type === 'folder' ? id : data?.plugin_name || id
+      const dropTarget = document.createElement('div')
+      dropTarget.classList.add('drag-over')
+
+      return h('article', { 'data-testid': `${type}-${id}` }, [
+        h('span', `${type}:${name}`),
+        h('output', { 'aria-label': `sortable-${id}` }, String(props.sortable)),
+        type === 'plugin'
+          ? h('output', { 'aria-label': `update-${id}` }, String(data?.has_update ?? false))
+          : h('output', { 'aria-label': `folder-color-${id}` }, data?.config?.color || ''),
+        type === 'plugin' ? h('output', { 'aria-label': `repo-${id}` }, data?.repo_url || '') : null,
+        type === 'plugin'
+          ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
+          : null,
+        type === 'plugin'
+          ? h('output', { 'aria-label': `installed-rating-${id}` }, String(data?.average_rating ?? ''))
+          : null,
+        type === 'folder'
+          ? h('button', { onClick: () => emit('open-folder', id), type: 'button' }, `open-folder-${id}`)
+          : h('button', { onClick: () => emit('refresh-data'), type: 'button' }, `refresh-plugin-${id}`),
+        type === 'folder'
+          ? h(
+              'button',
+              { onClick: () => emit('update-folder-config', id, { color: '#ff0000' }), type: 'button' },
+              `configure-folder-${id}`,
+            )
+          : null,
+        type === 'folder'
+          ? h(
+              'button',
+              { onClick: () => emit('rename-folder', id, `${id}-renamed`), type: 'button' },
+              `rename-folder-${id}`,
+            )
+          : null,
+        type === 'folder'
+          ? h('button', { onClick: () => emit('delete-folder', id), type: 'button' }, `delete-folder-${id}`)
+          : null,
+        type === 'folder'
+          ? h(
+              'button',
+              {
+                onClick: () =>
+                  emit(
+                    'drop-to-folder',
+                    { currentTarget: dropTarget, preventDefault: vi.fn(), stopPropagation: vi.fn() },
+                    id,
+                  ),
+                type: 'button',
+              },
+              `drop-to-folder-${id}`,
+            )
+          : null,
+        type === 'plugin'
+          ? h('button', { onClick: () => emit('remove-from-folder', id), type: 'button' }, `remove-plugin-${id}`)
+          : null,
+      ])
+    }
+  },
+})
+
+const PluginAppCardStub = defineComponent({
+  name: 'PluginAppCard',
+  props: { plugin: { type: Object as PropType<Plugin>, required: true } },
+  emits: ['install'],
+  setup(props, { emit }) {
+    return () =>
+      h('article', { 'data-testid': `market-${props.plugin.id}` }, [
+        h('span', `market:${props.plugin.plugin_name}`),
+        h('output', { 'aria-label': `rating-${props.plugin.id}` }, String(props.plugin.average_rating ?? '')),
+        h('button', { onClick: () => emit('install'), type: 'button' }, `installed-${props.plugin.id}`),
+      ])
+  },
+})
+
+const DraggableStub = defineComponent({
+  name: 'Draggable',
+  props: { modelValue: { type: Array as PropType<unknown[]>, required: true } },
+  emits: ['end', 'start', 'update:modelValue'],
+  setup(props, { emit, slots }) {
+    async function reverse() {
+      emit('update:modelValue', [...props.modelValue].reverse())
+      await nextTick()
+      emit('end')
+    }
+
+    return () =>
+      h('section', [
+        ...props.modelValue.flatMap(element => slots.item?.({ element }) ?? []),
+        h('button', { onClick: reverse, type: 'button' }, 'reverse-plugin-order'),
+        ...props.modelValue.map((_item, index) =>
+          h(
+            'button',
+            { onClick: () => emit('start', { oldIndex: index }), type: 'button' },
+            `start-plugin-drag-${index}`,
+          ),
+        ),
+        h('button', { onClick: () => emit('end'), type: 'button' }, 'finish-plugin-drag'),
+      ])
+  },
+})
+
+const LoadingBannerStub = defineComponent({
+  name: 'LoadingBanner',
+  template: '<div role="status">正在加载插件</div>',
+})
+
+const NoDataFoundStub = defineComponent({
+  name: 'NoDataFound',
+  props: { errorDescription: String, errorTitle: String },
+  template: '<section aria-label="插件空态">{{ errorTitle }} {{ errorDescription }}<slot name="button" /></section>',
+})
+
+const InfiniteScrollStub = defineComponent({
+  name: 'VInfiniteScroll',
+  emits: ['load'],
+  setup(_props, { emit, slots }) {
+    return () =>
+      h('section', [
+        slots.default?.(),
+        h('button', { onClick: () => emit('load', { done: mocks.infiniteDone }), type: 'button' }, 'load-more-market'),
+      ])
+  },
+})
+
+const FieldStub = defineComponent({
+  name: 'FieldStub',
+  inheritAttrs: false,
+  props: { label: String, modelValue: [String, Number], placeholder: String },
+  emits: ['keyup', 'update:modelValue'],
+  setup(props, { emit }) {
+    return () =>
+      h('input', {
+        'aria-label': props.label || props.placeholder,
+        value: props.modelValue,
+        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+        onKeyup: (event: KeyboardEvent) => emit('keyup', event),
+      })
+  },
+})
+
+const SelectStub = defineComponent({
+  name: 'VSelect',
+  props: {
+    items: { type: Array as PropType<string[]>, default: () => [] },
+    label: String,
+    modelValue: { type: Array as PropType<string[]>, default: () => [] },
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () =>
+      h('fieldset', { 'aria-label': props.label }, [
+        ...props.items.map(item =>
+          h(
+            'button',
+            {
+              onClick: () =>
+                emit(
+                  'update:modelValue',
+                  props.modelValue.includes(item)
+                    ? props.modelValue.filter(value => value !== item)
+                    : [...props.modelValue, item],
+                ),
+              type: 'button',
+            },
+            item,
+          ),
+        ),
+      ])
+  },
+})
+
+interface ListResponses {
+  folders?: () => JsonBodyType | Promise<JsonBodyType>
+  installed?: () => Plugin[] | Promise<Plugin[]>
+  installedStatus?: number
+  market?: () => Plugin[] | Promise<Plugin[]>
+  marketStatus?: number
+  order?: unknown[]
+  rating?: (ids: string[]) => Record<string, PluginRating> | Promise<Record<string, PluginRating>>
+  statistic?: () => Record<string, number> | Promise<Record<string, number>>
+}
+
+function registerListHandlers(responses: ListResponses = {}) {
+  server.use(
+    http.get(apiUrls.order, () =>
+      HttpResponse.json({ data: { value: responses.order ?? [] }, success: true } as JsonBodyType),
+    ),
+    http.get(apiUrls.folders, async () => HttpResponse.json((await responses.folders?.()) ?? {})),
+    http.get(apiUrls.list, async ({ request }) => {
+      const state = new URL(request.url).searchParams.get('state')
+      const plugins = state === 'installed' ? await responses.installed?.() : await responses.market?.()
+      return HttpResponse.json((plugins ?? []) as unknown as JsonBodyType, {
+        status: state === 'installed' ? (responses.installedStatus ?? 200) : (responses.marketStatus ?? 200),
+      })
+    }),
+    http.get(apiUrls.statistic, async () => HttpResponse.json((await responses.statistic?.()) ?? {})),
+    http.get(apiUrls.sidebar, () => HttpResponse.json([])),
+    http.get(apiUrls.rating, async ({ request }) => {
+      const ids = new URL(request.url).searchParams.get('plugin_ids')?.split(',').filter(Boolean) ?? []
+      return HttpResponse.json(((await responses.rating?.(ids)) ?? {}) as unknown as JsonBodyType)
+    }),
+  )
+}
+
+async function renderList(responses: ListResponses = {}) {
+  registerListHandlers(responses)
+  return renderWithProviders(PluginCardListView, {
+    initialRoute: '/plugins',
+    initialState: {
+      user: {
+        permissions: DEFAULT_PERMISSIONS,
+        superUser: true,
+      },
+    },
+    global: {
+      stubs: {
+        LoadingBanner: LoadingBannerStub,
+        NoDataFound: NoDataFoundStub,
+        PluginAppCard: PluginAppCardStub,
+        PluginMixedSortCard: PluginMixedSortCardStub,
+        ProgressiveCardGrid: ProgressiveCardGridStub,
+        VCombobox: FieldStub,
+        VInfiniteScroll: InfiniteScrollStub,
+        VMenu: PassthroughStub,
+        VSelect: SelectStub,
+        VTextField: FieldStub,
+        VPageContentTitle: true,
+        VWindow: PassthroughStub,
+        VWindowItem: PassthroughStub,
+        draggable: DraggableStub,
+      },
+    },
+  })
+}
+
+function getHeaderConfig() {
+  return mocks.registerHeaderTab.mock.calls.at(-1)?.[0] as HeaderConfig
+}
+
+function getDynamicButtonConfig() {
+  return mocks.useDynamicButton.mock.calls.at(-1)?.[0] as DynamicButtonConfig
+}
+
+function getDynamicMenuItem(titleKey: string) {
+  const item = unref(getDynamicButtonConfig().menuItems)?.find(candidate => candidate.titleKey === titleKey)
+  if (!item) throw new Error(`未注册动态操作 ${titleKey}`)
+  return item
+}
+
+function getHeaderButton(icon: string) {
+  const button = getHeaderConfig().appendButtons.find(candidate => candidate.icon === icon)
+  if (!button?.action) throw new Error(`未注册 header 操作 ${icon}`)
+  return button
+}
+
+function getInstalledLabels() {
+  return [...document.querySelectorAll('[data-testid^="folder-"], [data-testid^="plugin-"]')].map(
+    node => node.querySelector('span')?.textContent,
+  )
+}
+
+function getDialogEvents(index = -1) {
+  const call = mocks.openSharedDialog.mock.calls.at(index)
+  if (!call) throw new Error('未打开共享弹窗')
+  return call[2] as Record<string, (...args: unknown[]) => unknown>
+}
+
+async function waitForRequestsToFinish() {
+  await new Promise(resolve => setTimeout(resolve, 0))
+  await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(getActiveRequestsCount()).toBe(0)
+}
+
+describe('PluginCardListView loading and request ownership', () => {
+  beforeEach(() => {
+    mocks.appMode = false
+    mocks.keepAliveHandler = undefined
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('keeps the newest forced market response when the older ordinary request finishes last', async () => {
+    const older = createDeferred<Plugin[]>()
+    const newer = createDeferred<Plugin[]>()
+    let marketRequest = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => (marketRequest++ === 0 ? older.promise : newer.promise),
+    })
+
+    await waitFor(() => expect(marketRequest).toBe(1))
+    await getHeaderConfig()
+      .appendButtons.find(button => button.icon === 'mdi-refresh')
+      ?.action?.()
+    await waitFor(() => expect(marketRequest).toBe(2))
+
+    newer.resolve([createPlugin({ id: 'Newest', plugin_name: '最新市场插件' })])
+    expect(await screen.findByText('market:最新市场插件')).toBeInTheDocument()
+
+    older.resolve([createPlugin({ id: 'Stale', plugin_name: '过期市场插件' })])
+    await waitForRequestsToFinish()
+    expect(screen.queryByText('market:过期市场插件')).not.toBeInTheDocument()
+    expect(screen.getByText('market:最新市场插件')).toBeInTheDocument()
+  })
+
+  it('keeps the newest installed response when an older refresh finishes last', async () => {
+    const older = createDeferred<Plugin[]>()
+    const newer = createDeferred<Plugin[]>()
+    let installedRequest = 0
+    await renderList({
+      installed: () => (installedRequest++ === 0 ? older.promise : newer.promise),
+    })
+
+    await waitFor(() => expect(installedRequest).toBe(1))
+    if (!mocks.keepAliveHandler) throw new Error('未注册 keep-alive 刷新回调')
+    const newestRefresh = mocks.keepAliveHandler({ source: 'resume' })
+    await waitFor(() => expect(installedRequest).toBe(2))
+
+    newer.resolve([createPlugin({ id: 'NewestInstalled', installed: true, plugin_name: '最新已安装快照' })])
+    expect(await screen.findByText('plugin:最新已安装快照')).toBeInTheDocument()
+    await newestRefresh
+
+    older.resolve([createPlugin({ id: 'StaleInstalled', installed: true, plugin_name: '过期已安装快照' })])
+    await waitForRequestsToFinish()
+    expect(screen.queryByText('plugin:过期已安装快照')).not.toBeInTheDocument()
+    expect(screen.getByText('plugin:最新已安装快照')).toBeInTheDocument()
+  })
+
+  it('keeps rating and statistic results from the newest refresh generation', async () => {
+    const olderRatings = createDeferred<Record<string, PluginRating>>()
+    const newerRatings = createDeferred<Record<string, PluginRating>>()
+    const olderStatistics = createDeferred<Record<string, number>>()
+    const newerStatistics = createDeferred<Record<string, number>>()
+    let ratingRequest = 0
+    let statisticRequest = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      rating: () => {
+        ratingRequest += 1
+        if (ratingRequest === 1) {
+          return { Installed: { average_rating: 3, plugin_id: 'Installed', rating_count: 1 } }
+        }
+        return ratingRequest === 2 ? olderRatings.promise : newerRatings.promise
+      },
+      statistic: () => {
+        statisticRequest += 1
+        if (statisticRequest === 1) return { Installed: 1 }
+        return statisticRequest === 2 ? olderStatistics.promise : newerStatistics.promise
+      },
+    })
+    await waitForRequestsToFinish()
+
+    if (!mocks.keepAliveHandler) throw new Error('未注册 keep-alive 刷新回调')
+    const olderRefresh = mocks.keepAliveHandler({ source: 'resume' })
+    await waitFor(() => {
+      expect(ratingRequest).toBe(2)
+      expect(statisticRequest).toBe(2)
+    })
+    const newerRefresh = mocks.keepAliveHandler({ source: 'resume' })
+    await waitFor(() => {
+      expect(ratingRequest).toBe(3)
+      expect(statisticRequest).toBe(3)
+    })
+
+    newerRatings.resolve({ Installed: { average_rating: 4.9, plugin_id: 'Installed', rating_count: 9 } })
+    newerStatistics.resolve({ Installed: 99 })
+    await newerRefresh
+    expect(screen.getByLabelText('installed-rating-Installed')).toHaveTextContent('4.9')
+    expect(screen.getByLabelText('statistic-Installed')).toHaveTextContent('99')
+
+    olderRatings.resolve({ Installed: { average_rating: 1, plugin_id: 'Installed', rating_count: 1 } })
+    olderStatistics.resolve({ Installed: 2 })
+    await olderRefresh
+    await waitForRequestsToFinish()
+    expect(screen.getByLabelText('installed-rating-Installed')).toHaveTextContent('4.9')
+    expect(screen.getByLabelText('statistic-Installed')).toHaveTextContent('99')
+  })
+
+  it('rejects a rating snapshot when the current plugin ID set changes before the next rating request', async () => {
+    const staleRatings = createDeferred<Record<string, PluginRating>>()
+    const currentMarket = createDeferred<Plugin[]>()
+    let installedRequest = 0
+    let marketRequest = 0
+    let ratingRequest = 0
+    await renderList({
+      installed: () => {
+        installedRequest += 1
+        if (installedRequest === 1) {
+          return [createPlugin({ average_rating: 4, id: 'Shared', installed: true, plugin_name: '共享插件' })]
+        }
+        if (installedRequest === 2) {
+          return [
+            createPlugin({ average_rating: 4.2, id: 'Shared', installed: true, plugin_name: '共享插件' }),
+            createPlugin({ id: 'Removed', installed: true, plugin_name: '即将移除' }),
+          ]
+        }
+        return [
+          createPlugin({ average_rating: 4.6, id: 'Shared', installed: true, plugin_name: '共享插件' }),
+          createPlugin({ id: 'Added', installed: true, plugin_name: '当前新增' }),
+        ]
+      },
+      market: () => {
+        marketRequest += 1
+        return marketRequest === 3 ? currentMarket.promise : []
+      },
+      rating: () => {
+        ratingRequest += 1
+        if (ratingRequest === 1) {
+          return { Shared: { average_rating: 4, plugin_id: 'Shared', rating_count: 1 } }
+        }
+        if (ratingRequest === 2) return staleRatings.promise
+        return { Shared: { average_rating: 4.9, plugin_id: 'Shared', rating_count: 9 } }
+      },
+    })
+    await waitForRequestsToFinish()
+
+    if (!mocks.keepAliveHandler) throw new Error('未注册 keep-alive 刷新回调')
+    const staleRefresh = mocks.keepAliveHandler({ source: 'resume' })
+    await waitFor(() => expect(ratingRequest).toBe(2))
+
+    const currentRefresh = mocks.keepAliveHandler({ source: 'resume' })
+    expect(await screen.findByText('plugin:当前新增')).toBeInTheDocument()
+    await waitFor(() => expect(marketRequest).toBe(3))
+
+    staleRatings.resolve({
+      Removed: { average_rating: 1, plugin_id: 'Removed', rating_count: 1 },
+      Shared: { average_rating: 1, plugin_id: 'Shared', rating_count: 1 },
+    })
+    await staleRefresh
+    expect(screen.getByLabelText('installed-rating-Shared')).toHaveTextContent('4.6')
+
+    currentMarket.resolve([])
+    await currentRefresh
+    expect(screen.getByLabelText('installed-rating-Shared')).toHaveTextContent('4.9')
+    await waitForRequestsToFinish()
+  })
+
+  it('merges update metadata into installed cards and excludes update entries from the market list', async () => {
+    await renderList({
+      installed: () => [
+        createPlugin({ id: 'Shared', installed: true, plugin_name: '已安装共享插件', repo_url: 'old/repo' }),
+      ],
+      market: () => [
+        createPlugin({
+          has_update: true,
+          id: 'Shared',
+          installed: true,
+          plugin_name: '市场更新项',
+          repo_url: 'new/repo',
+        }),
+        createPlugin({ id: 'Available', plugin_name: '可安装插件' }),
+      ],
+    })
+
+    await waitFor(() => expect(screen.getByLabelText('update-Shared')).toHaveTextContent('true'))
+    expect(screen.getByLabelText('repo-Shared')).toHaveTextContent('new/repo')
+    expect(screen.queryByText('market:市场更新项')).not.toBeInTheDocument()
+    expect(screen.getByText('market:可安装插件')).toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+
+  it('keeps an initial installed failure retryable instead of presenting a successful empty list', async () => {
+    await renderList({ installedStatus: 500 })
+
+    expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('正在加载插件')).not.toBeInTheDocument())
+
+    server.use(
+      http.get(apiUrls.list, ({ request }) => {
+        const state = new URL(request.url).searchParams.get('state')
+        const plugins =
+          state === 'installed' ? [createPlugin({ id: 'Recovered', installed: true, plugin_name: '重试恢复插件' })] : []
+        return HttpResponse.json(plugins as unknown as JsonBodyType)
+      }),
+    )
+    await fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByText('plugin:重试恢复插件')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('正在加载插件')).not.toBeInTheDocument())
+    await waitForRequestsToFinish()
+  })
+
+  it('leaves an initial market failure in a retryable error state instead of permanent loading', async () => {
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      marketStatus: 500,
+    })
+
+    expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument()
+    await waitForRequestsToFinish()
+    expect(screen.queryByText('正在加载插件')).not.toBeInTheDocument()
+
+    server.use(
+      http.get(apiUrls.list, ({ request }) => {
+        const state = new URL(request.url).searchParams.get('state')
+        const plugins =
+          state === 'market' ? [createPlugin({ id: 'MarketRecovered', plugin_name: '市场重试恢复插件' })] : []
+        return HttpResponse.json(plugins as unknown as JsonBodyType)
+      }),
+    )
+    await fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByText('market:市场重试恢复插件')).toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+
+  it('batches ratings by 100 plugin IDs and merges the returned values into current cards', async () => {
+    const requestedChunks: string[][] = []
+    const installed = Array.from({ length: 101 }, (_, index) =>
+      createPlugin({ id: `Installed-${index}`, installed: true, plugin_name: `已安装-${index}` }),
+    )
+    const market = Array.from({ length: 101 }, (_, index) =>
+      createPlugin({ id: `Market-${index}`, plugin_name: `市场-${index}` }),
+    )
+    await renderList({
+      installed: () => installed,
+      market: () => market,
+      rating: ids => {
+        requestedChunks.push(ids)
+        return Object.fromEntries(
+          ids.map(id => [id, { average_rating: id === 'Market-0' ? 4.8 : 4, plugin_id: id, rating_count: 2 }]),
+        )
+      },
+    })
+
+    await waitFor(() => expect(requestedChunks).toHaveLength(3))
+    expect(requestedChunks.map(chunk => chunk.length)).toEqual([100, 100, 2])
+    expect(await screen.findByLabelText('rating-Market-0')).toHaveTextContent('4.8')
+    await waitForRequestsToFinish()
+  })
+})
+
+describe('PluginCardListView market filtering and pagination', () => {
+  beforeEach(() => {
+    mocks.appMode = false
+    mocks.keepAliveHandler = undefined
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('filters and sorts market entries, labels local repos, and appends pages of 20', async () => {
+    const market = Array.from({ length: 25 }, (_, index) =>
+      createPlugin({
+        add_time: index,
+        id: `Market-${index}`,
+        plugin_author: index % 2 === 0 ? 'Alice' : 'Bob',
+        plugin_desc: index === 5 ? 'Contains Needle' : `描述 ${index}`,
+        plugin_label: index % 3 === 0 ? '工具,整理' : '通知',
+        plugin_name: index === 0 ? 'Zulu' : index === 24 ? 'Alpha' : `插件 ${String(index).padStart(2, '0')}`,
+        repo_url:
+          index === 0
+            ? 'local://repo?path=%2Ftmp%2Fplugins'
+            : index === 1
+              ? 'local://repo'
+              : 'https://github.com/example/repo',
+      }),
+    )
+    await renderList({
+      market: () => market,
+      statistic: () => Object.fromEntries(market.map((plugin, index) => [plugin.id, 100 - index])),
+    })
+
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20))
+    expect(document.querySelector('[data-testid^="market-"]')).toHaveTextContent('market:Zulu')
+
+    await fireEvent.click(screen.getByRole('button', { name: 'load-more-market' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(25))
+    expect(mocks.infiniteDone).toHaveBeenLastCalledWith('ok')
+    await fireEvent.click(screen.getByRole('button', { name: 'load-more-market' }))
+    expect(mocks.infiniteDone).toHaveBeenLastCalledWith('empty')
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await waitForRequestsToFinish()
+    const marketFilterButton = getHeaderConfig().appendButtons.find(button => button.dataAttr === 'market-filter-btn')
+    if (!marketFilterButton?.action) throw new Error('未注册市场过滤操作')
+    marketFilterButton.action()
+    await nextTick()
+
+    const initialRepository = screen.getByRole('group', { name: '仓库' })
+    expect(within(initialRepository).getByRole('button', { name: '/tmp/plugins' })).toBeInTheDocument()
+    expect(within(initialRepository).getByRole('button', { name: '本地' })).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByText('插件名称'))
+    await waitFor(() => expect(document.querySelector('[data-testid^="market-"]')).toHaveTextContent('market:Alpha'))
+
+    marketFilterButton.action()
+    await nextTick()
+    const nameInput = screen.getByRole('textbox', { name: '名称' })
+    await fireEvent.update(nameInput, 'needle')
+    await fireEvent.keyUp(nameInput, { key: 'Enter' })
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(1))
+    expect(screen.getByText('market:插件 05')).toBeInTheDocument()
+
+    marketFilterButton.action()
+    await nextTick()
+    const reopenedNameInput = screen.getByRole('textbox', { name: '名称' })
+    const repository = screen.getByRole('group', { name: '仓库' })
+    await fireEvent.update(reopenedNameInput, '')
+    const author = screen.getByRole('group', { name: '作者' })
+    await fireEvent.click(within(author).getByRole('button', { name: 'Alice' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(13))
+    expect(screen.queryByText('market:插件 05')).not.toBeInTheDocument()
+
+    await fireEvent.click(within(author).getByRole('button', { name: 'Alice' }))
+    const label = screen.getByRole('group', { name: '标签' })
+    await fireEvent.click(within(label).getByRole('button', { name: '工具' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(9))
+
+    await fireEvent.click(within(label).getByRole('button', { name: '工具' }))
+    await fireEvent.click(within(repository).getByRole('button', { name: '/tmp/plugins' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(1))
+    expect(screen.getByText('market:Zulu')).toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+})
+
+describe('PluginCardListView installed filtering and host callbacks', () => {
+  beforeEach(() => {
+    mocks.appMode = true
+    mocks.keepAliveHandler = undefined
+    mocks.openSharedDialog.mockImplementation(() => ({ close: vi.fn(), id: 1, updateProps: vi.fn() }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('applies running, update, and name filters through the installed menu', async () => {
+    await renderList({
+      installed: () => [
+        createPlugin({ has_update: true, id: 'Alpha', installed: true, plugin_name: 'Alpha', state: true }),
+        createPlugin({ has_update: false, id: 'Beta', installed: true, plugin_name: 'Beta', state: true }),
+        createPlugin({ has_update: true, id: 'Gamma', installed: true, plugin_name: 'Gamma', state: false }),
+      ],
+    })
+    await screen.findByText('plugin:Alpha')
+    await waitForRequestsToFinish()
+    const installedFilterButton = getHeaderConfig().appendButtons.find(
+      button => button.dataAttr === 'installed-filter-btn',
+    )
+    if (!installedFilterButton?.action) throw new Error('未注册已安装过滤操作')
+
+    installedFilterButton.action()
+    await nextTick()
+    await fireEvent.click(screen.getByText('运行中'))
+    await waitFor(() => expect(screen.queryByText('plugin:Gamma')).not.toBeInTheDocument())
+    expect(screen.getByText('plugin:Alpha')).toBeInTheDocument()
+    expect(screen.getByText('plugin:Beta')).toBeInTheDocument()
+
+    installedFilterButton.action()
+    await nextTick()
+    await fireEvent.click(screen.getByText('有新版本'))
+    await waitFor(() => expect(screen.queryByText('plugin:Beta')).not.toBeInTheDocument())
+    expect(screen.getByText('plugin:Alpha')).toBeInTheDocument()
+
+    installedFilterButton.action()
+    await nextTick()
+    await fireEvent.click(screen.getByText('运行中'))
+    installedFilterButton.action()
+    await nextTick()
+    await fireEvent.click(screen.getByText('有新版本'))
+    installedFilterButton.action()
+    await nextTick()
+    const nameInput = screen.getByRole('textbox', { name: '名称' })
+    await fireEvent.update(nameInput, 'bet')
+    await fireEvent.keyUp(nameInput, { key: 'Enter' })
+    expect(screen.getByText('plugin:Beta')).toBeInTheDocument()
+    expect(screen.queryByText('plugin:Alpha')).not.toBeInTheDocument()
+    expect(screen.queryByText('plugin:Gamma')).not.toBeInTheDocument()
+  })
+
+  it('updates search results and refreshes market and sidebar through public callbacks', async () => {
+    let marketRequests = 0
+    const controller = { close: vi.fn(), id: 1, updateProps: vi.fn() }
+    mocks.openSharedDialog.mockReturnValue(controller)
+    const { pinia } = await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => {
+        marketRequests += 1
+        return [createPlugin({ id: 'Available', plugin_desc: 'Needle', plugin_name: '可安装插件' })]
+      },
+    })
+    await waitForRequestsToFinish()
+    const sidebarStore = usePluginSidebarNavStore(pinia)
+
+    getDynamicButtonConfig().onClick()
+    const searchEvents = getDialogEvents()
+    searchEvents['update:keyword']('needle')
+    expect(controller.updateProps).toHaveBeenCalledWith(
+      expect.objectContaining({ keyword: 'needle', plugins: [expect.objectContaining({ id: 'Available' })] }),
+    )
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await waitForRequestsToFinish()
+    getDynamicMenuItem('dialog.pluginMarketSetting.title').action()
+    getDialogEvents().save()
+    await waitFor(() => expect(marketRequests).toBeGreaterThanOrEqual(3))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'installed-Available' }))
+    await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
+    await waitForRequestsToFinish()
+  })
+})
+
+describe('PluginCardListView search installation', () => {
+  beforeEach(() => {
+    mocks.appMode = false
+    mocks.keepAliveHandler = undefined
+    mocks.openSharedDialog.mockImplementation(() => ({ close: vi.fn(), id: 1, updateProps: vi.fn() }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('blocks incompatible plugins and reports business and HTTP failures without success', async () => {
+    let installRequests = 0
+    let mode: 'business' | 'http' = 'business'
+    await renderList()
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('SearchPlugin'), () => {
+        installRequests += 1
+        return mode === 'business'
+          ? HttpResponse.json({ message: 'Rejected', success: false })
+          : HttpResponse.json({ message: 'HTTP failure' }, { status: 500 })
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](
+      createPlugin({
+        id: 'SearchPlugin',
+        plugin_name: '不兼容插件',
+        system_version_compatible: false,
+        system_version_message: '版本不兼容',
+      }),
+    )
+    expect(mocks.toastError).toHaveBeenLastCalledWith('版本不兼容')
+    expect(installRequests).toBe(0)
+
+    mocks.toastError.mockClear()
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](createPlugin({ id: 'SearchPlugin', plugin_name: '业务失败插件' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(installRequests).toBe(1)
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+
+    mocks.toastError.mockClear()
+    mode = 'http'
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](createPlugin({ id: 'SearchPlugin', plugin_name: 'HTTP 失败插件' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(installRequests).toBe(2)
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    await waitForRequestsToFinish()
+  })
+
+  it('preserves install query parameters and refreshes the list and sidebar after success', async () => {
+    let installed = false
+    let installUrl: URL | undefined
+    const target = createPlugin({
+      has_update: true,
+      id: 'SearchPlugin',
+      plugin_name: '搜索安装插件',
+      repo_url: 'https://github.com/example/search-plugin',
+    })
+    const { pinia } = await renderList({
+      installed: () =>
+        installed ? [createPlugin({ id: 'SearchPlugin', installed: true, plugin_name: '搜索安装插件' })] : [],
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('SearchPlugin'), ({ request }) => {
+        installUrl = new URL(request.url)
+        installed = true
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+    const sidebarStore = usePluginSidebarNavStore(pinia)
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+
+    expect(await screen.findByText('plugin:搜索安装插件')).toBeInTheDocument()
+    await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
+    expect(installUrl?.searchParams.get('repo_url')).toBe('https://github.com/example/search-plugin')
+    expect(installUrl?.searchParams.get('force')).toBe('true')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 搜索安装插件 安装成功！')
+    await waitForRequestsToFinish()
+  })
+})
+
+describe('PluginCardListView folders and persistence', () => {
+  beforeEach(() => {
+    mocks.appMode = false
+    mocks.keepAliveHandler = undefined
+    mocks.openSharedDialog.mockImplementation(() => ({ close: vi.fn(), id: 1, updateProps: vi.fn() }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('normalizes legacy folders and mixed PluginOrder while preserving the configured order', async () => {
+    await renderList({
+      folders: () => ({
+        Legacy: ['Installed-B'],
+        Modern: { color: '#00ff00', order: 0, plugins: ['Installed-A'], showIcon: false },
+      }),
+      installed: () => [
+        createPlugin({ id: 'Installed-A', installed: true, plugin_name: '插件 A' }),
+        createPlugin({ id: 'Installed-B', installed: true, plugin_name: '插件 B' }),
+        createPlugin({ id: 'Installed-C', installed: true, plugin_name: '插件 C' }),
+      ],
+      order: [
+        { id: 'Modern', order: 0, type: 'folder' },
+        { id: 'Installed-C', order: 1, type: 'plugin' },
+        { id: 'Legacy', order: 2, type: 'folder' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getByText('folder:Modern')).toBeInTheDocument())
+    const labels = [...document.querySelectorAll('[data-testid^="folder-"], [data-testid^="plugin-"]')].map(
+      node => node.querySelector('span')?.textContent,
+    )
+    expect(labels.slice(0, 3)).toEqual(['folder:Modern', 'plugin:插件 C', 'folder:Legacy'])
+    expect(screen.queryByText('plugin:插件 A')).not.toBeInTheDocument()
+    expect(screen.queryByText('plugin:插件 B')).not.toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+
+  it('normalizes the legacy PluginOrder string array', async () => {
+    await renderList({
+      installed: () => [
+        createPlugin({ id: 'Plugin-A', installed: true, plugin_name: '插件 A' }),
+        createPlugin({ id: 'Plugin-B', installed: true, plugin_name: '插件 B' }),
+      ],
+      order: ['Plugin-B', 'Plugin-A'],
+    })
+
+    await screen.findByText('plugin:插件 B')
+    expect(getInstalledLabels().slice(0, 2)).toEqual(['plugin:插件 B', 'plugin:插件 A'])
+    await waitForRequestsToFinish()
+  })
+
+  it('rolls back a new folder and reports failure when persistence returns success false', async () => {
+    mocks.appMode = true
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+    })
+    await screen.findByText('plugin:已安装插件')
+    await waitForRequestsToFinish()
+    server.use(http.post(apiUrls.folders, () => HttpResponse.json({ message: '保存被拒绝', success: false })))
+
+    getDynamicMenuItem('plugin.newFolder').action()
+    const events = getDialogEvents()
+    events['update:name']('失败文件夹')
+    await events.create()
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(screen.queryByText('folder:失败文件夹')).not.toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+
+  it('validates a new folder and persists a unique trimmed name', async () => {
+    mocks.appMode = true
+    await renderList({ folders: () => ({ Existing: [] }) })
+    await screen.findByText('folder:Existing')
+    await waitForRequestsToFinish()
+    server.use(http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })))
+
+    getDynamicMenuItem('plugin.newFolder').action()
+    const events = getDialogEvents()
+    events['update:name']('   ')
+    await events.create()
+    expect(mocks.toastError).toHaveBeenLastCalledWith('文件夹名称不能为空')
+
+    events['update:name']('Existing')
+    await events.create()
+    expect(mocks.toastError).toHaveBeenLastCalledWith('文件夹已存在')
+
+    events['update:name']('  New Folder  ')
+    await events.create()
+    expect(await screen.findByText('folder:New Folder')).toBeInTheDocument()
+    expect(mocks.toastSuccess).toHaveBeenLastCalledWith('文件夹创建成功')
+  })
+
+  it('persists folder appearance, rename, and deletion on successful responses', async () => {
+    await renderList({
+      folders: () => ({ Tools: { color: '#00ff00', order: 0, plugins: ['Installed'] } }),
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '文件夹插件' })],
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'configure-folder-Tools' }))
+    await waitFor(() => expect(screen.getByLabelText('folder-color-Tools')).toHaveTextContent('#ff0000'))
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('文件夹设置已保存'))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'rename-folder-Tools' }))
+    expect(await screen.findByText('folder:Tools-renamed')).toBeInTheDocument()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('文件夹重命名成功'))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'delete-folder-Tools-renamed' }))
+    await waitFor(() => expect(screen.queryByText('folder:Tools-renamed')).not.toBeInTheDocument())
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('文件夹删除成功'))
+    expect(screen.getByText('plugin:文件夹插件')).toBeInTheDocument()
+  })
+
+  it('rolls back appearance, rename, and deletion on business or HTTP failures', async () => {
+    await renderList({
+      folders: () => ({ Tools: { color: '#00ff00', order: 0, plugins: ['Installed'] } }),
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '文件夹插件' })],
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    let saveAttempt = 0
+    server.use(
+      http.post(apiUrls.folders, () => {
+        saveAttempt += 1
+        return saveAttempt === 2
+          ? HttpResponse.json({ message: 'HTTP failure' }, { status: 500 })
+          : HttpResponse.json({ message: 'Rejected', success: false })
+      }),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'configure-folder-Tools' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(1))
+    expect(screen.getByLabelText('folder-color-Tools')).toHaveTextContent('#00ff00')
+
+    await fireEvent.click(screen.getByRole('button', { name: 'rename-folder-Tools' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('folder:Tools')).toBeInTheDocument()
+    expect(screen.queryByText('folder:Tools-renamed')).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'delete-folder-Tools' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(3))
+    expect(screen.getByText('folder:Tools')).toBeInTheDocument()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('rolls back a failed removal and persists a later removal from a folder', async () => {
+    let saveSucceeds = false
+    await renderList({
+      folders: () => ({ Tools: ['Installed'] }),
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '文件夹插件' })],
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.folders, () =>
+        saveSucceeds
+          ? HttpResponse.json({ data: null, success: true })
+          : HttpResponse.json({ message: 'Rejected' }, { status: 500 }),
+      ),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    expect(await screen.findByText('plugin:文件夹插件')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'remove-plugin-Installed' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(screen.getByText('plugin:文件夹插件')).toBeInTheDocument()
+
+    saveSucceeds = true
+    await fireEvent.click(screen.getByRole('button', { name: 'remove-plugin-Installed' }))
+    await waitFor(() => expect(screen.queryByText('plugin:文件夹插件')).not.toBeInTheDocument())
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件已移出文件夹'))
+  })
+
+  it('rolls back mixed order failures and persists a later successful order', async () => {
+    let orderSucceeds = false
+    let savedOrder: unknown
+    await renderList({
+      folders: () => ({ Tools: [] }),
+      installed: () => [
+        createPlugin({ id: 'Plugin-A', installed: true, plugin_name: '插件 A' }),
+        createPlugin({ id: 'Plugin-B', installed: true, plugin_name: '插件 B' }),
+      ],
+      order: [
+        { id: 'Plugin-A', order: 0, type: 'plugin' },
+        { id: 'Tools', order: 1, type: 'folder' },
+        { id: 'Plugin-B', order: 2, type: 'plugin' },
+      ],
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.order, async ({ request }) => {
+        savedOrder = await request.json()
+        return orderSucceeds
+          ? HttpResponse.json({ data: null, success: true })
+          : HttpResponse.json({ message: 'Rejected', success: false })
+      }),
+      http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })),
+    )
+
+    getHeaderButton('mdi-sort-variant').action?.()
+    await nextTick()
+    expect(getInstalledLabels().slice(0, 3)).toEqual(['plugin:插件 A', 'folder:Tools', 'plugin:插件 B'])
+    await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(getInstalledLabels().slice(0, 3)).toEqual(['plugin:插件 A', 'folder:Tools', 'plugin:插件 B'])
+
+    orderSucceeds = true
+    await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
+    await waitFor(() =>
+      expect(getInstalledLabels().slice(0, 3)).toEqual(['plugin:插件 B', 'folder:Tools', 'plugin:插件 A']),
+    )
+    expect(savedOrder).toEqual([
+      { id: 'Plugin-B', order: 0, type: 'plugin' },
+      { id: 'Tools', order: 1, type: 'folder' },
+      { id: 'Plugin-A', order: 2, type: 'plugin' },
+    ])
+    await waitForRequestsToFinish()
+  })
+
+  it('reloads server ordering when folders fail after PluginOrder is persisted', async () => {
+    let persistedOrder: unknown[] = [
+      { id: 'Plugin-A', order: 0, type: 'plugin' },
+      { id: 'Tools', order: 1, type: 'folder' },
+      { id: 'Plugin-B', order: 2, type: 'plugin' },
+    ]
+    let folderReads = 0
+    let orderReads = 0
+    await renderList({
+      folders: () => ({ Tools: [] }),
+      installed: () => [
+        createPlugin({ id: 'Plugin-A', installed: true, plugin_name: '插件 A' }),
+        createPlugin({ id: 'Plugin-B', installed: true, plugin_name: '插件 B' }),
+      ],
+      order: persistedOrder,
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.order, () => {
+        orderReads += 1
+        return HttpResponse.json({ data: { value: persistedOrder }, success: true })
+      }),
+      http.get(apiUrls.folders, () => {
+        folderReads += 1
+        return HttpResponse.json({ Tools: [] })
+      }),
+      http.post(apiUrls.order, async ({ request }) => {
+        persistedOrder = (await request.json()) as unknown[]
+        return HttpResponse.json({ data: null, success: true })
+      }),
+      http.post(apiUrls.folders, () => HttpResponse.json({ message: 'Rejected', success: false })),
+    )
+
+    getHeaderButton('mdi-sort-variant').action?.()
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(orderReads).toBe(1)
+    expect(folderReads).toBe(1)
+    expect(getInstalledLabels().slice(0, 3)).toEqual(['plugin:插件 B', 'folder:Tools', 'plugin:插件 A'])
+    expect(persistedOrder).toEqual([
+      { id: 'Plugin-B', order: 0, type: 'plugin' },
+      { id: 'Tools', order: 1, type: 'folder' },
+      { id: 'Plugin-A', order: 2, type: 'plugin' },
+    ])
+    await waitForRequestsToFinish()
+  })
+
+  it('reloads both ordering sources when an internal folder sort is only partially persisted', async () => {
+    let persistedOrder: unknown[] = [
+      { id: 'Tools', order: 0, type: 'folder' },
+      { id: 'Plugin-A', order: 0.1, type: 'plugin' },
+      { id: 'Plugin-B', order: 0.2, type: 'plugin' },
+    ]
+    let folderReads = 0
+    let orderReads = 0
+    await renderList({
+      folders: () => ({ Tools: ['Plugin-A', 'Plugin-B'] }),
+      installed: () => [
+        createPlugin({ id: 'Plugin-A', installed: true, plugin_name: '插件 A' }),
+        createPlugin({ id: 'Plugin-B', installed: true, plugin_name: '插件 B' }),
+      ],
+      order: persistedOrder,
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.order, () => {
+        orderReads += 1
+        return HttpResponse.json({ data: { value: persistedOrder }, success: true })
+      }),
+      http.get(apiUrls.folders, () => {
+        folderReads += 1
+        return HttpResponse.json({ Tools: ['Plugin-A', 'Plugin-B'] })
+      }),
+      http.post(apiUrls.order, async ({ request }) => {
+        persistedOrder = (await request.json()) as unknown[]
+        return HttpResponse.json({ data: null, success: true })
+      }),
+      http.post(apiUrls.folders, () => HttpResponse.json({ message: 'Rejected' }, { status: 500 })),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    getHeaderButton('mdi-sort-variant').action?.()
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(orderReads).toBe(1)
+    expect(folderReads).toBe(1)
+    expect(getInstalledLabels().slice(0, 2)).toEqual(['plugin:插件 A', 'plugin:插件 B'])
+    await waitForRequestsToFinish()
+  })
+
+  it('rolls back a failed folder drop and persists a later successful drop', async () => {
+    let folderSaveSucceeds = false
+    await renderList({
+      folders: () => ({ Tools: [] }),
+      installed: () => [createPlugin({ id: 'Plugin-A', installed: true, plugin_name: '插件 A' })],
+      order: [
+        { id: 'Plugin-A', order: 0, type: 'plugin' },
+        { id: 'Tools', order: 1, type: 'folder' },
+      ],
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.order, () => HttpResponse.json({ data: null, success: true })),
+      http.post(apiUrls.folders, () =>
+        folderSaveSucceeds
+          ? HttpResponse.json({ data: null, success: true })
+          : HttpResponse.json({ message: 'Rejected', success: false }),
+      ),
+    )
+
+    getHeaderButton('mdi-sort-variant').action?.()
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'start-plugin-drag-0' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'drop-to-folder-Tools' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+
+    folderSaveSucceeds = true
+    await fireEvent.click(screen.getByRole('button', { name: 'finish-plugin-drag' }))
+    await waitFor(() => expect(screen.getByText('plugin:插件 A')).toBeInTheDocument())
+
+    await fireEvent.click(screen.getByRole('button', { name: 'start-plugin-drag-0' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'drop-to-folder-Tools' }))
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件已移动到文件夹 "Tools"'))
+    await fireEvent.click(screen.getByRole('button', { name: 'finish-plugin-drag' }))
+    await waitForRequestsToFinish()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    expect(await screen.findByText('plugin:插件 A')).toBeInTheDocument()
+  })
+
+  it('rolls back folder-internal order and persists a later successful order', async () => {
+    let orderSucceeds = false
+    await renderList({
+      folders: () => ({ Tools: ['Plugin-A', 'Plugin-B'] }),
+      installed: () => [
+        createPlugin({ id: 'Plugin-A', installed: true, plugin_name: '插件 A' }),
+        createPlugin({ id: 'Plugin-B', installed: true, plugin_name: '插件 B' }),
+      ],
+      order: [
+        { id: 'Tools', order: 0, type: 'folder' },
+        { id: 'Plugin-A', order: 0.1, type: 'plugin' },
+        { id: 'Plugin-B', order: 0.2, type: 'plugin' },
+      ],
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.order, () =>
+        orderSucceeds
+          ? HttpResponse.json({ data: null, success: true })
+          : HttpResponse.json({ message: 'Rejected', success: false }),
+      ),
+      http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    getHeaderButton('mdi-sort-variant').action?.()
+    await nextTick()
+    expect(getInstalledLabels().slice(0, 2)).toEqual(['plugin:插件 A', 'plugin:插件 B'])
+    await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(getInstalledLabels().slice(0, 2)).toEqual(['plugin:插件 A', 'plugin:插件 B'])
+
+    orderSucceeds = true
+    await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
+    await waitFor(() => expect(getInstalledLabels().slice(0, 2)).toEqual(['plugin:插件 B', 'plugin:插件 A']))
+    await waitForRequestsToFinish()
+
+    getHeaderButton('mdi-arrow-left').action?.()
+    expect(await screen.findByText('folder:Tools')).toBeInTheDocument()
+  })
+})

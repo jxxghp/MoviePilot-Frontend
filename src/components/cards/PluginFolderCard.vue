@@ -6,7 +6,9 @@ import { useDisplay } from 'vuetify'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const PluginFolderRenameDialog = defineAsyncComponent(() => import('@/components/dialog/PluginFolderRenameDialog.vue'))
-const PluginFolderSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/PluginFolderSettingsDialog.vue'))
+const PluginFolderSettingsDialog = defineAsyncComponent(
+  () => import('@/components/dialog/PluginFolderSettingsDialog.vue'),
+)
 
 // 文件夹配置接口
 interface FolderConfig {
@@ -60,7 +62,7 @@ const defaultColor = '#2196F3'
 const defaultIcon = 'mdi-folder'
 // 默认渐变
 const defaultGradient =
-  'linear-gradient(rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.5) 100%), linear-gradient(135deg, rgba(33, 150, 243, 0.7) 0%, rgba(33, 150, 243, 0.8s) 100%)'
+  'linear-gradient(rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.5) 100%), linear-gradient(135deg, rgba(33, 150, 243, 0.7) 0%, rgba(33, 150, 243, 0.8) 100%)'
 
 // 计算背景图片
 const backgroundImage = computed(() => {
@@ -166,7 +168,6 @@ function showSettingDialog() {
 // 保存设置
 function saveSettings(config: FolderConfig) {
   emit('update-config', props.folderName, config)
-  $toast.success(t('folder.folderSettingsSaved'))
 }
 
 onUnmounted(() => {
@@ -226,69 +227,72 @@ const dropdownItems = ref([
               'plugin-folder-card--sortable': props.sortable,
             }"
           >
-          <template v-if="backgroundImage" #image>
-            <VImg :src="backgroundImage" cover position="top"> </VImg>
-          </template>
+            <template v-if="backgroundImage" #image>
+              <VImg :src="backgroundImage" cover position="top"> </VImg>
+            </template>
 
-          <!-- 背景遮罩（当有背景图片时） -->
-          <div v-if="backgroundImage" class="plugin-folder-card__overlay" />
+            <!-- 背景遮罩（当有背景图片时） -->
+            <div v-if="backgroundImage" class="plugin-folder-card__overlay" />
 
-          <!-- 背景渐变层 -->
-          <div v-else class="plugin-folder-card__bg" :style="{ background: backgroundGradient }" />
+            <!-- 背景渐变层 -->
+            <div v-else class="plugin-folder-card__bg" :style="{ background: backgroundGradient }" />
 
-          <!-- 卡片内容 -->
-          <div class="plugin-folder-card__content">
-            <!-- 主体内容 -->
-            <div class="plugin-folder-card__body" :class="{ 'plugin-folder-card__body--no-icon': !shouldShowIcon }">
-              <!-- 文件夹图标 -->
-              <div v-if="shouldShowIcon" class="plugin-folder-card__icon-container">
-                <VIcon
-                  :icon="folderIcon"
-                  :size="display.mobile ? 56 : 72"
-                  :color="iconColor"
-                  :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
-                />
+            <!-- 卡片内容 -->
+            <div class="plugin-folder-card__content">
+              <!-- 主体内容 -->
+              <div class="plugin-folder-card__body" :class="{ 'plugin-folder-card__body--no-icon': !shouldShowIcon }">
+                <!-- 文件夹图标 -->
+                <div v-if="shouldShowIcon" class="plugin-folder-card__icon-container">
+                  <VIcon
+                    :icon="folderIcon"
+                    :size="display.mobile ? 56 : 72"
+                    :color="iconColor"
+                    :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
+                  />
+                </div>
+
+                <!-- 文件夹信息 -->
+                <div
+                  class="plugin-folder-card__info"
+                  :class="{
+                    'cursor-move': props.sortable && display.mdAndUp.value,
+                    'plugin-folder-card__info--no-icon': !shouldShowIcon,
+                  }"
+                >
+                  <!-- 文件夹名称 -->
+                  <h3 class="plugin-folder-card__name">
+                    {{ props.folderName }}
+                  </h3>
+                  <!-- 插件数量 -->
+                  <p class="plugin-folder-card__count">{{ t('folder.pluginCount', { count: props.pluginCount }) }}</p>
+                </div>
               </div>
 
-              <!-- 文件夹信息 -->
-              <div
-                class="plugin-folder-card__info"
-                :class="{ 'cursor-move': props.sortable && display.mdAndUp.value, 'plugin-folder-card__info--no-icon': !shouldShowIcon }"
-              >
-                <!-- 文件夹名称 -->
-                <h3 class="plugin-folder-card__name">
-                  {{ props.folderName }}
-                </h3>
-                <!-- 插件数量 -->
-                <p class="plugin-folder-card__count">{{ t('folder.pluginCount', { count: props.pluginCount }) }}</p>
+              <!-- 更多菜单按钮 - 右下角 -->
+              <div v-if="!props.sortable" class="absolute top-0 right-0">
+                <VMenu v-model="menuVisible" location="top end" :close-on-content-click="true">
+                  <template #activator="{ props: menuProps }">
+                    <IconBtn v-bind="menuProps" @click.stop>
+                      <VIcon size="small" icon="mdi-dots-vertical" class="text-white" />
+                    </IconBtn>
+                  </template>
+                  <VList>
+                    <VListItem
+                      v-for="(item, i) in dropdownItems"
+                      v-show="item.show"
+                      :key="i"
+                      :base-color="item.props.color"
+                      @click="item.props.click"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="item.props.prependIcon" size="16" />
+                      </template>
+                      <VListItemTitle class="text-body-2">{{ item.title }}</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </div>
             </div>
-
-            <!-- 更多菜单按钮 - 右下角 -->
-            <div v-if="!props.sortable" class="absolute top-0 right-0">
-              <VMenu v-model="menuVisible" location="top end" :close-on-content-click="true">
-                <template #activator="{ props: menuProps }">
-                  <IconBtn v-bind="menuProps" @click.stop>
-                    <VIcon size="small" icon="mdi-dots-vertical" class="text-white" />
-                  </IconBtn>
-                </template>
-                <VList>
-                  <VListItem
-                    v-for="(item, i) in dropdownItems"
-                    v-show="item.show"
-                    :key="i"
-                    :base-color="item.props.color"
-                    @click="item.props.click"
-                  >
-                    <template #prepend>
-                      <VIcon :icon="item.props.prependIcon" size="16" />
-                    </template>
-                    <VListItemTitle class="text-body-2">{{ item.title }}</VListItemTitle>
-                  </VListItem>
-                </VList>
-              </VMenu>
-            </div>
-          </div>
           </VCard>
         </div>
       </template>
