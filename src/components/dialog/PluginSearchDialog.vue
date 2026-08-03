@@ -81,6 +81,7 @@ function closeDialog() {
         <VTextField
           v-model="searchKeyword"
           :label="t('plugin.searchPlugins')"
+          :mobile-layout="false"
           single-line
           :placeholder="t('plugin.searchPlaceholder')"
           variant="solo"
