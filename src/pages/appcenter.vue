@@ -18,19 +18,16 @@ const userPermissions = computed(() => buildUserPermissionContext(userStore.supe
 // 应用分组（以header分组）
 const appGroups = ref<Record<string, NavMenu[]>>({})
 
-/** 按菜单 header 聚合内置与插件入口，并保持与桌面侧栏一致的权限过滤结果。 */
-async function categorizeApps() {
+/** 按菜单 header 聚合当前内置与插件入口，并保持与桌面侧栏一致的权限过滤结果。 */
+function categorizeApps() {
   const allMenus = getNavMenus(t)
   const filteredMenus = filterMenusByPermission(allMenus, userPermissions.value)
   let menus = filteredMenus.filter((item: NavMenu) => !item.footer)
 
-  await pluginSidebarNavStore.ensureSidebarNav()
   if (pluginSidebarNavStore.items.length > 0) {
-    const pluginNavMenus = filterPluginSidebarNavEntries(
-      pluginSidebarNavStore.items,
-      t,
-      userPermissions.value,
-    ).map(e => e.navMenu)
+    const pluginNavMenus = filterPluginSidebarNavEntries(pluginSidebarNavStore.items, t, userPermissions.value).map(
+      e => e.navMenu,
+    )
     menus = [...menus, ...pluginNavMenus]
   }
 
@@ -47,8 +44,15 @@ async function categorizeApps() {
   appGroups.value = groupedMenus
 }
 
-onMounted(() => {
+let appGroupsMounted = false
+watch([() => pluginSidebarNavStore.items, userPermissions], () => {
+  if (appGroupsMounted) categorizeApps()
+})
+
+onMounted(async () => {
+  await pluginSidebarNavStore.ensureSidebarNav()
   categorizeApps()
+  appGroupsMounted = true
 })
 </script>
 <template>
@@ -94,11 +98,7 @@ onMounted(() => {
                 <VIcon class="settings-list-chevron" icon="mdi-chevron-right"></VIcon>
               </template>
 
-              <span
-                v-if="appIndex < apps.length - 1"
-                class="settings-list-separator"
-                aria-hidden="true"
-              ></span>
+              <span v-if="appIndex < apps.length - 1" class="settings-list-separator" aria-hidden="true"></span>
             </VListItem>
           </VList>
         </VCard>
@@ -130,7 +130,10 @@ onMounted(() => {
   backdrop-filter: blur(10px);
   background-color: rgb(var(--v-theme-surface));
   box-shadow: var(--app-surface-shadow);
-  transition: border-color 0.2s ease, border-width 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    border-width 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .settings-list {

@@ -142,6 +142,10 @@ interface DynamicHeaderTab {
   onUpdateModelValue?: (value: string) => void // 用于通知值更新
 }
 
+type DynamicHeaderTabWindow = Window & {
+  __VUE_INJECT_DYNAMIC_HEADER_TAB__?: (tab: DynamicHeaderTab) => void
+}
+
 // 提供动态标签页注册和获取的方法
 const dynamicHeaderTab = ref<DynamicHeaderTab | null>(null)
 const openHorizontalNavGroup = ref<string | null>(null)
@@ -179,7 +183,7 @@ const handleTabChange = (newValue: string) => {
 // 添加全局注册方法，解决注入不可用的问题
 if (typeof window !== 'undefined') {
   // 确保在浏览器环境中
-  ;(window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__ = registerDynamicHeaderTab
+  ;(window as DynamicHeaderTabWindow).__VUE_INJECT_DYNAMIC_HEADER_TAB__ = registerDynamicHeaderTab
 }
 
 // 提供给其他组件使用
@@ -233,7 +237,7 @@ onUnmounted(() => {
   dynamicHeaderTab.value = null
   // 清理全局方法
   if (typeof window !== 'undefined') {
-    delete (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
+    delete (window as DynamicHeaderTabWindow).__VUE_INJECT_DYNAMIC_HEADER_TAB__
   }
 })
 
@@ -285,6 +289,8 @@ const getMenuList = (header: string) => {
   const filteredMenus = filterMenusByPermission(menus, userPermissions.value)
   return filteredMenus.filter((item: NavMenu) => item.header === header)
 }
+
+const getMenuIdentity = (item: NavMenu) => `${item.title}-${JSON.stringify(item.to ?? null)}`
 
 /** 返回浏览历史中的上一页。 */
 function goBack() {
@@ -458,20 +464,29 @@ function appendPluginSidebarMenus() {
   }
 }
 
-onMounted(async () => {
-  // 主题定制器由布局统一承载，监听需要尽早注册，避免异步加载菜单期间丢失打开事件。
-  window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
-  window.addEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
-
-  // 获取菜单列表
+/** 从当前内置菜单、权限上下文与插件快照重建所有侧栏分组。 */
+function rebuildSidebarMenus() {
   startMenus.value = getMenuList(t('menu.start'))
   discoveryMenus.value = getMenuList(t('menu.discovery'))
   subscribeMenus.value = getMenuList(t('menu.subscribe'))
   organizeMenus.value = getMenuList(t('menu.organize'))
   systemMenus.value = getMenuList(t('menu.system'))
-
-  await pluginSidebarNavStore.ensureSidebarNav()
   appendPluginSidebarMenus()
+}
+
+let sidebarMenusMounted = false
+watch([() => pluginSidebarNavStore.items, userPermissions], () => {
+  if (sidebarMenusMounted) rebuildSidebarMenus()
+})
+
+onMounted(async () => {
+  // 主题定制器由布局统一承载，监听需要尽早注册，避免异步加载菜单期间丢失打开事件。
+  window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+  window.addEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
+
+  rebuildSidebarMenus()
+  sidebarMenusMounted = true
+  await pluginSidebarNavStore.ensureSidebarNav()
 })
 </script>
 
@@ -642,7 +657,7 @@ onMounted(async () => {
     </template>
 
     <template #vertical-nav-content>
-      <VerticalNavLink v-for="item in startMenus" :item="item" />
+      <VerticalNavLink v-for="item in startMenus" :key="`start-${getMenuIdentity(item)}`" :item="item" />
       <!-- 👉 发现 -->
       <VerticalNavSectionTitle
         v-if="discoveryMenus.length > 0"
@@ -650,7 +665,7 @@ onMounted(async () => {
           heading: t('menu.discovery'),
         }"
       />
-      <VerticalNavLink v-for="item in discoveryMenus" :item="item" />
+      <VerticalNavLink v-for="item in discoveryMenus" :key="`discovery-${getMenuIdentity(item)}`" :item="item" />
       <!-- 👉 订阅 -->
       <VerticalNavSectionTitle
         v-if="subscribeMenus.length > 0"
@@ -658,7 +673,7 @@ onMounted(async () => {
           heading: t('menu.subscribe'),
         }"
       />
-      <VerticalNavLink v-for="item in subscribeMenus" :item="item" />
+      <VerticalNavLink v-for="item in subscribeMenus" :key="`subscribe-${getMenuIdentity(item)}`" :item="item" />
       <!-- 👉 整理 -->
       <VerticalNavSectionTitle
         v-if="organizeMenus.length > 0"
@@ -666,7 +681,7 @@ onMounted(async () => {
           heading: t('menu.organize'),
         }"
       />
-      <VerticalNavLink v-for="item in organizeMenus" :item="item" />
+      <VerticalNavLink v-for="item in organizeMenus" :key="`organize-${getMenuIdentity(item)}`" :item="item" />
       <!-- 👉 系统 -->
       <VerticalNavSectionTitle
         v-if="systemMenus.length > 0"
@@ -674,7 +689,7 @@ onMounted(async () => {
           heading: t('menu.system'),
         }"
       />
-      <VerticalNavLink v-for="item in systemMenus" :item="item" />
+      <VerticalNavLink v-for="item in systemMenus" :key="`system-${getMenuIdentity(item)}`" :item="item" />
     </template>
 
     <template #after-vertical-nav-items />

@@ -1,18 +1,35 @@
 import DefaultLayout from '@/layouts/default/components/DefaultLayout.vue'
-import {
-  THEME_CUSTOMIZER_CHANGE_EVENT,
-  THEME_CUSTOMIZER_OPEN_EVENT,
-} from '@/composables/useThemeCustomizer'
+import { THEME_CUSTOMIZER_CHANGE_EVENT, THEME_CUSTOMIZER_OPEN_EVENT } from '@/composables/useThemeCustomizer'
 import { flushPromises, shallowMount } from '@vue/test-utils'
+import type { PluginSidebarNavItem } from '@/api/types'
+import { nextTick, type Component } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+interface SidebarStoreMock {
+  ensureSidebarNav: ReturnType<typeof vi.fn>
+  items: PluginSidebarNavItem[]
+}
+
+interface UserStoreMock {
+  permissions: Record<string, unknown>
+  superUser: boolean
+}
 
 const mocks = vi.hoisted(() => ({
   emptyComponent: { template: '<div><slot /></div>' },
   ensureSidebarNav: vi.fn(),
+  navLink: {
+    name: 'VerticalNavLink',
+    props: ['item'],
+    template: '<span data-testid="vertical-nav-link">{{ item.title }}</span>',
+  },
+  sidebarStore: undefined as SidebarStoreMock | undefined,
+  userStore: undefined as UserStoreMock | undefined,
+  verticalNavLayout: { template: '<div><slot name="vertical-nav-content" /></div>' },
 }))
 
-vi.mock('@layouts/components/VerticalNavLayout.vue', () => ({ default: mocks.emptyComponent }))
-vi.mock('@layouts/components/VerticalNavLink.vue', () => ({ default: mocks.emptyComponent }))
+vi.mock('@layouts/components/VerticalNavLayout.vue', () => ({ default: mocks.verticalNavLayout }))
+vi.mock('@layouts/components/VerticalNavLink.vue', () => ({ default: mocks.navLink }))
 vi.mock('@layouts/components/VerticalNavSectionTitle.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/components/agent/AgentAssistantWidget.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/components/misc/ThemeLogoMark.vue', () => ({ default: mocks.emptyComponent }))
@@ -26,24 +43,34 @@ vi.mock('@/layouts/default/components/ShortcutBar.vue', () => ({ default: mocks.
 vi.mock('@/layouts/default/components/UserNotification.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/UserProfile.vue', () => ({ default: mocks.emptyComponent }))
 
-vi.mock('@/stores', () => ({
-  useGlobalSettingsStore: () => ({ get: vi.fn(() => false) }),
-  usePluginSidebarNavStore: () => ({
+vi.mock('@/stores', async () => {
+  const { reactive } = await import('vue')
+  mocks.sidebarStore = reactive({
     ensureSidebarNav: mocks.ensureSidebarNav,
-    items: [],
-  }),
-  useUserStore: () => ({ permissions: [], superUser: true }),
-}))
+    items: [] as PluginSidebarNavItem[],
+  })
+  mocks.userStore = reactive({
+    permissions: {
+      admin: false,
+      discovery: true,
+      features: {},
+      manage: false,
+      search: true,
+      subscribe: true,
+    },
+    superUser: false,
+  })
 
-vi.mock('@/router/i18n-menu', () => ({ getNavMenus: () => [] }))
-vi.mock('@/utils/pluginSidebarNav', () => ({ filterPluginSidebarNavEntries: () => [] }))
-vi.mock('@/utils/permission', async importOriginal => ({
-  ...(await importOriginal<typeof import('@/utils/permission')>()),
-  buildUserPermissionContext: () => ({}),
-  filterItemsByPermission: <T>(items: T[]) => items,
-  filterMenusByPermission: () => [],
-  hasItemPermission: () => true,
-  hasPermission: () => true,
+  return {
+    useGlobalSettingsStore: () => ({ get: vi.fn(() => false) }),
+    usePluginSidebarNavStore: () => mocks.sidebarStore,
+    useUserStore: () => mocks.userStore,
+  }
+})
+
+vi.mock('@/router/i18n-menu', () => ({
+  getNavMenus: () => [{ header: 'menu.start', title: 'Built-in dashboard', to: '/dashboard' }],
+  pluginSidebarSectionToHeaderKey: (section: string) => `menu.${section}`,
 }))
 vi.mock('@/composables/useOfflineStatus', () => ({
   useGlobalOfflineStatus: () => ({ isOffline: { value: false } }),
@@ -82,6 +109,17 @@ vi.mock('vuetify', async importOriginal => ({
 describe('DefaultLayout', () => {
   beforeEach(() => {
     mocks.ensureSidebarNav.mockReset()
+    mocks.ensureSidebarNav.mockResolvedValue(undefined)
+    mocks.sidebarStore!.items = []
+    mocks.userStore!.permissions = {
+      admin: false,
+      discovery: true,
+      features: {},
+      manage: false,
+      search: true,
+      subscribe: true,
+    }
+    mocks.userStore!.superUser = false
   })
 
   it('removes theme customizer listeners while sidebar loading is still pending', async () => {
@@ -96,13 +134,18 @@ describe('DefaultLayout', () => {
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
     const wrapper = shallowMount(DefaultLayout, {
       global: {
+        renderStubDefaultSlot: true,
         stubs: {
           IconBtn: mocks.emptyComponent,
           RouterLink: mocks.emptyComponent,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
         },
       },
     })
     await flushPromises()
+
+    expect(wrapper.text()).toContain('Built-in dashboard')
 
     const changeHandler = addEventListener.mock.calls.find(
       ([event]) => String(event) === THEME_CUSTOMIZER_CHANGE_EVENT,
@@ -121,5 +164,90 @@ describe('DefaultLayout', () => {
 
     resolveSidebarNav()
     await flushPromises()
+  })
+
+  it('replaces plugin links when the shared snapshot refreshes after mount', async () => {
+    mocks.sidebarStore!.items = [
+      {
+        icon: 'mdi-puzzle-outline',
+        nav_key: 'main',
+        order: 1,
+        plugin_id: 'old',
+        section: 'system',
+        title: 'Old plugin',
+      },
+    ]
+    const wrapper = shallowMount(DefaultLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          IconBtn: mocks.emptyComponent as Component,
+          RouterLink: mocks.emptyComponent as Component,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Old plugin')
+
+    mocks.sidebarStore!.items = [
+      {
+        icon: 'mdi-puzzle-outline',
+        nav_key: 'main',
+        order: 1,
+        plugin_id: 'new',
+        section: 'system',
+        title: 'New plugin',
+      },
+    ]
+    await nextTick()
+
+    expect(wrapper.text()).toContain('New plugin')
+    expect(wrapper.text()).not.toContain('Old plugin')
+  })
+
+  it('rebuilds plugin links when permissions change after mount', async () => {
+    mocks.sidebarStore!.items = [
+      {
+        icon: 'mdi-puzzle-outline',
+        nav_key: 'main',
+        order: 1,
+        plugin_id: 'visible',
+        section: 'system',
+        title: 'Visible plugin',
+      },
+      {
+        icon: 'mdi-puzzle-outline',
+        nav_key: 'main',
+        order: 2,
+        plugin_id: 'hidden',
+        section: 'system',
+        title: 'Hidden plugin',
+      },
+    ]
+    const wrapper = shallowMount(DefaultLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          IconBtn: mocks.emptyComponent as Component,
+          RouterLink: mocks.emptyComponent as Component,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Visible plugin')
+    expect(wrapper.text()).toContain('Hidden plugin')
+
+    mocks.userStore!.permissions = {
+      ...mocks.userStore!.permissions,
+      features: { 'plugin.hidden.main': false },
+    }
+    await nextTick()
+
+    expect(wrapper.text()).not.toContain('Hidden plugin')
   })
 })
