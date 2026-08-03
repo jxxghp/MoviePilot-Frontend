@@ -897,20 +897,6 @@
       "count": 1
     }
   },
-  "src/views/plugin/PluginCardListView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 15
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 9
-    },
-    "no-useless-catch": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 4
-    }
-  },
   "src/views/reorganize/TransferHistoryView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11
