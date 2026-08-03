@@ -485,11 +485,18 @@ function handleCardClick() {
 
               <template v-if="display.xs.value">
                 <div class="subscribe-card-mobile-media">
-                  <VImg :src="backdropUrl || posterUrl" :aspect-ratio="2" cover position="top" @load="imageLoadHandler">
+                  <VImg
+                    :src="backdropUrl || posterUrl"
+                    :aspect-ratio="16 / 9"
+                    cover
+                    position="top"
+                    @load="imageLoadHandler"
+                  >
                     <template #placeholder>
                       <VSkeletonLoader class="h-full w-full" />
                     </template>
                   </VImg>
+                  <div class="subscribe-card-mobile-image-scrim subscribe-card-background"></div>
 
                   <div
                     v-if="props.media?.username || lastUpdateText"
@@ -512,14 +519,19 @@ function handleCardClick() {
                       <span>{{ lastUpdateText }}</span>
                     </div>
                   </div>
+
+                  <div class="subscribe-card-mobile-title">
+                    <span>{{ props.media?.name }}</span>
+                    <span
+                      v-if="formatSeasonLabel(props.media?.season, t('media.specials'))"
+                      class="subscribe-card-mobile-season"
+                    >
+                      {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="subscribe-card-mobile-body">
-                  <div class="subscribe-card-mobile-title">
-                    {{ props.media?.name }}
-                    {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
-                  </div>
-
                   <div class="subscribe-card-mobile-footer">
                     <div class="subscribe-card-mobile-meta">
                       <div
@@ -528,14 +540,14 @@ function handleCardClick() {
                         :title="compactStateDisplay.label"
                         :aria-label="compactStateDisplay.label"
                       >
-                        <VIcon :icon="compactStateDisplay.icon" size="18" />
+                        <VIcon :icon="compactStateDisplay.icon" size="16" />
                         <span v-if="subscribeProgressText" class="subscribe-card-mobile-progress-text">
                           {{ subscribeProgressText }}
                         </span>
                       </div>
 
                       <IconBtn v-if="!props.sortable" class="subscribe-card-mobile-menu" size="small" @click.stop>
-                        <VIcon icon="mdi-dots-horizontal" size="20" />
+                        <VIcon icon="mdi-dots-horizontal" size="18" />
                         <VMenu activator="parent" close-on-content-click>
                           <VList>
                             <template v-for="(item, i) in dropdownItems" :key="i">
@@ -561,7 +573,7 @@ function handleCardClick() {
                         :bg-color="compactStateDisplay.color"
                         :color="compactStateDisplay.color"
                         bg-opacity="0.18"
-                        height="4"
+                        height="3"
                         rounded
                       />
                     </div>
@@ -705,7 +717,7 @@ function handleCardClick() {
 .subscribe-card-mobile-media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 2 / 1;
+  aspect-ratio: 16 / 9;
   flex-shrink: 0;
   inline-size: 100%;
 }
@@ -714,48 +726,43 @@ function handleCardClick() {
   block-size: 100%;
 }
 
-.subscribe-card-mobile-image-meta {
+.subscribe-card-mobile-image-scrim {
   position: absolute;
-  z-index: 2;
-  font-size: 0.6875rem;
-  font-weight: 500;
+  z-index: 1;
   inset: 0;
   pointer-events: none;
 }
 
-.subscribe-card-mobile-image-meta__item {
+.subscribe-card-mobile-image-meta {
   position: absolute;
+  z-index: 2;
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  inset-block-start: 0.5rem;
+  inset-inline: 0.5rem;
+  pointer-events: none;
+}
+
+.subscribe-card-mobile-image-meta__item {
   display: flex;
   min-inline-size: 0;
   align-items: center;
   gap: 0.25rem;
-  color: rgba(255, 255, 255, 0.88);
-  isolation: isolate;
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.2;
-  padding-block: 0.0625rem;
-  padding-inline: 0.125rem;
-}
-
-.subscribe-card-mobile-image-meta__item::before {
-  position: absolute;
-  z-index: -1;
-  border-radius: 0.4rem;
-  background: rgba(0, 0, 0, 0.36);
-  content: '';
-  filter: blur(3px);
-  inset: -0.25rem -0.55rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
 .subscribe-card-mobile-image-meta__user {
-  max-inline-size: calc(100% - 1rem);
-  inset-block-start: 0.5rem;
-  inset-inline-start: 0.5rem;
-  transition: inset-block-start 0.2s ease;
+  flex: 1 1 auto;
 }
 
-.subscribe-card-mobile-image-meta--with-badge .subscribe-card-mobile-image-meta__user {
-  max-inline-size: calc(100% - 4.25rem);
-  inset-block-start: 0.5rem;
+.subscribe-card-mobile-image-meta--with-badge {
+  padding-inline-start: 2rem;
 }
 
 .subscribe-card-mobile-image-meta__user span {
@@ -767,41 +774,54 @@ function handleCardClick() {
 
 .subscribe-card-mobile-image-meta__updated {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.76);
-  inset-block-end: 0.5rem;
-  inset-inline-end: 0.5rem;
+  margin-inline-start: auto;
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .subscribe-card-mobile-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.25rem 0.625rem 0.375rem;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
 }
 
 .subscribe-card-mobile-title {
+  position: absolute;
+  z-index: 2;
   display: -webkit-box;
   overflow: hidden;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.35;
+  color: white;
+  font-size: 1rem;
+  font-weight: 650;
+  inset-block-end: 0;
+  inset-inline: 0;
+  line-height: 1.3;
+  padding: 1.75rem 0.75rem 0.625rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.subscribe-card-mobile-season {
+  margin-inline-start: 0.25rem;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .subscribe-card-mobile-footer {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.1875rem;
   margin-block-start: auto;
 }
 
 .subscribe-card-mobile-meta {
   display: flex;
   min-inline-size: 0;
-  min-block-size: 2rem;
+  min-block-size: 1.75rem;
   align-items: center;
   gap: 0.25rem;
   justify-content: space-between;
@@ -813,7 +833,7 @@ function handleCardClick() {
   align-items: center;
   flex: 1 1 auto;
   gap: 0.35rem;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.25;
   white-space: nowrap;
@@ -829,17 +849,17 @@ function handleCardClick() {
 }
 
 .subscribe-card-mobile-menu {
-  block-size: 2rem;
-  min-block-size: 2rem;
-  inline-size: 2rem;
-  min-inline-size: 2rem;
-  flex: 0 0 2rem;
+  block-size: 1.75rem;
+  min-block-size: 1.75rem;
+  inline-size: 1.75rem;
+  min-inline-size: 1.75rem;
+  flex: 0 0 1.75rem;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
 }
 
 .subscribe-card-mobile-progress {
   display: flex;
-  block-size: 4px;
+  block-size: 3px;
   inline-size: 100%;
 }
 
@@ -922,14 +942,13 @@ function handleCardClick() {
     opacity: 1;
   }
 
-  .subscribe-card-paused .subscribe-card-mobile-media {
+  .subscribe-card-paused .subscribe-card-mobile-media .v-img {
     filter: saturate(0.65);
     opacity: 0.58;
   }
 
   .best-version-badge {
-    inset-inline-start: auto;
-    inset-inline-end: 0.5rem;
+    inset-inline-start: 0.5rem;
   }
 
   .subscribe-card-pending-tint::after {

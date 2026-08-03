@@ -200,6 +200,7 @@ describe('SubscribeCard display and progress', () => {
       best_version: true,
       completed_episode: 3,
       lack_episode: 2,
+      season: 1,
       state: 'P',
       total_episode: 10,
       type: '电视剧',
@@ -211,6 +212,10 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30')
     expect(screen.getByText(lastUpdateText)).toBeInTheDocument()
     expect(document.querySelector('.subscribe-card-mobile-menu')).toBeInTheDocument()
+    expect(document.querySelector('.subscribe-card-mobile-media')).toContainElement(screen.getByText(/卡片测试媒体/))
+    expect(document.querySelector('.subscribe-card-mobile-image-meta__updated')).toHaveTextContent(lastUpdateText)
+    expect(document.querySelector('.subscribe-card-mobile-body')).not.toHaveTextContent('卡片测试媒体')
+    expect(document.querySelector('.subscribe-card-mobile-season')).toHaveTextContent('S01')
 
     await rerender({ media: { ...media, state: 'S' } })
     expect(screen.getByLabelText('已暂停')).toBeInTheDocument()
