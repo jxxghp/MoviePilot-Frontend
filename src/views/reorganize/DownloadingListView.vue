@@ -69,8 +69,8 @@ useKeepAliveRefresh(fetchData, {
     v-if="filteredDataList.length > 0"
     :items="filteredDataList"
     :get-item-key="item => item.hash || item.name"
-    :min-item-width="360"
-    :estimated-item-height="248"
+    :min-item-width="320"
+    :estimated-item-height="230"
   >
     <template #default="{ item }">
       <DownloadingCard :info="item" :downloader-name="props.name" />

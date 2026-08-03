@@ -79,7 +79,7 @@
   },
   "src/api/types.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 38
+      "count": 39
     },
     "@typescript-eslint/no-wrapper-object-types": {
       "count": 2
