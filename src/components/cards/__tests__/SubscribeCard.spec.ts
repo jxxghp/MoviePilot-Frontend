@@ -196,7 +196,7 @@ describe('SubscribeCard display and progress', () => {
 
   it('keeps mobile wash progress compact while preserving P, S, and R metadata', async () => {
     setViewport(480)
-    const { media, rerender } = await renderCard({
+    const { container, media, rerender } = await renderCard({
       best_version: true,
       completed_episode: 3,
       lack_episode: 2,
@@ -216,6 +216,16 @@ describe('SubscribeCard display and progress', () => {
     expect(document.querySelector('.subscribe-card-mobile-image-meta__updated')).toHaveTextContent(lastUpdateText)
     expect(document.querySelector('.subscribe-card-mobile-body')).not.toHaveTextContent('卡片测试媒体')
     expect(document.querySelector('.subscribe-card-mobile-season')).toHaveTextContent('S01')
+    expect(document.querySelector('.subscribe-card-mobile-title-text')).toHaveTextContent('卡片测试媒体S01')
+    const image = container.querySelector<HTMLImageElement>('img')
+    expect(image).not.toBeNull()
+    await fireEvent.load(image as HTMLImageElement)
+    expect(document.querySelector('.subscribe-card-mobile-title')).toContainElement(
+      document.querySelector('.subscribe-card-mobile-best-version-badge'),
+    )
+    expect(document.querySelector('.subscribe-card-mobile-image-meta')).not.toHaveClass(
+      'subscribe-card-mobile-image-meta--with-badge',
+    )
 
     await rerender({ media: { ...media, state: 'S' } })
     expect(screen.getByLabelText('已暂停')).toBeInTheDocument()

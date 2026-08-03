@@ -32,17 +32,22 @@ const selectedSitesUrl = new URL('system/setting/public/IndexerSites', API_BASE_
 
 let intersectionObservers: IntersectionObserverMock[] = []
 
+/** 提供可手动触发的视口观察器，供媒体卡片测试验证懒加载行为。 */
 class IntersectionObserverMock implements IntersectionObserver {
   readonly root: Element | Document | null
   readonly rootMargin: string
   readonly thresholds: readonly number[]
+  /** 记录观察器释放调用。 */
   readonly disconnect = vi.fn()
+  /** 记录被观察元素，供后续构造交叉状态。 */
   readonly observe = vi.fn((target: Element) => {
     this.target = target
   })
+  /** 记录停止观察调用。 */
   readonly unobserve = vi.fn()
   private target: Element = document.body
 
+  /** 创建使用指定回调和阈值的测试观察器。 */
   constructor(
     private readonly callback: IntersectionObserverCallback,
     options: IntersectionObserverInit = {},
@@ -53,10 +58,12 @@ class IntersectionObserverMock implements IntersectionObserver {
     intersectionObservers.push(this)
   }
 
+  /** 返回测试期间未消费的观察记录。 */
   takeRecords(): IntersectionObserverEntry[] {
     return []
   }
 
+  /** 手动向组件发送进入或离开视口的交叉状态。 */
   trigger(isIntersecting = true) {
     const bounds = this.target.getBoundingClientRect()
     this.callback(
@@ -565,15 +572,19 @@ describe('MediaCard', () => {
           h('div', [h('button', { 'aria-label': '图片加载成功', onClick: () => emit('load') }), slots.default?.()])
       },
     })
+    const VIconStub = {
+      props: ['icon'],
+      template: '<i :data-icon="icon" />',
+    }
     const { container } = await renderWithProviders(MediaCard, {
       props: { media, width: '9rem' },
       initialState: { user: { superUser: true } },
-      global: { stubs: { VImg: VImgStub } },
+      global: { stubs: { VIcon: VIconStub, VImg: VImgStub } },
     })
 
     await fireEvent.click(container.querySelector('[aria-label="图片加载成功"]') as HTMLElement)
 
-    await waitFor(() => expect(container.querySelector('.v-avatar .iconify--mdi')).not.toBeNull())
+    await waitFor(() => expect(container.querySelector('[data-icon="mdi-alpha-a-circle"]')).not.toBeNull())
   })
 
   it('hides search and subscribe actions when the user lacks both permissions', async () => {

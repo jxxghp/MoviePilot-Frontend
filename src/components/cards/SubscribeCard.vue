@@ -447,7 +447,7 @@ function handleCardClick() {
               :ripple="display.smAndUp.value && !props.batchMode && !props.sortable"
             >
               <div
-                v-if="bestVersionBadge && imageLoaded"
+                v-if="bestVersionBadge && imageLoaded && display.smAndUp.value"
                 class="best-version-badge"
                 :class="{ 'best-version-badge-full': bestVersionBadge.full }"
               >
@@ -498,11 +498,7 @@ function handleCardClick() {
                   </VImg>
                   <div class="subscribe-card-mobile-image-scrim subscribe-card-background"></div>
 
-                  <div
-                    v-if="props.media?.username || lastUpdateText"
-                    class="subscribe-card-mobile-image-meta"
-                    :class="{ 'subscribe-card-mobile-image-meta--with-badge': bestVersionBadge }"
-                  >
+                  <div v-if="props.media?.username || lastUpdateText" class="subscribe-card-mobile-image-meta">
                     <div
                       v-if="props.media?.username"
                       class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__user"
@@ -521,13 +517,22 @@ function handleCardClick() {
                   </div>
 
                   <div class="subscribe-card-mobile-title">
-                    <span>{{ props.media?.name }}</span>
                     <span
-                      v-if="formatSeasonLabel(props.media?.season, t('media.specials'))"
-                      class="subscribe-card-mobile-season"
+                      v-if="bestVersionBadge && imageLoaded"
+                      class="best-version-badge subscribe-card-mobile-best-version-badge"
+                      :class="{ 'best-version-badge-full': bestVersionBadge.full }"
                     >
-                      {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
+                      <VIcon :icon="bestVersionBadge.icon" color="white" size="14" />
                     </span>
+                    <div class="subscribe-card-mobile-title-text">
+                      <span>{{ props.media?.name }}</span>
+                      <span
+                        v-if="formatSeasonLabel(props.media?.season, t('media.specials'))"
+                        class="subscribe-card-mobile-season"
+                      >
+                        {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -761,10 +766,6 @@ function handleCardClick() {
   flex: 1 1 auto;
 }
 
-.subscribe-card-mobile-image-meta--with-badge {
-  padding-inline-start: 2rem;
-}
-
 .subscribe-card-mobile-image-meta__user span {
   min-inline-size: 0;
   overflow: hidden;
@@ -789,18 +790,36 @@ function handleCardClick() {
 .subscribe-card-mobile-title {
   position: absolute;
   z-index: 2;
-  display: -webkit-box;
-  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
   color: white;
   font-size: 1rem;
   font-weight: 650;
   inset-block-end: 0;
   inset-inline: 0;
   line-height: 1.3;
-  padding: 1.75rem 0.75rem 0.625rem;
+  padding: 1rem 0.75rem 0.625rem;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+.subscribe-card-mobile-title-text {
+  display: -webkit-box;
+  min-inline-size: 0;
+  max-block-size: 3.9em;
+  overflow: hidden;
+  flex: 1 1 auto;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
+}
+
+.best-version-badge.subscribe-card-mobile-best-version-badge {
+  position: static;
+  z-index: auto;
+  block-size: 1.25rem;
+  flex: 0 0 1.25rem;
+  inline-size: 1.25rem;
+  margin-block-start: 0.05rem;
 }
 
 .subscribe-card-mobile-season {
@@ -907,7 +926,7 @@ function handleCardClick() {
 }
 
 /**
- * 洗版标识：卡片左上角 24x24 圆形徽标
+ * 洗版标识：桌面端左上角使用 24x24 圆形徽标，移动端缩小后放在标题前。
  * 分集：深色半透底 + 模糊
  * 全集：磨砂玻璃半透白底 + 大模糊
  */
@@ -945,10 +964,6 @@ function handleCardClick() {
   .subscribe-card-paused .subscribe-card-mobile-media .v-img {
     filter: saturate(0.65);
     opacity: 0.58;
-  }
-
-  .best-version-badge {
-    inset-inline-start: 0.5rem;
   }
 
   .subscribe-card-pending-tint::after {
