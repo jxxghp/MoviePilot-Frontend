@@ -141,31 +141,6 @@
       "count": 1
     }
   },
-  "src/components/cards/PluginAppCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 1
-    },
-    "vue/no-v-text-v-html-on-component": {
-      "count": 1
-    }
-  },
-  "src/components/cards/PluginCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    },
-    "vue/no-v-text-v-html-on-component": {
-      "count": 1
-    }
-  },
   "src/components/cards/PluginMixedSortCard.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
@@ -267,17 +242,6 @@
   },
   "src/components/dialog/PasskeyDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/PluginMarketDetailDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
       "count": 1
     }
   },

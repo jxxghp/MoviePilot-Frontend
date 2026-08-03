@@ -63,7 +63,9 @@ const resolvedHistory = computed(() => {
 
 const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)
 
-const latestActionText = computed(() => props.actionMode === 'install' ? t('plugin.installReleaseVersion') : t('plugin.updateToLatest'))
+const latestActionText = computed(() =>
+  props.actionMode === 'install' ? t('plugin.installReleaseVersion') : t('plugin.updateToLatest'),
+)
 
 const releaseItems = computed(() => releaseDetail.value?.items || [])
 
@@ -187,29 +189,48 @@ watch(
       <div v-if="loading" class="plugin-version-history-dialog__loading">
         <VProgressCircular indeterminate color="primary" />
       </div>
-      <VCardText v-else-if="loadError && !hasHistory">
-        <VAlert type="warning" variant="tonal" density="compact" :text="loadError" />
-      </VCardText>
-      <VCardText v-else-if="!hasHistory && !releaseLoading">
-        <VAlert type="info" variant="tonal" density="compact" :text="t('plugin.updateHistoryEmpty')" />
-      </VCardText>
       <template v-else>
-        <VCardText v-if="releaseError" class="pb-0">
-          <VAlert type="warning" variant="tonal" density="compact" :text="releaseError" />
+        <VCardText v-if="loadError || releaseError" class="pb-0">
+          <VAlert v-if="loadError" type="warning" variant="tonal" density="compact" :text="loadError" />
+          <VAlert
+            v-if="releaseError"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            :class="{ 'mt-2': loadError }"
+            :text="releaseError"
+          />
+        </VCardText>
+        <VCardText v-if="!hasHistory && !releaseLoading && !loadError && !releaseError">
+          <VAlert type="info" variant="tonal" density="compact" :text="t('plugin.updateHistoryEmpty')" />
         </VCardText>
         <VersionHistory
+          v-if="hasHistory"
           :history="resolvedHistory"
           :has-action="version => shouldShowReleaseButton(releaseItemByHistoryVersion(version))"
         >
           <template #meta="{ version }">
             <div v-if="releaseItemByHistoryVersion(version)" class="plugin-release-meta">
-              <span v-if="formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at)" class="plugin-release-meta__date">
+              <span
+                v-if="formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at)"
+                class="plugin-release-meta__date"
+              >
                 {{ formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at) }}
               </span>
-              <VChip v-if="releaseItemByHistoryVersion(version)?.is_latest" size="x-small" color="primary" variant="tonal">
+              <VChip
+                v-if="releaseItemByHistoryVersion(version)?.is_latest"
+                size="x-small"
+                color="primary"
+                variant="tonal"
+              >
                 {{ t('plugin.latestVersion') }}
               </VChip>
-              <VChip v-if="releaseItemByHistoryVersion(version)?.is_current" size="x-small" color="success" variant="tonal">
+              <VChip
+                v-if="releaseItemByHistoryVersion(version)?.is_current"
+                size="x-small"
+                color="success"
+                variant="tonal"
+              >
                 {{ t('plugin.currentVersion') }}
               </VChip>
             </div>
@@ -229,9 +250,7 @@ watch(
               @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
             >
               {{
-                releaseItemByHistoryVersion(version)?.is_latest
-                    ? latestActionText
-                    : t('plugin.installReleaseVersion')
+                releaseItemByHistoryVersion(version)?.is_latest ? latestActionText : t('plugin.installReleaseVersion')
               }}
             </VBtn>
           </template>
@@ -248,11 +267,7 @@ watch(
             class="mb-3"
             :text="resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
           />
-          <VBtn
-            @click="handleUpdate()"
-            block
-            :disabled="resolvedPlugin?.system_version_compatible === false"
-          >
+          <VBtn @click="handleUpdate()" block :disabled="resolvedPlugin?.system_version_compatible === false">
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
             </template>
@@ -289,5 +304,4 @@ watch(
   font-size: 0.875rem;
   white-space: nowrap;
 }
-
 </style>

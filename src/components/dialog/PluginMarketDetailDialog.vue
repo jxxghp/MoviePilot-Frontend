@@ -59,9 +59,6 @@ const selectedRating = ref(props.plugin?.user_rating || 0)
 const ratingLoading = ref(false)
 const ratingSubmitting = ref(false)
 
-// 图片对象
-const imageRef = ref<any>()
-
 // 图片是否加载失败
 const imageLoadError = ref(false)
 
@@ -97,20 +94,16 @@ function visitPluginPage() {
   if (props.plugin?.is_local || repoUrl?.startsWith('local://')) {
     repoUrl = props.plugin?.author_url
   }
-  if (repoUrl) {
-    if (repoUrl.includes('raw.githubusercontent.com')) {
-      if (!repoUrl.endsWith('/')) repoUrl += '/'
-
-      if (repoUrl.split('/').length < 6) repoUrl = `${repoUrl}main/`
-
-      try {
-        const [user, repo] = repoUrl.split('/').slice(-4, -2)
-        repoUrl = `https://github.com/${user}/${repo}`
-      } catch (error) {
-        return
-      }
+  if (repoUrl?.includes('raw.githubusercontent.com')) {
+    try {
+      const rawUrl = new URL(repoUrl)
+      const [user, repo] = rawUrl.pathname.split('/').filter(Boolean)
+      if (user && repo) repoUrl = `https://github.com/${user}/${repo}`
+    } catch {
+      return
     }
-  } else {
+  }
+  if (!repoUrl) {
     repoUrl = props.plugin?.author_url
   }
   window.open(repoUrl, '_blank')
@@ -146,15 +139,13 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
           }),
     )
 
-    const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
+    const result: ApiResponse<unknown> = await api.get(`plugin/install/${props.plugin?.id}`, {
       params: {
         repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
-        force: props.plugin?.has_update || Boolean(releaseVersion),
+        force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
       },
     })
-
-    closeInstallProgress()
 
     if (result.success) {
       $toast.success(
@@ -170,8 +161,15 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       $toast.error(t('plugin.installFailed', { name: props.plugin?.plugin_name, message: result.message }))
     }
   } catch (error) {
-    closeInstallProgress()
+    $toast.error(
+      t('plugin.installFailed', {
+        name: props.plugin?.plugin_name,
+        message: t('common.serverConnectionFailed'),
+      }),
+    )
     console.error(error)
+  } finally {
+    closeInstallProgress()
   }
 }
 
@@ -255,7 +253,7 @@ onUnmounted(() => {
           <div class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row">
             <div class="mx-auto mt-5">
               <VAvatar size="64">
-                <VImg ref="imageRef" :src="pluginIconPath()" aspect-ratio="4/3" cover @error="imageLoadError = true" />
+                <VImg :src="pluginIconPath()" aspect-ratio="4/3" cover @error="imageLoadError = true" />
               </VAvatar>
             </div>
             <div class="flex-grow">
