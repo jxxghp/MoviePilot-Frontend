@@ -159,13 +159,7 @@ async function deleteDownload() {
           }"
         >
           <div v-if="hasPosterImage" class="downloading-card__poster">
-            <VImg
-              :src="media.image"
-              class="downloading-card__image"
-              cover
-              position="top"
-              @error="imageLoadError = true"
-            >
+            <VImg :src="media.image" class="downloading-card__image" position="center" @error="imageLoadError = true">
               <template #placeholder>
                 <VSkeletonLoader class="downloading-card__image-loader h-full" />
               </template>
@@ -276,7 +270,7 @@ async function deleteDownload() {
 
 .downloading-card {
   display: grid;
-  min-block-size: 13rem;
+  min-block-size: 12rem;
   color: rgb(var(--v-theme-on-surface));
   grid-template-columns: 8.25rem minmax(0, 1fr);
 }
@@ -284,7 +278,7 @@ async function deleteDownload() {
 .downloading-card__poster {
   position: relative;
   overflow: hidden;
-  min-block-size: 13rem;
+  min-block-size: 12rem;
   background: rgba(var(--v-theme-on-surface), 0.06);
 }
 
@@ -292,14 +286,6 @@ async function deleteDownload() {
 .downloading-card__image-loader {
   block-size: 100%;
   inline-size: 100%;
-}
-
-.downloading-card__image :deep(.v-img__img) {
-  transition: transform 0.35s ease;
-}
-
-.downloading-card--hovering .downloading-card__image :deep(.v-img__img) {
-  transform: scale(1.035);
 }
 
 .downloading-card__poster-edge {
@@ -313,8 +299,8 @@ async function deleteDownload() {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 1rem !important;
+  gap: 0.55rem;
+  padding: 0.875rem !important;
 }
 
 .downloading-card__chips {
@@ -457,17 +443,17 @@ async function deleteDownload() {
 
 @container (width <= 25rem) {
   .downloading-card {
-    min-block-size: 12rem;
+    min-block-size: 11rem;
     grid-template-columns: 6.75rem minmax(0, 1fr);
   }
 
   .downloading-card__poster {
-    min-block-size: 12rem;
+    min-block-size: 11rem;
   }
 
   .downloading-card__body {
-    gap: 0.5rem;
-    padding: 0.75rem !important;
+    gap: 0.45rem;
+    padding: 0.65rem !important;
   }
 
   .downloading-card__chips {
@@ -517,11 +503,5 @@ async function deleteDownload() {
 .downloading-card.downloading-card--no-image {
   min-block-size: 0;
   grid-template-columns: minmax(0, 1fr);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .downloading-card__image :deep(.v-img__img) {
-    transition: none;
-  }
 }
 </style>
