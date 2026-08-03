@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type { ApiResponse, Plugin } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -39,7 +39,7 @@ const createConfirm = useConfirm()
 const accentRgb = ref('40, 169, 225')
 
 // 图片对象
-const imageRef = ref<any>()
+const imageRef = ref<{ $el: HTMLElement } | null>(null)
 
 // 获取当前插件的标签
 const pluginLabels = computed(() => {
@@ -50,9 +50,6 @@ const pluginLabels = computed(() => {
     .map(tag => tag.trim())
     .filter(tag => tag.length > 0)
 })
-
-// 图片是否加载完成
-const isImageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
@@ -74,7 +71,6 @@ function closeInstallProgress() {
 
 // 图片加载完成
 async function imageLoaded() {
-  isImageLoaded.value = true
   const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
   // 从图标中提取主色，作为卡片头部染色玻璃的色相来源
   accentRgb.value = await getCardAccentRgbFromImage(imageElement, '#28A9E1')
@@ -99,20 +95,16 @@ function visitPluginPage() {
   if (props.plugin?.is_local || repoUrl?.startsWith('local://')) {
     repoUrl = props.plugin?.author_url
   }
-  if (repoUrl) {
-    if (repoUrl.includes('raw.githubusercontent.com')) {
-      if (!repoUrl.endsWith('/')) repoUrl += '/'
-
-      if (repoUrl.split('/').length < 6) repoUrl = `${repoUrl}main/`
-
-      try {
-        const [user, repo] = repoUrl.split('/').slice(-4, -2)
-        repoUrl = `https://github.com/${user}/${repo}`
-      } catch (error) {
-        return
-      }
+  if (repoUrl?.includes('raw.githubusercontent.com')) {
+    try {
+      const rawUrl = new URL(repoUrl)
+      const [user, repo] = rawUrl.pathname.split('/').filter(Boolean)
+      if (user && repo) repoUrl = `https://github.com/${user}/${repo}`
+    } catch {
+      return
     }
-  } else {
+  }
+  if (!repoUrl) {
     repoUrl = props.plugin?.author_url
   }
   window.open(repoUrl, '_blank')
@@ -159,15 +151,13 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       }),
     )
 
-    const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
+    const result: ApiResponse<unknown> = await api.get(`plugin/install/${props.plugin?.id}`, {
       params: {
         repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
         force: props.plugin?.has_update || Boolean(releaseVersion),
       },
     })
-
-    closeInstallProgress()
 
     if (result.success) {
       $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
@@ -178,8 +168,15 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       $toast.error(t('plugin.installFailed', { name: props.plugin?.plugin_name, message: result.message }))
     }
   } catch (error) {
-    closeInstallProgress()
+    $toast.error(
+      t('plugin.installFailed', {
+        name: props.plugin?.plugin_name,
+        message: t('common.serverConnectionFailed'),
+      }),
+    )
     console.error(error)
+  } finally {
+    closeInstallProgress()
   }
 }
 
@@ -323,7 +320,7 @@ onUnmounted(() => {
                         <template #prepend>
                           <VIcon :icon="item.props.prependIcon" />
                         </template>
-                        <VListItemTitle v-text="item.title" />
+                        <VListItemTitle>{{ item.title }}</VListItemTitle>
                       </VListItem>
                     </VList>
                   </VMenu>
