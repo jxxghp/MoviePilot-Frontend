@@ -1,14 +1,12 @@
 import api from '@/api'
+import { getFederationRemote, setFederationRemote, unwrapFederationDefault } from '@/utils/federationRuntime'
 import { resolveFederationRemoteUrl } from '@/utils/federationUrl'
-import {
-  __federation_method_setRemote,
-  __federation_method_getRemote,
-  __federation_method_unwrapDefault,
-  // @ts-ignore
-} from 'virtual:__federation__'
 
 // 创建一个专用的AbortController，用于federationLoader请求
 const federationController = new AbortController()
+
+// 同一 remote 的首次加载共享发现与注册，避免并发写入同一个运行时槽位。
+const remoteRegistrationFlights = new Map<string, Promise<boolean>>()
 
 // 定义远程模块接口
 export interface RemoteModule {
@@ -28,6 +26,30 @@ async function fetchSingleRemoteModule(id: string): Promise<RemoteModule | null>
   } catch (error) {
     console.error(`获取远程模块信息失败: ${id}`, error)
     return null
+  }
+}
+
+/** 发现并注册尚不可用的远程模块，同一 remote 同时只执行一次。 */
+async function discoverAndRegisterRemote(id: string): Promise<boolean> {
+  const activeFlight = remoteRegistrationFlights.get(id)
+  if (activeFlight) return activeFlight
+
+  const flight = (async () => {
+    const moduleInfo = await fetchSingleRemoteModule(id)
+    if (!moduleInfo) return false
+
+    console.log(`组件未注册，正在重新注册: ${id}`)
+    injectRemoteModule(moduleInfo)
+    return true
+  })()
+
+  remoteRegistrationFlights.set(id, flight)
+  try {
+    return await flight
+  } finally {
+    if (remoteRegistrationFlights.get(id) === flight) {
+      remoteRegistrationFlights.delete(id)
+    }
   }
 }
 
@@ -90,19 +112,15 @@ export async function loadRemoteAppPageComponent(id: string, navKey: string = 'm
  */
 export async function loadRemoteComponent(id: string, componentName: string = 'Page') {
   try {
-    const module = await __federation_method_getRemote(id, `./${componentName}`)
-    return __federation_method_unwrapDefault(module)
-  } catch (error) {
+    const module = await getFederationRemote(id, `./${componentName}`)
+    return unwrapFederationDefault(module)
+  } catch {
     // 组件未注册，尝试重新注册
     try {
-      const moduleInfo = await fetchSingleRemoteModule(id)
-      if (moduleInfo) {
-        console.log(`组件未注册，正在重新注册: ${id}`)
-        injectRemoteModule(moduleInfo)
-
+      if (await discoverAndRegisterRemote(id)) {
         // 重新尝试加载组件
-        const module = await __federation_method_getRemote(id, `./${componentName}`)
-        return __federation_method_unwrapDefault(module)
+        const module = await getFederationRemote(id, `./${componentName}`)
+        return unwrapFederationDefault(module)
       } else {
         console.error(`无法找到远程模块信息: ${id}`)
         throw new Error(`无法找到远程模块信息: ${id}`)
@@ -121,8 +139,8 @@ export async function loadRemoteComponent(id: string, componentName: string = 'P
  */
 export async function loadRemoteComponentFromModule(remoteModule: RemoteModule, componentName: string = 'Page') {
   injectRemoteModule(remoteModule)
-  const module = await __federation_method_getRemote(remoteModule.id, `./${componentName}`)
-  return __federation_method_unwrapDefault(module)
+  const module = await getFederationRemote(remoteModule.id, `./${componentName}`)
+  return unwrapFederationDefault(module)
 }
 
 /**
@@ -130,10 +148,10 @@ export async function loadRemoteComponentFromModule(remoteModule: RemoteModule, 
  */
 async function fetchRemoteModules(): Promise<RemoteModule[]> {
   try {
-    const response = await api.get('plugin/remotes?token=moviepilot', {
+    const response = (await api.get('plugin/remotes?token=moviepilot', {
       signal: federationController.signal,
-    })
-    return (response as any) || []
+    })) as unknown as RemoteModule[] | null
+    return response ?? []
   } catch (error) {
     console.error('获取远程模块列表失败:', error)
     return []
@@ -146,7 +164,7 @@ async function fetchRemoteModules(): Promise<RemoteModule[]> {
  */
 export function injectRemoteModule(module: RemoteModule): void {
   const remoteEntryUrl = resolveFederationRemoteUrl(module.url, import.meta.env.VITE_API_BASE_URL, document.baseURI)
-  __federation_method_setRemote(module.id, {
+  setFederationRemote(module.id, {
     url: () => Promise.resolve(remoteEntryUrl),
     format: 'esm',
     from: 'vite',

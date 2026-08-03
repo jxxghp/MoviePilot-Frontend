@@ -864,23 +864,6 @@
       "count": 2
     }
   },
-  "src/utils/federationLoader.ts": {
-    "@typescript-eslint/ban-ts-comment": {
-      "count": 1
-    },
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "preserve-caught-error": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 1
-    }
-  },
   "src/utils/globalSetting.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
