@@ -104,11 +104,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard class="mx-auto" width="100%">
+  <VCard class="media-id-selector mx-auto" width="100%">
     <VCardTitle class="d-flex align-center justify-space-between">
       <span>{{ t('dialog.reorganize.mediaSearchInput') }}</span>
       <VDialogCloseBtn
-        inner-class="static"
+        :aria-label="t('common.close')"
+        inner-class="media-id-selector__close"
         @click="
           () => {
             emit('close')
@@ -116,24 +117,25 @@ onMounted(() => {
         "
       />
     </VCardTitle>
-    <VCardText class="pt-0">
+    <VCardText class="media-id-selector__search">
       <VTextField
         ref="inputKeyword"
         v-model="keyword"
         :mobile-layout="false"
         single-line
         :placeholder="t('dialog.reorganize.mediaSearchPlaceholder')"
-        variant="solo"
+        variant="outlined"
         append-inner-icon="mdi-magnify"
         flat
+        hide-details
         :loading="loading"
         @click:append-inner="searchMedias"
         @keydown.enter="searchMedias"
       />
     </VCardText>
     <VDivider />
-    <VList v-if="items.length > 0" lines="three">
-      <template v-for="(item, i) in items" :key="i">
+    <VList v-if="items.length > 0" class="media-id-selector__results" lines="three">
+      <template v-for="item in items" :key="`${item.type || 'media'}-${item.id}`">
         <VListItem @click="selectMedia(item)">
           <template #prepend>
             <VImg
@@ -160,3 +162,29 @@ onMounted(() => {
     </VList>
   </VCard>
 </template>
+
+<style lang="scss" scoped>
+.media-id-selector {
+  overflow: hidden !important;
+}
+
+.media-id-selector__search {
+  flex: 0 0 auto;
+  overflow: visible !important;
+  padding-block: 0.25rem 1rem !important;
+}
+
+.media-id-selector__close {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.media-id-selector__results {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-anchor: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+</style>
