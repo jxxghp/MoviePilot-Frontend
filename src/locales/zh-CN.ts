@@ -3262,6 +3262,15 @@ export default {
       noData: '没有已完成的订阅',
       noDataHint: '完成的订阅会显示在这里',
     },
+    downloadHistory: {
+      title: '下载历史',
+      actions: '下载历史操作',
+      unknownTitle: '未知媒体',
+      noData: '没有下载历史',
+      noDataHint: '已添加的下载任务会显示在这里',
+      loadFailed: '下载历史加载失败',
+      deleteFailed: '下载历史删除失败',
+    },
     siteUserData: {
       title: '站点用户数据',
       updateTime: '更新时间',

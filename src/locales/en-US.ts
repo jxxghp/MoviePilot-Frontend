@@ -3319,6 +3319,15 @@ export default {
       noData: 'No completed subscriptions',
       noDataHint: 'Completed subscription history will be displayed here',
     },
+    downloadHistory: {
+      title: 'Download History',
+      actions: 'Download history actions',
+      unknownTitle: 'Unknown Media',
+      noData: 'No download history',
+      noDataHint: 'Added download tasks will be displayed here',
+      loadFailed: 'Failed to load download history',
+      deleteFailed: 'Failed to delete download history',
+    },
     siteUserData: {
       title: 'Site User Data',
       updateTime: 'Update Time',

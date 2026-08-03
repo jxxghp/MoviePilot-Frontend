@@ -268,6 +268,64 @@ export interface TransferHistory {
   src_fileitem?: FileItem
 }
 
+// 下载历史记录
+export interface DownloadHistory {
+  // ID
+  id: number
+  // 保存路径
+  path?: string
+  // 类型：电影、电视剧
+  type?: string
+  // 标题
+  title?: string
+  // 年份
+  year?: string
+  // TMDB ID
+  tmdbid?: number
+  // IMDB ID
+  imdbid?: string
+  // TVDB ID
+  tvdbid?: number
+  // 豆瓣 ID
+  doubanid?: string
+  // Bangumi ID
+  bangumiid?: number
+  // AniList ID
+  anilistid?: number
+  // 媒体数据源
+  media_source?: MediaDataSource
+  // 数据源原生 ID
+  media_id?: string
+  // 季 Sxx
+  seasons?: string
+  // 集 Exx
+  episodes?: string
+  // 海报或背景图
+  image?: string
+  // 下载器 Hash
+  download_hash?: string
+  // 种子名称
+  torrent_name?: string
+  // 种子描述
+  torrent_description?: string
+  // 站点
+  torrent_site?: string
+  // 下载用户 ID
+  userid?: string
+  // 下载用户名或插件名
+  username?: string
+  // 下载渠道
+  channel?: string
+  // 创建时间
+  date?: string
+  // 附加信息
+  note?: unknown
+  // 自定义媒体类别
+  media_category?: string
+  // 自定义剧集组
+  episode_group?: string
+}
+
 // 媒体信息
 export interface MediaInfo {
   // 来源：themoviedb、douban、bangumi、anilist

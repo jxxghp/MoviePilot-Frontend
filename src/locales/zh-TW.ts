@@ -3261,6 +3261,15 @@ export default {
       noData: '沒有已完成的訂閱',
       noDataHint: '完成的訂閱會顯示在這裡',
     },
+    downloadHistory: {
+      title: '下載歷史',
+      actions: '下載歷史操作',
+      unknownTitle: '未知媒體',
+      noData: '沒有下載歷史',
+      noDataHint: '已添加的下載任務會顯示在這裡',
+      loadFailed: '下載歷史載入失敗',
+      deleteFailed: '下載歷史刪除失敗',
+    },
     siteUserData: {
       title: '站點用戶數據',
       updateTime: '更新時間',

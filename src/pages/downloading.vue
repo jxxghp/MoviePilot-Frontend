@@ -6,12 +6,29 @@ import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
+import { useDynamicButton } from '@/composables/useDynamicButton'
+import { usePWA } from '@/composables/usePWA'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const DownloadHistoryDialog = defineAsyncComponent(() => import('@/components/dialog/DownloadHistoryDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
 
 const route = useRoute()
+const { appMode } = usePWA()
 const activeTab = ref<string>((route.query.tab as string) || '')
+
+function openDownloadHistoryDialog() {
+  openSharedDialog(DownloadHistoryDialog, {}, {}, { closeOn: ['close'] })
+}
+
+useDynamicButton({
+  icon: 'mdi-history',
+  onClick: openDownloadHistoryDialog,
+  permission: 'manage',
+  show: computed(() => appMode.value),
+})
 
 // 下载器
 const downloaders = ref<DownloaderConf[]>([])
@@ -67,4 +84,16 @@ useKeepAliveRefresh(async () => {
     :error-title="t('downloading.noDownloader')"
     :error-description="t('downloading.configureDownloader')"
   />
+
+  <Teleport to="body" v-if="!appMode && route.path === '/downloading'">
+    <div class="compact-fab-stack">
+      <VFab
+        icon="mdi-history"
+        color="primary"
+        appear
+        class="compact-fab compact-fab--primary"
+        @click="openDownloadHistoryDialog"
+      />
+    </div>
+  </Teleport>
 </template>
