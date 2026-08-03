@@ -7,6 +7,7 @@ import { server } from '@tests/support/msw/server'
 import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+/** 扩展卡片会消费但公共下载类型尚未声明的站点字段。 */
 interface DownloadingCardInfo extends DownloadingInfo {
   site_name?: string
   trackers?: string[]
