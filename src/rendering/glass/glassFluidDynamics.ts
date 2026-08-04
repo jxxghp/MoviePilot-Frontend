@@ -216,8 +216,9 @@ export const GLASS_FLUID_FRAGMENT_SURFACE_SHAPE = `    vec2 pointerDelta = uPoin
       uDeformationStrength *
       uFlowStrength;
     float wakeEnergy = abs(wakeShape) * wakeEnvelope * uMotion;
+    // 覆盖能量比位移核更快收敛，避免高斯尾部把真实折射扩成整块色调覆盖。
     float liquidEnergy = clamp(max(
-      pointerEnergy,
+      pow(pointerEnergy, 1.15),
       max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)
     ), 0.0, 1.0);`
 
