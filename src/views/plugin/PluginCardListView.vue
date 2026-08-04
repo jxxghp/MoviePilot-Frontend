@@ -938,6 +938,7 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}) {
     })
     if (generation !== installedWriterGeneration) return
 
+    mergeRatingsIntoPlugins(installedPlugins)
     dataList.value = installedPlugins
     mergeMarketMetadataIntoInstalled()
     // 排序
@@ -984,6 +985,7 @@ async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliv
     })
     if (generation !== marketWriterGeneration) return
 
+    mergeRatingsIntoPlugins(marketResponse)
     uninstalledList.value = marketResponse
     mergeMarketMetadataIntoInstalled()
     // 更新插件市场列表
@@ -1050,23 +1052,56 @@ async function getPluginRatings() {
 
     PluginRatings.value = ratings
 
-    for (const plugin of [...dataList.value, ...uninstalledList.value, ...marketList.value]) {
-      const pluginRating = ratings[plugin.id]
-      if (!pluginRating) continue
-      plugin.average_rating = pluginRating.average_rating
-      plugin.rating_count = pluginRating.rating_count
-      plugin.user_rating = pluginRating.user_rating
-    }
+    mergeRatingsIntoPlugins([...dataList.value, ...uninstalledList.value, ...marketList.value], ratings, true)
   } catch (error) {
     console.error(error)
   }
+}
+
+/** 下载量与评分属于同一份市场指标快照，始终在同一刷新时机加载。 */
+async function getPluginMarketMetrics() {
+  await Promise.all([getPluginStatistics(), getPluginRatings()])
+}
+
+/** 新列表写入前复用最近一次评分快照，避免静默刷新期间评分闪烁。 */
+function mergeRatingsIntoPlugins(
+  plugins: Plugin[],
+  ratings: Record<string, PluginRating> = PluginRatings.value,
+  overwrite = false,
+) {
+  for (const plugin of plugins) {
+    const pluginRating = ratings[plugin.id]
+    if (!pluginRating) continue
+    if (overwrite || plugin.average_rating === undefined) plugin.average_rating = pluginRating.average_rating
+    if (overwrite || plugin.rating_count === undefined) plugin.rating_count = pluginRating.rating_count
+    if (overwrite || plugin.user_rating === undefined) plugin.user_rating = pluginRating.user_rating
+  }
+}
+
+/** 评分提交接口已返回新值，只回写当前插件，避免重新加载全部市场指标。 */
+function applyPluginRating(pluginRating: PluginRating) {
+  const pluginId = pluginRating.plugin_id
+  if (!pluginId) return
+
+  PluginRatings.value = {
+    ...PluginRatings.value,
+    [pluginId]: pluginRating,
+  }
+
+  mergeRatingsIntoPlugins(
+    [...dataList.value, ...uninstalledList.value, ...marketList.value],
+    {
+      [pluginId]: pluginRating,
+    },
+    true,
+  )
 }
 
 // 加载所有数据
 async function refreshData(context: KeepAliveRefreshContext = {}) {
   await fetchInstalledPlugins(context)
   await fetchUninstalledPlugins(false, context)
-  await Promise.all([getPluginStatistics(), getPluginRatings()])
+  await getPluginMarketMetrics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
 }
@@ -1154,7 +1189,7 @@ async function refreshMarket() {
   isMarketRefreshing.value = true
   try {
     await fetchUninstalledPlugins(true, { silent: false, source: 'manual' })
-    await Promise.all([getPluginStatistics(), getPluginRatings()])
+    await getPluginMarketMetrics()
   } catch (error) {
     console.error(error)
   } finally {
@@ -1167,13 +1202,13 @@ async function refreshActiveTabData(context: KeepAliveRefreshContext = {}) {
 
   if (activeTab.value === 'market') {
     await fetchUninstalledPlugins(false, context)
-    await Promise.all([getPluginStatistics(), getPluginRatings()])
+    await getPluginMarketMetrics()
     return
   }
 
   await fetchInstalledPlugins(context)
   await fetchUninstalledPlugins(false, context)
-  await Promise.all([getPluginStatistics(), getPluginRatings()])
+  await getPluginMarketMetrics()
   // 文件夹配置可能在其它入口被插件操作改变，重新进入时同步一次。
   await loadPluginFolders()
 }
@@ -1949,6 +1984,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
                     @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
                     @refresh-data="refreshData"
+                    @rating="applyPluginRating"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -1977,6 +2013,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
                     @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
                     @refresh-data="refreshData"
+                    @rating="applyPluginRating"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2008,6 +2045,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :sortable="true"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
+                    @rating="applyPluginRating"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2032,6 +2070,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :sortable="false"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
+                    @rating="applyPluginRating"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false

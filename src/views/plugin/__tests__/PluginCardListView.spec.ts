@@ -145,6 +145,7 @@ const PluginMixedSortCardStub = defineComponent({
     'delete-folder',
     'drop-to-folder',
     'open-folder',
+    'rating',
     'refresh-data',
     'rename-folder',
     'remove-from-folder',
@@ -218,6 +219,22 @@ const PluginMixedSortCardStub = defineComponent({
           : null,
         type === 'plugin'
           ? h('button', { onClick: () => emit('remove-from-folder', id), type: 'button' }, `remove-plugin-${id}`)
+          : null,
+        type === 'plugin'
+          ? h(
+              'button',
+              {
+                onClick: () =>
+                  emit('rating', {
+                    average_rating: 4.7,
+                    plugin_id: id,
+                    rating_count: 10,
+                    user_rating: 5,
+                  } satisfies PluginRating),
+                type: 'button',
+              },
+              `rate-plugin-${id}`,
+            )
           : null,
       ])
     }
@@ -540,6 +557,58 @@ describe('PluginCardListView loading and request ownership', () => {
     await waitForRequestsToFinish()
     expect(screen.getByLabelText('installed-rating-Installed')).toHaveTextContent('4.9')
     expect(screen.getByLabelText('statistic-Installed')).toHaveTextContent('99')
+  })
+
+  it('updates only the submitted plugin from the POST result without reloading market metrics', async () => {
+    let ratingRequest = 0
+    let statisticRequest = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      rating: () => {
+        ratingRequest += 1
+        return { Installed: { average_rating: 3, plugin_id: 'Installed', rating_count: 1 } }
+      },
+      statistic: () => {
+        statisticRequest += 1
+        return { Installed: 24 }
+      },
+    })
+    await waitForRequestsToFinish()
+
+    expect(ratingRequest).toBe(1)
+    expect(statisticRequest).toBe(1)
+    await fireEvent.click(screen.getByRole('button', { name: 'rate-plugin-Installed' }))
+
+    expect(screen.getByLabelText('installed-rating-Installed')).toHaveTextContent('4.7')
+    expect(ratingRequest).toBe(1)
+    expect(statisticRequest).toBe(1)
+  })
+
+  it('keeps the previous rating visible while a tab refresh loads the next rating snapshot', async () => {
+    const refreshedRatings = createDeferred<Record<string, PluginRating>>()
+    let ratingRequest = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      rating: () => {
+        ratingRequest += 1
+        if (ratingRequest === 1) {
+          return { Installed: { average_rating: 4.2, plugin_id: 'Installed', rating_count: 3 } }
+        }
+        return refreshedRatings.promise
+      },
+    })
+    await waitForRequestsToFinish()
+
+    if (!mocks.keepAliveHandler) throw new Error('未注册 keep-alive 刷新回调')
+    const refresh = mocks.keepAliveHandler({ silent: true, source: 'tab' })
+    await waitFor(() => expect(ratingRequest).toBe(2))
+    expect(screen.getByLabelText('installed-rating-Installed')).toHaveTextContent('4.2')
+
+    refreshedRatings.resolve({
+      Installed: { average_rating: 4.8, plugin_id: 'Installed', rating_count: 4 },
+    })
+    await refresh
+    expect(screen.getByLabelText('installed-rating-Installed')).toHaveTextContent('4.8')
   })
 
   it('rejects a rating snapshot when the current plugin ID set changes before the next rating request', async () => {

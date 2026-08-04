@@ -82,7 +82,17 @@ describe('PluginCard about menu', () => {
     expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({
       closeOn: ['close', 'install', 'update:modelValue'],
     })
-    const dialogEvents = mocks.openSharedDialog.mock.calls[0][2] as { install: () => void }
+    const dialogEvents = mocks.openSharedDialog.mock.calls[0][2] as {
+      install: () => void
+      rating: (pluginRating: { plugin_id: string; average_rating: number; rating_count: number }) => void
+    }
+    dialogEvents.rating({ plugin_id: 'DemoPlugin', average_rating: 4.5, rating_count: 13 })
+    expect(emitted().rating).toContainEqual([
+      expect.objectContaining({ plugin_id: 'DemoPlugin', average_rating: 4.5, rating_count: 13 }),
+    ])
+    expect(emitted()).not.toHaveProperty('save')
+    expect(sidebarStore.ensureSidebarNav).not.toHaveBeenCalled()
+
     dialogEvents.install()
     expect(emitted().save).toHaveLength(1)
     expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { PluginRating } from '@/api/types'
 import PluginCard from './PluginCard.vue'
 import PluginFolderCard from './PluginFolderCard.vue'
 
@@ -30,6 +31,7 @@ const emit = defineEmits<{
   renameFolder: [oldName: string, newName: string]
   updateFolderConfig: [folderName: string, config: any]
   refreshData: []
+  rating: [pluginRating: PluginRating]
   actionDone: [pluginId: string]
   removeFromFolder: [pluginId: string]
   dropToFolder: [event: DragEvent, folderName: string]
@@ -108,6 +110,7 @@ function handleDropToFolder(event: DragEvent) {
         :sortable="sortable"
         @remove="$emit('refreshData')"
         @save="$emit('refreshData')"
+        @rating="$emit('rating', $event)"
         @action-done="$emit('actionDone', item.id)"
       />
 

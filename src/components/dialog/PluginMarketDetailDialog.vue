@@ -36,7 +36,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['update:modelValue', 'close', 'install'])
+const emit = defineEmits(['update:modelValue', 'close', 'install', 'rating'])
 
 // 弹窗显示状态
 const visible = computed({
@@ -220,6 +220,7 @@ async function submitPluginRating() {
     if (result.success) {
       rating.value = result.data
       selectedRating.value = result.data.user_rating || selectedRating.value
+      emit('rating', result.data)
       $toast.success(t('plugin.ratingSuccess', { name: props.plugin?.plugin_name }))
     } else {
       $toast.error(t('plugin.ratingFailed', { message: result.message || t('common.unknown') }))
@@ -261,6 +262,9 @@ onUnmounted(() => {
           <p v-if="props.plugin?.plugin_desc" class="plugin-market-detail__description">
             {{ props.plugin?.plugin_desc }}
           </p>
+          <div v-if="rating.rating_count > 0" class="plugin-market-detail__header-rating">
+            <PluginRatingDisplay :rating="rating.average_rating" :count="rating.rating_count" :icon-size="18" />
+          </div>
         </header>
 
         <dl class="plugin-market-detail__metadata">
@@ -274,16 +278,6 @@ onUnmounted(() => {
               <button type="button" class="plugin-market-detail__author" @click="visitPluginPage">
                 {{ props.plugin?.plugin_author }}
               </button>
-            </dd>
-          </div>
-          <div v-if="props.plugin?.system_version" class="plugin-market-detail__metadata-row">
-            <dt>{{ t('plugin.systemVersion') }}：</dt>
-            <dd>{{ props.plugin?.system_version }}</dd>
-          </div>
-          <div v-if="rating.rating_count > 0" class="plugin-market-detail__metadata-row">
-            <dt>{{ t('plugin.rating') }}：</dt>
-            <dd class="plugin-market-detail__rating-summary">
-              <PluginRatingDisplay :rating="rating.average_rating" :count="rating.rating_count" :icon-size="18" />
             </dd>
           </div>
         </dl>
@@ -392,10 +386,17 @@ onUnmounted(() => {
   white-space: pre-line;
 }
 
+.plugin-market-detail__header-rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-block: 0.75rem 0.375rem;
+}
+
 .plugin-market-detail__metadata {
   display: grid;
   gap: 0.625rem;
-  margin: 1.125rem auto 0;
+  margin: 1.125rem 0;
 }
 
 .plugin-market-detail__metadata-row {
@@ -439,12 +440,6 @@ onUnmounted(() => {
 .plugin-market-detail__author:focus-visible {
   color: rgb(var(--v-theme-primary));
   text-decoration: underline;
-}
-
-.plugin-market-detail__rating-summary {
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
 }
 
 .plugin-market-detail__warning {

@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
-import type { ApiResponse, Plugin } from '@/api/types'
+import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -34,7 +34,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove', 'save', 'actionDone'])
+const emit = defineEmits(['remove', 'save', 'actionDone', 'rating'])
 
 // 多语言
 const { t } = useI18n()
@@ -392,6 +392,7 @@ async function showPluginAbout() {
         // 详情弹窗的安装事件只刷新父列表，动态导航由卡片补充同步。
         void pluginSidebarNavStore.ensureSidebarNav(true)
       },
+      rating: (pluginRating: PluginRating) => emit('rating', pluginRating),
     },
     { closeOn: ['close', 'install', 'update:modelValue'] },
   )

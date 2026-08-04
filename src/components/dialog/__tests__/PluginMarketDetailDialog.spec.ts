@@ -43,6 +43,9 @@ const basePlugin: Plugin = {
   plugin_version: '1.0.0',
   plugin_author: 'MoviePilot',
   repo_url: 'https://github.com/example/plugins',
+  average_rating: 4.3,
+  rating_count: 12,
+  user_rating: 4.0,
 }
 
 const ratingResult: PluginRating = {
@@ -102,7 +105,7 @@ describe('PluginMarketDetailDialog', () => {
   })
 
   it('hides install action and submits a half-star rating for an installed plugin', async () => {
-    await renderDialog({ ...basePlugin, installed: true })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true })
 
     expect(await screen.findByText('提交评分')).toBeInTheDocument()
     expect(screen.queryByText('安装到本地')).not.toBeInTheDocument()
@@ -117,6 +120,9 @@ describe('PluginMarketDetailDialog', () => {
     await waitFor(() => {
       expect(mocks.apiPost).toHaveBeenCalledWith('plugin/rating/DemoPlugin', { rating: 4.5 })
     })
+    expect(emitted().rating).toContainEqual([
+      expect.objectContaining({ average_rating: 4.5, plugin_id: 'DemoPlugin', user_rating: 4.5 }),
+    ])
     expect(mocks.toastSuccess).toHaveBeenCalledWith('已提交对插件 演示插件 的评分')
   })
 
@@ -128,7 +134,13 @@ describe('PluginMarketDetailDialog', () => {
       user_rating: undefined,
     })
 
-    await renderDialog({ ...basePlugin, installed: true })
+    await renderDialog({
+      ...basePlugin,
+      installed: true,
+      average_rating: 0,
+      rating_count: 0,
+      user_rating: undefined,
+    })
 
     expect(await screen.findByText('v1.0.0')).toBeInTheDocument()
     expect(screen.queryByText('插件评分：')).not.toBeInTheDocument()
@@ -156,12 +168,18 @@ describe('PluginMarketDetailDialog', () => {
     const metadata = document.querySelector('.plugin-market-detail__metadata')
     const metadataRows = metadata?.querySelectorAll('.plugin-market-detail__metadata-row')
 
-    expect(metadataRows).toHaveLength(4)
+    expect(metadataRows).toHaveLength(2)
     metadataRows?.forEach(row => {
       expect(row.querySelector(':scope > dt')).not.toBeNull()
       expect(row.querySelector(':scope > dd')).not.toBeNull()
     })
-    expect(metadataRows?.[3]?.querySelector('dd > .plugin-rating-display')).not.toBeNull()
+
+    const headerRating = document.querySelector('.plugin-market-detail__header-rating')
+
+    expect(headerRating?.previousElementSibling).toBe(description)
+    expect(headerRating?.querySelector('.plugin-rating-display')).not.toBeNull()
+    expect(screen.queryByText('插件评分：')).not.toBeInTheDocument()
+    expect(screen.queryByText('v2.15.0 or later')).not.toBeInTheDocument()
   })
 
   it('emits installation completion only after installation succeeds', async () => {
@@ -351,11 +369,13 @@ describe('PluginMarketDetailDialog', () => {
     expect(mocks.toastError).toHaveBeenCalledWith('评分提交失败：服务器连接失败')
   })
 
-  it('keeps plugin actions usable when rating loading fails', async () => {
-    mocks.apiGet.mockRejectedValue(new Error('rating unavailable'))
+  it('refreshes the current plugin rating when the detail opens', async () => {
     await renderDialog({ ...basePlugin, installed: false })
 
     expect(await screen.findByRole('button', { name: '安装到本地' })).toBeEnabled()
+    expect(screen.getByLabelText('4.3 / 5')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/rating/DemoPlugin')
   })
 
   it('opens installed version history without an update action and closes through the model contract', async () => {
