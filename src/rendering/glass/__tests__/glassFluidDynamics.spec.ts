@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createGlassFluidDynamics, GLASS_FLUID_FIELD_FRAGMENT_SHADER } from '@/rendering/glass/glassFluidDynamics'
+import {
+  createGlassFluidDynamics,
+  GLASS_FLUID_DYNAMIC_RANGE_DENSITY,
+  GLASS_FLUID_DYNAMIC_RANGE_SCALE,
+  GLASS_FLUID_FIELD_FRAGMENT_SHADER,
+  GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION,
+  GLASS_FLUID_FRAGMENT_SURFACE_SHAPE,
+} from '@/rendering/glass/glassFluidDynamics'
 
 class FakeVector2 {
   constructor(
@@ -179,9 +186,26 @@ describe('glass fluid dynamics', () => {
 
   it('keeps the established field injection and decay equations', () => {
     expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).toContain('previousEnergy * uDecay')
-    expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).toContain('distanceSquared * 437.500')
-    expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).toContain('distanceSquared * 262.500')
+    expect(GLASS_FLUID_DYNAMIC_RANGE_SCALE).toBe(0.52)
+    expect(GLASS_FLUID_DYNAMIC_RANGE_DENSITY).toBeCloseTo(3.698, 3)
+    expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).toContain('distanceSquared * 258.876')
+    expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).toContain('distanceSquared * 155.325')
     expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).toContain('injection * 0.44')
     expect(GLASS_FLUID_FIELD_FRAGMENT_SHADER).not.toContain('uImpulse')
+  })
+
+  it('narrows directional material coverage without replacing fluid refraction energy', () => {
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain(
+      'smoothstep(0.001, 0.012, length(uPointerVelocity))',
+    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain('directionalCoverageShape')
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain('pointerCoverageEnergy')
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain(
+      'pow(clamp(pointerCoverageShape * uMotion, 0.0, 1.0), 1.15)',
+    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION).toContain(
+      'pointerDelta * pointerEnergy * pointerStrength',
+    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION).not.toContain('pointerCoverageEnergy')
   })
 })

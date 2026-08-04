@@ -44,7 +44,7 @@ export interface GlassFluidDynamics {
   step(): Texture
 }
 
-export const GLASS_FLUID_DYNAMIC_RANGE_SCALE = 0.4
+export const GLASS_FLUID_DYNAMIC_RANGE_SCALE = 0.52
 export const GLASS_FLUID_DYNAMIC_RANGE_DENSITY = 1 / GLASS_FLUID_DYNAMIC_RANGE_SCALE ** 2
 const GLASS_FLUID_BUFFER_SCALE = 0.25
 
@@ -216,8 +216,25 @@ export const GLASS_FLUID_FRAGMENT_SURFACE_SHAPE = `    vec2 pointerDelta = uPoin
       uDeformationStrength *
       uFlowStrength;
     float wakeEnergy = abs(wakeShape) * wakeEnvelope * uMotion;
+    // 覆盖能量比位移核更快收敛，避免高斯尾部把真实折射扩成整块色调覆盖。
+    float coverageDirectionality = max(
+      sharedDirectionality,
+      smoothstep(0.001, 0.012, length(uPointerVelocity))
+    );
+    float coverageWakeTravel =
+      0.08 * coverageDirectionality * mix(0.86, 1.18, uMotionExpansion);
+    float directionalCoverageShape = exp(-(
+      pow(pointerAlong + coverageWakeTravel * 0.45, 2.0) * pointerSpread * 0.55 +
+      pointerAcross * pointerAcross * pointerSpread * 2.8
+    ));
+    float pointerCoverageShape = mix(
+      radialPointerShape,
+      directionalCoverageShape,
+      coverageDirectionality
+    );
+    float pointerCoverageEnergy = pow(clamp(pointerCoverageShape * uMotion, 0.0, 1.0), 1.15);
     float liquidEnergy = clamp(max(
-      pointerEnergy,
+      pointerCoverageEnergy,
       max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)
     ), 0.0, 1.0);`
 
