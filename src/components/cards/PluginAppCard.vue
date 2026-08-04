@@ -2,7 +2,7 @@
 import api from '@/api'
 import type { ApiResponse, Plugin } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
-import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
+import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useToast } from 'vue-toastification'
@@ -35,11 +35,7 @@ const $toast = useToast()
 
 const createConfirm = useConfirm()
 
-// 卡片头部染色所用的图标主色（CSS 变量可直接消费的 RGB 通道值）
-const accentRgb = ref('40, 169, 225')
-
-// 图片对象
-const imageRef = ref<{ $el: HTMLElement } | null>(null)
+const { accentStyle, imageRef, resetAccentColor, updateAccentColor } = usePluginCardAccent()
 
 // 获取当前插件的标签
 const pluginLabels = computed(() => {
@@ -71,9 +67,12 @@ function closeInstallProgress() {
 
 // 图片加载完成
 async function imageLoaded() {
-  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
-  // 从图标中提取主色，作为卡片头部染色玻璃的色相来源
-  accentRgb.value = await getCardAccentRgbFromImage(imageElement, '#28A9E1')
+  await updateAccentColor()
+}
+
+function imageFailed() {
+  imageLoadError.value = true
+  resetAccentColor()
 }
 
 // 计算图标路径
@@ -237,7 +236,7 @@ onUnmounted(() => {
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering,
             }"
-            :style="{ '--plugin-card-accent-rgb': accentRgb }"
+            :style="accentStyle"
           >
             <div class="plugin-card__banner flex-grow">
               <VCardText class="px-2 pt-2 pb-0">
@@ -280,7 +279,7 @@ onUnmounted(() => {
                       aspect-ratio="4/3"
                       cover
                       @load="imageLoaded"
-                      @error="imageLoadError = true"
+                      @error="imageFailed"
                     />
                   </VAvatar>
                 </div>
