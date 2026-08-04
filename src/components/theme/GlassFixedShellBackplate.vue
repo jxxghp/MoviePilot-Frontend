@@ -65,8 +65,8 @@ const transitionStyle = computed(() => ({
         <img
           v-if="layer.src"
           class="glass-fixed-shell-backplate__source"
-          :src="layer.src"
           :crossorigin="layer.crossOrigin"
+          :src="layer.src"
           alt=""
           aria-hidden="true"
           draggable="false"
