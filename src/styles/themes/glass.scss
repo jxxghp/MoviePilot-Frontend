@@ -63,6 +63,16 @@ html[data-theme='glass'] {
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
   --glass-control-shortcut-border: rgba(255, 255, 255, 12%);
   --glass-control-shortcut-color: rgba(242, 245, 250, 68%);
+  // Chip 面积很小，使用更明显的镜面层与色相透光，避免标签在背景采样中变成灰色。
+  --glass-chip-backdrop-filter: blur(8px) saturate(150%) brightness(var(--glass-transmission-brightness));
+  --glass-chip-sheen: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 12%),
+    transparent 38%,
+    rgba(255, 255, 255, 3%) 72%,
+    transparent
+  );
+  --glass-chip-tint-opacity: calc(0.22 + var(--glass-tint-density, 0.65) * 0.18);
   --glass-button-surface: rgba(255, 255, 255, 8%);
   --glass-button-surface-hover: rgba(255, 255, 255, 12%);
   --glass-nav-active-background: linear-gradient(
@@ -179,6 +189,7 @@ html[data-theme='glass'] {
     --glass-overlay-blur: 12px;
     --glass-overlay-saturate: 120%;
     --glass-overlay-scrim: rgba(3, 7, 18, 32%);
+    --glass-chip-backdrop-filter: blur(10px) saturate(165%) brightness(var(--glass-transmission-brightness));
   }
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
@@ -220,6 +231,14 @@ html[data-theme='glass'] {
     --glass-overlay-blur: min(var(--glass-blur-raised), 36px);
     --glass-overlay-saturate: 135%;
     --glass-overlay-scrim: rgba(3, 7, 18, 36%);
+    --glass-chip-backdrop-filter: blur(14px) saturate(175%) brightness(var(--glass-transmission-brightness));
+    --glass-chip-sheen: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 14%),
+      transparent 36%,
+      rgba(255, 255, 255, 5%) 72%,
+      transparent
+    );
     --glass-blur-surface: 40px;
     --glass-blur: 40px;
     --glass-blur-raised: 60px;
@@ -821,35 +840,113 @@ html[data-theme='glass'] {
       var(--glass-control-shadow) !important;
   }
 
+  // 只添加材质层，不接管 Chip 的 variant、圆角、边框、尺寸或选中结构。
   .v-chip {
-    border-color: rgba(255, 255, 255, 16%);
-    background-color: rgba(255, 255, 255, 7%);
+    box-shadow: none !important;
   }
 
-  // 有色 Chip 保留语义色相，仅降低不透明度形成有色玻璃，与按钮的色玻璃规则保持一致。
+  // 仅填充型 Chip 增加镜面方向；outlined、text、plain 保持原来的空心或无底形态。
+  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat, .v-chip--variant-tonal) {
+    -webkit-backdrop-filter: var(--glass-chip-backdrop-filter) !important;
+    backdrop-filter: var(--glass-chip-backdrop-filter) !important;
+    background-image: var(--glass-chip-sheen);
+    background-clip: padding-box;
+  }
+
+  // Tailwind 的 bg-* 通过 --tw-bg-opacity 输出颜色；只调透明度即可保留每个业务色相。
+  .v-chip[class*='bg-'] {
+    --tw-bg-opacity: var(--glass-chip-tint-opacity) !important;
+  }
+
+  // Vuetify 语义色使用同一套有色玻璃透明度。
   .v-chip.bg-primary {
-    border-color: rgba(var(--v-theme-primary), 48%);
     background-color: rgba(var(--v-theme-primary), 34%) !important;
   }
 
+  .v-chip.bg-secondary {
+    background-color: rgba(var(--v-theme-secondary), 34%) !important;
+  }
+
   .v-chip.bg-success {
-    border-color: rgba(var(--v-theme-success), 48%);
     background-color: rgba(var(--v-theme-success), 34%) !important;
   }
 
   .v-chip.bg-info {
-    border-color: rgba(var(--v-theme-info), 48%);
     background-color: rgba(var(--v-theme-info), 34%) !important;
   }
 
   .v-chip.bg-warning {
-    border-color: rgba(var(--v-theme-warning), 48%);
     background-color: rgba(var(--v-theme-warning), 34%) !important;
   }
 
   .v-chip.bg-error {
-    border-color: rgba(var(--v-theme-error), 48%);
     background-color: rgba(var(--v-theme-error), 34%) !important;
+  }
+
+  // 种子卡片沿用组件既有的业务色，只降低不透明度并补上透光与镜面材质。
+  .v-chip.chip-season {
+    --glass-chip-tint: 63, 81, 181;
+  }
+
+  .v-chip.chip-web-source {
+    --glass-chip-tint: 128, 0, 255;
+  }
+
+  .v-chip.chip-edition {
+    --glass-chip-tint: 244, 67, 54;
+  }
+
+  .v-chip.chip-resolution {
+    --glass-chip-tint: 123, 31, 162;
+  }
+
+  .v-chip.chip-codec {
+    --glass-chip-tint: 255, 152, 0;
+  }
+
+  .v-chip.chip-team {
+    --glass-chip-tint: 0, 137, 123;
+  }
+
+  .v-chip.chip-label {
+    --glass-chip-tint: 92, 107, 192;
+  }
+
+  .v-chip.chip-hr {
+    --glass-chip-tint: 33, 33, 33;
+  }
+
+  .v-chip.chip-expire {
+    --glass-chip-tint: 126, 87, 194;
+  }
+
+  .v-chip.chip-free {
+    --glass-chip-tint: 76, 175, 80;
+  }
+
+  .v-chip.chip-discount {
+    --glass-chip-tint: 255, 87, 34;
+  }
+
+  .v-chip.chip-bonus {
+    --glass-chip-tint: 156, 39, 176;
+  }
+
+  .v-chip:where(
+    .chip-season,
+    .chip-web-source,
+    .chip-edition,
+    .chip-resolution,
+    .chip-codec,
+    .chip-team,
+    .chip-label,
+    .chip-hr,
+    .chip-expire,
+    .chip-free,
+    .chip-discount,
+    .chip-bonus
+  ) {
+    background-color: rgba(var(--glass-chip-tint), var(--glass-chip-tint-opacity)) !important;
   }
 
   .v-table {

@@ -22,6 +22,28 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toContain('background: rgba(3, 7, 18, 62%)')
   })
 
+  it('renders colored chips as shadowless glass without flattening their variants', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain('--glass-chip-backdrop-filter')
+    expect(styles).toContain('--glass-chip-sheen')
+    expect(styles).toMatch(/\.v-chip\s*\{\s*box-shadow:\s*none\s*!important;\s*\}/)
+    expect(styles).toMatch(
+      /\.v-chip:is\(\.v-chip--variant-elevated, \.v-chip--variant-flat, \.v-chip--variant-tonal\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-chip-backdrop-filter\)\s*!important;[\s\S]*?background-image:\s*var\(--glass-chip-sheen\);/,
+    )
+    expect(styles).toMatch(
+      /\.v-chip\[class\*='bg-'\]\s*\{[\s\S]*?--tw-bg-opacity:\s*var\(--glass-chip-tint-opacity\)\s*!important;/,
+    )
+    expect(styles).toContain('.v-chip.chip-resolution')
+    expect(styles).toContain(
+      'background-color: rgba(var(--glass-chip-tint), var(--glass-chip-tint-opacity)) !important',
+    )
+    expect(styles).not.toContain('.v-chip::after')
+    expect(styles).not.toContain(".v-chip:not([class*='border-'])")
+    expect(styles).not.toContain('.v-chip--variant-tonal > .v-chip__underlay')
+    expect(styles).not.toMatch(/\.v-chip--variant-(?:outlined|text|plain)\s*\{/)
+  })
+
   it('composites glass dialogs at their final geometry instead of resampling a scaled backdrop', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
