@@ -250,6 +250,7 @@ const GLASS_SURFACE_DENSITY: Record<GlassAppearance, readonly number[]> = {
 const GLASS_TINT_DENSITY = [1, 0.9, 0.65, 0.48, 0.36, 0.28] as const
 const GLASS_FROST_DENSITY = [1, 0.9, 0.7, 0.34, 0.12, 0.04] as const
 const GLASS_FROSTED_DENSITY = [1, 0.82, 0.55, 0.28, 0.1, 0.025] as const
+const GLASS_OVERLAY_CLARITY_BLUR = [8.9, 7.8, 6.7, 5.8, 5.4, 5] as const
 
 /** 在相邻业务锚点之间使用零斜率边界插值，避免滑杆经过锚点时出现视觉折线。 */
 function interpolateGlassResponse(value: unknown, anchors: readonly number[]) {
@@ -290,6 +291,11 @@ export function getGlassCssFrostBlur(value: unknown) {
     raised: interpolateGlassResponse(value, [84, 70, 50, 35, 24, 16]),
     surface: interpolateGlassResponse(value, [64, 52, 36, 24, 15, 8]),
   }
+}
+
+/** 透明与色调浮层保留独立模糊下限，避免高通透度使临时内容直接暴露在复杂壁纸上。 */
+export function getGlassOverlayClarityBlur(value: unknown) {
+  return interpolateGlassResponse(value, GLASS_OVERLAY_CLARITY_BLUR)
 }
 
 /** 计算与 CSS `ease` 相同的交叉淡化进度，使 DOM 壁纸与 shader 双纹理保持同一时钟。 */

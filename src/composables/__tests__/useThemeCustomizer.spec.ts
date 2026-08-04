@@ -210,6 +210,27 @@ describe('useThemeCustomizer glass settings', () => {
     expect(Number(document.body.style.getPropertyValue('--glass-background-visibility'))).toBeCloseTo(0.48)
     expect(Number(document.documentElement.style.getPropertyValue('--glass-surface-density'))).toBeCloseTo(0.72)
     expect(Number(document.body.style.getPropertyValue('--glass-tint-density'))).toBeCloseTo(0.65)
+    expect(document.documentElement.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
+    expect(document.body.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
+  })
+
+  it('keeps overlay clarity synchronized across preview, cancel, and commit', () => {
+    persistPartialThemeCustomizerSettings({ glassTransparencyStrength: 50 })
+    expect(document.documentElement.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
+
+    previewGlassSettings({ glassTransparencyStrength: 100 })
+    expect(document.documentElement.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('5px')
+    expect(document.body.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('5px')
+
+    cancelGlassPreview()
+    expect(document.documentElement.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
+    expect(document.body.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
+
+    previewGlassSettings({ glassTransparencyStrength: 20 })
+    commitGlassPreview()
+    expect(readThemeCustomizerSettings().glassTransparencyStrength).toBe(20)
+    expect(document.documentElement.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('7.8px')
+    expect(document.body.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('7.8px')
   })
 
   it('previews glass settings without persisting them', () => {
