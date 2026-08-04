@@ -20,9 +20,13 @@ describe('plugin card accent styles', () => {
 
   it('limits tinted theme mixing to six percent', () => {
     const glassStyles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const tintedBannerRule = glassStyles.match(
+      /&\[data-glass-appearance='tinted'\] \.plugin-card__banner\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u,
+    )?.groups?.declarations
 
     expect(glassStyles.match(/rgba\(var\(--plugin-card-effective-accent-rgb\)/g)).toHaveLength(9)
     expect(glassStyles.match(/rgba\(var\(--plugin-card-effective-accent-rgb\)[\s\S]*?\) 94%/g)).toHaveLength(2)
+    expect(tintedBannerRule?.match(/rgba\(var\(--glass-material-accent-rgb\)[\s\S]*?\)\s*\)/g)).toHaveLength(2)
     expect(glassStyles).not.toContain('var(--plugin-card-accent-rgb, 40, 169, 225)')
   })
 })

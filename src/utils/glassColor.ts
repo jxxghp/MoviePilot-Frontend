@@ -20,6 +20,9 @@ export interface GlassAccentColor {
 const PLUGIN_ACCENT_MIN_LIGHTNESS = 0.48
 const PLUGIN_ACCENT_MAX_LIGHTNESS = 0.76
 const PLUGIN_ACCENT_MAX_CHROMA = 0.18
+const THEME_MATERIAL_MIN_LIGHTNESS = 0.56
+const THEME_MATERIAL_MAX_LIGHTNESS = 0.72
+const THEME_MATERIAL_MAX_CHROMA = 0.14
 const NEUTRAL_CHROMA_THRESHOLD = 0.02
 const GAMUT_SEARCH_ITERATIONS = 24
 
@@ -117,19 +120,32 @@ function formatAccentColor(color: OklchColor): GlassAccentColor {
   }
 }
 
-/** 将插件 Logo 主色限制在可读范围内，同时保持品牌色相与中性色属性。 */
-export function normalizePluginAccentColor(color: string): GlassAccentColor | undefined {
+function normalizeAccentColor(color: string, minLightness: number, maxLightness: number, maxChroma: number) {
   const srgb = parseHexColor(color)
   if (!srgb) return undefined
 
   const source = oklabToOklch(srgbToOklab(srgb))
-  const chroma =
-    source.chroma < NEUTRAL_CHROMA_THRESHOLD ? source.chroma : Math.min(source.chroma, PLUGIN_ACCENT_MAX_CHROMA)
+  const chroma = source.chroma < NEUTRAL_CHROMA_THRESHOLD ? source.chroma : Math.min(source.chroma, maxChroma)
   const normalized = mapChromaToSrgb({
-    lightness: clamp(source.lightness, PLUGIN_ACCENT_MIN_LIGHTNESS, PLUGIN_ACCENT_MAX_LIGHTNESS),
+    lightness: clamp(source.lightness, minLightness, maxLightness),
     chroma,
     hue: source.hue,
   })
 
   return formatAccentColor(normalized)
+}
+
+/** 将插件 Logo 主色限制在可读范围内，同时保持品牌色相与中性色属性。 */
+export function normalizePluginAccentColor(color: string): GlassAccentColor | undefined {
+  return normalizeAccentColor(color, PLUGIN_ACCENT_MIN_LIGHTNESS, PLUGIN_ACCENT_MAX_LIGHTNESS, PLUGIN_ACCENT_MAX_CHROMA)
+}
+
+/** 派生大面积色调玻璃使用的材料色，不改变用户选择的真实主色。 */
+export function normalizeThemeMaterialAccent(color: string): GlassAccentColor | undefined {
+  return normalizeAccentColor(
+    color,
+    THEME_MATERIAL_MIN_LIGHTNESS,
+    THEME_MATERIAL_MAX_LIGHTNESS,
+    THEME_MATERIAL_MAX_CHROMA,
+  )
 }

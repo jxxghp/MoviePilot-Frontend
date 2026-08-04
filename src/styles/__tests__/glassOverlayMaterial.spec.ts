@@ -35,6 +35,56 @@ describe('glass overlay material styles', () => {
     expect(styles).toContain('rgba(255, 255, 255, calc(0.045 + var(--glass-surface-density, 0.86) * 0.09))')
   })
 
+  it('uses the derived theme tone only for tinted material surfaces', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const appStyles = readFileSync(resolve(cwd(), 'src/App.vue'), 'utf8')
+    const tintedRule = styles.match(/&\[data-glass-appearance='tinted'\]\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u)
+      ?.groups?.declarations
+    const wallpaperTintStart = appStyles.indexOf(
+      "html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active::after,",
+    )
+    const wallpaperTintEnd = appStyles.indexOf("html[data-glass-appearance='frosted']", wallpaperTintStart)
+    const wallpaperTintRule = appStyles.slice(wallpaperTintStart, wallpaperTintEnd)
+    const loginRule = styles.match(
+      /html\[data-theme='glass'\]\[data-glass-appearance='tinted'\] body\[data-theme='glass'\]\s*\{(?<declarations>[\s\S]*?)\n\}/u,
+    )?.groups?.declarations
+    const workflowRule = styles.match(
+      /&\[data-glass-appearance='tinted'\] \.workflow-task-card\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u,
+    )?.groups?.declarations
+    const getPropertyValue = (rule: string | undefined, token: string) =>
+      rule?.match(new RegExp(`${token}:\\s*(?<value>[\\s\\S]*?);`))?.groups?.value
+
+    expect(tintedRule).toBeDefined()
+    for (const token of [
+      '--glass-surface',
+      '--glass-surface-soft',
+      '--glass-surface-raised',
+      '--glass-overlay-surface',
+    ]) {
+      expect(getPropertyValue(tintedRule, token)).toContain('var(--glass-material-accent-rgb)')
+    }
+    for (const token of [
+      '--glass-control',
+      '--glass-control-prominent',
+      '--glass-control-prominent-focus',
+      '--glass-border',
+      '--glass-border-raised',
+      '--glass-border-hover',
+      '--glass-highlight',
+      '--glass-sheen',
+    ]) {
+      expect(getPropertyValue(tintedRule, token)).toContain('var(--v-theme-primary)')
+    }
+    expect(wallpaperTintStart).toBeGreaterThanOrEqual(0)
+    expect(wallpaperTintEnd).toBeGreaterThan(wallpaperTintStart)
+    expect(wallpaperTintRule).toContain('rgba(var(--glass-material-accent-rgb), 3%)')
+    expect(wallpaperTintRule).not.toContain('var(--v-theme-primary)')
+    expect(loginRule).toMatch(/\.login-card__surface[\s\S]*?var\(--glass-material-accent-rgb\)/)
+    expect(loginRule).toMatch(/\.native-login-field[\s\S]*?var\(--v-theme-primary\)/)
+    expect(workflowRule).toContain('var(--workflow-status-rgb)')
+    expect(workflowRule).toContain('var(--v-theme-primary)')
+  })
+
   it('renders colored chips as shadowless glass without flattening their variants', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 

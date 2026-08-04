@@ -126,7 +126,7 @@ afterEach(() => {
 })
 
 describe('GlassOpticalLayer', () => {
-  it('uses exactly two visible presentation contexts with one interaction source', () => {
+  it('uses exactly two visible presentation contexts with one interaction source', async () => {
     rendererCalls.length = 0
     rendererResults.length = 0
     setRendererState.mockClear()
@@ -159,6 +159,7 @@ describe('GlassOpticalLayer', () => {
     expect(rendererCalls.every(options => options.wallpaperSourceCache === wallpaperSourceCache)).toBe(true)
     expect(rendererCalls.every(options => options.syncDocumentState === false)).toBe(true)
     expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.map(options => (options.tintColor as () => string)())).toEqual(['#8D51F9', '#8D51F9'])
     expect(rendererCalls[0].pageMotion).toBeUndefined()
     expect(rendererCalls[1].pageMotion).toEqual(
       expect.objectContaining({
@@ -166,6 +167,9 @@ describe('GlassOpticalLayer', () => {
         revision: expect.any(Object),
       }),
     )
+
+    await wrapper.setProps({ tintColor: '#00A6B8' })
+    expect(rendererCalls.map(options => (options.tintColor as () => string)())).toEqual(['#00A6B8', '#00A6B8'])
 
     wrapper.unmount()
     expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
