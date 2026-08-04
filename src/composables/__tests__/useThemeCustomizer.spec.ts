@@ -12,6 +12,7 @@ import {
   useEffectiveGlassSettings,
 } from '@/composables/useThemeCustomizer'
 import vuetify from '@/plugins/vuetify'
+import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -212,6 +213,28 @@ describe('useThemeCustomizer glass settings', () => {
     expect(Number(document.body.style.getPropertyValue('--glass-tint-density'))).toBeCloseTo(0.65)
     expect(document.documentElement.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
     expect(document.body.style.getPropertyValue('--glass-overlay-clarity-blur')).toBe('6.7px')
+    expect(document.documentElement.style.getPropertyValue('--glass-material-accent-rgb')).toBe(
+      normalizeThemeMaterialAccent(settings.primaryColor)?.rgb,
+    )
+    expect(document.body.style.getPropertyValue('--glass-material-accent-rgb')).toBe(
+      normalizeThemeMaterialAccent(settings.primaryColor)?.rgb,
+    )
+  })
+
+  it('keeps the user primary color while publishing its material tone', async () => {
+    const { customizer, wrapper } = mountThemeCustomizer()
+
+    await customizer.setPrimaryColor('#00BCD4')
+
+    expect(customizer.settings.value.primaryColor).toBe('#00BCD4')
+    expect(vuetify.theme.current.value.colors.primary).toBe('#00BCD4')
+    expect(document.documentElement.style.getPropertyValue('--glass-material-accent-rgb')).toBe(
+      normalizeThemeMaterialAccent('#00BCD4')?.rgb,
+    )
+    expect(document.body.style.getPropertyValue('--glass-material-accent-rgb')).toBe(
+      normalizeThemeMaterialAccent('#00BCD4')?.rgb,
+    )
+    wrapper.unmount()
   })
 
   it('keeps overlay clarity synchronized across preview, cancel, and commit', () => {

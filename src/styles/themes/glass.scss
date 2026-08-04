@@ -131,17 +131,17 @@ html[data-theme='glass'] {
     --glass-surface: color-mix(
       in srgb,
       rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
-      rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.28))
+      rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.28))
     );
     --glass-surface-soft: color-mix(
       in srgb,
       rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%,
-      rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.26))
+      rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.26))
     );
     --glass-surface-raised: color-mix(
       in srgb,
       rgba(11, 19, 34, calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%,
-      rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.32))
+      rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.32))
     );
     --glass-control: color-mix(in srgb, rgba(11, 19, 34, 52%) 88%, rgba(var(--v-theme-primary), 28%));
     --glass-control-prominent: color-mix(in srgb, rgba(255, 255, 255, 7%) 82%, rgba(var(--v-theme-primary), 24%));
@@ -185,7 +185,7 @@ html[data-theme='glass'] {
     --glass-overlay-surface: color-mix(
       in srgb,
       rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
-      rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.22))
+      rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
     --glass-overlay-blur: var(--glass-overlay-clarity-blur, 6px);
     --glass-overlay-saturate: 120%;
@@ -1102,13 +1102,13 @@ html[data-theme='glass'] {
       color-mix(
           in srgb,
           rgba(var(--plugin-card-effective-accent-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 94%,
-          rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33))
+          rgba(var(--glass-material-accent-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33))
         )
         0%,
       color-mix(
           in srgb,
           rgba(var(--plugin-card-effective-accent-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 94%,
-          rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2))
+          rgba(var(--glass-material-accent-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2))
         )
         58%,
       rgba(var(--plugin-card-effective-accent-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
@@ -1573,7 +1573,7 @@ html[data-theme='glass'][data-glass-appearance='tinted'] body[data-theme='glass'
   .login-card__surface {
     background:
       linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 36%),
-      linear-gradient(rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-primary), 0.03)),
+      linear-gradient(rgba(var(--glass-material-accent-rgb), 0.08), rgba(var(--glass-material-accent-rgb), 0.03)),
       linear-gradient(rgba(7, 14, 25, 0.16), rgba(7, 14, 25, 0.3)) !important;
   }
 

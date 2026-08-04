@@ -1,4 +1,4 @@
-import { normalizePluginAccentColor } from '@/utils/glassColor'
+import { normalizePluginAccentColor, normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { describe, expect, it } from 'vitest'
 
 interface OklchColor {
@@ -67,5 +67,58 @@ describe('normalizePluginAccentColor', () => {
     expect(normalizePluginAccentColor('#fff')).toBeUndefined()
     expect(normalizePluginAccentColor('12abef')).toBeUndefined()
     expect(normalizePluginAccentColor('#gg0000')).toBeUndefined()
+  })
+})
+
+describe('normalizeThemeMaterialAccent', () => {
+  it.each([
+    '#8D51F9',
+    '#3F51B5',
+    '#1976D2',
+    '#00BCD4',
+    '#009688',
+    '#4CAF50',
+    '#FFB400',
+    '#FF9800',
+    '#FF4C51',
+    '#E91E63',
+    '#16B1FF',
+    '#607D8B',
+  ])('keeps preset %s within the material tone contract', sourceHex => {
+    const normalized = normalizeThemeMaterialAccent(sourceHex)
+
+    expect(normalized).toBeDefined()
+    expect(normalized?.hex).toMatch(/^#[0-9a-f]{6}$/)
+    expect(normalized?.rgb).toMatch(/^\d{1,3}, \d{1,3}, \d{1,3}$/)
+
+    const source = hexToOklch(sourceHex)
+    const output = hexToOklch(normalized!.hex)
+    expect(output.lightness).toBeGreaterThanOrEqual(0.555)
+    expect(output.lightness).toBeLessThanOrEqual(0.725)
+    expect(output.chroma).toBeLessThanOrEqual(Math.min(source.chroma, 0.14) + 0.005)
+    if (source.chroma >= 0.03 && output.chroma >= 0.03)
+      expect(hueDistanceDegrees(source.hue, output.hue)).toBeLessThanOrEqual(2)
+  })
+
+  it.each(['#000000', '#ffffff', '#7d7d7d', '#ffff00', '#00ffff', '#ff0000'])(
+    'keeps extreme %s in gamut without inventing chroma',
+    sourceHex => {
+      const normalized = normalizeThemeMaterialAccent(sourceHex)
+      const source = hexToOklch(sourceHex)
+      const output = hexToOklch(normalized!.hex)
+
+      expect(output.lightness).toBeGreaterThanOrEqual(0.555)
+      expect(output.lightness).toBeLessThanOrEqual(0.725)
+      expect(output.chroma).toBeLessThanOrEqual(Math.min(source.chroma, 0.14) + 0.005)
+      if (source.chroma >= 0.03 && output.chroma >= 0.03)
+        expect(hueDistanceDegrees(source.hue, output.hue)).toBeLessThanOrEqual(2)
+    },
+  )
+
+  it('is deterministic, case-insensitive, and rejects non-contract inputs', () => {
+    expect(normalizeThemeMaterialAccent('#12ABef')).toEqual(normalizeThemeMaterialAccent('#12abef'))
+    expect(normalizeThemeMaterialAccent('#fff')).toBeUndefined()
+    expect(normalizeThemeMaterialAccent('12abef')).toBeUndefined()
+    expect(normalizeThemeMaterialAccent('#gg0000')).toBeUndefined()
   })
 })
