@@ -152,6 +152,8 @@ export default {
     glassAppearanceClear: 'Clear',
     glassAppearanceTinted: 'Tinted',
     glassAppearanceFrosted: 'Frosted',
+    glassAppearanceHint:
+      'Clear emphasizes wallpaper detail, Tinted adds color coverage, and Frosted uses blur diffusion for a denser glass surface.',
     glassQuality: 'Quality',
     glassQualityCss: 'Standard',
     glassQualityBalanced: 'Balanced',
@@ -165,6 +167,8 @@ export default {
     glassPresetNatural: 'Natural',
     glassPresetGlide: 'Glide',
     glassPresetLiquid: 'Liquid',
+    glassPresetHint:
+      'Starting combinations for material and motion: Natural stays balanced, Glide favors smooth movement, and Liquid adds deformation and inertia.',
     glassDynamicsMode: 'Motion Effect',
     glassDynamicsModeFluid: 'Fluid',
     glassDynamicsModeRipple: 'Ripple',

@@ -344,6 +344,7 @@ onScopeDispose(cancelGlassPreview)
               {{ t(option.label) }}
             </VBtn>
           </VBtnToggle>
+          <p class="glass-settings-dialog__hint">{{ t('theme.glassAppearanceHint') }}</p>
         </section>
 
         <section>
@@ -389,6 +390,7 @@ onScopeDispose(cancelGlassPreview)
               {{ t(option.label) }}
             </VBtn>
           </VBtnToggle>
+          <p class="glass-settings-dialog__hint">{{ t('theme.glassPresetHint') }}</p>
         </section>
 
         <section v-if="showsDynamicsMode" class="glass-settings-dialog__dynamics-mode-section">

@@ -430,6 +430,8 @@ describe('GlassSettingsDialog', () => {
     expect(wrapper.findAll('.slider-stub')).toHaveLength(6)
     expect(wrapper.find('.glass-settings-dialog__live-controls').exists()).toBe(true)
     expect(wrapper.find('.glass-settings-dialog__dynamics-mode').attributes('data-model-value')).toBe('ripple')
+    expect(wrapper.text()).toContain('theme.glassAppearanceHint')
+    expect(wrapper.text()).toContain('theme.glassPresetHint')
     expect(wrapper.text()).toContain('theme.glassMaterialStrengthHint')
     expect(wrapper.text()).toContain('theme.glassOpticalStrengthHint')
   })
