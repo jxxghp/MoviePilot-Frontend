@@ -154,6 +154,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 const backgroundImages = ref<string[]>([])
 const backgroundLayers = ref(createLoginBackgroundLayers())
 const backgroundDisplayImages = ref<Record<string, string>>({})
+const backgroundCorsReady = ref<Record<string, boolean>>({})
 const backgroundToneProfiles = ref<Record<string, GlassWallpaperToneProfile>>({})
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
@@ -302,11 +303,23 @@ function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
   const appearance = effectiveGlassSettings.value.glassAppearance
   const materialExposure = appearance === 'frosted' ? 0.82 : appearance === 'tinted' ? 0.85 : 0.86
   const displayUrl = isGlassTheme.value ? getPreparedBackgroundImage(layer.url) : layer.url
+  const usesCorsImageElement = isGlassTheme.value && Object.hasOwn(backgroundDisplayImages.value, layer.url)
 
   return {
-    'backgroundImage': displayUrl ? `url(${displayUrl})` : undefined,
+    'backgroundImage': !usesCorsImageElement && displayUrl ? `url(${displayUrl})` : undefined,
     '--glass-wallpaper-brightness': String(materialExposure * profile.exposure),
   }
+}
+
+/** 玻璃可见层与 tone/WebGL 使用同一图片请求模式，避免 CSS 再创建无 Origin 的缓存变体。 */
+function getBackgroundLayerImageSource(layer: LoginBackgroundLayer) {
+  if (!isGlassTheme.value || !Object.hasOwn(backgroundDisplayImages.value, layer.url)) return ''
+
+  return getPreparedBackgroundImage(layer.url)
+}
+
+function getBackgroundLayerCrossOrigin(layer: LoginBackgroundLayer) {
+  return backgroundCorsReady.value[layer.url] ? 'anonymous' : undefined
 }
 
 const needsStableFixedBackdrop = isChromiumFixedShellBackplateBrowser()
@@ -327,6 +340,8 @@ const fixedShellBackplateLayers = computed<readonly GlassFixedShellBackplateLaye
 
   return renderedBackgroundLayers.value.map(layer => ({
     ...layer,
+    crossOrigin: getBackgroundLayerCrossOrigin(layer),
+    src: getBackgroundLayerImageSource(layer),
     style: getBackgroundLayerStyle(layer),
   }))
 })
@@ -711,6 +726,10 @@ async function preloadBackgroundCandidate(imageUrl: string) {
       ...backgroundDisplayImages.value,
       [imageUrl]: opticalUrl,
     }
+    backgroundCorsReady.value = {
+      ...backgroundCorsReady.value,
+      [imageUrl]: true,
+    }
     recordGlassLaunchTiming('wallpaper-source-ready', imageUrl)
     return true
   }
@@ -718,6 +737,10 @@ async function preloadBackgroundCandidate(imageUrl: string) {
   backgroundDisplayImages.value = {
     ...backgroundDisplayImages.value,
     [imageUrl]: imageUrl,
+  }
+  backgroundCorsReady.value = {
+    ...backgroundCorsReady.value,
+    [imageUrl]: false,
   }
 
   const ready = await preloadImage(imageUrl)
@@ -1137,7 +1160,17 @@ onUnmounted(() => {
         class="background-image"
         :class="layer.role"
         :style="getBackgroundLayerStyle(layer)"
-      />
+      >
+        <img
+          v-if="getBackgroundLayerImageSource(layer)"
+          class="background-image__source"
+          :crossorigin="getBackgroundLayerCrossOrigin(layer)"
+          :src="getBackgroundLayerImageSource(layer)"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      </div>
       <!-- 全局磨砂层 -->
       <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
     </div>
@@ -1235,6 +1268,16 @@ onUnmounted(() => {
   &.previous {
     z-index: 1;
   }
+}
+
+.background-image__source {
+  position: absolute;
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  inset: 0;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 .background-container.is-transparent-theme .background-image.active {

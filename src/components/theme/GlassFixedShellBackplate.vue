@@ -32,7 +32,17 @@ const transitionStyle = computed(() => ({
       :class="`is-${layer.role}`"
       :data-backplate-slot="layer.key"
     >
-      <div class="glass-fixed-shell-backplate__wallpaper" :style="layer.style" />
+      <div class="glass-fixed-shell-backplate__wallpaper" :style="layer.style">
+        <img
+          v-if="layer.src"
+          class="glass-fixed-shell-backplate__source"
+          :crossorigin="layer.crossOrigin"
+          :src="layer.src"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      </div>
     </div>
   </div>
 
@@ -51,7 +61,17 @@ const transitionStyle = computed(() => ({
       :class="`is-${layer.role}`"
       :data-backplate-slot="layer.key"
     >
-      <div class="glass-fixed-shell-backplate__wallpaper" :style="layer.style" />
+      <div class="glass-fixed-shell-backplate__wallpaper" :style="layer.style">
+        <img
+          v-if="layer.src"
+          class="glass-fixed-shell-backplate__source"
+          :src="layer.src"
+          :crossorigin="layer.crossOrigin"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -158,6 +178,16 @@ const transitionStyle = computed(() => ({
     content: '';
     inset: 0;
   }
+}
+
+.glass-fixed-shell-backplate__source {
+  position: absolute;
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  inset: 0;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,7 +3,11 @@ import type { ThemeCustomizerGlassAppearance, ThemeCustomizerGlassQuality } from
 import type { LoginBackgroundLayer } from '@/utils/loginPresentation'
 
 export interface GlassFixedShellBackplateLayer extends LoginBackgroundLayer {
-  /** 当前槽位直接采样壁纸所需的背景图与色调变量。 */
+  /** 与 tone/WebGL 一致的图片请求模式；CORS 不可用时省略并使用普通图片回退。 */
+  crossOrigin?: 'anonymous'
+  /** 已完成首图准备、可直接进入稳定背板槽位的图片地址。 */
+  src: string
+  /** 当前槽位直接采样壁纸时叠加的色调变量。 */
   style: StyleValue
 }
 

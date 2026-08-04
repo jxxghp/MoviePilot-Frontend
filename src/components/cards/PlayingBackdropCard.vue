@@ -103,6 +103,7 @@ async function goPlay() {
           @keyup.enter="goPlay"
           @keyup.space="goPlay"
         >
+          <!-- 媒体服务器图片统一采用匿名 CORS，避免同一代理资源分裂为两种请求与缓存模式；Safari 普通 dev 可能重复请求，PWA 下由图片缓存路由统一处理。 -->
           <VImg
             :src="imageUrl"
             crossorigin="anonymous"
