@@ -53,8 +53,8 @@ vi.mock('@/composables/useKeepAliveRefresh', () => ({
   },
 }))
 
-vi.mock('@/composables/useCardAccentColor', () => ({
-  getCardAccentRgbFromImage: vi.fn().mockResolvedValue('40, 169, 225'),
+vi.mock('@/@core/utils/image', () => ({
+  extractDominantColor: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/composables/usePWA', () => ({

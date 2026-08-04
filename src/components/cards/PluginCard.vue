@@ -4,7 +4,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
-import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
+import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -54,11 +54,7 @@ const cardRatingSummary = computed(() =>
 // 显示器宽度
 const display = useDisplay()
 
-// 卡片头部染色所用的图标主色（CSS 变量可直接消费的 RGB 通道值）
-const accentRgb = ref('40, 169, 225')
-
-// 图片对象
-const imageRef = ref<{ $el: HTMLElement } | null>(null)
+const { accentStyle, imageRef, resetAccentColor, updateAccentColor } = usePluginCardAccent()
 
 // 提示框
 const $toast = useToast()
@@ -110,9 +106,12 @@ watch(
 
 // 图片加载完成
 async function imageLoaded() {
-  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
-  // 从图标中提取主色，作为卡片头部染色玻璃的色相来源
-  accentRgb.value = await getCardAccentRgbFromImage(imageElement, '#28A9E1')
+  await updateAccentColor()
+}
+
+function imageFailed() {
+  imageLoadError.value = true
+  resetAccentColor()
 }
 
 // 显示更新日志
@@ -651,7 +650,7 @@ watch(
               'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
               'cursor-move': props.sortable,
             }"
-            :style="{ '--plugin-card-accent-rgb': accentRgb }"
+            :style="accentStyle"
             :ripple="!props.sortable"
           >
             <div class="plugin-card__banner flex-grow">
@@ -682,7 +681,7 @@ watch(
                       aspect-ratio="4/3"
                       cover
                       @load="imageLoaded"
-                      @error="imageLoadError = true"
+                      @error="imageFailed"
                     />
                   </VAvatar>
                 </div>
