@@ -1150,6 +1150,7 @@ onUnmounted(() => {
         v-if="shouldRenderGlassOpticalLayer"
         :appearance="effectiveGlassSettings.glassAppearance"
         :deformation-strength="opticalDeformationStrength"
+        :dynamics-mode="effectiveGlassSettings.glassDynamicsMode"
         :flow-strength="opticalFlowStrength"
         :quality="opticalQuality === 'high' ? 'high' : 'balanced'"
         :reflection-strength="opticalReflectionStrength"

@@ -8,6 +8,8 @@ const dialogStub = {
   template: '<div class="dialog-stub" :data-fullscreen="String(fullscreen)"><slot /></div>',
 }
 const toggleStub = {
+  emits: ['update:modelValue'],
+  name: 'VBtnToggle',
   props: ['modelValue'],
   template: '<div :data-model-value="modelValue"><slot /></div>',
 }
@@ -31,6 +33,7 @@ const mocks = vi.hoisted(() => ({
     value: {
       glassAppearance: 'clear',
       glassDeformationStrength: 50,
+      glassDynamicsMode: 'fluid',
       glassFlowStrength: 50,
       glassPreset: 'natural',
       glassPresetOverrides: {},
@@ -78,6 +81,7 @@ describe('GlassSettingsDialog', () => {
     mocks.display.smAndDown.value = false
     mocks.settings.value.glassAppearance = 'clear'
     mocks.settings.value.glassDeformationStrength = 50
+    mocks.settings.value.glassDynamicsMode = 'fluid'
     mocks.settings.value.glassFlowStrength = 50
     mocks.settings.value.glassPreset = 'natural'
     mocks.settings.value.glassPresetOverrides = {}
@@ -174,6 +178,7 @@ describe('GlassSettingsDialog', () => {
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'frosted',
       glassDeformationStrength: 79,
+      glassDynamicsMode: 'fluid',
       glassFlowStrength: 77,
       glassPreset: 'liquid',
       glassPresetOverrides: {
@@ -218,6 +223,7 @@ describe('GlassSettingsDialog', () => {
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'clear',
       glassDeformationStrength: 50,
+      glassDynamicsMode: 'fluid',
       glassFlowStrength: 50,
       glassPreset: 'natural',
       glassPresetOverrides: {
@@ -255,6 +261,7 @@ describe('GlassSettingsDialog', () => {
 
     expect(wrapper.find('.glass-settings-dialog__preset').exists()).toBe(false)
     expect(wrapper.find('.glass-settings-dialog__preset-state').exists()).toBe(false)
+    expect(wrapper.find('.glass-settings-dialog__dynamics-mode').exists()).toBe(false)
   })
 
   it('keeps the selected preset highlighted and records its combination override', async () => {
@@ -335,6 +342,7 @@ describe('GlassSettingsDialog', () => {
     expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith({
       glassAppearance: 'clear',
       glassDeformationStrength: 69,
+      glassDynamicsMode: 'fluid',
       glassFlowStrength: 62,
       glassPreset: 'natural',
       glassPresetOverrides: {
@@ -364,6 +372,7 @@ describe('GlassSettingsDialog', () => {
           VCard: slotStub,
           VCardActions: slotStub,
           VCardText: slotStub,
+          VBtnToggle: toggleStub,
           VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
@@ -374,6 +383,7 @@ describe('GlassSettingsDialog', () => {
     const sliders = wrapper.findAll('.slider-stub')
 
     expect(sliders).toHaveLength(6)
+    expect(wrapper.find('.glass-settings-dialog__dynamics-mode').attributes('data-model-value')).toBe('fluid')
     expect(sliders.map(slider => slider.attributes('aria-label'))).toEqual([
       'theme.glassTransparencyStrength',
       'theme.glassTransmissionStrength',
@@ -386,6 +396,7 @@ describe('GlassSettingsDialog', () => {
 
   it('restores motion tuning when a mobile presentation returns to desktop', async () => {
     mocks.usesMobilePresentation!.value = true
+    mocks.settings.value.glassDynamicsMode = 'ripple'
     mocks.settings.value.glassQuality = 'high'
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
@@ -393,6 +404,7 @@ describe('GlassSettingsDialog', () => {
           VCard: slotStub,
           VCardActions: slotStub,
           VCardText: slotStub,
+          VBtnToggle: toggleStub,
           VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
@@ -407,6 +419,7 @@ describe('GlassSettingsDialog', () => {
       'theme.glassReflectionStrength',
     ])
     expect(wrapper.find('.glass-settings-dialog__live-controls').exists()).toBe(false)
+    expect(wrapper.find('.glass-settings-dialog__dynamics-mode').exists()).toBe(false)
     expect(wrapper.text()).toContain('theme.glassMaterialStrengthHint')
     expect(wrapper.text()).not.toContain('theme.glassOpticalStrengthHint')
     expect(wrapper.text()).toContain('theme.glassQualityMobileHint')
@@ -416,7 +429,61 @@ describe('GlassSettingsDialog', () => {
 
     expect(wrapper.findAll('.slider-stub')).toHaveLength(6)
     expect(wrapper.find('.glass-settings-dialog__live-controls').exists()).toBe(true)
+    expect(wrapper.find('.glass-settings-dialog__dynamics-mode').attributes('data-model-value')).toBe('ripple')
     expect(wrapper.text()).toContain('theme.glassMaterialStrengthHint')
     expect(wrapper.text()).toContain('theme.glassOpticalStrengthHint')
+  })
+
+  it('keeps optical parameters while switching modes and hides motion tuning only when off', async () => {
+    mocks.settings.value.glassDynamicsMode = 'ripple'
+    mocks.settings.value.glassQuality = 'balanced'
+    mocks.settings.value.glassDeformationStrength = 62
+    mocks.settings.value.glassFlowStrength = 58
+    mocks.settings.value.glassReflectionStrength = 44
+    mocks.settings.value.glassTransmissionStrength = 67
+    mocks.settings.value.glassTranslationStrength = 76
+    mocks.settings.value.glassTransparencyStrength = 53
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardActions: slotStub,
+          VCardText: slotStub,
+          VBtn: slotStub,
+          VBtnToggle: toggleStub,
+          VDialog: dialogStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const modeControl = wrapper
+      .findAllComponents({ name: 'VBtnToggle' })
+      .find(component => component.classes().includes('glass-settings-dialog__dynamics-mode'))
+    if (!modeControl) throw new Error('dynamics mode control was not rendered')
+
+    expect(modeControl.attributes('data-model-value')).toBe('ripple')
+    expect(wrapper.findAll('.slider-stub')).toHaveLength(6)
+
+    modeControl.vm.$emit('update:modelValue', 'off')
+    await wrapper.vm.$nextTick()
+
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith({
+      glassAppearance: 'clear',
+      glassDeformationStrength: 62,
+      glassDynamicsMode: 'off',
+      glassFlowStrength: 58,
+      glassPreset: 'natural',
+      glassPresetOverrides: {},
+      glassQuality: 'balanced',
+      glassReflectionStrength: 44,
+      glassTransmissionStrength: 67,
+      glassTranslationStrength: 76,
+      glassTransparencyStrength: 53,
+    })
+    expect(wrapper.findAll('.slider-stub')).toHaveLength(3)
+    expect(wrapper.find('.glass-settings-dialog__live-controls').exists()).toBe(false)
+    expect(wrapper.find('.glass-settings-dialog__dynamics-mode').exists()).toBe(true)
   })
 })
