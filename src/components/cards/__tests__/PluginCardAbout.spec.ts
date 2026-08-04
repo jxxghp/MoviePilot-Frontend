@@ -122,4 +122,39 @@ describe('PluginCard about menu', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('https://github.com/example/plugins'))
     expect(popup.opener).toBeNull()
   })
+
+  it('prioritizes the update status over the rating status', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_update: true, average_rating: 4.3, rating_count: 12 },
+      },
+    })
+
+    expect(screen.getByLabelText('有更新')).toBeInTheDocument()
+    expect(screen.queryByLabelText('4.3 分，共 12 人评分')).not.toBeInTheDocument()
+  })
+
+  it('shows the rating status when no update is available', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_update: false, average_rating: 4.3, rating_count: 12 },
+      },
+    })
+
+    const ratingStatus = screen.getByLabelText('4.3 分，共 12 人评分')
+
+    expect(ratingStatus).toHaveClass('plugin-card__status--rating')
+    expect(ratingStatus).toHaveTextContent('4.3')
+    expect(screen.queryByLabelText('有更新')).not.toBeInTheDocument()
+  })
+
+  it('leaves the status position empty without an update or rating', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_update: false, average_rating: 0, rating_count: 0 },
+      },
+    })
+
+    expect(document.querySelector('.plugin-card__status')).toBeNull()
+  })
 })

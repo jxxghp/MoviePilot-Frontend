@@ -247,7 +247,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" width="100%" max-width="32rem" max-height="90dvh" scrollable>
+  <VDialog v-if="visible" v-model="visible" width="100%" max-width="25rem" max-height="90dvh" scrollable>
     <VCard class="plugin-market-detail">
       <VDialogCloseBtn v-model="visible" />
       <VCardText class="plugin-market-detail__content">
@@ -359,7 +359,7 @@ onUnmounted(() => {
 
 <style scoped>
 .plugin-market-detail__content {
-  padding: 2.25rem 1.5rem 1.5rem;
+  padding: 1.75rem 1.25rem 1.25rem;
 }
 
 .plugin-market-detail__header {
@@ -375,16 +375,16 @@ onUnmounted(() => {
 
 .plugin-market-detail__title {
   max-inline-size: 100%;
-  margin: 1rem 0 0;
-  font-size: 1.25rem;
+  margin: 0.75rem 0 0;
+  font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .plugin-market-detail__description {
-  max-inline-size: 28rem;
-  margin: 0.35rem 0 0;
+  max-inline-size: 24rem;
+  margin: 0.25rem 0 0;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   line-height: 1.5;
@@ -394,16 +394,15 @@ onUnmounted(() => {
 
 .plugin-market-detail__metadata {
   display: grid;
-  gap: 0.8rem;
-  max-inline-size: 26rem;
-  margin: 1.5rem auto 0;
+  gap: 0.625rem;
+  margin: 1.125rem auto 0;
 }
 
 .plugin-market-detail__metadata-row {
   display: grid;
-  grid-template-columns: 7rem minmax(0, 1fr);
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
+  gap: 0.625rem;
   min-inline-size: 0;
 }
 
@@ -421,6 +420,7 @@ onUnmounted(() => {
   font-size: 0.9375rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
+  text-align: start;
 }
 
 .plugin-market-detail__author {
@@ -448,15 +448,15 @@ onUnmounted(() => {
 }
 
 .plugin-market-detail__warning {
-  margin-block-start: 1.25rem;
+  margin-block-start: 1rem;
 }
 
 .plugin-market-detail-actions {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  margin-block-start: 1.25rem;
+  gap: 0.5rem;
+  margin-block-start: 1rem;
 }
 
 .plugin-market-detail-actions__buttons {
@@ -478,13 +478,13 @@ onUnmounted(() => {
 }
 
 .plugin-market-detail-user-rating {
-  margin-block-start: 1.5rem;
-  padding-block-start: 1.25rem;
+  margin-block-start: 1.25rem;
+  padding-block-start: 1rem;
   border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .plugin-market-detail-user-rating__title {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.5rem;
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.4;
@@ -495,7 +495,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-inline-size: 0;
 }
 
@@ -504,28 +504,12 @@ onUnmounted(() => {
     padding-inline: 1rem;
   }
 
-  .plugin-market-detail__metadata-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.2rem;
-  }
-
-  .plugin-market-detail__metadata dt {
-    text-align: start;
-  }
-
   .plugin-market-detail-actions__buttons {
     flex-direction: column;
   }
 
   .plugin-market-detail-actions__buttons :deep(.v-btn) {
     inline-size: 100%;
-  }
-}
-
-@media (width >= 480px) {
-  .plugin-market-detail-user-rating__controls {
-    flex-direction: row;
-    justify-content: center;
   }
 }
 </style>

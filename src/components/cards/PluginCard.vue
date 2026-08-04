@@ -39,6 +39,16 @@ const emit = defineEmits(['remove', 'save', 'actionDone'])
 // 多语言
 const { t } = useI18n()
 
+const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
+const hasCardStatus = computed(() => Boolean(props.plugin?.has_update) || hasCardRating.value)
+const cardRatingValue = computed(() => Number(props.plugin?.average_rating || 0).toFixed(1))
+const cardRatingSummary = computed(() =>
+  t('plugin.ratingSummary', {
+    rating: cardRatingValue.value,
+    count: props.plugin?.rating_count || 0,
+  }),
+)
+
 // 显示器宽度
 const display = useDisplay()
 
@@ -642,6 +652,7 @@ watch(
               <VCardText class="px-2 pt-2 pb-0">
                 <VCardTitle
                   class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
+                  :class="{ 'plugin-card__title--with-status': hasCardStatus }"
                 >
                   <VBadge dot inline :color="props.plugin?.state ? 'success' : 'secondary'" />
                   {{ props.plugin?.plugin_name }}
@@ -721,8 +732,22 @@ watch(
                 </IconBtn>
               </div>
             </VCardText>
-            <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 right-5">
-              <VIcon icon="mdi-new-box" class="text-white" />
+            <div
+              v-if="props.plugin?.has_update"
+              class="plugin-card__status plugin-card__status--update"
+              :aria-label="t('plugin.hasUpdate')"
+              :title="t('plugin.hasUpdate')"
+            >
+              <VIcon icon="mdi-new-box" class="text-white" size="20" />
+            </div>
+            <div
+              v-else-if="hasCardRating"
+              class="plugin-card__status plugin-card__status--rating"
+              :aria-label="cardRatingSummary"
+              :title="cardRatingSummary"
+            >
+              <VIcon icon="mdi-star" color="warning" size="16" />
+              <span>{{ cardRatingValue }}</span>
             </div>
           </VCard>
         </div>
@@ -734,6 +759,28 @@ watch(
 <style lang="scss" scoped>
 .plugin-card-hover-area {
   inline-size: 100%;
+}
+
+.plugin-card__title--with-status {
+  padding-inline-end: 4rem !important;
+}
+
+.plugin-card__status {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  color: white;
+  inset-block-start: 0.625rem;
+  inset-inline-end: 0.625rem;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 65%);
+}
+
+.plugin-card__status--rating {
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .card-cover-blurred::before {

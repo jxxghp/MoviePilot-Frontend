@@ -136,7 +136,7 @@ describe('PluginMarketDetailDialog', () => {
     expect(screen.getByRole('button', { name: '提交评分' })).toBeInTheDocument()
   })
 
-  it('keeps long plugin details in aligned metadata rows', async () => {
+  it('keeps long plugin details in centered metadata rows', async () => {
     const pluginDescription = '支持包含较长说明文字和换行内容的插件详情。\n第二行内容保持完整展示。'
     const pluginAuthor = 'MoviePilot-Plugin-Author-With-A-Long-Name'
 
@@ -148,7 +148,9 @@ describe('PluginMarketDetailDialog', () => {
       system_version: 'v2.15.0 or later',
     })
 
-    expect(await screen.findByText(pluginDescription)).toHaveClass('plugin-market-detail__description')
+    const description = document.querySelector('.plugin-market-detail__description')
+
+    expect(description).toHaveTextContent('支持包含较长说明文字和换行内容的插件详情。 第二行内容保持完整展示。')
     expect(screen.getByRole('button', { name: pluginAuthor })).toHaveClass('plugin-market-detail__author')
 
     const metadata = document.querySelector('.plugin-market-detail__metadata')
