@@ -70,6 +70,8 @@ export const themeCustomizerShadowLevels = [
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
 export type ThemeCustomizerGlassAppearance = 'clear' | 'frosted' | 'tinted'
+/** 玻璃动态效果的持久化选择；关闭模式仍保留用户配置的动态参数。 */
+export type ThemeCustomizerGlassDynamicsMode = 'fluid' | 'ripple' | 'off'
 export type ThemeCustomizerGlassQuality = 'balanced' | 'css' | 'high'
 export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'none' | 'small'
 export type ThemeCustomizerShadow = (typeof themeCustomizerShadowLevels)[number]
@@ -79,6 +81,8 @@ export type ThemeCustomizerTheme = 'auto' | 'dark' | 'glass' | 'light' | 'purple
 export interface ThemeCustomizerSettings {
   /** 玻璃主题的材质语义，与渲染质量保持独立。 */
   glassAppearance: ThemeCustomizerGlassAppearance
+  /** 玻璃动态效果模式，与六参数预设矩阵保持独立。 */
+  glassDynamicsMode: ThemeCustomizerGlassDynamicsMode
   /** 局部非均匀折射与内容弯曲强度，范围 0 到 100。 */
   glassDeformationStrength: number
   /** 轨迹、尾波、惯性与收敛强度，范围 0 到 100。 */
@@ -117,6 +121,7 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validGlassAppearances: ThemeCustomizerGlassAppearance[] = ['clear', 'tinted', 'frosted']
+const validGlassDynamicsModes: ThemeCustomizerGlassDynamicsMode[] = ['fluid', 'ripple', 'off']
 const validGlassPresets: GlassOpticalPreset[] = ['natural', 'glide', 'liquid']
 const validGlassQualities: ThemeCustomizerGlassQuality[] = ['css', 'balanced', 'high']
 const defaultGlassQuality: ThemeCustomizerGlassQuality = 'balanced'
@@ -138,6 +143,7 @@ type DefaultGlassCustomizerSettings = Pick<
   ThemeCustomizerSettings,
   | 'glassAppearance'
   | 'glassDeformationStrength'
+  | 'glassDynamicsMode'
   | 'glassFlowStrength'
   | 'glassPreset'
   | 'glassPresetOverrides'
@@ -176,6 +182,7 @@ export function getDefaultGlassCustomizerSettings(
   return {
     glassAppearance: 'clear',
     glassDeformationStrength: glassParameters.deformation,
+    glassDynamicsMode: 'ripple',
     glassFlowStrength: glassParameters.flow,
     glassPreset: 'natural',
     glassPresetOverrides: {},
@@ -287,6 +294,9 @@ function normalizeThemeCustomizerSettings(
       settings.glassMotionStrength,
       fallback.glassDeformationStrength,
     ),
+    glassDynamicsMode: validGlassDynamicsModes.includes(settings.glassDynamicsMode as ThemeCustomizerGlassDynamicsMode)
+      ? (settings.glassDynamicsMode as ThemeCustomizerGlassDynamicsMode)
+      : fallback.glassDynamicsMode,
     glassFlowStrength: normalizeMigratedGlassStrength(
       settings.glassFlowStrength,
       settings.glassMotionStrength,
@@ -368,6 +378,7 @@ type ThemeCustomizerGlassSettings = Pick<
   ThemeCustomizerSettings,
   | 'glassAppearance'
   | 'glassDeformationStrength'
+  | 'glassDynamicsMode'
   | 'glassFlowStrength'
   | 'glassPreset'
   | 'glassPresetOverrides'
@@ -382,6 +393,7 @@ const effectiveGlassSettings = computed(() => ({
   glassAppearance: glassPreviewState.value?.glassAppearance ?? settingsState.value.glassAppearance,
   glassDeformationStrength:
     glassPreviewState.value?.glassDeformationStrength ?? settingsState.value.glassDeformationStrength,
+  glassDynamicsMode: glassPreviewState.value?.glassDynamicsMode ?? settingsState.value.glassDynamicsMode,
   glassFlowStrength: glassPreviewState.value?.glassFlowStrength ?? settingsState.value.glassFlowStrength,
   glassPreset: glassPreviewState.value?.glassPreset ?? settingsState.value.glassPreset,
   glassPresetOverrides: glassPreviewState.value?.glassPresetOverrides ?? settingsState.value.glassPresetOverrides,
@@ -591,6 +603,7 @@ export function previewGlassSettings(patch: Partial<ThemeCustomizerGlassSettings
   glassPreviewState.value = {
     glassAppearance: previewSettings.glassAppearance,
     glassDeformationStrength: previewSettings.glassDeformationStrength,
+    glassDynamicsMode: previewSettings.glassDynamicsMode,
     glassFlowStrength: previewSettings.glassFlowStrength,
     glassPreset: previewSettings.glassPreset,
     glassPresetOverrides: previewSettings.glassPresetOverrides,
@@ -645,6 +658,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
   return (
     settings.glassAppearance === defaults.glassAppearance &&
     settings.glassDeformationStrength === defaults.glassDeformationStrength &&
+    settings.glassDynamicsMode === defaults.glassDynamicsMode &&
     settings.glassFlowStrength === defaults.glassFlowStrength &&
     settings.glassPreset === defaults.glassPreset &&
     JSON.stringify(settings.glassPresetOverrides) === JSON.stringify(defaults.glassPresetOverrides) &&
@@ -760,6 +774,11 @@ export function useThemeCustomizer() {
   /** 更新玻璃局部非均匀形变强度。 */
   function setGlassDeformationStrength(glassDeformationStrength: number) {
     return updateGlassPresetOverride({ deformation: normalizeGlassOpticalStrength(glassDeformationStrength) })
+  }
+
+  /** 切换玻璃动态效果，不改写当前预设归属或六个具体参数。 */
+  function setGlassDynamicsMode(glassDynamicsMode: ThemeCustomizerGlassDynamicsMode) {
+    return updateSettings({ glassDynamicsMode })
   }
 
   /** 更新玻璃轨迹、尾波与惯性强度。 */
@@ -901,6 +920,7 @@ export function useThemeCustomizer() {
     resetSettings,
     setGlassAppearance,
     setGlassDeformationStrength,
+    setGlassDynamicsMode,
     setGlassFlowStrength,
     setGlassPreset,
     setGlassQuality,

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import GlassOpticalLayer from '@/components/theme/GlassOpticalLayer.vue'
 
 const rendererCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>)
+const rendererInitialStates = vi.hoisted(() => [] as string[])
 const rendererResults = vi.hoisted(
   () =>
     [] as Array<{
@@ -19,6 +20,7 @@ const rendererResults = vi.hoisted(
       preparedWallpaperRevision: { value: number }
       preparedWallpaperUrl: { value: string }
       renderedFrames: { value: number }
+      retryAfterFailure: ReturnType<typeof vi.fn>
       rollbackPreparedWallpaperActivation: ReturnType<typeof vi.fn>
       state: { value: string }
     }>,
@@ -61,7 +63,12 @@ vi.mock('@/composables/useGlassOpticalRenderer', () => ({
       preparedWallpaperRevision: ref(0),
       preparedWallpaperUrl: ref(''),
       renderedFrames: ref(0),
-      state: ref('ready'),
+      state: ref(rendererInitialStates.shift() ?? 'ready'),
+      retryAfterFailure: vi.fn(() => {
+        result.state.value = 'loading'
+
+        return Promise.resolve()
+      }),
       canActivatePreparedWallpaper: vi.fn((url: string, revision: number, preparationKey: string) => {
         return (
           result.state.value === 'ready' &&
@@ -114,6 +121,7 @@ vi.mock('@/composables/useGlassPresentationCapabilities', async () => {
 
 afterEach(() => {
   mobilePresentationState.current!.value = false
+  rendererInitialStates.length = 0
   vi.unstubAllGlobals()
 })
 
@@ -126,6 +134,7 @@ describe('GlassOpticalLayer', () => {
       props: {
         appearance: 'clear',
         deformationStrength: 50,
+        dynamicsMode: 'fluid',
         flowStrength: 50,
         previousWallpaperUrl: '',
         quality: 'balanced',
@@ -146,6 +155,7 @@ describe('GlassOpticalLayer', () => {
     expect(canvases.map(canvas => canvas.attributes('data-presentation-space'))).toEqual(['fixed', 'scroll'])
     expect(rendererCalls.map(options => options.surfaceSpace)).toEqual(['fixed', 'scroll'])
     expect(rendererCalls.every(options => options.interactionSource === interactionSource)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'fluid')).toBe(true)
     expect(rendererCalls.every(options => options.wallpaperSourceCache === wallpaperSourceCache)).toBe(true)
     expect(rendererCalls.every(options => options.syncDocumentState === false)).toBe(true)
     expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
@@ -161,6 +171,37 @@ describe('GlassOpticalLayer', () => {
     expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
   })
 
+  it('does not latch a composite failure while both contexts are initially loading', () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    rendererInitialStates.push('loading', 'loading')
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'ripple',
+        flowStrength: 50,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+
+    expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'ripple')).toBe(true)
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('ripple')
+    expect(setRendererState).toHaveBeenCalledWith(expect.any(Object), 'loading')
+    wrapper.unmount()
+  })
+
   it('keeps both material contexts while disabling dynamics on mobile presentations', async () => {
     rendererCalls.length = 0
     rendererResults.length = 0
@@ -169,6 +210,7 @@ describe('GlassOpticalLayer', () => {
       props: {
         appearance: 'frosted',
         deformationStrength: 50,
+        dynamicsMode: 'ripple',
         flowStrength: 50,
         previousWallpaperUrl: '',
         quality: 'high',
@@ -186,11 +228,15 @@ describe('GlassOpticalLayer', () => {
 
     expect(wrapper.findAll('canvas')).toHaveLength(2)
     expect(rendererCalls.every(options => !(options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'off')).toBe(true)
+    expect(document.documentElement.dataset.glassDynamicsMode).toBe('ripple')
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
 
     mobilePresentationState.current!.value = false
     await nextTick()
 
     expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'ripple')).toBe(true)
     wrapper.unmount()
   })
 
@@ -210,6 +256,7 @@ describe('GlassOpticalLayer', () => {
         appearance: 'frosted',
         activateWallpaperRevision: 0,
         deformationStrength: 50,
+        dynamicsMode: 'fluid',
         flowStrength: 50,
         pendingWallpaperRevision: 7,
         pendingWallpaperUrl: '/wallpaper-next.jpg',
@@ -267,6 +314,7 @@ describe('GlassOpticalLayer', () => {
       props: {
         appearance: 'frosted',
         deformationStrength: 50,
+        dynamicsMode: 'fluid',
         flowStrength: 50,
         pendingWallpaperRevision: 10,
         pendingWallpaperUrl: '/wallpaper-next.jpg',
@@ -322,6 +370,7 @@ describe('GlassOpticalLayer', () => {
         appearance: 'frosted',
         activateWallpaperRevision: 8,
         deformationStrength: 50,
+        dynamicsMode: 'ripple',
         flowStrength: 50,
         pendingWallpaperRevision: 8,
         pendingWallpaperUrl: '/wallpaper-next.jpg',
@@ -348,13 +397,34 @@ describe('GlassOpticalLayer', () => {
     scrollRenderer.state.value = 'fallback'
     await nextTick()
 
+    expect(rendererCalls.every(options => !(options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'off')).toBe(true)
+    expect(document.documentElement.dataset.glassDynamicsMode).toBe('ripple')
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
     expect(requestFrame).not.toHaveBeenCalled()
     expect(fixedRenderer.activatePreparedWallpaper).not.toHaveBeenCalled()
     expect(scrollRenderer.activatePreparedWallpaper).not.toHaveBeenCalled()
     expect(wrapper.emitted('wallpaperActivated')).toBeUndefined()
 
+    scrollRenderer.state.value = 'loading'
+    await nextTick()
+    expect(rendererCalls.every(options => !(options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'off')).toBe(true)
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
+    expect(requestFrame).not.toHaveBeenCalled()
+
+    fixedRenderer.state.value = 'loading'
     scrollRenderer.state.value = 'ready'
     await nextTick()
+    expect(rendererCalls.every(options => !(options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
+    expect(requestFrame).not.toHaveBeenCalled()
+
+    fixedRenderer.state.value = 'ready'
+    await nextTick()
+    expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
+    expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'ripple')).toBe(true)
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('ripple')
     expect(requestFrame).toHaveBeenCalledOnce()
     ;(activationCallback as FrameRequestCallback | null)?.(640)
     await nextTick()
@@ -362,6 +432,93 @@ describe('GlassOpticalLayer', () => {
     expect(fixedRenderer.activatePreparedWallpaper).toHaveBeenCalledOnce()
     expect(scrollRenderer.activatePreparedWallpaper).toHaveBeenCalledOnce()
     expect(wrapper.emitted('wallpaperActivated')).toEqual([['/wallpaper-next.jpg', 8, 640]])
+    wrapper.unmount()
+  })
+
+  it('retries both contexts when the requested dynamics mode changes after a composite failure', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'ripple',
+        flowStrength: 50,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+    const [fixedRenderer, scrollRenderer] = rendererResults
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
+
+    await wrapper.setProps({ dynamicsMode: 'fluid' })
+    await nextTick()
+
+    expect(fixedRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(scrollRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('fluid')
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+
+    fixedRenderer.state.value = 'ready'
+    await nextTick()
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+
+    scrollRenderer.state.value = 'ready'
+    await nextTick()
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('fluid')
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'ready')
+    wrapper.unmount()
+  })
+
+  it('keeps the composite fallback without retrying in a loop when explicit recovery fails', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'ripple',
+        flowStrength: 50,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+    const [fixedRenderer, scrollRenderer] = rendererResults
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+
+    await wrapper.setProps({ dynamicsMode: 'fluid' })
+    await nextTick()
+    fixedRenderer.state.value = 'ready'
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+    await nextTick()
+
+    expect(fixedRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(scrollRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
     wrapper.unmount()
   })
 
@@ -392,6 +549,7 @@ describe('GlassOpticalLayer', () => {
         appearance: 'frosted',
         activateWallpaperRevision: 9,
         deformationStrength: 50,
+        dynamicsMode: 'fluid',
         flowStrength: 50,
         pendingWallpaperRevision: 9,
         pendingWallpaperUrl: '/wallpaper-next.jpg',

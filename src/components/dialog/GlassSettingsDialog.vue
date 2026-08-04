@@ -5,6 +5,7 @@ import {
   previewGlassSettings,
   useThemeCustomizer,
   type ThemeCustomizerGlassAppearance,
+  type ThemeCustomizerGlassDynamicsMode,
   type ThemeCustomizerGlassQuality,
 } from '@/composables/useThemeCustomizer'
 import {
@@ -43,6 +44,7 @@ const usesMobilePresentation = useGlassMobilePresentation()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
 const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
+const draftDynamicsMode = ref<ThemeCustomizerGlassDynamicsMode>(settings.value.glassDynamicsMode)
 const draftFlowStrength = ref(settings.value.glassFlowStrength)
 const draftPreset = ref<GlassOpticalPreset>(settings.value.glassPreset)
 const draftPresetOverrides = ref<GlassOpticalPresetOverrides>({ ...settings.value.glassPresetOverrides })
@@ -53,7 +55,8 @@ const draftTranslationStrength = ref(settings.value.glassTranslationStrength)
 const draftTransparencyStrength = ref(settings.value.glassTransparencyStrength)
 const isSaving = ref(false)
 const usesRealtimeOptics = computed(() => draftQuality.value !== 'css')
-const showsDynamicTuning = computed(() => usesRealtimeOptics.value && !usesMobilePresentation.value)
+const showsDynamicsMode = computed(() => usesRealtimeOptics.value && !usesMobilePresentation.value)
+const showsDynamicTuning = computed(() => showsDynamicsMode.value && draftDynamicsMode.value !== 'off')
 const availablePresets = computed(() => getAvailableGlassOpticalPresets(draftQuality.value))
 const activePreset = computed<GlassOpticalPreset>(() =>
   availablePresets.value.includes(draftPreset.value) ? draftPreset.value : 'natural',
@@ -75,6 +78,7 @@ watch(
     if (value) {
       draftAppearance.value = settings.value.glassAppearance
       draftDeformationStrength.value = settings.value.glassDeformationStrength
+      draftDynamicsMode.value = settings.value.glassDynamicsMode
       draftFlowStrength.value = settings.value.glassFlowStrength
       draftPreset.value = settings.value.glassPreset
       draftPresetOverrides.value = { ...settings.value.glassPresetOverrides }
@@ -120,6 +124,18 @@ const presetOptions: Array<{ label: string; value: GlassOpticalPreset }> = [
 const visiblePresetOptions = computed(() =>
   presetOptions.filter(option => availablePresets.value.includes(option.value)),
 )
+const dynamicsModeOptions: Array<{
+  hint: string
+  label: string
+  value: ThemeCustomizerGlassDynamicsMode
+}> = [
+  { hint: 'theme.glassDynamicsModeFluidHint', label: 'theme.glassDynamicsModeFluid', value: 'fluid' },
+  { hint: 'theme.glassDynamicsModeRippleHint', label: 'theme.glassDynamicsModeRipple', value: 'ripple' },
+  { hint: 'theme.glassDynamicsModeOffHint', label: 'theme.glassDynamicsModeOff', value: 'off' },
+]
+const dynamicsModeHint = computed(
+  () => dynamicsModeOptions.find(option => option.value === draftDynamicsMode.value)?.hint ?? '',
+)
 
 /** 仅允许已实现的材质进入待保存设置。 */
 function updateAppearance(value: unknown) {
@@ -138,11 +154,21 @@ function updateQuality(value: unknown) {
   applyPreset(activePreset.value)
 }
 
+/** 仅切换动态效果草稿，六个具体参数和预设覆盖保持原值。 */
+function updateDynamicsMode(value: unknown) {
+  const option = dynamicsModeOptions.find(item => item.value === value)
+  if (!option) return
+
+  draftDynamicsMode.value = option.value
+  previewDraftParameters()
+}
+
 /** 将材质、质量、预设归属与六个具体参数作为一个预览事务同步。 */
 function previewDraftParameters() {
   previewGlassSettings({
     glassAppearance: draftAppearance.value,
     glassDeformationStrength: draftDeformationStrength.value,
+    glassDynamicsMode: draftDynamicsMode.value,
     glassFlowStrength: draftFlowStrength.value,
     glassPreset: draftPreset.value,
     glassPresetOverrides: draftPresetOverrides.value,
@@ -258,6 +284,7 @@ async function saveSettings() {
     previewGlassSettings({
       glassAppearance: draftAppearance.value,
       glassDeformationStrength: draftDeformationStrength.value,
+      glassDynamicsMode: draftDynamicsMode.value,
       glassFlowStrength: draftFlowStrength.value,
       glassPreset: draftPreset.value,
       glassPresetOverrides: draftPresetOverrides.value,
@@ -317,6 +344,7 @@ onScopeDispose(cancelGlassPreview)
               {{ t(option.label) }}
             </VBtn>
           </VBtnToggle>
+          <p class="glass-settings-dialog__hint">{{ t('theme.glassAppearanceHint') }}</p>
         </section>
 
         <section>
@@ -362,6 +390,29 @@ onScopeDispose(cancelGlassPreview)
               {{ t(option.label) }}
             </VBtn>
           </VBtnToggle>
+          <p class="glass-settings-dialog__hint">{{ t('theme.glassPresetHint') }}</p>
+        </section>
+
+        <section v-if="showsDynamicsMode" class="glass-settings-dialog__dynamics-mode-section">
+          <h3 class="glass-settings-dialog__label">{{ t('theme.glassDynamicsMode') }}</h3>
+          <VBtnToggle
+            :model-value="draftDynamicsMode"
+            mandatory
+            color="primary"
+            variant="text"
+            class="glass-settings-dialog__dynamics-mode"
+            @update:model-value="updateDynamicsMode"
+          >
+            <VBtn
+              v-for="option in dynamicsModeOptions"
+              :key="option.value"
+              :value="option.value"
+              class="glass-settings-dialog__dynamics-mode-option"
+            >
+              {{ t(option.label) }}
+            </VBtn>
+          </VBtnToggle>
+          <p class="glass-settings-dialog__hint">{{ t(dynamicsModeHint) }}</p>
         </section>
 
         <section class="glass-settings-dialog__tuning">
@@ -580,6 +631,7 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance,
+.glass-settings-dialog__dynamics-mode,
 .glass-settings-dialog__quality,
 .glass-settings-dialog__preset {
   display: grid;
@@ -593,6 +645,11 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance {
+  block-size: 42px !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.glass-settings-dialog__dynamics-mode {
   block-size: 42px !important;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -615,6 +672,7 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance-option,
+.glass-settings-dialog__dynamics-mode-option,
 .glass-settings-dialog__quality-option,
 .glass-settings-dialog__preset-option {
   border: 0 !important;
@@ -630,11 +688,16 @@ onScopeDispose(cancelGlassPreview)
   block-size: 32px !important;
 }
 
+.glass-settings-dialog__dynamics-mode-option {
+  block-size: 32px !important;
+}
+
 .glass-settings-dialog__preset-option {
   block-size: 32px !important;
 }
 
 .glass-settings-dialog__appearance-option:deep(.v-btn--active),
+.glass-settings-dialog__dynamics-mode-option:deep(.v-btn--active),
 .glass-settings-dialog__quality-option:deep(.v-btn--active),
 .glass-settings-dialog__preset-option:deep(.v-btn--active) {
   background-color: rgba(var(--v-theme-primary), 0.14) !important;

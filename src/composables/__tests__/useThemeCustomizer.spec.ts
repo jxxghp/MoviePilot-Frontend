@@ -47,6 +47,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassDeformationStrength).toBe(48)
+    expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassFlowStrength).toBe(48)
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toEqual({})
@@ -71,6 +72,14 @@ describe('useThemeCustomizer glass settings', () => {
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
     expect(customizer.isCustomized.value).toBe(false)
 
+    await customizer.setGlassDynamicsMode('off')
+    expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(false)
+    expect(customizer.isCustomized.value).toBe(true)
+
+    await customizer.resetSettings()
+    expect(customizer.settings.value.glassDynamicsMode).toBe('ripple')
+    expect(customizer.isCustomized.value).toBe(false)
+
     wrapper.unmount()
   })
 
@@ -78,6 +87,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(getDefaultGlassCustomizerSettings('css')).toEqual({
       glassAppearance: 'clear',
       glassDeformationStrength: 48,
+      glassDynamicsMode: 'ripple',
       glassFlowStrength: 48,
       glassPreset: 'natural',
       glassPresetOverrides: {},
@@ -101,15 +111,27 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings().glassAppearance).toBe(glassAppearance)
   })
 
+  it.each(['fluid', 'ripple', 'off'] as const)('preserves the %s dynamics mode contract', glassDynamicsMode => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassDynamicsMode }))
+
+    expect(readThemeCustomizerSettings().glassDynamicsMode).toBe(glassDynamicsMode)
+  })
+
   it('falls back when stored glass settings are invalid', () => {
     localStorage.setItem(
       THEME_CUSTOMIZER_STORAGE_KEY,
-      JSON.stringify({ glassAppearance: 'opaque', glassPreset: 'elastic', glassQuality: 'ultra' }),
+      JSON.stringify({
+        glassAppearance: 'opaque',
+        glassDynamicsMode: 'elastic',
+        glassPreset: 'elastic',
+        glassQuality: 'ultra',
+      }),
     )
 
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
+    expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
     expect(settings.glassQuality).toBe('balanced')
@@ -184,9 +206,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.42')
     expect(Number(document.documentElement.style.getPropertyValue('--glass-transmission'))).toBeCloseTo(65 / 70)
     expect(document.body.style.getPropertyValue('--glass-transmission-brightness')).not.toBe('')
-    expect(Number(document.documentElement.style.getPropertyValue('--glass-background-visibility'))).toBeCloseTo(
-      0.48,
-    )
+    expect(Number(document.documentElement.style.getPropertyValue('--glass-background-visibility'))).toBeCloseTo(0.48)
     expect(Number(document.body.style.getPropertyValue('--glass-background-visibility'))).toBeCloseTo(0.48)
     expect(Number(document.documentElement.style.getPropertyValue('--glass-surface-density'))).toBeCloseTo(0.72)
     expect(Number(document.body.style.getPropertyValue('--glass-tint-density'))).toBeCloseTo(0.65)
@@ -195,10 +215,12 @@ describe('useThemeCustomizer glass settings', () => {
   it('previews glass settings without persisting them', () => {
     const storedBeforePreview = localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)
 
-    previewGlassSettings({ glassAppearance: 'tinted' })
+    previewGlassSettings({ glassAppearance: 'tinted', glassDynamicsMode: 'ripple' })
 
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
     expect(readThemeCustomizerSettings().glassAppearance).toBe('clear')
+    expect(readThemeCustomizerSettings().glassDynamicsMode).toBe('ripple')
+    expect(useEffectiveGlassSettings().value.glassDynamicsMode).toBe('ripple')
     expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(storedBeforePreview)
   })
 
@@ -208,6 +230,7 @@ describe('useThemeCustomizer glass settings', () => {
     previewGlassSettings({
       glassAppearance: 'tinted',
       glassDeformationStrength: 74,
+      glassDynamicsMode: 'ripple',
       glassFlowStrength: 63,
       glassPreset: 'natural',
       glassPresetOverrides: {
@@ -232,6 +255,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassAppearance: 'tinted',
       glassDeformationStrength: 74,
+      glassDynamicsMode: 'ripple',
       glassFlowStrength: 63,
       glassPreset: 'natural',
       glassPresetOverrides: {
@@ -288,6 +312,7 @@ describe('useThemeCustomizer glass settings', () => {
     previewGlassSettings({
       glassAppearance: 'clear',
       glassDeformationStrength: 90,
+      glassDynamicsMode: 'off',
       glassFlowStrength: 88,
       glassPresetOverrides: {
         'clear:balanced:natural': {
@@ -307,6 +332,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(effective.value).toMatchObject({
       glassAppearance: 'clear',
       glassDeformationStrength: 90,
+      glassDynamicsMode: 'off',
       glassFlowStrength: 88,
       glassReflectionStrength: 12,
       glassTransmissionStrength: 92,
@@ -320,6 +346,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(effective.value).toMatchObject({
       glassAppearance: 'tinted',
       glassDeformationStrength: 42,
+      glassDynamicsMode: 'ripple',
       glassFlowStrength: 44,
       glassPresetOverrides: {
         'tinted:balanced:natural': {
@@ -336,6 +363,40 @@ describe('useThemeCustomizer glass settings', () => {
       glassTranslationStrength: 46,
       glassTransparencyStrength: 72,
     })
+  })
+
+  it('switches dynamics mode without changing preset ownership or optical parameters', async () => {
+    persistPartialThemeCustomizerSettings({
+      glassAppearance: 'tinted',
+      glassDeformationStrength: 73,
+      glassFlowStrength: 61,
+      glassPreset: 'glide',
+      glassPresetOverrides: {
+        'tinted:high:glide': {
+          deformation: 73,
+          flow: 61,
+          reflection: 47,
+          transmission: 68,
+          translation: 82,
+          transparency: 59,
+        },
+      },
+      glassQuality: 'high',
+      glassReflectionStrength: 47,
+      glassTransmissionStrength: 68,
+      glassTranslationStrength: 82,
+      glassTransparencyStrength: 59,
+    })
+    const { customizer, wrapper } = mountThemeCustomizer()
+    const before = readThemeCustomizerSettings()
+
+    await customizer.setGlassDynamicsMode('off')
+    expect(readThemeCustomizerSettings()).toEqual({ ...before, glassDynamicsMode: 'off' })
+
+    await customizer.setGlassDynamicsMode('ripple')
+    expect(readThemeCustomizerSettings()).toEqual({ ...before, glassDynamicsMode: 'ripple' })
+
+    wrapper.unmount()
   })
 
   it('applies the same preset for a new material and quality while preset-managed', async () => {

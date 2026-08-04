@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { ThemeCustomizerGlassAppearance, ThemeCustomizerGlassQuality } from '@/composables/useThemeCustomizer'
+import { usePreferredReducedMotion } from '@vueuse/core'
+import type {
+  ThemeCustomizerGlassAppearance,
+  ThemeCustomizerGlassDynamicsMode,
+  ThemeCustomizerGlassQuality,
+} from '@/composables/useThemeCustomizer'
 import { useGlassMobilePresentation } from '@/composables/useGlassPresentationCapabilities'
 import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
 import {
@@ -18,6 +23,8 @@ const props = defineProps<{
   deformationStrength: number
   /** 用户选择的轨迹、尾波与惯性强度。 */
   flowStrength: number
+  /** 用户保存的动态效果模式；能力降级不会回写该选择。 */
+  dynamicsMode: ThemeCustomizerGlassDynamicsMode
   /** 当前光学质量；标准档不会挂载该组件。 */
   quality: Exclude<ThemeCustomizerGlassQuality, 'css'>
   /** 用户选择的亮边、镜面高光与焦散强度。 */
@@ -74,7 +81,16 @@ const emit = defineEmits<{
 const fixedCanvas = ref<HTMLCanvasElement | null>(null)
 const scrollCanvas = ref<HTMLCanvasElement | null>(null)
 const usesMobilePresentation = useGlassMobilePresentation()
-const dynamicsActive = computed(() => !usesMobilePresentation.value)
+const preferredMotion = usePreferredReducedMotion()
+const compositeFailureLatched = ref(false)
+const compositeRecoveryPending = ref(false)
+const presentationMode = computed<ThemeCustomizerGlassDynamicsMode>(() =>
+  usesMobilePresentation.value || preferredMotion.value === 'reduce' ? 'off' : props.dynamicsMode,
+)
+const effectiveDynamicsMode = computed<ThemeCustomizerGlassDynamicsMode>(() =>
+  compositeFailureLatched.value ? 'off' : presentationMode.value,
+)
+const dynamicsActive = computed(() => effectiveDynamicsMode.value !== 'off')
 const interactionSource = useGlassOpticalInteractionSource(dynamicsActive)
 const pagePresentationMotion = usePagePresentationMotion()
 const wallpaperSourceCache = createGlassWallpaperSourceCache()
@@ -84,6 +100,7 @@ const fixedRenderer = useGlassOpticalRenderer({
   canvas: fixedCanvas,
   deformationStrength: () => props.deformationStrength,
   dynamicsActive,
+  dynamicsMode: effectiveDynamicsMode,
   flowStrength: () => props.flowStrength,
   interactionSource,
   quality: () => props.quality,
@@ -109,6 +126,7 @@ const scrollRenderer = useGlassOpticalRenderer({
   canvas: scrollCanvas,
   deformationStrength: () => props.deformationStrength,
   dynamicsActive,
+  dynamicsMode: effectiveDynamicsMode,
   flowStrength: () => props.flowStrength,
   interactionSource,
   pageMotion: pagePresentationMotion.reader,
@@ -130,16 +148,45 @@ const scrollRenderer = useGlassOpticalRenderer({
   syncDocumentState: false,
 })
 
+/** 用户显式改选动态策略时，用同一代次重建两个已进入复合回退的 renderer。 */
+function retryCompositeRenderers() {
+  compositeRecoveryPending.value = true
+  compositeFailureLatched.value = false
+  void Promise.allSettled([fixedRenderer.retryAfterFailure(), scrollRenderer.retryAfterFailure()])
+}
+
+watch(
+  () => props.dynamicsMode,
+  (mode, previousMode) => {
+    if (mode === previousMode || (!compositeFailureLatched.value && !compositeRecoveryPending.value)) return
+
+    retryCompositeRenderers()
+  },
+)
+
 const rendererState = ref<GlassRendererState>('loading')
 
 /** 两个呈现 context 作为同一材质能力接管 CSS，避免部分就绪时出现混合材质。 */
 watchEffect(() => {
   const states = [fixedRenderer.state.value, scrollRenderer.state.value]
-  const state: GlassRendererState = states.every(value => value === 'ready')
-    ? 'ready'
-    : states.some(value => value === 'loading')
-      ? 'loading'
-      : 'fallback'
+  const allReady = states.every(value => value === 'ready')
+  const anyFallback = states.some(value => value === 'fallback')
+  const anyLoading = states.some(value => value === 'loading')
+  if (compositeRecoveryPending.value) {
+    if (allReady) compositeRecoveryPending.value = false
+    else if (anyFallback && !anyLoading) {
+      compositeRecoveryPending.value = false
+      compositeFailureLatched.value = true
+    }
+  } else if (anyFallback) compositeFailureLatched.value = true
+  else if (compositeFailureLatched.value && allReady) compositeFailureLatched.value = false
+  const state: GlassRendererState = compositeRecoveryPending.value
+    ? 'loading'
+    : compositeFailureLatched.value
+      ? 'fallback'
+      : allReady
+        ? 'ready'
+        : 'loading'
 
   setGlassRendererState(rendererState, state)
   if (import.meta.env.DEV && timingWindow.__glassPerformanceProbeEnabled) {
@@ -149,6 +196,11 @@ watchEffect(() => {
       time: performance.now(),
     })
   }
+})
+
+watchEffect(() => {
+  document.documentElement.dataset.glassDynamicsMode = props.dynamicsMode
+  document.documentElement.dataset.glassDynamicsEffectiveMode = effectiveDynamicsMode.value
 })
 
 let lastPreparedAcknowledgement = ''
@@ -287,6 +339,8 @@ watchEffect(() => {
 
 onScopeDispose(() => {
   if (activationFrame !== null) cancelAnimationFrame(activationFrame)
+  delete document.documentElement.dataset.glassDynamicsMode
+  delete document.documentElement.dataset.glassDynamicsEffectiveMode
   setGlassRendererState(rendererState, 'fallback')
 })
 </script>
