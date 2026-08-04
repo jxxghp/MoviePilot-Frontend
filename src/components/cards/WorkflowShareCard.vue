@@ -23,43 +23,38 @@ const workflowId = ref<string>()
 // 分享时间
 const dateText = ref(props.workflow && props.workflow?.date ? formatDateDifference(props.workflow.date) : '')
 
-// 随机渐变背景
-const gradientStyle = ref('')
+const gradientPalettes = [
+  ['74, 85, 104', '45, 55, 72'],
+  ['85, 60, 154', '183, 148, 244'],
+  ['44, 90, 160', '26, 54, 93'],
+  ['47, 133, 90', '34, 84, 61'],
+  ['197, 48, 48', '116, 42, 42'],
+  ['214, 158, 46', '151, 90, 22'],
+  ['128, 90, 213', '85, 60, 154'],
+  ['49, 130, 206', '44, 82, 130'],
+  ['56, 161, 105', '39, 103, 73'],
+  ['229, 62, 62', '197, 48, 48'],
+  ['221, 107, 32', '192, 86, 33'],
+  ['107, 70, 193', '85, 60, 154'],
+  ['43, 108, 176', '44, 82, 130'],
+  ['56, 161, 105', '47, 133, 90'],
+  ['213, 63, 140', '151, 38, 109'],
+] as const
 
-// 生成随机渐变背景
-function generateRandomGradient() {
-  const gradients = [
-    'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
-    'linear-gradient(135deg, #553c9a 0%, #b794f4 100%)',
-    'linear-gradient(135deg, #2c5aa0 0%, #1a365d 100%)',
-    'linear-gradient(135deg, #2f855a 0%, #22543d 100%)',
-    'linear-gradient(135deg, #c53030 0%, #742a2a 100%)',
-    'linear-gradient(135deg, #d69e2e 0%, #975a16 100%)',
-    'linear-gradient(135deg, #805ad5 0%, #553c9a 100%)',
-    'linear-gradient(135deg, #3182ce 0%, #2c5282 100%)',
-    'linear-gradient(135deg, #38a169 0%, #276749 100%)',
-    'linear-gradient(135deg, #e53e3e 0%, #c53030 100%)',
-    'linear-gradient(135deg, #dd6b20 0%, #c05621 100%)',
-    'linear-gradient(135deg, #6b46c1 0%, #553c9a 100%)',
-    'linear-gradient(135deg, #2b6cb0 0%, #2c5282 100%)',
-    'linear-gradient(135deg, #38a169 0%, #2f855a 100%)',
-    'linear-gradient(135deg, #d53f8c 0%, #97266d 100%)',
-  ]
-
-  // 基于工作流ID生成固定的随机数，确保同一工作流总是显示相同的渐变
+// 暴露渐变色通道，让材质主题能够保留色相并单独控制透光率。
+const gradientStyle = computed(() => {
   const seed = String(props.workflow?.id || Math.random())
   const hash = seed.split('').reduce((a, b) => {
     a = (a << 5) - a + b.charCodeAt(0)
     return a & a
   }, 0)
+  const [startRgb, endRgb] = gradientPalettes[Math.abs(hash) % gradientPalettes.length]
 
-  const index = Math.abs(hash) % gradients.length
-  return gradients[index]
-}
-
-// 初始化渐变背景
-onMounted(() => {
-  gradientStyle.value = generateRandomGradient()
+  return {
+    '--workflow-share-gradient-start-rgb': startRgb,
+    '--workflow-share-gradient-end-rgb': endRgb,
+    backgroundImage: `linear-gradient(135deg, rgb(${startRgb}) 0%, rgb(${endRgb}) 100%)`,
+  }
 })
 
 // 复用工作流
@@ -104,7 +99,7 @@ function doDelete() {
               'app-hover-lift-card--hovering': hover.isHovering,
             }"
             min-height="150"
-            :style="{ background: gradientStyle }"
+            :style="gradientStyle"
             @click="showForkWorkflow"
           >
           <div class="h-full flex flex-col">

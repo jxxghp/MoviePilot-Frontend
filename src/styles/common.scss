@@ -589,6 +589,12 @@ html[data-theme-radius='extra'] {
   line-height: 1.4;
 }
 
+// 左右布局的单行字段将值放在右栏中央；整行字段会在移动端规则中恢复左对齐。
+.app-responsive-input--field .v-field__input {
+  justify-content: var(--app-responsive-input-value-alignment, center);
+  text-align: var(--app-responsive-input-value-alignment, center);
+}
+
 // 移动端单行字段内容超出可视宽度时保持一行并显示省略号。
 .app-responsive-input--field .v-field__input {
   overflow: hidden;
@@ -610,6 +616,19 @@ html[data-theme-radius='extra'] {
   min-inline-size: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.app-responsive-input--field :is(input.v-field__input, .v-field__input > input),
+.app-responsive-input--field :is(input.v-field__input, .v-field__input > input)::placeholder {
+  text-align: var(--app-responsive-input-value-alignment, center);
+}
+
+.app-responsive-input--field
+  .app-responsive-input__native:is(.v-select--single, .v-autocomplete--single, .v-combobox--single)
+  :is(.v-select__selection, .v-autocomplete__selection, .v-combobox__selection) {
+  inline-size: 100%;
+  justify-content: var(--app-responsive-input-value-alignment, center);
+  text-align: var(--app-responsive-input-value-alignment, center);
 }
 
 .app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
@@ -663,12 +682,13 @@ html[data-theme-radius='extra'] {
 .app-responsive-input--multiline .v-field__input {
   min-block-size: 5.5rem;
   align-items: start;
+  text-align: start;
 }
 
 .app-responsive-input--choice .app-responsive-input__control,
 .app-responsive-input--choice .v-input__control,
 .app-responsive-input--group .v-selection-control-group {
-  justify-content: end;
+  justify-content: center;
 }
 
 .app-responsive-input--choice .v-input__control {
@@ -748,6 +768,8 @@ html[data-theme-radius='extra'] {
       .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
     )
     > :is(.app-responsive-input--field, .app-responsive-input--range) {
+    --app-responsive-input-value-alignment: start;
+
     row-gap: 0.5rem;
     align-items: start;
     grid-template-columns: minmax(0, 1fr);

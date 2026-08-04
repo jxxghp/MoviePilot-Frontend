@@ -44,6 +44,19 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toMatch(/\.v-chip--variant-(?:outlined|text|plain)\s*\{/)
   })
 
+  it('keeps workflow share gradients as colored glass in every appearance', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const card = readFileSync(resolve(cwd(), 'src/components/cards/WorkflowShareCard.vue'), 'utf8')
+
+    expect(card).toContain('--workflow-share-gradient-start-rgb')
+    expect(card).toContain('--workflow-share-gradient-end-rgb')
+    expect(styles).toMatch(
+      /\.workflow-share-card\s*\{[\s\S]*?background-image:\s*[\s\S]*?var\(--glass-sheen\),[\s\S]*?var\(--workflow-share-glass-scrim\),[\s\S]*?var\(--workflow-share-gradient-start-rgb,[\s\S]*?var\(--workflow-share-gradient-end-rgb,[\s\S]*?!important;/,
+    )
+    expect(styles).toContain("&[data-glass-appearance='frosted'] .workflow-share-card")
+    expect(styles).toContain("&[data-glass-appearance='tinted'] .workflow-share-card")
+  })
+
   it('composites glass dialogs at their final geometry instead of resampling a scaled backdrop', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 

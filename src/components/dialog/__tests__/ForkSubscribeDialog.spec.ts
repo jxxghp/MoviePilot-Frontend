@@ -142,6 +142,21 @@ describe('ForkSubscribeDialog follow behavior', () => {
     expect(requested).toHaveBeenCalledOnce()
   })
 
+  it('places long recognition words in a full-width metadata row', async () => {
+    server.use(followSubscribersSettingHandler([]))
+    const { media } = await renderDialog(
+      createSubscribeShare({
+        custom_words: '#九门2026\n【ADWeb】\n^The.Mystic.Nine => 九门.The.Mystic.Nine',
+      }),
+    )
+
+    const row = document.querySelector('.subscribe-share-detail__recognition')
+
+    expect(row).toBeInTheDocument()
+    expect(row?.querySelector(':scope > dt')).toHaveTextContent('识别词：')
+    expect(row?.querySelector(':scope > dd')).toHaveTextContent(media.custom_words!.replaceAll('\n', ' '))
+  })
+
   it('follows a share user and refreshes the action from the server setting', async () => {
     const media = createSubscribeShare({ share_uid: 'new-follow-user' })
     const users: string[] = []

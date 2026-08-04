@@ -993,6 +993,31 @@ html[data-theme='glass'] {
     --workflow-card-header-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
   }
 
+  // 分享卡保留原随机渐变的色相，以半透明染色、吸光和镜面层组成有色玻璃。
+  .workflow-share-card {
+    --workflow-share-glass-start-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.38);
+    --workflow-share-glass-end-opacity: calc(0.24 + var(--glass-tint-density, 0.65) * 0.42);
+    --workflow-share-glass-scrim:
+      linear-gradient(
+        rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
+        rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
+      );
+
+    background-color: var(--glass-surface) !important;
+    background-image:
+      var(--glass-sheen),
+      var(--workflow-share-glass-scrim),
+      linear-gradient(
+        135deg,
+        rgba(
+            var(--workflow-share-gradient-start-rgb, 74, 85, 104),
+            var(--workflow-share-glass-start-opacity)
+          )
+          0%,
+        rgba(var(--workflow-share-gradient-end-rgb, 45, 55, 72), var(--workflow-share-glass-end-opacity)) 100%
+      ) !important;
+  }
+
   // 插件卡片头部改为染色玻璃：图标主色只作为透光色相，压暗遮罩换成玻璃吸收与高光。
   .plugin-card__banner {
     border-block-end: 1px solid var(--glass-border);
@@ -1052,6 +1077,16 @@ html[data-theme='glass'] {
       );
   }
 
+  &[data-glass-appearance='frosted'] .workflow-share-card {
+    --workflow-share-glass-start-opacity: calc(0.12 + var(--glass-tint-density, 0.65) * 0.28);
+    --workflow-share-glass-end-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.34);
+    --workflow-share-glass-scrim:
+      linear-gradient(
+        rgba(11, 19, 34, calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
+        rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
+      );
+  }
+
   // 色调材质本身带主色语义，头部染色向主色收敛保持整页同一色温。
   &[data-glass-appearance='tinted'] .plugin-card__banner {
     --plugin-card-banner-tint: linear-gradient(
@@ -1094,6 +1129,16 @@ html[data-theme='glass'] {
       linear-gradient(
         rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.72) * 0.08)),
         rgba(var(--v-theme-background), calc(0.14 + var(--glass-surface-density, 0.72) * 0.12))
+      );
+  }
+
+  &[data-glass-appearance='tinted'] .workflow-share-card {
+    --workflow-share-glass-start-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.32);
+    --workflow-share-glass-end-opacity: calc(0.21 + var(--glass-tint-density, 0.65) * 0.38);
+    --workflow-share-glass-scrim:
+      linear-gradient(
+        rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
+        rgba(11, 19, 34, calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
       );
   }
 

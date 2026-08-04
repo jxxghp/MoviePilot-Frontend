@@ -188,8 +188,10 @@ onMounted(() => {
     <VCard>
       <VCardText>
         <VCol>
-          <div class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row">
-            <div class="ma-auto">
+          <div
+            class="subscribe-share-detail-layout d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
+          >
+            <div class="subscribe-share-detail__poster">
               <VImg
                 width="10rem"
                 aspect-ratio="2/3"
@@ -205,52 +207,52 @@ onMounted(() => {
                 </template>
               </VImg>
             </div>
-            <div class="flex-grow">
-              <VCardItem>
+            <div class="flex-grow subscribe-share-detail">
+              <VCardItem class="subscribe-share-detail__header pa-0">
                 <VCardTitle
-                  class="text-center text-md-left break-words whitespace-break-spaces line-clamp-2 overflow-hidden text-ellipsis"
+                  class="subscribe-share-detail__title break-words whitespace-break-spaces line-clamp-2 overflow-hidden text-ellipsis"
                 >
                   {{ props.media?.share_title }}
                 </VCardTitle>
                 <VCardSubtitle
-                  class="text-center text-md-left break-words whitespace-break-spaces line-clamp-4 overflow-hidden text-ellipsis"
+                  class="subscribe-share-detail__description break-words whitespace-break-spaces line-clamp-4 overflow-hidden text-ellipsis"
                 >
                   {{ props.media?.share_comment }}
                 </VCardSubtitle>
-                <VList lines="one" class="border-0">
-                  <VListItem class="ps-0">
-                    <VListItemTitle class="text-center text-md-left">
-                      <span class="font-weight-medium">{{ t('subscribe.sharer') }}：</span>
-                      <span class="text-body-1"> {{ media?.share_user }}</span>
-                    </VListItemTitle>
-                  </VListItem>
-                  <VListItem class="ps-0" v-if="media?.keyword">
-                    <VListItemTitle class="text-center text-md-left">
-                      <span class="font-weight-medium">{{ t('subscribe.keyword') }}：</span>
-                      <span class="text-body-1"> {{ media?.keyword }}</span>
-                    </VListItemTitle>
-                  </VListItem>
-                  <VListItem class="ps-0" v-if="media?.custom_words" @click.stop="toggleExpand">
-                    <VListItemTitle
-                      class="text-center text-md-left break-words whitespace-break-spaces"
+                <dl class="subscribe-share-detail__metadata">
+                  <div class="subscribe-share-detail__metadata-row">
+                    <dt>{{ t('subscribe.sharer') }}：</dt>
+                    <dd>{{ media?.share_user }}</dd>
+                  </div>
+                  <div v-if="media?.keyword" class="subscribe-share-detail__metadata-row">
+                    <dt>{{ t('subscribe.keyword') }}：</dt>
+                    <dd>{{ media?.keyword }}</dd>
+                  </div>
+                  <div
+                    v-if="media?.custom_words"
+                    class="subscribe-share-detail__recognition"
+                    @click.stop="toggleExpand"
+                  >
+                    <dt>{{ t('subscribe.recognitionWords') }}：</dt>
+                    <dd
+                      class="break-words"
                       :class="{
                         'line-clamp-4 overflow-hidden text-ellipsis': !isExpanded,
                       }"
                     >
-                      <span class="font-weight-medium">{{ t('subscribe.recognitionWords') }}：</span>
-                      <span class="text-body-1"> {{ media?.custom_words }}</span>
-                    </VListItemTitle>
-                  </VListItem>
-                </VList>
-                <div class="text-center text-md-left">
-                  <div>
+                      {{ media?.custom_words }}
+                    </dd>
+                  </div>
+                </dl>
+                <div class="subscribe-share-detail__actions">
+                  <div class="subscribe-share-detail__buttons">
                     <VBtn
                       color="primary"
                       :disabled="processing"
                       @click="doFork"
                       prepend-icon="mdi-heart"
                       :loading="processing"
-                      class="mb-2 me-2"
+                      class="subscribe-share-detail__button"
                     >
                       {{ t('subscribe.normalSub') }}
                     </VBtn>
@@ -259,7 +261,7 @@ onMounted(() => {
                       color="warning"
                       @click="unfollowUser"
                       prepend-icon="mdi-account-remove"
-                      class="mb-2 me-2"
+                      class="subscribe-share-detail__button"
                     >
                       {{ t('subscribe.unfollow') }}
                     </VBtn>
@@ -268,7 +270,7 @@ onMounted(() => {
                       @click="followUser"
                       color="info"
                       prepend-icon="mdi-account-plus"
-                      class="mb-2 me-2"
+                      class="subscribe-share-detail__button"
                     >
                       {{ t('subscribe.follow') }}
                     </VBtn>
@@ -282,15 +284,14 @@ onMounted(() => {
                       @click="doDelete"
                       prepend-icon="mdi-delete"
                       :loading="deleting"
-                      class="mb-2 me-2"
+                      class="subscribe-share-detail__button"
                     >
                       {{ t('subscribe.cancelShare') }}
                     </VBtn>
                   </div>
-                  <div class="text-xs mt-2" v-if="props.media?.count">
-                    <VIcon icon="mdi-fire" />{{
-                      t('subscribe.usageCount', { count: props.media?.count?.toLocaleString() })
-                    }}
+                  <div class="subscribe-share-detail__usage" v-if="props.media?.count">
+                    <VIcon icon="mdi-fire" size="18" />
+                    <span>{{ t('subscribe.usageCount', { count: props.media?.count?.toLocaleString() }) }}</span>
                   </div>
                 </div>
               </VCardItem>
@@ -302,3 +303,124 @@ onMounted(() => {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.subscribe-share-detail-layout {
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.subscribe-share-detail__poster {
+  flex: 0 0 auto;
+}
+
+.subscribe-share-detail {
+  min-inline-size: 0;
+}
+
+.subscribe-share-detail__header {
+  text-align: center;
+}
+
+.subscribe-share-detail__title,
+.subscribe-share-detail__description {
+  text-align: center;
+}
+
+.subscribe-share-detail__metadata {
+  display: grid;
+  gap: 0.625rem;
+  margin: 1.125rem auto;
+}
+
+.subscribe-share-detail__metadata-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.625rem;
+  min-inline-size: 0;
+}
+
+.subscribe-share-detail__metadata dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.subscribe-share-detail__metadata dd {
+  min-inline-size: 0;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.subscribe-share-detail__recognition {
+  min-inline-size: 0;
+  margin-block-start: 0.25rem;
+  cursor: pointer;
+}
+
+.subscribe-share-detail__recognition dt {
+  text-align: center;
+  white-space: normal;
+}
+
+.subscribe-share-detail__recognition dd {
+  inline-size: 100%;
+  margin-block-start: 0.35rem;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+.subscribe-share-detail__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 1rem;
+}
+
+.subscribe-share-detail__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  inline-size: 100%;
+}
+
+.subscribe-share-detail__usage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+@media (width < 360px) {
+  .subscribe-share-detail__buttons {
+    flex-direction: column;
+  }
+
+  .subscribe-share-detail__button {
+    inline-size: 100%;
+  }
+}
+
+@media (width < 960px) {
+  .subscribe-share-detail-layout {
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .subscribe-share-detail__poster {
+    margin-inline: auto;
+  }
+}
+</style>

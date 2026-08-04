@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import { WorkflowShare } from '@/api/types'
+import type { WorkflowShare } from '@/api/types'
+import WorkflowSummaryPreview from '@/components/workflow/WorkflowSummaryPreview.vue'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
-import { VueFlow, useVueFlow } from '@vue-flow/core'
 
 // 国际化
 const { t } = useI18n()
@@ -42,35 +42,6 @@ const getEventTypeText = (eventTypeValue: string) => {
   return eventType ? eventType.title : eventTypeValue
 }
 
-// 流程图相关
-const { nodes, edges } = useVueFlow()
-
-// 自定义节点类型
-const nodeTypes: Record<string, any> = ref({})
-
-// 自动扫描目录下所有的 .vue 文件
-const components = import.meta.glob('../workflow/*Action.vue')
-
-// 动态加载某个组件
-const loadComponent = async (componentName: string) => {
-  const component = components[`../workflow/${componentName}.vue`]
-  if (component) {
-    return ((await component()) as any).default
-  }
-  throw new Error(t('dialog.workflowActions.componentNotFound', { component: componentName }))
-}
-
-// 将所有components中的组件加载到nodeTypes中
-for (const path in components) {
-  const componentName = path.match(/\.\/workflow\/(.*).vue$/)?.[1]
-  if (!componentName) {
-    continue
-  }
-  loadComponent(componentName).then(component => {
-    nodeTypes.value[componentName] = markRaw(component)
-  })
-}
-
 // 解析工作流数据
 const parsedWorkflow = computed(() => {
   if (!props.workflow) return null
@@ -95,13 +66,10 @@ const parsedWorkflow = computed(() => {
   }
 })
 
-// 初始化流程图数据
-onMounted(() => {
-  if (parsedWorkflow.value) {
-    nodes.value = parsedWorkflow.value.actions ?? []
-    edges.value = parsedWorkflow.value.flows ?? []
-  }
-})
+const previewActions = computed(() =>
+  Array.isArray(parsedWorkflow.value?.actions) ? parsedWorkflow.value.actions : [],
+)
+const previewFlows = computed(() => (Array.isArray(parsedWorkflow.value?.flows) ? parsedWorkflow.value.flows : []))
 
 // 复用工作流
 async function doFork() {
@@ -160,81 +128,63 @@ async function doDelete() {
     <VCard>
       <VCardText>
         <VCol>
-          <div class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row">
-            <div class="ma-auto mt-5">
-              <div class="workflow-preview">
-                <VueFlow
-                  :nodes="nodes"
-                  :edges="edges"
-                  :nodeTypes="nodeTypes"
-                  :default-edge-options="{ type: 'animation', animated: true }"
-                  :delete-key-code="null"
-                  :select-nodes-on-drag="false"
-                  :nodes-draggable="false"
-                  :nodes-connectable="false"
-                  :fit-view="true"
-                  :fit-view-options="{ padding: 0.1, minZoom: 0.2, maxZoom: 1 }"
-                  :default-viewport="{ x: 0, y: 0, zoom: 0.2 }"
-                  class="workflow-preview-flow"
-                />
-              </div>
+          <div class="workflow-share-layout">
+            <div class="workflow-share-preview">
+              <WorkflowSummaryPreview :actions="previewActions" :flows="previewFlows" />
             </div>
 
             <!-- 右侧内容 -->
-            <div class="flex-grow">
-              <VCardItem>
+            <div class="flex-grow workflow-share-detail">
+              <VCardItem class="workflow-share-detail__header pa-0">
                 <VCardTitle
-                  class="text-center text-md-left break-words whitespace-break-spaces line-clamp-2 overflow-hidden text-ellipsis"
+                  class="workflow-share-detail__title break-words whitespace-break-spaces line-clamp-2 overflow-hidden text-ellipsis"
                 >
                   {{ props.workflow?.share_title }}
                 </VCardTitle>
                 <VCardSubtitle
-                  class="text-center text-md-left break-words whitespace-break-spaces line-clamp-4 overflow-hidden text-ellipsis"
+                  class="workflow-share-detail__description break-words whitespace-break-spaces line-clamp-4 overflow-hidden text-ellipsis"
                 >
                   {{ props.workflow?.share_comment }}
                 </VCardSubtitle>
-                <VList lines="one" class="border-0">
-                  <VListItem class="ps-0">
-                    <VListItemTitle class="text-center text-md-left">
-                      <span class="font-weight-medium">{{ t('workflow.sharer') }}：</span>
-                      <span class="text-body-1"> {{ props.workflow?.share_user }}</span>
-                    </VListItemTitle>
-                  </VListItem>
-                  <VListItem class="ps-0" v-if="props.workflow?.trigger_type || props.workflow?.timer">
-                    <VListItemTitle class="text-center text-md-left">
-                      <span class="font-weight-medium">{{ t('workflow.trigger') }}：</span>
-                      <span class="text-body-1">
-                        <span v-if="props.workflow?.trigger_type === 'timer' || !props.workflow?.trigger_type">
-                          <VIcon icon="mdi-clock-outline" size="small" class="me-1" />
-                          {{ props.workflow?.timer }}
-                        </span>
-                        <span v-else-if="props.workflow?.trigger_type === 'event'">
-                          <VIcon icon="mdi-calendar-check" size="small" class="me-1" />
-                          {{ getEventTypeText(props.workflow?.event_type || '') }}
-                        </span>
-                        <span v-else-if="props.workflow?.trigger_type === 'manual'">
-                          <VIcon icon="mdi-hand-pointing-up" size="small" class="me-1" />
-                          {{ t('workflow.manualTrigger') }}
-                        </span>
+                <dl class="workflow-share-detail__metadata">
+                  <div class="workflow-share-detail__metadata-row">
+                    <dt>{{ t('workflow.sharer') }}：</dt>
+                    <dd>{{ props.workflow?.share_user }}</dd>
+                  </div>
+                  <div
+                    v-if="props.workflow?.trigger_type || props.workflow?.timer"
+                    class="workflow-share-detail__metadata-row"
+                  >
+                    <dt>{{ t('workflow.trigger') }}：</dt>
+                    <dd>
+                      <span v-if="props.workflow?.trigger_type === 'timer' || !props.workflow?.trigger_type">
+                        <VIcon icon="mdi-clock-outline" size="small" class="me-1" />
+                        {{ props.workflow?.timer }}
                       </span>
-                    </VListItemTitle>
-                  </VListItem>
-                  <VListItem class="ps-0" v-if="parsedWorkflow?.actions">
-                    <VListItemTitle class="text-center text-md-left">
-                      <span class="font-weight-medium">{{ t('workflow.actionCount') }}：</span>
-                      <span class="text-body-1"> {{ parsedWorkflow?.actions?.length }}</span>
-                    </VListItemTitle>
-                  </VListItem>
-                </VList>
-                <div class="text-center text-md-left">
-                  <div>
+                      <span v-else-if="props.workflow?.trigger_type === 'event'">
+                        <VIcon icon="mdi-calendar-check" size="small" class="me-1" />
+                        {{ getEventTypeText(props.workflow?.event_type || '') }}
+                      </span>
+                      <span v-else-if="props.workflow?.trigger_type === 'manual'">
+                        <VIcon icon="mdi-hand-pointing-up" size="small" class="me-1" />
+                        {{ t('workflow.manualTrigger') }}
+                      </span>
+                    </dd>
+                  </div>
+                  <div v-if="parsedWorkflow?.actions" class="workflow-share-detail__metadata-row">
+                    <dt>{{ t('workflow.actionCount') }}：</dt>
+                    <dd>{{ parsedWorkflow?.actions?.length }}</dd>
+                  </div>
+                </dl>
+                <div class="workflow-share-detail__actions">
+                  <div class="workflow-share-detail__buttons">
                     <VBtn
                       color="primary"
                       :disabled="processing"
                       @click="doFork"
                       prepend-icon="mdi-heart"
                       :loading="processing"
-                      class="mb-2 me-2"
+                      class="workflow-share-detail__button"
                     >
                       {{ t('workflow.normalFork') }}
                     </VBtn>
@@ -248,15 +198,14 @@ async function doDelete() {
                       @click="doDelete"
                       prepend-icon="mdi-delete"
                       :loading="deleting"
-                      class="mb-2 me-2"
+                      class="workflow-share-detail__button"
                     >
                       {{ t('workflow.cancelShare') }}
                     </VBtn>
                   </div>
-                  <div class="text-xs mt-2" v-if="props.workflow?.count">
-                    <VIcon icon="mdi-fire" />{{
-                      t('workflow.usageCount', { count: props.workflow?.count?.toLocaleString() })
-                    }}
+                  <div class="workflow-share-detail__usage" v-if="props.workflow?.count">
+                    <VIcon icon="mdi-fire" size="18" />
+                    <span>{{ t('workflow.usageCount', { count: props.workflow?.count?.toLocaleString() }) }}</span>
                   </div>
                 </div>
               </VCardItem>
@@ -270,65 +219,102 @@ async function doDelete() {
 </template>
 
 <style lang="scss">
-@import '@vue-flow/core/dist/style.css';
-@import '@vue-flow/core/dist/theme-default.css';
-@import '@vue-flow/minimap/dist/style.css';
-
-.workflow-preview {
-  position: relative;
-  overflow: hidden;
-  background-color: rgba(var(--v-theme-surface), 0.8);
-  block-size: 280px;
-  inline-size: 240px;
+.workflow-share-layout {
+  display: grid;
+  grid-template-columns: 13.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1.25rem;
 }
 
-.workflow-preview-flow {
-  block-size: 100%;
+.workflow-share-preview {
+  min-inline-size: 0;
+}
+
+.workflow-share-detail {
+  min-inline-size: 0;
+}
+
+.workflow-share-detail__header {
+  text-align: center;
+}
+
+.workflow-share-detail__title,
+.workflow-share-detail__description {
+  text-align: center;
+}
+
+.workflow-share-detail__metadata {
+  display: grid;
+  gap: 0.625rem;
+  margin: 1.125rem auto;
+}
+
+.workflow-share-detail__metadata-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.625rem;
+  min-inline-size: 0;
+}
+
+.workflow-share-detail__metadata dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.workflow-share-detail__metadata dd {
+  min-inline-size: 0;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.workflow-share-detail__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 1rem;
+}
+
+.workflow-share-detail__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
   inline-size: 100%;
+}
 
-  .vue-flow__node {
-    font-size: 10px;
+.workflow-share-detail__usage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
 
-    &:hover {
-      box-shadow: none;
-      transform: none;
-    }
-
-    &.selected {
-      box-shadow: none;
-    }
+@media (width < 360px) {
+  .workflow-share-detail__buttons {
+    flex-direction: column;
   }
 
-  .vue-flow__edge-path,
-  .vue-flow__connection-path {
-    stroke-width: 2;
-  }
-
-  .vue-flow__handle {
-    border-radius: 2px;
-    block-size: 12px;
-    inline-size: 4px;
-  }
-
-  // 自定义动作连线样式
-  .vue-flow__edge.animation {
-    .vue-flow__edge-path {
-      stroke: rgb(var(--v-theme-primary));
-    }
-
-    &.selected {
-      .vue-flow__edge-path {
-        stroke: rgb(var(--v-theme-primary));
-        stroke-width: 3;
-      }
-    }
+  .workflow-share-detail__button {
+    inline-size: 100%;
   }
 }
 
 @media screen and (width <= 600px) {
-  .workflow-preview {
-    block-size: 240px;
-    inline-size: 240px;
+  .workflow-share-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding-block-start: 2rem;
   }
 }
 </style>
