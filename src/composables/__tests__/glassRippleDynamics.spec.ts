@@ -174,7 +174,7 @@ beforeEach(() => {
 })
 
 describe('glass ripple dynamics', () => {
-  it('uses one bounded 8-bit ping-pong field and initializes both targets once', async () => {
+  it('uses one bounded half-float ping-pong field when the renderer supports it', async () => {
     const harness = createRippleHarness()
     const dynamics = await harness.create()
 

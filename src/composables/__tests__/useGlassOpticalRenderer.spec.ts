@@ -3004,6 +3004,61 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('restores the latest off mode after an active ripple renderer loses context', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    const compileAsync = vi.spyOn(three.WebGLRenderer.prototype, 'compileAsync')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const unsubscribe = vi.fn()
+    const subscribe = vi.fn(() => unsubscribe)
+    const dynamicsMode = ref<'fluid' | 'off' | 'ripple'>('ripple')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        dynamicsMode,
+        interactionSource: { subscribe },
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(subscribe).toHaveBeenCalledOnce()
+    const compileCallsBeforeLoss = compileAsync.mock.calls.length
+
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+    expect(renderer?.state.value).toBe('fallback')
+    expect(unsubscribe).toHaveBeenCalledOnce()
+
+    dynamicsMode.value = 'off'
+    await nextTick()
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+
+    expect(compileAsync).toHaveBeenCalledTimes(compileCallsBeforeLoss + 1)
+    expect(subscribe).toHaveBeenCalledOnce()
+    const mainScene = [...render.mock.calls]
+      .reverse()
+      .map(call => call[0] as unknown as { children: Array<{ material?: ShaderMaterial }> })
+      .find(candidate => candidate.children[0]?.material?.uniforms.uDynamicsMode)
+    if (!mainScene) throw new Error('main optical scene was not rendered')
+    const uniforms = mainScene.children[0].material!.uniforms
+    expect(uniforms.uDynamicsMode.value).toBe(2)
+    expect(uniforms.uRippleTexture.value).toBeNull()
+    expect(uniforms.uHasRippleTexture.value).toBe(0)
+
+    const framesBeforePointer = renderer?.renderedFrames.value
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 160 }))
+    await nextTick()
+    expect(renderer?.renderedFrames.value).toBe(framesBeforePointer)
+    scope.stop()
+  })
+
   it('keeps scroll-space surface geometry stable while updating the visible viewport offset', async () => {
     stubMediaPreferences({ coarsePointer: true })
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
