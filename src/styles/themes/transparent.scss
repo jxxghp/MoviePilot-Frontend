@@ -49,6 +49,24 @@ html[data-theme="transparent"] {
     }
   }
 
+  // 工作流标题栏只叠加半透明状态染色，底层模糊仍由卡片统一承担。
+  .workflow-task-card {
+    --workflow-card-header-content-rgb: var(--v-theme-on-surface);
+    --workflow-card-header-background:
+      linear-gradient(145deg, rgba(var(--v-theme-on-surface), 0.12), transparent 36%),
+      linear-gradient(
+        118deg,
+        rgba(var(--workflow-status-rgb), var(--transparent-opacity-heavy)) 0%,
+        rgba(var(--workflow-status-rgb), var(--transparent-opacity)) 56%,
+        rgba(var(--workflow-status-rgb), var(--transparent-opacity-light)) 100%
+      ),
+      linear-gradient(
+        rgba(var(--v-theme-surface), var(--transparent-opacity-light)),
+        rgba(var(--v-theme-surface), var(--transparent-opacity-light))
+      );
+    --workflow-card-header-shadow: inset 0 1px 0 rgba(var(--v-theme-on-surface), 0.14);
+  }
+
   // 订阅文件弹窗使用独立的玻璃表面参数，避免组件内通过全局选择器穿透主题。
   .subscribe-files-dialog {
     --sfd-accent-opacity: 0.12;

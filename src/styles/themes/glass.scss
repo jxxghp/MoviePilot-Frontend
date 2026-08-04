@@ -852,6 +852,24 @@ html[data-theme='glass'] {
     backdrop-filter: var(--glass-surface-backdrop-filter);
   }
 
+  // 工作流标题栏复用卡片的背景采样，只叠加状态色、吸收层与玻璃高光。
+  .workflow-task-card {
+    --workflow-card-header-content-rgb: var(--v-theme-on-surface);
+    --workflow-card-header-background:
+      var(--glass-sheen),
+      linear-gradient(
+        118deg,
+        rgba(var(--workflow-status-rgb), calc(0.16 + var(--glass-tint-density, 0.65) * 0.34)) 0%,
+        rgba(var(--workflow-status-rgb), calc(0.09 + var(--glass-tint-density, 0.65) * 0.22)) 58%,
+        rgba(var(--workflow-status-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.1)) 100%
+      ),
+      linear-gradient(
+        rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.62) * 0.08)),
+        rgba(var(--v-theme-background), calc(0.14 + var(--glass-surface-density, 0.62) * 0.12))
+      );
+    --workflow-card-header-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
+  }
+
   // 插件卡片头部改为染色玻璃：图标主色只作为透光色相，压暗遮罩换成玻璃吸收与高光。
   .plugin-card__banner {
     border-block-end: 1px solid var(--glass-border);
@@ -896,6 +914,21 @@ html[data-theme='glass'] {
     );
   }
 
+  &[data-glass-appearance='frosted'] .workflow-task-card {
+    --workflow-card-header-background:
+      var(--glass-sheen),
+      linear-gradient(
+        118deg,
+        rgba(var(--workflow-status-rgb), calc(0.1 + var(--glass-tint-density, 0.65) * 0.2)) 0%,
+        rgba(var(--workflow-status-rgb), calc(0.05 + var(--glass-tint-density, 0.65) * 0.13)) 58%,
+        rgba(var(--workflow-status-rgb), calc(0.02 + var(--glass-tint-density, 0.65) * 0.06)) 100%
+      ),
+      linear-gradient(
+        rgba(var(--v-theme-background), calc(0.04 + var(--glass-surface-density, 0.86) * 0.04)),
+        rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.86) * 0.08))
+      );
+  }
+
   // 色调材质本身带主色语义，头部染色向主色收敛保持整页同一色温。
   &[data-glass-appearance='tinted'] .plugin-card__banner {
     --plugin-card-banner-tint: linear-gradient(
@@ -914,6 +947,31 @@ html[data-theme='glass'] {
         58%,
       rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
     );
+  }
+
+  &[data-glass-appearance='tinted'] .workflow-task-card {
+    --workflow-card-header-background:
+      var(--glass-sheen),
+      linear-gradient(
+        118deg,
+        color-mix(
+            in srgb,
+            rgba(var(--workflow-status-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 74%,
+            rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33))
+          )
+          0%,
+        color-mix(
+            in srgb,
+            rgba(var(--workflow-status-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 74%,
+            rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2))
+          )
+          58%,
+        rgba(var(--workflow-status-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
+      ),
+      linear-gradient(
+        rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.72) * 0.08)),
+        rgba(var(--v-theme-background), calc(0.14 + var(--glass-surface-density, 0.72) * 0.12))
+      );
   }
 
   // 文件夹卡片保留用户自选渐变作为色相，只降低不透明度让卡片本体的玻璃透出来。

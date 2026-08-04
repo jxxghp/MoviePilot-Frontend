@@ -541,6 +541,14 @@ const executionStatus = computed(() => {
 .workflow-task-card {
   --workflow-status-rgb: var(--v-theme-info);
   --workflow-status-on-rgb: var(--v-theme-on-info);
+  --workflow-card-header-content-rgb: var(--workflow-status-on-rgb);
+  --workflow-card-header-background: linear-gradient(
+    118deg,
+    color-mix(in srgb, rgb(var(--workflow-status-rgb)) 88%, rgb(var(--v-theme-on-surface)) 12%) 0%,
+    rgb(var(--workflow-status-rgb)) 52%,
+    color-mix(in srgb, rgb(var(--workflow-status-rgb)) 78%, rgb(var(--v-theme-surface)) 22%) 100%
+  );
+  --workflow-card-header-shadow: none;
 
   display: flex;
   min-block-size: 226px;
@@ -581,25 +589,20 @@ const executionStatus = computed(() => {
 .workflow-task-card__header {
   flex: 0 0 auto;
   padding: 6px 10px !important;
-  border-block-end: 1px solid rgba(var(--workflow-status-on-rgb), 0.18);
-  background: linear-gradient(
-    118deg,
-    color-mix(in srgb, rgb(var(--workflow-status-rgb)) 88%, rgb(var(--v-theme-on-surface)) 12%) 0%,
-    rgb(var(--workflow-status-rgb)) 52%,
-    color-mix(in srgb, rgb(var(--workflow-status-rgb)) 78%, rgb(var(--v-theme-surface)) 22%) 100%
-  );
+  background: var(--workflow-card-header-background);
+  box-shadow: var(--workflow-card-header-shadow);
 }
 
 .workflow-task-card__trigger-icon {
   flex: 0 0 auto;
-  color: rgb(var(--workflow-status-on-rgb)) !important;
+  color: rgb(var(--workflow-card-header-content-rgb)) !important;
 }
 
 .workflow-task-card__title {
   display: -webkit-box;
   min-inline-size: 0;
   overflow: hidden;
-  color: rgb(var(--workflow-status-on-rgb));
+  color: rgb(var(--workflow-card-header-content-rgb));
   font-weight: 500;
   line-height: 20px !important;
   letter-spacing: 0;
@@ -613,7 +616,7 @@ const executionStatus = computed(() => {
   min-inline-size: 0;
   margin-block-start: 1px;
   overflow: hidden;
-  color: rgba(var(--workflow-status-on-rgb), 0.78);
+  color: rgba(var(--workflow-card-header-content-rgb), 0.78);
   font-size: 0.75rem;
   letter-spacing: 0;
   line-height: 16px !important;
@@ -623,7 +626,7 @@ const executionStatus = computed(() => {
 
 .workflow-task-card__menu {
   flex: 0 0 auto;
-  color: rgb(var(--workflow-status-on-rgb)) !important;
+  color: rgb(var(--workflow-card-header-content-rgb)) !important;
 }
 
 .workflow-task-card__body {
