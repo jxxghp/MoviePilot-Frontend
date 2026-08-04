@@ -223,8 +223,9 @@ export const GLASS_FLUID_FRAGMENT_SURFACE_SHAPE = `    vec2 pointerDelta = uPoin
     );
     float coverageWakeTravel =
       0.08 * coverageDirectionality * mix(0.86, 1.18, uMotionExpansion);
+    float directionalCoverageAlong = pointerAlong + coverageWakeTravel * 0.45;
     float directionalCoverageShape = exp(-(
-      pow(pointerAlong + coverageWakeTravel * 0.45, 2.0) * pointerSpread * 0.55 +
+      directionalCoverageAlong * directionalCoverageAlong * pointerSpread * 0.55 +
       pointerAcross * pointerAcross * pointerSpread * 2.8
     ));
     float pointerCoverageShape = mix(

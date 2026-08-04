@@ -195,17 +195,21 @@ describe('glass fluid dynamics', () => {
   })
 
   it('narrows directional material coverage without replacing fluid refraction energy', () => {
-    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain(
-      'smoothstep(0.001, 0.012, length(uPointerVelocity))',
-    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain('smoothstep(0.001, 0.012, length(uPointerVelocity))')
     expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain('directionalCoverageShape')
     expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain('pointerCoverageEnergy')
-    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain(
-      'pow(clamp(pointerCoverageShape * uMotion, 0.0, 1.0), 1.15)',
-    )
-    expect(GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION).toContain(
-      'pointerDelta * pointerEnergy * pointerStrength',
-    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain('pow(clamp(pointerCoverageShape * uMotion, 0.0, 1.0), 1.15)')
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION).toContain('pointerDelta * pointerEnergy * pointerStrength')
     expect(GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION).not.toContain('pointerCoverageEnergy')
+  })
+
+  it('squares the signed coverage offset without GLSL pow', () => {
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain(
+      'float directionalCoverageAlong = pointerAlong + coverageWakeTravel * 0.45;',
+    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).toContain(
+      'directionalCoverageAlong * directionalCoverageAlong * pointerSpread * 0.55',
+    )
+    expect(GLASS_FLUID_FRAGMENT_SURFACE_SHAPE).not.toContain('pow(pointerAlong + coverageWakeTravel * 0.45, 2.0)')
   })
 })
