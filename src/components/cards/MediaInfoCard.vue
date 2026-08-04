@@ -82,8 +82,7 @@ function openTmdbPage(type: string, tmdbId: number) {
             <VChip
               v-if="context?.media_info?.tmdb_id"
               variant="elevated"
-              color="success"
-              class="me-1 mb-1"
+              class="me-1 mb-1 text-white bg-green-500"
               @click="openTmdbPage(context?.media_info?.type || '', context?.media_info?.tmdb_id)"
             >
               {{ context?.media_info?.tmdb_id }}
