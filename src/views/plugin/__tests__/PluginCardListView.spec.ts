@@ -701,6 +701,45 @@ describe('PluginCardListView market filtering and pagination', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
+  it('sorts market entries by rating descending when asynchronous ratings arrive', async () => {
+    const ratings = createDeferred<Record<string, PluginRating>>()
+    await renderList({
+      market: () => [
+        createPlugin({ id: 'Low', plugin_name: '低评分插件' }),
+        createPlugin({ id: 'Unrated', plugin_name: '未评分插件' }),
+        createPlugin({ id: 'High', plugin_name: '高评分插件' }),
+        createPlugin({ id: 'Medium', plugin_name: '中评分插件' }),
+      ],
+      rating: () => ratings.promise,
+    })
+
+    expect(await screen.findByText('market:低评分插件')).toBeInTheDocument()
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    const marketFilterButton = getHeaderConfig().appendButtons.find(button => button.dataAttr === 'market-filter-btn')
+    if (!marketFilterButton?.action) throw new Error('未注册市场过滤操作')
+    marketFilterButton.action()
+    await nextTick()
+    await fireEvent.click(screen.getByText('评分'))
+
+    ratings.resolve({
+      High: { average_rating: 4.8, plugin_id: 'High', rating_count: 12 },
+      Low: { average_rating: 2.1, plugin_id: 'Low', rating_count: 3 },
+      Medium: { average_rating: 3.6, plugin_id: 'Medium', rating_count: 6 },
+    })
+
+    await waitFor(() => {
+      const labels = [...document.querySelectorAll('[data-testid^="market-"]')].map(node => node.textContent)
+      expect(labels).toEqual([
+        expect.stringContaining('market:高评分插件'),
+        expect.stringContaining('market:中评分插件'),
+        expect.stringContaining('market:低评分插件'),
+        expect.stringContaining('market:未评分插件'),
+      ])
+    })
+    await waitForRequestsToFinish()
+  })
+
   it('filters and sorts market entries, labels local repos, and appends pages of 20', async () => {
     const market = Array.from({ length: 25 }, (_, index) =>
       createPlugin({

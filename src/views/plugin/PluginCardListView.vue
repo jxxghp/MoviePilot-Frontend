@@ -3,7 +3,6 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
-import { isNullOrEmptyObject } from '@/@core/utils'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
@@ -43,7 +42,7 @@ interface PluginFolderConfig {
 
 type PluginFolderEntry = PluginFolderConfig | string[]
 type PluginFolderMap = Record<string, PluginFolderEntry>
-type PluginSortKey = 'count' | 'plugin_name' | 'plugin_author' | 'repo_url' | 'add_time'
+type PluginSortKey = 'count' | 'average_rating' | 'plugin_name' | 'plugin_author' | 'repo_url' | 'add_time'
 
 // 市场卡片、拖拽排序和市场设置只在对应标签/操作中需要，延迟到真正使用时加载。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -152,6 +151,7 @@ const orderConfig = ref<PluginOrderItem[]>([])
 // 排序选项
 const sortOptions = computed<{ title: string; value: PluginSortKey }[]>(() => [
   { title: t('plugin.sort.popular'), value: 'count' },
+  { title: t('plugin.sort.rating'), value: 'average_rating' },
   { title: t('plugin.sort.name'), value: 'plugin_name' },
   { title: t('plugin.sort.author'), value: 'plugin_author' },
   { title: t('plugin.sort.repository'), value: 'repo_url' },
@@ -1072,7 +1072,7 @@ async function refreshData(context: KeepAliveRefreshContext = {}) {
 }
 
 // 对uninstalledList进行排序到sortedUninstalledList
-watch([marketList, filterForm, activeSort, PluginStatistics], () => {
+watch([marketList, filterForm, activeSort, PluginStatistics, PluginRatings], () => {
   // 匹配过滤函数
   const match = (filter: Array<string>, value: unknown) => {
     const text = normalizeMarketText(value).trim()
@@ -1107,23 +1107,27 @@ watch([marketList, filterForm, activeSort, PluginStatistics], () => {
   })
 
   // 排序
-  if (!isNullOrEmptyObject(PluginStatistics.value)) {
-    if (!activeSort.value || activeSort.value === 'count') {
-      sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
-        return (PluginStatistics.value[b.id || '0'] ?? 0) - (PluginStatistics.value[a.id || '0'] ?? 0)
-      })
-    } else if (activeSort.value) {
-      const sortKey = activeSort.value
-      sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
-        if (sortKey === 'add_time') {
-          return a.add_time !== undefined && b.add_time !== undefined && a.add_time > b.add_time ? 1 : -1
-        }
+  const sortKey = activeSort.value || 'count'
+  if (sortKey === 'count') {
+    sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
+      return (PluginStatistics.value[b.id || '0'] ?? 0) - (PluginStatistics.value[a.id || '0'] ?? 0)
+    })
+  } else if (sortKey === 'average_rating') {
+    sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
+      const aRating = PluginRatings.value[a.id]?.average_rating ?? a.average_rating ?? 0
+      const bRating = PluginRatings.value[b.id]?.average_rating ?? b.average_rating ?? 0
+      return bRating - aRating
+    })
+  } else {
+    sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
+      if (sortKey === 'add_time') {
+        return a.add_time !== undefined && b.add_time !== undefined && a.add_time > b.add_time ? 1 : -1
+      }
 
-        const aValue = a[sortKey]
-        const bValue = b[sortKey]
-        return aValue !== undefined && bValue !== undefined && aValue > bValue ? 1 : -1
-      })
-    }
+      const aValue = a[sortKey]
+      const bValue = b[sortKey]
+      return aValue !== undefined && bValue !== undefined && aValue > bValue ? 1 : -1
+    })
   }
 
   // 显示前20个

@@ -3403,6 +3403,7 @@ export default {
   plugin: {
     sort: {
       popular: '热门',
+      rating: '评分',
       name: '插件名称',
       author: '作者',
       repository: '插件仓库',

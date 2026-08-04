@@ -3460,6 +3460,7 @@ export default {
   plugin: {
     sort: {
       popular: 'Popular',
+      rating: 'Rating',
       name: 'Plugin Name',
       author: 'Author',
       repository: 'Plugin Repository',

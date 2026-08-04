@@ -136,6 +136,32 @@ describe('PluginMarketDetailDialog', () => {
     expect(screen.getByRole('button', { name: '提交评分' })).toBeInTheDocument()
   })
 
+  it('keeps long plugin details in aligned metadata rows', async () => {
+    const pluginDescription = '支持包含较长说明文字和换行内容的插件详情。\n第二行内容保持完整展示。'
+    const pluginAuthor = 'MoviePilot-Plugin-Author-With-A-Long-Name'
+
+    await renderDialog({
+      ...basePlugin,
+      installed: true,
+      plugin_desc: pluginDescription,
+      plugin_author: pluginAuthor,
+      system_version: 'v2.15.0 or later',
+    })
+
+    expect(await screen.findByText(pluginDescription)).toHaveClass('plugin-market-detail__description')
+    expect(screen.getByRole('button', { name: pluginAuthor })).toHaveClass('plugin-market-detail__author')
+
+    const metadata = document.querySelector('.plugin-market-detail__metadata')
+    const metadataRows = metadata?.querySelectorAll('.plugin-market-detail__metadata-row')
+
+    expect(metadataRows).toHaveLength(4)
+    metadataRows?.forEach(row => {
+      expect(row.querySelector(':scope > dt')).not.toBeNull()
+      expect(row.querySelector(':scope > dd')).not.toBeNull()
+    })
+    expect(metadataRows?.[3]?.querySelector('dd > .plugin-rating-display')).not.toBeNull()
+  })
+
   it('emits installation completion only after installation succeeds', async () => {
     const { emitted } = await renderDialog({ ...basePlugin, installed: false })
 
