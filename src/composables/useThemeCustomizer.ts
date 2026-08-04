@@ -182,7 +182,7 @@ export function getDefaultGlassCustomizerSettings(
   return {
     glassAppearance: 'clear',
     glassDeformationStrength: glassParameters.deformation,
-    glassDynamicsMode: 'fluid',
+    glassDynamicsMode: 'ripple',
     glassFlowStrength: glassParameters.flow,
     glassPreset: 'natural',
     glassPresetOverrides: {},

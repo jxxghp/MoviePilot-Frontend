@@ -47,7 +47,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassDeformationStrength).toBe(48)
-    expect(settings.glassDynamicsMode).toBe('fluid')
+    expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassFlowStrength).toBe(48)
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toEqual({})
@@ -77,7 +77,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(customizer.isCustomized.value).toBe(true)
 
     await customizer.resetSettings()
-    expect(customizer.settings.value.glassDynamicsMode).toBe('fluid')
+    expect(customizer.settings.value.glassDynamicsMode).toBe('ripple')
     expect(customizer.isCustomized.value).toBe(false)
 
     wrapper.unmount()
@@ -87,7 +87,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(getDefaultGlassCustomizerSettings('css')).toEqual({
       glassAppearance: 'clear',
       glassDeformationStrength: 48,
-      glassDynamicsMode: 'fluid',
+      glassDynamicsMode: 'ripple',
       glassFlowStrength: 48,
       glassPreset: 'natural',
       glassPresetOverrides: {},
@@ -131,7 +131,7 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassDynamicsMode).toBe('fluid')
+    expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
     expect(settings.glassQuality).toBe('balanced')
@@ -219,7 +219,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
     expect(readThemeCustomizerSettings().glassAppearance).toBe('clear')
-    expect(readThemeCustomizerSettings().glassDynamicsMode).toBe('fluid')
+    expect(readThemeCustomizerSettings().glassDynamicsMode).toBe('ripple')
     expect(useEffectiveGlassSettings().value.glassDynamicsMode).toBe('ripple')
     expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(storedBeforePreview)
   })
@@ -346,7 +346,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(effective.value).toMatchObject({
       glassAppearance: 'tinted',
       glassDeformationStrength: 42,
-      glassDynamicsMode: 'fluid',
+      glassDynamicsMode: 'ripple',
       glassFlowStrength: 44,
       glassPresetOverrides: {
         'tinted:balanced:natural': {

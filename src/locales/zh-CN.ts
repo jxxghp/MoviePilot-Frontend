@@ -163,7 +163,7 @@ export default {
     glassPresetNatural: '自然',
     glassPresetGlide: '滑移',
     glassPresetLiquid: '液态',
-    glassPresetHint: '提供材质与动态参数的组合起点：自然均衡克制，滑移强调顺畅移动，液态增强形变与惯性。',
+    glassPresetHint: '自然均衡克制，滑移强调顺畅移动，液态增强形变与惯性。',
     glassDynamicsMode: '动态效果',
     glassDynamicsModeFluid: '流体',
     glassDynamicsModeRipple: '水漾',
