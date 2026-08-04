@@ -826,6 +826,32 @@ html[data-theme='glass'] {
     background-color: rgba(255, 255, 255, 7%);
   }
 
+  // 有色 Chip 保留语义色相，仅降低不透明度形成有色玻璃，与按钮的色玻璃规则保持一致。
+  .v-chip.bg-primary {
+    border-color: rgba(var(--v-theme-primary), 48%);
+    background-color: rgba(var(--v-theme-primary), 34%) !important;
+  }
+
+  .v-chip.bg-success {
+    border-color: rgba(var(--v-theme-success), 48%);
+    background-color: rgba(var(--v-theme-success), 34%) !important;
+  }
+
+  .v-chip.bg-info {
+    border-color: rgba(var(--v-theme-info), 48%);
+    background-color: rgba(var(--v-theme-info), 34%) !important;
+  }
+
+  .v-chip.bg-warning {
+    border-color: rgba(var(--v-theme-warning), 48%);
+    background-color: rgba(var(--v-theme-warning), 34%) !important;
+  }
+
+  .v-chip.bg-error {
+    border-color: rgba(var(--v-theme-error), 48%);
+    background-color: rgba(var(--v-theme-error), 34%) !important;
+  }
+
   .v-table {
     .v-table__wrapper > table > thead {
       background-color: rgba(255, 255, 255, 6%);
