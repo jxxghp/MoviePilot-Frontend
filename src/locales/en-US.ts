@@ -1653,6 +1653,9 @@ export default {
         title: 'Meta Info',
         caption: 'Parsed name, episodes, and resource terms',
       },
+      classification: {
+        title: 'Media Classification',
+      },
       source: {
         title: 'Recognition Source',
         caption: 'The media source matched by this recognition',

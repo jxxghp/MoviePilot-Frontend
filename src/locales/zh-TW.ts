@@ -1641,6 +1641,9 @@ export default {
         title: '元資訊',
         caption: '解析出的名稱、季集和資源資訊',
       },
+      classification: {
+        title: '媒體分類',
+      },
       source: {
         title: '識別資料源',
         caption: '本次識別匹配到的媒體資料源',

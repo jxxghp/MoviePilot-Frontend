@@ -35,6 +35,7 @@ vi.mock('vue-toastification', () => ({
 }))
 
 interface RecognizedMedia {
+  category?: string
   media_id: string
   source: string
   title: string
@@ -112,6 +113,20 @@ describe('NameTestView media identity', () => {
     expect(sourceDisplay).toHaveAccessibleName(sourceLabel)
     expect(sourceDisplay.closest('.pipeline-step')).toHaveTextContent(`识别数据源${sourceLabel}`)
     expect(sourceDisplay.querySelector('.media-source-logo')).toBeInTheDocument()
+  })
+
+  it('shows the recognized media type and category below metadata', async () => {
+    await renderRecognizedMedia({
+      category: '动漫',
+      media_id: '485',
+      source: 'bangumi',
+      title: '测试动画',
+      type: '电视剧',
+      year: '2026',
+    })
+
+    const classificationStep = screen.getByText('媒体分类').closest('.pipeline-step')
+    expect(classificationStep).toHaveTextContent('媒体分类电视剧 · 动漫')
   })
 
   it('closes the recognition dialog before navigating to the media detail', async () => {

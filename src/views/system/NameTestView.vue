@@ -143,9 +143,12 @@ const mediaInfo = computed(() => nameTestResult.value?.media_info)
 const isRecognized = computed(() => Boolean(metaInfo.value?.name))
 const resultTitle = computed(() => mediaInfo.value?.title || metaInfo.value?.name || t('nameTest.unrecognized'))
 const resultSubtitle = computed(() => {
-  const parts = [mediaInfo.value?.year || metaInfo.value?.year, mediaInfo.value?.type || metaInfo.value?.type]
+  const parts = [mediaInfo.value?.year || metaInfo.value?.year]
   if (metaInfo.value?.season_episode) parts.push(metaInfo.value.season_episode)
   return parts.filter(Boolean).join(' · ') || t('nameTest.waitingResult')
+})
+const mediaClassification = computed(() => {
+  return [mediaInfo.value?.type || metaInfo.value?.type, mediaInfo.value?.category].filter(Boolean).join(' · ') || '-'
 })
 const resourceChips = computed(() => {
   return [
@@ -228,6 +231,11 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
       [metaInfo.value?.name, metaInfo.value?.resource_term, metaInfo.value?.release_group]
         .filter(Boolean)
         .join(' · ') || '-',
+  },
+  {
+    icon: 'mdi-shape-outline',
+    title: t('nameTest.steps.classification.title'),
+    value: mediaClassification.value,
   },
   {
     icon: 'mdi-database-search-outline',
