@@ -3,7 +3,7 @@ import {
   createGlassRippleDynamics,
   RIPPLE_FRAGMENT_SHADER,
   type GlassRippleQuality,
-} from '@/composables/glassRippleDynamics'
+} from '@/rendering/glass/glassRippleDynamics'
 
 class FakeVector2 {
   constructor(

@@ -50,7 +50,16 @@ import {
   createGlassRippleDynamics,
   type GlassRippleDynamics,
   type GlassRippleQuality,
-} from '@/composables/glassRippleDynamics'
+} from '@/rendering/glass/glassRippleDynamics'
+import {
+  createGlassFluidDynamics,
+  GLASS_FLUID_FRAGMENT_SETUP,
+  GLASS_FLUID_FRAGMENT_SURFACE_OPTICS,
+  GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION,
+  GLASS_FLUID_FRAGMENT_SURFACE_SHAPE,
+  GLASS_FLUID_FRAGMENT_TRAIL_AND_FIELD,
+  type GlassFluidDynamics,
+} from '@/rendering/glass/glassFluidDynamics'
 import type { PagePresentationMotionReader } from '@/composables/usePagePresentationMotion'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
 import {
@@ -324,16 +333,6 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uWakeDirection: IUniform<Vector2>
 }
 
-interface GlassFlowUniforms extends Record<string, IUniform> {
-  uDecay: IUniform<number>
-  uInjection: IUniform<number>
-  uPointer: IUniform<Vector2>
-  uPrevious: IUniform<Texture | null>
-  uTexelSize: IUniform<Vector2>
-  uVelocity: IUniform<Vector2>
-  uViewportAspect: IUniform<number>
-}
-
 interface GlassRendererResources {
   camera: OrthographicCamera
   geometry: BufferGeometry
@@ -342,15 +341,6 @@ interface GlassRendererResources {
   renderer: WebGLRenderer
   scene: Scene
   uniforms: GlassRendererUniforms
-}
-
-interface GlassFlowResources {
-  material: ShaderMaterial
-  mesh: Mesh
-  readTarget: WebGLRenderTarget
-  scene: Scene
-  uniforms: GlassFlowUniforms
-  writeTarget: WebGLRenderTarget
 }
 
 interface GlassFrostPrefilterResources {
@@ -476,48 +466,6 @@ varying vec2 vUv;
 void main() {
   vUv = position.xy * 0.5 + 0.5;
   gl_Position = vec4(position.xy, 0.0, 1.0);
-}
-`
-
-const DYNAMIC_RANGE_SCALE = 0.4
-const DYNAMIC_RANGE_DENSITY = 1 / DYNAMIC_RANGE_SCALE ** 2
-
-const FLOW_FRAGMENT_SHADER = `
-precision highp float;
-
-uniform sampler2D uPrevious;
-uniform vec2 uPointer;
-uniform vec2 uVelocity;
-uniform vec2 uTexelSize;
-uniform float uInjection;
-uniform float uDecay;
-uniform float uViewportAspect;
-varying vec2 vUv;
-
-void main() {
-  vec4 previous = (
-    texture2D(uPrevious, vUv) * 0.5 +
-    texture2D(uPrevious, vUv + vec2(uTexelSize.x, 0.0)) * 0.125 +
-    texture2D(uPrevious, vUv - vec2(uTexelSize.x, 0.0)) * 0.125 +
-    texture2D(uPrevious, vUv + vec2(0.0, uTexelSize.y)) * 0.125 +
-    texture2D(uPrevious, vUv - vec2(0.0, uTexelSize.y)) * 0.125
-  );
-  float previousEnergy = previous.z;
-  vec2 flow = previousEnergy < 0.001 ? vec2(0.0) : (previous.xy * 2.0 - 1.0) * uDecay;
-  float energy = previousEnergy * uDecay;
-  vec2 delta = vUv - uPointer;
-  delta.x *= uViewportAspect;
-  float distanceSquared = dot(delta, delta);
-  float injection = exp(-distanceSquared * ${(70 * DYNAMIC_RANGE_DENSITY).toFixed(3)}) * uInjection;
-  float speed = length(uVelocity);
-  vec2 direction = speed > 0.0001 ? uVelocity / speed : vec2(0.0, -1.0);
-  vec2 perpendicular = vec2(-direction.y, direction.x);
-  float shear = dot(delta, perpendicular) * exp(-distanceSquared * ${(42 * DYNAMIC_RANGE_DENSITY).toFixed(3)});
-
-  flow += (direction * min(speed * 9.0, 0.9) - perpendicular * shear * 0.85) * injection * 0.44;
-  energy = max(energy, injection);
-
-  gl_FragColor = vec4(flow * 0.5 + 0.5, energy, 1.0);
 }
 `
 
@@ -851,14 +799,7 @@ void main() {
   float dynamicMask = 0.0;
   vec2 staticRefraction = vec2(0.0);
   vec2 dynamicRefraction = vec2(0.0);
-  vec2 wakeDirection = length(uWakeDirection) > 0.0001 ? normalize(uWakeDirection) : vec2(0.0, -1.0);
-  vec2 wakePerpendicular = vec2(-wakeDirection.y, wakeDirection.x);
-  vec2 trailRefraction = vec2(0.0);
-  float trailEnergy = 0.0;
-  float trailSpatialSpan = 0.0;
-  float motionRangeCompression = mix(1.0, 1.34, uMotionExpansion);
-  const float dynamicRangeScale = ${DYNAMIC_RANGE_SCALE.toFixed(2)};
-  const float dynamicRangeDensity = ${DYNAMIC_RANGE_DENSITY.toFixed(3)};
+${GLASS_FLUID_FRAGMENT_SETUP}
   float interactionMask = uInteractionRectCount > 0 ? 0.0 : 1.0;
   for (int interactionIndex = 0; interactionIndex < 8; interactionIndex++) {
     if (interactionIndex >= uInteractionRectCount) break;
@@ -875,51 +816,7 @@ void main() {
     );
   }
 
-  for (int trailIndex = 0; trailIndex < 4; trailIndex++) {
-    if (trailIndex >= uTrailCount) break;
-
-    vec4 trail = uTrail[trailIndex];
-    vec2 trailDelta = vUv - trail.xy;
-    trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
-    vec2 trailSpanDelta = trail.xy - uPointer;
-    trailSpanDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
-    trailSpatialSpan = max(trailSpatialSpan, length(trailSpanDelta) * trail.z);
-    float along = dot(trailDelta, wakeDirection);
-    float across = dot(trailDelta, wakePerpendicular);
-    float trailAlongDensity = mix(42.0, 22.0, uMotionExpansion) * dynamicRangeDensity;
-    float trailAcrossDensity = mix(210.0, 86.0, uMotionExpansion) * dynamicRangeDensity;
-    float lobe =
-      exp(-(along * along * trailAlongDensity + across * across * trailAcrossDensity)) * trail.z * uMotion;
-    float wake = mix(0.88, 0.58, float(trailIndex) / 3.0);
-
-    trailRefraction +=
-      (wakeDirection * 0.0048 + wakePerpendicular * across * 0.018) *
-      lobe *
-      uDeformationStrength *
-      uFlowStrength;
-    trailEnergy += lobe * wake * mix(0.72, 0.42, float(trailIndex) / 3.0);
-  }
-
-  vec4 flowSample = uHasFlowTexture > 0.5 ? texture2D(uFlowTexture, vUv) : vec4(0.5, 0.5, 0.0, 1.0);
-  vec2 temporalFlow =
-    uHasFlowTexture > 0.5
-      ? (flowSample.xy * 2.0 - 1.0) *
-        flowSample.z *
-        uMotion *
-        uDeformationStrength *
-        uFlowStrength
-      : vec2(0.0);
-  float flowSurfaceDetail = 0.0;
-  if (uQuality > 0.5 && uHasFlowTexture > 0.5) {
-    vec2 flowTexel = vec2(3.0) / max(uPresentationSize, vec2(1.0));
-    vec3 flowLeft = texture2D(uFlowTexture, vUv - vec2(flowTexel.x, 0.0)).xyz;
-    vec3 flowRight = texture2D(uFlowTexture, vUv + vec2(flowTexel.x, 0.0)).xyz;
-    vec3 flowBottom = texture2D(uFlowTexture, vUv - vec2(0.0, flowTexel.y)).xyz;
-    vec3 flowTop = texture2D(uFlowTexture, vUv + vec2(0.0, flowTexel.y)).xyz;
-    float flowGradient = length(flowRight.xy - flowLeft.xy) + length(flowTop.xy - flowBottom.xy);
-    float energyGradient = abs(flowRight.z - flowLeft.z) + abs(flowTop.z - flowBottom.z);
-    flowSurfaceDetail = smoothstep(0.015, 0.24, flowGradient + energyGradient * 0.72) * uMotion;
-  }
+${GLASS_FLUID_FRAGMENT_TRAIL_AND_FIELD}
   float rippleMode = step(0.5, uDynamicsMode) * (1.0 - step(1.5, uDynamicsMode));
   vec3 rippleState = vec3(0.0);
   vec2 rippleGradient = vec2(0.0);
@@ -967,103 +864,11 @@ void main() {
     float localDirectionalReflection = broadLight * mix(0.34, 1.0, litResponse) * rectMask;
     float localTopPrism = topEdge * mix(0.38, 1.0, 1.0 - local.x) * rectMask;
     float localBacklightAbsorption = max(rightEdge * 0.72, bottomEdge * 0.46) * rectMask;
-    vec2 pointerDelta = uPointer - vUv;
-    vec2 pointerDeltaAspect = pointerDelta;
-    pointerDeltaAspect *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
-    // 三材质共享指针几何足迹；磨砂身份由位移幅度、低通扩散和材质合成表达。
-    float pointerSpread = mix(26.0, 17.0, uQuality);
-    pointerSpread *= dynamicRangeDensity * mix(1.0, 0.46, uMotionExpansion);
-    float sharedDirectionality = smoothstep(0.015, 0.18, trailSpatialSpan);
-    float pointerAlong = dot(-pointerDeltaAspect, wakeDirection);
-    float pointerAcross = dot(-pointerDeltaAspect, wakePerpendicular);
-    float sharedWakeTravel =
-      0.08 * sharedDirectionality * mix(0.86, 1.18, uMotionExpansion);
-    float radialPointerShape = exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread);
-    float directionalPointerShape =
-      exp(-(
-        pow(pointerAlong + sharedWakeTravel * 0.45, 2.0) * pointerSpread * 0.72 +
-        pointerAcross * pointerAcross * pointerSpread * 1.35
-      ));
-    float pointerEnergy =
-      clamp(mix(radialPointerShape, directionalPointerShape, sharedDirectionality) * uMotion, 0.0, 1.0);
-    float sharedWaveDensity = mix(2.81, 1.63, uMotionExpansion);
-    float radialSharedWave =
-      exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * sharedWaveDensity);
-    float directionalSharedWave =
-      exp(-(
-        pow(pointerAlong + sharedWakeTravel, 2.0) * sharedWaveDensity * 0.62 +
-        pointerAcross * pointerAcross * sharedWaveDensity * 2.2
-      ));
-    float sharedWaveEnergy =
-      mix(radialSharedWave, directionalSharedWave, sharedDirectionality) *
-      clamp(length(uPointerVelocity) * 14.0 * uTranslationStrength, 0.0, 1.0) *
-      mix(1.0, 0.78, sharedDirectionality) *
-      uMotion *
-      uMotion;
-    vec2 wakeDelta = vUv - uPointer;
-    wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
-    float wakeAlong = dot(wakeDelta, wakeDirection);
-    float wakeAcross = dot(wakeDelta, wakePerpendicular);
-    float wakeTravel =
-      0.014 * dynamicRangeScale *
-      mix(0.82, 1.18, uQuality) *
-      mix(1.0, 1.45, uMotionExpansion);
-    float wakeWidth =
-      mix(0.027, 0.044, uQuality) * dynamicRangeScale * mix(1.0, 1.72, uMotionExpansion);
-    float wakeCoordinate = (wakeAlong + wakeTravel) / wakeWidth;
-    float wakeShape = wakeCoordinate * exp(-0.5 * wakeCoordinate * wakeCoordinate);
-    float wakeEnvelope =
-      exp(
-        -wakeAcross *
-        wakeAcross *
-        mix(280.0, 145.0, uQuality) *
-        dynamicRangeDensity *
-        mix(1.0, 0.44, uMotionExpansion)
-      );
-    vec2 wakeRefraction =
-      wakeDirection *
-      wakeShape *
-      wakeEnvelope *
-      mix(0.0045, 0.0075, uQuality) *
-      uMotion *
-      uDeformationStrength *
-      uFlowStrength;
-    float wakeEnergy = abs(wakeShape) * wakeEnvelope * uMotion;
-    float liquidEnergy = clamp(max(
-      pointerEnergy,
-      max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)
-    ), 0.0, 1.0);
+${GLASS_FLUID_FRAGMENT_SURFACE_SHAPE}
     float staticLens = 0.00008 + edgeResponse * mix(0.00045, 0.00072, uQuality);
-    float pointerStrength = mix(mix(0.0055, 0.008, uQuality), mix(0.0085, 0.012, uQuality), frosted);
-    float trailStrength = mix(mix(0.78, 1.08, uQuality), mix(0.96, 1.3, uQuality), frosted);
-    float temporalStrength = mix(0.032, 0.042, frosted) * uQuality * (1.0 + flowSurfaceDetail * 0.5);
-    vec2 specularDelta =
-      vUv - (uPointer - wakeDirection * mix(0.006, 0.022, uMotionExpansion) * dynamicRangeScale);
-    specularDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
-    float specularAlong = dot(specularDelta, wakeDirection);
-    float specularAcross = dot(specularDelta, wakePerpendicular);
-    float singleSpecular =
-      exp(-(
-        specularAlong * specularAlong * mix(58.0, 25.0, uMotionExpansion) * dynamicRangeDensity +
-        specularAcross * specularAcross * mix(190.0, 78.0, uMotionExpansion) * dynamicRangeDensity
-      )) *
-      uMotion *
-      mix(1.0, 1.24, uMotionExpansion);
-    float localCaustic = singleSpecular * rectMask * surfaceDynamic * interactionMask;
+${GLASS_FLUID_FRAGMENT_SURFACE_OPTICS}
     staticRefraction += lens * staticLens * mix(1.0, 0.72, frosted) * rectMask * surfaceDynamic;
-    vec2 sampleTranslation =
-      uPointerVelocity *
-      mix(0.055, 0.075, uQuality) *
-      uMotion *
-      uTranslationStrength;
-    dynamicRefraction += (
-      sampleTranslation +
-      // 收紧高斯半径时补偿向量峰值，避免范围缩小同时削弱用户设置的形变强度。
-      pointerDelta * pointerEnergy * pointerStrength * uDeformationStrength / dynamicRangeScale +
-      trailRefraction * trailStrength +
-      temporalFlow * temporalStrength +
-      wakeRefraction
-    ) * rectMask * surfaceDynamic * interactionMask;
+${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
     dynamicRefraction += rippleRefraction * rippleMode * rectMask * surfaceDynamic * interactionMask;
     edge = max(edge, edgeResponse * rectMask * surfaceDynamic);
     caustic = max(caustic, localCaustic);
@@ -1234,7 +1039,6 @@ const PRESENTATION_RESIZE_SAMPLE_MS = 80
 const PRESENTATION_RESIZE_REQUIRED_SAMPLES = 2
 const SURFACE_STABILITY_MAX_FRAMES = 6
 const SURFACE_STABILITY_REQUIRED_FRAMES = 2
-const FLOW_BUFFER_SCALE = 0.25
 const SURFACE_TRANSITION_DURATION_MS = 96
 const SURFACE_TRANSFORM_TRACKING_MAX_MS = 1000
 
@@ -1413,7 +1217,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   const failedWallpaperPreparationKey = ref('')
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
-  let flowResources: GlassFlowResources | null = null
+  let fluidDynamics: GlassFluidDynamics | null = null
   let rippleResources: GlassRippleDynamics | null = null
   let frostPrefilterResources: GlassFrostPrefilterResources | null = null
   let activeTexture: Texture | null = null
@@ -1864,13 +1668,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /** 释放仅由高质量档使用的短时液态位移场。 */
-  function disposeFlowResources() {
-    if (!flowResources) return
+  function disposeFluidDynamics() {
+    if (!fluidDynamics) return
 
-    flowResources.material.dispose()
-    flowResources.readTarget.dispose()
-    flowResources.writeTarget.dispose()
-    flowResources = null
+    fluidDynamics.dispose()
+    fluidDynamics = null
     if (resources) {
       resources.uniforms.uFlowTexture.value = null
       resources.uniforms.uHasFlowTexture.value = 0
@@ -1890,51 +1692,24 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /** 根据当前质量档创建或释放共享 renderer 内的液态位移场。 */
-  function syncFlowResources() {
+  function syncFluidDynamics() {
     if (!resources || !three) return
 
     const profile = getRenderProfile()
     if (!hasFluidCapability() || !profile.flowField) {
-      disposeFlowResources()
+      disposeFluidDynamics()
       return
     }
-    if (flowResources) return
+    if (fluidDynamics) return
 
-    const createTarget = () =>
-      new three!.WebGLRenderTarget(1, 1, {
-        depthBuffer: false,
-        magFilter: three!.LinearFilter,
-        minFilter: three!.LinearFilter,
-        stencilBuffer: false,
-      })
-    const uniforms: GlassFlowUniforms = {
-      uDecay: { value: 1 },
-      uInjection: { value: 0 },
-      uPointer: { value: resources.uniforms.uPointer.value },
-      uPrevious: { value: null },
-      uTexelSize: { value: new three.Vector2(1, 1) },
-      uVelocity: { value: resources.uniforms.uPointerVelocity.value },
-      uViewportAspect: { value: window.innerWidth / Math.max(window.innerHeight, 1) },
-    }
-    const material = new three.ShaderMaterial({
-      depthTest: false,
-      depthWrite: false,
-      fragmentShader: FLOW_FRAGMENT_SHADER,
-      uniforms,
-      vertexShader: VERTEX_SHADER,
+    fluidDynamics = createGlassFluidDynamics({
+      camera: resources.camera,
+      geometry: resources.geometry,
+      pointer: resources.uniforms.uPointer.value,
+      renderer: resources.renderer,
+      three,
+      velocity: resources.uniforms.uPointerVelocity.value,
     })
-    const scene = new three.Scene()
-    const mesh = new three.Mesh(resources.geometry, material)
-    mesh.frustumCulled = false
-    scene.add(mesh)
-    flowResources = {
-      material,
-      mesh,
-      readTarget: createTarget(),
-      scene,
-      uniforms,
-      writeTarget: createTarget(),
-    }
     resources.uniforms.uHasFlowTexture.value = 1
   }
 
@@ -2010,12 +1785,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     if (mode === 'fluid') {
       disposeRippleResources()
-      syncFlowResources()
+      syncFluidDynamics()
     } else if (mode === 'ripple') {
-      disposeFlowResources()
+      disposeFluidDynamics()
       await syncRippleResources()
     } else {
-      disposeFlowResources()
+      disposeFluidDynamics()
       disposeRippleResources()
     }
 
@@ -2030,16 +1805,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!resources || !toValue(options.active) || document.visibilityState === 'hidden') return
 
     updateWallpaperTransition(timestamp)
-    if (flowResources && advanceFlow) {
-      resources.renderer.setScissorTest(false)
-      flowResources.uniforms.uPrevious.value = flowResources.readTarget.texture
-      resources.renderer.setRenderTarget(flowResources.writeTarget)
-      resources.renderer.render(flowResources.scene, resources.camera)
-      resources.renderer.setRenderTarget(null)
-      const previousReadTarget = flowResources.readTarget
-      flowResources.readTarget = flowResources.writeTarget
-      flowResources.writeTarget = previousReadTarget
-      resources.uniforms.uFlowTexture.value = flowResources.readTarget.texture
+    if (fluidDynamics && advanceFlow) {
+      resources.uniforms.uFlowTexture.value = fluidDynamics.step()
     }
     if (presentationSpace === 'scroll') {
       const { height: presentationHeight } = getCommittedPresentationSize()
@@ -2675,18 +2442,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       presentationSpace === 'scroll' ? window.scrollX : 0,
       presentationSpace === 'scroll' ? window.scrollY : 0,
     )
-    if (flowResources) {
-      const flowWidth = Math.max(96, Math.round(buffer.width * FLOW_BUFFER_SCALE))
-      const flowHeight = Math.max(96, Math.round(buffer.height * FLOW_BUFFER_SCALE))
-      const flowBufferChanged =
-        flowResources.readTarget.width !== flowWidth || flowResources.readTarget.height !== flowHeight
-      if (flowBufferChanged) {
-        flowResources.readTarget.setSize(flowWidth, flowHeight)
-        flowResources.writeTarget.setSize(flowWidth, flowHeight)
-      }
-      flowResources.uniforms.uTexelSize.value.set(1 / flowWidth, 1 / flowHeight)
-      flowResources.uniforms.uViewportAspect.value = viewportWidth / Math.max(viewportHeight, 1)
-    }
+    fluidDynamics?.resize(buffer.width, buffer.height, viewportWidth, viewportHeight)
     if (rippleResources) {
       rippleResources.resize(viewportWidth, viewportHeight)
       resources.uniforms.uRippleTexture.value = rippleResources.texture
@@ -2850,10 +2606,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uMotion.value = 0
     resources.uniforms.uPointerVelocity.value.set(0, 0)
     for (const trail of resources.uniforms.uTrail.value) trail.z = 0
-    if (flowResources) {
-      flowResources.uniforms.uDecay.value = 0
-      flowResources.uniforms.uInjection.value = 0
-    }
+    fluidDynamics?.clearInput()
   }
 
   function renderInteractionFrame(timestamp: number) {
@@ -2902,13 +2655,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     lastInteractionFrameAt = timestamp
     // 收敛期只衰减能量；输入方向保留到最终清场，避免低能量归一化时发生方向跳变。
     resources.uniforms.uMotion.value = motion
-    if (flowResources) {
-      flowResources.uniforms.uDecay.value = getGlassOpticalDecay(profile.flowHalfLife, delta)
-      flowResources.uniforms.uInjection.value = pendingFlowInjection
-    }
+    fluidDynamics?.setFrameParameters(getGlassOpticalDecay(profile.flowHalfLife, delta), pendingFlowInjection)
     pendingFlowInjection = 0
     renderFrame()
-    if (flowResources) flowResources.uniforms.uInjection.value = 0
+    fluidDynamics?.finishFrame()
     animationFrame = requestAnimationFrame(renderInteractionFrame)
   }
 
@@ -3041,10 +2791,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       cancelScheduledFrame()
       pendingFlowInjection = 0
       for (const trail of resources.uniforms.uTrail.value) trail.z = 0
-      if (flowResources) {
-        flowResources.uniforms.uDecay.value = 0
-        flowResources.uniforms.uInjection.value = 0
-      }
+      fluidDynamics?.clearInput()
       scheduleFrame()
       return
     }
@@ -3558,7 +3305,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     releasePreparedWallpaper()
     clearPreparedWallpaperFailure()
 
-    disposeFlowResources()
+    disposeFluidDynamics()
     disposeRippleResources()
     disposeFrostPrefilterResources()
     if (resources) {
@@ -4116,7 +3863,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources = { camera, geometry, material, mesh, renderer, scene, uniforms }
       const ownerResources = resources
       setupContextEvents(canvas)
-      syncFlowResources()
+      syncFluidDynamics()
       await syncRippleResources()
       if (
         version !== loadVersion ||
