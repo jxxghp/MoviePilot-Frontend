@@ -7,8 +7,9 @@ const initialLayers: readonly GlassFixedShellBackplateLayer[] = [
   {
     key: 'front',
     role: 'active',
+    crossOrigin: 'anonymous',
+    src: '/wallpaper-current.jpg',
     style: {
-      'backgroundImage': 'url(/wallpaper-current.jpg)',
       '--glass-wallpaper-brightness': '0.82',
     },
     url: '/wallpaper-current.jpg',
@@ -16,8 +17,9 @@ const initialLayers: readonly GlassFixedShellBackplateLayer[] = [
   {
     key: 'back',
     role: 'standby',
+    crossOrigin: 'anonymous',
+    src: '/wallpaper-next.jpg',
     style: {
-      'backgroundImage': 'url(/wallpaper-next.jpg)',
       '--glass-wallpaper-brightness': '0.76',
     },
     url: '/wallpaper-next.jpg',
@@ -38,9 +40,10 @@ describe('GlassFixedShellBackplate', () => {
     expect(wrapper.findAll('[data-backplate-surface="main"] [data-backplate-slot]')).toHaveLength(2)
     expect(wrapper.find('[data-backplate-slot="front"]').classes()).toContain('is-active')
     expect(wrapper.find('[data-backplate-slot="back"]').classes()).toContain('is-standby')
-    expect(
-      (wrapper.find('[data-backplate-slot="front"] > div').element as HTMLElement).style.backgroundImage,
-    ).toContain('/wallpaper-current.jpg')
+    expect(wrapper.find('[data-backplate-slot="front"] img').attributes()).toMatchObject({
+      crossorigin: 'anonymous',
+      src: '/wallpaper-current.jpg',
+    })
     expect(wrapper.find('[data-backplate-surface="main"]').attributes('style')).toContain(
       '--glass-fixed-shell-transition-duration: 1500ms',
     )
