@@ -83,6 +83,7 @@ const scrollCanvas = ref<HTMLCanvasElement | null>(null)
 const usesMobilePresentation = useGlassMobilePresentation()
 const preferredMotion = usePreferredReducedMotion()
 const compositeFailureLatched = ref(false)
+const compositeRecoveryPending = ref(false)
 const presentationMode = computed<ThemeCustomizerGlassDynamicsMode>(() =>
   usesMobilePresentation.value || preferredMotion.value === 'reduce' ? 'off' : props.dynamicsMode,
 )
@@ -147,15 +148,45 @@ const scrollRenderer = useGlassOpticalRenderer({
   syncDocumentState: false,
 })
 
+/** 用户显式改选动态策略时，用同一代次重建两个已进入复合回退的 renderer。 */
+function retryCompositeRenderers() {
+  compositeRecoveryPending.value = true
+  compositeFailureLatched.value = false
+  void Promise.allSettled([fixedRenderer.retryAfterFailure(), scrollRenderer.retryAfterFailure()])
+}
+
+watch(
+  () => props.dynamicsMode,
+  (mode, previousMode) => {
+    if (mode === previousMode || (!compositeFailureLatched.value && !compositeRecoveryPending.value)) return
+
+    retryCompositeRenderers()
+  },
+)
+
 const rendererState = ref<GlassRendererState>('loading')
 
 /** 两个呈现 context 作为同一材质能力接管 CSS，避免部分就绪时出现混合材质。 */
 watchEffect(() => {
   const states = [fixedRenderer.state.value, scrollRenderer.state.value]
   const allReady = states.every(value => value === 'ready')
-  if (states.some(value => value === 'fallback')) compositeFailureLatched.value = true
+  const anyFallback = states.some(value => value === 'fallback')
+  const anyLoading = states.some(value => value === 'loading')
+  if (compositeRecoveryPending.value) {
+    if (allReady) compositeRecoveryPending.value = false
+    else if (anyFallback && !anyLoading) {
+      compositeRecoveryPending.value = false
+      compositeFailureLatched.value = true
+    }
+  } else if (anyFallback) compositeFailureLatched.value = true
   else if (compositeFailureLatched.value && allReady) compositeFailureLatched.value = false
-  const state: GlassRendererState = compositeFailureLatched.value ? 'fallback' : allReady ? 'ready' : 'loading'
+  const state: GlassRendererState = compositeRecoveryPending.value
+    ? 'loading'
+    : compositeFailureLatched.value
+      ? 'fallback'
+      : allReady
+        ? 'ready'
+        : 'loading'
 
   setGlassRendererState(rendererState, state)
   if (import.meta.env.DEV && timingWindow.__glassPerformanceProbeEnabled) {

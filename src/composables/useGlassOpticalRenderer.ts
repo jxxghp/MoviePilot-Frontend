@@ -3884,6 +3884,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
   }
 
+  /** 由复合层显式重建已释放的 renderer；失败仍进入 fallback，不安排自动重试。 */
+  function retryAfterFailure() {
+    if (contextRecoveryPending) return Promise.resolve()
+
+    return initializeRenderer()
+  }
+
   /** 运行中切换减少透明度时立即释放或恢复光学资源。 */
   function handleReducedTransparencyChange(event: MediaQueryListEvent) {
     if (!toValue(options.active)) return
@@ -4198,6 +4205,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     preparedWallpaperUrl,
     preparedWallpaperRevision,
     renderedFrames,
+    retryAfterFailure,
     rollbackPreparedWallpaperActivation,
     state,
   }

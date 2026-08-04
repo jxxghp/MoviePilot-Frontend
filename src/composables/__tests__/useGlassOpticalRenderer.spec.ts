@@ -2805,6 +2805,43 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('reinitializes a disposed fallback once under the latest mode when explicitly retried', async () => {
+    const three = await import('three')
+    const compileAsync = vi.spyOn(three.WebGLRenderer.prototype, 'compileAsync')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const dynamicsMode = ref<'fluid' | 'off' | 'ripple'>('off')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        dynamicsMode,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const baselineCompileCalls = compileAsync.mock.calls.length
+    compileAsync.mockRejectedValueOnce(new Error('ripple unavailable'))
+    dynamicsMode.value = 'ripple'
+    await vi.waitFor(() => expect(compileAsync).toHaveBeenCalledTimes(baselineCompileCalls + 1))
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('fallback'))
+
+    dynamicsMode.value = 'fluid'
+    await nextTick()
+    expect(renderer?.state.value).toBe('fallback')
+
+    await renderer?.retryAfterFailure()
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(compileAsync).toHaveBeenCalledTimes(baselineCompileCalls + 2)
+    expect(warn).toHaveBeenCalledWith('玻璃动态策略切换失败，已回退标准材质:', expect.any(Error))
+    scope.stop()
+  })
+
   it('disposes a late ripple compilation result after a newer off selection wins', async () => {
     const three = await import('three')
     let finishCompilation: ((result: Object3D) => void) | null = null
@@ -3037,6 +3074,10 @@ describe('glass optical surface discovery', () => {
 
     dynamicsMode.value = 'off'
     await nextTick()
+    await renderer?.retryAfterFailure()
+    expect(renderer?.state.value).toBe('fallback')
+    expect(compileAsync).toHaveBeenCalledTimes(compileCallsBeforeLoss)
+
     canvas.dispatchEvent(new Event('webglcontextrestored'))
     await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
 

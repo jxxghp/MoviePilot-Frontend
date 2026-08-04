@@ -20,6 +20,7 @@ const rendererResults = vi.hoisted(
       preparedWallpaperRevision: { value: number }
       preparedWallpaperUrl: { value: string }
       renderedFrames: { value: number }
+      retryAfterFailure: ReturnType<typeof vi.fn>
       rollbackPreparedWallpaperActivation: ReturnType<typeof vi.fn>
       state: { value: string }
     }>,
@@ -63,6 +64,11 @@ vi.mock('@/composables/useGlassOpticalRenderer', () => ({
       preparedWallpaperUrl: ref(''),
       renderedFrames: ref(0),
       state: ref(rendererInitialStates.shift() ?? 'ready'),
+      retryAfterFailure: vi.fn(() => {
+        result.state.value = 'loading'
+
+        return Promise.resolve()
+      }),
       canActivatePreparedWallpaper: vi.fn((url: string, revision: number, preparationKey: string) => {
         return (
           result.state.value === 'ready' &&
@@ -426,6 +432,93 @@ describe('GlassOpticalLayer', () => {
     expect(fixedRenderer.activatePreparedWallpaper).toHaveBeenCalledOnce()
     expect(scrollRenderer.activatePreparedWallpaper).toHaveBeenCalledOnce()
     expect(wrapper.emitted('wallpaperActivated')).toEqual([['/wallpaper-next.jpg', 8, 640]])
+    wrapper.unmount()
+  })
+
+  it('retries both contexts when the requested dynamics mode changes after a composite failure', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'ripple',
+        flowStrength: 50,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+    const [fixedRenderer, scrollRenderer] = rendererResults
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
+
+    await wrapper.setProps({ dynamicsMode: 'fluid' })
+    await nextTick()
+
+    expect(fixedRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(scrollRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('fluid')
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+
+    fixedRenderer.state.value = 'ready'
+    await nextTick()
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+
+    scrollRenderer.state.value = 'ready'
+    await nextTick()
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('fluid')
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'ready')
+    wrapper.unmount()
+  })
+
+  it('keeps the composite fallback without retrying in a loop when explicit recovery fails', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'ripple',
+        flowStrength: 50,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+    const [fixedRenderer, scrollRenderer] = rendererResults
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+
+    await wrapper.setProps({ dynamicsMode: 'fluid' })
+    await nextTick()
+    fixedRenderer.state.value = 'ready'
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+    await nextTick()
+
+    expect(fixedRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(scrollRenderer.retryAfterFailure).toHaveBeenCalledOnce()
+    expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('off')
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
     wrapper.unmount()
   })
 
