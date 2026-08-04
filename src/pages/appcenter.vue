@@ -126,9 +126,9 @@ onMounted(async () => {
 
 .settings-section-card {
   overflow: hidden;
-  border: var(--app-surface-border);
-  backdrop-filter: blur(10px);
-  background-color: rgb(var(--v-theme-surface));
+  border: var(--app-grouped-list-border);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background-color: var(--app-grouped-list-background);
   box-shadow: var(--app-surface-shadow);
   transition:
     border-color 0.2s ease,

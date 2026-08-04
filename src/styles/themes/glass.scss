@@ -54,7 +54,7 @@ html[data-theme='glass'] {
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%);
   --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
-  --glass-overlay-blur: 3px;
+  --glass-overlay-blur: 8px;
   --glass-overlay-saturate: 115%;
   --glass-overlay-scrim: rgba(3, 7, 18, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
@@ -187,7 +187,7 @@ html[data-theme='glass'] {
       rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
-    --glass-overlay-blur: 12px;
+    --glass-overlay-blur: 8px;
     --glass-overlay-saturate: 120%;
     --glass-overlay-scrim: rgba(3, 7, 18, 32%);
     --glass-chip-backdrop-filter: blur(10px) saturate(165%) brightness(var(--glass-transmission-brightness));
@@ -1193,12 +1193,6 @@ html[data-theme='glass'] {
       border-color: var(--glass-border-hover) !important;
       box-shadow: var(--glass-shadow-hover) !important;
     }
-  }
-
-  // “更多”应用列表的分组卡片存在局部固定模糊，需要在完整小屏区间跟随玻璃材质。
-  .settings-section-card.app-grouped-list {
-    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
-    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
   }
 
   // 文件地址栏与下方内容卡属于同一工作表面，不使用更强的 raised 材质。

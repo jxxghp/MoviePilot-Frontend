@@ -8,9 +8,8 @@ describe('glass overlay material styles', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toContain('calc(0.1 + var(--glass-surface-density, 0.62) * 0.22)')
-    expect(styles).toContain('--glass-overlay-blur: 3px')
+    expect(styles.match(/--glass-overlay-blur:\s*8px/g)).toHaveLength(2)
     expect(styles).toContain('--glass-overlay-saturate: 115%')
-    expect(styles).toContain('--glass-overlay-blur: 12px')
     expect(styles).toContain('--glass-overlay-saturate: 120%')
     expect(styles).toContain('--glass-overlay-blur: min(var(--glass-blur-raised), 36px)')
     expect(styles).toContain('--glass-overlay-saturate: 135%')
@@ -221,15 +220,33 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(
       /\.layout-wrapper:not\(\.layout-fixed-shell-backplate-active\) \.layout-vertical-nav::before,[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
     )
-    expect(styles).toMatch(
-      /\.settings-section-card\.app-grouped-list\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
-    )
+    expect(styles).not.toContain('.settings-section-card.app-grouped-list')
     expect(styles).toMatch(
       /\.file-browser-toolbar\.v-toolbar\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-surface-backdrop-filter\)\s*!important;/,
     )
     expect(styles).not.toMatch(
       /\[data-glass-scroll-presentation='native'\][\s\S]*?:where\([\s\S]*?--glass-native-surface-backdrop-filter/,
     )
+  })
+
+  it('keeps the audited content surfaces on the shared grouped-list material contract', () => {
+    const commonStyles = readFileSync(resolve(cwd(), 'src/styles/common.scss'), 'utf8')
+    const transparentStyles = readFileSync(resolve(cwd(), 'src/styles/themes/transparent.scss'), 'utf8')
+    const glassStyles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const resourcePage = readFileSync(resolve(cwd(), 'src/pages/resource.vue'), 'utf8')
+    const appCenterPage = readFileSync(resolve(cwd(), 'src/pages/appcenter.vue'), 'utf8')
+
+    expect(commonStyles).toContain('--app-grouped-list-backdrop-filter: none')
+    expect(transparentStyles).toContain('--app-grouped-list-backdrop-filter: blur(var(--transparent-blur))')
+    expect(transparentStyles.match(/--app-grouped-list-backdrop-filter:\s*none/g)).toHaveLength(3)
+    expect(glassStyles).toContain('--app-grouped-list-backdrop-filter: var(--glass-surface-backdrop-filter)')
+
+    for (const page of [resourcePage, appCenterPage]) {
+      expect(page).toContain('border: var(--app-grouped-list-border)')
+      expect(page).toContain('backdrop-filter: var(--app-grouped-list-backdrop-filter)')
+      expect(page).toContain('var(--app-grouped-list-background)')
+      expect(page).not.toContain('backdrop-filter: blur(10px)')
+    }
   })
 
   it('keeps frosted route opacity static while preserving its short movement', () => {
