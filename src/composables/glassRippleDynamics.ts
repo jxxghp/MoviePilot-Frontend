@@ -165,9 +165,12 @@ void main() {
   float directionality = step(0.0001, directionLength) * mix(0.32, 0.72, speedResponse);
   float radius = mix(length(impulseDelta), directionalRadius, directionality);
   float sigma = max(uImpulseSigma * mix(0.86, 1.05, speedResponse), 1.0);
-  float core = exp(-0.5 * pow(radius / sigma, 2.0));
+  float normalizedRadius = radius / sigma;
+  float core = exp(-0.5 * pow(normalizedRadius, 2.0));
   float ring = exp(-0.5 * pow((radius - 1.6 * sigma) / (0.55 * sigma), 2.0));
-  float radialImpulse = (0.58 * core - 0.3 * ring) * uImpulse;
+  float centerRelease = smoothstep(0.0, 0.55, normalizedRadius);
+  float annularCore = normalizedRadius * core;
+  float radialImpulse = (0.72 * annularCore - 0.3 * ring) * centerRelease * uImpulse;
   float wakeEnvelope = exp(-0.5 * (
     pow(along / (1.25 * sigma), 2.0) +
     pow(across / (0.72 * sigma), 2.0)

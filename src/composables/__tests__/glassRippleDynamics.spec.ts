@@ -217,7 +217,12 @@ describe('glass ripple dynamics', () => {
       'cardinal1 * 0.46 + diagonal1 * 0.22 + cardinal2 * 0.20 + diagonal2 * 0.12',
     )
     expect(RIPPLE_FRAGMENT_SHADER).toContain('float directionalRadius = length(vec2(along * 0.72, across * 1.24))')
-    expect(RIPPLE_FRAGMENT_SHADER).toContain('float radialImpulse = (0.58 * core - 0.3 * ring) * uImpulse')
+    expect(RIPPLE_FRAGMENT_SHADER).toContain('float centerRelease = smoothstep(0.0, 0.55, normalizedRadius)')
+    expect(RIPPLE_FRAGMENT_SHADER).toContain('float annularCore = normalizedRadius * core')
+    expect(RIPPLE_FRAGMENT_SHADER).toContain(
+      'float radialImpulse = (0.72 * annularCore - 0.3 * ring) * centerRelease * uImpulse',
+    )
+    expect(RIPPLE_FRAGMENT_SHADER).not.toContain('0.58 * core')
     expect(RIPPLE_FRAGMENT_SHADER).toContain('float directionalImpulse = clamp(')
     expect(RIPPLE_FRAGMENT_SHADER).toContain('mix(radialImpulse, directionalImpulse')
     expect(RIPPLE_FRAGMENT_SHADER).toContain('impulse * mix(0.52, 0.82, speedResponse)')
