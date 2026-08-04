@@ -44,7 +44,7 @@ export interface GlassFluidDynamics {
   step(): Texture
 }
 
-export const GLASS_FLUID_DYNAMIC_RANGE_SCALE = 0.4
+export const GLASS_FLUID_DYNAMIC_RANGE_SCALE = 0.52
 export const GLASS_FLUID_DYNAMIC_RANGE_DENSITY = 1 / GLASS_FLUID_DYNAMIC_RANGE_SCALE ** 2
 const GLASS_FLUID_BUFFER_SCALE = 0.25
 

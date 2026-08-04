@@ -4149,8 +4149,8 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')
     expect(scene.children[0].material.fragmentShader).not.toContain('temporalEnergy')
-    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.40')
-    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 6.250')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.52')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 3.698')
     expect(scene.children[0].material.fragmentShader).toContain('float pointerSpread = mix(26.0, 17.0, uQuality)')
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted)',
