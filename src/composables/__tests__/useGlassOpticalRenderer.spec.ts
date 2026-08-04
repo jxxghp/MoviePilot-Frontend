@@ -454,6 +454,24 @@ describe('glass optical surface discovery', () => {
     expect(resolveGlassOpticalSurfaceMode(overridden)).toBe('dynamic')
   })
 
+  it('excludes direct surfaces and descendants even when a child requests dynamic mode', () => {
+    const direct = appendOpticalSurface('app-hover-lift-card', { height: 220, width: 150, x: 24, y: 96 })
+    direct.dataset.glassOpticalMode = 'excluded'
+    const excludedContainer = document.createElement('section')
+    excludedContainer.dataset.glassOpticalMode = 'excluded'
+    const overridden = document.createElement('article')
+    overridden.className = 'app-hover-lift-card'
+    overridden.dataset.glassOpticalMode = 'dynamic'
+    setOpticalSurfaceBounds(overridden, { height: 220, width: 150, x: 200, y: 96 })
+    excludedContainer.append(overridden)
+    document.body.append(excludedContainer)
+
+    expect(containsGlassOpticalSurface(direct)).toBe(false)
+    expect(containsGlassOpticalSurface(excludedContainer)).toBe(false)
+    expect(resolveGlassOpticalSurfaceMode(overridden)).toBe('dynamic')
+    expect(collectGlassOpticalRects(390, 844, 'clear')).toEqual([])
+  })
+
   it('discovers the shared interactive card contract used across routes', () => {
     const surface = appendOpticalSurface('app-hover-lift-card', { height: 220, width: 150, x: 24, y: 96 })
     surface.style.borderTopLeftRadius = '20px'
@@ -1995,6 +2013,220 @@ describe('glass optical surface discovery', () => {
     expect(material.fragmentShader).toContain('uniform vec4 uInteractionRects[8]')
     expect(material.fragmentShader).toContain('interactionMask = max(')
     expect(material.fragmentShader).toContain('surfaceDynamic * interactionMask')
+    scope.stop()
+  })
+
+  it('keeps a parent material static when all nested interaction clips are excluded', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const pageContent = document.createElement('main')
+    pageContent.className = 'app-wrapper layout-page-content'
+    const outerSurface = document.createElement('section')
+    outerSurface.className = 'v-card'
+    setOpticalSurfaceBounds(outerSurface, { height: 420, width: 900, x: 40, y: 80 })
+    const nestedCards = [80, 400].map(x => {
+      const nestedCard = document.createElement('article')
+      nestedCard.className = 'app-hover-lift-card'
+      nestedCard.dataset.glassOpticalMode = 'excluded'
+      setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x, y: 140 })
+      outerSurface.append(nestedCard)
+
+      return nestedCard
+    })
+    pageContent.append(outerSurface)
+    document.body.append(pageContent)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/search'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const getUniforms = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uInteractionRectCount: { value: number }
+              uRectCount: { value: number }
+              uSurfaceDynamics: { value: number[] }
+            }
+          }
+        }>
+      }
+
+      return scene.children[0].material.uniforms
+    }
+
+    expect(getUniforms().uRectCount.value).toBe(1)
+    expect(getUniforms().uInteractionRectCount.value).toBe(0)
+    expect(getUniforms().uSurfaceDynamics.value[0]).toBe(0)
+
+    nestedCards[0].removeAttribute('data-glass-optical-mode')
+    await vi.waitFor(() => expect(getUniforms().uInteractionRectCount.value).toBe(1))
+    expect(getUniforms().uSurfaceDynamics.value[0]).toBe(1)
+    scope.stop()
+  })
+
+  it('removes and restores an active surface and interaction clip when exclusion changes', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const appWrapper = document.createElement('main')
+    appWrapper.className = 'app-wrapper'
+    const surface = document.createElement('article')
+    surface.className = 'app-hover-lift-card'
+    setOpticalSurfaceBounds(surface, { height: 180, width: 360, x: 100, y: 140 })
+    appWrapper.append(surface)
+    document.body.append(appWrapper)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/search'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const getCounts = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uInteractionRectCount: { value: number }
+              uRectCount: { value: number }
+            }
+          }
+        }>
+      }
+      const uniforms = scene.children[0].material.uniforms
+
+      return [uniforms.uRectCount.value, uniforms.uInteractionRectCount.value]
+    }
+
+    expect(getCounts()).toEqual([1, 1])
+
+    surface.dataset.glassOpticalMode = 'excluded'
+    await vi.waitFor(() => expect(getCounts()).toEqual([0, 0]))
+
+    surface.removeAttribute('data-glass-optical-mode')
+    await vi.waitFor(() => expect(getCounts()).toEqual([1, 1]))
+    scope.stop()
+  })
+
+  it('ignores child-list churn inside an excluded surface after removed nodes lose their ancestor', async () => {
+    const appWrapper = document.createElement('main')
+    appWrapper.className = 'app-wrapper'
+    const surface = document.createElement('article')
+    surface.className = 'app-hover-lift-card'
+    surface.dataset.glassOpticalMode = 'excluded'
+    const imageContent = document.createElement('div')
+    surface.append(imageContent)
+    appWrapper.append(surface)
+    document.body.append(appWrapper)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        dynamicsActive: ref(false),
+        quality: ref('balanced'),
+        routeKey: ref('/search'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+
+    imageContent.remove()
+    await nextTick()
+    await new Promise(resolve => requestAnimationFrame(resolve))
+
+    expect(querySelectorAll).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('removes and restores a managed surface when it moves across an excluded boundary', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const appWrapper = document.createElement('main')
+    appWrapper.className = 'app-wrapper'
+    const eligibleParent = document.createElement('section')
+    const excludedParent = document.createElement('section')
+    excludedParent.dataset.glassOpticalMode = 'excluded'
+    const surface = document.createElement('article')
+    surface.className = 'app-hover-lift-card'
+    setOpticalSurfaceBounds(surface, { height: 180, width: 360, x: 100, y: 140 })
+    eligibleParent.append(surface)
+    appWrapper.append(eligibleParent, excludedParent)
+    document.body.append(appWrapper)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/search'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const getCounts = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uInteractionRectCount: { value: number }
+              uRectCount: { value: number }
+            }
+          }
+        }>
+      }
+      const uniforms = scene.children[0].material.uniforms
+
+      return [uniforms.uRectCount.value, uniforms.uInteractionRectCount.value]
+    }
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+    await vi.waitFor(() => expect(getCounts()).toEqual([1, 1]))
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    excludedParent.append(surface)
+    expect(surface.closest('[data-glass-optical-mode="excluded"]')).toBe(excludedParent)
+    await vi.waitFor(() => expect(querySelectorAll).toHaveBeenCalled())
+    await vi.waitFor(() => expect(getCounts()).toEqual([0, 0]))
+
+    eligibleParent.append(surface)
+    await vi.waitFor(() => expect(getCounts()).toEqual([1, 1]))
     scope.stop()
   })
 

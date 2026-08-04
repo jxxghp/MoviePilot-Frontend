@@ -215,7 +215,7 @@ describe('glass overlay material styles', () => {
       /\[data-glass-scroll-presentation='native'\][\s\S]*?\.glass-optical-layer--scroll\s*\{\s*opacity:\s*0\s*!important;/,
     )
     expect(styles).toMatch(
-      /\[data-glass-renderer-state='ready'\][\s\S]*?\.app-hover-lift-card:not\(\.media-card--image-loaded\)[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
+      /\[data-glass-renderer-state='ready'\][\s\S]*?:is\([\s\S]*?\.app-hover-lift-card[\s\S]*?\):not\(\[data-glass-optical-mode='excluded'\]\):not\(\[data-glass-optical-mode='excluded'\] \*\)[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
     )
     expect(styles).toMatch(
       /\.layout-wrapper:not\(\.layout-fixed-shell-backplate-active\) \.layout-vertical-nav::before,[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,

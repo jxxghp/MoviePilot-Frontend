@@ -62,6 +62,9 @@ const isImageLoaded = ref(false)
 // 图片加载失败
 const imageLoadError = ref(false)
 
+// 图片请求代际隔离复用卡片的迟到事件，避免旧海报改变新媒体的 renderer 资格。
+const imageRequestRevision = ref(0)
+
 // 当前订阅状态
 const isSubscribed = ref(false)
 
@@ -399,6 +402,34 @@ const getImgUrl: Ref<string> = computed(() => {
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
+const hasLoadedRealPoster = computed(
+  () => Boolean(props.media?.poster_path) && isImageLoaded.value && !imageLoadError.value,
+)
+
+/** 为当前图片实例绑定不可跨媒体复用的成功与失败回调。 */
+const imageRequest = computed(() => {
+  const revision = imageRequestRevision.value
+  const src = getImgUrl.value
+  const usesFallback = imageLoadError.value || !props.media?.poster_path
+
+  return {
+    handleError: () => {
+      if (revision !== imageRequestRevision.value || usesFallback) return
+
+      isImageLoaded.value = false
+      imageLoadError.value = true
+      imageRequestRevision.value += 1
+    },
+    handleLoad: () => {
+      if (revision !== imageRequestRevision.value) return
+
+      isImageLoaded.value = true
+    },
+    key: revision,
+    src,
+  }
+})
+
 // 获取媒体类型文本
 function getMediaTypeText(type: string | undefined) {
   if (!type) return ''
@@ -425,13 +456,17 @@ watch(isSubscribed, subscribed => {
 })
 
 watch(
-  () => props.media,
+  [() => props.media, () => props.media?.poster_path],
   () => {
+    imageRequestRevision.value += 1
+    isImageLoaded.value = false
+    imageLoadError.value = false
     resetMediaCardDetailState()
     subscribedSeasons.value = []
     subscribedSeasonModes.value = {}
     subscribedSeasonsLoaded.value = false
   },
+  { flush: 'sync' },
 )
 
 onMounted(() => {
@@ -461,6 +496,7 @@ onBeforeUnmount(() => {
           :height="props.height"
           :width="props.width"
           :ripple="false"
+          :data-glass-optical-mode="hasLoadedRealPoster ? 'excluded' : undefined"
           class="app-hover-lift-card outline-none ring-gray-500 media-card"
           :class="{
             'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
@@ -470,12 +506,13 @@ onBeforeUnmount(() => {
           @click.stop="handleMediaCardClick(hover.isHovering)"
         >
           <VImg
+            :key="imageRequest.key"
             aspect-ratio="2/3"
-            :src="getImgUrl"
+            :src="imageRequest.src"
             class="object-cover aspect-w-2 aspect-h-3"
             cover
-            @load="isImageLoaded = true"
-            @error="imageLoadError = true"
+            @load="imageRequest.handleLoad"
+            @error="imageRequest.handleError"
           >
             <template #placeholder>
               <div class="w-full h-full">

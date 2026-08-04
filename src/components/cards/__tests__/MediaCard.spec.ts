@@ -89,6 +89,35 @@ interface RenderCardOptions {
   superUser?: boolean
 }
 
+interface ControlledImageRequest {
+  /** 模拟当前 VImg 请求失败。 */
+  fail: () => void
+  /** 模拟当前 VImg 请求成功。 */
+  load: () => void
+  /** 当前 VImg 实例发起的图片地址。 */
+  src: string
+}
+
+/** 创建可保留旧实例回调的图片替身，用于验证媒体复用时的迟到事件隔离。 */
+function createControlledImageStub(requests: ControlledImageRequest[]) {
+  return defineComponent({
+    name: 'VImg',
+    emits: ['error', 'load'],
+    props: { src: String },
+    setup(props, { emit, slots }) {
+      const src = props.src ?? ''
+      const request = {
+        fail: () => emit('error', src),
+        load: () => emit('load', src),
+        src,
+      }
+      requests.push(request)
+
+      return () => h('div', { 'data-src': src }, slots.default?.())
+    },
+  })
+}
+
 /** 使用指定媒体信息和用户权限渲染媒体卡片。 */
 async function renderCard(media: MediaInfo, options: RenderCardOptions = {}) {
   return renderWithProviders(MediaCard, {
@@ -533,35 +562,70 @@ describe('MediaCard', () => {
       type: '电视剧',
       vote_average: 8.6,
     })
-    const VImgStub = defineComponent({
-      name: 'VImg',
-      emits: ['error', 'load'],
-      props: { src: String },
-      /** 渲染可主动触发图片成功和失败事件的测试替身。 */
-      setup(props, { emit, slots }) {
-        return () =>
-          h('div', { 'data-src': props.src }, [
-            h('button', { 'aria-label': '图片加载成功', onClick: () => emit('load') }),
-            h('button', { 'aria-label': '图片加载失败', onClick: () => emit('error') }),
-            slots.default?.(),
-          ])
-      },
-    })
+    const requests: ControlledImageRequest[] = []
+    const VImgStub = createControlledImageStub(requests)
     const { container } = await renderWithProviders(MediaCard, {
       props: { media, width: '9rem' },
       initialState: { user: { superUser: true } },
       global: { stubs: { VImg: VImgStub } },
     })
 
-    await fireEvent.click(container.querySelector('[aria-label="图片加载成功"]') as HTMLElement)
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+    requests[0].load()
     await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('ring-1'))
+    expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded')
     expect(container).toHaveTextContent('TV')
     expect(container).toHaveTextContent('8.6')
 
-    await fireEvent.click(container.querySelector('[aria-label="图片加载失败"]') as HTMLElement)
+    requests[0].fail()
     await waitFor(() =>
       expect(container.querySelector('.media-card-title')?.parentElement).not.toHaveStyle({ display: 'none' }),
     )
+    await waitFor(() => expect(requests.some(request => request.src.includes('no-image'))).toBe(true))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    requests.find(request => request.src.includes('no-image'))?.load()
+    await waitFor(() => expect(getCard(container)).toHaveClass('ring-1'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+  })
+
+  it('keeps placeholder-only cards inside the renderer after the image loads', async () => {
+    const requests: ControlledImageRequest[] = []
+    const { container } = await renderWithProviders(MediaCard, {
+      props: { media: createMediaInfo({ poster_path: undefined, tmdb_id: 9553 }), width: '9rem' },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    })
+
+    requests[0].load()
+
+    await waitFor(() => expect(getCard(container)).toHaveClass('ring-1'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+  })
+
+  it('ignores a previous poster load after the card is reused for another media item', async () => {
+    const requests: ControlledImageRequest[] = []
+    const mediaA = createMediaInfo({ poster_path: '/original/a.jpg', title: '媒体 A', tmdb_id: 9554 })
+    const mediaB = createMediaInfo({ poster_path: '/original/b.jpg', title: '媒体 B', tmdb_id: 9555 })
+    const { container, rerender } = await renderWithProviders(MediaCard, {
+      props: { media: mediaA, width: '9rem' },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    })
+
+    requests[0].load()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+
+    await rerender({ media: mediaB, width: '9rem' })
+    await waitFor(() => expect(requests.some(request => request.src.includes('/w500/b.jpg'))).toBe(true))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    requests[0].load()
+    await Promise.resolve()
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    requests.find(request => request.src.includes('/w500/b.jpg'))?.load()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
   })
 
   it('renders the AniList source badge after the poster loads', async () => {
