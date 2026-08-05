@@ -100,7 +100,7 @@ const versionStatisticLoading = ref(false)
 // 版本统计数据
 const versionStatistic = ref<any>({})
 
-const MIN_VISIBLE_VERSION_INSTALLS = 5
+const MIN_VISIBLE_VERSION_INSTALLS = 10
 
 /** 过滤安装实例过少的版本，避免在版本统计中展示孤立记录。 */
 function filterVersionStatistics(items: unknown) {
