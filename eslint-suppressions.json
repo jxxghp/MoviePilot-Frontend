@@ -227,7 +227,7 @@
   },
   "src/components/dialog/ForkWorkflowDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 2
     }
   },
   "src/components/dialog/MediaInfoDialog.vue": {

@@ -50,9 +50,27 @@ describe('glass overlay material styles', () => {
 
     expect(card).toContain('--workflow-share-gradient-start-rgb')
     expect(card).toContain('--workflow-share-gradient-end-rgb')
-    expect(styles).toMatch(
-      /\.workflow-share-card\s*\{[\s\S]*?background-image:\s*[\s\S]*?var\(--glass-sheen\),[\s\S]*?var\(--workflow-share-glass-scrim\),[\s\S]*?var\(--workflow-share-gradient-start-rgb,[\s\S]*?var\(--workflow-share-gradient-end-rgb,[\s\S]*?!important;/,
-    )
+    const ruleStart = styles.indexOf('.workflow-share-card {')
+    const ruleEnd = styles.indexOf('\n  }', ruleStart)
+    const workflowShareCardRule = styles.slice(ruleStart, ruleEnd)
+    const expectedLayers = [
+      'background-image:',
+      'var(--glass-sheen),',
+      'var(--workflow-share-glass-scrim),',
+      'var(--workflow-share-gradient-start-rgb,',
+      'var(--workflow-share-gradient-end-rgb,',
+      ') !important;',
+    ]
+
+    expect(ruleStart).toBeGreaterThanOrEqual(0)
+    expect(ruleEnd).toBeGreaterThan(ruleStart)
+    let previousLayerIndex = -1
+    for (const layer of expectedLayers) {
+      const layerIndex = workflowShareCardRule.indexOf(layer, previousLayerIndex + 1)
+
+      expect(layerIndex).toBeGreaterThan(previousLayerIndex)
+      previousLayerIndex = layerIndex
+    }
     expect(styles).toContain("&[data-glass-appearance='frosted'] .workflow-share-card")
     expect(styles).toContain("&[data-glass-appearance='tinted'] .workflow-share-card")
   })
