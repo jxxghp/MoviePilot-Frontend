@@ -1889,9 +1889,7 @@ export interface RecognitionCacheItem {
   key: string
   // TMDB ID，0 表示未识别
   tmdb_id?: number
-  // 豆瓣 ID，0 表示未识别
-  douban_id?: string | number
-  // 当前识别数据源对应的统一 ID
+  // 识别缓存对应的字符串 ID
   recognition_id?: string
   // 识别后的标题
   title: string

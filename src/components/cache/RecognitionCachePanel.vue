@@ -11,9 +11,9 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 type RecognitionStatusFilter = 'all' | 'recognized' | 'unrecognized'
 type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
-type RecognitionCacheSource = 'tmdb' | 'douban'
 
 const MOBILE_CACHE_PAGE_SIZE = 20
+const RECOGNITION_CACHE_ENDPOINT = 'tmdb/cache'
 
 const { t } = useI18n()
 const display = useDisplay()
@@ -22,18 +22,8 @@ const $toast = useToast()
 const globalSettingsStore = useGlobalSettingsStore()
 
 const isMobile = computed(() => display.smAndDown.value)
-const recognitionSource = computed<RecognitionCacheSource>(() =>
-  globalSettingsStore.globalSettings.RECOGNIZE_SOURCE === 'douban' ? 'douban' : 'tmdb',
-)
-const recognitionSourceName = computed(() =>
-  recognitionSource.value === 'douban'
-    ? t('setting.cache.recognitionSource.douban')
-    : t('setting.cache.recognitionSource.themoviedb'),
-)
-const recognitionIdLabel = computed(() =>
-  recognitionSource.value === 'douban' ? t('setting.cache.doubanId') : t('setting.cache.tmdbId'),
-)
-const recognitionCacheEndpoint = computed(() => `${recognitionSource.value}/cache`)
+const recognitionSourceName = computed(() => t('setting.cache.recognitionSource.themoviedb'))
+const recognitionIdLabel = computed(() => t('setting.cache.tmdbId'))
 const recognitionFilterPlaceholder = computed(() =>
   t('setting.cache.filterRecognitionCache', { source: recognitionSourceName.value }),
 )
@@ -106,12 +96,12 @@ function loadMoreMobileCache({ done }: { done: (status: InfiniteScrollStatus) =>
   done(mobileHasMore.value ? 'ok' : 'empty')
 }
 
-/** 加载当前识别数据源对应的缓存列表。 */
+/** 加载 TMDB 主识别缓存列表。 */
 async function loadCacheData(showSuccess = false) {
   const requestId = ++cacheLoadRequestId
   try {
     loading.value = true
-    const response = (await api.get(recognitionCacheEndpoint.value)) as unknown as ApiResponse<RecognitionCacheData>
+    const response = (await api.get(RECOGNITION_CACHE_ENDPOINT)) as unknown as ApiResponse<RecognitionCacheData>
     if (requestId !== cacheLoadRequestId) return
     const responseData = response.data ?? {
       count: 0,
@@ -139,7 +129,7 @@ async function loadCacheData(showSuccess = false) {
   }
 }
 
-/** 清空当前识别数据源的全部识别缓存。 */
+/** 清空全部 TMDB 主识别缓存。 */
 async function clearAllCache() {
   const confirmed = await createConfirm({
     type: 'warn',
@@ -150,7 +140,7 @@ async function clearAllCache() {
 
   try {
     loading.value = true
-    const response = (await api.delete(recognitionCacheEndpoint.value)) as unknown as ApiResponse
+    const response = (await api.delete(RECOGNITION_CACHE_ENDPOINT)) as unknown as ApiResponse
     if (!response.success) throw new Error(response.message)
     $toast.success(response.message || t('setting.cache.clearSuccess'))
     await loadCacheData()
@@ -163,10 +153,10 @@ async function clearAllCache() {
   }
 }
 
-/** 请求当前识别数据源接口删除指定识别缓存。 */
+/** 请求 TMDB 接口删除指定识别缓存。 */
 async function deleteCacheItem(key: string) {
   const response = (await api.delete(
-    `${recognitionCacheEndpoint.value}/${encodeURIComponent(key)}`,
+    `${RECOGNITION_CACHE_ENDPOINT}/${encodeURIComponent(key)}`,
   )) as unknown as ApiResponse
   if (!response.success) throw new Error(response.message)
 }
@@ -217,10 +207,9 @@ function getPosterUrl(item: RecognitionCacheItem): string {
   return getDisplayImageUrl(sourceUrl, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
-/** 获取当前识别数据源对应的媒体 ID。 */
+/** 获取识别缓存对应的 TMDB ID。 */
 function getRecognitionId(item: RecognitionCacheItem): string {
-  const recognitionId = recognitionSource.value === 'douban' ? item.douban_id : item.tmdb_id
-  return recognitionId ? String(recognitionId) : ''
+  return item.tmdb_id ? String(item.tmdb_id) : ''
 }
 
 /** 判断识别缓存条目是否包含有效媒体 ID。 */
@@ -259,13 +248,6 @@ onMounted(() => {
 
 watch([searchFilter, statusFilter], () => {
   resetMobilePagination()
-})
-
-watch(recognitionSource, () => {
-  searchFilter.value = ''
-  statusFilter.value = 'all'
-  selectedItems.value = []
-  void loadCacheData()
 })
 </script>
 

@@ -22,13 +22,13 @@ vi.mock('vue-toastification', () => ({
   }),
 }))
 
-async function renderRecognitionCachePanel() {
+async function renderRecognitionCachePanel(recognitionSource = 'themoviedb') {
   return renderWithProviders(RecognitionCachePanel, {
     initialState: {
       globalSettings: {
         data: {
           GLOBAL_IMAGE_CACHE: false,
-          RECOGNIZE_SOURCE: 'themoviedb',
+          RECOGNIZE_SOURCE: recognitionSource,
           TMDB_IMAGE_DOMAIN: 'image.tmdb.org',
         },
       },
@@ -78,5 +78,22 @@ describe('RecognitionCachePanel shared recognition statistics', () => {
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('tmdb/cache'))
 
     expect(screen.queryByText('共享识别')).not.toBeInTheDocument()
+  })
+
+  it('loads TMDB cache even when Douban is selected as the recognition source', async () => {
+    mocks.apiGet.mockResolvedValue({
+      data: {
+        count: 0,
+        recognized: 0,
+        unrecognized: 0,
+        shared_recognized: 0,
+        shared_recognize_enabled: false,
+        data: [],
+      },
+    })
+
+    await renderRecognitionCachePanel('douban')
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('tmdb/cache'))
   })
 })
