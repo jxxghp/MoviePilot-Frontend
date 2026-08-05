@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-// 定义输入参数
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 const props = defineProps({
-  // 是否显示
+  /** 覆盖关闭按钮默认的右上角定位 class。 */
   innerClass: String,
 })
-// 定义触发的自定义事件
 const emit = defineEmits(['click', 'update:modelValue'])
-// 按钮点击
+
 function onClick() {
   emit('update:modelValue', false)
   emit('click')
@@ -15,6 +16,7 @@ function onClick() {
 
 <template>
   <IconBtn
+    :aria-label="t('common.close')"
     :class="props.innerClass ? props.innerClass : 'absolute right-3 top-3 z-10'"
     @click.stop="onClick"
   >
