@@ -694,6 +694,26 @@ describe('PluginCardListView loading and request ownership', () => {
     await waitForRequestsToFinish()
   })
 
+  it('clears the installed update marker after a successful update refresh removes the market entry', async () => {
+    let marketRequest = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Shared', installed: true, plugin_name: '已更新插件' })],
+      market: () => {
+        marketRequest += 1
+        return marketRequest === 1
+          ? [createPlugin({ has_update: true, id: 'Shared', installed: true, plugin_name: '待更新插件' })]
+          : []
+      },
+    })
+
+    await waitFor(() => expect(screen.getByLabelText('update-Shared')).toHaveTextContent('true'))
+    await fireEvent.click(screen.getByRole('button', { name: 'refresh-plugin-Shared' }))
+
+    await waitFor(() => expect(screen.getByLabelText('update-Shared')).toHaveTextContent('false'))
+    expect(marketRequest).toBe(2)
+    await waitForRequestsToFinish()
+  })
+
   it('keeps an initial installed failure retryable instead of presenting a successful empty list', async () => {
     await renderList({ installedStatus: 500 })
 
@@ -900,6 +920,10 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
         createPlugin({ has_update: true, id: 'Alpha', installed: true, plugin_name: 'Alpha', state: true }),
         createPlugin({ has_update: false, id: 'Beta', installed: true, plugin_name: 'Beta', state: true }),
         createPlugin({ has_update: true, id: 'Gamma', installed: true, plugin_name: 'Gamma', state: false }),
+      ],
+      market: () => [
+        createPlugin({ has_update: true, id: 'Alpha', installed: true, plugin_name: 'Alpha' }),
+        createPlugin({ has_update: true, id: 'Gamma', installed: true, plugin_name: 'Gamma' }),
       ],
     })
     await screen.findByText('plugin:Alpha')

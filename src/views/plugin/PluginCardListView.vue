@@ -955,12 +955,14 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}) {
 
 /** 将市场更新元数据投影到当前已安装快照。 */
 function mergeMarketMetadataIntoInstalled() {
-  const marketById = new Map(uninstalledList.value.map(plugin => [plugin.id, plugin]))
+  const marketById = new Map(
+    uninstalledList.value.filter(plugin => plugin.has_update).map(plugin => [plugin.id, plugin]),
+  )
   dataList.value.forEach(plugin => {
     const marketPlugin = marketById.get(plugin.id)
+    plugin.has_update = Boolean(marketPlugin)
     if (!marketPlugin) return
 
-    plugin.has_update = true
     plugin.repo_url = marketPlugin.repo_url
     plugin.history = marketPlugin.history
     plugin.system_version = marketPlugin.system_version
