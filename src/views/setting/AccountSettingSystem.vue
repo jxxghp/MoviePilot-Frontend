@@ -54,6 +54,7 @@ const SystemSettings = ref<any>({
     LLM_MODEL: 'deepseek-chat',
     LLM_THINKING_LEVEL: 'off',
     LLM_API_PROTOCOL: 'auto',
+    LLM_WEB_SEARCH_MODE: 'local',
     LLM_SUPPORT_IMAGE_INPUT: false,
     LLM_SUPPORT_AUDIO_INPUT: false,
     LLM_SUPPORT_AUDIO_OUTPUT: false,
@@ -223,6 +224,7 @@ type LlmSettingsSnapshot = {
   LLM_MODEL: string
   LLM_THINKING_LEVEL: string
   LLM_API_PROTOCOL: string
+  LLM_WEB_SEARCH_MODE: string
   LLM_API_KEY: string
   LLM_BASE_URL: string
   LLM_USE_PROXY: boolean
@@ -327,6 +329,7 @@ const {
   showBaseUrlField,
   showApiKeyField,
   showApiProtocolField: showLlmApiProtocolField,
+  supportsBuiltinWebSearch,
   canRefreshModels,
   setBaseUrlPreset,
   authDialogVisible,
@@ -409,6 +412,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_MODEL: String(SystemSettings.value.Basic.LLM_MODEL ?? ''),
     LLM_THINKING_LEVEL: String(SystemSettings.value.Basic.LLM_THINKING_LEVEL ?? 'off'),
     LLM_API_PROTOCOL: String(SystemSettings.value.Basic.LLM_API_PROTOCOL ?? 'auto'),
+    LLM_WEB_SEARCH_MODE: String(SystemSettings.value.Basic.LLM_WEB_SEARCH_MODE ?? 'local'),
     LLM_API_KEY: String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
     LLM_BASE_URL: String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
     LLM_USE_PROXY: Boolean(SystemSettings.value.Basic.LLM_USE_PROXY),
@@ -429,6 +433,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     model: snapshot.LLM_MODEL.trim(),
     thinking_level: snapshot.LLM_THINKING_LEVEL.trim(),
     api_protocol: snapshot.LLM_API_PROTOCOL.trim() || 'auto',
+    web_search_mode: snapshot.LLM_WEB_SEARCH_MODE.trim() || 'local',
     api_key: snapshot.LLM_API_KEY.trim(),
     base_url: snapshot.LLM_BASE_URL.trim(),
     use_proxy: snapshot.LLM_USE_PROXY,
@@ -531,6 +536,23 @@ const apiProtocolItems = computed(() => [
   { title: t('setting.system.llmApiProtocolChatCompletions'), value: 'chat_completions' },
   { title: t('setting.system.llmApiProtocolResponses'), value: 'responses' },
 ])
+
+const webSearchModeItems = computed(() => [
+  { title: t('setting.system.llmWebSearchModeLocal'), value: 'local' },
+  {
+    title: t('setting.system.llmWebSearchModeBuiltin'),
+    value: 'builtin',
+    disabled: !supportsBuiltinWebSearch.value,
+  },
+  { title: t('setting.system.llmWebSearchModeAuto'), value: 'auto' },
+  { title: t('setting.system.llmWebSearchModeDisabled'), value: 'disabled' },
+])
+
+const webSearchModeHint = computed(() =>
+  supportsBuiltinWebSearch.value
+    ? t('setting.system.llmWebSearchModeBuiltinSupportedHint')
+    : t('setting.system.llmWebSearchModeHint'),
+)
 
 const activeTab = ref('system')
 
@@ -1375,6 +1397,16 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                           </VBtn>
                         </div>
                       </div>
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                      <VSelect
+                        v-model="SystemSettings.Basic.LLM_WEB_SEARCH_MODE"
+                        :label="t('setting.system.llmWebSearchMode')"
+                        :hint="webSearchModeHint"
+                        persistent-hint
+                        :items="webSearchModeItems"
+                        prepend-inner-icon="mdi-web"
+                      />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                       <VTextField

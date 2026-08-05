@@ -1843,6 +1843,15 @@ export default {
       llmApiProtocolAuto: 'Auto (auto)',
       llmApiProtocolChatCompletions: 'Chat Completions',
       llmApiProtocolResponses: 'Responses',
+      llmWebSearchMode: 'Web Search',
+      llmWebSearchModeHint:
+        'Use MoviePilot local search, model-hosted search, automatic fallback, or disable web access. Hosted search is available only for models that declare support.',
+      llmWebSearchModeBuiltinSupportedHint:
+        'This model supports provider-hosted search. Built-in and Auto use the required protocol without a separate search API key.',
+      llmWebSearchModeLocal: 'MoviePilot local search',
+      llmWebSearchModeBuiltin: 'Model-hosted search',
+      llmWebSearchModeAuto: 'Auto (hosted first)',
+      llmWebSearchModeDisabled: 'Disable web search',
       llmTemperature: 'Temperature',
       llmTemperatureHint:
         'Controls response randomness. Lower values are steadier and higher values are more varied. Backend default is 0.3; 0-2 is usually recommended.',

@@ -94,6 +94,7 @@ const {
   showBaseUrlField,
   showApiKeyField,
   showApiProtocolField,
+  supportsBuiltinWebSearch,
   canRefreshModels,
   setBaseUrlPreset,
   authDialogVisible,
@@ -197,6 +198,23 @@ const apiProtocolItems = computed(() => [
   { title: t('setting.system.llmApiProtocolChatCompletions'), value: 'chat_completions' },
   { title: t('setting.system.llmApiProtocolResponses'), value: 'responses' },
 ])
+
+const webSearchModeItems = computed(() => [
+  { title: t('setting.system.llmWebSearchModeLocal'), value: 'local' },
+  {
+    title: t('setting.system.llmWebSearchModeBuiltin'),
+    value: 'builtin',
+    disabled: !supportsBuiltinWebSearch.value,
+  },
+  { title: t('setting.system.llmWebSearchModeAuto'), value: 'auto' },
+  { title: t('setting.system.llmWebSearchModeDisabled'), value: 'disabled' },
+])
+
+const webSearchModeHint = computed(() =>
+  supportsBuiltinWebSearch.value
+    ? t('setting.system.llmWebSearchModeBuiltinSupportedHint')
+    : t('setting.system.llmWebSearchModeHint'),
+)
 
 const audioProviderItems = computed(() => [
   { title: t('setting.system.audioProviderOpenAiAudio'), value: 'openai' },
@@ -481,6 +499,18 @@ onMounted(async () => {
             <VAlert v-if="selectedModelInfo" type="info" variant="tonal" density="compact" class="mt-2">
               {{ selectedModelInfo }}
             </VAlert>
+          </VCol>
+
+          <VCol cols="12" md="6">
+            <VSelect
+              v-model="wizardData.agent.webSearchMode"
+              :label="t('setting.system.llmWebSearchMode')"
+              :hint="webSearchModeHint"
+              :items="webSearchModeItems"
+              persistent-hint
+              prepend-inner-icon="mdi-web"
+              color="primary"
+            />
           </VCol>
 
           <VCol cols="12" md="6">

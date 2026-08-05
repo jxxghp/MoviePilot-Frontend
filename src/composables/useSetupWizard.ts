@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import { User } from '@/api/types'
+import type { ApiResponse, User } from '@/api/types'
 
 export interface WizardData {
   basic: {
@@ -57,6 +57,7 @@ export interface WizardData {
     model: string
     thinkingLevel: string
     apiProtocol: string
+    webSearchMode: string
     supportImageInput: boolean
     supportAudioInput: boolean
     supportAudioOutput: boolean
@@ -249,6 +250,7 @@ const wizardData = ref<WizardData>({
     model: 'deepseek-chat',
     thinkingLevel: 'off',
     apiProtocol: 'auto',
+    webSearchMode: 'local',
     supportImageInput: true,
     supportAudioInput: false,
     supportAudioOutput: false,
@@ -1451,6 +1453,7 @@ export function useSetupWizard() {
         LLM_MODEL: wizardData.value.agent.model,
         LLM_THINKING_LEVEL: wizardData.value.agent.thinkingLevel,
         LLM_API_PROTOCOL: wizardData.value.agent.apiProtocol || 'auto',
+        LLM_WEB_SEARCH_MODE: wizardData.value.agent.webSearchMode || 'local',
         LLM_SUPPORT_IMAGE_INPUT: wizardData.value.agent.supportImageInput,
         LLM_SUPPORT_AUDIO_INPUT: wizardData.value.agent.supportAudioInput,
         LLM_SUPPORT_AUDIO_OUTPUT: wizardData.value.agent.supportAudioOutput,
@@ -1479,7 +1482,11 @@ export function useSetupWizard() {
         AI_RECOMMEND_MAX_ITEMS: wizardData.value.agent.recommendMaxItems,
       }
 
-      await api.post('system/env', agentSettings)
+      const response: Pick<ApiResponse<unknown>, 'success' | 'message'> = await api.post('system/env', agentSettings)
+      if (!response.success) {
+        $toast.error(response.message || t('setupWizard.saveAgentSettingsFailed'))
+        return false
+      }
       return true
     } catch (error) {
       console.error('Save agent settings failed:', error)
@@ -1567,6 +1574,7 @@ export function useSetupWizard() {
         wizardData.value.agent.model = result.data.LLM_MODEL || ''
         wizardData.value.agent.thinkingLevel = resolveThinkingLevelValue(result.data)
         wizardData.value.agent.apiProtocol = result.data.LLM_API_PROTOCOL || 'auto'
+        wizardData.value.agent.webSearchMode = result.data.LLM_WEB_SEARCH_MODE || 'local'
         wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true
         wizardData.value.agent.supportAudioInput = Boolean(result.data.LLM_SUPPORT_AUDIO_INPUT)
         wizardData.value.agent.supportAudioOutput = Boolean(result.data.LLM_SUPPORT_AUDIO_OUTPUT)

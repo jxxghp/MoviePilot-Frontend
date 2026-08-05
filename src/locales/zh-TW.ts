@@ -1826,6 +1826,15 @@ export default {
       llmApiProtocolAuto: '自動 (auto)',
       llmApiProtocolChatCompletions: 'Chat Completions',
       llmApiProtocolResponses: 'Responses',
+      llmWebSearchMode: '聯網搜尋',
+      llmWebSearchModeHint:
+        '選擇 MoviePilot 本地搜尋、模型服務端搜尋、自動回退或完全關閉；服務端搜尋僅在目前模型宣告支援時可用',
+      llmWebSearchModeBuiltinSupportedHint:
+        '目前模型支援官方代管搜尋；選擇「模型服務端」或「自動」時會按所需協議呼叫，無需額外搜尋金鑰',
+      llmWebSearchModeLocal: 'MoviePilot 本地搜尋',
+      llmWebSearchModeBuiltin: '模型服務端搜尋',
+      llmWebSearchModeAuto: '自動（服務端優先）',
+      llmWebSearchModeDisabled: '關閉聯網搜尋',
       llmTemperature: '溫度參數',
       llmTemperatureHint: '控制回覆隨機性，數值越低越穩定，越高越發散；後端預設 0.3，通常建議 0-2',
       llmProviderAuth: '提供商授權',

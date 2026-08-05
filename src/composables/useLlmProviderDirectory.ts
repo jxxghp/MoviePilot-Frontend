@@ -62,6 +62,13 @@ export interface LlmModel {
   source?: string
   release_date?: string | null
   status?: string | null
+  server_tools?: LlmServerToolCapability[]
+}
+
+export interface LlmServerToolCapability {
+  id: string
+  required_api_protocol?: string
+  client_adapter?: string
 }
 
 export interface LlmProviderAuthSession {
@@ -113,6 +120,10 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   const selectedModel = computed(
     () => models.value.find(item => item.id === normalizeValue(options.model.value)) || null,
   )
+  const builtinWebSearchCapability = computed(() =>
+    selectedModel.value?.server_tools?.find(tool => tool.id === 'web_search'),
+  )
+  const supportsBuiltinWebSearch = computed(() => Boolean(builtinWebSearchCapability.value))
   const providerItems = computed(() => providers.value.map(item => ({ title: item.name, value: item.id })))
   const baseUrlPresetItems = computed<LlmProviderUrlPresetItem[]>(() =>
     (selectedProvider.value?.base_url_presets || []).map(item => ({
@@ -127,8 +138,12 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     Boolean(selectedProvider.value && (selectedProvider.value.oauth_methods || []).length === 0),
   )
   const showApiKeyField = computed(() => selectedProvider.value?.supports_api_key !== false)
-  // OpenAI 兼容接口才需要选择 API 协议（Chat Completions / Responses）。
-  const showApiProtocolField = computed(() => selectedProvider.value?.runtime === 'openai_compatible')
+  // 通用 OpenAI 兼容入口或要求 Responses 的服务端工具需要显示协议选项。
+  const showApiProtocolField = computed(
+    () =>
+      selectedProvider.value?.runtime === 'openai_compatible' ||
+      builtinWebSearchCapability.value?.required_api_protocol === 'responses',
+  )
   const hasUsableCredential = computed(() => {
     if (providerConnected.value) return true
     return Boolean(normalizeValue(options.apiKey.value))
@@ -390,6 +405,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     models,
     selectedProvider,
     selectedModel,
+    supportsBuiltinWebSearch,
     loadingProviders,
     loadingModels,
     providerConnected,
