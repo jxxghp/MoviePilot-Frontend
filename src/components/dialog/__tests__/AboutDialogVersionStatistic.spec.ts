@@ -26,7 +26,7 @@ const DialogStub = defineComponent({
 })
 
 describe('AboutDialog version statistics', () => {
-  it('hides backend and frontend versions with fewer than two installations', async () => {
+  it('hides backend and frontend versions with fewer than ten installations', async () => {
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'system/env') {
         return Promise.resolve({
@@ -44,12 +44,12 @@ describe('AboutDialog version statistics', () => {
         return Promise.resolve({
           data: {
             backend_versions: [
-              { version: 'backend-hidden', count: 1 },
-              { version: 'backend-visible', count: 2 },
+              { version: 'backend-hidden', count: 9 },
+              { version: 'backend-visible', count: 10 },
             ],
             frontend_versions: [
               { version: 'frontend-hidden', count: 0 },
-              { version: 'frontend-visible', count: 3 },
+              { version: 'frontend-visible', count: 11 },
             ],
           },
         })
