@@ -5,6 +5,7 @@ import { useDisplay, useTheme } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
+import { hexToRgb } from '@layouts/utils'
 
 // 多语言支持
 const { t } = useI18n()
@@ -33,6 +34,25 @@ const currentTheme = controlledComputed(
   () => vuetifyTheme.current.value.colors,
 )
 
+const variableTheme = controlledComputed(
+  () => vuetifyTheme.name.value,
+  () => vuetifyTheme.current.value.variables,
+)
+
+/** 将 Vuetify 主题颜色转换为 ApexCharts 使用的透明色。 */
+function toThemeRgba(color: unknown, opacity: string | number) {
+  const rgb = hexToRgb(String(color))
+
+  return rgb ? `rgba(${rgb},${opacity})` : String(color)
+}
+
+/** 将站点统计日期格式化为本地化日期，保持横轴与提示框的时间口径一致。 */
+function formatChartDate(value: string) {
+  if (!value) return ''
+
+  return new Date(value).toLocaleDateString('zh-CN')
+}
+
 // 站点数据列表
 const siteDatas = ref<SiteUserData[]>([])
 
@@ -58,17 +78,24 @@ const historySeries = computed(() => {
 
 // 图形选项
 const historyChartOptions = computed(() => {
+  const axisLabelColor = toThemeRgba(currentTheme.value['on-surface'], variableTheme.value['medium-emphasis-opacity'])
+  const gridColor = toThemeRgba(variableTheme.value['border-color'], variableTheme.value['border-opacity'])
+  const themeMode = vuetifyTheme.global.current.value.dark ? 'dark' : 'light'
+
   return {
     chart: {
       type: 'area',
       parentHeightOffset: 0,
       toolbar: { show: false },
-      animations: { enabled: true },
-      background: currentTheme.value.surface, // 图表背景随应用主题切换
-      foreColor: currentTheme.value.onSurface, // 图表文字随应用主题切换
-      dataLabels: {
+      animations: {
         enabled: true,
+        easing: 'easeinout',
+        speed: 450,
+        animateGradually: { enabled: true, delay: 100 },
+        dynamicAnimation: { enabled: true, speed: 350 },
       },
+      background: 'transparent',
+      foreColor: axisLabelColor,
       zoom: {
         enabled: false,
         allowMouseWheelZoom: false,
@@ -76,69 +103,81 @@ const historyChartOptions = computed(() => {
       selection: { enabled: false },
     },
     theme: {
-      mode: vuetifyTheme.global.current.value.dark ? 'dark' : 'light', // 同步主题模式
+      mode: themeMode,
     },
     tooltip: {
       enabled: true,
-      tooltip: {
-        x: {
-          format: 'dd MMM yyyy',
-        },
+      shared: true,
+      intersect: false,
+      theme: themeMode,
+      x: {
+        formatter: (value: string) => formatChartDate(value),
       },
-      style: {
-        background: currentTheme.value.background, // 提示框背景色同步
-        color: currentTheme.value.onBackground, // 文字颜色同步
+      y: {
+        formatter: (value: number) => `${value.toLocaleString()} GB`,
       },
     },
     grid: {
-      xaxis: {
-        lines: { show: false },
-      },
-      yaxis: {
-        title: {
-          text: 'GB',
-        },
-        lines: { show: true },
-      },
+      borderColor: gridColor,
+      strokeDashArray: 6,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } },
+      padding: { top: -10, left: 2, right: 8, bottom: 0 },
     },
     stroke: {
-      width: 3,
-      lineCap: 'butt',
+      width: [3, 3],
+      lineCap: 'round',
       curve: 'smooth',
     },
     colors: [currentTheme.value.success, currentTheme.value.warning],
+    legend: { show: false },
     markers: {
       size: 0,
-      style: 'hollow',
+      strokeWidth: 2,
+      strokeColors: currentTheme.value.surface,
+      hover: { size: 6, sizeOffset: 2 },
     },
+    dataLabels: { enabled: false },
     xaxis: {
       type: 'category',
       categories: siteDatas.value.map(item => item.updated_day),
       labels: {
         show: true,
-        formatter: function (val: string) {
-          return new Date(val).toLocaleDateString('zh-CN')
-        },
+        formatter: (val: string) => formatChartDate(val),
+        style: { colors: axisLabelColor, fontSize: '10px' },
       },
+      axisTicks: { show: false },
+      axisBorder: { show: false },
+      crosshairs: { stroke: { color: currentTheme.value.success, opacity: 0.2, dashArray: 4 } },
     },
     yaxis: {
       title: {
         text: 'GB',
+        style: { color: axisLabelColor, fontSize: '10px', fontWeight: 500 },
       },
       labels: {
         formatter: function (val: number) {
           return val.toLocaleString()
         },
+        style: { colors: axisLabelColor, fontSize: '10px' },
       },
     },
     fill: {
       type: 'gradient',
       gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.5,
-        opacityTo: 0.7,
-        stops: [0, 100],
+        shade: 'light',
+        type: 'vertical',
+        shadeIntensity: 0.28,
+        opacityFrom: 0.38,
+        opacityTo: 0.04,
+        stops: [0, 90, 100],
       },
+    },
+    noData: {
+      text: t('dialog.siteUserData.noData'),
+      align: 'center',
+      verticalAlign: 'middle',
+      style: { color: axisLabelColor, fontSize: '13px' },
     },
   }
 })
@@ -157,14 +196,23 @@ const seedingSeries = computed(() => {
 
 // 做种分布图形选项
 const seedingChartOptions = computed(() => {
+  const axisLabelColor = toThemeRgba(currentTheme.value['on-surface'], variableTheme.value['medium-emphasis-opacity'])
+  const gridColor = toThemeRgba(variableTheme.value['border-color'], variableTheme.value['border-opacity'])
+  const themeMode = vuetifyTheme.global.current.value.dark ? 'dark' : 'light'
+
   return {
     chart: {
       type: 'scatter',
       parentHeightOffset: 0,
       toolbar: { show: false },
-      animations: { enabled: true },
-      background: currentTheme.value.surface, // 图表背景随应用主题切换
-      foreColor: currentTheme.value.onSurface, // 图表文字随应用主题切换
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 420,
+        dynamicAnimation: { speed: 320 },
+      },
+      background: 'transparent',
+      foreColor: axisLabelColor,
       zoom: {
         enabled: false,
         allowMouseWheelZoom: false,
@@ -172,29 +220,36 @@ const seedingChartOptions = computed(() => {
       selection: { enabled: false },
     },
     theme: {
-      mode: vuetifyTheme.global.current.value.dark ? 'dark' : 'light', // 同步主题模式
+      mode: themeMode,
     },
     tooltip: {
       enabled: true,
+      theme: themeMode,
+      intersect: true,
       x: {
         formatter: function (val: number) {
-          return t('dialog.siteUserData.countTitle') + val.toLocaleString()
+          return `${t('dialog.siteUserData.countTitle')}${val.toLocaleString()}`
         },
       },
-      style: {
-        background: currentTheme.value.background, // 提示框背景色同步
-        color: currentTheme.value.onBackground, // 文字颜色同步
+      y: {
+        formatter: (val: number) => `${val.toLocaleString()} GB`,
       },
     },
     grid: {
-      xaxis: {
-        lines: { show: true },
-      },
-      yaxis: {
-        lines: { show: true },
-      },
+      borderColor: gridColor,
+      strokeDashArray: 6,
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: true } },
+      padding: { top: -4, left: 4, right: 12, bottom: 4 },
     },
     colors: [currentTheme.value.primary],
+    markers: {
+      size: 7,
+      strokeWidth: 2,
+      strokeColors: currentTheme.value.surface,
+      hover: { size: 9, sizeOffset: 2 },
+    },
+    dataLabels: { enabled: false },
     xaxis: {
       type: 'numeric',
       labels: {
@@ -202,21 +257,33 @@ const seedingChartOptions = computed(() => {
         formatter: function (val: number) {
           return Math.round(val).toLocaleString()
         },
+        style: { colors: axisLabelColor, fontSize: '10px' },
       },
       title: {
         text: t('dialog.siteUserData.countTitle'),
+        style: { color: axisLabelColor, fontSize: '10px', fontWeight: 500 },
       },
       tickAmount: 10,
+      axisTicks: { show: false },
+      axisBorder: { show: false },
     },
     yaxis: {
       title: {
         text: 'GB',
+        style: { color: axisLabelColor, fontSize: '10px', fontWeight: 500 },
       },
       labels: {
         formatter: function (val: number) {
           return val.toLocaleString() + ' GB'
         },
+        style: { colors: axisLabelColor, fontSize: '10px' },
       },
+    },
+    noData: {
+      text: t('dialog.siteUserData.noData'),
+      align: 'center',
+      verticalAlign: 'middle',
+      style: { color: axisLabelColor, fontSize: '13px' },
     },
   }
 })
@@ -358,10 +425,10 @@ onBeforeMount(() => {
             </VBtn>
           </div>
         </VAlert>
-        <VRow class="match-height">
+        <VRow class="match-height site-data-summary-grid">
           <!-- 用户信息 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--primary">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -378,8 +445,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 积分 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--warning">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -399,8 +466,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 分享率 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--info">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1">
@@ -420,8 +487,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 总上传量 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--success">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -441,8 +508,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 总下载量 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--warning">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -462,8 +529,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 总做种数 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--primary">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -483,8 +550,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 总做种体积 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--info">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -504,8 +571,8 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
           <!-- 加入时间 -->
-          <VCol cols="12" md="3">
-            <VCard>
+          <VCol cols="12" sm="6" md="3">
+            <VCard class="site-data-summary-card site-data-summary-card--secondary">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
                   <div class="d-flex flex-column gap-y-1 overflow-hidden">
@@ -522,20 +589,55 @@ onBeforeMount(() => {
             </VCard>
           </VCol>
         </VRow>
-        <VRow>
-          <VCol>
-            <VCard :title="t('dialog.siteUserData.trafficHistory')">
-              <VCardText>
-                <VApexChart type="line" :options="historyChartOptions" :series="historySeries" :height="300" />
+        <VRow class="site-data-chart-grid match-height">
+          <VCol cols="12" md="7">
+            <VCard class="site-data-chart-card">
+              <VCardItem class="site-data-chart-header">
+                <template #prepend>
+                  <VAvatar color="success" variant="tonal" size="34" rounded="lg">
+                    <VIcon icon="mdi-chart-areaspline" size="19" />
+                  </VAvatar>
+                </template>
+                <VCardTitle>{{ t('dialog.siteUserData.trafficHistory') }}</VCardTitle>
+                <template #append>
+                  <span class="site-data-chart-caption">GB</span>
+                </template>
+              </VCardItem>
+              <VCardText class="site-data-chart-content">
+                <div class="site-data-chart-plot">
+                  <VApexChart type="line" :options="historyChartOptions" :series="historySeries" height="100%" />
+                </div>
+                <div class="site-data-chart-legend">
+                  <span
+                    ><i class="site-data-legend-dot site-data-legend-dot--upload" />{{ historySeries[0].name }}</span
+                  >
+                  <span
+                    ><i class="site-data-legend-dot site-data-legend-dot--download" />{{ historySeries[1].name }}</span
+                  >
+                </div>
               </VCardText>
             </VCard>
           </VCol>
-        </VRow>
-        <VRow>
-          <VCol>
-            <VCard :title="t('dialog.siteUserData.seedingDistribution')">
-              <VCardText>
-                <VApexChart type="scatter" :options="seedingChartOptions" :series="seedingSeries" :height="300" />
+          <VCol cols="12" md="5">
+            <VCard class="site-data-chart-card">
+              <VCardItem class="site-data-chart-header">
+                <template #prepend>
+                  <VAvatar color="primary" variant="tonal" size="34" rounded="lg">
+                    <VIcon icon="mdi-chart-scatter-plot" size="19" />
+                  </VAvatar>
+                </template>
+                <VCardTitle>{{ t('dialog.siteUserData.seedingDistribution') }}</VCardTitle>
+                <template #append>
+                  <span class="site-data-chart-caption">GB</span>
+                </template>
+              </VCardItem>
+              <VCardText class="site-data-chart-content">
+                <div class="site-data-chart-plot">
+                  <VApexChart type="scatter" :options="seedingChartOptions" :series="seedingSeries" height="100%" />
+                </div>
+                <div class="site-data-chart-legend">
+                  <span><i class="site-data-legend-dot site-data-legend-dot--seed" />{{ seedingSeries[0].name }}</span>
+                </div>
               </VCardText>
             </VCard>
           </VCol>
@@ -546,3 +648,196 @@ onBeforeMount(() => {
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('dialog.siteUserData.refreshing')" />
   </VDialog>
 </template>
+
+<style scoped>
+.site-data-summary-card,
+.site-data-chart-card {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 0.35rem 1rem rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.site-data-summary-card {
+  --site-data-accent: var(--v-theme-primary);
+
+  block-size: 100%;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.site-data-summary-card--success {
+  --site-data-accent: var(--v-theme-success);
+}
+
+.site-data-summary-card--warning {
+  --site-data-accent: var(--v-theme-warning);
+}
+
+.site-data-summary-card--info {
+  --site-data-accent: var(--v-theme-info);
+}
+
+.site-data-summary-card--secondary {
+  --site-data-accent: var(--v-theme-secondary);
+}
+
+.site-data-summary-card:hover {
+  border-color: rgba(var(--site-data-accent), 0.34);
+  box-shadow: 0 0.5rem 1.25rem rgba(var(--v-theme-on-surface), 0.09);
+  transform: translateY(-2px);
+}
+
+.site-data-summary-card :deep(.v-card-text) {
+  position: relative;
+  z-index: 1;
+  min-block-size: 98px;
+  padding: 1rem;
+}
+
+.site-data-summary-card :deep(.v-card-text > .d-flex) {
+  gap: 0.85rem;
+}
+
+.site-data-summary-card .text-base {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.site-data-summary-card .text-h5 {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.site-data-summary-card .text-h5 > .text-base {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.045);
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.28rem 0.42rem;
+}
+
+.site-data-summary-card .text-h5 > .text-base.text-success {
+  border-color: rgba(var(--v-theme-success), 0.22);
+  background: rgba(var(--v-theme-success), 0.1);
+  color: rgb(var(--v-theme-success)) !important;
+}
+
+.site-data-summary-card .text-h5 > .text-base.text-error {
+  border-color: rgba(var(--v-theme-error), 0.22);
+  background: rgba(var(--v-theme-error), 0.1);
+  color: rgb(var(--v-theme-error)) !important;
+}
+
+.site-data-summary-card :deep(.v-avatar) {
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--site-data-accent), 0.18);
+  background: rgba(var(--site-data-accent), 0.13) !important;
+  box-shadow: 0 0.45rem 1rem rgba(var(--site-data-accent), 0.12);
+  color: rgb(var(--site-data-accent)) !important;
+}
+
+.site-data-chart-card {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 310px;
+}
+
+.site-data-chart-header {
+  min-block-size: 64px;
+}
+
+.site-data-chart-header :deep(.v-card-title) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-data-chart-caption {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-data-chart-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.site-data-chart-plot {
+  flex: 1 1 auto;
+  min-block-size: 230px;
+  block-size: clamp(15rem, 25vw, 20rem);
+  min-inline-size: 0;
+}
+
+.site-data-chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
+  padding-block-start: 0.65rem;
+}
+
+.site-data-chart-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-inline-size: 0;
+}
+
+.site-data-legend-dot {
+  display: inline-block;
+  border-radius: 50%;
+  block-size: 0.48rem;
+  inline-size: 0.48rem;
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.site-data-legend-dot--upload {
+  background: rgb(var(--v-theme-success));
+}
+
+.site-data-legend-dot--download {
+  background: rgb(var(--v-theme-warning));
+}
+
+.site-data-legend-dot--seed {
+  background: rgb(var(--v-theme-primary));
+}
+
+@media (max-width: 600px) {
+  .site-data-chart-card {
+    min-block-size: 290px;
+  }
+
+  .site-data-chart-plot {
+    min-block-size: 210px;
+    block-size: 14rem;
+  }
+
+  .site-data-chart-legend {
+    gap: 0.75rem;
+  }
+}
+</style>
