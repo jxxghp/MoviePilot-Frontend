@@ -150,7 +150,12 @@ describe('SiteUserDataDialog projections', () => {
     expect((history.options.chart as { background: string; foreColor: string }).background).toBeTruthy()
     expect(
       (history.options.xaxis as { labels: { formatter: (value: string) => string } }).labels.formatter('2026-07-19'),
-    ).toBe(new Date('2026-07-19').toLocaleDateString('zh-CN'))
+    ).toBe(
+      new Date('2026-07-19').toLocaleDateString('zh-CN', {
+        month: 'short',
+        day: 'numeric',
+      }),
+    )
     expect((history.options.yaxis as { labels: { formatter: (value: number) => string } }).labels.formatter(1234)).toBe(
       (1234).toLocaleString(),
     )

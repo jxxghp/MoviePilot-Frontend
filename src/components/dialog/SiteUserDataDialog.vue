@@ -46,11 +46,14 @@ function toThemeRgba(color: unknown, opacity: string | number) {
   return rgb ? `rgba(${rgb},${opacity})` : String(color)
 }
 
-/** 将站点统计日期格式化为本地化日期，保持横轴与提示框的时间口径一致。 */
+/** 将站点统计日期格式化为本地化短日期，减少图表横轴占用空间。 */
 function formatChartDate(value: string) {
   if (!value) return ''
 
-  return new Date(value).toLocaleDateString('zh-CN')
+  return new Date(value).toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 // 站点数据列表
