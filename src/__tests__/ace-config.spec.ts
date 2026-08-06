@@ -80,6 +80,10 @@ describe('word list syntax mode', () => {
     ])
   })
 
+  it('marks an unknown replacement parameter key as invalid', () => {
+    expect(tokenize('旧名 => {[unknown=1]}')).toContainEqual({ type: 'invalid.word-list', value: 'unknown' })
+  })
+
   it('accepts every supported replacement parameter type', () => {
     expect(
       tokenize('旧名 => {[tmdbid=1;doubanid=2;bangumiid=3;anilistid=4;type=movie;g=group;s=5;e=6]}'),

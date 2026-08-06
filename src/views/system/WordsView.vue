@@ -1024,10 +1024,10 @@ onMounted(() => {
 }
 
 .words-text-editor :deep(.ace_invalid.ace_word-list) {
-  color: #f44336;
-  text-decoration-color: #f44336;
-  text-decoration-line: underline;
-  text-decoration-style: wavy;
+  color: #f44336 !important;
+  background-color: transparent !important;
+  text-decoration: underline wavy #f44336 !important;
+  text-underline-offset: 0.12em;
 }
 
 .words-text-editor :deep(.ace_word_list_front) {
