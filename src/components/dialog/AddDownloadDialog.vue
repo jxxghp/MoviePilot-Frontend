@@ -299,7 +299,6 @@ onMounted(() => {
           <VCol cols="12">
             <VTextField
               v-model="mediaId"
-              class="app-responsive-input--keep-append-action"
               :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
               :rules="[numberValidator]"

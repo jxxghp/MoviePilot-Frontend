@@ -147,7 +147,6 @@ watch(mediaSource, () => {
           <VCol cols="12" md="4">
             <VTextField
               v-model="mediaId"
-              class="app-responsive-input--keep-append-action"
               :disabled="mediaType === ''"
               :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
