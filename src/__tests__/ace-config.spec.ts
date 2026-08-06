@@ -84,6 +84,37 @@ describe('word list syntax mode', () => {
     expect(tokenize('旧名 => {[unknown=1]}')).toContainEqual({ type: 'invalid.word-list', value: 'unknown' })
   })
 
+  it('marks visible syntax for missing or malformed replacement parameters', () => {
+    const invalidTokenValues = tokenize('旧名 => {[tmdbid=;=123;broken;;]}')
+      .filter(token => token.type === 'invalid.word-list')
+      .map(token => token.value)
+
+    expect(invalidTokenValues).toEqual(['tmdbid=', '=123', 'broken;;'])
+    expect(tokenize('旧名 => {[]}')).toContainEqual({ type: 'invalid.word-list', value: '{[]}' })
+  })
+
+  it('marks the second semicolon when it creates an empty parameter', () => {
+    const semicolonTokens = tokenize('旧名 => {[tmdbid=1;;type=tv]}').filter(token => token.value.includes(';'))
+
+    expect(semicolonTokens).toEqual([{ type: 'invalid.word-list', value: ';;' }])
+  })
+
+  it('marks both sides of missing keys and values', () => {
+    const invalidTokenValues = tokenize('旧名 => {[tmdbid=;=123]}')
+      .filter(token => token.type === 'invalid.word-list')
+      .map(token => token.value)
+
+    expect(invalidTokenValues).toEqual(['tmdbid=', '=123'])
+  })
+
+  it('treats an unclosed parameter block as ordinary replacement text', () => {
+    expect(tokenize('旧名 => 新名 {[tmdbid=1')).toEqual([
+      { type: 'word_list_replaced', value: '旧名' },
+      { type: 'keyword.operator.word-list', value: ' => ' },
+      { type: 'word_list_replacement', value: '新名 {[tmdbid=1' },
+    ])
+  })
+
   it('accepts every supported replacement parameter type', () => {
     expect(
       tokenize('旧名 => {[tmdbid=1;doubanid=2;bangumiid=3;anilistid=4;type=movie;g=group;s=5;e=6]}'),

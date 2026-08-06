@@ -572,9 +572,18 @@ function isValidWordListParameterValue(key: keyof typeof wordListParameterTypes,
 
 function tokenizeWordListParameters(parameters: string): WordListToken[] {
   const tokens: WordListToken[] = []
+  const parameterList = parameters.split(';')
 
-  parameters.split(';').forEach((parameter, index) => {
-    if (index > 0) appendWordListToken(tokens, 'word_list_parameter_syntax', ';')
+  parameterList.forEach((parameter, index) => {
+    const isEmptyParameter = parameter.length === 0
+    if (index > 0) {
+      appendWordListToken(
+        tokens,
+        parameterList[index - 1] === '' || isEmptyParameter ? 'invalid.word-list' : 'word_list_parameter_syntax',
+        ';',
+      )
+    }
+    if (isEmptyParameter) return
 
     const equalsIndex = parameter.indexOf('=')
     if (equalsIndex === -1) {
@@ -584,16 +593,22 @@ function tokenizeWordListParameters(parameters: string): WordListToken[] {
 
     const key = parameter.slice(0, equalsIndex)
     const value = parameter.slice(equalsIndex + 1)
-    const isKnownKey = Object.hasOwn(wordListParameterTypes, key)
+    const hasKey = key.length > 0
+    const hasValue = value.length > 0
+    const isKnownKey = hasKey && Object.hasOwn(wordListParameterTypes, key)
 
-    appendWordListToken(tokens, isKnownKey ? 'word_list_parameter_key' : 'invalid.word-list', key)
-    appendWordListToken(tokens, 'word_list_parameter_syntax', '=')
+    appendWordListToken(tokens, isKnownKey && hasValue ? 'word_list_parameter_key' : 'invalid.word-list', key)
+    appendWordListToken(tokens, hasKey && hasValue ? 'word_list_parameter_syntax' : 'invalid.word-list', '=')
 
     const isValidValue =
       isKnownKey &&
       !value.includes('=') &&
       isValidWordListParameterValue(key as keyof typeof wordListParameterTypes, value)
-    appendWordListToken(tokens, isValidValue || !isKnownKey ? 'word_list_parameter_value' : 'invalid.word-list', value)
+    appendWordListToken(
+      tokens,
+      isValidValue || (!isKnownKey && hasKey) ? 'word_list_parameter_value' : 'invalid.word-list',
+      value,
+    )
   })
 
   return tokens
@@ -606,9 +621,12 @@ function tokenizeWordListReplacement(replacement: string): WordListToken[] {
   for (const match of replacement.matchAll(wordListReplacementParametersPattern)) {
     const parameterStart = match.index ?? 0
     appendWordListToken(tokens, 'word_list_replacement', replacement.slice(replacementStart, parameterStart))
-    appendWordListToken(tokens, 'word_list_parameter_syntax', '{[')
-    tokenizeWordListParameters(match[1]).forEach(token => appendWordListToken(tokens, token.type, token.value))
-    appendWordListToken(tokens, 'word_list_parameter_syntax', ']}')
+    if (!match[1]) appendWordListToken(tokens, 'invalid.word-list', match[0])
+    else {
+      appendWordListToken(tokens, 'word_list_parameter_syntax', '{[')
+      tokenizeWordListParameters(match[1]).forEach(token => appendWordListToken(tokens, token.type, token.value))
+      appendWordListToken(tokens, 'word_list_parameter_syntax', ']}')
+    }
     replacementStart = parameterStart + match[0].length
   }
 
