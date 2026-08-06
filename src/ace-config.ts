@@ -530,6 +530,67 @@ function registerJinja2Mode() {
   )
 }
 
+function buildWordListRules(syntax: boolean) {
+  if (!syntax) {
+    return {
+      start: [
+        {
+          token: 'empty_line',
+          regex: '^$',
+        },
+        {
+          defaultToken: 'text',
+        },
+      ],
+    }
+  }
+
+  return {
+    start: [
+      {
+        token: 'comment.word-list',
+        regex: /^#.*/,
+      },
+      {
+        token: [
+          'text',
+          'word_list_replaced',
+          'keyword.operator.word-list',
+          'word_list_replacement',
+          'keyword.operator.word-list',
+          'word_list_front',
+          'keyword.operator.word-list',
+          'word_list_back',
+          'keyword.operator.word-list',
+          'word_list_offset',
+          'text',
+        ],
+        regex: /^(\s*)(.*?)( +=> +)(.*?)( +&& +)(.*?)( +<> +)(.*?)( +>> +)(.*?)(\s*)$/,
+      },
+      {
+        token: ['text', 'word_list_replaced', 'keyword.operator.word-list', 'word_list_replacement', 'text'],
+        regex: /^(\s*)(.*?)( +=> +)(.*?)(\s*)$/,
+      },
+      {
+        token: [
+          'text',
+          'word_list_front',
+          'keyword.operator.word-list',
+          'word_list_back',
+          'keyword.operator.word-list',
+          'word_list_offset',
+          'text',
+        ],
+        regex: /^(\s*)(.*?)( +<> +)(.*?)( +>> +)(.*?)(\s*)$/,
+      },
+      {
+        token: ['text', 'word_list_block', 'text'],
+        regex: /^(\s*)(\S(?:.*?\S)?)(\s*)$/,
+      },
+    ],
+  }
+}
+
 function registerWordListMode() {
   aceModule.define?.(
     'ace/mode/word_list_highlight_rules',
@@ -538,18 +599,8 @@ function registerWordListMode() {
       const oop = require('../lib/oop')
       const TextHighlightRules = require('./text_highlight_rules').TextHighlightRules
 
-      const WordListHighlightRules = function (this: any) {
-        this.$rules = {
-          start: [
-            {
-              token: 'empty_line',
-              regex: '^$',
-            },
-            {
-              defaultToken: 'text',
-            },
-          ],
-        }
+      const WordListHighlightRules = function (this: any, options?: { syntax?: boolean }) {
+        this.$rules = buildWordListRules(options?.syntax === true)
 
         this.normalizeRules()
       }
@@ -567,99 +618,16 @@ function registerWordListMode() {
       const TextMode = require('./text').Mode
       const WordListHighlightRules = require('./word_list_highlight_rules').WordListHighlightRules
 
-      const Mode = function (this: any) {
+      const Mode = function (this: any, options?: { syntax?: boolean }) {
         TextMode.call(this)
         this.HighlightRules = WordListHighlightRules
+        this.$highlightRuleConfig = options || {}
       }
 
       oop.inherits(Mode, TextMode)
 
       ;(function (this: any) {
         this.$id = 'ace/mode/word_list'
-      }).call(Mode.prototype)
-
-      exports.Mode = Mode
-    },
-  )
-
-  aceModule.define?.(
-    'ace/mode/word_list_syntax_highlight_rules',
-    ['require', 'exports', 'module', 'ace/lib/oop', 'ace/mode/text_highlight_rules'],
-    (require: any, exports: any) => {
-      const oop = require('../lib/oop')
-      const TextHighlightRules = require('./text_highlight_rules').TextHighlightRules
-
-      const WordListSyntaxHighlightRules = function (this: any) {
-        this.$rules = {
-          start: [
-            {
-              token: 'comment.word-list',
-              regex: /^#.*/,
-            },
-            {
-              token: [
-                'text',
-                'word_list_replaced',
-                'keyword.operator.word-list',
-                'word_list_replacement',
-                'keyword.operator.word-list',
-                'word_list_front',
-                'keyword.operator.word-list',
-                'word_list_back',
-                'keyword.operator.word-list',
-                'word_list_offset',
-                'text',
-              ],
-              regex: /^(\s*)(.*?)( +=> +)(.*?)( +&& +)(.*?)( +<> +)(.*?)( +>> +)(.*?)(\s*)$/,
-            },
-            {
-              token: ['text', 'word_list_replaced', 'keyword.operator.word-list', 'word_list_replacement', 'text'],
-              regex: /^(\s*)(.*?)( +=> +)(.*?)(\s*)$/,
-            },
-            {
-              token: [
-                'text',
-                'word_list_front',
-                'keyword.operator.word-list',
-                'word_list_back',
-                'keyword.operator.word-list',
-                'word_list_offset',
-                'text',
-              ],
-              regex: /^(\s*)(.*?)( +<> +)(.*?)( +>> +)(.*?)(\s*)$/,
-            },
-            {
-              token: ['text', 'word_list_block', 'text'],
-              regex: /^(\s*)(\S(?:.*?\S)?)(\s*)$/,
-            },
-          ],
-        }
-
-        this.normalizeRules()
-      }
-
-      oop.inherits(WordListSyntaxHighlightRules, TextHighlightRules)
-      exports.WordListSyntaxHighlightRules = WordListSyntaxHighlightRules
-    },
-  )
-
-  aceModule.define?.(
-    'ace/mode/word_list_syntax',
-    ['require', 'exports', 'module', 'ace/lib/oop', 'ace/mode/text', 'ace/mode/word_list_syntax_highlight_rules'],
-    (require: any, exports: any) => {
-      const oop = require('../lib/oop')
-      const TextMode = require('./text').Mode
-      const WordListSyntaxHighlightRules = require('./word_list_syntax_highlight_rules').WordListSyntaxHighlightRules
-
-      const Mode = function (this: any) {
-        TextMode.call(this)
-        this.HighlightRules = WordListSyntaxHighlightRules
-      }
-
-      oop.inherits(Mode, TextMode)
-
-      ;(function (this: any) {
-        this.$id = 'ace/mode/word_list_syntax'
       }).call(Mode.prototype)
 
       exports.Mode = Mode

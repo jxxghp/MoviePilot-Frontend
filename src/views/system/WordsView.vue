@@ -4,6 +4,7 @@ import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
+import type { Ace } from 'ace-builds'
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 
@@ -52,7 +53,27 @@ const saving = ref(false)
 const showLineNumbers = ref(localStorage.getItem(WORDS_LINE_NUMBERS_STORAGE_KEY) === 'true')
 const showSyntaxHighlighting = ref(localStorage.getItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY) === 'true')
 
-const textEditorLanguage = computed(() => (showSyntaxHighlighting.value ? 'word_list_syntax' : 'word_list'))
+interface WordListModeConfig {
+  path: 'ace/mode/word_list'
+  syntax: boolean
+}
+
+const aceEditor = shallowRef<Ace.Editor | null>(null)
+
+function onAceInit(editor: Ace.Editor) {
+  aceEditor.value = editor
+  configureAceEditorPadding(editor)
+  applyWordListSyntax()
+}
+
+function applyWordListSyntax() {
+  if (!aceEditor.value) return
+  const mode: WordListModeConfig = {
+    path: 'ace/mode/word_list',
+    syntax: showSyntaxHighlighting.value,
+  }
+  aceEditor.value.session.setMode(mode as unknown as Ace.SyntaxMode)
+}
 const textEditorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 const textEditorOptions = computed(() => ({
   fontSize: 13.6,
@@ -72,6 +93,8 @@ watch(showLineNumbers, value => {
 watch(showSyntaxHighlighting, value => {
   localStorage.setItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY, String(value))
 })
+
+watch(showSyntaxHighlighting, applyWordListSyntax)
 
 const savedTextValues = reactive<Record<TextSectionKey, string>>({
   identifiers: '',
@@ -528,14 +551,14 @@ onMounted(() => {
             <VAceEditor
               v-if="activeSection === 'identifiers'"
               v-model:value="activeTextValue"
-              :lang="textEditorLanguage"
+              lang="word_list"
               :theme="textEditorTheme"
               :options="textEditorOptions"
               :placeholder="activeTextPlaceholder"
               :print-margin="false"
               wrap
               class="words-text-editor"
-              @init="configureAceEditorPadding"
+              @init="onAceInit"
             />
             <VTextarea
               v-else
