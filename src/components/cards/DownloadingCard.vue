@@ -187,7 +187,7 @@ async function deleteDownload() {
                 <VChip v-if="sourceSiteText" prepend-icon="mdi-web" size="x-small" variant="tonal">
                   {{ sourceSiteText }}
                 </VChip>
-                <VChip v-else prepend-icon="mdi-harddisk" size="x-small" variant="tonal">
+                <VChip class="downloading-card__size-chip" prepend-icon="mdi-harddisk" size="x-small" variant="tonal">
                   {{ sizeText }}
                 </VChip>
               </div>
@@ -328,7 +328,16 @@ async function deleteDownload() {
 }
 
 .downloading-card__chips :deep(.v-chip) {
+  min-inline-size: 0;
   max-inline-size: calc(50% - 0.2rem);
+}
+
+.downloading-card__chips :deep(.v-chip:not(.downloading-card__size-chip)) {
+  flex: 1 1 auto;
+}
+
+.downloading-card__chips :deep(.downloading-card__size-chip) {
+  flex: 0 0 auto;
 }
 
 .downloading-card__chips :deep(.v-chip__content) {

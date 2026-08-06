@@ -140,10 +140,12 @@ describe('DownloadingCard display and pause state', () => {
     expect(container.querySelectorAll('.downloading-card__chips .v-chip')).toHaveLength(1)
   })
 
-  it('prefers explicit site names and safely reduces tracker URLs to hostnames', async () => {
+  it('keeps torrent size visible while resolving explicit site names and tracker hostnames', async () => {
     const { container, rerender } = await renderCard(downloading({ site_name: '  M-Team  ' }))
 
     expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('M-Team')
+    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('1.00 KB')
+    expect(container.querySelectorAll('.downloading-card__chips .v-chip')).toHaveLength(3)
 
     await rerender({
       downloaderName: 'qb-main',
