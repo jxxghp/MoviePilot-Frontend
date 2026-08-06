@@ -30,12 +30,66 @@ describe('word list syntax mode', () => {
     expect(tokenize('屏蔽词')).toEqual([{ type: 'word_list_block', value: '屏蔽词' }])
   })
 
-  it('separates replaced and replacement fields without parsing their content', () => {
+  it('parses valid replacement parameters', () => {
     expect(tokenize('旧名.* => 新名 {[tmdbid=123;type=tv]}')).toEqual([
       { type: 'word_list_replaced', value: '旧名.*' },
       { type: 'keyword.operator.word-list', value: ' => ' },
-      { type: 'word_list_replacement', value: '新名 {[tmdbid=123;type=tv]}' },
+      { type: 'word_list_replacement', value: '新名 ' },
+      { type: 'word_list_parameter_syntax', value: '{[' },
+      { type: 'word_list_parameter_key', value: 'tmdbid' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'word_list_parameter_value', value: '123' },
+      { type: 'word_list_parameter_syntax', value: ';' },
+      { type: 'word_list_parameter_key', value: 'type' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'word_list_parameter_value', value: 'tv' },
+      { type: 'word_list_parameter_syntax', value: ']}' },
     ])
+  })
+
+  it('marks invalid replacement parameter keys and values', () => {
+    expect(tokenize('旧名 => 新名 {[unknown=1;tmdbid=abc;type=anime;g=group;s=2;e=3]}')).toEqual([
+      { type: 'word_list_replaced', value: '旧名' },
+      { type: 'keyword.operator.word-list', value: ' => ' },
+      { type: 'word_list_replacement', value: '新名 ' },
+      { type: 'word_list_parameter_syntax', value: '{[' },
+      { type: 'invalid.word-list', value: 'unknown' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'word_list_parameter_value', value: '1' },
+      { type: 'word_list_parameter_syntax', value: ';' },
+      { type: 'word_list_parameter_key', value: 'tmdbid' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'invalid.word-list', value: 'abc' },
+      { type: 'word_list_parameter_syntax', value: ';' },
+      { type: 'word_list_parameter_key', value: 'type' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'invalid.word-list', value: 'anime' },
+      { type: 'word_list_parameter_syntax', value: ';' },
+      { type: 'word_list_parameter_key', value: 'g' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'word_list_parameter_value', value: 'group' },
+      { type: 'word_list_parameter_syntax', value: ';' },
+      { type: 'word_list_parameter_key', value: 's' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'word_list_parameter_value', value: '2' },
+      { type: 'word_list_parameter_syntax', value: ';' },
+      { type: 'word_list_parameter_key', value: 'e' },
+      { type: 'word_list_parameter_syntax', value: '=' },
+      { type: 'word_list_parameter_value', value: '3' },
+      { type: 'word_list_parameter_syntax', value: ']}' },
+    ])
+  })
+
+  it('accepts every supported replacement parameter type', () => {
+    expect(
+      tokenize('旧名 => {[tmdbid=1;doubanid=2;bangumiid=3;anilistid=4;type=movie;g=group;s=5;e=6]}'),
+    ).not.toContainEqual(expect.objectContaining({ type: 'invalid.word-list' }))
+  })
+
+  it('accepts season and episode number ranges', () => {
+    expect(tokenize('旧名 => {[s=1-2;e=3-5]}')).not.toContainEqual(
+      expect.objectContaining({ type: 'invalid.word-list' }),
+    )
   })
 
   it('separates front, back, and episode offset fields', () => {

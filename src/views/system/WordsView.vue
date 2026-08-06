@@ -947,6 +947,9 @@ onMounted(() => {
   --words-token-block: #af00db;
   --words-token-replaced: #001080;
   --words-token-replacement: #a31515;
+  --words-token-parameter-syntax: #795e26;
+  --words-token-parameter-key: #0451a5;
+  --words-token-parameter-value: #098658;
   --words-token-front: #267f99;
   --words-token-back: #795e26;
   --words-token-offset: #098658;
@@ -966,6 +969,9 @@ onMounted(() => {
   --words-token-block: #c586c0;
   --words-token-replaced: #9cdcfe;
   --words-token-replacement: #ce9178;
+  --words-token-parameter-syntax: #dcdcaa;
+  --words-token-parameter-key: #9cdcfe;
+  --words-token-parameter-value: #b5cea8;
   --words-token-front: #4ec9b0;
   --words-token-back: #dcdcaa;
   --words-token-offset: #b5cea8;
@@ -1003,6 +1009,25 @@ onMounted(() => {
 
 .words-text-editor :deep(.ace_word_list_replacement) {
   color: var(--words-token-replacement);
+}
+
+.words-text-editor :deep(.ace_word_list_parameter_syntax) {
+  color: var(--words-token-parameter-syntax);
+}
+
+.words-text-editor :deep(.ace_word_list_parameter_key) {
+  color: var(--words-token-parameter-key);
+}
+
+.words-text-editor :deep(.ace_word_list_parameter_value) {
+  color: var(--words-token-parameter-value);
+}
+
+.words-text-editor :deep(.ace_invalid.ace_word-list) {
+  color: #f44336;
+  text-decoration-color: #f44336;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
 }
 
 .words-text-editor :deep(.ace_word_list_front) {

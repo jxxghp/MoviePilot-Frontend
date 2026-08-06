@@ -530,6 +530,165 @@ function registerJinja2Mode() {
   )
 }
 
+interface WordListToken {
+  type: string
+  value: string
+}
+
+const wordListReplacementParametersPattern = /\{\[([^\]]*)\]\}/g
+const wordListUnsignedIntegerPattern = /^\d+$/
+const wordListUnsignedIntegerOrRangePattern = /^\d+(?:-\d+)?$/
+const wordListParameterTypes = {
+  tmdbid: 'uint',
+  doubanid: 'uint',
+  bangumiid: 'uint',
+  anilistid: 'uint',
+  type: 'media-type',
+  g: 'string',
+  s: 'uint-or-range',
+  e: 'uint-or-range',
+} as const
+
+function appendWordListToken(tokens: WordListToken[], type: string, value: string) {
+  if (!value) return
+
+  const previousToken = tokens.at(-1)
+  if (previousToken?.type === type) previousToken.value += value
+  else tokens.push({ type, value })
+}
+
+function isValidWordListParameterValue(key: keyof typeof wordListParameterTypes, value: string) {
+  switch (wordListParameterTypes[key]) {
+    case 'uint':
+      return wordListUnsignedIntegerPattern.test(value)
+    case 'uint-or-range':
+      return wordListUnsignedIntegerOrRangePattern.test(value)
+    case 'media-type':
+      return value === 'movie' || value === 'tv'
+    case 'string':
+      return value.length > 0
+  }
+}
+
+function tokenizeWordListParameters(parameters: string): WordListToken[] {
+  const tokens: WordListToken[] = []
+
+  parameters.split(';').forEach((parameter, index) => {
+    if (index > 0) appendWordListToken(tokens, 'word_list_parameter_syntax', ';')
+
+    const equalsIndex = parameter.indexOf('=')
+    if (equalsIndex === -1) {
+      appendWordListToken(tokens, 'invalid.word-list', parameter)
+      return
+    }
+
+    const key = parameter.slice(0, equalsIndex)
+    const value = parameter.slice(equalsIndex + 1)
+    const isKnownKey = Object.hasOwn(wordListParameterTypes, key)
+
+    appendWordListToken(tokens, isKnownKey ? 'word_list_parameter_key' : 'invalid.word-list', key)
+    appendWordListToken(tokens, 'word_list_parameter_syntax', '=')
+
+    const isValidValue =
+      isKnownKey &&
+      !value.includes('=') &&
+      isValidWordListParameterValue(key as keyof typeof wordListParameterTypes, value)
+    appendWordListToken(tokens, isValidValue || !isKnownKey ? 'word_list_parameter_value' : 'invalid.word-list', value)
+  })
+
+  return tokens
+}
+
+function tokenizeWordListReplacement(replacement: string): WordListToken[] {
+  const tokens: WordListToken[] = []
+  let replacementStart = 0
+
+  for (const match of replacement.matchAll(wordListReplacementParametersPattern)) {
+    const parameterStart = match.index ?? 0
+    appendWordListToken(tokens, 'word_list_replacement', replacement.slice(replacementStart, parameterStart))
+    appendWordListToken(tokens, 'word_list_parameter_syntax', '{[')
+    tokenizeWordListParameters(match[1]).forEach(token => appendWordListToken(tokens, token.type, token.value))
+    appendWordListToken(tokens, 'word_list_parameter_syntax', ']}')
+    replacementStart = parameterStart + match[0].length
+  }
+
+  appendWordListToken(tokens, 'word_list_replacement', replacement.slice(replacementStart))
+  return tokens
+}
+
+function splitWordListField(value: string, operator: string) {
+  let operatorIndex = value.indexOf(operator)
+
+  while (operatorIndex !== -1) {
+    const operatorEnd = operatorIndex + operator.length
+    if (value[operatorIndex - 1] === ' ' && value[operatorEnd] === ' ') {
+      let operatorStart = operatorIndex
+      while (value[operatorStart - 1] === ' ') operatorStart -= 1
+
+      let operatorWithSpacesEnd = operatorEnd
+      while (value[operatorWithSpacesEnd] === ' ') operatorWithSpacesEnd += 1
+
+      return {
+        before: value.slice(0, operatorStart),
+        operator: value.slice(operatorStart, operatorWithSpacesEnd),
+        after: value.slice(operatorWithSpacesEnd),
+      }
+    }
+
+    operatorIndex = value.indexOf(operator, operatorEnd)
+  }
+}
+
+function getWordListLineWhitespace(value: string) {
+  const leadingSpaceLength = value.length - value.trimStart().length
+  const trailingSpaceLength = value.length - value.trimEnd().length
+
+  return {
+    leadingSpace: value.slice(0, leadingSpaceLength),
+    content: value.slice(leadingSpaceLength, value.length - trailingSpaceLength),
+    trailingSpace: value.slice(value.length - trailingSpaceLength),
+  }
+}
+
+function tokenizeWordListReplacementLine(value: string): WordListToken[] {
+  const { leadingSpace, content, trailingSpace } = getWordListLineWhitespace(value)
+  const replacementField = splitWordListField(content, '=>')
+  if (!replacementField) return [{ type: 'text', value }]
+
+  const tokens: WordListToken[] = []
+  appendWordListToken(tokens, 'text', leadingSpace)
+  appendWordListToken(tokens, 'word_list_replaced', replacementField.before)
+  appendWordListToken(tokens, 'keyword.operator.word-list', replacementField.operator)
+  tokenizeWordListReplacement(replacementField.after).forEach(token =>
+    appendWordListToken(tokens, token.type, token.value),
+  )
+  appendWordListToken(tokens, 'text', trailingSpace)
+  return tokens
+}
+
+function tokenizeCombinedWordListLine(value: string): WordListToken[] {
+  const { leadingSpace, content, trailingSpace } = getWordListLineWhitespace(value)
+  const replacementField = splitWordListField(content, '=>')
+  const frontField = replacementField && splitWordListField(replacementField.after, '&&')
+  const backField = frontField && splitWordListField(frontField.after, '<>')
+  const offsetField = backField && splitWordListField(backField.after, '>>')
+  if (!replacementField || !frontField || !backField || !offsetField) return [{ type: 'text', value }]
+
+  const tokens: WordListToken[] = []
+  appendWordListToken(tokens, 'text', leadingSpace)
+  appendWordListToken(tokens, 'word_list_replaced', replacementField.before)
+  appendWordListToken(tokens, 'keyword.operator.word-list', replacementField.operator)
+  tokenizeWordListReplacement(frontField.before).forEach(token => appendWordListToken(tokens, token.type, token.value))
+  appendWordListToken(tokens, 'keyword.operator.word-list', frontField.operator)
+  appendWordListToken(tokens, 'word_list_front', backField.before)
+  appendWordListToken(tokens, 'keyword.operator.word-list', backField.operator)
+  appendWordListToken(tokens, 'word_list_back', offsetField.before)
+  appendWordListToken(tokens, 'keyword.operator.word-list', offsetField.operator)
+  appendWordListToken(tokens, 'word_list_offset', offsetField.after)
+  appendWordListToken(tokens, 'text', trailingSpace)
+  return tokens
+}
+
 function buildWordListRules(syntax: boolean) {
   if (!syntax) {
     return {
@@ -552,24 +711,14 @@ function buildWordListRules(syntax: boolean) {
         regex: /^#.*/,
       },
       {
-        token: [
-          'text',
-          'word_list_replaced',
-          'keyword.operator.word-list',
-          'word_list_replacement',
-          'keyword.operator.word-list',
-          'word_list_front',
-          'keyword.operator.word-list',
-          'word_list_back',
-          'keyword.operator.word-list',
-          'word_list_offset',
-          'text',
-        ],
+        token: 'text',
         regex: /^(\s*)(.*?)( +=> +)(.*?)( +&& +)(.*?)( +<> +)(.*?)( +>> +)(.*?)(\s*)$/,
+        onMatch: tokenizeCombinedWordListLine,
       },
       {
-        token: ['text', 'word_list_replaced', 'keyword.operator.word-list', 'word_list_replacement', 'text'],
+        token: 'text',
         regex: /^(\s*)(.*?)( +=> +)(.*?)(\s*)$/,
+        onMatch: tokenizeWordListReplacementLine,
       },
       {
         token: [
