@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  aceSetMode: vi.fn(),
+  aceSetPadding: vi.fn(),
+  aceSetScrollMargin: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -32,6 +35,13 @@ const AceEditorStub = defineComponent({
     lang: { type: String, default: 'text' },
     options: { type: Object, default: () => ({}) },
     value: { type: String, default: '' },
+  },
+  emits: ['init', 'update:value'],
+  mounted() {
+    this.$emit('init', {
+      session: { setMode: mocks.aceSetMode },
+      renderer: { setPadding: mocks.aceSetPadding, setScrollMargin: mocks.aceSetScrollMargin },
+    })
   },
   template: `
     <div
@@ -61,6 +71,9 @@ describe('WordsView editor preferences', () => {
       return Promise.resolve({ data: { value: ['alpha', 'beta'] } })
     })
     mocks.apiPost.mockResolvedValue({ success: true })
+    mocks.aceSetMode.mockClear()
+    mocks.aceSetPadding.mockClear()
+    mocks.aceSetScrollMargin.mockClear()
   })
 
   it('keeps line numbers disabled when no preference is stored', async () => {
@@ -74,6 +87,7 @@ describe('WordsView editor preferences', () => {
     expect(editor).toHaveAttribute('data-show-line-numbers', 'false')
     expect(editor).toHaveAttribute('data-lang', 'word_list')
     expect(screen.getByRole('checkbox', { name: '语法高亮' })).not.toBeChecked()
+    expect(mocks.aceSetMode).toHaveBeenCalledWith({ path: 'ace/mode/word_list', syntax: false })
     expect(localStorage.getItem('MP_WORDS_SHOW_LINE_NUMBERS')).toBeNull()
     expect(localStorage.getItem('MP_WORDS_SYNTAX_HIGHLIGHTING')).toBeNull()
   })
@@ -110,7 +124,8 @@ describe('WordsView editor preferences', () => {
     const editor = await screen.findByTestId('words-ace-editor')
 
     expect(screen.getByRole('checkbox', { name: '语法高亮' })).toBeChecked()
-    expect(editor).toHaveAttribute('data-lang', 'word_list_syntax')
+    expect(mocks.aceSetMode).toHaveBeenCalledWith({ path: 'ace/mode/word_list', syntax: true })
+    expect(editor).toHaveAttribute('data-lang', 'word_list')
   })
 
   it('updates Ace options and persists the preference without changing content', async () => {
@@ -139,7 +154,7 @@ describe('WordsView editor preferences', () => {
     })
   })
 
-  it('switches the Ace mode and persists syntax highlighting without changing content', async () => {
+  it('switches word list syntax highlighting and persists the preference without changing content', async () => {
     const user = userEvent.setup()
     await renderWordsView()
 
@@ -149,7 +164,7 @@ describe('WordsView editor preferences', () => {
     await user.click(screen.getByRole('checkbox', { name: '语法高亮' }))
 
     await waitFor(() => {
-      expect(editor).toHaveAttribute('data-lang', 'word_list_syntax')
+      expect(mocks.aceSetMode).toHaveBeenLastCalledWith({ path: 'ace/mode/word_list', syntax: true })
       expect(localStorage.getItem('MP_WORDS_SYNTAX_HIGHLIGHTING')).toBe('true')
     })
     expect(editor).toHaveAttribute('data-value', 'alpha\nbeta')
@@ -158,7 +173,7 @@ describe('WordsView editor preferences', () => {
     await user.click(screen.getByRole('checkbox', { name: '语法高亮' }))
 
     await waitFor(() => {
-      expect(editor).toHaveAttribute('data-lang', 'word_list')
+      expect(mocks.aceSetMode).toHaveBeenLastCalledWith({ path: 'ace/mode/word_list', syntax: false })
       expect(localStorage.getItem('MP_WORDS_SYNTAX_HIGHLIGHTING')).toBe('false')
     })
   })

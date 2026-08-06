@@ -60,7 +60,7 @@
   },
   "src/ace-config.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 31
+      "count": 24
     },
     "no-useless-escape": {
       "count": 4

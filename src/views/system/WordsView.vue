@@ -4,6 +4,7 @@ import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
+import type { Ace } from 'ace-builds'
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 
@@ -52,7 +53,27 @@ const saving = ref(false)
 const showLineNumbers = ref(localStorage.getItem(WORDS_LINE_NUMBERS_STORAGE_KEY) === 'true')
 const showSyntaxHighlighting = ref(localStorage.getItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY) === 'true')
 
-const textEditorLanguage = computed(() => (showSyntaxHighlighting.value ? 'word_list_syntax' : 'word_list'))
+interface WordListModeConfig {
+  path: 'ace/mode/word_list'
+  syntax: boolean
+}
+
+const aceEditor = shallowRef<Ace.Editor | null>(null)
+
+function onAceInit(editor: Ace.Editor) {
+  aceEditor.value = editor
+  configureAceEditorPadding(editor)
+  applyWordListSyntax()
+}
+
+function applyWordListSyntax() {
+  if (!aceEditor.value) return
+  const mode: WordListModeConfig = {
+    path: 'ace/mode/word_list',
+    syntax: showSyntaxHighlighting.value,
+  }
+  aceEditor.value.session.setMode(mode as unknown as Ace.SyntaxMode)
+}
 const textEditorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 const textEditorOptions = computed(() => ({
   fontSize: 13.6,
@@ -72,6 +93,8 @@ watch(showLineNumbers, value => {
 watch(showSyntaxHighlighting, value => {
   localStorage.setItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY, String(value))
 })
+
+watch(showSyntaxHighlighting, applyWordListSyntax)
 
 const savedTextValues = reactive<Record<TextSectionKey, string>>({
   identifiers: '',
@@ -528,14 +551,14 @@ onMounted(() => {
             <VAceEditor
               v-if="activeSection === 'identifiers'"
               v-model:value="activeTextValue"
-              :lang="textEditorLanguage"
+              lang="word_list"
               :theme="textEditorTheme"
               :options="textEditorOptions"
               :placeholder="activeTextPlaceholder"
               :print-margin="false"
               wrap
               class="words-text-editor"
-              @init="configureAceEditorPadding"
+              @init="onAceInit"
             />
             <VTextarea
               v-else
@@ -924,6 +947,9 @@ onMounted(() => {
   --words-token-block: #af00db;
   --words-token-replaced: #001080;
   --words-token-replacement: #a31515;
+  --words-token-parameter-syntax: #795e26;
+  --words-token-parameter-key: #0451a5;
+  --words-token-parameter-value: #098658;
   --words-token-front: #267f99;
   --words-token-back: #795e26;
   --words-token-offset: #098658;
@@ -943,6 +969,9 @@ onMounted(() => {
   --words-token-block: #c586c0;
   --words-token-replaced: #9cdcfe;
   --words-token-replacement: #ce9178;
+  --words-token-parameter-syntax: #dcdcaa;
+  --words-token-parameter-key: #9cdcfe;
+  --words-token-parameter-value: #b5cea8;
   --words-token-front: #4ec9b0;
   --words-token-back: #dcdcaa;
   --words-token-offset: #b5cea8;
@@ -980,6 +1009,25 @@ onMounted(() => {
 
 .words-text-editor :deep(.ace_word_list_replacement) {
   color: var(--words-token-replacement);
+}
+
+.words-text-editor :deep(.ace_word_list_parameter_syntax) {
+  color: var(--words-token-parameter-syntax);
+}
+
+.words-text-editor :deep(.ace_word_list_parameter_key) {
+  color: var(--words-token-parameter-key);
+}
+
+.words-text-editor :deep(.ace_word_list_parameter_value) {
+  color: var(--words-token-parameter-value);
+}
+
+.words-text-editor :deep(.ace_invalid.ace_word-list) {
+  color: #f44336 !important;
+  background-color: transparent !important;
+  text-decoration: underline wavy #f44336 !important;
+  text-underline-offset: 0.12em;
 }
 
 .words-text-editor :deep(.ace_word_list_front) {
