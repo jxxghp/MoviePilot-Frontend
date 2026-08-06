@@ -148,6 +148,15 @@ describe('SiteUserDataDialog projections', () => {
     expect((history.options.xaxis as { categories: string[] }).categories).toEqual(['2026-07-17', '2026-07-19'])
     expect((history.options.theme as { mode: string }).mode).toBe('light')
     expect((history.options.chart as { background: string; foreColor: string }).background).toBeTruthy()
+    expect((history.options.tooltip as { x: { formatter: (value: string) => string } }).x.formatter('2026-07-19')).toBe(
+      new Date('2026-07-19').toLocaleDateString('zh-CN', {
+        month: 'short',
+        day: 'numeric',
+      }),
+    )
+    expect((history.options.tooltip as { y: { formatter: (value: number) => string } }).y.formatter(1234)).toBe(
+      `${(1234).toLocaleString()} GB`,
+    )
     expect(
       (history.options.xaxis as { labels: { formatter: (value: string) => string } }).labels.formatter('2026-07-19'),
     ).toBe(
@@ -173,6 +182,9 @@ describe('SiteUserDataDialog projections', () => {
     expect((seeding.options.theme as { mode: string }).mode).toBe('light')
     expect((seeding.options.tooltip as { x: { formatter: (value: number) => string } }).x.formatter(1234)).toBe(
       `数量：${(1234).toLocaleString()}`,
+    )
+    expect((seeding.options.tooltip as { y: { formatter: (value: number) => string } }).y.formatter(2048)).toBe(
+      `${(2048).toLocaleString()} GB`,
     )
     expect((seeding.options.xaxis as { labels: { formatter: (value: number) => string } }).labels.formatter(1.6)).toBe(
       '2',
