@@ -542,8 +542,11 @@ function registerWordListMode() {
         this.$rules = {
           start: [
             {
-              token: 'comment.word-list',
-              regex: /^#.*/,
+              token: 'empty_line',
+              regex: '^$',
+            },
+            {
+              defaultToken: 'text',
             },
           ],
         }
