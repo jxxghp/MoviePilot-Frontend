@@ -69,10 +69,9 @@ async function updateSiteCookie() {
     }
   } catch (error: any) {
     console.error(error)
-    const detail = error?.response?.data?.detail
     const message =
       error?.response?.data?.message ||
-      (typeof detail === 'string' ? detail : error?.message) ||
+      (typeof error?.response?.data?.detail === 'string' ? error.response.data.detail : error?.message) ||
       t('dialog.siteCookieUpdate.requestFailed')
     $toast.error(t('dialog.siteCookieUpdate.failed', { site: cardProps.site?.name, message }))
   } finally {

@@ -131,6 +131,8 @@ interface PluginAuthPayload {
 }
 
 interface ApiErrorPayload {
+  message?: unknown
+  message_i18n?: unknown
   detail?: unknown
   mfa_methods?: unknown
 }
@@ -278,9 +280,9 @@ async function exchangePluginAuthTicket(ticket: string) {
   } catch (error: unknown) {
     console.error('插件认证票据兑换失败:', error)
     const apiError = asApiError(error)
-    const detail = apiError.response?.data?.detail
+    const message = apiError.response?.data?.message || apiError.response?.data?.detail
     pluginAuthError.value =
-      (typeof detail === 'string' ? detail : undefined) || getErrorMessage(error) || t('login.authFailure')
+      (typeof message === 'string' ? message : undefined) || getErrorMessage(error) || t('login.authFailure')
   } finally {
     pluginAuthLoading.value = false
   }
@@ -616,6 +618,12 @@ function setLoginError(error: unknown) {
   const apiError = asApiError(error)
   if (!apiError.response) {
     errorMessage.value = t('login.networkError')
+    return
+  }
+
+  const message = apiError.response.data?.message
+  if (typeof message === 'string' && message) {
+    errorMessage.value = message
     return
   }
 

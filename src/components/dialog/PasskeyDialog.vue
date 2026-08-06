@@ -151,7 +151,7 @@ async function registerPassKey() {
     } else if (error.message?.includes('start failed')) {
       $toast.error(t('login.passkeyLoginStartFailed'))
     } else if (error.response) {
-      $toast.error(error.response.data?.detail || t('profile.passkeyRegisterFailed'))
+      $toast.error(error.response.data?.message || error.response.data?.detail || t('profile.passkeyRegisterFailed'))
     } else {
       $toast.error(error.message || t('profile.passkeyRegisterFailed'))
     }
