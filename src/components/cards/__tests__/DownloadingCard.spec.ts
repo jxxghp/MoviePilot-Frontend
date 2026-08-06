@@ -143,9 +143,13 @@ describe('DownloadingCard display and pause state', () => {
   it('keeps torrent size visible while resolving explicit site names and tracker hostnames', async () => {
     const { container, rerender } = await renderCard(downloading({ site_name: '  M-Team  ' }))
 
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('M-Team')
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('1.00 KB')
-    expect(container.querySelectorAll('.downloading-card__chips .v-chip')).toHaveLength(3)
+    const heading = container.querySelector('.downloading-card__heading')!
+    const chipContainer = container.querySelector('.downloading-card__chips')!
+    const chips = [...chipContainer.querySelectorAll('.v-chip')]
+
+    expect(heading.nextElementSibling).toBe(chipContainer)
+    expect(chips.map(chip => chip.textContent?.trim())).toEqual(['电视剧', '1.00 KB', 'M-Team'])
+    expect(chips.every(chip => !chip.classList.contains('text-primary'))).toBe(true)
 
     await rerender({
       downloaderName: 'qb-main',

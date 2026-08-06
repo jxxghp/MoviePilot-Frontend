@@ -174,24 +174,6 @@ async function deleteDownload() {
             </div>
 
             <VCardText class="downloading-card__body">
-              <div class="downloading-card__chips">
-                <VChip
-                  v-if="mediaTypeText"
-                  :prepend-icon="mediaTypeIcon"
-                  color="primary"
-                  size="x-small"
-                  variant="tonal"
-                >
-                  {{ mediaTypeText }}
-                </VChip>
-                <VChip v-if="sourceSiteText" prepend-icon="mdi-web" size="x-small" variant="tonal">
-                  {{ sourceSiteText }}
-                </VChip>
-                <VChip class="downloading-card__size-chip" prepend-icon="mdi-harddisk" size="x-small" variant="tonal">
-                  {{ sizeText }}
-                </VChip>
-              </div>
-
               <div class="downloading-card__heading">
                 <div class="downloading-card__title" :title="mediaTitle">
                   <span>{{ mediaTitle }}</span>
@@ -200,6 +182,18 @@ async function deleteDownload() {
                 <div class="downloading-card__torrent-title" :title="props.info?.title">
                   {{ props.info?.title || t('common.unknown') }}
                 </div>
+              </div>
+
+              <div class="downloading-card__chips">
+                <VChip v-if="mediaTypeText" :prepend-icon="mediaTypeIcon" size="x-small" variant="tonal">
+                  {{ mediaTypeText }}
+                </VChip>
+                <VChip prepend-icon="mdi-harddisk" size="x-small" variant="tonal">
+                  {{ sizeText }}
+                </VChip>
+                <VChip v-if="sourceSiteText" prepend-icon="mdi-web" size="x-small" variant="tonal">
+                  {{ sourceSiteText }}
+                </VChip>
               </div>
 
               <div v-if="progressValue > 0" class="downloading-card__progress">
@@ -323,21 +317,15 @@ async function deleteDownload() {
 .downloading-card__chips {
   display: flex;
   min-inline-size: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }
 
 .downloading-card__chips :deep(.v-chip) {
+  flex: 0 1 auto;
   min-inline-size: 0;
-  max-inline-size: calc(50% - 0.2rem);
-}
-
-.downloading-card__chips :deep(.v-chip:not(.downloading-card__size-chip)) {
-  flex: 1 1 auto;
-}
-
-.downloading-card__chips :deep(.downloading-card__size-chip) {
-  flex: 0 0 auto;
+  max-inline-size: 100%;
 }
 
 .downloading-card__chips :deep(.v-chip__content) {
@@ -506,14 +494,6 @@ async function deleteDownload() {
 @container (width <= 21rem) {
   .downloading-card__body {
     padding-inline: 0.65rem !important;
-  }
-
-  .downloading-card__chips :deep(.v-chip) {
-    max-inline-size: 100%;
-  }
-
-  .downloading-card__chips :deep(.v-chip:first-child:last-child) {
-    display: inline-flex;
   }
 
   .downloading-card__actions :deep(.v-btn) {
