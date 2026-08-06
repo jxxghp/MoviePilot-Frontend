@@ -603,7 +603,6 @@ html[data-theme='glass'] {
   }
 
   .nav-button,
-  .compact-fab .v-btn,
   .global-action-buttons .v-btn {
     border: 1px solid var(--glass-border) !important;
     -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);
@@ -611,6 +610,16 @@ html[data-theme='glass'] {
     background-color: var(--glass-surface-raised) !important;
     background-image: var(--glass-sheen) !important;
     box-shadow: var(--glass-control-shadow) !important;
+  }
+
+  // 聚合 FAB 与弹出菜单使用同一磨砂材质，展开后保持稳定底色和背景采样。
+  .compact-fab .v-btn {
+    border: 1px solid var(--glass-border-raised) !important;
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    background-color: var(--glass-overlay-surface) !important;
+    background-image: var(--glass-sheen) !important;
+    box-shadow: var(--glass-shadow-raised) !important;
   }
 
   .v-overlay__scrim {
@@ -1318,6 +1327,11 @@ html[data-theme='glass'] {
     .v-btn.bg-error:hover {
       border-color: rgba(var(--v-theme-error), 62%);
       background-color: rgba(var(--v-theme-error), 42%) !important;
+    }
+
+    // FAB 悬浮时保持弹出菜单材质，仅通过描边和阴影反馈交互，避免背景进一步透明。
+    .compact-fab .v-btn:hover {
+      background-color: var(--glass-overlay-surface) !important;
     }
 
     .v-card--link:hover {

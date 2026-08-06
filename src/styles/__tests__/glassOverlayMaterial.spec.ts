@@ -139,6 +139,23 @@ describe('glass overlay material styles', () => {
     )
   })
 
+  it('reuses the popup menu material for compact FAB buttons', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const ruleStart = styles.indexOf('.compact-fab .v-btn {')
+    const ruleEnd = styles.indexOf('\n  }', ruleStart)
+    const rule = styles.slice(ruleStart, ruleEnd)
+
+    expect(ruleStart).toBeGreaterThanOrEqual(0)
+    expect(rule).toContain('border: 1px solid var(--glass-border-raised) !important')
+    expect(rule).toContain('backdrop-filter: var(--glass-overlay-backdrop-filter) !important')
+    expect(rule).toContain('background-color: var(--glass-overlay-surface) !important')
+    expect(rule).toContain('background-image: var(--glass-sheen) !important')
+    expect(rule).toContain('box-shadow: var(--glass-shadow-raised) !important')
+    expect(styles).toMatch(
+      /\.compact-fab \.v-btn:hover\s*\{\s*background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
+    )
+  })
+
   it('uses the shared hover-card contract instead of a Dashboard-specific shadow rule', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 

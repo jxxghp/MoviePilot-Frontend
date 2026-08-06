@@ -24,7 +24,7 @@ const repoText = ref('')
 const newRepoUrl = ref('')
 const editingIndex = ref<number | null>(null)
 const editingUrl = ref('')
-const syncingWiki = ref(false)
+const syncingSources = ref(false)
 
 const emit = defineEmits(['save', 'close'])
 
@@ -139,10 +139,10 @@ async function saveHandle() {
   }
 }
 
-/** 从 Wiki 同步公开插件仓库清单并写入配置。 */
-async function syncWikiRepos() {
+/** 同步公开插件源清单并写入配置。 */
+async function syncPluginSources() {
   try {
-    syncingWiki.value = true
+    syncingSources.value = true
     const result: { [key: string]: any } = await api.post('system/setting/PLUGIN_MARKET/sync-wiki', {})
 
     if (result.success) {
@@ -164,7 +164,7 @@ async function syncWikiRepos() {
     console.log(error)
     $toast.error(t('dialog.pluginMarketSetting.syncFailed', { message: error instanceof Error ? error.message : '' }))
   } finally {
-    syncingWiki.value = false
+    syncingSources.value = false
   }
 }
 
@@ -483,11 +483,11 @@ onMounted(() => {
           color="success"
           variant="tonal"
           prepend-icon="mdi-cloud-sync-outline"
-          :loading="syncingWiki"
-          :disabled="syncingWiki"
-          @click="syncWikiRepos"
+          :loading="syncingSources"
+          :disabled="syncingSources"
+          @click="syncPluginSources"
         >
-          {{ t('dialog.pluginMarketSetting.syncWiki') }}
+          {{ t('dialog.pluginMarketSetting.syncSources') }}
         </VBtn>
         <VSpacer />
         <VBtn
@@ -506,6 +506,8 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .plugin-market-dialog-card {
   display: flex;
   flex-direction: column;
@@ -570,9 +572,12 @@ onMounted(() => {
 .plugin-market-mode-switch {
   display: inline-flex;
   padding: 0.125rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 0.375rem;
-  background: rgba(var(--v-theme-surface), 0.72);
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-control-radius);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-surface-shadow);
   gap: 0.125rem;
 }
 
@@ -582,7 +587,7 @@ onMounted(() => {
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--app-control-radius);
   background: transparent;
   block-size: 2.25rem;
   color: rgba(var(--v-theme-on-surface), 0.68);
@@ -594,7 +599,7 @@ onMounted(() => {
     color 0.16s ease;
 
   &:hover {
-    background: rgba(var(--v-theme-primary), 0.07);
+    background: var(--app-grouped-list-hover-background);
     color: rgb(var(--v-theme-on-surface));
   }
 
@@ -604,7 +609,7 @@ onMounted(() => {
   }
 
   &.is-active {
-    background: rgba(var(--v-theme-primary), 0.12);
+    background: var(--app-grouped-list-active-background);
     color: rgb(var(--v-theme-primary));
   }
 }
@@ -624,13 +629,23 @@ onMounted(() => {
 
 .plugin-market-list-wrap {
   flex: 1;
-  background: rgba(var(--v-theme-surface), 0.72);
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-grouped-list-radius);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-surface-shadow);
   min-block-size: 0;
   overflow-y: auto;
 }
 
 .plugin-market-repo-list {
-  background: transparent;
+  border: 0;
+  border-radius: inherit !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .plugin-market-repo-item {
@@ -681,7 +696,12 @@ onMounted(() => {
   display: flex;
   overflow: hidden;
   flex: 1;
-  background: rgba(var(--v-theme-surface), 0.72);
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-grouped-list-radius);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-surface-shadow);
   min-block-size: 0;
   transition:
     border-color 0.2s ease,

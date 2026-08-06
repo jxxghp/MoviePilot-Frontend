@@ -5,6 +5,7 @@ import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
+import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
@@ -296,6 +297,7 @@ const isOpen = computed({
 })
 const drawerStyle = computed(() => ({
   '--agent-assistant-panel-width': drawerWidth.value,
+  zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel,
 }))
 
 // 创建前端展示用的临时 ID。
@@ -2130,11 +2132,11 @@ onScopeDispose(() => {
           <VMenu
             v-model="historyMenuOpen"
             :close-on-content-click="false"
-            content-class="agent-assistant-history-overlay"
             location="bottom end"
             offset="8"
             max-width="360"
-            :z-index="2603"
+            :style="{ zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.overlay }"
+            :z-index="AGENT_ASSISTANT_LAYER_Z_INDEX.overlay"
           >
             <template #activator="{ props }">
               <IconBtn v-bind="props" :title="t('agentAssistant.history')" :aria-label="t('agentAssistant.history')">
@@ -2488,21 +2490,12 @@ onScopeDispose(() => {
   </aside>
 </template>
 
-<style lang="scss">
-.agent-assistant-history-overlay {
-  z-index: 2603 !important;
-}
-</style>
-
 <style lang="scss" scoped>
 /* stylelint-disable selector-pseudo-class-no-unknown */
 /* stylelint-disable no-descending-specificity */
 
 .agent-assistant-panel {
   position: fixed;
-
-  /* Agent 会话层保持高于入口（2600）和业务弹窗，同时低于自身弹出菜单。 */
-  z-index: 2601;
   overflow: hidden;
   background: rgb(var(--v-theme-surface));
 

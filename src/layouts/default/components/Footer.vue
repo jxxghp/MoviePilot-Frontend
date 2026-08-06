@@ -4,7 +4,12 @@ import { useDisplay } from 'vuetify'
 import { NavMenu } from '@/@layouts/types'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
-import { buildUserPermissionContext, filterItemsByPermission, filterMenusByPermission, hasItemPermission } from '@/utils/permission'
+import {
+  buildUserPermissionContext,
+  filterItemsByPermission,
+  filterMenusByPermission,
+  hasItemPermission,
+} from '@/utils/permission'
 import { useLaunchLoading } from '@/composables/useLaunchLoading'
 import { usePWA } from '@/composables/usePWA'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -327,8 +332,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
   pointer-events: none;
 }
 
-// 底部导航挂载在 body 上，而主题定制器与 Agent 面板受 .v-application 的层叠上下文限制，
-// 无法仅靠 z-index 压过它。移动端两者都是全屏面板，打开时直接隐藏底部导航。
+// 移动端两个设置面板都是全屏展示，打开时隐藏底部导航，避免不可见控件继续参与焦点和合成。
 html[data-theme-customizer-open='true'],
 html[data-agent-assistant-open='true'] {
   .footer-nav-container {
