@@ -1084,6 +1084,11 @@ export interface User {
   nickname?: string
 }
 
+// 头像上传响应数据
+export interface AvatarUploadData {
+  filename: string
+}
+
 // 通行密钥
 export interface PassKey {
   id: number
