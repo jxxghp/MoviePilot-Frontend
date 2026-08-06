@@ -237,4 +237,65 @@ describe('AgentAssistantPanel stream recovery', () => {
 
     wrapper.unmount()
   })
+
+  it('renders interleaved assistant text and tool events in their SSE order', async () => {
+    const serverSessionId = 'web-agent:ordered-segments'
+    const streamEvents = [
+      { type: 'start', session_id: serverSessionId },
+      { type: 'delta', content: '先检查服务器。' },
+      { type: 'tool', message: '（执行了 1 条命令）' },
+      { type: 'delta', content: '检查完成，没有发现错误。' },
+      { type: 'done' },
+    ]
+    const streamBody = streamEvents.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return new Response(streamBody, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    const textarea = wrapper.find('textarea')
+    await textarea.setValue('检查服务器')
+    await textarea.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const renderedSegments = wrapper.findAll('.agent-assistant-segments > *')
+    expect(renderedSegments).toHaveLength(3)
+    expect(renderedSegments[0].classes()).toContain('agent-assistant-message__bubble')
+    expect(renderedSegments[0].text()).toContain('先检查服务器。')
+    expect(renderedSegments[1].classes()).toContain('agent-assistant-tool')
+    expect(renderedSegments[1].text()).toContain('执行了 1 条命令')
+    expect(renderedSegments[2].classes()).toContain('agent-assistant-message__bubble')
+    expect(renderedSegments[2].text()).toContain('检查完成，没有发现错误。')
+
+    const saveCall = fetchMock.mock.calls.find(([input]) => String(input).includes('/display'))
+    const savedMessages = JSON.parse(String(saveCall?.[1]?.body || '{}')).messages as Array<Record<string, unknown>>
+    expect(savedMessages.at(-1)).toMatchObject({
+      content: '先检查服务器。检查完成，没有发现错误。',
+      segments: [
+        { type: 'text', content: '先检查服务器。' },
+        { type: 'tool', toolIndex: 0 },
+        { type: 'text', content: '检查完成，没有发现错误。' },
+      ],
+    })
+
+    wrapper.unmount()
+  })
 })

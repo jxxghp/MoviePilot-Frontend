@@ -20,6 +20,21 @@ interface AgentToolCall {
   status: 'running' | 'done'
 }
 
+interface AgentMessageTextSegment {
+  type: 'text'
+  content: string
+}
+
+interface AgentMessageToolSegment {
+  type: 'tool'
+  toolIndex: number
+}
+
+type AgentMessageSegment = AgentMessageTextSegment | AgentMessageToolSegment
+
+type AgentRenderableMessageSegment =
+  (AgentMessageTextSegment & { key: string }) | { type: 'tool'; key: string; tool: AgentToolCall }
+
 interface AgentMessageAttachment {
   kind: AgentAttachmentKind
   url: string
@@ -66,6 +81,7 @@ interface AgentChatMessage {
   createdAt: number
   status: AgentMessageStatus
   tools: AgentToolCall[]
+  segments: AgentMessageSegment[]
   attachments: AgentMessageAttachment[]
   choices: AgentChoiceCard[]
   choice_selection?: AgentChoiceSelection
@@ -517,26 +533,57 @@ function normalizeChoiceSelectionMessages(sessionMessages: AgentChatMessage[]) {
   return sessionMessages
 }
 
-// 规范化历史消息，补齐附件、工具和选择项等可选数组。
+// 规范化消息的有序片段；旧历史按原来的工具在前、文本在后布局回退。
+function normalizeMessageSegments(value: unknown, content: string, tools: AgentToolCall[]) {
+  const normalizedSegments: AgentMessageSegment[] = []
+
+  if (Array.isArray(value)) {
+    value.forEach(rawSegment => {
+      if (!rawSegment || typeof rawSegment !== 'object' || Array.isArray(rawSegment)) return
+
+      const segment = rawSegment as Record<string, unknown>
+      if (segment.type === 'text' && typeof segment.content === 'string' && segment.content) {
+        normalizedSegments.push({ type: 'text', content: segment.content })
+        return
+      }
+
+      const toolIndex = Number(segment.toolIndex ?? segment.tool_index)
+      if (segment.type === 'tool' && Number.isInteger(toolIndex) && toolIndex >= 0 && toolIndex < tools.length) {
+        normalizedSegments.push({ type: 'tool', toolIndex })
+      }
+    })
+  }
+
+  if (normalizedSegments.length) return normalizedSegments
+
+  tools.forEach((_tool, toolIndex) => normalizedSegments.push({ type: 'tool', toolIndex }))
+  if (content) normalizedSegments.push({ type: 'text', content })
+  return normalizedSegments
+}
+
+// 规范化历史消息，补齐附件、工具、有序片段和选择项等可选数组。
 function normalizeStoredMessages(value: unknown) {
   if (!Array.isArray(value)) return []
 
   const normalizedMessages = value.slice(-MAX_PERSISTED_MESSAGES).map(rawMessage => {
     const message = rawMessage && typeof rawMessage === 'object' ? (rawMessage as Record<string, unknown>) : {}
     const role = message.role === 'assistant' ? 'assistant' : 'user'
+    const content = typeof message.content === 'string' ? message.content : stringifyChoiceField(message.content)
+    const tools = Array.isArray(message.tools) ? (message.tools as AgentToolCall[]) : []
 
     return {
       ...message,
       id: stringifyChoiceField(message.id) || createId(role),
       role,
-      content: typeof message.content === 'string' ? message.content : stringifyChoiceField(message.content),
+      content,
       createdAt: Number(message.createdAt) || Number(message.created_at) || Date.now(),
       status: normalizeMessageStatus(message.status),
       attachments: Array.isArray(message.attachments) ? message.attachments : [],
       choices: Array.isArray(message.choices)
         ? (message.choices.map(normalizeChoiceCard).filter(Boolean) as AgentChoiceCard[])
         : [],
-      tools: Array.isArray(message.tools) ? message.tools : [],
+      tools,
+      segments: normalizeMessageSegments(message.segments, content, tools),
       choice_selection: normalizeChoiceSelection(message.choice_selection || message.choiceSelection),
     } as AgentChatMessage
   })
@@ -813,7 +860,7 @@ function failStreamRecovery() {
     .find(message => message.role === 'assistant' && message.status === 'streaming')
   if (assistantMessage) {
     assistantMessage.status = 'error'
-    assistantMessage.content ||= t('agentAssistant.recoveryFailed')
+    if (!assistantMessage.content) appendAssistantTextSegment(assistantMessage, t('agentAssistant.recoveryFailed'))
     markToolsDone(assistantMessage)
     refreshMessageList()
   } else {
@@ -1212,6 +1259,7 @@ function addMessage(
     attachments,
     choices: [],
     tools: [],
+    segments: role === 'assistant' && content ? [{ type: 'text', content }] : [],
     choice_selection: choiceSelection,
   }
   messages.value.push(message)
@@ -1232,6 +1280,40 @@ function markToolsDone(message: AgentChatMessage) {
   message.tools.forEach(tool => {
     tool.status = 'done'
   })
+}
+
+// 追加助手文本，并只合并紧邻的文本片段以保留工具事件边界。
+function appendAssistantTextSegment(message: AgentChatMessage, content: string) {
+  if (!content) return
+
+  message.content += content
+  const lastSegment = message.segments.at(-1)
+  if (lastSegment?.type === 'text') {
+    lastSegment.content += content
+  } else {
+    message.segments.push({ type: 'text', content })
+  }
+}
+
+// 替换助手文本但保留工具片段，用于无法继续流式处理时显示错误。
+function replaceAssistantTextSegments(message: AgentChatMessage, content: string) {
+  message.content = content
+  message.segments = message.segments.filter(segment => segment.type === 'tool')
+  if (content) message.segments.push({ type: 'text', content })
+}
+
+// 将消息片段转换为模板可直接渲染的文本或工具对象。
+function getRenderableMessageSegments(message: AgentChatMessage): AgentRenderableMessageSegment[] {
+  return message.segments.reduce<AgentRenderableMessageSegment[]>((renderableSegments, segment, index) => {
+    if (segment.type === 'text') {
+      renderableSegments.push({ ...segment, key: `text-${index}` })
+      return renderableSegments
+    }
+
+    const tool = message.tools[segment.toolIndex]
+    if (tool) renderableSegments.push({ type: 'tool', key: `tool-${tool.id}`, tool })
+    return renderableSegments
+  }, [])
 }
 
 // 判断消息是否没有任何可展示内容，可用于清理编辑回调产生的占位回复。
@@ -1257,6 +1339,7 @@ function applyMessageUpdate(event: AgentStreamEvent) {
   message.content = typeof target?.content === 'string' ? target.content : ''
   message.attachments = Array.isArray(target?.attachments) ? target.attachments : []
   message.tools = Array.isArray(target?.tools) ? target.tools : []
+  message.segments = normalizeMessageSegments(target?.segments, message.content, message.tools)
   message.choices = Array.isArray(target?.choices)
     ? (target.choices.map(normalizeChoiceCard).filter(Boolean) as AgentChoiceCard[])
     : []
@@ -1272,7 +1355,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
 
   switch (event.type) {
     case 'delta':
-      assistantMessage.content += event.content || ''
+      appendAssistantTextSegment(assistantMessage, event.content || '')
       emit('assistant-preview', assistantMessage.content)
       break
     case 'tool':
@@ -1282,6 +1365,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
         message: normalizeToolMessage(event.message || ''),
         status: 'running',
       })
+      assistantMessage.segments.push({ type: 'tool', toolIndex: assistantMessage.tools.length - 1 })
       break
     case 'attachment':
       if (event.attachment?.url) {
@@ -1308,7 +1392,9 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
     case 'error':
       assistantMessage.status = 'error'
       // 后端流式错误已经以 AI 消息展示，避免底部提示条重复且持续占位。
-      assistantMessage.content ||= event.message_i18n || event.message || t('agentAssistant.error')
+      if (!assistantMessage.content) {
+        appendAssistantTextSegment(assistantMessage, event.message_i18n || event.message || t('agentAssistant.error'))
+      }
       emit('assistant-preview', assistantMessage.content)
       markToolsDone(assistantMessage)
       break
@@ -1643,7 +1729,7 @@ async function streamAgentMessage(
     }
 
     assistantMessage.status = 'error'
-    assistantMessage.content = error?.message || t('agentAssistant.error')
+    replaceAssistantTextSegments(assistantMessage, error?.message || t('agentAssistant.error'))
     markToolsDone(assistantMessage)
     refreshMessageList()
   } finally {
@@ -2247,22 +2333,29 @@ onScopeDispose(() => {
               <span>{{ message.role === 'user' ? currentUserName : t('agentAssistant.assistant') }}</span>
             </div>
 
-            <div v-if="message.tools.length" class="agent-assistant-tools">
-              <div v-for="tool in message.tools" :key="tool.id" class="agent-assistant-tool">
-                <VIcon
-                  :icon="
-                    tool.status === 'running' && message.status === 'streaming'
-                      ? 'line-md:loading-twotone-loop'
-                      : 'mdi-check-circle-outline'
-                  "
-                  size="16"
+            <div v-if="message.role === 'assistant' && message.segments.length" class="agent-assistant-segments">
+              <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
+                <div
+                  v-if="segment.type === 'text'"
+                  class="agent-assistant-message__bubble markdown-body"
+                  v-html="renderMarkdown(segment.content)"
                 />
-                <span>{{ tool.message }}</span>
-              </div>
+                <div v-else class="agent-assistant-tool">
+                  <VIcon
+                    :icon="
+                      segment.tool.status === 'running' && message.status === 'streaming'
+                        ? 'line-md:loading-twotone-loop'
+                        : 'mdi-check-circle-outline'
+                    "
+                    size="16"
+                  />
+                  <span>{{ segment.tool.message }}</span>
+                </div>
+              </template>
             </div>
 
             <div
-              v-if="message.content"
+              v-else-if="message.content"
               class="agent-assistant-message__bubble markdown-body"
               v-html="renderMarkdown(message.content)"
             />
@@ -2365,6 +2458,7 @@ onScopeDispose(() => {
             <div
               v-if="
                 !message.content &&
+                !message.segments.length &&
                 !message.attachments.length &&
                 !message.choices.length &&
                 message.status === 'streaming'
@@ -2934,11 +3028,14 @@ onScopeDispose(() => {
   background: var(--agent-assistant-assistant-bg);
 }
 
-.agent-assistant-tools {
+.agent-assistant-segments {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.5rem;
   inline-size: min(100%, 34rem);
-  margin-block-end: 0.5rem;
+}
+
+.agent-assistant-segments .agent-assistant-message__bubble {
+  inline-size: 100%;
 }
 
 .agent-assistant-tool {
