@@ -46,6 +46,7 @@ const mediaTypeText = computed(() => {
   const type = String(media.value.type || '').trim()
   if (type === '电影' || type.toLowerCase() === 'movie') return t('mediaType.movie')
   if (type === '电视剧' || type.toLowerCase() === 'tv') return t('mediaType.tv')
+  if (type === '音乐' || type.toLowerCase() === 'music') return t('mediaType.music')
   if (type) return type
   if (media.value.season || media.value.episode || props.info?.season_episode) return t('mediaType.tv')
   return media.value.title ? t('mediaType.movie') : ''
@@ -57,6 +58,7 @@ const mediaTypeIcon = computed(() => {
     .toLowerCase()
   if (type === '电影' || type === 'movie') return 'mdi-movie-outline'
   if (type === '电视剧' || type === 'tv') return 'mdi-television-classic'
+  if (type === '音乐' || type === 'music') return 'mdi-music-note'
   return 'mdi-play-box-outline'
 })
 

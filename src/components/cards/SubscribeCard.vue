@@ -283,6 +283,13 @@ function getMediaId() {
 
 // 查看媒体详情
 async function viewMediaDetail() {
+  if (props.media?.type === '音乐') {
+    router.push({
+      path: '/music',
+      query: { query: props.media?.name },
+    })
+    return
+  }
   router.push({
     path: '/media',
     query: {
@@ -360,6 +367,7 @@ const dropdownItems = computed(() => [
       prependIcon: 'mdi-file-document-outline',
       click: viewSubscribeFiles,
     },
+    show: props.media?.type !== '音乐',
   },
   {
     title: t('common.unsubscribe'),

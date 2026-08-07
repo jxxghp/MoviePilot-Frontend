@@ -1,4 +1,4 @@
-export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | (string & {})
+export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz' | (string & {})
 
 // 手动刮削选项
 export interface ManualScrapeOptions {
@@ -330,9 +330,9 @@ export interface DownloadHistory {
 
 // 媒体信息
 export interface MediaInfo {
-  // 来源：themoviedb、douban、bangumi、anilist
+  // 来源：themoviedb、douban、bangumi、anilist、musicbrainz
   source?: string
-  // 类型 电影、电视剧、合集
+  // 类型 电影、电视剧、音乐、合集
   type?: string
   // 媒体标题
   title?: string
@@ -436,6 +436,30 @@ export interface MediaInfo {
   names?: string[]
   // 剧集组
   episode_group?: string
+  // 音乐艺术家列表
+  artists?: string[]
+  // 音乐艺术家展示文本
+  artist?: string
+  // 专辑
+  album?: string
+  // 专辑艺术家
+  album_artist?: string
+  // 发行版本
+  version?: string
+  // 音轨号
+  track_number?: number
+  // 碟号
+  disc_number?: number
+  // 总音轨数
+  total_tracks?: number
+  // 音轨时长（秒）
+  duration?: number
+  // ISRC
+  isrc?: string
+  // 音乐封面
+  cover_url?: string
+  // ListenBrainz 收听次数
+  listen_count?: number
 }
 
 // 季信息

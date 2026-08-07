@@ -9,7 +9,7 @@ import { useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
-import { getSubscribeMovieTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
+import { getSubscribeMovieTabs, getSubscribeMusicTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
 // 国际化
 const { t } = useI18n()
@@ -50,9 +50,9 @@ const subscribeBatchState = ref<SubscribeBatchState>({
 const subscribeTabs = computed(() => {
   if (subType === '电影') {
     return getSubscribeMovieTabs(t)
-  } else {
-    return getSubscribeTvTabs(t)
   }
+  if (subType === '音乐') return getSubscribeMusicTabs(t)
+  return getSubscribeTvTabs(t)
 })
 
 // 订阅过滤弹窗
@@ -84,7 +84,7 @@ function isValidSubscribeSortBy(value: string | null): value is SubscribeSortBy 
   if (!value) return false
 
   const sortValues: SubscribeSortBy[] = ['custom', 'last_update', 'date']
-  if (subType !== '电影') {
+  if (subType === '电视剧') {
     sortValues.push('lack_episode')
   }
 
@@ -123,10 +123,31 @@ const subscribeSortBy = ref<SubscribeSortBy | ''>(loadSubscribeSortBy())
 const shareKeyword = ref('')
 const shareKeywordInput = ref('')
 
+interface SubscribeFilterOption {
+  value: string
+  label: string
+  icon: string
+  color?: string
+}
+
 // 筛选选项
-const filterOptions = computed(() => {
+const filterOptions = computed<SubscribeFilterOption[]>(() => {
+  const allOption: SubscribeFilterOption = {
+    value: 'all',
+    label: t('common.all'),
+    icon: 'mdi-filter-multiple-outline',
+  }
+
+  if (subType === '音乐') {
+    return [
+      allOption,
+      { value: 'pending', label: t('subscribe.pending'), icon: 'mdi-help-circle', color: 'secondary' },
+      { value: 'paused', label: t('subscribe.paused'), icon: 'mdi-pause-circle', color: 'error' },
+    ]
+  }
+
   const baseOptions = [
-    { value: 'all', label: t('common.all'), icon: 'mdi-filter-multiple-outline' },
+    allOption,
     { value: 'best_version', label: t('subscribe.bestVersion'), icon: 'mdi-refresh', color: 'warning' },
   ]
 
@@ -158,7 +179,7 @@ const sortOptions = computed<Array<{ value: SubscribeSortBy; label: string }>>((
     { value: 'date', label: t('subscribe.sort.addTime') },
   ]
 
-  if (subType !== '电影') {
+  if (subType === '电视剧') {
     options.push({ value: 'lack_episode', label: t('subscribe.sort.lackEpisode') })
   }
 
@@ -212,9 +233,14 @@ const searchActivator = computed(() => '[data-menu-activator="share-filter-btn"]
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
-const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value)
+const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value && subType !== '音乐')
 const showSubscribeHistoryAction = computed(() => showDefaultRuleAction.value && canAdmin.value)
 const showShareStatisticsAction = computed(() => activeTab.value === 'share' && canSubscribe.value)
+const subscribeRoutePath = computed(() => {
+  if (subType === '电影') return '/subscribe/movie'
+  if (subType === '音乐') return '/subscribe/music'
+  return '/subscribe/tv'
+})
 
 function openDefaultRuleDialog() {
   openSharedDialog(
@@ -638,7 +664,7 @@ onMounted(() => {
       </VMenu>
     </Teleport>
 
-    <Teleport to="body" v-if="!appMode && route.path.startsWith(`/subscribe/${subType === '电影' ? 'movie' : 'tv'}`)">
+    <Teleport to="body" v-if="!appMode && route.path.startsWith(subscribeRoutePath)">
       <div class="compact-fab-stack">
         <VFab
           v-if="subscribeBatchState.enabled"

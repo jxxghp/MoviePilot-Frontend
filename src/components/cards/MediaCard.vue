@@ -183,6 +183,7 @@ function isSameSubscribeMedia(subscribe: Subscribe) {
 function getChipColor(type: string) {
   if (type === '电影') return 'border-blue-500 bg-blue-600'
   else if (type === '电视剧') return ' bg-indigo-500 border-indigo-600'
+  else if (type === '音乐') return 'border-pink-500 bg-pink-600'
   else return 'border-purple-600 bg-purple-600'
 }
 
@@ -230,6 +231,7 @@ async function querySubscribedSeasons() {
 
 // 查询当前媒体是否已入库
 async function handleCheckExists() {
+  if (props.media?.type === '音乐') return
   try {
     const exists = await getCachedMediaExistsStatus(getExistsStatusKey(), async () => {
       const result: { [key: string]: any } = await api.get('mediaserver/exists', {
@@ -268,7 +270,14 @@ function goMediaDetail(isHovering = false) {
   if (isHovering) {
     resetMediaCardDetailState()
 
-    if (props.media?.collection_id) {
+    if (props.media?.type === '音乐') {
+      router.push({
+        path: '/music',
+        query: {
+          query: [props.media?.artist, props.media?.title].filter(Boolean).join(' - '),
+        },
+      })
+    } else if (props.media?.collection_id) {
       // 跳转到合集列表
       router.push({
         path: `/browse/tmdb/collection/${props.media?.collection_id}`,
@@ -542,6 +551,12 @@ onBeforeUnmount(() => {
             v-if="!isMediaCardActive(hover.isHovering) && isImageLoaded && props.media?.source && !imageLoadError"
           >
             <VIcon v-if="props.media?.source === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="24" />
+            <VIcon
+              v-else-if="props.media?.source === 'musicbrainz'"
+              color="#eb743b"
+              icon="mdi-music-circle"
+              size="24"
+            />
             <VImg v-else cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />
           </VAvatar>
         </VCard>

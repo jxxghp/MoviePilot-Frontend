@@ -347,6 +347,7 @@ const mediaIdLabel = computed(() => {
     douban: t('dialog.reorganize.doubanId'),
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
+    musicbrainz: 'MusicBrainz ID',
   }
   return labels[mediaSource.value]
 })
@@ -1495,6 +1496,7 @@ onUnmounted(() => {
                         { title: t('dialog.reorganize.auto'), value: '' },
                         { title: t('dialog.reorganize.movie'), value: '电影' },
                         { title: t('dialog.reorganize.tv'), value: '电视剧' },
+                        { title: t('mediaType.music'), value: '音乐' },
                       ]"
                       :hint="t('dialog.reorganize.mediaTypeHint')"
                       persistent-hint

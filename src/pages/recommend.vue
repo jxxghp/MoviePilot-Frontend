@@ -17,7 +17,9 @@ import {
   type RecommendViewSource,
 } from '@/utils/recommendSources'
 
-const ContentToggleSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/ContentToggleSettingsDialog.vue'))
+const ContentToggleSettingsDialog = defineAsyncComponent(
+  () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
+)
 
 const { appMode } = usePWA()
 
@@ -70,7 +72,7 @@ function openRecommendSettings() {
 
 const builtInRecommendSources = createBuiltInRecommendSources(t)
 const viewList = reactive<RecommendViewSource[]>([...builtInRecommendSources])
-const newlyAddedBuiltInPaths = new Set(['anilist/trending', 'anilist/popular-this-season'])
+const newlyAddedBuiltInPaths = new Set(['anilist/trending', 'anilist/popular-this-season', 'recommend/music_weekly'])
 
 // 计算当前分类下显示的视图
 const filteredViews = computed(() => {
@@ -328,5 +330,4 @@ onActivated(async () => {
   font-size: 1rem;
   margin-block-end: 16px;
 }
-
 </style>

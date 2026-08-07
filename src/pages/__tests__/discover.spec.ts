@@ -104,6 +104,7 @@ async function renderDiscover() {
         BangumiView: BuiltInViewStub,
         DoubanView: BuiltInViewStub,
         ExtraSourceView: ExtraSourceViewStub,
+        MusicView: BuiltInViewStub,
         TheMovieDbView: BuiltInViewStub,
         VScrollToTopBtn: true,
       },
@@ -156,10 +157,7 @@ describe('discover page', () => {
 
   it('uses local order, merges sources by prefix, and keeps unconfigured tabs stable', async () => {
     const configRequested = vi.fn()
-    localStorage.setItem(
-      'MP_DISCOVER_TAB_ORDER',
-      JSON.stringify([{ name: '豆瓣' }, { name: '自定义来源' }]),
-    )
+    localStorage.setItem('MP_DISCOVER_TAB_ORDER', JSON.stringify([{ name: '豆瓣' }, { name: '自定义来源' }]))
     server.use(
       discoverOrderConfigHandler([], 200, configRequested),
       discoverSourcesHandler([
@@ -178,10 +176,18 @@ describe('discover page', () => {
         'TheMovieDb',
         'Bangumi',
         'AniList',
+        '音乐',
       ]),
     )
     expect(configRequested).not.toHaveBeenCalled()
-    expect(getHeaderItems().map(item => item.tab)).toEqual(['douban', 'custom', 'themoviedb', 'bangumi', 'anilist'])
+    expect(getHeaderItems().map(item => item.tab)).toEqual([
+      'douban',
+      'custom',
+      'themoviedb',
+      'bangumi',
+      'anilist',
+      'musicbrainz',
+    ])
   })
 
   it('loads remote order when local order is absent and backfills localStorage', async () => {
@@ -201,6 +207,7 @@ describe('discover page', () => {
         'TheMovieDb',
         '豆瓣',
         'AniList',
+        '音乐',
         '自定义来源',
       ]),
     )
@@ -216,7 +223,9 @@ describe('discover page', () => {
     const { componentError } = await renderDiscover()
 
     await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
-    await waitFor(() => expect(getHeaderItems().map(item => item.title)).toEqual(['Bangumi', 'TheMovieDb', '豆瓣', 'AniList']))
+    await waitFor(() =>
+      expect(getHeaderItems().map(item => item.title)).toEqual(['Bangumi', 'TheMovieDb', '豆瓣', 'AniList', '音乐']),
+    )
     expect(localStorage.getItem('MP_DISCOVER_TAB_ORDER')).toBe(JSON.stringify(remoteOrder))
     expect(componentError).not.toHaveBeenCalled()
   })
@@ -224,15 +233,19 @@ describe('discover page', () => {
   it('keeps built-in and extra sources usable when the order config request fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    server.use(
-      discoverOrderConfigHandler(null, 500),
-      discoverSourcesHandler([createSource('可用扩展源', 'available')]),
-    )
+    server.use(discoverOrderConfigHandler(null, 500), discoverSourcesHandler([createSource('可用扩展源', 'available')]))
 
     await renderDiscover()
 
     await waitFor(() => expect(getHeaderItems().map(item => item.title)).toContain('可用扩展源'))
-    expect(getHeaderItems().map(item => item.title)).toEqual(['TheMovieDb', '豆瓣', 'Bangumi', 'AniList', '可用扩展源'])
+    expect(getHeaderItems().map(item => item.title)).toEqual([
+      'TheMovieDb',
+      '豆瓣',
+      'Bangumi',
+      'AniList',
+      '音乐',
+      '可用扩展源',
+    ])
     expect(getHeaderConfig().modelValue.value).toBe('themoviedb')
   })
 
@@ -276,10 +289,7 @@ describe('discover page', () => {
   it('removes a withdrawn source and falls back to the first sorted tab after reactivation', async () => {
     let sources = [createSource('已撤销来源', 'withdrawn')]
     const requested = vi.fn()
-    localStorage.setItem(
-      'MP_DISCOVER_TAB_ORDER',
-      JSON.stringify([{ name: '已撤销来源' }, { name: 'TheMovieDb' }]),
-    )
+    localStorage.setItem('MP_DISCOVER_TAB_ORDER', JSON.stringify([{ name: '已撤销来源' }, { name: 'TheMovieDb' }]))
     server.use(
       http.get(discoverApiUrls.sources, () => {
         requested()
@@ -319,7 +329,14 @@ describe('discover page', () => {
 
     await waitFor(() => expect(requested).toHaveBeenCalledTimes(requestsBeforeReactivation + 1))
     expect(getHeaderItems().map(item => item.title)).toContain('缓存来源')
-    expect(getHeaderItems().map(item => item.title)).toEqual(['TheMovieDb', '豆瓣', 'Bangumi', 'AniList', '缓存来源'])
+    expect(getHeaderItems().map(item => item.title)).toEqual([
+      'TheMovieDb',
+      '豆瓣',
+      'Bangumi',
+      'AniList',
+      '音乐',
+      '缓存来源',
+    ])
   })
 
   it('replaces the header metadata when a source with the same prefix changes', async () => {
@@ -354,11 +371,11 @@ describe('discover page', () => {
       }),
     )
     await renderDiscover()
-    await waitFor(() => expect(getHeaderItems()).toHaveLength(5))
+    await waitFor(() => expect(getHeaderItems().map(item => item.title)).toContain('自定义来源'))
 
     getHeaderConfig().appendButtons[0].action()
     const { events, tabs } = getDialogCall()
-    const reorderedTabs = [tabs[4], tabs[1], tabs[0], tabs[3], tabs[2]]
+    const reorderedTabs = [tabs[4], tabs[1], tabs[0], tabs[3], tabs[2], tabs[5]]
     await events.save(reorderedTabs)
 
     const expectedOrder = reorderedTabs.map(item => ({ name: item.name }))

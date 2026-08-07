@@ -576,6 +576,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
     setSearchParam(url.searchParams, 'sites', params.sites)
   } else {
     setSearchParam(url.searchParams, 'keyword', params.keyword)
+    setSearchParam(url.searchParams, 'mtype', params.type)
     setSearchParam(url.searchParams, 'sites', params.sites)
   }
 
@@ -826,6 +827,7 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
     result = await api.get(`search/title`, {
       params: {
         keyword: params.keyword,
+        ...(params.type ? { mtype: params.type } : {}),
         sites: params.sites,
         _ts: requestToken,
       },

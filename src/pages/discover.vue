@@ -4,6 +4,7 @@ import TheMovieDbView from '@/views/discover/TheMovieDbView.vue'
 import DoubanView from '@/views/discover/DoubanView.vue'
 import BangumiView from '@/views/discover/BangumiView.vue'
 import AniListView from '@/views/discover/AniListView.vue'
+import MusicView from '@/views/discover/MusicView.vue'
 import ExtraSourceView from '@/views/discover/ExtraSourceView.vue'
 import { DiscoverSource } from '@/api/types'
 import api from '@/api'
@@ -254,6 +255,11 @@ onActivated(async () => {
       <VWindowItem value="anilist">
         <div>
           <AniListView />
+        </div>
+      </VWindowItem>
+      <VWindowItem value="musicbrainz">
+        <div>
+          <MusicView />
         </div>
       </VWindowItem>
       <VWindowItem v-for="item in extraDiscoverSources" :key="item.mediaid_prefix" :value="item.mediaid_prefix">

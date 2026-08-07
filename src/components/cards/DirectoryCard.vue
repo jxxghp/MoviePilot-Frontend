@@ -47,6 +47,7 @@ const typeItems = computed(() => [
   { title: t('common.all'), value: '' },
   { title: t('mediaType.movie'), value: '电影' },
   { title: t('mediaType.tv'), value: '电视剧' },
+  { title: t('mediaType.music'), value: '音乐' },
 ])
 
 // 计算资源存储字典（整理方式为下载器时不能为远程存储）

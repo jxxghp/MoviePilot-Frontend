@@ -118,6 +118,7 @@ function getSubscribeDisplayName() {
 function getDefaultSubscribeTypeName() {
   if (props.type === '电影') return t('mediaType.movie')
   if (props.type === '电视剧') return t('mediaType.tv')
+  if (props.type === '音乐') return t('mediaType.music')
   return props.type ?? ''
 }
 
@@ -354,6 +355,7 @@ const targetDirectories = computed(() => {
 
 // 仅电视剧订阅支持全集洗版，电影保持原有洗版逻辑
 const isTvSubscribe = computed(() => props.type === '电视剧' || subscribeForm.value.type === '电视剧')
+const isMusicSubscribe = computed(() => props.type === '音乐' || subscribeForm.value.type === '音乐')
 
 watch(
   () => subscribeForm.value.best_version,
@@ -434,7 +436,7 @@ onMounted(() => {
                     />
                   </VCol>
                 </VRow>
-                <VRow>
+                <VRow v-if="!isMusicSubscribe">
                   <VCol cols="12" md="4">
                     <VAutocomplete
                       v-model="subscribeForm.quality"
@@ -503,7 +505,7 @@ onMounted(() => {
                     />
                   </VCol>
                 </VRow>
-                <VRow>
+                <VRow v-if="!isMusicSubscribe">
                   <VCol cols="12" md="4">
                     <VSwitch
                       v-model="subscribeForm.best_version"
@@ -606,7 +608,7 @@ onMounted(() => {
                     />
                   </VCol>
                 </VRow>
-                <VRow v-if="!props.default">
+                <VRow v-if="!props.default && !isMusicSubscribe">
                   <VCol cols="12">
                     <VTextarea
                       v-model="subscribeForm.custom_words"

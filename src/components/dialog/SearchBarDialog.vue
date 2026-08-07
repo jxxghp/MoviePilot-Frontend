@@ -96,8 +96,8 @@ const searchOverlayProps = computed(() =>
 // 搜索词
 const searchWord = ref<string | null>(null)
 
-type MediaSearchSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist'
-type MediaSearchType = 'media' | 'collection' | 'person'
+type MediaSearchSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz'
+type MediaSearchType = 'media' | 'music' | 'collection' | 'person'
 
 interface MediaSearchSourceOption {
   label: string
@@ -115,6 +115,7 @@ interface MediaSearchAction {
 // 三类搜索各自维护来源选择，首次使用均默认 TheMovieDB。
 const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource>>({
   media: 'themoviedb',
+  music: 'musicbrainz',
   collection: 'themoviedb',
   person: 'themoviedb',
 })
@@ -141,9 +142,15 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
     name: t('discoverTabs.anilist'),
     value: 'anilist' as const,
   }
+  const musicbrainz = {
+    label: 'MusicBrainz',
+    name: 'MusicBrainz',
+    value: 'musicbrainz' as const,
+  }
 
   return {
     media: [themoviedb, douban, bangumi, anilist],
+    music: [musicbrainz],
     collection: [themoviedb],
     person: [themoviedb, douban],
   }
@@ -157,6 +164,12 @@ const mediaSearchActions = computed(() => {
       icon: 'mdi-movie-search',
       title: `${t('recommend.categoryMovie')}、${t('recommend.categoryTV')}`,
       description: t('resource.title'),
+    },
+    {
+      type: 'music',
+      icon: 'mdi-music-note-search',
+      title: t('mediaType.music'),
+      description: t('music.subtitle'),
     },
     {
       type: 'collection',
@@ -389,6 +402,14 @@ function searchSubtitle() {
 function searchMedia(searchType: MediaSearchType) {
   if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
+  if (searchType === 'music') {
+    router.push({
+      path: '/music',
+      query: { query: searchWord.value },
+    })
+    closeSearch()
+    return
+  }
   router.push({
     path: '/browse/media/search',
     query: {
@@ -449,6 +470,13 @@ function goSubscribe(subscribe: Subscribe) {
   if (subscribe.type === '电影') {
     router.push({
       path: '/subscribe/movie',
+      query: {
+        id: subscribe.id,
+      },
+    })
+  } else if (subscribe.type === '音乐') {
+    router.push({
+      path: '/subscribe/music',
       query: {
         id: subscribe.id,
       },
@@ -669,7 +697,13 @@ onMounted(() => {
               <template #prepend>
                 <div class="result-icon-wrapper">
                   <VIcon
-                    :icon="subscribe.type === '电影' ? 'mdi-movie-roll' : 'mdi-television-classic'"
+                    :icon="
+                      subscribe.type === '电影'
+                        ? 'mdi-movie-roll'
+                        : subscribe.type === '音乐'
+                          ? 'mdi-music-note'
+                          : 'mdi-television-classic'
+                    "
                     size="small"
                     color="medium-emphasis"
                   />

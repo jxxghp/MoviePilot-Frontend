@@ -99,10 +99,10 @@ const isAllSubscribesSelected = computed(
   () => displayList.value.length > 0 && displayList.value.every(item => selectedSubscribesSet.value.has(item.id)),
 )
 
-// 归一化订阅排序方式，电影订阅不使用缺失集数排序。
+// 归一化订阅排序方式，只有电视剧订阅使用缺失集数排序。
 const normalizedSortBy = computed<SubscribeSortBy | ''>(() => {
   const sortBy = props.sortBy as SubscribeSortBy | ''
-  if (props.type === '电影' && sortBy === 'lack_episode') {
+  if (props.type !== '电视剧' && sortBy === 'lack_episode') {
     return 'date'
   }
 
@@ -151,8 +151,8 @@ function getSubscribeStatus(subscribe: Subscribe) {
     return 'paused' // 暂停
   }
 
-  // 如果是电影，只有洗版和状态
-  if (subscribe.type === '电影') {
+  // 电影和音乐没有分集进度，只有状态。
+  if (subscribe.type === '电影' || subscribe.type === '音乐') {
     return 'all'
   }
 
@@ -175,7 +175,11 @@ function getSubscribeStatus(subscribe: Subscribe) {
 }
 
 // API请求键值（计算属性）
-const orderRequestKey = computed(() => (props.type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'))
+const orderRequestKey = computed(() => {
+  if (props.type === '电影') return 'SubscribeMovieOrder'
+  if (props.type === '音乐') return 'SubscribeMusicOrder'
+  return 'SubscribeTvOrder'
+})
 
 // 转换订阅时间字段为可排序时间戳。
 function getSubscribeTimeValue(value?: string) {
@@ -558,7 +562,6 @@ onMounted(async () => {
       sub.page_open = true
     }
   }
-
 })
 
 useKeepAliveRefresh(fetchData, {

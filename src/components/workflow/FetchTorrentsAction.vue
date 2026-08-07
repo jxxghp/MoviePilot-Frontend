@@ -27,6 +27,10 @@ const typeOptions = ref([
     title: t('mediaType.tv'),
     value: '电视剧',
   },
+  {
+    title: t('mediaType.music'),
+    value: '音乐',
+  },
 ])
 
 // 搜索方式下拉框

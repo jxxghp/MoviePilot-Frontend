@@ -27,6 +27,9 @@ const keyword = ref<string>()
 // 选择分类
 const selectCategory = ref<number[]>([])
 
+// 选择主媒体类型，用于按站点定义的电影、电视剧、音乐分类浏览。
+const selectMediaType = ref<string>()
+
 // 全部分类
 const siteCategoryList = ref<SiteCategory[]>()
 
@@ -65,6 +68,12 @@ const categoryOptions = computed(() => {
     return { title: item.desc, value: item.id }
   })
 })
+
+const mediaTypeOptions = computed(() => [
+  { title: t('mediaType.movie'), value: '电影' },
+  { title: t('mediaType.tv'), value: '电视剧' },
+  { title: t('mediaType.music'), value: '音乐' },
+])
 
 // 总条数
 const resourceTotalItems = computed(() => resourceDataList.value.length)
@@ -160,6 +169,7 @@ async function getResourceList() {
       params: {
         keyword: keyword.value,
         cat: selectCategory.value?.join(','),
+        mtype: selectMediaType.value,
       },
     })
 
@@ -248,7 +258,7 @@ onMounted(() => {
           <VSheet class="site-resource-filter-panel">
             <div class="site-resource-filter-panel__inner">
               <VRow class="site-resource-filter-row">
-                <VCol cols="12" md="4">
+                <VCol cols="12" md="3">
                   <VTextField
                     v-model="keyword"
                     class="site-resource-filter-input"
@@ -263,7 +273,7 @@ onMounted(() => {
                     @keyup.enter="getResourceList"
                   />
                 </VCol>
-                <VCol cols="12" md="5">
+                <VCol cols="12" md="4">
                   <VSelect
                     v-model="selectCategory"
                     :items="categoryOptions"
@@ -277,6 +287,20 @@ onMounted(() => {
                     multiple
                     clearable
                     prepend-inner-icon="mdi-folder"
+                    hide-details
+                  />
+                </VCol>
+                <VCol cols="12" md="2">
+                  <VSelect
+                    v-model="selectMediaType"
+                    :items="mediaTypeOptions"
+                    class="site-resource-filter-input"
+                    density="compact"
+                    variant="solo-filled"
+                    flat
+                    clearable
+                    :label="t('common.type')"
+                    prepend-inner-icon="mdi-shape-outline"
                     hide-details
                   />
                 </VCol>
@@ -343,6 +367,20 @@ onMounted(() => {
                         hide-details
                         autofocus
                         @keyup.enter="getResourceList"
+                      />
+                    </VCol>
+                    <VCol cols="12">
+                      <VSelect
+                        v-model="selectMediaType"
+                        :items="mediaTypeOptions"
+                        class="site-resource-filter-input"
+                        density="compact"
+                        variant="solo-filled"
+                        flat
+                        clearable
+                        :label="t('common.type')"
+                        prepend-inner-icon="mdi-shape-outline"
+                        hide-details
                       />
                     </VCol>
                     <VCol cols="12">

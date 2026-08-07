@@ -32,6 +32,17 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
     },
     {
+      title: t('navItems.music'),
+      full_title: t('music.title'),
+      icon: 'mdi-music-note-search',
+      iconColor: 'primary',
+      to: '/music',
+      header: t('menu.start'),
+      admin: false,
+      permission: 'search',
+      feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
+    },
+    {
       title: t('navItems.recommend'),
       icon: 'mdi-star-outline',
       iconColor: 'primary',
@@ -80,6 +91,19 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       permission: 'subscribe',
       feature: PERMISSION_FEATURE.SUBSCRIBE_TV,
       tabs: getSubscribeTvTabs(t),
+    },
+    {
+      title: t('navItems.music'),
+      full_title: t('navItems.musicSubscribe'),
+      icon: 'mdi-music-note',
+      iconColor: 'primary',
+      to: '/subscribe/music',
+      header: t('menu.subscribe'),
+      admin: false,
+      footer: false,
+      permission: 'subscribe',
+      feature: PERMISSION_FEATURE.SUBSCRIBE_MUSIC,
+      tabs: getSubscribeMusicTabs(t),
     },
     {
       title: t('navItems.workflow'),
@@ -188,6 +212,7 @@ export function getRecommendTabs(t: Composer['t']): NavMenuTabItem[] {
     { title: t('recommend.categoryMovie'), icon: 'mdi-movie', tab: t('recommend.categoryMovie') },
     { title: t('recommend.categoryTV'), icon: 'mdi-television-classic', tab: t('recommend.categoryTV') },
     { title: t('recommend.categoryAnime'), icon: 'mdi-animation', tab: t('recommend.categoryAnime') },
+    { title: t('recommend.categoryMusic'), icon: 'mdi-music-note', tab: t('recommend.categoryMusic') },
     { title: t('recommend.categoryRankings'), icon: 'mdi-trophy', tab: t('recommend.categoryRankings') },
   ]
 }
@@ -277,6 +302,17 @@ export function getSubscribeTvTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
+/** 返回音乐订阅页的业务标签。 */
+export function getSubscribeMusicTabs(t: Composer['t']): NavMenuTabItem[] {
+  return [
+    {
+      title: t('subscribeTabs.music.mysub'),
+      tab: 'mysub',
+      icon: 'mdi-bell-check',
+    },
+  ]
+}
+
 /** 返回插件管理页的业务标签。 */
 export function getPluginTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
@@ -315,6 +351,11 @@ export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
       title: t('discoverTabs.anilist'),
       tab: 'anilist',
       icon: 'mdi-alpha-a-circle-outline',
+    },
+    {
+      title: t('discoverTabs.music'),
+      tab: 'musicbrainz',
+      icon: 'mdi-music-note-outline',
     },
   ]
 }

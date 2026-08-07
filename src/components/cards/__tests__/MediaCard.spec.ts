@@ -304,6 +304,40 @@ describe('MediaCard', () => {
     await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledWith({ path, query }))
   })
 
+  it('opens music search and skips media-library existence checks', async () => {
+    const media = createMediaInfo({
+      artist: '周杰伦',
+      media_id: 'recording-1',
+      mediaid_prefix: 'musicbrainz',
+      source: 'musicbrainz',
+      title: '晴天',
+      tmdb_id: undefined,
+      type: '音乐',
+    })
+    const subscribeRequest = vi.fn<(url: URL) => void>()
+    const existsRequest = vi.fn<(url: URL) => void>()
+    server.use(
+      querySubscribeByMediaHandler('musicbrainz:recording-1', {}, 200, subscribeRequest),
+      mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
+    )
+
+    const { container } = await renderCard(media)
+    getStatusObservers()[0]?.trigger()
+    await waitFor(() => expect(subscribeRequest).toHaveBeenCalledOnce())
+    expect(existsRequest).not.toHaveBeenCalled()
+
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getCard(container)).toHaveClass('app-hover-lift-card--hovering'))
+    await fireEvent.click(getCard(container))
+
+    await waitFor(() =>
+      expect(mocks.routerPush).toHaveBeenCalledWith({
+        path: '/music',
+        query: { query: '周杰伦 - 晴天' },
+      }),
+    )
+  })
+
   it('routes directly to resource search when no active sites are available', async () => {
     installSearchHandlers([], [3, 5])
     const media = createMediaInfo({ season: 4, title: '直接搜索剧集', tmdb_id: 9501, type: '电视剧' })

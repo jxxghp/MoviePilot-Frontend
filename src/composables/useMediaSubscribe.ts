@@ -268,6 +268,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   // 查询系统默认订阅配置。
   async function queryDefaultSubscribeConfig(): Promise<SubscribeConfig | undefined> {
     if (!options.canSubscribe()) return undefined
+    if (currentMedia()?.type === '音乐') return undefined
 
     try {
       const media = currentMedia()

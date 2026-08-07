@@ -55,6 +55,7 @@ const mediaIdLabel = computed(() => {
     douban: t('dialog.reorganize.doubanId'),
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
+    musicbrainz: 'MusicBrainz ID',
   }
   return labels[mediaSource.value]
 })
