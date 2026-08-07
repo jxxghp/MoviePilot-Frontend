@@ -696,7 +696,7 @@
       "count": 3
     },
     "sonarjs/no-duplicated-branches": {
-      "count": 3
+      "count": 2
     }
   },
   "src/pages/setting.vue": {
