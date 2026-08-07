@@ -771,7 +771,7 @@ export default {
     emptyTitle: '今天想處理什麼？',
     emptySubtitle: '站點、訂閱、下載、整理任務，都可以直接問我。',
     placeholder: '詢問 MoviePilot，輸入 / 使用命令',
-    processingPlaceholder: '智能體正在處理，請稍候...',
+    processingPlaceholder: '處理中...',
     commandLoading: '正在載入命令...',
     commandLoadFailed: '命令列表載入失敗',
     stop: '停止生成',

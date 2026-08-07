@@ -246,6 +246,39 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('does not send when Enter confirms an IME composition', async () => {
+    const fetchMock = vi.fn(async () => createAgentResponse([]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    const textarea = wrapper.find('textarea')
+    await flushPromises()
+    fetchMock.mockClear()
+    await textarea.setValue('搜索电影')
+    await textarea.trigger('compositionstart')
+    await textarea.trigger('keydown', { key: 'Enter', isComposing: true })
+    await textarea.trigger('compositionend')
+    await flushPromises()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await textarea.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(fetchMock).toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
   it('renders interleaved assistant text and tool events in their SSE order', async () => {
     const serverSessionId = 'web-agent:ordered-segments'
     const streamEvents = [
@@ -350,6 +383,56 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(renderedSegments[0].classes()).toContain('agent-assistant-message__bubble')
     expect(renderedSegments[0].text()).toBe('最终结论')
     expect(renderedSegments[1].classes()).toContain('agent-assistant-tool')
+
+    wrapper.unmount()
+  })
+
+  it('aggregates adjacent non-verbose tools and starts a new group after text', async () => {
+    const streamEvents = [
+      { type: 'start', session_id: 'web-agent:tool-groups' },
+      { type: 'tool', message: '（查询了 1 次数据）' },
+      { type: 'tool', message: '（查看了 1 个目录）' },
+      { type: 'tool', message: '（查询了 1 次数据）' },
+      { type: 'delta', content: '继续分析。' },
+      { type: 'tool', message: '（读取了 1 个文件）' },
+      { type: 'tool', message: '（读取了 1 个文件）' },
+      { type: 'done' },
+    ]
+    const streamBody = streamEvents.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return new Response(streamBody, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          })
+        }
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await wrapper.find('textarea').setValue('分析插件')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const renderedSegments = wrapper.findAll('.agent-assistant-segments > *')
+    expect(renderedSegments).toHaveLength(3)
+    expect(renderedSegments[0].text()).toContain('查询了 2 次数据，查看了 1 个目录')
+    expect(renderedSegments[1].classes()).toContain('agent-assistant-message__bubble')
+    expect(renderedSegments[1].text()).toBe('继续分析。')
+    expect(renderedSegments[2].text()).toContain('读取了 2 个文件')
 
     wrapper.unmount()
   })

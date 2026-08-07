@@ -214,6 +214,7 @@ const messages = ref<AgentChatMessage[]>([])
 const historySessions = ref<AgentSessionHistoryItem[]>([])
 const sessionId = ref('')
 const sending = ref(false)
+const isComposing = ref(false)
 const streamError = ref('')
 const historyMenuOpen = ref(false)
 const messageListRef = ref<HTMLElement | null>(null)
@@ -1269,6 +1270,45 @@ function normalizeToolMessage(message: string) {
   return message.replace(/^=>\s*/, '').trim()
 }
 
+// 解析非啰嗦模式的工具汇总，供相邻工具状态按类别累计次数。
+function parseToolSummary(message: string) {
+  const summaryMatch = message.match(/^（(.+)）$/)
+  if (!summaryMatch) return null
+
+  const parts = summaryMatch[1].split('，').map(part => {
+    const countMatch = part.trim().match(/^(.*?\D)(\d+)(\D.*)$/)
+    if (!countMatch) return null
+    return {
+      prefix: countMatch[1],
+      count: Number(countMatch[2]),
+      suffix: countMatch[3],
+    }
+  })
+  return parts.every(Boolean) ? (parts as Array<{ prefix: string; count: number; suffix: string }>) : null
+}
+
+// 仅合并相邻的非啰嗦工具汇总；正文或具体工具提示会自然终止当前聚合组。
+function mergeToolSummaries(currentMessage: string, nextMessage: string) {
+  const currentParts = parseToolSummary(currentMessage)
+  const nextParts = parseToolSummary(nextMessage)
+  if (!currentParts || !nextParts) return null
+
+  const mergedParts = currentParts.map(part => ({ ...part }))
+  const partIndexes = new Map(mergedParts.map((part, index) => [`${part.prefix}\u0000${part.suffix}`, index]))
+  nextParts.forEach(part => {
+    const key = `${part.prefix}\u0000${part.suffix}`
+    const existingIndex = partIndexes.get(key)
+    if (existingIndex === undefined) {
+      partIndexes.set(key, mergedParts.length)
+      mergedParts.push({ ...part })
+      return
+    }
+    mergedParts[existingIndex].count += part.count
+  })
+
+  return `（${mergedParts.map(part => `${part.prefix}${part.count}${part.suffix}`).join('，')}）`
+}
+
 // 将当前消息里的运行中工具标记为完成。
 function markToolsDone(message: AgentChatMessage) {
   message.tools.forEach(tool => {
@@ -1305,7 +1345,20 @@ function getRenderableMessageSegments(message: AgentChatMessage): AgentRenderabl
     }
 
     const tool = message.tools[segment.toolIndex]
-    if (tool) renderableSegments.push({ type: 'tool', key: `tool-${tool.id}`, tool })
+    if (tool) {
+      const previousSegment = renderableSegments.at(-1)
+      const mergedMessage =
+        previousSegment?.type === 'tool' ? mergeToolSummaries(previousSegment.tool.message, tool.message) : null
+      if (previousSegment?.type === 'tool' && mergedMessage) {
+        previousSegment.tool = {
+          ...previousSegment.tool,
+          message: mergedMessage,
+          status: previousSegment.tool.status === 'running' || tool.status === 'running' ? 'running' : 'done',
+        }
+      } else {
+        renderableSegments.push({ type: 'tool', key: `tool-${tool.id}`, tool })
+      }
+    }
     return renderableSegments
   }, [])
 }
@@ -2180,9 +2233,17 @@ function handlePageShow() {
 
 // 处理输入框回车发送。
 function handleInputKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Enter' || event.shiftKey) return
+  if (event.key !== 'Enter' || event.shiftKey || isComposing.value || event.isComposing || event.keyCode === 229) return
   event.preventDefault()
   sendMessage()
+}
+
+function handleCompositionStart() {
+  isComposing.value = true
+}
+
+function handleCompositionEnd() {
+  isComposing.value = false
 }
 
 watch(isOpen, syncAgentAssistantOpenState, { immediate: true })
@@ -2595,6 +2656,8 @@ onScopeDispose(() => {
             :placeholder="inputPlaceholder"
             @input="handleInputChange"
             @keydown="handleInputKeydown"
+            @compositionstart="handleCompositionStart"
+            @compositionend="handleCompositionEnd"
           />
           <IconBtn
             class="agent-assistant-record agent-assistant-surface-btn"
