@@ -214,6 +214,34 @@ describe('FileList list state', () => {
     expect(renderedNames[1]).toContain('a-file.mkv')
   })
 
+  it('opens recognized music details when audio metadata uses title instead of name', async () => {
+    const audio = createItem({
+      extension: 'flac',
+      name: '晴天.flac',
+      path: '/music/晴天.flac',
+      type: 'file',
+    })
+    mocks.apiGet.mockResolvedValueOnce({
+      meta_info: { artists: ['周杰伦'], title: '晴天', type: '音乐' },
+      media_info: { artist: '周杰伦', title: '晴天', type: '音乐' },
+    })
+    await renderList(() => Promise.resolve([]), { item: audio })
+
+    await fireEvent.click(getSlotIconButton('mdi-text-recognition'))
+
+    await waitFor(() =>
+      expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({
+        context: {
+          meta_info: { title: '晴天', type: '音乐' },
+          media_info: { title: '晴天', type: '音乐' },
+        },
+      }),
+    )
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/recognize_file', {
+      params: { path: '/music/晴天.flac' },
+    })
+  })
+
   it('filters by substring, wildcard and case sensitivity', async () => {
     await renderList(() =>
       Promise.resolve([

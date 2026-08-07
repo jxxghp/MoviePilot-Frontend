@@ -27,6 +27,7 @@ import {
   getCachedMediaSubscribeStatus,
   setCachedMediaExistsStatus,
 } from '@/utils/mediaStatusCache'
+import { buildMusicDetailRoute } from '@/utils/music'
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
 
@@ -271,12 +272,7 @@ function goMediaDetail(isHovering = false) {
     resetMediaCardDetailState()
 
     if (props.media?.type === '音乐') {
-      router.push({
-        path: '/music',
-        query: {
-          query: [props.media?.artist, props.media?.title].filter(Boolean).join(' - '),
-        },
-      })
+      router.push(buildMusicDetailRoute(props.media))
     } else if (props.media?.collection_id) {
       // 跳转到合集列表
       router.push({
@@ -403,6 +399,7 @@ function setupIntersectionObserver() {
 
 // 计算图片地址
 const getImgUrl: Ref<string> = computed(() => {
+  if (props.media?.type === '音乐' && (!props.media?.poster_path || imageLoadError.value)) return ''
   if (imageLoadError.value) return noImage
   const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
@@ -478,7 +475,14 @@ onBeforeUnmount(() => {
           }"
           @click.stop="handleMediaCardClick(hover.isHovering)"
         >
+          <div
+            v-if="props.media?.type === '音乐' && !getImgUrl"
+            class="music-card-placeholder d-flex align-center justify-center"
+          >
+            <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+          </div>
           <VImg
+            v-else
             aspect-ratio="2/3"
             :src="getImgUrl"
             class="object-cover aspect-w-2 aspect-h-3"
@@ -566,6 +570,13 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .media-card-hover-area {
+  inline-size: 100%;
+}
+
+.music-card-placeholder {
+  aspect-ratio: 2 / 3;
+  background: rgb(var(--v-theme-surface-variant));
+  block-size: 100%;
   inline-size: 100%;
 }
 

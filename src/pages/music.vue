@@ -3,6 +3,7 @@ import api from '@/api'
 import type { ApiResponse, MediaInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
+import { buildMusicDetailRoute, buildMusicResourceRoute, getMusicKey } from '@/utils/music'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -14,14 +15,10 @@ const loading = ref(false)
 const searched = ref(false)
 const results = ref<MediaInfo[]>([])
 const subscribingIds = ref(new Set<string>())
+const imageErrorIds = ref(new Set<string>())
 
 if (route.query.query) {
   query.value = route.query.query.toString()
-}
-
-/** 返回音乐候选在列表中的稳定身份。 */
-function getMusicKey(item: MediaInfo) {
-  return `${item.source || 'music'}:${item.media_id || `${item.artist}-${item.title}-${item.album}`}`
 }
 
 /** 调用统一音乐元数据接口搜索候选。 */
@@ -43,18 +40,18 @@ async function searchMusic() {
 
 /** 使用音乐元数据身份进入现有站点资源精确搜索页。 */
 function searchResources(item: MediaInfo) {
-  if (!item.source || !item.media_id) return
-  router.push({
-    path: '/resource',
-    query: {
-      keyword: `${item.source}:${item.media_id}`,
-      type: '音乐',
-      title: item.title,
-      year: item.year,
-      area: 'title',
-      result_type: 'torrent',
-    },
-  })
+  const target = buildMusicResourceRoute(item)
+  if (target) router.push(target)
+}
+
+/** 打开选中音乐的标准详情页。 */
+function viewMusicDetail(item: MediaInfo) {
+  router.push(buildMusicDetailRoute(item))
+}
+
+/** 记录失效封面，让音乐卡片改用专辑占位图标。 */
+function markImageError(item: MediaInfo) {
+  imageErrorIds.value = new Set(imageErrorIds.value).add(getMusicKey(item))
 }
 
 /** 将选中的音乐目标写入现有订阅表和订阅调度流程。 */
@@ -127,16 +124,17 @@ onMounted(() => {
 
     <VRow v-if="results.length">
       <VCol v-for="item in results" :key="getMusicKey(item)" cols="12" md="6" xl="4">
-        <VCard class="h-100">
+        <VCard class="h-100 cursor-pointer" @click="viewMusicDetail(item)">
           <div class="d-flex pa-4 ga-4">
             <VImg
-              v-if="item.cover_url || item.poster_path"
+              v-if="(item.cover_url || item.poster_path) && !imageErrorIds.has(getMusicKey(item))"
               :src="item.cover_url || item.poster_path"
               width="104"
               height="104"
               cover
               rounded="lg"
               class="flex-grow-0"
+              @error="markImageError(item)"
             />
             <VSheet v-else width="104" height="104" rounded="lg" class="d-flex align-center justify-center flex-grow-0">
               <VIcon icon="mdi-album" size="48" color="medium-emphasis" />
@@ -159,15 +157,16 @@ onMounted(() => {
           </div>
 
           <VCardActions class="px-4 pb-4 pt-0">
-            <VBtn variant="tonal" prepend-icon="mdi-magnify" @click="searchResources(item)">
+            <VBtn variant="tonal" color="primary" prepend-icon="mdi-magnify" @click.stop="searchResources(item)">
               {{ t('music.searchResources') }}
             </VBtn>
             <VSpacer />
             <VBtn
               color="primary"
+              variant="tonal"
               prepend-icon="mdi-rss"
               :loading="subscribingIds.has(getMusicKey(item))"
-              @click="subscribeMusic(item)"
+              @click.stop="subscribeMusic(item)"
             >
               {{ t('music.subscribe') }}
             </VBtn>

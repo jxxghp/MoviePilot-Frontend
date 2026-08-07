@@ -704,7 +704,7 @@ async function recognize(path: string) {
     // 关闭进度条
     closeProgressDialog()
     if (!nameTestResult.value) $toast.error(t('file.recognizeFailed', { path }))
-    if (nameTestResult.value?.meta_info?.name) {
+    if (nameTestResult.value?.meta_info?.name || nameTestResult.value?.meta_info?.title) {
       openSharedDialog(MediaInfoDialog, { context: nameTestResult.value }, {}, { closeOn: ['close'] })
     }
   } catch (error) {

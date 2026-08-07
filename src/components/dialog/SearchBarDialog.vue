@@ -169,7 +169,7 @@ const mediaSearchActions = computed(() => {
       type: 'music',
       icon: 'mdi-music-note-outline',
       title: t('mediaType.music'),
-      description: t('music.subtitle'),
+      description: t('music.searchDescription'),
     },
     {
       type: 'collection',

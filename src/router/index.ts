@@ -86,6 +86,13 @@ const router = createRouter({
           },
         },
         {
+          path: '/music/detail',
+          component: () => import('../pages/music-detail.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
           path: '/subscribe/movie',
           component: () => import('../pages/subscribe.vue'),
           meta: {

@@ -304,7 +304,7 @@ describe('MediaCard', () => {
     await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledWith({ path, query }))
   })
 
-  it('opens music search and skips media-library existence checks', async () => {
+  it('opens music detail and skips media-library existence checks', async () => {
     const media = createMediaInfo({
       artist: '周杰伦',
       media_id: 'recording-1',
@@ -332,10 +332,30 @@ describe('MediaCard', () => {
 
     await waitFor(() =>
       expect(mocks.routerPush).toHaveBeenCalledWith({
-        path: '/music',
-        query: { query: '周杰伦 - 晴天' },
+        path: '/music/detail',
+        query: {
+          source: 'musicbrainz',
+          mediaid: 'recording-1',
+          title: '晴天',
+        },
       }),
     )
+  })
+
+  it('uses an album placeholder instead of the movie fallback image for music without a cover', async () => {
+    const media = createMediaInfo({
+      media_id: 'recording-2',
+      source: 'musicbrainz',
+      poster_path: undefined,
+      title: '无封面歌曲',
+      tmdb_id: undefined,
+      type: '音乐',
+    })
+
+    const { container } = await renderCard(media)
+
+    expect(container.querySelector('.music-card-placeholder .v-icon')).not.toBeNull()
+    expect(container.querySelector('img[src*="no-image"]')).toBeNull()
   })
 
   it('routes directly to resource search when no active sites are available', async () => {

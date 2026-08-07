@@ -58,14 +58,19 @@ async function searchMedias() {
   // 调用API搜索词条
   try {
     loading.value = true
-    const result: MediaInfo[] = await api.get('media/search', {
-      params: {
-        title: searchKeyword,
-        page: 1,
-        count: 20,
-        source: props.type,
-      },
-    })
+    const result: MediaInfo[] =
+      props.type === 'musicbrainz'
+        ? await api.get('music/search', {
+            params: { query: searchKeyword, count: 20 },
+          })
+        : await api.get('media/search', {
+            params: {
+              title: searchKeyword,
+              page: 1,
+              count: 20,
+              source: props.type,
+            },
+          })
 
     // 清空
     items.value = []
@@ -81,10 +86,13 @@ async function searchMedias() {
       if (!mediaId) continue
       items.value.push({
         id: mediaId,
-        poster: getW500Image(item.poster_path),
+        poster: getW500Image(item.cover_url || item.poster_path),
         type: item.type,
         title: item.year ? `${item.title}（${item.year}）` : item.title || '',
-        overview: `<span class="text-primary">${item.type}</span> ${item.overview}`,
+        overview:
+          item.type === '音乐'
+            ? `<span class="text-primary">${item.type}</span> ${[item.artist, item.album].filter(Boolean).join(' · ')}`
+            : `<span class="text-primary">${item.type}</span> ${item.overview || ''}`,
       })
     }
   } catch (e) {

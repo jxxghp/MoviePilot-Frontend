@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { numberValidator } from '@/@validators'
 import type { FileItem, ManualScrapeOptions, MediaDataSource, MediaInfo } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
+import { isValidMediaSourceId } from '@/utils/mediaId'
 
 const { t } = useI18n()
 
@@ -29,6 +29,7 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
   { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
   { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+  { title: 'MusicBrainz', value: 'musicbrainz' },
 ])
 
 const globalSettingsStore = useGlobalSettingsStore()
@@ -62,7 +63,7 @@ const mediaIdLabel = computed(() => {
 
 const canSubmit = computed(() => {
   const normalizedMediaId = mediaId.value?.trim()
-  return !normalizedMediaId || /^\d+$/.test(normalizedMediaId)
+  return isValidMediaSourceId(normalizedMediaId, mediaSource.value)
 })
 
 // 获取后台设置中的默认识别数据源，未知值兼容回退到 TheMovieDb。
@@ -76,7 +77,13 @@ function resolveMediaType(type?: string) {
   const normalizedType = type?.trim().toLowerCase()
   if (['电影', 'movie'].includes(normalizedType ?? '')) return '电影'
   if (['电视剧', 'tv', 'series'].includes(normalizedType ?? '')) return '电视剧'
+  if (['音乐', 'music'].includes(normalizedType ?? '')) return '音乐'
   return undefined
+}
+
+/** 按当前刮削来源校验原生媒体 ID。 */
+function validateMediaId(value?: string | null) {
+  return isValidMediaSourceId(value, mediaSource.value) || t('dialog.reorganize.mediaIdInvalid')
 }
 
 // 选择搜索结果后同步媒体类型，减少手动填写出错。
@@ -104,6 +111,11 @@ function submitScrape() {
 watch(mediaSource, () => {
   mediaId.value = null
   mediaSelectorDialog.value = false
+  if (mediaSource.value === 'musicbrainz') mediaType.value = '音乐'
+})
+
+watch(mediaType, type => {
+  if (type === '音乐' && mediaSource.value !== 'musicbrainz') mediaSource.value = 'musicbrainz'
 })
 </script>
 
@@ -129,6 +141,7 @@ watch(mediaSource, () => {
                 { title: t('dialog.reorganize.auto'), value: '' },
                 { title: t('dialog.reorganize.movie'), value: '电影' },
                 { title: t('dialog.reorganize.tv'), value: '电视剧' },
+                { title: t('mediaType.music'), value: '音乐' },
               ]"
               :hint="t('dialog.reorganize.mediaTypeHint')"
               persistent-hint
@@ -151,7 +164,7 @@ watch(mediaSource, () => {
               :disabled="mediaType === ''"
               :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
-              :rules="[numberValidator]"
+              :rules="[validateMediaId]"
               append-inner-icon="mdi-magnify"
               :hint="t('dialog.reorganize.mediaIdHint')"
               persistent-hint

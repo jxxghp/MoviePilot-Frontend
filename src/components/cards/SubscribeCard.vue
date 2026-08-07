@@ -11,6 +11,7 @@ import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { buildMusicDetailRoute } from '@/utils/music'
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
@@ -284,10 +285,7 @@ function getMediaId() {
 // 查看媒体详情
 async function viewMediaDetail() {
   if (props.media?.type === '音乐') {
-    router.push({
-      path: '/music',
-      query: { query: props.media?.name },
-    })
+    router.push(buildMusicDetailRoute(props.media))
     return
   }
   router.push({

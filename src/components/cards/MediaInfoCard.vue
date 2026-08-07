@@ -4,9 +4,12 @@ import type { Context } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
-defineProps({
+const props = defineProps({
   context: Object as PropType<Context>,
 })
+
+// 音乐元数据使用 title，影视元数据使用 name，识别结果卡片统一兼容两种字段。
+const recognizedName = computed(() => props.context?.meta_info?.name || props.context?.meta_info?.title)
 
 // TMDB图片转换为w500大小
 function getW500Image(url = '') {
@@ -27,7 +30,7 @@ function openTmdbPage(type: string, tmdbId: number) {
   <div v-show="context">
     <VCol>
       <div
-        v-if="context?.meta_info?.name"
+        v-if="recognizedName"
         class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
       >
         <div v-if="context?.media_info?.poster_path" class="ma-auto">
@@ -48,7 +51,7 @@ function openTmdbPage(type: string, tmdbId: number) {
         <div class="flex-grow">
           <VCardItem class="pb-1">
             <div class="text-center text-md-left text-h6 font-weight-bold line-clamp-2 overflow-hidden text-ellipsis">
-              {{ context?.media_info?.title || context?.meta_info?.name }}
+              {{ context?.media_info?.title || recognizedName }}
               <span v-if="context?.meta_info?.season_episode" class="text-sm text-medium-emphasis align-top">
                 {{ context?.meta_info?.season_episode }}
               </span>
@@ -117,7 +120,7 @@ function openTmdbPage(type: string, tmdbId: number) {
           </VCardItem>
         </div>
       </div>
-      <VAlert v-if="!context?.meta_info?.name" icon="mdi-alert-circle-outline"> 识别失败，无法识别到有效信息！ </VAlert>
+      <VAlert v-if="!recognizedName" icon="mdi-alert-circle-outline"> 识别失败，无法识别到有效信息！ </VAlert>
     </VCol>
     <VExpansionPanels v-show="!isNullOrEmptyObject(context?.meta_info.apply_words)">
       <VExpansionPanel>

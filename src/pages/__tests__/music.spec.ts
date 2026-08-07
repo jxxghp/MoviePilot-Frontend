@@ -78,4 +78,25 @@ describe('music page', () => {
     )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('音乐订阅添加成功')
   })
+
+  it('opens a MusicBrainz result on the dedicated music detail page', async () => {
+    const { router } = await renderWithProviders(MusicPage, {
+      initialRoute: '/music?query=晴天',
+      global: {
+        stubs: {
+          NoDataFound: true,
+          VPageContentTitle: true,
+        },
+      },
+    })
+
+    await fireEvent.click(await screen.findByText('晴天'))
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/detail'))
+    expect(router.currentRoute.value.query).toMatchObject({
+      source: 'musicbrainz',
+      mediaid: 'recording-1',
+      title: '晴天',
+    })
+  })
 })

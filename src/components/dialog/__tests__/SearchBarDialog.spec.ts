@@ -114,6 +114,8 @@ describe('SearchBarDialog media source selection', () => {
     await user.type(input, '晴天')
 
     expect(getSearchItem('音乐').querySelector('[data-icon="mdi-music-note-outline"]')).not.toBeNull()
+    expect(getSearchItem('音乐')).toHaveTextContent('搜索歌曲、专辑或艺术家')
+    expect(getSearchItem('音乐')).not.toHaveTextContent('搜索音乐元数据，并进入站点资源搜索、下载和订阅流程')
   })
 
   it('searches actors with the selected supported source', async () => {
