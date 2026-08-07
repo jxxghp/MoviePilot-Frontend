@@ -35,4 +35,12 @@ describe('AgentMarkdownContent', () => {
     expect(wrapper.html()).not.toContain('<img')
     expect(wrapper.text()).toContain('<img src=x onerror=')
   })
+
+  it('does not render a bubble for whitespace-only Markdown', () => {
+    const wrapper = mount(AgentMarkdownContent, {
+      props: { content: '\n\n' },
+    })
+
+    expect(wrapper.find('.agent-assistant-message__bubble').exists()).toBe(false)
+  })
 })

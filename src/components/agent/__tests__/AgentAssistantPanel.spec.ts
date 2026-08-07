@@ -308,6 +308,52 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('does not render an empty text bubble for trailing whitespace after a tool summary', async () => {
+    const streamEvents = [
+      { type: 'start', session_id: 'web-agent:trailing-whitespace' },
+      { type: 'delta', content: '最终结论' },
+      { type: 'tool', message: '（查询了 1 次数据）' },
+      { type: 'delta', content: '\n\n' },
+      { type: 'done' },
+    ]
+    const streamBody = streamEvents.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return new Response(streamBody, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          })
+        }
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await wrapper.find('textarea').setValue('检查配置')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const renderedSegments = wrapper.findAll('.agent-assistant-segments > *')
+    expect(renderedSegments).toHaveLength(2)
+    expect(renderedSegments[0].classes()).toContain('agent-assistant-message__bubble')
+    expect(renderedSegments[0].text()).toBe('最终结论')
+    expect(renderedSegments[1].classes()).toContain('agent-assistant-tool')
+
+    wrapper.unmount()
+  })
+
   it('coalesces consecutive text deltas into one UI update before a terminal event', async () => {
     const streamEvents = [
       { type: 'start', session_id: 'web-agent:coalesced' },

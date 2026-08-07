@@ -66,6 +66,7 @@ onScopeDispose(clearRenderTimer)
 
 <template>
   <div
+    v-if="renderedHtml"
     class="markdown-body"
     :class="variant === 'choice' ? 'agent-assistant-choice__prompt' : 'agent-assistant-message__bubble'"
     v-html="renderedHtml"

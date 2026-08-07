@@ -532,7 +532,7 @@ function normalizeMessageSegments(value: unknown, content: string, tools: AgentT
       if (!rawSegment || typeof rawSegment !== 'object' || Array.isArray(rawSegment)) return
 
       const segment = rawSegment as Record<string, unknown>
-      if (segment.type === 'text' && typeof segment.content === 'string' && segment.content) {
+      if (segment.type === 'text' && typeof segment.content === 'string' && segment.content.trim()) {
         normalizedSegments.push({ type: 'text', content: segment.content })
         return
       }
@@ -547,7 +547,7 @@ function normalizeMessageSegments(value: unknown, content: string, tools: AgentT
   if (normalizedSegments.length) return normalizedSegments
 
   tools.forEach((_tool, toolIndex) => normalizedSegments.push({ type: 'tool', toolIndex }))
-  if (content) normalizedSegments.push({ type: 'text', content })
+  if (content.trim()) normalizedSegments.push({ type: 'text', content })
   return normalizedSegments
 }
 
@@ -1284,7 +1284,7 @@ function appendAssistantTextSegment(message: AgentChatMessage, content: string) 
   const lastSegment = message.segments.at(-1)
   if (lastSegment?.type === 'text') {
     lastSegment.content += content
-  } else {
+  } else if (content.trim()) {
     message.segments.push({ type: 'text', content })
   }
 }
@@ -1293,14 +1293,14 @@ function appendAssistantTextSegment(message: AgentChatMessage, content: string) 
 function replaceAssistantTextSegments(message: AgentChatMessage, content: string) {
   message.content = content
   message.segments = message.segments.filter(segment => segment.type === 'tool')
-  if (content) message.segments.push({ type: 'text', content })
+  if (content.trim()) message.segments.push({ type: 'text', content })
 }
 
-// 将消息片段转换为模板可直接渲染的文本或工具对象。
+// 按 SSE 事件顺序渲染文本与工具，只跳过无法产生可见内容的空白文本。
 function getRenderableMessageSegments(message: AgentChatMessage): AgentRenderableMessageSegment[] {
   return message.segments.reduce<AgentRenderableMessageSegment[]>((renderableSegments, segment, index) => {
     if (segment.type === 'text') {
-      renderableSegments.push({ ...segment, key: `text-${index}` })
+      if (segment.content.trim()) renderableSegments.push({ ...segment, key: `text-${index}` })
       return renderableSegments
     }
 
@@ -1314,7 +1314,7 @@ function getRenderableMessageSegments(message: AgentChatMessage): AgentRenderabl
 function isEmptyAssistantMessage(message: AgentChatMessage) {
   return (
     message.role === 'assistant' &&
-    !message.content &&
+    !message.content.trim() &&
     message.attachments.length === 0 &&
     message.choices.length === 0 &&
     message.tools.length === 0
@@ -2375,7 +2375,10 @@ onScopeDispose(() => {
               <span>{{ message.role === 'user' ? currentUserName : t('agentAssistant.assistant') }}</span>
             </div>
 
-            <div v-if="message.role === 'assistant' && message.segments.length" class="agent-assistant-segments">
+            <div
+              v-if="message.role === 'assistant' && (message.tools.length || message.content.trim())"
+              class="agent-assistant-segments"
+            >
               <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
                 <AgentMarkdownContent
                   v-if="segment.type === 'text'"
