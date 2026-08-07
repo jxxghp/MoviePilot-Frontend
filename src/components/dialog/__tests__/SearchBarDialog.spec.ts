@@ -3,7 +3,16 @@ import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
+import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it } from 'vitest'
+
+const IconStub = defineComponent({
+  name: 'VIcon',
+  props: {
+    icon: String,
+  },
+  template: '<i :data-icon="icon" />',
+})
 
 async function renderSearchBar() {
   return renderWithProviders(SearchBarDialog, {
@@ -22,6 +31,11 @@ async function renderSearchBar() {
           subscribe: false,
         },
         superUser: false,
+      },
+    },
+    global: {
+      stubs: {
+        VIcon: IconStub,
       },
     },
   })
@@ -90,6 +104,16 @@ describe('SearchBarDialog media source selection', () => {
         type: 'media',
       })
     })
+  })
+
+  it('renders the bundled music icon in the music search action', async () => {
+    const user = userEvent.setup()
+    await renderSearchBar()
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, '晴天')
+
+    expect(getSearchItem('音乐').querySelector('[data-icon="mdi-music-note-outline"]')).not.toBeNull()
   })
 
   it('searches actors with the selected supported source', async () => {

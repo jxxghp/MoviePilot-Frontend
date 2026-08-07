@@ -32,17 +32,6 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
     },
     {
-      title: t('navItems.music'),
-      full_title: t('music.title'),
-      icon: 'mdi-music-note-search',
-      iconColor: 'primary',
-      to: '/music',
-      header: t('menu.start'),
-      admin: false,
-      permission: 'search',
-      feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
-    },
-    {
       title: t('navItems.recommend'),
       icon: 'mdi-star-outline',
       iconColor: 'primary',

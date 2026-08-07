@@ -62,6 +62,13 @@ async function renderAppCenter(items: PluginSidebarNavItem[], permissions: Recor
 }
 
 describe('app center plugin navigation', () => {
+  it('keeps resource search and omits the standalone music search menu', async () => {
+    await renderAppCenter([])
+
+    expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+    expect(screen.queryByText('音乐搜索')).not.toBeInTheDocument()
+  })
+
   it('uses the shared category, admin and feature permission semantics', async () => {
     await renderAppCenter(
       [
