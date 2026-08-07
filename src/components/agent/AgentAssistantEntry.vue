@@ -47,6 +47,8 @@ const props = withDefaults(
   },
 )
 
+const ASSISTANT_PREVIEW_MAX_LENGTH = 480
+
 const emit = defineEmits<{
   open: []
 }>()
@@ -1014,6 +1016,15 @@ function scheduleFabBubbleRemoval(id: string, duration = FAB_NOTIFICATION_BUBBLE
 function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose?: boolean; duration?: number } = {}) {
   if (!props.active || !bubble.text) return
 
+  const existingIndex = fabBubbles.value.findIndex(item => item.id === bubble.id)
+  if (existingIndex >= 0) {
+    fabBubbles.value[existingIndex] = bubble
+    setFabDocked(false)
+    nextTick(scheduleFabBubblePositionUpdate)
+    if (options.autoClose) scheduleFabBubbleRemoval(bubble.id, options.duration)
+    return
+  }
+
   const hadBubbles = hasFabBubbles.value
   const wasDocked = fabDocked.value
   const existingBubbles = fabBubbles.value.filter(item => item.id !== bubble.id)
@@ -1061,7 +1072,7 @@ function showAssistantReplyPreview(value: string) {
   showBubble({
     id: 'assistant-preview',
     kind: 'assistant',
-    text: value,
+    text: value.slice(0, ASSISTANT_PREVIEW_MAX_LENGTH),
   })
 }
 

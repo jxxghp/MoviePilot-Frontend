@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import MarkdownIt from 'markdown-it'
-import mdLinkAttributes from 'markdown-it-link-attributes'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
+import AgentMarkdownContent from './AgentMarkdownContent.vue'
 
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
@@ -240,24 +239,15 @@ let recordingChunks: BlobPart[] = []
 let messageScrollFrame: number | null = null
 let pendingMessageScrollToBottom = false
 let streamPersistTimer: number | null = null
+let streamPersistLastRunAt = 0
+let messageScrollerShouldFollow = true
+let streamDeltaFrame: number | null = null
+let pendingStreamDelta = ''
+let pendingStreamDeltaMessage: AgentChatMessage | null = null
 let userAbortRequested = false
 let streamRecoveryAbortRequested = false
 let streamRecoveryTimer: number | null = null
 let activeStreamStartedAt = 0
-
-const md = new MarkdownIt({
-  html: true,
-  breaks: true,
-  linkify: true,
-  typographer: true,
-})
-
-md.use(mdLinkAttributes, {
-  attrs: {
-    target: '_blank',
-    rel: 'noopener noreferrer',
-  },
-})
 
 // 汇总实时请求与后台恢复状态，保证恢复期间仍展示处理中并锁定会话操作。
 const isBusy = computed(() => sending.value || Boolean(pendingStreamRecovery.value))
@@ -1105,12 +1095,6 @@ function persistState(options: { syncHistory?: boolean } = {}) {
   if (syncHistory) upsertCurrentSessionHistory()
 }
 
-// 渲染助手消息中的 Markdown 文本。
-function renderMarkdown(value: string) {
-  if (!value) return ''
-  return md.render(value)
-}
-
 // 拼接后端 API 地址。
 function resolveApiUrl(path: string) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/'
@@ -1155,6 +1139,11 @@ function isMessageScrollerNearBottom() {
   return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= MESSAGE_SCROLL_FOLLOW_THRESHOLD
 }
 
+// 只在滚动事件中更新自动跟随意图，避免每个流式事件触发布局读取。
+function handleMessageScrollerScroll() {
+  messageScrollerShouldFollow = isMessageScrollerNearBottom()
+}
+
 // 合并滚动更新请求，降低流式输出时的布局测量频率。
 function scheduleMessageScrollerUpdate(options: { toBottom?: boolean } = {}) {
   const { toBottom = false } = options
@@ -1174,6 +1163,7 @@ function scheduleMessageScrollerUpdate(options: { toBottom?: boolean } = {}) {
 // 将消息列表滚动到底部。
 function scrollToBottom(options: { smooth?: boolean } = {}) {
   const { smooth = false } = options
+  messageScrollerShouldFollow = true
   nextTick(() => {
     const scroller = getMessageScrollerElement()
     if (!scroller) return
@@ -1217,13 +1207,17 @@ function clearMessageScrollFrame() {
   pendingMessageScrollToBottom = false
 }
 
-// 延迟持久化流式消息，避免每个 token 都写入本地存储。
+// 流式期间至多每秒保存一次轻量当前态，终态再同步完整历史。
 function scheduleStreamPersist() {
-  clearStreamPersistTimer()
+  if (streamPersistTimer !== null) return
+
+  const elapsed = Date.now() - streamPersistLastRunAt
+  const delay = Math.max(0, STREAM_STATE_PERSIST_DELAY - elapsed)
   streamPersistTimer = window.setTimeout(() => {
-    persistState()
     streamPersistTimer = null
-  }, STREAM_STATE_PERSIST_DELAY)
+    streamPersistLastRunAt = Date.now()
+    persistState({ syncHistory: false })
+  }, delay)
 }
 
 // 同步输入框高度，使多行输入不撑破底部布局。
@@ -1351,8 +1345,6 @@ function applyMessageUpdate(event: AgentStreamEvent) {
 
 // 将单个 SSE 事件应用到正在流式输出的助手消息。
 function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage) {
-  const shouldFollowBottom = isMessageScrollerNearBottom()
-
   switch (event.type) {
     case 'delta':
       appendAssistantTextSegment(assistantMessage, event.content || '')
@@ -1410,8 +1402,52 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
 
   scheduleStreamPersist()
   nextTick(() => {
-    scheduleMessageScrollerUpdate({ toBottom: shouldFollowBottom })
+    scheduleMessageScrollerUpdate({ toBottom: messageScrollerShouldFollow })
   })
+}
+
+// 将同一条助手消息的连续文本增量合并到一个动画帧，语义事件到来前会同步冲刷。
+function flushPendingStreamDelta() {
+  if (streamDeltaFrame !== null) {
+    window.cancelAnimationFrame(streamDeltaFrame)
+    streamDeltaFrame = null
+  }
+  if (!pendingStreamDeltaMessage || !pendingStreamDelta) return
+
+  const assistantMessage = pendingStreamDeltaMessage
+  const content = pendingStreamDelta
+  pendingStreamDeltaMessage = null
+  pendingStreamDelta = ''
+  applyStreamEvent({ type: 'delta', content }, assistantMessage)
+}
+
+function clearPendingStreamDelta() {
+  if (streamDeltaFrame !== null) window.cancelAnimationFrame(streamDeltaFrame)
+  streamDeltaFrame = null
+  pendingStreamDeltaMessage = null
+  pendingStreamDelta = ''
+}
+
+function schedulePendingStreamDeltaFlush() {
+  if (streamDeltaFrame !== null) return
+
+  streamDeltaFrame = window.requestAnimationFrame(() => {
+    streamDeltaFrame = null
+    flushPendingStreamDelta()
+  })
+}
+
+function queueStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage) {
+  if (event.type !== 'delta') {
+    flushPendingStreamDelta()
+    applyStreamEvent(event, assistantMessage)
+    return
+  }
+
+  if (pendingStreamDeltaMessage && pendingStreamDeltaMessage !== assistantMessage) flushPendingStreamDelta()
+  pendingStreamDeltaMessage = assistantMessage
+  pendingStreamDelta += event.content || ''
+  schedulePendingStreamDeltaFlush()
 }
 
 // 解析一个 SSE 数据块。
@@ -1441,26 +1477,30 @@ async function readAgentStream(response: Response, assistantMessage: AgentChatMe
   const consumeEvent = (event: AgentStreamEvent | null) => {
     if (!event) return
 
-    applyStreamEvent(event, assistantMessage)
+    queueStreamEvent(event, assistantMessage)
     if (event.type === 'done' || event.type === 'error') receivedTerminalEvent = true
   }
 
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const blocks = buffer.split(/\n\n/)
-    buffer = blocks.pop() || ''
+      buffer += decoder.decode(value, { stream: true })
+      const blocks = buffer.split(/\r?\n\r?\n/)
+      buffer = blocks.pop() || ''
 
-    for (const block of blocks) {
-      consumeEvent(parseSseBlock(block))
+      for (const block of blocks) {
+        consumeEvent(parseSseBlock(block))
+      }
     }
-  }
 
-  buffer += decoder.decode()
-  if (buffer.trim()) {
-    consumeEvent(parseSseBlock(buffer))
+    buffer += decoder.decode()
+    if (buffer.trim()) {
+      consumeEvent(parseSseBlock(buffer))
+    }
+  } finally {
+    flushPendingStreamDelta()
   }
 
   return { receivedTerminalEvent }
@@ -2172,6 +2212,7 @@ onScopeDispose(clearPendingAttachments)
 onScopeDispose(cancelVoiceRecording)
 onScopeDispose(clearMessageScrollFrame)
 onScopeDispose(clearStreamPersistTimer)
+onScopeDispose(clearPendingStreamDelta)
 onScopeDispose(clearStreamRecoveryTimer)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
@@ -2312,6 +2353,7 @@ onScopeDispose(() => {
         ref="messageListRef"
         class="agent-assistant-messages"
         :class="{ 'agent-assistant-messages--has-content': hasMessages }"
+        @scroll.passive="handleMessageScrollerScroll"
       >
         <div class="agent-assistant-messages__content">
           <div v-if="!hasMessages" class="agent-assistant-empty">
@@ -2335,10 +2377,10 @@ onScopeDispose(() => {
 
             <div v-if="message.role === 'assistant' && message.segments.length" class="agent-assistant-segments">
               <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
-                <div
+                <AgentMarkdownContent
                   v-if="segment.type === 'text'"
-                  class="agent-assistant-message__bubble markdown-body"
-                  v-html="renderMarkdown(segment.content)"
+                  :content="segment.content"
+                  :streaming="message.status === 'streaming'"
                 />
                 <div v-else class="agent-assistant-tool">
                   <VIcon
@@ -2354,17 +2396,17 @@ onScopeDispose(() => {
               </template>
             </div>
 
-            <div
+            <AgentMarkdownContent
               v-else-if="message.content"
-              class="agent-assistant-message__bubble markdown-body"
-              v-html="renderMarkdown(message.content)"
+              :content="message.content"
+              :streaming="message.status === 'streaming'"
             />
 
             <div v-if="message.choices.length" class="agent-assistant-choices">
               <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
                 <div class="agent-assistant-choice__bubble">
                   <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
-                  <div class="agent-assistant-choice__prompt markdown-body" v-html="renderMarkdown(choice.prompt)" />
+                  <AgentMarkdownContent :content="choice.prompt" variant="choice" />
                   <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
                     <VIcon icon="mdi-check-circle-outline" size="16" />
                     <span>{{

@@ -27,6 +27,12 @@ interface MockServerSession {
   messages: Array<Record<string, unknown>>
 }
 
+const agentMarkdownContentStub = {
+  props: ['content', 'variant'],
+  template:
+    "<div :class=\"variant === 'choice' ? 'agent-assistant-choice__prompt' : 'agent-assistant-message__bubble'\">{{ content }}</div>",
+}
+
 // 构造符合 Agent 标准响应包装的 fetch 返回值。
 function createAgentResponse(data: unknown) {
   return {
@@ -111,6 +117,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
           VIcon: true,
@@ -203,6 +210,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
           VIcon: true,
@@ -265,6 +273,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
           VIcon: true,
@@ -295,6 +304,49 @@ describe('AgentAssistantPanel stream recovery', () => {
         { type: 'text', content: '检查完成，没有发现错误。' },
       ],
     })
+
+    wrapper.unmount()
+  })
+
+  it('coalesces consecutive text deltas into one UI update before a terminal event', async () => {
+    const streamEvents = [
+      { type: 'start', session_id: 'web-agent:coalesced' },
+      ...Array.from({ length: 100 }, (_item, index) => ({ type: 'delta', content: String(index % 10) })),
+      { type: 'done' },
+    ]
+    const streamBody = streamEvents.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return new Response(streamBody, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          })
+        }
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await wrapper.find('textarea').setValue('测试突发事件')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.emitted('assistant-preview')).toHaveLength(1)
+    expect(wrapper.find('.agent-assistant-message--assistant .agent-assistant-message__bubble').text()).toBe(
+      Array.from({ length: 100 }, (_item, index) => String(index % 10)).join(''),
+    )
 
     wrapper.unmount()
   })

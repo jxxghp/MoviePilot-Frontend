@@ -68,4 +68,44 @@ describe('AgentAssistantEntry lifecycle motion', () => {
 
     wrapper.unmount()
   })
+
+  it('updates an existing assistant preview without recreating its resize observer', async () => {
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+    const resizeObserverConstructor = vi.fn()
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor() {
+          resizeObserverConstructor()
+        }
+
+        observe = observe
+        disconnect = disconnect
+      },
+    )
+    const wrapper = shallowMount(AgentAssistantEntry, {
+      global: {
+        stubs: {
+          AgentPetStage: true,
+          VIcon: true,
+        },
+      },
+      props: {
+        active: true,
+        motionActive: true,
+      },
+    })
+
+    wrapper.vm.showAssistantReplyPreview('第一段')
+    await nextTick()
+    expect(resizeObserverConstructor).toHaveBeenCalledTimes(1)
+
+    wrapper.vm.showAssistantReplyPreview('第二段')
+    await nextTick()
+    expect(resizeObserverConstructor).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.agent-assistant-fab__bubble').text()).toContain('第二段')
+
+    wrapper.unmount()
+  })
 })
