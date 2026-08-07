@@ -72,7 +72,7 @@ function handleCancel() {
           </div>
         </div>
       </VCardItem>
-      <VCardActions class="mx-auto">
+      <VCardActions class="app-confirm-dialog-actions mx-auto">
         <VBtn variant="tonal" color="secondary" class="px-5" @click="handleCancel">
           {{ cancelText }}
         </VBtn>

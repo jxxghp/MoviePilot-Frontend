@@ -106,6 +106,7 @@ html[data-theme='glass'] {
   --app-card-light-border-opacity: 0.15;
   --app-card-light-border: 1px solid var(--glass-border);
   --app-overlay-border: 1px solid var(--glass-border);
+  --app-confirm-dialog-action-color: rgb(var(--v-theme-on-primary));
   --app-grouped-list-background: var(--glass-surface);
   --app-grouped-list-backdrop-filter: var(--glass-surface-backdrop-filter);
   --app-grouped-list-border: 1px solid var(--glass-border);
@@ -806,6 +807,11 @@ html[data-theme='glass'] {
       background-color var(--glass-motion),
       border-color var(--glass-motion),
       box-shadow var(--glass-motion);
+  }
+
+  // 语义色按钮在半透明玻璃表面上统一使用主题的高对比前景色，避免继承深色 on-color。
+  .app-confirm-dialog-actions .v-btn {
+    color: var(--app-confirm-dialog-action-color) !important;
   }
 
   .v-btn:not(.v-btn--variant-text, .v-btn--variant-plain) {

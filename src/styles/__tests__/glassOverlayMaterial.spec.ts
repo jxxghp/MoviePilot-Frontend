@@ -86,6 +86,17 @@ describe('glass overlay material styles', () => {
     )
   })
 
+  it('uses the shared theme foreground token for confirm dialog actions', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const dialog = readFileSync(resolve(cwd(), 'src/@core/components/ConfirmDialog.vue'), 'utf8')
+
+    expect(dialog).toContain('app-confirm-dialog-actions')
+    expect(styles).toContain('--app-confirm-dialog-action-color: rgb(var(--v-theme-on-primary))')
+    expect(styles).toMatch(
+      /\.app-confirm-dialog-actions \.v-btn\s*\{[\s\S]*?color:\s*var\(--app-confirm-dialog-action-color\)\s*!important;/,
+    )
+  })
+
   it('keeps Chromium frosted fixed shells on the stable wallpaper backplate', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const backplate = readFileSync(resolve(cwd(), 'src/components/theme/GlassFixedShellBackplate.vue'), 'utf8')
