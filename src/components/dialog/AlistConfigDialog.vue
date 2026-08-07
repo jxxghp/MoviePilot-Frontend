@@ -15,6 +15,10 @@ const props = defineProps({
     type: Object as PropType<{ [key: string]: any }>,
     required: true,
   },
+  type: {
+    type: String,
+    default: 'alist',
+  },
 })
 
 // 定义事件
@@ -29,7 +33,7 @@ async function handleDone() {
 // 重置配置
 async function handleReset() {
   try {
-    const result: { [key: string]: any } = await api.get('/storage/reset/alist')
+    const result: { [key: string]: any } = await api.get(`/storage/reset/${props.type}`)
     if (result.success) {
       // 重置成功
       handleDone()
@@ -62,7 +66,7 @@ const sourceItems = [
 // 保存alist设置
 async function savaAlistConfig() {
   try {
-    await api.post(`storage/save/alist`, props.conf)
+    await api.post(`storage/save/${props.type}`, props.conf)
   } catch (e) {
     console.error(e)
   }
@@ -78,7 +82,7 @@ async function savaAlistConfig() {
           <VIcon icon="mdi-cog-outline" class="me-2" />
         </template>
         <VCardTitle>
-          {{ t('dialog.alistConfig.title') }}
+          {{ t(`dialog.${props.type}Config.title`) }}
         </VCardTitle>
       </VCardItem>
       <VDivider />
@@ -87,8 +91,8 @@ async function savaAlistConfig() {
           <VCol cols="12">
             <VTextField
               v-model="props.conf.url"
-              :hint="t('dialog.alistConfig.serverUrl')"
-              :label="t('dialog.alistConfig.serverUrl')"
+              :hint="t(`dialog.${props.type}Config.serverUrl`)"
+              :label="t(`dialog.${props.type}Config.serverUrl`)"
               persistent-hint
               prepend-inner-icon="mdi-server"
             />

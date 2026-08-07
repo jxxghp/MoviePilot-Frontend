@@ -1468,6 +1468,7 @@ export default {
     u115: '115網盤',
     rclone: 'RClone',
     alist: 'OpenList',
+    alistgo: 'AList',
     smb: 'SMB網路共享',
     custom: '自定義',
   },
@@ -2949,6 +2950,10 @@ export default {
       },
       complete: '完成',
       reset: '重置',
+    },
+    alistgoConfig: {
+      title: 'AList配置',
+      serverUrl: 'AList服務地址',
     },
     smbConfig: {
       title: 'SMB網路共享配置',

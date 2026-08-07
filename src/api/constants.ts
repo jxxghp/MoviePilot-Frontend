@@ -27,6 +27,11 @@ export const storageAttributes = [
     remote: true,
   },
   {
+    type: 'alistgo',
+    icon: 'mdi-server-network-outline',
+    remote: true,
+  },
+  {
     type: 'smb',
     icon: 'mdi-folder-network-outline',
     remote: true,
