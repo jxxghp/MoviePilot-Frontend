@@ -5,7 +5,7 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as prettier from 'prettier'
 
-const DEFAULT_BASE_REFS = ['refs/remotes/upstream/v2', 'refs/remotes/origin/v2', 'refs/heads/v2']
+const DEFAULT_BASE_REFS = ['refs/remotes/upstream/v3', 'refs/remotes/origin/v3', 'refs/heads/v3']
 const GIT_OUTPUT_MAX_BUFFER = 64 * 1024 * 1024
 const PRETTIER_ARGUMENT_BUDGET = 24_000
 const prettierCliPath = fileURLToPath(new URL('../node_modules/prettier/bin/prettier.cjs', import.meta.url))
@@ -47,14 +47,14 @@ function hasMergeBase(cwd, baseCommit, headCommit) {
   return spawnSync('git', ['merge-base', baseCommit, headCommit], { cwd, stdio: 'ignore' }).status === 0
 }
 
-/** 为本地命令选择与当前提交具有共同祖先的 v2 基线。 */
+/** 为本地命令选择与当前提交具有共同祖先的 v3 基线。 */
 function resolveDefaultBase(cwd, headCommit) {
   for (const ref of DEFAULT_BASE_REFS) {
     const commit = tryResolveCommit(cwd, ref)
     if (commit && hasMergeBase(cwd, commit, headCommit)) return commit
   }
 
-  throw new Error('无法定位可比较的 v2 基线，请通过 --base <ref> 显式指定比较起点。')
+  throw new Error('无法定位可比较的 v3 基线，请通过 --base <ref> 显式指定比较起点。')
 }
 
 /**

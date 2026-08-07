@@ -105,7 +105,7 @@ Prettier 初始 CI 只检查 Pull Request 新增或修改的受支持文件，�
 3. 仅把 Prettier 支持且由仓库管理的文件传给 `prettier --check`。
 4. 文件集合为空时正常通过。
 
-本地直接运行 `yarn format` 或 `yarn format:check` 时，脚本按 `refs/remotes/upstream/v2`、`refs/remotes/origin/v2`、`refs/heads/v2` 的顺序选择与当前提交具有共同祖先的基线，并合并当前工作区与未跟踪文件。完整引用可避免同名标签造成歧义；CI 使用显式提交 SHA 保证输入可复现：
+本地直接运行 `yarn format` 或 `yarn format:check` 时，脚本按 `refs/remotes/upstream/v3`、`refs/remotes/origin/v3`、`refs/heads/v3` 的顺序选择与当前提交具有共同祖先的基线，并合并当前工作区与未跟踪文件。完整引用可避免同名标签造成歧义；CI 使用显式提交 SHA 保证输入可复现：
 
 ```sh
 yarn format:check --base <base-sha> --head <head-sha>

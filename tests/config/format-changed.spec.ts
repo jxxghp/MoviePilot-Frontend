@@ -20,7 +20,7 @@ function write(repository: string, filePath: string, content: string) {
 function createRepository() {
   const repository = mkdtempSync(resolve(tmpdir(), 'moviepilot-format-changed-'))
   temporaryRepositories.push(repository)
-  git(repository, 'init', '--initial-branch=v2')
+  git(repository, 'init', '--initial-branch=v3')
   git(repository, 'config', 'user.name', 'Format Test')
   git(repository, 'config', 'user.email', 'format-test@example.invalid')
   write(repository, '.gitignore', 'coverage/\n')
@@ -73,7 +73,7 @@ describe('Prettier 变更文件选择器', () => {
     git(repository, 'add', '-A')
     git(repository, 'commit', '-m', 'feature')
 
-    expect(listSelected(repository, '--base', 'v2', '--head', 'HEAD')).toEqual([
+    expect(listSelected(repository, '--base', 'v3', '--head', 'HEAD')).toEqual([
       'src/line\nbreak.ts',
       'src/modified.ts',
       'src/new file.vue',
@@ -137,7 +137,7 @@ describe('Prettier 变更文件选择器', () => {
     write(repository, 'src/modified.ts', "export const value='feature'\n")
     git(repository, 'add', 'src/modified.ts')
     git(repository, 'commit', '-m', 'feature')
-    git(repository, 'tag', 'v2', 'HEAD')
+    git(repository, 'tag', 'v3', 'HEAD')
 
     expect(listSelected(repository)).toEqual(['src/modified.ts'])
   })
@@ -154,8 +154,8 @@ describe('Prettier 变更文件选择器', () => {
       cwd: repository,
       encoding: 'utf8',
     }).trim()
-    git(repository, 'update-ref', 'refs/remotes/upstream/v2', unrelatedCommit)
-    git(repository, 'update-ref', 'refs/remotes/origin/v2', baseCommit)
+    git(repository, 'update-ref', 'refs/remotes/upstream/v3', unrelatedCommit)
+    git(repository, 'update-ref', 'refs/remotes/origin/v3', baseCommit)
 
     expect(listSelected(repository)).toEqual(['src/modified.ts'])
   })
@@ -174,7 +174,7 @@ describe('Prettier 变更文件选择器', () => {
     git(repository, 'add', '-A')
     git(repository, 'commit', '-m', 'type changes')
 
-    expect(listSelected(repository, '--base', 'v2', '--head', 'HEAD')).toEqual(['src/to-regular.ts'])
+    expect(listSelected(repository, '--base', 'v3', '--head', 'HEAD')).toEqual(['src/to-regular.ts'])
   })
 
   it('Git 路径输出超过默认缓冲区时仍能完成选择', () => {
