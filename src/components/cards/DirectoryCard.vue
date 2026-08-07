@@ -12,6 +12,7 @@ const STORAGE_ACCENT_COLOR_MAP = {
   u115: '#17B26A',
   rclone: '#6675FF',
   alist: '#12B8D7',
+  alistgo: '#1BA0D8',
   smb: '#3B82F6',
 }
 
