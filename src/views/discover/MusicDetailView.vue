@@ -235,17 +235,7 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
     </template>
 
     <div v-if="albumTracks.length" class="music-section">
-      <div class="slider-header">
-        <RouterLink
-          v-if="music.album_id"
-          :to="buildMusicAlbumRoute(music.album_id, music.album, props.source)"
-          class="slider-title"
-        >
-          <span>{{ t('music.albumTracks') }}</span>
-          <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-        </RouterLink>
-        <span v-else class="slider-title">{{ t('music.albumTracks') }}</span>
-      </div>
+      <h2 class="music-section-heading">{{ t('music.albumTracks') }}</h2>
       <MusicTrackList :tracks="albumTracks" :active-media-id="music.media_id" hide-artists />
     </div>
 
@@ -254,16 +244,11 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
     </div>
 
     <div v-if="primaryArtistId" class="music-section">
-      <div class="slider-header">
-        <RouterLink
-          :to="buildMusicArtistRoute(primaryArtistId, artistLinks[0]?.name, props.source)"
-          class="slider-title"
-        >
-          <span>{{ t('music.artistAlbums') }}</span>
-          <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-        </RouterLink>
-      </div>
-      <MediaCardSlideView :apipath="`music/artist/${primaryArtistId}/albums`" />
+      <MediaCardSlideView
+        :apipath="`music/artist/${primaryArtistId}/albums`"
+        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?title=${encodeURIComponent(t('music.artistAlbums'))}`"
+        :title="t('music.artistAlbums')"
+      />
     </div>
   </MusicDetailLayout>
   <NoDataFound v-else error-code="404" :error-title="t('music.noResults')" :error-description="t('error.networkError')">
@@ -320,5 +305,14 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
 
 .music-section {
   margin-block-start: 2rem;
+}
+
+/* 章节标题对齐影视详情页：h2 + 上下留白，避免曲目列表贴着标题 */
+.music-section-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+  margin: 0;
+  padding-block: 1rem;
 }
 </style>

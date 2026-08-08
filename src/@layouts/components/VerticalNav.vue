@@ -54,7 +54,7 @@ function handleNavScroll(evt: Event) {
           <ThemeLogoMark />
 
           <h1 class="leading-normal text-xl">
-            <span class="moviepilot-wordmark">MOVIEPILOT</span> <span class="text-sm text-gray-500">v2</span>
+            <span class="moviepilot-wordmark">MOVIEPILOT</span> <span class="text-sm text-gray-500">v3</span>
           </h1>
         </RouterLink>
       </slot>

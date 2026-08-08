@@ -224,16 +224,11 @@ watch(() => [props.source, props.mediaid], loadAlbumDetail, { immediate: true })
     </template>
 
     <div v-if="primaryArtistId" class="music-section">
-      <div class="slider-header">
-        <RouterLink
-          :to="buildMusicArtistRoute(primaryArtistId, artistLinks[0]?.name, props.source)"
-          class="slider-title"
-        >
-          <span>{{ t('music.artistAlbums') }}</span>
-          <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-        </RouterLink>
-      </div>
-      <MediaCardSlideView :apipath="`music/artist/${primaryArtistId}/albums`" />
+      <MediaCardSlideView
+        :apipath="`music/artist/${primaryArtistId}/albums`"
+        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?title=${encodeURIComponent(t('music.artistAlbums'))}`"
+        :title="t('music.artistAlbums')"
+      />
     </div>
 
     <div v-if="primaryArtistId" class="music-section">
@@ -312,6 +307,8 @@ watch(() => [props.source, props.mediaid], loadAlbumDetail, { immediate: true })
 .music-section-title {
   font-size: 1.25rem;
   font-weight: 700;
-  margin-block: 1.5rem 0.5rem;
+  line-height: 1.75rem;
+  margin: 0;
+  padding-block: 1rem;
 }
 </style>

@@ -412,7 +412,6 @@ export default {
   },
   music: {
     title: 'Music Search',
-    resultsFor: 'Music results for "{query}"',
     searchFromGlobal: 'Use the global search at the top to look up a song, album or artist',
     searchDescription: 'Search songs, albums or artists',
     noResults: 'No matching music found',
@@ -478,7 +477,6 @@ export default {
       upcoming: 'Upcoming',
       all: 'All',
       withCover: 'With Cover Only',
-      minListenCount: 'Minimum Listens',
     },
   },
   settingTabs: {

@@ -404,7 +404,6 @@ export default {
   },
   music: {
     title: '音樂搜尋',
-    resultsFor: '「{query}」的音樂搜尋結果',
     searchFromGlobal: '在頂部全域搜尋中輸入歌曲、專輯或藝術家進入音樂搜尋',
     searchDescription: '搜尋歌曲、專輯或藝術家',
     noResults: '沒有找到符合的音樂',
@@ -470,7 +469,6 @@ export default {
       upcoming: '即將發行',
       all: '全部',
       withCover: '僅有封面',
-      minListenCount: '最低收聽次數',
     },
   },
   settingTabs: {

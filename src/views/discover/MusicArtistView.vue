@@ -160,13 +160,11 @@ watch(() => [props.source, props.mediaid], loadArtistDetail, { immediate: true }
     </template>
 
     <div v-for="section in albumSections" :key="section.type" class="music-section">
-      <div class="slider-header">
-        <RouterLink :to="getAlbumsBrowseRoute(section.type, section.title)" class="slider-title">
-          <span>{{ section.title }}</span>
-          <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-        </RouterLink>
-      </div>
-      <MediaCardSlideView :apipath="`music/artist/${props.mediaid}/albums?album_type=${section.type}`" />
+      <MediaCardSlideView
+        :apipath="`music/artist/${props.mediaid}/albums?album_type=${section.type}`"
+        :linkurl="getAlbumsBrowseRoute(section.type, section.title)"
+        :title="section.title"
+      />
     </div>
 
     <div class="music-section">

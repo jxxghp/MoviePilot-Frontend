@@ -2,6 +2,7 @@ import MusicArtistPage from '@/pages/music-artist.vue'
 import { screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
@@ -12,6 +13,12 @@ vi.mock('@/api', () => ({
     get: (...args: unknown[]) => mocks.apiGet(...args),
   },
 }))
+
+// 桩组件回显标题与“更多”链接，用于校验影视详情页对齐后的瀑布浏览入口
+const MediaCardSlideViewStub = defineComponent({
+  props: ['apipath', 'title', 'linkurl'],
+  template: '<a v-if="linkurl" :href="linkurl">{{ title }}</a><span v-else>{{ title }}</span>',
+})
 
 const artist = {
   aliases: ['皇后乐队'],
@@ -36,7 +43,7 @@ function renderArtistPage() {
   return renderWithProviders(MusicArtistPage, {
     initialRoute: '/music/artist?source=musicbrainz&mediaid=artist-1',
     initialState: { user: { superUser: true } },
-    global: { stubs: { NoDataFound: true, MediaCardSlideView: true, MusicArtistSlideView: true } },
+    global: { stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true } },
   })
 }
 

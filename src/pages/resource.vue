@@ -196,6 +196,9 @@ async function resolveRefreshSearchParams() {
 // 查询TMDBID或标题
 const keyword = computed(() => activeSearchParams.value.keyword)
 
+// 媒体 ID 形式的关键词（如 musicbrainz:xxx、tmdb:xxx）对用户无意义，进度卡片中仅展示标题即可。
+const isMediaIdKeyword = computed(() => /^[a-zA-Z]+:/.test(keyword.value || ''))
+
 // 查询类型
 const type = computed(() => activeSearchParams.value.type)
 
@@ -1382,7 +1385,7 @@ onUnmounted(() => {
             <div class="progress-copy">
               <span class="progress-title">{{ progressText }}</span>
               <div v-if="hasSearchTags" class="progress-tags d-flex flex-wrap">
-                <VChip v-if="keyword" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
+                <VChip v-if="keyword && !isMediaIdKeyword" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
                   {{ t('resource.keyword') }}: {{ keyword }}
                 </VChip>
                 <VChip v-if="title" class="search-tag progress-tag" color="primary" size="small" variant="tonal">

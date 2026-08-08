@@ -10,7 +10,12 @@ const props = defineProps({
   apipath: String,
   // 区块标题
   title: String,
+  // 瀑布浏览全部的路由，对齐影视详情页的“更多”入口
+  linkurl: String,
 })
+
+// 提供给 VirtualSlideView 的标题与“更多”链接，避免再渲染一层重复标题
+provide('rankingPropsKey', reactive({ ...props }))
 
 // 组件是否已经完成首次加载
 const componentLoaded = ref(false)
@@ -64,9 +69,6 @@ onActivated(() => {
 
 <template>
   <div ref="containerRef">
-    <div v-if="props.title && (!componentLoaded || dataList.length > 0)" class="slider-header">
-      <span class="slider-title">{{ props.title }}</span>
-    </div>
     <VirtualSlideView
       v-if="!componentLoaded || dataList.length > 0"
       :items="dataList"

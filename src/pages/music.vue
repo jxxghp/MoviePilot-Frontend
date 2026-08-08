@@ -40,7 +40,7 @@ watch(query, searchMusic, { immediate: true })
 
 <template>
   <div class="music-search-page">
-    <VPageContentTitle :title="query ? t('music.resultsFor', { query }) : t('music.title')" />
+    <VPageContentTitle :title="query || t('music.title')" />
 
     <VSkeletonLoader v-if="loading" type="card, card, card" />
     <VRow v-else-if="results.length">

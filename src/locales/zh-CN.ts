@@ -404,7 +404,6 @@ export default {
   },
   music: {
     title: '音乐搜索',
-    resultsFor: '“{query}”的音乐搜索结果',
     searchFromGlobal: '在顶部全局搜索中输入歌曲、专辑或艺术家进入音乐搜索',
     searchDescription: '搜索歌曲、专辑或艺术家',
     noResults: '没有找到匹配的音乐',
@@ -470,7 +469,6 @@ export default {
       upcoming: '即将发行',
       all: '全部',
       withCover: '仅有封面',
-      minListenCount: '最低收听次数',
     },
   },
   settingTabs: {
