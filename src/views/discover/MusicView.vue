@@ -26,7 +26,6 @@ const freshDays = ref(14)
 const freshScope = ref<'all' | 'past' | 'future'>('all')
 
 const coverFilter = ref('all')
-const minListenCount = ref(0)
 const currentKey = ref(0)
 
 const modeOptions = computed(() => ({
@@ -92,20 +91,19 @@ const filterParams = computed(() => {
   params.entity = entity.value
   params.range_name = rangeName.value
   params.sort_by = sortBy.value
-  params.min_listen_count = Math.max(0, minListenCount.value || 0)
   return params
 })
 
-watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverFilter, minListenCount], () => {
+watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverFilter], () => {
   currentKey.value++
 })
 </script>
 
 <template>
   <div class="px-3 music-explore-filters">
-    <div class="d-flex flex-wrap align-center ga-3 mb-2">
-      <VLabel>{{ t('music.filter.mode') }}</VLabel>
-      <VChipGroup v-model="mode" mandatory>
+    <div class="music-filter-row">
+      <VLabel class="music-filter-label">{{ t('music.filter.mode') }}</VLabel>
+      <VChipGroup v-model="mode" mandatory class="music-filter-chips">
         <VChip v-for="(label, value) in modeOptions" :key="value" :value="value" filter tile>
           {{ label }}
         </VChip>
@@ -113,25 +111,25 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
     </div>
 
     <template v-if="mode === 'chart'">
-      <div class="d-flex flex-wrap align-center ga-3 mb-2">
-        <VLabel>{{ t('music.filter.entity') }}</VLabel>
-        <VChipGroup v-model="entity" mandatory>
+      <div class="music-filter-row">
+        <VLabel class="music-filter-label">{{ t('music.filter.entity') }}</VLabel>
+        <VChipGroup v-model="entity" mandatory class="music-filter-chips">
           <VChip v-for="(label, value) in entityOptions" :key="value" :value="value" filter tile>
             {{ label }}
           </VChip>
         </VChipGroup>
       </div>
-      <div class="d-flex flex-wrap align-center ga-3 mb-2">
-        <VLabel>{{ t('music.filter.period') }}</VLabel>
-        <VChipGroup v-model="rangeName" mandatory>
+      <div class="music-filter-row">
+        <VLabel class="music-filter-label">{{ t('music.filter.period') }}</VLabel>
+        <VChipGroup v-model="rangeName" mandatory class="music-filter-chips">
           <VChip v-for="(label, value) in rangeOptions" :key="value" :value="value" filter tile>
             {{ label }}
           </VChip>
         </VChipGroup>
       </div>
-      <div class="d-flex flex-wrap align-center ga-3 mb-2">
-        <VLabel>{{ t('music.filter.sort') }}</VLabel>
-        <VChipGroup v-model="sortBy" mandatory>
+      <div class="music-filter-row">
+        <VLabel class="music-filter-label">{{ t('music.filter.sort') }}</VLabel>
+        <VChipGroup v-model="sortBy" mandatory class="music-filter-chips">
           <VChip v-for="(label, value) in sortOptions" :key="value" :value="value" filter tile>
             {{ label }}
           </VChip>
@@ -140,17 +138,17 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
     </template>
 
     <template v-else>
-      <div class="d-flex flex-wrap align-center ga-3 mb-2">
-        <VLabel>{{ t('music.filter.sort') }}</VLabel>
-        <VChipGroup v-model="freshSort" mandatory>
+      <div class="music-filter-row">
+        <VLabel class="music-filter-label">{{ t('music.filter.sort') }}</VLabel>
+        <VChipGroup v-model="freshSort" mandatory class="music-filter-chips">
           <VChip v-for="(label, value) in freshSortOptions" :key="value" :value="value" filter tile>
             {{ label }}
           </VChip>
         </VChipGroup>
       </div>
-      <div class="d-flex flex-wrap align-center ga-3 mb-2">
-        <VLabel>{{ t('music.filter.scope') }}</VLabel>
-        <VChipGroup v-model="freshScope" mandatory>
+      <div class="music-filter-row">
+        <VLabel class="music-filter-label">{{ t('music.filter.scope') }}</VLabel>
+        <VChipGroup v-model="freshScope" mandatory class="music-filter-chips">
           <VChip v-for="(label, value) in freshScopeOptions" :key="value" :value="value" filter tile>
             {{ label }}
           </VChip>
@@ -167,34 +165,48 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
       </div>
     </template>
 
-    <div class="d-flex flex-wrap align-center ga-3 mb-3">
-      <VLabel>{{ t('music.filter.cover') }}</VLabel>
-      <VChipGroup v-model="coverFilter" mandatory>
+    <div class="music-filter-row">
+      <VLabel class="music-filter-label">{{ t('music.filter.cover') }}</VLabel>
+      <VChipGroup v-model="coverFilter" mandatory class="music-filter-chips">
         <VChip value="all" filter tile>{{ t('music.filter.all') }}</VChip>
         <VChip value="with_cover" filter tile>{{ t('music.filter.withCover') }}</VChip>
       </VChipGroup>
-      <VTextField
-        v-if="mode === 'chart'"
-        v-model.number="minListenCount"
-        :label="t('music.filter.minListenCount')"
-        type="number"
-        min="0"
-        density="compact"
-        variant="outlined"
-        hide-details
-        class="music-listen-count-filter"
-      />
     </div>
   </div>
   <MediaCardListView :key="currentKey" apipath="music/explore" :params="filterParams" />
 </template>
 
 <style scoped>
-.music-listen-count-filter {
-  max-inline-size: 14rem;
+.music-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-end: 0.5rem;
+}
+
+.music-filter-label {
+  flex: 0 0 auto;
+}
+
+/* 周期等筛选项在小屏幕下允许左右滑动，但不换行 */
+.music-filter-chips {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.music-filter-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.music-filter-chips :deep(.v-chip) {
+  flex: 0 0 auto;
 }
 
 .music-days-filter {
+  flex: 0 0 auto;
   max-inline-size: 10rem;
 }
 </style>

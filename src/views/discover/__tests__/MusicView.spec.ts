@@ -36,15 +36,12 @@ describe('MusicView', () => {
     await user.click(screen.getByText('过去一季'))
     await user.click(screen.getByText('收听最少'))
     await user.click(screen.getByText('仅有封面'))
-    await user.clear(screen.getByLabelText('最低收听次数'))
-    await user.type(screen.getByLabelText('最低收听次数'), '100')
 
     const params = screen.getByTestId('music-params')
     expect(params).toHaveTextContent('"entity":"album"')
     expect(params).toHaveTextContent('"range_name":"quarter"')
     expect(params).toHaveTextContent('"sort_by":"listen_count.asc"')
     expect(params).toHaveTextContent('"with_cover":true')
-    expect(params).toHaveTextContent('"min_listen_count":100')
   })
 
   it('switches to the official fresh releases mode with its own sort options', async () => {
@@ -55,7 +52,6 @@ describe('MusicView', () => {
 
     expect(screen.getByText('艺术家')).toBeInTheDocument()
     expect(screen.getByText('专辑名称')).toBeInTheDocument()
-    expect(screen.queryByLabelText('最低收听次数')).not.toBeInTheDocument()
 
     await user.click(screen.getByText('艺术家'))
     await user.click(screen.getByText('即将发行'))

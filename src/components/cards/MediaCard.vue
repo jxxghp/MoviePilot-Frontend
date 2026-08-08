@@ -399,7 +399,12 @@ function setupIntersectionObserver() {
 
 // 计算图片地址
 const getImgUrl: Ref<string> = computed(() => {
-  if (props.media?.type === '音乐' && (!props.media?.poster_path || imageLoadError.value)) return ''
+  if (props.media?.type === '音乐') {
+    // 音乐封面优先使用 cover_url（ListenBrainz/MusicBrainz 统计接口返回），回退到 poster_path
+    const musicCover = props.media?.cover_url || props.media?.poster_path
+    if (!musicCover || imageLoadError.value) return ''
+    return getDisplayImageUrl(musicCover, globalSettings.GLOBAL_IMAGE_CACHE)
+  }
   if (imageLoadError.value) return noImage
   const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
