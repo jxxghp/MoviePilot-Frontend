@@ -405,7 +405,7 @@ export default {
   music: {
     title: '音樂搜尋',
     searchFromGlobal: '在頂部全域搜尋中輸入歌曲、專輯或藝術家進入音樂搜尋',
-    searchDescription: '搜尋歌曲、專輯或藝術家',
+    searchDescription: '歌曲、專輯或藝術家',
     noResults: '沒有找到符合的音樂',
     searchResources: '搜尋資源',
     subscribe: '訂閱',
