@@ -413,7 +413,7 @@ export default {
   music: {
     title: 'Music Search',
     searchFromGlobal: 'Use the global search at the top to look up a song, album or artist',
-    searchDescription: 'Search songs, albums or artists',
+    searchDescription: 'Songs, albums or artists',
     noResults: 'No matching music found',
     searchResources: 'Search Resources',
     subscribe: 'Subscribe',
