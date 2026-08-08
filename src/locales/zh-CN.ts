@@ -405,7 +405,7 @@ export default {
   music: {
     title: '音乐搜索',
     searchFromGlobal: '在顶部全局搜索中输入歌曲、专辑或艺术家进入音乐搜索',
-    searchDescription: '搜索歌曲、专辑或艺术家',
+    searchDescription: '歌曲、专辑或艺术家',
     noResults: '没有找到匹配的音乐',
     searchResources: '搜索资源',
     subscribe: '订阅',
