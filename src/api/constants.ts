@@ -97,6 +97,10 @@ export const mediaServerOptions = [
     value: 'ugreen',
     title: i18n.global.t('setting.system.ugreen'),
   },
+  {
+    value: 'navidrome',
+    title: i18n.global.t('setting.system.navidrome'),
+  },
 ]
 
 export const mediaServerDict = mediaServerOptions.reduce(

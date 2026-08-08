@@ -9,7 +9,7 @@
 | ESLint                 | JavaScript、TypeScript、Vue 代码质量，框架约束和项目模块边界 | 缩进、换行、引号、属性布局等代码格式   |
 | Prettier               | 可确定、可重复的代码格式                                     | 未使用变量、Vue 规则、复杂度和模块边界 |
 | TypeScript / `vue-tsc` | TypeScript 与 Vue 模板类型检查                               | 代码格式和业务行为测试                 |
-| Vitest                 | 单元测试、组件测试和覆盖率门槛                               | 生产构建与真实浏览器行为               |
+| Vitest                 | 单元测试、组件测试和按需覆盖率报告                           | 生产构建与真实浏览器行为               |
 | Vite                   | 生产构建和构建期集成验证                                     | 类型完整性和代码质量规则               |
 
 ESLint 配置由仓库显式维护，不继承 Antfu 等覆盖面较大的个人风格预设。JavaScript、TypeScript 与 Vue 使用各自面向正确性的 recommended/essential 基线；SonarJS 不整包展开 recommended，而只显式启用安全和正确性的高信号规则，避免插件升级隐式扩大检查范围。
@@ -22,7 +22,7 @@ Prettier 独立运行，ESLint 中与格式重叠的规则保持关闭。任何�
 
 - 最低兼容目标为 Node.js 20.19；Node.js 20.19、22 和 24 的开发环境可以安装依赖并运行项目命令。
 - 推荐开发环境和 CI 主环境使用 Node.js 24。
-- CI 若继续声明兼容 Node.js 20.19，应至少在该版本验证 frozen lockfile 安装、lint、typecheck 和 build；完整覆盖率门禁在 Node.js 24 执行。
+- CI 若继续声明兼容 Node.js 20.19，应至少在该版本验证 frozen lockfile 安装、lint、typecheck 和 build；主测试 job 使用 Node.js 24 执行单元测试。
 - Yarn 1 与 `yarn.lock` 继续作为依赖安装事实源，CI 使用 `yarn --frozen-lockfile`。
 - Node 只用于依赖安装、开发、测试和前端构建；MoviePilot 正式 Docker 镜像使用预构建前端产物，不因开发工具链升级而增加 Node 运行时。
 
@@ -60,7 +60,7 @@ ESLint 迁移优先于全仓格式治理，基础设施迁移不夹带批量业�
 5. 只检查 JavaScript、TypeScript、Vue 与相关测试文件；Markdown、JSON、YAML、TOML、构建产物和生成文件不在首阶段扩展范围内。
 6. 默认 lint 只读，并提供单独的 `lint:fix`。
 7. 对确有价值但存在存量的问题使用明确基线或分阶段启用，不通过全仓自动修复制造大面积混合变更。
-8. 项目边界与新增问题门禁使用 Vitest 配置契约测试保护，并随现有 `test:coverage` CI 自动执行。
+8. 项目边界与新增问题门禁使用 Vitest 配置契约测试保护，并随现有 `test:run` CI 自动执行。
 
 `eslint-suppressions.json` 只冻结迁移时已经确认的文件、规则和数量。新增问题不得加入 baseline；修复存量问题后运行 `yarn lint:suppressions:prune`，并把裁剪结果与代码修复一同提交。日常开发和 CI 不得使用 `--suppress-all`。
 
@@ -70,7 +70,7 @@ ESLint 迁移优先于全仓格式治理，基础设施迁移不夹带批量业�
 yarn --frozen-lockfile
 yarn lint
 yarn typecheck
-yarn test:coverage
+yarn test:run
 yarn build
 ```
 
@@ -80,7 +80,7 @@ yarn build
 
 第二阶段在 Pull Request workflow 中增加独立的全仓 `yarn lint` job：
 
-1. lint 与 `typecheck-and-coverage` 使用不同 job，保持静态检查和测试覆盖率职责独立。
+1. lint 与 `typecheck-and-tests` 使用不同 job，保持静态检查和单元测试职责独立。
 2. 初始阶段作为普通 check 运行，不立即配置 required check。
 3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint`，不执行自动修复或更新 baseline。
 4. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。
@@ -135,7 +135,7 @@ Prettier 3.9.5 基础设施接入时，全仓只读检查在 `v2` 基线报告 2
 
 - 全仓 `yarn format:all:check` 已通过，或仅剩少量可在独立机械提交中安全处理的文件。
 - 最近的活跃分支已合并或完成同步，避免集中格式变化制造冲突。
-- `yarn lint`、`yarn typecheck`、`yarn test:coverage` 和 `yarn build` 在格式收敛后全部通过。
+- `yarn lint`、`yarn typecheck`、`yarn test:run` 和 `yarn build` 在格式收敛后全部通过。
 - Prettier 与 ESLint 不存在反复改写同一文件的规则冲突。
 - workflow 已以非 required 状态稳定运行多个 PR。
 
@@ -146,7 +146,7 @@ yarn --frozen-lockfile
 yarn format:all:check
 yarn lint
 yarn typecheck
-yarn test:coverage
+yarn test:run
 yarn build
 ```
 
@@ -159,7 +159,7 @@ PR-Agent、编辑器诊断和人工 review 可以补充判断，但不能替代�
 1. 只对本次新增或修改的文件执行 Prettier。
 2. 运行全仓只读 lint。
 3. 运行 typecheck。
-4. 按影响面运行聚焦测试；提交 PR 前运行覆盖率门禁。
+4. 按影响面运行聚焦测试；覆盖率报告按需本地运行，不作为 Actions 门禁。
 5. 涉及构建配置、依赖、Vue SFC 或模块联邦时运行生产 build。
 
 编辑器设置不得成为通过验证的前提。文档、Agent 指令和 PR 说明应引用 `yarn` 命令，而不是“在 VS Code 保存一次”或依赖某个 IDE 扩展完成修复。

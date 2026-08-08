@@ -440,10 +440,18 @@ export interface MediaInfo {
   artists?: string[]
   // 音乐艺术家展示文本
   artist?: string
+  // 音乐实体类型：recording 单曲、album 专辑、artist 艺术家
+  music_type?: MusicEntityType
+  // 音乐艺术家标准ID，顺序与 artists 一致
+  artist_ids?: string[]
   // 专辑
   album?: string
   // 专辑艺术家
   album_artist?: string
+  // 所属专辑标准ID
+  album_id?: string
+  // 专辑主类型：Album、EP、Single 等
+  album_type?: string
   // 发行版本
   version?: string
   // 音轨号
@@ -460,6 +468,145 @@ export interface MediaInfo {
   cover_url?: string
   // ListenBrainz 收听次数
   listen_count?: number
+}
+
+// 音乐可浏览实体类型
+export type MusicEntityType = 'recording' | 'album' | 'artist'
+
+// 音乐专辑下的单个发行版本
+export interface MusicRelease {
+  // 发行版本标准ID
+  media_id?: string
+  // 发行版本名称
+  title?: string
+  // 发行日期
+  date?: string
+  // 发行年份
+  year?: number
+  // 发行地区
+  country?: string
+  // 发行状态：Official、Promotion 等
+  status?: string
+  // 包装形式
+  packaging?: string
+  // 介质格式：CD、Vinyl 等
+  formats?: string[]
+  // 音轨总数
+  track_count?: number
+  // 封面
+  cover_url?: string
+}
+
+// 音乐专辑详情
+export interface MusicAlbumInfo {
+  // 类型，固定为音乐
+  type?: string
+  // 实体类型，固定为 album
+  music_type?: MusicEntityType
+  // 来源
+  source?: string
+  // 专辑标准ID
+  media_id?: string
+  // 专辑名称
+  title?: string
+  // 艺术家列表
+  artists?: string[]
+  // 艺术家展示文本
+  artist?: string
+  // 艺术家标准ID，顺序与 artists 一致
+  artist_ids?: string[]
+  // 专辑名称，与 title 一致，便于复用音乐展示组件
+  album?: string
+  // 专辑主类型
+  album_type?: string
+  // 专辑副类型
+  secondary_types?: string[]
+  // 首次发行年份
+  year?: number
+  // 首次发行日期
+  release_date?: string
+  // 音轨总数
+  total_tracks?: number
+  // 专辑总时长（秒）
+  duration?: number
+  // 封面
+  cover_url?: string
+  // 风格
+  genres?: string[]
+  // 标签
+  tags?: string[]
+  // 主类型与副类型组合文本
+  category?: string
+  // 10 分制评分
+  rating?: number
+  // 评分人数
+  rating_votes?: number
+  // 详情页面
+  detail_link?: string
+  // 专辑内的音乐
+  tracks?: MediaInfo[]
+  // 同一专辑的其它发行版本
+  releases?: MusicRelease[]
+  // 海报
+  poster_path?: string
+  // 背景图
+  backdrop_path?: string
+  // 摘要
+  overview?: string
+}
+
+// 音乐艺术家详情
+export interface MusicArtistInfo {
+  // 类型，固定为音乐
+  type?: string
+  // 实体类型，固定为 artist
+  music_type?: MusicEntityType
+  // 来源
+  source?: string
+  // 艺术家标准ID
+  media_id?: string
+  // 艺术家名称
+  name?: string
+  // 名称，与 name 一致，便于复用通用展示组件
+  title?: string
+  // 排序名称
+  sort_name?: string
+  // 消歧义说明
+  disambiguation?: string
+  // 艺术家类型：Person、Group 等
+  artist_type?: string
+  // 性别
+  gender?: string
+  // 国家代码
+  country?: string
+  // 地区
+  area?: string
+  // 出道或成立日期
+  begin_date?: string
+  // 解散或去世日期
+  end_date?: string
+  // 是否已结束活动
+  ended?: boolean
+  // 活跃时间区间文本
+  life_span?: string
+  // 风格
+  genres?: string[]
+  // 标签
+  tags?: string[]
+  // 别名
+  aliases?: string[]
+  // 与当前艺术家的关系文本
+  relation?: string
+  // 艺术家图片
+  image_url?: string
+  // 详情页面
+  detail_link?: string
+  // 外部站点链接
+  external_links?: Record<string, string>
+  // 海报
+  poster_path?: string
+  // 摘要
+  overview?: string
 }
 
 // 季信息
@@ -1139,8 +1286,10 @@ export interface MediaStatistic {
   tv_count: number
   // 电视剧总集数，未获取时为 null
   episode_count: number | null
-  // 用户数量
-  user_count: number
+  // 音乐总数
+  music_count: number
+  // 用户数量，仪表板已改为展示音乐数量，仅保留接口字段兼容
+  user_count?: number
   // 本月新增电影数量
   movie_count_month: number
   // 本月新增电视剧数量
@@ -1484,7 +1633,7 @@ export interface StorageConf {
 export interface MediaServerConf {
   // 名称
   name: string
-  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen
+  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen/navidrome
   type: string
   // 配置
   config: { [key: string]: any }

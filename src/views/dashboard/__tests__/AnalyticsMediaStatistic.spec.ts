@@ -35,7 +35,7 @@ describe('AnalyticsMediaStatistic', () => {
           movie_count: 12,
           tv_count: 34,
           episode_count: 56,
-          user_count: 7,
+          music_count: 7,
           movie_count_month: 1,
           tv_count_month: 2,
           episode_count_month: 3,
@@ -57,7 +57,7 @@ describe('AnalyticsMediaStatistic', () => {
       movie_count: 21,
       tv_count: 43,
       episode_count: 65,
-      user_count: 8,
+      music_count: 8,
       movie_count_month: 4,
       tv_count_month: 5,
       episode_count_month: 6,
@@ -68,7 +68,7 @@ describe('AnalyticsMediaStatistic', () => {
       movie_count: 21,
       tv_count: 43,
       episode_count: 65,
-      user_count: 8,
+      music_count: 8,
     })
   })
 
@@ -81,7 +81,7 @@ describe('AnalyticsMediaStatistic', () => {
           movie_count: 12,
           tv_count: 34,
           episode_count: null,
-          user_count: 7,
+          music_count: 7,
           movie_count_month: 1,
           tv_count_month: 2,
           episode_count_month: 3,
@@ -116,7 +116,7 @@ describe('AnalyticsMediaStatistic', () => {
       movie_count: 21,
       tv_count: 43,
       episode_count: 65,
-      user_count: 8,
+      music_count: 8,
       movie_count_month: 4,
       tv_count_month: 5,
       episode_count_month: 6,
@@ -127,7 +127,7 @@ describe('AnalyticsMediaStatistic', () => {
       movie_count: 12,
       tv_count: 34,
       episode_count: 56,
-      user_count: 7,
+      music_count: 7,
       movie_count_month: 1,
       tv_count_month: 2,
       episode_count_month: 3,
@@ -140,7 +140,7 @@ describe('AnalyticsMediaStatistic', () => {
       movie_count: 21,
       tv_count: 43,
       episode_count: 65,
-      user_count: 8,
+      music_count: 8,
     })
   })
 })

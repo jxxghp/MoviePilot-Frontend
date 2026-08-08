@@ -93,6 +93,20 @@ const router = createRouter({
           },
         },
         {
+          path: '/music/album',
+          component: () => import('../pages/music-album.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: '/music/artist',
+          component: () => import('../pages/music-artist.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
           path: '/subscribe/movie',
           component: () => import('../pages/subscribe.vue'),
           meta: {

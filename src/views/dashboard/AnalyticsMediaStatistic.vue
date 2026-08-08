@@ -16,7 +16,7 @@ const tvCount = ref(Number(currentSnapshot?.value.tv_count) || 0)
 const episodeCount = ref<number | null>(
   currentSnapshot?.value.episode_count == null ? null : Number(currentSnapshot.value.episode_count) || 0,
 )
-const userCount = ref(Number(currentSnapshot?.value.user_count) || 0)
+const musicCount = ref(Number(currentSnapshot?.value.music_count) || 0)
 const movieCountMonth = ref(Number(currentSnapshot?.value.movie_count_month) || 0)
 const tvCountMonth = ref(Number(currentSnapshot?.value.tv_count_month) || 0)
 const episodeCountMonth = ref(Number(currentSnapshot?.value.episode_count_month) || 0)
@@ -39,7 +39,7 @@ const animatedEpisodeCount = useAnimatedDashboardNumber(
   },
 )
 
-const animatedUserCount = useAnimatedDashboardNumber(userCount, {
+const animatedMusicCount = useAnimatedDashboardNumber(musicCount, {
   delay: 180,
   duration: 720,
 })
@@ -67,9 +67,9 @@ const statistics = computed(() => [
     addition: episodeCountMonth.value,
   },
   {
-    title: t('dashboard.users'),
-    stats: formatDashboardCount(animatedUserCount.value),
-    icon: 'mdi-account',
+    title: t('mediaType.music'),
+    stats: formatDashboardCount(animatedMusicCount.value),
+    icon: 'mdi-music-box-multiple',
     color: 'info',
     addition: null,
   },
@@ -86,7 +86,7 @@ async function loadMediaStatistic() {
       movie_count: Number(res.movie_count) || 0,
       tv_count: Number(res.tv_count) || 0,
       episode_count: res.episode_count == null ? null : Number(res.episode_count) || 0,
-      user_count: Number(res.user_count) || 0,
+      music_count: Number(res.music_count) || 0,
       movie_count_month: Number(res.movie_count_month) || 0,
       tv_count_month: Number(res.tv_count_month) || 0,
       episode_count_month: Number(res.episode_count_month) || 0,
@@ -95,7 +95,7 @@ async function loadMediaStatistic() {
     movieCount.value = statistic.movie_count
     tvCount.value = statistic.tv_count
     episodeCount.value = statistic.episode_count
-    userCount.value = statistic.user_count
+    musicCount.value = statistic.music_count
     movieCountMonth.value = statistic.movie_count_month
     tvCountMonth.value = statistic.tv_count_month
     episodeCountMonth.value = statistic.episode_count_month
@@ -132,7 +132,7 @@ onActivated(() => {
             <span v-if="item.addition !== null" class="dashboard-stat-addition">
               {{ t('dashboard.monthlyAddition', { count: item.addition }) }}
             </span>
-            <span v-else class="dashboard-stat-addition text-medium-emphasis">{{ t('dashboard.activeUsers') }}</span>
+            <span v-else class="dashboard-stat-addition text-medium-emphasis">{{ t('dashboard.musicLibrary') }}</span>
           </div>
         </div>
       </div>

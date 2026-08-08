@@ -141,6 +141,18 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
   })
 
+  it('uses the poster as the background fallback and replaces failed images with the placeholder', async () => {
+    const { container, media } = await renderCard({ backdrop: undefined })
+    const image = container.querySelector<HTMLImageElement>('img')
+
+    expect(image).not.toBeNull()
+    expect((image as HTMLImageElement).src).toContain(media.poster || '')
+
+    await fireEvent.error(image as HTMLImageElement)
+
+    await waitFor(() => expect(container.querySelector<HTMLImageElement>('img')?.src).toContain('no-image'))
+  })
+
   it.each([
     ['regular progress', 10, 4, '6 / 10', '60'],
     ['negative missing episodes', 10, -2, '10 / 10', '100'],

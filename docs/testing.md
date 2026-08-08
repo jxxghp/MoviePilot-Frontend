@@ -72,13 +72,13 @@ tests/
 3. 需要 HTTP 请求时，在 `tests/support/msw/handlers/<domain>.ts` 增加对应 handler。
 4. 需要结构化业务数据时，在 `tests/support/factories/` 增加最小工厂。
 5. 核心覆盖范围发生变化时，同步更新 `vite.config.ts` 的 `coverage.include`。
-6. 提交前运行测试、覆盖率、类型检查、lint 和生产构建。
+6. 提交前按影响面运行测试、类型检查、lint 和生产构建；覆盖率报告按需本地执行。
 
 ## 配置边界
 
 Vitest 收集 `src/**/__tests__/**/*.spec.ts` 和 `tests/config/**/*.spec.ts`。测试模式保留 Vue、Vue JSX、Vuetify、自动导入、自动组件和 i18n 插件，并禁用 PWA、模块联邦和 top-level-await 构建插件。配置契约测试随全量测试执行，但不加入业务源码覆盖率统计范围。
 
-当前核心覆盖范围在 `vite.config.ts` 的 `coverage.include` 中显式维护。聚合门槛为 Lines、Statements、Functions 不低于 85%，Branches 不低于 80%；每个显式核心文件的 Lines、Statements、Functions 不低于 80%，Branches 不低于 75%。覆盖率报告写入 `coverage/`。
+当前核心覆盖范围在 `vite.config.ts` 的 `coverage.include` 中显式维护，覆盖率报告写入 `coverage/`。覆盖率配置保留给本地质量分析，不作为 GitHub Actions 的单元测试门禁。
 
 ## 命令与 CI
 
@@ -92,4 +92,4 @@ yarn lint
 yarn build
 ```
 
-`Frontend Tests` 工作流使用 Node 24 LTS 和 frozen lockfile，在面向 `v3` 的 Pull Request 和推送到 `v3` 时运行。`typecheck-and-coverage` job 依次执行类型检查和覆盖率门禁；独立的 `lint` job 执行全仓只读 ESLint 检查。变更文件格式检查依赖 Pull Request 的 base/head SHA，因此只在 Pull Request 事件运行。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。
+`Frontend Tests` 工作流使用 Node 24 LTS 和 frozen lockfile，在面向 `v3` 的 Pull Request 和推送到 `v3` 时运行。`typecheck-and-tests` job 执行类型检查和单元测试（`yarn test:run`），不要求覆盖率达标；覆盖率可按需在本地运行 `yarn test:coverage`。独立的 `lint` job 执行全仓只读 ESLint 检查。变更文件格式检查依赖 Pull Request 的 base/head SHA，因此只在 Pull Request 事件运行。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。

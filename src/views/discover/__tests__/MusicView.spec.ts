@@ -10,24 +10,61 @@ const MediaCardListViewStub = defineComponent({
   template: '<pre data-testid="music-params">{{ JSON.stringify(params) }}</pre>',
 })
 
-describe('MusicView', () => {
-  it('provides period, sort, cover and listen-count filters to music exploration', async () => {
-    const user = userEvent.setup()
-    await renderWithProviders(MusicView, {
-      global: {
-        stubs: { MediaCardListView: MediaCardListViewStub },
-      },
-    })
+/** 渲染音乐探索筛选，列表区域用桩组件回显请求参数。 */
+function renderMusicView() {
+  return renderWithProviders(MusicView, {
+    global: { stubs: { MediaCardListView: MediaCardListViewStub } },
+  })
+}
 
-    await user.click(screen.getByText('本周'))
+describe('MusicView', () => {
+  it('defaults to the sitewide top tracks chart of the current month', async () => {
+    await renderMusicView()
+
+    const params = screen.getByTestId('music-params')
+    expect(params).toHaveTextContent('"mode":"chart"')
+    expect(params).toHaveTextContent('"entity":"recording"')
+    expect(params).toHaveTextContent('"range_name":"this_month"')
+    expect(params).toHaveTextContent('"sort_by":"listen_count.desc"')
+  })
+
+  it('provides the official chart entities, periods and listen filters', async () => {
+    const user = userEvent.setup()
+    await renderMusicView()
+
+    await user.click(screen.getByText('热门专辑'))
+    await user.click(screen.getByText('过去一季'))
     await user.click(screen.getByText('收听最少'))
     await user.click(screen.getByText('仅有封面'))
     await user.clear(screen.getByLabelText('最低收听次数'))
     await user.type(screen.getByLabelText('最低收听次数'), '100')
 
-    expect(screen.getByTestId('music-params')).toHaveTextContent('"range_name":"this_week"')
-    expect(screen.getByTestId('music-params')).toHaveTextContent('"sort_by":"listen_count.asc"')
-    expect(screen.getByTestId('music-params')).toHaveTextContent('"with_cover":true')
-    expect(screen.getByTestId('music-params')).toHaveTextContent('"min_listen_count":100')
+    const params = screen.getByTestId('music-params')
+    expect(params).toHaveTextContent('"entity":"album"')
+    expect(params).toHaveTextContent('"range_name":"quarter"')
+    expect(params).toHaveTextContent('"sort_by":"listen_count.asc"')
+    expect(params).toHaveTextContent('"with_cover":true')
+    expect(params).toHaveTextContent('"min_listen_count":100')
+  })
+
+  it('switches to the official fresh releases mode with its own sort options', async () => {
+    const user = userEvent.setup()
+    await renderMusicView()
+
+    await user.click(screen.getByText('新发行'))
+
+    expect(screen.getByText('艺术家')).toBeInTheDocument()
+    expect(screen.getByText('专辑名称')).toBeInTheDocument()
+    expect(screen.queryByLabelText('最低收听次数')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('艺术家'))
+    await user.click(screen.getByText('即将发行'))
+
+    const params = screen.getByTestId('music-params')
+    expect(params).toHaveTextContent('"mode":"fresh"')
+    expect(params).toHaveTextContent('"sort":"artist_credit_name"')
+    expect(params).toHaveTextContent('"days":14')
+    expect(params).toHaveTextContent('"past":false')
+    expect(params).toHaveTextContent('"future":true')
   })
 })

@@ -11,8 +11,7 @@ describe('前端测试 workflow', () => {
   it('在 PR 与 v3 push 上运行，并将变更文件格式检查限制为 PR', () => {
     const workflow = readFileSync(workflowPath, 'utf8')
     const formatJob = workflow.match(/\n {2}format:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
-    const qualityJob = workflow.match(/\n {2}typecheck-and-coverage:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups
-      ?.job
+    const qualityJob = workflow.match(/\n {2}typecheck-and-tests:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
 
     expect(workflow).toContain('permissions:\n  contents: read')
     expect(workflow).toContain('pull_request:\n    branches:\n      - v3')
@@ -29,7 +28,8 @@ describe('前端测试 workflow', () => {
     expect(formatJob).not.toContain('--write')
     expect(qualityJob).toBeDefined()
     expect(qualityJob).toContain('run: yarn typecheck')
-    expect(qualityJob).toContain('run: yarn test:coverage')
+    expect(qualityJob).toContain('run: yarn test:run')
+    expect(qualityJob).not.toContain('test:coverage')
     expect(workflow).not.toContain('\n  unit-tests:\n')
   })
 
@@ -37,10 +37,10 @@ describe('前端测试 workflow', () => {
     const testingGuide = readFileSync(testingGuidePath, 'utf8')
     const codeQualityGuide = readFileSync(codeQualityGuidePath, 'utf8')
 
-    expect(testingGuide).toContain('`typecheck-and-coverage` job')
+    expect(testingGuide).toContain('`typecheck-and-tests` job')
     expect(testingGuide).toContain('推送到 `v3`')
     expect(testingGuide).toContain('只在 Pull Request 事件运行')
-    expect(codeQualityGuide).toContain('lint 与 `typecheck-and-coverage` 使用不同 job')
+    expect(codeQualityGuide).toContain('lint 与 `typecheck-and-tests` 使用不同 job')
     expect(testingGuide).not.toContain('`unit-tests`')
     expect(codeQualityGuide).not.toContain('`unit-tests`')
   })

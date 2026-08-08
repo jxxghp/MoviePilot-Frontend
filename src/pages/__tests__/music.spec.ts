@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  apiDelete: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
 }))
@@ -14,6 +15,7 @@ vi.mock('@/api', () => ({
   default: {
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
+    delete: (...args: unknown[]) => mocks.apiDelete(...args),
   },
 }))
 
@@ -24,71 +26,106 @@ vi.mock('vue-toastification', () => ({
   }),
 }))
 
+const musicResult = {
+  album: '叶惠美',
+  album_id: 'release-group-1',
+  album_type: 'Album',
+  artist: '周杰伦',
+  artists: ['周杰伦'],
+  artist_ids: ['artist-1'],
+  category: 'Album',
+  duration: 269,
+  media_id: 'recording-1',
+  music_type: 'recording',
+  release_date: '2003-07-31',
+  source: 'musicbrainz',
+  title: '晴天',
+  type: '音乐',
+  year: 2003,
+}
+
+/** 按请求路径分派音乐搜索与订阅状态查询。 */
+function mockSearchAndSubscribeState(subscribed: boolean) {
+  mocks.apiGet.mockImplementation((path: string) => {
+    if (path === 'music/search') return Promise.resolve([musicResult])
+    if (path.startsWith('subscribe/media/')) {
+      return subscribed ? Promise.resolve({ id: 9 }) : Promise.reject({ response: { status: 404 } })
+    }
+    return Promise.resolve([])
+  })
+}
+
+/** 渲染音乐搜索结果页，统一提供超级用户权限与路由关键词。 */
+function renderMusicPage() {
+  return renderWithProviders(MusicPage, {
+    initialRoute: '/music?query=晴天',
+    initialState: { user: { superUser: true } },
+    global: { stubs: { NoDataFound: true, VPageContentTitle: true } },
+  })
+}
+
 describe('music page', () => {
   beforeEach(() => {
-    mocks.apiGet.mockResolvedValue([
-      {
-        album: '叶惠美',
-        artist: '周杰伦',
-        artists: ['周杰伦'],
-        media_id: 'recording-1',
-        source: 'musicbrainz',
-        title: '晴天',
-        type: '音乐',
-        year: 2003,
-      },
-    ])
+    mocks.apiGet.mockReset()
+    mocks.apiPost.mockReset()
+    mocks.apiDelete.mockReset()
+    mockSearchAndSubscribeState(false)
     mocks.apiPost.mockResolvedValue({ data: { id: 1 }, success: true })
   })
 
-  it('searches metadata and connects resource search and subscription actions', async () => {
-    const { router } = await renderWithProviders(MusicPage, {
-      initialRoute: '/music?query=晴天',
-      global: {
-        stubs: {
-          NoDataFound: true,
-          VPageContentTitle: true,
-        },
-      },
-    })
+  it('searches from the route keyword without an in-page search box', async () => {
+    await renderMusicPage()
 
     await waitFor(() =>
       expect(mocks.apiGet).toHaveBeenCalledWith('music/search', {
         params: { count: 30, query: '晴天' },
       }),
     )
-    const resourceButton = await screen.findByRole('button', { name: '搜索资源' })
-    await fireEvent.click(resourceButton)
-    await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
-    expect(router.currentRoute.value.query).toMatchObject({
-      keyword: 'musicbrainz:recording-1',
-      type: '音乐',
-    })
-
-    await router.push('/music?query=晴天')
-    await fireEvent.click(screen.getByRole('button', { name: '订阅' }))
-    await waitFor(() =>
-      expect(mocks.apiPost).toHaveBeenCalledWith('subscribe/', {
-        media_id: 'recording-1',
-        media_source: 'musicbrainz',
-        name: '晴天',
-        type: '音乐',
-        year: '2003',
-      }),
-    )
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('音乐订阅添加成功')
+    expect(screen.queryByRole('button', { name: '搜索音乐' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
-  it('opens a MusicBrainz result on the dedicated music detail page', async () => {
-    const { router } = await renderWithProviders(MusicPage, {
-      initialRoute: '/music?query=晴天',
-      global: {
-        stubs: {
-          NoDataFound: true,
-          VPageContentTitle: true,
-        },
-      },
-    })
+  it('shows album, artist, release date and duration on the result card', async () => {
+    await renderMusicPage()
+
+    expect(await screen.findByText('晴天')).toBeInTheDocument()
+    expect(screen.getByText('周杰伦')).toBeInTheDocument()
+    expect(screen.getByText('叶惠美')).toBeInTheDocument()
+    expect(screen.getByText('2003-07-31')).toBeInTheDocument()
+    expect(screen.getByText('4:29')).toBeInTheDocument()
+    expect(screen.getByText('Album')).toBeInTheDocument()
+  })
+
+  it('offers a subscribe action when the music is not subscribed yet', async () => {
+    await renderMusicPage()
+
+    const subscribeButton = await screen.findByRole('button', { name: '订阅' })
+
+    await fireEvent.click(subscribeButton)
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'subscribe/',
+        expect.objectContaining({
+          media_id: 'recording-1',
+          media_source: 'musicbrainz',
+          name: '晴天',
+          type: '音乐',
+        }),
+      ),
+    )
+  })
+
+  it('switches the heart action to unsubscribe when already subscribed', async () => {
+    mockSearchAndSubscribeState(true)
+
+    await renderMusicPage()
+
+    expect(await screen.findByRole('button', { name: '取消订阅' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '订阅' })).not.toBeInTheDocument()
+  })
+
+  it('opens the music detail page from a result card', async () => {
+    const { router } = await renderMusicPage()
 
     await fireEvent.click(await screen.findByText('晴天'))
 
@@ -97,6 +134,36 @@ describe('music page', () => {
       source: 'musicbrainz',
       mediaid: 'recording-1',
       title: '晴天',
+    })
+  })
+
+  it('opens the album page from the result card album link', async () => {
+    const { router } = await renderMusicPage()
+
+    await fireEvent.click(await screen.findByText('叶惠美'))
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/album'))
+    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'release-group-1' })
+  })
+
+  it('opens the artist page from the result card artist link', async () => {
+    const { router } = await renderMusicPage()
+
+    await fireEvent.click(await screen.findByText('周杰伦'))
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/artist'))
+    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'artist-1' })
+  })
+
+  it('routes the resource search action to the site resource page', async () => {
+    const { router } = await renderMusicPage()
+
+    await fireEvent.click(await screen.findByRole('button', { name: '搜索资源' }))
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
+    expect(router.currentRoute.value.query).toMatchObject({
+      keyword: 'musicbrainz:recording-1',
+      type: '音乐',
     })
   })
 })

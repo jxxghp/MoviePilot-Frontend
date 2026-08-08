@@ -12,6 +12,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicDetailRoute } from '@/utils/music'
+import noImage from '@images/no-image.jpeg'
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
@@ -56,6 +57,10 @@ const $toast = useToast()
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
+
+// 背景图或海报加载失败时使用统一占位图，避免订阅卡片留下空白图片区。
+const backdropLoadError = ref(false)
+const posterLoadError = ref(false)
 
 // 当前的订阅状态
 const subscribeState = ref<string>(props.media?.state ?? 'P')
@@ -153,6 +158,17 @@ const subscribeProgressTooltip = computed(() => {
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
+}
+
+// 背景图加载失败后直接切换占位图，避免同一失效地址在 poster fallback 中重复请求。
+function backdropErrorHandler() {
+  backdropLoadError.value = true
+  imageLoaded.value = true
+}
+
+// 海报加载失败后使用占位图，保留卡片布局和可点击区域。
+function posterErrorHandler() {
+  posterLoadError.value = true
 }
 
 // 进度条 model 段百分比：洗版订阅表示"已洗版"占比（亮段），普通订阅表示"已下载"占比
@@ -395,15 +411,25 @@ watch(
   },
 )
 
+// 切换订阅记录时重新尝试加载图片，避免复用卡片组件后沿用旧的失败状态。
+watch(
+  () => [props.media?.id, props.media?.backdrop, props.media?.poster],
+  () => {
+    imageLoaded.value = false
+    backdropLoadError.value = false
+    posterLoadError.value = false
+  },
+)
+
 // 计算backdrop图片地址
 const backdropUrl = computed(() => {
-  const url = props.media?.backdrop || props.media?.poster
+  const url = backdropLoadError.value ? noImage : props.media?.backdrop || props.media?.poster || noImage
   return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 计算海报图片地址
 const posterUrl = computed(() => {
-  const url = props.media?.poster
+  const url = posterLoadError.value ? noImage : props.media?.poster || noImage
   return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
@@ -484,7 +510,14 @@ function handleCardClick() {
                 </IconBtn>
               </div>
               <template #image v-if="display.smAndUp.value">
-                <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
+                <VImg
+                  :src="backdropUrl || posterUrl"
+                  aspect-ratio="3/2"
+                  cover
+                  @load="imageLoadHandler"
+                  @error="backdropErrorHandler"
+                  position="top"
+                >
                   <template #placeholder>
                     <div class="w-full h-full">
                       <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
@@ -504,6 +537,7 @@ function handleCardClick() {
                     cover
                     position="top"
                     @load="imageLoadHandler"
+                    @error="backdropErrorHandler"
                   >
                     <template #placeholder>
                       <VSkeletonLoader class="h-full w-full" />
@@ -603,7 +637,7 @@ function handleCardClick() {
                     v-if="imageLoaded"
                     :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                   >
-                    <VImg :src="posterUrl" aspect-ratio="2/3" cover>
+                    <VImg :src="posterUrl" aspect-ratio="2/3" cover @error="posterErrorHandler">
                       <template #placeholder>
                         <div class="w-full h-full">
                           <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />

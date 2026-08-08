@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import MusicDetailView from '@/views/discover/MusicDetailView.vue'
+import MusicAlbumView from '@/views/discover/MusicAlbumView.vue'
 
 // 路由参数
 const route = useRoute()
 
-// MusicBrainz 单曲 ID
+// MusicBrainz Release Group ID
 const mediaid = computed(() => route.query?.mediaid?.toString())
 
 // 音乐元数据来源
@@ -13,6 +13,6 @@ const source = computed(() => route.query?.source?.toString() || 'musicbrainz')
 
 <template>
   <div>
-    <MusicDetailView :mediaid="mediaid" :source="source" />
+    <MusicAlbumView :mediaid="mediaid" :source="source" />
   </div>
 </template>

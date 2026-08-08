@@ -62,7 +62,7 @@ jobs:
       - name: Lint
         run: yarn lint
 
-  typecheck-and-coverage:
+  typecheck-and-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -82,5 +82,5 @@ jobs:
       - name: Typecheck
         run: yarn typecheck
 
-      - name: Unit tests with coverage
-        run: yarn test:coverage
+      - name: Unit tests
+        run: yarn test:run

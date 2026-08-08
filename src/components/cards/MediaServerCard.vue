@@ -48,8 +48,8 @@ const infoItems = ref([
     amount: '0',
   },
   {
-    avatar: 'mdi-account',
-    title: t('common.user'),
+    avatar: 'mdi-music-box-multiple',
+    title: t('mediaType.music'),
     amount: '0',
   },
 ])
@@ -87,6 +87,7 @@ const getIcon = computed(() => {
     case 'plex':
       return getLogoUrl('plex')
     default:
+      // Navidrome 等未内置图标的服务器统一回退到通用媒体服务器图标
       return getLogoUrl('mediaserver')
   }
 })
@@ -118,9 +119,9 @@ async function loadMediaStatistic() {
           amount: res.tv_count.toLocaleString(),
         },
         {
-          avatar: 'mdi-account',
-          title: t('common.user'),
-          amount: res.user_count.toLocaleString(),
+          avatar: 'mdi-music-box-multiple',
+          title: t('mediaType.music'),
+          amount: (res.music_count || 0).toLocaleString(),
         },
       ]
     }
