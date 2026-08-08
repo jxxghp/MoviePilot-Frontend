@@ -6,7 +6,6 @@ let mediaCardIdSeed = 0
 </script>
 
 <script lang="ts" setup>
-import noImage from '@images/no-image.jpeg'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import api from '@/api'
 import { formatRating } from '@/@core/utils/formatters'
@@ -405,9 +404,25 @@ const getImgUrl: Ref<string> = computed(() => {
     if (!musicCover || imageLoadError.value) return ''
     return getDisplayImageUrl(musicCover, globalSettings.GLOBAL_IMAGE_CACHE)
   }
-  if (imageLoadError.value) return noImage
-  const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
+  // 电影/电视剧等：缺失海报或加载失败时返回空串，由模板渲染对应类型的占位图标
+  if (imageLoadError.value) return ''
+  const url = props.media?.poster_path?.replace('original', 'w500')
+  if (!url) return ''
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
+})
+
+// 各类型缺失封面时的占位图标，对齐音乐媒体卡片
+const placeholderIcon = computed(() => {
+  switch (props.media?.type) {
+    case '音乐':
+      return 'mdi-album'
+    case '电影':
+      return 'mdi-movie'
+    case '电视剧':
+      return 'mdi-television-classic'
+    default:
+      return 'mdi-filmstrip'
+  }
 })
 
 // 获取媒体类型文本
@@ -481,10 +496,10 @@ onBeforeUnmount(() => {
           @click.stop="handleMediaCardClick(hover.isHovering)"
         >
           <div
-            v-if="props.media?.type === '音乐' && !getImgUrl"
-            class="music-card-placeholder d-flex align-center justify-center"
+            v-if="!getImgUrl"
+            class="media-card-placeholder d-flex align-center justify-center"
           >
-            <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+            <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
           </div>
           <VImg
             v-else
@@ -578,7 +593,7 @@ onBeforeUnmount(() => {
   inline-size: 100%;
 }
 
-.music-card-placeholder {
+.media-card-placeholder {
   aspect-ratio: 2 / 3;
   background: rgb(var(--v-theme-surface-variant));
   block-size: 100%;

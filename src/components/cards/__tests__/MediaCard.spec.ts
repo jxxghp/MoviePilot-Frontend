@@ -354,8 +354,20 @@ describe('MediaCard', () => {
 
     const { container } = await renderCard(media)
 
-    expect(container.querySelector('.music-card-placeholder .v-icon')).not.toBeNull()
+    expect(container.querySelector('.media-card-placeholder .v-icon')).not.toBeNull()
     expect(container.querySelector('img[src*="no-image"]')).toBeNull()
+  })
+
+  it.each([
+    ['电影'],
+    ['电视剧'],
+  ])('shows a typed placeholder icon for %s without a poster', async type => {
+    const media = createMediaInfo({ poster_path: undefined, title: `无海报${type}`, tmdb_id: undefined, type })
+
+    const { container } = await renderCard(media)
+
+    expect(container.querySelector('.media-card-placeholder')).toBeInTheDocument()
+    expect(container.querySelector('.media-card-placeholder .v-icon')).not.toBeNull()
   })
 
   it('routes directly to resource search when no active sites are available', async () => {

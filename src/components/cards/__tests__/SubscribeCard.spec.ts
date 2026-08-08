@@ -141,7 +141,7 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
   })
 
-  it('uses the poster as the background fallback and replaces failed images with the placeholder', async () => {
+  it('uses the poster as the background fallback and shows the placeholder after both images fail', async () => {
     const { container, media } = await renderCard({ backdrop: undefined })
     const image = container.querySelector<HTMLImageElement>('img')
 
@@ -150,26 +150,29 @@ describe('SubscribeCard display and progress', () => {
 
     await fireEvent.error(image as HTMLImageElement)
 
-    await waitFor(() => expect(container.querySelector<HTMLImageElement>('img')?.src).toContain('no-image'))
+    await waitFor(() => expect(container.querySelector('.subscribe-card-placeholder')).toBeInTheDocument())
   })
 
-  it('falls back from backdrop to poster for music subscriptions, then to the album placeholder', async () => {
+  it.each([
+    ['电影'],
+    ['电视剧'],
+    ['音乐'],
+  ])('falls back from backdrop to poster for %s subscriptions, then to the typed placeholder', async type => {
     // 仅海报：背景图回退到海报
     const { container: posterOnly } = await renderCard({
       backdrop: undefined,
-      poster: 'https://images.example.com/music-poster.jpg',
-      type: '音乐',
+      poster: 'https://images.example.com/cover.jpg',
+      type,
     })
     const posterOnlyImage = posterOnly.querySelector<HTMLImageElement>('img')
     expect(posterOnlyImage).not.toBeNull()
-    expect((posterOnlyImage as HTMLImageElement).src).toContain('music-poster.jpg')
+    expect((posterOnlyImage as HTMLImageElement).src).toContain('cover.jpg')
 
-    // 背景图与海报都缺失：渲染与音乐媒体卡片一致的胶片占位背景
-    const { container } = await renderCard({ backdrop: undefined, poster: undefined, type: '音乐' })
-    const placeholder = container.querySelector('.subscribe-card-music-placeholder')
+    // 背景图与海报都缺失：渲染与媒体卡片一致的占位背景
+    const { container } = await renderCard({ backdrop: undefined, poster: undefined, type })
+    const placeholder = container.querySelector('.subscribe-card-placeholder')
     expect(placeholder).toBeInTheDocument()
-    expect(placeholder?.querySelector('.v-icon, [class*="mdi-album"]')).not.toBeNull()
-    expect(container.querySelector('img')).toBeNull()
+    expect(placeholder?.querySelector('.v-icon')).not.toBeNull()
   })
 
   it.each([

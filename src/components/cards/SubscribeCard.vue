@@ -12,7 +12,6 @@ import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicDetailRoute } from '@/utils/music'
-import noImage from '@images/no-image.jpeg'
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
@@ -421,40 +420,42 @@ watch(
   },
 )
 
-// 音乐订阅：背景图与海报可能只存在其一，两者都缺失时不再使用通用占位图，
-// 改为渲染与音乐媒体卡片一致的胶片占位背景（专辑图标），避免出现空白图片区。
-const isMusicSubscribe = computed(() => props.media?.type === '音乐')
+// 各类型缺失封面时的占位图标，对齐媒体卡片
+const placeholderIcon = computed(() => {
+  switch (props.media?.type) {
+    case '音乐':
+      return 'mdi-album'
+    case '电影':
+      return 'mdi-movie'
+    case '电视剧':
+      return 'mdi-television-classic'
+    default:
+      return 'mdi-filmstrip'
+  }
+})
 
-// 计算backdrop图片地址
+// 计算backdrop图片地址：背景图失败回退到海报，两者都缺失/失败时返回空串触发占位
 const backdropUrl = computed(() => {
-  if (isMusicSubscribe.value) {
-    if (backdropLoadError.value) return ''
-    const url = props.media?.backdrop || props.media?.poster
-    if (!url) return ''
-    return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
-  }
-  const url = backdropLoadError.value ? noImage : props.media?.backdrop || props.media?.poster || noImage
-  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
+  if (backdropLoadError.value) return ''
+  const url = props.media?.backdrop || props.media?.poster
+  if (!url) return ''
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
-// 计算海报图片地址
+// 计算海报图片地址：海报失败回退到背景图，两者都缺失/失败时返回空串触发占位
 const posterUrl = computed(() => {
-  if (isMusicSubscribe.value) {
-    if (posterLoadError.value) return ''
-    const url = props.media?.poster || props.media?.backdrop
-    if (!url) return ''
-    return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
-  }
-  const url = posterLoadError.value ? noImage : props.media?.poster || noImage
-  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
+  if (posterLoadError.value) return ''
+  const url = props.media?.poster || props.media?.backdrop
+  if (!url) return ''
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
-// 音乐订阅缺失封面时展示胶片占位背景，对齐音乐媒体卡片
-const showMusicPlaceholder = computed(() => isMusicSubscribe.value && !backdropUrl.value)
+// 缺失封面时展示占位图标，对齐媒体卡片
+const showCoverPlaceholder = computed(() => !backdropUrl.value)
 
 // 占位背景出现时同步标记图片已加载，让卡片正文与徽标正常渲染
 watch(
-  showMusicPlaceholder,
+  showCoverPlaceholder,
   show => {
     if (show) imageLoaded.value = true
   },
@@ -539,10 +540,10 @@ function handleCardClick() {
               </div>
               <template #image v-if="display.smAndUp.value">
                 <div
-                  v-if="showMusicPlaceholder"
-                  class="subscribe-card-music-placeholder d-flex align-center justify-center"
+                  v-if="showCoverPlaceholder"
+                  class="subscribe-card-placeholder d-flex align-center justify-center"
                 >
-                  <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+                  <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
                 </div>
                 <VImg
                   v-else
@@ -567,10 +568,10 @@ function handleCardClick() {
               <template v-if="display.xs.value">
                 <div class="subscribe-card-mobile-media">
                   <div
-                    v-if="showMusicPlaceholder"
-                    class="subscribe-card-music-placeholder d-flex align-center justify-center"
+                    v-if="showCoverPlaceholder"
+                    class="subscribe-card-placeholder d-flex align-center justify-center"
                   >
-                    <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+                    <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
                   </div>
                   <VImg
                     v-else
@@ -972,8 +973,8 @@ function handleCardClick() {
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
 }
 
-/* 音乐订阅缺失封面时的胶片占位背景，对齐音乐媒体卡片 */
-.subscribe-card-music-placeholder {
+/* 订阅缺失封面时的占位背景，对齐媒体卡片 */
+.subscribe-card-placeholder {
   block-size: 100%;
   inline-size: 100%;
   background: rgb(var(--v-theme-surface-variant));
