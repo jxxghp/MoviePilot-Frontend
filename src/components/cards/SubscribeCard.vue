@@ -421,17 +421,45 @@ watch(
   },
 )
 
+// 音乐订阅：背景图与海报可能只存在其一，两者都缺失时不再使用通用占位图，
+// 改为渲染与音乐媒体卡片一致的胶片占位背景（专辑图标），避免出现空白图片区。
+const isMusicSubscribe = computed(() => props.media?.type === '音乐')
+
 // 计算backdrop图片地址
 const backdropUrl = computed(() => {
+  if (isMusicSubscribe.value) {
+    if (backdropLoadError.value) return ''
+    const url = props.media?.backdrop || props.media?.poster
+    if (!url) return ''
+    return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
+  }
   const url = backdropLoadError.value ? noImage : props.media?.backdrop || props.media?.poster || noImage
   return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 计算海报图片地址
 const posterUrl = computed(() => {
+  if (isMusicSubscribe.value) {
+    if (posterLoadError.value) return ''
+    const url = props.media?.poster || props.media?.backdrop
+    if (!url) return ''
+    return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
+  }
   const url = posterLoadError.value ? noImage : props.media?.poster || noImage
   return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
+
+// 音乐订阅缺失封面时展示胶片占位背景，对齐音乐媒体卡片
+const showMusicPlaceholder = computed(() => isMusicSubscribe.value && !backdropUrl.value)
+
+// 占位背景出现时同步标记图片已加载，让卡片正文与徽标正常渲染
+watch(
+  showMusicPlaceholder,
+  show => {
+    if (show) imageLoaded.value = true
+  },
+  { immediate: true },
+)
 
 // 订阅编辑保存
 function onSubscribeEditSave() {
@@ -510,7 +538,14 @@ function handleCardClick() {
                 </IconBtn>
               </div>
               <template #image v-if="display.smAndUp.value">
+                <div
+                  v-if="showMusicPlaceholder"
+                  class="subscribe-card-music-placeholder d-flex align-center justify-center"
+                >
+                  <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+                </div>
                 <VImg
+                  v-else
                   :src="backdropUrl || posterUrl"
                   aspect-ratio="3/2"
                   cover
@@ -531,7 +566,14 @@ function handleCardClick() {
 
               <template v-if="display.xs.value">
                 <div class="subscribe-card-mobile-media">
+                  <div
+                    v-if="showMusicPlaceholder"
+                    class="subscribe-card-music-placeholder d-flex align-center justify-center"
+                  >
+                    <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+                  </div>
                   <VImg
+                    v-else
                     :src="backdropUrl || posterUrl"
                     :aspect-ratio="16 / 9"
                     cover
@@ -634,7 +676,7 @@ function handleCardClick() {
                 <VCardText class="flex items-center pt-3 pb-2">
                   <div
                     class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
-                    v-if="imageLoaded"
+                    v-if="imageLoaded && posterUrl"
                     :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                   >
                     <VImg :src="posterUrl" aspect-ratio="2/3" cover @error="posterErrorHandler">
@@ -928,6 +970,13 @@ function handleCardClick() {
 
 .subscribe-card-background {
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
+}
+
+/* 音乐订阅缺失封面时的胶片占位背景，对齐音乐媒体卡片 */
+.subscribe-card-music-placeholder {
+  block-size: 100%;
+  inline-size: 100%;
+  background: rgb(var(--v-theme-surface-variant));
 }
 
 /**
