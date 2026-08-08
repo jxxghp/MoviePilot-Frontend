@@ -150,7 +150,7 @@ describe('SubscribeCard display and progress', () => {
 
     await fireEvent.error(image as HTMLImageElement)
 
-    await waitFor(() => expect(container.querySelector<HTMLImageElement>('img')?.src).toContain('no-image'))
+    await waitFor(() => expect(container.querySelector('.subscribe-card-placeholder')).toBeInTheDocument())
   })
 
   it('falls back from backdrop to poster for music subscriptions, then to the album placeholder', async () => {
@@ -166,7 +166,7 @@ describe('SubscribeCard display and progress', () => {
 
     // 背景图与海报都缺失：渲染与音乐媒体卡片一致的胶片占位背景
     const { container } = await renderCard({ backdrop: undefined, poster: undefined, type: '音乐' })
-    const placeholder = container.querySelector('.subscribe-card-music-placeholder')
+    const placeholder = container.querySelector('.subscribe-card-placeholder')
     expect(placeholder).toBeInTheDocument()
     expect(placeholder?.querySelector('.v-icon, [class*="mdi-album"]')).not.toBeNull()
     expect(container.querySelector('img')).toBeNull()

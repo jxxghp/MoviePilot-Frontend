@@ -6,7 +6,6 @@ let mediaCardIdSeed = 0
 </script>
 
 <script lang="ts" setup>
-import noImage from '@images/no-image.jpeg'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import api from '@/api'
 import { formatRating } from '@/@core/utils/formatters'
@@ -397,16 +396,30 @@ function setupIntersectionObserver() {
   }
 }
 
+// 媒体占位图标：电影/电视剧/音乐各自使用对应图标，缺失封面时统一渲染图标 + 底色占位
+const placeholderIcon = computed(() => {
+  switch (props.media?.type) {
+    case '音乐':
+      return 'mdi-album'
+    case '电视剧':
+      return 'mdi-television-classic'
+    case '电影':
+    default:
+      return 'mdi-movie-open-outline'
+  }
+})
+
 // 计算图片地址
 const getImgUrl: Ref<string> = computed(() => {
+  if (imageLoadError.value) return ''
   if (props.media?.type === '音乐') {
     // 音乐封面优先使用 cover_url（ListenBrainz/MusicBrainz 统计接口返回），回退到 poster_path
     const musicCover = props.media?.cover_url || props.media?.poster_path
-    if (!musicCover || imageLoadError.value) return ''
+    if (!musicCover) return ''
     return getDisplayImageUrl(musicCover, globalSettings.GLOBAL_IMAGE_CACHE)
   }
-  if (imageLoadError.value) return noImage
-  const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
+  const url = props.media?.poster_path?.replace('original', 'w500')
+  if (!url) return ''
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
@@ -481,10 +494,10 @@ onBeforeUnmount(() => {
           @click.stop="handleMediaCardClick(hover.isHovering)"
         >
           <div
-            v-if="props.media?.type === '音乐' && !getImgUrl"
-            class="music-card-placeholder d-flex align-center justify-center"
+            v-if="!getImgUrl"
+            class="media-card-placeholder d-flex align-center justify-center"
           >
-            <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+            <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
           </div>
           <VImg
             v-else
@@ -578,7 +591,7 @@ onBeforeUnmount(() => {
   inline-size: 100%;
 }
 
-.music-card-placeholder {
+.media-card-placeholder {
   aspect-ratio: 2 / 3;
   background: rgb(var(--v-theme-surface-variant));
   block-size: 100%;

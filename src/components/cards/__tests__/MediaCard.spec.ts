@@ -354,7 +354,7 @@ describe('MediaCard', () => {
 
     const { container } = await renderCard(media)
 
-    expect(container.querySelector('.music-card-placeholder .v-icon')).not.toBeNull()
+    expect(container.querySelector('.media-card-placeholder .v-icon')).not.toBeNull()
     expect(container.querySelector('img[src*="no-image"]')).toBeNull()
   })
 
