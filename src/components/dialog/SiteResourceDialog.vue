@@ -251,7 +251,7 @@ onMounted(() => {
           <VSheet class="site-resource-filter-panel">
             <div class="site-resource-filter-panel__inner">
               <VRow class="site-resource-filter-row">
-                <VCol cols="12" md="3">
+                <VCol cols="12" md="5">
                   <VTextField
                     v-model="keyword"
                     class="site-resource-filter-input"
@@ -266,7 +266,7 @@ onMounted(() => {
                     @keyup.enter="getResourceList"
                   />
                 </VCol>
-                <VCol cols="12" md="4">
+                <VCol cols="12" md="5">
                   <VSelect
                     v-model="selectCategory"
                     :items="categoryOptions"
@@ -286,7 +286,7 @@ onMounted(() => {
                     persistent-hint
                   />
                 </VCol>
-                <VCol cols="12" md="3" class="d-flex align-center">
+                <VCol cols="12" md="2" class="d-flex align-center">
                   <VBtn
                     color="primary"
                     variant="flat"
@@ -301,15 +301,6 @@ onMounted(() => {
                   </VBtn>
                 </VCol>
               </VRow>
-
-              <div v-if="resourceTotalItems > 0" class="d-flex justify-space-between align-center flex-wrap gap-2 mt-3">
-                <div class="text-body-2 text-medium-emphasis">
-                  {{ resultSummaryText }}
-                </div>
-                <VChip size="small" color="primary" variant="tonal" class="site-resource-result-chip">
-                  {{ resourceTotalItems }}
-                </VChip>
-              </div>
             </div>
           </VSheet>
         </template>
@@ -693,8 +684,8 @@ onMounted(() => {
 <style lang="scss" scoped>
 .site-resource-dialog {
   display: flex;
-  flex-direction: column;
   overflow: hidden;
+  flex-direction: column;
 }
 
 .site-resource-filter-row {
@@ -708,7 +699,8 @@ onMounted(() => {
 }
 
 .site-resource-filter-panel__inner {
-  padding: 0.75rem 0.85rem;
+  padding-block: 0.75rem;
+  padding-inline: 0.85rem;
 }
 
 .site-resource-filter-input :deep(.v-field) {
@@ -751,9 +743,9 @@ onMounted(() => {
 }
 
 .site-resource-content {
+  overflow: hidden;
   flex: 1 1 auto;
   min-block-size: 0;
-  overflow: hidden;
 }
 
 .site-resource-table {
@@ -781,8 +773,8 @@ onMounted(() => {
 }
 
 .site-resource-mobile {
-  overflow-y: auto;
   block-size: 100%;
+  overflow-y: auto;
 }
 
 .site-resource-mobile__list {
@@ -810,9 +802,9 @@ onMounted(() => {
 
 .site-resource-card__summary {
   display: grid;
+  align-items: center;
   gap: 0.35rem;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(2.5rem, 0.62fr) minmax(2.5rem, 0.62fr);
-  align-items: center;
 }
 
 .site-resource-card__stat {
@@ -820,12 +812,12 @@ onMounted(() => {
   overflow: hidden;
   align-items: center;
   justify-content: center;
-  gap: 0.22rem;
   border-radius: 6px;
   background: rgba(var(--v-theme-on-surface), 0.05);
   color: rgba(var(--v-theme-on-surface), 0.72);
   font-size: 0.74rem;
   font-weight: 600;
+  gap: 0.22rem;
   line-height: 1;
   min-block-size: 1.65rem;
   min-inline-size: 0;
@@ -863,21 +855,21 @@ onMounted(() => {
 }
 
 .site-resource-card__chips {
-  max-block-size: 4.75rem;
   overflow: hidden;
+  max-block-size: 4.75rem;
 }
 
 .site-resource-card__actions {
   display: grid;
+  align-items: center;
   gap: 0.45rem;
   grid-template-columns: minmax(0, 1fr) 2.5rem 2.5rem;
-  align-items: center;
 }
 
 .site-resource-card__download-btn {
+  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.17);
   min-block-size: 2.5rem;
   min-inline-size: 0;
-  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.17);
 }
 
 .site-resource-card__download-btn :deep(.v-btn__content) {
@@ -908,7 +900,8 @@ onMounted(() => {
   }
 
   .site-resource-filter-panel__inner {
-    padding: 0.7rem 0.75rem;
+    padding-block: 0.7rem;
+    padding-inline: 0.75rem;
   }
 
   .site-resource-mobile-search {
