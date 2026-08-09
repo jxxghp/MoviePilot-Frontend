@@ -1385,7 +1385,13 @@ onUnmounted(() => {
             <div class="progress-copy">
               <span class="progress-title">{{ progressText }}</span>
               <div v-if="hasSearchTags" class="progress-tags d-flex flex-wrap">
-                <VChip v-if="keyword && !isMediaIdKeyword" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
+                <VChip
+                  v-if="keyword && !isMediaIdKeyword"
+                  class="search-tag progress-tag"
+                  color="primary"
+                  size="small"
+                  variant="tonal"
+                >
                   {{ t('resource.keyword') }}: {{ keyword }}
                 </VChip>
                 <VChip v-if="title" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
@@ -1691,8 +1697,10 @@ onUnmounted(() => {
 
 .search-progress-card {
   padding: 16px;
-  backdrop-filter: blur(10px);
-  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 42%), rgb(var(--v-theme-surface));
+  border: var(--app-grouped-list-border);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 42%), var(--app-grouped-list-background);
   inline-size: 100%;
 }
 
