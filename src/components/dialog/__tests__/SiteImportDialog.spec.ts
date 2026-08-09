@@ -220,7 +220,9 @@ describe('SiteImportDialog', () => {
     await fireEvent.click(await screen.findByRole('button', { name: '开始导入' }))
     expect(await screen.findByText('导入过程中出现 1 个错误')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    const resultCloseButton = screen.getByText('关闭').closest('button')
+    expect(resultCloseButton).not.toBeNull()
+    await fireEvent.click(resultCloseButton!)
     expect(events.update).toHaveBeenCalledWith(false)
     expect(events.importSuccess).not.toHaveBeenCalled()
   })
