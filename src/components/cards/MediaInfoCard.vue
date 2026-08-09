@@ -2,6 +2,9 @@
 import type { PropType } from 'vue'
 import type { Context } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { formatMusicDuration } from '@/utils/music'
+
+const { t } = useI18n()
 
 // 输入参数
 const props = defineProps({
@@ -15,6 +18,9 @@ const recognizedName = computed(() => props.context?.meta_info?.name || props.co
 const isMusic = computed(
   () => props.context?.media_info?.type === '音乐' || props.context?.meta_info?.type === '音乐',
 )
+
+// 音乐封面加载失败时保留方形唱片占位，避免弹窗信息结构塌缩。
+const musicCoverLoadError = ref(false)
 
 // TMDB图片转换为w500大小
 function getW500Image(url = '') {
@@ -30,18 +36,80 @@ function openTmdbPage(type: string, tmdbId: number) {
   window.open(url, '_blank')
 }
 
-// 秒数格式化为 m:ss 时长文本
-function formatDuration(seconds: number | undefined) {
-  if (!seconds || seconds <= 0) return ''
-  const minutes = Math.floor(seconds / 60)
-  const rest = seconds % 60
-  return `${minutes}:${rest.toString().padStart(2, '0')}`
-}
-
 // 音乐封面优先使用方形封面，仅 W500 图片处理对TMDB类 URL 生效
 const musicCover = computed(() => getW500Image(
   props.context?.media_info?.cover_url || props.context?.media_info?.poster_path || '',
 ))
+
+// 音乐艺术家优先使用标准识别结果，远端未命中时回退到文件标签。
+const musicArtist = computed(() => {
+  const mediaInfo = props.context?.media_info
+  const metaInfo = props.context?.meta_info
+  return mediaInfo?.artist || mediaInfo?.artists?.join(' / ') || metaInfo?.artist || metaInfo?.artists?.join(' / ') || ''
+})
+
+// 专辑艺术家只在与歌曲艺术家不同时单独展示。
+const musicAlbumArtist = computed(() => {
+  const albumArtist = props.context?.media_info?.album_artist || props.context?.meta_info?.album_artist
+  return albumArtist && albumArtist !== musicArtist.value ? albumArtist : ''
+})
+
+// 音乐专辑优先使用标准识别结果，远端未命中时回退到文件标签。
+const musicAlbum = computed(() => props.context?.media_info?.album || props.context?.meta_info?.album || '')
+
+// 音乐实体类型转换为面向用户的本地化名称。
+const musicTypeLabel = computed(() => {
+  const labels = {
+    album: t('music.entityAlbum'),
+    artist: t('music.entityArtist'),
+    recording: t('music.entityRecording'),
+  }
+  const musicType = props.context?.media_info?.music_type
+  return musicType ? labels[musicType] : ''
+})
+
+// 音乐标题下方汇总发行时间、时长和曲序，信息密度与影视识别结果保持一致。
+const musicSummary = computed(() => {
+  const mediaInfo = props.context?.media_info
+  const metaInfo = props.context?.meta_info
+  const values: string[] = []
+  const releaseDate = mediaInfo?.release_date || mediaInfo?.year || metaInfo?.year
+  if (releaseDate) values.push(String(releaseDate))
+  const duration = formatMusicDuration(mediaInfo?.duration || metaInfo?.duration)
+  if (duration) values.push(duration)
+  const trackNumber = mediaInfo?.track_number || metaInfo?.track_number
+  const totalTracks = mediaInfo?.total_tracks || metaInfo?.total_tracks
+  if (trackNumber) {
+    const track = totalTracks ? `${trackNumber}/${totalTracks}` : String(trackNumber)
+    values.push(`${t('music.track')} ${track}`)
+  }
+  return values.join(' · ')
+})
+
+// 采样率统一换算为常见的 kHz 展示。
+function formatSampleRate(sampleRate?: number) {
+  if (!sampleRate) return ''
+  const value = sampleRate >= 1000 ? sampleRate / 1000 : sampleRate
+  return `${Number.isInteger(value) ? value : value.toFixed(1)} kHz`
+}
+
+// 码率统一换算为 kbps 展示。
+function formatBitrate(bitrate?: number) {
+  if (!bitrate) return ''
+  const value = bitrate >= 1000 ? Math.round(bitrate / 1000) : bitrate
+  return `${value} kbps`
+}
+
+// 音频规格仅展示文件标签中实际存在的字段。
+const musicAudioChips = computed(() => {
+  const metaInfo = props.context?.meta_info
+  return [
+    metaInfo?.audio_format?.toUpperCase(),
+    metaInfo?.bit_depth ? `${metaInfo.bit_depth}-bit` : '',
+    formatSampleRate(metaInfo?.sample_rate),
+    formatBitrate(metaInfo?.bitrate),
+  ].filter(Boolean)
+})
 
 // 音乐详情外链
 const musicLink = computed(() => props.context?.media_info?.detail_link || '')
@@ -50,6 +118,10 @@ const musicLink = computed(() => props.context?.media_info?.detail_link || '')
 function openMusicDetail() {
   if (musicLink.value) window.open(musicLink.value, '_blank')
 }
+
+watch(musicCover, () => {
+  musicCoverLoadError.value = false
+})
 </script>
 
 <template>
@@ -59,13 +131,16 @@ function openMusicDetail() {
         v-if="recognizedName"
         class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
       >
-        <div v-if="isMusic && musicCover" class="ma-auto">
+        <div v-if="isMusic" class="ma-auto recognized-music-cover">
           <VImg
+            v-if="musicCover && !musicCoverLoadError"
             width="10rem"
             aspect-ratio="1"
             class="object-cover rounded-lg ring-1 ring-gray-500"
             :src="musicCover"
             cover
+            eager
+            @error="musicCoverLoadError = true"
           >
             <template #placeholder>
               <div class="w-full h-full">
@@ -73,6 +148,15 @@ function openMusicDetail() {
               </div>
             </template>
           </VImg>
+          <VSheet
+            v-else
+            width="10rem"
+            height="10rem"
+            rounded="lg"
+            class="d-flex align-center justify-center music-cover-placeholder"
+          >
+            <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
+          </VSheet>
         </div>
         <div v-else-if="context?.media_info?.poster_path" class="ma-auto">
           <VImg
@@ -97,7 +181,21 @@ function openMusicDetail() {
                 {{ context?.meta_info?.season_episode }}
               </span>
             </div>
-            <VCardSubtitle class="text-center text-md-left">
+            <div v-if="isMusic" class="music-recognition-summary text-center text-md-left">
+              <div v-if="musicArtist" class="text-body-1 font-weight-medium text-high-emphasis">
+                {{ musicArtist }}
+              </div>
+              <div v-if="musicAlbum" class="text-body-2 text-medium-emphasis">
+                {{ t('music.album') }}：{{ musicAlbum }}
+              </div>
+              <div v-if="musicAlbumArtist" class="text-body-2 text-medium-emphasis">
+                {{ t('music.albumArtist') }}：{{ musicAlbumArtist }}
+              </div>
+              <div v-if="musicSummary" class="text-body-2 text-medium-emphasis">
+                {{ musicSummary }}
+              </div>
+            </div>
+            <VCardSubtitle v-else class="text-center text-md-left">
               {{ context?.media_info?.year || context?.meta_info?.year }}
             </VCardSubtitle>
           </VCardItem>
@@ -124,39 +222,15 @@ function openMusicDetail() {
               variant="elevated"
               class="me-1 mb-1 text-white bg-blue-500"
             >
-              {{ context?.media_info?.music_type }}
+              {{ musicTypeLabel }}
             </VChip>
-            <!-- 艺术家 -->
+            <!-- 音乐分类 -->
             <VChip
-              v-if="isMusic && context?.media_info?.artist"
+              v-if="isMusic && (context?.media_info?.category || context?.media_info?.album_type)"
               variant="elevated"
               class="me-1 mb-1 text-white bg-purple-500"
             >
-              {{ context?.media_info?.artist }}
-            </VChip>
-            <!-- 专辑 -->
-            <VChip
-              v-if="isMusic && context?.media_info?.album"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-purple-500"
-            >
-              {{ context?.media_info?.album }}
-            </VChip>
-            <!-- 专辑艺术家 -->
-            <VChip
-              v-if="isMusic && context?.media_info?.album_artist"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-purple-500"
-            >
-              {{ context?.media_info?.album_artist }}
-            </VChip>
-            <!-- 发行日期 -->
-            <VChip
-              v-if="isMusic && context?.media_info?.release_date"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-purple-500"
-            >
-              {{ context?.media_info?.release_date }}
+              {{ context?.media_info?.category || context?.media_info?.album_type }}
             </VChip>
             <!-- 风格 -->
             <VChip
@@ -169,34 +243,12 @@ function openMusicDetail() {
             </VChip>
             <!-- 音频技术参数 -->
             <VChip
-              v-if="isMusic && context?.meta_info?.audio_format"
+              v-for="audioChip in isMusic ? musicAudioChips : []"
+              :key="audioChip"
               variant="elevated"
               class="me-1 mb-1 text-white bg-orange-500"
             >
-              {{ context?.meta_info?.audio_format }}
-            </VChip>
-            <VChip
-              v-if="isMusic && (context?.meta_info?.bit_depth || context?.meta_info?.sample_rate)"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-orange-500"
-            >
-              {{ [context?.meta_info?.bit_depth, context?.meta_info?.sample_rate].filter(Boolean).join(' kHz ') }}
-            </VChip>
-            <!-- 时长 -->
-            <VChip
-              v-if="isMusic && formatDuration(context?.media_info?.duration)"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-orange-500"
-            >
-              {{ formatDuration(context?.media_info?.duration) }}
-            </VChip>
-            <!-- 曲目信息 -->
-            <VChip
-              v-if="isMusic && context?.media_info?.track_number"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-red-500"
-            >
-              {{ `曲目 ${context?.media_info?.track_number}${context?.media_info?.total_tracks ? ` / ${context?.media_info?.total_tracks}` : ''}` }}
+              {{ audioChip }}
             </VChip>
             <!-- ISRC -->
             <VChip
@@ -284,3 +336,19 @@ function openMusicDetail() {
     </VExpansionPanels>
   </div>
 </template>
+
+<style scoped>
+.recognized-music-cover {
+  flex: 0 0 auto;
+}
+
+.music-cover-placeholder {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.music-recognition-summary {
+  display: grid;
+  gap: 0.2rem;
+  margin-block-start: 0.35rem;
+}
+</style>

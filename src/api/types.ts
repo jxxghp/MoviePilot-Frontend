@@ -1154,7 +1154,25 @@ export interface MetaInfo {
   // 识别的英文名
   en_name?: string
   // 年份
-  year?: string
+  year?: string | number
+  // 音乐艺术家列表
+  artists?: string[]
+  // 音乐艺术家展示文本
+  artist?: string
+  // 音乐专辑
+  album?: string
+  // 音乐专辑艺术家
+  album_artist?: string
+  // 音乐碟号
+  disc_number?: number
+  // 音乐音轨号
+  track_number?: number
+  // 音乐总音轨数
+  total_tracks?: number
+  // 音乐时长（秒）
+  duration?: number
+  // 音乐 ISRC
+  isrc?: string
   // 总季数
   total_season: number
   // 识别的开始季 数字
@@ -1187,6 +1205,8 @@ export interface MetaInfo {
   bit_depth?: number
   // 音频采样率
   sample_rate?: number
+  // 音频码率
+  bitrate?: number
   // 名称（自动中英文）
   name: string
   // SXX-SXX

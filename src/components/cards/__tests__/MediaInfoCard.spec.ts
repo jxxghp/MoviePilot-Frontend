@@ -9,25 +9,53 @@ describe('MediaInfoCard', () => {
       props: {
         context: {
           meta_info: {
-            artists: ['周杰伦'],
+            album: '完美的一天',
+            artists: ['孙燕姿'],
             audio_format: 'FLAC',
             bit_depth: 24,
+            bitrate: 1411200,
+            duration: 221,
             sample_rate: 48000,
-            title: '晴天',
+            title: '眼泪成诗',
+            total_tracks: 10,
+            track_number: 2,
             type: '音乐',
           },
           media_info: {
-            artist: '周杰伦',
-            title: '晴天',
+            album: '完美的一天',
+            artist: '孙燕姿',
+            category: 'Album',
+            cover_url: 'https://coverartarchive.org/release-group/album-1/front-500',
+            duration: 221,
+            genres: ['华语流行'],
+            isrc: 'TWA530505002',
+            music_type: 'recording',
+            release_date: '2005-10-07',
+            title: '眼泪成诗',
+            total_tracks: 10,
+            track_number: 2,
             type: '音乐',
           },
         },
       },
     })
 
-    expect(screen.getByText('晴天')).toBeInTheDocument()
+    expect(screen.getByText('眼泪成诗')).toBeInTheDocument()
+    expect(screen.getByText('孙燕姿')).toBeInTheDocument()
+    expect(screen.getByText('专辑：完美的一天')).toBeInTheDocument()
+    expect(screen.getByText('2005-10-07 · 3:41 · 音轨 2/10')).toBeInTheDocument()
+    expect(screen.getByText('单曲')).toBeInTheDocument()
+    expect(screen.getByText('Album')).toBeInTheDocument()
+    expect(screen.getByText('华语流行')).toBeInTheDocument()
     expect(screen.getByText('FLAC')).toBeInTheDocument()
-    expect(screen.getByText('24 kHz 48000')).toBeInTheDocument()
+    expect(screen.getByText('24-bit')).toBeInTheDocument()
+    expect(screen.getByText('48 kHz')).toBeInTheDocument()
+    expect(screen.getByText('1411 kbps')).toBeInTheDocument()
+    expect(screen.getByText('TWA530505002')).toBeInTheDocument()
+    expect(document.querySelector('.v-img__img')).toHaveAttribute(
+      'src',
+      'https://coverartarchive.org/release-group/album-1/front-500',
+    )
     expect(screen.queryByText('识别失败，无法识别到有效信息！')).not.toBeInTheDocument()
   })
 
