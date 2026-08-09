@@ -80,6 +80,7 @@ async function searchMedias() {
         item.bangumi_id?.toString() ||
         item.anilist_id?.toString()
       if (!mediaId) continue
+      const musicAlbum = item.music_type === 'album' || item.album === item.title ? undefined : item.album
       items.value.push({
         id: mediaId,
         poster: getW500Image(item.cover_url || item.poster_path),
@@ -87,7 +88,7 @@ async function searchMedias() {
         title: item.year ? `${item.title}（${item.year}）` : item.title || '',
         overview:
           item.type === '音乐'
-            ? `<span class="text-primary">${item.type}</span> ${[item.artist, item.album].filter(Boolean).join(' · ')}`
+            ? `<span class="text-primary">${item.type}</span> ${[item.artist, musicAlbum].filter(Boolean).join(' · ')}`
             : `<span class="text-primary">${item.type}</span> ${item.overview || ''}`,
       })
     }

@@ -56,4 +56,47 @@ describe('MediaIdSelector layout', () => {
     const results = container.querySelector('.media-id-selector__results')
     expect(results).toBeInstanceOf(HTMLElement)
   })
+
+  it('omits the repeated album title for albums while keeping it for recordings', async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        album: '叶惠美',
+        artist: '周杰伦',
+        media_id: 'album-1',
+        music_type: 'album',
+        title: '叶惠美',
+        type: '音乐',
+        year: 2003,
+      },
+      {
+        album: '叶惠美',
+        artist: '周杰伦',
+        media_id: 'recording-1',
+        music_type: 'recording',
+        title: '以父之名',
+        type: '音乐',
+      },
+    ])
+
+    const { container } = await renderWithProviders(MediaIdSelector, {
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    const input = screen.getByPlaceholderText('输入媒体名称')
+    await fireEvent.update(input, '周杰伦')
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    expect(await screen.findByText('叶惠美（2003）')).toBeInTheDocument()
+
+    const subtitles = Array.from(container.querySelectorAll('.v-list-item-subtitle')).map(item =>
+      item.textContent?.trim(),
+    )
+    expect(subtitles).toEqual(['音乐 周杰伦', '音乐 周杰伦 · 叶惠美'])
+  })
 })
