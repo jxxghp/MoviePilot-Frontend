@@ -127,16 +127,24 @@ function openMusicDetail() {
               {{ context?.media_info?.music_type }}
             </VChip>
             <!-- 艺术家 -->
-            <VChip v-if="context?.media_info?.artist" variant="elevated" class="me-1 mb-1 text-white bg-purple-500">
+            <VChip
+              v-if="isMusic && context?.media_info?.artist"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-purple-500"
+            >
               {{ context?.media_info?.artist }}
             </VChip>
             <!-- 专辑 -->
-            <VChip v-if="context?.media_info?.album" variant="elevated" class="me-1 mb-1 text-white bg-purple-500">
+            <VChip
+              v-if="isMusic && context?.media_info?.album"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-purple-500"
+            >
               {{ context?.media_info?.album }}
             </VChip>
             <!-- 专辑艺术家 -->
             <VChip
-              v-if="context?.media_info?.album_artist"
+              v-if="isMusic && context?.media_info?.album_artist"
               variant="elevated"
               class="me-1 mb-1 text-white bg-purple-500"
             >
@@ -144,7 +152,7 @@ function openMusicDetail() {
             </VChip>
             <!-- 发行日期 -->
             <VChip
-              v-if="context?.media_info?.release_date"
+              v-if="isMusic && context?.media_info?.release_date"
               variant="elevated"
               class="me-1 mb-1 text-white bg-purple-500"
             >
@@ -152,7 +160,7 @@ function openMusicDetail() {
             </VChip>
             <!-- 风格 -->
             <VChip
-              v-for="genre in context?.media_info?.genres"
+              v-for="genre in isMusic ? context?.media_info?.genres : []"
               :key="genre"
               variant="elevated"
               class="me-1 mb-1 text-white bg-purple-500"
@@ -161,14 +169,14 @@ function openMusicDetail() {
             </VChip>
             <!-- 音频技术参数 -->
             <VChip
-              v-if="context?.meta_info?.audio_format"
+              v-if="isMusic && context?.meta_info?.audio_format"
               variant="elevated"
               class="me-1 mb-1 text-white bg-orange-500"
             >
               {{ context?.meta_info?.audio_format }}
             </VChip>
             <VChip
-              v-if="context?.meta_info?.bit_depth || context?.meta_info?.sample_rate"
+              v-if="isMusic && (context?.meta_info?.bit_depth || context?.meta_info?.sample_rate)"
               variant="elevated"
               class="me-1 mb-1 text-white bg-orange-500"
             >
@@ -176,7 +184,7 @@ function openMusicDetail() {
             </VChip>
             <!-- 时长 -->
             <VChip
-              v-if="formatDuration(context?.media_info?.duration)"
+              v-if="isMusic && formatDuration(context?.media_info?.duration)"
               variant="elevated"
               class="me-1 mb-1 text-white bg-orange-500"
             >
@@ -184,19 +192,23 @@ function openMusicDetail() {
             </VChip>
             <!-- 曲目信息 -->
             <VChip
-              v-if="context?.media_info?.track_number"
+              v-if="isMusic && context?.media_info?.track_number"
               variant="elevated"
               class="me-1 mb-1 text-white bg-red-500"
             >
               {{ `曲目 ${context?.media_info?.track_number}${context?.media_info?.total_tracks ? ` / ${context?.media_info?.total_tracks}` : ''}` }}
             </VChip>
             <!-- ISRC -->
-            <VChip v-if="context?.media_info?.isrc" variant="elevated" class="me-1 mb-1 text-white bg-red-500">
+            <VChip
+              v-if="isMusic && context?.media_info?.isrc"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-red-500"
+            >
               {{ context?.media_info?.isrc }}
             </VChip>
             <!-- MusicBrainz 外链 -->
             <VChip
-              v-if="musicLink"
+              v-if="isMusic && musicLink"
               variant="elevated"
               class="me-1 mb-1 text-white bg-green-500"
               @click="openMusicDetail"
