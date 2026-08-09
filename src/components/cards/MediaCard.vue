@@ -593,7 +593,7 @@ onBeforeUnmount(() => {
 
 .media-card-placeholder {
   aspect-ratio: 2 / 3;
-  background: rgb(var(--v-theme-surface-variant));
+  background: rgba(var(--v-theme-on-surface), 0.08);
   block-size: 100%;
   inline-size: 100%;
 }

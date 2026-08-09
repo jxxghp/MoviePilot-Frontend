@@ -37,7 +37,7 @@ function goArtistDetail() {
             <div style="padding-block-end: 150%">
               <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">
                 <div class="relative mt-2 mb-4 flex h-1/2 w-full justify-center">
-                  <VAvatar size="100" color="surface-variant">
+                  <VAvatar size="100" class="music-artist-card-avatar">
                     <VImg v-if="showImage" :src="imageUrl" cover @error="imageLoadError = true" />
                     <VIcon v-else icon="mdi-account-music" size="48" color="medium-emphasis" />
                   </VAvatar>
@@ -58,6 +58,10 @@ function goArtistDetail() {
 <style scoped>
 .music-artist-card-hover-area {
   inline-size: 100%;
+}
+
+.music-artist-card-avatar {
+  background: rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .music-artist-card {

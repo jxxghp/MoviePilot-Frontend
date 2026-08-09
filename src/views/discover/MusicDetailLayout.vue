@@ -98,18 +98,17 @@ watch(
 <style lang="scss" scoped>
 .vue-music-back {
   z-index: 0;
-  pointer-events: none;
   background-image:
     linear-gradient(180deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%),
     linear-gradient(0deg, rgba(var(--v-theme-background), 0) 80%, rgba(var(--v-theme-background), 1) 100%),
     linear-gradient(90deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%),
     linear-gradient(270deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%);
   margin-block-start: calc(-70px - env(safe-area-inset-top));
+  pointer-events: none;
 }
 
 .vue-music-back-image {
   background-image: none;
-  filter: blur(2px);
 }
 
 .music-detail-transparent .vue-music-back-overlay,
@@ -119,10 +118,10 @@ watch(
 
 .music-detail-transparent .vue-music-back-image,
 .music-detail-glass .vue-music-back-image {
+  mask-composite: intersect;
   mask-image:
     linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
-  mask-composite: intersect;
   opacity: 0.82;
 }
 
@@ -144,9 +143,9 @@ watch(
 
 .music-poster {
   overflow: hidden;
+  flex: 0 0 auto;
   border-radius: var(--app-surface-radius);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 10%);
-  flex: 0 0 auto;
   inline-size: 9rem;
 }
 
@@ -156,7 +155,7 @@ watch(
 
 .music-poster-placeholder {
   aspect-ratio: 1;
-  background: rgb(var(--v-theme-surface-variant));
+  background: rgba(var(--v-theme-on-surface), 0.08);
   inline-size: 100%;
 }
 
@@ -164,8 +163,8 @@ watch(
   display: flex;
   flex: 1 1 0%;
   flex-direction: column;
-  min-inline-size: 0;
   margin-block-start: 1rem;
+  min-inline-size: 0;
   text-align: center;
 }
 
@@ -193,10 +192,10 @@ watch(
 
 .music-actions {
   display: flex;
-  flex-wrap: wrap;
   flex-shrink: 0;
-  gap: 0.5rem;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 0.5rem;
   margin-block-start: 1rem;
 }
 

@@ -2072,7 +2072,7 @@ onUnmounted(() => {
   justify-content: center;
   inline-size: 100%;
   block-size: 100%;
-  background: rgb(var(--v-theme-surface-variant));
+  background: rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .transfer-history-mobile-record__poster-type {

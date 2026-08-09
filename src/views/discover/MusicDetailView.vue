@@ -232,12 +232,12 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
           <span class="ms-1">MusicBrainz</span>
         </a>
       </div>
-    </template>
 
-    <div v-if="albumTracks.length" class="music-section">
-      <h2 class="music-section-heading">{{ t('music.albumTracks') }}</h2>
-      <MusicTrackList :tracks="albumTracks" :active-media-id="music.media_id" hide-artists />
-    </div>
+      <div v-if="albumTracks.length" class="music-section">
+        <h2 class="music-section-heading">{{ t('music.albumTracks') }}</h2>
+        <MusicTrackList :tracks="albumTracks" :active-media-id="music.media_id" hide-artists />
+      </div>
+    </template>
 
     <div v-if="primaryArtistId" class="music-section">
       <MusicArtistSlideView :apipath="`music/artist/${primaryArtistId}/related`" :title="t('music.relatedArtists')" />

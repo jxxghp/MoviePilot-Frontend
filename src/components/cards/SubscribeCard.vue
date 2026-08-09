@@ -540,9 +540,10 @@ function handleCardClick() {
               <template #image v-if="display.smAndUp.value">
                 <div
                   v-if="showPlaceholder"
-                  class="subscribe-card-placeholder d-flex align-center justify-center"
+                  class="subscribe-card-placeholder d-flex align-center justify-center relative"
                 >
                   <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
+                  <div class="absolute inset-0 outline-none subscribe-card-background"></div>
                 </div>
                 <VImg
                   v-else
@@ -568,9 +569,10 @@ function handleCardClick() {
                 <div class="subscribe-card-mobile-media">
                   <div
                     v-if="showPlaceholder"
-                    class="subscribe-card-placeholder d-flex align-center justify-center"
+                    class="subscribe-card-placeholder d-flex align-center justify-center relative"
                   >
                     <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
+                    <div class="absolute inset-0 outline-none subscribe-card-background"></div>
                   </div>
                   <VImg
                     v-else
@@ -697,7 +699,7 @@ function handleCardClick() {
                     </div>
                   </div>
                 </VCardText>
-                <VCardText class="flex min-w-0 justify-space-between align-center flex-wrap px-3">
+                <VCardText class="flex min-w-0 justify-space-between align-center flex-wrap px-3 mt-auto">
                   <div class="flex min-w-0 max-w-full align-center">
                     <VIcon
                       v-if="props.media?.total_episode && props.sortable"
@@ -976,7 +978,7 @@ function handleCardClick() {
 .subscribe-card-placeholder {
   block-size: 100%;
   inline-size: 100%;
-  background: rgb(var(--v-theme-surface-variant));
+  background: rgba(var(--v-theme-on-surface), 0.08);
 }
 
 /**
