@@ -3158,12 +3158,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       )
       if (removedManagedSurface) return true
 
-      // 新增节点按提交后的祖先资格判断；排除子树内部的图片 DOM 变化不需要重扫。
-      if (mutation.target instanceof Element && !isGlassOpticalElementEligible(mutation.target)) return false
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes]
 
-      return [...mutation.addedNodes, ...mutation.removedNodes].some(
-        node => containsGlassOpticalSurface(node) || containsGlassInteractionClip(node),
-      )
+      // 新增节点按提交后的祖先资格判断；排除子树内部的图片 DOM 变化不需要重扫。
+      if (mutation.target instanceof Element && !isGlassOpticalElementEligible(mutation.target)) {
+        const belongsToManagedSurface = surfaceRegistry.some(
+          surface => surface.key === mutation.target || surface.key.contains(mutation.target),
+        )
+
+        return belongsToManagedSurface && changedNodes.some(containsGlassInteractionClip)
+      }
+
+      return changedNodes.some(node => containsGlassOpticalSurface(node) || containsGlassInteractionClip(node))
     })
   }
 

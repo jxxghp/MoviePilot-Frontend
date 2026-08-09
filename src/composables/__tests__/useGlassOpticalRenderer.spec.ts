@@ -2079,7 +2079,7 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('refreshes excluded interaction clip membership when clips are added, moved, or removed', async () => {
+  it('refreshes excluded interaction clip membership across direct and nested mutations', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
     const three = await import('three')
@@ -2171,6 +2171,31 @@ describe('glass optical surface discovery', () => {
     )
 
     excludedClip.remove()
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 2,
+        interactionXs: [40 / 1200, 520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [1, 1],
+      }),
+    )
+
+    const excludedContainer = document.createElement('div')
+    excludedContainer.dataset.glassOpticalMode = 'excluded'
+    surfaces[0].append(excludedContainer)
+    const nestedExcludedClip = document.createElement('article')
+    nestedExcludedClip.className = 'app-hover-lift-card'
+    excludedContainer.append(nestedExcludedClip)
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 1,
+        interactionXs: [520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [0, 1],
+      }),
+    )
+
+    nestedExcludedClip.remove()
     await vi.waitFor(() =>
       expect(getInteractionState()).toEqual({
         interactionCount: 2,
