@@ -58,19 +58,15 @@ async function searchMedias() {
   // 调用API搜索词条
   try {
     loading.value = true
-    const result: MediaInfo[] =
-      props.type === 'musicbrainz'
-        ? await api.get('music/search', {
-            params: { query: searchKeyword, count: 20 },
-          })
-        : await api.get('media/search', {
-            params: {
-              title: searchKeyword,
-              page: 1,
-              count: 20,
-              source: props.type,
-            },
-          })
+    const result: MediaInfo[] = await api.get('media/search', {
+      params: {
+        title: searchKeyword,
+        type: props.type === 'musicbrainz' ? 'music' : 'media',
+        page: 1,
+        count: 20,
+        source: props.type,
+      },
+    })
 
     // 清空
     items.value = []

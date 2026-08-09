@@ -47,7 +47,7 @@ const musicResult = {
 /** 按请求路径分派音乐搜索与订阅状态查询。 */
 function mockSearchAndSubscribeState(subscribed: boolean) {
   mocks.apiGet.mockImplementation((path: string) => {
-    if (path === 'music/search') return Promise.resolve([musicResult])
+    if (path === 'media/search') return Promise.resolve([musicResult])
     if (path.startsWith('subscribe/media/')) {
       return subscribed ? Promise.resolve({ id: 9 }) : Promise.reject({ response: { status: 404 } })
     }
@@ -77,8 +77,8 @@ describe('music page', () => {
     await renderMusicPage()
 
     await waitFor(() =>
-      expect(mocks.apiGet).toHaveBeenCalledWith('music/search', {
-        params: { count: 30, query: '晴天' },
+      expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
+        params: { type: 'music', count: 30, title: '晴天' },
       }),
     )
     expect(screen.queryByRole('button', { name: '搜索音乐' })).not.toBeInTheDocument()

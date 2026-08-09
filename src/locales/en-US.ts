@@ -2273,6 +2273,9 @@ export default {
       seasonThumb: 'Thumb',
       episodeNfo: 'NFO',
       episodeThumb: 'Thumb',
+      music: 'Music',
+      musicNfo: 'Audio Tags',
+      musicPoster: 'Cover Art',
       scrapingSwitchSaveFailed: 'Scraping switch settings save failed: {message}',
       scrapingSwitchSaveError: 'Scraping switch settings save failed',
       policy: {
@@ -3482,6 +3485,7 @@ export default {
       browseTitle: 'Browse - {name}',
       searchKeyword: 'Search Keyword',
       resourceCategory: 'Resource Category',
+      noCategory: 'This site has no resource categories configured',
       search: 'Search',
       itemsPerPage: 'Items Per Page',
       noData: 'No Data',

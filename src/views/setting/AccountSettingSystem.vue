@@ -183,6 +183,13 @@ const scrapingConfig = [
       { key: 'episode_thumb', label: 'setting.system.episodeThumb' },
     ],
   },
+  {
+    section: 'music',
+    items: [
+      { key: 'music_nfo', label: 'setting.system.musicNfo' },
+      { key: 'music_poster', label: 'setting.system.musicPoster' },
+    ],
+  },
 ]
 
 // 刮削策略设置
@@ -2203,7 +2210,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                               <span class="ml-2">{{ t(item.label) }}</span>
                             </div>
                           </VCol>
-                          <VDivider v-if="section.section !== 'episode'" class="my-4" />
+                          <VDivider v-if="section.section !== 'music'" class="my-4" />
                         </VRow>
                       </VExpansionPanelText>
                     </VExpansionPanel>

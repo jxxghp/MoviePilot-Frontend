@@ -317,7 +317,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       const result: { [key: string]: any } = await api.post('subscribe/', {
         name: media.title,
         type: media.type,
-        year: media.year,
+        // 后端的订阅模型 year 为字符串，音乐的 year 是数字，需统一转字符串避免 422
+        year: media.year?.toString() ?? '',
         tmdbid: media.tmdb_id,
         doubanid: media.douban_id,
         bangumiid: media.bangumi_id,

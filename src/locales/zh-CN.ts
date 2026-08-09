@@ -2236,6 +2236,9 @@ export default {
       seasonThumb: '缩略图',
       episodeNfo: 'NFO',
       episodeThumb: '缩略图',
+      music: '音乐',
+      musicNfo: '音乐标签',
+      musicPoster: '封面',
       scrapingSwitchSaveFailed: '刮削开关设置保存失败：{message}',
       scrapingSwitchSaveError: '刮削开关设置保存失败',
       policy: {
@@ -3424,6 +3427,7 @@ export default {
       browseTitle: '浏览 - {name}',
       searchKeyword: '搜索关键字',
       resourceCategory: '资源分类',
+      noCategory: '该站点未配置资源分类',
       search: '搜索',
       itemsPerPage: '每页条数',
       noData: '没有数据',

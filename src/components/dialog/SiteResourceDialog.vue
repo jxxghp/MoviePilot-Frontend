@@ -27,9 +27,6 @@ const keyword = ref<string>()
 // 选择分类
 const selectCategory = ref<number[]>([])
 
-// 选择主媒体类型，用于按站点定义的电影、电视剧、音乐分类浏览。
-const selectMediaType = ref<string>()
-
 // 全部分类
 const siteCategoryList = ref<SiteCategory[]>()
 
@@ -69,11 +66,8 @@ const categoryOptions = computed(() => {
   })
 })
 
-const mediaTypeOptions = computed(() => [
-  { title: t('mediaType.movie'), value: '电影' },
-  { title: t('mediaType.tv'), value: '电视剧' },
-  { title: t('mediaType.music'), value: '音乐' },
-])
+// 站点是否配置了资源分类
+const hasSiteCategory = computed(() => (siteCategoryList.value?.length ?? 0) > 0)
 
 // 总条数
 const resourceTotalItems = computed(() => resourceDataList.value.length)
@@ -169,7 +163,6 @@ async function getResourceList() {
       params: {
         keyword: keyword.value,
         cat: selectCategory.value?.join(','),
-        mtype: selectMediaType.value,
       },
     })
 
@@ -288,20 +281,9 @@ onMounted(() => {
                     clearable
                     prepend-inner-icon="mdi-folder"
                     hide-details
-                  />
-                </VCol>
-                <VCol cols="12" md="2">
-                  <VSelect
-                    v-model="selectMediaType"
-                    :items="mediaTypeOptions"
-                    class="site-resource-filter-input"
-                    density="compact"
-                    variant="solo-filled"
-                    flat
-                    clearable
-                    :label="t('common.type')"
-                    prepend-inner-icon="mdi-shape-outline"
-                    hide-details
+                    :disabled="!hasSiteCategory"
+                    :hint="hasSiteCategory ? '' : t('dialog.siteResource.noCategory')"
+                    persistent-hint
                   />
                 </VCol>
                 <VCol cols="12" md="3" class="d-flex align-center">
@@ -371,20 +353,6 @@ onMounted(() => {
                     </VCol>
                     <VCol cols="12">
                       <VSelect
-                        v-model="selectMediaType"
-                        :items="mediaTypeOptions"
-                        class="site-resource-filter-input"
-                        density="compact"
-                        variant="solo-filled"
-                        flat
-                        clearable
-                        :label="t('common.type')"
-                        prepend-inner-icon="mdi-shape-outline"
-                        hide-details
-                      />
-                    </VCol>
-                    <VCol cols="12">
-                      <VSelect
                         v-model="selectCategory"
                         :items="categoryOptions"
                         class="site-resource-filter-input"
@@ -398,6 +366,9 @@ onMounted(() => {
                         clearable
                         prepend-inner-icon="mdi-folder"
                         hide-details
+                        :disabled="!hasSiteCategory"
+                        :hint="hasSiteCategory ? '' : t('dialog.siteResource.noCategory')"
+                        persistent-hint
                       />
                     </VCol>
                     <VCol cols="12" class="d-flex gap-2">

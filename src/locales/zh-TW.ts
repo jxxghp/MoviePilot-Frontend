@@ -2235,6 +2235,9 @@ export default {
       seasonThumb: '縮略圖',
       episodeNfo: 'NFO',
       episodeThumb: '縮略圖',
+      music: '音樂',
+      musicNfo: '音樂標籤',
+      musicPoster: '封面',
       scrapingSwitchSaveFailed: '刮削開關設定保存失敗：{message}',
       scrapingSwitchSaveError: '刮削開關設定保存失敗',
       policy: {
@@ -3423,6 +3426,7 @@ export default {
       browseTitle: '瀏覽 - {name}',
       searchKeyword: '搜索關鍵字',
       resourceCategory: '資源分類',
+      noCategory: '該站點未配置資源分類',
       search: '搜索',
       itemsPerPage: '每頁條數',
       pageText: '{0}-{1} 共 {2} 條',

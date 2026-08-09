@@ -26,7 +26,7 @@ async function searchMusic() {
   loading.value = true
   searched.value = true
   try {
-    results.value = (await api.get('music/search', { params: { query: query.value, count: 30 } })) || []
+    results.value = (await api.get('media/search', { params: { title: query.value, type: 'music', count: 30 } })) || []
   } catch (error) {
     console.error(error)
     results.value = []

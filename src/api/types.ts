@@ -336,8 +336,8 @@ export interface MediaInfo {
   type?: string
   // 媒体标题
   title?: string
-  // 年份
-  year?: string
+  // 年份（音乐等数据源返回数字，订阅接口要求字符串）
+  year?: string | number
   // 标题（年）
   title_year?: string
   // 季号
