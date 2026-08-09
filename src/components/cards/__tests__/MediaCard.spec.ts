@@ -8,7 +8,7 @@ import { querySubscribeByMediaHandler, subscribeListHandler } from '@tests/suppo
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
-import { defineComponent, h, reactive } from 'vue'
+import { defineComponent, h, reactive, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -94,6 +94,8 @@ interface ControlledImageRequest {
   fail: () => void
   /** 模拟当前 VImg 请求成功。 */
   load: () => void
+  /** 模拟当前 VImg 的 opacity 淡入完成。 */
+  reveal: () => void
   /** 当前 VImg 实例发起的图片地址。 */
   src: string
 }
@@ -106,14 +108,27 @@ function createControlledImageStub(requests: ControlledImageRequest[]) {
     props: { src: String },
     setup(props, { emit, slots }) {
       const src = props.src ?? ''
+      const imageElement = ref<HTMLImageElement | null>(null)
       const request = {
         fail: () => emit('error', src),
         load: () => emit('load', src),
+        reveal: () => {
+          const event = new Event('transitionend', { bubbles: true }) as TransitionEvent
+          Object.defineProperty(event, 'propertyName', { value: 'opacity' })
+          imageElement.value?.dispatchEvent(event)
+        },
         src,
       }
       requests.push(request)
 
-      return () => h('div', { 'data-src': src }, slots.default?.())
+      return () =>
+        h('div', { 'data-src': src }, [
+          h('img', {
+            ref: imageElement,
+            class: 'v-img__img',
+          }),
+          slots.default?.(),
+        ])
     },
   })
 }
@@ -591,7 +606,10 @@ describe('MediaCard', () => {
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
     requests[0].load()
     await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('ring-1'))
-    expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded')
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    requests[0].reveal()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
     expect(container).toHaveTextContent('TV')
     expect(container).toHaveTextContent('8.6')
 
@@ -632,17 +650,23 @@ describe('MediaCard', () => {
     })
 
     requests[0].load()
-    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+    await waitFor(() => expect(getCard(container)).toHaveClass('media-card--image-loaded'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
 
     await rerender({ media: mediaB, width: '9rem' })
     await waitFor(() => expect(requests.some(request => request.src.includes('/w500/b.jpg'))).toBe(true))
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
 
-    requests[0].load()
+    requests[0].reveal()
     await Promise.resolve()
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
 
-    requests.find(request => request.src.includes('/w500/b.jpg'))?.load()
+    const currentRequest = requests.find(request => request.src.includes('/w500/b.jpg'))
+    currentRequest?.load()
+    await waitFor(() => expect(getCard(container)).toHaveClass('media-card--image-loaded'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    currentRequest?.reveal()
     await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
   })
 
