@@ -65,7 +65,8 @@ vi.mock('@/utils/appDeepLink', () => ({
 }))
 
 const API_BASE_URL = 'http://localhost/api/v1/'
-const siteListUrl = new URL('site/', API_BASE_URL).href
+const movieSiteListUrl = new URL('site/media/movie', API_BASE_URL).href
+const tvSiteListUrl = new URL('site/media/tv', API_BASE_URL).href
 const selectedSitesUrl = new URL('system/setting/public/IndexerSites', API_BASE_URL).href
 
 const PersonCardSlideViewStub = defineComponent({
@@ -134,9 +135,9 @@ interface RenderDetailOptions {
   type?: string
 }
 
-function installSiteHandlers(sites: Site[] = [], selected: number[] = []) {
+function installSiteHandlers(sites: Site[] = [], selected: number[] = [], type = '电影') {
   server.use(
-    http.get(siteListUrl, () => HttpResponse.json(sites)),
+    http.get(type === '电视剧' ? tvSiteListUrl : movieSiteListUrl, () => HttpResponse.json(sites)),
     http.get(selectedSitesUrl, () => HttpResponse.json({ data: { value: selected }, success: true })),
   )
 }
@@ -169,7 +170,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
     )
   }
   options.setupHandlers?.()
-  installSiteHandlers(options.sites, options.selectedSites)
+  installSiteHandlers(options.sites, options.selectedSites, type)
 
   const result = await renderWithProviders(MediaDetailView, {
     initialState: {
@@ -508,7 +509,7 @@ describe('MediaDetailView detail and actions', () => {
   it('continues to resource search when site settings fail to load', async () => {
     await renderDetail()
     server.use(
-      http.get(siteListUrl, () => HttpResponse.json({ message: '站点失败' }, { status: 500 })),
+      http.get(movieSiteListUrl, () => HttpResponse.json({ message: '站点失败' }, { status: 500 })),
       http.get(selectedSitesUrl, () => HttpResponse.json({ message: '设置失败' }, { status: 500 })),
     )
 
@@ -522,7 +523,7 @@ describe('MediaDetailView detail and actions', () => {
     const site = createSubscribeSite({ id: 92, is_active: true, name: '空设置站点' })
     await renderDetail()
     server.use(
-      http.get(siteListUrl, () => HttpResponse.json([site])),
+      http.get(movieSiteListUrl, () => HttpResponse.json([site])),
       http.get(selectedSitesUrl, () => HttpResponse.json({ data: {}, success: true })),
     )
 

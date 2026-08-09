@@ -27,7 +27,8 @@ vi.mock('@/router', () => ({
 }))
 
 const API_BASE_URL = 'http://localhost/api/v1/'
-const siteListUrl = new URL('site/', API_BASE_URL).href
+const movieSiteListUrl = new URL('site/media/movie', API_BASE_URL).href
+const tvSiteListUrl = new URL('site/media/tv', API_BASE_URL).href
 const selectedSitesUrl = new URL('system/setting/public/IndexerSites', API_BASE_URL).href
 
 let intersectionObservers: IntersectionObserverMock[] = []
@@ -142,9 +143,13 @@ function getStatusObservers() {
 }
 
 /** 安装站点列表及已选站点的搜索请求处理器。 */
-function installSearchHandlers(sites: Record<string, unknown>[], selected: number[]) {
+function installSearchHandlers(
+  sites: Record<string, unknown>[],
+  selected: number[],
+  mediaType: 'movie' | 'tv' = 'movie',
+) {
   server.use(
-    http.get(siteListUrl, () => HttpResponse.json(sites)),
+    http.get(mediaType === 'tv' ? tvSiteListUrl : movieSiteListUrl, () => HttpResponse.json(sites)),
     http.get(selectedSitesUrl, () => HttpResponse.json({ data: { value: selected }, success: true })),
   )
 }
@@ -359,7 +364,7 @@ describe('MediaCard', () => {
   })
 
   it('routes directly to resource search when no active sites are available', async () => {
-    installSearchHandlers([], [3, 5])
+    installSearchHandlers([], [3, 5], 'tv')
     const media = createMediaInfo({ season: 4, title: '直接搜索剧集', tmdb_id: 9501, type: '电视剧' })
     const { container } = await renderCard(media)
 
@@ -385,7 +390,7 @@ describe('MediaCard', () => {
 
   it('falls back to global search when site settings cannot provide active selections', async () => {
     server.use(
-      http.get(siteListUrl, () => HttpResponse.json({ message: 'temporary failure' }, { status: 500 })),
+      http.get(movieSiteListUrl, () => HttpResponse.json({ message: 'temporary failure' }, { status: 500 })),
       http.get(selectedSitesUrl, () => HttpResponse.json({ success: true })),
     )
     const media = createMediaInfo({ title: '站点失败搜索', tmdb_id: 9503 })
@@ -444,7 +449,7 @@ describe('MediaCard', () => {
 
   it('opens active sites with an empty selection when the saved setting fails', async () => {
     server.use(
-      http.get(siteListUrl, () =>
+      http.get(movieSiteListUrl, () =>
         HttpResponse.json([
           {
             domain: 'fallback.example',

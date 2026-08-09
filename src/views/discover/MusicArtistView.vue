@@ -7,9 +7,9 @@ import MusicDetailLayout from '@/views/discover/MusicDetailLayout.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { useMusicSiteSearch } from '@/composables/useMusicSiteSearch'
 
 const { t } = useI18n()
-const router = useRouter()
 
 const props = defineProps({
   // MusicBrainz Artist ID
@@ -27,6 +27,21 @@ const canSearch = computed(() => hasPermission(userPermissions.value, 'search'))
 
 const isRefreshed = ref(false)
 const artist = ref<MusicArtistInfo>()
+
+const { openMusicSiteSearch } = useMusicSiteSearch(sites => {
+  if (!artist.value?.name) return undefined
+  return {
+    path: '/resource',
+    query: {
+      keyword: artist.value.name,
+      type: '音乐',
+      title: artist.value.name,
+      area: 'title',
+      result_type: 'torrent',
+      sites: sites.join(','),
+    },
+  }
+})
 
 // 艺术家作品按 MusicBrainz 的 Release Group 主类型分区展示
 const albumSections = computed(() => [
@@ -58,21 +73,6 @@ async function loadArtistDetail() {
   }
 }
 
-/** 按艺术家名称进入站点资源搜索。 */
-function goResource() {
-  if (!artist.value?.name) return
-  router.push({
-    path: '/resource',
-    query: {
-      keyword: artist.value.name,
-      type: '音乐',
-      title: artist.value.name,
-      area: 'title',
-      result_type: 'torrent',
-    },
-  })
-}
-
 /** 返回指定专辑类型的浏览列表路由。 */
 function getAlbumsBrowseRoute(albumType: string, title: string) {
   return `/browse/music/artist/${props.mediaid}/albums?title=${encodeURIComponent(title)}&album_type=${albumType}`
@@ -96,7 +96,7 @@ watch(() => [props.source, props.mediaid], loadArtistDetail, { immediate: true }
     </template>
 
     <template #actions>
-      <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="goResource">
+      <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="openMusicSiteSearch">
         {{ t('music.searchResources') }}
       </VBtn>
     </template>

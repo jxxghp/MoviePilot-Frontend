@@ -43,8 +43,8 @@ watch(query, searchMusic, { immediate: true })
     <VPageContentTitle :title="query || t('music.title')" />
 
     <LoadingBanner v-if="loading" class="mt-12" />
-    <VRow v-else-if="results.length">
-      <VCol v-for="item in results" :key="getMusicKey(item)" cols="12" md="6" xl="4">
+    <VRow v-else-if="results.length" class="music-results">
+      <VCol v-for="item in results" :key="getMusicKey(item)" cols="12" md="6" xl="4" class="music-result-col">
         <MusicCard :music="item" />
       </VCol>
     </VRow>
@@ -57,5 +57,19 @@ watch(query, searchMusic, { immediate: true })
 .music-search-page {
   max-width: 1440px;
   margin-inline: auto;
+}
+
+@media (width <= 600px) {
+  .music-search-page {
+    padding-inline: 0.5rem;
+  }
+
+  .music-results {
+    margin-block: -0.375rem;
+  }
+
+  .music-result-col {
+    padding-block: 0.375rem;
+  }
 }
 </style>

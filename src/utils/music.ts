@@ -59,7 +59,10 @@ export function buildMusicDetailRoute(item: MusicRouteTarget): RouteLocationRaw 
 }
 
 /** 构造音乐元数据身份对应的站点资源搜索路由。 */
-export function buildMusicResourceRoute(item: MediaInfo | MusicAlbumInfo): RouteLocationRaw | undefined {
+export function buildMusicResourceRoute(
+  item: MediaInfo | MusicAlbumInfo,
+  sites: number[] = [],
+): RouteLocationRaw | undefined {
   const source = getMusicSource(item as MusicRouteTarget)
   if (!source || !item.media_id) return undefined
   return {
@@ -71,6 +74,7 @@ export function buildMusicResourceRoute(item: MediaInfo | MusicAlbumInfo): Route
       year: item.year,
       area: 'title',
       result_type: 'torrent',
+      ...(sites.length ? { sites: sites.join(',') } : {}),
     },
   }
 }

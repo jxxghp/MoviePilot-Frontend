@@ -122,10 +122,11 @@ function openSearchSiteDialog() {
   )
 }
 
-// 查询所有站点
+// 查询与当前媒体类型兼容的站点
 async function querySites() {
   try {
-    const data: Site[] = await api.get('site/')
+    const mediaType = props.media?.type === '电视剧' ? 'tv' : props.media?.type === '音乐' ? 'music' : 'movie'
+    const data: Site[] = await api.get(`site/media/${mediaType}`)
 
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)

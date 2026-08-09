@@ -1,11 +1,16 @@
 import MusicArtistPage from '@/pages/music-artist.vue'
-import { screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
+  openSharedDialog: vi.fn(),
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
 vi.mock('@/api', () => ({
@@ -38,6 +43,8 @@ const artist = {
   type: '音乐',
 }
 
+const musicSite = { id: 14, is_active: true, name: '艺术家站点', url: 'https://artist-music.example' }
+
 /** 渲染艺术家详情页，统一提供超级用户权限与路由身份。 */
 function renderArtistPage() {
   return renderWithProviders(MusicArtistPage, {
@@ -50,8 +57,14 @@ function renderArtistPage() {
 describe('music artist page', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset()
+    mocks.openSharedDialog.mockReset()
+    mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'music/artist/artist-1') return Promise.resolve(artist)
+      if (path === 'site/media/music') return Promise.resolve([musicSite])
+      if (path === 'system/setting/public/IndexerSites') {
+        return Promise.resolve({ data: { value: [14] }, success: true })
+      }
       return Promise.resolve([])
     })
   })
@@ -88,13 +101,22 @@ describe('music artist page', () => {
     expect(screen.getByText('official homepage')).toBeInTheDocument()
   })
 
-  it('routes the resource search action to the site resource page', async () => {
+  it('selects a music-capable site before searching artist resources', async () => {
     const { router } = await renderArtistPage()
 
-    const searchButton = await screen.findByRole('button', { name: '搜索资源' })
-    searchButton.click()
+    await fireEvent.click(await screen.findByRole('button', { name: '搜索资源' }))
+
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const [, dialogProps, dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
+      unknown,
+      { sites: Array<{ id: number }> },
+      { search: (sites: number[]) => void },
+    ]
+    expect(dialogProps.sites).toEqual([musicSite])
+    expect(router.currentRoute.value.path).toBe('/music/artist')
+    dialogEvents.search([14])
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
-    expect(router.currentRoute.value.query).toMatchObject({ keyword: 'Queen', type: '音乐' })
+    expect(router.currentRoute.value.query).toMatchObject({ keyword: 'Queen', sites: '14', type: '音乐' })
   })
 })

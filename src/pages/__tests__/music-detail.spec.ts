@@ -7,8 +7,13 @@ const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiDelete: vi.fn(),
+  openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
 vi.mock('@/api', () => ({
@@ -72,6 +77,8 @@ const album = {
   type: '音乐',
 }
 
+const musicSite = { id: 12, is_active: true, name: '音乐详情站点', url: 'https://detail-music.example' }
+
 /** 按请求路径分派单曲详情、专辑详情和订阅状态查询。 */
 function mockDetailRequests(subscribed = false) {
   mocks.apiPost.mockImplementation((path: string) => {
@@ -80,6 +87,10 @@ function mockDetailRequests(subscribed = false) {
   })
   mocks.apiGet.mockImplementation((path: string) => {
     if (path === 'music/album/release-group-1') return Promise.resolve(album)
+    if (path === 'site/media/music') return Promise.resolve([musicSite])
+    if (path === 'system/setting/public/IndexerSites') {
+      return Promise.resolve({ data: { value: [12] }, success: true })
+    }
     if (path.startsWith('subscribe/media/')) {
       return subscribed ? Promise.resolve({ id: 9 }) : Promise.reject({ response: { status: 404 } })
     }
@@ -101,6 +112,8 @@ describe('music detail page', () => {
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
     mocks.apiDelete.mockReset()
+    mocks.openSharedDialog.mockReset()
+    mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     mockDetailRequests()
   })
 
@@ -183,14 +196,25 @@ describe('music detail page', () => {
     expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'release-group-1' })
   })
 
-  it('routes the resource search action to the site resource page', async () => {
+  it('selects a music-capable site before routing the resource search', async () => {
     const { router } = await renderMusicDetailPage()
 
     await fireEvent.click(await screen.findByRole('button', { name: '搜索资源' }))
 
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const [, dialogProps, dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
+      unknown,
+      { sites: Array<{ id: number }> },
+      { search: (sites: number[]) => void },
+    ]
+    expect(dialogProps.sites).toEqual([musicSite])
+    expect(router.currentRoute.value.path).toBe('/music/detail')
+    dialogEvents.search([12])
+
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
     expect(router.currentRoute.value.query).toMatchObject({
       keyword: 'musicbrainz:recording-1',
+      sites: '12',
       type: '音乐',
     })
   })

@@ -66,15 +66,18 @@ describe('music utils', () => {
 
   it('builds the site resource route from the metadata identity', () => {
     expect(
-      buildMusicResourceRoute({
-        source: 'musicbrainz',
-        media_id: 'recording-1',
-        title: '晴天',
-        year: '2003',
-      } as never),
+      buildMusicResourceRoute(
+        {
+          source: 'musicbrainz',
+          media_id: 'recording-1',
+          title: '晴天',
+          year: '2003',
+        } as never,
+        [11, 12],
+      ),
     ).toMatchObject({
       path: '/resource',
-      query: { keyword: 'musicbrainz:recording-1', type: '音乐' },
+      query: { keyword: 'musicbrainz:recording-1', sites: '11,12', type: '音乐' },
     })
   })
 

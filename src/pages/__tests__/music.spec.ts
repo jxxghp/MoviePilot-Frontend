@@ -7,8 +7,13 @@ const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiDelete: vi.fn(),
+  openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
 vi.mock('@/api', () => ({
@@ -44,10 +49,16 @@ const musicResult = {
   year: 2003,
 }
 
+const musicSite = { id: 11, is_active: true, name: '音乐站点', url: 'https://music.example' }
+
 /** 按请求路径分派音乐搜索与订阅状态查询。 */
 function mockSearchAndSubscribeState(subscribed: boolean) {
   mocks.apiGet.mockImplementation((path: string) => {
     if (path === 'media/search') return Promise.resolve([musicResult])
+    if (path === 'site/media/music') return Promise.resolve([musicSite])
+    if (path === 'system/setting/public/IndexerSites') {
+      return Promise.resolve({ data: { value: [11, 99] }, success: true })
+    }
     if (path.startsWith('subscribe/media/')) {
       return subscribed ? Promise.resolve({ id: 9 }) : Promise.reject({ response: { status: 404 } })
     }
@@ -69,6 +80,8 @@ describe('music page', () => {
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
     mocks.apiDelete.mockReset()
+    mocks.openSharedDialog.mockReset()
+    mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     mockSearchAndSubscribeState(false)
     mocks.apiPost.mockResolvedValue({ data: { id: 1 }, success: true })
   })
@@ -89,11 +102,24 @@ describe('music page', () => {
     await renderMusicPage()
 
     expect(await screen.findByText('晴天')).toBeInTheDocument()
+    expect(screen.getByText('单曲')).toBeInTheDocument()
     expect(screen.getByText('周杰伦')).toBeInTheDocument()
     expect(screen.getByText('叶惠美')).toBeInTheDocument()
     expect(screen.getByText('2003-07-31')).toBeInTheDocument()
     expect(screen.getByText('4:29')).toBeInTheDocument()
     expect(screen.getByText('Album')).toBeInTheDocument()
+  })
+
+  it('uses the shared themed lift interaction for result cards', async () => {
+    const { container } = await renderMusicPage()
+    const hoverArea = await waitFor(() => container.querySelector('.music-card-hover-area'))
+    const card = container.querySelector('.music-card')!
+
+    await fireEvent.mouseEnter(hoverArea!)
+    await waitFor(() => expect(card).toHaveClass('app-hover-lift-card--hovering'))
+
+    await fireEvent.mouseLeave(hoverArea!)
+    await waitFor(() => expect(card).not.toHaveClass('app-hover-lift-card--hovering'))
   })
 
   it('offers a subscribe action when the music is not subscribed yet', async () => {
@@ -155,14 +181,28 @@ describe('music page', () => {
     expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'artist-1' })
   })
 
-  it('routes the resource search action to the site resource page', async () => {
+  it('selects a music-capable site before routing the resource search', async () => {
     const { router } = await renderMusicPage()
 
     await fireEvent.click(await screen.findByRole('button', { name: '搜索资源' }))
 
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    expect(mocks.apiGet).toHaveBeenCalledWith('site/media/music')
+    expect(router.currentRoute.value.path).toBe('/music')
+
+    const [, dialogProps, dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
+      unknown,
+      { selected: number[]; sites: Array<{ id: number }> },
+      { search: (sites: number[]) => void },
+    ]
+    expect(dialogProps.sites).toEqual([musicSite])
+    expect(dialogProps.selected).toEqual([11, 99])
+    dialogEvents.search([11])
+
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
     expect(router.currentRoute.value.query).toMatchObject({
       keyword: 'musicbrainz:recording-1',
+      sites: '11',
       type: '音乐',
     })
   })

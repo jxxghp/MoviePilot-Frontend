@@ -7,6 +7,7 @@ import MusicDetailLayout from '@/views/discover/MusicDetailLayout.vue'
 import MusicTrackList from '@/components/music/MusicTrackList.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getMediaSubscribeId, useMediaSubscribe } from '@/composables/useMediaSubscribe'
+import { useMusicSiteSearch } from '@/composables/useMusicSiteSearch'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { buildMusicArtistRoute, buildMusicResourceRoute, formatMusicDuration, getMusicArtistLinks } from '@/utils/music'
@@ -70,6 +71,10 @@ const subscribeActions = useMediaSubscribe({
   getSubscribeStatusKey,
 })
 
+const { openMusicSiteSearch } = useMusicSiteSearch(sites =>
+  album.value ? buildMusicResourceRoute(album.value, sites) : undefined,
+)
+
 /** 加载专辑详情、曲目列表和发行版本。 */
 async function loadAlbumDetail() {
   if (!props.source || !props.mediaid) return
@@ -93,13 +98,6 @@ async function checkSubscribeStatus() {
   } catch (error) {
     console.error(error)
   }
-}
-
-/** 进入站点资源精确搜索。 */
-function goResource() {
-  if (!album.value) return
-  const target = buildMusicResourceRoute(album.value)
-  if (target) router.push(target)
 }
 
 /** 打开艺术家详情页。 */
@@ -144,7 +142,7 @@ watch(() => [props.source, props.mediaid], loadAlbumDetail, { immediate: true })
     </template>
 
     <template #actions>
-      <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="goResource">
+      <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="openMusicSiteSearch">
         {{ t('music.searchResources') }}
       </VBtn>
       <VBtn
