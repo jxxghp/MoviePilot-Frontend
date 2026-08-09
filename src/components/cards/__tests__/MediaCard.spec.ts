@@ -8,7 +8,7 @@ import { querySubscribeByMediaHandler, subscribeListHandler } from '@tests/suppo
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, reactive, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -87,6 +87,50 @@ class IntersectionObserverMock implements IntersectionObserver {
 interface RenderCardOptions {
   permissions?: Record<string, boolean>
   superUser?: boolean
+}
+
+interface ControlledImageRequest {
+  /** 模拟当前 VImg 请求失败。 */
+  fail: () => void
+  /** 模拟当前 VImg 请求成功。 */
+  load: () => void
+  /** 模拟当前 VImg 的 opacity 淡入完成。 */
+  reveal: () => void
+  /** 当前 VImg 实例发起的图片地址。 */
+  src: string
+}
+
+/** 创建可保留旧实例回调的图片替身，用于验证媒体复用时的迟到事件隔离。 */
+function createControlledImageStub(requests: ControlledImageRequest[]) {
+  return defineComponent({
+    name: 'VImg',
+    emits: ['error', 'load'],
+    props: { src: String },
+    setup(props, { emit, slots }) {
+      const src = props.src ?? ''
+      const imageElement = ref<HTMLImageElement | null>(null)
+      const request = {
+        fail: () => emit('error', src),
+        load: () => emit('load', src),
+        reveal: () => {
+          const event = new Event('transitionend', { bubbles: true }) as TransitionEvent
+          Object.defineProperty(event, 'propertyName', { value: 'opacity' })
+          imageElement.value?.dispatchEvent(event)
+        },
+        src,
+      }
+      requests.push(request)
+
+      return () =>
+        h('div', { 'data-src': src }, [
+          h('img', {
+            ref: imageElement,
+            class: 'v-img__img',
+          }),
+          slots.default?.(),
+        ])
+    },
+  })
 }
 
 /** 使用指定媒体信息和用户权限渲染媒体卡片。 */
@@ -414,17 +458,22 @@ describe('MediaCard', () => {
     expect(dialogProps.selected).toEqual([])
   })
 
-  it('loads matching TV seasons before opening the subscription dialog', async () => {
-    const media = createMediaInfo({ season: 2, title: '多季剧集', tmdb_id: 9551, type: '电视剧' })
+  it('preserves loaded TV seasons when the same media receives a new poster', async () => {
+    const media = reactive(createMediaInfo({ season: 2, title: '多季剧集', tmdb_id: 9551, type: '电视剧' }))
+    const subscribeListRequest = vi.fn<(url: URL) => void>()
     server.use(
       querySubscribeByMediaHandler('tmdb:9551', { id: 81, season: 2 }),
       mediaExistsHandler({ data: { item: {} }, success: false }),
-      subscribeListHandler([
-        { best_version: 0, id: 81, season: 3, tmdbid: 9551, type: '电视剧' },
-        { best_version: 1, best_version_full: 1, id: 82, season: 1, tmdbid: 9551, type: '电视剧' },
-        { id: 83, season: 4, tmdbid: 9999, type: '电视剧' },
-        { id: 84, tmdbid: 9551, type: '电影' },
-      ]),
+      subscribeListHandler(
+        [
+          { best_version: 0, id: 81, season: 3, tmdbid: 9551, type: '电视剧' },
+          { best_version: 1, best_version_full: 1, id: 82, season: 1, tmdbid: 9551, type: '电视剧' },
+          { id: 83, season: 4, tmdbid: 9999, type: '电视剧' },
+          { id: 84, tmdbid: 9551, type: '电影' },
+        ],
+        200,
+        subscribeListRequest,
+      ),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
         HttpResponse.json({ data: { value: { best_version: 0 } }, success: true }),
       ),
@@ -440,6 +489,19 @@ describe('MediaCard', () => {
     const [, dialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, Record<string, unknown>]
     expect(dialogProps).toMatchObject({
       selectedSeason: undefined,
+      subscribedSeasonModes: { 1: 'best_version_full', 3: 'normal' },
+      subscribedSeasons: [1, 3],
+    })
+    expect(subscribeListRequest).toHaveBeenCalledOnce()
+
+    media.poster_path = '/original/updated.jpg'
+    mocks.openSharedDialog.mockClear()
+    await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
+
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    expect(subscribeListRequest).toHaveBeenCalledOnce()
+    const [, updatedDialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, Record<string, unknown>]
+    expect(updatedDialogProps).toMatchObject({
       subscribedSeasonModes: { 1: 'best_version_full', 3: 'normal' },
       subscribedSeasons: [1, 3],
     })
@@ -533,35 +595,84 @@ describe('MediaCard', () => {
       type: '电视剧',
       vote_average: 8.6,
     })
-    const VImgStub = defineComponent({
-      name: 'VImg',
-      emits: ['error', 'load'],
-      props: { src: String },
-      /** 渲染可主动触发图片成功和失败事件的测试替身。 */
-      setup(props, { emit, slots }) {
-        return () =>
-          h('div', { 'data-src': props.src }, [
-            h('button', { 'aria-label': '图片加载成功', onClick: () => emit('load') }),
-            h('button', { 'aria-label': '图片加载失败', onClick: () => emit('error') }),
-            slots.default?.(),
-          ])
-      },
-    })
+    const requests: ControlledImageRequest[] = []
+    const VImgStub = createControlledImageStub(requests)
     const { container } = await renderWithProviders(MediaCard, {
       props: { media, width: '9rem' },
       initialState: { user: { superUser: true } },
       global: { stubs: { VImg: VImgStub } },
     })
 
-    await fireEvent.click(container.querySelector('[aria-label="图片加载成功"]') as HTMLElement)
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+    requests[0].load()
     await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('ring-1'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    requests[0].reveal()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
     expect(container).toHaveTextContent('TV')
     expect(container).toHaveTextContent('8.6')
 
-    await fireEvent.click(container.querySelector('[aria-label="图片加载失败"]') as HTMLElement)
+    requests[0].fail()
     await waitFor(() =>
       expect(container.querySelector('.media-card-title')?.parentElement).not.toHaveStyle({ display: 'none' }),
     )
+    await waitFor(() => expect(requests.some(request => request.src.includes('no-image'))).toBe(true))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    const fallbackRequest = requests.find(request => request.src.includes('no-image'))
+    fallbackRequest?.load()
+    await waitFor(() => expect(getCard(container)).toHaveClass('ring-1'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    fallbackRequest?.reveal()
+    await Promise.resolve()
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+  })
+
+  it('keeps placeholder-only cards inside the renderer after the image loads', async () => {
+    const requests: ControlledImageRequest[] = []
+    const { container } = await renderWithProviders(MediaCard, {
+      props: { media: createMediaInfo({ poster_path: undefined, tmdb_id: 9553 }), width: '9rem' },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    })
+
+    requests[0].load()
+
+    await waitFor(() => expect(getCard(container)).toHaveClass('ring-1'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+  })
+
+  it('ignores a previous poster load after the card is reused for another media item', async () => {
+    const requests: ControlledImageRequest[] = []
+    const mediaA = createMediaInfo({ poster_path: '/original/a.jpg', title: '媒体 A', tmdb_id: 9554 })
+    const mediaB = createMediaInfo({ poster_path: '/original/b.jpg', title: '媒体 B', tmdb_id: 9555 })
+    const { container, rerender } = await renderWithProviders(MediaCard, {
+      props: { media: mediaA, width: '9rem' },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    })
+
+    requests[0].load()
+    await waitFor(() => expect(getCard(container)).toHaveClass('media-card--image-loaded'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    await rerender({ media: mediaB, width: '9rem' })
+    await waitFor(() => expect(requests.some(request => request.src.includes('/w500/b.jpg'))).toBe(true))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    requests[0].reveal()
+    await Promise.resolve()
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    const currentRequest = requests.find(request => request.src.includes('/w500/b.jpg'))
+    currentRequest?.load()
+    await waitFor(() => expect(getCard(container)).toHaveClass('media-card--image-loaded'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    currentRequest?.reveal()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
   })
 
   it('renders the AniList source badge after the poster loads', async () => {

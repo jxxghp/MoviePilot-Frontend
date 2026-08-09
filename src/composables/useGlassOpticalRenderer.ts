@@ -442,7 +442,18 @@ const SURFACE_SELECTORS = [
 const SURFACE_SELECTOR_QUERY = SURFACE_SELECTORS.map(({ selector }) => selector).join(',')
 const INTERACTION_CLIP_SELECTOR = '.app-hover-lift-card'
 const OPTICAL_BOUNDARY_SELECTOR = '[data-glass-optical-boundary]'
+const OPTICAL_EXCLUSION_SELECTOR = '[data-glass-optical-mode="excluded"]'
 const INTERACTION_CLIP_OVERSCAN_PX = 96
+
+/** 排除合同覆盖整个子树；后代不能用 dynamic 声明重新加入 renderer。 */
+function isGlassOpticalElementExcluded(element: Element) {
+  return Boolean(element.closest(OPTICAL_EXCLUSION_SELECTOR))
+}
+
+/** overlay 与显式排除子树都不参与壁纸光学表面或交互裁剪。 */
+function isGlassOpticalElementEligible(element: Element) {
+  return !element.closest('.v-overlay') && !isGlassOpticalElementExcluded(element)
+}
 
 /** 登录卡片随文档弹性合成，其余固定表面继续使用 viewport 坐标。 */
 function getSurfacePresentationSpace(
@@ -455,9 +466,16 @@ function getSurfacePresentationSpace(
 /** 判断新增或移除的 DOM 子树是否会改变光学表面集合。 */
 export function containsGlassOpticalSurface(node: Node) {
   if (!(node instanceof Element)) return false
-  if (node.matches(SURFACE_SELECTOR_QUERY) && !node.closest('.v-overlay')) return true
+  if (node.matches(SURFACE_SELECTOR_QUERY) && isGlassOpticalElementEligible(node)) return true
 
-  return Array.from(node.querySelectorAll(SURFACE_SELECTOR_QUERY)).some(element => !element.closest('.v-overlay'))
+  return Array.from(node.querySelectorAll(SURFACE_SELECTOR_QUERY)).some(isGlassOpticalElementEligible)
+}
+
+/** 判断 DOM 子树是否包含会约束父表面动态输出的交互裁剪。 */
+function containsGlassInteractionClip(node: Node) {
+  if (!(node instanceof Element)) return false
+
+  return node.matches(INTERACTION_CLIP_SELECTOR) || Boolean(node.querySelector(INTERACTION_CLIP_SELECTOR))
 }
 
 const VERTEX_SHADER = `
@@ -1100,7 +1118,7 @@ function collectGlassOpticalSurfaceDescriptors(
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (seen.has(element)) continue
       seen.add(element)
-      if (element.closest('.v-overlay')) continue
+      if (!isGlassOpticalElementEligible(element)) continue
       collectedElements?.push(element)
 
       const bounds = element.getBoundingClientRect()
@@ -1291,8 +1309,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let surfaceRegistry: GlassOpticalSurfaceDescriptor[] = []
   let availableSurfaces: GlassOpticalSurfaceDescriptor[] = []
   let surfaceSlots: GlassOpticalSurfaceSlot<HTMLElement>[] = []
-  let interactionClips: GlassOpticalSurfaceDescriptor[] = []
+  let interactionClips: GlassInteractionClipDescriptor[] = []
   let interactionClipRegistry: GlassInteractionClipDescriptor[] = []
+  let interactionClipConstrainedOwners = new Set<HTMLElement>()
   let interactionClipMembershipDirty = true
   let activeSurface: HTMLElement | null = null
   let activeInteractionClip: HTMLElement | null = null
@@ -1869,6 +1888,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const uniformRadii = resources.uniforms.uRadii.value
     const uniformWeights = resources.uniforms.uSurfaceWeights.value
     const uniformDynamics = resources.uniforms.uSurfaceDynamics.value
+    const ownersWithVisibleInteractionClips = new Set(interactionClips.map(clip => clip.owner))
     const transitionWeights = outgoingSurface
       ? getGlassOpticalSurfaceTransitionWeights(timestamp - surfaceTransitionStartedAt, SURFACE_TRANSITION_DURATION_MS)
       : { incoming: 1, outgoing: 0 }
@@ -1894,7 +1914,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
               ? 1
               : 0
       uniformWeights[index] = surfaceWeight * pagePresentationWeight
-      uniformDynamics[index] = slot?.mode === 'static-material' ? 0 : 1
+      const nestedInteractionAvailable =
+        !slot || !interactionClipConstrainedOwners.has(slot.key) || ownersWithVisibleInteractionClips.has(slot.key)
+      uniformDynamics[index] = slot?.mode === 'static-material' || !nestedInteractionAvailable ? 0 : 1
     }
 
     resources.uniforms.uRectCount.value = normalized.length
@@ -1907,13 +1929,21 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function refreshInteractionClipRegistry() {
     const seen = new Set<HTMLElement>()
     const candidates: GlassInteractionClipDescriptor[] = []
+    const constrainedOwners = new Set<HTMLElement>()
     const append = (
       element: HTMLElement,
       owner: HTMLElement,
       mode: GlassOpticalSurfaceMode,
       committedRect?: GlassOpticalRect,
     ) => {
-      if (seen.has(element) || !element.isConnected || resolveGlassOpticalSurfaceMode(element) !== mode) return
+      if (
+        seen.has(element) ||
+        !element.isConnected ||
+        !isGlassOpticalElementEligible(element) ||
+        resolveGlassOpticalSurfaceMode(element) !== mode
+      ) {
+        return
+      }
 
       const rect = committedRect ?? getElementPresentationRect(element)
 
@@ -1935,6 +1965,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (surfaceIsClip) append(surface.key, surface.key, mode, surface.rect)
       const nestedClips = [...surface.key.querySelectorAll<HTMLElement>(INTERACTION_CLIP_SELECTOR)]
       if (nestedClips.length > 0) {
+        constrainedOwners.add(surface.key)
         nestedClips.forEach(clip => append(clip, surface.key, mode))
       } else if (!surfaceIsClip) {
         append(surface.key, surface.key, mode, surface.rect)
@@ -1942,6 +1973,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     interactionClipRegistry = candidates
+    interactionClipConstrainedOwners = constrainedOwners
     interactionClipMembershipDirty = false
   }
 
@@ -1952,6 +1984,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (
         !clip.key.isConnected ||
         !clip.owner.isConnected ||
+        !isGlassOpticalElementEligible(clip.key) ||
+        !isGlassOpticalElementEligible(clip.owner) ||
         resolveGlassOpticalSurfaceMode(clip.key) !== clip.mode ||
         !committedSurfaces.has(clip.owner)
       ) {
@@ -2030,6 +2064,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       activeInteractionClip = null
     }
     if (outgoingSurface && !availableKeys.has(outgoingSurface)) outgoingSurface = null
+    const interactionClipKeys = new Set(interactionClipRegistry.map(clip => clip.key))
+    if (activeInteractionClip && !interactionClipKeys.has(activeInteractionClip)) activeInteractionClip = null
     const maxCount = viewportWidth <= 600 ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
     surfaceSlots = reconcileGlassOpticalSurfaceSlots(
       surfaceSlots,
@@ -2242,7 +2278,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const surface = target.matches(SURFACE_SELECTOR_QUERY)
       ? target
       : target.closest<HTMLElement>(SURFACE_SELECTOR_QUERY)
-    if (!surface) return null
+    if (!surface || !isGlassOpticalElementEligible(surface)) return null
 
     return SURFACE_SELECTORS.some(
       ({ selector, space }) =>
@@ -2482,13 +2518,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function findInteractionTarget(x: number, y: number) {
     if (availableSurfaces.length === 0) updateSurfaceUniforms()
 
-    const surface = availableSurfaces.find(candidate => rectContainsPoint(candidate.rect, x, y))
+    const surface = availableSurfaces.find(
+      candidate => isGlassOpticalElementEligible(candidate.key) && rectContainsPoint(candidate.rect, x, y),
+    )
     if (!surface) return null
 
     const matchingClips = interactionClipRegistry
       .filter(
         candidate =>
           candidate.owner === surface.key &&
+          isGlassOpticalElementEligible(candidate.key) &&
           isInteractionClipRenderable(candidate.rect) &&
           rectContainsPoint(candidate.rect, x, y),
       )
@@ -2689,6 +2728,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     clientY: number,
     timestamp: number,
     velocityOverride?: { x: number; y: number },
+    target?: EventTarget | null,
   ) {
     if (
       !hasDynamicCapability() ||
@@ -2696,6 +2736,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     ) {
       return
     }
+    if (target instanceof Element && isGlassOpticalElementExcluded(target)) return
 
     const viewportWidth = Math.max(window.innerWidth, 1)
     const viewportHeight = Math.max(window.innerHeight, 1)
@@ -2803,7 +2844,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function handlePointerMove(event: PointerEvent) {
     if (event.pointerType === 'touch') return
 
-    applyInteraction(event.clientX, event.clientY, event.timeStamp || performance.now())
+    applyInteraction(event.clientX, event.clientY, event.timeStamp || performance.now(), undefined, event.target)
   }
 
   function findTouch(touches: TouchList, identifier: number | null) {
@@ -2818,6 +2859,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 被动跟踪真实触点；不阻止页面滚动，也不恢复按压放大语义。 */
   function handleTouchStart(event: TouchEvent) {
     if (activeTouchIdentifier !== null) return
+    if (event.target instanceof Element && isGlassOpticalElementExcluded(event.target)) return
 
     const touch = findTouch(event.changedTouches, null)
     if (!touch) return
@@ -2854,7 +2896,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!touch) return
 
     const timestamp = event.timeStamp || performance.now()
-    applyInteraction(touch.clientX, touch.clientY, timestamp)
+    applyInteraction(touch.clientX, touch.clientY, timestamp, undefined, event.target)
   }
 
   function handleTouchEnd(event: TouchEvent) {
@@ -3105,11 +3147,72 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 只让会改变目标表面集合或圆角几何的 DOM 变更触发重扫。 */
   function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
-    return mutations.some(
-      mutation =>
-        mutation.type === 'attributes' ||
-        [...mutation.addedNodes, ...mutation.removedNodes].some(containsGlassOpticalSurface),
-    )
+    const removalRecords = mutations.flatMap(mutation => {
+      if (mutation.type !== 'childList' || mutation.removedNodes.length === 0 || !(mutation.target instanceof Element))
+        return []
+
+      return [
+        {
+          removedElements: [...mutation.removedNodes].filter((node): node is Element => node instanceof Element),
+          target: mutation.target,
+        },
+      ]
+    })
+    const managedRemovalTargets = new Set<Element>()
+    const removedElementsFromManagedSurfaces = new Set<Element>()
+    let removalGraphExpanded = removalRecords.length > 0
+
+    // MutationRecord 保留节点身份，但回调时的最终 DOM 已丢失中间祖先关系，需要沿同批次移除边传递 owner。
+    while (removalGraphExpanded) {
+      removalGraphExpanded = false
+
+      for (const record of removalRecords) {
+        const belongsToManagedSurface =
+          managedRemovalTargets.has(record.target) ||
+          surfaceRegistry.some(surface => surface.key === record.target || surface.key.contains(record.target)) ||
+          [...removedElementsFromManagedSurfaces].some(
+            element => element === record.target || element.contains(record.target),
+          )
+        if (!belongsToManagedSurface) continue
+
+        if (!managedRemovalTargets.has(record.target)) {
+          managedRemovalTargets.add(record.target)
+          removalGraphExpanded = true
+        }
+        for (const element of record.removedElements) {
+          if (removedElementsFromManagedSurfaces.has(element)) continue
+
+          removedElementsFromManagedSurfaces.add(element)
+          removalGraphExpanded = true
+        }
+      }
+    }
+
+    return mutations.some(mutation => {
+      if (mutation.type === 'attributes') return true
+
+      const removedManagedSurface = [...mutation.removedNodes].some(
+        node =>
+          node instanceof Element &&
+          (surfaceRegistry.some(surface => surface.key === node || node.contains(surface.key)) ||
+            interactionClipRegistry.some(clip => clip.key === node || node.contains(clip.key))),
+      )
+      if (removedManagedSurface) return true
+
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes]
+
+      // 新增节点按提交后的祖先资格判断；排除子树内部的图片 DOM 变化不需要重扫。
+      if (mutation.target instanceof Element && !isGlassOpticalElementEligible(mutation.target)) {
+        const belongsToManagedSurface = surfaceRegistry.some(
+          surface => surface.key === mutation.target || surface.key.contains(mutation.target),
+        )
+        const removedFromManagedSurface = managedRemovalTargets.has(mutation.target)
+
+        return (belongsToManagedSurface || removedFromManagedSurface) && changedNodes.some(containsGlassInteractionClip)
+      }
+
+      return changedNodes.some(node => containsGlassOpticalSurface(node) || containsGlassInteractionClip(node))
+    })
   }
 
   function setupObservers() {
@@ -3262,6 +3365,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceSlots = []
     interactionClips = []
     interactionClipRegistry = []
+    interactionClipConstrainedOwners = new Set<HTMLElement>()
     interactionClipMembershipDirty = true
     activeSurface = null
     activeInteractionClip = null

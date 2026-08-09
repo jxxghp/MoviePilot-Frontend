@@ -62,6 +62,34 @@ const isImageLoaded = ref(false)
 // 图片加载失败
 const imageLoadError = ref(false)
 
+// 图片请求代际隔离复用卡片的迟到事件，避免旧海报改变新媒体的 renderer 资格。
+const imageRequestRevision = ref(0)
+
+// renderer 只能在真实海报完成可见淡入后退出，资源 load 本身不代表像素已完全覆盖卡片。
+const hasCompletedPosterReveal = ref(false)
+const POSTER_REVEAL_FALLBACK_MS = 400
+let posterRevealFallbackTimer: number | null = null
+
+/** 清理当前海报的视觉覆盖状态与兜底提交。 */
+function resetPosterRevealState() {
+  hasCompletedPosterReveal.value = false
+  if (posterRevealFallbackTimer === null) return
+
+  window.clearTimeout(posterRevealFallbackTimer)
+  posterRevealFallbackTimer = null
+}
+
+/** 仅允许当前真实海报请求完成 renderer 排除提交。 */
+function completePosterReveal(revision: number, usesFallback: boolean) {
+  if (revision !== imageRequestRevision.value || usesFallback) return
+
+  if (posterRevealFallbackTimer !== null) {
+    window.clearTimeout(posterRevealFallbackTimer)
+    posterRevealFallbackTimer = null
+  }
+  hasCompletedPosterReveal.value = true
+}
+
 // 当前订阅状态
 const isSubscribed = ref(false)
 
@@ -399,6 +427,54 @@ const getImgUrl: Ref<string> = computed(() => {
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
+const hasLoadedRealPoster = computed(
+  () =>
+    Boolean(props.media?.poster_path) && isImageLoaded.value && hasCompletedPosterReveal.value && !imageLoadError.value,
+)
+
+/** 为当前图片实例绑定不可跨媒体复用的成功与失败回调。 */
+const imageRequest = computed(() => {
+  const revision = imageRequestRevision.value
+  const src = getImgUrl.value
+  const usesFallback = imageLoadError.value || !props.media?.poster_path
+
+  return {
+    handleError: () => {
+      if (revision !== imageRequestRevision.value || usesFallback) return
+
+      resetPosterRevealState()
+      isImageLoaded.value = false
+      imageLoadError.value = true
+      imageRequestRevision.value += 1
+    },
+    handleLoad: () => {
+      if (revision !== imageRequestRevision.value) return
+
+      resetPosterRevealState()
+      isImageLoaded.value = true
+      if (!usesFallback) {
+        posterRevealFallbackTimer = window.setTimeout(
+          () => completePosterReveal(revision, usesFallback),
+          POSTER_REVEAL_FALLBACK_MS,
+        )
+      }
+    },
+    handleReveal: (event: TransitionEvent) => {
+      if (
+        event.propertyName !== 'opacity' ||
+        !(event.target instanceof Element) ||
+        !event.target.matches('.v-img__img')
+      ) {
+        return
+      }
+
+      completePosterReveal(revision, usesFallback)
+    },
+    key: revision,
+    src,
+  }
+})
+
 // 获取媒体类型文本
 function getMediaTypeText(type: string | undefined) {
   if (!type) return ''
@@ -425,13 +501,21 @@ watch(isSubscribed, subscribed => {
 })
 
 watch(
-  () => props.media,
-  () => {
+  [() => props.media, () => props.media?.poster_path],
+  ([media], [previousMedia]) => {
+    imageRequestRevision.value += 1
+    resetPosterRevealState()
+    isImageLoaded.value = false
+    imageLoadError.value = false
+    // 海报补全只重置图片代际；详情和订阅状态绑定媒体对象身份。
+    if (media === previousMedia) return
+
     resetMediaCardDetailState()
     subscribedSeasons.value = []
     subscribedSeasonModes.value = {}
     subscribedSeasonsLoaded.value = false
   },
+  { flush: 'sync' },
 )
 
 onMounted(() => {
@@ -445,6 +529,7 @@ onActivated(resetMediaCardDetailState)
 onDeactivated(resetMediaCardDetailState)
 
 onBeforeUnmount(() => {
+  resetPosterRevealState()
   resetMediaCardDetailState()
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
   observer.value?.disconnect()
@@ -461,6 +546,7 @@ onBeforeUnmount(() => {
           :height="props.height"
           :width="props.width"
           :ripple="false"
+          :data-glass-optical-mode="hasLoadedRealPoster ? 'excluded' : undefined"
           class="app-hover-lift-card outline-none ring-gray-500 media-card"
           :class="{
             'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
@@ -470,12 +556,14 @@ onBeforeUnmount(() => {
           @click.stop="handleMediaCardClick(hover.isHovering)"
         >
           <VImg
+            :key="imageRequest.key"
             aspect-ratio="2/3"
-            :src="getImgUrl"
+            :src="imageRequest.src"
             class="object-cover aspect-w-2 aspect-h-3"
             cover
-            @load="isImageLoaded = true"
-            @error="imageLoadError = true"
+            @load="imageRequest.handleLoad"
+            @error="imageRequest.handleError"
+            @transitionend="imageRequest.handleReveal"
           >
             <template #placeholder>
               <div class="w-full h-full">

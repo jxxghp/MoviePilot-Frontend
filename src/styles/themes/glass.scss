@@ -54,7 +54,7 @@ html[data-theme='glass'] {
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%);
   --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
-  --glass-overlay-blur: 3px;
+  --glass-overlay-blur: 8px;
   --glass-overlay-saturate: 115%;
   --glass-overlay-scrim: rgba(3, 7, 18, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
@@ -187,7 +187,7 @@ html[data-theme='glass'] {
       rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
-    --glass-overlay-blur: 12px;
+    --glass-overlay-blur: 8px;
     --glass-overlay-saturate: 120%;
     --glass-overlay-scrim: rgba(3, 7, 18, 32%);
     --glass-chip-backdrop-filter: blur(10px) saturate(165%) brightness(var(--glass-transmission-brightness));
@@ -386,8 +386,8 @@ html[data-theme='glass'] {
     background-color: var(--glass-surface) !important;
   }
 
-  // 海报完成绘制后已完全遮住卡片底面，释放不可见的实时背景采样。
-  .media-card.media-card--image-loaded {
+  // 只有成功覆盖的真实海报才释放底面采样；占位图与失败态仍保留完整材料。
+  .media-card[data-glass-optical-mode='excluded'] {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
@@ -1012,23 +1012,17 @@ html[data-theme='glass'] {
   .workflow-share-card {
     --workflow-share-glass-start-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.38);
     --workflow-share-glass-end-opacity: calc(0.24 + var(--glass-tint-density, 0.65) * 0.42);
-    --workflow-share-glass-scrim:
-      linear-gradient(
-        rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
-        rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
-      );
+    --workflow-share-glass-scrim: linear-gradient(
+      rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
+      rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
+    );
 
     background-color: var(--glass-surface) !important;
     background-image:
-      var(--glass-sheen),
-      var(--workflow-share-glass-scrim),
+      var(--glass-sheen), var(--workflow-share-glass-scrim),
       linear-gradient(
         135deg,
-        rgba(
-            var(--workflow-share-gradient-start-rgb, 74, 85, 104),
-            var(--workflow-share-glass-start-opacity)
-          )
-          0%,
+        rgba(var(--workflow-share-gradient-start-rgb, 74, 85, 104), var(--workflow-share-glass-start-opacity)) 0%,
         rgba(var(--workflow-share-gradient-end-rgb, 45, 55, 72), var(--workflow-share-glass-end-opacity)) 100%
       ) !important;
   }
@@ -1095,11 +1089,10 @@ html[data-theme='glass'] {
   &[data-glass-appearance='frosted'] .workflow-share-card {
     --workflow-share-glass-start-opacity: calc(0.12 + var(--glass-tint-density, 0.65) * 0.28);
     --workflow-share-glass-end-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.34);
-    --workflow-share-glass-scrim:
-      linear-gradient(
-        rgba(11, 19, 34, calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
-        rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
-      );
+    --workflow-share-glass-scrim: linear-gradient(
+      rgba(11, 19, 34, calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
+      rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
+    );
   }
 
   // 色调材质本身带主色语义，头部染色向主色收敛保持整页同一色温。
@@ -1150,11 +1143,10 @@ html[data-theme='glass'] {
   &[data-glass-appearance='tinted'] .workflow-share-card {
     --workflow-share-glass-start-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.32);
     --workflow-share-glass-end-opacity: calc(0.21 + var(--glass-tint-density, 0.65) * 0.38);
-    --workflow-share-glass-scrim:
-      linear-gradient(
-        rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
-        rgba(11, 19, 34, calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
-      );
+    --workflow-share-glass-scrim: linear-gradient(
+      rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
+      rgba(11, 19, 34, calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
+    );
   }
 
   // 文件夹卡片保留用户自选渐变作为色相，只降低不透明度让卡片本体的玻璃透出来。
@@ -1193,12 +1185,6 @@ html[data-theme='glass'] {
       border-color: var(--glass-border-hover) !important;
       box-shadow: var(--glass-shadow-hover) !important;
     }
-  }
-
-  // “更多”应用列表的分组卡片存在局部固定模糊，需要在完整小屏区间跟随玻璃材质。
-  .settings-section-card.app-grouped-list {
-    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
-    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
   }
 
   // 文件地址栏与下方内容卡属于同一工作表面，不使用更强的 raised 材质。
@@ -1514,13 +1500,19 @@ html[data-glass-appearance='frosted']:is(
   }
 }
 
-// 滚动表面始终由原生 backdrop 持有壁纸基底；GPU 层只叠加局部动态折射。
+// 滚动表面由原生 backdrop 持有壁纸基底；完整内容覆盖的排除子树不再采样。
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   body[data-theme='glass'] {
-  .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
-  .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card,
-  [data-glass-optical-surface],
-  .app-hover-lift-card:not(.media-card--image-loaded) {
+  :is(
+      .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
+      .dashboard-grid-item-content
+        > .dashboard-grid-auto-size
+        > .dashboard-grid-content-measure
+        > :first-child
+        > .v-card,
+      [data-glass-optical-surface],
+      .app-hover-lift-card
+    ):not([data-glass-optical-mode='excluded']):not([data-glass-optical-mode='excluded'] *) {
     -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
     backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
   }
