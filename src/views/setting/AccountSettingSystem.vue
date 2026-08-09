@@ -105,6 +105,7 @@ const SystemSettings = ref<any>({
     TMDB_API_DOMAIN: null,
     TMDB_API_KEY: null,
     TMDB_IMAGE_DOMAIN: null,
+    MUSIC_COVER_PROXY: null,
     TMDB_LOCALE: null,
     META_CACHE_EXPIRE: 0,
     SCRAP_FOLLOW_TMDB: true,
@@ -2053,6 +2054,16 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :items="['image.tmdb.org']"
                     :rules="[(v: string) => !!v || t('setting.system.tmdbImageDomainRequired')]"
                     prepend-inner-icon="mdi-image"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.MUSIC_COVER_PROXY"
+                    :label="t('setting.system.musicCoverProxy')"
+                    :hint="t('setting.system.musicCoverProxyHint')"
+                    persistent-hint
+                    :placeholder="t('setting.system.musicCoverProxyPlaceholder')"
+                    prepend-inner-icon="mdi-music"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
