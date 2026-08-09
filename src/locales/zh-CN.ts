@@ -1368,8 +1368,11 @@ export default {
     selectNone: '全不选',
   },
   discover: {
-    setTabOrder: '设置标签顺序',
-    dragToReorder: '拖动对标签页进行排序',
+    customizeTabs: '自定义探索标签',
+    configureTabsHint: '拖动调整标签顺序，并选择要显示的标签',
+    selectAll: '全选',
+    selectNone: '全不选',
+    saveSettingsFailed: '探索标签设置保存失败，请稍后重试',
   },
   downloading: {
     noDownloader: '没有下载器',

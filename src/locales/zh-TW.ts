@@ -1366,8 +1366,11 @@ export default {
     selectNone: '全不選',
   },
   discover: {
-    setTabOrder: '設置標籤順序',
-    dragToReorder: '拖動對標籤頁進行排序',
+    customizeTabs: '自定義探索標籤',
+    configureTabsHint: '拖動調整標籤順序，並選擇要顯示的標籤',
+    selectAll: '全選',
+    selectNone: '全不選',
+    saveSettingsFailed: '探索標籤設置保存失敗，請稍後重試',
   },
   downloading: {
     noDownloader: '沒有下載器',

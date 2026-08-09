@@ -3,7 +3,9 @@ import { HttpResponse, http, type JsonBodyType } from 'msw'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
-export interface DiscoverOrderItem {
+export interface DiscoverTabConfigItem {
+  enabled?: boolean
+  mediaid_prefix?: string
   name: string
 }
 
@@ -24,7 +26,7 @@ export function discoverSourcesHandler(
 }
 
 export function discoverOrderConfigHandler(
-  order: DiscoverOrderItem[] | null,
+  order: DiscoverTabConfigItem[] | null,
   status = 200,
   onRequest: () => void | Promise<void> = () => {},
 ) {
@@ -35,11 +37,11 @@ export function discoverOrderConfigHandler(
 }
 
 export function saveDiscoverOrderHandler(
-  onSave: (order: DiscoverOrderItem[]) => void | Promise<void> = () => {},
+  onSave: (order: DiscoverTabConfigItem[]) => void | Promise<void> = () => {},
   status = 200,
 ) {
   return http.post(discoverApiUrls.orderConfig, async ({ request }) => {
-    const order = (await request.json()) as DiscoverOrderItem[]
+    const order = (await request.json()) as DiscoverTabConfigItem[]
     await onSave(order)
     return HttpResponse.json({ success: status < 400 }, { status })
   })

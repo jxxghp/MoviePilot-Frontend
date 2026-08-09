@@ -55,12 +55,16 @@ function createSource(name: string, prefix: string): DiscoverSource {
   }
 }
 
-async function renderDialog(tabs: DiscoverSource[]) {
+async function renderDialog(
+  tabs: DiscoverSource[],
+  enabled = Object.fromEntries(tabs.map(tab => [tab.mediaid_prefix, true])),
+) {
   const close = vi.fn()
   const save = vi.fn()
   const updateModelValue = vi.fn()
   const result = await renderWithProviders(DiscoverTabOrderDialog, {
     props: {
+      enabled,
       modelValue: true,
       onClose: close,
       onSave: save,
@@ -89,7 +93,7 @@ describe('DiscoverTabOrderDialog', () => {
 
     expect(tabs).toEqual(originalOrder)
     expect(save).toHaveBeenCalledOnce()
-    const savedTabs = save.mock.calls[0][0] as DiscoverSource[]
+    const savedTabs = (save.mock.calls[0][0] as { tabs: DiscoverSource[] }).tabs
     expect(savedTabs.map(item => item.mediaid_prefix)).toEqual(['source-b', 'source-a'])
     expect(savedTabs[0]).not.toBe(tabs[1])
     expect(savedTabs[0].filter_params).toStrictEqual(tabs[1].filter_params)
@@ -104,13 +108,33 @@ describe('DiscoverTabOrderDialog', () => {
     await user.click(screen.getByRole('button', { name: '反转顺序' }))
 
     await rerender({
+      enabled: { 'source-c': true, 'source-d': true },
       modelValue: true,
       tabs: [createSource('来源丙', 'source-c'), createSource('来源丁', 'source-d')],
     })
     await user.click(screen.getByRole('button', { name: '保存' }))
 
-    const savedTabs = save.mock.calls[0][0] as DiscoverSource[]
+    const savedTabs = (save.mock.calls[0][0] as { tabs: DiscoverSource[] }).tabs
     expect(savedTabs.map(item => item.mediaid_prefix)).toEqual(['source-c', 'source-d'])
+  })
+
+  it('toggles individual tabs and supports the same bulk choices as recommendation settings', async () => {
+    const tabs = [createSource('来源甲', 'source-a'), createSource('来源乙', 'source-b')]
+    const user = userEvent.setup()
+    const { save } = await renderDialog(tabs, { 'source-a': true, 'source-b': false })
+
+    expect(screen.getByRole('button', { name: '来源甲' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '来源乙' })).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(screen.getByRole('button', { name: '来源甲' }))
+    await user.click(screen.getByRole('button', { name: '全选' }))
+    await user.click(screen.getByRole('button', { name: '来源乙' }))
+    await user.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(save).toHaveBeenCalledWith({
+      enabled: { 'source-a': true, 'source-b': false },
+      tabs: expect.any(Array),
+    })
   })
 
   it('emits both model closure and close from the close control', async () => {
@@ -124,13 +148,17 @@ describe('DiscoverTabOrderDialog', () => {
     expect(close).toHaveBeenCalledOnce()
   })
 
-  it('emits only the current local order when saving', async () => {
+  it('emits only the current local settings when saving', async () => {
     const user = userEvent.setup()
     const { close, save, updateModelValue } = await renderDialog([createSource('来源甲', 'source-a')])
 
     await user.click(screen.getByRole('button', { name: '保存' }))
 
     expect(save).toHaveBeenCalledOnce()
+    expect(save).toHaveBeenCalledWith({
+      enabled: { 'source-a': true },
+      tabs: [expect.objectContaining({ mediaid_prefix: 'source-a' })],
+    })
     expect(close).not.toHaveBeenCalled()
     expect(updateModelValue).not.toHaveBeenCalled()
   })

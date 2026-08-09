@@ -1378,8 +1378,11 @@ export default {
     selectNone: 'Select None',
   },
   discover: {
-    setTabOrder: 'Set Tab Order',
-    dragToReorder: 'Drag to reorder tabs',
+    customizeTabs: 'Customize Explore Tabs',
+    configureTabsHint: 'Drag to reorder tabs and choose which tabs to display',
+    selectAll: 'Select All',
+    selectNone: 'Select None',
+    saveSettingsFailed: 'Failed to save explore tab settings. Please try again later.',
   },
   downloading: {
     noDownloader: 'No Downloader',

@@ -9,6 +9,7 @@ const display = useDisplay()
 
 const props = withDefaults(
   defineProps<{
+    enabled: Record<string, boolean>
     modelValue?: boolean
     tabs: DiscoverSource[]
   }>(),
@@ -19,11 +20,12 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: 'close'): void
-  (event: 'save', tabs: DiscoverSource[]): void
+  (event: 'save', payload: { enabled: Record<string, boolean>; tabs: DiscoverSource[] }): void
   (event: 'update:modelValue', value: boolean): void
 }>()
 
 const localTabs = ref<DiscoverSource[]>([])
+const localEnabled = ref<Record<string, boolean>>({})
 
 const visible = computed({
   get: () => props.modelValue,
@@ -34,21 +36,39 @@ const visible = computed({
 })
 
 watch(
-  () => props.tabs,
+  [() => props.tabs, () => props.enabled],
   () => {
-    resetLocalTabs()
+    resetLocalSettings()
   },
   { deep: true, immediate: true },
 )
 
-// 重置弹窗内部排序副本。
-function resetLocalTabs() {
+// 重置弹窗内部设置副本，避免拖拽与开关操作直接修改父级状态。
+function resetLocalSettings() {
   localTabs.value = props.tabs.map(item => ({ ...item }))
+  localEnabled.value = Object.fromEntries(
+    props.tabs.map(item => [item.mediaid_prefix, props.enabled[item.mediaid_prefix] !== false]),
+  )
 }
 
-// 保存当前拖拽后的发现标签顺序。
-function submitOrder() {
-  emit('save', localTabs.value)
+// 切换单个发现标签的显示状态。
+function toggleTab(tab: DiscoverSource) {
+  localEnabled.value[tab.mediaid_prefix] = !localEnabled.value[tab.mediaid_prefix]
+}
+
+// 批量设置全部发现标签的显示状态。
+function setAllTabs(enabled: boolean) {
+  localTabs.value.forEach(tab => {
+    localEnabled.value[tab.mediaid_prefix] = enabled
+  })
+}
+
+// 保存当前拖拽顺序与显示状态。
+function submitSettings() {
+  emit('save', {
+    enabled: { ...localEnabled.value },
+    tabs: localTabs.value,
+  })
 }
 </script>
 
@@ -64,14 +84,14 @@ function submitOrder() {
     <VCard class="settings-card">
       <VCardItem class="settings-card-header">
         <VCardTitle>
-          <VIcon icon="mdi-order-alphabetical-ascending" size="small" class="me-2" />
-          {{ t('discover.setTabOrder') }}
+          <VIcon icon="mdi-tune" size="small" class="me-2" />
+          {{ t('discover.customizeTabs') }}
         </VCardTitle>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
       <VDivider />
       <VCardText>
-        <p class="settings-hint">{{ t('discover.dragToReorder') }}</p>
+        <p class="settings-hint">{{ t('discover.configureTabsHint') }}</p>
         <draggable
           v-model="localTabs"
           handle=".cursor-move"
@@ -81,18 +101,34 @@ function submitOrder() {
           :component-data="{ 'class': 'settings-grid' }"
         >
           <template #item="{ element }">
-            <VCard variant="text" class="setting-item enabled">
-              <div class="setting-item-inner">
+            <div class="setting-item" :class="{ 'enabled': localEnabled[element.mediaid_prefix] }">
+              <button
+                type="button"
+                class="setting-toggle"
+                :aria-pressed="Boolean(localEnabled[element.mediaid_prefix])"
+                @click="toggleTab(element)"
+              >
+                <VIcon
+                  :icon="localEnabled[element.mediaid_prefix] ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                  :color="localEnabled[element.mediaid_prefix] ? 'primary' : undefined"
+                  size="small"
+                />
                 <span class="setting-label">{{ element.name }}</span>
-                <VIcon icon="mdi-drag" class="drag-icon cursor-move" />
-              </div>
-            </VCard>
+              </button>
+              <VIcon icon="mdi-drag-vertical" class="drag-icon cursor-move" aria-hidden="true" />
+            </div>
           </template>
         </draggable>
       </VCardText>
       <VCardActions class="app-dialog-actions">
+        <VBtn color="success" variant="tonal" @click="setAllTabs(true)">
+          {{ t('discover.selectAll') }}
+        </VBtn>
+        <VBtn color="warning" variant="tonal" @click="setAllTabs(false)">
+          {{ t('discover.selectNone') }}
+        </VBtn>
         <VSpacer />
-        <VBtn color="primary" variant="flat" class="px-5" @click="submitOrder">
+        <VBtn color="primary" variant="flat" class="px-5" @click="submitSettings">
           <template #prepend>
             <VIcon icon="mdi-content-save" />
           </template>
@@ -122,37 +158,21 @@ function submitOrder() {
 }
 
 .setting-item {
-  position: relative;
-  overflow: hidden;
+  display: flex;
+  align-items: stretch;
   min-block-size: 48px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 10px;
+  border-radius: 8px;
   background-color: rgba(var(--v-theme-on-surface), 0.04);
-  cursor: grab;
-  padding-block: 10px;
-  padding-inline: 12px;
-  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-}
-
-.setting-item::before {
-  position: absolute;
-  background-color: rgb(var(--v-theme-primary));
-  block-size: 100%;
-  content: '';
-  inline-size: 3px;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .setting-item.enabled {
   border-color: rgba(var(--v-theme-primary), 0.3);
   background-color: rgba(var(--v-theme-primary), 0.08);
-}
-
-.setting-item.enabled::before {
-  opacity: 1;
 }
 
 .setting-item:hover {
@@ -161,14 +181,29 @@ function submitOrder() {
 }
 
 .setting-item:active {
-  cursor: grabbing;
   transform: scale(0.99);
 }
 
-.setting-item-inner {
+.setting-toggle {
+  appearance: none;
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 10px;
+  min-inline-size: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  padding-block: 10px;
+  padding-inline: 12px 6px;
+  text-align: start;
+}
+
+.setting-toggle:focus-visible {
+  border-radius: 7px;
+  outline: 3px solid rgba(var(--v-theme-primary), 0.28);
+  outline-offset: 2px;
 }
 
 .setting-label {
@@ -185,9 +220,16 @@ function submitOrder() {
 }
 
 .drag-icon {
+  align-self: center;
   flex-shrink: 0;
   color: rgba(var(--v-theme-on-surface), 0.52);
+  cursor: grab;
+  margin-inline-end: 10px;
   transition: color 0.2s ease;
+}
+
+.drag-icon:active {
+  cursor: grabbing;
 }
 
 .setting-item:hover .drag-icon {
