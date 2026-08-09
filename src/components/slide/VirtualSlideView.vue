@@ -232,7 +232,7 @@ watch(
 </script>
 
 <template>
-  <div class="slider-container" :class="{ 'is-scrolling': isScrolling }">
+  <div v-show="loading || items.length > 0" class="slider-container" :class="{ 'is-scrolling': isScrolling }">
     <div class="slider-header">
       <slot name="title">
         <SlideViewTitle />

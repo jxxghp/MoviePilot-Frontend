@@ -42,7 +42,7 @@ watch(query, searchMusic, { immediate: true })
   <div class="music-search-page">
     <VPageContentTitle :title="query || t('music.title')" />
 
-    <VSkeletonLoader v-if="loading" type="card, card, card" />
+    <LoadingBanner v-if="loading" class="mt-12" />
     <VRow v-else-if="results.length">
       <VCol v-for="item in results" :key="getMusicKey(item)" cols="12" md="6" xl="4">
         <MusicCard :music="item" />
