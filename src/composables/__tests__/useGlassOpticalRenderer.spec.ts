@@ -148,6 +148,28 @@ function createTouchList(points: Array<{ clientX: number; clientY: number; ident
   }) as unknown as TouchList
 }
 
+/** 构造浏览器在 detached 子树交付前保留的 child-list 移除记录。 */
+function createRemovalRecord(target: Element, removedNodes: Element[]): MutationRecord {
+  const toNodeList = (nodes: Node[]) =>
+    Object.assign(nodes, {
+      item(index: number) {
+        return nodes[index] ?? null
+      },
+    }) as unknown as NodeList
+
+  return {
+    addedNodes: toNodeList([]),
+    attributeName: null,
+    attributeNamespace: null,
+    nextSibling: null,
+    oldValue: null,
+    previousSibling: null,
+    removedNodes: toNodeList(removedNodes),
+    target,
+    type: 'childList',
+  }
+}
+
 function dispatchTouchEvent(
   type: 'touchcancel' | 'touchend' | 'touchmove' | 'touchstart',
   touches: Array<{ clientX: number; clientY: number; identifier: number }>,
@@ -2225,6 +2247,95 @@ describe('glass optical surface discovery', () => {
         surfaceDynamics: [1, 1],
       }),
     )
+
+    scope.stop()
+  })
+
+  it('propagates a managed owner through deeply nested removals in one observer batch', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const mutationObservers: Array<MutationObserver & { trigger: (records: MutationRecord[]) => void }> = []
+    class MutationObserverMock implements MutationObserver {
+      constructor(private readonly callback: MutationCallback) {
+        mutationObservers.push(this)
+      }
+
+      disconnect() {}
+      observe() {}
+      takeRecords() {
+        return []
+      }
+      trigger(records: MutationRecord[]) {
+        this.callback(records, this)
+      }
+    }
+    vi.stubGlobal('MutationObserver', MutationObserverMock)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const pageContent = document.createElement('main')
+    pageContent.className = 'app-wrapper layout-page-content'
+    const surface = document.createElement('section')
+    surface.className = 'v-card'
+    setOpticalSurfaceBounds(surface, { height: 420, width: 900, x: 40, y: 80 })
+    const outerExcludedContainer = document.createElement('div')
+    outerExcludedContainer.dataset.glassOpticalMode = 'excluded'
+    const innerExcludedContainer = document.createElement('div')
+    innerExcludedContainer.dataset.glassOpticalMode = 'excluded'
+    const deeplyNestedClip = document.createElement('article')
+    deeplyNestedClip.className = 'app-hover-lift-card'
+    innerExcludedContainer.append(deeplyNestedClip)
+    outerExcludedContainer.append(innerExcludedContainer)
+    surface.append(outerExcludedContainer)
+    pageContent.append(surface)
+    document.body.append(pageContent)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/search'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const getInteractionState = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uInteractionRectCount: { value: number }
+              uSurfaceDynamics: { value: number[] }
+            }
+          }
+        }>
+      }
+      const uniforms = scene.children[0].material.uniforms
+
+      return {
+        interactionCount: uniforms.uInteractionRectCount.value,
+        surfaceDynamics: uniforms.uSurfaceDynamics.value[0],
+      }
+    }
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+    await vi.waitFor(() => expect(getInteractionState()).toEqual({ interactionCount: 0, surfaceDynamics: 0 }))
+
+    outerExcludedContainer.remove()
+    innerExcludedContainer.remove()
+    deeplyNestedClip.remove()
+    mutationObservers[0].trigger([
+      createRemovalRecord(surface, [outerExcludedContainer]),
+      createRemovalRecord(outerExcludedContainer, [innerExcludedContainer]),
+      createRemovalRecord(innerExcludedContainer, [deeplyNestedClip]),
+    ])
+
+    await vi.waitFor(() => expect(getInteractionState()).toEqual({ interactionCount: 1, surfaceDynamics: 1 }))
     scope.stop()
   })
 

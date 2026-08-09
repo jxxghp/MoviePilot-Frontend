@@ -3147,19 +3147,46 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 只让会改变目标表面集合或圆角几何的 DOM 变更触发重扫。 */
   function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
-    // 同批次后续移除祖先时，保留子树与原受管理表面的关联。
-    const removedSubtreesFromManagedSurfaces = mutations.flatMap(mutation => {
+    const removalRecords = mutations.flatMap(mutation => {
       if (mutation.type !== 'childList' || mutation.removedNodes.length === 0 || !(mutation.target instanceof Element))
         return []
 
-      const belongsToManagedSurface = surfaceRegistry.some(
-        surface => surface.key === mutation.target || surface.key.contains(mutation.target),
-      )
-
-      return belongsToManagedSurface
-        ? [...mutation.removedNodes].filter((node): node is Element => node instanceof Element)
-        : []
+      return [
+        {
+          removedElements: [...mutation.removedNodes].filter((node): node is Element => node instanceof Element),
+          target: mutation.target,
+        },
+      ]
     })
+    const managedRemovalTargets = new Set<Element>()
+    const removedElementsFromManagedSurfaces = new Set<Element>()
+    let removalGraphExpanded = removalRecords.length > 0
+
+    // MutationRecord 保留节点身份，但回调时的最终 DOM 已丢失中间祖先关系，需要沿同批次移除边传递 owner。
+    while (removalGraphExpanded) {
+      removalGraphExpanded = false
+
+      for (const record of removalRecords) {
+        const belongsToManagedSurface =
+          managedRemovalTargets.has(record.target) ||
+          surfaceRegistry.some(surface => surface.key === record.target || surface.key.contains(record.target)) ||
+          [...removedElementsFromManagedSurfaces].some(
+            element => element === record.target || element.contains(record.target),
+          )
+        if (!belongsToManagedSurface) continue
+
+        if (!managedRemovalTargets.has(record.target)) {
+          managedRemovalTargets.add(record.target)
+          removalGraphExpanded = true
+        }
+        for (const element of record.removedElements) {
+          if (removedElementsFromManagedSurfaces.has(element)) continue
+
+          removedElementsFromManagedSurfaces.add(element)
+          removalGraphExpanded = true
+        }
+      }
+    }
 
     return mutations.some(mutation => {
       if (mutation.type === 'attributes') return true
@@ -3179,9 +3206,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         const belongsToManagedSurface = surfaceRegistry.some(
           surface => surface.key === mutation.target || surface.key.contains(mutation.target),
         )
-        const removedFromManagedSurface = removedSubtreesFromManagedSurfaces.some(
-          subtree => subtree === mutation.target || subtree.contains(mutation.target),
-        )
+        const removedFromManagedSurface = managedRemovalTargets.has(mutation.target)
 
         return (belongsToManagedSurface || removedFromManagedSurface) && changedNodes.some(containsGlassInteractionClip)
       }
