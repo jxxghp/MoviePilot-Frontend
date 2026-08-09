@@ -8,7 +8,7 @@ import { querySubscribeByMediaHandler, subscribeListHandler } from '@tests/suppo
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -443,17 +443,22 @@ describe('MediaCard', () => {
     expect(dialogProps.selected).toEqual([])
   })
 
-  it('loads matching TV seasons before opening the subscription dialog', async () => {
-    const media = createMediaInfo({ season: 2, title: '多季剧集', tmdb_id: 9551, type: '电视剧' })
+  it('preserves loaded TV seasons when the same media receives a new poster', async () => {
+    const media = reactive(createMediaInfo({ season: 2, title: '多季剧集', tmdb_id: 9551, type: '电视剧' }))
+    const subscribeListRequest = vi.fn<(url: URL) => void>()
     server.use(
       querySubscribeByMediaHandler('tmdb:9551', { id: 81, season: 2 }),
       mediaExistsHandler({ data: { item: {} }, success: false }),
-      subscribeListHandler([
-        { best_version: 0, id: 81, season: 3, tmdbid: 9551, type: '电视剧' },
-        { best_version: 1, best_version_full: 1, id: 82, season: 1, tmdbid: 9551, type: '电视剧' },
-        { id: 83, season: 4, tmdbid: 9999, type: '电视剧' },
-        { id: 84, tmdbid: 9551, type: '电影' },
-      ]),
+      subscribeListHandler(
+        [
+          { best_version: 0, id: 81, season: 3, tmdbid: 9551, type: '电视剧' },
+          { best_version: 1, best_version_full: 1, id: 82, season: 1, tmdbid: 9551, type: '电视剧' },
+          { id: 83, season: 4, tmdbid: 9999, type: '电视剧' },
+          { id: 84, tmdbid: 9551, type: '电影' },
+        ],
+        200,
+        subscribeListRequest,
+      ),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
         HttpResponse.json({ data: { value: { best_version: 0 } }, success: true }),
       ),
@@ -469,6 +474,19 @@ describe('MediaCard', () => {
     const [, dialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, Record<string, unknown>]
     expect(dialogProps).toMatchObject({
       selectedSeason: undefined,
+      subscribedSeasonModes: { 1: 'best_version_full', 3: 'normal' },
+      subscribedSeasons: [1, 3],
+    })
+    expect(subscribeListRequest).toHaveBeenCalledOnce()
+
+    media.poster_path = '/original/updated.jpg'
+    mocks.openSharedDialog.mockClear()
+    await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
+
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    expect(subscribeListRequest).toHaveBeenCalledOnce()
+    const [, updatedDialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, Record<string, unknown>]
+    expect(updatedDialogProps).toMatchObject({
       subscribedSeasonModes: { 1: 'best_version_full', 3: 'normal' },
       subscribedSeasons: [1, 3],
     })

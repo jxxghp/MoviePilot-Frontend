@@ -457,10 +457,13 @@ watch(isSubscribed, subscribed => {
 
 watch(
   [() => props.media, () => props.media?.poster_path],
-  () => {
+  ([media], [previousMedia]) => {
     imageRequestRevision.value += 1
     isImageLoaded.value = false
     imageLoadError.value = false
+    // 海报补全只重置图片代际；详情和订阅状态绑定媒体对象身份。
+    if (media === previousMedia) return
+
     resetMediaCardDetailState()
     subscribedSeasons.value = []
     subscribedSeasonModes.value = {}
