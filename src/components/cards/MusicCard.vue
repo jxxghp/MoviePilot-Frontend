@@ -3,7 +3,7 @@ import type { MediaInfo } from '@/api/types'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
-import { getMediaSubscribeId, useMediaSubscribe } from '@/composables/useMediaSubscribe'
+import { useMediaSubscribe } from '@/composables/useMediaSubscribe'
 import { getCachedMediaSubscribeStatus } from '@/utils/mediaStatusCache'
 import { useMusicSiteSearch } from '@/composables/useMusicSiteSearch'
 import {
@@ -13,6 +13,7 @@ import {
   buildMusicResourceRoute,
   formatMusicDuration,
   getMusicArtistLinks,
+  getMusicKey,
 } from '@/utils/music'
 
 const { t } = useI18n()
@@ -80,7 +81,7 @@ const showCover = computed(() => Boolean(coverUrl.value) && !imageLoadError.valu
 
 /** 生成订阅状态缓存键。 */
 function getSubscribeStatusKey() {
-  return `${getMediaSubscribeId(props.music)}::all`
+  return `${props.music ? getMusicKey(props.music) : ''}::all`
 }
 
 const subscribeActions = useMediaSubscribe({

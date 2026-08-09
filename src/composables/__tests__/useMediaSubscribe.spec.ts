@@ -293,6 +293,34 @@ describe('useMediaSubscribe entry flows', () => {
     })
   })
 
+  it('creates a recording subscription without its album track count', async () => {
+    const media = createMediaInfo({
+      media_id: 'recording-1',
+      music_type: 'recording',
+      source: 'musicbrainz',
+      title: '晴天',
+      tmdb_id: undefined,
+      total_tracks: 11,
+      type: '音乐',
+      year: '2003',
+    })
+    const created = vi.fn()
+    server.use(createSubscribeHandler({ data: { id: 503 }, success: true }, 200, created))
+    await renderSubscribeHarness({ media })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'primary' }))
+
+    await waitFor(() => expect(created).toHaveBeenCalledOnce())
+    expect(created.mock.calls[0][0]).toMatchObject({
+      media_id: 'recording-1',
+      media_source: 'musicbrainz',
+      music_type: 'recording',
+      name: '晴天',
+      type: '音乐',
+    })
+    expect(created.mock.calls[0][0]).not.toHaveProperty('total_tracks')
+  })
+
   it('does not create a subscription for an artist browsing entity', async () => {
     const media = createMediaInfo({
       media_id: 'artist-1',
@@ -515,6 +543,37 @@ describe('useMediaSubscribe entry flows', () => {
     await waitFor(() => expect(deleted).toHaveBeenCalledOnce())
     expect((deleted.mock.calls[0][0] as URL).searchParams.get('season')).toBe('2')
     expect(screen.getByTestId('season-map')).toHaveTextContent('"2":false')
+  })
+
+  it('queries and cancels music subscriptions with their entity type', async () => {
+    const media = createMediaInfo({
+      media_id: 'release-group-1',
+      music_type: 'album',
+      source: 'musicbrainz',
+      title: '叶惠美',
+      tmdb_id: undefined,
+      type: '音乐',
+    })
+    const queried = vi.fn()
+    const deleted = vi.fn()
+    server.use(
+      querySubscribeByMediaHandler(
+        'musicbrainz:release-group-1',
+        createSubscribe({ id: 801, music_type: 'album', type: '音乐' }),
+        200,
+        url => queried(url),
+      ),
+      deleteSubscribeByMediaHandler('musicbrainz:release-group-1', { success: true }, 200, url => deleted(url)),
+    )
+    await renderSubscribeHarness({ isSubscribed: true, media })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'check' }))
+    await waitFor(() => expect(screen.getByTestId('check-result')).toHaveTextContent('subscribed'))
+    expect((queried.mock.calls[0][0] as URL).searchParams.get('music_type')).toBe('album')
+
+    await fireEvent.click(screen.getByRole('button', { name: 'remove' }))
+    await waitFor(() => expect(deleted).toHaveBeenCalledOnce())
+    expect((deleted.mock.calls[0][0] as URL).searchParams.get('music_type')).toBe('album')
   })
 
   it('aligns visible seasons while preserving hidden subscriptions', async () => {

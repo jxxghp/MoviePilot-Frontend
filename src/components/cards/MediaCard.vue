@@ -26,7 +26,7 @@ import {
   getCachedMediaSubscribeStatus,
   setCachedMediaExistsStatus,
 } from '@/utils/mediaStatusCache'
-import { buildMusicDetailRoute } from '@/utils/music'
+import { buildMusicDetailRoute, getMusicKey } from '@/utils/music'
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
 
@@ -151,7 +151,8 @@ function getMediaId() {
 }
 
 function getSubscribeStatusKey(season: number | null = props.media?.season ?? null) {
-  return `${getMediaId()}::${season ?? 'all'}`
+  const identity = props.media?.type === '音乐' ? getMusicKey(props.media) : getMediaId()
+  return `${identity}::${season ?? 'all'}`
 }
 
 function getExistsStatusKey() {
@@ -167,6 +168,11 @@ function getExistsStatusKey() {
 }
 
 function isSameSubscribeMedia(subscribe: Subscribe) {
+  if (props.media?.type === '音乐') {
+    const expectedMusicType = props.media.music_type ?? 'recording'
+    const subscribeMusicType = subscribe.music_type ?? 'recording'
+    if (subscribeMusicType !== expectedMusicType) return false
+  }
   const mediaId = getMediaId()
   if (subscribe.media_source && subscribe.media_id) {
     const prefix = subscribe.media_source === 'themoviedb' ? 'tmdb' : subscribe.media_source

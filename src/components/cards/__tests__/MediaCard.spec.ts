@@ -329,6 +329,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
     await waitFor(() => expect(subscribeRequest).toHaveBeenCalledOnce())
+    expect((subscribeRequest.mock.calls[0][0] as URL).searchParams.get('music_type')).toBe('recording')
     expect(existsRequest).not.toHaveBeenCalled()
 
     await fireEvent.mouseEnter(getHoverArea(container))
