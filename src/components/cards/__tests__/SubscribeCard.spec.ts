@@ -138,7 +138,7 @@ describe('SubscribeCard display and progress', () => {
     expect((image as HTMLImageElement).src).toContain('system/cache/image?url=')
     expect((image as HTMLImageElement).src).toContain(encodeURIComponent(media.backdrop || ''))
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
-    expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^\d{1,4} \/ \d{1,4}$/)).not.toBeInTheDocument()
   })
 
   it('uses the poster as the background fallback and replaces failed images with the placeholder', async () => {
@@ -172,6 +172,21 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('img')).toBeNull()
   })
 
+  it.each([480, 1024])('shows whole-album track count without fake episode progress at %ipx', async width => {
+    setViewport(width)
+    await renderCard({
+      music_type: 'album',
+      name: '叶惠美',
+      total_episode: undefined,
+      total_tracks: 11,
+      type: '音乐',
+    })
+
+    expect(screen.getByText('专辑 · 11 首')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^\d{1,4} \/ \d{1,4}$/)).not.toBeInTheDocument()
+  })
+
   it.each([
     ['regular progress', 10, 4, '6 / 10', '60'],
     ['negative missing episodes', 10, -2, '10 / 10', '100'],
@@ -181,7 +196,7 @@ describe('SubscribeCard display and progress', () => {
     await renderCard({ lack_episode: lackEpisode, season: 2, total_episode: totalEpisode, type: '电视剧' })
 
     if (expectedText) expect(screen.getByText(expectedText)).toBeInTheDocument()
-    else expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
+    else expect(screen.queryByText(/^\d{1,4} \/ \d{1,4}$/)).not.toBeInTheDocument()
 
     if (expectedProgress) expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', expectedProgress)
     else expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()

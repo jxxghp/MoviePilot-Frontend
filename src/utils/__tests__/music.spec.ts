@@ -81,6 +81,17 @@ describe('music utils', () => {
     })
   })
 
+  it('does not build a resource route for an artist browsing entity', () => {
+    expect(
+      buildMusicResourceRoute({
+        source: 'musicbrainz',
+        media_id: 'artist-1',
+        music_type: 'artist',
+        title: 'Queen',
+      } as never),
+    ).toBeUndefined()
+  })
+
   it('keeps the entity type inside the list key so albums and tracks never collide', () => {
     const track = getMusicKey({ source: 'musicbrainz', media_id: 'same-id' })
     const album = getMusicKey({ source: 'musicbrainz', media_id: 'same-id', music_type: 'album' })

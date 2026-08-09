@@ -1,5 +1,5 @@
 import MusicPage from '@/pages/music.vue'
-import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -47,6 +47,33 @@ const musicResult = {
   title: '晴天',
   type: '音乐',
   year: 2003,
+}
+
+const albumResult = {
+  album: '七里香',
+  album_id: 'release-group-2',
+  album_type: 'Album',
+  artist: '周杰伦',
+  artists: ['周杰伦'],
+  artist_ids: ['artist-1'],
+  category: 'Album',
+  media_id: 'release-group-2',
+  music_type: 'album',
+  release_date: '2004-08-03',
+  source: 'musicbrainz',
+  title: '七里香',
+  type: '音乐',
+  year: 2004,
+}
+
+const artistResult = {
+  category: 'Person',
+  media_id: 'artist-1',
+  music_type: 'artist',
+  source: 'musicbrainz',
+  title: '周杰伦',
+  type: '音乐',
+  version: 'Taiwanese singer-songwriter',
 }
 
 const musicSite = { id: 11, is_active: true, name: '音乐站点', url: 'https://music.example' }
@@ -177,6 +204,32 @@ describe('music page', () => {
 
     await fireEvent.click(await screen.findByText('周杰伦'))
 
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/artist'))
+    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'artist-1' })
+  })
+
+  it('renders album and artist search entities with entity-correct actions and routes', async () => {
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'media/search') return Promise.resolve([musicResult, albumResult, artistResult])
+      if (path.startsWith('subscribe/media/')) return Promise.reject({ response: { status: 404 } })
+      return Promise.resolve([])
+    })
+    const { router } = await renderMusicPage()
+
+    const artistEntity = await screen.findByText('艺术家')
+    const artistCard = artistEntity.closest('.music-card')
+    expect(artistCard).not.toBeNull()
+    expect(within(artistCard as HTMLElement).queryByRole('button', { name: '订阅' })).not.toBeInTheDocument()
+    expect(within(artistCard as HTMLElement).queryByRole('button', { name: '搜索资源' })).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByText('七里香'))
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/album'))
+    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'release-group-2' })
+
+    await router.push('/music?query=晴天')
+    const restoredArtistEntity = await screen.findByText('艺术家')
+    const restoredArtistCard = restoredArtistEntity.closest('.music-card')
+    await fireEvent.click(within(restoredArtistCard as HTMLElement).getByText('周杰伦'))
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/artist'))
     expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'artist-1' })
   })

@@ -25,6 +25,7 @@ const userStore = useUserStore()
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canSearch = computed(() => hasPermission(userPermissions.value, 'search'))
 const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
+const isActionableMedia = computed(() => props.music?.music_type !== 'artist')
 
 // 封面加载失败后改用专辑占位图标
 const imageLoadError = ref(false)
@@ -90,7 +91,7 @@ const { openMusicSiteSearch } = useMusicSiteSearch(sites =>
 
 /** 查询当前音乐是否已订阅，用于决定心形图标是实心还是空心。 */
 async function checkSubscribeStatus() {
-  if (!canSubscribe.value || !props.music?.media_id) return
+  if (!isActionableMedia.value || !canSubscribe.value || !props.music?.media_id) return
   try {
     isSubscribed.value = await getCachedMediaSubscribeStatus(getSubscribeStatusKey(), () =>
       subscribeActions.checkSubscribe(null),
@@ -161,7 +162,7 @@ onMounted(checkSubscribeStatus)
                 </VChip>
               </div>
 
-              <div class="music-card-supporting text-medium-emphasis">
+              <div v-if="props.music?.music_type !== 'artist'" class="music-card-supporting text-medium-emphasis">
                 <VIcon icon="mdi-account-music" size="16" />
                 <div class="music-card-artists">
                   <template v-if="artistLinks.length">
@@ -183,7 +184,10 @@ onMounted(checkSubscribeStatus)
                 </div>
               </div>
 
-              <div v-if="props.music?.album" class="music-card-supporting text-medium-emphasis">
+              <div
+                v-if="props.music?.album && props.music?.music_type !== 'album'"
+                class="music-card-supporting text-medium-emphasis"
+              >
                 <VIcon icon="mdi-album" size="16" />
                 <div class="music-card-album">
                   <span>{{ t('music.album') }}：</span>
@@ -216,7 +220,7 @@ onMounted(checkSubscribeStatus)
 
                 <div class="music-card-actions">
                   <IconBtn
-                    v-if="canSubscribe"
+                    v-if="canSubscribe && isActionableMedia"
                     :icon="isSubscribed ? 'mdi-heart' : 'mdi-heart-outline'"
                     :color="isSubscribed ? 'error' : 'medium-emphasis'"
                     :aria-label="isSubscribed ? t('music.unsubscribe') : t('music.subscribe')"
@@ -226,7 +230,7 @@ onMounted(checkSubscribeStatus)
                     @click.stop="subscribeActions.handleSubscribe()"
                   />
                   <IconBtn
-                    v-if="canSearch"
+                    v-if="canSearch && isActionableMedia"
                     icon="mdi-magnify"
                     color="primary"
                     :aria-label="t('music.searchResources')"

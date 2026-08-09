@@ -18,7 +18,7 @@ export interface Subscribe {
   name: string
   // 订阅年份
   year: string
-  // 订阅类型 电影/电视剧
+  // 订阅类型 电影/电视剧/音乐
   type: string
   // 搜索关键字
   keyword?: string
@@ -34,6 +34,10 @@ export interface Subscribe {
   media_source?: MediaDataSource
   // 数据源原生ID
   media_id?: string
+  // 音乐实体类型：recording 单曲、album 专辑、artist 艺术家
+  music_type?: MusicEntityType
+  // 专辑总曲目数
+  total_tracks?: number
   // 其它媒体ID
   mediaid?: string
   // 季号
@@ -140,6 +144,10 @@ export interface SubscribeShare {
   media_source?: MediaDataSource
   // 数据源原生ID
   media_id?: string
+  // 音乐实体类型：recording 单曲、album 专辑、artist 艺术家
+  music_type?: MusicEntityType
+  // 专辑总曲目数
+  total_tracks?: number
   // 季号
   season?: number
   // 海报

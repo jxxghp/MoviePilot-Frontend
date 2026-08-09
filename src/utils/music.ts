@@ -63,6 +63,8 @@ export function buildMusicResourceRoute(
   item: MediaInfo | MusicAlbumInfo,
   sites: number[] = [],
 ): RouteLocationRaw | undefined {
+  // 艺术家是浏览入口，不是可直接下载的媒体实体。
+  if ((item as MusicRouteTarget).music_type === 'artist') return undefined
   const source = getMusicSource(item as MusicRouteTarget)
   if (!source || !item.media_id) return undefined
   return {

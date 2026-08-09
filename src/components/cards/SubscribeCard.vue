@@ -136,6 +136,12 @@ const subscribeProgressText = computed(() => {
   return `${downloadedEpisode.value} / ${total}`
 })
 
+// 专辑订阅按整包完成，不伪造分集进度；这里只展示整专规模，提醒用户该目标包含多首曲目。
+const musicAlbumTrackText = computed(() => {
+  if (props.media?.type !== '音乐' || props.media?.music_type !== 'album' || !props.media?.total_tracks) return ''
+  return `${t('music.entityAlbum')} · ${t('music.trackCount', { count: props.media.total_tracks })}`
+})
+
 // 订阅卡片 hover 文案：
 // - 普通订阅：「已下载 X · 共 Y 集」
 // - 洗版订阅：「已下载 X · 已洗版 N · 共 Y 集」
@@ -634,8 +640,11 @@ function handleCardClick() {
                           :data-subscribe-state-icon="compactStateDisplay.icon"
                           size="16"
                         />
-                        <span v-if="subscribeProgressText" class="subscribe-card-mobile-progress-text">
-                          {{ subscribeProgressText }}
+                        <span
+                          v-if="subscribeProgressText || musicAlbumTrackText"
+                          class="subscribe-card-mobile-progress-text"
+                        >
+                          {{ subscribeProgressText || musicAlbumTrackText }}
                         </span>
                       </div>
 
@@ -699,7 +708,9 @@ function handleCardClick() {
                     </div>
                   </div>
                 </VCardText>
-                <VCardText class="absolute inset-x-0 bottom-2 z-10 flex min-w-0 justify-space-between align-center flex-wrap px-3">
+                <VCardText
+                  class="absolute inset-x-0 bottom-2 z-10 flex min-w-0 justify-space-between align-center flex-wrap px-3"
+                >
                   <div class="flex min-w-0 max-w-full align-center">
                     <VIcon
                       v-if="props.media?.total_episode && props.sortable"
@@ -721,6 +732,13 @@ function handleCardClick() {
                       <VTooltip v-if="subscribeProgressTooltip" activator="parent" location="top">
                         {{ subscribeProgressTooltip }}
                       </VTooltip>
+                    </div>
+                    <div
+                      v-else-if="musicAlbumTrackText"
+                      class="flex flex-shrink-0 align-center text-subtitle-2 me-2 text-white"
+                    >
+                      <VIcon icon="mdi-album" size="small" class="me-1" />
+                      {{ musicAlbumTrackText }}
                     </div>
                     <VIcon
                       v-if="props.media?.username && props.sortable"

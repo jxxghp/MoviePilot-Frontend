@@ -9,6 +9,7 @@ import {
 } from '@/composables/useMediaSubscribe'
 import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { createMediaInfo } from '@tests/support/factories/media'
 import { createSubscribe, createSubscribeMovie, createSubscribeTv } from '@tests/support/factories/subscribe'
 import {
   createSubscribeHandler,
@@ -259,6 +260,56 @@ describe('useMediaSubscribe entry flows', () => {
     expect(mocks.toastSuccess).toHaveBeenCalled()
     expect(mocks.startProgress).toHaveBeenCalledOnce()
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
+  })
+
+  it('creates an album subscription with its entity type and complete track count', async () => {
+    const media = createMediaInfo({
+      media_id: 'release-group-1',
+      music_type: 'album',
+      source: 'musicbrainz',
+      title: '叶惠美',
+      tmdb_id: undefined,
+      total_tracks: 11,
+      type: '音乐',
+      year: '2003',
+    })
+    const created = vi.fn()
+    server.use(createSubscribeHandler({ data: { id: 502 }, success: true }, 200, created))
+    await renderSubscribeHarness({ media })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'primary' }))
+
+    await waitFor(() => expect(created).toHaveBeenCalledOnce())
+    expect(created.mock.calls[0][0]).toMatchObject({
+      media_id: 'release-group-1',
+      media_source: 'musicbrainz',
+      mediaid: 'musicbrainz:release-group-1',
+      music_type: 'album',
+      name: '叶惠美',
+      season: null,
+      total_tracks: 11,
+      type: '音乐',
+      year: '2003',
+    })
+  })
+
+  it('does not create a subscription for an artist browsing entity', async () => {
+    const media = createMediaInfo({
+      media_id: 'artist-1',
+      music_type: 'artist',
+      source: 'musicbrainz',
+      title: '周杰伦',
+      tmdb_id: undefined,
+      type: '音乐',
+    })
+    const created = vi.fn()
+    server.use(createSubscribeHandler({ data: { id: 503 }, success: true }, 200, created))
+    await renderSubscribeHarness({ media })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'primary' }))
+
+    expect(created).not.toHaveBeenCalled()
+    expect(mocks.startProgress).not.toHaveBeenCalled()
   })
 
   it('creates an AniList subscription without promoting its auxiliary TMDB ID', async () => {

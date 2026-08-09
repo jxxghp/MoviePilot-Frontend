@@ -309,7 +309,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     addOptions: AddSubscribeOptions = {},
   ) {
     const media = currentMedia()
-    if (!media) return
+    // 艺术家仅用于继续浏览，其下作品必须按单曲或专辑分别订阅。
+    if (!media || media.music_type === 'artist') return
     const identity = getMediaSubscribeIdentity(media)
 
     startNProgress()
@@ -326,6 +327,9 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         media_source: identity?.source,
         media_id: identity?.mediaId,
         mediaid: identity?.mediaKey ?? '',
+        // 专辑订阅必须保留实体类型和曲目总数，后端据此校验整专资源并决定何时完成订阅。
+        music_type: media.music_type,
+        total_tracks: media.total_tracks,
         season: media.type === '电影' ? null : season,
         ...payload,
         episode_group: episodeGroup.value,
@@ -499,7 +503,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   // 处理媒体主订阅入口，电视剧统一进入季选择弹窗。
   function handlePrimarySubscribe() {
     const media = currentMedia()
-    if (!media) return
+    if (!media || media.music_type === 'artist') return
 
     const season = media.type === '电影' ? null : getPrimarySeason()
 

@@ -151,7 +151,7 @@ function getSubscribeStatus(subscribe: Subscribe) {
     return 'paused' // 暂停
   }
 
-  // 电影和音乐没有分集进度，只有状态。
+  // 电影、单曲和整专都是原子下载目标；整专曲目总数由订阅卡片单独展示，不映射成分集进度。
   if (subscribe.type === '电影' || subscribe.type === '音乐') {
     return 'all'
   }

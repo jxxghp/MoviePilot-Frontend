@@ -162,11 +162,6 @@
       "count": 1
     }
   },
-  "src/components/cards/__tests__/SubscribeCard.spec.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 2
-    }
-  },
   "src/components/dialog/AboutDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
