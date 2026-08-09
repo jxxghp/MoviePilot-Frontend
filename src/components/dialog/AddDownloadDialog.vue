@@ -319,7 +319,9 @@ onMounted(() => {
               v-model="mediaId"
               :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
-              :rules="[(value: any) => isValidMediaSourceId(value, mediaSource.value) || t('dialog.reorganize.mediaIdInvalid')]"
+              :rules="[
+                (value: any) => isValidMediaSourceId(value, mediaSource) || t('dialog.reorganize.mediaIdInvalid'),
+              ]"
               append-inner-icon="mdi-magnify"
               :hint="t('dialog.reorganize.mediaIdHint')"
               persistent-hint

@@ -10,6 +10,9 @@ describe('MediaInfoCard', () => {
         context: {
           meta_info: {
             artists: ['周杰伦'],
+            audio_format: 'FLAC',
+            bit_depth: 24,
+            sample_rate: 48000,
             title: '晴天',
             type: '音乐',
           },
@@ -23,6 +26,8 @@ describe('MediaInfoCard', () => {
     })
 
     expect(screen.getByText('晴天')).toBeInTheDocument()
+    expect(screen.getByText('FLAC')).toBeInTheDocument()
+    expect(screen.getByText('24 kHz 48000')).toBeInTheDocument()
     expect(screen.queryByText('识别失败，无法识别到有效信息！')).not.toBeInTheDocument()
   })
 

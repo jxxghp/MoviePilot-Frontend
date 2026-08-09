@@ -443,7 +443,8 @@ describe('SiteResourceDialog', () => {
     await waitFor(() => expect(screen.queryByLabelText('搜索关键字')).not.toBeInTheDocument())
   })
 
-  it('emits close and formats the result summary in English', async () => {
+  it('emits close and formats the mobile result summary in English', async () => {
+    setViewport(390)
     server.use(
       siteCategoriesHandler(501, []),
       siteResourcesHandler(501, [createTorrentInfo({ title: 'Language resource' })]),

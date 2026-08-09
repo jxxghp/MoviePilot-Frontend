@@ -330,7 +330,7 @@ describe('MediaDetailView detail and actions', () => {
       tmdb_id: 8401,
       tvdb_id: 'tvdb-8401',
       type: '电影',
-      year: '2025',
+      year: 2025,
     })
     await renderDetail({ media })
 

@@ -44,7 +44,7 @@ const $toast = useToast()
 const mediaProps = defineProps({
   mediaid: String,
   title: String,
-  year: String,
+  year: [String, Number],
   type: String,
 })
 
@@ -557,7 +557,7 @@ async function handleDoubanClick() {
       mediaDetail.value.douban_id,
       mediaDetail.value.type,
       mediaDetail.value.title,
-      mediaDetail.value.year,
+      mediaDetail.value.year?.toString(),
     )
   }
 }

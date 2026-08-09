@@ -1181,6 +1181,12 @@ export interface MetaInfo {
   video_encode?: string
   // 音频编码
   audio_encode?: string
+  // 音频格式
+  audio_format?: string
+  // 音频位深
+  bit_depth?: number
+  // 音频采样率
+  sample_rate?: number
   // 名称（自动中英文）
   name: string
   // SXX-SXX
