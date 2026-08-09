@@ -63,6 +63,7 @@ describe('DownloadingCard display and pause state', () => {
     expect(screen.getByText('下载任务标题')).toBeInTheDocument()
     expect(screen.getByText(/1 小时/)).toBeInTheDocument()
     expect(container.querySelector('.v-card-text .v-progress-linear')).toBeInTheDocument()
+    expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--active')
   })
 
   it('falls back to the task name and season string when media recognition is incomplete', async () => {
@@ -93,12 +94,16 @@ describe('DownloadingCard display and pause state', () => {
       }),
     )
 
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('电影')
+    expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('电影')
     expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('100%')
     expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('--')
     expect(container.querySelector('.downloading-card__speeds')).toHaveTextContent('3 MiB/s')
     expect(container.querySelector('.downloading-card__speeds')).toHaveTextContent('0 B/s')
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('0.00 B')
+    expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('0.00 B')
+    expect(container.querySelector('.downloading-card__speed--download')).not.toHaveClass(
+      'downloading-card__speed--idle',
+    )
+    expect(container.querySelector('.downloading-card__speed--upload')).toHaveClass('downloading-card__speed--idle')
 
     for (const [type, label] of [
       ['电影', '电影'],
@@ -110,7 +115,7 @@ describe('DownloadingCard display and pause state', () => {
         downloaderName: 'qb-main',
         info: downloading({ media: { title: `${type}标题`, type }, progress: -1 }),
       })
-      expect(container.querySelector('.downloading-card__chips')).toHaveTextContent(label)
+      expect(container.querySelector('.downloading-card__meta')).toHaveTextContent(label)
       expect(container.querySelector('.downloading-card__progress')).not.toBeInTheDocument()
     }
 
@@ -124,38 +129,55 @@ describe('DownloadingCard display and pause state', () => {
         upspeed: '1 MiB/s',
       }),
     })
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('电影')
+    expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('电影')
     expect(container.querySelector('.downloading-card__speeds')).toHaveTextContent('0 B/s')
     expect(container.querySelector('.downloading-card__speeds')).toHaveTextContent('1 MiB/s')
+    expect(container.querySelector('.downloading-card__speed--download')).toHaveClass('downloading-card__speed--idle')
+    expect(container.querySelector('.downloading-card__speed--upload')).not.toHaveClass('downloading-card__speed--idle')
 
     await rerender({
       downloaderName: 'qb-main',
       info: downloading({ media: { season: 'S02' }, name: '', season_episode: undefined, title: '任务标题回退' }),
     })
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('电视剧')
+    expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('电视剧')
     expect(container.querySelector('.downloading-card__title')).toHaveTextContent('任务标题回退')
 
     await rerender({ downloaderName: '', info: undefined })
     expect(container.querySelector('.downloading-card__title')).toHaveTextContent('未知')
-    expect(container.querySelectorAll('.downloading-card__chips .v-chip')).toHaveLength(1)
+    expect(container.querySelectorAll('.downloading-card__meta-item')).toHaveLength(1)
+  })
+
+  it('uses download state as the progress emphasis', async () => {
+    const { container, rerender } = await renderCard()
+
+    expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--active')
+    expect(screen.getByRole('progressbar', { name: '下载' })).toBeInTheDocument()
+
+    await rerender({
+      downloaderName: 'qb-main',
+      info: downloading({ state: 'stopped' }),
+    })
+
+    expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--paused')
+    expect(screen.getByRole('progressbar', { name: '暂停' })).toBeInTheDocument()
   })
 
   it('keeps torrent size visible while resolving explicit site names and tracker hostnames', async () => {
     const { container, rerender } = await renderCard(downloading({ site_name: '  M-Team  ' }))
 
     const heading = container.querySelector('.downloading-card__heading')!
-    const chipContainer = container.querySelector('.downloading-card__chips')!
-    const chips = [...chipContainer.querySelectorAll('.v-chip')]
+    const metaContainer = container.querySelector('.downloading-card__meta')!
+    const metaItems = [...metaContainer.querySelectorAll('.downloading-card__meta-item')]
 
-    expect(heading.nextElementSibling).toBe(chipContainer)
-    expect(chips.map(chip => chip.textContent?.trim())).toEqual(['电视剧', '1.00 KB', 'M-Team'])
-    expect(chips.every(chip => !chip.classList.contains('text-primary'))).toBe(true)
+    expect(heading.nextElementSibling).toBe(metaContainer)
+    expect(metaItems.map(item => item.textContent?.trim())).toEqual(['电视剧', '1.00 KB', 'M-Team'])
+    expect(metaContainer.querySelector('.v-chip')).not.toBeInTheDocument()
 
     await rerender({
       downloaderName: 'qb-main',
       info: downloading({ media: { ...downloading().media, site_name: '媒体站点' }, site_name: undefined }),
     })
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('媒体站点')
+    expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('媒体站点')
 
     await rerender({
       downloaderName: 'qb-main',
@@ -165,7 +187,7 @@ describe('DownloadingCard display and pause state', () => {
         trackers: ['', 'not-a-url', 'https://www.tracker.example.com/announce?passkey=secret'],
       }),
     })
-    expect(container.querySelector('.downloading-card__chips')).toHaveTextContent('tracker.example.com')
+    expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('tracker.example.com')
     expect(container).not.toHaveTextContent('passkey')
     expect(container).not.toHaveTextContent('secret')
   })
