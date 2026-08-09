@@ -19,7 +19,6 @@ import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
-import noImage from '@images/no-image.jpeg'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -656,10 +655,17 @@ function getIcon(type: string) {
   else return 'mdi-help-circle'
 }
 
+// 媒体占位图标：电影/电视剧/音乐各自使用对应图标，缺失封面时统一渲染图标 + 底色占位
+function getPlaceholderIcon(type: string) {
+  if (type === '音乐') return 'mdi-album'
+  else if (type === '电视剧') return 'mdi-television-classic'
+  else return 'mdi-movie-open-outline'
+}
+
 // 计算移动端卡片海报地址，优先使用后端图片代理并兼顾全局缓存设置。
 function getHistoryPosterUrl(item: TransferHistory) {
   const image = item.image
-  if (!image) return noImage
+  if (!image) return ''
 
   if (!/^https?:\/\//i.test(image)) {
     return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
@@ -1747,6 +1753,7 @@ onUnmounted(() => {
             <header class="transfer-history-mobile-record__header">
               <div class="transfer-history-mobile-record__poster-wrapper">
                 <VImg
+                  v-if="getHistoryPosterUrl(item)"
                   class="transfer-history-mobile-record__poster"
                   :src="getHistoryPosterUrl(item)"
                   :alt="item.title"
@@ -1758,14 +1765,14 @@ onUnmounted(() => {
                     </div>
                   </template>
                   <template #error>
-                    <VImg
-                      :src="noImage"
-                      cover
-                      :alt="item.title"
-                      class="transfer-history-mobile-record__poster-fallback"
-                    />
+                    <div class="transfer-history-mobile-record__poster-placeholder">
+                      <VIcon :icon="getPlaceholderIcon(item.type || '')" size="28" color="medium-emphasis" />
+                    </div>
                   </template>
                 </VImg>
+                <div v-else class="transfer-history-mobile-record__poster-placeholder">
+                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="28" color="medium-emphasis" />
+                </div>
                 <VIcon class="transfer-history-mobile-record__poster-type" :icon="getIcon(item.type || '')" size="14" />
               </div>
 
@@ -2058,9 +2065,13 @@ onUnmounted(() => {
   block-size: 100%;
 }
 
-.transfer-history-mobile-record__poster-fallback {
+.transfer-history-mobile-record__poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   inline-size: 100%;
   block-size: 100%;
+  background: rgb(var(--v-theme-surface-variant));
 }
 
 .transfer-history-mobile-record__poster-type {
