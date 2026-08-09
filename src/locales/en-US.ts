@@ -2113,7 +2113,8 @@ export default {
       tmdbImageDomainRequired: 'Please enter image service domain',
       musicCoverProxy: 'Music Cover Proxy Address',
       musicCoverProxyPlaceholder: 'https://your-proxy.example.com',
-      musicCoverProxyHint: 'Customize music cover proxy address to fix cover not showing when coverartarchive.org is inaccessible. Leave empty to use official address',
+      musicCoverProxyHint:
+        'Customize music cover proxy address to fix cover not showing when coverartarchive.org is inaccessible. Leave empty to use official address',
       tmdbLocale: 'TMDB Metadata Language',
       tmdbLocalePlaceholder: 'en',
       tmdbLocaleHint: 'Customize TheMovieDb metadata language',

@@ -2088,7 +2088,8 @@ export default {
       tmdbImageDomainRequired: '请输入图片服务域名',
       musicCoverProxy: '音乐封面代理地址',
       musicCoverProxyPlaceholder: 'https://your-proxy.example.com',
-      musicCoverProxyHint: '自定义音乐封面代理地址，用于解决 coverartarchive.org 无法访问导致的封面不显示问题，留空则使用官方地址',
+      musicCoverProxyHint:
+        '自定义音乐封面代理地址，用于解决 coverartarchive.org 无法访问导致的封面不显示问题，留空则使用官方地址',
       tmdbLocale: 'TMDB 元数据语言',
       tmdbLocalePlaceholder: 'zh',
       tmdbLocaleHint: '自定义 TheMovieDb 元数据语言',

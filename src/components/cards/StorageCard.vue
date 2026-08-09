@@ -69,11 +69,12 @@ function openStorageDialog() {
   }
 
   const dialog = dialogMap[props.storage.type] || StorageCustomConfigDialog
-  const dialogProps = dialog === StorageCustomConfigDialog
-    ? { storage: props.storage }
-    : dialog === AlistConfigDialog
-      ? { conf: props.storage.config || {}, type: props.storage.type }
-      : { conf: props.storage.config || {} }
+  const dialogProps =
+    dialog === StorageCustomConfigDialog
+      ? { storage: props.storage }
+      : dialog === AlistConfigDialog
+        ? { conf: props.storage.config || {}, type: props.storage.type }
+        : { conf: props.storage.config || {} }
 
   openSharedDialog(
     dialog,
