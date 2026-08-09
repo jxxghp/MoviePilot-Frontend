@@ -620,8 +620,13 @@ describe('MediaCard', () => {
     await waitFor(() => expect(requests.some(request => request.src.includes('no-image'))).toBe(true))
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
 
-    requests.find(request => request.src.includes('no-image'))?.load()
+    const fallbackRequest = requests.find(request => request.src.includes('no-image'))
+    fallbackRequest?.load()
     await waitFor(() => expect(getCard(container)).toHaveClass('ring-1'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    fallbackRequest?.reveal()
+    await Promise.resolve()
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
   })
 
