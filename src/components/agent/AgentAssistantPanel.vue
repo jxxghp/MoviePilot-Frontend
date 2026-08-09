@@ -3171,6 +3171,7 @@ onScopeDispose(() => {
   line-height: 1.55;
   max-inline-size: min(100%, 34rem);
   min-inline-size: 0;
+  overflow-wrap: anywhere;
   padding-block: 0.75rem;
   padding-inline: 0.85rem;
 }
