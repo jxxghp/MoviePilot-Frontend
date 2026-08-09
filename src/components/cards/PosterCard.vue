@@ -3,6 +3,8 @@ import type { PropType } from 'vue'
 import type { MediaServerPlayItem } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
 import { openMediaServerItem } from '@/utils/appDeepLink'
+import { useGlobalSettingsStore } from '@/stores'
+import { getProxyImageUrl } from '@/utils/imageUtils'
 
 // 输入参数
 const props = defineProps({
@@ -10,6 +12,7 @@ const props = defineProps({
   width: String,
   height: String,
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 图片加载状态
 const isImageLoaded = ref(false)
@@ -34,12 +37,10 @@ function getChipColor(type: string) {
 const getImgUrl = computed(() => {
   if (imageLoadError.value) return noImage
   const image = props.media?.image || ''
-  let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
-  const use_cookies = props.media?.use_cookies
-  if (use_cookies) {
-    url += `&use_cookies=${encodeURIComponent(use_cookies)}`
-  }
-  return url
+  return getProxyImageUrl(image, {
+    useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+    useCookies: props.media?.use_cookies,
+  })
 })
 
 // 跳转播放

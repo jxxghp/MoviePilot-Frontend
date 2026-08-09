@@ -2,12 +2,15 @@
 import type { MediaServerPlayItem } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
 import { openMediaServerItem } from '@/utils/appDeepLink'
+import { useGlobalSettingsStore } from '@/stores'
+import { getProxyImageUrl } from '@/utils/imageUtils'
 // 输入参数
 const props = defineProps({
   media: Object as PropType<MediaServerPlayItem>,
   width: String,
   height: String,
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
@@ -40,12 +43,10 @@ async function goPlay() {
 const getImgUrl = computed(() => {
   const image = props.media?.image || ''
   if (!image || imageLoadError.value) return noImage
-  let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
-  const use_cookies = props.media?.use_cookies
-  if (use_cookies) {
-   url += `&use_cookies=${encodeURIComponent(use_cookies)}`
-  }
-  return url
+  return getProxyImageUrl(image, {
+    useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+    useCookies: props.media?.use_cookies,
+  })
 })
 </script>
 
@@ -63,43 +64,43 @@ const getImgUrl = computed(() => {
           }"
           @click="goPlay"
         >
-        <template #image>
-          <VImg
-            :src="getImgUrl"
-            aspect-ratio="2/3"
-            class="backdrop-card-image"
-            :class="{ 'backdrop-card-image--loaded': imageLoaded }"
-            cover
-            @load="imageLoadHandler"
-            @error="imageErrorHandler"
-          >
-            <template #placeholder>
-              <div class="backdrop-card-placeholder">
-                <VSkeletonLoader class="backdrop-card-skeleton" />
-              </div>
-            </template>
-            <template #default>
-              <VCardText
-                class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-              >
-                <h1
-                  class="mb-1 text-white text-shadow font-bold text-lg line-clamp-2 overflow-hidden text-ellipsis ..."
+          <template #image>
+            <VImg
+              :src="getImgUrl"
+              aspect-ratio="2/3"
+              class="backdrop-card-image"
+              :class="{ 'backdrop-card-image--loaded': imageLoaded }"
+              cover
+              @load="imageLoadHandler"
+              @error="imageErrorHandler"
+            >
+              <template #placeholder>
+                <div class="backdrop-card-placeholder">
+                  <VSkeletonLoader class="backdrop-card-skeleton" />
+                </div>
+              </template>
+              <template #default>
+                <VCardText
+                  class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
                 >
-                  {{ props.media?.title }}
-                </h1>
-                <span class="text-shadow text-sm">{{ props.media?.subtitle }}</span>
-              </VCardText>
-            </template>
-          </VImg>
-        </template>
-        <div class="w-full absolute bottom-0">
-          <VProgressLinear
-            v-if="props.media?.percent"
-            :model-value="props.media?.percent"
-            bg-color="success"
-            color="success"
-          />
-        </div>
+                  <h1
+                    class="mb-1 text-white text-shadow font-bold text-lg line-clamp-2 overflow-hidden text-ellipsis ..."
+                  >
+                    {{ props.media?.title }}
+                  </h1>
+                  <span class="text-shadow text-sm">{{ props.media?.subtitle }}</span>
+                </VCardText>
+              </template>
+            </VImg>
+          </template>
+          <div class="w-full absolute bottom-0">
+            <VProgressLinear
+              v-if="props.media?.percent"
+              :model-value="props.media?.percent"
+              bg-color="success"
+              color="success"
+            />
+          </div>
         </VCard>
       </div>
     </template>

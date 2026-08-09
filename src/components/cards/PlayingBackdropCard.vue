@@ -2,6 +2,8 @@
 import type { MediaServerPlayItem } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
 import { openMediaServerItem } from '@/utils/appDeepLink'
+import { useGlobalSettingsStore } from '@/stores'
+import { getProxyImageUrl } from '@/utils/imageUtils'
 
 // 输入参数
 const props = defineProps({
@@ -9,6 +11,7 @@ const props = defineProps({
   width: String,
   height: String,
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
@@ -52,13 +55,10 @@ const imageUrl = computed(() => {
   const image = props.media?.image || ''
   if (!image || imageLoadError.value) return noImage
 
-  let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
-  const useCookies = props.media?.use_cookies
-  if (useCookies) {
-    url += `&use_cookies=${encodeURIComponent(useCookies)}`
-  }
-
-  return url
+  return getProxyImageUrl(image, {
+    useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+    useCookies: props.media?.use_cookies,
+  })
 })
 
 /**

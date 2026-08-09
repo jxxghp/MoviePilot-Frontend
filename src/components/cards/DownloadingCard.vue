@@ -2,6 +2,8 @@
 import api from '@/api'
 import type { ApiResponse, DownloadingInfo } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 
 /** 卡片使用的下载任务信息，兼容接口已经返回但公共类型尚未声明的来源站点。 */
@@ -17,6 +19,7 @@ const props = defineProps({
 })
 
 const { t } = useI18n()
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 卡片在删除成功后就地隐藏，等待外层轮询同步任务列表。
 const cardState = ref(true)
@@ -31,7 +34,10 @@ watch(
   },
 )
 
-const hasPosterImage = computed(() => Boolean(media.value.poster && !imageLoadError.value))
+const posterUrl = computed(() =>
+  getDisplayImageUrl(media.value.poster || '', globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
+)
+const hasPosterImage = computed(() => Boolean(posterUrl.value && !imageLoadError.value))
 
 const mediaTitle = computed(() => media.value.title || props.info?.name || props.info?.title || t('common.unknown'))
 
@@ -164,7 +170,7 @@ async function deleteDownload() {
           >
             <div v-if="hasPosterImage" class="downloading-card__poster">
               <VImg
-                :src="media.poster"
+                :src="posterUrl"
                 class="downloading-card__image"
                 cover
                 position="center"

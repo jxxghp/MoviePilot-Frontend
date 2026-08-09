@@ -1,8 +1,11 @@
 <script lang="ts" setup>
 import type { MusicArtistInfo } from '@/api/types'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicArtistRoute, getMusicArtistSubtitle } from '@/utils/music'
 
 const router = useRouter()
+const globalSettingsStore = useGlobalSettingsStore()
 
 const props = defineProps({
   artist: Object as PropType<MusicArtistInfo>,
@@ -12,7 +15,10 @@ const props = defineProps({
 // 艺术家图片加载失败后回退到占位图标
 const imageLoadError = ref(false)
 
-const imageUrl = computed(() => props.artist?.image_url || props.artist?.poster_path || '')
+const rawImageUrl = computed(() => props.artist?.image_url || props.artist?.poster_path || '')
+const imageUrl = computed(() =>
+  getDisplayImageUrl(rawImageUrl.value, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
+)
 const showImage = computed(() => Boolean(imageUrl.value) && !imageLoadError.value)
 const subtitle = computed(() => getMusicArtistSubtitle(props.artist))
 

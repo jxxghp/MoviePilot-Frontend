@@ -2,9 +2,12 @@
 import type { PropType } from 'vue'
 import type { Context } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { formatMusicDuration } from '@/utils/music'
 
 const { t } = useI18n()
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 输入参数
 const props = defineProps({
@@ -15,9 +18,7 @@ const props = defineProps({
 const recognizedName = computed(() => props.context?.meta_info?.name || props.context?.meta_info?.title)
 
 // 是否为音乐识别结果
-const isMusic = computed(
-  () => props.context?.media_info?.type === '音乐' || props.context?.meta_info?.type === '音乐',
-)
+const isMusic = computed(() => props.context?.media_info?.type === '音乐' || props.context?.meta_info?.type === '音乐')
 
 // 音乐封面加载失败时保留方形唱片占位，避免弹窗信息结构塌缩。
 const musicCoverLoadError = ref(false)
@@ -37,15 +38,28 @@ function openTmdbPage(type: string, tmdbId: number) {
 }
 
 // 音乐封面优先使用方形封面，仅 W500 图片处理对TMDB类 URL 生效
-const musicCover = computed(() => getW500Image(
-  props.context?.media_info?.cover_url || props.context?.media_info?.poster_path || '',
-))
+const rawMusicCover = computed(() =>
+  getW500Image(props.context?.media_info?.cover_url || props.context?.media_info?.poster_path || ''),
+)
+const musicCover = computed(() =>
+  getDisplayImageUrl(rawMusicCover.value, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
+)
+
+// 影视识别海报与音乐封面使用同一全局图片缓存开关。
+const mediaPoster = computed(() =>
+  getDisplayImageUrl(
+    getW500Image(props.context?.media_info?.poster_path || ''),
+    globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+  ),
+)
 
 // 音乐艺术家优先使用标准识别结果，远端未命中时回退到文件标签。
 const musicArtist = computed(() => {
   const mediaInfo = props.context?.media_info
   const metaInfo = props.context?.meta_info
-  return mediaInfo?.artist || mediaInfo?.artists?.join(' / ') || metaInfo?.artist || metaInfo?.artists?.join(' / ') || ''
+  return (
+    mediaInfo?.artist || mediaInfo?.artists?.join(' / ') || metaInfo?.artist || metaInfo?.artists?.join(' / ') || ''
+  )
 })
 
 // 专辑艺术家只在与歌曲艺术家不同时单独展示。
@@ -127,10 +141,7 @@ watch(musicCover, () => {
 <template>
   <div v-show="context">
     <VCol>
-      <div
-        v-if="recognizedName"
-        class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
-      >
+      <div v-if="recognizedName" class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row">
         <div v-if="isMusic" class="ma-auto recognized-music-cover">
           <VImg
             v-if="musicCover && !musicCoverLoadError"
@@ -158,12 +169,12 @@ watch(musicCover, () => {
             <VIcon icon="mdi-album" size="64" color="medium-emphasis" />
           </VSheet>
         </div>
-        <div v-else-if="context?.media_info?.poster_path" class="ma-auto">
+        <div v-else-if="mediaPoster" class="ma-auto">
           <VImg
             width="10rem"
             aspect-ratio="2/3"
             class="object-cover aspect-w-2 aspect-h-3 rounded-lg ring-1 ring-gray-500"
-            :src="getW500Image(context?.media_info?.poster_path)"
+            :src="mediaPoster"
             cover
           >
             <template #placeholder>
@@ -268,7 +279,11 @@ watch(musicCover, () => {
               详情
             </VChip>
             <!-- 二级分类 -->
-            <VChip v-if="!isMusic && context?.media_info?.category" variant="elevated" class="me-1 mb-1 text-white bg-blue-500">
+            <VChip
+              v-if="!isMusic && context?.media_info?.category"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-blue-500"
+            >
               {{ context?.media_info?.category }}
             </VChip>
             <!-- TMDBID -->
@@ -282,7 +297,11 @@ watch(musicCover, () => {
             </VChip>
             <!-- meta_info（音乐不显示影视资源信息） -->
             <template v-if="!isMusic">
-              <VChip v-if="context?.meta_info?.web_source" variant="elevated" class="me-1 mb-1 text-white bg-purple-500">
+              <VChip
+                v-if="context?.meta_info?.web_source"
+                variant="elevated"
+                class="me-1 mb-1 text-white bg-purple-500"
+              >
                 {{ context?.meta_info?.web_source }}
               </VChip>
               <VChip v-if="context?.meta_info?.edition" variant="elevated" class="me-1 mb-1 text-white bg-red-500">
@@ -305,7 +324,11 @@ watch(musicCover, () => {
               >
                 {{ context?.meta_info?.audio_encode }}
               </VChip>
-              <VChip v-if="context?.meta_info?.resource_team" variant="elevated" class="me-1 mb-1 text-white bg-cyan-500">
+              <VChip
+                v-if="context?.meta_info?.resource_team"
+                variant="elevated"
+                class="me-1 mb-1 text-white bg-cyan-500"
+              >
                 {{ context?.meta_info?.resource_team }}
               </VChip>
             </template>

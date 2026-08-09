@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import api from '@/api'
 import type { ApiResponse, Plugin } from '@/api/types'
-import { getLogoUrl } from '@/utils/imageUtils'
+import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
+import { useGlobalSettingsStore } from '@/stores'
 import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -23,6 +24,7 @@ const props = defineProps({
   height: String,
   count: Number,
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
 const emit = defineEmits(['install'])
@@ -81,9 +83,10 @@ const iconPath: Ref<string> = computed(() => {
   if (imageLoadError.value) return getLogoUrl('plugin')
   // 如果是网络图片则使用代理后返回
   if (props.plugin?.plugin_icon?.startsWith('http'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(
-      props.plugin?.plugin_icon,
-    )}&cache=true`
+    return getProxyImageUrl(props.plugin.plugin_icon, {
+      proxy: true,
+      useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+    })
 
   return `./plugin_icon/${props.plugin?.plugin_icon}`
 })

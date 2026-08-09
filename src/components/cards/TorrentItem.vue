@@ -6,6 +6,8 @@ import type { Context } from '@/api/types'
 import { getCachedSiteIcon } from '@/utils/siteIconCache'
 import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDownloadCache'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
 
@@ -13,6 +15,7 @@ const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownlo
 const props = defineProps({
   torrent: Object as PropType<Context>,
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info)
@@ -48,7 +51,7 @@ async function getSiteIcon(site: number | undefined) {
     })
     // 只提交当前站点的响应，避免 Context 快速切换时旧请求覆盖新图标。
     if (torrent.value?.site === site) {
-      siteIcon.value = icon
+      siteIcon.value = getDisplayImageUrl(icon, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
     }
   } catch (error) {
     console.error('Failed to load site icon:', error)

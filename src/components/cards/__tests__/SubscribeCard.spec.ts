@@ -155,14 +155,21 @@ describe('SubscribeCard display and progress', () => {
 
   it('falls back from backdrop to poster for music subscriptions, then to the album placeholder', async () => {
     // 仅海报：背景图回退到海报
-    const { container: posterOnly } = await renderCard({
-      backdrop: undefined,
-      poster: 'https://images.example.com/music-poster.jpg',
-      type: '音乐',
-    })
+    const { container: posterOnly } = await renderCard(
+      {
+        backdrop: undefined,
+        poster: 'https://images.example.com/music-poster.jpg',
+        type: '音乐',
+      },
+      {},
+      true,
+    )
     const posterOnlyImage = posterOnly.querySelector<HTMLImageElement>('img')
     expect(posterOnlyImage).not.toBeNull()
-    expect((posterOnlyImage as HTMLImageElement).src).toContain('music-poster.jpg')
+    expect((posterOnlyImage as HTMLImageElement).src).toContain('system/cache/image?url=')
+    expect((posterOnlyImage as HTMLImageElement).src).toContain(
+      encodeURIComponent('https://images.example.com/music-poster.jpg'),
+    )
 
     // 背景图与海报都缺失：渲染与音乐媒体卡片一致的胶片占位背景
     const { container } = await renderCard({ backdrop: undefined, poster: undefined, type: '音乐' })

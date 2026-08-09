@@ -96,9 +96,20 @@ const defaultFolderConfig = {
   showIcon: true,
 }
 
-async function renderFolder(sortable = false, folderConfig: Record<string, unknown> = defaultFolderConfig) {
+async function renderFolder(
+  sortable = false,
+  folderConfig: Record<string, unknown> = defaultFolderConfig,
+  globalImageCache = false,
+) {
   return renderWithProviders(PluginFolderCard, {
     global: { stubs: passthroughStubs },
+    initialState: {
+      globalSettings: {
+        data: { GLOBAL_IMAGE_CACHE: globalImageCache },
+        initialized: true,
+        loading: false,
+      },
+    },
     props: {
       folderConfig,
       folderName: '媒体工具',
@@ -142,8 +153,8 @@ describe('PluginFolderCard', () => {
     expect(defaults.container.querySelector('.plugin-folder-card__bg')).toBeInTheDocument()
 
     defaults.unmount()
-    const image = await renderFolder(false, { background: 'https://example.com/folder.jpg', showIcon: false })
-    expect(image.container.querySelector('v-img-stub[src="https://example.com/folder.jpg"]')).toBeInTheDocument()
+    const image = await renderFolder(false, { background: 'https://example.com/folder.jpg', showIcon: false }, true)
+    expect(image.container.querySelector('v-img-stub')?.getAttribute('src')).toContain('system/cache/image?url=')
     expect(image.container.querySelector('.plugin-folder-card__icon-container')).not.toBeInTheDocument()
   })
 

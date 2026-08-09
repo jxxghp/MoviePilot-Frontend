@@ -95,6 +95,28 @@ export function isBangumiImageUrl(url: string): boolean {
   }
 }
 
+/** 后端图片代理参数。 */
+export interface ImageProxyOptions {
+  proxy?: boolean
+  useCache?: boolean
+  useCookies?: boolean
+}
+
+/**
+ * 生成后端图片代理地址，供必须代理的跨域或鉴权图片统一传递全局缓存开关。
+ * @param url 原始图片地址
+ * @param options 代理、磁盘缓存和媒体服务器 Cookie 选项
+ * @returns 后端图片代理地址
+ */
+export function getProxyImageUrl(url: string, options: ImageProxyOptions = {}): string {
+  if (!url || !/^https?:\/\//i.test(url)) return url
+  const encodedUrl = encodeURIComponent(url)
+  const proxy = options.proxy ? 1 : 0
+  const cacheParam = options.useCache ? '&cache=true' : ''
+  const cookiesParam = options.useCookies ? '&use_cookies=true' : ''
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/${proxy}?imgurl=${encodedUrl}${cacheParam}${cookiesParam}`
+}
+
 /**
  * 将远程图片地址转换为前端可直接展示的地址。
  * @param url 原始图片地址
@@ -104,12 +126,9 @@ export function isBangumiImageUrl(url: string): boolean {
 export function getDisplayImageUrl(url: string, useCache = false): string {
   if (!url || !/^https?:\/\//i.test(url)) return url
   const encodedUrl = encodeURIComponent(url)
-  if (isBangumiImageUrl(url))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodedUrl}${useCache ? '&cache=true' : ''}`
-  if (useCache)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodedUrl}`
-  if (url.includes('doubanio.com'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodedUrl}`
+  if (isBangumiImageUrl(url)) return getProxyImageUrl(url, { proxy: true, useCache })
+  if (useCache) return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodedUrl}`
+  if (url.includes('doubanio.com')) return getProxyImageUrl(url)
   return url
 }
 

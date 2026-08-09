@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useTheme } from 'vuetify'
 
 // 音乐详情体系（单曲、专辑、艺术家）共用的头部与背景布局
@@ -20,6 +22,7 @@ const props = defineProps({
 })
 
 const theme = useTheme()
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 透明与毛玻璃主题下背景图需要改用遮罩淡出，与影视详情页保持一致
 const isTransparentTheme = computed(() => theme.name.value === 'transparent')
@@ -28,14 +31,14 @@ const isGlassTheme = computed(() => theme.name.value === 'glass')
 // 封面加载失败后回退到占位图标
 const imageLoadError = ref(false)
 
-const showCover = computed(() => Boolean(props.cover) && !imageLoadError.value)
-
-watch(
-  () => props.cover,
-  () => {
-    imageLoadError.value = false
-  },
+const displayCover = computed(() =>
+  getDisplayImageUrl(props.cover || '', globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
 )
+const showCover = computed(() => Boolean(displayCover.value) && !imageLoadError.value)
+
+watch(displayCover, () => {
+  imageLoadError.value = false
+})
 </script>
 
 <template>
@@ -48,14 +51,14 @@ watch(
   >
     <template v-if="showCover">
       <div class="vue-music-back vue-music-back-image absolute left-0 top-0 w-full h-96">
-        <VImg class="h-96" position="top" :src="props.cover" cover />
+        <VImg class="h-96" position="top" :src="displayCover" cover />
       </div>
       <div class="vue-music-back vue-music-back-overlay absolute left-0 top-0 w-full h-96" />
     </template>
     <div class="music-page">
       <div class="music-header">
         <div class="music-poster" :class="{ 'music-poster--rounded': props.rounded }">
-          <VImg v-if="showCover" :src="props.cover" cover aspect-ratio="1" @error="imageLoadError = true">
+          <VImg v-if="showCover" :src="displayCover" cover aspect-ratio="1" @error="imageLoadError = true">
             <template #placeholder>
               <VSkeletonLoader class="h-100 w-100" />
             </template>

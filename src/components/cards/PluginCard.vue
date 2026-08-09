@@ -3,13 +3,14 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
-import { getLogoUrl } from '@/utils/imageUtils'
+import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { useGlobalSettingsStore } from '@/stores'
 
 // 插件日志面板只有点击“查看日志”时才需要，延后加载可减轻插件列表首屏。
 const PluginConfigDialog = defineAsyncComponent(() => import('../dialog/PluginConfigDialog.vue'))
@@ -32,6 +33,7 @@ const props = defineProps({
     default: false,
   },
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save', 'actionDone', 'rating'])
@@ -193,19 +195,22 @@ const iconPath: Ref<string> = computed(() => {
   if (imageLoadError.value) return getLogoUrl('plugin')
   // 如果是网络图片则使用代理后返回
   if (props.plugin?.plugin_icon?.startsWith('http'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(
-      props.plugin?.plugin_icon,
-    )}&cache=true`
+    return getProxyImageUrl(props.plugin.plugin_icon, {
+      proxy: true,
+      useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+    })
 
   return `./plugin_icon/${props.plugin?.plugin_icon}`
 })
 
 // 插件作者头像路径
 const authorPath: Ref<string> = computed(() => {
+  if (!props.plugin?.author_url) return ''
   // 网络图片则使用代理后返回
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(
-    props.plugin?.author_url + '.png',
-  )}&cache=true`
+  return getProxyImageUrl(`${props.plugin.author_url}.png`, {
+    proxy: true,
+    useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+  })
 })
 
 // 重置插件

@@ -84,4 +84,27 @@ describe('MediaInfoCard', () => {
     expect(screen.queryByText('科幻')).not.toBeInTheDocument()
     expect(screen.queryByText('冒险')).not.toBeInTheDocument()
   })
+
+  it('uses the global backend cache for recognized music covers', async () => {
+    const cover = 'https://coverartarchive.org/release-group/album-2/front-500'
+    const { container } = await renderWithProviders(MediaInfoCard, {
+      initialState: {
+        globalSettings: {
+          data: { GLOBAL_IMAGE_CACHE: true },
+          initialized: true,
+          loading: false,
+        },
+      },
+      props: {
+        context: {
+          meta_info: { title: '缓存测试歌曲', type: '音乐' },
+          media_info: { cover_url: cover, title: '缓存测试歌曲', type: '音乐' },
+        },
+      },
+    })
+
+    const image = container.querySelector<HTMLImageElement>('.v-img__img')
+    expect(image?.src).toContain('system/cache/image?url=')
+    expect(image?.src).toContain(encodeURIComponent(cover))
+  })
 })

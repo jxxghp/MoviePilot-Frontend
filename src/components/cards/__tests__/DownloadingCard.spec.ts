@@ -37,8 +37,15 @@ function downloading(overrides: Partial<DownloadingCardInfo> = {}): DownloadingC
 }
 
 /** 使用生产插件和指定下载器渲染下载任务卡片。 */
-async function renderCard(info = downloading(), downloaderName = 'qb-main') {
+async function renderCard(info = downloading(), downloaderName = 'qb-main', globalImageCache = false) {
   return renderWithProviders(DownloadingCard, {
+    initialState: {
+      globalSettings: {
+        data: { GLOBAL_IMAGE_CACHE: globalImageCache },
+        initialized: true,
+        loading: false,
+      },
+    },
     props: { downloaderName, info },
   })
 }
@@ -204,6 +211,30 @@ describe('DownloadingCard display and pause state', () => {
 
     expect(container.querySelector('.downloading-card')).toHaveClass('downloading-card--no-image')
     expect(container.querySelector('.downloading-card__image')).not.toBeInTheDocument()
+  })
+
+  it('uses the global backend cache for recognized poster images', async () => {
+    const ImageStub = defineComponent({
+      name: 'VImg',
+      inheritAttrs: false,
+      props: { src: String },
+      setup: props => () => h('img', { src: props.src }),
+    })
+    const { container } = await renderWithProviders(DownloadingCard, {
+      global: { stubs: { VImg: ImageStub } },
+      initialState: {
+        globalSettings: {
+          data: { GLOBAL_IMAGE_CACHE: true },
+          initialized: true,
+          loading: false,
+        },
+      },
+      props: { downloaderName: 'qb-main', info: downloading() },
+    })
+    const image = container.querySelector<HTMLImageElement>('img')
+
+    expect(image?.src).toContain('system/cache/image?url=')
+    expect(image?.src).toContain(encodeURIComponent(downloading().media.poster))
   })
 
   it('hides a failed poster and retries when the task receives a new poster', async () => {

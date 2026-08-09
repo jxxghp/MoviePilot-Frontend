@@ -7,6 +7,8 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { getCachedSiteIcon } from '@/utils/siteIconCache'
 import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDownloadCache'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
 const TorrentMoreSourcesDialog = defineAsyncComponent(() => import('../dialog/TorrentMoreSourcesDialog.vue'))
@@ -18,6 +20,7 @@ const props = defineProps({
   width: String,
   height: String,
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info)
@@ -51,7 +54,7 @@ async function getSiteIcon(site: number | undefined) {
   if (!site) return
 
   try {
-    siteIcons.value[site] = await getCachedSiteIcon(site, async () => {
+    const icon = await getCachedSiteIcon(site, async () => {
       try {
         const response = await api.get(`site/icon/${site}`)
 
@@ -61,6 +64,7 @@ async function getSiteIcon(site: number | undefined) {
         return ''
       }
     })
+    siteIcons.value[site] = getDisplayImageUrl(icon, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
   } catch (error) {
     console.error(error)
     siteIcons.value[site] = ''

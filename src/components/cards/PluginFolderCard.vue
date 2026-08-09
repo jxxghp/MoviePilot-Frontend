@@ -4,6 +4,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const PluginFolderRenameDialog = defineAsyncComponent(() => import('@/components/dialog/PluginFolderRenameDialog.vue'))
 const PluginFolderSettingsDialog = defineAsyncComponent(
@@ -36,6 +38,7 @@ const props = defineProps({
     default: false,
   },
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
 const emit = defineEmits(['open', 'delete', 'rename', 'update-config'])
@@ -66,7 +69,7 @@ const defaultGradient =
 
 // 计算背景图片
 const backgroundImage = computed(() => {
-  return props.folderConfig.background
+  return getDisplayImageUrl(props.folderConfig.background || '', globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 计算背景渐变

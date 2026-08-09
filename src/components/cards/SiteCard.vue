@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
-import { getLogoUrl } from '@/utils/imageUtils'
+import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
+import { useGlobalSettingsStore } from '@/stores'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
@@ -33,6 +34,7 @@ const cardProps = defineProps({
     default: false,
   },
 })
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
 const emit = defineEmits(['update', 'remove', 'refresh-stats'])
@@ -62,11 +64,12 @@ async function getSiteIcon() {
   }
 
   try {
-    siteIcon.value = await getCachedSiteIcon(siteId, async () => {
+    const icon = await getCachedSiteIcon(siteId, async () => {
       const response = await api.get(`site/icon/${siteId}`)
 
       return response?.data?.icon || defaultSiteIcon
     })
+    siteIcon.value = getDisplayImageUrl(icon, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
   } catch (error) {
     siteIcon.value = defaultSiteIcon
     console.error(error)

@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import type { MediaInfo } from '@/api/types'
-import { useUserStore } from '@/stores'
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { getMediaSubscribeId, useMediaSubscribe } from '@/composables/useMediaSubscribe'
 import { getCachedMediaSubscribeStatus } from '@/utils/mediaStatusCache'
 import { useMusicSiteSearch } from '@/composables/useMusicSiteSearch'
@@ -22,6 +23,7 @@ const props = defineProps({
 })
 
 const userStore = useUserStore()
+const globalSettingsStore = useGlobalSettingsStore()
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canSearch = computed(() => hasPermission(userPermissions.value, 'search'))
 const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
@@ -70,7 +72,10 @@ const metaItems = computed(() => {
   return items
 })
 
-const coverUrl = computed(() => props.music?.cover_url || props.music?.poster_path || '')
+const rawCoverUrl = computed(() => props.music?.cover_url || props.music?.poster_path || '')
+const coverUrl = computed(() =>
+  getDisplayImageUrl(rawCoverUrl.value, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
+)
 const showCover = computed(() => Boolean(coverUrl.value) && !imageLoadError.value)
 
 /** 生成订阅状态缓存键。 */
