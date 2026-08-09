@@ -847,6 +847,8 @@ export default {
     ready: 'Ready',
     thinking: 'Thinking',
     newChat: 'New Chat',
+    enterFullscreen: 'Enter fullscreen',
+    exitFullscreen: 'Exit fullscreen',
     history: 'Chat History',
     historyLoading: 'Loading chat history...',
     historyLoadFailed: 'Failed to load chat history',

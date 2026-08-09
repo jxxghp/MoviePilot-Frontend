@@ -836,6 +836,8 @@ export default {
     ready: '隨時待命',
     thinking: '思考中',
     newChat: '新會話',
+    enterFullscreen: '全屏顯示',
+    exitFullscreen: '退出全屏',
     history: '歷史會話',
     historyLoading: '正在載入歷史會話...',
     historyLoadFailed: '歷史會話載入失敗',

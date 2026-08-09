@@ -228,6 +228,7 @@ const historyLoading = ref(false)
 const historyLoadingMore = ref(false)
 const historyPage = ref(1)
 const historyHasMore = ref(true)
+const fullscreen = ref(false)
 const slashCommands = ref<AgentSlashCommand[]>([])
 const slashCommandsLoading = ref(false)
 const slashCommandsLoaded = ref(false)
@@ -293,8 +294,10 @@ const recordingTimeText = computed(() => {
 
   return `${minutes}:${String(remainSeconds).padStart(2, '0')}`
 })
-// 窄屏下直接全屏，避免聊天内容被压成半屏窄栏。
-const drawerWidth = computed(() => (display.mdAndDown.value ? '100vw' : '30rem'))
+// 窄屏下直接全屏，桌面端则允许用户按需扩展对话区域。
+const drawerWidth = computed(() => (display.mdAndDown.value || fullscreen.value ? '100vw' : '30rem'))
+// 仅桌面宽屏展示全屏开关，窄屏已默认占满视口。
+const canToggleFullscreen = computed(() => !display.mdAndDown.value)
 const hasMessages = computed(() => messages.value.length > 0)
 const hasHistorySessions = computed(() => historySessions.value.length > 0)
 const currentUserName = computed(() => userStore.getUserName || t('common.user'))
@@ -2180,6 +2183,11 @@ function closeDrawer() {
   isOpen.value = false
 }
 
+// 在桌面侧栏与全屏对话模式之间切换。
+function toggleFullscreen() {
+  fullscreen.value = !fullscreen.value
+}
+
 // 同步面板打开状态到全局 DOM，供悬浮入口避让面板宽度。
 function syncAgentAssistantOpenState(isOpen: boolean) {
   if (typeof document === 'undefined') return
@@ -2238,10 +2246,12 @@ function handleInputKeydown(event: KeyboardEvent) {
   sendMessage()
 }
 
+// 开始输入法组合输入，避免回车确认候选词时误发送消息。
 function handleCompositionStart() {
   isComposing.value = true
 }
 
+// 结束输入法组合输入，恢复回车发送能力。
 function handleCompositionEnd() {
   isComposing.value = false
 }
@@ -2288,7 +2298,11 @@ onScopeDispose(() => {
   <aside
     v-show="isOpen"
     class="agent-assistant-panel"
-    :class="{ 'is-motion-paused': !props.motionActive, 'is-open': isOpen }"
+    :class="{
+      'is-fullscreen': fullscreen,
+      'is-motion-paused': !props.motionActive,
+      'is-open': isOpen,
+    }"
     :style="drawerStyle"
     role="dialog"
     :aria-label="t('agentAssistant.title')"
@@ -2403,6 +2417,16 @@ onScopeDispose(() => {
             @click="startNewSession"
           >
             <VIcon icon="mdi-message-plus-outline" />
+          </IconBtn>
+          <IconBtn
+            v-if="canToggleFullscreen"
+            class="agent-assistant-fullscreen-toggle"
+            :title="t(fullscreen ? 'agentAssistant.exitFullscreen' : 'agentAssistant.enterFullscreen')"
+            :aria-label="t(fullscreen ? 'agentAssistant.exitFullscreen' : 'agentAssistant.enterFullscreen')"
+            :aria-pressed="fullscreen"
+            @click="toggleFullscreen"
+          >
+            <VIcon :icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
           </IconBtn>
           <IconBtn :title="t('common.close')" :aria-label="t('common.close')" @click="closeDrawer">
             <VIcon icon="mdi-close" />
@@ -2711,6 +2735,27 @@ onScopeDispose(() => {
   max-block-size: none !important;
   min-block-size: 100vh !important;
   overscroll-behavior: contain;
+}
+
+.agent-assistant-panel.is-fullscreen {
+  border-inline-start: 0;
+  box-shadow: none;
+
+  .agent-assistant-message__bubble {
+    max-inline-size: min(100%, 64rem);
+  }
+
+  .agent-assistant-segments,
+  .agent-assistant-choices,
+  .agent-assistant-attachments {
+    inline-size: min(100%, 64rem);
+  }
+
+  .agent-assistant-composer {
+    inline-size: min(calc(100% - 2rem), 72rem);
+    inset-inline: 0;
+    margin-inline: auto;
+  }
 }
 
 @supports (block-size: 100lvh) {
@@ -3046,6 +3091,11 @@ onScopeDispose(() => {
   display: flex;
   flex-direction: column;
   min-block-size: 100%;
+}
+
+.agent-assistant-panel.is-fullscreen .agent-assistant-messages__content {
+  inline-size: min(100%, 72rem);
+  margin-inline: auto;
 }
 
 /* 只有消息态预留输入框空间，避免 iOS 空态被 padding 撑出不可滚动的滚动条。 */

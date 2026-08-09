@@ -2,12 +2,14 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantPanel from '@/components/agent/AgentAssistantPanel.vue'
 
+const displayState = vi.hoisted(() => ({ mdAndDown: { value: true } }))
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
 vi.mock('vuetify', () => ({
-  useDisplay: () => ({ mdAndDown: { value: true } }),
+  useDisplay: () => displayState,
 }))
 
 vi.mock('@/stores', () => ({
@@ -47,7 +49,75 @@ describe('AgentAssistantPanel stream recovery', () => {
   })
 
   afterEach(() => {
+    displayState.mdAndDown.value = true
     vi.useRealTimers()
+  })
+
+  it('toggles the desktop assistant between the side panel and fullscreen modes', async () => {
+    displayState.mdAndDown.value = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const panel = wrapper.get('.agent-assistant-panel')
+    const fullscreenToggle = wrapper.get('.agent-assistant-fullscreen-toggle')
+    expect(panel.classes()).not.toContain('is-fullscreen')
+    expect(panel.attributes('style')).toContain('--agent-assistant-panel-width: 30rem')
+    expect(fullscreenToggle.attributes('title')).toBe('agentAssistant.enterFullscreen')
+    expect(fullscreenToggle.attributes('aria-pressed')).toBe('false')
+
+    await fullscreenToggle.trigger('click')
+
+    expect(panel.classes()).toContain('is-fullscreen')
+    expect(panel.attributes('style')).toContain('--agent-assistant-panel-width: 100vw')
+    expect(fullscreenToggle.attributes('title')).toBe('agentAssistant.exitFullscreen')
+    expect(fullscreenToggle.attributes('aria-pressed')).toBe('true')
+
+    await fullscreenToggle.trigger('click')
+
+    expect(panel.classes()).not.toContain('is-fullscreen')
+    expect(panel.attributes('style')).toContain('--agent-assistant-panel-width: 30rem')
+
+    wrapper.unmount()
+  })
+
+  it('keeps the narrow assistant fullscreen without a redundant toggle', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-panel').attributes('style')).toContain('--agent-assistant-panel-width: 100vw')
+    expect(wrapper.find('.agent-assistant-fullscreen-toggle').exists()).toBe(false)
+
+    wrapper.unmount()
   })
 
   it('restores a legacy empty message to loading and waits for the final reply after a PWA reload', async () => {
