@@ -652,6 +652,7 @@ async function refreshDataAfterOperation(mobileSelection: TransferHistory[] = []
 function getIcon(type: string) {
   if (type === '电影') return 'mdi-movie'
   else if (type === '电视剧') return 'mdi-television-classic'
+  else if (type === '音乐') return 'mdi-album'
   else return 'mdi-help-circle'
 }
 
