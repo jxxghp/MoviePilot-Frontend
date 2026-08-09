@@ -2286,6 +2286,7 @@ export default {
       music: 'Music',
       musicNfo: 'Audio Tags',
       musicPoster: 'Cover Art',
+      musicLyrics: 'Lyrics',
       scrapingSwitchSaveFailed: 'Scraping switch settings save failed: {message}',
       scrapingSwitchSaveError: 'Scraping switch settings save failed',
       policy: {

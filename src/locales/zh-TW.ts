@@ -2248,6 +2248,7 @@ export default {
       music: '音樂',
       musicNfo: '音樂標籤',
       musicPoster: '封面',
+      musicLyrics: '歌詞',
       scrapingSwitchSaveFailed: '刮削開關設定保存失敗：{message}',
       scrapingSwitchSaveError: '刮削開關設定保存失敗',
       policy: {

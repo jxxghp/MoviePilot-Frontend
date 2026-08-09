@@ -189,6 +189,7 @@ const scrapingConfig = [
     items: [
       { key: 'music_nfo', label: 'setting.system.musicNfo' },
       { key: 'music_poster', label: 'setting.system.musicPoster' },
+      { key: 'music_lyrics', label: 'setting.system.musicLyrics' },
     ],
   },
 ]

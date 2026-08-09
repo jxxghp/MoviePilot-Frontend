@@ -2249,6 +2249,7 @@ export default {
       music: '音乐',
       musicNfo: '音乐标签',
       musicPoster: '封面',
+      musicLyrics: '歌词',
       scrapingSwitchSaveFailed: '刮削开关设置保存失败：{message}',
       scrapingSwitchSaveError: '刮削开关设置保存失败',
       policy: {
