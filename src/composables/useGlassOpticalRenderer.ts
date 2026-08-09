@@ -471,6 +471,13 @@ export function containsGlassOpticalSurface(node: Node) {
   return Array.from(node.querySelectorAll(SURFACE_SELECTOR_QUERY)).some(isGlassOpticalElementEligible)
 }
 
+/** 判断 DOM 子树是否包含会约束父表面动态输出的交互裁剪。 */
+function containsGlassInteractionClip(node: Node) {
+  if (!(node instanceof Element)) return false
+
+  return node.matches(INTERACTION_CLIP_SELECTOR) || Boolean(node.querySelector(INTERACTION_CLIP_SELECTOR))
+}
+
 const VERTEX_SHADER = `
 varying vec2 vUv;
 
@@ -3154,7 +3161,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       // 新增节点按提交后的祖先资格判断；排除子树内部的图片 DOM 变化不需要重扫。
       if (mutation.target instanceof Element && !isGlassOpticalElementEligible(mutation.target)) return false
 
-      return [...mutation.addedNodes].some(containsGlassOpticalSurface)
+      return [...mutation.addedNodes, ...mutation.removedNodes].some(
+        node => containsGlassOpticalSurface(node) || containsGlassInteractionClip(node),
+      )
     })
   }
 

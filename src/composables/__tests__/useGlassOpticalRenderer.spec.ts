@@ -2079,6 +2079,109 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('refreshes excluded interaction clip membership when clips are added, moved, or removed', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const pageContent = document.createElement('main')
+    pageContent.className = 'app-wrapper layout-page-content'
+    const surfaces = [40, 520].map(x => {
+      const surface = document.createElement('section')
+      surface.className = 'v-card'
+      setOpticalSurfaceBounds(surface, { height: 420, width: 400, x, y: 80 })
+      pageContent.append(surface)
+
+      return surface
+    })
+    document.body.append(pageContent)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/search'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const getInteractionState = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uInteractionRectCount: { value: number }
+              uInteractionRects: { value: Array<{ toArray: () => number[] }> }
+              uRectCount: { value: number }
+              uSurfaceDynamics: { value: number[] }
+            }
+          }
+        }>
+      }
+      const uniforms = scene.children[0].material.uniforms
+
+      return {
+        interactionCount: uniforms.uInteractionRectCount.value,
+        interactionXs: uniforms.uInteractionRects.value
+          .slice(0, uniforms.uInteractionRectCount.value)
+          .map(rect => rect.toArray()[0])
+          .sort((left, right) => left - right),
+        surfaceCount: uniforms.uRectCount.value,
+        surfaceDynamics: uniforms.uSurfaceDynamics.value.slice(0, 2).sort((left, right) => left - right),
+      }
+    }
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 2,
+        interactionXs: [40 / 1200, 520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [1, 1],
+      }),
+    )
+
+    const excludedClip = document.createElement('article')
+    excludedClip.className = 'app-hover-lift-card'
+    excludedClip.dataset.glassOpticalMode = 'excluded'
+    surfaces[0].append(excludedClip)
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 1,
+        interactionXs: [520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [0, 1],
+      }),
+    )
+
+    surfaces[1].append(excludedClip)
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 1,
+        interactionXs: [40 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [0, 1],
+      }),
+    )
+
+    excludedClip.remove()
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 2,
+        interactionXs: [40 / 1200, 520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [1, 1],
+      }),
+    )
+    scope.stop()
+  })
+
   it('removes and restores an active surface and interaction clip when exclusion changes', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
