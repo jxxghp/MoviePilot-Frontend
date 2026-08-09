@@ -1401,6 +1401,7 @@ export default {
     u115: '115 Cloud',
     rclone: 'RClone',
     alist: 'OpenList',
+    alistgo: 'AList',
     smb: 'SMB Network Share',
     custom: 'Custom',
   },
@@ -2915,6 +2916,10 @@ export default {
       },
       complete: 'Complete',
       reset: 'Reset',
+    },
+    alistgoConfig: {
+      title: 'AList Configuration',
+      serverUrl: 'AList server address',
     },
     smbConfig: {
       title: 'SMB Network Share Configuration',

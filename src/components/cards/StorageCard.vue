@@ -6,6 +6,7 @@ import alipan_png from '@images/misc/alipan.webp'
 import u115_png from '@images/misc/u115.png'
 import rclone_png from '@images/misc/rclone.png'
 import alist_png from '@images/misc/openlist.svg'
+import alistgo_png from '@images/misc/alist.svg'
 import custom_png from '@images/misc/database.png'
 import smb_png from '@images/misc/smb.png'
 import api from '@/api'
@@ -58,6 +59,7 @@ function openStorageDialog() {
     u115: U115AuthDialog,
     rclone: RcloneConfigDialog,
     alist: AlistConfigDialog,
+    alistgo: AlistConfigDialog,
     smb: SmbConfigDialog,
   }
 
@@ -69,7 +71,9 @@ function openStorageDialog() {
   const dialog = dialogMap[props.storage.type] || StorageCustomConfigDialog
   const dialogProps = dialog === StorageCustomConfigDialog
     ? { storage: props.storage }
-    : { conf: props.storage.config || {} }
+    : dialog === AlistConfigDialog
+      ? { conf: props.storage.config || {}, type: props.storage.type }
+      : { conf: props.storage.config || {} }
 
   openSharedDialog(
     dialog,
@@ -94,6 +98,8 @@ const getIcon = computed(() => {
       return rclone_png
     case 'alist':
       return alist_png
+    case 'alistgo':
+      return alistgo_png
     case 'smb':
       return smb_png
     default:
