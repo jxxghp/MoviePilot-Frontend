@@ -2204,6 +2204,27 @@ describe('glass optical surface discovery', () => {
         surfaceDynamics: [1, 1],
       }),
     )
+
+    excludedContainer.append(nestedExcludedClip)
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 1,
+        interactionXs: [520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [0, 1],
+      }),
+    )
+
+    nestedExcludedClip.remove()
+    excludedContainer.remove()
+    await vi.waitFor(() =>
+      expect(getInteractionState()).toEqual({
+        interactionCount: 2,
+        interactionXs: [40 / 1200, 520 / 1200],
+        surfaceCount: 2,
+        surfaceDynamics: [1, 1],
+      }),
+    )
     scope.stop()
   })
 

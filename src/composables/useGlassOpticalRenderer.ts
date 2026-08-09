@@ -3147,6 +3147,20 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 只让会改变目标表面集合或圆角几何的 DOM 变更触发重扫。 */
   function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
+    // 同批次后续移除祖先时，保留子树与原受管理表面的关联。
+    const removedSubtreesFromManagedSurfaces = mutations.flatMap(mutation => {
+      if (mutation.type !== 'childList' || mutation.removedNodes.length === 0 || !(mutation.target instanceof Element))
+        return []
+
+      const belongsToManagedSurface = surfaceRegistry.some(
+        surface => surface.key === mutation.target || surface.key.contains(mutation.target),
+      )
+
+      return belongsToManagedSurface
+        ? [...mutation.removedNodes].filter((node): node is Element => node instanceof Element)
+        : []
+    })
+
     return mutations.some(mutation => {
       if (mutation.type === 'attributes') return true
 
@@ -3165,8 +3179,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         const belongsToManagedSurface = surfaceRegistry.some(
           surface => surface.key === mutation.target || surface.key.contains(mutation.target),
         )
+        const removedFromManagedSurface = removedSubtreesFromManagedSurfaces.some(
+          subtree => subtree === mutation.target || subtree.contains(mutation.target),
+        )
 
-        return belongsToManagedSurface && changedNodes.some(containsGlassInteractionClip)
+        return (belongsToManagedSurface || removedFromManagedSurface) && changedNodes.some(containsGlassInteractionClip)
       }
 
       return changedNodes.some(node => containsGlassOpticalSurface(node) || containsGlassInteractionClip(node))
