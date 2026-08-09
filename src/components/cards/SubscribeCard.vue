@@ -540,7 +540,7 @@ function handleCardClick() {
               <template #image v-if="display.smAndUp.value">
                 <div
                   v-if="showPlaceholder"
-                  class="subscribe-card-placeholder d-flex align-center justify-center relative"
+                  class="subscribe-card-placeholder subscribe-card-placeholder--cover d-flex align-center justify-center relative"
                 >
                   <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
                   <div class="absolute inset-0 outline-none subscribe-card-background"></div>
@@ -675,7 +675,7 @@ function handleCardClick() {
               </template>
 
               <div v-else>
-                <VCardText class="flex items-center pt-3 pb-2">
+                <VCardText class="flex flex-1 items-center pt-3 pb-9">
                   <div
                     class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
                     v-if="imageLoaded && posterUrl"
@@ -699,7 +699,7 @@ function handleCardClick() {
                     </div>
                   </div>
                 </VCardText>
-                <VCardText class="flex min-w-0 justify-space-between align-center flex-wrap px-3 mt-auto">
+                <VCardText class="absolute inset-x-0 bottom-2 z-10 flex min-w-0 justify-space-between align-center flex-wrap px-3">
                   <div class="flex min-w-0 max-w-full align-center">
                     <VIcon
                       v-if="props.media?.total_episode && props.sortable"
@@ -979,6 +979,11 @@ function handleCardClick() {
   block-size: 100%;
   inline-size: 100%;
   background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* 桌面版占位与图片同高，避免无图时卡片整体塌陷上浮 */
+.subscribe-card-placeholder--cover {
+  aspect-ratio: 3 / 2;
 }
 
 /**
