@@ -1,6 +1,7 @@
 import type { Plugin } from '@/api/types'
 import PluginCard from '@/components/cards/PluginCard.vue'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { normalizePluginAccentColor } from '@/utils/glassColor'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent } from 'vue'
@@ -34,8 +35,8 @@ vi.mock('@/composables/useSharedDialog', () => ({
   openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
-vi.mock('@/composables/useCardAccentColor', () => ({
-  getCardAccentRgbFromImage: mocks.accentFromImage,
+vi.mock('@/@core/utils/image', () => ({
+  extractDominantColor: mocks.accentFromImage,
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -55,12 +56,13 @@ const plugin: Plugin = {
 const ImageStub = defineComponent({
   name: 'VImg',
   emits: ['error', 'load'],
-  template: '<button data-testid="plugin-image" @click="$emit(\'load\')" @contextmenu.prevent="$emit(\'error\')" />',
+  template:
+    '<button data-testid="plugin-image" @click="$emit(\'load\')" @contextmenu.prevent="$emit(\'error\')"><img /></button>',
 })
 
 describe('PluginCard lifecycle actions', () => {
   beforeEach(() => {
-    mocks.accentFromImage.mockReset().mockResolvedValue('12, 34, 56')
+    mocks.accentFromImage.mockReset().mockResolvedValue('#123456')
     mocks.apiDelete.mockReset()
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
@@ -362,6 +364,7 @@ describe('PluginCard lifecycle actions', () => {
   })
 
   it('handles image lifecycle and ignores card clicks while sorting', async () => {
+    mocks.accentFromImage.mockResolvedValueOnce(undefined).mockResolvedValueOnce('#123456')
     const { container } = await renderWithProviders(PluginCard, {
       props: {
         plugin: { ...plugin, plugin_icon: 'https://example.com/plugin.png' },
@@ -372,7 +375,19 @@ describe('PluginCard lifecycle actions', () => {
     const [image, authorImage] = screen.getAllByTestId('plugin-image')
     await fireEvent.click(image)
     await waitFor(() => expect(mocks.accentFromImage).toHaveBeenCalled())
+    expect(
+      container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),
+    ).toBe('')
     await fireEvent.contextMenu(image)
+    await fireEvent.click(image)
+    await waitFor(() => expect(mocks.accentFromImage).toHaveBeenCalledTimes(2))
+    expect(
+      container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),
+    ).toBe(normalizePluginAccentColor('#123456')?.rgb)
+    await fireEvent.contextMenu(image)
+    expect(
+      container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),
+    ).toBe('')
     await fireEvent.click(authorImage)
     await fireEvent.click(container.querySelector('.v-card')!)
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
