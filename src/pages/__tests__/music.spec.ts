@@ -137,6 +137,13 @@ describe('music page', () => {
     expect(screen.getByText('Album')).toBeInTheDocument()
   })
 
+  it('uses three columns from the desktop breakpoint', async () => {
+    const { container } = await renderMusicPage()
+
+    const resultColumn = await waitFor(() => container.querySelector('.music-result-col'))
+    expect(resultColumn).toHaveClass('v-col-md-6', 'v-col-lg-4')
+  })
+
   it('uses the shared themed lift interaction for result cards', async () => {
     const { container } = await renderMusicPage()
     const hoverArea = await waitFor(() => container.querySelector('.music-card-hover-area'))

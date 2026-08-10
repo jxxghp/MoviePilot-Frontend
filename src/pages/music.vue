@@ -44,7 +44,7 @@ watch(query, searchMusic, { immediate: true })
 
     <LoadingBanner v-if="loading" class="mt-12" />
     <VRow v-else-if="results.length" class="music-results">
-      <VCol v-for="item in results" :key="getMusicKey(item)" cols="12" md="6" xl="4" class="music-result-col">
+      <VCol v-for="item in results" :key="getMusicKey(item)" cols="12" md="6" lg="4" class="music-result-col">
         <MusicCard :music="item" />
       </VCol>
     </VRow>
