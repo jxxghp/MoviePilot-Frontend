@@ -136,10 +136,23 @@ const subscribeProgressText = computed(() => {
   return `${downloadedEpisode.value} / ${total}`
 })
 
-// 专辑订阅按整包完成，不伪造分集进度；这里只展示整专规模，提醒用户该目标包含多首曲目。
-const musicAlbumTrackText = computed(() => {
-  if (props.media?.type !== '音乐' || props.media?.music_type !== 'album' || !props.media?.total_tracks) return ''
-  return `${t('music.entityAlbum')} · ${t('music.trackCount', { count: props.media.total_tracks })}`
+// 音乐订阅始终展示实体类型；旧数据缺少 music_type 时按既有单曲语义兼容。
+const musicSubscribeMeta = computed(() => {
+  if (props.media?.type !== '音乐') return null
+  if (props.media.music_type === 'album') {
+    const trackCount = props.media.total_tracks
+    return {
+      icon: 'mdi-album',
+      text: trackCount
+        ? `${t('music.entityAlbum')} · ${t('music.trackCount', { count: trackCount })}`
+        : t('music.entityAlbum'),
+    }
+  }
+
+  return {
+    icon: 'mdi-music-note',
+    text: t('music.entityRecording'),
+  }
 })
 
 // 订阅卡片 hover 文案：
@@ -641,10 +654,10 @@ function handleCardClick() {
                           size="16"
                         />
                         <span
-                          v-if="subscribeProgressText || musicAlbumTrackText"
+                          v-if="subscribeProgressText || musicSubscribeMeta"
                           class="subscribe-card-mobile-progress-text"
                         >
-                          {{ subscribeProgressText || musicAlbumTrackText }}
+                          {{ subscribeProgressText || musicSubscribeMeta?.text }}
                         </span>
                       </div>
 
@@ -734,11 +747,11 @@ function handleCardClick() {
                       </VTooltip>
                     </div>
                     <div
-                      v-else-if="musicAlbumTrackText"
+                      v-else-if="musicSubscribeMeta"
                       class="flex flex-shrink-0 align-center text-subtitle-2 me-2 text-white"
                     >
-                      <VIcon icon="mdi-album" size="small" class="me-1" />
-                      {{ musicAlbumTrackText }}
+                      <VIcon :icon="musicSubscribeMeta.icon" size="small" class="me-1" />
+                      {{ musicSubscribeMeta.text }}
                     </div>
                     <VIcon
                       v-if="props.media?.username && props.sortable"

@@ -194,6 +194,20 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.queryByText(/^\d{1,4} \/ \d{1,4}$/)).not.toBeInTheDocument()
   })
 
+  it.each([480, 1024])('identifies recording subscriptions at %ipx', async width => {
+    setViewport(width)
+    await renderCard({ music_type: 'recording', name: '晴天', total_tracks: undefined, type: '音乐' })
+
+    expect(screen.getByText('单曲')).toBeInTheDocument()
+    expect(screen.queryByText(/首$/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the album identity visible when a legacy subscription has no track count', async () => {
+    await renderCard({ music_type: 'album', name: '旧专辑', total_tracks: undefined, type: '音乐' })
+
+    expect(screen.getByText('专辑')).toBeInTheDocument()
+  })
+
   it.each([
     ['regular progress', 10, 4, '6 / 10', '60'],
     ['negative missing episodes', 10, -2, '10 / 10', '100'],
