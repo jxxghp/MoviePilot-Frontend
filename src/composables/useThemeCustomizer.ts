@@ -8,6 +8,7 @@ import {
   GLASS_OPTICAL_STRENGTH_MAX,
   getGlassCssFrostBlur,
   getGlassMaterialResponse,
+  getGlassOverlayClarityBlur,
   getGlassOpticalCssTransmissionBrightness,
   getGlassOpticalPresetKey,
   getGlassOpticalPresetParameters,
@@ -480,6 +481,7 @@ export function applyThemeCustomizerRootSettings(
 
   const materialResponse = getGlassMaterialResponse(settings.glassAppearance, settings.glassTransparencyStrength)
   const frostBlur = getGlassCssFrostBlur(settings.glassTransparencyStrength)
+  const overlayClarityBlur = getGlassOverlayClarityBlur(settings.glassTransparencyStrength)
   const applyGlassResponse = (element: HTMLElement) => {
     element.style.setProperty('--glass-background-visibility', String(materialResponse.backgroundVisibility))
     element.style.setProperty('--glass-frost-blur-scale', String(materialResponse.frostBlurScale))
@@ -488,6 +490,7 @@ export function applyThemeCustomizerRootSettings(
     element.style.setProperty('--glass-tint-density', String(materialResponse.tintDensity))
     element.style.setProperty('--glass-blur-surface', `${frostBlur.surface}px`)
     element.style.setProperty('--glass-blur-raised', `${frostBlur.raised}px`)
+    element.style.setProperty('--glass-overlay-clarity-blur', `${overlayClarityBlur}px`)
   }
 
   document.documentElement.setAttribute('data-glass-appearance', settings.glassAppearance)

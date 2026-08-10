@@ -6,6 +6,7 @@ import {
   getGlassCssFrostBlur,
   getGlassCoverScale,
   getGlassMaterialResponse,
+  getGlassOverlayClarityBlur,
   getGlassOpticalCssTransmissionBrightness,
   getGlassOpticalDecay,
   getGlassOpticalBufferSize,
@@ -267,6 +268,34 @@ describe('glass optics geometry', () => {
             sample.surfaceDensity < samples[index - 1].surfaceDensity),
       ),
     ).toBe(true)
+  })
+
+  it('derives a continuous overlay clarity floor from transparency anchors', () => {
+    const anchors = [
+      [0, 8.9],
+      [20, 7.8],
+      [50, 6.7],
+      [70, 5.8],
+      [85, 5.4],
+      [100, 5],
+    ] as const
+
+    for (const [transparency, blur] of anchors) {
+      expect(getGlassOverlayClarityBlur(transparency)).toBe(blur)
+    }
+
+    expect(getGlassOverlayClarityBlur(-1)).toBe(8.9)
+    expect(getGlassOverlayClarityBlur(101)).toBe(5)
+    expect(getGlassOverlayClarityBlur(Number.NaN)).toBe(6.7)
+
+    const samples = Array.from({ length: 101 }, (_, value) => getGlassOverlayClarityBlur(value))
+    expect(samples.every((sample, index) => index === 0 || sample <= samples[index - 1])).toBe(true)
+
+    for (const anchor of [20, 50, 70, 85]) {
+      const blur = getGlassOverlayClarityBlur(anchor)
+      expect(Math.abs(getGlassOverlayClarityBlur(anchor - 1) - blur)).toBeLessThan(0.02)
+      expect(Math.abs(getGlassOverlayClarityBlur(anchor + 1) - blur)).toBeLessThan(0.03)
+    }
   })
 
   it('returns preset copies so previews cannot mutate the shared matrix', () => {

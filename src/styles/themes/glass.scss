@@ -5,8 +5,8 @@
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
-  --glass-surface: rgba(11, 19, 34, calc(0.02 + var(--glass-surface-density, 0.62) * 0.3));
-  --glass-surface-soft: rgba(11, 19, 34, calc(0.04 + var(--glass-surface-density, 0.62) * 0.32));
+  --glass-surface: rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2));
+  --glass-surface-soft: rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.62) * 0.23));
   --glass-surface-raised: rgba(11, 19, 34, calc(0.07 + var(--glass-surface-density, 0.62) * 0.36));
   --glass-control: rgba(11, 19, 34, 52%);
   --glass-control-prominent: rgba(255, 255, 255, 7%);
@@ -54,7 +54,7 @@ html[data-theme='glass'] {
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%);
   --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
-  --glass-overlay-blur: 8px;
+  --glass-overlay-blur: var(--glass-overlay-clarity-blur, 6px);
   --glass-overlay-saturate: 115%;
   --glass-overlay-scrim: rgba(3, 7, 18, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
@@ -130,12 +130,12 @@ html[data-theme='glass'] {
   &[data-glass-appearance='tinted'] {
     --glass-surface: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.02 + var(--glass-surface-density, 0.72) * 0.3)) 88%,
+      rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.28))
     );
     --glass-surface-soft: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.04 + var(--glass-surface-density, 0.72) * 0.32)) 89%,
+      rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%,
       rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.26))
     );
     --glass-surface-raised: color-mix(
@@ -187,7 +187,7 @@ html[data-theme='glass'] {
       rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
-    --glass-overlay-blur: 8px;
+    --glass-overlay-blur: var(--glass-overlay-clarity-blur, 6px);
     --glass-overlay-saturate: 120%;
     --glass-overlay-scrim: rgba(3, 7, 18, 32%);
     --glass-chip-backdrop-filter: blur(10px) saturate(165%) brightness(var(--glass-transmission-brightness));
