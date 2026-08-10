@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/auth'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { useUserStore } from '@/stores/user'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -33,13 +34,23 @@ describe('auth store', () => {
     expect(authStore.getToken).toBeNull()
   })
 
-  it('logs out and clears plugin navigation state', () => {
+  it('logs out and clears all account-scoped state', () => {
     const authStore = useAuthStore()
     const pluginNavStore = usePluginSidebarNavStore()
+    const userStore = useUserStore()
     const pendingRequest = Promise.resolve()
 
     authStore.login({ token: 'test-token', remember: true })
     authStore.setOriginalPath('/plugins')
+    userStore.loginUser({
+      avatar: '/avatar.png',
+      level: 3,
+      permissions: { admin: true, discovery: true },
+      superUser: true,
+      userID: 42,
+      userName: 'previous-user',
+      wizard: true,
+    })
     pluginNavStore.$patch({
       inflight: pendingRequest,
       items: [
@@ -63,5 +74,14 @@ describe('auth store', () => {
     expect(pluginNavStore.items).toEqual([])
     expect(pluginNavStore.loaded).toBe(false)
     expect(pluginNavStore.inflight).toBeNull()
+    expect(userStore.$state).toEqual({
+      avatar: '',
+      level: 1,
+      permissions: expect.objectContaining({ admin: false }),
+      superUser: false,
+      userID: -1,
+      userName: '',
+      wizard: false,
+    })
   })
 })

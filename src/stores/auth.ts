@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { authState } from '@/stores/types'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { useUserStore } from '@/stores/user'
 import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
 
 export const useAuthStore = defineStore('auth', {
@@ -33,6 +34,8 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.clearToken()
       this.setOriginalPath(null)
+      // 身份和权限属于登录会话；退出后不得被同一浏览器中的下一个账号继承。
+      useUserStore().reset()
       clearCachedMediaSubscribeStatuses()
       usePluginSidebarNavStore().reset()
     },
