@@ -1,5 +1,6 @@
 import type { Plugin } from '@/api/types'
 import PluginAppCard from '@/components/cards/PluginAppCard.vue'
+import { normalizePluginAccentColor } from '@/utils/glassColor'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent } from 'vue'
@@ -31,8 +32,8 @@ vi.mock('vue-toastification', () => ({
   useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
 }))
 
-vi.mock('@/composables/useCardAccentColor', () => ({
-  getCardAccentRgbFromImage: mocks.accentFromImage,
+vi.mock('@/@core/utils/image', () => ({
+  extractDominantColor: mocks.accentFromImage,
 }))
 
 const plugin: Plugin = {
@@ -47,12 +48,13 @@ const plugin: Plugin = {
 const ImageStub = defineComponent({
   name: 'VImg',
   emits: ['error', 'load'],
-  template: '<button data-testid="plugin-image" @click="$emit(\'load\')" @contextmenu.prevent="$emit(\'error\')" />',
+  template:
+    '<button data-testid="plugin-image" @click="$emit(\'load\')" @contextmenu.prevent="$emit(\'error\')"><img /></button>',
 })
 
 describe('PluginAppCard rating badge', () => {
   beforeEach(() => {
-    mocks.accentFromImage.mockReset().mockResolvedValue('12, 34, 56')
+    mocks.accentFromImage.mockReset().mockResolvedValue('#123456')
     mocks.apiGet.mockReset()
     mocks.confirm.mockReset().mockResolvedValue(true)
     mocks.dialogCloses.length = 0
@@ -232,7 +234,20 @@ describe('PluginAppCard rating badge', () => {
     const image = screen.getByTestId('plugin-image')
     await fireEvent.click(image)
     await waitFor(() => expect(mocks.accentFromImage).toHaveBeenCalled())
+    expect(
+      container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),
+    ).toBe(normalizePluginAccentColor('#123456')?.rgb)
     await fireEvent.contextMenu(image)
+    mocks.accentFromImage.mockResolvedValueOnce('#654321')
+    await fireEvent.click(image)
+    await waitFor(() => expect(mocks.accentFromImage).toHaveBeenCalledTimes(2))
+    expect(
+      container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),
+    ).toBe(normalizePluginAccentColor('#654321')?.rgb)
+    await fireEvent.contextMenu(image)
+    expect(
+      container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),
+    ).toBe('')
 
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('项目主页'))

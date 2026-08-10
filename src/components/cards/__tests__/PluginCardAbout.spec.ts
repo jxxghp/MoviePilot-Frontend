@@ -25,8 +25,8 @@ vi.mock('@/composables/useSharedDialog', () => ({
   openSharedDialog: mocks.openSharedDialog,
 }))
 
-vi.mock('@/composables/useCardAccentColor', () => ({
-  getCardAccentRgbFromImage: vi.fn().mockResolvedValue('40, 169, 225'),
+vi.mock('@/@core/utils/image', () => ({
+  extractDominantColor: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('vue-toastification', () => ({

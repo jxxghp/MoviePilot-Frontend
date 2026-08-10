@@ -1037,9 +1037,9 @@ html[data-theme='glass'] {
     );
     --plugin-card-banner-tint: linear-gradient(
       135deg,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.2 + var(--glass-tint-density, 0.65) * 0.34)) 0%,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.11 + var(--glass-tint-density, 0.65) * 0.2)) 58%,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.055 + var(--glass-tint-density, 0.65) * 0.1)) 100%
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.2 + var(--glass-tint-density, 0.65) * 0.34)) 0%,
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.11 + var(--glass-tint-density, 0.65) * 0.2)) 58%,
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.055 + var(--glass-tint-density, 0.65) * 0.1)) 100%
     );
   }
 
@@ -1065,9 +1065,9 @@ html[data-theme='glass'] {
     );
     --plugin-card-banner-tint: linear-gradient(
       135deg,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.15 + var(--glass-tint-density, 0.65) * 0.2)) 0%,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.07 + var(--glass-tint-density, 0.65) * 0.13)) 58%,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.03 + var(--glass-tint-density, 0.65) * 0.06)) 100%
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.15 + var(--glass-tint-density, 0.65) * 0.2)) 0%,
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.13)) 58%,
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.03 + var(--glass-tint-density, 0.65) * 0.06)) 100%
     );
   }
 
@@ -1101,17 +1101,17 @@ html[data-theme='glass'] {
       135deg,
       color-mix(
           in srgb,
-          rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 74%,
+          rgba(var(--plugin-card-effective-accent-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 94%,
           rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33))
         )
         0%,
       color-mix(
           in srgb,
-          rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 74%,
+          rgba(var(--plugin-card-effective-accent-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 94%,
           rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2))
         )
         58%,
-      rgba(var(--plugin-card-accent-rgb, 40, 169, 225), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
+      rgba(var(--plugin-card-effective-accent-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
     );
   }
 
