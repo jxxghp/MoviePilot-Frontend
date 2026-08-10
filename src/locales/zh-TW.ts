@@ -2215,6 +2215,15 @@ export default {
       transferMaxFailedRetries: '整理失敗重試次數',
       transferMaxFailedRetriesHint:
         '自動整理失敗後允許重試的最大次數，避免一次網路或辨識抖動讓檔案永久漏整理；次數用盡後需手動整理或刪除整理記錄。取值 1-10，整理成功或刪除記錄時計數歸零，保存後即時生效',
+      fsProxyEnabled: '本機檔案操作隔離',
+      fsProxyEnabledHint:
+        '在獨立子行程中執行本機檔案的讀取、複製、移動與刪除。CloudDrive2 等 FUSE 掛載失去回應時，這類操作會永久卡住且無法中斷，進而拖死整理佇列與目錄監控；隔離後可在逾時後強制回收並轉為一般錯誤，由既有的重試機制接手。關閉後退回直接呼叫，行為與舊版一致',
+      fsProxyTimeout: '檔案操作逾時（秒）',
+      fsProxyTimeoutHint:
+        '讀取屬性、列出目錄、刪除、重新命名等快速操作的等待上限，逾時即判定掛載無回應並回收子行程。僅在開啟「本機檔案操作隔離」時生效，保存後即時生效',
+      fsProxyStallTimeout: '檔案複製停滯逾時（秒）',
+      fsProxyStallTimeoutHint:
+        '複製檔案時允許「完全沒有進度」的最長時間。判斷依據是進度是否推進而不是總耗時，因此複製數小時的大檔案不會被誤判，只有傳輸徹底卡死才會中斷。僅在開啟「本機檔案操作隔離」時生效，保存後即時生效',
       tmdbLanguage: {
         zhCN: '簡體中文',
         zhTW: '繁體中文',

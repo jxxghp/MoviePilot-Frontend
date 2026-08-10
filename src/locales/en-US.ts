@@ -2252,6 +2252,15 @@ export default {
       transferMaxFailedRetries: 'Transfer Retries on Failure',
       transferMaxFailedRetriesHint:
         'Maximum automatic retries after a failed transfer, so a transient network or recognition glitch cannot permanently skip a file. Once exhausted, transfer it manually or delete the transfer history. Range 1-10; the counter resets on a successful transfer or when the record is deleted. Takes effect immediately after saving.',
+      fsProxyEnabled: 'Isolate Local File Operations',
+      fsProxyEnabledHint:
+        'Run local file reads, copies, moves and deletes in a separate subprocess. When a FUSE mount such as CloudDrive2 stops responding, these calls hang forever and cannot be interrupted, which in turn stalls the transfer queue and directory monitoring. Isolated, they can be force-reclaimed after a timeout and surface as ordinary errors that the existing retry logic handles. Disable to fall back to direct calls, matching the previous behaviour.',
+      fsProxyTimeout: 'File Operation Timeout (seconds)',
+      fsProxyTimeoutHint:
+        'Maximum wait for fast operations such as reading attributes, listing directories, deleting and renaming. On timeout the mount is treated as unresponsive and the subprocess is reclaimed. Only applies when "Isolate Local File Operations" is enabled. Takes effect immediately after saving.',
+      fsProxyStallTimeout: 'File Copy Stall Timeout (seconds)',
+      fsProxyStallTimeoutHint:
+        'How long a copy may make no progress at all. The check is based on whether progress advances rather than total elapsed time, so copying a large file for hours is never misjudged — only a completely stalled transfer is aborted. Only applies when "Isolate Local File Operations" is enabled. Takes effect immediately after saving.',
       tmdbLanguage: {
         zhCN: 'Simplified Chinese',
         zhTW: 'Traditional Chinese',
