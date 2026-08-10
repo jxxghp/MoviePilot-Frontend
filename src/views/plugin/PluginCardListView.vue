@@ -1315,6 +1315,7 @@ function openMarketSettingDialog() {
     PluginMarketSettingDialog,
     {},
     {
+      changed: marketSettingDone,
       save: marketSettingDone,
     },
     { closeOn: ['close', 'save'] },

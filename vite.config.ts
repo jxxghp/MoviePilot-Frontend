@@ -373,6 +373,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/cards/PluginCard.vue',
         'src/components/cards/PluginAppCard.vue',
         'src/components/dialog/PluginMarketDetailDialog.vue',
+        'src/components/dialog/PluginMarketSettingDialog.vue',
         'src/components/dialog/PluginVersionHistoryDialog.vue',
         'src/components/slide/VirtualSlideView.vue',
         'src/views/discover/PersonCardSlideView.vue',
@@ -415,6 +416,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 85,
           lines: 85,
           statements: 85,
+        },
+        'src/components/dialog/PluginMarketSettingDialog.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/views/plugin/PluginCardListView.vue': {
           branches: 75,

@@ -990,6 +990,12 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     getDialogEvents().save()
     await waitFor(() => expect(marketRequests).toBeGreaterThanOrEqual(3))
 
+    const requestsAfterSave = marketRequests
+    getDynamicMenuItem('dialog.pluginMarketSetting.title').action()
+    expect(mocks.openSharedDialog.mock.calls.at(-1)?.[3]).toEqual({ closeOn: ['close', 'save'] })
+    getDialogEvents().changed()
+    await waitFor(() => expect(marketRequests).toBeGreaterThan(requestsAfterSave))
+
     await fireEvent.click(screen.getByRole('button', { name: 'installed-Available' }))
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
     await waitForRequestsToFinish()
