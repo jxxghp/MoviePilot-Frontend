@@ -36,6 +36,7 @@ vi.mock('vue-toastification', () => ({
 
 interface RecognizedMedia {
   category?: string
+  detail_link?: string
   media_id: string
   source: string
   title: string
@@ -99,6 +100,18 @@ describe('NameTestView media identity', () => {
       { media_id: '154587', source: 'anilist', title: '测试番剧', type: '电视剧', year: '2026' },
       'https://anilist.co/anime/154587',
     ],
+    [
+      'MusicBrainz',
+      {
+        detail_link: 'https://musicbrainz.org/recording/8f97b17d-1234-4abc-9def-1234567890ab',
+        media_id: '8f97b17d-1234-4abc-9def-1234567890ab',
+        source: 'musicbrainz',
+        title: '测试单曲',
+        type: '音乐',
+        year: '2026',
+      },
+      'https://musicbrainz.org/recording/8f97b17d-1234-4abc-9def-1234567890ab',
+    ],
   ])('formats %s and links its native media ID', async (sourceLabel, media, expectedLink) => {
     await renderRecognizedMedia(media)
 
@@ -127,6 +140,77 @@ describe('NameTestView media identity', () => {
 
     const classificationStep = screen.getByText('媒体分类').closest('.pipeline-step')
     expect(classificationStep).toHaveTextContent('媒体分类电视剧 · 动漫')
+  })
+
+  it('renders music recognition results from music meta info without name field', async () => {
+    mocks.apiGet.mockResolvedValueOnce({
+      media_info: {
+        album: '叶惠美',
+        artist: '周杰伦',
+        category: 'Single',
+        media_id: '8f97b17d-1234-4abc-9def-1234567890ab',
+        source: 'musicbrainz',
+        title: '晴天',
+        type: '音乐',
+        year: 2003,
+      },
+      meta_info: {
+        apply_words: [],
+        artist: '周杰伦',
+        audio_format: 'FLAC',
+        org_string: '周杰伦 - 晴天.flac',
+        title: '晴天',
+        type: '音乐',
+      },
+      torrent_info: {},
+    })
+
+    await renderWithProviders(NameTestView, {
+      initialState: {
+        globalSettings: {
+          data: { RECOGNIZE_SOURCE: 'musicbrainz' },
+        },
+      },
+    })
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('标题'), '周杰伦 - 晴天.flac')
+    await user.click(screen.getByRole('button', { name: '识别' }))
+
+    // 音乐元信息无 name 字段，仍应按识别成功展示曲名和来源
+    await screen.findByRole('link', { name: '8f97b17d-1234-4abc-9def-1234567890ab' })
+    expect(screen.getByText('晴天')).toBeInTheDocument()
+    expect(screen.getByText('2003 · 周杰伦 · 叶惠美')).toBeInTheDocument()
+
+    const sourceDisplay = screen.getByTestId('recognition-source')
+    expect(sourceDisplay).toHaveAttribute('data-source', 'musicbrainz')
+    expect(sourceDisplay).toHaveAccessibleName('MusicBrainz')
+
+    const metaStep = screen.getByText('元信息').closest('.pipeline-step')
+    expect(metaStep).toHaveTextContent('晴天 · 周杰伦 · FLAC')
+  })
+
+  it('hides the custom words input when MusicBrainz source is selected', async () => {
+    await renderWithProviders(NameTestView, {
+      initialState: {
+        globalSettings: {
+          data: { RECOGNIZE_SOURCE: 'themoviedb' },
+        },
+      },
+    })
+    const user = userEvent.setup()
+
+    // 默认影视数据源时识别词输入区可见
+    expect(screen.getByLabelText('识别词')).toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('识别数据源'))
+    await user.click(await screen.findByRole('option', { name: 'MusicBrainz' }))
+    // 音乐识别不应用识别词，输入区应隐藏
+    expect(screen.queryByLabelText('识别词')).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('识别数据源'))
+    await user.click(await screen.findByRole('option', { name: 'TheMovieDb' }))
+    // 切回影视数据源后输入区恢复
+    expect(screen.getByLabelText('识别词')).toBeInTheDocument()
   })
 
   it('closes the recognition dialog before navigating to the media detail', async () => {
