@@ -358,6 +358,21 @@ describe('MediaDetailView detail and actions', () => {
     expect(mocks.openDoubanApp).toHaveBeenCalledWith('db-8401', '电影', '链接电影', '2025')
   })
 
+  it('uses tvdb_slug for TheTvDb link when available, falls back to tvdb_id', async () => {
+    // 有 slug 时使用 slug
+    const mediaWithSlug = createMediaInfo({
+      title: '有 Slug 的剧集',
+      tvdb_id: '460322',
+      tvdb_slug: 'speed-and-love',
+      type: '电视剧',
+    })
+    await renderDetail({ media: mediaWithSlug, mediaId: 'tmdb:1', type: '电视剧' })
+    expect(screen.getByRole('link', { name: /TheTvDb/ })).toHaveAttribute(
+      'href',
+      'https://www.thetvdb.com/series/speed-and-love',
+    )
+  })
+
   it('renders Douban-only facts, deep link, image, credits, and recommendations', async () => {
     const media = createMediaInfo({
       backdrop_path: 'https://images.example.com/douban-backdrop.jpg',

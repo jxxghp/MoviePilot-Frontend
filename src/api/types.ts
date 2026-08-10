@@ -388,6 +388,8 @@ export interface MediaInfo {
   imdb_id?: string
   // TVDB ID
   tvdb_id?: string
+  // TVDB Slug（别名，用于构建 TheTvDb 直达链接）
+  tvdb_slug?: string
   // 豆瓣ID
   douban_id?: string
   // Bangumi ID

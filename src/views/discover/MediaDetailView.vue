@@ -568,9 +568,14 @@ function getImdbLink() {
   return `https://www.imdb.com/title/${mediaDetail.value.imdb_id}`
 }
 
-// 拼装TVDB地址
+// 拼装TVDB地址（优先使用 slug，TVDB 已弃用数字 ID 直达 URL）
 function getTvdbLink() {
-  return `https://www.thetvdb.com/series/${mediaDetail.value.tvdb_id}`
+  const slug = mediaDetail.value.tvdb_slug
+  const id = mediaDetail.value.tvdb_id
+  if (slug) {
+    return `https://www.thetvdb.com/series/${slug}`
+  }
+  return `https://www.thetvdb.com/series/${id}`
 }
 
 // 拼装Bangumi地址
