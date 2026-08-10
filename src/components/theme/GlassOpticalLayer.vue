@@ -37,7 +37,7 @@ const props = defineProps<{
   translationStrength: number
   /** 路由变化标识，用于在页面内容稳定后重新发现高价值表面。 */
   routeKey: string
-  /** 当前主题主色，用于同步色调材质的光学高光。 */
+  /** 由用户主色派生的大面积玻璃材料色，用于同步色调材质的光学高光。 */
   tintColor: string
   /** 外层壁纸交叉淡化的时长，shader 使用同一时钟混合双纹理。 */
   transitionDuration: number

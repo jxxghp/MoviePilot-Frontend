@@ -12,7 +12,11 @@ import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
-import { applyStoredThemeCustomizerAppearance, useEffectiveGlassSettings } from '@/composables/useThemeCustomizer'
+import {
+  applyStoredThemeCustomizerAppearance,
+  themeCustomizerPrimaryColors,
+  useEffectiveGlassSettings,
+} from '@/composables/useThemeCustomizer'
 import {
   applyStoredTransparencySettings,
   TRANSPARENCY_SETTINGS_CHANGED_EVENT,
@@ -24,6 +28,7 @@ import { usePWA } from '@/composables/usePWA'
 import { themeManager } from '@/utils/themeManager'
 import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
@@ -118,6 +123,11 @@ function recordGlassLaunchTiming(stage: string, detail?: string) {
 // 生效主题
 const vuetifyTheme = useTheme()
 const { global: globalTheme } = vuetifyTheme
+const glassMaterialTintColor = computed(
+  () =>
+    normalizeThemeMaterialAccent(globalTheme.current.value.colors.primary)?.hex ??
+    normalizeThemeMaterialAccent(themeCustomizerPrimaryColors[0].value)!.hex,
+)
 let themeValue = localStorage.getItem('theme') || 'auto'
 let resumeThemeSyncTimer: number | null = null
 globalTheme.name.value = resolveInitialThemeName(themeValue)
@@ -1191,7 +1201,7 @@ onUnmounted(() => {
         :transmission-strength="opticalTransmissionStrength"
         :translation-strength="opticalTranslationStrength"
         :route-key="route.fullPath"
-        :tint-color="globalTheme.current.value.colors.primary"
+        :tint-color="glassMaterialTintColor"
         :transition-duration="BACKGROUND_CROSSFADE_DURATION_MS"
         :transition-started-at="backgroundCrossfadeStartedAt"
         :wallpaper-url="activeOpticalBackgroundImage"
@@ -1314,7 +1324,7 @@ html[data-glass-appearance='tinted'] .background-container.is-glass-theme .backg
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous::after {
   background:
     radial-gradient(circle at 50% 18%, transparent 22%, rgba(6, 10, 19, 14%) 100%),
-    linear-gradient(rgba(6, 10, 19, 10%) 0%, rgba(6, 10, 19, 32%) 100%), rgba(var(--v-theme-primary), 3%);
+    linear-gradient(rgba(6, 10, 19, 10%) 0%, rgba(6, 10, 19, 32%) 100%), rgba(var(--glass-material-accent-rgb), 3%);
 }
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active,
