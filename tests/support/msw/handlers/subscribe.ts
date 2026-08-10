@@ -12,7 +12,7 @@ import { HttpResponse, http, type JsonBodyType, type RequestHandler } from 'msw'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
-export type SubscribeMediaType = '电影' | '电视剧'
+export type SubscribeMediaType = '电影' | '电视剧' | '音乐'
 
 export interface SubscribeMutationResponse {
   success: boolean
@@ -24,7 +24,13 @@ export const subscribeApiUrls = {
   create: new URL('subscribe/', API_BASE_URL).href,
   defaultConfig: (type: SubscribeMediaType, writable = false) =>
     new URL(
-      `system/setting/${writable ? '' : 'public/'}${type === '电影' ? 'DefaultMovieSubscribeConfig' : 'DefaultTvSubscribeConfig'}`,
+      `system/setting/${writable ? '' : 'public/'}${
+        {
+          电影: 'DefaultMovieSubscribeConfig',
+          电视剧: 'DefaultTvSubscribeConfig',
+          音乐: 'DefaultMusicSubscribeConfig',
+        }[type]
+      }`,
       API_BASE_URL,
     ).href,
   deleteById: (id: number) => new URL(`subscribe/${id}`, API_BASE_URL).href,
@@ -43,7 +49,10 @@ export const subscribeApiUrls = {
   queryByMedia: (mediaId: string) => new URL(`subscribe/media/${mediaId}`, API_BASE_URL).href,
   list: new URL('subscribe/', API_BASE_URL).href,
   orderConfig: (type: SubscribeMediaType) =>
-    new URL(`user/config/${type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'}`, API_BASE_URL).href,
+    new URL(
+      `user/config/${{ 电影: 'SubscribeMovieOrder', 电视剧: 'SubscribeTvOrder', 音乐: 'SubscribeMusicOrder' }[type]}`,
+      API_BASE_URL,
+    ).href,
   popular: new URL('subscribe/popular', API_BASE_URL).href,
   resetById: (id: number) => new URL(`subscribe/reset/${id}`, API_BASE_URL).href,
   searchById: (id: number) => new URL(`subscribe/search/${id}`, API_BASE_URL).href,
@@ -318,7 +327,12 @@ export function deleteSubscribeByMediaHandler(
   })
 }
 
-export function subscribeDetailsHandler(id: number, subscribe: Subscribe, status = 200, onRequest: () => void = () => {}) {
+export function subscribeDetailsHandler(
+  id: number,
+  subscribe: Subscribe,
+  status = 200,
+  onRequest: () => void = () => {},
+) {
   return http.get(subscribeApiUrls.details(id), () => {
     onRequest()
     return jsonResponse(subscribe as unknown as JsonBodyType, status)

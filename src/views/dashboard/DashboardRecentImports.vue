@@ -4,6 +4,7 @@ import type { TransferHistory } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
 import { formatDateDifference, formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
+import { formatMusicAudioSpecs } from '@/utils/music'
 
 const { t } = useI18n()
 
@@ -32,6 +33,7 @@ function getPosterUrl(item: TransferHistory) {
 /** 组合媒体类型、季集和文件大小作为记录副标题。 */
 function getImportMeta(item: TransferHistory) {
   const values = [item.type, item.seasons, item.episodes]
+  if (item.type === '音乐') values.push(formatMusicAudioSpecs(item))
   const fileSize = Number(item.src_fileitem?.size ?? 0)
   if (fileSize > 0) values.push(formatFileSize(fileSize))
 

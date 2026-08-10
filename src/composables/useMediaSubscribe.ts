@@ -273,14 +273,15 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   // 查询系统默认订阅配置。
   async function queryDefaultSubscribeConfig(): Promise<SubscribeConfig | undefined> {
     if (!options.canSubscribe()) return undefined
-    if (currentMedia()?.type === '音乐') return undefined
 
     try {
       const media = currentMedia()
-      const subscribeConfigUrl =
-        media?.type === '电影'
-          ? 'system/setting/public/DefaultMovieSubscribeConfig'
-          : 'system/setting/public/DefaultTvSubscribeConfig'
+      const subscribeConfigUrl = {
+        电影: 'system/setting/public/DefaultMovieSubscribeConfig',
+        电视剧: 'system/setting/public/DefaultTvSubscribeConfig',
+        音乐: 'system/setting/public/DefaultMusicSubscribeConfig',
+      }[media?.type || '']
+      if (!subscribeConfigUrl) return undefined
       const result: { [key: string]: any } = await api.get(subscribeConfigUrl)
 
       return result.data?.value

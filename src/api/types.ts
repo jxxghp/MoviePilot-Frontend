@@ -62,6 +62,16 @@ export interface Subscribe {
   resolution?: string
   // 特效
   effect?: string
+  // 音乐音质等级正则
+  audio_quality?: string
+  // 音频格式正则
+  audio_format?: string
+  // 最低码率（bps）
+  min_bitrate?: number
+  // 最低位深（bit）
+  min_bit_depth?: number
+  // 最低采样率（Hz）
+  min_sample_rate?: number
   // 总集数
   total_episode?: number
   // 开始集数
@@ -88,6 +98,14 @@ export interface Subscribe {
   search_imdbid?: any
   // 当前优先级
   current_priority: number
+  // 当前音乐版本格式
+  current_audio_format?: string
+  // 当前音乐版本码率（bps）
+  current_bitrate?: number
+  // 当前音乐版本位深（bit）
+  current_bit_depth?: number
+  // 当前音乐版本采样率（Hz）
+  current_sample_rate?: number
   // 洗版时已下载剧集的优先级状态
   episode_priority?: Record<string, number>
   // 保存目录
@@ -272,6 +290,20 @@ export interface TransferHistory {
   errmsg?: string
   // 日期
   date?: string
+  // 音乐实体类型
+  music_type?: MusicEntityType
+  // 专辑预期总曲目数
+  total_tracks?: number
+  // 实际音频格式
+  audio_format?: string
+  // 是否无损音频
+  audio_lossless?: boolean
+  // 实际位深（bit）
+  bit_depth?: number
+  // 实际采样率（Hz）
+  sample_rate?: number
+  // 实际码率（bps）
+  bitrate?: number
   // 源文件项
   src_fileitem?: FileItem
 }
@@ -476,6 +508,22 @@ export interface MediaInfo {
   cover_url?: string
   // ListenBrainz 收听次数
   listen_count?: number
+  // 音频格式
+  audio_format?: string
+  // 是否无损音频
+  audio_lossless?: boolean
+  // 音质等级
+  audio_quality?: 'hires' | 'lossless' | 'lossy'
+  // 音质洗版分数
+  audio_quality_score?: number
+  // 格式化音频参数
+  audio_specs?: string
+  // 音频位深
+  bit_depth?: number
+  // 音频采样率
+  sample_rate?: number
+  // 音频码率
+  bitrate?: number
 }
 
 // 音乐可浏览实体类型
@@ -1209,6 +1257,14 @@ export interface MetaInfo {
   audio_encode?: string
   // 音频格式
   audio_format?: string
+  // 是否无损音频
+  audio_lossless?: boolean
+  // 音质等级
+  audio_quality?: 'hires' | 'lossless' | 'lossy'
+  // 音质洗版分数
+  audio_quality_score?: number
+  // 格式化音频参数
+  audio_specs?: string
   // 音频位深
   bit_depth?: number
   // 音频采样率

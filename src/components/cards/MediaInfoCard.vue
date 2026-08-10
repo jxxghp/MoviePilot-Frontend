@@ -4,7 +4,7 @@ import type { Context } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
-import { formatMusicDuration } from '@/utils/music'
+import { formatMusicDuration, getMusicAudioSpecItems } from '@/utils/music'
 
 const { t } = useI18n()
 const globalSettingsStore = useGlobalSettingsStore()
@@ -100,29 +100,16 @@ const musicSummary = computed(() => {
   return values.join(' · ')
 })
 
-// 采样率统一换算为常见的 kHz 展示。
-function formatSampleRate(sampleRate?: number) {
-  if (!sampleRate) return ''
-  const value = sampleRate >= 1000 ? sampleRate / 1000 : sampleRate
-  return `${Number.isInteger(value) ? value : value.toFixed(1)} kHz`
-}
-
-// 码率统一换算为 kbps 展示。
-function formatBitrate(bitrate?: number) {
-  if (!bitrate) return ''
-  const value = bitrate >= 1000 ? Math.round(bitrate / 1000) : bitrate
-  return `${value} kbps`
-}
-
-// 音频规格仅展示文件标签中实际存在的字段。
+// 本地文件实际参数优先，资源标题识别场景回退到标准音乐信息。
 const musicAudioChips = computed(() => {
   const metaInfo = props.context?.meta_info
-  return [
-    metaInfo?.audio_format?.toUpperCase(),
-    metaInfo?.bit_depth ? `${metaInfo.bit_depth}-bit` : '',
-    formatSampleRate(metaInfo?.sample_rate),
-    formatBitrate(metaInfo?.bitrate),
-  ].filter(Boolean)
+  const mediaInfo = props.context?.media_info
+  return getMusicAudioSpecItems({
+    audio_format: metaInfo?.audio_format || mediaInfo?.audio_format,
+    bit_depth: metaInfo?.bit_depth || mediaInfo?.bit_depth,
+    sample_rate: metaInfo?.sample_rate || mediaInfo?.sample_rate,
+    bitrate: metaInfo?.bitrate || mediaInfo?.bitrate,
+  })
 })
 
 // 音乐详情外链

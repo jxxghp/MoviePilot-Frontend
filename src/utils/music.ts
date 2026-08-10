@@ -17,6 +17,46 @@ export interface MusicArtistLink {
   id?: string
 }
 
+export interface MusicAudioInfo {
+  audio_format?: string
+  audio_lossless?: boolean
+  audio_quality?: 'hires' | 'lossless' | 'lossy'
+  audio_specs?: string
+  bit_depth?: number
+  sample_rate?: number
+  bitrate?: number
+}
+
+/** 将采样率统一换算为 kHz。 */
+export function formatMusicSampleRate(sampleRate?: number): string {
+  if (!sampleRate) return ''
+  const value = sampleRate >= 1000 ? sampleRate / 1000 : sampleRate
+  return `${Number.isInteger(value) ? value : value.toFixed(1)} kHz`
+}
+
+/** 将码率统一换算为 kbps。 */
+export function formatMusicBitrate(bitrate?: number): string {
+  if (!bitrate) return ''
+  const value = bitrate >= 1000 ? Math.round(bitrate / 1000) : bitrate
+  return `${value.toLocaleString()} kbps`
+}
+
+/** 返回识别卡、音乐卡和历史记录共用的音频规格片段。 */
+export function getMusicAudioSpecItems(item?: MusicAudioInfo): string[] {
+  if (!item) return []
+  return [
+    item.audio_format?.toUpperCase(),
+    item.bit_depth ? `${item.bit_depth}-bit` : '',
+    formatMusicSampleRate(item.sample_rate),
+    formatMusicBitrate(item.bitrate),
+  ].filter((value): value is string => Boolean(value))
+}
+
+/** 返回紧凑的完整音频规格文本，优先使用后端规范化结果。 */
+export function formatMusicAudioSpecs(item?: MusicAudioInfo): string {
+  return item?.audio_specs || getMusicAudioSpecItems(item).join(' · ')
+}
+
 /** 返回音乐对象可用于路由和订阅的统一来源。 */
 export function getMusicSource(item: MusicRouteTarget): string | undefined {
   return item.source || item.media_source

@@ -12,6 +12,7 @@ import {
   buildMusicDetailRoute,
   buildMusicResourceRoute,
   formatMusicDuration,
+  formatMusicAudioSpecs,
   getMusicArtistLinks,
   getMusicKey,
 } from '@/utils/music'
@@ -58,6 +59,8 @@ const metaItems = computed(() => {
   if (releaseDate) items.push({ icon: 'mdi-calendar-blank-outline', label: releaseDate })
   const duration = formatMusicDuration(props.music?.duration)
   if (duration) items.push({ icon: 'mdi-clock-outline', label: duration })
+  const audioSpecs = formatMusicAudioSpecs(props.music)
+  if (audioSpecs) items.push({ icon: 'mdi-waveform', label: audioSpecs })
   if (props.music?.track_number)
     items.push({
       hideOnNarrow: true,

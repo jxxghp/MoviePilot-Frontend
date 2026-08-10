@@ -6,7 +6,16 @@ import type { DownloaderConf, FilterRuleGroup, Site, Subscribe, TransferDirector
 import { useDisplay } from 'vuetify'
 import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from 'vue-i18n'
-import { qualityOptions, resolutionOptions, effectOptions } from '@/api/constants'
+import {
+  qualityOptions,
+  resolutionOptions,
+  effectOptions,
+  audioQualityOptions,
+  audioFormatOptions,
+  audioBitrateOptions,
+  audioBitDepthOptions,
+  audioSampleRateOptions,
+} from '@/api/constants'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { formatSeason } from '@/@core/utils/formatters'
@@ -217,7 +226,8 @@ async function saveDefaultSubscribeConfig() {
   try {
     let subscribe_config_url = ''
     if (props.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
-    else subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+    else if (props.type === '电视剧') subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+    else subscribe_config_url = 'system/setting/DefaultMusicSubscribeConfig'
 
     const result: { [key: string]: any } = await api.post(subscribe_config_url, subscribeForm.value)
     if (result.success) {
@@ -248,7 +258,8 @@ async function queryDefaultSubscribeConfig() {
   try {
     let subscribe_config_url = ''
     if (props.type === '电影') subscribe_config_url = 'system/setting/public/DefaultMovieSubscribeConfig'
-    else subscribe_config_url = 'system/setting/public/DefaultTvSubscribeConfig'
+    else if (props.type === '电视剧') subscribe_config_url = 'system/setting/public/DefaultTvSubscribeConfig'
+    else subscribe_config_url = 'system/setting/public/DefaultMusicSubscribeConfig'
 
     const result: { [key: string]: any } = await api.get(subscribe_config_url)
 
@@ -468,6 +479,67 @@ onMounted(() => {
                     />
                   </VCol>
                 </VRow>
+                <template v-else>
+                  <VRow>
+                    <VCol cols="12" md="4">
+                      <VAutocomplete
+                        v-model="subscribeForm.audio_quality"
+                        :label="t('dialog.subscribeEdit.audioQuality')"
+                        :items="audioQualityOptions"
+                        :hint="t('dialog.subscribeEdit.audioQualityHint')"
+                        clearable
+                        persistent-hint
+                        prepend-inner-icon="mdi-waveform"
+                      />
+                    </VCol>
+                    <VCol cols="12" md="4">
+                      <VAutocomplete
+                        v-model="subscribeForm.audio_format"
+                        :label="t('dialog.subscribeEdit.audioFormat')"
+                        :items="audioFormatOptions"
+                        :hint="t('dialog.subscribeEdit.audioFormatHint')"
+                        clearable
+                        persistent-hint
+                        prepend-inner-icon="mdi-file-music-outline"
+                      />
+                    </VCol>
+                    <VCol cols="12" md="4">
+                      <VAutocomplete
+                        v-model="subscribeForm.min_bitrate"
+                        :label="t('dialog.subscribeEdit.minBitrate')"
+                        :items="audioBitrateOptions"
+                        :hint="t('dialog.subscribeEdit.minBitrateHint')"
+                        clearable
+                        persistent-hint
+                        prepend-inner-icon="mdi-speedometer"
+                      />
+                    </VCol>
+                  </VRow>
+                  <VRow>
+                    <VCol cols="12" md="6">
+                      <VAutocomplete
+                        v-model="subscribeForm.min_bit_depth"
+                        :label="t('dialog.subscribeEdit.minBitDepth')"
+                        :items="audioBitDepthOptions"
+                        :hint="t('dialog.subscribeEdit.minBitDepthHint')"
+                        clearable
+                        persistent-hint
+                        prepend-inner-icon="mdi-numeric"
+                      />
+                    </VCol>
+                    <VCol cols="12" md="6">
+                      <VAutocomplete
+                        v-model="subscribeForm.min_sample_rate"
+                        :label="t('dialog.subscribeEdit.minSampleRate')"
+                        :items="audioSampleRateOptions"
+                        :hint="t('dialog.subscribeEdit.minSampleRateHint')"
+                        clearable
+                        persistent-hint
+                        prepend-inner-icon="mdi-sine-wave"
+                      />
+                    </VCol>
+                  </VRow>
+                </template>
                 <VRow>
                   <VCol cols="12">
                     <VAutocomplete
@@ -505,12 +577,16 @@ onMounted(() => {
                     />
                   </VCol>
                 </VRow>
-                <VRow v-if="!isMusicSubscribe">
+                <VRow>
                   <VCol cols="12" md="4">
                     <VSwitch
                       v-model="subscribeForm.best_version"
                       :label="t('dialog.subscribeEdit.bestVersion')"
-                      :hint="t('dialog.subscribeEdit.bestVersionHint')"
+                      :hint="
+                        isMusicSubscribe
+                          ? t('dialog.subscribeEdit.musicBestVersionHint')
+                          : t('dialog.subscribeEdit.bestVersionHint')
+                      "
                       persistent-hint
                     />
                   </VCol>
@@ -522,7 +598,7 @@ onMounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol v-if="!isMusicSubscribe" cols="12" md="4">
                     <VSwitch
                       v-model="subscribeForm.search_imdbid"
                       :label="t('dialog.subscribeEdit.searchImdbid')"

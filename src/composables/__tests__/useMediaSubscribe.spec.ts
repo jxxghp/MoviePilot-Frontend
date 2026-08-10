@@ -274,7 +274,10 @@ describe('useMediaSubscribe entry flows', () => {
       year: '2003',
     })
     const created = vi.fn()
-    server.use(createSubscribeHandler({ data: { id: 502 }, success: true }, 200, created))
+    server.use(
+      createSubscribeHandler({ data: { id: 502 }, success: true }, 200, created),
+      defaultSubscribeConfigHandler('音乐', { show_edit_dialog: false }),
+    )
     await renderSubscribeHarness({ media })
 
     await fireEvent.click(screen.getByRole('button', { name: 'primary' }))
@@ -305,7 +308,10 @@ describe('useMediaSubscribe entry flows', () => {
       year: '2003',
     })
     const created = vi.fn()
-    server.use(createSubscribeHandler({ data: { id: 503 }, success: true }, 200, created))
+    server.use(
+      createSubscribeHandler({ data: { id: 503 }, success: true }, 200, created),
+      defaultSubscribeConfigHandler('音乐', { show_edit_dialog: false }),
+    )
     await renderSubscribeHarness({ media })
 
     await fireEvent.click(screen.getByRole('button', { name: 'primary' }))

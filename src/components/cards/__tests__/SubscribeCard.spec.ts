@@ -194,6 +194,21 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.queryByText(/^\d{1,4} \/ \d{1,4}$/)).not.toBeInTheDocument()
   })
 
+  it('shows the current music quality on a music subscription card', async () => {
+    await renderCard({
+      current_audio_format: 'FLAC',
+      current_bit_depth: 24,
+      current_bitrate: 2304000,
+      current_sample_rate: 96000,
+      music_type: 'album',
+      name: '高解析专辑',
+      total_tracks: 11,
+      type: '音乐',
+    })
+
+    expect(screen.getByText('专辑 · 11 首 · FLAC · 24-bit · 96 kHz · 2,304 kbps')).toBeInTheDocument()
+  })
+
   it.each([480, 1024])('identifies recording subscriptions at %ipx', async width => {
     setViewport(width)
     await renderCard({ music_type: 'recording', name: '晴天', total_tracks: undefined, type: '音乐' })

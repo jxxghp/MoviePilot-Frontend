@@ -219,32 +219,80 @@ describe('SubscribeEditDialog', () => {
     expect(events.save).not.toHaveBeenCalled()
   })
 
-  it.each(['电影', '电视剧'] as const)('loads and saves %s default configuration as an administrator', async type => {
-    const configRequested = vi.fn()
-    const saved = vi.fn()
-    server.use(
-      defaultSubscribeConfigHandler(
-        type,
-        createSubscribe({ id: 0, show_edit_dialog: false, type }),
-        200,
-        configRequested,
-      ),
-      saveDefaultSubscribeConfigHandler(type, { success: true }, 200, saved),
-    )
-    useDialogOptions()
-    const user = userEvent.setup()
-    const { events } = await renderDialog({ default: true, type })
-    await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
-    await waitFor(() => expect(screen.getByLabelText('订阅时编辑更多规则')).not.toBeChecked())
+  it.each(['电影', '电视剧', '音乐'] as const)(
+    'loads and saves %s default configuration as an administrator',
+    async type => {
+      const configRequested = vi.fn()
+      const saved = vi.fn()
+      server.use(
+        defaultSubscribeConfigHandler(
+          type,
+          createSubscribe({ id: 0, show_edit_dialog: false, type }),
+          200,
+          configRequested,
+        ),
+        saveDefaultSubscribeConfigHandler(type, { success: true }, 200, saved),
+      )
+      useDialogOptions()
+      const user = userEvent.setup()
+      const { events } = await renderDialog({ default: true, type })
+      await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
+      await waitFor(() => expect(screen.getByLabelText('订阅时编辑更多规则')).not.toBeChecked())
 
-    await user.click(screen.getByLabelText('订阅时编辑更多规则'))
+      await user.click(screen.getByLabelText('订阅时编辑更多规则'))
+
+      await fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+      await waitFor(() => expect(saved).toHaveBeenCalledOnce())
+      expect(saved.mock.calls[0][0]).toMatchObject({ show_edit_dialog: true, type })
+      expect(events.save).toHaveBeenCalledOnce()
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(`${type}订阅默认规则保存成功`)
+    },
+  )
+
+  it('loads and submits music quality filters and quality upgrades', async () => {
+    const record = createSubscribe({
+      audio_format: 'FLAC',
+      audio_quality: 'hires',
+      best_version: 1,
+      current_audio_format: 'MP3',
+      current_bitrate: 320000,
+      id: 811,
+      min_bit_depth: 24,
+      min_bitrate: 320000,
+      min_sample_rate: 96000,
+      music_type: 'album',
+      name: '音乐音质测试专辑',
+      tmdbid: 0,
+      type: '音乐',
+    })
+    const updated = vi.fn()
+    server.use(subscribeDetailsHandler(811, record), updateSubscribeHandler({ success: true }, 200, updated))
+    useDialogOptions()
+    await renderDialog({ subid: 811 })
+
+    expect(await screen.findByText('音乐音质测试专辑')).toBeInTheDocument()
+    expect(screen.getByLabelText('音质等级')).toBeInTheDocument()
+    expect(screen.getByLabelText('音频格式')).toBeInTheDocument()
+    expect(screen.getByLabelText('最低码率')).toBeInTheDocument()
+    expect(screen.getByLabelText('最低位深')).toBeInTheDocument()
+    expect(screen.getByLabelText('最低采样率')).toBeInTheDocument()
+    expect(screen.getByLabelText('洗版')).toBeChecked()
+    expect(screen.queryByLabelText('使用 ImdbID 搜索')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('质量')).not.toBeInTheDocument()
 
     await fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
-    await waitFor(() => expect(saved).toHaveBeenCalledOnce())
-    expect(saved.mock.calls[0][0]).toMatchObject({ show_edit_dialog: true, type })
-    expect(events.save).toHaveBeenCalledOnce()
-    expect(mocks.toastSuccess).toHaveBeenCalledWith(`${type}订阅默认规则保存成功`)
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+    expect(updated.mock.calls[0][0]).toMatchObject({
+      audio_format: 'FLAC',
+      audio_quality: 'hires',
+      best_version: true,
+      min_bit_depth: 24,
+      min_bitrate: 320000,
+      min_sample_rate: 96000,
+      type: '音乐',
+    })
   })
 
   it('submits the complete TV editing form and exposes the close action', async () => {

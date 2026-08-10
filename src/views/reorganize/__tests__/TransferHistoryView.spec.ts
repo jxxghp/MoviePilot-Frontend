@@ -530,6 +530,28 @@ describe('TransferHistoryView', () => {
     expect(screen.getByRole('button', { name: '批量选择' })).toBeInTheDocument()
   })
 
+  it('shows actual audio specs in mobile music history', async () => {
+    mocks.desktop = false
+    const item = createHistory(2, '晴天', {
+      audio_format: 'FLAC',
+      bit_depth: 24,
+      bitrate: 2_304_000,
+      category: '华语流行',
+      sample_rate: 96_000,
+      type: '音乐',
+      year: '2003',
+    })
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([item]))
+    })
+
+    await renderHistory()
+    await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+
+    expect(await screen.findByText('华语流行 / 2003 / FLAC · 24-bit · 96 kHz · 2,304 kbps')).toBeInTheDocument()
+  })
+
   it('prevents a mobile request invalidated by a route reset from appending stale records', async () => {
     mocks.desktop = false
     const oldRequest = createDeferred<ReturnType<typeof historyResponse>>()

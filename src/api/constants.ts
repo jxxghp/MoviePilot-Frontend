@@ -125,6 +125,19 @@ export const innerFilterRules = [
   { title: i18n.global.t('filterRules.hkVoi'), value: ' HKVOI ' },
   { title: i18n.global.t('filterRules.notHkVoi'), value: ' !HKVOI ' },
   { title: i18n.global.t('filterRules.free'), value: ' FREE ' },
+  { title: i18n.global.t('filterRules.audioHires'), value: ' HIRES ' },
+  { title: i18n.global.t('filterRules.audioLossless'), value: ' LOSSLESS ' },
+  { title: i18n.global.t('filterRules.audioFlac'), value: ' FLAC ' },
+  { title: i18n.global.t('filterRules.audioAlac'), value: ' ALAC ' },
+  { title: i18n.global.t('filterRules.audioApe'), value: ' APE ' },
+  { title: i18n.global.t('filterRules.audioWav'), value: ' WAV ' },
+  { title: i18n.global.t('filterRules.audioDsd'), value: ' DSD ' },
+  { title: i18n.global.t('filterRules.audioMp3'), value: ' MP3 ' },
+  { title: i18n.global.t('filterRules.audioAac'), value: ' AAC ' },
+  { title: i18n.global.t('filterRules.audioOpus'), value: ' OPUS ' },
+  { title: i18n.global.t('filterRules.bitrate320'), value: ' BITRATE320 ' },
+  { title: i18n.global.t('filterRules.bitrate256'), value: ' BITRATE256 ' },
+  { title: i18n.global.t('filterRules.bitrate192'), value: ' BITRATE192 ' },
   { title: i18n.global.t('filterRules.resolution4k'), value: ' 4K ' },
   { title: i18n.global.t('filterRules.resolution1080p'), value: ' 1080P ' },
   { title: i18n.global.t('filterRules.resolution720p'), value: ' 720P ' },
@@ -246,6 +259,46 @@ export const effectOptions = ref([
     value: '[\\s.]+SDR[\\s.]+',
   },
 ])
+
+// 音乐音质等级选择框数据
+export const audioQualityOptions = ref([
+  { title: i18n.global.t('audioQualityOptions.all'), value: '' },
+  { title: i18n.global.t('audioQualityOptions.hires'), value: 'hires' },
+  { title: i18n.global.t('audioQualityOptions.lossless'), value: 'hires|lossless' },
+  { title: i18n.global.t('audioQualityOptions.lossy'), value: 'lossy' },
+])
+
+// 音频格式选择框数据
+export const audioFormatOptions = ref([
+  { title: i18n.global.t('audioFormatOptions.all'), value: '' },
+  { title: i18n.global.t('audioFormatOptions.lossless'), value: 'DSD|FLAC|ALAC|APE|WAV|AIFF|PCM' },
+  ...['DSD', 'FLAC', 'ALAC', 'APE', 'WAV', 'AIFF', 'PCM', 'MP3', 'AAC', 'OGG', 'OPUS', 'WMA'].map(value => ({
+    title: value,
+    value,
+  })),
+])
+
+export const audioBitrateOptions = [
+  { title: '128 kbps', value: 128000 },
+  { title: '192 kbps', value: 192000 },
+  { title: '256 kbps', value: 256000 },
+  { title: '320 kbps', value: 320000 },
+]
+
+export const audioBitDepthOptions = [
+  { title: '16-bit', value: 16 },
+  { title: '24-bit', value: 24 },
+  { title: '32-bit', value: 32 },
+]
+
+export const audioSampleRateOptions = [
+  { title: '44.1 kHz', value: 44100 },
+  { title: '48 kHz', value: 48000 },
+  { title: '88.2 kHz', value: 88200 },
+  { title: '96 kHz', value: 96000 },
+  { title: '176.4 kHz', value: 176400 },
+  { title: '192 kHz', value: 192000 },
+]
 
 // 媒体类型选项
 export const mediaTypeOptions = [

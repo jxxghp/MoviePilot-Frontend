@@ -19,6 +19,7 @@ import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { formatMusicAudioSpecs } from '@/utils/music'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -1091,7 +1092,7 @@ function getHistoryDisplayTitle(item: TransferHistory) {
 
 // 获取移动端卡片副标题，优先展示二级分类和年份。
 function getHistorySubtitle(item: TransferHistory) {
-  return [item.category, item.year].filter(Boolean).join(' / ')
+  return [item.category, item.year, item.type === '音乐' ? formatMusicAudioSpecs(item) : ''].filter(Boolean).join(' / ')
 }
 
 // 获取存储展示名称，配置缺失时回退到原始存储标识。

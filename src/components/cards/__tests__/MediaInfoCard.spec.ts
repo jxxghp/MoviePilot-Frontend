@@ -50,7 +50,7 @@ describe('MediaInfoCard', () => {
     expect(screen.getByText('FLAC')).toBeInTheDocument()
     expect(screen.getByText('24-bit')).toBeInTheDocument()
     expect(screen.getByText('48 kHz')).toBeInTheDocument()
-    expect(screen.getByText('1411 kbps')).toBeInTheDocument()
+    expect(screen.getByText('1,411 kbps')).toBeInTheDocument()
     expect(screen.getByText('TWA530505002')).toBeInTheDocument()
     expect(document.querySelector('.v-img__img')).toHaveAttribute(
       'src',

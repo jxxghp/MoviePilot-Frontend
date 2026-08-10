@@ -11,7 +11,7 @@ import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
-import { buildMusicDetailRoute } from '@/utils/music'
+import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from '@/utils/music'
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
@@ -139,19 +139,38 @@ const subscribeProgressText = computed(() => {
 // 音乐订阅始终展示实体类型；旧数据缺少 music_type 时按既有单曲语义兼容。
 const musicSubscribeMeta = computed(() => {
   if (props.media?.type !== '音乐') return null
+  const currentSpecs = formatMusicAudioSpecs({
+    audio_format: props.media.current_audio_format,
+    bit_depth: props.media.current_bit_depth,
+    sample_rate: props.media.current_sample_rate,
+    bitrate: props.media.current_bitrate,
+  })
+  const selectedQuality = {
+    hires: t('music.audioQualityHires'),
+    'hires|lossless': t('music.audioQualityLossless'),
+    lossy: t('music.audioQualityLossy'),
+  }[props.media.audio_quality || '']
+  const selectedFormat = props.media.audio_format
+    ? props.media.audio_format === 'DSD|FLAC|ALAC|APE|WAV|AIFF|PCM'
+      ? t('music.audioFormatLossless')
+      : props.media.audio_format.replaceAll('|', '/')
+    : ''
+  const selectedBitrate = props.media.min_bitrate ? `≥ ${formatMusicBitrate(props.media.min_bitrate)}` : ''
+  const qualityText = currentSpecs || [selectedQuality, selectedFormat, selectedBitrate].filter(Boolean).join(' · ')
   if (props.media.music_type === 'album') {
     const trackCount = props.media.total_tracks
+    const entityText = trackCount
+      ? `${t('music.entityAlbum')} · ${t('music.trackCount', { count: trackCount })}`
+      : t('music.entityAlbum')
     return {
       icon: 'mdi-album',
-      text: trackCount
-        ? `${t('music.entityAlbum')} · ${t('music.trackCount', { count: trackCount })}`
-        : t('music.entityAlbum'),
+      text: [entityText, qualityText].filter(Boolean).join(' · '),
     }
   }
 
   return {
     icon: 'mdi-music-note',
-    text: t('music.entityRecording'),
+    text: [t('music.entityRecording'), qualityText].filter(Boolean).join(' · '),
   }
 })
 
