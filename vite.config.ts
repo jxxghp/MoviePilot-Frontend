@@ -312,6 +312,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/utils/federationLoader.ts',
         'src/utils/federationRuntime.ts',
         'src/stores/auth.ts',
+        'src/stores/user.ts',
         'src/stores/pluginSidebarNav.ts',
         'src/pages/appcenter.vue',
         'src/pages/recommend.vue',
@@ -621,10 +622,16 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/stores/auth.ts': {
-          branches: 75,
-          functions: 80,
-          lines: 80,
-          statements: 80,
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/stores/user.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/stores/pluginSidebarNav.ts': {
           branches: 85,

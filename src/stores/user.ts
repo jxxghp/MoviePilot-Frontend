@@ -9,7 +9,10 @@ export const useUserStore = defineStore('user', {
     userName: '',
     avatar: '',
     level: 1,
-    permissions: DEFAULT_PERMISSIONS,
+    permissions: {
+      ...DEFAULT_PERMISSIONS,
+      features: { ...DEFAULT_PERMISSIONS.features },
+    },
     wizard: false,
   }),
 
@@ -33,7 +36,11 @@ export const useUserStore = defineStore('user', {
       this.level = level
     },
     setPermissions(permissions: object) {
-      this.permissions = { ...DEFAULT_PERMISSIONS, ...permissions }
+      const mergedPermissions = { ...DEFAULT_PERMISSIONS, ...permissions }
+      this.permissions = {
+        ...mergedPermissions,
+        features: { ...mergedPermissions.features },
+      }
     },
     setWizard(wizard: boolean) {
       this.wizard = wizard

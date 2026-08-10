@@ -387,6 +387,8 @@ describe('FullCalendarView', () => {
   })
 
   it('resets a stale mobile title filter after keep-alive refresh replaces the data', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-10T12:00:00+08:00'))
     setViewport(480)
     const first = movieSubscribe(3601, '第一轮电影')
     const second = movieSubscribe(3602, '第二轮电影')
