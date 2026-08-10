@@ -8,7 +8,7 @@ describe('glass overlay material styles', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toContain('calc(0.1 + var(--glass-surface-density, 0.62) * 0.22)')
-    expect(styles.match(/--glass-overlay-blur:\s*8px/g)).toHaveLength(2)
+    expect(styles.match(/--glass-overlay-blur:\s*var\(--glass-overlay-clarity-blur, 6px\)/g)).toHaveLength(2)
     expect(styles).toContain('--glass-overlay-saturate: 115%')
     expect(styles).toContain('--glass-overlay-saturate: 120%')
     expect(styles).toContain('--glass-overlay-blur: min(var(--glass-blur-raised), 36px)')
@@ -19,6 +19,20 @@ describe('glass overlay material styles', () => {
     expect(styles).toContain('calc(0.24 + var(--glass-surface-density, 0.86) * 0.12)')
     expect(styles).not.toContain('calc(0.64 + var(--glass-surface-density, 0.86) * 0.16)')
     expect(styles).not.toContain('background: rgba(3, 7, 18, 62%)')
+  })
+
+  it('protects ordinary clear and tinted content without changing raised or frosted materials', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain('rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2))')
+    expect(styles).toContain('rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.62) * 0.23))')
+    expect(styles).toContain('rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%')
+    expect(styles).toContain('rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%')
+    expect(styles).toContain('rgba(11, 19, 34, calc(0.07 + var(--glass-surface-density, 0.62) * 0.36))')
+    expect(styles).toContain('rgba(11, 19, 34, calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%')
+    expect(styles).toContain('rgba(255, 255, 255, calc(0.035 + var(--glass-surface-density, 0.86) * 0.075))')
+    expect(styles).toContain('rgba(255, 255, 255, calc(0.03 + var(--glass-surface-density, 0.86) * 0.07))')
+    expect(styles).toContain('rgba(255, 255, 255, calc(0.045 + var(--glass-surface-density, 0.86) * 0.09))')
   })
 
   it('renders colored chips as shadowless glass without flattening their variants', () => {
