@@ -1152,7 +1152,6 @@ export default {
     episodes: '劇集',
     users: '用戶',
     activeUsers: '活躍用戶',
-    musicLibrary: '音樂媒體庫',
     noSchedulers: '沒有後台服務',
     transferQueue: '整理隊列',
     transferProgress: '{completed} / {total} 個文件',

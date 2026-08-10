@@ -1161,7 +1161,6 @@ export default {
     episodes: 'Episodes',
     users: 'Users',
     activeUsers: 'Active users',
-    musicLibrary: 'Music library',
     noSchedulers: 'No Background Services',
     transferQueue: 'Transfer Queue',
     transferProgress: '{completed} / {total} files',

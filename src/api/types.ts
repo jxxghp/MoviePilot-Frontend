@@ -1386,6 +1386,8 @@ export interface MediaStatistic {
   tv_count_month: number
   // 本月新增剧集数量
   episode_count_month: number
+  // 本月新增音乐数量
+  music_count_month: number
 }
 
 // 后台进程

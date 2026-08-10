@@ -39,6 +39,7 @@ describe('AnalyticsMediaStatistic', () => {
           movie_count_month: 1,
           tv_count_month: 2,
           episode_count_month: 3,
+          music_count_month: 7,
         },
       }),
     )
@@ -51,6 +52,7 @@ describe('AnalyticsMediaStatistic', () => {
     expect(screen.getByText('34')).toBeInTheDocument()
     expect(screen.getByText('56')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
+    expect(screen.getByText('+7 本月新增')).toBeInTheDocument()
     expect(apiGet).toHaveBeenCalledWith('dashboard/statistic')
 
     request.resolve({
@@ -61,14 +63,17 @@ describe('AnalyticsMediaStatistic', () => {
       movie_count_month: 4,
       tv_count_month: 5,
       episode_count_month: 6,
+      music_count_month: 9,
     })
 
     await waitFor(() => expect(screen.getByText('21')).toBeInTheDocument())
+    expect(screen.getByText('+9 本月新增')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(snapshotKey) ?? '{}').value).toMatchObject({
       movie_count: 21,
       tv_count: 43,
       episode_count: 65,
       music_count: 8,
+      music_count_month: 9,
     })
   })
 
@@ -85,6 +90,7 @@ describe('AnalyticsMediaStatistic', () => {
           movie_count_month: 1,
           tv_count_month: 2,
           episode_count_month: 3,
+          music_count_month: 7,
         },
       }),
     )
