@@ -355,6 +355,9 @@ const displayResourceCount = computed(() =>
 // 搜索中只显示进度区域，避免结果抬头和进度条同时占用顶部空间。
 const showResultHeader = computed(() => isRefreshed.value && !progressActive.value)
 
+// 记录过滤前的候选资源数，用于过滤后无结果时给出友好提示
+let streamCandidateCount = 0
+
 let pendingStreamItems: Array<Context> = []
 let pendingSubtitleStreamItems: Array<SubtitleInfo> = []
 const streamReplaceBatchCollector = new SearchReplaceBatchCollector<Context>()
@@ -597,6 +600,7 @@ function resetSearchResults() {
   // 新搜索开始时先回到未完成态，避免上一轮空态在 SSE 返回前抢先显示。
   isRefreshed.value = false
   errorDescription.value = t('resource.noResourceFound')
+  streamCandidateCount = 0
   rawDataList.value = []
   rawSubtitleDataList.value = []
   originalDataList.value = []
@@ -684,11 +688,29 @@ function appendSubtitleStreamResults(items: SubtitleInfo[]) {
   scheduleStreamFlush()
 }
 
+// 更新候选资源数：优先使用后端显式给出的 candidate_items，否则取搜索阶段事件的 total_items
+function updateStreamCandidateCount(eventData: { candidate_items?: unknown; stage?: unknown; total_items?: unknown }) {
+  if (typeof eventData.candidate_items === 'number') {
+    streamCandidateCount = Math.max(streamCandidateCount, eventData.candidate_items)
+  } else if (eventData.stage === 'searching' && typeof eventData.total_items === 'number') {
+    streamCandidateCount = Math.max(streamCandidateCount, eventData.total_items)
+  }
+}
+
+// 过滤后无结果但存在候选资源时，用友好提示替代默认的“未搜索到任何资源”
+function applyFilteredEmptyResultMessage(resultCount: number) {
+  if (resultCount === 0 && streamCandidateCount > 0) {
+    errorDescription.value = t('resource.filteredNoResults', { count: streamCandidateCount })
+  }
+}
+
 // 完整最终结果到达后原子替换资源列表。
 function applyFinalStreamResults(items: Context[]) {
   streamFinalResultApplied = true
   flushBufferedStreamState()
   setStreamResults(items)
+  // 候选全部被过滤规则淘汰时给出友好提示
+  applyFilteredEmptyResultMessage(items.length)
 }
 
 // 应用最终字幕搜索结果
@@ -734,6 +756,7 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
       updateSearchProgress(eventData, completedItems !== null)
       if (completedItems) applyFinalSubtitleStreamResults(completedItems)
     } else {
+      updateStreamCandidateCount(eventData)
       const completedItems = streamReplaceBatchCollector.append(eventData)
       updateSearchProgress(eventData, completedItems !== null)
       if (completedItems) applyFinalStreamResults(completedItems)
@@ -759,6 +782,7 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
   }
 
   const items = Array.isArray(eventData.items) ? (eventData.items as Context[]) : []
+  updateStreamCandidateCount(eventData)
   if (eventData.type === 'append') {
     updateSearchProgress(eventData)
     appendStreamResults(items)
@@ -770,6 +794,10 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
     applyFinalStreamResults(items)
   } else {
     updateSearchProgress(eventData)
+    // 标题搜索没有 replace 事件，最终结果为空时在此给出友好提示
+    if (eventData.type === 'done' && !streamFinalResultApplied) {
+      applyFilteredEmptyResultMessage(items.length)
+    }
   }
 }
 

@@ -549,6 +549,54 @@ describe('resource page search flow', () => {
     expect(screen.queryByText('搜索服务暂不可用')).not.toBeInTheDocument()
   })
 
+  it('shows a friendly message when all candidate resources are filtered out', async () => {
+    await renderResource({
+      path: '/resource',
+      query: { keyword: '过滤空结果', result_type: 'torrent' },
+    })
+    const source = await latestEventSource()
+
+    // 搜索阶段返回候选资源，最终替换事件为空表示全部被过滤规则淘汰
+    source.message({
+      items: [createTorrent({ title: '候选资源' })],
+      stage: 'searching',
+      total_items: 19,
+      type: 'append',
+    })
+    source.message({
+      candidate_items: 19,
+      items: [],
+      stage: 'filtered',
+      total_items: 0,
+      type: 'replace',
+      value: 100,
+    })
+    source.message({ type: 'done' })
+    source.fail()
+
+    expect(await screen.findByTestId('no-data')).toHaveTextContent('找到 19 个资源，但均不符合过滤规则')
+    expect(screen.queryByText('未搜索到任何资源')).not.toBeInTheDocument()
+  })
+
+  it('shows a friendly message when the done event reports filtered candidates for title search', async () => {
+    await renderResource({
+      path: '/resource',
+      query: { keyword: '标题过滤空结果', result_type: 'torrent' },
+    })
+    const source = await latestEventSource()
+
+    // 标题搜索没有 replace 事件，候选数由 done 事件的 candidate_items 携带
+    source.message({
+      candidate_items: 5,
+      items: [],
+      total_items: 0,
+      type: 'done',
+    })
+    source.fail()
+
+    expect(await screen.findByTestId('no-data')).toHaveTextContent('找到 5 个资源，但均不符合过滤规则')
+  })
+
   it('restores the default empty-state message when the fallback request succeeds without results', async () => {
     mocks.apiGet.mockResolvedValueOnce({ data: [], success: true })
     const rendered = await renderResource({
