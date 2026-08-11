@@ -119,6 +119,7 @@ async function saveSelectedRssSites() {
     else $toast.error(t('setting.subscribe.saveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.subscribe.saveFailed'))
   }
 }
 
@@ -130,7 +131,9 @@ async function loadSystemSettings() {
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
         Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
+            Reflect.set(SystemSettings.value[sectionKey], key, result.data[key])
+          }
         })
       }
     }
@@ -147,7 +150,9 @@ async function saveSystemSetting(value: { [key: string]: any }) {
     if (result.success) {
       return true
     }
-  } catch (error) {}
+  } catch {
+    return false
+  }
   return false
 }
 
@@ -185,6 +190,7 @@ async function saveSubscribeSetting() {
     } else $toast.error(t('setting.subscribe.settingsSaveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.subscribe.settingsSaveFailed'))
   }
 }
 

@@ -868,44 +868,17 @@
   },
   "src/views/setting/AccountSettingSearch.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 12
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-empty": {
-      "count": 1
-    },
-    "no-prototype-builtins": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 1
+      "count": 11
     }
   },
   "src/views/setting/AccountSettingSite.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 6
-    },
-    "no-prototype-builtins": {
-      "count": 1
+      "count": 5
     }
   },
   "src/views/setting/AccountSettingSubscribe.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 12
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-empty": {
-      "count": 1
-    },
-    "no-prototype-builtins": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 1
+      "count": 11
     }
   },
   "src/views/setting/AccountSettingSystem.vue": {
