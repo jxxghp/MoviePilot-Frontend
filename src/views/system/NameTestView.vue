@@ -60,9 +60,6 @@ const MEDIA_SOURCE_ICONS: Record<string, { icon: string; color: string }> = {
   musicbrainz: { icon: 'mdi-album', color: '#eb743b' },
 }
 
-const NAME_TEST_TITLE_HISTORY_KEY = 'MP_NAME_TEST_TITLE_HISTORY'
-const NAME_TEST_TITLE_HISTORY_LIMIT = 5
-
 const emit = defineEmits<{ close: [] }>()
 
 // 国际化
@@ -99,41 +96,6 @@ const nameTestForm = reactive<NameTestForm>({
 
 // MusicBrainz 仅支持音乐识别，音乐不应用自定义识别词，隐藏输入区避免误导
 const showCustomWords = computed(() => nameTestForm.source !== 'musicbrainz')
-
-/** 从本地存储读取最近使用的识别标题。 */
-function loadTitleHistory() {
-  try {
-    const storedHistory: unknown = JSON.parse(localStorage.getItem(NAME_TEST_TITLE_HISTORY_KEY) || '[]')
-    if (!Array.isArray(storedHistory)) return []
-
-    return storedHistory
-      .filter((title): title is string => typeof title === 'string' && Boolean(title.trim()))
-      .map(title => title.trim())
-      .filter((title, index, titles) => titles.indexOf(title) === index)
-      .slice(0, NAME_TEST_TITLE_HISTORY_LIMIT)
-  } catch {
-    return []
-  }
-}
-
-const nameTestTitleHistory = ref<string[]>(loadTitleHistory())
-
-/** 将本次提交的标题移到历史记录首位，并只保留最新五条。 */
-function saveTitleHistory(title: string) {
-  const normalizedTitle = title.trim()
-  if (!normalizedTitle) return
-
-  nameTestTitleHistory.value = [
-    normalizedTitle,
-    ...nameTestTitleHistory.value.filter(historyTitle => historyTitle !== normalizedTitle),
-  ].slice(0, NAME_TEST_TITLE_HISTORY_LIMIT)
-
-  try {
-    localStorage.setItem(NAME_TEST_TITLE_HISTORY_KEY, JSON.stringify(nameTestTitleHistory.value))
-  } catch {
-    // 本地存储不可用时仍继续执行本次识别。
-  }
-}
 
 // 识别按钮状态
 const nameTestLoading = ref(false)
@@ -393,14 +355,14 @@ async function saveCustomWords() {
       <VForm validate-on="submit lazy" @submit.prevent="nameTest">
         <VRow class="shortcut-form">
           <VCol cols="12" class="shortcut-form-col">
-            <VCombobox
+            <VTextarea
               v-model="nameTestForm.title"
-              :items="nameTestTitleHistory"
               :label="t('nameTest.title')"
               :hint="t('nameTest.titleHint')"
               persistent-hint
               :rules="[requiredValidator]"
               prepend-inner-icon="mdi-movie-open"
+              rows="2"
             />
           </VCol>
           <VCol cols="12" class="shortcut-form-col">
