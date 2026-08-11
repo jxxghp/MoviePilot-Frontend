@@ -126,7 +126,9 @@ async function loadSystemSettings() {
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
         Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
+            Reflect.set(SystemSettings.value[sectionKey], key, result.data[key])
+          }
         })
       }
     }
@@ -174,6 +176,7 @@ async function saveStorages() {
     else $toast.error(t('setting.directory.storageSaveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.directory.storageSaveFailed'))
   }
 }
 
@@ -202,6 +205,7 @@ async function saveDirectories() {
     } else $toast.error(t('setting.directory.directorySaveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.directory.directorySaveFailed'))
   }
 }
 
@@ -296,6 +300,7 @@ async function saveSystemSettings(value: any) {
     } else $toast.error(t('setting.directory.organizeSaveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.directory.organizeSaveFailed'))
   }
 }
 

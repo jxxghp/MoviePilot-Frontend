@@ -87,6 +87,7 @@ async function saveCustomRules() {
     else $toast.error(t('setting.rule.customRuleSaveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.rule.customRuleSaveFailed'))
   }
 }
 
@@ -141,6 +142,7 @@ async function saveFilterRuleGroups() {
     else $toast.error(t('setting.rule.ruleGroupSaveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.rule.ruleGroupSaveFailed'))
   }
 }
 
@@ -166,8 +168,7 @@ async function shareRules(rules: CustomRule[] | FilterRuleGroup[], type: string)
 
   // 复制到剪贴板
   try {
-    let success
-    success = copyToClipboard(value)
+    const success = copyToClipboard(value)
     if (await success)
       $toast.success(
         type === 'custom' ? t('setting.rule.customRuleCopySuccess') : t('setting.rule.ruleGroupCopySuccess'),
@@ -374,6 +375,7 @@ async function saveTorrentPriority() {
     else $toast.error('优先规则保存失败！')
   } catch (error) {
     console.log(error)
+    $toast.error('优先规则保存失败！')
   }
 }
 
