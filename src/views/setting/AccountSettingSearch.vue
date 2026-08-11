@@ -119,13 +119,13 @@ async function querySelectedSites() {
 // 保存用户选中的站点
 async function saveSelectedSites() {
   try {
-    // 用户名密码
     const result: { [key: string]: any } = await api.post('system/setting/IndexerSites', selectedSites.value)
 
     if (result.success) $toast.success('搜索站点保存成功')
     else $toast.error('搜索站点保存失败！')
   } catch (error) {
     console.log(error)
+    $toast.error('搜索站点保存失败！')
   }
 }
 
@@ -149,7 +149,9 @@ async function saveSystemSetting(value: { [key: string]: any }) {
     if (result.success) {
       return true
     }
-  } catch (error) {}
+  } catch {
+    return false
+  }
   return false
 }
 
@@ -180,6 +182,7 @@ async function saveSearchSetting() {
     }
   } catch (error) {
     console.log(error)
+    $toast.error('搜索基础设置保存失败！')
   }
 }
 
@@ -191,7 +194,9 @@ async function loadSystemSettings() {
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
         Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
+            Reflect.set(SystemSettings.value[sectionKey], key, result.data[key])
+          }
         })
       }
     }

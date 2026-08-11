@@ -87,11 +87,12 @@ async function resetSites() {
     const result: { [key: string]: any } = await api.get('site/reset')
     if (result.success) $toast.success(t('setting.site.resetSuccess'))
     else $toast.error(t('setting.site.resetFailed'))
-
-    resetSitesDisabled.value = false
-    resetSitesText.value = t('setting.site.resetSites')
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.site.resetFailed'))
+  } finally {
+    resetSitesDisabled.value = false
+    resetSitesText.value = t('setting.site.resetSites')
   }
 }
 
@@ -103,7 +104,9 @@ async function loadSiteSettings() {
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof typeof siteSetting.value>) {
         Object.keys(siteSetting.value[sectionKey]).forEach((key: string) => {
-          if (result.data.hasOwnProperty(key)) (siteSetting.value[sectionKey] as any)[key] = result.data[key]
+          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
+            Reflect.set(siteSetting.value[sectionKey], key, result.data[key])
+          }
         })
       }
     }
