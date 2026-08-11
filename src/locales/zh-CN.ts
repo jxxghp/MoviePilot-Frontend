@@ -2652,6 +2652,11 @@ export default {
       cacheType: '缓存类型',
       torrentCache: '资源缓存',
       recognitionCache: '识别缓存',
+      recognitionCategoryLabel: '识别缓存分类',
+      recognitionCategory: {
+        media: '电影/电视剧',
+        music: '音乐',
+      },
       totalCount: '总条数',
       siteCount: '站点数',
       recognized: '已识别',
@@ -2685,6 +2690,7 @@ export default {
       poster: '海报',
       cacheKey: '识别请求',
       tmdbId: 'TMDB ID',
+      musicbrainzId: 'MusicBrainz ID',
       doubanId: '豆瓣 ID',
       torrentTitle: '标题',
       site: '站点',
@@ -2718,7 +2724,13 @@ export default {
       mediaType: {
         movie: '电影',
         tv: '电视剧',
+        music: '音乐',
         unknown: '未知',
+      },
+      musicType: {
+        recording: '单曲',
+        album: '专辑',
+        artist: '艺术家',
       },
       clearConfirm: '确认清空所有缓存吗？',
       recognitionClearConfirm: '确认清空全部 {source} 识别缓存吗？',

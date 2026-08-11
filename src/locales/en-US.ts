@@ -2703,6 +2703,11 @@ export default {
       cacheType: 'Cache Type',
       torrentCache: 'Resource Cache',
       recognitionCache: 'Recognition Cache',
+      recognitionCategoryLabel: 'Recognition Cache Category',
+      recognitionCategory: {
+        media: 'Movie/TV',
+        music: 'Music',
+      },
       totalCount: 'Total Count',
       siteCount: 'Site Count',
       recognized: 'Recognized',
@@ -2736,6 +2741,7 @@ export default {
       poster: 'Poster',
       cacheKey: 'Recognition Request',
       tmdbId: 'TMDB ID',
+      musicbrainzId: 'MusicBrainz ID',
       doubanId: 'Douban ID',
       torrentTitle: 'Title',
       site: 'Site',
@@ -2769,7 +2775,13 @@ export default {
       mediaType: {
         movie: 'Movie',
         tv: 'TV Show',
+        music: 'Music',
         unknown: 'Unknown',
+      },
+      musicType: {
+        recording: 'Single',
+        album: 'Album',
+        artist: 'Artist',
       },
       clearConfirm: 'Are you sure you want to clear all cache?',
       recognitionClearConfirm: 'Clear all {source} recognition cache?',

@@ -6,10 +6,12 @@ import api from '@/api'
 import type { ApiResponse, RecognitionCacheData, RecognitionCacheItem } from '@/api/types'
 import { useConfirm } from '@/composables/useConfirm'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import MusicRecognitionCachePanel from '@/components/cache/MusicRecognitionCachePanel.vue'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 type RecognitionStatusFilter = 'all' | 'recognized' | 'unrecognized'
+type RecognitionCategory = 'media' | 'music'
 type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
 
 const MOBILE_CACHE_PAGE_SIZE = 20
@@ -31,6 +33,8 @@ const loading = ref(false)
 const searchFilter = ref('')
 const statusFilter = ref<RecognitionStatusFilter>('all')
 const selectedItems = ref<string[]>([])
+// 识别缓存分类：影视（TMDB）与音乐（MusicBrainz）
+const recognitionCategory = ref<RecognitionCategory>('media')
 const cacheData = ref<RecognitionCacheData>({
   count: 0,
   recognized: 0,
@@ -253,231 +257,264 @@ watch([searchFilter, statusFilter], () => {
 
 <template>
   <section class="recognition-cache-panel">
-    <div class="cache-panel-toolbar">
-      <div class="cache-panel-stats">
-        <div class="cache-panel-stat cache-panel-stat--primary">
-          <VIcon icon="mdi-database-outline" :size="isMobile ? 32 : 22" />
-          <div>
-            <strong>{{ cacheData.count }}</strong>
-            <span>{{ t('setting.cache.totalCount') }}</span>
-          </div>
-        </div>
-        <div class="cache-panel-stat cache-panel-stat--success">
-          <VIcon icon="mdi-check-decagram-outline" :size="isMobile ? 32 : 22" />
-          <div>
-            <strong>{{ cacheData.recognized }}</strong>
-            <span>{{ t('setting.cache.recognized') }}</span>
-          </div>
-        </div>
-        <div v-if="!isMobile || cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--warning">
-          <VIcon icon="mdi-help-circle-outline" size="22" />
-          <div>
-            <strong>{{ cacheData.unrecognized }}</strong>
-            <span>{{ t('setting.cache.unrecognized') }}</span>
-          </div>
-        </div>
-        <div v-if="cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--info">
-          <VIcon icon="mdi-cloud-check-outline" :size="isMobile ? 32 : 22" />
-          <div>
-            <strong>{{ cacheData.shared_recognized }}</strong>
-            <span>{{ t('setting.cache.sharedRecognized') }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="!isMobile" class="cache-panel-actions">
-        <VBtn icon variant="text" color="primary" :loading="loading" @click="loadCacheData(true)">
-          <VIcon icon="mdi-refresh" />
-          <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refreshList') }}</VTooltip>
-        </VBtn>
-        <VBtn
-          icon
-          variant="text"
-          color="warning"
-          :disabled="selectedItems.length === 0"
-          :loading="loading"
-          @click="deleteSelectedItems"
-        >
-          <VIcon icon="mdi-delete-sweep-outline" />
-          <VTooltip activator="parent" location="bottom">
-            {{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})
-          </VTooltip>
-        </VBtn>
-        <VBtn icon variant="text" color="error" :loading="loading" @click="clearAllCache">
-          <VIcon icon="mdi-delete-variant" />
-          <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
-        </VBtn>
-      </div>
-    </div>
-
-    <div class="cache-panel-filters">
-      <VTextField
-        v-model="searchFilter"
-        class="cache-panel-filter"
-        :label="isMobile ? undefined : recognitionFilterPlaceholder"
-        :placeholder="isMobile ? recognitionFilterPlaceholder : undefined"
-        prepend-inner-icon="mdi-magnify"
-        variant="outlined"
-        :density="isMobile ? 'comfortable' : 'compact'"
-        :single-line="isMobile"
-        clearable
-        hide-details
-      />
-      <VSelect
-        v-model="statusFilter"
-        class="cache-panel-filter"
-        :label="isMobile ? undefined : t('setting.cache.recognitionStatus')"
-        :placeholder="isMobile ? t('setting.cache.recognitionStatus') : undefined"
-        :items="statusOptions"
-        prepend-inner-icon="mdi-list-status"
-        variant="outlined"
-        :density="isMobile ? 'comfortable' : 'compact'"
-        :single-line="isMobile"
-        hide-details
-      />
-    </div>
-
-    <div v-if="isMobile" class="cache-panel-mobile-actions">
-      <VBtn variant="tonal" color="primary" :loading="loading" prepend-icon="mdi-refresh" @click="loadCacheData(true)">
-        {{ t('setting.cache.refresh') }}
-      </VBtn>
-      <VBtn variant="tonal" color="error" :loading="loading" prepend-icon="mdi-delete-variant" @click="clearAllCache">
-        {{ t('setting.cache.clearAll') }}
-      </VBtn>
-    </div>
-
-    <template v-if="isMobile">
-      <VInfiniteScroll
-        v-if="mobileVisibleData.length > 0 || loading"
-        :key="mobileInfiniteKey"
-        mode="intersect"
-        side="end"
-        :items="mobileVisibleData"
-        class="recognition-cache-mobile-scroll"
-        @load="loadMoreMobileCache"
+    <div class="recognition-cache-categories">
+      <VBtnToggle
+        v-model="recognitionCategory"
+        mandatory
+        divided
+        density="comfortable"
+        variant="text"
+        color="primary"
+        class="recognition-cache-categories__switcher"
+        :aria-label="t('setting.cache.recognitionCategoryLabel')"
       >
-        <template #loading>
-          <div class="cache-panel-load-state">
-            <VProgressCircular indeterminate color="primary" size="22" width="3" />
-            <span>{{ t('setting.cache.loadingMore') }}</span>
-          </div>
-        </template>
-
-        <template #empty />
-
-        <ProgressiveCardGrid
-          v-if="mobileVisibleData.length > 0"
-          :items="mobileVisibleData"
-          :columns="1"
-          :gap="10"
-          :estimated-item-height="152"
-          :overscan-rows="5"
-          :get-item-key="getRecognitionCacheItemKey"
-        >
-          <template #default="{ item }">
-            <article class="recognition-cache-mobile-item">
-              <div class="recognition-cache-poster rounded-md">
-                <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
-                <VIcon v-else icon="mdi-image-off-outline" size="28" />
-              </div>
-
-              <div class="recognition-cache-mobile-item__content">
-                <div class="recognition-cache-mobile-item__title">
-                  {{ item.title || t('setting.cache.unrecognized') }}
-                </div>
-                <div class="recognition-cache-mobile-item__meta">
-                  <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
-                    {{ getMediaTypeLabel(item.media_type) }}
-                  </VChip>
-                  <span v-if="item.year">{{ item.year }}</span>
-                  <span v-if="isRecognized(item)">{{ recognitionIdLabel }} #{{ getRecognitionId(item) }}</span>
-                </div>
-                <div class="recognition-cache-mobile-item__key">{{ item.key }}</div>
-              </div>
-
-              <VBtn
-                icon
-                size="small"
-                variant="text"
-                color="error"
-                :aria-label="t('common.delete')"
-                @click="deleteSingleItem(item)"
-              >
-                <VIcon icon="mdi-delete-outline" size="20" />
-              </VBtn>
-            </article>
-          </template>
-        </ProgressiveCardGrid>
-      </VInfiniteScroll>
-
-      <div v-else class="cache-panel-empty">
-        <VIcon icon="mdi-database-search-outline" size="42" />
-        <strong>{{ t('setting.cache.noRecognitionCache', { source: recognitionSourceName }) }}</strong>
-        <span>{{ t('setting.cache.noRecognitionCacheHint') }}</span>
-      </div>
-    </template>
-
-    <VDataTable
-      v-else
-      v-model="selectedItems"
-      class="recognition-cache-table"
-      :headers="tableHeaders"
-      :items="filteredData"
-      :loading="loading"
-      item-value="key"
-      show-select
-      hover
-      :items-per-page-text="t('common.itemsPerPage')"
-      :no-data-text="t('common.noDataText')"
-      :loading-text="t('common.loadingText')"
-    >
-      <template #item.poster="{ item }">
-        <div class="recognition-cache-table__poster rounded-md">
-          <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
-          <VIcon v-else icon="mdi-image-off-outline" />
-        </div>
-      </template>
-
-      <template #item.key="{ item }">
-        <div class="recognition-cache-table__key">{{ item.key }}</div>
-      </template>
-
-      <template #item.result="{ item }">
-        <div class="recognition-cache-result">
-          <strong>{{ item.title || t('setting.cache.unrecognized') }}</strong>
-          <span v-if="item.year">{{ item.year }}</span>
-          <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
-            {{ getMediaTypeLabel(item.media_type) }}
-          </VChip>
-        </div>
-      </template>
-
-      <template #item.recognition_id="{ item }">
-        <span v-if="isRecognized(item)" class="font-weight-medium">#{{ getRecognitionId(item) }}</span>
-        <span v-else class="text-medium-emphasis">-</span>
-      </template>
-
-      <template #item.status="{ item }">
-        <VChip size="small" variant="tonal" :color="isRecognized(item) ? 'success' : 'warning'">
-          {{ getRecognitionStatusLabel(item) }}
-        </VChip>
-      </template>
-
-      <template #item.actions="{ item }">
-        <VBtn icon size="small" variant="text" color="error" @click="deleteSingleItem(item)">
-          <VIcon icon="mdi-delete-outline" size="18" />
-          <VTooltip activator="parent" location="start">{{ t('common.delete') }}</VTooltip>
+        <VBtn value="media" prepend-icon="mdi-movie-search-outline">
+          {{ t('setting.cache.recognitionCategory.media') }}
         </VBtn>
-      </template>
+        <VBtn value="music" prepend-icon="mdi-music-note-outline">
+          {{ t('setting.cache.recognitionCategory.music') }}
+        </VBtn>
+      </VBtnToggle>
+    </div>
 
-      <template #no-data>
-        <div class="cache-panel-empty">
+    <MusicRecognitionCachePanel v-if="recognitionCategory === 'music'" />
+
+    <template v-else>
+      <div class="cache-panel-toolbar">
+        <div class="cache-panel-stats">
+          <div class="cache-panel-stat cache-panel-stat--primary">
+            <VIcon icon="mdi-database-outline" :size="isMobile ? 32 : 22" />
+            <div>
+              <strong>{{ cacheData.count }}</strong>
+              <span>{{ t('setting.cache.totalCount') }}</span>
+            </div>
+          </div>
+          <div class="cache-panel-stat cache-panel-stat--success">
+            <VIcon icon="mdi-check-decagram-outline" :size="isMobile ? 32 : 22" />
+            <div>
+              <strong>{{ cacheData.recognized }}</strong>
+              <span>{{ t('setting.cache.recognized') }}</span>
+            </div>
+          </div>
+          <div
+            v-if="!isMobile || cacheData.shared_recognize_enabled"
+            class="cache-panel-stat cache-panel-stat--warning"
+          >
+            <VIcon icon="mdi-help-circle-outline" size="22" />
+            <div>
+              <strong>{{ cacheData.unrecognized }}</strong>
+              <span>{{ t('setting.cache.unrecognized') }}</span>
+            </div>
+          </div>
+          <div v-if="cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--info">
+            <VIcon icon="mdi-cloud-check-outline" :size="isMobile ? 32 : 22" />
+            <div>
+              <strong>{{ cacheData.shared_recognized }}</strong>
+              <span>{{ t('setting.cache.sharedRecognized') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!isMobile" class="cache-panel-actions">
+          <VBtn icon variant="text" color="primary" :loading="loading" @click="loadCacheData(true)">
+            <VIcon icon="mdi-refresh" />
+            <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refreshList') }}</VTooltip>
+          </VBtn>
+          <VBtn
+            icon
+            variant="text"
+            color="warning"
+            :disabled="selectedItems.length === 0"
+            :loading="loading"
+            @click="deleteSelectedItems"
+          >
+            <VIcon icon="mdi-delete-sweep-outline" />
+            <VTooltip activator="parent" location="bottom">
+              {{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})
+            </VTooltip>
+          </VBtn>
+          <VBtn icon variant="text" color="error" :loading="loading" @click="clearAllCache">
+            <VIcon icon="mdi-delete-variant" />
+            <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
+          </VBtn>
+        </div>
+      </div>
+
+      <div class="cache-panel-filters">
+        <VTextField
+          v-model="searchFilter"
+          class="cache-panel-filter"
+          :label="isMobile ? undefined : recognitionFilterPlaceholder"
+          :placeholder="isMobile ? recognitionFilterPlaceholder : undefined"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          :density="isMobile ? 'comfortable' : 'compact'"
+          :single-line="isMobile"
+          clearable
+          hide-details
+        />
+        <VSelect
+          v-model="statusFilter"
+          class="cache-panel-filter"
+          :label="isMobile ? undefined : t('setting.cache.recognitionStatus')"
+          :placeholder="isMobile ? t('setting.cache.recognitionStatus') : undefined"
+          :items="statusOptions"
+          prepend-inner-icon="mdi-list-status"
+          variant="outlined"
+          :density="isMobile ? 'comfortable' : 'compact'"
+          :single-line="isMobile"
+          hide-details
+        />
+      </div>
+
+      <div v-if="isMobile" class="cache-panel-mobile-actions">
+        <VBtn
+          variant="tonal"
+          color="primary"
+          :loading="loading"
+          prepend-icon="mdi-refresh"
+          @click="loadCacheData(true)"
+        >
+          {{ t('setting.cache.refresh') }}
+        </VBtn>
+        <VBtn variant="tonal" color="error" :loading="loading" prepend-icon="mdi-delete-variant" @click="clearAllCache">
+          {{ t('setting.cache.clearAll') }}
+        </VBtn>
+      </div>
+
+      <template v-if="isMobile">
+        <VInfiniteScroll
+          v-if="mobileVisibleData.length > 0 || loading"
+          :key="mobileInfiniteKey"
+          mode="intersect"
+          side="end"
+          :items="mobileVisibleData"
+          class="recognition-cache-mobile-scroll"
+          @load="loadMoreMobileCache"
+        >
+          <template #loading>
+            <div class="cache-panel-load-state">
+              <VProgressCircular indeterminate color="primary" size="22" width="3" />
+              <span>{{ t('setting.cache.loadingMore') }}</span>
+            </div>
+          </template>
+
+          <template #empty />
+
+          <ProgressiveCardGrid
+            v-if="mobileVisibleData.length > 0"
+            :items="mobileVisibleData"
+            :columns="1"
+            :gap="10"
+            :estimated-item-height="152"
+            :overscan-rows="5"
+            :get-item-key="getRecognitionCacheItemKey"
+          >
+            <template #default="{ item }">
+              <article class="recognition-cache-mobile-item">
+                <div class="recognition-cache-poster rounded-md">
+                  <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
+                  <VIcon v-else icon="mdi-image-off-outline" size="28" />
+                </div>
+
+                <div class="recognition-cache-mobile-item__content">
+                  <div class="recognition-cache-mobile-item__title">
+                    {{ item.title || t('setting.cache.unrecognized') }}
+                  </div>
+                  <div class="recognition-cache-mobile-item__meta">
+                    <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
+                      {{ getMediaTypeLabel(item.media_type) }}
+                    </VChip>
+                    <span v-if="item.year">{{ item.year }}</span>
+                    <span v-if="isRecognized(item)">{{ recognitionIdLabel }} #{{ getRecognitionId(item) }}</span>
+                  </div>
+                  <div class="recognition-cache-mobile-item__key">{{ item.key }}</div>
+                </div>
+
+                <VBtn
+                  icon
+                  size="small"
+                  variant="text"
+                  color="error"
+                  :aria-label="t('common.delete')"
+                  @click="deleteSingleItem(item)"
+                >
+                  <VIcon icon="mdi-delete-outline" size="20" />
+                </VBtn>
+              </article>
+            </template>
+          </ProgressiveCardGrid>
+        </VInfiniteScroll>
+
+        <div v-else class="cache-panel-empty">
           <VIcon icon="mdi-database-search-outline" size="42" />
           <strong>{{ t('setting.cache.noRecognitionCache', { source: recognitionSourceName }) }}</strong>
           <span>{{ t('setting.cache.noRecognitionCacheHint') }}</span>
         </div>
       </template>
-    </VDataTable>
+
+      <VDataTable
+        v-else
+        v-model="selectedItems"
+        class="recognition-cache-table"
+        :headers="tableHeaders"
+        :items="filteredData"
+        :loading="loading"
+        item-value="key"
+        show-select
+        hover
+        :items-per-page-text="t('common.itemsPerPage')"
+        :no-data-text="t('common.noDataText')"
+        :loading-text="t('common.loadingText')"
+      >
+        <template #item.poster="{ item }">
+          <div class="recognition-cache-table__poster rounded-md">
+            <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
+            <VIcon v-else icon="mdi-image-off-outline" />
+          </div>
+        </template>
+
+        <template #item.key="{ item }">
+          <div class="recognition-cache-table__key">{{ item.key }}</div>
+        </template>
+
+        <template #item.result="{ item }">
+          <div class="recognition-cache-result">
+            <strong>{{ item.title || t('setting.cache.unrecognized') }}</strong>
+            <span v-if="item.year">{{ item.year }}</span>
+            <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
+              {{ getMediaTypeLabel(item.media_type) }}
+            </VChip>
+          </div>
+        </template>
+
+        <template #item.recognition_id="{ item }">
+          <span v-if="isRecognized(item)" class="font-weight-medium">#{{ getRecognitionId(item) }}</span>
+          <span v-else class="text-medium-emphasis">-</span>
+        </template>
+
+        <template #item.status="{ item }">
+          <VChip size="small" variant="tonal" :color="isRecognized(item) ? 'success' : 'warning'">
+            {{ getRecognitionStatusLabel(item) }}
+          </VChip>
+        </template>
+
+        <template #item.actions="{ item }">
+          <VBtn icon size="small" variant="text" color="error" @click="deleteSingleItem(item)">
+            <VIcon icon="mdi-delete-outline" size="18" />
+            <VTooltip activator="parent" location="start">{{ t('common.delete') }}</VTooltip>
+          </VBtn>
+        </template>
+
+        <template #no-data>
+          <div class="cache-panel-empty">
+            <VIcon icon="mdi-database-search-outline" size="42" />
+            <strong>{{ t('setting.cache.noRecognitionCache', { source: recognitionSourceName }) }}</strong>
+            <span>{{ t('setting.cache.noRecognitionCacheHint') }}</span>
+          </div>
+        </template>
+      </VDataTable>
+    </template>
   </section>
 </template>
 
@@ -492,6 +529,25 @@ watch([searchFilter, statusFilter], () => {
   gap: 16px;
   min-block-size: 0;
   overflow-y: auto;
+}
+
+.recognition-cache-categories {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+}
+
+.recognition-cache-categories__switcher {
+  overflow: hidden;
+  border: var(--app-surface-border);
+  border-radius: var(--app-control-radius);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-surface-shadow);
+}
+
+.recognition-cache-categories__switcher :deep(.v-btn) {
+  min-inline-size: 150px;
 }
 
 .cache-panel-toolbar {
@@ -662,6 +718,19 @@ watch([searchFilter, statusFilter], () => {
     block-size: 100%;
     padding-block: 14px calc(18px + env(safe-area-inset-bottom));
     padding-inline: 16px;
+  }
+
+  .recognition-cache-categories {
+    inline-size: 100%;
+  }
+
+  .recognition-cache-categories__switcher {
+    inline-size: 100%;
+  }
+
+  .recognition-cache-categories__switcher :deep(.v-btn) {
+    flex: 1 1 0;
+    min-inline-size: 0;
   }
 
   .cache-panel-toolbar {

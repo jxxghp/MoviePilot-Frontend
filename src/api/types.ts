@@ -2191,6 +2191,38 @@ export interface RecognitionCacheData {
   data: RecognitionCacheItem[]
 }
 
+// 音乐识别缓存项
+export interface MusicRecognitionCacheItem {
+  // 缓存键
+  key: string
+  // MusicBrainz ID，空字符串表示未识别
+  media_id?: string
+  // 识别后的曲名/专辑名
+  title: string
+  // 艺术家列表
+  artists?: string[]
+  // 所属专辑
+  album?: string
+  // 发行年份
+  year?: string | number
+  // 音乐实体类型：recording/album/artist
+  music_type?: string
+  // 封面图片地址
+  cover_url?: string
+}
+
+// 音乐识别缓存数据
+export interface MusicRecognitionCacheData {
+  // 缓存总数
+  count: number
+  // 已识别数量
+  recognized: number
+  // 未识别数量
+  unrecognized: number
+  // 缓存数据
+  data: MusicRecognitionCacheItem[]
+}
+
 // 订阅分享统计
 export interface SubscribeShareStatistics {
   // 分享人

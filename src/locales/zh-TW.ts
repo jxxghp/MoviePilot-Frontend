@@ -2651,6 +2651,11 @@ export default {
       cacheType: '緩存類型',
       torrentCache: '資源緩存',
       recognitionCache: '識別緩存',
+      recognitionCategoryLabel: '識別緩存分類',
+      recognitionCategory: {
+        media: '電影/電視劇',
+        music: '音樂',
+      },
       totalCount: '總條數',
       siteCount: '站點數',
       recognized: '已識別',
@@ -2684,6 +2689,7 @@ export default {
       poster: '海報',
       cacheKey: '識別請求',
       tmdbId: 'TMDB ID',
+      musicbrainzId: 'MusicBrainz ID',
       doubanId: '豆瓣 ID',
       torrentTitle: '標題',
       site: '站點',
@@ -2717,7 +2723,13 @@ export default {
       mediaType: {
         movie: '電影',
         tv: '電視劇',
+        music: '音樂',
         unknown: '未知',
+      },
+      musicType: {
+        recording: '單曲',
+        album: '專輯',
+        artist: '藝術家',
       },
       clearConfirm: '確認清空所有緩存嗎？',
       recognitionClearConfirm: '確認清空全部 {source} 識別緩存嗎？',
