@@ -841,10 +841,7 @@
   },
   "src/views/setting/AccountSettingDirectory.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 9
-    },
-    "no-prototype-builtins": {
-      "count": 1
+      "count": 8
     },
     "sonarjs/super-linear-regex": {
       "count": 1
@@ -861,9 +858,6 @@
   "src/views/setting/AccountSettingRule.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 14
-    },
-    "prefer-const": {
-      "count": 1
     }
   },
   "src/views/setting/AccountSettingSearch.vue": {
