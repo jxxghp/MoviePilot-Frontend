@@ -46,6 +46,9 @@ const qrCodeImage = ref('')
 // 二维码信息
 const qrCode = ref('')
 
+// 每次生成请求独占一个序号，关闭、重开或重试都会使旧请求失效。
+let otpGeneration = 0
+
 // 清空当前 OTP 设置流程的临时数据。
 function resetOtpSetupState() {
   qrCodeImage.value = ''
@@ -64,6 +67,7 @@ function setOtpGenerateError(message?: string) {
 
 // 为当前用户获取 OTP URI 并生成二维码图片。
 async function getOtpUri() {
+  const generation = ++otpGeneration
   resetOtpSetupState()
   // 如果已经启用OTP，只打开对话框，不生成新的二维码
   if (props.isOtp) {
@@ -80,23 +84,26 @@ async function getOtpUri() {
     const uri = result.data?.uri?.trim()
     const otpSecret = result.data?.secret?.trim()
 
-    if (result.success && uri) {
-      otpUri.value = uri
-      secret.value = otpSecret || ''
-      qrCode.value = uri
-      // 生成二维码图片
-      qrCodeImage.value = await QRCode.toDataURL(uri, {
+    if (result.success && uri && otpSecret) {
+      const image = await QRCode.toDataURL(uri, {
         width: 200,
         margin: 1,
       })
+      if (generation !== otpGeneration || !props.modelValue) return
+      otpUri.value = uri
+      secret.value = otpSecret
+      qrCode.value = uri
+      qrCodeImage.value = image
     } else {
+      if (generation !== otpGeneration || !props.modelValue) return
       setOtpGenerateError(result.message || 'empty otp uri')
     }
   } catch (error) {
+    if (generation !== otpGeneration || !props.modelValue) return
     console.error(error)
     setOtpGenerateError(error instanceof Error ? error.message : String(error))
   } finally {
-    otpLoading.value = false
+    if (generation === otpGeneration) otpLoading.value = false
   }
 }
 
@@ -159,6 +166,7 @@ watch(
       otpPassword.value = ''
     } else {
       // 弹窗关闭时，清空数据
+      otpGeneration += 1
       resetOtpSetupState()
       otpLoading.value = false
       otpPassword.value = ''
@@ -166,6 +174,11 @@ watch(
   },
   { immediate: true },
 )
+
+// 组件卸载代表 OTP 会话结束，迟到的生成结果不得再产生界面副作用。
+onUnmounted(() => {
+  otpGeneration += 1
+})
 </script>
 
 <template>

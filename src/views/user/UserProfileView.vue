@@ -8,13 +8,14 @@ import { useDisplay } from 'vuetify'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import type { ApiResponse } from '@/api/types'
 
 const OTPAuthDialog = defineAsyncComponent(() => import('@/components/dialog/OTPAuthDialog.vue'))
 const PasskeyDialog = defineAsyncComponent(() => import('@/components/dialog/PasskeyDialog.vue'))
 const VerifyPasswordDialog = defineAsyncComponent(() => import('@/components/dialog/VerifyPasswordDialog.vue'))
 
 // 国际化
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
@@ -34,6 +35,10 @@ const refInputEl = ref<HTMLElement>()
 
 // 正在保存
 const isSaving = ref(false)
+
+// 个人资料首次加载状态，失败时不展示未初始化的默认表单。
+const isProfileLoading = ref(true)
+const profileLoadFailed = ref(false)
 
 // 当前头像缓存
 const currentAvatar = ref(avatar1)
@@ -189,6 +194,8 @@ function restoreCurrentAvatar() {
 
 // 加载当前用户信息
 async function fetchUserInfo() {
+  isProfileLoading.value = true
+  profileLoadFailed.value = false
   try {
     const result: User = await api.get(`user/${userStore.userName}`)
     if (result) {
@@ -197,11 +204,14 @@ async function fetchUserInfo() {
       accountInfo.value.nickname = accountInfo.value.settings?.nickname ?? ''
       currentUserName.value = accountInfo.value.name
       currentAvatar.value = accountInfo.value.avatar
-      // 同时加载PassKey列表
-      await fetchPassKeyList()
+      // Passkey 数量是辅助信息，不阻塞已成功取得的个人资料。
+      void fetchPassKeyList()
     }
   } catch (error) {
+    profileLoadFailed.value = true
     console.log(error)
+  } finally {
+    isProfileLoading.value = false
   }
 }
 
@@ -220,7 +230,6 @@ async function saveAccountInfo() {
       $toast.error(t('profile.passwordMismatch'))
       return
     }
-    accountInfo.value.password = newPassword.value
   }
 
   // 将nickname保存到settings中，后端可以直接处理JSON对象
@@ -231,16 +240,21 @@ async function saveAccountInfo() {
 
   const oldUserName = accountInfo.value.name
   const oldAvatar = accountInfo.value.avatar
-  accountInfo.value.avatar = currentAvatar.value
-  accountInfo.value.name = currentUserName.value
   isSaving.value = true
   try {
-    // 创建一个临时对象来保存用户数据，确保所有字段都会发送
-    const userData = { ...accountInfo.value }
+    // 请求数据独立于已确认快照，失败后保留当前输入供用户重试。
+    const userData: User = {
+      ...accountInfo.value,
+      avatar: currentAvatar.value,
+      name: currentUserName.value,
+      ...(newPassword.value ? { password: newPassword.value } : {}),
+    }
 
-    const result: { [key: string]: any } = await api.put('user/', userData)
+    const result = (await api.put('user/', userData)) as ApiResponse
 
     if (result.success) {
+      accountInfo.value.name = currentUserName.value
+      accountInfo.value.avatar = currentAvatar.value
       if (oldUserName !== currentUserName.value) {
         $toast.success(t('profile.usernameChangeSuccess', { oldName: oldUserName, newName: currentUserName.value }))
         // 更新本地用户名显示
@@ -264,16 +278,13 @@ async function saveAccountInfo() {
       } else {
         $toast.error(t('profile.saveFailed', { message: result.message }))
       }
-      // 失败缓存值还原
-      currentUserName.value = accountInfo.value.name
-      accountInfo.value.name = oldUserName
-      currentAvatar.value = accountInfo.value.avatar
-      accountInfo.value.avatar = oldAvatar
     }
   } catch (error) {
     console.log('保存失败:', error)
+    $toast.error(t('profile.saveFailed', { message: t('common.serverConnectionFailed') }))
+  } finally {
+    isSaving.value = false
   }
-  isSaving.value = false
 }
 
 // 验证密码载荷接口
@@ -313,7 +324,7 @@ async function confirmVerifyPassword(password = verifyPassword.value) {
 // 获取PassKey列表
 async function fetchPassKeyList() {
   try {
-    const result: { [key: string]: any } = await api.get('mfa/passkey/list')
+    const result = (await api.get('mfa/passkey/list')) as ApiResponse<PassKey[]>
     if (result.success) {
       passkeyList.value = result.data || []
     }
@@ -338,7 +349,15 @@ watch(
 
 <template>
   <div>
-    <VRow>
+    <LoadingBanner v-if="isProfileLoading" class="mt-12" />
+    <VAlert v-else-if="profileLoadFailed" type="error" variant="tonal" :title="t('common.serverConnectionFailed')">
+      <template #append>
+        <VBtn color="error" variant="text" :loading="isProfileLoading" @click="fetchUserInfo">
+          {{ t('common.retry') }}
+        </VBtn>
+      </template>
+    </VAlert>
+    <VRow v-else>
       <VCol cols="12">
         <VCard :title="t('profile.personalInfo')">
           <VCardText class="flex">
