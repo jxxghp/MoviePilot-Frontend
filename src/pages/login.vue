@@ -53,7 +53,7 @@ function handleLabTap(target: LabTapTarget) {
 }
 
 // 国际化
-const { t, te } = useI18n()
+const { t } = useI18n()
 
 // 应用版本号（构建时注入，形如 v2.13.10）
 const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : ''
@@ -111,6 +111,9 @@ let conditionalAbortController: AbortController | null = null
 // 手动模式的 AbortController（用于防止重复点击）
 let manualAbortController: AbortController | null = null
 
+// 密码与 OTP 请求必须可取消，认证方式切换后不得接收旧会话的资源 Cookie。
+let passwordAbortController: AbortController | null = null
+
 // 标记当前是否有手动模式的 PassKey 请求正在进行
 let isManualPassKeyActive = false
 
@@ -165,6 +168,31 @@ const RemoteAuthView = shallowRef<Component | null>(null)
 const pluginAuthDialog = ref(false)
 const pluginAuthLoading = ref(false)
 const pluginAuthError = ref('')
+// Remote generation 只保护组件加载；login generation 统一保护不同认证方式的会话写入。
+let pluginAuthLoadGeneration = 0
+let loginAttemptGeneration = 0
+let pluginLoginAttemptGeneration = 0
+let isPageActive = true
+
+function beginLoginAttempt() {
+  loginAttemptGeneration += 1
+  return loginAttemptGeneration
+}
+
+function isCurrentLoginAttempt(generation: number) {
+  return generation === loginAttemptGeneration
+}
+
+function abortPasswordLoginRequest() {
+  passwordAbortController?.abort()
+  passwordAbortController = null
+}
+
+function beginPasswordLoginRequest() {
+  abortPasswordLoginRequest()
+  passwordAbortController = new AbortController()
+  return passwordAbortController
+}
 
 const systemPasskeyProvider = computed(() =>
   authProviders.value.find(provider => provider.type === 'system' && provider.method === 'passkey'),
@@ -221,6 +249,8 @@ function enterMfaStep(methodsValue: unknown) {
 
 // 用户主动返回账号密码步骤时清理未完成的二次验证。
 function leaveMfaStep() {
+  beginLoginAttempt()
+  abortPasswordLoginRequest()
   manualAbortController?.abort()
   manualAbortController = null
   mfaOtpLoading.value = false
@@ -244,27 +274,43 @@ async function loadAuthProviders() {
 // 打开插件认证联邦页面。
 async function openPluginAuth(provider: LoginAuthProvider) {
   if (!provider.remote) return
+  abortPasswordLoginRequest()
+  conditionalAbortController?.abort()
+  conditionalAbortController = null
+  manualAbortController?.abort()
+  manualAbortController = null
+  isManualPassKeyActive = false
+  passkeyLoading.value = false
+  pluginLoginAttemptGeneration = beginLoginAttempt()
+  loading.value = false
+  const loadGeneration = ++pluginAuthLoadGeneration
   selectedAuthProvider.value = provider
   RemoteAuthView.value = null
   pluginAuthError.value = ''
   pluginAuthLoading.value = true
   pluginAuthDialog.value = true
   try {
-    RemoteAuthView.value = (await loadRemoteComponentFromModule(
+    const remoteAuthView = (await loadRemoteComponentFromModule(
       provider.remote,
       provider.component || 'AuthPage',
     )) as Component
+    if (loadGeneration !== pluginAuthLoadGeneration) return
+    RemoteAuthView.value = remoteAuthView
   } catch (error: unknown) {
+    if (loadGeneration !== pluginAuthLoadGeneration) return
     console.error('加载插件认证页面失败:', error)
     pluginAuthError.value = getErrorMessage(error) || t('login.authFailure')
   } finally {
-    pluginAuthLoading.value = false
+    if (loadGeneration === pluginAuthLoadGeneration) pluginAuthLoading.value = false
   }
 }
 
 // 关闭插件认证弹窗。
 function closePluginAuth() {
+  beginLoginAttempt()
+  pluginAuthLoadGeneration += 1
   pluginAuthDialog.value = false
+  pluginAuthLoading.value = false
   selectedAuthProvider.value = null
   RemoteAuthView.value = null
   pluginAuthError.value = ''
@@ -272,19 +318,22 @@ function closePluginAuth() {
 
 // 兑换插件认证票据并完成系统登录。
 async function exchangePluginAuthTicket(ticket: string) {
+  const loginGeneration = pluginLoginAttemptGeneration
   pluginAuthLoading.value = true
   try {
     const response = (await api.post('auth/exchange', { ticket })) as PassKeyFinishResponse
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     closePluginAuth()
     await handleLoginSuccess(response)
   } catch (error: unknown) {
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     console.error('插件认证票据兑换失败:', error)
     const apiError = asApiError(error)
     const message = apiError.response?.data?.message || apiError.response?.data?.detail
     pluginAuthError.value =
       (typeof message === 'string' ? message : undefined) || getErrorMessage(error) || t('login.authFailure')
   } finally {
-    pluginAuthLoading.value = false
+    if (isCurrentLoginAttempt(loginGeneration)) pluginAuthLoading.value = false
   }
 }
 
@@ -294,6 +343,7 @@ async function handlePluginAuthenticated(payload: PluginAuthPayload) {
     pluginAuthError.value = t('login.authFailure')
     return
   }
+  if (pluginAuthLoading.value) return
   await exchangePluginAuthTicket(payload.ticket)
 }
 
@@ -331,10 +381,9 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   const { username, isConditional = false, signal } = options
 
   // 1. 开始认证流程
-  const startResponse = (await api.post(
-    '/mfa/passkey/authenticate/start',
-    username ? { username } : {},
-  )) as ApiResponse<PassKeyStartResponse>
+  const startResponse = (await api.post('/mfa/passkey/authenticate/start', username ? { username } : {}, {
+    signal,
+  })) as ApiResponse<PassKeyStartResponse>
 
   if (!startResponse.success) {
     throw new Error(startResponse.message || 'PassKey start failed')
@@ -355,13 +404,11 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
     },
   }
 
-  // 如果是 Conditional UI 模式，添加 mediation 和 signal
+  // Conditional UI 额外声明 mediation；两种模式都必须响应认证方式切换产生的取消信号。
   if (isConditional) {
     credentialRequestOptions.mediation = 'conditional'
-    if (signal) {
-      credentialRequestOptions.signal = signal
-    }
   }
+  if (signal) credentialRequestOptions.signal = signal
 
   const credential = await navigator.credentials.get(credentialRequestOptions)
 
@@ -373,6 +420,7 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   if (!credential) {
     throw new Error('No credential selected')
   }
+  if (signal?.aborted) throw new DOMException('PassKey authentication aborted', 'AbortError')
 
   // 3. 转换credential为可传输格式
   const publicKeyCredential = credential as PublicKeyCredential
@@ -390,10 +438,14 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   }
 
   // 4. 完成认证
-  const finishResponse = (await api.post('/mfa/passkey/authenticate/finish', {
-    credential: credentialJSON,
-    transaction_token: transactionToken,
-  })) as PassKeyFinishResponse
+  const finishResponse = (await api.post(
+    '/mfa/passkey/authenticate/finish',
+    {
+      credential: credentialJSON,
+      transaction_token: transactionToken,
+    },
+    { signal },
+  )) as PassKeyFinishResponse
 
   if (!finishResponse || !finishResponse.access_token) {
     throw new Error('PassKey finish failed: No access token')
@@ -408,6 +460,9 @@ async function handlePassKeyAuth(
   setLoading: (loading: boolean) => void,
   onSuccess: (response: PassKeyFinishResponse) => Promise<void>,
 ) {
+  abortPasswordLoginRequest()
+  const loginGeneration = beginLoginAttempt()
+  loading.value = false
   const { isConditional = false } = authOptions
   errorMessage.value = ''
 
@@ -455,8 +510,10 @@ async function handlePassKeyAuth(
             : undefined,
     })
 
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     await onSuccess(finishResponse)
   } catch (error: unknown) {
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     const errorName = error instanceof Error ? error.name : ''
     const message = getErrorMessage(error)
 
@@ -485,16 +542,18 @@ async function handlePassKeyAuth(
       errorMessage.value = t('login.authFailure')
     }
   } finally {
-    // 清除 loading 状态
-    if (!isConditional) {
-      // 手动模式：始终清除，并取消手动活跃标记
-      isManualPassKeyActive = false
-      setLoading(false)
-      manualAbortController = null
-    } else {
-      // Conditional UI 模式：只有在没有手动请求活跃时才清除
-      if (!isManualPassKeyActive && passkeyLoading.value) {
-        passkeyLoading.value = false
+    if (isCurrentLoginAttempt(loginGeneration)) {
+      // 清除 loading 状态
+      if (!isConditional) {
+        // 手动模式：始终清除，并取消手动活跃标记
+        isManualPassKeyActive = false
+        setLoading(false)
+        manualAbortController = null
+      } else {
+        // Conditional UI 模式：只有在没有手动请求活跃时才清除
+        if (!isManualPassKeyActive && passkeyLoading.value) {
+          passkeyLoading.value = false
+        }
       }
     }
   }
@@ -601,13 +660,14 @@ async function handleLoginSuccess(response: PassKeyFinishResponse) {
   await afterLogin(userPayload.superUser, userPayload, filteredMenus)
 }
 
-async function requestPasswordLogin(): Promise<PassKeyFinishResponse> {
+async function requestPasswordLogin(signal: AbortSignal): Promise<PassKeyFinishResponse> {
   const formData = new FormData()
   formData.append('username', form.value.username)
   formData.append('password', form.value.password)
   formData.append('otp_password', form.value.otp_password)
 
   return (await api.post('/login/access-token', formData, {
+    signal,
     headers: {
       Accept: 'application/json',
     },
@@ -643,17 +703,29 @@ function setLoginError(error: unknown) {
 }
 
 async function login() {
+  if (loading.value) return
+
   errorMessage.value = ''
   syncLoginCredentialValues()
 
   if (!form.value.username || !form.value.password) return
 
+  conditionalAbortController?.abort()
+  conditionalAbortController = null
+  manualAbortController?.abort()
+  manualAbortController = null
+  isManualPassKeyActive = false
+  passkeyLoading.value = false
+  const loginGeneration = beginLoginAttempt()
+  const passwordController = beginPasswordLoginRequest()
   form.value.otp_password = ''
   loading.value = true
   try {
-    const response = await requestPasswordLogin()
+    const response = await requestPasswordLogin(passwordController.signal)
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     await handleLoginSuccess(response)
   } catch (error: unknown) {
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     const apiError = asApiError(error)
     if (apiError.response?.headers?.['x-mfa-required'] === 'true') {
       enterMfaStep(apiError.response.data?.mfa_methods)
@@ -661,7 +733,8 @@ async function login() {
     }
     setLoginError(error)
   } finally {
-    loading.value = false
+    if (passwordAbortController === passwordController) passwordAbortController = null
+    if (isCurrentLoginAttempt(loginGeneration)) loading.value = false
   }
 }
 
@@ -669,12 +742,16 @@ async function login() {
 async function loginWithOTP() {
   if (!form.value.otp_password || mfaOtpLoading.value) return
 
+  const loginGeneration = beginLoginAttempt()
+  const passwordController = beginPasswordLoginRequest()
   errorMessage.value = ''
   mfaOtpLoading.value = true
   try {
-    const response = await requestPasswordLogin()
+    const response = await requestPasswordLogin(passwordController.signal)
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     await handleLoginSuccess(response)
   } catch (error: unknown) {
+    if (!isCurrentLoginAttempt(loginGeneration)) return
     const apiError = asApiError(error)
     if (!apiError.response) {
       errorMessage.value = t('login.networkError')
@@ -685,7 +762,8 @@ async function loginWithOTP() {
     }
     form.value.otp_password = ''
   } finally {
-    mfaOtpLoading.value = false
+    if (passwordAbortController === passwordController) passwordAbortController = null
+    if (isCurrentLoginAttempt(loginGeneration)) mfaOtpLoading.value = false
   }
 }
 
@@ -701,8 +779,12 @@ onMounted(async () => {
     return
   }
 
+  // Conditional UI 是后台增强，只能在页面仍存活且没有显式认证尝试取得所有权时启动。
+  const startupGeneration = loginAttemptGeneration
+
   // 加载系统和插件声明的未登录认证入口
   await loadAuthProviders()
+  if (!isPageActive || !isCurrentLoginAttempt(startupGeneration)) return
 
   // 初始化 Conditional UI 的 PassKey 自动填充
   await initConditionalPasskey()
@@ -716,8 +798,9 @@ async function initConditionalPasskey() {
   }
 
   try {
+    const startupGeneration = loginAttemptGeneration
     const available = await PublicKeyCredential.isConditionalMediationAvailable()
-    if (!available) {
+    if (!available || !isPageActive || !isCurrentLoginAttempt(startupGeneration)) {
       return
     }
 
@@ -739,6 +822,9 @@ async function initConditionalPasskey() {
 
 // 组件卸载时清理
 onUnmounted(() => {
+  isPageActive = false
+  beginLoginAttempt()
+  abortPasswordLoginRequest()
   if (conditionalAbortController) {
     conditionalAbortController.abort()
     conditionalAbortController = null

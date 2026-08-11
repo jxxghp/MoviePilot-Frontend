@@ -314,6 +314,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/stores/auth.ts',
         'src/stores/user.ts',
         'src/stores/pluginSidebarNav.ts',
+        'src/components/auth/LoginMfaStep.vue',
+        'src/pages/login.vue',
         'src/pages/appcenter.vue',
         'src/pages/recommend.vue',
         'src/pages/discover.vue',
@@ -639,6 +641,18 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 90,
           lines: 90,
           statements: 90,
+        },
+        'src/components/auth/LoginMfaStep.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/pages/login.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
         },
         'src/stores/pluginSidebarNav.ts': {
           branches: 85,

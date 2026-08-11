@@ -673,11 +673,6 @@
       "count": 1
     }
   },
-  "src/pages/login.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/pages/resource.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 6
