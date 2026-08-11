@@ -284,7 +284,6 @@ async function nameTest() {
   if (!normalizedTitle) return
 
   nameTestForm.title = normalizedTitle
-  saveTitleHistory(normalizedTitle)
 
   try {
     nameTestLoading.value = true
@@ -363,6 +362,7 @@ async function saveCustomWords() {
               :rules="[requiredValidator]"
               prepend-inner-icon="mdi-movie-open"
               rows="2"
+              auto-grow
             />
           </VCol>
           <VCol cols="12" class="shortcut-form-col">
