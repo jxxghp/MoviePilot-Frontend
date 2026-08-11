@@ -14,7 +14,11 @@ const IconStub = defineComponent({
   template: '<i :data-icon="icon" />',
 })
 
-async function renderSearchBar() {
+async function renderSearchBar(
+  overrides: {
+    searchSource?: string
+  } = {},
+) {
   return renderWithProviders(SearchBarDialog, {
     props: {
       modelValue: true,
@@ -32,7 +36,13 @@ async function renderSearchBar() {
         },
         superUser: false,
       },
+      // 全局设置走真实 action，便于断言“媒体搜索数据源”配置对搜索框默认勾选的影响。
+      globalSettings: {
+        data: overrides.searchSource ? { SEARCH_SOURCE: overrides.searchSource } : {},
+        initialized: true,
+      },
     },
+    stubActions: false,
     global: {
       stubs: {
         VIcon: IconStub,
@@ -52,7 +62,7 @@ describe('SearchBarDialog media source selection', () => {
     localStorage.clear()
   })
 
-  it('defaults media searches to TheMovieDB', async () => {
+  it('defaults media searches to TheMovieDB when no global search source is configured', async () => {
     const user = userEvent.setup()
     const { router } = await renderSearchBar()
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
@@ -72,7 +82,38 @@ describe('SearchBarDialog media source selection', () => {
     })
   })
 
-  it('places supported sources inside each search item and uses the selected source', async () => {
+  it('follows the global media search source configuration and passes multiple sources', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderSearchBar({ searchSource: 'themoviedb,douban' })
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, '芙莉莲')
+    const mediaItem = getSearchItem('电影、电视剧')
+
+    const mediaGroup = within(mediaItem).getByRole('group', { name: '电影、电视剧搜索数据源' })
+    expect(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(mediaGroup).getByRole('button', { name: '使用 豆瓣 搜索' })).toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(mediaGroup).getByRole('button', { name: '使用 Bangumi 搜索' })).not.toHaveClass(
+      'media-source-button--active',
+    )
+
+    await user.click(input)
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query).toEqual({
+        source: 'themoviedb,douban',
+        title: '芙莉莲',
+        type: 'media',
+      })
+    })
+  })
+
+  it('places supported sources inside each search item and supports multi-source selection', async () => {
     const user = userEvent.setup()
     const { router } = await renderSearchBar()
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
@@ -93,7 +134,19 @@ describe('SearchBarDialog media source selection', () => {
       'media-source-button--active',
     )
 
+    // 追加选择 AniList 后再取消 TheMovieDb，来源应以逗号分隔传给后端。
     await user.click(within(mediaGroup).getByRole('button', { name: '使用 AniList 搜索' }))
+    expect(within(mediaGroup).getByRole('button', { name: '使用 AniList 搜索' })).toHaveClass(
+      'media-source-button--active',
+    )
+    await user.click(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' }))
+    expect(within(mediaGroup).getByRole('button', { name: '使用 AniList 搜索' })).toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).not.toHaveClass(
+      'media-source-button--active',
+    )
+
     await user.click(input)
     await user.keyboard('{Enter}')
 
@@ -127,7 +180,9 @@ describe('SearchBarDialog media source selection', () => {
     const personItem = getSearchItem('演员')
 
     const personGroup = within(personItem).getByRole('group', { name: '演员搜索数据源' })
+    // 追加选择豆瓣并取消默认的 TheMovieDb，仅保留豆瓣来源。
     await user.click(within(personGroup).getByRole('button', { name: '使用 豆瓣 搜索' }))
+    await user.click(within(personGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' }))
     await user.click(personItem)
 
     await waitFor(() => {

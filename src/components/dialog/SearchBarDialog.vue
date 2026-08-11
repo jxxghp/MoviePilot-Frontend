@@ -3,7 +3,7 @@ import api from '@/api'
 import type { Site, Plugin, Subscribe } from '@/api/types'
 import { getNavMenus, getSettingTabs } from '@/router/i18n-menu'
 import { NavMenu } from '@/@layouts/types'
-import { useUserStore } from '@/stores'
+import { useUserStore, useGlobalSettingsStore } from '@/stores'
 import SearchSiteDialog from '@/components/dialog/SearchSiteDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -32,6 +32,9 @@ const router = useRouter()
 
 // 用户 Store
 const userStore = useUserStore()
+
+// 全局设置 Store
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 当前用户名
 const userName = userStore.userName
@@ -112,13 +115,60 @@ interface MediaSearchAction {
   description: string
 }
 
-// 三类搜索各自维护来源选择，首次使用均默认 TheMovieDB。
-const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource>>({
-  media: 'themoviedb',
-  music: 'musicbrainz',
-  collection: 'themoviedb',
-  person: 'themoviedb',
+// 三类搜索的媒体数据源可多选，为空数组时由后端按“基础设置-媒体搜索数据源”全局配置执行。
+const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource[]>>({
+  media: [],
+  music: ['musicbrainz'],
+  collection: [],
+  person: [],
 })
+
+// 全局“媒体搜索数据源”配置（SEARCH_SOURCE），用于搜索框默认勾选，保证基础设置生效。
+const configuredMediaSearchSources = computed((): MediaSearchSource[] => {
+  const raw = globalSettingsStore.get('SEARCH_SOURCE')
+  if (!raw) return []
+  return String(raw)
+    .split(',')
+    .map(item => item.trim() as MediaSearchSource)
+    .filter(Boolean)
+})
+
+// 标记用户是否已手动调整过来源，手动调整后不再被全局配置覆盖。
+let sourcesTouched = false
+// 标记是否为默认勾选初始化引起的变更，避免误判为用户操作。
+let isInitializingSources = false
+
+/**
+ * 依据全局媒体搜索数据源配置初始化各类搜索的来源勾选；
+ * 配置项不包含该类型可用来源时回退到 TheMovieDB，保证至少一个来源被选中。
+ */
+function initializeMediaSearchSources() {
+  isInitializingSources = true
+  try {
+    ;(['media', 'collection', 'person'] as const).forEach(searchType => {
+      const configured = configuredMediaSearchSources.value.filter(source =>
+        mediaSearchSourceOptions.value[searchType].some(option => option.value === source),
+      )
+      selectedMediaSearchSources[searchType] = configured.length > 0 ? configured : ['themoviedb']
+    })
+  } finally {
+    isInitializingSources = false
+  }
+}
+
+// 全局配置异步加载完成后，若用户尚未手动调整，则按配置补充一次默认勾选。
+watch(configuredMediaSearchSources, () => {
+  if (!sourcesTouched) initializeMediaSearchSources()
+})
+
+// 用户手动改动来源后记录标记，后续全局配置再变化也不覆盖用户选择。
+watch(
+  selectedMediaSearchSources,
+  () => {
+    if (!isInitializingSources) sourcesTouched = true
+  },
+  { deep: true },
+)
 
 // 按后端实际能力限定每类搜索可选的数据源。
 const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSourceOption[]>>(() => {
@@ -398,7 +448,7 @@ function searchSubtitle() {
   closeSearch()
 }
 
-/** 跳转到指定类型的媒体搜索结果页。 */
+/** 使用当前关键词搜索指定类型的媒体信息。 */
 function searchMedia(searchType: MediaSearchType) {
   if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
@@ -410,13 +460,16 @@ function searchMedia(searchType: MediaSearchType) {
     closeSearch()
     return
   }
+  const query: Record<string, string> = {
+    title: searchWord.value,
+    type: searchType,
+  }
+  // 多个来源以逗号分隔传给后端，未勾选任何来源时不传，由后端按全局配置搜索。
+  const sources = selectedMediaSearchSources[searchType]
+  if (sources.length > 0) query.source = sources.join(',')
   router.push({
     path: '/browse/media/search',
-    query: {
-      title: searchWord.value,
-      type: searchType,
-      source: selectedMediaSearchSources[searchType],
-    },
+    query,
   })
   closeSearch()
 }
@@ -512,6 +565,8 @@ watch(dialog, async isOpen => {
 defineExpose({ focusSearchInput })
 
 onMounted(() => {
+  // 搜索来源默认跟随全局媒体搜索数据源配置，保证基础设置生效
+  initializeMediaSearchSources()
   // 根据权限加载不同的数据
   if (hasAdminPermission.value) {
     fetchInstalledPlugins()
@@ -618,6 +673,7 @@ onMounted(() => {
                   v-model="selectedMediaSearchSources[action.type]"
                   class="search-item-source-toggle"
                   density="compact"
+                  multiple
                   mandatory
                   role="group"
                   selected-class="media-source-button--active"
