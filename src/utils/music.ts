@@ -62,6 +62,16 @@ export function getMusicSource(item: MusicRouteTarget): string | undefined {
   return item.source || item.media_source
 }
 
+/** 返回内置音乐元数据源的用户可见名称。 */
+export function getMusicSourceLabel(source?: string, translate?: (key: string) => string): string {
+  const labels: Record<string, string> = {
+    musicbrainz: 'MusicBrainz',
+    theaudiodb: 'TheAudioDB',
+    doubanmusic: translate?.('setting.cache.recognitionSource.doubanmusic') || '豆瓣音乐',
+  }
+  return (source && labels[source]) || source || 'MusicBrainz'
+}
+
 /** 返回音乐候选在列表和状态缓存中的稳定身份。 */
 export function getMusicKey(item: MusicRouteTarget): string {
   const source = getMusicSource(item) || 'music'

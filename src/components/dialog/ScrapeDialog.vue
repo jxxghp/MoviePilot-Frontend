@@ -3,7 +3,7 @@ import type { FileItem, ManualScrapeOptions, MediaDataSource, MediaInfo } from '
 import { useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
-import { isValidMediaSourceId } from '@/utils/mediaId'
+import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 
 const { t } = useI18n()
 
@@ -29,7 +29,9 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
   { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
   { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
-  { title: 'MusicBrainz', value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
+  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
 ])
 
 const globalSettingsStore = useGlobalSettingsStore()
@@ -57,6 +59,8 @@ const mediaIdLabel = computed(() => {
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
     musicbrainz: 'MusicBrainz ID',
+    theaudiodb: 'TheAudioDB ID',
+    doubanmusic: t('dialog.reorganize.doubanId'),
   }
   return labels[mediaSource.value]
 })
@@ -111,11 +115,11 @@ function submitScrape() {
 watch(mediaSource, () => {
   mediaId.value = null
   mediaSelectorDialog.value = false
-  if (mediaSource.value === 'musicbrainz') mediaType.value = '音乐'
+  if (isMusicMediaSource(mediaSource.value)) mediaType.value = '音乐'
 })
 
 watch(mediaType, type => {
-  if (type === '音乐' && mediaSource.value !== 'musicbrainz') mediaSource.value = 'musicbrainz'
+  if (type === '音乐' && !isMusicMediaSource(mediaSource.value)) mediaSource.value = 'musicbrainz'
 })
 </script>
 

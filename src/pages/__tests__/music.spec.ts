@@ -125,6 +125,20 @@ describe('music page', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
+  it('forwards an alternate music source from the route', async () => {
+    await renderWithProviders(MusicPage, {
+      initialRoute: '/music?query=Coldplay&source=theaudiodb',
+      initialState: { user: { superUser: true } },
+      global: { stubs: { NoDataFound: true, VPageContentTitle: true } },
+    })
+
+    await waitFor(() =>
+      expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
+        params: { type: 'music', count: 30, title: 'Coldplay', source: 'theaudiodb' },
+      }),
+    )
+  })
+
   it('shows album, artist, release date and duration on the result card', async () => {
     await renderMusicPage()
 

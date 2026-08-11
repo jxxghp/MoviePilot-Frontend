@@ -1,5 +1,6 @@
 import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
+import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -98,6 +99,20 @@ describe('mounted local disk empty directory cleanup setting', () => {
     await renderDirectorySettings()
 
     expect(await screen.findByRole('checkbox', { name: '挂载盘删除空目录' })).toBeChecked()
+  })
+
+  it('lists every supported music metadata source for scraping', async () => {
+    mockSettings(null)
+    await renderDirectorySettings()
+
+    const organizeCard = (await screen.findByText('整理 & 刮削')).closest('.v-card')
+    expect(organizeCard).not.toBeNull()
+    const user = userEvent.setup()
+    await user.click(within(organizeCard as HTMLElement).getByLabelText('刮削数据源'))
+
+    expect(await screen.findByRole('option', { name: 'MusicBrainz' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'TheAudioDB' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '豆瓣音乐' })).toBeInTheDocument()
   })
 
   it('saves the disabled value with the organization settings', async () => {

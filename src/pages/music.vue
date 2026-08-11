@@ -14,6 +14,7 @@ const results = ref<MediaInfo[]>([])
 
 // 搜索入口统一在全局搜索，本页只消费路由关键词
 const query = computed(() => route.query.query?.toString().trim() || '')
+const source = computed(() => route.query.source?.toString().trim() || '')
 
 /** 调用统一音乐元数据接口搜索候选。 */
 async function searchMusic() {
@@ -26,7 +27,13 @@ async function searchMusic() {
   loading.value = true
   searched.value = true
   try {
-    results.value = (await api.get('media/search', { params: { title: query.value, type: 'music', count: 30 } })) || []
+    const params: Record<string, string | number> = {
+      title: query.value,
+      type: 'music',
+      count: 30,
+    }
+    if (source.value) params.source = source.value
+    results.value = (await api.get('media/search', { params })) || []
   } catch (error) {
     console.error(error)
     results.value = []
@@ -35,7 +42,7 @@ async function searchMusic() {
   }
 }
 
-watch(query, searchMusic, { immediate: true })
+watch([query, source], searchMusic, { immediate: true })
 </script>
 
 <template>

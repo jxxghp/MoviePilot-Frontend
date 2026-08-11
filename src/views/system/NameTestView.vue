@@ -9,6 +9,7 @@ import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
+import { isMusicMediaSource } from '@/utils/mediaId'
 
 interface PipelineStep {
   icon: string
@@ -44,7 +45,9 @@ const MEDIA_SOURCE_LABELS: Record<string, string> = {
   anilist: 'AniList',
   bangumi: 'Bangumi',
   douban: 'Douban',
+  doubanmusic: '豆瓣音乐',
   musicbrainz: 'MusicBrainz',
+  theaudiodb: 'TheAudioDB',
   themoviedb: 'TheMovieDb',
 }
 
@@ -58,6 +61,8 @@ const MEDIA_SOURCE_LOGOS: Record<string, string> = {
 const MEDIA_SOURCE_ICONS: Record<string, { icon: string; color: string }> = {
   anilist: { icon: 'mdi-alpha-a-circle', color: '#02a9ff' },
   musicbrainz: { icon: 'mdi-album', color: '#eb743b' },
+  theaudiodb: { icon: 'mdi-music-box-multiple', color: '#35a7a0' },
+  doubanmusic: { icon: 'mdi-music-circle', color: '#00b51d' },
 }
 
 const emit = defineEmits<{ close: [] }>()
@@ -72,6 +77,8 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
   { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
   { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
+  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
 ])
 
 // 获取后台默认识别数据源，未知值兼容回退到TheMovieDb。
@@ -94,8 +101,8 @@ const nameTestForm = reactive<NameTestForm>({
   source: getDefaultMediaSource(),
 })
 
-// MusicBrainz 仅支持音乐识别，音乐不应用自定义识别词，隐藏输入区避免误导
-const showCustomWords = computed(() => nameTestForm.source !== 'musicbrainz')
+// 音乐识别不应用影视自定义识别词，隐藏输入区避免误导。
+const showCustomWords = computed(() => !isMusicMediaSource(nameTestForm.source))
 
 // 识别按钮状态
 const nameTestLoading = ref(false)
@@ -116,9 +123,7 @@ const metaInfo = computed(() => nameTestResult.value?.meta_info)
 const mediaInfo = computed(() => nameTestResult.value?.media_info)
 // 音乐识别的元信息没有 name 字段，依靠 title 判断识别是否成功
 const isMusicResult = computed(() => mediaInfo.value?.type === '音乐' || metaInfo.value?.type === '音乐')
-const isRecognized = computed(() =>
-  Boolean(metaInfo.value?.name || (isMusicResult.value && metaInfo.value?.title)),
-)
+const isRecognized = computed(() => Boolean(metaInfo.value?.name || (isMusicResult.value && metaInfo.value?.title)))
 const resultTitle = computed(() => mediaInfo.value?.title || metaInfo.value?.name || t('nameTest.unrecognized'))
 const resultSubtitle = computed(() => {
   const parts = [mediaInfo.value?.year || metaInfo.value?.year]
@@ -182,6 +187,10 @@ function getMediaOfficialLink(media: MediaInfo, source: string, mediaId: string)
     case 'musicbrainz':
       // MusicBrainz 各实体共用 UUID，优先使用识别结果自带的详情页地址
       return media.detail_link || `https://musicbrainz.org/recording/${encodedId}`
+    case 'theaudiodb':
+      return media.detail_link || `https://www.theaudiodb.com/track/${encodedId}`
+    case 'doubanmusic':
+      return media.detail_link || `https://music.douban.com/subject/${encodedId}`
     default:
       return undefined
   }

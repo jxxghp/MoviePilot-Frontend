@@ -112,6 +112,28 @@ describe('NameTestView media identity', () => {
       },
       'https://musicbrainz.org/recording/8f97b17d-1234-4abc-9def-1234567890ab',
     ],
+    [
+      'TheAudioDB',
+      {
+        media_id: '32793500',
+        source: 'theaudiodb',
+        title: 'Yellow',
+        type: '音乐',
+        year: '2000',
+      },
+      'https://www.theaudiodb.com/track/32793500',
+    ],
+    [
+      '豆瓣音乐',
+      {
+        media_id: '1401853',
+        source: 'doubanmusic',
+        title: '范特西',
+        type: '音乐',
+        year: '2001',
+      },
+      'https://music.douban.com/subject/1401853',
+    ],
   ])('formats %s and links its native media ID', async (sourceLabel, media, expectedLink) => {
     await renderRecognizedMedia(media)
 
@@ -205,6 +227,10 @@ describe('NameTestView media identity', () => {
     await user.click(screen.getByLabelText('识别数据源'))
     await user.click(await screen.findByRole('option', { name: 'MusicBrainz' }))
     // 音乐识别不应用识别词，输入区应隐藏
+    expect(screen.queryByLabelText('识别词')).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('识别数据源'))
+    await user.click(await screen.findByRole('option', { name: 'TheAudioDB' }))
     expect(screen.queryByLabelText('识别词')).not.toBeInTheDocument()
 
     await user.click(screen.getByLabelText('识别数据源'))

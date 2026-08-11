@@ -94,4 +94,24 @@ describe('ScrapeDialog', () => {
       type_name: '音乐',
     })
   })
+
+  it('keeps an explicitly selected TheAudioDB source for music scraping', async () => {
+    const user = userEvent.setup()
+    const { events } = await renderDialog('themoviedb', [
+      { name: 'Yellow.flac', path: '/music/Yellow.flac', storage: 'local', type: 'file' },
+    ])
+
+    await user.click(screen.getByLabelText('类型'))
+    await user.click(await screen.findByRole('option', { name: '音乐' }))
+    await user.click(screen.getByLabelText('数据源'))
+    await user.click(await screen.findByRole('option', { name: 'TheAudioDB' }))
+    await user.type(screen.getByLabelText('TheAudioDB ID'), '32793500')
+    await user.click(screen.getByRole('button', { name: '确认' }))
+
+    expect(events.scrape).toHaveBeenCalledWith({
+      media_source: 'theaudiodb',
+      media_id: '32793500',
+      type_name: '音乐',
+    })
+  })
 })

@@ -52,6 +52,18 @@ const mediaSourcesDict = [
     title: 'AniList',
     value: 'anilist',
   },
+  {
+    title: 'MusicBrainz',
+    value: 'musicbrainz',
+  },
+  {
+    title: 'TheAudioDB',
+    value: 'theaudiodb',
+  },
+  {
+    title: '豆瓣音乐',
+    value: 'doubanmusic',
+  },
 ]
 
 // 当前选中的媒体信息数据源
@@ -189,7 +201,13 @@ async function loadSystemSettings() {
 }
 
 async function loadPageData() {
-  await Promise.all([querySites(), queryFilterRuleGroups(), querySelectedSites(), loadSearchSetting(), loadSystemSettings()])
+  await Promise.all([
+    querySites(),
+    queryFilterRuleGroups(),
+    querySelectedSites(),
+    loadSearchSetting(),
+    loadSystemSettings(),
+  ])
 }
 
 onMounted(() => {

@@ -32,6 +32,9 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
   { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
   { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
+  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
 ])
 
 const mediaIdLabel = computed(() => {
@@ -40,6 +43,9 @@ const mediaIdLabel = computed(() => {
     douban: t('setting.cache.reidentifyDialog.doubanId'),
     bangumi: t('setting.cache.reidentifyDialog.bangumiId'),
     anilist: t('setting.cache.reidentifyDialog.anilistId'),
+    musicbrainz: 'MusicBrainz ID',
+    theaudiodb: 'TheAudioDB ID',
+    doubanmusic: t('setting.cache.reidentifyDialog.doubanId'),
   }
   return labels[mediaSource.value] || t('setting.cache.reidentifyDialog.mediaId')
 })

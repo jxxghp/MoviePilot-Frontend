@@ -113,6 +113,12 @@ const sourceIconDict: { [key: string]: any } = {
   bangumi: getLogoUrl('bangumi'),
 }
 
+const musicSourceIconDict: Record<string, { color: string; icon: string }> = {
+  musicbrainz: { color: '#eb743b', icon: 'mdi-music-circle' },
+  theaudiodb: { color: '#35a7a0', icon: 'mdi-music-box-multiple' },
+  doubanmusic: { color: '#00b51d', icon: 'mdi-music-circle' },
+}
+
 // 绑定MediaCard元素
 const mediaCardRef = ref<HTMLElement | null>(null)
 
@@ -665,9 +671,9 @@ onBeforeUnmount(() => {
           >
             <VIcon v-if="props.media?.source === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="24" />
             <VIcon
-              v-else-if="props.media?.source === 'musicbrainz'"
-              color="#eb743b"
-              icon="mdi-music-circle"
+              v-else-if="musicSourceIconDict[props.media?.source]"
+              :color="musicSourceIconDict[props.media.source].color"
+              :icon="musicSourceIconDict[props.media.source].icon"
               size="24"
             />
             <VImg v-else cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />

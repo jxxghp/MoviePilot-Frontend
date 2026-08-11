@@ -23,7 +23,7 @@ import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
-import { isValidMediaSourceId } from '@/utils/mediaId'
+import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 
 // 国际化
 const { t } = useI18n()
@@ -49,7 +49,9 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
   { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
   { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
-  { title: 'MusicBrainz', value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
+  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
 ])
 
 // 获取后台设置中的默认识别数据源，未知值兼容回退到TheMovieDb。
@@ -353,6 +355,8 @@ const mediaIdLabel = computed(() => {
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
     musicbrainz: 'MusicBrainz ID',
+    theaudiodb: 'TheAudioDB ID',
+    doubanmusic: t('dialog.reorganize.doubanId'),
   }
   return labels[mediaSource.value]
 })
@@ -469,11 +473,11 @@ watch([() => transferForm.type_name, () => mediaSource.value], ([typeName, sourc
   episodeGroups.value = []
 })
 
-// 音乐目前只使用 MusicBrainz 原生身份，选择音乐类型时自动切换识别来源。
+// 音乐默认使用 MusicBrainz；已显式选择其它音乐源时保留用户选择。
 watch(
   () => transferForm.type_name,
   typeName => {
-    if (typeName === '音乐' && transferForm.media_source !== 'musicbrainz') {
+    if (typeName === '音乐' && !isMusicMediaSource(transferForm.media_source)) {
       transferForm.media_source = 'musicbrainz'
     }
   },
@@ -487,7 +491,7 @@ watch(
       transferForm.media_id = null
       mediaSelectorDialog.value = false
     }
-    if (source === 'musicbrainz' && transferForm.type_name !== '音乐') {
+    if (isMusicMediaSource(source) && transferForm.type_name !== '音乐') {
       transferForm.type_name = '音乐'
     }
   },

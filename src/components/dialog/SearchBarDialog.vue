@@ -99,7 +99,7 @@ const searchOverlayProps = computed(() =>
 // 搜索词
 const searchWord = ref<string | null>(null)
 
-type MediaSearchSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz'
+type MediaSearchSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz' | 'theaudiodb' | 'doubanmusic'
 type MediaSearchType = 'media' | 'music' | 'collection' | 'person'
 
 interface MediaSearchSourceOption {
@@ -197,10 +197,20 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
     name: 'MusicBrainz',
     value: 'musicbrainz' as const,
   }
+  const theaudiodb = {
+    label: 'TheAudioDB',
+    name: 'TheAudioDB',
+    value: 'theaudiodb' as const,
+  }
+  const doubanmusic = {
+    label: t('setting.cache.recognitionSource.doubanmusic'),
+    name: t('setting.cache.recognitionSource.doubanmusic'),
+    value: 'doubanmusic' as const,
+  }
 
   return {
     media: [themoviedb, douban, bangumi, anilist],
-    music: [musicbrainz],
+    music: [musicbrainz, theaudiodb, doubanmusic],
     collection: [themoviedb],
     person: [themoviedb, douban],
   }
@@ -453,9 +463,13 @@ function searchMedia(searchType: MediaSearchType) {
   if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
   if (searchType === 'music') {
+    const sources = selectedMediaSearchSources.music
     router.push({
       path: '/music',
-      query: { query: searchWord.value },
+      query: {
+        query: searchWord.value,
+        ...(sources.length > 0 ? { source: sources.join(',') } : {}),
+      },
     })
     closeSearch()
     return

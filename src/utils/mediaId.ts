@@ -1,8 +1,14 @@
 import type { MediaDataSource } from '@/api/types'
 
 const MUSICBRAINZ_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const MUSIC_MEDIA_SOURCES = ['musicbrainz', 'theaudiodb', 'doubanmusic'] as const
 
-/** 按媒体数据源校验原生 ID，MusicBrainz 使用 UUID，其它现有来源使用数字 ID。 */
+/** 判断当前请求来源是否为内置音乐元数据源。 */
+export function isMusicMediaSource(source?: MediaDataSource): boolean {
+  return MUSIC_MEDIA_SOURCES.includes(source as (typeof MUSIC_MEDIA_SOURCES)[number])
+}
+
+/** 按媒体数据源校验原生 ID，MusicBrainz 使用 UUID，其它内置来源使用数字 ID。 */
 export function isValidMediaSourceId(value: string | number | null | undefined, source?: MediaDataSource): boolean {
   const normalized = value?.toString().trim()
   if (!normalized) return true

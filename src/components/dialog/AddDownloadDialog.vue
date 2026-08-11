@@ -32,7 +32,15 @@ const props = defineProps({
 })
 
 // 可选的媒体数据源
-const SUPPORTED_MEDIA_SOURCES: MediaDataSource[] = ['themoviedb', 'douban', 'bangumi', 'anilist', 'musicbrainz']
+const SUPPORTED_MEDIA_SOURCES: MediaDataSource[] = [
+  'themoviedb',
+  'douban',
+  'bangumi',
+  'anilist',
+  'musicbrainz',
+  'theaudiodb',
+  'doubanmusic',
+]
 
 // 当前识别类型：优先使用媒体自身的数据源，否则使用全局识别来源
 const mediaSource = computed<MediaDataSource>(() => {
@@ -71,11 +79,11 @@ const showAdvancedOptions = ref(false)
 // 当前数据源的原生媒体ID
 const mediaId = ref<string | undefined>(undefined)
 
-// 音乐媒体自带 MusicBrainz ID，打开对话框时预填到高级选项中辅助识别
+// 音乐媒体自带来源原生 ID，打开对话框时预填到高级选项中辅助识别。
 watch(
   () => props.media,
   media => {
-    if (media && media.source === 'musicbrainz' && media.media_id) {
+    if (media?.source && SUPPORTED_MEDIA_SOURCES.includes(media.source) && media.media_id) {
       mediaId.value = media.media_id
     }
   },
@@ -90,6 +98,8 @@ const mediaIdLabel = computed(() => {
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
     musicbrainz: 'MusicBrainz ID',
+    theaudiodb: 'TheAudioDB ID',
+    doubanmusic: t('dialog.reorganize.doubanId'),
   }
   return labels[mediaSource.value]
 })

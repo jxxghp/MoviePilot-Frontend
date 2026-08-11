@@ -2743,6 +2743,8 @@ export default {
         bangumi: 'Bangumi',
         anilist: 'AniList',
         musicbrainz: 'MusicBrainz',
+        theaudiodb: 'TheAudioDB',
+        doubanmusic: '豆瓣音樂',
       },
     },
   },

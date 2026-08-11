@@ -16,13 +16,14 @@ import {
   buildMusicResourceRoute,
   formatMusicDuration,
   getMusicArtistLinks,
+  getMusicSourceLabel,
 } from '@/utils/music'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const props = defineProps({
-  // MusicBrainz 单曲 ID
+  // 音乐数据源原生单曲 ID
   mediaid: String,
   // 音乐元数据来源
   source: {
@@ -47,7 +48,7 @@ const artistLinks = computed(() => getMusicArtistLinks(music.value))
 // 关联浏览统一以首个艺术家为入口，MusicBrainz 的主署名艺术家排在最前
 const primaryArtistId = computed(() => artistLinks.value.find(artist => artist.id)?.id)
 
-// 头部属性行，只展示 MusicBrainz 实际返回的字段
+// 头部属性行只展示各音乐源已映射到标准模型的字段
 const attributes = computed(() => {
   const values: string[] = []
   if (music.value?.category) values.push(music.value.category)
@@ -60,6 +61,7 @@ const attributes = computed(() => {
 
 // 专辑内除当前单曲外仍然展示完整曲目，方便对照曲序
 const albumTracks = computed(() => album.value?.tracks ?? [])
+const sourceLabel = computed(() => getMusicSourceLabel(props.source, t))
 
 function getSubscribeStatusKey() {
   return `${getMediaSubscribeId(music.value)}::all`
@@ -213,7 +215,7 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
         <span class="music-fact-value">{{ music.listen_count.toLocaleString() }}</span>
       </div>
       <div class="music-fact music-fact--last">
-        <span>MusicBrainz ID</span>
+        <span>{{ sourceLabel }} ID</span>
         <span class="music-fact-value music-fact-id">{{ music.media_id }}</span>
       </div>
     </template>
@@ -227,7 +229,7 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
       <div v-if="music.detail_link" class="mt-4">
         <a :href="music.detail_link" target="_blank" rel="noopener noreferrer" class="music-external-link">
           <VIcon icon="mdi-link" />
-          <span class="ms-1">MusicBrainz</span>
+          <span class="ms-1">{{ sourceLabel }}</span>
         </a>
       </div>
 
@@ -237,14 +239,14 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
       </div>
     </template>
 
-    <div v-if="primaryArtistId" class="music-section">
+    <div v-if="primaryArtistId && props.source === 'musicbrainz'" class="music-section">
       <MusicArtistSlideView :apipath="`music/artist/${primaryArtistId}/related`" :title="t('music.relatedArtists')" />
     </div>
 
     <div v-if="primaryArtistId" class="music-section">
       <MediaCardSlideView
-        :apipath="`music/artist/${primaryArtistId}/albums`"
-        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?title=${encodeURIComponent(t('music.artistAlbums'))}`"
+        :apipath="`music/artist/${primaryArtistId}/albums?source=${encodeURIComponent(props.source)}`"
+        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?source=${encodeURIComponent(props.source)}&title=${encodeURIComponent(t('music.artistAlbums'))}`"
         :title="t('music.artistAlbums')"
       />
     </div>

@@ -2,6 +2,7 @@
 import api from '@/api'
 import type { MediaDataSource, MediaInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
+import { isMusicMediaSource } from '@/utils/mediaId'
 
 const { t } = useI18n()
 
@@ -61,7 +62,7 @@ async function searchMedias() {
     const result: MediaInfo[] = await api.get('media/search', {
       params: {
         title: searchKeyword,
-        type: props.type === 'musicbrainz' ? 'music' : 'media',
+        type: isMusicMediaSource(props.type) ? 'music' : 'media',
         page: 1,
         count: 20,
         source: props.type,

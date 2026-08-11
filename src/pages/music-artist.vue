@@ -4,7 +4,7 @@ import MusicArtistView from '@/views/discover/MusicArtistView.vue'
 // 路由参数
 const route = useRoute()
 
-// MusicBrainz Artist ID
+// 音乐数据源原生艺术家 ID
 const mediaid = computed(() => route.query?.mediaid?.toString())
 
 // 音乐元数据来源

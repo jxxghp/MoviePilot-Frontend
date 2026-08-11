@@ -120,14 +120,26 @@ describe('SearchBarDialog media source selection', () => {
 
     await user.type(input, '芙莉莲')
     const mediaItem = getSearchItem('电影、电视剧')
+    const musicItem = getSearchItem('音乐')
     const collectionItem = getSearchItem('系列合集')
     const personItem = getSearchItem('演员')
 
     const mediaGroup = within(mediaItem).getByRole('group', { name: '电影、电视剧搜索数据源' })
+    const musicGroup = within(musicItem).getByRole('group', { name: '音乐搜索数据源' })
     const collectionGroup = within(collectionItem).getByRole('group', { name: '系列合集搜索数据源' })
     const personGroup = within(personItem).getByRole('group', { name: '演员搜索数据源' })
 
     expect(within(mediaGroup).getAllByRole('button')).toHaveLength(4)
+    expect(within(musicGroup).getAllByRole('button')).toHaveLength(3)
+    expect(within(musicGroup).getByRole('button', { name: '使用 MusicBrainz 搜索' })).toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(musicGroup).getByRole('button', { name: '使用 TheAudioDB 搜索' })).not.toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(musicGroup).getByRole('button', { name: '使用 豆瓣音乐 搜索' })).not.toHaveClass(
+      'media-source-button--active',
+    )
     expect(within(collectionGroup).getAllByRole('button')).toHaveLength(1)
     expect(within(personGroup).getAllByRole('button')).toHaveLength(2)
     expect(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toHaveClass(
@@ -155,6 +167,27 @@ describe('SearchBarDialog media source selection', () => {
         source: 'anilist',
         title: '芙莉莲',
         type: 'media',
+      })
+    })
+  })
+
+  it('searches music with an explicitly selected alternate source', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderSearchBar()
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, 'Coldplay')
+    const musicItem = getSearchItem('音乐')
+    const musicGroup = within(musicItem).getByRole('group', { name: '音乐搜索数据源' })
+    await user.click(within(musicGroup).getByRole('button', { name: '使用 TheAudioDB 搜索' }))
+    await user.click(within(musicGroup).getByRole('button', { name: '使用 MusicBrainz 搜索' }))
+    await user.click(musicItem)
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/music')
+      expect(router.currentRoute.value.query).toEqual({
+        query: 'Coldplay',
+        source: 'theaudiodb',
       })
     })
   })

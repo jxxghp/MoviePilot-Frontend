@@ -50,7 +50,7 @@ const entityMeta = computed(() => {
   return entities[props.music?.music_type || 'recording']
 })
 
-// 卡片上展示的元数据，只保留 MusicBrainz 实际返回的字段
+// 卡片只展示标准音乐模型中已映射的稳定字段
 const metaItems = computed(() => {
   const items: { hideOnNarrow?: boolean; icon: string; label: string }[] = []
   const category = props.music?.category || props.music?.album_type

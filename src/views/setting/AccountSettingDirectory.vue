@@ -39,12 +39,15 @@ const mediaCategories = ref<{ [key: string]: any }>({})
 const $toast = useToast()
 
 // 数据源
-const sourceItems = [
-  { 'title': 'TheMovieDb', 'value': 'themoviedb' },
-  { 'title': '豆瓣', 'value': 'douban' },
-  { 'title': 'Bangumi', 'value': 'bangumi' },
-  { 'title': 'AniList', 'value': 'anilist' },
-]
+const sourceItems = computed(() => [
+  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
+  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
+  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
+  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
+  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
+])
 
 // 存储选项（排除已添加的）
 const storageOptions = computed(() => {

@@ -1,4 +1,5 @@
-export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz' | (string & {})
+export type MediaDataSource =
+  'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz' | 'theaudiodb' | 'doubanmusic' | (string & {})
 
 // 手动刮削选项
 export interface ManualScrapeOptions {
@@ -370,7 +371,7 @@ export interface DownloadHistory {
 
 // 媒体信息
 export interface MediaInfo {
-  // 来源：themoviedb、douban、bangumi、anilist、musicbrainz
+  // 来源：themoviedb、douban、bangumi、anilist、musicbrainz、theaudiodb、doubanmusic
   source?: string
   // 类型 电影、电视剧、音乐、合集
   type?: string

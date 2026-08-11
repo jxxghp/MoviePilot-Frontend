@@ -2795,6 +2795,8 @@ export default {
         bangumi: 'Bangumi',
         anilist: 'AniList',
         musicbrainz: 'MusicBrainz',
+        theaudiodb: 'TheAudioDB',
+        doubanmusic: 'Douban Music',
       },
     },
   },
