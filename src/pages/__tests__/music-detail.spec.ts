@@ -124,6 +124,7 @@ describe('music detail page', () => {
     expect(mocks.apiPost).toHaveBeenCalledWith('music/recognize', {
       source: 'musicbrainz',
       media_id: 'recording-1',
+      music_type: 'recording',
     })
     await waitFor(() =>
       expect(mocks.apiGet).toHaveBeenCalledWith('music/album/release-group-1', {

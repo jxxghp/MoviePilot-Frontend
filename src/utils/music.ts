@@ -122,6 +122,7 @@ export function buildMusicResourceRoute(
     query: {
       keyword: `${source}:${item.media_id}`,
       type: '音乐',
+      music_type: (item as MusicRouteTarget).music_type || 'recording',
       title: item.title,
       year: item.year,
       area: 'title',

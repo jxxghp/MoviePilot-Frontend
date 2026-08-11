@@ -396,6 +396,7 @@ function handleSearch() {
       title: props.media?.title,
       year: props.media?.year,
       season: props.media?.season,
+      ...(props.media?.type === '音乐' ? { music_type: props.media.music_type ?? 'recording' } : {}),
       sites: selectedSites.value.join(','),
     },
   })

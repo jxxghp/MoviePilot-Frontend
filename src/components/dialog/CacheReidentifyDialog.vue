@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { MediaDataSource } from '@/api/types'
+import type { MediaDataSource, MusicEntityType } from '@/api/types'
+import { isMusicMediaSource } from '@/utils/mediaId'
 
 const { t } = useI18n()
 
@@ -10,23 +11,38 @@ const props = withDefaults(
     loading?: boolean
     modelValue?: boolean
     recognizeSource?: string
+    musicType?: Exclude<MusicEntityType, 'artist'>
   }>(),
   {
     itemTitle: '',
     loading: false,
     modelValue: true,
     recognizeSource: '',
+    musicType: 'recording',
   },
 )
 
 const emit = defineEmits<{
   (event: 'close'): void
-  (event: 'confirm', payload: { mediaSource?: MediaDataSource; mediaId?: string }): void
+  (
+    event: 'confirm',
+    payload: {
+      mediaSource?: MediaDataSource
+      mediaId?: string
+      musicType?: Exclude<MusicEntityType, 'artist'>
+    },
+  ): void
   (event: 'update:modelValue', value: boolean): void
 }>()
 
 const mediaSource = ref<MediaDataSource>((props.recognizeSource as MediaDataSource) || 'themoviedb')
 const mediaId = ref<string>()
+const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.musicType)
+const isMusicSelection = computed(() => isMusicMediaSource(mediaSource.value))
+const musicEntityItems = computed(() => [
+  { title: t('setting.cache.musicType.recording'), value: 'recording' },
+  { title: t('setting.cache.musicType.album'), value: 'album' },
+])
 const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
   { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
   { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
@@ -63,6 +79,7 @@ function submitReidentify() {
   emit('confirm', {
     mediaSource: mediaSource.value,
     mediaId: mediaId.value?.trim() || undefined,
+    musicType: isMusicSelection.value ? musicType.value : undefined,
   })
 }
 </script>
@@ -89,6 +106,14 @@ function submitReidentify() {
               :hint="t('setting.cache.reidentifyDialog.mediaSourceHint')"
               prepend-inner-icon="mdi-database-search"
               persistent-hint
+            />
+          </VCol>
+          <VCol v-if="isMusicSelection" cols="12">
+            <VSelect
+              v-model="musicType"
+              :items="musicEntityItems"
+              :label="t('dialog.reorganize.musicEntity')"
+              prepend-inner-icon="mdi-music-box-multiple-outline"
             />
           </VCol>
           <VCol cols="12">

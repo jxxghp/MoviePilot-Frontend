@@ -92,6 +92,7 @@ describe('ScrapeDialog', () => {
       media_source: 'musicbrainz',
       media_id: '977e6978-139d-425c-bb98-6b0c62d1e45e',
       type_name: '音乐',
+      music_type: 'recording',
     })
   })
 
@@ -112,6 +113,28 @@ describe('ScrapeDialog', () => {
       media_source: 'theaudiodb',
       media_id: '32793500',
       type_name: '音乐',
+      music_type: 'recording',
+    })
+  })
+
+  it('submits an explicit album namespace for music album ids', async () => {
+    const user = userEvent.setup()
+    const { events } = await renderDialog('musicbrainz', [
+      { name: '叶惠美', path: '/music/叶惠美', storage: 'local', type: 'dir' },
+    ])
+
+    await user.click(screen.getByLabelText('类型'))
+    await user.click(await screen.findByRole('option', { name: '音乐' }))
+    await user.click(screen.getByLabelText('音乐实体'))
+    await user.click(await screen.findByRole('option', { name: '专辑' }))
+    await user.type(screen.getByLabelText('MusicBrainz ID'), '977e6978-139d-425c-bb98-6b0c62d1e45e')
+    await user.click(screen.getByRole('button', { name: '确认' }))
+
+    expect(events.scrape).toHaveBeenCalledWith({
+      media_source: 'musicbrainz',
+      media_id: '977e6978-139d-425c-bb98-6b0c62d1e45e',
+      type_name: '音乐',
+      music_type: 'album',
     })
   })
 })

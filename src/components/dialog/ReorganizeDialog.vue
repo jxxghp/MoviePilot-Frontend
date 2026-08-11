@@ -331,6 +331,7 @@ const transferForm = reactive<TransferForm>({
   target_path: initialTargetPath,
   media_source: getDefaultMediaSource(),
   media_id: null,
+  music_type: null,
   transfer_type: null,
   min_filesize: 0,
   scrape: initialTargetPath ? false : null,
@@ -362,11 +363,14 @@ const mediaIdLabel = computed(() => {
 })
 
 // 处理媒体搜索结果选择，同步搜索结果中已识别的媒体类型。
-function handleMediaSelected(item: Pick<MediaInfo, 'type'>) {
+function handleMediaSelected(item: Pick<MediaInfo, 'type' | 'music_type'>) {
   const typeName = resolveTransferMediaType(item.type)
   if (!typeName) return
 
   transferForm.type_name = typeName
+  if (item.music_type === 'recording' || item.music_type === 'album') {
+    transferForm.music_type = item.music_type
+  }
 }
 
 // 所有媒体库目录
@@ -480,6 +484,7 @@ watch(
     if (typeName === '音乐' && !isMusicMediaSource(transferForm.media_source)) {
       transferForm.media_source = 'musicbrainz'
     }
+    transferForm.music_type = typeName === '音乐' ? (transferForm.music_type ?? 'recording') : null
   },
 )
 
@@ -1515,7 +1520,7 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
                     <VSelect
                       v-model="transferForm.type_name"
                       :label="t('dialog.reorganize.mediaType')"
@@ -1530,7 +1535,7 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-movie-open"
                     />
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
                     <VSelect
                       v-model="transferForm.media_source"
                       :items="mediaSourceItems"
@@ -1540,7 +1545,18 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-database-search"
                     />
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol v-if="transferForm.type_name === '音乐'" cols="12" md="3">
+                    <VSelect
+                      v-model="transferForm.music_type"
+                      :label="t('dialog.reorganize.musicEntity')"
+                      :items="[
+                        { title: t('music.entityRecording'), value: 'recording' },
+                        { title: t('music.entityAlbum'), value: 'album' },
+                      ]"
+                      prepend-inner-icon="mdi-music-box-multiple"
+                    />
+                  </VCol>
+                  <VCol cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
                     <VTextField
                       v-model="transferForm.media_id"
                       :disabled="transferForm.type_name === ''"
@@ -1882,6 +1898,7 @@ onUnmounted(() => {
         @close="mediaSelectorDialog = false"
         @select="handleMediaSelected"
         :type="mediaSource"
+        :music-types="['recording', 'album']"
       />
     </VDialog>
   </VDialog>

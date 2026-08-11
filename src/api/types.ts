@@ -9,6 +9,8 @@ export interface ManualScrapeOptions {
   media_id?: string
   // 媒体类型
   type_name?: string
+  // 音乐实体类型
+  music_type?: MusicEntityType
 }
 
 // 订阅
@@ -1906,6 +1908,8 @@ export interface TransferForm {
   media_source?: MediaDataSource
   // 数据源原生ID
   media_id?: string | null
+  // 音乐实体类型
+  music_type?: Exclude<MusicEntityType, 'artist'> | null
   // 季号
   season?: number
   // 类型
@@ -2132,6 +2136,12 @@ export interface TorrentCacheItem {
   media_year?: string
   // 识别的媒体类型
   media_type?: string
+  // 识别结果的数据源
+  media_source?: MediaDataSource
+  // 数据源原生媒体 ID
+  media_id?: string
+  // 音乐实体类型
+  music_type?: Exclude<MusicEntityType, 'artist'>
   // 季集信息
   season_episode?: string
   // 资源信息

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { TorrentCacheData, TorrentCacheItem } from '@/api/types'
+import type { MusicEntityType, TorrentCacheData, TorrentCacheItem } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { formatFileSize, formatDateDifference } from '@core/utils/formatters'
 import { useConfirm } from '@/composables/useConfirm'
@@ -231,7 +231,8 @@ function openReidentifyDialog(item: TorrentCacheItem) {
     {
       itemTitle: item.title,
       loading: loading.value,
-      recognizeSource: globalSettings.RECOGNIZE_SOURCE,
+      recognizeSource: item.media_source || globalSettings.RECOGNIZE_SOURCE,
+      musicType: item.music_type === 'album' ? 'album' : 'recording',
     },
     {
       close: () => {
@@ -247,7 +248,13 @@ function openReidentifyDialog(item: TorrentCacheItem) {
 }
 
 /** 执行缓存项重新识别。 */
-async function performReidentify(payload: { mediaSource?: string; mediaId?: string } = {}) {
+async function performReidentify(
+  payload: {
+    mediaSource?: string
+    mediaId?: string
+    musicType?: Exclude<MusicEntityType, 'artist'>
+  } = {},
+) {
   if (!currentReidentifyItem.value) return
 
   try {
@@ -256,6 +263,7 @@ async function performReidentify(payload: { mediaSource?: string; mediaId?: stri
     const params: any = {}
     if (payload.mediaSource) params.media_source = payload.mediaSource
     if (payload.mediaId) params.media_id = payload.mediaId
+    if (payload.musicType) params.music_type = payload.musicType
 
     const res: any = await api.post(
       `torrent/cache/reidentify/${currentReidentifyItem.value.domain}/${currentReidentifyItem.value.hash}`,

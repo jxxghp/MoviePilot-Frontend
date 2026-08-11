@@ -10,6 +10,8 @@ describe('media source identity utils', () => {
     expect(isValidMediaSourceId('977e6978-139d-425c-bb98-6b0c62d1e45e', 'musicbrainz')).toBe(true)
     expect(isValidMediaSourceId('32793500', 'theaudiodb')).toBe(true)
     expect(isValidMediaSourceId('1401853', 'doubanmusic')).toBe(true)
+    expect(isValidMediaSourceId('1401853:3', 'doubanmusic')).toBe(true)
+    expect(isValidMediaSourceId('1401853:track', 'doubanmusic')).toBe(false)
     expect(isValidMediaSourceId('not-a-number', 'theaudiodb')).toBe(false)
   })
 })

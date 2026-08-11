@@ -734,6 +734,38 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     )
   })
 
+  it('submits an explicit music entity namespace for manual transfer', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json({ success: true })
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({
+      items: [createFileItem({ name: '叶惠美', path: '/downloads/叶惠美', type: 'dir' })],
+    })
+
+    await selectOption('类型', 3)
+    await waitFor(() => expect(screen.getByLabelText('MusicBrainz ID')).toBeInTheDocument())
+    await selectOption('音乐实体', 1)
+    await fireEvent.input(screen.getByLabelText('MusicBrainz ID'), {
+      target: { value: '977e6978-139d-425c-bb98-6b0c62d1e45e' },
+    })
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual(
+      expect.objectContaining({
+        media_id: '977e6978-139d-425c-bb98-6b0c62d1e45e',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        type_name: '音乐',
+      }),
+    )
+  })
+
   it('recommends an episode format and includes it in the next request', async () => {
     const recommendationBodies: unknown[] = []
     const transferBodies: unknown[] = []

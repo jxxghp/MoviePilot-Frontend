@@ -7,6 +7,7 @@ import type {
   DownloaderConf,
   MediaDataSource,
   MediaInfo,
+  MusicEntityType,
   TorrentInfo,
   TransferDirectoryConf,
 } from '@/api/types'
@@ -14,7 +15,7 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
-import { isValidMediaSourceId } from '@/utils/mediaId'
+import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useGlobalSettingsStore } from '@/stores'
 
 // 多语言支持
@@ -46,6 +47,7 @@ const SUPPORTED_MEDIA_SOURCES: MediaDataSource[] = [
 const mediaSource = computed<MediaDataSource>(() => {
   const source = props.media?.source as MediaDataSource | undefined
   if (source && SUPPORTED_MEDIA_SOURCES.includes(source)) return source
+  if (props.torrent?.category === '音乐' || props.torrent?.category === 'music') return 'musicbrainz'
   if (SUPPORTED_MEDIA_SOURCES.includes(globalSettings.RECOGNIZE_SOURCE as MediaDataSource)) {
     return globalSettings.RECOGNIZE_SOURCE as MediaDataSource
   }
@@ -79,6 +81,16 @@ const showAdvancedOptions = ref(false)
 // 当前数据源的原生媒体ID
 const mediaId = ref<string | undefined>(undefined)
 
+// 无完整媒体上下文时，音乐原生 ID 需要实体命名空间才能区分单曲和专辑。
+const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.media?.music_type === 'album' ? 'album' : 'recording')
+
+const isMusicSelection = computed(() => isMusicMediaSource(mediaSource.value))
+
+const musicEntityOptions = computed(() => [
+  { title: t('setting.cache.musicType.recording'), value: 'recording' },
+  { title: t('setting.cache.musicType.album'), value: 'album' },
+])
+
 // 音乐媒体自带来源原生 ID，打开对话框时预填到高级选项中辅助识别。
 watch(
   () => props.media,
@@ -86,9 +98,19 @@ watch(
     if (media?.source && SUPPORTED_MEDIA_SOURCES.includes(media.source) && media.media_id) {
       mediaId.value = media.media_id
     }
+    if (media?.music_type === 'recording' || media?.music_type === 'album') {
+      musicType.value = media.music_type
+    }
   },
   { immediate: true },
 )
+
+// 同步媒体选择器返回的音乐实体，避免只保存 ID 后默认回落到单曲。
+function handleMediaSelected(item: Pick<MediaInfo, 'music_type'>) {
+  if (item.music_type === 'recording' || item.music_type === 'album') {
+    musicType.value = item.music_type
+  }
+}
 
 // 当前数据源对应的原生ID标签。
 const mediaIdLabel = computed(() => {
@@ -186,6 +208,7 @@ async function addDownload() {
       media_id?: string
       media_in?: MediaInfo
       media_source?: MediaDataSource
+      music_type?: Exclude<MusicEntityType, 'artist'>
       save_path: string | null
       torrent_in: TorrentInfo | undefined
     } = {
@@ -202,6 +225,7 @@ async function addDownload() {
     if (mediaId.value) {
       payload.media_source = mediaSource.value
       payload.media_id = mediaId.value
+      if (isMusicSelection.value) payload.music_type = musicType.value
     }
 
     const endpoint = props.media ? 'download/' : 'download/add'
@@ -324,6 +348,16 @@ onMounted(() => {
           </VCol>
         </VRow>
         <VRow v-show="showAdvancedOptions" class="px-5">
+          <VCol v-if="isMusicSelection" cols="12">
+            <VSelect
+              v-model="musicType"
+              :items="musicEntityOptions"
+              :label="t('dialog.reorganize.musicEntity')"
+              prepend-inner-icon="mdi-music-box-multiple-outline"
+              variant="underlined"
+              density="comfortable"
+            />
+          </VCol>
           <VCol cols="12">
             <VTextField
               v-model="mediaId"
@@ -351,7 +385,13 @@ onMounted(() => {
     </VCard>
     <!-- 媒体ID选择器 -->
     <VDialog v-model="mediaSelectorDialog" width="40rem" scrollable max-height="85vh">
-      <MediaIdSelector v-model="mediaId" @close="mediaSelectorDialog = false" :type="mediaSource" />
+      <MediaIdSelector
+        v-model="mediaId"
+        :type="mediaSource"
+        :music-types="isMusicSelection ? ['recording', 'album'] : undefined"
+        @select="handleMediaSelected"
+        @close="mediaSelectorDialog = false"
+      />
     </VDialog>
   </VDialog>
 </template>

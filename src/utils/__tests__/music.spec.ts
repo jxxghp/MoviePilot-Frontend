@@ -77,7 +77,12 @@ describe('music utils', () => {
       ),
     ).toMatchObject({
       path: '/resource',
-      query: { keyword: 'musicbrainz:recording-1', sites: '11,12', type: '音乐' },
+      query: {
+        keyword: 'musicbrainz:recording-1',
+        music_type: 'recording',
+        sites: '11,12',
+        type: '音乐',
+      },
     })
   })
 

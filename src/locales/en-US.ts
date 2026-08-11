@@ -3303,6 +3303,7 @@ export default {
       targetPathPlaceholder: 'Choose Auto or enter a path',
       mediaType: 'Type',
       mediaTypeHint: 'File media type',
+      musicEntity: 'Music Entity',
       mediaSource: 'Data Source',
       mediaSourceHint: 'Uses the backend recognition setting by default; switch it for this organization and scrape',
       tmdbId: 'TheMovieDb ID',

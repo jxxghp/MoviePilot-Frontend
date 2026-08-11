@@ -371,6 +371,29 @@ describe('AddDownloadDialog submissions', () => {
     expect(submitButton).not.toBeDisabled()
   })
 
+  it('submits the selected album namespace for a music torrent without media context', async () => {
+    const submitted = vi.fn()
+    server.use(downloadHandler('download/add', { data: null, success: true }, 200, submitted))
+    const user = userEvent.setup()
+
+    await renderDialog({
+      recognizeSource: 'themoviedb',
+      torrent: createTorrent({ category: '音乐', title: '周杰伦 - 叶惠美 FLAC' }),
+    })
+
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+    await user.selectOptions(screen.getByLabelText('音乐实体'), 'album')
+    await user.type(screen.getByLabelText('MusicBrainz ID'), '977e6978-139d-425c-bb98-6b0c62d1e45e')
+    await user.click(screen.getByRole('button', { name: '开始下载' }))
+
+    await waitFor(() => expect(submitted).toHaveBeenCalledOnce())
+    expect(submitted.mock.calls[0][0]).toMatchObject({
+      media_id: '977e6978-139d-425c-bb98-6b0c62d1e45e',
+      media_source: 'musicbrainz',
+      music_type: 'album',
+    })
+  })
+
   it('uses download/ for an existing media without locking unrelated optional fields', async () => {
     const submitted = vi.fn()
     server.use(downloadHandler('download/', { data: null, success: true }, 200, submitted))

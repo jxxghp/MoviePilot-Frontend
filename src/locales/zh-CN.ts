@@ -3248,6 +3248,7 @@ export default {
       targetPathPlaceholder: '选择自动或输入路径',
       mediaType: '类型',
       mediaTypeHint: '文件的媒体类型',
+      musicEntity: '音乐实体',
       mediaSource: '数据源',
       mediaSourceHint: '默认使用后台识别设置，可为本次整理与刮削单独切换',
       tmdbId: 'TheMovieDb编号',

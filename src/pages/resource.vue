@@ -52,6 +52,7 @@ interface SearchParams {
   season: string
   episode: string
   sites: string
+  music_type: string
   result_type: string
 }
 
@@ -78,6 +79,7 @@ function createSearchParams(query: LocationQuery): SearchParams {
     season: query?.season?.toString() ?? '',
     episode: query?.episode?.toString() ?? '',
     sites: query?.sites?.toString() ?? '',
+    music_type: query?.music_type?.toString() ?? '',
     result_type: query?.result_type?.toString() === 'subtitle' ? 'subtitle' : 'torrent',
   }
 }
@@ -92,6 +94,7 @@ function normalizeSearchParams(params?: Partial<SearchParams> | null): SearchPar
     season: params?.season?.toString() ?? '',
     episode: params?.episode?.toString() ?? '',
     sites: params?.sites?.toString() ?? '',
+    music_type: params?.music_type?.toString() ?? '',
     result_type: params?.result_type?.toString() === 'subtitle' ? 'subtitle' : 'torrent',
   }
 }
@@ -580,6 +583,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
     setSearchParam(url.searchParams, 'year', params.year)
     setSearchParam(url.searchParams, 'season', params.season)
     setSearchParam(url.searchParams, 'sites', params.sites)
+    setSearchParam(url.searchParams, 'music_type', params.music_type)
   } else {
     setSearchParam(url.searchParams, 'keyword', params.keyword)
     setSearchParam(url.searchParams, 'mtype', params.type)
@@ -848,8 +852,9 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
         area: params.area,
         title: params.title,
         year: params.year,
-        season: params.season,
-        sites: params.sites,
+        ...(params.season ? { season: params.season } : {}),
+        ...(params.sites ? { sites: params.sites } : {}),
+        ...(params.music_type ? { music_type: params.music_type } : {}),
         _ts: requestToken,
       },
     })

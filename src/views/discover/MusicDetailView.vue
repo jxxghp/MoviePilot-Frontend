@@ -87,6 +87,7 @@ async function loadMusicDetail() {
     music.value = await api.post('music/recognize', {
       source: props.source,
       media_id: props.mediaid,
+      music_type: 'recording',
     })
   } catch (error) {
     console.error(error)

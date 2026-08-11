@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { FileItem, ManualScrapeOptions, MediaDataSource, MediaInfo } from '@/api/types'
+import type { FileItem, ManualScrapeOptions, MediaDataSource, MediaInfo, MusicEntityType } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
@@ -38,7 +38,10 @@ const globalSettingsStore = useGlobalSettingsStore()
 const mediaType = ref('')
 const mediaSource = ref<MediaDataSource>(getDefaultMediaSource())
 const mediaId = ref<string | null>(null)
+const musicType = ref<Exclude<MusicEntityType, 'artist'>>('recording')
 const mediaSelectorDialog = ref(false)
+const scrapeMusicTypes: MusicEntityType[] = ['recording', 'album']
+const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -91,8 +94,11 @@ function validateMediaId(value?: string | null) {
 }
 
 // 选择搜索结果后同步媒体类型，减少手动填写出错。
-function handleMediaSelected(item: Pick<MediaInfo, 'type'>) {
+function handleMediaSelected(item: Pick<MediaInfo, 'type' | 'music_type'>) {
   mediaType.value = resolveMediaType(item.type) ?? mediaType.value
+  if (item.music_type === 'recording' || item.music_type === 'album') {
+    musicType.value = item.music_type
+  }
 }
 
 // 关闭弹窗并通知共享弹窗 Host 回收当前实例。
@@ -104,11 +110,13 @@ function closeDialog() {
 // 提交本次手动刮削的请求级识别条件。
 function submitScrape() {
   const normalizedMediaId = mediaId.value?.trim()
-  emit('scrape', {
+  const options: ManualScrapeOptions = {
     media_source: mediaSource.value,
     media_id: normalizedMediaId || undefined,
     type_name: mediaType.value || undefined,
-  })
+  }
+  if (isMusicSelection.value) options.music_type = musicType.value
+  emit('scrape', options)
 }
 
 // 切换数据源时清空上一来源的原生 ID，避免错用同一编号。
@@ -116,6 +124,7 @@ watch(mediaSource, () => {
   mediaId.value = null
   mediaSelectorDialog.value = false
   if (isMusicMediaSource(mediaSource.value)) mediaType.value = '音乐'
+  else musicType.value = 'recording'
 })
 
 watch(mediaType, type => {
@@ -137,7 +146,7 @@ watch(mediaType, type => {
       <VDivider />
       <VCardText class="pt-6">
         <VRow>
-          <VCol cols="12" md="4">
+          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
             <VSelect
               v-model="mediaType"
               :label="t('dialog.reorganize.mediaType')"
@@ -152,7 +161,7 @@ watch(mediaType, type => {
               prepend-inner-icon="mdi-movie-open"
             />
           </VCol>
-          <VCol cols="12" md="4">
+          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
             <VSelect
               v-model="mediaSource"
               :items="mediaSourceItems"
@@ -162,7 +171,18 @@ watch(mediaType, type => {
               prepend-inner-icon="mdi-database-search"
             />
           </VCol>
-          <VCol cols="12" md="4">
+          <VCol v-if="isMusicSelection" cols="12" md="3">
+            <VSelect
+              v-model="musicType"
+              :label="t('dialog.reorganize.musicEntity')"
+              :items="[
+                { title: t('music.entityRecording'), value: 'recording' },
+                { title: t('music.entityAlbum'), value: 'album' },
+              ]"
+              prepend-inner-icon="mdi-music-box-multiple"
+            />
+          </VCol>
+          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
             <VTextField
               v-model="mediaId"
               :disabled="mediaType === ''"
@@ -197,6 +217,7 @@ watch(mediaType, type => {
       <MediaIdSelector
         v-model="mediaId"
         :type="mediaSource"
+        :music-types="scrapeMusicTypes"
         @close="mediaSelectorDialog = false"
         @select="handleMediaSelected"
       />
