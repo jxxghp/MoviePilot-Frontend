@@ -955,6 +955,65 @@ describe('login page orchestration', () => {
     expect(mocks.api.post).toHaveBeenCalledWith('/login/access-token', expect.any(FormData), expect.any(Object))
   })
 
+  it('does not leave Conditional UI loading when an aborted credential request resolves late', async () => {
+    const credential = deferred<Credential>()
+    let capturedSignal: AbortSignal | undefined
+    const credentialGet = vi.fn((options: CredentialRequestOptions) => {
+      capturedSignal = options.signal
+      return credential.promise
+    })
+    vi.stubGlobal(
+      'PublicKeyCredential',
+      class PublicKeyCredentialStub {
+        static isConditionalMediationAvailable = vi.fn().mockResolvedValue(true)
+      },
+    )
+    vi.stubGlobal('navigator', { credentials: { get: credentialGet } })
+    mocks.api.get.mockResolvedValue([
+      {
+        id: 'system:passkey',
+        type: 'system',
+        method: 'passkey',
+        name: '通行密钥',
+        enabled: true,
+      },
+    ])
+    mocks.api.post.mockImplementation((url: string) => {
+      if (url === '/mfa/passkey/authenticate/start') {
+        return Promise.resolve({
+          success: true,
+          data: {
+            options: JSON.stringify({ challenge: 'AQI' }),
+            transaction_token: 'conditional-transaction',
+          },
+        })
+      }
+      return new Promise(() => {})
+    })
+    const { container } = await renderLogin()
+    await waitFor(() => expect(credentialGet).toHaveBeenCalledOnce())
+    const passkeyButton = await waitFor(() => container.querySelector<HTMLElement>('.passkey-btn')!)
+
+    await submitPassword(container)
+    expect(capturedSignal?.aborted).toBe(true)
+    credential.resolve({
+      id: 'late-credential',
+      rawId: new Uint8Array([1]).buffer,
+      response: {
+        authenticatorData: new Uint8Array([2]).buffer,
+        clientDataJSON: new Uint8Array([3]).buffer,
+        signature: new Uint8Array([4]).buffer,
+        userHandle: null,
+      },
+      type: 'public-key',
+    } as unknown as Credential)
+    await credential.promise
+    await nextTick()
+
+    expect(passkeyButton).not.toHaveClass('v-btn--loading')
+    expect(mocks.api.post).not.toHaveBeenCalledWith('/mfa/passkey/authenticate/finish', expect.any(Object))
+  })
+
   it('aborts manual Passkey before password login can take ownership', async () => {
     let capturedSignal: AbortSignal | undefined
     const credentialGet = vi.fn((options: CredentialRequestOptions) => {

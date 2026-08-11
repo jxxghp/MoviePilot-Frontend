@@ -412,6 +412,8 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
 
   const credential = await navigator.credentials.get(credentialRequestOptions)
 
+  if (signal?.aborted) throw new DOMException('PassKey authentication aborted', 'AbortError')
+
   // Conditional UI 模式下，用户选择通行密钥后才显示 loading
   if (isConditional) {
     passkeyLoading.value = true
@@ -420,7 +422,6 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   if (!credential) {
     throw new Error('No credential selected')
   }
-  if (signal?.aborted) throw new DOMException('PassKey authentication aborted', 'AbortError')
 
   // 3. 转换credential为可传输格式
   const publicKeyCredential = credential as PublicKeyCredential

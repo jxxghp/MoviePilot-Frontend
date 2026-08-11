@@ -157,11 +157,6 @@
       "count": 2
     }
   },
-  "src/components/cards/UserCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/components/dialog/AboutDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
@@ -325,11 +320,6 @@
       "count": 4
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/UserAddEditDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
       "count": 1
     }
   },
