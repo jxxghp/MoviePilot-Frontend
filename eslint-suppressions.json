@@ -230,11 +230,6 @@
       "count": 4
     }
   },
-  "src/components/dialog/PasskeyDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/components/dialog/RcloneConfigDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
@@ -1008,14 +1003,6 @@
   "src/views/system/WordsView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
-    }
-  },
-  "src/views/user/UserProfileView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/views/workflow/WorkflowShareView.vue": {
