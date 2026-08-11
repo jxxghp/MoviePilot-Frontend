@@ -1327,8 +1327,8 @@ export interface User {
   id: number
   // 用户名称
   name: string
-  // 用户密码
-  password: string
+  // 用户密码仅用于写入，查询响应不返回该字段
+  password?: string
   // 用户邮箱
   email: string
   // 是否激活

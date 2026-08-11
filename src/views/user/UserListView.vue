@@ -32,6 +32,9 @@ const isRefreshed = ref(false)
 // 是否加载中
 const loading = ref(false)
 
+// 最近一次用户列表加载是否失败
+const loadFailed = ref(false)
+
 // 所有用户信息
 const allUsers = ref<User[]>([])
 
@@ -41,10 +44,13 @@ async function loadAllUsers() {
     loading.value = true
     const result: User[] = await api.get('/user/')
     allUsers.value = result
+    loadFailed.value = false
+  } catch (error) {
+    loadFailed.value = true
+    console.log(error)
+  } finally {
     loading.value = false
     isRefreshed.value = true
-  } catch (error) {
-    console.log(error)
   }
 }
 
@@ -60,6 +66,7 @@ const openAddUserDialog = () => {
     {
       oper: 'add',
       maxWidth: '45rem',
+      usernames: allUsers.value.map(user => user.name),
     },
     {
       save: onUserAdd,
@@ -96,7 +103,32 @@ useDynamicButton({
   </div>
   <div class="card-list-container">
     <!-- 加载中提示 -->
-    <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+    <LoadingBanner v-if="loading && !isRefreshed" class="mt-12" />
+    <!-- 无可展示用户且加载失败时提供同页重试，不把合法空列表当作错误。 -->
+    <NoDataFound
+      v-else-if="loadFailed && allUsers.length === 0"
+      error-code="500"
+      :error-title="t('common.serverConnectionFailed')"
+    >
+      <template #button>
+        <VBtn color="primary" variant="tonal" :loading="loading" @click="loadAllUsers">
+          {{ t('common.retry') }}
+        </VBtn>
+      </template>
+    </NoDataFound>
+    <VAlert
+      v-else-if="loadFailed"
+      type="error"
+      variant="tonal"
+      :title="t('common.serverConnectionFailed')"
+      class="mx-2 mb-4"
+    >
+      <template #append>
+        <VBtn color="error" variant="text" :loading="loading" @click="loadAllUsers">
+          {{ t('common.retry') }}
+        </VBtn>
+      </template>
+    </VAlert>
     <!-- 用户卡片网格 -->
     <ProgressiveCardGrid
       v-if="allUsers.length > 0 && isRefreshed"
@@ -113,7 +145,7 @@ useDynamicButton({
     </ProgressiveCardGrid>
 
     <!-- 无数据提示 -->
-    <div v-if="allUsers.length === 0 && isRefreshed">
+    <div v-if="allUsers.length === 0 && isRefreshed && !loadFailed">
       <NoDataFound error-code="404" :error-title="t('user.noUsers')" :error-description="t('user.clickToAddUser')" />
     </div>
 
