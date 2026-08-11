@@ -1492,7 +1492,22 @@ onUnmounted(() => {
       </template>
       <template #item.title="{ item }">
         <div class="d-flex align-center">
-          <VAvatar>
+          <VImg
+            v-if="getHistoryPosterUrl(item)"
+            :src="getHistoryPosterUrl(item)"
+            :alt="item.title"
+            cover
+            width="44"
+            height="66"
+            class="rounded-sm flex-shrink-0"
+          >
+            <template #error>
+              <VAvatar>
+                <VIcon :icon="getIcon(item.type || '')" />
+              </VAvatar>
+            </template>
+          </VImg>
+          <VAvatar v-else>
             <VIcon :icon="getIcon(item.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
@@ -1576,7 +1591,22 @@ onUnmounted(() => {
     >
       <template #item.title="{ item }">
         <div class="d-flex align-center">
-          <VAvatar>
+          <VImg
+            v-if="getHistoryPosterUrl(item)"
+            :src="getHistoryPosterUrl(item)"
+            :alt="item.title"
+            cover
+            width="44"
+            height="66"
+            class="rounded-sm flex-shrink-0"
+          >
+            <template #error>
+              <VAvatar>
+                <VIcon :icon="getIcon(item.type || '')" />
+              </VAvatar>
+            </template>
+          </VImg>
+          <VAvatar v-else>
             <VIcon :icon="getIcon(item.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
