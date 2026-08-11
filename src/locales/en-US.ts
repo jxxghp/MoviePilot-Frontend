@@ -2703,8 +2703,9 @@ export default {
       cacheType: 'Cache Type',
       torrentCache: 'Resource Cache',
       recognitionCache: 'Recognition Cache',
-      recognitionCategoryLabel: 'Recognition Cache Category',
-      recognitionCategory: {
+      recognitionType: 'Type',
+      recognitionTypeOptions: {
+        all: 'All',
         media: 'Movie/TV',
         music: 'Music',
       },
@@ -2718,6 +2719,7 @@ export default {
       filterByTitle: 'Filter by Title',
       filterBySite: 'Filter by Site',
       filterRecognitionCache: 'Search cache key, title, or {source} ID',
+      filterAllRecognitionCache: 'Search cache key, title, artist, or recognition ID',
       selectSite: 'Select Site',
       loadingMore: 'Loading...',
       refresh: 'Refresh Cache',
@@ -2785,6 +2787,7 @@ export default {
       },
       clearConfirm: 'Are you sure you want to clear all cache?',
       recognitionClearConfirm: 'Clear all {source} recognition cache?',
+      recognitionClearAllConfirm: 'Clear all recognition cache (movie/TV and music)?',
       tmdbClearConfirm: 'Clear all TheMovieDb recognition cache?',
       recognitionSource: {
         themoviedb: 'TheMovieDb',

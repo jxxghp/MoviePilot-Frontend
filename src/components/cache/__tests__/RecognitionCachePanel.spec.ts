@@ -22,6 +22,22 @@ vi.mock('vue-toastification', () => ({
   }),
 }))
 
+const emptyMusicResponse = {
+  data: {
+    count: 0,
+    recognized: 0,
+    unrecognized: 0,
+    data: [],
+  },
+}
+
+/** 按请求端点分别返回 TMDB 与音乐识别缓存数据。 */
+function mockCacheApis(tmdbData: Record<string, unknown>) {
+  mocks.apiGet.mockImplementation((url: string) =>
+    Promise.resolve(url === 'music/cache' ? emptyMusicResponse : { data: tmdbData }),
+  )
+}
+
 async function renderRecognitionCachePanel(recognitionSource = 'themoviedb') {
   return renderWithProviders(RecognitionCachePanel, {
     initialState: {
@@ -44,15 +60,13 @@ describe('RecognitionCachePanel shared recognition statistics', () => {
   })
 
   it('shows the persisted shared recognition count when sharing is enabled', async () => {
-    mocks.apiGet.mockResolvedValue({
-      data: {
-        count: 12,
-        recognized: 9,
-        unrecognized: 3,
-        shared_recognized: 27,
-        shared_recognize_enabled: true,
-        data: [],
-      },
+    mockCacheApis({
+      count: 12,
+      recognized: 9,
+      unrecognized: 3,
+      shared_recognized: 27,
+      shared_recognize_enabled: true,
+      data: [],
     })
 
     await renderRecognitionCachePanel()
@@ -63,15 +77,13 @@ describe('RecognitionCachePanel shared recognition statistics', () => {
   })
 
   it('hides shared recognition statistics when sharing is disabled', async () => {
-    mocks.apiGet.mockResolvedValue({
-      data: {
-        count: 12,
-        recognized: 9,
-        unrecognized: 3,
-        shared_recognized: 27,
-        shared_recognize_enabled: false,
-        data: [],
-      },
+    mockCacheApis({
+      count: 12,
+      recognized: 9,
+      unrecognized: 3,
+      shared_recognized: 27,
+      shared_recognize_enabled: false,
+      data: [],
     })
 
     await renderRecognitionCachePanel()
@@ -81,19 +93,75 @@ describe('RecognitionCachePanel shared recognition statistics', () => {
   })
 
   it('loads TMDB cache even when Douban is selected as the recognition source', async () => {
-    mocks.apiGet.mockResolvedValue({
-      data: {
-        count: 0,
-        recognized: 0,
-        unrecognized: 0,
-        shared_recognized: 0,
-        shared_recognize_enabled: false,
-        data: [],
-      },
+    mockCacheApis({
+      count: 0,
+      recognized: 0,
+      unrecognized: 0,
+      shared_recognized: 0,
+      shared_recognize_enabled: false,
+      data: [],
     })
 
     await renderRecognitionCachePanel('douban')
 
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('tmdb/cache'))
+  })
+})
+
+describe('RecognitionCachePanel unified movie/TV and music management', () => {
+  beforeEach(() => {
+    mocks.apiGet.mockReset()
+    mocks.toastError.mockReset()
+    mocks.toastSuccess.mockReset()
+  })
+
+  it('loads both cache sources and aggregates the statistics', async () => {
+    mocks.apiGet.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === 'music/cache'
+          ? {
+              data: {
+                count: 3,
+                recognized: 2,
+                unrecognized: 1,
+                data: [
+                  {
+                    key: '[音乐]晴天-周杰伦-叶惠美-2003',
+                    media_id: 'rec-1',
+                    title: '晴天',
+                    artists: ['周杰伦'],
+                    album: '叶惠美',
+                    year: 2003,
+                    music_type: 'recording',
+                    cover_url: '',
+                  },
+                ],
+              },
+            }
+          : {
+              data: {
+                count: 12,
+                recognized: 9,
+                unrecognized: 3,
+                shared_recognized: 0,
+                shared_recognize_enabled: false,
+                data: [],
+              },
+            },
+      ),
+    )
+
+    await renderRecognitionCachePanel()
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('tmdb/cache'))
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('music/cache'))
+    // 总条数 12 + 3，已识别 9 + 2，未识别 3 + 1
+    expect(await screen.findByText('15')).toBeInTheDocument()
+    expect(screen.getByText('11')).toBeInTheDocument()
+    expect(screen.getByText('4')).toBeInTheDocument()
+    // 音乐条目直接展示在统一面板中
+    expect(screen.getByText('晴天')).toBeInTheDocument()
+    // 类型筛选下拉框默认展示“全部”
+    expect(screen.getByText('全部')).toBeInTheDocument()
   })
 })

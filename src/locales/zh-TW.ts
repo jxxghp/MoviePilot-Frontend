@@ -2651,8 +2651,9 @@ export default {
       cacheType: '緩存類型',
       torrentCache: '資源緩存',
       recognitionCache: '識別緩存',
-      recognitionCategoryLabel: '識別緩存分類',
-      recognitionCategory: {
+      recognitionType: '類型',
+      recognitionTypeOptions: {
+        all: '全部',
         media: '電影/電視劇',
         music: '音樂',
       },
@@ -2666,6 +2667,7 @@ export default {
       filterByTitle: '按標題篩選',
       filterBySite: '按站點篩選',
       filterRecognitionCache: '搜索緩存鍵、標題或 {source} ID',
+      filterAllRecognitionCache: '搜索緩存鍵、標題、藝術家或識別 ID',
       selectSite: '選擇站點',
       loadingMore: '加載中...',
       refresh: '刷新緩存',
@@ -2733,6 +2735,7 @@ export default {
       },
       clearConfirm: '確認清空所有緩存嗎？',
       recognitionClearConfirm: '確認清空全部 {source} 識別緩存嗎？',
+      recognitionClearAllConfirm: '確認清空全部識別緩存（影視與音樂）嗎？',
       tmdbClearConfirm: '確認清空全部 TheMovieDb 識別緩存嗎？',
       recognitionSource: {
         themoviedb: 'TheMovieDb',
