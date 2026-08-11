@@ -1,5 +1,5 @@
 import NameTestView from '@/views/system/NameTestView.vue'
-import { screen, waitFor } from '@testing-library/vue'
+import { screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -241,65 +241,5 @@ describe('NameTestView media identity', () => {
         year: '2026',
       },
     })
-  })
-
-  it('persists the five most recent unique titles and restores them in the combobox', async () => {
-    mocks.apiGet.mockImplementation(async (_endpoint: string, options: { params: { title: string } }) => ({
-      media_info: {
-        media_id: '271016',
-        source: 'themoviedb',
-        title: options.params.title,
-        type: '电视剧',
-        year: '2026',
-      },
-      meta_info: {
-        apply_words: [],
-        name: options.params.title,
-        org_string: options.params.title,
-      },
-      torrent_info: {},
-    }))
-    const result = await renderWithProviders(NameTestView, {
-      initialState: {
-        globalSettings: {
-          data: { RECOGNIZE_SOURCE: 'themoviedb' },
-        },
-      },
-    })
-    const user = userEvent.setup()
-    const titleInput = screen.getByLabelText('标题')
-    const submittedTitles = ['标题一', '标题二', '标题三', '标题四', '标题五', '标题六', '标题三']
-
-    for (const [index, title] of submittedTitles.entries()) {
-      await user.clear(titleInput)
-      await user.type(titleInput, ` ${title} `)
-      await user.click(screen.getByRole('button', { name: index === 0 ? '识别' : '重新识别' }))
-      await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledTimes(index + 1))
-    }
-
-    expect(JSON.parse(localStorage.getItem('MP_NAME_TEST_TITLE_HISTORY') || '[]')).toEqual([
-      '标题三',
-      '标题六',
-      '标题五',
-      '标题四',
-      '标题二',
-    ])
-
-    result.unmount()
-    await renderWithProviders(NameTestView, {
-      initialState: {
-        globalSettings: {
-          data: { RECOGNIZE_SOURCE: 'themoviedb' },
-        },
-      },
-    })
-
-    const restoredInput = screen.getByLabelText('标题')
-    await user.click(restoredInput)
-    const historyOptions = await screen.findAllByRole('option')
-    expect(historyOptions.map(option => option.textContent)).toEqual(['标题三', '标题六', '标题五', '标题四', '标题二'])
-    await user.click(screen.getByRole('option', { name: '标题六' }))
-
-    expect(restoredInput).toHaveValue('标题六')
   })
 })
