@@ -1,5 +1,5 @@
 import api from '@/api'
-import type { ApiResponse, ScheduleInfo, ScheduleProgress } from '@/api/types'
+import type { ScheduleInfo, ScheduleProgress } from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
 import type { Ref } from 'vue'
 
@@ -49,11 +49,9 @@ export function useScheduleProgress(schedules: Ref<ScheduleInfo[]>, refreshId: s
 
   /** 请求指定运行中任务的最新进度。 */
   async function loadScheduleProgress(schedule: ScheduleInfo) {
-    const response = (await api.get(
-      `dashboard/schedule/${encodeURIComponent(schedule.id)}/progress`,
-    )) as ApiResponse<ScheduleProgress>
-
-    return response.success ? response.data : undefined
+    return api.get<ScheduleProgress>(`dashboard/schedule/${encodeURIComponent(schedule.id)}/progress`, {
+      feedback: 'silent',
+    })
   }
 
   /** 刷新所有运行中任务的进度，并清理已经停止任务的缓存。 */

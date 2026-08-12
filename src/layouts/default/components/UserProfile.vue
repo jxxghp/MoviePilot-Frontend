@@ -107,8 +107,8 @@ function closeRestartProgress() {
 // 检测服务状态
 async function checkServiceStatus(): Promise<boolean> {
   try {
-    const result: { [key: string]: any } = await api.get('system/ping', { timeout: 3000 })
-    return result?.success === true
+    await api.get<null>('system/ping', { timeout: 3000, feedback: 'silent' })
+    return true
   } catch (error) {
     return false
   }
@@ -175,14 +175,7 @@ async function restart() {
   try {
     // 显示等待框
     showRestartProgress()
-    const result: { [key: string]: any } = await api.get('system/restart')
-    if (!result?.success) {
-      // 重启失败，清理状态
-      isRestarting.value = false
-      closeRestartProgress()
-      $toast.error(result.message)
-      return
-    }
+    await api.get<null>('system/restart')
   } catch (error) {
     // 重启失败，清理状态
     isRestarting.value = false
@@ -405,12 +398,12 @@ async function getCustomCSS() {
   if (!canAdmin.value) return
 
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserCustomCSS')
-    if (result && result.success && result.data?.value) {
-      customCSS.value = result.data?.value ?? ''
+    const result = await api.get<{ value?: string }>('system/setting/UserCustomCSS')
+    if (result.value) {
+      customCSS.value = result.value
       if (customCSS.value) {
         const style = document.createElement('style')
-        style.innerHTML = result.data?.value ?? ''
+        style.innerHTML = result.value
         document.head.appendChild(style)
       }
     }
@@ -467,17 +460,15 @@ async function saveCustomCSS(css: string) {
 
   customCSS.value = css
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/UserCustomCSS', css, {
+    await api.post<null>('system/setting/UserCustomCSS', css, {
       headers: {
         'Content-Type': 'text/plain',
       },
     })
 
-    if (result.success) {
-      customCssDialogController?.close()
-      customCssDialogController = null
-      $toast.success(t('theme.customCssSaveSuccess'))
-    }
+    customCssDialogController?.close()
+    customCssDialogController = null
+    $toast.success(t('theme.customCssSaveSuccess'))
   } catch (e) {
     console.error(t('theme.customCssSaveFailed'))
   }

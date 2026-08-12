@@ -239,6 +239,28 @@ describe('NameTestView media identity', () => {
     expect(screen.getByLabelText('识别词')).toBeInTheDocument()
   })
 
+  it('treats a resolved custom-word save as success after the data client unwraps the response', async () => {
+    mocks.apiGet.mockResolvedValueOnce({ value: ['已存在规则'] })
+    mocks.apiPost.mockResolvedValueOnce(null)
+    await renderWithProviders(NameTestView, {
+      initialState: {
+        globalSettings: {
+          data: { RECOGNIZE_SOURCE: 'themoviedb' },
+        },
+      },
+    })
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('识别词'), '新增规则')
+    await user.click(screen.getByRole('button', { name: '保存识别词' }))
+
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/setting/CustomIdentifiers')
+    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/CustomIdentifiers', ['已存在规则', '新增规则'], {
+      feedback: 'silent',
+    })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('识别词已保存到识别词表末尾')
+  })
+
   it('sends TheAudioDB through the unified media source parameter', async () => {
     mocks.apiGet.mockResolvedValueOnce({})
     await renderWithProviders(NameTestView, {

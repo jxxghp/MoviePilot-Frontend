@@ -248,12 +248,8 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   async function loadProviders(preserveBaseUrl = true) {
     loadingProviders.value = true
     try {
-      const result: { [key: string]: any } = await api.get('llm/providers')
-      if (!result.success) {
-        throw new Error(result.message || 'Load LLM providers failed')
-      }
-
-      providers.value = Array.isArray(result.data) ? result.data : []
+      const result = await api.get<LlmProvider[]>('llm/providers')
+      providers.value = Array.isArray(result) ? result : []
       if (!selectedProvider.value && providers.value.length > 0) {
         options.provider.value = providers.value[0].id
       }
@@ -270,7 +266,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
 
     loadingModels.value = true
     try {
-      const result: { [key: string]: any } = await api.get('llm/models', {
+      const payload = await api.get<{ auth_status?: LlmProviderAuthStatus; models?: LlmModel[] }>('llm/models', {
         params: {
           provider: normalizeValue(options.provider.value),
           api_key: normalizeValue(options.apiKey.value) || undefined,
@@ -281,11 +277,6 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
           force_refresh: forceRefresh,
         },
       })
-      if (!result.success) {
-        throw new Error(result.message || 'Load LLM models failed')
-      }
-
-      const payload = result.data || {}
       models.value = Array.isArray(payload.models) ? payload.models : []
       updateProviderAuthStatus(normalizeValue(options.provider.value), payload.auth_status)
 
@@ -320,14 +311,15 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     authPolling.value = true
     clearPollTimer()
     try {
-      const result: { [key: string]: any } = await api.post(`llm/provider-auth/${authSession.value.session_id}/poll`)
-      if (!result.success) {
-        throw new Error(result.message || 'Poll LLM auth failed')
-      }
+      const result = await api.post<Partial<LlmProviderAuthSession>>(
+        `llm/provider-auth/${authSession.value.session_id}/poll`,
+        undefined,
+        { feedback: 'silent' },
+      )
 
       authSession.value = {
         ...authSession.value,
-        ...result.data,
+        ...result,
       }
       const nextSession = authSession.value
       if (!nextSession) return null
@@ -355,19 +347,12 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
       throw new Error('LLM provider is required')
     }
 
-    const result: { [key: string]: any } = await api.post('llm/provider-auth/start', {
+    const result = await api.post<LlmProviderAuthSession>('llm/provider-auth/start', {
       provider: normalizeValue(options.provider.value),
       method: methodId,
     })
-    if (!result.success) {
-      throw new Error(result.message || 'Start LLM auth failed')
-    }
 
-    authSession.value = {
-      status: 'pending',
-      provider_id: normalizeValue(options.provider.value),
-      ...result.data,
-    }
+    authSession.value = result
     authDialogVisible.value = true
     authPopupBlocked.value = false
     openAuthPage()
@@ -378,12 +363,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   async function disconnectAuth() {
     if (!selectedProvider.value) return false
 
-    const result: { [key: string]: any } = await api.delete(
-      `llm/provider-auth/${normalizeValue(options.provider.value)}`,
-    )
-    if (!result.success) {
-      throw new Error(result.message || 'Disconnect LLM auth failed')
-    }
+    await api.delete(`llm/provider-auth/${normalizeValue(options.provider.value)}`)
 
     await loadProviders()
     return true

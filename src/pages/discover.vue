@@ -202,8 +202,8 @@ function normalizeTabConfig(value: unknown): DiscoverTabConfigItem[] | null {
 // 加载标签设置；服务端是跨浏览器共享的权威来源，本地值仅在远端无配置或请求失败时回退。
 async function loadOrderConfig() {
   try {
-    const response = await api.get(`/user/config/${localOrderKey}`)
-    const remoteConfig = normalizeTabConfig(response?.data?.value)
+    const response = await api.get<{ value?: unknown }>(`/user/config/${localOrderKey}`)
+    const remoteConfig = normalizeTabConfig(response.value)
     if (remoteConfig) {
       orderConfig.value = remoteConfig
       localStorage.setItem(localOrderKey, JSON.stringify(remoteConfig))

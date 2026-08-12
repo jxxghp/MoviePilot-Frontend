@@ -60,19 +60,6 @@ function getSourceIcon(source?: RecommendViewSource) {
   return 'mdi-movie-open-star-outline'
 }
 
-/** 将不同接口包装格式归一化为媒体数组。 */
-function normalizeMediaResponse(response: unknown): MediaInfo[] {
-  if (Array.isArray(response)) return response
-  if (!response || typeof response !== 'object') return []
-
-  const data = (response as { data?: unknown }).data
-  if (Array.isArray(data)) return data
-  if (data && typeof data === 'object' && Array.isArray((data as { list?: unknown }).list)) {
-    return (data as { list: MediaInfo[] }).list
-  }
-  return []
-}
-
 /** 判断媒体是否具备可展示图片和可进入详情页的标识。 */
 function isUsableMedia(item: MediaInfo) {
   const hasMediaId = Boolean((item.media_source && item.media_id) || item.collection_id)
@@ -103,10 +90,10 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
   loading.value = !cachedItems
   loadFailed.value = false
   try {
-    const response = await api.get(sourcePath)
+    const response = await api.get<MediaInfo[] | null>(sourcePath)
     if (currentRequestId !== requestId) return
 
-    const items = normalizeMediaResponse(response).filter(isUsableMedia).slice(0, RECOMMEND_SLIDE_COUNT)
+    const items = (response ?? []).filter(isUsableMedia).slice(0, RECOMMEND_SLIDE_COUNT)
     mediaSnapshots.get(sourcePath)?.writeSnapshot(items)
     mediaItems.value = items
     hasSnapshot.value = true

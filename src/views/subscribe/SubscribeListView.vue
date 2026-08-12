@@ -285,9 +285,9 @@ watch(
 // 加载顺序
 async function loadSubscribeOrderConfig() {
   try {
-    const response = await api.get(`/user/config/${orderRequestKey.value}`)
-    if (response && response.data && response.data.value) {
-      orderConfig.value = response.data.value
+    const response = await api.get<{ value?: { id: number }[] }>(`/user/config/${orderRequestKey.value}`)
+    if (response.value) {
+      orderConfig.value = response.value
     }
     syncDefaultSortBy()
   } catch (error) {
@@ -426,7 +426,7 @@ async function batchDeleteSubscribes() {
 
   try {
     loading.value = true
-    const promises = selectedSubscribes.value.map(id => api.delete(`subscribe/${id}`))
+    const promises = selectedSubscribes.value.map(id => api.delete<null>(`subscribe/${id}`, { feedback: 'silent' }))
     const results = await Promise.allSettled(promises)
 
     const successCount = results.filter(result => result.status === 'fulfilled').length
@@ -465,14 +465,12 @@ async function batchEnableSubscribes() {
 
   try {
     loading.value = true
-    const promises = selectedSubscribes.value.map(
-      id => api.put(`subscribe/status/${id}?state=R`) as unknown as Promise<{ success: boolean }>,
+    const promises = selectedSubscribes.value.map(id =>
+      api.put<null>(`subscribe/status/${id}?state=R`, undefined, { feedback: 'silent' }),
     )
     const results = await Promise.allSettled(promises)
 
-    const successCount = results.filter(
-      result => result.status === 'fulfilled' && result.value?.success === true,
-    ).length
+    const successCount = results.filter(result => result.status === 'fulfilled').length
     const failedCount = results.length - successCount
 
     if (successCount > 0) {
@@ -508,14 +506,12 @@ async function batchPauseSubscribes() {
 
   try {
     loading.value = true
-    const promises = selectedSubscribes.value.map(
-      id => api.put(`subscribe/status/${id}?state=S`) as unknown as Promise<{ success: boolean }>,
+    const promises = selectedSubscribes.value.map(id =>
+      api.put<null>(`subscribe/status/${id}?state=S`, undefined, { feedback: 'silent' }),
     )
     const results = await Promise.allSettled(promises)
 
-    const successCount = results.filter(
-      result => result.status === 'fulfilled' && result.value?.success === true,
-    ).length
+    const successCount = results.filter(result => result.status === 'fulfilled').length
     const failedCount = results.length - successCount
 
     if (successCount > 0) {

@@ -13,9 +13,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
-  },
+  }),
 }))
 
 vi.mock('@/composables/useDashboardMediaGridCapacity', async () => {

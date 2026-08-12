@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -539,9 +539,9 @@ watch(currentFolder, () => {
 // 加载插件顺序
 async function loadPluginOrderConfig() {
   try {
-    const response = await api.get('/user/config/PluginOrder')
-    if (response && response.data && response.data.value) {
-      const serverData = response.data.value as Array<string | Partial<PluginOrderItem>>
+    const response = await api.get<{ value?: Array<string | Partial<PluginOrderItem>> }>('/user/config/PluginOrder')
+    if (response?.value) {
+      const serverData = response.value as Array<string | Partial<PluginOrderItem>>
       // 兼容服务端的旧格式和新格式
       if (serverData.length > 0 && typeof serverData[0] === 'object' && serverData[0] && 'type' in serverData[0]) {
         orderConfig.value = serverData.map((item, index) => {
@@ -569,10 +569,7 @@ async function loadPluginOrderConfig() {
 
 /** 保存插件混合顺序，业务失败与 HTTP 失败使用同一回滚路径。 */
 async function savePluginOrderConfig(items: PluginOrderItem[]) {
-  const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('/user/config/PluginOrder', items)
-  if (!result?.success) {
-    throw new Error(result?.message || t('plugin.operationFailed'))
-  }
+  await api.post('/user/config/PluginOrder', items, { feedback: 'silent' })
 }
 
 function clonePluginFolders(source: PluginFolderMap = pluginFolders.value): PluginFolderMap {
@@ -863,28 +860,30 @@ async function installPlugin(item: Plugin) {
     progressText.value = t('plugin.installing', { name: item?.plugin_name, version: item?.plugin_version })
     openPluginProgressDialog(progressText.value)
 
-    const result = await api.get<ApiResponse<unknown>, ApiResponse<unknown>>(`plugin/install/${item?.id}`, {
+    await api.get(`plugin/install/${item?.id}`, {
       params: {
         repo_url: item?.repo_url,
         force: item?.has_update,
       },
+      feedback: 'silent',
     })
 
-    if (result.success) {
-      $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
-      // 清空过滤条件
-      hasUpdateFilter.value = false
-      enabledFilter.value = false
-      installedFilter.value = null
-      // 刷新
-      await refreshData()
-      await pluginSidebarNavStore.ensureSidebarNav(true)
-    } else {
-      $toast.error(t('plugin.installFailed', { name: item?.plugin_name, message: result.message }))
-    }
+    $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
+    // 清空过滤条件
+    hasUpdateFilter.value = false
+    enabledFilter.value = false
+    installedFilter.value = null
+    // 刷新
+    await refreshData()
+    await pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
     console.error(error)
-    $toast.error(t('plugin.installFailed', { name: item?.plugin_name, message: '' }))
+    $toast.error(
+      t('plugin.installFailed', {
+        name: item?.plugin_name,
+        message: error instanceof Error ? error.message : '',
+      }),
+    )
   } finally {
     closePluginProgressDialog()
   }
@@ -1454,10 +1453,7 @@ async function savePluginFolders() {
     }
   })
 
-  const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('plugin/folders', foldersToSave)
-  if (!result?.success) {
-    throw new Error(result?.message || t('plugin.operationFailed'))
-  }
+  await api.post('plugin/folders', foldersToSave, { feedback: 'silent' })
 }
 
 // 创建新文件夹

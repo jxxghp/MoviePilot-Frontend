@@ -5,20 +5,24 @@ import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent, h, inject, type Component, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  apiGet: vi.fn(),
-  apiPut: vi.fn(),
-  ensureSidebarNav: vi.fn(),
-  loadRemoteComponent: vi.fn(),
-  nativeSubscribe: vi.fn(),
-  toast: { error: vi.fn(), success: vi.fn() },
-}))
+const mocks = vi.hoisted(() => {
+  const apiGet = vi.fn()
+  const apiPut = vi.fn()
+
+  return {
+    api: { get: apiGet, put: apiPut },
+    apiGet,
+    apiPut,
+    ensureSidebarNav: vi.fn(),
+    loadRemoteComponent: vi.fn(),
+    nativeSubscribe: vi.fn(),
+    toast: { error: vi.fn(), success: vi.fn() },
+  }
+})
 
 vi.mock('@/api', () => ({
-  default: {
-    get: mocks.apiGet,
-    put: mocks.apiPut,
-  },
+  pluginApi: mocks.api,
+  default: mocks.api,
 }))
 
 vi.mock('@/utils/federationLoader', () => ({
@@ -174,7 +178,7 @@ describe('PluginConfigDialog', () => {
     expect(mocks.apiGet).toHaveBeenCalledTimes(2)
 
     await fireEvent.click(screen.getByRole('button', { name: '保存' }))
-    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledWith('plugin/DemoPlugin', {}))
+    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledWith('plugin/DemoPlugin', {}, { feedback: 'silent' }))
   })
 
   it('does not expose configuration saving while the form is loading or failed', async () => {
@@ -229,7 +233,9 @@ describe('PluginConfigDialog', () => {
     await fireEvent.click(screen.getByRole('button', { name: '调整布局' }))
     expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '72rem')
     await fireEvent.click(screen.getByRole('button', { name: '远程保存' }))
-    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledWith('plugin/DemoPlugin', { enabled: false }))
+    await waitFor(() =>
+      expect(mocks.apiPut).toHaveBeenCalledWith('plugin/DemoPlugin', { enabled: false }, { feedback: 'silent' }),
+    )
     await fireEvent.click(screen.getByRole('button', { name: '切换数据' }))
     await fireEvent.click(screen.getByRole('button', { name: '关闭远程配置' }))
 
@@ -265,7 +271,7 @@ describe('PluginConfigDialog', () => {
     await fireEvent.click(await screen.findByRole('button', { name: '保存' }))
 
     await waitFor(() => {
-      expect(mocks.apiPut).toHaveBeenCalledWith('plugin/DemoPlugin', { enabled: true })
+      expect(mocks.apiPut).toHaveBeenCalledWith('plugin/DemoPlugin', { enabled: true }, { feedback: 'silent' })
       expect(mocks.ensureSidebarNav).toHaveBeenCalledWith(true)
       expect(result.emitted().save).toHaveLength(1)
     })
@@ -275,7 +281,7 @@ describe('PluginConfigDialog', () => {
   })
 
   it.each([
-    ['business failure', () => Promise.resolve({ message: '配置被拒绝', success: false })],
+    ['business failure', () => Promise.reject(new Error('配置被拒绝'))],
     ['HTTP failure', () => Promise.reject(new Error('request failed'))],
   ])('keeps the dialog open and reports a %s', async (_case, saveResult) => {
     mocks.apiGet.mockResolvedValue({ conf: [], model: {}, render_mode: 'vuetify' })

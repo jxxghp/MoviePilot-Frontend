@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { ApiResponse, Site, SiteStatistic, SiteUserData } from '@/api/types'
+import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
@@ -213,14 +213,9 @@ async function savaSitesPriority() {
   const priorities = submittedSiteList.map((site, index) => ({ id: site.id, pri: index + 1 }))
   savingPriority.value = true
   try {
-    const result: ApiResponse<unknown> = await api.post('site/priorities', priorities)
-    if (!result.success) {
-      siteList.value = [...confirmedSiteList.value]
-      await fetchData()
-    } else {
-      siteList.value = [...submittedSiteList]
-      confirmedSiteList.value = [...submittedSiteList]
-    }
+    await api.post<null>('site/priorities', priorities)
+    siteList.value = [...submittedSiteList]
+    confirmedSiteList.value = [...submittedSiteList]
   } catch (error) {
     console.error(error)
     siteList.value = [...confirmedSiteList.value]

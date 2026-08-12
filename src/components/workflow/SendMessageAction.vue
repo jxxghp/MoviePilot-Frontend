@@ -32,7 +32,7 @@ async function loadNotificationSetting() {
 
   try {
     const result: { [key: string]: any } = await api.get('system/setting/Notifications')
-    notifications.value = result.data?.value ?? []
+    notifications.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }

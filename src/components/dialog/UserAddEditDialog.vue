@@ -3,6 +3,7 @@ import { useToast } from 'vue-toastification'
 import type { User } from '@/api/types'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import { useDisplay } from 'vuetify'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useUserStore } from '@/stores'
@@ -322,17 +323,15 @@ async function addUser() {
   isAdding.value = true
   startNProgress()
   try {
-    const result: { [key: string]: string } = await api.post('user/', userForm.value)
-    if (result.success) {
-      $toast.success(t('dialog.userAddEdit.userCreated', { name: userForm.value.name }))
-      emit('save')
-    } else {
-      $toast.error(t('dialog.userAddEdit.userCreateFailed', { message: result.message }))
-      // 清除用户名
-      userForm.value.name = ''
-    }
+    await api.post<null>('user/', userForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.userAddEdit.userCreated', { name: userForm.value.name }))
+    emit('save')
   } catch (error) {
-    $toast.error(t('dialog.userAddEdit.userCreateFailed', { message: t('common.serverConnectionFailed') }))
+    $toast.error(
+      t('dialog.userAddEdit.userCreateFailed', {
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
+      }),
+    )
     console.error(error)
   }
   doneNProgress()
@@ -375,37 +374,28 @@ async function updateUser() {
     // 确保权限数据正确传递
     userData.permissions = userPermissions.value
 
-    const result: Record<string, unknown> = await api.put('user/', userData)
+    await api.put<null>('user/', userData, { feedback: 'silent' })
 
-    if (result.success) {
-      if (oldUserName !== currentUserName.value) {
-        $toast.success(t('dialog.userAddEdit.userUpdateSuccess', { name: `${oldUserName} → ${currentUserName.value}` }))
-        // 如果是当前登录用户，更新当前用户名称显示
-        if (isCurrentUser.value) {
-          userStore.setUserName(currentUserName.value)
-        }
-      } else {
-        $toast.success(t('dialog.userAddEdit.userUpdateSuccess', { name: userForm.value?.name }))
-      }
-      // 更新本地头像显示
-      if (oldAvatar !== currentAvatar.value && isCurrentUser.value) {
-        userStore.setAvatar(currentAvatar.value)
-      }
-      // 如果是当前登录用户，更新权限信息
+    if (oldUserName !== currentUserName.value) {
+      $toast.success(t('dialog.userAddEdit.userUpdateSuccess', { name: `${oldUserName} → ${currentUserName.value}` }))
+      // 如果是当前登录用户，更新当前用户名称显示
       if (isCurrentUser.value) {
-        userStore.setPermissions(userPermissions.value)
+        userStore.setUserName(currentUserName.value)
       }
-      emit('save')
     } else {
-      if (oldUserName !== currentUserName.value) {
-        $toast.error(t('dialog.userAddEdit.userUpdateFailed', { message: result.message }))
-        currentUserName.value = oldUserName
-      } else {
-        $toast.error(t('dialog.userAddEdit.userUpdateFailed', { message: result.message }))
-      }
+      $toast.success(t('dialog.userAddEdit.userUpdateSuccess', { name: userForm.value?.name }))
     }
+    // 更新本地头像显示
+    if (oldAvatar !== currentAvatar.value && isCurrentUser.value) {
+      userStore.setAvatar(currentAvatar.value)
+    }
+    // 如果是当前登录用户，更新权限信息
+    if (isCurrentUser.value) {
+      userStore.setPermissions(userPermissions.value)
+    }
+    emit('save')
   } catch (error) {
-    $toast.error(t('dialog.userAddEdit.userUpdateFailed', { message: '' }))
+    $toast.error(t('dialog.userAddEdit.userUpdateFailed', { message: error instanceof Error ? error.message : '' }))
     console.error('更新失败:', error)
   } finally {
     // 表单中的已保存值用于恢复操作，待提交值只保留在对应的编辑状态中。

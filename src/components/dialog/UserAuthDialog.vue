@@ -64,12 +64,10 @@ const formFields = computed(() => {
 // 查询之前使用的认证参数
 async function loadLastAuthParams() {
   try {
-    const result: { [key: string]: any } = await api.get(`system/setting/UserSiteAuthParams`)
-    if (result.success) {
-      const ret = result.data?.value
-      if (ret && !isNullOrEmptyObject(ret.params)) {
-        authForm.value = ret
-      }
+    const result = await api.get<{ value?: typeof authForm.value }>(`system/setting/UserSiteAuthParams`)
+    const ret = result.value
+    if (ret && !isNullOrEmptyObject(ret.params)) {
+      authForm.value = ret
     }
   } catch (e) {
     console.error(e)
@@ -110,18 +108,15 @@ async function checkUser() {
   }
   loading.value = true
   try {
-    const result: { [key: string]: any } = await api.post(`site/auth`, authForm.value)
-    if (result.success) {
-      $toast.success(t('dialog.userAuth.authSuccess'))
-      // 1秒后刷新页面
-      setTimeout(() => {
-        emit('done')
-      }, 1000)
-    } else {
-      $toast.error(t('dialog.userAuth.authFailed', { message: result.message }))
-    }
+    await api.post<null>(`site/auth`, authForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.userAuth.authSuccess'))
+    // 1秒后刷新页面
+    setTimeout(() => {
+      emit('done')
+    }, 1000)
   } catch (e) {
     console.error(e)
+    $toast.error(t('dialog.userAuth.authFailed', { message: e instanceof Error ? e.message : '' }))
   }
   loading.value = false
 }

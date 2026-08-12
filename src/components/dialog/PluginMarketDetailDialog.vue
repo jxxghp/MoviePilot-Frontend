@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
+import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
+import type { Plugin, PluginRating } from '@/api/types'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import PluginRatingDisplay from '@/components/common/PluginRatingDisplay.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
@@ -141,32 +142,29 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
           }),
     )
 
-    const result: ApiResponse<unknown> = await api.get(`plugin/install/${props.plugin?.id}`, {
+    await api.get(`plugin/install/${props.plugin?.id}`, {
       params: {
         repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
         force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
       },
+      feedback: 'silent',
     })
 
-    if (result.success) {
-      $toast.success(
-        isInstalled.value
-          ? t('plugin.updateSuccess', { name: props.plugin?.plugin_name })
-          : t('plugin.installSuccess', { name: props.plugin?.plugin_name }),
-      )
-      versionHistoryDialogController?.close()
-      versionHistoryDialogController = null
-      visible.value = false
-      emit('install')
-    } else {
-      $toast.error(t(failureMessageKey, { name: props.plugin?.plugin_name, message: result.message }))
-    }
+    $toast.success(
+      isInstalled.value
+        ? t('plugin.updateSuccess', { name: props.plugin?.plugin_name })
+        : t('plugin.installSuccess', { name: props.plugin?.plugin_name }),
+    )
+    versionHistoryDialogController?.close()
+    versionHistoryDialogController = null
+    visible.value = false
+    emit('install')
   } catch (error) {
     $toast.error(
       t(failureMessageKey, {
         name: props.plugin?.plugin_name,
-        message: t('common.serverConnectionFailed'),
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
       }),
     )
     console.error(error)
@@ -214,20 +212,24 @@ async function submitPluginRating() {
 
   ratingSubmitting.value = true
   try {
-    const result: ApiResponse<PluginRating> = await api.post(`plugin/rating/${props.plugin.id}`, {
-      rating: selectedRating.value,
-    })
-    if (result.success) {
-      rating.value = result.data
-      selectedRating.value = result.data.user_rating || selectedRating.value
-      emit('rating', result.data)
-      $toast.success(t('plugin.ratingSuccess', { name: props.plugin?.plugin_name }))
-    } else {
-      $toast.error(t('plugin.ratingFailed', { message: result.message || t('common.unknown') }))
-    }
+    const result = await api.post<PluginRating>(
+      `plugin/rating/${props.plugin.id}`,
+      { rating: selectedRating.value },
+      { feedback: 'silent' },
+    )
+    rating.value = result
+    selectedRating.value = result.user_rating || selectedRating.value
+    emit('rating', result)
+    $toast.success(t('plugin.ratingSuccess', { name: props.plugin?.plugin_name }))
   } catch (error) {
     console.error(error)
-    $toast.error(t('plugin.ratingFailed', { message: t('common.serverConnectionFailed') }))
+    const businessMessage = getApiBusinessErrorMessage(error)
+    $toast.error(
+      t('plugin.ratingFailed', {
+        message:
+          businessMessage || (isApiBusinessFailure(error) ? t('common.unknown') : t('common.serverConnectionFailed')),
+      }),
+    )
   } finally {
     ratingSubmitting.value = false
   }

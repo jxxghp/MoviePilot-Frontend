@@ -33,7 +33,7 @@ async function queryFilterRuleGroups() {
 
   try {
     const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    filterRuleGroups.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { ApiResponse, Plugin } from '@/api/types'
+import { getApiBusinessErrorMessage } from '@/api/client'
+import type { Plugin } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { useGlobalSettingsStore } from '@/stores'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
@@ -153,7 +154,8 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       }),
     )
 
-    const result: ApiResponse<unknown> = await api.get(`plugin/install/${props.plugin?.id}`, {
+    await api.get(`plugin/install/${props.plugin?.id}`, {
+      feedback: 'silent',
       params: {
         repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
@@ -161,19 +163,15 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       },
     })
 
-    if (result.success) {
-      $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
-      versionHistoryDialogController?.close()
-      versionHistoryDialogController = null
-      emit('install')
-    } else {
-      $toast.error(t('plugin.installFailed', { name: props.plugin?.plugin_name, message: result.message }))
-    }
+    $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
+    versionHistoryDialogController?.close()
+    versionHistoryDialogController = null
+    emit('install')
   } catch (error) {
     $toast.error(
       t('plugin.installFailed', {
         name: props.plugin?.plugin_name,
-        message: t('common.serverConnectionFailed'),
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
       }),
     )
     console.error(error)

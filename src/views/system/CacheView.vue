@@ -86,7 +86,7 @@ const mobileVisibleCount = ref(MOBILE_CACHE_PAGE_SIZE)
 let reidentifyDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 const tableStyle = computed(() => {
-  return appMode ? '' : 'height: calc(100vh - 21rem - env(safe-area-inset-bottom)'
+  return appMode ? '' : 'height: calc(100vh - 21rem - env(safe-area-inset-bottom))'
 })
 
 // 移动端虚拟列表数据
@@ -108,8 +108,8 @@ function resetMobilePagination() {
 async function loadCacheData() {
   try {
     loading.value = true
-    const res: any = await api.get('torrent/cache')
-    cacheData.value = res.data
+    const data = await api.get<TorrentCacheData | null>('torrent/cache', { feedback: 'silent' })
+    if (data) cacheData.value = data
     resetMobilePagination()
   } catch (e) {
     console.log(e)
@@ -146,7 +146,7 @@ async function clearAllCache() {
   if (!isConfirmed) return
   try {
     loading.value = true
-    await api.delete('torrent/cache')
+    await api.delete<null>('torrent/cache', { feedback: 'silent' })
     $toast.success(t('setting.cache.clearSuccess'))
     await loadCacheData()
     selectedItems.value = []
@@ -162,8 +162,8 @@ async function clearAllCache() {
 async function refreshCache() {
   try {
     loading.value = true
-    const res: any = await api.post('torrent/cache/refresh')
-    $toast.success(res.message || t('setting.cache.refreshSuccess'))
+    await api.post<null>('torrent/cache/refresh', undefined, { feedback: 'silent' })
+    $toast.success(t('setting.cache.refreshSuccess'))
     await loadCacheData()
   } catch (e) {
     console.log(e)
@@ -185,7 +185,7 @@ async function deleteSelectedItems() {
     const deletePromises = selectedItems.value.map(hash => {
       const item = cacheData.value.data.find(d => d.hash === hash)
       if (item) {
-        return api.delete(`torrent/cache/${item.domain}/${hash}`)
+        return api.delete<null>(`torrent/cache/${item.domain}/${hash}`, { feedback: 'silent' })
       }
       return Promise.resolve()
     })
@@ -206,7 +206,7 @@ async function deleteSelectedItems() {
 async function deleteSingleItem(item: TorrentCacheItem) {
   try {
     loading.value = true
-    await api.delete(`torrent/cache/${item.domain}/${item.hash}`)
+    await api.delete<null>(`torrent/cache/${item.domain}/${item.hash}`, { feedback: 'silent' })
     $toast.success(t('setting.cache.deleteSuccess'))
     await loadCacheData()
     // 从选中列表中移除
@@ -267,15 +267,16 @@ async function performReidentify(
     }
     if (payload.musicType) params.music_type = payload.musicType
 
-    const res: any = await api.post(
+    await api.post(
       `torrent/cache/reidentify/${currentReidentifyItem.value.domain}/${currentReidentifyItem.value.hash}`,
       null,
       {
         params,
+        feedback: 'silent',
       },
     )
 
-    $toast.success(res.message || t('setting.cache.reidentifySuccess'))
+    $toast.success(t('setting.cache.reidentifySuccess'))
     await loadCacheData()
     reidentifyDialogController?.close()
     reidentifyDialogController = null

@@ -176,8 +176,8 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/IndexerSites')
-    selectedSites.value = result.data?.value ?? []
+    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    selectedSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -273,7 +273,8 @@ async function handleCheckExists() {
   try {
     const exists = await getCachedMediaExistsStatus(getExistsStatusKey(), async () => {
       const identity = getMediaSubscribeIdentity(props.media)
-      const result: { [key: string]: any } = await api.get('mediaserver/exists', {
+      const result = await api.get<{ item?: { id?: string } }>('mediaserver/exists', {
+        feedback: 'silent',
         params: {
           ...(identity ? { media_source: identity.source, media_id: identity.mediaId } : {}),
           title: props.media?.title,
@@ -283,7 +284,7 @@ async function handleCheckExists() {
         },
       })
 
-      return Boolean(result.success)
+      return Boolean(result.item?.id)
     })
 
     isExists.value = exists

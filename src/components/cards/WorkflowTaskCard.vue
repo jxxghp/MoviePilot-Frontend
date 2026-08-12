@@ -87,13 +87,9 @@ async function handleDelete(item: Workflow) {
   if (!isConfirmed) return
 
   try {
-    const result: { [key: string]: string } = await api.delete(`workflow/${item.id}`)
-    if (result.success) {
-      $toast.success(t('workflow.task.deleteSuccess'))
-      emit('refresh')
-    } else {
-      $toast.error(t('workflow.task.deleteFailed', { message: result.message }))
-    }
+    await api.delete(`workflow/${item.id}`)
+    $toast.success(t('workflow.task.deleteSuccess'))
+    emit('refresh')
   } catch (error) {
     console.error(error)
   }
@@ -103,13 +99,9 @@ async function handleDelete(item: Workflow) {
 async function handleEnable(item: Workflow) {
   loading.value = true
   try {
-    const result: { [key: string]: string } = await api.post(`workflow/${item.id}/start`)
-    if (result.success) {
-      $toast.success(t('workflow.task.enableSuccess'))
-      emit('refresh')
-    } else {
-      $toast.error(t('workflow.task.enableFailed', { message: result.message }))
-    }
+    await api.post(`workflow/${item.id}/start`)
+    $toast.success(t('workflow.task.enableSuccess'))
+    emit('refresh')
   } catch (error) {
     console.error(error)
   }
@@ -120,13 +112,9 @@ async function handleEnable(item: Workflow) {
 async function handlePause(item: Workflow) {
   loading.value = true
   try {
-    const result: { [key: string]: string } = await api.post(`workflow/${item.id}/pause`)
-    if (result.success) {
-      $toast.success(t('workflow.task.pauseSuccess'))
-      emit('refresh')
-    } else {
-      $toast.error(t('workflow.task.pauseFailed', { message: result.message }))
-    }
+    await api.post(`workflow/${item.id}/pause`)
+    $toast.success(t('workflow.task.pauseSuccess'))
+    emit('refresh')
   } catch (error) {
     console.error(error)
   }
@@ -140,16 +128,11 @@ async function handleRun(item: Workflow, from_begin: boolean) {
     setTimeout(() => {
       emit('refresh')
     }, 500)
-    const result: { [key: string]: string } = await api.post(`workflow/${item.id}/run?from_begin=${from_begin}`, {
+    await api.post(`workflow/${item.id}/run?from_begin=${from_begin}`, {
       from_begin,
     })
-    if (result.success) {
-      $toast.success(t('workflow.task.runSuccess'))
-      emit('refresh')
-    } else {
-      $toast.error(t('workflow.task.runFailed', { message: result.message }))
-      emit('refresh')
-    }
+    $toast.success(t('workflow.task.runSuccess'))
+    emit('refresh')
   } catch (error) {
     console.error(error)
   }
@@ -166,13 +149,9 @@ async function handleReset(item: Workflow) {
   if (!isConfirmed) return
 
   try {
-    const result: { [key: string]: string } = await api.post(`workflow/${item.id}/reset`)
-    if (result.success) {
-      $toast.success(t('workflow.task.resetSuccess'))
-      emit('refresh')
-    } else {
-      $toast.error(t('workflow.task.resetFailed', { message: result.message }))
-    }
+    await api.post(`workflow/${item.id}/reset`)
+    $toast.success(t('workflow.task.resetSuccess'))
+    emit('refresh')
   } catch (error) {
     console.error(error)
   }

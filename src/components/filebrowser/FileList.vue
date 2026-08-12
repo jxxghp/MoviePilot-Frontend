@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import type { AxiosRequestConfig, AxiosInstance } from 'axios'
+import type { AxiosRequestConfig } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
 import { formatBytes } from '@core/utils/formatters'
-import type { ApiResponse, Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
+import type { Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
 import api from '@/api'
+import type { DataApiClient } from '@/api'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
@@ -38,7 +39,7 @@ const inProps = defineProps({
   endpoints: Object as PropType<EndPoints>,
   // Axios 实例是可调用函数，运行时 prop 类型需与其实际形态一致。
   axios: {
-    type: Function as PropType<AxiosInstance>,
+    type: Function as PropType<DataApiClient>,
     required: true,
   },
   refreshpending: Boolean,
@@ -303,8 +304,9 @@ async function requestDeleteItem(item: FileItem) {
     url: inProps.endpoints?.delete.url,
     method: inProps.endpoints?.delete.method || 'post',
     data: item,
+    feedback: 'silent',
   }
-  return inProps.axios.request<ApiResponse<unknown>, ApiResponse<unknown>>(config)
+  return inProps.axios.request<null>(config)
 }
 
 // 删除项目
@@ -324,11 +326,7 @@ async function deleteItem(item: FileItem, confirm: boolean = true) {
   emit('loading', true)
 
   try {
-    const result = await requestDeleteItem(item)
-    if (!result.success) {
-      $toast.error(result.message || t('common.error'))
-      return false
-    }
+    await requestDeleteItem(item)
 
     emit('filedeleted')
     await list_files()
@@ -368,8 +366,7 @@ async function batchDelete() {
       progressValue.value = Math.round(((index + 1) / selectedItems.length) * 100)
       progressDialogController?.updateProps({ text: progressText.value, value: progressValue.value })
       try {
-        const result = await requestDeleteItem(item)
-        if (!result.success) failedItems.push(item)
+        await requestDeleteItem(item)
       } catch (error) {
         console.error(error)
         failedItems.push(item)
@@ -503,17 +500,13 @@ async function get_recommend_name() {
   renameLoading.value = true
   renameDialogController?.updateProps({ loading: true })
   try {
-    const result: { [key: string]: any } = await api.get('transfer/name', {
+    const result = await api.get<{ name: string }>('transfer/name', {
       params: {
         path: `${inProps.item.path}${currentItem.value?.name}`,
         filetype: currentItem.value?.type ?? 'file',
       },
     })
-    if (result.success && result.data) {
-      newName.value = result.data.name
-    } else {
-      $toast.error(result.message)
-    }
+    newName.value = result.name
   } catch (error) {
     console.error(error)
   }
@@ -546,12 +539,9 @@ async function rename() {
       url,
       method: inProps.endpoints?.rename.method || 'post',
       data: currentItem.value,
+      feedback: 'silent',
     }
-    const result: { [key: string]: any } = await inProps.axios.request<any, { [key: string]: any }>(config)
-    if (!result.success) {
-      $toast.error(result.message || t('common.error'))
-      return
-    }
+    await inProps.axios.request<null>(config)
 
     newName.value = ''
     renameAll.value = false
@@ -714,19 +704,21 @@ async function recognize(path: string) {
 }
 
 // 调用 API 按请求级媒体条件刮削单个文件项。
-async function scrape(item: FileItem, options: ManualScrapeOptions) {
+async function scrape(item: FileItem, options: ManualScrapeOptions, silent = false) {
   try {
     progressText.value = t('file.scraping', { path: item.path })
     progressDialogController?.updateProps({ text: progressText.value })
 
-    const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.item.storage}`, item, {
+    await api.post<null>(`media/scrape/${inProps.item.storage}`, item, {
       params: options,
+      feedback: 'silent',
     })
 
-    if (!result.success) $toast.error(result.message)
-    else $toast.success(t('file.scrapeCompleted', { path: item.path }))
+    if (!silent) $toast.success(t('file.scrapeCompleted', { path: item.path }))
   } catch (error) {
     console.error(error)
+    if (!silent) $toast.error(error instanceof Error ? error.message : t('common.error'))
+    throw error
   }
 }
 
@@ -738,11 +730,20 @@ async function scrapeItems(itemsToScrape: FileItem[], options: ManualScrapeOptio
   progressText.value = t('file.scraping', { path: normalizedItems[0].path })
   progressValue.value = 0
   openProgressDialog(progressText.value, progressValue.value)
+  const failedItems: FileItem[] = []
   try {
     for (const [index, item] of normalizedItems.entries()) {
-      await scrape(item, options)
+      try {
+        await scrape(item, options, true)
+        $toast.success(t('file.scrapeCompleted', { path: item.path }))
+      } catch {
+        failedItems.push(item)
+      }
       progressValue.value = Math.round(((index + 1) / normalizedItems.length) * 100)
       progressDialogController?.updateProps({ value: progressValue.value })
+    }
+    if (failedItems.length) {
+      $toast.error(`${t('common.error')}: ${failedItems.map(item => item.name).join(', ')}`)
     }
   } finally {
     closeProgressDialog()

@@ -49,13 +49,9 @@ const isUnmounting = ref(false)
 
 async function loadTargets() {
   // 测试项由后端下发，前端只负责展示，避免再把可测试目标和校验规则留在客户端。
-  const result: { [key: string]: any } = await api.get('system/nettest/targets')
-  if (!result.success || !Array.isArray(result.data)) {
-    targets.value = []
-    return
-  }
+  const result = await api.get<TargetItem[]>('system/nettest/targets')
 
-  targets.value = result.data.map((item: TargetItem) => ({
+  targets.value = result.map(item => ({
     id: item.id,
     image: resolveTargetImage(item.icon),
     name: item.name,
@@ -82,21 +78,17 @@ async function netTest(index: number) {
     target.status = 'Doing'
     target.message = t('netTest.testing')
 
-    const result: { [key: string]: any } = await api.get('system/nettest', {
+    const result = await api.get<{ time?: string }>('system/nettest', {
       params: {
         target_id: target.id,
       },
       signal,
+      feedback: 'silent',
     })
 
-    if (result.success) {
-      target.status = 'OK'
-      target.message = t('netTest.normal')
-    } else {
-      target.status = 'Fail'
-      target.message = result.message
-    }
-    target.time = result.data?.time
+    target.status = 'OK'
+    target.message = t('netTest.normal')
+    target.time = result.time || ''
     target.btndisable = false
   } catch (error) {
     if (!isUnmounting.value) {

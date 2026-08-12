@@ -4,6 +4,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { formatDateDifference } from '@/@core/utils/formatters'
 import { formatSeasonLabel } from '@/@core/utils/season'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import type { Subscribe } from '@/api/types'
 import router from '@/router'
 import { useI18n } from 'vue-i18n'
@@ -226,12 +227,9 @@ function getBufferPercentage() {
 // 删除订阅
 async function removeSubscribe() {
   try {
-    const result: { [key: string]: any } = await api.delete(`subscribe/${props.media?.id}`)
-
-    if (result.success) {
-      // 通知父组件刷新
-      emit('remove')
-    }
+    await api.delete(`subscribe/${props.media?.id}`, { feedback: 'silent' })
+    // 通知父组件刷新
+    emit('remove')
   } catch (e) {
     $toast.error(t('subscribe.requestFailed'))
     console.log(e)
@@ -241,11 +239,8 @@ async function removeSubscribe() {
 // 搜索订阅
 async function searchSubscribe() {
   try {
-    const result: { [key: string]: any } = await api.get(`subscribe/search/${props.media?.id}`)
-
-    // 提示
-    if (result.success) $toast.success(`${props.media?.name} 提交搜索请求成功！`)
-    else $toast.error(t('subscribe.requestFailed'))
+    await api.get(`subscribe/search/${props.media?.id}`, { feedback: 'silent' })
+    $toast.success(`${props.media?.name} 提交搜索请求成功！`)
   } catch (e) {
     $toast.error(t('subscribe.requestFailed'))
     console.log(e)
@@ -254,9 +249,9 @@ async function searchSubscribe() {
 
 // 切换订阅状态
 async function toggleSubscribeStatus(state: 'R' | 'S') {
+  const action = state === 'S' ? t('common.pause') : t('common.enable')
   try {
     // 根据传入的 state 判断对应的操作文字
-    const action = state === 'S' ? t('common.pause') : t('common.enable')
     // 弹出确认框
     const isConfirmed = await createConfirm({
       title: t('common.confirmAction', { action }),
@@ -264,17 +259,13 @@ async function toggleSubscribeStatus(state: 'R' | 'S') {
     })
     if (!isConfirmed) return
     // 调用 API 更新订阅状态
-    const result: { [key: string]: any } = await api.put(`subscribe/status/${props.media?.id}?state=${state}`)
-    // 提示
-    if (result.success) {
-      $toast.success(t('subscribe.toggleSuccess', { name: props.media?.name, action }))
-      subscribeState.value = state
-      emit('save')
-    } else {
-      $toast.error(t('subscribe.toggleFailed', { action, message: result.message }))
-    }
+    await api.put(`subscribe/status/${props.media?.id}?state=${state}`, undefined, { feedback: 'silent' })
+    $toast.success(t('subscribe.toggleSuccess', { name: props.media?.name, action }))
+    subscribeState.value = state
+    emit('save')
   } catch (e) {
-    $toast.error(t('subscribe.requestFailed'))
+    const message = getApiBusinessErrorMessage(e)
+    $toast.error(message ? t('subscribe.toggleFailed', { action, message }) : t('subscribe.requestFailed'))
     console.log(e)
   }
 }
@@ -289,15 +280,15 @@ async function resetSubscribe() {
     })
     if (!isConfirmed) return
     // 重置
-    const result: { [key: string]: any } = await api.get(`subscribe/reset/${props.media?.id}`)
-    // 提示
-    if (result.success) {
-      $toast.success(t('subscribe.resetSuccess', { name: props.media?.name }))
-      subscribeState.value = 'R'
-      emit('save')
-    } else $toast.error(t('subscribe.resetFailed', { name: props.media?.name, message: result.message }))
+    await api.get(`subscribe/reset/${props.media?.id}`, { feedback: 'silent' })
+    $toast.success(t('subscribe.resetSuccess', { name: props.media?.name }))
+    subscribeState.value = 'R'
+    emit('save')
   } catch (e) {
-    $toast.error(t('subscribe.requestFailed'))
+    const message = getApiBusinessErrorMessage(e)
+    $toast.error(
+      message ? t('subscribe.resetFailed', { name: props.media?.name, message }) : t('subscribe.requestFailed'),
+    )
     console.log(e)
   }
 }

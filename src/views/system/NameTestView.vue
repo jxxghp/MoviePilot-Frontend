@@ -328,7 +328,7 @@ async function saveCustomWords() {
   savingCustomWords.value = true
   try {
     const queryResult: { [key: string]: any } = await api.get('system/setting/CustomIdentifiers')
-    const existingLines: string[] = Array.isArray(queryResult?.data?.value) ? queryResult.data.value : []
+    const existingLines: string[] = Array.isArray(queryResult?.value) ? queryResult.value : []
     const appendLines = newLines.filter(line => !existingLines.includes(line))
 
     if (!appendLines.length) {
@@ -336,13 +336,8 @@ async function saveCustomWords() {
       return
     }
 
-    const saveResult: { [key: string]: any } = await api.post('system/setting/CustomIdentifiers', [
-      ...existingLines,
-      ...appendLines,
-    ])
-
-    if (saveResult.success) $toast.success(t('nameTest.saveWordsSuccess'))
-    else $toast.error(saveResult.message || t('nameTest.saveWordsFailed'))
+    await api.post<null>('system/setting/CustomIdentifiers', [...existingLines, ...appendLines], { feedback: 'silent' })
+    $toast.success(t('nameTest.saveWordsSuccess'))
   } catch (error) {
     console.error(error)
     $toast.error(t('nameTest.saveWordsFailed'))

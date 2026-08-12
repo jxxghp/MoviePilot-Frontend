@@ -372,9 +372,9 @@ async function fetchSubscribes() {
 /** 从接口加载用户的站点搜索偏好。 */
 const loadUserSitePreferences = async () => {
   try {
-    const result = await api.get('system/setting/public/IndexerSites')
-    if (result && result.data && result.data.value) {
-      selectedSites.value = result.data.value
+    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    if (result.value) {
+      selectedSites.value = result.value
       return
     }
   } catch (err) {

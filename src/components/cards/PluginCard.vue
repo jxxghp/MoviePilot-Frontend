@@ -2,7 +2,8 @@
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
-import type { ApiResponse, Plugin, PluginRating } from '@/api/types'
+import { getApiBusinessErrorMessage } from '@/api/client'
+import type { Plugin, PluginRating } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -136,26 +137,17 @@ async function uninstallPlugin() {
 
   showPluginProgress(t('plugin.uninstalling', { name: props.plugin?.plugin_name }))
   try {
-    const result: ApiResponse<unknown> = await api.delete(`plugin/${props.plugin?.id}`)
-    if (result.success) {
-      $toast.success(t('plugin.uninstallSuccess', { name: props.plugin?.plugin_name }))
+    await api.delete(`plugin/${props.plugin?.id}`, { feedback: 'silent' })
+    $toast.success(t('plugin.uninstallSuccess', { name: props.plugin?.plugin_name }))
 
-      emit('remove')
-      // 生命周期成功后刷新动态导航。
-      void pluginSidebarNavStore.ensureSidebarNav(true)
-    } else {
-      $toast.error(
-        t('plugin.uninstallFailed', {
-          name: props.plugin?.plugin_name,
-          message: result.message,
-        }),
-      )
-    }
+    emit('remove')
+    // 生命周期成功后刷新动态导航。
+    void pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
     $toast.error(
       t('plugin.uninstallFailed', {
         name: props.plugin?.plugin_name,
-        message: t('common.serverConnectionFailed'),
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
       }),
     )
     console.error(error)
@@ -222,25 +214,16 @@ async function resetPlugin() {
   if (!isConfirmed) return
 
   try {
-    const result: ApiResponse<unknown> = await api.get(`plugin/reset/${props.plugin?.id}`)
-    if (result.success) {
-      $toast.success(t('plugin.resetSuccess', { name: props.plugin?.plugin_name }))
-      emit('save')
-      // 生命周期成功后刷新动态导航。
-      void pluginSidebarNavStore.ensureSidebarNav(true)
-    } else {
-      $toast.error(
-        t('plugin.resetFailed', {
-          name: props.plugin?.plugin_name,
-          message: result.message,
-        }),
-      )
-    }
+    await api.get(`plugin/reset/${props.plugin?.id}`, { feedback: 'silent' })
+    $toast.success(t('plugin.resetSuccess', { name: props.plugin?.plugin_name }))
+    emit('save')
+    // 生命周期成功后刷新动态导航。
+    void pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
     $toast.error(
       t('plugin.resetFailed', {
         name: props.plugin?.plugin_name,
-        message: t('common.serverConnectionFailed'),
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
       }),
     )
     console.error(error)
@@ -274,7 +257,8 @@ async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
         : t('plugin.updating', { name: props.plugin?.plugin_name }),
     )
 
-    const result: ApiResponse<unknown> = await api.get(`plugin/install/${props.plugin?.id}`, {
+    await api.get(`plugin/install/${props.plugin?.id}`, {
+      feedback: 'silent',
       params: {
         repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
@@ -282,27 +266,18 @@ async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
       },
     })
 
-    if (result.success) {
-      $toast.success(t('plugin.updateSuccess', { name: props.plugin?.plugin_name }))
-      versionHistoryDialogController?.close()
-      versionHistoryDialogController = null
+    $toast.success(t('plugin.updateSuccess', { name: props.plugin?.plugin_name }))
+    versionHistoryDialogController?.close()
+    versionHistoryDialogController = null
 
-      emit('save')
-      // 生命周期成功后刷新动态导航。
-      void pluginSidebarNavStore.ensureSidebarNav(true)
-    } else {
-      $toast.error(
-        t('plugin.updateFailed', {
-          name: props.plugin?.plugin_name,
-          message: result.message,
-        }),
-      )
-    }
+    emit('save')
+    // 生命周期成功后刷新动态导航。
+    void pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
     $toast.error(
       t('plugin.updateFailed', {
         name: props.plugin?.plugin_name,
-        message: t('common.serverConnectionFailed'),
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
       }),
     )
     console.error(error)
@@ -479,26 +454,27 @@ async function executePluginClone(cloneForm: {
   try {
     showPluginProgress(t('plugin.cloning', { name: props.plugin?.plugin_name }))
 
-    const result: ApiResponse<unknown> = await api.post(`plugin/clone/${props.plugin?.id}`, {
-      suffix: cloneForm.suffix.trim(),
-      name: cloneForm.name.trim(),
-      description: cloneForm.description.trim(),
-      version: cloneForm.version.trim(),
-      icon: cloneForm.icon.trim(),
-    })
+    await api.post(
+      `plugin/clone/${props.plugin?.id}`,
+      {
+        suffix: cloneForm.suffix.trim(),
+        name: cloneForm.name.trim(),
+        description: cloneForm.description.trim(),
+        version: cloneForm.version.trim(),
+        icon: cloneForm.icon.trim(),
+      },
+      { feedback: 'silent' },
+    )
 
-    if (result.success) {
-      $toast.success(t('plugin.cloneSuccess', { name: cloneForm.name }))
-      cloneDialogController?.close()
-      cloneDialogController = null
-      emit('remove')
-      // 生命周期成功后刷新动态导航。
-      void pluginSidebarNavStore.ensureSidebarNav(true)
-    } else {
-      $toast.error(t('plugin.cloneFailed', { message: result.message }))
-    }
+    $toast.success(t('plugin.cloneSuccess', { name: cloneForm.name }))
+    cloneDialogController?.close()
+    cloneDialogController = null
+    emit('remove')
+    // 生命周期成功后刷新动态导航。
+    void pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
-    $toast.error(t('plugin.cloneFailedGeneral'))
+    const message = getApiBusinessErrorMessage(error)
+    $toast.error(message ? t('plugin.cloneFailed', { message }) : t('plugin.cloneFailedGeneral'))
     console.error(error)
   } finally {
     closePluginProgress()

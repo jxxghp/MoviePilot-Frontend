@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import { ApiResponse, FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
+import { FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
 import FileBrowser from '@/components/filebrowser/FileBrowser.vue'
 
 const endpoints = {
@@ -132,46 +132,40 @@ function determineBrowserInitialParams(downloadDirectories: TransferDirectoryCon
 async function loadDownloadDirectories() {
   try {
     // fetch available storages
-    const storageResult = await api.get<unknown, ApiResponse<{ value?: StorageConf[] | null }>>(
-      'system/setting/public/Storages',
-    )
-    storages.value = storageResult.data?.value ?? []
+    const storageResult = await api.get<{ value?: StorageConf[] | null }>('system/setting/public/Storages')
+    storages.value = storageResult.value ?? []
 
-    const result = await api.get<unknown, ApiResponse<{ value?: TransferDirectoryConf[] | null }>>(
-      'system/setting/public/Directories',
-    )
-    if (result.success) {
-      const directories = Array.isArray(result.data?.value) ? result.data.value : []
-      const { storage, path, name } = determineBrowserInitialParams(directories)
-      // operItem初始化
-      operItem.value = {
-        type: 'dir',
-        storage,
-        name: name,
-        path: path,
-      }
-      // itemstack初始化
-      itemstack.value = [
-        {
-          storage: storage,
-          type: 'dir',
-          name: '/',
-          path: '/',
-          fileid: 'root',
-        },
-      ]
-      // 将初始数据拆分到堆栈中
-      const paths = path.split('/').filter(Boolean)
-      paths.map((name, index) => {
-        const path = '/' + paths.slice(0, index + 1).join('/') + '/'
-        itemstack.value.push({
-          storage,
-          type: 'dir',
-          name,
-          path,
-        })
-      })
+    const result = await api.get<{ value?: TransferDirectoryConf[] | null }>('system/setting/public/Directories')
+    const directories = Array.isArray(result.value) ? result.value : []
+    const { storage, path, name } = determineBrowserInitialParams(directories)
+    // operItem初始化
+    operItem.value = {
+      type: 'dir',
+      storage,
+      name: name,
+      path: path,
     }
+    // itemstack初始化
+    itemstack.value = [
+      {
+        storage: storage,
+        type: 'dir',
+        name: '/',
+        path: '/',
+        fileid: 'root',
+      },
+    ]
+    // 将初始数据拆分到堆栈中
+    const paths = path.split('/').filter(Boolean)
+    paths.map((name, index) => {
+      const path = '/' + paths.slice(0, index + 1).join('/') + '/'
+      itemstack.value.push({
+        storage,
+        type: 'dir',
+        name,
+        path,
+      })
+    })
   } catch (error) {
     console.log(error)
   }

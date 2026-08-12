@@ -149,6 +149,7 @@ export async function loadRemoteComponentFromModule(remoteModule: RemoteModule, 
 async function fetchRemoteModules(): Promise<RemoteModule[]> {
   try {
     const response = (await api.get('plugin/remotes?token=moviepilot', {
+      feedback: 'silent',
       signal: federationController.signal,
     })) as unknown as RemoteModule[] | null
     return response ?? []

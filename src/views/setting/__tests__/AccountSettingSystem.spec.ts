@@ -24,10 +24,10 @@ vi.mock('colorthief', () => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: mocks.apiGet,
     post: mocks.apiPost,
-  },
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({

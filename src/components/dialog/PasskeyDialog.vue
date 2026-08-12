@@ -5,7 +5,8 @@ import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { formatDateDifference } from '@core/utils/formatters'
 import api from '@/api'
-import type { ApiResponse, PassKey } from '@/api/types'
+import { getApiBusinessErrorMessage } from '@/api/client'
+import type { PassKey } from '@/api/types'
 import { isAxiosError } from 'axios'
 
 interface Props {
@@ -69,14 +70,10 @@ async function fetchPassKeyList() {
   passkeyListLoading.value = true
   passkeyListFailed.value = false
   try {
-    const result = (await api.get('mfa/passkey/list')) as ApiResponse<PassKey[]>
+    const result = await api.get<PassKey[]>('mfa/passkey/list')
     if (generation !== passkeyListGeneration || !props.modelValue) return
-    if (result.success) {
-      passkeyList.value = result.data || []
-      emit('update:passkeyList', passkeyList.value)
-    } else {
-      passkeyListFailed.value = true
-    }
+    passkeyList.value = result || []
+    emit('update:passkeyList', passkeyList.value)
   } catch (error) {
     if (generation !== passkeyListGeneration || !props.modelValue) return
     passkeyListFailed.value = true
@@ -111,24 +108,20 @@ async function registerPassKey() {
   passkeyRegistering.value = true
   try {
     // 1. 开始注册
-    const startResult = (await api.post(
+    const startResult = await api.post<{ options: string; transaction_token: string }>(
       'mfa/passkey/register/start',
       {
         name: registrationName,
       },
       {
         signal: registrationAbortController.signal,
+        feedback: 'silent',
       },
-    )) as ApiResponse<{ options: string; transaction_token: string }>
+    )
 
     if (generation !== passkeyRegistrationGeneration || !props.modelValue) return
 
-    if (!startResult.success) {
-      $toast.error(startResult.message || t('profile.passkeyRegisterFailed'))
-      return
-    }
-
-    const { options, transaction_token: transactionToken } = startResult.data
+    const { options, transaction_token: transactionToken } = startResult
     const publicKeyOptions = JSON.parse(options)
 
     // 2. 调用WebAuthn API
@@ -169,7 +162,7 @@ async function registerPassKey() {
     }
 
     // 4. 完成注册
-    const finishResult = (await api.post(
+    await api.post(
       'mfa/passkey/register/finish',
       {
         credential: credentialJSON,
@@ -178,18 +171,15 @@ async function registerPassKey() {
       },
       {
         signal: registrationAbortController.signal,
+        feedback: 'silent',
       },
-    )) as ApiResponse
+    )
 
     if (generation !== passkeyRegistrationGeneration || !props.modelValue) return
 
-    if (finishResult.success) {
-      $toast.success(t('profile.passkeyRegisterSuccess'))
-      passkeyName.value = ''
-      await fetchPassKeyList()
-    } else {
-      $toast.error(finishResult.message || t('profile.passkeyRegisterFailed'))
-    }
+    $toast.success(t('profile.passkeyRegisterSuccess'))
+    passkeyName.value = ''
+    await fetchPassKeyList()
   } catch (error) {
     if (generation !== passkeyRegistrationGeneration || !props.modelValue) return
     console.error('PassKey注册失败:', error)
@@ -219,19 +209,12 @@ async function deletePassKey(passkeyId: number) {
     text: t('profile.confirmToDeletePasskey'),
     callback: async (password: string) => {
       try {
-        const result = (await api.post('mfa/passkey/delete', {
-          passkey_id: passkeyId,
-          password,
-        })) as ApiResponse
-        if (result.success) {
-          $toast.success(t('profile.passkeyDeleteSuccess'))
-          await fetchPassKeyList()
-        } else {
-          $toast.error(result.message || t('profile.passkeyDeleteFailed'))
-        }
+        await api.post('mfa/passkey/delete', { passkey_id: passkeyId, password }, { feedback: 'silent' })
+        $toast.success(t('profile.passkeyDeleteSuccess'))
+        await fetchPassKeyList()
       } catch (error) {
         console.error(error)
-        $toast.error(t('profile.passkeyDeleteFailed'))
+        $toast.error(getApiBusinessErrorMessage(error) || t('profile.passkeyDeleteFailed'))
       }
     },
   })

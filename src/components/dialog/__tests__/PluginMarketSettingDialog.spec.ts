@@ -17,10 +17,10 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: mocks.apiGet,
     post: mocks.apiPost,
-  },
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({

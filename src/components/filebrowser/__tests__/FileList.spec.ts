@@ -1,8 +1,9 @@
 import type { EndPoints, FileItem } from '@/api/types'
+import type { DataApiClient } from '@/api'
 import FileList from '@/components/filebrowser/FileList.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
-import type { AxiosInstance, AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig } from 'axios'
 import { defineComponent, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -21,10 +22,10 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
-  },
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -171,7 +172,7 @@ async function renderList(
     sort?: string
   } = {},
 ) {
-  const axios = Object.assign(vi.fn(), { request: vi.fn(request) }) as unknown as AxiosInstance
+  const axios = Object.assign(vi.fn(), { request: vi.fn(request) }) as unknown as DataApiClient
   const result = await renderWithProviders(FileList, {
     global: { stubs },
     props: {
@@ -186,7 +187,7 @@ async function renderList(
   return { ...result, axios }
 }
 
-function getRequestConfig(axios: AxiosInstance, index: number) {
+function getRequestConfig(axios: DataApiClient, index: number) {
   return vi.mocked(axios.request).mock.calls[index]?.[0] as AxiosRequestConfig
 }
 
@@ -415,7 +416,7 @@ describe('FileList destructive operations', () => {
 
   it('does not emit deletion success for a business failure and always closes loading', async () => {
     const request = vi.fn((config: AxiosRequestConfig) => {
-      if (config.url === '/storage/delete') return Promise.resolve({ message: 'delete denied', success: false })
+      if (config.url === '/storage/delete') return Promise.reject(new Error('delete denied'))
       return Promise.resolve([createItem({ name: 'failed.mkv' })])
     })
     const { emitted } = await renderList(request)
@@ -451,7 +452,7 @@ describe('FileList destructive operations', () => {
         listCount += 1
         return Promise.resolve(listCount === 1 ? [item] : [])
       }
-      return Promise.resolve({ success: true })
+      return Promise.resolve(null)
     })
     const { emitted } = await renderList(request)
     await screen.findByText('deleted.mkv')
@@ -474,9 +475,9 @@ describe('FileList destructive operations', () => {
         return Promise.resolve(listCount === 1 ? [first, failed] : [failed])
       }
       if ((config.data as FileItem).name === 'failed.mkv') {
-        return Promise.resolve({ message: 'permission denied', success: false })
+        return Promise.reject(new Error('permission denied'))
       }
-      return Promise.resolve({ success: true })
+      return Promise.resolve(null)
     })
     const { emitted } = await renderList(request)
     await screen.findByText('first.mkv')
@@ -532,7 +533,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     const first = createItem({ name: 'first.mkv', path: '/media/first.mkv' })
     const second = createItem({ name: 'second.mkv', path: '/media/second.mkv' })
     const request = vi.fn().mockResolvedValue([first, second])
-    mocks.apiPost.mockResolvedValue({ success: true })
+    mocks.apiPost.mockResolvedValue(null)
     await renderList(request)
     await screen.findByText('first.mkv')
 
@@ -665,7 +666,7 @@ describe('FileList dialogs, download and lifecycle', () => {
   it('wires recursive rename progress SSE and closes resources on unmount', async () => {
     const controller = { close: vi.fn(), id: 1, updateProps: vi.fn() }
     mocks.openSharedDialog.mockReturnValue(controller)
-    const renameResult = deferred<{ success: boolean }>()
+    const renameResult = deferred<null>()
     const request = vi.fn((config: AxiosRequestConfig) =>
       config.url?.startsWith('/storage/rename')
         ? renameResult.promise
@@ -687,7 +688,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     expect(mocks.progressStart).toHaveBeenCalledOnce()
     mocks.progressHandler?.(new MessageEvent('message', { data: JSON.stringify({ text_i18n: '重命名中', value: 50 }) }))
     expect(controller.updateProps).toHaveBeenCalledWith(expect.objectContaining({ text: '重命名中', value: 50 }))
-    renameResult.resolve({ success: true })
+    renameResult.resolve(null)
     await renamePromise
 
     unmount()
@@ -701,7 +702,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     mocks.openSharedDialog.mockReturnValueOnce(renameController).mockReturnValueOnce(progressController)
     const request = vi.fn((config: AxiosRequestConfig) =>
       config.url?.startsWith('/storage/rename')
-        ? Promise.resolve({ message: 'rename denied', success: false })
+        ? Promise.reject(new Error('rename denied'))
         : Promise.resolve([createItem({ name: 'rename.mkv' })]),
     )
     const { emitted } = await renderList(request)

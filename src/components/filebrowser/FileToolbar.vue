@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import type { AxiosRequestConfig, AxiosInstance } from 'axios'
-import type { ApiResponse, EndPoints, FileItem } from '@/api/types'
+import type { AxiosRequestConfig } from 'axios'
+import type { EndPoints, FileItem } from '@/api/types'
+import type { DataApiClient } from '@/api'
 import { useDisplay } from 'vuetify'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
@@ -33,7 +34,7 @@ const inProps = defineProps({
   endpoints: Object as PropType<EndPoints>,
   // Axios 实例是可调用函数，运行时 prop 类型需与其实际形态一致。
   axios: {
-    type: Function as PropType<AxiosInstance>,
+    type: Function as PropType<DataApiClient>,
     required: true,
   },
   sort: {
@@ -109,12 +110,10 @@ async function mkdir() {
       url,
       method: inProps.endpoints?.mkdir.method || 'post',
       data: inProps.item,
+      feedback: 'silent',
     }
 
-    const result = await inProps.axios.request<unknown, ApiResponse<unknown>>(config)
-    if (!result?.success) {
-      return
-    }
+    await inProps.axios.request<null>(config)
 
     newFolderDialogController?.close()
     newFolderDialogController = null

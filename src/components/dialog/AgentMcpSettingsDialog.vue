@@ -41,6 +41,11 @@ interface AgentMcpTestState {
   tools?: AgentMcpToolInfo[]
 }
 
+interface AgentMcpTestResult {
+  message?: string
+  tools?: AgentMcpToolInfo[]
+}
+
 const props = defineProps<{
   modelValue: boolean
   servers: AgentMcpServer[]
@@ -169,12 +174,16 @@ async function testServer(server: EditableAgentMcpServer) {
   const payload = toServerPayload(server)
   testStates.value[payload.id] = { loading: true }
   try {
-    const result: { [key: string]: any } = await api.post('message/agent/mcp/servers/test', { server: payload })
+    const result = await api.post<AgentMcpTestResult>(
+      'message/agent/mcp/servers/test',
+      { server: payload },
+      { feedback: 'silent' },
+    )
     testStates.value[payload.id] = {
       loading: false,
-      success: Boolean(result.success),
-      message: result.message || result.data?.message || '',
-      tools: result.data?.tools || [],
+      success: true,
+      message: result.message || '',
+      tools: result.tools || [],
     }
   } catch (error) {
     testStates.value[payload.id] = {
@@ -190,14 +199,10 @@ async function saveServers() {
   saving.value = true
   try {
     const servers = localServers.value.map(toServerPayload)
-    const result: { [key: string]: any } = await api.post('message/agent/mcp/servers', { servers })
-    if (result.success) {
-      toast.success(t('setting.system.aiAgentMcpSaveSuccess'))
-      emit('saved', servers)
-      dialogVisible.value = false
-      return
-    }
-    toast.error(result.message || t('setting.system.aiAgentMcpSaveFailed'))
+    await api.post<null>('message/agent/mcp/servers', { servers }, { feedback: 'silent' })
+    toast.success(t('setting.system.aiAgentMcpSaveSuccess'))
+    emit('saved', servers)
+    dialogVisible.value = false
   } catch (error) {
     toast.error(error instanceof Error ? error.message : String(error))
   } finally {

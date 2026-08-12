@@ -166,13 +166,9 @@ async function addWorkflow() {
   normalizeWorkflowExecutionConfig()
   startNProgress()
   try {
-    const result: { [key: string]: string } = await api.post('workflow/', workflowForm.value)
-    if (result.success) {
-      $toast.success(t('dialog.workflowAddEdit.addSuccess'))
-      emit('save')
-    } else {
-      $toast.error(t('dialog.workflowAddEdit.addFailed', { message: result.message }))
-    }
+    await api.post<null>('workflow/', workflowForm.value)
+    $toast.success(t('dialog.workflowAddEdit.addSuccess'))
+    emit('save')
   } catch (error) {
     console.error(error)
   }
@@ -205,13 +201,9 @@ async function editWorkflow() {
   normalizeWorkflowExecutionConfig()
   startNProgress()
   try {
-    const result: { [key: string]: string } = await api.put(`workflow/${workflowForm.value.id}`, workflowForm.value)
-    if (result.success) {
-      $toast.success(t('dialog.workflowAddEdit.editSuccess'))
-      emit('save')
-    } else {
-      $toast.error(t('dialog.workflowAddEdit.editFailed', { message: result.message }))
-    }
+    await api.put<null>(`workflow/${workflowForm.value.id}`, workflowForm.value)
+    $toast.success(t('dialog.workflowAddEdit.editSuccess'))
+    emit('save')
   } catch (error) {
     console.error(error)
   }

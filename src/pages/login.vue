@@ -4,7 +4,7 @@ import type { Component } from 'vue'
 import { useTheme } from 'vuetify'
 import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
-import api from '@/api'
+import api, { pluginApi } from '@/api'
 import router from '@/router'
 import LoginMfaStep from '@/components/auth/LoginMfaStep.vue'
 import OpticalLogoLab from '@/components/misc/OpticalLogoLab.vue'
@@ -13,7 +13,6 @@ import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { getNavMenus } from '@/router/i18n-menu'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
-import type { ApiResponse } from '@/api/types'
 import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federationLoader'
 import type { MfaMethod } from '@/types/auth'
 import { getLoginVisualProfile } from '@/utils/loginPresentation'
@@ -134,8 +133,8 @@ interface PluginAuthPayload {
 }
 
 interface ApiErrorPayload {
+  data?: ApiErrorPayload
   message?: unknown
-  message_i18n?: unknown
   detail?: unknown
   mfa_methods?: unknown
 }
@@ -152,6 +151,11 @@ interface SerializedPublicKeyRequestOptions extends Omit<
   challenge: string
 }
 
+/** 将 Base64URL 凭证字段转换为 WebAuthn 要求的 ArrayBuffer。 */
+function base64UrlToArrayBuffer(value: string): ArrayBuffer {
+  return Uint8Array.from(base64UrlToUint8Array(value)).buffer
+}
+
 function getErrorMessage(error: unknown): string | undefined {
   return error instanceof Error ? error.message : undefined
 }
@@ -159,6 +163,19 @@ function getErrorMessage(error: unknown): string | undefined {
 // Axios 请求失败由响应状态和结构化响应体共同决定登录错误语义。
 function asApiError(error: unknown): AxiosError<ApiErrorPayload> {
   return error as AxiosError<ApiErrorPayload>
+}
+
+/** 兼容标准 envelope 与登录端点的原始错误体，并只读取后端已本地化的顶层 message。 */
+function getApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
+  const responseData = asApiError(error).response?.data
+  if (!responseData || typeof responseData !== 'object') return undefined
+  if (responseData.data && typeof responseData.data === 'object') {
+    return {
+      ...responseData.data,
+      message: responseData.message,
+    }
+  }
+  return responseData
 }
 
 // 登录认证提供方
@@ -321,15 +338,19 @@ async function exchangePluginAuthTicket(ticket: string) {
   const loginGeneration = pluginLoginAttemptGeneration
   pluginAuthLoading.value = true
   try {
-    const response = (await api.post('auth/exchange', { ticket })) as PassKeyFinishResponse
+    const response = await pluginApi.post<PassKeyFinishResponse, PassKeyFinishResponse>(
+      'auth/exchange',
+      { ticket },
+      { feedback: 'silent' },
+    )
     if (!isCurrentLoginAttempt(loginGeneration)) return
     closePluginAuth()
     await handleLoginSuccess(response)
   } catch (error: unknown) {
     if (!isCurrentLoginAttempt(loginGeneration)) return
     console.error('插件认证票据兑换失败:', error)
-    const apiError = asApiError(error)
-    const message = apiError.response?.data?.message || apiError.response?.data?.detail
+    const payload = getApiErrorPayload(error)
+    const message = payload?.message || payload?.detail
     pluginAuthError.value =
       (typeof message === 'string' ? message : undefined) || getErrorMessage(error) || t('login.authFailure')
   } finally {
@@ -381,25 +402,26 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   const { username, isConditional = false, signal } = options
 
   // 1. 开始认证流程
-  const startResponse = (await api.post('/mfa/passkey/authenticate/start', username ? { username } : {}, {
-    signal,
-  })) as ApiResponse<PassKeyStartResponse>
+  const startResponse = await api.post<PassKeyStartResponse>(
+    '/mfa/passkey/authenticate/start',
+    username ? { username } : {},
+    {
+      feedback: 'silent',
+      signal,
+    },
+  )
 
-  if (!startResponse.success) {
-    throw new Error(startResponse.message || 'PassKey start failed')
-  }
-
-  const { options: optionsStr, transaction_token: transactionToken } = startResponse.data
+  const { options: optionsStr, transaction_token: transactionToken } = startResponse
   const publicKeyOptions = JSON.parse(optionsStr) as SerializedPublicKeyRequestOptions
 
   // 2. 调用WebAuthn API
   const credentialRequestOptions: CredentialRequestOptions = {
     publicKey: {
       ...publicKeyOptions,
-      challenge: base64UrlToUint8Array(publicKeyOptions.challenge),
+      challenge: base64UrlToArrayBuffer(publicKeyOptions.challenge),
       allowCredentials: publicKeyOptions.allowCredentials?.map(cred => ({
         ...cred,
-        id: base64UrlToUint8Array(cred.id),
+        id: base64UrlToArrayBuffer(cred.id),
       })),
     },
   }
@@ -439,14 +461,14 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   }
 
   // 4. 完成认证
-  const finishResponse = (await api.post(
+  const finishResponse = await pluginApi.post<PassKeyFinishResponse, PassKeyFinishResponse>(
     '/mfa/passkey/authenticate/finish',
     {
       credential: credentialJSON,
       transaction_token: transactionToken,
     },
-    { signal },
-  )) as PassKeyFinishResponse
+    { feedback: 'silent', signal },
+  )
 
   if (!finishResponse || !finishResponse.access_token) {
     throw new Error('PassKey finish failed: No access token')
@@ -667,12 +689,13 @@ async function requestPasswordLogin(signal: AbortSignal): Promise<PassKeyFinishR
   formData.append('password', form.value.password)
   formData.append('otp_password', form.value.otp_password)
 
-  return (await api.post('/login/access-token', formData, {
+  return pluginApi.post<PassKeyFinishResponse, PassKeyFinishResponse>('/login/access-token', formData, {
+    feedback: 'silent',
     signal,
     headers: {
       Accept: 'application/json',
     },
-  })) as PassKeyFinishResponse
+  })
 }
 
 function setLoginError(error: unknown) {
@@ -682,7 +705,7 @@ function setLoginError(error: unknown) {
     return
   }
 
-  const message = apiError.response.data?.message
+  const message = getApiErrorPayload(error)?.message
   if (typeof message === 'string' && message) {
     errorMessage.value = message
     return
@@ -729,7 +752,7 @@ async function login() {
     if (!isCurrentLoginAttempt(loginGeneration)) return
     const apiError = asApiError(error)
     if (apiError.response?.headers?.['x-mfa-required'] === 'true') {
-      enterMfaStep(apiError.response.data?.mfa_methods)
+      enterMfaStep(getApiErrorPayload(error)?.mfa_methods)
       return
     }
     setLoginError(error)
@@ -1048,7 +1071,7 @@ onUnmounted(() => {
           <component
             v-else-if="RemoteAuthView && selectedAuthProvider"
             :is="RemoteAuthView"
-            :api="api"
+            :api="pluginApi"
             :provider="selectedAuthProvider"
             :plugin-id="selectedAuthProvider.plugin_id"
             @authenticated="handlePluginAuthenticated"

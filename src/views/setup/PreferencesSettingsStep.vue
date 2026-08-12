@@ -55,9 +55,11 @@ const selectedPreset = ref('')
 // 加载用户当前的规则组设置
 async function loadUserFilterRuleGroups() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    if (result.success && result.data?.value && result.data.value.length > 0) {
-      const userRuleGroups = result.data.value
+    const result = await api.get<{ value?: Array<{ name: string; rule_string?: string }> }>(
+      'system/setting/UserFilterRuleGroups',
+    )
+    if (result.value?.length) {
+      const userRuleGroups = result.value
 
       // 查找匹配的预设
       for (const [presetKey, preset] of Object.entries(presetConfigs.value)) {
@@ -158,7 +160,14 @@ onMounted(() => {
           <p class="text-body-2 text-medium-emphasis mb-4">{{ t('setupWizard.preferences.quickPresetsDesc') }}</p>
           <VRow>
             <!-- Hover 命中区域保持静止，避免预设卡片上浮后底边反复触发 mouseleave。 -->
-            <VCol v-for="(preset, key) in presetConfigs" :key="key" class="preset-card-hover-area" cols="12" sm="6" md="3">
+            <VCol
+              v-for="(preset, key) in presetConfigs"
+              :key="key"
+              class="preset-card-hover-area"
+              cols="12"
+              sm="6"
+              md="3"
+            >
               <VCard
                 :color="selectedPreset === key ? preset.color : 'default'"
                 :variant="selectedPreset === key ? 'tonal' : 'outlined'"

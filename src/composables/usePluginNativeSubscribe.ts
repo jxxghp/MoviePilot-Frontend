@@ -139,6 +139,7 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
     const [subscribeResult, existsResult] = await Promise.allSettled([
       subscribeActions.checkSubscribe(null),
       api.get('mediaserver/exists', {
+        feedback: 'silent',
         params: {
           mtype: currentMedia.type,
           media_source: currentMedia.media_source,
@@ -147,13 +148,13 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
           title: currentMedia.title,
           year: currentMedia.year,
         },
-      }) as Promise<{ success?: boolean }>,
+      }) as Promise<{ item?: { id?: string } }>,
     ])
 
     if (subscribeResult.status === 'fulfilled') isSubscribed.value = subscribeResult.value
     else console.error(subscribeResult.reason)
 
-    if (existsResult.status === 'fulfilled') isExists.value = Boolean(existsResult.value?.success)
+    if (existsResult.status === 'fulfilled') isExists.value = Boolean(existsResult.value?.item?.id)
     else console.error(existsResult.reason)
   }
 

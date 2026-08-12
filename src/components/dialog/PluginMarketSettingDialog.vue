@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { ApiResponse } from '@/api/types'
 import draggable from 'vuedraggable'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
@@ -136,12 +135,11 @@ async function queryMarketRepoSetting() {
   loadReposFailed.value = false
 
   try {
-    const result = (await api.get('system/setting/public/PLUGIN_MARKET')) as unknown as ApiResponse<{
+    const result = await api.get<{
       value?: string
-    }>
-    if (!result.success) throw new Error(result.message || '')
+    }>('system/setting/public/PLUGIN_MARKET')
 
-    repoList.value = parseRepoInput(result.data?.value || '').repos
+    repoList.value = parseRepoInput(result.value || '').repos
     syncTextFromList()
   } catch (error) {
     console.log(error)
@@ -161,12 +159,9 @@ async function saveHandle() {
 
     saving.value = true
     const repoStringToSave = reposToSave.join(',')
-    const result = (await api.post('system/setting/PLUGIN_MARKET', repoStringToSave)) as unknown as ApiResponse<unknown>
-
-    if (result.success) {
-      $toast.success(t('dialog.pluginMarketSetting.saveSuccess'))
-      emit('save')
-    } else $toast.error(t('dialog.pluginMarketSetting.saveFailed', { message: result?.message }))
+    await api.post('system/setting/PLUGIN_MARKET', repoStringToSave, { feedback: 'silent' })
+    $toast.success(t('dialog.pluginMarketSetting.saveSuccess'))
+    emit('save')
   } catch (error) {
     console.log(error)
     $toast.error(t('dialog.pluginMarketSetting.saveFailed', { message: error instanceof Error ? error.message : '' }))
@@ -179,29 +174,23 @@ async function saveHandle() {
 async function syncPluginSources() {
   try {
     syncingSources.value = true
-    const result = (await api.post('system/setting/PLUGIN_MARKET/sync-wiki', {})) as unknown as ApiResponse<{
+    const result = await api.post<{
       added_count?: number
       repos?: string[]
       total_count?: number
       value?: string
-    }>
+    }>('system/setting/PLUGIN_MARKET/sync-wiki', {}, { feedback: 'silent' })
 
-    if (result.success) {
-      const repos = Array.isArray(result.data?.repos)
-        ? result.data.repos
-        : parseRepoInput(result.data?.value || '').repos
-      repoList.value = repos
-      syncTextFromList()
-      emit('changed')
-      $toast.success(
-        t('dialog.pluginMarketSetting.syncSuccess', {
-          added: result.data?.added_count ?? 0,
-          total: result.data?.total_count ?? repos.length,
-        }),
-      )
-    } else {
-      $toast.error(t('dialog.pluginMarketSetting.syncFailed', { message: result?.message }))
-    }
+    const repos = Array.isArray(result.repos) ? result.repos : parseRepoInput(result.value || '').repos
+    repoList.value = repos
+    syncTextFromList()
+    emit('changed')
+    $toast.success(
+      t('dialog.pluginMarketSetting.syncSuccess', {
+        added: result.added_count ?? 0,
+        total: result.total_count ?? repos.length,
+      }),
+    )
   } catch (error) {
     console.log(error)
     $toast.error(t('dialog.pluginMarketSetting.syncFailed', { message: error instanceof Error ? error.message : '' }))

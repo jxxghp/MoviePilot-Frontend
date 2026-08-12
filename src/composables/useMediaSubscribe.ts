@@ -256,9 +256,10 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         音乐: 'system/setting/public/DefaultMusicSubscribeConfig',
       }[media?.type || '']
       if (!subscribeConfigUrl) return undefined
-      const result: { [key: string]: any } = await api.get(subscribeConfigUrl)
-
-      return result.data?.value
+      const result = await api.get<{ value?: SubscribeConfig }>(subscribeConfigUrl, {
+        feedback: 'silent',
+      })
+      return result.value
     } catch (error) {
       console.log(error)
     }
@@ -296,37 +297,34 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
     startNProgress()
     try {
-      const result: { [key: string]: any } = await api.post('subscribe/', {
-        name: media.title,
-        type: media.type,
-        // 后端的订阅模型 year 为字符串，音乐的 year 是数字，需统一转字符串避免 422
-        year: media.year?.toString() ?? '',
-        media_source: identity.source,
-        media_id: identity.mediaId,
-        // 专辑订阅必须保留实体类型和曲目总数，后端据此校验整专资源并决定何时完成订阅。
-        music_type: getMusicSubscribeType(media),
-        total_tracks: getMusicSubscribeType(media) === 'album' ? media.total_tracks : undefined,
-        season: media.type === '电影' ? null : season,
-        ...payload,
-        episode_group: episodeGroup.value,
-      })
+      const result = await api.post<Subscribe>(
+        'subscribe/',
+        {
+          name: media.title,
+          type: media.type,
+          // 后端的订阅模型 year 为字符串，音乐的 year 是数字，需统一转字符串避免 422
+          year: media.year?.toString() ?? '',
+          media_source: identity.source,
+          media_id: identity.mediaId,
+          // 专辑订阅必须保留实体类型和曲目总数，后端据此校验整专资源并决定何时完成订阅。
+          music_type: getMusicSubscribeType(media),
+          total_tracks: getMusicSubscribeType(media) === 'album' ? media.total_tracks : undefined,
+          season: media.type === '电影' ? null : season,
+          ...payload,
+          episode_group: episodeGroup.value,
+        },
+        { feedback: 'silent' },
+      )
 
       const subscribeSeason = media.type === '电影' ? null : season
       const subscribeMode = getSubscribeMode(payload)
-      if (result.success) updateSubscribeStatus(subscribeSeason, true, subscribeMode)
+      updateSubscribeStatus(subscribeSeason, true, subscribeMode)
+      showSubscribeAddToast(true, media.title ?? '', season, '', payload.best_version ?? 0)
 
-      showSubscribeAddToast(
-        result.success,
-        media.title ?? '',
-        season,
-        result.message ?? t('subscribe.requestFailed'),
-        payload.best_version ?? 0,
-      )
-
-      if (result.success && (addOptions.openEditDialog ?? true)) {
+      if (addOptions.openEditDialog ?? true) {
         const subscribeConfig = await queryDefaultSubscribeConfig()
-        if (subscribeConfig?.show_edit_dialog && result.data?.id) {
-          openSubscribeEditDialog(result.data.id, subscribeSeason, subscribeMode)
+        if (subscribeConfig?.show_edit_dialog && result.id) {
+          openSubscribeEditDialog(result.id, subscribeSeason, subscribeMode)
         }
       }
     } catch (error) {
@@ -362,25 +360,17 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
     startNProgress()
     try {
-      const result: { [key: string]: any } = await api.delete(
-        `subscribe/media/${encodeURIComponent(identity.mediaId)}`,
-        {
-          params: {
-            media_source: identity.source,
-            season: media.type === '电影' ? null : season,
-            music_type: getMusicSubscribeType(media),
-          },
+      await api.delete(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
+        feedback: 'silent',
+        params: {
+          media_source: identity.source,
+          season: media.type === '电影' ? null : season,
+          music_type: getMusicSubscribeType(media),
         },
-      )
+      })
 
-      if (result.success) {
-        updateSubscribeStatus(media.type === '电影' ? null : season, false)
-        $toast.success(`${title} ${t('subscribe.cancelSuccess')}`)
-      } else {
-        $toast.error(
-          `${title} ${t('subscribe.cancelFailed', { message: result.message ?? t('subscribe.requestFailed') })}`,
-        )
-      }
+      updateSubscribeStatus(media.type === '电影' ? null : season, false)
+      $toast.success(`${title} ${t('subscribe.cancelSuccess')}`)
     } catch (error) {
       console.error(error)
       $toast.error(
@@ -399,6 +389,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     if (!identity) return false
     try {
       const result: Subscribe = await api.get(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
+        feedback: 'silent',
         params: {
           media_source: identity.source,
           season,
@@ -421,6 +412,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     if (!identity) return null
     try {
       const result: Subscribe = await api.get(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
+        feedback: 'silent',
         params: {
           media_source: identity.source,
           season,
@@ -452,22 +444,17 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       }
 
       const payload = getSubscribePayload(mode)
-      const result: { [key: string]: any } = await api.put('subscribe/', {
-        ...subscribe,
-        ...payload,
-      })
+      await api.put(
+        'subscribe/',
+        {
+          ...subscribe,
+          ...payload,
+        },
+        { feedback: 'silent' },
+      )
 
-      if (result.success) {
-        updateSubscribeStatus(season, true, mode)
-        $toast.success(`${title} ${t('subscribe.modeUpdateSuccess', { mode: getModeName(t, mode) })}`)
-      } else {
-        $toast.error(
-          `${title} ${t('subscribe.addFailed', {
-            name: getModeName(t, mode),
-            message: result.message ?? t('subscribe.requestFailed'),
-          })}`,
-        )
-      }
+      updateSubscribeStatus(season, true, mode)
+      $toast.success(`${title} ${t('subscribe.modeUpdateSuccess', { mode: getModeName(t, mode) })}`)
     } catch (error) {
       console.error(error)
       $toast.error(

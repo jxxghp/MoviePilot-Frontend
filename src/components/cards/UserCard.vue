@@ -96,13 +96,9 @@ async function removeUser() {
       content: t('user.confirmDeleteUser', { username: props.user?.name }),
     })
     if (!isConfirmed) return
-    const result: Record<string, unknown> = await api.delete(`user/id/${props.user.id}`)
-    if (result.success) {
-      $toast.success(t('user.deleteSuccess'))
-      emit('remove')
-    } else {
-      $toast.error(t('user.deleteFailed'))
-    }
+    await api.delete(`user/id/${props.user.id}`, { feedback: 'silent' })
+    $toast.success(t('user.deleteSuccess'))
+    emit('remove')
   } catch (error) {
     $toast.error(t('user.deleteFailed'))
     console.log(error)

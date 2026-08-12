@@ -22,11 +22,11 @@ vi.mock('@/composables/useSharedDialog', () => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
     delete: (...args: unknown[]) => mocks.apiDelete(...args),
-  },
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -210,13 +210,15 @@ describe('music page', () => {
   it('uses three columns from the desktop breakpoint', async () => {
     const { container } = await renderMusicPage()
 
-    const resultColumn = await waitFor(() => container.querySelector('.music-result-col'))
+    await screen.findByText('晴天')
+    const resultColumn = container.querySelector('.music-result-col')
     expect(resultColumn).toHaveClass('v-col-md-6', 'v-col-lg-4')
   })
 
   it('uses the shared themed lift interaction for result cards', async () => {
     const { container } = await renderMusicPage()
-    const hoverArea = await waitFor(() => container.querySelector('.music-card-hover-area'))
+    await screen.findByText('晴天')
+    const hoverArea = container.querySelector('.music-card-hover-area')
     const card = container.querySelector('.music-card')!
 
     await fireEvent.mouseEnter(hoverArea!)

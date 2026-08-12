@@ -4,7 +4,7 @@ import FileToolbar from './FileToolbar.vue'
 import FileNavigator from './FileNavigator.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
 import { storageIconDict } from '@/api/constants'
-import type { AxiosInstance } from 'axios'
+import type { DataApiClient } from '@/api'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/stores'
@@ -22,7 +22,7 @@ const props = defineProps({
   endpoints: Object as PropType<EndPoints>,
   // Axios 实例是可调用函数，运行时 prop 类型需与其实际形态一致。
   axios: {
-    type: Function as PropType<AxiosInstance>,
+    type: Function as PropType<DataApiClient>,
     required: true,
   },
   axiosconfig: Object,

@@ -11,7 +11,9 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }))
 
-vi.mock('@/api', () => ({ default: { post: (...args: unknown[]) => mocks.apiPost(...args) } }))
+vi.mock('@/api', () => ({
+  default: createDataApiMock({ post: (...args: unknown[]) => mocks.apiPost(...args) }),
+}))
 vi.mock('qrcode', () => ({ default: { toDataURL: (...args: unknown[]) => mocks.qrCode(...args) } }))
 vi.mock('vue-toastification', () => ({
   useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),

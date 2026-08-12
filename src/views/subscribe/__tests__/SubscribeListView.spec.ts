@@ -62,9 +62,17 @@ const SubscribeCardStub = defineComponent({
         },
         [
           h('span', props.media.name),
-          h('button', { 'aria-label': `select-${props.media.id}`, onClick: () => emit('select'), type: 'button' }, 'select'),
+          h(
+            'button',
+            { 'aria-label': `select-${props.media.id}`, onClick: () => emit('select'), type: 'button' },
+            'select',
+          ),
           h('button', { 'aria-label': `save-${props.media.id}`, onClick: () => emit('save'), type: 'button' }, 'save'),
-          h('button', { 'aria-label': `remove-${props.media.id}`, onClick: () => emit('remove'), type: 'button' }, 'remove'),
+          h(
+            'button',
+            { 'aria-label': `remove-${props.media.id}`, onClick: () => emit('remove'), type: 'button' },
+            'remove',
+          ),
         ],
       )
   },
@@ -228,12 +236,7 @@ interface RenderListOptions {
 async function renderList(options: RenderListOptions = {}) {
   const type = options.type ?? '电影'
   server.use(
-    subscribeOrderConfigHandler(
-      type,
-      options.orderValue,
-      options.orderStatus ?? 200,
-      options.onOrderRequest,
-    ),
+    subscribeOrderConfigHandler(type, options.orderValue, options.orderStatus ?? 200, options.onOrderRequest),
     subscribeListHandler(options.listResponse ?? [], options.listStatus ?? 200, options.onListRequest),
   )
 

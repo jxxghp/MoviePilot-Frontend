@@ -24,9 +24,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
-  },
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -159,7 +159,7 @@ describe('plugin native subscribe flow', () => {
 
   it('restores movie subscribe and exists state before using the native movie flow', async () => {
     mocks.checkSubscribe.mockResolvedValue(true)
-    mocks.apiGet.mockResolvedValue({ success: true })
+    mocks.apiGet.mockResolvedValue({ item: { id: 'library-600' } })
     const nativeSubscribe = await renderNativeSubscribeHarness()
 
     await expect(

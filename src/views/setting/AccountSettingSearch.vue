@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import type { FilterRuleGroup, Site } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
@@ -67,10 +68,10 @@ const mediaSourcesDict = [
 ]
 
 // 当前选中的媒体信息数据源
-const selectedMediaSource = ref([])
+const selectedMediaSource = ref<string[]>([])
 
 // 当前选中的过滤规则组
-const selectedFilterGroup = ref([])
+const selectedFilterGroup = ref<string[]>([])
 
 // 过滤规则组选择项
 const filterRuleGroupOptions = computed(() => {
@@ -98,8 +99,8 @@ async function querySites() {
 // 加载规则组
 async function queryFilterRuleGroups() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    const result = await api.get<{ value?: FilterRuleGroup[] }>('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -108,9 +109,8 @@ async function queryFilterRuleGroups() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/IndexerSites')
-
-    selectedSites.value = result.data?.value ?? []
+    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    selectedSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -119,10 +119,8 @@ async function querySelectedSites() {
 // 保存用户选中的站点
 async function saveSelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/IndexerSites', selectedSites.value)
-
-    if (result.success) $toast.success('搜索站点保存成功')
-    else $toast.error('搜索站点保存失败！')
+    await api.post('system/setting/IndexerSites', selectedSites.value, { feedback: 'silent' })
+    $toast.success('搜索站点保存成功')
   } catch (error) {
     console.log(error)
     $toast.error('搜索站点保存失败！')
@@ -132,10 +130,10 @@ async function saveSelectedSites() {
 // 调用API查询设置
 async function loadSearchSetting() {
   try {
-    const result1: { [key: string]: any } = await api.get('system/setting/SEARCH_SOURCE')
-    if (result1.success) selectedMediaSource.value = result1.data?.value?.split(',')
-    const result2: { [key: string]: any } = await api.get('system/setting/SearchFilterRuleGroups')
-    if (result2.success) selectedFilterGroup.value = result2.data?.value
+    const result1 = await api.get<{ value?: string }>('system/setting/SEARCH_SOURCE')
+    selectedMediaSource.value = result1.value?.split(',') ?? []
+    const result2 = await api.get<{ value?: string[] }>('system/setting/SearchFilterRuleGroups')
+    selectedFilterGroup.value = result2.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -144,11 +142,8 @@ async function loadSearchSetting() {
 // 调用API保存设置
 async function saveSystemSetting(value: { [key: string]: any }) {
   try {
-    const result: { [key: string]: any } = await api.post('system/env', value)
-
-    if (result.success) {
-      return true
-    }
+    await api.post('system/env', value, { feedback: 'silent' })
+    return true
   } catch {
     return false
   }
@@ -158,47 +153,42 @@ async function saveSystemSetting(value: { [key: string]: any }) {
 // 调用API保存设置
 async function saveSearchSetting() {
   try {
-    const result1: { [key: string]: any } = await api.post(
-      'system/setting/SEARCH_SOURCE',
-      selectedMediaSource.value.join(','),
-    )
+    await api.post('system/setting/SEARCH_SOURCE', selectedMediaSource.value.join(','), { feedback: 'silent' })
+  } catch (error) {
+    console.log(error)
+    const message = getApiBusinessErrorMessage(error)
+    $toast.error(message ? `媒体搜索数据源保存失败：${message}！` : '搜索基础设置保存失败！')
+    return
+  }
 
-    if (!result1 || !result1.success) {
-      $toast.error(`媒体搜索数据源保存失败：${result1?.message}！`)
-      return
-    }
-
-    const result2: { [key: string]: any } = await api.post(
-      'system/setting/SearchFilterRuleGroups',
-      selectedFilterGroup.value,
-    )
-
-    const result3 = await saveSystemSetting(SystemSettings.value.Basic)
-
-    if (result2.success && result3) {
-      $toast.success('搜索基础设置保存成功')
-    } else {
-      $toast.error('搜索基础设置保存失败！')
-    }
+  try {
+    await api.post('system/setting/SearchFilterRuleGroups', selectedFilterGroup.value, { feedback: 'silent' })
   } catch (error) {
     console.log(error)
     $toast.error('搜索基础设置保存失败！')
+    return
   }
+
+  const settingsSaved = await saveSystemSetting(SystemSettings.value.Basic)
+  if (!settingsSaved) {
+    $toast.error('搜索基础设置保存失败！')
+    return
+  }
+
+  $toast.success('搜索基础设置保存成功')
 }
 
 // 加载系统设置
 async function loadSystemSettings() {
   try {
     const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success) {
-      // 将API返回的值赋值给SystemSettings
-      for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
-        Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
-            Reflect.set(SystemSettings.value[sectionKey], key, result.data[key])
-          }
-        })
-      }
+    // 将API返回的值赋值给SystemSettings
+    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+      Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
+        if (Object.prototype.hasOwnProperty.call(result, key)) {
+          Reflect.set(SystemSettings.value[sectionKey], key, result[key])
+        }
+      })
     }
   } catch (error) {
     console.log(error)

@@ -3,7 +3,6 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type {
-  ApiResponse,
   DownloaderConf,
   MediaDataSource,
   MediaInfo,
@@ -144,11 +143,8 @@ const dialogSubtitle = computed(() => {
 // 加载目录设置
 async function loadDirectories() {
   try {
-    const result = await api.get<
-      ApiResponse<{ value?: TransferDirectoryConf[] }>,
-      ApiResponse<{ value?: TransferDirectoryConf[] }>
-    >('system/setting/public/Directories')
-    directories.value = result.data?.value ?? []
+    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
+    directories.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -226,29 +222,25 @@ async function addDownload() {
 
     const endpoint = props.media ? 'download/' : 'download/add'
 
-    const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>(endpoint, payload)
+    await api.post<null>(endpoint, payload, { feedback: 'silent' })
 
-    if (result && result.success) {
-      // 添加下载成功
-      $toast.success(
-        t('dialog.addDownload.downloadSuccess', { site: props.torrent?.site_name, title: props.torrent?.title }),
-      )
-      // 下载成功，返回链接
-      emit('done', props.torrent?.enclosure)
-    } else {
-      // 添加下载失败
-      $toast.error(
-        t('dialog.addDownload.downloadFailed', {
-          site: props.torrent?.site_name,
-          title: props.torrent?.title,
-          message: result?.message,
-        }),
-      )
-      // 下载失败，返回错误原因
-      emit('error', result?.message)
-    }
+    // 添加下载成功
+    $toast.success(
+      t('dialog.addDownload.downloadSuccess', { site: props.torrent?.site_name, title: props.torrent?.title }),
+    )
+    // 下载成功，返回链接
+    emit('done', props.torrent?.enclosure)
   } catch (error) {
     console.error(error)
+    const message = error instanceof Error ? error.message : String(error)
+    $toast.error(
+      t('dialog.addDownload.downloadFailed', {
+        site: props.torrent?.site_name,
+        title: props.torrent?.title,
+        message,
+      }),
+    )
+    emit('error', message)
   }
   loading.value = false
   doneNProgress()

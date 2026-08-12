@@ -175,7 +175,7 @@ async function queryFilterRuleGroups() {
 
   try {
     const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    filterRuleGroups.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -193,20 +193,10 @@ const filterRuleGroupOptions = computed(() => {
 async function updateSubscribeInfo() {
   const displayName = getSubscribeDisplayName()
   try {
-    const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm.value)
-    // 提示
-    if (result.success) {
-      $toast.success(t('dialog.subscribeEdit.updateSuccess', { name: displayName }))
-      // 通知父组件刷新
-      emit('save', subscribeForm.value)
-    } else {
-      $toast.error(
-        t('dialog.subscribeEdit.updateFailed', {
-          name: displayName,
-          message: result.message ?? t('subscribe.requestFailed'),
-        }),
-      )
-    }
+    await api.put<null>('subscribe/', subscribeForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.subscribeEdit.updateSuccess', { name: displayName }))
+    // 通知父组件刷新
+    emit('save', subscribeForm.value)
   } catch (e) {
     console.log(e)
     $toast.error(
@@ -229,19 +219,10 @@ async function saveDefaultSubscribeConfig() {
     else if (props.type === '电视剧') subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
     else subscribe_config_url = 'system/setting/DefaultMusicSubscribeConfig'
 
-    const result: { [key: string]: any } = await api.post(subscribe_config_url, subscribeForm.value)
-    if (result.success) {
-      $toast.success(t('dialog.subscribeEdit.defaultSaveSuccess', { type: typeName }))
-      // 通知父组件刷新
-      emit('save', subscribeForm.value)
-    } else {
-      $toast.error(
-        t('dialog.subscribeEdit.defaultSaveFailed', {
-          type: typeName,
-          message: result.message ?? t('subscribe.requestFailed'),
-        }),
-      )
-    }
+    await api.post<null>(subscribe_config_url, subscribeForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.subscribeEdit.defaultSaveSuccess', { type: typeName }))
+    // 通知父组件刷新
+    emit('save', subscribeForm.value)
   } catch (error) {
     console.log(error)
     $toast.error(
@@ -261,9 +242,9 @@ async function queryDefaultSubscribeConfig() {
     else if (props.type === '电视剧') subscribe_config_url = 'system/setting/public/DefaultTvSubscribeConfig'
     else subscribe_config_url = 'system/setting/public/DefaultMusicSubscribeConfig'
 
-    const result: { [key: string]: any } = await api.get(subscribe_config_url)
+    const result = await api.get<{ value?: Record<string, unknown> }>(subscribe_config_url)
 
-    if (result.data.value) subscribeForm.value = result.data?.value ?? ''
+    if (result.value) Object.assign(subscribeForm.value, result.value)
   } catch (error) {
     console.log(error)
   }
@@ -321,19 +302,10 @@ async function removeSubscribe() {
   if (!isConfirmed) return
   const displayName = getSubscribeDisplayName()
   try {
-    const result: { [key: string]: any } = await api.delete(`subscribe/${props.subid}`)
-
-    if (result.success) {
-      $toast.success(`${displayName} ${t('subscribe.cancelSuccess')}`)
-      // 通知父组件刷新
-      emit('remove')
-    } else {
-      $toast.error(
-        `${displayName} ${t('subscribe.cancelFailed', {
-          message: result.message ?? t('subscribe.requestFailed'),
-        })}`,
-      )
-    }
+    await api.delete<null>(`subscribe/${props.subid}`, { feedback: 'silent' })
+    $toast.success(`${displayName} ${t('subscribe.cancelSuccess')}`)
+    // 通知父组件刷新
+    emit('remove')
   } catch (e) {
     console.log(e)
     $toast.error(
@@ -347,10 +319,8 @@ async function removeSubscribe() {
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
-    if (result.success && result.data?.value) {
-      downloadDirectories.value = result.data.value
-    }
+    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
+    downloadDirectories.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }

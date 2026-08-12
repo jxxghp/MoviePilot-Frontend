@@ -29,11 +29,9 @@ async function handleDone() {
 // 重置配置
 async function handleReset() {
   try {
-    const result: { [key: string]: any } = await api.get('/storage/reset/smb')
-    if (result.success) {
-      // 重置成功
-      handleDone()
-    }
+    await api.get('/storage/reset/smb')
+    // 重置成功
+    handleDone()
   } catch (e) {
     console.error(e)
   }

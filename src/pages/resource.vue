@@ -60,11 +60,17 @@ interface SearchParams {
 }
 
 interface LastSearchContextResponse {
-  success?: boolean
-  data?: {
-    params?: Partial<SearchParams>
-    results?: Array<Context | SubtitleInfo>
-  }
+  params?: Partial<SearchParams>
+  results?: Array<Context | SubtitleInfo>
+}
+
+interface AiRecommendStatusData {
+  status?: string
+  results?: number[]
+  error_i18n?: string
+  error?: string
+  message_i18n?: string
+  message?: string
 }
 
 const resourceSearchParamsStorageKey = 'MP_ResourceSearchParams'
@@ -212,9 +218,9 @@ async function fetchLastSearchContext() {
   try {
     const result = (await api.get('search/last/context')) as LastSearchContextResponse
     if (requestId === activeSearchRequestId) {
-      applyRememberedSearchParams(result?.data?.params, true)
+      applyRememberedSearchParams(result?.params, true)
     }
-    return Array.isArray(result?.data?.results) ? result.data.results : []
+    return Array.isArray(result?.results) ? result.results : []
   } catch (error) {
     console.warn('读取上次搜索上下文失败，回退到仅加载结果:', error)
     const results = await api.get('search/last')
@@ -872,7 +878,7 @@ async function searchByRequest(params: SearchParams, requestToken: string | unde
 
 // 静默刷新使用普通请求，保留当前结果直到新数据完整返回，避免返回页面时露出搜索进度态。
 async function requestSearchResults(params: SearchParams, requestToken?: string) {
-  let result: { [key: string]: any }
+  let result: Array<Context | SubtitleInfo>
   const isMediaSearch = hasValidMediaIdentity(params)
   if (params.result_type === 'subtitle' && isMediaSearch) {
     result = await api.get(`search/subtitle/media/${encodeURIComponent(params.media_id)}`, {
@@ -921,11 +927,7 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
     })
   }
 
-  if (result && result.success) {
-    return (result.data || []) as Array<Context | SubtitleInfo>
-  }
-
-  throw new Error(result?.message || t('resource.noResourceFound'))
+  return result || []
 }
 
 // 按流搜索
@@ -1209,7 +1211,7 @@ async function sendInitialRequest(force: boolean = false) {
     }
 
     console.log('发送初始请求以启动任务', force ? '(force)' : '')
-    await api.post('search/recommend', requestBody)
+    await api.post<AiRecommendStatusData>('search/recommend', requestBody, { feedback: 'silent' })
   } catch (error) {
     console.error('发送初始请求失败:', error)
     isRecommending.value = false
@@ -1233,15 +1235,11 @@ function startAiRecommendPolling() {
 // 轮询智能推荐状态（始终使用 check_only 模式）
 async function pollAiRecommend() {
   try {
-    const result: { [key: string]: any } = await api.post('search/recommend', {
-      check_only: true,
-    })
-
-    const { success, data } = result
-    const status = data?.status
+    const data = await api.post<AiRecommendStatusData>('search/recommend', { check_only: true }, { feedback: 'silent' })
+    const status = data.status
 
     // 正在运行，继续轮询
-    if (success && status === 'running') {
+    if (status === 'running') {
       console.log('AI推理中...')
       return
     }
@@ -1250,28 +1248,22 @@ async function pollAiRecommend() {
     stopAiRecommendPolling()
     isRecommending.value = false
 
-    if (success && status === 'completed') {
+    if (status === 'completed') {
       // 推荐完成
-      if (data.results?.length > 0) {
+      const results = data.results ?? []
+      if (results.length > 0) {
         // 加载智能推荐结果
-        loadAiRecommendedResults(data.results)
+        loadAiRecommendedResults(results)
 
         // 自动切换到智能推荐结果（会自动保存筛选条件）
         await switchToAiResults()
       }
-    } else if (success && status === 'disabled') {
+    } else if (status === 'disabled') {
       // 功能停用
       console.error('AI功能未启用')
     } else {
-      // 错误情况（status === 'error' 或 success 为 false）
-      const errMsg =
-        result.message_i18n ||
-        result.message ||
-        data?.error_i18n ||
-        data?.error ||
-        data?.message_i18n ||
-        data?.message ||
-        'Unknown error'
+      // 成功数据中的业务错误兼容旧字段；顶层失败由 catch 读取统一错误 message。
+      const errMsg = data?.error_i18n || data?.error || data?.message_i18n || data?.message || 'Unknown error'
       console.error('智能推荐错误:', errMsg)
       toast.error(`${t('resource.aiRecommendError')}: ${errMsg}`)
     }
@@ -1279,6 +1271,7 @@ async function pollAiRecommend() {
     console.error('智能推荐轮询失败:', error)
     stopAiRecommendPolling()
     isRecommending.value = false
+    toast.error(`${t('resource.aiRecommendError')}: ${error instanceof Error ? error.message : t('common.error')}`)
   }
 }
 
@@ -1335,19 +1328,15 @@ async function reRecommend() {
 async function checkAiRecommendStatus() {
   try {
     // 首次检查时使用 check_only 模式
-    const result: { [key: string]: any } = await api.post('search/recommend', {
-      check_only: true,
-    })
-
-    const { success, data } = result
-    const status = data?.status
+    const data = await api.post<AiRecommendStatusData>('search/recommend', { check_only: true }, { feedback: 'silent' })
+    const status = data.status
 
     // 状态检查只是初始化已有推荐结果，非禁用状态下即使后端暂无历史状态也不应锁住按钮
     if (status !== 'disabled') {
       aiStatusChecked.value = true
     }
 
-    if (success && data) {
+    if (data) {
       const { results } = data
 
       // 如果有完成的结果，加载它

@@ -2210,12 +2210,11 @@ export interface SubscribeShareStatistics {
   total_reuse_count?: number
 }
 
-// 通用API响应
-export interface ApiResponse<T = any> {
+/** 后端 API 的固定 envelope；失败及无返回值操作允许 data 为 null。 */
+export interface ApiResponse<T = unknown> {
   success: boolean
-  message?: string
-  message_i18n?: string
-  data: T
+  message: string
+  data: T | null
 }
 
 // 分类规则

@@ -176,7 +176,7 @@ describe('SiteImportDialog', () => {
     expect(screen.getByText('未支持站点 - 错误详情')).toBeInTheDocument()
   })
 
-  it('reports partial success and preserves the HTTP error message', async () => {
+  it('reports partial success and preserves the backend HTTP error message', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const sites = [createSite({ name: '成功站点' }), createSite({ name: '失败站点' })]
     let requestIndex = 0
@@ -196,7 +196,7 @@ describe('SiteImportDialog', () => {
     expect(screen.getByText('成功导入 1 个站点')).toBeInTheDocument()
     expect(mocks.toastError).toHaveBeenCalledWith('导入完成，成功 1 个，失败 1 个')
     await fireEvent.click(screen.getByText('失败站点 - 错误详情'))
-    expect(await screen.findByText('Request failed with status code 500')).toBeInTheDocument()
+    expect(await screen.findByText('第二站请求失败')).toBeInTheDocument()
     expect(consoleError).toHaveBeenCalledWith('Import site 失败站点 failed:', expect.any(Error))
   })
 

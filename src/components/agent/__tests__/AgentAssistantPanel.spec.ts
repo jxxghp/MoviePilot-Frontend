@@ -22,6 +22,48 @@ vi.mock('@/plugins/i18n', () => ({
   getCurrentLocale: () => 'zh-CN',
 }))
 
+vi.mock('@/api', () => {
+  /** 与生产客户端一致，只接受 success/message/data 三个顶层字段。 */
+  function isApiResponse(payload: unknown) {
+    const keys = payload && typeof payload === 'object' && !Array.isArray(payload) ? Object.keys(payload) : []
+    return (
+      keys.length === 3 &&
+      keys.every(key => key === 'success' || key === 'message' || key === 'data') &&
+      typeof (payload as { success?: unknown }).success === 'boolean' &&
+      typeof (payload as { message?: unknown }).message === 'string' &&
+      Object.hasOwn(payload as object, 'data')
+    )
+  }
+
+  /** 让组件单测继续通过 fetch 控制网络，同时模拟生产 DataApiClient 的严格解包语义。 */
+  async function request(path: string, init: RequestInit = {}) {
+    const response = await fetch(`/api/v1/${path}`, init)
+    const payload = await response.json()
+
+    if (!isApiResponse(payload)) throw new Error('Invalid API response envelope')
+    if (!response.ok || !payload.success) throw new Error(payload.message || 'API request failed')
+    return payload.data
+  }
+
+  return {
+    default: {
+      delete: (path: string) => request(path, { method: 'DELETE' }),
+      get: (path: string) => request(path),
+      post: (path: string, data?: unknown) =>
+        request(path, {
+          method: 'POST',
+          body: data instanceof FormData ? data : data === undefined ? undefined : JSON.stringify(data),
+        }),
+      put: (path: string, data?: unknown) =>
+        request(path, {
+          method: 'PUT',
+          body: data === undefined ? undefined : JSON.stringify(data),
+        }),
+    },
+    isApiResponse,
+  }
+})
+
 interface MockServerSession {
   session_id: string
   client_session_id: string
@@ -44,8 +86,16 @@ const agentMarkdownContentStub = {
 // 构造符合 Agent 标准响应包装的 fetch 返回值。
 function createAgentResponse(data: unknown) {
   return {
-    json: vi.fn().mockResolvedValue({ success: true, data }),
+    json: vi.fn().mockResolvedValue({ success: true, message: '', data }),
     ok: true,
+  } as unknown as Response
+}
+
+// 构造业务失败或协议异常响应。
+function createAgentEnvelopeResponse(payload: Record<string, unknown>, ok = true) {
+  return {
+    json: vi.fn().mockResolvedValue(payload),
+    ok,
   } as unknown as Response
 }
 
@@ -1049,6 +1099,41 @@ describe('AgentAssistantPanel stream recovery', () => {
     const uploadCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/upload'))
     const uploadHeaders = new Headers(uploadCall?.[1]?.headers)
     expect(uploadHeaders.has('X-MoviePilot-Agent-Interaction')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each([
+    [
+      'uses the localized backend message for a standard failure envelope',
+      { success: false, message: '附件不受支持', data: null },
+      '附件不受支持',
+    ],
+    [
+      'rejects a legacy envelope with an extra localized-message field',
+      { success: false, message: '标准错误', message_i18n: '旧字段错误', data: null },
+      'Invalid API response envelope',
+    ],
+  ])('%s', async (_caseName, payload, expectedMessage) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/upload') && init?.method === 'POST') {
+        return createAgentEnvelopeResponse(payload)
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    const fileInput = wrapper.get('input[type="file"]')
+    Object.defineProperty(fileInput.element, 'files', {
+      configurable: true,
+      value: [new File(['proof'], 'proof.txt', { type: 'text/plain' })],
+    })
+    await fileInput.trigger('change')
+    await wrapper.find('textarea').setValue('检查附件')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(expectedMessage)
     wrapper.unmount()
   })
 

@@ -8,9 +8,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: mocks.apiGet,
-  },
+  }),
 }))
 
 const FileBrowserStub = defineComponent({

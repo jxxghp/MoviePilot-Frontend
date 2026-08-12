@@ -8,9 +8,9 @@ const apiMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: apiMocks.get,
-  },
+  }),
 }))
 
 function createNavItem(overrides: Partial<PluginSidebarNavItem> = {}): PluginSidebarNavItem {

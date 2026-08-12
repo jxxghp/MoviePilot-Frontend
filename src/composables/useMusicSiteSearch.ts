@@ -33,8 +33,8 @@ export function useMusicSiteSearch(buildRoute: MusicResourceRouteBuilder) {
   async function querySelectedSites() {
     selectedSites.value = []
     try {
-      const result: { data?: { value?: number[] } } = await api.get('system/setting/public/IndexerSites')
-      selectedSites.value = result.data?.value ?? []
+      const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+      selectedSites.value = result.value ?? []
     } catch (error) {
       console.error(error)
     }

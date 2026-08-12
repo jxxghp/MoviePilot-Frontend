@@ -12,7 +12,7 @@ export async function fetchGlobalSettings() {
       // 手动设置signal，防止reqestOptimizer添加可中断的controller
       signal: globalSettingController.signal,
     })
-    return result.data || {}
+    return result || {}
   } catch (error) {
     console.error('Failed to fetch global settings', error)
     throw error

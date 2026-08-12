@@ -99,12 +99,8 @@ async function reSubscribe(item: Subscribe) {
   }
   progressDialog.value = true
   try {
-    const result: { [key: string]: any } = await api.post('subscribe/', item)
-    if (result.success) {
-      emit('save')
-    } else {
-      $toast.error(t('subscribe.requestFailed'))
-    }
+    await api.post('subscribe/', item, { feedback: 'silent' })
+    emit('save')
   } catch (e) {
     console.error(e)
     $toast.error(t('subscribe.requestFailed'))
@@ -115,10 +111,8 @@ async function reSubscribe(item: Subscribe) {
 // 删除记录
 async function deleteHistory(item: Subscribe) {
   try {
-    const result: { [key: string]: any } = await api.delete(`subscribe/history/${item.id}`)
-    if (result.success) {
-      historyList.value = historyList.value.filter(i => i.id !== item.id)
-    }
+    await api.delete(`subscribe/history/${item.id}`, { feedback: 'silent' })
+    historyList.value = historyList.value.filter(i => i.id !== item.id)
   } catch (e) {
     console.error(e)
     $toast.error(t('subscribe.requestFailed'))
@@ -176,9 +170,9 @@ function getMediaTypeText(type: string | undefined) {
             </div>
           </template>
           <template #empty />
-          <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="104">
-            <template #default="{ item, itemRef }">
-              <div :ref="itemRef">
+          <VVirtualScroll v-if="historyList.length > 0" :renderless="true" :items="historyList" :item-height="104">
+            <template #default="{ item, ...slotProps }">
+              <div :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined">
                 <VListItem>
                   <template #prepend>
                     <VImg

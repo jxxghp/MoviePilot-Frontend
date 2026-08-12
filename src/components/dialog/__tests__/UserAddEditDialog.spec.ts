@@ -26,11 +26,11 @@ const DialogCloseBtn = defineComponent({
 })
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
     put: (...args: unknown[]) => mocks.apiPut(...args),
-  },
+  }),
 }))
 
 vi.mock('@/api/nprogress', () => ({

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { SubscribeShare } from '@/api/types'
 import router from '@/router'
@@ -51,8 +52,8 @@ function toggleExpand() {
 // 加载follow用户列表
 async function queryFollowUsers() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/FollowSubscribers')
-    followUsers.value = result.data?.value ?? []
+    const result = await api.get<{ value?: string[] }>('system/setting/public/FollowSubscribers')
+    followUsers.value = result.value ?? []
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.requestFailed'))
@@ -62,10 +63,8 @@ async function queryFollowUsers() {
 // follow用户
 async function followUser() {
   try {
-    const result: { [key: string]: any } = await api.post(`subscribe/follow?share_uid=${props.media?.share_uid}`)
-    if (result.success) {
-      queryFollowUsers()
-    }
+    await api.post<null>(`subscribe/follow?share_uid=${props.media?.share_uid}`, undefined, { feedback: 'silent' })
+    queryFollowUsers()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.requestFailed'))
@@ -75,14 +74,13 @@ async function followUser() {
 // unfollow用户
 async function unfollowUser() {
   try {
-    const result: { [key: string]: any } = await api.delete('subscribe/follow', {
+    await api.delete<null>('subscribe/follow', {
       params: {
         share_uid: props.media?.share_uid,
       },
+      feedback: 'silent',
     })
-    if (result.success) {
-      queryFollowUsers()
-    }
+    queryFollowUsers()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.requestFailed'))
@@ -124,21 +122,16 @@ async function doFork() {
   try {
     processing.value = true
     // 请求API
-    const result: { [key: string]: any } = await api.post('subscribe/fork', props.media)
-    // 订阅状态
-    if (result.success) {
-      $toast.success(t('subscribe.addSuccess', { name: props.media?.share_title }))
-      // 完成
-      emit('fork', result.data.id)
-    } else {
-      $toast.error(t('subscribe.addFailed', { name: props.media?.share_title, message: result.message }))
-    }
+    const result = await api.post<{ id: number }>('subscribe/fork', props.media, { feedback: 'silent' })
+    $toast.success(t('subscribe.addSuccess', { name: props.media?.share_title }))
+    // 完成
+    emit('fork', result.id)
   } catch (error) {
     console.error(error)
     $toast.error(
       t('subscribe.addFailed', {
         name: props.media?.share_title,
-        message: t('subscribe.requestFailed'),
+        message: getApiBusinessErrorMessage(error) || t('subscribe.requestFailed'),
       }),
     )
   } finally {
@@ -154,22 +147,22 @@ async function doDelete() {
   try {
     deleting.value = true
     // 请求API
-    const result: { [key: string]: any } = await api.delete(`subscribe/share/${props.media?.id}`, {
+    await api.delete<null>(`subscribe/share/${props.media?.id}`, {
       params: {
         share_uid: globalSettings.USER_UNIQUE_ID,
       },
+      feedback: 'silent',
     })
-    // 订阅状态
-    if (result.success) {
-      $toast.success(t('subscribe.cancelSuccess'))
-      // 完成
-      emit('delete')
-    } else {
-      $toast.error(t('subscribe.cancelFailed', { message: result.message }))
-    }
+    $toast.success(t('subscribe.cancelSuccess'))
+    // 完成
+    emit('delete')
   } catch (error) {
     console.error(error)
-    $toast.error(t('subscribe.cancelFailed', { message: t('subscribe.requestFailed') }))
+    $toast.error(
+      t('subscribe.cancelFailed', {
+        message: getApiBusinessErrorMessage(error) || t('subscribe.requestFailed'),
+      }),
+    )
   } finally {
     deleting.value = false
     doneNProgress()

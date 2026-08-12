@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import api from '@/api'
+import { pluginApi } from '@/api'
 import { loadRemoteAppPageComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
@@ -55,7 +55,7 @@ watch(
       v-else
       :is="RemoteView"
       :key="`${pluginId}-${navKey}`"
-      :api="api"
+      :api="pluginApi"
       :native-subscribe="nativeSubscribe"
       :nav-key="navKey"
       :plugin-id="pluginId"

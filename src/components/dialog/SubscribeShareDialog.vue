@@ -37,21 +37,16 @@ async function doShare() {
   if (!shareForm.value.share_title || !shareForm.value.share_comment || !shareForm.value.share_user) return
   try {
     shareDoing.value = true
-    const result: { [key: string]: any } = await api.post('subscribe/share', shareForm.value)
-    // 提示
-    if (result.success) {
-      $toast.success(t('dialog.subscribeShare.shareSuccess', { name: props.sub?.name }))
-      // 通知父组件刷新
-      emit('close')
-    } else {
-      $toast.error(t('dialog.subscribeShare.shareFailed', { name: props.sub?.name, message: result.message }))
-    }
+    await api.post('subscribe/share', shareForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.subscribeShare.shareSuccess', { name: props.sub?.name }))
+    // 通知父组件刷新
+    emit('close')
   } catch (e) {
     console.error(e)
     $toast.error(
       t('dialog.subscribeShare.shareFailed', {
         name: props.sub?.name,
-        message: t('subscribe.requestFailed'),
+        message: e instanceof Error ? e.message : t('subscribe.requestFailed'),
       }),
     )
   } finally {

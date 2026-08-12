@@ -47,10 +47,8 @@ async function savaRcloneConfig() {
 // 重置配置
 async function handleReset() {
   try {
-    const result: { [key: string]: any } = await api.get('/storage/reset/rclone')
-    if (result.success) {
-      handleDone()
-    }
+    await api.get('/storage/reset/rclone')
+    handleDone()
   } catch (e) {
     console.error(e)
   }

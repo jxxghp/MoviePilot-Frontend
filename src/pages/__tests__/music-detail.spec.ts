@@ -22,11 +22,11 @@ vi.mock('@/composables/useSharedDialog', () => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
     delete: (...args: unknown[]) => mocks.apiDelete(...args),
-  },
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({

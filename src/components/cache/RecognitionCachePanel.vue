@@ -4,7 +4,6 @@ import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import type {
-  ApiResponse,
   MusicRecognitionCacheData,
   MusicRecognitionCacheItem,
   RecognitionCacheData,
@@ -148,26 +147,17 @@ async function loadCacheData(showSuccess = false) {
   const requestId = ++cacheLoadRequestId
   try {
     loading.value = true
-    const [response, musicResponse] = (await Promise.all([
-      api.get(TMDB_CACHE_ENDPOINT),
-      api.get(MUSIC_CACHE_ENDPOINT),
-    ])) as unknown as [ApiResponse<RecognitionCacheData>, ApiResponse<MusicRecognitionCacheData>]
+    const [responseData, musicData] = await Promise.all([
+      api.get<RecognitionCacheData>(TMDB_CACHE_ENDPOINT),
+      api.get<MusicRecognitionCacheData>(MUSIC_CACHE_ENDPOINT),
+    ])
     if (requestId !== cacheLoadRequestId) return
-    const responseData = response.data ?? {
-      count: 0,
-      recognized: 0,
-      unrecognized: 0,
-      shared_recognized: 0,
-      shared_recognize_enabled: false,
-      data: [],
-    }
     cacheData.value = {
       ...responseData,
       shared_recognized: responseData.shared_recognized ?? 0,
       shared_recognize_enabled: responseData.shared_recognize_enabled ?? false,
       data: responseData.data.map(item => ({ ...item, recognition_id: getRecognitionId(item) })),
     }
-    const musicData = musicResponse.data ?? { count: 0, recognized: 0, unrecognized: 0, data: [] }
     musicCacheData.value = {
       ...musicData,
       data: (musicData.data ?? []).map(item => ({ ...item })),
@@ -207,10 +197,7 @@ async function clearAllCache() {
 
   try {
     loading.value = true
-    const responses = (await Promise.all(
-      clearTargets.map(endpoint => api.delete(endpoint)),
-    )) as unknown as ApiResponse[]
-    if (responses.some(item => !item.success)) throw new Error(responses.find(item => !item.success)?.message)
+    await Promise.all(clearTargets.map(endpoint => api.delete<null>(endpoint, { feedback: 'silent' })))
     $toast.success(t('setting.cache.clearSuccess'))
     await loadCacheData()
     selectedItems.value = []
@@ -225,14 +212,12 @@ async function clearAllCache() {
 
 /** 请求接口删除指定影视识别缓存。 */
 async function deleteCacheItem(key: string) {
-  const response = (await api.delete(`${TMDB_CACHE_ENDPOINT}/${encodeURIComponent(key)}`)) as unknown as ApiResponse
-  if (!response.success) throw new Error(response.message)
+  await api.delete<null>(`${TMDB_CACHE_ENDPOINT}/${encodeURIComponent(key)}`, { feedback: 'silent' })
 }
 
 /** 请求接口删除指定音乐识别缓存。 */
 async function deleteMusicCacheItem(key: string) {
-  const response = (await api.delete(`${MUSIC_CACHE_ENDPOINT}/${encodeURIComponent(key)}`)) as unknown as ApiResponse
-  if (!response.success) throw new Error(response.message)
+  await api.delete<null>(`${MUSIC_CACHE_ENDPOINT}/${encodeURIComponent(key)}`, { feedback: 'silent' })
 }
 
 /** 删除两个表格中选中的识别缓存。 */

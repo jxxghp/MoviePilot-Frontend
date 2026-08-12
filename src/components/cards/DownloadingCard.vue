@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { ApiResponse, DownloadingInfo } from '@/api/types'
+import type { DownloadingInfo } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
@@ -122,13 +122,12 @@ async function toggleDownload() {
   const operation = isDownloading.value ? 'stop' : 'start'
   pendingAction.value = 'toggle'
   try {
-    const result: ApiResponse<unknown> = await api.get(`download/${operation}/${props.info?.hash}`, {
+    await api.get(`download/${operation}/${props.info?.hash}`, {
       params: {
         name: props.downloaderName,
       },
     })
-
-    if (result.success) isDownloading.value = !isDownloading.value
+    isDownloading.value = !isDownloading.value
   } catch (error) {
     console.error(error)
   } finally {
@@ -142,10 +141,10 @@ async function deleteDownload() {
 
   pendingAction.value = 'delete'
   try {
-    const result: ApiResponse<unknown> = await api.delete(`download/${props.info?.hash}`, {
+    await api.delete(`download/${props.info?.hash}`, {
       params: { name: props.downloaderName },
     })
-    if (result.success) cardState.value = false
+    cardState.value = false
   } catch (error) {
     console.error(error)
   } finally {

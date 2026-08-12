@@ -15,10 +15,10 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     put: (...args: unknown[]) => mocks.apiPut(...args),
-  },
+  }),
 }))
 
 vi.mock('@/composables/useSharedDialog', () => ({

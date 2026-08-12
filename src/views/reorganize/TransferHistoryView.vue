@@ -282,9 +282,9 @@ const storages = ref<StorageConf[]>([])
 // 查询存储
 async function loadStorages() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
+    const result = await api.get<{ value?: StorageConf[] }>('system/setting/public/Storages')
 
-    storages.value = result.data?.value ?? []
+    storages.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -463,7 +463,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
   }
 
   try {
-    const result: { [key: string]: any } = await api.get('history/transfer', {
+    const result = await api.get<{ list?: TransferHistory[]; total?: number }>('history/transfer', {
       params: {
         page,
         count,
@@ -472,11 +472,11 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     })
     if (requestSeed !== fetchDataRequestSeed) return
 
-    const list: TransferHistory[] = Array.isArray(result.data?.list) ? result.data.list : []
+    const list = Array.isArray(result.list) ? result.list : []
 
     isRefreshed.value = true
     dataList.value = list
-    totalItems.value = ensureNumber(result.data?.total, 0)
+    totalItems.value = ensureNumber(result.total, 0)
     updateSearchHintList(list)
 
     return {
@@ -550,7 +550,7 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
 
   try {
     mobileLoading.value = true
-    const result: { [key: string]: any } = await api.get('history/transfer', {
+    const result = await api.get<{ list?: TransferHistory[]; total?: number }>('history/transfer', {
       params: {
         page: mobileCurrentPage.value,
         count: mobilePageSize,
@@ -562,8 +562,8 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
       return
     }
 
-    const list: TransferHistory[] = Array.isArray(result.data?.list) ? result.data.list : []
-    const total = ensureNumber(result.data?.total, 0)
+    const list = Array.isArray(result.list) ? result.list : []
+    const total = ensureNumber(result.total, 0)
 
     appendMobileHistory(list, total)
     done(mobileHasMore.value ? 'ok' : 'empty')
@@ -664,7 +664,7 @@ function getPlaceholderIcon(type: string) {
   else return 'mdi-movie-open-outline'
 }
 
-// 计算移动端卡片海报地址，优先使用后端图片代理并兼顾全局缓存设置。
+// 计算历史记录海报地址，整理历史的 image 字段由后端写入 Poster 图片。
 function getHistoryPosterUrl(item: TransferHistory) {
   const image = item.image
   if (!image) return ''
@@ -691,18 +691,10 @@ async function removeHistory(item: TransferHistory) {
 async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean, notifyError = true) {
   try {
     // 调用删除API
-    const result: {
-      [key: string]: any
-    } = await api.delete(`history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`, {
+    await api.delete<null>(`history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`, {
       data: item,
+      feedback: 'silent',
     })
-
-    if (!result.success) {
-      if (notifyError) {
-        $toast.error(t('transferHistory.deleteFailed', { message: result.message || '' }))
-      }
-      return false
-    }
     return true
   } catch (error) {
     console.error(error)
@@ -905,13 +897,15 @@ async function triggerAiRedo(item: TransferHistory) {
   aiRedoIds.value = [...aiRedoIds.value, item.id]
   let progressStarted = false
   try {
-    const result: { [key: string]: any } = await api.post(`history/transfer/${item.id}/ai-redo`)
+    const result = await api.post<{ progress_key?: string }>(`history/transfer/${item.id}/ai-redo`, undefined, {
+      feedback: 'silent',
+    })
     if (componentUnmounted) return
 
-    const progressKey = result.data?.progress_key
+    const progressKey = result.progress_key
 
-    if (!result.success || !progressKey) {
-      $toast.error(result.message || t('transferHistory.aiRedoFailed'))
+    if (!progressKey) {
+      $toast.error(t('transferHistory.aiRedoFailed'))
       return
     }
     startAiRedoProgress(item.id, progressKey)
@@ -942,16 +936,20 @@ async function triggerBatchAiRedo() {
   aiRedoIds.value = [...new Set([...aiRedoIds.value, ...historyIds])]
   let progressStarted = false
   try {
-    const result: { [key: string]: any } = await api.post('history/transfer/ai-redo', {
-      history_ids: historyIds,
-    })
+    const result = await api.post<{ history_ids?: number[]; progress_key?: string }>(
+      'history/transfer/ai-redo',
+      {
+        history_ids: historyIds,
+      },
+      { feedback: 'silent' },
+    )
     if (componentUnmounted) return
 
-    const progressKey = result.data?.progress_key
-    const acceptedIds = (result.data?.history_ids as number[] | undefined) ?? historyIds
+    const progressKey = result.progress_key
+    const acceptedIds = result.history_ids ?? historyIds
 
-    if (!result.success || !progressKey) {
-      $toast.error(result.message || t('transferHistory.aiRedoFailed'))
+    if (!progressKey) {
+      $toast.error(t('transferHistory.aiRedoFailed'))
       return
     }
     startAiRedoProgressBatch(acceptedIds, progressKey)
@@ -1492,24 +1490,24 @@ onUnmounted(() => {
       </template>
       <template #item.title="{ item }">
         <div class="d-flex align-center">
-          <VImg
-            v-if="getHistoryPosterUrl(item)"
-            :src="getHistoryPosterUrl(item)"
-            :alt="item.title"
-            cover
-            width="44"
-            height="66"
-            class="rounded-sm flex-shrink-0"
-          >
-            <template #error>
-              <VAvatar>
-                <VIcon :icon="getIcon(item.type || '')" />
-              </VAvatar>
-            </template>
-          </VImg>
-          <VAvatar v-else>
-            <VIcon :icon="getIcon(item.type || '')" />
-          </VAvatar>
+          <div class="transfer-history-desktop-poster-frame">
+            <VImg
+              v-if="getHistoryPosterUrl(item)"
+              :src="getHistoryPosterUrl(item)"
+              :alt="item.title"
+              cover
+              class="transfer-history-desktop-poster"
+            >
+              <template #error>
+                <div class="transfer-history-desktop-poster-placeholder">
+                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+                </div>
+              </template>
+            </VImg>
+            <div v-else class="transfer-history-desktop-poster-placeholder">
+              <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+            </div>
+          </div>
           <div class="d-flex flex-column ms-1">
             <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.seasons }}{{ item?.episodes }}
@@ -1591,24 +1589,24 @@ onUnmounted(() => {
     >
       <template #item.title="{ item }">
         <div class="d-flex align-center">
-          <VImg
-            v-if="getHistoryPosterUrl(item)"
-            :src="getHistoryPosterUrl(item)"
-            :alt="item.title"
-            cover
-            width="44"
-            height="66"
-            class="rounded-sm flex-shrink-0"
-          >
-            <template #error>
-              <VAvatar>
-                <VIcon :icon="getIcon(item.type || '')" />
-              </VAvatar>
-            </template>
-          </VImg>
-          <VAvatar v-else>
-            <VIcon :icon="getIcon(item.type || '')" />
-          </VAvatar>
+          <div class="transfer-history-desktop-poster-frame">
+            <VImg
+              v-if="getHistoryPosterUrl(item)"
+              :src="getHistoryPosterUrl(item)"
+              :alt="item.title"
+              cover
+              class="transfer-history-desktop-poster"
+            >
+              <template #error>
+                <div class="transfer-history-desktop-poster-placeholder">
+                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+                </div>
+              </template>
+            </VImg>
+            <div v-else class="transfer-history-desktop-poster-placeholder">
+              <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+            </div>
+          </div>
           <div class="d-flex flex-column ms-1">
             <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
@@ -1954,6 +1952,38 @@ onUnmounted(() => {
 
 .v-table__wrapper {
   border-radius: 0;
+}
+
+.transfer-history-desktop-poster-frame {
+  flex: 0 0 44px;
+  inline-size: 44px;
+  block-size: 66px;
+  min-inline-size: 44px;
+  min-block-size: 66px;
+  max-inline-size: 44px;
+  max-block-size: 66px;
+  overflow: hidden;
+  border-radius: 4px;
+  aspect-ratio: 2 / 3;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.transfer-history-desktop-poster,
+.transfer-history-desktop-poster-placeholder {
+  inline-size: 100%;
+  block-size: 100%;
+  max-inline-size: 100%;
+  max-block-size: 100%;
+}
+
+.transfer-history-desktop-poster :deep(.v-img__img) {
+  object-fit: cover;
+}
+
+.transfer-history-desktop-poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .transfer-history-mobile-page {

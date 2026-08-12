@@ -70,7 +70,7 @@ function registerJinja2Mode() {
           'boolean|defined|divisibleby|eq|escaped|even|false|filter|float|ge|gt|in|integer|iterable|le|lower|lt|mapping|ne|none|number|odd|sameas|sequence|string|test|true|undefined|upper'
         const operators = 'and|in|is|not|or'
         const contextVariables =
-          'title|en_title|original_title|season|season_fmt|year|title_year|type|category|vote_average|poster|backdrop|season_year|actors|overview|tmdbid|imdbid|doubanid|bangumiid|anilistid|media_source|media_id|episode_title|episode_date|original_name|name|en_name|episode|season_episode|part|customization|fps|resourceType|effect|edition|videoFormat|resource_term|releaseGroup|videoCodec|audioCodec|webSource|torrent_title|pubdate|freedate|seeders|volume_factor|hit_and_run|labels|description|site_name|size|transfer_type|file_count|total_size|err_msg|fileExt|__meta__|__mediainfo__|__torrentinfo__|__transferinfo__|__episodes_info__'
+          'title|en_title|original_title|season|season_fmt|year|title_year|type|category|vote_average|poster|backdrop|season_year|actors|overview|tmdbid|imdbid|doubanid|bangumiid|anilistid|episode_title|episode_date|original_name|name|en_name|episode|season_episode|part|customization|fps|resourceType|effect|edition|videoFormat|resource_term|releaseGroup|videoCodec|audioCodec|webSource|torrent_title|pubdate|freedate|seeders|volume_factor|hit_and_run|labels|description|site_name|size|transfer_type|file_count|total_size|err_msg|fileExt|__meta__|__mediainfo__|__torrentinfo__|__transferinfo__|__episodes_info__'
 
         const keywordMapper = this.createKeywordMapper(
           {
@@ -538,15 +538,11 @@ interface WordListToken {
 const wordListReplacementParametersPattern = /\{\[([^\]]*)\]\}/g
 const wordListUnsignedIntegerPattern = /^\d+$/
 const wordListUnsignedIntegerOrRangePattern = /^\d+(?:-\d+)?$/
-const wordListMediaSourcePattern =
-  /^(?:themoviedb|douban|bangumi|anilist|imdb|tvdb|musicbrainz|theaudiodb|doubanmusic|bilibili|mangguodiscover|migu|tencentvideodiscover)$/
 const wordListParameterTypes = {
   tmdbid: 'uint',
-  doubanid: 'string',
+  doubanid: 'uint',
   bangumiid: 'uint',
   anilistid: 'uint',
-  media_source: 'media-source',
-  media_id: 'string',
   type: 'media-type',
   g: 'string',
   s: 'uint-or-range',
@@ -569,8 +565,6 @@ function isValidWordListParameterValue(key: keyof typeof wordListParameterTypes,
       return wordListUnsignedIntegerOrRangePattern.test(value)
     case 'media-type':
       return value === 'movie' || value === 'tv'
-    case 'media-source':
-      return wordListMediaSourcePattern.test(value)
     case 'string':
       return value.length > 0
   }

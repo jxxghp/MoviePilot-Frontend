@@ -5,7 +5,8 @@ import { useGlobalSettingsStore } from '@/stores'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
-import type { ApiResponse, Site, SiteStatistic, SiteUserData } from '@/api/types'
+import { isApiBusinessFailure } from '@/api/client'
+import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useConfirm } from '@/composables/useConfirm'
@@ -65,9 +66,8 @@ async function getSiteIcon() {
 
   try {
     const icon = await getCachedSiteIcon(siteId, async () => {
-      const response = await api.get(`site/icon/${siteId}`)
-
-      return response?.data?.icon || defaultSiteIcon
+      const response = await api.get<{ icon?: string }>(`site/icon/${siteId}`)
+      return response?.icon || defaultSiteIcon
     })
     siteIcon.value = getDisplayImageUrl(icon, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
   } catch (error) {
@@ -82,13 +82,13 @@ async function testSite() {
     testButtonText.value = t('site.testing')
     testButtonDisable.value = true
 
-    const result = (await api.get(`site/test/${cardProps.site?.id}`)) as ApiResponse<unknown>
-    if (result.success) $toast.success(t('site.testSuccess', { name: cardProps.site?.name }))
-    else $toast.error(t('site.testFailed', { name: cardProps.site?.name, message: result.message }))
+    await api.get(`site/test/${cardProps.site?.id}`)
+    $toast.success(t('site.testSuccess', { name: cardProps.site?.name }))
 
     // 测试完成后刷新统计数据
     emit('refresh-stats', cardProps.site?.domain)
   } catch (error) {
+    if (isApiBusinessFailure(error)) emit('refresh-stats', cardProps.site?.domain)
     console.error(error)
   } finally {
     testButtonText.value = t('site.testConnectivity')
@@ -169,9 +169,8 @@ async function deleteSiteInfo() {
   if (!isConfirmed) return
 
   try {
-    const result = (await api.delete(`site/${cardProps.site?.id}`)) as ApiResponse<unknown>
-    if (result.success) emit('remove')
-    else $toast.error(t('site.deleteFailed', { name: cardProps.site?.name, message: result.message }))
+    await api.delete(`site/${cardProps.site?.id}`, { feedback: 'silent' })
+    emit('remove')
   } catch (error) {
     $toast.error(t('site.deleteFailed', { name: cardProps.site?.name, message: error }))
     console.error(error)

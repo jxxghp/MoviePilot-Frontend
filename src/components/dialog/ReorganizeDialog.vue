@@ -3,9 +3,9 @@ import CryptoJS from 'crypto-js'
 import { useToast } from 'vue-toastification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
+import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
 import { transferTypeOptions } from '@/api/constants'
 import {
-  ApiResponse,
   FileItem,
   ManualTransferHistoryInfo,
   ManualTransferPayload,
@@ -208,7 +208,7 @@ async function loadStorages() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
 
-    storages.value = result.data?.value ?? []
+    storages.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -380,7 +380,7 @@ const directories = ref<TransferDirectoryConf[]>([])
 async function loadDirectories() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
-    directories.value = result.data?.value ?? []
+    directories.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -967,8 +967,16 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
 async function requestManualTransfer<T = unknown>(
   payload: ManualTransferPayload,
   background: boolean = false,
-): Promise<ApiResponse<T>> {
-  return await api.post<ApiResponse<T>, ApiResponse<T>>(`transfer/manual?background=${background}`, payload)
+): Promise<T> {
+  return await api.post<T>(`transfer/manual?background=${background}`, payload, { feedback: 'silent' })
+}
+
+/** 保留业务失败详情，并在空消息时使用当前操作的本地提示。 */
+function getManualTransferErrorMessage(error: unknown, fallback: string) {
+  const businessMessage = getApiBusinessErrorMessage(error)
+  if (businessMessage) return businessMessage
+  if (isApiBusinessFailure(error)) return fallback
+  return error instanceof Error && error.message ? error.message : fallback
 }
 
 // 查询当前文件或目录是否存在成功整理历史，决定是否展示重新整理语义。
@@ -979,14 +987,12 @@ async function loadManualTransferHistory() {
   try {
     const payload =
       normalizedItems.value.length === 1 ? { fileitem: normalizedItems.value[0] } : { fileitems: normalizedItems.value }
-    const result = await api.post<ApiResponse<ManualTransferHistoryInfo>, ApiResponse<ManualTransferHistoryInfo>>(
-      'transfer/manual/history',
-      payload,
-    )
-    if (!result.success) return
+    const result = await api.post<ManualTransferHistoryInfo>('transfer/manual/history', payload, {
+      feedback: 'silent',
+    })
 
-    manualHistoryCount.value = result.data?.history_count ?? 0
-    transferForm.reorganize = Boolean(result.data?.reorganize)
+    manualHistoryCount.value = result.history_count ?? 0
+    transferForm.reorganize = Boolean(result.reorganize)
   } catch (error) {
     console.error(error)
   } finally {
@@ -997,8 +1003,8 @@ async function loadManualTransferHistory() {
 // 加载剧集格式规则配置状态，用于决定是否允许自动推荐。
 async function loadEpisodeFormatRuleConfiguration() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/EpisodeFormatRuleTable')
-    episodeFormatRuleConfigured.value = Boolean(result.data?.value?.length)
+    const result = await api.get<{ value?: unknown[] }>('system/setting/public/EpisodeFormatRuleTable')
+    episodeFormatRuleConfigured.value = Boolean(result.value?.length)
   } catch (error) {
     console.log(error)
     episodeFormatRuleConfigured.value = undefined
@@ -1028,7 +1034,7 @@ async function handleRecommendEpisodeFormat() {
 
   try {
     const hasExistingEpisodeFormat = Boolean(transferForm.episode_format?.trim())
-    const result = await api.post<ApiResponse<EpisodeFormatRecommendData>, ApiResponse<EpisodeFormatRecommendData>>(
+    const data = await api.post<EpisodeFormatRecommendData>(
       'transfer/episode-format/recommend',
       hasValidSelectedFiles
         ? {
@@ -1037,14 +1043,9 @@ async function handleRecommendEpisodeFormat() {
         : {
             fileitem: sourceItem,
           },
+      { feedback: 'silent' },
     )
 
-    if (!result.success) {
-      $toast.error(result.message || t('dialog.reorganize.episodeFormatRecommendFailed'))
-      return
-    }
-
-    const data = result.data ?? {}
     if (!data.episode_format) {
       $toast.error(t('dialog.reorganize.episodeFormatRecommendFailed'))
       return
@@ -1155,19 +1156,6 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
   }
 }
 
-// 从标准响应中提取可展示的整理预览数据，优先保留顶层本地化消息。
-function resolvePreviewResponseData(result: ApiResponse<ManualTransferPreviewData>) {
-  if (!result.data) return result.data
-
-  const message = result.message_i18n || result.message || result.data.message
-  if (!message || message === result.data.message) return result.data
-
-  return {
-    ...result.data,
-    message,
-  }
-}
-
 // 预览整理结果
 async function previewTransfer() {
   if (!props.logids?.length && !normalizedItems.value.length) return
@@ -1186,24 +1174,15 @@ async function previewTransfer() {
           const result = await requestManualTransfer<ManualTransferPreviewData>(
             createTransferPayload({ items: normalizedItems.value, preview: true }),
           )
-          if (!result.success) {
-            mergePreviewData(
-              mergedPreviewData,
-              createFailedPreviewData({
-                source: getBatchItemsLabel(normalizedItems.value),
-                message: result.message || t('dialog.reorganize.previewRequestFailed'),
-              }),
-            )
-          } else {
-            mergePreviewData(mergedPreviewData, resolvePreviewResponseData(result))
-          }
-        } catch (err: any) {
-          console.warn(`预览请求异常: ${err?.message}`)
+          mergePreviewData(mergedPreviewData, result)
+        } catch (err: unknown) {
+          const errorMessage = getManualTransferErrorMessage(err, t('dialog.reorganize.previewRequestFailed'))
+          console.warn(`预览请求异常: ${errorMessage}`)
           mergePreviewData(
             mergedPreviewData,
             createFailedPreviewData({
               source: getBatchItemsLabel(normalizedItems.value),
-              message: `${getBatchItemsLabel(normalizedItems.value)}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
+              message: errorMessage,
             }),
           )
         }
@@ -1214,29 +1193,17 @@ async function previewTransfer() {
               const result = await requestManualTransfer<ManualTransferPreviewData>(
                 createTransferPayload({ item, preview: true }),
               )
-              if (!result.success) {
-                mergePreviewData(
-                  mergedPreviewData,
-                  createFailedPreviewData({
-                    source: item.path || item.name,
-                    type: item.type,
-                    title: item.name,
-                    message: result.message || t('dialog.reorganize.previewRequestFailed'),
-                  }),
-                )
-                return
-              }
-
-              mergePreviewData(mergedPreviewData, resolvePreviewResponseData(result))
-            } catch (err: any) {
-              console.warn(`预览请求异常: ${err?.message}`)
+              mergePreviewData(mergedPreviewData, result)
+            } catch (err: unknown) {
+              const errorMessage = getManualTransferErrorMessage(err, t('dialog.reorganize.previewRequestFailed'))
+              console.warn(`预览请求异常: ${errorMessage}`)
               mergePreviewData(
                 mergedPreviewData,
                 createFailedPreviewData({
                   source: item.path || item.name,
                   type: item.type,
                   title: item.name,
-                  message: `${item.name || item.path}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
+                  message: errorMessage,
                 }),
               )
             }
@@ -1252,25 +1219,15 @@ async function previewTransfer() {
             const result = await requestManualTransfer<ManualTransferPreviewData>(
               createTransferPayload({ logid, preview: true }),
             )
-            if (!result.success) {
-              mergePreviewData(
-                mergedPreviewData,
-                createFailedPreviewData({
-                  source: `历史记录 ${logid}`,
-                  message: result.message || t('dialog.reorganize.previewRequestFailed'),
-                }),
-              )
-              return
-            }
-
-            mergePreviewData(mergedPreviewData, resolvePreviewResponseData(result))
-          } catch (err: any) {
-            console.warn(`预览请求异常: ${err?.message}`)
+            mergePreviewData(mergedPreviewData, result)
+          } catch (err: unknown) {
+            const errorMessage = getManualTransferErrorMessage(err, t('dialog.reorganize.previewRequestFailed'))
+            console.warn(`预览请求异常: ${errorMessage}`)
             mergePreviewData(
               mergedPreviewData,
               createFailedPreviewData({
                 source: `历史记录 ${logid}`,
-                message: `历史记录 ${logid}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
+                message: errorMessage,
               }),
             )
           }
@@ -1286,10 +1243,10 @@ async function previewTransfer() {
     if (previewHasFailures(mergedPreviewData)) {
       $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     previewVisible.value = false
     resetPreviewState()
-    $toast.error(error?.message || t('dialog.reorganize.previewRequestFailed'))
+    $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.previewRequestFailed')))
   } finally {
     previewLoading.value = false
   }
@@ -1311,16 +1268,12 @@ async function togglePreview() {
 // 整理文件
 async function handleTransfer(item: FileItem, background: boolean = false) {
   try {
-    const result = await requestManualTransfer(createTransferPayload({ item }), background)
-    if (!result.success) {
-      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
-      return false
-    }
+    await requestManualTransfer<null>(createTransferPayload({ item }), background)
     if (background) $toast.success(t('dialog.reorganize.successMessage', { name: item.name }))
     return true
   } catch (error: unknown) {
     console.log(error)
-    if (error instanceof Error) $toast.error(error.message)
+    $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     return false
   }
 }
@@ -1328,16 +1281,12 @@ async function handleTransfer(item: FileItem, background: boolean = false) {
 // 批量整理文件并按后台模式决定是否提示入队成功。
 async function handleTransferBatch(items: FileItem[], background: boolean = false) {
   try {
-    const result = await requestManualTransfer(createTransferPayload({ items }), background)
-    if (!result.success) {
-      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
-      return false
-    }
+    await requestManualTransfer<null>(createTransferPayload({ items }), background)
     if (background) $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
     return true
   } catch (error: unknown) {
     console.log(error)
-    if (error instanceof Error) $toast.error(error.message)
+    $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     return false
   }
 }
@@ -1345,16 +1294,12 @@ async function handleTransferBatch(items: FileItem[], background: boolean = fals
 // 整理日志
 async function handleTransferLog(logid: number, background: boolean = false) {
   try {
-    const result = await requestManualTransfer(createTransferPayload({ logid }), background)
-    if (!result.success) {
-      $toast.error(result.message || t('dialog.reorganize.transferRequestFailed'))
-      return false
-    }
+    await requestManualTransfer<null>(createTransferPayload({ logid }), background)
     if (background) $toast.success(`历史记录 ${logid} 已加入整理队列！`)
     return true
   } catch (error: unknown) {
     console.log(error)
-    if (error instanceof Error) $toast.error(error.message)
+    $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     return false
   }
 }

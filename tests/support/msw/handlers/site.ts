@@ -11,10 +11,22 @@ import { HttpResponse, http, type JsonBodyType } from 'msw'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
-interface SiteMutationResponse {
+interface ApiEnvelopeInput<T> {
   success: boolean
-  data?: Record<string, unknown>
+  data?: T | null
   message?: string
+}
+
+type SiteMutationResponse = ApiEnvelopeInput<Record<string, unknown>>
+
+/** 构造站点测试请求的严格三段式网络响应。 */
+function apiEnvelope<T>(data: T | null, success = true, message = ''): ApiResponse<T> {
+  return { data, message, success }
+}
+
+/** 将测试用的简写输入规范化为后端实际发送的完整 envelope。 */
+function normalizeEnvelope<T>(input: ApiEnvelopeInput<T>): ApiResponse<T> {
+  return apiEnvelope(input.data ?? null, input.success, input.message ?? '')
 }
 
 export const siteApiUrls = {
@@ -41,7 +53,7 @@ export function siteListHandler(
 ) {
   return http.get(siteApiUrls.list, async () => {
     await onRequest()
-    return HttpResponse.json(sites as unknown as JsonBodyType, {
+    return HttpResponse.json(apiEnvelope(sites) as unknown as JsonBodyType, {
       status: typeof status === 'function' ? status() : status,
     })
   })
@@ -54,7 +66,7 @@ export function siteStatisticsHandler(
 ) {
   return http.get(siteApiUrls.statistics, async () => {
     await onRequest()
-    return HttpResponse.json(statistics as unknown as JsonBodyType, { status })
+    return HttpResponse.json(apiEnvelope(statistics) as unknown as JsonBodyType, { status })
   })
 }
 
@@ -66,7 +78,7 @@ export function siteStatisticHandler(
 ) {
   return http.get(siteApiUrls.statistic(domain), async () => {
     await onRequest()
-    return HttpResponse.json(statistic as unknown as JsonBodyType, { status })
+    return HttpResponse.json(apiEnvelope(statistic) as unknown as JsonBodyType, { status })
   })
 }
 
@@ -77,31 +89,31 @@ export function siteUserDataLatestHandler(
 ) {
   return http.get(siteApiUrls.userDataLatest, async () => {
     await onRequest()
-    return HttpResponse.json(userData as unknown as JsonBodyType, { status })
+    return HttpResponse.json(apiEnvelope(userData) as unknown as JsonBodyType, { status })
   })
 }
 
 export function siteUserDataHandler(
   id: number,
-  result: Pick<ApiResponse<SiteUserData[]>, 'data' | 'message' | 'success'>,
+  result: ApiEnvelopeInput<SiteUserData[]>,
   status = 200,
   onRequest: () => void | Promise<void> = () => {},
 ) {
   return http.get(siteApiUrls.userData(id), async () => {
     await onRequest()
-    return response(result as unknown as JsonBodyType, status)
+    return response(normalizeEnvelope(result) as unknown as JsonBodyType, status)
   })
 }
 
 export function refreshSiteUserDataHandler(
   id: number,
-  result: Pick<ApiResponse<Record<string, unknown>>, 'data' | 'message' | 'success'>,
+  result: ApiEnvelopeInput<Record<string, unknown>>,
   status = 200,
   onRequest: () => void | Promise<void> = () => {},
 ) {
   return http.post(siteApiUrls.userData(id), async () => {
     await onRequest()
-    return response(result as unknown as JsonBodyType, status)
+    return response(normalizeEnvelope(result) as unknown as JsonBodyType, status)
   })
 }
 
@@ -112,10 +124,8 @@ export function saveSitePrioritiesHandler(
   return http.post(siteApiUrls.priorities, async ({ request }) => {
     const priorities = (await request.json()) as Array<{ id: number; pri: number }>
     await onSave(priorities)
-    return HttpResponse.json(
-      { success: options.success ?? (options.status ?? 200) < 400 },
-      { status: options.status ?? 200 },
-    )
+    const success = options.success ?? (options.status ?? 200) < 400
+    return HttpResponse.json(apiEnvelope(null, success), { status: options.status ?? 200 })
   })
 }
 
@@ -131,31 +141,31 @@ export function siteIconHandler(
 ) {
   return http.get(siteApiUrls.icon(id), async () => {
     await onRequest()
-    return response({ data: icon ? { icon } : {}, success: Boolean(icon) }, status)
+    return response(apiEnvelope(icon ? { icon } : {}, Boolean(icon)), status)
   })
 }
 
 export function testSiteConnectionHandler(
   id: number,
-  result: Pick<ApiResponse<never>, 'message' | 'success'>,
+  result: ApiEnvelopeInput<null>,
   status = 200,
   onRequest: () => void | Promise<void> = () => {},
 ) {
   return http.get(siteApiUrls.test(id), async () => {
     await onRequest()
-    return response(result, status)
+    return response(normalizeEnvelope(result), status)
   })
 }
 
 export function deleteSiteHandler(
   id: number,
-  result: Pick<ApiResponse<never>, 'message' | 'success'> = { success: true },
+  result: ApiEnvelopeInput<null> = { success: true },
   status = 200,
   onRequest: () => void | Promise<void> = () => {},
 ) {
   return http.delete(siteApiUrls.delete(id), async () => {
     await onRequest()
-    return response(result, status)
+    return response(normalizeEnvelope(result), status)
   })
 }
 
@@ -166,7 +176,7 @@ export function siteDownloadersHandler(
 ) {
   return http.get(siteApiUrls.downloaders, async () => {
     await onRequest()
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return HttpResponse.json(apiEnvelope(response) as unknown as JsonBodyType, { status })
   })
 }
 
@@ -178,7 +188,7 @@ export function siteDetailsHandler(
 ) {
   return http.get(siteApiUrls.details(id), async () => {
     await onRequest()
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return HttpResponse.json(apiEnvelope(response) as unknown as JsonBodyType, { status })
   })
 }
 
@@ -189,7 +199,7 @@ export function addSiteHandler(
 ) {
   return http.post(siteApiUrls.list, async ({ request }) => {
     await onRequest((await request.json()) as Site)
-    return HttpResponse.json(response, { status })
+    return HttpResponse.json(normalizeEnvelope(response), { status })
   })
 }
 
@@ -200,7 +210,7 @@ export function updateSiteHandler(
 ) {
   return http.put(siteApiUrls.list, async ({ request }) => {
     await onRequest((await request.json()) as Site)
-    return HttpResponse.json(response, { status })
+    return HttpResponse.json(normalizeEnvelope(response), { status })
   })
 }
 
@@ -212,7 +222,7 @@ export function updateSiteCookieHandler(
 ) {
   return http.post(siteApiUrls.cookie(id), async ({ request }) => {
     await onRequest((await request.json()) as { code: string; password: string; username: string })
-    return HttpResponse.json(response, { status })
+    return HttpResponse.json(normalizeEnvelope(response), { status })
   })
 }
 
@@ -224,7 +234,7 @@ export function siteCategoriesHandler(
 ) {
   return http.get(siteApiUrls.categories(siteId), ({ request }) => {
     onRequest(new URL(request.url))
-    return HttpResponse.json(response, { status })
+    return HttpResponse.json(apiEnvelope(response), { status })
   })
 }
 
@@ -236,6 +246,6 @@ export function siteResourcesHandler(
 ) {
   return http.get(siteApiUrls.resources(siteId), ({ request }) => {
     onRequest(new URL(request.url))
-    return HttpResponse.json(response, { status })
+    return HttpResponse.json(apiEnvelope(response), { status })
   })
 }

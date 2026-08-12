@@ -30,28 +30,24 @@ describe('AboutDialog version statistics', () => {
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'system/env') {
         return Promise.resolve({
-          data: {
-            USAGE_STATISTIC_SHARE: true,
-            VERSION: 'v2.0.0',
-            FRONTEND_VERSION: 'v2.0.0',
-          },
+          USAGE_STATISTIC_SHARE: true,
+          VERSION: 'v2.0.0',
+          FRONTEND_VERSION: 'v2.0.0',
         })
       }
       if (path === 'dashboard/processes') return Promise.resolve([])
-      if (path === 'system/versions') return Promise.resolve({ data: [] })
+      if (path === 'system/versions') return Promise.resolve([])
       if (path === 'site/supporting') return Promise.resolve({})
       if (path === 'system/usage/statistic') {
         return Promise.resolve({
-          data: {
-            backend_versions: [
-              { version: 'backend-hidden', count: 9 },
-              { version: 'backend-visible', count: 10 },
-            ],
-            frontend_versions: [
-              { version: 'frontend-hidden', count: 0 },
-              { version: 'frontend-visible', count: 11 },
-            ],
-          },
+          backend_versions: [
+            { version: 'backend-hidden', count: 9 },
+            { version: 'backend-visible', count: 10 },
+          ],
+          frontend_versions: [
+            { version: 'frontend-hidden', count: 0 },
+            { version: 'frontend-visible', count: 11 },
+          ],
         })
       }
       return Promise.reject(new Error(`Unexpected API path: ${path}`))

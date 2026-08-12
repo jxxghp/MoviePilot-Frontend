@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
-import type { ApiResponse, FilterRuleGroup, RuleTestData } from '@/api/types'
+import type { FilterRuleGroup, RuleTestData } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 
 interface PipelineStep {
@@ -27,7 +27,7 @@ const { t } = useI18n()
 const ruleTestFormRef = ref<RuleTestFormRef>()
 
 // 识别结果
-const ruleTestResponse = ref<ApiResponse<RuleTestData>>()
+const ruleTestResponse = ref<RuleTestData>()
 
 // 名称识别表单
 const ruleTestForm = reactive({
@@ -62,11 +62,11 @@ const filterRuleGroupItems = computed(() => {
   ]
 })
 const selectedRuleGroup = computed(() => filterRuleGroups.value.find(item => item.name === ruleTestForm.rulegroup))
-const ruleTestData = computed(() => ruleTestResponse.value?.data)
+const ruleTestData = computed(() => ruleTestResponse.value)
 const metaInfo = computed(() => ruleTestData.value?.meta_info)
 const mediaInfo = computed(() => ruleTestData.value?.media_info)
 const torrentInfo = computed(() => ruleTestData.value?.torrent_info)
-const isMatched = computed(() => Boolean(ruleTestResponse.value?.success && ruleTestData.value?.matched))
+const isMatched = computed(() => Boolean(ruleTestData.value?.matched))
 const resultIcon = computed(() => (isMatched.value ? 'mdi-filter-check-outline' : 'mdi-filter-remove-outline'))
 const resultColor = computed(() => (isMatched.value ? 'success' : 'warning'))
 const priorityText = computed(() => {
@@ -76,7 +76,7 @@ const priorityText = computed(() => {
 const hasPriority = computed(() => typeof ruleTestData.value?.priority === 'number')
 const resultTitle = computed(() => {
   if (isMatched.value) return t('ruleTest.matched')
-  return ruleTestResponse.value?.message || t('ruleTest.noPriorityRule')
+  return t('ruleTest.noPriorityRule')
 })
 const resultSubtitle = computed(() => {
   const parts = [
@@ -86,7 +86,9 @@ const resultSubtitle = computed(() => {
   ]
   return parts.filter(Boolean).join(' · ') || t('ruleTest.waitingResult')
 })
-const ruleCount = computed(() => countRules(ruleTestData.value?.rulegroup?.rule_string || selectedRuleGroup.value?.rule_string))
+const ruleCount = computed(() =>
+  countRules(ruleTestData.value?.rulegroup?.rule_string || selectedRuleGroup.value?.rule_string),
+)
 const ruleCountLabel = computed(() => {
   const count = ruleCount.value
   if (!count) return t('ruleTest.steps.group.empty')
@@ -105,9 +107,10 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-filter-settings-outline',
     title: t('ruleTest.steps.group.title'),
-    value: ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup
-      ? `${ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup} · ${ruleCountLabel.value}`
-      : '-',
+    value:
+      ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup
+        ? `${ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup} · ${ruleCountLabel.value}`
+        : '-',
     tone: 'primary',
   },
   {
@@ -119,10 +122,7 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: resultIcon.value,
     title: t('ruleTest.steps.filter.title'),
-    value: ruleTestResponse.value?.message
-      || (isMatched.value
-        ? torrentInfo.value?.title || ruleTestForm.title
-        : t('ruleTest.steps.filter.pending')),
+    value: isMatched.value ? torrentInfo.value?.title || ruleTestForm.title : t('ruleTest.steps.filter.pending'),
     tone: isMatched.value ? 'success' : 'warning',
   },
 ])
@@ -137,7 +137,7 @@ async function queryFilterRuleGroups() {
   try {
     filterRuleGroupLoading.value = true
     const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    filterRuleGroups.value = result.value ?? []
   } catch (error) {
     console.log(error)
   } finally {
@@ -155,7 +155,7 @@ async function ruleTest() {
     ruleTestText.value = t('ruleTest.testing')
     ruleTestError.value = ''
     showResult.value = false
-    ruleTestResponse.value = await api.get<ApiResponse<RuleTestData>, ApiResponse<RuleTestData>>('system/ruletest', {
+    ruleTestResponse.value = await api.get<RuleTestData>('system/ruletest', {
       params: {
         title: ruleTestForm.title,
         subtitle: ruleTestForm.subtitle,
@@ -241,7 +241,10 @@ onMounted(() => {
     <section class="shortcut-panel shortcut-result-panel">
       <div v-if="showResult" class="result-stack">
         <div class="result-hero" :class="{ 'result-hero--matched': isMatched }">
-          <div class="priority-badge" :class="{ 'priority-badge--matched': isMatched, 'priority-badge--empty': !hasPriority }">
+          <div
+            class="priority-badge"
+            :class="{ 'priority-badge--matched': isMatched, 'priority-badge--empty': !hasPriority }"
+          >
             <span class="text-caption text-medium-emphasis">{{ t('ruleTest.priorityLabel') }}</span>
             <span class="priority-value">{{ priorityText }}</span>
           </div>
@@ -254,13 +257,7 @@ onMounted(() => {
               {{ resultSubtitle }}
             </div>
             <div v-if="resourceChips.length" class="hero-chips mt-3">
-              <VChip
-                v-for="chip in resourceChips"
-                :key="chip"
-                size="small"
-                variant="tonal"
-                :color="resultColor"
-              >
+              <VChip v-for="chip in resourceChips" :key="chip" size="small" variant="tonal" :color="resultColor">
                 {{ chip }}
               </VChip>
             </div>

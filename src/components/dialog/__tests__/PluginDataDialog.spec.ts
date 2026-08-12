@@ -5,15 +5,21 @@ import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent, h, inject, type Component, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  apiGet: vi.fn(),
-  loadRemoteComponent: vi.fn(),
-  nativeSubscribe: vi.fn(),
-  toast: { error: vi.fn(), success: vi.fn() },
-}))
+const mocks = vi.hoisted(() => {
+  const apiGet = vi.fn()
+
+  return {
+    api: { get: apiGet },
+    apiGet,
+    loadRemoteComponent: vi.fn(),
+    nativeSubscribe: vi.fn(),
+    toast: { error: vi.fn(), success: vi.fn() },
+  }
+})
 
 vi.mock('@/api', () => ({
-  default: { get: mocks.apiGet },
+  pluginApi: mocks.api,
+  default: mocks.api,
 }))
 
 vi.mock('@/utils/federationLoader', () => ({

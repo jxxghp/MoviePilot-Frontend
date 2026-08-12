@@ -48,18 +48,20 @@ async function doShare() {
   if (!shareForm.value.share_title || !shareForm.value.share_comment || !shareForm.value.share_user) return
   try {
     shareDoing.value = true
-    const result: { [key: string]: any } = await api.post('workflow/share', shareForm.value)
-    shareDoing.value = false
-    // 提示
-    if (result.success) {
-      $toast.success(t('dialog.workflowShare.shareSuccess', { name: props.workflow?.name }))
-      // 通知父组件刷新
-      emit('close')
-    } else {
-      $toast.error(t('dialog.workflowShare.shareFailed', { name: props.workflow?.name, message: result.message }))
-    }
+    await api.post('workflow/share', shareForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.workflowShare.shareSuccess', { name: props.workflow?.name }))
+    // 通知父组件刷新
+    emit('close')
   } catch (e) {
     console.log(e)
+    $toast.error(
+      t('dialog.workflowShare.shareFailed', {
+        name: props.workflow?.name,
+        message: e instanceof Error ? e.message : '',
+      }),
+    )
+  } finally {
+    shareDoing.value = false
   }
 }
 

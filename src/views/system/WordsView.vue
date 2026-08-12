@@ -325,7 +325,7 @@ function deleteEpisodeRule(index: number) {
 async function queryTextSection(section: TextSectionKey) {
   try {
     const result: { [key: string]: any } = await api.get(textSectionSettings.value[section].endpoint)
-    const value = Array.isArray(result?.data?.value) ? result.data.value.join('\n') : ''
+    const value = Array.isArray(result?.value) ? result.value.join('\n') : ''
     textSectionModels[section].value = value
     savedTextValues[section] = value
   } catch (error) {
@@ -339,15 +339,10 @@ async function saveTextSection(section: TextSectionKey) {
 
   try {
     const value = textSectionModels[section].value
-    const result: { [key: string]: any } = await api.post(setting.endpoint, value.split('\n'))
-
-    if (result.success) {
-      savedTextValues[section] = value
-      $toast.success(setting.successMessage)
-      return true
-    }
-
-    $toast.error(setting.failedMessage)
+    await api.post<null>(setting.endpoint, value.split('\n'), { feedback: 'silent' })
+    savedTextValues[section] = value
+    $toast.success(setting.successMessage)
+    return true
   } catch (error) {
     console.log(error)
     $toast.error(setting.failedMessage)
@@ -360,7 +355,7 @@ async function saveTextSection(section: TextSectionKey) {
 async function queryEpisodeFormatRules() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/public/EpisodeFormatRuleTable')
-    episodeFormatRules.value = normalizeEpisodeFormatRules(result?.data?.value ?? [])
+    episodeFormatRules.value = normalizeEpisodeFormatRules(result?.value ?? [])
     savedEpisodeRules.value = serializeEpisodeFormatRules()
   } catch (error) {
     console.log(error)
@@ -378,19 +373,14 @@ async function saveEpisodeFormatRules() {
 
   try {
     const payload = buildEpisodeFormatRulePayload()
-    const result: { [key: string]: any } = await api.post('system/setting/EpisodeFormatRuleTable', payload)
-
-    if (result.success) {
-      episodeFormatRules.value.forEach((rule, index) => {
-        rule.order = payload[index].order
-        rule.min_file_size_mb = payload[index].min_file_size_mb
-      })
-      savedEpisodeRules.value = serializeEpisodeFormatRules()
-      $toast.success(t('setting.words.episodeFormatRuleSaveSuccess'))
-      return true
-    }
-
-    $toast.error(result.message || t('setting.words.episodeFormatRuleSaveFailed'))
+    await api.post<null>('system/setting/EpisodeFormatRuleTable', payload, { feedback: 'silent' })
+    episodeFormatRules.value.forEach((rule, index) => {
+      rule.order = payload[index].order
+      rule.min_file_size_mb = payload[index].min_file_size_mb
+    })
+    savedEpisodeRules.value = serializeEpisodeFormatRules()
+    $toast.success(t('setting.words.episodeFormatRuleSaveSuccess'))
+    return true
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.words.episodeFormatRuleSaveFailed'))

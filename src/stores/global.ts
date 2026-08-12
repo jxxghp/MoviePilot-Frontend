@@ -45,10 +45,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', {
     async loadUserSettings() {
       try {
         const result: { [key: string]: any } = await api.get('system/global/user')
-        if (result.success && result.data) {
-          // 合并用户设置到现有数据
-          this.data = { ...this.data, ...result.data }
-        }
+        this.data = { ...this.data, ...result }
       } catch (error) {
         console.error('Failed to load user settings', error)
       }

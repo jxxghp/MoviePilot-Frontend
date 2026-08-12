@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import api, { isApiResponse } from '@/api'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
@@ -71,6 +72,20 @@ interface AgentChoiceSelection {
   selected_label?: string
   selected_value?: string
   selected_description?: string
+}
+
+interface AgentChoiceCallbackData {
+  message?: string
+  traditional?: boolean
+  original_message_id?: string
+  original_chat_id?: string
+  choice_selection?: unknown
+  feedback?: {
+    selected_label?: string
+    selected_value?: string
+    selected_description?: string
+  }
+  display_message?: string
 }
 
 interface AgentChatMessage {
@@ -712,22 +727,6 @@ function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
   return deduped.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
-// 调用智能助手接口，并统一处理鉴权和标准响应格式。
-async function fetchAgentApi(path: string, options: RequestInit = {}) {
-  const response = await fetch(resolveApiUrl(path), {
-    ...options,
-    headers: buildAgentRequestHeaders(options.headers),
-    credentials: 'include',
-  })
-
-  if (!response.ok) throw new Error(await resolveAgentResponseErrorMessage(response))
-
-  const result = await response.json()
-  if (!result?.success) throw new Error(result?.message_i18n || result?.message || t('agentAssistant.error'))
-
-  return result.data
-}
-
 // 从 localStorage 读取历史会话索引，读取失败时回退为空列表。
 function restoreHistorySessions() {
   try {
@@ -743,7 +742,9 @@ async function loadServerHistorySessions() {
   historyHasMore.value = true
   historyLoading.value = true
   try {
-    const data = await fetchAgentApi(`message/agent/sessions?page=1&count=${HISTORY_PAGE_SIZE}`)
+    const data = await api.get<unknown>(`message/agent/sessions?page=1&count=${HISTORY_PAGE_SIZE}`, {
+      feedback: 'silent',
+    })
     const sessions = Array.isArray(data)
       ? (data
           .map(item => normalizeServerSession(item as AgentServerSession))
@@ -770,7 +771,9 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
   historyLoadingMore.value = true
   try {
     const nextPage = historyPage.value + 1
-    const data = await fetchAgentApi(`message/agent/sessions?page=${nextPage}&count=${HISTORY_PAGE_SIZE}`)
+    const data = await api.get<unknown>(`message/agent/sessions?page=${nextPage}&count=${HISTORY_PAGE_SIZE}`, {
+      feedback: 'silent',
+    })
     const sessions = Array.isArray(data)
       ? (data
           .map(item => normalizeServerSession(item as AgentServerSession))
@@ -798,7 +801,7 @@ async function loadSlashCommands() {
 
   slashCommandsLoading.value = true
   try {
-    const data = await fetchAgentApi('message/agent/commands')
+    const data = await api.get<unknown>('message/agent/commands', { feedback: 'silent' })
     slashCommands.value = Array.isArray(data)
       ? data
           .map(item => ({
@@ -845,7 +848,9 @@ async function handleHistoryInfiniteLoad({
 
 // 加载服务端历史会话详情，并更新本地缓存。
 async function loadServerHistorySession(targetSessionId: string) {
-  const data = await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`)
+  const data = await api.get<unknown>(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
+    feedback: 'silent',
+  })
   const session = normalizeServerSession(data as AgentServerSession, true)
   if (!session) throw new Error(t('agentAssistant.historyLoadFailed'))
 
@@ -1105,16 +1110,14 @@ function upsertCurrentSessionHistory() {
 async function saveCurrentSessionToServer() {
   if (!sessionId.value || messages.value.length === 0) return
 
-  await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/display`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  await api.put<unknown>(
+    `message/agent/sessions/${encodeURIComponent(sessionId.value)}/display`,
+    {
       title: buildSessionHistoryTitle(messages.value),
       messages: normalizeStoredMessages(messages.value),
-    }),
-  })
+    },
+    { feedback: 'silent' },
+  )
 }
 
 // 持久化当前会话状态，并按需同步到历史会话列表。
@@ -1158,9 +1161,12 @@ function buildAgentRequestHeaders(headers?: HeadersInit) {
 // 解析智能助手 fetch 失败响应，优先使用后端返回的本地化错误文本。
 async function resolveAgentResponseErrorMessage(response: Response) {
   try {
-    const payload = await response.clone().json()
-    const message = payload?.detail_i18n || payload?.message_i18n || payload?.detail || payload?.message
-    if (typeof message === 'string' && message) return message
+    const payload: unknown = await response.clone().json()
+    if (isApiResponse(payload) && payload.message.trim()) return payload.message
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      const detail = (payload as Record<string, unknown>).detail
+      if (typeof detail === 'string' && detail.trim()) return detail
+    }
   } catch {
     // 非 JSON 错误响应保留 HTTP 状态文本，避免吞掉原始错误。
   }
@@ -1793,19 +1799,9 @@ async function uploadAgentAttachment(file: File) {
   formData.append('file', file)
   formData.append('session_id', sessionId.value)
 
-  const response = await fetch(resolveApiUrl('message/agent/upload'), {
-    method: 'POST',
-    headers: buildAgentRequestHeaders(),
-    body: formData,
-    credentials: 'include',
+  return await api.post<AgentMessageAttachment & AgentOutgoingFile>('message/agent/upload', formData, {
+    feedback: 'silent',
   })
-
-  if (!response.ok) throw new Error(await resolveAgentResponseErrorMessage(response))
-
-  const result = await response.json()
-  if (!result?.success) throw new Error(result?.message_i18n || result?.message || t('agentAssistant.uploadFailed'))
-
-  return result.data as AgentMessageAttachment & AgentOutgoingFile
 }
 
 // 准备本轮发送给 Agent 的图片、文件、音频和展示附件。
@@ -2137,27 +2133,19 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
   streamError.value = ''
 
   try {
-    const response = await fetch(resolveApiUrl('message/agent/callback'), {
-      method: 'POST',
-      headers: buildAgentRequestHeaders({
-        'Content-Type': 'application/json',
-      }),
-      body: JSON.stringify({
+    const data = await api.post<AgentChoiceCallbackData>(
+      'message/agent/callback',
+      {
         session_id: sessionId.value,
         callback_data: button.callback_data,
         original_message_id: message.id,
         original_chat_id: sessionId.value,
-      }),
-      credentials: 'include',
-    })
+      },
+      { feedback: 'silent' },
+    )
 
-    if (!response.ok) throw new Error(await resolveAgentResponseErrorMessage(response))
-
-    const result = await response.json()
-    if (!result?.success) throw new Error(result?.message_i18n || result?.message || t('agentAssistant.choiceExpired'))
-
-    const agentMessage = String(result.data?.message || '')
-    if (result.data?.traditional) {
+    const agentMessage = String(data.message || '')
+    if (data.traditional) {
       const choiceSelection = buildChoiceSelection(choice, button)
       choiceSelection.selected_description = getChoiceButtonSelectionText(button)
       markChoiceSelected(choice, button, choiceSelection)
@@ -2167,21 +2155,19 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
         echoUser: false,
         displayText: choiceSelection.selected_label || choiceSelection.selected_description,
         choiceSelection,
-        originalMessageId: String(result.data?.original_message_id || message.id),
-        originalChatId: String(result.data?.original_chat_id || sessionId.value),
+        originalMessageId: String(data.original_message_id || message.id),
+        originalChatId: String(data.original_chat_id || sessionId.value),
       })
       return
     }
 
-    const backendSelection = normalizeChoiceSelection(result.data?.choice_selection)
+    const backendSelection = normalizeChoiceSelection(data.choice_selection)
     const choiceSelection = backendSelection || buildChoiceSelection(choice, button)
-    choiceSelection.selected_label =
-      result.data?.feedback?.selected_label || choiceSelection.selected_label || button.label
-    choiceSelection.selected_value =
-      result.data?.feedback?.selected_value || choiceSelection.selected_value || agentMessage
+    choiceSelection.selected_label = data.feedback?.selected_label || choiceSelection.selected_label || button.label
+    choiceSelection.selected_value = data.feedback?.selected_value || choiceSelection.selected_value || agentMessage
     choiceSelection.selected_description =
-      result.data?.display_message ||
-      result.data?.feedback?.selected_description ||
+      data.display_message ||
+      data.feedback?.selected_description ||
       choiceSelection.selected_description ||
       getChoiceButtonSelectionText(button)
 
@@ -2223,11 +2209,13 @@ function stopGeneration() {
   }
   persistState()
   if (sessionId.value) {
-    fetchAgentApi(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/stop`, {
-      method: 'POST',
-    }).catch(() => {
-      // 本地中止优先，停止接口失败不阻塞用户操作。
-    })
+    api
+      .post<unknown>(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/stop`, undefined, {
+        feedback: 'silent',
+      })
+      .catch(() => {
+        // 本地中止优先，停止接口失败不阻塞用户操作。
+      })
   }
   abortController?.abort()
 }
@@ -2275,8 +2263,8 @@ async function deleteHistorySession(targetSessionId: string) {
   if (isBusy.value && targetSessionId === sessionId.value) return
 
   try {
-    await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
-      method: 'DELETE',
+    await api.delete<null>(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
+      feedback: 'silent',
     })
   } catch (error) {
     // 删除接口失败时仍允许清理本地兜底历史，避免坏记录一直挡在列表里。
@@ -2502,10 +2490,10 @@ onScopeDispose(() => {
                   class="agent-assistant-history-infinite"
                   @load="handleHistoryInfiniteLoad"
                 >
-                  <VVirtualScroll renderless :items="historySessions" :item-height="HISTORY_ITEM_HEIGHT">
-                    <template #default="{ item: historySession, itemRef }">
+                  <VVirtualScroll :renderless="true" :items="historySessions" :item-height="HISTORY_ITEM_HEIGHT">
+                    <template #default="{ item: historySession, ...slotProps }">
                       <button
-                        :ref="itemRef"
+                        :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined"
                         :key="historySession.sessionId"
                         class="agent-assistant-history-item"
                         :class="{ 'is-active': isCurrentHistorySession(historySession.sessionId) }"

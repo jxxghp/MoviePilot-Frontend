@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import api from '@/api'
+import { pluginApi } from '@/api'
 import { DashboardItem } from '@/api/types'
 import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -248,7 +248,7 @@ onUnmounted(() => {
         :is="dynamicPluginComponent"
         :config="props.config"
         :allow-refresh="props.allowRefresh"
-        :api="api"
+        :api="pluginApi"
         :native-subscribe="nativeSubscribe"
       />
     </div>

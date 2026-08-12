@@ -3,8 +3,8 @@ import { useToast } from 'vue-toastification'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import type {
-  ApiResponse,
   MediaDataSource,
   MediaInfo,
   MediaRelease,
@@ -194,9 +194,8 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: ApiResponse<{ value?: number[] }> = await api.get('system/setting/public/IndexerSites')
-
-    selectedSites.value = result.data?.value ?? []
+    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    selectedSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -301,7 +300,7 @@ async function loadEpisodeExists() {
 // 查询当前媒体是否已入库（数据库）
 async function checkExists() {
   try {
-    const result: ApiResponse<{ item: { id: string } }> = await api.get('mediaserver/exists', {
+    const result = await api.get<{ item?: { id: string } }>('mediaserver/exists', {
       params: {
         media_source: mediaDetail.value.media_source,
         media_id: mediaDetail.value.media_id,
@@ -312,7 +311,7 @@ async function checkExists() {
       },
     })
 
-    if (result.success) existsItemId.value = result.data.item.id
+    existsItemId.value = result.item?.id || ''
   } catch (error) {
     console.error(error)
   }
@@ -725,23 +724,21 @@ function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: M
 async function handlePlay() {
   // 获取播放链接地址
   try {
-    const result: ApiResponse<{ item_id: string; server_id: string; server_type: string; url: string }> = await api.get(
+    const result = await api.get<{ item_id: string; server_id: string; server_type: string; url: string }>(
       `mediaserver/play/${existsItemId.value}`,
+      { feedback: 'silent' },
     )
-    if (result?.success) {
-      // 使用深度链接工具，优先跳转到APP，失败后跳转到网页
-      await openMediaServerItem({
-        link: result.data.url,
-        item_id: result.data.item_id,
-        server_id: result.data.server_id,
-        server_type: result.data.server_type,
-      })
-    } else {
-      $toast.error(`获取播放链接失败：${result.message}！`)
-    }
+    // 使用深度链接工具，优先跳转到APP，失败后跳转到网页
+    await openMediaServerItem({
+      link: result.url,
+      item_id: result.item_id,
+      server_id: result.server_id,
+      server_type: result.server_type,
+    })
   } catch (error) {
     console.error(error)
-    $toast.error('获取播放链接失败！')
+    const message = getApiBusinessErrorMessage(error)
+    $toast.error(message ? `获取播放链接失败：${message}！` : '获取播放链接失败！')
   }
 }
 

@@ -163,8 +163,8 @@ async function loadConfig() {
   }
 
   try {
-    const response = await api.get('/user/config/Recommend')
-    const remoteConfig = normalizeEnableConfig(response?.data?.value)
+    const response = await api.get<{ value?: unknown }>('/user/config/Recommend')
+    const remoteConfig = normalizeEnableConfig(response.value)
     if (remoteConfig) {
       enableConfig.value = remoteConfig
       localStorage.setItem('MP_RECOMMEND', JSON.stringify(remoteConfig))

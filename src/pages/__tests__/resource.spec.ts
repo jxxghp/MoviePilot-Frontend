@@ -18,10 +18,10 @@ const mocks = vi.hoisted(() => ({
 const musicBrainzAlbumId = '695f5ac8-cfd5-4e7b-96a0-6d545f5c9f17'
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
-  },
+  }),
 }))
 
 vi.mock('@/composables/useDynamicButton', () => ({

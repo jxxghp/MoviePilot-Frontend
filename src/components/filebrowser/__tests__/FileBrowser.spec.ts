@@ -1,9 +1,9 @@
 import FileBrowser from '@/components/filebrowser/FileBrowser.vue'
+import type { DataApiClient } from '@/api'
 import type { EndPoints } from '@/api/types'
 import { createTestingPinia } from '@pinia/testing'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue'
-import type { AxiosInstance } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -79,7 +79,7 @@ const FileListStub = defineComponent({
 
 function createBrowserProps() {
   const request = vi.fn()
-  const axios = Object.assign(vi.fn(), { request }) as unknown as AxiosInstance
+  const axios = Object.assign(vi.fn(), { request }) as unknown as DataApiClient
   const endpoint = { method: 'post', url: '/unused' }
   const endpoints: EndPoints = {
     delete: endpoint,

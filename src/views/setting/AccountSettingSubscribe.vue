@@ -25,10 +25,10 @@ const allSites = ref<Site[]>([])
 const selectedRssSites = ref<number[]>([])
 
 // 选中的订阅规则组
-const selectedFilterRuleGroup = ref([])
+const selectedFilterRuleGroup = ref<string[]>([])
 
 // 选中的洗版规则组
-const selectedBestVersionRuleGroup = ref([])
+const selectedBestVersionRuleGroup = ref<string[]>([])
 
 // 订阅模式选择项
 const subscribeModeItems = [
@@ -92,8 +92,8 @@ async function querySites() {
 // 加载规则组
 async function queryFilterRuleGroups() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    const result = await api.get<{ value?: FilterRuleGroup[] }>('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -102,9 +102,8 @@ async function queryFilterRuleGroups() {
 // 查询用户选中的订阅站点
 async function querySelectedRssSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/RssSites')
-
-    selectedRssSites.value = result.data?.value ?? []
+    const result = await api.get<{ value?: number[] }>('system/setting/RssSites')
+    selectedRssSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -113,10 +112,8 @@ async function querySelectedRssSites() {
 // 保存用户选中的订阅站点
 async function saveSelectedRssSites() {
   try {
-    const result1: { [key: string]: any } = await api.post('system/setting/RssSites', selectedRssSites.value)
-
-    if (result1.success) $toast.success(t('setting.subscribe.saveSuccess'))
-    else $toast.error(t('setting.subscribe.saveFailed'))
+    await api.post('system/setting/RssSites', selectedRssSites.value, { feedback: 'silent' })
+    $toast.success(t('setting.subscribe.saveSuccess'))
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.subscribe.saveFailed'))
@@ -127,15 +124,13 @@ async function saveSelectedRssSites() {
 async function loadSystemSettings() {
   try {
     const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success) {
-      // 将API返回的值赋值给SystemSettings
-      for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
-        Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
-            Reflect.set(SystemSettings.value[sectionKey], key, result.data[key])
-          }
-        })
-      }
+    // 将API返回的值赋值给SystemSettings
+    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+      Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
+        if (Object.prototype.hasOwnProperty.call(result, key)) {
+          Reflect.set(SystemSettings.value[sectionKey], key, result[key])
+        }
+      })
     }
   } catch (error) {
     console.log(error)
@@ -145,11 +140,8 @@ async function loadSystemSettings() {
 // 调用API保存设置
 async function saveSystemSetting(value: { [key: string]: any }) {
   try {
-    const result: { [key: string]: any } = await api.post('system/env', value)
-
-    if (result.success) {
-      return true
-    }
+    await api.post('system/env', value, { feedback: 'silent' })
+    return true
   } catch {
     return false
   }
@@ -160,11 +152,11 @@ async function saveSystemSetting(value: { [key: string]: any }) {
 async function querySubscribeRules() {
   try {
     // 查询订阅规则组
-    const result1: { [key: string]: any } = await api.get('system/setting/SubscribeFilterRuleGroups')
-    if (result1.success) selectedFilterRuleGroup.value = result1.data?.value
+    const result1 = await api.get<{ value?: string[] }>('system/setting/SubscribeFilterRuleGroups')
+    selectedFilterRuleGroup.value = result1.value ?? []
     // 查询洗版规则组
-    const result2: { [key: string]: any } = await api.get('system/setting/BestVersionFilterRuleGroups')
-    if (result2.success) selectedBestVersionRuleGroup.value = result2.data?.value
+    const result2 = await api.get<{ value?: string[] }>('system/setting/BestVersionFilterRuleGroups')
+    selectedBestVersionRuleGroup.value = result2.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -173,19 +165,15 @@ async function querySubscribeRules() {
 // 保存订阅设置
 async function saveSubscribeSetting() {
   try {
-    const result1: { [key: string]: any } = await api.post(
-      'system/setting/SubscribeFilterRuleGroups',
-      selectedFilterRuleGroup.value,
-    )
+    await api.post('system/setting/SubscribeFilterRuleGroups', selectedFilterRuleGroup.value, { feedback: 'silent' })
 
-    const result2: { [key: string]: any } = await api.post(
-      'system/setting/BestVersionFilterRuleGroups',
-      selectedBestVersionRuleGroup.value,
-    )
+    await api.post('system/setting/BestVersionFilterRuleGroups', selectedBestVersionRuleGroup.value, {
+      feedback: 'silent',
+    })
 
     const result3 = await saveSystemSetting(SystemSettings.value.Basic)
 
-    if (result1.success && result2.success && result3) {
+    if (result3) {
       $toast.success(t('setting.subscribe.settingsSaveSuccess'))
     } else $toast.error(t('setting.subscribe.settingsSaveFailed'))
   } catch (error) {

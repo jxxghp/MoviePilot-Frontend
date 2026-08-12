@@ -48,10 +48,13 @@ const actionDefinitions = ref<any[]>([])
 
 // 动作类型到契约的映射
 const actionContractMap = computed(() => {
-  return actionDefinitions.value.reduce((result, action) => {
-    result[action.type] = action.contract || {}
-    return result
-  }, {} as Record<string, any>)
+  return actionDefinitions.value.reduce(
+    (result, action) => {
+      result[action.type] = action.contract || {}
+      return result
+    },
+    {} as Record<string, any>,
+  )
 })
 
 // 获取指定节点端口的类型（输入/输出）
@@ -159,14 +162,10 @@ const getNodeName = (nodeId?: string) => {
 
 // 获取流程边源节点可用于条件判断的输出字段
 const getEdgeConditionFields = (edge: any) => {
-  const sourceNode = edge
-    ? nodes.value.find(node => node.id === edge.source)
-    : null
+  const sourceNode = edge ? nodes.value.find(node => node.id === edge.source) : null
   const contract = sourceNode ? actionContractMap.value[sourceNode.type] || {} : {}
   const fields = contract.condition_fields || contract.outputs || []
-  return Array.isArray(fields)
-    ? fields.filter((field: any) => field?.name || field)
-    : []
+  return Array.isArray(fields) ? fields.filter((field: any) => field?.name || field) : []
 }
 
 // 判断流程边是否存在可编辑条件
@@ -232,15 +231,13 @@ const selectedEdge = computed(() => {
 })
 
 // 当前边可用于条件判断的输出字段
-const selectedEdgeConditionFields = computed(() => (
-  selectedEdge.value ? getEdgeConditionFields(selectedEdge.value) : []
-))
+const selectedEdgeConditionFields = computed(() =>
+  selectedEdge.value ? getEdgeConditionFields(selectedEdge.value) : [],
+)
 
 // 当前边的条件下拉选项，按源节点固定输出自动生成
 const edgeConditionOptions = computed(() => {
-  const sourceNode = selectedEdge.value
-    ? nodes.value.find(node => node.id === selectedEdge.value?.source)
-    : null
+  const sourceNode = selectedEdge.value ? nodes.value.find(node => node.id === selectedEdge.value?.source) : null
   const options = [{ title: t('dialog.workflowActions.conditionAlways'), value: '' }]
   selectedEdgeConditionFields.value.forEach((field: any) => {
     const fieldName = field.name || field
@@ -376,13 +373,9 @@ async function updateWorkflow() {
   workflowForm.value.flows = edges.value
 
   try {
-    const result: { [key: string]: string } = await api.put(`workflow/${workflowForm.value.id}`, workflowForm.value)
-    if (result.success) {
-      $toast.success(t('dialog.workflowActions.saveSuccess'))
-      emit('save')
-    } else {
-      $toast.error(t('dialog.workflowActions.saveFailed', { message: result.message }))
-    }
+    await api.put<null>(`workflow/${workflowForm.value.id}`, workflowForm.value)
+    $toast.success(t('dialog.workflowActions.saveSuccess'))
+    emit('save')
   } catch (error) {
     console.error(error)
   }
@@ -720,6 +713,5 @@ const isMacOS = computed(() => {
     inset-inline: 16px;
     max-block-size: min(72vh, calc(100% - 112px));
   }
-
 }
 </style>

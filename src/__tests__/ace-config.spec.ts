@@ -13,7 +13,15 @@ interface WordListMode {
   }
 }
 
+interface JinjaMode {
+  getTokenizer: () => {
+    getLineTokens: (line: string, state: string) => { tokens: AceToken[] }
+  }
+}
+
 const WordListMode = ace.require('ace/mode/word_list').Mode as new (options?: { syntax?: boolean }) => WordListMode
+const Jinja2Mode = ace.require('ace/mode/jinja2').Mode as new () => JinjaMode
+const Jinja2JsonMode = ace.require('ace/mode/jinja2_json').Mode as new () => JinjaMode
 const syntaxTokenizer = new WordListMode({ syntax: true }).getTokenizer()
 const plainTokenizer = new WordListMode().getTokenizer()
 
@@ -24,6 +32,28 @@ function tokenize(line: string) {
 function tokenizePlain(line: string) {
   return plainTokenizer.getLineTokens(line, 'start').tokens
 }
+
+function findToken(mode: new () => JinjaMode, line: string, value: string) {
+  return new mode()
+    .getTokenizer()
+    .getLineTokens(line, 'start')
+    .tokens.find(token => token.value === value)
+}
+
+describe('Jinja context variables', () => {
+  it('keeps source-specific IDs and excludes unified identity from rename formats', () => {
+    expect(findToken(Jinja2Mode, '{{ tmdbid }}', 'tmdbid')?.type).toBe('variable.language.jinja2')
+    expect(findToken(Jinja2Mode, '{{ media_source }}', 'media_source')?.type).toBe('identifier')
+    expect(findToken(Jinja2Mode, '{{ media_id }}', 'media_id')?.type).toBe('identifier')
+  })
+
+  it('keeps unified identity available in notification JSON templates', () => {
+    const template = '{"source": "{{ media_source }}", "id": "{{ media_id }}"}'
+
+    expect(findToken(Jinja2JsonMode, template, 'media_source')?.type).toBe('variable.language.jinja2')
+    expect(findToken(Jinja2JsonMode, template, 'media_id')?.type).toBe('variable.language.jinja2')
+  })
+})
 
 describe('word list syntax mode', () => {
   it('highlights a block word as one field', () => {
@@ -47,21 +77,12 @@ describe('word list syntax mode', () => {
     ])
   })
 
-  it('accepts the unified media source and native media ID parameters', () => {
-    const tokens = tokenize('旧名 => 新名 {[media_source=douban;media_id=1295644;type=movie]}')
+  it('rejects unified media identity parameters in custom identifiers', () => {
+    const invalidKeys = tokenize('旧名 => {[media_source=douban;media_id=1295644]}')
+      .filter(token => token.type === 'invalid.word-list')
+      .map(token => token.value)
 
-    expect(tokens).toContainEqual({ type: 'word_list_parameter_key', value: 'media_source' })
-    expect(tokens).toContainEqual({ type: 'word_list_parameter_value', value: 'douban' })
-    expect(tokens).toContainEqual({ type: 'word_list_parameter_key', value: 'media_id' })
-    expect(tokens).toContainEqual({ type: 'word_list_parameter_value', value: '1295644' })
-    expect(tokens).not.toContainEqual(expect.objectContaining({ type: 'invalid.word-list' }))
-  })
-
-  it('rejects an unknown media source in the unified parameters', () => {
-    expect(tokenize('旧名 => {[media_source=custom;media_id=42]}')).toContainEqual({
-      type: 'invalid.word-list',
-      value: 'custom',
-    })
+    expect(invalidKeys).toEqual(['media_source', 'media_id'])
   })
 
   it('marks invalid replacement parameter keys and values', () => {

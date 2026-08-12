@@ -58,12 +58,8 @@ async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') 
 /** 删除指定下载历史，并在成功后同步移除当前列表项。 */
 async function deleteHistory(item: DownloadHistory) {
   try {
-    const result: { success?: boolean } = await api.delete('history/download', { data: item })
-    if (result.success) {
-      historyList.value = historyList.value.filter(history => history.id !== item.id)
-      return
-    }
-    $toast.error(t('dialog.downloadHistory.deleteFailed'))
+    await api.delete('history/download', { data: item, feedback: 'silent' })
+    historyList.value = historyList.value.filter(history => history.id !== item.id)
   } catch (error) {
     console.error(error)
     $toast.error(t('dialog.downloadHistory.deleteFailed'))
@@ -124,9 +120,9 @@ function getSeasonEpisode(item: DownloadHistory) {
         <template #empty />
 
         <VList lines="three" class="download-history-dialog__content py-0">
-          <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="120">
-            <template #default="{ item, itemRef }">
-              <div :ref="itemRef">
+          <VVirtualScroll v-if="historyList.length > 0" :renderless="true" :items="historyList" :item-height="120">
+            <template #default="{ item, ...slotProps }">
+              <div :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined">
                 <VListItem class="download-history-item">
                   <template #prepend>
                     <VImg

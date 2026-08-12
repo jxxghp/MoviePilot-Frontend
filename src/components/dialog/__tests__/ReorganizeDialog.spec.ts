@@ -244,6 +244,11 @@ function createDeferred<T>() {
   return { promise, reject, resolve }
 }
 
+/** 构造后端网络层使用的严格三段式响应。 */
+function apiEnvelope<T>(data: T | null, success = true, message = ''): ApiResponse<T> {
+  return { data, message, success }
+}
+
 function publicSettingHandlers({
   directories = [],
   episodeRules = [],
@@ -256,19 +261,19 @@ function publicSettingHandlers({
   return [
     http.get(new URL('system/setting/public/Directories', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json({ data: { value: directories }, success: true })
+      return HttpResponse.json(apiEnvelope({ value: directories }))
     }),
     http.get(new URL('system/setting/public/Storages', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json({ data: { value: storages }, success: true })
+      return HttpResponse.json(apiEnvelope({ value: storages }))
     }),
     http.get(new URL('system/setting/public/EpisodeFormatRuleTable', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json({ data: { value: episodeRules }, success: true })
+      return HttpResponse.json(apiEnvelope({ value: episodeRules }))
     }),
     http.post(new URL('transfer/manual/history', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json({ data: { history_count: 0, reorganize: false }, success: true })
+      return HttpResponse.json(apiEnvelope({ history_count: 0, reorganize: false }))
     }),
   ]
 }
@@ -354,6 +359,7 @@ function previewResponse(
         total: items.length,
       },
     },
+    message: '',
     success: true,
   }
 }
@@ -375,7 +381,7 @@ describe('ReorganizeDialog submission safety', () => {
   it('keeps the dialog open when the backend reports a business failure', async () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
-        HttpResponse.json({ message: '整理失败', success: false }),
+        HttpResponse.json(apiEnvelope(null, false, '整理失败')),
       ),
     )
     const user = userEvent.setup()
@@ -388,7 +394,9 @@ describe('ReorganizeDialog submission safety', () => {
   })
 
   it('shows a fallback error when a business failure has no message', async () => {
-    server.use(http.post(new URL('transfer/manual', API_BASE_URL).href, () => HttpResponse.json({ success: false })))
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () => HttpResponse.json(apiEnvelope(null, false))),
+    )
     const user = userEvent.setup()
     const { onDone } = await renderDialog()
 
@@ -415,7 +423,7 @@ describe('ReorganizeDialog submission safety', () => {
   })
 
   it('coalesces repeated submit clicks while a transfer request is pending', async () => {
-    const response = createDeferred<ApiResponse>()
+    const response = createDeferred<ApiResponse<null>>()
     let requestCount = 0
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async () => {
@@ -430,7 +438,7 @@ describe('ReorganizeDialog submission safety', () => {
     await fireEvent.click(submitButton)
 
     await waitFor(() => expect(requestCount).toBe(1))
-    response.resolve({ data: undefined, success: true })
+    response.resolve(apiEnvelope(null))
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
   })
 
@@ -439,7 +447,7 @@ describe('ReorganizeDialog submission safety', () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, () => {
         requestCount += 1
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -471,7 +479,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
         backgrounds.push(new URL(request.url).searchParams.get('background') ?? '')
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -504,7 +512,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -530,7 +538,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -563,7 +571,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
   })
 
   it('updates synchronous progress from SSE and always stops it after success', async () => {
-    const response = createDeferred<ApiResponse>()
+    const response = createDeferred<ApiResponse<null>>()
     let payload: unknown
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
@@ -582,7 +590,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     )
     await waitFor(() => expect(screen.getByTestId('transfer-progress')).toHaveTextContent('正在写入媒体库:65'))
 
-    response.resolve({ data: undefined, success: true })
+    response.resolve(apiEnvelope(null))
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
     expect(payload).toEqual(
       expect.objectContaining({
@@ -596,7 +604,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
   })
 
   it('stops the active progress stream when unmounted during a request', async () => {
-    const response = createDeferred<ApiResponse>()
+    const response = createDeferred<ApiResponse<null>>()
     const requestCompleted = createDeferred<void>()
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async () => {
@@ -612,7 +620,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     unmount()
 
     expect(mocks.progressControllers[0].stop).toHaveBeenCalledTimes(1)
-    response.resolve({ data: undefined, success: true })
+    response.resolve(apiEnvelope(null))
     await requestCompleted.promise
     await new Promise(resolve => setTimeout(resolve, 0))
   })
@@ -633,7 +641,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -677,11 +685,11 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     const bodies: unknown[] = []
     server.use(
       http.get(new URL('media/groups/600', API_BASE_URL).href, () =>
-        HttpResponse.json([{ episode_count: 12, group_count: 1, id: 'group-1', name: '播出顺序' }]),
+        HttpResponse.json(apiEnvelope([{ episode_count: 12, group_count: 1, id: 'group-1', name: '播出顺序' }])),
       ),
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -739,7 +747,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -780,12 +788,13 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
             rule_name: '标准季集',
             sample_file: 'Movie.mkv',
           },
+          message: '',
           success: true,
         })
       }),
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         transferBodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -810,7 +819,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         bodies.push(await request.json())
-        return HttpResponse.json({ success: true })
+        return HttpResponse.json(apiEnvelope(null))
       }),
     )
     const user = userEvent.setup()
@@ -941,7 +950,7 @@ describe('ReorganizeDialog preview', () => {
   it('summarizes a business-level preview failure without closing the preview', async () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
-        HttpResponse.json({ message: '目标目录不可用', success: false }),
+        HttpResponse.json(apiEnvelope(null, false, '目标目录不可用')),
       ),
     )
     const user = userEvent.setup()

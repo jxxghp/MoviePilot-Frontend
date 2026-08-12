@@ -139,19 +139,10 @@ async function importSites() {
       try {
         // 移除id字段，避免冲突
         const { id, ...siteData } = site
-        const result: { success: boolean; message?: string } = await api.post('site/', siteData)
-        if (result.success) {
-          // 记录成功的站点
-          successCount++
-          importSuccesses.value.push(site)
-        } else {
-          failCount++
-          // 记录失败信息
-          importErrors.value.push({
-            site,
-            error: result.message || t('site.messages.importFailed'),
-          })
-        }
+        await api.post<null>('site/', siteData, { feedback: 'silent' })
+        // 记录成功的站点
+        successCount++
+        importSuccesses.value.push(site)
       } catch (error) {
         console.error(`Import site ${site.name} failed:`, error)
         failCount++

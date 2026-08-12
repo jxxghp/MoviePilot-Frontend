@@ -2,7 +2,8 @@
 import type { PropType } from 'vue'
 import type { FileItem } from '@/api/types'
 import { useDisplay } from 'vuetify'
-import type { AxiosRequestConfig, AxiosInstance } from 'axios'
+import type { AxiosRequestConfig } from 'axios'
+import type { DataApiClient } from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
@@ -36,7 +37,7 @@ const props = defineProps({
   endpoints: Object,
   // Axios 实例是可调用函数，运行时 prop 类型需与其实际形态一致。
   axios: {
-    type: Function as PropType<AxiosInstance>,
+    type: Function as PropType<DataApiClient>,
     required: true,
   },
 })
@@ -113,7 +114,7 @@ async function loadSubdirectories(path: string) {
       data: fakeItem,
     }
 
-    const result = await props.axios?.request(config)
+    const result = await props.axios?.request<FileItem[]>(config)
     if (result && Array.isArray(result)) {
       // 过滤出目录项
       const dirs = result.filter(item => item.type === 'dir')

@@ -84,9 +84,8 @@ async function resetSites() {
     resetSitesDisabled.value = true
     resetSitesText.value = t('setting.site.resettingSites')
 
-    const result: { [key: string]: any } = await api.get('site/reset')
-    if (result.success) $toast.success(t('setting.site.resetSuccess'))
-    else $toast.error(t('setting.site.resetFailed'))
+    await api.get('site/reset', { feedback: 'silent' })
+    $toast.success(t('setting.site.resetSuccess'))
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.site.resetFailed'))
@@ -100,15 +99,13 @@ async function resetSites() {
 async function loadSiteSettings() {
   try {
     const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success) {
-      // 将API返回的值赋值给SystemSettings
-      for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof typeof siteSetting.value>) {
-        Object.keys(siteSetting.value[sectionKey]).forEach((key: string) => {
-          if (Object.prototype.hasOwnProperty.call(result.data, key)) {
-            Reflect.set(siteSetting.value[sectionKey], key, result.data[key])
-          }
-        })
-      }
+    // 将API返回的值赋值给SystemSettings
+    for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof typeof siteSetting.value>) {
+      Object.keys(siteSetting.value[sectionKey]).forEach((key: string) => {
+        if (Object.prototype.hasOwnProperty.call(result, key)) {
+          Reflect.set(siteSetting.value[sectionKey], key, result[key])
+        }
+      })
     }
   } catch (error) {
     console.log(error)
@@ -118,15 +115,11 @@ async function loadSiteSettings() {
 // 调用API保存设置
 async function saveSiteSetting(value: { [key: string]: any }) {
   try {
-    const result: { [key: string]: any } = await api.post('system/env', value)
-    if (result.success) {
-      $toast.success(t('setting.site.saveSuccess'))
-    } else {
-      $toast.error(t('setting.site.saveFailed'))
-    }
+    await api.post('system/env', value, { feedback: 'silent' })
+    $toast.success(t('setting.site.saveSuccess'))
   } catch (error) {
     console.log(error)
-    $toast.error(t('setting.system.saveFailed', { message: error }))
+    $toast.error(t('setting.site.saveFailed'))
   }
 }
 

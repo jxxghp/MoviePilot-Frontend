@@ -40,15 +40,11 @@ async function renderMediaRecommend(
 }
 
 describe('MediaRecommend', () => {
-  it.each([
-    ['array', (media: ReturnType<typeof createMediaInfo>) => [media]],
-    ['data array', (media: ReturnType<typeof createMediaInfo>) => ({ data: [media] })],
-    ['data list', (media: ReturnType<typeof createMediaInfo>) => ({ data: { list: [media] } })],
-  ])('normalizes the %s response shape', async (_shape, wrapResponse) => {
-    const media = createMediaInfo({ title: `响应-${_shape}` })
+  it('renders the unwrapped media array returned by the data client', async () => {
+    const media = createMediaInfo({ title: '标准响应媒体' })
     const requested = vi.fn()
 
-    await renderMediaRecommend(wrapResponse(media), { onRequest: requested })
+    await renderMediaRecommend([media], { onRequest: requested })
 
     await waitFor(() => expect(requested).toHaveBeenCalledOnce())
     expect(await screen.findByText(media.title || '')).toBeInTheDocument()
@@ -56,16 +52,12 @@ describe('MediaRecommend', () => {
 
   it('filters unusable media and limits the carousel to five items', async () => {
     const validMedia = Array.from({ length: 6 }, (_, index) => createMediaInfo({ title: `有效媒体 ${index + 1}` }))
-    const response = {
-      data: {
-        list: [
-          createMediaInfo({ title: undefined }),
-          createMediaInfo({ backdrop_path: undefined, poster_path: undefined, title: '无图片' }),
-          createMediaInfo({ collection_id: undefined, media_id: undefined, title: '无标识', tmdb_id: 999 }),
-          ...validMedia,
-        ],
-      },
-    }
+    const response = [
+      createMediaInfo({ title: undefined }),
+      createMediaInfo({ backdrop_path: undefined, poster_path: undefined, title: '无图片' }),
+      createMediaInfo({ collection_id: undefined, media_id: undefined, title: '无标识', tmdb_id: 999 }),
+      ...validMedia,
+    ]
     const requested = vi.fn()
     const { container } = await renderMediaRecommend(response, { onRequest: requested })
 

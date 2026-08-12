@@ -2,7 +2,7 @@
 import { useDisplay } from 'vuetify'
 import type { Plugin, RenderProps } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import api from '@/api'
+import api, { pluginApi } from '@/api'
 import { useToast } from 'vue-toastification'
 import FormRender from '../render/FormRender.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
@@ -163,19 +163,12 @@ async function savePluginConf() {
   progressDialog.value = true
   progressText.value = t('dialog.pluginConfig.saving', { name: props.plugin?.plugin_name })
   try {
-    const result = (await api.put(`plugin/${props.plugin?.id}`, pluginConfigForm.value)) as {
-      message?: string
-      success: boolean
-    }
-    if (result.success) {
-      $toast.success(t('dialog.pluginConfig.saveSuccess', { name: props.plugin?.plugin_name }))
-      // 通知父组件刷新
-      emit('save')
-      // 导航声明可能由插件配置控制；刷新失败不改变已经成功的配置保存结果。
-      void pluginSidebarNavStore.ensureSidebarNav(true).catch(error => console.error(error))
-    } else {
-      $toast.error(t('dialog.pluginConfig.saveFailed', { name: props.plugin?.plugin_name, message: result.message }))
-    }
+    await api.put(`plugin/${props.plugin?.id}`, pluginConfigForm.value, { feedback: 'silent' })
+    $toast.success(t('dialog.pluginConfig.saveSuccess', { name: props.plugin?.plugin_name }))
+    // 通知父组件刷新
+    emit('save')
+    // 导航声明可能由插件配置控制；刷新失败不改变已经成功的配置保存结果。
+    void pluginSidebarNavStore.ensureSidebarNav(true).catch(error => console.error(error))
   } catch (error) {
     console.error(error)
     const message = error instanceof Error ? error.message : String(error)
@@ -238,7 +231,7 @@ onBeforeMount(async () => {
         <component
           :is="dynamicComponent"
           :initial-config="pluginConfigForm"
-          :api="api"
+          :api="pluginApi"
           :native-subscribe="nativeSubscribe"
           @save="handleVueComponentSave"
           @layout="handleVueComponentLayout"

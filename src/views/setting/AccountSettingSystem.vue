@@ -196,7 +196,9 @@ const scrapingConfig = [
 ]
 
 // 刮削策略设置
-const ScrapingPolicies = ref<Record<string, 'skip' | 'missingOnly' | 'overwrite'>>(
+type ScrapingPolicy = 'skip' | 'missingOnly' | 'overwrite'
+
+const ScrapingPolicies = ref<Record<string, ScrapingPolicy>>(
   Object.fromEntries(scrapingConfig.flatMap(section => section.items.map(item => [item.key, 'missingOnly']))),
 )
 
@@ -669,8 +671,8 @@ function addImageProxyAllowedPrivateRange() {
 // 调用API查询下载器设置
 async function loadDownloaderSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Downloaders')
-    downloaders.value = result.data?.value ?? []
+    const result = await api.get<{ value?: DownloaderConf[] }>('system/setting/Downloaders')
+    downloaders.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -685,9 +687,8 @@ async function saveDownloaderSetting() {
     if (enabledDownloaders.length > 0) {
       downloaders.value = handleDefaultDownloaders(enabledDownloaders, downloaders.value)
     }
-    const result: { [key: string]: any } = await api.post('system/setting/Downloaders', downloaders.value)
-    if (result.success) $toast.success(t('setting.system.downloaderSaveSuccess'))
-    else $toast.error(t('setting.system.downloaderSaveFailed'))
+    await api.post('system/setting/Downloaders', downloaders.value, { feedback: 'silent' })
+    $toast.success(t('setting.system.downloaderSaveSuccess'))
 
     await loadDownloaderSetting()
   } catch (error) {
@@ -714,8 +715,8 @@ function handleDefaultDownloaders(enabledDownloaders: any[], downloaders: any[])
 // 调用API查询媒体服务器设置
 async function loadMediaServerSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
-    mediaServers.value = result.data?.value ?? []
+    const result = await api.get<{ value?: MediaServerConf[] }>('system/setting/MediaServers')
+    mediaServers.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -724,9 +725,8 @@ async function loadMediaServerSetting() {
 // 调用API保存媒体服务器设置
 async function saveMediaServerSetting() {
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/MediaServers', mediaServers.value)
-    if (result.success) $toast.success(t('setting.system.mediaServerSaveSuccess'))
-    else $toast.error(t('setting.system.mediaServerSaveFailed'))
+    await api.post('system/setting/MediaServers', mediaServers.value, { feedback: 'silent' })
+    $toast.success(t('setting.system.mediaServerSaveSuccess'))
 
     await loadMediaServerSetting()
   } catch (error) {
@@ -739,21 +739,20 @@ async function loadSystemSettings() {
   invalidateLlmTestState()
   try {
     const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success) {
-      const defaultSyncInterval = Number(result.data.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
-      legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
-      // 将API返回的值赋值给SystemSettings
-      for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
-        Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
-        })
-      }
-      const accelAvailable = Boolean(result.data.RUST_ACCEL_AVAILABLE ?? result.data.RUST_ACCEL_ENABLED)
-      rustAccelAvailable.value = accelAvailable
-      if (!accelAvailable) SystemSettings.value.Advanced.RUST_ACCEL = false
-      SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
-      await loadLlmProviders()
+    const defaultSyncInterval = Number(result.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
+    legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
+    // 将API返回的值赋值给SystemSettings
+    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+      Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
+        if (Object.prototype.hasOwnProperty.call(result, key))
+          (SystemSettings.value[sectionKey] as any)[key] = result[key]
+      })
     }
+    const accelAvailable = Boolean(result.RUST_ACCEL_AVAILABLE ?? result.RUST_ACCEL_ENABLED)
+    rustAccelAvailable.value = accelAvailable
+    if (!accelAvailable) SystemSettings.value.Advanced.RUST_ACCEL = false
+    SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result)
+    await loadLlmProviders()
   } catch (error) {
     console.log(error)
   }
@@ -763,8 +762,8 @@ async function loadSystemSettings() {
 async function loadAgentMcpServers() {
   loadingAgentMcpServers.value = true
   try {
-    const result: { [key: string]: any } = await api.get('message/agent/mcp/servers')
-    if (result.success) agentMcpServers.value = result.data?.servers || []
+    const result = await api.get<{ servers?: AgentMcpServer[] }>('message/agent/mcp/servers')
+    agentMcpServers.value = result.servers || []
   } catch (error) {
     console.log(error)
   } finally {
@@ -779,13 +778,8 @@ function handleAgentMcpSaved(servers: AgentMcpServer[]) {
 // 调用API保存设置
 async function saveSystemSetting(value: { [key: string]: any }) {
   try {
-    const result: { [key: string]: any } = await api.post('system/env', value)
-    if (result.success) {
-      return true
-    } else {
-      $toast.error(t('setting.system.saveFailed', { message: result?.message }))
-      return false
-    }
+    await api.post('system/env', value, { feedback: 'silent' })
+    return true
   } catch (error) {
     console.log(error)
   }
@@ -821,7 +815,8 @@ async function testLlmConnection() {
 
   testingLlm.value = true
   try {
-    const result: { [key: string]: any } = await api.post('llm/test', payload, {
+    await api.post('llm/test', payload, {
+      feedback: 'silent',
       signal: abortController.signal,
     })
     if (
@@ -832,8 +827,7 @@ async function testLlmConnection() {
       return
     }
 
-    if (result?.success) $toast.success(t('setting.system.llmTestSuccessToast'))
-    else showLlmTestFailedToast(result?.message)
+    $toast.success(t('setting.system.llmTestSuccessToast'))
   } catch (error) {
     if (
       requestId !== llmTestRequestId ||
@@ -1023,15 +1017,14 @@ const fanartLanguageSelection = computed({
 // 加载刮削开关设置
 async function loadScrapingSwitchs() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/ScrapingSwitchs')
-    if (result.success && result.data?.value) {
-      const loadedSwitches = result.data.value
-      for (const key in loadedSwitches) {
-        if (typeof loadedSwitches[key] === 'boolean') {
-          // 兼容旧数据
-          loadedSwitches[key] = loadedSwitches[key] ? 'missingOnly' : 'skip'
-        }
-      }
+    const result = await api.get<{ value?: Record<string, boolean | ScrapingPolicy> }>('system/setting/ScrapingSwitchs')
+    if (result.value) {
+      const loadedSwitches = Object.fromEntries(
+        Object.entries(result.value).map(([key, value]) => [
+          key,
+          typeof value === 'boolean' ? (value ? 'missingOnly' : 'skip') : value,
+        ]),
+      ) as Record<string, ScrapingPolicy>
       ScrapingPolicies.value = { ...ScrapingPolicies.value, ...loadedSwitches }
     }
   } catch (error) {
@@ -1042,13 +1035,8 @@ async function loadScrapingSwitchs() {
 // 保存刮削开关设置
 async function saveScrapingSwitchs() {
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/ScrapingSwitchs', ScrapingPolicies.value)
-    if (result.success) {
-      return true
-    } else {
-      $toast.error(t('setting.system.scrapingSwitchSaveFailed', { message: result?.message }))
-      return false
-    }
+    await api.post('system/setting/ScrapingSwitchs', ScrapingPolicies.value, { feedback: 'silent' })
+    return true
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.system.scrapingSwitchSaveError'))

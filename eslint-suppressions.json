@@ -72,14 +72,9 @@
       "count": 9
     }
   },
-  "src/api/index.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/api/types.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 39
+      "count": 38
     },
     "@typescript-eslint/no-wrapper-object-types": {
       "count": 2
@@ -127,7 +122,7 @@
   },
   "src/components/cards/MediaCard.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 3
+      "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -148,7 +143,7 @@
   },
   "src/components/cards/SubscribeCard.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -168,14 +163,9 @@
       "count": 1
     }
   },
-  "src/components/dialog/AgentMcpSettingsDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/components/dialog/AlistConfigDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     },
     "vue/no-mutating-props": {
       "count": 4
@@ -183,7 +173,7 @@
   },
   "src/components/dialog/AliyunAuthDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 1
     }
   },
   "src/components/dialog/CategoryEditDialog.vue": {
@@ -191,7 +181,7 @@
       "count": 16
     },
     "@typescript-eslint/no-explicit-any": {
-      "count": 7
+      "count": 5
     }
   },
   "src/components/dialog/ContentToggleSettingsDialog.vue": {
@@ -210,16 +200,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/ForkSubscribeDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    }
-  },
-  "src/components/dialog/ForkWorkflowDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/components/dialog/MediaInfoDialog.vue": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -227,12 +207,12 @@
   },
   "src/components/dialog/NotificationChannelInfoDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 1
     }
   },
   "src/components/dialog/RcloneConfigDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     },
     "vue/no-mutating-props": {
       "count": 4
@@ -240,7 +220,7 @@
   },
   "src/components/dialog/ReorganizeDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 10
+      "count": 5
     },
     "sonarjs/super-linear-regex": {
       "count": 1
@@ -253,12 +233,12 @@
   },
   "src/components/dialog/SiteAddEditDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/dialog/SiteCookieUpdateDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/dialog/SiteImportDialog.vue": {
@@ -276,7 +256,7 @@
   },
   "src/components/dialog/SmbConfigDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     },
     "vue/no-mutating-props": {
       "count": 5
@@ -284,23 +264,18 @@
   },
   "src/components/dialog/SubscribeEditDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 8
+      "count": 3
     }
   },
   "src/components/dialog/SubscribeHistoryDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 3
+      "count": 1
     },
     "vue/no-v-text-v-html-on-component": {
       "count": 1
     }
   },
   "src/components/dialog/SubscribeSeasonDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/SubscribeShareDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
     }
@@ -312,7 +287,7 @@
   },
   "src/components/dialog/U115AuthDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -320,7 +295,7 @@
   },
   "src/components/dialog/UserAuthDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 2
     }
   },
   "src/components/dialog/WorkflowActionsDialog.vue": {
@@ -329,11 +304,6 @@
     }
   },
   "src/components/dialog/WorkflowAddEditDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/WorkflowShareDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
     }
@@ -360,7 +330,7 @@
   },
   "src/components/filebrowser/FileList.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 6
+      "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -562,14 +532,9 @@
       "count": 1
     }
   },
-  "src/composables/useLlmProviderDirectory.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    }
-  },
   "src/composables/useMediaSubscribe.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 6
+      "count": 2
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -587,7 +552,7 @@
   },
   "src/composables/useSetupWizard.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 22
+      "count": 13
     },
     "sonarjs/no-duplicated-branches": {
       "count": 2
@@ -629,13 +594,10 @@
   },
   "src/layouts/default/components/UserNotification.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     }
   },
   "src/layouts/default/components/UserProfile.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 5
     },
@@ -660,7 +622,7 @@
   },
   "src/pages/resource.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 6
+      "count": 3
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 3
@@ -833,7 +795,7 @@
   },
   "src/views/reorganize/TransferHistoryView.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 11
+      "count": 5
     },
     "vue/no-v-text-v-html-on-component": {
       "count": 3
@@ -841,46 +803,40 @@
   },
   "src/views/setting/AccountSettingDirectory.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 8
+      "count": 4
     },
     "sonarjs/super-linear-regex": {
       "count": 1
     }
   },
   "src/views/setting/AccountSettingNotification.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 9
-    },
     "sonarjs/no-all-duplicated-branches": {
       "count": 1
     }
   },
   "src/views/setting/AccountSettingRule.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 14
+      "count": 8
     }
   },
   "src/views/setting/AccountSettingSearch.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 11
+      "count": 3
     }
   },
   "src/views/setting/AccountSettingSite.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 3
     }
   },
   "src/views/setting/AccountSettingSubscribe.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 11
+      "count": 3
     }
   },
   "src/views/setting/AccountSettingSystem.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 20
-    },
-    "no-prototype-builtins": {
-      "count": 1
+      "count": 11
     },
     "no-unsafe-finally": {
       "count": 1
@@ -899,7 +855,7 @@
   },
   "src/views/setup/PreferencesSettingsStep.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     }
   },
   "src/views/subscribe/FullCalendarView.vue": {
@@ -930,7 +886,7 @@
   },
   "src/views/system/CacheView.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 1
     }
   },
   "src/views/system/LoggingView.vue": {
@@ -945,21 +901,13 @@
     }
   },
   "src/views/system/ModuleTestView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
     "vue/no-unused-vars": {
       "count": 1
     }
   },
   "src/views/system/NameTestView.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
-  "src/views/system/NetTestView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     }
   },
   "src/views/system/RuleTestView.vue": {
@@ -969,7 +917,7 @@
   },
   "src/views/system/WordsView.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 2
     }
   },
   "src/views/workflow/WorkflowShareView.vue": {

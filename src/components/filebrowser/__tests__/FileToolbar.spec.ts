@@ -1,9 +1,9 @@
 import FileToolbar from '@/components/filebrowser/FileToolbar.vue'
+import type { DataApiClient } from '@/api'
 import type { EndPoints, FileItem } from '@/api/types'
 import i18n from '@/plugins/i18n'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
-import type { AxiosInstance } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -41,7 +41,7 @@ function mountToolbar(
     { name: 'downloads', path: '/downloads/', storage: 'local', type: 'dir' },
   ],
 ) {
-  const axios = Object.assign(vi.fn(), { request }) as unknown as AxiosInstance
+  const axios = Object.assign(vi.fn(), { request }) as unknown as DataApiClient
   const endpoint = { method: 'post', url: '/unused' }
   const endpoints: EndPoints = {
     delete: endpoint,
@@ -112,7 +112,7 @@ describe('FileToolbar mkdir', () => {
   })
 
   it('does not report creation when the API returns a business failure and always finishes loading', async () => {
-    const request = vi.fn().mockResolvedValue({ message: '目录已存在', success: false })
+    const request = vi.fn().mockRejectedValue(new Error('目录已存在'))
     const wrapper = mountToolbar(request)
 
     await openDialogAndCreate(wrapper)
@@ -137,7 +137,7 @@ describe('FileToolbar mkdir', () => {
   })
 
   it('submits the current directory and closes only after a successful creation', async () => {
-    const request = vi.fn().mockResolvedValue({ success: true })
+    const request = vi.fn().mockResolvedValue(null)
     const wrapper = mountToolbar(request)
 
     await openDialogAndCreate(wrapper, 'Season 01')
@@ -145,6 +145,7 @@ describe('FileToolbar mkdir', () => {
 
     expect(request).toHaveBeenCalledWith({
       data: { name: 'downloads', path: '/downloads/', storage: 'local', type: 'dir' },
+      feedback: 'silent',
       method: 'post',
       url: '/storage/mkdir?name=Season 01',
     })

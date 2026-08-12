@@ -14,10 +14,10 @@ const recentImports = ref<TransferHistory[]>([])
 /** 查询最近成功整理的媒体记录。 */
 async function loadRecentImports() {
   try {
-    const response: { data?: { list?: TransferHistory[] } } = await api.get('history/transfer', {
+    const response = await api.get<{ list?: TransferHistory[] }>('history/transfer', {
       params: { page: 1, count: 5, status: true },
     })
-    recentImports.value = response.data?.list ?? []
+    recentImports.value = response.list ?? []
   } catch (error) {
     console.error(error)
   }

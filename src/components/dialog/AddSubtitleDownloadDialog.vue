@@ -2,13 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import {
-  MediaSource,
-  type ApiResponse,
-  type MediaDataSource,
-  type SubtitleInfo,
-  type TransferDirectoryConf,
-} from '@/api/types'
+import { MediaSource, type MediaDataSource, type SubtitleInfo, type TransferDirectoryConf } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
@@ -114,11 +108,8 @@ const buttonText = computed(() =>
 // 加载目录设置
 async function loadDirectories() {
   try {
-    const result = await api.get<
-      ApiResponse<{ value?: TransferDirectoryConf[] }>,
-      ApiResponse<{ value?: TransferDirectoryConf[] }>
-    >('system/setting/public/Directories')
-    directories.value = result.data?.value ?? []
+    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
+    directories.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -162,29 +153,26 @@ async function addSubtitleDownload() {
       media_id: normalizedMediaId.value,
     }
 
-    const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('download/subtitle', payload)
+    await api.post<null>('download/subtitle', payload, { feedback: 'silent' })
 
-    if (result && result.success) {
-      $toast.success(
-        t('dialog.addSubtitleDownload.downloadSuccess', {
-          site: props.subtitle?.site_name,
-          title: props.subtitle?.title,
-        }),
-      )
-      emit('done', props.subtitle?.enclosure)
-    } else {
-      $toast.error(
-        t('dialog.addSubtitleDownload.downloadFailed', {
-          site: props.subtitle?.site_name,
-          title: props.subtitle?.title,
-          message: result?.message,
-        }),
-      )
-      emit('error', result?.message)
-    }
+    $toast.success(
+      t('dialog.addSubtitleDownload.downloadSuccess', {
+        site: props.subtitle?.site_name,
+        title: props.subtitle?.title,
+      }),
+    )
+    emit('done', props.subtitle?.enclosure)
   } catch (error) {
     console.error(error)
-    emit('error', String(error))
+    const message = error instanceof Error ? error.message : String(error)
+    $toast.error(
+      t('dialog.addSubtitleDownload.downloadFailed', {
+        site: props.subtitle?.site_name,
+        title: props.subtitle?.title,
+        message,
+      }),
+    )
+    emit('error', message)
   }
   loading.value = false
   doneNProgress()

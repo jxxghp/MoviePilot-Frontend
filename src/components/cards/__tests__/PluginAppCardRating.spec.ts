@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: { get: mocks.apiGet },
+  default: createDataApiMock({ get: mocks.apiGet }),
 }))
 
 vi.mock('@/composables/useConfirm', () => ({

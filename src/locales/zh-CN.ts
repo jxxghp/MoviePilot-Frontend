@@ -60,6 +60,10 @@ export default {
     networkDisconnected: '网络连接已断开',
     featuresLimited: '部分功能可能受限',
     serverConnectionFailed: '服务器连接失败',
+    networkConnectionFailed: '网络连接失败',
+    requestTimeout: '请求超时',
+    invalidApiResponse: '服务器返回了无效响应',
+    apiRequestFailed: '请求失败',
     troubleshooting: '疑难解答',
     checking: '检查中',
     retry: '重试',
@@ -2434,7 +2438,7 @@ export default {
         '被替换词 => 替换词\n' +
         '前定位词 <> 后定位词 >> 集偏移量（EP）\n' +
         '被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）\n' +
-        '其中替换词支持格式：&#123;[media_source=themoviedb;media_id=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒体数据源和ID识别，其中g为剧集组编号，s、e为季数和集数（均可选）',
+        '其中替换词支持格式：&#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒体数据源ID识别，其中g为剧集组编号，s、e为季数和集数（均可选）',
       identifierSaveSuccess: '自定义识别词保存成功',
       identifierSaveFailed: '自定义识别词保存失败！',
 
@@ -3418,7 +3422,7 @@ export default {
       customWords: '自定义识别词',
       customWordsHint: '只对该订阅使用的识别词',
       customWordsPlaceholder:
-        '屏蔽词\n被替换词 => 替换词\n前定位词 <> 后定位词 >> 集偏移量（EP）\n被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）\n其中替换词支持格式：&#123;[media_source=themoviedb;media_id=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒体数据源和ID识别，其中g为剧集组编号，s、e为季数和集数（均可选）',
+        '屏蔽词\n被替换词 => 替换词\n前定位词 <> 后定位词 >> 集偏移量（EP）\n被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）\n其中替换词支持格式：&#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒体数据源ID识别，其中g为剧集组编号，s、e为季数和集数（均可选）',
       cancelSubscribe: '取消订阅',
       save: '保存',
       cancelSubscribeConfirm: '是否确认取消订阅？',

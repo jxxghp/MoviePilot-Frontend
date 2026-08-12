@@ -64,37 +64,24 @@ function handleDone() {
 // 重置配置
 async function handleReset() {
   try {
-    const result: { [key: string]: any } = await api.get('/storage/reset/u115')
-    if (result.success) {
-      setMessage('success', t('dialog.u115Auth.authSuccess'))
-      handleDone()
-    }
-    else {
-      setMessage('error', result.message || t('dialog.u115Auth.authFailed'))
-    }
-  }
-  catch (error) {
+    await api.get<null>('/storage/reset/u115', { feedback: 'silent' })
+    setMessage('success', t('dialog.u115Auth.authSuccess'))
+    handleDone()
+  } catch (error) {
     console.error('Reset failed:', error)
-    setMessage('error', t('dialog.u115Auth.authFailed'))
+    setMessage('error', error instanceof Error ? error.message : t('dialog.u115Auth.authFailed'))
   }
 }
 
 // 获取授权URL
 async function fetchAuthUrl() {
   try {
-    const result: { [key: string]: any } = await api.get('/storage/auth_url/u115')
-
-    if (result.success && result.data) {
-      authUrl.value = result.data.authUrl
-      authState.value = result.data.state
-    }
-    else {
-      setMessage('error', result.message || t('dialog.u115Auth.urlFetchFailed'))
-    }
-  }
-  catch (error) {
+    const result = await api.get<{ authUrl: string; state: string }>('/storage/auth_url/u115', { feedback: 'silent' })
+    authUrl.value = result.authUrl
+    authState.value = result.state
+  } catch (error) {
     console.error('Fetch auth URL failed:', error)
-    setMessage('error', t('dialog.u115Auth.urlFetchFailed'))
+    setMessage('error', error instanceof Error ? error.message : t('dialog.u115Auth.urlFetchFailed'))
   }
 }
 
@@ -125,8 +112,7 @@ function openAuthWindow() {
   if (authWindow) {
     setMessage('info', t('dialog.u115Auth.authorizing'))
     pollTimer = setTimeout(checkAuthStatus, POLL_INTERVAL)
-  }
-  else {
+  } else {
     setMessage('error', t('dialog.u115Auth.popupBlocked'))
   }
 }
@@ -134,29 +120,25 @@ function openAuthWindow() {
 // 检查授权状态
 async function checkAuthStatus() {
   try {
-    const result: { [key: string]: any } = await api.get('/storage/check/u115')
+    const result = await api.get<{ status: number; tip?: string }>('/storage/check/u115', { feedback: 'silent' })
+    const { status, tip } = result
 
-    if (result.success && result.data) {
-      const { status, tip } = result.data
-
-      if (status === AUTH_STATUS_SUCCESS) {
-        // 授权成功
-        setMessage('success', t('dialog.u115Auth.authSuccess'))
-        handleDone()
-        return
-      }
-
-      if (status === AUTH_STATUS_FAILED) {
-        // 授权失败或过期
-        setMessage('error', tip || t('dialog.u115Auth.authFailed'))
-        cleanup()
-        return
-      }
-
-      // status === 0 或 1，继续等待
+    if (status === AUTH_STATUS_SUCCESS) {
+      // 授权成功
+      setMessage('success', t('dialog.u115Auth.authSuccess'))
+      handleDone()
+      return
     }
-  }
-  catch (error) {
+
+    if (status === AUTH_STATUS_FAILED) {
+      // 授权失败或过期
+      setMessage('error', tip || t('dialog.u115Auth.authFailed'))
+      cleanup()
+      return
+    }
+
+    // status === 0 或 1，继续等待
+  } catch (error) {
     console.error('Check auth status failed:', error)
   }
 
@@ -214,36 +196,20 @@ onUnmounted(() => {
 
         <!-- 状态提示 -->
         <div v-if="text" class="w-full">
-          <VAlert
-            variant="tonal"
-            :type="alertType"
-            :text="text"
-            class="my-4 text-center"
-          >
+          <VAlert variant="tonal" :type="alertType" :text="text" class="my-4 text-center">
             <template #prepend />
           </VAlert>
         </div>
       </VCardText>
 
       <VCardActions class="app-dialog-actions">
-        <VBtn
-          color="error"
-          variant="tonal"
-          prepend-icon="mdi-restore"
-          @click="handleReset"
-        >
+        <VBtn color="error" variant="tonal" prepend-icon="mdi-restore" @click="handleReset">
           {{ t('dialog.u115Auth.reset') }}
         </VBtn>
 
         <VSpacer />
 
-        <VBtn
-          color="primary"
-          variant="flat"
-          prepend-icon="mdi-check"
-          class="px-5"
-          @click="handleDone"
-        >
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-check" class="px-5" @click="handleDone">
           {{ t('dialog.u115Auth.complete') }}
         </VBtn>
       </VCardActions>

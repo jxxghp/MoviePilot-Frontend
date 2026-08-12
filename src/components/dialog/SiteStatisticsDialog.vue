@@ -38,8 +38,7 @@ const detailDialog = ref(false)
 async function fetchSiteStats() {
   try {
     loading.value = true
-    const response = await api.get('site/statistic')
-    siteStats.value = Array.isArray(response) ? response : response.data || []
+    siteStats.value = await api.get<SiteStatistic[]>('site/statistic')
     loading.value = false
   } catch (error) {
     console.error('Failed to fetch site statistics:', error)

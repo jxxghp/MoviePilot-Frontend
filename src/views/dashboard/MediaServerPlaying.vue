@@ -60,7 +60,7 @@ let playingLoadId = 0
 async function loadMediaServerSetting() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
-    mediaServers.value = result.data?.value ?? []
+    mediaServers.value = result.value ?? []
     return true
   } catch (error) {
     console.log(error)

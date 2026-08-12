@@ -234,9 +234,8 @@ async function queryVersionStatistic() {
   if (!systemEnv.value.USAGE_STATISTIC_SHARE) return
   versionStatisticLoading.value = true
   try {
-    const result: { [key: string]: any } = await api.get('system/usage/statistic')
-
-    versionStatistic.value = result.data ?? {}
+    const statistic = await api.get<{ [key: string]: any } | null>('system/usage/statistic')
+    versionStatistic.value = statistic ?? {}
   } catch (error) {
     console.log(error)
     versionStatistic.value = {}
@@ -254,9 +253,7 @@ async function showVersionStatisticDialog() {
 // 查询系统环境变量
 async function querySystemEnv() {
   try {
-    const result: { [key: string]: any } = await api.get('system/env')
-
-    systemEnv.value = result.data
+    systemEnv.value = (await api.get<{ [key: string]: any } | null>('system/env')) ?? {}
   } catch (error) {
     console.log(error)
   }
@@ -276,9 +273,7 @@ async function querySystemUptime() {
 // 查询所有Release
 async function queryAllRelease() {
   try {
-    const result: { [key: string]: any } = await api.get('system/versions')
-
-    allRelease.value = result.data ?? []
+    allRelease.value = (await api.get<any[] | null>('system/versions')) ?? []
 
     // 最新版本
     if (allRelease.value.length > 0) latestRelease.value = allRelease.value[0].tag_name

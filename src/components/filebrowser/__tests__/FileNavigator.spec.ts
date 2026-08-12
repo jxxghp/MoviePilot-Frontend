@@ -1,9 +1,9 @@
 import FileNavigator from '@/components/filebrowser/FileNavigator.vue'
+import type { DataApiClient } from '@/api'
 import type { EndPoints, FileItem } from '@/api/types'
 import i18n from '@/plugins/i18n'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
-import type { AxiosInstance } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -43,7 +43,7 @@ function mountNavigator(
   request = vi.fn().mockResolvedValue([]),
   overrides: { currentPath?: string; items?: FileItem[] } = {},
 ) {
-  const axios = Object.assign(vi.fn(), { request }) as unknown as AxiosInstance
+  const axios = Object.assign(vi.fn(), { request }) as unknown as DataApiClient
   const endpoint = { method: 'post', url: '/unused' }
   const endpoints: EndPoints = {
     delete: endpoint,

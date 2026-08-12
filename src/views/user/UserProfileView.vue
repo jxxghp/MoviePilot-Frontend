@@ -2,13 +2,13 @@
 import { useToast } from 'vue-toastification'
 import { VForm } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import type { User, PassKey } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import type { ApiResponse } from '@/api/types'
 
 const OTPAuthDialog = defineAsyncComponent(() => import('@/components/dialog/OTPAuthDialog.vue'))
 const PasskeyDialog = defineAsyncComponent(() => import('@/components/dialog/PasskeyDialog.vue'))
@@ -250,38 +250,35 @@ async function saveAccountInfo() {
       ...(newPassword.value ? { password: newPassword.value } : {}),
     }
 
-    const result = (await api.put('user/', userData)) as ApiResponse
+    await api.put<null>('user/', userData, { feedback: 'silent' })
 
-    if (result.success) {
-      accountInfo.value.name = currentUserName.value
-      accountInfo.value.avatar = currentAvatar.value
-      if (oldUserName !== currentUserName.value) {
-        $toast.success(t('profile.usernameChangeSuccess', { oldName: oldUserName, newName: currentUserName.value }))
-        // 更新本地用户名显示
-        userStore.setUserName(currentUserName.value)
-      } else {
-        $toast.success(t('profile.saveSuccess'))
-      }
-      // 更新本地头像显示
-      if (oldAvatar !== currentAvatar.value) {
-        userStore.setAvatar(currentAvatar.value)
-      }
+    accountInfo.value.name = currentUserName.value
+    accountInfo.value.avatar = currentAvatar.value
+    if (oldUserName !== currentUserName.value) {
+      $toast.success(t('profile.usernameChangeSuccess', { oldName: oldUserName, newName: currentUserName.value }))
+      // 更新本地用户名显示
+      userStore.setUserName(currentUserName.value)
     } else {
-      if (oldAvatar !== currentAvatar.value) {
-        $toast.error(
-          t('profile.saveFailedWithNameChange', {
-            oldName: oldUserName,
-            newName: currentUserName.value,
-            message: result.message,
-          }),
-        )
-      } else {
-        $toast.error(t('profile.saveFailed', { message: result.message }))
-      }
+      $toast.success(t('profile.saveSuccess'))
+    }
+    // 更新本地头像显示
+    if (oldAvatar !== currentAvatar.value) {
+      userStore.setAvatar(currentAvatar.value)
     }
   } catch (error) {
     console.log('保存失败:', error)
-    $toast.error(t('profile.saveFailed', { message: t('common.serverConnectionFailed') }))
+    const message = getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed')
+    if (oldUserName !== currentUserName.value) {
+      $toast.error(
+        t('profile.saveFailedWithNameChange', {
+          oldName: oldUserName,
+          newName: currentUserName.value,
+          message,
+        }),
+      )
+    } else {
+      $toast.error(t('profile.saveFailed', { message }))
+    }
   } finally {
     isSaving.value = false
   }
@@ -324,10 +321,7 @@ async function confirmVerifyPassword(password = verifyPassword.value) {
 // 获取PassKey列表
 async function fetchPassKeyList() {
   try {
-    const result = (await api.get('mfa/passkey/list')) as ApiResponse<PassKey[]>
-    if (result.success) {
-      passkeyList.value = result.data || []
-    }
+    passkeyList.value = await api.get<PassKey[]>('mfa/passkey/list')
   } catch (error) {
     console.log(error)
   }

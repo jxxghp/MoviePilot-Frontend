@@ -143,10 +143,8 @@ const countryOptions = [
 const fetchConfig = async () => {
   loading.value = true
   try {
-    const res: any = await api.get('media/category/config')
-    if (res && res.data) {
-      parseConfig(res.data)
-    }
+    const config = await api.get<CategoryConfig | null>('media/category/config', { feedback: 'silent' })
+    if (config) parseConfig(config)
   } catch (e) {
     console.error(e)
     toast.error(t('setting.category.loadFailed'))
@@ -334,17 +332,13 @@ const saveConfig = async () => {
       }
     })
 
-    const res: any = await api.post('media/category/config', payload)
-    if (res && res.success) {
-      toast.success(t('setting.category.saveSuccess'))
-      emit('save')
-      emit('close')
-    } else {
-      toast.error(t('setting.category.saveFailed', { message: res.message || 'Error' }))
-    }
+    await api.post<null>('media/category/config', payload, { feedback: 'silent' })
+    toast.success(t('setting.category.saveSuccess'))
+    emit('save')
+    emit('close')
   } catch (e) {
     console.error(e)
-    toast.error(t('setting.category.saveFailed', { message: 'Network or Config Error' }))
+    toast.error(t('setting.category.saveFailed', { message: e instanceof Error ? e.message : t('common.error') }))
   } finally {
     saving.value = false
   }

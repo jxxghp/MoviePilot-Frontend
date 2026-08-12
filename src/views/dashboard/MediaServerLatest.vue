@@ -54,8 +54,8 @@ let latestLoadId = 0
  */
 async function loadMediaServerSetting() {
   try {
-    const response: { data: { value: MediaServerConf[] } } = await api.get('system/setting/MediaServers')
-    mediaServers.value = response.data?.value ?? []
+    const response = await api.get<{ value?: MediaServerConf[] }>('system/setting/MediaServers')
+    mediaServers.value = response.value ?? []
     return true
   } catch (error) {
     console.log(t('dashboard.errors.loadMediaServer'), error)

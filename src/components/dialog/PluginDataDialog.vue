@@ -2,7 +2,7 @@
 import { useDisplay } from 'vuetify'
 import type { Plugin, RenderProps } from '@/api/types'
 import PageRender from '@/components/render/PageRender.vue'
-import api from '@/api'
+import api, { pluginApi } from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
@@ -174,7 +174,7 @@ onMounted(() => {
       <VCardText class="pa-0">
         <component
           :is="dynamicComponent"
-          :api="api"
+          :api="pluginApi"
           :native-subscribe="nativeSubscribe"
           :show_switch="show_switch"
           @action="handleAction"

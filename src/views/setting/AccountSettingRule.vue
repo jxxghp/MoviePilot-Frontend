@@ -82,9 +82,8 @@ async function saveCustomRules() {
     return
   }
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/CustomFilterRules', customRules.value)
-    if (result.success) $toast.success(t('setting.rule.customRuleSaveSuccess'))
-    else $toast.error(t('setting.rule.customRuleSaveFailed'))
+    await api.post('system/setting/CustomFilterRules', customRules.value, { feedback: 'silent' })
+    $toast.success(t('setting.rule.customRuleSaveSuccess'))
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.rule.customRuleSaveFailed'))
@@ -116,8 +115,8 @@ function removeCustomRule(rule: CustomRule) {
 // 加载规则组
 async function queryFilterRuleGroups() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    const result = await api.get<{ value?: FilterRuleGroup[] }>('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -137,9 +136,8 @@ async function saveFilterRuleGroups() {
     return
   }
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/UserFilterRuleGroups', filterRuleGroups.value)
-    if (result.success) $toast.success(t('setting.rule.ruleGroupSaveSuccess'))
-    else $toast.error(t('setting.rule.ruleGroupSaveFailed'))
+    await api.post('system/setting/UserFilterRuleGroups', filterRuleGroups.value, { feedback: 'silent' })
+    $toast.success(t('setting.rule.ruleGroupSaveSuccess'))
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.rule.ruleGroupSaveFailed'))
@@ -346,9 +344,8 @@ function changeRuleGroup(group: FilterRuleGroup, name: string) {
 // 查询种子优先规则
 async function queryTorrentPriority() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/TorrentsPriority')
-
-    selectedTorrentPriority.value = result.data?.value
+    const result = await api.get<{ value?: string[] }>('system/setting/TorrentsPriority')
+    selectedTorrentPriority.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -357,8 +354,8 @@ async function queryTorrentPriority() {
 // 查询自定义规则项
 async function queryCustomRules() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/CustomFilterRules')
-    customRules.value = result.data?.value ?? []
+    const result = await api.get<{ value?: CustomRule[] }>('system/setting/CustomFilterRules')
+    customRules.value = result.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -367,12 +364,8 @@ async function queryCustomRules() {
 // 保存种子优先规则
 async function saveTorrentPriority() {
   try {
-    const result: { [key: string]: any } = await api.post(
-      'system/setting/TorrentsPriority',
-      selectedTorrentPriority.value,
-    )
-    if (result.success) $toast.success('优先规则保存成功')
-    else $toast.error('优先规则保存失败！')
+    await api.post('system/setting/TorrentsPriority', selectedTorrentPriority.value, { feedback: 'silent' })
+    $toast.success('优先规则保存成功')
   } catch (error) {
     console.log(error)
     $toast.error('优先规则保存失败！')

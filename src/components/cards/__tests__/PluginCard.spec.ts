@@ -20,11 +20,11 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: {
+  default: createDataApiMock({
     delete: mocks.apiDelete,
     get: mocks.apiGet,
     post: mocks.apiPost,
-  },
+  }),
 }))
 
 vi.mock('@/composables/useConfirm', () => ({

@@ -4,7 +4,6 @@ import QRCode from 'qrcode'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
-import type { ApiResponse } from '@/api/types'
 
 interface Props {
   modelValue: boolean
@@ -77,14 +76,14 @@ async function getOtpUri() {
   // 未启用OTP，生成新的二维码
   otpLoading.value = true
   try {
-    const result = (await api.post('mfa/otp/generate')) as ApiResponse<{
+    const result = await api.post<{
       uri: string
       secret: string
-    }>
-    const uri = result.data?.uri?.trim()
-    const otpSecret = result.data?.secret?.trim()
+    }>('mfa/otp/generate', undefined, { feedback: 'silent' })
+    const uri = result.uri?.trim()
+    const otpSecret = result.secret?.trim()
 
-    if (result.success && uri && otpSecret) {
+    if (uri && otpSecret) {
       const image = await QRCode.toDataURL(uri, {
         width: 200,
         margin: 1,
@@ -96,7 +95,7 @@ async function getOtpUri() {
       qrCodeImage.value = image
     } else {
       if (generation !== otpGeneration || !props.modelValue) return
-      setOtpGenerateError(result.message || 'empty otp uri')
+      setOtpGenerateError('empty otp uri')
     }
   } catch (error) {
     if (generation !== otpGeneration || !props.modelValue) return
@@ -114,18 +113,10 @@ async function judgeOtpPassword() {
     return
   }
   try {
-    const result = (await api.post('mfa/otp/verify', {
-      uri: otpUri.value,
-      otpPassword: otpPassword.value,
-    })) as ApiResponse
-
-    if (result.success) {
-      $toast.success(t('profile.otpEnableSuccess'))
-      show.value = false
-      emit('update:isOtp', true)
-    } else {
-      $toast.error(t('profile.otpEnableFailed', { message: result.message }))
-    }
+    await api.post('mfa/otp/verify', { uri: otpUri.value, otpPassword: otpPassword.value }, { feedback: 'silent' })
+    $toast.success(t('profile.otpEnableSuccess'))
+    show.value = false
+    emit('update:isOtp', true)
   } catch (error) {
     console.error(error)
     $toast.error(t('profile.otpEnableFailed', { message: error instanceof Error ? error.message : String(error) }))
@@ -139,16 +130,10 @@ function disableOtp() {
     text: t('profile.confirmToDisableOtp'),
     callback: async (password: string) => {
       try {
-        const result = (await api.post('mfa/otp/disable', {
-          password,
-        })) as ApiResponse
-        if (result.success) {
-          emit('update:isOtp', false)
-          $toast.success(t('profile.otpDisableSuccess'))
-          show.value = false
-        } else {
-          $toast.error(t('profile.otpDisableFailed', { message: result.message }))
-        }
+        await api.post('mfa/otp/disable', { password }, { feedback: 'silent' })
+        emit('update:isOtp', false)
+        $toast.success(t('profile.otpDisableSuccess'))
+        show.value = false
       } catch (error) {
         console.error(error)
         $toast.error(t('profile.otpDisableFailed', { message: error instanceof Error ? error.message : String(error) }))

@@ -37,7 +37,7 @@ export const usePluginSidebarNavStore = defineStore('pluginSidebarNav', {
       const maxRetries = 1
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          const res = await api.get('plugin/sidebar_nav')
+          const res = await api.get<PluginSidebarNavItem[]>('plugin/sidebar_nav', { feedback: 'silent' })
           if (generation !== this.generation) return
           this.items = Array.isArray(res) ? res : []
           this.loaded = true

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ApiResponse, Site, SiteUserData } from '@/api/types'
+import type { Site, SiteUserData } from '@/api/types'
 import api from '@/api'
 import { useDisplay, useTheme } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
@@ -335,18 +335,14 @@ async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', 
   const activeGeneration = generation ?? ++operationGeneration
 
   try {
-    const result = await api.get<ApiResponse<SiteUserData[]>, ApiResponse<SiteUserData[]>>(
-      `site/userdata/${props.site?.id}`,
-    )
+    const result = await api.get<SiteUserData[]>(`site/userdata/${props.site?.id}`, { feedback: 'silent' })
     if (activeGeneration !== operationGeneration) return false
 
-    if (result.success) {
-      // 使用nextTick确保DOM更新完成后再更新图表数据
-      await nextTick()
-      if (activeGeneration !== operationGeneration) return false
+    // 使用nextTick确保DOM更新完成后再更新图表数据
+    await nextTick()
+    if (activeGeneration !== operationGeneration) return false
 
-      siteDatas.value = result.data.sort((a, b) => (a.updated_day || '').localeCompare(b.updated_day || ''))
-    }
+    siteDatas.value = result.sort((a, b) => (a.updated_day || '').localeCompare(b.updated_day || ''))
 
     failedOperation.value = undefined
     return true
@@ -365,14 +361,10 @@ async function refreshSiteData() {
   const generation = ++operationGeneration
   progressDialog.value = true
   try {
-    const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>(`site/userdata/${props.site?.id}`)
+    await api.post<null>(`site/userdata/${props.site?.id}`, undefined, { feedback: 'silent' })
     if (generation !== operationGeneration) return
 
-    if (result.success) {
-      await fetchSiteUserData('refresh', generation)
-    } else {
-      failedOperation.value = 'refresh'
-    }
+    await fetchSiteUserData('refresh', generation)
   } catch (error) {
     if (generation !== operationGeneration) return
 

@@ -4,6 +4,7 @@ import type { DownloaderConf, Site } from '@/api/types'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { numberValidator, requiredValidator } from '@/@validators'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 
@@ -95,14 +96,12 @@ async function addSite() {
   if (!siteForm.value?.url) return
   startNProgress()
   try {
-    const result: { [key: string]: string } = await api.post('site/', siteForm.value)
-    if (result.success) {
-      $toast.success(t('site.messages.addSuccess'))
-      emit('save')
-    } else {
-      $toast.error(`${t('site.messages.addFailed')}：${result.message}`)
-    }
+    await api.post('site/', siteForm.value, { feedback: 'silent' })
+    $toast.success(t('site.messages.addSuccess'))
+    emit('save')
   } catch (error) {
+    const message = getApiBusinessErrorMessage(error)
+    $toast.error(message ? `${t('site.messages.addFailed')}：${message}` : t('site.messages.addFailed'))
     console.error(error)
   }
   doneNProgress()
@@ -121,15 +120,16 @@ async function updateSiteInfo() {
       siteForm.value.limit_count = 0
       siteForm.value.limit_seconds = 0
     }
-    const result: { [key: string]: any } = await api.put('site/', siteForm.value)
-    if (result.success) {
-      $toast.success(`${siteForm.value?.name} ${t('site.messages.updateSuccess')}`)
-      emit('save')
-    } else {
-      $toast.error(`${siteForm.value?.name} ${t('site.messages.updateFailed')}：${result.message}`)
-    }
+    await api.put('site/', siteForm.value, { feedback: 'silent' })
+    $toast.success(`${siteForm.value?.name} ${t('site.messages.updateSuccess')}`)
+    emit('save')
   } catch (error) {
-    $toast.error(`${siteForm.value?.name} ${t('site.messages.updateFailed')}！`)
+    const message = getApiBusinessErrorMessage(error)
+    $toast.error(
+      message
+        ? `${siteForm.value?.name} ${t('site.messages.updateFailed')}：${message}`
+        : `${siteForm.value?.name} ${t('site.messages.updateFailed')}！`,
+    )
     console.error(error)
   }
   doneNProgress()

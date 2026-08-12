@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
     get: vi.fn(),
     post: vi.fn(),
   },
+  pluginApi: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
   loadRemoteComponentFromModule: vi.fn(),
   navMenus: [{ title: 'Home', to: '/home' }],
   router: {
@@ -21,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/api', () => ({
   default: mocks.api,
+  pluginApi: mocks.pluginApi,
 }))
 
 vi.mock('@/router', () => ({
@@ -95,7 +100,11 @@ function loginResponse(overrides: Record<string, unknown> = {}) {
 function mfaRequired(methods: unknown = ['otp']) {
   return {
     response: {
-      data: { detail: '需要二次验证', mfa_methods: methods },
+      data: {
+        success: false,
+        message: '需要二次验证',
+        data: { mfa_methods: methods },
+      },
       headers: { 'x-mfa-required': 'true' },
       status: 401,
     },
@@ -126,6 +135,8 @@ describe('login page orchestration', () => {
   beforeEach(() => {
     mocks.api.get.mockReset()
     mocks.api.post.mockReset()
+    mocks.pluginApi.get.mockReset()
+    mocks.pluginApi.post.mockReset()
     mocks.loadRemoteComponentFromModule.mockReset()
     mocks.router.push.mockReset()
     mocks.router.resolve.mockClear()
@@ -137,7 +148,7 @@ describe('login page orchestration', () => {
 
   it('sends only one password request while the current submission is pending', async () => {
     const pendingLogin = deferred<never>()
-    mocks.api.post.mockReturnValue(pendingLogin.promise)
+    mocks.pluginApi.post.mockReturnValue(pendingLogin.promise)
     const { container } = await renderLogin()
 
     await fireEvent.update(screen.getByRole('textbox', { name: '用户名' }), 'alice')
@@ -148,7 +159,7 @@ describe('login page orchestration', () => {
     await fireEvent.submit(form!)
     await fireEvent.submit(form!)
 
-    expect(mocks.api.post).toHaveBeenCalledTimes(1)
+    expect(mocks.pluginApi.post).toHaveBeenCalledTimes(1)
   })
 
   it('does not submit an incomplete password form', async () => {
@@ -156,7 +167,7 @@ describe('login page orchestration', () => {
 
     await fireEvent.submit(container.querySelector<HTMLFormElement>('form.login-form')!)
 
-    expect(mocks.api.post).not.toHaveBeenCalled()
+    expect(mocks.pluginApi.post).not.toHaveBeenCalled()
   })
 
   it('toggles password visibility without submitting the form', async () => {
@@ -169,7 +180,7 @@ describe('login page orchestration', () => {
     await fireEvent.click(screen.getByRole('button', { name: '隐藏密码' }))
 
     expect(password).toHaveAttribute('type', 'password')
-    expect(mocks.api.post).not.toHaveBeenCalled()
+    expect(mocks.pluginApi.post).not.toHaveBeenCalled()
   })
 
   it('keeps the latest plugin AuthPage when an earlier provider resolves late', async () => {
@@ -234,7 +245,7 @@ describe('login page orchestration', () => {
       },
     )
     mocks.api.get.mockReturnValue(providers.promise)
-    mocks.api.post.mockImplementation((url: string, _data: unknown, config?: { signal?: AbortSignal }) => {
+    mocks.pluginApi.post.mockImplementation((url: string, _data: unknown, config?: { signal?: AbortSignal }) => {
       if (url === '/login/access-token') {
         passwordSignal = config?.signal
         return passwordLogin.promise
@@ -250,7 +261,7 @@ describe('login page orchestration', () => {
 
     expect(passwordSignal?.aborted).toBe(false)
     expect(conditionalAvailability).not.toHaveBeenCalled()
-    expect(mocks.api.post).toHaveBeenCalledTimes(1)
+    expect(mocks.pluginApi.post).toHaveBeenCalledTimes(1)
   })
 
   it('skips provider and Conditional UI startup for a remembered session', async () => {
@@ -258,11 +269,11 @@ describe('login page orchestration', () => {
 
     expect(mocks.router.push).toHaveBeenCalledWith('/')
     expect(mocks.api.get).not.toHaveBeenCalled()
-    expect(mocks.api.post).not.toHaveBeenCalled()
+    expect(mocks.pluginApi.post).not.toHaveBeenCalled()
   })
 
   it('stores the password login session and consumes the original destination', async () => {
-    mocks.api.post.mockResolvedValue(loginResponse())
+    mocks.pluginApi.post.mockResolvedValue(loginResponse())
     const { container } = await renderLogin()
     const authStore = useAuthStore()
     authStore.setOriginalPath('/recommend?tab=trending#today')
@@ -274,7 +285,7 @@ describe('login page orchestration', () => {
     expect(authStore.originalPath).toBeNull()
     expect(useUserStore().userName).toBe('alice')
     expect(useUserStore().permissions.features).toEqual({ 'discovery.recommend': true })
-    const formData = mocks.api.post.mock.calls[0][1] as FormData
+    const formData = mocks.pluginApi.post.mock.calls[0][1] as FormData
     expect(formData.get('username')).toBe('alice')
     expect(formData.get('password')).toBe('secret')
     expect(formData.get('otp_password')).toBe('')
@@ -282,7 +293,7 @@ describe('login page orchestration', () => {
 
   it('does not create a session when no navigation entry is permitted', async () => {
     mocks.navMenus = []
-    mocks.api.post.mockResolvedValue(loginResponse())
+    mocks.pluginApi.post.mockResolvedValue(loginResponse())
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -293,7 +304,7 @@ describe('login page orchestration', () => {
   })
 
   it('routes a login that requires setup to the wizard before any menu', async () => {
-    mocks.api.post.mockResolvedValue(loginResponse({ wizard: true }))
+    mocks.pluginApi.post.mockResolvedValue(loginResponse({ wizard: true }))
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -303,7 +314,7 @@ describe('login page orchestration', () => {
   })
 
   it('maps password HTTP failures to a visible retryable error', async () => {
-    mocks.api.post.mockRejectedValue({ response: { data: {}, status: 403 } })
+    mocks.pluginApi.post.mockRejectedValue({ response: { data: {}, status: 403 } })
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -314,7 +325,7 @@ describe('login page orchestration', () => {
   })
 
   it('maps a password server failure to the dedicated retryable error', async () => {
-    mocks.api.post.mockRejectedValue({ response: { data: {}, status: 500 } })
+    mocks.pluginApi.post.mockRejectedValue({ response: { data: {}, status: 500 } })
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -325,7 +336,7 @@ describe('login page orchestration', () => {
   })
 
   it('maps a password network failure without leaving the login form', async () => {
-    mocks.api.post.mockRejectedValue(new Error('offline'))
+    mocks.pluginApi.post.mockRejectedValue(new Error('offline'))
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -335,7 +346,7 @@ describe('login page orchestration', () => {
   })
 
   it('prefers a structured backend message for password failures', async () => {
-    mocks.api.post.mockRejectedValue({ response: { data: { message: '账号已被停用' }, status: 403 } })
+    mocks.pluginApi.post.mockRejectedValue({ response: { data: { message: '账号已被停用' }, status: 403 } })
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -344,7 +355,7 @@ describe('login page orchestration', () => {
   })
 
   it('includes an unknown HTTP status in the fallback password error', async () => {
-    mocks.api.post.mockRejectedValue({ response: { data: {}, status: 418 } })
+    mocks.pluginApi.post.mockRejectedValue({ response: { data: {}, status: 418 } })
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -363,7 +374,7 @@ describe('login page orchestration', () => {
   })
 
   it('enters the OTP step only for a supported server-declared method', async () => {
-    mocks.api.post.mockRejectedValue(mfaRequired(['otp', 'unknown', 'otp']))
+    mocks.pluginApi.post.mockRejectedValue(mfaRequired(['otp', 'unknown', 'otp']))
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -373,7 +384,7 @@ describe('login page orchestration', () => {
   })
 
   it('keeps password login visible when the MFA response has no supported method', async () => {
-    mocks.api.post.mockRejectedValue(mfaRequired(['sms']))
+    mocks.pluginApi.post.mockRejectedValue(mfaRequired(['sms']))
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -384,7 +395,7 @@ describe('login page orchestration', () => {
   })
 
   it('submits the original password with the OTP and completes login', async () => {
-    mocks.api.post.mockRejectedValueOnce(mfaRequired()).mockResolvedValueOnce(loginResponse())
+    mocks.pluginApi.post.mockRejectedValueOnce(mfaRequired()).mockResolvedValueOnce(loginResponse())
     const { container } = await renderLogin()
     await submitPassword(container)
     const otpInput = await screen.findByRole('textbox', { name: '验证码' })
@@ -393,14 +404,16 @@ describe('login page orchestration', () => {
     await fireEvent.submit(screen.getByTestId('mfa-otp-form'))
 
     await waitFor(() => expect(useAuthStore().token).toBe('synthetic-token'))
-    const formData = mocks.api.post.mock.calls[1][1] as FormData
+    const formData = mocks.pluginApi.post.mock.calls[1][1] as FormData
     expect(formData.get('username')).toBe('alice')
     expect(formData.get('password')).toBe('secret')
     expect(formData.get('otp_password')).toBe('123456')
   })
 
   it('keeps the OTP step retryable and clears an invalid code', async () => {
-    mocks.api.post.mockRejectedValueOnce(mfaRequired()).mockRejectedValueOnce({ response: { data: {}, status: 401 } })
+    mocks.pluginApi.post
+      .mockRejectedValueOnce(mfaRequired())
+      .mockRejectedValueOnce({ response: { data: {}, status: 401 } })
     const { container } = await renderLogin()
     await submitPassword(container)
     const otpInput = await screen.findByRole('textbox', { name: '验证码' })
@@ -414,7 +427,7 @@ describe('login page orchestration', () => {
   })
 
   it('keeps the OTP step retryable after a network failure', async () => {
-    mocks.api.post.mockRejectedValueOnce(mfaRequired()).mockRejectedValueOnce(new Error('offline'))
+    mocks.pluginApi.post.mockRejectedValueOnce(mfaRequired()).mockRejectedValueOnce(new Error('offline'))
     const { container } = await renderLogin()
     await submitPassword(container)
 
@@ -427,7 +440,7 @@ describe('login page orchestration', () => {
   })
 
   it('returns from OTP verification to a clean password step', async () => {
-    mocks.api.post.mockRejectedValue(mfaRequired())
+    mocks.pluginApi.post.mockRejectedValue(mfaRequired())
     const { container } = await renderLogin()
     await submitPassword(container)
 
@@ -483,14 +496,18 @@ describe('login page orchestration', () => {
       },
     ])
     mocks.loadRemoteComponentFromModule.mockResolvedValue(ticketAuthPage('plugin-ticket'))
-    mocks.api.post.mockResolvedValue(loginResponse({ user_name: 'plugin-user' }))
+    mocks.pluginApi.post.mockResolvedValue(loginResponse({ user_name: 'plugin-user' }))
     await renderLogin()
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Ticket Login' }))
     await fireEvent.click(await screen.findByRole('button', { name: 'Complete Plugin Login' }))
 
     await waitFor(() => expect(useAuthStore().token).toBe('synthetic-token'))
-    expect(mocks.api.post).toHaveBeenCalledWith('auth/exchange', { ticket: 'plugin-ticket' })
+    expect(mocks.pluginApi.post).toHaveBeenCalledWith(
+      'auth/exchange',
+      { ticket: 'plugin-ticket' },
+      { feedback: 'silent' },
+    )
     expect(useUserStore().userName).toBe('plugin-user')
     expect(mocks.router.push).toHaveBeenCalledWith('/home')
   })
@@ -507,7 +524,7 @@ describe('login page orchestration', () => {
       },
     ])
     mocks.loadRemoteComponentFromModule.mockResolvedValue(ticketAuthPage('plugin-ticket'))
-    mocks.api.post.mockReturnValue(exchange.promise)
+    mocks.pluginApi.post.mockReturnValue(exchange.promise)
     await renderLogin()
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Ticket Login' }))
@@ -515,7 +532,7 @@ describe('login page orchestration', () => {
     await fireEvent.click(complete)
     await fireEvent.click(complete)
 
-    expect(mocks.api.post).toHaveBeenCalledTimes(1)
+    expect(mocks.pluginApi.post).toHaveBeenCalledTimes(1)
   })
 
   it('ignores an earlier password response after plugin login completes', async () => {
@@ -531,7 +548,7 @@ describe('login page orchestration', () => {
       },
     ])
     mocks.loadRemoteComponentFromModule.mockResolvedValue(ticketAuthPage('plugin-ticket'))
-    mocks.api.post.mockImplementation((url: string, _data: unknown, config?: { signal?: AbortSignal }) => {
+    mocks.pluginApi.post.mockImplementation((url: string, _data: unknown, config?: { signal?: AbortSignal }) => {
       if (url === '/login/access-token') {
         passwordSignal = config?.signal
         return passwordLogin.promise
@@ -565,7 +582,9 @@ describe('login page orchestration', () => {
       },
     ])
     mocks.loadRemoteComponentFromModule.mockResolvedValue(ticketAuthPage('expired-ticket'))
-    mocks.api.post.mockRejectedValue({ response: { data: { detail: '认证票据无效或已过期' }, status: 401 } })
+    mocks.pluginApi.post.mockRejectedValue({
+      response: { data: { detail: '认证票据无效或已过期' }, status: 401 },
+    })
     await renderLogin()
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Ticket Login' }))
@@ -592,7 +611,7 @@ describe('login page orchestration', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Fail Plugin Login' }))
 
     expect(await screen.findByText('remote authorization failed')).toBeInTheDocument()
-    expect(mocks.api.post).not.toHaveBeenCalled()
+    expect(mocks.pluginApi.post).not.toHaveBeenCalled()
   })
 
   it('shows the current plugin AuthPage load failure', async () => {
@@ -631,7 +650,7 @@ describe('login page orchestration', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Complete Plugin Login' }))
 
     expect(await screen.findByText('登录失败，请检查用户名、密码或验证码')).toBeInTheDocument()
-    expect(mocks.api.post).not.toHaveBeenCalled()
+    expect(mocks.pluginApi.post).not.toHaveBeenCalled()
   })
 
   it('does not wait for WebPush subscription before completing an administrator login', async () => {
@@ -649,8 +668,9 @@ describe('login page orchestration', () => {
     })
     mocks.api.post.mockImplementation((url: string) => {
       if (url === '/message/webpush/subscribe') return webPushRequest.promise
-      return Promise.resolve(loginResponse({ super_user: true }))
+      return Promise.resolve(null)
     })
+    mocks.pluginApi.post.mockResolvedValue(loginResponse({ super_user: true }))
     const { container } = await renderLogin()
 
     await submitPassword(container)
@@ -686,19 +706,17 @@ describe('login page orchestration', () => {
     mocks.api.post.mockImplementation((url: string) => {
       if (url === '/mfa/passkey/authenticate/start') {
         return Promise.resolve({
-          success: true,
-          data: {
-            options: JSON.stringify({
-              allowCredentials: [{ id: 'AwQ', type: 'public-key' }],
-              challenge: 'AQI',
-              timeout: 60_000,
-            }),
-            transaction_token: 'transaction-1',
-          },
+          options: JSON.stringify({
+            allowCredentials: [{ id: 'AwQ', type: 'public-key' }],
+            challenge: 'AQI',
+            timeout: 60_000,
+          }),
+          transaction_token: 'transaction-1',
         })
       }
-      return Promise.resolve(loginResponse({ user_name: 'passkey-user' }))
+      return Promise.resolve(null)
     })
+    mocks.pluginApi.post.mockResolvedValue(loginResponse({ user_name: 'passkey-user' }))
     const { container } = await renderLogin()
 
     await fireEvent.click(await waitFor(() => container.querySelector<HTMLButtonElement>('.passkey-btn')!))
@@ -710,16 +728,15 @@ describe('login page orchestration', () => {
       3, 4,
     ])
     expect(credentialOptions.mediation).toBeUndefined()
-    expect(mocks.api.post).toHaveBeenNthCalledWith(
-      1,
+    expect(mocks.api.post).toHaveBeenCalledWith(
       '/mfa/passkey/authenticate/start',
       {},
       {
+        feedback: 'silent',
         signal: expect.any(AbortSignal),
       },
     )
-    expect(mocks.api.post).toHaveBeenNthCalledWith(
-      2,
+    expect(mocks.pluginApi.post).toHaveBeenCalledWith(
       '/mfa/passkey/authenticate/finish',
       {
         credential: {
@@ -736,6 +753,7 @@ describe('login page orchestration', () => {
         transaction_token: 'transaction-1',
       },
       {
+        feedback: 'silent',
         signal: expect.any(AbortSignal),
       },
     )
@@ -753,7 +771,7 @@ describe('login page orchestration', () => {
         enabled: true,
       },
     ])
-    mocks.api.post.mockResolvedValue({ success: false, message: '认证失败' })
+    mocks.api.post.mockRejectedValue(new Error('认证失败'))
     const { container } = await renderLogin()
 
     await fireEvent.click(await waitFor(() => container.querySelector<HTMLButtonElement>('.passkey-btn')!))
@@ -790,16 +808,16 @@ describe('login page orchestration', () => {
         enabled: true,
       },
     ])
-    mocks.api.post.mockImplementation((url: string, _data: unknown, config?: { signal?: AbortSignal }) => {
+    mocks.api.post.mockImplementation((url: string) => {
       if (url === '/mfa/passkey/authenticate/start') {
         return Promise.resolve({
-          success: true,
-          data: {
-            options: JSON.stringify({ challenge: 'AQI' }),
-            transaction_token: 'finish-transaction',
-          },
+          options: JSON.stringify({ challenge: 'AQI' }),
+          transaction_token: 'finish-transaction',
         })
       }
+      return new Promise(() => {})
+    })
+    mocks.pluginApi.post.mockImplementation((url: string, _data: unknown, config?: { signal?: AbortSignal }) => {
       if (url === '/mfa/passkey/authenticate/finish') {
         finishSignal = config?.signal
         return finish.promise
@@ -810,7 +828,7 @@ describe('login page orchestration', () => {
 
     await fireEvent.click(await waitFor(() => container.querySelector<HTMLButtonElement>('.passkey-btn')!))
     await waitFor(() =>
-      expect(mocks.api.post).toHaveBeenCalledWith(
+      expect(mocks.pluginApi.post).toHaveBeenCalledWith(
         '/mfa/passkey/authenticate/finish',
         expect.any(Object),
         expect.any(Object),
@@ -841,11 +859,8 @@ describe('login page orchestration', () => {
       },
     ])
     mocks.api.post.mockResolvedValue({
-      success: true,
-      data: {
-        options: JSON.stringify({ challenge: 'AQI' }),
-        transaction_token: 'cancel-transaction',
-      },
+      options: JSON.stringify({ challenge: 'AQI' }),
+      transaction_token: 'cancel-transaction',
     })
     const { container } = await renderLogin()
 
@@ -887,11 +902,8 @@ describe('login page orchestration', () => {
     )
     vi.stubGlobal('navigator', { credentials: { get: credentialGet } })
     mocks.api.post.mockResolvedValue({
-      success: true,
-      data: {
-        options: JSON.stringify({ challenge: 'AQI' }),
-        transaction_token: 'conditional-transaction',
-      },
+      options: JSON.stringify({ challenge: 'AQI' }),
+      transaction_token: 'conditional-transaction',
     })
     const { unmount } = await renderLogin()
     await waitFor(() => expect(credentialGet).toHaveBeenCalledOnce())
@@ -937,11 +949,8 @@ describe('login page orchestration', () => {
     mocks.api.post.mockImplementation((url: string) => {
       if (url === '/mfa/passkey/authenticate/start') {
         return Promise.resolve({
-          success: true,
-          data: {
-            options: JSON.stringify({ challenge: 'AQI' }),
-            transaction_token: 'conditional-transaction',
-          },
+          options: JSON.stringify({ challenge: 'AQI' }),
+          transaction_token: 'conditional-transaction',
         })
       }
       return new Promise(() => {})
@@ -952,7 +961,7 @@ describe('login page orchestration', () => {
     await submitPassword(container)
 
     expect(capturedSignal?.aborted).toBe(true)
-    expect(mocks.api.post).toHaveBeenCalledWith('/login/access-token', expect.any(FormData), expect.any(Object))
+    expect(mocks.pluginApi.post).toHaveBeenCalledWith('/login/access-token', expect.any(FormData), expect.any(Object))
   })
 
   it('does not leave Conditional UI loading when an aborted credential request resolves late', async () => {
@@ -981,11 +990,8 @@ describe('login page orchestration', () => {
     mocks.api.post.mockImplementation((url: string) => {
       if (url === '/mfa/passkey/authenticate/start') {
         return Promise.resolve({
-          success: true,
-          data: {
-            options: JSON.stringify({ challenge: 'AQI' }),
-            transaction_token: 'conditional-transaction',
-          },
+          options: JSON.stringify({ challenge: 'AQI' }),
+          transaction_token: 'conditional-transaction',
         })
       }
       return new Promise(() => {})
@@ -1011,7 +1017,7 @@ describe('login page orchestration', () => {
     await nextTick()
 
     expect(passkeyButton).not.toHaveClass('v-btn--loading')
-    expect(mocks.api.post).not.toHaveBeenCalledWith('/mfa/passkey/authenticate/finish', expect.any(Object))
+    expect(mocks.pluginApi.post).not.toHaveBeenCalledWith('/mfa/passkey/authenticate/finish', expect.any(Object))
   })
 
   it('aborts manual Passkey before password login can take ownership', async () => {
@@ -1034,11 +1040,8 @@ describe('login page orchestration', () => {
     mocks.api.post.mockImplementation((url: string) => {
       if (url === '/mfa/passkey/authenticate/start') {
         return Promise.resolve({
-          success: true,
-          data: {
-            options: JSON.stringify({ challenge: 'AQI' }),
-            transaction_token: 'manual-transaction',
-          },
+          options: JSON.stringify({ challenge: 'AQI' }),
+          transaction_token: 'manual-transaction',
         })
       }
       return new Promise(() => {})
@@ -1050,6 +1053,6 @@ describe('login page orchestration', () => {
     await submitPassword(container)
 
     expect(capturedSignal?.aborted).toBe(true)
-    expect(mocks.api.post).not.toHaveBeenCalledWith('/mfa/passkey/authenticate/finish', expect.any(Object))
+    expect(mocks.pluginApi.post).not.toHaveBeenCalledWith('/mfa/passkey/authenticate/finish', expect.any(Object))
   })
 })

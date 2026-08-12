@@ -672,8 +672,8 @@ async function loadDashboardProfileConfig(profile: DashboardLayoutProfile) {
   const localConfig = readLocalDashboardConfig(storageKey, normalizeDashboardProfileConfig)
 
   try {
-    const response = await api.get(`/user/config/${configKey}`)
-    const remoteConfig = normalizeDashboardProfileConfig(response?.data?.value)
+    const response = await api.get<{ value?: unknown }>(`/user/config/${configKey}`)
+    const remoteConfig = normalizeDashboardProfileConfig(response.value)
 
     if (remoteConfig !== undefined) {
       if (localConfig && isLocalDashboardProfileConfigNewer(localConfig, remoteConfig)) {
@@ -781,8 +781,8 @@ async function loadLegacyDashboardEnableConfig() {
   const localConfig = readLocalDashboardConfig(DASHBOARD_ENABLE_STORAGE_KEY, normalizeDashboardEnableConfig)
 
   try {
-    const response = await api.get(`/user/config/${DASHBOARD_ENABLE_CONFIG_KEY}`)
-    legacyDashboardEnableConfig = normalizeDashboardEnableConfig(response?.data?.value) ?? localConfig
+    const response = await api.get<{ value?: unknown }>(`/user/config/${DASHBOARD_ENABLE_CONFIG_KEY}`)
+    legacyDashboardEnableConfig = normalizeDashboardEnableConfig(response.value) ?? localConfig
   } catch (error) {
     console.error(error)
     legacyDashboardEnableConfig = localConfig
@@ -803,8 +803,8 @@ async function loadSharedDashboardConfig<T>(
   const localConfig = readLocalDashboardConfig(storageKey, normalize)
 
   try {
-    const response = await api.get(`/user/config/${configKey}`)
-    const remoteConfig = normalize(response?.data?.value)
+    const response = await api.get<{ value?: unknown }>(`/user/config/${configKey}`)
+    const remoteConfig = normalize(response.value)
 
     if (remoteConfig !== undefined) {
       saveLocalDashboardConfig(storageKey, remoteConfig)

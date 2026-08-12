@@ -211,9 +211,7 @@ function rebuildNotificationKeys() {
 /** 清理已移除通知的展开状态，避免虚拟列表复用时保留无效 key。 */
 function rebuildExpandedNotificationKeys() {
   const currentKeys = new Set(notificationList.value.map(getNotificationExpansionKey))
-  expandedNotificationKeys.value = new Set(
-    [...expandedNotificationKeys.value].filter(key => currentKeys.has(key)),
-  )
+  expandedNotificationKeys.value = new Set([...expandedNotificationKeys.value].filter(key => currentKeys.has(key)))
 }
 
 /** 列表内容变化后同步未读红点和应用角标状态。 */
@@ -269,10 +267,11 @@ function getClearSuccessText(scope: NotificationClearScope) {
 
 /** 调用后端记录清理范围，后续分页查询会直接返回过滤后的通知。 */
 async function tryDeleteNotificationHistory(scope: NotificationClearScope) {
-  const result: { [key: string]: any } = await api.delete('message/notification', {
+  await api.delete('message/notification', {
     params: { scope },
+    feedback: 'silent',
   })
-  return result?.success !== false
+  return true
 }
 
 /** 确认并清空通知中心历史，同时同步清理未读角标。 */
@@ -604,13 +603,13 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
 
           <VVirtualScroll
             v-if="notificationList.length > 0"
-            renderless
+            :renderless="true"
             :items="notificationDisplayList"
             :item-height="NOTIFICATION_ITEM_HEIGHT"
           >
-            <template #default="{ item, itemRef }">
+            <template #default="{ item, ...slotProps }">
               <div
-                :ref="itemRef"
+                :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined"
                 :key="item.key"
                 class="notification-virtual-item"
                 :class="{ 'notification-virtual-item--section': item.kind === 'section' }"
@@ -662,7 +661,9 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
                       {{ item.notification.text }}
                     </div>
                     <div class="notification-meta">
-                      <span v-if="item.notification.mtype" class="notification-type">{{ item.notification.mtype }}</span>
+                      <span v-if="item.notification.mtype" class="notification-type">{{
+                        item.notification.mtype
+                      }}</span>
                       <span>{{ formatDateDifference(getNotificationTime(item.notification)) }}</span>
                     </div>
                   </div>
