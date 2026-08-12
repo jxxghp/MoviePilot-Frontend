@@ -1,4 +1,5 @@
 import { flushPromises, shallowMount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantPanel from '@/components/agent/AgentAssistantPanel.vue'
 
@@ -29,6 +30,11 @@ interface MockServerSession {
   messages: Array<Record<string, unknown>>
 }
 
+interface SyntheticSseFrame {
+  eventName?: string
+  data: unknown
+}
+
 const agentMarkdownContentStub = {
   props: ['content', 'variant'],
   template:
@@ -43,9 +49,91 @@ function createAgentResponse(data: unknown) {
   } as unknown as Response
 }
 
+function legacySseFrame(data: Record<string, unknown>): SyntheticSseFrame {
+  return { data }
+}
+
+function protectedSseFrame(data: Record<string, unknown>): SyntheticSseFrame {
+  return { eventName: 'interaction-protected', data }
+}
+
+function createAgentStreamResponse(frames: SyntheticSseFrame[]) {
+  const body = frames
+    .map(frame => `${frame.eventName ? `event: ${frame.eventName}\n` : ''}data: ${JSON.stringify(frame.data)}\n\n`)
+    .join('')
+
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}
+
+function createControllableAgentStream() {
+  const encoder = new TextEncoder()
+  let streamController: ReadableStreamDefaultController<Uint8Array>
+  const response = new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+      },
+    }),
+    { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+  )
+
+  return {
+    response,
+    emit(frame: SyntheticSseFrame) {
+      const block = `${frame.eventName ? `event: ${frame.eventName}\n` : ''}data: ${JSON.stringify(frame.data)}\n\n`
+      streamController.enqueue(encoder.encode(block))
+    },
+    close() {
+      streamController.close()
+    },
+    fail(error: Error) {
+      streamController.error(error)
+    },
+  }
+}
+
+const slotContainerStub = { template: '<div><slot /></div>' }
+const menuStub = defineComponent({
+  setup(_props, { slots }) {
+    return () => h('div', [slots.activator?.({ props: {} }), slots.default?.()])
+  },
+})
+const virtualScrollStub = defineComponent({
+  props: { items: { type: Array, default: () => [] } },
+  setup(props, { slots }) {
+    return () =>
+      h(
+        'div',
+        props.items.map(item => slots.default?.({ item, itemRef: () => undefined })),
+      )
+  },
+})
+
+function mountPanel() {
+  return shallowMount(AgentAssistantPanel, {
+    props: { modelValue: true },
+    global: {
+      stubs: {
+        AgentMarkdownContent: agentMarkdownContentStub,
+        IconBtn: { template: '<button><slot /></button>' },
+        PerfectScrollbar: { template: '<div><slot /></div>' },
+        VCard: slotContainerStub,
+        VInfiniteScroll: slotContainerStub,
+        VIcon: true,
+        VMenu: menuStub,
+        VVirtualScroll: virtualScrollStub,
+      },
+    },
+  })
+}
+
 describe('AgentAssistantPanel stream recovery', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -346,6 +434,501 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
     expect(fetchMock).toHaveBeenCalled()
 
+    wrapper.unmount()
+  })
+
+  it('renders protected delivery only as transient literal text and advertises the stream capability', async () => {
+    const protectedMarker = 'MP-PROTECTED-MARKER **not bold** <script>literal</script>'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([
+          legacySseFrame({ type: 'start', session_id: 'web-agent:protected' }),
+          legacySseFrame({ type: 'delta', content: '普通回复' }),
+          protectedSseFrame({
+            schema_version: '1.0',
+            delivery_id: 'delivery-1',
+            content_type: 'text/plain',
+            content: protectedMarker,
+          }),
+          legacySseFrame({ type: 'tool', message: '（查询了 1 次数据）' }),
+          legacySseFrame({ type: 'done' }),
+        ])
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取受保护结果')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const protectedNode = wrapper.get('[data-protected-delivery-id="delivery-1"]')
+    expect(protectedNode.text()).toBe(protectedMarker)
+    expect(protectedNode.find('script').exists()).toBe(false)
+    const assistantBubble = wrapper.get('.agent-assistant-message--assistant .agent-assistant-message__bubble')
+    expect(assistantBubble.text()).not.toContain(protectedMarker)
+    expect(assistantBubble.text()).toContain('普通回复')
+
+    const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
+    const streamHeaders = new Headers(streamCall?.[1]?.headers)
+    expect(streamHeaders.get('X-MoviePilot-Agent-Interaction')).toBe('1')
+
+    const displayCalls = fetchMock.mock.calls.filter(([input]) => String(input).includes('/display'))
+    expect(displayCalls.length).toBeGreaterThan(0)
+    displayCalls.forEach(([, init]) => {
+      expect(new Headers(init?.headers).has('X-MoviePilot-Agent-Interaction')).toBe(false)
+      expect(String(init?.body)).not.toContain(protectedMarker)
+    })
+    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
+
+    wrapper.unmount()
+  })
+
+  it('ignores malformed and duplicate protected delivery events without creating a normal message', async () => {
+    const acceptedMarker = 'MP-ACCEPTED-PROTECTED-MARKER'
+    const rejectedMarker = 'MP-REJECTED-PROTECTED-MARKER'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return createAgentStreamResponse([
+            legacySseFrame({ type: 'start', session_id: 'web-agent:protected-validation' }),
+            protectedSseFrame({
+              schema_version: '2.0',
+              delivery_id: 'wrong-major',
+              content_type: 'text/plain',
+              content: rejectedMarker,
+            }),
+            protectedSseFrame({
+              schema_version: '1.0',
+              delivery_id: '',
+              content_type: 'text/plain',
+              content: rejectedMarker,
+            }),
+            protectedSseFrame({
+              schema_version: '1.0',
+              delivery_id: 'wrong-content-type',
+              content_type: 'text/html',
+              content: rejectedMarker,
+            }),
+            protectedSseFrame({
+              schema_version: '1.0',
+              delivery_id: 'bad-content',
+              content_type: 'text/plain',
+              content: 42,
+            }),
+            { eventName: 'interaction', data: { content: rejectedMarker } },
+            legacySseFrame({ type: 'protected_delivery', delivery_id: 'legacy-shape', content: rejectedMarker }),
+            protectedSseFrame({
+              schema_version: '1.7',
+              delivery_id: 'delivery-valid',
+              content_type: 'text/plain',
+              content: acceptedMarker,
+              future_field: true,
+            }),
+            protectedSseFrame({
+              schema_version: '1.0',
+              delivery_id: 'delivery-valid',
+              content_type: 'text/plain',
+              content: rejectedMarker,
+            }),
+            legacySseFrame({ type: 'done' }),
+          ])
+        }
+
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取一次性结果')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const protectedNodes = wrapper.findAll('.agent-assistant-protected-delivery')
+    expect(protectedNodes).toHaveLength(1)
+    expect(protectedNodes[0].text()).toBe(acceptedMarker)
+    expect(wrapper.text()).not.toContain(rejectedMarker)
+    expect(wrapper.find('.agent-assistant-message--assistant').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('clears protected delivery on close and rejects a late frame from the old stream after reopen', async () => {
+    const protectedMarker = 'MP-LATE-PROTECTED-MARKER'
+    const stream = createControllableAgentStream()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return stream.response
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取晚到结果')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    stream.emit(legacySseFrame({ type: 'start', session_id: 'web-agent:late-protected' }))
+    stream.emit(
+      protectedSseFrame({
+        schema_version: '1.0',
+        delivery_id: 'delivery-before-close',
+        content_type: 'text/plain',
+        content: protectedMarker,
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    await wrapper.setProps({ modelValue: false })
+    expect(wrapper.text()).not.toContain(protectedMarker)
+
+    stream.emit(
+      protectedSseFrame({
+        schema_version: '1.0',
+        delivery_id: 'delivery-after-close',
+        content_type: 'text/plain',
+        content: protectedMarker,
+      }),
+    )
+    await wrapper.setProps({ modelValue: true })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain(protectedMarker)
+
+    stream.close()
+    await flushPromises()
+    expect(JSON.stringify(localStorage)).not.toContain(protectedMarker)
+    wrapper.unmount()
+  })
+
+  it('clears protected delivery when the stream ends without a terminal event and enters recovery', async () => {
+    const protectedMarker = 'MP-EOF-PROTECTED-MARKER'
+    const stream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return stream.response
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取后模拟断流')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    stream.emit(
+      protectedSseFrame({
+        schema_version: '1.0',
+        delivery_id: 'delivery-before-eof',
+        content_type: 'text/plain',
+        content: protectedMarker,
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    stream.close()
+    await flushPromises()
+
+    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    expect(wrapper.text()).not.toContain(protectedMarker)
+    expect(persistedState.streamRecovery).toMatchObject({ attempts: 0 })
+    expect(JSON.stringify(persistedState)).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
+    fetchMock.mock.calls
+      .filter(([input]) => String(input).includes('/display'))
+      .forEach(([, init]) => expect(String(init?.body)).not.toContain(protectedMarker))
+
+    wrapper.unmount()
+  })
+
+  it('clears protected delivery on a recoverable stream error while preserving ordinary recovery state', async () => {
+    const protectedMarker = 'MP-NETWORK-PROTECTED-MARKER'
+    const stream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return stream.response
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取后模拟网络断开')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    stream.emit(
+      protectedSseFrame({
+        schema_version: '1.0',
+        delivery_id: 'delivery-before-network-error',
+        content_type: 'text/plain',
+        content: protectedMarker,
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    stream.fail(new TypeError('Failed to fetch'))
+    await flushPromises()
+
+    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    expect(wrapper.text()).not.toContain(protectedMarker)
+    expect(persistedState.streamRecovery).toMatchObject({ attempts: 0 })
+    expect(persistedState.messages.at(-1)).toMatchObject({ role: 'assistant', status: 'streaming' })
+    expect(JSON.stringify(persistedState)).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
+    fetchMock.mock.calls
+      .filter(([input]) => String(input).includes('/display'))
+      .forEach(([, init]) => expect(String(init?.body)).not.toContain(protectedMarker))
+
+    wrapper.unmount()
+  })
+
+  it('clears protected delivery for a new session and never restores it after remount', async () => {
+    const protectedMarker = 'MP-SESSION-PROTECTED-MARKER'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([
+          protectedSseFrame({
+            schema_version: '1.0',
+            delivery_id: 'delivery-session',
+            content_type: 'text/plain',
+            content: protectedMarker,
+          }),
+          legacySseFrame({ type: 'done' }),
+        ])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取会话结果')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    await wrapper.get('[title="agentAssistant.newChat"]').trigger('click')
+    expect(wrapper.text()).not.toContain(protectedMarker)
+
+    wrapper.unmount()
+    const remounted = mountPanel()
+    await flushPromises()
+    expect(remounted.text()).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    fetchMock.mock.calls
+      .filter(([input]) => String(input).includes('/display'))
+      .forEach(([, init]) => expect(String(init?.body)).not.toContain(protectedMarker))
+    remounted.unmount()
+  })
+
+  it('clears protected delivery before loading another history session', async () => {
+    const protectedMarker = 'MP-HISTORY-PROTECTED-MARKER'
+    const historySessionId = 'web-agent:history-target'
+    const historyMessage = {
+      id: 'history-user',
+      role: 'user',
+      content: '历史会话内容',
+      createdAt: Date.now() - 1000,
+      status: 'done',
+      attachments: [],
+      choices: [],
+      tools: [],
+    }
+    const serverSession = {
+      session_id: historySessionId,
+      client_session_id: 'history-target',
+      title: '历史会话',
+      updated_at: new Date().toISOString(),
+      is_processing: false,
+      messages: [historyMessage],
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([
+          protectedSseFrame({
+            schema_version: '1.0',
+            delivery_id: 'delivery-history',
+            content_type: 'text/plain',
+            content: protectedMarker,
+          }),
+          legacySseFrame({ type: 'done' }),
+        ])
+      }
+      if (url.includes(`/sessions/${encodeURIComponent(historySessionId)}`)) return createAgentResponse(serverSession)
+      if (url.includes('/message/agent/sessions?')) return createAgentResponse([serverSession])
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await flushPromises()
+    await wrapper.find('textarea').setValue('读取后切换历史')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    await wrapper.get('.agent-assistant-history-item').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain(protectedMarker)
+    expect(wrapper.text()).toContain('历史会话内容')
+    wrapper.unmount()
+  })
+
+  it('keeps exact confirmation controls out of Web history while preserving the old-backend response', async () => {
+    const controlText = '确认 aB12-cD34'
+    const backendFeedback = '确认无效或已过期'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([
+          legacySseFrame({ type: 'start', session_id: 'web-agent:control' }),
+          legacySseFrame({ type: 'delta', content: backendFeedback }),
+          legacySseFrame({ type: 'done' }),
+        ])
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue(controlText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
+    const streamBody = JSON.parse(String(streamCall?.[1]?.body || '{}'))
+    expect(streamBody).toMatchObject({ text: controlText, display_text: controlText, echo_user: false })
+    expect(wrapper.text()).toContain(backendFeedback)
+    expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(controlText)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(controlText)
+    fetchMock.mock.calls
+      .filter(([input]) => String(input).includes('/display'))
+      .forEach(([, init]) => expect(String(init?.body)).not.toContain(controlText))
+
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['leading space', ' 确认 AB12-CD34'],
+    ['trailing space', '确认 AB12-CD34 '],
+    ['repeated separator', '确认  AB12-CD34'],
+    ['trailing newline', '确认 AB12-CD34\n'],
+    ['non-breaking space', '确认\u00a0AB12-CD34'],
+    ['full-width space', '确认　AB12-CD34'],
+    ['extra prose', '确认 AB12-CD34 请执行'],
+    ['malformed code', '确认 AB12-CD3'],
+    ['different verb', '同意 AB12-CD34'],
+  ])('keeps the %s control-like text on the ordinary echo path', async (_caseName, controlLikeText) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([legacySseFrame({ type: 'done' })])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue(controlLikeText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
+    const streamBody = JSON.parse(String(streamCall?.[1]?.body || '{}'))
+    expect(streamBody.echo_user).toBe(true)
+    expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('keeps an exact confirmation string with an attachment on the ordinary echo path', async () => {
+    const controlText = '确认 AB12-CD34'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/upload') && init?.method === 'POST') {
+        return createAgentResponse({
+          ref: 'attachment-ref',
+          url: '/api/v1/message/agent/attachments/attachment-ref',
+          name: 'proof.txt',
+          mime_type: 'text/plain',
+          size: 5,
+          kind: 'file',
+        })
+      }
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([legacySseFrame({ type: 'done' })])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    const fileInput = wrapper.get('input[type="file"]')
+    Object.defineProperty(fileInput.element, 'files', {
+      configurable: true,
+      value: [new File(['proof'], 'proof.txt', { type: 'text/plain' })],
+    })
+    await fileInput.trigger('change')
+    await wrapper.find('textarea').setValue(controlText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
+    const streamBody = JSON.parse(String(streamCall?.[1]?.body || '{}'))
+    expect(streamBody.echo_user).toBe(true)
+    expect(wrapper.find('.agent-assistant-message--user').text()).toContain(controlText)
+
+    const uploadCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/upload'))
+    const uploadHeaders = new Headers(uploadCall?.[1]?.headers)
+    expect(uploadHeaders.has('X-MoviePilot-Agent-Interaction')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('clears protected delivery through Escape and the close button', async () => {
+    const protectedMarker = 'MP-CLOSE-PROTECTED-MARKER'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([
+          protectedSseFrame({
+            schema_version: '1.0',
+            delivery_id: `delivery-${fetchMock.mock.calls.length}`,
+            content_type: 'text/plain',
+            content: protectedMarker,
+          }),
+          legacySseFrame({ type: 'done' }),
+        ])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('读取后按 Escape')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(wrapper.text()).not.toContain(protectedMarker)
+
+    await wrapper.setProps({ modelValue: true })
+    await wrapper.find('textarea').setValue('读取后点击关闭')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.text()).toContain(protectedMarker)
+
+    await wrapper.get('[title="common.close"]').trigger('click')
+    expect(wrapper.text()).not.toContain(protectedMarker)
     wrapper.unmount()
   })
 
