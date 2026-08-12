@@ -35,8 +35,8 @@ export function initializeRequestOptimizer(axiosInstance: any) {
   // 拦截请求，自动添加 AbortController
   axiosInstance.interceptors.request.use(
     (config: any) => {
-      // 如果请求已经有 signal，跳过（避免覆盖手动设置的）
-      if (config.signal) {
+      // 心跳与轮询不属于页面生命周期，路由切换时应继续完成。
+      if (config.signal || config.skipNavigationCancellation) {
         return config
       }
 

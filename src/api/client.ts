@@ -19,6 +19,7 @@ export type ApiFallbackMessageResolver = (key: ApiFallbackMessageKey) => string
 declare module 'axios' {
   interface AxiosRequestConfig {
     feedback?: ApiFeedbackMode
+    skipNavigationCancellation?: boolean
     skipConnectionTracking?: boolean
   }
 }

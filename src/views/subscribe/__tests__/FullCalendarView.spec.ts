@@ -418,6 +418,8 @@ describe('FullCalendarView', () => {
   })
 
   it('recovers from a failed list request when the kept-alive view is activated again', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-10T12:00:00+08:00'))
     setViewport(480)
     const recovered = movieSubscribe(3701, '恢复后的电影')
     const onListRequest = vi.fn()

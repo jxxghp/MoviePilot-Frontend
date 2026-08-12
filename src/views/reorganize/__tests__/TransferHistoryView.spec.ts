@@ -587,6 +587,13 @@ describe('TransferHistoryView', () => {
     expect(screen.getByRole('button', { name: '批量选择' })).toBeInTheDocument()
   })
 
+  it('uses the storage-name fallback for both grouped and ungrouped desktop paths', () => {
+    expect(transferHistorySource.match(/getHistoryStorageName\(item\?\.src_storage\)/g)).toHaveLength(3)
+    expect(transferHistorySource.match(/getHistoryStorageName\(item\?\.dest_storage\)/g)).toHaveLength(3)
+    expect(transferHistorySource).not.toContain("storageDict[item?.src_storage || '']")
+    expect(transferHistorySource).not.toContain("storageDict[item?.dest_storage || '']")
+  })
+
   it('shows actual audio specs in mobile music history', async () => {
     mocks.desktop = false
     const item = createHistory(2, '晴天', {

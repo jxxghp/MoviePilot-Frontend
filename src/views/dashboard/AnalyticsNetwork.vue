@@ -52,7 +52,9 @@ const animatedCurrentUpload = useAnimatedDashboardNumber(currentUpload, {
 const animatedCurrentDownload = useAnimatedDashboardNumber(currentDownload, {
   duration: 520,
 })
-const animatedCurrentUploadText = computed(() => `${formatDashboardFileSize(animatedCurrentUpload.value, 2, currentUpload.value)}/s`)
+const animatedCurrentUploadText = computed(
+  () => `${formatDashboardFileSize(animatedCurrentUpload.value, 2, currentUpload.value)}/s`,
+)
 const animatedCurrentDownloadText = computed(
   () => `${formatDashboardFileSize(animatedCurrentDownload.value, 2, currentDownload.value)}/s`,
 )
@@ -168,7 +170,10 @@ async function getNetworkUsage() {
   if (!props.allowRefresh) return
   try {
     // 请求数据 - 接口返回 [上行流量, 下行流量]
-    const data: [number, number] = (await api.get('dashboard/network')) ?? [0, 0]
+    const data: [number, number] = (await api.get('dashboard/network', {
+      feedback: 'silent',
+      skipNavigationCancellation: true,
+    })) ?? [0, 0]
     currentUpload.value = Number(data[0]) || 0
     currentDownload.value = Number(data[1]) || 0
 
@@ -194,7 +199,7 @@ const { refresh } = useDataRefresh(
   'dashboard-network',
   getNetworkUsage,
   2000, // 2秒间隔
-  true // 立即执行
+  true, // 立即执行
 )
 
 useKeepAliveRefresh(refresh)
@@ -211,8 +216,14 @@ useKeepAliveRefresh(refresh)
         <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
       <div class="dashboard-chart-footer">
-        <span><i class="network-dot network-dot--upload" />{{ t('dashboard.upload') }} {{ animatedCurrentUploadText }}</span>
-        <span><i class="network-dot network-dot--download" />{{ t('dashboard.download') }} {{ animatedCurrentDownloadText }}</span>
+        <span
+          ><i class="network-dot network-dot--upload" />{{ t('dashboard.upload') }}
+          {{ animatedCurrentUploadText }}</span
+        >
+        <span
+          ><i class="network-dot network-dot--download" />{{ t('dashboard.download') }}
+          {{ animatedCurrentDownloadText }}</span
+        >
       </div>
     </VCardText>
   </VCard>
@@ -265,5 +276,4 @@ useKeepAliveRefresh(refresh)
 .network-dot--download {
   background: rgb(var(--v-theme-info));
 }
-
 </style>

@@ -382,7 +382,7 @@ interface PassKeyAuthOptions {
 
 // PassKey API 响应类型
 interface PassKeyStartResponse {
-  options: string // JSON 字符串
+  options: SerializedPublicKeyRequestOptions | string
   transaction_token: string
 }
 
@@ -411,8 +411,12 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
     },
   )
 
-  const { options: optionsStr, transaction_token: transactionToken } = startResponse
-  const publicKeyOptions = JSON.parse(optionsStr) as SerializedPublicKeyRequestOptions
+  const { options: serializedOptions, transaction_token: transactionToken } = startResponse
+  // 兼容升级前返回 JSON 字符串的后端，新协议直接返回 WebAuthn 选项对象。
+  const publicKeyOptions =
+    typeof serializedOptions === 'string'
+      ? (JSON.parse(serializedOptions) as SerializedPublicKeyRequestOptions)
+      : serializedOptions
 
   // 2. 调用WebAuthn API
   const credentialRequestOptions: CredentialRequestOptions = {

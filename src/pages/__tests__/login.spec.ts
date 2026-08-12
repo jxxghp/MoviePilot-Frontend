@@ -706,11 +706,11 @@ describe('login page orchestration', () => {
     mocks.api.post.mockImplementation((url: string) => {
       if (url === '/mfa/passkey/authenticate/start') {
         return Promise.resolve({
-          options: JSON.stringify({
+          options: {
             allowCredentials: [{ id: 'AwQ', type: 'public-key' }],
             challenge: 'AQI',
             timeout: 60_000,
-          }),
+          },
           transaction_token: 'transaction-1',
         })
       }

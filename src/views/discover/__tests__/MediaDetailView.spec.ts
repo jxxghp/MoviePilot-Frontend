@@ -153,7 +153,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
   server.use(
     mediaDetailsHandler(mediaId, media, options.detailStatus, options.detailRequest),
     mediaExistsHandler(
-      options.existsResponse ?? { data: { item: {} }, success: false },
+      options.existsResponse ?? { data: { item: {} }, success: true },
       options.existsStatus,
       existsRequest,
     ),
@@ -346,7 +346,7 @@ describe('MediaDetailView detail and actions', () => {
     const subscribeRequested = vi.fn()
     server.use(
       mediaDetailsHandler('8302', createMediaInfo({ title: '重试成功', tmdb_id: 8302 })),
-      mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequested),
+      mediaExistsHandler({ data: { item: {} }, success: true }, 200, existsRequested),
       querySubscribeByMediaHandler('8302', {}, 200, subscribeRequested),
     )
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))

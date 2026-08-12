@@ -261,7 +261,7 @@ describe('MediaCard', () => {
     const existsRequest = vi.fn<(url: URL) => void>()
     server.use(
       querySubscribeByMediaHandler('9102', { id: 72 }, 200, subscribeRequest),
-      mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
+      mediaExistsHandler({ data: { item: {} }, success: true }, 200, existsRequest),
     )
 
     const Harness = {
@@ -320,7 +320,7 @@ describe('MediaCard', () => {
     const subscribeRequest = vi.fn<(url: URL) => void>()
     server.use(
       querySubscribeByMediaHandler(mediaId, {}, 200, subscribeRequest),
-      mediaExistsHandler({ data: { item: {} }, success: false }),
+      mediaExistsHandler({ data: { item: {} }, success: true }),
     )
 
     await renderCard(media)
@@ -342,7 +342,7 @@ describe('MediaCard', () => {
     const removeListener = vi.spyOn(document, 'removeEventListener')
     server.use(
       querySubscribeByMediaHandler('9301', {}, 200, subscribeRequest),
-      mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
+      mediaExistsHandler({ data: { item: {} }, success: true }, 200, existsRequest),
     )
 
     const { unmount } = await renderCard(createMediaInfo({ collection_id: 44, tmdb_id: 9301 }))
@@ -395,7 +395,7 @@ describe('MediaCard', () => {
     const existsRequest = vi.fn<(url: URL) => void>()
     server.use(
       querySubscribeByMediaHandler(musicBrainzRecordingId, {}, 200, subscribeRequest),
-      mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
+      mediaExistsHandler({ data: { item: {} }, success: true }, 200, existsRequest),
     )
 
     const { container } = await renderCard(media)
@@ -619,7 +619,7 @@ describe('MediaCard', () => {
     const subscribeListRequest = vi.fn<(url: URL) => void>()
     server.use(
       querySubscribeByMediaHandler('9551', { id: 81, season: 2 }),
-      mediaExistsHandler({ data: { item: {} }, success: false }),
+      mediaExistsHandler({ data: { item: {} }, success: true }),
       subscribeListHandler(
         [
           { best_version: 0, id: 81, media_id: '9551', media_source: 'themoviedb', season: 3, type: '电视剧' },
@@ -681,7 +681,7 @@ describe('MediaCard', () => {
     })
     server.use(
       querySubscribeByMediaHandler('series-9553', { id: 91, season: 2 }),
-      mediaExistsHandler({ data: { item: {} }, success: false }),
+      mediaExistsHandler({ data: { item: {} }, success: true }),
       subscribeListHandler([
         { id: 91, media_id: 'series-9553', media_source: 'bilibili', season: 2, type: '电视剧' },
         { id: 92, media_id: 'other', media_source: 'bilibili', season: 5, type: '电视剧' },
@@ -739,7 +739,7 @@ describe('MediaCard', () => {
   ])('matches %s when collecting subscribed TV seasons', async (_label, media, mediaId, subscribes, expected) => {
     server.use(
       querySubscribeByMediaHandler(mediaId, { id: 93, season: 2 }),
-      mediaExistsHandler({ data: { item: {} }, success: false }),
+      mediaExistsHandler({ data: { item: {} }, success: true }),
       subscribeListHandler(subscribes),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
         HttpResponse.json({ data: { value: {} }, success: true }),

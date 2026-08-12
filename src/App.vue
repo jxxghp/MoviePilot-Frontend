@@ -418,6 +418,8 @@ async function probeServerConnection(showChecking = false): Promise<boolean> {
   const probePromise = (async () => {
     try {
       await api.get('system/ping', {
+        feedback: 'silent',
+        skipNavigationCancellation: true,
         skipConnectionTracking: true,
         timeout: SERVER_PROBE_TIMEOUT_MS,
       } as ConnectionAwareRequestConfig)

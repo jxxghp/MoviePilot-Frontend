@@ -1519,13 +1519,17 @@ onUnmounted(() => {
       <template #item.src="{ item }">
         <div>
           <span>
-            <VChip variant="tonal" size="small" label class="my-1"> {{ storageDict[item?.src_storage || ''] }}</VChip>
+            <VChip variant="tonal" size="small" label class="my-1">
+              {{ getHistoryStorageName(item?.src_storage) }}
+            </VChip>
             <small>{{ item?.src }}</small>
           </span>
           <span class="text-high-emphasis text-bold"> => </span>
           <br />
           <span v-if="item?.dest">
-            <VChip variant="tonal" size="small" label class="my-1"> {{ storageDict[item?.dest_storage || ''] }}</VChip>
+            <VChip variant="tonal" size="small" label class="my-1">
+              {{ getHistoryStorageName(item?.dest_storage) }}
+            </VChip>
             <small>{{ item?.dest }}</small>
           </span>
         </div>
@@ -1621,13 +1625,17 @@ onUnmounted(() => {
       <template #item.src="{ item }">
         <div>
           <span>
-            <VChip variant="tonal" size="small" label class="my-1"> {{ storageDict[item?.src_storage || ''] }}</VChip>
+            <VChip variant="tonal" size="small" label class="my-1">
+              {{ getHistoryStorageName(item?.src_storage) }}
+            </VChip>
             <small>{{ item?.src }}</small>
           </span>
           <span class="text-high-emphasis text-bold"> => </span>
           <br />
           <span v-if="item?.dest">
-            <VChip variant="tonal" size="small" label class="my-1"> {{ storageDict[item?.dest_storage || ''] }}</VChip>
+            <VChip variant="tonal" size="small" label class="my-1">
+              {{ getHistoryStorageName(item?.dest_storage) }}
+            </VChip>
             <small>{{ item?.dest }}</small>
           </span>
         </div>

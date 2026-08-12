@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 interface RequestConfigFake {
   signal?: AbortSignal
+  skipNavigationCancellation?: boolean
 }
 
 interface ResponseFake {
@@ -116,6 +117,19 @@ describe('requestOptimizer', () => {
     expect(callerController.signal.aborted).toBe(false)
 
     expect(interceptors.response.fulfilled({ config })).toEqual({ config })
+    expect(getActiveRequestsCount()).toBe(0)
+  })
+
+  it('不把跨路由心跳和轮询纳入导航取消', () => {
+    const interceptors = createAxiosInterceptorFake()
+    const config = interceptors.request.fulfilled({ skipNavigationCancellation: true })
+
+    expect(config.signal).toBeUndefined()
+    expect(getActiveRequestsCount()).toBe(0)
+
+    setNavigatingState(true)
+
+    expect(config.signal).toBeUndefined()
     expect(getActiveRequestsCount()).toBe(0)
   })
 

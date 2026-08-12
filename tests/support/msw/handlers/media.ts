@@ -21,7 +21,7 @@ export function mediaExistsHandler(
 ) {
   return http.get(mediaApiUrls.exists, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return HttpResponse.json(response as JsonBodyType, { status })
+    return HttpResponse.json({ message: '', ...response } as JsonBodyType, { status })
   })
 }
 
