@@ -582,6 +582,44 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('ignores null and non-object JSON frames without interrupting ordinary stream events', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return createRawAgentStreamResponse(
+            [
+              'data: null',
+              '',
+              'data: 42',
+              '',
+              'data: "heartbeat"',
+              '',
+              'data: []',
+              '',
+              'data: {"type":"delta","content":"空值帧后的普通回复"}',
+              '',
+              'data: {"type":"done"}',
+              '',
+            ].join('\n'),
+          )
+        }
+
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('测试 JSON 空值帧')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-message--assistant').text()).toContain('空值帧后的普通回复')
+    expect(wrapper.find('.agent-assistant-message--error').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
   it('keeps consuming ordinary JSON frames with explicit SSE event names', async () => {
     vi.stubGlobal(
       'fetch',

@@ -1635,15 +1635,19 @@ async function readAgentStream(
       return
     }
 
-    const parsedEvent = JSON.parse(parsedBlock.data) as Record<string, unknown>
-    if (
-      typeof parsedEvent.type !== 'string' ||
-      !AGENT_STREAM_EVENT_TYPES.has(parsedEvent.type as AgentStreamEvent['type'])
-    ) {
+    const parsedEvent = JSON.parse(parsedBlock.data) as unknown
+    if (!parsedEvent || typeof parsedEvent !== 'object' || Array.isArray(parsedEvent)) {
       return
     }
 
-    const event = parsedEvent as unknown as AgentStreamEvent
+    const eventRecord = parsedEvent as Record<string, unknown>
+    if (
+      typeof eventRecord.type !== 'string' ||
+      !AGENT_STREAM_EVENT_TYPES.has(eventRecord.type as AgentStreamEvent['type'])
+    )
+      return
+
+    const event = eventRecord as unknown as AgentStreamEvent
     if (parsedBlock.eventName && parsedBlock.eventName !== 'message' && parsedBlock.eventName !== event.type) return
 
     queueStreamEvent(event, assistantMessage)
