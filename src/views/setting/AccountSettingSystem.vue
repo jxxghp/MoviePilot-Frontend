@@ -104,6 +104,7 @@ const SystemSettings = ref<any>({
     MEDIA_RECOGNIZE_SHARE: true,
     TMDB_API_DOMAIN: null,
     TMDB_API_KEY: null,
+    ACOUSTID_API_KEY: null,
     TMDB_IMAGE_DOMAIN: null,
     MUSIC_COVER_PROXY: null,
     TMDB_LOCALE: null,
@@ -2043,6 +2044,17 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :placeholder="t('setting.system.tmdbApiKeyPlaceholder')"
                     :rules="[(v: string) => !!v || t('setting.system.tmdbApiKeyRequired')]"
                     prepend-inner-icon="mdi-key-variant"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.ACOUSTID_API_KEY"
+                    :label="t('setting.system.acoustIdApiKey')"
+                    :hint="t('setting.system.acoustIdApiKeyHint')"
+                    persistent-hint
+                    :placeholder="t('setting.system.acoustIdApiKeyPlaceholder')"
+                    :rules="[(v: string) => !!v || t('setting.system.acoustIdApiKeyRequired')]"
+                    prepend-inner-icon="mdi-music-box-multiple-outline"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
