@@ -111,6 +111,17 @@ interface AgentStreamEvent {
   session_id?: string
 }
 
+const AGENT_STREAM_EVENT_TYPES = new Set<AgentStreamEvent['type']>([
+  'start',
+  'delta',
+  'tool',
+  'attachment',
+  'choice',
+  'message_update',
+  'done',
+  'error',
+])
+
 interface AgentPendingAttachment {
   id: string
   file: File
@@ -1551,7 +1562,10 @@ function splitSseBlock(block: string) {
   }
 
   if (!dataLines.length) return null
-  return { eventName, data: dataLines.join('\n') } satisfies ParsedSseBlock
+
+  const data = dataLines.join('\n')
+  if (!data.trim()) return null
+  return { eventName, data } satisfies ParsedSseBlock
 }
 
 function parseProtectedTransportFrame(data: string): AgentProtectedDelivery | null {
@@ -1613,9 +1627,25 @@ async function readAgentStream(
       consumeProtectedTransportFrame(parsedBlock.data, streamGeneration)
       return
     }
-    if (parsedBlock.eventName) return
+    if (
+      parsedBlock.eventName &&
+      parsedBlock.eventName !== 'message' &&
+      !AGENT_STREAM_EVENT_TYPES.has(parsedBlock.eventName as AgentStreamEvent['type'])
+    ) {
+      return
+    }
 
-    const event = JSON.parse(parsedBlock.data) as AgentStreamEvent
+    const parsedEvent = JSON.parse(parsedBlock.data) as Record<string, unknown>
+    if (
+      typeof parsedEvent.type !== 'string' ||
+      !AGENT_STREAM_EVENT_TYPES.has(parsedEvent.type as AgentStreamEvent['type'])
+    ) {
+      return
+    }
+
+    const event = parsedEvent as unknown as AgentStreamEvent
+    if (parsedBlock.eventName && parsedBlock.eventName !== 'message' && parsedBlock.eventName !== event.type) return
+
     queueStreamEvent(event, assistantMessage)
     if (event.type === 'done' || event.type === 'error') receivedTerminalEvent = true
   }

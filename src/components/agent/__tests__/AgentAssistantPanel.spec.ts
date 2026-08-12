@@ -68,6 +68,13 @@ function createAgentStreamResponse(frames: SyntheticSseFrame[]) {
   })
 }
 
+function createRawAgentStreamResponse(body: string) {
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}
+
 function createControllableAgentStream() {
   const encoder = new TextEncoder()
   let streamController: ReadableStreamDefaultController<Uint8Array>
@@ -485,6 +492,120 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(protectedMarker)
     expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
     expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
+
+    wrapper.unmount()
+  })
+
+  it('ignores empty data heartbeats without interrupting ordinary stream events', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return createRawAgentStreamResponse(
+            [
+              'data:',
+              '',
+              'data:   ',
+              '',
+              'data',
+              '',
+              'data: {"type":"delta","content":"心跳后的普通回复"}',
+              '',
+              'data: {"type":"done"}',
+              '',
+            ].join('\r\n'),
+          )
+        }
+
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('测试空数据心跳')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-message--assistant').text()).toContain('心跳后的普通回复')
+    expect(wrapper.find('.agent-assistant-message--error').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('ignores unknown and mismatched named protocols before the ordinary event queue', async () => {
+    const rejectedMarker = 'MP-REJECTED-NAMED-EVENT'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createRawAgentStreamResponse(
+          [
+            'event: ping',
+            'data: keepalive',
+            '',
+            'event: interaction',
+            `data: {"type":"interaction","content":"${rejectedMarker}"}`,
+            '',
+            'event: delta',
+            `data: {"type":"tool","message":"${rejectedMarker}"}`,
+            '',
+            'event: message',
+            `data: {"type":"future_event","content":"${rejectedMarker}"}`,
+            '',
+            'event: delta',
+            'data: {"type":"delta","content":"未知协议后的普通回复"}',
+            '',
+            'event: done',
+            'data: {"type":"done"}',
+            '',
+          ].join('\n'),
+        )
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('测试未知具名协议')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-message--assistant').text()).toContain('未知协议后的普通回复')
+    expect(wrapper.text()).not.toContain(rejectedMarker)
+    expect(wrapper.find('.agent-assistant-message--error').exists()).toBe(false)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(rejectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(rejectedMarker)
+    expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(rejectedMarker)
+    fetchMock.mock.calls
+      .filter(([input]) => String(input).includes('/display'))
+      .forEach(([, init]) => expect(String(init?.body)).not.toContain(rejectedMarker))
+
+    wrapper.unmount()
+  })
+
+  it('keeps consuming ordinary JSON frames with explicit SSE event names', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+          return createAgentStreamResponse([
+            { eventName: 'message', data: { type: 'start', session_id: 'web-agent:named-events' } },
+            { eventName: 'delta', data: { type: 'delta', content: '具名普通回复' } },
+            { eventName: 'done', data: { type: 'done' } },
+          ])
+        }
+
+        return createAgentResponse([])
+      }),
+    )
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('测试普通具名事件')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-message--assistant').text()).toContain('具名普通回复')
+    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    expect(persistedState.streamRecovery).toBeNull()
 
     wrapper.unmount()
   })
