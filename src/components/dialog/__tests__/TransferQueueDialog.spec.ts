@@ -82,8 +82,7 @@ function createQueueItem({
       episode_run_time: [],
       origin_country: [],
       media_id: String(id),
-      mediaid_prefix: 'themoviedb',
-      source: 'themoviedb',
+      media_source: 'themoviedb',
       title,
       title_year: titleYear,
       year: '2026',
@@ -211,8 +210,7 @@ describe('TransferQueueDialog', () => {
       title: '自定义来源',
       titleYear: '重复标题 (2026)',
     })
-    custom.media.source = 'custom-source'
-    custom.media.mediaid_prefix = 'custom-source'
+    custom.media.media_source = 'custom-source'
     custom.media.media_id = 'custom-7302'
     const fallback = createQueueItem({
       id: 7399,
@@ -220,8 +218,7 @@ describe('TransferQueueDialog', () => {
       title: '标题回退',
       titleYear: '唯一回退标题 (2026)',
     })
-    fallback.media.source = undefined
-    fallback.media.mediaid_prefix = undefined
+    fallback.media.media_source = undefined
     fallback.media.media_id = undefined
     mocks.apiGet.mockResolvedValue([builtIn, custom, fallback])
 

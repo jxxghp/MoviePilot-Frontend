@@ -4,20 +4,6 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-type MusicExploreSource = 'musicbrainz' | 'theaudiodb'
-
-const props = withDefaults(
-  defineProps<{
-    source?: MusicExploreSource
-  }>(),
-  {
-    source: 'musicbrainz',
-  },
-)
-
-const isMusicBrainz = computed(() => props.source === 'musicbrainz')
-const isTheAudioDb = computed(() => props.source === 'theaudiodb')
-
 // 探索模式：对齐 ListenBrainz 官方的热门统计与新发行两个入口
 const mode = ref<'chart' | 'fresh'>('chart')
 
@@ -40,7 +26,6 @@ const freshDays = ref(14)
 const freshScope = ref<'all' | 'past' | 'future'>('all')
 
 const coverFilter = ref('all')
-const country = ref('us')
 const currentKey = ref(0)
 
 const modeOptions = computed(() => ({
@@ -90,24 +75,11 @@ const freshScopeOptions = computed(() => ({
   future: t('music.filter.upcoming'),
 }))
 
-const countryOptions = computed(() => [
-  { title: t('music.filter.countryUs'), value: 'us' },
-  { title: t('music.filter.countryGb'), value: 'gb' },
-  { title: t('music.filter.countryCn'), value: 'cn' },
-  { title: t('music.filter.countryJp'), value: 'jp' },
-  { title: t('music.filter.countryKr'), value: 'kr' },
-])
-
 const filterParams = computed(() => {
   const params: Record<string, unknown> = {
     count: 30,
-    source: props.source,
+    media_source: 'musicbrainz',
     with_cover: coverFilter.value === 'with_cover',
-  }
-  if (isTheAudioDb.value) {
-    params.entity = entity.value
-    params.country = country.value
-    return params
   }
   params.mode = mode.value
   if (mode.value === 'fresh') {
@@ -123,17 +95,14 @@ const filterParams = computed(() => {
   return params
 })
 
-watch(
-  [() => props.source, mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverFilter, country],
-  () => {
-    currentKey.value++
-  },
-)
+watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverFilter], () => {
+  currentKey.value++
+})
 </script>
 
 <template>
   <div class="px-3 music-explore-filters">
-    <div v-if="isMusicBrainz" class="music-filter-row">
+    <div class="music-filter-row">
       <VLabel class="music-filter-label">{{ t('music.filter.mode') }}</VLabel>
       <VChipGroup v-model="mode" mandatory class="music-filter-chips">
         <VChip v-for="(label, value) in modeOptions" :key="value" :value="value" filter tile>
@@ -142,7 +111,7 @@ watch(
       </VChipGroup>
     </div>
 
-    <template v-if="isMusicBrainz && mode === 'chart'">
+    <template v-if="mode === 'chart'">
       <div class="music-filter-row">
         <VLabel class="music-filter-label">{{ t('music.filter.entity') }}</VLabel>
         <VChipGroup v-model="entity" mandatory class="music-filter-chips">
@@ -169,7 +138,7 @@ watch(
       </div>
     </template>
 
-    <template v-else-if="isMusicBrainz">
+    <template v-else>
       <div class="music-filter-row">
         <VLabel class="music-filter-label">{{ t('music.filter.sort') }}</VLabel>
         <VChipGroup v-model="freshSort" mandatory class="music-filter-chips">
@@ -193,28 +162,6 @@ watch(
           variant="outlined"
           hide-details
           class="music-days-filter"
-        />
-      </div>
-    </template>
-
-    <template v-else-if="isTheAudioDb">
-      <div class="music-filter-row">
-        <VLabel class="music-filter-label">{{ t('music.filter.entity') }}</VLabel>
-        <VChipGroup v-model="entity" mandatory class="music-filter-chips">
-          <VChip v-for="(label, value) in entityOptions" :key="value" :value="value" filter tile>
-            {{ label }}
-          </VChip>
-        </VChipGroup>
-      </div>
-      <div class="music-filter-row">
-        <VSelect
-          v-model="country"
-          :items="countryOptions"
-          :label="t('music.filter.country')"
-          density="compact"
-          variant="outlined"
-          hide-details
-          class="music-country-filter"
         />
       </div>
     </template>
@@ -262,9 +209,5 @@ watch(
 .music-days-filter {
   flex: 0 0 auto;
   max-inline-size: 10rem;
-}
-
-.music-country-filter {
-  max-inline-size: 14rem;
 }
 </style>

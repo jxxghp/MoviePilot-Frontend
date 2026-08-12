@@ -26,7 +26,7 @@ const props = defineProps({
   // 音乐数据源原生单曲 ID
   mediaid: String,
   // 音乐元数据来源
-  source: {
+  mediaSource: {
     type: String,
     default: 'musicbrainz',
   },
@@ -61,7 +61,7 @@ const attributes = computed(() => {
 
 // 专辑内除当前单曲外仍然展示完整曲目，方便对照曲序
 const albumTracks = computed(() => album.value?.tracks ?? [])
-const sourceLabel = computed(() => getMusicSourceLabel(props.source, t))
+const sourceLabel = computed(() => getMusicSourceLabel(props.mediaSource, t))
 
 function getSubscribeStatusKey() {
   return `${getMediaSubscribeId(music.value)}::all`
@@ -80,12 +80,12 @@ const { openMusicSiteSearch } = useMusicSiteSearch(sites =>
 
 /** 加载单曲详情，并按所属专辑补全曲目列表。 */
 async function loadMusicDetail() {
-  if (!props.source || !props.mediaid) return
+  if (!props.mediaSource || !props.mediaid) return
   isRefreshed.value = false
   album.value = undefined
   try {
     music.value = await api.post('music/recognize', {
-      source: props.source,
+      media_source: props.mediaSource,
       media_id: props.mediaid,
       music_type: 'recording',
     })
@@ -97,7 +97,7 @@ async function loadMusicDetail() {
   }
   // 订阅只保存来源和 ID，专辑订阅同样会进入本页，识别为专辑后改由专辑详情页承载
   if (music.value?.music_type === 'album' && music.value.media_id) {
-    router.replace(buildMusicAlbumRoute(music.value.media_id, music.value.title, props.source))
+    router.replace(buildMusicAlbumRoute(music.value.media_id, music.value.title, props.mediaSource))
     return
   }
   await Promise.all([loadAlbum(), checkSubscribeStatus()])
@@ -108,7 +108,7 @@ async function loadAlbum() {
   const albumId = music.value?.album_id
   if (!albumId) return
   try {
-    album.value = await api.get(`music/album/${albumId}`, { params: { source: props.source } })
+    album.value = await api.get(`music/album/${albumId}`, { params: { media_source: props.mediaSource } })
   } catch (error) {
     console.error(error)
   }
@@ -127,16 +127,16 @@ async function checkSubscribeStatus() {
 /** 打开所属专辑详情页。 */
 function goAlbum() {
   if (!music.value?.album_id) return
-  router.push(buildMusicAlbumRoute(music.value.album_id, music.value.album, props.source))
+  router.push(buildMusicAlbumRoute(music.value.album_id, music.value.album, props.mediaSource))
 }
 
 /** 打开艺术家详情页。 */
 function goArtist(artistId?: string, name?: string) {
   if (!artistId) return
-  router.push(buildMusicArtistRoute(artistId, name, props.source))
+  router.push(buildMusicArtistRoute(artistId, name, props.mediaSource))
 }
 
-watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
+watch(() => [props.mediaSource, props.mediaid], loadMusicDetail, { immediate: true })
 </script>
 
 <template>
@@ -240,14 +240,17 @@ watch(() => [props.source, props.mediaid], loadMusicDetail, { immediate: true })
       </div>
     </template>
 
-    <div v-if="primaryArtistId && props.source === 'musicbrainz'" class="music-section">
-      <MusicArtistSlideView :apipath="`music/artist/${primaryArtistId}/related`" :title="t('music.relatedArtists')" />
+    <div v-if="primaryArtistId && props.mediaSource === 'musicbrainz'" class="music-section">
+      <MusicArtistSlideView
+        :apipath="`music/artist/${primaryArtistId}/related?media_source=musicbrainz`"
+        :title="t('music.relatedArtists')"
+      />
     </div>
 
     <div v-if="primaryArtistId" class="music-section">
       <MediaCardSlideView
-        :apipath="`music/artist/${primaryArtistId}/albums?source=${encodeURIComponent(props.source)}`"
-        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?source=${encodeURIComponent(props.source)}&title=${encodeURIComponent(t('music.artistAlbums'))}`"
+        :apipath="`music/artist/${primaryArtistId}/albums?media_source=${encodeURIComponent(props.mediaSource)}`"
+        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?media_source=${encodeURIComponent(props.mediaSource)}&title=${encodeURIComponent(t('music.artistAlbums'))}`"
         :title="t('music.artistAlbums')"
       />
     </div>

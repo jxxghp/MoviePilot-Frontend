@@ -305,7 +305,7 @@ async function nameTest() {
         subtitle: nameTestForm.subtitle,
         // 音乐识别不应用识别词，隐藏状态下不随请求携带
         custom_words: showCustomWords.value ? nameTestForm.customWords?.trim() || undefined : undefined,
-        source: nameTestForm.source,
+        media_source: nameTestForm.source,
       },
     })
     nameTestText.value = t('nameTest.recognizeAgain')

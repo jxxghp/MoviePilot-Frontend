@@ -154,7 +154,7 @@ function getParams() {
 
 // MediaInfo 去重的字段
 const dedupFields = [
-  'source',
+  'media_source',
   'type',
   'season',
   'tmdb_id',
@@ -163,7 +163,6 @@ const dedupFields = [
   'douban_id',
   'bangumi_id',
   'anilist_id',
-  'mediaid_prefix',
   'media_id',
 ] as const
 

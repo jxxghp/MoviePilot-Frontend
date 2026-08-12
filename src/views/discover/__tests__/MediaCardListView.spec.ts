@@ -227,33 +227,19 @@ describe('MediaCardListView', () => {
     expect(requestedPages).toEqual(['1', '2'])
   })
 
-  it('deduplicates the complete composite identity and uses it for stable render keys', async () => {
+  it('deduplicates the unified identity and uses it for stable render keys', async () => {
     setScrollHeight(() => 900)
     const base = createMediaInfo({
-      anilist_id: 4200,
-      bangumi_id: 'bangumi-42',
-      douban_id: 'douban-42',
-      imdb_id: 'tt0000042',
       media_id: 'media-42',
-      mediaid_prefix: 'fixture',
+      media_source: 'themoviedb',
       season: 1,
-      source: 'themoviedb',
-      title: '复合标识基准',
-      tmdb_id: 42,
-      tvdb_id: 'tvdb-42',
+      title: '统一标识基准',
       type: '电视剧',
     })
     const variants: Array<Partial<MediaInfo>> = [
-      { source: 'douban', title: '不同 source' },
+      { media_source: 'douban', title: '不同 media_source' },
       { type: '电影', title: '不同 type' },
       { season: 2, title: '不同 season' },
-      { tmdb_id: 43, title: '不同 tmdb_id' },
-      { imdb_id: 'tt0000043', title: '不同 imdb_id' },
-      { tvdb_id: 'tvdb-43', title: '不同 tvdb_id' },
-      { douban_id: 'douban-43', title: '不同 douban_id' },
-      { bangumi_id: 'bangumi-43', title: '不同 bangumi_id' },
-      { anilist_id: 4300, title: '不同 anilist_id' },
-      { mediaid_prefix: 'fixture-v2', title: '不同 mediaid_prefix' },
       { media_id: 'media-43', title: '不同 media_id' },
     ]
     const response = [base, { ...base, title: '完全重复项' }, ...variants.map(variant => ({ ...base, ...variant }))]
@@ -261,34 +247,59 @@ describe('MediaCardListView', () => {
 
     await renderList()
 
-    expect(await screen.findByRole('article', { name: '媒体卡片 复合标识基准' })).toBeInTheDocument()
+    expect(await screen.findByRole('article', { name: '媒体卡片 统一标识基准' })).toBeInTheDocument()
     expect(screen.queryByRole('article', { name: '媒体卡片 完全重复项' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('article')).toHaveLength(variants.length + 1)
-    const identityFields = [
-      'source',
-      'type',
-      'season',
-      'tmdb_id',
-      'imdb_id',
-      'tvdb_id',
-      'douban_id',
-      'bangumi_id',
-      'anilist_id',
-      'mediaid_prefix',
-      'media_id',
-    ] as const
     const expectedItems = [base, ...variants.map(variant => ({ ...base, ...variant }))]
     expect(gridKeys()).toEqual(
-      expectedItems.map(item => JSON.stringify(identityFields.map(field => item[field] ?? null))),
+      expectedItems.map(item =>
+        JSON.stringify(['media', item.media_source, item.media_id, item.type, item.season ?? null]),
+      ),
     )
+  })
+
+  it('keeps a complete TMDB page distinct with unified source identities', async () => {
+    setScrollHeight(() => 900)
+    const response = Array.from({ length: 20 }, (_, index) =>
+      createMediaInfo({
+        media_id: String(1000 + index),
+        media_source: 'themoviedb',
+        title: `统一 TMDB 媒体 ${index + 1}`,
+        tmdb_id: undefined,
+      }),
+    )
+    server.use(http.get(LIST_URL, () => HttpResponse.json(response as unknown as JsonBodyType)))
+
+    await renderList()
+
+    expect(await screen.findByRole('article', { name: '媒体卡片 统一 TMDB 媒体 1' })).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(20)
+    expect(gridKeys()).toEqual(
+      response.map(item => JSON.stringify(['media', 'themoviedb', item.media_id, item.type, item.season ?? null])),
+    )
+  })
+
+  it('keeps identity-less records distinct by visible metadata', async () => {
+    setScrollHeight(() => 900)
+    const response = [
+      createMediaInfo({ media_id: undefined, media_source: undefined, title: '无标识媒体 A', tmdb_id: undefined }),
+      createMediaInfo({ media_id: undefined, media_source: undefined, title: '无标识媒体 B', tmdb_id: undefined }),
+    ]
+    server.use(http.get(LIST_URL, () => HttpResponse.json(response as unknown as JsonBodyType)))
+
+    await renderList()
+
+    expect(await screen.findByRole('article', { name: '媒体卡片 无标识媒体 A' })).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: '媒体卡片 无标识媒体 B' })).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(2)
   })
 
   it('continues after a first-seen page signature whose items were all seen globally', async () => {
     const requestedPages: string[] = []
     setScrollHeight(() => (requestedPages.length >= 3 ? 900 : 500))
-    const first = createMediaInfo({ title: '签名第一页 A', tmdb_id: 101 })
-    const second = createMediaInfo({ title: '签名第一页 B', tmdb_id: 102 })
-    const later = createMediaInfo({ title: '签名第三页新媒体', tmdb_id: 103 })
+    const first = createMediaInfo({ media_id: '101', title: '签名第一页 A', tmdb_id: 101 })
+    const second = createMediaInfo({ media_id: '102', title: '签名第一页 B', tmdb_id: 102 })
+    const later = createMediaInfo({ media_id: '103', title: '签名第三页新媒体', tmdb_id: 103 })
     server.use(
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
@@ -309,9 +320,9 @@ describe('MediaCardListView', () => {
   it('stops when a raw page repeats any historical identity set regardless of order and duplicate count', async () => {
     const requestedPages: string[] = []
     setScrollHeight(() => (requestedPages.length >= 3 ? 900 : 500))
-    const first = createMediaInfo({ title: '历史签名 A', tmdb_id: 201 })
-    const second = createMediaInfo({ title: '历史签名 B', tmdb_id: 202 })
-    const between = createMediaInfo({ title: '中间签名 C', tmdb_id: 203 })
+    const first = createMediaInfo({ media_id: '201', title: '历史签名 A', tmdb_id: 201 })
+    const second = createMediaInfo({ media_id: '202', title: '历史签名 B', tmdb_id: 202 })
+    const between = createMediaInfo({ media_id: '203', title: '中间签名 C', tmdb_id: 203 })
     server.use(
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''

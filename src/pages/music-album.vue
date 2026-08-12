@@ -8,11 +8,11 @@ const route = useRoute()
 const mediaid = computed(() => route.query?.mediaid?.toString())
 
 // 音乐元数据来源
-const source = computed(() => route.query?.source?.toString() || 'musicbrainz')
+const mediaSource = computed(() => route.query?.media_source?.toString() || 'musicbrainz')
 </script>
 
 <template>
   <div>
-    <MusicAlbumView :mediaid="mediaid" :source="source" />
+    <MusicAlbumView :mediaid="mediaid" :media-source="mediaSource" />
   </div>
 </template>

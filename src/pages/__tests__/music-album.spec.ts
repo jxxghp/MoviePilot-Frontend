@@ -56,7 +56,7 @@ const album = {
       track_count: 12,
     },
   ],
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   title: 'A Night at the Opera',
   total_tracks: 2,
   tracks: [
@@ -66,7 +66,7 @@ const album = {
       track_number: 1,
       disc_number: 1,
       duration: 224,
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
     },
     {
       media_id: 'recording-2',
@@ -74,7 +74,7 @@ const album = {
       track_number: 2,
       disc_number: 1,
       duration: 355,
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
     },
   ],
   type: '音乐',
@@ -112,7 +112,7 @@ function mockAlbumRequests(subscribed = false) {
 /** 渲染专辑详情页，统一提供超级用户权限与路由身份。 */
 function renderAlbumPage() {
   return renderWithProviders(MusicAlbumPage, {
-    initialRoute: '/music/album?source=musicbrainz&mediaid=release-group-1',
+    initialRoute: '/music/album?media_source=musicbrainz&mediaid=release-group-1',
     initialState: { user: { superUser: true } },
     global: {
       stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true },
@@ -135,7 +135,7 @@ describe('music album page', () => {
 
     expect(await screen.findByRole('heading', { name: 'A Night at the Opera' })).toBeInTheDocument()
     expect(mocks.apiGet).toHaveBeenCalledWith('music/album/release-group-1', {
-      params: { source: 'musicbrainz' },
+      params: { media_source: 'musicbrainz' },
     })
     expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument()
     expect(screen.getByText('5:55')).toBeInTheDocument()
@@ -218,7 +218,7 @@ describe('music album page', () => {
           ...album,
           artist_ids: ['1050015'],
           media_id: '1401853',
-          source: 'doubanmusic',
+          media_source: 'doubanmusic',
           title: '范特西',
         })
       }
@@ -227,7 +227,7 @@ describe('music album page', () => {
     })
 
     await renderWithProviders(MusicAlbumPage, {
-      initialRoute: '/music/album?source=doubanmusic&mediaid=1401853',
+      initialRoute: '/music/album?media_source=doubanmusic&mediaid=1401853',
       initialState: { user: { superUser: true } },
       global: {
         stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true },
@@ -237,10 +237,10 @@ describe('music album page', () => {
     expect(await screen.findByRole('heading', { name: '范特西' })).toBeInTheDocument()
     const slides = screen.getAllByTestId('media-card-slide')
     expect(slides).toHaveLength(1)
-    expect(slides[0]).toHaveAttribute('data-api-path', 'music/album/1401853/related?source=doubanmusic')
+    expect(slides[0]).toHaveAttribute('data-api-path', 'music/album/1401853/related?media_source=doubanmusic')
     expect(slides[0]).toHaveAttribute(
       'data-link-url',
-      expect.stringContaining('/browse/music/album/1401853/related?source=doubanmusic'),
+      expect.stringContaining('/browse/music/album/1401853/related?media_source=doubanmusic'),
     )
   })
 
@@ -254,7 +254,7 @@ describe('music album page', () => {
           ...album,
           artist_ids: source === 'theaudiodb' ? ['artist-1'] : [],
           media_id: mediaId,
-          source,
+          media_source: source,
           title,
         })
       }
@@ -267,7 +267,7 @@ describe('music album page', () => {
     })
 
     const { router } = await renderWithProviders(MusicAlbumPage, {
-      initialRoute: `/music/album?source=${source}&mediaid=${mediaId}`,
+      initialRoute: `/music/album?media_source=${source}&mediaid=${mediaId}`,
       initialState: { user: { superUser: true } },
       global: {
         stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true },

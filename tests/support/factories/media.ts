@@ -25,7 +25,7 @@ export function createMediaInfo(overrides: Partial<MediaInfo> = {}): MediaInfo {
     episode_run_time: [],
     genres: ['剧情', '冒险'],
     origin_country: [],
-    source: 'themoviedb',
+    media_source: 'themoviedb',
     title: `测试媒体 ${mediaSeed}`,
     tmdb_id: mediaSeed,
     type: '电影',

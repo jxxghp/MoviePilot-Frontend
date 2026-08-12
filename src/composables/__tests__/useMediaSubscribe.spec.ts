@@ -187,7 +187,7 @@ describe('media subscribe identifiers and modes', () => {
     ['AniList after Bangumi', { anilist_id: 40, bangumi_id: undefined, tmdb_id: undefined }, 'anilist:40'],
     [
       'generic identifiers when provider ids are absent',
-      { bangumi_id: undefined, douban_id: undefined, media_id: 'abc', mediaid_prefix: 'custom', tmdb_id: undefined },
+      { bangumi_id: undefined, douban_id: undefined, media_id: 'abc', media_source: 'custom', tmdb_id: undefined },
       'custom:abc',
     ],
   ])('uses %s', (_case, overrides, expected) => {
@@ -197,7 +197,7 @@ describe('media subscribe identifiers and modes', () => {
   it('keeps the declared AniList identity when TMDB is only auxiliary data', () => {
     const media = createSubscribeTv({
       anilist_id: 154587,
-      source: 'anilist',
+      media_source: 'anilist',
       tmdb_id: 209867,
     })
 
@@ -205,6 +205,20 @@ describe('media subscribe identifiers and modes', () => {
       mediaId: '154587',
       mediaKey: 'anilist:154587',
       source: 'anilist',
+    })
+  })
+
+  it('uses the unified media source for the primary identity', () => {
+    const media = createSubscribeMovie({
+      media_id: '1402',
+      media_source: 'douban',
+      tmdb_id: 1402,
+    })
+
+    expect(getMediaSubscribeIdentity(media)).toEqual({
+      mediaId: '1402',
+      mediaKey: 'douban:1402',
+      source: 'douban',
     })
   })
 
@@ -266,7 +280,7 @@ describe('useMediaSubscribe entry flows', () => {
     const media = createMediaInfo({
       media_id: 'release-group-1',
       music_type: 'album',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       title: '叶惠美',
       tmdb_id: undefined,
       total_tracks: 11,
@@ -300,7 +314,7 @@ describe('useMediaSubscribe entry flows', () => {
     const media = createMediaInfo({
       media_id: 'recording-1',
       music_type: 'recording',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       title: '晴天',
       tmdb_id: undefined,
       total_tracks: 11,
@@ -331,7 +345,7 @@ describe('useMediaSubscribe entry flows', () => {
     const media = createMediaInfo({
       media_id: 'artist-1',
       music_type: 'artist',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       title: '周杰伦',
       tmdb_id: undefined,
       type: '音乐',
@@ -349,7 +363,7 @@ describe('useMediaSubscribe entry flows', () => {
   it('creates an AniList subscription without promoting its auxiliary TMDB ID', async () => {
     const media = createSubscribeTv({
       anilist_id: 154587,
-      source: 'anilist',
+      media_source: 'anilist',
       title: 'AniList 订阅剧集',
       tmdb_id: 209867,
     })
@@ -516,7 +530,7 @@ describe('useMediaSubscribe entry flows', () => {
     },
     {
       label: 'generic provider',
-      media: createSubscribeTv({ media_id: 'series-1', mediaid_prefix: 'custom', tmdb_id: undefined }),
+      media: createSubscribeTv({ media_id: 'series-1', media_source: 'custom', tmdb_id: undefined }),
       mediaId: 'custom:series-1',
       record: createSubscribe({ mediaid: 'custom:series-1', season: 2, tmdbid: 0, type: '电视剧' }),
     },
@@ -555,7 +569,7 @@ describe('useMediaSubscribe entry flows', () => {
     const media = createMediaInfo({
       media_id: 'release-group-1',
       music_type: 'album',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       title: '叶惠美',
       tmdb_id: undefined,
       type: '音乐',

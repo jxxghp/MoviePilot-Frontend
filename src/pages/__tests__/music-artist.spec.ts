@@ -39,7 +39,7 @@ const artist = {
   media_id: 'artist-1',
   music_type: 'artist',
   name: 'Queen',
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   type: '音乐',
 }
 
@@ -48,7 +48,7 @@ const musicSite = { id: 14, is_active: true, name: '艺术家站点', url: 'http
 /** 渲染艺术家详情页，统一提供超级用户权限与路由身份。 */
 function renderArtistPage() {
   return renderWithProviders(MusicArtistPage, {
-    initialRoute: '/music/artist?source=musicbrainz&mediaid=artist-1',
+    initialRoute: '/music/artist?media_source=musicbrainz&mediaid=artist-1',
     initialState: { user: { superUser: true } },
     global: { stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true } },
   })
@@ -74,7 +74,7 @@ describe('music artist page', () => {
 
     expect(await screen.findByRole('heading', { name: 'Queen' })).toBeInTheDocument()
     expect(mocks.apiGet).toHaveBeenCalledWith('music/artist/artist-1', {
-      params: { source: 'musicbrainz' },
+      params: { media_source: 'musicbrainz' },
     })
     expect(screen.getByText('UK rock group')).toBeInTheDocument()
     expect(screen.getAllByText('United Kingdom').length).toBeGreaterThan(0)

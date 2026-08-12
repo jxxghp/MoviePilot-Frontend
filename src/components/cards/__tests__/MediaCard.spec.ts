@@ -295,7 +295,7 @@ describe('MediaCard', () => {
     ],
     [
       'extension',
-      createMediaInfo({ media_id: 'item-9204', mediaid_prefix: 'custom', tmdb_id: undefined }),
+      createMediaInfo({ media_id: 'item-9204', media_source: 'custom' as never, tmdb_id: undefined }),
       'custom:item-9204',
       null,
     ],
@@ -368,8 +368,7 @@ describe('MediaCard', () => {
     const media = createMediaInfo({
       artist: '周杰伦',
       media_id: 'recording-1',
-      mediaid_prefix: 'musicbrainz',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       title: '晴天',
       tmdb_id: undefined,
       type: '音乐',
@@ -395,7 +394,7 @@ describe('MediaCard', () => {
       expect(mocks.routerPush).toHaveBeenCalledWith({
         path: '/music/detail',
         query: {
-          source: 'musicbrainz',
+          media_source: 'musicbrainz',
           mediaid: 'recording-1',
           title: '晴天',
         },
@@ -412,10 +411,9 @@ describe('MediaCard', () => {
       const media = createMediaInfo({
         artist: 'Artist',
         media_id: mediaId,
-        mediaid_prefix: source,
+        media_source: source,
         music_type: 'album',
         poster_path: undefined,
-        source,
         title,
         tmdb_id: undefined,
         total_tracks: 10,
@@ -441,7 +439,7 @@ describe('MediaCard', () => {
       await waitFor(() =>
         expect(mocks.routerPush).toHaveBeenCalledWith({
           path: '/music/album',
-          query: { mediaid: mediaId, source, title },
+          query: { media_source: source, mediaid: mediaId, title },
         }),
       )
 
@@ -473,7 +471,7 @@ describe('MediaCard', () => {
   it('uses an album placeholder instead of the movie fallback image for music without a cover', async () => {
     const media = createMediaInfo({
       media_id: 'recording-2',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       poster_path: undefined,
       title: '无封面歌曲',
       tmdb_id: undefined,
@@ -648,7 +646,7 @@ describe('MediaCard', () => {
   it('matches custom media IDs when collecting subscribed TV seasons', async () => {
     const media = createMediaInfo({
       media_id: 'series-9553',
-      mediaid_prefix: 'custom',
+      media_source: 'custom' as never,
       season: 2,
       tmdb_id: undefined,
       type: '电视剧',
@@ -681,9 +679,8 @@ describe('MediaCard', () => {
       'structured TMDB identity',
       createMediaInfo({
         media_id: 'series-9554',
-        mediaid_prefix: undefined,
         season: 2,
-        source: 'themoviedb',
+        media_source: 'themoviedb',
         tmdb_id: undefined,
         type: '电视剧',
       }),
@@ -696,7 +693,7 @@ describe('MediaCard', () => {
     ],
     [
       'legacy AniList identity',
-      createMediaInfo({ anilist_id: 154588, season: 2, source: 'anilist', tmdb_id: undefined, type: '电视剧' }),
+      createMediaInfo({ anilist_id: 154588, season: 2, media_source: 'anilist', tmdb_id: undefined, type: '电视剧' }),
       'anilist:154588',
       [
         { anilistid: 154588, id: 95, season: 1, type: '电视剧' },
@@ -728,7 +725,7 @@ describe('MediaCard', () => {
   it('updates image badges on load and shows the typed placeholder after an image error', async () => {
     const media = createMediaInfo({
       poster_path: '/original/poster.jpg',
-      source: 'themoviedb',
+      media_source: 'themoviedb',
       tmdb_id: 9552,
       type: '电视剧',
       vote_average: 8.6,
@@ -830,7 +827,7 @@ describe('MediaCard', () => {
       createMediaInfo({
         anilist_id: 154588,
         poster_path: '/original/anilist.jpg',
-        source: 'anilist',
+        media_source: 'anilist',
         tmdb_id: undefined,
         type: '电视剧',
       }),
@@ -844,7 +841,7 @@ describe('MediaCard', () => {
         media_id: 'album-2109619',
         music_type: 'album',
         poster_path: undefined,
-        source: 'theaudiodb',
+        media_source: 'theaudiodb',
         tmdb_id: undefined,
         type: '音乐',
       }),
@@ -858,7 +855,7 @@ describe('MediaCard', () => {
         media_id: '1401853',
         music_type: 'album',
         poster_path: undefined,
-        source: 'doubanmusic',
+        media_source: 'doubanmusic',
         tmdb_id: undefined,
         type: '音乐',
       }),

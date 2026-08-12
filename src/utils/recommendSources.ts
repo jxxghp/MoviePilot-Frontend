@@ -49,18 +49,6 @@ export function createBuiltInRecommendSources(t: Translate): RecommendViewSource
       type: t('recommend.categoryMusic'),
     },
     {
-      apipath: 'recommend/music_theaudiodb_albums',
-      linkurl: '/browse/recommend/music_theaudiodb_albums?title=' + t('recommend.theAudioDbAlbums'),
-      title: t('recommend.theAudioDbAlbums'),
-      type: t('recommend.categoryMusic'),
-    },
-    {
-      apipath: 'recommend/music_theaudiodb_tracks',
-      linkurl: '/browse/recommend/music_theaudiodb_tracks?title=' + t('recommend.theAudioDbTracks'),
-      title: t('recommend.theAudioDbTracks'),
-      type: t('recommend.categoryMusic'),
-    },
-    {
       apipath: 'recommend/music_douban',
       linkurl: '/browse/recommend/music_douban?title=' + t('recommend.doubanMusic'),
       title: t('recommend.doubanMusic'),

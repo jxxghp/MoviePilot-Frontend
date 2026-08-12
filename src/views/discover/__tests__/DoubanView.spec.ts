@@ -104,7 +104,7 @@ describe('DoubanView', () => {
     })
   })
 
-  it('merges music into the Douban source and hides unsupported video filters', async () => {
+  it('merges music into Douban with chart and official tag browsing filters', async () => {
     const user = userEvent.setup()
     await renderView()
 
@@ -115,13 +115,31 @@ describe('DoubanView', () => {
         apipath: 'music/explore',
         params: {
           count: 30,
-          source: 'doubanmusic',
+          douban_sort: 'U',
+          media_source: 'doubanmusic',
+          mode: 'chart',
+          tags: '',
           with_cover: false,
         },
       })
     })
     expect(screen.queryByText('高分优先')).not.toBeInTheDocument()
     expect(screen.queryByText('2020年代')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('分类浏览'))
+    await user.click(screen.getByText('华语'))
+    await user.click(screen.getByText('评分排序'))
+
+    await waitFor(() => {
+      expect(latestMediaListRequest(mediaList).params).toEqual({
+        count: 30,
+        douban_sort: 'S',
+        media_source: 'doubanmusic',
+        mode: 'tag',
+        tags: '流行,华语',
+        with_cover: false,
+      })
+    })
 
     await user.click(screen.getByText('仅有封面'))
     await waitFor(() => expect(latestMediaListRequest(mediaList).params.with_cover).toBe(true))

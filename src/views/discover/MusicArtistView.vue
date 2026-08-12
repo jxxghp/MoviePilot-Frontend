@@ -16,7 +16,7 @@ const props = defineProps({
   // 音乐数据源原生艺术家 ID
   mediaid: String,
   // 音乐元数据来源
-  source: {
+  mediaSource: {
     type: String,
     default: 'musicbrainz',
   },
@@ -28,7 +28,7 @@ const canSearch = computed(() => hasPermission(userPermissions.value, 'search'))
 
 const isRefreshed = ref(false)
 const artist = ref<MusicArtistInfo>()
-const sourceLabel = computed(() => getMusicSourceLabel(props.source, t))
+const sourceLabel = computed(() => getMusicSourceLabel(props.mediaSource, t))
 
 const { openMusicSiteSearch } = useMusicSiteSearch(sites => {
   if (!artist.value?.name) return undefined
@@ -63,10 +63,10 @@ const attributes = computed(() => {
 
 /** 加载艺术家详情。 */
 async function loadArtistDetail() {
-  if (!props.source || !props.mediaid) return
+  if (!props.mediaSource || !props.mediaid) return
   isRefreshed.value = false
   try {
-    artist.value = await api.get(`music/artist/${props.mediaid}`, { params: { source: props.source } })
+    artist.value = await api.get(`music/artist/${props.mediaid}`, { params: { media_source: props.mediaSource } })
   } catch (error) {
     console.error(error)
     artist.value = undefined
@@ -77,10 +77,10 @@ async function loadArtistDetail() {
 
 /** 返回指定专辑类型的浏览列表路由。 */
 function getAlbumsBrowseRoute(albumType: string, title: string) {
-  return `/browse/music/artist/${props.mediaid}/albums?source=${encodeURIComponent(props.source)}&title=${encodeURIComponent(title)}&album_type=${albumType}`
+  return `/browse/music/artist/${props.mediaid}/albums?media_source=${encodeURIComponent(props.mediaSource)}&title=${encodeURIComponent(title)}&album_type=${albumType}`
 }
 
-watch(() => [props.source, props.mediaid], loadArtistDetail, { immediate: true })
+watch(() => [props.mediaSource, props.mediaid], loadArtistDetail, { immediate: true })
 </script>
 
 <template>
@@ -163,14 +163,17 @@ watch(() => [props.source, props.mediaid], loadArtistDetail, { immediate: true }
 
     <div v-for="section in albumSections" :key="section.type" class="music-section">
       <MediaCardSlideView
-        :apipath="`music/artist/${props.mediaid}/albums?source=${encodeURIComponent(props.source)}&album_type=${section.type}`"
+        :apipath="`music/artist/${props.mediaid}/albums?media_source=${encodeURIComponent(props.mediaSource)}&album_type=${section.type}`"
         :linkurl="getAlbumsBrowseRoute(section.type, section.title)"
         :title="section.title"
       />
     </div>
 
-    <div v-if="props.source === 'musicbrainz'" class="music-section">
-      <MusicArtistSlideView :apipath="`music/artist/${props.mediaid}/related`" :title="t('music.relatedArtists')" />
+    <div v-if="props.mediaSource === 'musicbrainz'" class="music-section">
+      <MusicArtistSlideView
+        :apipath="`music/artist/${props.mediaid}/related?media_source=musicbrainz`"
+        :title="t('music.relatedArtists')"
+      />
     </div>
   </MusicDetailLayout>
   <NoDataFound

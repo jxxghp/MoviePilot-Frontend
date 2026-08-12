@@ -433,8 +433,8 @@ describe('SubscribePopularView', () => {
   it('provides unique progressive-grid keys for different seasons of the same TMDB title', async () => {
     server.use(
       popularSubscribesHandler([
-        createSubscribeTv({ season: 1, source: undefined, title: '同剧第一季', tmdb_id: 880 }),
-        createSubscribeTv({ season: 2, source: undefined, title: '同剧第二季', tmdb_id: 880 }),
+        createSubscribeTv({ season: 1, title: '同剧第一季', tmdb_id: 880 }),
+        createSubscribeTv({ season: 2, title: '同剧第二季', tmdb_id: 880 }),
       ]),
     )
 
@@ -445,7 +445,7 @@ describe('SubscribePopularView', () => {
 
     // 渲染键与生产媒体身份字段保持一致，避免不同季条目发生键冲突。
     const identityFields = [
-      'source',
+      'media_source',
       'type',
       'season',
       'tmdb_id',
@@ -454,11 +454,10 @@ describe('SubscribePopularView', () => {
       'douban_id',
       'bangumi_id',
       'anilist_id',
-      'mediaid_prefix',
       'media_id',
     ] as const
-    const item1 = createSubscribeTv({ season: 1, source: undefined, title: '同剧第一季', tmdb_id: 880 })
-    const item2 = createSubscribeTv({ season: 2, source: undefined, title: '同剧第二季', tmdb_id: 880 })
+    const item1 = createSubscribeTv({ season: 1, title: '同剧第一季', tmdb_id: 880 })
+    const item2 = createSubscribeTv({ season: 2, title: '同剧第二季', tmdb_id: 880 })
     const expectedKeys = [
       JSON.stringify(identityFields.map(field => item1[field] ?? null)),
       JSON.stringify(identityFields.map(field => item2[field] ?? null)),

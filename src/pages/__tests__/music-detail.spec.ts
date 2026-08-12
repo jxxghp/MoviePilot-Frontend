@@ -46,7 +46,7 @@ const recording = {
   media_id: 'recording-1',
   music_type: 'recording',
   release_date: '2003-07-31',
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   title: '晴天',
   type: '音乐',
   year: 2003,
@@ -60,18 +60,25 @@ const album = {
   media_id: 'release-group-1',
   music_type: 'album',
   release_date: '2003-07-31',
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   title: '叶惠美',
   total_tracks: 2,
   tracks: [
-    { media_id: 'recording-1', title: '晴天', track_number: 1, disc_number: 1, duration: 269, source: 'musicbrainz' },
+    {
+      media_id: 'recording-1',
+      title: '晴天',
+      track_number: 1,
+      disc_number: 1,
+      duration: 269,
+      media_source: 'musicbrainz',
+    },
     {
       media_id: 'recording-2',
       title: '以父之名',
       track_number: 2,
       disc_number: 1,
       duration: 341,
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
     },
   ],
   type: '音乐',
@@ -101,7 +108,7 @@ function mockDetailRequests(subscribed = false) {
 /** 渲染音乐详情页，统一提供超级用户权限与路由身份。 */
 function renderMusicDetailPage() {
   return renderWithProviders(MusicDetailPage, {
-    initialRoute: '/music/detail?source=musicbrainz&mediaid=recording-1&title=晴天',
+    initialRoute: '/music/detail?media_source=musicbrainz&mediaid=recording-1&title=晴天',
     initialState: { user: { superUser: true } },
     global: { stubs: { NoDataFound: true, MediaCardSlideView: true, MusicArtistSlideView: true } },
   })
@@ -122,13 +129,13 @@ describe('music detail page', () => {
 
     expect(await screen.findByRole('heading', { name: '晴天' })).toBeInTheDocument()
     expect(mocks.apiPost).toHaveBeenCalledWith('music/recognize', {
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       media_id: 'recording-1',
       music_type: 'recording',
     })
     await waitFor(() =>
       expect(mocks.apiGet).toHaveBeenCalledWith('music/album/release-group-1', {
-        params: { source: 'musicbrainz' },
+        params: { media_source: 'musicbrainz' },
       }),
     )
     expect(await screen.findByText('以父之名')).toBeInTheDocument()
@@ -188,7 +195,7 @@ describe('music detail page', () => {
     })
 
     const { router } = await renderWithProviders(MusicDetailPage, {
-      initialRoute: '/music/detail?source=musicbrainz&mediaid=release-group-1',
+      initialRoute: '/music/detail?media_source=musicbrainz&mediaid=release-group-1',
       initialState: { user: { superUser: true } },
       global: { stubs: { NoDataFound: true, MediaCardSlideView: true, MusicArtistSlideView: true } },
     })

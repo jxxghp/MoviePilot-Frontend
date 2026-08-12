@@ -158,7 +158,7 @@ describe('SubscribeSeasonDialog', () => {
   it('preserves source image URLs and hides unavailable season metadata', async () => {
     const media = createTvMedia({
       poster_path: 'https://images.example.com/main-poster.jpg',
-      source: 'anilist',
+      media_source: 'anilist',
       tmdb_id: undefined,
     })
     server.use(
@@ -220,20 +220,24 @@ describe('SubscribeSeasonDialog', () => {
   })
 
   it.each([
-    ['Douban', { douban_id: 'db-7303', source: 'douban', tmdb_id: undefined }, 'douban:db-7303'],
+    ['Douban', { douban_id: 'db-7303', media_source: 'douban', tmdb_id: undefined }, 'douban:db-7303'],
     [
       'Bangumi',
-      { bangumi_id: 'bgm-7304', douban_id: undefined, source: 'bangumi', tmdb_id: undefined },
+      { bangumi_id: 'bgm-7304', douban_id: undefined, media_source: 'bangumi', tmdb_id: undefined },
       'bangumi:bgm-7304',
     ],
-    ['AniList', { anilist_id: 154587, bangumi_id: undefined, source: 'anilist', tmdb_id: undefined }, 'anilist:154587'],
+    [
+      'AniList',
+      { anilist_id: 154587, bangumi_id: undefined, media_source: 'anilist', tmdb_id: undefined },
+      'anilist:154587',
+    ],
     [
       'custom source',
       {
         bangumi_id: undefined,
         douban_id: undefined,
         media_id: 'custom-7305',
-        mediaid_prefix: 'custom',
+        media_source: 'custom',
         tmdb_id: undefined,
       },
       'custom:custom-7305',
@@ -244,8 +248,7 @@ describe('SubscribeSeasonDialog', () => {
         bangumi_id: undefined,
         douban_id: undefined,
         media_id: 'source-7306',
-        mediaid_prefix: undefined,
-        source: 'themoviedb',
+        media_source: 'themoviedb',
         tmdb_id: undefined,
       },
       'tmdb:source-7306',
@@ -270,9 +273,9 @@ describe('SubscribeSeasonDialog', () => {
   })
 
   it.each([
-    ['Douban', { douban_id: 'db-7310', source: 'douban' }, 'douban:db-7310'],
-    ['Bangumi', { bangumi_id: 'bgm-7310', source: 'bangumi' }, 'bangumi:bgm-7310'],
-    ['AniList', { anilist_id: 154587, source: 'anilist' }, 'anilist:154587'],
+    ['Douban', { douban_id: 'db-7310', media_source: 'douban' }, 'douban:db-7310'],
+    ['Bangumi', { bangumi_id: 'bgm-7310', media_source: 'bangumi' }, 'bangumi:bgm-7310'],
+    ['AniList', { anilist_id: 154587, media_source: 'anilist' }, 'anilist:154587'],
   ] as const)(
     'keeps the %s identity and skips episode groups when an auxiliary TMDB ID exists',
     async (_label, overrides, mediaId) => {

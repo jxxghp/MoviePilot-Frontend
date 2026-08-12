@@ -241,7 +241,7 @@ describe('MediaDetailView detail and actions', () => {
     [
       'extension',
       'custom:item-8204',
-      createMediaInfo({ media_id: 'item-8204', mediaid_prefix: 'custom', tmdb_id: 8204, type: '电影' }),
+      createMediaInfo({ media_id: 'item-8204', media_source: 'custom', tmdb_id: 8204, type: '电影' }),
     ],
   ])('loads the exact %s media path and query', async (_source, mediaId, media) => {
     const requested = vi.fn<(url: URL) => void>()
@@ -611,7 +611,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     const media = createSubscribeTv({
       anilist_id: 154587,
       episode_group: 'auxiliary-group',
-      source: 'anilist',
+      media_source: 'anilist',
       title: 'AniList 主来源剧集',
       tmdb_id: 8700,
     })

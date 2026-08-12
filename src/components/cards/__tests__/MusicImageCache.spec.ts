@@ -45,7 +45,7 @@ describe('music image cache integration', () => {
       cover_url: cover,
       media_id: 'recording-1',
       music_type: 'recording',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       title: '测试单曲',
       type: '音乐',
     } as MediaInfo
@@ -66,7 +66,7 @@ describe('music image cache integration', () => {
       media_id: 'artist-1',
       music_type: 'artist',
       name: '测试艺术家',
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       type: '音乐',
     } as MusicArtistInfo
 

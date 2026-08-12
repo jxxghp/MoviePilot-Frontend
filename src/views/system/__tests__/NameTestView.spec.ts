@@ -38,7 +38,7 @@ interface RecognizedMedia {
   category?: string
   detail_link?: string
   media_id: string
-  source: string
+  media_source: string
   title: string
   type: string
   year: string
@@ -82,22 +82,22 @@ describe('NameTestView media identity', () => {
   it.each([
     [
       'TheMovieDb',
-      { media_id: '271016', source: 'themoviedb', title: '测试剧集', type: '电视剧', year: '2026' },
+      { media_id: '271016', media_source: 'themoviedb', title: '测试剧集', type: '电视剧', year: '2026' },
       'https://www.themoviedb.org/tv/271016',
     ],
     [
       'Douban',
-      { media_id: '1295644', source: 'douban', title: '测试电影', type: '电影', year: '1994' },
+      { media_id: '1295644', media_source: 'douban', title: '测试电影', type: '电影', year: '1994' },
       'https://movie.douban.com/subject/1295644',
     ],
     [
       'Bangumi',
-      { media_id: '485', source: 'bangumi', title: '测试动画', type: '电视剧', year: '2026' },
+      { media_id: '485', media_source: 'bangumi', title: '测试动画', type: '电视剧', year: '2026' },
       'https://bgm.tv/subject/485',
     ],
     [
       'AniList',
-      { media_id: '154587', source: 'anilist', title: '测试番剧', type: '电视剧', year: '2026' },
+      { media_id: '154587', media_source: 'anilist', title: '测试番剧', type: '电视剧', year: '2026' },
       'https://anilist.co/anime/154587',
     ],
     [
@@ -105,7 +105,7 @@ describe('NameTestView media identity', () => {
       {
         detail_link: 'https://musicbrainz.org/recording/8f97b17d-1234-4abc-9def-1234567890ab',
         media_id: '8f97b17d-1234-4abc-9def-1234567890ab',
-        source: 'musicbrainz',
+        media_source: 'musicbrainz',
         title: '测试单曲',
         type: '音乐',
         year: '2026',
@@ -116,7 +116,7 @@ describe('NameTestView media identity', () => {
       'TheAudioDB',
       {
         media_id: '32793500',
-        source: 'theaudiodb',
+        media_source: 'theaudiodb',
         title: 'Yellow',
         type: '音乐',
         year: '2000',
@@ -127,7 +127,7 @@ describe('NameTestView media identity', () => {
       '豆瓣音乐',
       {
         media_id: '1401853',
-        source: 'doubanmusic',
+        media_source: 'doubanmusic',
         title: '范特西',
         type: '音乐',
         year: '2001',
@@ -144,7 +144,7 @@ describe('NameTestView media identity', () => {
     expect(mediaIdLink.closest('.pipeline-step')).toHaveTextContent(`媒体 ID${media.media_id}`)
     expect(mediaIdLink.closest('.pipeline-step')).not.toHaveTextContent(sourceLabel)
     const sourceDisplay = screen.getByTestId('recognition-source')
-    expect(sourceDisplay).toHaveAttribute('data-source', media.source)
+    expect(sourceDisplay).toHaveAttribute('data-source', media.media_source)
     expect(sourceDisplay).toHaveAccessibleName(sourceLabel)
     expect(sourceDisplay.closest('.pipeline-step')).toHaveTextContent(`识别数据源${sourceLabel}`)
     expect(sourceDisplay.querySelector('.media-source-logo')).toBeInTheDocument()
@@ -154,7 +154,7 @@ describe('NameTestView media identity', () => {
     await renderRecognizedMedia({
       category: '动漫',
       media_id: '485',
-      source: 'bangumi',
+      media_source: 'bangumi',
       title: '测试动画',
       type: '电视剧',
       year: '2026',
@@ -171,7 +171,7 @@ describe('NameTestView media identity', () => {
         artist: '周杰伦',
         category: 'Single',
         media_id: '8f97b17d-1234-4abc-9def-1234567890ab',
-        source: 'musicbrainz',
+        media_source: 'musicbrainz',
         title: '晴天',
         type: '音乐',
         year: 2003,
@@ -239,6 +239,27 @@ describe('NameTestView media identity', () => {
     expect(screen.getByLabelText('识别词')).toBeInTheDocument()
   })
 
+  it('sends TheAudioDB through the unified media source parameter', async () => {
+    mocks.apiGet.mockResolvedValueOnce({})
+    await renderWithProviders(NameTestView, {
+      initialState: {
+        globalSettings: {
+          data: { RECOGNIZE_SOURCE: 'themoviedb' },
+        },
+      },
+    })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByLabelText('识别数据源'))
+    await user.click(await screen.findByRole('option', { name: 'TheAudioDB' }))
+    await user.type(screen.getByLabelText('标题'), 'Coldplay - Yellow')
+    await user.click(screen.getByRole('button', { name: '识别' }))
+
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/recognize', {
+      params: expect.objectContaining({ media_source: 'theaudiodb' }),
+    })
+  })
+
   it('closes the recognition dialog before navigating to the media detail', async () => {
     const eventOrder: string[] = []
     const onClose = vi.fn(() => eventOrder.push('close'))
@@ -247,7 +268,7 @@ describe('NameTestView media identity', () => {
     })
     const media = {
       media_id: '271016',
-      source: 'themoviedb',
+      media_source: 'themoviedb',
       title: '测试剧集',
       type: '电视剧',
       year: '2026',

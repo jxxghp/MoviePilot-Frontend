@@ -119,6 +119,9 @@ const musicSourceIconDict: Record<string, { color: string; icon: string }> = {
   doubanmusic: { color: '#00b51d', icon: 'mdi-music-circle' },
 }
 
+// 媒体卡片只消费后端统一的主来源字段。
+const mediaSource = computed(() => props.media?.media_source)
+
 // 绑定MediaCard元素
 const mediaCardRef = ref<HTMLElement | null>(null)
 
@@ -196,7 +199,7 @@ function getExistsStatusKey() {
     props.media?.year ?? '',
     props.media?.season ?? '',
     props.media?.type ?? '',
-    props.media?.mediaid_prefix ?? '',
+    props.media?.media_source ?? '',
     props.media?.media_id ?? '',
   ].join('::')
 }
@@ -668,16 +671,16 @@ onBeforeUnmount(() => {
             density="compact"
             class="absolute bottom-1 right-1"
             tile
-            v-if="!isMediaCardActive(hover.isHovering) && isImageLoaded && props.media?.source && !imageLoadError"
+            v-if="!isMediaCardActive(hover.isHovering) && isImageLoaded && mediaSource && !imageLoadError"
           >
-            <VIcon v-if="props.media?.source === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="24" />
+            <VIcon v-if="mediaSource === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="24" />
             <VIcon
-              v-else-if="musicSourceIconDict[props.media?.source]"
-              :color="musicSourceIconDict[props.media.source].color"
-              :icon="musicSourceIconDict[props.media.source].icon"
+              v-else-if="musicSourceIconDict[mediaSource]"
+              :color="musicSourceIconDict[mediaSource].color"
+              :icon="musicSourceIconDict[mediaSource].icon"
               size="24"
             />
-            <VImg v-else cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />
+            <VImg v-else cover :src="sourceIconDict[mediaSource]" class="shadow-lg" />
           </VAvatar>
         </VCard>
       </div>

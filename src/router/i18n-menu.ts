@@ -346,11 +346,6 @@ export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
       tab: 'musicbrainz',
       icon: 'mdi-music-note-outline',
     },
-    {
-      title: t('discoverTabs.theaudiodb'),
-      tab: 'theaudiodb',
-      icon: 'mdi-music-box-multiple-outline',
-    },
   ]
 }
 

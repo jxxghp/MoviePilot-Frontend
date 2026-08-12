@@ -45,7 +45,7 @@ const SUPPORTED_MEDIA_SOURCES: MediaDataSource[] = [
 
 // 当前识别类型：优先使用媒体自身的数据源，否则使用全局识别来源
 const mediaSource = computed<MediaDataSource>(() => {
-  const source = props.media?.source as MediaDataSource | undefined
+  const source = props.media?.media_source
   if (source && SUPPORTED_MEDIA_SOURCES.includes(source)) return source
   if (props.torrent?.category === '音乐' || props.torrent?.category === 'music') return 'musicbrainz'
   if (SUPPORTED_MEDIA_SOURCES.includes(globalSettings.RECOGNIZE_SOURCE as MediaDataSource)) {
@@ -95,7 +95,7 @@ const musicEntityOptions = computed(() => [
 watch(
   () => props.media,
   media => {
-    if (media?.source && SUPPORTED_MEDIA_SOURCES.includes(media.source) && media.media_id) {
+    if (media?.media_source && SUPPORTED_MEDIA_SOURCES.includes(media.media_source) && media.media_id) {
       mediaId.value = media.media_id
     }
     if (media?.music_type === 'recording' || media?.music_type === 'album') {

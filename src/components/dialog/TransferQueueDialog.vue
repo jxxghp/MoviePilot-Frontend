@@ -77,7 +77,7 @@ const stateDict = computed<Record<string, string>>(() => ({
 
 // 队列作业由来源原生媒体 ID 与季号共同标识；缺少媒体 ID 时才退回展示标题。
 function getMediaIdentity(item: TransferQueue) {
-  const source = item.media.mediaid_prefix || item.media.source
+  const source = item.media.media_source
   const mediaIdentity =
     source && item.media.media_id
       ? `${source}:${item.media.media_id}`

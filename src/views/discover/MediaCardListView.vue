@@ -50,24 +50,22 @@ function getParams() {
   }
 }
 
-// MediaInfo 去重的字段
-const dedupFields = [
-  'source',
-  'type',
-  'season',
-  'tmdb_id',
-  'imdb_id',
-  'tvdb_id',
-  'douban_id',
-  'bangumi_id',
-  'anilist_id',
-  'mediaid_prefix',
-  'media_id',
-] as const
-
 // 去重、分页终止和渲染必须共用同一媒体身份，避免状态与 DOM key 分叉。
 function getMediaIdentity(item: MediaInfo) {
-  return JSON.stringify(dedupFields.map(field => item[field] ?? null))
+  if (item.media_source && item.media_id !== undefined && item.media_id !== null && String(item.media_id).trim()) {
+    return JSON.stringify(['media', item.media_source, String(item.media_id), item.type ?? null, item.season ?? null])
+  }
+
+  // 数据源偶发返回无 ID 条目时仍按可见元数据区分，不能把整页折叠成一条。
+  return JSON.stringify([
+    'metadata',
+    item.type ?? null,
+    item.season ?? null,
+    item.title ?? null,
+    item.original_title ?? null,
+    item.year ?? null,
+    item.release_date ?? null,
+  ])
 }
 
 function deduplicate(items: MediaInfo[]): MediaInfo[] {

@@ -40,14 +40,14 @@ const isSubscribed = ref(false)
 
 // 可点击跳转的艺术家
 const artistLinks = computed(() => getMusicArtistLinks(props.music))
-const sourceLabel = computed(() => getMusicSourceLabel(props.music?.source, t))
+const sourceLabel = computed(() => getMusicSourceLabel(props.music?.media_source, t))
 const sourceMeta = computed(() => {
   const sources: Record<string, { color: string; icon: string }> = {
     musicbrainz: { color: '#eb743b', icon: 'mdi-music-circle' },
     theaudiodb: { color: '#35a7a0', icon: 'mdi-music-box-multiple' },
     doubanmusic: { color: '#00b51d', icon: 'mdi-music-circle' },
   }
-  return sources[props.music?.source || 'musicbrainz'] || { color: 'primary', icon: 'mdi-database-outline' }
+  return sources[props.music?.media_source || 'musicbrainz'] || { color: 'primary', icon: 'mdi-database-outline' }
 })
 
 // 音乐实体标签和图标
@@ -129,13 +129,13 @@ function goDetail() {
 /** 打开所属专辑详情页。 */
 function goAlbum() {
   if (!props.music?.album_id) return
-  router.push(buildMusicAlbumRoute(props.music.album_id, props.music.album, props.music.source))
+  router.push(buildMusicAlbumRoute(props.music.album_id, props.music.album, props.music.media_source))
 }
 
 /** 打开艺术家详情页。 */
 function goArtist(artistId?: string, name?: string) {
   if (!artistId) return
-  router.push(buildMusicArtistRoute(artistId, name, props.music?.source))
+  router.push(buildMusicArtistRoute(artistId, name, props.music?.media_source))
 }
 
 watch(

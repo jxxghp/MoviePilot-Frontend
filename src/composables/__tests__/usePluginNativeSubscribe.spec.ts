@@ -115,7 +115,7 @@ describe('native subscribe media normalization', () => {
       success: true,
       media: expect.objectContaining({
         media_id: 'subject-42',
-        source: 'custom-source',
+        media_source: 'custom-source',
         type: '电影',
       }),
     })
@@ -160,11 +160,23 @@ describe('plugin native subscribe flow', () => {
     mocks.apiGet.mockResolvedValue({ success: true })
     const nativeSubscribe = await renderNativeSubscribeHarness()
 
-    await expect(nativeSubscribe({ title: '原生电影', tmdb_id: 600, type: '电影' })).resolves.toEqual({ success: true })
+    await expect(
+      nativeSubscribe({
+        media_source: 'themoviedb',
+        media_id: '600',
+        title: '原生电影',
+        type: '电影',
+      }),
+    ).resolves.toEqual({ success: true })
 
     expect(mocks.checkSubscribe).toHaveBeenCalledWith(null)
     expect(mocks.apiGet).toHaveBeenCalledWith('mediaserver/exists', {
-      params: expect.objectContaining({ mtype: '电影', title: '原生电影', tmdbid: 600 }),
+      params: expect.objectContaining({
+        media_source: 'themoviedb',
+        media_id: '600',
+        mtype: '电影',
+        title: '原生电影',
+      }),
     })
     expect(mocks.subscribeOptions?.isSubscribed.value).toBe(true)
     expect(mocks.subscribeOptions?.isExists()).toBe(true)

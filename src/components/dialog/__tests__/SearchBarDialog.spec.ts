@@ -75,7 +75,7 @@ describe('SearchBarDialog media source selection', () => {
     await waitFor(() => {
       expect(router.currentRoute.value.path).toBe('/browse/media/search')
       expect(router.currentRoute.value.query).toEqual({
-        source: 'themoviedb',
+        media_source: 'themoviedb',
         title: '流浪地球',
         type: 'media',
       })
@@ -106,7 +106,7 @@ describe('SearchBarDialog media source selection', () => {
 
     await waitFor(() => {
       expect(router.currentRoute.value.query).toEqual({
-        source: 'themoviedb,douban',
+        media_source: 'themoviedb,douban',
         title: '芙莉莲',
         type: 'media',
       })
@@ -164,7 +164,7 @@ describe('SearchBarDialog media source selection', () => {
 
     await waitFor(() => {
       expect(router.currentRoute.value.query).toEqual({
-        source: 'anilist',
+        media_source: 'anilist',
         title: '芙莉莲',
         type: 'media',
       })
@@ -187,7 +187,7 @@ describe('SearchBarDialog media source selection', () => {
       expect(router.currentRoute.value.path).toBe('/music')
       expect(router.currentRoute.value.query).toEqual({
         query: 'Coldplay',
-        source: 'theaudiodb',
+        media_source: 'theaudiodb',
       })
     })
   })
@@ -220,7 +220,7 @@ describe('SearchBarDialog media source selection', () => {
 
     await waitFor(() => {
       expect(router.currentRoute.value.query).toEqual({
-        source: 'douban',
+        media_source: 'douban',
         title: '刘德华',
         type: 'person',
       })

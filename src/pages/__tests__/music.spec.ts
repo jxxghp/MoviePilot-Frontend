@@ -43,7 +43,7 @@ const musicResult = {
   media_id: 'recording-1',
   music_type: 'recording',
   release_date: '2003-07-31',
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   title: '晴天',
   type: '音乐',
   year: 2003,
@@ -60,7 +60,7 @@ const albumResult = {
   media_id: 'release-group-2',
   music_type: 'album',
   release_date: '2004-08-03',
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   title: '七里香',
   type: '音乐',
   year: 2004,
@@ -70,7 +70,7 @@ const artistResult = {
   category: 'Person',
   media_id: 'artist-1',
   music_type: 'artist',
-  source: 'musicbrainz',
+  media_source: 'musicbrainz',
   title: '周杰伦',
   type: '音乐',
   version: 'Taiwanese singer-songwriter',
@@ -127,14 +127,14 @@ describe('music page', () => {
 
   it('forwards an alternate music source from the route', async () => {
     await renderWithProviders(MusicPage, {
-      initialRoute: '/music?query=Coldplay&source=theaudiodb',
+      initialRoute: '/music?query=Coldplay&media_source=theaudiodb',
       initialState: { user: { superUser: true } },
       global: { stubs: { NoDataFound: true, VPageContentTitle: true } },
     })
 
     await waitFor(() =>
       expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
-        params: { type: 'music', count: 30, title: 'Coldplay', source: 'theaudiodb' },
+        params: { type: 'music', count: 30, title: 'Coldplay', media_source: 'theaudiodb' },
       }),
     )
   })
@@ -206,7 +206,7 @@ describe('music page', () => {
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/detail'))
     expect(router.currentRoute.value.query).toMatchObject({
-      source: 'musicbrainz',
+      media_source: 'musicbrainz',
       mediaid: 'recording-1',
       title: '晴天',
     })
@@ -291,12 +291,13 @@ describe('music page', () => {
       album: title,
       album_id: mediaId,
       artist_ids: source === 'theaudiodb' ? ['artist-1'] : [],
+      duration: 0,
       media_id: mediaId,
-      source,
+      media_source: source,
       title,
     }
     mockSearchAndSubscribeState(false, result)
-    const { router } = await renderMusicPage(`/music?query=${encodeURIComponent(title)}&source=${source}`)
+    const { router } = await renderMusicPage(`/music?query=${encodeURIComponent(title)}&media_source=${source}`)
 
     expect(await screen.findByTestId('music-source')).toHaveTextContent(label)
     await fireEvent.click(screen.getByRole('button', { name: '订阅' }))

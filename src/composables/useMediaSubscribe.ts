@@ -80,7 +80,7 @@ export function getMediaSubscribeIdentity(media?: MediaInfo): MediaSubscribeIden
     }
   }
 
-  const declaredSources = [media.mediaid_prefix, media.source]
+  const declaredSources = [media.media_source]
     .map(normalizeSource)
     .filter((source, index, sources) => source && sources.indexOf(source) === index)
   for (const source of declaredSources) {

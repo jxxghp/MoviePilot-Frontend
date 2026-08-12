@@ -76,8 +76,6 @@ const newlyAddedBuiltInPaths = new Set([
   'anilist/trending',
   'anilist/popular-this-season',
   'recommend/music_weekly',
-  'recommend/music_theaudiodb_albums',
-  'recommend/music_theaudiodb_tracks',
   'recommend/music_douban',
 ])
 

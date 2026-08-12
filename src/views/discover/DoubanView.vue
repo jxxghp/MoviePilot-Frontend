@@ -22,6 +22,10 @@ const doubanZone = ref('')
 // 年代
 const doubanYear = ref('')
 const coverFilter = ref<'all' | 'with_cover'>('all')
+const musicMode = ref<'chart' | 'tag'>('chart')
+const musicCategory = ref('流行')
+const musicZone = ref('')
+const musicSort = ref<'U' | 'S' | 'R' | 'O'>('U')
 const isMusic = computed(() => type.value === 'music')
 
 // 豆瓣风格字典
@@ -101,12 +105,50 @@ const doubanSortDict = {
   'S': t('douban.sortType.highScore'),
 }
 
+// 豆瓣音乐官网标签页中使用频率最高的风格与地区标签。
+const musicCategoryDict = {
+  '流行': t('douban.music.genre.pop'),
+  '摇滚': t('douban.music.genre.rock'),
+  '民谣': t('douban.music.genre.folk'),
+  '电子': t('douban.music.genre.electronic'),
+  '爵士': t('douban.music.genre.jazz'),
+  '古典': t('douban.music.genre.classical'),
+  '原声': t('douban.music.genre.soundtrack'),
+  '独立音乐': t('douban.music.genre.indie'),
+  '纯音乐': t('douban.music.genre.instrumental'),
+  'R&B': 'R&B',
+  'hip-hop': 'Hip-Hop',
+}
+
+const musicZoneDict = {
+  '华语': t('douban.zoneType.chinese'),
+  '欧美': t('douban.zoneType.europeanAmerican'),
+  '日本': t('douban.zoneType.japanese'),
+  '韩国': t('douban.zoneType.korean'),
+  '内地': t('douban.music.region.mainland'),
+  '香港': t('douban.music.region.hongKong'),
+  '台湾': t('douban.music.region.taiwan'),
+  '美国': t('douban.zoneType.usa'),
+  '英国': t('douban.zoneType.uk'),
+  '粤语': t('douban.music.region.cantonese'),
+}
+
+const musicSortDict = {
+  'U': t('douban.music.sort.comprehensive'),
+  'S': t('douban.music.sort.rating'),
+  'R': t('douban.music.sort.date'),
+  'O': t('douban.music.sort.markCount'),
+}
+
 const listApiPath = computed(() => (isMusic.value ? 'music/explore' : `discover/douban_${type.value}`))
 const listParams = computed<Record<string, unknown>>(() => {
   if (isMusic.value) {
     return {
       count: 30,
-      source: 'doubanmusic',
+      media_source: 'doubanmusic',
+      mode: musicMode.value,
+      tags: musicMode.value === 'tag' ? [musicCategory.value, musicZone.value].filter(Boolean).join(',') : '',
+      douban_sort: musicSort.value,
       with_cover: coverFilter.value === 'with_cover',
     }
   }
@@ -122,7 +164,7 @@ watch([doubanCategory, doubanZone, doubanYear], () => {
 const currentKey = ref(0)
 
 // 类型和过滤参数变化后重新刷新列表
-watch([type, filterParams, coverFilter], () => {
+watch([type, filterParams, coverFilter, musicMode, musicCategory, musicZone, musicSort], () => {
   if (!type.value) {
     type.value = 'movies'
   }
@@ -215,15 +257,56 @@ watch([type, filterParams, coverFilter], () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div v-else class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>{{ t('music.filter.cover') }}</VLabel>
+    <template v-else>
+      <div class="flex justify-start align-center">
+        <div class="mr-5">
+          <VLabel>{{ t('douban.music.browse') }}</VLabel>
+        </div>
+        <VChipGroup v-model="musicMode" mandatory>
+          <VChip value="chart" filter tile>{{ t('douban.music.mode.chart') }}</VChip>
+          <VChip value="tag" filter tile>{{ t('douban.music.mode.tag') }}</VChip>
+        </VChipGroup>
       </div>
-      <VChipGroup v-model="coverFilter" mandatory>
-        <VChip value="all" filter tile>{{ t('music.filter.all') }}</VChip>
-        <VChip value="with_cover" filter tile>{{ t('music.filter.withCover') }}</VChip>
-      </VChipGroup>
-    </div>
+      <div v-if="musicMode === 'tag'" class="flex justify-start align-center">
+        <div class="mr-5">
+          <VLabel>{{ t('douban.genre') }}</VLabel>
+        </div>
+        <VChipGroup v-model="musicCategory" mandatory>
+          <VChip v-for="(value, key) in musicCategoryDict" :key="key" :value="key" filter tile>
+            {{ value }}
+          </VChip>
+        </VChipGroup>
+      </div>
+      <div v-if="musicMode === 'tag'" class="flex justify-start align-center">
+        <div class="mr-5">
+          <VLabel>{{ t('douban.zone') }}</VLabel>
+        </div>
+        <VChipGroup v-model="musicZone">
+          <VChip v-for="(value, key) in musicZoneDict" :key="key" :value="key" filter tile>
+            {{ value }}
+          </VChip>
+        </VChipGroup>
+      </div>
+      <div v-if="musicMode === 'tag'" class="flex justify-start align-center">
+        <div class="mr-5">
+          <VLabel>{{ t('douban.sort') }}</VLabel>
+        </div>
+        <VChipGroup v-model="musicSort" mandatory>
+          <VChip v-for="(value, key) in musicSortDict" :key="key" :value="key" filter tile>
+            {{ value }}
+          </VChip>
+        </VChipGroup>
+      </div>
+      <div class="flex justify-start align-center">
+        <div class="mr-5">
+          <VLabel>{{ t('music.filter.cover') }}</VLabel>
+        </div>
+        <VChipGroup v-model="coverFilter" mandatory>
+          <VChip value="all" filter tile>{{ t('music.filter.all') }}</VChip>
+          <VChip value="with_cover" filter tile>{{ t('music.filter.withCover') }}</VChip>
+        </VChipGroup>
+      </div>
+    </template>
   </div>
   <div>
     <MediaCardListView :key="currentKey" :apipath="listApiPath" :params="listParams" />

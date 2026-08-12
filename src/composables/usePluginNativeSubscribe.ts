@@ -64,7 +64,7 @@ function normalizeStringId(value: unknown) {
   return id && id !== '0' ? id : undefined
 }
 
-/** 规范插件媒体信息并兼容后端字段别名，校验结果可供宿主明确拒绝无效调用。 */
+/** 规范插件媒体信息并校验统一媒体身份，校验结果可供宿主明确拒绝无效调用。 */
 export function normalizeNativeSubscribeMedia(input: unknown): MediaNormalizationResult {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return { success: false, reason: 'invalidMedia' }
@@ -77,16 +77,14 @@ export function normalizeNativeSubscribeMedia(input: unknown): MediaNormalizatio
   const title = typeof raw.title === 'string' ? raw.title.trim() : ''
   if (!title) return { success: false, reason: 'missingTitle' }
 
-  const source = normalizeStringId(raw.source ?? raw.media_source)
-  const mediaidPrefix = normalizeStringId(raw.mediaid_prefix)
+  const mediaSource = normalizeStringId(raw.media_source)
   const normalizedMedia = {
     ...raw,
     anilist_id: normalizeNumericId(raw.anilist_id ?? raw.anilistid),
     bangumi_id: normalizeStringId(raw.bangumi_id ?? raw.bangumiid),
     douban_id: normalizeStringId(raw.douban_id ?? raw.doubanid),
     media_id: normalizeStringId(raw.media_id),
-    mediaid_prefix: mediaidPrefix,
-    source,
+    media_source: mediaSource,
     title,
     tmdb_id: normalizeNumericId(raw.tmdb_id ?? raw.tmdbid),
     type,
@@ -150,9 +148,10 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
       api.get('mediaserver/exists', {
         params: {
           mtype: currentMedia.type,
+          media_source: currentMedia.media_source,
+          media_id: currentMedia.media_id,
           season: currentMedia.season,
           title: currentMedia.title,
-          tmdbid: currentMedia.tmdb_id,
           year: currentMedia.year,
         },
       }) as Promise<{ success?: boolean }>,

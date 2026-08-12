@@ -373,8 +373,8 @@ export interface DownloadHistory {
 
 // 媒体信息
 export interface MediaInfo {
-  // 来源：themoviedb、douban、bangumi、anilist、musicbrainz、theaudiodb、doubanmusic
-  source?: string
+  // 主媒体数据源
+  media_source?: MediaDataSource
   // 类型 电影、电视剧、音乐、合集
   type?: string
   // 媒体标题
@@ -404,7 +404,6 @@ export interface MediaInfo {
   // 合集ID
   collection_id?: number
   // 其它媒体ID前缀
-  mediaid_prefix?: string
   // 其它媒体ID值
   media_id?: string
   // 媒体原语种
@@ -564,8 +563,8 @@ export interface MusicAlbumInfo {
   type?: string
   // 实体类型，固定为 album
   music_type?: MusicEntityType
-  // 来源
-  source?: string
+  // 媒体数据源
+  media_source?: MediaDataSource
   // 专辑标准ID
   media_id?: string
   // 专辑名称
@@ -622,8 +621,8 @@ export interface MusicArtistInfo {
   type?: string
   // 实体类型，固定为 artist
   music_type?: MusicEntityType
-  // 来源
-  source?: string
+  // 媒体数据源
+  media_source?: MediaDataSource
   // 艺术家标准ID
   media_id?: string
   // 艺术家名称

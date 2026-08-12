@@ -158,7 +158,7 @@ function createMedia(overrides: Partial<MediaInfo> = {}): MediaInfo {
   return {
     episode_run_time: [],
     origin_country: [],
-    source: 'themoviedb',
+    media_source: 'themoviedb',
     title: '测试电影',
     tmdb_id: 6001,
     type: '电影',

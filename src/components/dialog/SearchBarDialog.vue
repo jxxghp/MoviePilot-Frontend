@@ -468,7 +468,7 @@ function searchMedia(searchType: MediaSearchType) {
       path: '/music',
       query: {
         query: searchWord.value,
-        ...(sources.length > 0 ? { source: sources.join(',') } : {}),
+        ...(sources.length > 0 ? { media_source: sources.join(',') } : {}),
       },
     })
     closeSearch()
@@ -480,7 +480,7 @@ function searchMedia(searchType: MediaSearchType) {
   }
   // 多个来源以逗号分隔传给后端，未勾选任何来源时不传，由后端按全局配置搜索。
   const sources = selectedMediaSearchSources[searchType]
-  if (sources.length > 0) query.source = sources.join(',')
+  if (sources.length > 0) query.media_source = sources.join(',')
   router.push({
     path: '/browse/media/search',
     query,

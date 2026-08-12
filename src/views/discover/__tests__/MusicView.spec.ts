@@ -1,5 +1,5 @@
 import MusicView from '@/views/discover/MusicView.vue'
-import { screen, waitFor } from '@testing-library/vue'
+import { screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent } from 'vue'
@@ -11,9 +11,8 @@ const MediaCardListViewStub = defineComponent({
 })
 
 /** 渲染音乐探索筛选，列表区域用桩组件回显请求参数。 */
-function renderMusicView(source: 'musicbrainz' | 'theaudiodb' = 'musicbrainz') {
+function renderMusicView() {
   return renderWithProviders(MusicView, {
-    props: { source },
     global: { stubs: { MediaCardListView: MediaCardListViewStub } },
   })
 }
@@ -23,6 +22,8 @@ describe('MusicView', () => {
     await renderMusicView()
 
     const params = screen.getByTestId('music-params')
+    expect(params).toHaveTextContent('"media_source":"musicbrainz"')
+    expect(params).not.toHaveTextContent('"source"')
     expect(params).toHaveTextContent('"mode":"chart"')
     expect(params).toHaveTextContent('"entity":"recording"')
     expect(params).toHaveTextContent('"range_name":"this_month"')
@@ -63,20 +64,5 @@ describe('MusicView', () => {
     expect(params).toHaveTextContent('"days":14')
     expect(params).toHaveTextContent('"past":false')
     expect(params).toHaveTextContent('"future":true')
-  })
-
-  it('uses the same card list with TheAudioDB entity and country filters', async () => {
-    const user = userEvent.setup()
-    await renderMusicView('theaudiodb')
-
-    const params = screen.getByTestId('music-params')
-    expect(params).toHaveTextContent('"source":"theaudiodb"')
-    expect(params).toHaveTextContent('"entity":"recording"')
-    expect(params).toHaveTextContent('"country":"us"')
-    expect(params).not.toHaveTextContent('"mode"')
-    expect(screen.queryByText('模式')).not.toBeInTheDocument()
-
-    await user.click(screen.getByText('热门专辑'))
-    await waitFor(() => expect(screen.getByTestId('music-params')).toHaveTextContent('"entity":"album"'))
   })
 })
