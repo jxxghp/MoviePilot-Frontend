@@ -181,13 +181,6 @@ interface AgentStreamReadResult {
   receivedTerminalEvent: boolean
 }
 
-interface AgentProtectedDelivery {
-  /** 一次性投递标识，只用于当前可见范围去重。 */
-  id: string
-  /** 仅驻留组件内存并按纯文本渲染的受保护内容。 */
-  content: string
-}
-
 interface ParsedSseBlock {
   eventName: string
   data: string
@@ -249,7 +242,8 @@ const STREAM_STATE_PERSIST_DELAY = 1000
 
 const inputText = ref('')
 const messages = ref<AgentChatMessage[]>([])
-const protectedDeliveries = ref<AgentProtectedDelivery[]>([])
+// 受保护内容只驻留当前组件内存，不进入消息历史或本地持久化。
+const protectedDeliveries = ref<string[]>([])
 const historySessions = ref<AgentSessionHistoryItem[]>([])
 const sessionId = ref('')
 const sending = ref(false)
@@ -290,7 +284,6 @@ let streamRecoveryAbortRequested = false
 let streamRecoveryTimer: number | null = null
 let activeStreamStartedAt = 0
 let protectedDeliveryGeneration = 0
-const protectedDeliveryIds = new Set<string>()
 
 // 汇总实时请求与后台恢复状态，保证恢复期间仍展示处理中并锁定会话操作。
 const isBusy = computed(() => sending.value || Boolean(pendingStreamRecovery.value))
@@ -365,12 +358,6 @@ function createSessionId() {
 function invalidateProtectedDeliveries() {
   protectedDeliveryGeneration += 1
   protectedDeliveries.value = []
-  protectedDeliveryIds.clear()
-}
-
-// 识别前端需要隔离展示和持久化的确认控制文本，授权判断仍由后端完成。
-function isReservedConfirmationControl(value: string) {
-  return /^(确认|取消) ([A-Za-z0-9]{4}-[A-Za-z0-9]{4})$/.test(value)
 }
 
 // 将未知字段安全转换为可展示文本。
@@ -1574,25 +1561,10 @@ function splitSseBlock(block: string) {
   return { eventName, data } satisfies ParsedSseBlock
 }
 
-function parseProtectedTransportFrame(data: string): AgentProtectedDelivery | null {
+function parseProtectedTransportFrame(data: string): string | null {
   try {
     const frame = JSON.parse(data) as Record<string, unknown>
-    const schemaVersion = typeof frame.schema_version === 'string' ? frame.schema_version : ''
-    const versionMatch = /^(\d+)\.(\d+)$/.exec(schemaVersion)
-    const deliveryId = frame.delivery_id
-
-    if (
-      !versionMatch ||
-      versionMatch[1] !== '1' ||
-      typeof deliveryId !== 'string' ||
-      !deliveryId.trim() ||
-      frame.content_type !== 'text/plain' ||
-      typeof frame.content !== 'string'
-    ) {
-      return null
-    }
-
-    return { id: deliveryId, content: frame.content }
+    return typeof frame.content === 'string' ? frame.content : null
   } catch {
     return null
   }
@@ -1601,11 +1573,10 @@ function parseProtectedTransportFrame(data: string): AgentProtectedDelivery | nu
 function consumeProtectedTransportFrame(data: string, streamGeneration: number) {
   if (!isOpen.value || streamGeneration !== protectedDeliveryGeneration) return
 
-  const delivery = parseProtectedTransportFrame(data)
-  if (!delivery || protectedDeliveryIds.has(delivery.id)) return
+  const content = parseProtectedTransportFrame(data)
+  if (content === null) return
 
-  protectedDeliveryIds.add(delivery.id)
-  protectedDeliveries.value.push(delivery)
+  protectedDeliveries.value.push(content)
   nextTick(() => scheduleMessageScrollerUpdate({ toBottom: messageScrollerShouldFollow }))
 }
 
@@ -1859,7 +1830,9 @@ async function streamAgentMessage(
   const displayContent = (displayText ?? content).trim()
   if (!content && !images.length && !files.length && !audioRefs.length) return
 
-  if (echoUser) addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
+  const userMessage = echoUser
+    ? addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
+    : null
   const assistantMessage = addMessage('assistant', '', 'streaming')
 
   abortController = new AbortController()
@@ -1896,6 +1869,11 @@ async function streamAgentMessage(
 
     if (!response.ok) {
       throw new Error(await resolveAgentResponseErrorMessage(response))
+    }
+    if (response.headers.get('X-MoviePilot-Agent-Control') === 'secret-confirmation' && userMessage) {
+      messages.value = messages.value.filter(message => message.id !== userMessage.id)
+      refreshMessageList()
+      persistState()
     }
 
     const streamResult = await readAgentStream(response, assistantMessage, streamProtectedDeliveryGeneration)
@@ -1979,10 +1957,7 @@ async function sendMessage() {
 
   try {
     const prepared = await prepareAgentAttachments(attachments)
-    const reservedControl = attachments.length === 0 && isReservedConfirmationControl(rawText)
-    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments, {
-      echoUser: !reservedControl,
-    })
+    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments)
   } catch (error: any) {
     // 附件准备失败同样落到对话消息里，底部提示条只保留给没有消息承载的本地错误。
     addMessage('assistant', error?.message || t('agentAssistant.uploadFailed'), 'error')
@@ -2725,13 +2700,12 @@ onScopeDispose(() => {
 
           <div v-if="protectedDeliveries.length" class="agent-assistant-protected-deliveries">
             <div
-              v-for="delivery in protectedDeliveries"
-              :key="delivery.id"
+              v-for="(content, index) in protectedDeliveries"
+              :key="index"
               class="agent-assistant-protected-delivery"
-              :data-protected-delivery-id="delivery.id"
             >
               <VIcon icon="mdi-shield-lock-outline" size="16" aria-hidden="true" />
-              <span v-text="delivery.content" />
+              <span v-text="content" />
             </div>
           </div>
         </div>
