@@ -152,23 +152,9 @@ function getParams() {
   return params
 }
 
-// MediaInfo 去重的字段
-const dedupFields = [
-  'media_source',
-  'type',
-  'season',
-  'tmdb_id',
-  'imdb_id',
-  'tvdb_id',
-  'douban_id',
-  'bangumi_id',
-  'anilist_id',
-  'media_id',
-] as const
-
 // 去重、分页终止和渲染必须共用同一媒体身份，避免状态与 DOM key 分叉。
 function getMediaIdentity(item: MediaInfo) {
-  return JSON.stringify(dedupFields.map(field => item[field] ?? null))
+  return JSON.stringify([item.media_source ?? null, item.media_id ?? null, item.type ?? null, item.season ?? null])
 }
 
 function deduplicate(items: MediaInfo[]): MediaInfo[] {

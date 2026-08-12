@@ -3,7 +3,7 @@ import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
 import { useDashboardSnapshot } from '@/composables/useDashboardSnapshot'
-import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
+import { getMediaSubscribeId, getMediaSubscribeIdentity } from '@/composables/useMediaSubscribe'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { createBuiltInRecommendSources, type RecommendViewSource } from '@/utils/recommendSources'
@@ -75,7 +75,7 @@ function normalizeMediaResponse(response: unknown): MediaInfo[] {
 
 /** 判断媒体是否具备可展示图片和可进入详情页的标识。 */
 function isUsableMedia(item: MediaInfo) {
-  const hasMediaId = Boolean(item.tmdb_id || item.collection_id)
+  const hasMediaId = Boolean((item.media_source && item.media_id) || item.collection_id)
   return Boolean(item.title && (item.backdrop_path || item.poster_path) && hasMediaId)
 }
 
@@ -155,11 +155,14 @@ function goToMediaDetail() {
     void router.push({ path: `/browse/tmdb/collection/${item.collection_id}`, query: { title: item.title } })
     return
   }
+  const identity = getMediaSubscribeIdentity(item)
+  if (!identity) return
 
   void router.push({
     path: '/media',
     query: {
-      mediaid: getMediaSubscribeId(item),
+      media_source: identity.source,
+      media_id: identity.mediaId,
       title: item.title,
       type: item.type,
       year: item.year,

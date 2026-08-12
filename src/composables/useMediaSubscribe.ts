@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
-import type { MediaInfo, MediaSeason, Subscribe } from '@/api/types'
+import type { MediaDataSource, MediaInfo, MediaSeason, Subscribe } from '@/api/types'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useConfirm } from '@/composables/useConfirm'
 import { setCachedMediaSubscribeStatus } from '@/utils/mediaStatusCache'
+import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 
 export type SubscribeMode = 'normal' | 'best_version' | 'best_version_full'
 
@@ -52,47 +53,20 @@ export type SeasonSubscribeModes = Record<number, SubscribeMode>
 export interface MediaSubscribeIdentity {
   mediaId: string
   mediaKey: string
-  source: string
+  source: MediaDataSource
 }
 
 /** 按媒体声明的主来源解析订阅身份，避免辅助 ID 覆盖原始识别源。 */
 export function getMediaSubscribeIdentity(media?: MediaInfo): MediaSubscribeIdentity | undefined {
-  if (!media) return undefined
-
-  const normalizeSource = (value?: string) => {
-    const source = (value || '').trim().toLowerCase()
-    return source === 'tmdb' ? 'themoviedb' : source
+  const mediaId = media?.media_id === undefined || media.media_id === null ? '' : String(media.media_id).trim()
+  if (!isMediaDataSource(media?.media_source) || !mediaId || !isValidMediaSourceId(mediaId, media.media_source)) {
+    return undefined
   }
-  const sourceIds: Record<string, unknown> = {
-    anilist: media.anilist_id,
-    bangumi: media.bangumi_id,
-    douban: media.douban_id,
-    themoviedb: media.tmdb_id,
+  return {
+    mediaId,
+    mediaKey: `${media.media_source}:${mediaId}`,
+    source: media.media_source,
   }
-  const buildIdentity = (identitySource: string, value: unknown): MediaSubscribeIdentity | undefined => {
-    if (value === undefined || value === null || !String(value).trim()) return undefined
-    const mediaId = String(value).trim()
-    const prefix = identitySource === 'themoviedb' ? 'tmdb' : identitySource
-    return {
-      mediaId,
-      mediaKey: `${prefix}:${mediaId}`,
-      source: identitySource,
-    }
-  }
-
-  const declaredSources = [media.media_source]
-    .map(normalizeSource)
-    .filter((source, index, sources) => source && sources.indexOf(source) === index)
-  for (const source of declaredSources) {
-    const declaredIdentity = buildIdentity(source, media.media_id ?? sourceIds[source])
-    if (declaredIdentity) return declaredIdentity
-  }
-
-  for (const fallbackSource of ['themoviedb', 'douban', 'bangumi', 'anilist']) {
-    const fallbackIdentity = buildIdentity(fallbackSource, sourceIds[fallbackSource])
-    if (fallbackIdentity) return fallbackIdentity
-  }
-  return undefined
 }
 
 // 生成跨媒体源稳定的订阅媒体标识。
@@ -164,7 +138,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
   // 获取当前媒体的统一订阅标识。
   function getMediaId() {
-    return getMediaSubscribeId(currentMedia())
+    return getMediaSubscribeIdentity(currentMedia())
   }
 
   // 获取主订阅入口默认对应的季号。
@@ -318,6 +292,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     // 艺术家仅用于继续浏览，其下作品必须按单曲或专辑分别订阅。
     if (!media || media.music_type === 'artist') return
     const identity = getMediaSubscribeIdentity(media)
+    if (!identity) return
 
     startNProgress()
     try {
@@ -326,13 +301,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         type: media.type,
         // 后端的订阅模型 year 为字符串，音乐的 year 是数字，需统一转字符串避免 422
         year: media.year?.toString() ?? '',
-        tmdbid: media.tmdb_id,
-        doubanid: media.douban_id,
-        bangumiid: media.bangumi_id,
-        anilistid: media.anilist_id,
-        media_source: identity?.source,
-        media_id: identity?.mediaId,
-        mediaid: identity?.mediaKey ?? '',
+        media_source: identity.source,
+        media_id: identity.mediaId,
         // 专辑订阅必须保留实体类型和曲目总数，后端据此校验整专资源并决定何时完成订阅。
         music_type: getMusicSubscribeType(media),
         total_tracks: getMusicSubscribeType(media) === 'album' ? media.total_tracks : undefined,
@@ -385,17 +355,23 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
     const media = currentMedia()
     if (!media) return
+    const identity = getMediaId()
+    if (!identity) return
     let title = media.title ?? ''
     if (media.type !== '电影' && season !== null) title = `${title} ${formatSeason(season.toString())}`
 
     startNProgress()
     try {
-      const result: { [key: string]: any } = await api.delete(`subscribe/media/${getMediaId()}`, {
-        params: {
-          season: media.type === '电影' ? null : season,
-          music_type: getMusicSubscribeType(media),
+      const result: { [key: string]: any } = await api.delete(
+        `subscribe/media/${encodeURIComponent(identity.mediaId)}`,
+        {
+          params: {
+            media_source: identity.source,
+            season: media.type === '电影' ? null : season,
+            music_type: getMusicSubscribeType(media),
+          },
         },
-      })
+      )
 
       if (result.success) {
         updateSubscribeStatus(media.type === '电影' ? null : season, false)
@@ -419,9 +395,12 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
   // 检查当前媒体指定季是否已订阅。
   async function checkSubscribe(season: number | null = null) {
+    const identity = getMediaId()
+    if (!identity) return false
     try {
-      const result: Subscribe = await api.get(`subscribe/media/${getMediaId()}`, {
+      const result: Subscribe = await api.get(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
         params: {
+          media_source: identity.source,
           season,
           title: currentMedia()?.title,
           music_type: getMusicSubscribeType(currentMedia()),
@@ -438,9 +417,12 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
   // 查询当前媒体指定季的订阅记录。
   async function querySubscribe(season: number | null = null) {
+    const identity = getMediaId()
+    if (!identity) return null
     try {
-      const result: Subscribe = await api.get(`subscribe/media/${getMediaId()}`, {
+      const result: Subscribe = await api.get(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
         params: {
+          media_source: identity.source,
           season,
           title: currentMedia()?.title,
           music_type: getMusicSubscribeType(currentMedia()),

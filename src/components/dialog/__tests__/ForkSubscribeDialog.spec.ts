@@ -62,18 +62,11 @@ const PosterStub = defineComponent({
   },
 })
 
-interface MediaIdentifiers {
-  anilistid?: number
-  bangumiid?: number
-  doubanid?: string
-  tmdbid?: number
-}
-
-const mediaDetailCases: Array<[string, MediaIdentifiers, string]> = [
-  ['TMDB', { tmdbid: 6301 }, 'tmdb:6301'],
-  ['Douban', { doubanid: 'db-6302', tmdbid: undefined }, 'douban:db-6302'],
-  ['Bangumi', { bangumiid: 6303, doubanid: undefined, tmdbid: undefined }, 'bangumi:6303'],
-  ['AniList', { anilistid: 6304, bangumiid: undefined, tmdbid: undefined }, 'anilist:6304'],
+const mediaDetailCases = [
+  ['TMDB', 'themoviedb', '6301'],
+  ['Douban', 'douban', 'db-6302'],
+  ['Bangumi', 'bangumi', '6303'],
+  ['AniList', 'anilist', '6304'],
 ]
 
 function createDeferred() {
@@ -373,32 +366,26 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
     expect(events.close).toHaveBeenCalledOnce()
   })
 
-  it.each(mediaDetailCases)(
-    'routes %s shares to their media details',
-    async (_source, identifiers, expectedMediaId) => {
-      const media: SubscribeShare = {
-        ...createSubscribeShare({
-          anilistid: identifiers.anilistid,
-          doubanid: identifiers.doubanid,
-          tmdbid: identifiers.tmdbid,
-        }),
-        bangumiid: identifiers.bangumiid,
-      }
-      server.use(followSubscribersSettingHandler([]))
-      const user = userEvent.setup()
-      await renderDialog(media)
+  it.each(mediaDetailCases)('routes %s shares to their media details', async (_source, mediaSource, mediaId) => {
+    const media = createSubscribeShare({
+      media_id: mediaId,
+      media_source: mediaSource as SubscribeShare['media_source'],
+    })
+    server.use(followSubscribersSettingHandler([]))
+    const user = userEvent.setup()
+    await renderDialog(media)
 
-      await user.click(screen.getByRole('button', { name: '查看媒体详情' }))
+    await user.click(screen.getByRole('button', { name: '查看媒体详情' }))
 
-      expect(mocks.routerPush).toHaveBeenCalledWith({
-        path: '/media',
-        query: {
-          mediaid: expectedMediaId,
-          title: media.name,
-          type: media.type,
-          year: media.year,
-        },
-      })
-    },
-  )
+    expect(mocks.routerPush).toHaveBeenCalledWith({
+      path: '/media',
+      query: {
+        media_id: mediaId,
+        media_source: mediaSource,
+        title: media.name,
+        type: media.type,
+        year: media.year,
+      },
+    })
+  })
 })

@@ -32,6 +32,8 @@ vi.mock('@/router', () => ({
 }))
 
 const API_BASE_URL = 'http://localhost/api/v1/'
+const musicBrainzRecordingId = '977e6978-139d-425c-bb98-6b0c62d1e45e'
+const secondMusicBrainzRecordingId = 'be9d9b1b-8c1d-4dbe-85a5-4176dd8e7b6c'
 const movieSiteListUrl = new URL('site/media/movie', API_BASE_URL).href
 const tvSiteListUrl = new URL('site/media/tv', API_BASE_URL).href
 const musicSiteListUrl = new URL('site/media/music', API_BASE_URL).href
@@ -224,7 +226,7 @@ describe('MediaCard', () => {
     const subscribeRequest = vi.fn<(url: URL) => void>()
     const existsRequest = vi.fn<(url: URL) => void>()
     server.use(
-      querySubscribeByMediaHandler('tmdb:9101', { id: 71, season: 2 }, 200, subscribeRequest),
+      querySubscribeByMediaHandler('9101', { id: 71, season: 2 }, 200, subscribeRequest),
       mediaExistsHandler({ data: { item: { id: 'library-item' } }, success: true }, 200, existsRequest),
     )
 
@@ -240,11 +242,13 @@ describe('MediaCard', () => {
     })
     expect(subscribeRequest.mock.calls[0][0].searchParams.get('season')).toBe('2')
     expect(subscribeRequest.mock.calls[0][0].searchParams.get('title')).toBe('视口状态剧集')
+    expect(subscribeRequest.mock.calls[0][0].searchParams.get('media_source')).toBe('themoviedb')
     expect(Object.fromEntries(existsRequest.mock.calls[0][0].searchParams)).toEqual({
+      media_id: '9101',
+      media_source: 'themoviedb',
       mtype: '电视剧',
       season: '2',
       title: '视口状态剧集',
-      tmdbid: '9101',
       year: '2026',
     })
     await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
@@ -256,7 +260,7 @@ describe('MediaCard', () => {
     const subscribeRequest = vi.fn<(url: URL) => void>()
     const existsRequest = vi.fn<(url: URL) => void>()
     server.use(
-      querySubscribeByMediaHandler('tmdb:9102', { id: 72 }, 200, subscribeRequest),
+      querySubscribeByMediaHandler('9102', { id: 72 }, 200, subscribeRequest),
       mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
     )
 
@@ -280,23 +284,36 @@ describe('MediaCard', () => {
   })
 
   it.each([
-    ['TMDB', createMediaInfo({ season: 3, tmdb_id: 9201, type: '电视剧' }), 'tmdb:9201', '3'],
+    ['TMDB', createMediaInfo({ season: 3, tmdb_id: 9201, type: '电视剧' }), '9201', '3'],
     [
       'Douban',
-      createMediaInfo({ douban_id: 'db-9202', season: undefined, tmdb_id: undefined }),
-      'douban:db-9202',
+      createMediaInfo({
+        douban_id: 'db-9202',
+        media_id: 'db-9202',
+        media_source: 'douban',
+        season: undefined,
+        tmdb_id: undefined,
+      }),
+      'db-9202',
       null,
     ],
     [
       'Bangumi',
-      createMediaInfo({ bangumi_id: '9203', season: 1, tmdb_id: undefined, type: '电视剧' }),
-      'bangumi:9203',
+      createMediaInfo({
+        bangumi_id: '9203',
+        media_id: '9203',
+        media_source: 'bangumi',
+        season: 1,
+        tmdb_id: undefined,
+        type: '电视剧',
+      }),
+      '9203',
       '1',
     ],
     [
-      'extension',
-      createMediaInfo({ media_id: 'item-9204', media_source: 'custom' as never, tmdb_id: undefined }),
-      'custom:item-9204',
+      'Bilibili',
+      createMediaInfo({ media_id: 'item-9204', media_source: 'bilibili', tmdb_id: undefined }),
+      'item-9204',
       null,
     ],
   ])('queries the current %s media identifier and season', async (_source, media, mediaId, season) => {
@@ -311,6 +328,7 @@ describe('MediaCard', () => {
 
     await waitFor(() => expect(subscribeRequest).toHaveBeenCalledOnce())
     expect(subscribeRequest.mock.calls[0][0].searchParams.get('season')).toBe(season)
+    expect(subscribeRequest.mock.calls[0][0].searchParams.get('media_source')).toBe(media.media_source)
   })
 
   it('skips status requests for collections and releases observer and touch listeners on unmount', async () => {
@@ -323,7 +341,7 @@ describe('MediaCard', () => {
     const addListener = vi.spyOn(document, 'addEventListener')
     const removeListener = vi.spyOn(document, 'removeEventListener')
     server.use(
-      querySubscribeByMediaHandler('tmdb:9301', {}, 200, subscribeRequest),
+      querySubscribeByMediaHandler('9301', {}, 200, subscribeRequest),
       mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
     )
 
@@ -346,7 +364,7 @@ describe('MediaCard', () => {
       'media details',
       createMediaInfo({ title: '详情电影', tmdb_id: 9401 }),
       '/media',
-      { mediaid: 'tmdb:9401', title: '详情电影', type: '电影', year: '2026' },
+      { media_id: '9401', media_source: 'themoviedb', title: '详情电影', type: '电影', year: '2026' },
     ],
     [
       'collection browse',
@@ -367,7 +385,7 @@ describe('MediaCard', () => {
   it('opens music detail and skips media-library existence checks', async () => {
     const media = createMediaInfo({
       artist: '周杰伦',
-      media_id: 'recording-1',
+      media_id: musicBrainzRecordingId,
       media_source: 'musicbrainz',
       title: '晴天',
       tmdb_id: undefined,
@@ -376,7 +394,7 @@ describe('MediaCard', () => {
     const subscribeRequest = vi.fn<(url: URL) => void>()
     const existsRequest = vi.fn<(url: URL) => void>()
     server.use(
-      querySubscribeByMediaHandler('musicbrainz:recording-1', {}, 200, subscribeRequest),
+      querySubscribeByMediaHandler(musicBrainzRecordingId, {}, 200, subscribeRequest),
       mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequest),
     )
 
@@ -395,7 +413,7 @@ describe('MediaCard', () => {
         path: '/music/detail',
         query: {
           media_source: 'musicbrainz',
-          mediaid: 'recording-1',
+          media_id: musicBrainzRecordingId,
           title: '晴天',
         },
       }),
@@ -405,7 +423,7 @@ describe('MediaCard', () => {
   it.each([
     ['TheAudioDB', 'theaudiodb', 'album-2109619', 'Parachutes'],
     ['豆瓣音乐', 'doubanmusic', '1401853', '范特西'],
-  ])(
+  ] as const)(
     'keeps %s identity for explore-card detail, subscribe, and resource actions',
     async (_label, source, mediaId, title) => {
       const media = createMediaInfo({
@@ -422,7 +440,7 @@ describe('MediaCard', () => {
       const subscribeRequest = vi.fn<(url: URL) => void>()
       const created = vi.fn<(payload: Record<string, unknown>) => void>()
       server.use(
-        querySubscribeByMediaHandler(`${source}:${mediaId}`, {}, 200, subscribeRequest),
+        querySubscribeByMediaHandler(mediaId, {}, 200, subscribeRequest),
         createSubscribeHandler({ data: { id: 101 }, success: true }, 200, created),
         defaultSubscribeConfigHandler('音乐', { show_edit_dialog: false }),
       )
@@ -439,7 +457,7 @@ describe('MediaCard', () => {
       await waitFor(() =>
         expect(mocks.routerPush).toHaveBeenCalledWith({
           path: '/music/album',
-          query: { media_source: source, mediaid: mediaId, title },
+          query: { media_id: mediaId, media_source: source, title },
         }),
       )
 
@@ -458,7 +476,8 @@ describe('MediaCard', () => {
         expect(mocks.routerPush).toHaveBeenCalledWith({
           path: '/resource',
           query: expect.objectContaining({
-            keyword: `${source}:${mediaId}`,
+            media_id: mediaId,
+            media_source: source,
             music_type: 'album',
             sites: '21',
             type: '音乐',
@@ -470,7 +489,7 @@ describe('MediaCard', () => {
 
   it('uses an album placeholder instead of the movie fallback image for music without a cover', async () => {
     const media = createMediaInfo({
-      media_id: 'recording-2',
+      media_id: secondMusicBrainzRecordingId,
       media_source: 'musicbrainz',
       poster_path: undefined,
       title: '无封面歌曲',
@@ -497,7 +516,8 @@ describe('MediaCard', () => {
         path: '/resource',
         query: {
           area: 'title',
-          keyword: 'tmdb:9501',
+          media_id: '9501',
+          media_source: 'themoviedb',
           season: 4,
           sites: '3,5',
           title: '直接搜索剧集',
@@ -598,14 +618,22 @@ describe('MediaCard', () => {
     const media = reactive(createMediaInfo({ season: 2, title: '多季剧集', tmdb_id: 9551, type: '电视剧' }))
     const subscribeListRequest = vi.fn<(url: URL) => void>()
     server.use(
-      querySubscribeByMediaHandler('tmdb:9551', { id: 81, season: 2 }),
+      querySubscribeByMediaHandler('9551', { id: 81, season: 2 }),
       mediaExistsHandler({ data: { item: {} }, success: false }),
       subscribeListHandler(
         [
-          { best_version: 0, id: 81, season: 3, tmdbid: 9551, type: '电视剧' },
-          { best_version: 1, best_version_full: 1, id: 82, season: 1, tmdbid: 9551, type: '电视剧' },
-          { id: 83, season: 4, tmdbid: 9999, type: '电视剧' },
-          { id: 84, tmdbid: 9551, type: '电影' },
+          { best_version: 0, id: 81, media_id: '9551', media_source: 'themoviedb', season: 3, type: '电视剧' },
+          {
+            best_version: 1,
+            best_version_full: 1,
+            id: 82,
+            media_id: '9551',
+            media_source: 'themoviedb',
+            season: 1,
+            type: '电视剧',
+          },
+          { id: 83, media_id: '9999', media_source: 'themoviedb', season: 4, type: '电视剧' },
+          { id: 84, media_id: '9551', media_source: 'themoviedb', type: '电影' },
         ],
         200,
         subscribeListRequest,
@@ -643,20 +671,20 @@ describe('MediaCard', () => {
     })
   })
 
-  it('matches custom media IDs when collecting subscribed TV seasons', async () => {
+  it('matches a fixed extension media source when collecting subscribed TV seasons', async () => {
     const media = createMediaInfo({
       media_id: 'series-9553',
-      media_source: 'custom' as never,
+      media_source: 'bilibili',
       season: 2,
       tmdb_id: undefined,
       type: '电视剧',
     })
     server.use(
-      querySubscribeByMediaHandler('custom:series-9553', { id: 91, season: 2 }),
+      querySubscribeByMediaHandler('series-9553', { id: 91, season: 2 }),
       mediaExistsHandler({ data: { item: {} }, success: false }),
       subscribeListHandler([
-        { id: 91, mediaid: 'custom:series-9553', season: 2, type: '电视剧' },
-        { id: 92, mediaid: 'custom:other', season: 5, type: '电视剧' },
+        { id: 91, media_id: 'series-9553', media_source: 'bilibili', season: 2, type: '电视剧' },
+        { id: 92, media_id: 'other', media_source: 'bilibili', season: 5, type: '电视剧' },
       ]),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
         HttpResponse.json({ data: { value: {} }, success: true }),
@@ -684,7 +712,7 @@ describe('MediaCard', () => {
         tmdb_id: undefined,
         type: '电视剧',
       }),
-      'tmdb:series-9554',
+      'series-9554',
       [
         { id: 93, media_id: 'series-9554', media_source: 'themoviedb', season: 4, type: '电视剧' },
         { id: 94, media_id: 'other', media_source: 'themoviedb', season: 5, type: '电视剧' },
@@ -692,12 +720,19 @@ describe('MediaCard', () => {
       [4],
     ],
     [
-      'legacy AniList identity',
-      createMediaInfo({ anilist_id: 154588, season: 2, media_source: 'anilist', tmdb_id: undefined, type: '电视剧' }),
-      'anilist:154588',
+      'AniList identity',
+      createMediaInfo({
+        anilist_id: 154588,
+        media_id: '154588',
+        season: 2,
+        media_source: 'anilist',
+        tmdb_id: undefined,
+        type: '电视剧',
+      }),
+      '154588',
       [
-        { anilistid: 154588, id: 95, season: 1, type: '电视剧' },
-        { anilistid: 154589, id: 96, season: 3, type: '电视剧' },
+        { id: 95, media_id: '154588', media_source: 'anilist', season: 1, type: '电视剧' },
+        { id: 96, media_id: '154589', media_source: 'anilist', season: 3, type: '电视剧' },
       ],
       [1],
     ],

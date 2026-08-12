@@ -91,11 +91,34 @@ describe('browse page', () => {
     await renderBrowse(['person', 'search'], query)
 
     expect(screen.getByRole('heading', { name: '演员: 张三' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '人物 browse 列表' })).toHaveAttribute(
-      'data-api-path',
-      'person/search',
-    )
+    expect(screen.getByRole('region', { name: '人物 browse 列表' })).toHaveAttribute('data-api-path', 'person/search')
     expect(projectedQuery('人物 browse 查询')).toEqual(query)
     expect(screen.queryByRole('region', { name: '媒体 browse 列表' })).not.toBeInTheDocument()
+  })
+
+  it('normalizes only unified media search sources into a deduplicated enum array', async () => {
+    await renderBrowse(['media', 'search'], {
+      media_source: 'themoviedb,unknown,douban,themoviedb',
+      page: '4',
+      title: '多来源搜索',
+      type: 'movie',
+    })
+
+    expect(projectedQuery('媒体 browse 查询')).toEqual({
+      media_source: ['themoviedb', 'douban'],
+      page: '4',
+      title: '多来源搜索',
+      type: 'movie',
+    })
+  })
+
+  it('drops an invalid media source only from unified media search', async () => {
+    await renderBrowse(['media', 'search'], {
+      media_source: 'unknown',
+      title: '无有效来源',
+      type: 'movie',
+    })
+
+    expect(projectedQuery('媒体 browse 查询')).toEqual({ title: '无有效来源', type: 'movie' })
   })
 })

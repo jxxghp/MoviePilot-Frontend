@@ -2,7 +2,7 @@
 import type { PropType } from 'vue'
 import { formatDateDifference, formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
-import type { SubtitleInfo } from '@/api/types'
+import type { MediaDataSource, SubtitleInfo } from '@/api/types'
 import { getCachedSiteIcon } from '@/utils/siteIconCache'
 import { downloadedSubtitleMap, markSubtitleDownloaded } from '@/utils/subtitleDownloadCache'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -18,6 +18,8 @@ const { t } = useI18n()
 // 输入参数
 const props = defineProps({
   subtitle: Object as PropType<SubtitleInfo>,
+  mediaSource: String as PropType<MediaDataSource>,
+  mediaId: String,
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -68,6 +70,8 @@ async function handleAddDownload() {
     {
       title: subtitle.value?.title,
       subtitle: subtitle.value,
+      mediaSource: props.mediaSource,
+      mediaId: props.mediaId,
     },
     {
       done: addDownloadSuccess,

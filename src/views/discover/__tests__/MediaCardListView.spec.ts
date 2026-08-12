@@ -192,6 +192,23 @@ describe('MediaCardListView', () => {
     expect(requests[0].searchParams.get('genre')).toBe('科幻')
   })
 
+  it('serializes media source arrays as repeated query keys without brackets', async () => {
+    setScrollHeight(() => 900)
+    const requests: URL[] = []
+    server.use(
+      http.get(LIST_URL, ({ request }) => {
+        requests.push(new URL(request.url))
+        return HttpResponse.json([createMediaInfo({ title: '多来源结果' })])
+      }),
+    )
+
+    await renderList({ params: { media_source: ['musicbrainz', 'theaudiodb'] } })
+
+    expect(await screen.findByRole('article', { name: '媒体卡片 多来源结果' })).toBeInTheDocument()
+    expect(requests[0].searchParams.getAll('media_source')).toEqual(['musicbrainz', 'theaudiodb'])
+    expect(requests[0].searchParams.has('media_source[]')).toBe(false)
+  })
+
   it('loads only one page when the viewport is already scrollable', async () => {
     setScrollHeight(() => 900)
     const requestedPages: string[] = []

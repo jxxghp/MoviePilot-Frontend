@@ -197,7 +197,7 @@ describe('TransferQueueDialog', () => {
     expect(screen.queryByText('来源 A.mkv')).not.toBeInTheDocument()
   })
 
-  it('uses canonical built-in and custom identities before falling back to the title', async () => {
+  it('uses canonical built-in identities before falling back to the title', async () => {
     const builtIn = createQueueItem({
       id: 7301,
       path: '/downloads/built-in.mkv',
@@ -210,7 +210,7 @@ describe('TransferQueueDialog', () => {
       title: '自定义来源',
       titleYear: '重复标题 (2026)',
     })
-    custom.media.media_source = 'custom-source'
+    custom.media.media_source = 'bilibili'
     custom.media.media_id = 'custom-7302'
     const fallback = createQueueItem({
       id: 7399,

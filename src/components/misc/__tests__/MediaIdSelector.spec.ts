@@ -20,6 +20,7 @@ describe('MediaIdSelector layout', () => {
     mocks.apiGet.mockResolvedValue([
       {
         media_id: 'tmdb-1',
+        media_source: 'themoviedb',
         overview: '测试简介',
         poster_path: '',
         title: 'Hello Mini',
@@ -29,6 +30,7 @@ describe('MediaIdSelector layout', () => {
     ])
 
     const { container } = await renderWithProviders(MediaIdSelector, {
+      props: { type: 'themoviedb' },
       global: {
         stubs: {
           VDialogCloseBtn: {
@@ -52,6 +54,15 @@ describe('MediaIdSelector layout', () => {
     await fireEvent.update(input, 'hello')
     await fireEvent.keyDown(input, { key: 'Enter' })
     expect(await screen.findByText('Hello Mini（2019）')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
+      params: {
+        count: 20,
+        media_source: 'themoviedb',
+        page: 1,
+        title: 'hello',
+        type: 'media',
+      },
+    })
 
     const results = container.querySelector('.media-id-selector__results')
     expect(results).toBeInstanceOf(HTMLElement)
@@ -63,6 +74,7 @@ describe('MediaIdSelector layout', () => {
         album: '叶惠美',
         artist: '周杰伦',
         media_id: 'album-1',
+        media_source: 'musicbrainz',
         music_type: 'album',
         title: '叶惠美',
         type: '音乐',
@@ -72,6 +84,7 @@ describe('MediaIdSelector layout', () => {
         album: '叶惠美',
         artist: '周杰伦',
         media_id: 'recording-1',
+        media_source: 'musicbrainz',
         music_type: 'recording',
         title: '以父之名',
         type: '音乐',
@@ -79,6 +92,7 @@ describe('MediaIdSelector layout', () => {
     ])
 
     const { container } = await renderWithProviders(MediaIdSelector, {
+      props: { type: 'musicbrainz' },
       global: {
         stubs: {
           VDialogCloseBtn: {
@@ -98,5 +112,69 @@ describe('MediaIdSelector layout', () => {
       item.textContent?.trim(),
     )
     expect(subtitles).toEqual(['音乐 周杰伦', '音乐 周杰伦 · 叶惠美'])
+  })
+
+  it('does not infer a primary identity from auxiliary provider IDs', async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        douban_id: 'legacy-douban-id',
+        title: '仅辅助 ID',
+        type: '电影',
+      },
+    ])
+
+    await renderWithProviders(MediaIdSelector, {
+      props: { type: 'douban' },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+    const input = screen.getByPlaceholderText('输入媒体名称')
+    await fireEvent.update(input, '辅助')
+    await fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
+      params: {
+        count: 20,
+        media_source: 'douban',
+        page: 1,
+        title: '辅助',
+        type: 'media',
+      },
+    })
+    expect(screen.queryByText('仅辅助 ID')).not.toBeInTheDocument()
+  })
+
+  it('ignores results whose declared source does not match the requested source', async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        media_id: '42',
+        media_source: 'themoviedb',
+        title: '跨源结果',
+        type: '电影',
+      },
+    ])
+
+    await renderWithProviders(MediaIdSelector, {
+      props: { type: 'douban' },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+    const input = screen.getByPlaceholderText('输入媒体名称')
+    await fireEvent.update(input, '跨源')
+    await fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.queryByText('跨源结果')).not.toBeInTheDocument()
   })
 })

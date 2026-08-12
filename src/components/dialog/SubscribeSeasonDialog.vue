@@ -7,7 +7,6 @@ import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 import {
-  getMediaSubscribeId,
   getMediaSubscribeIdentity,
   type SeasonSubscribeModes,
   type SubscribeMode,
@@ -171,16 +170,11 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
   return options
 })
 
-// 获得mediaid
-function getMediaId() {
-  return getMediaSubscribeId(props.media)
-}
-
 // 查询所有剧集组
 async function getEpisodeGroups() {
   if (getMediaSubscribeIdentity(props.media)?.source !== 'themoviedb') return
   if (!props.media?.tmdb_id) {
-    console.warn('tmdbid is not set or is empty')
+    console.warn('tmdb_id is not set or is empty')
     return
   }
   try {
@@ -194,11 +188,14 @@ async function getEpisodeGroups() {
 
 // 查询媒体的季信息
 async function getMediaSeasons() {
+  const identity = getMediaSubscribeIdentity(props.media)
+  if (!identity) return
   isRefreshed.value = false
   try {
     seasonInfos.value = await api.get('media/seasons', {
       params: {
-        mediaid: getMediaId(),
+        media_source: identity.source,
+        media_id: identity.mediaId,
         title: props.media?.title,
         year: props.media?.year,
         season: props.media?.season,

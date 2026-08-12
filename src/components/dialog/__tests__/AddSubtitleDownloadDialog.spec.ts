@@ -1,4 +1,4 @@
-import type { SubtitleInfo, TransferDirectoryConf } from '@/api/types'
+import type { MediaDataSource, SubtitleInfo, TransferDirectoryConf } from '@/api/types'
 import AddSubtitleDownloadDialog from '@/components/dialog/AddSubtitleDownloadDialog.vue'
 import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -30,7 +30,7 @@ vi.mock('vue-toastification', () => ({
 const SelectStub = defineComponent({
   name: 'NativeSelectStub',
   props: {
-    items: { type: Array as PropType<string[]>, default: () => [] },
+    items: { type: Array as PropType<Array<string | { title: string; value: string }>>, default: () => [] },
     label: String,
     modelValue: { type: String, default: '' },
   },
@@ -48,7 +48,11 @@ const SelectStub = defineComponent({
           },
           [
             h('option', { value: '' }, '默认'),
-            ...props.items.map(item => h('option', { key: item, value: item }, item)),
+            ...props.items.map(item => {
+              const value = typeof item === 'string' ? item : item.value
+              const title = typeof item === 'string' ? item : item.title
+              return h('option', { key: value, value }, title)
+            }),
           ],
         ),
       ])
@@ -164,10 +168,14 @@ function subtitleDownloadHandler(
 
 async function renderDialog({
   directories = [],
+  mediaId = '6001',
+  mediaSource,
   recognizeSource = 'themoviedb',
   subtitle = createSubtitle(),
 }: {
   directories?: TransferDirectoryConf[]
+  mediaId?: string | null
+  mediaSource?: MediaDataSource
   recognizeSource?: string
   subtitle?: SubtitleInfo
 } = {}) {
@@ -186,6 +194,7 @@ async function renderDialog({
         VCombobox: SelectStub,
         VDialog: DialogStub,
         VDialogCloseBtn: DialogCloseButtonStub,
+        VSelect: SelectStub,
         VTextField: TextFieldStub,
       },
     },
@@ -201,6 +210,8 @@ async function renderDialog({
       onClose: events.close,
       onDone: events.done,
       onError: events.error,
+      mediaId: mediaId ?? undefined,
+      mediaSource,
       subtitle,
       title: '测试电影',
     },
@@ -269,9 +280,8 @@ describe('AddSubtitleDownloadDialog submissions', () => {
     server.use(subtitleDownloadHandler({ data: null, success: true }, 200, submitted))
     const user = userEvent.setup()
 
-    await renderDialog({ recognizeSource: 'douban' })
+    await renderDialog({ mediaId: null, recognizeSource: 'douban' })
 
-    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
     await user.type(screen.getByLabelText('豆瓣编号'), '13579')
     await user.click(screen.getByRole('button', { name: '下载字幕' }))
 
@@ -291,13 +301,13 @@ describe('AddSubtitleDownloadDialog submissions', () => {
     const user = userEvent.setup()
     const { events } = await renderDialog({
       directories: [createDirectory({ download_path: '/subtitles/remote', storage: 's3' })],
+      mediaId: null,
       recognizeSource: 'anilist',
       subtitle,
     })
 
     await screen.findByRole('option', { name: 's3:/subtitles/remote' })
     await user.selectOptions(screen.getByLabelText('保存目录（自动）'), 's3:/subtitles/remote')
-    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
     await user.click(screen.getByRole('button', { name: '查询媒体编号' }))
     await user.click(screen.getByRole('button', { name: '选择媒体编号' }))
     const submitButton = screen.getByRole('button', { name: '下载字幕' })
@@ -325,10 +335,25 @@ describe('AddSubtitleDownloadDialog submissions', () => {
     expect(submitButton).not.toBeDisabled()
   })
 
+  it('submits the exact-search identity passed by the resource result', async () => {
+    const submitted = vi.fn()
+    server.use(subtitleDownloadHandler({ data: null, success: true }, 200, submitted))
+    const user = userEvent.setup()
+
+    await renderDialog({ mediaId: '84', mediaSource: 'themoviedb', recognizeSource: 'douban' })
+    await user.click(screen.getByRole('button', { name: '下载字幕' }))
+
+    await waitFor(() => expect(submitted).toHaveBeenCalledOnce())
+    expect(submitted.mock.calls[0][0]).toMatchObject({
+      media_id: '84',
+      media_source: 'themoviedb',
+    })
+  })
+
   it('treats success:false at HTTP 200 as a business failure', async () => {
     server.use(subtitleDownloadHandler({ data: null, message: '签名已过期', success: false }))
     const user = userEvent.setup()
-    const { events } = await renderDialog()
+    const { events } = await renderDialog({ mediaSource: 'themoviedb' })
 
     await user.click(screen.getByRole('button', { name: '下载字幕' }))
 
@@ -343,7 +368,7 @@ describe('AddSubtitleDownloadDialog submissions', () => {
   it('clears loading and progress after an HTTP failure without emitting done', async () => {
     server.use(subtitleDownloadHandler({ message: '服务异常', success: false }, 500))
     const user = userEvent.setup()
-    const { events } = await renderDialog()
+    const { events } = await renderDialog({ mediaSource: 'themoviedb' })
 
     await user.click(screen.getByRole('button', { name: '下载字幕' }))
 

@@ -411,21 +411,11 @@ describe('SubscribeCard interaction boundaries', () => {
   })
 
   it.each([
-    ['TMDB before all fallbacks', { bangumiid: 33, doubanid: '22', mediaid: 'custom:44', tmdbid: 11 }, 'tmdb:11'],
-    ['Douban before Bangumi', { bangumiid: 33, doubanid: '22', mediaid: 'custom:44', tmdbid: 0 }, 'douban:22'],
-    ['Bangumi before custom', { bangumiid: 33, doubanid: undefined, mediaid: 'custom:44', tmdbid: 0 }, 'bangumi:33'],
-    [
-      'AniList before legacy custom',
-      { anilistid: 55, bangumiid: undefined, mediaid: 'custom:44', tmdbid: 0 },
-      'anilist:55',
-    ],
-    ['selected primary identity', { media_id: '66', media_source: 'anilist', tmdbid: 11 }, 'anilist:66'],
-    [
-      'custom media ID last',
-      { bangumiid: undefined, doubanid: undefined, mediaid: 'custom:44', tmdbid: 0 },
-      'custom:44',
-    ],
-  ])('routes media details with %s', async (_case, identifiers, expectedMediaId) => {
+    ['TMDB', { media_id: '11', media_source: 'themoviedb' }, 'themoviedb', '11'],
+    ['Douban', { media_id: '22', media_source: 'douban' }, 'douban', '22'],
+    ['Bangumi', { media_id: '33', media_source: 'bangumi' }, 'bangumi', '33'],
+    ['AniList', { media_id: '55', media_source: 'anilist' }, 'anilist', '55'],
+  ] as const)('routes media details with %s', async (_case, identifiers, mediaSource, mediaId) => {
     const { container, media } = await renderCard(identifiers)
 
     await chooseMenuItem(container, '媒体详情')
@@ -433,7 +423,8 @@ describe('SubscribeCard interaction boundaries', () => {
     expect(mocks.routerPush).toHaveBeenCalledWith({
       path: '/media',
       query: {
-        mediaid: expectedMediaId,
+        media_id: mediaId,
+        media_source: mediaSource,
         title: media.name,
         type: media.type,
         year: media.year,

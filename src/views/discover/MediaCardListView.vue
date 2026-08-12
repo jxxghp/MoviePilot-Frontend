@@ -43,7 +43,7 @@ const seenKeys = new Set<string>()
 const seenPageSignatures = new Set<string>()
 
 // 拼装参数
-function getParams() {
+function getParams(): Record<string, unknown> {
   return {
     ...props.params,
     page: page.value,
@@ -84,8 +84,10 @@ function appendData(items: MediaInfo[]) {
 }
 
 async function loadPageData() {
+  const params = getParams()
   const rawData: MediaInfo[] = await api.get(props.apipath, {
-    params: getParams(),
+    params,
+    ...(Array.isArray(params.media_source) ? { paramsSerializer: { indexes: null } } : {}),
   })
   const pageSignature = [...new Set(rawData.map(getMediaIdentity))].sort().join('\n')
   const isTerminal = rawData.length === 0 || seenPageSignatures.has(pageSignature)

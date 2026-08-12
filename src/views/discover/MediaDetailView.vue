@@ -5,6 +5,7 @@ import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
 import type {
   ApiResponse,
+  MediaDataSource,
   MediaInfo,
   MediaRelease,
   MediaSeason,
@@ -41,12 +42,13 @@ const { t } = useI18n()
 const $toast = useToast()
 
 // 输入参数
-const mediaProps = defineProps({
-  mediaid: String,
-  title: String,
-  year: [String, Number],
-  type: String,
-})
+const mediaProps = defineProps<{
+  mediaSource?: MediaDataSource
+  mediaId?: string
+  title?: string
+  year?: string | number
+  type?: string
+}>()
 
 // 从 provide 中获取全局设置
 // 全局设置
@@ -200,7 +202,7 @@ async function querySelectedSites() {
   }
 }
 
-// 获得mediaid
+// 获取当前详情的统一媒体身份缓存键
 function getMediaId() {
   return getMediaSubscribeId(mediaDetail.value)
 }
@@ -217,42 +219,46 @@ function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season
 
 // 调用API查询详情
 async function getMediaDetail() {
-  if (mediaProps.mediaid && mediaProps.type) {
+  if (!mediaProps.mediaSource || !mediaProps.mediaId || !mediaProps.type) {
+    mediaDetail.value = {} as MediaInfo
     detailLoadFailed.value = false
-    isRefreshed.value = false
-    try {
-      mediaDetail.value = await api.get(`media/${mediaProps.mediaid}`, {
-        params: {
-          title: mediaProps.title,
-          year: mediaProps.year,
-          type_name: mediaProps.type,
-        },
-      })
-      if (!hasMediaIdentity()) return
+    isRefreshed.value = true
+    return
+  }
 
-      const supportsEpisodeGroups = getMediaSubscribeIdentity(mediaDetail.value)?.source === 'themoviedb'
-      selectedEpisodeGroup.value = supportsEpisodeGroups ? mediaDetail.value.episode_group || '' : ''
-      if (!supportsEpisodeGroups) {
-        episodeGroups.value = []
-        episodeGroupSeasons.value = []
-      }
-      if (mediaDetail.value.type === '电视剧' && supportsEpisodeGroups && mediaDetail.value.tmdb_id) {
-        getEpisodeGroups()
-        if (selectedEpisodeGroup.value) loadEpisodeGroupSeasons(selectedEpisodeGroup.value)
-      }
+  detailLoadFailed.value = false
+  isRefreshed.value = false
+  try {
+    mediaDetail.value = await api.get(`media/${encodeURIComponent(mediaProps.mediaId)}`, {
+      params: {
+        media_source: mediaProps.mediaSource,
+        type_name: mediaProps.type,
+      },
+    })
+    if (!hasMediaIdentity()) return
 
-      // 检查存在状态
-      checkExists()
-      if (mediaDetail.value.type === '电视剧') checkSeasonsNotExists()
-      // 检查订阅状态
-      if (mediaDetail.value.type === '电影') checkMovieSubscribed()
-      else checkSeasonsSubscribed()
-    } catch (error) {
-      console.error(error)
-      detailLoadFailed.value = true
-    } finally {
-      isRefreshed.value = true
+    const supportsEpisodeGroups = getMediaSubscribeIdentity(mediaDetail.value)?.source === 'themoviedb'
+    selectedEpisodeGroup.value = supportsEpisodeGroups ? mediaDetail.value.episode_group || '' : ''
+    if (!supportsEpisodeGroups) {
+      episodeGroups.value = []
+      episodeGroupSeasons.value = []
     }
+    if (mediaDetail.value.type === '电视剧' && supportsEpisodeGroups && mediaDetail.value.tmdb_id) {
+      getEpisodeGroups()
+      if (selectedEpisodeGroup.value) loadEpisodeGroupSeasons(selectedEpisodeGroup.value)
+    }
+
+    // 检查存在状态
+    checkExists()
+    if (mediaDetail.value.type === '电视剧') checkSeasonsNotExists()
+    // 检查订阅状态
+    if (mediaDetail.value.type === '电影') checkMovieSubscribed()
+    else checkSeasonsSubscribed()
+  } catch (error) {
+    console.error(error)
+    detailLoadFailed.value = true
+  } finally {
+    isRefreshed.value = true
   }
 }
 
@@ -297,7 +303,8 @@ async function checkExists() {
   try {
     const result: ApiResponse<{ item: { id: string } }> = await api.get('mediaserver/exists', {
       params: {
-        tmdbid: mediaDetail.value.tmdb_id,
+        media_source: mediaDetail.value.media_source,
+        media_id: mediaDetail.value.media_id,
         title: mediaDetail.value.title,
         year: mediaDetail.value.year,
         season: mediaDetail.value.season,
@@ -324,19 +331,10 @@ async function checkSubscribe(season: number | null = null) {
 
 // 判断订阅记录是否属于当前媒体
 function isSameSubscribeMedia(subscribe: Subscribe) {
-  const mediaId = getMediaId()
-  if (subscribe.media_source && subscribe.media_id) {
-    const prefix = subscribe.media_source === 'themoviedb' ? 'tmdb' : subscribe.media_source
-    return mediaId === `${prefix}:${subscribe.media_id}`
-  }
-  if (subscribe.mediaid) return mediaId === subscribe.mediaid
-  if (mediaDetail.value?.tmdb_id && subscribe.tmdbid) return mediaDetail.value.tmdb_id === subscribe.tmdbid
-  if (mediaDetail.value?.douban_id && subscribe.doubanid) return mediaDetail.value.douban_id === subscribe.doubanid
-  if (mediaDetail.value?.bangumi_id && subscribe.bangumiid) return mediaDetail.value.bangumi_id === subscribe.bangumiid
-  if (mediaDetail.value?.anilist_id && subscribe.anilistid) {
-    return mediaDetail.value.anilist_id === subscribe.anilistid
-  }
-  return false
+  const identity = getMediaSubscribeIdentity(mediaDetail.value)
+  return Boolean(
+    identity && subscribe.media_source === identity.source && String(subscribe.media_id || '') === identity.mediaId,
+  )
 }
 
 // 检查所有季的缺失状态
@@ -702,13 +700,15 @@ function joinArray(arr: string[]) {
 
 // 开始搜索
 function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: MediaSearchOptions = {}) {
-  const keyword = getMediaId()
+  const identity = getMediaSubscribeIdentity(mediaDetail.value)
+  if (!identity) return
   const season = options.season ?? mediaDetail.value.season
   const episode = options.episode ?? null
   router.push({
     path: '/resource',
     query: {
-      keyword,
+      media_source: identity.source,
+      media_id: identity.mediaId,
       type: mediaDetail.value.type,
       area: searchType.value,
       title: mediaDetail.value.title,

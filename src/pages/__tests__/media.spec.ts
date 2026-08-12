@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 const MediaDetailViewStub = defineComponent({
   name: 'MediaDetailView',
   props: {
-    mediaid: String,
+    mediaId: String,
+    mediaSource: String,
     title: String,
     type: String,
     year: String,
@@ -35,14 +36,16 @@ function projectedProps() {
 describe('media page', () => {
   it('projects route query values as strings to the detail view', async () => {
     await renderPage({
-      mediaid: ['tmdb:101', 'ignored'],
+      media_id: ['101', 'ignored'],
+      media_source: 'themoviedb',
       title: '测试电影',
       type: '电影',
       year: '2026',
     })
 
     expect(projectedProps()).toEqual({
-      mediaid: 'tmdb:101,ignored',
+      mediaId: '101,ignored',
+      mediaSource: 'themoviedb',
       title: '测试电影',
       type: '电影',
       year: '2026',
@@ -53,5 +56,11 @@ describe('media page', () => {
     await renderPage({})
 
     expect(projectedProps()).toEqual({})
+  })
+
+  it('drops an unknown media source at the route boundary', async () => {
+    await renderPage({ media_id: '101', media_source: 'custom-source', type: '电影' })
+
+    expect(projectedProps()).toEqual({ mediaId: '101', type: '电影' })
   })
 })

@@ -12,6 +12,11 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }))
 
+const recordingId = '977e6978-139d-425c-bb98-6b0c62d1e45e'
+const secondRecordingId = 'be9d9b1b-8c1d-4dbe-85a5-4176dd8e7b6c'
+const albumId = '695f5ac8-cfd5-4e7b-96a0-6d545f5c9f17'
+const artistId = 'b47800e7-28e1-4df9-8519-fd4f47a29fc7'
+
 vi.mock('@/composables/useSharedDialog', () => ({
   openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
@@ -33,17 +38,17 @@ vi.mock('vue-toastification', () => ({
 
 const recording = {
   album: '叶惠美',
-  album_id: 'release-group-1',
+  album_id: albumId,
   album_artist: '周杰伦',
   artist: '周杰伦',
   artists: ['周杰伦'],
-  artist_ids: ['artist-1'],
+  artist_ids: [artistId],
   category: 'Album',
-  cover_url: 'https://coverartarchive.org/release-group/release-group-1/front-500',
+  cover_url: `https://coverartarchive.org/release-group/${albumId}/front-500`,
   duration: 269,
   genres: ['mandopop'],
   isrc: 'TWA470301234',
-  media_id: 'recording-1',
+  media_id: recordingId,
   music_type: 'recording',
   release_date: '2003-07-31',
   media_source: 'musicbrainz',
@@ -56,8 +61,8 @@ const album = {
   album_type: 'Album',
   artist: '周杰伦',
   artists: ['周杰伦'],
-  artist_ids: ['artist-1'],
-  media_id: 'release-group-1',
+  artist_ids: [artistId],
+  media_id: albumId,
   music_type: 'album',
   release_date: '2003-07-31',
   media_source: 'musicbrainz',
@@ -65,7 +70,7 @@ const album = {
   total_tracks: 2,
   tracks: [
     {
-      media_id: 'recording-1',
+      media_id: recordingId,
       title: '晴天',
       track_number: 1,
       disc_number: 1,
@@ -73,7 +78,7 @@ const album = {
       media_source: 'musicbrainz',
     },
     {
-      media_id: 'recording-2',
+      media_id: secondRecordingId,
       title: '以父之名',
       track_number: 2,
       disc_number: 1,
@@ -93,7 +98,7 @@ function mockDetailRequests(subscribed = false) {
     return Promise.resolve({ data: { id: 1 }, success: true })
   })
   mocks.apiGet.mockImplementation((path: string) => {
-    if (path === 'music/album/release-group-1') return Promise.resolve(album)
+    if (path === `music/album/${albumId}`) return Promise.resolve(album)
     if (path === 'site/media/music') return Promise.resolve([musicSite])
     if (path === 'system/setting/public/IndexerSites') {
       return Promise.resolve({ data: { value: [12] }, success: true })
@@ -108,7 +113,7 @@ function mockDetailRequests(subscribed = false) {
 /** 渲染音乐详情页，统一提供超级用户权限与路由身份。 */
 function renderMusicDetailPage() {
   return renderWithProviders(MusicDetailPage, {
-    initialRoute: '/music/detail?media_source=musicbrainz&mediaid=recording-1&title=晴天',
+    initialRoute: `/music/detail?media_source=musicbrainz&media_id=${recordingId}&title=晴天`,
     initialState: { user: { superUser: true } },
     global: { stubs: { NoDataFound: true, MediaCardSlideView: true, MusicArtistSlideView: true } },
   })
@@ -130,11 +135,11 @@ describe('music detail page', () => {
     expect(await screen.findByRole('heading', { name: '晴天' })).toBeInTheDocument()
     expect(mocks.apiPost).toHaveBeenCalledWith('music/recognize', {
       media_source: 'musicbrainz',
-      media_id: 'recording-1',
+      media_id: recordingId,
       music_type: 'recording',
     })
     await waitFor(() =>
-      expect(mocks.apiGet).toHaveBeenCalledWith('music/album/release-group-1', {
+      expect(mocks.apiGet).toHaveBeenCalledWith(`music/album/${albumId}`, {
         params: { media_source: 'musicbrainz' },
       }),
     )
@@ -148,7 +153,7 @@ describe('music detail page', () => {
     await fireEvent.click(await screen.findByText('叶惠美'))
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/album'))
-    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'release-group-1' })
+    expect(router.currentRoute.value.query).toMatchObject({ media_id: albumId })
   })
 
   it('opens the artist page from the header artist link', async () => {
@@ -157,7 +162,7 @@ describe('music detail page', () => {
     await fireEvent.click(await screen.findByRole('link', { name: '周杰伦' }))
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/artist'))
-    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'artist-1' })
+    expect(router.currentRoute.value.query).toMatchObject({ media_id: artistId })
   })
 
   it('creates a subscription from the heart action', async () => {
@@ -169,7 +174,7 @@ describe('music detail page', () => {
       expect(mocks.apiPost).toHaveBeenCalledWith(
         'subscribe/',
         expect.objectContaining({
-          media_id: 'recording-1',
+          media_id: recordingId,
           media_source: 'musicbrainz',
           name: '晴天',
           type: '音乐',
@@ -189,19 +194,19 @@ describe('music detail page', () => {
   it('redirects an album identity to the album page', async () => {
     mocks.apiPost.mockImplementation((path: string) => {
       if (path === 'music/recognize') {
-        return Promise.resolve({ ...album, media_id: 'release-group-1', title: '叶惠美' })
+        return Promise.resolve({ ...album, media_id: albumId, title: '叶惠美' })
       }
       return Promise.resolve({ data: { id: 1 }, success: true })
     })
 
     const { router } = await renderWithProviders(MusicDetailPage, {
-      initialRoute: '/music/detail?media_source=musicbrainz&mediaid=release-group-1',
+      initialRoute: `/music/detail?media_source=musicbrainz&media_id=${albumId}`,
       initialState: { user: { superUser: true } },
       global: { stubs: { NoDataFound: true, MediaCardSlideView: true, MusicArtistSlideView: true } },
     })
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/album'))
-    expect(router.currentRoute.value.query).toMatchObject({ mediaid: 'release-group-1' })
+    expect(router.currentRoute.value.query).toMatchObject({ media_id: albumId })
   })
 
   it('selects a music-capable site before routing the resource search', async () => {
@@ -221,7 +226,8 @@ describe('music detail page', () => {
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
     expect(router.currentRoute.value.query).toMatchObject({
-      keyword: 'musicbrainz:recording-1',
+      media_id: recordingId,
+      media_source: 'musicbrainz',
       sites: '12',
       type: '音乐',
     })

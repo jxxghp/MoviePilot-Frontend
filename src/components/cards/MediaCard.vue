@@ -17,6 +17,7 @@ import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import {
   getMediaSubscribeId,
+  getMediaSubscribeIdentity,
   getSubscribeMode,
   useMediaSubscribe,
   type SeasonSubscribeModes,
@@ -182,7 +183,7 @@ async function querySelectedSites() {
   }
 }
 
-// 获得mediaid
+// 获取当前卡片的统一媒体身份缓存键
 function getMediaId() {
   return getMediaSubscribeId(props.media)
 }
@@ -193,14 +194,14 @@ function getSubscribeStatusKey(season: number | null = props.media?.season ?? nu
 }
 
 function getExistsStatusKey() {
+  const identity = getMediaSubscribeIdentity(props.media)
   return [
-    props.media?.tmdb_id ?? '',
+    identity?.source ?? '',
+    identity?.mediaId ?? '',
     props.media?.title ?? '',
     props.media?.year ?? '',
     props.media?.season ?? '',
     props.media?.type ?? '',
-    props.media?.media_source ?? '',
-    props.media?.media_id ?? '',
   ].join('::')
 }
 
@@ -210,17 +211,10 @@ function isSameSubscribeMedia(subscribe: Subscribe) {
     const subscribeMusicType = subscribe.music_type ?? 'recording'
     if (subscribeMusicType !== expectedMusicType) return false
   }
-  const mediaId = getMediaId()
-  if (subscribe.media_source && subscribe.media_id) {
-    const prefix = subscribe.media_source === 'themoviedb' ? 'tmdb' : subscribe.media_source
-    return mediaId === `${prefix}:${subscribe.media_id}`
-  }
-  if (subscribe.mediaid) return mediaId === subscribe.mediaid
-  if (props.media?.tmdb_id && subscribe.tmdbid) return props.media.tmdb_id === subscribe.tmdbid
-  if (props.media?.douban_id && subscribe.doubanid) return props.media.douban_id === subscribe.doubanid
-  if (props.media?.bangumi_id && subscribe.bangumiid) return props.media.bangumi_id === subscribe.bangumiid
-  if (props.media?.anilist_id && subscribe.anilistid) return props.media.anilist_id === subscribe.anilistid
-  return false
+  const identity = getMediaSubscribeIdentity(props.media)
+  return Boolean(
+    identity && subscribe.media_source === identity.source && String(subscribe.media_id || '') === identity.mediaId,
+  )
 }
 
 // 角标颜色
@@ -278,9 +272,10 @@ async function handleCheckExists() {
   if (props.media?.type === '音乐') return
   try {
     const exists = await getCachedMediaExistsStatus(getExistsStatusKey(), async () => {
+      const identity = getMediaSubscribeIdentity(props.media)
       const result: { [key: string]: any } = await api.get('mediaserver/exists', {
         params: {
-          tmdbid: props.media?.tmdb_id,
+          ...(identity ? { media_source: identity.source, media_id: identity.mediaId } : {}),
           title: props.media?.title,
           year: props.media?.year,
           season: props.media?.season,
@@ -325,11 +320,14 @@ function goMediaDetail(isHovering = false) {
         },
       })
     } else {
+      const identity = getMediaSubscribeIdentity(props.media)
+      if (!identity) return
       // 跳转到媒体详情页
       router.push({
         path: '/media',
         query: {
-          mediaid: getMediaId(),
+          media_source: identity.source,
+          media_id: identity.mediaId,
           title: props.media?.title,
           year: props.media?.year,
           type: props.media?.type,
@@ -390,10 +388,13 @@ async function clickSearch() {
 
 // 开始搜索
 function handleSearch() {
+  const identity = getMediaSubscribeIdentity(props.media)
+  if (!identity) return
   router.push({
     path: '/resource',
     query: {
-      keyword: getMediaId(),
+      media_source: identity.source,
+      media_id: identity.mediaId,
       type: props.media?.type,
       area: 'title',
       title: props.media?.title,

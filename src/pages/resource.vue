@@ -2,7 +2,7 @@
 import type { LocationQuery } from 'vue-router'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import api from '@/api'
-import type { Context, SubtitleInfo } from '@/api/types'
+import type { Context, MediaDataSource, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
 import SubtitleCard from '@/components/cards/SubtitleCard.vue'
@@ -20,6 +20,7 @@ import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { SearchReplaceBatchCollector, isSearchReplaceBatchEvent } from '@/utils/searchStream'
 import { getCurrentLocale } from '@/plugins/i18n'
+import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 
 // 国际化
 const { t } = useI18n()
@@ -45,6 +46,8 @@ const router = useRouter()
 
 interface SearchParams {
   keyword: string
+  media_source: MediaDataSource | ''
+  media_id: string
   type: string
   area: string
   title: string
@@ -69,9 +72,17 @@ type TorrentViewType = 'card' | 'row'
 // 只有最新搜索可以提交结果和可重放参数，避免旧请求覆盖新查询。
 let activeSearchRequestId = 0
 
+/** 只接受产品协议中固定的数据源枚举，避免未知来源进入搜索链路。 */
+function normalizeMediaSource(value: unknown): MediaDataSource | '' {
+  const normalized = value?.toString().trim()
+  return isMediaDataSource(normalized) ? normalized : ''
+}
+
 function createSearchParams(query: LocationQuery): SearchParams {
   return {
     keyword: query?.keyword?.toString() ?? '',
+    media_source: normalizeMediaSource(query?.media_source),
+    media_id: query?.media_id?.toString() ?? '',
     type: query?.type?.toString() ?? '',
     area: query?.area?.toString() ?? '',
     title: query?.title?.toString() ?? '',
@@ -87,6 +98,8 @@ function createSearchParams(query: LocationQuery): SearchParams {
 function normalizeSearchParams(params?: Partial<SearchParams> | null): SearchParams {
   return {
     keyword: params?.keyword?.toString() ?? '',
+    media_source: normalizeMediaSource(params?.media_source),
+    media_id: params?.media_id?.toString() ?? '',
     type: params?.type?.toString() ?? '',
     area: params?.area?.toString() ?? '',
     title: params?.title?.toString() ?? '',
@@ -99,8 +112,42 @@ function normalizeSearchParams(params?: Partial<SearchParams> | null): SearchPar
   }
 }
 
+/** 判断搜索参数是否包含一组有效的枚举来源与原生媒体 ID。 */
+function hasValidMediaIdentity(params: SearchParams): boolean {
+  const mediaId = params.media_id.trim()
+  return Boolean(params.media_source && mediaId && isValidMediaSourceId(mediaId, params.media_source))
+}
+
 function hasSearchKeyword(params: SearchParams): boolean {
-  return params.keyword.trim().length > 0
+  return params.keyword.trim().length > 0 || hasValidMediaIdentity(params)
+}
+
+/** 只在本地历史状态读取边界迁移旧版 `source:id` 复合关键词。 */
+function migrateLegacyStoredSearchParams(params: Partial<SearchParams>): Partial<SearchParams> {
+  if (params.media_source || params.media_id || typeof params.keyword !== 'string') return params
+  const match = params.keyword.match(/^([a-zA-Z_]+):(.+)$/)
+  if (!match) return params
+  const aliases: Record<string, MediaDataSource> = {
+    tmdb: 'themoviedb',
+    themoviedb: 'themoviedb',
+    douban: 'douban',
+    bangumi: 'bangumi',
+    anilist: 'anilist',
+    imdb: 'imdb',
+    tvdb: 'tvdb',
+    musicbrainz: 'musicbrainz',
+    theaudiodb: 'theaudiodb',
+    doubanmusic: 'doubanmusic',
+    bilibili: 'bilibili',
+    mangguodiscover: 'mangguodiscover',
+    migu: 'migu',
+    tencentvideodiscover: 'tencentvideodiscover',
+  }
+  const mediaSource = aliases[match[1].toLowerCase()]
+  const mediaId = match[2].trim()
+  return mediaSource && mediaId && isValidMediaSourceId(mediaId, mediaSource)
+    ? { ...params, keyword: '', media_source: mediaSource, media_id: mediaId }
+    : params
 }
 
 function createSearchRequestToken(): string {
@@ -116,7 +163,8 @@ function loadStoredSearchParams(): SearchParams | null {
     const rawParams = localStorage.getItem(resourceSearchParamsStorageKey)
     if (!rawParams) return null
 
-    const params = normalizeSearchParams(JSON.parse(rawParams) as Partial<SearchParams>)
+    const storedParams = JSON.parse(rawParams) as Partial<SearchParams>
+    const params = normalizeSearchParams(migrateLegacyStoredSearchParams(storedParams))
     return hasSearchKeyword(params) ? params : null
   } catch (error) {
     console.warn('读取资源搜索参数失败:', error)
@@ -199,8 +247,8 @@ async function resolveRefreshSearchParams() {
 // 查询TMDBID或标题
 const keyword = computed(() => activeSearchParams.value.keyword)
 
-// 媒体 ID 形式的关键词（如 musicbrainz:xxx、tmdb:xxx）对用户无意义，进度卡片中仅展示标题即可。
-const isMediaIdKeyword = computed(() => /^[a-zA-Z]+:/.test(keyword.value || ''))
+// 精确媒体身份对用户无意义，进度卡片中仅展示标题即可。
+const isMediaIdKeyword = computed(() => hasValidMediaIdentity(activeSearchParams.value))
 
 // 查询类型
 const type = computed(() => activeSearchParams.value.type)
@@ -555,18 +603,19 @@ function setSearchParam(params: URLSearchParams, key: string, value: unknown) {
 
 // 构建搜索流URL
 function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
-  const isMediaSearch = /^[a-zA-Z]+:/.test(params.keyword)
+  const isMediaSearch = hasValidMediaIdentity(params)
   const url = getApiUrl(
     params.result_type === 'subtitle'
       ? isMediaSearch
-        ? `search/subtitle/media/${encodeURIComponent(params.keyword)}/stream`
+        ? `search/subtitle/media/${encodeURIComponent(params.media_id)}/stream`
         : 'search/subtitle/title/stream'
       : isMediaSearch
-        ? `search/media/${encodeURIComponent(params.keyword)}/stream`
+        ? `search/media/${encodeURIComponent(params.media_id)}/stream`
         : 'search/title/stream',
   )
 
   if (params.result_type === 'subtitle' && isMediaSearch) {
+    setSearchParam(url.searchParams, 'media_source', params.media_source)
     setSearchParam(url.searchParams, 'mtype', params.type)
     setSearchParam(url.searchParams, 'title', params.title)
     setSearchParam(url.searchParams, 'year', params.year)
@@ -577,6 +626,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
     setSearchParam(url.searchParams, 'keyword', params.keyword)
     setSearchParam(url.searchParams, 'sites', params.sites)
   } else if (isMediaSearch) {
+    setSearchParam(url.searchParams, 'media_source', params.media_source)
     setSearchParam(url.searchParams, 'mtype', params.type)
     setSearchParam(url.searchParams, 'area', params.area)
     setSearchParam(url.searchParams, 'title', params.title)
@@ -823,11 +873,11 @@ async function searchByRequest(params: SearchParams, requestToken: string | unde
 // 静默刷新使用普通请求，保留当前结果直到新数据完整返回，避免返回页面时露出搜索进度态。
 async function requestSearchResults(params: SearchParams, requestToken?: string) {
   let result: { [key: string]: any }
-  const isMediaSearch = /^[a-zA-Z]+:/.test(params.keyword)
-  // 如果keyword的格式是 xxxx:xxxxx 且:前面的xxxx为字符，则按照媒体ID格式搜索
+  const isMediaSearch = hasValidMediaIdentity(params)
   if (params.result_type === 'subtitle' && isMediaSearch) {
-    result = await api.get(`search/subtitle/media/${params.keyword}`, {
+    result = await api.get(`search/subtitle/media/${encodeURIComponent(params.media_id)}`, {
       params: {
+        media_source: params.media_source,
         mtype: params.type,
         title: params.title,
         year: params.year,
@@ -846,8 +896,9 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
       },
     })
   } else if (isMediaSearch) {
-    result = await api.get(`search/media/${params.keyword}`, {
+    result = await api.get(`search/media/${encodeURIComponent(params.media_id)}`, {
       params: {
+        media_source: params.media_source,
         mtype: params.type,
         area: params.area,
         title: params.title,
@@ -971,7 +1022,7 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
     activeSearchParams.value = { ...currentSearchParams }
     rememberSearchParams(currentSearchParams)
   }
-  const requestToken = options.force || Boolean(currentSearchParams.keyword) ? createSearchRequestToken() : undefined
+  const requestToken = options.force || hasSearchKeyword(currentSearchParams) ? createSearchRequestToken() : undefined
   const hasCurrentResults = isSubtitleSearch.value ? rawSubtitleDataList.value.length > 0 : rawDataList.value.length > 0
   const silentRefresh = Boolean(options.silent && isRefreshed.value && hasCurrentResults)
 
@@ -1561,6 +1612,8 @@ onUnmounted(() => {
               v-for="(item, index) in streamPreviewSubtitleDataList"
               :key="getSubtitleItemKey(item, index)"
               :subtitle="item"
+              :media-source="activeSearchParams.media_source || undefined"
+              :media-id="activeSearchParams.media_id || undefined"
               class="stream-result-item"
             />
           </div>
@@ -1572,7 +1625,11 @@ onUnmounted(() => {
             :estimated-item-height="320"
           >
             <template #default="{ item }">
-              <SubtitleCard :subtitle="item" />
+              <SubtitleCard
+                :subtitle="item"
+                :media-source="activeSearchParams.media_source || undefined"
+                :media-id="activeSearchParams.media_id || undefined"
+              />
             </template>
           </ProgressiveCardGrid>
           <div
@@ -1635,7 +1692,11 @@ onUnmounted(() => {
                 :key="getSubtitleItemKey(item, index)"
                 class="stream-result-item"
               >
-                <SubtitleItem :subtitle="item" />
+                <SubtitleItem
+                  :subtitle="item"
+                  :media-source="activeSearchParams.media_source || undefined"
+                  :media-id="activeSearchParams.media_id || undefined"
+                />
                 <VDivider v-if="index < streamPreviewSubtitleDataList.length - 1" class="my-2" />
               </div>
             </div>
@@ -1649,7 +1710,11 @@ onUnmounted(() => {
                 :get-item-key="getSubtitleItemKey"
               >
                 <template #default="{ item, index }">
-                  <SubtitleItem :subtitle="item" />
+                  <SubtitleItem
+                    :subtitle="item"
+                    :media-source="activeSearchParams.media_source || undefined"
+                    :media-id="activeSearchParams.media_id || undefined"
+                  />
                   <VDivider v-if="index < rawSubtitleDataList.length - 1" class="my-2" />
                 </template>
               </ProgressiveCardGrid>

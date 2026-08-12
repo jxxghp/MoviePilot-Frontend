@@ -192,6 +192,26 @@ describe('SearchBarDialog media source selection', () => {
     })
   })
 
+  it('searches music with multiple selected sources', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderSearchBar()
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, 'Coldplay')
+    const musicItem = getSearchItem('音乐')
+    const musicGroup = within(musicItem).getByRole('group', { name: '音乐搜索数据源' })
+    await user.click(within(musicGroup).getByRole('button', { name: '使用 TheAudioDB 搜索' }))
+    await user.click(musicItem)
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/music')
+      expect(router.currentRoute.value.query).toEqual({
+        query: 'Coldplay',
+        media_source: 'musicbrainz,theaudiodb',
+      })
+    })
+  })
+
   it('renders the bundled music icon in the music search action', async () => {
     const user = userEvent.setup()
     await renderSearchBar()

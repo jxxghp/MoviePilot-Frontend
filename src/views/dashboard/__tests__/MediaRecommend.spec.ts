@@ -61,7 +61,7 @@ describe('MediaRecommend', () => {
         list: [
           createMediaInfo({ title: undefined }),
           createMediaInfo({ backdrop_path: undefined, poster_path: undefined, title: '无图片' }),
-          createMediaInfo({ collection_id: undefined, title: '无标识', tmdb_id: undefined }),
+          createMediaInfo({ collection_id: undefined, media_id: undefined, title: '无标识', tmdb_id: 999 }),
           ...validMedia,
         ],
       },
@@ -205,7 +205,8 @@ describe('MediaRecommend', () => {
     await fireEvent.keyDown(screen.getByRole('link'), { key: 'Enter' })
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/media'))
     expect(router.currentRoute.value.query).toMatchObject({
-      mediaid: 'tmdb:101',
+      media_id: '101',
+      media_source: 'themoviedb',
       title: '普通媒体',
       type: '电影',
       year: '2025',

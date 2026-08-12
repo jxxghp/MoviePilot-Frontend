@@ -87,9 +87,9 @@ const LoadingBannerStub = defineComponent({
   template: '<div role="status">正在加载人物列表</div>',
 })
 
-async function renderList() {
+async function renderList(params?: Record<string, unknown>) {
   return renderWithProviders(PersonCardListView, {
-    props: { apipath: LIST_PATH },
+    props: { apipath: LIST_PATH, params },
     global: {
       stubs: {
         LoadingBanner: LoadingBannerStub,
@@ -122,6 +122,22 @@ describe('PersonCardListView', () => {
     expect(await screen.findByText('探索人物')).toBeInTheDocument()
     expect(screen.getByLabelText('人物无限列表')).toHaveAttribute('data-margin', '600')
     expect(initialLoadMargins[0]).toBe(0)
+  })
+
+  it('serializes media source arrays as repeated query keys without brackets', async () => {
+    const requests: URL[] = []
+    server.use(
+      http.get(LIST_URL, ({ request }) => {
+        requests.push(new URL(request.url))
+        return HttpResponse.json([{ id: 303, name: '多来源人物', source: 'themoviedb' } satisfies Person])
+      }),
+    )
+
+    await renderList({ media_source: ['themoviedb', 'douban'] })
+
+    expect(await screen.findByText('多来源人物')).toBeInTheDocument()
+    expect(requests[0].searchParams.getAll('media_source')).toEqual(['themoviedb', 'douban'])
+    expect(requests[0].searchParams.has('media_source[]')).toBe(false)
   })
 
   it('shows an inline retry and retries the same page after a request failure', async () => {

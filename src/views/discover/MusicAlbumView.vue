@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { MediaInfo, MusicAlbumInfo } from '@/api/types'
+import type { MediaDataSource, MediaInfo, MusicAlbumInfo } from '@/api/types'
 import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
 import MusicArtistSlideView from '@/views/discover/MusicArtistSlideView.vue'
 import MusicDetailLayout from '@/views/discover/MusicDetailLayout.vue'
@@ -21,15 +21,12 @@ import {
 const { t } = useI18n()
 const router = useRouter()
 
-const props = defineProps({
+const props = defineProps<{
   // 音乐数据源原生专辑 ID
-  mediaid: String,
+  mediaId?: string
   // 音乐元数据来源
-  mediaSource: {
-    type: String,
-    default: 'musicbrainz',
-  },
-})
+  mediaSource?: MediaDataSource
+}>()
 
 const userStore = useUserStore()
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
@@ -44,11 +41,12 @@ const isSubscribed = ref(false)
 const artistLinks = computed(() => getMusicArtistLinks(album.value))
 
 // 关联浏览统一以首个艺术家为入口
-const supportsArtistBrowsing = computed(() => ['musicbrainz', 'theaudiodb'].includes(props.mediaSource))
+const supportsArtistBrowsing = computed(() => props.mediaSource === 'musicbrainz' || props.mediaSource === 'theaudiodb')
 const primaryArtistId = computed(() =>
   supportsArtistBrowsing.value ? artistLinks.value.find(artist => artist.id)?.id : undefined,
 )
 const sourceLabel = computed(() => getMusicSourceLabel(props.mediaSource, t))
+const encodedMediaSource = computed(() => (props.mediaSource ? encodeURIComponent(props.mediaSource) : ''))
 
 // 专辑订阅复用影视订阅链，年份需要按订阅表的字符串格式传递
 const albumMedia = computed<MediaInfo | undefined>(() => {
@@ -87,10 +85,14 @@ const { openMusicSiteSearch } = useMusicSiteSearch(sites =>
 
 /** 加载专辑详情、曲目列表和发行版本。 */
 async function loadAlbumDetail() {
-  if (!props.mediaSource || !props.mediaid) return
+  if (!props.mediaSource || !props.mediaId) {
+    album.value = undefined
+    isRefreshed.value = true
+    return
+  }
   isRefreshed.value = false
   try {
-    album.value = await api.get(`music/album/${props.mediaid}`, { params: { media_source: props.mediaSource } })
+    album.value = await api.get(`music/album/${props.mediaId}`, { params: { media_source: props.mediaSource } })
   } catch (error) {
     console.error(error)
     album.value = undefined
@@ -112,7 +114,7 @@ async function checkSubscribeStatus() {
 
 /** 打开艺术家详情页。 */
 function goArtist(artistId?: string, name?: string) {
-  if (!artistId) return
+  if (!artistId || !props.mediaSource) return
   router.push(buildMusicArtistRoute(artistId, name, props.mediaSource))
 }
 
@@ -121,7 +123,7 @@ function getReleaseSubtitle(release: NonNullable<MusicAlbumInfo['releases']>[num
   return [release.formats?.join(' + '), release.country, release.packaging, release.status].filter(Boolean).join(' · ')
 }
 
-watch(() => [props.mediaSource, props.mediaid], loadAlbumDetail, { immediate: true })
+watch(() => [props.mediaSource, props.mediaId], loadAlbumDetail, { immediate: true })
 </script>
 
 <template>
@@ -231,10 +233,10 @@ watch(() => [props.mediaSource, props.mediaid], loadAlbumDetail, { immediate: tr
       </template>
     </template>
 
-    <div v-if="primaryArtistId" class="music-section">
+    <div v-if="primaryArtistId && props.mediaSource" class="music-section">
       <MediaCardSlideView
-        :apipath="`music/artist/${primaryArtistId}/albums?media_source=${encodeURIComponent(props.mediaSource)}`"
-        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?media_source=${encodeURIComponent(props.mediaSource)}&title=${encodeURIComponent(t('music.artistAlbums'))}`"
+        :apipath="`music/artist/${primaryArtistId}/albums?media_source=${encodedMediaSource}`"
+        :linkurl="`/browse/music/artist/${primaryArtistId}/albums?media_source=${encodedMediaSource}&title=${encodeURIComponent(t('music.artistAlbums'))}`"
         :title="t('music.artistAlbums')"
       />
     </div>
@@ -248,8 +250,8 @@ watch(() => [props.mediaSource, props.mediaid], loadAlbumDetail, { immediate: tr
 
     <div v-if="props.mediaSource === 'doubanmusic'" class="music-section">
       <MediaCardSlideView
-        :apipath="`music/album/${props.mediaid}/related?media_source=doubanmusic`"
-        :linkurl="`/browse/music/album/${props.mediaid}/related?media_source=doubanmusic&title=${encodeURIComponent(t('music.relatedAlbums'))}`"
+        :apipath="`music/album/${props.mediaId}/related?media_source=doubanmusic`"
+        :linkurl="`/browse/music/album/${props.mediaId}/related?media_source=doubanmusic&title=${encodeURIComponent(t('music.relatedAlbums'))}`"
         :title="t('music.relatedAlbums')"
       />
     </div>

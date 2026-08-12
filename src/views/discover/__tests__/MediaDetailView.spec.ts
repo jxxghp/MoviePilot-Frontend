@@ -1,5 +1,4 @@
-import type { MediaInfo, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
-import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
+import type { MediaDataSource, MediaInfo, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
 import vuetify from '@/plugins/vuetify'
 import MediaDetailView from '@/views/discover/MediaDetailView.vue'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
@@ -123,6 +122,7 @@ interface RenderDetailOptions {
   existsStatus?: number
   media?: MediaInfo
   mediaId?: string
+  mediaSource?: MediaDataSource | null
   movieSubscribe?: Partial<Subscribe>
   notExists?: NotExistMediaInfo[]
   notExistsStatus?: number
@@ -144,7 +144,9 @@ function installSiteHandlers(sites: Site[] = [], selected: number[] = [], type =
 
 async function renderDetail(options: RenderDetailOptions = {}) {
   const media = options.media ?? createMediaInfo({ title: '详情测试电影', tmdb_id: 8101, type: '电影' })
-  const mediaId = options.mediaId ?? `tmdb:${media.tmdb_id}`
+  const mediaId = options.mediaId ?? String(media.media_id)
+  const mediaSource =
+    options.mediaSource === null ? undefined : (options.mediaSource ?? media.media_source ?? 'themoviedb')
   const type = options.type ?? media.type ?? '电影'
   const existsRequest = vi.fn()
   const subscribeRequest = vi.fn()
@@ -157,7 +159,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
     ),
     mediaNotExistsHandler(options.notExists ?? [], options.notExistsStatus),
     subscribeListHandler(options.subscribes ?? [], options.subscribesStatus, subscribeRequest),
-    querySubscribeByMediaHandler(getMediaSubscribeId(media), options.movieSubscribe ?? {}, 200, subscribeRequest),
+    querySubscribeByMediaHandler(mediaId, options.movieSubscribe ?? {}, 200, subscribeRequest),
   )
   if (media.tmdb_id) {
     server.use(
@@ -191,7 +193,8 @@ async function renderDetail(options: RenderDetailOptions = {}) {
       },
     },
     props: {
-      mediaid: mediaId,
+      mediaId,
+      mediaSource,
       title: media.title,
       type,
       year: media.year,
@@ -206,7 +209,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
     },
   })
 
-  const recognized = Boolean(media.media_id || media.tmdb_id || media.douban_id || media.bangumi_id || media.anilist_id)
+  const recognized = Boolean(media.media_source && media.media_id)
   if (recognized && (options.detailStatus ?? 200) < 400) {
     await waitFor(() => {
       expect(existsRequest).toHaveBeenCalledOnce()
@@ -234,14 +237,44 @@ describe('MediaDetailView detail and actions', () => {
   })
 
   it.each([
-    ['TMDB', 'tmdb:8201', createMediaInfo({ tmdb_id: 8201, type: '电影' })],
-    ['Douban', 'douban:db-8202', createMediaInfo({ douban_id: 'db-8202', tmdb_id: undefined, type: '电影' })],
-    ['Bangumi', 'bangumi:8203', createMediaInfo({ bangumi_id: '8203', tmdb_id: undefined, type: '电视剧' })],
-    ['AniList', 'anilist:154587', createMediaInfo({ anilist_id: 154587, tmdb_id: undefined, type: '电视剧' })],
+    ['TMDB', '8201', createMediaInfo({ tmdb_id: 8201, type: '电影' })],
     [
-      'extension',
-      'custom:item-8204',
-      createMediaInfo({ media_id: 'item-8204', media_source: 'custom', tmdb_id: 8204, type: '电影' }),
+      'Douban',
+      'db-8202',
+      createMediaInfo({
+        douban_id: 'db-8202',
+        media_id: 'db-8202',
+        media_source: 'douban',
+        tmdb_id: undefined,
+        type: '电影',
+      }),
+    ],
+    [
+      'Bangumi',
+      '8203',
+      createMediaInfo({
+        bangumi_id: '8203',
+        media_id: '8203',
+        media_source: 'bangumi',
+        tmdb_id: undefined,
+        type: '电视剧',
+      }),
+    ],
+    [
+      'AniList',
+      '154587',
+      createMediaInfo({
+        anilist_id: 154587,
+        media_id: '154587',
+        media_source: 'anilist',
+        tmdb_id: undefined,
+        type: '电视剧',
+      }),
+    ],
+    [
+      'Bilibili',
+      'item-8204',
+      createMediaInfo({ media_id: 'item-8204', media_source: 'bilibili', tmdb_id: 8204, type: '电影' }),
     ],
   ])('loads the exact %s media path and query', async (_source, mediaId, media) => {
     const requested = vi.fn<(url: URL) => void>()
@@ -251,9 +284,8 @@ describe('MediaDetailView detail and actions', () => {
     await waitFor(() => expect(requested).toHaveBeenCalledOnce())
     expect(requested.mock.calls[0][0].pathname).toBe(`/api/v1/media/${mediaId}`)
     expect(Object.fromEntries(requested.mock.calls[0][0].searchParams)).toEqual({
-      title: media.title,
+      media_source: media.media_source,
       type_name: media.type,
-      year: media.year,
     })
   })
 
@@ -274,11 +306,26 @@ describe('MediaDetailView detail and actions', () => {
 
   it('renders legal empty media separately from loading', async () => {
     const empty = createEmptyMediaInfo()
-    await renderDetail({ media: empty, mediaId: 'tmdb:8301', type: '电影' })
+    await renderDetail({ media: empty, mediaId: '8301', type: '电影' })
 
     expect(await screen.findByText('未识别到媒体信息。')).toBeInTheDocument()
     expect(screen.queryByText('加载中')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '重试' })).not.toBeInTheDocument()
+  })
+
+  it('settles a detail route without a complete media identity without sending a request', async () => {
+    const requested = vi.fn()
+    await renderDetail({
+      detailRequest: requested,
+      media: createEmptyMediaInfo(),
+      mediaId: '8300',
+      mediaSource: null,
+      type: '电影',
+    })
+
+    expect(await screen.findByText('未识别到媒体信息。')).toBeInTheDocument()
+    expect(screen.queryByText('加载中')).not.toBeInTheDocument()
+    expect(requested).not.toHaveBeenCalled()
   })
 
   it('shows a distinct retryable error when detail loading fails', async () => {
@@ -287,7 +334,7 @@ describe('MediaDetailView detail and actions', () => {
       detailRequest: requested,
       detailStatus: 500,
       media: createEmptyMediaInfo(),
-      mediaId: 'tmdb:8302',
+      mediaId: '8302',
       type: '电影',
     })
 
@@ -298,9 +345,9 @@ describe('MediaDetailView detail and actions', () => {
     const existsRequested = vi.fn()
     const subscribeRequested = vi.fn()
     server.use(
-      mediaDetailsHandler('tmdb:8302', createMediaInfo({ title: '重试成功', tmdb_id: 8302 })),
+      mediaDetailsHandler('8302', createMediaInfo({ title: '重试成功', tmdb_id: 8302 })),
       mediaExistsHandler({ data: { item: {} }, success: false }, 200, existsRequested),
-      querySubscribeByMediaHandler('tmdb:8302', {}, 200, subscribeRequested),
+      querySubscribeByMediaHandler('8302', {}, 200, subscribeRequested),
     )
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
 
@@ -366,7 +413,7 @@ describe('MediaDetailView detail and actions', () => {
       tvdb_slug: 'speed-and-love',
       type: '电视剧',
     })
-    await renderDetail({ media: mediaWithSlug, mediaId: 'tmdb:1', type: '电视剧' })
+    await renderDetail({ media: mediaWithSlug, mediaId: '1', type: '电视剧' })
     expect(screen.getByRole('link', { name: /TheTvDb/ })).toHaveAttribute(
       'href',
       'https://www.thetvdb.com/series/speed-and-love',
@@ -377,6 +424,8 @@ describe('MediaDetailView detail and actions', () => {
     const media = createMediaInfo({
       backdrop_path: 'https://images.example.com/douban-backdrop.jpg',
       douban_id: 'db-8402',
+      media_id: 'db-8402',
+      media_source: 'douban',
       original_title: 'Douban Original',
       poster_path: 'https://images.example.com/douban-poster.jpg',
       production_countries: [{ name: '中国大陆' }],
@@ -385,7 +434,7 @@ describe('MediaDetailView detail and actions', () => {
       tmdb_id: undefined,
       type: '电影',
     })
-    const { container } = await renderDetail({ media, mediaId: 'douban:db-8402' })
+    const { container } = await renderDetail({ media, mediaId: 'db-8402' })
 
     expect(await screen.findByRole('heading', { name: /豆瓣独立电影/ })).toBeInTheDocument()
     expect(screen.getByText('Douban Original')).toBeInTheDocument()
@@ -405,13 +454,15 @@ describe('MediaDetailView detail and actions', () => {
   it('renders Bangumi-only facts, external link, credits, and recommendations', async () => {
     const media = createMediaInfo({
       bangumi_id: '8403',
+      media_id: '8403',
+      media_source: 'bangumi',
       original_title: 'Bangumi Original',
       release_date: '2026-03-03',
       title: 'Bangumi 独立条目',
       tmdb_id: undefined,
       type: '电视剧',
     })
-    await renderDetail({ media, mediaId: 'bangumi:8403', type: '电视剧' })
+    await renderDetail({ media, mediaId: '8403', type: '电视剧' })
 
     expect(await screen.findByRole('heading', { name: /Bangumi 独立条目/ })).toBeInTheDocument()
     expect(screen.getByText('Bangumi Original')).toBeInTheDocument()
@@ -425,13 +476,15 @@ describe('MediaDetailView detail and actions', () => {
   it('renders AniList-only facts, external link, credits, and recommendations', async () => {
     const media = createMediaInfo({
       anilist_id: 154587,
+      media_id: '154587',
+      media_source: 'anilist',
       original_title: '葬送のフリーレン',
       release_date: '2023-09-29',
       title: '葬送的芙莉莲',
       tmdb_id: undefined,
       type: '电视剧',
     })
-    await renderDetail({ media, mediaId: 'anilist:154587', type: '电视剧' })
+    await renderDetail({ media, mediaId: '154587', type: '电视剧' })
 
     expect(await screen.findByRole('heading', { name: /葬送的芙莉莲/ })).toBeInTheDocument()
     expect(screen.getByText('葬送のフリーレン')).toBeInTheDocument()
@@ -463,7 +516,8 @@ describe('MediaDetailView detail and actions', () => {
       query: {
         area: 'title',
         episode: null,
-        keyword: 'tmdb:8501',
+        media_id: '8501',
+        media_source: 'themoviedb',
         result_type: 'subtitle',
         season: 2,
         sites: '',
@@ -488,7 +542,8 @@ describe('MediaDetailView detail and actions', () => {
       query: {
         area: 'imdbid',
         episode: null,
-        keyword: 'tmdb:8502',
+        media_id: '8502',
+        media_source: 'themoviedb',
         result_type: 'torrent',
         season: 3,
         sites: '',
@@ -611,6 +666,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     const media = createSubscribeTv({
       anilist_id: 154587,
       episode_group: 'auxiliary-group',
+      media_id: '154587',
       media_source: 'anilist',
       title: 'AniList 主来源剧集',
       tmdb_id: 8700,
@@ -619,7 +675,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     await renderDetail({
       episodeGroupsRequest,
       media,
-      mediaId: 'anilist:154587',
+      mediaId: '154587',
       setupHandlers: () => {
         server.use(mediaGroupSeasonsHandler('auxiliary-group', [], 200, groupSeasonsRequest))
       },
@@ -634,7 +690,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
 
   it('shows the current movie subscription state returned by the media endpoint', async () => {
     const media = createMediaInfo({ title: '已订阅电影', tmdb_id: 8701, type: '电影' })
-    const subscribe = createSubscribe({ id: 18701, name: media.title, tmdbid: 8701, type: '电影' })
+    const subscribe = createSubscribe({ id: 18701, media_id: '8701', name: media.title, type: '电影' })
 
     await renderDetail({ media, movieSubscribe: subscribe })
 
@@ -648,8 +704,8 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
       tmdb_id: 8702,
     })
     const subscribes = [
-      createSubscribe({ season: 1, tmdbid: 8702, type: '电视剧' }),
-      createSubscribe({ season: 99, tmdbid: 8702, type: '电视剧' }),
+      createSubscribe({ media_id: '8702', season: 1, type: '电视剧' }),
+      createSubscribe({ media_id: '8702', season: 99, type: '电视剧' }),
     ]
 
     await renderDetail({ media, subscribes, type: '电视剧' })
@@ -668,7 +724,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
       title: '全季订阅剧',
       tmdb_id: 8703,
     })
-    const subscribes = [0, 1, 2].map(season => createSubscribe({ season, tmdbid: 8703, type: '电视剧' }))
+    const subscribes = [0, 1, 2].map(season => createSubscribe({ media_id: '8703', season, type: '电视剧' }))
 
     await renderDetail({ media, subscribes, type: '电视剧' })
 
@@ -685,7 +741,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
       title: '缺少特别篇订阅剧',
       tmdb_id: 8709,
     })
-    const subscribes = [1, 2, 99].map(season => createSubscribe({ season, tmdbid: 8709, type: '电视剧' }))
+    const subscribes = [1, 2, 99].map(season => createSubscribe({ media_id: '8709', season, type: '电视剧' }))
 
     await renderDetail({ media, subscribes, type: '电视剧' })
 
@@ -794,7 +850,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     const refreshed = vi.fn()
     await renderDetail({ media })
     server.use(
-      querySubscribeByMediaHandler('tmdb:8713', {}, 200, refreshed),
+      querySubscribeByMediaHandler('8713', {}, 200, refreshed),
       createSubscribeHandler({ data: { id: 18713 }, success: true }),
       defaultSubscribeConfigHandler('电影', { show_edit_dialog: true }),
     )

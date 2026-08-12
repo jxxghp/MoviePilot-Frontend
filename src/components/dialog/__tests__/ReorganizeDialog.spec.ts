@@ -485,14 +485,14 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
       expect.objectContaining({
         episode_group: null,
         fileitems: [first, second],
-        media_id: null,
-        media_source: 'themoviedb',
         target_path: null,
         target_storage: null,
         transfer_type: null,
       }),
     ])
     expect(bodies[0]).not.toHaveProperty('fileitem')
+    expect(bodies[0]).not.toHaveProperty('media_id')
+    expect(bodies[0]).not.toHaveProperty('media_source')
     expect(mocks.progressControllers).toHaveLength(0)
     expect(mocks.toastSuccess).toHaveBeenCalledWith('文件 共 2 项 已加入整理队列！')
   })
@@ -728,10 +728,10 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     expect(bodies[1]).toEqual(
       expect.objectContaining({
         episode_group: null,
-        media_id: null,
-        media_source: 'douban',
       }),
     )
+    expect(bodies[1]).not.toHaveProperty('media_id')
+    expect(bodies[1]).not.toHaveProperty('media_source')
   })
 
   it('submits an explicit music entity namespace for manual transfer', async () => {

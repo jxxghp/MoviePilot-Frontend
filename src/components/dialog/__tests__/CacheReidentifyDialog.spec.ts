@@ -40,4 +40,17 @@ describe('CacheReidentifyDialog', () => {
       musicType: 'album',
     })
   })
+
+  it('omits both identity fields when automatic recognition is requested', async () => {
+    const user = userEvent.setup()
+    const { confirm } = await renderDialog()
+
+    await user.click(screen.getByRole('button', { name: '重新识别' }))
+
+    expect(confirm).toHaveBeenCalledWith({
+      mediaId: undefined,
+      mediaSource: undefined,
+      musicType: 'album',
+    })
+  })
 })

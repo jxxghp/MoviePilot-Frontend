@@ -278,8 +278,8 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
 })
 
 // 查询指定 TMDB 剧集的所有剧集组。
-async function getEpisodeGroups(tmdbid?: number | string) {
-  const normalizedTmdbId = Number(tmdbid)
+async function getEpisodeGroups(tmdbId?: number | string) {
+  const normalizedTmdbId = Number(tmdbId)
   if (!Number.isInteger(normalizedTmdbId) || normalizedTmdbId <= 0) {
     episodeGroups.value = []
     return
@@ -350,7 +350,7 @@ const mediaSource = computed(() => transferForm.media_source ?? 'themoviedb')
 
 // 当前数据源对应的原生ID标签。
 const mediaIdLabel = computed(() => {
-  const labels: Record<MediaDataSource, string> = {
+  const labels: Partial<Record<MediaDataSource, string>> = {
     themoviedb: t('dialog.reorganize.tmdbId'),
     douban: t('dialog.reorganize.doubanId'),
     bangumi: t('dialog.reorganize.bangumiId'),
@@ -359,7 +359,7 @@ const mediaIdLabel = computed(() => {
     theaudiodb: 'TheAudioDB ID',
     doubanmusic: t('dialog.reorganize.doubanId'),
   }
-  return labels[mediaSource.value]
+  return labels[mediaSource.value] ?? t('dialog.reorganize.mediaId')
 })
 
 // 处理媒体搜索结果选择，同步搜索结果中已识别的媒体类型。
@@ -934,6 +934,7 @@ function getBatchItemsLabel(items: FileItem[]) {
 // 构造整理请求
 function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; logid?: number; preview?: boolean }) {
   const sourceItem = options.item ?? (options.items?.length ? options.items[0] : ({} as FileItem))
+  const normalizedMediaId = normalizeOptionalText(transferForm.media_id)
   const payload: ManualTransferPayload = {
     ...transferForm,
     fileitem: sourceItem,
@@ -941,9 +942,14 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     target_storage: normalizeOptionalText(transferForm.target_storage),
     target_path: normalizeTargetPath(transferForm.target_path),
     transfer_type: normalizeOptionalText(transferForm.transfer_type),
-    media_source: mediaSource.value,
-    media_id: normalizeOptionalText(transferForm.media_id),
+    media_source: undefined,
+    media_id: undefined,
     episode_group: normalizeEpisodeGroup(transferForm.episode_group),
+  }
+
+  if (normalizedMediaId) {
+    payload.media_source = mediaSource.value
+    payload.media_id = normalizedMediaId
   }
 
   if (options.items?.length) {

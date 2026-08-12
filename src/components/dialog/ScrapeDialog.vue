@@ -56,7 +56,7 @@ const dialogSubtitle = computed(() => {
 })
 
 const mediaIdLabel = computed(() => {
-  const labels: Record<MediaDataSource, string> = {
+  const labels: Partial<Record<MediaDataSource, string>> = {
     themoviedb: t('dialog.reorganize.tmdbId'),
     douban: t('dialog.reorganize.doubanId'),
     bangumi: t('dialog.reorganize.bangumiId'),
@@ -65,7 +65,7 @@ const mediaIdLabel = computed(() => {
     theaudiodb: 'TheAudioDB ID',
     doubanmusic: t('dialog.reorganize.doubanId'),
   }
-  return labels[mediaSource.value]
+  return labels[mediaSource.value] ?? t('dialog.reorganize.mediaId')
 })
 
 const canSubmit = computed(() => {

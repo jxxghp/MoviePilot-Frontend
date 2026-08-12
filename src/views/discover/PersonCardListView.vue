@@ -40,14 +40,16 @@ function appendData(items: Person[]) {
 }
 
 async function loadPageData() {
+  const params = getParams()
   return api.get(props.apipath!, {
-    params: getParams(),
+    params,
+    ...(Array.isArray(params.media_source) ? { paramsSerializer: { indexes: null } } : {}),
   }) as Promise<Person[]>
 }
 
 // 拼装参数
-function getParams() {
-  let params = {
+function getParams(): Record<string, unknown> {
+  let params: Record<string, unknown> = {
     page: page.value,
   }
   if (props.params) params = { ...params, ...props.params }

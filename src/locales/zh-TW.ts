@@ -2433,7 +2433,7 @@ export default {
         '被替換詞 => 替換詞\n' +
         '前定位詞 <> 後定位詞 >> 集偏移量（EP）\n' +
         '被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n' +
-        '其中替換詞支持格式：&#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒體數據源ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
+        '其中替換詞支持格式：&#123;[media_source=themoviedb;media_id=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒體數據源和ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
       identifierSaveSuccess: '自定義識別詞保存成功',
       identifierSaveFailed: '自定義識別詞保存失敗！',
 
@@ -3416,7 +3416,7 @@ export default {
       customWords: '自定義識別詞',
       customWordsHint: '只對該訂閱使用的識別詞',
       customWordsPlaceholder:
-        '屏蔽詞\n被替換詞 => 替換詞\n前定位詞 <> 後定位詞 >> 集偏移量（EP）\n被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n其中替換詞支援格式：&#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒體數據源ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
+        '屏蔽詞\n被替換詞 => 替換詞\n前定位詞 <> 後定位詞 >> 集偏移量（EP）\n被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n其中替換詞支援格式：&#123;[media_source=themoviedb;media_id=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒體數據源和ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
       cancelSubscribe: '取消訂閱',
       save: '儲存',
       cancelSubscribeConfirm: '是否確認取消訂閱？',

@@ -91,7 +91,8 @@ describe('SubscribeEditDialog', () => {
       name: '季度测试剧',
       search_imdbid: 0,
       season: 2,
-      tmdbid: 8010,
+      media_id: '8010',
+      media_source: 'themoviedb',
       type: '电视剧',
     })
     const episodeGroupsRequested = vi.fn()
@@ -117,7 +118,7 @@ describe('SubscribeEditDialog', () => {
   })
 
   it('keeps movie titles free of season suffixes and skips episode groups', async () => {
-    const record = createSubscribe({ id: 802, name: '电影测试项', season: undefined, tmdbid: 8020, type: '电影' })
+    const record = createSubscribe({ id: 802, media_id: '8020', name: '电影测试项', season: undefined, type: '电影' })
     const episodeGroupsRequested = vi.fn()
     server.use(subscribeDetailsHandler(802, record))
     useDialogOptions({ onEpisodeGroups: episodeGroupsRequested, tmdbId: 8020 })
@@ -130,13 +131,11 @@ describe('SubscribeEditDialog', () => {
 
   it('skips episode groups for a non-TMDB subscription with an auxiliary TMDB ID', async () => {
     const record = createSubscribe({
-      anilistid: 154587,
       id: 810,
       media_id: '154587',
       media_source: 'anilist',
       name: 'AniList 编辑测试剧',
       season: 1,
-      tmdbid: 8100,
       type: '电视剧',
     })
     const episodeGroupsRequested = vi.fn()
@@ -263,7 +262,6 @@ describe('SubscribeEditDialog', () => {
       min_sample_rate: 96000,
       music_type: 'album',
       name: '音乐音质测试专辑',
-      tmdbid: 0,
       type: '音乐',
     })
     const updated = vi.fn()
@@ -303,7 +301,8 @@ describe('SubscribeEditDialog', () => {
       name: '完整表单测试剧',
       search_imdbid: 0,
       season: 1,
-      tmdbid: 8090,
+      media_id: '8090',
+      media_source: 'themoviedb',
       type: '电视剧',
     })
     const updated = vi.fn()
@@ -406,7 +405,8 @@ describe('SubscribeEditDialog', () => {
       keyword: '旧关键词',
       name: '编辑测试剧',
       season: 1,
-      tmdbid: 8030,
+      media_id: '8030',
+      media_source: 'themoviedb',
       type: '电视剧',
     })
     const updated = vi.fn()
@@ -439,7 +439,7 @@ describe('SubscribeEditDialog', () => {
     ['HTTP failure', 500, { message: 'server down', success: false }, '失败编辑项 更新失败：server down！'],
   ])('keeps an edit dialog usable after an update %s', async (_case, status, response, expectedMessage) => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const record = createSubscribe({ id: 804, name: '失败编辑项', tmdbid: 8040 })
+    const record = createSubscribe({ id: 804, media_id: '8040', name: '失败编辑项' })
     server.use(subscribeDetailsHandler(804, record), updateSubscribeHandler(response, status))
     useDialogOptions({ tmdbId: 8040 })
     const { events } = await renderDialog({ subid: 804 })
@@ -454,7 +454,7 @@ describe('SubscribeEditDialog', () => {
   })
 
   it('does not delete when confirmation is cancelled', async () => {
-    const record = createSubscribe({ id: 805, name: '保留订阅', tmdbid: 8050 })
+    const record = createSubscribe({ id: 805, media_id: '8050', name: '保留订阅' })
     const deleted = vi.fn()
     server.use(subscribeDetailsHandler(805, record), deleteSubscribeByIdHandler(805, { success: true }, 200, deleted))
     useDialogOptions({ tmdbId: 8050 })
@@ -469,7 +469,7 @@ describe('SubscribeEditDialog', () => {
   })
 
   it('emits remove only after a successful deletion', async () => {
-    const record = createSubscribe({ id: 806, name: '删除订阅', tmdbid: 8060 })
+    const record = createSubscribe({ id: 806, media_id: '8060', name: '删除订阅' })
     const deleted = vi.fn()
     server.use(subscribeDetailsHandler(806, record), deleteSubscribeByIdHandler(806, { success: true }, 200, deleted))
     useDialogOptions({ tmdbId: 8060 })
@@ -488,7 +488,7 @@ describe('SubscribeEditDialog', () => {
     ['HTTP failure', 500, { message: 'server down', success: false }, '删除失败项 取消订阅失败：server down！'],
   ])('keeps the subscription after a delete %s', async (_case, status, response, expectedMessage) => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const record = createSubscribe({ id: 807, name: '删除失败项', tmdbid: 8070 })
+    const record = createSubscribe({ id: 807, media_id: '8070', name: '删除失败项' })
     server.use(subscribeDetailsHandler(807, record), deleteSubscribeByIdHandler(807, response, status))
     useDialogOptions({ tmdbId: 8070 })
     const { events } = await renderDialog({ subid: 807 })
@@ -504,7 +504,7 @@ describe('SubscribeEditDialog', () => {
 
   it('remains editable when an auxiliary options request fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const record = createSubscribe({ id: 808, keyword: '仍可编辑', name: '部分失败项', tmdbid: 8080 })
+    const record = createSubscribe({ id: 808, keyword: '仍可编辑', media_id: '8080', name: '部分失败项' })
     const updated = vi.fn()
     server.use(subscribeDetailsHandler(808, record), updateSubscribeHandler({ success: true }, 200, updated))
     useDialogOptions({ tmdbId: 8080 })

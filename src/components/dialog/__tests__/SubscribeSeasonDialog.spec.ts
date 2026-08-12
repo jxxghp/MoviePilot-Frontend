@@ -148,7 +148,8 @@ describe('SubscribeSeasonDialog', () => {
     expect(seasonRequests).toHaveLength(1)
     expect(missingPayloads).toHaveLength(1)
     expect(groupRequests).toHaveBeenCalledOnce()
-    expect(seasonRequests[0].searchParams.get('mediaid')).toBe(`tmdb:${media.tmdb_id}`)
+    expect(seasonRequests[0].searchParams.get('media_id')).toBe(String(media.media_id))
+    expect(seasonRequests[0].searchParams.get('media_source')).toBe('themoviedb')
     expect(seasonRequests[0].searchParams.get('title')).toBe(media.title)
     expect(seasonRequests[0].searchParams.get('year')).toBe(media.year)
     expect(seasonRequests[0].searchParams.get('season')).toBe('0')
@@ -220,27 +221,33 @@ describe('SubscribeSeasonDialog', () => {
   })
 
   it.each([
-    ['Douban', { douban_id: 'db-7303', media_source: 'douban', tmdb_id: undefined }, 'douban:db-7303'],
+    ['Douban', { douban_id: 'db-7303', media_id: 'db-7303', media_source: 'douban', tmdb_id: undefined }, 'db-7303'],
     [
       'Bangumi',
-      { bangumi_id: 'bgm-7304', douban_id: undefined, media_source: 'bangumi', tmdb_id: undefined },
-      'bangumi:bgm-7304',
+      {
+        bangumi_id: 'bgm-7304',
+        douban_id: undefined,
+        media_id: 'bgm-7304',
+        media_source: 'bangumi',
+        tmdb_id: undefined,
+      },
+      'bgm-7304',
     ],
     [
       'AniList',
-      { anilist_id: 154587, bangumi_id: undefined, media_source: 'anilist', tmdb_id: undefined },
-      'anilist:154587',
+      { anilist_id: 154587, bangumi_id: undefined, media_id: '154587', media_source: 'anilist', tmdb_id: undefined },
+      '154587',
     ],
     [
-      'custom source',
+      'Bilibili source',
       {
         bangumi_id: undefined,
         douban_id: undefined,
         media_id: 'custom-7305',
-        media_source: 'custom',
+        media_source: 'bilibili',
         tmdb_id: undefined,
       },
-      'custom:custom-7305',
+      'custom-7305',
     ],
     [
       'source-only TMDB',
@@ -251,7 +258,7 @@ describe('SubscribeSeasonDialog', () => {
         media_source: 'themoviedb',
         tmdb_id: undefined,
       },
-      'tmdb:source-7306',
+      'source-7306',
     ],
   ] as const)('uses the %s media identifier without requesting TMDB groups', async (label, overrides, mediaId) => {
     const consoleWarn =
@@ -268,14 +275,15 @@ describe('SubscribeSeasonDialog', () => {
     expect(await screen.findByText('第 1 季')).toBeInTheDocument()
     await settleRequests()
     expect(requested).toHaveBeenCalledOnce()
-    expect(requested.mock.calls[0][0].searchParams.get('mediaid')).toBe(mediaId)
-    if (label === 'source-only TMDB') expect(consoleWarn).toHaveBeenCalledWith('tmdbid is not set or is empty')
+    expect(requested.mock.calls[0][0].searchParams.get('media_id')).toBe(mediaId)
+    expect(requested.mock.calls[0][0].searchParams.get('media_source')).toBe(media.media_source)
+    if (label === 'source-only TMDB') expect(consoleWarn).toHaveBeenCalledWith('tmdb_id is not set or is empty')
   })
 
   it.each([
-    ['Douban', { douban_id: 'db-7310', media_source: 'douban' }, 'douban:db-7310'],
-    ['Bangumi', { bangumi_id: 'bgm-7310', media_source: 'bangumi' }, 'bangumi:bgm-7310'],
-    ['AniList', { anilist_id: 154587, media_source: 'anilist' }, 'anilist:154587'],
+    ['Douban', { douban_id: 'db-7310', media_id: 'db-7310', media_source: 'douban' }, 'db-7310'],
+    ['Bangumi', { bangumi_id: 'bgm-7310', media_id: 'bgm-7310', media_source: 'bangumi' }, 'bgm-7310'],
+    ['AniList', { anilist_id: 154587, media_id: '154587', media_source: 'anilist' }, '154587'],
   ] as const)(
     'keeps the %s identity and skips episode groups when an auxiliary TMDB ID exists',
     async (_label, overrides, mediaId) => {
@@ -294,7 +302,8 @@ describe('SubscribeSeasonDialog', () => {
 
       expect(await screen.findByText('第 1 季')).toBeInTheDocument()
       await settleRequests()
-      expect(seasonRequest.mock.calls[0][0].searchParams.get('mediaid')).toBe(mediaId)
+      expect(seasonRequest.mock.calls[0][0].searchParams.get('media_id')).toBe(mediaId)
+      expect(seasonRequest.mock.calls[0][0].searchParams.get('media_source')).toBe(media.media_source)
       expect(groupRequest).not.toHaveBeenCalled()
       expect(groupSeasonsRequest).not.toHaveBeenCalled()
     },

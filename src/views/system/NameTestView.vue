@@ -4,7 +4,7 @@ import { useToast } from 'vue-toastification'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Context, MediaDataSource, MediaInfo } from '@/api/types'
-import { getMediaSubscribeId, getMediaSubscribeIdentity } from '@/composables/useMediaSubscribe'
+import { getMediaSubscribeIdentity } from '@/composables/useMediaSubscribe'
 import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
 import { getLogoUrl } from '@/utils/imageUtils'
@@ -159,15 +159,7 @@ const resourceChips = computed(() => {
   ].filter(Boolean) as string[]
 })
 // 是否已匹配到具体媒体，决定是否展示查看详情入口
-const canViewMediaDetail = computed(() =>
-  Boolean(
-    mediaInfo.value?.tmdb_id ||
-    mediaInfo.value?.douban_id ||
-    mediaInfo.value?.bangumi_id ||
-    mediaInfo.value?.anilist_id ||
-    mediaInfo.value?.media_id,
-  ),
-)
+const canViewMediaDetail = computed(() => Boolean(getMediaSubscribeIdentity(mediaInfo.value)))
 
 /** 生成媒体源官方详情页地址。 */
 function getMediaOfficialLink(media: MediaInfo, source: string, mediaId: string) {
@@ -196,7 +188,7 @@ function getMediaOfficialLink(media: MediaInfo, source: string, mediaId: string)
   }
 }
 
-/** 生成识别结果中的数据源原生 ID，并兼容旧接口字段。 */
+/** 生成识别结果中的数据源原生 ID。 */
 function getMediaIdentity(media?: MediaInfo): MediaIdentity | undefined {
   if (!media) return undefined
 
@@ -271,11 +263,14 @@ function getPosterImage(url = '') {
 /** 关闭识别测试弹窗后，跳转查看当前识别结果匹配到的媒体详情。 */
 async function viewMediaDetail() {
   if (!canViewMediaDetail.value || !mediaInfo.value) return
+  const identity = getMediaSubscribeIdentity(mediaInfo.value)
+  if (!identity) return
 
   const target = {
     path: '/media',
     query: {
-      mediaid: getMediaSubscribeId(mediaInfo.value),
+      media_source: identity.source,
+      media_id: identity.mediaId,
       title: mediaInfo.value.title,
       year: mediaInfo.value.year,
       type: mediaInfo.value.type,

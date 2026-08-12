@@ -73,7 +73,8 @@ const subscribeForm = ref<Subscribe>({
   name: '',
   year: '',
   type: '',
-  tmdbid: 0,
+  media_source: undefined,
+  media_id: undefined,
   state: '',
   last_update: '',
   username: '',
@@ -141,14 +142,13 @@ function episodeGroupItemProps(item: { title: string; subtitle: string }) {
 
 // 查询所有剧集组
 async function getEpisodeGroups() {
-  // 兼容未记录主来源的旧 TMDB 订阅；明确为其他来源时不使用辅助 TMDB ID 查询剧集组。
-  if (subscribeForm.value.media_source && subscribeForm.value.media_source !== 'themoviedb') return
-  if (!subscribeForm.value.tmdbid) {
-    console.warn('tmdbid is not set or is empty')
+  if (subscribeForm.value.media_source !== 'themoviedb') return
+  if (!subscribeForm.value.media_id) {
+    console.warn('media_id is not set or is empty')
     return
   }
   try {
-    episodeGroups.value = await api.get(`media/groups/${subscribeForm.value.tmdbid}`)
+    episodeGroups.value = await api.get(`media/groups/${encodeURIComponent(subscribeForm.value.media_id)}`)
   } catch (error) {
     console.error(error)
   }

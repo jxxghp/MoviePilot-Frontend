@@ -16,15 +16,12 @@ describe('DialogCloseBtn', () => {
     const button = screen.getByRole('button', { name: '关闭' })
 
     expect(button).toHaveClass('absolute', 'right-3', 'top-3', 'z-10')
-    const icon = container.querySelector('svg.v-icon')
-    expect(icon).not.toBeNull()
+    const icon = button.querySelector('svg.v-icon')
+    expect(container.querySelectorAll('svg.v-icon')).toHaveLength(1)
     expect(icon).toHaveAttribute('aria-hidden', 'true')
-    await waitFor(() =>
-      expect(icon?.querySelector('path')).toHaveAttribute(
-        'd',
-        'M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z',
-      ),
-    )
+    expect(icon).toHaveAttribute('role', 'img')
+    expect(icon).toHaveAttribute('height', '1em')
+    expect(icon).toHaveAttribute('width', '1em')
 
     i18n.global.locale.value = 'en-US'
     await waitFor(() => expect(screen.getByRole('button', { name: 'Close' })).toBe(button))

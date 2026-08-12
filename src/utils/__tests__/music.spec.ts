@@ -14,7 +14,7 @@ describe('music utils', () => {
   it('routes a recording to the music detail page', () => {
     expect(buildMusicDetailRoute({ media_source: 'musicbrainz', media_id: 'recording-1', title: '晴天' })).toEqual({
       path: '/music/detail',
-      query: { media_source: 'musicbrainz', mediaid: 'recording-1', title: '晴天' },
+      query: { media_source: 'musicbrainz', media_id: 'recording-1', title: '晴天' },
     })
   })
 
@@ -28,7 +28,7 @@ describe('music utils', () => {
       }),
     ).toEqual({
       path: '/music/album',
-      query: { media_source: 'musicbrainz', mediaid: 'release-group-1', title: '叶惠美' },
+      query: { media_source: 'musicbrainz', media_id: 'release-group-1', title: '叶惠美' },
     })
   })
 
@@ -42,7 +42,7 @@ describe('music utils', () => {
       }),
     ).toEqual({
       path: '/music/artist',
-      query: { media_source: 'musicbrainz', mediaid: 'artist-1', title: 'Queen' },
+      query: { media_source: 'musicbrainz', media_id: 'artist-1', title: 'Queen' },
     })
   })
 
@@ -53,14 +53,14 @@ describe('music utils', () => {
     })
   })
 
-  it('builds album and artist routes with the default source', () => {
-    expect(buildMusicAlbumRoute('release-group-1', '叶惠美')).toEqual({
+  it('builds album and artist routes with an explicit source', () => {
+    expect(buildMusicAlbumRoute('release-group-1', '叶惠美', 'musicbrainz')).toEqual({
       path: '/music/album',
-      query: { media_source: 'musicbrainz', mediaid: 'release-group-1', title: '叶惠美' },
+      query: { media_source: 'musicbrainz', media_id: 'release-group-1', title: '叶惠美' },
     })
-    expect(buildMusicArtistRoute('artist-1', 'Queen')).toEqual({
+    expect(buildMusicArtistRoute('artist-1', 'Queen', 'musicbrainz')).toEqual({
       path: '/music/artist',
-      query: { media_source: 'musicbrainz', mediaid: 'artist-1', title: 'Queen' },
+      query: { media_source: 'musicbrainz', media_id: 'artist-1', title: 'Queen' },
     })
   })
 
@@ -78,7 +78,8 @@ describe('music utils', () => {
     ).toMatchObject({
       path: '/resource',
       query: {
-        keyword: 'musicbrainz:recording-1',
+        media_id: 'recording-1',
+        media_source: 'musicbrainz',
         music_type: 'recording',
         sites: '11,12',
         type: '音乐',

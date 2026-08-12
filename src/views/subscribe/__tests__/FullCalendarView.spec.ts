@@ -92,7 +92,15 @@ function queryMobileCalendarEventCard(title: string) {
 }
 
 function movieSubscribe(id: number, name: string, overrides: Partial<Subscribe> = {}) {
-  return createSubscribe({ id, name, tmdbid: id, type: '电影', username: `user-${id}`, ...overrides })
+  return createSubscribe({
+    id,
+    media_id: String(id),
+    media_source: 'themoviedb',
+    name,
+    type: '电影',
+    username: `user-${id}`,
+    ...overrides,
+  })
 }
 
 function tvSubscribe(id: number, name: string, overrides: Partial<Subscribe> = {}) {
@@ -100,7 +108,8 @@ function tvSubscribe(id: number, name: string, overrides: Partial<Subscribe> = {
     id,
     name,
     season: 1,
-    tmdbid: id,
+    media_id: String(id),
+    media_source: 'themoviedb',
     total_episode: 4,
     type: '电视剧',
     username: `user-${id}`,
@@ -216,7 +225,7 @@ describe('FullCalendarView', () => {
     ]
     server.use(
       subscribeListHandler(subscriptions),
-      ...subscriptions.map(subscribe => tmdbSeasonEpisodesHandler(subscribe.tmdbid as number, 1, episodes)),
+      ...subscriptions.map(subscribe => tmdbSeasonEpisodesHandler(Number(subscribe.media_id), 1, episodes)),
     )
 
     await renderCalendar()
@@ -264,7 +273,7 @@ describe('FullCalendarView', () => {
     server.use(
       subscribeListHandler(subscriptions),
       ...sameDaySubscriptions.map(subscribe =>
-        tmdbSeasonEpisodesHandler(subscribe.tmdbid as number, 1, [sameDayEpisode]),
+        tmdbSeasonEpisodesHandler(Number(subscribe.media_id), 1, [sameDayEpisode]),
       ),
       tmdbSeasonEpisodesHandler(3499, 1, [createTmdbEpisode({ air_date: '2026-08-02', episode_number: 1 })]),
     )
@@ -314,7 +323,7 @@ describe('FullCalendarView', () => {
     ]
     server.use(
       subscribeListHandler(details.map(([subscribe]) => subscribe)),
-      ...details.map(([subscribe, media]) => mediaDetailsHandler(subscribe.tmdbid as number, media)),
+      ...details.map(([subscribe, media]) => mediaDetailsHandler(String(subscribe.media_id), media)),
     )
 
     await renderCalendar()
@@ -461,7 +470,7 @@ describe('FullCalendarView', () => {
     server.use(
       subscribeListHandler(sameDaySubscriptions),
       ...sameDaySubscriptions.map(subscribe =>
-        tmdbSeasonEpisodesHandler(subscribe.tmdbid as number, 1, [sameDayEpisode]),
+        tmdbSeasonEpisodesHandler(Number(subscribe.media_id), 1, [sameDayEpisode]),
       ),
     )
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})

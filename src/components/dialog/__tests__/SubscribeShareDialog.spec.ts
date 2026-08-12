@@ -40,7 +40,8 @@ async function renderDialog(season = 2, name = '分享创建测试剧') {
     id: 5201,
     name,
     season,
-    tmdbid: 52010,
+    media_id: '52010',
+    media_source: 'themoviedb',
     type: '电视剧',
   })
   const result = await renderWithProviders(SubscribeShareDialog, {

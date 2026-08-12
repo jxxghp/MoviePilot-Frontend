@@ -47,6 +47,23 @@ describe('word list syntax mode', () => {
     ])
   })
 
+  it('accepts the unified media source and native media ID parameters', () => {
+    const tokens = tokenize('旧名 => 新名 {[media_source=douban;media_id=1295644;type=movie]}')
+
+    expect(tokens).toContainEqual({ type: 'word_list_parameter_key', value: 'media_source' })
+    expect(tokens).toContainEqual({ type: 'word_list_parameter_value', value: 'douban' })
+    expect(tokens).toContainEqual({ type: 'word_list_parameter_key', value: 'media_id' })
+    expect(tokens).toContainEqual({ type: 'word_list_parameter_value', value: '1295644' })
+    expect(tokens).not.toContainEqual(expect.objectContaining({ type: 'invalid.word-list' }))
+  })
+
+  it('rejects an unknown media source in the unified parameters', () => {
+    expect(tokenize('旧名 => {[media_source=custom;media_id=42]}')).toContainEqual({
+      type: 'invalid.word-list',
+      value: 'custom',
+    })
+  })
+
   it('marks invalid replacement parameter keys and values', () => {
     expect(tokenize('旧名 => 新名 {[unknown=1;tmdbid=abc;type=anime;g=group;s=2;e=3]}')).toEqual([
       { type: 'word_list_replaced', value: '旧名' },

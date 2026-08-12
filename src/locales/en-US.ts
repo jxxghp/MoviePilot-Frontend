@@ -2476,7 +2476,7 @@ export default {
         'Word to replace => Replacement\n' +
         'Front word <> Back word >> Episode offset (EP)\n' +
         'Word to replace => Replacement && Front word <> Back word >> Episode offset (EP)\n' +
-        'Replacement format supports: &#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to directly specify a media data source ID, where g is the episode group ID and s/e are season and episode numbers (all optional)',
+        'Replacement format supports: &#123;[media_source=themoviedb;media_id=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to specify a media source and its native ID, where g is the episode group ID and s/e are season and episode numbers (all optional)',
       identifierSaveSuccess: 'Custom identifiers saved successfully',
       identifierSaveFailed: 'Failed to save custom identifiers!',
 
@@ -3476,7 +3476,7 @@ export default {
       customWords: 'Custom Recognition Words',
       customWordsHint: 'Recognition words only used for this subscription',
       customWordsPlaceholder:
-        'Block word\nReplaced word => Replacement word\nPrefix <> Suffix >> Episode offset (EP)\nReplaced word => Replacement word && Prefix <> Suffix >> Episode offset (EP)\nReplacement word supports format: &#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to directly specify a media data source ID, where g is the episode group ID and s/e are season and episode numbers (all optional)',
+        'Block word\nReplaced word => Replacement word\nPrefix <> Suffix >> Episode offset (EP)\nReplaced word => Replacement word && Prefix <> Suffix >> Episode offset (EP)\nReplacement word supports format: &#123;[media_source=themoviedb;media_id=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to specify a media source and its native ID, where g is the episode group ID and s/e are season and episode numbers (all optional)',
       cancelSubscribe: 'Cancel Subscription',
       save: 'Save',
       cancelSubscribeConfirm: 'Are you sure you want to cancel the subscription?',

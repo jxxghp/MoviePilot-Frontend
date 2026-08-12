@@ -124,27 +124,31 @@ describe('SubscribeShareCard', () => {
   })
 
   it.each([
-    ['TMDB before Douban', { doubanid: '2202', tmdbid: 1101 }, 'tmdb:1101'],
-    ['Douban without TMDB', { doubanid: '2202', tmdbid: undefined }, 'douban:2202'],
-    ['Bangumi without TMDB or Douban', { bangumiid: 3303, doubanid: undefined, tmdbid: undefined }, 'bangumi:3303'],
-    ['AniList without other IDs', { anilistid: 4404, bangumiid: undefined, tmdbid: undefined }, 'anilist:4404'],
-  ] as const)('routes media details with %s while keeping the fork dialog closed', async (_case, ids, mediaid) => {
-    const { container, media } = await renderCard(ids)
-    const poster = await loadPoster(container)
+    ['TMDB', { media_id: '1101', media_source: 'themoviedb' }, 'themoviedb', '1101'],
+    ['Douban', { media_id: '2202', media_source: 'douban' }, 'douban', '2202'],
+    ['Bangumi', { media_id: '3303', media_source: 'bangumi' }, 'bangumi', '3303'],
+    ['AniList', { media_id: '4404', media_source: 'anilist' }, 'anilist', '4404'],
+  ] as const)(
+    'routes media details with %s while keeping the fork dialog closed',
+    async (_case, ids, mediaSource, mediaId) => {
+      const { container, media } = await renderCard(ids)
+      const poster = await loadPoster(container)
 
-    await fireEvent.click(poster)
+      await fireEvent.click(poster)
 
-    expect(mocks.routerPush).toHaveBeenCalledWith({
-      path: '/media',
-      query: {
-        mediaid,
-        title: media.name,
-        type: media.type,
-        year: media.year,
-      },
-    })
-    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
-  })
+      expect(mocks.routerPush).toHaveBeenCalledWith({
+        path: '/media',
+        query: {
+          media_id: mediaId,
+          media_source: mediaSource,
+          title: media.name,
+          type: media.type,
+          year: media.year,
+        },
+      })
+      expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    },
+  )
 
   it('opens the fork dialog with the exact media and replaces it with editing after fork success', async () => {
     const { container, media } = await renderCard()

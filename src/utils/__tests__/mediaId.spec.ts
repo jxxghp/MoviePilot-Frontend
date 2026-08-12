@@ -1,4 +1,4 @@
-import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
+import { isMusicMediaSource, isValidMediaSourceId, parseMediaDataSources } from '@/utils/mediaId'
 import { describe, expect, it } from 'vitest'
 
 describe('media source identity utils', () => {
@@ -6,12 +6,32 @@ describe('media source identity utils', () => {
     expect(isMusicMediaSource(source)).toBe(true)
   })
 
-  it('uses UUIDs for MusicBrainz and numeric IDs for alternate music sources', () => {
+  it.each([
+    ['themoviedb', ['themoviedb']],
+    [' musicbrainz, theaudiodb,unknown,musicbrainz ', ['musicbrainz', 'theaudiodb']],
+    [
+      ['douban', 'anilist,bangumi', null, 'douban'],
+      ['douban', 'anilist', 'bangumi'],
+    ],
+    [undefined, []],
+  ])('normalizes route media sources from %j', (value, expected) => {
+    expect(parseMediaDataSources(value)).toEqual(expected)
+  })
+
+  it('validates source-specific IDs without assuming every provider uses numeric IDs', () => {
+    expect(isValidMediaSourceId('', 'themoviedb')).toBe(true)
+    expect(isValidMediaSourceId('   ', 'douban')).toBe(true)
+    expect(isValidMediaSourceId(0, 'themoviedb')).toBe(false)
+    expect(isValidMediaSourceId('0', 'bilibili')).toBe(false)
     expect(isValidMediaSourceId('977e6978-139d-425c-bb98-6b0c62d1e45e', 'musicbrainz')).toBe(true)
+    expect(isValidMediaSourceId('not-a-uuid', 'musicbrainz')).toBe(false)
     expect(isValidMediaSourceId('32793500', 'theaudiodb')).toBe(true)
     expect(isValidMediaSourceId('1401853', 'doubanmusic')).toBe(true)
     expect(isValidMediaSourceId('1401853:3', 'doubanmusic')).toBe(true)
     expect(isValidMediaSourceId('1401853:track', 'doubanmusic')).toBe(false)
-    expect(isValidMediaSourceId('not-a-number', 'theaudiodb')).toBe(false)
+    expect(isValidMediaSourceId('album-32793500', 'theaudiodb')).toBe(true)
+    expect(isValidMediaSourceId('tt0111161', 'imdb')).toBe(true)
+    expect(isValidMediaSourceId('0111161', 'imdb')).toBe(false)
+    expect(isValidMediaSourceId('BV1xx411c7mD', 'bilibili')).toBe(true)
   })
 })

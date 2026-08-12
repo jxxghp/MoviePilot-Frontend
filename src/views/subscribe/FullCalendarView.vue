@@ -204,7 +204,10 @@ const mobileFilteredCalendarEvents = computed(() => {
       return false
     }
 
-    if (mobileSelectedFilterValue.value !== ALL_MOBILE_FILTER_VALUE && event.title !== mobileSelectedFilterValue.value) {
+    if (
+      mobileSelectedFilterValue.value !== ALL_MOBILE_FILTER_VALUE &&
+      event.title !== mobileSelectedFilterValue.value
+    ) {
       return false
     }
 
@@ -606,27 +609,32 @@ function getEpisodeTitle(episodeNumbers: number[], episodeTitles: string[]) {
 
 // 生成单个订阅对应的日历事件。
 async function eventsHander(subscribe: Subscribe) {
+  if (!subscribe.media_source || !subscribe.media_id) return []
   // 如果是电影直接返回
   if (subscribe.type === '电影') {
-    // 调用API查询TMDB详情
-    const movie: MediaInfo = await api.get(`media/tmdb:${subscribe.tmdbid}`, {
-      params: { type_name: subscribe.type },
+    const media: MediaInfo = await api.get(`media/${encodeURIComponent(subscribe.media_id)}`, {
+      params: { media_source: subscribe.media_source, type_name: subscribe.type },
     })
-
     return buildCalendarEventInfo(subscribe, {
       subtitle: '',
-      start: parseDate(movie.release_date || ''),
+      start: parseDate(media.release_date || ''),
       len: 1,
-      runtime: movie.runtime,
+      runtime: media.runtime,
       episodeNumbers: [],
     })
   } else {
+    // TMDB 主来源的原生媒体 ID 可直接供单源剧集接口使用；其他来源才需要识别转换。
+    let tmdbId = subscribe.media_source === 'themoviedb' ? Number(subscribe.media_id) : undefined
+    if (!tmdbId) {
+      const media: MediaInfo = await api.get(`media/${encodeURIComponent(subscribe.media_id)}`, {
+        params: { media_source: subscribe.media_source, type_name: subscribe.type },
+      })
+      tmdbId = media.tmdb_id ? Number(media.tmdb_id) : undefined
+    }
+    if (!tmdbId || !Number.isSafeInteger(tmdbId) || tmdbId <= 0) return []
     // 调用API查询集信息
     const params = subscribe.episode_group ? { episode_group: subscribe.episode_group } : undefined
-    const episodes: TmdbEpisode[] = await api.get(
-      `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
-      params ? { params } : undefined,
-    )
+    const episodes: TmdbEpisode[] = await api.get(`tmdb/${tmdbId}/${subscribe.season}`, params ? { params } : undefined)
 
     // 按播出日期聚合 TMDB 剧集。
     interface EpisodesDictionary {
@@ -702,7 +710,12 @@ onActivated(() => {
 </script>
 
 <template>
-  <div v-if="display.mdAndUp.value" class="calendar-media-type-filter" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
+  <div
+    v-if="display.mdAndUp.value"
+    class="calendar-media-type-filter"
+    role="group"
+    :aria-label="t('calendar.mediaTypeFilterTitle')"
+  >
     <button
       v-for="option in mediaTypeFilterOptions"
       :key="option.value"
@@ -779,10 +792,7 @@ onActivated(() => {
               {{ t('calendar.episode', { number: calendarEvent.subtitle }) }}
             </div>
             <div v-if="calendarEvent.totalEpisode" class="calendar-event-library-row">
-              <span
-                class="calendar-event-status"
-                :class="`calendar-event-status--${calendarEvent.libraryState}`"
-              >
+              <span class="calendar-event-status" :class="`calendar-event-status--${calendarEvent.libraryState}`">
                 <VIcon :icon="getLibraryStateIcon(calendarEvent.libraryState)" size="13" />
                 {{ getCompactLibraryProgressText(calendarEvent) }}
               </span>
@@ -814,139 +824,145 @@ onActivated(() => {
 
     <template v-else>
       <section class="mobile-calendar-filter-card">
-      <div class="mobile-calendar-filter-head">
-        <div class="mobile-calendar-filter-copy">
-          <h2>{{ t('calendar.mobileFilterTitle') }}</h2>
-          <span>{{ t('calendar.itemCount', { count: mobileSeriesFilterOptions[0]?.count || 0 }) }}</span>
+        <div class="mobile-calendar-filter-head">
+          <div class="mobile-calendar-filter-copy">
+            <h2>{{ t('calendar.mobileFilterTitle') }}</h2>
+            <span>{{ t('calendar.itemCount', { count: mobileSeriesFilterOptions[0]?.count || 0 }) }}</span>
+          </div>
+
+          <button
+            type="button"
+            class="mobile-calendar-expired-toggle"
+            :class="{ 'mobile-calendar-expired-toggle--active': mobileHideExpired }"
+            @click="mobileHideExpired = !mobileHideExpired"
+          >
+            <VIcon :icon="mobileHideExpired ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="18" />
+            <span>{{ mobileHideExpired ? t('calendar.hideExpired') : t('calendar.showExpired') }}</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          class="mobile-calendar-expired-toggle"
-          :class="{ 'mobile-calendar-expired-toggle--active': mobileHideExpired }"
-          @click="mobileHideExpired = !mobileHideExpired"
-        >
-          <VIcon :icon="mobileHideExpired ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="18" />
-          <span>{{ mobileHideExpired ? t('calendar.hideExpired') : t('calendar.showExpired') }}</span>
-        </button>
-      </div>
+        <div class="mobile-calendar-mediatype-list" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
+          <button
+            v-for="option in mediaTypeFilterOptions"
+            :key="option.value"
+            type="button"
+            class="mobile-calendar-filter-chip mobile-calendar-mediatype-chip"
+            :class="{ 'mobile-calendar-filter-chip--active': mediaTypeFilter === option.value }"
+            :aria-pressed="mediaTypeFilter === option.value"
+            @click="mediaTypeFilter = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
 
-      <div class="mobile-calendar-mediatype-list" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
-        <button
-          v-for="option in mediaTypeFilterOptions"
-          :key="option.value"
-          type="button"
-          class="mobile-calendar-filter-chip mobile-calendar-mediatype-chip"
-          :class="{ 'mobile-calendar-filter-chip--active': mediaTypeFilter === option.value }"
-          :aria-pressed="mediaTypeFilter === option.value"
-          @click="mediaTypeFilter = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-
-      <div class="mobile-calendar-filter-list" role="listbox" :aria-label="t('calendar.mobileFilterTitle')">
-        <button
-          v-for="option in mobileSeriesFilterOptions"
-          :key="option.value"
-          type="button"
-          class="mobile-calendar-filter-chip"
-          :class="{ 'mobile-calendar-filter-chip--active': mobileSelectedFilterValue === option.value }"
-          role="option"
-          :aria-selected="mobileSelectedFilterValue === option.value"
-          @click="mobileSelectedFilterValue = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </div>
+        <div class="mobile-calendar-filter-list" role="listbox" :aria-label="t('calendar.mobileFilterTitle')">
+          <button
+            v-for="option in mobileSeriesFilterOptions"
+            :key="option.value"
+            type="button"
+            class="mobile-calendar-filter-chip"
+            :class="{ 'mobile-calendar-filter-chip--active': mobileSelectedFilterValue === option.value }"
+            role="option"
+            :aria-selected="mobileSelectedFilterValue === option.value"
+            @click="mobileSelectedFilterValue = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
       </section>
 
       <div v-if="mobileCalendarDayGroups.length" class="mobile-calendar-timeline">
-      <section v-for="group in mobileCalendarDayGroups" :key="group.dateKey" class="mobile-calendar-day">
-        <div class="mobile-calendar-day-marker">
-          <span class="mobile-calendar-day-dot" :class="{ 'mobile-calendar-day-dot--today': isDateToday(group.date) }" />
-        </div>
-
-        <div class="mobile-calendar-day-body">
-          <header class="mobile-calendar-day-head">
-            <div class="mobile-calendar-day-title-wrap">
-              <h2>{{ group.title }}</h2>
-              <span>{{ group.subtitle }}</span>
-            </div>
-
-            <div class="mobile-calendar-day-meta">
-              <span
-                v-if="getMobileDayStatus(group.date)"
-                class="mobile-calendar-day-status"
-                :class="{
-                  'mobile-calendar-day-status--upcoming': isDateAfterToday(group.date),
-                  'mobile-calendar-day-status--expired': isDateBeforeToday(group.date),
-                }"
-              >
-                {{ getMobileDayStatus(group.date) }}
-              </span>
-              <span class="mobile-calendar-day-count">{{ t('calendar.episodeCount', { count: group.count }) }}</span>
-            </div>
-          </header>
-
-          <div class="mobile-calendar-event-list">
-            <article
-              v-for="calendarEvent in group.events"
-              :key="`${group.dateKey}-${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
-              class="mobile-calendar-event-card"
-              :class="`mobile-calendar-event-card--${calendarEvent.libraryState}`"
-              :title="getCalendarEventInfoTooltip(calendarEvent)"
-            >
-              <div class="mobile-calendar-event-poster-wrap">
-                <VImg
-                  :src="calendarEvent.posterPath"
-                  aspect-ratio="2/3"
-                  class="mobile-calendar-event-poster object-cover"
-                  cover
-                >
-                  <template #placeholder>
-                    <div class="mobile-calendar-event-poster-placeholder">
-                      <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                    </div>
-                  </template>
-                  <template #error>
-                    <div class="mobile-calendar-event-poster-error">
-                      <VIcon icon="mdi-image-off-outline" size="32" />
-                      <span>{{ t('calendar.imageLoadFailed') }}</span>
-                    </div>
-                  </template>
-                </VImg>
-              </div>
-
-              <div class="mobile-calendar-event-content">
-                <h3>{{ getMobileEventMainTitle(calendarEvent) }}</h3>
-                <p v-if="getMobileEventSubtitle(calendarEvent)">{{ getMobileEventSubtitle(calendarEvent) }}</p>
-
-                <div class="mobile-calendar-event-tags">
-                  <span v-if="getMobileEventEpisodeTag(calendarEvent)" class="mobile-calendar-event-tag mobile-calendar-event-tag--primary">
-                    {{ getMobileEventEpisodeTag(calendarEvent) }}
-                  </span>
-                  <span v-if="getMobileEventRuntimeTag(calendarEvent)" class="mobile-calendar-event-tag">
-                    {{ getMobileEventRuntimeTag(calendarEvent) }}
-                  </span>
-                  <span
-                    class="mobile-calendar-event-tag"
-                    :class="`mobile-calendar-event-tag--library-${calendarEvent.libraryState}`"
-                  >
-                    {{ getLibraryStateText(calendarEvent.libraryState) }}
-                  </span>
-                </div>
-              </div>
-            </article>
+        <section v-for="group in mobileCalendarDayGroups" :key="group.dateKey" class="mobile-calendar-day">
+          <div class="mobile-calendar-day-marker">
+            <span
+              class="mobile-calendar-day-dot"
+              :class="{ 'mobile-calendar-day-dot--today': isDateToday(group.date) }"
+            />
           </div>
-        </div>
-      </section>
+
+          <div class="mobile-calendar-day-body">
+            <header class="mobile-calendar-day-head">
+              <div class="mobile-calendar-day-title-wrap">
+                <h2>{{ group.title }}</h2>
+                <span>{{ group.subtitle }}</span>
+              </div>
+
+              <div class="mobile-calendar-day-meta">
+                <span
+                  v-if="getMobileDayStatus(group.date)"
+                  class="mobile-calendar-day-status"
+                  :class="{
+                    'mobile-calendar-day-status--upcoming': isDateAfterToday(group.date),
+                    'mobile-calendar-day-status--expired': isDateBeforeToday(group.date),
+                  }"
+                >
+                  {{ getMobileDayStatus(group.date) }}
+                </span>
+                <span class="mobile-calendar-day-count">{{ t('calendar.episodeCount', { count: group.count }) }}</span>
+              </div>
+            </header>
+
+            <div class="mobile-calendar-event-list">
+              <article
+                v-for="calendarEvent in group.events"
+                :key="`${group.dateKey}-${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
+                class="mobile-calendar-event-card"
+                :class="`mobile-calendar-event-card--${calendarEvent.libraryState}`"
+                :title="getCalendarEventInfoTooltip(calendarEvent)"
+              >
+                <div class="mobile-calendar-event-poster-wrap">
+                  <VImg
+                    :src="calendarEvent.posterPath"
+                    aspect-ratio="2/3"
+                    class="mobile-calendar-event-poster object-cover"
+                    cover
+                  >
+                    <template #placeholder>
+                      <div class="mobile-calendar-event-poster-placeholder">
+                        <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                      </div>
+                    </template>
+                    <template #error>
+                      <div class="mobile-calendar-event-poster-error">
+                        <VIcon icon="mdi-image-off-outline" size="32" />
+                        <span>{{ t('calendar.imageLoadFailed') }}</span>
+                      </div>
+                    </template>
+                  </VImg>
+                </div>
+
+                <div class="mobile-calendar-event-content">
+                  <h3>{{ getMobileEventMainTitle(calendarEvent) }}</h3>
+                  <p v-if="getMobileEventSubtitle(calendarEvent)">{{ getMobileEventSubtitle(calendarEvent) }}</p>
+
+                  <div class="mobile-calendar-event-tags">
+                    <span
+                      v-if="getMobileEventEpisodeTag(calendarEvent)"
+                      class="mobile-calendar-event-tag mobile-calendar-event-tag--primary"
+                    >
+                      {{ getMobileEventEpisodeTag(calendarEvent) }}
+                    </span>
+                    <span v-if="getMobileEventRuntimeTag(calendarEvent)" class="mobile-calendar-event-tag">
+                      {{ getMobileEventRuntimeTag(calendarEvent) }}
+                    </span>
+                    <span
+                      class="mobile-calendar-event-tag"
+                      :class="`mobile-calendar-event-tag--library-${calendarEvent.libraryState}`"
+                    >
+                      {{ getLibraryStateText(calendarEvent.libraryState) }}
+                    </span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div v-else class="mobile-calendar-empty">
-      <VIcon icon="mdi-calendar-blank-outline" size="44" />
-      <h2>{{ t('common.noData') }}</h2>
-      <p>{{ t('calendar.noMatchingEvents') }}</p>
+        <VIcon icon="mdi-calendar-blank-outline" size="44" />
+        <h2>{{ t('common.noData') }}</h2>
+        <p>{{ t('calendar.noMatchingEvents') }}</p>
       </div>
     </template>
   </div>

@@ -48,7 +48,7 @@ const musicSite = { id: 14, is_active: true, name: '艺术家站点', url: 'http
 /** 渲染艺术家详情页，统一提供超级用户权限与路由身份。 */
 function renderArtistPage() {
   return renderWithProviders(MusicArtistPage, {
-    initialRoute: '/music/artist?media_source=musicbrainz&mediaid=artist-1',
+    initialRoute: '/music/artist?media_source=musicbrainz&media_id=artist-1',
     initialState: { user: { superUser: true } },
     global: { stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true } },
   })

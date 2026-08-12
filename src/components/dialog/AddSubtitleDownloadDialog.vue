@@ -2,12 +2,18 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import type { ApiResponse, MediaDataSource, SubtitleInfo, TransferDirectoryConf } from '@/api/types'
+import {
+  MediaSource,
+  type ApiResponse,
+  type MediaDataSource,
+  type SubtitleInfo,
+  type TransferDirectoryConf,
+} from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
-import { numberValidator } from '@/@validators'
 import { useGlobalSettingsStore } from '@/stores'
+import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 
 // 多语言支持
 const { t } = useI18n()
@@ -16,18 +22,22 @@ const { t } = useI18n()
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
-// 当前识别类型
-const mediaSource = ref<MediaDataSource>(
-  ['themoviedb', 'douban', 'bangumi', 'anilist'].includes(globalSettings.RECOGNIZE_SOURCE)
-    ? globalSettings.RECOGNIZE_SOURCE
-    : 'themoviedb',
-)
-
 // 输入参数
-const props = defineProps({
-  title: String,
-  subtitle: Object as PropType<SubtitleInfo>,
-})
+const props = defineProps<{
+  title?: string
+  subtitle?: SubtitleInfo
+  mediaSource?: MediaDataSource
+  mediaId?: string
+}>()
+
+const initialMediaId = isMediaDataSource(props.mediaSource) ? props.mediaId?.trim() || undefined : undefined
+const mediaSource = ref<MediaDataSource>(
+  isMediaDataSource(props.mediaSource)
+    ? props.mediaSource
+    : isMediaDataSource(globalSettings.RECOGNIZE_SOURCE)
+      ? globalSettings.RECOGNIZE_SOURCE
+      : MediaSource.TMDB,
+)
 
 // 定义成功和失败事件
 const emit = defineEmits(['done', 'error', 'close'])
@@ -45,23 +55,49 @@ const directories = ref<TransferDirectoryConf[]>([])
 const loading = ref(false)
 
 // 是否显示高级选项
-const showAdvancedOptions = ref(false)
+const showAdvancedOptions = ref(!initialMediaId)
 
 // 当前数据源的原生媒体ID
-const mediaId = ref<string | undefined>(undefined)
+const selectedMediaId = ref<string | undefined>(initialMediaId)
+
+const normalizedMediaId = computed(() => selectedMediaId.value?.trim() || undefined)
+const hasValidMediaIdentity = computed(
+  () => Boolean(normalizedMediaId.value) && isValidMediaSourceId(normalizedMediaId.value, mediaSource.value),
+)
+
+const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => {
+  const labels: Partial<Record<MediaDataSource, string>> = {
+    themoviedb: t('setting.cache.recognitionSource.themoviedb'),
+    douban: t('setting.cache.recognitionSource.douban'),
+    bangumi: t('setting.cache.recognitionSource.bangumi'),
+    anilist: t('setting.cache.recognitionSource.anilist'),
+    imdb: 'IMDb',
+    tvdb: 'TVDB',
+    musicbrainz: 'MusicBrainz',
+    theaudiodb: 'TheAudioDB',
+    doubanmusic: t('setting.cache.recognitionSource.doubanmusic'),
+    bilibili: 'Bilibili',
+    mangguodiscover: 'Mango TV',
+    migu: 'Migu Video',
+    tencentvideodiscover: 'Tencent Video',
+  }
+  return Object.values(MediaSource).map(value => ({ title: labels[value] ?? value, value }))
+})
 
 // 当前数据源对应的原生ID标签。
 const mediaIdLabel = computed(() => {
-  const labels: Record<MediaDataSource, string> = {
+  const labels: Partial<Record<MediaDataSource, string>> = {
     themoviedb: t('dialog.reorganize.tmdbId'),
     douban: t('dialog.reorganize.doubanId'),
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
+    imdb: 'IMDb ID',
+    tvdb: 'TVDB ID',
     musicbrainz: 'MusicBrainz ID',
     theaudiodb: 'TheAudioDB ID',
     doubanmusic: t('dialog.reorganize.doubanId'),
   }
-  return labels[mediaSource.value]
+  return labels[mediaSource.value] ?? t('dialog.reorganize.mediaId')
 })
 
 // TMDB选择对话框
@@ -109,22 +145,21 @@ const targetDirectories = computed(() => {
 
 // 下载字幕
 async function addSubtitleDownload() {
+  if (!normalizedMediaId.value || !hasValidMediaIdentity.value) return
+
   startNProgress()
   loading.value = true
   try {
     const payload: {
-      media_id?: string
-      media_source?: MediaDataSource
+      media_id: string
+      media_source: MediaDataSource
       save_path: string | null
       subtitle_in: SubtitleInfo | undefined
     } = {
       subtitle_in: props.subtitle,
       save_path: selectedDirectory.value,
-    }
-
-    if (mediaId.value) {
-      payload.media_source = mediaSource.value
-      payload.media_id = mediaId.value
+      media_source: mediaSource.value,
+      media_id: normalizedMediaId.value,
     }
 
     const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>('download/subtitle', payload)
@@ -241,12 +276,24 @@ onMounted(() => {
           </VCol>
         </VRow>
         <VRow v-show="showAdvancedOptions" class="px-5">
-          <VCol cols="12">
+          <VCol cols="12" md="5">
+            <VSelect
+              v-model="mediaSource"
+              :items="mediaSourceItems"
+              :label="t('setting.cache.reidentifyDialog.mediaSource')"
+              prepend-inner-icon="mdi-database-search"
+              variant="underlined"
+              density="comfortable"
+            />
+          </VCol>
+          <VCol cols="12" md="7">
             <VTextField
-              v-model="mediaId"
+              v-model="selectedMediaId"
               :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
-              :rules="[numberValidator]"
+              :rules="[
+                (value: any) => isValidMediaSourceId(value, mediaSource) || t('dialog.reorganize.mediaIdInvalid'),
+              ]"
               append-inner-icon="mdi-magnify"
               :hint="t('dialog.reorganize.mediaIdHint')"
               persistent-hint
@@ -259,13 +306,19 @@ onMounted(() => {
         </VRow>
       </VCardText>
       <VCardText class="text-center">
-        <VBtn variant="elevated" :disabled="loading" @click="addSubtitleDownload" :prepend-icon="icon" class="px-5">
+        <VBtn
+          variant="elevated"
+          :disabled="loading || !hasValidMediaIdentity"
+          @click="addSubtitleDownload"
+          :prepend-icon="icon"
+          class="px-5"
+        >
           {{ buttonText }}
         </VBtn>
       </VCardText>
     </VCard>
     <VDialog v-model="mediaSelectorDialog" width="40rem" scrollable max-height="85vh">
-      <MediaIdSelector v-model="mediaId" @close="mediaSelectorDialog = false" :type="mediaSource" />
+      <MediaIdSelector v-model="selectedMediaId" @close="mediaSelectorDialog = false" :type="mediaSource" />
     </VDialog>
   </VDialog>
 </template>

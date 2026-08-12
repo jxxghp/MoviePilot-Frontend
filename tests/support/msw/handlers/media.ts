@@ -31,8 +31,7 @@ export function mediaDetailsHandler(
   status = 200,
   onRequest: (url: URL) => void = () => {},
 ) {
-  const normalizedMediaId = typeof mediaId === 'number' ? `tmdb:${mediaId}` : mediaId
-  return http.get(mediaApiUrls.details(normalizedMediaId), ({ request }) => {
+  return http.get(mediaApiUrls.details(String(mediaId)), ({ request }) => {
     onRequest(new URL(request.url))
     return HttpResponse.json(response as unknown as JsonBodyType, { status })
   })

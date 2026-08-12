@@ -73,7 +73,7 @@ const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
     const isRunning = tasks.some(task => task.state === 'running')
 
     return {
-      id: `transfer-${item.media?.tmdb_id ?? index}-${item.season ?? ''}`,
+      id: `transfer-${item.media?.media_source ?? 'unknown'}-${item.media?.media_id ?? index}-${item.season ?? ''}`,
       title: item.media?.title_year || item.media?.title || t('dashboard.transferQueue'),
       subtitle: t('dashboard.transferProgress', { completed, total: tasks.length }),
       status: isRunning ? t('dashboard.taskRunning') : t('dashboard.taskWaiting'),

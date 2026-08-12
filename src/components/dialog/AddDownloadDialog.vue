@@ -15,7 +15,7 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
-import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
+import { isMediaDataSource, isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useGlobalSettingsStore } from '@/stores'
 
 // 多语言支持
@@ -32,25 +32,15 @@ const props = defineProps({
   torrent: Object as PropType<TorrentInfo>,
 })
 
-// 可选的媒体数据源
-const SUPPORTED_MEDIA_SOURCES: MediaDataSource[] = [
-  'themoviedb',
-  'douban',
-  'bangumi',
-  'anilist',
-  'musicbrainz',
-  'theaudiodb',
-  'doubanmusic',
-]
-
-// 当前识别类型：优先使用媒体自身的数据源，否则使用全局识别来源
+// 当前识别类型：优先使用已随媒体或种子传入的完整身份，否则使用识别上下文。
 const mediaSource = computed<MediaDataSource>(() => {
-  const source = props.media?.media_source
-  if (source && SUPPORTED_MEDIA_SOURCES.includes(source)) return source
+  if (isMediaDataSource(props.media?.media_source) && props.media?.media_id?.trim()) return props.media.media_source
+  if (isMediaDataSource(props.torrent?.media_source) && props.torrent?.media_id?.trim())
+    return props.torrent.media_source
+  if (isMediaDataSource(props.media?.media_source)) return props.media.media_source
+  if (isMediaDataSource(props.torrent?.media_source)) return props.torrent.media_source
   if (props.torrent?.category === '音乐' || props.torrent?.category === 'music') return 'musicbrainz'
-  if (SUPPORTED_MEDIA_SOURCES.includes(globalSettings.RECOGNIZE_SOURCE as MediaDataSource)) {
-    return globalSettings.RECOGNIZE_SOURCE as MediaDataSource
-  }
+  if (isMediaDataSource(globalSettings.RECOGNIZE_SOURCE)) return globalSettings.RECOGNIZE_SOURCE
   return 'themoviedb'
 })
 
@@ -91,12 +81,16 @@ const musicEntityOptions = computed(() => [
   { title: t('setting.cache.musicType.album'), value: 'album' },
 ])
 
-// 音乐媒体自带来源原生 ID，打开对话框时预填到高级选项中辅助识别。
+// 打开对话框时预填媒体或种子携带的完整身份，不从辅助 ID 字段推导。
 watch(
-  () => props.media,
-  media => {
-    if (media?.media_source && SUPPORTED_MEDIA_SOURCES.includes(media.media_source) && media.media_id) {
-      mediaId.value = media.media_id
+  () => [props.media, props.torrent] as const,
+  ([media, torrent]) => {
+    if (isMediaDataSource(media?.media_source) && media.media_id?.trim()) {
+      mediaId.value = media.media_id.trim()
+    } else if (isMediaDataSource(torrent?.media_source) && torrent.media_id?.trim()) {
+      mediaId.value = torrent.media_id.trim()
+    } else {
+      mediaId.value = undefined
     }
     if (media?.music_type === 'recording' || media?.music_type === 'album') {
       musicType.value = media.music_type
@@ -114,16 +108,18 @@ function handleMediaSelected(item: Pick<MediaInfo, 'music_type'>) {
 
 // 当前数据源对应的原生ID标签。
 const mediaIdLabel = computed(() => {
-  const labels: Record<MediaDataSource, string> = {
+  const labels: Partial<Record<MediaDataSource, string>> = {
     themoviedb: t('dialog.reorganize.tmdbId'),
     douban: t('dialog.reorganize.doubanId'),
     bangumi: t('dialog.reorganize.bangumiId'),
     anilist: t('dialog.reorganize.anilistId'),
+    imdb: 'IMDb ID',
+    tvdb: 'TVDB ID',
     musicbrainz: 'MusicBrainz ID',
     theaudiodb: 'TheAudioDB ID',
     doubanmusic: t('dialog.reorganize.doubanId'),
   }
-  return labels[mediaSource.value]
+  return labels[mediaSource.value] ?? t('dialog.reorganize.mediaId')
 })
 
 // TMDB选择对话框
@@ -221,10 +217,10 @@ async function addDownload() {
       payload.media_in = props.media
     }
 
-    // 添加媒体ID辅助识别
-    if (mediaId.value) {
+    const normalizedMediaId = mediaId.value?.trim()
+    if (normalizedMediaId && isValidMediaSourceId(normalizedMediaId, mediaSource.value)) {
       payload.media_source = mediaSource.value
-      payload.media_id = mediaId.value
+      payload.media_id = normalizedMediaId
       if (isMusicSelection.value) payload.music_type = musicType.value
     }
 

@@ -20,12 +20,17 @@ export function createTmdbEpisode(overrides: Partial<TmdbEpisode> = {}): TmdbEpi
 
 export function createMediaInfo(overrides: Partial<MediaInfo> = {}): MediaInfo {
   mediaSeed += 1
+  const mediaSource = overrides.media_source ?? 'themoviedb'
+  const mediaId =
+    overrides.media_id ??
+    (mediaSource === 'themoviedb' && overrides.tmdb_id !== undefined ? String(overrides.tmdb_id) : String(mediaSeed))
   return {
     backdrop_path: `/images/media-${mediaSeed}.jpg`,
     episode_run_time: [],
     genres: ['剧情', '冒险'],
     origin_country: [],
-    media_source: 'themoviedb',
+    media_source: mediaSource,
+    media_id: mediaId,
     title: `测试媒体 ${mediaSeed}`,
     tmdb_id: mediaSeed,
     type: '电影',

@@ -288,9 +288,7 @@ function removeData(id: number) {
       v-if="dataList.length > 0"
       :items="dataList"
       :get-item-key="
-        item =>
-          item.id ||
-          `${item.media_id || item.tmdbid || item.doubanid || item.bangumiid || item.anilistid || item.name}-${item.share_user}`
+        item => item.id || `${item.media_source || 'unknown'}:${item.media_id || item.name}-${item.share_user}`
       "
       :min-item-width="240"
       :estimated-item-height="260"

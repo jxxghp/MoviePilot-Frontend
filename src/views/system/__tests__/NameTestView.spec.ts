@@ -282,11 +282,34 @@ describe('NameTestView media identity', () => {
     expect(mocks.routerPush).toHaveBeenCalledWith({
       path: '/media',
       query: {
-        mediaid: 'tmdb:271016',
+        media_id: '271016',
+        media_source: 'themoviedb',
         title: '测试剧集',
         type: '电视剧',
         year: '2026',
       },
     })
+  })
+
+  it('does not offer navigation when only an auxiliary provider ID is present', async () => {
+    mocks.apiGet.mockResolvedValueOnce({
+      media_info: {
+        episode_run_time: [],
+        origin_country: [],
+        title: '仅辅助身份',
+        tmdb_id: 271016,
+        type: '电影',
+      },
+      meta_info: { apply_words: [], name: '仅辅助身份', org_string: 'Auxiliary.Only' },
+      torrent_info: {},
+    })
+
+    await renderWithProviders(NameTestView)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('标题'), 'Auxiliary.Only')
+    await user.click(screen.getByRole('button', { name: '识别' }))
+
+    expect(await screen.findAllByText('仅辅助身份')).not.toHaveLength(0)
+    expect(screen.queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument()
   })
 })

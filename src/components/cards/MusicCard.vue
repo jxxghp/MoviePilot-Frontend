@@ -128,14 +128,14 @@ function goDetail() {
 
 /** 打开所属专辑详情页。 */
 function goAlbum() {
-  if (!props.music?.album_id) return
+  if (!props.music?.album_id || !props.music.media_source) return
   router.push(buildMusicAlbumRoute(props.music.album_id, props.music.album, props.music.media_source))
 }
 
 /** 打开艺术家详情页。 */
 function goArtist(artistId?: string, name?: string) {
-  if (!artistId) return
-  router.push(buildMusicArtistRoute(artistId, name, props.music?.media_source))
+  if (!artistId || !props.music?.media_source) return
+  router.push(buildMusicArtistRoute(artistId, name, props.music.media_source))
 }
 
 watch(
@@ -160,34 +160,43 @@ onMounted(checkSubscribeStatus)
           @click="goDetail"
         >
           <div class="music-card-content">
-            <div class="music-card-cover-shell">
-              <VImg v-if="showCover" :src="coverUrl" cover class="music-card-cover" @error="imageLoadError = true">
-                <template #placeholder>
-                  <VSkeletonLoader class="h-100" />
-                </template>
-              </VImg>
-              <VIcon v-else :icon="entityMeta.icon" size="44" color="medium-emphasis" />
+            <div class="music-card-cover-column">
+              <div class="music-card-cover-shell">
+                <VImg v-if="showCover" :src="coverUrl" cover class="music-card-cover" @error="imageLoadError = true">
+                  <template #placeholder>
+                    <VSkeletonLoader class="h-100" />
+                  </template>
+                </VImg>
+                <VIcon v-else :icon="entityMeta.icon" size="44" color="medium-emphasis" />
 
-              <VChip :prepend-icon="entityMeta.icon" size="x-small" variant="flat" class="music-card-entity">
-                {{ entityMeta.label }}
-              </VChip>
-            </div>
-
-            <div class="music-card-body">
+                <VChip :prepend-icon="entityMeta.icon" size="x-small" variant="flat" class="music-card-entity">
+                  {{ entityMeta.label }}
+                </VChip>
+              </div>
               <div class="music-card-source-row">
                 <VChip
                   data-testid="music-source"
                   :color="sourceMeta.color"
                   :prepend-icon="sourceMeta.icon"
+                  class="music-card-source"
                   size="x-small"
                   variant="tonal"
                 >
                   {{ sourceLabel }}
                 </VChip>
               </div>
+            </div>
+
+            <div class="music-card-body">
               <div class="music-card-heading">
                 <div class="music-card-title" :title="props.music?.title">{{ props.music?.title }}</div>
-                <VChip v-if="props.music?.version" size="x-small" variant="tonal" class="music-card-version">
+                <VChip
+                  v-if="props.music?.version"
+                  :title="props.music.version"
+                  size="x-small"
+                  variant="tonal"
+                  class="music-card-version"
+                >
                   {{ props.music.version }}
                 </VChip>
               </div>
@@ -297,6 +306,14 @@ onMounted(checkSubscribeStatus)
   padding: 1rem;
 }
 
+.music-card-cover-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  inline-size: 112px;
+  min-inline-size: 0;
+}
+
 .music-card-cover-shell {
   position: relative;
   display: flex;
@@ -340,8 +357,14 @@ onMounted(checkSubscribeStatus)
 .music-card-source-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-block-size: 20px;
-  margin-block-end: 0.25rem;
+  min-inline-size: 0;
+}
+
+.music-card-source {
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .music-card-heading {
@@ -355,16 +378,27 @@ onMounted(checkSubscribeStatus)
   display: -webkit-box;
   color: rgb(var(--v-theme-on-surface));
   font-size: 1rem;
+  flex: 1 1 auto;
   font-weight: 600;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   letter-spacing: 0;
   line-height: 1.4;
+  min-inline-size: 0;
 }
 
 .music-card-version {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   margin-block-start: 0.125rem;
+  max-inline-size: min(45%, 12rem);
+  min-inline-size: 0;
+}
+
+.music-card-source :deep(.v-chip__content),
+.music-card-version :deep(.v-chip__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .music-card-supporting {
@@ -437,6 +471,10 @@ onMounted(checkSubscribeStatus)
     inline-size: 88px;
   }
 
+  .music-card-cover-column {
+    inline-size: 88px;
+  }
+
   .music-card-body {
     position: relative;
   }
@@ -451,10 +489,6 @@ onMounted(checkSubscribeStatus)
     inset-block-end: 0.375rem;
     inset-inline-start: 0.375rem;
     max-inline-size: calc(100% - 0.75rem);
-  }
-
-  .music-card-source-row {
-    padding-inline-end: 5.5rem;
   }
 
   .music-card-footer {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { MediaDataSource, MusicEntityType } from '@/api/types'
-import { isMusicMediaSource } from '@/utils/mediaId'
+import { isMediaDataSource, isMusicMediaSource } from '@/utils/mediaId'
 
 const { t } = useI18n()
 
@@ -35,7 +35,9 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
 }>()
 
-const mediaSource = ref<MediaDataSource>((props.recognizeSource as MediaDataSource) || 'themoviedb')
+const mediaSource = ref<MediaDataSource>(
+  isMediaDataSource(props.recognizeSource) ? props.recognizeSource : 'themoviedb',
+)
 const mediaId = ref<string>()
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.musicType)
 const isMusicSelection = computed(() => isMusicMediaSource(mediaSource.value))
@@ -76,9 +78,10 @@ const visible = computed({
 
 // 提交重新识别参数给缓存页执行接口调用。
 function submitReidentify() {
+  const normalizedMediaId = mediaId.value?.trim() || undefined
   emit('confirm', {
-    mediaSource: mediaSource.value,
-    mediaId: mediaId.value?.trim() || undefined,
+    mediaSource: normalizedMediaId ? mediaSource.value : undefined,
+    mediaId: normalizedMediaId,
     musicType: isMusicSelection.value ? musicType.value : undefined,
   })
 }

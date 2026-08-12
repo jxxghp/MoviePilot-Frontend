@@ -1,5 +1,21 @@
-export type MediaDataSource =
-  'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz' | 'theaudiodb' | 'doubanmusic' | (string & {})
+/** 后端、前端、插件与中心服务共同使用的固定媒体来源枚举。 */
+export enum MediaSource {
+  TMDB = 'themoviedb',
+  Douban = 'douban',
+  Bangumi = 'bangumi',
+  AniList = 'anilist',
+  IMDb = 'imdb',
+  TVDB = 'tvdb',
+  MusicBrainz = 'musicbrainz',
+  TheAudioDB = 'theaudiodb',
+  DoubanMusic = 'doubanmusic',
+  Bilibili = 'bilibili',
+  MangoTV = 'mangguodiscover',
+  MiguVideo = 'migu',
+  TencentVideo = 'tencentvideodiscover',
+}
+
+export type MediaDataSource = `${MediaSource}`
 
 // 手动刮削选项
 export interface ManualScrapeOptions {
@@ -25,14 +41,6 @@ export interface Subscribe {
   type: string
   // 搜索关键字
   keyword?: string
-  // TMDB ID
-  tmdbid: number
-  // 豆瓣ID
-  doubanid?: string
-  // Bangumi ID
-  bangumiid?: number
-  // AniList ID
-  anilistid?: number
   // 主媒体数据源
   media_source?: MediaDataSource
   // 数据源原生ID
@@ -41,8 +49,6 @@ export interface Subscribe {
   music_type?: MusicEntityType
   // 专辑总曲目数
   total_tracks?: number
-  // 其它媒体ID
-  mediaid?: string
   // 季号
   season?: number
   // 海报
@@ -153,14 +159,6 @@ export interface SubscribeShare {
   type?: string
   // 搜索关键字
   keyword?: string
-  // TMDB ID
-  tmdbid?: number
-  // 豆瓣ID
-  doubanid?: string
-  // Bangumi ID
-  bangumiid?: number
-  // AniList ID
-  anilistid?: number
   // 主媒体数据源
   media_source?: MediaDataSource
   // 数据源原生ID
@@ -263,18 +261,6 @@ export interface TransferHistory {
   title?: string
   // 年份
   year?: string
-  // TMDBID
-  tmdbid?: number
-  // IMDBID
-  imdbid?: string
-  // TVDBID
-  tvdbid?: number
-  // 豆瓣ID
-  doubanid?: string
-  // Bangumi ID
-  bangumiid?: number
-  // AniList ID
-  anilistid?: number
   // 媒体数据源
   media_source?: MediaDataSource
   // 数据源原生ID
@@ -323,18 +309,6 @@ export interface DownloadHistory {
   title?: string
   // 年份
   year?: string
-  // TMDB ID
-  tmdbid?: number
-  // IMDB ID
-  imdbid?: string
-  // TVDB ID
-  tvdbid?: number
-  // 豆瓣 ID
-  doubanid?: string
-  // Bangumi ID
-  bangumiid?: number
-  // AniList ID
-  anilistid?: number
   // 媒体数据源
   media_source?: MediaDataSource
   // 数据源原生 ID
@@ -403,8 +377,7 @@ export interface MediaInfo {
   anidb_id?: number
   // 合集ID
   collection_id?: number
-  // 其它媒体ID前缀
-  // 其它媒体ID值
+  // 主媒体数据源的原生 ID
   media_id?: string
   // 媒体原语种
   original_language?: string
@@ -1107,8 +1080,10 @@ export interface TorrentInfo {
   title?: string
   // 种子副标题
   description?: string
-  // IMDB ID
-  imdbid: string
+  // 种子页面声明的媒体来源
+  media_source?: MediaDataSource
+  // 种子页面声明的数据源原生 ID
+  media_id?: string
   // 种子链接
   enclosure?: string
   // 详情页面
@@ -1895,14 +1870,6 @@ export interface TransferForm {
   target_storage: string | null
   // 目标路径
   target_path: string | null
-  // TMDB ID
-  tmdbid?: number
-  // 豆瓣 ID
-  doubanid?: string
-  // Bangumi ID
-  bangumiid?: number
-  // AniList ID
-  anilistid?: number
   // 媒体数据源
   media_source?: MediaDataSource
   // 数据源原生ID

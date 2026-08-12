@@ -538,11 +538,15 @@ interface WordListToken {
 const wordListReplacementParametersPattern = /\{\[([^\]]*)\]\}/g
 const wordListUnsignedIntegerPattern = /^\d+$/
 const wordListUnsignedIntegerOrRangePattern = /^\d+(?:-\d+)?$/
+const wordListMediaSourcePattern =
+  /^(?:themoviedb|douban|bangumi|anilist|imdb|tvdb|musicbrainz|theaudiodb|doubanmusic|bilibili|mangguodiscover|migu|tencentvideodiscover)$/
 const wordListParameterTypes = {
   tmdbid: 'uint',
-  doubanid: 'uint',
+  doubanid: 'string',
   bangumiid: 'uint',
   anilistid: 'uint',
+  media_source: 'media-source',
+  media_id: 'string',
   type: 'media-type',
   g: 'string',
   s: 'uint-or-range',
@@ -565,6 +569,8 @@ function isValidWordListParameterValue(key: keyof typeof wordListParameterTypes,
       return wordListUnsignedIntegerOrRangePattern.test(value)
     case 'media-type':
       return value === 'movie' || value === 'tv'
+    case 'media-source':
+      return wordListMediaSourcePattern.test(value)
     case 'string':
       return value.length > 0
   }

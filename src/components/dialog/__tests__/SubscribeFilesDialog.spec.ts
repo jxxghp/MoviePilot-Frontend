@@ -34,7 +34,8 @@ function createSubscribe(overrides: Partial<Subscribe> = {}): Subscribe {
     show_edit_dialog: false,
     sites: [],
     state: 'R',
-    tmdbid: 31010,
+    media_id: '31010',
+    media_source: 'themoviedb',
     type: '电视剧',
     username: 'tester',
     year: '2026',
@@ -123,12 +124,7 @@ function setViewport(width: number) {
   window.dispatchEvent(new Event('resize'))
 }
 
-function useFilesResponse(
-  id: number,
-  response: JsonBodyType,
-  status = 200,
-  onRequest: (url: URL) => void = () => {},
-) {
+function useFilesResponse(id: number, response: JsonBodyType, status = 200, onRequest: (url: URL) => void = () => {}) {
   server.use(subscribeFilesHandler(id, response, status, onRequest))
 }
 
@@ -205,9 +201,9 @@ describe('SubscribeFilesDialog', () => {
     const info = createFilesInfo({
       episodes,
       subscribe: createSubscribe({
-        doubanid: 'douban-range-44-48',
+        media_id: 'douban-range-44-48',
+        media_source: 'douban',
         start_episode: 44,
-        tmdbid: undefined,
         total_episode: 48,
       }),
     })
@@ -233,7 +229,7 @@ describe('SubscribeFilesDialog', () => {
     )
     const info = createFilesInfo({
       episodes,
-      subscribe: createSubscribe({ start_episode: 3, tmdbid: 31210, total_episode: 4 }),
+      subscribe: createSubscribe({ media_id: '31210', start_episode: 3, total_episode: 4 }),
     })
     useFilesResponse(3121, info as unknown as JsonBodyType)
 
@@ -437,11 +433,13 @@ describe('SubscribeFilesDialog', () => {
   it('distinguishes an HTTP failure from an empty response and offers retry', async () => {
     const info = createFilesInfo({ subscribe: createSubscribe({ name: '重试恢复剧', total_episode: 1 }) })
     let requestCount = 0
-    server.use(http.get(subscribeApiUrls.filesById(3102), () => {
-      requestCount += 1
-      if (requestCount === 1) return HttpResponse.json({}, { status: 500 })
-      return HttpResponse.json(info as unknown as JsonBodyType)
-    }))
+    server.use(
+      http.get(subscribeApiUrls.filesById(3102), () => {
+        requestCount += 1
+        if (requestCount === 1) return HttpResponse.json({}, { status: 500 })
+        return HttpResponse.json(info as unknown as JsonBodyType)
+      }),
+    )
     const user = userEvent.setup()
 
     await renderDialog(3102)
@@ -456,9 +454,11 @@ describe('SubscribeFilesDialog', () => {
 
   it('shows loading until the request resolves', async () => {
     const deferred = createDeferred<JsonBodyType>()
-    server.use(http.get(subscribeApiUrls.filesById(3116), async () => {
-      return HttpResponse.json(await deferred.promise)
-    }))
+    server.use(
+      http.get(subscribeApiUrls.filesById(3116), async () => {
+        return HttpResponse.json(await deferred.promise)
+      }),
+    )
 
     await renderDialog(3116)
 

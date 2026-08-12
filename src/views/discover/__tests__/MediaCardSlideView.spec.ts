@@ -115,18 +115,20 @@ function installLoadTriggerControls() {
     animationFrameCallbacks.push(callback)
     return animationFrameCallbacks.length
   })
-  vi.spyOn(window, 'setTimeout').mockImplementation(
-    ((handler: TimerHandler, timeout?: number, ...args: unknown[]): TimeoutHandle => {
-      if (timeout === 600) {
-        fallbackCallbacks.push(() => {
-          if (typeof handler === 'function') handler(...args)
-        })
-        return fallbackCallbacks.length as unknown as TimeoutHandle
-      }
+  vi.spyOn(window, 'setTimeout').mockImplementation(((
+    handler: TimerHandler,
+    timeout?: number,
+    ...args: unknown[]
+  ): TimeoutHandle => {
+    if (timeout === 600) {
+      fallbackCallbacks.push(() => {
+        if (typeof handler === 'function') handler(...args)
+      })
+      return fallbackCallbacks.length as unknown as TimeoutHandle
+    }
 
-      return nativeSetTimeout(handler, timeout, ...args) as unknown as TimeoutHandle
-    }) as unknown as typeof window.setTimeout,
-  )
+    return nativeSetTimeout(handler, timeout, ...args) as unknown as TimeoutHandle
+  }) as unknown as typeof window.setTimeout)
 }
 
 async function renderSlide(props: { ready?: boolean } = {}) {
@@ -306,16 +308,30 @@ describe('MediaCardSlideView', () => {
     expect(requested).toHaveBeenCalledTimes(2)
   })
 
-  it('projects items, stable key fallbacks, and fixed card width', async () => {
+  it('projects items with pair-based stable keys and fixed card width', async () => {
     const media = [
       createMediaInfo({ douban_id: 'unused-douban', title: 'TMDB 媒体', tmdb_id: 101 }),
-      createMediaInfo({ douban_id: 'douban-202', title: '豆瓣媒体', tmdb_id: undefined }),
-      createMediaInfo({ bangumi_id: 'bangumi-303', douban_id: undefined, title: 'Bangumi 媒体', tmdb_id: undefined }),
+      createMediaInfo({
+        douban_id: 'douban-202',
+        media_id: 'douban-202',
+        media_source: 'douban',
+        title: '豆瓣媒体',
+        tmdb_id: undefined,
+      }),
+      createMediaInfo({
+        bangumi_id: 'bangumi-303',
+        douban_id: undefined,
+        media_id: 'bangumi-303',
+        media_source: 'bangumi',
+        title: 'Bangumi 媒体',
+        tmdb_id: undefined,
+      }),
       createMediaInfo({
         bangumi_id: undefined,
         douban_id: undefined,
-        media_id: 'custom-404',
-        title: '自定义媒体',
+        media_id: 'bilibili-404',
+        media_source: 'bilibili',
+        title: 'Bilibili 媒体',
         tmdb_id: undefined,
       }),
       createMediaInfo({
@@ -334,7 +350,7 @@ describe('MediaCardSlideView', () => {
     await waitFor(() => expect(screen.getByLabelText('媒体横向列表')).toHaveAttribute('data-loading', 'false'))
     expect(screen.getByLabelText('媒体横向列表')).toHaveAttribute('data-item-count', '5')
     expect(screen.getByLabelText('媒体横向列表键')).toHaveTextContent(
-      '101|douban-202|bangumi-303|custom-404|标题回退',
+      'themoviedb:101|douban:douban-202|bangumi:bangumi-303|bilibili:bilibili-404|themoviedb:标题回退',
     )
     expect(screen.getAllByRole('article')).toHaveLength(5)
     screen.getAllByRole('article').forEach(card => expect(card).toHaveAttribute('data-width', '9rem'))

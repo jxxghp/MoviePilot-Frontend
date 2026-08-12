@@ -288,6 +288,27 @@ describe('SubscribePopularView', () => {
     expect(screen.queryByText('第一页页内重复项')).not.toBeInTheDocument()
   })
 
+  it('keeps equal native IDs from different media sources as distinct items', async () => {
+    server.use(
+      popularSubscribesHandler([
+        createSubscribeMovie({ media_id: '900', media_source: 'themoviedb', title: 'TMDB 媒体' }),
+        createSubscribeMovie({
+          media_id: '900',
+          media_source: 'douban',
+          title: '豆瓣媒体',
+          tmdb_id: undefined,
+        }),
+      ]),
+    )
+
+    await renderPopular()
+
+    expect(await screen.findByText('TMDB 媒体')).toBeInTheDocument()
+    expect(screen.getByText('豆瓣媒体')).toBeInTheDocument()
+    const keys = JSON.parse(screen.getByLabelText('热门订阅渐进网格键').textContent || '[]') as string[]
+    expect(new Set(keys).size).toBe(2)
+  })
+
   it('loads consecutive pages until an underfilled viewport becomes scrollable', async () => {
     const first = createSubscribeMovie({ title: '未满屏第一页' })
     const second = createSubscribeMovie({ title: '未满屏第二页' })
@@ -443,25 +464,12 @@ describe('SubscribePopularView', () => {
     expect(await screen.findByText('同剧第一季')).toBeInTheDocument()
     expect(screen.getByText('同剧第二季')).toBeInTheDocument()
 
-    // 渲染键与生产媒体身份字段保持一致，避免不同季条目发生键冲突。
-    const identityFields = [
-      'media_source',
-      'type',
-      'season',
-      'tmdb_id',
-      'imdb_id',
-      'tvdb_id',
-      'douban_id',
-      'bangumi_id',
-      'anilist_id',
-      'media_id',
-    ] as const
+    // 渲染键只使用统一媒体身份和季号，不再混入数据源专属辅助 ID。
     const item1 = createSubscribeTv({ season: 1, title: '同剧第一季', tmdb_id: 880 })
     const item2 = createSubscribeTv({ season: 2, title: '同剧第二季', tmdb_id: 880 })
-    const expectedKeys = [
-      JSON.stringify(identityFields.map(field => item1[field] ?? null)),
-      JSON.stringify(identityFields.map(field => item2[field] ?? null)),
-    ]
+    const expectedKeys = [item1, item2].map(item =>
+      JSON.stringify([item.media_source ?? null, item.media_id ?? null, item.type ?? null, item.season ?? null]),
+    )
 
     const keysText = screen.getByRole('status', { name: '热门订阅渐进网格键' }).textContent ?? ''
     const keys = JSON.parse(keysText)

@@ -322,17 +322,10 @@ async function editSubscribeDialog() {
   )
 }
 
-// 获得mediaid
+// 获取订阅的统一媒体身份
 function getMediaId() {
-  if (props.media?.media_source && props.media?.media_id) {
-    const prefix = props.media.media_source === 'themoviedb' ? 'tmdb' : props.media.media_source
-    return `${prefix}:${props.media.media_id}`
-  }
-  if (props.media?.tmdbid) return `tmdb:${props.media?.tmdbid}`
-  else if (props.media?.doubanid) return `douban:${props.media?.doubanid}`
-  else if (props.media?.bangumiid) return `bangumi:${props.media?.bangumiid}`
-  else if (props.media?.anilistid) return `anilist:${props.media?.anilistid}`
-  else return props.media?.mediaid
+  if (!props.media?.media_source || !props.media.media_id) return undefined
+  return { mediaSource: props.media.media_source, mediaId: String(props.media.media_id) }
 }
 
 // 查看媒体详情
@@ -341,10 +334,13 @@ async function viewMediaDetail() {
     router.push(buildMusicDetailRoute(props.media))
     return
   }
+  const identity = getMediaId()
+  if (!identity) return
   router.push({
     path: '/media',
     query: {
-      mediaid: getMediaId(),
+      media_source: identity.mediaSource,
+      media_id: identity.mediaId,
       title: props.media?.name,
       year: props.media?.year,
       type: props.media?.type,

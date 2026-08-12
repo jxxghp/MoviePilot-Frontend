@@ -8,7 +8,7 @@ const { t } = useI18n()
 
 // 定义输入变量
 const props = defineProps<{
-  type?: MediaDataSource
+  type: MediaDataSource
   musicTypes?: MusicEntityType[]
 }>()
 
@@ -68,7 +68,7 @@ async function searchMedias() {
         type: isMusicMediaSource(props.type) ? 'music' : 'media',
         page: 1,
         count: 20,
-        source: props.type,
+        media_source: props.type,
       },
     })
 
@@ -77,15 +77,11 @@ async function searchMedias() {
 
     // 赋值
     for (const item of result) {
+      if (item.media_source !== props.type) continue
       if (props.musicTypes?.length && item.music_type && !props.musicTypes.includes(item.music_type)) {
         continue
       }
-      const mediaId =
-        item.media_id ||
-        item.tmdb_id?.toString() ||
-        item.douban_id ||
-        item.bangumi_id?.toString() ||
-        item.anilist_id?.toString()
+      const mediaId = item.media_id?.toString().trim()
       if (!mediaId) continue
       const musicAlbum = item.music_type === 'album' || item.album === item.title ? undefined : item.album
       items.value.push({

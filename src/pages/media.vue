@@ -1,24 +1,29 @@
 <script setup lang="ts">
 import MediaDetailView from '@/views/discover/MediaDetailView.vue'
+import { isMediaDataSource } from '@/utils/mediaId'
 
 // 路由参数
 const route = useRoute()
 
-// TMDB ID
-const mediaid = route.query?.mediaid?.toString()
+// 媒体主身份
+const mediaSource = computed(() => {
+  const source = route.query?.media_source?.toString()
+  return isMediaDataSource(source) ? source : undefined
+})
+const mediaId = computed(() => route.query?.media_id?.toString())
 
 // 类型：电影、电视剧
-const type = route.query?.type?.toString()
+const type = computed(() => route.query?.type?.toString())
 
 // 标题
-const title = route.query?.title?.toString()
+const title = computed(() => route.query?.title?.toString())
 
 // 年份
-const year = route.query?.year?.toString()
+const year = computed(() => route.query?.year?.toString())
 </script>
 
 <template>
   <div>
-    <MediaDetailView :mediaid="mediaid" :type="type" :title="title" :year="year" />
+    <MediaDetailView :media-source="mediaSource" :media-id="mediaId" :type="type" :title="title" :year="year" />
   </div>
 </template>
