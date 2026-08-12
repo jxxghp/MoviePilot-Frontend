@@ -83,7 +83,11 @@ const VirtualScrollStub = defineComponent({
   },
   setup(props, { slots }) {
     const itemRef = () => {}
-    return () => h('div', props.items.map(item => slots.default?.({ item, itemRef })))
+    return () =>
+      h(
+        'div',
+        props.items.map(item => slots.default?.({ item, itemRef })),
+      )
   },
 })
 
@@ -141,7 +145,7 @@ function createHistory(overrides: Partial<Subscribe> = {}): Subscribe {
   }
 }
 
-async function renderDialog(type: '电影' | '电视剧' = '电影') {
+async function renderDialog(type: '电影' | '电视剧' | '音乐' = '电影') {
   const events = {
     close: vi.fn(),
     save: vi.fn(),
@@ -218,6 +222,18 @@ describe('SubscribeHistoryDialog', () => {
     expect(decodeURIComponent(requests[0].pathname).endsWith('/subscribe/history/电视剧')).toBe(true)
     expect(requests[0].searchParams.get('page')).toBe('1')
     expect(requests[0].searchParams.get('count')).toBe('30')
+  })
+
+  it('loads music history with a square cover and no season copy', async () => {
+    const music = createHistory({ name: '首载专辑', type: '音乐' })
+    server.use(subscribeHistoryHandler('音乐', [music]))
+
+    await renderDialog('音乐')
+
+    expect(await screen.findByText('首载专辑')).toBeInTheDocument()
+    expect(screen.getByText(`${mediaTypeDict['音乐']}订阅历史`)).toBeInTheDocument()
+    expect(screen.queryByText(/第 \d+ 季/)).not.toBeInTheDocument()
+    expect(historyRow(music).querySelector('.subscribe-history-poster')).toHaveStyle({ height: '64px', width: '64px' })
   })
 
   it('appends later pages and keeps existing rows when the next page is empty', async () => {
@@ -310,6 +326,7 @@ describe('SubscribeHistoryDialog', () => {
       createHistory({ name: '重新订阅剧集', season: 2, type: '电视剧' }),
       '正在重新订阅 重新订阅剧集 第 2 季...',
     ],
+    ['音乐', createHistory({ name: '重新订阅专辑', type: '音乐' }), '正在重新订阅 重新订阅专辑...'],
   ] as const)('shows the %s pending copy and emits save only after success', async (type, item, progressText) => {
     const pending = createDeferred<{ success: boolean }>()
     let payload: JsonBodyType | undefined
@@ -339,10 +356,7 @@ describe('SubscribeHistoryDialog', () => {
 
   it('toasts a business failure when resubscribing and does not emit save', async () => {
     const movie = createHistory({ name: '业务失败电影' })
-    server.use(
-      subscribeHistoryHandler('电影', [movie]),
-      createSubscribeHandler({ success: false }),
-    )
+    server.use(subscribeHistoryHandler('电影', [movie]), createSubscribeHandler({ success: false }))
     const user = userEvent.setup()
     const { events } = await renderDialog()
     expect(await screen.findByText(movie.name)).toBeInTheDocument()

@@ -214,6 +214,7 @@ describe('discover page', () => {
         'Bangumi',
         'AniList',
         '音乐',
+        'TheAudioDB',
       ]),
     )
     expect(configRequested).toHaveBeenCalledOnce()
@@ -224,6 +225,7 @@ describe('discover page', () => {
       'bangumi',
       'anilist',
       'musicbrainz',
+      'theaudiodb',
     ])
   })
 
@@ -245,6 +247,7 @@ describe('discover page', () => {
         '豆瓣',
         'AniList',
         '音乐',
+        'TheAudioDB',
         '自定义来源',
       ]),
     )
@@ -271,7 +274,13 @@ describe('discover page', () => {
     await renderDiscover()
 
     await waitFor(() =>
-      expect(getHeaderItems().map(item => item.title)).toEqual(['音乐', 'TheMovieDb', 'Bangumi', 'AniList']),
+      expect(getHeaderItems().map(item => item.title)).toEqual([
+        '音乐',
+        'TheMovieDb',
+        'Bangumi',
+        'AniList',
+        'TheAudioDB',
+      ]),
     )
     expect(getHeaderConfig().modelValue.value).toBe('musicbrainz')
     expect(localStorage.getItem('MP_DISCOVER_TAB_ORDER')).toBe(JSON.stringify(remoteConfig))
@@ -287,7 +296,14 @@ describe('discover page', () => {
 
     await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
     await waitFor(() =>
-      expect(getHeaderItems().map(item => item.title)).toEqual(['Bangumi', 'TheMovieDb', '豆瓣', 'AniList', '音乐']),
+      expect(getHeaderItems().map(item => item.title)).toEqual([
+        'Bangumi',
+        'TheMovieDb',
+        '豆瓣',
+        'AniList',
+        '音乐',
+        'TheAudioDB',
+      ]),
     )
     expect(JSON.parse(localStorage.getItem('MP_DISCOVER_TAB_ORDER') ?? 'null')).toEqual(
       remoteOrder.map(item => ({ enabled: true, name: item.name })),
@@ -309,6 +325,7 @@ describe('discover page', () => {
       'Bangumi',
       'AniList',
       '音乐',
+      'TheAudioDB',
       '可用扩展源',
     ])
     expect(getHeaderConfig().modelValue.value).toBe('themoviedb')
@@ -400,6 +417,7 @@ describe('discover page', () => {
       'Bangumi',
       'AniList',
       '音乐',
+      'TheAudioDB',
       '缓存来源',
     ])
   })

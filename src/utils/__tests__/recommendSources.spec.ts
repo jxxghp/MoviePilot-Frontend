@@ -34,7 +34,7 @@ describe('recommendSources', () => {
   it('creates the complete built-in source contract', () => {
     const sources = createBuiltInRecommendSources(translate)
 
-    expect(sources).toHaveLength(16)
+    expect(sources).toHaveLength(19)
     expect(sources[0]).toEqual({
       apipath: 'recommend/tmdb_trending',
       linkurl: '/browse/recommend/tmdb_trending?title=translated:recommend.trendingNow',
@@ -66,6 +66,14 @@ describe('recommendSources', () => {
       title: 'translated:recommend.listenBrainzWeekly',
       type: 'translated:recommend.categoryMusic',
     })
+    expect(
+      sources.filter(source => source.type === 'translated:recommend.categoryMusic').map(source => source.apipath),
+    ).toEqual([
+      'recommend/music_weekly',
+      'recommend/music_theaudiodb_albums',
+      'recommend/music_theaudiodb_tracks',
+      'recommend/music_douban',
+    ])
     expect(
       sources.filter(source => source.type === 'translated:recommend.categoryAnime').map(source => source.apipath),
     ).toEqual([

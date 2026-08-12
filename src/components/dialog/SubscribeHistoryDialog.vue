@@ -92,6 +92,8 @@ async function loadHistory({ done }: { done: any }) {
 async function reSubscribe(item: Subscribe) {
   if (item.type === '电影') {
     progressText.value = t('dialog.subscribeHistory.resubscribeMovie', { name: item.name })
+  } else if (item.type === '音乐') {
+    progressText.value = t('dialog.subscribeHistory.resubscribeMusic', { name: item.name })
   } else {
     progressText.value = t('dialog.subscribeHistory.resubscribeTv', { name: item.name, season: item.season })
   }
@@ -180,16 +182,16 @@ function getMediaTypeText(type: string | undefined) {
                 <VListItem>
                   <template #prepend>
                     <VImg
-                      height="75"
-                      width="50"
+                      :height="item.type === '音乐' ? 64 : 75"
+                      :width="item.type === '音乐' ? 64 : 50"
                       :src="item.poster"
-                      aspect-ratio="2/3"
-                      class="object-cover rounded ring-gray-500 me-3"
+                      :aspect-ratio="item.type === '音乐' ? 1 : 2 / 3"
+                      class="subscribe-history-poster object-cover rounded ring-gray-500 me-3"
                       cover
                     >
                       <template #placeholder>
                         <div class="w-full h-full">
-                          <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                          <VSkeletonLoader class="object-cover h-100" />
                         </div>
                       </template>
                     </VImg>

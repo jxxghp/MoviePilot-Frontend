@@ -15,6 +15,7 @@ import {
   formatMusicAudioSpecs,
   getMusicArtistLinks,
   getMusicKey,
+  getMusicSourceLabel,
 } from '@/utils/music'
 
 const { t } = useI18n()
@@ -39,6 +40,15 @@ const isSubscribed = ref(false)
 
 // 可点击跳转的艺术家
 const artistLinks = computed(() => getMusicArtistLinks(props.music))
+const sourceLabel = computed(() => getMusicSourceLabel(props.music?.source, t))
+const sourceMeta = computed(() => {
+  const sources: Record<string, { color: string; icon: string }> = {
+    musicbrainz: { color: '#eb743b', icon: 'mdi-music-circle' },
+    theaudiodb: { color: '#35a7a0', icon: 'mdi-music-box-multiple' },
+    doubanmusic: { color: '#00b51d', icon: 'mdi-music-circle' },
+  }
+  return sources[props.music?.source || 'musicbrainz'] || { color: 'primary', icon: 'mdi-database-outline' }
+})
 
 // 音乐实体标签和图标
 const entityMeta = computed(() => {
@@ -164,6 +174,17 @@ onMounted(checkSubscribeStatus)
             </div>
 
             <div class="music-card-body">
+              <div class="music-card-source-row">
+                <VChip
+                  data-testid="music-source"
+                  :color="sourceMeta.color"
+                  :prepend-icon="sourceMeta.icon"
+                  size="x-small"
+                  variant="tonal"
+                >
+                  {{ sourceLabel }}
+                </VChip>
+              </div>
               <div class="music-card-heading">
                 <div class="music-card-title" :title="props.music?.title">{{ props.music?.title }}</div>
                 <VChip v-if="props.music?.version" size="x-small" variant="tonal" class="music-card-version">
@@ -316,6 +337,13 @@ onMounted(checkSubscribeStatus)
   min-inline-size: 0;
 }
 
+.music-card-source-row {
+  display: flex;
+  align-items: center;
+  min-block-size: 20px;
+  margin-block-end: 0.25rem;
+}
+
 .music-card-heading {
   display: flex;
   align-items: flex-start;
@@ -423,6 +451,10 @@ onMounted(checkSubscribeStatus)
     inset-block-end: 0.375rem;
     inset-inline-start: 0.375rem;
     max-inline-size: calc(100% - 0.75rem);
+  }
+
+  .music-card-source-row {
+    padding-inline-end: 5.5rem;
   }
 
   .music-card-footer {

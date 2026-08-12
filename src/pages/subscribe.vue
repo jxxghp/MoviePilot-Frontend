@@ -234,7 +234,7 @@ const userPermissions = computed(() => buildUserPermissionContext(userStore.supe
 const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
 const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value && subType !== '音乐')
-const showSubscribeHistoryAction = computed(() => showDefaultRuleAction.value && canAdmin.value)
+const showSubscribeHistoryAction = computed(() => activeTab.value === 'mysub' && canAdmin.value)
 const showShareStatisticsAction = computed(() => activeTab.value === 'share' && canSubscribe.value)
 const subscribeRoutePath = computed(() => {
   if (subType === '电影') return '/subscribe/movie'
@@ -419,12 +419,14 @@ const subscribeDynamicMenuItems = computed<DynamicButtonMenuItem[] | undefined>(
       })
     }
 
-    items.push({
-      titleKey: 'dialog.subscribeEdit.titleDefault',
-      icon: 'mdi-clipboard-edit-outline',
-      permission: 'admin',
-      action: openDefaultRuleDialog,
-    })
+    if (showDefaultRuleAction.value) {
+      items.push({
+        titleKey: 'dialog.subscribeEdit.titleDefault',
+        icon: 'mdi-clipboard-edit-outline',
+        permission: 'admin',
+        action: openDefaultRuleDialog,
+      })
+    }
 
     return items.length > 1 ? items : undefined
   }
@@ -468,7 +470,10 @@ useDynamicButton({
   show: computed(
     () =>
       appMode.value &&
-      (subscribeBatchState.value.enabled || showDefaultRuleAction.value || showShareStatisticsAction.value),
+      (subscribeBatchState.value.enabled ||
+        showDefaultRuleAction.value ||
+        showSubscribeHistoryAction.value ||
+        showShareStatisticsAction.value),
   ),
 })
 

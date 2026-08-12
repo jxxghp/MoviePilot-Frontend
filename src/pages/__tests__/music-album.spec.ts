@@ -1,6 +1,7 @@
 import MusicAlbumPage from '@/pages/music-album.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -82,6 +83,16 @@ const album = {
 
 const musicSite = { id: 13, is_active: true, name: '专辑站点', url: 'https://album-music.example' }
 
+const MediaCardSlideViewStub = defineComponent({
+  name: 'MediaCardSlideView',
+  props: {
+    apipath: String,
+    linkurl: String,
+    title: String,
+  },
+  template: '<div data-testid="media-card-slide" :data-api-path="apipath" :data-link-url="linkurl">{{ title }}</div>',
+})
+
 /** 按请求路径分派专辑详情与订阅状态查询。 */
 function mockAlbumRequests(subscribed = false) {
   mocks.apiGet.mockImplementation((path: string) => {
@@ -103,7 +114,9 @@ function renderAlbumPage() {
   return renderWithProviders(MusicAlbumPage, {
     initialRoute: '/music/album?source=musicbrainz&mediaid=release-group-1',
     initialState: { user: { superUser: true } },
-    global: { stubs: { NoDataFound: true, MediaCardSlideView: true, MusicArtistSlideView: true } },
+    global: {
+      stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true },
+    },
   })
 }
 
@@ -193,6 +206,101 @@ describe('music album page', () => {
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
     expect(router.currentRoute.value.query).toMatchObject({
       keyword: 'musicbrainz:release-group-1',
+      sites: '13',
+      type: '音乐',
+    })
+  })
+
+  it('shows Douban related albums without an unsupported artist browse section', async () => {
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'music/album/1401853') {
+        return Promise.resolve({
+          ...album,
+          artist_ids: ['1050015'],
+          media_id: '1401853',
+          source: 'doubanmusic',
+          title: '范特西',
+        })
+      }
+      if (path.startsWith('subscribe/media/')) return Promise.reject({ response: { status: 404 } })
+      return Promise.resolve([])
+    })
+
+    await renderWithProviders(MusicAlbumPage, {
+      initialRoute: '/music/album?source=doubanmusic&mediaid=1401853',
+      initialState: { user: { superUser: true } },
+      global: {
+        stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true },
+      },
+    })
+
+    expect(await screen.findByRole('heading', { name: '范特西' })).toBeInTheDocument()
+    const slides = screen.getAllByTestId('media-card-slide')
+    expect(slides).toHaveLength(1)
+    expect(slides[0]).toHaveAttribute('data-api-path', 'music/album/1401853/related?source=doubanmusic')
+    expect(slides[0]).toHaveAttribute(
+      'data-link-url',
+      expect.stringContaining('/browse/music/album/1401853/related?source=doubanmusic'),
+    )
+  })
+
+  it.each([
+    ['TheAudioDB', 'theaudiodb', '2109619', 'Parachutes'],
+    ['豆瓣音乐', 'doubanmusic', '1401853', '范特西'],
+  ])('keeps %s identity for detail-page subscribe and resource actions', async (_label, source, mediaId, title) => {
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === `music/album/${mediaId}`) {
+        return Promise.resolve({
+          ...album,
+          artist_ids: source === 'theaudiodb' ? ['artist-1'] : [],
+          media_id: mediaId,
+          source,
+          title,
+        })
+      }
+      if (path === 'site/media/music') return Promise.resolve([musicSite])
+      if (path === 'system/setting/public/IndexerSites') {
+        return Promise.resolve({ data: { value: [13] }, success: true })
+      }
+      if (path.startsWith('subscribe/media/')) return Promise.reject({ response: { status: 404 } })
+      return Promise.resolve([])
+    })
+
+    const { router } = await renderWithProviders(MusicAlbumPage, {
+      initialRoute: `/music/album?source=${source}&mediaid=${mediaId}`,
+      initialState: { user: { superUser: true } },
+      global: {
+        stubs: { NoDataFound: true, MediaCardSlideView: MediaCardSlideViewStub, MusicArtistSlideView: true },
+      },
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '订阅' }))
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'subscribe/',
+        expect.objectContaining({
+          media_id: mediaId,
+          media_source: source,
+          music_type: 'album',
+          name: title,
+          type: '音乐',
+        }),
+      ),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: '搜索资源' }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const [, , dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
+      unknown,
+      unknown,
+      { search: (sites: number[]) => void },
+    ]
+    dialogEvents.search([13])
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
+    expect(router.currentRoute.value.query).toMatchObject({
+      keyword: `${source}:${mediaId}`,
+      music_type: 'album',
       sites: '13',
       type: '音乐',
     })

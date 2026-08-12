@@ -4,7 +4,12 @@ import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
 import { fireEvent, waitFor } from '@testing-library/vue'
 import { createMediaInfo } from '@tests/support/factories/media'
 import { mediaExistsHandler } from '@tests/support/msw/handlers/media'
-import { querySubscribeByMediaHandler, subscribeListHandler } from '@tests/support/msw/handlers/subscribe'
+import {
+  createSubscribeHandler,
+  defaultSubscribeConfigHandler,
+  querySubscribeByMediaHandler,
+  subscribeListHandler,
+} from '@tests/support/msw/handlers/subscribe'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
@@ -29,6 +34,7 @@ vi.mock('@/router', () => ({
 const API_BASE_URL = 'http://localhost/api/v1/'
 const movieSiteListUrl = new URL('site/media/movie', API_BASE_URL).href
 const tvSiteListUrl = new URL('site/media/tv', API_BASE_URL).href
+const musicSiteListUrl = new URL('site/media/music', API_BASE_URL).href
 const selectedSitesUrl = new URL('system/setting/public/IndexerSites', API_BASE_URL).href
 
 let intersectionObservers: IntersectionObserverMock[] = []
@@ -190,10 +196,15 @@ function getStatusObservers() {
 function installSearchHandlers(
   sites: Record<string, unknown>[],
   selected: number[],
-  mediaType: 'movie' | 'tv' = 'movie',
+  mediaType: 'movie' | 'music' | 'tv' = 'movie',
 ) {
+  const siteListUrl = {
+    movie: movieSiteListUrl,
+    music: musicSiteListUrl,
+    tv: tvSiteListUrl,
+  }[mediaType]
   server.use(
-    http.get(mediaType === 'tv' ? tvSiteListUrl : movieSiteListUrl, () => HttpResponse.json(sites)),
+    http.get(siteListUrl, () => HttpResponse.json(sites)),
     http.get(selectedSitesUrl, () => HttpResponse.json({ data: { value: selected }, success: true })),
   )
 }
@@ -391,6 +402,73 @@ describe('MediaCard', () => {
       }),
     )
   })
+
+  it.each([
+    ['TheAudioDB', 'theaudiodb', 'album-2109619', 'Parachutes'],
+    ['豆瓣音乐', 'doubanmusic', '1401853', '范特西'],
+  ])(
+    'keeps %s identity for explore-card detail, subscribe, and resource actions',
+    async (_label, source, mediaId, title) => {
+      const media = createMediaInfo({
+        artist: 'Artist',
+        media_id: mediaId,
+        mediaid_prefix: source,
+        music_type: 'album',
+        poster_path: undefined,
+        source,
+        title,
+        tmdb_id: undefined,
+        total_tracks: 10,
+        type: '音乐',
+      })
+      const subscribeRequest = vi.fn<(url: URL) => void>()
+      const created = vi.fn<(payload: Record<string, unknown>) => void>()
+      server.use(
+        querySubscribeByMediaHandler(`${source}:${mediaId}`, {}, 200, subscribeRequest),
+        createSubscribeHandler({ data: { id: 101 }, success: true }, 200, created),
+        defaultSubscribeConfigHandler('音乐', { show_edit_dialog: false }),
+      )
+      installSearchHandlers([], [21], 'music')
+
+      const { container } = await renderCard(media)
+      getStatusObservers()[0]?.trigger()
+      await waitFor(() => expect(subscribeRequest).toHaveBeenCalledOnce())
+      expect(subscribeRequest.mock.calls[0][0].searchParams.get('music_type')).toBe('album')
+
+      await fireEvent.mouseEnter(getHoverArea(container))
+      await waitFor(() => expect(getCard(container)).toHaveClass('app-hover-lift-card--hovering'))
+      await fireEvent.click(getCard(container))
+      await waitFor(() =>
+        expect(mocks.routerPush).toHaveBeenCalledWith({
+          path: '/music/album',
+          query: { mediaid: mediaId, source, title },
+        }),
+      )
+
+      await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
+      await waitFor(() => expect(created).toHaveBeenCalledOnce())
+      expect(created.mock.calls[0][0]).toMatchObject({
+        media_id: mediaId,
+        media_source: source,
+        music_type: 'album',
+        name: title,
+        type: '音乐',
+      })
+
+      await fireEvent.click(getSearchButton(container))
+      await waitFor(() =>
+        expect(mocks.routerPush).toHaveBeenCalledWith({
+          path: '/resource',
+          query: expect.objectContaining({
+            keyword: `${source}:${mediaId}`,
+            music_type: 'album',
+            sites: '21',
+            type: '音乐',
+          }),
+        }),
+      )
+    },
+  )
 
   it('uses an album placeholder instead of the movie fallback image for music without a cover', async () => {
     const media = createMediaInfo({
@@ -746,14 +824,48 @@ describe('MediaCard', () => {
     await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
   })
 
-  it('renders the AniList source badge after the poster loads', async () => {
-    const media = createMediaInfo({
-      anilist_id: 154588,
-      poster_path: '/original/anilist.jpg',
-      source: 'anilist',
-      tmdb_id: undefined,
-      type: '电视剧',
-    })
+  it.each([
+    [
+      'AniList',
+      createMediaInfo({
+        anilist_id: 154588,
+        poster_path: '/original/anilist.jpg',
+        source: 'anilist',
+        tmdb_id: undefined,
+        type: '电视剧',
+      }),
+      'mdi-alpha-a-circle',
+      '#02a9ff',
+    ],
+    [
+      'TheAudioDB',
+      createMediaInfo({
+        cover_url: 'https://example.com/theaudiodb.jpg',
+        media_id: 'album-2109619',
+        music_type: 'album',
+        poster_path: undefined,
+        source: 'theaudiodb',
+        tmdb_id: undefined,
+        type: '音乐',
+      }),
+      'mdi-music-box-multiple',
+      '#35a7a0',
+    ],
+    [
+      '豆瓣音乐',
+      createMediaInfo({
+        cover_url: 'https://example.com/doubanmusic.jpg',
+        media_id: '1401853',
+        music_type: 'album',
+        poster_path: undefined,
+        source: 'doubanmusic',
+        tmdb_id: undefined,
+        type: '音乐',
+      }),
+      'mdi-music-circle',
+      '#00b51d',
+    ],
+  ])('renders the %s source badge after the cover loads', async (_label, media, icon, color) => {
     const VImgStub = defineComponent({
       name: 'VImg',
       emits: ['load'],
@@ -765,8 +877,8 @@ describe('MediaCard', () => {
       },
     })
     const VIconStub = {
-      props: ['icon'],
-      template: '<i :data-icon="icon" />',
+      props: ['color', 'icon'],
+      template: '<i :data-color="color" :data-icon="icon" />',
     }
     const { container } = await renderWithProviders(MediaCard, {
       props: { media, width: '9rem' },
@@ -776,7 +888,7 @@ describe('MediaCard', () => {
 
     await fireEvent.click(container.querySelector('[aria-label="图片加载成功"]') as HTMLElement)
 
-    await waitFor(() => expect(container.querySelector('[data-icon="mdi-alpha-a-circle"]')).not.toBeNull())
+    await waitFor(() => expect(container.querySelector(`[data-icon="${icon}"]`)).toHaveAttribute('data-color', color))
   })
 
   it('hides search and subscribe actions when the user lacks both permissions', async () => {

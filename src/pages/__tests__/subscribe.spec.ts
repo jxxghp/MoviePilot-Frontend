@@ -3,16 +3,7 @@ import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
-import {
-  computed,
-  defineComponent,
-  h,
-  nextTick,
-  ref,
-  unref,
-  type ComputedRef,
-  type Ref,
-} from 'vue'
+import { computed, defineComponent, h, nextTick, ref, unref, type ComputedRef, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -108,23 +99,14 @@ const SubscribeListViewStub = defineComponent({
         h('output', { 'aria-label': 'list active state' }, String(props.active)),
         h('output', { 'aria-label': 'list batch state' }, JSON.stringify(batchState.value)),
         h('output', { 'aria-label': 'last list command' }, lastCommand.value),
-        h(
-          'button',
-          { type: 'button', onClick: () => emit('update:sortMode', true) },
-          'emit sort mode on',
-        ),
-        h(
-          'button',
-          { type: 'button', onClick: () => emit('update:sortMode', false) },
-          'emit sort mode off',
-        ),
+        h('button', { type: 'button', onClick: () => emit('update:sortMode', true) }, 'emit sort mode on'),
+        h('button', { type: 'button', onClick: () => emit('update:sortMode', false) }, 'emit sort mode off'),
         h('button', { type: 'button', onClick: () => emit('update:sortBy', 'date') }, 'emit date sort'),
         h(
           'button',
           {
             type: 'button',
-            onClick: () =>
-              publishBatchState({ enabled: true, selectedCount: 2, totalCount: 3, allSelected: false }),
+            onClick: () => publishBatchState({ enabled: true, selectedCount: 2, totalCount: 3, allSelected: false }),
           },
           'publish batch selection',
         ),
@@ -132,8 +114,7 @@ const SubscribeListViewStub = defineComponent({
           'button',
           {
             type: 'button',
-            onClick: () =>
-              publishBatchState({ enabled: true, selectedCount: 3, totalCount: 3, allSelected: true }),
+            onClick: () => publishBatchState({ enabled: true, selectedCount: 3, totalCount: 3, allSelected: true }),
           },
           'publish all selected batch',
         ),
@@ -187,7 +168,7 @@ interface DynamicButtonConfig {
 interface RenderSubscribeOptions {
   appMode?: boolean
   initialRoute?: string
-  subType?: '电影' | '电视剧'
+  subType?: '电影' | '电视剧' | '音乐'
   subscribePermission?: boolean
   superUser?: boolean
 }
@@ -197,7 +178,8 @@ async function renderSubscribe(options: RenderSubscribeOptions = {}) {
   mocks.appMode = options.appMode ?? false
 
   return renderWithProviders(SubscribePage, {
-    initialRoute: options.initialRoute ?? `/subscribe/${subType === '电影' ? 'movie' : 'tv'}`,
+    initialRoute:
+      options.initialRoute ?? `/subscribe/${subType === '电影' ? 'movie' : subType === '音乐' ? 'music' : 'tv'}`,
     initialRouteMeta: { subType },
     initialState: {
       user: {
@@ -415,6 +397,25 @@ describe('subscribe page', () => {
     ])
   })
 
+  it('exposes only subscription history for music on desktop and PWA', async () => {
+    const { unmount } = await renderSubscribe({ subType: '音乐', superUser: true })
+
+    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(1))
+    await fireEvent.click(document.querySelector<HTMLButtonElement>('.compact-fab button')!)
+    expect(getListOutput('last list command')).toHaveTextContent('open-history')
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    unmount()
+
+    await renderSubscribe({ appMode: true, subType: '音乐', superUser: true })
+    const dynamicButton = getDynamicButtonConfig()
+    expect(unref(dynamicButton.show)).toBe(true)
+    expect(unref(dynamicButton.icon)).toBe('mdi-history')
+    expect(unref(dynamicButton.menuItems)).toBeUndefined()
+    dynamicButton.onClick?.()
+    await nextTick()
+    expect(getListOutput('last list command')).toHaveTextContent('open-history')
+  })
+
   it.each([
     [true, true],
     [false, false],
@@ -431,12 +432,7 @@ describe('subscribe page', () => {
     if (visible) {
       expect(unref(dynamicButton.icon)).toBe('mdi-chart-line')
       dynamicButton.onClick?.()
-      expect(mocks.openSharedDialog).toHaveBeenCalledWith(
-        expect.any(Object),
-        {},
-        {},
-        { closeOn: ['close'] },
-      )
+      expect(mocks.openSharedDialog).toHaveBeenCalledWith(expect.any(Object), {}, {}, { closeOn: ['close'] })
     }
   })
 

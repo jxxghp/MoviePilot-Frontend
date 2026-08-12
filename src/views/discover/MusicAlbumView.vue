@@ -44,7 +44,10 @@ const isSubscribed = ref(false)
 const artistLinks = computed(() => getMusicArtistLinks(album.value))
 
 // 关联浏览统一以首个艺术家为入口
-const primaryArtistId = computed(() => artistLinks.value.find(artist => artist.id)?.id)
+const supportsArtistBrowsing = computed(() => ['musicbrainz', 'theaudiodb'].includes(props.source))
+const primaryArtistId = computed(() =>
+  supportsArtistBrowsing.value ? artistLinks.value.find(artist => artist.id)?.id : undefined,
+)
 const sourceLabel = computed(() => getMusicSourceLabel(props.source, t))
 
 // 专辑订阅复用影视订阅链，年份需要按订阅表的字符串格式传递
@@ -238,6 +241,14 @@ watch(() => [props.source, props.mediaid], loadAlbumDetail, { immediate: true })
 
     <div v-if="primaryArtistId && props.source === 'musicbrainz'" class="music-section">
       <MusicArtistSlideView :apipath="`music/artist/${primaryArtistId}/related`" :title="t('music.relatedArtists')" />
+    </div>
+
+    <div v-if="props.source === 'doubanmusic'" class="music-section">
+      <MediaCardSlideView
+        :apipath="`music/album/${props.mediaid}/related?source=doubanmusic`"
+        :linkurl="`/browse/music/album/${props.mediaid}/related?source=doubanmusic&title=${encodeURIComponent(t('music.relatedAlbums'))}`"
+        :title="t('music.relatedAlbums')"
+      />
     </div>
   </MusicDetailLayout>
   <NoDataFound

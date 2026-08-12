@@ -330,7 +330,12 @@ onActivated(async () => {
       </VWindowItem>
       <VWindowItem value="musicbrainz">
         <div>
-          <MusicView />
+          <MusicView source="musicbrainz" />
+        </div>
+      </VWindowItem>
+      <VWindowItem value="theaudiodb">
+        <div>
+          <MusicView source="theaudiodb" />
         </div>
       </VWindowItem>
       <VWindowItem v-for="item in extraDiscoverSources" :key="item.mediaid_prefix" :value="item.mediaid_prefix">

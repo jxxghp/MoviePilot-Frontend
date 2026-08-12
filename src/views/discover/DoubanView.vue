@@ -4,8 +4,8 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-// 电影或者电视剧 movies/tvs
-const type = ref('movies')
+// 豆瓣影视与音乐共用来源标签，音乐模式使用独立的音乐数据接口。
+const type = ref<'movies' | 'tvs' | 'music'>('movies')
 
 // 过滤参数
 const filterParams = reactive({
@@ -21,6 +21,8 @@ const doubanZone = ref('')
 
 // 年代
 const doubanYear = ref('')
+const coverFilter = ref<'all' | 'with_cover'>('all')
+const isMusic = computed(() => type.value === 'music')
 
 // 豆瓣风格字典
 const categoryDict = {
@@ -99,6 +101,18 @@ const doubanSortDict = {
   'S': t('douban.sortType.highScore'),
 }
 
+const listApiPath = computed(() => (isMusic.value ? 'music/explore' : `discover/douban_${type.value}`))
+const listParams = computed<Record<string, unknown>>(() => {
+  if (isMusic.value) {
+    return {
+      count: 30,
+      source: 'doubanmusic',
+      with_cover: coverFilter.value === 'with_cover',
+    }
+  }
+  return { ...filterParams }
+})
+
 // 风格、年代、地区变化时，以,分隔拼接到tags参数
 watch([doubanCategory, doubanZone, doubanYear], () => {
   filterParams.tags = [doubanCategory.value, doubanZone.value, doubanYear.value].filter(Boolean).join(',')
@@ -108,7 +122,7 @@ watch([doubanCategory, doubanZone, doubanYear], () => {
 const currentKey = ref(0)
 
 // 类型和过滤参数变化后重新刷新列表
-watch([type, filterParams], () => {
+watch([type, filterParams, coverFilter], () => {
   if (!type.value) {
     type.value = 'movies'
   }
@@ -128,9 +142,12 @@ watch([type, filterParams], () => {
       <VChipGroup v-model="type">
         <VChip :color="type == 'movies' ? 'primary' : ''" filter tile value="movies">{{ t('mediaType.movie') }}</VChip>
         <VChip :color="type == 'tvs' ? 'primary' : ''" filter tile value="tvs">{{ t('mediaType.tv') }}</VChip>
+        <VChip data-testid="douban-type-music" :color="type == 'music' ? 'primary' : ''" filter tile value="music">
+          {{ t('mediaType.music') }}
+        </VChip>
       </VChipGroup>
     </div>
-    <div class="flex justify-start align-center">
+    <div v-if="!isMusic" class="flex justify-start align-center">
       <div class="mr-5">
         <VLabel>{{ t('douban.sort') }}</VLabel>
       </div>
@@ -147,7 +164,7 @@ watch([type, filterParams], () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="flex justify-start align-center">
+    <div v-if="!isMusic" class="flex justify-start align-center">
       <div class="mr-5">
         <VLabel>{{ t('douban.genre') }}</VLabel>
       </div>
@@ -164,7 +181,7 @@ watch([type, filterParams], () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="flex justify-start align-center">
+    <div v-if="!isMusic" class="flex justify-start align-center">
       <div class="mr-5">
         <VLabel>{{ t('douban.zone') }}</VLabel>
       </div>
@@ -181,7 +198,7 @@ watch([type, filterParams], () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="flex justify-start align-center">
+    <div v-if="!isMusic" class="flex justify-start align-center">
       <div class="mr-5">
         <VLabel>{{ t('douban.year') }}</VLabel>
       </div>
@@ -198,8 +215,17 @@ watch([type, filterParams], () => {
         </VChip>
       </VChipGroup>
     </div>
+    <div v-else class="flex justify-start align-center">
+      <div class="mr-5">
+        <VLabel>{{ t('music.filter.cover') }}</VLabel>
+      </div>
+      <VChipGroup v-model="coverFilter" mandatory>
+        <VChip value="all" filter tile>{{ t('music.filter.all') }}</VChip>
+        <VChip value="with_cover" filter tile>{{ t('music.filter.withCover') }}</VChip>
+      </VChipGroup>
+    </div>
   </div>
   <div>
-    <MediaCardListView :key="currentKey" :apipath="`discover/douban_${type}`" :params="filterParams" />
+    <MediaCardListView :key="currentKey" :apipath="listApiPath" :params="listParams" />
   </div>
 </template>

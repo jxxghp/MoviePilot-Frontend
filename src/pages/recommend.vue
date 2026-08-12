@@ -72,7 +72,14 @@ function openRecommendSettings() {
 
 const builtInRecommendSources = createBuiltInRecommendSources(t)
 const viewList = reactive<RecommendViewSource[]>([...builtInRecommendSources])
-const newlyAddedBuiltInPaths = new Set(['anilist/trending', 'anilist/popular-this-season', 'recommend/music_weekly'])
+const newlyAddedBuiltInPaths = new Set([
+  'anilist/trending',
+  'anilist/popular-this-season',
+  'recommend/music_weekly',
+  'recommend/music_theaudiodb_albums',
+  'recommend/music_theaudiodb_tracks',
+  'recommend/music_douban',
+])
 
 // 计算当前分类下显示的视图
 const filteredViews = computed(() => {

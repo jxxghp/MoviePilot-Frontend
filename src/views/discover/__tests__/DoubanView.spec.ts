@@ -103,4 +103,27 @@ describe('DoubanView', () => {
       })
     })
   })
+
+  it('merges music into the Douban source and hides unsupported video filters', async () => {
+    const user = userEvent.setup()
+    await renderView()
+
+    await user.click(screen.getByTestId('douban-type-music'))
+
+    await waitFor(() => {
+      expect(latestMediaListRequest(mediaList)).toEqual({
+        apipath: 'music/explore',
+        params: {
+          count: 30,
+          source: 'doubanmusic',
+          with_cover: false,
+        },
+      })
+    })
+    expect(screen.queryByText('高分优先')).not.toBeInTheDocument()
+    expect(screen.queryByText('2020年代')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('仅有封面'))
+    await waitFor(() => expect(latestMediaListRequest(mediaList).params.with_cover).toBe(true))
+  })
 })

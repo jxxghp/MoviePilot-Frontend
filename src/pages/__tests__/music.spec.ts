@@ -79,9 +79,9 @@ const artistResult = {
 const musicSite = { id: 11, is_active: true, name: '音乐站点', url: 'https://music.example' }
 
 /** 按请求路径分派音乐搜索与订阅状态查询。 */
-function mockSearchAndSubscribeState(subscribed: boolean) {
+function mockSearchAndSubscribeState(subscribed: boolean, result = musicResult) {
   mocks.apiGet.mockImplementation((path: string) => {
-    if (path === 'media/search') return Promise.resolve([musicResult])
+    if (path === 'media/search') return Promise.resolve([result])
     if (path === 'site/media/music') return Promise.resolve([musicSite])
     if (path === 'system/setting/public/IndexerSites') {
       return Promise.resolve({ data: { value: [11, 99] }, success: true })
@@ -94,9 +94,9 @@ function mockSearchAndSubscribeState(subscribed: boolean) {
 }
 
 /** 渲染音乐搜索结果页，统一提供超级用户权限与路由关键词。 */
-function renderMusicPage() {
+function renderMusicPage(initialRoute = '/music?query=晴天') {
   return renderWithProviders(MusicPage, {
-    initialRoute: '/music?query=晴天',
+    initialRoute,
     initialState: { user: { superUser: true } },
     global: { stubs: { NoDataFound: true, VPageContentTitle: true } },
   })
@@ -149,6 +149,7 @@ describe('music page', () => {
     expect(screen.getByText('2003-07-31')).toBeInTheDocument()
     expect(screen.getByText('4:29')).toBeInTheDocument()
     expect(screen.getByText('Album')).toBeInTheDocument()
+    expect(screen.getByTestId('music-source')).toHaveTextContent('MusicBrainz')
   })
 
   it('uses three columns from the desktop breakpoint', async () => {
@@ -276,6 +277,55 @@ describe('music page', () => {
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
     expect(router.currentRoute.value.query).toMatchObject({
       keyword: 'musicbrainz:recording-1',
+      sites: '11',
+      type: '音乐',
+    })
+  })
+
+  it.each([
+    ['TheAudioDB', 'theaudiodb', 'album-2109619', 'Parachutes'],
+    ['豆瓣音乐', 'doubanmusic', '1401853', '范特西'],
+  ])('keeps %s identity on search result actions', async (label, source, mediaId, title) => {
+    const result = {
+      ...albumResult,
+      album: title,
+      album_id: mediaId,
+      artist_ids: source === 'theaudiodb' ? ['artist-1'] : [],
+      media_id: mediaId,
+      source,
+      title,
+    }
+    mockSearchAndSubscribeState(false, result)
+    const { router } = await renderMusicPage(`/music?query=${encodeURIComponent(title)}&source=${source}`)
+
+    expect(await screen.findByTestId('music-source')).toHaveTextContent(label)
+    await fireEvent.click(screen.getByRole('button', { name: '订阅' }))
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'subscribe/',
+        expect.objectContaining({
+          media_id: mediaId,
+          media_source: source,
+          music_type: 'album',
+          name: title,
+          type: '音乐',
+        }),
+      ),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: '搜索资源' }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const [, , dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
+      unknown,
+      unknown,
+      { search: (sites: number[]) => void },
+    ]
+    dialogEvents.search([11])
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
+    expect(router.currentRoute.value.query).toMatchObject({
+      keyword: `${source}:${mediaId}`,
+      music_type: 'album',
       sites: '11',
       type: '音乐',
     })
