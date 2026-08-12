@@ -111,6 +111,17 @@ interface AgentStreamEvent {
   session_id?: string
 }
 
+const AGENT_STREAM_EVENT_TYPES = new Set<AgentStreamEvent['type']>([
+  'start',
+  'delta',
+  'tool',
+  'attachment',
+  'choice',
+  'message_update',
+  'done',
+  'error',
+])
+
 interface AgentPendingAttachment {
   id: string
   file: File
@@ -153,6 +164,18 @@ interface AgentPendingStreamRecovery {
 
 interface AgentStreamReadResult {
   receivedTerminalEvent: boolean
+}
+
+interface AgentProtectedDelivery {
+  /** 一次性投递标识，只用于当前可见范围去重。 */
+  id: string
+  /** 仅驻留组件内存并按纯文本渲染的受保护内容。 */
+  content: string
+}
+
+interface ParsedSseBlock {
+  eventName: string
+  data: string
 }
 
 interface AgentSlashCommand {
@@ -211,6 +234,7 @@ const STREAM_STATE_PERSIST_DELAY = 1000
 
 const inputText = ref('')
 const messages = ref<AgentChatMessage[]>([])
+const protectedDeliveries = ref<AgentProtectedDelivery[]>([])
 const historySessions = ref<AgentSessionHistoryItem[]>([])
 const sessionId = ref('')
 const sending = ref(false)
@@ -250,6 +274,8 @@ let userAbortRequested = false
 let streamRecoveryAbortRequested = false
 let streamRecoveryTimer: number | null = null
 let activeStreamStartedAt = 0
+let protectedDeliveryGeneration = 0
+const protectedDeliveryIds = new Set<string>()
 
 // 汇总实时请求与后台恢复状态，保证恢复期间仍展示处理中并锁定会话操作。
 const isBusy = computed(() => sending.value || Boolean(pendingStreamRecovery.value))
@@ -298,7 +324,7 @@ const recordingTimeText = computed(() => {
 const drawerWidth = computed(() => (display.mdAndDown.value || fullscreen.value ? '100vw' : '30rem'))
 // 仅桌面宽屏展示全屏开关，窄屏已默认占满视口。
 const canToggleFullscreen = computed(() => !display.mdAndDown.value)
-const hasMessages = computed(() => messages.value.length > 0)
+const hasConversationContent = computed(() => messages.value.length > 0 || protectedDeliveries.value.length > 0)
 const hasHistorySessions = computed(() => historySessions.value.length > 0)
 const currentUserName = computed(() => userStore.getUserName || t('common.user'))
 const isOpen = computed({
@@ -318,6 +344,18 @@ function createId(prefix: string) {
 // 创建 Web 智能助手本地会话 ID。
 function createSessionId() {
   return `web-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+// 受保护内容只属于当前可见范围；递增代次可阻止旧流在清理后重新写入。
+function invalidateProtectedDeliveries() {
+  protectedDeliveryGeneration += 1
+  protectedDeliveries.value = []
+  protectedDeliveryIds.clear()
+}
+
+// 识别前端需要隔离展示和持久化的确认控制文本，授权判断仍由后端完成。
+function isReservedConfirmationControl(value: string) {
+  return /^(确认|取消) ([A-Za-z0-9]{4}-[A-Za-z0-9]{4})$/.test(value)
 }
 
 // 将未知字段安全转换为可展示文本。
@@ -1506,20 +1544,71 @@ function queueStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
   schedulePendingStreamDeltaFlush()
 }
 
-// 解析一个 SSE 数据块。
-function parseSseBlock(block: string) {
-  const data = block
-    .split('\n')
-    .filter(line => line.startsWith('data:'))
-    .map(line => line.slice(5).trimStart())
-    .join('\n')
+// 拆分 SSE event name 与 data，确保受保护 frame 在普通事件解析前完成分流。
+function splitSseBlock(block: string) {
+  let eventName = ''
+  const dataLines: string[] = []
 
-  if (!data) return null
-  return JSON.parse(data) as AgentStreamEvent
+  for (const rawLine of block.split(/\r?\n/)) {
+    if (!rawLine || rawLine.startsWith(':')) continue
+
+    const separatorIndex = rawLine.indexOf(':')
+    const field = separatorIndex >= 0 ? rawLine.slice(0, separatorIndex) : rawLine
+    let value = separatorIndex >= 0 ? rawLine.slice(separatorIndex + 1) : ''
+    if (value.startsWith(' ')) value = value.slice(1)
+
+    if (field === 'event') eventName = value
+    if (field === 'data') dataLines.push(value)
+  }
+
+  if (!dataLines.length) return null
+
+  const data = dataLines.join('\n')
+  if (!data.trim()) return null
+  return { eventName, data } satisfies ParsedSseBlock
+}
+
+function parseProtectedTransportFrame(data: string): AgentProtectedDelivery | null {
+  try {
+    const frame = JSON.parse(data) as Record<string, unknown>
+    const schemaVersion = typeof frame.schema_version === 'string' ? frame.schema_version : ''
+    const versionMatch = /^(\d+)\.(\d+)$/.exec(schemaVersion)
+    const deliveryId = frame.delivery_id
+
+    if (
+      !versionMatch ||
+      versionMatch[1] !== '1' ||
+      typeof deliveryId !== 'string' ||
+      !deliveryId.trim() ||
+      frame.content_type !== 'text/plain' ||
+      typeof frame.content !== 'string'
+    ) {
+      return null
+    }
+
+    return { id: deliveryId, content: frame.content }
+  } catch {
+    return null
+  }
+}
+
+function consumeProtectedTransportFrame(data: string, streamGeneration: number) {
+  if (!isOpen.value || streamGeneration !== protectedDeliveryGeneration) return
+
+  const delivery = parseProtectedTransportFrame(data)
+  if (!delivery || protectedDeliveryIds.has(delivery.id)) return
+
+  protectedDeliveryIds.add(delivery.id)
+  protectedDeliveries.value.push(delivery)
+  nextTick(() => scheduleMessageScrollerUpdate({ toBottom: messageScrollerShouldFollow }))
 }
 
 // 读取并应用智能助手 SSE 响应流。
-async function readAgentStream(response: Response, assistantMessage: AgentChatMessage): Promise<AgentStreamReadResult> {
+async function readAgentStream(
+  response: Response,
+  assistantMessage: AgentChatMessage,
+  streamGeneration: number,
+): Promise<AgentStreamReadResult> {
   if (!response.body) {
     throw new Error(t('agentAssistant.noStream'))
   }
@@ -1530,8 +1619,36 @@ async function readAgentStream(response: Response, assistantMessage: AgentChatMe
   let receivedTerminalEvent = false
 
   // 应用事件并记录服务端是否明确结束本轮流，区分正常完成与无异常的后台断流。
-  const consumeEvent = (event: AgentStreamEvent | null) => {
-    if (!event) return
+  const consumeBlock = (block: string) => {
+    const parsedBlock = splitSseBlock(block)
+    if (!parsedBlock) return
+
+    if (parsedBlock.eventName === 'interaction-protected') {
+      consumeProtectedTransportFrame(parsedBlock.data, streamGeneration)
+      return
+    }
+    if (
+      parsedBlock.eventName &&
+      parsedBlock.eventName !== 'message' &&
+      !AGENT_STREAM_EVENT_TYPES.has(parsedBlock.eventName as AgentStreamEvent['type'])
+    ) {
+      return
+    }
+
+    const parsedEvent = JSON.parse(parsedBlock.data) as unknown
+    if (!parsedEvent || typeof parsedEvent !== 'object' || Array.isArray(parsedEvent)) {
+      return
+    }
+
+    const eventRecord = parsedEvent as Record<string, unknown>
+    if (
+      typeof eventRecord.type !== 'string' ||
+      !AGENT_STREAM_EVENT_TYPES.has(eventRecord.type as AgentStreamEvent['type'])
+    )
+      return
+
+    const event = eventRecord as unknown as AgentStreamEvent
+    if (parsedBlock.eventName && parsedBlock.eventName !== 'message' && parsedBlock.eventName !== event.type) return
 
     queueStreamEvent(event, assistantMessage)
     if (event.type === 'done' || event.type === 'error') receivedTerminalEvent = true
@@ -1547,13 +1664,13 @@ async function readAgentStream(response: Response, assistantMessage: AgentChatMe
       buffer = blocks.pop() || ''
 
       for (const block of blocks) {
-        consumeEvent(parseSseBlock(block))
+        consumeBlock(block)
       }
     }
 
     buffer += decoder.decode()
     if (buffer.trim()) {
-      consumeEvent(parseSseBlock(buffer))
+      consumeBlock(buffer)
     }
   } finally {
     flushPendingStreamDelta()
@@ -1753,6 +1870,7 @@ async function streamAgentMessage(
   userAbortRequested = false
   streamRecoveryAbortRequested = false
   const streamStartedAt = Date.now()
+  const streamProtectedDeliveryGeneration = protectedDeliveryGeneration
   activeStreamStartedAt = streamStartedAt
   let shouldFollowBottomAfterStream = true
   let shouldSaveClientSnapshot = true
@@ -1762,6 +1880,7 @@ async function streamAgentMessage(
       method: 'POST',
       headers: buildAgentRequestHeaders({
         'Content-Type': 'application/json',
+        'X-MoviePilot-Agent-Interaction': '1',
       }),
       body: JSON.stringify({
         text: content,
@@ -1783,10 +1902,11 @@ async function streamAgentMessage(
       throw new Error(await resolveAgentResponseErrorMessage(response))
     }
 
-    const streamResult = await readAgentStream(response, assistantMessage)
+    const streamResult = await readAgentStream(response, assistantMessage, streamProtectedDeliveryGeneration)
     shouldFollowBottomAfterStream = isMessageScrollerNearBottom()
     if (!streamResult.receivedTerminalEvent) {
       shouldSaveClientSnapshot = false
+      invalidateProtectedDeliveries()
       beginStreamRecovery(sessionId.value, streamStartedAt)
       refreshMessageList()
       if (document.visibilityState === 'visible') scheduleStreamRecovery(0)
@@ -1817,6 +1937,7 @@ async function streamAgentMessage(
 
     if (isRecoverableStreamDisconnect(error)) {
       shouldSaveClientSnapshot = false
+      invalidateProtectedDeliveries()
       beginStreamRecovery(sessionId.value, streamStartedAt)
       assistantMessage.status = 'streaming'
       refreshMessageList()
@@ -1849,7 +1970,8 @@ async function streamAgentMessage(
 
 // 发送输入框中的文本和附件。
 async function sendMessage() {
-  const text = inputText.value.trim()
+  const rawText = inputText.value
+  const text = rawText.trim()
   const attachments = [...pendingAttachments.value]
   if ((!text && !attachments.length) || isBusy.value) return
 
@@ -1861,7 +1983,10 @@ async function sendMessage() {
 
   try {
     const prepared = await prepareAgentAttachments(attachments)
-    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments)
+    const reservedControl = attachments.length === 0 && isReservedConfirmationControl(rawText)
+    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments, {
+      echoUser: !reservedControl,
+    })
   } catch (error: any) {
     // 附件准备失败同样落到对话消息里，底部提示条只保留给没有消息承载的本地错误。
     addMessage('assistant', error?.message || t('agentAssistant.uploadFailed'), 'error')
@@ -2109,6 +2234,7 @@ function stopGeneration() {
 
 // 开始新的空白会话。
 function startNewSession() {
+  invalidateProtectedDeliveries()
   stopGeneration()
   sessionId.value = createSessionId()
   messages.value = []
@@ -2127,6 +2253,7 @@ async function loadHistorySession(targetSessionId: string) {
   if (!historySession) return
 
   try {
+    invalidateProtectedDeliveries()
     stopGeneration()
     if (!historySession.messages.length) {
       historySession = await loadServerHistorySession(targetSessionId)
@@ -2180,6 +2307,7 @@ function formatHistoryTime(timestamp: number) {
 
 // 关闭智能助手面板。
 function closeDrawer() {
+  invalidateProtectedDeliveries()
   isOpen.value = false
 }
 
@@ -2262,7 +2390,12 @@ watch(drawerWidth, () => {
 })
 
 watch(isOpen, open => {
-  if (open) scrollToBottom()
+  if (open) {
+    scrollToBottom()
+    return
+  }
+
+  invalidateProtectedDeliveries()
 })
 
 watch(isBusy, value => emit('thinking-change', value), { immediate: true })
@@ -2285,6 +2418,7 @@ onScopeDispose(clearMessageScrollFrame)
 onScopeDispose(clearStreamPersistTimer)
 onScopeDispose(clearPendingStreamDelta)
 onScopeDispose(clearStreamRecoveryTimer)
+onScopeDispose(invalidateProtectedDeliveries)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
@@ -2437,11 +2571,11 @@ onScopeDispose(() => {
       <main
         ref="messageListRef"
         class="agent-assistant-messages"
-        :class="{ 'agent-assistant-messages--has-content': hasMessages }"
+        :class="{ 'agent-assistant-messages--has-content': hasConversationContent }"
         @scroll.passive="handleMessageScrollerScroll"
       >
         <div class="agent-assistant-messages__content">
-          <div v-if="!hasMessages" class="agent-assistant-empty">
+          <div v-if="!hasConversationContent" class="agent-assistant-empty">
             <div class="agent-assistant-empty__mark">
               <VIcon icon="lucide:sparkles" size="28" />
             </div>
@@ -2598,6 +2732,18 @@ onScopeDispose(() => {
               <span />
               <span />
               <span />
+            </div>
+          </div>
+
+          <div v-if="protectedDeliveries.length" class="agent-assistant-protected-deliveries">
+            <div
+              v-for="delivery in protectedDeliveries"
+              :key="delivery.id"
+              class="agent-assistant-protected-delivery"
+              :data-protected-delivery-id="delivery.id"
+            >
+              <VIcon icon="mdi-shield-lock-outline" size="16" aria-hidden="true" />
+              <span v-text="delivery.content" />
             </div>
           </div>
         </div>
@@ -3153,6 +3299,32 @@ onScopeDispose(() => {
 
 .agent-assistant-message--assistant {
   align-items: flex-start;
+}
+
+.agent-assistant-protected-deliveries {
+  display: grid;
+  gap: 0.5rem;
+  inline-size: min(100%, 34rem);
+  margin-block-end: 1rem;
+}
+
+.agent-assistant-protected-delivery {
+  display: grid;
+  align-items: start;
+  border: 1px solid rgba(var(--v-theme-warning), 0.42);
+  border-radius: var(--app-control-radius);
+  background: rgba(var(--v-theme-warning), 0.08);
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  column-gap: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 1.55;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  padding-block: 0.65rem;
+  padding-inline: 0.75rem;
+  white-space: pre-wrap;
 }
 
 .agent-assistant-message__meta {
