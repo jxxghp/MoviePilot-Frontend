@@ -107,14 +107,14 @@ function protectedSseFrame(data: Record<string, unknown>): SyntheticSseFrame {
   return { eventName: 'interaction-protected', data }
 }
 
-function createAgentStreamResponse(frames: SyntheticSseFrame[]) {
+function createAgentStreamResponse(frames: SyntheticSseFrame[], headers: Record<string, string> = {}) {
   const body = frames
     .map(frame => `${frame.eventName ? `event: ${frame.eventName}\n` : ''}data: ${JSON.stringify(frame.data)}\n\n`)
     .join('')
 
   return new Response(body, {
     status: 200,
-    headers: { 'Content-Type': 'text/event-stream' },
+    headers: { 'Content-Type': 'text/event-stream', ...headers },
   })
 }
 
@@ -502,12 +502,7 @@ describe('AgentAssistantPanel stream recovery', () => {
         return createAgentStreamResponse([
           legacySseFrame({ type: 'start', session_id: 'web-agent:protected' }),
           legacySseFrame({ type: 'delta', content: '普通回复' }),
-          protectedSseFrame({
-            schema_version: '1.0',
-            delivery_id: 'delivery-1',
-            content_type: 'text/plain',
-            content: protectedMarker,
-          }),
+          protectedSseFrame({ content: protectedMarker }),
           legacySseFrame({ type: 'tool', message: '（查询了 1 次数据）' }),
           legacySseFrame({ type: 'done' }),
         ])
@@ -522,7 +517,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
-    const protectedNode = wrapper.get('[data-protected-delivery-id="delivery-1"]')
+    const protectedNode = wrapper.get('.agent-assistant-protected-delivery')
     expect(protectedNode.text()).toBe(protectedMarker)
     expect(protectedNode.find('script').exists()).toBe(false)
     const assistantBubble = wrapper.get('.agent-assistant-message--assistant .agent-assistant-message__bubble')
@@ -698,7 +693,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
-  it('ignores malformed and duplicate protected delivery events without creating a normal message', async () => {
+  it('accepts only string content from the named protected event', async () => {
     const acceptedMarker = 'MP-ACCEPTED-PROTECTED-MARKER'
     const rejectedMarker = 'MP-REJECTED-PROTECTED-MARKER'
     vi.stubGlobal(
@@ -707,45 +702,10 @@ describe('AgentAssistantPanel stream recovery', () => {
         if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
           return createAgentStreamResponse([
             legacySseFrame({ type: 'start', session_id: 'web-agent:protected-validation' }),
-            protectedSseFrame({
-              schema_version: '2.0',
-              delivery_id: 'wrong-major',
-              content_type: 'text/plain',
-              content: rejectedMarker,
-            }),
-            protectedSseFrame({
-              schema_version: '1.0',
-              delivery_id: '',
-              content_type: 'text/plain',
-              content: rejectedMarker,
-            }),
-            protectedSseFrame({
-              schema_version: '1.0',
-              delivery_id: 'wrong-content-type',
-              content_type: 'text/html',
-              content: rejectedMarker,
-            }),
-            protectedSseFrame({
-              schema_version: '1.0',
-              delivery_id: 'bad-content',
-              content_type: 'text/plain',
-              content: 42,
-            }),
+            protectedSseFrame({ content: 42 }),
             { eventName: 'interaction', data: { content: rejectedMarker } },
             legacySseFrame({ type: 'protected_delivery', delivery_id: 'legacy-shape', content: rejectedMarker }),
-            protectedSseFrame({
-              schema_version: '1.7',
-              delivery_id: 'delivery-valid',
-              content_type: 'text/plain',
-              content: acceptedMarker,
-              future_field: true,
-            }),
-            protectedSseFrame({
-              schema_version: '1.0',
-              delivery_id: 'delivery-valid',
-              content_type: 'text/plain',
-              content: rejectedMarker,
-            }),
+            protectedSseFrame({ content: acceptedMarker }),
             legacySseFrame({ type: 'done' }),
           ])
         }
@@ -786,12 +746,7 @@ describe('AgentAssistantPanel stream recovery', () => {
 
     stream.emit(legacySseFrame({ type: 'start', session_id: 'web-agent:late-protected' }))
     stream.emit(
-      protectedSseFrame({
-        schema_version: '1.0',
-        delivery_id: 'delivery-before-close',
-        content_type: 'text/plain',
-        content: protectedMarker,
-      }),
+      protectedSseFrame({ content: protectedMarker }),
     )
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
@@ -800,12 +755,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(wrapper.text()).not.toContain(protectedMarker)
 
     stream.emit(
-      protectedSseFrame({
-        schema_version: '1.0',
-        delivery_id: 'delivery-after-close',
-        content_type: 'text/plain',
-        content: protectedMarker,
-      }),
+      protectedSseFrame({ content: protectedMarker }),
     )
     await wrapper.setProps({ modelValue: true })
     await flushPromises()
@@ -832,12 +782,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     stream.emit(
-      protectedSseFrame({
-        schema_version: '1.0',
-        delivery_id: 'delivery-before-eof',
-        content_type: 'text/plain',
-        content: protectedMarker,
-      }),
+      protectedSseFrame({ content: protectedMarker }),
     )
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
@@ -873,12 +818,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     stream.emit(
-      protectedSseFrame({
-        schema_version: '1.0',
-        delivery_id: 'delivery-before-network-error',
-        content_type: 'text/plain',
-        content: protectedMarker,
-      }),
+      protectedSseFrame({ content: protectedMarker }),
     )
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
@@ -905,12 +845,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
         return createAgentStreamResponse([
-          protectedSseFrame({
-            schema_version: '1.0',
-            delivery_id: 'delivery-session',
-            content_type: 'text/plain',
-            content: protectedMarker,
-          }),
+          protectedSseFrame({ content: protectedMarker }),
           legacySseFrame({ type: 'done' }),
         ])
       }
@@ -964,12 +899,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       const url = String(input)
       if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
         return createAgentStreamResponse([
-          protectedSseFrame({
-            schema_version: '1.0',
-            delivery_id: 'delivery-history',
-            content_type: 'text/plain',
-            content: protectedMarker,
-          }),
+          protectedSseFrame({ content: protectedMarker }),
           legacySseFrame({ type: 'done' }),
         ])
       }
@@ -993,16 +923,19 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
-  it('keeps exact confirmation controls out of Web history while preserving the old-backend response', async () => {
-    const controlText = '确认 aB12-cD34'
+  it('keeps exact confirmation controls out of Web history while preserving the backend response', async () => {
+    const controlText = '确认'
     const backendFeedback = '确认无效或已过期'
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
-        return createAgentStreamResponse([
-          legacySseFrame({ type: 'start', session_id: 'web-agent:control' }),
-          legacySseFrame({ type: 'delta', content: backendFeedback }),
-          legacySseFrame({ type: 'done' }),
-        ])
+        return createAgentStreamResponse(
+          [
+            legacySseFrame({ type: 'start', session_id: 'web-agent:control' }),
+            legacySseFrame({ type: 'delta', content: backendFeedback }),
+            legacySseFrame({ type: 'done' }),
+          ],
+          { 'X-MoviePilot-Agent-Control': 'secret-confirmation' },
+        )
       }
 
       return createAgentResponse([])
@@ -1016,28 +949,52 @@ describe('AgentAssistantPanel stream recovery', () => {
 
     const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
     const streamBody = JSON.parse(String(streamCall?.[1]?.body || '{}'))
-    expect(streamBody).toMatchObject({ text: controlText, display_text: controlText, echo_user: false })
+    expect(streamBody).toMatchObject({ text: controlText, display_text: controlText, echo_user: true })
     expect(wrapper.text()).toContain(backendFeedback)
     expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
-    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(controlText)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(controlText)
+    const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history') || '[]')
+    expect(localState.messages || []).not.toContainEqual(expect.objectContaining({ role: 'user', content: controlText }))
+    expect(localHistory).not.toContainEqual(expect.objectContaining({ role: 'user', content: controlText }))
     fetchMock.mock.calls
       .filter(([input]) => String(input).includes('/display'))
-      .forEach(([, init]) => expect(String(init?.body)).not.toContain(controlText))
+      .forEach(([, init]) => {
+        const displayBody = JSON.parse(String(init?.body || '{}'))
+        expect(displayBody.messages || []).not.toContainEqual(
+          expect.objectContaining({ role: 'user', content: controlText }),
+        )
+      })
 
     wrapper.unmount()
   })
 
+  it('keeps an exact confirmation word on the ordinary path without a pending control', async () => {
+    const controlText = '确认'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([legacySseFrame({ type: 'done' })])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue(controlText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
+    const streamBody = JSON.parse(String(streamCall?.[1]?.body || '{}'))
+    expect(streamBody.echo_user).toBe(true)
+    expect(wrapper.find('.agent-assistant-message--user').text()).toContain(controlText)
+    wrapper.unmount()
+  })
+
   it.each([
-    ['leading space', ' 确认 AB12-CD34'],
-    ['trailing space', '确认 AB12-CD34 '],
-    ['repeated separator', '确认  AB12-CD34'],
-    ['trailing newline', '确认 AB12-CD34\n'],
-    ['non-breaking space', '确认\u00a0AB12-CD34'],
-    ['full-width space', '确认　AB12-CD34'],
-    ['extra prose', '确认 AB12-CD34 请执行'],
-    ['malformed code', '确认 AB12-CD3'],
-    ['different verb', '同意 AB12-CD34'],
+    ['confirmation with details', '确认 TMDB_API_KEY'],
+    ['cancellation with details', '取消 TMDB_API_KEY'],
+    ['extra prose', '确认，请执行'],
+    ['different verb', '同意'],
   ])('keeps the %s control-like text on the ordinary echo path', async (_caseName, controlLikeText) => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
@@ -1060,7 +1017,7 @@ describe('AgentAssistantPanel stream recovery', () => {
   })
 
   it('keeps an exact confirmation string with an attachment on the ordinary echo path', async () => {
-    const controlText = '确认 AB12-CD34'
+    const controlText = '确认'
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/message/agent/upload') && init?.method === 'POST') {
@@ -1142,12 +1099,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
         return createAgentStreamResponse([
-          protectedSseFrame({
-            schema_version: '1.0',
-            delivery_id: `delivery-${fetchMock.mock.calls.length}`,
-            content_type: 'text/plain',
-            content: protectedMarker,
-          }),
+          protectedSseFrame({ content: protectedMarker }),
           legacySseFrame({ type: 'done' }),
         ])
       }
