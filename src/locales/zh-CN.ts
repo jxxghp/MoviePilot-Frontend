@@ -4168,8 +4168,6 @@ export default {
     zone: '地区',
     year: '年代',
     music: {
-      browse: '浏览',
-      mode: { chart: '排行榜', tag: '分类浏览' },
       genre: {
         pop: '流行',
         rock: '摇滚',

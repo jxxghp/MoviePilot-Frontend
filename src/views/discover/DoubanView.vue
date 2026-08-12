@@ -22,7 +22,6 @@ const doubanZone = ref('')
 // 年代
 const doubanYear = ref('')
 const coverFilter = ref<'all' | 'with_cover'>('all')
-const musicMode = ref<'chart' | 'tag'>('chart')
 const musicCategory = ref('流行')
 const musicZone = ref('')
 const musicSort = ref<'U' | 'S' | 'R' | 'O'>('U')
@@ -146,8 +145,7 @@ const listParams = computed<Record<string, unknown>>(() => {
     return {
       count: 30,
       media_source: 'doubanmusic',
-      mode: musicMode.value,
-      tags: musicMode.value === 'tag' ? [musicCategory.value, musicZone.value].filter(Boolean).join(',') : '',
+      tags: [musicCategory.value, musicZone.value].filter(Boolean).join(','),
       douban_sort: musicSort.value,
       with_cover: coverFilter.value === 'with_cover',
     }
@@ -164,7 +162,7 @@ watch([doubanCategory, doubanZone, doubanYear], () => {
 const currentKey = ref(0)
 
 // 类型和过滤参数变化后重新刷新列表
-watch([type, filterParams, coverFilter, musicMode, musicCategory, musicZone, musicSort], () => {
+watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], () => {
   if (!type.value) {
     type.value = 'movies'
   }
@@ -260,15 +258,6 @@ watch([type, filterParams, coverFilter, musicMode, musicCategory, musicZone, mus
     <template v-else>
       <div class="flex justify-start align-center">
         <div class="mr-5">
-          <VLabel>{{ t('douban.music.browse') }}</VLabel>
-        </div>
-        <VChipGroup v-model="musicMode" mandatory>
-          <VChip value="chart" filter tile>{{ t('douban.music.mode.chart') }}</VChip>
-          <VChip value="tag" filter tile>{{ t('douban.music.mode.tag') }}</VChip>
-        </VChipGroup>
-      </div>
-      <div v-if="musicMode === 'tag'" class="flex justify-start align-center">
-        <div class="mr-5">
           <VLabel>{{ t('douban.genre') }}</VLabel>
         </div>
         <VChipGroup v-model="musicCategory" mandatory>
@@ -277,7 +266,7 @@ watch([type, filterParams, coverFilter, musicMode, musicCategory, musicZone, mus
           </VChip>
         </VChipGroup>
       </div>
-      <div v-if="musicMode === 'tag'" class="flex justify-start align-center">
+      <div class="flex justify-start align-center">
         <div class="mr-5">
           <VLabel>{{ t('douban.zone') }}</VLabel>
         </div>
@@ -287,7 +276,7 @@ watch([type, filterParams, coverFilter, musicMode, musicCategory, musicZone, mus
           </VChip>
         </VChipGroup>
       </div>
-      <div v-if="musicMode === 'tag'" class="flex justify-start align-center">
+      <div class="flex justify-start align-center">
         <div class="mr-5">
           <VLabel>{{ t('douban.sort') }}</VLabel>
         </div>

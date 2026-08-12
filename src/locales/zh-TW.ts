@@ -4164,8 +4164,6 @@ export default {
     zone: '地區',
     year: '年代',
     music: {
-      browse: '瀏覽',
-      mode: { chart: '排行榜', tag: '分類瀏覽' },
       genre: {
         pop: '流行',
         rock: '搖滾',

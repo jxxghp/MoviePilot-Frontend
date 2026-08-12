@@ -4232,8 +4232,6 @@ export default {
     zone: 'Region',
     year: 'Year',
     music: {
-      browse: 'Browse',
-      mode: { chart: 'Charts', tag: 'Categories' },
       genre: {
         pop: 'Pop',
         rock: 'Rock',

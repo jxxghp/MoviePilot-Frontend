@@ -104,7 +104,7 @@ describe('DoubanView', () => {
     })
   })
 
-  it('merges music into Douban with chart and official tag browsing filters', async () => {
+  it('defaults Douban music to official category browsing filters', async () => {
     const user = userEvent.setup()
     await renderView()
 
@@ -117,16 +117,16 @@ describe('DoubanView', () => {
           count: 30,
           douban_sort: 'U',
           media_source: 'doubanmusic',
-          mode: 'chart',
-          tags: '',
+          tags: '流行',
           with_cover: false,
         },
       })
     })
     expect(screen.queryByText('高分优先')).not.toBeInTheDocument()
     expect(screen.queryByText('2020年代')).not.toBeInTheDocument()
+    expect(screen.queryByText('排行榜')).not.toBeInTheDocument()
+    expect(screen.queryByText('分类浏览')).not.toBeInTheDocument()
 
-    await user.click(screen.getByText('分类浏览'))
     await user.click(screen.getByText('华语'))
     await user.click(screen.getByText('评分排序'))
 
@@ -135,7 +135,6 @@ describe('DoubanView', () => {
         count: 30,
         douban_sort: 'S',
         media_source: 'doubanmusic',
-        mode: 'tag',
         tags: '流行,华语',
         with_cover: false,
       })
