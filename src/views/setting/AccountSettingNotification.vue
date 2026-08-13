@@ -206,14 +206,15 @@ function trackWechatClawBotRename(oldName: string, newName: string) {
     return
   }
   const renameMap = { ...wechatClawBotRenameMap.value }
+  let chainedRename = false
+  // 连续改名只保留原始缓存名到当前渠道名，避免为不存在的中间名发起迁移。
   for (const [source, target] of Object.entries(renameMap)) {
     if (target === oldName) {
       renameMap[source] = newName
+      chainedRename = true
     }
   }
-  if (renameMap[oldName]) {
-    renameMap[oldName] = newName
-  } else {
+  if (!chainedRename) {
     renameMap[oldName] = newName
   }
   wechatClawBotRenameMap.value = Object.fromEntries(
@@ -325,6 +326,7 @@ async function saveNotificationTime() {
     $toast.success(t('setting.notification.timeSaveSuccess'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.notification.timeSaveFailed'))
   }
 }
 
@@ -367,6 +369,7 @@ async function saveNotificationSwitchs() {
     $toast.success(t('setting.notification.switchSaveSuccess'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.notification.switchSaveFailed'))
   }
 }
 

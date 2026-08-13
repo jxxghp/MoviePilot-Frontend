@@ -809,11 +809,6 @@
       "count": 1
     }
   },
-  "src/views/setting/AccountSettingNotification.vue": {
-    "sonarjs/no-all-duplicated-branches": {
-      "count": 1
-    }
-  },
   "src/views/setting/AccountSettingRule.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
