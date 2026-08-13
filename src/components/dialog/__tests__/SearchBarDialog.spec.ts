@@ -26,6 +26,7 @@ const IconStub = defineComponent({
 
 async function renderSearchBar(
   overrides: {
+    managePermission?: boolean
     searchPermission?: boolean
     searchSource?: string
   } = {},
@@ -41,7 +42,7 @@ async function renderSearchBar(
           ...DEFAULT_PERMISSIONS,
           admin: false,
           discovery: true,
-          manage: false,
+          manage: overrides.managePermission ?? false,
           search: overrides.searchPermission ?? false,
           subscribe: false,
         },
@@ -74,6 +75,12 @@ describe('SearchBarDialog media source selection', () => {
     localStorage.clear()
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'system/setting/public/IndexerSites') return Promise.resolve({ value: [11, 99] })
+      if (path === 'site/') {
+        return Promise.resolve([
+          { id: 11, is_active: true, name: '音乐站' },
+          { id: 99, is_active: true, name: '综合站' },
+        ])
+      }
       if (path === 'site/media/music') {
         return Promise.resolve([
           { id: 11, is_active: true, name: '音乐站' },
@@ -246,13 +253,35 @@ describe('SearchBarDialog media source selection', () => {
     expect(getSearchItem('音乐')).not.toHaveTextContent('搜索音乐元数据，并进入站点资源搜索、下载和订阅流程')
   })
 
-  it('searches music sites by keyword without resolving a media identity', async () => {
+  it('searches music sites directly by keyword without resolving a media identity', async () => {
     const user = userEvent.setup()
     const { router } = await renderSearchBar({ searchPermission: true })
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
     await user.type(input, '周杰伦')
     await user.click(getSearchItem('在站点中搜索音乐资源'))
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/resource')
+      expect(router.currentRoute.value.query).toEqual({
+        area: 'title',
+        keyword: '周杰伦',
+        result_type: 'torrent',
+        sites: '11,99',
+        type: '音乐',
+      })
+    })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('site/media/music')
+  })
+
+  it('selects music-capable sites before searching by keyword', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderSearchBar({ managePermission: true, searchPermission: true })
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, '周杰伦')
+    const musicSiteItem = getSearchItem('在站点中搜索音乐资源')
+    await user.click(within(musicSiteItem).getByRole('button', { name: '选择站点' }))
 
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('site/media/music'))
     expect(await screen.findByText('音乐站')).toBeInTheDocument()

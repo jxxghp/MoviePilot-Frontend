@@ -933,7 +933,7 @@ onMounted(() => {
               </template>
             </VListItem>
 
-            <VListItem density="comfortable" link @click="openSiteDialog('music')" class="search-result-item mx-2 my-1">
+            <VListItem density="comfortable" link @click="searchMusicTorrent" class="search-result-item mx-2 my-1">
               <template #prepend>
                 <div class="result-icon-wrapper">
                   <VIcon icon="mdi-music-box-multiple-outline" size="small" color="medium-emphasis" />
@@ -946,6 +946,18 @@ onMounted(() => {
                 {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
                 {{ t('dialog.searchBar.relatedMusicResources') }}
               </VListItemSubtitle>
+              <template #append>
+                <VBtn
+                  v-if="hasManagePermission"
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  rounded="pill"
+                  @click.stop="openSiteDialog('music')"
+                >
+                  {{ t('dialog.searchBar.selectSites') }}
+                </VBtn>
+              </template>
             </VListItem>
 
             <VListItem density="comfortable" link @click="searchSubtitle" class="search-result-item mx-2 my-1">
