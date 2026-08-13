@@ -1022,6 +1022,73 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('recovers an ordinary request when the connection fails before response classification', async () => {
+    const userText = '检查下载任务'
+    const assistantText = '下载任务检查完成'
+    let requestedSessionId = ''
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        requestedSessionId = JSON.parse(String(init.body)).session_id
+        throw new TypeError('Failed to fetch')
+      }
+      if (requestedSessionId && url.includes(`/sessions/${encodeURIComponent(requestedSessionId)}`)) {
+        return createAgentResponse({
+          session_id: 'web-agent:preheader-recovery',
+          client_session_id: requestedSessionId,
+          updated_at: new Date(Date.now() + 1000).toISOString(),
+          is_processing: false,
+          messages: [
+            {
+              id: 'user-preheader-recovery',
+              role: 'user',
+              content: userText,
+              createdAt: Date.now(),
+              status: 'done',
+              attachments: [],
+              choices: [],
+              tools: [],
+            },
+            {
+              id: 'assistant-preheader-recovery',
+              role: 'assistant',
+              content: assistantText,
+              createdAt: Date.now() + 1000,
+              status: 'done',
+              attachments: [],
+              choices: [],
+              tools: [],
+            },
+          ],
+        })
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue(userText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state') || '').not.toContain(userText)
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').streamRecovery).toMatchObject({
+      sessionId: requestedSessionId,
+      attempts: 0,
+    })
+
+    await vi.advanceTimersByTimeAsync(1200)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(userText)
+    expect(wrapper.text()).toContain(assistantText)
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').streamRecovery).toBeNull()
+
+    wrapper.unmount()
+  })
+
   it('commits ordinary messages in user and assistant order after response classification', async () => {
     const userText = '检查下载任务'
     const assistantText = '检查完成'
