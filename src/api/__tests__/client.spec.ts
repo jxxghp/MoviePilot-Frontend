@@ -182,8 +182,8 @@ describe('MoviePilot API client', () => {
 
   it('取消请求保持原始 CanceledError，且不提示或触发离线探测', async () => {
     const reportConnectionFailure = vi.fn()
-    const adapter: AxiosAdapter = async config => {
-      throw new CanceledError('Request cancelled', config)
+    const adapter: AxiosAdapter = async () => {
+      throw new CanceledError('Request cancelled')
     }
     const { api } = createApiClients({ adapter, hooks: { reportConnectionFailure }, notifier })
 
