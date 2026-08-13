@@ -801,6 +801,8 @@ async function saveBasicSettings() {
       // 更新全局设置store，使Web Agent图标实时生效
       globalSettingsStore.setData({ ...globalSettingsStore.getData, ...SystemSettings.value.Basic })
       $toast.success(t('setting.system.basicSaveSuccess'))
+    } else {
+      $toast.error(t('setting.system.saveFailed', { message: t('common.apiRequestFailed') }))
     }
   } finally {
     savingBasic.value = false
