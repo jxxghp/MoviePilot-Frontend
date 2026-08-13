@@ -1830,11 +1830,6 @@ async function streamAgentMessage(
   const displayContent = (displayText ?? content).trim()
   if (!content && !images.length && !files.length && !audioRefs.length) return
 
-  const userMessage = echoUser
-    ? addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
-    : null
-  const assistantMessage = addMessage('assistant', '', 'streaming')
-
   abortController = new AbortController()
   userAbortRequested = false
   streamRecoveryAbortRequested = false
@@ -1843,6 +1838,7 @@ async function streamAgentMessage(
   activeStreamStartedAt = streamStartedAt
   let shouldFollowBottomAfterStream = true
   let shouldSaveClientSnapshot = true
+  let assistantMessage: AgentChatMessage | null = null
 
   try {
     const response = await fetch(resolveApiUrl('message/agent/stream'), {
@@ -1867,13 +1863,13 @@ async function streamAgentMessage(
       signal: abortController.signal,
     })
 
+    const isSecretConfirmation = response.headers.get('X-MoviePilot-Agent-Control') === 'secret-confirmation'
+    if (!isSecretConfirmation && echoUser) {
+      addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
+    }
+    assistantMessage = addMessage('assistant', '', 'streaming')
     if (!response.ok) {
       throw new Error(await resolveAgentResponseErrorMessage(response))
-    }
-    if (response.headers.get('X-MoviePilot-Agent-Control') === 'secret-confirmation' && userMessage) {
-      messages.value = messages.value.filter(message => message.id !== userMessage.id)
-      refreshMessageList()
-      persistState()
     }
 
     const streamResult = await readAgentStream(response, assistantMessage, streamProtectedDeliveryGeneration)
@@ -1890,7 +1886,8 @@ async function streamAgentMessage(
     pendingStreamRecovery.value = null
     clearStreamRecoveryTimer()
     if (isEmptyAssistantMessage(assistantMessage)) {
-      messages.value = messages.value.filter(message => message.id !== assistantMessage.id)
+      const emptyAssistantMessageId = assistantMessage.id
+      messages.value = messages.value.filter(message => message.id !== emptyAssistantMessageId)
       refreshMessageList()
       return
     }
@@ -1903,6 +1900,7 @@ async function streamAgentMessage(
     if (error?.name === 'AbortError' && streamRecoveryAbortRequested) return
 
     if (error?.name === 'AbortError' && userAbortRequested) {
+      if (!assistantMessage) return
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
       refreshMessageList()
@@ -1910,6 +1908,7 @@ async function streamAgentMessage(
     }
 
     if (isRecoverableStreamDisconnect(error)) {
+      if (!assistantMessage) return
       shouldSaveClientSnapshot = false
       invalidateProtectedDeliveries()
       beginStreamRecovery(sessionId.value, streamStartedAt)
@@ -1919,6 +1918,7 @@ async function streamAgentMessage(
       return
     }
 
+    assistantMessage ||= addMessage('assistant', '', 'streaming')
     assistantMessage.status = 'error'
     replaceAssistantTextSegments(assistantMessage, error?.message || t('agentAssistant.error'))
     markToolsDone(assistantMessage)

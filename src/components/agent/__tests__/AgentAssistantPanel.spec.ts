@@ -152,6 +152,15 @@ function createControllableAgentStream() {
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise
+  })
+
+  return { promise, resolve }
+}
+
 const slotContainerStub = { template: '<div><slot /></div>' }
 const menuStub = defineComponent({
   setup(_props, { slots }) {
@@ -745,18 +754,14 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     stream.emit(legacySseFrame({ type: 'start', session_id: 'web-agent:late-protected' }))
-    stream.emit(
-      protectedSseFrame({ content: protectedMarker }),
-    )
+    stream.emit(protectedSseFrame({ content: protectedMarker }))
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
 
     await wrapper.setProps({ modelValue: false })
     expect(wrapper.text()).not.toContain(protectedMarker)
 
-    stream.emit(
-      protectedSseFrame({ content: protectedMarker }),
-    )
+    stream.emit(protectedSseFrame({ content: protectedMarker }))
     await wrapper.setProps({ modelValue: true })
     await flushPromises()
     expect(wrapper.text()).not.toContain(protectedMarker)
@@ -781,9 +786,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
-    stream.emit(
-      protectedSseFrame({ content: protectedMarker }),
-    )
+    stream.emit(protectedSseFrame({ content: protectedMarker }))
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
 
@@ -817,9 +820,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
-    stream.emit(
-      protectedSseFrame({ content: protectedMarker }),
-    )
+    stream.emit(protectedSseFrame({ content: protectedMarker }))
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
 
@@ -954,7 +955,9 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
     const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
     const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history') || '[]')
-    expect(localState.messages || []).not.toContainEqual(expect.objectContaining({ role: 'user', content: controlText }))
+    expect(localState.messages || []).not.toContainEqual(
+      expect.objectContaining({ role: 'user', content: controlText }),
+    )
     expect(localHistory).not.toContainEqual(expect.objectContaining({ role: 'user', content: controlText }))
     fetchMock.mock.calls
       .filter(([input]) => String(input).includes('/display'))
@@ -964,6 +967,95 @@ describe('AgentAssistantPanel stream recovery', () => {
           expect.objectContaining({ role: 'user', content: controlText }),
         )
       })
+
+    wrapper.unmount()
+  })
+
+  it('does not commit confirmation controls before the response header classifies the request', async () => {
+    const controlText = '确认'
+    const backendFeedback = '确认请求已处理'
+    const deferredStreamResponse = createDeferred<Response>()
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return deferredStreamResponse.promise
+      }
+
+      return Promise.resolve(createAgentResponse([]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue(controlText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state') || '').not.toContain(controlText)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history') || '').not.toContain(controlText)
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/display'))).toBe(false)
+
+    deferredStreamResponse.resolve(
+      createAgentStreamResponse(
+        [legacySseFrame({ type: 'delta', content: backendFeedback }), legacySseFrame({ type: 'done' })],
+        { 'X-MoviePilot-Agent-Control': 'secret-confirmation' },
+      ),
+    )
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(backendFeedback)
+    expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
+    const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history') || '[]')
+    expect(localState.messages || []).not.toContainEqual(
+      expect.objectContaining({ role: 'user', content: controlText }),
+    )
+    expect(localHistory).not.toContainEqual(expect.objectContaining({ role: 'user', content: controlText }))
+    fetchMock.mock.calls
+      .filter(([input]) => String(input).includes('/display'))
+      .forEach(([, init]) => {
+        const displayBody = JSON.parse(String(init?.body || '{}'))
+        expect(displayBody.messages || []).not.toContainEqual(
+          expect.objectContaining({ role: 'user', content: controlText }),
+        )
+      })
+
+    wrapper.unmount()
+  })
+
+  it('commits ordinary messages in user and assistant order after response classification', async () => {
+    const userText = '检查下载任务'
+    const assistantText = '检查完成'
+    const deferredStreamResponse = createDeferred<Response>()
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return deferredStreamResponse.promise
+      }
+
+      return Promise.resolve(createAgentResponse([]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue(userText)
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.findAll('.agent-assistant-message')).toHaveLength(0)
+
+    deferredStreamResponse.resolve(
+      createAgentStreamResponse([
+        legacySseFrame({ type: 'delta', content: assistantText }),
+        legacySseFrame({ type: 'done' }),
+      ]),
+    )
+    await flushPromises()
+
+    const messages = wrapper.findAll('.agent-assistant-message')
+    expect(messages).toHaveLength(2)
+    expect(messages[0].classes()).toContain('agent-assistant-message--user')
+    expect(messages[0].text()).toContain(userText)
+    expect(messages[1].classes()).toContain('agent-assistant-message--assistant')
+    expect(messages[1].text()).toContain(assistantText)
 
     wrapper.unmount()
   })
