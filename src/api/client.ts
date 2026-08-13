@@ -78,7 +78,7 @@ export interface ApiFeedbackNotifier {
 export interface ApiClientHooks {
   markServerOnline?(): void
   onForbidden?(error: ApiRequestError): void
-  reportConnectionFailure?(reason: 'network-error' | 'timeout'): void
+  reportConnectionFailure?(reason: 'network-error' | 'timeout' | 'server-unreachable'): void
 }
 
 /** 创建内部数据客户端与插件原始协议客户端时所需的配置。 */
@@ -158,12 +158,21 @@ export function isApiResponse<T = unknown>(value: unknown): value is ApiResponse
   return typeof record.success === 'boolean' && typeof record.message === 'string' && 'data' in record
 }
 
-/** 将 Axios 连接错误归类为全局服务探测可识别的原因。 */
-export function resolveConnectionFailureReason(error: AxiosError): 'network-error' | 'timeout' | null {
+/**
+ * 将 Axios 连接错误归类为全局服务探测可识别的原因。
+ *
+ * 网关不可用状态码（502/503/504）同样视为服务不可达：后端重启或崩溃时网关
+ * 会返回这类响应，若只按“无响应”判断会漏掉重启场景的离线检测。
+ */
+export function resolveConnectionFailureReason(
+  error: AxiosError,
+): 'network-error' | 'timeout' | 'server-unreachable' | null {
   if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return 'timeout'
   if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK' || error.name === 'NetworkError') {
     return 'network-error'
   }
+  const status = error.response?.status
+  if (status === 502 || status === 503 || status === 504) return 'server-unreachable'
   return null
 }
 
@@ -241,7 +250,8 @@ function installResponseInterceptors(
 
       const original = reason instanceof AxiosError ? reason : undefined
       const response = original?.response ? await normalizeErrorResponse(original.response) : undefined
-      if (response) hooks?.markServerOnline?.()
+      // 只有成功响应才算服务在线证据；网关错误响应说明后端当前不可达，不能恢复在线状态。
+      if (response && response.status >= 200 && response.status < 300) hooks?.markServerOnline?.()
 
       const payload = response?.data
       const error = new ApiRequestError(resolveErrorMessage(payload, original, resolveFallbackMessage), {
@@ -255,12 +265,14 @@ function installResponseInterceptors(
 
       const requestConfig = original?.config
       const failureReason = original ? resolveConnectionFailureReason(original) : null
-      if (!response && !requestConfig?.skipConnectionTracking && failureReason) {
+      if (!requestConfig?.skipConnectionTracking && failureReason) {
         hooks?.reportConnectionFailure?.(failureReason)
       }
       if (response?.status === 403) hooks?.onForbidden?.(error)
 
-      notifyFailure(requestConfig?.feedback, notifier, error.message)
+      // 连接类失败（无响应、超时、网关不可用）统一交给离线状态系统按阈值提示，
+      // 不在请求层逐个弹出，避免后端重启时刷屏。
+      if (!failureReason) notifyFailure(requestConfig?.feedback, notifier, error.message)
       return Promise.reject(error)
     },
   )

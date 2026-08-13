@@ -31,6 +31,7 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
+import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import { useGlassWallpaperTransaction } from '@/composables/useGlassWallpaperTransaction'
 import {
@@ -156,6 +157,7 @@ const route = useRoute()
 const router = useRouter()
 const { initializePWA } = usePWA()
 const offlineStatus = useGlobalOfflineStatus()
+const { isRestarting: isSystemRestarting } = useSystemRestartStatus()
 
 // 全局设置store
 const globalSettingsStore = useGlobalSettingsStore()
@@ -439,6 +441,9 @@ async function probeServerConnection(showChecking = false): Promise<boolean> {
 
       connectionProbeFailures += 1
       const failureReason = resolveProbeFailureReason(error)
+
+      // 重启期间服务不可达属预期行为，由重启进度弹窗承载反馈，不累计离线阈值。
+      if (isSystemRestarting.value) return false
 
       if (connectionProbeFailures >= SERVER_PROBE_FAILURE_THRESHOLD) {
         offlineStatus.markServerOffline(failureReason)

@@ -195,6 +195,49 @@ describe('MoviePilot API client', () => {
     expect(reportConnectionFailure).not.toHaveBeenCalled()
   })
 
+  it.each([502, 503, 504])('网关错误 %d 上报连接失败且不弹请求层 Toast', async status => {
+    const reportConnectionFailure = vi.fn()
+    const { api } = createApiClients({
+      adapter: rejectWith({ message: 'Gateway unavailable' }, status),
+      hooks: { reportConnectionFailure },
+      notifier,
+    })
+
+    const error = requireApiRequestError(await api.get('/resource').catch(reason => reason))
+
+    expect(error.status).toBe(status)
+    expect(reportConnectionFailure).toHaveBeenCalledWith('server-unreachable')
+    expect(notifier.error).not.toHaveBeenCalled()
+  })
+
+  it('网络错误仅上报离线状态，不弹请求层 Toast', async () => {
+    const reportConnectionFailure = vi.fn()
+    const adapter: AxiosAdapter = async () => {
+      throw new AxiosError('Network Error', AxiosError.ERR_NETWORK)
+    }
+    const { api } = createApiClients({ adapter, hooks: { reportConnectionFailure }, notifier })
+
+    await api.get('/resource').catch(reason => reason)
+
+    expect(reportConnectionFailure).toHaveBeenCalledWith('network-error')
+    expect(notifier.error).not.toHaveBeenCalled()
+  })
+
+  it('网关错误不算服务在线证据，仅成功响应恢复在线状态', async () => {
+    const markServerOnline = vi.fn()
+    const reportConnectionFailure = vi.fn()
+    const { api } = createApiClients({
+      adapter: rejectWith({ message: 'Bad Gateway' }, 502),
+      hooks: { markServerOnline, reportConnectionFailure },
+      notifier,
+    })
+
+    await api.get('/resource').catch(reason => reason)
+
+    expect(markServerOnline).not.toHaveBeenCalled()
+    expect(reportConnectionFailure).toHaveBeenCalledWith('server-unreachable')
+  })
+
   it('拒绝缺少标准字段的普通 JSON 响应', async () => {
     const { api } = createApiClients({ adapter: resolveWith({ value: 1 }), notifier })
 

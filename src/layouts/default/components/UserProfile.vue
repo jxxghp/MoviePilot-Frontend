@@ -23,6 +23,7 @@ import {
   THEME_CUSTOMIZER_OPEN_EVENT,
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
+import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
@@ -68,7 +69,7 @@ const isGlassTheme = computed(() => currentThemeName.value === 'glass')
 
 // 重启轮询控制标识
 const restartPollingId = ref<number | null>(null)
-const isRestarting = ref(false)
+const { isRestarting, startSystemRestart, finishSystemRestart } = useSystemRestartStatus()
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let siteAuthDialogController: ReturnType<typeof openSharedDialog> | null = null
 let customCssDialogController: ReturnType<typeof openSharedDialog> | null = null
@@ -79,7 +80,7 @@ const { createConfirm } = useConfirm()
 // 执行注销操作
 function logout() {
   // 清理重启相关状态
-  isRestarting.value = false
+  finishSystemRestart()
   if (restartPollingId.value) {
     clearTimeout(restartPollingId.value)
     restartPollingId.value = null
@@ -137,7 +138,7 @@ async function pollServiceStatus() {
 
     if (isServiceUp) {
       // 服务已恢复，清理状态并执行注销
-      isRestarting.value = false
+      finishSystemRestart()
       closeRestartProgress()
       restartPollingId.value = null
 
@@ -149,7 +150,7 @@ async function pollServiceStatus() {
 
     if (retryCount >= maxRetries) {
       // 超时未恢复，清理状态并提示用户
-      isRestarting.value = false
+      finishSystemRestart()
       closeRestartProgress()
       restartPollingId.value = null
       $toast.error(t('app.restartTimeout'))
@@ -168,8 +169,8 @@ async function pollServiceStatus() {
 async function restart() {
   if (!canAdmin.value) return
 
-  // 设置重启状态
-  isRestarting.value = true
+  // 设置重启状态（全局共享，供离线探测和连接提示抑制）
+  startSystemRestart()
 
   // 调用API重启
   try {
@@ -178,8 +179,9 @@ async function restart() {
     await api.get<null>('system/restart')
   } catch (error) {
     // 重启失败，清理状态
-    isRestarting.value = false
+    finishSystemRestart()
     closeRestartProgress()
+    $toast.error(t('app.restartFailed'))
     console.error(error)
     return
   }
@@ -551,7 +553,7 @@ onUnmounted(() => {
     clearTimeout(restartPollingId.value)
     restartPollingId.value = null
   }
-  isRestarting.value = false
+  finishSystemRestart()
   closeRestartProgress()
   siteAuthDialogController?.close()
   customCssDialogController?.close()
