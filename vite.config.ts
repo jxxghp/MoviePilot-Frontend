@@ -394,6 +394,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/views/setting/AccountSettingSearch.vue',
         'src/views/setting/AccountSettingSite.vue',
         'src/views/setting/AccountSettingSubscribe.vue',
+        'src/views/setting/AccountSettingSystem.vue',
         'src/views/user/UserListView.vue',
         'src/views/user/UserProfileView.vue',
         'src/views/reorganize/DownloadingListView.vue',
@@ -481,6 +482,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/views/setting/AccountSettingSubscribe.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/views/setting/AccountSettingSystem.vue': {
           branches: 75,
           functions: 80,
           lines: 80,

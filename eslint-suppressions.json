@@ -831,16 +831,7 @@
   },
   "src/views/setting/AccountSettingSystem.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 11
-    },
-    "no-unsafe-finally": {
       "count": 1
-    },
-    "prefer-const": {
-      "count": 1
-    },
-    "vue/valid-v-for": {
-      "count": 2
     }
   },
   "src/views/setup/MediaServerSettingsStep.vue": {
