@@ -9,7 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   loadRemoteComponent: vi.fn(),
+  openSharedDialog: vi.fn(),
   nativeSubscribe: vi.fn(),
+  createConfirm: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
@@ -26,6 +28,14 @@ vi.mock('@/composables/usePluginNativeSubscribe', () => ({
   usePluginNativeSubscribe: () => mocks.nativeSubscribe,
 }))
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => mocks.createConfirm,
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: mocks.openSharedDialog,
+}))
+
 vi.mock('vue-toastification', () => ({
   useToast: () => mocks.toast,
 }))
@@ -35,6 +45,8 @@ type RemoteCapture = {
   api: unknown
   config: DashboardItem
   injectedNativeSubscribe: unknown
+  injectedDialog: unknown
+  injectedConfirm: unknown
   injectedToast: unknown
   nativeSubscribe: unknown
 }
@@ -66,6 +78,8 @@ function createRemoteDashboard(captures: RemoteCapture[], label = 'remote'): Com
         config: props.config,
         injectedNativeSubscribe: inject('moviepilot:nativeSubscribe'),
         injectedToast: inject('moviepilot:toast'),
+        injectedDialog: inject('moviepilot:dialog'),
+        injectedConfirm: inject('moviepilot:confirm'),
         nativeSubscribe: props.nativeSubscribe,
       })
       return () => h('div', { 'data-testid': 'remote-dashboard' }, `${label}:${props.config.name}`)
@@ -89,8 +103,10 @@ function createPluginDashboard(overrides: Partial<DashboardItem> = {}): Dashboar
 describe('DashboardElement plugin host', () => {
   beforeEach(() => {
     mocks.loadRemoteComponent.mockReset()
+    mocks.openSharedDialog.mockReset()
     mocks.apiGet.mockReset()
     mocks.nativeSubscribe.mockReset()
+    mocks.createConfirm.mockReset()
     mocks.toast.error.mockReset()
     mocks.toast.success.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -116,6 +132,8 @@ describe('DashboardElement plugin host', () => {
     expect(captures[0].nativeSubscribe).toBe(mocks.nativeSubscribe)
     expect(captures[0].injectedNativeSubscribe).toBe(mocks.nativeSubscribe)
     expect(captures[0].injectedToast).toBe(mocks.toast)
+    expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
+    expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
     await waitFor(() => expect(result.emitted().loaded).toHaveLength(1))
 
     result.unmount()

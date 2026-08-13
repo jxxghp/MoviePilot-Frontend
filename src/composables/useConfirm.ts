@@ -5,7 +5,8 @@ import vuetify from '@/plugins/vuetify'
 import ConfirmDialog from '@/@core/components/ConfirmDialog.vue'
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 
-interface ConfirmOptions {
+/** 主应用确认弹窗支持的配置项。 */
+export interface ConfirmOptions {
   type?: 'info' | 'warn' | 'error'
   title?: string
   content?: string
@@ -14,9 +15,12 @@ interface ConfirmOptions {
   width?: string | number
 }
 
+/** 可注入到联邦插件中的确认弹窗调用入口。 */
+export type ConfirmDialogFn = (options?: ConfirmOptions) => Promise<boolean>
+
 let resolvePromise: ((value: boolean) => void) | null = null
 
-// 创建确认对话框实例
+/** 创建主应用确认弹窗并等待用户选择结果。 */
 async function createConfirmDialog(options: ConfirmOptions = {}) {
   return new Promise<boolean>(resolve => {
     resolvePromise = resolve
@@ -73,9 +77,9 @@ async function createConfirmDialog(options: ConfirmOptions = {}) {
 // 创建一个函数对象，同时支持直接调用和解构
 const confirmFunction = Object.assign(createConfirmDialog, {
   createConfirm: createConfirmDialog,
-})
+}) as ConfirmDialogFn & { createConfirm: ConfirmDialogFn }
 
-// 导出 useConfirm 函数
+/** 返回可复用的主应用确认弹窗调用入口。 */
 export function useConfirm() {
   return confirmFunction
 }

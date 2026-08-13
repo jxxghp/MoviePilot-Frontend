@@ -12,7 +12,9 @@ const mocks = vi.hoisted(() => {
     api: { get: apiGet },
     apiGet,
     loadRemoteComponent: vi.fn(),
+    openSharedDialog: vi.fn(),
     nativeSubscribe: vi.fn(),
+    createConfirm: vi.fn(),
     toast: { error: vi.fn(), success: vi.fn() },
   }
 })
@@ -28,6 +30,14 @@ vi.mock('@/utils/federationLoader', () => ({
 
 vi.mock('@/composables/usePluginNativeSubscribe', () => ({
   usePluginNativeSubscribe: () => mocks.nativeSubscribe,
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => mocks.createConfirm,
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: mocks.openSharedDialog,
 }))
 
 vi.mock('@/composables/usePWA', () => ({
@@ -88,6 +98,8 @@ type RemoteCapture = {
   api: unknown
   injectedNativeSubscribe: unknown
   injectedToast: unknown
+  injectedDialog: unknown
+  injectedConfirm: unknown
   nativeSubscribe: unknown
   showSwitch: boolean
 }
@@ -115,6 +127,8 @@ function createRemotePage(captures: RemoteCapture[]): Component {
         api: props.api,
         injectedNativeSubscribe: inject('moviepilot:nativeSubscribe'),
         injectedToast: inject('moviepilot:toast'),
+        injectedDialog: inject('moviepilot:dialog'),
+        injectedConfirm: inject('moviepilot:confirm'),
         nativeSubscribe: props.nativeSubscribe,
         showSwitch: props.show_switch,
       })
@@ -147,7 +161,9 @@ describe('PluginDataDialog', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset()
     mocks.loadRemoteComponent.mockReset()
+    mocks.openSharedDialog.mockReset()
     mocks.nativeSubscribe.mockReset()
+    mocks.createConfirm.mockReset()
     mocks.toast.error.mockReset()
     mocks.toast.success.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -202,6 +218,8 @@ describe('PluginDataDialog', () => {
     expect(captures[0].nativeSubscribe).toBe(mocks.nativeSubscribe)
     expect(captures[0].injectedNativeSubscribe).toBe(mocks.nativeSubscribe)
     expect(captures[0].injectedToast).toBe(mocks.toast)
+    expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
+    expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
 
     await fireEvent.click(screen.getByRole('button', { name: '刷新远程页面' }))
     await fireEvent.click(screen.getByRole('button', { name: '切换配置' }))

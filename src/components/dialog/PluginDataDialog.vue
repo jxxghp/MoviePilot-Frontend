@@ -7,6 +7,8 @@ import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { useConfirm } from '@/composables/useConfirm'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
 import RemoteComponentLoading from '@/components/misc/RemoteComponentLoading.vue'
 
@@ -33,6 +35,13 @@ const { appMode } = usePWA()
 // 向联邦插件提供主应用 Toast，确保通知沿用统一主题和路由逻辑。
 const $toast = useToast()
 provide('moviepilot:toast', $toast)
+
+// 向联邦插件提供主应用公共弹窗，内容由 App 的 SharedDialogHost 统一承载。
+provide('moviepilot:dialog', openSharedDialog)
+
+// 确认弹窗单独提供，避免把简单确认与自定义组件弹窗混为一谈。
+const createConfirm = useConfirm()
+provide('moviepilot:confirm', createConfirm)
 
 // 向联邦插件同时提供 prop 与 inject 形式的主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()

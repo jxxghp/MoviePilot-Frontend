@@ -18,6 +18,13 @@ export interface SharedDialogEntry {
   visible: boolean
 }
 
+/** 公共弹窗打开后返回的命令式控制器。 */
+export interface SharedDialogController {
+  id: number
+  close: () => void
+  updateProps: (props: Record<string, unknown>) => void
+}
+
 const DEFAULT_CLOSE_EVENTS = ['close']
 const dialogStack = shallowRef<SharedDialogEntry[]>([])
 let dialogSeed = 0
@@ -39,7 +46,7 @@ export function openSharedDialog(
   props: Record<string, unknown> = {},
   events: Record<string, SharedDialogEventHandler> = {},
   options: Omit<SharedDialogOpenOptions, 'props' | 'events'> = {},
-) {
+): SharedDialogController {
   const id = ++dialogSeed
   const entry: SharedDialogEntry = {
     closeOn: normalizeCloseEvents(options.closeOn),
@@ -58,6 +65,9 @@ export function openSharedDialog(
     updateProps: (nextProps: Record<string, unknown>) => updateSharedDialogProps(id, nextProps),
   }
 }
+
+/** 可注入到联邦插件中的公共弹窗打开函数类型。 */
+export type SharedDialogOpenFn = typeof openSharedDialog
 
 // 使用对象参数打开共享弹窗，适合调用方需要传入更多选项的场景。
 export function openSharedDialogWithOptions(component: Component, options: SharedDialogOpenOptions = {}) {

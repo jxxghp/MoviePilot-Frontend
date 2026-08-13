@@ -4,6 +4,8 @@ import { pluginApi } from '@/api'
 import { loadRemoteAppPageComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { useConfirm } from '@/composables/useConfirm'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const route = useRoute()
 
@@ -17,6 +19,13 @@ let loadGeneration = 0
 // 侧栏联邦页面复用主应用 Toast 实例。
 const $toast = useToast()
 provide('moviepilot:toast', $toast)
+
+// 向侧栏全页联邦组件导出主应用公共弹窗入口。
+provide('moviepilot:dialog', openSharedDialog)
+
+// 确认弹窗单独提供，保留简单的 Promise<boolean> 调用方式。
+const createConfirm = useConfirm()
+provide('moviepilot:confirm', createConfirm)
 
 // 向侧栏全页联邦组件导出主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()

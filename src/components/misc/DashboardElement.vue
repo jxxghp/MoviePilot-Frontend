@@ -7,6 +7,8 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { useConfirm } from '@/composables/useConfirm'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import RemoteComponentError from './RemoteComponentError.vue'
 
 type DashboardComponentLoader = () => Promise<any>
@@ -14,6 +16,13 @@ type DashboardComponentLoader = () => Promise<any>
 // 仪表板联邦组件复用主应用 Toast 实例。
 const $toast = useToast()
 provide('moviepilot:toast', $toast)
+
+// 向仪表板联邦组件导出主应用公共弹窗入口。
+provide('moviepilot:dialog', openSharedDialog)
+
+// 确认弹窗单独提供，避免插件自行挂载确认组件。
+const createConfirm = useConfirm()
+provide('moviepilot:confirm', createConfirm)
 
 // 向仪表板联邦组件导出主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()

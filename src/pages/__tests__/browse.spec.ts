@@ -96,7 +96,7 @@ describe('browse page', () => {
     expect(screen.queryByRole('region', { name: '媒体 browse 列表' })).not.toBeInTheDocument()
   })
 
-  it('normalizes only unified media search sources into a deduplicated enum array', async () => {
+  it('normalizes unified media search sources into a deduplicated extensible array', async () => {
     await renderBrowse(['media', 'search'], {
       media_source: 'themoviedb,unknown,douban,themoviedb',
       page: '4',
@@ -105,7 +105,7 @@ describe('browse page', () => {
     })
 
     expect(projectedQuery('媒体 browse 查询')).toEqual({
-      media_source: ['themoviedb', 'douban'],
+      media_source: ['themoviedb', 'unknown', 'douban'],
       page: '4',
       title: '多来源搜索',
       type: 'movie',
@@ -114,7 +114,7 @@ describe('browse page', () => {
 
   it('drops an invalid media source only from unified media search', async () => {
     await renderBrowse(['media', 'search'], {
-      media_source: 'unknown',
+      media_source: 'invalid:source',
       title: '无有效来源',
       type: 'movie',
     })

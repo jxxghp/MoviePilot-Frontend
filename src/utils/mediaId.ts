@@ -1,22 +1,23 @@
-import { MediaSource, type MediaDataSource } from '@/api/types'
+import type { MediaDataSource } from '@/api/types'
 
 const MUSICBRAINZ_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const IMDB_ID_PATTERN = /^tt\d+$/i
 export const MUSIC_MEDIA_SOURCES = ['musicbrainz', 'theaudiodb', 'doubanmusic'] as const
+const MEDIA_SOURCE_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
 
-/** 判断外部输入是否属于产品协议中固定的媒体来源枚举。 */
+/** 判断外部输入是否为内置或插件注册的规范媒体来源标识。 */
 export function isMediaDataSource(value: unknown): value is MediaDataSource {
-  return typeof value === 'string' && Object.values(MediaSource).includes(value as MediaSource)
+  return typeof value === 'string' && MEDIA_SOURCE_PATTERN.test(value)
 }
 
-/** 将路由或表单中的单值、逗号分隔值及数组统一解析为去重后的媒体来源枚举。 */
+/** 将路由或表单中的单值、逗号分隔值及数组统一解析为去重后的规范来源。 */
 export function parseMediaDataSources(value: unknown): MediaDataSource[] {
   const values = Array.isArray(value) ? value : [value]
   return [
     ...new Set(
       values
         .flatMap(item => (typeof item === 'string' ? item.split(',') : []))
-        .map(item => item.trim())
+        .map(item => item.trim().toLowerCase())
         .filter(isMediaDataSource),
     ),
   ]

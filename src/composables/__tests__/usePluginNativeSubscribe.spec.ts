@@ -119,13 +119,32 @@ describe('native subscribe media normalization', () => {
     })
   })
 
+  it('accepts a plugin-defined media source identity', () => {
+    const result = normalizeNativeSubscribeMedia({
+      media_id: 'custom-42',
+      media_source: 'acme.video',
+      title: '插件媒体',
+      type: 'movie',
+    })
+
+    expect(result).toEqual({
+      success: true,
+      media: expect.objectContaining({
+        media_id: 'custom-42',
+        media_source: 'acme.video',
+        title: '插件媒体',
+        type: '电影',
+      }),
+    })
+  })
+
   it.each([
     [null, 'invalidMedia'],
     [{ title: '缺少类型', tmdb_id: 1 }, 'unsupportedType'],
     [{ title: '', tmdb_id: 1, type: '电影' }, 'missingTitle'],
     [{ title: '缺少ID', type: '电视剧' }, 'missingId'],
     [{ title: '仅有旧来源 ID', tmdb_id: 1, type: '电影' }, 'missingId'],
-    [{ media_id: '1', media_source: 'custom-source', title: '未知来源', type: '电影' }, 'missingId'],
+    [{ media_id: '1', media_source: 'invalid:source', title: '非法来源', type: '电影' }, 'missingId'],
   ])('rejects invalid input %#', (input, reason) => {
     expect(normalizeNativeSubscribeMedia(input)).toEqual({ success: false, reason })
   })

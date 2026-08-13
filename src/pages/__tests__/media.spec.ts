@@ -58,9 +58,9 @@ describe('media page', () => {
     expect(projectedProps()).toEqual({})
   })
 
-  it('drops an unknown media source at the route boundary', async () => {
+  it('keeps a plugin media source at the route boundary', async () => {
     await renderPage({ media_id: '101', media_source: 'custom-source', type: '电影' })
 
-    expect(projectedProps()).toEqual({ mediaId: '101', type: '电影' })
+    expect(projectedProps()).toEqual({ mediaId: '101', mediaSource: 'custom-source', type: '电影' })
   })
 })

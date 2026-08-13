@@ -78,9 +78,9 @@ type TorrentViewType = 'card' | 'row'
 // 只有最新搜索可以提交结果和可重放参数，避免旧请求覆盖新查询。
 let activeSearchRequestId = 0
 
-/** 只接受产品协议中固定的数据源枚举，避免未知来源进入搜索链路。 */
+/** 接受内置或插件扩展来源，并拒绝格式非法的来源标识。 */
 function normalizeMediaSource(value: unknown): MediaDataSource | '' {
-  const normalized = value?.toString().trim()
+  const normalized = value?.toString().trim().toLowerCase()
   return isMediaDataSource(normalized) ? normalized : ''
 }
 

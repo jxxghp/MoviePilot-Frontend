@@ -8,7 +8,8 @@ describe('media source identity utils', () => {
 
   it.each([
     ['themoviedb', ['themoviedb']],
-    [' musicbrainz, theaudiodb,unknown,musicbrainz ', ['musicbrainz', 'theaudiodb']],
+    [' musicbrainz, theaudiodb,unknown,musicbrainz ', ['musicbrainz', 'theaudiodb', 'unknown']],
+    [' Acme.Video,invalid:source,acme.video ', ['acme.video']],
     [
       ['douban', 'anilist,bangumi', null, 'douban'],
       ['douban', 'anilist', 'bangumi'],

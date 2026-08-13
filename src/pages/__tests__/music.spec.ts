@@ -167,7 +167,7 @@ describe('music page', () => {
           type: 'music',
           count: 30,
           title: 'Coldplay',
-          media_source: ['musicbrainz', 'theaudiodb'],
+          media_source: ['musicbrainz', 'unknown', 'theaudiodb'],
         },
         paramsSerializer: { indexes: null },
       }),

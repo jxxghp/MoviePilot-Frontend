@@ -319,8 +319,10 @@ const emit = defineEmits(['action'])
 | 认证 API         | ✓    | ✓      | ✓         | ✓       | `api` prop                                                       |
 | 原生订阅交互     | ✓    | ✓      | ✓         | ✓       | `nativeSubscribe` prop 或 `inject('moviepilot:nativeSubscribe')` |
 | 主应用统一 Toast | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:toast')`                                     |
+| 主应用公共弹窗   | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:dialog')`                                    |
+| 主应用确认弹窗   | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:confirm')`                                   |
 
-`nativeSubscribe` 和 Toast 都由主应用宿主提供。插件不应复制主程序订阅弹窗，也不应自行创建另一套 Toast 容器。插件在旧版主程序或能力不存在的环境中运行时，应保留空值判断和必要的页面内 fallback。
+`nativeSubscribe`、Toast、公共弹窗和确认弹窗都由主应用宿主提供。插件不应复制主程序订阅弹窗、创建另一套 Toast 容器或自行挂载全局弹窗。插件在旧版主程序或能力不存在的环境中运行时，应保留空值判断和必要的页面内 fallback。
 
 ### 5.6 玻璃光学表面
 
@@ -396,6 +398,90 @@ function saveComplete() {
 ```
 
 可用方法与主项目 `vue-toastification` 一致，包括 `success`、`info`、`warning` 和 `error`。注入不存在时应静默降级，关键错误仍需保留页面内状态提示。
+
+### 5.9 调用主应用公共弹窗
+
+`Page`、`Config`、`Dashboard` 与 `AppPage` 的宿主容器会通过固定键提供主应用公共弹窗函数。该函数会将插件组件挂载到主应用 `App.vue` 的 `SharedDialogHost`，因此弹窗不会受插件页面、卡片或父级容器的层叠上下文限制。远程组件应复用该入口，不要自行创建额外的弹窗容器：
+
+```vue
+<script setup lang="ts">
+import { inject, type Component } from 'vue'
+
+interface DialogController {
+  id: number
+  close(): void
+  updateProps(props: Record<string, unknown>): void
+}
+
+type HostDialog = (
+  component: Component,
+  props?: Record<string, unknown>,
+  events?: Record<string, (...args: unknown[]) => unknown>,
+  options?: { closeOn?: string[] | false; replace?: boolean },
+) => DialogController
+
+const openDialog = inject<HostDialog | null>('moviepilot:dialog', null)
+
+function openPluginDialog(DialogComponent: Component, props: Record<string, unknown>) {
+  return openDialog?.(
+    DialogComponent,
+    props,
+    {
+      close: () => {
+        // 处理插件弹窗关闭后的业务逻辑。
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+</script>
+```
+
+公共弹窗函数签名为 `openDialog(component, props, events, options)`，返回控制器：
+
+- `closeOn`：收到指定事件后自动从公共层移除，默认监听 `close`；传 `false` 表示不自动关闭；
+- `replace`：是否替换当前公共弹窗栈；
+- `props` 和 `events`：也可以使用 `openDialogWithOptions` 的对象参数形式传入；
+- `close()`：主动关闭当前弹窗；
+- `updateProps(props)`：合并更新已打开弹窗的 props。
+
+插件弹窗组件应提供 `close` 或 `update:modelValue` 事件，并自行处理组件内部交互。旧版主应用未提供该注入时，插件应保留页面内弹窗或其他 fallback。
+
+### 5.10 调用主应用确认弹窗
+
+确认弹窗使用独立的固定键，适合不需要自定义组件内容的确认场景：
+
+```vue
+<script setup lang="ts">
+import { inject } from 'vue'
+
+interface ConfirmOptions {
+  type?: 'info' | 'warn' | 'error'
+  title?: string
+  content?: string
+  confirmText?: string
+  cancelText?: string
+  width?: string | number
+}
+
+type HostConfirm = (options?: ConfirmOptions) => Promise<boolean>
+
+const confirm = inject<HostConfirm | null>('moviepilot:confirm', null)
+
+async function removeItem() {
+  const confirmed = await confirm?.({
+    type: 'warn',
+    title: '确认删除',
+    content: '删除后无法恢复，是否继续？',
+  })
+  if (!confirmed) return
+
+  // 执行删除请求。
+}
+</script>
+```
+
+确认弹窗返回 `Promise<boolean>`：用户点击确认时为 `true`，点击取消或关闭按钮时为 `false`；注入能力不存在时返回 `undefined`，插件应按未确认处理。可用配置项包括 `type`（`info` / `warn` / `error`）、`title`、`content`、`confirmText`、`cancelText` 和 `width`。
 
 #### 后端：注册侧栏入口
 

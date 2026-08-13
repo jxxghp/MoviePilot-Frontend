@@ -1,4 +1,4 @@
-/** 后端、前端、插件与中心服务共同使用的固定媒体来源枚举。 */
+/** 主程序内置的媒体来源常量；插件可以注册额外的稳定来源标识。 */
 export enum MediaSource {
   TMDB = 'themoviedb',
   Douban = 'douban',
@@ -15,7 +15,7 @@ export enum MediaSource {
   TencentVideo = 'tencentvideodiscover',
 }
 
-export type MediaDataSource = `${MediaSource}`
+export type MediaDataSource = `${MediaSource}` | (string & {})
 
 // 手动刮削选项
 export interface ManualScrapeOptions {
@@ -2015,6 +2015,8 @@ export interface TransferQueue {
 export interface DiscoverSource {
   // 数据源名称
   name: string
+  // 内置或插件扩展媒体来源
+  media_source?: MediaDataSource
   // 媒体ID的前缀，不含:
   mediaid_prefix: string
   // 媒体数据源API地址

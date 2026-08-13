@@ -15,7 +15,9 @@ const mocks = vi.hoisted(() => {
     apiPut,
     ensureSidebarNav: vi.fn(),
     loadRemoteComponent: vi.fn(),
+    openSharedDialog: vi.fn(),
     nativeSubscribe: vi.fn(),
+    createConfirm: vi.fn(),
     toast: { error: vi.fn(), success: vi.fn() },
   }
 })
@@ -31,6 +33,14 @@ vi.mock('@/utils/federationLoader', () => ({
 
 vi.mock('@/composables/usePluginNativeSubscribe', () => ({
   usePluginNativeSubscribe: () => mocks.nativeSubscribe,
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => mocks.createConfirm,
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: mocks.openSharedDialog,
 }))
 
 vi.mock('@/stores/pluginSidebarNav', () => ({
@@ -89,6 +99,8 @@ type RemoteCapture = {
   initialConfig: Record<string, unknown>
   injectedNativeSubscribe: unknown
   injectedToast: unknown
+  injectedDialog: unknown
+  injectedConfirm: unknown
   nativeSubscribe: unknown
 }
 
@@ -118,6 +130,8 @@ function createRemoteConfig(captures: RemoteCapture[]): Component {
         initialConfig: props.initialConfig,
         injectedNativeSubscribe: inject('moviepilot:nativeSubscribe'),
         injectedToast: inject('moviepilot:toast'),
+        injectedDialog: inject('moviepilot:dialog'),
+        injectedConfirm: inject('moviepilot:confirm'),
         nativeSubscribe: props.nativeSubscribe,
       })
       return () =>
@@ -152,7 +166,9 @@ describe('PluginConfigDialog', () => {
     mocks.apiPut.mockReset()
     mocks.ensureSidebarNav.mockReset().mockResolvedValue(undefined)
     mocks.loadRemoteComponent.mockReset()
+    mocks.openSharedDialog.mockReset()
     mocks.nativeSubscribe.mockReset()
+    mocks.createConfirm.mockReset()
     mocks.toast.error.mockReset()
     mocks.toast.success.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -229,6 +245,8 @@ describe('PluginConfigDialog', () => {
     expect(captures[0].nativeSubscribe).toBe(mocks.nativeSubscribe)
     expect(captures[0].injectedNativeSubscribe).toBe(mocks.nativeSubscribe)
     expect(captures[0].injectedToast).toBe(mocks.toast)
+    expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
+    expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
 
     await fireEvent.click(screen.getByRole('button', { name: '调整布局' }))
     expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '72rem')
