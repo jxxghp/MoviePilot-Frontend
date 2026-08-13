@@ -389,6 +389,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/utils/searchStream.ts',
         'src/views/site/SiteCardListView.vue',
         'src/views/setting/AccountSettingDirectory.vue',
+        'src/views/setting/AccountSettingNotification.vue',
         'src/views/setting/AccountSettingRule.vue',
         'src/views/setting/AccountSettingSearch.vue',
         'src/views/setting/AccountSettingSite.vue',
@@ -450,6 +451,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/views/setting/AccountSettingDirectory.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/views/setting/AccountSettingNotification.vue': {
           branches: 75,
           functions: 80,
           lines: 80,

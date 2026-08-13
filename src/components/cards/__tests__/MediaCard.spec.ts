@@ -283,6 +283,22 @@ describe('MediaCard', () => {
     })
   })
 
+  it('keeps the local-exists marker hidden when the exists request reports a business failure', async () => {
+    const media = createMediaInfo({ title: '存在查询失败电影', tmdb_id: 9103 })
+    const existsRequest = vi.fn<(url: URL) => void>()
+    server.use(
+      querySubscribeByMediaHandler('9103', {}),
+      mediaExistsHandler({ data: {}, message: '查询失败', success: false }, 200, existsRequest),
+    )
+
+    const { container } = await renderCard(media)
+    getStatusObservers()[0]?.trigger()
+
+    await waitFor(() => expect(existsRequest).toHaveBeenCalledOnce())
+    await waitFor(() => expect(console.error).toHaveBeenCalled())
+    expect(container.querySelector('.bg-green-500')).toBeNull()
+  })
+
   it.each([
     ['TMDB', createMediaInfo({ season: 3, tmdb_id: 9201, type: '电视剧' }), '9201', '3'],
     [

@@ -292,6 +292,27 @@ describe('AddSubtitleDownloadDialog submissions', () => {
     })
   })
 
+  it('reveals advanced options and submits the selected media source identity', async () => {
+    const submitted = vi.fn()
+    server.use(subtitleDownloadHandler({ data: null, success: true }, 200, submitted))
+    const user = userEvent.setup()
+
+    await renderDialog({ mediaId: '84', mediaSource: 'themoviedb' })
+
+    expect(screen.getByLabelText('识别数据源')).not.toBeVisible()
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+    await user.selectOptions(screen.getByLabelText('识别数据源'), 'imdb')
+    await user.clear(screen.getByLabelText('IMDb ID'))
+    await user.type(screen.getByLabelText('IMDb ID'), 'tt0111161')
+    await user.click(screen.getByRole('button', { name: '下载字幕' }))
+
+    await waitFor(() => expect(submitted).toHaveBeenCalledOnce())
+    expect(submitted.mock.calls[0][0]).toMatchObject({
+      media_id: 'tt0111161',
+      media_source: 'imdb',
+    })
+  })
+
   it('preserves the signed enclosure in download/subtitle and prevents duplicate submission', async () => {
     const deferred = createDeferred<JsonBodyType>()
     const submitted = vi.fn()
