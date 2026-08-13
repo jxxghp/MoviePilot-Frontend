@@ -5,7 +5,6 @@ import axios, {
   type AxiosAdapter,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
-  type RawAxiosHeaders,
 } from 'axios'
 import { ApiRequestError, createApiClients, type ApiFeedbackNotifier } from '@/api/client'
 import type { ApiResponse } from '@/api/types'
@@ -106,7 +105,7 @@ describe('MoviePilot API client', () => {
       status: 200,
     })
     expect(error.response?.data).toEqual(envelope)
-    expect(AxiosHeaders.from(error.headers as RawAxiosHeaders | undefined).get('x-request-id')).toBe('request-1')
+    expect(AxiosHeaders.from(error.headers as AxiosHeaders | undefined).get('x-request-id')).toBe('request-1')
     expect(notifier.error).toHaveBeenCalledWith('Cannot save')
   })
 
@@ -127,7 +126,7 @@ describe('MoviePilot API client', () => {
     expect(error.status).toBe(403)
     expect(error.payload).toEqual(envelope)
     expect(error.response?.data).toEqual(envelope)
-    expect(AxiosHeaders.from(error.response?.headers as RawAxiosHeaders | undefined).get('x-mfa-required')).toBe('true')
+    expect(AxiosHeaders.from(error.response?.headers as AxiosHeaders | undefined).get('x-mfa-required')).toBe('true')
   })
 
   it('silent 关闭失败 Toast，但不丢失错误元数据', async () => {
@@ -184,7 +183,7 @@ describe('MoviePilot API client', () => {
   it('取消请求保持原始 CanceledError，且不提示或触发离线探测', async () => {
     const reportConnectionFailure = vi.fn()
     const adapter: AxiosAdapter = async config => {
-      throw new CanceledError('Request cancelled', config)
+      throw new CanceledError('Request cancelled', AxiosError.ERR_CANCELED, config)
     }
     const { api } = createApiClients({ adapter, hooks: { reportConnectionFailure }, notifier })
 
