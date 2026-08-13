@@ -2214,6 +2214,21 @@ export default {
       transferThreadsHint: '多线程整理文件可以提高速度，但可能增加系统资源占用',
       tokenizedSearch: '分词搜索',
       tokenizedSearchHint: '提升整理历史记录搜索精度，但可能增加性能开销和意外结果',
+      monitorNetworkFastMode: '网络存储快速监控',
+      monitorNetworkFastModeHint:
+        '允许网络/FUSE 挂载目录使用内核通知的快速监控模式，仅当确认挂载能正常下发文件变更通知时开启，否则新文件将无法被监控发现，保存后将自动重建监控并即时生效',
+      transferMaxFailedRetries: '整理失败重试次数',
+      transferMaxFailedRetriesHint:
+        '自动整理失败后允许重试的最大次数，避免一次网络或识别抖动让文件永久漏整理；次数用尽后需手动整理或删除整理记录。取值 1-10，整理成功或删除记录时计数清零，保存后即时生效',
+      fsProxyEnabled: '本地文件操作隔离',
+      fsProxyEnabledHint:
+        '在独立子进程中执行本地文件的读取、复制、移动与删除。CloudDrive2 等 FUSE 挂载失去响应时，这类操作会永久卡住且无法中断，进而拖死整理队列与目录监控；隔离后可在超时后强制回收并转为普通错误，由既有的重试机制接管。关闭后退回直接调用，行为与旧版一致',
+      fsProxyTimeout: '文件操作超时（秒）',
+      fsProxyTimeoutHint:
+        '读取属性、列目录、删除、重命名等快速操作的等待上限，超时即判定挂载无响应并回收子进程。仅在开启「本地文件操作隔离」时生效，保存后即时生效',
+      fsProxyStallTimeout: '文件复制停滞超时（秒）',
+      fsProxyStallTimeoutHint:
+        '复制文件时允许「完全没有进度」的最长时间。判断依据是进度是否推进而不是总耗时，因此复制数小时的大文件不会被误判，只有传输彻底卡死才会中断。仅在开启「本地文件操作隔离」时生效，保存后即时生效',
       tmdbLanguage: {
         zhCN: '简体中文',
         zhTW: '繁体中文',
