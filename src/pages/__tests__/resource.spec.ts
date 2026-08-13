@@ -337,6 +337,15 @@ const searchRouteCases: SearchRouteCase[] = [
     },
   },
   {
+    apiEndpoint: 'search/title',
+    apiParams: { keyword: '周杰伦', mtype: '音乐', sites: '11,22' },
+    displayTitle: '音乐资源结果',
+    expectedPath: '/api/v1/search/title/stream',
+    query: { keyword: '周杰伦', result_type: 'torrent', sites: '11,22', type: '音乐' },
+    result: createTorrent({ title: '音乐资源结果' }),
+    streamParams: { keyword: '周杰伦', mtype: '音乐', sites: '11,22' },
+  },
+  {
     apiEndpoint: `search/media/${musicBrainzAlbumId}`,
     apiParams: {
       area: 'title',

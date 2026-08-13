@@ -4,7 +4,17 @@ import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent } from 'vue'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  apiGet: vi.fn(),
+}))
+
+vi.mock('@/api', () => ({
+  default: createDataApiMock({
+    get: (...args: unknown[]) => mocks.apiGet(...args),
+  }),
+}))
 
 const IconStub = defineComponent({
   name: 'VIcon',
@@ -16,6 +26,7 @@ const IconStub = defineComponent({
 
 async function renderSearchBar(
   overrides: {
+    searchPermission?: boolean
     searchSource?: string
   } = {},
 ) {
@@ -31,7 +42,7 @@ async function renderSearchBar(
           admin: false,
           discovery: true,
           manage: false,
-          search: false,
+          search: overrides.searchPermission ?? false,
           subscribe: false,
         },
         superUser: false,
@@ -45,6 +56,7 @@ async function renderSearchBar(
     stubActions: false,
     global: {
       stubs: {
+        VDialogCloseBtn: true,
         VIcon: IconStub,
       },
     },
@@ -60,6 +72,16 @@ function getSearchItem(title: string): HTMLElement {
 describe('SearchBarDialog media source selection', () => {
   beforeEach(() => {
     localStorage.clear()
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/IndexerSites') return Promise.resolve({ value: [11, 99] })
+      if (path === 'site/media/music') {
+        return Promise.resolve([
+          { id: 11, is_active: true, name: '音乐站' },
+          { id: 22, is_active: false, name: '停用音乐站' },
+        ])
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
   })
 
   it('defaults media searches to TheMovieDB when no global search source is configured', async () => {
@@ -222,6 +244,31 @@ describe('SearchBarDialog media source selection', () => {
     expect(getSearchItem('音乐').querySelector('[data-icon="mdi-music-note-outline"]')).not.toBeNull()
     expect(getSearchItem('音乐')).toHaveTextContent('歌曲、专辑或艺术家')
     expect(getSearchItem('音乐')).not.toHaveTextContent('搜索音乐元数据，并进入站点资源搜索、下载和订阅流程')
+  })
+
+  it('searches music sites by keyword without resolving a media identity', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderSearchBar({ searchPermission: true })
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, '周杰伦')
+    await user.click(getSearchItem('在站点中搜索音乐资源'))
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('site/media/music'))
+    expect(await screen.findByText('音乐站')).toBeInTheDocument()
+    expect(screen.queryByText('停用音乐站')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '搜索' }))
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/resource')
+      expect(router.currentRoute.value.query).toEqual({
+        area: 'title',
+        keyword: '周杰伦',
+        result_type: 'torrent',
+        sites: '11',
+        type: '音乐',
+      })
+    })
   })
 
   it('searches actors with the selected supported source', async () => {

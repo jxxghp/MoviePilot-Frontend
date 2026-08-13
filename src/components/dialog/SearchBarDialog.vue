@@ -68,7 +68,7 @@ const SubscribeItems = ref<Subscribe[]>([])
 const chooseSiteDialog = ref(false)
 const selectedSites = ref<number[]>([])
 const allSites = ref<Site[]>([])
-const siteSearchType = ref<'torrent' | 'subtitle'>('torrent')
+const siteSearchType = ref<'torrent' | 'subtitle' | 'music'>('torrent')
 
 // 定义事件
 const emit = defineEmits(['close', 'update:modelValue'])
@@ -373,10 +373,7 @@ async function fetchSubscribes() {
 const loadUserSitePreferences = async () => {
   try {
     const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
-    if (result.value) {
-      selectedSites.value = result.value
-      return
-    }
+    selectedSites.value = result.value ?? []
   } catch (err) {
     console.error(err)
   }
@@ -388,6 +385,8 @@ async function queryAllSites() {
     const data: Site[] = await api.get('site/')
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)
+    const availableIds = new Set(allSites.value.map(site => site.id))
+    selectedSites.value = selectedSites.value.filter(siteId => availableIds.has(siteId))
     // 如果没有选择任何站点并且有可用站点，才默认选择全部
     if (selectedSites.value.length === 0 && allSites.value.length > 0) {
       selectedSites.value = allSites.value.map((site: Site) => site.id)
@@ -397,10 +396,42 @@ async function queryAllSites() {
   }
 }
 
+/** 查询支持音乐分类的启用站点，并将默认选择收敛到可用范围。 */
+async function queryMusicSites() {
+  try {
+    const data: Site[] = await api.get('site/media/music')
+    allSites.value = data.filter(item => item.is_active)
+    const availableIds = new Set(allSites.value.map(site => site.id))
+    selectedSites.value = selectedSites.value.filter(siteId => availableIds.has(siteId))
+    if (selectedSites.value.length === 0) {
+      selectedSites.value = allSites.value.map(site => site.id)
+    }
+  } catch (error) {
+    console.error(error)
+    allSites.value = []
+    selectedSites.value = []
+  }
+}
+
 /** 打开指定资源类型的站点选择对话框。 */
-const openSiteDialog = (type: 'torrent' | 'subtitle' = 'torrent') => {
+async function openSiteDialog(type: 'torrent' | 'subtitle' | 'music' = 'torrent') {
   siteSearchType.value = type
+  await loadUserSitePreferences()
+  if (type === 'music') {
+    await queryMusicSites()
+  } else {
+    await queryAllSites()
+  }
   chooseSiteDialog.value = true
+}
+
+/** 按当前搜索类型刷新站点选择列表。 */
+async function reloadSearchSites() {
+  if (siteSearchType.value === 'music') {
+    await queryMusicSites()
+    return
+  }
+  await queryAllSites()
 }
 
 // 匹配的订阅列表
@@ -419,6 +450,10 @@ function searchSites(sites: number[]) {
   selectedSites.value = sites
   if (siteSearchType.value === 'subtitle') {
     searchSubtitle()
+    return
+  }
+  if (siteSearchType.value === 'music') {
+    searchMusicTorrent()
     return
   }
   searchTorrent()
@@ -452,6 +487,23 @@ function searchSubtitle() {
       keyword: searchWord.value,
       area: 'title',
       result_type: 'subtitle',
+      sites: selectedSites.value.join(','),
+    },
+  })
+  closeSearch()
+}
+
+/** 使用当前关键词直接搜索站点音乐资源，不经过媒体信息识别。 */
+function searchMusicTorrent() {
+  if (!searchWord.value || !hasSearchPermission.value) return
+  saveRecentSearches(searchWord.value)
+  router.push({
+    path: '/resource',
+    query: {
+      keyword: searchWord.value,
+      type: '音乐',
+      area: 'title',
+      result_type: 'torrent',
       sites: selectedSites.value.join(','),
     },
   })
@@ -881,6 +933,21 @@ onMounted(() => {
               </template>
             </VListItem>
 
+            <VListItem density="comfortable" link @click="openSiteDialog('music')" class="search-result-item mx-2 my-1">
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-music-box-multiple-outline" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">{{
+                t('dialog.searchBar.searchMusicInSites')
+              }}</VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('dialog.searchBar.relatedMusicResources') }}
+              </VListItemSubtitle>
+            </VListItem>
+
             <VListItem density="comfortable" link @click="searchSubtitle" class="search-result-item mx-2 my-1">
               <template #prepend>
                 <div class="result-icon-wrapper">
@@ -956,7 +1023,7 @@ onMounted(() => {
     :selected="selectedSites"
     @search="searchSites"
     @close="chooseSiteDialog = false"
-    @reload="queryAllSites"
+    @reload="reloadSearchSites"
   />
 </template>
 
