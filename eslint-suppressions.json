@@ -552,10 +552,7 @@
   },
   "src/composables/useSetupWizard.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 13
-    },
-    "sonarjs/no-duplicated-branches": {
-      "count": 2
+      "count": 1
     }
   },
   "src/composables/useSharedDialog.ts": {
