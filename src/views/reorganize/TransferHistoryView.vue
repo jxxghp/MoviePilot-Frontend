@@ -1489,7 +1489,7 @@ onUnmounted(() => {
         </tr>
       </template>
       <template #item.title="{ item }">
-        <div class="d-flex align-center">
+        <div class="transfer-history-desktop-media-cell">
           <div class="transfer-history-desktop-poster-frame">
             <VImg
               v-if="getHistoryPosterUrl(item)"
@@ -1500,15 +1500,15 @@ onUnmounted(() => {
             >
               <template #error>
                 <div class="transfer-history-desktop-poster-placeholder">
-                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="20" color="medium-emphasis" />
                 </div>
               </template>
             </VImg>
             <div v-else class="transfer-history-desktop-poster-placeholder">
-              <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+              <VIcon :icon="getPlaceholderIcon(item.type || '')" size="20" color="medium-emphasis" />
             </div>
           </div>
-          <div class="d-flex flex-column ms-1">
+          <div class="d-flex flex-column">
             <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.seasons }}{{ item?.episodes }}
             </span>
@@ -1592,7 +1592,7 @@ onUnmounted(() => {
       :style="{ height: `${availableHeight}px` }"
     >
       <template #item.title="{ item }">
-        <div class="d-flex align-center">
+        <div class="transfer-history-desktop-media-cell">
           <div class="transfer-history-desktop-poster-frame">
             <VImg
               v-if="getHistoryPosterUrl(item)"
@@ -1603,15 +1603,15 @@ onUnmounted(() => {
             >
               <template #error>
                 <div class="transfer-history-desktop-poster-placeholder">
-                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+                  <VIcon :icon="getPlaceholderIcon(item.type || '')" size="20" color="medium-emphasis" />
                 </div>
               </template>
             </VImg>
             <div v-else class="transfer-history-desktop-poster-placeholder">
-              <VIcon :icon="getPlaceholderIcon(item.type || '')" size="24" color="medium-emphasis" />
+              <VIcon :icon="getPlaceholderIcon(item.type || '')" size="20" color="medium-emphasis" />
             </div>
           </div>
-          <div class="d-flex flex-column ms-1">
+          <div class="d-flex flex-column">
             <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
             </span>
@@ -1962,14 +1962,21 @@ onUnmounted(() => {
   border-radius: 0;
 }
 
+.transfer-history-desktop-media-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 6px;
+}
+
 .transfer-history-desktop-poster-frame {
-  flex: 0 0 44px;
-  inline-size: 44px;
-  block-size: 66px;
-  min-inline-size: 44px;
-  min-block-size: 66px;
-  max-inline-size: 44px;
-  max-block-size: 66px;
+  flex: 0 0 36px;
+  inline-size: 36px;
+  block-size: 54px;
+  min-inline-size: 36px;
+  min-block-size: 54px;
+  max-inline-size: 36px;
+  max-block-size: 54px;
   overflow: hidden;
   border-radius: 4px;
   aspect-ratio: 2 / 3;

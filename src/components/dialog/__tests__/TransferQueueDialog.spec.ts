@@ -4,7 +4,12 @@ import { screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import userEvent from '@testing-library/user-event'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { cwd } from 'node:process'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const transferQueueSource = readFileSync(resolve(cwd(), 'src/components/dialog/TransferQueueDialog.vue'), 'utf8')
 
 const mocks = vi.hoisted(() => ({
   apiDelete: vi.fn(),
@@ -195,6 +200,19 @@ describe('TransferQueueDialog', () => {
 
     expect(screen.getByText('来源 B.mkv')).toBeInTheDocument()
     expect(screen.queryByText('来源 A.mkv')).not.toBeInTheDocument()
+  })
+
+  it('uses fixed medium poster rounding without an active-card accent strip', async () => {
+    mocks.apiGet.mockResolvedValue(createQueue('圆角媒体', '/downloads/rounded.mkv'))
+
+    const { container } = await renderDialog()
+
+    await screen.findByRole('navigation', { name: '媒体队列' })
+    expect(container.querySelector('.media-selector__poster')).toHaveClass('rounded-md')
+    expect(container.querySelector('.active-media__poster')).toHaveClass('rounded-md')
+    expect(transferQueueSource).not.toContain('.media-selector__item::before')
+    expect(transferQueueSource).not.toContain('.media-selector__item--active::before')
+    expect(transferQueueSource).not.toContain('border-radius: var(--app-control-radius)')
   })
 
   it('uses canonical built-in identities before falling back to the title', async () => {

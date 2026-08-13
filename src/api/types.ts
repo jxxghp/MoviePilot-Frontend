@@ -1871,7 +1871,7 @@ export interface TransferForm {
   // 目标路径
   target_path: string | null
   // 媒体数据源
-  media_source?: MediaDataSource
+  media_source?: MediaDataSource | null
   // 数据源原生ID
   media_id?: string | null
   // 音乐实体类型

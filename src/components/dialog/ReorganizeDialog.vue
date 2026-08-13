@@ -44,7 +44,8 @@ const props = defineProps({
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
-const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
+const mediaSourceItems = computed<{ title: string; value: MediaDataSource | null }[]>(() => [
+  { title: t('dialog.reorganize.auto'), value: null },
   { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
   { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
   { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
@@ -54,7 +55,7 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
 ])
 
-// 获取后台设置中的默认识别数据源，未知值兼容回退到TheMovieDb。
+/** 获取后台设置中的默认识别数据源，未知值兼容回退到 TheMovieDb。 */
 function getDefaultMediaSource(): MediaDataSource {
   const configuredSource = globalSettings.RECOGNIZE_SOURCE as MediaDataSource
   return mediaSourceItems.value.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
@@ -329,7 +330,8 @@ const transferForm = reactive<TransferForm>({
   logid: 0,
   target_storage: initialTargetPath ? (props.target_storage ?? 'local') : null,
   target_path: initialTargetPath,
-  media_source: getDefaultMediaSource(),
+  type_name: '',
+  media_source: null,
   media_id: null,
   music_type: null,
   transfer_type: null,
@@ -345,8 +347,11 @@ const transferForm = reactive<TransferForm>({
 // 历史记录入口和文件浏览器命中的成功历史都属于重新整理。
 const isReorganize = computed(() => Boolean(props.logids?.length || transferForm.reorganize))
 
-// 当前手动识别与刮削数据源。
-const mediaSource = computed(() => transferForm.media_source ?? 'themoviedb')
+// 当前手动识别与刮削数据源；自动模式按媒体类型解析实际来源。
+const mediaSource = computed(() => {
+  if (transferForm.media_source) return transferForm.media_source
+  return transferForm.type_name === '音乐' ? 'musicbrainz' : getDefaultMediaSource()
+})
 
 // 当前数据源对应的原生ID标签。
 const mediaIdLabel = computed(() => {
@@ -481,7 +486,7 @@ watch([() => transferForm.type_name, () => mediaSource.value], ([typeName, sourc
 watch(
   () => transferForm.type_name,
   typeName => {
-    if (typeName === '音乐' && !isMusicMediaSource(transferForm.media_source)) {
+    if (typeName === '音乐' && !isMusicMediaSource(transferForm.media_source ?? undefined)) {
       transferForm.media_source = 'musicbrainz'
     }
     transferForm.music_type = typeName === '音乐' ? (transferForm.music_type ?? 'recording') : null
@@ -492,11 +497,11 @@ watch(
 watch(
   () => transferForm.media_source,
   (source, previousSource) => {
-    if (previousSource && source !== previousSource) {
+    if (source !== previousSource) {
       transferForm.media_id = null
       mediaSelectorDialog.value = false
     }
-    if (isMusicMediaSource(source) && transferForm.type_name !== '音乐') {
+    if (isMusicMediaSource(source ?? undefined) && transferForm.type_name !== '音乐') {
       transferForm.type_name = '音乐'
     }
   },

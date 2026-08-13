@@ -470,6 +470,13 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
+  it('shows automatic defaults when media type and source are unset', async () => {
+    await renderDialog()
+
+    expect(screen.getByLabelText<HTMLSelectElement>('类型')).toHaveDisplayValue('自动')
+    expect(screen.getByLabelText<HTMLSelectElement>('数据源')).toHaveDisplayValue('自动')
+  })
+
   it('deduplicates selected files and submits nullable automatic target fields in one background request', async () => {
     const bodies: unknown[] = []
     const backgrounds: string[] = []
@@ -730,7 +737,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
       }),
     )
 
-    await selectOption('数据源', 1)
+    await selectOption('数据源', 2)
     await user.click(screen.getByRole('button', { name: '加入整理队列' }))
     await waitFor(() => expect(bodies).toHaveLength(2))
     expect(bodies[1]).toEqual(

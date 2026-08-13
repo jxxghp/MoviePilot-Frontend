@@ -442,6 +442,7 @@ onUnmounted(() => {
                 :src="getPosterUrl(group.media)"
                 :alt="getMediaTitle(group.media, group.season)"
                 cover
+                rounded="md"
               />
               <div class="media-selector__info">
                 <div class="media-selector__title">{{ getMediaTitle(group.media, group.season) }}</div>
@@ -467,6 +468,7 @@ onUnmounted(() => {
                 :src="getPosterUrl(activeMediaGroup?.media)"
                 :alt="getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season)"
                 cover
+                rounded="md"
               />
               <div class="active-media__info">
                 <h3 class="active-media__title">
@@ -633,20 +635,6 @@ onUnmounted(() => {
   border-block-start: 0;
 }
 
-.media-selector__item::before {
-  position: absolute;
-  border-radius: var(--app-vuetify-rounded-pill);
-  background: rgb(var(--v-theme-primary));
-  block-size: 0;
-  content: '';
-  inline-size: 3px;
-  inset-block-start: 50%;
-  inset-inline-start: 0.25rem;
-  transition:
-    block-size 0.18s ease,
-    inset-block-start 0.18s ease;
-}
-
 .media-selector__item:hover {
   background: rgba(var(--v-theme-on-surface), var(--v-hover-opacity));
 }
@@ -655,14 +643,8 @@ onUnmounted(() => {
   background: rgba(var(--v-theme-primary), 0.08);
 }
 
-.media-selector__item--active::before {
-  block-size: calc(100% - 1rem);
-  inset-block-start: 0.5rem;
-}
-
 .media-selector__poster,
 .active-media__poster {
-  border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-on-surface), 0.06);
 }
 
