@@ -1908,12 +1908,13 @@ async function streamAgentMessage(
     }
 
     if (isRecoverableStreamDisconnect(error)) {
-      if (!assistantMessage) return
       shouldSaveClientSnapshot = false
       invalidateProtectedDeliveries()
       beginStreamRecovery(sessionId.value, streamStartedAt)
-      assistantMessage.status = 'streaming'
-      refreshMessageList()
+      if (assistantMessage) {
+        assistantMessage.status = 'streaming'
+        refreshMessageList()
+      }
       if (document.visibilityState === 'visible') scheduleStreamRecovery(1200)
       return
     }
