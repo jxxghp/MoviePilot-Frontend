@@ -479,7 +479,7 @@ function normalizeThinkingLevelValue(value?: unknown) {
   return aliasMap[normalized] || normalized
 }
 
-function resolveThinkingLevelValue(data?: Record<string, any>) {
+function resolveThinkingLevelValue(data?: Record<string, unknown>) {
   const explicit = normalizeThinkingLevelValue(data?.LLM_THINKING_LEVEL)
   if (explicit) return explicit
 
@@ -604,8 +604,8 @@ const logLevelItems = [
 ]
 
 const dataCleanupFieldRules = [
-  (v: any) => v === 0 || !!v || t('setting.system.dataCleanupDaysRequired'),
-  (v: any) => v >= 0 || t('setting.system.dataCleanupDaysMin'),
+  (value: unknown) => value === 0 || !!value || t('setting.system.dataCleanupDaysRequired'),
+  (value: unknown) => Number(value) >= 0 || t('setting.system.dataCleanupDaysMin'),
 ]
 
 // 安全域名添加变量
@@ -698,14 +698,15 @@ async function saveDownloaderSetting() {
     await loadDownloaderSetting()
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.system.downloaderSaveFailed'))
   }
 }
 
 // 处理默认下载器状态
-function handleDefaultDownloaders(enabledDownloaders: any[], downloaders: any[]) {
+function handleDefaultDownloaders(enabledDownloaders: DownloaderConf[], currentDownloaders: DownloaderConf[]) {
   const enabledDefaultDownloader = enabledDownloaders.find(item => item.default)
   if (enabledDownloaders.length > 0 && !enabledDefaultDownloader) {
-    downloaders = downloaders.map(item => {
+    return currentDownloaders.map(item => {
       if (item === enabledDownloaders[0]) {
         $toast.info(t('setting.system.defaultDownloaderNotice', { name: item.name }))
         return { ...item, default: true }
@@ -714,7 +715,7 @@ function handleDefaultDownloaders(enabledDownloaders: any[], downloaders: any[])
       return { ...item, default: false }
     })
   }
-  return downloaders
+  return currentDownloaders
 }
 
 // 调用API查询媒体服务器设置
@@ -736,6 +737,7 @@ async function saveMediaServerSetting() {
     await loadMediaServerSetting()
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.system.mediaServerSaveFailed'))
   }
 }
 
@@ -743,14 +745,14 @@ async function saveMediaServerSetting() {
 async function loadSystemSettings() {
   invalidateLlmTestState()
   try {
-    const result: { [key: string]: any } = await api.get('system/env')
+    const result = await api.get<Record<string, unknown>>('system/env')
     const defaultSyncInterval = Number(result.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
     legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
     // 将API返回的值赋值给SystemSettings
     for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
       Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
         if (Object.prototype.hasOwnProperty.call(result, key))
-          (SystemSettings.value[sectionKey] as any)[key] = result[key]
+          (SystemSettings.value[sectionKey] as Record<string, unknown>)[key] = result[key]
       })
     }
     const accelAvailable = Boolean(result.RUST_ACCEL_AVAILABLE ?? result.RUST_ACCEL_ENABLED)
@@ -781,7 +783,7 @@ function handleAgentMcpSaved(servers: AgentMcpServer[]) {
 }
 
 // 调用API保存设置
-async function saveSystemSetting(value: { [key: string]: any }) {
+async function saveSystemSetting(value: Record<string, unknown>) {
   try {
     await api.post('system/env', value, { feedback: 'silent' })
     return true
@@ -846,9 +848,10 @@ async function testLlmConnection() {
     showLlmTestFailedToast(error instanceof Error ? error.message : String(error))
     console.log(error)
   } finally {
-    if (requestId !== llmTestRequestId) return
-    if (llmTestAbortController === abortController) llmTestAbortController = null
-    testingLlm.value = false
+    if (requestId === llmTestRequestId) {
+      if (llmTestAbortController === abortController) llmTestAbortController = null
+      testingLlm.value = false
+    }
   }
 }
 
@@ -861,6 +864,10 @@ async function saveAdvancedSettings() {
   const advancedResult = await saveSystemSetting(SystemSettings.value.Advanced)
   const scrapingResult = await saveScrapingSwitchs()
 
+  if (!advancedResult) {
+    $toast.error(t('setting.system.saveFailed', { message: t('common.apiRequestFailed') }))
+  }
+
   if (advancedResult && scrapingResult) {
     advancedDialog.value = false
     $toast.success(t('setting.system.advancedSaveSuccess'))
@@ -868,9 +875,10 @@ async function saveAdvancedSettings() {
 }
 
 // 当字段为空时，将其设置为 null 提交，以便后端恢复为默认值
-function cleanEmptyFields(settings: any, fields: string[]) {
+function cleanEmptyFields(settings: Record<string, unknown>, fields: string[]) {
   fields.forEach(field => {
-    if (settings[field]?.trim?.() === '') {
+    const value = settings[field]
+    if (typeof value === 'string' && value.trim() === '') {
       settings[field] = null
     }
   })
@@ -879,8 +887,7 @@ function cleanEmptyFields(settings: any, fields: string[]) {
 // 快捷复制到剪贴板
 async function copyValue(value: string) {
   try {
-    let success
-    success = copyToClipboard(value)
+    const success = copyToClipboard(value)
     if (await success) $toast.success(t('setting.system.copySuccess'))
     else $toast.error(t('setting.system.copyFailed'))
   } catch (error) {
@@ -1012,9 +1019,7 @@ const moviePilotAutoUpdate = computed({
 const fanartLanguageSelection = computed({
   get: () => {
     if (!SystemSettings.value.Advanced.FANART_LANG) return []
-    return SystemSettings.value.Advanced.FANART_LANG.split(',')
-      .filter(Boolean)
-      .map((lang: any) => lang.trim())
+    return (SystemSettings.value.Advanced.FANART_LANG.split(',') as string[]).filter(Boolean).map(lang => lang.trim())
   },
   set: (val: string[]) => {
     SystemSettings.value.Advanced.FANART_LANG = val.join(',')
@@ -1816,7 +1821,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 <VIcon icon="mdi-plus" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
-                    <VListItem v-for="item in downloaderOptions" @click="addDownloader(item.value)">
+                    <VListItem v-for="item in downloaderOptions" :key="item.value" @click="addDownloader(item.value)">
                       <VListItemTitle>{{ item.title }}</VListItemTitle>
                     </VListItem>
                     <VListItem @click="addDownloader('custom')">
@@ -1867,7 +1872,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 <VIcon icon="mdi-plus" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
-                    <VListItem v-for="item in mediaServerOptions" @click="addMediaServer(item.value)">
+                    <VListItem v-for="item in mediaServerOptions" :key="item.value" @click="addMediaServer(item.value)">
                       <VListItemTitle>{{ item.title }}</VListItemTitle>
                     </VListItem>
                     <VListItem @click="addMediaServer('custom')">
