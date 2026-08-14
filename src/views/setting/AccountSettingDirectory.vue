@@ -2,13 +2,14 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { CategoryConfig, DirectoryMatchMode, StorageConf, TransferDirectoryConf } from '@/api/types'
+import type { CategoryConfig, StorageConf, TransferDirectoryConf } from '@/api/types'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 import StorageCard from '@/components/cards/StorageCard.vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { storageAttributes } from '@/api/constants'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
+import { useDirectoryRouteSettings } from '@/composables/useDirectoryRouteSettings'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
 import { cloneDeep } from 'lodash-es'
@@ -28,18 +29,24 @@ const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module 
 const CategoryEditDialog = defineAsyncComponent(() => import('@/components/dialog/CategoryEditDialog.vue'))
 const RoutePreviewDialog = defineAsyncComponent(() => import('@/components/dialog/RoutePreviewDialog.vue'))
 
-// 所有下载目录
-const directories = ref<TransferDirectoryConf[]>([])
-
 // 所有存储
 const storages = ref<StorageConf[]>([])
 
 // 二级分类策略
 const mediaCategories = ref<{ [key: string]: any }>({})
-const categoryConfig = ref<CategoryConfig>({ movie: {}, tv: {} })
-const categoryConfigDirty = ref(false)
-const directoryMatchMode = ref<DirectoryMatchMode>('sequential')
-const directoryMatchModeKey = 'DirectoryMatchMode'
+const {
+  categoryConfig,
+  categoryConfigLoaded,
+  directories,
+  directoryMatchMode,
+  loadCategoryConfig,
+  loadRouteSettings,
+  markCategorySaved,
+  routeSettingsLoaded,
+  saveRouteSettings,
+  savingRouteSettings: savingDirectories,
+  setCategoryDraft,
+} = useDirectoryRouteSettings()
 
 // 提示框
 const $toast = useToast()
@@ -93,17 +100,15 @@ const renameEditorOptions = {
 
 // 打开共享分类编辑弹窗，保存后刷新本页分类配置。
 function openCategoryDialog() {
+  if (!categoryConfig.value || !categoryConfigLoaded.value) return
   openSharedDialog(
     CategoryEditDialog,
     { initialConfig: cloneDeep(categoryConfig.value) },
     {
-      'draft-change': (config: CategoryConfig) => {
-        categoryConfig.value = config
-        categoryConfigDirty.value = true
-      },
-      save: async () => {
-        await Promise.all([loadMediaCategories(), loadCategoryConfig()])
-        categoryConfigDirty.value = false
+      'draft-change': setCategoryDraft,
+      save: (config: CategoryConfig) => {
+        markCategorySaved(config)
+        void loadMediaCategories()
       },
     },
     { closeOn: ['close', 'save', 'update:modelValue'] },
@@ -111,11 +116,14 @@ function openCategoryDialog() {
 }
 
 function openRoutePreviewDialog() {
-  orderDirectoryCards()
+  if (!routeSettingsLoaded.value || !categoryConfig.value) return
   openSharedDialog(
     RoutePreviewDialog,
     {
-      directories: cloneDeep(directories.value),
+      directories: directories.value.map((directory, priority) => ({
+        ...cloneDeep(directory),
+        priority,
+      })),
       categoryConfig: cloneDeep(categoryConfig.value),
       matchMode: directoryMatchMode.value,
     },
@@ -201,44 +209,19 @@ async function saveStorages() {
   }
 }
 
-// 查询目录
-async function loadDirectories() {
-  try {
-    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
-    directories.value = result.value ?? []
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-async function loadDirectoryMatchMode() {
-  try {
-    const result = await api.get<{ value?: unknown }>(`system/setting/${directoryMatchModeKey}`)
-    directoryMatchMode.value = result.value === 'specificity' ? 'specificity' : 'sequential'
-  } catch (error) {
-    directoryMatchMode.value = 'sequential'
-    console.log(error)
-  }
-}
-
 // 保存目录
 async function saveDirectories() {
+  if (!routeSettingsLoaded.value || savingDirectories.value) return
   orderDirectoryCards()
-  try {
-    const names = directories.value.map(item => item.name)
-    if (new Set(names).size !== names.length) {
-      $toast.error(t('setting.directory.duplicateDirectoryName'))
-      return
-    }
-    await Promise.all([
-      api.post('system/setting/Directories', directories.value, { feedback: 'silent' }),
-      api.post(`system/setting/${directoryMatchModeKey}`, directoryMatchMode.value, { feedback: 'silent' }),
-    ])
-    $toast.success(t('setting.directory.directorySaveSuccess'))
-  } catch (error) {
-    console.log(error)
-    $toast.error(t('setting.directory.directorySaveFailed'))
+  const names = directories.value.map(item => item.name)
+  if (new Set(names).size !== names.length) {
+    $toast.error(t('setting.directory.duplicateDirectoryName'))
+    return
   }
+  const result = await saveRouteSettings()
+  if (result === 'saved') $toast.success(t('setting.directory.directorySaveSuccess'))
+  else if (result === 'outdated') $toast.warning(t('setting.directory.directorySaveOutdated'))
+  else $toast.error(t('setting.directory.directorySaveFailed'))
 }
 
 // 添加媒体库目录
@@ -274,18 +257,6 @@ function removeDirectory(directory: TransferDirectoryConf) {
 async function loadMediaCategories() {
   try {
     mediaCategories.value = await api.get('media/category')
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-async function loadCategoryConfig(preserveDraft = false) {
-  try {
-    const config = (await api.get<CategoryConfig | null>('media/category/config', { feedback: 'silent' })) ?? {
-      movie: {},
-      tv: {},
-    }
-    if (!preserveDraft || !categoryConfigDirty.value) categoryConfig.value = config
   } catch (error) {
     console.log(error)
   }
@@ -344,13 +315,12 @@ async function saveSystemSettings(value: any) {
   }
 }
 
-async function loadPageData(preserveCategoryDraft = false) {
+async function loadPageData() {
   await Promise.all([
-    loadDirectories(),
-    loadDirectoryMatchMode(),
+    loadRouteSettings(),
     loadStorages(),
     loadMediaCategories(),
-    loadCategoryConfig(preserveCategoryDraft),
+    loadCategoryConfig(),
     loadSystemSettings(),
     loadMountedLocalDiskDeleteEmptyDirs(),
   ])
@@ -361,7 +331,7 @@ onMounted(() => {
   loadPageData()
 })
 
-useSilentSettingRefresh(() => loadPageData(true), {
+useSilentSettingRefresh(loadPageData, {
   active: computed(() => props.active),
 })
 </script>
@@ -435,9 +405,14 @@ useSilentSettingRefresh(() => loadPageData(true), {
               variant="outlined"
               color="primary"
               class="directory-match-settings__toggle"
+              :disabled="!routeSettingsLoaded || savingDirectories"
             >
-              <VBtn value="sequential">{{ t('setting.directory.matchModes.sequential') }}</VBtn>
-              <VBtn value="specificity">{{ t('setting.directory.matchModes.specificity') }}</VBtn>
+              <VBtn value="sequential">
+                {{ t('setting.directory.matchModes.sequential') }}
+              </VBtn>
+              <VBtn value="specificity">
+                {{ t('setting.directory.matchModes.specificity') }}
+              </VBtn>
             </VBtnToggle>
           </div>
           <Draggable
@@ -445,6 +420,7 @@ useSilentSettingRefresh(() => loadPageData(true), {
             handle=".cursor-move"
             item-key="pri"
             tag="div"
+            :disabled="!routeSettingsLoaded || savingDirectories"
             @end="orderDirectoryCards"
             :component-data="{ 'class': 'grid gap-3 grid-directory-card items-start' }"
           >
@@ -467,23 +443,42 @@ useSilentSettingRefresh(() => loadPageData(true), {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn type="submit" @click="saveDirectories" prepend-icon="mdi-content-save">
+              <VBtn
+                type="submit"
+                :loading="savingDirectories"
+                :disabled="!routeSettingsLoaded || savingDirectories"
+                @click="saveDirectories"
+                prepend-icon="mdi-content-save"
+              >
                 {{ t('common.save') }}
               </VBtn>
               <VBtn
                 color="success"
                 variant="tonal"
                 :aria-label="t('setting.directory.addDirectory')"
+                :disabled="!routeSettingsLoaded || savingDirectories"
                 @click="addDirectory"
                 class="me-2"
               >
                 <VIcon icon="mdi-plus" />
               </VBtn>
               <VSpacer />
-              <VBtn color="primary" variant="tonal" prepend-icon="mdi-routes" @click="openRoutePreviewDialog">
+              <VBtn
+                color="primary"
+                variant="tonal"
+                prepend-icon="mdi-routes"
+                :disabled="!routeSettingsLoaded || !categoryConfigLoaded || !categoryConfig"
+                @click="openRoutePreviewDialog"
+              >
                 {{ t('setting.directory.routePreview.title') }}
               </VBtn>
-              <VBtn color="info" variant="tonal" prepend-icon="mdi-shape-plus" @click="openCategoryDialog">
+              <VBtn
+                color="info"
+                variant="tonal"
+                prepend-icon="mdi-shape-plus"
+                :disabled="!categoryConfigLoaded || !categoryConfig"
+                @click="openCategoryDialog"
+              >
                 {{ t('setting.category.title') }}
               </VBtn>
             </div>

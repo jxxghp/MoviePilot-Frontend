@@ -2221,20 +2221,25 @@ export interface ApiResponse<T = unknown> {
 
 // 分类规则
 export interface CategoryRule {
-  genre_ids?: string
-  original_language?: string
-  production_countries?: string
-  origin_country?: string
-  release_year?: string
+  genre_ids?: string | null
+  original_language?: string | null
+  production_countries?: string | null
+  origin_country?: string | null
+  release_year?: string | null
 }
 
 // 分类配置
 export interface CategoryConfig {
-  movie?: { [key: string]: CategoryRule }
-  tv?: { [key: string]: CategoryRule }
+  movie?: { [key: string]: CategoryRule | null }
+  tv?: { [key: string]: CategoryRule | null }
 }
 
 export type DirectoryMatchMode = 'sequential' | 'specificity'
+
+export interface DirectoryRouteSettings {
+  directories: TransferDirectoryConf[]
+  match_mode: DirectoryMatchMode
+}
 
 export interface TransferRouteMediaSnapshot {
   type: '电影' | '电视剧' | '音乐' | '系列' | '未知'

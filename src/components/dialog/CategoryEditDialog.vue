@@ -5,7 +5,7 @@ import type { CategoryConfig, CategoryRule } from '@/api/types'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
-import { cloneDeep } from 'lodash-es'
+import { cloneDeep, isEqual } from 'lodash-es'
 
 // 显示器宽度
 const display = useDisplay()
@@ -13,19 +13,19 @@ const display = useDisplay()
 // 定义输入参数
 const props = defineProps<{
   modelValue?: boolean
-  initialConfig?: CategoryConfig
+  initialConfig: CategoryConfig
 }>()
 
 // 定义事件
 const emit = defineEmits<{
   close: []
-  save: []
+  save: [config: CategoryConfig]
   'draft-change': [config: CategoryConfig]
 }>()
 
 const activeTab = ref('movie')
-const loading = ref(false)
 const saving = ref(false)
+const draftTrackingReady = ref(false)
 const toast = useToast()
 const { t } = useI18n()
 
@@ -155,34 +155,22 @@ const countryOptions = [
   { title: '新西兰 (NZ)', value: 'NZ' },
 ]
 
-const fetchConfig = async () => {
-  loading.value = true
-  try {
-    const config = await api.get<CategoryConfig | null>('media/category/config', { feedback: 'silent' })
-    if (config) parseConfig(config)
-  } catch (e) {
-    console.error(e)
-    toast.error(t('setting.category.loadFailed'))
-  } finally {
-    loading.value = false
-  }
-}
-
 const splitRuleValues = (value: unknown): string[] =>
   typeof value === 'string' ? value.split(',').filter(Boolean) : []
 
 const toEditableRule = (
-  value: CategoryRule,
+  value: CategoryRule | null,
   countryField: 'origin_country' | 'production_countries',
 ): EditableCategoryRule => {
-  const rule: Record<string, unknown> = { ...value }
+  const source = value ?? {}
+  const rule: Record<string, unknown> = { ...source }
   delete rule.origin_country
   delete rule.production_countries
   return {
     ...rule,
-    genre_ids: splitRuleValues(value.genre_ids),
-    original_language: splitRuleValues(value.original_language),
-    [countryField]: splitRuleValues(value[countryField]),
+    genre_ids: splitRuleValues(source.genre_ids),
+    original_language: splitRuleValues(source.original_language),
+    [countryField]: splitRuleValues(source[countryField]),
   }
 }
 
@@ -256,14 +244,18 @@ const buildPayload = (): CategoryConfig => {
 }
 
 const saveConfig = async () => {
+  if (saving.value) return
   saving.value = true
   try {
     const payload = buildPayload()
 
     await api.post<null>('media/category/config', payload, { feedback: 'silent' })
+    if (!isEqual(buildPayload(), payload)) {
+      toast.warning(t('setting.category.saveOutdated'))
+      return
+    }
     toast.success(t('setting.category.saveSuccess'))
-    emit('save')
-    emit('close')
+    emit('save', payload)
   } catch (e) {
     console.error(e)
     toast.error(t('setting.category.saveFailed', { message: e instanceof Error ? e.message : t('common.error') }))
@@ -272,11 +264,20 @@ const saveConfig = async () => {
   }
 }
 
-watch([movieList, tvList], () => emit('draft-change', buildPayload()), { deep: true })
+watch(
+  [movieList, tvList],
+  () => {
+    if (draftTrackingReady.value) {
+      emit('draft-change', buildPayload())
+    }
+  },
+  { deep: true },
+)
 
-onMounted(() => {
-  if (props.initialConfig) parseConfig(cloneDeep(props.initialConfig))
-  else fetchConfig()
+onMounted(async () => {
+  parseConfig(cloneDeep(props.initialConfig))
+  await nextTick()
+  draftTrackingReady.value = true
 })
 </script>
 
@@ -308,11 +309,7 @@ onMounted(() => {
           </VTab>
         </VTabs>
 
-        <div v-if="loading" class="d-flex justify-center align-center" style="min-block-size: 300px">
-          <VProgressCircular indeterminate color="primary" size="64" />
-        </div>
-
-        <VWindow v-else v-model="activeTab" class="disable-tab-transition" :touch="false">
+        <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
           <VWindowItem value="movie">
             <draggable v-model="movieList" handle=".drag-handle" item-key="id" animation="200">
               <template #item="{ element, index }">

@@ -1,4 +1,5 @@
 import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
+import type { DirectoryRouteSettings } from '@/api/types'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
   useSilentSettingRefresh: vi.fn(),
 }))
 
@@ -19,7 +21,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess, warning: mocks.toastWarning }),
 }))
 
 vi.mock('@/composables/useSilentSettingRefresh', () => ({
@@ -136,14 +138,25 @@ const categoryConfigFixture = {
   tv: { 综艺: { genre_ids: '10764' } },
 }
 
-function mockLoadedSettings(options: { mountedDisk?: boolean | null; matchMode?: unknown } = {}) {
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(promiseResolve => {
+    resolve = promiseResolve
+  })
+  return { promise, resolve }
+}
+
+function mockLoadedSettings(options: { mountedDisk?: boolean | null; matchMode?: 'sequential' | 'specificity' } = {}) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
-    if (endpoint === 'system/setting/public/Directories')
-      return { data: { value: structuredClone(directoriesFixture) } }
+    if (endpoint === 'transfer/route/settings') {
+      return {
+        directories: structuredClone(directoriesFixture),
+        match_mode: options.matchMode ?? 'sequential',
+      }
+    }
     if (endpoint === 'system/setting/public/Storages') return { data: { value: structuredClone(storagesFixture) } }
     if (endpoint === 'media/category') return { 电影: ['华语'] }
     if (endpoint === 'media/category/config') return structuredClone(categoryConfigFixture)
-    if (endpoint === 'system/setting/DirectoryMatchMode') return { value: options.matchMode ?? null }
     if (endpoint === 'system/env') {
       return {
         success: true,
@@ -160,7 +173,10 @@ function mockLoadedSettings(options: { mountedDisk?: boolean | null; matchMode?:
     }
     throw new Error(`Unexpected GET ${endpoint}`)
   })
-  mocks.apiPost.mockResolvedValue({ success: true })
+  mocks.apiPost.mockImplementation((endpoint: string, payload: unknown) => {
+    if (endpoint === 'transfer/route/settings') return payload
+    return { success: true }
+  })
 }
 
 async function renderDirectorySettings() {
@@ -187,6 +203,7 @@ describe('AccountSettingDirectory', () => {
     mocks.openSharedDialog.mockReset()
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
+    mocks.toastWarning.mockReset()
     mocks.useSilentSettingRefresh.mockReset()
     mockLoadedSettings()
   })
@@ -221,8 +238,51 @@ describe('AccountSettingDirectory', () => {
     await user.click(getCard('目录').getByRole('button', { name: '保存' }))
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/DirectoryMatchMode', 'sequential')
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'transfer/route/settings',
+        expect.objectContaining({
+          directories: expect.any(Array),
+          match_mode: 'sequential',
+        }),
+      )
     })
+  })
+
+  it('opens route preview with normalized copies without mutating the directory draft', async () => {
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(screen.getByRole('button', { name: '路由预览' }))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        directories: [
+          expect.objectContaining({ name: '目录1', priority: 0 }),
+          expect.objectContaining({ name: '目录3', priority: 1 }),
+        ],
+      }),
+      {},
+      { closeOn: ['close', 'update:modelValue'] },
+    )
+    const previewProps = mocks.openSharedDialog.mock.calls.at(-1)?.[1] as {
+      directories: typeof directoriesFixture
+    }
+    previewProps.directories[0].name = '预览副本'
+    expect(screen.getByText('目录1')).toBeInTheDocument()
+    expect(screen.queryByText('预览副本')).not.toBeInTheDocument()
+
+    await user.click(getCard('目录').getByRole('button', { name: '保存' }))
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'transfer/route/settings',
+      expect.objectContaining({
+        directories: [
+          expect.objectContaining({ name: '目录1', priority: 0 }),
+          expect.objectContaining({ name: '目录3', priority: 1 }),
+        ],
+      }),
+    )
   })
 
   it('adds a non-conflicting directory name, updates paths, and saves current priority order', async () => {
@@ -238,16 +298,22 @@ describe('AccountSettingDirectory', () => {
     await user.click(directoryCard.getByRole('button', { name: '保存' }))
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/Directories', [
-        expect.objectContaining({ name: '目录4', priority: 0 }),
-        expect.objectContaining({ name: '目录3', priority: 1 }),
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'transfer/route/settings',
         expect.objectContaining({
-          name: '目录1',
-          priority: 2,
-          download_path: '/new-download',
-          library_path: '/new-library',
+          directories: [
+            expect.objectContaining({ name: '目录4', priority: 0 }),
+            expect.objectContaining({ name: '目录3', priority: 1 }),
+            expect.objectContaining({
+              name: '目录1',
+              priority: 2,
+              download_path: '/new-download',
+              library_path: '/new-library',
+            }),
+          ],
+          match_mode: 'sequential',
         }),
-      ])
+      )
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('目录设置保存成功')
   })
@@ -259,7 +325,7 @@ describe('AccountSettingDirectory', () => {
     await user.click(screen.getByRole('button', { name: 'rename-目录3' }))
     await user.click(getCard('目录').getByRole('button', { name: '保存' }))
 
-    expect(mocks.apiPost).not.toHaveBeenCalledWith('system/setting/Directories', expect.anything())
+    expect(mocks.apiPost).not.toHaveBeenCalledWith('transfer/route/settings', expect.anything())
     expect(mocks.toastError).toHaveBeenCalledWith('存在重复目录名称！无法保存，请修改！')
   })
 
@@ -270,9 +336,12 @@ describe('AccountSettingDirectory', () => {
 
     await user.click(screen.getByRole('button', { name: 'remove-目录1' }))
     await user.click(getCard('目录').getByRole('button', { name: '保存' }))
-    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/Directories', [
-      expect.objectContaining({ name: '目录3', priority: 0 }),
-    ])
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'transfer/route/settings',
+      expect.objectContaining({
+        directories: [expect.objectContaining({ name: '目录3', priority: 0 })],
+      }),
+    )
 
     mocks.apiPost.mockClear()
     await user.click(screen.getByRole('button', { name: 'remove-自定义存储 1' }))
@@ -346,6 +415,27 @@ describe('AccountSettingDirectory', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('整理选项设置保存失败！'))
   })
 
+  it('warns when the directory draft changes while an older snapshot is saving', async () => {
+    const save = deferred<DirectoryRouteSettings>()
+    mocks.apiPost.mockImplementation((endpoint: string, payload: unknown) => {
+      if (endpoint === 'transfer/route/settings') return save.promise
+      return payload
+    })
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    const saveClick = user.click(getCard('目录').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('transfer/route/settings', expect.anything()))
+    await user.click(screen.getByRole('button', { name: 'paths-目录1' }))
+    const payload = mocks.apiPost.mock.calls.find(([endpoint]) => endpoint === 'transfer/route/settings')?.[1]
+    save.resolve(payload as DirectoryRouteSettings)
+    await saveClick
+
+    await waitFor(() => expect(mocks.toastWarning).toHaveBeenCalledWith('保存期间目录已被继续修改，请再次保存最新草稿'))
+    expect(mocks.toastSuccess).not.toHaveBeenCalledWith('目录设置保存成功')
+  })
+
   it('opens the shared category editor and reloads storage data after a card completes', async () => {
     const user = userEvent.setup()
     await renderDirectorySettings()
@@ -368,6 +458,34 @@ describe('AccountSettingDirectory', () => {
         initialStorageLoads + 1,
       )
     })
+  })
+
+  it('keeps category actions disabled until the real configuration is loaded', async () => {
+    const categoryLoad = deferred<typeof categoryConfigFixture>()
+    const loadedGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((endpoint: string) => {
+      if (endpoint === 'media/category/config') return categoryLoad.promise
+      return loadedGet(endpoint)
+    })
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    const categoryButton = getCard('目录').getByRole('button', { name: '分类策略' })
+    expect(categoryButton).toBeDisabled()
+    await user.click(categoryButton)
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+
+    categoryLoad.resolve(structuredClone(categoryConfigFixture))
+    await waitFor(() => expect(categoryButton).toBeEnabled())
+    await user.click(categoryButton)
+
+    expect(mocks.openSharedDialog).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ initialConfig: categoryConfigFixture }),
+      expect.objectContaining({ 'draft-change': expect.any(Function), save: expect.any(Function) }),
+      expect.anything(),
+    )
   })
 
   it('opens route preview with current unsaved directory and category drafts', async () => {

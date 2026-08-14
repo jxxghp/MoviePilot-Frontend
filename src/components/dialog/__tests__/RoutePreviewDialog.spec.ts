@@ -18,6 +18,8 @@ const directories = [
     name: '通用电视剧',
     priority: 0,
     storage: 'local',
+    library_storage: 'local',
+    download_path: '/downloads/tv',
     media_type: '电视剧',
     transfer_type: 'link',
     library_path: '/media/tv',
@@ -26,6 +28,8 @@ const directories = [
     name: '综艺',
     priority: 1,
     storage: 'local',
+    library_storage: 'local',
+    download_path: '/downloads/variety',
     media_type: '电视剧',
     media_category: '综艺',
     transfer_type: 'link',
@@ -97,6 +101,14 @@ const previewResponse = {
   ],
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(promiseResolve => {
+    resolve = promiseResolve
+  })
+  return { promise, resolve }
+}
+
 async function renderDialog() {
   return renderWithProviders(RoutePreviewDialog, {
     global: { components: { VDialogCloseBtn: DialogCloseBtn } },
@@ -116,6 +128,13 @@ describe('RoutePreviewDialog', () => {
     await fireEvent.update(screen.getByLabelText('年份'), '2026')
     await fireEvent.update(screen.getByLabelText('类型 ID'), '10764')
     await fireEvent.update(screen.getByLabelText('国家/地区'), 'CN')
+    await user.click(screen.getByLabelText('源存储'))
+    await user.click(await screen.findByRole('option', { name: 'local' }))
+    await fireEvent.update(screen.getByLabelText('源路径'), '/downloads/variety/show.mkv')
+    await user.click(screen.getByLabelText('目标存储'))
+    await user.click(await screen.findByRole('option', { name: 'local' }))
+    await fireEvent.update(screen.getByLabelText('指定目标路径'), '/media/variety')
+    await user.click(screen.getByRole('checkbox', { name: '包含未启用监控整理的目录' }))
     await user.click(screen.getByRole('button', { name: '开始预览' }))
 
     await waitFor(() => {
@@ -125,6 +144,11 @@ describe('RoutePreviewDialog', () => {
           category_config: categoryConfig,
           directories,
           match_mode: 'specificity',
+          include_unsorted: true,
+          storage: 'local',
+          src_path: '/downloads/variety/show.mkv',
+          target_storage: 'local',
+          dest_path: '/media/variety',
           media: expect.objectContaining({ type: '电视剧', title: '测试综艺', year: '2026' }),
           metadata: expect.objectContaining({
             genre_ids: [10764],
@@ -158,5 +182,22 @@ describe('RoutePreviewDialog', () => {
     })
     await user.click(screen.getByRole('button', { name: '开始预览' }))
     expect(await screen.findAllByText('没有目录满足当前条件。')).not.toHaveLength(0)
+  })
+
+  it('discards a response when visible inputs change while the request is pending', async () => {
+    const pending = deferred<typeof previewResponse>()
+    mocks.apiPost.mockReturnValueOnce(pending.promise)
+    const user = userEvent.setup()
+    await renderDialog()
+
+    await fireEvent.update(screen.getByLabelText('标题'), '旧标题')
+    await user.click(screen.getByRole('button', { name: '开始预览' }))
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(1))
+    await fireEvent.update(screen.getByLabelText('标题'), '新标题')
+    pending.resolve(previewResponse)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '开始预览' })).not.toHaveClass('v-btn--loading'))
+    expect(screen.queryByTestId('selected-directory')).not.toBeInTheDocument()
+    expect(screen.getByText('填写媒体元数据后开始预览。')).toBeInTheDocument()
   })
 })

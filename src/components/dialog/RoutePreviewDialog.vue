@@ -36,11 +36,32 @@ const media = reactive({
 const genreIds = ref('')
 const originalLanguage = ref('')
 const countries = ref('')
+const sourceStorage = ref<string>()
+const sourcePath = ref('')
+const targetStorage = ref<string>()
+const destinationPath = ref('')
+const includeUnsorted = ref(false)
+let inputRevision = 0
+let previewRequestId = 0
 
 const mediaTypeItems = computed(() => [
   { title: t('setting.directory.routePreview.movie'), value: '电影' },
   { title: t('setting.directory.routePreview.tv'), value: '电视剧' },
 ])
+
+const sourceStorageItems = computed(() =>
+  [...new Set(props.directories.map(directory => directory.storage).filter(Boolean))].map(value => ({
+    title: value,
+    value,
+  })),
+)
+
+const targetStorageItems = computed(() =>
+  [...new Set(props.directories.map(directory => directory.library_storage).filter(Boolean))].map(value => ({
+    title: value,
+    value,
+  })),
+)
 
 const allWarnings = computed(() => {
   if (!result.value) return []
@@ -80,23 +101,46 @@ function buildRequest(): TransferRoutePreviewRequest {
     category_config: cloneDeep(props.categoryConfig),
     directories: cloneDeep(props.directories),
     match_mode: props.matchMode,
+    include_unsorted: includeUnsorted.value,
+    storage: sourceStorage.value || undefined,
+    src_path: sourcePath.value.trim() || undefined,
+    target_storage: targetStorage.value || undefined,
+    dest_path: destinationPath.value.trim() || undefined,
   }
 }
 
+const requestDraft = computed(() => buildRequest())
+
+watch(
+  requestDraft,
+  () => {
+    inputRevision += 1
+    result.value = undefined
+    error.value = ''
+  },
+  { deep: true, flush: 'sync' },
+)
+
 async function previewRoute() {
+  const requestId = ++previewRequestId
+  const revision = inputRevision
+  const request = cloneDeep(requestDraft.value)
   loading.value = true
   error.value = ''
   try {
-    result.value = await api.post<TransferRoutePreviewResponse>('transfer/route/preview', buildRequest(), {
+    const response = await api.post<TransferRoutePreviewResponse>('transfer/route/preview', request, {
       feedback: 'silent',
     })
+    if (requestId !== previewRequestId || revision !== inputRevision) return
+    result.value = response
   } catch (err) {
+    if (requestId !== previewRequestId || revision !== inputRevision) return
     result.value = undefined
     error.value = t('setting.directory.routePreview.requestFailed', {
       message: err instanceof Error ? err.message : t('common.error'),
     })
   } finally {
-    loading.value = false
+    if (requestId === previewRequestId) loading.value = false
   }
 }
 
@@ -165,6 +209,35 @@ function formatValue(value: unknown): string {
               v-model="countries"
               :label="t('setting.directory.routePreview.countries')"
               placeholder="CN, US"
+            />
+          </VCol>
+          <VCol cols="12" sm="6" md="3">
+            <VSelect
+              v-model="sourceStorage"
+              :items="sourceStorageItems"
+              :label="t('setting.directory.routePreview.sourceStorage')"
+              clearable
+            />
+          </VCol>
+          <VCol cols="12" sm="6" md="3">
+            <VTextField v-model="sourcePath" :label="t('setting.directory.routePreview.sourcePath')" />
+          </VCol>
+          <VCol cols="12" sm="6" md="3">
+            <VSelect
+              v-model="targetStorage"
+              :items="targetStorageItems"
+              :label="t('setting.directory.routePreview.targetStorage')"
+              clearable
+            />
+          </VCol>
+          <VCol cols="12" sm="6" md="3">
+            <VTextField v-model="destinationPath" :label="t('setting.directory.routePreview.destinationPath')" />
+          </VCol>
+          <VCol cols="12">
+            <VCheckbox
+              v-model="includeUnsorted"
+              :label="t('setting.directory.routePreview.includeUnsorted')"
+              hide-details
             />
           </VCol>
         </VRow>
