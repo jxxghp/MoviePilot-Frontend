@@ -899,6 +899,7 @@ describe('AccountSettingSystem', () => {
     const user = userEvent.setup()
     await renderSettings()
     const dialog = await openAdvancedTab('媒体')
+    expect(dialog.getByLabelText('音乐媒体信息转简体中文')).toBeChecked()
     await fireEvent.update(dialog.getByLabelText('TMDB API服务地址'), 'api.tmdb.org')
     await fireEvent.update(dialog.getByLabelText('TMDB API Key'), 'tmdb-key')
     await fireEvent.update(dialog.getByLabelText('AcoustID API Key'), 'acoustid-key')
@@ -909,6 +910,7 @@ describe('AccountSettingSystem', () => {
     for (const label of [
       '跟随TMDB识别整理',
       'TMDB 刮削原语种图片',
+      '音乐媒体信息转简体中文',
       '优先使用插件识别',
       '共享使用媒体识别数据',
       'Fanart图片数据源',
@@ -928,6 +930,7 @@ describe('AccountSettingSystem', () => {
         MEDIA_RECOGNIZE_SHARE: false,
         META_CACHE_EXPIRE: '48',
         MUSIC_COVER_PROXY: 'https://music.example',
+        MUSIC_METADATA_TO_SIMPLIFIED: false,
         RECOGNIZE_PLUGIN_FIRST: true,
         SCRAP_FOLLOW_TMDB: false,
         TMDB_API_DOMAIN: 'api.tmdb.org',

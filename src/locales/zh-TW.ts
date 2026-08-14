@@ -2132,6 +2132,8 @@ export default {
       acoustIdApiKeyPlaceholder: '請輸入 AcoustID API Key',
       acoustIdApiKeyHint: '用於通過音訊指紋識別 MusicBrainz 錄音 ID',
       acoustIdApiKeyRequired: '請輸入 AcoustID API Key',
+      musicMetadataToSimplified: '音樂媒體資訊轉簡體中文',
+      musicMetadataToSimplifiedHint: '將識別結果中的曲名、藝術家、專輯和分類等音樂資訊強制轉換為簡體中文',
       tmdbImageDomain: 'TMDB 圖片服務地址',
       tmdbImageDomainPlaceholder: 'image.tmdb.org',
       tmdbImageDomainHint: '自定義 TheMovieDb 圖片服務域名或代理地址',

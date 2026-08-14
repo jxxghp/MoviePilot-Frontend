@@ -2133,6 +2133,8 @@ export default {
       acoustIdApiKeyPlaceholder: '请输入 AcoustID API Key',
       acoustIdApiKeyHint: '用于通过音频指纹识别 MusicBrainz 录音 ID',
       acoustIdApiKeyRequired: '请输入 AcoustID API Key',
+      musicMetadataToSimplified: '音乐媒体信息转简体中文',
+      musicMetadataToSimplifiedHint: '将识别结果中的曲名、艺术家、专辑和分类等音乐信息强制转换为简体中文',
       tmdbImageDomain: 'TMDB 图片服务地址',
       tmdbImageDomainPlaceholder: 'image.tmdb.org',
       tmdbImageDomainHint: '自定义 TheMovieDb 图片服务域名或代理地址',

@@ -105,6 +105,7 @@ const SystemSettings = ref<any>({
     TMDB_API_DOMAIN: null,
     TMDB_API_KEY: null,
     ACOUSTID_API_KEY: null,
+    MUSIC_METADATA_TO_SIMPLIFIED: true,
     TMDB_IMAGE_DOMAIN: null,
     MUSIC_COVER_PROXY: null,
     TMDB_LOCALE: null,
@@ -2126,6 +2127,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 </VCol>
               </VRow>
               <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.MUSIC_METADATA_TO_SIMPLIFIED"
+                    :label="t('setting.system.musicMetadataToSimplified')"
+                    :hint="t('setting.system.musicMetadataToSimplifiedHint')"
+                    persistent-hint
+                  />
+                </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.RECOGNIZE_PLUGIN_FIRST"

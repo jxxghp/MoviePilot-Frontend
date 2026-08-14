@@ -2158,6 +2158,9 @@ export default {
       acoustIdApiKeyPlaceholder: 'Please enter AcoustID API Key',
       acoustIdApiKeyHint: 'Used to identify MusicBrainz recording IDs from audio fingerprints',
       acoustIdApiKeyRequired: 'Please enter AcoustID API Key',
+      musicMetadataToSimplified: 'Convert Music Metadata to Simplified Chinese',
+      musicMetadataToSimplifiedHint:
+        'Force recognized music titles, artists, albums, categories, and other metadata to Simplified Chinese',
       tmdbImageDomain: 'TMDB Image Service Address',
       tmdbImageDomainPlaceholder: 'image.tmdb.org',
       tmdbImageDomainHint: 'Customize TheMovieDb image service domain or proxy address',
