@@ -2233,3 +2233,91 @@ export interface CategoryConfig {
   movie?: { [key: string]: CategoryRule }
   tv?: { [key: string]: CategoryRule }
 }
+
+export type DirectoryMatchMode = 'sequential' | 'specificity'
+
+export interface TransferRouteMediaSnapshot {
+  type: '电影' | '电视剧' | '音乐' | '系列' | '未知'
+  title?: string
+  year?: string
+  media_source?: string
+  media_id?: string
+  tmdb_id?: number
+  category?: string
+}
+
+export interface RouteDiagnosticWarning {
+  code: string
+  message: string
+  related_indices: number[]
+}
+
+export interface CategoryConditionDecision {
+  field: string
+  expected?: unknown
+  actual?: unknown
+  matched: boolean
+  message: string
+}
+
+export interface CategoryRuleDecision {
+  index: number
+  category: string
+  matched: boolean
+  selected: boolean
+  reachable: boolean
+  conditions: CategoryConditionDecision[]
+}
+
+export interface CategoryRouteDecision {
+  automatic_category: string
+  provided_category: string
+  selected_category: string
+  source: 'automatic' | 'provided' | 'none'
+  rules: CategoryRuleDecision[]
+  warnings: RouteDiagnosticWarning[]
+}
+
+export interface RouteDiagnosticReason {
+  code: string
+  message: string
+}
+
+export interface DirectoryRouteCandidate {
+  index: number
+  directory: TransferDirectoryConf
+  eligible: boolean
+  selected: boolean
+  match_level: 'none' | 'wildcard' | 'media_type' | 'category'
+  same_source?: boolean | null
+  reasons: RouteDiagnosticReason[]
+}
+
+export interface DirectoryRouteDecision {
+  mode: DirectoryMatchMode
+  selected_index?: number | null
+  selected_directory?: TransferDirectoryConf | null
+  candidates: DirectoryRouteCandidate[]
+  warnings: RouteDiagnosticWarning[]
+}
+
+export interface TransferRoutePreviewRequest {
+  media: TransferRouteMediaSnapshot
+  metadata: Record<string, unknown>
+  category_config?: CategoryConfig
+  directories?: TransferDirectoryConf[]
+  match_mode?: DirectoryMatchMode
+  include_unsorted?: boolean
+  storage?: string
+  src_path?: string
+  target_storage?: string
+  dest_path?: string
+}
+
+export interface TransferRoutePreviewResponse {
+  media: TransferRouteMediaSnapshot
+  metadata: Record<string, unknown>
+  category: CategoryRouteDecision
+  route: DirectoryRouteDecision
+  comparisons: DirectoryRouteDecision[]
+}

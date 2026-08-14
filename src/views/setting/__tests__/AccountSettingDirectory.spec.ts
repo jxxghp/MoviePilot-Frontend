@@ -131,12 +131,19 @@ const directoriesFixture = [
   },
 ]
 
-function mockLoadedSettings(options: { mountedDisk?: boolean | null } = {}) {
+const categoryConfigFixture = {
+  movie: {},
+  tv: { 综艺: { genre_ids: '10764' } },
+}
+
+function mockLoadedSettings(options: { mountedDisk?: boolean | null; matchMode?: unknown } = {}) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/setting/public/Directories')
       return { data: { value: structuredClone(directoriesFixture) } }
     if (endpoint === 'system/setting/public/Storages') return { data: { value: structuredClone(storagesFixture) } }
     if (endpoint === 'media/category') return { 电影: ['华语'] }
+    if (endpoint === 'media/category/config') return structuredClone(categoryConfigFixture)
+    if (endpoint === 'system/setting/DirectoryMatchMode') return { value: options.matchMode ?? null }
     if (endpoint === 'system/env') {
       return {
         success: true,
@@ -190,6 +197,8 @@ describe('AccountSettingDirectory', () => {
     expect(await screen.findByText('目录1')).toBeInTheDocument()
     expect(screen.getByText('目录3')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: '挂载盘删除空目录' })).toBeChecked()
+    expect(getCard('目录').getByRole('button', { name: '按顺序匹配' })).toHaveClass('v-btn--active')
+    expect(getCard('存储').queryByRole('button', { name: '按顺序匹配' })).not.toBeInTheDocument()
     expect(getRenameEditors().map(input => (input as HTMLTextAreaElement).value)).toEqual([
       '{{ title }}',
       '{{ artist }}',
@@ -202,13 +211,26 @@ describe('AccountSettingDirectory', () => {
     expect(refreshOptions.active.value).toBe(false)
   })
 
+  it('loads and saves the optional specificity mode with the directory draft', async () => {
+    mockLoadedSettings({ matchMode: 'specificity' })
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+
+    expect(await screen.findByRole('button', { name: '精确规则优先' })).toHaveClass('v-btn--active')
+    await user.click(screen.getByRole('button', { name: '按顺序匹配' }))
+    await user.click(getCard('目录').getByRole('button', { name: '保存' }))
+
+    await waitFor(() => {
+      expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/DirectoryMatchMode', 'sequential')
+    })
+  })
+
   it('adds a non-conflicting directory name, updates paths, and saves current priority order', async () => {
     const user = userEvent.setup()
     await renderDirectorySettings()
     await screen.findByText('目录1')
     const directoryCard = getCard('目录')
-    const actionButtons = directoryCard.getAllByRole('button')
-    await user.click(actionButtons.at(-2)!)
+    await user.click(directoryCard.getByRole('button', { name: '添加目录' }))
 
     expect(screen.getByText('目录4')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'paths-目录1' }))
@@ -330,7 +352,12 @@ describe('AccountSettingDirectory', () => {
     await screen.findByText('本地存储')
     const directoryCard = getCard('目录')
     await user.click(directoryCard.getByRole('button', { name: '分类策略' }))
-    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ initialConfig: categoryConfigFixture }),
+      expect.objectContaining({ 'draft-change': expect.any(Function), save: expect.any(Function) }),
+      expect.anything(),
+    )
 
     const initialStorageLoads = mocks.apiGet.mock.calls.filter(
       ([url]) => url === 'system/setting/public/Storages',
@@ -341,5 +368,53 @@ describe('AccountSettingDirectory', () => {
         initialStorageLoads + 1,
       )
     })
+  })
+
+  it('opens route preview with current unsaved directory and category drafts', async () => {
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(screen.getByRole('button', { name: '分类策略' }))
+    const categoryEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2]
+    const changedConfig = { movie: {}, tv: { 动漫: { genre_ids: '16' } } }
+    categoryEvents['draft-change'](changedConfig)
+
+    await user.click(screen.getByRole('button', { name: '路由预览' }))
+    expect(mocks.openSharedDialog).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        categoryConfig: changedConfig,
+        directories: [
+          expect.objectContaining({ name: '目录1', priority: 0 }),
+          expect.objectContaining({ name: '目录3', priority: 1 }),
+        ],
+        matchMode: 'sequential',
+      }),
+      expect.anything(),
+      expect.anything(),
+    )
+  })
+
+  it('preserves an unsaved category draft during silent refresh', async () => {
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(screen.getByRole('button', { name: '分类策略' }))
+    const categoryEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2]
+    const changedConfig = { movie: {}, tv: { 动漫: { genre_ids: '16' } } }
+    categoryEvents['draft-change'](changedConfig)
+
+    const refresh = mocks.useSilentSettingRefresh.mock.calls[0]?.[0] as () => Promise<void>
+    await refresh()
+    await user.click(screen.getByRole('button', { name: '路由预览' }))
+
+    expect(mocks.openSharedDialog).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ categoryConfig: changedConfig }),
+      expect.anything(),
+      expect.anything(),
+    )
   })
 })
