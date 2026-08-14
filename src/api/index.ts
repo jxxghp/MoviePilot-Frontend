@@ -9,6 +9,7 @@ import {
   ApiRequestError,
   createApiClients,
   getApiBusinessErrorMessage,
+  isApiBusinessFailure,
   isApiResponse,
   type ApiFeedbackMode,
   type ApiFallbackMessageKey,
@@ -73,7 +74,7 @@ function initializeClient(instance: AxiosInstance | DataApiClient) {
 // 插件远程组件依赖完整 envelope ABI，内部页面则默认使用已解包的数据客户端。
 if (typeof window !== 'undefined') window.MoviePilotAPI = pluginApi
 
-export { ApiRequestError, getApiBusinessErrorMessage, isApiResponse, pluginApi }
+export { ApiRequestError, getApiBusinessErrorMessage, isApiBusinessFailure, isApiResponse, pluginApi }
 export type { ApiFeedbackMode, DataApiClient }
 
 export default api

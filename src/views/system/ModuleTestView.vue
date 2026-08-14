@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import api from '@/api'
+import api, { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 
@@ -105,6 +105,13 @@ async function moduleTest(index: number) {
     console.error(error)
     const target = modules.value[index]
     target.loading = false
+    // 未运行的模块后端返回空消息的业务失败，按未启用展示。
+    if (isApiBusinessFailure(error) && !getApiBusinessErrorMessage(error)) {
+      target.state = undefined
+      target.name = `${target.name} - ${t('moduleTest.disabled')}`
+      target.errmsg = ''
+      return
+    }
     target.state = 'error'
     target.errmsg = error instanceof Error ? error.message : t('moduleTest.requestFailed')
   }
