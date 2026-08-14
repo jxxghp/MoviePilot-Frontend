@@ -420,3 +420,10 @@ watch(
     </VCardActions>
   </VCard>
 </template>
+
+<style scoped>
+:deep(.app-responsive-input) {
+  min-block-size: 3rem;
+  padding-block: 0.375rem;
+}
+</style>
