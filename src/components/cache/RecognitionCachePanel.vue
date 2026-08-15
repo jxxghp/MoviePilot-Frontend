@@ -65,11 +65,17 @@ const statusOptions = computed(() => [
   { title: t('setting.cache.unrecognizedOnly'), value: 'unrecognized' },
 ])
 
-const typeOptions = computed(() => [
-  { title: t('setting.cache.recognitionTypeOptions.all'), value: 'all' },
-  { title: t('setting.cache.recognitionTypeOptions.media'), value: 'media' },
-  { title: t('setting.cache.recognitionTypeOptions.music'), value: 'music' },
-])
+const typeOptions = computed(() => {
+  const options = [
+    { title: t('setting.cache.recognitionTypeOptions.media'), value: 'media' },
+    { title: t('setting.cache.recognitionTypeOptions.music'), value: 'music' },
+  ]
+  // 小屏幕下不提供"全部"选项，避免两个列表同时渲染导致重叠
+  if (!isMobile.value) {
+    options.unshift({ title: t('setting.cache.recognitionTypeOptions.all'), value: 'all' })
+  }
+  return options
+})
 
 // 影视与音乐缓存统计汇总展示
 const totalCount = computed(() => cacheData.value.count + musicCacheData.value.count)
@@ -333,6 +339,13 @@ function getRecognitionStatusLabel(item: RecognitionCacheItem): string {
 onMounted(() => {
   void loadCacheData()
 })
+
+// 小屏幕下切换到"全部"时回退为影视，避免两个列表同时渲染
+watch(isMobile, mobile => {
+  if (mobile && typeFilter.value === 'all') {
+    typeFilter.value = 'media'
+  }
+}, { immediate: true })
 
 watch([searchFilter, statusFilter, typeFilter], () => {
   resetMobilePagination()
