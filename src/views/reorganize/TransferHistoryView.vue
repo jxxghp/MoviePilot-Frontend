@@ -2086,7 +2086,7 @@ onUnmounted(() => {
 
 .transfer-history-mobile-record {
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: var(--app-surface-radius);
   backdrop-filter: var(--transfer-history-mobile-surface-blur);
   background: rgba(var(--v-theme-surface), var(--transfer-history-mobile-surface-opacity));
   box-shadow: var(--app-card-rest-shadow);
@@ -2116,7 +2116,7 @@ onUnmounted(() => {
   grid-row: 1 / span 2;
   inline-size: 3.5rem;
   block-size: 5.25rem;
-  border-radius: 8px;
+  border-radius: var(--app-control-radius);
   overflow: hidden;
   background: var(--transfer-history-mobile-muted-bg);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
@@ -2125,7 +2125,7 @@ onUnmounted(() => {
 .transfer-history-mobile-record__poster {
   inline-size: 100%;
   block-size: 100%;
-  border-radius: 8px;
+  border-radius: var(--app-control-radius);
 }
 
 .transfer-history-mobile-record__poster :deep(.v-img__img) {
