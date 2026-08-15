@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import api from '@/api'
+import { manageStorage } from '@/api/manage'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -33,7 +33,7 @@ async function handleDone() {
 // 重置配置
 async function handleReset() {
   try {
-    await api.get(`/storage/reset/${props.type}`)
+    await manageStorage(props.type, 'reset_config')
     // 重置成功
     handleDone()
   } catch (e) {
@@ -64,7 +64,7 @@ const sourceItems = [
 // 保存alist设置
 async function savaAlistConfig() {
   try {
-    await api.post(`storage/save/${props.type}`, props.conf)
+    await manageStorage(props.type, 'save_config', { conf: props.conf })
   } catch (e) {
     console.error(e)
   }

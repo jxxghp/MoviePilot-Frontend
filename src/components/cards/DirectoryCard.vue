@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { StorageConf, TransferDirectoryConf } from '@/api/types'
-import api from '@/api'
+import { manageStorage } from '@/api/manage'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storageRemoteDict } from '@/api/constants'
@@ -138,11 +138,17 @@ async function loadTransferTypeItems() {
   if (!props.directory.library_storage || !props.directory.storage) return
   try {
     // 下载器储存整理方法
-    const storage_res = await api.get(`storage/transtype/${props.directory.storage}`)
-    const storage_transtype = (storage_res as any).transtype
+    const storage_res = await manageStorage<{ transtype?: Record<string, string> }>(
+      props.directory.storage,
+      'support_transtype',
+    )
+    const storage_transtype = storage_res?.transtype
     // 媒体库储存整理方法
-    const library_storage_res = await api.get(`storage/transtype/${props.directory.library_storage}`)
-    const library_storage_transtype = (library_storage_res as any).transtype
+    const library_storage_res = await manageStorage<{ transtype?: Record<string, string> }>(
+      props.directory.library_storage,
+      'support_transtype',
+    )
+    const library_storage_transtype = library_storage_res?.transtype
     // 为空终止
     if (!library_storage_transtype || !storage_transtype) return
     // 取并集

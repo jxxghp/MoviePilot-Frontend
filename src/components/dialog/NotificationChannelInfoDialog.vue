@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import api from '@/api'
+import { manageNotificationChannel } from '@/api/manage'
 import { NotificationConf } from '@/api/types'
 import { useToast } from 'vue-toastification'
 import { cloneDeep } from 'lodash-es'
@@ -280,10 +280,12 @@ async function fetchWechatClawBotStatus(options: WechatClawBotStatusFetchOptions
     wechatClawBotLoading.value = true
   }
   try {
-    const result = await api.get<WechatClawBotStatus>('notification/wechatclawbot/status', {
-      params: getWechatClawBotRequestParams({ auto_generate_qrcode: autoGenerateQrcode }),
-      feedback: 'silent',
-    })
+    const result = await manageNotificationChannel<WechatClawBotStatus>(
+      'WechatClawBot',
+      'status',
+      getWechatClawBotRequestParams({ auto_generate_qrcode: autoGenerateQrcode }),
+      { feedback: 'silent' },
+    )
     wechatClawBotStatus.value = result
     await updateWechatClawBotQrImage(result)
     const status = (result.qrcode_status || '').toLowerCase()
@@ -329,10 +331,12 @@ async function refreshWechatClawBotQrcode(options: WechatClawBotRefreshOptions =
     wechatClawBotActionLoading.value = true
   }
   try {
-    const result = await api.post<WechatClawBotStatus>('notification/wechatclawbot/refresh', null, {
-      params: getWechatClawBotRequestParams(),
-      feedback: 'silent',
-    })
+    const result = await manageNotificationChannel<WechatClawBotStatus>(
+      'WechatClawBot',
+      'refresh_qrcode',
+      getWechatClawBotRequestParams(),
+      { feedback: 'silent' },
+    )
     wechatClawBotStatus.value = result
     await updateWechatClawBotQrImage(result)
     wechatClawBotExpiredRefreshAttempted.value = false
@@ -359,10 +363,12 @@ async function logoutWechatClawBot() {
   }
   wechatClawBotActionLoading.value = true
   try {
-    await api.post<null>('notification/wechatclawbot/logout', null, {
-      params: getWechatClawBotRequestParams(),
-      feedback: 'silent',
-    })
+    await manageNotificationChannel(
+      'WechatClawBot',
+      'logout',
+      getWechatClawBotRequestParams(),
+      { feedback: 'silent' },
+    )
     $toast.success(t('notification.wechatclawbot.logoutSuccess'))
     await fetchWechatClawBotStatus({
       autoGenerateQrcode: true,

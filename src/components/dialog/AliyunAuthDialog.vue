@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import api from '@/api'
+import { manageStorage } from '@/api/manage'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -38,10 +38,15 @@ async function handleDone() {
   emit('done')
 }
 
-// 调用/aliyun/qrcode api生成二维码
+// 调用存储统一管理接口生成二维码
 async function getQrcode() {
   try {
-    const result = await api.get<{ codeUrl: string }>('/storage/qrcode/alipan', { feedback: 'silent' })
+    const result = await manageStorage<{ codeUrl: string }>(
+      'alipan',
+      'generate_qrcode',
+      {},
+      { feedback: 'silent' },
+    )
     qrCodeUrl.value = result.codeUrl
     timeoutTimer = setTimeout(checkQrcode, 3000)
   } catch (e) {
@@ -50,10 +55,15 @@ async function getQrcode() {
   }
 }
 
-// 调用/aliyun/check api验证二维码
+// 调用存储统一管理接口验证二维码
 async function checkQrcode() {
   try {
-    const result = await api.get<{ status: string; tip: string }>('/storage/check/alipan', { feedback: 'silent' })
+    const result = await manageStorage<{ status: string; tip: string }>(
+      'alipan',
+      'check_login',
+      {},
+      { feedback: 'silent' },
+    )
     const qrCodeStatus = result.status
     text.value = result.tip
     if (qrCodeStatus == 'LoginSuccess') {
@@ -79,7 +89,7 @@ async function checkQrcode() {
 // 重置配置
 async function handleReset() {
   try {
-    await api.get<null>('/storage/reset/alipan', { feedback: 'silent' })
+    await manageStorage('alipan', 'reset_config', {}, { feedback: 'silent' })
     // 重置成功
     alertType.value = 'success'
     handleDone()

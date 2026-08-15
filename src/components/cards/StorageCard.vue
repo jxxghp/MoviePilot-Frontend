@@ -9,7 +9,7 @@ import alist_png from '@images/misc/openlist.svg'
 import alistgo_png from '@images/misc/alist.svg'
 import custom_png from '@images/misc/database.png'
 import smb_png from '@images/misc/smb.png'
-import api from '@/api'
+import { manageStorage } from '@/api/manage'
 import { useToast } from 'vue-toastification'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useI18n } from 'vue-i18n'
@@ -127,7 +127,7 @@ const usage = computed(() => {
 /** 查询存储空间使用信息。 */
 async function queryStorage() {
   try {
-    const data: { total: number; available: number } = await api.get(`storage/usage/${props.storage.type}`)
+    const data = await manageStorage<{ total: number; available: number }>(props.storage.type, 'usage')
     total.value = data.total
     available.value = data.available
   } catch (error) {

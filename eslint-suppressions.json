@@ -101,7 +101,7 @@
   },
   "src/components/cards/DirectoryCard.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 3
+      "count": 1
     },
     "sonarjs/super-linear-regex": {
       "count": 1

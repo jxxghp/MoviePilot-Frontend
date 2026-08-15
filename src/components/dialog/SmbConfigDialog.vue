@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import api from '@/api'
+import { manageStorage } from '@/api/manage'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -29,7 +29,7 @@ async function handleDone() {
 // 重置配置
 async function handleReset() {
   try {
-    await api.get('/storage/reset/smb')
+    await manageStorage('smb', 'reset_config')
     // 重置成功
     handleDone()
   } catch (e) {
@@ -40,7 +40,7 @@ async function handleReset() {
 // 保存 SMB 设置
 async function saveSmbConfig() {
   try {
-    await api.post(`storage/save/smb`, props.conf)
+    await manageStorage('smb', 'save_config', { conf: props.conf })
   } catch (e) {
     console.error(e)
   }

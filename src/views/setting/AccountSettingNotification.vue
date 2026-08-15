@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { manageNotificationChannel } from '@/api/manage'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
 import { useI18n } from 'vue-i18n'
@@ -230,13 +231,15 @@ async function migrateWechatClawBotRenames() {
     ([oldName, newName]) => oldName && newName && oldName !== newName && activeWechatClawBotNames.has(newName),
   )
   for (const [oldName, newName] of renameEntries) {
-    await api.post('notification/wechatclawbot/migrate', null, {
-      feedback: 'silent',
-      params: {
-        old_source: oldName,
-        new_source: newName,
+    await manageNotificationChannel(
+      'WechatClawBot',
+      'migrate_cache',
+      {
+        old_name: oldName,
+        new_name: newName,
       },
-    })
+      { feedback: 'silent' },
+    )
   }
 }
 

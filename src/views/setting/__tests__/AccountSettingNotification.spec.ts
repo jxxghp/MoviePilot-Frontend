@@ -190,8 +190,10 @@ describe('AccountSettingNotification', () => {
     await user.click(getCard('通知渠道').getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(2))
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'notification/wechatclawbot/migrate', null, {
-      params: { old_source: 'Alpha', new_source: 'Gamma' },
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'notification/manage', {
+      target: 'WechatClawBot',
+      action: 'migrate_cache',
+      params: { old_name: 'Alpha', new_name: 'Gamma' },
     })
     expect(mocks.apiPost).toHaveBeenNthCalledWith(
       2,
@@ -216,8 +218,10 @@ describe('AccountSettingNotification', () => {
     mocks.apiPost.mockResolvedValue({ success: true })
     await user.click(save)
     await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(2))
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'notification/wechatclawbot/migrate', null, {
-      params: { old_source: 'Alpha', new_source: 'Beta' },
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'notification/manage', {
+      target: 'WechatClawBot',
+      action: 'migrate_cache',
+      params: { old_name: 'Alpha', new_name: 'Beta' },
     })
     expect(mocks.apiPost).toHaveBeenNthCalledWith(
       2,

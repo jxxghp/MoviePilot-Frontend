@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import api from '@/api'
+import { manageStorage } from '@/api/manage'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -64,7 +64,7 @@ function handleDone() {
 // 重置配置
 async function handleReset() {
   try {
-    await api.get<null>('/storage/reset/u115', { feedback: 'silent' })
+    await manageStorage('u115', 'reset_config', {}, { feedback: 'silent' })
     setMessage('success', t('dialog.u115Auth.authSuccess'))
     handleDone()
   } catch (error) {
@@ -76,7 +76,12 @@ async function handleReset() {
 // 获取授权URL
 async function fetchAuthUrl() {
   try {
-    const result = await api.get<{ authUrl: string; state: string }>('/storage/auth_url/u115', { feedback: 'silent' })
+    const result = await manageStorage<{ authUrl: string; state: string }>(
+      'u115',
+      'generate_auth_url',
+      {},
+      { feedback: 'silent' },
+    )
     authUrl.value = result.authUrl
     authState.value = result.state
   } catch (error) {
@@ -120,7 +125,12 @@ function openAuthWindow() {
 // 检查授权状态
 async function checkAuthStatus() {
   try {
-    const result = await api.get<{ status: number; tip?: string }>('/storage/check/u115', { feedback: 'silent' })
+    const result = await manageStorage<{ status: number; tip?: string }>(
+      'u115',
+      'check_login',
+      {},
+      { feedback: 'silent' },
+    )
     const { status, tip } = result
 
     if (status === AUTH_STATUS_SUCCESS) {
