@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref, type Ref } from 'vue'
-import api from '@/api'
+import { manageLlmProvider } from '@/api/manage'
 
 export interface LlmProviderAuthMethod {
   id: string
@@ -248,7 +248,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   async function loadProviders(preserveBaseUrl = true) {
     loadingProviders.value = true
     try {
-      const result = await api.get<LlmProvider[]>('llm/providers')
+      const result = await manageLlmProvider<LlmProvider[]>('', 'list_providers')
       providers.value = Array.isArray(result) ? result : []
       if (!selectedProvider.value && providers.value.length > 0) {
         options.provider.value = providers.value[0].id
@@ -266,9 +266,10 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
 
     loadingModels.value = true
     try {
-      const payload = await api.get<{ auth_status?: LlmProviderAuthStatus; models?: LlmModel[] }>('llm/models', {
-        params: {
-          provider: normalizeValue(options.provider.value),
+      const payload = await manageLlmProvider<{ auth_status?: LlmProviderAuthStatus; models?: LlmModel[] }>(
+        normalizeValue(options.provider.value),
+        'list_models',
+        {
           api_key: normalizeValue(options.apiKey.value) || undefined,
           base_url: normalizeValue(options.baseUrl.value) || undefined,
           base_url_preset: normalizeValue(options.baseUrlPreset?.value) || undefined,
@@ -276,7 +277,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
           user_agent: normalizeValue(options.userAgent?.value) || undefined,
           force_refresh: forceRefresh,
         },
-      })
+      )
       models.value = Array.isArray(payload.models) ? payload.models : []
       updateProviderAuthStatus(normalizeValue(options.provider.value), payload.auth_status)
 
@@ -311,9 +312,10 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     authPolling.value = true
     clearPollTimer()
     try {
-      const result = await api.post<Partial<LlmProviderAuthSession>>(
-        `llm/provider-auth/${authSession.value.session_id}/poll`,
-        undefined,
+      const result = await manageLlmProvider<Partial<LlmProviderAuthSession>>(
+        normalizeValue(options.provider.value),
+        'poll_auth',
+        { session_id: authSession.value.session_id },
         { feedback: 'silent' },
       )
 
@@ -347,10 +349,11 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
       throw new Error('LLM provider is required')
     }
 
-    const result = await api.post<LlmProviderAuthSession>('llm/provider-auth/start', {
-      provider: normalizeValue(options.provider.value),
-      method: methodId,
-    })
+    const result = await manageLlmProvider<LlmProviderAuthSession>(
+      normalizeValue(options.provider.value),
+      'start_auth',
+      { method: methodId },
+    )
 
     authSession.value = result
     authDialogVisible.value = true
@@ -363,7 +366,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   async function disconnectAuth() {
     if (!selectedProvider.value) return false
 
-    await api.delete(`llm/provider-auth/${normalizeValue(options.provider.value)}`)
+    await manageLlmProvider(normalizeValue(options.provider.value), 'disconnect')
 
     await loadProviders()
     return true

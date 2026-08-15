@@ -9,13 +9,13 @@ export interface ManageRequest {
 }
 
 /**
- * 调用统一管理端点（通知渠道 / 网盘存储）
+ * 调用统一管理端点（通知渠道 / 网盘存储 / LLM 提供商）
  *
  * 端点层不定义任何目标特定的名称与参数，
  * 目标标识、管理动作与表单参数原样透传给后端模块
  */
 function manageTarget<T = Record<string, unknown>>(
-  endpoint: 'notification/manage' | 'storage/manage',
+  endpoint: 'notification/manage' | 'storage/manage' | 'llm/manage',
   request: ManageRequest,
   config?: AxiosRequestConfig,
 ): Promise<T> {
@@ -40,4 +40,14 @@ export function manageStorage<T = Record<string, unknown>>(
   config?: AxiosRequestConfig,
 ): Promise<T> {
   return manageTarget<T>('storage/manage', { target: storage, action, params }, config)
+}
+
+/** 对指定 LLM 提供商执行管理动作，返回响应中的业务数据。 */
+export function manageLlmProvider<T = Record<string, unknown>>(
+  provider: string,
+  action: string,
+  params: Record<string, unknown> = {},
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  return manageTarget<T>('llm/manage', { target: provider, action, params }, config)
 }

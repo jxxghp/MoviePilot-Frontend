@@ -4,12 +4,12 @@ import { defineComponent, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  apiGet: vi.fn(),
+  apiPost: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
   default: createDataApiMock({
-    get: (...args: unknown[]) => mocks.apiGet(...args),
+    post: (...args: unknown[]) => mocks.apiPost(...args),
   }),
 }))
 
@@ -33,11 +33,11 @@ function createProvider(id: string, runtime: string) {
 
 describe('useLlmProviderDirectory', () => {
   beforeEach(() => {
-    mocks.apiGet.mockReset()
+    mocks.apiPost.mockReset()
   })
 
   it('只为 OpenAI 兼容 runtime 或声明 Responses 工具能力的模型显示 API 协议字段', async () => {
-    mocks.apiGet.mockResolvedValue({
+    mocks.apiPost.mockResolvedValue({
       success: true,
       data: [
         createProvider('openai', 'openai_compatible'),
@@ -83,7 +83,7 @@ describe('useLlmProviderDirectory', () => {
 
     expect(wrapper.vm.showApiProtocolField).toBe(false)
 
-    mocks.apiGet.mockResolvedValueOnce({
+    mocks.apiPost.mockResolvedValueOnce({
       success: true,
       data: {
         models: [
@@ -110,7 +110,7 @@ describe('useLlmProviderDirectory', () => {
 
     wrapper.vm.selectProvider('google')
     await nextTick()
-    mocks.apiGet.mockResolvedValueOnce({
+    mocks.apiPost.mockResolvedValueOnce({
       success: true,
       data: {
         models: [

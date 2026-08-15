@@ -445,20 +445,23 @@ describe('AccountSettingSystem', () => {
     await fireEvent.click(testLlm)
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('LLM 调用测试失败：provider rejected'))
     const firstCall = mocks.apiPost.mock.calls[0]
-    expect(firstCall?.[0]).toBe('llm/test')
+    expect(firstCall?.[0]).toBe('llm/manage')
     expect(firstCall?.[1]).toEqual({
-      api_key: 'secret-key',
-      api_protocol: 'responses',
-      base_url: 'https://llm.example/v1',
-      base_url_preset: 'custom',
-      enabled: true,
-      model: 'gpt-5',
-      provider: 'openai',
-      thinking_level: 'high',
-      temperature: 0.7,
-      use_proxy: false,
-      user_agent: 'MoviePilot-Test',
-      web_search_mode: 'builtin',
+      target: 'openai',
+      action: 'test',
+      params: {
+        api_key: 'secret-key',
+        api_protocol: 'responses',
+        base_url: 'https://llm.example/v1',
+        base_url_preset: 'custom',
+        enabled: true,
+        model: 'gpt-5',
+        thinking_level: 'high',
+        temperature: 0.7,
+        use_proxy: false,
+        user_agent: 'MoviePilot-Test',
+        web_search_mode: 'builtin',
+      },
     })
     expect(firstCall?.[2]).toEqual({ signal: expect.any(AbortSignal) })
     expect(testLlm).toBeEnabled()

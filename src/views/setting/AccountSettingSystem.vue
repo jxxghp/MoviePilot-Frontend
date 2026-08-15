@@ -2,6 +2,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { manageLlmProvider } from '@/api/manage'
 import { useGlobalSettingsStore } from '@/stores'
 import { DownloaderConf, MediaServerConf } from '@/api/types'
 import DownloaderCard from '@/components/cards/DownloaderCard.vue'
@@ -817,7 +818,7 @@ async function testLlmConnection() {
 
   const snapshot = buildLlmSnapshot()
   const snapshotKey = buildLlmSnapshotKey(snapshot)
-  const payload = buildLlmTestPayload(snapshot)
+  const { provider: testProvider, ...testParams } = buildLlmTestPayload(snapshot)
   const requestId = ++llmTestRequestId
   if (llmTestAbortController) llmTestAbortController.abort()
   const abortController = new AbortController()
@@ -825,7 +826,7 @@ async function testLlmConnection() {
 
   testingLlm.value = true
   try {
-    await api.post('llm/test', payload, {
+    await manageLlmProvider(testProvider, 'test', testParams, {
       feedback: 'silent',
       signal: abortController.signal,
     })
