@@ -282,7 +282,7 @@ const getUIModeIcon = computed(() => {
 
 // 主题相关功能
 const { name: themeName, global: globalTheme } = useTheme()
-const savedTheme = ref(localStorage.getItem('theme') ?? 'glass')
+const savedTheme = ref(localStorage.getItem('theme') ?? 'purple')
 const currentThemeName = ref(savedTheme.value)
 const themeCustomizerSettings = ref(readThemeCustomizerSettings())
 
@@ -332,7 +332,7 @@ function getThemeLayoutTitle(layout: ThemeCustomizerSettings['layout']) {
 }
 
 const currentThemeSummary = computed(() => {
-  const themeTitle = themes.find(theme => theme.name === currentThemeName.value)?.title || t('theme.glass')
+  const themeTitle = themes.find(theme => theme.name === currentThemeName.value)?.title || t('theme.purple')
   const layoutTitle = appMode.value ? '' : getThemeLayoutTitle(themeCustomizerSettings.value.layout)
 
   if (layoutTitle) return `${themeTitle} · ${layoutTitle}`

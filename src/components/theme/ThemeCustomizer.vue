@@ -215,7 +215,7 @@ async function handleResetSettings() {
   await setRadius('default')
   await setShadow('0')
   await setSkin('default')
-  await setTheme('glass')
+  await setTheme('purple')
 }
 </script>
 

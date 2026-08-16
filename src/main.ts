@@ -125,7 +125,7 @@ const AsyncAceEditor = defineAsyncComponent(async () => {
 
 const AsyncApexChart = defineAsyncComponent(async () => {
   const component = (await import('vue3-apexcharts')).default
-  const themeName = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'glass'
+  const themeName = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'purple'
   configureApexChartsTheme(themeName)
   return component
 })
