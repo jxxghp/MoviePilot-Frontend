@@ -1008,6 +1008,24 @@ html[data-theme='glass'] {
     --workflow-card-header-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
   }
 
+  // 工作流编辑器组件选择栏
+  .workflow-sidebar {
+    --workflow-sidebar-background: var(--glass-surface);
+    --workflow-sidebar-backdrop-filter: var(--glass-surface-backdrop-filter);
+    --workflow-sidebar-header-background: transparent;
+    --workflow-sidebar-footer-background: transparent;
+    --workflow-sidebar-border-color: var(--glass-border);
+    --workflow-sidebar-card-background: var(--glass-control);
+    --workflow-sidebar-card-background-hover: var(--glass-button-surface-hover);
+    --workflow-sidebar-desc-color: var(--glass-control-placeholder-color);
+  }
+
+  // 工作流编辑器流程边设置面板
+  .workflow-edge-panel {
+    --workflow-edge-panel-background: var(--glass-surface);
+    --workflow-edge-panel-backdrop-filter: var(--glass-surface-backdrop-filter);
+  }
+
   // 分享卡保留原随机渐变的色相，以半透明染色、吸光和镜面层组成有色玻璃。
   .workflow-share-card {
     --workflow-share-glass-start-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.38);

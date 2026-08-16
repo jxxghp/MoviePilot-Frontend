@@ -589,12 +589,17 @@ const isMacOS = computed(() => {
 }
 
 .workflow-edge-panel {
+  --workflow-edge-panel-background: rgb(var(--v-theme-surface));
+  --workflow-edge-panel-backdrop-filter: none;
+
   position: absolute;
   z-index: 120;
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background-color: rgb(var(--v-theme-surface));
+  -webkit-backdrop-filter: var(--workflow-edge-panel-backdrop-filter);
+  backdrop-filter: var(--workflow-edge-panel-backdrop-filter);
+  background-color: var(--workflow-edge-panel-background);
   gap: 14px;
   inline-size: min(360px, calc(100vw - 32px));
   inset-block-start: 20px;

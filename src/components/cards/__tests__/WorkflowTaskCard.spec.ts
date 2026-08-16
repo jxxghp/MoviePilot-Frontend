@@ -108,7 +108,7 @@ describe('WorkflowTaskCard redesign', () => {
     expect(container.querySelector('.v-chip')).toHaveTextContent(label)
   })
 
-  it('renders structured node states as segmented action progress', async () => {
+  it('renders the global runtime progress on the bottom progress bar', async () => {
     const { container } = await renderCard({
       execution_state: {
         nodes: {
@@ -116,25 +116,50 @@ describe('WorkflowTaskCard redesign', () => {
           scrape: { state: 'skipped' },
           transfer: { state: 'running' },
         },
-        runtime: { finished_actions: 2 },
+        runtime: { finished_actions: 2, progress: 66 },
       },
       state: 'R',
     })
 
-    expect(screen.getByText('2 / 3')).toBeInTheDocument()
-    expect(container.querySelectorAll('.workflow-task-card__action-segment--complete')).toHaveLength(2)
-    expect(container.querySelectorAll('.workflow-task-card__action-segment--active')).toHaveLength(1)
     expect(screen.getByText('正在执行 整理文件')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar', { name: '动作进度: 2 / 3' })).toHaveAttribute('aria-valuenow', '2')
+    const fill = container.querySelector('.workflow-task-card__progress-fill') as HTMLElement
+    expect(fill.style.inlineSize).toBe('66%')
+    expect(screen.getByRole('progressbar', { name: '扫描和刮削' })).toHaveAttribute('aria-valuenow', '66')
   })
 
-  it('falls back to unique legacy current-action ids and clamps the count', async () => {
+  it('falls back to legacy current-action counts and clamps the progress', async () => {
     const { container } = await renderCard({ current_action: ',scan,,scrape,scan,unknown,', state: 'P' })
 
-    expect(screen.getByText('2 / 3')).toBeInTheDocument()
-    expect(container.querySelectorAll('.workflow-task-card__action-segment--complete')).toHaveLength(2)
-    expect(container.querySelectorAll('.workflow-task-card__action-segment--pending')).toHaveLength(1)
+    const fill = container.querySelector('.workflow-task-card__progress-fill') as HTMLElement
+    expect(fill.style.inlineSize).toBe('67%')
     expect(screen.getByText('上次执行尚未完成')).toBeInTheDocument()
+  })
+
+  it('shows the run count after the last execution time', async () => {
+    const lastTime = '2026-08-03 08:00:00'
+    const { rerender } = await renderCard({ last_time: lastTime, run_count: 3, state: 'S' })
+
+    expect(screen.getByText(`上次执行 ${formatDateDifference(lastTime)} · 已执行 3 次`)).toBeInTheDocument()
+
+    await rerender({
+      eventTypes: [],
+      workflow: createWorkflow({ last_time: lastTime, run_count: 0, state: 'S' }),
+    })
+    expect(screen.getByText(`上次执行 ${formatDateDifference(lastTime)}`)).toBeInTheDocument()
+  })
+
+  it('always renders the progress bar at the bottom of the card', async () => {
+    const { container, rerender } = await renderCard({ state: 'W' })
+
+    const idleBar = container.querySelector('.workflow-task-card__progress') as HTMLElement
+    expect(idleBar).toBeInTheDocument()
+    expect(idleBar).toHaveAttribute('aria-valuenow', '0')
+
+    await rerender({
+      eventTypes: [],
+      workflow: createWorkflow({ execution_state: { runtime: { progress: 100 } }, state: 'S' }),
+    })
+    expect(container.querySelector('.workflow-task-card__progress')).toHaveAttribute('aria-valuenow', '100')
   })
 
   it('shows failure, last-run and never-run execution details at the bottom', async () => {

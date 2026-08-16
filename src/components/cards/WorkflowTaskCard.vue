@@ -158,7 +158,6 @@ async function handleReset(item: Workflow) {
 }
 
 type WorkflowStatusColor = 'error' | 'info' | 'primary' | 'secondary' | 'success' | 'warning'
-type WorkflowActionSegmentState = 'active' | 'complete' | 'failed' | 'pending'
 
 interface WorkflowActionDisplay {
   id?: string
@@ -243,20 +242,22 @@ const finishedActionCount = computed(() => {
   return Math.min(Math.max(count, 0), totalActionCount.value)
 })
 
-const actionSegments = computed<WorkflowActionSegmentState[]>(() => {
-  return workflowActions.value.map((action, index) => {
-    const actionId = action.id ? String(action.id) : ''
-    const nodeState = actionId ? executionNodes.value[actionId]?.state : undefined
+// 全局执行进度（%）：优先使用后端下发的整体进度，缺失时按已完成动作数兜底计算
+const globalProgressPercent = computed(() => {
+  const runtimeProgress = Number(props.workflow.execution_state?.runtime?.progress)
+  if (Number.isFinite(runtimeProgress)) {
+    return Math.min(Math.max(Math.round(runtimeProgress), 0), 100)
+  }
 
-    if (nodeState === 'failed') return 'failed'
-    if (nodeState === 'running' || nodeState === 'queued') return 'active'
-    if (nodeState === 'success' || nodeState === 'completed' || nodeState === 'skipped') return 'complete'
-    if (actionId && currentActionIds.value.has(actionId)) return 'complete'
-    if (index < finishedActionCount.value) return 'complete'
-    if (props.workflow.state === 'R' && index === finishedActionCount.value) return 'active'
+  if (totalActionCount.value <= 0) return 0
 
-    return 'pending'
-  })
+  return Math.min(100, Math.round((finishedActionCount.value / totalActionCount.value) * 100))
+})
+
+// 已执行次数：大于 0 时追加在执行状态行后展示
+const runCountText = computed(() => {
+  const count = props.workflow.run_count || 0
+  return count > 0 ? ` · ${t('workflow.task.info.runCount', { count })}` : ''
 })
 
 const runningActionName = computed(() => {
@@ -279,21 +280,7 @@ const executionStatus = computed(() => {
       }
     }
 
-    if (totalActionCount.value > 0) {
-      return {
-        color: 'primary' as WorkflowStatusColor,
-        icon: 'mdi-pulse',
-        text: t('workflow.task.info.preparingAction', {
-          current: Math.min(finishedActionCount.value + 1, totalActionCount.value),
-        }),
-      }
-    }
-
-    return {
-      color: 'secondary' as WorkflowStatusColor,
-      icon: 'mdi-vector-polyline-remove',
-      text: t('workflow.task.info.noActions'),
-    }
+    return null
   }
 
   if (props.workflow.state === 'F') {
@@ -308,7 +295,7 @@ const executionStatus = computed(() => {
     return {
       color: undefined,
       icon: 'mdi-history',
-      text: t('workflow.task.info.lastExecuted', { time: formatDateDifference(props.workflow.last_time) }),
+      text: `${t('workflow.task.info.lastExecuted', { time: formatDateDifference(props.workflow.last_time) })}${runCountText.value}`,
     }
   }
 
@@ -460,44 +447,8 @@ const executionStatus = computed(() => {
               </VBtn>
             </div>
 
-            <div class="workflow-task-card__metrics">
-              <div class="workflow-task-card__metric">
-                <span>{{ t('workflow.task.info.actionCount') }}</span>
-                <strong>{{ totalActionCount }}</strong>
-              </div>
-              <div class="workflow-task-card__metric">
-                <span>{{ t('workflow.task.info.runCount') }}</span>
-                <strong>{{ workflow.run_count || 0 }}</strong>
-              </div>
-            </div>
-
-            <div class="workflow-task-card__progress">
-              <div class="workflow-task-card__progress-label">
-                <span>{{ t('workflow.task.info.actionProgress') }}</span>
-                <strong>{{ finishedActionCount }} / {{ totalActionCount }}</strong>
-              </div>
-              <div
-                class="workflow-task-card__action-track"
-                role="progressbar"
-                :aria-label="`${t('workflow.task.info.actionProgress')}: ${finishedActionCount} / ${totalActionCount}`"
-                aria-valuemin="0"
-                :aria-valuemax="Math.max(totalActionCount, 1)"
-                :aria-valuenow="finishedActionCount"
-              >
-                <span
-                  v-for="(segment, index) in actionSegments"
-                  :key="workflowActions[index]?.id || index"
-                  class="workflow-task-card__action-segment"
-                  :class="`workflow-task-card__action-segment--${segment}`"
-                />
-                <span
-                  v-if="totalActionCount === 0"
-                  class="workflow-task-card__action-segment workflow-task-card__action-segment--empty"
-                />
-              </div>
-            </div>
-
             <div
+              v-if="executionStatus"
               class="workflow-task-card__execution-status"
               :class="executionStatus.color ? `text-${executionStatus.color}` : 'text-medium-emphasis'"
               :title="executionStatus.text"
@@ -506,6 +457,17 @@ const executionStatus = computed(() => {
               <span>{{ executionStatus.text }}</span>
             </div>
           </VCardText>
+
+          <footer
+            class="workflow-task-card__progress"
+            role="progressbar"
+            :aria-label="workflow.name"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuenow="globalProgressPercent"
+          >
+            <span class="workflow-task-card__progress-fill" :style="{ inlineSize: `${globalProgressPercent}%` }" />
+          </footer>
         </VCard>
       </div>
     </VHover>
@@ -530,7 +492,7 @@ const executionStatus = computed(() => {
   --workflow-card-header-shadow: none;
 
   display: flex;
-  min-block-size: 226px;
+  min-block-size: 176px;
   flex-direction: column;
   overflow: hidden;
 }
@@ -613,8 +575,8 @@ const executionStatus = computed(() => {
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 10px;
-  padding: 11px 12px !important;
+  gap: 8px;
+  padding: 12px 12px 12px !important;
 }
 
 .workflow-task-card__status-row {
@@ -625,77 +587,20 @@ const executionStatus = computed(() => {
   gap: 10px;
 }
 
-.workflow-task-card__metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.workflow-task-card__metric {
-  display: grid;
-  min-inline-size: 0;
-  gap: 1px;
-  padding-inline-end: 10px;
-}
-
-.workflow-task-card__metric + .workflow-task-card__metric {
-  padding-inline: 10px 0;
-  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), var(--v-border-opacity));
-}
-
-.workflow-task-card__metric span,
-.workflow-task-card__progress-label span {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-
-.workflow-task-card__metric strong,
-.workflow-task-card__progress-label strong {
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
 .workflow-task-card__progress {
-  min-inline-size: 0;
+  flex: 0 0 auto;
+  block-size: 5px;
+  inline-size: 100%;
+  overflow: hidden;
+  background: rgba(var(--v-theme-on-surface), 0.1);
 }
 
-.workflow-task-card__progress-label {
-  display: flex;
-  min-inline-size: 0;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.workflow-task-card__action-track {
-  display: flex;
-  min-inline-size: 0;
-  gap: 4px;
-  margin-block-start: 6px;
-}
-
-.workflow-task-card__action-segment {
-  block-size: 6px;
-  min-inline-size: 2px;
-  flex: 1 1 0;
+.workflow-task-card__progress-fill {
+  display: block;
+  block-size: 100%;
   border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-on-surface), 0.12);
-}
-
-.workflow-task-card__action-segment--complete {
   background: rgb(var(--workflow-status-rgb));
-}
-
-.workflow-task-card__action-segment--active {
-  background: rgba(var(--workflow-status-rgb), 0.22);
-  box-shadow: inset 0 0 0 1px rgb(var(--workflow-status-rgb));
-}
-
-.workflow-task-card__action-segment--failed {
-  background: rgb(var(--v-theme-error));
-}
-
-.workflow-task-card__action-segment--empty {
-  background: rgba(var(--v-theme-on-surface), 0.08);
+  transition: inline-size 0.3s ease;
 }
 
 .workflow-task-card__execution-status {
@@ -704,8 +609,6 @@ const executionStatus = computed(() => {
   align-items: center;
   gap: 7px;
   margin-block-start: auto;
-  padding-block-start: 9px;
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), var(--v-border-opacity));
 }
 
 .workflow-task-card__execution-status .v-icon {
@@ -721,7 +624,7 @@ const executionStatus = computed(() => {
 
 @media (width <= 599.98px) {
   .workflow-task-card {
-    min-block-size: 222px;
+    min-block-size: 170px;
   }
 
   .workflow-task-card__header,
@@ -730,7 +633,7 @@ const executionStatus = computed(() => {
   }
 
   .workflow-task-card__body {
-    gap: 9px;
+    gap: 7px;
   }
 }
 </style>

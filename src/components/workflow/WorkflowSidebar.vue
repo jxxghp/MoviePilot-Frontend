@@ -187,10 +187,21 @@ onMounted(() => {
 @use 'sass:color';
 
 .workflow-sidebar {
+  --workflow-sidebar-background: rgb(var(--v-theme-background));
+  --workflow-sidebar-backdrop-filter: none;
+  --workflow-sidebar-header-background: rgb(var(--v-theme-background));
+  --workflow-sidebar-footer-background: rgb(var(--v-theme-background));
+  --workflow-sidebar-border-color: rgba(var(--v-theme-on-background), 0.06);
+  --workflow-sidebar-card-background: rgb(var(--v-theme-surface-variant));
+  --workflow-sidebar-card-background-hover: rgb(var(--v-theme-surface-variant));
+  --workflow-sidebar-desc-color: rgba(var(--v-theme-on-background), 0.55);
+
   position: absolute;
   z-index: 100;
   overflow: hidden;
-  background-color: rgb(var(--v-theme-background));
+  -webkit-backdrop-filter: var(--workflow-sidebar-backdrop-filter);
+  backdrop-filter: var(--workflow-sidebar-backdrop-filter);
+  background-color: var(--workflow-sidebar-background);
   box-shadow: 0 0 15px rgba(0, 0, 0, 8%);
   inline-size: 280px;
   inset-block: 0;
@@ -220,8 +231,8 @@ onMounted(() => {
 .sidebar-header {
   flex-shrink: 0;
   padding: 16px;
-  background-color: rgb(var(--v-theme-background));
-  border-block-end: 1px solid rgba(var(--v-theme-on-background), 0.06);
+  background-color: var(--workflow-sidebar-header-background);
+  border-block-end: 1px solid var(--workflow-sidebar-border-color);
 
   .header-content {
     position: relative;
@@ -281,11 +292,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 10px;
-  background-color: rgb(var(--v-theme-surface-variant));
+  background-color: var(--workflow-sidebar-card-background);
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: rgb(var(--v-theme-surface-variant));
+    background-color: var(--workflow-sidebar-card-background-hover);
     transform: translateY(-2px);
   }
 }
@@ -318,7 +329,7 @@ onMounted(() => {
 
 .component-desc {
   overflow: hidden;
-  color: #71717a;
+  color: var(--workflow-sidebar-desc-color);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -327,8 +338,8 @@ onMounted(() => {
 .sidebar-footer {
   flex-shrink: 0;
   padding: 12px;
-  background-color: rgb(var(--v-theme-background));
-  border-block-start: 1px solid rgba(0, 0, 0, 6%);
+  background-color: var(--workflow-sidebar-footer-background);
+  border-block-start: 1px solid var(--workflow-sidebar-border-color);
 
   .drag-btn {
     background-color: rgb(var(--v-theme-primary));
