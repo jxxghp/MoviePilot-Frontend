@@ -1,5 +1,6 @@
 import SiteUserDataDialog from '@/components/dialog/SiteUserDataDialog.vue'
 import type { SiteUserData } from '@/api/types'
+import vuetify from '@/plugins/vuetify'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createSite, createSiteUserData } from '@tests/support/factories/site'
 import { refreshSiteUserDataHandler, siteUserDataHandler } from '@tests/support/msw/handlers/site'
@@ -97,6 +98,8 @@ function getRetryButton() {
 describe('SiteUserDataDialog projections', () => {
   beforeEach(() => {
     chartInputs.length = 0
+    // 图表明暗断言基于浅色环境，显式固定主题避免受应用默认主题影响。
+    vuetify.theme.global.name.value = 'light'
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })

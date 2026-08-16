@@ -232,6 +232,8 @@ describe('AccountSettingNotification', () => {
 
   it('loads, edits, and saves a template while pausing refresh and following the active theme', async () => {
     const previousTheme = vuetify.theme.global.name.value
+    // 从浅色主题起步验证编辑器跟随主题切换，不受应用默认主题影响。
+    vuetify.theme.global.name.value = 'light'
     const controller = createDialogController()
     mocks.openSharedDialog.mockReturnValue(controller)
 
