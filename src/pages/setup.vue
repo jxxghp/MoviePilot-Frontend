@@ -30,6 +30,7 @@ const {
   completeWizard,
   initialize,
   isLoading,
+  isActionPending,
 } = useSetupWizard()
 
 // 初始化
@@ -149,7 +150,7 @@ onMounted(async () => {
                 v-if="currentStep !== 1"
                 prepend-icon="mdi-chevron-left"
                 @click="prevStep"
-                :disabled="connectivityTest.isTesting"
+                :disabled="isActionPending"
               >
                 {{ t('common.previous') }}
               </VBtn>
@@ -161,17 +162,11 @@ onMounted(async () => {
                 color="primary"
                 append-icon="mdi-chevron-right"
                 @click="nextStep"
-                :disabled="connectivityTest.isTesting"
+                :disabled="isActionPending"
               >
                 {{ connectivityTest.isTesting ? t('setupWizard.testing') : t('common.next') }}
               </VBtn>
-              <VBtn
-                v-else
-                color="success"
-                prepend-icon="mdi-check"
-                @click="completeWizard"
-                :disabled="connectivityTest.isTesting"
-              >
+              <VBtn v-else color="success" prepend-icon="mdi-check" @click="completeWizard" :disabled="isActionPending">
                 {{ t('setupWizard.complete') }}
               </VBtn>
             </div>

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import type { User } from '@/api/types'
+import type { DownloaderConf, MediaServerConf, NotificationConf, TransferDirectoryConf, User } from '@/api/types'
 
 export interface WizardData {
   basic: {
@@ -32,21 +32,21 @@ export interface WizardData {
   downloader: {
     type: string
     name: string
-    config: any
+    config: DownloaderConf['config']
   }
   mediaServer: {
     type: string
     name: string
-    config: any
-    sync_libraries: any[]
-    switchs: any[]
+    config: MediaServerConf['config']
+    sync_libraries: NonNullable<MediaServerConf['sync_libraries']>
+    switchs: unknown[]
   }
   notification: {
     type: string
     name: string
     enabled: boolean
-    config: any
-    switchs: any[]
+    config: NotificationConf['config']
+    switchs: NonNullable<NotificationConf['switchs']>
   }
   agent: {
     enabled: boolean
@@ -162,7 +162,7 @@ function normalizeThinkingLevelValue(value?: unknown) {
   return aliasMap[normalized] || normalized
 }
 
-function resolveThinkingLevelValue(data?: Record<string, any>) {
+function resolveThinkingLevelValue(data?: Record<string, unknown>) {
   const explicit = normalizeThinkingLevelValue(data?.LLM_THINKING_LEVEL)
   if (explicit) return explicit
 
@@ -178,6 +178,9 @@ const totalSteps = 8
 
 // 加载状态
 const isLoading = ref(false)
+
+// 保存、连通性测试和完成状态写入共享同一个提交门禁。
+const isActionPending = ref(false)
 
 // 选中的预设规则
 const selectedPreset = ref('')
@@ -477,10 +480,6 @@ export function useSetupWizard() {
         wizardData.value.preferences.resolution = '2160p'
         break
       case 'balanced':
-        wizardData.value.preferences.quality = '1080P'
-        wizardData.value.preferences.subtitle = 'chinese'
-        wizardData.value.preferences.resolution = '1080p'
-        break
       case 'chinese':
         wizardData.value.preferences.quality = '1080P'
         wizardData.value.preferences.subtitle = 'chinese'
@@ -639,7 +638,11 @@ export function useSetupWizard() {
         errors.push(t('mediaserver.apiKeyRequired'))
         validationErrors.value.mediaServer.apikey = true
       }
-    } else if (wizardData.value.mediaServer.type === 'zspace') {
+    } else if (
+      wizardData.value.mediaServer.type === 'zspace' ||
+      wizardData.value.mediaServer.type === 'trimemedia' ||
+      wizardData.value.mediaServer.type === 'ugreen'
+    ) {
       if (!wizardData.value.mediaServer.config?.username?.trim()) {
         errors.push(t('mediaserver.usernameRequired'))
         validationErrors.value.mediaServer.username = true
@@ -652,15 +655,6 @@ export function useSetupWizard() {
       if (!wizardData.value.mediaServer.config?.token?.trim()) {
         errors.push(t('mediaserver.tokenRequired'))
         validationErrors.value.mediaServer.token = true
-      }
-    } else if (wizardData.value.mediaServer.type === 'trimemedia' || wizardData.value.mediaServer.type === 'ugreen') {
-      if (!wizardData.value.mediaServer.config?.username?.trim()) {
-        errors.push(t('mediaserver.usernameRequired'))
-        validationErrors.value.mediaServer.username = true
-      }
-      if (!wizardData.value.mediaServer.config?.password?.trim()) {
-        errors.push(t('mediaserver.passwordRequired'))
-        validationErrors.value.mediaServer.password = true
       }
     }
 
@@ -958,7 +952,7 @@ export function useSetupWizard() {
         connectivityTest.value.testMessage = testResult.message || t('setupWizard.connectivityTestFailed')
       }
 
-      // 成功时2秒后隐藏结果，失败时保持显示直到用户操作
+      // 成功时立即收起结果，失败时保持显示以便用户判断和重试。
       if (testResult.success) {
         connectivityTest.value.showResult = false
         connectivityTest.value.testResult = null
@@ -1094,8 +1088,12 @@ export function useSetupWizard() {
     }
   }
 
-  // 下一步
-  async function nextStep() {
+  /**
+   * 保存并验证动作开始时所属的步骤。
+   *
+   * 异步请求返回后只有步骤仍未变化才允许继续，避免迟到结果推进另一个步骤。
+   */
+  async function runStepAction(step: number) {
     // 验证当前步骤的必输项
     const validation = validateCurrentStep()
     if (!validation.isValid) {
@@ -1107,31 +1105,46 @@ export function useSetupWizard() {
     }
 
     // 保存当前步骤的设置
-    const saved = await saveCurrentStepSettings()
-    if (!saved) {
+    const saved = await saveCurrentStepSettings(step)
+    if (!saved || currentStep.value !== step) {
       return false
     }
 
     // 检查是否需要进行测试
-    const needsTest = shouldPerformTest(currentStep.value)
+    const needsTest = shouldPerformTest(step)
     if (needsTest) {
-      const testResult = await testConnectivity(currentStep.value)
-      if (!testResult) {
+      const testResult = await testConnectivity(step)
+      if (!testResult || currentStep.value !== step) {
         return false
       }
     }
 
     // 如果不是最后一步，则前进到下一步
-    if (currentStep.value < totalSteps) {
-      currentStep.value++
+    if (step < totalSteps) {
+      currentStep.value = step + 1
       connectivityTest.value.showResult = false
     }
 
     return true
   }
 
+  // 下一步
+  async function nextStep() {
+    if (isActionPending.value) return false
+
+    isActionPending.value = true
+    const step = currentStep.value
+    try {
+      return await runStepAction(step)
+    } finally {
+      isActionPending.value = false
+    }
+  }
+
   // 上一步
   function prevStep() {
+    if (isActionPending.value) return
+
     if (currentStep.value > 1) {
       currentStep.value--
     }
@@ -1139,9 +1152,9 @@ export function useSetupWizard() {
   }
 
   // 保存当前步骤的设置
-  async function saveCurrentStepSettings() {
+  async function saveCurrentStepSettings(step: number) {
     try {
-      switch (currentStep.value) {
+      switch (step) {
         case 1:
           return await saveBasicSettings()
         case 2:
@@ -1169,9 +1182,12 @@ export function useSetupWizard() {
 
   // 完成向导
   async function completeWizard() {
+    if (isActionPending.value) return
+
+    isActionPending.value = true
+    const step = currentStep.value
     try {
-      // 先处理下一步（保存当前步骤设置）
-      const saved = await nextStep()
+      const saved = await runStepAction(step)
       if (!saved) {
         return
       }
@@ -1183,6 +1199,8 @@ export function useSetupWizard() {
     } catch (error) {
       console.error('Setup wizard failed:', error)
       $toast.error(t('setupWizard.failed'))
+    } finally {
+      isActionPending.value = false
     }
   }
 
@@ -1193,27 +1211,19 @@ export function useSetupWizard() {
         // 获取当前用户信息
         const currentUser: User = await api.get('user/current')
 
-        if (currentUser) {
-          // 更新现有用户的密码
-          const userData = {
-            name: wizardData.value.basic.username,
-            password: wizardData.value.basic.password,
-            is_active: currentUser.is_active,
-            is_superuser: currentUser.is_superuser,
-          }
-
-          await api.put(`user/${currentUser.id}`, userData)
-        } else {
-          // 如果用户不存在，创建新用户（通常不会发生）
-          const userData = {
-            name: wizardData.value.basic.username,
-            password: wizardData.value.basic.password,
-            is_active: true,
-            is_superuser: true,
-          }
-
-          await api.post('user/', userData)
-        }
+        // 用户更新是完整资料契约，所有现有资料必须随新密码原样提交。
+        await api.put('user/', {
+          id: currentUser.id,
+          name: wizardData.value.basic.username,
+          email: currentUser.email,
+          password: wizardData.value.basic.password,
+          is_active: currentUser.is_active,
+          is_superuser: currentUser.is_superuser,
+          avatar: currentUser.avatar,
+          is_otp: currentUser.is_otp,
+          permissions: currentUser.permissions,
+          settings: currentUser.settings,
+        })
       } catch (error) {
         console.error('Update user password failed:', error)
         throw error
@@ -1349,7 +1359,7 @@ export function useSetupWizard() {
         return false
       }
     } else {
-      // 没有选择下载器时，清空现有配置
+      // 未选择下载器时跳过保存，保留现有配置。
       console.log('No downloader selected, skipping save')
       return true
     }
@@ -1379,7 +1389,7 @@ export function useSetupWizard() {
         return false
       }
     } else {
-      // 没有选择媒体服务器时，清空现有配置
+      // 未选择媒体服务器时跳过保存，保留现有配置。
       console.log('No media server selected, skipping save')
       return true
     }
@@ -1409,7 +1419,7 @@ export function useSetupWizard() {
         return false
       }
     } else {
-      // 没有选择通知时，清空现有配置
+      // 未选择通知时跳过保存，保留现有配置。
       console.log('No notification selected, skipping save')
       return true
     }
@@ -1470,22 +1480,18 @@ export function useSetupWizard() {
     try {
       // 如果有自定义规则序列，保存到用户过滤规则组
       if (wizardData.value.preferences.ruleSequences && wizardData.value.preferences.ruleSequences.length > 0) {
-        try {
-          // 保存当前选中的规则组到 UserFilterRuleGroups
-          await api.post<null>('system/setting/UserFilterRuleGroups', wizardData.value.preferences.ruleSequences, {
-            feedback: 'silent',
-          })
-          // 保存规则组名称到其他设置
-          const ruleGroupNames = wizardData.value.preferences.ruleSequences.map(rule => [rule.name])
+        // 保存当前选中的规则组到 UserFilterRuleGroups
+        await api.post<null>('system/setting/UserFilterRuleGroups', wizardData.value.preferences.ruleSequences, {
+          feedback: 'silent',
+        })
+        // 订阅与洗版设置只引用规则组名称，不存储完整规则或嵌套数组。
+        const ruleGroupNames = wizardData.value.preferences.ruleSequences.map(rule => rule.name)
 
-          // 保存到 SubscribeFilterRuleGroups
-          await api.post<null>('system/setting/SubscribeFilterRuleGroups', ruleGroupNames, { feedback: 'silent' })
+        // 保存到 SubscribeFilterRuleGroups
+        await api.post<null>('system/setting/SubscribeFilterRuleGroups', ruleGroupNames, { feedback: 'silent' })
 
-          // 保存到 BestVersionFilterRuleGroups
-          await api.post<null>('system/setting/BestVersionFilterRuleGroups', ruleGroupNames, { feedback: 'silent' })
-        } catch (error) {
-          console.error('Save rule sequences failed:', error)
-        }
+        // 保存到 BestVersionFilterRuleGroups
+        await api.post<null>('system/setting/BestVersionFilterRuleGroups', ruleGroupNames, { feedback: 'silent' })
       }
       return true
     } catch (error) {
@@ -1588,7 +1594,7 @@ export function useSetupWizard() {
   // 加载用户站点认证设置
   async function loadSiteAuthSettings() {
     try {
-      const result = await api.get<{ value?: { site?: string; params?: Record<string, any> } }>(
+      const result = await api.get<{ value?: { site?: string; params?: Record<string, string | number> } }>(
         'system/setting/UserSiteAuthParams',
       )
       if (result.value) {
@@ -1603,7 +1609,9 @@ export function useSetupWizard() {
   // 加载存储设置
   async function loadStorageSettings() {
     try {
-      const result = await api.get<{ value?: Array<Record<string, any>> }>('system/setting/public/Directories')
+      const result = await api.get<{ value?: Array<Partial<TransferDirectoryConf>> }>(
+        'system/setting/public/Directories',
+      )
       if (result.value?.length) {
         const directory = result.value[0]
         wizardData.value.storage.downloadPath = directory.download_path || ''
@@ -1619,7 +1627,9 @@ export function useSetupWizard() {
   // 加载下载器设置
   async function loadDownloaderSettings() {
     try {
-      const result = await api.get<{ value?: Array<Record<string, any>> }>('system/setting/Downloaders')
+      const result = await api.get<{ value?: Array<Pick<DownloaderConf, 'type' | 'name' | 'config'>> }>(
+        'system/setting/Downloaders',
+      )
       if (result.value?.length) {
         const downloader = result.value[0]
         wizardData.value.downloader.type = downloader.type
@@ -1634,7 +1644,9 @@ export function useSetupWizard() {
   // 加载媒体服务器设置
   async function loadMediaServerSettings() {
     try {
-      const result = await api.get<{ value?: Array<Record<string, any>> }>('system/setting/MediaServers')
+      const result = await api.get<{
+        value?: Array<Pick<MediaServerConf, 'type' | 'name' | 'config' | 'sync_libraries'>>
+      }>('system/setting/MediaServers')
       if (result.value?.length) {
         const mediaServer = result.value[0]
         wizardData.value.mediaServer.type = mediaServer.type
@@ -1650,7 +1662,9 @@ export function useSetupWizard() {
   // 加载通知设置
   async function loadNotificationSettings() {
     try {
-      const result = await api.get<{ value?: Array<Record<string, any>> }>('system/setting/Notifications')
+      const result = await api.get<{
+        value?: Array<Pick<NotificationConf, 'type' | 'name' | 'enabled' | 'config' | 'switchs'>>
+      }>('system/setting/Notifications')
       if (result.value?.length) {
         const notification = result.value[0]
         wizardData.value.notification.type = notification.type
@@ -1692,6 +1706,7 @@ export function useSetupWizard() {
     connectivityTest,
     validationErrors,
     isLoading,
+    isActionPending,
 
     // 方法
     createRandomString,
