@@ -304,6 +304,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     unstubGlobals: true,
     coverage: {
       include: [
+        'src/api/manage.ts',
         'src/utils/recommendSources.ts',
         'src/utils/permission.ts',
         'src/utils/pluginSidebarNav.ts',
@@ -334,6 +335,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/views/subscribe/SubscribePopularView.vue',
         'src/views/subscribe/SubscribeShareView.vue',
         'src/composables/useMediaSubscribe.ts',
+        'src/composables/useLlmProviderDirectory.ts',
         'src/composables/useTorrentFilter.ts',
         'src/components/cards/SubscribeCard.vue',
         'src/components/cards/UserCard.vue',
@@ -411,6 +413,18 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         functions: 85,
         lines: 85,
         statements: 85,
+        'src/api/manage.ts': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/composables/useLlmProviderDirectory.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
         'src/components/cards/SubscribeCard.vue': {
           branches: 75,
           functions: 80,
