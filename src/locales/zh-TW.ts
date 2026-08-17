@@ -64,6 +64,7 @@ export default {
     requestTimeout: '請求超時',
     invalidApiResponse: '服務器返回了無效響應',
     apiRequestFailed: '請求失敗',
+    sessionExpired: '登入狀態已失效，請重新登入',
     troubleshooting: '疑難排解',
     checking: '檢查中',
     retry: '重試',

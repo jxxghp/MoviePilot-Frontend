@@ -64,6 +64,7 @@ export default {
     requestTimeout: '请求超时',
     invalidApiResponse: '服务器返回了无效响应',
     apiRequestFailed: '请求失败',
+    sessionExpired: '登录状态已失效，请重新登录',
     troubleshooting: '疑难解答',
     checking: '检查中',
     retry: '重试',

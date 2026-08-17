@@ -78,6 +78,8 @@ export interface ApiFeedbackNotifier {
 export interface ApiClientHooks {
   markServerOnline?(): void
   onForbidden?(error: ApiRequestError): void
+  /** 返回 true 表示认证失效已由应用层统一接管，请求层不再弹出逐条错误提示。 */
+  onUnauthorized?(error: ApiRequestError): boolean | void
   reportConnectionFailure?(reason: 'network-error' | 'timeout' | 'server-unreachable'): void
 }
 
@@ -269,6 +271,12 @@ function installResponseInterceptors(
         hooks?.reportConnectionFailure?.(failureReason)
       }
       if (response?.status === 403) hooks?.onForbidden?.(error)
+
+      // 认证失效（如后端重启导致 token 作废）由应用层统一登出跳转，
+      // 避免并发请求逐条弹出 "Not authenticated" 等英文提示刷屏。
+      if (response?.status === 401 && hooks?.onUnauthorized?.(error) === true) {
+        return Promise.reject(error)
+      }
 
       // 连接类失败（无响应、超时、网关不可用）统一交给离线状态系统按阈值提示，
       // 不在请求层逐个弹出，避免后端重启时刷屏。

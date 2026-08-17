@@ -238,6 +238,35 @@ describe('MoviePilot API client', () => {
     expect(reportConnectionFailure).toHaveBeenCalledWith('server-unreachable')
   })
 
+  it('401 被 onUnauthorized 接管时不逐条弹请求层 Toast', async () => {
+    const onUnauthorized = vi.fn(() => true)
+    const { api } = createApiClients({
+      adapter: rejectWith({ detail: 'Not authenticated' }, 401),
+      hooks: { onUnauthorized },
+      notifier,
+    })
+
+    const error = requireApiRequestError(await api.get('/resource').catch(reason => reason))
+
+    expect(error.status).toBe(401)
+    expect(onUnauthorized).toHaveBeenCalledWith(error)
+    expect(notifier.error).not.toHaveBeenCalled()
+  })
+
+  it('401 未被 onUnauthorized 接管时保留逐条错误提示', async () => {
+    const onUnauthorized = vi.fn(() => false)
+    const { api } = createApiClients({
+      adapter: rejectWith({ detail: 'Not authenticated' }, 401),
+      hooks: { onUnauthorized },
+      notifier,
+    })
+
+    const error = requireApiRequestError(await api.get('/resource').catch(reason => reason))
+
+    expect(error.status).toBe(401)
+    expect(notifier.error).toHaveBeenCalledWith('Not authenticated')
+  })
+
   it('拒绝缺少标准字段的普通 JSON 响应', async () => {
     const { api } = createApiClients({ adapter: resolveWith({ value: 1 }), notifier })
 
