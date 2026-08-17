@@ -180,6 +180,93 @@ describe('MoviePilot API client', () => {
     expect(error.response?.data).toEqual(envelope)
   })
 
+  it('相同技术错误在去重窗口内只提示一次，避免并发失败刷屏', async () => {
+    const { api } = createApiClients({
+      adapter: rejectWith({ message: 'Server exploded' }, 500),
+      notifier,
+    })
+
+    await api.get('/a').catch(reason => reason)
+    await api.get('/b').catch(reason => reason)
+
+    expect(notifier.error).toHaveBeenCalledTimes(1)
+    expect(notifier.error).toHaveBeenCalledWith('Server exploded')
+  })
+
+  it('去重窗口过期后相同技术错误可以再次提示', async () => {
+    vi.useFakeTimers()
+    try {
+      const { api } = createApiClients({
+        adapter: rejectWith({ message: 'Server exploded' }, 500),
+        notifier,
+      })
+
+      await api.get('/a').catch(reason => reason)
+      expect(notifier.error).toHaveBeenCalledTimes(1)
+
+      // 窗口（15 秒）过后，新一轮相同错误应能再次提示。
+      vi.advanceTimersByTime(15000)
+      await api.get('/b').catch(reason => reason)
+      expect(notifier.error).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('成功响应后清空去重缓存，让后续技术错误可以再次提示', async () => {
+    vi.useFakeTimers()
+    try {
+      const { api } = createApiClients({
+        adapter: rejectWith({ message: 'Server exploded' }, 500),
+        notifier,
+      })
+
+      await api.get('/a').catch(reason => reason)
+      expect(notifier.error).toHaveBeenCalledTimes(1)
+
+      // 服务恢复后缓存应被清空，即使仍在窗口内，相同错误也可再次提示。
+      api.defaults.adapter = resolveWith<ApiResponse<{ ok: boolean }>>({
+        success: true,
+        message: '',
+        data: { ok: true },
+      })
+      await api.get('/ping')
+      api.defaults.adapter = rejectWith({ message: 'Server exploded' }, 500)
+      await api.get('/c').catch(reason => reason)
+
+      expect(notifier.error).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('不同消息的技术错误互不影响，分别提示', async () => {
+    const adapter: AxiosAdapter = async config => {
+      const message = config.url === '/a' ? 'First failure' : 'Second failure'
+      const response = createResponse(config, { message }, 500)
+      throw new AxiosError('Request failed', AxiosError.ERR_BAD_RESPONSE, config, undefined, response)
+    }
+    const { api } = createApiClients({ adapter, notifier })
+
+    await api.get('/a').catch(reason => reason)
+    await api.get('/b').catch(reason => reason)
+
+    expect(notifier.error).toHaveBeenCalledTimes(2)
+    expect(notifier.error).toHaveBeenCalledWith('First failure')
+    expect(notifier.error).toHaveBeenCalledWith('Second failure')
+  })
+
+  it('业务失败不参与技术错误去重，始终逐条提示', async () => {
+    const envelope: ApiResponse<null> = { success: false, message: 'Cannot save', data: null }
+    const { api } = createApiClients({ adapter: resolveWith(envelope), notifier })
+
+    await api.post('/setting', {}).catch(reason => reason)
+    await api.post('/setting', {}).catch(reason => reason)
+
+    expect(notifier.error).toHaveBeenCalledTimes(2)
+    expect(notifier.error).toHaveBeenCalledWith('Cannot save')
+  })
+
   it('取消请求保持原始 CanceledError，且不提示或触发离线探测', async () => {
     const reportConnectionFailure = vi.fn()
     const adapter: AxiosAdapter = async () => {

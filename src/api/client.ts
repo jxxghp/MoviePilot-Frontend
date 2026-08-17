@@ -98,6 +98,9 @@ const defaultFallbackMessages: Record<ApiFallbackMessageKey, string> = {
   timeout: 'Request timeout',
 }
 
+/** 技术类失败提示的去重窗口：后端异常时并发请求会得到相同错误，窗口内只提示一次避免刷屏。 */
+const TECHNICAL_ERROR_DEDUP_MS = 15000
+
 interface ApiRequestErrorOptions<T> {
   businessFailure?: boolean
   cause?: unknown
@@ -187,11 +190,15 @@ export function createApiClients(options: CreateApiClientsOptions = {}): {
   const api = axios.create(axiosConfig)
   const pluginApi = axios.create(axiosConfig)
 
+  // 技术类失败提示的去重缓存：同一消息在窗口内只提示一次，避免后端异常时大量并发请求刷屏。
+  // 两个客户端共用同一份缓存，保证重复提示被整体收敛。
+  const technicalErrorDedup = new Map<string, number>()
+
   // 优化器等底层拦截器必须先安装，确保它们在业务数据解包前仍能看到完整 AxiosResponse。
   setupInstance?.(api)
   setupInstance?.(pluginApi)
-  installResponseInterceptors(api, 'data', hooks, notifier, resolveFallbackMessage)
-  installResponseInterceptors(pluginApi, 'envelope', hooks, notifier, resolveFallbackMessage)
+  installResponseInterceptors(api, 'data', hooks, notifier, resolveFallbackMessage, technicalErrorDedup)
+  installResponseInterceptors(pluginApi, 'envelope', hooks, notifier, resolveFallbackMessage, technicalErrorDedup)
 
   return {
     api: api as DataApiClient,
@@ -206,10 +213,14 @@ function installResponseInterceptors(
   hooks?: ApiClientHooks,
   notifier?: ApiFeedbackNotifier,
   resolveFallbackMessage?: ApiFallbackMessageResolver,
+  technicalErrorDedup?: Map<string, number>,
 ) {
   instance.interceptors.response.use(
     response => {
       hooks?.markServerOnline?.()
+
+      // 服务恢复在线后清空技术错误去重缓存，让新一轮故障可以再次提示，避免永久静默。
+      technicalErrorDedup?.clear()
 
       if (isBinarySuccess(response)) return response.data
 
@@ -223,7 +234,7 @@ function installResponseInterceptors(
           request: response.request,
           response,
         })
-        notifyFailure(response.config.feedback, notifier, error.message)
+        notifyFailure(response.config.feedback, notifier, error.message, technicalErrorDedup)
         return Promise.reject(error)
       }
 
@@ -280,7 +291,7 @@ function installResponseInterceptors(
 
       // 连接类失败（无响应、超时、网关不可用）统一交给离线状态系统按阈值提示，
       // 不在请求层逐个弹出，避免后端重启时刷屏。
-      if (!failureReason) notifyFailure(requestConfig?.feedback, notifier, error.message)
+      if (!failureReason) notifyFailure(requestConfig?.feedback, notifier, error.message, technicalErrorDedup)
       return Promise.reject(error)
     },
   )
@@ -359,8 +370,38 @@ function resolveFallback(key: ApiFallbackMessageKey, resolver?: ApiFallbackMessa
 }
 
 /** 默认模式只提示失败，silent 模式完全关闭请求层反馈。 */
-function notifyFailure(mode: ApiFeedbackMode | undefined, notifier: ApiFeedbackNotifier | undefined, message: string) {
-  if (mode !== 'silent' && message) notifier?.error(message)
+function notifyFailure(
+  mode: ApiFeedbackMode | undefined,
+  notifier: ApiFeedbackNotifier | undefined,
+  message: string,
+  technicalErrorDedup?: Map<string, number>,
+) {
+  if (mode !== 'silent' && message && !isTechnicalErrorCached(message, technicalErrorDedup)) {
+    notifier?.error(message)
+  }
+}
+
+/**
+ * 技术错误去重：相同消息在窗口内只提示一次。
+ *
+ * 后端异常或重启时大量并发请求会携带同一技术错误（协议错误、HTTP 5xx 等），
+ * 逐条弹出会占满屏幕；此处以消息为键缓存最近提示时间，窗口内重复消息不再提示。
+ */
+function isTechnicalErrorCached(message: string, dedup?: Map<string, number>): boolean {
+  if (!dedup) return false
+  const now = Date.now()
+  const lastShownAt = dedup.get(message)
+  dedup.set(message, now)
+  if (lastShownAt !== undefined && now - lastShownAt < TECHNICAL_ERROR_DEDUP_MS) {
+    return true
+  }
+  // 顺带清理过期缓存项，避免长时间运行后缓存无限增长。
+  if (dedup.size > 64) {
+    for (const [key, at] of dedup) {
+      if (now - at >= TECHNICAL_ERROR_DEDUP_MS) dedup.delete(key)
+    }
+  }
+  return false
 }
 
 /** all 模式用于显式要求请求层展示后端成功消息。 */
