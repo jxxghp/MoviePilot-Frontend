@@ -154,6 +154,19 @@ describe('MoviePilot API client', () => {
     expect(notifier.error).toHaveBeenCalledWith('Plugin rejected request')
   })
 
+  it.each([
+    ['object', { plugin: 'demo', count: 2 }],
+    ['array', [{ id: 1 }, { id: 2 }]],
+    ['scalar', 'ready'],
+    ['null', null],
+  ])('插件客户端原样交付非 envelope payload：%s', async (_label, payload) => {
+    const { pluginApi } = createApiClients({ adapter: resolveWith(payload), notifier })
+
+    await expect(pluginApi.get('/plugin/demo')).resolves.toEqual(payload)
+    expect(notifier.error).not.toHaveBeenCalled()
+    expect(notifier.success).not.toHaveBeenCalled()
+  })
+
   it('Blob 成功响应绕过 envelope 解包', async () => {
     const blob = new Blob(['moviepilot'], { type: 'application/octet-stream' })
     const { api } = createApiClients({ adapter: resolveWith(blob), notifier })

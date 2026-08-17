@@ -68,6 +68,9 @@ export interface DataApiClient extends Omit<
   ): Promise<R>
 }
 
+/** 插件与联邦组件接收 endpoint 最终 payload，方法签名不暴露 AxiosResponse 外壳。 */
+export type PluginApiClient = DataApiClient
+
 /** 请求层使用的反馈出口，由应用入口接到全局 Toast。 */
 export interface ApiFeedbackNotifier {
   error(message: string): void
@@ -83,7 +86,7 @@ export interface ApiClientHooks {
   reportConnectionFailure?(reason: 'network-error' | 'timeout' | 'server-unreachable'): void
 }
 
-/** 创建内部数据客户端与插件原始协议客户端时所需的配置。 */
+/** 创建内部数据客户端与插件最终 payload 客户端时所需的配置。 */
 export interface CreateApiClientsOptions extends CreateAxiosDefaults {
   hooks?: ApiClientHooks
   notifier?: ApiFeedbackNotifier
@@ -181,10 +184,10 @@ export function resolveConnectionFailureReason(
   return null
 }
 
-/** 创建普通数据客户端和保持插件 ABI 的原始 envelope 客户端。 */
+/** 创建普通数据客户端和保持插件自由响应 ABI 的最终 payload 客户端。 */
 export function createApiClients(options: CreateApiClientsOptions = {}): {
   api: DataApiClient
-  pluginApi: AxiosInstance
+  pluginApi: PluginApiClient
 } {
   const { hooks, notifier, resolveFallbackMessage, setupInstance, ...axiosConfig } = options
   const api = axios.create(axiosConfig)
@@ -202,7 +205,7 @@ export function createApiClients(options: CreateApiClientsOptions = {}): {
 
   return {
     api: api as DataApiClient,
-    pluginApi,
+    pluginApi: pluginApi as PluginApiClient,
   }
 }
 
@@ -226,6 +229,7 @@ function installResponseInterceptors(
 
       const payload: unknown = response.data
       if (!isApiResponse(payload)) {
+        // 联邦插件自行声明 API 响应；非宿主 envelope 必须原样交给插件调用方。
         if (responseMode === 'envelope') return payload
         const error = new ApiRequestError(resolveFallback('invalid-envelope', resolveFallbackMessage), {
           code: AxiosError.ERR_BAD_RESPONSE,

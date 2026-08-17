@@ -74,7 +74,7 @@ describe('API application wiring', () => {
     vi.useRealTimers()
   })
 
-  it('向 window 暴露插件 envelope 客户端，而内部默认导出数据客户端', async () => {
+  it('向 window 暴露插件最终 payload 客户端，而内部默认导出数据客户端', async () => {
     const module = await import('@/api')
 
     expect(window.MoviePilotAPI).toBe(module.pluginApi)

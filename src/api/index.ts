@@ -14,6 +14,7 @@ import {
   type ApiFeedbackMode,
   type ApiFallbackMessageKey,
   type DataApiClient,
+  type PluginApiClient,
 } from './client'
 
 /** 带连接探测和反馈策略的 MoviePilot 请求配置。 */
@@ -70,7 +71,7 @@ const { api, pluginApi } = createApiClients({
 
 declare global {
   interface Window {
-    MoviePilotAPI: AxiosInstance
+    MoviePilotAPI: PluginApiClient
   }
 }
 
@@ -88,10 +89,10 @@ function initializeClient(instance: AxiosInstance | DataApiClient) {
   })
 }
 
-// 插件远程组件依赖完整 envelope ABI，内部页面则默认使用已解包的数据客户端。
+// 插件远程组件接收 endpoint 的最终 payload，内部页面默认使用严格 envelope 解包客户端。
 if (typeof window !== 'undefined') window.MoviePilotAPI = pluginApi
 
 export { ApiRequestError, getApiBusinessErrorMessage, isApiBusinessFailure, isApiResponse, pluginApi }
-export type { ApiFeedbackMode, DataApiClient }
+export type { ApiFeedbackMode, DataApiClient, PluginApiClient }
 
 export default api
