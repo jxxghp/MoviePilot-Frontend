@@ -1480,7 +1480,7 @@ export interface ScheduleInfo {
   // 多语言状态
   status_i18n?: string
   // 下次运行时间
-  next_run: string
+  next_run?: string
   // 多语言下次运行时间
   next_run_i18n?: string
   // 当前完成百分比
