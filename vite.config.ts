@@ -336,7 +336,9 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/views/subscribe/SubscribeShareView.vue',
         'src/composables/useMediaSubscribe.ts',
         'src/composables/useLlmProviderDirectory.ts',
+        'src/composables/useOfflineStatus.ts',
         'src/composables/useTorrentFilter.ts',
+        'src/layouts/default/components/OfflinePage.vue',
         'src/components/cards/SubscribeCard.vue',
         'src/components/cards/UserCard.vue',
         'src/components/filter/TorrentFilterBar.vue',
@@ -424,6 +426,18 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 90,
           lines: 90,
           statements: 90,
+        },
+        'src/composables/useOfflineStatus.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/layouts/default/components/OfflinePage.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
         },
         'src/components/cards/SubscribeCard.vue': {
           branches: 75,
