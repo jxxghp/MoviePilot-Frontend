@@ -40,13 +40,13 @@ function showConnectionPrompt() {
 
 /** 在同一轮连接异常内按状态去重提示，并在恢复在线后允许下一轮提示重新出现。 */
 function handleConnectionStatusChange() {
-  // 重启期间由重启进度弹窗承载反馈，避免离线提示与进度提示叠加。
-  if (isRestarting.value) return
-
   if (connectionStatus.value === 'online') {
     shownConnectionPromptKeys.clear()
     return
   }
+
+  // 重启期间由重启进度弹窗承载反馈，避免离线提示与进度提示叠加。
+  if (isRestarting.value) return
 
   const promptKey =
     connectionStatus.value === 'checking'
