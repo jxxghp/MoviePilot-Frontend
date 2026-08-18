@@ -253,6 +253,40 @@ describe('MoviePilot API client', () => {
     }
   })
 
+  it('连续无效 envelope 响应只提示一次，避免坏缓存命中时刷屏', async () => {
+    // 无效 envelope 是 HTTP 200 但响应体不是标准三键结构，模拟 SW 缓存回退出的坏响应。
+    const { api } = createApiClients({
+      adapter: resolveWith('<html>legacy app shell</html>'),
+      notifier,
+    })
+
+    await api.get('/a').catch(reason => reason)
+    await api.get('/b').catch(reason => reason)
+    await api.get('/c').catch(reason => reason)
+
+    expect(notifier.error).toHaveBeenCalledTimes(1)
+    expect(notifier.error).toHaveBeenCalledWith('Invalid API response envelope')
+  })
+
+  it('无效 envelope 响应不清空去重缓存，窗口内其他技术错误保持收敛', async () => {
+    const adapter: AxiosAdapter = async config => {
+      if (config.url === '/bad') return createResponse(config, '<html></html>', 200)
+      const response = createResponse(config, { message: 'Server exploded' }, 500)
+      throw new AxiosError('Request failed', AxiosError.ERR_BAD_RESPONSE, config, undefined, response)
+    }
+    const { api } = createApiClients({ adapter, notifier })
+
+    await api.get('/a').catch(reason => reason)
+    await api.get('/bad').catch(reason => reason)
+    await api.get('/b').catch(reason => reason)
+
+    // 500 技术错误在窗口内只提示一次；无效 envelope 属于不同消息单独提示一次，
+    // 且它不得清空去重缓存，否则第 3 个相同 500 错误会被再次弹出。
+    expect(notifier.error).toHaveBeenCalledTimes(2)
+    expect(notifier.error).toHaveBeenCalledWith('Server exploded')
+    expect(notifier.error).toHaveBeenCalledWith('Invalid API response envelope')
+  })
+
   it('不同消息的技术错误互不影响，分别提示', async () => {
     const adapter: AxiosAdapter = async config => {
       const message = config.url === '/a' ? 'First failure' : 'Second failure'

@@ -222,9 +222,6 @@ function installResponseInterceptors(
     response => {
       hooks?.markServerOnline?.()
 
-      // 服务恢复在线后清空技术错误去重缓存，让新一轮故障可以再次提示，避免永久静默。
-      technicalErrorDedup?.clear()
-
       if (isBinarySuccess(response)) return response.data
 
       const payload: unknown = response.data
@@ -238,9 +235,15 @@ function installResponseInterceptors(
           request: response.request,
           response,
         })
+        // 无效 envelope 本身就是技术错误，必须留在去重窗口内收敛；
+        // 此处绝不能清空去重缓存，否则每个坏响应都会重置窗口并逐条弹 Toast 刷屏。
         notifyFailure(response.config.feedback, notifier, error.message, technicalErrorDedup)
         return Promise.reject(error)
       }
+
+      // 只有通过 envelope 校验的真实响应才算“服务恢复在线”的证据，
+      // 此时清空技术错误去重缓存，让新一轮故障可以再次提示，避免永久静默。
+      technicalErrorDedup?.clear()
 
       if (!payload.success) {
         notifyFailure(response.config.feedback, notifier, payload.message)

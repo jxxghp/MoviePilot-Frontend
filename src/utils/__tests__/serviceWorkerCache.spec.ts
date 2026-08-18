@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { corsSafeCachePlugin, selectCorsSafeCachedResponse } from '../serviceWorkerCache'
+import {
+  corsSafeCachePlugin,
+  jsonOnlyCachePlugin,
+  selectCorsSafeCachedResponse,
+  shouldCacheJsonResponse,
+} from '../serviceWorkerCache'
 
 function createResponse(type: ResponseType) {
   const response = new Response('image')
@@ -49,5 +54,55 @@ describe('Service Worker cache CORS boundary', () => {
         request,
       }),
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('Service Worker API cache JSON boundary', () => {
+  function createJsonResponse(contentType: string) {
+    return new Response('{"success":true,"message":"","data":null}', {
+      headers: { 'content-type': contentType },
+    })
+  }
+
+  it('accepts a standard JSON API response', () => {
+    expect(shouldCacheJsonResponse(createJsonResponse('application/json; charset=utf-8'))).toBe(true)
+  })
+
+  it('rejects an HTML response that would break the envelope contract', () => {
+    const html = new Response('<html><body>offline shell</body></html>', {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+
+    expect(shouldCacheJsonResponse(html)).toBe(false)
+  })
+
+  it('rejects a binary response such as an image or blob', () => {
+    const image = new Response(new Blob(['\x89PNG']), { headers: { 'content-type': 'image/png' } })
+
+    expect(shouldCacheJsonResponse(image)).toBe(false)
+  })
+
+  it('exposes the boundary through the Workbox cache update lifecycle', async () => {
+    const response = createJsonResponse('application/json')
+
+    await expect(
+      jsonOnlyCachePlugin.cacheWillUpdate?.({
+        event: new Event('fetch') as ExtendableEvent,
+        request: new Request('https://moviepilot/api/v1/resource'),
+        response,
+      }),
+    ).resolves.toBe(response)
+  })
+
+  it('skips caching a non-JSON response through the Workbox lifecycle', async () => {
+    const response = new Response('<html></html>', { headers: { 'content-type': 'text/html' } })
+
+    await expect(
+      jsonOnlyCachePlugin.cacheWillUpdate?.({
+        event: new Event('fetch') as ExtendableEvent,
+        request: new Request('https://moviepilot/api/v1/resource'),
+        response,
+      }),
+    ).resolves.toBeNull()
   })
 })

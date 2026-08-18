@@ -19,3 +19,22 @@ export const corsSafeCachePlugin: WorkboxPlugin = {
     return selectCorsSafeCachedResponse(request, cachedResponse)
   },
 }
+
+/**
+ * 判定响应是否允许写入 API 运行时缓存。
+ *
+ * API 缓存的消费方要求 JSON envelope；SPA 回退页等 HTML 或损坏体一旦被写入，
+ * NetworkFirst 超时回退时会以 200 返回坏体，前端 envelope 校验失败后逐条弹
+ * “服务器返回了无效响应”（仅清浏览器缓存可解）。写入前校验 Content-Type
+ * 可以从源头阻断非 JSON 响应进入缓存。
+ */
+export function shouldCacheJsonResponse(response: Response): boolean {
+  return (response.headers.get('content-type') ?? '').includes('json')
+}
+
+/** API 缓存专用：只写入声明为 JSON 的响应，HTML、图片等一律不落缓存。 */
+export const jsonOnlyCachePlugin: WorkboxPlugin = {
+  async cacheWillUpdate({ response }) {
+    return shouldCacheJsonResponse(response) ? response : null
+  },
+}

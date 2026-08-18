@@ -4,7 +4,7 @@ import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategi
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import * as navigationPreload from 'workbox-navigation-preload'
-import { corsSafeCachePlugin } from '@/utils/serviceWorkerCache'
+import { corsSafeCachePlugin, jsonOnlyCachePlugin } from '@/utils/serviceWorkerCache'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
@@ -155,6 +155,7 @@ registerRoute(
     !url.pathname.includes('/api/v1/system/message') && // SSE实时消息流
     !url.pathname.includes('/api/v1/system/progress/') && // SSE实时进度流
     !url.pathname.includes('/api/v1/system/logging') && // SSE实时日志流
+    !url.pathname.includes('/api/v1/system/ping') && // 连接探测心跳，缓存回退会掩盖真实离线
     !url.pathname.includes('/api/v1/message/') && // 用户消息接口
     !url.pathname.includes('/api/v1/system/global') && // 系统配置接口
     !url.pathname.includes('/api/v1/mfa/') && // 多因素认证接口
@@ -166,8 +167,11 @@ registerRoute(
     cacheName: `api-cache-${CACHE_VERSION}`,
     networkTimeoutSeconds: 5,
     plugins: [
+      // 只缓存 JSON 响应，并排除 opaque（状态 0）：坏体或 HTML 落入 API 缓存后，
+      // NetworkFirst 超时回退会返回不可解析的 200，导致前端反复弹“无效响应”。
+      jsonOnlyCachePlugin,
       new CacheableResponsePlugin({
-        statuses: [0, 200],
+        statuses: [200],
       }),
       new ExpirationPlugin({
         maxEntries: 500,
