@@ -489,14 +489,17 @@ watch([() => transferForm.type_name, () => mediaSource.value], ([typeName, sourc
   episodeGroups.value = []
 })
 
-// 音乐默认使用 MusicBrainz；已显式选择其它音乐源时保留用户选择。
+// 切换媒体类型时，若当前数据源与新类型不兼容则回退到自动，
+// 避免音乐源在影视整理中残留；音乐类型未显式选择来源时由 mediaSource 兜底为 MusicBrainz。
 watch(
   () => transferForm.type_name,
   typeName => {
-    if (typeName === '音乐' && !isMusicMediaSource(transferForm.media_source ?? undefined)) {
-      transferForm.media_source = 'musicbrainz'
+    const isMusicType = typeName === '音乐'
+    const sourceIsMusic = isMusicMediaSource(transferForm.media_source ?? undefined)
+    if (isMusicType !== sourceIsMusic) {
+      transferForm.media_source = null
     }
-    transferForm.music_type = typeName === '音乐' ? (transferForm.music_type ?? 'recording') : null
+    transferForm.music_type = isMusicType ? (transferForm.music_type ?? 'recording') : null
   },
 )
 
@@ -1519,10 +1522,13 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-music-box-multiple"
                     />
                   </VCol>
-                  <VCol cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
+                  <VCol
+                    v-if="transferForm.type_name !== ''"
+                    cols="12"
+                    :md="transferForm.type_name === '音乐' ? 3 : 4"
+                  >
                     <VTextField
                       v-model="transferForm.media_id"
-                      :disabled="transferForm.type_name === ''"
                       :label="mediaIdLabel"
                       :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
                       :rules="[validateMediaId]"

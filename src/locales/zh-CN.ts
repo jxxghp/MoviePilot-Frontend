@@ -3289,6 +3289,7 @@ export default {
       doubanId: '豆瓣编号',
       bangumiId: 'Bangumi编号',
       anilistId: 'AniList编号',
+      mediaId: '媒体 ID',
       mediaIdHint: '按名称查询媒体编号，留空自动识别',
       mediaIdPlaceholder: '留空自动识别',
       mediaIdInvalid: '媒体ID格式无效',

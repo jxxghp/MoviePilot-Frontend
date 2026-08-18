@@ -477,6 +477,36 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     expect(screen.getByLabelText<HTMLSelectElement>('数据源')).toHaveDisplayValue('自动')
   })
 
+  it('resets the data source to auto and hides the media id input after switching media type', async () => {
+    await renderDialog()
+
+    // 类型为自动时隐藏媒体ID输入框
+    expect(screen.queryByLabelText('TheMovieDb编号')).not.toBeInTheDocument()
+
+    // 切换到音乐：显示媒体ID输入框，数据源保持自动（音乐由媒体ID标签兜底为 MusicBrainz）
+    await selectOption('类型', 3)
+    await waitFor(() => expect(screen.getByLabelText('MusicBrainz ID')).toBeInTheDocument())
+    expect(screen.getByLabelText<HTMLSelectElement>('数据源')).toHaveDisplayValue('自动')
+
+    // 切回电影：数据源自动回退为自动，媒体ID输入框随类型重新显示
+    await selectOption('类型', 1)
+    await waitFor(() => expect(screen.getByLabelText('TheMovieDb编号')).toBeInTheDocument())
+    expect(screen.getByLabelText<HTMLSelectElement>('数据源')).toHaveDisplayValue('自动')
+  })
+
+  it('resets a stale music source back to auto when switching away from music type', async () => {
+    await renderDialog()
+
+    // 先手动选择音乐源（触发类型联动为音乐）
+    await selectOption('数据源', 5)
+    await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>('类型')).toHaveDisplayValue('音乐'))
+
+    // 切回电影后，音乐源不应残留
+    await selectOption('类型', 1)
+    await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>('数据源')).toHaveDisplayValue('自动'))
+    expect(screen.getByLabelText<HTMLSelectElement>('类型')).toHaveDisplayValue('电影')
+  })
+
   it('deduplicates selected files and submits nullable automatic target fields in one background request', async () => {
     const bodies: unknown[] = []
     const backgrounds: string[] = []
@@ -702,6 +732,8 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     const user = userEvent.setup()
     await renderDialog()
 
+    // 类型为自动时媒体ID输入框隐藏，先选择类型再查询媒体编号
+    await selectOption('类型', 2)
     await user.click(screen.getByRole('button', { name: '查询媒体编号' }))
     await user.click(screen.getByRole('button', { name: '选择电视剧' }))
     await waitFor(() => expect(screen.getByRole('option', { name: '播出顺序' })).toBeInTheDocument())

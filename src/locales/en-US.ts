@@ -3345,6 +3345,7 @@ export default {
       doubanId: 'Douban ID',
       bangumiId: 'Bangumi ID',
       anilistId: 'AniList ID',
+      mediaId: 'Media ID',
       mediaIdHint: 'Query media ID by name, leave empty for auto recognition',
       mediaIdPlaceholder: 'Leave empty for auto recognition',
       mediaIdInvalid: 'Invalid media ID format',
