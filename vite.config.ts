@@ -337,6 +337,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/composables/useMediaSubscribe.ts',
         'src/composables/useLlmProviderDirectory.ts',
         'src/composables/useOfflineStatus.ts',
+        'src/composables/useServerConnectionProbe.ts',
         'src/composables/useTorrentFilter.ts',
         'src/layouts/default/components/OfflinePage.vue',
         'src/components/cards/SubscribeCard.vue',
@@ -428,6 +429,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 90,
         },
         'src/composables/useOfflineStatus.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/composables/useServerConnectionProbe.ts': {
           branches: 85,
           functions: 90,
           lines: 90,
