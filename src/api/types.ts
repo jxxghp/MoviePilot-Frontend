@@ -17,6 +17,13 @@ export enum MediaSource {
 
 export type MediaDataSource = `${MediaSource}` | (string & {})
 
+/** 后端返回的媒体来源注册描述，供各类来源选择器共享。 */
+export interface MediaSourceInfo {
+  name: string
+  media_source: MediaDataSource
+  media_types: string[]
+}
+
 // 手动刮削选项
 export interface ManualScrapeOptions {
   // 媒体数据源

@@ -5,6 +5,7 @@ import { getApiBusinessErrorMessage } from '@/api/client'
 import type { FilterRuleGroup, Site } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
+import { useMediaSources } from '@/composables/useMediaSources'
 
 // 国际化
 const { t } = useI18n()
@@ -18,6 +19,9 @@ const props = defineProps({
 
 // 提示框
 const $toast = useToast()
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const customMediaSourceItems = getMediaSourceItems('media')
+const customMusicSourceItems = getMediaSourceItems('music')
 
 // 所有站点
 const allSites = ref<Site[]>([])
@@ -36,7 +40,7 @@ const SystemSettings = ref<any>({
 })
 
 // 媒体信息数据源字典
-const mediaSourcesDict = [
+const mediaSourcesDict = computed(() => [
   {
     title: 'TheMovieDb',
     value: 'themoviedb',
@@ -65,7 +69,9 @@ const mediaSourcesDict = [
     title: '豆瓣音乐',
     value: 'doubanmusic',
   },
-]
+  ...customMediaSourceItems.value,
+  ...customMusicSourceItems.value,
+])
 
 // 当前选中的媒体信息数据源
 const selectedMediaSource = ref<string[]>([])

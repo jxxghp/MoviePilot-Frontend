@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import { useGlobalSettingsStore } from '@/stores'
 import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
+import { useMediaSources } from '@/composables/useMediaSources'
 
 // 多语言支持
 const { t } = useI18n()
@@ -58,6 +59,8 @@ const normalizedMediaId = computed(() => selectedMediaId.value?.trim() || undefi
 const hasValidMediaIdentity = computed(
   () => Boolean(normalizedMediaId.value) && isValidMediaSourceId(normalizedMediaId.value, mediaSource.value),
 )
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const customMediaSourceItems = getMediaSourceItems('media')
 
 const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => {
   const labels: Partial<Record<MediaDataSource, string>> = {
@@ -75,7 +78,10 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
     migu: 'Migu Video',
     tencentvideodiscover: 'Tencent Video',
   }
-  return Object.values(MediaSource).map(value => ({ title: labels[value] ?? value, value }))
+  return [
+    ...Object.values(MediaSource).map(value => ({ title: labels[value] ?? value, value })),
+    ...customMediaSourceItems.value,
+  ]
 })
 
 // 当前数据源对应的原生ID标签。

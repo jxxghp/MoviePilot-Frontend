@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { Site, Plugin, Subscribe } from '@/api/types'
+import type { MediaDataSource, Site, Plugin, Subscribe } from '@/api/types'
 import { getNavMenus, getSettingTabs } from '@/router/i18n-menu'
 import { NavMenu } from '@/@layouts/types'
 import { useUserStore, useGlobalSettingsStore } from '@/stores'
@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { VDialog, VMenu } from 'vuetify/components'
 import { buildUserPermissionContext, hasPermission, filterMenusByPermission } from '@/utils/permission'
+import { useMediaSources } from '@/composables/useMediaSources'
 
 // 显示器宽度
 const display = useDisplay()
@@ -99,7 +100,7 @@ const searchOverlayProps = computed(() =>
 // 搜索词
 const searchWord = ref<string | null>(null)
 
-type MediaSearchSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | 'musicbrainz' | 'theaudiodb' | 'doubanmusic'
+type MediaSearchSource = MediaDataSource
 type MediaSearchType = 'media' | 'music' | 'collection' | 'person'
 
 interface MediaSearchSourceOption {
@@ -122,6 +123,21 @@ const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchS
   collection: [],
   person: [],
 })
+
+const { mediaSourceItems } = useMediaSources()
+const customMediaSources = mediaSourceItems('media')
+const customMusicSources = mediaSourceItems('music')
+/** 将来源目录项转换为搜索来源选项，保持展示名与请求值分离。 */
+const customSearchSourceOptions = (sources: typeof customMediaSources) =>
+  computed<MediaSearchSourceOption[]>(() =>
+    sources.value.map(source => ({
+      label: source.title,
+      name: source.title,
+      value: source.value,
+    })),
+  )
+const customMediaSearchSources = customSearchSourceOptions(customMediaSources)
+const customMusicSearchSources = customSearchSourceOptions(customMusicSources)
 
 // 全局“媒体搜索数据源”配置（SEARCH_SOURCE），用于搜索框默认勾选，保证基础设置生效。
 const configuredMediaSearchSources = computed((): MediaSearchSource[] => {
@@ -209,8 +225,8 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
   }
 
   return {
-    media: [themoviedb, douban, bangumi, anilist],
-    music: [musicbrainz, theaudiodb, doubanmusic],
+    media: [themoviedb, douban, bangumi, anilist, ...customMediaSearchSources.value],
+    music: [musicbrainz, theaudiodb, doubanmusic, ...customMusicSearchSources.value],
     collection: [themoviedb],
     person: [themoviedb, douban],
   }

@@ -10,6 +10,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 import { isMusicMediaSource } from '@/utils/mediaId'
+import { useMediaSources } from '@/composables/useMediaSources'
 
 interface PipelineStep {
   icon: string
@@ -70,6 +71,9 @@ const emit = defineEmits<{ close: [] }>()
 // 国际化
 const { t } = useI18n()
 const globalSettingsStore = useGlobalSettingsStore()
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const customMediaSourceItems = getMediaSourceItems('media')
+const customMusicSourceItems = getMediaSourceItems('music')
 
 const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
   { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
@@ -79,6 +83,8 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
   { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
   { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
+  ...customMediaSourceItems.value,
+  ...customMusicSourceItems.value,
 ])
 
 // 获取后台默认识别数据源，未知值兼容回退到TheMovieDb。

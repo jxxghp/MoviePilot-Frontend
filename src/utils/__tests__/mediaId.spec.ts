@@ -1,9 +1,40 @@
-import { isMusicMediaSource, isValidMediaSourceId, parseMediaDataSources } from '@/utils/mediaId'
+import {
+  isMusicMediaSource,
+  isValidMediaSourceId,
+  parseMediaDataSources,
+  setMediaSourceCatalog,
+  supportsMediaSourceType,
+} from '@/utils/mediaId'
 import { describe, expect, it } from 'vitest'
 
 describe('media source identity utils', () => {
   it.each(['musicbrainz', 'theaudiodb', 'doubanmusic'] as const)('recognizes %s as a music source', source => {
     expect(isMusicMediaSource(source)).toBe(true)
+  })
+
+  it('recognizes a plugin-registered music source', () => {
+    setMediaSourceCatalog([
+      {
+        name: 'Acme Music',
+        media_source: 'acme.music',
+        media_types: ['音乐'],
+      },
+    ])
+    expect(isMusicMediaSource('acme.music')).toBe(true)
+    setMediaSourceCatalog([])
+  })
+
+  it('keeps a source with mixed video and music capabilities in both lists', () => {
+    const source = {
+      media_types: ['电影', '电视剧', '音乐'],
+    }
+    expect(supportsMediaSourceType(source, 'media')).toBe(true)
+    expect(supportsMediaSourceType(source, 'music')).toBe(true)
+  })
+
+  it('accepts API-style media type keys for plugin sources', () => {
+    expect(supportsMediaSourceType({ media_types: ['movie', 'music'] }, 'media')).toBe(true)
+    expect(supportsMediaSourceType({ media_types: ['movie', 'music'] }, 'music')).toBe(true)
   })
 
   it.each([

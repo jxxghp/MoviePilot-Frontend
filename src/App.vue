@@ -32,6 +32,7 @@ import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
+import { loadMediaSources } from '@/composables/useMediaSources'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import { useGlassWallpaperTransaction } from '@/composables/useGlassWallpaperTransaction'
 import {
@@ -913,6 +914,7 @@ async function initializeAuthenticatedState() {
     globalLoadingStateManager.setLoadingState('global-settings', true)
     await globalSettingsStore.initialize()
     await globalSettingsStore.loadUserSettings()
+    await loadMediaSources()
   } finally {
     globalLoadingStateManager.setLoadingState('global-settings', false)
   }

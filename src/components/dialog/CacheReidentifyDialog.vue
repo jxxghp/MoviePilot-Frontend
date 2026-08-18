@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import type { MediaDataSource, MusicEntityType } from '@/api/types'
 import { isMediaDataSource, isMusicMediaSource } from '@/utils/mediaId'
+import { useMediaSources } from '@/composables/useMediaSources'
 
 const { t } = useI18n()
 
@@ -41,6 +42,9 @@ const mediaSource = ref<MediaDataSource>(
 const mediaId = ref<string>()
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.musicType)
 const isMusicSelection = computed(() => isMusicMediaSource(mediaSource.value))
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const customMediaSourceItems = getMediaSourceItems('media')
+const customMusicSourceItems = getMediaSourceItems('music')
 const musicEntityItems = computed(() => [
   { title: t('setting.cache.musicType.recording'), value: 'recording' },
   { title: t('setting.cache.musicType.album'), value: 'album' },
@@ -53,6 +57,8 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>((
   { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
   { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
   { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
+  ...customMediaSourceItems.value,
+  ...customMusicSourceItems.value,
 ])
 
 const mediaIdLabel = computed(() => {

@@ -24,6 +24,7 @@ import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
+import { useMediaSources } from '@/composables/useMediaSources'
 
 // 国际化
 const { t } = useI18n()
@@ -44,6 +45,10 @@ const props = defineProps({
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const customMediaSourceItems = getMediaSourceItems('media')
+const customMusicSourceItems = getMediaSourceItems('music')
+
 const mediaSourceItems = computed<{ title: string; value: MediaDataSource | null }[]>(() => [
   { title: t('dialog.reorganize.auto'), value: null },
   { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
@@ -53,6 +58,8 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource | null
   { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
   { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
   { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
+  ...customMediaSourceItems.value,
+  ...customMusicSourceItems.value,
 ])
 
 /** 获取后台设置中的默认识别数据源，未知值兼容回退到 TheMovieDb。 */
