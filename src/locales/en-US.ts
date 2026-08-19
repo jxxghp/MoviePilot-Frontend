@@ -2220,8 +2220,7 @@ export default {
       logFileFormat: 'Log File Format',
       logFileFormatHint: 'Set the output format of log files to customize the displayed content of logs',
       dbBackupEnable: 'Enable Data Backup',
-      dbBackupEnableHint:
-        'Master switch for automatic database backups; scheduled backups require a backup schedule',
+      dbBackupEnableHint: 'Master switch for automatic database backups; scheduled backups require a backup schedule',
       dbBackupCron: 'Backup Schedule',
       dbBackupCronHint: 'Cron expression; leave empty to disable scheduled backups',
       dbBackupCronInvalid: 'Backup schedule must be empty or a valid Cron expression',
