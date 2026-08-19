@@ -2,7 +2,7 @@
 import { usePreferredReducedMotion } from '@vueuse/core'
 import { useTheme } from 'vuetify'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
-import api, { type ConnectionAwareRequestConfig } from '@/api'
+import api from '@/api'
 import { useAuthStore, useGlobalSettingsStore } from '@/stores'
 import { getBrowserLocale, setI18nLanguage } from './plugins/i18n'
 import { SupportedLocale } from '@/types/i18n'
@@ -30,7 +30,8 @@ import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
-import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
+import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
+import { useServerConnectionProbe } from '@/composables/useServerConnectionProbe'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { loadMediaSources } from '@/composables/useMediaSources'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
@@ -159,6 +160,12 @@ const router = useRouter()
 const { initializePWA } = usePWA()
 const offlineStatus = useGlobalOfflineStatus()
 const { isRestarting: isSystemRestarting } = useSystemRestartStatus()
+const serverConnectionProbe = useServerConnectionProbe({
+  isLoggedIn: isLogin,
+  isRestarting: isSystemRestarting,
+  offlineStatus,
+  request: (path, config) => api.get(path, config),
+})
 
 // 全局设置store
 const globalSettingsStore = useGlobalSettingsStore()
@@ -370,130 +377,12 @@ void router.isReady().then(() => {
   isInitialRouteReady.value = true
 })
 
-let heartbeatInterval: number | null = null
-let connectionRetryTimer: number | null = null
-let connectionProbePromise: Promise<boolean> | null = null
-let connectionProbeFailures = 0
 let prefersColorSchemeMediaQuery: MediaQueryList | null = null
-
-const SERVER_PROBE_TIMEOUT_MS = 8_000
-const SERVER_PROBE_FAILURE_THRESHOLD = 2
-const SERVER_RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000] as const
-
-/** 清除等待中的服务重连任务。 */
-function clearConnectionRetryTimer() {
-  if (!connectionRetryTimer) return
-
-  window.clearTimeout(connectionRetryTimer)
-  connectionRetryTimer = null
-}
-
-/** 根据浏览器状态和请求错误判断本次探测失败原因。 */
-function resolveProbeFailureReason(error: unknown): ConnectionFailureReason {
-  if (!offlineStatus.browserOnline.value) return 'browser-offline'
-
-  const errorCode = (error as { code?: string } | null)?.code
-  if (errorCode === 'ECONNABORTED' || errorCode === 'ETIMEDOUT') return 'timeout'
-
-  return 'server-unreachable'
-}
-
-/** 按退避间隔安排下一次 MoviePilot 服务探测。 */
-function scheduleConnectionRetry() {
-  clearConnectionRetryTimer()
-
-  const retryIndex = Math.min(Math.max(connectionProbeFailures - 1, 0), SERVER_RETRY_DELAYS_MS.length - 1)
-  connectionRetryTimer = window.setTimeout(() => {
-    connectionRetryTimer = null
-    void probeServerConnection()
-  }, SERVER_RETRY_DELAYS_MS[retryIndex])
-}
-
-/** 使用后端 ping 接口执行去重后的权威服务连通性探测。 */
-async function probeServerConnection(showChecking = false): Promise<boolean> {
-  if (!isLogin.value) return false
-  if (connectionProbePromise) return connectionProbePromise
-
-  clearConnectionRetryTimer()
-  if (showChecking) offlineStatus.markConnectionChecking(offlineStatus.connectionReason.value ?? undefined)
-
-  const successSequenceAtProbeStart = offlineStatus.serverSuccessSequence.value
-  const probePromise = (async () => {
-    try {
-      await api.get('system/ping', {
-        feedback: 'silent',
-        skipNavigationCancellation: true,
-        skipConnectionTracking: true,
-        timeout: SERVER_PROBE_TIMEOUT_MS,
-      } as ConnectionAwareRequestConfig)
-      connectionProbeFailures = 0
-      return true
-    } catch (error) {
-      if (!isLogin.value) {
-        offlineStatus.markServerOnline()
-        return false
-      }
-
-      // 探测期间若已有其他接口成功，则以更新的成功响应为准，避免旧失败覆盖新状态。
-      if (offlineStatus.serverSuccessSequence.value > successSequenceAtProbeStart) {
-        connectionProbeFailures = 0
-        return true
-      }
-
-      connectionProbeFailures += 1
-      const failureReason = resolveProbeFailureReason(error)
-
-      // 重启期间服务不可达属预期行为，由重启进度弹窗承载反馈，不累计离线阈值。
-      if (isSystemRestarting.value) return false
-
-      if (connectionProbeFailures >= SERVER_PROBE_FAILURE_THRESHOLD) {
-        offlineStatus.markServerOffline(failureReason)
-      } else {
-        offlineStatus.markConnectionChecking(failureReason)
-      }
-
-      scheduleConnectionRetry()
-      return false
-    }
-  })()
-
-  connectionProbePromise = probePromise
-  try {
-    return await probePromise
-  } finally {
-    if (connectionProbePromise === probePromise) connectionProbePromise = null
-  }
-}
-
-/** 启动即时服务探测和五分钟在线心跳。 */
-function startHeartbeat() {
-  if (heartbeatInterval) window.clearInterval(heartbeatInterval)
-
-  void probeServerConnection()
-
-  heartbeatInterval = window.setInterval(
-    async () => {
-      if (isLogin.value) await probeServerConnection()
-    },
-    5 * 60 * 1000,
-  )
-}
-
-/** 停止心跳和等待中的自动重连任务。 */
-function stopHeartbeat() {
-  if (heartbeatInterval) {
-    window.clearInterval(heartbeatInterval)
-    heartbeatInterval = null
-  }
-
-  clearConnectionRetryTimer()
-  connectionProbeFailures = 0
-}
 
 watch(
   () => offlineStatus.connectionCheckRequestId.value,
   () => {
-    if (isLogin.value) void probeServerConnection(true)
+    if (isLogin.value) void serverConnectionProbe.probeServerConnection(true)
   },
 )
 
@@ -501,8 +390,7 @@ watch(
   () => offlineStatus.connectionStatus.value,
   status => {
     if (status !== 'online') return
-    connectionProbeFailures = 0
-    clearConnectionRetryTimer()
+    serverConnectionProbe.resetAfterServerOnline()
   },
 )
 
@@ -1112,20 +1000,20 @@ onMounted(async () => {
   })
   // 启动心跳
   if (isLogin.value) {
-    startHeartbeat()
+    serverConnectionProbe.startHeartbeat()
   }
 
   // 登录状态可能在当前单页会话中变化，这里按需补齐登录后初始化和心跳。
   watch(isLogin, loggedIn => {
     if (loggedIn) {
-      startHeartbeat()
+      serverConnectionProbe.startHeartbeat()
       scheduleAuthenticatedStateInitialization()
     } else {
       if (authenticatedStateTimer) {
         window.clearTimeout(authenticatedStateTimer)
         authenticatedStateTimer = null
       }
-      stopHeartbeat()
+      serverConnectionProbe.stopHeartbeat()
       offlineStatus.markServerOnline()
     }
   })
@@ -1140,7 +1028,7 @@ onUnmounted(() => {
     authenticatedStateTimer = null
   }
   // 停止心跳
-  stopHeartbeat()
+  serverConnectionProbe.stopHeartbeat()
   prefersColorSchemeMediaQuery?.removeEventListener('change', handleSystemThemeChange)
   prefersColorSchemeMediaQuery = null
   document.removeEventListener('visibilitychange', handleVisibilityThemeSync)
