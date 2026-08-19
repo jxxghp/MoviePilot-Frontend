@@ -4,7 +4,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
-import { nextTick, ref } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -278,10 +278,44 @@ function enableLlmSettings() {
   )
 }
 
+/** 为异步表单字段提供可真实回写 v-model 的测试边界。 */
+function createModelFieldStub(name: string) {
+  return defineComponent({
+    name,
+    inheritAttrs: false,
+    props: {
+      label: { type: String, default: '' },
+      modelValue: { default: '' },
+      placeholder: { type: String, default: '' },
+      storage: { type: String, default: undefined },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+      return () =>
+        h('label', [
+          h('span', props.label),
+          h('input', {
+            'aria-label': props.label,
+            'data-storage': props.storage,
+            placeholder: props.placeholder,
+            value: props.modelValue ?? '',
+            onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+          }),
+        ])
+    },
+  })
+}
+
+const CronFieldStub = createModelFieldStub('VCronFieldStub')
+const PathFieldStub = createModelFieldStub('VPathFieldStub')
+
 async function renderSettings(props: { active?: boolean } = {}) {
   return renderWithProviders(AccountSettingSystem, {
     props,
-    global: { stubs: { VDialogCloseBtn: true } },
+    global: {
+      components: { VCronField: CronFieldStub, VPathField: PathFieldStub },
+      stubs: { VDialogCloseBtn: true },
+    },
     stubActions: false,
   })
 }
@@ -1013,6 +1047,141 @@ describe('AccountSettingSystem', () => {
         LOG_MAX_FILE_SIZE: '20',
       }),
     )
+  })
+
+  it.each(['sqlite', 'postgresql'])('shows database backup defaults for %s', async databaseType => {
+    systemEnv.DB_TYPE = databaseType
+    await renderSettings()
+    const dialog = await openAdvancedTab('数据')
+
+    expect(dialog.getByLabelText('启用数据备份')).not.toBeChecked()
+    expect(dialog.queryByLabelText('备份周期')).not.toBeInTheDocument()
+
+    await fireEvent.click(dialog.getByLabelText('启用数据备份'))
+
+    expect(dialog.getByLabelText('备份周期')).toHaveValue('0 3 * * *')
+    expect(dialog.getByLabelText('备份目录')).toHaveValue('')
+    expect(dialog.getByLabelText('备份目录')).toHaveAttribute('placeholder', '/config/database_backup')
+    expect(dialog.getByLabelText('备份目录')).toHaveAttribute('data-storage', 'local')
+    expect(dialog.getByLabelText('备份过期天数')).toHaveValue(30)
+    expect(dialog.getByLabelText('最大保留份数')).toHaveValue(30)
+  })
+
+  it('loads, edits, and saves the database backup policy', async () => {
+    systemEnv = {
+      ...systemEnv,
+      DB_BACKUP_CRON: '15 2 * * 1',
+      DB_BACKUP_ENABLE: true,
+      DB_BACKUP_MAX_COUNT: 12,
+      DB_BACKUP_PATH: '/data/backup',
+      DB_BACKUP_RETENTION_DAYS: 45,
+    }
+    await renderSettings()
+    const dialog = await openAdvancedTab('数据')
+
+    expect(dialog.getByLabelText('备份周期')).toHaveValue('15 2 * * 1')
+    expect(dialog.getByLabelText('备份目录')).toHaveValue('/data/backup')
+    await fireEvent.update(dialog.getByLabelText('备份周期'), '30 4 * * *')
+    await fireEvent.update(dialog.getByLabelText('备份目录'), '  relative/backup  ')
+    await fireEvent.update(dialog.getByLabelText('备份过期天数'), '60')
+    await fireEvent.update(dialog.getByLabelText('最大保留份数'), '20')
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({
+        DB_BACKUP_CRON: '30 4 * * *',
+        DB_BACKUP_ENABLE: true,
+        DB_BACKUP_MAX_COUNT: 20,
+        DB_BACKUP_PATH: 'relative/backup',
+        DB_BACKUP_RETENTION_DAYS: 60,
+      }),
+    )
+  })
+
+  it('hides disabled backup fields while preserving their values', async () => {
+    systemEnv = {
+      ...systemEnv,
+      DB_BACKUP_CRON: ' 15 2 * * 1 ',
+      DB_BACKUP_ENABLE: true,
+      DB_BACKUP_MAX_COUNT: '12',
+      DB_BACKUP_PATH: ' /data/backup ',
+      DB_BACKUP_RETENTION_DAYS: '45',
+    }
+    await renderSettings()
+    const dialog = await openAdvancedTab('数据')
+
+    await fireEvent.click(dialog.getByLabelText('启用数据备份'))
+    expect(dialog.queryByLabelText('备份周期')).not.toBeInTheDocument()
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({
+        DB_BACKUP_CRON: '15 2 * * 1',
+        DB_BACKUP_ENABLE: false,
+        DB_BACKUP_MAX_COUNT: 12,
+        DB_BACKUP_PATH: '/data/backup',
+        DB_BACKUP_RETENTION_DAYS: 45,
+      }),
+    )
+  })
+
+  it('rejects invalid hidden values while backup is disabled', async () => {
+    systemEnv = { ...systemEnv, DB_BACKUP_ENABLE: true, DB_BACKUP_PATH: '/data/backup' }
+    await renderSettings()
+    const dialog = await openAdvancedTab('数据')
+
+    await fireEvent.update(dialog.getByLabelText('备份周期'), '* * * *')
+    await fireEvent.update(dialog.getByLabelText('备份目录'), '   ')
+    await fireEvent.update(dialog.getByLabelText('备份过期天数'), '-1')
+    await fireEvent.update(dialog.getByLabelText('最大保留份数'), '1.5')
+    await fireEvent.click(dialog.getByLabelText('启用数据备份'))
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+    expect(mocks.toastError).toHaveBeenCalledWith('备份周期必须留空或使用有效的 Cron 表达式')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('accepts zero backup limits and normalizes a blank path to the backend default', async () => {
+    systemEnv = { ...systemEnv, DB_BACKUP_ENABLE: true, DB_BACKUP_PATH: null }
+    await renderSettings()
+    const dialog = await openAdvancedTab('数据')
+
+    expect(dialog.getByLabelText('备份目录')).toHaveValue('')
+    await fireEvent.update(dialog.getByLabelText('备份周期'), '')
+    await fireEvent.update(dialog.getByLabelText('备份目录'), '   ')
+    await fireEvent.update(dialog.getByLabelText('备份过期天数'), '0')
+    await fireEvent.update(dialog.getByLabelText('最大保留份数'), '0')
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({
+        DB_BACKUP_CRON: '',
+        DB_BACKUP_MAX_COUNT: 0,
+        DB_BACKUP_PATH: null,
+        DB_BACKUP_RETENTION_DAYS: 0,
+      }),
+    )
+  })
+
+  it.each([
+    ['备份周期', '* * * *', '备份周期必须留空或使用有效的 Cron 表达式'],
+    ['备份过期天数', '-1', '备份过期天数必须是大于等于 0 的整数'],
+    ['最大保留份数', '1.5', '最大保留份数必须是大于等于 0 的整数'],
+  ])('rejects invalid database backup field %s before posting', async (label, value, message) => {
+    systemEnv.DB_BACKUP_ENABLE = true
+    await renderSettings()
+    const dialog = await openAdvancedTab('数据')
+
+    await fireEvent.update(dialog.getByLabelText(label), value)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+    expect(mocks.toastError).toHaveBeenCalledWith(message)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('round-trips every advanced laboratory control when Rust is available', async () => {

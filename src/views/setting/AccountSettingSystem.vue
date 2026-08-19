@@ -100,6 +100,12 @@ const SystemSettings = ref<any>({
     DATA_CLEANUP_DOWNLOAD_HISTORY_DAYS: 180,
     DATA_CLEANUP_SITE_USERDATA_DAYS: 180,
     DATA_CLEANUP_TRANSFER_HISTORY_DAYS: 365 * 3,
+    // 本地数据库备份策略同时适用于 SQLite 与 PostgreSQL。
+    DB_BACKUP_ENABLE: false,
+    DB_BACKUP_CRON: '0 3 * * *',
+    DB_BACKUP_PATH: null,
+    DB_BACKUP_RETENTION_DAYS: 30,
+    DB_BACKUP_MAX_COUNT: 30,
     // 媒体
     RECOGNIZE_PLUGIN_FIRST: false,
     MEDIA_RECOGNIZE_SHARE: true,
@@ -610,6 +616,36 @@ const dataCleanupFieldRules = [
   (value: unknown) => Number(value) >= 0 || t('setting.system.dataCleanupDaysMin'),
 ]
 
+const dbBackupPath = computed({
+  get: () => String(SystemSettings.value.Advanced.DB_BACKUP_PATH ?? ''),
+  set: (value: string) => {
+    SystemSettings.value.Advanced.DB_BACKUP_PATH = value
+  },
+})
+
+function hasValidCronFieldCount(value: string) {
+  return value.trim().split(/\s+/).length === 5
+}
+
+function isNonNegativeInteger(value: unknown) {
+  if (value === '' || value === null || value === undefined) return false
+  const numberValue = Number(value)
+  return Number.isInteger(numberValue) && numberValue >= 0
+}
+
+const dbBackupCronRules = [
+  (value: unknown) => {
+    const cron = String(value ?? '').trim()
+    return !cron || hasValidCronFieldCount(cron) || t('setting.system.dbBackupCronInvalid')
+  },
+]
+const dbBackupRetentionRules = [
+  (value: unknown) => isNonNegativeInteger(value) || t('setting.system.dbBackupRetentionDaysInvalid'),
+]
+const dbBackupMaxCountRules = [
+  (value: unknown) => isNonNegativeInteger(value) || t('setting.system.dbBackupMaxCountInvalid'),
+]
+
 // 安全域名添加变量
 const newSecurityDomain = ref('')
 // 图片代理允许非公网网段添加变量
@@ -859,6 +895,7 @@ async function testLlmConnection() {
 
 // 保存高级设置
 async function saveAdvancedSettings() {
+  if (!normalizeDbBackupSettings()) return
   if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
   cleanEmptyFields(SystemSettings.value.Advanced, ['LOG_FILE_FORMAT'])
 
@@ -874,6 +911,35 @@ async function saveAdvancedSettings() {
     advancedDialog.value = false
     $toast.success(t('setting.system.advancedSaveSuccess'))
   }
+}
+
+/** 规范化备份策略，并在请求前阻止后端无法执行的配置。 */
+function normalizeDbBackupSettings() {
+  const settings = SystemSettings.value.Advanced
+  const path = String(settings.DB_BACKUP_PATH ?? '').trim()
+  settings.DB_BACKUP_PATH = path || null
+
+  const cron = String(settings.DB_BACKUP_CRON ?? '').trim()
+  const retentionDays = Number(settings.DB_BACKUP_RETENTION_DAYS)
+  const maxCount = Number(settings.DB_BACKUP_MAX_COUNT)
+
+  if (cron && !hasValidCronFieldCount(cron)) {
+    $toast.error(t('setting.system.dbBackupCronInvalid'))
+    return false
+  }
+  if (!isNonNegativeInteger(settings.DB_BACKUP_RETENTION_DAYS)) {
+    $toast.error(t('setting.system.dbBackupRetentionDaysInvalid'))
+    return false
+  }
+  if (!isNonNegativeInteger(settings.DB_BACKUP_MAX_COUNT)) {
+    $toast.error(t('setting.system.dbBackupMaxCountInvalid'))
+    return false
+  }
+
+  settings.DB_BACKUP_CRON = cron
+  settings.DB_BACKUP_RETENTION_DAYS = retentionDays
+  settings.DB_BACKUP_MAX_COUNT = maxCount
+  return true
 }
 
 // 当字段为空时，将其设置为 null 提交，以便后端恢复为默认值
@@ -2413,6 +2479,65 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           <VWindowItem value="data">
             <div>
               <VRow>
+                <VCol cols="12">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.DB_BACKUP_ENABLE"
+                    :label="t('setting.system.dbBackupEnable')"
+                    :hint="t('setting.system.dbBackupEnableHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <template v-if="SystemSettings.Advanced.DB_BACKUP_ENABLE">
+                  <VCol cols="12" md="6">
+                    <VCronField
+                      v-model="SystemSettings.Advanced.DB_BACKUP_CRON"
+                      :label="t('setting.system.dbBackupCron')"
+                      :hint="t('setting.system.dbBackupCronHint')"
+                      persistent-hint
+                      clearable
+                      :rules="dbBackupCronRules"
+                      prepend-inner-icon="mdi-clock-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VPathField
+                      v-model="dbBackupPath"
+                      storage="local"
+                      :label="t('setting.system.dbBackupPath')"
+                      :placeholder="t('setting.system.dbBackupPathPlaceholder')"
+                      :hint="t('setting.system.dbBackupPathHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-folder-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DB_BACKUP_RETENTION_DAYS"
+                      :label="t('setting.system.dbBackupRetentionDays')"
+                      :hint="t('setting.system.dbBackupRetentionDaysHint')"
+                      persistent-hint
+                      min="0"
+                      step="1"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dbBackupRetentionRules"
+                      prepend-inner-icon="mdi-calendar-remove-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DB_BACKUP_MAX_COUNT"
+                      :label="t('setting.system.dbBackupMaxCount')"
+                      :hint="t('setting.system.dbBackupMaxCountHint')"
+                      persistent-hint
+                      min="0"
+                      step="1"
+                      type="number"
+                      :rules="dbBackupMaxCountRules"
+                      prepend-inner-icon="mdi-backup-restore"
+                    />
+                  </VCol>
+                </template>
                 <VCol cols="12">
                   <VSwitch
                     v-model="SystemSettings.Advanced.DATA_CLEANUP_ENABLE"
