@@ -5,6 +5,7 @@ import noImage from '@images/no-image.jpeg'
 import { formatDateDifference, formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { formatMusicAudioSpecs } from '@/utils/music'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 const { t } = useI18n()
 
@@ -40,8 +41,9 @@ function getImportMeta(item: TransferHistory) {
   return values.filter(Boolean).join(' · ')
 }
 
-onMounted(loadRecentImports)
-onActivated(loadRecentImports)
+const { refresh: refreshRecentImports } = useKeepAliveRefresh(loadRecentImports)
+
+onMounted(refreshRecentImports)
 </script>
 
 <template>
