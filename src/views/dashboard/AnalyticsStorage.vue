@@ -4,6 +4,7 @@ import type { Storage } from '@/api/types'
 import storageImage from '@images/misc/storage.png'
 import { formatDashboardFileSize, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -53,13 +54,9 @@ async function getStorage() {
   }
 }
 
-onMounted(() => {
-  getStorage()
-})
+const { refresh: refreshStorage } = useKeepAliveRefresh(getStorage)
 
-onActivated(() => {
-  getStorage()
-})
+onMounted(refreshStorage)
 </script>
 
 <template>
