@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const API_BASE_URL = 'http://localhost/api/v1/'
 
 const mocks = vi.hoisted(() => ({
+  confirm: vi.fn(),
   doneNProgress: vi.fn(),
   startNProgress: vi.fn(),
   toastError: vi.fn(),
@@ -25,6 +26,10 @@ vi.mock('@/api/nprogress', () => ({
 
 vi.mock('vue-toastification', () => ({
   useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => mocks.confirm,
 }))
 
 type SelectItem = string | { title: string; value: string }
@@ -297,6 +302,7 @@ describe('AddDownloadDialog directories', () => {
 describe('AddDownloadDialog submissions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.confirm.mockResolvedValue(false)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
@@ -441,6 +447,72 @@ describe('AddDownloadDialog submissions', () => {
     expect(mocks.doneNProgress).toHaveBeenCalledOnce()
   })
 
+  it('retries an unrecognized download after confirmation', async () => {
+    const submitted: Array<Record<string, unknown>> = []
+    server.use(
+      http.post(new URL('download/add', API_BASE_URL).href, async ({ request }) => {
+        submitted.push((await request.json()) as Record<string, unknown>)
+        if (submitted.length === 1) {
+          return HttpResponse.json({
+            data: { requires_confirmation: true },
+            message: '无法识别媒体信息',
+            success: false,
+          })
+        }
+        return HttpResponse.json({ data: { download_id: 'collection-download' }, success: true })
+      }),
+    )
+    mocks.confirm.mockResolvedValue(true)
+    const user = userEvent.setup()
+    const { events, torrent } = await renderDialog()
+
+    await user.click(screen.getByRole('button', { name: '开始下载' }))
+
+    await waitFor(() => expect(events.done).toHaveBeenCalledWith(torrent.enclosure))
+    expect(mocks.confirm).toHaveBeenCalledWith({
+      type: 'warn',
+      title: '无法识别媒体信息',
+      content: '无法识别此资源的媒体信息，是否仍要下载？',
+      confirmText: '继续下载',
+    })
+    expect(submitted).toHaveLength(2)
+    expect(submitted[0]).not.toHaveProperty('allow_unrecognized')
+    expect(submitted[1]).toEqual({
+      ...submitted[0],
+      allow_unrecognized: true,
+    })
+    expect(events.error).not.toHaveBeenCalled()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('测试站 测试种子 下载成功！')
+    expect(mocks.startNProgress).toHaveBeenCalledOnce()
+    expect(mocks.doneNProgress).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the download dialog open when unrecognized download confirmation is cancelled', async () => {
+    const submitted = vi.fn()
+    server.use(
+      downloadHandler(
+        'download/add',
+        { data: { requires_confirmation: true }, message: '无法识别媒体信息', success: false },
+        200,
+        submitted,
+      ),
+    )
+    const user = userEvent.setup()
+    const { events } = await renderDialog()
+
+    await user.click(screen.getByRole('button', { name: '开始下载' }))
+
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
+    expect(submitted).toHaveBeenCalledOnce()
+    expect(events.done).not.toHaveBeenCalled()
+    expect(events.error).not.toHaveBeenCalled()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.doneNProgress).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: '开始下载' })).not.toBeDisabled()
+  })
+
   it('treats success:false at HTTP 200 as a business failure', async () => {
     server.use(downloadHandler('download/add', { data: null, message: '下载器拒绝任务', success: false }))
     const user = userEvent.setup()
@@ -450,6 +522,7 @@ describe('AddDownloadDialog submissions', () => {
 
     await waitFor(() => expect(events.error).toHaveBeenCalledWith('下载器拒绝任务'))
     expect(events.done).not.toHaveBeenCalled()
+    expect(mocks.confirm).not.toHaveBeenCalled()
     expect(mocks.toastError).toHaveBeenCalledWith('测试站 测试种子 下载失败：下载器拒绝任务！')
     expect(mocks.startNProgress).toHaveBeenCalledOnce()
     expect(mocks.doneNProgress).toHaveBeenCalledOnce()
