@@ -73,7 +73,7 @@ const filteredData = computed(() => {
 })
 
 // 选中的缓存项
-const selectedItems = ref<string[]>([])
+const selectedItems = ref<TorrentCacheItem[]>([])
 
 // 加载状态
 const loading = ref(false)
@@ -182,13 +182,9 @@ async function deleteSelectedItems() {
 
   try {
     loading.value = true
-    const deletePromises = selectedItems.value.map(hash => {
-      const item = cacheData.value.data.find(d => d.hash === hash)
-      if (item) {
-        return api.delete<null>(`torrent/cache/${item.domain}/${hash}`, { feedback: 'silent' })
-      }
-      return Promise.resolve()
-    })
+    const deletePromises = selectedItems.value.map(item =>
+      api.delete<null>(`torrent/cache/${item.domain}/${item.hash}`, { feedback: 'silent' }),
+    )
 
     await Promise.all(deletePromises)
     $toast.success(t('setting.cache.deleteSelectedSuccess', { count: selectedItems.value.length }))
@@ -209,8 +205,8 @@ async function deleteSingleItem(item: TorrentCacheItem) {
     await api.delete<null>(`torrent/cache/${item.domain}/${item.hash}`, { feedback: 'silent' })
     $toast.success(t('setting.cache.deleteSuccess'))
     await loadCacheData()
-    // 从选中列表中移除
-    const index = selectedItems.value.indexOf(item.hash)
+    const itemIdentity = getCacheItemIdentity(item)
+    const index = selectedItems.value.findIndex(selectedItem => getCacheItemIdentity(selectedItem) === itemIdentity)
     if (index > -1) {
       selectedItems.value.splice(index, 1)
     }
@@ -220,6 +216,11 @@ async function deleteSingleItem(item: TorrentCacheItem) {
   } finally {
     loading.value = false
   }
+}
+
+/** 组合站点和内容哈希，确保跨站点相同资源仍可独立选择。 */
+function getCacheItemIdentity(item: TorrentCacheItem): string {
+  return JSON.stringify([item.domain, item.hash])
 }
 
 /** 打开重新识别对话框。 */
@@ -319,7 +320,7 @@ function getMobileMediaTypeChipClass(type: string): string {
 
 /** 生成移动端缓存卡片的稳定渲染键。 */
 function getMobileCacheItemKey(item: TorrentCacheItem, index: number): string {
-  return item.hash || [item.domain, item.title, index].join('-')
+  return item.hash ? getCacheItemIdentity(item) : [item.domain, item.title, index].join('-')
 }
 
 /** 获取移动端缓存卡片使用的媒体标题。 */
@@ -655,7 +656,8 @@ watch([titleFilter, siteFilter], () => {
             ]"
             :items="filteredData"
             :loading="loading"
-            item-value="hash"
+            :item-value="getCacheItemIdentity"
+            return-object
             show-select
             hover
             fixed-header
