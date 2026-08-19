@@ -1060,6 +1060,9 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
     } else {
       resetSearchResults()
       startLoadingProgress()
+      // 记录发起搜索时的页面路径，搜索完成后只清理本页地址栏参数，
+      // 避免用户搜索期间跳转其他页面（如媒体详情）时误删其 query 参数
+      const searchPath = route.path
       try {
         await searchByStream(currentSearchParams, requestToken)
       } catch (error) {
@@ -1077,7 +1080,7 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
       if (requestId !== activeSearchRequestId) return
       stopLoadingProgress()
       // 搜索完成后移除地址栏参数，避免分享/刷新残留搜索条件
-      if (Object.keys(route.query).length > 0) {
+      if (route.path === searchPath && Object.keys(route.query).length > 0) {
         await router.replace({ path: route.path, query: {} })
       }
     }
@@ -1395,6 +1398,9 @@ watchEffect(() => {
 watch(
   () => route.query,
   query => {
+    // 页面被 keep-alive 缓存后仍会响应全局路由变化；只有本页处于前台时才消费查询参数，
+    // 否则详情页等路由携带的媒体身份参数会触发后台资源搜索
+    if (route.path !== '/resource') return
     if (Object.keys(query).length === 0) return
 
     const nextSearchParams = createSearchParams(query)

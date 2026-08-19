@@ -931,6 +931,74 @@ describe('resource page search flow', () => {
     await latestEventSource(4)
   })
 
+  it('does not run a background search when another route updates the global query while the page is cached', async () => {
+    const rendered = await renderResource({
+      path: '/resource',
+      query: { keyword: '前台搜索', result_type: 'torrent' },
+    })
+    const source = await latestEventSource()
+    finishStream(source, [createTorrent({ title: '前台结果' })])
+    await screen.findByText('前台结果')
+    expect(EventSourceFake.instances).toHaveLength(1)
+
+    // 模拟 keep-alive 缓存页在后台时，媒体详情路由携带与资源搜索一致的媒体身份参数
+    await rendered.router.push({
+      path: '/media',
+      query: {
+        media_source: 'themoviedb',
+        media_id: '42',
+        title: '媒体标题',
+        year: '2025',
+        type: '电视剧',
+      },
+    })
+    await flushAsyncWork()
+
+    expect(EventSourceFake.instances).toHaveLength(1)
+    expect(mocks.apiGet).not.toHaveBeenCalledWith(
+      'search/media/42',
+      expect.objectContaining({ params: expect.objectContaining({ media_source: 'themoviedb' }) }),
+    )
+  })
+
+  it('keeps the query of other routes when a search finishes after navigating away', async () => {
+    const rendered = await renderResource({
+      path: '/resource',
+      query: { keyword: '待完成搜索', result_type: 'torrent' },
+    })
+    await latestEventSource()
+    const replaceSpy = vi.spyOn(rendered.router, 'replace')
+
+    // 搜索未完成时跳转到媒体详情页，模拟详情页路由携带媒体身份参数
+    await rendered.router.push({
+      path: '/media',
+      query: {
+        media_source: 'themoviedb',
+        media_id: '42',
+        title: '媒体标题',
+        year: '2025',
+        type: '电视剧',
+      },
+    })
+    await flushAsyncWork()
+
+    // 完成此刻仍处于打开状态的全部搜索流（含修复前的隐藏搜索流），
+    // 确保任何残留搜索都不会清理其他页面的查询参数
+    for (const source of EventSourceFake.instances) {
+      finishStream(source, [createTorrent({ title: '后台结果' })])
+    }
+    await flushAsyncWork()
+
+    expect(replaceSpy).not.toHaveBeenCalled()
+    expect(rendered.router.currentRoute.value.query).toEqual({
+      media_source: 'themoviedb',
+      media_id: '42',
+      title: '媒体标题',
+      year: '2025',
+      type: '电视剧',
+    })
+  })
+
   it('does not let a late business failure from an old fallback replace the current empty-state message', async () => {
     let resolveOldRequest!: (value: unknown) => void
     mocks.apiGet.mockReturnValueOnce(
