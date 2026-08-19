@@ -79,17 +79,15 @@ function getMobileSchedulerStatusText(scheduler: ScheduleInfo) {
   return getDisplayedSchedulerStatusText(scheduler)
 }
 
-/** 执行指定定时服务，并在短延迟后刷新列表。 */
-function runCommand(id: string) {
+/** 执行指定定时服务，并在请求成功后的短延迟刷新列表。 */
+async function runCommand(id: string) {
   try {
-    // 异步提交
-    api.get('system/runscheduler', {
+    await api.get('system/runscheduler', {
       params: {
         jobid: id,
       },
     })
     $toast.success(t('setting.scheduler.executeSuccess'))
-    // 1秒后刷新数据
     setTimeout(() => {
       loadSchedulerList()
     }, 1000)
