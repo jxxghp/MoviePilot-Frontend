@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useToast } from 'vue-toastification'
-import api from '@/api'
+import api, { isApiBusinessFailure, isApiResponse } from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type {
   DownloaderConf,
@@ -16,6 +16,11 @@ import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import { isMediaDataSource, isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useGlobalSettingsStore } from '@/stores'
+import { useConfirm } from '@/composables/useConfirm'
+
+interface DownloadAddedData {
+  requires_confirmation?: boolean
+}
 
 // 多语言支持
 const { t } = useI18n()
@@ -48,6 +53,7 @@ const emit = defineEmits(['done', 'error', 'close'])
 
 // 提示框
 const $toast = useToast()
+const createConfirm = useConfirm()
 
 // 选择的下载器
 const selectedDownloader = ref<string | null>(null)
@@ -201,6 +207,7 @@ async function addDownload() {
       media_in?: MediaInfo
       media_source?: MediaDataSource
       music_type?: Exclude<MusicEntityType, 'artist'>
+      allow_unrecognized?: boolean
       save_path: string | null
       torrent_in: TorrentInfo | undefined
     } = {
@@ -222,7 +229,28 @@ async function addDownload() {
 
     const endpoint = props.media ? 'download/' : 'download/add'
 
-    await api.post<null>(endpoint, payload, { feedback: 'silent' })
+    try {
+      await api.post<null>(endpoint, payload, { feedback: 'silent' })
+    } catch (error) {
+      if (
+        !isApiBusinessFailure(error) ||
+        !isApiResponse<DownloadAddedData>(error.payload) ||
+        error.payload.data?.requires_confirmation !== true
+      ) {
+        throw error
+      }
+
+      const confirmed = await createConfirm({
+        type: 'warn',
+        title: t('dialog.addDownload.unrecognizedTitle'),
+        content: t('dialog.addDownload.unrecognizedContent'),
+        confirmText: t('dialog.addDownload.continueDownload'),
+      })
+      if (!confirmed) return
+
+      payload.allow_unrecognized = true
+      await api.post<null>(endpoint, payload, { feedback: 'silent' })
+    }
 
     // 添加下载成功
     $toast.success(
@@ -241,9 +269,10 @@ async function addDownload() {
       }),
     )
     emit('error', message)
+  } finally {
+    loading.value = false
+    doneNProgress()
   }
-  loading.value = false
-  doneNProgress()
 }
 
 onMounted(() => {
