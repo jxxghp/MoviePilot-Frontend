@@ -106,6 +106,7 @@ const SystemSettings = ref<any>({
     DB_BACKUP_PATH: null,
     DB_BACKUP_RETENTION_DAYS: 30,
     DB_BACKUP_MAX_COUNT: 30,
+    DB_BACKUP_ON_UPGRADE: true,
     // 媒体
     RECOGNIZE_PLUGIN_FIRST: false,
     MEDIA_RECOGNIZE_SHARE: true,
@@ -2535,6 +2536,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       type="number"
                       :rules="dbBackupMaxCountRules"
                       prepend-inner-icon="mdi-backup-restore"
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.DB_BACKUP_ON_UPGRADE"
+                      :label="t('setting.system.dbBackupOnUpgrade')"
+                      :hint="t('setting.system.dbBackupOnUpgradeHint')"
+                      persistent-hint
                     />
                   </VCol>
                 </template>

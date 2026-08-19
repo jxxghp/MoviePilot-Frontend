@@ -2234,6 +2234,9 @@ export default {
       dbBackupMaxCount: 'Maximum Backup Count',
       dbBackupMaxCountHint: 'Set to 0 for no limit',
       dbBackupMaxCountInvalid: 'Maximum backup count must be an integer greater than or equal to 0',
+      dbBackupOnUpgrade: 'Back Up Before Database Migration',
+      dbBackupOnUpgradeHint:
+        'Automatically create a backup when pending migrations are detected for an existing database',
       dataCleanupEnable: 'Enable Data Cleanup',
       dataCleanupEnableHint: 'When disabled, scheduled data cleanup tasks will be skipped',
       dataCleanupDaysRequired: 'Please enter a cleanup retention period',
