@@ -2203,6 +2203,8 @@ export default {
       dbBackupMaxCount: '最大保留份数',
       dbBackupMaxCountHint: '0 表示不限制',
       dbBackupMaxCountInvalid: '最大保留份数必须是大于等于 0 的整数',
+      dbBackupOnUpgrade: '数据库迁移前备份',
+      dbBackupOnUpgradeHint: '检测到现有数据库存在待执行迁移时自动创建备份',
       dataCleanupEnable: '启用数据清理',
       dataCleanupEnableHint: '总开关关闭时将跳过定时数据清理任务',
       dataCleanupDaysRequired: '请输入清理周期',

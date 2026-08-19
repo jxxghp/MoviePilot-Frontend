@@ -1065,6 +1065,7 @@ describe('AccountSettingSystem', () => {
     expect(dialog.getByLabelText('备份目录')).toHaveAttribute('data-storage', 'local')
     expect(dialog.getByLabelText('备份过期天数')).toHaveValue(30)
     expect(dialog.getByLabelText('最大保留份数')).toHaveValue(30)
+    expect(dialog.getByLabelText('数据库迁移前备份')).toBeChecked()
   })
 
   it('loads, edits, and saves the database backup policy', async () => {
@@ -1073,6 +1074,7 @@ describe('AccountSettingSystem', () => {
       DB_BACKUP_CRON: '15 2 * * 1',
       DB_BACKUP_ENABLE: true,
       DB_BACKUP_MAX_COUNT: 12,
+      DB_BACKUP_ON_UPGRADE: false,
       DB_BACKUP_PATH: '/data/backup',
       DB_BACKUP_RETENTION_DAYS: 45,
     }
@@ -1081,10 +1083,12 @@ describe('AccountSettingSystem', () => {
 
     expect(dialog.getByLabelText('备份周期')).toHaveValue('15 2 * * 1')
     expect(dialog.getByLabelText('备份目录')).toHaveValue('/data/backup')
+    expect(dialog.getByLabelText('数据库迁移前备份')).not.toBeChecked()
     await fireEvent.update(dialog.getByLabelText('备份周期'), '30 4 * * *')
     await fireEvent.update(dialog.getByLabelText('备份目录'), '  relative/backup  ')
     await fireEvent.update(dialog.getByLabelText('备份过期天数'), '60')
     await fireEvent.update(dialog.getByLabelText('最大保留份数'), '20')
+    await fireEvent.click(dialog.getByLabelText('数据库迁移前备份'))
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -1093,6 +1097,7 @@ describe('AccountSettingSystem', () => {
         DB_BACKUP_CRON: '30 4 * * *',
         DB_BACKUP_ENABLE: true,
         DB_BACKUP_MAX_COUNT: 20,
+        DB_BACKUP_ON_UPGRADE: true,
         DB_BACKUP_PATH: 'relative/backup',
         DB_BACKUP_RETENTION_DAYS: 60,
       }),
@@ -1105,6 +1110,7 @@ describe('AccountSettingSystem', () => {
       DB_BACKUP_CRON: ' 15 2 * * 1 ',
       DB_BACKUP_ENABLE: true,
       DB_BACKUP_MAX_COUNT: '12',
+      DB_BACKUP_ON_UPGRADE: false,
       DB_BACKUP_PATH: ' /data/backup ',
       DB_BACKUP_RETENTION_DAYS: '45',
     }
@@ -1113,6 +1119,7 @@ describe('AccountSettingSystem', () => {
 
     await fireEvent.click(dialog.getByLabelText('启用数据备份'))
     expect(dialog.queryByLabelText('备份周期')).not.toBeInTheDocument()
+    expect(dialog.queryByLabelText('数据库迁移前备份')).not.toBeInTheDocument()
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -1121,6 +1128,7 @@ describe('AccountSettingSystem', () => {
         DB_BACKUP_CRON: '15 2 * * 1',
         DB_BACKUP_ENABLE: false,
         DB_BACKUP_MAX_COUNT: 12,
+        DB_BACKUP_ON_UPGRADE: false,
         DB_BACKUP_PATH: '/data/backup',
         DB_BACKUP_RETENTION_DAYS: 45,
       }),
@@ -1161,6 +1169,7 @@ describe('AccountSettingSystem', () => {
       expect.objectContaining({
         DB_BACKUP_CRON: '',
         DB_BACKUP_MAX_COUNT: 0,
+        DB_BACKUP_ON_UPGRADE: true,
         DB_BACKUP_PATH: null,
         DB_BACKUP_RETENTION_DAYS: 0,
       }),
