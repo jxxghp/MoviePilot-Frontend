@@ -684,7 +684,10 @@ onUnmounted(() => {
 }
 
 .queue-detail {
+  display: flex;
   overflow: hidden;
+  flex-direction: column;
+  min-block-size: 0;
   min-inline-size: 0;
   padding-inline-start: 1.5rem;
 }
@@ -739,7 +742,9 @@ onUnmounted(() => {
 }
 
 .queue-task-list {
-  max-block-size: 23rem;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  max-block-size: none;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -926,6 +931,7 @@ onUnmounted(() => {
   }
 
   .queue-task-list {
+    flex: 0 0 auto;
     overflow: visible;
     max-block-size: none;
   }
