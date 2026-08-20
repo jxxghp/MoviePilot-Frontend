@@ -777,6 +777,28 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     })
   })
 
+  it('hides the status badge for a season with zero episodes', async () => {
+    const media = createSubscribeTv({
+      season_info: [
+        createMediaSeason({ episode_count: 0, season_number: 1 }),
+        createMediaSeason({ episode_count: 2, season_number: 2 }),
+      ],
+      title: '零集数状态剧',
+      tmdb_id: 8710,
+    })
+    const notExists = [createNotExistMediaInfo({ episodes: [1, 2], season: 2, total_episode: 2 })]
+    const { container } = await renderDetail({ media, notExists, type: '电视剧' })
+
+    await waitFor(() => {
+      const panels = [...container.querySelectorAll<HTMLElement>('.v-expansion-panel')]
+      expect(panels).toHaveLength(2)
+      // 集数为 0 的季不渲染任何存在状态标签
+      expect(panels[0].textContent).toMatch(/第 1 季/)
+      expect(panels[0].textContent).not.toMatch(/已入库|缺失/)
+      expect(panels[1].textContent).toMatch(/第 2 季.*已入库/s)
+    })
+  })
+
   it('loads season episodes and marks episodes that already exist remotely', async () => {
     const media = createSubscribeTv({
       season_info: [createMediaSeason({ episode_count: 2, season_number: 1 })],

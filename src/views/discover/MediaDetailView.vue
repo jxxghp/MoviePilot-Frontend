@@ -1083,7 +1083,11 @@ onUnmounted(() => {
                         {{ t('media.episodeCount', { count: season.episode_count }) }}
                       </VChip>
                       <div class="absolute right-12">
-                        <VChip v-if="seasonsNotExisted" :color="getExistColor(season.season_number || 0)" flat>
+                        <VChip
+                          v-if="seasonsNotExisted && (season.episode_count ?? 0) > 0"
+                          :color="getExistColor(season.season_number || 0)"
+                          flat
+                        >
                           {{ getExistText(season.season_number || 0) }}
                         </VChip>
                         <IconBtn
