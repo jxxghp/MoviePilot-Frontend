@@ -734,6 +734,8 @@ export interface Plugin {
   plugin_author?: string
   // 作者主页
   author_url?: string
+  // 项目主页
+  project_url?: string
   // 插件配置项ID前缀
   plugin_config_prefix?: string
   // 加载顺序

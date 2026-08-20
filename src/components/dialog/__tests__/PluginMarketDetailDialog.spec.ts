@@ -352,6 +352,19 @@ describe('PluginMarketDetailDialog', () => {
     expect(open).toHaveBeenCalledWith('https://github.com/example/plugins', '_blank')
   })
 
+  it('opens the declared project page instead of the installation source', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    await renderDialog({
+      ...basePlugin,
+      project_url: 'https://github.com/example/plugin',
+      repo_url: 'https://github.com/example/plugins',
+    })
+
+    await fireEvent.click(await screen.findByText('MoviePilot'))
+
+    expect(open).toHaveBeenCalledWith('https://github.com/example/plugin', '_blank')
+  })
+
   it('reports rating business and HTTP failures with stable feedback', async () => {
     mocks.apiPost.mockResolvedValueOnce({ success: false })
     const businessFailed = await renderDialog({ ...basePlugin, installed: true })

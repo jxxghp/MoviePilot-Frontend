@@ -271,4 +271,22 @@ describe('PluginAppCard rating badge', () => {
     await fireEvent.click(await screen.findByText('项目主页'))
     expect(open).toHaveBeenCalledWith('https://github.com/example-author', '_blank')
   })
+
+  it('prioritizes a declared project page over the installation source', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { container } = await renderWithProviders(PluginAppCard, {
+      props: {
+        plugin: {
+          ...plugin,
+          project_url: 'https://github.com/example/plugin',
+          repo_url: 'https://github.com/example/plugins',
+        },
+      },
+    })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('项目主页'))
+
+    expect(open).toHaveBeenCalledWith('https://github.com/example/plugin', '_blank')
+  })
 })

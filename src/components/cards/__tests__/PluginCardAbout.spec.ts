@@ -133,6 +133,20 @@ describe('PluginCard about menu', () => {
     expect(popup.opener).toBeNull()
   })
 
+  it('opens a declared project page directly without loading remote metadata', async () => {
+    const projectUrl = 'https://github.com/example/plugin'
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { container } = await renderWithProviders(PluginCard, {
+      props: { plugin: { ...plugin, project_url: projectUrl } },
+    })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('项目主页'))
+
+    expect(open).toHaveBeenCalledWith(projectUrl, '_blank')
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+  })
+
   it('prioritizes the update status over the rating status', async () => {
     await renderWithProviders(PluginCard, {
       props: {

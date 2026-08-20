@@ -327,13 +327,14 @@ function hasRemoteRepoUrl(plugin?: Plugin) {
   return Boolean(plugin?.repo_url && !plugin.repo_url.startsWith('local://'))
 }
 
-/** 优先解析插件仓库地址，本地插件或缺少仓库地址时回退到作者主页。 */
+/** 优先解析项目主页，其次使用远程安装来源，最后回退到作者主页。 */
 function resolvePluginPageUrl(plugin?: Plugin) {
   if (!plugin) return ''
 
+  const projectUrl = normalizePluginRepoUrl(plugin.project_url)
   const repoUrl = hasRemoteRepoUrl(plugin) ? normalizePluginRepoUrl(plugin.repo_url) : plugin.author_url
 
-  return repoUrl || plugin.author_url || ''
+  return projectUrl || repoUrl || plugin.author_url || ''
 }
 
 /** 从插件市场中查找同 ID 插件，补齐已安装插件缺失的 repo_url。 */
@@ -399,6 +400,12 @@ async function showPluginAbout() {
 
 // 访问插件项目主页
 async function visitPluginPage() {
+  const projectUrl = normalizePluginRepoUrl(props.plugin?.project_url)
+  if (projectUrl) {
+    window.open(projectUrl, '_blank')
+    return
+  }
+
   const popup = window.open('about:blank', '_blank')
   let pluginDetail = await fetchInstalledPluginDetail()
 

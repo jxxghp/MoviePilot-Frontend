@@ -90,9 +90,12 @@ const iconPath: Ref<string> = computed(() => {
 // 访问插件页面
 function visitPluginPage() {
   // 将raw.githubusercontent.com转换为项目地址
-  let repoUrl = props.plugin?.repo_url
-  if (props.plugin?.is_local || repoUrl?.startsWith('local://')) {
-    repoUrl = props.plugin?.author_url
+  let repoUrl = props.plugin?.project_url
+  if (!repoUrl) {
+    repoUrl = props.plugin?.repo_url
+    if (props.plugin?.is_local || repoUrl?.startsWith('local://')) {
+      repoUrl = props.plugin?.author_url
+    }
   }
   if (repoUrl?.includes('raw.githubusercontent.com')) {
     try {
