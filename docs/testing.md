@@ -84,7 +84,8 @@ Vitest 收集 `src/**/__tests__/**/*.spec.ts` 和 `tests/config/**/*.spec.ts`。
 
 ```sh
 yarn test          # watch 模式
-yarn test:run      # 单次运行
+yarn test:run      # 默认并行两个 shard 单次运行
+yarn test:run --serial # 单进程运行，适合排查顺序或共享状态问题
 yarn test:coverage # 单次运行并检查覆盖率
 yarn test:lint-config # 聚焦执行 ESLint 配置契约测试
 yarn typecheck
@@ -92,4 +93,6 @@ yarn lint
 yarn build
 ```
 
-`Frontend Tests` 工作流使用 Node 24 LTS 和 frozen lockfile，在面向 `v3` 的 Pull Request 和推送到 `v3` 时运行。`typecheck-and-tests` job 执行类型检查和单元测试（`yarn test:run`），不要求覆盖率达标；覆盖率可按需在本地运行 `yarn test:coverage`。独立的 `lint` job 执行全仓只读 ESLint 检查。变更文件格式检查依赖 Pull Request 的 base/head SHA，因此只在 Pull Request 事件运行。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。
+`yarn test:run` 默认并行执行两个 Vitest shard，本地全量测试和 CI 使用同一个入口。传入 `--shard=1/2` 之类的显式分片参数时只执行对应 shard；`yarn test:run --serial` 强制单进程运行。传入测试文件或名称过滤条件时自动使用单进程，避免聚焦测试因文件数不足而无法分片。
+
+`Frontend Tests` 工作流使用 Node 24 LTS 和 frozen lockfile，在面向 `v3` 的 Pull Request 和推送到 `v3` 时运行。`lint` job 依次执行全仓只读 ESLint 和类型检查；单元测试 matrix 通过统一入口分别执行两个 Vitest shard，成功用例的标准输出默认静默，失败详情仍保留。CI 不要求覆盖率达标；覆盖率可按需在本地运行 `yarn test:coverage`。变更文件格式检查依赖 Pull Request 的 base/head SHA，因此只在 Pull Request 事件运行。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。

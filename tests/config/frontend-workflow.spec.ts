@@ -11,7 +11,8 @@ describe('前端测试 workflow', () => {
   it('在 PR 与 v3 push 上运行，并将变更文件格式检查限制为 PR', () => {
     const workflow = readFileSync(workflowPath, 'utf8')
     const formatJob = workflow.match(/\n {2}format:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
-    const qualityJob = workflow.match(/\n {2}typecheck-and-tests:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
+    const lintJob = workflow.match(/\n {2}lint:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
+    const testJob = workflow.match(/\n {2}typecheck-and-tests:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
 
     expect(workflow).toContain('permissions:\n  contents: read')
     expect(workflow).toContain('pull_request:\n    branches:\n      - v3')
@@ -26,10 +27,16 @@ describe('前端测试 workflow', () => {
     expect(formatJob).toContain('HEAD_SHA: ${{ github.event.pull_request.head.sha }}')
     expect(formatJob).toContain('run: yarn format:check --base "$BASE_SHA" --head "$HEAD_SHA"')
     expect(formatJob).not.toContain('--write')
-    expect(qualityJob).toBeDefined()
-    expect(qualityJob).toContain('run: yarn typecheck')
-    expect(qualityJob).toContain('run: yarn test:run')
-    expect(qualityJob).not.toContain('test:coverage')
+    expect(lintJob).toBeDefined()
+    expect(lintJob).toContain('run: yarn lint')
+    expect(lintJob).toContain('run: yarn typecheck')
+    expect(testJob).toBeDefined()
+    expect(testJob).toContain('shard:')
+    expect(testJob).toContain('- 1/2')
+    expect(testJob).toContain('- 2/2')
+    expect(testJob).toContain('run: yarn test:run --shard=${{ matrix.shard }} --silent=passed-only')
+    expect(testJob).not.toContain('run: yarn typecheck')
+    expect(testJob).not.toContain('test:coverage')
     expect(workflow).not.toContain('\n  unit-tests:\n')
   })
 
@@ -37,10 +44,13 @@ describe('前端测试 workflow', () => {
     const testingGuide = readFileSync(testingGuidePath, 'utf8')
     const codeQualityGuide = readFileSync(codeQualityGuidePath, 'utf8')
 
-    expect(testingGuide).toContain('`typecheck-and-tests` job')
+    expect(testingGuide).toContain('`yarn test:run` 默认并行执行两个 Vitest shard')
+    expect(testingGuide).toContain('`yarn test:run --serial`')
+    expect(testingGuide).toContain('传入测试文件或名称过滤条件时自动使用单进程')
     expect(testingGuide).toContain('推送到 `v3`')
     expect(testingGuide).toContain('只在 Pull Request 事件运行')
-    expect(codeQualityGuide).toContain('lint 与 `typecheck-and-tests` 使用不同 job')
+    expect(codeQualityGuide).toContain('`lint` job 集中执行 ESLint 与 typecheck')
+    expect(codeQualityGuide).toContain('本地默认并行执行两个 Vitest shard')
     expect(testingGuide).not.toContain('`unit-tests`')
     expect(codeQualityGuide).not.toContain('`unit-tests`')
   })

@@ -12,7 +12,7 @@
     "generate:pwa-splash": "node scripts/generate-pwa-splash.mjs",
     "preview": "vite preview --port 5050",
     "test": "vitest",
-    "test:run": "vitest run",
+    "test:run": "node scripts/run-tests.mjs",
     "test:coverage": "vitest run --coverage",
     "test:lint-config": "vitest run tests/config/eslint-config.spec.ts",
     "typecheck": "vue-tsc --noEmit",
