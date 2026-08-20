@@ -283,6 +283,18 @@ const isSubtitleSearch = computed(() => resultType.value === 'subtitle')
 // 视图类型，从localStorage中读取
 const viewType = ref<TorrentViewType>(normalizeTorrentViewType(localStorage.getItem('MPTorrentsViewType')))
 
+// 排序条件与方向，从localStorage中读取，让上次的选择在下次进入结果页时继续生效
+const torrentSortFieldStorageKey = 'MPTorrentsSortField'
+const torrentSortTypeStorageKey = 'MPTorrentsSortType'
+const savedSortField = localStorage.getItem(torrentSortFieldStorageKey)
+if (savedSortField && Object.prototype.hasOwnProperty.call(torrentFilter.sortTitles, savedSortField)) {
+  torrentFilter.sortField.value = savedSortField
+}
+const savedSortType = localStorage.getItem(torrentSortTypeStorageKey)
+if (savedSortType === 'asc' || savedSortType === 'desc') {
+  torrentFilter.sortType.value = savedSortType
+}
+
 // 智能推荐相关
 // 从全局设置中获取 AI_RECOMMEND_ENABLED 状态
 const aiRecommendEnabled = computed(() => {
@@ -433,6 +445,12 @@ watch(
   },
   { deep: true },
 )
+
+// 记住排序选择
+watch([() => torrentFilter.sortField.value, () => torrentFilter.sortType.value], ([field, type]) => {
+  localStorage.setItem(torrentSortFieldStorageKey, field)
+  localStorage.setItem(torrentSortTypeStorageKey, type)
+})
 
 // 应用筛选
 function applyFilter() {
