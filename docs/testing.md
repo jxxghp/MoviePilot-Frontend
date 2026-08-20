@@ -92,4 +92,4 @@ yarn lint
 yarn build
 ```
 
-`Frontend Tests` 工作流使用 Node 24 LTS 和 frozen lockfile，在面向 `v3` 的 Pull Request 和推送到 `v3` 时运行。`typecheck-and-tests` job 执行类型检查和单元测试（`yarn test:run`），不要求覆盖率达标；覆盖率可按需在本地运行 `yarn test:coverage`。独立的 `lint` job 执行全仓只读 ESLint 检查。变更文件格式检查依赖 Pull Request 的 base/head SHA，因此只在 Pull Request 事件运行。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。
+`Frontend Tests` 工作流使用 Node 24 LTS 和 frozen lockfile，在面向 `v3` 的 Pull Request 和推送到 `v3` 时运行。`lint` job 依次执行全仓只读 ESLint 和类型检查；单元测试按测试文件分为两个 Vitest shard 并行执行 `yarn test:run`，成功用例的标准输出默认静默，失败详情仍保留。CI 不要求覆盖率达标；覆盖率可按需在本地运行 `yarn test:coverage`。变更文件格式检查依赖 Pull Request 的 base/head SHA，因此只在 Pull Request 事件运行。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。

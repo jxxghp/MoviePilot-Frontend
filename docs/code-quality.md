@@ -80,9 +80,9 @@ yarn build
 
 第二阶段在 Pull Request workflow 中增加独立的全仓 `yarn lint` job：
 
-1. lint 与 `typecheck-and-tests` 使用不同 job，保持静态检查和单元测试职责独立。
+1. `lint` job 集中执行 ESLint 与 typecheck，单元测试使用独立的两分片 job，使静态检查与测试关键路径并行。
 2. 初始阶段作为普通 check 运行，不立即配置 required check。
-3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint`，不执行自动修复或更新 baseline。
+3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint` / `yarn typecheck`，不执行自动修复或更新 baseline。
 4. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。
 5. 连续多个 PR 稳定通过后，再由维护者决定是否设为 required。
 
