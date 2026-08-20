@@ -2220,7 +2220,7 @@ export default {
       logFileFormat: 'Log File Format',
       logFileFormatHint: 'Set the output format of log files to customize the displayed content of logs',
       dbBackupEnable: 'Enable Data Backup',
-      dbBackupEnableHint: 'Master switch for automatic database backups; scheduled backups require a backup schedule',
+      dbBackupEnableHint: 'Enable scheduled backups and backups before database migrations',
       dbBackupCron: 'Backup Schedule',
       dbBackupCronHint: 'Cron expression; leave empty to disable scheduled backups',
       dbBackupCronInvalid: 'Backup schedule must be empty or a valid Cron expression',
@@ -2238,7 +2238,7 @@ export default {
       dbBackupOnUpgradeHint:
         'Automatically create a backup when pending migrations are detected for an existing database',
       dataCleanupEnable: 'Enable Data Cleanup',
-      dataCleanupEnableHint: 'When disabled, scheduled data cleanup tasks will be skipped',
+      dataCleanupEnableHint: 'Automatically remove expired data using the configured retention periods',
       dataCleanupDaysRequired: 'Please enter a cleanup retention period',
       dataCleanupDaysMin: 'Cleanup retention period must be greater than or equal to 0',
       dataCleanupMessageDays: 'Message Retention Days',
