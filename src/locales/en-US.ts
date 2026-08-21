@@ -3727,7 +3727,7 @@ export default {
     sourceMissing: 'Plugin files are missing',
     dependencyPending: 'Plugin dependencies are not ready',
     runtimeReady: 'Plugin is waiting to load',
-    blockedByPolicy: 'Blocked by the current runtime policy',
+    blockedByPolicy: 'User authentication failed. Check the logs.',
     runtimeLoadFailed: 'Plugin failed to load. Check the logs.',
     installFailed: 'Plugin {name} installation failed: {message}',
     filterPlugins: 'Filter Plugins',

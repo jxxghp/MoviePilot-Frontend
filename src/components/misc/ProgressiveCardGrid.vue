@@ -891,16 +891,33 @@ function pruneMeasurements() {
   }
 }
 
-function didKeysAppend(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
-  if (!previousKeys.length || nextKeys.length < previousKeys.length) {
+function preservesLeadingKeys(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
+  if (!previousKeys.length || !nextKeys.length) {
     return false
   }
 
-  return previousKeys.every((key, index) => key === nextKeys[index])
+  const sharedLength = Math.min(nextKeys.length, previousKeys.length)
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (nextKeys[index] !== previousKeys[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function hasSameKeySet(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
+  if (nextKeys.length !== previousKeys.length) {
+    return false
+  }
+
+  const previousKeySet = new Set(previousKeys)
+
+  return previousKeySet.size === nextKeys.length && nextKeys.every(key => previousKeySet.has(key))
 }
 
 function syncMeasurementsForItems(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
-  if (!didKeysAppend(nextKeys, previousKeys) && itemHeights.size) {
+  if (!preservesLeadingKeys(nextKeys, previousKeys) && !hasSameKeySet(nextKeys, previousKeys) && itemHeights.size) {
     itemHeights.clear()
     heightVersion.value += 1
   }
@@ -997,7 +1014,7 @@ onUnmounted(() => {
 watch(
   itemKeys,
   (nextKeys, previousKeys) => {
-    if (!didKeysAppend(nextKeys, previousKeys)) {
+    if (!preservesLeadingKeys(nextKeys, previousKeys) && !hasSameKeySet(nextKeys, previousKeys)) {
       cancelProgressiveRender()
       progressiveStartIndex.value = 0
       progressiveEndIndex.value = 0

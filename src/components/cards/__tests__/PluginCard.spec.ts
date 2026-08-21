@@ -436,4 +436,23 @@ describe('PluginCard lifecycle actions', () => {
     })
     expect(screen.getByText('插件依赖未就绪')).toBeInTheDocument()
   })
+
+  it('uses the host policy and load failure copy for terminal runtime states', async () => {
+    const blocked = await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, runtime_status: 'blocked_by_policy' },
+        runtimeSettling: false,
+      },
+    })
+    expect(screen.getByText('未通过用户认证，请查看日志')).toBeInTheDocument()
+    blocked.unmount()
+
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, runtime_status: 'load_failed' },
+        runtimeSettling: false,
+      },
+    })
+    expect(screen.getByText('插件加载失败，请查看日志')).toBeInTheDocument()
+  })
 })

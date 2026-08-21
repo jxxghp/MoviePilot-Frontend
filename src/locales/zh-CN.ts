@@ -3666,7 +3666,7 @@ export default {
     sourceMissing: '插件文件缺失',
     dependencyPending: '插件依赖未就绪',
     runtimeReady: '插件等待加载',
-    blockedByPolicy: '当前运行策略不允许加载',
+    blockedByPolicy: '未通过用户认证，请查看日志',
     runtimeLoadFailed: '插件加载失败，请查看日志',
     installFailed: '插件 {name} 安装失败：{message}',
     filterPlugins: '过滤插件',

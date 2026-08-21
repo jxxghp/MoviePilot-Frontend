@@ -123,11 +123,13 @@ const ProgressiveCardGridStub = defineComponent({
   props: {
     getItemKey: { type: Function as PropType<(item: unknown) => string>, default: undefined },
     items: { type: Array as PropType<unknown[]>, required: true },
+    scrollToIndex: { type: Number, default: undefined },
   },
   setup(props, { slots }) {
     return () =>
       h(
         'section',
+        { 'data-scroll-to-index': props.scrollToIndex ?? '' },
         props.items.flatMap(item => {
           props.getItemKey?.(item)
           return slots.default?.({ item }) ?? []
@@ -249,14 +251,24 @@ const PluginMixedSortCardStub = defineComponent({
 
 const PluginAppCardStub = defineComponent({
   name: 'PluginAppCard',
-  props: { plugin: { type: Object as PropType<Plugin>, required: true } },
+  props: {
+    plugin: { type: Object as PropType<Plugin>, required: true },
+    installHandler: Function as PropType<() => unknown>,
+  },
   emits: ['install'],
   setup(props, { emit }) {
     return () =>
       h('article', { 'data-testid': `market-${props.plugin.id}` }, [
         h('span', `market:${props.plugin.plugin_name}`),
         h('output', { 'aria-label': `rating-${props.plugin.id}` }, String(props.plugin.average_rating ?? '')),
-        h('button', { onClick: () => emit('install'), type: 'button' }, `installed-${props.plugin.id}`),
+        h(
+          'button',
+          {
+            onClick: () => (props.installHandler ? props.installHandler() : emit('install')),
+            type: 'button',
+          },
+          `installed-${props.plugin.id}`,
+        ),
       ])
   },
 })
@@ -463,6 +475,12 @@ function getDialogEvents(index = -1) {
   const call = mocks.openSharedDialog.mock.calls.at(index)
   if (!call) throw new Error('未打开共享弹窗')
   return call[2] as Record<string, (...args: unknown[]) => unknown>
+}
+
+function getDialogProps(index = -1) {
+  const call = mocks.openSharedDialog.mock.calls.at(index)
+  if (!call) throw new Error('未打开共享弹窗')
+  return call[1] as { plugin?: Plugin; installHandler?: (...args: unknown[]) => unknown }
 }
 
 async function waitForRequestsToFinish() {
@@ -957,6 +975,107 @@ describe('PluginCardListView market filtering and pagination', () => {
     expect(screen.getByText('market:Zulu')).toBeInTheDocument()
     await waitForRequestsToFinish()
   })
+
+  it('preserves loaded market pages when switching tabs without refetching', async () => {
+    const market = Array.from({ length: 45 }, (_, index) =>
+      createPlugin({
+        id: `Market-${index}`,
+        plugin_name: `市场插件 ${index}`,
+        repo_url: 'https://github.com/example/repo',
+      }),
+    )
+    let marketRequests = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => {
+        marketRequests += 1
+        return market
+      },
+    })
+
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20))
+    await fireEvent.click(screen.getByRole('button', { name: 'load-more-market' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(40))
+    expect(marketRequests).toBe(1)
+
+    getHeaderConfig().modelValue.value = 'installed'
+    await nextTick()
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(40)
+    expect(screen.getByText('market:市场插件 39')).toBeInTheDocument()
+    expect(marketRequests).toBe(1)
+
+    getHeaderButton('mdi-refresh').action?.()
+    await waitFor(() => expect(marketRequests).toBe(2))
+    await waitForRequestsToFinish()
+    expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20)
+    expect(screen.queryByText('market:市场插件 39')).not.toBeInTheDocument()
+  })
+
+  it('restores each tab window scroll position after switching tabs', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    let currentScrollTop = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => currentScrollTop)
+
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => Array.from({ length: 25 }, (_, index) => createPlugin({ id: `Market-${index}` })),
+    })
+
+    await waitForRequestsToFinish()
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    currentScrollTop = 1800
+    getHeaderConfig().modelValue.value = 'installed'
+    await nextTick()
+    currentScrollTop = 0
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ behavior: 'auto', top: 1800 }))
+    scrollTo.mockRestore()
+  })
+
+  it('keeps the previous market snapshot until a manual refresh is complete', async () => {
+    const refreshedMarket = createDeferred<Plugin[]>()
+    const refreshedStatistics = createDeferred<Record<string, number>>()
+    let marketRequests = 0
+    let statisticRequests = 0
+
+    await renderList({
+      market: () => {
+        marketRequests += 1
+        return marketRequests === 1
+          ? [createPlugin({ id: 'BeforeRefresh', plugin_name: '刷新前插件' })]
+          : refreshedMarket.promise
+      },
+      statistic: () => {
+        statisticRequests += 1
+        return statisticRequests === 1 ? {} : refreshedStatistics.promise
+      },
+    })
+
+    expect(await screen.findByText('market:刷新前插件')).toBeInTheDocument()
+    const refresh = getHeaderButton('mdi-refresh').action
+    if (!refresh) throw new Error('未注册市场刷新操作')
+    void refresh()
+
+    await waitFor(() => expect(marketRequests).toBe(2))
+    refreshedMarket.resolve([createPlugin({ id: 'AfterRefresh', plugin_name: '刷新后插件' })])
+    await waitFor(() => expect(statisticRequests).toBe(2))
+    await nextTick()
+
+    expect(screen.getByText('market:刷新前插件')).toBeInTheDocument()
+    expect(screen.queryByText('market:刷新后插件')).not.toBeInTheDocument()
+
+    refreshedStatistics.resolve({})
+    expect(await screen.findByText('market:刷新后插件')).toBeInTheDocument()
+    expect(screen.queryByText('market:刷新前插件')).not.toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
 })
 
 describe('PluginCardListView installed filtering and host callbacks', () => {
@@ -1039,9 +1158,10 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     getHeaderConfig().modelValue.value = 'market'
     await nextTick()
     await waitForRequestsToFinish()
+    expect(marketRequests).toBe(1)
     getDynamicMenuItem('dialog.pluginMarketSetting.title').action()
     getDialogEvents().save()
-    await waitFor(() => expect(marketRequests).toBeGreaterThanOrEqual(3))
+    await waitFor(() => expect(marketRequests).toBe(2))
 
     const requestsAfterSave = marketRequests
     getDynamicMenuItem('dialog.pluginMarketSetting.title').action()
@@ -1049,8 +1169,40 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     getDialogEvents().changed()
     await waitFor(() => expect(marketRequests).toBeGreaterThan(requestsAfterSave))
 
+    server.use(http.get(apiUrls.install('Available'), () => HttpResponse.json({ data: null, success: true })))
     await fireEvent.click(screen.getByRole('button', { name: 'installed-Available' }))
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
+    await waitForRequestsToFinish()
+  })
+
+  it('moves a market installation to the installed tab and targets its card', async () => {
+    const installGate = createDeferred<void>()
+    let installed = false
+    const target = createPlugin({ id: 'MarketInstall', plugin_name: '市场安装插件' })
+    await renderList({
+      installed: () => (installed ? [{ ...target, installed: true }] : []),
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+
+    server.use(
+      http.get(apiUrls.install('MarketInstall'), async () => {
+        await installGate.promise
+        installed = true
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'installed-MarketInstall' }))
+
+    expect(getHeaderConfig().modelValue.value).toBe('installed')
+    expect(await screen.findByText('plugin:市场安装插件')).toBeInTheDocument()
+    expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
+
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 市场安装插件 安装成功！'))
     await waitForRequestsToFinish()
   })
 })
@@ -1063,7 +1215,7 @@ describe('PluginCardListView search installation', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  it('blocks incompatible plugins and reports business and HTTP failures without success', async () => {
+  it('opens the install detail before making a request and preserves install failures', async () => {
     let installRequests = 0
     let mode: 'business' | 'http' = 'business'
     await renderList()
@@ -1086,12 +1238,16 @@ describe('PluginCardListView search installation', () => {
         system_version_message: '版本不兼容',
       }),
     )
+    expect(getDialogProps().plugin).toMatchObject({ id: 'SearchPlugin', plugin_name: '不兼容插件' })
+    expect(installRequests).toBe(0)
+    await getDialogProps().installHandler?.()
     expect(mocks.toastError).toHaveBeenLastCalledWith('版本不兼容')
     expect(installRequests).toBe(0)
 
     mocks.toastError.mockClear()
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](createPlugin({ id: 'SearchPlugin', plugin_name: '业务失败插件' }))
+    await getDialogProps().installHandler?.()
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
     expect(installRequests).toBe(1)
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
@@ -1100,6 +1256,7 @@ describe('PluginCardListView search installation', () => {
     mode = 'http'
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](createPlugin({ id: 'SearchPlugin', plugin_name: 'HTTP 失败插件' }))
+    await getDialogProps().installHandler?.()
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
     expect(installRequests).toBe(2)
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
@@ -1132,6 +1289,7 @@ describe('PluginCardListView search installation', () => {
 
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.()
 
     expect(await screen.findByText('plugin:搜索安装插件')).toBeInTheDocument()
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
@@ -1169,9 +1327,11 @@ describe('PluginCardListView search installation', () => {
     )
 
     getDynamicButtonConfig().onClick()
-    getDialogEvents()['open-plugin'](target)
+    await getDialogEvents()['open-plugin'](target)
+    void getDialogProps().installHandler?.()
 
     expect(await screen.findByText('plugin:后台安装插件')).toBeInTheDocument()
+    expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
     expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('source_missing')
     expect(screen.getByLabelText('settling-PendingPlugin')).toHaveTextContent('true')
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
@@ -1192,7 +1352,8 @@ describe('PluginCardListView search installation', () => {
     )
 
     getDynamicButtonConfig().onClick()
-    getDialogEvents()['open-plugin'](target)
+    await getDialogEvents()['open-plugin'](target)
+    void getDialogProps().installHandler?.()
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
     expect(screen.getByText('plugin:稳定插件')).toBeInTheDocument()

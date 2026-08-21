@@ -226,4 +226,116 @@ describe('ProgressiveCardGrid mount scheduling', () => {
 
     expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(18)
   })
+
+  it('keeps the rendered window when the same items are reordered', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(100)
+
+    const flushFrame = async () => {
+      const frameCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      frameCallbacks.forEach(callback => callback(performance.now()))
+      await nextTick()
+    }
+
+    const items = Array.from({ length: 100 }, (_, id) => ({ id }))
+    const { container, rerender } = render(ProgressiveCardGrid, {
+      props: {
+        batchSize: 4,
+        columns: 4,
+        estimatedItemHeight: 100,
+        gap: 0,
+        initialCount: 4,
+        items,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: {
+        default: '<div>item</div>',
+      },
+    })
+
+    await flushFrame()
+    const renderedBefore = container.querySelectorAll('[data-progressive-grid-index]').length
+    expect(renderedBefore).toBeGreaterThan(0)
+
+    await rerender({
+      batchSize: 4,
+      columns: 4,
+      estimatedItemHeight: 100,
+      gap: 0,
+      initialCount: 4,
+      items: [...items].reverse(),
+      getItemKey: (item: { id: number }) => item.id,
+    })
+
+    expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(renderedBefore)
+  })
+
+  it('keeps existing nodes when items are truncated from the end', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(100)
+
+    const flushFrame = async () => {
+      const frameCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      frameCallbacks.forEach(callback => callback(performance.now()))
+      await nextTick()
+    }
+
+    const items = Array.from({ length: 20 }, (_, id) => ({ id }))
+    const { container, rerender } = render(ProgressiveCardGrid, {
+      props: {
+        batchSize: 4,
+        columns: 4,
+        estimatedItemHeight: 100,
+        gap: 0,
+        initialCount: 4,
+        items,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: {
+        default: '<div>item</div>',
+      },
+    })
+
+    await flushFrame()
+    await flushFrame()
+    await flushFrame()
+    const nodesBefore = Array.from(container.querySelectorAll('[data-progressive-grid-index]'))
+    expect(nodesBefore).toHaveLength(16)
+
+    await rerender({
+      batchSize: 4,
+      columns: 4,
+      estimatedItemHeight: 100,
+      gap: 0,
+      initialCount: 4,
+      items: items.slice(0, 16),
+      getItemKey: (item: { id: number }) => item.id,
+    })
+
+    const nodesAfter = Array.from(container.querySelectorAll('[data-progressive-grid-index]'))
+    expect(nodesAfter).toHaveLength(16)
+    expect(nodesAfter.every((node, index) => node === nodesBefore[index])).toBe(true)
+  })
 })

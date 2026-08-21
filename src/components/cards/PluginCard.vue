@@ -70,6 +70,8 @@ const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_s
   blocked_by_policy: 'plugin.blockedByPolicy',
   load_failed: 'plugin.runtimeLoadFailed',
 }
+const showRuntimeStatusDot = computed(() => !runtimeStatus.value || runtimeStatus.value === 'active')
+const runtimeStatusDotColor = computed(() => (props.plugin?.state ? 'success' : 'secondary'))
 const runtimeStatusText = computed(() => {
   const status = runtimeStatus.value
   const statusKey = status
@@ -660,10 +662,12 @@ watch(
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
               'cursor-move': props.sortable,
+              'plugin-card--runtime-blocked': runtimeActionsBlocked,
               'plugin-card--runtime-pending': runtimePending,
+              'plugin-card--runtime-unavailable': runtimeUnavailable,
             }"
             :style="accentStyle"
-            :ripple="!props.sortable"
+            :ripple="!props.sortable && !runtimeActionsBlocked"
           >
             <div class="plugin-card__banner flex-grow">
               <VCardText class="px-2 pt-2 pb-0">
@@ -671,7 +675,13 @@ watch(
                   class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
                   :class="{ 'plugin-card__title--with-status': hasCardStatus }"
                 >
-                  <VBadge dot inline :color="props.plugin?.state ? 'success' : 'secondary'" />
+                  <VBadge
+                    v-if="showRuntimeStatusDot"
+                    dot
+                    inline
+                    :color="runtimeStatusDotColor"
+                    :aria-label="props.plugin?.state ? t('plugin.running') : t('plugin.disable')"
+                  />
                   {{ props.plugin?.plugin_name }}
                   <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
                 </VCardTitle>
@@ -686,7 +696,7 @@ watch(
                   class="relative flex-shrink-0 self-center pb-3"
                   :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                 >
-                  <VAvatar size="48">
+                  <VAvatar size="48" class="plugin-card__plugin-icon">
                     <VImg
                       ref="imageRef"
                       :src="iconPath"
@@ -743,7 +753,7 @@ watch(
                 </span>
               </div>
               <div v-if="!props.sortable" class="absolute bottom-0 right-0">
-                <IconBtn @click.stop>
+                <IconBtn class="plugin-card__menu" @click.stop>
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
                     <VList>
@@ -820,8 +830,23 @@ watch(
   cursor: progress;
 }
 
+.plugin-card--runtime-unavailable {
+  cursor: not-allowed;
+  border: var(--app-card-light-border) !important;
+}
+
+.plugin-card--runtime-blocked .plugin-card__plugin-icon,
+.plugin-card--runtime-blocked .plugin-card__menu {
+  filter: grayscale(1);
+  opacity: 0.56;
+}
+
+.plugin-card--runtime-blocked .plugin-card__banner {
+  border-block-end: 0 !important;
+}
+
 .plugin-card__runtime-state {
-  position: absolute;
+  position: absolute !important;
   z-index: 3;
   display: flex;
   align-items: center;
