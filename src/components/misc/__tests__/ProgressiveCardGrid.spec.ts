@@ -49,6 +49,78 @@ describe('ProgressiveCardGrid scroll target lifecycle', () => {
 
     expect(container.querySelector('.progressive-card-grid__track')).toHaveAttribute('data-layout-size-source')
   })
+
+  it('reveals a target below the fixed navbar on the current viewport', async () => {
+    const navbar = document.createElement('header')
+    navbar.className = 'layout-navbar'
+    navbar.style.position = 'fixed'
+    navbar.getBoundingClientRect = () =>
+      ({
+        bottom: 80,
+        height: 80,
+        left: 0,
+        right: 1024,
+        top: 0,
+        width: 1024,
+      }) as DOMRect
+    document.body.append(navbar)
+
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(4000)
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+
+    render(ProgressiveCardGrid, {
+      props: {
+        columns: 1,
+        estimatedItemHeight: 100,
+        items: Array.from({ length: 10 }, (_, id) => ({ id })),
+        scrollToIndex: 3,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: {
+        default: '<div>item</div>',
+      },
+    })
+
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ behavior: 'auto', top: 252 }))
+    navbar.remove()
+  })
+
+  it('keeps a target near the end of a list within the maximum scroll position', async () => {
+    const navbar = document.createElement('header')
+    navbar.className = 'layout-navbar'
+    navbar.style.position = 'fixed'
+    navbar.getBoundingClientRect = () =>
+      ({
+        bottom: 112,
+        height: 112,
+        left: 0,
+        right: 1024,
+        top: 0,
+        width: 1024,
+      }) as DOMRect
+    document.body.append(navbar)
+
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(1500)
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+
+    render(ProgressiveCardGrid, {
+      props: {
+        columns: 1,
+        estimatedItemHeight: 100,
+        items: Array.from({ length: 10 }, (_, id) => ({ id })),
+        scrollToIndex: 9,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: {
+        default: '<div>item</div>',
+      },
+    })
+
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ behavior: 'auto', top: 700 }))
+    navbar.remove()
+  })
 })
 
 describe('ProgressiveCardGrid mount scheduling', () => {

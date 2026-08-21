@@ -75,6 +75,8 @@ let lastMeasuredColumnCount = 0
 let lastMeasuredColumnWidth = 0
 let documentOverlayLocked = false
 
+const scrollRevealGap = 16
+
 const safeGap = computed(() => Math.max(0, props.gap))
 const safeInitialCount = computed(() => Math.max(1, Math.floor(props.initialCount)))
 const safeBatchSize = computed(() => Math.max(1, Math.floor(props.batchSize)))
@@ -789,6 +791,78 @@ function getTrackScrollTop() {
   return trackRect.top - scrollRect.top + scrollElement.scrollTop
 }
 
+function getScrollViewport() {
+  const target = scrollTarget
+
+  if (!target || target === window) {
+    return {
+      bottom: window.innerHeight,
+      top: 0,
+    }
+  }
+
+  const rect = (target as HTMLElement).getBoundingClientRect()
+
+  return {
+    bottom: rect.bottom,
+    top: rect.top,
+  }
+}
+
+function getFixedTopInset() {
+  if (!scrollTarget || typeof document === 'undefined') {
+    return 0
+  }
+
+  const viewport = getScrollViewport()
+  const navbar = document.querySelector<HTMLElement>('.layout-navbar')
+
+  if (!navbar) {
+    return 0
+  }
+
+  const navbarStyle = window.getComputedStyle(navbar)
+  if (navbarStyle.position !== 'fixed' && navbarStyle.position !== 'sticky') {
+    return 0
+  }
+
+  const navbarRect = navbar.getBoundingClientRect()
+  if (navbarRect.bottom <= viewport.top || navbarRect.top > viewport.top) {
+    return 0
+  }
+
+  return clamp(navbarRect.bottom - viewport.top, 0, viewport.bottom - viewport.top)
+}
+
+function getMaxScrollTop() {
+  const target = scrollTarget
+
+  if (!target || target === window) {
+    const scrollingElement = document.scrollingElement || document.documentElement
+
+    return Math.max(0, scrollingElement.scrollHeight - window.innerHeight)
+  }
+
+  const element = target as HTMLElement
+
+  return Math.max(0, element.scrollHeight - element.clientHeight)
+}
+
+function getRevealScrollTop(targetTop: number, itemHeight: number) {
+  const viewport = getScrollViewport()
+  const viewportHeight = Math.max(0, viewport.bottom - viewport.top)
+  const topInset = getFixedTopInset() + scrollRevealGap
+  const bottomInset = scrollRevealGap
+  const visibleBottom = Math.max(topInset, viewportHeight - bottomInset - itemHeight)
+  const targetScrollTop = getTrackScrollTop() + targetTop
+
+  // 优先把卡片顶边放在顶栏下方，列表末尾则退化为让卡片底边留在视口内。
+  const preferredScrollTop = targetScrollTop - topInset
+  const minimumScrollTop = targetScrollTop - visibleBottom
+
+  return clamp(Math.max(preferredScrollTop, minimumScrollTop), 0, getMaxScrollTop())
+}
+
 function adjustScrollTop(delta: number) {
   if (!scrollTarget || Math.abs(delta) < 0.5) {
     return
@@ -805,12 +879,12 @@ function adjustScrollTop(delta: number) {
   }
 }
 
-function scrollToRelativeTop(top: number) {
+function scrollToRelativeTop(top: number, itemHeight: number) {
   if (!scrollTarget) {
     return
   }
 
-  const targetTop = getTrackScrollTop() + top
+  const targetTop = getRevealScrollTop(top, itemHeight)
 
   if (scrollTarget === window) {
     window.scrollTo({
@@ -836,8 +910,9 @@ async function revealItem(index: number) {
 
   const row = Math.floor(index / columnCount.value)
   const top = rowMetrics.value.offsets[row] ?? 0
+  const itemHeight = rowMetrics.value.heights[row] ?? estimatedHeight.value
 
-  scrollToRelativeTop(top)
+  scrollToRelativeTop(top, itemHeight)
 }
 
 function requestRevealItem(index: number) {
