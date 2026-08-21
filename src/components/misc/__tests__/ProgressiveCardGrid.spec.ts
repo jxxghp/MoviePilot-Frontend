@@ -409,5 +409,30 @@ describe('ProgressiveCardGrid mount scheduling', () => {
     const nodesAfter = Array.from(container.querySelectorAll('[data-progressive-grid-index]'))
     expect(nodesAfter).toHaveLength(16)
     expect(nodesAfter.every((node, index) => node === nodesBefore[index])).toBe(true)
+
+    await rerender({
+      batchSize: 4,
+      columns: 4,
+      estimatedItemHeight: 100,
+      gap: 0,
+      initialCount: 4,
+      items: items.slice(0, 4),
+      getItemKey: (item: { id: number }) => item.id,
+    })
+    const truncatedCount = container.querySelectorAll('[data-progressive-grid-index]').length
+    expect(truncatedCount).toBeLessThanOrEqual(8)
+
+    await rerender({
+      batchSize: 4,
+      columns: 4,
+      estimatedItemHeight: 100,
+      gap: 0,
+      initialCount: 4,
+      items,
+      getItemKey: (item: { id: number }) => item.id,
+    })
+    expect(container.querySelectorAll('[data-progressive-grid-index]').length).toBeLessThanOrEqual(truncatedCount + 4)
+    await flushFrame()
+    expect(container.querySelectorAll('[data-progressive-grid-index]').length).toBe(truncatedCount + 8)
   })
 })

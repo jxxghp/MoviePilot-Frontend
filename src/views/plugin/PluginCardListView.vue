@@ -853,6 +853,11 @@ function pluginDialogClose() {
 
 // 安装插件
 async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: string) {
+  const pluginId = item?.id
+  if (!pluginId || installingPluginIds.value.has(pluginId)) {
+    return
+  }
+
   if (!releaseVersion && item?.system_version_compatible === false) {
     $toast.error(item.system_version_message || t('plugin.incompatibleSystemVersion'))
     return
@@ -866,10 +871,10 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
   hasUpdateFilter.value = false
   enabledFilter.value = false
   tabScrollPositions.installed = 0
-  installScrollPluginId.value = item.id
-  installingPluginIds.value = new Set([...installingPluginIds.value, item.id])
+  installScrollPluginId.value = pluginId
+  installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
   dataList.value = [
-    ...dataList.value.filter(plugin => plugin.id !== item.id),
+    ...dataList.value.filter(plugin => plugin.id !== pluginId),
     {
       ...item,
       installed: true,
@@ -882,7 +887,7 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
 
   let installed = false
   try {
-    await api.get(`plugin/install/${item?.id}`, {
+    await api.get(`plugin/install/${pluginId}`, {
       params: {
         repo_url: repoUrl || item?.repo_url,
         release_version: releaseVersion,
@@ -897,16 +902,15 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
     if (userStore.superUser) await pluginRuntimeStore.refresh()
     await pluginSidebarNavStore.ensureSidebarNav(true)
     await nextTick()
-    if (installScrollPluginId.value === item.id) installScrollPluginId.value = null
+    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
   } catch (error) {
     const pending = new Set(installingPluginIds.value)
-    pending.delete(item.id)
+    pending.delete(pluginId)
     installingPluginIds.value = pending
-    const nextData = dataList.value.filter(plugin => plugin.id !== item.id)
+    const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
     if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
     dataList.value = nextData
-    if (installScrollPluginId.value === item.id) installScrollPluginId.value = null
-    await fetchInstalledPlugins({ silent: true })
+    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
     console.error(error)
     $toast.error(
       t('plugin.installFailed', {
@@ -914,10 +918,12 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
         message: error instanceof Error ? error.message : '',
       }),
     )
+    // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
+    void fetchInstalledPlugins({ silent: true })
   } finally {
     if (!installed) {
       const pending = new Set(installingPluginIds.value)
-      pending.delete(item.id)
+      pending.delete(pluginId)
       installingPluginIds.value = pending
     }
   }
@@ -1059,9 +1065,15 @@ interface PluginMarketMetrics {
   ratings?: { [key: string]: PluginRating }
 }
 
+type CompletePluginMarketMetrics = Required<PluginMarketMetrics>
+
 /** 将市场快照一次性投影到列表和过滤选项，避免请求过程暴露半成品状态。 */
-function applyMarketSnapshot(marketResponse: Plugin[]) {
-  mergeRatingsIntoPlugins(marketResponse)
+function applyMarketSnapshot(marketResponse: Plugin[], metrics?: CompletePluginMarketMetrics) {
+  if (metrics) {
+    PluginStatistics.value = metrics.statistics
+    PluginRatings.value = metrics.ratings
+  }
+  mergeRatingsIntoPlugins(marketResponse, metrics?.ratings)
   uninstalledList.value = marketResponse
   mergeMarketMetadataIntoInstalled()
   marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
@@ -1167,12 +1179,10 @@ async function getPluginMarketMetrics(
     fetchPluginRatings(plugins, marketGeneration),
   ])
 
-  if (commit) {
-    if (statistics !== undefined) PluginStatistics.value = statistics
-    if (ratings !== undefined) {
-      PluginRatings.value = ratings
-      mergeRatingsIntoPlugins([...dataList.value, ...uninstalledList.value, ...marketList.value], ratings, true)
-    }
+  if (commit && statistics !== undefined && ratings !== undefined) {
+    PluginStatistics.value = statistics
+    PluginRatings.value = ratings
+    mergeRatingsIntoPlugins([...dataList.value, ...uninstalledList.value, ...marketList.value], ratings, true)
   }
 
   return { statistics, ratings }
@@ -1219,6 +1229,33 @@ async function refreshData(context: KeepAliveRefreshContext = {}) {
   await getPluginMarketMetrics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
+}
+
+/** 只有列表、评分和统计均来自同一轮请求时才发布市场快照。 */
+async function refreshMarketData(
+  force = false,
+  context: KeepAliveRefreshContext = {},
+  resetScroll = false,
+): Promise<boolean> {
+  const marketResponse = await fetchUninstalledPlugins(force, context, false)
+  if (!marketResponse) return false
+
+  const metrics = await getPluginMarketMetrics(marketResponse, false)
+  if (metrics.statistics === undefined || metrics.ratings === undefined) {
+    if (!isAppMarketLoaded.value) marketLoadError.value = true
+    console.warn('插件市场指标快照不完整，保留上一份市场数据')
+    return false
+  }
+
+  applyMarketSnapshot(marketResponse, {
+    statistics: metrics.statistics,
+    ratings: metrics.ratings,
+  })
+  if (resetScroll) {
+    marketVisibleCount.value = marketPageSize
+    tabScrollPositions.market = 0
+  }
+  return true
 }
 
 // 对uninstalledList进行排序到sortedUninstalledList
@@ -1306,16 +1343,9 @@ async function refreshMarket() {
 
   isMarketRefreshing.value = true
   try {
-    const marketResponse = await fetchUninstalledPlugins(true, { silent: false, source: 'manual' }, false)
-    if (!marketResponse) return
+    const refreshed = await refreshMarketData(true, { silent: false, source: 'manual' }, true)
+    if (!refreshed) return
 
-    const metrics = await getPluginMarketMetrics(marketResponse, false)
-    if (metrics.ratings !== undefined) mergeRatingsIntoPlugins(marketResponse, metrics.ratings, true)
-    if (metrics.statistics !== undefined) PluginStatistics.value = metrics.statistics
-    if (metrics.ratings !== undefined) PluginRatings.value = metrics.ratings
-    applyMarketSnapshot(marketResponse)
-    marketVisibleCount.value = marketPageSize
-    tabScrollPositions.market = 0
     await nextTick()
     window.scrollTo({ behavior: 'auto', top: 0 })
   } catch (error) {

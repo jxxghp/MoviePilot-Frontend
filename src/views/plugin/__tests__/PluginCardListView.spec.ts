@@ -1076,6 +1076,32 @@ describe('PluginCardListView market filtering and pagination', () => {
     expect(screen.queryByText('market:刷新前插件')).not.toBeInTheDocument()
     await waitForRequestsToFinish()
   })
+
+  it('keeps the previous market snapshot when a manual metric request fails', async () => {
+    let marketRequests = 0
+    await renderList({
+      market: () => {
+        marketRequests += 1
+        return marketRequests === 1
+          ? [createPlugin({ id: 'BeforeRefresh', plugin_name: '刷新前插件' })]
+          : [createPlugin({ id: 'AfterRefresh', plugin_name: '刷新后插件' })]
+      },
+      statistic: () => ({ BeforeRefresh: 10 }),
+    })
+
+    expect(await screen.findByText('market:刷新前插件')).toBeInTheDocument()
+    server.use(
+      http.get(apiUrls.statistic, () => HttpResponse.json({ message: 'metrics failed' }, { status: 503 })),
+    )
+
+    const refresh = getHeaderButton('mdi-refresh').action
+    if (!refresh) throw new Error('未注册市场刷新操作')
+    await refresh()
+    await waitForRequestsToFinish()
+
+    expect(screen.getByText('market:刷新前插件')).toBeInTheDocument()
+    expect(screen.queryByText('market:刷新后插件')).not.toBeInTheDocument()
+  })
 })
 
 describe('PluginCardListView installed filtering and host callbacks', () => {
@@ -1339,6 +1365,64 @@ describe('PluginCardListView search installation', () => {
     installGate.resolve()
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 后台安装插件 安装成功！'))
     await waitFor(() => expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('active'))
+    await waitForRequestsToFinish()
+  })
+
+  it('deduplicates concurrent installation requests for the same plugin', async () => {
+    const installGate = createDeferred<void>()
+    let installRequests = 0
+    const target = createPlugin({ id: 'DuplicatePlugin', plugin_name: '重复安装插件' })
+    await renderList({ market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('DuplicatePlugin'), async () => {
+        installRequests += 1
+        await installGate.promise
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    const install = getDialogProps().installHandler
+    if (!install) throw new Error('未打开插件安装操作')
+    void install()
+    void install()
+
+    await waitFor(() => expect(installRequests).toBe(1))
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 重复安装插件 安装成功！'))
+    await waitForRequestsToFinish()
+  })
+
+  it('shows installation failure before a slow rollback refresh completes', async () => {
+    const refreshGate = createDeferred<Plugin[]>()
+    let firstInstalledRequest = true
+    const target = createPlugin({ id: 'SlowRollbackPlugin', plugin_name: '慢回滚插件' })
+    await renderList({
+      installed: () => {
+        if (firstInstalledRequest) {
+          firstInstalledRequest = false
+          return []
+        }
+        return refreshGate.promise
+      },
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('SlowRollbackPlugin'), () =>
+        HttpResponse.json({ message: '依赖安装失败', success: false }),
+      ),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    void getDialogProps().installHandler?.()
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(getActiveRequestsCount()).toBeGreaterThan(0)
+    refreshGate.resolve([])
     await waitForRequestsToFinish()
   })
 

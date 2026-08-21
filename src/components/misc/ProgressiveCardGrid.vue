@@ -723,6 +723,10 @@ function syncProgressiveWindow() {
     return
   }
 
+  // 列表缩短后先裁剪历史渐进窗口，追加数据时仍按批次继续渲染。
+  progressiveStartIndex.value = clamp(progressiveStartIndex.value, 0, props.items.length)
+  progressiveEndIndex.value = clamp(progressiveEndIndex.value, 0, props.items.length)
+
   const range = calculatedVisibleRange.value
   const viewportRange = calculatedViewportRange.value
   const overlapsViewport =
