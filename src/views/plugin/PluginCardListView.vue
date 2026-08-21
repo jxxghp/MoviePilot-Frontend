@@ -52,9 +52,7 @@ const PluginFolderCreateDialog = defineAsyncComponent(() => import('@/components
 const PluginMarketSettingDialog = defineAsyncComponent(
   () => import('@/components/dialog/PluginMarketSettingDialog.vue'),
 )
-const PluginMarketDetailDialog = defineAsyncComponent(
-  () => import('@/components/dialog/PluginMarketDetailDialog.vue'),
-)
+const PluginMarketDetailDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketDetailDialog.vue'))
 const PluginSearchDialog = defineAsyncComponent(() => import('@/components/dialog/PluginSearchDialog.vue'))
 
 // APP
@@ -932,8 +930,7 @@ function openPluginMarketDetail(item: Plugin) {
     {
       plugin: item,
       count: PluginStatistics.value[item.id || '0'],
-      installHandler: (releaseVersion?: string, repoUrl?: string) =>
-        installPlugin(item, releaseVersion, repoUrl),
+      installHandler: (releaseVersion?: string, repoUrl?: string) => installPlugin(item, releaseVersion, repoUrl),
     },
     {
       install: pluginInstalled,
