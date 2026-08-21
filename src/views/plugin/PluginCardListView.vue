@@ -218,6 +218,7 @@ const isMarketRefreshing = ref(false)
 const pluginRuntimeSummary = computed(() => pluginRuntimeStore.summary)
 const installingPluginIds = ref(new Set<string>())
 const isPluginPageActive = ref(false)
+const appliedRuntimeReconciliation = ref(0)
 
 // 每类远程快照独立管理 writer 代际，旧请求只能完成自身 Promise，不能覆盖新状态。
 let installedWriterGeneration = 0
@@ -1038,6 +1039,17 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}): Pro
   }
 }
 
+/** 运行态变化在市场页发生时延后应用，回到已安装列表后再补一次快照。 */
+async function reconcileInstalledRuntime(): Promise<void> {
+  const reconciliation = pluginRuntimeStore.reconciliation
+  if (reconciliation <= appliedRuntimeReconciliation.value) return
+
+  const refreshed = await fetchInstalledPlugins({ silent: true })
+  if (refreshed && reconciliation === pluginRuntimeStore.reconciliation) {
+    appliedRuntimeReconciliation.value = reconciliation
+  }
+}
+
 function isPluginRuntimeSettling(pluginId: string) {
   return pluginRuntimeSummary.value?.ready === false || installingPluginIds.value.has(pluginId)
 }
@@ -1448,19 +1460,26 @@ watch(activeTab, (newTab, oldTab) => {
     if (generation !== tabScrollRestoreGeneration) return
     window.scrollTo({ behavior: 'auto', top: tabScrollPositions[newTab] })
   })
+
+  if (newTab === 'installed' && isPluginPageActive.value && !document.hidden) {
+    void reconcileInstalledRuntime()
+  }
 })
 
 watch(
   () => pluginRuntimeStore.reconciliation,
   () => {
     if (isPluginPageActive.value && activeTab.value === 'installed' && !document.hidden) {
-      void fetchInstalledPlugins({ silent: true })
+      void reconcileInstalledRuntime()
     }
   },
 )
 
 onActivated(() => {
   isPluginPageActive.value = true
+  if (activeTab.value === 'installed' && !document.hidden) {
+    void reconcileInstalledRuntime()
+  }
 })
 
 onDeactivated(() => {

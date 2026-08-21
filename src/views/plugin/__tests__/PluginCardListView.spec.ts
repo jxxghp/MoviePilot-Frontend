@@ -794,6 +794,30 @@ describe('PluginCardListView loading and request ownership', () => {
     await waitForRequestsToFinish()
   })
 
+  it('applies a runtime generation received while the market tab is open', async () => {
+    let installedRequests = 0
+    const { pinia } = await renderList({
+      installed: () => {
+        installedRequests += 1
+        return [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })]
+      },
+      market: () => [createPlugin({ id: 'Market', plugin_name: '市场插件' })],
+    })
+    await waitForRequestsToFinish()
+    const initialInstalledRequests = installedRequests
+    const runtimeStore = usePluginRuntimeStore(pinia)
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    runtimeStore.reconciliation = 1
+    await nextTick()
+    expect(installedRequests).toBe(initialInstalledRequests)
+
+    getHeaderConfig().modelValue.value = 'installed'
+    await waitFor(() => expect(installedRequests).toBe(initialInstalledRequests + 1))
+    await waitForRequestsToFinish()
+  })
+
   it('does not request the superuser runtime summary for an ordinary administrator', async () => {
     server.use(
       http.get(apiUrls.runtime, () => {
