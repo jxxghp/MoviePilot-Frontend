@@ -1090,9 +1090,7 @@ describe('PluginCardListView market filtering and pagination', () => {
     })
 
     expect(await screen.findByText('market:刷新前插件')).toBeInTheDocument()
-    server.use(
-      http.get(apiUrls.statistic, () => HttpResponse.json({ message: 'metrics failed' }, { status: 503 })),
-    )
+    server.use(http.get(apiUrls.statistic, () => HttpResponse.json({ message: 'metrics failed' }, { status: 503 })))
 
     const refresh = getHeaderButton('mdi-refresh').action
     if (!refresh) throw new Error('未注册市场刷新操作')
