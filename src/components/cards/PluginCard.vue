@@ -33,6 +33,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  runtimeSettling: {
+    type: Boolean,
+    default: false,
+  },
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -44,6 +48,36 @@ const { t } = useI18n()
 
 const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
 const hasCardStatus = computed(() => Boolean(props.plugin?.has_update) || hasCardRating.value)
+const runtimeStatus = computed(() => props.plugin?.runtime_status)
+const runtimePending = computed(
+  () => props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || ''),
+)
+const runtimeUnavailable = computed(
+  () =>
+    ['blocked_by_policy', 'load_failed'].includes(runtimeStatus.value || '') ||
+    (!props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || '')),
+)
+const runtimeActionsBlocked = computed(() => runtimePending.value || runtimeUnavailable.value)
+const runtimePendingStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
+  source_missing: 'plugin.sourceRestoring',
+  dependency_pending: 'plugin.dependencyInstalling',
+  ready: 'plugin.runtimeLoading',
+}
+const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
+  source_missing: 'plugin.sourceMissing',
+  dependency_pending: 'plugin.dependencyPending',
+  ready: 'plugin.runtimeReady',
+  blocked_by_policy: 'plugin.blockedByPolicy',
+  load_failed: 'plugin.runtimeLoadFailed',
+}
+const runtimeStatusText = computed(() => {
+  const status = runtimeStatus.value
+  const statusKey = status
+    ? (runtimePending.value ? runtimePendingStatusKeys : runtimeUnavailableStatusKeys)[status]
+    : undefined
+
+  return statusKey ? t(statusKey) : ''
+})
 const cardRatingValue = computed(() => Number(props.plugin?.average_rating || 0).toFixed(1))
 const cardRatingSummary = computed(() =>
   t('plugin.ratingSummary', {
@@ -410,6 +444,7 @@ async function visitPluginPage() {
 
 // 打开插件详情
 function openPluginDetail() {
+  if (runtimeActionsBlocked.value) return
   if (props.plugin?.has_page) showPluginInfo()
   else showPluginConfig()
 }
@@ -625,6 +660,7 @@ watch(
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
               'cursor-move': props.sortable,
+              'plugin-card--runtime-pending': runtimePending,
             }"
             :style="accentStyle"
             :ripple="!props.sortable"
@@ -661,6 +697,21 @@ watch(
                     />
                   </VAvatar>
                 </div>
+              </div>
+              <div
+                v-if="runtimePending || runtimeUnavailable"
+                class="plugin-card__runtime-state"
+                :class="{ 'plugin-card__runtime-state--error': runtimeUnavailable }"
+                role="status"
+                aria-live="polite"
+              >
+                <VProgressCircular v-if="runtimePending" indeterminate size="22" width="2" />
+                <VIcon
+                  v-else
+                  :icon="runtimeStatus === 'blocked_by_policy' ? 'mdi-shield-lock-outline' : 'mdi-alert-circle-outline'"
+                  size="22"
+                />
+                <span>{{ runtimeStatusText }}</span>
               </div>
             </div>
             <VCardText
@@ -701,6 +752,7 @@ watch(
                         v-show="item.show"
                         :key="i"
                         :base-color="item.props.color"
+                        :disabled="runtimeActionsBlocked && [1, 2, 4, 8].includes(item.value)"
                         @click="item.props.click"
                       >
                         <template #prepend>
@@ -762,6 +814,30 @@ watch(
   gap: 0.125rem;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.plugin-card--runtime-pending {
+  cursor: progress;
+}
+
+.plugin-card__runtime-state {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: rgb(var(--v-theme-on-surface));
+  background: rgba(var(--v-theme-surface), 88%);
+  font-size: 0.875rem;
+  font-weight: 600;
+  inset: 0;
+  text-align: center;
+}
+
+.plugin-card__runtime-state--error {
+  color: rgb(var(--v-theme-error));
+  background: rgba(var(--v-theme-surface), 94%);
 }
 
 .card-cover-blurred::before {

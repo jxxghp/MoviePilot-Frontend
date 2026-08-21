@@ -415,4 +415,25 @@ describe('PluginCard lifecycle actions', () => {
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
     expect(emitted().actionDone).toHaveLength(1)
   })
+
+  it('distinguishes a running recovery from a settled unavailable plugin', async () => {
+    const recovering = await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, runtime_status: 'dependency_pending' },
+        runtimeSettling: true,
+      },
+    })
+    expect(screen.getByText('正在安装插件依赖')).toBeInTheDocument()
+    await fireEvent.click(recovering.container.querySelector('.v-card')!)
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    recovering.unmount()
+
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, runtime_status: 'dependency_pending' },
+        runtimeSettling: false,
+      },
+    })
+    expect(screen.getByText('插件依赖未就绪')).toBeInTheDocument()
+  })
 })

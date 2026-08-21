@@ -1,4 +1,4 @@
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginRuntimeSummary } from '@/api/types'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
@@ -18,6 +18,7 @@ const apiUrls = {
   list: new URL('plugin/', API_BASE_URL).href,
   order: new URL('user/config/PluginOrder', API_BASE_URL).href,
   rating: new URL('plugin/rating', API_BASE_URL).href,
+  runtime: new URL('plugin/runtime', API_BASE_URL).href,
   sidebar: new URL('plugin/sidebar_nav', API_BASE_URL).href,
   statistic: new URL('plugin/statistic', API_BASE_URL).href,
 }
@@ -139,6 +140,7 @@ const PluginMixedSortCardStub = defineComponent({
   props: {
     item: { type: Object as PropType<Record<string, unknown>>, required: true },
     pluginStatistics: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
+    runtimeSettling: Boolean,
     sortable: Boolean,
   },
   emits: [
@@ -163,6 +165,7 @@ const PluginMixedSortCardStub = defineComponent({
             has_update?: boolean
             plugin_name?: string
             repo_url?: string
+            runtime_status?: Plugin['runtime_status']
           }
         | undefined
       const name = type === 'folder' ? id : data?.plugin_name || id
@@ -176,6 +179,8 @@ const PluginMixedSortCardStub = defineComponent({
           ? h('output', { 'aria-label': `update-${id}` }, String(data?.has_update ?? false))
           : h('output', { 'aria-label': `folder-color-${id}` }, data?.config?.color || ''),
         type === 'plugin' ? h('output', { 'aria-label': `repo-${id}` }, data?.repo_url || '') : null,
+        type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
+        type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
         type === 'plugin'
           ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
           : null,
@@ -360,6 +365,7 @@ interface ListResponses {
   marketStatus?: number
   order?: unknown[]
   rating?: (ids: string[]) => Record<string, PluginRating> | Promise<Record<string, PluginRating>>
+  runtime?: () => PluginRuntimeSummary | Promise<PluginRuntimeSummary>
   statistic?: () => Record<string, number> | Promise<Record<string, number>>
 }
 
@@ -377,6 +383,16 @@ function registerListHandlers(responses: ListResponses = {}) {
       })
     }),
     http.get(apiUrls.statistic, async () => HttpResponse.json((await responses.statistic?.()) ?? {})),
+    http.get(apiUrls.runtime, async () =>
+      HttpResponse.json(
+        (await responses.runtime?.()) ?? {
+          failed_count: 0,
+          generation: 0,
+          pending_count: 0,
+          ready: true,
+        },
+      ),
+    ),
     http.get(apiUrls.sidebar, () => HttpResponse.json([])),
     http.get(apiUrls.rating, async ({ request }) => {
       const ids = new URL(request.url).searchParams.get('plugin_ids')?.split(',').filter(Boolean) ?? []
@@ -1085,6 +1101,65 @@ describe('PluginCardListView search installation', () => {
     expect(installUrl?.searchParams.get('repo_url')).toBe('https://github.com/example/search-plugin')
     expect(installUrl?.searchParams.get('force')).toBe('true')
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 搜索安装插件 安装成功！')
+    await waitForRequestsToFinish()
+  })
+
+  it('shows a per-plugin loading card while installation is still running', async () => {
+    const installGate = createDeferred<void>()
+    let installed = false
+    const target = createPlugin({ id: 'PendingPlugin', plugin_name: '后台安装插件' })
+    await renderList({
+      installed: () =>
+        installed
+          ? [
+              createPlugin({
+                id: 'PendingPlugin',
+                installed: true,
+                plugin_name: '后台安装插件',
+                runtime_status: 'active',
+              }),
+            ]
+          : [],
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('PendingPlugin'), async () => {
+        await installGate.promise
+        installed = true
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    getDialogEvents()['open-plugin'](target)
+
+    expect(await screen.findByText('plugin:后台安装插件')).toBeInTheDocument()
+    expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('source_missing')
+    expect(screen.getByLabelText('settling-PendingPlugin')).toHaveTextContent('true')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 后台安装插件 安装成功！'))
+    await waitFor(() => expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('active'))
+    await waitForRequestsToFinish()
+  })
+
+  it('rolls back only the failed optimistic plugin card', async () => {
+    const stable = createPlugin({ id: 'StablePlugin', installed: true, plugin_name: '稳定插件' })
+    const target = createPlugin({ id: 'FailedPlugin', plugin_name: '失败插件' })
+    await renderList({ installed: () => [stable], market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('FailedPlugin'), () => HttpResponse.json({ message: '依赖安装失败', success: false })),
+    )
+
+    getDynamicButtonConfig().onClick()
+    getDialogEvents()['open-plugin'](target)
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(screen.getByText('plugin:稳定插件')).toBeInTheDocument()
+    expect(screen.queryByText('plugin:失败插件')).not.toBeInTheDocument()
     await waitForRequestsToFinish()
   })
 })
