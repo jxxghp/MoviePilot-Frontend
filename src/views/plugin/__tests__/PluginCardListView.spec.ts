@@ -2,6 +2,7 @@ import type { Plugin, PluginRating, PluginRuntimeSummary } from '@/api/types'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
@@ -401,14 +402,14 @@ function registerListHandlers(responses: ListResponses = {}) {
   )
 }
 
-async function renderList(responses: ListResponses = {}) {
+async function renderList(responses: ListResponses = {}, options: { superUser?: boolean } = {}) {
   registerListHandlers(responses)
   return renderWithProviders(PluginCardListView, {
     initialRoute: '/plugins',
     initialState: {
       user: {
         permissions: DEFAULT_PERMISSIONS,
-        superUser: true,
+        superUser: options.superUser ?? true,
       },
     },
     global: {
@@ -747,6 +748,42 @@ describe('PluginCardListView loading and request ownership', () => {
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(await screen.findByText('plugin:重试恢复插件')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('正在加载插件')).not.toBeInTheDocument())
+    await waitForRequestsToFinish()
+  })
+
+  it('refreshes only the installed snapshot when the shared runtime generation changes', async () => {
+    let installedRequests = 0
+    let marketRequests = 0
+    const { pinia } = await renderList({
+      installed: () => {
+        installedRequests += 1
+        return [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })]
+      },
+      market: () => {
+        marketRequests += 1
+        return [createPlugin({ id: 'Market', plugin_name: '市场插件' })]
+      },
+    })
+    await waitForRequestsToFinish()
+    const initialInstalledRequests = installedRequests
+    const initialMarketRequests = marketRequests
+
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.reconciliation = 1
+
+    await waitFor(() => expect(installedRequests).toBe(initialInstalledRequests + 1))
+    expect(marketRequests).toBe(initialMarketRequests)
+    await waitForRequestsToFinish()
+  })
+
+  it('does not request the superuser runtime summary for an ordinary administrator', async () => {
+    server.use(
+      http.get(apiUrls.runtime, () => {
+        throw new Error('ordinary administrator must not request plugin runtime')
+      }),
+    )
+
+    await renderList({}, { superUser: false })
     await waitForRequestsToFinish()
   })
 

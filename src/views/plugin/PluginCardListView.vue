@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { Plugin, PluginRating, PluginRuntimeSummary } from '@/api/types'
+import type { Plugin, PluginRating } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -12,7 +12,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { usePluginSidebarNavStore, useUserStore } from '@/stores'
+import { usePluginRuntimeStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
@@ -20,6 +20,7 @@ const { t } = useI18n()
 
 const route = useRoute()
 const userStore = useUserStore()
+const pluginRuntimeStore = usePluginRuntimeStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 
 /** 用户保存的插件与文件夹混合顺序。 */
@@ -203,17 +204,15 @@ const PluginRatings = ref<{ [key: string]: PluginRating }>({})
 // 插件市场刷新状态
 const isMarketRefreshing = ref(false)
 
-// 插件运行态独立于市场数据，只在后台收敛期间轮询轻量摘要。
-const pluginRuntimeSummary = ref<PluginRuntimeSummary | null>(null)
+const pluginRuntimeSummary = computed(() => pluginRuntimeStore.summary)
 const installingPluginIds = ref(new Set<string>())
-let runtimePollTimer: ReturnType<typeof setTimeout> | undefined
+const isPluginPageActive = ref(false)
 
 // 每类远程快照独立管理 writer 代际，旧请求只能完成自身 Promise，不能覆盖新状态。
 let installedWriterGeneration = 0
 let marketWriterGeneration = 0
 let ratingWriterGeneration = 0
 let statisticWriterGeneration = 0
-let runtimeWriterGeneration = 0
 let skipNextTabRefresh = false
 
 // 搜索关键字
@@ -861,7 +860,6 @@ async function installPlugin(item: Plugin) {
   if (activeTab.value !== 'installed') skipNextTabRefresh = true
   activeTab.value = 'installed'
   pluginDialogClose()
-  void fetchPluginRuntimeSummary()
 
   let installed = false
   try {
@@ -880,7 +878,7 @@ async function installPlugin(item: Plugin) {
     enabledFilter.value = false
     installedFilter.value = null
     await fetchInstalledPlugins({ silent: true })
-    await fetchPluginRuntimeSummary()
+    if (userStore.superUser) await pluginRuntimeStore.refresh()
     await pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
     const pending = new Set(installingPluginIds.value)
@@ -903,7 +901,6 @@ async function installPlugin(item: Plugin) {
       pending.delete(item.id)
       installingPluginIds.value = pending
     }
-    schedulePluginRuntimePolling()
   }
 }
 
@@ -999,47 +996,6 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}): Pro
       installedLoadError.value = true
     }
     return false
-  }
-}
-
-function stopPluginRuntimePolling() {
-  if (runtimePollTimer === undefined) return
-  clearTimeout(runtimePollTimer)
-  runtimePollTimer = undefined
-}
-
-function schedulePluginRuntimePolling() {
-  stopPluginRuntimePolling()
-  const settled = pluginRuntimeSummary.value?.ready === true && installingPluginIds.value.size === 0
-  if (settled || activeTab.value !== 'installed' || document.hidden) return
-  runtimePollTimer = setTimeout(() => {
-    void fetchPluginRuntimeSummary()
-  }, 2000)
-}
-
-async function fetchPluginRuntimeSummary() {
-  const writerGeneration = ++runtimeWriterGeneration
-  try {
-    const previousGeneration = pluginRuntimeSummary.value?.generation
-    const summary: PluginRuntimeSummary = await api.get('plugin/runtime', { feedback: 'silent' })
-    if (writerGeneration !== runtimeWriterGeneration) return
-    if (previousGeneration !== undefined && summary.generation < previousGeneration) return
-    pluginRuntimeSummary.value = summary
-
-    if (
-      (previousGeneration !== undefined && summary.generation !== previousGeneration) ||
-      installingPluginIds.value.size > 0
-    ) {
-      await fetchInstalledPlugins({ silent: true })
-      if (previousGeneration !== undefined && summary.generation !== previousGeneration) {
-        void pluginSidebarNavStore.ensureSidebarNav(true)
-      }
-    }
-  } catch (error) {
-    if (writerGeneration !== runtimeWriterGeneration) return
-    console.error(error)
-  } finally {
-    if (writerGeneration === runtimeWriterGeneration) schedulePluginRuntimePolling()
   }
 }
 
@@ -1360,11 +1316,11 @@ function loadMarketMore({ done }: { done: (status: 'ok' | 'empty' | 'loading' | 
 // 组件挂载后
 
 onMounted(async () => {
+  isPluginPageActive.value = true
   await loadPluginOrderConfig()
   await loadPluginFolders() // 加载文件夹配置
   await refreshData()
-  await fetchPluginRuntimeSummary()
-  document.addEventListener('visibilitychange', handlePluginRuntimeVisibility)
+  if (userStore.superUser) await pluginRuntimeStore.refresh()
   if (activeTab.value != 'market' && pluginId.value) {
     // 找到这个插件
     const plugin = dataList.value.find(item => item.id === pluginId.value)
@@ -1384,29 +1340,30 @@ watch(activeTab, (newTab, oldTab) => {
     return
   }
   refreshKeepAliveData({ silent: true, source: 'tab' })
-  if (newTab === 'installed') {
-    void fetchPluginRuntimeSummary()
-  } else {
-    stopPluginRuntimePolling()
-  }
+})
+
+watch(
+  () => pluginRuntimeStore.reconciliation,
+  () => {
+    if (isPluginPageActive.value && activeTab.value === 'installed' && !document.hidden) {
+      void fetchInstalledPlugins({ silent: true })
+    }
+  },
+)
+
+onActivated(() => {
+  isPluginPageActive.value = true
+})
+
+onDeactivated(() => {
+  isPluginPageActive.value = false
 })
 
 onUnmounted(() => {
-  stopPluginRuntimePolling()
-  document.removeEventListener('visibilitychange', handlePluginRuntimeVisibility)
+  isPluginPageActive.value = false
   folderCreateDialogController?.close()
   searchDialogController?.close()
 })
-
-function handlePluginRuntimeVisibility() {
-  if (document.hidden) {
-    stopPluginRuntimePolling()
-    return
-  }
-  if (activeTab.value === 'installed' && pluginRuntimeSummary.value?.ready === false) {
-    void fetchPluginRuntimeSummary()
-  }
-}
 
 function openPluginSearchDialog() {
   searchDialogController = openSharedDialog(

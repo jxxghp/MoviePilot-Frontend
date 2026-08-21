@@ -1,4 +1,5 @@
 import DashboardPage from '@/pages/dashboard.vue'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
@@ -284,6 +285,24 @@ describe('dashboard page initial layout', () => {
     })
 
     await waitFor(() => expect(mocks.grid.load).toHaveBeenCalled())
+  })
+
+  it('reloads plugin dashboard metadata when the active runtime generation changes', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder' || url === '/user/config/Dashboard') return { data: {} }
+      if (url === '/user/config/DashboardGridLayout') return { data: {} }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { pinia } = await renderDashboard()
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('/plugin/dashboard/meta'))
+    mocks.apiGet.mockClear()
+
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.reconciliation = 1
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('/plugin/dashboard/meta'))
   })
 
   it('disables automatic grid transitions only while browsing with the glass theme', async () => {

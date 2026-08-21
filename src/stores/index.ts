@@ -14,5 +14,6 @@ import { useAuthStore } from './auth'
 import { useUserStore } from './user'
 import { useGlobalSettingsStore } from './global'
 import { usePluginSidebarNavStore } from './pluginSidebarNav'
+import { usePluginRuntimeStore } from './pluginRuntime'
 
-export { useAuthStore, useUserStore, useGlobalSettingsStore, usePluginSidebarNavStore }
+export { useAuthStore, useUserStore, useGlobalSettingsStore, usePluginSidebarNavStore, usePluginRuntimeStore }
