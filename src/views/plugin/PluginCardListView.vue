@@ -12,7 +12,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { usePluginSidebarNavStore, useUserStore } from '@/stores'
+import { usePluginRuntimeStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
@@ -20,6 +20,7 @@ const { t } = useI18n()
 
 const route = useRoute()
 const userStore = useUserStore()
+const pluginRuntimeStore = usePluginRuntimeStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 
 /** 用户保存的插件与文件夹混合顺序。 */
@@ -51,7 +52,7 @@ const PluginFolderCreateDialog = defineAsyncComponent(() => import('@/components
 const PluginMarketSettingDialog = defineAsyncComponent(
   () => import('@/components/dialog/PluginMarketSettingDialog.vue'),
 )
-const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const PluginMarketDetailDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketDetailDialog.vue'))
 const PluginSearchDialog = defineAsyncComponent(() => import('@/components/dialog/PluginSearchDialog.vue'))
 
 // APP
@@ -141,6 +142,7 @@ registerHeaderTab({
 
 // 插件ID参数
 const pluginId = ref(route.query.id)
+const installScrollPluginId = ref<string | null>(null)
 
 // 当前排序字段
 const activeSort = ref<PluginSortKey | null>(null)
@@ -179,7 +181,16 @@ const marketList = ref<Plugin[]>([])
 const sortedUninstalledList = ref<Plugin[]>([])
 
 // 显示的未安装插件列表
-const displayUninstalledList = ref<Plugin[]>([])
+const marketPageSize = 20
+const marketVisibleCount = ref(marketPageSize)
+const displayUninstalledList = computed(() => sortedUninstalledList.value.slice(0, marketVisibleCount.value))
+
+// 两个标签共用页面滚动条，切换时分别保存和恢复各自的位置。
+const tabScrollPositions: Record<'installed' | 'market', number> = {
+  installed: 0,
+  market: 0,
+}
+let tabScrollRestoreGeneration = 0
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -204,12 +215,15 @@ const PluginRatings = ref<{ [key: string]: PluginRating }>({})
 // 插件市场刷新状态
 const isMarketRefreshing = ref(false)
 
+const pluginRuntimeSummary = computed(() => pluginRuntimeStore.summary)
+const installingPluginIds = ref(new Set<string>())
+const isPluginPageActive = ref(false)
+
 // 每类远程快照独立管理 writer 代际，旧请求只能完成自身 Promise，不能覆盖新状态。
 let installedWriterGeneration = 0
 let marketWriterGeneration = 0
 let ratingWriterGeneration = 0
 let statisticWriterGeneration = 0
-
 // 搜索关键字
 const keyword = ref('')
 
@@ -219,10 +233,7 @@ const pluginActions: Ref<{ [key: string]: boolean }> = ref({})
 // 提示框
 const $toast = useToast()
 
-// 进度框文本
-const progressText = ref(t('plugin.installingPlugin'))
 let folderCreateDialogController: ReturnType<typeof openSharedDialog> | null = null
-let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let searchDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 过滤表单
@@ -353,11 +364,14 @@ const canDragSort = computed(() => sortMode.value && activeTab.value === 'instal
 const shouldVirtualizeInstalledMainList = computed(() => !sortMode.value && !currentFolder.value)
 const shouldVirtualizeInstalledFolderList = computed(() => !sortMode.value && !!currentFolder.value)
 const installedScrollToIndex = computed(() => {
-  if (sortMode.value || currentFolder.value || !pluginId.value) {
+  if (sortMode.value || currentFolder.value) {
     return undefined
   }
 
-  const targetIndex = mixedSortList.value.findIndex(item => item.type === 'plugin' && item.id === pluginId.value)
+  const targetPluginId = installScrollPluginId.value || pluginId.value
+  if (!targetPluginId) return undefined
+
+  const targetIndex = mixedSortList.value.findIndex(item => item.type === 'plugin' && item.id === targetPluginId)
 
   return targetIndex >= 0 ? targetIndex : undefined
 })
@@ -617,6 +631,7 @@ function sortPluginOrder() {
   if (dataList.value.length === 0) {
     return
   }
+  // PluginOrder 是用户级展示顺序，未配置的插件保留后端持久化安装清单顺序。
   dataList.value.sort((a, b) => {
     const aIndex = orderValueMap.value.get(`plugin:${a.id}`) ?? Number.MAX_SAFE_INTEGER
     const bIndex = orderValueMap.value.get(`plugin:${b.id}`) ?? Number.MAX_SAFE_INTEGER
@@ -836,47 +851,66 @@ function pluginDialogClose() {
   PluginAppDialog.value = false
 }
 
-// 打开插件安装进度弹窗。
-function openPluginProgressDialog(text: string) {
-  progressDialogController?.close()
-  progressDialogController = openSharedDialog(ProgressDialog, { text }, {}, { closeOn: false })
-}
-
-// 关闭插件安装进度弹窗。
-function closePluginProgressDialog() {
-  progressDialogController?.close()
-  progressDialogController = null
-}
-
 // 安装插件
-async function installPlugin(item: Plugin) {
-  if (item?.system_version_compatible === false) {
+async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: string) {
+  const pluginId = item?.id
+  if (!pluginId || installingPluginIds.value.has(pluginId)) {
+    return
+  }
+
+  if (!releaseVersion && item?.system_version_compatible === false) {
     $toast.error(item.system_version_message || t('plugin.incompatibleSystemVersion'))
     return
   }
 
-  try {
-    // 显示等待提示框
-    progressText.value = t('plugin.installing', { name: item?.plugin_name, version: item?.plugin_version })
-    openPluginProgressDialog(progressText.value)
+  const previousIndex = dataList.value.findIndex(plugin => plugin.id === item.id)
+  const previousPlugin = previousIndex >= 0 ? dataList.value[previousIndex] : undefined
+  sortMode.value = false
+  currentFolder.value = ''
+  installedFilter.value = null
+  hasUpdateFilter.value = false
+  enabledFilter.value = false
+  tabScrollPositions.installed = 0
+  installScrollPluginId.value = pluginId
+  installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
+  dataList.value = [
+    ...dataList.value.filter(plugin => plugin.id !== pluginId),
+    {
+      ...item,
+      installed: true,
+      state: false,
+      runtime_status: 'source_missing',
+    },
+  ]
+  activeTab.value = 'installed'
+  pluginDialogClose()
 
-    await api.get(`plugin/install/${item?.id}`, {
+  let installed = false
+  try {
+    await api.get(`plugin/install/${pluginId}`, {
       params: {
-        repo_url: item?.repo_url,
-        force: item?.has_update,
+        repo_url: repoUrl || item?.repo_url,
+        release_version: releaseVersion,
+        force: item?.has_update || Boolean(releaseVersion),
       },
       feedback: 'silent',
     })
+    installed = true
 
     $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
-    // 清空过滤条件
-    hasUpdateFilter.value = false
-    enabledFilter.value = false
-    installedFilter.value = null
-    // 刷新
-    await refreshData()
+    await fetchInstalledPlugins({ silent: true })
+    if (userStore.superUser) await pluginRuntimeStore.refresh()
     await pluginSidebarNavStore.ensureSidebarNav(true)
+    await nextTick()
+    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
   } catch (error) {
+    const pending = new Set(installingPluginIds.value)
+    pending.delete(pluginId)
+    installingPluginIds.value = pending
+    const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
+    if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
+    dataList.value = nextData
+    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
     console.error(error)
     $toast.error(
       t('plugin.installFailed', {
@@ -884,20 +918,40 @@ async function installPlugin(item: Plugin) {
         message: error instanceof Error ? error.message : '',
       }),
     )
+    // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
+    void fetchInstalledPlugins({ silent: true })
   } finally {
-    closePluginProgressDialog()
+    if (!installed) {
+      const pending = new Set(installingPluginIds.value)
+      pending.delete(pluginId)
+      installingPluginIds.value = pending
+    }
   }
+}
+
+/** 打开未安装插件的市场详情，确认后才进入安装流程。 */
+function openPluginMarketDetail(item: Plugin) {
+  openSharedDialog(
+    PluginMarketDetailDialog,
+    {
+      plugin: item,
+      count: PluginStatistics.value[item.id || '0'],
+      installHandler: (releaseVersion?: string, repoUrl?: string) => installPlugin(item, releaseVersion, repoUrl),
+    },
+    {
+      install: pluginInstalled,
+    },
+    { closeOn: ['close', 'install', 'update:modelValue'] },
+  )
 }
 
 // 打开插件搜索结果
 function openPlugin(item: Plugin) {
-  // 如果是已安装插件则打开插件详情
   if (item.installed === true) {
-    // 标记插件动作
+    // 已安装插件继续进入对应的插件操作面板。
     pluginActions.value[item.id || '0'] = true
   } else {
-    // 如果是未安装插件则安装
-    installPlugin(item)
+    openPluginMarketDetail(item)
   }
   closeSearchDialog()
 }
@@ -923,7 +977,7 @@ const filterPlugins = computed(() => {
 })
 
 // 获取插件列表数据
-async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}) {
+async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}): Promise<boolean> {
   const generation = ++installedWriterGeneration
   if (!context.silent || !isRefreshed.value) {
     installedLoadError.value = false
@@ -935,21 +989,57 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}) {
         state: 'installed',
       },
     })
-    if (generation !== installedWriterGeneration) return
+    if (generation !== installedWriterGeneration) return false
 
-    mergeRatingsIntoPlugins(installedPlugins)
-    dataList.value = installedPlugins
+    const previousById = new Map([...uninstalledList.value, ...dataList.value].map(plugin => [plugin.id, plugin]))
+    const mergedPlugins = installedPlugins.map(plugin => {
+      const previous = previousById.get(plugin.id)
+      const isRuntimePlaceholder = plugin.plugin_name === plugin.id && !plugin.plugin_version
+      return {
+        ...(previous || {}),
+        ...plugin,
+        ...(isRuntimePlaceholder && previous
+          ? {
+              plugin_name: previous.plugin_name,
+              plugin_desc: previous.plugin_desc,
+              plugin_icon: previous.plugin_icon,
+              plugin_version: previous.plugin_version,
+              plugin_author: previous.plugin_author,
+              author_url: previous.author_url,
+              repo_url: previous.repo_url,
+            }
+          : {}),
+      }
+    })
+    const serverIds = new Set(mergedPlugins.map(plugin => plugin.id))
+    const optimisticPlugins = dataList.value.filter(
+      plugin => installingPluginIds.value.has(plugin.id) && !serverIds.has(plugin.id),
+    )
+    if (installingPluginIds.value.size > 0) {
+      const pending = new Set(installingPluginIds.value)
+      serverIds.forEach(pluginId => pending.delete(pluginId))
+      installingPluginIds.value = pending
+    }
+
+    mergeRatingsIntoPlugins(mergedPlugins)
+    dataList.value = [...mergedPlugins, ...optimisticPlugins]
     mergeMarketMetadataIntoInstalled()
     // 排序
     sortPluginOrder()
     isRefreshed.value = true
     installedLoadError.value = false
+    return true
   } catch (error) {
     console.error(error)
     if (generation === installedWriterGeneration && !isRefreshed.value) {
       installedLoadError.value = true
     }
+    return false
   }
+}
+
+function isPluginRuntimeSettling(pluginId: string) {
+  return pluginRuntimeSummary.value?.ready === false || installingPluginIds.value.has(pluginId)
 }
 
 /** 将市场更新元数据投影到当前已安装快照。 */
@@ -970,8 +1060,37 @@ function mergeMarketMetadataIntoInstalled() {
   })
 }
 
+interface PluginMarketMetrics {
+  statistics?: { [key: string]: number }
+  ratings?: { [key: string]: PluginRating }
+}
+
+type CompletePluginMarketMetrics = Required<PluginMarketMetrics>
+
+/** 将市场快照一次性投影到列表和过滤选项，避免请求过程暴露半成品状态。 */
+function applyMarketSnapshot(marketResponse: Plugin[], metrics?: CompletePluginMarketMetrics) {
+  if (metrics) {
+    PluginStatistics.value = metrics.statistics
+    PluginRatings.value = metrics.ratings
+  }
+  mergeRatingsIntoPlugins(marketResponse, metrics?.ratings)
+  uninstalledList.value = marketResponse
+  mergeMarketMetadataIntoInstalled()
+  marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
+  authorFilterOptions.value = []
+  labelFilterOptions.value = []
+  repoFilterOptions.value = []
+  marketList.value.forEach(initOptions)
+  isAppMarketLoaded.value = true
+  marketLoadError.value = false
+}
+
 // 获取未安装插件列表数据
-async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliveRefreshContext = {}) {
+async function fetchUninstalledPlugins(
+  force: boolean = false,
+  context: KeepAliveRefreshContext = {},
+  commit = true,
+): Promise<Plugin[] | undefined> {
   const generation = ++marketWriterGeneration
   if (!context.silent || !isAppMarketLoaded.value) {
     marketLoadError.value = false
@@ -986,52 +1105,38 @@ async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliv
     })
     if (generation !== marketWriterGeneration) return
 
-    mergeRatingsIntoPlugins(marketResponse)
-    uninstalledList.value = marketResponse
-    mergeMarketMetadataIntoInstalled()
-    // 更新插件市场列表
-    // 排除已安装且有更新的，上面的问题在于"本地存在未安装的旧版本插件且云端有更新时"不会在插件市场展示
-    marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
-    // 初始化过滤选项
-    authorFilterOptions.value = []
-    labelFilterOptions.value = []
-    repoFilterOptions.value = []
-    marketList.value.forEach(initOptions)
-    // 设置APP市场加载完成
-    isAppMarketLoaded.value = true
-    marketLoadError.value = false
+    if (commit) applyMarketSnapshot(marketResponse)
+    return marketResponse
   } catch (error) {
     console.error(error)
     if (generation === marketWriterGeneration && !isAppMarketLoaded.value) {
       marketLoadError.value = true
     }
+    return undefined
   }
 }
 
 // 加载插件统计数据
-async function getPluginStatistics() {
+async function fetchPluginStatistics(): Promise<{ [key: string]: number } | undefined> {
   const generation = ++statisticWriterGeneration
   try {
     const statistics = await api.get<Record<string, number>, Record<string, number>>('plugin/statistic')
-    if (generation === statisticWriterGeneration) {
-      PluginStatistics.value = statistics
-    }
+    return generation === statisticWriterGeneration ? statistics : undefined
   } catch (error) {
     console.error(error)
+    return undefined
   }
 }
 
 /** 批量加载插件评分并合并到已安装和市场插件对象。 */
-async function getPluginRatings() {
+async function fetchPluginRatings(
+  plugins: Plugin[] = marketList.value,
+  marketGeneration = marketWriterGeneration,
+): Promise<{ [key: string]: PluginRating } | undefined> {
   const generation = ++ratingWriterGeneration
-  const pluginIds = Array.from(
-    new Set([...dataList.value, ...marketList.value].map(plugin => plugin.id).filter(Boolean)),
-  )
+  const pluginIds = Array.from(new Set([...dataList.value, ...plugins].map(plugin => plugin.id).filter(Boolean)))
   if (pluginIds.length === 0) {
-    if (generation === ratingWriterGeneration) {
-      PluginRatings.value = {}
-    }
-    return
+    return generation === ratingWriterGeneration ? {} : undefined
   }
 
   try {
@@ -1047,21 +1152,40 @@ async function getPluginRatings() {
     }
 
     const currentPluginIds = Array.from(
-      new Set([...dataList.value, ...marketList.value].map(plugin => plugin.id).filter(Boolean)),
+      new Set([...dataList.value, ...plugins].map(plugin => plugin.id).filter(Boolean)),
     )
-    if (generation !== ratingWriterGeneration || currentPluginIds.join('\0') !== pluginIds.join('\0')) return
+    if (
+      generation !== ratingWriterGeneration ||
+      marketGeneration !== marketWriterGeneration ||
+      currentPluginIds.join('\0') !== pluginIds.join('\0')
+    )
+      return
 
-    PluginRatings.value = ratings
-
-    mergeRatingsIntoPlugins([...dataList.value, ...uninstalledList.value, ...marketList.value], ratings, true)
+    return ratings
   } catch (error) {
     console.error(error)
+    return undefined
   }
 }
 
 /** 下载量与评分属于同一份市场指标快照，始终在同一刷新时机加载。 */
-async function getPluginMarketMetrics() {
-  await Promise.all([getPluginStatistics(), getPluginRatings()])
+async function getPluginMarketMetrics(
+  plugins: Plugin[] = marketList.value,
+  commit = true,
+): Promise<PluginMarketMetrics> {
+  const marketGeneration = marketWriterGeneration
+  const [statistics, ratings] = await Promise.all([
+    fetchPluginStatistics(),
+    fetchPluginRatings(plugins, marketGeneration),
+  ])
+
+  if (commit && statistics !== undefined && ratings !== undefined) {
+    PluginStatistics.value = statistics
+    PluginRatings.value = ratings
+    mergeRatingsIntoPlugins([...dataList.value, ...uninstalledList.value, ...marketList.value], ratings, true)
+  }
+
+  return { statistics, ratings }
 }
 
 /** 新列表写入前复用最近一次评分快照，避免静默刷新期间评分闪烁。 */
@@ -1105,6 +1229,33 @@ async function refreshData(context: KeepAliveRefreshContext = {}) {
   await getPluginMarketMetrics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
+}
+
+/** 只有列表、评分和统计均来自同一轮请求时才发布市场快照。 */
+async function refreshMarketData(
+  force = false,
+  context: KeepAliveRefreshContext = {},
+  resetScroll = false,
+): Promise<boolean> {
+  const marketResponse = await fetchUninstalledPlugins(force, context, false)
+  if (!marketResponse) return false
+
+  const metrics = await getPluginMarketMetrics(marketResponse, false)
+  if (metrics.statistics === undefined || metrics.ratings === undefined) {
+    if (!isAppMarketLoaded.value) marketLoadError.value = true
+    console.warn('插件市场指标快照不完整，保留上一份市场数据')
+    return false
+  }
+
+  applyMarketSnapshot(marketResponse, {
+    statistics: metrics.statistics,
+    ratings: metrics.ratings,
+  })
+  if (resetScroll) {
+    marketVisibleCount.value = marketPageSize
+    tabScrollPositions.market = 0
+  }
+  return true
 }
 
 // 对uninstalledList进行排序到sortedUninstalledList
@@ -1166,8 +1317,11 @@ watch([marketList, filterForm, activeSort, PluginStatistics, PluginRatings], () 
     })
   }
 
-  // 显示前20个
-  displayUninstalledList.value = sortedUninstalledList.value.splice(0, 20)
+  // 静默刷新和排序只替换完整快照，保留用户已经展开的页数。
+  marketVisibleCount.value = Math.max(
+    marketPageSize,
+    Math.min(marketVisibleCount.value, sortedUninstalledList.value.length),
+  )
 })
 
 // 新安装了插件
@@ -1189,8 +1343,11 @@ async function refreshMarket() {
 
   isMarketRefreshing.value = true
   try {
-    await fetchUninstalledPlugins(true, { silent: false, source: 'manual' })
-    await getPluginMarketMetrics()
+    const refreshed = await refreshMarketData(true, { silent: false, source: 'manual' }, true)
+    if (!refreshed) return
+
+    await nextTick()
+    window.scrollTo({ behavior: 'auto', top: 0 })
   } catch (error) {
     console.error(error)
   } finally {
@@ -1251,23 +1408,23 @@ watch([dataList, installedFilter, hasUpdateFilter, enabledFilter], () => {
 
 // 插件市场加载更多数据
 function loadMarketMore({ done }: { done: (status: 'ok' | 'empty' | 'loading' | 'error') => void }) {
-  // 从 dataList 中获取最前面的 20 个元素
-  const itemsToMove = sortedUninstalledList.value.splice(0, 20)
-  if (itemsToMove.length === 0) {
+  if (marketVisibleCount.value >= sortedUninstalledList.value.length) {
     done('empty')
     return
   }
 
-  displayUninstalledList.value.push(...itemsToMove)
+  marketVisibleCount.value = Math.min(marketVisibleCount.value + marketPageSize, sortedUninstalledList.value.length)
   done('ok')
 }
 
 // 组件挂载后
 
 onMounted(async () => {
+  isPluginPageActive.value = true
   await loadPluginOrderConfig()
   await loadPluginFolders() // 加载文件夹配置
   await refreshData()
+  if (userStore.superUser) await pluginRuntimeStore.refresh()
   if (activeTab.value != 'market' && pluginId.value) {
     // 找到这个插件
     const plugin = dataList.value.find(item => item.id === pluginId.value)
@@ -1277,16 +1434,41 @@ onMounted(async () => {
   }
 })
 
-const { refresh: refreshKeepAliveData } = useKeepAliveRefresh(refreshActiveTabData)
+useKeepAliveRefresh(refreshActiveTabData)
 
 watch(activeTab, (newTab, oldTab) => {
-  if (!oldTab || newTab === oldTab) return
+  if (!oldTab || newTab === oldTab || (newTab !== 'installed' && newTab !== 'market')) return
 
-  refreshKeepAliveData({ silent: true, source: 'tab' })
+  if (oldTab === 'installed' || oldTab === 'market') {
+    tabScrollPositions[oldTab] = window.scrollY
+  }
+
+  const generation = ++tabScrollRestoreGeneration
+  void nextTick().then(() => {
+    if (generation !== tabScrollRestoreGeneration) return
+    window.scrollTo({ behavior: 'auto', top: tabScrollPositions[newTab] })
+  })
+})
+
+watch(
+  () => pluginRuntimeStore.reconciliation,
+  () => {
+    if (isPluginPageActive.value && activeTab.value === 'installed' && !document.hidden) {
+      void fetchInstalledPlugins({ silent: true })
+    }
+  },
+)
+
+onActivated(() => {
+  isPluginPageActive.value = true
+})
+
+onDeactivated(() => {
+  isPluginPageActive.value = false
 })
 
 onUnmounted(() => {
-  closePluginProgressDialog()
+  isPluginPageActive.value = false
   folderCreateDialogController?.close()
   searchDialogController?.close()
 })
@@ -1977,6 +2159,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :item="element"
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
+                    :runtime-settling="isPluginRuntimeSettling(element.id)"
                     :sortable="true"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2006,6 +2189,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :item="item"
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
+                    :runtime-settling="isPluginRuntimeSettling(item.id)"
                     :sortable="false"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2041,6 +2225,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :item="{ type: 'plugin', id: element.id, data: element, order: 0 }"
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
+                    :runtime-settling="isPluginRuntimeSettling(element.id)"
                     :sortable="true"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
@@ -2066,6 +2251,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :item="{ type: 'plugin', id: item.id, data: item, order: 0 }"
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
+                    :runtime-settling="isPluginRuntimeSettling(item.id)"
                     :sortable="false"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
@@ -2127,12 +2313,17 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
             <ProgressiveCardGrid
               v-if="displayUninstalledList.length > 0"
               :items="displayUninstalledList"
-              :get-item-key="item => `${item.id}_v${item.plugin_version}`"
+              :get-item-key="item => item.id"
               :min-item-width="256"
               :estimated-item-height="260"
             >
               <template #default="{ item }">
-                <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
+                <PluginAppCard
+                  :plugin="item"
+                  :count="PluginStatistics[item.id || '0']"
+                  :install-handler="(releaseVersion, repoUrl) => installPlugin(item, releaseVersion, repoUrl)"
+                  @install="pluginInstalled"
+                />
               </template>
             </ProgressiveCardGrid>
           </VInfiniteScroll>

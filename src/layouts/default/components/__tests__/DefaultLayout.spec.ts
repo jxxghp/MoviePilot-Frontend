@@ -10,6 +10,12 @@ interface SidebarStoreMock {
   items: PluginSidebarNavItem[]
 }
 
+interface RuntimeStoreMock {
+  reconciliation: number
+  start: ReturnType<typeof vi.fn>
+  stop: ReturnType<typeof vi.fn>
+}
+
 interface UserStoreMock {
   permissions: Record<string, unknown>
   superUser: boolean
@@ -23,7 +29,10 @@ const mocks = vi.hoisted(() => ({
     props: ['item'],
     template: '<span data-testid="vertical-nav-link">{{ item.title }}</span>',
   },
+  runtimeStore: undefined as RuntimeStoreMock | undefined,
   sidebarStore: undefined as SidebarStoreMock | undefined,
+  startPluginRuntime: vi.fn(),
+  stopPluginRuntime: vi.fn(),
   userStore: undefined as UserStoreMock | undefined,
   verticalNavLayout: { template: '<div><slot name="vertical-nav-content" /></div>' },
 }))
@@ -49,6 +58,11 @@ vi.mock('@/stores', async () => {
     ensureSidebarNav: mocks.ensureSidebarNav,
     items: [] as PluginSidebarNavItem[],
   })
+  mocks.runtimeStore = reactive({
+    reconciliation: 0,
+    start: mocks.startPluginRuntime,
+    stop: mocks.stopPluginRuntime,
+  })
   mocks.userStore = reactive({
     permissions: {
       admin: false,
@@ -63,6 +77,7 @@ vi.mock('@/stores', async () => {
 
   return {
     useGlobalSettingsStore: () => ({ get: vi.fn(() => false) }),
+    usePluginRuntimeStore: () => mocks.runtimeStore,
     usePluginSidebarNavStore: () => mocks.sidebarStore,
     useUserStore: () => mocks.userStore,
   }
@@ -110,6 +125,9 @@ describe('DefaultLayout', () => {
   beforeEach(() => {
     mocks.ensureSidebarNav.mockReset()
     mocks.ensureSidebarNav.mockResolvedValue(undefined)
+    mocks.startPluginRuntime.mockReset()
+    mocks.stopPluginRuntime.mockReset()
+    mocks.runtimeStore!.reconciliation = 0
     mocks.sidebarStore!.items = []
     mocks.userStore!.permissions = {
       admin: false,
@@ -166,6 +184,24 @@ describe('DefaultLayout', () => {
     await flushPromises()
   })
 
+  it('does not poll the superuser runtime endpoint for an ordinary authenticated user', async () => {
+    const wrapper = shallowMount(DefaultLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          IconBtn: mocks.emptyComponent,
+          RouterLink: mocks.emptyComponent,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(mocks.startPluginRuntime).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('replaces plugin links when the shared snapshot refreshes after mount', async () => {
     mocks.sidebarStore!.items = [
       {
@@ -205,6 +241,37 @@ describe('DefaultLayout', () => {
 
     expect(wrapper.text()).toContain('New plugin')
     expect(wrapper.text()).not.toContain('Old plugin')
+  })
+
+  it('refreshes plugin navigation for the first runtime reconciliation and later generations', async () => {
+    mocks.userStore!.superUser = true
+    const wrapper = shallowMount(DefaultLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          IconBtn: mocks.emptyComponent,
+          RouterLink: mocks.emptyComponent,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(mocks.startPluginRuntime).toHaveBeenCalled()
+    mocks.ensureSidebarNav.mockClear()
+
+    mocks.runtimeStore!.reconciliation = 1
+    await nextTick()
+    expect(mocks.ensureSidebarNav).toHaveBeenCalledWith(true)
+    mocks.ensureSidebarNav.mockClear()
+
+    mocks.runtimeStore!.reconciliation = 2
+    await nextTick()
+    expect(mocks.ensureSidebarNav).toHaveBeenCalledWith(true)
+
+    wrapper.unmount()
+    expect(mocks.stopPluginRuntime).toHaveBeenCalledTimes(1)
   })
 
   it('rebuilds plugin links when permissions change after mount', async () => {

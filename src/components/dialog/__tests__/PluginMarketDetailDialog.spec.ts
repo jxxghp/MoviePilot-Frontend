@@ -61,11 +61,12 @@ const ImageStub = defineComponent({
   template: '<button data-testid="plugin-image" @contextmenu.prevent="$emit(\'error\')" />',
 })
 
-async function renderDialog(plugin: Plugin, stubs: Stubs = {}) {
+async function renderDialog(plugin: Plugin, stubs: Stubs = {}, extraProps: Record<string, unknown> = {}) {
   return renderWithProviders(PluginMarketDetailDialog, {
     props: {
       modelValue: true,
       plugin,
+      ...extraProps,
     },
     global: {
       components: { VDialogCloseBtn: DialogCloseBtn },
@@ -200,6 +201,18 @@ describe('PluginMarketDetailDialog', () => {
     expect(emitted().install).toHaveLength(1)
     expect(emitted()['update:modelValue']).toContainEqual([false])
     expect(mocks.dialogClose).toHaveBeenCalled()
+  })
+
+  it('delegates a confirmed install without calling the API itself', async () => {
+    const installHandler = vi.fn().mockResolvedValue(undefined)
+    const { emitted } = await renderDialog({ ...basePlugin, installed: false }, {}, { installHandler })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
+
+    expect(installHandler).toHaveBeenCalledWith(undefined, undefined)
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+    expect(emitted().install).toBeUndefined()
+    expect(emitted()['update:modelValue']).toContainEqual([false])
   })
 
   it('keeps the detail open and emits nothing after a business failure', async () => {

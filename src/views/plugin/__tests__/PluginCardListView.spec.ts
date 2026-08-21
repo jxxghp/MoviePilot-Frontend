@@ -1,7 +1,8 @@
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginRuntimeSummary } from '@/api/types'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
@@ -18,6 +19,7 @@ const apiUrls = {
   list: new URL('plugin/', API_BASE_URL).href,
   order: new URL('user/config/PluginOrder', API_BASE_URL).href,
   rating: new URL('plugin/rating', API_BASE_URL).href,
+  runtime: new URL('plugin/runtime', API_BASE_URL).href,
   sidebar: new URL('plugin/sidebar_nav', API_BASE_URL).href,
   statistic: new URL('plugin/statistic', API_BASE_URL).href,
 }
@@ -121,11 +123,13 @@ const ProgressiveCardGridStub = defineComponent({
   props: {
     getItemKey: { type: Function as PropType<(item: unknown) => string>, default: undefined },
     items: { type: Array as PropType<unknown[]>, required: true },
+    scrollToIndex: { type: Number, default: undefined },
   },
   setup(props, { slots }) {
     return () =>
       h(
         'section',
+        { 'data-scroll-to-index': props.scrollToIndex ?? '' },
         props.items.flatMap(item => {
           props.getItemKey?.(item)
           return slots.default?.({ item }) ?? []
@@ -139,6 +143,7 @@ const PluginMixedSortCardStub = defineComponent({
   props: {
     item: { type: Object as PropType<Record<string, unknown>>, required: true },
     pluginStatistics: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
+    runtimeSettling: Boolean,
     sortable: Boolean,
   },
   emits: [
@@ -163,6 +168,7 @@ const PluginMixedSortCardStub = defineComponent({
             has_update?: boolean
             plugin_name?: string
             repo_url?: string
+            runtime_status?: Plugin['runtime_status']
           }
         | undefined
       const name = type === 'folder' ? id : data?.plugin_name || id
@@ -176,6 +182,8 @@ const PluginMixedSortCardStub = defineComponent({
           ? h('output', { 'aria-label': `update-${id}` }, String(data?.has_update ?? false))
           : h('output', { 'aria-label': `folder-color-${id}` }, data?.config?.color || ''),
         type === 'plugin' ? h('output', { 'aria-label': `repo-${id}` }, data?.repo_url || '') : null,
+        type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
+        type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
         type === 'plugin'
           ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
           : null,
@@ -243,14 +251,24 @@ const PluginMixedSortCardStub = defineComponent({
 
 const PluginAppCardStub = defineComponent({
   name: 'PluginAppCard',
-  props: { plugin: { type: Object as PropType<Plugin>, required: true } },
+  props: {
+    plugin: { type: Object as PropType<Plugin>, required: true },
+    installHandler: Function as PropType<() => unknown>,
+  },
   emits: ['install'],
   setup(props, { emit }) {
     return () =>
       h('article', { 'data-testid': `market-${props.plugin.id}` }, [
         h('span', `market:${props.plugin.plugin_name}`),
         h('output', { 'aria-label': `rating-${props.plugin.id}` }, String(props.plugin.average_rating ?? '')),
-        h('button', { onClick: () => emit('install'), type: 'button' }, `installed-${props.plugin.id}`),
+        h(
+          'button',
+          {
+            onClick: () => (props.installHandler ? props.installHandler() : emit('install')),
+            type: 'button',
+          },
+          `installed-${props.plugin.id}`,
+        ),
       ])
   },
 })
@@ -360,6 +378,7 @@ interface ListResponses {
   marketStatus?: number
   order?: unknown[]
   rating?: (ids: string[]) => Record<string, PluginRating> | Promise<Record<string, PluginRating>>
+  runtime?: () => PluginRuntimeSummary | Promise<PluginRuntimeSummary>
   statistic?: () => Record<string, number> | Promise<Record<string, number>>
 }
 
@@ -377,6 +396,16 @@ function registerListHandlers(responses: ListResponses = {}) {
       })
     }),
     http.get(apiUrls.statistic, async () => HttpResponse.json((await responses.statistic?.()) ?? {})),
+    http.get(apiUrls.runtime, async () =>
+      HttpResponse.json(
+        (await responses.runtime?.()) ?? {
+          failed_count: 0,
+          generation: 0,
+          pending_count: 0,
+          ready: true,
+        },
+      ),
+    ),
     http.get(apiUrls.sidebar, () => HttpResponse.json([])),
     http.get(apiUrls.rating, async ({ request }) => {
       const ids = new URL(request.url).searchParams.get('plugin_ids')?.split(',').filter(Boolean) ?? []
@@ -385,14 +414,14 @@ function registerListHandlers(responses: ListResponses = {}) {
   )
 }
 
-async function renderList(responses: ListResponses = {}) {
+async function renderList(responses: ListResponses = {}, options: { superUser?: boolean } = {}) {
   registerListHandlers(responses)
   return renderWithProviders(PluginCardListView, {
     initialRoute: '/plugins',
     initialState: {
       user: {
         permissions: DEFAULT_PERMISSIONS,
-        superUser: true,
+        superUser: options.superUser ?? true,
       },
     },
     global: {
@@ -446,6 +475,12 @@ function getDialogEvents(index = -1) {
   const call = mocks.openSharedDialog.mock.calls.at(index)
   if (!call) throw new Error('未打开共享弹窗')
   return call[2] as Record<string, (...args: unknown[]) => unknown>
+}
+
+function getDialogProps(index = -1) {
+  const call = mocks.openSharedDialog.mock.calls.at(index)
+  if (!call) throw new Error('未打开共享弹窗')
+  return call[1] as { plugin?: Plugin; installHandler?: (...args: unknown[]) => unknown }
 }
 
 async function waitForRequestsToFinish() {
@@ -734,6 +769,42 @@ describe('PluginCardListView loading and request ownership', () => {
     await waitForRequestsToFinish()
   })
 
+  it('refreshes only the installed snapshot when the shared runtime generation changes', async () => {
+    let installedRequests = 0
+    let marketRequests = 0
+    const { pinia } = await renderList({
+      installed: () => {
+        installedRequests += 1
+        return [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })]
+      },
+      market: () => {
+        marketRequests += 1
+        return [createPlugin({ id: 'Market', plugin_name: '市场插件' })]
+      },
+    })
+    await waitForRequestsToFinish()
+    const initialInstalledRequests = installedRequests
+    const initialMarketRequests = marketRequests
+
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.reconciliation = 1
+
+    await waitFor(() => expect(installedRequests).toBe(initialInstalledRequests + 1))
+    expect(marketRequests).toBe(initialMarketRequests)
+    await waitForRequestsToFinish()
+  })
+
+  it('does not request the superuser runtime summary for an ordinary administrator', async () => {
+    server.use(
+      http.get(apiUrls.runtime, () => {
+        throw new Error('ordinary administrator must not request plugin runtime')
+      }),
+    )
+
+    await renderList({}, { superUser: false })
+    await waitForRequestsToFinish()
+  })
+
   it('leaves an initial market failure in a retryable error state instead of permanent loading', async () => {
     await renderList({
       installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
@@ -904,6 +975,131 @@ describe('PluginCardListView market filtering and pagination', () => {
     expect(screen.getByText('market:Zulu')).toBeInTheDocument()
     await waitForRequestsToFinish()
   })
+
+  it('preserves loaded market pages when switching tabs without refetching', async () => {
+    const market = Array.from({ length: 45 }, (_, index) =>
+      createPlugin({
+        id: `Market-${index}`,
+        plugin_name: `市场插件 ${index}`,
+        repo_url: 'https://github.com/example/repo',
+      }),
+    )
+    let marketRequests = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => {
+        marketRequests += 1
+        return market
+      },
+    })
+
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20))
+    await fireEvent.click(screen.getByRole('button', { name: 'load-more-market' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(40))
+    expect(marketRequests).toBe(1)
+
+    getHeaderConfig().modelValue.value = 'installed'
+    await nextTick()
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(40)
+    expect(screen.getByText('market:市场插件 39')).toBeInTheDocument()
+    expect(marketRequests).toBe(1)
+
+    getHeaderButton('mdi-refresh').action?.()
+    await waitFor(() => expect(marketRequests).toBe(2))
+    await waitForRequestsToFinish()
+    expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20)
+    expect(screen.queryByText('market:市场插件 39')).not.toBeInTheDocument()
+  })
+
+  it('restores each tab window scroll position after switching tabs', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    let currentScrollTop = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => currentScrollTop)
+
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => Array.from({ length: 25 }, (_, index) => createPlugin({ id: `Market-${index}` })),
+    })
+
+    await waitForRequestsToFinish()
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    currentScrollTop = 1800
+    getHeaderConfig().modelValue.value = 'installed'
+    await nextTick()
+    currentScrollTop = 0
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ behavior: 'auto', top: 1800 }))
+    scrollTo.mockRestore()
+  })
+
+  it('keeps the previous market snapshot until a manual refresh is complete', async () => {
+    const refreshedMarket = createDeferred<Plugin[]>()
+    const refreshedStatistics = createDeferred<Record<string, number>>()
+    let marketRequests = 0
+    let statisticRequests = 0
+
+    await renderList({
+      market: () => {
+        marketRequests += 1
+        return marketRequests === 1
+          ? [createPlugin({ id: 'BeforeRefresh', plugin_name: '刷新前插件' })]
+          : refreshedMarket.promise
+      },
+      statistic: () => {
+        statisticRequests += 1
+        return statisticRequests === 1 ? {} : refreshedStatistics.promise
+      },
+    })
+
+    expect(await screen.findByText('market:刷新前插件')).toBeInTheDocument()
+    const refresh = getHeaderButton('mdi-refresh').action
+    if (!refresh) throw new Error('未注册市场刷新操作')
+    void refresh()
+
+    await waitFor(() => expect(marketRequests).toBe(2))
+    refreshedMarket.resolve([createPlugin({ id: 'AfterRefresh', plugin_name: '刷新后插件' })])
+    await waitFor(() => expect(statisticRequests).toBe(2))
+    await nextTick()
+
+    expect(screen.getByText('market:刷新前插件')).toBeInTheDocument()
+    expect(screen.queryByText('market:刷新后插件')).not.toBeInTheDocument()
+
+    refreshedStatistics.resolve({})
+    expect(await screen.findByText('market:刷新后插件')).toBeInTheDocument()
+    expect(screen.queryByText('market:刷新前插件')).not.toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+
+  it('keeps the previous market snapshot when a manual metric request fails', async () => {
+    let marketRequests = 0
+    await renderList({
+      market: () => {
+        marketRequests += 1
+        return marketRequests === 1
+          ? [createPlugin({ id: 'BeforeRefresh', plugin_name: '刷新前插件' })]
+          : [createPlugin({ id: 'AfterRefresh', plugin_name: '刷新后插件' })]
+      },
+      statistic: () => ({ BeforeRefresh: 10 }),
+    })
+
+    expect(await screen.findByText('market:刷新前插件')).toBeInTheDocument()
+    server.use(http.get(apiUrls.statistic, () => HttpResponse.json({ message: 'metrics failed' }, { status: 503 })))
+
+    const refresh = getHeaderButton('mdi-refresh').action
+    if (!refresh) throw new Error('未注册市场刷新操作')
+    await refresh()
+    await waitForRequestsToFinish()
+
+    expect(screen.getByText('market:刷新前插件')).toBeInTheDocument()
+    expect(screen.queryByText('market:刷新后插件')).not.toBeInTheDocument()
+  })
 })
 
 describe('PluginCardListView installed filtering and host callbacks', () => {
@@ -986,9 +1182,10 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     getHeaderConfig().modelValue.value = 'market'
     await nextTick()
     await waitForRequestsToFinish()
+    expect(marketRequests).toBe(1)
     getDynamicMenuItem('dialog.pluginMarketSetting.title').action()
     getDialogEvents().save()
-    await waitFor(() => expect(marketRequests).toBeGreaterThanOrEqual(3))
+    await waitFor(() => expect(marketRequests).toBe(2))
 
     const requestsAfterSave = marketRequests
     getDynamicMenuItem('dialog.pluginMarketSetting.title').action()
@@ -996,8 +1193,40 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     getDialogEvents().changed()
     await waitFor(() => expect(marketRequests).toBeGreaterThan(requestsAfterSave))
 
+    server.use(http.get(apiUrls.install('Available'), () => HttpResponse.json({ data: null, success: true })))
     await fireEvent.click(screen.getByRole('button', { name: 'installed-Available' }))
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
+    await waitForRequestsToFinish()
+  })
+
+  it('moves a market installation to the installed tab and targets its card', async () => {
+    const installGate = createDeferred<void>()
+    let installed = false
+    const target = createPlugin({ id: 'MarketInstall', plugin_name: '市场安装插件' })
+    await renderList({
+      installed: () => (installed ? [{ ...target, installed: true }] : []),
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+
+    server.use(
+      http.get(apiUrls.install('MarketInstall'), async () => {
+        await installGate.promise
+        installed = true
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'installed-MarketInstall' }))
+
+    expect(getHeaderConfig().modelValue.value).toBe('installed')
+    expect(await screen.findByText('plugin:市场安装插件')).toBeInTheDocument()
+    expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
+
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 市场安装插件 安装成功！'))
     await waitForRequestsToFinish()
   })
 })
@@ -1010,7 +1239,7 @@ describe('PluginCardListView search installation', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  it('blocks incompatible plugins and reports business and HTTP failures without success', async () => {
+  it('opens the install detail before making a request and preserves install failures', async () => {
     let installRequests = 0
     let mode: 'business' | 'http' = 'business'
     await renderList()
@@ -1033,12 +1262,16 @@ describe('PluginCardListView search installation', () => {
         system_version_message: '版本不兼容',
       }),
     )
+    expect(getDialogProps().plugin).toMatchObject({ id: 'SearchPlugin', plugin_name: '不兼容插件' })
+    expect(installRequests).toBe(0)
+    await getDialogProps().installHandler?.()
     expect(mocks.toastError).toHaveBeenLastCalledWith('版本不兼容')
     expect(installRequests).toBe(0)
 
     mocks.toastError.mockClear()
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](createPlugin({ id: 'SearchPlugin', plugin_name: '业务失败插件' }))
+    await getDialogProps().installHandler?.()
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
     expect(installRequests).toBe(1)
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
@@ -1047,6 +1280,7 @@ describe('PluginCardListView search installation', () => {
     mode = 'http'
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](createPlugin({ id: 'SearchPlugin', plugin_name: 'HTTP 失败插件' }))
+    await getDialogProps().installHandler?.()
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
     expect(installRequests).toBe(2)
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
@@ -1079,12 +1313,133 @@ describe('PluginCardListView search installation', () => {
 
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.()
 
     expect(await screen.findByText('plugin:搜索安装插件')).toBeInTheDocument()
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
     expect(installUrl?.searchParams.get('repo_url')).toBe('https://github.com/example/search-plugin')
     expect(installUrl?.searchParams.get('force')).toBe('true')
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 搜索安装插件 安装成功！')
+    await waitForRequestsToFinish()
+  })
+
+  it('shows a per-plugin loading card while installation is still running', async () => {
+    const installGate = createDeferred<void>()
+    let installed = false
+    const target = createPlugin({ id: 'PendingPlugin', plugin_name: '后台安装插件' })
+    await renderList({
+      installed: () =>
+        installed
+          ? [
+              createPlugin({
+                id: 'PendingPlugin',
+                installed: true,
+                plugin_name: '后台安装插件',
+                runtime_status: 'active',
+              }),
+            ]
+          : [],
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('PendingPlugin'), async () => {
+        await installGate.promise
+        installed = true
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    void getDialogProps().installHandler?.()
+
+    expect(await screen.findByText('plugin:后台安装插件')).toBeInTheDocument()
+    expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
+    expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('source_missing')
+    expect(screen.getByLabelText('settling-PendingPlugin')).toHaveTextContent('true')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 后台安装插件 安装成功！'))
+    await waitFor(() => expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('active'))
+    await waitForRequestsToFinish()
+  })
+
+  it('deduplicates concurrent installation requests for the same plugin', async () => {
+    const installGate = createDeferred<void>()
+    let installRequests = 0
+    const target = createPlugin({ id: 'DuplicatePlugin', plugin_name: '重复安装插件' })
+    await renderList({ market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('DuplicatePlugin'), async () => {
+        installRequests += 1
+        await installGate.promise
+        return HttpResponse.json({ data: null, success: true })
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    const install = getDialogProps().installHandler
+    if (!install) throw new Error('未打开插件安装操作')
+    void install()
+    void install()
+
+    await waitFor(() => expect(installRequests).toBe(1))
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 重复安装插件 安装成功！'))
+    await waitForRequestsToFinish()
+  })
+
+  it('shows installation failure before a slow rollback refresh completes', async () => {
+    const refreshGate = createDeferred<Plugin[]>()
+    let firstInstalledRequest = true
+    const target = createPlugin({ id: 'SlowRollbackPlugin', plugin_name: '慢回滚插件' })
+    await renderList({
+      installed: () => {
+        if (firstInstalledRequest) {
+          firstInstalledRequest = false
+          return []
+        }
+        return refreshGate.promise
+      },
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('SlowRollbackPlugin'), () =>
+        HttpResponse.json({ message: '依赖安装失败', success: false }),
+      ),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    void getDialogProps().installHandler?.()
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(getActiveRequestsCount()).toBeGreaterThan(0)
+    refreshGate.resolve([])
+    await waitForRequestsToFinish()
+  })
+
+  it('rolls back only the failed optimistic plugin card', async () => {
+    const stable = createPlugin({ id: 'StablePlugin', installed: true, plugin_name: '稳定插件' })
+    const target = createPlugin({ id: 'FailedPlugin', plugin_name: '失败插件' })
+    await renderList({ installed: () => [stable], market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('FailedPlugin'), () => HttpResponse.json({ message: '依赖安装失败', success: false })),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    void getDialogProps().installHandler?.()
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(screen.getByText('plugin:稳定插件')).toBeInTheDocument()
+    expect(screen.queryByText('plugin:失败插件')).not.toBeInTheDocument()
     await waitForRequestsToFinish()
   })
 })

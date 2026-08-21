@@ -34,6 +34,11 @@ const props = defineProps({
     required: true,
   },
   count: Number,
+  // 搜索入口交由列表页接管安装，以便先关闭详情并显示插件级加载状态。
+  installHandler: {
+    type: Function as PropType<(releaseVersion?: string, repoUrl?: string) => unknown>,
+    default: undefined,
+  },
 })
 
 // 定义触发的自定义事件
@@ -128,6 +133,14 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     })
 
     if (!isConfirmed) return
+  }
+
+  if (props.installHandler) {
+    versionHistoryDialogController?.close()
+    versionHistoryDialogController = null
+    visible.value = false
+    await props.installHandler(releaseVersion, repoUrl)
+    return
   }
 
   const failureMessageKey = isInstalled.value ? 'plugin.updateFailed' : 'plugin.installFailed'

@@ -18,12 +18,15 @@ const PluginVersionHistoryDialog = defineAsyncComponent(
 )
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
+type InstallHandler = (releaseVersion?: string, repoUrl?: string) => unknown
+
 // 输入参数
 const props = defineProps({
   plugin: Object as PropType<Plugin>,
   width: String,
   height: String,
   count: Number,
+  installHandler: Function as PropType<InstallHandler>,
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -146,6 +149,13 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     if (!isConfirmed) return
   }
 
+  if (props.installHandler) {
+    versionHistoryDialogController?.close()
+    versionHistoryDialogController = null
+    await props.installHandler(releaseVersion, repoUrl)
+    return
+  }
+
   try {
     showInstallProgress(
       t('plugin.installing', {
@@ -187,6 +197,7 @@ function showPluginDetail() {
     {
       plugin: props.plugin,
       count: props.count,
+      installHandler: props.installHandler,
     },
     {
       install: () => emit('install'),

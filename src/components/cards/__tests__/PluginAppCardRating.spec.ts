@@ -133,6 +133,23 @@ describe('PluginAppCard rating badge', () => {
     expect(mocks.apiGet).not.toHaveBeenCalled()
   })
 
+  it('passes the host install handler into market details', async () => {
+    const installHandler = vi.fn().mockResolvedValue(undefined)
+    const { container } = await renderWithProviders(PluginAppCard, {
+      props: { plugin, installHandler },
+    })
+
+    await fireEvent.click(container.querySelector('.v-card')!)
+
+    const detailProps = mocks.openSharedDialog.mock.calls[0][1] as {
+      installHandler?: (...args: unknown[]) => unknown
+    }
+    expect(detailProps.installHandler).toBe(installHandler)
+    await detailProps.installHandler?.()
+    expect(installHandler).toHaveBeenCalledWith()
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+  })
+
   it('installs a selected release with exact parameters and emits completion', async () => {
     mocks.apiGet.mockResolvedValue({ success: true })
     const lifecyclePlugin = {

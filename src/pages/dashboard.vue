@@ -10,7 +10,7 @@ import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useD
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { useUserStore } from '@/stores'
+import { usePluginRuntimeStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { useDisplay, useTheme } from 'vuetify'
 
@@ -26,6 +26,7 @@ const { appMode } = usePWA()
 const display = useDisplay()
 const vuetifyTheme = useTheme()
 const userStore = useUserStore()
+const pluginRuntimeStore = usePluginRuntimeStore()
 const userPermissionContext = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissionContext.value, 'admin'))
 const canDiscovery = computed(() => hasPermission(userPermissionContext.value, 'discovery'))
@@ -1669,6 +1670,15 @@ watch(
       if (profileSwitchId === dashboardLayoutProfileSwitchId) {
         isSwitchingDashboardLayoutProfile = false
       }
+    }
+  },
+)
+
+watch(
+  () => pluginRuntimeStore.reconciliation,
+  reconciliation => {
+    if (reconciliation > 0 && isDashboardConfigLoaded.value && isRequest.value && route.path === '/dashboard') {
+      void getPluginDashboardMeta()
     }
   },
 )

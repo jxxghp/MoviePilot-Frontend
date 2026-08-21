@@ -33,6 +33,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  runtimeSettling: {
+    type: Boolean,
+    default: false,
+  },
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -44,6 +48,38 @@ const { t } = useI18n()
 
 const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
 const hasCardStatus = computed(() => Boolean(props.plugin?.has_update) || hasCardRating.value)
+const runtimeStatus = computed(() => props.plugin?.runtime_status)
+const runtimePending = computed(
+  () => props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || ''),
+)
+const runtimeUnavailable = computed(
+  () =>
+    ['blocked_by_policy', 'load_failed'].includes(runtimeStatus.value || '') ||
+    (!props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || '')),
+)
+const runtimeActionsBlocked = computed(() => runtimePending.value || runtimeUnavailable.value)
+const runtimePendingStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
+  source_missing: 'plugin.sourceRestoring',
+  dependency_pending: 'plugin.dependencyInstalling',
+  ready: 'plugin.runtimeLoading',
+}
+const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
+  source_missing: 'plugin.sourceMissing',
+  dependency_pending: 'plugin.dependencyPending',
+  ready: 'plugin.runtimeReady',
+  blocked_by_policy: 'plugin.blockedByPolicy',
+  load_failed: 'plugin.runtimeLoadFailed',
+}
+const showRuntimeStatusDot = computed(() => !runtimeStatus.value || runtimeStatus.value === 'active')
+const runtimeStatusDotColor = computed(() => (props.plugin?.state ? 'success' : 'secondary'))
+const runtimeStatusText = computed(() => {
+  const status = runtimeStatus.value
+  const statusKey = status
+    ? (runtimePending.value ? runtimePendingStatusKeys : runtimeUnavailableStatusKeys)[status]
+    : undefined
+
+  return statusKey ? t(statusKey) : ''
+})
 const cardRatingValue = computed(() => Number(props.plugin?.average_rating || 0).toFixed(1))
 const cardRatingSummary = computed(() =>
   t('plugin.ratingSummary', {
@@ -410,6 +446,7 @@ async function visitPluginPage() {
 
 // 打开插件详情
 function openPluginDetail() {
+  if (runtimeActionsBlocked.value) return
   if (props.plugin?.has_page) showPluginInfo()
   else showPluginConfig()
 }
@@ -625,9 +662,12 @@ watch(
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
               'cursor-move': props.sortable,
+              'plugin-card--runtime-blocked': runtimeActionsBlocked,
+              'plugin-card--runtime-pending': runtimePending,
+              'plugin-card--runtime-unavailable': runtimeUnavailable,
             }"
             :style="accentStyle"
-            :ripple="!props.sortable"
+            :ripple="!props.sortable && !runtimeActionsBlocked"
           >
             <div class="plugin-card__banner flex-grow">
               <VCardText class="px-2 pt-2 pb-0">
@@ -635,7 +675,13 @@ watch(
                   class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
                   :class="{ 'plugin-card__title--with-status': hasCardStatus }"
                 >
-                  <VBadge dot inline :color="props.plugin?.state ? 'success' : 'secondary'" />
+                  <VBadge
+                    v-if="showRuntimeStatusDot"
+                    dot
+                    inline
+                    :color="runtimeStatusDotColor"
+                    :aria-label="props.plugin?.state ? t('plugin.running') : t('plugin.disable')"
+                  />
                   {{ props.plugin?.plugin_name }}
                   <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
                 </VCardTitle>
@@ -650,7 +696,7 @@ watch(
                   class="relative flex-shrink-0 self-center pb-3"
                   :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                 >
-                  <VAvatar size="48">
+                  <VAvatar size="48" class="plugin-card__plugin-icon">
                     <VImg
                       ref="imageRef"
                       :src="iconPath"
@@ -661,6 +707,21 @@ watch(
                     />
                   </VAvatar>
                 </div>
+              </div>
+              <div
+                v-if="runtimePending || runtimeUnavailable"
+                class="plugin-card__runtime-state"
+                :class="{ 'plugin-card__runtime-state--error': runtimeUnavailable }"
+                role="status"
+                aria-live="polite"
+              >
+                <VProgressCircular v-if="runtimePending" indeterminate size="22" width="2" />
+                <VIcon
+                  v-else
+                  :icon="runtimeStatus === 'blocked_by_policy' ? 'mdi-shield-lock-outline' : 'mdi-alert-circle-outline'"
+                  size="22"
+                />
+                <span>{{ runtimeStatusText }}</span>
               </div>
             </div>
             <VCardText
@@ -692,7 +753,7 @@ watch(
                 </span>
               </div>
               <div v-if="!props.sortable" class="absolute bottom-0 right-0">
-                <IconBtn @click.stop>
+                <IconBtn class="plugin-card__menu" @click.stop>
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
                     <VList>
@@ -701,6 +762,7 @@ watch(
                         v-show="item.show"
                         :key="i"
                         :base-color="item.props.color"
+                        :disabled="runtimeActionsBlocked && [1, 2, 4, 8].includes(item.value)"
                         @click="item.props.click"
                       >
                         <template #prepend>
@@ -762,6 +824,45 @@ watch(
   gap: 0.125rem;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.plugin-card--runtime-pending {
+  cursor: progress;
+}
+
+.plugin-card--runtime-unavailable {
+  cursor: not-allowed;
+  border: var(--app-card-light-border) !important;
+}
+
+.plugin-card--runtime-blocked .plugin-card__plugin-icon,
+.plugin-card--runtime-blocked .plugin-card__menu {
+  filter: grayscale(1);
+  opacity: 0.56;
+}
+
+.plugin-card--runtime-blocked .plugin-card__banner {
+  border-block-end: 0 !important;
+}
+
+.plugin-card__runtime-state {
+  position: absolute !important;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: rgb(var(--v-theme-on-surface));
+  background: rgba(var(--v-theme-surface), 88%);
+  font-size: 0.875rem;
+  font-weight: 600;
+  inset: 0;
+  text-align: center;
+}
+
+.plugin-card__runtime-state--error {
+  color: rgb(var(--v-theme-error));
+  background: rgba(var(--v-theme-surface), 94%);
 }
 
 .card-cover-blurred::before {

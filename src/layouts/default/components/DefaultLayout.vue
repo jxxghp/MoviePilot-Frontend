@@ -11,7 +11,7 @@ import QuickAccess from './QuickAccess.vue'
 import HeaderTab from './HeaderTab.vue'
 import AgentAssistantWidget from '@/components/agent/AgentAssistantWidget.vue'
 import ThemeCustomizer from '@/components/theme/ThemeCustomizer.vue'
-import { useGlobalSettingsStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
+import { useGlobalSettingsStore, usePluginRuntimeStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { getNavMenus } from '@/router/i18n-menu'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
@@ -50,6 +50,7 @@ const showThemeCustomizer = ref(false)
 
 // 用户 Store
 const userStore = useUserStore()
+const pluginRuntimeStore = usePluginRuntimeStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -432,6 +433,7 @@ function handlePluginClick() {
 
 // 组件卸载时清理监听
 onBeforeUnmount(() => {
+  pluginRuntimeStore.stop()
   window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
   window.removeEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
 })
@@ -478,6 +480,22 @@ let sidebarMenusMounted = false
 watch([() => pluginSidebarNavStore.items, userPermissions], () => {
   if (sidebarMenusMounted) rebuildSidebarMenus()
 })
+
+watch(
+  () => pluginRuntimeStore.reconciliation,
+  reconciliation => {
+    if (reconciliation > 0) void pluginSidebarNavStore.ensureSidebarNav(true)
+  },
+)
+
+watch(
+  () => userStore.superUser,
+  superUser => {
+    if (superUser) pluginRuntimeStore.start()
+    else pluginRuntimeStore.stop()
+  },
+  { immediate: true },
+)
 
 onMounted(async () => {
   // 主题定制器由布局统一承载，监听需要尽早注册，避免异步加载菜单期间丢失打开事件。
