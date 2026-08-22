@@ -1,4 +1,4 @@
-import { getDisplayImageUrl, getProxyImageUrl } from '@/utils/imageUtils'
+import { getDisplayImageUrl, getLogoUrl, getProxyImageUrl, hasLogo } from '@/utils/imageUtils'
 import { describe, expect, it } from 'vitest'
 
 describe('image URL helpers', () => {
@@ -22,5 +22,10 @@ describe('image URL helpers', () => {
     expect(getProxyImageUrl('/images/local.png', { useCache: true })).toBe('/images/local.png')
     expect(getProxyImageUrl('data:image/png;base64,abc', { useCache: true })).toBe('data:image/png;base64,abc')
     expect(getProxyImageUrl('', { useCache: true })).toBe('')
+  })
+
+  it('exposes the official DingTalk logo for notification channels', () => {
+    expect(hasLogo('dingtalk')).toBe(true)
+    expect(getLogoUrl('dingtalk')).toContain('dingtalk')
   })
 })

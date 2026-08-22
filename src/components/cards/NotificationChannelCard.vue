@@ -83,7 +83,7 @@ const getIcon = computed(() => {
     case 'discord':
       return getLogoUrl('discord')
     case 'dingtalk':
-      return getLogoUrl('notification')
+      return getLogoUrl('dingtalk')
     case 'webpush':
       return getLogoUrl('chrome')
     default:

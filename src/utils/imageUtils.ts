@@ -19,6 +19,7 @@ import clawbotLogo from '@/assets/images/logos/clawbot.png'
 import telegramLogo from '@/assets/images/logos/telegram.webp'
 import slackLogo from '@/assets/images/logos/slack.webp'
 import discordLogo from '@/assets/images/logos/discord.png'
+import dingtalkLogo from '@/assets/images/logos/dingtalk.jpg'
 import synologychatLogo from '@/assets/images/logos/synologychat.png'
 import vocechatLogo from '@/assets/images/logos/vocechat.png'
 import downloaderLogo from '@/assets/images/logos/downloader.png'
@@ -53,6 +54,7 @@ const logoMap: Record<string, string> = {
   telegram: telegramLogo,
   slack: slackLogo,
   discord: discordLogo,
+  dingtalk: dingtalkLogo,
   synologychat: synologychatLogo,
   vocechat: vocechatLogo,
   downloader: downloaderLogo,
