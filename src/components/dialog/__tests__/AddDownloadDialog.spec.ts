@@ -68,6 +68,7 @@ const SelectStub = defineComponent({
 const TextFieldStub = defineComponent({
   name: 'NativeTextFieldStub',
   props: {
+    disabled: { type: Boolean, default: false },
     label: String,
     modelValue: { type: String, default: '' },
   },
@@ -78,6 +79,7 @@ const TextFieldStub = defineComponent({
         props.label,
         h('input', {
           'aria-label': props.label,
+          'disabled': props.disabled,
           'value': props.modelValue ?? '',
           'onInput': (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
         }),
@@ -408,6 +410,85 @@ describe('AddDownloadDialog submissions', () => {
       media_source: 'musicbrainz',
       music_type: 'album',
     })
+  })
+
+  it('defaults a music torrent to the MusicBrainz source and music type', async () => {
+    const user = userEvent.setup()
+
+    await renderDialog({
+      recognizeSource: 'themoviedb',
+      torrent: createTorrent({ category: '音乐', media_id: undefined, media_source: undefined }),
+    })
+
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+
+    expect(screen.getByLabelText('类型')).toHaveValue('音乐')
+    expect(screen.getByLabelText('数据源')).toHaveValue('musicbrainz')
+    expect(screen.getByLabelText('音乐实体')).toBeInTheDocument()
+    expect(screen.getByLabelText('MusicBrainz ID')).toBeEnabled()
+  })
+
+  it('switches the source to MusicBrainz and reveals the entity selector when the music type is picked', async () => {
+    const user = userEvent.setup()
+
+    await renderDialog({
+      recognizeSource: 'themoviedb',
+      torrent: createTorrent({ category: 'movie', media_id: undefined, media_source: undefined }),
+    })
+
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+    await user.selectOptions(screen.getByLabelText('类型'), '音乐')
+
+    expect(screen.getByLabelText('数据源')).toHaveValue('musicbrainz')
+    expect(screen.getByLabelText('音乐实体')).toBeInTheDocument()
+    expect(screen.getByLabelText('MusicBrainz ID')).toBeEnabled()
+  })
+
+  it('switches the type to music when a music source is selected manually', async () => {
+    const user = userEvent.setup()
+
+    await renderDialog({
+      recognizeSource: 'themoviedb',
+      torrent: createTorrent({ category: 'movie', media_id: undefined, media_source: undefined }),
+    })
+
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+    await user.selectOptions(screen.getByLabelText('数据源'), 'musicbrainz')
+
+    expect(screen.getByLabelText('类型')).toHaveValue('音乐')
+    expect(screen.getByLabelText('音乐实体')).toBeInTheDocument()
+  })
+
+  it('keeps the media ID disabled until a media type is selected', async () => {
+    const user = userEvent.setup()
+
+    await renderDialog({
+      recognizeSource: 'themoviedb',
+      torrent: createTorrent({ category: '合集', media_id: undefined, media_source: undefined }),
+    })
+
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+
+    expect(screen.getByLabelText('类型')).toHaveValue('')
+    expect(screen.getByLabelText('TheMovieDb编号')).toBeDisabled()
+
+    await user.selectOptions(screen.getByLabelText('类型'), '电影')
+    expect(screen.getByLabelText('TheMovieDb编号')).toBeEnabled()
+  })
+
+  it('clears a stale media ID when the source is switched to avoid reusing the number', async () => {
+    const user = userEvent.setup()
+
+    await renderDialog({
+      recognizeSource: 'themoviedb',
+      torrent: createTorrent({ category: 'movie', media_id: undefined, media_source: undefined }),
+    })
+
+    await user.click(screen.getByRole('button', { name: '显示高级选项' }))
+    await user.type(screen.getByLabelText('TheMovieDb编号'), '6001')
+    await user.selectOptions(screen.getByLabelText('数据源'), 'bangumi')
+
+    expect(screen.getByLabelText('Bangumi编号')).toHaveValue('')
   })
 
   it('uses the source-native identity carried by a torrent without auxiliary ID fallback', async () => {

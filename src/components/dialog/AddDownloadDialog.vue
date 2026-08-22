@@ -15,6 +15,7 @@ import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import { isMediaDataSource, isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
+import { useMediaSources } from '@/composables/useMediaSources'
 import { useGlobalSettingsStore } from '@/stores'
 import { useConfirm } from '@/composables/useConfirm'
 
@@ -29,24 +30,83 @@ const { t } = useI18n()
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
-// 当前识别类型
+// 输入参数：媒体或种子可携带已识别的完整身份，供高级选项预填。
 const props = defineProps({
   title: String,
   media: Object as PropType<MediaInfo>,
   torrent: Object as PropType<TorrentInfo>,
 })
 
-// 当前识别类型：优先使用已随媒体或种子传入的完整身份，否则使用识别上下文。
-const mediaSource = computed<MediaDataSource>(() => {
-  if (isMediaDataSource(props.media?.media_source) && props.media?.media_id?.trim()) return props.media.media_source
-  if (isMediaDataSource(props.torrent?.media_source) && props.torrent?.media_id?.trim())
-    return props.torrent.media_source
-  if (isMediaDataSource(props.media?.media_source)) return props.media.media_source
-  if (isMediaDataSource(props.torrent?.media_source)) return props.torrent.media_source
-  if (props.torrent?.category === '音乐' || props.torrent?.category === 'music') return 'musicbrainz'
-  if (isMediaDataSource(globalSettings.RECOGNIZE_SOURCE)) return globalSettings.RECOGNIZE_SOURCE
-  return 'themoviedb'
-})
+// 媒体类型选择项：自动跟随媒体/种子上下文，其余类型由用户显式指定。
+const mediaTypeItems = computed(() => [
+  { title: t('dialog.reorganize.auto'), value: '' },
+  { title: t('dialog.reorganize.movie'), value: '电影' },
+  { title: t('dialog.reorganize.tv'), value: '电视剧' },
+  { title: t('mediaType.music'), value: '音乐' },
+])
+
+// 数据源选择项：内置影视/音乐来源 + 插件注册来源，供高级选项手动切换。
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const customMediaSourceItems = getMediaSourceItems('media')
+const customMusicSourceItems = getMediaSourceItems('music')
+
+const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
+  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
+  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
+  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
+  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
+  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
+  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
+  ...customMediaSourceItems.value,
+  ...customMusicSourceItems.value,
+])
+
+/** 获取后台设置中的默认识别数据源，未知值兼容回退到 TheMovieDb。 */
+function defaultMediaSource(): MediaDataSource {
+  const configuredSource = globalSettings.RECOGNIZE_SOURCE as MediaDataSource
+  return mediaSourceItems.value.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
+}
+
+// 当前媒体类型：音乐决定识别源与音乐实体展示，留空表示自动识别。
+type DownloadMediaType = '' | '电影' | '电视剧' | '音乐'
+
+/** 从媒体或种子推导数据源：优先使用随传入的完整身份，否则按类别和识别设置兜底。 */
+function deriveMediaSource(media?: MediaInfo, torrent?: TorrentInfo): MediaDataSource {
+  if (isMediaDataSource(media?.media_source) && media?.media_id?.trim()) return media.media_source
+  if (isMediaDataSource(torrent?.media_source) && torrent?.media_id?.trim()) return torrent.media_source
+  if (isMediaDataSource(media?.media_source)) return media.media_source
+  if (isMediaDataSource(torrent?.media_source)) return torrent.media_source
+  if (torrent?.category === '音乐' || torrent?.category === 'music') return 'musicbrainz'
+  return defaultMediaSource()
+}
+
+/** 提取媒体或种子携带的完整原生媒体 ID，不从辅助 ID 字段推导。 */
+function deriveMediaId(media?: MediaInfo, torrent?: TorrentInfo): string | undefined {
+  if (isMediaDataSource(media?.media_source) && media?.media_id?.trim()) return media.media_id.trim()
+  if (isMediaDataSource(torrent?.media_source) && torrent?.media_id?.trim()) return torrent.media_id.trim()
+  return undefined
+}
+
+/** 将媒体类型描述归一为弹窗接受的类型名，未知类型返回 undefined。 */
+function resolveDownloadMediaType(type?: string): DownloadMediaType | undefined {
+  const normalized = type?.trim().toLowerCase()
+  if (['电影', 'movie'].includes(normalized ?? '')) return '电影'
+  if (['电视剧', 'tv', 'series'].includes(normalized ?? '')) return '电视剧'
+  if (['音乐', 'music'].includes(normalized ?? '')) return '音乐'
+  return undefined
+}
+
+/** 推导初始媒体类型：音乐源直接归为音乐，影视取媒体/种子携带的类别，未知时留空走自动。 */
+function deriveMediaType(source: MediaDataSource, media?: MediaInfo, torrent?: TorrentInfo): DownloadMediaType {
+  if (isMusicMediaSource(source)) return '音乐'
+  const candidates = [media?.type, torrent?.category]
+  for (const type of candidates) {
+    const resolved = resolveDownloadMediaType(type)
+    if (resolved) return resolved
+  }
+  return ''
+}
 
 // 定义成功和失败事件
 const emit = defineEmits(['done', 'error', 'close'])
@@ -73,39 +133,29 @@ const loading = ref(false)
 // 是否显示高级选项
 const showAdvancedOptions = ref(false)
 
+// 当前数据源：优先使用已随媒体或种子传入的完整身份，可在高级选项手动切换。
+const mediaSource = ref<MediaDataSource>(deriveMediaSource(props.media, props.torrent))
+
 // 当前数据源的原生媒体ID
-const mediaId = ref<string | undefined>(undefined)
+const mediaId = ref<string | undefined>(deriveMediaId(props.media, props.torrent))
 
 // 无完整媒体上下文时，音乐原生 ID 需要实体命名空间才能区分单曲和专辑。
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.media?.music_type === 'album' ? 'album' : 'recording')
 
-const isMusicSelection = computed(() => isMusicMediaSource(mediaSource.value))
+// 当前媒体类型：由媒体/种子类别推导，用户可在高级选项显式切换。
+const mediaType = ref<DownloadMediaType>(deriveMediaType(mediaSource.value, props.media, props.torrent))
+
+const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
 
 const musicEntityOptions = computed(() => [
   { title: t('setting.cache.musicType.recording'), value: 'recording' },
   { title: t('setting.cache.musicType.album'), value: 'album' },
 ])
 
-// 打开对话框时预填媒体或种子携带的完整身份，不从辅助 ID 字段推导。
-watch(
-  () => [props.media, props.torrent] as const,
-  ([media, torrent]) => {
-    if (isMediaDataSource(media?.media_source) && media.media_id?.trim()) {
-      mediaId.value = media.media_id.trim()
-    } else if (isMediaDataSource(torrent?.media_source) && torrent.media_id?.trim()) {
-      mediaId.value = torrent.media_id.trim()
-    } else {
-      mediaId.value = undefined
-    }
-    if (media?.music_type === 'recording' || media?.music_type === 'album') {
-      musicType.value = media.music_type
-    }
-  },
-  { immediate: true },
-)
-
-// 同步媒体选择器返回的音乐实体，避免只保存 ID 后默认回落到单曲。
-function handleMediaSelected(item: Pick<MediaInfo, 'music_type'>) {
+// 同步媒体选择器返回的媒体类型与音乐实体，避免只保存 ID 后类型与来源不一致。
+function handleMediaSelected(item: Pick<MediaInfo, 'type' | 'music_type'>) {
+  const typeName = resolveDownloadMediaType(item.type)
+  if (typeName) mediaType.value = typeName
   if (item.music_type === 'recording' || item.music_type === 'album') {
     musicType.value = item.music_type
   }
@@ -129,6 +179,39 @@ const mediaIdLabel = computed(() => {
 
 // TMDB选择对话框
 const mediaSelectorDialog = ref(false)
+
+// 切换数据源时清空上一来源的原生 ID，避免把同一数字误传给新来源；同步刷新保证与 props 回填的顺序一致。
+watch(
+  mediaSource,
+  source => {
+    mediaId.value = undefined
+    mediaSelectorDialog.value = false
+    if (isMusicMediaSource(source)) mediaType.value = '音乐'
+  },
+  { flush: 'sync' },
+)
+
+// 切换类型时保持数据源与类型兼容：音乐用音乐源，影视回退到系统默认识别源。
+watch(mediaType, type => {
+  if (type === '音乐' && !isMusicMediaSource(mediaSource.value)) {
+    mediaSource.value = 'musicbrainz'
+  } else if (type !== '音乐' && isMusicMediaSource(mediaSource.value)) {
+    mediaSource.value = defaultMediaSource()
+  }
+})
+
+// 运行中媒体/种子 props 变化时兜底同步身份，弹窗每次打开都是新实例。
+watch(
+  () => [props.media, props.torrent] as const,
+  ([media, torrent]) => {
+    mediaSource.value = deriveMediaSource(media, torrent)
+    mediaId.value = deriveMediaId(media, torrent)
+    mediaType.value = deriveMediaType(mediaSource.value, media, torrent)
+    if (media?.music_type === 'recording' || media?.music_type === 'album') {
+      musicType.value = media.music_type
+    }
+  },
+)
 
 // 计算按钮图标
 const icon = computed(() => (loading.value ? 'mdi-progress-download' : 'mdi-download'))
@@ -365,7 +448,27 @@ onMounted(() => {
           </VCol>
         </VRow>
         <VRow v-show="showAdvancedOptions" class="px-5">
-          <VCol v-if="isMusicSelection" cols="12">
+          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+            <VSelect
+              v-model="mediaType"
+              :items="mediaTypeItems"
+              :label="t('dialog.reorganize.mediaType')"
+              prepend-inner-icon="mdi-movie-open"
+              variant="underlined"
+              density="comfortable"
+            />
+          </VCol>
+          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+            <VSelect
+              v-model="mediaSource"
+              :items="mediaSourceItems"
+              :label="t('dialog.reorganize.mediaSource')"
+              prepend-inner-icon="mdi-database-search"
+              variant="underlined"
+              density="comfortable"
+            />
+          </VCol>
+          <VCol v-if="isMusicSelection" cols="12" md="3">
             <VSelect
               v-model="musicType"
               :items="musicEntityOptions"
@@ -375,9 +478,10 @@ onMounted(() => {
               density="comfortable"
             />
           </VCol>
-          <VCol cols="12">
+          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
             <VTextField
               v-model="mediaId"
+              :disabled="mediaType === ''"
               :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
               :rules="[
