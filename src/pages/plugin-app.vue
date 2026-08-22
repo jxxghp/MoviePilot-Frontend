@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { pluginApi } from '@/api'
-import { loadRemoteAppPageComponent } from '@/utils/federationLoader'
+import { createPluginInstanceApi } from '@/api'
+import { getRemoteModuleInfo, loadRemoteAppPageComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
 import { useConfirm } from '@/composables/useConfirm'
@@ -13,6 +13,7 @@ const pluginId = computed(() => route.params.pluginId as string)
 const navKey = computed(() => (route.params.navKey as string) || 'main')
 
 const RemoteView = shallowRef<Component | null>(null)
+const pluginSourceId = ref<string>()
 const loadError = ref(false)
 let loadGeneration = 0
 
@@ -37,10 +38,14 @@ watch(
     const generation = ++loadGeneration
     loadError.value = false
     RemoteView.value = null
+    pluginSourceId.value = undefined
     if (!pid) {
       return
     }
     try {
+      const remoteModule = await getRemoteModuleInfo(pid)
+      if (generation !== loadGeneration) return
+      pluginSourceId.value = remoteModule?.source_plugin_id
       const remoteView = (await loadRemoteAppPageComponent(pid, nk)) as Component
       if (generation !== loadGeneration) return
       RemoteView.value = remoteView
@@ -51,6 +56,11 @@ watch(
     }
   },
   { immediate: true },
+)
+
+// 路由只携带实例 ID，源身份由联邦发现结果补齐。
+const scopedPluginApi = computed(() =>
+  createPluginInstanceApi(pluginId.value, pluginSourceId.value),
 )
 </script>
 
@@ -64,10 +74,11 @@ watch(
       v-else
       :is="RemoteView"
       :key="`${pluginId}-${navKey}`"
-      :api="pluginApi"
+      :api="scopedPluginApi"
       :native-subscribe="nativeSubscribe"
       :nav-key="navKey"
       :plugin-id="pluginId"
+      :source-plugin-id="pluginSourceId"
       @action="() => {}"
     />
   </div>

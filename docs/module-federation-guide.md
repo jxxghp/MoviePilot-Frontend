@@ -141,6 +141,8 @@ const props = defineProps({
     type: Object,
     default: () => {},
   },
+  pluginId: { type: String, default: '' },
+  sourcePluginId: { type: String, default: '' },
   nativeSubscribe: {
     type: Function,
     default: null,
@@ -189,6 +191,8 @@ const props = defineProps({
     type: Object,
     default: () => {},
   },
+  pluginId: { type: String, default: '' },
+  sourcePluginId: { type: String, default: '' },
   nativeSubscribe: {
     type: Function,
     default: null,
@@ -248,6 +252,9 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  api: { type: Object, default: () => ({}) },
+  pluginId: { type: String, default: '' },
+  sourcePluginId: { type: String, default: '' },
   nativeSubscribe: {
     type: Function,
     default: null,
@@ -290,6 +297,7 @@ const props = defineProps({
 | `nativeSubscribe` | 打开主应用原生订阅交互                                |
 | `navKey`          | 与侧栏声明的 `nav_key` 一致，同一插件多入口时用于区分 |
 | `pluginId`        | 当前插件 ID                                           |
+| `sourcePluginId`  | 虚拟分身共享资源的源插件 ID；普通插件为空             |
 
 ```vue
 <script setup lang="ts">
@@ -298,6 +306,7 @@ const props = defineProps({
   nativeSubscribe: { type: Function, default: null },
   navKey: { type: String, default: 'main' },
   pluginId: { type: String, default: '' },
+  sourcePluginId: { type: String, default: '' },
 })
 const emit = defineEmits(['action'])
 </script>
@@ -317,12 +326,19 @@ const emit = defineEmits(['action'])
 | 能力             | Page | Config | Dashboard | AppPage | 调用方式                                                         |
 | ---------------- | ---- | ------ | --------- | ------- | ---------------------------------------------------------------- |
 | 认证 API         | ✓    | ✓      | ✓         | ✓       | `api` prop                                                       |
+| 当前实例 ID      | ✓    | ✓      | ✓         | ✓       | `pluginId` prop                                                  |
+| 共享源码 ID      | ✓    | ✓      | ✓         | ✓       | `sourcePluginId` prop；普通插件为空                              |
 | 原生订阅交互     | ✓    | ✓      | ✓         | ✓       | `nativeSubscribe` prop 或 `inject('moviepilot:nativeSubscribe')` |
 | 主应用统一 Toast | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:toast')`                                     |
 | 主应用公共弹窗   | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:dialog')`                                    |
 | 主应用确认弹窗   | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:confirm')`                                   |
 
 `nativeSubscribe`、Toast、公共弹窗和确认弹窗都由主应用宿主提供。插件不应复制主程序订阅弹窗、创建另一套 Toast 容器或自行挂载全局弹窗。插件在旧版主程序或能力不存在的环境中运行时，应保留空值判断和必要的页面内 fallback。
+
+V3 新建插件分身会复用源插件的同一份联邦产物。宿主传入的 `api` 已绑定当前
+`pluginId`：即使旧组件仍调用 `plugin/<sourcePluginId>/...`，也会被映射到实例 API。
+新组件应直接用 `pluginId` 拼接路径，并始终优先使用 `api` prop；只读取全局
+`window.MoviePilotAPI` 会绕过实例作用域，不适合多实例插件。
 
 ### 5.6 玻璃光学表面
 
@@ -565,8 +581,8 @@ def get_render_mode() -> Tuple[str, str]:
 - 需要在插件前端页面调用后端接口时，通过传入的api模块发起调用，后端api接口声明认证类型为：`bear`
 
 ```typescript
-// 演示使用api模块调用插件接口
-recentItems.value = await props.api.get(`plugin/MyPlugin/history`)
+// 使用宿主传入的当前实例 ID，普通插件和虚拟分身使用同一份组件代码
+recentItems.value = await props.api.get(`plugin/${props.pluginId}/history`)
 ```
 
 ```python

@@ -15,11 +15,13 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
+  createPluginInstanceApi: () => mocks.api,
   default: mocks.api,
   pluginApi: mocks.api,
 }))
 
 vi.mock('@/utils/federationLoader', () => ({
+  getRemoteModuleInfo: vi.fn().mockResolvedValue(null),
   loadRemoteAppPageComponent: (...args: unknown[]) => mocks.loadRemoteAppPageComponent(...args),
 }))
 

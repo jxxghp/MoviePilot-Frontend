@@ -2,7 +2,7 @@
 import { useDisplay } from 'vuetify'
 import type { Plugin, RenderProps } from '@/api/types'
 import PageRender from '@/components/render/PageRender.vue'
-import api, { pluginApi } from '@/api'
+import api, { createPluginInstanceApi } from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
@@ -46,6 +46,11 @@ provide('moviepilot:confirm', createConfirm)
 // 向联邦插件同时提供 prop 与 inject 形式的主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
+
+// 数据页沿用源插件组件，同时把其动态 API 限定到当前实例。
+const scopedPluginApi = computed(() =>
+  createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id),
+)
 
 // 是否刷新
 const isRefreshed = ref(false)
@@ -183,7 +188,9 @@ onMounted(() => {
       <VCardText class="pa-0">
         <component
           :is="dynamicComponent"
-          :api="pluginApi"
+          :api="scopedPluginApi"
+          :plugin-id="props.plugin?.id"
+          :source-plugin-id="props.plugin?.source_plugin_id"
           :native-subscribe="nativeSubscribe"
           :show_switch="show_switch"
           @action="handleAction"

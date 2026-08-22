@@ -42,7 +42,6 @@ const cloneForm = ref({
   suffix: '',
   name: '',
   description: '',
-  version: '',
   icon: '',
 })
 
@@ -52,7 +51,6 @@ function initializeCloneForm() {
     suffix: '',
     name: t('plugin.cloneDefaultName', { name: props.plugin?.plugin_name }),
     description: t('plugin.cloneDefaultDescription', { description: props.plugin?.plugin_desc }),
-    version: props.plugin?.plugin_version || '1.0',
     icon: props.plugin?.plugin_icon || '',
   }
 }
@@ -121,18 +119,7 @@ onMounted(() => {
               />
             </VCol>
 
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="cloneForm.version"
-                :label="t('plugin.cloneVersion')"
-                :placeholder="t('plugin.cloneVersionPlaceholder')"
-                :hint="t('plugin.cloneVersionHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-numeric"
-              />
-            </VCol>
-
-            <VCol cols="12" md="6">
+            <VCol cols="12">
               <VTextField
                 v-model="cloneForm.icon"
                 :label="t('plugin.cloneIcon')"

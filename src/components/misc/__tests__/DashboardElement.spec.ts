@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
+  createPluginInstanceApi: () => ({ get: mocks.apiGet }),
   default: createDataApiMock({ get: mocks.apiGet }),
   pluginApi: { get: mocks.apiGet },
 }))

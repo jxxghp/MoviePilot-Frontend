@@ -13,6 +13,7 @@ export interface RemoteModule {
   id: string
   url: string
   name?: string
+  source_plugin_id?: string
 }
 
 /**
@@ -27,6 +28,11 @@ async function fetchSingleRemoteModule(id: string): Promise<RemoteModule | null>
     console.error(`获取远程模块信息失败: ${id}`, error)
     return null
   }
+}
+
+/** 获取远程模块身份信息，供全页宿主构造实例作用域 API。 */
+export async function getRemoteModuleInfo(id: string): Promise<RemoteModule | null> {
+  return fetchSingleRemoteModule(id)
 }
 
 /** 发现并注册尚不可用的远程模块，同一 remote 同时只执行一次。 */

@@ -985,6 +985,12 @@ export interface Plugin {
   rating_count?: number
   // 当前安装实例评分
   user_rating?: number | null
+  // 共享代码和联邦资源的源插件 ID
+  source_plugin_id?: string
+  // 是否为共享源码的虚拟实例
+  is_instance?: boolean
+  // 实例实现模式
+  instance_mode?: 'virtual'
 }
 
 export interface PluginRuntimeSummary {
@@ -1078,6 +1084,8 @@ export interface DashboardItem {
   elements: RenderProps[]
   // 渲染方式
   render_mode?: string
+  // 共享联邦资源的源插件 ID
+  source_plugin_id?: string
 }
 
 // 种子信息

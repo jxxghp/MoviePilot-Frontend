@@ -2,7 +2,7 @@
 import { useDisplay } from 'vuetify'
 import type { Plugin, RenderProps } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import api, { pluginApi } from '@/api'
+import api, { createPluginInstanceApi } from '@/api'
 import { useToast } from 'vue-toastification'
 import FormRender from '../render/FormRender.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
@@ -61,6 +61,11 @@ const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
 const pluginSidebarNavStore = usePluginSidebarNavStore()
+
+// 联邦插件可继续使用源插件硬编码路径，宿主会把它映射到当前实例。
+const scopedPluginApi = computed(() =>
+  createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id),
+)
 
 // 是否刷新
 const isRefreshed = ref(false)
@@ -240,7 +245,9 @@ onBeforeMount(async () => {
         <component
           :is="dynamicComponent"
           :initial-config="pluginConfigForm"
-          :api="pluginApi"
+          :api="scopedPluginApi"
+          :plugin-id="props.plugin?.id"
+          :source-plugin-id="props.plugin?.source_plugin_id"
           :native-subscribe="nativeSubscribe"
           @save="handleVueComponentSave"
           @layout="handleVueComponentLayout"

@@ -4,7 +4,7 @@ import type { Component } from 'vue'
 import { useTheme } from 'vuetify'
 import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
-import api, { pluginApi } from '@/api'
+import api, { createPluginInstanceApi, pluginApi } from '@/api'
 import router from '@/router'
 import LoginMfaStep from '@/components/auth/LoginMfaStep.vue'
 import OpticalLogoLab from '@/components/misc/OpticalLogoLab.vue'
@@ -181,6 +181,15 @@ function getApiErrorPayload(error: unknown): ApiErrorPayload | undefined {
 // 登录认证提供方
 const authProviders = ref<LoginAuthProvider[]>([])
 const selectedAuthProvider = ref<LoginAuthProvider | null>(null)
+
+// 登录插件也使用实例作用域客户端；系统内置登录请求仍使用全局插件客户端。
+const selectedPluginApi = computed(() => {
+  const pluginId = selectedAuthProvider.value?.plugin_id || ''
+  return createPluginInstanceApi(
+    pluginId,
+    selectedAuthProvider.value?.remote?.source_plugin_id,
+  )
+})
 const RemoteAuthView = shallowRef<Component | null>(null)
 const pluginAuthDialog = ref(false)
 const pluginAuthLoading = ref(false)
@@ -1075,9 +1084,10 @@ onUnmounted(() => {
           <component
             v-else-if="RemoteAuthView && selectedAuthProvider"
             :is="RemoteAuthView"
-            :api="pluginApi"
+            :api="selectedPluginApi"
             :provider="selectedAuthProvider"
             :plugin-id="selectedAuthProvider.plugin_id"
+            :source-plugin-id="selectedAuthProvider.remote?.source_plugin_id"
             @authenticated="handlePluginAuthenticated"
             @error="handlePluginAuthError"
             @close="closePluginAuth"

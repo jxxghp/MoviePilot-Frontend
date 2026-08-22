@@ -480,7 +480,6 @@ async function executePluginClone(cloneForm: {
   suffix: string
   name: string
   description: string
-  version: string
   icon: string
 }) {
   if (!cloneForm.suffix.trim()) {
@@ -497,7 +496,6 @@ async function executePluginClone(cloneForm: {
         suffix: cloneForm.suffix.trim(),
         name: cloneForm.name.trim(),
         description: cloneForm.description.trim(),
-        version: cloneForm.version.trim(),
         icon: cloneForm.icon.trim(),
       },
       { feedback: 'silent' },

@@ -261,7 +261,6 @@ describe('PluginCard lifecycle actions', () => {
         suffix: string
         name: string
         description: string
-        version: string
         icon: string
       }) => Promise<void>
     }
@@ -269,7 +268,6 @@ describe('PluginCard lifecycle actions', () => {
       suffix: ' Test ',
       name: '演示分身',
       description: ' 独立配置 ',
-      version: ' 1.0.1 ',
       icon: ' https://example.com/icon.png ',
     })
 
@@ -277,7 +275,6 @@ describe('PluginCard lifecycle actions', () => {
       suffix: 'Test',
       name: '演示分身',
       description: '独立配置',
-      version: '1.0.1',
       icon: 'https://example.com/icon.png',
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件分身 演示分身 创建成功！')
@@ -296,11 +293,10 @@ describe('PluginCard lifecycle actions', () => {
         suffix: string
         name: string
         description: string
-        version: string
         icon: string
       }) => Promise<void>
     }
-    await cloneEvents.clone({ suffix: ' ', name: '', description: '', version: '', icon: '' })
+    await cloneEvents.clone({ suffix: ' ', name: '', description: '', icon: '' })
 
     expect(mocks.toastError).toHaveBeenCalledWith('分身后缀不能为空')
     expect(mocks.apiPost).not.toHaveBeenCalled()
@@ -316,11 +312,10 @@ describe('PluginCard lifecycle actions', () => {
         suffix: string
         name: string
         description: string
-        version: string
         icon: string
       }) => Promise<void>
     }
-    const form = { suffix: 'Test', name: '测试', description: '', version: '', icon: '' }
+    const form = { suffix: 'Test', name: '测试', description: '', icon: '' }
     await cloneEvents.clone(form)
     expect(mocks.toastError).toHaveBeenCalledWith('插件分身创建失败：后缀已存在')
     expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()

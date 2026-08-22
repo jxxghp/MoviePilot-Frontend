@@ -16,6 +16,7 @@ import {
   type DataApiClient,
   type PluginApiClient,
 } from './client'
+import { createScopedPluginApi } from './pluginInstance'
 
 /** 带连接探测和反馈策略的 MoviePilot 请求配置。 */
 export interface ConnectionAwareRequestConfig extends AxiosRequestConfig {
@@ -68,6 +69,7 @@ const { api, pluginApi } = createApiClients({
   },
   resolveFallbackMessage: key => i18n.global.t(fallbackMessageKeys[key]),
 })
+const pluginInstanceApis = new Map<string, PluginApiClient>()
 
 declare global {
   interface Window {
@@ -89,10 +91,29 @@ function initializeClient(instance: AxiosInstance | DataApiClient) {
   })
 }
 
+/** 返回复用同一拦截器链、但把源插件 API 映射到实例命名空间的客户端。 */
+function createPluginInstanceApi(instanceId: string, sourcePluginId?: string): PluginApiClient {
+  if (!sourcePluginId || instanceId === sourcePluginId) return pluginApi
+  const cacheKey = `${instanceId}\u0000${sourcePluginId}`
+  let scopedApi = pluginInstanceApis.get(cacheKey)
+  if (!scopedApi) {
+    scopedApi = createScopedPluginApi(pluginApi, instanceId, sourcePluginId)
+    pluginInstanceApis.set(cacheKey, scopedApi)
+  }
+  return scopedApi
+}
+
 // 插件远程组件接收 endpoint 的最终 payload，内部页面默认使用严格 envelope 解包客户端。
 if (typeof window !== 'undefined') window.MoviePilotAPI = pluginApi
 
-export { ApiRequestError, getApiBusinessErrorMessage, isApiBusinessFailure, isApiResponse, pluginApi }
+export {
+  ApiRequestError,
+  createPluginInstanceApi,
+  getApiBusinessErrorMessage,
+  isApiBusinessFailure,
+  isApiResponse,
+  pluginApi,
+}
 export type { ApiFeedbackMode, DataApiClient, PluginApiClient }
 
 export default api

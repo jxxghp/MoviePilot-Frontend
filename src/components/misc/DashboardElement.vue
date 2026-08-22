@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import { pluginApi } from '@/api'
+import { createPluginInstanceApi } from '@/api'
 import { DashboardItem } from '@/api/types'
 import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -128,6 +128,11 @@ let dashboardLoadGeneration = 0
 
 // 插件UI渲染模式 ('vuetify' 或 'vue')
 const pluginRenderMode = computed(() => props.config?.render_mode || 'vuetify')
+
+// 仪表盘远程组件共享源码，但所有插件动态 API 保持实例级隔离。
+const scopedPluginApi = computed(() =>
+  createPluginInstanceApi(props.config?.id || '', props.config?.source_plugin_id),
+)
 
 // 插件节点身份变化时重建异步组件，使失败后的远程模块可以再次加载。
 const pluginDashboardIdentity = computed(
@@ -257,7 +262,9 @@ onUnmounted(() => {
         :is="dynamicPluginComponent"
         :config="props.config"
         :allow-refresh="props.allowRefresh"
-        :api="pluginApi"
+        :api="scopedPluginApi"
+        :plugin-id="props.config?.id"
+        :source-plugin-id="props.config?.source_plugin_id"
         :native-subscribe="nativeSubscribe"
       />
     </div>

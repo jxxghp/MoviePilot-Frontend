@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
+  createPluginInstanceApi: () => mocks.pluginApi,
   default: mocks.api,
   pluginApi: mocks.pluginApi,
 }))
