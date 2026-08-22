@@ -2276,6 +2276,9 @@ export default {
       transferMaxFailedRetries: 'Transfer Retries on Failure',
       transferMaxFailedRetriesHint:
         'Maximum automatic retries after a failed transfer, so a transient network or recognition glitch cannot permanently skip a file. Once exhausted, transfer it manually or delete the transfer history. Range 1-10; the counter resets on a successful transfer or when the record is deleted. Takes effect immediately after saving.',
+      transferFailureNotificationAggregation: 'Aggregate Transfer Failure Notifications by Media',
+      transferFailureNotificationAggregationHint:
+        'Combine transfer failures for the same media and season within a short window, including the failure count, reason summary, and a batch-processing link. Disable to send one notification per file.',
       fsProxyEnabled: 'Isolate Local File Operations',
       fsProxyEnabledHint:
         'Run local file reads, copies, moves and deletes in a separate subprocess. When a FUSE mount such as CloudDrive2 stops responding, these calls hang forever and cannot be interrupted, which in turn stalls the transfer queue and directory monitoring. Isolated, they can be force-reclaimed after a timeout and surface as ordinary errors that the existing retry logic handles. Disable to fall back to direct calls, matching the previous behaviour.',

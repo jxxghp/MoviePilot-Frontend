@@ -1194,7 +1194,10 @@ describe('AccountSettingSystem', () => {
   })
 
   it('round-trips every advanced laboratory control when Rust is available', async () => {
-    systemEnv.RUST_ACCEL_AVAILABLE = true
+    Object.assign(systemEnv, {
+      RUST_ACCEL_AVAILABLE: true,
+      TRANSFER_FAILURE_NOTIFICATION_AGGREGATION: true,
+    })
     await renderSettings()
     const dialog = await openAdvancedTab('实验室')
     await fireEvent.update(dialog.getByLabelText('本地插件仓库路径'), '/plugins/local')
@@ -1202,7 +1205,14 @@ describe('AccountSettingSystem', () => {
     await fireEvent.update(dialog.getByLabelText('整理失败重试次数'), '6')
     await fireEvent.update(dialog.getByLabelText('文件操作超时（秒）'), '45')
     await fireEvent.update(dialog.getByLabelText('文件复制停滞超时（秒）'), '180')
-    for (const label of ['插件热加载', '本地文件操作隔离', '编码探测性能模式', 'Rust 加速', '网络存储快速监控']) {
+    for (const label of [
+      '插件热加载',
+      '按媒体聚合整理失败通知',
+      '本地文件操作隔离',
+      '编码探测性能模式',
+      'Rust 加速',
+      '网络存储快速监控',
+    ]) {
       await fireEvent.click(dialog.getByLabelText(label))
     }
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
@@ -1218,6 +1228,7 @@ describe('AccountSettingSystem', () => {
         PLUGIN_AUTO_RELOAD: true,
         PLUGIN_LOCAL_REPO_PATHS: '/plugins/local',
         RUST_ACCEL: true,
+        TRANSFER_FAILURE_NOTIFICATION_AGGREGATION: false,
         TRANSFER_MAX_FAILED_RETRIES: 6,
         TRANSFER_THREADS: 4,
       }),

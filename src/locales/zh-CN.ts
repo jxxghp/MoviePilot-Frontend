@@ -2237,6 +2237,9 @@ export default {
       transferMaxFailedRetries: '整理失败重试次数',
       transferMaxFailedRetriesHint:
         '自动整理失败后允许重试的最大次数，避免一次网络或识别抖动让文件永久漏整理；次数用尽后需手动整理或删除整理记录。取值 1-10，整理成功或删除记录时计数清零，保存后即时生效',
+      transferFailureNotificationAggregation: '按媒体聚合整理失败通知',
+      transferFailureNotificationAggregationHint:
+        '开启后，同一媒体同一季在短时间内产生的整理失败会合并发送，并展示失败数量、原因统计和批量处理入口；关闭时逐条发送',
       fsProxyEnabled: '本地文件操作隔离',
       fsProxyEnabledHint:
         '在独立子进程中执行本地文件的读取、复制、移动与删除。CloudDrive2 等 FUSE 挂载失去响应时，这类操作会永久卡住且无法中断，进而拖死整理队列与目录监控；隔离后可在超时后强制回收并转为普通错误，由既有的重试机制接管。关闭后退回直接调用，行为与旧版一致',

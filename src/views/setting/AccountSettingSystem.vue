@@ -145,6 +145,7 @@ const SystemSettings = ref<any>({
     TRANSFER_THREADS: 1,
     MONITOR_NETWORK_FAST_MODE: false,
     TRANSFER_MAX_FAILED_RETRIES: 3,
+    TRANSFER_FAILURE_NOTIFICATION_AGGREGATION: false,
     FS_PROXY_ENABLED: true,
     FS_PROXY_TIMEOUT: 30,
     FS_PROXY_STALL_TIMEOUT: 120,
@@ -2710,6 +2711,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     min="1"
                     max="10"
                     prepend-inner-icon="mdi-refresh-alert"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.TRANSFER_FAILURE_NOTIFICATION_AGGREGATION"
+                    :label="t('setting.system.transferFailureNotificationAggregation')"
+                    :hint="t('setting.system.transferFailureNotificationAggregationHint')"
+                    persistent-hint
                   />
                 </VCol>
                 <VCol v-if="SystemSettings.Advanced.FS_PROXY_ENABLED" cols="12" md="6">
