@@ -545,7 +545,7 @@ export default {
     notification: {
       title: 'Notifications',
       description:
-        'Notification channels (WeChat Work, WeChat ClawBot, Telegram, Slack, SynologyChat, VoceChat, WebPush), message scope',
+        'Notification channels (WeChat Work, WeChat ClawBot, Telegram, Slack, DingTalk, SynologyChat, VoceChat, WebPush), message scope',
     },
     about: {
       title: 'About',
@@ -784,6 +784,15 @@ export default {
       admins: 'Admin Whitelist',
       adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
       adminsPlaceholder: 'User IDs list, separated by commas',
+    },
+    dingtalk: {
+      name: 'DingTalk',
+      webhook: 'Custom Robot Webhook',
+      webhookHint: 'Full webhook URL of the DingTalk group custom robot',
+      webhookRequired: 'Webhook URL cannot be empty',
+      secret: 'Signing Secret',
+      secretHint:
+        'Enter the SEC-prefixed secret when signature security is enabled; leave empty for keyword or IP allowlist security',
     },
     synologychat: {
       name: 'Synology Chat',
@@ -2482,6 +2491,7 @@ export default {
       other: 'Other',
       telegram: 'Telegram',
       slack: 'Slack',
+      dingTalk: 'DingTalk',
       synologyChat: 'SynologyChat',
       voceChat: 'VoceChat',
       webPush: 'WebPush',

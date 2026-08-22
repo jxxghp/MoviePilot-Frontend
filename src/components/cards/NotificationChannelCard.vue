@@ -5,7 +5,9 @@ import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
-const NotificationChannelInfoDialog = defineAsyncComponent(() => import('@/components/dialog/NotificationChannelInfoDialog.vue'))
+const NotificationChannelInfoDialog = defineAsyncComponent(
+  () => import('@/components/dialog/NotificationChannelInfoDialog.vue'),
+)
 
 const { t } = useI18n()
 const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor()
@@ -38,6 +40,7 @@ const notificationTypeNames: { [key: string]: string } = {
   synologychat: t('notification.synologychat.name'),
   slack: t('notification.slack.name'),
   discord: t('notification.discord.name'),
+  dingtalk: t('notification.dingtalk.name'),
   webpush: t('notification.webpush.name'),
   custom: t('setting.notification.custom'),
 }
@@ -79,6 +82,8 @@ const getIcon = computed(() => {
       return getLogoUrl('slack')
     case 'discord':
       return getLogoUrl('discord')
+    case 'dingtalk':
+      return getLogoUrl('notification')
     case 'webpush':
       return getLogoUrl('chrome')
     default:

@@ -363,12 +363,7 @@ async function logoutWechatClawBot() {
   }
   wechatClawBotActionLoading.value = true
   try {
-    await manageNotificationChannel(
-      'WechatClawBot',
-      'logout',
-      getWechatClawBotRequestParams(),
-      { feedback: 'silent' },
-    )
+    await manageNotificationChannel('WechatClawBot', 'logout', getWechatClawBotRequestParams(), { feedback: 'silent' })
     $toast.success(t('notification.wechatclawbot.logoutSuccess'))
     await fetchWechatClawBotStatus({
       autoGenerateQrcode: true,
@@ -1005,6 +1000,37 @@ onMounted(() => {
                 :hint="t('notification.synologychat.adminsHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-account-supervisor"
+              />
+            </VCol>
+          </VRow>
+          <VRow v-else-if="notificationInfo.type == 'dingtalk'">
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="notificationInfo.name"
+                :label="t('notification.name')"
+                :placeholder="t('notification.name')"
+                :hint="t('notification.nameHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-label"
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextField
+                v-model="notificationInfo.config.DINGTALK_WEBHOOK"
+                :label="t('notification.dingtalk.webhook')"
+                :hint="t('notification.dingtalk.webhookHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-webhook"
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextField
+                v-model="notificationInfo.config.DINGTALK_SECRET"
+                :label="t('notification.dingtalk.secret')"
+                :hint="t('notification.dingtalk.secretHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-shield-key"
+                type="password"
               />
             </VCol>
           </VRow>

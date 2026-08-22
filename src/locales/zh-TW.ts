@@ -536,7 +536,8 @@ export default {
     },
     notification: {
       title: '通知',
-      description: '通知渠道（企業微信、微信 ClawBot、Telegram、Slack、SynologyChat、VoceChat、WebPush）、消息發送範圍',
+      description:
+        '通知渠道（企業微信、微信 ClawBot、Telegram、Slack、釘釘、SynologyChat、VoceChat、WebPush）、消息發送範圍',
     },
     about: {
       title: '關於',
@@ -773,6 +774,14 @@ export default {
       admins: '管理員白名單',
       adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
       adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
+    },
+    dingtalk: {
+      name: '釘釘',
+      webhook: '自定義機器人 Webhook',
+      webhookHint: '釘釘群自定義機器人的完整 Webhook 地址',
+      webhookRequired: 'Webhook 地址不能為空',
+      secret: '加簽密鑰',
+      secretHint: '機器人安全設置啟用“加簽”時填寫，以 SEC 開頭；使用關鍵詞或 IP 白名單時可留空',
     },
     synologychat: {
       name: 'Synology Chat',
@@ -2436,6 +2445,7 @@ export default {
       other: '其它',
       telegram: 'Telegram',
       slack: 'Slack',
+      dingTalk: '釘釘',
       synologyChat: 'SynologyChat',
       voceChat: 'VoceChat',
       webPush: 'WebPush',

@@ -358,6 +358,7 @@ export function useSetupWizard() {
       'wechat': 'WechatModule',
       'wechatclawbot': 'WechatClawBotModule',
       'slack': 'SlackModule',
+      'dingtalk': 'DingTalkModule',
       'synologychat': 'SynologyChatModule',
       'qqbot': 'QQBotModule',
       'vocechat': 'VoceChatModule',
@@ -457,6 +458,7 @@ export function useSetupWizard() {
           wechatclawbot: '微信 ClawBot',
           telegram: 'Telegram',
           slack: 'Slack',
+          dingtalk: '钉钉',
           synologychat: 'SynologyChat',
           qqbot: 'QQ',
           vocechat: 'VoceChat',
@@ -728,6 +730,12 @@ export function useSetupWizard() {
         if (!config.SYNOLOGYCHAT_WEBHOOK?.trim()) {
           errors.push(t('notification.synologychat.webhookRequired'))
           validationErrors.value.notification.SYNOLOGYCHAT_WEBHOOK = true
+        }
+        break
+      case 'dingtalk':
+        if (!config.DINGTALK_WEBHOOK?.trim()) {
+          errors.push(t('notification.dingtalk.webhookRequired'))
+          validationErrors.value.notification.DINGTALK_WEBHOOK = true
         }
         break
       case 'vocechat':

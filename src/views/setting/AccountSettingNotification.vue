@@ -455,6 +455,9 @@ useSilentSettingRefresh(loadPageData, {
                     <VListItem @click="addNotification('discord')">
                       <VListItemTitle>Discord</VListItemTitle>
                     </VListItem>
+                    <VListItem @click="addNotification('dingtalk')">
+                      <VListItemTitle>{{ t('setting.notification.dingTalk') }}</VListItemTitle>
+                    </VListItem>
                     <VListItem @click="addNotification('synologychat')">
                       <VListItemTitle>{{ t('setting.notification.synologyChat') }}</VListItemTitle>
                     </VListItem>

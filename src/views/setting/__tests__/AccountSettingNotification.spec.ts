@@ -180,6 +180,18 @@ describe('AccountSettingNotification', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('通知设置保存成功')
   })
 
+  it('offers DingTalk as a native notification channel', async () => {
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+
+    const channelCard = getCard('通知渠道')
+    await user.click(channelCard.getAllByRole('button').at(-1)!)
+    await user.click(await screen.findByText('钉钉', { selector: '.v-list-item-title' }))
+
+    expect(screen.getByText('通知4 / dingtalk')).toBeInTheDocument()
+  })
+
   it('compresses chained ClawBot renames and migrates the original source before saving channels', async () => {
     const user = userEvent.setup()
     await renderNotificationSettings()

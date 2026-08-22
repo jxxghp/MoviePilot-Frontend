@@ -120,6 +120,19 @@ const notificationTypes = [
               </VCol>
               <VCol cols="12" md="3">
                 <VCard
+                  :color="wizardData.notification.type === 'dingtalk' ? 'primary' : 'default'"
+                  :variant="wizardData.notification.type === 'dingtalk' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectNotification('dingtalk')"
+                >
+                  <VCardText class="text-center">
+                    <VIcon icon="mdi-message-processing" size="48" class="mb-2" />
+                    <div class="text-h6">钉钉</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="3">
+                <VCard
                   :color="wizardData.notification.type === 'qqbot' ? 'primary' : 'default'"
                   :variant="wizardData.notification.type === 'qqbot' ? 'tonal' : 'outlined'"
                   class="cursor-pointer"
@@ -341,7 +354,9 @@ const notificationTypes = [
                       :label="t('notification.feishu.appId')"
                       :hint="t('notification.feishu.appIdHint')"
                       :error="validationErrors.notification.FEISHU_APP_ID"
-                      :error-messages="validationErrors.notification.FEISHU_APP_ID ? [t('notification.feishu.appIdRequired')] : []"
+                      :error-messages="
+                        validationErrors.notification.FEISHU_APP_ID ? [t('notification.feishu.appIdRequired')] : []
+                      "
                       persistent-hint
                       prepend-inner-icon="mdi-application"
                       required
@@ -353,7 +368,11 @@ const notificationTypes = [
                       :label="t('notification.feishu.appSecret')"
                       :hint="t('notification.feishu.appSecretHint')"
                       :error="validationErrors.notification.FEISHU_APP_SECRET"
-                      :error-messages="validationErrors.notification.FEISHU_APP_SECRET ? [t('notification.feishu.appSecretRequired')] : []"
+                      :error-messages="
+                        validationErrors.notification.FEISHU_APP_SECRET
+                          ? [t('notification.feishu.appSecretRequired')]
+                          : []
+                      "
                       persistent-hint
                       prepend-inner-icon="mdi-key"
                       required
@@ -517,9 +536,7 @@ const notificationTypes = [
                       :hint="t('notification.qqbot.appSecretHint')"
                       :error="validationErrors.notification.QQ_APP_SECRET"
                       :error-messages="
-                        validationErrors.notification.QQ_APP_SECRET
-                          ? [t('notification.qqbot.appSecretRequired')]
-                          : []
+                        validationErrors.notification.QQ_APP_SECRET ? [t('notification.qqbot.appSecretRequired')] : []
                       "
                       persistent-hint
                       prepend-inner-icon="mdi-key"
@@ -640,6 +657,47 @@ const notificationTypes = [
                       :hint="t('notification.synologychat.tokenHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-key"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.notification.type === 'dingtalk'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.name"
+                      :label="t('notification.name')"
+                      :placeholder="t('notification.name')"
+                      :hint="t('notification.nameHint')"
+                      :error="validationErrors.notification.name"
+                      :error-messages="validationErrors.notification.name ? [t('notification.nameRequired')] : []"
+                      persistent-hint
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.DINGTALK_WEBHOOK"
+                      :label="t('notification.dingtalk.webhook')"
+                      :hint="t('notification.dingtalk.webhookHint')"
+                      :error="validationErrors.notification.DINGTALK_WEBHOOK"
+                      :error-messages="
+                        validationErrors.notification.DINGTALK_WEBHOOK
+                          ? [t('notification.dingtalk.webhookRequired')]
+                          : []
+                      "
+                      persistent-hint
+                      prepend-inner-icon="mdi-webhook"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.DINGTALK_SECRET"
+                      :label="t('notification.dingtalk.secret')"
+                      :hint="t('notification.dingtalk.secretHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-shield-key"
+                      type="password"
                     />
                   </VCol>
                 </VRow>
