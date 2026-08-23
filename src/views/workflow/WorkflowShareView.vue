@@ -33,11 +33,17 @@ const page = ref(1)
 const keyword = ref(props.keyword)
 const currentKey = ref(0)
 
+// 关键字切换后，旧请求不得再提交分页数据或加载状态。
+let requestGeneration = 0
+
 // 是否加载中
 const loading = ref(false)
 
 // 是否加载完成
 const isRefreshed = ref(false)
+
+// 当前列表请求是否失败；合法空数组仍使用空数据状态。
+const loadError = ref(false)
 
 // 数据列表
 const dataList = ref<WorkflowShare[]>([])
@@ -58,10 +64,13 @@ async function loadEventTypes() {
 watch(
   () => props.keyword,
   newKeyword => {
+    requestGeneration++
     keyword.value = newKeyword || ''
     page.value = 1
     dataList.value = []
+    loading.value = false
     isRefreshed.value = false
+    loadError.value = false
     currentKey.value++
   },
 )
@@ -78,6 +87,7 @@ function getParams() {
 
 // 获取列表数据
 async function fetchData({ done }: { done: any }) {
+  const generation = requestGeneration
   try {
     // 如果正在加载中，直接返回
     if (loading.value) {
@@ -92,11 +102,15 @@ async function fetchData({ done }: { done: any }) {
         // 设置加载中
         loading.value = true
         // 请求API
-        currData.value = await api.get(apipath, {
+        const pageData: WorkflowShare[] = await api.get(apipath, {
           params: getParams(),
         })
-        // 取消加载中
-        loading.value = false
+        if (generation !== requestGeneration) {
+          done('ok')
+          return
+        }
+        loadError.value = false
+        currData.value = pageData
         // 标计为已请求完成
         isRefreshed.value = true
         if (currData.value.length === 0) {
@@ -116,10 +130,15 @@ async function fetchData({ done }: { done: any }) {
       // 设置加载中
       loading.value = true
       // 请求API
-      currData.value = await api.get(apipath, {
+      const pageData: WorkflowShare[] = await api.get(apipath, {
         params: getParams(),
       })
-      loading.value = false
+      if (generation !== requestGeneration) {
+        done('ok')
+        return
+      }
+      loadError.value = false
+      currData.value = pageData
       // 标计为已请求完成
       isRefreshed.value = true
       if (currData.value.length === 0) {
@@ -135,9 +154,19 @@ async function fetchData({ done }: { done: any }) {
       }
     }
   } catch (error) {
+    if (generation !== requestGeneration) {
+      done('ok')
+      return
+    }
     console.error(error)
+    isRefreshed.value = true
+    loadError.value = true
     // 返回加载失败
     done('error')
+  } finally {
+    if (generation === requestGeneration) {
+      loading.value = false
+    }
   }
 }
 
@@ -154,9 +183,24 @@ onMounted(() => {
 <template>
   <VPageContentTitle v-if="keyword" :title="`${t('common.search')}：${keyword}`" />
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-2" @load="fetchData" :key="currentKey">
+  <VInfiniteScroll
+    mode="intersect"
+    side="end"
+    :items="dataList"
+    class="overflow-visible px-2"
+    @load="fetchData"
+    :key="currentKey"
+  >
     <template #loading />
     <template #empty />
+    <template #error="{ props: retryProps }">
+      <div class="d-flex flex-column align-center ga-2 py-4" role="alert">
+        <span class="text-medium-emphasis">{{ t('common.apiRequestFailed') }}</span>
+        <VBtn v-bind="retryProps" prepend-icon="mdi-refresh" size="small" variant="tonal">
+          {{ t('common.retry') }}
+        </VBtn>
+      </div>
+    </template>
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
@@ -175,7 +219,7 @@ onMounted(() => {
       </template>
     </ProgressiveCardGrid>
     <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
+      v-if="dataList.length === 0 && isRefreshed && !loadError"
       error-code="404"
       :error-title="t('common.noData')"
       :error-description="keyword ? t('common.noContent') : t('workflow.noShareData')"
