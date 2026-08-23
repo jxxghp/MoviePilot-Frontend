@@ -342,22 +342,13 @@ const SelectFieldStub = defineComponent({
             onChange: (event: Event) => {
               const select = event.target as HTMLSelectElement
               if (props.multiple) {
-                const currentValues = Array.isArray(props.modelValue) ? props.modelValue : []
                 const selectedValues = Array.from(select.selectedOptions, option => findItemValue(option.value))
-                emit(
-                  'update:modelValue',
-                  [...currentValues, ...selectedValues].filter(
-                    (value, index, values) =>
-                      values.findIndex(candidate => String(candidate) === String(value)) === index,
-                  ),
-                )
+                emit('update:modelValue', selectedValues)
                 return
               }
               emit('update:modelValue', findItemValue(select.value))
             },
-            value: props.multiple
-              ? (props.modelValue as unknown[] | null)?.map(value => String(value))
-              : String(props.modelValue ?? ''),
+            ...(props.multiple ? {} : { value: String(props.modelValue ?? '') }),
           },
           props.items.map(item => {
             const value = itemValue(item)
@@ -408,9 +399,8 @@ async function selectOption(label: string, option: string) {
   const control = screen.getByLabelText(label)
   if (control instanceof HTMLSelectElement) {
     if (control.multiple) {
-      const selectedValues = Array.from(control.selectedOptions, selectedOption => selectedOption.value)
       const nextOption = within(control).getByRole('option', { name: option }) as HTMLOptionElement
-      await user.selectOptions(control, [...selectedValues, nextOption.value])
+      await user.selectOptions(control, nextOption.value)
     } else {
       await user.selectOptions(control, option)
     }
@@ -1009,6 +999,7 @@ describe('AccountSettingSystem', () => {
   })
 
   it('round-trips advanced media metadata, recognition, and Fanart settings', async () => {
+    const user = userEvent.setup()
     await renderSettings()
     const dialog = await openAdvancedTab('媒体')
     expect(dialog.getByLabelText('音乐媒体信息转简体中文')).toBeChecked()
@@ -1029,7 +1020,12 @@ describe('AccountSettingSystem', () => {
     ]) {
       await fireEvent.click(dialog.getByLabelText(label))
     }
+    const fanartLanguages = dialog.getByLabelText('Fanart语言')
+    expect(fanartLanguages).toHaveValue(['zh', 'en'])
     await selectOption('Fanart语言', '日文')
+    await waitFor(() => expect(fanartLanguages).toHaveValue(['zh', 'en', 'ja']))
+    await user.deselectOptions(fanartLanguages, 'en')
+    await waitFor(() => expect(fanartLanguages).toHaveValue(['zh', 'ja']))
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -1037,7 +1033,7 @@ describe('AccountSettingSystem', () => {
       expect.objectContaining({
         ACOUSTID_API_KEY: 'acoustid-key',
         FANART_ENABLE: true,
-        FANART_LANG: 'zh,en,ja',
+        FANART_LANG: 'zh,ja',
         MEDIA_RECOGNIZE_SHARE: false,
         META_CACHE_EXPIRE: '48',
         MUSIC_COVER_PROXY: 'https://music.example',

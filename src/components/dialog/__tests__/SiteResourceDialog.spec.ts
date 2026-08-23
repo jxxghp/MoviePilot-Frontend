@@ -136,7 +136,7 @@ describe('SiteResourceDialog', () => {
         await oldResponse.promise
         return oldStatus === 200
           ? apiJson([createTorrentInfo({ title: '旧条件结果' })])
-          : apiJson({ detail: 'stale failure' }, { status: oldStatus })
+          : HttpResponse.json({ detail: 'stale failure' }, { status: oldStatus })
       }),
     )
     const user = userEvent.setup()
