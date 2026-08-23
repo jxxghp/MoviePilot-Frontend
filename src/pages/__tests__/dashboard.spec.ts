@@ -3,6 +3,7 @@ import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { toRaw } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -220,13 +221,18 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-async function renderDashboard() {
+async function renderDashboard(
+  user: {
+    permissions?: Partial<typeof DEFAULT_PERMISSIONS>
+    superUser?: boolean
+  } = {},
+) {
   return renderWithProviders(DashboardPage, {
     initialRoute: '/dashboard',
     initialState: {
       user: {
-        permissions: { ...DEFAULT_PERMISSIONS, discovery: true },
-        superUser: true,
+        permissions: { ...DEFAULT_PERMISSIONS, discovery: true, ...user.permissions },
+        superUser: user.superUser ?? true,
       },
     },
   })
@@ -300,9 +306,257 @@ describe('dashboard page initial layout', () => {
     mocks.apiGet.mockClear()
 
     const runtimeStore = usePluginRuntimeStore(pinia)
-    runtimeStore.reconciliation = 1
+    runtimeStore.reconciliation = 2
 
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('/plugin/dashboard/meta'))
+  })
+
+  it('removes a plugin dashboard when runtime metadata no longer advertises it', async () => {
+    const pluginDashboardId = 'plugin-a:summary'
+    const enabled = { ...enabledOnlySystemInfo, [pluginDashboardId]: true, systemInfo: false }
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled, items: { [pluginDashboardId]: { x: 0, y: 0, w: 6, h: 8 } }, updatedAt: 10 }),
+    )
+    localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify([{ id: 'plugin-a', key: 'summary' }]))
+    const latePluginDashboard = deferred<Record<string, unknown>>()
+    let detailReads = 0
+    let metaReads = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder' || url === '/user/config/DashboardGridLayout') return { data: {} }
+      if (url === '/plugin/dashboard/meta') {
+        metaReads += 1
+        return metaReads <= 2 ? [{ id: 'plugin-a', key: 'summary', name: '插件摘要' }] : []
+      }
+      if (url === '/plugin/dashboard/plugin-a/summary') {
+        detailReads += 1
+        const dashboard = {
+          attrs: { refresh: 30 },
+          cols: { cols: 12 },
+          elements: [],
+          id: 'plugin-a',
+          key: 'summary',
+          name: '原始名称',
+          rows: 8,
+        }
+        return detailReads === 1 ? dashboard : latePluginDashboard.promise
+      }
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { pinia } = await renderDashboard()
+    expect(await screen.findByText('插件摘要')).toBeInTheDocument()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.reconciliation = 1
+    await waitFor(() => expect(detailReads).toBe(2))
+
+    runtimeStore.reconciliation = 2
+
+    await waitFor(() => expect(metaReads).toBe(3))
+    await waitFor(() => expect(screen.queryByText('插件摘要')).not.toBeInTheDocument())
+
+    latePluginDashboard.resolve({
+      attrs: { refresh: 30 },
+      cols: { cols: 12 },
+      elements: [],
+      id: 'plugin-a',
+      key: 'summary',
+      name: '迟到详情',
+      rows: 8,
+    })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(screen.queryByText('插件摘要')).not.toBeInTheDocument()
+  })
+
+  it('ignores an older plugin metadata response after a newer runtime snapshot is applied', async () => {
+    const pluginDashboardId = 'plugin-a:summary'
+    const enabled = { ...enabledOnlySystemInfo, [pluginDashboardId]: true, systemInfo: false }
+    const staleMeta = deferred<Array<{ id: string; key: string; name: string }>>()
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled, items: { [pluginDashboardId]: { x: 0, y: 0, w: 6, h: 8 } }, updatedAt: 10 }),
+    )
+    let detailReads = 0
+    let metaReads = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder' || url === '/user/config/DashboardGridLayout') return { data: {} }
+      if (url === '/plugin/dashboard/meta') {
+        metaReads += 1
+        if (metaReads === 1) return [{ id: 'plugin-a', key: 'summary', name: '插件摘要' }]
+        if (metaReads === 2) return staleMeta.promise
+        return []
+      }
+      if (url === '/plugin/dashboard/plugin-a/summary') {
+        detailReads += 1
+        return {
+          attrs: {},
+          cols: { cols: 12 },
+          elements: [],
+          id: 'plugin-a',
+          key: 'summary',
+          name: '原始名称',
+          rows: 8,
+        }
+      }
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { pinia } = await renderDashboard()
+    expect(await screen.findByText('插件摘要')).toBeInTheDocument()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const runtimeStore = usePluginRuntimeStore(pinia)
+
+    runtimeStore.reconciliation = 1
+    await waitFor(() => expect(metaReads).toBe(2))
+    runtimeStore.reconciliation = 2
+    await waitFor(() => expect(metaReads).toBe(3))
+    await waitFor(() => expect(screen.queryByText('插件摘要')).not.toBeInTheDocument())
+
+    staleMeta.resolve([{ id: 'plugin-a', key: 'summary', name: '过期插件摘要' }])
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(screen.queryByText('过期插件摘要')).not.toBeInTheDocument()
+    expect(detailReads).toBe(1)
+  })
+
+  it('replaces a plugin refresh timer and clears the active timer on unmount', async () => {
+    const pluginDashboardId = 'plugin-a:summary'
+    const enabled = { ...enabledOnlySystemInfo, [pluginDashboardId]: true, systemInfo: false }
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled, items: { [pluginDashboardId]: { x: 0, y: 0, w: 6, h: 8 } }, updatedAt: 10 }),
+    )
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+    let detailReads = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder' || url === '/user/config/DashboardGridLayout') return { data: {} }
+      if (url === '/plugin/dashboard/meta') return [{ id: 'plugin-a', key: 'summary', name: '插件摘要' }]
+      if (url === '/plugin/dashboard/plugin-a/summary') {
+        detailReads += 1
+        return {
+          attrs: { refresh: 30 },
+          cols: { cols: 12 },
+          elements: [],
+          id: 'plugin-a',
+          key: 'summary',
+          name: '原始名称',
+          rows: 8,
+        }
+      }
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const rendered = await renderDashboard()
+    expect(await screen.findByText('插件摘要')).toBeInTheDocument()
+    await waitFor(() => expect(setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 30_000)).toHaveLength(1))
+    const firstTimerCallIndex = setTimeoutSpy.mock.calls.findIndex(([, delay]) => delay === 30_000)
+    const firstTimer = setTimeoutSpy.mock.results[firstTimerCallIndex].value
+    const firstTimerCallback = setTimeoutSpy.mock.calls[firstTimerCallIndex][0]
+    if (typeof firstTimerCallback !== 'function') throw new Error('Expected a plugin refresh callback')
+
+    firstTimerCallback()
+
+    await waitFor(() => expect(detailReads).toBe(2))
+    await waitFor(() => expect(setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 30_000)).toHaveLength(2))
+    const pluginTimerCalls = setTimeoutSpy.mock.calls
+      .map(([, delay], index) => ({ delay, index }))
+      .filter(call => call.delay === 30_000)
+    const secondTimer = setTimeoutSpy.mock.results[pluginTimerCalls[1].index].value
+    expect(clearTimeoutSpy.mock.calls.some(([timer]) => toRaw(timer) === firstTimer)).toBe(true)
+
+    rendered.unmount()
+
+    expect(clearTimeoutSpy.mock.calls.some(([timer]) => toRaw(timer) === secondTimer)).toBe(true)
+  })
+
+  it('keeps the accepted plugin refresh chain across transient metadata and detail failures', async () => {
+    const pluginDashboardId = 'plugin-a:summary'
+    const enabled = { ...enabledOnlySystemInfo, [pluginDashboardId]: true, systemInfo: false }
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled, items: { [pluginDashboardId]: { x: 0, y: 0, w: 6, h: 8 } }, updatedAt: 10 }),
+    )
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const staleDetail = deferred<Record<string, unknown>>()
+    let detailReads = 0
+    let metaReads = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder' || url === '/user/config/DashboardGridLayout') return { data: {} }
+      if (url === '/plugin/dashboard/meta') {
+        metaReads += 1
+        if (metaReads === 2) return Promise.reject(new Error('temporary metadata failure'))
+        return [{ id: 'plugin-a', key: 'summary', name: '插件摘要' }]
+      }
+      if (url === '/plugin/dashboard/plugin-a/summary') {
+        detailReads += 1
+        if (detailReads === 3) return staleDetail.promise
+        if (detailReads === 4) return Promise.reject(new Error('temporary detail failure'))
+        return {
+          attrs: { refresh: 30 },
+          cols: { cols: 12 },
+          elements: [],
+          id: 'plugin-a',
+          key: 'summary',
+          name: '原始名称',
+          rows: 8,
+        }
+      }
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { pinia } = await renderDashboard()
+    expect(await screen.findByText('插件摘要')).toBeInTheDocument()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    const pluginTimerCallbacks = () =>
+      setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 30_000).map(([callback]) => callback as () => void)
+
+    runtimeStore.reconciliation += 1
+    await waitFor(() => expect(metaReads).toBe(2))
+    pluginTimerCallbacks()[0]()
+    await waitFor(() => expect(detailReads).toBe(2))
+    await waitFor(() => expect(pluginTimerCallbacks()).toHaveLength(2))
+
+    pluginTimerCallbacks()[1]()
+    await waitFor(() => expect(detailReads).toBe(3))
+    runtimeStore.reconciliation += 1
+    await waitFor(() => expect(detailReads).toBe(4))
+    staleDetail.resolve({
+      attrs: { refresh: 30 },
+      cols: { cols: 12 },
+      elements: [],
+      id: 'plugin-a',
+      key: 'summary',
+      name: '过期详情',
+      rows: 8,
+    })
+
+    await waitFor(() => expect(pluginTimerCallbacks()).toHaveLength(3))
+  })
+
+  it('hides discovery content and dashboard controls without their permissions', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (
+        url === '/user/config/DashboardOrder' ||
+        url === '/user/config/DashboardGridLayout' ||
+        url === '/user/config/Dashboard'
+      ) {
+        return { data: {} }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { container } = await renderDashboard({
+      permissions: { admin: false, discovery: false },
+      superUser: false,
+    })
+
+    expect(container.querySelector('[data-dashboard-id="mediaRecommend"]')).not.toBeInTheDocument()
+    expect(document.querySelector('.compact-fab-stack')).not.toBeInTheDocument()
   })
 
   it('disables automatic grid transitions only while browsing with the glass theme', async () => {

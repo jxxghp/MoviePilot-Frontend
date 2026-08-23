@@ -612,11 +612,6 @@
       "count": 1
     }
   },
-  "src/pages/dashboard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/pages/resource.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
