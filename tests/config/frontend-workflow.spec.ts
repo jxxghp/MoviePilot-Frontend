@@ -68,7 +68,7 @@ describe('前端测试 workflow', () => {
     expect(workflow).toContain('uses: actions/setup-node@v7')
     expect(workflow).toContain("node-version: '24'")
     expect(workflow).toContain('cache-dependency-path: yarn.lock')
-    expect(workflow).toContain('corepack install --global yarn@1.22.18')
+    expect(workflow).toContain('corepack install --global yarn@1.22.22')
     expect(workflow).toContain('run: yarn --frozen-lockfile')
     expect(workflow).toContain('echo "frontend_version=v$frontend_version"')
     expect(workflow).not.toContain('actions/checkout@v3')

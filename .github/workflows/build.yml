@@ -35,7 +35,7 @@ jobs:
       - name: Enable project Yarn version
         run: |
           corepack enable
-          corepack install --global yarn@1.22.18
+          corepack install --global yarn@1.22.22
 
       - name: Install dependencies
         run: yarn --frozen-lockfile
