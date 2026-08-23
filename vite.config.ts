@@ -361,6 +361,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/utils/torrentDownloadCache.ts',
         'src/components/dialog/SiteAddEditDialog.vue',
         'src/components/dialog/UserAddEditDialog.vue',
+        'src/components/dialog/WorkflowAddEditDialog.vue',
         'src/components/dialog/OTPAuthDialog.vue',
         'src/components/dialog/PasskeyDialog.vue',
         'src/components/dialog/SiteCookieUpdateDialog.vue',
@@ -556,6 +557,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 80,
           lines: 80,
           statements: 80,
+        },
+        'src/components/dialog/WorkflowAddEditDialog.vue': {
+          branches: 80,
+          functions: 85,
+          lines: 85,
+          statements: 85,
         },
         'src/components/dialog/OTPAuthDialog.vue': {
           branches: 80,
