@@ -45,6 +45,7 @@ tests/
 - `tests/support/render.ts` 提供带 Vuetify、i18n、Router 和 Pinia 的标准渲染入口。
 - `tests/support/factories/` 按业务对象提供最小有效测试数据工厂。
 - `tests/support/msw/handlers/` 按业务域定义 HTTP handler；`server.ts` 只负责 MSW server 实例。
+- `tests/support/msw/response.ts` 显式构造主程序普通 API 的成功或业务失败 envelope。
 - spec 通过 `@tests/*` 访问共享测试设施，通过 `@/*` 访问生产源码。
 
 ## 工具职责
@@ -65,11 +66,31 @@ tests/
 - 每个用例保持独立，不依赖文件执行顺序；timer、mock、storage、DOM 和未完成请求由全局 setup 恢复。
 - 不使用大面积快照或覆盖率占位用例。
 
+## HTTP 响应夹具
+
+主程序普通 API 使用固定的 `{ success, message, data }` envelope。MSW handler 必须通过
+`apiJson(data)` 或 `apiFailureJson(message, data)` 显式声明成功或业务失败，不得在全局 setup 中改写
+`HttpResponse.json()`、自动包装裸数据或补齐缺失字段。这样测试夹具与当前后端协议不一致时会直接失败，
+不会由兼容层掩盖。
+
+HTTP 4xx/5xx 的原始错误体、插件自定义端点和其他明确不使用主程序 envelope 的协议继续直接调用
+`HttpResponse.json()`。是否使用 envelope 由端点契约决定，不根据状态码或载荷形状自动猜测。
+
+## 测试性能
+
+- 根据逐文件和逐用例耗时日志识别热点，不按文件行数或用例数量机械拆分。
+- 业务测试可以对与断言无关的第三方重型 UI 边界使用局部 test double，但必须保留 props、emits、
+  `v-model`、可访问名称及被测业务使用的值类型；不得以直接赋值组件私有状态替代用户交互。
+- 优先减少动画、布局、定位和重复挂载等 jsdom 无法证明的成本。真实组件集成仍由代表性组件测试或浏览器回归负责。
+- 优化前后使用同一命令和 reporter 比较 focused 文件与热点用例；只有保持断言和业务契约后取得稳定收益才保留优化。
+
 ## 新增测试
 
 1. 业务测试在被测源码所在目录的 `__tests__/` 中创建同名 `*.spec.ts`；工具链配置契约测试放在 `tests/config/`。
 2. 纯函数、store 和无渲染模块直接使用 Vitest；Vue 组件使用标准渲染入口。
 3. 需要 HTTP 请求时，在 `tests/support/msw/handlers/<domain>.ts` 增加对应 handler。
+   主程序普通 API 响应使用 `apiJson()` / `apiFailureJson()`；只有明确的非 envelope 协议才直接使用
+   `HttpResponse.json()`。
 4. 需要结构化业务数据时，在 `tests/support/factories/` 增加最小工厂。
 5. 核心覆盖范围发生变化时，同步更新 `vite.config.ts` 的 `coverage.include`。
 6. 提交前按影响面运行测试、类型检查、lint 和生产构建；覆盖率报告按需本地执行。
