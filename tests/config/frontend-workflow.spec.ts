@@ -6,6 +6,7 @@ const workflowPath = resolve(process.cwd(), '.github/workflows/test.yml')
 const releaseWorkflowPath = resolve(process.cwd(), '.github/workflows/build.yml')
 const testingGuidePath = resolve(process.cwd(), 'docs/testing.md')
 const codeQualityGuidePath = resolve(process.cwd(), 'docs/code-quality.md')
+const prettierIgnorePath = resolve(process.cwd(), '.prettierignore')
 
 describe('前端测试 workflow', () => {
   it('在 PR 与 v3 push 上运行，并将变更文件格式检查限制为 PR', () => {
@@ -59,9 +60,25 @@ describe('前端测试 workflow', () => {
     const workflow = readFileSync(releaseWorkflowPath, 'utf8')
 
     expect(workflow).toContain('name: Build Moviepilot-Frontend v3')
+    expect(workflow).toContain('permissions:\n  contents: write')
     expect(workflow).toContain('push:\n    branches:\n      - v3')
     expect(workflow).toContain("      - 'package.json'")
+    expect(workflow).toContain('timeout-minutes: 30')
+    expect(workflow).toContain('uses: actions/checkout@v7')
+    expect(workflow).toContain('uses: actions/setup-node@v7')
+    expect(workflow).toContain("node-version: '24'")
+    expect(workflow).toContain('cache-dependency-path: yarn.lock')
+    expect(workflow).toContain('corepack install --global yarn@1.22.22')
+    expect(workflow).toContain('run: yarn --frozen-lockfile')
     expect(workflow).toContain('echo "frontend_version=v$frontend_version"')
+    expect(workflow).not.toContain('actions/checkout@v3')
+    expect(workflow).not.toContain('actions/setup-node@v3')
     expect(workflow).not.toContain('      - v2')
+  })
+
+  it('全仓格式检查排除仓内 linked worktree', () => {
+    const prettierIgnore = readFileSync(prettierIgnorePath, 'utf8')
+
+    expect(prettierIgnore).toContain('/.worktrees/')
   })
 })

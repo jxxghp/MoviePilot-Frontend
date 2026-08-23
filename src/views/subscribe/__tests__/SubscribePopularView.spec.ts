@@ -8,6 +8,7 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -196,7 +197,7 @@ describe('SubscribePopularView', () => {
             : url.searchParams.get('sort_type') === 'time'
               ? '最新热门结果'
               : '默认热门结果'
-        return HttpResponse.json([createSubscribeMovie({ title })])
+        return apiJson([createSubscribeMovie({ title })])
       }),
     )
     const user = userEvent.setup()
@@ -232,9 +233,9 @@ describe('SubscribePopularView', () => {
       http.get(subscribeApiUrls.popular, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
-        if (page === '2') return HttpResponse.json([second])
-        return HttpResponse.json([])
+        if (page === '1') return apiJson([first])
+        if (page === '2') return apiJson([second])
+        return apiJson([])
       }),
     )
     const user = userEvent.setup()
@@ -260,11 +261,11 @@ describe('SubscribePopularView', () => {
       http.get(subscribeApiUrls.popular, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
+        if (page === '1') return apiJson([first])
         if (page === '2') {
-          return HttpResponse.json([{ ...first, title: '第一页跨页重复项' }, second])
+          return apiJson([{ ...first, title: '第一页跨页重复项' }, second])
         }
-        return HttpResponse.json([
+        return apiJson([
           { ...second, title: '第二页乱序重复项' },
           { ...first, title: '第一页乱序重复项' },
           { ...first, title: '第一页页内重复项' },
@@ -320,7 +321,7 @@ describe('SubscribePopularView', () => {
       http.get(subscribeApiUrls.popular, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        return HttpResponse.json(page === '1' ? [first] : [second])
+        return apiJson(page === '1' ? [first] : [second])
       }),
     )
 
@@ -371,7 +372,7 @@ describe('SubscribePopularView', () => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
         if (requestedPages.length === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([createSubscribeMovie({ title: '热门首载重试成功' })])
+        return apiJson([createSubscribeMovie({ title: '热门首载重试成功' })])
       }),
     )
     const user = userEvent.setup()
@@ -395,10 +396,10 @@ describe('SubscribePopularView', () => {
       http.get(subscribeApiUrls.popular, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
+        if (page === '1') return apiJson([first])
         pageTwoAttempts += 1
         if (pageTwoAttempts === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([second])
+        return apiJson([second])
       }),
     )
     const user = userEvent.setup()
@@ -427,9 +428,9 @@ describe('SubscribePopularView', () => {
         if (!url.searchParams.has('genre_id')) {
           await gate.promise
           staleResponse()
-          return HttpResponse.json([createSubscribeMovie({ title: '过期热门结果' })])
+          return apiJson([createSubscribeMovie({ title: '过期热门结果' })])
         }
-        return HttpResponse.json([createSubscribeMovie({ title: '新筛选热门结果' })])
+        return apiJson([createSubscribeMovie({ title: '新筛选热门结果' })])
       }),
     )
     const user = userEvent.setup()

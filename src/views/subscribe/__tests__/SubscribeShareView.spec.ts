@@ -8,6 +8,7 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -213,7 +214,7 @@ describe('SubscribeShareView', () => {
             : url.searchParams.get('sort_type') === 'count'
               ? '热门分享结果'
               : '默认分享结果'
-        return HttpResponse.json([createSubscribeShare({ share_title: shareTitle })])
+        return apiJson([createSubscribeShare({ share_title: shareTitle })])
       }),
     )
     const user = userEvent.setup()
@@ -249,9 +250,9 @@ describe('SubscribeShareView', () => {
       http.get(subscribeApiUrls.shares, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
-        if (page === '2') return HttpResponse.json([second])
-        return HttpResponse.json([])
+        if (page === '1') return apiJson([first])
+        if (page === '2') return apiJson([second])
+        return apiJson([])
       }),
     )
     const user = userEvent.setup()
@@ -280,7 +281,7 @@ describe('SubscribeShareView', () => {
       http.get(subscribeApiUrls.shares, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        return HttpResponse.json(page === '1' ? [first] : [second])
+        return apiJson(page === '1' ? [first] : [second])
       }),
     )
 
@@ -332,7 +333,7 @@ describe('SubscribeShareView', () => {
         const url = new URL(request.url)
         requests.push(url)
         const keyword = url.searchParams.get('name') ?? ''
-        return HttpResponse.json([
+        return apiJson([
           createSubscribeShare({ share_title: keyword === '新关键字' ? '新关键字分享' : '旧关键字分享' }),
         ])
       }),
@@ -371,7 +372,7 @@ describe('SubscribeShareView', () => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
         if (requestedPages.length === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([createSubscribeShare({ share_title: '分享首载重试成功' })])
+        return apiJson([createSubscribeShare({ share_title: '分享首载重试成功' })])
       }),
     )
     const user = userEvent.setup()
@@ -395,10 +396,10 @@ describe('SubscribeShareView', () => {
       http.get(subscribeApiUrls.shares, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
+        if (page === '1') return apiJson([first])
         pageTwoAttempts += 1
         if (pageTwoAttempts === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([second])
+        return apiJson([second])
       }),
     )
     const user = userEvent.setup()
@@ -427,9 +428,9 @@ describe('SubscribeShareView', () => {
         if (url.searchParams.get('name') === '旧关键字') {
           await gate.promise
           staleResponse()
-          return HttpResponse.json([createSubscribeShare({ share_title: '过期关键字分享' })])
+          return apiJson([createSubscribeShare({ share_title: '过期关键字分享' })])
         }
-        return HttpResponse.json([createSubscribeShare({ share_title: '新关键字实时分享' })])
+        return apiJson([createSubscribeShare({ share_title: '新关键字实时分享' })])
       }),
     )
 

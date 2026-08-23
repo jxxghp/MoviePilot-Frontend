@@ -9,6 +9,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiFailureJson, apiJson } from '@tests/support/msw/response'
 import { computed, defineComponent, h, nextTick, unref, type ComputedRef, type PropType, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -384,20 +385,18 @@ interface ListResponses {
 
 function registerListHandlers(responses: ListResponses = {}) {
   server.use(
-    http.get(apiUrls.order, () =>
-      HttpResponse.json({ data: { value: responses.order ?? [] }, success: true } as JsonBodyType),
-    ),
-    http.get(apiUrls.folders, async () => HttpResponse.json((await responses.folders?.()) ?? {})),
+    http.get(apiUrls.order, () => apiJson({ value: responses.order ?? [] })),
+    http.get(apiUrls.folders, async () => apiJson((await responses.folders?.()) ?? {})),
     http.get(apiUrls.list, async ({ request }) => {
       const state = new URL(request.url).searchParams.get('state')
       const plugins = state === 'installed' ? await responses.installed?.() : await responses.market?.()
-      return HttpResponse.json((plugins ?? []) as unknown as JsonBodyType, {
+      return apiJson((plugins ?? []) as unknown as JsonBodyType, {
         status: state === 'installed' ? (responses.installedStatus ?? 200) : (responses.marketStatus ?? 200),
       })
     }),
-    http.get(apiUrls.statistic, async () => HttpResponse.json((await responses.statistic?.()) ?? {})),
+    http.get(apiUrls.statistic, async () => apiJson((await responses.statistic?.()) ?? {})),
     http.get(apiUrls.runtime, async () =>
-      HttpResponse.json(
+      apiJson(
         (await responses.runtime?.()) ?? {
           failed_count: 0,
           generation: 0,
@@ -406,10 +405,10 @@ function registerListHandlers(responses: ListResponses = {}) {
         },
       ),
     ),
-    http.get(apiUrls.sidebar, () => HttpResponse.json([])),
+    http.get(apiUrls.sidebar, () => apiJson([])),
     http.get(apiUrls.rating, async ({ request }) => {
       const ids = new URL(request.url).searchParams.get('plugin_ids')?.split(',').filter(Boolean) ?? []
-      return HttpResponse.json(((await responses.rating?.(ids)) ?? {}) as unknown as JsonBodyType)
+      return apiJson(((await responses.rating?.(ids)) ?? {}) as unknown as JsonBodyType)
     }),
   )
 }
@@ -760,7 +759,7 @@ describe('PluginCardListView loading and request ownership', () => {
         const state = new URL(request.url).searchParams.get('state')
         const plugins =
           state === 'installed' ? [createPlugin({ id: 'Recovered', installed: true, plugin_name: '重试恢复插件' })] : []
-        return HttpResponse.json(plugins as unknown as JsonBodyType)
+        return apiJson(plugins as unknown as JsonBodyType)
       }),
     )
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
@@ -844,7 +843,7 @@ describe('PluginCardListView loading and request ownership', () => {
         const state = new URL(request.url).searchParams.get('state')
         const plugins =
           state === 'market' ? [createPlugin({ id: 'MarketRecovered', plugin_name: '市场重试恢复插件' })] : []
-        return HttpResponse.json(plugins as unknown as JsonBodyType)
+        return apiJson(plugins as unknown as JsonBodyType)
       }),
     )
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
@@ -1217,7 +1216,7 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     getDialogEvents().changed()
     await waitFor(() => expect(marketRequests).toBeGreaterThan(requestsAfterSave))
 
-    server.use(http.get(apiUrls.install('Available'), () => HttpResponse.json({ data: null, success: true })))
+    server.use(http.get(apiUrls.install('Available'), () => apiJson(null)))
     await fireEvent.click(screen.getByRole('button', { name: 'installed-Available' }))
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
     await waitForRequestsToFinish()
@@ -1237,7 +1236,7 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
       http.get(apiUrls.install('MarketInstall'), async () => {
         await installGate.promise
         installed = true
-        return HttpResponse.json({ data: null, success: true })
+        return apiJson(null)
       }),
     )
 
@@ -1272,7 +1271,7 @@ describe('PluginCardListView search installation', () => {
       http.get(apiUrls.install('SearchPlugin'), () => {
         installRequests += 1
         return mode === 'business'
-          ? HttpResponse.json({ message: 'Rejected', success: false })
+          ? apiFailureJson('Rejected')
           : HttpResponse.json({ message: 'HTTP failure' }, { status: 500 })
       }),
     )
@@ -1330,7 +1329,7 @@ describe('PluginCardListView search installation', () => {
       http.get(apiUrls.install('SearchPlugin'), ({ request }) => {
         installUrl = new URL(request.url)
         installed = true
-        return HttpResponse.json({ data: null, success: true })
+        return apiJson(null)
       }),
     )
     const sidebarStore = usePluginSidebarNavStore(pinia)
@@ -1370,7 +1369,7 @@ describe('PluginCardListView search installation', () => {
       http.get(apiUrls.install('PendingPlugin'), async () => {
         await installGate.promise
         installed = true
-        return HttpResponse.json({ data: null, success: true })
+        return apiJson(null)
       }),
     )
 
@@ -1400,7 +1399,7 @@ describe('PluginCardListView search installation', () => {
       http.get(apiUrls.install('DuplicatePlugin'), async () => {
         installRequests += 1
         await installGate.promise
-        return HttpResponse.json({ data: null, success: true })
+        return apiJson(null)
       }),
     )
 
@@ -1432,11 +1431,7 @@ describe('PluginCardListView search installation', () => {
       market: () => [target],
     })
     await waitForRequestsToFinish()
-    server.use(
-      http.get(apiUrls.install('SlowRollbackPlugin'), () =>
-        HttpResponse.json({ message: '依赖安装失败', success: false }),
-      ),
-    )
+    server.use(http.get(apiUrls.install('SlowRollbackPlugin'), () => apiFailureJson('依赖安装失败')))
 
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](target)
@@ -1453,9 +1448,7 @@ describe('PluginCardListView search installation', () => {
     const target = createPlugin({ id: 'FailedPlugin', plugin_name: '失败插件' })
     await renderList({ installed: () => [stable], market: () => [target] })
     await waitForRequestsToFinish()
-    server.use(
-      http.get(apiUrls.install('FailedPlugin'), () => HttpResponse.json({ message: '依赖安装失败', success: false })),
-    )
+    server.use(http.get(apiUrls.install('FailedPlugin'), () => apiFailureJson('依赖安装失败')))
 
     getDynamicButtonConfig().onClick()
     await getDialogEvents()['open-plugin'](target)
@@ -1525,7 +1518,7 @@ describe('PluginCardListView folders and persistence', () => {
     })
     await screen.findByText('plugin:已安装插件')
     await waitForRequestsToFinish()
-    server.use(http.post(apiUrls.folders, () => HttpResponse.json({ message: '保存被拒绝', success: false })))
+    server.use(http.post(apiUrls.folders, () => apiFailureJson('保存被拒绝')))
 
     getDynamicMenuItem('plugin.newFolder').action()
     const events = getDialogEvents()
@@ -1543,7 +1536,7 @@ describe('PluginCardListView folders and persistence', () => {
     await renderList({ folders: () => ({ Existing: [] }) })
     await screen.findByText('folder:Existing')
     await waitForRequestsToFinish()
-    server.use(http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })))
+    server.use(http.post(apiUrls.folders, () => apiJson(null)))
 
     getDynamicMenuItem('plugin.newFolder').action()
     const events = getDialogEvents()
@@ -1568,7 +1561,7 @@ describe('PluginCardListView folders and persistence', () => {
     })
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
-    server.use(http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })))
+    server.use(http.post(apiUrls.folders, () => apiJson(null)))
 
     await fireEvent.click(screen.getByRole('button', { name: 'configure-folder-Tools' }))
     await waitFor(() => expect(screen.getByLabelText('folder-color-Tools')).toHaveTextContent('#ff0000'))
@@ -1597,7 +1590,7 @@ describe('PluginCardListView folders and persistence', () => {
         saveAttempt += 1
         return saveAttempt === 2
           ? HttpResponse.json({ message: 'HTTP failure' }, { status: 500 })
-          : HttpResponse.json({ message: 'Rejected', success: false })
+          : apiFailureJson('Rejected')
       }),
     )
 
@@ -1626,9 +1619,7 @@ describe('PluginCardListView folders and persistence', () => {
     await waitForRequestsToFinish()
     server.use(
       http.post(apiUrls.folders, () =>
-        saveSucceeds
-          ? HttpResponse.json({ data: null, success: true })
-          : HttpResponse.json({ message: 'Rejected' }, { status: 500 }),
+        saveSucceeds ? apiJson(null) : HttpResponse.json({ message: 'Rejected' }, { status: 500 }),
       ),
     )
 
@@ -1664,11 +1655,9 @@ describe('PluginCardListView folders and persistence', () => {
     server.use(
       http.post(apiUrls.order, async ({ request }) => {
         savedOrder = await request.json()
-        return orderSucceeds
-          ? HttpResponse.json({ data: null, success: true })
-          : HttpResponse.json({ message: 'Rejected', success: false })
+        return orderSucceeds ? apiJson(null) : apiFailureJson('Rejected')
       }),
-      http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })),
+      http.post(apiUrls.folders, () => apiJson(null)),
     )
 
     getHeaderButton('mdi-sort-variant').action?.()
@@ -1712,17 +1701,17 @@ describe('PluginCardListView folders and persistence', () => {
     server.use(
       http.get(apiUrls.order, () => {
         orderReads += 1
-        return HttpResponse.json({ data: { value: persistedOrder }, success: true })
+        return apiJson({ value: persistedOrder })
       }),
       http.get(apiUrls.folders, () => {
         folderReads += 1
-        return HttpResponse.json({ Tools: [] })
+        return apiJson({ Tools: [] })
       }),
       http.post(apiUrls.order, async ({ request }) => {
         persistedOrder = (await request.json()) as unknown[]
-        return HttpResponse.json({ data: null, success: true })
+        return apiJson(null)
       }),
-      http.post(apiUrls.folders, () => HttpResponse.json({ message: 'Rejected', success: false })),
+      http.post(apiUrls.folders, () => apiFailureJson('Rejected')),
     )
 
     getHeaderButton('mdi-sort-variant').action?.()
@@ -1762,15 +1751,15 @@ describe('PluginCardListView folders and persistence', () => {
     server.use(
       http.get(apiUrls.order, () => {
         orderReads += 1
-        return HttpResponse.json({ data: { value: persistedOrder }, success: true })
+        return apiJson({ value: persistedOrder })
       }),
       http.get(apiUrls.folders, () => {
         folderReads += 1
-        return HttpResponse.json({ Tools: ['Plugin-A', 'Plugin-B'] })
+        return apiJson({ Tools: ['Plugin-A', 'Plugin-B'] })
       }),
       http.post(apiUrls.order, async ({ request }) => {
         persistedOrder = (await request.json()) as unknown[]
-        return HttpResponse.json({ data: null, success: true })
+        return apiJson(null)
       }),
       http.post(apiUrls.folders, () => HttpResponse.json({ message: 'Rejected' }, { status: 500 })),
     )
@@ -1800,12 +1789,8 @@ describe('PluginCardListView folders and persistence', () => {
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
     server.use(
-      http.post(apiUrls.order, () => HttpResponse.json({ data: null, success: true })),
-      http.post(apiUrls.folders, () =>
-        folderSaveSucceeds
-          ? HttpResponse.json({ data: null, success: true })
-          : HttpResponse.json({ message: 'Rejected', success: false }),
-      ),
+      http.post(apiUrls.order, () => apiJson(null)),
+      http.post(apiUrls.folders, () => (folderSaveSucceeds ? apiJson(null) : apiFailureJson('Rejected'))),
     )
 
     getHeaderButton('mdi-sort-variant').action?.()
@@ -1845,12 +1830,8 @@ describe('PluginCardListView folders and persistence', () => {
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
     server.use(
-      http.post(apiUrls.order, () =>
-        orderSucceeds
-          ? HttpResponse.json({ data: null, success: true })
-          : HttpResponse.json({ message: 'Rejected', success: false }),
-      ),
-      http.post(apiUrls.folders, () => HttpResponse.json({ data: null, success: true })),
+      http.post(apiUrls.order, () => (orderSucceeds ? apiJson(null) : apiFailureJson('Rejected'))),
+      http.post(apiUrls.folders, () => apiJson(null)),
     )
 
     await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))

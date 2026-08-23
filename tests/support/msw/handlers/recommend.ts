@@ -1,5 +1,6 @@
 import type { RecommendSource } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '../response'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
@@ -9,36 +10,28 @@ export const recommendApiUrls = {
   sources: new URL('recommend/source', API_BASE_URL).href,
 }
 
-export function recommendSourcesHandler(
-  sources: RecommendSource[],
-  status = 200,
-  onRequest: () => void = () => {},
-) {
+export function recommendSourcesHandler(sources: RecommendSource[], status = 200, onRequest: () => void = () => {}) {
   return http.get(recommendApiUrls.sources, () => {
     onRequest()
-    return HttpResponse.json(sources, { status })
+    if (status >= 400) return HttpResponse.json(sources, { status })
+    return apiJson(sources, { status })
   })
 }
 
-export function recommendConfigHandler(
-  config: JsonBodyType,
-  status = 200,
-  onRequest: () => void = () => {},
-) {
+export function recommendConfigHandler(config: JsonBodyType, status = 200, onRequest: () => void = () => {}) {
   return http.get(recommendApiUrls.config, () => {
     onRequest()
-    return HttpResponse.json({ data: { value: config } }, { status })
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson({ value: config }, { status })
   })
 }
 
-export function saveRecommendConfigHandler(
-  onSave: (config: Record<string, boolean>) => void = () => {},
-  status = 200,
-) {
+export function saveRecommendConfigHandler(onSave: (config: Record<string, boolean>) => void = () => {}, status = 200) {
   return http.post(recommendApiUrls.config, async ({ request }) => {
     const config = (await request.json()) as Record<string, boolean>
     onSave(config)
-    return HttpResponse.json({ success: status < 400 }, { status })
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson(null, { status })
   })
 }
 
@@ -50,6 +43,7 @@ export function recommendMediaHandler(
 ) {
   return http.get(recommendApiUrls.media(sourcePath), () => {
     onRequest()
-    return HttpResponse.json(response as JsonBodyType, { status })
+    if (status >= 400) return HttpResponse.json(response as JsonBodyType, { status })
+    return apiJson(response, { status })
   })
 }

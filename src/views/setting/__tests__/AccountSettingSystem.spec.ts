@@ -306,6 +306,62 @@ function createModelFieldStub(name: string) {
   })
 }
 
+/** 保留选择值契约，排除 Vuetify 菜单动画和定位对设置业务测试的影响。 */
+const SelectFieldStub = defineComponent({
+  name: 'VSelectStub',
+  props: {
+    disabled: { type: Boolean, default: false },
+    itemTitle: { type: String, default: 'title' },
+    itemValue: { type: String, default: 'value' },
+    items: { type: Array, default: () => [] },
+    label: { type: String, default: '' },
+    modelValue: { default: null },
+    multiple: { type: Boolean, default: false },
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    const itemValue = (item: unknown) => {
+      if (!item || typeof item !== 'object') return item
+      return (item as Record<string, unknown>)[props.itemValue]
+    }
+    const itemTitle = (item: unknown) => {
+      if (!item || typeof item !== 'object') return String(item ?? '')
+      return String((item as Record<string, unknown>)[props.itemTitle] ?? '')
+    }
+    const findItemValue = (value: string) => props.items.map(itemValue).find(item => String(item) === value)
+
+    return () =>
+      h('label', [
+        h('span', props.label),
+        h(
+          'select',
+          {
+            'aria-label': props.label,
+            disabled: props.disabled,
+            multiple: props.multiple,
+            onChange: (event: Event) => {
+              const select = event.target as HTMLSelectElement
+              if (props.multiple) {
+                const selectedValues = Array.from(select.selectedOptions, option => findItemValue(option.value))
+                emit('update:modelValue', selectedValues)
+                return
+              }
+              emit('update:modelValue', findItemValue(select.value))
+            },
+            ...(props.multiple ? {} : { value: String(props.modelValue ?? '') }),
+          },
+          props.items.map(item => {
+            const value = itemValue(item)
+            const selected = props.multiple
+              ? (props.modelValue as unknown[] | null)?.some(modelValue => String(modelValue) === String(value))
+              : String(props.modelValue ?? '') === String(value)
+            return h('option', { selected, value: String(value) }, itemTitle(item))
+          }),
+        ),
+      ])
+  },
+})
+
 const CronFieldStub = createModelFieldStub('VCronFieldStub')
 const PathFieldStub = createModelFieldStub('VPathFieldStub')
 
@@ -314,7 +370,7 @@ async function renderSettings(props: { active?: boolean } = {}) {
     props,
     global: {
       components: { VCronField: CronFieldStub, VPathField: PathFieldStub },
-      stubs: { VDialogCloseBtn: true },
+      stubs: { VDialogCloseBtn: true, VSelect: SelectFieldStub },
     },
     stubActions: false,
   })
@@ -327,7 +383,7 @@ function getBasicCard() {
 }
 
 function getSettingsCard(title: string) {
-  const card = screen.getByText(title).closest('.v-card')
+  const card = screen.getByText(title, { selector: '.v-card-title' }).closest('.v-card')
   expect(card).not.toBeNull()
   return within(card as HTMLElement)
 }
@@ -340,7 +396,17 @@ async function openAdvancedTab(tab: string) {
 
 async function selectOption(label: string, option: string) {
   const user = userEvent.setup()
-  await user.click(screen.getByLabelText(label))
+  const control = screen.getByLabelText(label)
+  if (control instanceof HTMLSelectElement) {
+    if (control.multiple) {
+      const nextOption = within(control).getByRole('option', { name: option }) as HTMLOptionElement
+      await user.selectOptions(control, nextOption.value)
+    } else {
+      await user.selectOptions(control, option)
+    }
+    return
+  }
+  await user.click(control)
   await user.click(await screen.findByRole('option', { name: option }))
 }
 
@@ -954,8 +1020,12 @@ describe('AccountSettingSystem', () => {
     ]) {
       await fireEvent.click(dialog.getByLabelText(label))
     }
-    await user.click(dialog.getByLabelText('Fanart语言'))
-    await user.click(await screen.findByRole('option', { name: '日文' }))
+    const fanartLanguages = dialog.getByLabelText('Fanart语言')
+    expect(fanartLanguages).toHaveValue(['zh', 'en'])
+    await selectOption('Fanart语言', '日文')
+    await waitFor(() => expect(fanartLanguages).toHaveValue(['zh', 'en', 'ja']))
+    await user.deselectOptions(fanartLanguages, 'en')
+    await waitFor(() => expect(fanartLanguages).toHaveValue(['zh', 'ja']))
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -963,7 +1033,7 @@ describe('AccountSettingSystem', () => {
       expect.objectContaining({
         ACOUSTID_API_KEY: 'acoustid-key',
         FANART_ENABLE: true,
-        FANART_LANG: 'zh,en,ja',
+        FANART_LANG: 'zh,ja',
         MEDIA_RECOGNIZE_SHARE: false,
         META_CACHE_EXPIRE: '48',
         MUSIC_COVER_PROXY: 'https://music.example',

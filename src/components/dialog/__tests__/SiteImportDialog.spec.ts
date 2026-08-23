@@ -7,6 +7,7 @@ import { addSiteHandler, siteApiUrls } from '@tests/support/msw/handlers/site'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -183,7 +184,7 @@ describe('SiteImportDialog', () => {
     server.use(
       http.post(siteApiUrls.list, () => {
         requestIndex += 1
-        if (requestIndex === 1) return HttpResponse.json({ success: true })
+        if (requestIndex === 1) return apiJson(null)
         return HttpResponse.json({ message: '第二站请求失败', success: false }, { status: 500 })
       }),
     )

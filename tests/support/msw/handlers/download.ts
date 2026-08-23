@@ -1,5 +1,6 @@
 import type { DownloadHistory, DownloadingInfo } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiFailureJson, apiJson } from '../response'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
@@ -15,8 +16,15 @@ export const downloadApiUrls = {
   history: new URL('history/download', API_BASE_URL).href,
 }
 
-function jsonResponse(body: JsonBodyType, status: number) {
-  return HttpResponse.json(body, { status })
+function dataResponse(body: JsonBodyType, status: number) {
+  if (status >= 400) return HttpResponse.json(body, { status })
+  return apiJson(body, { status })
+}
+
+function mutationResponse(response: DownloadMutationResponse, status: number) {
+  if (status >= 400) return HttpResponse.json(response, { status })
+  if (!response.success) return apiFailureJson(response.message ?? '', null, { status })
+  return apiJson(null, { status })
 }
 
 /** 拦截下载任务快照查询，并保留下载器查询参数供断言。 */
@@ -29,7 +37,7 @@ export function downloadingListHandler(
     const url = new URL(request.url)
     await onRequest(url)
     const body = typeof response === 'function' ? await response(url) : response
-    return jsonResponse(body as unknown as JsonBodyType, status)
+    return dataResponse(body as unknown as JsonBodyType, status)
   })
 }
 
@@ -44,7 +52,7 @@ export function downloadActionHandler(
   return http.get(downloadApiUrls.action(operation, hash), async ({ request }) => {
     const url = new URL(request.url)
     await onRequest(url)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -58,7 +66,7 @@ export function deleteDownloadHandler(
   return http.delete(downloadApiUrls.delete(hash), async ({ request }) => {
     const url = new URL(request.url)
     await onRequest(url)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -72,7 +80,7 @@ export function downloadHistoryHandler(
     const url = new URL(request.url)
     await onRequest(url)
     const body = typeof response === 'function' ? await response(url) : response
-    return jsonResponse(body as unknown as JsonBodyType, status)
+    return dataResponse(body as unknown as JsonBodyType, status)
   })
 }
 
@@ -84,6 +92,6 @@ export function deleteDownloadHistoryHandler(
 ) {
   return http.delete(downloadApiUrls.history, async ({ request }) => {
     await onRequest((await request.json()) as DownloadHistory)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }

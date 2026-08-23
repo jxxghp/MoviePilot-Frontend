@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -185,12 +186,12 @@ function createDeferred<T>() {
 
 function directoriesHandler(directories: TransferDirectoryConf[]) {
   return http.get(new URL('system/setting/public/Directories', API_BASE_URL).href, () =>
-    HttpResponse.json({ data: { value: directories }, success: true }),
+    apiJson({ value: directories }),
   )
 }
 
 function downloadersHandler(downloaders: Array<{ name: string; type: string }> = []) {
-  return http.get(new URL('download/clients', API_BASE_URL).href, () => HttpResponse.json(downloaders))
+  return http.get(new URL('download/clients', API_BASE_URL).href, () => apiJson(downloaders))
 }
 
 function downloadHandler(
@@ -201,7 +202,9 @@ function downloadHandler(
 ) {
   return http.post(new URL(endpoint, API_BASE_URL).href, async ({ request }) => {
     await onRequest(await request.json())
-    return HttpResponse.json(await response, { status })
+    const body = await response
+    if (status >= 400) return HttpResponse.json(body, { status })
+    return HttpResponse.json(body, { status })
   })
 }
 
@@ -320,7 +323,7 @@ describe('AddDownloadDialog submissions', () => {
 
   it('submits a directly entered media ID through v-model', async () => {
     const submitted = vi.fn()
-    server.use(downloadHandler('download/add', { data: null, success: true }, 200, submitted))
+    server.use(downloadHandler('download/add', { data: null, message: '', success: true }, 200, submitted))
     const user = userEvent.setup()
 
     await renderDialog({
@@ -376,7 +379,7 @@ describe('AddDownloadDialog submissions', () => {
     expect(submitted).toHaveBeenCalledOnce()
     expect(mocks.startNProgress).toHaveBeenCalledOnce()
 
-    deferred.resolve({ data: null, success: true })
+    deferred.resolve({ data: null, message: '', success: true })
     await waitFor(() => expect(events.done).toHaveBeenCalledWith(torrent.enclosure))
 
     expect(mocks.toastSuccess).toHaveBeenCalledWith('测试站 测试种子 下载成功！')
@@ -386,7 +389,7 @@ describe('AddDownloadDialog submissions', () => {
 
   it('submits the selected album namespace for a music torrent without media context', async () => {
     const submitted = vi.fn()
-    server.use(downloadHandler('download/add', { data: null, success: true }, 200, submitted))
+    server.use(downloadHandler('download/add', { data: null, message: '', success: true }, 200, submitted))
     const user = userEvent.setup()
 
     await renderDialog({
@@ -493,7 +496,7 @@ describe('AddDownloadDialog submissions', () => {
 
   it('uses the source-native identity carried by a torrent without auxiliary ID fallback', async () => {
     const submitted = vi.fn()
-    server.use(downloadHandler('download/add', { data: null, success: true }, 200, submitted))
+    server.use(downloadHandler('download/add', { data: null, message: '', success: true }, 200, submitted))
     const torrent = createTorrent({ media_id: 'tt0111161', media_source: 'imdb' })
     const user = userEvent.setup()
 
@@ -509,7 +512,7 @@ describe('AddDownloadDialog submissions', () => {
 
   it('uses download/ for an existing media without locking unrelated optional fields', async () => {
     const submitted = vi.fn()
-    server.use(downloadHandler('download/', { data: null, success: true }, 200, submitted))
+    server.use(downloadHandler('download/', { data: null, message: '', success: true }, 200, submitted))
     const media = createMedia()
     const torrent = createTorrent()
     const user = userEvent.setup()
@@ -540,7 +543,7 @@ describe('AddDownloadDialog submissions', () => {
             success: false,
           })
         }
-        return HttpResponse.json({ data: { download_id: 'collection-download' }, success: true })
+        return apiJson({ download_id: 'collection-download' })
       }),
     )
     mocks.confirm.mockResolvedValue(true)

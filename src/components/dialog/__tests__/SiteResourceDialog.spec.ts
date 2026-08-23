@@ -9,6 +9,7 @@ import { siteApiUrls, siteCategoriesHandler, siteResourcesHandler } from '@tests
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type Component, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -128,13 +129,13 @@ describe('SiteResourceDialog', () => {
         const keyword = new URL(request.url).searchParams.get('keyword')
         if (keyword) {
           latestRequested()
-          return HttpResponse.json(await latestResponse.promise)
+          return apiJson(await latestResponse.promise)
         }
 
         oldRequested()
         await oldResponse.promise
         return oldStatus === 200
-          ? HttpResponse.json([createTorrentInfo({ title: '旧条件结果' })])
+          ? apiJson([createTorrentInfo({ title: '旧条件结果' })])
           : HttpResponse.json({ detail: 'stale failure' }, { status: oldStatus })
       }),
     )
@@ -176,7 +177,7 @@ describe('SiteResourceDialog', () => {
         attempts += 1
         if (attempts === 1) return HttpResponse.json({ detail: 'temporary failure' }, { status: 500 })
 
-        return HttpResponse.json([createTorrentInfo({ title: '重试恢复结果' })])
+        return apiJson([createTorrentInfo({ title: '重试恢复结果' })])
       }),
     )
     const user = userEvent.setup()
@@ -207,7 +208,7 @@ describe('SiteResourceDialog', () => {
       siteCategoriesHandler(501, []),
       http.get(siteApiUrls.resources(501), () => {
         attempts += 1
-        if (attempts === 1) return HttpResponse.json([createTorrentInfo({ title: '已有资源' })])
+        if (attempts === 1) return apiJson([createTorrentInfo({ title: '已有资源' })])
 
         return HttpResponse.json({ detail: 'temporary failure' }, { status: 500 })
       }),
@@ -283,8 +284,8 @@ describe('SiteResourceDialog', () => {
       siteCategoriesHandler(501, []),
       http.get(siteApiUrls.resources(501), async () => {
         requestCount += 1
-        if (requestCount === 1) return HttpResponse.json([])
-        return HttpResponse.json(await nextResponse.promise)
+        if (requestCount === 1) return apiJson([])
+        return apiJson(await nextResponse.promise)
       }),
     )
     const user = userEvent.setup()

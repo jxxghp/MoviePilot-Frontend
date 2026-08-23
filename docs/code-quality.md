@@ -65,6 +65,11 @@ ESLint 迁移优先于全仓格式治理，基础设施迁移不夹带批量业�
 
 `eslint-suppressions.json` 只冻结迁移时已经确认的文件、规则和数量。新增问题不得加入 baseline；修复存量问题后运行 `yarn lint:suppressions:prune`，并把裁剪结果与代码修复一同提交。日常开发和 CI 不得使用 `--suppress-all`。
 
+baseline 是刻意设计的渐进治理机制，不等于被抑制的违规已被认可为长期编码规范。2026-08-24 的基线快照为
+141 个文件、564 项受控违规，其中 `@typescript-eslint/no-explicit-any` 300 项、`vue/no-mutating-props`
+82 项、`@typescript-eslint/no-unused-vars` 64 项。生产 PR 修改到某个受控文件时，应审计并偿还该文件内
+不改变业务语义且可安全处理的存量，随后 prune；纯测试、文档或 CI 变更不为清理未触及生产文件扩大 diff。
+
 迁移完成的最低验收为：
 
 ```sh

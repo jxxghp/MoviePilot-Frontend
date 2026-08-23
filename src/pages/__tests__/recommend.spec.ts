@@ -11,7 +11,8 @@ import {
   saveRecommendConfigHandler,
 } from '@tests/support/msw/handlers/recommend'
 import { server } from '@tests/support/msw/server'
-import { HttpResponse, http } from 'msw'
+import { http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, nextTick, ref, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -111,7 +112,7 @@ async function renderKeptAliveRecommend() {
 function dynamicRecommendSources(getSources: () => RecommendSource[], onRequest = vi.fn()) {
   return http.get(recommendApiUrls.sources, () => {
     onRequest()
-    return HttpResponse.json(getSources())
+    return apiJson(getSources())
   })
 }
 
@@ -183,7 +184,7 @@ describe('recommend page', () => {
       http.get(recommendApiUrls.sources, async () => {
         requested()
         await responseGate
-        return HttpResponse.json([{ api_path: 'recommend/completed', name: '请求完成来源', type: '扩展' }])
+        return apiJson([{ api_path: 'recommend/completed', name: '请求完成来源', type: '扩展' }])
       }),
     )
 

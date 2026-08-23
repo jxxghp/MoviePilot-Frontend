@@ -6,6 +6,7 @@ import { server } from '@tests/support/msw/server'
 import { subscribeApiUrls, subscribeFilesHandler } from '@tests/support/msw/handlers/subscribe'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -437,7 +438,7 @@ describe('SubscribeFilesDialog', () => {
       http.get(subscribeApiUrls.filesById(3102), () => {
         requestCount += 1
         if (requestCount === 1) return HttpResponse.json({}, { status: 500 })
-        return HttpResponse.json(info as unknown as JsonBodyType)
+        return apiJson(info as unknown as JsonBodyType)
       }),
     )
     const user = userEvent.setup()
@@ -456,7 +457,7 @@ describe('SubscribeFilesDialog', () => {
     const deferred = createDeferred<JsonBodyType>()
     server.use(
       http.get(subscribeApiUrls.filesById(3116), async () => {
-        return HttpResponse.json(await deferred.promise)
+        return apiJson(await deferred.promise)
       }),
     )
 

@@ -1,8 +1,9 @@
 # MoviePilot-Frontend
 
-*[中文](README.md) | English*
+_[中文](README.md) | English_
 
-Frontend project for [MoviePilot](https://github.com/jxxghp/MoviePilot), NodeJS version required: >= `v20.12.1`.
+Frontend project for [MoviePilot](https://github.com/jxxghp/MoviePilot). The minimum supported Node.js version is
+`20.19`; Node.js `24` is recommended.
 
 ## Features
 
@@ -17,7 +18,7 @@ Frontend project for [MoviePilot](https://github.com/jxxghp/MoviePilot), NodeJS 
 
 [VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=johnsoncodehk.volar) (disable Vetur).
 
-### Configure Vite 
+### Configure Vite
 
 See [Vite Configuration Reference](https://vitejs.dev/config/).
 
@@ -39,6 +40,17 @@ yarn dev
 yarn build
 ```
 
+### Unit Tests
+
+```sh
+yarn test:run
+yarn test:coverage
+```
+
+See the [unit testing architecture](docs/testing.md) for test organization, shared facilities, HTTP fixtures, and
+coverage conventions. See the [frontend code quality evolution](docs/code-quality.md) for ESLint, Prettier, Node.js
+compatibility, and incremental CI gates.
+
 ### Static Deployment
 
 1. Host the `dist` static files using a web server like `nginx`. Refer to `public/nginx.conf` for nginx configuration.
@@ -47,7 +59,7 @@ yarn build
 
 ```shell
 node dist/service.js
-``` 
+```
 
 ### Module Federation
 

@@ -6,7 +6,8 @@ import { createMediaInfo } from '@tests/support/factories/media'
 import { recommendApiUrls, recommendMediaHandler } from '@tests/support/msw/handlers/recommend'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
-import { http, HttpResponse } from 'msw'
+import { http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -148,7 +149,7 @@ describe('MediaRecommend', () => {
 
     expect(await screen.findByText('快照推荐')).toBeInTheDocument()
     await waitFor(() => expect(requested).toHaveBeenCalledOnce())
-    resolveRequest?.(HttpResponse.json([createMediaInfo({ title: '刷新推荐' })]))
+    resolveRequest?.(apiJson([createMediaInfo({ title: '刷新推荐' })]))
     expect(await screen.findByText('刷新推荐')).toBeInTheDocument()
     second.unmount()
   })
@@ -324,7 +325,7 @@ describe('MediaRecommend', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: '停用慢请求推荐' }))
     setInterval.mockClear()
-    resolveRequest?.(HttpResponse.json([createMediaInfo({ title: '迟到推荐' })]))
+    resolveRequest?.(apiJson([createMediaInfo({ title: '迟到推荐' })]))
     await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
     await new Promise(resolve => window.setTimeout(resolve, 0))
 
@@ -380,7 +381,7 @@ describe('MediaRecommend', () => {
     await fireEvent.click(screen.getByRole('button', { name: '恢复切源推荐' }))
     expect(setInterval).not.toHaveBeenCalledWith(expect.any(Function), 8000)
 
-    resolveMovies?.(HttpResponse.json([createMediaInfo({ title: '切源完成' })]))
+    resolveMovies?.(apiJson([createMediaInfo({ title: '切源完成' })]))
     await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
     await screen.findByText('切源完成')
 
@@ -435,7 +436,7 @@ describe('MediaRecommend', () => {
 
     expect(await screen.findByText('初始结果')).toBeInTheDocument()
     await waitFor(() => expect(resolveMovies).toBeTypeOf('function'))
-    resolveMovies?.(HttpResponse.json([createMediaInfo({ title: '过期结果' })]))
+    resolveMovies?.(apiJson([createMediaInfo({ title: '过期结果' })]))
     await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
     await new Promise(resolve => window.setTimeout(resolve, 0))
 

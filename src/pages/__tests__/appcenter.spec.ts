@@ -5,7 +5,8 @@ import { useUserStore } from '@/stores/user'
 import { screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { server } from '@tests/support/msw/server'
-import { http, HttpResponse } from 'msw'
+import { http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h } from 'vue'
 import { describe, expect, it } from 'vitest'
 
@@ -31,7 +32,7 @@ function createNavItem(overrides: Partial<PluginSidebarNavItem> = {}): PluginSid
 }
 
 function sidebarNavHandler(items: PluginSidebarNavItem[]) {
-  return http.get(SIDEBAR_NAV_URL, () => HttpResponse.json(items))
+  return http.get(SIDEBAR_NAV_URL, () => apiJson(items))
 }
 
 async function renderAppCenter(items: PluginSidebarNavItem[], permissions: Record<string, unknown> = {}) {
