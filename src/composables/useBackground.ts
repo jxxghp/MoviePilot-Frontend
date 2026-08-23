@@ -263,6 +263,7 @@ export function useBackground() {
     immediate: boolean = true,
   ) => {
     const loading = ref(false)
+    let timerStopped = false
 
     const wrappedLoadData = async () => {
       if (loading.value) return
@@ -282,20 +283,26 @@ export function useBackground() {
         await wrappedLoadData()
       }
 
+      if (timerStopped) return
+
       addBackgroundTimer(id, wrappedLoadData, interval, {
         runInBackground: false, // 后台不刷新数据
         skipInitialRun: true, // 已经手动执行过了
       })
     })
 
-    onUnmounted(() => {
+    const stopTimer = () => {
+      // stop 或卸载后的异步 continuation 不得重新注册全局 timer。
+      timerStopped = true
       removeBackgroundTimer(id)
-    })
+    }
+
+    onUnmounted(stopTimer)
 
     return {
       loading,
       refresh: wrappedLoadData,
-      stop: () => removeBackgroundTimer(id),
+      stop: stopTimer,
     }
   }
 
