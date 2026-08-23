@@ -309,6 +309,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/utils/permission.ts',
         'src/utils/pluginSidebarNav.ts',
         'src/utils/requestOptimizer.ts',
+        'src/utils/backgroundManager.ts',
         'src/utils/sseManager.ts',
         'src/utils/federationLoader.ts',
         'src/utils/federationRuntime.ts',
@@ -902,6 +903,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/utils/requestOptimizer.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/utils/backgroundManager.ts': {
           branches: 85,
           functions: 90,
           lines: 90,

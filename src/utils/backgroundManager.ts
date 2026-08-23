@@ -73,9 +73,10 @@ export class BackgroundManager {
     const { runInBackground = false, skipInitialRun = false } = options
 
     if (this.isDestroyed) return
-    this.ensureInitialized()
 
+    // 同名 timer 必须先释放；若它是唯一任务，随后重新获取生命周期，确保替换后的 timer 仍接收活动状态。
     this.removeTimer(id)
+    this.ensureInitialized()
 
     const timerConfig = {
       callback,
@@ -100,6 +101,10 @@ export class BackgroundManager {
 
     timerConfig.timer = setInterval(wrappedCallback, interval)
     this.timers.set(id, timerConfig)
+
+    if (this.isBackground && !runInBackground) {
+      this.pauseAllTimers()
+    }
 
     // 如果不跳过初始运行，立即执行一次
     if (!skipInitialRun) {
