@@ -97,6 +97,15 @@ interface DashboardGridItem {
   widget: GridStackWidget
 }
 
+interface PluginDashboardMetaItem {
+  /** 插件稳定 ID。 */
+  id: string
+  /** 多仪表板入口键；空值表示插件唯一仪表板。 */
+  key?: string
+  /** 插件声明的仪表板显示名称。 */
+  name?: string
+}
+
 // 是否处于仪表板布局编辑模式
 const isLayoutEditing = ref(false)
 
@@ -309,10 +318,14 @@ const dashboardConfigs = ref<DashboardItem[]>([
 ])
 
 // 插件的仪表板元信息
-const pluginDashboardMeta = ref<any[]>([])
+const pluginDashboardMeta = ref<PluginDashboardMetaItem[]>([])
 
 // 插件仪表板的刷新状态
 const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
+
+// 请求序号只负责丢弃乱序响应；已接受代际用于约束详情响应不得跨运行态恢复旧卡片。
+let latestPluginDashboardMetaRequestId = 0
+let acceptedPluginDashboardMetaGeneration = 0
 
 // 当前启用且可渲染的仪表板 Grid 项。
 const dashboardGridItems = computed<DashboardGridItem[]>(() =>
@@ -1091,23 +1104,49 @@ async function saveDashboardConfig(payload?: { enabled?: Record<string, boolean>
 }
 
 // 构造插件仪表板主ID
-function buildPluginDashboardId(plugin_id: string, key: string) {
+function buildPluginDashboardId(plugin_id: string, key?: string) {
   if (!key) return plugin_id
   return plugin_id + ':' + key
 }
 
 // 调用API获取所有插件的仪表板元信息
 async function getPluginDashboardMeta() {
+  const requestId = ++latestPluginDashboardMetaRequestId
+
   try {
-    pluginDashboardMeta.value = (await api.get('/plugin/dashboard/meta')) ?? []
+    const nextPluginDashboardMeta: PluginDashboardMetaItem[] = (await api.get('/plugin/dashboard/meta')) ?? []
+    if (requestId !== latestPluginDashboardMetaRequestId) return
+
+    const metaGeneration = ++acceptedPluginDashboardMetaGeneration
+
+    const nextPluginDashboardIds = new Set(
+      nextPluginDashboardMeta.map(item => buildPluginDashboardId(item.id, item.key)),
+    )
+    const removedPluginDashboardIds = pluginDashboardMeta.value
+      .map(item => buildPluginDashboardId(item.id, item.key))
+      .filter(id => !nextPluginDashboardIds.has(id))
+
+    pluginDashboardMeta.value = nextPluginDashboardMeta
+    if (removedPluginDashboardIds.length > 0) {
+      const removedIdSet = new Set(removedPluginDashboardIds)
+      removedPluginDashboardIds.forEach(pluginDashboardId => {
+        clearPluginDashboardTimer(pluginDashboardId)
+        delete pluginDashboardRefreshStatus.value[pluginDashboardId]
+      })
+      // 运行态集合不再包含这些插件时移除渲染配置；用户保存的启用与布局偏好继续保留。
+      dashboardConfigs.value = dashboardConfigs.value.filter(
+        item => !removedIdSet.has(buildPluginDashboardId(item.id, item.key)),
+      )
+    }
+
     if (!isNullOrEmptyObject(pluginDashboardMeta.value)) {
       // 下载插件仪表板配置
       await Promise.all(
-        pluginDashboardMeta.value.map(async (pluginDashboard: { id: string; key: string }) => {
+        pluginDashboardMeta.value.map(async pluginDashboard => {
           const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
           // 初始化插件仪表板的刷新状态
           pluginDashboardRefreshStatus.value[pluginDashboardId] = true
-          await getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
+          await getPluginDashboard(pluginDashboard.id, pluginDashboard.key ?? '', metaGeneration)
         }),
       )
     }
@@ -1136,34 +1175,46 @@ function schedulePluginDashboardRefresh(item: DashboardItem) {
     isRequest.value
   ) {
     refreshTimers.value[pluginDashboardId] = setTimeout(() => {
-      void getPluginDashboard(item.id, item.key)
+      void getPluginDashboard(item.id, item.key, acceptedPluginDashboardMetaGeneration)
     }, item.attrs.refresh * 1000)
   }
+}
+
+// 并发刷新失败或过期时，沿用当前已渲染配置保证仍有且仅有一个后续刷新任务。
+function ensurePluginDashboardRefresh(id: string, key: string) {
+  const isCurrentPluginDashboard = pluginDashboardMeta.value.some(item => item.id === id && (item.key ?? '') === key)
+  if (!isCurrentPluginDashboard) return
+
+  const currentDashboard = dashboardConfigs.value.find(item => item.id === id && item.key === key)
+  if (currentDashboard) schedulePluginDashboardRefresh(currentDashboard)
 }
 
 // 重新拉取当前启用的插件仪表板数据。
 function refreshEnabledPluginDashboards() {
   if (isNullOrEmptyObject(pluginDashboardMeta.value)) return
 
-  pluginDashboardMeta.value.forEach((pluginDashboard: { id: string; key: string }) => {
+  pluginDashboardMeta.value.forEach(pluginDashboard => {
     const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
     if (enableConfig.value[pluginDashboardId]) {
-      void getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
+      void getPluginDashboard(pluginDashboard.id, pluginDashboard.key ?? '', acceptedPluginDashboardMetaGeneration)
     }
   })
 }
 
 // 获取一个插件的仪表板配置项
-async function getPluginDashboard(id: string, key: string) {
+async function getPluginDashboard(id: string, key: string, metaGeneration: number) {
+  let refreshScheduled = false
+
   try {
     const url = key ? `/plugin/dashboard/${id}/${key}` : `/plugin/dashboard/${id}`
     const res: DashboardItem | undefined = await api.get(url)
     if (res) {
+      if (metaGeneration !== acceptedPluginDashboardMetaGeneration) return
+
       // 名称替换为元信息的名称
-      const meta = pluginDashboardMeta.value.find(
-        (item: { id: string; key: string }) => item.id === id && item.key === key,
-      )
-      if (meta) res.name = meta.name
+      const meta = pluginDashboardMeta.value.find(item => item.id === id && (item.key ?? '') === key)
+      if (!meta) return
+      if (meta.name) res.name = meta.name
       // 保存到仪表板配置中，如果已经存在则替换
       const index = dashboardConfigs.value.findIndex(
         (item: { id: string; key: string }) => item.id === id && item.key === key,
@@ -1177,9 +1228,12 @@ async function getPluginDashboard(id: string, key: string) {
       }
       // 定时刷新
       schedulePluginDashboardRefresh(res)
+      refreshScheduled = true
     }
   } catch (error) {
     console.error(error)
+  } finally {
+    if (!refreshScheduled) ensurePluginDashboardRefresh(id, key)
   }
 }
 

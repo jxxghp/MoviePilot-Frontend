@@ -343,6 +343,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/views/subscribe/SubscribeShareView.vue',
         'src/composables/useMediaSubscribe.ts',
         'src/composables/useLlmProviderDirectory.ts',
+        'src/composables/useDashboardMediaGridCapacity.ts',
         'src/composables/useOfflineStatus.ts',
         'src/composables/useScheduleProgress.ts',
         'src/composables/useServerConnectionProbe.ts',
@@ -431,6 +432,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/composables/useLlmProviderDirectory.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/composables/useDashboardMediaGridCapacity.ts': {
           branches: 85,
           functions: 90,
           lines: 90,
