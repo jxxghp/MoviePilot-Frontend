@@ -27,7 +27,7 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
   let mounted = false
   let activatedCount = 0
   let refreshing = false
-  let pendingRefresh = false
+  let pendingRefreshContext: KeepAliveRefreshContext | undefined
   let refreshScheduled = false
 
   const isActive = () => options.active === undefined || Boolean(toValue(options.active))
@@ -35,9 +35,9 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
   async function runRefresh(context: KeepAliveRefreshContext = { silent: true, source: 'manual' }) {
     if (!isActive()) return
 
-    // 避免路由激活和 tab 激活在同一轮里叠加出并发请求。
+    // 并发期间最多保留一个后续刷新；重复触发以最新 context 为准，避免沿用过期的 loading/source 语义。
     if (refreshing) {
-      pendingRefresh = true
+      pendingRefreshContext = context
       return
     }
 
@@ -47,9 +47,10 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
     } finally {
       refreshing = false
 
-      if (pendingRefresh) {
-        pendingRefresh = false
-        await runRefresh(context)
+      const pendingContext = pendingRefreshContext
+      pendingRefreshContext = undefined
+      if (pendingContext) {
+        await runRefresh(pendingContext)
       }
     }
   }
