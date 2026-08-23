@@ -16,6 +16,15 @@ const { t } = useI18n()
 // 是否刷新
 const isRefreshed = ref(false)
 
+// 是否加载中
+const loading = ref(false)
+
+// 最近一次工作流列表加载是否失败
+const loadFailed = ref(false)
+
+// 仅允许最新请求提交列表状态，避免并发刷新按完成顺序覆盖较新的结果
+let latestRequestId = 0
+
 // 所有任务
 const workflowList = ref<Workflow[]>([])
 
@@ -33,11 +42,22 @@ async function loadEventTypes() {
 
 // 加载数据
 async function fetchData() {
+  const requestId = ++latestRequestId
+  loading.value = true
   try {
-    workflowList.value = await api.get('workflow/')
-    isRefreshed.value = true
+    const workflows = await api.get<Workflow[]>('workflow/')
+    if (requestId !== latestRequestId) return
+    workflowList.value = workflows
+    loadFailed.value = false
   } catch (error) {
+    if (requestId !== latestRequestId) return
+    loadFailed.value = true
     console.error(error)
+  } finally {
+    if (requestId === latestRequestId) {
+      loading.value = false
+      isRefreshed.value = true
+    }
   }
 }
 
@@ -71,7 +91,31 @@ defineExpose({
 </script>
 <template>
   <div>
-    <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+    <LoadingBanner v-if="loading && !isRefreshed" class="mt-12" />
+    <NoDataFound
+      v-else-if="loadFailed && workflowList.length === 0"
+      error-code="500"
+      :error-title="t('common.serverConnectionFailed')"
+    >
+      <template #button>
+        <VBtn color="primary" variant="tonal" :loading="loading" @click="fetchData">
+          {{ t('common.retry') }}
+        </VBtn>
+      </template>
+    </NoDataFound>
+    <VAlert
+      v-else-if="loadFailed"
+      type="error"
+      variant="tonal"
+      :title="t('common.serverConnectionFailed')"
+      class="mx-2 mb-4"
+    >
+      <template #append>
+        <VBtn color="error" variant="text" :loading="loading" @click="fetchData">
+          {{ t('common.retry') }}
+        </VBtn>
+      </template>
+    </VAlert>
     <ProgressiveCardGrid
       v-if="workflowList.length > 0 && isRefreshed"
       :items="workflowList"
@@ -85,7 +129,7 @@ defineExpose({
       </template>
     </ProgressiveCardGrid>
     <NoDataFound
-      v-if="workflowList.length === 0 && isRefreshed"
+      v-if="workflowList.length === 0 && isRefreshed && !loadFailed"
       error-code="404"
       :error-title="t('workflow.noWorkflow')"
       :error-description="t('workflow.noWorkflowDescription')"
