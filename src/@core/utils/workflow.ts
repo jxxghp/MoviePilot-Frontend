@@ -1,5 +1,5 @@
 import { useVueFlow } from '@vue-flow/core'
-import { ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import { cloneDeep } from 'lodash-es'
 
 /**
@@ -18,7 +18,7 @@ const state = {
   /**
    * The type of the node being dragged.
    */
-  draggedData: ref<any | null>({}),
+  draggedData: ref<any | null>(null),
   isDragOver: ref(false),
   isDragging: ref(false),
 }
@@ -27,6 +27,7 @@ export default function useDragAndDrop() {
   const { draggedData, isDragOver, isDragging } = state
 
   const { addNodes, screenToFlowCoordinate, onNodesInitialized, updateNode } = useVueFlow()
+  let ownsDragListeners = false
 
   watch(isDragging, dragging => {
     document.body.style.userSelect = dragging ? 'none' : ''
@@ -42,6 +43,8 @@ export default function useDragAndDrop() {
     isDragging.value = true
 
     document.addEventListener('drop', onDragEnd)
+    document.addEventListener('dragend', onDragEnd)
+    ownsDragListeners = true
   }
 
   /**
@@ -70,6 +73,8 @@ export default function useDragAndDrop() {
     isDragOver.value = false
     draggedData.value = null
     document.removeEventListener('drop', onDragEnd)
+    document.removeEventListener('dragend', onDragEnd)
+    ownsDragListeners = false
   }
 
   /**
@@ -78,6 +83,8 @@ export default function useDragAndDrop() {
    * @param {DragEvent} event
    */
   function onDrop(event: any) {
+    if (!draggedData.value) return
+
     const position = screenToFlowCoordinate({
       x: event.clientX,
       y: event.clientY,
@@ -109,6 +116,12 @@ export default function useDragAndDrop() {
 
     addNodes(newNode)
   }
+
+  onUnmounted(() => {
+    if (!ownsDragListeners) return
+    onDragEnd()
+    document.body.style.userSelect = ''
+  })
 
   return {
     draggedData,
