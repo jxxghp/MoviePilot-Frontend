@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -112,9 +113,7 @@ describe('PersonCardListView', () => {
 
   it('loads people with the configured prefetch margin', async () => {
     server.use(
-      http.get(LIST_URL, () =>
-        HttpResponse.json([{ id: 101, name: '探索人物', source: 'themoviedb' } satisfies Person]),
-      ),
+      http.get(LIST_URL, () => apiJson([{ id: 101, name: '探索人物', source: 'themoviedb' } satisfies Person])),
     )
 
     await renderList()
@@ -129,7 +128,7 @@ describe('PersonCardListView', () => {
     server.use(
       http.get(LIST_URL, ({ request }) => {
         requests.push(new URL(request.url))
-        return HttpResponse.json([{ id: 303, name: '多来源人物', source: 'themoviedb' } satisfies Person])
+        return apiJson([{ id: 303, name: '多来源人物', source: 'themoviedb' } satisfies Person])
       }),
     )
 
@@ -146,7 +145,7 @@ describe('PersonCardListView', () => {
       http.get(LIST_URL, () => {
         requests++
         if (requests === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([{ id: 202, name: '人物重试结果', source: 'themoviedb' } satisfies Person])
+        return apiJson([{ id: 202, name: '人物重试结果', source: 'themoviedb' } satisfies Person])
       }),
     )
     const user = userEvent.setup()

@@ -8,6 +8,7 @@ import { subscribeApiUrls, subscribeListHandler } from '@tests/support/msw/handl
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -142,7 +143,8 @@ function sequenceSubscribeList(responses: Array<{ body: Subscribe[]; status?: nu
     onRequest()
     const response = responses[Math.min(index, responses.length - 1)]
     index += 1
-    return HttpResponse.json(response.body, { status: response.status ?? 200 })
+    if ((response.status ?? 200) >= 400) return HttpResponse.json(response.body, { status: response.status })
+    return apiJson(response.body, { status: response.status ?? 200 })
   })
 }
 

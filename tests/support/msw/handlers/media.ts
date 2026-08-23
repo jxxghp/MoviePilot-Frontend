@@ -1,5 +1,6 @@
 import type { MediaInfo, MediaSeason, NotExistMediaInfo, TmdbEpisode } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiFailureJson, apiJson } from '../response'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
@@ -14,6 +15,11 @@ export const mediaApiUrls = {
   seasons: new URL('media/seasons', API_BASE_URL).href,
 }
 
+function dataResponse(body: JsonBodyType, status: number) {
+  if (status >= 400) return HttpResponse.json(body, { status })
+  return apiJson(body, { status })
+}
+
 export function mediaExistsHandler(
   response: { data?: Record<string, unknown>; message?: string; success: boolean },
   status = 200,
@@ -21,7 +27,8 @@ export function mediaExistsHandler(
 ) {
   return http.get(mediaApiUrls.exists, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return HttpResponse.json({ message: '', ...response } as JsonBodyType, { status })
+    if (!response.success) return apiFailureJson(response.message ?? '', response.data ?? null, { status })
+    return apiJson(response.data ?? null, { status })
   })
 }
 
@@ -33,7 +40,7 @@ export function mediaDetailsHandler(
 ) {
   return http.get(mediaApiUrls.details(String(mediaId)), ({ request }) => {
     onRequest(new URL(request.url))
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -44,7 +51,7 @@ export function mediaRemoteExistsHandler(
 ) {
   return http.post(mediaApiUrls.existsRemote, async ({ request }) => {
     await onRequest((await request.json()) as Record<string, unknown>)
-    return HttpResponse.json(response as JsonBodyType, { status })
+    return dataResponse(response as JsonBodyType, status)
   })
 }
 
@@ -56,7 +63,8 @@ export function mediaPlayHandler(
 ) {
   return http.get(mediaApiUrls.play(itemId), () => {
     onRequest()
-    return HttpResponse.json(response as JsonBodyType, { status })
+    if (!response.success) return apiFailureJson(response.message ?? '', response.data ?? null, { status })
+    return apiJson(response.data ?? null, { status })
   })
 }
 
@@ -69,7 +77,7 @@ export function tmdbSeasonEpisodesHandler(
 ) {
   return http.get(new URL(`tmdb/${tmdbId}/${season}`, API_BASE_URL).href, ({ request }) => {
     onRequest(new URL(request.url))
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -80,7 +88,7 @@ export function mediaSeasonsHandler(
 ) {
   return http.get(mediaApiUrls.seasons, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -92,7 +100,7 @@ export function mediaEpisodeGroupsHandler(
 ) {
   return http.get(mediaApiUrls.episodeGroups(tmdbId), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return HttpResponse.json(response as JsonBodyType, { status })
+    return dataResponse(response as JsonBodyType, status)
   })
 }
 
@@ -104,7 +112,7 @@ export function mediaGroupSeasonsHandler(
 ) {
   return http.get(mediaApiUrls.groupSeasons(episodeGroup), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -116,6 +124,6 @@ export function mediaNotExistsHandler(
   return http.post(mediaApiUrls.notExists, async ({ request }) => {
     const payload = (await request.json()) as Record<string, unknown>
     await onRequest(payload, new URL(request.url))
-    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }

@@ -1,5 +1,6 @@
 import type { DiscoverSource } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '../response'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
@@ -21,7 +22,8 @@ export function discoverSourcesHandler(
 ) {
   return http.get(discoverApiUrls.sources, async () => {
     await onRequest()
-    return HttpResponse.json(sources as unknown as JsonBodyType, { status })
+    if (status >= 400) return HttpResponse.json(sources as unknown as JsonBodyType, { status })
+    return apiJson(sources, { status })
   })
 }
 
@@ -32,7 +34,8 @@ export function discoverOrderConfigHandler(
 ) {
   return http.get(discoverApiUrls.orderConfig, async () => {
     await onRequest()
-    return HttpResponse.json({ data: { value: order }, success: status < 400 }, { status })
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson({ value: order }, { status })
   })
 }
 
@@ -43,6 +46,7 @@ export function saveDiscoverOrderHandler(
   return http.post(discoverApiUrls.orderConfig, async ({ request }) => {
     const order = (await request.json()) as DiscoverTabConfigItem[]
     await onSave(order)
-    return HttpResponse.json({ success: status < 400 }, { status })
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson(null, { status })
   })
 }

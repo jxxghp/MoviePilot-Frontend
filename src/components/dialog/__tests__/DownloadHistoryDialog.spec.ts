@@ -11,6 +11,7 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -207,9 +208,9 @@ describe('DownloadHistoryDialog', () => {
       http.get(downloadApiUrls.history, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
-        if (page === '2') return HttpResponse.json([second])
-        return HttpResponse.json([])
+        if (page === '1') return apiJson([first])
+        if (page === '2') return apiJson([second])
+        return apiJson([])
       }),
     )
     const user = userEvent.setup()
@@ -262,7 +263,7 @@ describe('DownloadHistoryDialog', () => {
       http.get(downloadApiUrls.history, () => {
         requestCount += 1
         if (requestCount === 1) return HttpResponse.json({}, { status: 500 })
-        return HttpResponse.json([item])
+        return apiJson([item])
       }),
     )
     const user = userEvent.setup()

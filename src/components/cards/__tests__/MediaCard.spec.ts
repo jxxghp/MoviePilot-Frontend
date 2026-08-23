@@ -13,6 +13,7 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, reactive, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -206,8 +207,8 @@ function installSearchHandlers(
     tv: tvSiteListUrl,
   }[mediaType]
   server.use(
-    http.get(siteListUrl, () => HttpResponse.json(sites)),
-    http.get(selectedSitesUrl, () => HttpResponse.json({ data: { value: selected }, success: true })),
+    http.get(siteListUrl, () => apiJson(sites)),
+    http.get(selectedSitesUrl, () => apiJson({ value: selected })),
   )
 }
 
@@ -548,7 +549,7 @@ describe('MediaCard', () => {
   it('falls back to global search when site settings cannot provide active selections', async () => {
     server.use(
       http.get(movieSiteListUrl, () => HttpResponse.json({ message: 'temporary failure' }, { status: 500 })),
-      http.get(selectedSitesUrl, () => HttpResponse.json({ success: true })),
+      http.get(selectedSitesUrl, () => apiJson(null)),
     )
     const media = createMediaInfo({ title: '站点失败搜索', tmdb_id: 9503 })
     const { container } = await renderCard(media)
@@ -607,7 +608,7 @@ describe('MediaCard', () => {
   it('opens active sites with an empty selection when the saved setting fails', async () => {
     server.use(
       http.get(movieSiteListUrl, () =>
-        HttpResponse.json([
+        apiJson([
           {
             domain: 'fallback.example',
             downloader: 'default',
@@ -655,7 +656,7 @@ describe('MediaCard', () => {
         subscribeListRequest,
       ),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
-        HttpResponse.json({ data: { value: { best_version: 0 } }, success: true }),
+        apiJson({ value: { best_version: 0 } }),
       ),
     )
     const { container } = await renderCard(media)
@@ -703,7 +704,7 @@ describe('MediaCard', () => {
         { id: 92, media_id: 'other', media_source: 'bilibili', season: 5, type: '电视剧' },
       ]),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
-        HttpResponse.json({ data: { value: {} }, success: true }),
+        apiJson({ value: {} }),
       ),
     )
     const { container } = await renderCard(media)
@@ -758,7 +759,7 @@ describe('MediaCard', () => {
       mediaExistsHandler({ data: { item: {} }, success: true }),
       subscribeListHandler(subscribes),
       http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
-        HttpResponse.json({ data: { value: {} }, success: true }),
+        apiJson({ value: {} }),
       ),
     )
     const { container } = await renderCard(media)

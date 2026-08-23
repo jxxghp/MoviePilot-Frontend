@@ -32,6 +32,7 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -137,8 +138,8 @@ interface RenderDetailOptions {
 
 function installSiteHandlers(sites: Site[] = [], selected: number[] = [], type = '电影') {
   server.use(
-    http.get(type === '电视剧' ? tvSiteListUrl : movieSiteListUrl, () => HttpResponse.json(sites)),
-    http.get(selectedSitesUrl, () => HttpResponse.json({ data: { value: selected }, success: true })),
+    http.get(type === '电视剧' ? tvSiteListUrl : movieSiteListUrl, () => apiJson(sites)),
+    http.get(selectedSitesUrl, () => apiJson({ value: selected })),
   )
 }
 
@@ -593,8 +594,8 @@ describe('MediaDetailView detail and actions', () => {
     const site = createSubscribeSite({ id: 92, is_active: true, name: '空设置站点' })
     await renderDetail()
     server.use(
-      http.get(movieSiteListUrl, () => HttpResponse.json([site])),
-      http.get(selectedSitesUrl, () => HttpResponse.json({ data: {}, success: true })),
+      http.get(movieSiteListUrl, () => apiJson([site])),
+      http.get(selectedSitesUrl, () => apiJson({})),
     )
 
     await fireEvent.click(screen.getByRole('button', { name: /搜索字幕/ }))
@@ -1112,7 +1113,7 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
             staleRequest()
             const response = await staleSeasons.promise
             staleResponseReturned.resolve()
-            return HttpResponse.json(response)
+            return apiJson(response)
           }),
           mediaGroupSeasonsHandler('group-b', [createMediaSeason({ season_number: 2 })]),
         )
@@ -1163,12 +1164,12 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
               staleMissingRequest()
               const response = await staleMissing.promise
               staleMissingReturned.resolve()
-              return HttpResponse.json(response)
+              return apiJson(response)
             }
             if (payload.episode_group === 'group-b') {
-              return HttpResponse.json([createNotExistMediaInfo({ episodes: [2], season: 1, total_episode: 2 })])
+              return apiJson([createNotExistMediaInfo({ episodes: [2], season: 1, total_episode: 2 })])
             }
-            return HttpResponse.json([])
+            return apiJson([])
           }),
           http.post(mediaApiUrls.existsRemote, async ({ request }) => {
             const payload = (await request.json()) as Record<string, unknown>
@@ -1176,13 +1177,13 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
               staleRemoteRequest()
               const response = await staleRemoteExists.promise
               staleRemoteReturned.resolve()
-              return HttpResponse.json(response)
+              return apiJson(response)
             }
-            return HttpResponse.json(payload.episode_group === 'group-b' ? { 1: [2] } : {})
+            return apiJson(payload.episode_group === 'group-b' ? { 1: [2] } : {})
           }),
           http.get(new URL('tmdb/8712/1', API_BASE_URL).href, ({ request }) => {
             const group = new URL(request.url).searchParams.get('episode_group')
-            return HttpResponse.json([
+            return apiJson([
               createTmdbEpisode({ episode_number: 1, name: `${group} 第一集`, season_number: 1 }),
               createTmdbEpisode({ episode_number: 2, name: `${group} 第二集`, season_number: 1 }),
             ])
@@ -1254,10 +1255,10 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
           staleRequest()
           const response = await staleEpisodes.promise
           staleResponseReturned.resolve()
-          return HttpResponse.json(response)
+          return apiJson(response)
         }
         currentRequest()
-        return HttpResponse.json([createTmdbEpisode({ episode_number: 1, name: 'B 组第一集', season_number: 1 })])
+        return apiJson([createTmdbEpisode({ episode_number: 1, name: 'B 组第一集', season_number: 1 })])
       }),
     )
 

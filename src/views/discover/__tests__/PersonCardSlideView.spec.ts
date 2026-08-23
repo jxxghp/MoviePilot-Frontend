@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type PropType, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -75,7 +76,8 @@ const PersonCardStub = defineComponent({
 function personResponse(people: Person[], status = 200, onRequest: () => void = () => {}) {
   return http.get(API_URL, () => {
     onRequest()
-    return HttpResponse.json(people, { status })
+    if (status >= 400) return HttpResponse.json(people, { status })
+    return apiJson(people, { status })
   })
 }
 

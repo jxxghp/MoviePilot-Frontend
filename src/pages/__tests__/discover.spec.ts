@@ -11,7 +11,8 @@ import {
   type DiscoverTabConfigItem,
 } from '@tests/support/msw/handlers/discover'
 import { server } from '@tests/support/msw/server'
-import { HttpResponse, http } from 'msw'
+import { http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, ref, unref, type ComputedRef, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -364,7 +365,7 @@ describe('discover page', () => {
     server.use(
       http.get(discoverApiUrls.sources, () => {
         requested()
-        return HttpResponse.json(sources)
+        return apiJson(sources)
       }),
     )
     await renderDiscover()
@@ -388,7 +389,7 @@ describe('discover page', () => {
     server.use(
       http.get(discoverApiUrls.sources, () => {
         requested()
-        return HttpResponse.json(status === 200 ? [createSource('缓存来源', 'cached')] : [], { status })
+        return apiJson(status === 200 ? [createSource('缓存来源', 'cached')] : [], { status })
       }),
     )
     await renderDiscover()
@@ -417,7 +418,7 @@ describe('discover page', () => {
     server.use(
       http.get(discoverApiUrls.sources, () => {
         requested()
-        return HttpResponse.json(sources)
+        return apiJson(sources)
       }),
     )
     await renderDiscover()

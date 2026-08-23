@@ -9,6 +9,7 @@ import type {
   TransferDirectoryConf,
 } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType, type RequestHandler } from 'msw'
+import { apiFailureJson, apiJson } from '../response'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
@@ -65,8 +66,15 @@ export const subscribeApiUrls = {
   update: new URL('subscribe/', API_BASE_URL).href,
 }
 
-function jsonResponse(body: JsonBodyType, status: number) {
-  return HttpResponse.json(body, { status })
+function dataResponse(body: JsonBodyType, status: number) {
+  if (status >= 400) return HttpResponse.json(body, { status })
+  return apiJson(body, { status })
+}
+
+function mutationResponse(response: SubscribeMutationResponse, status: number) {
+  if (status >= 400) return HttpResponse.json(response, { status })
+  if (!response.success) return apiFailureJson(response.message ?? '', response.data ?? null, { status })
+  return apiJson(response.data ?? null, { status })
 }
 
 export function subscribeListHandler(
@@ -76,7 +84,7 @@ export function subscribeListHandler(
 ) {
   return http.get(subscribeApiUrls.list, ({ request }) => {
     onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return dataResponse(response, status)
   })
 }
 
@@ -87,7 +95,7 @@ export function popularSubscribesHandler(
 ) {
   return http.get(subscribeApiUrls.popular, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response as unknown as JsonBodyType, status)
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -98,7 +106,7 @@ export function subscribeSharesHandler(
 ) {
   return http.get(subscribeApiUrls.shares, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response as unknown as JsonBodyType, status)
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -110,7 +118,7 @@ export function shareSubscribeHandler(
   return http.post(subscribeApiUrls.share, async ({ request }) => {
     const payload = (await request.json()) as SubscribeShare
     await onShare(payload)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -122,7 +130,7 @@ export function forkSubscribeHandler(
   return http.post(subscribeApiUrls.fork, async ({ request }) => {
     const payload = (await request.json()) as SubscribeShare
     await onFork(payload)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -133,7 +141,8 @@ export function followSubscribersSettingHandler(
 ) {
   return http.get(subscribeApiUrls.followSubscribers, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse({ data: { value: users }, success: status < 400 }, status)
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson({ value: users }, { status })
   })
 }
 
@@ -144,7 +153,7 @@ export function followSubscriberHandler(
 ) {
   return http.post(subscribeApiUrls.follow, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -155,7 +164,7 @@ export function unfollowSubscriberHandler(
 ) {
   return http.delete(subscribeApiUrls.follow, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -167,7 +176,7 @@ export function deleteSubscribeShareHandler(
 ) {
   return http.delete(subscribeApiUrls.shareById(id), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -178,7 +187,7 @@ export function subscribeShareStatisticsHandler(
 ) {
   return http.get(subscribeApiUrls.shareStatistics, async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response as unknown as JsonBodyType, status)
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -190,7 +199,7 @@ export function subscribeFilesHandler(
 ) {
   return http.get(subscribeApiUrls.filesById(id), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return dataResponse(response, status)
   })
 }
 
@@ -202,7 +211,7 @@ export function subscribeHistoryHandler(
 ) {
   return http.get(subscribeApiUrls.historyByType(type), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response as unknown as JsonBodyType, status)
+    return dataResponse(response as unknown as JsonBodyType, status)
   })
 }
 
@@ -214,7 +223,7 @@ export function deleteSubscribeHistoryHandler(
 ) {
   return http.delete(subscribeApiUrls.historyById(id), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -226,7 +235,8 @@ export function subscribeOrderConfigHandler(
 ) {
   return http.get(subscribeApiUrls.orderConfig(type), ({ request }) => {
     onRequest(new URL(request.url))
-    return jsonResponse({ data: { value }, success: status < 400 }, status)
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson({ value }, { status })
   })
 }
 
@@ -239,7 +249,7 @@ export function saveSubscribeOrderConfigHandler(
   return http.post(subscribeApiUrls.orderConfig(type), async ({ request }) => {
     const payload = (await request.json()) as { id: number }[]
     await onSave(payload, new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -251,7 +261,7 @@ export function updateSubscribeStatusHandler(
 ) {
   return http.put(subscribeApiUrls.statusById(id), async ({ request }) => {
     await onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -263,7 +273,7 @@ export function searchSubscribeByIdHandler(
 ) {
   return http.get(subscribeApiUrls.searchById(id), ({ request }) => {
     onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -275,7 +285,7 @@ export function resetSubscribeByIdHandler(
 ) {
   return http.get(subscribeApiUrls.resetById(id), ({ request }) => {
     onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -287,7 +297,7 @@ export function createSubscribeHandler(
   return http.post(subscribeApiUrls.create, async ({ request }) => {
     const payload = (await request.json()) as Record<string, unknown>
     onCreate(payload)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -299,7 +309,7 @@ export function updateSubscribeHandler(
   return http.put(subscribeApiUrls.update, async ({ request }) => {
     const payload = (await request.json()) as Record<string, unknown>
     onUpdate(payload)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -311,7 +321,7 @@ export function querySubscribeByMediaHandler(
 ) {
   return http.get(subscribeApiUrls.queryByMedia(mediaId), ({ request }) => {
     onRequest(new URL(request.url))
-    return jsonResponse(subscribe as JsonBodyType, status)
+    return dataResponse(subscribe as JsonBodyType, status)
   })
 }
 
@@ -323,7 +333,7 @@ export function deleteSubscribeByMediaHandler(
 ) {
   return http.delete(subscribeApiUrls.deleteByMedia(mediaId), ({ request }) => {
     onRequest(new URL(request.url))
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -335,7 +345,7 @@ export function subscribeDetailsHandler(
 ) {
   return http.get(subscribeApiUrls.details(id), () => {
     onRequest()
-    return jsonResponse(subscribe as unknown as JsonBodyType, status)
+    return dataResponse(subscribe as unknown as JsonBodyType, status)
   })
 }
 
@@ -347,7 +357,7 @@ export function deleteSubscribeByIdHandler(
 ) {
   return http.delete(subscribeApiUrls.deleteById(id), () => {
     onRequest()
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -359,7 +369,8 @@ export function defaultSubscribeConfigHandler(
 ) {
   return http.get(subscribeApiUrls.defaultConfig(type), () => {
     onRequest()
-    return jsonResponse({ data: { value: config }, success: status < 400 }, status)
+    if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
+    return apiJson({ value: config }, { status })
   })
 }
 
@@ -372,7 +383,7 @@ export function saveDefaultSubscribeConfigHandler(
   return http.post(subscribeApiUrls.defaultConfig(type, true), async ({ request }) => {
     const payload = (await request.json()) as Record<string, unknown>
     onSave(payload)
-    return jsonResponse(response, status)
+    return mutationResponse(response, status)
   })
 }
 
@@ -409,23 +420,23 @@ export function subscribeDialogOptionHandlers(options: SubscribeDialogOptions = 
   return [
     http.get(subscribeApiUrls.sites, () => {
       onSites()
-      return jsonResponse(sites as unknown as JsonBodyType, 200)
+      return dataResponse(sites as unknown as JsonBodyType, 200)
     }),
     http.get(subscribeApiUrls.downloaders, () => {
       onDownloaders()
-      return jsonResponse(downloaders as unknown as JsonBodyType, 200)
+      return dataResponse(downloaders as unknown as JsonBodyType, 200)
     }),
     http.get(subscribeApiUrls.directories, () => {
       onDirectories()
-      return jsonResponse({ data: { value: directories }, success: true }, 200)
+      return apiJson({ value: directories })
     }),
     http.get(subscribeApiUrls.filterRuleGroups, () => {
       onFilterRuleGroups()
-      return jsonResponse({ data: { value: filterRuleGroups }, success: true }, 200)
+      return apiJson({ value: filterRuleGroups })
     }),
     http.get(subscribeApiUrls.episodeGroups(tmdbId), () => {
       onEpisodeGroups()
-      return jsonResponse(episodeGroups as unknown as JsonBodyType, 200)
+      return dataResponse(episodeGroups as unknown as JsonBodyType, 200)
     }),
   ]
 }

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -151,7 +152,7 @@ function createDeferred<T>() {
 
 function directoriesHandler(directories: TransferDirectoryConf[]) {
   return http.get(new URL('system/setting/public/Directories', API_BASE_URL).href, () =>
-    HttpResponse.json({ data: { value: directories }, success: true }),
+    apiJson({ value: directories }),
   )
 }
 
@@ -162,7 +163,9 @@ function subtitleDownloadHandler(
 ) {
   return http.post(new URL('download/subtitle', API_BASE_URL).href, async ({ request }) => {
     await onRequest(await request.json())
-    return HttpResponse.json(await response, { status })
+    const body = await response
+    if (status >= 400) return HttpResponse.json(body, { status })
+    return HttpResponse.json(body, { status })
   })
 }
 
@@ -277,7 +280,7 @@ describe('AddSubtitleDownloadDialog submissions', () => {
 
   it('submits a directly entered media ID through v-model', async () => {
     const submitted = vi.fn()
-    server.use(subtitleDownloadHandler({ data: null, success: true }, 200, submitted))
+    server.use(subtitleDownloadHandler({ data: null, message: '', success: true }, 200, submitted))
     const user = userEvent.setup()
 
     await renderDialog({ mediaId: null, recognizeSource: 'douban' })
@@ -294,7 +297,7 @@ describe('AddSubtitleDownloadDialog submissions', () => {
 
   it('reveals advanced options and submits the selected media source identity', async () => {
     const submitted = vi.fn()
-    server.use(subtitleDownloadHandler({ data: null, success: true }, 200, submitted))
+    server.use(subtitleDownloadHandler({ data: null, message: '', success: true }, 200, submitted))
     const user = userEvent.setup()
 
     await renderDialog({ mediaId: '84', mediaSource: 'themoviedb' })
@@ -348,7 +351,7 @@ describe('AddSubtitleDownloadDialog submissions', () => {
     expect(submitted).toHaveBeenCalledOnce()
     expect(mocks.startNProgress).toHaveBeenCalledOnce()
 
-    deferred.resolve({ data: null, success: true })
+    deferred.resolve({ data: null, message: '', success: true })
     await waitFor(() => expect(events.done).toHaveBeenCalledWith(expectedEnclosure))
 
     expect(mocks.toastSuccess).toHaveBeenCalledWith('字幕站 测试字幕 字幕下载成功！')
@@ -358,7 +361,7 @@ describe('AddSubtitleDownloadDialog submissions', () => {
 
   it('submits the exact-search identity passed by the resource result', async () => {
     const submitted = vi.fn()
-    server.use(subtitleDownloadHandler({ data: null, success: true }, 200, submitted))
+    server.use(subtitleDownloadHandler({ data: null, message: '', success: true }, 200, submitted))
     const user = userEvent.setup()
 
     await renderDialog({ mediaId: '84', mediaSource: 'themoviedb', recognizeSource: 'douban' })

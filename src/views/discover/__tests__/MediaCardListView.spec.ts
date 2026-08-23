@@ -6,6 +6,7 @@ import { createMediaInfo } from '@tests/support/factories/media'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -178,7 +179,7 @@ describe('MediaCardListView', () => {
     server.use(
       http.get(LIST_URL, ({ request }) => {
         requests.push(new URL(request.url))
-        return HttpResponse.json([createMediaInfo({ title: '内部页码结果' })])
+        return apiJson([createMediaInfo({ title: '内部页码结果' })])
       }),
     )
 
@@ -198,7 +199,7 @@ describe('MediaCardListView', () => {
     server.use(
       http.get(LIST_URL, ({ request }) => {
         requests.push(new URL(request.url))
-        return HttpResponse.json([createMediaInfo({ title: '多来源结果' })])
+        return apiJson([createMediaInfo({ title: '多来源结果' })])
       }),
     )
 
@@ -216,7 +217,7 @@ describe('MediaCardListView', () => {
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        return HttpResponse.json([createMediaInfo({ title: '单页媒体' })])
+        return apiJson([createMediaInfo({ title: '单页媒体' })])
       }),
     )
 
@@ -233,7 +234,7 @@ describe('MediaCardListView', () => {
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        return HttpResponse.json([createMediaInfo({ title: page === '1' ? '未满屏第一页' : '未满屏第二页' })])
+        return apiJson([createMediaInfo({ title: page === '1' ? '未满屏第一页' : '未满屏第二页' })])
       }),
     )
 
@@ -260,7 +261,7 @@ describe('MediaCardListView', () => {
       { media_id: 'media-43', title: '不同 media_id' },
     ]
     const response = [base, { ...base, title: '完全重复项' }, ...variants.map(variant => ({ ...base, ...variant }))]
-    server.use(http.get(LIST_URL, () => HttpResponse.json(response as unknown as JsonBodyType)))
+    server.use(http.get(LIST_URL, () => apiJson(response as unknown as JsonBodyType)))
 
     await renderList()
 
@@ -285,7 +286,7 @@ describe('MediaCardListView', () => {
         tmdb_id: undefined,
       }),
     )
-    server.use(http.get(LIST_URL, () => HttpResponse.json(response as unknown as JsonBodyType)))
+    server.use(http.get(LIST_URL, () => apiJson(response as unknown as JsonBodyType)))
 
     await renderList()
 
@@ -302,7 +303,7 @@ describe('MediaCardListView', () => {
       createMediaInfo({ media_id: undefined, media_source: undefined, title: '无标识媒体 A', tmdb_id: undefined }),
       createMediaInfo({ media_id: undefined, media_source: undefined, title: '无标识媒体 B', tmdb_id: undefined }),
     ]
-    server.use(http.get(LIST_URL, () => HttpResponse.json(response as unknown as JsonBodyType)))
+    server.use(http.get(LIST_URL, () => apiJson(response as unknown as JsonBodyType)))
 
     await renderList()
 
@@ -321,9 +322,9 @@ describe('MediaCardListView', () => {
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first, second] as unknown as JsonBodyType)
-        if (page === '2') return HttpResponse.json([{ ...first, title: '第二页全重复' }] as unknown as JsonBodyType)
-        return HttpResponse.json([later] as unknown as JsonBodyType)
+        if (page === '1') return apiJson([first, second] as unknown as JsonBodyType)
+        if (page === '2') return apiJson([{ ...first, title: '第二页全重复' }] as unknown as JsonBodyType)
+        return apiJson([later] as unknown as JsonBodyType)
       }),
     )
 
@@ -345,10 +346,10 @@ describe('MediaCardListView', () => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
         if (page === '1') {
-          return HttpResponse.json([first, { ...first, title: '页内重复 A' }, second] as unknown as JsonBodyType)
+          return apiJson([first, { ...first, title: '页内重复 A' }, second] as unknown as JsonBodyType)
         }
-        if (page === '2') return HttpResponse.json([between] as unknown as JsonBodyType)
-        return HttpResponse.json([{ ...second }, { ...first }] as unknown as JsonBodyType)
+        if (page === '2') return apiJson([between] as unknown as JsonBodyType)
+        return apiJson([{ ...second }, { ...first }] as unknown as JsonBodyType)
       }),
     )
 
@@ -362,7 +363,7 @@ describe('MediaCardListView', () => {
 
   it('marks an empty first page as the pagination terminal state', async () => {
     setScrollHeight(() => 900)
-    server.use(http.get(LIST_URL, () => HttpResponse.json([])))
+    server.use(http.get(LIST_URL, () => apiJson([])))
 
     await renderList()
 
@@ -372,7 +373,7 @@ describe('MediaCardListView', () => {
 
   it('renders HTTP 200 plus an empty array as ordinary no-data rather than a network error', async () => {
     setScrollHeight(() => 900)
-    server.use(http.get(LIST_URL, () => HttpResponse.json([])))
+    server.use(http.get(LIST_URL, () => apiJson([])))
 
     await renderList()
 
@@ -389,7 +390,7 @@ describe('MediaCardListView', () => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
         if (requestedPages.length === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([createMediaInfo({ title: '首载重试成功' })])
+        return apiJson([createMediaInfo({ title: '首载重试成功' })])
       }),
     )
     const user = userEvent.setup()
@@ -412,10 +413,10 @@ describe('MediaCardListView', () => {
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([createMediaInfo({ title: '保留第一页' })])
+        if (page === '1') return apiJson([createMediaInfo({ title: '保留第一页' })])
         pageTwoAttempts += 1
         if (pageTwoAttempts === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([createMediaInfo({ title: '第二页重试成功' })])
+        return apiJson([createMediaInfo({ title: '第二页重试成功' })])
       }),
     )
     const user = userEvent.setup()
@@ -438,7 +439,7 @@ describe('MediaCardListView', () => {
       http.get(LIST_URL, async ({ request }) => {
         requests.push(new URL(request.url))
         await gate.promise
-        return HttpResponse.json([createMediaInfo({ title: '在途请求结果' })])
+        return apiJson([createMediaInfo({ title: '在途请求结果' })])
       }),
     )
 

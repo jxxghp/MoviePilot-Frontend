@@ -13,6 +13,7 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -246,9 +247,9 @@ describe('SubscribeHistoryDialog', () => {
         const url = new URL(request.url)
         const page = url.searchParams.get('page') ?? ''
         requestedPages.push(page)
-        if (page === '1') return HttpResponse.json([first])
-        if (page === '2') return HttpResponse.json([second])
-        return HttpResponse.json([])
+        if (page === '1') return apiJson([first])
+        if (page === '2') return apiJson([second])
+        return apiJson([])
       }),
     )
     const user = userEvent.setup()
@@ -283,7 +284,7 @@ describe('SubscribeHistoryDialog', () => {
         const url = new URL(request.url)
         requestedPages.push(url.searchParams.get('page') ?? '')
         if (requestedPages.length === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
-        return HttpResponse.json([recovered])
+        return apiJson([recovered])
       }),
     )
     const user = userEvent.setup()
@@ -305,7 +306,7 @@ describe('SubscribeHistoryDialog', () => {
     server.use(
       http.get(subscribeApiUrls.historyByType('电影'), async () => {
         requested()
-        return HttpResponse.json(await pending.promise)
+        return apiJson(await pending.promise)
       }),
     )
 
@@ -329,13 +330,13 @@ describe('SubscribeHistoryDialog', () => {
     ],
     ['音乐', createHistory({ name: '重新订阅专辑', type: '音乐' }), '正在重新订阅 重新订阅专辑...'],
   ] as const)('shows the %s pending copy and emits save only after success', async (type, item, progressText) => {
-    const pending = createDeferred<{ success: boolean }>()
+    const pending = createDeferred<null>()
     let payload: JsonBodyType | undefined
     server.use(
       subscribeHistoryHandler(type, [item]),
       http.post(subscribeApiUrls.create, async ({ request }) => {
         payload = (await request.json()) as JsonBodyType
-        return HttpResponse.json(await pending.promise)
+        return apiJson(await pending.promise)
       }),
     )
     const user = userEvent.setup()
@@ -346,7 +347,7 @@ describe('SubscribeHistoryDialog', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent(progressText)
     expect(events.save).not.toHaveBeenCalled()
-    pending.resolve({ success: true })
+    pending.resolve(null)
     await waitFor(() => expect(events.save).toHaveBeenCalledOnce())
 
     expect(payload).toEqual(item)
