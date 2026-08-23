@@ -71,13 +71,14 @@ watch(
   () => props.workflow,
   newWorkflow => {
     if (newWorkflow) {
+      const normalizedWorkflow = { ...newWorkflow }
       // 如果trigger_type为空，默认为timer
-      if (!newWorkflow.trigger_type) {
-        newWorkflow.trigger_type = 'timer'
+      if (!normalizedWorkflow.trigger_type) {
+        normalizedWorkflow.trigger_type = 'timer'
       }
       workflowForm.value = {
-        ...newWorkflow,
-        execution_config: { ...(newWorkflow.execution_config || {}) },
+        ...normalizedWorkflow,
+        execution_config: { ...(normalizedWorkflow.execution_config || {}) },
       }
     }
   },
