@@ -1,5 +1,6 @@
 dist
 node_modules
+/.worktrees/
 
 # 自动生成文件的格式由各自生成器决定。
 auto-imports.d.ts
