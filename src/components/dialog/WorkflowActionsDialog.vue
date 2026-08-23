@@ -9,6 +9,7 @@ import api from '@/api'
 import WorkflowSidebar from '@/components/workflow/WorkflowSidebar.vue'
 import DropzoneBackground from '@/components/workflow/DropzoneBackground.vue'
 import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
+import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 
 // 多语言支持
@@ -93,25 +94,24 @@ const getEdgeConfigValue = (edge: any, key: string) => {
   return edge?.[key] ?? edge?.data?.[key] ?? ''
 }
 
-// 复制对象并移除不再由前端编辑的高级配置
+// 复制对象并移除仅用于编辑器展示的契约元数据
 const omitConfigKeys = (value: any, keys: string[]) => {
   const result = { ...(value || {}) }
   keys.forEach(key => delete result[key])
   return result
 }
 
-// 统一流程边数据结构，前端只编辑边条件，汇合和分支策略由执行器默认处理
+// 统一流程边的条件和画布展示字段，同时保留后端兼容的流程策略字段。
 const normalizeWorkflowEdge = (edge: any) => {
   const condition = String(getEdgeConfigValue(edge, 'condition') || '').trim()
   const edgeClass = String(edge?.class || '')
     .replace(/\bworkflow-conditional-edge\b/g, '')
     .trim()
-  const data = omitConfigKeys(edge?.data, ['join_policy', 'branch_policy'])
+  const data = { ...(edge?.data || {}) }
   data.condition = condition || undefined
-  const edgePayload = omitConfigKeys(edge, ['join_policy', 'branch_policy'])
 
   return {
-    ...edgePayload,
+    ...edge,
     animated: edge?.animated ?? true,
     type: edge?.type || 'animation',
     label: condition ? t('dialog.workflowActions.edgeConditionalLabel') : undefined,
@@ -126,22 +126,10 @@ const normalizeWorkflowEdges = () => {
   edges.value = (edges.value || []).map(edge => normalizeWorkflowEdge(edge))
 }
 
-// 统一动作节点数据结构，高级运行配置由后端默认值和动作契约接管
+// 统一动作节点数据结构，保留后端可识别的运行配置，仅移除编辑器契约元数据。
 const normalizeWorkflowNode = (node: any) => {
-  const hiddenConfigKeys = [
-    'inputs',
-    'outputs',
-    'join_policy',
-    'fail_policy',
-    'branch_policy',
-    'concurrency_key',
-    'timeout',
-    'retry',
-    'contract',
-    '_contract',
-  ]
-  const data = omitConfigKeys(node?.data, hiddenConfigKeys)
-  const nodePayload = omitConfigKeys(node, hiddenConfigKeys)
+  const data = omitConfigKeys(node?.data, ['contract', '_contract'])
+  const nodePayload = omitConfigKeys(node, ['contract', '_contract'])
 
   return {
     ...nodePayload,
@@ -318,8 +306,8 @@ const props = defineProps({
 // 定义事件
 const emit = defineEmits(['close', 'save'])
 
-// 站点编辑表单数据
-const workflowForm = ref<any>(props.workflow || {})
+// 工作流编辑草稿与传入对象隔离，避免画布、导入和失败保存回写调用方状态。
+const workflowForm = ref<any>(cloneDeep(props.workflow || {}))
 
 // 提示框
 const $toast = useToast()
@@ -354,7 +342,8 @@ function handleComponentClick(action: any) {
     name: action.name,
     description: action.desc || '',
     position,
-    data: {},
+    // 节点数据与侧栏动作配置隔离，保持和桌面拖放相同的复制语义。
+    data: cloneDeep(action.data || {}),
   }
 
   // 添加节点到画布
@@ -420,8 +409,8 @@ function shareWorkflow() {
 onMounted(() => {
   loadActionDefinitions()
   if (props.workflow) {
-    nodes.value = props.workflow.actions ?? []
-    edges.value = props.workflow.flows ?? []
+    nodes.value = cloneDeep(workflowForm.value.actions ?? [])
+    edges.value = cloneDeep(workflowForm.value.flows ?? [])
     normalizeWorkflowNodes()
     normalizeWorkflowEdges()
   }
