@@ -4,7 +4,7 @@ import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { readFileSync } from 'node:fs'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   apiDelete: vi.fn(),
@@ -61,6 +61,13 @@ async function renderCard(workflowOverrides: Partial<Workflow> = {}) {
   })
 }
 
+async function openAction(container: Element, label: string) {
+  const menuButton = container.querySelector<HTMLButtonElement>('.workflow-task-card__menu')
+  expect(menuButton).not.toBeNull()
+  await fireEvent.click(menuButton!)
+  return screen.getByText(label, { exact: true })
+}
+
 describe('WorkflowTaskCard redesign', () => {
   beforeEach(() => {
     mocks.apiDelete.mockReset()
@@ -72,6 +79,11 @@ describe('WorkflowTaskCard redesign', () => {
     mocks.apiPost.mockResolvedValue({ success: true })
     mocks.confirm.mockResolvedValue(true)
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('maps the generated card icon to the workflow trigger type', async () => {
@@ -188,6 +200,194 @@ describe('WorkflowTaskCard redesign', () => {
     await fireEvent.click(container.querySelector('.workflow-task-card') as Element)
     expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
     expect(mocks.openSharedDialog.mock.calls[0][1]).toEqual({ workflow: expect.objectContaining({ id: 'workflow-1' }) })
+  })
+
+  it('opens the edit dialog and refreshes after its save event', async () => {
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '编辑任务'))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toEqual({ workflow: expect.objectContaining({ id: 'workflow-1' }) })
+    const editEvents = mocks.openSharedDialog.mock.calls[0][2] as { save?: () => void }
+    editEvents.save?.()
+    expect(emitted().refresh).toHaveLength(1)
+  })
+
+  it('opens the share dialog without assigning edit callbacks', async () => {
+    const { container } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '分享'))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toEqual({ workflow: expect.objectContaining({ id: 'workflow-1' }) })
+    expect(mocks.openSharedDialog.mock.calls[0][2]).toEqual({})
+  })
+
+  it('requires deletion confirmation and leaves the card untouched when cancelled', async () => {
+    mocks.confirm.mockResolvedValueOnce(false)
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '删除任务'))
+
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('扫描和刮削') }),
+    )
+    expect(mocks.apiDelete).not.toHaveBeenCalled()
+    expect(emitted().refresh ?? []).toHaveLength(0)
+  })
+
+  it('deletes the workflow and refreshes the list after confirmation', async () => {
+    mocks.apiDelete.mockResolvedValueOnce({ success: true })
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '删除任务'))
+
+    await waitFor(() => expect(mocks.apiDelete).toHaveBeenCalledWith('workflow/workflow-1'))
+    await waitFor(() => expect(emitted().refresh).toHaveLength(1))
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('删除任务成功！')
+  })
+
+  it('does not refresh after deletion fails at the HTTP boundary', async () => {
+    mocks.apiDelete.mockRejectedValueOnce(new Error('network unavailable'))
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '删除任务'))
+
+    await waitFor(() => expect(mocks.apiDelete).toHaveBeenCalledWith('workflow/workflow-1'))
+    await waitFor(() => expect(console.error).toHaveBeenCalled())
+    expect(emitted().refresh).toBeUndefined()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['启用', 'P', 'workflow/workflow-1/start', '启用任务成功！'],
+    ['暂停', 'W', 'workflow/workflow-1/pause', '停用任务成功！'],
+  ] as const)('posts the %s action and refreshes after success', async (label, state, endpoint, toast) => {
+    const { emitted } = await renderCard({ state })
+
+    await fireEvent.click(screen.getByRole('button', { name: label }))
+
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith(endpoint))
+    await waitFor(() => expect(emitted().refresh).toHaveLength(1))
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(toast)
+  })
+
+  it.each([
+    ['启用', 'P', 'workflow/workflow-1/start'],
+    ['暂停', 'W', 'workflow/workflow-1/pause'],
+  ] as const)('does not refresh or show success after the %s action fails', async (label, state, endpoint) => {
+    mocks.apiPost.mockRejectedValueOnce(new Error('network unavailable'))
+    const { emitted } = await renderCard({ state })
+
+    await fireEvent.click(screen.getByRole('button', { name: label }))
+
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith(endpoint))
+    await waitFor(() => expect(console.error).toHaveBeenCalled())
+    expect(emitted().refresh).toBeUndefined()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['继续执行', false, 'workflow/workflow-1/run?from_begin=false'],
+    ['重新执行', true, 'workflow/workflow-1/run?from_begin=true'],
+  ] as const)('%s passes from_begin=%s and keeps the two-refresh sequence', async (label, fromBegin, endpoint) => {
+    vi.useFakeTimers()
+    const { container, emitted } = await renderCard({ current_action: 'scan' })
+
+    await fireEvent.click(await openAction(container, label))
+
+    expect(mocks.apiPost).toHaveBeenCalledWith(endpoint, { from_begin: fromBegin })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(emitted().refresh).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(499)
+    expect(emitted().refresh).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(emitted().refresh).toHaveLength(2)
+  })
+
+  it('starts a fresh workflow from the run menu when no action is in progress', async () => {
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '立即执行'))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith('workflow/workflow-1/run?from_begin=true', { from_begin: true }),
+    )
+    await waitFor(() => expect(emitted().refresh?.length).toBeGreaterThan(0))
+  })
+
+  it('keeps the card loading while an enable request is pending and refreshes once it resolves', async () => {
+    let resolvePost!: (value: unknown) => void
+    mocks.apiPost.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolvePost = resolve
+      }),
+    )
+    const { container, emitted } = await renderCard({ state: 'P' })
+
+    await fireEvent.click(screen.getByRole('button', { name: '启用' }))
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('workflow/workflow-1/start'))
+    const loader = container.querySelector('.v-card__loader .v-progress-linear')
+    expect(loader).toHaveStyle({ height: '2px' })
+
+    resolvePost({ success: true })
+    await waitFor(() => expect(loader).toHaveStyle({ height: '0px' }))
+    expect(emitted().refresh).toHaveLength(1)
+  })
+
+  it('resets the workflow only after confirmation and refreshes on success', async () => {
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '重置任务'))
+
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('workflow/workflow-1/reset'))
+    await waitFor(() => expect(emitted().refresh).toHaveLength(1))
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('重置任务成功！')
+  })
+
+  it('does not refresh after reset confirmation is cancelled or the request fails', async () => {
+    mocks.confirm.mockResolvedValueOnce(false)
+    const cancelled = await renderCard()
+    await fireEvent.click(await openAction(cancelled.container, '重置任务'))
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+    expect(cancelled.emitted().refresh).toBeUndefined()
+    cancelled.unmount()
+
+    mocks.confirm.mockResolvedValueOnce(true)
+    mocks.apiPost.mockRejectedValueOnce(new Error('network unavailable'))
+    const failed = await renderCard()
+    await fireEvent.click(await openAction(failed.container, '重置任务'))
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('workflow/workflow-1/reset'))
+    await waitFor(() => expect(console.error).toHaveBeenCalled())
+    expect(failed.emitted().refresh).toBeUndefined()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('closes loading and avoids a success toast after a failed run request', async () => {
+    vi.useFakeTimers()
+    mocks.apiPost.mockRejectedValueOnce(new Error('network unavailable'))
+    const { container } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '立即执行'))
+    expect(mocks.apiPost).toHaveBeenCalled()
+    await vi.runAllTimersAsync()
+
+    const loader = container.querySelector('.v-card__loader .v-progress-linear')
+    expect(loader).toHaveStyle({ height: '0px' })
+    expect(mocks.apiPost).toHaveBeenCalledWith('workflow/workflow-1/run?from_begin=true', { from_begin: true })
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('keeps the delayed refresh after a failed run request', async () => {
+    vi.useFakeTimers()
+    mocks.apiPost.mockRejectedValueOnce(new Error('network unavailable'))
+    const { container, emitted } = await renderCard()
+
+    await fireEvent.click(await openAction(container, '立即执行'))
+    await vi.advanceTimersByTimeAsync(499)
+    expect(emitted().refresh).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(emitted().refresh).toHaveLength(1)
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
   it('derives all custom card colors and geometry from global theme tokens', () => {

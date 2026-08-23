@@ -399,6 +399,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/cards/PluginFolderCard.vue',
         'src/components/cards/PluginCard.vue',
         'src/components/cards/PluginAppCard.vue',
+        'src/components/cards/WorkflowTaskCard.vue',
         'src/components/dialog/PluginMarketDetailDialog.vue',
         'src/components/dialog/PluginMarketSettingDialog.vue',
         'src/components/dialog/PluginVersionHistoryDialog.vue',
@@ -416,6 +417,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/views/setting/AccountSettingSubscribe.vue',
         'src/views/setting/AccountSettingSystem.vue',
         'src/views/user/UserListView.vue',
+        'src/views/workflow/WorkflowListView.vue',
         'src/views/user/UserProfileView.vue',
         'src/views/reorganize/DownloadingListView.vue',
         'src/views/plugin/PluginCardListView.vue',
@@ -543,6 +545,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 85,
           statements: 85,
         },
+        'src/components/cards/WorkflowTaskCard.vue': {
+          branches: 80,
+          functions: 85,
+          lines: 85,
+          statements: 85,
+        },
         'src/components/dialog/UserAddEditDialog.vue': {
           branches: 75,
           functions: 80,
@@ -562,6 +570,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           statements: 80,
         },
         'src/views/user/UserListView.vue': {
+          branches: 80,
+          functions: 85,
+          lines: 85,
+          statements: 85,
+        },
+        'src/views/workflow/WorkflowListView.vue': {
           branches: 80,
           functions: 85,
           lines: 85,
