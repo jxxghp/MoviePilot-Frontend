@@ -362,6 +362,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/components/dialog/SiteAddEditDialog.vue',
         'src/components/dialog/UserAddEditDialog.vue',
         'src/components/dialog/WorkflowAddEditDialog.vue',
+        'src/components/dialog/WorkflowActionsDialog.vue',
         'src/components/dialog/OTPAuthDialog.vue',
         'src/components/dialog/PasskeyDialog.vue',
         'src/components/dialog/SiteCookieUpdateDialog.vue',
@@ -563,6 +564,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 85,
           lines: 85,
           statements: 85,
+        },
+        'src/components/dialog/WorkflowActionsDialog.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/components/dialog/OTPAuthDialog.vue': {
           branches: 80,
