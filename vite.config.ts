@@ -425,6 +425,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/views/setting/AccountSettingSystem.vue',
         'src/views/user/UserListView.vue',
         'src/views/workflow/WorkflowListView.vue',
+        'src/views/workflow/WorkflowShareView.vue',
         'src/views/user/UserProfileView.vue',
         'src/views/reorganize/DownloadingListView.vue',
         'src/views/plugin/PluginCardListView.vue',
@@ -629,6 +630,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           functions: 85,
           lines: 85,
           statements: 85,
+        },
+        'src/views/workflow/WorkflowShareView.vue': {
+          branches: 80,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/views/user/UserProfileView.vue': {
           branches: 75,
