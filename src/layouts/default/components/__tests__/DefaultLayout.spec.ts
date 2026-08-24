@@ -43,6 +43,7 @@ vi.mock('@layouts/components/VerticalNavLink.vue', () => ({ default: mocks.navLi
 vi.mock('@layouts/components/VerticalNavSectionTitle.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/components/agent/AgentAssistantWidget.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/components/misc/ThemeLogoMark.vue', () => ({ default: mocks.emptyComponent }))
+vi.mock('@/components/system/SystemUpdatePrompt.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/components/theme/ThemeCustomizer.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/Footer.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/HeaderTab.vue', () => ({ default: mocks.emptyComponent }))

@@ -38,6 +38,7 @@ import {
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
+import SystemUpdatePrompt from '@/components/system/SystemUpdatePrompt.vue'
 
 const display = useDisplay()
 // PWA模式检测
@@ -512,6 +513,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <SystemUpdatePrompt :enabled="canAdmin" :avoid-agent-assistant="showAgentAssistant" />
   <!-- 👉 Offline Page -->
   <OfflinePage />
 

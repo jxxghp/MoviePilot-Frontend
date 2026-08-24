@@ -962,7 +962,7 @@ describe('AccountSettingSystem', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('高级设置保存成功')
   })
 
-  it('round-trips all advanced system switches and preserves the auto-update wire value', async () => {
+  it('round-trips all advanced system switches and enables only the Dev update mode', async () => {
     await renderSettings()
     const dialog = await openAdvancedTab('系统')
     for (const label of [
@@ -974,7 +974,7 @@ describe('AccountSettingSystem', () => {
       '分享工作流数据',
       '大内存模式',
       '数据库WAL模式',
-      '自动更新MoviePilot',
+      '跟踪 Dev 开发版',
       '自动更新站点资源',
     ]) {
       await fireEvent.click(dialog.getByLabelText(label))
@@ -989,7 +989,7 @@ describe('AccountSettingSystem', () => {
         BIG_MEMORY_MODE: true,
         DB_WAL_ENABLE: true,
         GLOBAL_IMAGE_CACHE: true,
-        MOVIEPILOT_AUTO_UPDATE: 'release',
+        MOVIEPILOT_AUTO_UPDATE: 'dev',
         PLUGIN_STATISTIC_SHARE: false,
         SUBSCRIBE_STATISTIC_SHARE: false,
         USAGE_STATISTIC_SHARE: false,
