@@ -102,7 +102,7 @@ watch(
 // 获取动作步骤文本
 function getActionStepText(type: string | undefined) {
   if (!type) return ''
-  return actionStepDict[type]
+  return actionStepDict[type] || type
 }
 
 onMounted(() => {

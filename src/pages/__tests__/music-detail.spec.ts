@@ -21,6 +21,12 @@ vi.mock('@/composables/useSharedDialog', () => ({
   openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
+vi.mock('@/api/nprogress', () => ({
+  configureNProgress: vi.fn(),
+  doneNProgress: vi.fn(),
+  startNProgress: vi.fn(),
+}))
+
 vi.mock('@/api', () => ({
   default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
