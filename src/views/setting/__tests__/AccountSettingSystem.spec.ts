@@ -1334,6 +1334,22 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ RUST_ACCEL: false }))
   })
 
+  it('keeps Rust acceleration enabled and read-only when required by the runtime', async () => {
+    systemEnv.RUST_ACCEL_AVAILABLE = true
+    systemEnv.RUST_ACCEL_REQUIRED = true
+    systemEnv.RUST_ACCEL = false
+    await renderSettings()
+
+    const dialog = await openAdvancedTab('实验室')
+    const rust = dialog.getByLabelText('Rust 加速')
+    expect(rust).toBeDisabled()
+    expect(rust).toBeChecked()
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(findPost('system/env')).toBeDefined())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ RUST_ACCEL: true }))
+  })
+
   it('suppresses silent refresh while the advanced dialog is open and resumes after save', async () => {
     await renderSettings()
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('system/env'))

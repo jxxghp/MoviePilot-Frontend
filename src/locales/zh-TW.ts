@@ -2234,6 +2234,7 @@ export default {
       encodingDetectionPerformanceModeHint: '優先提升探測效率，但可能降低編碼探測的準確性',
       rustAccel: 'Rust 加速',
       rustAccelHint: '啟用後使用後端 Rust 擴展加速過濾、RSS、索引器和媒體識別等熱路徑',
+      rustAccelRequiredHint: '當前 free-threaded 運行環境固定使用 Rust 加速',
       rustAccelUnavailableHint: '當前後端未安裝或未加載 Rust 加速擴展，無法啟用',
       transferThreads: '文件整理線程數',
       transferThreadsHint: '多線程整理文件可以提高速度，但可能增加系統資源佔用',

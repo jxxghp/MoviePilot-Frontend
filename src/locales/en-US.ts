@@ -2272,6 +2272,7 @@ export default {
       rustAccel: 'Rust Acceleration',
       rustAccelHint:
         'Use the backend Rust extension to accelerate filtering, RSS, indexer parsing, and recognition hot paths',
+      rustAccelRequiredHint: 'The free-threaded runtime requires Rust acceleration',
       rustAccelUnavailableHint:
         'The backend Rust acceleration extension is not installed or loaded, so this cannot be enabled',
       transferThreads: 'File Transfer Threads',

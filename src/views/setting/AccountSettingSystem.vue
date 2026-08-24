@@ -238,6 +238,7 @@ const advancedDialog = ref(false)
 const savingBasic = ref(false)
 const testingLlm = ref(false)
 const rustAccelAvailable = ref(false)
+const rustAccelRequired = ref(false)
 const agentMcpDialog = ref(false)
 const agentMcpServers = ref<AgentMcpServer[]>([])
 const loadingAgentMcpServers = ref(false)
@@ -544,7 +545,11 @@ const canTestLlm = computed(() => {
 })
 
 const rustAccelHint = computed(() =>
-  rustAccelAvailable.value ? t('setting.system.rustAccelHint') : t('setting.system.rustAccelUnavailableHint'),
+  rustAccelRequired.value
+    ? t('setting.system.rustAccelRequiredHint')
+    : rustAccelAvailable.value
+      ? t('setting.system.rustAccelHint')
+      : t('setting.system.rustAccelUnavailableHint'),
 )
 
 const thinkingLevelItems = computed(() => [
@@ -797,7 +802,9 @@ async function loadSystemSettings() {
     }
     const accelAvailable = Boolean(result.RUST_ACCEL_AVAILABLE ?? result.RUST_ACCEL_ENABLED)
     rustAccelAvailable.value = accelAvailable
-    if (!accelAvailable) SystemSettings.value.Advanced.RUST_ACCEL = false
+    rustAccelRequired.value = Boolean(result.RUST_ACCEL_REQUIRED)
+    if (rustAccelRequired.value) SystemSettings.value.Advanced.RUST_ACCEL = true
+    else if (!accelAvailable) SystemSettings.value.Advanced.RUST_ACCEL = false
     SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result)
     await loadLlmProviders()
   } catch (error) {
@@ -898,7 +905,8 @@ async function testLlmConnection() {
 // 保存高级设置
 async function saveAdvancedSettings() {
   if (!normalizeDbBackupSettings()) return
-  if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
+  if (rustAccelRequired.value) SystemSettings.value.Advanced.RUST_ACCEL = true
+  else if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
   cleanEmptyFields(SystemSettings.value.Advanced, ['LOG_FILE_FORMAT'])
 
   // 同时保存高级设置和刮削开关设置
@@ -2774,7 +2782,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     v-model="SystemSettings.Advanced.RUST_ACCEL"
                     :label="t('setting.system.rustAccel')"
                     :hint="rustAccelHint"
-                    :disabled="!rustAccelAvailable"
+                    :disabled="!rustAccelAvailable || rustAccelRequired"
                     persistent-hint
                   />
                 </VCol>
