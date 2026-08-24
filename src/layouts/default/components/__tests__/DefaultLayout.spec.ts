@@ -24,6 +24,7 @@ interface UserStoreMock {
 const mocks = vi.hoisted(() => ({
   emptyComponent: { template: '<div><slot /></div>' },
   ensureSidebarNav: vi.fn(),
+  loadUserSettings: vi.fn(),
   navLink: {
     name: 'VerticalNavLink',
     props: ['item'],
@@ -76,7 +77,10 @@ vi.mock('@/stores', async () => {
   })
 
   return {
-    useGlobalSettingsStore: () => ({ get: vi.fn(() => false) }),
+    useGlobalSettingsStore: () => ({
+      get: vi.fn(() => false),
+      loadUserSettings: mocks.loadUserSettings,
+    }),
     usePluginRuntimeStore: () => mocks.runtimeStore,
     usePluginSidebarNavStore: () => mocks.sidebarStore,
     useUserStore: () => mocks.userStore,
@@ -125,6 +129,8 @@ describe('DefaultLayout', () => {
   beforeEach(() => {
     mocks.ensureSidebarNav.mockReset()
     mocks.ensureSidebarNav.mockResolvedValue(undefined)
+    mocks.loadUserSettings.mockReset()
+    mocks.loadUserSettings.mockResolvedValue(undefined)
     mocks.startPluginRuntime.mockReset()
     mocks.stopPluginRuntime.mockReset()
     mocks.runtimeStore!.reconciliation = 0
@@ -264,11 +270,14 @@ describe('DefaultLayout', () => {
     mocks.runtimeStore!.reconciliation = 1
     await nextTick()
     expect(mocks.ensureSidebarNav).toHaveBeenCalledWith(true)
+    expect(mocks.loadUserSettings).toHaveBeenCalled()
     mocks.ensureSidebarNav.mockClear()
+    mocks.loadUserSettings.mockClear()
 
     mocks.runtimeStore!.reconciliation = 2
     await nextTick()
     expect(mocks.ensureSidebarNav).toHaveBeenCalledWith(true)
+    expect(mocks.loadUserSettings).toHaveBeenCalled()
 
     wrapper.unmount()
     expect(mocks.stopPluginRuntime).toHaveBeenCalledTimes(1)

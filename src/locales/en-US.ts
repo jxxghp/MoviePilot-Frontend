@@ -277,6 +277,9 @@ export default {
     continueBrowsing: 'Continue browsing',
     online: 'Application Online',
     onlineMessage: 'Network connection restored',
+    freeThreadedExperimentalHint: 'Experimental free-threaded runtime',
+    freeThreadedGilFallbackWarning:
+      'The free-threaded runtime has fallen back to GIL mode. Check backend logs for native extension compatibility warnings.',
   },
   pwa: {
     installApp: 'Install MoviePilot App',
@@ -2273,8 +2276,6 @@ export default {
       rustAccelHint:
         'Use the backend Rust extension to accelerate filtering, RSS, indexer parsing, and recognition hot paths',
       rustAccelRequiredHint: 'The free-threaded runtime requires Rust acceleration',
-      rustAccelGilFallbackWarning:
-        'The free-threaded runtime has fallen back to GIL mode. Check backend logs for native extension compatibility warnings.',
       rustAccelUnavailableHint:
         'The backend Rust acceleration extension is not installed or loaded, so this cannot be enabled',
       transferThreads: 'File Transfer Threads',

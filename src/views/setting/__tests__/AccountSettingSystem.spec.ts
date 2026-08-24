@@ -1337,34 +1337,19 @@ describe('AccountSettingSystem', () => {
   it('keeps Rust acceleration enabled and read-only when required by the runtime', async () => {
     systemEnv.RUST_ACCEL_AVAILABLE = true
     systemEnv.RUST_ACCEL_REQUIRED = true
-    systemEnv.PYTHON_GIL_ENABLED = false
     systemEnv.RUST_ACCEL = false
     await renderSettings()
 
     const dialog = await openAdvancedTab('实验室')
     const rust = dialog.getByLabelText('Rust 加速')
-    expect(rust).toBeDisabled()
+    expect(rust).toHaveAttribute('aria-disabled', 'false')
     expect(rust).toBeChecked()
-    expect(
-      dialog.queryByText('free-threaded 运行时已退化为 GIL 模式，请检查后端日志中的原生扩展兼容告警'),
-    ).not.toBeInTheDocument()
+    await fireEvent.click(rust)
+    expect(rust).toBeChecked()
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(findPost('system/env')).toBeDefined())
     expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ RUST_ACCEL: true }))
-  })
-
-  it('warns when a free-threaded runtime has enabled the GIL', async () => {
-    systemEnv.RUST_ACCEL_AVAILABLE = true
-    systemEnv.RUST_ACCEL_REQUIRED = true
-    systemEnv.PYTHON_GIL_ENABLED = true
-    await renderSettings()
-
-    const dialog = await openAdvancedTab('实验室')
-
-    expect(
-      dialog.getByText('free-threaded 运行时已退化为 GIL 模式，请检查后端日志中的原生扩展兼容告警'),
-    ).toBeVisible()
   })
 
   it('suppresses silent refresh while the advanced dialog is open and resumes after save', async () => {

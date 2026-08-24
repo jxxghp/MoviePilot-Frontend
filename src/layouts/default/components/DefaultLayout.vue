@@ -484,7 +484,10 @@ watch([() => pluginSidebarNavStore.items, userPermissions], () => {
 watch(
   () => pluginRuntimeStore.reconciliation,
   reconciliation => {
-    if (reconciliation > 0) void pluginSidebarNavStore.ensureSidebarNav(true)
+    if (reconciliation <= 0) return
+
+    void pluginSidebarNavStore.ensureSidebarNav(true)
+    void globalSettingsStore.loadUserSettings()
   },
 )
 

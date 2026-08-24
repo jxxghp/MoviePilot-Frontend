@@ -270,6 +270,8 @@ export default {
     continueBrowsing: '继续浏览',
     online: '应用在线',
     onlineMessage: '网络连接已恢复',
+    freeThreadedExperimentalHint: '实验性 free-threaded 运行时',
+    freeThreadedGilFallbackWarning: 'free-threaded 运行时已退化为 GIL 模式，请检查后端日志中的原生扩展兼容告警',
   },
   pwa: {
     installApp: '安装 MoviePilot 应用',
@@ -2236,7 +2238,6 @@ export default {
       rustAccel: 'Rust 加速',
       rustAccelHint: '启用后使用后端 Rust 扩展加速过滤、RSS、索引器和媒体识别等热路径',
       rustAccelRequiredHint: '当前 free-threaded 运行时固定使用 Rust 加速',
-      rustAccelGilFallbackWarning: 'free-threaded 运行时已退化为 GIL 模式，请检查后端日志中的原生扩展兼容告警',
       rustAccelUnavailableHint: '当前后端未安装或未加载 Rust 加速扩展，无法启用',
       transferThreads: '文件整理线程数',
       transferThreadsHint: '多线程整理文件可以提高速度，但可能增加系统资源占用',
