@@ -18,14 +18,14 @@ function renderMusicView() {
 }
 
 describe('MusicView', () => {
-  it('defaults to the sitewide top tracks chart of the current month', async () => {
+  it('defaults to the sitewide top albums chart of the current month', async () => {
     await renderMusicView()
 
     const params = screen.getByTestId('music-params')
     expect(params).toHaveTextContent('"media_source":"musicbrainz"')
     expect(params).not.toHaveTextContent('"source"')
     expect(params).toHaveTextContent('"mode":"chart"')
-    expect(params).toHaveTextContent('"entity":"recording"')
+    expect(params).toHaveTextContent('"entity":"album"')
     expect(params).toHaveTextContent('"range_name":"this_month"')
     expect(params).toHaveTextContent('"sort_by":"listen_count.desc"')
   })
@@ -34,13 +34,13 @@ describe('MusicView', () => {
     const user = userEvent.setup()
     await renderMusicView()
 
-    await user.click(screen.getByText('热门专辑'))
+    await user.click(screen.getByText('热门单曲'))
     await user.click(screen.getByText('过去一季'))
     await user.click(screen.getByText('收听最少'))
     await user.click(screen.getByText('仅有封面'))
 
     const params = screen.getByTestId('music-params')
-    expect(params).toHaveTextContent('"entity":"album"')
+    expect(params).toHaveTextContent('"entity":"recording"')
     expect(params).toHaveTextContent('"range_name":"quarter"')
     expect(params).toHaveTextContent('"sort_by":"listen_count.asc"')
     expect(params).toHaveTextContent('"with_cover":true')

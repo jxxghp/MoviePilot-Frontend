@@ -7,8 +7,8 @@ const { t } = useI18n()
 // 探索模式：对齐 ListenBrainz 官方的热门统计与新发行两个入口
 const mode = ref<'chart' | 'fresh'>('chart')
 
-// 热门榜单实体：官方统计页面的热门单曲与热门专辑
-const entity = ref('recording')
+// 专辑榜更适合作为探索首屏，避免同一热门专辑的单曲重复占据多个卡片
+const entity = ref('album')
 
 // 热门榜单周期，取值与官方统计页面一致
 const rangeName = ref('this_month')
