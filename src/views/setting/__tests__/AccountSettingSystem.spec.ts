@@ -1342,7 +1342,9 @@ describe('AccountSettingSystem', () => {
 
     const dialog = await openAdvancedTab('实验室')
     const rust = dialog.getByLabelText('Rust 加速')
-    expect(rust).toBeDisabled()
+    expect(rust).toHaveAttribute('aria-disabled', 'false')
+    expect(rust).toBeChecked()
+    await fireEvent.click(rust)
     expect(rust).toBeChecked()
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 

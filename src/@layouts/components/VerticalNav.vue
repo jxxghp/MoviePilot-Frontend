@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import type { Component } from 'vue'
 import { useDisplay } from 'vuetify'
+import { useI18n } from 'vue-i18n'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
+import { useGlobalSettingsStore } from '@/stores'
 
 interface Props {
   tag?: string | Component
@@ -14,6 +16,17 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { mdAndDown } = useDisplay()
+const { t } = useI18n()
+const globalSettingsStore = useGlobalSettingsStore()
+const pythonFreeThreaded = computed(() => globalSettingsStore.get('PYTHON_FREE_THREADED') === true)
+const runtimeVersion = computed(() => (pythonFreeThreaded.value ? 'v3t' : 'v3'))
+const runtimeGilFallback = computed(
+  () => pythonFreeThreaded.value && globalSettingsStore.get('PYTHON_GIL_ENABLED') === true,
+)
+const runtimeStatusIcon = computed(() => (runtimeGilFallback.value ? 'mdi-alert-circle-outline' : 'mdi-flask-outline'))
+const runtimeStatusHint = computed(() =>
+  t(runtimeGilFallback.value ? 'app.freeThreadedGilFallbackWarning' : 'app.freeThreadedExperimentalHint'),
+)
 const refNav = ref()
 const route = useRoute()
 
@@ -54,7 +67,20 @@ function handleNavScroll(evt: Event) {
           <ThemeLogoMark />
 
           <h1 class="leading-normal text-xl">
-            <span class="moviepilot-wordmark">MOVIEPILOT</span> <span class="text-sm text-gray-500">v3</span>
+            <span class="moviepilot-wordmark">MOVIEPILOT</span>
+            <span
+              class="runtime-version text-sm text-gray-500 d-inline-flex align-center"
+              :class="{
+                'runtime-version--free-threaded': pythonFreeThreaded,
+                'runtime-version--degraded': runtimeGilFallback,
+              }"
+            >
+              {{ runtimeVersion }}
+              <VIcon v-if="pythonFreeThreaded" :icon="runtimeStatusIcon" size="13" :aria-label="runtimeStatusHint" />
+              <VTooltip v-if="pythonFreeThreaded" activator="parent" location="bottom">
+                {{ runtimeStatusHint }}
+              </VTooltip>
+            </span>
           </h1>
         </RouterLink>
       </slot>
@@ -92,7 +118,10 @@ function handleNavScroll(evt: Event) {
   inline-size: variables.$layout-vertical-nav-width;
   inset-block-start: 0;
   inset-inline-start: 0;
-  transition: transform 0.25s ease-in-out, inline-size 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+  transition:
+    transform 0.25s ease-in-out,
+    inline-size 0.25s ease-in-out,
+    box-shadow 0.25s ease-in-out;
   visibility: hidden;
   will-change: transform, inline-size;
 
@@ -111,6 +140,20 @@ function handleNavScroll(evt: Event) {
 
   .app-title-wrapper {
     margin-inline-end: auto;
+  }
+
+  .runtime-version {
+    margin-inline-start: 0.25rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .runtime-version--free-threaded {
+    gap: 0.2rem;
+  }
+
+  .runtime-version--degraded {
+    color: rgb(var(--v-theme-warning)) !important;
   }
 
   .nav-items {

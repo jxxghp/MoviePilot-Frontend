@@ -551,7 +551,6 @@ const rustAccelHint = computed(() =>
       ? t('setting.system.rustAccelHint')
       : t('setting.system.rustAccelUnavailableHint'),
 )
-
 const thinkingLevelItems = computed(() => [
   { title: t('setting.system.llmThinkingLevelOff'), value: 'off' },
   { title: t('setting.system.llmThinkingLevelAuto'), value: 'auto' },
@@ -2782,7 +2781,8 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     v-model="SystemSettings.Advanced.RUST_ACCEL"
                     :label="t('setting.system.rustAccel')"
                     :hint="rustAccelHint"
-                    :disabled="!rustAccelAvailable || rustAccelRequired"
+                    :disabled="!rustAccelAvailable"
+                    :readonly="rustAccelRequired"
                     persistent-hint
                   />
                 </VCol>

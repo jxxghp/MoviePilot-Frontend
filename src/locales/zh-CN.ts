@@ -270,6 +270,8 @@ export default {
     continueBrowsing: '继续浏览',
     online: '应用在线',
     onlineMessage: '网络连接已恢复',
+    freeThreadedExperimentalHint: '实验性 free-threaded 运行时',
+    freeThreadedGilFallbackWarning: 'free-threaded 运行时已退化为 GIL 模式，请检查后端日志中的原生扩展兼容告警',
   },
   pwa: {
     installApp: '安装 MoviePilot 应用',

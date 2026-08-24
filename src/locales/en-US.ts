@@ -277,6 +277,9 @@ export default {
     continueBrowsing: 'Continue browsing',
     online: 'Application Online',
     onlineMessage: 'Network connection restored',
+    freeThreadedExperimentalHint: 'Experimental free-threaded runtime',
+    freeThreadedGilFallbackWarning:
+      'The free-threaded runtime has fallen back to GIL mode. Check backend logs for native extension compatibility warnings.',
   },
   pwa: {
     installApp: 'Install MoviePilot App',
