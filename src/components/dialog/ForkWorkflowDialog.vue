@@ -78,10 +78,10 @@ async function doFork() {
   try {
     processing.value = true
     // 请求API
-    const result = await api.post<{ id: string }>('workflow/fork', props.workflow, { feedback: 'silent' })
+    await api.post('workflow/fork', props.workflow, { feedback: 'silent' })
     $toast.success(t('workflow.addSuccess', { name: props.workflow?.share_title }))
     // 完成
-    emit('fork', result.id)
+    emit('fork')
   } catch (error) {
     console.error(error)
     $toast.error(
@@ -103,7 +103,7 @@ async function doDelete() {
   try {
     deleting.value = true
     // 请求API
-    const result = await api.delete<{ id: string }>(`workflow/share/${props.workflow?.id}`, {
+    await api.delete(`workflow/share/${props.workflow?.id}`, {
       params: {
         share_uid: globalSettings.USER_UNIQUE_ID,
       },
@@ -111,7 +111,7 @@ async function doDelete() {
     })
     $toast.success(t('workflow.cancelSuccess'))
     // 完成
-    emit('delete', result.id)
+    emit('delete')
   } catch (error) {
     console.error(error)
     $toast.error(t('workflow.cancelFailed', { message: error instanceof Error ? error.message : '' }))
