@@ -239,6 +239,7 @@ const savingBasic = ref(false)
 const testingLlm = ref(false)
 const rustAccelAvailable = ref(false)
 const rustAccelRequired = ref(false)
+const pythonGilEnabled = ref(true)
 const agentMcpDialog = ref(false)
 const agentMcpServers = ref<AgentMcpServer[]>([])
 const loadingAgentMcpServers = ref(false)
@@ -551,6 +552,7 @@ const rustAccelHint = computed(() =>
       ? t('setting.system.rustAccelHint')
       : t('setting.system.rustAccelUnavailableHint'),
 )
+const freeThreadedGilFallback = computed(() => rustAccelRequired.value && pythonGilEnabled.value)
 
 const thinkingLevelItems = computed(() => [
   { title: t('setting.system.llmThinkingLevelOff'), value: 'off' },
@@ -803,6 +805,7 @@ async function loadSystemSettings() {
     const accelAvailable = Boolean(result.RUST_ACCEL_AVAILABLE ?? result.RUST_ACCEL_ENABLED)
     rustAccelAvailable.value = accelAvailable
     rustAccelRequired.value = Boolean(result.RUST_ACCEL_REQUIRED)
+    pythonGilEnabled.value = Boolean(result.PYTHON_GIL_ENABLED)
     if (rustAccelRequired.value) SystemSettings.value.Advanced.RUST_ACCEL = true
     else if (!accelAvailable) SystemSettings.value.Advanced.RUST_ACCEL = false
     SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result)
@@ -2785,6 +2788,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :disabled="!rustAccelAvailable || rustAccelRequired"
                     persistent-hint
                   />
+                  <VAlert
+                    v-if="freeThreadedGilFallback"
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-2"
+                  >
+                    {{ t('setting.system.rustAccelGilFallbackWarning') }}
+                  </VAlert>
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
