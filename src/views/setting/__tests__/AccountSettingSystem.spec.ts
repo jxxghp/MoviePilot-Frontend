@@ -242,6 +242,7 @@ const BASIC_SETTING_KEYS = [
 function mockLoadedSettings() {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/env') return { success: true, data: systemEnv }
+    if (endpoint === 'system/database/backups') return { success: true, data: [] }
     if (endpoint === 'message/agent/mcp/servers') return { success: true, data: { servers: [] } }
     if (endpoint === 'system/setting/Downloaders')
       return { success: true, data: { value: structuredClone(downloadersSetting) } }

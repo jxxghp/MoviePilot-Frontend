@@ -7,6 +7,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { DownloaderConf, MediaServerConf } from '@/api/types'
 import DownloaderCard from '@/components/cards/DownloaderCard.vue'
 import MediaServerCard from '@/components/cards/MediaServerCard.vue'
+import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
 import { downloaderOptions, mediaServerOptions } from '@/api/constants'
@@ -2552,6 +2553,9 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     />
                   </VCol>
                 </template>
+                <VCol cols="12">
+                  <DatabaseBackupPanel :active="activeTab === 'data'" />
+                </VCol>
                 <VCol cols="12">
                   <VSwitch
                     v-model="SystemSettings.Advanced.DATA_CLEANUP_ENABLE"
