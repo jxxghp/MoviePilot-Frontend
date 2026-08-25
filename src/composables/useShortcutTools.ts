@@ -31,6 +31,8 @@ export type ShortcutToolItem = PermissionProtectedItem & {
   dialogSubtitle?: string
   icon: string
   maxWidth?: string
+  /** 动态视图是否声明并可能触发 close 事件。 */
+  supportsClose?: boolean
   subtitle: string
   title: string
   titleText?: string
@@ -50,6 +52,7 @@ export function useShortcutTools() {
       dialog: 'nameTest',
       component: NameTestView,
       maxWidth: '65rem',
+      supportsClose: true,
       titleText: t('shortcut.recognition.title'),
     },
     {
@@ -143,6 +146,7 @@ export function useShortcutTools() {
         icon: item.icon,
         maxWidth: item.maxWidth ?? '35rem',
         subtitle: item.dialogSubtitle,
+        supportsClose: item.supportsClose,
         title: item.titleText ?? item.title,
         view: item.component,
       },
