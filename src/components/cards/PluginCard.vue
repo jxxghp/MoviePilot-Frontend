@@ -267,7 +267,7 @@ async function resetPlugin() {
 }
 
 // 更新插件
-async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
+async function updatePlugin(releaseVersion?: string) {
   if (!releaseVersion && props.plugin?.system_version_compatible === false) {
     $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
     return
@@ -296,7 +296,6 @@ async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
     await api.get(`plugin/install/${props.plugin?.id}`, {
       feedback: 'silent',
       params: {
-        repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
         force: true,
       },
@@ -476,12 +475,7 @@ function showPluginClone() {
 }
 
 // 执行插件分身
-async function executePluginClone(cloneForm: {
-  suffix: string
-  name: string
-  description: string
-  icon: string
-}) {
+async function executePluginClone(cloneForm: { suffix: string; name: string; description: string; icon: string }) {
   if (!cloneForm.suffix.trim()) {
     $toast.error(t('plugin.suffixRequired'))
     return

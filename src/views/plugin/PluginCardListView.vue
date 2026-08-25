@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { getApiBusinessErrorMessage } from '@/api/client'
+import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
 import type { Plugin, PluginRating } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
@@ -822,15 +824,6 @@ function isLocalRepoSource(item: Plugin | string | undefined) {
   return Boolean((typeof item !== 'string' && item.is_local) || repoUrl.startsWith('local://'))
 }
 
-/** 解码本地插件仓库路径，避免异常路径中断市场列表加载。 */
-function decodeLocalRepoPath(value: string) {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
 // 初始化过滤选项
 function initOptions(item: Plugin) {
   const optionValue = (options: Array<string>, value: unknown, preferred = false) => {
@@ -864,6 +857,43 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
     return
   }
 
+  installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
+
+  const releaseInstallReservation = () => {
+    const pending = new Set(installingPluginIds.value)
+    pending.delete(pluginId)
+    installingPluginIds.value = pending
+  }
+
+  let useExplicitSource = false
+  try {
+    const sourceOptions = await getPluginSourceOptions(pluginId)
+    if (sourceOptions.selection_status === 'conflict') {
+      if (!repoUrl) {
+        releaseInstallReservation()
+        openPluginMarketDetail(item)
+        return
+      }
+      const selectedCandidate = sourceOptions.candidates.find(
+        candidate => candidate.repo_url === repoUrl && candidate.source_type !== 'local',
+      )
+      if (!selectedCandidate) {
+        releaseInstallReservation()
+        $toast.error(t('plugin.selectSourceRequired'))
+        openPluginMarketDetail(item)
+        return
+      }
+      useExplicitSource = true
+    } else if (['unavailable', 'incomplete'].includes(sourceOptions.selection_status)) {
+      releaseInstallReservation()
+      $toast.error(sourceOptions.selection_reason || t('plugin.sourceUnavailable'))
+      return
+    }
+  } catch (error) {
+    console.error(error)
+    // 候选查询失败时仍由安装 Gateway 执行最终来源准入，避免只读接口故障扩大为安装停机。
+  }
+
   const previousIndex = dataList.value.findIndex(plugin => plugin.id === item.id)
   const previousPlugin = previousIndex >= 0 ? dataList.value[previousIndex] : undefined
   sortMode.value = false
@@ -873,7 +903,6 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
   enabledFilter.value = false
   tabScrollPositions.installed = 0
   installScrollPluginId.value = pluginId
-  installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
   dataList.value = [
     ...dataList.value.filter(plugin => plugin.id !== pluginId),
     {
@@ -888,14 +917,21 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
 
   let installed = false
   try {
-    await api.get(`plugin/install/${pluginId}`, {
-      params: {
-        repo_url: repoUrl || item?.repo_url,
+    if (useExplicitSource && repoUrl) {
+      await installPluginFromSource(pluginId, {
+        repo_url: repoUrl,
         release_version: releaseVersion,
-        force: item?.has_update || Boolean(releaseVersion),
-      },
-      feedback: 'silent',
-    })
+        force: Boolean(item?.has_update || releaseVersion),
+      })
+    } else {
+      await api.get(`plugin/install/${pluginId}`, {
+        params: {
+          release_version: releaseVersion,
+          force: item?.has_update || Boolean(releaseVersion),
+        },
+        feedback: 'silent',
+      })
+    }
     installed = true
 
     $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
@@ -916,7 +952,7 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
     $toast.error(
       t('plugin.installFailed', {
         name: item?.plugin_name,
-        message: error instanceof Error ? error.message : '',
+        message: getApiBusinessErrorMessage(error) || (error instanceof Error ? error.message : ''),
       }),
     )
     // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
@@ -1383,22 +1419,11 @@ async function refreshActiveTabData(context: KeepAliveRefreshContext = {}) {
   await loadPluginFolders()
 }
 
-function parseLocalRepoPath(repoUrl: string | undefined) {
-  const text = normalizeMarketText(repoUrl)
-  if (!text.startsWith('local://')) return ''
-
-  try {
-    return new URL(text).searchParams.get('path') || ''
-  } catch {
-    return decodeLocalRepoPath(text.match(/[?&]path=([^&]+)/)?.[1] || '')
-  }
-}
-
 // 处理掉github地址的前缀
 function handleRepoUrl(item: Plugin | string | undefined) {
   const url = typeof item === 'string' ? item : normalizeMarketText(item?.repo_url)
   if (!url) return ''
-  if (isLocalRepoSource(item)) return parseLocalRepoPath(url) || localRepoLabel.value
+  if (isLocalRepoSource(item)) return localRepoLabel.value
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 

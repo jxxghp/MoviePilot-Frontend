@@ -993,6 +993,87 @@ export interface Plugin {
   instance_mode?: 'virtual'
 }
 
+/** 已绑定插件可用于自动更新的在线来源类型。 */
+export type PluginTrustedSourceType = 'unknown' | 'official' | 'third_party'
+
+/** 最近一次已应用插件载荷的来源类型，包含本地开发来源。 */
+export type PluginPayloadSourceType = PluginTrustedSourceType | 'local'
+
+/** 已安装插件来源身份建立时采用的依据。 */
+export type PluginSourceBindingBasis =
+  'legacy_unbound' | 'local_only' | 'official_default' | 'tofu' | 'explicit_install' | 'explicit_source_change'
+
+/** 来源候选的展示类型；本地候选只展示为本地，不暴露路径。 */
+export type PluginSourceCandidateType = 'official' | 'third_party' | 'local'
+
+/** 显式换源确认所需的当前可信来源身份和并发控制版本。 */
+export interface PluginSourceIdentity {
+  // 物理插件 ID
+  plugin_id: string
+  // 当前可信在线来源类型
+  trusted_source_type: PluginTrustedSourceType
+  // 规范化的可信在线来源键；未绑定时为空
+  trusted_source_key?: string | null
+  // 当前可信来源的建立依据
+  binding_basis: PluginSourceBindingBasis
+  // 最近一次已提交载荷的来源类型
+  payload_source_type: PluginPayloadSourceType
+  // 最近一次在线载荷的来源键；本地或未知载荷为空
+  payload_source_key?: string | null
+  // 显式换源使用的身份 CAS revision
+  revision: number
+}
+
+/** 一个可供管理员识别的脱敏插件来源候选。 */
+export interface PluginSourceCandidate {
+  // 来源类型；本地候选不公开路径
+  source_type: PluginSourceCandidateType
+  // 规范化在线来源键；本地候选为空
+  source_key?: string | null
+  // 可明确选择的在线仓库地址；本地候选为空
+  repo_url?: string | null
+  // 当前运行时会采用的插件包代际
+  package_generation: 'v1' | 'v2' | 'v3'
+  // 该来源当前可安装的插件版本
+  plugin_version?: string | null
+}
+
+/** 来源选择界面所需的当前身份、候选和准入状态。 */
+export interface PluginSourceOptions {
+  // 物理插件 ID
+  plugin_id: string
+  // 本轮配置市场是否全部得到确定读取结果
+  inventory_complete: boolean
+  // 未指定新来源时的当前准入状态
+  selection_status: 'selected' | 'unavailable' | 'conflict' | 'incomplete'
+  // 当前准入状态的人类可读原因
+  selection_reason: string
+  // 已安装插件的来源身份；未建立身份时为空
+  identity?: PluginSourceIdentity | null
+  // 按来源归并后的在线候选及可选本地候选
+  candidates: PluginSourceCandidate[]
+}
+
+/** 管理员为未绑定插件明确选择初始在线来源的请求参数。 */
+export interface PluginSourceInstallRequest {
+  // 明确选择的目标插件仓库地址
+  repo_url: string
+  // 指定安装的 Release 资产版本；为空时使用当前索引版本
+  release_version?: string | null
+  // 是否强制重新下载并安装所选来源载荷
+  force?: boolean
+}
+
+/** 管理员显式切换插件在线来源的请求参数。 */
+export interface PluginSourceChangeRequest {
+  // 明确选择的目标插件仓库地址
+  repo_url: string
+  // 提交换源时必须匹配的当前身份 revision
+  expected_revision: number
+  // 指定安装的 Release 资产版本；为空时使用当前索引版本
+  release_version?: string | null
+}
+
 export interface PluginRuntimeSummary {
   // 本轮插件源码、依赖和加载是否已收敛
   ready: boolean

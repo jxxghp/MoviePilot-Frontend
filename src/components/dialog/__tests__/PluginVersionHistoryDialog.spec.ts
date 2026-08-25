@@ -1,5 +1,5 @@
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
-import type { Plugin, PluginReleaseVersionsResponse } from '@/api/types'
+import type { Plugin, PluginReleaseVersionsResponse, PluginSourceOptions } from '@/api/types'
 import PluginVersionHistoryDialog from '@/components/dialog/PluginVersionHistoryDialog.vue'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
@@ -53,6 +53,31 @@ const releases: PluginReleaseVersionsResponse = {
   ],
 }
 
+const sourceOptions: PluginSourceOptions = {
+  plugin_id: 'DemoPlugin',
+  inventory_complete: true,
+  selection_status: 'selected',
+  selection_reason: '按已绑定来源选择在线载荷',
+  identity: {
+    plugin_id: 'DemoPlugin',
+    trusted_source_type: 'third_party',
+    trusted_source_key: 'github:example/plugins',
+    binding_basis: 'tofu',
+    payload_source_type: 'third_party',
+    payload_source_key: 'github:example/plugins',
+    revision: 3,
+  },
+  candidates: [
+    {
+      source_type: 'third_party',
+      source_key: 'github:example/plugins',
+      repo_url: 'https://github.com/example/plugins',
+      package_generation: 'v3',
+      plugin_version: '2.0.0',
+    },
+  ],
+}
+
 async function renderDialog(props: Record<string, unknown>) {
   return renderWithProviders(PluginVersionHistoryDialog, {
     props,
@@ -66,6 +91,7 @@ describe('PluginVersionHistoryDialog', () => {
       if (url === 'plugin/history/DemoPlugin') {
         return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
       }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
       if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
       throw new Error(`Unexpected request: ${url}`)
     })
@@ -87,7 +113,10 @@ describe('PluginVersionHistoryDialog', () => {
     expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'plugin/history/DemoPlugin', {
       params: { force: true },
     })
-    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'plugin/releases/DemoPlugin', {
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'plugin/source/DemoPlugin/options', {
+      feedback: 'silent',
+    })
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(3, 'plugin/releases/DemoPlugin', {
       params: {
         force: true,
         repo_url: 'https://github.com/example/plugins',
@@ -124,6 +153,42 @@ describe('PluginVersionHistoryDialog', () => {
     const installButtons = screen.getAllByRole('button', { name: '安装' })
     await fireEvent.click(installButtons[0])
     expect(emitted().update).toEqual([[undefined, 'https://github.com/example/plugins']])
+  })
+
+  it('uses the bound online source without sending a local repository path', async () => {
+    const localRepoUrl = 'local://DemoPlugin?path=%2FUsers%2Fdemo%2Fplugins'
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, repo_url: localRepoUrl, history: {} })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...sourceOptions,
+          identity: {
+            ...sourceOptions.identity!,
+            payload_source_type: 'local',
+            payload_source_key: null,
+          },
+        } satisfies PluginSourceOptions)
+      }
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: { ...installedPlugin, repo_url: localRepoUrl },
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('v2.0.0')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/releases/DemoPlugin', {
+      params: {
+        force: true,
+        repo_url: 'https://github.com/example/plugins',
+      },
+    })
+    expect(mocks.apiGet.mock.calls.some(([, options]) => JSON.stringify(options).includes(localRepoUrl))).toBe(false)
   })
 
   it('distinguishes a Release request failure from an empty history', async () => {

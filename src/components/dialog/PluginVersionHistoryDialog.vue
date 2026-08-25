@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
+import { getPluginSourceOptions } from '@/api/pluginSource'
 import type { Plugin, PluginReleaseVersion, PluginReleaseVersionsResponse } from '@/api/types'
 import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { useI18n } from 'vue-i18n'
@@ -40,6 +41,7 @@ const pluginDetail = ref<Plugin | null>(null)
 const releaseLoading = ref(false)
 const releaseError = ref('')
 const releaseDetail = ref<PluginReleaseVersionsResponse | null>(null)
+const releaseRepoUrl = ref<string | null>(null)
 
 // 弹窗显示状态
 const visible = computed({
@@ -99,6 +101,26 @@ function shouldShowReleaseButton(item?: PluginReleaseVersion) {
   return !(item.is_latest && shouldShowUpdatePanel.value && props.actionMode === 'update')
 }
 
+function isOnlineRepoUrl(repoUrl?: string | null): repoUrl is string {
+  return Boolean(repoUrl && !repoUrl.startsWith('local://'))
+}
+
+/** 已安装插件的 Release 只读取可信在线来源，本地载荷路径不进入网络请求。 */
+async function resolveReleaseRepoUrl(plugin: Plugin): Promise<string | null> {
+  if (props.actionMode === 'install') {
+    return isOnlineRepoUrl(plugin.repo_url) ? plugin.repo_url : null
+  }
+
+  const options = await getPluginSourceOptions(plugin.id)
+  const trustedSourceKey = options.identity?.trusted_source_key
+  if (!trustedSourceKey) return null
+
+  const candidate = options.candidates.find(
+    item => item.source_type !== 'local' && item.source_key === trustedSourceKey && isOnlineRepoUrl(item.repo_url),
+  )
+  return candidate?.repo_url || null
+}
+
 async function loadPluginHistory() {
   if (!props.plugin?.id) {
     pluginDetail.value = null
@@ -112,13 +134,14 @@ async function loadPluginHistory() {
   loadError.value = ''
   releaseDetail.value = null
   releaseError.value = ''
+  releaseRepoUrl.value = null
 
   // 插件市场条目已经携带远端信息；history 接口只查询已安装插件，
   // 未安装插件打开版本历史时只能基于传入的市场数据和 Release 列表展示。
-  if (props.actionMode === 'install' && props.plugin?.repo_url) {
+  if (props.actionMode === 'install') {
     pluginDetail.value = null
     loading.value = false
-    loadPluginReleases(props.plugin, false)
+    await loadPluginReleases(props.plugin, false)
     return
   }
 
@@ -128,7 +151,7 @@ async function loadPluginHistory() {
         force: true,
       },
     })
-    loadPluginReleases(pluginDetail.value ?? props.plugin, true)
+    await loadPluginReleases(pluginDetail.value ?? props.plugin, true)
   } catch (error) {
     pluginDetail.value = null
     loadError.value = t('plugin.updateHistoryLoadFailed')
@@ -139,9 +162,10 @@ async function loadPluginHistory() {
 }
 
 async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPlugin.value, force = false) {
-  if (!plugin?.id || !plugin?.repo_url || !plugin?.release) {
+  if (!plugin?.id || !plugin?.release) {
     releaseDetail.value = null
     releaseError.value = ''
+    releaseRepoUrl.value = null
     return
   }
 
@@ -149,9 +173,15 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
   releaseError.value = ''
 
   try {
+    const repoUrl = await resolveReleaseRepoUrl(plugin)
+    releaseRepoUrl.value = repoUrl
+    if (!repoUrl) {
+      releaseDetail.value = null
+      return
+    }
     releaseDetail.value = await api.get(`plugin/releases/${plugin.id}`, {
       params: {
-        repo_url: plugin.repo_url,
+        repo_url: repoUrl,
         force,
       },
     })
@@ -166,7 +196,7 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
 
 /** 触发插件更新操作。 */
 function handleUpdate(releaseItem?: PluginReleaseVersion) {
-  emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, resolvedPlugin.value?.repo_url)
+  emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, releaseRepoUrl.value || undefined)
 }
 
 watch(
