@@ -1,4 +1,4 @@
-import type { Plugin, PluginRating, PluginRuntimeSummary } from '@/api/types'
+import type { Plugin, PluginRating, PluginRuntimeSummary, PluginSourceOptions } from '@/api/types'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
@@ -22,6 +22,7 @@ const apiUrls = {
   rating: new URL('plugin/rating', API_BASE_URL).href,
   runtime: new URL('plugin/runtime', API_BASE_URL).href,
   sidebar: new URL('plugin/sidebar_nav', API_BASE_URL).href,
+  sourceOptions: new URL('plugin/source/:pluginId/options', API_BASE_URL).href,
   statistic: new URL('plugin/statistic', API_BASE_URL).href,
 }
 
@@ -380,6 +381,7 @@ interface ListResponses {
   order?: unknown[]
   rating?: (ids: string[]) => Record<string, PluginRating> | Promise<Record<string, PluginRating>>
   runtime?: () => PluginRuntimeSummary | Promise<PluginRuntimeSummary>
+  sourceOptions?: (pluginId: string) => PluginSourceOptions | Promise<PluginSourceOptions>
   statistic?: () => Record<string, number> | Promise<Record<string, number>>
 }
 
@@ -406,6 +408,27 @@ function registerListHandlers(responses: ListResponses = {}) {
       ),
     ),
     http.get(apiUrls.sidebar, () => apiJson([])),
+    http.get(apiUrls.sourceOptions, async ({ params }) => {
+      const pluginId = String(params.pluginId)
+      return apiJson(
+        ((await responses.sourceOptions?.(pluginId)) ?? {
+          plugin_id: pluginId,
+          inventory_complete: true,
+          selection_status: 'selected',
+          selection_reason: '唯一在线来源',
+          identity: null,
+          candidates: [
+            {
+              source_type: 'third_party',
+              source_key: 'github:example/plugins',
+              repo_url: 'https://github.com/example/plugins',
+              package_generation: 'v3',
+              plugin_version: '1.0.0',
+            },
+          ],
+        }) as unknown as JsonBodyType,
+      )
+    }),
     http.get(apiUrls.rating, async ({ request }) => {
       const ids = new URL(request.url).searchParams.get('plugin_ids')?.split(',').filter(Boolean) ?? []
       return apiJson(((await responses.rating?.(ids)) ?? {}) as unknown as JsonBodyType)
@@ -963,8 +986,8 @@ describe('PluginCardListView market filtering and pagination', () => {
     await nextTick()
 
     const initialRepository = screen.getByRole('group', { name: '仓库' })
-    expect(within(initialRepository).getByRole('button', { name: '/tmp/plugins' })).toBeInTheDocument()
     expect(within(initialRepository).getByRole('button', { name: '本地' })).toBeInTheDocument()
+    expect(within(initialRepository).queryByRole('button', { name: '/tmp/plugins' })).not.toBeInTheDocument()
 
     await fireEvent.click(screen.getByText('插件名称'))
     await waitFor(() => expect(document.querySelector('[data-testid^="market-"]')).toHaveTextContent('market:Alpha'))
@@ -993,9 +1016,10 @@ describe('PluginCardListView market filtering and pagination', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(9))
 
     await fireEvent.click(within(label).getByRole('button', { name: '工具' }))
-    await fireEvent.click(within(repository).getByRole('button', { name: '/tmp/plugins' }))
-    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(1))
+    await fireEvent.click(within(repository).getByRole('button', { name: '本地' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(2))
     expect(screen.getByText('market:Zulu')).toBeInTheDocument()
+    expect(screen.getByText('market:插件 01')).toBeInTheDocument()
     await waitForRequestsToFinish()
   })
 
@@ -1244,7 +1268,7 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     await nextTick()
     await fireEvent.click(screen.getByRole('button', { name: 'installed-MarketInstall' }))
 
-    expect(getHeaderConfig().modelValue.value).toBe('installed')
+    await waitFor(() => expect(getHeaderConfig().modelValue.value).toBe('installed'))
     expect(await screen.findByText('plugin:市场安装插件')).toBeInTheDocument()
     expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
 
@@ -1310,7 +1334,7 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
   })
 
-  it('preserves install query parameters and refreshes the list and sidebar after success', async () => {
+  it('uses the source-neutral install endpoint and refreshes the list and sidebar after success', async () => {
     let installed = false
     let installUrl: URL | undefined
     const target = createPlugin({
@@ -1340,10 +1364,57 @@ describe('PluginCardListView search installation', () => {
 
     expect(await screen.findByText('plugin:搜索安装插件')).toBeInTheDocument()
     await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
-    expect(installUrl?.searchParams.get('repo_url')).toBe('https://github.com/example/search-plugin')
+    expect(installUrl?.searchParams.has('repo_url')).toBe(false)
     expect(installUrl?.searchParams.get('force')).toBe('true')
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 搜索安装插件 安装成功！')
     await waitForRequestsToFinish()
+  })
+
+  it('opens source selection instead of silently installing a conflicting plugin ID', async () => {
+    let installRequests = 0
+    const target = createPlugin({ id: 'ConflictPlugin', plugin_name: '重名插件' })
+    await renderList({
+      market: () => [target],
+      sourceOptions: pluginId => ({
+        plugin_id: pluginId,
+        inventory_complete: true,
+        selection_status: 'conflict',
+        selection_reason: '未安装插件存在多个在线来源，不能静默选择',
+        identity: null,
+        candidates: [
+          {
+            source_type: 'official',
+            source_key: 'github:jxxghp/moviepilot-plugins',
+            repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+            package_generation: 'v3',
+            plugin_version: '1.0.0',
+          },
+          {
+            source_type: 'third_party',
+            source_key: 'github:example/plugins',
+            repo_url: 'https://github.com/example/plugins',
+            package_generation: 'v3',
+            plugin_version: '2.0.0',
+          },
+        ],
+      }),
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('ConflictPlugin'), () => {
+        installRequests += 1
+        return apiJson(null)
+      }),
+    )
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'installed-ConflictPlugin' }))
+
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalled())
+    expect(getDialogProps().plugin).toMatchObject({ id: 'ConflictPlugin' })
+    expect(installRequests).toBe(0)
+    expect(getHeaderConfig().modelValue.value).toBe('market')
   })
 
   it('shows a per-plugin loading card while installation is still running', async () => {

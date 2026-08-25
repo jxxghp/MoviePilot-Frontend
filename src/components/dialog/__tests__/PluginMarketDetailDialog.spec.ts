@@ -1,5 +1,5 @@
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginSourceOptions } from '@/api/types'
 import PluginMarketDetailDialog from '@/components/dialog/PluginMarketDetailDialog.vue'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
@@ -55,6 +55,31 @@ const ratingResult: PluginRating = {
   user_rating: 4.0,
 }
 
+const defaultSourceOptions: PluginSourceOptions = {
+  plugin_id: 'DemoPlugin',
+  inventory_complete: true,
+  selection_status: 'selected',
+  selection_reason: '唯一在线来源',
+  identity: {
+    plugin_id: 'DemoPlugin',
+    trusted_source_type: 'third_party',
+    trusted_source_key: 'github:example/plugins',
+    binding_basis: 'tofu',
+    payload_source_type: 'third_party',
+    payload_source_key: 'github:example/plugins',
+    revision: 3,
+  },
+  candidates: [
+    {
+      source_type: 'third_party',
+      source_key: 'github:example/plugins',
+      repo_url: 'https://github.com/example/plugins',
+      package_generation: 'v3',
+      plugin_version: '1.0.0',
+    },
+  ],
+}
+
 const ImageStub = defineComponent({
   name: 'VImg',
   emits: ['error'],
@@ -79,6 +104,7 @@ describe('PluginMarketDetailDialog', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset().mockImplementation((url: string) => {
       if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(defaultSourceOptions)
       return Promise.resolve({ success: true })
     })
     mocks.apiPost.mockReset().mockResolvedValue({
@@ -103,6 +129,274 @@ describe('PluginMarketDetailDialog', () => {
     expect(await screen.findByText('安装到本地')).toBeInTheDocument()
     expect(screen.queryByText('提交评分')).not.toBeInTheDocument()
     expect(screen.getByLabelText('4.3 / 5')).toBeInTheDocument()
+  })
+
+  it('requires an explicit repository when multiple sources publish the same plugin ID', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          identity: null,
+          selection_status: 'conflict',
+          selection_reason: '未安装插件存在多个在线来源，不能静默选择',
+          candidates: [
+            {
+              source_type: 'official',
+              source_key: 'github:jxxghp/moviepilot-plugins',
+              repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+              package_generation: 'v3',
+              plugin_version: '1.0.0',
+            },
+            defaultSourceOptions.candidates[0],
+          ],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: false })
+
+    expect(await screen.findByText('未安装插件存在多个在线来源，不能静默选择')).toBeInTheDocument()
+    const installButton = screen.getByRole('button', { name: '安装到本地' })
+    expect(installButton).toBeDisabled()
+
+    await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
+    expect(installButton).toBeEnabled()
+    await fireEvent.click(installButton)
+
+    await waitFor(() => {
+      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
+        repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+        release_version: undefined,
+        force: false,
+      })
+    })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+    expect(emitted().install).toHaveLength(1)
+  })
+
+  it('shows trusted and local payload sources separately and changes source with the current revision', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'official',
+            trusted_source_key: 'github:jxxghp/moviepilot-plugins',
+            binding_basis: 'official_default',
+            payload_source_type: 'local',
+            payload_source_key: null,
+            revision: 7,
+          },
+          candidates: [
+            {
+              source_type: 'official',
+              source_key: 'github:jxxghp/moviepilot-plugins',
+              repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+              package_generation: 'v3',
+              plugin_version: '1.0.0',
+            },
+            defaultSourceOptions.candidates[0],
+          ],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    expect(await screen.findByText('自动更新来源')).toBeInTheDocument()
+    expect(screen.getByText('jxxghp/moviepilot-plugins')).toBeInTheDocument()
+    expect(screen.getByText('当前载荷')).toBeInTheDocument()
+    expect(screen.getByText('本地')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '更换来源' }))
+    await fireEvent.click(screen.getByText('example/plugins'))
+    await fireEvent.click(screen.getByRole('button', { name: '确认换源' }))
+
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('jxxghp/moviepilot-plugins'),
+        confirmText: '更换来源',
+      }),
+    )
+    expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin', {
+      repo_url: 'https://github.com/example/plugins',
+      expected_revision: 7,
+    })
+    await waitFor(() => expect(emitted().install).toHaveLength(1))
+  })
+
+  it('blocks ordinary updates when the trusted source has no usable candidate', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'unavailable',
+          selection_reason: '当前来源身份没有可用候选',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'official',
+            trusted_source_key: 'github:jxxghp/moviepilot-plugins',
+            binding_basis: 'official_default',
+            payload_source_type: 'official',
+            payload_source_key: 'github:jxxghp/moviepilot-plugins',
+            revision: 7,
+          },
+          candidates: [defaultSourceOptions.candidates[0]],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    expect(await screen.findByText('当前来源身份没有可用候选')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更换来源' })).toBeInTheDocument()
+    const updateButton = screen.getByRole('button', { name: '更新' })
+    expect(updateButton).toBeDisabled()
+    await fireEvent.click(updateButton)
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+  })
+
+  it('binds an installed legacy plugin through the explicit source install endpoint', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'incomplete',
+          selection_reason: '插件来源身份尚未绑定，不能自动选择在线载荷',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'unknown',
+            trusted_source_key: null,
+            binding_basis: 'legacy_unbound',
+            payload_source_type: 'unknown',
+            payload_source_key: null,
+            revision: 2,
+          },
+          candidates: [
+            {
+              source_type: 'official',
+              source_key: 'github:jxxghp/moviepilot-plugins',
+              repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+              package_generation: 'v3',
+              plugin_version: '1.0.0',
+            },
+            defaultSourceOptions.candidates[0],
+          ],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
+    await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
+    await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
+    await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
+
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '确认绑定插件来源',
+        confirmText: '绑定来源',
+      }),
+    )
+    expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
+      repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+      force: true,
+    })
+    expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin', expect.anything())
+    await waitFor(() => expect(emitted().install).toHaveLength(1))
+  })
+
+  it('routes a legacy history update into the binding flow without ordinary install', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'incomplete',
+          selection_reason: '插件来源身份尚未绑定，不能自动选择在线载荷',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'unknown',
+            trusted_source_key: null,
+            binding_basis: 'legacy_unbound',
+            payload_source_type: 'unknown',
+            payload_source_key: null,
+            revision: 2,
+          },
+          candidates: [defaultSourceOptions.candidates[0]],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '版本历史' }))
+    const historyEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2] as {
+      sourceAction: () => void
+      update: () => Promise<void>
+    }
+    expect(historyEvents.sourceAction).toBeTypeOf('function')
+    historyEvents.sourceAction()
+
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+    expect(emitted().install).toBeUndefined()
+    expect(screen.getByRole('button', { name: '绑定来源' })).toBeInTheDocument()
+  })
+
+  it('reloads source evidence after a stale revision failure without retrying the change', async () => {
+    let sourceReadCount = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        sourceReadCount += 1
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'official',
+            trusted_source_key: 'github:jxxghp/moviepilot-plugins',
+            binding_basis: 'official_default',
+            payload_source_type: 'official',
+            payload_source_key: 'github:jxxghp/moviepilot-plugins',
+            revision: sourceReadCount === 1 ? 7 : 8,
+          },
+          candidates: [
+            {
+              source_type: 'official',
+              source_key: 'github:jxxghp/moviepilot-plugins',
+              repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+              package_generation: 'v3',
+              plugin_version: '1.0.0',
+            },
+            defaultSourceOptions.candidates[0],
+          ],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    mocks.apiPost.mockResolvedValueOnce({
+      success: false,
+      message: '来源 revision 已变化，请重新确认',
+      data: null,
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '更换来源' }))
+    await fireEvent.click(screen.getByText('example/plugins'))
+    await fireEvent.click(screen.getByRole('button', { name: '确认换源' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('revision 已变化')))
+    expect(mocks.apiPost).toHaveBeenCalledTimes(1)
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/source/DemoPlugin/options', { params: { force: true } })
+    expect(emitted().install).toBeUndefined()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('hides install action and submits a half-star rating for an installed plugin', async () => {
@@ -193,7 +487,6 @@ describe('PluginMarketDetailDialog', () => {
         params: {
           force: false,
           release_version: undefined,
-          repo_url: 'https://github.com/example/plugins',
         },
       })
     })
@@ -274,7 +567,6 @@ describe('PluginMarketDetailDialog', () => {
       params: {
         force: true,
         release_version: '0.9.0',
-        repo_url: 'https://github.com/example/releases',
       },
     })
     expect(emitted().install).toHaveLength(1)
@@ -289,7 +581,6 @@ describe('PluginMarketDetailDialog', () => {
       params: {
         force: true,
         release_version: undefined,
-        repo_url: 'https://github.com/example/plugins',
       },
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')
@@ -339,7 +630,6 @@ describe('PluginMarketDetailDialog', () => {
       params: {
         force: true,
         release_version: undefined,
-        repo_url: 'https://github.com/example/releases',
       },
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')
@@ -387,7 +677,8 @@ describe('PluginMarketDetailDialog', () => {
 
     expect(await screen.findByRole('button', { name: '安装到本地' })).toBeEnabled()
     expect(screen.getByLabelText('4.3 / 5')).toBeInTheDocument()
-    expect(mocks.apiGet).toHaveBeenCalledOnce()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/rating/DemoPlugin')
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/source/DemoPlugin/options')
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/rating/DemoPlugin')
   })
 

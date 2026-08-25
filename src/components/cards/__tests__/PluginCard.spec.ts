@@ -189,7 +189,6 @@ describe('PluginCard lifecycle actions', () => {
       params: {
         force: true,
         release_version: '0.9.0',
-        repo_url: 'https://github.com/example/releases',
       },
     })
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))
@@ -257,12 +256,7 @@ describe('PluginCard lifecycle actions', () => {
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
     const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: {
-        suffix: string
-        name: string
-        description: string
-        icon: string
-      }) => Promise<void>
+      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
     }
     await cloneEvents.clone({
       suffix: ' Test ',
@@ -289,12 +283,7 @@ describe('PluginCard lifecycle actions', () => {
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
     const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: {
-        suffix: string
-        name: string
-        description: string
-        icon: string
-      }) => Promise<void>
+      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
     }
     await cloneEvents.clone({ suffix: ' ', name: '', description: '', icon: '' })
 
@@ -308,12 +297,7 @@ describe('PluginCard lifecycle actions', () => {
     await fireEvent.click(businessFailed.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
     let cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: {
-        suffix: string
-        name: string
-        description: string
-        icon: string
-      }) => Promise<void>
+      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
     }
     const form = { suffix: 'Test', name: '测试', description: '', icon: '' }
     await cloneEvents.clone(form)

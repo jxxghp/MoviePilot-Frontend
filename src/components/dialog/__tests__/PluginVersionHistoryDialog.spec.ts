@@ -1,5 +1,5 @@
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
-import type { Plugin, PluginReleaseVersionsResponse } from '@/api/types'
+import type { Plugin, PluginReleaseVersionsResponse, PluginSourceOptions } from '@/api/types'
 import PluginVersionHistoryDialog from '@/components/dialog/PluginVersionHistoryDialog.vue'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
@@ -53,6 +53,31 @@ const releases: PluginReleaseVersionsResponse = {
   ],
 }
 
+const sourceOptions: PluginSourceOptions = {
+  plugin_id: 'DemoPlugin',
+  inventory_complete: true,
+  selection_status: 'selected',
+  selection_reason: '按已绑定来源选择在线载荷',
+  identity: {
+    plugin_id: 'DemoPlugin',
+    trusted_source_type: 'third_party',
+    trusted_source_key: 'github:example/plugins',
+    binding_basis: 'tofu',
+    payload_source_type: 'third_party',
+    payload_source_key: 'github:example/plugins',
+    revision: 3,
+  },
+  candidates: [
+    {
+      source_type: 'third_party',
+      source_key: 'github:example/plugins',
+      repo_url: 'https://github.com/example/plugins',
+      package_generation: 'v3',
+      plugin_version: '2.0.0',
+    },
+  ],
+}
+
 async function renderDialog(props: Record<string, unknown>) {
   return renderWithProviders(PluginVersionHistoryDialog, {
     props,
@@ -66,6 +91,7 @@ describe('PluginVersionHistoryDialog', () => {
       if (url === 'plugin/history/DemoPlugin') {
         return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
       }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
       if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
       throw new Error(`Unexpected request: ${url}`)
     })
@@ -87,7 +113,10 @@ describe('PluginVersionHistoryDialog', () => {
     expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'plugin/history/DemoPlugin', {
       params: { force: true },
     })
-    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'plugin/releases/DemoPlugin', {
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'plugin/source/DemoPlugin/options', {
+      feedback: 'silent',
+    })
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(3, 'plugin/releases/DemoPlugin', {
       params: {
         force: true,
         repo_url: 'https://github.com/example/plugins',
@@ -102,6 +131,227 @@ describe('PluginVersionHistoryDialog', () => {
       ['0.9.0', 'https://github.com/example/plugins'],
       [undefined, 'https://github.com/example/plugins'],
     ])
+  })
+
+  it('requires source binding before a legacy plugin can update from history', async () => {
+    const legacySourceOptions: PluginSourceOptions = {
+      ...sourceOptions,
+      selection_status: 'incomplete',
+      selection_reason: '插件来源身份尚未绑定，不能自动选择在线载荷',
+      identity: {
+        ...sourceOptions.identity!,
+        trusted_source_type: 'unknown',
+        trusted_source_key: null,
+        binding_basis: 'legacy_unbound',
+        payload_source_type: 'unknown',
+        payload_source_key: null,
+        revision: 4,
+      },
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(legacySourceOptions)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const { emitted } = await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByRole('button', { name: '绑定来源' })).toBeInTheDocument()
+    expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '安装' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
+
+    expect(emitted().sourceAction).toEqual([[]])
+    expect(emitted().update).toBeUndefined()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/releases/DemoPlugin', expect.anything())
+  })
+
+  it('keeps local legacy updates available when no online source can be bound', async () => {
+    const localLegacySourceOptions: PluginSourceOptions = {
+      ...sourceOptions,
+      selection_status: 'selected',
+      selection_reason: '优先使用本地载荷',
+      identity: {
+        ...sourceOptions.identity!,
+        trusted_source_type: 'unknown',
+        trusted_source_key: null,
+        binding_basis: 'legacy_unbound',
+        payload_source_type: 'local',
+        payload_source_key: null,
+      },
+      candidates: [
+        {
+          source_type: 'local',
+          source_key: null,
+          repo_url: null,
+          package_generation: 'v3',
+          plugin_version: '2.0.0-dev',
+        },
+      ],
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(localLegacySourceOptions)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const { emitted } = await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    const updateButton = await screen.findByRole('button', { name: '更新到最新版本' })
+    expect(updateButton).toBeEnabled()
+    await fireEvent.click(updateButton)
+
+    expect(emitted().sourceAction).toBeUndefined()
+    expect(emitted().update).toEqual([[undefined, undefined]])
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/releases/DemoPlugin', expect.anything())
+  })
+
+  it('routes local-only identities with online candidates into source binding', async () => {
+    const localOnlySourceOptions: PluginSourceOptions = {
+      ...sourceOptions,
+      selection_status: 'incomplete',
+      selection_reason: '插件来源身份尚未绑定，不能自动选择在线载荷',
+      identity: {
+        ...sourceOptions.identity!,
+        trusted_source_type: 'unknown',
+        trusted_source_key: null,
+        binding_basis: 'local_only',
+        payload_source_type: 'local',
+        payload_source_key: null,
+      },
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(localOnlySourceOptions)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const { emitted } = await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    const bindButton = await screen.findByRole('button', { name: '绑定来源' })
+    await fireEvent.click(bindButton)
+
+    expect(emitted().sourceAction).toEqual([[]])
+    expect(emitted().update).toBeUndefined()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/releases/DemoPlugin', expect.anything())
+  })
+
+  it('blocks history updates while source inventory is incomplete', async () => {
+    const incompleteSourceOptions: PluginSourceOptions = {
+      ...sourceOptions,
+      inventory_complete: false,
+      selection_status: 'incomplete',
+      selection_reason: '本地插件仓库读取失败，不能自动选择在线载荷',
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(incompleteSourceOptions)
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const { emitted } = await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('本地插件仓库读取失败，不能自动选择在线载荷')).toBeInTheDocument()
+    const updateButton = screen.getByRole('button', { name: '更新到最新版本' })
+    expect(updateButton).toBeDisabled()
+    await fireEvent.click(updateButton)
+
+    expect(emitted().update).toBeUndefined()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/releases/DemoPlugin', {
+      params: {
+        force: true,
+        repo_url: 'https://github.com/example/plugins',
+      },
+    })
+    expect(screen.queryByRole('button', { name: '安装' })).not.toBeInTheDocument()
+  })
+
+  it('shows source admission failures while browsing history without update controls', async () => {
+    const unavailableSourceOptions: PluginSourceOptions = {
+      ...sourceOptions,
+      selection_status: 'unavailable',
+      selection_reason: '当前来源身份没有可用候选',
+      candidates: [],
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(unavailableSourceOptions)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const { emitted } = await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: false,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('当前来源身份没有可用候选')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '安装' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '更新到最新版本' })).not.toBeInTheDocument()
+    expect(emitted().update).toBeUndefined()
+  })
+
+  it('loads source admission without requesting Releases for plugins that do not use them', async () => {
+    const incompleteSourceOptions: PluginSourceOptions = {
+      ...sourceOptions,
+      inventory_complete: false,
+      selection_status: 'incomplete',
+      selection_reason: '插件市场读取不完整，不能自动选择在线载荷',
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, release: false, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(incompleteSourceOptions)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const { emitted } = await renderDialog({
+      modelValue: true,
+      plugin: { ...installedPlugin, release: false },
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('插件市场读取不完整，不能自动选择在线载荷')).toBeInTheDocument()
+    const updateButton = screen.getByRole('button', { name: '更新到最新版本' })
+    expect(updateButton).toBeDisabled()
+    await fireEvent.click(updateButton)
+
+    expect(emitted().update).toBeUndefined()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/releases/DemoPlugin', expect.anything())
   })
 
   it('uses market metadata directly and emits latest installation without a release version', async () => {
@@ -126,6 +376,42 @@ describe('PluginVersionHistoryDialog', () => {
     expect(emitted().update).toEqual([[undefined, 'https://github.com/example/plugins']])
   })
 
+  it('uses the bound online source without sending a local repository path', async () => {
+    const localRepoUrl = 'local://DemoPlugin?path=%2FUsers%2Fdemo%2Fplugins'
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, repo_url: localRepoUrl, history: {} })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...sourceOptions,
+          identity: {
+            ...sourceOptions.identity!,
+            payload_source_type: 'local',
+            payload_source_key: null,
+          },
+        } satisfies PluginSourceOptions)
+      }
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: { ...installedPlugin, repo_url: localRepoUrl },
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('v2.0.0')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/releases/DemoPlugin', {
+      params: {
+        force: true,
+        repo_url: 'https://github.com/example/plugins',
+      },
+    })
+    expect(mocks.apiGet.mock.calls.some(([, options]) => JSON.stringify(options).includes(localRepoUrl))).toBe(false)
+  })
+
   it('distinguishes a Release request failure from an empty history', async () => {
     mocks.apiGet.mockRejectedValue(new Error('release unavailable'))
     await renderDialog({
@@ -147,7 +433,13 @@ describe('PluginVersionHistoryDialog', () => {
     expect(await screen.findByText('读取更新说明失败，请稍后重试')).toBeInTheDocument()
     failed.unmount()
 
-    mocks.apiGet.mockReset().mockResolvedValue({ ...installedPlugin, release: false, history: {} })
+    mocks.apiGet.mockReset().mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, release: false, history: {} })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
+      throw new Error(`Unexpected request: ${url}`)
+    })
     await renderDialog({
       modelValue: true,
       plugin: installedPlugin,

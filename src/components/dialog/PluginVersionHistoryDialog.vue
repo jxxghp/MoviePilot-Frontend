@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { Plugin, PluginReleaseVersion, PluginReleaseVersionsResponse } from '@/api/types'
+import { getPluginSourceOptions } from '@/api/pluginSource'
+import type { Plugin, PluginReleaseVersion, PluginReleaseVersionsResponse, PluginSourceOptions } from '@/api/types'
 import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
   (event: 'close'): void
   (event: 'update', releaseVersion?: string, repoUrl?: string): void
+  (event: 'sourceAction'): void
 }>()
 
 const loading = ref(false)
@@ -40,6 +42,8 @@ const pluginDetail = ref<Plugin | null>(null)
 const releaseLoading = ref(false)
 const releaseError = ref('')
 const releaseDetail = ref<PluginReleaseVersionsResponse | null>(null)
+const releaseRepoUrl = ref<string | null>(null)
+const releaseSourceOptions = ref<PluginSourceOptions | null>(null)
 
 // 弹窗显示状态
 const visible = computed({
@@ -63,11 +67,55 @@ const resolvedHistory = computed(() => {
 
 const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)
 
-const latestActionText = computed(() =>
-  props.actionMode === 'install' ? t('plugin.installReleaseVersion') : t('plugin.updateToLatest'),
-)
-
 const releaseItems = computed(() => releaseDetail.value?.items || [])
+
+type ReleaseSourceAction = 'bind' | 'change' | 'unavailable'
+
+const releaseSourceAction = computed<ReleaseSourceAction | null>(() => {
+  if (props.actionMode !== 'update' || !releaseSourceOptions.value) return null
+
+  const options = releaseSourceOptions.value
+  const identity = options.identity
+  const onlineCandidates = options.candidates.filter(
+    candidate => candidate.source_type !== 'local' && Boolean(candidate.source_key && candidate.repo_url),
+  )
+  const hasTrustedOnlineSource = Boolean(
+    identity && identity.trusted_source_type !== 'unknown' && identity.trusted_source_key,
+  )
+
+  if (!hasTrustedOnlineSource) {
+    if (onlineCandidates.length > 0) return 'bind'
+    return ['unavailable', 'incomplete', 'conflict'].includes(options.selection_status) ? 'unavailable' : null
+  }
+
+  if (['unavailable', 'incomplete'].includes(options.selection_status)) {
+    if (
+      options.selection_status === 'unavailable' &&
+      onlineCandidates.some(candidate => candidate.source_key !== identity?.trusted_source_key)
+    ) {
+      return 'change'
+    }
+    return 'unavailable'
+  }
+
+  return null
+})
+
+const releaseSourceMessage = computed(() => {
+  if (releaseSourceAction.value === 'bind') return t('plugin.sourceBindingHint')
+  if (releaseSourceAction.value) return releaseSourceOptions.value?.selection_reason || t('plugin.sourceUnavailable')
+  return ''
+})
+
+const latestActionText = computed(() =>
+  releaseSourceAction.value === 'bind'
+    ? t('plugin.bindSource')
+    : releaseSourceAction.value === 'change'
+      ? t('plugin.changeSource')
+      : props.actionMode === 'install'
+        ? t('plugin.installReleaseVersion')
+        : t('plugin.updateToLatest'),
+)
 
 const shouldShowUpdatePanel = computed(() => props.showUpdateAction)
 
@@ -96,7 +144,30 @@ function releaseItemByHistoryVersion(version: string) {
 
 function shouldShowReleaseButton(item?: PluginReleaseVersion) {
   if (!item || item.is_current) return false
+  if (releaseSourceAction.value === 'unavailable') return false
+  if (releaseSourceAction.value) return Boolean(item.is_latest && !shouldShowUpdatePanel.value)
   return !(item.is_latest && shouldShowUpdatePanel.value && props.actionMode === 'update')
+}
+
+function isOnlineRepoUrl(repoUrl?: string | null): repoUrl is string {
+  return Boolean(repoUrl && !repoUrl.startsWith('local://'))
+}
+
+/** 已安装插件的 Release 只读取可信在线来源，本地载荷路径不进入网络请求。 */
+async function resolveReleaseRepoUrl(plugin: Plugin): Promise<string | null> {
+  if (props.actionMode === 'install') {
+    return isOnlineRepoUrl(plugin.repo_url) ? plugin.repo_url : null
+  }
+
+  const options = await getPluginSourceOptions(plugin.id)
+  releaseSourceOptions.value = options
+  const trustedSourceKey = options.identity?.trusted_source_key
+  if (!trustedSourceKey) return null
+
+  const candidate = options.candidates.find(
+    item => item.source_type !== 'local' && item.source_key === trustedSourceKey && isOnlineRepoUrl(item.repo_url),
+  )
+  return candidate?.repo_url || null
 }
 
 async function loadPluginHistory() {
@@ -105,6 +176,7 @@ async function loadPluginHistory() {
     loadError.value = ''
     releaseDetail.value = null
     releaseError.value = ''
+    releaseSourceOptions.value = null
     return
   }
 
@@ -112,13 +184,15 @@ async function loadPluginHistory() {
   loadError.value = ''
   releaseDetail.value = null
   releaseError.value = ''
+  releaseRepoUrl.value = null
+  releaseSourceOptions.value = null
 
   // 插件市场条目已经携带远端信息；history 接口只查询已安装插件，
   // 未安装插件打开版本历史时只能基于传入的市场数据和 Release 列表展示。
-  if (props.actionMode === 'install' && props.plugin?.repo_url) {
+  if (props.actionMode === 'install') {
     pluginDetail.value = null
     loading.value = false
-    loadPluginReleases(props.plugin, false)
+    await loadPluginReleases(props.plugin, false)
     return
   }
 
@@ -128,7 +202,7 @@ async function loadPluginHistory() {
         force: true,
       },
     })
-    loadPluginReleases(pluginDetail.value ?? props.plugin, true)
+    await loadPluginReleases(pluginDetail.value ?? props.plugin, true)
   } catch (error) {
     pluginDetail.value = null
     loadError.value = t('plugin.updateHistoryLoadFailed')
@@ -139,9 +213,11 @@ async function loadPluginHistory() {
 }
 
 async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPlugin.value, force = false) {
-  if (!plugin?.id || !plugin?.repo_url || !plugin?.release) {
+  if (!plugin?.id || (props.actionMode === 'install' && !plugin.release)) {
     releaseDetail.value = null
     releaseError.value = ''
+    releaseRepoUrl.value = null
+    releaseSourceOptions.value = null
     return
   }
 
@@ -149,9 +225,20 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
   releaseError.value = ''
 
   try {
+    const repoUrl = await resolveReleaseRepoUrl(plugin)
+    if (!plugin.release) {
+      releaseDetail.value = null
+      releaseRepoUrl.value = null
+      return
+    }
+    releaseRepoUrl.value = repoUrl
+    if (!repoUrl) {
+      releaseDetail.value = null
+      return
+    }
     releaseDetail.value = await api.get(`plugin/releases/${plugin.id}`, {
       params: {
-        repo_url: plugin.repo_url,
+        repo_url: repoUrl,
         force,
       },
     })
@@ -164,9 +251,13 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
   }
 }
 
-/** 触发插件更新操作。 */
+/** 根据来源准入状态执行更新，或转交来源绑定和切换。 */
 function handleUpdate(releaseItem?: PluginReleaseVersion) {
-  emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, resolvedPlugin.value?.repo_url)
+  if (releaseSourceAction.value) {
+    if (releaseSourceAction.value !== 'unavailable') emit('sourceAction')
+    return
+  }
+  emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, releaseRepoUrl.value || undefined)
 }
 
 watch(
@@ -199,6 +290,14 @@ watch(
             density="compact"
             :class="{ 'mt-2': loadError }"
             :text="releaseError"
+          />
+        </VCardText>
+        <VCardText v-if="releaseSourceMessage" class="pb-0">
+          <VAlert
+            :type="releaseSourceAction === 'unavailable' ? 'error' : 'warning'"
+            variant="tonal"
+            density="compact"
+            :text="releaseSourceMessage"
           />
         </VCardText>
         <VCardText v-if="!hasHistory && !releaseLoading && !loadError && !releaseError">
@@ -245,6 +344,7 @@ watch(
               :variant="releaseItemByHistoryVersion(version)?.is_latest ? 'flat' : 'tonal'"
               :disabled="
                 releaseItemByHistoryVersion(version)?.is_current ||
+                releaseSourceAction === 'unavailable' ||
                 (releaseItemByHistoryVersion(version)?.is_latest && resolvedPlugin?.system_version_compatible === false)
               "
               @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
@@ -267,11 +367,15 @@ watch(
             class="mb-3"
             :text="resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
           />
-          <VBtn @click="handleUpdate()" block :disabled="resolvedPlugin?.system_version_compatible === false">
+          <VBtn
+            @click="handleUpdate()"
+            block
+            :disabled="resolvedPlugin?.system_version_compatible === false || releaseSourceAction === 'unavailable'"
+          >
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
             </template>
-            {{ t('plugin.updateToLatest') }}
+            {{ latestActionText }}
           </VBtn>
         </VCardItem>
       </template>

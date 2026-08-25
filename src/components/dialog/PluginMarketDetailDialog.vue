@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
-import type { Plugin, PluginRating } from '@/api/types'
+import { changePluginSource, getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
+import type { Plugin, PluginRating, PluginSourceCandidate, PluginSourceOptions } from '@/api/types'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import PluginRatingDisplay from '@/components/common/PluginRatingDisplay.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
@@ -64,9 +65,54 @@ const rating = ref<PluginRating>({
 const selectedRating = ref(props.plugin?.user_rating || 0)
 const ratingLoading = ref(false)
 const ratingSubmitting = ref(false)
+const sourceOptions = ref<PluginSourceOptions | null>(null)
+const sourceLoading = ref(false)
+const sourceError = ref('')
+const selectedInstallSourceKey = ref('')
+const selectedChangeSourceKey = ref('')
+const showSourceChoices = ref(false)
+const sourceChanging = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+const onlineSourceCandidates = computed(() =>
+  (sourceOptions.value?.candidates || []).filter(
+    (candidate): candidate is PluginSourceCandidate & { repo_url: string; source_key: string } =>
+      candidate.source_type !== 'local' && Boolean(candidate.repo_url && candidate.source_key),
+  ),
+)
+const sourceNeedsSelection = computed(() => !isInstalled.value && sourceOptions.value?.selection_status === 'conflict')
+const selectedInstallSource = computed(() =>
+  onlineSourceCandidates.value.find(candidate => candidate.source_key === selectedInstallSourceKey.value),
+)
+const selectedChangeSource = computed(() =>
+  sourceActionCandidates.value.find(candidate => candidate.source_key === selectedChangeSourceKey.value),
+)
+const hasTrustedOnlineSource = computed(() => {
+  const identity = sourceOptions.value?.identity
+  return Boolean(identity && identity.trusted_source_type !== 'unknown' && identity.trusted_source_key)
+})
+const sourceNeedsInitialBinding = computed(
+  () => isInstalled.value && !hasTrustedOnlineSource.value && onlineSourceCandidates.value.length > 0,
+)
+const changeSourceCandidates = computed(() => {
+  const trustedSourceKey = sourceOptions.value?.identity?.trusted_source_key
+  return onlineSourceCandidates.value.filter(candidate => candidate.source_key !== trustedSourceKey)
+})
+const sourceActionCandidates = computed(() =>
+  hasTrustedOnlineSource.value ? changeSourceCandidates.value : onlineSourceCandidates.value,
+)
+const sourceUnavailable = computed(() => {
+  const unavailable = ['unavailable', 'incomplete'].includes(sourceOptions.value?.selection_status || '')
+  if (!isInstalled.value) return unavailable
+  // 未绑定但仍有候选时，优先展示首次绑定流程；已绑定来源失效则必须阻止普通更新。
+  if (sourceNeedsInitialBinding.value) return false
+  return unavailable
+})
+const sourceSectionVisible = computed(
+  () => isInstalled.value || sourceNeedsSelection.value || sourceUnavailable.value || Boolean(sourceError.value),
+)
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
@@ -81,6 +127,119 @@ function showInstallProgress(text: string) {
 function closeInstallProgress() {
   progressDialogController?.close()
   progressDialogController = null
+}
+
+/** 把规范化来源键转换为面向用户的仓库标识。 */
+function sourceKeyLabel(sourceKey?: string | null) {
+  if (!sourceKey) return t('plugin.sourceUnknown')
+  return sourceKey.startsWith('github:') ? sourceKey.slice('github:'.length) : sourceKey
+}
+
+/** 返回候选来源的简短名称，本地候选不展示路径。 */
+function sourceCandidateLabel(candidate: PluginSourceCandidate) {
+  if (candidate.source_type === 'local') return t('plugin.local')
+  return sourceKeyLabel(candidate.source_key)
+}
+
+/** 返回当前可信更新来源；本地载荷与在线身份分开展示。 */
+function trustedSourceLabel() {
+  const identity = sourceOptions.value?.identity
+  if (!identity) return t('plugin.sourceUnbound')
+  if (identity.trusted_source_type === 'unknown') return t('plugin.sourceUnbound')
+  return sourceKeyLabel(identity.trusted_source_key)
+}
+
+/** 返回最近一次已应用载荷来源。 */
+function payloadSourceLabel() {
+  const identity = sourceOptions.value?.identity
+  if (!identity) return t('plugin.sourceUnknown')
+  if (identity.payload_source_type === 'local') return t('plugin.local')
+  return sourceKeyLabel(identity.payload_source_key)
+}
+
+/** 读取当前来源身份和可选候选，失败时保留原安装路径由后端最终准入。 */
+async function loadPluginSourceOptions(force = false) {
+  if (!props.plugin?.id) return
+
+  sourceLoading.value = true
+  sourceError.value = ''
+  try {
+    const options = await getPluginSourceOptions(props.plugin.id, force)
+    sourceOptions.value = options
+
+    const installSelectionStillExists = onlineSourceCandidates.value.some(
+      candidate => candidate.source_key === selectedInstallSourceKey.value,
+    )
+    if (!installSelectionStillExists) selectedInstallSourceKey.value = ''
+
+    const changeSelectionStillExists = sourceActionCandidates.value.some(
+      candidate => candidate.source_key === selectedChangeSourceKey.value,
+    )
+    if (!changeSelectionStillExists) selectedChangeSourceKey.value = ''
+  } catch (error) {
+    console.error(error)
+    sourceOptions.value = null
+    sourceError.value = getApiBusinessErrorMessage(error) || t('plugin.sourceLoadFailed')
+  } finally {
+    sourceLoading.value = false
+  }
+}
+
+/** 明确绑定或切换自动更新来源，换源时使用打开弹窗时读取的 revision。 */
+async function confirmSourceTransition() {
+  const identity = sourceOptions.value?.identity
+  const target = selectedChangeSource.value
+  const bindingSource = !hasTrustedOnlineSource.value
+  if (!props.plugin?.id || !target?.repo_url || (!bindingSource && !identity)) return
+
+  const confirmed = await createConfirm({
+    type: 'warn',
+    title: t(bindingSource ? 'plugin.confirmSourceBindTitle' : 'plugin.confirmSourceChangeTitle'),
+    content: t(bindingSource ? 'plugin.confirmSourceBind' : 'plugin.confirmSourceChange', {
+      name: props.plugin.plugin_name,
+      current: trustedSourceLabel(),
+      target: sourceCandidateLabel(target),
+    }),
+    confirmText: t(bindingSource ? 'plugin.bindSource' : 'plugin.changeSource'),
+  })
+  if (!confirmed) return
+
+  sourceChanging.value = true
+  showInstallProgress(
+    t(bindingSource ? 'plugin.bindingSource' : 'plugin.changingSource', { name: props.plugin.plugin_name }),
+  )
+  try {
+    if (bindingSource) {
+      await installPluginFromSource(props.plugin.id, {
+        repo_url: target.repo_url,
+        force: true,
+      })
+    } else {
+      await changePluginSource(props.plugin.id, {
+        repo_url: target.repo_url,
+        expected_revision: identity!.revision,
+      })
+    }
+    $toast.success(
+      t(bindingSource ? 'plugin.sourceBindSuccess' : 'plugin.sourceChangeSuccess', {
+        name: props.plugin.plugin_name,
+      }),
+    )
+    emit('install')
+    visible.value = false
+  } catch (error) {
+    console.error(error)
+    $toast.error(
+      t(bindingSource ? 'plugin.sourceBindFailed' : 'plugin.sourceChangeFailed', {
+        name: props.plugin.plugin_name,
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
+      }),
+    )
+    await loadPluginSourceOptions(true)
+  } finally {
+    sourceChanging.value = false
+    closeInstallProgress()
+  }
 }
 
 /** 计算插件图标路径。 */
@@ -135,11 +294,29 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     if (!isConfirmed) return
   }
 
+  if (sourceUnavailable.value) {
+    $toast.error(sourceOptions.value?.selection_reason || t('plugin.sourceUnavailable'))
+    return
+  }
+
+  if (sourceNeedsInitialBinding.value) {
+    $toast.error(sourceOptions.value?.selection_reason || t('plugin.sourceBindingHint'))
+    return
+  }
+
+  const explicitSource = sourceNeedsSelection.value ? selectedInstallSource.value : undefined
+  if (sourceNeedsSelection.value && !explicitSource?.repo_url) {
+    $toast.error(t('plugin.selectSourceRequired'))
+    return
+  }
+
+  const selectedRepoUrl = explicitSource?.repo_url || repoUrl
+
   if (props.installHandler) {
     versionHistoryDialogController?.close()
     versionHistoryDialogController = null
     visible.value = false
-    await props.installHandler(releaseVersion, repoUrl)
+    await props.installHandler(releaseVersion, selectedRepoUrl)
     return
   }
 
@@ -155,14 +332,21 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
           }),
     )
 
-    await api.get(`plugin/install/${props.plugin?.id}`, {
-      params: {
-        repo_url: repoUrl || props.plugin?.repo_url,
+    if (!isInstalled.value && explicitSource?.repo_url) {
+      await installPluginFromSource(props.plugin.id, {
+        repo_url: explicitSource.repo_url,
         release_version: releaseVersion,
-        force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
-      },
-      feedback: 'silent',
-    })
+        force: Boolean(props.plugin?.has_update || releaseVersion),
+      })
+    } else {
+      await api.get(`plugin/install/${props.plugin?.id}`, {
+        params: {
+          release_version: releaseVersion,
+          force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
+        },
+        feedback: 'silent',
+      })
+    }
 
     $toast.success(
       isInstalled.value
@@ -198,9 +382,17 @@ function showUpdateHistory() {
     },
     {
       update: installPlugin,
+      sourceAction: openSourceAction,
     },
     { closeOn: ['close', 'update:modelValue'] },
   )
+}
+
+/** 展开来源选择，来源未就绪时不执行普通更新。 */
+function openSourceAction() {
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = null
+  showSourceChoices.value = true
 }
 
 /** 查询插件平均分和当前安装实例评分。 */
@@ -251,7 +443,10 @@ async function submitPluginRating() {
 watch(
   () => [visible.value, props.plugin?.id],
   ([isVisible]) => {
-    if (isVisible) loadPluginRating()
+    if (isVisible) {
+      void loadPluginRating()
+      void loadPluginSourceOptions()
+    }
   },
   { immediate: true },
 )
@@ -306,13 +501,131 @@ onUnmounted(() => {
           :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
         />
 
+        <section v-if="sourceSectionVisible" class="plugin-market-detail-source" aria-labelledby="plugin-source-title">
+          <div class="plugin-market-detail-source__heading">
+            <div>
+              <h3 id="plugin-source-title" class="plugin-market-detail-source__title">
+                {{ t('plugin.source') }}
+              </h3>
+              <p class="plugin-market-detail-source__hint">
+                {{
+                  sourceNeedsInitialBinding
+                    ? t('plugin.sourceBindingHint')
+                    : isInstalled
+                      ? t('plugin.sourceInstalledHint')
+                      : t('plugin.sourceConflictHint')
+                }}
+              </p>
+            </div>
+            <VProgressCircular v-if="sourceLoading" indeterminate size="20" width="2" />
+          </div>
+
+          <VAlert v-if="sourceError" type="warning" variant="tonal" density="compact" :text="sourceError" />
+
+          <template v-if="sourceOptions">
+            <dl v-if="isInstalled && sourceOptions.identity" class="plugin-market-detail-source__identity">
+              <div>
+                <dt>{{ t('plugin.trustedUpdateSource') }}</dt>
+                <dd>{{ trustedSourceLabel() }}</dd>
+              </div>
+              <div v-if="sourceOptions.identity.payload_source_type === 'local'">
+                <dt>{{ t('plugin.currentPayloadSource') }}</dt>
+                <dd>{{ payloadSourceLabel() }}</dd>
+              </div>
+            </dl>
+
+            <VAlert
+              v-if="sourceNeedsSelection || sourceNeedsInitialBinding || sourceUnavailable"
+              :type="sourceNeedsSelection || sourceNeedsInitialBinding ? 'warning' : 'error'"
+              variant="tonal"
+              density="compact"
+              class="mb-3"
+              :text="sourceOptions.selection_reason"
+            />
+
+            <VRadioGroup
+              v-if="sourceNeedsSelection"
+              v-model="selectedInstallSourceKey"
+              class="plugin-market-detail-source__choices"
+              hide-details
+            >
+              <VRadio
+                v-for="candidate in onlineSourceCandidates"
+                :key="candidate.source_key"
+                :value="candidate.source_key"
+                :label="sourceCandidateLabel(candidate)"
+              >
+                <template #label>
+                  <span class="plugin-market-detail-source__choice-label">
+                    <strong>{{ sourceCandidateLabel(candidate) }}</strong>
+                    <span
+                      >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation.toUpperCase() }}</span
+                    >
+                  </span>
+                </template>
+              </VRadio>
+            </VRadioGroup>
+
+            <div v-if="isInstalled && sourceActionCandidates.length > 0" class="plugin-market-detail-source__change">
+              <VBtn
+                v-if="!showSourceChoices"
+                size="small"
+                variant="text"
+                prepend-icon="mdi-source-branch"
+                @click="showSourceChoices = true"
+              >
+                {{ t(hasTrustedOnlineSource ? 'plugin.changeSource' : 'plugin.bindSource') }}
+              </VBtn>
+              <template v-else>
+                <VRadioGroup v-model="selectedChangeSourceKey" hide-details>
+                  <VRadio
+                    v-for="candidate in sourceActionCandidates"
+                    :key="candidate.source_key"
+                    :value="candidate.source_key"
+                  >
+                    <template #label>
+                      <span class="plugin-market-detail-source__choice-label">
+                        <strong>{{ sourceCandidateLabel(candidate) }}</strong>
+                        <span
+                          >v{{ candidate.plugin_version || '-' }} ·
+                          {{ candidate.package_generation.toUpperCase() }}</span
+                        >
+                      </span>
+                    </template>
+                  </VRadio>
+                </VRadioGroup>
+                <div class="plugin-market-detail-source__change-actions">
+                  <VBtn size="small" variant="text" @click="showSourceChoices = false">
+                    {{ t('common.cancel') }}
+                  </VBtn>
+                  <VBtn
+                    size="small"
+                    color="warning"
+                    :loading="sourceChanging"
+                    :disabled="!selectedChangeSource"
+                    @click="confirmSourceTransition"
+                  >
+                    {{ t(hasTrustedOnlineSource ? 'plugin.confirmSourceChangeAction' : 'plugin.bindSource') }}
+                  </VBtn>
+                </div>
+              </template>
+            </div>
+          </template>
+        </section>
+
         <div class="plugin-market-detail-actions">
           <div class="plugin-market-detail-actions__buttons">
             <VBtn
               v-if="!isInstalled"
               color="primary"
               prepend-icon="mdi-download"
-              :disabled="props.plugin?.system_version_compatible === false"
+              :loading="sourceLoading"
+              :disabled="
+                props.plugin?.system_version_compatible === false ||
+                sourceLoading ||
+                sourceUnavailable ||
+                (sourceNeedsSelection && !selectedInstallSource)
+              "
               @click="installPlugin()"
             >
               {{ t('plugin.installToLocal') }}
@@ -321,7 +634,13 @@ onUnmounted(() => {
               v-else-if="props.plugin?.has_update"
               color="primary"
               prepend-icon="mdi-arrow-up-circle-outline"
-              :disabled="props.plugin?.system_version_compatible === false"
+              :disabled="
+                props.plugin?.system_version_compatible === false ||
+                sourceLoading ||
+                sourceUnavailable ||
+                sourceNeedsInitialBinding
+              "
+              :loading="sourceLoading"
               @click="installPlugin()"
             >
               {{ t('plugin.update') }}
@@ -376,6 +695,94 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+}
+
+.plugin-market-detail-source {
+  padding: 0.875rem;
+  margin-block: 1rem;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.75rem;
+}
+
+.plugin-market-detail-source__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-end: 0.75rem;
+}
+
+.plugin-market-detail-source__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.plugin-market-detail-source__hint {
+  margin: 0.125rem 0 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.plugin-market-detail-source__identity {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.plugin-market-detail-source__identity > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.plugin-market-detail-source__identity dt {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+.plugin-market-detail-source__identity dd {
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+
+.plugin-market-detail-source__choices :deep(.v-selection-control),
+.plugin-market-detail-source__change :deep(.v-selection-control) {
+  min-height: 2.75rem;
+}
+
+.plugin-market-detail-source__choice-label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding-block: 0.25rem;
+}
+
+.plugin-market-detail-source__choice-label strong {
+  overflow-wrap: anywhere;
+}
+
+.plugin-market-detail-source__choice-label span {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+.plugin-market-detail-source__change {
+  margin-block-start: 0.75rem;
+}
+
+.plugin-market-detail-source__change-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
 }
 
 .plugin-market-detail__avatar {

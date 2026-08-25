@@ -167,7 +167,6 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     await api.get(`plugin/install/${props.plugin?.id}`, {
       feedback: 'silent',
       params: {
-        repo_url: repoUrl || props.plugin?.repo_url,
         release_version: releaseVersion,
         force: props.plugin?.has_update || Boolean(releaseVersion),
       },

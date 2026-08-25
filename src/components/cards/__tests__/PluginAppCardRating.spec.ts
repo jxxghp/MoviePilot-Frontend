@@ -174,7 +174,6 @@ describe('PluginAppCard rating badge', () => {
       params: {
         force: true,
         release_version: '0.9.0',
-        repo_url: 'https://github.com/example/releases',
       },
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 安装成功！')
