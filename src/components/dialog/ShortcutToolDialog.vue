@@ -14,6 +14,8 @@ const props = withDefaults(
     icon?: string
     maxWidth?: string
     modelValue?: boolean
+    /** 动态视图是否声明并可能触发 close 事件。 */
+    supportsClose?: boolean
     subtitle?: string
     title: string
     view: Component
@@ -25,6 +27,7 @@ const props = withDefaults(
     icon: 'mdi-cog',
     maxWidth: '35rem',
     modelValue: true,
+    supportsClose: false,
     viewProps: () => ({}),
   },
 )
@@ -81,7 +84,7 @@ function closeDialog() {
       </VCardItem>
       <VDivider />
       <VCardText :class="bodyClasses">
-        <Component :is="props.view" v-bind="props.viewProps" @close="closeDialog" />
+        <Component :is="props.view" v-bind="props.viewProps" v-on="props.supportsClose ? { close: closeDialog } : {}" />
       </VCardText>
     </VCard>
   </VDialog>
