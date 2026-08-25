@@ -42,6 +42,8 @@ const DASHBOARD_GRID_CELL_HEIGHT = 16
 const DASHBOARD_GRID_FALLBACK_ROWS = 4
 const DASHBOARD_GRID_MARGIN = 8
 const DASHBOARD_GRID_CONTENT_RESIZE_THRESHOLD = 4
+const DASHBOARD_GRID_ANIMATION_STABLE_FRAMES = 2
+const DASHBOARD_GRID_ANIMATION_MAX_WAIT_FRAMES = 12
 const DASHBOARD_GRID_SIZE_SOURCE_SELECTOR = '[data-layout-size-source]'
 const DASHBOARD_ENABLE_STORAGE_KEY = 'MP_DASHBOARD'
 const DASHBOARD_ORDER_STORAGE_KEY = 'MP_DASHBOARD_ORDER'
@@ -158,7 +160,10 @@ let dashboardGridContentObserver: ResizeObserver | null = null
 let dashboardGridContentMutationObserver: MutationObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
 let dashboardGridResizeRefreshFrame: number | null = null
-let dashboardGridAnimationFrame: number | null = null
+let dashboardGridAnimationResumeFrame: number | null = null
+let dashboardGridGeometryTransactionDepth = 0
+let dashboardGridGeometryGeneration = 0
+let isDashboardPageActive = true
 let dashboardRevealFrame: number | null = null
 let isDashboardRevealPending = false
 let dashboardProfileSaveQueue = Promise.resolve()
@@ -403,15 +408,6 @@ function scheduleDashboardReveal() {
   })
 }
 
-// 程序化批量布局不播放中间态；稳定后恢复用户拖拽、缩放和让位动画。
-function pauseDashboardGridAnimation() {
-  if (dashboardGridAnimationFrame !== null) {
-    cancelAnimationFrame(dashboardGridAnimationFrame)
-    dashboardGridAnimationFrame = null
-  }
-  dashboardGrid.value?.setAnimation(false)
-}
-
 // 玻璃浏览态直接提交自动布局，普通主题和显式编辑交互保留 GridStack 过渡。
 function shouldAnimateDashboardGrid(editable = isLayoutEditing.value) {
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -419,15 +415,92 @@ function shouldAnimateDashboardGrid(editable = isLayoutEditing.value) {
   return !reduceMotion && (editable || vuetifyTheme.global.name.value !== 'glass')
 }
 
-// 批量布局同步期间暂停几何过渡，稳定后恢复浏览与编辑状态的卡片动画。
+// 动画状态只由此函数写入，避免结构同步、主题和编辑状态各自提前恢复过渡。
+function applyDashboardGridAnimationPolicy(forceDisabled = false) {
+  const shouldAnimate =
+    !forceDisabled &&
+    isDashboardPageActive &&
+    dashboardGridGeometryTransactionDepth === 0 &&
+    shouldAnimateDashboardGrid()
+
+  dashboardGrid.value?.setAnimation(shouldAnimate)
+}
+
+function refreshDashboardGridAnimationPolicy() {
+  applyDashboardGridAnimationPolicy(
+    dashboardGridGeometryTransactionDepth > 0 || dashboardGridAnimationResumeFrame !== null,
+  )
+}
+
+function cancelDashboardGridAnimationResume() {
+  if (dashboardGridAnimationResumeFrame === null) return
+
+  cancelAnimationFrame(dashboardGridAnimationResumeFrame)
+  dashboardGridAnimationResumeFrame = null
+}
+
+// 只比较 GridStack 几何属性；业务内容变化只有真正改变网格时才延长稳定期。
+function getDashboardGridGeometryFingerprint() {
+  return Array.from(dashboardGridRef.value?.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item') ?? [])
+    .map(element =>
+      ['gs-id', 'gs-x', 'gs-y', 'gs-w', 'gs-h'].map(attribute => element.getAttribute(attribute) ?? '').join(':'),
+    )
+    .sort()
+    .join('|')
+}
+
+// 连续稳定帧后恢复交互动画；有限等待上限避免异常内容让动画策略永久停留在禁用态。
 function scheduleDashboardGridAnimationResume() {
   if (typeof window === 'undefined') return
-  if (dashboardGridAnimationFrame !== null) cancelAnimationFrame(dashboardGridAnimationFrame)
 
-  dashboardGridAnimationFrame = requestAnimationFrame(() => {
-    dashboardGridAnimationFrame = null
-    dashboardGrid.value?.setAnimation(shouldAnimateDashboardGrid())
-  })
+  cancelDashboardGridAnimationResume()
+  const generation = dashboardGridGeometryGeneration
+  let previousFingerprint = getDashboardGridGeometryFingerprint()
+  let stableFrames = 0
+  let waitedFrames = 0
+
+  const checkStability = () => {
+    dashboardGridAnimationResumeFrame = null
+    if (generation !== dashboardGridGeometryGeneration || dashboardGridGeometryTransactionDepth > 0) return
+    if (!isDashboardPageActive) {
+      applyDashboardGridAnimationPolicy(true)
+      return
+    }
+
+    waitedFrames += 1
+    const fingerprint = getDashboardGridGeometryFingerprint()
+    const hasPendingResize = dashboardGridContentResizeFrame !== null || dashboardGridPendingContentResize.size > 0
+    stableFrames = !hasPendingResize && fingerprint === previousFingerprint ? stableFrames + 1 : 0
+    previousFingerprint = fingerprint
+
+    if (
+      stableFrames >= DASHBOARD_GRID_ANIMATION_STABLE_FRAMES ||
+      waitedFrames >= DASHBOARD_GRID_ANIMATION_MAX_WAIT_FRAMES
+    ) {
+      applyDashboardGridAnimationPolicy()
+      return
+    }
+
+    dashboardGridAnimationResumeFrame = requestAnimationFrame(checkStability)
+  }
+
+  dashboardGridAnimationResumeFrame = requestAnimationFrame(checkStability)
+}
+
+// 可嵌套的程序化几何事务统一暂停过渡，最后一个事务结束后进入稳定帧检查。
+function beginDashboardGridGeometryTransaction() {
+  dashboardGridGeometryTransactionDepth += 1
+  dashboardGridGeometryGeneration += 1
+  cancelDashboardGridAnimationResume()
+  applyDashboardGridAnimationPolicy(true)
+  let ended = false
+
+  return () => {
+    if (ended) return
+    ended = true
+    dashboardGridGeometryTransactionDepth = Math.max(0, dashboardGridGeometryTransactionDepth - 1)
+    if (dashboardGridGeometryTransactionDepth === 0) scheduleDashboardGridAnimationResume()
+  }
 }
 
 // 标记单个仪表板项目已经完成首次组件加载。
@@ -955,29 +1028,38 @@ async function exitDashboardLayoutEditing() {
     await persistCurrentDashboardGridLayout()
   }
 
-  isLayoutEditing.value = false
-  await nextTick()
-  await reloadDashboardGridWidgetsFromLayout()
-  syncDashboardFillContentState()
-  resizeAutoDashboardItemsToContent()
-  notifyDashboardContentResize()
+  const endGeometryTransaction = beginDashboardGridGeometryTransaction()
+  try {
+    isLayoutEditing.value = false
+    await nextTick()
+    await reloadDashboardGridWidgetsFromLayout()
+    syncDashboardFillContentState()
+    resizeAutoDashboardItemsToContent()
+    notifyDashboardContentResize()
+  } finally {
+    endGeometryTransaction()
+  }
 }
 
 // 清除用户布局覆盖并恢复默认占位；编辑中仅写入临时草稿并等待确认持久化。
 async function resetDashboardGridLayout() {
+  const endGeometryTransaction = beginDashboardGridGeometryTransaction()
   const shouldPersistImmediately = !isLayoutEditing.value
-
-  dashboardGridLayout.value = {}
-  if (shouldPersistImmediately) {
-    await saveDashboardGridLayout({})
+  try {
+    dashboardGridLayout.value = {}
+    if (shouldPersistImmediately) {
+      await saveDashboardGridLayout({})
+    }
+    isDashboardGridLayoutResetDraft.value = isLayoutEditing.value
+    dashboardGrid.value?.removeAll(false, false)
+    await syncDashboardGrid()
+    await nextTick()
+    syncDashboardFillContentState()
+    resizeAutoDashboardItemsToContent()
+    notifyDashboardContentResize()
+  } finally {
+    endGeometryTransaction()
   }
-  isDashboardGridLayoutResetDraft.value = isLayoutEditing.value
-  dashboardGrid.value?.removeAll(false, false)
-  await syncDashboardGrid()
-  await nextTick()
-  syncDashboardFillContentState()
-  resizeAutoDashboardItemsToContent()
-  notifyDashboardContentResize()
 }
 
 // 生成 appMode 底部动态按钮菜单，普通 Web 模式由页面内 FAB 承接。
@@ -1029,9 +1111,16 @@ function toggleDashboardLayoutEditing() {
     return
   }
 
+  const endGeometryTransaction = beginDashboardGridGeometryTransaction()
   isDashboardGridLayoutResetDraft.value = false
   isLayoutEditing.value = true
-  nextTick(syncDashboardGrid)
+  void nextTick(async () => {
+    try {
+      await syncDashboardGrid()
+    } finally {
+      endGeometryTransaction()
+    }
+  })
 }
 
 // 加载用户监控面板配置，优先使用服务端用户配置以支持跨浏览器同步。
@@ -1243,7 +1332,7 @@ function initializeDashboardGrid() {
 
   dashboardGrid.value = GridStack.init(
     {
-      animate: shouldAnimateDashboardGrid(),
+      animate: false,
       cellHeight: DASHBOARD_GRID_CELL_HEIGHT,
       column: getDashboardGridColumnsForProfile(dashboardLayoutProfile.value),
       draggable: {
@@ -1273,7 +1362,6 @@ function updateDashboardGridEditableState(editable: boolean) {
   if (!dashboardGrid.value) return
 
   dashboardGrid.value.setStatic(!editable)
-  dashboardGrid.value.setAnimation(shouldAnimateDashboardGrid(editable))
   if (editable) {
     dashboardGrid.value.enableMove(true)
     dashboardGrid.value.enableResize(true)
@@ -1281,35 +1369,38 @@ function updateDashboardGridEditableState(editable: boolean) {
 }
 
 // 将 Vue 渲染出的仪表板节点同步注册到 GridStack。
-async function syncDashboardGrid(resumeAnimation = true) {
+async function syncDashboardGrid() {
   const grid = dashboardGrid.value
   const gridElement = dashboardGridRef.value
   if (!grid || !gridElement) return
 
   const restoreProfileDefaults = shouldRestoreDashboardGridProfileDefaults
   shouldRestoreDashboardGridProfileDefaults = false
-  pauseDashboardGridAnimation()
+  const endGeometryTransaction = beginDashboardGridGeometryTransaction()
   isSyncingDashboardGrid.value = true
-  await nextTick()
-  syncDashboardFillContentState()
-
-  const items = dashboardGridItems.value
-  const itemMap = new Map(items.map(item => [item.id, item]))
-  const synchronizedWidgets = new Map<string, GridStackWidget>()
-  const elements = Array.from(gridElement.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item')).sort(
-    (a, b) => {
-      const aWidget = itemMap.get(a.getAttribute('gs-id') ?? '')?.widget
-      const bWidget = itemMap.get(b.getAttribute('gs-id') ?? '')?.widget
-
-      return (
-        (aWidget?.y ?? Number.MAX_SAFE_INTEGER) - (bWidget?.y ?? Number.MAX_SAFE_INTEGER) ||
-        (aWidget?.x ?? Number.MAX_SAFE_INTEGER) - (bWidget?.x ?? Number.MAX_SAFE_INTEGER)
-      )
-    },
-  )
+  let gridBatchOpen = false
 
   try {
+    await nextTick()
+    syncDashboardFillContentState()
+
+    const items = dashboardGridItems.value
+    const itemMap = new Map(items.map(item => [item.id, item]))
+    const synchronizedWidgets = new Map<string, GridStackWidget>()
+    const elements = Array.from(gridElement.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item')).sort(
+      (a, b) => {
+        const aWidget = itemMap.get(a.getAttribute('gs-id') ?? '')?.widget
+        const bWidget = itemMap.get(b.getAttribute('gs-id') ?? '')?.widget
+
+        return (
+          (aWidget?.y ?? Number.MAX_SAFE_INTEGER) - (bWidget?.y ?? Number.MAX_SAFE_INTEGER) ||
+          (aWidget?.x ?? Number.MAX_SAFE_INTEGER) - (bWidget?.x ?? Number.MAX_SAFE_INTEGER)
+        )
+      },
+    )
+
     grid.batchUpdate()
+    gridBatchOpen = true
 
     grid.engine.nodes
       .filter(node => {
@@ -1345,6 +1436,7 @@ async function syncDashboardGrid(resumeAnimation = true) {
     })
 
     grid.batchUpdate(false)
+    gridBatchOpen = false
     // 完整档位布局由 GridStack 按坐标统一恢复，避免逐个注册时的页面节点顺序污染跨列和响应式布局。
     grid.load(
       items.map(item => ({ ...(synchronizedWidgets.get(item.id) ?? item.widget) })),
@@ -1353,14 +1445,19 @@ async function syncDashboardGrid(resumeAnimation = true) {
     updateDashboardGridEditableState(isLayoutEditing.value)
     syncDashboardFillContentState()
     observeDashboardGridContent()
-    nextTick(() => {
+    await nextTick()
+    if (isDashboardPageActive) {
       syncDashboardFillContentState()
       resizeAutoDashboardItemsToContent()
       scheduleDashboardReveal()
-    })
+    }
   } finally {
-    isSyncingDashboardGrid.value = false
-    if (resumeAnimation) scheduleDashboardGridAnimationResume()
+    try {
+      if (gridBatchOpen) grid.batchUpdate(false)
+    } finally {
+      isSyncingDashboardGrid.value = false
+      endGeometryTransaction()
+    }
   }
 }
 
@@ -1416,6 +1513,13 @@ function observeDashboardGridContent() {
 
   dashboardGridContentMutationObserver = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
+      if (mutation.type === 'attributes') {
+        const source = mutation.target as Element
+        if (source.matches(DASHBOARD_GRID_SIZE_SOURCE_SELECTOR)) observeDashboardGridSizeSource(source)
+        else unobserveDashboardGridSizeSource(source)
+        return
+      }
+
       mutation.removedNodes.forEach(node => {
         findDashboardGridSizeSources(node).forEach(unobserveDashboardGridSizeSource)
       })
@@ -1424,7 +1528,12 @@ function observeDashboardGridContent() {
       })
     })
   })
-  dashboardGridContentMutationObserver.observe(gridElement, { childList: true, subtree: true })
+  dashboardGridContentMutationObserver.observe(gridElement, {
+    attributeFilter: ['data-layout-size-source'],
+    attributes: true,
+    childList: true,
+    subtree: true,
+  })
 }
 
 // 返回节点自身及后代声明的真实尺寸源，普通子节点变化不进入测高路径。
@@ -1472,24 +1581,31 @@ function scheduleDashboardItemContentResize(element: GridItemHTMLElement) {
 
   dashboardGridContentResizeFrame = requestAnimationFrame(() => {
     dashboardGridContentResizeFrame = null
-    dashboardGridPendingContentResize.forEach(itemElement => resizeDashboardItemToContent(itemElement))
+    const elements = [...dashboardGridPendingContentResize]
     dashboardGridPendingContentResize.clear()
+    resizeDashboardItemsToContent(elements)
   })
+}
+
+// 判断当前项目是否允许自动测高；编辑、用户缩放和手动高度均保持用户几何优先。
+function canResizeDashboardItemToContent(element: GridItemHTMLElement) {
+  const id = element.getAttribute('gs-id') ?? ''
+  return (
+    Boolean(dashboardGrid.value) &&
+    Boolean(id) &&
+    !isSwitchingDashboardLayoutProfile &&
+    !isLayoutEditing.value &&
+    !isDashboardGridResizing.value &&
+    !hasManualDashboardGridHeight(id)
+  )
 }
 
 // 将未手动固定高度的单个组件高度调整到内容实际高度。
 function resizeDashboardItemToContent(element: GridItemHTMLElement) {
   const grid = dashboardGrid.value
+  if (!grid || !canResizeDashboardItemToContent(element)) return
+
   const id = element.getAttribute('gs-id') ?? ''
-  if (
-    !grid ||
-    !id ||
-    isSwitchingDashboardLayoutProfile ||
-    isLayoutEditing.value ||
-    isDashboardGridResizing.value ||
-    hasManualDashboardGridHeight(id)
-  )
-    return
 
   syncDashboardFillContentState(element)
   const shouldMeasureFillContent = element.classList.contains('has-fill-content')
@@ -1518,15 +1634,36 @@ function resizeDashboardItemToContent(element: GridItemHTMLElement) {
   }
 }
 
+// 同一绘制帧的自动测高在一个 GridStack batch 中提交，避免逐项 pack 产生中间几何。
+function resizeDashboardItemsToContent(elements: GridItemHTMLElement[]) {
+  const grid = dashboardGrid.value
+  if (!grid || elements.length === 0 || !isDashboardPageActive) return
+
+  const uniqueElements = [...new Set(elements)].filter(canResizeDashboardItemToContent)
+  if (uniqueElements.length === 0) return
+
+  const endGeometryTransaction = beginDashboardGridGeometryTransaction()
+  let gridBatchOpen = false
+  try {
+    grid.batchUpdate()
+    gridBatchOpen = true
+    uniqueElements.forEach(resizeDashboardItemToContent)
+  } finally {
+    try {
+      if (gridBatchOpen) grid.batchUpdate(false)
+    } finally {
+      endGeometryTransaction()
+    }
+  }
+}
+
 // 将所有未手动固定高度的组件高度调整到内容实际高度。
 function resizeAutoDashboardItemsToContent() {
   const gridElement = dashboardGridRef.value
   if (!gridElement) return
 
   syncDashboardFillContentState()
-  gridElement.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item').forEach(element => {
-    resizeDashboardItemToContent(element)
-  })
+  resizeDashboardItemsToContent(Array.from(gridElement.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item')))
 }
 
 // 记录缩放开始前的高度，用于区分用户是否真的手动改过高度。
@@ -1644,11 +1781,12 @@ async function reloadDashboardGridWidgetsFromLayout() {
 
 watch(isLayoutEditing, value => {
   updateDashboardGridEditableState(value)
+  refreshDashboardGridAnimationPolicy()
 })
 
 watch(
   () => vuetifyTheme.global.name.value,
-  () => updateDashboardGridEditableState(isLayoutEditing.value),
+  () => refreshDashboardGridAnimationPolicy(),
 )
 
 watch(
@@ -1690,16 +1828,20 @@ watch(
       dashboardGridAutoHeights.value = nextAutoHeights
       applyDashboardConfig(localProfileConfig, localLegacyEnable, undefined)
       updateDashboardSettingsDialog()
-      pauseDashboardGridAnimation()
-      dashboardGrid.value?.column(
-        getDashboardGridColumnsForProfile(nextProfile),
-        getDashboardGridColumnLayout(nextProfile),
-      )
-      dashboardGrid.value?.removeAll(false, false)
-      await syncDashboardGrid(false)
-      scheduleDashboardGridAnimationResume()
+      const endLocalGeometryTransaction = beginDashboardGridGeometryTransaction()
+      try {
+        dashboardGrid.value?.column(
+          getDashboardGridColumnsForProfile(nextProfile),
+          getDashboardGridColumnLayout(nextProfile),
+        )
+        dashboardGrid.value?.removeAll(false, false)
+        await syncDashboardGrid()
+      } finally {
+        endLocalGeometryTransaction()
+      }
       if (profileSwitchId === dashboardLayoutProfileSwitchId) {
         isSwitchingDashboardLayoutProfile = false
+        resizeAutoDashboardItemsToContent()
       }
 
       const profileConfig = await loadDashboardProfileConfig(nextProfile)
@@ -1715,14 +1857,18 @@ watch(
         void saveDashboardProfileConfig()
       }
       updateDashboardSettingsDialog()
-      pauseDashboardGridAnimation()
-      dashboardGrid.value?.removeAll(false, false)
-      await syncDashboardGrid(false)
-      scheduleDashboardGridAnimationResume()
-      notifyDashboardContentResize()
+      const endRemoteGeometryTransaction = beginDashboardGridGeometryTransaction()
+      try {
+        dashboardGrid.value?.removeAll(false, false)
+        await syncDashboardGrid()
+        notifyDashboardContentResize()
+      } finally {
+        endRemoteGeometryTransaction()
+      }
     } finally {
       if (profileSwitchId === dashboardLayoutProfileSwitchId) {
         isSwitchingDashboardLayoutProfile = false
+        resizeAutoDashboardItemsToContent()
       }
     }
   },
@@ -1752,12 +1898,30 @@ onMounted(() => {
 
 onActivated(() => {
   isRequest.value = true
+  isDashboardPageActive = true
   refreshEnabledPluginDashboards()
-  nextTick(syncDashboardGrid)
+  const endGeometryTransaction = beginDashboardGridGeometryTransaction()
+  void nextTick(async () => {
+    try {
+      resizeAutoDashboardItemsToContent()
+      notifyDashboardContentResize()
+    } finally {
+      endGeometryTransaction()
+    }
+  })
 })
 
 onDeactivated(() => {
   isRequest.value = false
+  isDashboardPageActive = false
+  dashboardGridGeometryGeneration += 1
+  cancelDashboardGridAnimationResume()
+  if (dashboardGridContentResizeFrame !== null) {
+    cancelAnimationFrame(dashboardGridContentResizeFrame)
+    dashboardGridContentResizeFrame = null
+  }
+  dashboardGridPendingContentResize.clear()
+  applyDashboardGridAnimationPolicy(true)
   Object.keys(refreshTimers.value).forEach(clearPluginDashboardTimer)
 })
 
@@ -1775,10 +1939,7 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(dashboardGridResizeRefreshFrame)
     dashboardGridResizeRefreshFrame = null
   }
-  if (dashboardGridAnimationFrame !== null) {
-    cancelAnimationFrame(dashboardGridAnimationFrame)
-    dashboardGridAnimationFrame = null
-  }
+  cancelDashboardGridAnimationResume()
   if (dashboardRevealFrame !== null) {
     cancelAnimationFrame(dashboardRevealFrame)
     dashboardRevealFrame = null

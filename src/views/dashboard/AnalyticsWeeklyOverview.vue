@@ -123,6 +123,8 @@ const options = controlledComputed(
 
 // 图表数据
 const series = ref([{ data: [0, 0, 0, 0, 0, 0, 0] }])
+const hasWeeklyData = ref(false)
+const isWeeklyLayoutReady = ref(false)
 
 // 总数
 const totalCount = computed(() => series.value[0].data.reduce((a, b) => a + b, 0))
@@ -136,14 +138,22 @@ const animatedTotalCountText = computed(() => formatDashboardCount(animatedTotal
  * 调用 API 接口获取近 7 天入库数据。
  */
 async function getWeeklyData() {
+  hasWeeklyData.value = false
+  isWeeklyLayoutReady.value = false
   try {
     const res: number[] = await api.get('dashboard/transfer')
     // 使用nextTick确保DOM更新完成后再更新图表数据
     await nextTick()
     series.value = [{ data: res }]
+    hasWeeklyData.value = true
   } catch (e) {
     console.log(e)
   }
+}
+
+// 数据与 ApexCharts 渲染均完成后才暴露真实尺寸，覆盖两者先后顺序不同的竞态。
+function markWeeklyLayoutReady() {
+  if (hasWeeklyData.value) isWeeklyLayoutReady.value = true
 }
 
 onMounted(() => {
@@ -167,9 +177,16 @@ onActivated(() => {
       <VCardTitle>{{ t('dashboard.weeklyOverview') }}</VCardTitle>
     </VCardItem>
 
-    <VCardText class="dashboard-work-content">
-      <div class="dashboard-work-chart">
-        <VApexChart type="bar" :options="options" :series="series" height="100%" />
+    <VCardText class="dashboard-work-content" :data-layout-size-source="isWeeklyLayoutReady ? '' : undefined">
+      <div class="dashboard-work-chart dashboard-chart-plot">
+        <VApexChart
+          type="bar"
+          :options="options"
+          :series="series"
+          height="100%"
+          @mounted="markWeeklyLayoutReady"
+          @updated="markWeeklyLayoutReady"
+        />
       </div>
       <div class="d-flex align-center mb-3">
         <h5 class="dashboard-weekly-count text-h5 me-4">

@@ -3,7 +3,7 @@ import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
-import { toRaw } from 'vue'
+import { KeepAlive, defineComponent, h, ref, toRaw } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -97,6 +97,13 @@ class LayoutSourceResizeObserverMock implements ResizeObserver {
   resize(target: Element, height: number) {
     this.callback([{ contentRect: { height }, target } as ResizeObserverEntry], this)
   }
+
+  resizeMany(entries: Array<{ height: number; target: Element }>) {
+    this.callback(
+      entries.map(({ height, target }) => ({ contentRect: { height }, target }) as ResizeObserverEntry),
+      this,
+    )
+  }
 }
 
 async function findLayoutSourceObserver(source: Element) {
@@ -159,6 +166,7 @@ vi.mock('@/components/misc/DashboardElement.vue', async () => {
       emits: ['loaded'],
       setup(props, { emit }) {
         const showLayoutSizeSource = ref(false)
+        const markExistingLayoutSizeSource = ref(false)
         onMounted(() => emit('loaded'))
 
         return () =>
@@ -170,9 +178,16 @@ vi.mock('@/components/misc/DashboardElement.vue', async () => {
               onClick: () => {
                 showLayoutSizeSource.value = !showLayoutSizeSource.value
               },
+              onDblclick: () => {
+                markExistingLayoutSizeSource.value = !markExistingLayoutSizeSource.value
+              },
             },
             [
               (props.config as { name: string }).name,
+              h('div', {
+                'data-layout-size-source': markExistingLayoutSizeSource.value ? '' : undefined,
+                'data-testid': 'existing-layout-source',
+              }),
               showLayoutSizeSource.value
                 ? h('div', { 'data-layout-size-source': '', 'data-testid': 'layout-size-source' }, 'size source')
                 : null,
@@ -238,6 +253,33 @@ async function renderDashboard(
   })
 }
 
+function dashboardKeepAliveHarness() {
+  return defineComponent({
+    setup() {
+      const active = ref(true)
+
+      return () =>
+        h('main', [
+          h('button', { onClick: () => (active.value = false) }, '停用仪表盘'),
+          h('button', { onClick: () => (active.value = true) }, '启用仪表盘'),
+          h(KeepAlive, null, () => (active.value ? h(DashboardPage) : null)),
+        ])
+    },
+  })
+}
+
+async function renderKeptAliveDashboard() {
+  return renderWithProviders(dashboardKeepAliveHarness(), {
+    initialRoute: '/dashboard',
+    initialState: {
+      user: {
+        permissions: { ...DEFAULT_PERMISSIONS, discovery: true },
+        superUser: true,
+      },
+    },
+  })
+}
+
 describe('dashboard page initial layout', () => {
   beforeEach(() => {
     LayoutSourceResizeObserverMock.instances.length = 0
@@ -275,9 +317,13 @@ describe('dashboard page initial layout', () => {
 
     expect(screen.getAllByTestId('dashboard-item')).toHaveLength(1)
     expect(screen.getByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'systemInfo')
-    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: true }), expect.any(HTMLElement))
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
     expect(container.querySelector('.dashboard-grid')).not.toHaveClass('is-revealed')
     await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true))
+    const firstAnimationResume = mocks.grid.setAnimation.mock.calls.findIndex(([enabled]) => enabled)
+    expect(mocks.grid.setAnimation.mock.invocationCallOrder[firstAnimationResume]).toBeGreaterThan(
+      mocks.grid.resizeToContent.mock.invocationCallOrder.at(-1) ?? 0,
+    )
 
     remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
     remoteProfile.resolve({
@@ -592,7 +638,7 @@ describe('dashboard page initial layout', () => {
     await renderDashboard()
 
     expect(screen.getAllByTestId('dashboard-item')).toHaveLength(10)
-    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: true }), expect.any(HTMLElement))
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
 
     remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
     remoteProfile.resolve({
@@ -767,6 +813,88 @@ describe('dashboard page initial layout', () => {
     await waitFor(() => expect(observer.unobserved.has(sizeSource)).toBe(true))
   })
 
+  it('batches multiple size-source changes into one GridStack geometry commit', async () => {
+    vi.stubGlobal('ResizeObserver', LayoutSourceResizeObserverMock)
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({
+        enabled: enabledLibraryAndSystemInfo,
+        items: { library: { x: 0, y: 0, w: 6 }, systemInfo: { x: 6, y: 0, w: 6 } },
+        updatedAt: 10,
+      }),
+    )
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') {
+        return {
+          data: {
+            value: [
+              { id: 'library', key: '' },
+              { id: 'systemInfo', key: '' },
+            ],
+          },
+        }
+      }
+      if (url === '/user/config/DashboardGridLayout') {
+        return {
+          data: {
+            value: {
+              enabled: enabledLibraryAndSystemInfo,
+              items: { library: { x: 0, y: 0, w: 6 }, systemInfo: { x: 6, y: 0, w: 6 } },
+            },
+          },
+        }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    await renderDashboard()
+    await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(2))
+    for (const dashboard of screen.getAllByTestId('dashboard-item')) await fireEvent.click(dashboard)
+    const sources = screen.getAllByTestId('layout-size-source')
+    const observer = await findLayoutSourceObserver(sources[0])
+    await waitFor(() => expect(observer.observed.has(sources[1])).toBe(true))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))))
+    mocks.grid.batchUpdate.mockClear()
+    mocks.grid.resizeToContent.mockClear()
+
+    observer.resizeMany([
+      { target: sources[0], height: 480 },
+      { target: sources[1], height: 320 },
+    ])
+
+    await waitFor(() => expect(mocks.grid.resizeToContent).toHaveBeenCalledTimes(2))
+    expect(mocks.grid.batchUpdate.mock.calls).toEqual([[], [false]])
+  })
+
+  it('observes a size source activated after asynchronous content becomes ready', async () => {
+    vi.stubGlobal('ResizeObserver', LayoutSourceResizeObserverMock)
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } }, updatedAt: 10 }),
+    )
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return { data: { value: [{ id: 'library', key: '' }] } }
+      if (url === '/user/config/DashboardGridLayout') {
+        return { data: { value: { enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } } } } }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    await renderDashboard()
+    const dashboard = screen.getByTestId('dashboard-item')
+    const source = screen.getByTestId('existing-layout-source')
+    expect(LayoutSourceResizeObserverMock.instances.some(observer => observer.observed.has(source))).toBe(false)
+
+    await fireEvent.dblClick(dashboard)
+    const observer = await findLayoutSourceObserver(source)
+    mocks.grid.resizeToContent.mockClear()
+    observer.resize(source, 320)
+
+    await waitFor(() => expect(mocks.grid.resizeToContent).toHaveBeenCalled())
+  })
+
   it('ignores size source changes for manually sized cards', async () => {
     vi.stubGlobal('ResizeObserver', LayoutSourceResizeObserverMock)
     localStorage.setItem(
@@ -792,6 +920,8 @@ describe('dashboard page initial layout', () => {
     await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(1))
     await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)))
     mocks.grid.resizeToContent.mockClear()
+    mocks.grid.batchUpdate.mockClear()
+    mocks.grid.setAnimation.mockClear()
 
     await fireEvent.click(screen.getByTestId('dashboard-item'))
     const sizeSource = container.querySelector('[data-layout-size-source]')!
@@ -799,6 +929,8 @@ describe('dashboard page initial layout', () => {
     observer.resize(sizeSource, 480)
     await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)))
     expect(mocks.grid.resizeToContent).not.toHaveBeenCalled()
+    expect(mocks.grid.batchUpdate).not.toHaveBeenCalled()
+    expect(mocks.grid.setAnimation).not.toHaveBeenCalled()
   })
 
   it('ignores size source changes while editing an automatic card', async () => {
@@ -825,11 +957,76 @@ describe('dashboard page initial layout', () => {
     const sizeSource = container.querySelector('[data-layout-size-source]')!
     const observer = await findLayoutSourceObserver(sizeSource)
     await fireEvent.click(document.querySelector('.compact-fab--primary') as HTMLElement)
-    await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)))
+    await waitFor(() => expect(container.querySelector('.dashboard-grid')).toHaveClass('is-editing'))
+    await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true))
     mocks.grid.resizeToContent.mockClear()
+    mocks.grid.batchUpdate.mockClear()
+    mocks.grid.setAnimation.mockClear()
     observer.resize(sizeSource, 480)
     await new Promise(resolve => requestAnimationFrame(() => resolve(undefined)))
     expect(mocks.grid.resizeToContent).not.toHaveBeenCalled()
+    expect(mocks.grid.batchUpdate).not.toHaveBeenCalled()
+    expect(mocks.grid.setAnimation).not.toHaveBeenCalled()
+  })
+
+  it('remeasures automatic cards after layout editing ends', async () => {
+    vi.stubGlobal('ResizeObserver', LayoutSourceResizeObserverMock)
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } }, updatedAt: 10 }),
+    )
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return { data: { value: [{ id: 'library', key: '' }] } }
+      if (url === '/user/config/DashboardGridLayout') {
+        return { data: { value: { enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } } } } }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { container } = await renderDashboard()
+    await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(1))
+    await fireEvent.click(document.querySelector('.compact-fab--primary') as HTMLElement)
+    await waitFor(() => expect(container.querySelector('.dashboard-grid')).toHaveClass('is-editing'))
+    mocks.grid.resizeToContent.mockClear()
+
+    await fireEvent.click(document.querySelector('.compact-fab--primary') as HTMLElement)
+
+    await waitFor(() => expect(container.querySelector('.dashboard-grid')).not.toHaveClass('is-editing'))
+    await waitFor(() => expect(mocks.grid.resizeToContent).toHaveBeenCalled())
+  })
+
+  it('does not measure detached KeepAlive content and remeasures without rebuilding after activation', async () => {
+    vi.stubGlobal('ResizeObserver', LayoutSourceResizeObserverMock)
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } }, updatedAt: 10 }),
+    )
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return { data: { value: [{ id: 'library', key: '' }] } }
+      if (url === '/user/config/DashboardGridLayout') {
+        return { data: { value: { enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } } } } }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    await renderKeptAliveDashboard()
+    await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(1))
+    await fireEvent.click(screen.getByTestId('dashboard-item'))
+    const source = screen.getByTestId('layout-size-source')
+    const observer = await findLayoutSourceObserver(source)
+    await fireEvent.click(screen.getByRole('button', { name: '停用仪表盘' }))
+    mocks.grid.resizeToContent.mockClear()
+    mocks.grid.load.mockClear()
+
+    observer.resize(source, 480)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))))
+    expect(mocks.grid.resizeToContent).not.toHaveBeenCalled()
+
+    await fireEvent.click(screen.getByRole('button', { name: '启用仪表盘' }))
+    await waitFor(() => expect(mocks.grid.resizeToContent).toHaveBeenCalled())
+    expect(mocks.grid.load).not.toHaveBeenCalled()
   })
 
   it('applies a newer remote profile and refreshes the local first-frame cache', async () => {
@@ -1226,7 +1423,7 @@ describe('dashboard page initial layout', () => {
     await waitFor(() => expect(mocks.grid.column).toHaveBeenCalledWith(1, 'list'))
     await waitFor(() => expect(mocks.grid.removeAll).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(10))
-    expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true)
+    await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true))
     expect(mocks.grid.makeWidget.mock.calls.map(([, widget]) => widget.id)).toEqual([
       'storage',
       'mediaStatistic',
