@@ -101,6 +101,7 @@ const transitionStyle = computed(() => ({
     var(--glass-fixed-shell-nav-inline-size) 100%,
     0 100%
   );
+  transition: clip-path 240ms var(--mp-motion-ease-standard);
 }
 
 .layout-wrapper.layout-vertical-nav-collapsed > .glass-fixed-shell-backplate--main {
@@ -109,6 +110,23 @@ const transitionStyle = computed(() => ({
 
 .layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav) > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
+}
+
+.layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell)
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 100% 0);
+}
+
+.layout-wrapper.layout-standalone-pwa-shell.layout-navbar-compact > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - env(safe-area-inset-top, 0px)) 0);
+}
+
+.layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(
+    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round
+      var(--app-surface-radius)
+  );
 }
 
 [dir='rtl'] .layout-wrapper > .glass-fixed-shell-backplate--main {
@@ -126,6 +144,27 @@ const transitionStyle = computed(() => ({
   .layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
+}
+
+[dir='rtl']
+  .layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell)
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 100% 0);
+}
+
+[dir='rtl']
+  .layout-wrapper.layout-standalone-pwa-shell.layout-navbar-compact
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - env(safe-area-inset-top, 0px)) 0);
+}
+
+[dir='rtl']
+  .layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(
+    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round
+      var(--app-surface-radius)
+  );
 }
 
 .glass-fixed-shell-backplate--overlay-nav {

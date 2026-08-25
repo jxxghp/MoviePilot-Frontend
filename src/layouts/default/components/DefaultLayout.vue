@@ -94,16 +94,14 @@ const horizontalNavGroups = computed(() =>
 
 const navbarExtraHeight = computed(() => {
   const dynamicTabHeight = showDynamicHeaderTab.value ? 2.75 : 0
-  const horizontalNavHeight = showHorizontalThemeNav.value ? 3.25 : 0
 
-  return `${dynamicTabHeight + horizontalNavHeight}rem`
+  return `${dynamicTabHeight}rem`
 })
 
 const mainContentPaddingTop = computed(() => {
   const dynamicTabPadding = showDynamicHeaderTab.value ? 3.25 : 0
-  const horizontalNavPadding = showHorizontalThemeNav.value ? 3.5 : 0
 
-  return `${dynamicTabPadding + horizontalNavPadding}rem`
+  return `${dynamicTabPadding}rem`
 })
 
 // 插件快速访问相关状态
@@ -789,8 +787,12 @@ onMounted(async () => {
 }
 
 .theme-navbar-row--horizontal {
-  gap: 1rem;
+  display: contents !important;
   margin-inline: 0 !important;
+
+  > .v-spacer {
+    display: none;
+  }
 }
 
 :deep(.layout-dynamic-header-tab) {
@@ -800,6 +802,8 @@ onMounted(async () => {
 .theme-horizontal-logo {
   display: inline-flex;
   flex: 0 0 auto;
+  grid-column: 1;
+  grid-row: 1;
   align-items: center;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   column-gap: 0.75rem;
@@ -821,7 +825,14 @@ onMounted(async () => {
 }
 
 .theme-navbar-actions--horizontal {
+  grid-column: 3;
+  grid-row: 1;
   gap: 0.85rem;
+
+  :deep(.search-desktop-activator) {
+    flex-basis: clamp(12rem, 20vw, 17.5rem);
+    inline-size: clamp(12rem, 20vw, 17.5rem);
+  }
 
   :deep(.ms-2),
   :deep(.ms-3) {
@@ -851,22 +862,20 @@ onMounted(async () => {
 
 .theme-horizontal-nav {
   display: flex;
+  grid-column: 2;
+  grid-row: 1;
   align-items: center;
-  block-size: 3.25rem;
+  block-size: auto;
   gap: 0.25rem;
-  overflow-x: auto;
-  padding-block: 0.25rem 0.5rem;
-  padding-inline: 0.5rem;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  min-inline-size: 0;
+  overflow: visible;
+  padding: 0;
 }
 
 .theme-horizontal-nav__item {
   flex: 0 0 auto;
   letter-spacing: 0;
+  padding-inline: 0.75rem !important;
 }
 
 .theme-horizontal-nav__menu,
@@ -883,5 +892,11 @@ onMounted(async () => {
   flex: 0 0 auto;
   align-items: center;
   margin-inline-start: auto;
+}
+
+@media (width <= 1366px) {
+  .theme-horizontal-logo__text {
+    display: none;
+  }
 }
 </style>

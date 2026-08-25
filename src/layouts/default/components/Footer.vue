@@ -245,6 +245,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
                 rounded="pill"
                 :class="{ 'footer-nav-btn-active': currentMenu === menu.to }"
                 :value="menu.to"
+                :aria-label="menu.title"
               >
                 <div class="btn-content">
                   <VIcon :icon="menu.icon" size="32"></VIcon>
@@ -262,6 +263,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
                 class="footer-nav-btn"
                 :class="{ 'footer-nav-btn-active': currentMenu === '/apps' }"
                 value="/apps"
+                :aria-label="t('nav.more')"
               >
                 <div class="btn-content">
                   <VIcon icon="mdi-dots-horizontal" size="32"></VIcon>
@@ -360,7 +362,11 @@ html[data-agent-assistant-open='true'] {
   backdrop-filter: blur(24px);
   background-color: rgba(var(--v-theme-surface), 0.6);
   pointer-events: auto;
-  transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  transition:
+    border-radius 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    max-inline-size 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.2s ease,
+    transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform, max-inline-size, opacity;
 
   --app-control-radius: var(--app-vuetify-rounded-pill);
@@ -427,7 +433,6 @@ html[data-agent-assistant-open='true'] {
     span {
       overflow: hidden;
       text-overflow: ellipsis;
-      transform-origin: center;
       white-space: nowrap;
     }
   }
@@ -479,6 +484,15 @@ html[data-agent-assistant-open='true'] {
 
 .footer-nav-move {
   transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-nav-card,
+  .footer-nav-enter-active,
+  .footer-nav-leave-active,
+  .footer-nav-move {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @keyframes fade-in {

@@ -9,6 +9,7 @@ import {
 } from '@/composables/useThemeCustomizer'
 import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBackplate'
 import { usePWA } from '@/composables/usePWA'
+import { useShellScrollState } from '@/composables/useShellScrollState'
 
 export default defineComponent({
   setup(props, { slots }) {
@@ -18,10 +19,11 @@ export default defineComponent({
 
     const route = useRoute()
     const { mdAndDown } = useDisplay()
-    const { appMode } = usePWA()
+    const { appMode, isStandaloneMode } = usePWA()
     const fixedShellBackplate = useGlassFixedShellBackplate()
     const themeLayout = ref(readThemeCustomizerSettings().layout)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
+    const isStandaloneApp = computed(() => appMode.value && isStandaloneMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
     const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
 
@@ -29,14 +31,9 @@ export default defineComponent({
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
     syncRef(isOverlayNavActive, isLayoutOverlayVisible)
 
-    const scrollDistance = ref(window.scrollY)
     const isDialogOpen = ref(false)
-    const wasScrolledBeforeDialog = ref(false)
     let dialogObserver: MutationObserver | null = null
-
-    const handleScroll = () => {
-      scrollDistance.value = window.scrollY
-    }
+    const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
 
     const handleThemeCustomizerChange = (event: Event) => {
       themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
@@ -44,17 +41,10 @@ export default defineComponent({
 
     // 监听弹窗状态变化
     const checkDialogState = () => {
-      const wasDialogOpen = isDialogOpen.value
       isDialogOpen.value = document.documentElement.classList.contains('v-overlay-scroll-blocked')
-
-      // 当弹窗刚打开时，记录当前的滚动状态
-      if (!wasDialogOpen && isDialogOpen.value) {
-        wasScrolledBeforeDialog.value = scrollDistance.value > 10
-      }
     }
 
     onMounted(() => {
-      window.addEventListener('scroll', handleScroll)
       window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
 
       // 初始检查弹窗状态
@@ -69,7 +59,6 @@ export default defineComponent({
     })
 
     onBeforeUnmount(() => {
-      window.removeEventListener('scroll', handleScroll)
       window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
       dialogObserver?.disconnect()
       dialogObserver = null
@@ -102,7 +91,11 @@ export default defineComponent({
       // 👉 Navbar
       const navbar = h(
         'header',
-        { class: ['layout-navbar navbar-blur'] },
+        {
+          class: ['layout-navbar navbar-blur'],
+          'data-shell-navbar-state': shellScroll.state.value,
+          inert: appMode.value && shellScroll.state.value === 'compact' ? '' : undefined,
+        },
         [
           h(
             'div',
@@ -128,7 +121,9 @@ export default defineComponent({
 
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
-      const isNavbarScrolled = scrollDistance.value > 5 || (isDialogOpen.value && wasScrolledBeforeDialog.value)
+      const isNavbarAwayFromTop = shellScroll.state.value !== 'expanded'
+      const isNavbarCompact = shellScroll.state.value === 'compact'
+      const isNavbarRevealed = shellScroll.state.value === 'revealed'
 
       // 👉 Footer
       const footer = h('footer', { class: 'layout-footer' }, [
@@ -156,13 +151,21 @@ export default defineComponent({
             'layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid',
             'layout-navbar-fixed',
             mdAndDown.value && 'layout-overlay-nav',
+            appMode.value && 'layout-app-shell',
+            isStandaloneApp.value && 'layout-standalone-pwa-shell',
+            mdAndDown.value && !appMode.value && 'layout-mobile-drawer-shell',
             isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
             isHorizontalLayout.value && 'layout-horizontal-nav-active',
-            isHorizontalLayout.value && isNavbarScrolled && 'layout-horizontal-nav-scrolled',
+            isHorizontalLayout.value && isNavbarAwayFromTop && 'layout-horizontal-nav-scrolled',
+            isNavbarAwayFromTop && 'layout-navbar-away-from-top',
+            isNavbarCompact && 'layout-navbar-compact',
+            isNavbarRevealed && 'layout-navbar-revealed',
             hasFixedShellBackplate && 'layout-fixed-shell-backplate-active',
             route.meta.layoutWrapperClasses,
-            !isHorizontalLayout.value && isNavbarScrolled && 'window-scrolled',
+            !isHorizontalLayout.value && isNavbarAwayFromTop && 'window-scrolled',
           ],
+          'data-shell-mode': appMode.value ? 'app' : mdAndDown.value ? 'drawer' : 'desktop',
+          'data-shell-scroll-direction': shellScroll.direction.value,
         },
         [
           fixedShellBackplateNode,
@@ -190,6 +193,7 @@ export default defineComponent({
 }
 
 .layout-wrapper.layout-nav-type-vertical {
+  --layout-navbar-safe-area-inline: 0px;
   --layout-navbar-block-size: calc(
     env(safe-area-inset-top, 0px) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
   );
@@ -216,9 +220,26 @@ export default defineComponent({
     inline-size: calc(100% - variables.$layout-vertical-nav-width);
     inset-block-start: 0;
     transform: translate3d(0, 0, 0);
+    transition:
+      background-color 240ms var(--mp-motion-ease-standard),
+      border-color 240ms var(--mp-motion-ease-standard),
+      border-radius 240ms var(--mp-motion-ease-standard),
+      box-shadow 240ms var(--mp-motion-ease-standard),
+      inline-size 240ms var(--mp-motion-ease-standard),
+      inset-block-start 240ms var(--mp-motion-ease-standard),
+      inset-inline-end 240ms var(--mp-motion-ease-standard),
+      inset-inline-start 240ms var(--mp-motion-ease-standard),
+      transform 240ms var(--mp-motion-ease-standard);
 
     .navbar-content-container {
       block-size: var(--layout-navbar-block-size);
+      transition:
+        background-color 240ms var(--mp-motion-ease-standard),
+        border-color 240ms var(--mp-motion-ease-standard),
+        border-radius 240ms var(--mp-motion-ease-standard),
+        box-shadow 240ms var(--mp-motion-ease-standard),
+        margin 240ms var(--mp-motion-ease-standard),
+        opacity 180ms var(--mp-motion-ease-standard);
     }
 
     @at-root {
@@ -229,6 +250,46 @@ export default defineComponent({
           }
         }
       }
+    }
+  }
+
+  // 水平布局只有一个顶部控制层，离开顶部后可整体浮起；侧栏布局保持与导航 rail 连接。
+  &.layout-navbar-away-from-top.layout-horizontal-nav-active .layout-navbar {
+    border-radius: var(--app-surface-radius);
+    inline-size: calc(100% - 1rem);
+    inset-block-start: 0.5rem;
+    inset-inline: 0.5rem;
+    overflow: clip;
+  }
+
+  // App 始终保留底部一级导航，因此下滚可让上下文顶栏退出内容区。
+  &.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell) .layout-navbar {
+    transform: translate3d(0, -100%, 0);
+    transition-duration: 160ms;
+    transition-timing-function: var(--mp-motion-ease-exit);
+  }
+
+  // Standalone 没有浏览器 chrome 保护系统状态区，隐藏控制行时仍保留 safe-area 材质。
+  &.layout-standalone-pwa-shell {
+    --layout-navbar-safe-area-inline: max(
+      env(safe-area-inset-left, 0px),
+      env(safe-area-inset-right, 0px)
+    );
+  }
+
+  &.layout-standalone-pwa-shell .layout-navbar {
+    padding-inline: var(--layout-navbar-safe-area-inline);
+  }
+
+  &.layout-standalone-pwa-shell.layout-navbar-compact .layout-navbar {
+    overflow: clip;
+    transform: translate3d(0, calc(-100% + env(safe-area-inset-top, 0px)), 0);
+    transition-duration: 160ms;
+    transition-timing-function: var(--mp-motion-ease-exit);
+
+    .navbar-content-container {
+      opacity: 0;
+      pointer-events: none;
     }
   }
 
@@ -332,18 +393,27 @@ export default defineComponent({
       background: rgb(var(--v-theme-background));
       border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
       inline-size: 100%;
+      inset-inline: 0;
       max-inline-size: none;
       padding-inline: 0;
     }
 
     .navbar-content-container {
+      display: grid;
+      align-items: center;
       border: 0 !important;
       border-radius: 0 !important;
       background: transparent !important;
+      column-gap: 0.75rem;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       inline-size: 100%;
       margin-inline: auto;
       max-inline-size: variables.$layout-boxed-content-width;
       padding-inline: 1.5rem;
+    }
+
+    .layout-dynamic-header-tab {
+      display: none;
     }
 
     .layout-page-content {
@@ -490,10 +560,19 @@ export default defineComponent({
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .layout-wrapper.layout-nav-type-vertical {
+    .layout-navbar,
+    .navbar-content-container {
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
 .layout-wrapper.layout-nav-type-vertical.layout-overlay-nav {
   .layout-navbar {
     inline-size: 100%;
-    padding-inline: 0;
+    padding-inline: var(--layout-navbar-safe-area-inline);
   }
 }
 </style>

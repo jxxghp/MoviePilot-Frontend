@@ -71,6 +71,10 @@ export function usePWA() {
 
   // 详细的PWA状态信息
   const pwaStatus = computed(() => globalPwaStatus.value)
+  // display-mode 可同步读取，避免异步能力探测期间把 standalone 首帧误判为普通浏览器。
+  const isStandaloneMode = computed(
+    () => globalPwaStatus.value?.isStandaloneMode ?? isPWADisplayMode(),
+  )
 
   // 自动初始化PWA检测
   onMounted(() => {
@@ -86,6 +90,7 @@ export function usePWA() {
     pwaMode,
     appMode,
     pwaStatus,
+    isStandaloneMode,
     uiMode,
     setUIMode,
     loading: globalLoading,
