@@ -242,7 +242,10 @@ export function useTorrentFilter() {
       // init options
       initOptions(item)
       // group data
-      const key = `${meta_info.name}_${meta_info.resource_pix}_${meta_info.edition}_${meta_info.resource_team}_${meta_info.season_episode}_${torrent_info.size}`
+      // 分辨率用于卡片主资源的质量展示，不参与归组；同一资源的不同清晰度放入更多来源。
+      const mediaKey =
+        item.media_info?.title_year || [meta_info.name, meta_info.year].filter(Boolean).join('_')
+      const key = `${mediaKey}_${meta_info.edition}_${meta_info.resource_team}_${meta_info.season_episode}_${torrent_info.size}`
       const groupedItem = { data: item, originalIndex: index }
       if (groupMap.has(key)) {
         const group = groupMap.get(key)

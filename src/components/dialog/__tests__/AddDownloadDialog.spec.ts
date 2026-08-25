@@ -65,6 +65,7 @@ const TextFieldStub = defineComponent({
   props: {
     label: String,
     modelValue: { type: String, default: '' },
+    readonly: Boolean,
   },
   emits: ['click:append-inner', 'update:modelValue'],
   setup(props, { emit }) {
@@ -73,6 +74,7 @@ const TextFieldStub = defineComponent({
         props.label,
         h('input', {
           'aria-label': props.label,
+          'readonly': props.readonly,
           'value': props.modelValue ?? '',
           'onInput': (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
         }),
@@ -418,5 +420,45 @@ describe('AddDownloadDialog submissions', () => {
     expect(mocks.startNProgress).toHaveBeenCalledOnce()
     expect(events.done).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '开始下载' })).not.toBeDisabled()
+  })
+})
+
+describe('AddDownloadDialog LunaTV contract', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('locks fields and keeps its plugin directory out of host save_path', async () => {
+    const submitted = vi.fn()
+    const torrent = createTorrent({
+      download_path: '/media/incoming',
+      site_downloader: 'LunaTVSource',
+    })
+    server.use(downloadHandler('download/add', { data: null, success: true }, 200, submitted))
+    const user = userEvent.setup()
+
+    await renderDialog({
+      directories: [createDirectory({ download_path: '/downloads/host' })],
+      downloaders: [{ name: '下载器 A', type: 'qbittorrent' }],
+      torrent,
+    })
+
+    const downloader = await screen.findByLabelText('下载器（默认）')
+    const saveDirectory = screen.getByLabelText('保存目录（自动）')
+    expect(downloader).toHaveValue('LunaTVSource')
+    expect(downloader).toHaveAttribute('readonly')
+    expect(saveDirectory).toHaveValue('/media/incoming')
+    expect(saveDirectory).toHaveAttribute('readonly')
+
+    await user.click(screen.getByRole('button', { name: '开始下载' }))
+
+    await waitFor(() => expect(submitted).toHaveBeenCalledOnce())
+    expect(submitted.mock.calls[0][0]).toEqual({
+      downloader: 'LunaTVSource',
+      save_path: null,
+      torrent_in: torrent,
+    })
   })
 })

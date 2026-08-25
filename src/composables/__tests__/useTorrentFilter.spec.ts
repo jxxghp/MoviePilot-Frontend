@@ -9,6 +9,7 @@ vi.mock('vue-i18n', () => ({
 interface TorrentOverrides {
   edition?: string
   freeState?: string
+  mediaTitleYear?: string
   name?: string
   pageUrl?: string
   priOrder?: number
@@ -21,11 +22,14 @@ interface TorrentOverrides {
   size?: number
   title?: string
   videoCode?: string
+  year?: string
 }
 
 function createTorrent(overrides: TorrentOverrides = {}): Context {
   return {
-    media_info: {},
+    media_info: {
+      title_year: overrides.mediaTitleYear,
+    },
     meta_info: {
       edition: overrides.edition ?? 'WEB-DL',
       name: overrides.name ?? '测试媒体',
@@ -33,6 +37,7 @@ function createTorrent(overrides: TorrentOverrides = {}): Context {
       resource_team: overrides.releaseGroup ?? 'Team A',
       season_episode: overrides.season ?? 'S01',
       video_encode: overrides.videoCode ?? 'H.264',
+      year: overrides.year,
     },
     torrent_info: {
       page_url: overrides.pageUrl ?? `https://example.test/${overrides.title ?? 'torrent'}`,
@@ -141,6 +146,37 @@ describe('useTorrentFilter', () => {
     expect(result[0].more?.map(item => item.torrent_info.title)).toEqual(['同组二'])
     expect(filter.totalFilteredCount.value).toBe(2)
     expect(filter.getFilteredIndices()).toEqual([0, 1])
+  })
+
+  it('groups different resolutions into more sources while preserving the first resource as the card', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ resolution: '1080p', title: '高清主资源' }),
+      createTorrent({ resolution: '720p', title: '低清来源' }),
+      createTorrent({ season: 'S02', resolution: '1080p', title: '另一季' }),
+    ]
+
+    const result = filter.filterCardData(torrents)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].torrent_info.title).toBe('高清主资源')
+    expect(result[0].meta_info.resource_pix).toBe('1080p')
+    expect(result[0].more?.map(item => item.meta_info.resource_pix)).toEqual(['720p'])
+    expect(result[1].torrent_info.title).toBe('另一季')
+    expect(result[1].more).toBeUndefined()
+  })
+
+  it('keeps different media years in separate cards', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ mediaTitleYear: '测试媒体 (2025)', title: '2025 资源' }),
+      createTorrent({ mediaTitleYear: '测试媒体 (2026)', title: '2026 资源' }),
+    ]
+
+    const result = filter.filterCardData(torrents)
+
+    expect(result.map(item => item.torrent_info.title)).toEqual(['2025 资源', '2026 资源'])
+    expect(result.every(item => item.more === undefined)).toBe(true)
   })
 
   it.each([

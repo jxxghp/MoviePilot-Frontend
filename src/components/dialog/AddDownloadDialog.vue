@@ -38,6 +38,8 @@ const props = defineProps({
   torrent: Object as PropType<TorrentInfo>,
 })
 
+const LUNA_TV_DOWNLOADER = 'LunaTVSource'
+
 // 定义成功和失败事件
 const emit = defineEmits(['done', 'error', 'close'])
 
@@ -94,6 +96,15 @@ const dialogSubtitle = computed(() => {
 
   return [siteName, displayTitle].filter(Boolean).join(' - ')
 })
+
+const lunaTVDownloadPath = computed(() => {
+  if (props.torrent?.site_downloader !== LUNA_TV_DOWNLOADER) {
+    return null
+  }
+  return props.torrent.download_path?.trim() || null
+})
+
+const isLunaTVResource = computed(() => lunaTVDownloadPath.value !== null)
 
 // 加载目录设置
 async function loadDirectories() {
@@ -162,8 +173,9 @@ async function addDownload() {
       torrent_in: TorrentInfo | undefined
     } = {
       torrent_in: props.torrent,
-      downloader: selectedDownloader.value,
-      save_path: selectedDirectory.value,
+      downloader: isLunaTVResource.value ? LUNA_TV_DOWNLOADER : selectedDownloader.value,
+      // LunaTV 的目录由插件自行处理，不能作为宿主保存目录提交。
+      save_path: isLunaTVResource.value ? null : selectedDirectory.value,
     }
 
     if (props.media) {
@@ -258,7 +270,17 @@ onMounted(() => {
         </VList>
         <VRow class="px-5">
           <VCol cols="12" md="6">
+            <VTextField
+              v-if="isLunaTVResource"
+              :model-value="LUNA_TV_DOWNLOADER"
+              :label="t('dialog.addDownload.downloader')"
+              variant="underlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-download"
+              readonly
+            />
             <VSelect
+              v-else
               v-model="selectedDownloader"
               :items="downloaderOptions"
               :label="t('dialog.addDownload.downloader')"
@@ -269,7 +291,17 @@ onMounted(() => {
             />
           </VCol>
           <VCol cols="12" md="6">
+            <VTextField
+              v-if="isLunaTVResource"
+              :model-value="lunaTVDownloadPath ?? ''"
+              :label="t('dialog.addDownload.saveDirectory')"
+              variant="underlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-folder"
+              readonly
+            />
             <VCombobox
+              v-else
               v-model="selectedDirectory"
               :items="targetDirectories"
               :label="t('dialog.addDownload.saveDirectory')"

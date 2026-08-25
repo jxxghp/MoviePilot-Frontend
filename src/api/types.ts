@@ -872,6 +872,8 @@ export interface TorrentInfo {
   site_order: number
   // 站点下载器
   site_downloader?: string
+  // 插件声明的目标下载目录，仅用于确认弹窗展示，不作为宿主保存目录
+  download_path?: string
   // 种子名称
   title?: string
   // 种子副标题

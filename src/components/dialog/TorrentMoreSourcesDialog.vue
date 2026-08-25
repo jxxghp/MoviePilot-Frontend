@@ -94,6 +94,15 @@ function handleDetail(item: Context) {
                 </VChip>
 
                 <VChip
+                  v-if="item.meta_info?.resource_pix"
+                  class="chip-resolution rounded-sm ml-1"
+                  size="x-small"
+                  variant="elevated"
+                >
+                  {{ item.meta_info.resource_pix }}
+                </VChip>
+
+                <VChip
                   v-if="item.torrent_info?.downloadvolumefactor !== 1 || item.torrent_info?.uploadvolumefactor !== 1"
                   :class="
                     getPromotionChipClass(
@@ -145,6 +154,11 @@ function handleDetail(item: Context) {
 
 .chip-season {
   background-color: #3f51b5;
+  color: white;
+}
+
+.chip-resolution {
+  background-color: #7b1fa2;
   color: white;
 }
 
