@@ -60,7 +60,15 @@ const defaultSourceOptions: PluginSourceOptions = {
   inventory_complete: true,
   selection_status: 'selected',
   selection_reason: '唯一在线来源',
-  identity: null,
+  identity: {
+    plugin_id: 'DemoPlugin',
+    trusted_source_type: 'third_party',
+    trusted_source_key: 'github:example/plugins',
+    binding_basis: 'tofu',
+    payload_source_type: 'third_party',
+    payload_source_key: 'github:example/plugins',
+    revision: 3,
+  },
   candidates: [
     {
       source_type: 'third_party',
@@ -129,6 +137,7 @@ describe('PluginMarketDetailDialog', () => {
       if (url === 'plugin/source/DemoPlugin/options') {
         return Promise.resolve({
           ...defaultSourceOptions,
+          identity: null,
           selection_status: 'conflict',
           selection_reason: '未安装插件存在多个在线来源，不能静默选择',
           candidates: [
@@ -195,7 +204,7 @@ describe('PluginMarketDetailDialog', () => {
       }
       return Promise.resolve({ success: true })
     })
-    const { emitted } = await renderDialog({ ...basePlugin, installed: true })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
     expect(await screen.findByText('自动更新来源')).toBeInTheDocument()
     expect(screen.getByText('jxxghp/moviepilot-plugins')).toBeInTheDocument()
@@ -217,6 +226,38 @@ describe('PluginMarketDetailDialog', () => {
       expected_revision: 7,
     })
     await waitFor(() => expect(emitted().install).toHaveLength(1))
+  })
+
+  it('blocks ordinary updates when the trusted source has no usable candidate', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'unavailable',
+          selection_reason: '当前来源身份没有可用候选',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'official',
+            trusted_source_key: 'github:jxxghp/moviepilot-plugins',
+            binding_basis: 'official_default',
+            payload_source_type: 'official',
+            payload_source_key: 'github:jxxghp/moviepilot-plugins',
+            revision: 7,
+          },
+          candidates: [defaultSourceOptions.candidates[0]],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    expect(await screen.findByText('当前来源身份没有可用候选')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更换来源' })).toBeInTheDocument()
+    const updateButton = screen.getByRole('button', { name: '更新' })
+    expect(updateButton).toBeDisabled()
+    await fireEvent.click(updateButton)
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
   })
 
   it('binds an installed legacy plugin through the explicit source install endpoint', async () => {
@@ -250,9 +291,10 @@ describe('PluginMarketDetailDialog', () => {
       }
       return Promise.resolve({ success: true })
     })
-    const { emitted } = await renderDialog({ ...basePlugin, installed: true })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
     expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
     await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
     await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
     await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
@@ -269,6 +311,43 @@ describe('PluginMarketDetailDialog', () => {
     })
     expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin', expect.anything())
     await waitFor(() => expect(emitted().install).toHaveLength(1))
+  })
+
+  it('routes a legacy history update into the binding flow without ordinary install', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'incomplete',
+          selection_reason: '插件来源身份尚未绑定，不能自动选择在线载荷',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'unknown',
+            trusted_source_key: null,
+            binding_basis: 'legacy_unbound',
+            payload_source_type: 'unknown',
+            payload_source_key: null,
+            revision: 2,
+          },
+          candidates: [defaultSourceOptions.candidates[0]],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '版本历史' }))
+    const historyEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2] as {
+      sourceAction: () => void
+      update: () => Promise<void>
+    }
+    expect(historyEvents.sourceAction).toBeTypeOf('function')
+    historyEvents.sourceAction()
+
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+    expect(emitted().install).toBeUndefined()
+    expect(screen.getByRole('button', { name: '绑定来源' })).toBeInTheDocument()
   })
 
   it('reloads source evidence after a stale revision failure without retrying the change', async () => {

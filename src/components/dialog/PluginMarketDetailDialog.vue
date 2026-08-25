@@ -106,7 +106,9 @@ const sourceActionCandidates = computed(() =>
 const sourceUnavailable = computed(() => {
   const unavailable = ['unavailable', 'incomplete'].includes(sourceOptions.value?.selection_status || '')
   if (!isInstalled.value) return unavailable
-  return !hasTrustedOnlineSource.value && onlineSourceCandidates.value.length === 0 && unavailable
+  // 未绑定但仍有候选时，优先展示首次绑定流程；已绑定来源失效则必须阻止普通更新。
+  if (sourceNeedsInitialBinding.value) return false
+  return unavailable
 })
 const sourceSectionVisible = computed(
   () => isInstalled.value || sourceNeedsSelection.value || sourceUnavailable.value || Boolean(sourceError.value),
@@ -297,6 +299,11 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     return
   }
 
+  if (sourceNeedsInitialBinding.value) {
+    $toast.error(sourceOptions.value?.selection_reason || t('plugin.sourceBindingHint'))
+    return
+  }
+
   const explicitSource = sourceNeedsSelection.value ? selectedInstallSource.value : undefined
   if (sourceNeedsSelection.value && !explicitSource?.repo_url) {
     $toast.error(t('plugin.selectSourceRequired'))
@@ -375,9 +382,17 @@ function showUpdateHistory() {
     },
     {
       update: installPlugin,
+      sourceAction: openSourceAction,
     },
     { closeOn: ['close', 'update:modelValue'] },
   )
+}
+
+/** 展开来源选择，来源未就绪时不执行普通更新。 */
+function openSourceAction() {
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = null
+  showSourceChoices.value = true
 }
 
 /** 查询插件平均分和当前安装实例评分。 */
@@ -619,7 +634,13 @@ onUnmounted(() => {
               v-else-if="props.plugin?.has_update"
               color="primary"
               prepend-icon="mdi-arrow-up-circle-outline"
-              :disabled="props.plugin?.system_version_compatible === false"
+              :disabled="
+                props.plugin?.system_version_compatible === false ||
+                sourceLoading ||
+                sourceUnavailable ||
+                sourceNeedsInitialBinding
+              "
+              :loading="sourceLoading"
               @click="installPlugin()"
             >
               {{ t('plugin.update') }}

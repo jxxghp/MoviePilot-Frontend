@@ -157,9 +157,16 @@ function showUpdateHistory(showUpdateAction: boolean = false) {
   versionHistoryDialogController = openSharedDialog(
     PluginVersionHistoryDialog,
     { plugin: props.plugin, showUpdateAction },
-    { update: updatePlugin },
+    { update: updatePlugin, sourceAction: openSourceAction },
     { closeOn: ['close', 'update:modelValue'] },
   )
+}
+
+/** 打开能够完成来源绑定或切换的管理界面。 */
+async function openSourceAction() {
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = null
+  await showPluginAbout()
 }
 
 // 调用API卸载插件
