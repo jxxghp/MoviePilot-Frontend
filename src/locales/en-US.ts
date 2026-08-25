@@ -1443,6 +1443,7 @@ export default {
     title: 'Downloading',
     noTask: 'No Task',
     noTaskDescription: 'Downloading tasks will be displayed here.',
+    confirmDelete: 'Delete task "{name}" and its associated download files from the downloader?',
   },
   resource: {
     searchResults: 'Resource Search Results',

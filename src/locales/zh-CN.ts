@@ -1432,6 +1432,7 @@ export default {
     title: '下载',
     noTask: '没有任务',
     noTaskDescription: '正在下载的任务将会显示在这里。',
+    confirmDelete: '确认从下载器删除任务“{name}”及对应下载文件吗？',
   },
   resource: {
     searchResults: '资源搜索结果',
