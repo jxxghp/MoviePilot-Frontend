@@ -7,6 +7,14 @@ import { server } from '@tests/support/msw/server'
 import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mocks = vi.hoisted(() => ({
+  confirm: vi.fn(),
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => mocks.confirm,
+}))
+
 /** 扩展卡片会消费但公共下载类型尚未声明的站点字段。 */
 interface DownloadingCardInfo extends DownloadingInfo {
   site_name?: string
@@ -58,6 +66,7 @@ function actionButtons(container: Element) {
 }
 
 beforeEach(() => {
+  mocks.confirm.mockReset().mockResolvedValue(true)
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -308,6 +317,43 @@ describe('DownloadingCard display and pause state', () => {
 })
 
 describe('DownloadingCard deletion', () => {
+  it('opens only one confirmation while the user decision is pending', async () => {
+    let resolveConfirm: (value: boolean) => void = () => {}
+    mocks.confirm.mockReturnValue(
+      new Promise<boolean>(resolve => {
+        resolveConfirm = resolve
+      }),
+    )
+    const { container } = await renderCard()
+    const { deleteButton } = actionButtons(container)
+
+    await fireEvent.click(deleteButton)
+    await fireEvent.click(deleteButton)
+
+    expect(mocks.confirm).toHaveBeenCalledOnce()
+    resolveConfirm(false)
+  })
+
+  it('explains the destructive scope and does not request deletion when confirmation is cancelled', async () => {
+    const requested = vi.fn()
+    mocks.confirm.mockResolvedValue(false)
+    server.use(deleteDownloadHandler('hash-1', { success: true }, 200, requested))
+    const { container } = await renderCard()
+
+    await fireEvent.click(actionButtons(container).deleteButton)
+
+    await waitFor(() =>
+      expect(mocks.confirm).toHaveBeenCalledWith({
+        type: 'warn',
+        title: '确认',
+        content: '确认从下载器删除任务“下载任务标题”及对应下载文件吗？',
+        confirmText: '删除',
+      }),
+    )
+    expect(requested).not.toHaveBeenCalled()
+    expect(container.querySelector('.downloading-card')).toBeInTheDocument()
+  })
+
   it('keeps the card visible when HTTP 200 reports business failure', async () => {
     const requested = vi.fn()
     server.use(deleteDownloadHandler('hash-1', { success: false, message: '任务仍在运行' }, 200, requested))

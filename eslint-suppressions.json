@@ -511,9 +511,6 @@
   "src/composables/useConfirm.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/composables/useDynamicButton.ts": {

@@ -2,6 +2,7 @@
 import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
+import { useConfirm } from '@/composables/useConfirm'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
@@ -19,11 +20,13 @@ const props = defineProps({
 })
 
 const { t } = useI18n()
+const createConfirm = useConfirm()
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 卡片在删除成功后就地隐藏，等待外层轮询同步任务列表。
 const cardState = ref(true)
 const pendingAction = ref<'delete' | 'toggle' | null>(null)
+const deleteConfirmationPending = ref(false)
 const imageLoadError = ref(false)
 const media = computed(() => props.info?.media ?? {})
 
@@ -135,9 +138,24 @@ async function toggleDownload() {
   }
 }
 
-/** 删除当前下载任务，并仅在业务请求成功后隐藏卡片。 */
+/** 确认删除当前下载任务及对应文件，并仅在业务请求成功后隐藏卡片。 */
 async function deleteDownload() {
-  if (pendingAction.value) return
+  if (pendingAction.value || deleteConfirmationPending.value) return
+
+  deleteConfirmationPending.value = true
+  try {
+    const confirmed = await createConfirm({
+      type: 'warn',
+      title: t('common.confirm'),
+      content: t('downloading.confirmDelete', {
+        name: props.info?.title || props.info?.name || t('common.unknown'),
+      }),
+      confirmText: t('common.delete'),
+    })
+    if (!confirmed || pendingAction.value) return
+  } finally {
+    deleteConfirmationPending.value = false
+  }
 
   pendingAction.value = 'delete'
   try {
@@ -274,7 +292,7 @@ async function deleteDownload() {
                     :aria-label="t('common.delete')"
                     class="downloading-card__delete-action"
                     color="on-surface"
-                    :disabled="pendingAction === 'toggle'"
+                    :disabled="pendingAction === 'toggle' || deleteConfirmationPending"
                     :loading="pendingAction === 'delete'"
                     icon
                     size="small"

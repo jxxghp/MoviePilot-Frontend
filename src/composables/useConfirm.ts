@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 import { createApp } from 'vue'
 import i18n from '@/plugins/i18n'
 import vuetify from '@/plugins/vuetify'
@@ -18,16 +17,27 @@ export interface ConfirmOptions {
 /** 可注入到联邦插件中的确认弹窗调用入口。 */
 export type ConfirmDialogFn = (options?: ConfirmOptions) => Promise<boolean>
 
-let resolvePromise: ((value: boolean) => void) | null = null
-
 /** 创建主应用确认弹窗并等待用户选择结果。 */
 async function createConfirmDialog(options: ConfirmOptions = {}) {
   return new Promise<boolean>(resolve => {
-    resolvePromise = resolve
-
     // 创建容器
     const container = document.createElement('div')
     document.body.appendChild(container)
+    let app: ReturnType<typeof createApp> | null = null
+    let settled = false
+
+    const cleanup = () => {
+      app?.unmount()
+      container.remove()
+    }
+
+    // 遮罩、Esc、关闭按钮和取消都属于同一种否定结果，且每个弹窗只能结算一次。
+    const settle = (value: boolean) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+      cleanup()
+    }
 
     // 处理国际化
     const i18nOptions = {
@@ -38,21 +48,17 @@ async function createConfirmDialog(options: ConfirmOptions = {}) {
     }
 
     // 创建应用实例
-    const app = createApp(ConfirmDialog, {
+    app = createApp(ConfirmDialog, {
       modelValue: true,
       ...i18nOptions,
       'onUpdate:modelValue': (val: boolean) => {
-        if (!val) {
-          cleanup()
-        }
+        if (!val) settle(false)
       },
       onConfirm: () => {
-        resolvePromise?.(true)
-        cleanup()
+        settle(true)
       },
       onCancel: () => {
-        resolvePromise?.(false)
-        cleanup()
+        settle(false)
       },
     })
 
@@ -65,12 +71,6 @@ async function createConfirmDialog(options: ConfirmOptions = {}) {
 
     // 挂载应用
     app.mount(container)
-
-    // 清理函数
-    const cleanup = () => {
-      app.unmount()
-      document.body.removeChild(container)
-    }
   })
 }
 
