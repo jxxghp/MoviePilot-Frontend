@@ -148,11 +148,11 @@ describe('useTorrentFilter', () => {
     expect(filter.getFilteredIndices()).toEqual([0, 1])
   })
 
-  it('groups different resolutions into more sources while preserving the first resource as the card', () => {
+  it('groups different sizes and selects the highest resolution as the card', () => {
     const filter = useTorrentFilter()
     const torrents = [
-      createTorrent({ resolution: '1080p', title: '高清主资源' }),
-      createTorrent({ resolution: '720p', title: '低清来源' }),
+      createTorrent({ resolution: '720p', size: 700, title: '低清先返回' }),
+      createTorrent({ resolution: '1080p', size: 1500, title: '高清主资源' }),
       createTorrent({ season: 'S02', resolution: '1080p', title: '另一季' }),
     ]
 
@@ -162,8 +162,22 @@ describe('useTorrentFilter', () => {
     expect(result[0].torrent_info.title).toBe('高清主资源')
     expect(result[0].meta_info.resource_pix).toBe('1080p')
     expect(result[0].more?.map(item => item.meta_info.resource_pix)).toEqual(['720p'])
+    expect(filter.getFilteredIndices()).toEqual([1, 0, 2])
     expect(result[1].torrent_info.title).toBe('另一季')
     expect(result[1].more).toBeUndefined()
+  })
+
+  it('keeps different sources in separate cards', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ resolution: '1080p', site: '来源 A · 31ms', title: '来源 A' }),
+      createTorrent({ resolution: '720p', site: '来源 B · 42ms', title: '来源 B' }),
+    ]
+
+    const result = filter.filterCardData(torrents)
+
+    expect(result.map(item => item.torrent_info.title)).toEqual(['来源 A', '来源 B'])
+    expect(result.every(item => item.more === undefined)).toBe(true)
   })
 
   it('keeps different media years in separate cards', () => {

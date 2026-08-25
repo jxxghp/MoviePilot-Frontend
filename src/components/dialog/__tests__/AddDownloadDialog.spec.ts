@@ -461,4 +461,29 @@ describe('AddDownloadDialog LunaTV contract', () => {
       torrent_in: torrent,
     })
   })
+
+  it('keeps LunaTV locked when the optional display path is missing', async () => {
+    const submitted = vi.fn()
+    const torrent = createTorrent({ site_downloader: 'LunaTVSource' })
+    server.use(downloadHandler('download/add', { data: null, success: true }, 200, submitted))
+    const user = userEvent.setup()
+
+    await renderDialog({
+      directories: [createDirectory({ download_path: '/downloads/host' })],
+      downloaders: [{ name: '下载器 A', type: 'qbittorrent' }],
+      torrent,
+    })
+
+    expect(await screen.findByLabelText('下载器（默认）')).toHaveValue('LunaTVSource')
+    expect(screen.getByLabelText('保存目录（自动）')).toHaveValue('')
+
+    await user.click(screen.getByRole('button', { name: '开始下载' }))
+
+    await waitFor(() => expect(submitted).toHaveBeenCalledOnce())
+    expect(submitted.mock.calls[0][0]).toEqual({
+      downloader: 'LunaTVSource',
+      save_path: null,
+      torrent_in: torrent,
+    })
+  })
 })

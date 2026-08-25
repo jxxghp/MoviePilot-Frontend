@@ -12,6 +12,19 @@ interface GroupedItem {
   originalIndex: number
 }
 
+function resolutionRank(value?: string): number {
+  const normalized = value?.trim().toUpperCase() ?? ''
+  if (normalized.includes('8K')) return 4320
+  if (normalized.includes('4K') || normalized.includes('UHD')) return 2160
+  if (normalized.includes('2K')) return 1440
+  if (normalized.includes('FHD')) return 1080
+  const numeric = normalized.match(/(\d{3,4})\s*[PI]?/)
+  if (numeric) return Number(numeric[1])
+  if (normalized === 'HD') return 720
+  if (normalized === 'SD') return 480
+  return 0
+}
+
 // 筛选状态类型
 export interface FilterState {
   filterForm: Record<string, string[]>
@@ -245,7 +258,9 @@ export function useTorrentFilter() {
       // 分辨率用于卡片主资源的质量展示，不参与归组；同一资源的不同清晰度放入更多来源。
       const mediaKey =
         item.media_info?.title_year || [meta_info.name, meta_info.year].filter(Boolean).join('_')
-      const key = `${mediaKey}_${meta_info.edition}_${meta_info.resource_team}_${meta_info.season_episode}_${torrent_info.size}`
+      const sourceKey =
+        torrent_info.site ?? torrent_info.site_name?.replace(/· \d+ms$/i, '').trim()
+      const key = `${mediaKey}_${sourceKey}_${meta_info.edition}_${meta_info.resource_team}_${meta_info.season_episode}`
       const groupedItem = { data: item, originalIndex: index }
       if (groupMap.has(key)) {
         const group = groupMap.get(key)
@@ -277,13 +292,20 @@ export function useTorrentFilter() {
         })
         if (matchData.length > 0) {
           matchCount += matchData.length
-          const firstItem = matchData[0]
+          const qualityOrdered = [...matchData].sort(
+            (left, right) =>
+              resolutionRank(right.data.meta_info.resource_pix) -
+                resolutionRank(left.data.meta_info.resource_pix) ||
+              left.originalIndex - right.originalIndex,
+          )
+          const firstItem = qualityOrdered[0]
           const firstData = cloneDeepWith(firstItem.data) as SearchTorrent
-          if (matchData.length > 1) firstData.more = matchData.slice(1).map(x => x.data)
+          if (qualityOrdered.length > 1)
+            firstData.more = qualityOrdered.slice(1).map(item => item.data)
           filteredData.push(firstData)
           groupIndicesMap.set(
             firstData,
-            matchData.map(item => item.originalIndex),
+            qualityOrdered.map(item => item.originalIndex),
           )
         }
       }

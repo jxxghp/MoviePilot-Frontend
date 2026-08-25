@@ -101,10 +101,12 @@ const lunaTVDownloadPath = computed(() => {
   if (props.torrent?.site_downloader !== LUNA_TV_DOWNLOADER) {
     return null
   }
-  return props.torrent.download_path?.trim() || null
+  return props.torrent.download_path?.trim() || ''
 })
 
-const isLunaTVResource = computed(() => lunaTVDownloadPath.value !== null)
+const isLunaTVResource = computed(
+  () => props.torrent?.site_downloader === LUNA_TV_DOWNLOADER,
+)
 
 // 加载目录设置
 async function loadDirectories() {
