@@ -387,6 +387,21 @@ describe('MoviePilot API client', () => {
     expect(notifier.error).not.toHaveBeenCalled()
   })
 
+  it('403 被 onForbidden 接管时不逐条弹请求层 Toast', async () => {
+    const onForbidden = vi.fn(() => true)
+    const { api } = createApiClients({
+      adapter: rejectWith({ detail: 'token校验不通过' }, 403),
+      hooks: { onForbidden },
+      notifier,
+    })
+
+    const error = requireApiRequestError(await api.get('/resource').catch(reason => reason))
+
+    expect(error.status).toBe(403)
+    expect(onForbidden).toHaveBeenCalledWith(error)
+    expect(notifier.error).not.toHaveBeenCalled()
+  })
+
   it('401 未被 onUnauthorized 接管时保留逐条错误提示', async () => {
     const onUnauthorized = vi.fn(() => false)
     const { api } = createApiClients({

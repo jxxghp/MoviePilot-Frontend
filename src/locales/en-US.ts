@@ -66,7 +66,6 @@ export default {
     requestTimeout: 'Request timed out',
     invalidApiResponse: 'The server returned an invalid response',
     apiRequestFailed: 'Request failed',
-    sessionExpired: 'Session expired, please sign in again',
     troubleshooting: 'Troubleshooting',
     checking: 'Checking',
     retry: 'Retry',

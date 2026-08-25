@@ -80,8 +80,8 @@ export interface ApiFeedbackNotifier {
 /** 请求生命周期钩子用于隔离认证和离线状态等应用级副作用。 */
 export interface ApiClientHooks {
   markServerOnline?(): void
-  onForbidden?(error: ApiRequestError): void
-  /** 返回 true 表示认证失效已由应用层统一接管，请求层不再弹出逐条错误提示。 */
+  /** 返回 true 表示认证失败已由应用层接管，请求层不再弹出逐条错误提示。 */
+  onForbidden?(error: ApiRequestError): boolean | void
   onUnauthorized?(error: ApiRequestError): boolean | void
   reportConnectionFailure?(reason: 'network-error' | 'timeout' | 'server-unreachable'): void
 }
@@ -288,11 +288,11 @@ function installResponseInterceptors(
       if (!requestConfig?.skipConnectionTracking && failureReason) {
         hooks?.reportConnectionFailure?.(failureReason)
       }
-      if (response?.status === 403) hooks?.onForbidden?.(error)
-
-      // 认证失效（如后端重启导致 token 作废）由应用层统一登出跳转，
-      // 避免并发请求逐条弹出 "Not authenticated" 等英文提示刷屏。
-      if (response?.status === 401 && hooks?.onUnauthorized?.(error) === true) {
+      // 认证失败由应用层统一签退或交给登录流程处理，避免在登录页暴露技术错误。
+      const authenticationHandled =
+        (response?.status === 401 && hooks?.onUnauthorized?.(error) === true) ||
+        (response?.status === 403 && hooks?.onForbidden?.(error) === true)
+      if (authenticationHandled) {
         return Promise.reject(error)
       }
 

@@ -1,5 +1,5 @@
 import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   i18nT: vi.fn((key: string) => `translated:${key}`),
@@ -70,10 +70,6 @@ describe('API application wiring', () => {
     mocks.toastError.mockClear()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('向 window 暴露插件最终 payload 客户端，而内部默认导出数据客户端', async () => {
     const module = await import('@/api')
 
@@ -98,8 +94,7 @@ describe('API application wiring', () => {
     expect(mocks.i18nT).toHaveBeenCalledWith('common.invalidApiResponse')
   })
 
-  it('已登录时并发 401 只统一登出并提示一次本地化文案', async () => {
-    vi.useFakeTimers()
+  it('已登录时并发 401 只统一登出并静默返回登录页', async () => {
     mocks.authState.token = 'expired-token'
     const module = await installFailingAdapter(401, { detail: 'Not authenticated' })
 
@@ -107,25 +102,30 @@ describe('API application wiring', () => {
 
     expect(mocks.logout).toHaveBeenCalledOnce()
     expect(mocks.routerPush).toHaveBeenCalledWith('/login')
-    expect(mocks.toastError).toHaveBeenCalledOnce()
-    expect(mocks.toastError).toHaveBeenCalledWith('translated:common.sessionExpired')
+    expect(mocks.toastError).not.toHaveBeenCalled()
   })
 
-  it('登出后短暂窗口内的在途 401 保持静默，窗口过后恢复逐条提示', async () => {
-    vi.useFakeTimers()
+  it('登出后的在途 401 持续静默，不在登录页暴露认证错误', async () => {
     mocks.authState.token = 'expired-token'
     const module = await installFailingAdapter(401, { detail: 'Not authenticated' })
 
     await module.default.get('/dashboard').catch(() => {})
-    expect(mocks.toastError).toHaveBeenCalledOnce()
-
-    // 窗口内的连带 401 不再弹出英文提示。
     await module.default.get('/subscribe').catch(() => {})
-    expect(mocks.toastError).toHaveBeenCalledOnce()
-
-    vi.setSystemTime(Date.now() + 6000)
     await module.default.get('/resource').catch(() => {})
-    expect(mocks.toastError).toHaveBeenCalledTimes(2)
-    expect(mocks.toastError).toHaveBeenLastCalledWith('Not authenticated')
+
+    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.routerPush).toHaveBeenCalledOnce()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('token 校验失败的 403 完成签退后不弹技术错误', async () => {
+    mocks.authState.token = 'invalid-token'
+    const module = await installFailingAdapter(403, { detail: 'token校验不通过' })
+
+    await Promise.allSettled([module.default.get('/dashboard'), module.default.get('/subscribe')])
+
+    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.routerPush).toHaveBeenCalledWith('/login')
+    expect(mocks.toastError).not.toHaveBeenCalled()
   })
 })
