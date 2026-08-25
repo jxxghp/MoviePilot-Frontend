@@ -128,12 +128,7 @@ watch(
         </div>
         <div class="text-body-2 text-medium-emphasis mt-1 d-flex flex-wrap align-center gap-1">
           <span>{{ t('setting.system.dbBackupManagementHint') }}</span>
-          <a
-            :href="databaseBackupGuideUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-primary"
-          >
+          <a :href="databaseBackupGuideUrl" target="_blank" rel="noopener noreferrer" class="text-primary">
             {{ t('setting.system.dbBackupRestoreGuide') }}
           </a>
         </div>
