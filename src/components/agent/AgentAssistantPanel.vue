@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { useId } from 'vue'
 import api, { isApiResponse } from '@/api'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
@@ -343,6 +344,9 @@ const drawerStyle = computed(() => ({
   '--agent-assistant-panel-width': drawerWidth.value,
   zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel,
 }))
+const inputGroupId = useId()
+const fileInputId = `agent-assistant-file-input-${inputGroupId}`
+const messageInputId = `agent-assistant-message-input-${inputGroupId}`
 
 // 创建前端展示用的临时 ID。
 function createId(prefix: string) {
@@ -2765,9 +2769,11 @@ onScopeDispose(() => {
         <div class="agent-assistant-input">
           <input
             ref="fileInputRef"
+            :id="fileInputId"
             class="agent-assistant-file-input"
             type="file"
             multiple
+            name="attachments"
             :disabled="isBusy"
             @change="handleFileSelection"
           />
@@ -2776,14 +2782,17 @@ onScopeDispose(() => {
             :disabled="isBusy || recording"
             :title="t('agentAssistant.attachFile')"
             :aria-label="t('agentAssistant.attachFile')"
+            :aria-controls="fileInputId"
             @click="openFilePicker"
           >
             <VIcon icon="mdi-plus" />
           </IconBtn>
           <textarea
             ref="inputRef"
+            :id="messageInputId"
             v-model="inputText"
             class="agent-assistant-textarea"
+            name="message"
             rows="1"
             :disabled="isBusy || recording"
             :placeholder="inputPlaceholder"
