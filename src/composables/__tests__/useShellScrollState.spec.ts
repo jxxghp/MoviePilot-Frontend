@@ -147,7 +147,9 @@ describe('useShellScrollState', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
     const { harness, wrapper } = renderComposable()
-    const scrollHandler = addEventListener.mock.calls.find(([event]) => String(event) === 'scroll')?.[1] as EventListener
+    const scrollHandler = addEventListener.mock.calls.find(
+      ([event]) => String(event) === 'scroll',
+    )?.[1] as EventListener
     flushAnimationFrame()
 
     harness.locked.value = true

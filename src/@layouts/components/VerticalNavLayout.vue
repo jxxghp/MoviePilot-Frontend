@@ -23,6 +23,7 @@ export default defineComponent({
     const fixedShellBackplate = useGlassFixedShellBackplate()
     const themeLayout = ref(readThemeCustomizerSettings().layout)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
+    const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
     const isStandaloneApp = computed(() => appMode.value && isStandaloneMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
     const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
@@ -30,6 +31,11 @@ export default defineComponent({
     // ℹ️ This is alternative to below two commented watcher
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
     syncRef(isOverlayNavActive, isLayoutOverlayVisible)
+
+    // Drawer 离开当前 Shell 后必须同步关闭，避免残留遮罩拦截 App 或桌面内容。
+    watch(isOverlayShell, active => {
+      if (!active) isOverlayNavActive.value = false
+    })
 
     const isDialogOpen = ref(false)
     let dialogObserver: MutationObserver | null = null
@@ -68,20 +74,22 @@ export default defineComponent({
       const hasFixedShellBackplate = fixedShellBackplate.layers.value.length > 0
 
       // 👉 Vertical nav
-      const verticalNav = h(
-        VerticalNav,
-        { isOverlayNavActive: isOverlayNavActive.value, toggleIsOverlayNavActive },
-        {
-          'nav-header': () => slots['vertical-nav-header']?.(),
-          'before-nav-items': () => slots['before-vertical-nav-items']?.(),
-          'default': () => slots['vertical-nav-content']?.(),
-          'after-nav-items': () => slots['after-vertical-nav-items']?.(),
-        },
-      )
+      const verticalNav = appMode.value
+        ? null
+        : h(
+            VerticalNav,
+            { isOverlayNavActive: isOverlayNavActive.value, toggleIsOverlayNavActive },
+            {
+              'nav-header': () => slots['vertical-nav-header']?.(),
+              'before-nav-items': () => slots['before-vertical-nav-items']?.(),
+              'default': () => slots['vertical-nav-content']?.(),
+              'after-nav-items': () => slots['after-vertical-nav-items']?.(),
+            },
+          )
 
       const fixedShellBackplateNode = hasFixedShellBackplate
         ? h(GlassFixedShellBackplate, {
-            isOverlayNav: mdAndDown.value,
+            isOverlayNav: isOverlayShell.value,
             isOverlayNavActive: isOverlayNavActive.value,
             layers: fixedShellBackplate.layers.value,
             transitionDurationMs: fixedShellBackplate.transitionDurationMs,
@@ -130,19 +138,24 @@ export default defineComponent({
         h(
           'div',
           {
-            class: ['footer-content-container', !shouldShowFooter && 'footer-content-container-noheight'],
+            class: [
+              'footer-content-container',
+              (!shouldShowFooter || appMode.value) && 'footer-content-container-noheight',
+            ],
           },
           slots.footer?.(),
         ),
       ])
 
       // 👉 Overlay
-      const layoutOverlay = h('div', {
-        class: ['layout-overlay', 'touch-none', { visible: isLayoutOverlayVisible.value }],
-        onClick: () => {
-          isLayoutOverlayVisible.value = !isLayoutOverlayVisible.value
-        },
-      })
+      const layoutOverlay = isOverlayShell.value
+        ? h('div', {
+            class: ['layout-overlay', 'touch-none', { visible: isLayoutOverlayVisible.value }],
+            onClick: () => {
+              isLayoutOverlayVisible.value = !isLayoutOverlayVisible.value
+            },
+          })
+        : null
 
       return h(
         'div',
@@ -150,10 +163,10 @@ export default defineComponent({
           class: [
             'layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid',
             'layout-navbar-fixed',
-            mdAndDown.value && 'layout-overlay-nav',
+            isOverlayShell.value && 'layout-overlay-nav',
             appMode.value && 'layout-app-shell',
             isStandaloneApp.value && 'layout-standalone-pwa-shell',
-            mdAndDown.value && !appMode.value && 'layout-mobile-drawer-shell',
+            isOverlayShell.value && 'layout-mobile-drawer-shell',
             isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
             isHorizontalLayout.value && 'layout-horizontal-nav-active',
             isHorizontalLayout.value && isNavbarAwayFromTop && 'layout-horizontal-nav-scrolled',
@@ -271,10 +284,7 @@ export default defineComponent({
 
   // Standalone 没有浏览器 chrome 保护系统状态区，隐藏控制行时仍保留 safe-area 材质。
   &.layout-standalone-pwa-shell {
-    --layout-navbar-safe-area-inline: max(
-      env(safe-area-inset-left, 0px),
-      env(safe-area-inset-right, 0px)
-    );
+    --layout-navbar-safe-area-inline: max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   }
 
   &.layout-standalone-pwa-shell .layout-navbar {
@@ -326,6 +336,22 @@ export default defineComponent({
 
   &:not(.layout-overlay-nav) .layout-content-wrapper {
     padding-inline-start: calc(variables.$layout-vertical-nav-width);
+  }
+
+  // App shell 的一级导航由底部 Dock 独占，顶栏与内容不保留桌面侧栏的几何空间。
+  &.layout-app-shell {
+    .layout-content-wrapper {
+      padding-inline-start: 0;
+    }
+
+    .layout-navbar {
+      inline-size: 100%;
+      inset-inline: 0;
+    }
+
+    .page-content-container > div:first-child {
+      inline-size: 100%;
+    }
   }
 
   // Adjust right column pl when vertical nav is collapsed

@@ -226,9 +226,19 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
 
 <template>
   <Teleport v-if="shouldRenderFooterNav" to="body">
-    <div v-show="shouldRevealFooterNav" class="footer-nav-container">
+    <div
+      v-show="shouldRevealFooterNav"
+      class="footer-nav-container"
+      :class="{ 'footer-nav-container--with-accessory': showDynamicButton }"
+    >
       <TransitionGroup name="footer-nav" tag="div" class="footer-nav-group">
-        <VCard key="main-nav" elevation="3" class="footer-nav-card border" rounded="pill">
+        <VCard
+          key="main-nav"
+          data-footer-nav-role="primary"
+          elevation="3"
+          class="footer-nav-card border"
+          rounded="pill"
+        >
           <VCardText class="footer-card-content">
             <!-- 添加指示器 -->
             <div ref="indicator" class="nav-indicator"></div>
@@ -276,6 +286,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
         <VCard
           v-if="showDynamicButton"
           key="dynamic-btn"
+          data-footer-nav-role="accessory"
           elevation="3"
           class="footer-nav-card dynamic-btn-card border"
           rounded="pill"
@@ -345,14 +356,10 @@ html[data-agent-assistant-open='true'] {
 }
 
 .footer-nav-group {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  // 按钮卡片之间的间距
-  > .v-card + .v-card {
-    margin-inline-start: 2px; // 减少间距
-  }
 }
 
 .footer-nav-card {
@@ -440,8 +447,12 @@ html[data-agent-assistant-open='true'] {
 
 // 动态按钮卡片样式
 .dynamic-btn-card {
+  position: absolute;
   block-size: auto;
+  inset-block-end: 0;
+  inset-inline-start: calc(100% + 2px);
   inline-size: auto;
+  margin: 0 !important;
   max-inline-size: 60px;
   min-block-size: 0;
 
@@ -465,6 +476,19 @@ html[data-agent-assistant-open='true'] {
   }
 }
 
+// 窄屏将上下文操作放到主 Dock 上方，避免侵入安全区或挤压一级导航。
+@media (width <= 480px) {
+  .footer-nav-container--with-accessory {
+    padding-block-start: 52px;
+  }
+
+  .dynamic-btn-card {
+    inset-block-end: calc(100% + 4px);
+    inset-inline-end: 0;
+    inset-inline-start: auto;
+  }
+}
+
 // 底部导航动画
 .footer-nav-enter-active,
 .footer-nav-leave-active {
@@ -480,6 +504,11 @@ html[data-agent-assistant-open='true'] {
   max-inline-size: 0 !important;
   opacity: 0;
   transform: translateX(20px);
+}
+
+[dir='rtl'] .footer-nav-enter-from,
+[dir='rtl'] .footer-nav-leave-to {
+  transform: translateX(-20px);
 }
 
 .footer-nav-move {

@@ -108,7 +108,8 @@ const transitionStyle = computed(() => ({
   --glass-fixed-shell-nav-inline-size: #{variables.$layout-vertical-nav-collapsed-width};
 }
 
-.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav) > .glass-fixed-shell-backplate--main {
+.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav, .layout-app-shell)
+  > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
 }
 
@@ -121,11 +122,9 @@ const transitionStyle = computed(() => ({
   clip-path: inset(0 0 calc(100% - env(safe-area-inset-top, 0px)) 0);
 }
 
-.layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top
-  > .glass-fixed-shell-backplate--main {
+.layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top > .glass-fixed-shell-backplate--main {
   clip-path: inset(
-    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round
-      var(--app-surface-radius)
+    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--app-surface-radius)
   );
 }
 
@@ -141,7 +140,7 @@ const transitionStyle = computed(() => ({
 }
 
 [dir='rtl']
-  .layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)
+  .layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav, .layout-app-shell)
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
 }
@@ -152,9 +151,7 @@ const transitionStyle = computed(() => ({
   clip-path: inset(0 0 100% 0);
 }
 
-[dir='rtl']
-  .layout-wrapper.layout-standalone-pwa-shell.layout-navbar-compact
-  > .glass-fixed-shell-backplate--main {
+[dir='rtl'] .layout-wrapper.layout-standalone-pwa-shell.layout-navbar-compact > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - env(safe-area-inset-top, 0px)) 0);
 }
 
@@ -162,8 +159,7 @@ const transitionStyle = computed(() => ({
   .layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(
-    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round
-      var(--app-surface-radius)
+    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--app-surface-radius)
   );
 }
 

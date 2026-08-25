@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   isStandaloneDisplayMode: false,
   isStandaloneMode: false,
   mdAndDown: false,
+  revision: undefined as { value: number } | undefined,
   state: 'expanded' as 'expanded' | 'compact' | 'revealed',
 }))
 
@@ -25,17 +26,27 @@ vi.mock('@/composables/useShellScrollState', async () => {
 })
 
 vi.mock('@/composables/usePWA', async () => {
-  const { computed } = await import('vue')
+  const { computed, ref } = await import('vue')
+
+  mocks.revision ??= ref(0)
 
   return {
     usePWA: () => ({
-      appMode: computed(() => mocks.appMode),
-      isStandaloneMode: computed(() =>
-        mocks.hasPwaStatus ? mocks.isStandaloneMode : mocks.isStandaloneDisplayMode,
-      ),
-      pwaStatus: computed(() =>
-        mocks.hasPwaStatus ? { isStandaloneMode: mocks.isStandaloneMode } : null,
-      ),
+      appMode: computed(() => {
+        void mocks.revision!.value
+
+        return mocks.appMode
+      }),
+      isStandaloneMode: computed(() => {
+        void mocks.revision!.value
+
+        return mocks.hasPwaStatus ? mocks.isStandaloneMode : mocks.isStandaloneDisplayMode
+      }),
+      pwaStatus: computed(() => {
+        void mocks.revision!.value
+
+        return mocks.hasPwaStatus ? { isStandaloneMode: mocks.isStandaloneMode } : null
+      }),
     }),
   }
 })
@@ -71,7 +82,15 @@ vi.mock('vue-router', async importOriginal => ({
 
 vi.mock('vuetify', async importOriginal => ({
   ...(await importOriginal<typeof import('vuetify')>()),
-  useDisplay: () => ({ mdAndDown: { get value() { return mocks.mdAndDown } } }),
+  useDisplay: () => ({
+    mdAndDown: {
+      get value() {
+        void mocks.revision!.value
+
+        return mocks.mdAndDown
+      },
+    },
+  }),
 }))
 
 function mountLayout() {
@@ -79,9 +98,15 @@ function mountLayout() {
     slots: {
       default: () => h('div', 'content'),
       footer: () => h('div', { 'data-testid': 'footer-state' }),
-      navbar: () => h('div', { class: 'theme-navbar-row' }, 'navbar'),
+      navbar: ({ toggleVerticalOverlayNavActive }: { toggleVerticalOverlayNavActive: (value: boolean) => void }) =>
+        h('button', { class: 'theme-navbar-row', onClick: () => toggleVerticalOverlayNavActive(true) }, 'navbar'),
     },
   })
+}
+
+async function refreshShell() {
+  mocks.revision!.value += 1
+  await nextTick()
 }
 
 describe('VerticalNavLayout shell states', () => {
@@ -131,6 +156,10 @@ describe('VerticalNavLayout shell states', () => {
     const appWrapper = mountLayout()
 
     expect(appWrapper.get('.layout-wrapper').attributes('data-shell-mode')).toBe('app')
+    expect(appWrapper.get('.layout-wrapper').classes()).not.toContain('layout-overlay-nav')
+    expect(appWrapper.find('[data-testid="vertical-nav"]').exists()).toBe(false)
+    expect(appWrapper.find('.layout-overlay').exists()).toBe(false)
+    expect(appWrapper.get('.footer-content-container').classes()).toContain('footer-content-container-noheight')
     expect(appWrapper.get('[data-testid="footer-state"]').attributes()).not.toHaveProperty('data-minimized')
     appWrapper.unmount()
 
@@ -140,7 +169,51 @@ describe('VerticalNavLayout shell states', () => {
 
     expect(drawerWrapper.get('.layout-wrapper').attributes('data-shell-mode')).toBe('drawer')
     expect(drawerWrapper.get('.layout-wrapper').classes()).toContain('layout-mobile-drawer-shell')
+    expect(drawerWrapper.get('.layout-wrapper').classes()).toContain('layout-overlay-nav')
+    expect(drawerWrapper.find('[data-testid="vertical-nav"]').exists()).toBe(true)
+    expect(drawerWrapper.find('.layout-overlay').exists()).toBe(true)
     expect(drawerWrapper.get('[data-testid="footer-state"]').attributes()).not.toHaveProperty('data-minimized')
+  })
+
+  it('uses only the App navigation model at a wide viewport', () => {
+    mocks.appMode = true
+    mocks.mdAndDown = false
+
+    const appWrapper = mountLayout()
+    const root = appWrapper.get('.layout-wrapper')
+
+    expect(root.attributes('data-shell-mode')).toBe('app')
+    expect(root.classes()).toContain('layout-app-shell')
+    expect(root.classes()).not.toContain('layout-horizontal-nav-active')
+    expect(root.classes()).not.toContain('layout-vertical-nav-collapsed')
+    expect(root.classes()).not.toContain('layout-overlay-nav')
+    expect(appWrapper.find('[data-testid="vertical-nav"]').exists()).toBe(false)
+    expect(appWrapper.find('.layout-overlay').exists()).toBe(false)
+    expect(appWrapper.get('.footer-content-container').classes()).toContain('footer-content-container-noheight')
+  })
+
+  it('closes and removes the Drawer overlay when the active Shell changes', async () => {
+    mocks.mdAndDown = true
+    const wrapper = mountLayout()
+
+    await wrapper.get('.theme-navbar-row').trigger('click')
+    expect(wrapper.get('.layout-overlay').classes()).toContain('visible')
+
+    mocks.appMode = true
+    await refreshShell()
+    expect(wrapper.get('.layout-wrapper').attributes('data-shell-mode')).toBe('app')
+    expect(wrapper.find('.layout-overlay').exists()).toBe(false)
+
+    mocks.appMode = false
+    await refreshShell()
+    expect(wrapper.get('.layout-wrapper').attributes('data-shell-mode')).toBe('drawer')
+    expect(wrapper.get('.layout-overlay').classes()).not.toContain('visible')
+
+    await wrapper.get('.theme-navbar-row').trigger('click')
+    mocks.mdAndDown = false
+    await refreshShell()
+    expect(wrapper.get('.layout-wrapper').attributes('data-shell-mode')).toBe('desktop')
+    expect(wrapper.find('.layout-overlay').exists()).toBe(false)
   })
 
   it('uses compact as a mobile drawer visibility state without changing App shell ownership', () => {
