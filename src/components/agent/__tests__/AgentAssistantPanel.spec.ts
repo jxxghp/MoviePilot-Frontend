@@ -207,6 +207,22 @@ describe('AgentAssistantPanel stream recovery', () => {
     vi.useRealTimers()
   })
 
+  it('exposes unique semantic controls for file attachments and messages', () => {
+    const wrapper = mountPanel()
+    const fileInput = wrapper.get('input[type="file"]')
+    const messageInput = wrapper.get('textarea')
+    const attachButton = wrapper.get('.agent-assistant-attach')
+
+    expect(fileInput.attributes('id')).toMatch(/^agent-assistant-file-input-/)
+    expect(fileInput.attributes('name')).toBe('attachments')
+    expect(messageInput.attributes('id')).toMatch(/^agent-assistant-message-input-/)
+    expect(messageInput.attributes('name')).toBe('message')
+    expect(fileInput.attributes('id')).not.toBe(messageInput.attributes('id'))
+    expect(attachButton.attributes('aria-controls')).toBe(fileInput.attributes('id'))
+
+    wrapper.unmount()
+  })
+
   it('toggles the desktop assistant between the side panel and fullscreen modes', async () => {
     displayState.mdAndDown.value = false
     vi.stubGlobal(
