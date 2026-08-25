@@ -1136,7 +1136,7 @@ describe('AccountSettingSystem', () => {
     expect(dialog.getByLabelText('备份目录')).toHaveAttribute('data-storage', 'local')
     expect(dialog.getByLabelText('备份过期天数')).toHaveValue(30)
     expect(dialog.getByLabelText('最大保留份数')).toHaveValue(30)
-    expect(dialog.getByLabelText('数据库迁移前备份')).toBeChecked()
+    expect(dialog.getByLabelText('升级前自动备份')).toBeChecked()
   })
 
   it('loads, edits, and saves the database backup policy', async () => {
@@ -1154,12 +1154,12 @@ describe('AccountSettingSystem', () => {
 
     expect(dialog.getByLabelText('备份周期')).toHaveValue('15 2 * * 1')
     expect(dialog.getByLabelText('备份目录')).toHaveValue('/data/backup')
-    expect(dialog.getByLabelText('数据库迁移前备份')).not.toBeChecked()
+    expect(dialog.getByLabelText('升级前自动备份')).not.toBeChecked()
     await fireEvent.update(dialog.getByLabelText('备份周期'), '30 4 * * *')
     await fireEvent.update(dialog.getByLabelText('备份目录'), '  relative/backup  ')
     await fireEvent.update(dialog.getByLabelText('备份过期天数'), '60')
     await fireEvent.update(dialog.getByLabelText('最大保留份数'), '20')
-    await fireEvent.click(dialog.getByLabelText('数据库迁移前备份'))
+    await fireEvent.click(dialog.getByLabelText('升级前自动备份'))
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -1190,7 +1190,7 @@ describe('AccountSettingSystem', () => {
 
     await fireEvent.click(dialog.getByLabelText('启用数据备份'))
     expect(dialog.queryByLabelText('备份周期')).not.toBeInTheDocument()
-    expect(dialog.queryByLabelText('数据库迁移前备份')).not.toBeInTheDocument()
+    expect(dialog.queryByLabelText('升级前自动备份')).not.toBeInTheDocument()
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

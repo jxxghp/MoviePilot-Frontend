@@ -30,3 +30,8 @@ export function verifyDatabaseBackup(name: string): Promise<DatabaseBackupVerifi
     feedback: 'silent',
   })
 }
+
+/** 删除指定受管备份文件。 */
+export function deleteDatabaseBackup(name: string): Promise<void> {
+  return api.delete(`system/database/backups/${encodeURIComponent(name)}`, { feedback: 'silent' })
+}

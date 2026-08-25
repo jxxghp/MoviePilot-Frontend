@@ -2486,7 +2486,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           <VWindowItem value="data">
             <div>
               <VRow>
-                <VCol cols="12">
+                <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.DB_BACKUP_ENABLE"
                     :label="t('setting.system.dbBackupEnable')"
@@ -2495,6 +2495,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   />
                 </VCol>
                 <template v-if="SystemSettings.Advanced.DB_BACKUP_ENABLE">
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.DB_BACKUP_ON_UPGRADE"
+                      :label="t('setting.system.dbBackupOnUpgrade')"
+                      :hint="t('setting.system.dbBackupOnUpgradeHint')"
+                      persistent-hint
+                    />
+                  </VCol>
                   <VCol cols="12" md="6">
                     <VCronField
                       v-model="SystemSettings.Advanced.DB_BACKUP_CRON"
@@ -2542,14 +2550,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       type="number"
                       :rules="dbBackupMaxCountRules"
                       prepend-inner-icon="mdi-backup-restore"
-                    />
-                  </VCol>
-                  <VCol cols="12">
-                    <VSwitch
-                      v-model="SystemSettings.Advanced.DB_BACKUP_ON_UPGRADE"
-                      :label="t('setting.system.dbBackupOnUpgrade')"
-                      :hint="t('setting.system.dbBackupOnUpgradeHint')"
-                      persistent-hint
                     />
                   </VCol>
                 </template>
