@@ -5,6 +5,7 @@ import api from '@/api'
 import { formatFileSize } from '@/@core/utils/formatters'
 import type { DownloaderConf, DownloaderInfo } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
+import { mergeProps } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { downloaderDict } from '@/api/constants'
 import { useBackground } from '@/composables/useBackground'
@@ -124,7 +125,7 @@ onUnmounted(() => {
 <template>
   <VHover v-slot="hover">
     <VCard
-      v-bind="{ ...$attrs, ...hover.props }"
+      v-bind="mergeProps($attrs, hover.props)"
       variant="tonal"
       class="app-card-shell app-card-colorful"
       :style="{ '--app-card-accent-rgb': accentRgb }"
