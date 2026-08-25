@@ -66,9 +66,10 @@ ESLint 迁移优先于全仓格式治理，基础设施迁移不夹带批量业�
 `eslint-suppressions.json` 只冻结迁移时已经确认的文件、规则和数量。新增问题不得加入 baseline；修复存量问题后运行 `yarn lint:suppressions:prune`，并把裁剪结果与代码修复一同提交。日常开发和 CI 不得使用 `--suppress-all`。
 
 baseline 是刻意设计的渐进治理机制，不等于被抑制的违规已被认可为长期编码规范。2026-08-24 的基线快照为
-141 个文件、564 项受控违规，其中 `@typescript-eslint/no-explicit-any` 300 项、`vue/no-mutating-props`
-82 项、`@typescript-eslint/no-unused-vars` 64 项。生产 PR 修改到某个受控文件时，应审计并偿还该文件内
-不改变业务语义且可安全处理的存量，随后 prune；纯测试、文档或 CI 变更不为清理未触及生产文件扩大 diff。
+141 个文件、564 项受控违规、23 条规则，其中 `@typescript-eslint/no-explicit-any` 300 项、
+`vue/no-mutating-props` 82 项、`@typescript-eslint/no-unused-vars` 64 项。生产 PR 修改到某个受控文件时，
+应审计并偿还该文件内不改变业务语义且可安全处理的存量，随后 prune；纯测试、文档或 CI 变更不为清理
+未触及生产文件扩大 diff。
 
 迁移完成的最低验收为：
 
@@ -136,6 +137,11 @@ yarn format:check --base <base-sha> --head <head-sha>
 Prettier 3.9.5 基础设施接入时，全仓只读检查在 `v2` 基线报告 203 个存量文件需要格式化。该数字是收敛起点而不是忽略白名单；变更文件仍必须完整通过检查，存量数量随日常修改逐步下降。
 
 变更文件 CI 接入前在 `v2` 再次测量为 206 个文件，较基础设施合并后的 201 个文件出现回升。这说明仅提供本地命令不足以阻止新改动扩大存量；变更文件 check 用于守住新增 diff，不因此要求在本阶段批量格式化已有文件。
+
+2026-08-25 在 `upstream/v3@c2b21f7e` 使用仓库锁定的 Prettier 3.9.5 运行
+`yarn format:all:check`，剩余 112 个存量文件不符合格式：Vue 36 个、TypeScript 29 个、SCSS 26 个、JSON 5 个、
+YAML 4 个、代码片段 4 个、JavaScript 3 个、Markdown 3 个、HTML 2 个。该快照用于观察渐进收敛趋势，
+不改变“只检查和格式化本次触及文件”的日常边界，也不触发全仓格式化提交。
 
 变更文件 required check 不需要等待全仓收敛。只有同时满足以下条件，才把 Prettier 从变更文件 required check 切换为全仓 required check：
 
