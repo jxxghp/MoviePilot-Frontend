@@ -1810,7 +1810,7 @@ export interface FilterRuleGroup {
   name: string
   // 规则串
   rule_string?: string
-  // 适用类媒体类型 None-全部 电影/电视剧
+  // 适用媒体类型 None-全部 电影/电视剧/音乐
   media_type?: string
   // # 适用媒体类别 None-全部 对应二级分类
   category?: string
