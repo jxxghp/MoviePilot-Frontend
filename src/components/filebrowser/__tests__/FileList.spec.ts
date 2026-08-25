@@ -509,7 +509,8 @@ describe('FileList dialogs, download and lifecycle', () => {
   it('passes single and selected items to scrape and reorganize boundary dialogs', async () => {
     const first = createItem({ name: 'first.mkv', path: '/media/first.mkv' })
     const second = createItem({ name: 'second.mkv', path: '/media/second.mkv' })
-    await renderList(() => Promise.resolve([first, second]))
+    const album = createItem({ name: '叶惠美', path: '/media/叶惠美/', type: 'dir' })
+    await renderList(() => Promise.resolve([album, first, second]))
     await screen.findByText('first.mkv')
 
     const firstRow = screen.getByText('first.mkv').closest('[role="button"]') as Element
@@ -519,6 +520,13 @@ describe('FileList dialogs, download and lifecycle', () => {
     await fireEvent.click(firstRow.querySelector('[data-icon="mdi-folder-arrow-right"]')?.closest('button') as Element)
     expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({
       items: [first],
+      target_storage: 'local',
+    })
+
+    const albumRow = screen.getByText('叶惠美').closest('[role="button"]') as Element
+    await fireEvent.click(albumRow.querySelector('[data-icon="mdi-folder-arrow-right"]')?.closest('button') as Element)
+    expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({
+      items: [album],
       target_storage: 'local',
     })
 

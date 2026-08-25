@@ -796,7 +796,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
 
     await selectOption('类型', 3)
     await waitFor(() => expect(screen.getByLabelText('MusicBrainz ID')).toBeInTheDocument())
-    await selectOption('音乐实体', 1)
+    expect(screen.getByLabelText<HTMLSelectElement>('音乐实体')).toHaveDisplayValue('专辑')
     await fireEvent.input(screen.getByLabelText('MusicBrainz ID'), {
       target: { value: '977e6978-139d-425c-bb98-6b0c62d1e45e' },
     })
@@ -811,6 +811,16 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
         type_name: '音乐',
       }),
     )
+  })
+
+  it('defaults a selected audio file to the recording namespace', async () => {
+    await renderDialog({
+      items: [createFileItem({ name: '晴天.flac', path: '/downloads/晴天.flac' })],
+    })
+
+    await selectOption('类型', 3)
+
+    await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>('音乐实体')).toHaveDisplayValue('单曲'))
   })
 
   it('recommends an episode format and includes it in the next request', async () => {

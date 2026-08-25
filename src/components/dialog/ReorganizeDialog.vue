@@ -195,6 +195,11 @@ function getPreviewItemKey(item: ManualTransferPreviewItem) {
 
 const normalizedItems = computed(() => dedupeFileItems(props.items))
 
+// 整理目录代表一个集合实体；音频文件仍按单曲处理，避免目录入口误入 Recording 搜索。
+const defaultMusicEntity = computed<'album' | 'recording'>(() =>
+  normalizedItems.value.length > 0 && normalizedItems.value.every(item => item.type === 'dir') ? 'album' : 'recording',
+)
+
 // 分页
 const previewPage = ref(1)
 const previewPageSize = ref(20)
@@ -499,7 +504,7 @@ watch(
     if (isMusicType !== sourceIsMusic) {
       transferForm.media_source = null
     }
-    transferForm.music_type = isMusicType ? (transferForm.music_type ?? 'recording') : null
+    transferForm.music_type = isMusicType ? (transferForm.music_type ?? defaultMusicEntity.value) : null
   },
 )
 
@@ -1519,14 +1524,12 @@ onUnmounted(() => {
                         { title: t('music.entityRecording'), value: 'recording' },
                         { title: t('music.entityAlbum'), value: 'album' },
                       ]"
+                      :hint="t('dialog.reorganize.musicEntityHint')"
+                      persistent-hint
                       prepend-inner-icon="mdi-music-box-multiple"
                     />
                   </VCol>
-                  <VCol
-                    v-if="transferForm.type_name !== ''"
-                    cols="12"
-                    :md="transferForm.type_name === '音乐' ? 3 : 4"
-                  >
+                  <VCol v-if="transferForm.type_name !== ''" cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
                     <VTextField
                       v-model="transferForm.media_id"
                       :label="mediaIdLabel"

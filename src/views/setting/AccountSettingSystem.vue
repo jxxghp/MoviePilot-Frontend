@@ -114,6 +114,12 @@ const SystemSettings = ref<any>({
     TMDB_API_DOMAIN: null,
     TMDB_API_KEY: null,
     ACOUSTID_API_KEY: null,
+    THEAUDIODB_API_KEY: '123',
+    LRCLIB_BASE_URL: 'https://lrclib.net',
+    MUSIXMATCH_API_KEY: null,
+    MUSIXMATCH_BASE_URL: 'https://api.musixmatch.com/ws/1.1',
+    LYRICS_BATCH_TIMEOUT: 120,
+    LYRICS_PROVIDER_RETRY_MAX_WAIT: 5,
     MUSIC_METADATA_TO_SIMPLIFIED: true,
     TMDB_IMAGE_DOMAIN: null,
     MUSIC_COVER_PROXY: null,
@@ -212,10 +218,14 @@ const scrapingConfig = [
 ]
 
 // 刮削策略设置
-type ScrapingPolicy = 'skip' | 'missingOnly' | 'overwrite'
+type ScrapingPolicy = 'skip' | 'missingOnly' | 'overwrite' | 'upgrade'
 
 const ScrapingPolicies = ref<Record<string, ScrapingPolicy>>(
-  Object.fromEntries(scrapingConfig.flatMap(section => section.items.map(item => [item.key, 'missingOnly']))),
+  Object.fromEntries(
+    scrapingConfig.flatMap(section =>
+      section.items.map(item => [item.key, item.key === 'music_lyrics' ? 'upgrade' : 'missingOnly']),
+    ),
+  ),
 )
 
 // 是否发送请求的总开关
@@ -2133,6 +2143,67 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   />
                 </VCol>
                 <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.THEAUDIODB_API_KEY"
+                    :label="t('setting.system.theAudioDbApiKey')"
+                    :hint="t('setting.system.theAudioDbApiKeyHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-key-variant"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.LRCLIB_BASE_URL"
+                    :label="t('setting.system.lrclibBaseUrl')"
+                    :hint="t('setting.system.lrclibBaseUrlHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-music-note-plus"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.MUSIXMATCH_API_KEY"
+                    :label="t('setting.system.musixmatchApiKey')"
+                    :hint="t('setting.system.musixmatchApiKeyHint')"
+                    persistent-hint
+                    type="password"
+                    prepend-inner-icon="mdi-key-variant"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.MUSIXMATCH_BASE_URL"
+                    :label="t('setting.system.musixmatchBaseUrl')"
+                    :hint="t('setting.system.musixmatchBaseUrlHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-api"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Advanced.LYRICS_BATCH_TIMEOUT"
+                    :label="t('setting.system.lyricsBatchTimeout')"
+                    :hint="t('setting.system.lyricsBatchTimeoutHint')"
+                    persistent-hint
+                    min="0"
+                    type="number"
+                    :suffix="t('setting.system.secondUnit')"
+                    prepend-inner-icon="mdi-timer-outline"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Advanced.LYRICS_PROVIDER_RETRY_MAX_WAIT"
+                    :label="t('setting.system.lyricsRetryMaxWait')"
+                    :hint="t('setting.system.lyricsRetryMaxWaitHint')"
+                    persistent-hint
+                    min="0"
+                    type="number"
+                    :suffix="t('setting.system.secondUnit')"
+                    prepend-inner-icon="mdi-timer-sand"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
                   <VCombobox
                     v-model="SystemSettings.Advanced.TMDB_IMAGE_DOMAIN"
                     :label="t('setting.system.tmdbImageDomain')"
@@ -2284,6 +2355,10 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                               <VIcon icon="mdi-file-replace" color="primary" class="mr-2" />
                               <span>{{ t('setting.system.policy.overwriteDesc') }}</span>
                             </div>
+                            <div class="d-flex align-center">
+                              <VIcon icon="mdi-arrow-up-bold-hexagon-outline" color="info" class="mr-2" />
+                              <span>{{ t('setting.system.policy.upgradeDesc') }}</span>
+                            </div>
                           </div>
                         </VTooltip>
                       </VExpansionPanelTitle>
@@ -2312,6 +2387,9 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                                 </VBtn>
                                 <VBtn value="overwrite" color="primary" size="small">
                                   <VIcon icon="mdi-file-replace" />
+                                </VBtn>
+                                <VBtn v-if="item.key === 'music_lyrics'" value="upgrade" color="info" size="small">
+                                  <VIcon icon="mdi-arrow-up-bold-hexagon-outline" />
                                 </VBtn>
                               </VBtnToggle>
                               <span class="ml-2">{{ t(item.label) }}</span>

@@ -958,7 +958,12 @@ describe('AccountSettingSystem', () => {
       }),
     )
     expect(findPost('system/setting/ScrapingSwitchs')?.[1]).toEqual(
-      expect.objectContaining({ movie_backdrop: 'overwrite', movie_nfo: 'missingOnly', movie_poster: 'skip' }),
+      expect.objectContaining({
+        movie_backdrop: 'overwrite',
+        movie_nfo: 'missingOnly',
+        movie_poster: 'skip',
+        music_lyrics: 'upgrade',
+      }),
     )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('高级设置保存成功')
   })
@@ -1007,6 +1012,12 @@ describe('AccountSettingSystem', () => {
     await fireEvent.update(dialog.getByLabelText('TMDB API服务地址'), 'api.tmdb.org')
     await fireEvent.update(dialog.getByLabelText('TMDB API Key'), 'tmdb-key')
     await fireEvent.update(dialog.getByLabelText('AcoustID API Key'), 'acoustid-key')
+    await fireEvent.update(dialog.getByLabelText('TheAudioDB API Key'), 'audiodb-key')
+    await fireEvent.update(dialog.getByLabelText('LRCLIB 服务地址'), 'https://lyrics.example')
+    await fireEvent.update(dialog.getByLabelText('Musixmatch API Key'), 'musixmatch-key')
+    await fireEvent.update(dialog.getByLabelText('Musixmatch API 地址'), 'https://musixmatch.example/ws/1.1')
+    await fireEvent.update(dialog.getByLabelText('歌词批次查询预算'), '90')
+    await fireEvent.update(dialog.getByLabelText('歌词来源最大重试等待'), '3')
     await fireEvent.update(dialog.getByLabelText('TMDB 图片服务地址'), 'image.tmdb.org')
     await fireEvent.update(dialog.getByLabelText('音乐封面代理地址'), 'https://music.example')
     await selectOption('TMDB 元数据语言', '繁体中文')
@@ -1037,8 +1048,13 @@ describe('AccountSettingSystem', () => {
         FANART_LANG: 'zh,ja',
         MEDIA_RECOGNIZE_SHARE: false,
         META_CACHE_EXPIRE: '48',
+        LRCLIB_BASE_URL: 'https://lyrics.example',
+        LYRICS_BATCH_TIMEOUT: 90,
+        LYRICS_PROVIDER_RETRY_MAX_WAIT: 3,
         MUSIC_COVER_PROXY: 'https://music.example',
         MUSIC_METADATA_TO_SIMPLIFIED: false,
+        MUSIXMATCH_API_KEY: 'musixmatch-key',
+        MUSIXMATCH_BASE_URL: 'https://musixmatch.example/ws/1.1',
         RECOGNIZE_PLUGIN_FIRST: true,
         SCRAP_FOLLOW_TMDB: false,
         TMDB_API_DOMAIN: 'api.tmdb.org',
@@ -1046,6 +1062,7 @@ describe('AccountSettingSystem', () => {
         TMDB_IMAGE_DOMAIN: 'image.tmdb.org',
         TMDB_LOCALE: 'zh-TW',
         TMDB_SCRAP_ORIGINAL_IMAGE: true,
+        THEAUDIODB_API_KEY: 'audiodb-key',
       }),
     )
   })

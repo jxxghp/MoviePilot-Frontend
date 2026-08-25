@@ -2187,6 +2187,21 @@ export default {
       acoustIdApiKeyPlaceholder: 'Please enter AcoustID API Key',
       acoustIdApiKeyHint: 'Used to identify MusicBrainz recording IDs from audio fingerprints',
       acoustIdApiKeyRequired: 'Please enter AcoustID API Key',
+      theAudioDbApiKey: 'TheAudioDB API Key',
+      theAudioDbApiKeyHint: 'Used for music metadata and plain-lyrics fallback; 123 is the public V1 key',
+      lrclibBaseUrl: 'LRCLIB Service URL',
+      lrclibBaseUrlHint: 'Use the official service or a self-hosted LRCLIB-compatible instance',
+      musixmatchApiKey: 'Musixmatch API Key',
+      musixmatchApiKeyHint:
+        'Optional; uses only the licensed official API. Ensure your plan permits storing and displaying lyrics',
+      musixmatchBaseUrl: 'Musixmatch API URL',
+      musixmatchBaseUrlHint: 'Root URL of the official API or an authorized proxy',
+      lyricsBatchTimeout: 'Lyrics Batch Budget',
+      lyricsBatchTimeoutHint:
+        'Maximum time for all online lyrics requests in one music scrape; 0 uses local lyrics only',
+      lyricsRetryMaxWait: 'Lyrics Retry Wait Limit',
+      lyricsRetryMaxWaitHint: 'Cool down a provider when Retry-After exceeds this limit instead of blocking the album',
+      secondUnit: 'sec',
       musicMetadataToSimplified: 'Convert Music Metadata to Simplified Chinese',
       musicMetadataToSimplifiedHint:
         'Force recognized music titles, artists, albums, categories, and other metadata to Simplified Chinese',
@@ -2430,6 +2445,7 @@ export default {
         skipDesc: 'Skip scraping, this file will not be generated',
         missingOnlyDesc: 'Scrape only if missing, existing file remains unchanged',
         overwriteDesc: 'Always scrape, existing file will be overwritten',
+        upgradeDesc: 'Replace only with higher-quality lyrics and never downgrade synced lyrics to plain text',
       },
     },
     site: {
@@ -3417,6 +3433,7 @@ export default {
       mediaType: 'Type',
       mediaTypeHint: 'File media type',
       musicEntity: 'Music Entity',
+      musicEntityHint: 'Album folders default to Album; individual audio files default to Recording.',
       mediaSource: 'Data Source',
       mediaSourceHint: 'Uses the backend recognition setting by default; switch it for this organization and scrape',
       tmdbId: 'TheMovieDb ID',
