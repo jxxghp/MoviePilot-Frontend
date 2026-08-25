@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 import api from '@/api'
 import { formatFileSize } from '@/@core/utils/formatters'
 import type { DownloaderConf, DownloaderInfo } from '@/api/types'
@@ -122,7 +124,7 @@ onUnmounted(() => {
 <template>
   <VHover v-slot="hover">
     <VCard
-      v-bind="hover.props"
+      v-bind="{ ...$attrs, ...hover.props }"
       variant="tonal"
       class="app-card-shell app-card-colorful"
       :style="{ '--app-card-accent-rgb': accentRgb }"
@@ -146,7 +148,10 @@ onUnmounted(() => {
             />
             <span class="app-card-summary__title text-h6">{{ downloader.name }}</span>
           </div>
-          <div v-if="downloaderDict[downloader.type] && props.downloader.enabled" class="app-card-summary__meta text-sm">
+          <div
+            v-if="downloaderDict[downloader.type] && props.downloader.enabled"
+            class="app-card-summary__meta text-sm"
+          >
             <span class="app-card-summary__meta-item">{{ `↑ ${formatFileSize(upload_rate, 1)}/s` }}</span>
             <span class="app-card-summary__meta-item">{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
           </div>
