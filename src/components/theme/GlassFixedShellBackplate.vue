@@ -113,13 +113,19 @@ const transitionStyle = computed(() => ({
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
 }
 
-.layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell)
+.layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell):not(
+    .layout-window-controls-overlay-shell
+  )
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 100% 0);
 }
 
-.layout-wrapper.layout-standalone-pwa-shell.layout-navbar-compact > .glass-fixed-shell-backplate--main {
-  clip-path: inset(0 0 calc(100% - env(safe-area-inset-top, 0px)) 0);
+.layout-wrapper.layout-app-shell:is(
+    .layout-standalone-pwa-shell,
+    .layout-window-controls-overlay-shell
+  ).layout-navbar-compact
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-safe-area-top)) 0);
 }
 
 .layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top > .glass-fixed-shell-backplate--main {
@@ -146,13 +152,20 @@ const transitionStyle = computed(() => ({
 }
 
 [dir='rtl']
-  .layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell)
+  .layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell):not(
+    .layout-window-controls-overlay-shell
+  )
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 100% 0);
 }
 
-[dir='rtl'] .layout-wrapper.layout-standalone-pwa-shell.layout-navbar-compact > .glass-fixed-shell-backplate--main {
-  clip-path: inset(0 0 calc(100% - env(safe-area-inset-top, 0px)) 0);
+[dir='rtl']
+  .layout-wrapper.layout-app-shell:is(
+    .layout-standalone-pwa-shell,
+    .layout-window-controls-overlay-shell
+  ).layout-navbar-compact
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-safe-area-top)) 0);
 }
 
 [dir='rtl']

@@ -7,8 +7,10 @@ const mocks = vi.hoisted(() => ({
   appMode: false,
   direction: 'idle' as 'idle' | 'up' | 'down',
   hasPwaStatus: true,
+  displayEnvironment: 'browser' as 'browser' | 'standalone' | 'window-controls-overlay',
   isStandaloneDisplayMode: false,
   isStandaloneMode: false,
+  isWindowControlsOverlayMode: false,
   mdAndDown: false,
   revision: undefined as { value: number } | undefined,
   state: 'expanded' as 'expanded' | 'compact' | 'revealed',
@@ -37,10 +39,20 @@ vi.mock('@/composables/usePWA', async () => {
 
         return mocks.appMode
       }),
+      displayEnvironment: computed(() => {
+        void mocks.revision!.value
+
+        return mocks.displayEnvironment
+      }),
       isStandaloneMode: computed(() => {
         void mocks.revision!.value
 
         return mocks.hasPwaStatus ? mocks.isStandaloneMode : mocks.isStandaloneDisplayMode
+      }),
+      isWindowControlsOverlayMode: computed(() => {
+        void mocks.revision!.value
+
+        return mocks.isWindowControlsOverlayMode
       }),
       pwaStatus: computed(() => {
         void mocks.revision!.value
@@ -112,18 +124,21 @@ async function refreshShell() {
 describe('VerticalNavLayout shell states', () => {
   beforeEach(() => {
     mocks.appMode = false
+    mocks.displayEnvironment = 'browser'
     mocks.direction = 'idle'
     mocks.hasPwaStatus = true
     mocks.isStandaloneDisplayMode = false
     mocks.isStandaloneMode = false
+    mocks.isWindowControlsOverlayMode = false
     mocks.mdAndDown = false
     mocks.state = 'expanded'
   })
 
-  it('keeps compact and reverse-scroll revealed states distinct while away from the top', async () => {
+  it('keeps raw scroll states without applying App presentation classes to the desktop shell', async () => {
     const expandedWrapper = mountLayout()
 
     expect(expandedWrapper.get('.layout-wrapper').attributes('data-shell-mode')).toBe('desktop')
+    expect(expandedWrapper.get('.layout-wrapper').attributes('data-shell-display-environment')).toBe('browser')
     expect(expandedWrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('expanded')
     expect(expandedWrapper.get('.layout-wrapper').classes()).not.toContain('window-scrolled')
     expandedWrapper.unmount()
@@ -133,8 +148,9 @@ describe('VerticalNavLayout shell states', () => {
     const compactWrapper = mountLayout()
 
     expect(compactWrapper.get('.layout-wrapper').classes()).toEqual(
-      expect.arrayContaining(['layout-navbar-away-from-top', 'layout-navbar-compact', 'window-scrolled']),
+      expect.arrayContaining(['layout-navbar-away-from-top', 'window-scrolled']),
     )
+    expect(compactWrapper.get('.layout-wrapper').classes()).not.toContain('layout-navbar-compact')
     expect(compactWrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('compact')
     compactWrapper.unmount()
 
@@ -143,10 +159,9 @@ describe('VerticalNavLayout shell states', () => {
     const revealedWrapper = mountLayout()
     const revealedRoot = revealedWrapper.get('.layout-wrapper')
 
-    expect(revealedRoot.classes()).toEqual(
-      expect.arrayContaining(['layout-navbar-away-from-top', 'layout-navbar-revealed', 'window-scrolled']),
-    )
+    expect(revealedRoot.classes()).toEqual(expect.arrayContaining(['layout-navbar-away-from-top', 'window-scrolled']))
     expect(revealedRoot.classes()).not.toContain('layout-navbar-compact')
+    expect(revealedRoot.classes()).not.toContain('layout-navbar-revealed')
     expect(revealedWrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('revealed')
   })
 
@@ -216,15 +231,14 @@ describe('VerticalNavLayout shell states', () => {
     expect(wrapper.find('.layout-overlay').exists()).toBe(false)
   })
 
-  it('uses compact as a mobile drawer visibility state without changing App shell ownership', () => {
+  it('keeps the compact Drawer gateway visible while App consumes the compact presentation', () => {
     mocks.mdAndDown = true
     mocks.state = 'compact'
     mocks.direction = 'down'
     const drawerWrapper = mountLayout()
 
-    expect(drawerWrapper.get('.layout-wrapper').classes()).toEqual(
-      expect.arrayContaining(['layout-mobile-drawer-shell', 'layout-navbar-compact']),
-    )
+    expect(drawerWrapper.get('.layout-wrapper').classes()).toContain('layout-mobile-drawer-shell')
+    expect(drawerWrapper.get('.layout-wrapper').classes()).not.toContain('layout-navbar-compact')
     expect(drawerWrapper.get('.layout-navbar').attributes()).not.toHaveProperty('inert')
     drawerWrapper.unmount()
 
@@ -250,6 +264,30 @@ describe('VerticalNavLayout shell states', () => {
     expect(standaloneWrapper.get('.layout-wrapper').classes()).toContain('layout-standalone-pwa-shell')
   })
 
+  it('keeps standalone safe-area ownership when Side navigation resolves to Drawer or desktop', () => {
+    mocks.isStandaloneMode = true
+    mocks.displayEnvironment = 'standalone'
+    mocks.mdAndDown = true
+
+    const drawerWrapper = mountLayout()
+    const drawerRoot = drawerWrapper.get('.layout-wrapper')
+
+    expect(drawerRoot.attributes('data-shell-mode')).toBe('drawer')
+    expect(drawerRoot.classes()).toEqual(
+      expect.arrayContaining(['layout-mobile-drawer-shell', 'layout-standalone-pwa-shell']),
+    )
+    expect(drawerRoot.classes()).not.toContain('layout-app-shell')
+    drawerWrapper.unmount()
+
+    mocks.mdAndDown = false
+    const desktopWrapper = mountLayout()
+    const desktopRoot = desktopWrapper.get('.layout-wrapper')
+
+    expect(desktopRoot.attributes('data-shell-mode')).toBe('desktop')
+    expect(desktopRoot.classes()).toContain('layout-standalone-pwa-shell')
+    expect(desktopRoot.classes()).not.toContain('layout-app-shell')
+  })
+
   it('protects the standalone safe-area before async PWA status resolves', () => {
     mocks.appMode = true
     mocks.direction = 'down'
@@ -265,5 +303,35 @@ describe('VerticalNavLayout shell states', () => {
       expect.arrayContaining(['layout-app-shell', 'layout-standalone-pwa-shell', 'layout-navbar-compact']),
     )
     expect(standaloneWrapper.get('.layout-navbar').attributes()).toHaveProperty('inert')
+  })
+
+  it('keeps WCO titlebar ownership separate from standalone safe-area treatment', () => {
+    mocks.appMode = false
+    mocks.displayEnvironment = 'window-controls-overlay'
+    mocks.isWindowControlsOverlayMode = true
+    mocks.state = 'compact'
+
+    const desktopWrapper = mountLayout()
+    const desktopRoot = desktopWrapper.get('.layout-wrapper')
+
+    expect(desktopRoot.attributes('data-shell-mode')).toBe('desktop')
+    expect(desktopRoot.attributes('data-shell-display-environment')).toBe('window-controls-overlay')
+    expect(desktopRoot.classes()).toContain('layout-window-controls-overlay-shell')
+    expect(desktopRoot.classes()).not.toContain('layout-standalone-pwa-shell')
+    expect(desktopRoot.classes()).not.toContain('layout-navbar-compact')
+    expect(desktopWrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('compact')
+    expect(desktopWrapper.get('.layout-navbar').attributes()).not.toHaveProperty('inert')
+    desktopWrapper.unmount()
+
+    mocks.appMode = true
+    mocks.state = 'compact'
+    const appWrapper = mountLayout()
+    const appRoot = appWrapper.get('.layout-wrapper')
+
+    expect(appRoot.classes()).toEqual(
+      expect.arrayContaining(['layout-app-shell', 'layout-window-controls-overlay-shell', 'layout-navbar-compact']),
+    )
+    expect(appRoot.classes()).not.toContain('layout-standalone-pwa-shell')
+    expect(appWrapper.get('.layout-navbar').attributes()).toHaveProperty('inert')
   })
 })

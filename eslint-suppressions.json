@@ -533,7 +533,7 @@
   },
   "src/composables/usePWAInstall.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 3
+      "count": 2
     }
   },
   "src/composables/useSharedDialog.ts": {

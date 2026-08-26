@@ -19,12 +19,11 @@ export default defineComponent({
 
     const route = useRoute()
     const { mdAndDown } = useDisplay()
-    const { appMode, isStandaloneMode } = usePWA()
+    const { appMode, displayEnvironment, isStandaloneMode, isWindowControlsOverlayMode } = usePWA()
     const fixedShellBackplate = useGlassFixedShellBackplate()
     const themeLayout = ref(readThemeCustomizerSettings().layout)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
     const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
-    const isStandaloneApp = computed(() => appMode.value && isStandaloneMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
     const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
 
@@ -130,8 +129,9 @@ export default defineComponent({
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
       const isNavbarAwayFromTop = shellScroll.state.value !== 'expanded'
-      const isNavbarCompact = shellScroll.state.value === 'compact'
-      const isNavbarRevealed = shellScroll.state.value === 'revealed'
+      // compact/revealed 是 App 上下文顶栏的呈现状态；其他 Shell 只消费 away-from-top 材质状态。
+      const isNavbarCompact = appMode.value && shellScroll.state.value === 'compact'
+      const isNavbarRevealed = appMode.value && shellScroll.state.value === 'revealed'
 
       // 👉 Footer
       const footer = h('footer', { class: 'layout-footer' }, [
@@ -165,7 +165,8 @@ export default defineComponent({
             'layout-navbar-fixed',
             isOverlayShell.value && 'layout-overlay-nav',
             appMode.value && 'layout-app-shell',
-            isStandaloneApp.value && 'layout-standalone-pwa-shell',
+            isStandaloneMode.value && 'layout-standalone-pwa-shell',
+            isWindowControlsOverlayMode.value && 'layout-window-controls-overlay-shell',
             isOverlayShell.value && 'layout-mobile-drawer-shell',
             isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
             isHorizontalLayout.value && 'layout-horizontal-nav-active',
@@ -178,6 +179,7 @@ export default defineComponent({
             !isHorizontalLayout.value && isNavbarAwayFromTop && 'window-scrolled',
           ],
           'data-shell-mode': appMode.value ? 'app' : mdAndDown.value ? 'drawer' : 'desktop',
+          'data-shell-display-environment': displayEnvironment.value,
           'data-shell-scroll-direction': shellScroll.direction.value,
         },
         [
@@ -203,12 +205,14 @@ export default defineComponent({
   position: relative;
   z-index: 1;
   margin-block-start: 0;
+  padding-block-start: calc(var(--layout-navbar-safe-area-top, env(safe-area-inset-top, 0px)) + 4.5rem);
 }
 
 .layout-wrapper.layout-nav-type-vertical {
+  --layout-navbar-safe-area-top: env(safe-area-inset-top, 0px);
   --layout-navbar-safe-area-inline: 0px;
   --layout-navbar-block-size: calc(
-    env(safe-area-inset-top, 0px) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
+    var(--layout-navbar-safe-area-top) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
   );
 
   // TODO(v2): Check why we need height in vertical nav & min-height in horizontal nav
@@ -246,6 +250,7 @@ export default defineComponent({
 
     .navbar-content-container {
       block-size: var(--layout-navbar-block-size);
+      padding-block-start: var(--layout-navbar-safe-area-top);
       transition:
         background-color 240ms var(--mp-motion-ease-standard),
         border-color 240ms var(--mp-motion-ease-standard),
@@ -276,7 +281,8 @@ export default defineComponent({
   }
 
   // App 始终保留底部一级导航，因此下滚可让上下文顶栏退出内容区。
-  &.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell) .layout-navbar {
+  &.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell):not(.layout-window-controls-overlay-shell)
+    .layout-navbar {
     transform: translate3d(0, -100%, 0);
     transition-duration: 160ms;
     transition-timing-function: var(--mp-motion-ease-exit);
@@ -291,9 +297,10 @@ export default defineComponent({
     padding-inline: var(--layout-navbar-safe-area-inline);
   }
 
-  &.layout-standalone-pwa-shell.layout-navbar-compact .layout-navbar {
+  &.layout-app-shell:is(.layout-standalone-pwa-shell, .layout-window-controls-overlay-shell).layout-navbar-compact
+    .layout-navbar {
     overflow: clip;
-    transform: translate3d(0, calc(-100% + env(safe-area-inset-top, 0px)), 0);
+    transform: translate3d(0, calc(-100% + var(--layout-navbar-safe-area-top)), 0);
     transition-duration: 160ms;
     transition-timing-function: var(--mp-motion-ease-exit);
 
@@ -301,6 +308,32 @@ export default defineComponent({
       opacity: 0;
       pointer-events: none;
     }
+  }
+
+  // WCO 的标题栏是桌面窗口合同；独立保留拖拽区，避免复用移动端 safe-area 与显隐语义。
+  &.layout-window-controls-overlay-shell {
+    --layout-navbar-safe-area-top: env(titlebar-area-height, 0px);
+
+    &::before {
+      position: fixed;
+      z-index: variables.$layout-vertical-nav-layout-navbar-z-index + 1;
+      block-size: env(titlebar-area-height, 0px);
+      content: '';
+      inline-size: env(titlebar-area-width, 100%);
+      inset-block-start: env(titlebar-area-y, 0px);
+      inset-inline-start: env(titlebar-area-x, 0px);
+      -webkit-app-region: drag;
+      app-region: drag;
+    }
+
+    .layout-vertical-nav {
+      padding-block-start: var(--layout-navbar-safe-area-top);
+    }
+  }
+
+  [dir='rtl'] &.layout-window-controls-overlay-shell::before {
+    // titlebar-area-x 是物理坐标，RTL 下需转换为逻辑起点，避免拖拽区镜像到窗口控件上。
+    inset-inline-start: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%));
   }
 
   &.layout-navbar-fixed .layout-navbar {
