@@ -270,6 +270,32 @@ describe('PluginCard lifecycle actions', () => {
     expect(await screen.findByText('该插件尚未绑定仓库，请在「关于」中确认')).toBeInTheDocument()
   })
 
+  it('forwards a confirmed repository change to the list transaction owner', async () => {
+    mocks.apiGet.mockResolvedValue(plugin)
+    const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('关于'))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const detailEvents = mocks.openSharedDialog.mock.calls[0][2] as {
+      sourceTransition: (transition: { action: 'change'; expected_revision: number; repo_url: string }) => void
+    }
+    detailEvents.sourceTransition({
+      action: 'change',
+      expected_revision: 7,
+      repo_url: 'https://github.com/example/target',
+    })
+
+    expect(emitted().sourceTransition).toContainEqual([
+      plugin,
+      {
+        action: 'change',
+        expected_revision: 7,
+        repo_url: 'https://github.com/example/target',
+      },
+    ])
+  })
+
   it('blocks an incompatible latest update without sending a request', async () => {
     const updatablePlugin = {
       ...plugin,

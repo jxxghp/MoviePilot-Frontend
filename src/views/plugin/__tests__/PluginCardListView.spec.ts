@@ -23,6 +23,8 @@ const apiUrls = {
   runtime: new URL('plugin/runtime', API_BASE_URL).href,
   sidebar: new URL('plugin/sidebar_nav', API_BASE_URL).href,
   sourceOptions: new URL('plugin/source/:pluginId/options', API_BASE_URL).href,
+  sourceBind: (pluginId: string) => new URL(`plugin/source/${pluginId}/install`, API_BASE_URL).href,
+  sourceChange: (pluginId: string) => new URL(`plugin/source/${pluginId}`, API_BASE_URL).href,
   statistic: new URL('plugin/statistic', API_BASE_URL).href,
 }
 
@@ -157,6 +159,7 @@ const PluginMixedSortCardStub = defineComponent({
     'refresh-data',
     'rename-folder',
     'remove-from-folder',
+    'source-transition',
     'update-folder-config',
   ],
   setup(props, { emit }) {
@@ -235,6 +238,35 @@ const PluginMixedSortCardStub = defineComponent({
           : null,
         type === 'plugin'
           ? h('button', { onClick: () => emit('remove-from-folder', id), type: 'button' }, `remove-plugin-${id}`)
+          : null,
+        type === 'plugin'
+          ? h(
+              'button',
+              {
+                onClick: () =>
+                  emit('source-transition', data, {
+                    action: 'change',
+                    expected_revision: 7,
+                    repo_url: 'https://github.com/example/target',
+                  }),
+                type: 'button',
+              },
+              `change-source-${id}`,
+            )
+          : null,
+        type === 'plugin'
+          ? h(
+              'button',
+              {
+                onClick: () =>
+                  emit('source-transition', data, {
+                    action: 'bind',
+                    repo_url: 'https://github.com/example/target',
+                  }),
+                type: 'button',
+              },
+              `bind-source-${id}`,
+            )
           : null,
         type === 'plugin'
           ? h(
@@ -1636,6 +1668,99 @@ describe('PluginCardListView search installation', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
     expect(screen.getByText('plugin:稳定插件')).toBeInTheDocument()
     expect(screen.queryByText('plugin:失败插件')).not.toBeInTheDocument()
+    await waitForRequestsToFinish()
+  })
+
+  it('shows the installed card as busy and deduplicates a repository change', async () => {
+    const sourceGate = createDeferred<void>()
+    const sourceStarted = createDeferred<void>()
+    let sourceRequests = 0
+    let requestBody: unknown
+    const target = createPlugin({ id: 'SourcePlugin', installed: true, plugin_name: '换仓插件' })
+    let installedRequests = 0
+    const { pinia } = await renderList({
+      installed: () => {
+        installedRequests += 1
+        return [target]
+      },
+    })
+    await waitForRequestsToFinish()
+    const installedRequestsBeforeChange = installedRequests
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    const sidebarStore = usePluginSidebarNavStore(pinia)
+    server.use(
+      http.post(apiUrls.sourceChange('SourcePlugin'), async ({ request }) => {
+        sourceRequests += 1
+        requestBody = await request.json()
+        sourceStarted.resolve()
+        await sourceGate.promise
+        return apiJson(null)
+      }),
+    )
+
+    const changeButton = screen.getByRole('button', { name: 'change-source-SourcePlugin' })
+    await fireEvent.click(changeButton)
+    await fireEvent.click(changeButton)
+    await sourceStarted.promise
+
+    expect(sourceRequests).toBe(1)
+    expect(requestBody).toEqual({
+      expected_revision: 7,
+      repo_url: 'https://github.com/example/target',
+    })
+    expect(screen.getByLabelText('installing-SourcePlugin')).toHaveTextContent('true')
+
+    sourceGate.resolve()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 换仓插件 的仓库已更换'))
+    await waitFor(() => expect(screen.getByLabelText('installing-SourcePlugin')).toHaveTextContent('false'))
+    expect(installedRequests).toBeGreaterThan(installedRequestsBeforeChange)
+    expect(runtimeStore.refresh).toHaveBeenCalled()
+    expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
+    await waitForRequestsToFinish()
+  })
+
+  it('runs an initial repository binding through the same installed-card transaction', async () => {
+    let requestBody: unknown
+    const target = createPlugin({ id: 'BindingPlugin', installed: true, plugin_name: '待绑定插件' })
+    await renderList({ installed: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.sourceBind('BindingPlugin'), async ({ request }) => {
+        requestBody = await request.json()
+        return apiJson(null)
+      }),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'bind-source-BindingPlugin' }))
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 待绑定插件 已绑定仓库'))
+    expect(requestBody).toEqual({
+      force: true,
+      repo_url: 'https://github.com/example/target',
+    })
+    await waitFor(() => expect(screen.getByLabelText('installing-BindingPlugin')).toHaveTextContent('false'))
+    await waitForRequestsToFinish()
+  })
+
+  it('clears the installed card state when a repository change rolls back', async () => {
+    const target = createPlugin({ id: 'FailedSourcePlugin', installed: true, plugin_name: '换仓失败插件' })
+    let installedRequests = 0
+    await renderList({
+      installed: () => {
+        installedRequests += 1
+        return [target]
+      },
+    })
+    await waitForRequestsToFinish()
+    const installedRequestsBeforeChange = installedRequests
+    server.use(http.post(apiUrls.sourceChange('FailedSourcePlugin'), () => apiFailureJson('目标仓库不可用')))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'change-source-FailedSourcePlugin' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('插件 换仓失败插件 更换仓库失败：目标仓库不可用'))
+    expect(screen.getByText('plugin:换仓失败插件')).toBeInTheDocument()
+    expect(screen.getByLabelText('installing-FailedSourcePlugin')).toHaveTextContent('false')
+    await waitFor(() => expect(installedRequests).toBeGreaterThan(installedRequestsBeforeChange))
     await waitForRequestsToFinish()
   })
 })

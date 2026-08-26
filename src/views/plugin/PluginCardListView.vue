@@ -2,8 +2,8 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
-import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
-import type { Plugin, PluginRating, PluginSourceOptions } from '@/api/types'
+import { changePluginSource, getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
+import type { Plugin, PluginRating, PluginSourceOptions, PluginSourceTransition } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -962,6 +962,48 @@ async function installPlugin(
       }),
     )
     // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
+    void fetchInstalledPlugins({ silent: true })
+  } finally {
+    const pending = new Set(installingPluginIds.value)
+    pending.delete(pluginId)
+    installingPluginIds.value = pending
+  }
+}
+
+/** 在已安装卡片上执行仓库绑定或换仓，并复用插件级安装状态。 */
+async function transitionPluginSource(item: Plugin, transition: PluginSourceTransition) {
+  const pluginId = item.id
+  if (!pluginId || installingPluginIds.value.has(pluginId)) return
+
+  installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
+  try {
+    if (transition.action === 'bind') {
+      await installPluginFromSource(pluginId, {
+        repo_url: transition.repo_url,
+        force: true,
+      })
+    } else {
+      await changePluginSource(pluginId, {
+        repo_url: transition.repo_url,
+        expected_revision: transition.expected_revision,
+      })
+    }
+    $toast.success(
+      t(transition.action === 'bind' ? 'plugin.sourceBindSuccess' : 'plugin.sourceChangeSuccess', {
+        name: item.plugin_name,
+      }),
+    )
+    await fetchInstalledPlugins({ silent: true })
+    if (userStore.superUser) await pluginRuntimeStore.refresh()
+    await pluginSidebarNavStore.ensureSidebarNav(true)
+  } catch (error) {
+    console.error(error)
+    $toast.error(
+      t(transition.action === 'bind' ? 'plugin.sourceBindFailed' : 'plugin.sourceChangeFailed', {
+        name: item.plugin_name,
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
+      }),
+    )
     void fetchInstalledPlugins({ silent: true })
   } finally {
     const pending = new Set(installingPluginIds.value)
@@ -2234,6 +2276,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
+                    @source-transition="transitionPluginSource"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2265,6 +2308,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
+                    @source-transition="transitionPluginSource"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2299,6 +2343,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :show-remove-button="true"
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
+                    @source-transition="transitionPluginSource"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2326,6 +2371,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :show-remove-button="true"
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
+                    @source-transition="transitionPluginSource"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false

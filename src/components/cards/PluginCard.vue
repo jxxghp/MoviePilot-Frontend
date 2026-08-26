@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginSourceTransition } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -45,7 +45,13 @@ const props = defineProps({
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove', 'save', 'actionDone', 'rating'])
+const emit = defineEmits<{
+  remove: []
+  save: []
+  actionDone: []
+  rating: [pluginRating: PluginRating]
+  sourceTransition: [plugin: Plugin, transition: PluginSourceTransition]
+}>()
 
 // 多语言
 const { t } = useI18n()
@@ -442,6 +448,9 @@ async function showPluginAbout(initialSourceSelectionOpen = false) {
         void pluginSidebarNavStore.ensureSidebarNav(true)
       },
       rating: (pluginRating: PluginRating) => emit('rating', pluginRating),
+      sourceTransition: (transition: PluginSourceTransition) => {
+        if (props.plugin) emit('sourceTransition', props.plugin, transition)
+      },
     },
     { closeOn: ['close', 'install', 'update:modelValue'] },
   )

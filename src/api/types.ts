@@ -1092,6 +1092,23 @@ export interface PluginSourceChangeRequest {
   release_version?: string | null
 }
 
+/** 已安装插件完成来源确认后产生的仓库变更意图。 */
+export type PluginSourceTransition =
+  | {
+      // 为存量未绑定插件建立初始可信仓库
+      action: 'bind'
+      // 管理员明确选择的目标插件仓库地址
+      repo_url: string
+    }
+  | {
+      // 把已绑定插件切换到另一个可信仓库
+      action: 'change'
+      // 管理员明确选择的目标插件仓库地址
+      repo_url: string
+      // 提交换仓时必须匹配的当前身份 revision
+      expected_revision: number
+    }
+
 export interface PluginRuntimeSummary {
   // 本轮插件源码、依赖和加载是否已收敛
   ready: boolean
