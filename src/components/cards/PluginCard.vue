@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginSourceTransition } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -45,7 +45,13 @@ const props = defineProps({
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove', 'save', 'actionDone', 'rating'])
+const emit = defineEmits<{
+  remove: []
+  save: []
+  actionDone: []
+  rating: [pluginRating: PluginRating]
+  sourceTransition: [plugin: Plugin, transition: PluginSourceTransition]
+}>()
 
 // 多语言
 const { t } = useI18n()
@@ -56,13 +62,15 @@ const hasCardStatus = computed(
   () => sourceBindingRequired.value || Boolean(props.plugin?.has_update) || hasCardRating.value,
 )
 const updateCandidate = computed(() => props.plugin?.update_candidate)
-const hasAlternativeUpdate = computed(
-  () => Boolean(props.plugin?.has_update && updateCandidate.value && !updateCandidate.value.is_bound),
+const hasAlternativeUpdate = computed(() =>
+  Boolean(props.plugin?.has_update && updateCandidate.value && !updateCandidate.value.is_bound),
 )
 const updateSourceName = computed(() => {
   const candidate = updateCandidate.value
   if (!candidate) return ''
-  return candidate.source_key.startsWith('github:') ? candidate.source_key.slice('github:'.length) : candidate.source_key
+  return candidate.source_key.startsWith('github:')
+    ? candidate.source_key.slice('github:'.length)
+    : candidate.source_key
 })
 const updateBadgeTitle = computed(() => {
   const candidate = updateCandidate.value
@@ -420,13 +428,13 @@ async function fetchInstalledPluginDetail() {
   return pluginDetail
 }
 
-/** 使用插件市场详情弹窗展示已安装插件信息和评分入口。 */
-async function showPluginAbout(initialSourceSelectionOpen = false) {
-  const pluginDetail = await fetchInstalledPluginDetail()
+/** 先展示本地快照，再用市场详情补齐仍处于打开状态的同一个弹窗。 */
+function showPluginAbout(initialSourceSelectionOpen = false) {
+  const pluginDetail = props.plugin
   if (!pluginDetail) return
 
   marketDetailDialogController?.close()
-  marketDetailDialogController = openSharedDialog(
+  const controller = openSharedDialog(
     PluginMarketDetailDialog,
     {
       plugin: pluginDetail,
@@ -440,9 +448,19 @@ async function showPluginAbout(initialSourceSelectionOpen = false) {
         void pluginSidebarNavStore.ensureSidebarNav(true)
       },
       rating: (pluginRating: PluginRating) => emit('rating', pluginRating),
+      sourceTransition: (transition: PluginSourceTransition) => {
+        if (props.plugin) emit('sourceTransition', props.plugin, transition)
+      },
     },
     { closeOn: ['close', 'install', 'update:modelValue'] },
   )
+  marketDetailDialogController = controller
+
+  void fetchInstalledPluginDetail().then(latestPluginDetail => {
+    if (latestPluginDetail && marketDetailDialogController === controller) {
+      controller.updateProps({ plugin: latestPluginDetail })
+    }
+  })
 }
 
 /** 更新来自其他仓库时先展开来源选择，否则进入绑定仓库的更新说明。 */
@@ -913,7 +931,7 @@ watch(
   justify-content: center;
   gap: 0.5rem;
   color: rgb(var(--v-theme-on-surface));
-  background: rgba(var(--v-theme-surface), 88%);
+  background: rgba(var(--v-theme-surface), 72%);
   font-size: 0.875rem;
   font-weight: 600;
   inset: 0;
@@ -922,7 +940,7 @@ watch(
 
 .plugin-card__runtime-state--error {
   color: rgb(var(--v-theme-error));
-  background: rgba(var(--v-theme-surface), 94%);
+  background: rgba(var(--v-theme-surface), 80%);
 }
 
 .card-cover-blurred::before {

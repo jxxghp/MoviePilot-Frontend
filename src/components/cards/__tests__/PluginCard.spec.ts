@@ -238,11 +238,9 @@ describe('PluginCard lifecycle actions', () => {
     const { container } = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
 
     await fireEvent.mouseEnter(screen.getByLabelText('有更新'))
-    expect(
-      await screen.findByText('jxxghp/moviepilot-plugins 有新版本 v2.0.0，需要确认更换仓库'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('jxxghp/moviepilot-plugins 有新版本 v2.0.0，需要确认更换仓库')).toBeInTheDocument()
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
-    await fireEvent.click(await screen.findByText('查看更新来源'))
+    await fireEvent.click(await screen.findByText('查看更新'))
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
 
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
@@ -270,6 +268,60 @@ describe('PluginCard lifecycle actions', () => {
     expect(screen.queryByLabelText('有更新')).not.toBeInTheDocument()
     await fireEvent.mouseEnter(screen.getByText('需确认仓库'))
     expect(await screen.findByText('该插件尚未绑定仓库，请在「关于」中确认')).toBeInTheDocument()
+  })
+
+  it('forwards a confirmed repository change to the list transaction owner', async () => {
+    mocks.apiGet.mockResolvedValue(plugin)
+    const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('关于'))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const detailEvents = mocks.openSharedDialog.mock.calls[0][2] as {
+      sourceTransition: (transition: { action: 'change'; expected_revision: number; repo_url: string }) => void
+    }
+    detailEvents.sourceTransition({
+      action: 'change',
+      expected_revision: 7,
+      repo_url: 'https://github.com/example/target',
+    })
+
+    expect(emitted().sourceTransition).toContainEqual([
+      plugin,
+      {
+        action: 'change',
+        expected_revision: 7,
+        repo_url: 'https://github.com/example/target',
+      },
+    ])
+  })
+
+  it('opens about immediately and enriches the same dialog after history loads', async () => {
+    let resolveHistory!: (value: Plugin) => void
+    mocks.apiGet.mockImplementation(
+      () =>
+        new Promise<Plugin>(resolve => {
+          resolveHistory = resolve
+        }),
+    )
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('关于'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({ plugin })
+    const controller = mocks.openSharedDialog.mock.results[0].value as {
+      updateProps: ReturnType<typeof vi.fn>
+    }
+    expect(controller.updateProps).not.toHaveBeenCalled()
+
+    resolveHistory({ ...plugin, plugin_desc: '市场补充详情' })
+    await waitFor(() =>
+      expect(controller.updateProps).toHaveBeenCalledWith({
+        plugin: expect.objectContaining({ plugin_desc: '市场补充详情' }),
+      }),
+    )
   })
 
   it('blocks an incompatible latest update without sending a request', async () => {

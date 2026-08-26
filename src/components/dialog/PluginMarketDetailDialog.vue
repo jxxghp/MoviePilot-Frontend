@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
-import { changePluginSource, getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
+import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
 import type { Plugin, PluginRating, PluginSourceCandidate, PluginSourceOptions } from '@/api/types'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import PluginRatingDisplay from '@/components/common/PluginRatingDisplay.vue'
@@ -49,7 +49,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['update:modelValue', 'close', 'install', 'rating'])
+const emit = defineEmits(['update:modelValue', 'close', 'install', 'rating', 'sourceTransition'])
 
 // 弹窗显示状态
 const visible = computed({
@@ -77,7 +77,6 @@ const sourceError = ref('')
 const selectedInstallSourceKey = ref('')
 const selectedChangeSourceKey = ref('')
 const showSourceChoices = ref(props.initialSourceSelectionOpen)
-const sourceChanging = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
@@ -213,7 +212,7 @@ async function loadPluginSourceOptions(force = false) {
   }
 }
 
-/** 明确绑定或切换自动更新来源，换源时使用打开弹窗时读取的 revision。 */
+/** 确认仓库后关闭详情，由上层状态所有者执行安装事务。 */
 async function confirmSourceTransition() {
   const identity = sourceOptions.value?.identity
   const target = selectedChangeSource.value
@@ -239,42 +238,17 @@ async function confirmSourceTransition() {
   })
   if (!confirmed) return
 
-  sourceChanging.value = true
-  showInstallProgress(
-    t(bindingSource ? 'plugin.bindingSource' : 'plugin.changingSource', { name: props.plugin.plugin_name }),
+  emit(
+    'sourceTransition',
+    bindingSource
+      ? { action: 'bind', repo_url: target.repo_url }
+      : {
+          action: 'change',
+          repo_url: target.repo_url,
+          expected_revision: identity!.revision,
+        },
   )
-  try {
-    if (bindingSource) {
-      await installPluginFromSource(props.plugin.id, {
-        repo_url: target.repo_url,
-        force: true,
-      })
-    } else {
-      await changePluginSource(props.plugin.id, {
-        repo_url: target.repo_url,
-        expected_revision: identity!.revision,
-      })
-    }
-    $toast.success(
-      t(bindingSource ? 'plugin.sourceBindSuccess' : 'plugin.sourceChangeSuccess', {
-        name: props.plugin.plugin_name,
-      }),
-    )
-    emit('install')
-    visible.value = false
-  } catch (error) {
-    console.error(error)
-    $toast.error(
-      t(bindingSource ? 'plugin.sourceBindFailed' : 'plugin.sourceChangeFailed', {
-        name: props.plugin.plugin_name,
-        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
-      }),
-    )
-    await loadPluginSourceOptions(true)
-  } finally {
-    sourceChanging.value = false
-    closeInstallProgress()
-  }
+  visible.value = false
 }
 
 /** 计算插件图标路径。 */
@@ -587,7 +561,10 @@ onUnmounted(() => {
                 <dt>{{ t('plugin.trustedUpdateSource') }}</dt>
                 <dd
                   class="plugin-market-detail-source__identity-content"
-                  :class="{ 'plugin-market-detail-source__identity-content--no-action': !sourceActionCandidates.length || showSourceChoices }"
+                  :class="{
+                    'plugin-market-detail-source__identity-content--no-action':
+                      !sourceActionCandidates.length || showSourceChoices,
+                  }"
                 >
                   <span class="plugin-market-detail-source__identity-value">
                     <VChip
@@ -700,7 +677,6 @@ onUnmounted(() => {
                   size="small"
                   color="primary"
                   variant="text"
-                  :loading="sourceChanging"
                   :disabled="!selectedChangeSource"
                   @click="confirmSourceTransition"
                 >
