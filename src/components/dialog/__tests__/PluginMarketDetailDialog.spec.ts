@@ -513,7 +513,7 @@ describe('PluginMarketDetailDialog', () => {
       expect.objectContaining({
         title: '确认安装',
         confirmText: '安装',
-        content: expect.stringContaining('后续更新也将使用该仓库'),
+        content: '将从 example/plugins 安装「演示插件」。\n\n这是第三方仓库，后续更新将来自该仓库，请确认后继续。',
       }),
     )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 安装成功！')

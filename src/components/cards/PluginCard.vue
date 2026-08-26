@@ -428,13 +428,13 @@ async function fetchInstalledPluginDetail() {
   return pluginDetail
 }
 
-/** 使用插件市场详情弹窗展示已安装插件信息和评分入口。 */
-async function showPluginAbout(initialSourceSelectionOpen = false) {
-  const pluginDetail = await fetchInstalledPluginDetail()
+/** 先展示本地快照，再用市场详情补齐仍处于打开状态的同一个弹窗。 */
+function showPluginAbout(initialSourceSelectionOpen = false) {
+  const pluginDetail = props.plugin
   if (!pluginDetail) return
 
   marketDetailDialogController?.close()
-  marketDetailDialogController = openSharedDialog(
+  const controller = openSharedDialog(
     PluginMarketDetailDialog,
     {
       plugin: pluginDetail,
@@ -454,6 +454,13 @@ async function showPluginAbout(initialSourceSelectionOpen = false) {
     },
     { closeOn: ['close', 'install', 'update:modelValue'] },
   )
+  marketDetailDialogController = controller
+
+  void fetchInstalledPluginDetail().then(latestPluginDetail => {
+    if (latestPluginDetail && marketDetailDialogController === controller) {
+      controller.updateProps({ plugin: latestPluginDetail })
+    }
+  })
 }
 
 /** 更新来自其他仓库时先展开来源选择，否则进入绑定仓库的更新说明。 */
@@ -924,7 +931,7 @@ watch(
   justify-content: center;
   gap: 0.5rem;
   color: rgb(var(--v-theme-on-surface));
-  background: rgba(var(--v-theme-surface), 88%);
+  background: rgba(var(--v-theme-surface), 72%);
   font-size: 0.875rem;
   font-weight: 600;
   inset: 0;
@@ -933,7 +940,7 @@ watch(
 
 .plugin-card__runtime-state--error {
   color: rgb(var(--v-theme-error));
-  background: rgba(var(--v-theme-surface), 94%);
+  background: rgba(var(--v-theme-surface), 80%);
 }
 
 .card-cover-blurred::before {

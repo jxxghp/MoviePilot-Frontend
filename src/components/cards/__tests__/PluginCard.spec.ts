@@ -240,7 +240,7 @@ describe('PluginCard lifecycle actions', () => {
     await fireEvent.mouseEnter(screen.getByLabelText('有更新'))
     expect(await screen.findByText('jxxghp/moviepilot-plugins 有新版本 v2.0.0，需要确认更换仓库')).toBeInTheDocument()
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
-    await fireEvent.click(await screen.findByText('查看更新来源'))
+    await fireEvent.click(await screen.findByText('查看更新'))
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
 
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
@@ -294,6 +294,34 @@ describe('PluginCard lifecycle actions', () => {
         repo_url: 'https://github.com/example/target',
       },
     ])
+  })
+
+  it('opens about immediately and enriches the same dialog after history loads', async () => {
+    let resolveHistory!: (value: Plugin) => void
+    mocks.apiGet.mockImplementation(
+      () =>
+        new Promise<Plugin>(resolve => {
+          resolveHistory = resolve
+        }),
+    )
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('关于'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({ plugin })
+    const controller = mocks.openSharedDialog.mock.results[0].value as {
+      updateProps: ReturnType<typeof vi.fn>
+    }
+    expect(controller.updateProps).not.toHaveBeenCalled()
+
+    resolveHistory({ ...plugin, plugin_desc: '市场补充详情' })
+    await waitFor(() =>
+      expect(controller.updateProps).toHaveBeenCalledWith({
+        plugin: expect.objectContaining({ plugin_desc: '市场补充详情' }),
+      }),
+    )
   })
 
   it('blocks an incompatible latest update without sending a request', async () => {
