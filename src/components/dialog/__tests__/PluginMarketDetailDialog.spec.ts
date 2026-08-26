@@ -158,12 +158,11 @@ describe('PluginMarketDetailDialog', () => {
 
     expect(await screen.findByText('未安装插件存在多个在线来源，不能静默选择')).toBeInTheDocument()
     const installButton = screen.getByRole('button', { name: '安装到本地' })
-    expect(installButton).toBeDisabled()
+    expect(installButton).toBeEnabled()
 
     expect(screen.getByText('官方')).toBeInTheDocument()
     expect(screen.getAllByRole('radio')[0]).toHaveAttribute('value', 'github:jxxghp/moviepilot-plugins')
-    await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
-    expect(installButton).toBeEnabled()
+    expect(screen.getAllByRole('radio')[0]).toBeChecked()
     await fireEvent.click(installButton)
 
     await waitFor(() => {

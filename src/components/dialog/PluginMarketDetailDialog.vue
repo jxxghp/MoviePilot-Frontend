@@ -172,10 +172,15 @@ async function loadPluginSourceOptions(force = false) {
     const options = await getPluginSourceOptions(props.plugin.id, force)
     sourceOptions.value = options
 
-    const installSelectionStillExists = onlineSourceCandidates.value.some(
+    const installCandidates = onlineSourceCandidates.value
+    const installSelectionStillExists = installCandidates.some(
       candidate => candidate.source_key === selectedInstallSourceKey.value,
     )
-    if (!installSelectionStillExists) selectedInstallSourceKey.value = ''
+    if (!installSelectionStillExists) {
+      const officialCandidate = installCandidates.find(candidate => candidate.source_type === 'official')
+      selectedInstallSourceKey.value =
+        !isInstalled.value && options.selection_status === 'conflict' ? officialCandidate?.source_key || '' : ''
+    }
 
     const changeSelectionStillExists = sourceActionCandidates.value.some(
       candidate => candidate.source_key === selectedChangeSourceKey.value,
