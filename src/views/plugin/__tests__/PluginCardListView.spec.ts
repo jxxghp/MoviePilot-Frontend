@@ -1466,6 +1466,7 @@ describe('PluginCardListView search installation', () => {
 
   it('shows a per-plugin loading card while installation is still running', async () => {
     const installGate = createDeferred<void>()
+    const installStarted = createDeferred<void>()
     let installed = false
     const target = createPlugin({ id: 'PendingPlugin', plugin_name: '后台安装插件' })
     await renderList({
@@ -1485,8 +1486,9 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
     server.use(
       http.get(apiUrls.install('PendingPlugin'), async () => {
-        await installGate.promise
         installed = true
+        installStarted.resolve()
+        await installGate.promise
         return apiJson(null)
       }),
     )
@@ -1502,9 +1504,15 @@ describe('PluginCardListView search installation', () => {
     expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('true')
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
 
+    await installStarted.promise
+    await mocks.keepAliveHandler?.({ silent: true })
+    expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('true')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+
     installGate.resolve()
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 后台安装插件 安装成功！'))
     await waitFor(() => expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('active'))
+    await waitFor(() => expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('false'))
     await waitForRequestsToFinish()
   })
 

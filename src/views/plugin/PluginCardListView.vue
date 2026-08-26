@@ -920,7 +920,6 @@ async function installPlugin(
   activeTab.value = 'installed'
   pluginDialogClose()
 
-  let installed = false
   try {
     if (useExplicitSource && repoUrl) {
       await installPluginFromSource(pluginId, {
@@ -937,8 +936,6 @@ async function installPlugin(
         feedback: 'silent',
       })
     }
-    installed = true
-
     $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
     await fetchInstalledPlugins({ silent: true })
     if (userStore.superUser) await pluginRuntimeStore.refresh()
@@ -963,11 +960,9 @@ async function installPlugin(
     // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
     void fetchInstalledPlugins({ silent: true })
   } finally {
-    if (!installed) {
-      const pending = new Set(installingPluginIds.value)
-      pending.delete(pluginId)
-      installingPluginIds.value = pending
-    }
+    const pending = new Set(installingPluginIds.value)
+    pending.delete(pluginId)
+    installingPluginIds.value = pending
   }
 }
 
@@ -978,11 +973,8 @@ function openPluginMarketDetail(item: Plugin) {
     {
       plugin: item,
       count: PluginStatistics.value[item.id || '0'],
-      installHandler: (
-        releaseVersion?: string,
-        repoUrl?: string,
-        sourceOptions?: PluginSourceOptions,
-      ) => installPlugin(item, releaseVersion, repoUrl, sourceOptions),
+      installHandler: (releaseVersion?: string, repoUrl?: string, sourceOptions?: PluginSourceOptions) =>
+        installPlugin(item, releaseVersion, repoUrl, sourceOptions),
     },
     {
       install: pluginInstalled,
@@ -1061,12 +1053,6 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}): Pro
     const optimisticPlugins = dataList.value.filter(
       plugin => installingPluginIds.value.has(plugin.id) && !serverIds.has(plugin.id),
     )
-    if (installingPluginIds.value.size > 0) {
-      const pending = new Set(installingPluginIds.value)
-      serverIds.forEach(pluginId => pending.delete(pluginId))
-      installingPluginIds.value = pending
-    }
-
     mergeRatingsIntoPlugins(mergedPlugins)
     dataList.value = [...mergedPlugins, ...optimisticPlugins]
     mergeMarketMetadataIntoInstalled()
@@ -2378,8 +2364,9 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 <PluginAppCard
                   :plugin="item"
                   :count="PluginStatistics[item.id || '0']"
-                  :install-handler="(releaseVersion, repoUrl, sourceOptions) =>
-                    installPlugin(item, releaseVersion, repoUrl, sourceOptions)
+                  :install-handler="
+                    (releaseVersion, repoUrl, sourceOptions) =>
+                      installPlugin(item, releaseVersion, repoUrl, sourceOptions)
                   "
                   @install="pluginInstalled"
                 />
