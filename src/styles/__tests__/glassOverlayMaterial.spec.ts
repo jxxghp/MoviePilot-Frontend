@@ -200,7 +200,10 @@ describe('glass overlay material styles', () => {
     expect(backplate).toContain('filter: var(--glass-fixed-shell-backplate-filter)')
     expect(backplate).not.toContain('backdrop-filter')
     expect(backplate).toContain('var(--glass-fixed-shell-nav-inline-size) 100%')
-    expect(backplate).toContain('.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)')
+    expect(backplate).toContain(
+      '.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav, .layout-app-shell)',
+    )
+    expect(backplate).toContain('.layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top')
     expect(backplate).toContain('.glass-fixed-shell-backplate--overlay-nav')
     const mainBackplateRule = backplate.match(/\.glass-fixed-shell-backplate--main\s*\{(?<declarations>[\s\S]*?)\n\}/u)
       ?.groups?.declarations
@@ -209,8 +212,23 @@ describe('glass overlay material styles', () => {
     )?.groups?.declarations
 
     expect(mainBackplateRule).toBeDefined()
-    expect(mainBackplateRule).not.toMatch(/transition:\s*clip-path/u)
+    expect(mainBackplateRule).toMatch(/transition:\s*clip-path 240ms var\(--mp-motion-ease-standard\)/u)
     expect(overlayBackplateRule).toMatch(/transition:\s*clip-path 0\.25s ease-in-out/u)
+  })
+
+  it('limits detached navbar geometry to eligible Transparent and Glass horizontal shells', () => {
+    const layout = readFileSync(resolve(cwd(), 'src/@layouts/components/VerticalNavLayout.vue'), 'utf8')
+
+    expect(layout).toContain("html:is([data-theme='transparent'], [data-theme='glass'])")
+    expect(layout).toContain('--shell-floating-navbar-radius: 1rem')
+    expect(layout).toContain(
+      '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',
+    )
+    expect(layout).not.toContain('&.layout-navbar-away-from-top.layout-horizontal-nav-active .layout-navbar')
+    expect(layout).toContain('border-radius: var(--shell-floating-navbar-radius)')
+    expect(layout).toMatch(
+      /\.layout-wrapper\.layout-horizontal-nav-active\.layout-horizontal-nav-scrolled\.layout-navbar-fixed \.layout-navbar \{[\s\S]*?backdrop-filter:\s*none;[\s\S]*?background:\s*rgb\(var\(--v-theme-surface\)\) !important;/,
+    )
   })
 
   it('shares the same light frost when glass navbars overlap scrolled content', () => {

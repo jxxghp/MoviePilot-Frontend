@@ -128,9 +128,9 @@ const transitionStyle = computed(() => ({
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-safe-area-top)) 0);
 }
 
-.layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top > .glass-fixed-shell-backplate--main {
+.layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top > .glass-fixed-shell-backplate--main {
   clip-path: inset(
-    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--app-surface-radius)
+    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--shell-floating-navbar-radius)
   );
 }
 
@@ -169,10 +169,10 @@ const transitionStyle = computed(() => ({
 }
 
 [dir='rtl']
-  .layout-wrapper.layout-horizontal-nav-active.layout-navbar-away-from-top
+  .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(
-    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--app-surface-radius)
+    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--shell-floating-navbar-radius)
   );
 }
 

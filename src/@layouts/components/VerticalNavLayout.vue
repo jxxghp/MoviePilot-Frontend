@@ -26,6 +26,7 @@ export default defineComponent({
     const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
     const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
+    const isFloatingNavbarEligible = computed(() => isHorizontalLayout.value && !isWindowControlsOverlayMode.value)
 
     // ℹ️ This is alternative to below two commented watcher
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
@@ -170,6 +171,7 @@ export default defineComponent({
             isOverlayShell.value && 'layout-mobile-drawer-shell',
             isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
             isHorizontalLayout.value && 'layout-horizontal-nav-active',
+            isFloatingNavbarEligible.value && 'layout-navbar-floating-eligible',
             isHorizontalLayout.value && isNavbarAwayFromTop && 'layout-horizontal-nav-scrolled',
             isNavbarAwayFromTop && 'layout-navbar-away-from-top',
             isNavbarCompact && 'layout-navbar-compact',
@@ -180,6 +182,11 @@ export default defineComponent({
           ],
           'data-shell-mode': appMode.value ? 'app' : mdAndDown.value ? 'drawer' : 'desktop',
           'data-shell-display-environment': displayEnvironment.value,
+          'data-shell-navbar-attachment': appMode.value
+            ? 'contextual'
+            : isFloatingNavbarEligible.value
+              ? 'theme-qualified'
+              : 'connected',
           'data-shell-scroll-direction': shellScroll.direction.value,
         },
         [
@@ -211,6 +218,7 @@ export default defineComponent({
 .layout-wrapper.layout-nav-type-vertical {
   --layout-navbar-safe-area-top: env(safe-area-inset-top, 0px);
   --layout-navbar-safe-area-inline: 0px;
+  --shell-floating-navbar-radius: 1rem;
   --layout-navbar-block-size: calc(
     var(--layout-navbar-safe-area-top) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
   );
@@ -271,13 +279,17 @@ export default defineComponent({
     }
   }
 
-  // 水平布局只有一个顶部控制层，离开顶部后可整体浮起；侧栏布局保持与导航 rail 连接。
-  &.layout-navbar-away-from-top.layout-horizontal-nav-active .layout-navbar {
-    border-radius: var(--app-surface-radius);
-    inline-size: calc(100% - 1rem);
-    inset-block-start: 0.5rem;
-    inset-inline: 0.5rem;
-    overflow: clip;
+  @at-root {
+    // 只有具备连续透射背景的特殊主题可解释顶栏四周的空间；WCO 与连接式导航保持附着。
+    html:is([data-theme='transparent'], [data-theme='glass'])
+      .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top
+      .layout-navbar {
+      border-radius: var(--shell-floating-navbar-radius);
+      inline-size: calc(100% - 1rem);
+      inset-block-start: 0.5rem;
+      inset-inline: 0.5rem;
+      overflow: clip;
+    }
   }
 
   // App 始终保留底部一级导航，因此下滚可让上下文顶栏退出内容区。
@@ -489,7 +501,7 @@ export default defineComponent({
 
   @at-root {
     .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
-      backdrop-filter: blur(12px) saturate(1.2);
+      backdrop-filter: none;
       background: rgb(var(--v-theme-surface)) !important;
       box-shadow:
         0 1px 3px rgba(0, 0, 0, 4%),

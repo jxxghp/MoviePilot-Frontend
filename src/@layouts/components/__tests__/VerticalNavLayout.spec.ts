@@ -334,4 +334,35 @@ describe('VerticalNavLayout shell states', () => {
     expect(appRoot.classes()).not.toContain('layout-standalone-pwa-shell')
     expect(appWrapper.get('.layout-navbar').attributes()).toHaveProperty('inert')
   })
+
+  it('exposes floating eligibility only for an ordinary desktop horizontal environment', async () => {
+    mocks.state = 'compact'
+    const browserWrapper = mountLayout()
+
+    window.dispatchEvent(new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal' } }))
+    await nextTick()
+
+    const browserRoot = browserWrapper.get('.layout-wrapper')
+    expect(browserRoot.classes()).toEqual(
+      expect.arrayContaining([
+        'layout-horizontal-nav-active',
+        'layout-horizontal-nav-scrolled',
+        'layout-navbar-floating-eligible',
+      ]),
+    )
+    expect(browserRoot.attributes('data-shell-navbar-attachment')).toBe('theme-qualified')
+    browserWrapper.unmount()
+
+    mocks.displayEnvironment = 'window-controls-overlay'
+    mocks.isWindowControlsOverlayMode = true
+    const wcoWrapper = mountLayout()
+
+    window.dispatchEvent(new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal' } }))
+    await nextTick()
+
+    const wcoRoot = wcoWrapper.get('.layout-wrapper')
+    expect(wcoRoot.classes()).toContain('layout-horizontal-nav-active')
+    expect(wcoRoot.classes()).not.toContain('layout-navbar-floating-eligible')
+    expect(wcoRoot.attributes('data-shell-navbar-attachment')).toBe('connected')
+  })
 })
