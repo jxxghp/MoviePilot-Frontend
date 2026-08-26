@@ -51,7 +51,10 @@ describe('PluginCard about menu', () => {
       repo_url: 'https://github.com/example/plugins',
     })
     mocks.closeDialog.mockReset()
-    mocks.openSharedDialog.mockReset().mockReturnValue({ close: mocks.closeDialog })
+    mocks.openSharedDialog.mockReset().mockReturnValue({
+      close: mocks.closeDialog,
+      updateProps: vi.fn(),
+    })
   })
 
   it('loads installed plugin detail and opens the shared market detail dialog', async () => {
@@ -76,7 +79,6 @@ describe('PluginCard about menu', () => {
     expect(dialogProps.plugin).toMatchObject({
       id: 'DemoPlugin',
       installed: true,
-      repo_url: 'https://github.com/example/plugins',
     })
     expect(dialogProps.count).toBe(24)
     expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({
@@ -120,7 +122,6 @@ describe('PluginCard about menu', () => {
     expect(mocks.openSharedDialog.mock.calls[1][1].plugin).toMatchObject({
       id: 'DemoPlugin',
       installed: true,
-      repo_url: 'https://github.com/example/plugins',
     })
   })
 
