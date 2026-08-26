@@ -98,12 +98,10 @@ export default defineConfig([
     gitignoreResolution: true,
     name: 'moviepilot/gitignore',
   }),
-  globalIgnores([
-    '**/.worktrees/**',
-    '**/vite.config.*.timestamp-*.mjs',
-    'src/@iconify/**',
-    '**/*.d.ts',
-  ], 'moviepilot/eslint-only-ignores'),
+  globalIgnores(
+    ['**/.worktrees/**', '**/vite.config.*.timestamp-*.mjs', 'src/@iconify/**', '**/*.d.ts'],
+    'moviepilot/eslint-only-ignores',
+  ),
   {
     ...js.configs.recommended,
     name: 'moviepilot/javascript',

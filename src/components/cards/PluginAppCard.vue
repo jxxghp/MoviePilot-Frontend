@@ -18,11 +18,7 @@ const PluginVersionHistoryDialog = defineAsyncComponent(
 )
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
-type InstallHandler = (
-  releaseVersion?: string,
-  repoUrl?: string,
-  sourceOptions?: PluginSourceOptions,
-) => unknown
+type InstallHandler = (releaseVersion?: string, repoUrl?: string, sourceOptions?: PluginSourceOptions) => unknown
 
 // 输入参数
 const props = defineProps({
