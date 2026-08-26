@@ -3857,6 +3857,7 @@ export default {
       'Install {name} v{version}? This version has no MoviePilot compatibility metadata and may fail to load or run.',
     local: 'Local',
     source: 'Plugin Source',
+    sourceOfficial: 'Official',
     sourceUnknown: 'Unknown source',
     sourceUnbound: 'Not bound',
     sourceLoadFailed: 'Unable to load plugin sources. Try again later.',

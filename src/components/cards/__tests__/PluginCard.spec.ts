@@ -395,6 +395,19 @@ describe('PluginCard lifecycle actions', () => {
     expect(emitted().actionDone).toHaveLength(1)
   })
 
+  it('keeps the card in installation progress after the runtime becomes active', async () => {
+    const pending = await renderWithProviders(PluginCard, {
+      props: {
+        installing: true,
+        plugin: { ...plugin, runtime_status: 'active' },
+      },
+    })
+
+    expect(screen.getByText('正在安装插件...')).toBeInTheDocument()
+    await fireEvent.click(pending.container.querySelector('.v-card')!)
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+  })
+
   it('distinguishes a running recovery from a settled unavailable plugin', async () => {
     const recovering = await renderWithProviders(PluginCard, {
       props: {

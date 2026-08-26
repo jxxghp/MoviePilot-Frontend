@@ -37,6 +37,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  installing: {
+    type: Boolean,
+    default: false,
+  },
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -57,7 +61,7 @@ const runtimeUnavailable = computed(
     ['blocked_by_policy', 'load_failed'].includes(runtimeStatus.value || '') ||
     (!props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || '')),
 )
-const runtimeActionsBlocked = computed(() => runtimePending.value || runtimeUnavailable.value)
+const runtimeActionsBlocked = computed(() => props.installing || runtimePending.value || runtimeUnavailable.value)
 const runtimePendingStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
   source_missing: 'plugin.sourceRestoring',
   dependency_pending: 'plugin.dependencyInstalling',
@@ -73,6 +77,7 @@ const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_s
 const showRuntimeStatusDot = computed(() => !runtimeStatus.value || runtimeStatus.value === 'active')
 const runtimeStatusDotColor = computed(() => (props.plugin?.state ? 'success' : 'secondary'))
 const runtimeStatusText = computed(() => {
+  if (props.installing) return t('plugin.installingPlugin')
   const status = runtimeStatus.value
   const statusKey = status
     ? (runtimePending.value ? runtimePendingStatusKeys : runtimeUnavailableStatusKeys)[status]
@@ -708,13 +713,13 @@ watch(
                 </div>
               </div>
               <div
-                v-if="runtimePending || runtimeUnavailable"
+                v-if="props.installing || runtimePending || runtimeUnavailable"
                 class="plugin-card__runtime-state"
                 :class="{ 'plugin-card__runtime-state--error': runtimeUnavailable }"
                 role="status"
                 aria-live="polite"
               >
-                <VProgressCircular v-if="runtimePending" indeterminate size="22" width="2" />
+                <VProgressCircular v-if="props.installing || runtimePending" indeterminate size="22" width="2" />
                 <VIcon
                   v-else
                   :icon="runtimeStatus === 'blocked_by_policy' ? 'mdi-shield-lock-outline' : 'mdi-alert-circle-outline'"

@@ -3793,6 +3793,7 @@ export default {
       '是否確認安裝 {name} v{version}？該版本缺少主程序兼容元數據，安裝後可能無法載入或運行異常。',
     local: '本地',
     source: '插件來源',
+    sourceOfficial: '官方',
     sourceUnknown: '未知來源',
     sourceUnbound: '尚未綁定',
     sourceLoadFailed: '無法讀取插件來源，請稍後重試',

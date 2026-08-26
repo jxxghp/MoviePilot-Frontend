@@ -146,6 +146,7 @@ const PluginMixedSortCardStub = defineComponent({
     item: { type: Object as PropType<Record<string, unknown>>, required: true },
     pluginStatistics: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
     runtimeSettling: Boolean,
+    installing: Boolean,
     sortable: Boolean,
   },
   emits: [
@@ -186,6 +187,7 @@ const PluginMixedSortCardStub = defineComponent({
         type === 'plugin' ? h('output', { 'aria-label': `repo-${id}` }, data?.repo_url || '') : null,
         type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
         type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
+        type === 'plugin' ? h('output', { 'aria-label': `installing-${id}` }, String(props.installing)) : null,
         type === 'plugin'
           ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
           : null,
@@ -1271,10 +1273,42 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     await waitFor(() => expect(getHeaderConfig().modelValue.value).toBe('installed'))
     expect(await screen.findByText('plugin:市场安装插件')).toBeInTheDocument()
     expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    expect(screen.queryByTestId('market-MarketInstall')).not.toBeInTheDocument()
 
     installGate.resolve()
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 市场安装插件 安装成功！'))
     await waitForRequestsToFinish()
+
+    await waitFor(() => expect(screen.queryByTestId('market-MarketInstall')).not.toBeInTheDocument())
+  })
+
+  it('restores a market plugin after an installation failure', async () => {
+    const installGate = createDeferred<void>()
+    const target = createPlugin({ id: 'FailedMarketInstall', plugin_name: '失败市场插件' })
+    await renderList({ installed: () => [], market: () => [target] })
+    await waitForRequestsToFinish()
+
+    server.use(
+      http.get(apiUrls.install('FailedMarketInstall'), async () => {
+        await installGate.promise
+        return HttpResponse.json({ message: '安装失败' }, { status: 500 })
+      }),
+    )
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'installed-FailedMarketInstall' }))
+    await waitFor(() => expect(getHeaderConfig().modelValue.value).toBe('installed'))
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    expect(screen.queryByTestId('market-FailedMarketInstall')).not.toBeInTheDocument()
+
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByTestId('market-FailedMarketInstall')).toBeInTheDocument())
   })
 })
 
@@ -1370,6 +1404,51 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
   })
 
+  it('reuses the inspected source snapshot when installing from the detail dialog', async () => {
+    let sourceOptionRequests = 0
+    let installRequests = 0
+    const target = createPlugin({ id: 'InspectedPlugin', plugin_name: '已检查来源插件' })
+    const sourceOptions: PluginSourceOptions = {
+      plugin_id: 'InspectedPlugin',
+      inventory_complete: true,
+      selection_status: 'selected',
+      selection_reason: '',
+      identity: null,
+      candidates: [
+        {
+          source_type: 'official',
+          source_key: 'github:jxxghp/moviepilot-plugins',
+          repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+          package_generation: 'v3',
+          plugin_version: '1.0.0',
+        },
+      ],
+    }
+    await renderList({
+      market: () => [target],
+      sourceOptions: () => {
+        sourceOptionRequests += 1
+        return sourceOptions
+      },
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('InspectedPlugin'), () => {
+        installRequests += 1
+        return apiJson(null)
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.(undefined, undefined, sourceOptions)
+
+    expect(sourceOptionRequests).toBe(0)
+    expect(installRequests).toBe(1)
+    expect(getHeaderConfig().modelValue.value).toBe('installed')
+    await waitForRequestsToFinish()
+  })
+
   it('opens source selection instead of silently installing a conflicting plugin ID', async () => {
     let installRequests = 0
     const target = createPlugin({ id: 'ConflictPlugin', plugin_name: '重名插件' })
@@ -1419,6 +1498,7 @@ describe('PluginCardListView search installation', () => {
 
   it('shows a per-plugin loading card while installation is still running', async () => {
     const installGate = createDeferred<void>()
+    const installStarted = createDeferred<void>()
     let installed = false
     const target = createPlugin({ id: 'PendingPlugin', plugin_name: '后台安装插件' })
     await renderList({
@@ -1438,8 +1518,9 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
     server.use(
       http.get(apiUrls.install('PendingPlugin'), async () => {
-        await installGate.promise
         installed = true
+        installStarted.resolve()
+        await installGate.promise
         return apiJson(null)
       }),
     )
@@ -1450,13 +1531,20 @@ describe('PluginCardListView search installation', () => {
 
     expect(await screen.findByText('plugin:后台安装插件')).toBeInTheDocument()
     expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
-    expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('source_missing')
+    expect(screen.getByLabelText('runtime-PendingPlugin')).toBeEmptyDOMElement()
     expect(screen.getByLabelText('settling-PendingPlugin')).toHaveTextContent('true')
+    expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('true')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+
+    await installStarted.promise
+    await mocks.keepAliveHandler?.({ silent: true })
+    expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('true')
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
 
     installGate.resolve()
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 后台安装插件 安装成功！'))
     await waitFor(() => expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('active'))
+    await waitFor(() => expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('false'))
     await waitForRequestsToFinish()
   })
 

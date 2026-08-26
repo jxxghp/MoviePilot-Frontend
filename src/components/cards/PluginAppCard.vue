@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
-import type { Plugin } from '@/api/types'
+import type { Plugin, PluginSourceOptions } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { useGlobalSettingsStore } from '@/stores'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
@@ -18,7 +18,7 @@ const PluginVersionHistoryDialog = defineAsyncComponent(
 )
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
-type InstallHandler = (releaseVersion?: string, repoUrl?: string) => unknown
+type InstallHandler = (releaseVersion?: string, repoUrl?: string, sourceOptions?: PluginSourceOptions) => unknown
 
 // 输入参数
 const props = defineProps({

@@ -3,7 +3,10 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import pluginVue from 'eslint-plugin-vue'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config'
+import { fileURLToPath } from 'node:url'
+
+const gitignorePath = fileURLToPath(new URL('.gitignore', import.meta.url))
 
 const javascriptFiles = ['**/*.{js,mjs,cjs,jsx}']
 
@@ -91,17 +94,14 @@ const vueConfigs = pluginVue.configs['flat/essential'].map(config => ({
 }))
 
 export default defineConfig([
-  globalIgnores([
-    '**/node_modules/**',
-    '**/dist/**',
-    '**/dev-dist/**',
-    '**/coverage/**',
-    '**/.worktrees/**',
-    '**/vite.config.*.timestamp-*.mjs',
-    'public/plugin_icon/**',
-    'src/@iconify/**',
-    '**/*.d.ts',
-  ]),
+  includeIgnoreFile(gitignorePath, {
+    gitignoreResolution: true,
+    name: 'moviepilot/gitignore',
+  }),
+  globalIgnores(
+    ['**/.worktrees/**', '**/vite.config.*.timestamp-*.mjs', 'src/@iconify/**', '**/*.d.ts'],
+    'moviepilot/eslint-only-ignores',
+  ),
   {
     ...js.configs.recommended,
     name: 'moviepilot/javascript',

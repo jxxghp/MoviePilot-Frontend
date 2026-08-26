@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginSourceOptions } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -846,7 +846,12 @@ function pluginDialogClose() {
 }
 
 // 安装插件
-async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: string) {
+async function installPlugin(
+  item: Plugin,
+  releaseVersion?: string,
+  repoUrl?: string,
+  inspectedSourceOptions?: PluginSourceOptions,
+) {
   const pluginId = item?.id
   if (!pluginId || installingPluginIds.value.has(pluginId)) {
     return
@@ -867,7 +872,7 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
 
   let useExplicitSource = false
   try {
-    const sourceOptions = await getPluginSourceOptions(pluginId)
+    const sourceOptions = inspectedSourceOptions || (await getPluginSourceOptions(pluginId))
     if (sourceOptions.selection_status === 'conflict') {
       if (!repoUrl) {
         releaseInstallReservation()
@@ -894,6 +899,9 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
     // 候选查询失败时仍由安装 Gateway 执行最终来源准入，避免只读接口故障扩大为安装停机。
   }
 
+  const wasInMarket = uninstalledList.value.some(plugin => plugin.id === pluginId)
+  if (wasInMarket) removeInstalledPluginFromMarket(pluginId)
+
   const previousIndex = dataList.value.findIndex(plugin => plugin.id === item.id)
   const previousPlugin = previousIndex >= 0 ? dataList.value[previousIndex] : undefined
   sortMode.value = false
@@ -909,13 +917,12 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
       ...item,
       installed: true,
       state: false,
-      runtime_status: 'source_missing',
+      runtime_status: undefined,
     },
   ]
   activeTab.value = 'installed'
   pluginDialogClose()
 
-  let installed = false
   try {
     if (useExplicitSource && repoUrl) {
       await installPluginFromSource(pluginId, {
@@ -932,8 +939,6 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
         feedback: 'silent',
       })
     }
-    installed = true
-
     $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
     await fetchInstalledPlugins({ silent: true })
     if (userStore.superUser) await pluginRuntimeStore.refresh()
@@ -947,6 +952,7 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
     const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
     if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
     dataList.value = nextData
+    if (wasInMarket) restorePluginToMarket(item)
     if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
     console.error(error)
     $toast.error(
@@ -958,11 +964,9 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
     // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
     void fetchInstalledPlugins({ silent: true })
   } finally {
-    if (!installed) {
-      const pending = new Set(installingPluginIds.value)
-      pending.delete(pluginId)
-      installingPluginIds.value = pending
-    }
+    const pending = new Set(installingPluginIds.value)
+    pending.delete(pluginId)
+    installingPluginIds.value = pending
   }
 }
 
@@ -973,7 +977,8 @@ function openPluginMarketDetail(item: Plugin) {
     {
       plugin: item,
       count: PluginStatistics.value[item.id || '0'],
-      installHandler: (releaseVersion?: string, repoUrl?: string) => installPlugin(item, releaseVersion, repoUrl),
+      installHandler: (releaseVersion?: string, repoUrl?: string, sourceOptions?: PluginSourceOptions) =>
+        installPlugin(item, releaseVersion, repoUrl, sourceOptions),
     },
     {
       install: pluginInstalled,
@@ -1052,12 +1057,6 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}): Pro
     const optimisticPlugins = dataList.value.filter(
       plugin => installingPluginIds.value.has(plugin.id) && !serverIds.has(plugin.id),
     )
-    if (installingPluginIds.value.size > 0) {
-      const pending = new Set(installingPluginIds.value)
-      serverIds.forEach(pluginId => pending.delete(pluginId))
-      installingPluginIds.value = pending
-    }
-
     mergeRatingsIntoPlugins(mergedPlugins)
     dataList.value = [...mergedPlugins, ...optimisticPlugins]
     mergeMarketMetadataIntoInstalled()
@@ -1108,6 +1107,26 @@ function mergeMarketMetadataIntoInstalled() {
   })
 }
 
+/** 从当前市场快照隐藏插件，保留用户的排序、分页和滚动位置。 */
+function removeInstalledPluginFromMarket(pluginId: string) {
+  // 让安装前已发出的旧市场请求不能把过期条目写回列表。
+  marketWriterGeneration += 1
+  uninstalledList.value = uninstalledList.value.filter(plugin => plugin.id !== pluginId)
+  marketList.value = marketList.value.filter(plugin => plugin.id !== pluginId)
+}
+
+/** 安装失败时恢复被隐藏的市场条目，避免失败被误显示为已安装。 */
+function restorePluginToMarket(plugin: Plugin) {
+  marketWriterGeneration += 1
+  if (!uninstalledList.value.some(item => item.id === plugin.id)) {
+    uninstalledList.value = [...uninstalledList.value, plugin]
+  }
+  if (!marketList.value.some(item => item.id === plugin.id)) {
+    marketList.value = [...marketList.value, plugin]
+  }
+  initOptions(plugin)
+}
+
 interface PluginMarketMetrics {
   statistics?: { [key: string]: number }
   ratings?: { [key: string]: PluginRating }
@@ -1124,7 +1143,9 @@ function applyMarketSnapshot(marketResponse: Plugin[], metrics?: CompletePluginM
   mergeRatingsIntoPlugins(marketResponse, metrics?.ratings)
   uninstalledList.value = marketResponse
   mergeMarketMetadataIntoInstalled()
-  marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
+  marketList.value = uninstalledList.value.filter(
+    item => !installingPluginIds.value.has(item.id) && !(item.has_update && item.installed),
+  )
   authorFilterOptions.value = []
   labelFilterOptions.value = []
   repoFilterOptions.value = []
@@ -2204,6 +2225,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(element.id)"
+                    :installing="installingPluginIds.has(element.id)"
                     :sortable="true"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2234,6 +2256,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(item.id)"
+                    :installing="installingPluginIds.has(item.id)"
                     :sortable="false"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2270,6 +2293,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(element.id)"
+                    :installing="installingPluginIds.has(element.id)"
                     :sortable="true"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
@@ -2296,6 +2320,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(item.id)"
+                    :installing="installingPluginIds.has(item.id)"
                     :sortable="false"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
@@ -2365,7 +2390,10 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 <PluginAppCard
                   :plugin="item"
                   :count="PluginStatistics[item.id || '0']"
-                  :install-handler="(releaseVersion, repoUrl) => installPlugin(item, releaseVersion, repoUrl)"
+                  :install-handler="
+                    (releaseVersion, repoUrl, sourceOptions) =>
+                      installPlugin(item, releaseVersion, repoUrl, sourceOptions)
+                  "
                   @install="pluginInstalled"
                 />
               </template>

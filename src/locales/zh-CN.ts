@@ -3794,6 +3794,7 @@ export default {
       '是否确认安装 {name} v{version}？该版本缺少主程序兼容元数据，安装后可能无法加载或运行异常。',
     local: '本地',
     source: '插件来源',
+    sourceOfficial: '官方',
     sourceUnknown: '未知来源',
     sourceUnbound: '尚未绑定',
     sourceLoadFailed: '无法读取插件来源，请稍后重试',
