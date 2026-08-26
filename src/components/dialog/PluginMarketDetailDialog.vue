@@ -593,7 +593,7 @@ onUnmounted(() => {
                       <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                     </span>
                     <span class="plugin-market-detail-source__choice-meta"
-                      >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation.toUpperCase() }}</span
+                      >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}</span
                     >
                   </span>
                 </template>
@@ -632,8 +632,7 @@ onUnmounted(() => {
                           <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                         </span>
                         <span class="plugin-market-detail-source__choice-meta"
-                          >v{{ candidate.plugin_version || '-' }} ·
-                          {{ candidate.package_generation.toUpperCase() }}</span
+                          >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}</span
                         >
                       </span>
                     </template>
