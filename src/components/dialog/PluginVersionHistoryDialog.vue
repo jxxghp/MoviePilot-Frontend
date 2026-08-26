@@ -359,14 +359,14 @@ watch(
       <template v-if="shouldShowUpdatePanel">
         <VDivider />
         <VCardItem>
-          <VAlert
+          <p
             v-if="resolvedPlugin?.system_version_compatible === false"
-            type="warning"
-            variant="tonal"
-            density="compact"
-            class="mb-3"
-            :text="resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
-          />
+            class="plugin-version-history-dialog__compatibility"
+            role="alert"
+          >
+            <VIcon icon="mdi-lock-outline" size="16" />
+            <span>{{ resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion') }}</span>
+          </p>
           <VBtn
             @click="handleUpdate()"
             block
@@ -393,6 +393,23 @@ watch(
 
 .plugin-release-button {
   white-space: nowrap;
+}
+
+.plugin-version-history-dialog__compatibility {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.375rem;
+  margin: 0 0 0.75rem;
+  color: rgb(var(--v-theme-warning));
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.plugin-version-history-dialog__compatibility .v-icon {
+  flex: 0 0 auto;
+  margin-block-start: 0.0625rem;
 }
 
 .plugin-release-meta {

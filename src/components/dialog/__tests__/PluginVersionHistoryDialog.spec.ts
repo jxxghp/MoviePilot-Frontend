@@ -133,6 +133,32 @@ describe('PluginVersionHistoryDialog', () => {
     ])
   })
 
+  it('shows the version requirement and disables the latest update when the host is incompatible', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({
+          ...installedPlugin,
+          system_version_compatible: false,
+          system_version_message: '该插件要求 MoviePilot >=4.0.0',
+          history: { 'v1.0.0': '当前更新说明' },
+        })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('该插件要求 MoviePilot >=4.0.0')
+    expect(screen.getByRole('button', { name: '更新到最新版本' })).toBeDisabled()
+  })
+
   it('requires source binding before a legacy plugin can update from history', async () => {
     const legacySourceOptions: PluginSourceOptions = {
       ...sourceOptions,
@@ -163,10 +189,10 @@ describe('PluginVersionHistoryDialog', () => {
       actionMode: 'update',
     })
 
-    expect(await screen.findByRole('button', { name: '绑定来源' })).toBeInTheDocument()
-    expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '绑定仓库' })).toBeInTheDocument()
+    expect(await screen.findByText('当前插件尚未绑定，请选择仓库。')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '安装' })).not.toBeInTheDocument()
-    await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
+    await fireEvent.click(screen.getByRole('button', { name: '绑定仓库' }))
 
     expect(emitted().sourceAction).toEqual([[]])
     expect(emitted().update).toBeUndefined()
@@ -249,7 +275,7 @@ describe('PluginVersionHistoryDialog', () => {
       actionMode: 'update',
     })
 
-    const bindButton = await screen.findByRole('button', { name: '绑定来源' })
+    const bindButton = await screen.findByRole('button', { name: '绑定仓库' })
     await fireEvent.click(bindButton)
 
     expect(emitted().sourceAction).toEqual([[]])
@@ -299,7 +325,7 @@ describe('PluginVersionHistoryDialog', () => {
     const unavailableSourceOptions: PluginSourceOptions = {
       ...sourceOptions,
       selection_status: 'unavailable',
-      selection_reason: '当前来源身份没有可用候选',
+      selection_reason: '已绑定仓库中暂无可用插件包',
       candidates: [],
     }
     mocks.apiGet.mockImplementation((url: string) => {
@@ -317,7 +343,7 @@ describe('PluginVersionHistoryDialog', () => {
       actionMode: 'update',
     })
 
-    expect(await screen.findByText('当前来源身份没有可用候选')).toBeInTheDocument()
+    expect(await screen.findByText('已绑定仓库中暂无可用插件包')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '安装' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '更新到最新版本' })).not.toBeInTheDocument()
     expect(emitted().update).toBeUndefined()

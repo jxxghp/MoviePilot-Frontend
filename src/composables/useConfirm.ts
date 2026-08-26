@@ -7,6 +7,8 @@ import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 /** 主应用确认弹窗支持的配置项。 */
 export interface ConfirmOptions {
   type?: 'info' | 'warn' | 'error'
+  /** 覆盖确认类型的默认图标，用于表达更具体的操作语义。 */
+  icon?: string
   title?: string
   content?: string
   confirmText?: string

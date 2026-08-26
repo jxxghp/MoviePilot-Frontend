@@ -42,6 +42,10 @@ const props = defineProps({
     >,
     default: undefined,
   },
+  initialSourceSelectionOpen: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 定义触发的自定义事件
@@ -72,7 +76,7 @@ const sourceLoading = ref(false)
 const sourceError = ref('')
 const selectedInstallSourceKey = ref('')
 const selectedChangeSourceKey = ref('')
-const showSourceChoices = ref(false)
+const showSourceChoices = ref(props.initialSourceSelectionOpen)
 const sourceChanging = ref(false)
 
 // 图片是否加载失败
@@ -87,7 +91,16 @@ const onlineSourceCandidates = computed(() =>
     // 官方仓库是默认可信来源，在所有选源入口中始终置顶。
     .sort((left, right) => Number(right.source_type === 'official') - Number(left.source_type === 'official')),
 )
-const sourceNeedsSelection = computed(() => !isInstalled.value && sourceOptions.value?.selection_status === 'conflict')
+const sourceNeedsSelection = computed(() => {
+  if (isInstalled.value) return false
+  if (sourceOptions.value?.selection_status === 'conflict') return true
+  return (
+    sourceOptions.value?.selection_status === 'selected' &&
+    onlineSourceCandidates.value.length === 1 &&
+    onlineSourceCandidates.value[0].source_type === 'third_party'
+  )
+})
+const sourceHasConflict = computed(() => sourceOptions.value?.selection_status === 'conflict')
 const selectedInstallSource = computed(() =>
   onlineSourceCandidates.value.find(candidate => candidate.source_key === selectedInstallSourceKey.value),
 )
@@ -178,8 +191,13 @@ async function loadPluginSourceOptions(force = false) {
     )
     if (!installSelectionStillExists) {
       const officialCandidate = installCandidates.find(candidate => candidate.source_type === 'official')
+      const selectedCandidate = installCandidates.length === 1 ? installCandidates[0] : undefined
       selectedInstallSourceKey.value =
-        !isInstalled.value && options.selection_status === 'conflict' ? officialCandidate?.source_key || '' : ''
+        !isInstalled.value && options.selection_status === 'conflict'
+          ? officialCandidate?.source_key || ''
+          : !isInstalled.value && selectedCandidate?.source_type === 'third_party'
+            ? selectedCandidate.source_key
+            : ''
     }
 
     const changeSelectionStillExists = sourceActionCandidates.value.some(
@@ -202,15 +220,22 @@ async function confirmSourceTransition() {
   const bindingSource = !hasTrustedOnlineSource.value
   if (!props.plugin?.id || !target?.repo_url || (!bindingSource && !identity)) return
 
-  const confirmed = await createConfirm({
-    type: 'warn',
-    title: t(bindingSource ? 'plugin.confirmSourceBindTitle' : 'plugin.confirmSourceChangeTitle'),
-    content: t(bindingSource ? 'plugin.confirmSourceBind' : 'plugin.confirmSourceChange', {
+  const confirmationContent = [
+    t(bindingSource ? 'plugin.confirmSourceBind' : 'plugin.confirmSourceChange', {
       name: props.plugin.plugin_name,
       current: trustedSourceLabel(),
       target: sourceCandidateLabel(target),
     }),
-    confirmText: t(bindingSource ? 'plugin.bindSource' : 'plugin.changeSource'),
+    target.source_type === 'third_party' ? t('plugin.thirdPartySourceRisk') : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  const confirmed = await createConfirm({
+    type: 'warn',
+    icon: bindingSource ? 'mdi-shield-check-outline' : 'mdi-source-branch',
+    title: t(bindingSource ? 'plugin.confirmSourceBindTitle' : 'plugin.confirmSourceChangeTitle'),
+    content: confirmationContent,
+    confirmText: t(bindingSource ? 'plugin.confirmSourceBindAction' : 'plugin.confirmSourceChangeAction'),
   })
   if (!confirmed) return
 
@@ -321,6 +346,23 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
   }
 
   const selectedRepoUrl = explicitSource?.repo_url || repoUrl
+
+  if (explicitSource?.source_type === 'third_party') {
+    const confirmed = await createConfirm({
+      type: 'warn',
+      icon: 'mdi-shield-alert-outline',
+      title: t('plugin.confirmThirdPartyInstallTitle'),
+      content: [
+        t('plugin.confirmThirdPartyInstall', {
+          name: props.plugin?.plugin_name,
+          target: sourceCandidateLabel(explicitSource),
+        }),
+        t('plugin.thirdPartySourceRisk'),
+      ].join('\n\n'),
+      confirmText: t('plugin.confirmThirdPartyInstallAction'),
+    })
+    if (!confirmed) return
+  }
 
   if (props.installHandler) {
     versionHistoryDialogController?.close()
@@ -502,20 +544,23 @@ onUnmounted(() => {
           </div>
         </dl>
 
-        <VAlert
+        <p
           v-if="props.plugin?.system_version_compatible === false"
-          type="warning"
-          variant="tonal"
-          density="compact"
-          class="plugin-market-detail__warning"
-          :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
-        />
+          class="plugin-market-detail__compatibility"
+          role="alert"
+        >
+          <VIcon icon="mdi-lock-outline" size="16" />
+          <span>{{ props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion') }}</span>
+        </p>
 
         <section v-if="sourceSectionVisible" class="plugin-market-detail-source" aria-labelledby="plugin-source-title">
           <div class="plugin-market-detail-source__heading">
             <div>
               <h3 id="plugin-source-title" class="plugin-market-detail-source__title">
                 {{ t('plugin.source') }}
+                <VChip v-if="sourceNeedsSelection" size="x-small" color="warning" variant="tonal">
+                  {{ t(sourceHasConflict ? 'plugin.sourceSelectionRequired' : 'plugin.sourceConfirmationRequired') }}
+                </VChip>
               </h3>
               <p class="plugin-market-detail-source__hint">
                 {{
@@ -523,20 +568,27 @@ onUnmounted(() => {
                     ? t('plugin.sourceBindingHint')
                     : isInstalled
                       ? t('plugin.sourceInstalledHint')
-                      : t('plugin.sourceConflictHint')
+                      : sourceHasConflict
+                        ? t('plugin.sourceConflictHint')
+                        : t('plugin.sourceThirdPartyHint')
                 }}
               </p>
             </div>
             <VProgressCircular v-if="sourceLoading" indeterminate size="20" width="2" />
           </div>
 
-          <VAlert v-if="sourceError" type="warning" variant="tonal" density="compact" :text="sourceError" />
+          <p v-if="sourceError" class="plugin-market-detail-source__message--error" role="alert">
+            {{ sourceError }}
+          </p>
 
           <template v-if="sourceOptions">
             <dl v-if="isInstalled && sourceOptions.identity" class="plugin-market-detail-source__identity">
               <div>
                 <dt>{{ t('plugin.trustedUpdateSource') }}</dt>
-                <dd>
+                <dd
+                  class="plugin-market-detail-source__identity-content"
+                  :class="{ 'plugin-market-detail-source__identity-content--no-action': !sourceActionCandidates.length || showSourceChoices }"
+                >
                   <span class="plugin-market-detail-source__identity-value">
                     <VChip
                       v-if="sourceOptions.identity.trusted_source_type === 'official'"
@@ -549,6 +601,20 @@ onUnmounted(() => {
                     </VChip>
                     {{ trustedSourceLabel() }}
                   </span>
+                  <VBtn
+                    v-if="sourceActionCandidates.length > 0 && !showSourceChoices"
+                    class="plugin-market-detail-source__identity-action"
+                    icon
+                    size="x-small"
+                    variant="text"
+                    :aria-label="t(hasTrustedOnlineSource ? 'plugin.changeSourceInline' : 'plugin.bindSourceInline')"
+                    @click="showSourceChoices = true"
+                  >
+                    <VIcon :icon="hasTrustedOnlineSource ? 'mdi-source-branch' : 'mdi-shield-plus-outline'" size="18" />
+                    <VTooltip activator="parent" location="top">
+                      {{ t(hasTrustedOnlineSource ? 'plugin.changeSourceInline' : 'plugin.bindSourceInline') }}
+                    </VTooltip>
+                  </VBtn>
                 </dd>
               </div>
               <div v-if="sourceOptions.identity.payload_source_type === 'local'">
@@ -557,14 +623,9 @@ onUnmounted(() => {
               </div>
             </dl>
 
-            <VAlert
-              v-if="sourceNeedsSelection || sourceNeedsInitialBinding || sourceUnavailable"
-              :type="sourceNeedsSelection || sourceNeedsInitialBinding ? 'warning' : 'error'"
-              variant="tonal"
-              density="compact"
-              class="mb-3"
-              :text="sourceOptions.selection_reason"
-            />
+            <p v-if="sourceUnavailable" class="plugin-market-detail-source__message--error" role="alert">
+              {{ sourceOptions.selection_reason }}
+            </p>
 
             <VRadioGroup
               v-if="sourceNeedsSelection"
@@ -593,67 +654,61 @@ onUnmounted(() => {
                       <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                     </span>
                     <span class="plugin-market-detail-source__choice-meta"
-                      >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation.toUpperCase() }}</span
+                      >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}</span
                     >
                   </span>
                 </template>
               </VRadio>
             </VRadioGroup>
 
-            <div v-if="isInstalled && sourceActionCandidates.length > 0" class="plugin-market-detail-source__change">
-              <VBtn
-                v-if="!showSourceChoices"
-                size="small"
-                variant="text"
-                prepend-icon="mdi-source-branch"
-                @click="showSourceChoices = true"
-              >
-                {{ t(hasTrustedOnlineSource ? 'plugin.changeSource' : 'plugin.bindSource') }}
-              </VBtn>
-              <template v-else>
-                <VRadioGroup v-model="selectedChangeSourceKey" hide-details>
-                  <VRadio
-                    v-for="candidate in sourceActionCandidates"
-                    :key="candidate.source_key"
-                    :value="candidate.source_key"
-                  >
-                    <template #label>
-                      <span class="plugin-market-detail-source__choice-label">
-                        <span class="plugin-market-detail-source__choice-title">
-                          <VChip
-                            v-if="candidate.source_type === 'official'"
-                            size="x-small"
-                            color="primary"
-                            variant="tonal"
-                            prepend-icon="mdi-shield-check"
-                          >
-                            {{ t('plugin.sourceOfficial') }}
-                          </VChip>
-                          <strong>{{ sourceCandidateLabel(candidate) }}</strong>
-                        </span>
-                        <span class="plugin-market-detail-source__choice-meta"
-                          >v{{ candidate.plugin_version || '-' }} ·
-                          {{ candidate.package_generation.toUpperCase() }}</span
+            <div
+              v-if="isInstalled && sourceActionCandidates.length > 0 && showSourceChoices"
+              class="plugin-market-detail-source__change"
+            >
+              <VRadioGroup v-model="selectedChangeSourceKey" hide-details>
+                <VRadio
+                  v-for="candidate in sourceActionCandidates"
+                  :key="candidate.source_key"
+                  :value="candidate.source_key"
+                >
+                  <template #label>
+                    <span class="plugin-market-detail-source__choice-label">
+                      <span class="plugin-market-detail-source__choice-title">
+                        <VChip
+                          v-if="candidate.source_type === 'official'"
+                          size="x-small"
+                          color="primary"
+                          variant="tonal"
+                          prepend-icon="mdi-shield-check"
                         >
+                          {{ t('plugin.sourceOfficial') }}
+                        </VChip>
+                        <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                       </span>
-                    </template>
-                  </VRadio>
-                </VRadioGroup>
-                <div class="plugin-market-detail-source__change-actions">
-                  <VBtn size="small" variant="text" @click="showSourceChoices = false">
-                    {{ t('common.cancel') }}
-                  </VBtn>
-                  <VBtn
-                    size="small"
-                    color="warning"
-                    :loading="sourceChanging"
-                    :disabled="!selectedChangeSource"
-                    @click="confirmSourceTransition"
-                  >
-                    {{ t(hasTrustedOnlineSource ? 'plugin.confirmSourceChangeAction' : 'plugin.bindSource') }}
-                  </VBtn>
-                </div>
-              </template>
+                      <span class="plugin-market-detail-source__choice-meta"
+                        >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}</span
+                      >
+                    </span>
+                  </template>
+                </VRadio>
+              </VRadioGroup>
+              <div class="plugin-market-detail-source__change-actions">
+                <VBtn size="small" variant="text" @click="showSourceChoices = false">
+                  {{ t('common.cancel') }}
+                </VBtn>
+                <VBtn
+                  size="small"
+                  color="primary"
+                  variant="text"
+                  :loading="sourceChanging"
+                  :disabled="!selectedChangeSource"
+                  @click="confirmSourceTransition"
+                >
+                  {{
+                    t(hasTrustedOnlineSource ? 'plugin.confirmSourceChangeAction' : 'plugin.confirmSourceBindAction')
+                  }}
+                </VBtn>
+              </div>
             </div>
           </template>
         </section>
@@ -758,6 +813,9 @@ onUnmounted(() => {
 }
 
 .plugin-market-detail-source__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.4;
@@ -766,6 +824,13 @@ onUnmounted(() => {
 .plugin-market-detail-source__hint {
   margin: 0.125rem 0 0;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.plugin-market-detail-source__message--error {
+  margin: 0 0 0.75rem;
+  color: rgb(var(--v-theme-error));
   font-size: 0.75rem;
   line-height: 1.45;
 }
@@ -797,11 +862,29 @@ onUnmounted(() => {
   text-align: end;
 }
 
+.plugin-market-detail-source__identity-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.75rem;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.plugin-market-detail-source__identity-content--no-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.plugin-market-detail-source__identity-action {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+}
+
 .plugin-market-detail-source__identity-value,
 .plugin-market-detail-source__choice-title {
   display: inline-flex;
   min-width: 0;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.375rem;
 }
@@ -922,8 +1005,22 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
-.plugin-market-detail__warning {
-  margin-block-start: 1rem;
+.plugin-market-detail__compatibility {
+  display: flex;
+  max-inline-size: 24rem;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.375rem;
+  margin: 1rem auto 0;
+  color: rgb(var(--v-theme-warning));
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.plugin-market-detail__compatibility .v-icon {
+  flex: 0 0 auto;
+  margin-block-start: 0.0625rem;
 }
 
 .plugin-market-detail-actions {

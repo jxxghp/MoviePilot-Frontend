@@ -264,7 +264,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
   server: {
     proxy: {
       '/api/v1': {
-        target: 'http://localhost:3001',
+        target: process.env.MOVIEPILOT_DEV_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
         cookieDomainRewrite: 'localhost',

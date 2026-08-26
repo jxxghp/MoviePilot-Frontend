@@ -961,6 +961,10 @@ export interface Plugin {
   has_page?: boolean
   // 是否有新版本
   has_update?: boolean
+  // 当前市场发现的最高在线更新候选
+  update_candidate?: PluginUpdateCandidate | null
+  // 在线更新仓库绑定状态
+  source_binding_status?: 'bound' | 'binding_required' | 'local_only'
   // 主系统版本是否兼容
   system_version_compatible?: boolean
   // 主系统版本兼容提示
@@ -991,6 +995,20 @@ export interface Plugin {
   is_instance?: boolean
   // 实例实现模式
   instance_mode?: 'virtual'
+}
+
+/** 插件市场为已安装插件发现的当前最高在线更新候选。 */
+export interface PluginUpdateCandidate {
+  // 候选仓库是官方来源还是第三方来源
+  source_type: 'official' | 'third_party'
+  // 候选仓库的规范来源键
+  source_key: string
+  // 候选仓库的公开 GitHub 地址
+  repo_url: string
+  // 候选仓库当前可安装版本
+  version: string
+  // 候选仓库是否为插件当前已绑定仓库
+  is_bound: boolean
 }
 
 /** 已绑定插件可用于自动更新的在线来源类型。 */

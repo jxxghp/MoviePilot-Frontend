@@ -127,6 +127,10 @@ describe('PluginMarketDetailDialog', () => {
     await renderDialog({ ...basePlugin, installed: false })
 
     expect(await screen.findByText('安装到本地')).toBeInTheDocument()
+    expect(screen.getByText('该插件来自第三方仓库，请确认后安装。')).toBeInTheDocument()
+    expect(screen.getByText('需确认')).toBeInTheDocument()
+    expect(screen.queryByText('需选择')).not.toBeInTheDocument()
+    expect(screen.queryByText('检测到多个同名插件，请选择仓库。')).not.toBeInTheDocument()
     expect(screen.queryByText('提交评分')).not.toBeInTheDocument()
     expect(screen.getByLabelText('4.3 / 5')).toBeInTheDocument()
   })
@@ -139,7 +143,7 @@ describe('PluginMarketDetailDialog', () => {
           ...defaultSourceOptions,
           identity: null,
           selection_status: 'conflict',
-          selection_reason: '未安装插件存在多个在线来源，不能静默选择',
+          selection_reason: '该插件存在多个在线来源，请确认来源后安装。',
           candidates: [
             defaultSourceOptions.candidates[0],
             {
@@ -156,7 +160,9 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: false })
 
-    expect(await screen.findByText('未安装插件存在多个在线来源，不能静默选择')).toBeInTheDocument()
+    expect(await screen.findByText('检测到多个同名插件，请选择仓库。')).toBeInTheDocument()
+    expect(screen.getByText('需选择')).toBeInTheDocument()
+    expect(screen.queryByText('该插件存在多个在线来源，请确认来源后安装。')).not.toBeInTheDocument()
     const installButton = screen.getByRole('button', { name: '安装到本地' })
     expect(installButton).toBeEnabled()
 
@@ -207,20 +213,21 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
-    expect(await screen.findByText('自动更新来源')).toBeInTheDocument()
+    expect(await screen.findByText('仓库')).toBeInTheDocument()
     expect(screen.getByText('jxxghp/moviepilot-plugins')).toBeInTheDocument()
     expect(screen.getByText('官方')).toBeInTheDocument()
-    expect(screen.getByText('当前载荷')).toBeInTheDocument()
+    expect(screen.getByText('运行来源')).toBeInTheDocument()
     expect(screen.getByText('本地')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('button', { name: '更换来源' }))
+    await fireEvent.click(screen.getByRole('button', { name: '更换' }))
     await fireEvent.click(screen.getByText('example/plugins'))
-    await fireEvent.click(screen.getByRole('button', { name: '确认换源' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认更换' }))
 
     expect(mocks.confirm).toHaveBeenCalledWith(
       expect.objectContaining({
+        icon: 'mdi-source-branch',
         content: expect.stringContaining('jxxghp/moviepilot-plugins'),
-        confirmText: '更换来源',
+        confirmText: '确认更换',
       }),
     )
     expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin', {
@@ -237,7 +244,7 @@ describe('PluginMarketDetailDialog', () => {
         return Promise.resolve({
           ...defaultSourceOptions,
           selection_status: 'unavailable',
-          selection_reason: '当前来源身份没有可用候选',
+          selection_reason: '已绑定仓库中暂无可用插件包',
           identity: {
             plugin_id: 'DemoPlugin',
             trusted_source_type: 'official',
@@ -254,8 +261,8 @@ describe('PluginMarketDetailDialog', () => {
     })
     await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
-    expect(await screen.findByText('当前来源身份没有可用候选')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '更换来源' })).toBeInTheDocument()
+    expect(await screen.findByText('已绑定仓库中暂无可用插件包')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更换' })).toBeInTheDocument()
     const updateButton = screen.getByRole('button', { name: '更新' })
     expect(updateButton).toBeDisabled()
     await fireEvent.click(updateButton)
@@ -295,16 +302,17 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
-    expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(await screen.findByText('当前插件尚未绑定，请选择仓库。')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
-    await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
+    await fireEvent.click(screen.getByRole('button', { name: '绑定' }))
     await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
-    await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认绑定' }))
 
     expect(mocks.confirm).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: '确认绑定插件来源',
-        confirmText: '绑定来源',
+        icon: 'mdi-shield-check-outline',
+        title: '确认绑定仓库',
+        confirmText: '确认绑定',
       }),
     )
     expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
@@ -349,7 +357,7 @@ describe('PluginMarketDetailDialog', () => {
 
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toBeUndefined()
-    expect(screen.getByRole('button', { name: '绑定来源' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '绑定' })).toBeInTheDocument()
   })
 
   it('reloads source evidence after a stale revision failure without retrying the change', async () => {
@@ -390,9 +398,9 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: true })
 
-    await fireEvent.click(await screen.findByRole('button', { name: '更换来源' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '更换' }))
     await fireEvent.click(screen.getByText('example/plugins'))
-    await fireEvent.click(screen.getByRole('button', { name: '确认换源' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认更换' }))
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('revision 已变化')))
     expect(mocks.apiPost).toHaveBeenCalledTimes(1)
@@ -485,13 +493,19 @@ describe('PluginMarketDetailDialog', () => {
     await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
 
     await waitFor(() => {
-      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/install/DemoPlugin', {
-        params: {
-          force: false,
-          release_version: undefined,
-        },
+      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
+        repo_url: 'https://github.com/example/plugins',
+        release_version: undefined,
+        force: false,
       })
     })
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '确认安装',
+        confirmText: '安装',
+        content: expect.stringContaining('后续更新也将使用该仓库'),
+      }),
+    )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 安装成功！')
     expect(emitted().install).toHaveLength(1)
     expect(emitted()['update:modelValue']).toContainEqual([false])
@@ -504,7 +518,11 @@ describe('PluginMarketDetailDialog', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
 
-    expect(installHandler).toHaveBeenCalledWith(undefined, undefined, defaultSourceOptions)
+    expect(installHandler).toHaveBeenCalledWith(
+      undefined,
+      'https://github.com/example/plugins',
+      defaultSourceOptions,
+    )
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toBeUndefined()
     expect(emitted()['update:modelValue']).toContainEqual([false])
@@ -565,11 +583,10 @@ describe('PluginMarketDetailDialog', () => {
     await versionEvents.update('0.9.0', 'https://github.com/example/releases')
 
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))
-    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/install/DemoPlugin', {
-      params: {
-        force: true,
-        release_version: '0.9.0',
-      },
+    expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
+      repo_url: 'https://github.com/example/plugins',
+      release_version: '0.9.0',
+      force: true,
     })
     expect(emitted().install).toHaveLength(1)
   })

@@ -1097,6 +1097,7 @@ function mergeMarketMetadataIntoInstalled() {
   dataList.value.forEach(plugin => {
     const marketPlugin = marketById.get(plugin.id)
     plugin.has_update = Boolean(marketPlugin)
+    plugin.update_candidate = marketPlugin?.update_candidate ?? null
     if (!marketPlugin) return
 
     plugin.repo_url = marketPlugin.repo_url

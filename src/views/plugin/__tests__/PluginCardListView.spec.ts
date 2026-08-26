@@ -172,6 +172,7 @@ const PluginMixedSortCardStub = defineComponent({
             plugin_name?: string
             repo_url?: string
             runtime_status?: Plugin['runtime_status']
+            update_candidate?: Plugin['update_candidate']
           }
         | undefined
       const name = type === 'folder' ? id : data?.plugin_name || id
@@ -185,6 +186,9 @@ const PluginMixedSortCardStub = defineComponent({
           ? h('output', { 'aria-label': `update-${id}` }, String(data?.has_update ?? false))
           : h('output', { 'aria-label': `folder-color-${id}` }, data?.config?.color || ''),
         type === 'plugin' ? h('output', { 'aria-label': `repo-${id}` }, data?.repo_url || '') : null,
+        type === 'plugin'
+          ? h('output', { 'aria-label': `update-source-${id}` }, data?.update_candidate?.source_key || '')
+          : null,
         type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
         type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
         type === 'plugin' ? h('output', { 'aria-label': `installing-${id}` }, String(props.installing)) : null,
@@ -760,15 +764,31 @@ describe('PluginCardListView loading and request ownership', () => {
       market: () => {
         marketRequest += 1
         return marketRequest === 1
-          ? [createPlugin({ has_update: true, id: 'Shared', installed: true, plugin_name: '待更新插件' })]
+          ? [
+              createPlugin({
+                has_update: true,
+                id: 'Shared',
+                installed: true,
+                plugin_name: '待更新插件',
+                update_candidate: {
+                  source_type: 'official',
+                  source_key: 'github:jxxghp/moviepilot-plugins',
+                  repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+                  version: '2.0.0',
+                  is_bound: false,
+                },
+              }),
+            ]
           : []
       },
     })
 
     await waitFor(() => expect(screen.getByLabelText('update-Shared')).toHaveTextContent('true'))
+    expect(screen.getByLabelText('update-source-Shared')).toHaveTextContent('github:jxxghp/moviepilot-plugins')
     await fireEvent.click(screen.getByRole('button', { name: 'refresh-plugin-Shared' }))
 
     await waitFor(() => expect(screen.getByLabelText('update-Shared')).toHaveTextContent('false'))
+    expect(screen.getByLabelText('update-source-Shared')).toBeEmptyDOMElement()
     expect(marketRequest).toBe(2)
     await waitForRequestsToFinish()
   })
@@ -1458,7 +1478,7 @@ describe('PluginCardListView search installation', () => {
         plugin_id: pluginId,
         inventory_complete: true,
         selection_status: 'conflict',
-        selection_reason: '未安装插件存在多个在线来源，不能静默选择',
+        selection_reason: '该插件存在多个在线来源，请确认来源后安装。',
         identity: null,
         candidates: [
           {
