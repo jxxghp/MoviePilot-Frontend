@@ -997,7 +997,7 @@ export interface Plugin {
   instance_mode?: 'virtual'
 }
 
-/** 插件市场为已安装插件发现的当前最高在线更新候选。 */
+/** 插件市场为已安装插件选择的当前更新候选。 */
 export interface PluginUpdateCandidate {
   // 候选仓库是官方来源还是第三方来源
   source_type: 'official' | 'third_party'

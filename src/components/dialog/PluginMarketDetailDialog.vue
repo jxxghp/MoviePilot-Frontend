@@ -213,7 +213,7 @@ async function loadPluginSourceOptions(force = false) {
   }
 }
 
-/** 明确绑定或切换自动更新来源，换源时使用打开弹窗时读取的 revision。 */
+/** 确认仓库后先关闭详情，再等待安装事务结果刷新列表。 */
 async function confirmSourceTransition() {
   const identity = sourceOptions.value?.identity
   const target = selectedChangeSource.value
@@ -240,9 +240,7 @@ async function confirmSourceTransition() {
   if (!confirmed) return
 
   sourceChanging.value = true
-  showInstallProgress(
-    t(bindingSource ? 'plugin.bindingSource' : 'plugin.changingSource', { name: props.plugin.plugin_name }),
-  )
+  visible.value = false
   try {
     if (bindingSource) {
       await installPluginFromSource(props.plugin.id, {
@@ -261,7 +259,6 @@ async function confirmSourceTransition() {
       }),
     )
     emit('install')
-    visible.value = false
   } catch (error) {
     console.error(error)
     $toast.error(
@@ -270,10 +267,8 @@ async function confirmSourceTransition() {
         message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
       }),
     )
-    await loadPluginSourceOptions(true)
   } finally {
     sourceChanging.value = false
-    closeInstallProgress()
   }
 }
 
@@ -587,7 +582,10 @@ onUnmounted(() => {
                 <dt>{{ t('plugin.trustedUpdateSource') }}</dt>
                 <dd
                   class="plugin-market-detail-source__identity-content"
-                  :class="{ 'plugin-market-detail-source__identity-content--no-action': !sourceActionCandidates.length || showSourceChoices }"
+                  :class="{
+                    'plugin-market-detail-source__identity-content--no-action':
+                      !sourceActionCandidates.length || showSourceChoices,
+                  }"
                 >
                   <span class="plugin-market-detail-source__identity-value">
                     <VChip

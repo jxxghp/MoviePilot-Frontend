@@ -183,6 +183,10 @@ describe('PluginMarketDetailDialog', () => {
   })
 
   it('shows trusted and local payload sources separately and changes source with the current revision', async () => {
+    let resolveSourceChange!: (value: { success: boolean }) => void
+    const sourceChangeRequest = new Promise<{ success: boolean }>(resolve => {
+      resolveSourceChange = resolve
+    })
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
       if (url === 'plugin/source/DemoPlugin/options') {
@@ -211,6 +215,7 @@ describe('PluginMarketDetailDialog', () => {
       }
       return Promise.resolve({ success: true })
     })
+    mocks.apiPost.mockReturnValueOnce(sourceChangeRequest)
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
     expect(await screen.findByText('仓库')).toBeInTheDocument()
@@ -234,6 +239,11 @@ describe('PluginMarketDetailDialog', () => {
       repo_url: 'https://github.com/example/plugins',
       expected_revision: 7,
     })
+    expect(emitted()['update:modelValue']).toContainEqual([false])
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    expect(emitted().install).toBeUndefined()
+
+    resolveSourceChange({ success: true })
     await waitFor(() => expect(emitted().install).toHaveLength(1))
   })
 
@@ -360,7 +370,7 @@ describe('PluginMarketDetailDialog', () => {
     expect(screen.getByRole('button', { name: '绑定' })).toBeInTheDocument()
   })
 
-  it('reloads source evidence after a stale revision failure without retrying the change', async () => {
+  it('reports a stale revision failure after returning to the plugin list', async () => {
     let sourceReadCount = 0
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
@@ -404,9 +414,8 @@ describe('PluginMarketDetailDialog', () => {
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('revision 已变化')))
     expect(mocks.apiPost).toHaveBeenCalledTimes(1)
-    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/source/DemoPlugin/options', { params: { force: true } })
     expect(emitted().install).toBeUndefined()
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(emitted()['update:modelValue']).toContainEqual([false])
   })
 
   it('hides install action and submits a half-star rating for an installed plugin', async () => {
@@ -518,11 +527,7 @@ describe('PluginMarketDetailDialog', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
 
-    expect(installHandler).toHaveBeenCalledWith(
-      undefined,
-      'https://github.com/example/plugins',
-      defaultSourceOptions,
-    )
+    expect(installHandler).toHaveBeenCalledWith(undefined, 'https://github.com/example/plugins', defaultSourceOptions)
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toBeUndefined()
     expect(emitted()['update:modelValue']).toContainEqual([false])
