@@ -1111,6 +1111,12 @@ describe('AccountSettingSystem', () => {
     await fireEvent.update(dialog.getByLabelText('下载历史表保留天数'), '30')
     await fireEvent.update(dialog.getByLabelText('站点数据表保留天数'), '60')
     await fireEvent.update(dialog.getByLabelText('整理历史表保留天数'), '90')
+    await fireEvent.update(dialog.getByLabelText('下载失败记录保留天数'), '7')
+    await fireEvent.update(dialog.getByLabelText('订阅历史表保留天数'), '365')
+    await fireEvent.update(dialog.getByLabelText('Agent 会话历史保留天数'), '120')
+    await fireEvent.update(dialog.getByLabelText('Agent 任务运行历史保留天数'), '60')
+    await fireEvent.update(dialog.getByLabelText('Outbox 已完成记录保留天数'), '14')
+    await fireEvent.update(dialog.getByLabelText('Outbox 死信记录保留天数'), '45')
 
     await user.click(dialog.getByRole('tab', { name: '日志' }))
     await selectOption('日志等级', 'ERROR - 错误')
@@ -1124,8 +1130,14 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/env')?.[1]).toEqual(
       expect.objectContaining({
         DATA_CLEANUP_DOWNLOAD_HISTORY_DAYS: 30,
+        DATA_CLEANUP_DOWNLOAD_FAILURE_DAYS: 7,
+        DATA_CLEANUP_SUBSCRIBE_HISTORY_DAYS: 365,
+        DATA_CLEANUP_AGENT_CHAT_DAYS: 120,
+        DATA_CLEANUP_AGENT_TASK_RUN_DAYS: 60,
         DATA_CLEANUP_ENABLE: true,
         DATA_CLEANUP_MESSAGE_DAYS: 0,
+        DATA_CLEANUP_OUTBOX_COMPLETED_DAYS: 14,
+        DATA_CLEANUP_OUTBOX_DEAD_DAYS: 45,
         DATA_CLEANUP_SITE_USERDATA_DAYS: 60,
         DATA_CLEANUP_TRANSFER_HISTORY_DAYS: 90,
         DEBUG: true,

@@ -101,6 +101,12 @@ const SystemSettings = ref<any>({
     DATA_CLEANUP_DOWNLOAD_HISTORY_DAYS: 180,
     DATA_CLEANUP_SITE_USERDATA_DAYS: 180,
     DATA_CLEANUP_TRANSFER_HISTORY_DAYS: 365 * 3,
+    DATA_CLEANUP_DOWNLOAD_FAILURE_DAYS: 7,
+    DATA_CLEANUP_SUBSCRIBE_HISTORY_DAYS: 365 * 3,
+    DATA_CLEANUP_AGENT_CHAT_DAYS: 180,
+    DATA_CLEANUP_AGENT_TASK_RUN_DAYS: 180,
+    DATA_CLEANUP_OUTBOX_COMPLETED_DAYS: 30,
+    DATA_CLEANUP_OUTBOX_DEAD_DAYS: 90,
     // 本地数据库备份策略同时适用于 SQLite 与 PostgreSQL。
     DB_BACKUP_ENABLE: false,
     DB_BACKUP_CRON: '0 3 * * *',
@@ -2693,6 +2699,84 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       :suffix="t('setting.system.day')"
                       :rules="dataCleanupFieldRules"
                       prepend-inner-icon="mdi-swap-horizontal"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_DOWNLOAD_FAILURE_DAYS"
+                      :label="t('setting.system.dataCleanupDownloadFailureDays')"
+                      :hint="t('setting.system.dataCleanupDownloadFailureDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-alert-circle-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_SUBSCRIBE_HISTORY_DAYS"
+                      :label="t('setting.system.dataCleanupSubscribeHistoryDays')"
+                      :hint="t('setting.system.dataCleanupSubscribeHistoryDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-calendar-check-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_AGENT_CHAT_DAYS"
+                      :label="t('setting.system.dataCleanupAgentChatDays')"
+                      :hint="t('setting.system.dataCleanupAgentChatDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-message-text-clock-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_AGENT_TASK_RUN_DAYS"
+                      :label="t('setting.system.dataCleanupAgentTaskRunDays')"
+                      :hint="t('setting.system.dataCleanupAgentTaskRunDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-robot-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_OUTBOX_COMPLETED_DAYS"
+                      :label="t('setting.system.dataCleanupOutboxCompletedDays')"
+                      :hint="t('setting.system.dataCleanupOutboxCompletedDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-check-circle-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_OUTBOX_DEAD_DAYS"
+                      :label="t('setting.system.dataCleanupOutboxDeadDays')"
+                      :hint="t('setting.system.dataCleanupOutboxDeadDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-alert-octagon-outline"
                     />
                   </VCol>
                 </template>
