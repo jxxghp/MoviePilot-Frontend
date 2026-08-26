@@ -133,6 +133,7 @@ function response(body: JsonBodyType, status: number) {
   return HttpResponse.json(body, { status })
 }
 
+/** 模拟站点图标接口，并保留后端缺失图标时的业务失败语义。 */
 export function siteIconHandler(
   id: number,
   icon: string | null,
@@ -141,7 +142,10 @@ export function siteIconHandler(
 ) {
   return http.get(siteApiUrls.icon(id), async () => {
     await onRequest()
-    return response(apiEnvelope(icon ? { icon } : {}, Boolean(icon)), status)
+    return response(
+      apiEnvelope(icon ? { icon } : {}, Boolean(icon), icon ? '' : '站点图标不存在！'),
+      status,
+    )
   })
 }
 

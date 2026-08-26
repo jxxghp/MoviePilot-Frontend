@@ -237,10 +237,10 @@ describe('SiteCard interactions', () => {
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
   })
 
-  it('falls back to the default icon when the icon request fails', async () => {
+  it('silently falls back to the default icon when the icon is unavailable', async () => {
     const site = createSite()
     const requested = vi.fn()
-    server.use(siteIconHandler(site.id, null, 500, requested))
+    server.use(siteIconHandler(site.id, null, 200, requested))
     const { container } = await renderWithProviders(SiteCard, {
       global: { stubs: imageStubs },
       props: { site },
@@ -249,5 +249,6 @@ describe('SiteCard interactions', () => {
     await waitFor(() => expect(requested).toHaveBeenCalledOnce())
     await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
     await waitFor(() => expect(container.querySelector<HTMLImageElement>('img')?.src).toContain('/site.webp'))
+    expect(mocks.toastError).not.toHaveBeenCalled()
   })
 })

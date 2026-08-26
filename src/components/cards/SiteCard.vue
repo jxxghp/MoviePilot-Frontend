@@ -66,7 +66,7 @@ async function getSiteIcon() {
 
   try {
     const icon = await getCachedSiteIcon(siteId, async () => {
-      const response = await api.get<{ icon?: string }>(`site/icon/${siteId}`)
+      const response = await api.get<{ icon?: string }>(`site/icon/${siteId}`, { feedback: 'silent' })
       return response?.icon || defaultSiteIcon
     })
     siteIcon.value = getDisplayImageUrl(icon, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)

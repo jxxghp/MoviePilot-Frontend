@@ -56,7 +56,7 @@ async function getSiteIcon(site: number | undefined) {
   try {
     const icon = await getCachedSiteIcon(site, async () => {
       try {
-        const response = await api.get<{ icon?: string }>(`site/icon/${site}`)
+        const response = await api.get<{ icon?: string }>(`site/icon/${site}`, { feedback: 'silent' })
         return response?.icon || ''
       } catch (error) {
         console.error(error)

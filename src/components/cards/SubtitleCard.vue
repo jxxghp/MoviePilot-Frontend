@@ -44,7 +44,7 @@ async function getSiteIcon() {
   try {
     const icon = await getCachedSiteIcon(subtitle.value.site, async () => {
       try {
-        const response = await api.get<{ icon?: string }>(`site/icon/${subtitle.value?.site}`)
+        const response = await api.get<{ icon?: string }>(`site/icon/${subtitle.value?.site}`, { feedback: 'silent' })
         return response?.icon || ''
       } catch (error) {
         console.error('Failed to load site icon:', error)
