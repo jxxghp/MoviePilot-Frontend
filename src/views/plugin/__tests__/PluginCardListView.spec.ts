@@ -1273,10 +1273,42 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     await waitFor(() => expect(getHeaderConfig().modelValue.value).toBe('installed'))
     expect(await screen.findByText('plugin:市场安装插件')).toBeInTheDocument()
     expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    expect(screen.queryByTestId('market-MarketInstall')).not.toBeInTheDocument()
 
     installGate.resolve()
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 市场安装插件 安装成功！'))
     await waitForRequestsToFinish()
+
+    await waitFor(() => expect(screen.queryByTestId('market-MarketInstall')).not.toBeInTheDocument())
+  })
+
+  it('restores a market plugin after an installation failure', async () => {
+    const installGate = createDeferred<void>()
+    const target = createPlugin({ id: 'FailedMarketInstall', plugin_name: '失败市场插件' })
+    await renderList({ installed: () => [], market: () => [target] })
+    await waitForRequestsToFinish()
+
+    server.use(
+      http.get(apiUrls.install('FailedMarketInstall'), async () => {
+        await installGate.promise
+        return HttpResponse.json({ message: '安装失败' }, { status: 500 })
+      }),
+    )
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'installed-FailedMarketInstall' }))
+    await waitFor(() => expect(getHeaderConfig().modelValue.value).toBe('installed'))
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    expect(screen.queryByTestId('market-FailedMarketInstall')).not.toBeInTheDocument()
+
+    installGate.resolve()
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByTestId('market-FailedMarketInstall')).toBeInTheDocument())
   })
 })
 
