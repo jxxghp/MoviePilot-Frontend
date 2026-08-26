@@ -199,6 +199,79 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.dialogCloses[1]).toHaveBeenCalled()
   })
 
+  it('shows the repository type and keeps bound updates on the version history flow', async () => {
+    const updatablePlugin: Plugin = {
+      ...plugin,
+      has_update: true,
+      update_candidate: {
+        source_type: 'third_party',
+        source_key: 'github:example/plugins',
+        repo_url: 'https://github.com/example/plugins',
+        version: '2.0.0',
+        is_bound: true,
+      },
+    }
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
+
+    await fireEvent.mouseEnter(screen.getByLabelText('有更新'))
+    expect(await screen.findByText('example/plugins 有可直接安装的新版本 v2.0.0')).toBeInTheDocument()
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('更新'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/history/DemoPlugin', expect.anything())
+  })
+
+  it('opens repository selection for an update published by another repository', async () => {
+    const updatablePlugin: Plugin = {
+      ...plugin,
+      has_update: true,
+      update_candidate: {
+        source_type: 'official',
+        source_key: 'github:jxxghp/moviepilot-plugins',
+        repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+        version: '2.0.0',
+        is_bound: false,
+      },
+    }
+    mocks.apiGet.mockResolvedValue(updatablePlugin)
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
+
+    await fireEvent.mouseEnter(screen.getByLabelText('有更新'))
+    expect(
+      await screen.findByText('jxxghp/moviepilot-plugins 有新版本 v2.0.0，需要确认更换仓库'),
+    ).toBeInTheDocument()
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('查看更新来源'))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
+      params: { force: false },
+    })
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      initialSourceSelectionOpen: true,
+      plugin: expect.objectContaining({ id: 'DemoPlugin' }),
+    })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+  })
+
+  it('prioritizes repository confirmation over the update marker', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: {
+          ...plugin,
+          has_update: true,
+          source_binding_status: 'binding_required',
+        },
+      },
+    })
+
+    expect(screen.getByText('需确认仓库')).toBeInTheDocument()
+    expect(screen.queryByLabelText('有更新')).not.toBeInTheDocument()
+    await fireEvent.mouseEnter(screen.getByText('需确认仓库'))
+    expect(await screen.findByText('该插件尚未绑定仓库，请在「关于」中确认')).toBeInTheDocument()
+  })
+
   it('blocks an incompatible latest update without sending a request', async () => {
     const updatablePlugin = {
       ...plugin,

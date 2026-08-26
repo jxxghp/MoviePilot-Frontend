@@ -51,7 +51,27 @@ const emit = defineEmits(['remove', 'save', 'actionDone', 'rating'])
 const { t } = useI18n()
 
 const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
-const hasCardStatus = computed(() => Boolean(props.plugin?.has_update) || hasCardRating.value)
+const sourceBindingRequired = computed(() => props.plugin?.source_binding_status === 'binding_required')
+const hasCardStatus = computed(
+  () => sourceBindingRequired.value || Boolean(props.plugin?.has_update) || hasCardRating.value,
+)
+const updateCandidate = computed(() => props.plugin?.update_candidate)
+const hasAlternativeUpdate = computed(
+  () => Boolean(props.plugin?.has_update && updateCandidate.value && !updateCandidate.value.is_bound),
+)
+const updateSourceName = computed(() => {
+  const candidate = updateCandidate.value
+  if (!candidate) return ''
+  return candidate.source_key.startsWith('github:') ? candidate.source_key.slice('github:'.length) : candidate.source_key
+})
+const updateBadgeTitle = computed(() => {
+  const candidate = updateCandidate.value
+  if (!candidate) return t('plugin.hasUpdate')
+  return t(candidate.is_bound ? 'plugin.boundUpdateAvailable' : 'plugin.alternativeUpdateAvailable', {
+    source: updateSourceName.value,
+    version: candidate.version,
+  })
+})
 const runtimeStatus = computed(() => props.plugin?.runtime_status)
 const runtimePending = computed(
   () => props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || ''),
@@ -401,7 +421,7 @@ async function fetchInstalledPluginDetail() {
 }
 
 /** 使用插件市场详情弹窗展示已安装插件信息和评分入口。 */
-async function showPluginAbout() {
+async function showPluginAbout(initialSourceSelectionOpen = false) {
   const pluginDetail = await fetchInstalledPluginDetail()
   if (!pluginDetail) return
 
@@ -411,6 +431,7 @@ async function showPluginAbout() {
     {
       plugin: pluginDetail,
       count: props.count,
+      initialSourceSelectionOpen,
     },
     {
       install: () => {
@@ -422,6 +443,15 @@ async function showPluginAbout() {
     },
     { closeOn: ['close', 'install', 'update:modelValue'] },
   )
+}
+
+/** 更新来自其他仓库时先展开来源选择，否则进入绑定仓库的更新说明。 */
+function handleUpdateAction() {
+  if (hasAlternativeUpdate.value) {
+    void showPluginAbout(true)
+    return
+  }
+  showUpdateHistory(true)
 }
 
 // 访问插件项目主页
@@ -537,7 +567,7 @@ const dropdownItems = ref([
     show: true,
     props: {
       prependIcon: 'mdi-information-outline',
-      click: showPluginAbout,
+      click: () => showPluginAbout(),
     },
   },
   {
@@ -569,13 +599,13 @@ const dropdownItems = ref([
     },
   },
   {
-    title: t('plugin.update'),
+    title: hasAlternativeUpdate.value ? t('plugin.viewUpdateSources') : t('plugin.update'),
     value: 3,
     show: props.plugin?.has_update,
     props: {
       prependIcon: 'mdi-arrow-up-circle-outline',
       color: 'success',
-      click: () => showUpdateHistory(true),
+      click: handleUpdateAction,
     },
   },
   {
@@ -631,10 +661,15 @@ const dropdownItems = ref([
 
 // 监听插件状态变化
 watch(
-  () => props.plugin?.has_update,
-  newHasUpdate => {
+  () => [props.plugin?.has_update, props.plugin?.update_candidate?.is_bound] as const,
+  ([newHasUpdate]) => {
     const updateItemIndex = dropdownItems.value.findIndex(item => item.value === 3)
-    if (updateItemIndex !== -1) dropdownItems.value[updateItemIndex].show = newHasUpdate
+    if (updateItemIndex !== -1) {
+      dropdownItems.value[updateItemIndex].show = newHasUpdate
+      dropdownItems.value[updateItemIndex].title = hasAlternativeUpdate.value
+        ? t('plugin.viewUpdateSources')
+        : t('plugin.update')
+    }
 
     const updateHistoryItemIndex = dropdownItems.value.findIndex(item => item.value === 9)
     if (updateHistoryItemIndex !== -1) dropdownItems.value[updateHistoryItemIndex].show = !newHasUpdate
@@ -780,12 +815,21 @@ watch(
               </div>
             </VCardText>
             <div
-              v-if="props.plugin?.has_update"
+              v-if="sourceBindingRequired"
+              class="plugin-card__status plugin-card__status--binding"
+              :aria-label="t('plugin.sourceBindingRequired')"
+            >
+              <VIcon icon="mdi-shield-alert-outline" size="12" />
+              {{ t('plugin.sourceBindingRequired') }}
+              <VTooltip activator="parent" location="top">{{ t('plugin.sourceBindingRequiredHint') }}</VTooltip>
+            </div>
+            <div
+              v-else-if="props.plugin?.has_update"
               class="plugin-card__status plugin-card__status--update"
               :aria-label="t('plugin.hasUpdate')"
-              :title="t('plugin.hasUpdate')"
             >
               <VIcon icon="mdi-new-box" class="text-white" size="20" />
+              <VTooltip activator="parent" location="top">{{ updateBadgeTitle }}</VTooltip>
             </div>
             <div
               v-else-if="hasCardRating"
@@ -828,6 +872,18 @@ watch(
   gap: 0.125rem;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.plugin-card__status--binding {
+  gap: 0.1875rem;
+  padding: 0.1875rem 0.375rem;
+  border: 1px solid rgba(var(--v-theme-warning), 45%);
+  border-radius: 4px;
+  background: rgba(var(--v-theme-warning), 16%);
+  color: rgb(var(--v-theme-warning));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-shadow: none;
 }
 
 .plugin-card--runtime-pending {

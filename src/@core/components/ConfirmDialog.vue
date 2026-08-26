@@ -4,6 +4,8 @@ import { computed } from 'vue'
 interface Props {
   modelValue: boolean
   type?: 'info' | 'warn' | 'error'
+  /** 覆盖确认类型的默认图标，用于表达更具体的操作语义。 */
+  icon?: string
   title?: string
   content?: string
   confirmText?: string
@@ -64,11 +66,11 @@ function handleCancel() {
       <VCardItem>
         <div class="d-flex align-center justify-start mt-3">
           <VAvatar :color="currentType.color" variant="text" size="x-large">
-            <VIcon size="x-large" :icon="currentType.icon" />
+            <VIcon size="x-large" :icon="icon || currentType.icon" />
           </VAvatar>
           <div class="mx-3">
             <p class="font-weight-bold text-xl text-high-emphasis">{{ title }}</p>
-            <p>{{ content }}</p>
+            <p class="app-confirm-dialog-content">{{ content }}</p>
           </div>
         </div>
       </VCardItem>
@@ -84,3 +86,9 @@ function handleCancel() {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.app-confirm-dialog-content {
+  white-space: pre-line;
+}
+</style>
