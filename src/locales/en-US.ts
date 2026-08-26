@@ -3883,8 +3883,7 @@ export default {
     confirmThirdPartyInstallAction: 'Install',
     confirmSourceBindTitle: 'Confirm Repository Binding',
     confirmSourceBind: 'Bind “{name}” to {target} and install the current version from this repository.',
-    thirdPartySourceRisk:
-      'This is a third-party repository. Future updates will come from it. Confirm to continue.',
+    thirdPartySourceRisk: 'This is a third-party repository. Future updates will come from it. Confirm to continue.',
     confirmSourceBindAction: 'Confirm Bind',
     bindingSource: 'Installing {name} from the selected repository...',
     sourceBindSuccess: 'The repository for {name} was bound',

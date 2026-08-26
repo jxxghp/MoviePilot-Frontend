@@ -238,9 +238,7 @@ describe('PluginCard lifecycle actions', () => {
     const { container } = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
 
     await fireEvent.mouseEnter(screen.getByLabelText('有更新'))
-    expect(
-      await screen.findByText('jxxghp/moviepilot-plugins 有新版本 v2.0.0，需要确认更换仓库'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('jxxghp/moviepilot-plugins 有新版本 v2.0.0，需要确认更换仓库')).toBeInTheDocument()
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('查看更新来源'))
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())

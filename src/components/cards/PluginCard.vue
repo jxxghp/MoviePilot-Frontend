@@ -56,13 +56,15 @@ const hasCardStatus = computed(
   () => sourceBindingRequired.value || Boolean(props.plugin?.has_update) || hasCardRating.value,
 )
 const updateCandidate = computed(() => props.plugin?.update_candidate)
-const hasAlternativeUpdate = computed(
-  () => Boolean(props.plugin?.has_update && updateCandidate.value && !updateCandidate.value.is_bound),
+const hasAlternativeUpdate = computed(() =>
+  Boolean(props.plugin?.has_update && updateCandidate.value && !updateCandidate.value.is_bound),
 )
 const updateSourceName = computed(() => {
   const candidate = updateCandidate.value
   if (!candidate) return ''
-  return candidate.source_key.startsWith('github:') ? candidate.source_key.slice('github:'.length) : candidate.source_key
+  return candidate.source_key.startsWith('github:')
+    ? candidate.source_key.slice('github:'.length)
+    : candidate.source_key
 })
 const updateBadgeTitle = computed(() => {
   const candidate = updateCandidate.value
