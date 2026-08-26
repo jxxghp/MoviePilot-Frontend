@@ -37,7 +37,9 @@ const props = defineProps({
   count: Number,
   // 搜索入口交由列表页接管安装，以便先关闭详情并显示插件级加载状态。
   installHandler: {
-    type: Function as PropType<(releaseVersion?: string, repoUrl?: string) => unknown>,
+    type: Function as PropType<
+      (releaseVersion?: string, repoUrl?: string, sourceOptions?: PluginSourceOptions) => unknown
+    >,
     default: undefined,
   },
 })
@@ -77,10 +79,13 @@ const sourceChanging = ref(false)
 const imageLoadError = ref(false)
 
 const onlineSourceCandidates = computed(() =>
-  (sourceOptions.value?.candidates || []).filter(
-    (candidate): candidate is PluginSourceCandidate & { repo_url: string; source_key: string } =>
-      candidate.source_type !== 'local' && Boolean(candidate.repo_url && candidate.source_key),
-  ),
+  (sourceOptions.value?.candidates || [])
+    .filter(
+      (candidate): candidate is PluginSourceCandidate & { repo_url: string; source_key: string } =>
+        candidate.source_type !== 'local' && Boolean(candidate.repo_url && candidate.source_key),
+    )
+    // 官方仓库是默认可信来源，在所有选源入口中始终置顶。
+    .sort((left, right) => Number(right.source_type === 'official') - Number(left.source_type === 'official')),
 )
 const sourceNeedsSelection = computed(() => !isInstalled.value && sourceOptions.value?.selection_status === 'conflict')
 const selectedInstallSource = computed(() =>
@@ -316,7 +321,7 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     versionHistoryDialogController?.close()
     versionHistoryDialogController = null
     visible.value = false
-    await props.installHandler(releaseVersion, selectedRepoUrl)
+    await props.installHandler(releaseVersion, selectedRepoUrl, sourceOptions.value || undefined)
     return
   }
 
@@ -526,7 +531,20 @@ onUnmounted(() => {
             <dl v-if="isInstalled && sourceOptions.identity" class="plugin-market-detail-source__identity">
               <div>
                 <dt>{{ t('plugin.trustedUpdateSource') }}</dt>
-                <dd>{{ trustedSourceLabel() }}</dd>
+                <dd>
+                  <span class="plugin-market-detail-source__identity-value">
+                    <VChip
+                      v-if="sourceOptions.identity.trusted_source_type === 'official'"
+                      size="x-small"
+                      color="primary"
+                      variant="tonal"
+                      prepend-icon="mdi-shield-check"
+                    >
+                      {{ t('plugin.sourceOfficial') }}
+                    </VChip>
+                    {{ trustedSourceLabel() }}
+                  </span>
+                </dd>
               </div>
               <div v-if="sourceOptions.identity.payload_source_type === 'local'">
                 <dt>{{ t('plugin.currentPayloadSource') }}</dt>
@@ -557,8 +575,19 @@ onUnmounted(() => {
               >
                 <template #label>
                   <span class="plugin-market-detail-source__choice-label">
-                    <strong>{{ sourceCandidateLabel(candidate) }}</strong>
-                    <span
+                    <span class="plugin-market-detail-source__choice-title">
+                      <VChip
+                        v-if="candidate.source_type === 'official'"
+                        size="x-small"
+                        color="primary"
+                        variant="tonal"
+                        prepend-icon="mdi-shield-check"
+                      >
+                        {{ t('plugin.sourceOfficial') }}
+                      </VChip>
+                      <strong>{{ sourceCandidateLabel(candidate) }}</strong>
+                    </span>
+                    <span class="plugin-market-detail-source__choice-meta"
                       >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation.toUpperCase() }}</span
                     >
                   </span>
@@ -585,8 +614,19 @@ onUnmounted(() => {
                   >
                     <template #label>
                       <span class="plugin-market-detail-source__choice-label">
-                        <strong>{{ sourceCandidateLabel(candidate) }}</strong>
-                        <span
+                        <span class="plugin-market-detail-source__choice-title">
+                          <VChip
+                            v-if="candidate.source_type === 'official'"
+                            size="x-small"
+                            color="primary"
+                            variant="tonal"
+                            prepend-icon="mdi-shield-check"
+                          >
+                            {{ t('plugin.sourceOfficial') }}
+                          </VChip>
+                          <strong>{{ sourceCandidateLabel(candidate) }}</strong>
+                        </span>
+                        <span class="plugin-market-detail-source__choice-meta"
                           >v{{ candidate.plugin_version || '-' }} ·
                           {{ candidate.package_generation.toUpperCase() }}</span
                         >
@@ -752,6 +792,19 @@ onUnmounted(() => {
   text-align: end;
 }
 
+.plugin-market-detail-source__identity-value,
+.plugin-market-detail-source__choice-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.plugin-market-detail-source__choice-title {
+  justify-content: flex-start;
+}
+
 .plugin-market-detail-source__choices :deep(.v-selection-control),
 .plugin-market-detail-source__change :deep(.v-selection-control) {
   min-height: 2.75rem;
@@ -769,7 +822,7 @@ onUnmounted(() => {
   overflow-wrap: anywhere;
 }
 
-.plugin-market-detail-source__choice-label span {
+.plugin-market-detail-source__choice-meta {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
 }

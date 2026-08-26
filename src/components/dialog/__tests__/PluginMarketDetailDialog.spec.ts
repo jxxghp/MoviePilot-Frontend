@@ -141,6 +141,7 @@ describe('PluginMarketDetailDialog', () => {
           selection_status: 'conflict',
           selection_reason: '未安装插件存在多个在线来源，不能静默选择',
           candidates: [
+            defaultSourceOptions.candidates[0],
             {
               source_type: 'official',
               source_key: 'github:jxxghp/moviepilot-plugins',
@@ -148,7 +149,6 @@ describe('PluginMarketDetailDialog', () => {
               package_generation: 'v3',
               plugin_version: '1.0.0',
             },
-            defaultSourceOptions.candidates[0],
           ],
         } satisfies PluginSourceOptions)
       }
@@ -160,6 +160,8 @@ describe('PluginMarketDetailDialog', () => {
     const installButton = screen.getByRole('button', { name: '安装到本地' })
     expect(installButton).toBeDisabled()
 
+    expect(screen.getByText('官方')).toBeInTheDocument()
+    expect(screen.getAllByRole('radio')[0]).toHaveAttribute('value', 'github:jxxghp/moviepilot-plugins')
     await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
     expect(installButton).toBeEnabled()
     await fireEvent.click(installButton)
@@ -208,6 +210,7 @@ describe('PluginMarketDetailDialog', () => {
 
     expect(await screen.findByText('自动更新来源')).toBeInTheDocument()
     expect(screen.getByText('jxxghp/moviepilot-plugins')).toBeInTheDocument()
+    expect(screen.getByText('官方')).toBeInTheDocument()
     expect(screen.getByText('当前载荷')).toBeInTheDocument()
     expect(screen.getByText('本地')).toBeInTheDocument()
 
@@ -502,7 +505,7 @@ describe('PluginMarketDetailDialog', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
 
-    expect(installHandler).toHaveBeenCalledWith(undefined, undefined)
+    expect(installHandler).toHaveBeenCalledWith(undefined, undefined, defaultSourceOptions)
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toBeUndefined()
     expect(emitted()['update:modelValue']).toContainEqual([false])

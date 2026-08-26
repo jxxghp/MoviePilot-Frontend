@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
-import type { Plugin, PluginRating } from '@/api/types'
+import type { Plugin, PluginRating, PluginSourceOptions } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -846,7 +846,12 @@ function pluginDialogClose() {
 }
 
 // 安装插件
-async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: string) {
+async function installPlugin(
+  item: Plugin,
+  releaseVersion?: string,
+  repoUrl?: string,
+  inspectedSourceOptions?: PluginSourceOptions,
+) {
   const pluginId = item?.id
   if (!pluginId || installingPluginIds.value.has(pluginId)) {
     return
@@ -867,7 +872,7 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
 
   let useExplicitSource = false
   try {
-    const sourceOptions = await getPluginSourceOptions(pluginId)
+    const sourceOptions = inspectedSourceOptions || (await getPluginSourceOptions(pluginId))
     if (sourceOptions.selection_status === 'conflict') {
       if (!repoUrl) {
         releaseInstallReservation()
@@ -909,7 +914,7 @@ async function installPlugin(item: Plugin, releaseVersion?: string, repoUrl?: st
       ...item,
       installed: true,
       state: false,
-      runtime_status: 'source_missing',
+      runtime_status: undefined,
     },
   ]
   activeTab.value = 'installed'
@@ -973,7 +978,11 @@ function openPluginMarketDetail(item: Plugin) {
     {
       plugin: item,
       count: PluginStatistics.value[item.id || '0'],
-      installHandler: (releaseVersion?: string, repoUrl?: string) => installPlugin(item, releaseVersion, repoUrl),
+      installHandler: (
+        releaseVersion?: string,
+        repoUrl?: string,
+        sourceOptions?: PluginSourceOptions,
+      ) => installPlugin(item, releaseVersion, repoUrl, sourceOptions),
     },
     {
       install: pluginInstalled,
@@ -2204,6 +2213,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(element.id)"
+                    :installing="installingPluginIds.has(element.id)"
                     :sortable="true"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2234,6 +2244,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(item.id)"
+                    :installing="installingPluginIds.has(item.id)"
                     :sortable="false"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2270,6 +2281,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(element.id)"
+                    :installing="installingPluginIds.has(element.id)"
                     :sortable="true"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
@@ -2296,6 +2308,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-statistics="PluginStatistics"
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(item.id)"
+                    :installing="installingPluginIds.has(item.id)"
                     :sortable="false"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
@@ -2365,7 +2378,9 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 <PluginAppCard
                   :plugin="item"
                   :count="PluginStatistics[item.id || '0']"
-                  :install-handler="(releaseVersion, repoUrl) => installPlugin(item, releaseVersion, repoUrl)"
+                  :install-handler="(releaseVersion, repoUrl, sourceOptions) =>
+                    installPlugin(item, releaseVersion, repoUrl, sourceOptions)
+                  "
                   @install="pluginInstalled"
                 />
               </template>

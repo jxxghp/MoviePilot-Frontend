@@ -146,6 +146,7 @@ const PluginMixedSortCardStub = defineComponent({
     item: { type: Object as PropType<Record<string, unknown>>, required: true },
     pluginStatistics: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
     runtimeSettling: Boolean,
+    installing: Boolean,
     sortable: Boolean,
   },
   emits: [
@@ -186,6 +187,7 @@ const PluginMixedSortCardStub = defineComponent({
         type === 'plugin' ? h('output', { 'aria-label': `repo-${id}` }, data?.repo_url || '') : null,
         type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
         type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
+        type === 'plugin' ? h('output', { 'aria-label': `installing-${id}` }, String(props.installing)) : null,
         type === 'plugin'
           ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
           : null,
@@ -1370,6 +1372,51 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
   })
 
+  it('reuses the inspected source snapshot when installing from the detail dialog', async () => {
+    let sourceOptionRequests = 0
+    let installRequests = 0
+    const target = createPlugin({ id: 'InspectedPlugin', plugin_name: '已检查来源插件' })
+    const sourceOptions: PluginSourceOptions = {
+      plugin_id: 'InspectedPlugin',
+      inventory_complete: true,
+      selection_status: 'selected',
+      selection_reason: '',
+      identity: null,
+      candidates: [
+        {
+          source_type: 'official',
+          source_key: 'github:jxxghp/moviepilot-plugins',
+          repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+          package_generation: 'v3',
+          plugin_version: '1.0.0',
+        },
+      ],
+    }
+    await renderList({
+      market: () => [target],
+      sourceOptions: () => {
+        sourceOptionRequests += 1
+        return sourceOptions
+      },
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('InspectedPlugin'), () => {
+        installRequests += 1
+        return apiJson(null)
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.(undefined, undefined, sourceOptions)
+
+    expect(sourceOptionRequests).toBe(0)
+    expect(installRequests).toBe(1)
+    expect(getHeaderConfig().modelValue.value).toBe('installed')
+    await waitForRequestsToFinish()
+  })
+
   it('opens source selection instead of silently installing a conflicting plugin ID', async () => {
     let installRequests = 0
     const target = createPlugin({ id: 'ConflictPlugin', plugin_name: '重名插件' })
@@ -1450,8 +1497,9 @@ describe('PluginCardListView search installation', () => {
 
     expect(await screen.findByText('plugin:后台安装插件')).toBeInTheDocument()
     expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
-    expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('source_missing')
+    expect(screen.getByLabelText('runtime-PendingPlugin')).toBeEmptyDOMElement()
     expect(screen.getByLabelText('settling-PendingPlugin')).toHaveTextContent('true')
+    expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('true')
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
 
     installGate.resolve()

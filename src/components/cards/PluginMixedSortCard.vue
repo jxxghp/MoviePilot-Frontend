@@ -17,6 +17,7 @@ interface Props {
   showRemoveButton?: boolean
   sortable?: boolean
   runtimeSettling?: boolean
+  installing?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
   showRemoveButton: false,
   sortable: false,
   runtimeSettling: false,
+  installing: false,
 })
 
 const emit = defineEmits<{
@@ -111,6 +113,7 @@ function handleDropToFolder(event: DragEvent) {
         :action="pluginActions[item.id] || false"
         :sortable="sortable"
         :runtime-settling="runtimeSettling"
+        :installing="installing"
         @remove="$emit('refreshData')"
         @save="$emit('refreshData')"
         @rating="$emit('rating', $event)"

@@ -37,6 +37,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  installing: {
+    type: Boolean,
+    default: false,
+  },
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -73,6 +77,7 @@ const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_s
 const showRuntimeStatusDot = computed(() => !runtimeStatus.value || runtimeStatus.value === 'active')
 const runtimeStatusDotColor = computed(() => (props.plugin?.state ? 'success' : 'secondary'))
 const runtimeStatusText = computed(() => {
+  if (props.installing) return t('plugin.installingPlugin')
   const status = runtimeStatus.value
   const statusKey = status
     ? (runtimePending.value ? runtimePendingStatusKeys : runtimeUnavailableStatusKeys)[status]
