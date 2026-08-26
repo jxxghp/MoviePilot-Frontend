@@ -164,7 +164,7 @@ describe('PluginVersionHistoryDialog', () => {
     })
 
     expect(await screen.findByRole('button', { name: '绑定来源' })).toBeInTheDocument()
-    expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(await screen.findByText('当前插件尚未绑定更新来源，请选择可信仓库。')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '安装' })).not.toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
 

@@ -139,7 +139,7 @@ describe('PluginMarketDetailDialog', () => {
           ...defaultSourceOptions,
           identity: null,
           selection_status: 'conflict',
-          selection_reason: '未安装插件存在多个在线来源，不能静默选择',
+          selection_reason: '该插件存在多个在线来源，请确认来源后安装。',
           candidates: [
             defaultSourceOptions.candidates[0],
             {
@@ -156,7 +156,9 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: false })
 
-    expect(await screen.findByText('未安装插件存在多个在线来源，不能静默选择')).toBeInTheDocument()
+    expect(await screen.findByText('检测到多个同名插件，请选择安装来源。')).toBeInTheDocument()
+    expect(screen.getByText('需选择')).toBeInTheDocument()
+    expect(screen.queryByText('该插件存在多个在线来源，请确认来源后安装。')).not.toBeInTheDocument()
     const installButton = screen.getByRole('button', { name: '安装到本地' })
     expect(installButton).toBeEnabled()
 
@@ -207,10 +209,10 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
-    expect(await screen.findByText('自动更新来源')).toBeInTheDocument()
+    expect(await screen.findByText('更新来源')).toBeInTheDocument()
     expect(screen.getByText('jxxghp/moviepilot-plugins')).toBeInTheDocument()
     expect(screen.getByText('官方')).toBeInTheDocument()
-    expect(screen.getByText('当前载荷')).toBeInTheDocument()
+    expect(screen.getByText('当前运行来源')).toBeInTheDocument()
     expect(screen.getByText('本地')).toBeInTheDocument()
 
     await fireEvent.click(screen.getByRole('button', { name: '更换来源' }))
@@ -295,7 +297,7 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
-    expect(await screen.findByText('当前插件尚未绑定自动更新来源，请选择可信仓库。')).toBeInTheDocument()
+    expect(await screen.findByText('当前插件尚未绑定更新来源，请选择可信仓库。')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
     await fireEvent.click(screen.getByRole('button', { name: '绑定来源' }))
     await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))

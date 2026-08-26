@@ -516,6 +516,9 @@ onUnmounted(() => {
             <div>
               <h3 id="plugin-source-title" class="plugin-market-detail-source__title">
                 {{ t('plugin.source') }}
+                <VChip v-if="sourceNeedsSelection" size="x-small" color="warning" variant="tonal">
+                  {{ t('plugin.sourceSelectionRequired') }}
+                </VChip>
               </h3>
               <p class="plugin-market-detail-source__hint">
                 {{
@@ -558,8 +561,8 @@ onUnmounted(() => {
             </dl>
 
             <VAlert
-              v-if="sourceNeedsSelection || sourceNeedsInitialBinding || sourceUnavailable"
-              :type="sourceNeedsSelection || sourceNeedsInitialBinding ? 'warning' : 'error'"
+              v-if="sourceNeedsInitialBinding || sourceUnavailable"
+              :type="sourceNeedsInitialBinding ? 'warning' : 'error'"
               variant="tonal"
               density="compact"
               class="mb-3"
@@ -757,6 +760,9 @@ onUnmounted(() => {
 }
 
 .plugin-market-detail-source__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.4;

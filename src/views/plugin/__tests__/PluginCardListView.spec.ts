@@ -1458,7 +1458,7 @@ describe('PluginCardListView search installation', () => {
         plugin_id: pluginId,
         inventory_complete: true,
         selection_status: 'conflict',
-        selection_reason: '未安装插件存在多个在线来源，不能静默选择',
+        selection_reason: '该插件存在多个在线来源，请确认来源后安装。',
         identity: null,
         candidates: [
           {
