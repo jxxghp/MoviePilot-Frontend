@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   error: vi.fn(),
   isRestarting: { value: false },
-  warning: vi.fn(),
 }))
 
 vi.mock('@/composables/useSystemRestart', () => ({
@@ -20,7 +19,7 @@ vi.mock('vue-i18n', async importOriginal => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.error, warning: mocks.warning }),
+  useToast: () => ({ error: mocks.error }),
 }))
 
 describe('OfflinePage', () => {
@@ -29,7 +28,6 @@ describe('OfflinePage', () => {
 
   beforeEach(() => {
     mocks.error.mockReset()
-    mocks.warning.mockReset()
     mocks.isRestarting.value = false
     status.markServerOnline()
     wrapper = mount(OfflinePage)
@@ -40,19 +38,23 @@ describe('OfflinePage', () => {
     status.markServerOnline()
   })
 
-  it('同一轮 checking 状态只提示一次，并使用非阻断警告', async () => {
+  it('连接检查期间保持静默，确认离线后才显示错误', async () => {
     status.markConnectionChecking('network-error')
     await nextTick()
 
-    expect(mocks.warning).toHaveBeenCalledWith('app.connectionChecking：app.connectionCheckingMessage', {
-      timeout: 5000,
-    })
+    expect(mocks.error).not.toHaveBeenCalled()
 
     status.markConnectionChecking('timeout')
     await nextTick()
 
-    expect(mocks.warning).toHaveBeenCalledTimes(1)
     expect(mocks.error).not.toHaveBeenCalled()
+
+    status.markServerOffline('timeout')
+    await nextTick()
+
+    expect(mocks.error).toHaveBeenCalledWith('app.serviceUnavailable：app.serviceTimeoutMessage', {
+      timeout: 7000,
+    })
   })
 
   it('按离线原因显示错误，并允许不同离线状态分别提示', async () => {
@@ -76,42 +78,39 @@ describe('OfflinePage', () => {
     expect(mocks.error).toHaveBeenNthCalledWith(3, 'app.serviceUnavailable：app.serviceUnavailableMessage', {
       timeout: 7000,
     })
-    expect(mocks.warning).not.toHaveBeenCalled()
   })
 
-  it('在线恢复后允许下一轮 checking 再次提示', async () => {
-    status.markConnectionChecking()
+  it('在线恢复后允许下一轮离线提示重新出现', async () => {
+    status.markServerOffline()
     await nextTick()
-    expect(mocks.warning).toHaveBeenCalledTimes(1)
+    expect(mocks.error).toHaveBeenCalledTimes(1)
 
     status.markServerOnline()
     await nextTick()
-    status.markConnectionChecking()
+    status.markServerOffline()
     await nextTick()
 
-    expect(mocks.warning).toHaveBeenCalledTimes(2)
+    expect(mocks.error).toHaveBeenCalledTimes(2)
   })
 
   it('重启期间不提示，但在线恢复仍清空上一轮去重状态', async () => {
-    status.markConnectionChecking()
+    status.markServerOffline()
     await nextTick()
-    expect(mocks.warning).toHaveBeenCalledTimes(1)
+    expect(mocks.error).toHaveBeenCalledTimes(1)
 
     mocks.isRestarting.value = true
     status.markServerOffline('timeout')
     await nextTick()
-    expect(mocks.error).not.toHaveBeenCalled()
-    expect(mocks.warning).toHaveBeenCalledTimes(1)
+    expect(mocks.error).toHaveBeenCalledTimes(1)
 
     status.markServerOnline()
     await nextTick()
-    expect(mocks.error).not.toHaveBeenCalled()
-    expect(mocks.warning).toHaveBeenCalledTimes(1)
+    expect(mocks.error).toHaveBeenCalledTimes(1)
 
     mocks.isRestarting.value = false
-    status.markConnectionChecking()
+    status.markServerOffline()
     await nextTick()
 
-    expect(mocks.warning).toHaveBeenCalledTimes(2)
+    expect(mocks.error).toHaveBeenCalledTimes(2)
   })
 })
