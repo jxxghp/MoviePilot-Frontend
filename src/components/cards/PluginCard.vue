@@ -307,7 +307,7 @@ async function resetPlugin() {
 }
 
 // 更新插件
-async function updatePlugin(releaseVersion?: string) {
+async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
   if (!releaseVersion && props.plugin?.system_version_compatible === false) {
     $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
     return
@@ -338,6 +338,7 @@ async function updatePlugin(releaseVersion?: string) {
       params: {
         release_version: releaseVersion,
         force: true,
+        ...(repoUrl ? { repo_url: repoUrl } : {}),
       },
     })
 
