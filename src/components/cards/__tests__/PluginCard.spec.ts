@@ -189,6 +189,7 @@ describe('PluginCard lifecycle actions', () => {
       params: {
         force: true,
         release_version: '0.9.0',
+        repo_url: 'https://github.com/example/releases',
       },
     })
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))

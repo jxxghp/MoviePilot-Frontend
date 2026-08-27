@@ -655,6 +655,7 @@ describe('PluginMarketDetailDialog', () => {
       params: {
         force: true,
         release_version: undefined,
+        repo_url: 'https://github.com/example/releases',
       },
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')

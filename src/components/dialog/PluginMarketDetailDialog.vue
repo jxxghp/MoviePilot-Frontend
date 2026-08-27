@@ -369,6 +369,7 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
         params: {
           release_version: releaseVersion,
           force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
+          ...(selectedRepoUrl ? { repo_url: selectedRepoUrl } : {}),
         },
         feedback: 'silent',
       })
