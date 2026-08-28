@@ -41,6 +41,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  updating: {
+    type: Boolean,
+    default: false,
+  },
 })
 const globalSettingsStore = useGlobalSettingsStore()
 const pluginRuntimeStore = usePluginRuntimeStore()
@@ -52,6 +56,7 @@ const emit = defineEmits<{
   actionDone: []
   rating: [pluginRating: PluginRating]
   sourceTransition: [plugin: Plugin, transition: PluginSourceTransition]
+  update: [plugin: Plugin, releaseVersion?: string, repoUrl?: string]
 }>()
 
 // 多语言
@@ -110,7 +115,9 @@ const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_s
 const showRuntimeStatusDot = computed(() => !runtimeStatus.value || runtimeStatus.value === 'active')
 const runtimeStatusDotColor = computed(() => (props.plugin?.state ? 'success' : 'secondary'))
 const runtimeStatusText = computed(() => {
-  if (props.installing) return t('plugin.installingPlugin')
+  if (props.installing) {
+    return props.updating ? t('plugin.updating', { name: props.plugin?.plugin_name }) : t('plugin.installingPlugin')
+  }
   const status = runtimeStatus.value
   const statusKey = status
     ? (runtimePending.value ? runtimePendingStatusKeys : runtimeUnavailableStatusKeys)[status]
@@ -331,41 +338,9 @@ async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
     if (!isConfirmed) return
   }
 
-  try {
-    showPluginProgress(
-      releaseVersion
-        ? t('plugin.installing', { name: props.plugin?.plugin_name, version: releaseVersion })
-        : t('plugin.updating', { name: props.plugin?.plugin_name }),
-    )
-
-    await api.get(`plugin/install/${props.plugin?.id}`, {
-      feedback: 'silent',
-      params: {
-        release_version: releaseVersion,
-        force: true,
-        ...(repoUrl ? { repo_url: repoUrl } : {}),
-      },
-    })
-
-    $toast.success(t('plugin.updateSuccess', { name: props.plugin?.plugin_name }))
-    void pluginRuntimeStore.refreshNow()
-    versionHistoryDialogController?.close()
-    versionHistoryDialogController = null
-
-    emit('save')
-    // 生命周期成功后刷新动态导航。
-    void pluginSidebarNavStore.ensureSidebarNav(true)
-  } catch (error) {
-    $toast.error(
-      t('plugin.updateFailed', {
-        name: props.plugin?.plugin_name,
-        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
-      }),
-    )
-    console.error(error)
-  } finally {
-    closePluginProgress()
-  }
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = null
+  if (props.plugin) emit('update', props.plugin, releaseVersion, repoUrl)
 }
 
 /** 将 raw.githubusercontent.com 插件地址转换为可访问的 GitHub 项目主页。 */

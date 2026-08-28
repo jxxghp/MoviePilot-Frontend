@@ -2,7 +2,13 @@
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
 import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
-import type { Plugin, PluginRating, PluginSourceCandidate, PluginSourceOptions } from '@/api/types'
+import type {
+  Plugin,
+  PluginInstallOutcome,
+  PluginRating,
+  PluginSourceCandidate,
+  PluginSourceOptions,
+} from '@/api/types'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import PluginRatingDisplay from '@/components/common/PluginRatingDisplay.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
@@ -360,14 +366,15 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
           }),
     )
 
+    let outcome: PluginInstallOutcome | null
     if (!isInstalled.value && explicitSource?.repo_url) {
-      await installPluginFromSource(props.plugin.id, {
+      outcome = await installPluginFromSource(props.plugin.id, {
         repo_url: explicitSource.repo_url,
         release_version: releaseVersion,
         force: Boolean(props.plugin?.has_update || releaseVersion),
       })
     } else {
-      await api.get(`plugin/install/${props.plugin?.id}`, {
+      outcome = await api.get<PluginInstallOutcome | null>(`plugin/install/${props.plugin?.id}`, {
         params: {
           release_version: releaseVersion,
           force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
@@ -377,11 +384,11 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       })
     }
 
-    $toast.success(
-      isInstalled.value
-        ? t('plugin.updateSuccess', { name: props.plugin?.plugin_name })
-        : t('plugin.installSuccess', { name: props.plugin?.plugin_name }),
-    )
+    const toastKey = isInstalled.value ? 'plugin.updateSuccess' : 'plugin.installSuccess'
+    const restartToastKey = isInstalled.value ? 'plugin.updateRestartRequired' : 'plugin.installRestartRequired'
+    const toast = t(outcome?.restart_required ? restartToastKey : toastKey, { name: props.plugin?.plugin_name })
+    if (outcome?.restart_required) $toast.warning(toast)
+    else $toast.success(toast)
     void pluginRuntimeStore.refreshNow()
     versionHistoryDialogController?.close()
     versionHistoryDialogController = null

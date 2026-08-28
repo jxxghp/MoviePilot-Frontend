@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
-import type { Plugin, PluginSourceOptions } from '@/api/types'
+import type { Plugin, PluginInstallOutcome, PluginSourceOptions } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { useGlobalSettingsStore } from '@/stores'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
@@ -11,6 +11,7 @@ import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 
 const PluginMarketDetailDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketDetailDialog.vue'))
 const PluginVersionHistoryDialog = defineAsyncComponent(
@@ -29,6 +30,7 @@ const props = defineProps({
   installHandler: Function as PropType<InstallHandler>,
 })
 const globalSettingsStore = useGlobalSettingsStore()
+const pluginRuntimeStore = usePluginRuntimeStore()
 
 // 定义触发的自定义事件
 const emit = defineEmits(['install'])
@@ -164,7 +166,7 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       }),
     )
 
-    await api.get(`plugin/install/${props.plugin?.id}`, {
+    const outcome = await api.get<PluginInstallOutcome | null>(`plugin/install/${props.plugin?.id}`, {
       feedback: 'silent',
       params: {
         release_version: releaseVersion,
@@ -172,7 +174,12 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
       },
     })
 
-    $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
+    if (outcome?.restart_required) {
+      $toast.warning(t('plugin.installRestartRequired', { name: props.plugin?.plugin_name }))
+    } else {
+      $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
+    }
+    void pluginRuntimeStore.refreshNow()
     versionHistoryDialogController?.close()
     versionHistoryDialogController = null
     emit('install')

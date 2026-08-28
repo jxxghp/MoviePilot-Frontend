@@ -3,7 +3,13 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import { changePluginSource, getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
-import type { Plugin, PluginRating, PluginSourceOptions, PluginSourceTransition } from '@/api/types'
+import type {
+  Plugin,
+  PluginInstallOutcome,
+  PluginRating,
+  PluginSourceOptions,
+  PluginSourceTransition,
+} from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
@@ -223,6 +229,7 @@ const isMarketRefreshing = ref(false)
 
 const pluginRuntimeSummary = computed(() => pluginRuntimeStore.summary)
 const installingPluginIds = ref(new Set<string>())
+const updatingPluginIds = ref(new Set<string>())
 const isPluginPageActive = ref(false)
 const appliedRuntimeReconciliation = ref(0)
 
@@ -867,11 +874,15 @@ async function installPlugin(
   }
 
   installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
+  if (item.installed) updatingPluginIds.value = new Set([...updatingPluginIds.value, pluginId])
 
   const releaseInstallReservation = () => {
     const pending = new Set(installingPluginIds.value)
     pending.delete(pluginId)
     installingPluginIds.value = pending
+    const updating = new Set(updatingPluginIds.value)
+    updating.delete(pluginId)
+    updatingPluginIds.value = updating
   }
 
   let useExplicitSource = false
@@ -928,14 +939,15 @@ async function installPlugin(
   pluginDialogClose()
 
   try {
+    let outcome: PluginInstallOutcome | null
     if (useExplicitSource && repoUrl) {
-      await installPluginFromSource(pluginId, {
+      outcome = await installPluginFromSource(pluginId, {
         repo_url: repoUrl,
         release_version: releaseVersion,
         force: Boolean(item?.has_update || releaseVersion),
       })
     } else {
-      await api.get(`plugin/install/${pluginId}`, {
+      outcome = await api.get<PluginInstallOutcome | null>(`plugin/install/${pluginId}`, {
         params: {
           release_version: releaseVersion,
           force: item?.has_update || Boolean(releaseVersion),
@@ -943,16 +955,18 @@ async function installPlugin(
         feedback: 'silent',
       })
     }
-    $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
+    const toastKey = item.installed ? 'plugin.updateSuccess' : 'plugin.installSuccess'
+    const restartToastKey = item.installed ? 'plugin.updateRestartRequired' : 'plugin.installRestartRequired'
+    const toast = t(outcome?.restart_required ? restartToastKey : toastKey, { name: item?.plugin_name })
+    if (outcome?.restart_required) $toast.warning(toast)
+    else $toast.success(toast)
     if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
     await pluginSidebarNavStore.ensureSidebarNav(true)
     await nextTick()
     if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
   } catch (error) {
-    const pending = new Set(installingPluginIds.value)
-    pending.delete(pluginId)
-    installingPluginIds.value = pending
+    releaseInstallReservation()
     const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
     if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
     dataList.value = nextData
@@ -960,7 +974,7 @@ async function installPlugin(
     if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
     console.error(error)
     $toast.error(
-      t('plugin.installFailed', {
+      t(item.installed ? 'plugin.updateFailed' : 'plugin.installFailed', {
         name: item?.plugin_name,
         message: getApiBusinessErrorMessage(error) || (error instanceof Error ? error.message : ''),
       }),
@@ -968,9 +982,7 @@ async function installPlugin(
     // 列表校准不能延迟失败反馈，网络异常时也要立即告诉用户安装事务已回滚。
     void fetchInstalledPlugins({ silent: true })
   } finally {
-    const pending = new Set(installingPluginIds.value)
-    pending.delete(pluginId)
-    installingPluginIds.value = pending
+    releaseInstallReservation()
   }
 }
 
@@ -980,23 +992,26 @@ async function transitionPluginSource(item: Plugin, transition: PluginSourceTran
   if (!pluginId || installingPluginIds.value.has(pluginId)) return
 
   installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
+  updatingPluginIds.value = new Set([...updatingPluginIds.value, pluginId])
   try {
+    let outcome: PluginInstallOutcome | null
     if (transition.action === 'bind') {
-      await installPluginFromSource(pluginId, {
+      outcome = await installPluginFromSource(pluginId, {
         repo_url: transition.repo_url,
         force: true,
       })
     } else {
-      await changePluginSource(pluginId, {
+      outcome = await changePluginSource(pluginId, {
         repo_url: transition.repo_url,
         expected_revision: transition.expected_revision,
       })
     }
-    $toast.success(
-      t(transition.action === 'bind' ? 'plugin.sourceBindSuccess' : 'plugin.sourceChangeSuccess', {
-        name: item.plugin_name,
-      }),
-    )
+    const toastKey = transition.action === 'bind' ? 'plugin.sourceBindSuccess' : 'plugin.sourceChangeSuccess'
+    const restartToastKey =
+      transition.action === 'bind' ? 'plugin.installRestartRequired' : 'plugin.sourceChangeRestartRequired'
+    const toast = t(outcome?.restart_required ? restartToastKey : toastKey, { name: item.plugin_name })
+    if (outcome?.restart_required) $toast.warning(toast)
+    else $toast.success(toast)
     if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
     await pluginSidebarNavStore.ensureSidebarNav(true)
@@ -1013,6 +1028,9 @@ async function transitionPluginSource(item: Plugin, transition: PluginSourceTran
     const pending = new Set(installingPluginIds.value)
     pending.delete(pluginId)
     installingPluginIds.value = pending
+    const updating = new Set(updatingPluginIds.value)
+    updating.delete(pluginId)
+    updatingPluginIds.value = updating
   }
 }
 
@@ -2292,6 +2310,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(element.id)"
                     :installing="installingPluginIds.has(element.id)"
+                    :updating="updatingPluginIds.has(element.id)"
                     :sortable="true"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2300,6 +2319,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
                     @source-transition="transitionPluginSource"
+                    @update="installPlugin"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2324,6 +2344,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(item.id)"
                     :installing="installingPluginIds.has(item.id)"
+                    :updating="updatingPluginIds.has(item.id)"
                     :sortable="false"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
@@ -2332,6 +2353,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
                     @source-transition="transitionPluginSource"
+                    @update="installPlugin"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2362,11 +2384,13 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(element.id)"
                     :installing="installingPluginIds.has(element.id)"
+                    :updating="updatingPluginIds.has(element.id)"
                     :sortable="true"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
                     @source-transition="transitionPluginSource"
+                    @update="installPlugin"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false
@@ -2390,11 +2414,13 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :plugin-actions="pluginActions"
                     :runtime-settling="isPluginRuntimeSettling(item.id)"
                     :installing="installingPluginIds.has(item.id)"
+                    :updating="updatingPluginIds.has(item.id)"
                     :sortable="false"
                     :show-remove-button="true"
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
                     @source-transition="transitionPluginSource"
+                    @update="installPlugin"
                     @action-done="
                       pluginId => {
                         pluginActions[pluginId] = false

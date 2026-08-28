@@ -19,7 +19,6 @@ function createSummary(overrides: Partial<PluginRuntimeSummary> = {}): PluginRun
     generation: 1,
     pending_count: 0,
     ready: true,
-    restart_required: false,
     restart_required_plugin_ids: [],
     ...overrides,
   }
@@ -119,7 +118,6 @@ describe('plugin runtime store', () => {
       .mockResolvedValueOnce(
         createSummary({
           generation: 3,
-          restart_required: true,
           restart_required_plugin_ids: ['DemoPlugin'],
         }),
       )
@@ -132,7 +130,6 @@ describe('plugin runtime store', () => {
     expect(store.summary).toEqual(
       createSummary({
         generation: 3,
-        restart_required: true,
         restart_required_plugin_ids: ['DemoPlugin'],
       }),
     )
