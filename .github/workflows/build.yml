@@ -104,21 +104,38 @@ jobs:
             rm -f "$delete_response" "$delete_error"
           fi
 
-          tag_response=$(mktemp)
-          tag_error=$(mktemp)
+          tag_query_response=$(mktemp)
+          tag_query_error=$(mktemp)
           set +e
-          gh api --include --silent --method DELETE \
-            "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG_NAME}" \
-            > "$tag_response" 2> "$tag_error"
+          gh api --include \
+            "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}" \
+            > "$tag_query_response" 2> "$tag_query_error"
           set -e
-          tag_status=$(awk 'NR == 1 { print $2; exit }' "$tag_response")
-          if [ "$tag_status" != "204" ] && [ "$tag_status" != "404" ]; then
-            echo "Unable to delete tag ${TAG_NAME} (HTTP ${tag_status:-unknown})" >&2
-            cat "$tag_error" >&2
-            rm -f "$tag_response" "$tag_error"
+          tag_query_status=$(awk 'NR == 1 { print $2; exit }' "$tag_query_response")
+          if [ "$tag_query_status" = "200" ]; then
+            tag_delete_response=$(mktemp)
+            tag_delete_error=$(mktemp)
+            set +e
+            gh api --include --silent --method DELETE \
+              "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG_NAME}" \
+              > "$tag_delete_response" 2> "$tag_delete_error"
+            set -e
+            tag_delete_status=$(awk 'NR == 1 { print $2; exit }' "$tag_delete_response")
+            if [ "$tag_delete_status" != "204" ]; then
+              echo "Unable to delete tag ${TAG_NAME} (HTTP ${tag_delete_status:-unknown})" >&2
+              cat "$tag_delete_error" >&2
+              rm -f "$tag_delete_response" "$tag_delete_error"
+              rm -f "$tag_query_response" "$tag_query_error"
+              exit 1
+            fi
+            rm -f "$tag_delete_response" "$tag_delete_error"
+          elif [ "$tag_query_status" != "404" ]; then
+            echo "Unable to query tag ${TAG_NAME} (HTTP ${tag_query_status:-unknown})" >&2
+            cat "$tag_query_error" >&2
+            rm -f "$tag_query_response" "$tag_query_error"
             exit 1
           fi
-          rm -f "$tag_response" "$tag_error"
+          rm -f "$tag_query_response" "$tag_query_error"
 
           gh release create "$TAG_NAME" \
             --repo "$GITHUB_REPOSITORY" \
