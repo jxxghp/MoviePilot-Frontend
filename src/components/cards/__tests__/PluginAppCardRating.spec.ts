@@ -201,9 +201,7 @@ describe('PluginAppCard rating badge', () => {
     const dialogEvents = mocks.openSharedDialog.mock.calls[0][2] as { update: () => Promise<void> }
     await dialogEvents.update()
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      '插件 演示插件 已安装，重启 MoviePilot 后完成依赖更新',
-    )
+    expect(mocks.toastWarning).toHaveBeenCalledWith('插件 演示插件 已安装，重启 MoviePilot 后完成依赖更新')
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
