@@ -2,7 +2,12 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
-import { changePluginSource, getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
+import {
+  changePluginSource,
+  getPluginSourceOptions,
+  installPluginFromSource,
+  requiresExplicitPluginSourceInstall,
+} from '@/api/pluginSource'
 import type {
   Plugin,
   PluginInstallOutcome,
@@ -888,12 +893,17 @@ async function installPlugin(
   let useExplicitSource = false
   try {
     const sourceOptions = inspectedSourceOptions || (await getPluginSourceOptions(pluginId))
-    if (sourceOptions.selection_status === 'conflict') {
-      if (!repoUrl) {
-        releaseInstallReservation()
-        openPluginMarketDetail(item)
-        return
-      }
+    const sourceRequiresExplicitInstall =
+      sourceOptions.selection_status === 'conflict' ||
+      (sourceOptions.selection_status === 'incomplete' &&
+        requiresExplicitPluginSourceInstall(sourceOptions, Boolean(item.installed)))
+    if (sourceRequiresExplicitInstall && !repoUrl) {
+      releaseInstallReservation()
+      openPluginMarketDetail(item)
+      return
+    }
+    if (repoUrl) {
+      // 上层确认的仓库必须属于同一来源快照，避免用户选择在安装事务中被静默丢弃。
       const selectedCandidate = sourceOptions.candidates.find(
         candidate => candidate.repo_url === repoUrl && candidate.source_type !== 'local',
       )

@@ -185,6 +185,77 @@ describe('PluginMarketDetailDialog', () => {
     expect(emitted().install).toHaveLength(1)
   })
 
+  it('reinstalls an unbound market plugin after explicitly confirming its repository', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'incomplete',
+          selection_reason: '当前插件尚未绑定仓库',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'unknown',
+            trusted_source_key: null,
+            binding_basis: 'legacy_unbound',
+            payload_source_type: 'unknown',
+            payload_source_key: null,
+            revision: 2,
+          },
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: false })
+
+    expect(await screen.findByText('当前插件尚未绑定，请选择仓库。')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /example\/plugins/ })).toBeChecked()
+    const installButton = screen.getByRole('button', { name: '安装到本地' })
+    expect(installButton).toBeEnabled()
+
+    await fireEvent.click(installButton)
+
+    await waitFor(() => {
+      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
+        repo_url: 'https://github.com/example/plugins',
+        release_version: undefined,
+        force: false,
+      })
+    })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+    expect(emitted().install).toHaveLength(1)
+  })
+
+  it('keeps an unbound market plugin unavailable when no online repository is known', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'incomplete',
+          selection_reason: '当前插件尚未绑定仓库',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'unknown',
+            trusted_source_key: null,
+            binding_basis: 'legacy_unbound',
+            payload_source_type: 'unknown',
+            payload_source_key: null,
+            revision: 2,
+          },
+          candidates: [],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    await renderDialog({ ...basePlugin, installed: false })
+
+    expect(await screen.findByText('当前插件尚未绑定仓库')).toBeInTheDocument()
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '安装到本地' })).toBeDisabled()
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
   it('shows trusted and local payload sources separately and changes source with the current revision', async () => {
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
