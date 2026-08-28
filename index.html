@@ -38,13 +38,21 @@
     <meta name="referrer" content="no-referrer" />
 
     <!-- PWA - 基础图标 -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="64x64" />
-    <link rel="icon" type="image/png" href="/logo.png" sizes="192x192" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48 64x64 128x128 256x256" />
+    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
+    <link rel="icon" type="image/png" href="/logo.png" sizes="512x512" />
     <link id="theme-favicon" rel="icon" type="image/svg+xml" href="/logo.svg" sizes="any" />
+    <link rel="mask-icon" href="/logo.svg" color="#8D51F9" />
 
-    <!-- iOS Safari PWA 优化 -->
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Apple Touch 与 Windows 磁贴图标 -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" sizes="180x180" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-167x167.png" sizes="167x167" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-152x152.png" sizes="152x152" />
     <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png" />
+    <meta name="msapplication-TileColor" content="#07091F" />
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
     <!--
     iOS still matches launch images by the physical device resolution. Keep
     these links static in <head>; inserting them after JavaScript starts is too
@@ -622,7 +630,7 @@
 
       let logoSvgSourcePromise
       let pendingFaviconColor = '#8D51F9'
-      const themeLogoCacheKey = 'moviepilot-themed-logo-cache'
+      const themeLogoCacheKey = 'moviepilot-themed-logo-cache-v2'
 
       const sourceLogoPalette = {
         'rgb(141,81,249)': 'primary',

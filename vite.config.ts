@@ -141,6 +141,18 @@ export default defineConfig(({ command, mode, isPreview }) => ({
               'type': 'image/png',
               'purpose': 'maskable',
             },
+            {
+              'src': './pwa-1024x1024.png',
+              'sizes': '1024x1024',
+              'type': 'image/png',
+              'purpose': 'any',
+            },
+            {
+              'src': './pwa-1024x1024_maskable.png',
+              'sizes': '1024x1024',
+              'type': 'image/png',
+              'purpose': 'maskable',
+            },
           ],
           'theme_color': '#0E1116',
           'background_color': '#0E1116',

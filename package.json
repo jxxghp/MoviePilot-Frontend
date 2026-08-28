@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "vite --host",
     "dev:pwa": "vite --host --port 5174",
-    "prebuild": "npm run build:icons && npm run generate:pwa-splash",
+    "prebuild": "npm run build:icons && npm run generate:pwa-icons && npm run generate:pwa-splash",
     "build": "vite build",
+    "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "generate:pwa-splash": "node scripts/generate-pwa-splash.mjs",
     "preview": "vite preview --port 5050",
     "test": "vitest",
