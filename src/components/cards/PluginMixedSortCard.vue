@@ -18,6 +18,7 @@ interface Props {
   sortable?: boolean
   runtimeSettling?: boolean
   installing?: boolean
+  updating?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,6 +28,7 @@ const props = withDefaults(defineProps<Props>(), {
   sortable: false,
   runtimeSettling: false,
   installing: false,
+  updating: false,
 })
 
 const emit = defineEmits<{
@@ -37,6 +39,7 @@ const emit = defineEmits<{
   refreshData: []
   rating: [pluginRating: PluginRating]
   sourceTransition: [plugin: Plugin, transition: PluginSourceTransition]
+  update: [plugin: Plugin, releaseVersion?: string, repoUrl?: string]
   actionDone: [pluginId: string]
   removeFromFolder: [pluginId: string]
   dropToFolder: [event: DragEvent, folderName: string]
@@ -115,10 +118,12 @@ function handleDropToFolder(event: DragEvent) {
         :sortable="sortable"
         :runtime-settling="runtimeSettling"
         :installing="installing"
+        :updating="updating"
         @remove="$emit('refreshData')"
         @save="$emit('refreshData')"
         @rating="$emit('rating', $event)"
         @source-transition="(plugin, transition) => $emit('sourceTransition', plugin, transition)"
+        @update="(plugin, releaseVersion, repoUrl) => $emit('update', plugin, releaseVersion, repoUrl)"
         @action-done="$emit('actionDone', item.id)"
       />
 

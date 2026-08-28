@@ -1,6 +1,7 @@
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import type { Plugin, PluginRating, PluginSourceOptions } from '@/api/types'
 import PluginMarketDetailDialog from '@/components/dialog/PluginMarketDetailDialog.vue'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import type { Stubs } from '@vue/test-utils'
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -25,7 +27,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess, warning: mocks.toastWarning }),
 }))
 
 vi.mock('@/composables/useSharedDialog', () => ({
@@ -120,6 +122,7 @@ describe('PluginMarketDetailDialog', () => {
     })
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
+    mocks.toastWarning.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
@@ -498,7 +501,8 @@ describe('PluginMarketDetailDialog', () => {
   })
 
   it('emits installation completion only after installation succeeds', async () => {
-    const { emitted } = await renderDialog({ ...basePlugin, installed: false })
+    const { emitted, pinia } = await renderDialog({ ...basePlugin, installed: false })
+    const runtimeStore = usePluginRuntimeStore(pinia)
 
     await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
 
@@ -517,9 +521,22 @@ describe('PluginMarketDetailDialog', () => {
       }),
     )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 安装成功！')
+    expect(runtimeStore.refreshNow).toHaveBeenCalledOnce()
     expect(emitted().install).toHaveLength(1)
     expect(emitted()['update:modelValue']).toContainEqual([false])
     expect(mocks.dialogClose).toHaveBeenCalled()
+  })
+
+  it('uses a warning when an explicit-source install needs a restart', async () => {
+    mocks.apiPost.mockResolvedValue({ success: true, data: { restart_required: true } })
+    await renderDialog({ ...basePlugin, installed: false })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
+
+    await waitFor(() =>
+      expect(mocks.toastWarning).toHaveBeenCalledWith('插件 演示插件 已安装，重启 MoviePilot 后完成依赖更新'),
+    )
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
   it('delegates a confirmed install without calling the API itself', async () => {

@@ -47,6 +47,14 @@ export const usePluginRuntimeStore = defineStore('pluginRuntime', {
       return request
     },
 
+    /** 插件写操作完成后立即读取新摘要，并丢弃可能仍在途的旧快照。 */
+    async refreshNow(): Promise<void> {
+      const requestGeneration = ++this.requestGeneration
+      const request = this.fetchSummary(requestGeneration)
+      this.inflight = request
+      return request
+    },
+
     async fetchSummary(requestGeneration: number): Promise<void> {
       try {
         const summary = await api.get<PluginRuntimeSummary>('plugin/runtime', { feedback: 'silent' })

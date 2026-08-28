@@ -3868,6 +3868,12 @@ export default {
     sourceInstalledHint: 'Plugins are updated only from the bound repository.',
     sourceBindingRequired: 'Repository confirmation required',
     sourceBindingRequiredHint: 'This plugin has no bound repository; open About to confirm',
+    restartRequiredBadge: 'Restart to apply',
+    restartRequiredBadgeHint: 'The plugin remains available and will fully apply after MoviePilot restarts.',
+    installRestartRequired: '{name} was installed. Restart MoviePilot to finish applying dependency updates.',
+    updateRestartRequired: '{name} was updated. Restart MoviePilot to finish applying dependency updates.',
+    sourceChangeRestartRequired:
+      'The repository for {name} was changed. Restart MoviePilot to finish applying dependency updates.',
     sourceConflictHint: 'Multiple plugins share this ID. Choose a repository.',
     sourceThirdPartyHint: 'This plugin comes from a third-party repository. Confirm before installing.',
     sourceSelectionRequired: 'Selection required',

@@ -1,5 +1,6 @@
 import type { Plugin } from '@/api/types'
 import PluginCard from '@/components/cards/PluginCard.vue'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { normalizePluginAccentColor } from '@/utils/glassColor'
 import { renderWithProviders } from '@tests/support/render'
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -40,7 +42,7 @@ vi.mock('@/@core/utils/image', () => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess, warning: mocks.toastWarning }),
 }))
 
 const plugin: Plugin = {
@@ -79,6 +81,7 @@ describe('PluginCard lifecycle actions', () => {
     })
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
+    mocks.toastWarning.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
@@ -165,18 +168,15 @@ describe('PluginCard lifecycle actions', () => {
     expect(httpFailed.emitted()).not.toHaveProperty('save')
   })
 
-  it('updates from a confirmed Release with exact query parameters', async () => {
-    mocks.apiGet.mockResolvedValue({ success: true })
+  it('delegates a confirmed Release update to the list transaction owner', async () => {
     const updatablePlugin = {
       ...plugin,
       has_update: true,
       repo_url: 'https://github.com/example/plugins',
     }
-    const { container, emitted, pinia } = await renderWithProviders(PluginCard, {
+    const { container, emitted } = await renderWithProviders(PluginCard, {
       props: { plugin: updatablePlugin },
     })
-    const sidebarStore = usePluginSidebarNavStore(pinia)
-    vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
 
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('更新'))
@@ -185,19 +185,38 @@ describe('PluginCard lifecycle actions', () => {
     }
     await versionEvents.update('0.9.0', 'https://github.com/example/releases')
 
-    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/install/DemoPlugin', {
-      params: {
-        force: true,
-        release_version: '0.9.0',
-        repo_url: 'https://github.com/example/releases',
-      },
-    })
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')
-    expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
-    expect(emitted().save).toHaveLength(1)
+    expect(emitted().update).toEqual([[updatablePlugin, '0.9.0', 'https://github.com/example/releases']])
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
     expect(mocks.dialogCloses[0]).toHaveBeenCalled()
-    expect(mocks.dialogCloses[1]).toHaveBeenCalled()
+  })
+
+  it('marks a plugin whose native dependency update requires a restart without blocking its actions', async () => {
+    const { container, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.summary = {
+      failed_count: 0,
+      generation: 2,
+      pending_count: 0,
+      ready: true,
+      restart_required_plugin_ids: ['DemoPlugin'],
+    }
+
+    expect(await screen.findByText('重启后生效')).toBeInTheDocument()
+    expect(container.querySelector('.plugin-card')).not.toHaveClass('plugin-card--runtime-blocked')
+    expect(container.querySelector('.plugin-card__runtime-state')).toBeNull()
+  })
+
+  it('shows the same card-level busy state for updates without opening a progress dialog', async () => {
+    const updatablePlugin = { ...plugin, has_update: true }
+    const { container } = await renderWithProviders(PluginCard, {
+      props: { installing: true, plugin: updatablePlugin, updating: true },
+    })
+
+    expect(await screen.findByText('正在更新 演示插件 ...')).toBeInTheDocument()
+    expect(container.querySelector('.plugin-card__runtime-state .v-progress-circular')).toBeInTheDocument()
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
   })
 
   it('shows the repository type and keeps bound updates on the version history flow', async () => {
@@ -341,36 +360,6 @@ describe('PluginCard lifecycle actions', () => {
 
     expect(mocks.toastError).toHaveBeenCalledWith('需要更高版本')
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
-  })
-
-  it('keeps version history open after update business and HTTP failures', async () => {
-    const updatablePlugin = {
-      ...plugin,
-      has_update: true,
-      repo_url: 'https://github.com/example/plugins',
-    }
-    mocks.apiGet.mockResolvedValueOnce({ success: false, message: '校验失败' })
-    const businessFailed = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
-    await fireEvent.click(businessFailed.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
-    await fireEvent.click(await screen.findByText('更新'))
-    let versionEvents = mocks.openSharedDialog.mock.calls[0][2] as { update: () => Promise<void> }
-    await versionEvents.update()
-    expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 更新失败：校验失败')
-    expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()
-    expect(businessFailed.emitted()).not.toHaveProperty('save')
-    businessFailed.unmount()
-
-    mocks.openSharedDialog.mockClear()
-    mocks.dialogCloses.length = 0
-    mocks.apiGet.mockRejectedValueOnce(new Error('network unavailable'))
-    const httpFailed = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
-    await fireEvent.click(httpFailed.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
-    await fireEvent.click(await screen.findByText('更新'))
-    versionEvents = mocks.openSharedDialog.mock.calls[0][2] as { update: () => Promise<void> }
-    await versionEvents.update()
-    expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 更新失败：服务器连接失败')
-    expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()
-    expect(httpFailed.emitted()).not.toHaveProperty('save')
   })
 
   it('creates a clone with trimmed form values and refreshes navigation', async () => {

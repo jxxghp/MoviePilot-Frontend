@@ -149,6 +149,7 @@ const PluginMixedSortCardStub = defineComponent({
     pluginStatistics: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
     runtimeSettling: Boolean,
     installing: Boolean,
+    updating: Boolean,
     sortable: Boolean,
   },
   emits: [
@@ -160,6 +161,7 @@ const PluginMixedSortCardStub = defineComponent({
     'rename-folder',
     'remove-from-folder',
     'source-transition',
+    'update',
     'update-folder-config',
   ],
   setup(props, { emit }) {
@@ -173,6 +175,7 @@ const PluginMixedSortCardStub = defineComponent({
             config?: { color?: string }
             has_update?: boolean
             plugin_name?: string
+            page_open?: boolean
             repo_url?: string
             runtime_status?: Plugin['runtime_status']
             update_candidate?: Plugin['update_candidate']
@@ -193,8 +196,10 @@ const PluginMixedSortCardStub = defineComponent({
           ? h('output', { 'aria-label': `update-source-${id}` }, data?.update_candidate?.source_key || '')
           : null,
         type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
+        type === 'plugin' ? h('output', { 'aria-label': `page-open-${id}` }, String(data?.page_open ?? false)) : null,
         type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
         type === 'plugin' ? h('output', { 'aria-label': `installing-${id}` }, String(props.installing)) : null,
+        type === 'plugin' ? h('output', { 'aria-label': `updating-${id}` }, String(props.updating)) : null,
         type === 'plugin'
           ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
           : null,
@@ -204,6 +209,9 @@ const PluginMixedSortCardStub = defineComponent({
         type === 'folder'
           ? h('button', { onClick: () => emit('open-folder', id), type: 'button' }, `open-folder-${id}`)
           : h('button', { onClick: () => emit('refresh-data'), type: 'button' }, `refresh-plugin-${id}`),
+        type === 'plugin'
+          ? h('button', { onClick: () => emit('update', data), type: 'button' }, `update-plugin-${id}`)
+          : null,
         type === 'folder'
           ? h(
               'button',
@@ -442,6 +450,7 @@ function registerListHandlers(responses: ListResponses = {}) {
           generation: 0,
           pending_count: 0,
           ready: true,
+          restart_required_plugin_ids: [],
         },
       ),
     ),
@@ -1211,6 +1220,22 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
+  it('responds when a global plugin link changes the target on the active page', async () => {
+    const { router } = await renderList({
+      installed: () => [
+        createPlugin({ id: 'Alpha', installed: true, plugin_name: 'Alpha' }),
+        createPlugin({ id: 'Beta', installed: true, plugin_name: 'Beta' }),
+      ],
+    })
+    await screen.findByText('plugin:Beta')
+
+    await router.push('/plugins?id=Beta')
+
+    await waitFor(() => expect(screen.getByLabelText('page-open-Beta')).toHaveTextContent('true'))
+    expect(document.querySelector('[data-scroll-to-index]')).toHaveAttribute('data-scroll-to-index', '1')
+    await waitForRequestsToFinish()
+  })
+
   it('applies running, update, and name filters through the installed menu', async () => {
     await renderList({
       installed: () => [
@@ -1597,6 +1622,79 @@ describe('PluginCardListView search installation', () => {
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 后台安装插件 安装成功！'))
     await waitFor(() => expect(screen.getByLabelText('runtime-PendingPlugin')).toHaveTextContent('active'))
     await waitFor(() => expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('false'))
+    await waitForRequestsToFinish()
+  })
+
+  it('shows a per-plugin updating state, warns about restart, and clears the consumed update marker', async () => {
+    const updateGate = createDeferred<void>()
+    const updateStarted = createDeferred<void>()
+    let installedVersion = '1.0.0'
+    const target = createPlugin({
+      has_update: true,
+      id: 'NativeUpdatePlugin',
+      installed: true,
+      plugin_name: '原生更新插件',
+      plugin_version: '2.0.0',
+    })
+    await renderList({
+      installed: () => [
+        createPlugin({
+          id: 'NativeUpdatePlugin',
+          installed: true,
+          plugin_name: '原生更新插件',
+          plugin_version: installedVersion,
+          runtime_status: 'active',
+        }),
+      ],
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('NativeUpdatePlugin'), async () => {
+        updateStarted.resolve()
+        await updateGate.promise
+        installedVersion = '2.0.0'
+        return apiJson({ restart_required: true })
+      }),
+    )
+
+    expect(screen.getByLabelText('update-NativeUpdatePlugin')).toHaveTextContent('true')
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-NativeUpdatePlugin' }))
+    await updateStarted.promise
+
+    expect(screen.getByLabelText('installing-NativeUpdatePlugin')).toHaveTextContent('true')
+    expect(screen.getByLabelText('updating-NativeUpdatePlugin')).toHaveTextContent('true')
+    expect(mocks.toastWarning).not.toHaveBeenCalled()
+
+    updateGate.resolve()
+    await waitFor(() =>
+      expect(mocks.toastWarning).toHaveBeenCalledWith('插件 原生更新插件 已更新，重启 MoviePilot 后完成依赖更新'),
+    )
+    await waitFor(() => expect(screen.getByLabelText('update-NativeUpdatePlugin')).toHaveTextContent('false'))
+    await waitFor(() => expect(screen.getByLabelText('installing-NativeUpdatePlugin')).toHaveTextContent('false'))
+    expect(screen.getByLabelText('updating-NativeUpdatePlugin')).toHaveTextContent('false')
+    await waitForRequestsToFinish()
+  })
+
+  it('reports an update failure for an installed plugin', async () => {
+    const target = createPlugin({
+      has_update: true,
+      id: 'FailedUpdatePlugin',
+      installed: true,
+      plugin_name: '更新失败插件',
+      plugin_version: '2.0.0',
+    })
+    await renderList({
+      installed: () => [target],
+      market: () => [target],
+    })
+    await waitForRequestsToFinish()
+    server.use(http.get(apiUrls.install('FailedUpdatePlugin'), () => apiFailureJson('依赖更新失败')))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-FailedUpdatePlugin' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('插件 更新失败插件 更新失败：依赖更新失败'))
+    expect(mocks.toastError).not.toHaveBeenCalledWith(expect.stringContaining('安装失败'))
     await waitForRequestsToFinish()
   })
 

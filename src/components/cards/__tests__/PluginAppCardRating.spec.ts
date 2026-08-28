@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -29,7 +30,7 @@ vi.mock('@/composables/useSharedDialog', () => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess, warning: mocks.toastWarning }),
 }))
 
 vi.mock('@/@core/utils/image', () => ({
@@ -69,6 +70,7 @@ describe('PluginAppCard rating badge', () => {
     })
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
+    mocks.toastWarning.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
@@ -181,6 +183,26 @@ describe('PluginAppCard rating badge', () => {
     expect(mocks.toastError).not.toHaveBeenCalled()
     expect(mocks.dialogCloses[0]).toHaveBeenCalled()
     expect(mocks.dialogCloses[1]).toHaveBeenCalled()
+  })
+
+  it('uses a warning when a direct install needs a restart', async () => {
+    mocks.apiGet.mockResolvedValue({ success: true, data: { restart_required: true } })
+    const lifecyclePlugin = {
+      ...plugin,
+      history: { 'v1.0.0': '初始版本' },
+      repo_url: 'https://github.com/example/plugins',
+    }
+    const { container } = await renderWithProviders(PluginAppCard, {
+      props: { plugin: lifecyclePlugin },
+    })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('版本历史'))
+    const dialogEvents = mocks.openSharedDialog.mock.calls[0][2] as { update: () => Promise<void> }
+    await dialogEvents.update()
+
+    expect(mocks.toastWarning).toHaveBeenCalledWith('插件 演示插件 已安装，重启 MoviePilot 后完成依赖更新')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
   it('keeps the version dialog open and emits nothing on a business failure', async () => {

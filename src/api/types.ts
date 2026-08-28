@@ -1118,6 +1118,14 @@ export interface PluginRuntimeSummary {
   pending_count: number
   // 加载失败或被策略阻止的插件数量
   failed_count: number
+  // 重启后才能完整激活新原生依赖的物理插件 ID
+  restart_required_plugin_ids: string[]
+}
+
+/** 插件安装、更新或换仓后的运行态结果。 */
+export interface PluginInstallOutcome {
+  // 当前进程未能完整激活新安装的原生依赖
+  restart_required: boolean
 }
 
 // 插件评分结果
