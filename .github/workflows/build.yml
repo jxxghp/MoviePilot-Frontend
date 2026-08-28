@@ -23,7 +23,7 @@ jobs:
         id: release_version
         run: |
           frontend_version=$(jq -r '.version' package.json)
-          echo "frontend_version=v$frontend_version" >> $GITHUB_ENV
+          echo "frontend_version=v$frontend_version" >> "$GITHUB_ENV"
 
       - name: Setup node
         uses: actions/setup-node@v7
@@ -54,23 +54,93 @@ jobs:
           echo "$frontend_version" > dist/version.txt
           zip -r dist.zip dist
 
-      - name: Delete Release
-        uses: dev-drprasad/delete-tag-and-release@v1.1
-        continue-on-error: true
-        with:
-          tag_name: ${{ env.frontend_version }}
-          delete_release: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.frontend_version }}
-          name: ${{ env.frontend_version }}
-          draft: false
-          prerelease: false
-          make_latest: true
-          files: |
-            dist.zip
+      - name: Publish Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ env.frontend_version }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          release_response=$(mktemp)
+          release_error=$(mktemp)
+          trap 'rm -f "$release_response" "$release_error"' EXIT
+
+          set +e
+          gh api --include \
+            "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" \
+            > "$release_response" 2> "$release_error"
+          set -e
+          release_status=$(awk 'NR == 1 { print $2; exit }' "$release_response")
+          release_id=""
+
+          if [ "$release_status" = "200" ]; then
+            release_id=$(awk 'body { print; exit } /^[[:space:]]*$/ { body=1 }' \
+              "$release_response" | jq -r '.id')
+            if [ -z "$release_id" ] || [ "$release_id" = "null" ]; then
+              echo "Unable to resolve release id for ${TAG_NAME}" >&2
+              cat "$release_error" >&2
+              exit 1
+            fi
+          elif [ "$release_status" != "404" ]; then
+            echo "Unable to query release ${TAG_NAME} (HTTP ${release_status:-unknown})" >&2
+            cat "$release_error" >&2
+            exit 1
+          fi
+
+          if [ -n "$release_id" ]; then
+            delete_response=$(mktemp)
+            delete_error=$(mktemp)
+            set +e
+            gh api --include --silent --method DELETE \
+              "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+              > "$delete_response" 2> "$delete_error"
+            set -e
+            delete_status=$(awk 'NR == 1 { print $2; exit }' "$delete_response")
+            if [ "$delete_status" != "204" ] && [ "$delete_status" != "404" ]; then
+              echo "Unable to delete release ${TAG_NAME} (HTTP ${delete_status:-unknown})" >&2
+              cat "$delete_error" >&2
+              rm -f "$delete_response" "$delete_error"
+              exit 1
+            fi
+            rm -f "$delete_response" "$delete_error"
+          fi
+
+          tag_query_response=$(mktemp)
+          tag_query_error=$(mktemp)
+          set +e
+          gh api --include \
+            "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}" \
+            > "$tag_query_response" 2> "$tag_query_error"
+          set -e
+          tag_query_status=$(awk 'NR == 1 { print $2; exit }' "$tag_query_response")
+          if [ "$tag_query_status" = "200" ]; then
+            tag_delete_response=$(mktemp)
+            tag_delete_error=$(mktemp)
+            set +e
+            gh api --include --silent --method DELETE \
+              "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG_NAME}" \
+              > "$tag_delete_response" 2> "$tag_delete_error"
+            set -e
+            tag_delete_status=$(awk 'NR == 1 { print $2; exit }' "$tag_delete_response")
+            if [ "$tag_delete_status" != "204" ]; then
+              echo "Unable to delete tag ${TAG_NAME} (HTTP ${tag_delete_status:-unknown})" >&2
+              cat "$tag_delete_error" >&2
+              rm -f "$tag_delete_response" "$tag_delete_error"
+              rm -f "$tag_query_response" "$tag_query_error"
+              exit 1
+            fi
+            rm -f "$tag_delete_response" "$tag_delete_error"
+          elif [ "$tag_query_status" != "404" ]; then
+            echo "Unable to query tag ${TAG_NAME} (HTTP ${tag_query_status:-unknown})" >&2
+            cat "$tag_query_error" >&2
+            rm -f "$tag_query_response" "$tag_query_error"
+            exit 1
+          fi
+          rm -f "$tag_query_response" "$tag_query_error"
+
+          gh release create "$TAG_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "$TAG_NAME" \
+            --notes "" \
+            --latest \
+            dist.zip
