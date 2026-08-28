@@ -19,6 +19,8 @@ function createSummary(overrides: Partial<PluginRuntimeSummary> = {}): PluginRun
     generation: 1,
     pending_count: 0,
     ready: true,
+    restart_required: false,
+    restart_required_plugin_ids: [],
     ...overrides,
   }
 }
@@ -104,5 +106,36 @@ describe('plugin runtime store', () => {
 
     expect(store.summary).toBeNull()
     expect(store.reconciliation).toBe(0)
+  })
+
+  it('forces a post-install snapshot without accepting an older inflight response', async () => {
+    let resolveOldSummary!: (summary: PluginRuntimeSummary) => void
+    apiMocks.get
+      .mockReturnValueOnce(
+        new Promise<PluginRuntimeSummary>(resolve => {
+          resolveOldSummary = resolve
+        }),
+      )
+      .mockResolvedValueOnce(
+        createSummary({
+          generation: 3,
+          restart_required: true,
+          restart_required_plugin_ids: ['DemoPlugin'],
+        }),
+      )
+
+    const oldRefresh = store.refresh()
+    await store.refreshNow()
+    resolveOldSummary(createSummary({ generation: 2 }))
+    await oldRefresh
+
+    expect(store.summary).toEqual(
+      createSummary({
+        generation: 3,
+        restart_required: true,
+        restart_required_plugin_ids: ['DemoPlugin'],
+      }),
+    )
+    expect(store.reconciliation).toBe(1)
   })
 })

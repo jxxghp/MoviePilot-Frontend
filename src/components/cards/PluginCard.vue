@@ -11,7 +11,7 @@ import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
-import { useGlobalSettingsStore } from '@/stores'
+import { useGlobalSettingsStore, usePluginRuntimeStore } from '@/stores'
 
 // 插件日志面板只有点击“查看日志”时才需要，延后加载可减轻插件列表首屏。
 const PluginConfigDialog = defineAsyncComponent(() => import('../dialog/PluginConfigDialog.vue'))
@@ -43,6 +43,7 @@ const props = defineProps({
   },
 })
 const globalSettingsStore = useGlobalSettingsStore()
+const pluginRuntimeStore = usePluginRuntimeStore()
 
 // 定义触发的自定义事件
 const emit = defineEmits<{
@@ -58,8 +59,12 @@ const { t } = useI18n()
 
 const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
 const sourceBindingRequired = computed(() => props.plugin?.source_binding_status === 'binding_required')
+const restartRequired = computed(() =>
+  Boolean(props.plugin?.id && pluginRuntimeStore.summary?.restart_required_plugin_ids.includes(props.plugin.id)),
+)
 const hasCardStatus = computed(
-  () => sourceBindingRequired.value || Boolean(props.plugin?.has_update) || hasCardRating.value,
+  () =>
+    sourceBindingRequired.value || restartRequired.value || Boolean(props.plugin?.has_update) || hasCardRating.value,
 )
 const updateCandidate = computed(() => props.plugin?.update_candidate)
 const hasAlternativeUpdate = computed(() =>
@@ -343,6 +348,7 @@ async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
     })
 
     $toast.success(t('plugin.updateSuccess', { name: props.plugin?.plugin_name }))
+    void pluginRuntimeStore.refreshNow()
     versionHistoryDialogController?.close()
     versionHistoryDialogController = null
 
@@ -843,6 +849,15 @@ watch(
               <VTooltip activator="parent" location="top">{{ t('plugin.sourceBindingRequiredHint') }}</VTooltip>
             </div>
             <div
+              v-else-if="restartRequired"
+              class="plugin-card__status plugin-card__status--restart"
+              :aria-label="t('plugin.restartRequiredBadge')"
+            >
+              <VIcon icon="mdi-restart-alert" size="13" />
+              {{ t('plugin.restartRequiredBadge') }}
+              <VTooltip activator="parent" location="top">{{ t('plugin.restartRequiredBadgeHint') }}</VTooltip>
+            </div>
+            <div
               v-else-if="props.plugin?.has_update"
               class="plugin-card__status plugin-card__status--update"
               :aria-label="t('plugin.hasUpdate')"
@@ -894,6 +909,18 @@ watch(
 }
 
 .plugin-card__status--binding {
+  gap: 0.1875rem;
+  padding: 0.1875rem 0.375rem;
+  border: 1px solid rgba(var(--v-theme-warning), 45%);
+  border-radius: 4px;
+  background: rgba(var(--v-theme-warning), 16%);
+  color: rgb(var(--v-theme-warning));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+.plugin-card__status--restart {
   gap: 0.1875rem;
   padding: 0.1875rem 0.375rem;
   border: 1px solid rgba(var(--v-theme-warning), 45%);

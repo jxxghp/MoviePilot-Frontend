@@ -7,6 +7,7 @@ import { formatDownloadCount } from '@/@core/utils/formatters'
 import PluginRatingDisplay from '@/components/common/PluginRatingDisplay.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useToast } from 'vue-toastification'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useConfirm } from '@/composables/useConfirm'
@@ -21,6 +22,7 @@ const { t } = useI18n()
 
 // 提示框
 const $toast = useToast()
+const pluginRuntimeStore = usePluginRuntimeStore()
 
 const createConfirm = useConfirm()
 
@@ -380,6 +382,7 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
         ? t('plugin.updateSuccess', { name: props.plugin?.plugin_name })
         : t('plugin.installSuccess', { name: props.plugin?.plugin_name }),
     )
+    void pluginRuntimeStore.refreshNow()
     versionHistoryDialogController?.close()
     versionHistoryDialogController = null
     visible.value = false

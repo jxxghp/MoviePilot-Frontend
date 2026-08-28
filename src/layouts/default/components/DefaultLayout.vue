@@ -39,6 +39,7 @@ import {
 } from '@/composables/useThemeCustomizer'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
 import SystemUpdatePrompt from '@/components/system/SystemUpdatePrompt.vue'
+import PluginRestartPrompt from '@/components/system/PluginRestartPrompt.vue'
 
 const display = useDisplay()
 // PWA模式检测
@@ -514,6 +515,7 @@ onMounted(async () => {
 
 <template>
   <SystemUpdatePrompt :enabled="canAdmin" :avoid-agent-assistant="showAgentAssistant" />
+  <PluginRestartPrompt v-if="canAdmin" :style="{ '--plugin-restart-navbar-extra-height': navbarExtraHeight }" />
   <!-- 👉 Offline Page -->
   <OfflinePage />
 

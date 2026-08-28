@@ -173,6 +173,7 @@ const PluginMixedSortCardStub = defineComponent({
             config?: { color?: string }
             has_update?: boolean
             plugin_name?: string
+            page_open?: boolean
             repo_url?: string
             runtime_status?: Plugin['runtime_status']
             update_candidate?: Plugin['update_candidate']
@@ -193,6 +194,7 @@ const PluginMixedSortCardStub = defineComponent({
           ? h('output', { 'aria-label': `update-source-${id}` }, data?.update_candidate?.source_key || '')
           : null,
         type === 'plugin' ? h('output', { 'aria-label': `runtime-${id}` }, data?.runtime_status || '') : null,
+        type === 'plugin' ? h('output', { 'aria-label': `page-open-${id}` }, String(data?.page_open ?? false)) : null,
         type === 'plugin' ? h('output', { 'aria-label': `settling-${id}` }, String(props.runtimeSettling)) : null,
         type === 'plugin' ? h('output', { 'aria-label': `installing-${id}` }, String(props.installing)) : null,
         type === 'plugin'
@@ -442,6 +444,8 @@ function registerListHandlers(responses: ListResponses = {}) {
           generation: 0,
           pending_count: 0,
           ready: true,
+          restart_required: false,
+          restart_required_plugin_ids: [],
         },
       ),
     ),
@@ -1209,6 +1213,22 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     mocks.keepAliveHandler = undefined
     mocks.openSharedDialog.mockImplementation(() => ({ close: vi.fn(), id: 1, updateProps: vi.fn() }))
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('responds when a global plugin link changes the target on the active page', async () => {
+    const { router } = await renderList({
+      installed: () => [
+        createPlugin({ id: 'Alpha', installed: true, plugin_name: 'Alpha' }),
+        createPlugin({ id: 'Beta', installed: true, plugin_name: 'Beta' }),
+      ],
+    })
+    await screen.findByText('plugin:Beta')
+
+    await router.push('/plugins?id=Beta')
+
+    await waitFor(() => expect(screen.getByLabelText('page-open-Beta')).toHaveTextContent('true'))
+    expect(document.querySelector('[data-scroll-to-index]')).toHaveAttribute('data-scroll-to-index', '1')
+    await waitForRequestsToFinish()
   })
 
   it('applies running, update, and name filters through the installed menu', async () => {

@@ -1,5 +1,6 @@
 import type { Plugin } from '@/api/types'
 import PluginCard from '@/components/cards/PluginCard.vue'
+import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { normalizePluginAccentColor } from '@/utils/glassColor'
 import { renderWithProviders } from '@tests/support/render'
@@ -176,6 +177,7 @@ describe('PluginCard lifecycle actions', () => {
       props: { plugin: updatablePlugin },
     })
     const sidebarStore = usePluginSidebarNavStore(pinia)
+    const runtimeStore = usePluginRuntimeStore(pinia)
     vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
 
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
@@ -194,10 +196,28 @@ describe('PluginCard lifecycle actions', () => {
     })
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')
+    expect(runtimeStore.refreshNow).toHaveBeenCalledOnce()
     expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
     expect(emitted().save).toHaveLength(1)
     expect(mocks.dialogCloses[0]).toHaveBeenCalled()
     expect(mocks.dialogCloses[1]).toHaveBeenCalled()
+  })
+
+  it('marks a plugin whose native dependency update requires a restart without blocking its actions', async () => {
+    const { container, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.summary = {
+      failed_count: 0,
+      generation: 2,
+      pending_count: 0,
+      ready: true,
+      restart_required: true,
+      restart_required_plugin_ids: ['DemoPlugin'],
+    }
+
+    expect(await screen.findByText('重启后生效')).toBeInTheDocument()
+    expect(container.querySelector('.plugin-card')).not.toHaveClass('plugin-card--runtime-blocked')
+    expect(container.querySelector('.plugin-card__runtime-state')).toBeNull()
   })
 
   it('shows the repository type and keeps bound updates on the version history flow', async () => {

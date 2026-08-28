@@ -142,8 +142,12 @@ registerHeaderTab({
   ],
 })
 
+function normalizeRoutePluginId(value: unknown) {
+  return typeof value === 'string' && value ? value : undefined
+}
+
 // 插件ID参数
-const pluginId = ref(route.query.id)
+const pluginId = ref<string | undefined>(normalizeRoutePluginId(route.query.id))
 const installScrollPluginId = ref<string | null>(null)
 
 // 当前排序字段
@@ -940,8 +944,8 @@ async function installPlugin(
       })
     }
     $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
+    if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
-    if (userStore.superUser) await pluginRuntimeStore.refresh()
     await pluginSidebarNavStore.ensureSidebarNav(true)
     await nextTick()
     if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
@@ -993,8 +997,8 @@ async function transitionPluginSource(item: Plugin, transition: PluginSourceTran
         name: item.plugin_name,
       }),
     )
+    if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
-    if (userStore.superUser) await pluginRuntimeStore.refresh()
     await pluginSidebarNavStore.ensureSidebarNav(true)
   } catch (error) {
     console.error(error)
@@ -1129,6 +1133,23 @@ async function reconcileInstalledRuntime(): Promise<void> {
 
 function isPluginRuntimeSettling(pluginId: string) {
   return pluginRuntimeSummary.value?.ready === false || installingPluginIds.value.has(pluginId)
+}
+
+/** 响应全局入口的目标插件参数，并复用卡片既有的详情打开契约。 */
+async function revealRoutePlugin() {
+  const targetPluginId = pluginId.value
+  if (!targetPluginId) return
+
+  activeTab.value = 'installed'
+  currentFolder.value = ''
+  installedFilter.value = null
+  hasUpdateFilter.value = false
+  enabledFilter.value = false
+  installScrollPluginId.value = targetPluginId
+  await nextTick()
+
+  const plugin = dataList.value.find(item => item.id === targetPluginId)
+  if (plugin) plugin.page_open = true
 }
 
 /** 将市场更新元数据投影到当前已安装快照。 */
@@ -1526,13 +1547,7 @@ onMounted(async () => {
   await loadPluginFolders() // 加载文件夹配置
   await refreshData()
   if (userStore.superUser) await pluginRuntimeStore.refresh()
-  if (activeTab.value != 'market' && pluginId.value) {
-    // 找到这个插件
-    const plugin = dataList.value.find(item => item.id === pluginId.value)
-    if (plugin) {
-      plugin.page_open = true
-    }
-  }
+  await revealRoutePlugin()
 })
 
 useKeepAliveRefresh(refreshActiveTabData)
@@ -1554,6 +1569,14 @@ watch(activeTab, (newTab, oldTab) => {
     void reconcileInstalledRuntime()
   }
 })
+
+watch(
+  () => route.query.id,
+  async value => {
+    pluginId.value = normalizeRoutePluginId(value)
+    if (isPluginPageActive.value) await revealRoutePlugin()
+  },
+)
 
 watch(
   () => pluginRuntimeStore.reconciliation,
