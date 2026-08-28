@@ -1526,6 +1526,100 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
   })
 
+  it('preserves an explicitly confirmed third-party source from the detail dialog', async () => {
+    let requestBody: unknown
+    let ordinaryInstallRequests = 0
+    const target = createPlugin({ id: 'ConfirmedPlugin', plugin_name: '确认来源插件' })
+    const sourceOptions: PluginSourceOptions = {
+      plugin_id: 'ConfirmedPlugin',
+      inventory_complete: true,
+      selection_status: 'selected',
+      selection_reason: '唯一在线来源',
+      identity: null,
+      candidates: [
+        {
+          source_type: 'third_party',
+          source_key: 'github:example/plugins',
+          repo_url: 'https://github.com/example/plugins',
+          package_generation: 'v3',
+          plugin_version: '1.0.0',
+        },
+      ],
+    }
+    await renderList({ market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.sourceBind('ConfirmedPlugin'), async ({ request }) => {
+        requestBody = await request.json()
+        return apiJson(null)
+      }),
+      http.get(apiUrls.install('ConfirmedPlugin'), () => {
+        ordinaryInstallRequests += 1
+        return apiJson(null)
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.(undefined, 'https://github.com/example/plugins', sourceOptions)
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 确认来源插件 安装成功！'))
+    expect(requestBody).toEqual({
+      force: false,
+      repo_url: 'https://github.com/example/plugins',
+    })
+    expect(ordinaryInstallRequests).toBe(0)
+    await waitForRequestsToFinish()
+  })
+
+  it('uses the explicitly selected source to reinstall an unbound market plugin', async () => {
+    let requestBody: unknown
+    const target = createPlugin({ id: 'LegacyPlugin', plugin_name: '存量插件' })
+    const sourceOptions: PluginSourceOptions = {
+      plugin_id: 'LegacyPlugin',
+      inventory_complete: true,
+      selection_status: 'incomplete',
+      selection_reason: '当前插件尚未绑定仓库',
+      identity: {
+        plugin_id: 'LegacyPlugin',
+        trusted_source_type: 'unknown',
+        trusted_source_key: null,
+        binding_basis: 'legacy_unbound',
+        payload_source_type: 'unknown',
+        payload_source_key: null,
+        revision: 2,
+      },
+      candidates: [
+        {
+          source_type: 'third_party',
+          source_key: 'github:example/plugins',
+          repo_url: 'https://github.com/example/plugins',
+          package_generation: 'v3',
+          plugin_version: '1.0.0',
+        },
+      ],
+    }
+    await renderList({ market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.post(apiUrls.sourceBind('LegacyPlugin'), async ({ request }) => {
+        requestBody = await request.json()
+        return apiJson(null)
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.(undefined, 'https://github.com/example/plugins', sourceOptions)
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 存量插件 安装成功！'))
+    expect(requestBody).toEqual({
+      force: false,
+      repo_url: 'https://github.com/example/plugins',
+    })
+    await waitForRequestsToFinish()
+  })
+
   it('opens source selection instead of silently installing a conflicting plugin ID', async () => {
     let installRequests = 0
     const target = createPlugin({ id: 'ConflictPlugin', plugin_name: '重名插件' })

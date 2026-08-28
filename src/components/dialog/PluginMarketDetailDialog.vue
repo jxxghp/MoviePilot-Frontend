@@ -1,7 +1,11 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
-import { getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
+import {
+  getPluginSourceOptions,
+  installPluginFromSource,
+  requiresExplicitPluginSourceInstall,
+} from '@/api/pluginSource'
 import type {
   Plugin,
   PluginInstallOutcome,
@@ -98,15 +102,9 @@ const onlineSourceCandidates = computed(() =>
     // 官方仓库是默认可信来源，在所有选源入口中始终置顶。
     .sort((left, right) => Number(right.source_type === 'official') - Number(left.source_type === 'official')),
 )
-const sourceNeedsSelection = computed(() => {
-  if (isInstalled.value) return false
-  if (sourceOptions.value?.selection_status === 'conflict') return true
-  return (
-    sourceOptions.value?.selection_status === 'selected' &&
-    onlineSourceCandidates.value.length === 1 &&
-    onlineSourceCandidates.value[0].source_type === 'third_party'
-  )
-})
+const sourceNeedsSelection = computed(() =>
+  sourceOptions.value ? requiresExplicitPluginSourceInstall(sourceOptions.value, isInstalled.value) : false,
+)
 const sourceHasConflict = computed(() => sourceOptions.value?.selection_status === 'conflict')
 const selectedInstallSource = computed(() =>
   onlineSourceCandidates.value.find(candidate => candidate.source_key === selectedInstallSourceKey.value),
@@ -121,6 +119,9 @@ const hasTrustedOnlineSource = computed(() => {
 const sourceNeedsInitialBinding = computed(
   () => isInstalled.value && !hasTrustedOnlineSource.value && onlineSourceCandidates.value.length > 0,
 )
+const sourceNeedsReinstallBinding = computed(
+  () => !isInstalled.value && sourceOptions.value?.selection_status === 'incomplete' && sourceNeedsSelection.value,
+)
 const changeSourceCandidates = computed(() => {
   const trustedSourceKey = sourceOptions.value?.identity?.trusted_source_key
   return onlineSourceCandidates.value.filter(candidate => candidate.source_key !== trustedSourceKey)
@@ -130,6 +131,7 @@ const sourceActionCandidates = computed(() =>
 )
 const sourceUnavailable = computed(() => {
   const unavailable = ['unavailable', 'incomplete'].includes(sourceOptions.value?.selection_status || '')
+  if (sourceNeedsSelection.value) return false
   if (!isInstalled.value) return unavailable
   // 未绑定但仍有候选时，优先展示首次绑定流程；已绑定来源失效则必须阻止普通更新。
   if (sourceNeedsInitialBinding.value) return false
@@ -544,12 +546,18 @@ onUnmounted(() => {
               <h3 id="plugin-source-title" class="plugin-market-detail-source__title">
                 {{ t('plugin.source') }}
                 <VChip v-if="sourceNeedsSelection" size="x-small" color="warning" variant="tonal">
-                  {{ t(sourceHasConflict ? 'plugin.sourceSelectionRequired' : 'plugin.sourceConfirmationRequired') }}
+                  {{
+                    t(
+                      sourceHasConflict || onlineSourceCandidates.length > 1
+                        ? 'plugin.sourceSelectionRequired'
+                        : 'plugin.sourceConfirmationRequired',
+                    )
+                  }}
                 </VChip>
               </h3>
               <p class="plugin-market-detail-source__hint">
                 {{
-                  sourceNeedsInitialBinding
+                  sourceNeedsInitialBinding || sourceNeedsReinstallBinding
                     ? t('plugin.sourceBindingHint')
                     : isInstalled
                       ? t('plugin.sourceInstalledHint')
