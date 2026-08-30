@@ -154,11 +154,11 @@ function createNotificationId() {
   return `notification-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-/** 为旧配置建立可重复的读取身份，避免在保存前退回到显示名称作为列表 key。 */
+/** 为旧配置建立与后端一致的可重复身份，避免在保存前退回到显示名称作为列表 key。 */
 function createLegacyNotificationId(notification: NotificationConfigInput, index: number) {
   const type = typeof notification.type === 'string' ? notification.type : 'notification'
   const name = typeof notification.name === 'string' ? notification.name.trim() : ''
-  return `legacy-${encodeURIComponent(type)}-${encodeURIComponent(name || String(index))}`
+  return `legacy-${type}-${name || String(index)}`
 }
 
 /** 统一通知配置的身份、名称和可选字段，供 GET、编辑和保存共用。 */

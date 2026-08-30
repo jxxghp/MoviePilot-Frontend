@@ -73,7 +73,13 @@ vi.mock('vuedraggable', async () => {
   }
 })
 
-const notificationsFixture = [
+const notificationsFixture: Array<{
+  id?: string
+  name: string
+  type: string
+  enabled: boolean
+  config: Record<string, unknown>
+}> = [
   { id: 'channel-alpha', name: 'Alpha', type: 'wechatclawbot', enabled: true, config: { token: 'fixture-token' } },
   { id: 'channel-three', name: '通知3', type: 'telegram', enabled: false, config: {} },
 ]
@@ -85,10 +91,10 @@ const templateFixture = {
   subscribeComplete: '{}',
 }
 
-function mockLoadedSettings() {
+function mockLoadedSettings(channels = notificationsFixture) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/setting/Notifications') {
-      return { success: true, data: { value: structuredClone(notificationsFixture) } }
+      return { success: true, data: { value: structuredClone(channels) } }
     }
     if (endpoint === 'system/setting/NotificationSwitchs') {
       return { success: true, data: { value: [{ type: '资源下载', action: 'user' }] } }
@@ -154,6 +160,22 @@ describe('AccountSettingNotification', () => {
     expect(refreshOptions.active.value).toBe(true)
     await rerender({ active: false })
     expect(refreshOptions.active.value).toBe(false)
+  })
+
+  it('keeps the backend legacy identity when renaming a channel without an id', async () => {
+    mockLoadedSettings([{ name: 'Alpha', type: 'wechatclawbot', enabled: true, config: {} }])
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+
+    await fireEvent.update(screen.getByLabelText('name-Alpha'), 'Beta')
+    await user.click(getCard('通知渠道').getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith('notification/config', [
+        expect.objectContaining({ id: 'legacy-wechatclawbot-Alpha', name: 'Beta' }),
+      ]),
+    )
   })
 
   it('creates a unique automatic channel name, removes channels, and saves the current order once', async () => {

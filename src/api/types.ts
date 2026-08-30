@@ -1839,7 +1839,7 @@ export interface DownloaderConf {
 
 // 通知配置
 export interface NotificationConf {
-  // 稳定通知渠道身份；显示名称变化时保持不变，用于配置保存和工作流引用
+  // 稳定通知渠道身份；显示名称变化时保持不变，用于配置保存和运行态引用
   id: string
   // 名称
   name: string
