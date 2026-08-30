@@ -211,9 +211,7 @@ function validateNotificationNames(value: NotificationConf[]) {
   return true
 }
 
-const canSaveNotifications = computed(
-  () => notificationLoadState.value === 'ready' && !notificationSaveLoading.value,
-)
+const canSaveNotifications = computed(() => notificationLoadState.value === 'ready' && !notificationSaveLoading.value)
 
 // 关闭通知模板共享弹窗，并同步本页的弹窗占用状态。
 function closeTemplateEditorDialog() {
