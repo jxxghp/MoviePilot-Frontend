@@ -50,6 +50,40 @@ describe('ProgressiveCardGrid scroll target lifecycle', () => {
     expect(container.querySelector('.progressive-card-grid__track')).toHaveAttribute('data-layout-size-source')
   })
 
+  it('allows an overlay consumer to opt into the virtual window', async () => {
+    const items = Array.from({ length: 100 }, (_, id) => ({ id }))
+    const host = document.createElement('div')
+    host.className = 'v-overlay'
+    document.body.append(host)
+    const { container } = render(ProgressiveCardGrid, {
+      container: host,
+      props: {
+        columns: 1,
+        estimatedItemHeight: 220,
+        initialCount: 6,
+        batchSize: 6,
+        virtualizeInOverlay: true,
+        items,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: {
+        default: '<div>item</div>',
+      },
+    })
+
+    await waitFor(() => {
+      const count = container.querySelectorAll('[data-progressive-grid-index]').length
+      expect(count).toBeGreaterThan(0)
+      expect(count).toBeLessThan(items.length)
+    })
+
+    container.querySelector('.progressive-card-grid')?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(items.length)
+    })
+    host.remove()
+  })
+
   it('reveals a target below the fixed navbar on the current viewport', async () => {
     const navbar = document.createElement('header')
     navbar.className = 'layout-navbar'
