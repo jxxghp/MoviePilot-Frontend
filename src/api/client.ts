@@ -143,13 +143,23 @@ export class ApiRequestError<T = unknown> extends AxiosError<T> {
   }
 }
 
+/** 返回 API 错误载荷中的业务消息，网络错误无响应时返回 undefined 供调用方使用连接 fallback。 */
+export function getApiErrorMessage(error: unknown): string | undefined {
+  if (!(error instanceof ApiRequestError)) return undefined
+  const payload = error.payload ?? error.response?.data
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return undefined
+  const record = payload as Record<string, unknown>
+  for (const key of ['message', 'detail']) {
+    const message = record[key]
+    if (typeof message === 'string' && message.trim()) return message
+  }
+  return undefined
+}
+
 /** 仅返回后端在成功 HTTP 响应中声明的业务失败消息。 */
 export function getApiBusinessErrorMessage(error: unknown): string | undefined {
   if (!(error instanceof ApiRequestError) || !error.businessFailure) return undefined
-  const payload = error.payload
-  if (!payload || typeof payload !== 'object') return undefined
-  const message = (payload as { message?: unknown }).message
-  return typeof message === 'string' && message.trim() ? message : undefined
+  return getApiErrorMessage(error)
 }
 
 /** 判断错误是否来自 HTTP 200 响应中的业务失败。 */

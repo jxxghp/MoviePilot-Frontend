@@ -8,6 +8,7 @@ import i18n, { getCurrentLocale } from '@/plugins/i18n'
 import {
   ApiRequestError,
   createApiClients,
+  getApiErrorMessage,
   getApiBusinessErrorMessage,
   isApiBusinessFailure,
   isApiResponse,
@@ -33,8 +34,8 @@ const fallbackMessageKeys: Record<ApiFallbackMessageKey, string> = {
   timeout: 'common.requestTimeout',
 }
 
-/** 认证失效只负责代码签退；原始异常继续交给发起请求的业务界面处理。 */
-function handleAuthenticationFailure(): true {
+/** 只有认证失效（401）才清理会话并回到登录页；授权拒绝（403）保留会话交给业务处理。 */
+function handleUnauthorized(): true {
   const authStore = useAuthStore()
   if (authStore.token) {
     authStore.logout()
@@ -49,8 +50,7 @@ const { api, pluginApi } = createApiClients({
   hooks: {
     markServerOnline: globalOfflineStatus.markServerOnline,
     reportConnectionFailure: globalOfflineStatus.reportNetworkError,
-    onForbidden: handleAuthenticationFailure,
-    onUnauthorized: handleAuthenticationFailure,
+    onUnauthorized: handleUnauthorized,
   },
   notifier: {
     error: message => toast.error(message),
@@ -98,6 +98,7 @@ if (typeof window !== 'undefined') window.MoviePilotAPI = pluginApi
 export {
   ApiRequestError,
   createPluginInstanceApi,
+  getApiErrorMessage,
   getApiBusinessErrorMessage,
   isApiBusinessFailure,
   isApiResponse,

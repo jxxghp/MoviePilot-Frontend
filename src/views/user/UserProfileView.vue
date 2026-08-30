@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toastification'
 import { VForm } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
-import { getApiBusinessErrorMessage } from '@/api/client'
+import { getApiErrorMessage } from '@/api/client'
 import type { User, PassKey } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
@@ -197,13 +197,9 @@ async function fetchUserInfo() {
   isProfileLoading.value = true
   profileLoadFailed.value = false
   try {
-    const result: User = await api.get(`user/${userStore.userName}`)
+    const result: User = await api.get('user/current')
     if (result) {
-      accountInfo.value = result
-      accountInfo.value.avatar = accountInfo.value.avatar ? accountInfo.value.avatar : avatar1
-      accountInfo.value.nickname = accountInfo.value.settings?.nickname ?? ''
-      currentUserName.value = accountInfo.value.name
-      currentAvatar.value = accountInfo.value.avatar
+      applyUserProfile(result)
       // Passkey 数量是辅助信息，不阻塞已成功取得的个人资料。
       void fetchPassKeyList()
     }
@@ -238,47 +234,28 @@ async function saveAccountInfo() {
   }
   accountInfo.value.settings.nickname = accountInfo.value.nickname ?? ''
 
-  const oldUserName = accountInfo.value.name
-  const oldAvatar = accountInfo.value.avatar
   isSaving.value = true
   try {
-    // 请求数据独立于已确认快照，失败后保留当前输入供用户重试。
-    const userData: User = {
-      ...accountInfo.value,
+    // 请求数据只包含自助资料字段，失败后保留当前输入供用户重试。
+    const userData: CurrentUserUpdatePayload = {
+      email: accountInfo.value.email,
       avatar: currentAvatar.value,
-      name: currentUserName.value,
+      settings: accountInfo.value.settings,
       ...(newPassword.value ? { password: newPassword.value } : {}),
     }
 
-    await api.put<null>('user/', userData, { feedback: 'silent' })
-
-    accountInfo.value.name = currentUserName.value
-    accountInfo.value.avatar = currentAvatar.value
-    if (oldUserName !== currentUserName.value) {
-      $toast.success(t('profile.usernameChangeSuccess', { oldName: oldUserName, newName: currentUserName.value }))
-      // 更新本地用户名显示
-      userStore.setUserName(currentUserName.value)
-    } else {
-      $toast.success(t('profile.saveSuccess'))
-    }
-    // 更新本地头像显示
-    if (oldAvatar !== currentAvatar.value) {
-      userStore.setAvatar(currentAvatar.value)
-    }
+    const updatedUser = await api.put<User>('user/current', userData, { feedback: 'silent' })
+    applyUserProfile(updatedUser)
+    userStore.setUserName(updatedUser.name)
+    userStore.setAvatar(currentAvatar.value)
+    // 凭据仅在服务端确认成功后清空，失败时保留输入便于修正或重试。
+    newPassword.value = ''
+    confirmPassword.value = ''
+    $toast.success(t('profile.saveSuccess'))
   } catch (error) {
     console.log('保存失败:', error)
-    const message = getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed')
-    if (oldUserName !== currentUserName.value) {
-      $toast.error(
-        t('profile.saveFailedWithNameChange', {
-          oldName: oldUserName,
-          newName: currentUserName.value,
-          message,
-        }),
-      )
-    } else {
-      $toast.error(t('profile.saveFailed', { message }))
-    }
+    const message = getApiErrorMessage(error) || t('common.serverConnectionFailed')
+    $toast.error(t('profile.saveFailed', { message }))
   } finally {
     isSaving.value = false
   }
@@ -289,6 +266,29 @@ interface VerifyPasswordPayload {
   title: string
   text: string
   callback: (password: string) => void
+}
+
+/** 当前用户自助修改资料时允许提交的字段，权限与身份字段由服务端维护。 */
+interface CurrentUserUpdatePayload {
+  // 用户邮箱
+  email: User['email']
+  // 用户头像
+  avatar: User['avatar']
+  // 个性化设置及通知身份绑定
+  settings: User['settings']
+  // 非空时更新密码
+  password?: string
+}
+
+/** 将服务端用户资料投影到页面状态，避免把本地编辑状态当成保存成功的事实。 */
+function applyUserProfile(user: User) {
+  accountInfo.value = {
+    ...user,
+    settings: user.settings ?? {},
+    nickname: user.settings?.nickname ?? '',
+  }
+  currentUserName.value = user.name
+  currentAvatar.value = user.avatar || avatar1
 }
 
 // 密码验证并执行回调

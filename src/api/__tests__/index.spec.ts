@@ -118,14 +118,15 @@ describe('API application wiring', () => {
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
 
-  it('token 校验失败的 403 完成签退后不弹技术错误', async () => {
+  it('403 保留当前会话并通过请求反馈展示授权错误', async () => {
     mocks.authState.token = 'invalid-token'
     const module = await installFailingAdapter(403, { detail: 'token校验不通过' })
 
     await Promise.allSettled([module.default.get('/dashboard'), module.default.get('/subscribe')])
 
-    expect(mocks.logout).toHaveBeenCalledOnce()
-    expect(mocks.routerPush).toHaveBeenCalledWith('/login')
-    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.logout).not.toHaveBeenCalled()
+    expect(mocks.routerPush).not.toHaveBeenCalled()
+    expect(mocks.authState.token).toBe('invalid-token')
+    expect(mocks.toastError).toHaveBeenCalledWith('token校验不通过')
   })
 })
