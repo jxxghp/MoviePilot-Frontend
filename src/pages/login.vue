@@ -403,7 +403,6 @@ interface PassKeyFinishResponse {
   avatar: string
   level: number
   permissions: Record<string, boolean>
-  wizard: boolean
 }
 
 // 执行 PassKey WebAuthn 认证并返回登录完成信息。
@@ -648,17 +647,12 @@ async function afterLogin(
   const originalPath = authStore.originalPath
   authStore.setOriginalPath(null)
 
-  // 如果需要显示设置向导，跳转到设置向导页面
-  if (userPayload.wizard) {
-    await router.push('/setup-wizard')
+  // 原始目标是一次性状态，持久化的旧登录页目标不得重新进入认证流程。
+  if (originalPath && originalPath !== '/' && router.resolve(originalPath).path !== '/login') {
+    await router.push(originalPath)
   } else {
-    // 原始目标是一次性状态，持久化的旧登录页目标不得重新进入认证流程。
-    if (originalPath && originalPath !== '/' && router.resolve(originalPath).path !== '/login') {
-      await router.push(originalPath)
-    } else {
-      // 跳转到第一个有权限的菜单
-      await router.push(filteredMenus[0].to)
-    }
+    // 跳转到第一个有权限的菜单
+    await router.push(filteredMenus[0].to)
   }
 
   // 订阅推送通知
@@ -674,7 +668,6 @@ async function handleLoginSuccess(response: PassKeyFinishResponse) {
     avatar: response.avatar,
     level: response.level,
     permissions: response.permissions,
-    wizard: response.wizard,
   }
 
   const userPermissions = buildUserPermissionContext(userPayload.superUser, userPayload.permissions)

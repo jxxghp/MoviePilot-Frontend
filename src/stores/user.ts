@@ -13,7 +13,6 @@ export const useUserStore = defineStore('user', {
       ...DEFAULT_PERMISSIONS,
       features: { ...DEFAULT_PERMISSIONS.features },
     },
-    wizard: false,
   }),
 
   // 全局持久化
@@ -42,9 +41,6 @@ export const useUserStore = defineStore('user', {
         features: { ...mergedPermissions.features },
       }
     },
-    setWizard(wizard: boolean) {
-      this.wizard = wizard
-    },
     loginUser(payload: userState) {
       this.setSuperUser(payload.superUser)
       this.setUserID(payload.userID)
@@ -52,7 +48,6 @@ export const useUserStore = defineStore('user', {
       this.setAvatar(payload.avatar)
       this.setLevel(payload.level)
       this.setPermissions(payload.permissions)
-      this.setWizard(payload.wizard)
     },
     reset() {
       this.setSuperUser(false)
@@ -61,7 +56,6 @@ export const useUserStore = defineStore('user', {
       this.setAvatar('')
       this.setLevel(1)
       this.setPermissions(DEFAULT_PERMISSIONS)
-      this.setWizard(false)
     },
   },
 
@@ -72,6 +66,5 @@ export const useUserStore = defineStore('user', {
     getAvatar: state => state.avatar,
     getLevel: state => state.level,
     getPermissions: state => state.permissions,
-    getWizard: state => state.wizard,
   },
 })

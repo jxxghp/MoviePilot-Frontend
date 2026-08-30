@@ -49,7 +49,6 @@ describe('auth store', () => {
       superUser: true,
       userID: 42,
       userName: 'previous-user',
-      wizard: true,
     })
     pluginNavStore.$patch({
       inflight: pendingRequest,
@@ -81,7 +80,6 @@ describe('auth store', () => {
       superUser: false,
       userID: -1,
       userName: '',
-      wizard: false,
     })
   })
 })

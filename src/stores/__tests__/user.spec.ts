@@ -18,7 +18,6 @@ describe('user store', () => {
       superUser: false,
       userID: -1,
       userName: '',
-      wizard: false,
     })
     expect(store.getSuperUser).toBe(false)
     expect(store.getUserID).toBe(-1)
@@ -26,7 +25,6 @@ describe('user store', () => {
     expect(store.getAvatar).toBe('')
     expect(store.getLevel).toBe(1)
     expect(store.getPermissions).toEqual(DEFAULT_PERMISSIONS)
-    expect(store.getWizard).toBe(false)
   })
 
   it('stores a login response and fills omitted permission categories', () => {
@@ -42,7 +40,6 @@ describe('user store', () => {
       superUser: false,
       userID: 7,
       userName: 'viewer',
-      wizard: true,
     })
 
     expect(store.$state).toEqual({
@@ -56,7 +53,6 @@ describe('user store', () => {
       superUser: false,
       userID: 7,
       userName: 'viewer',
-      wizard: true,
     })
   })
 
@@ -80,7 +76,6 @@ describe('user store', () => {
       superUser: false,
       userID: -1,
       userName: '',
-      wizard: false,
     })
 
     setActivePinia(createPinia())

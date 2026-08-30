@@ -20,8 +20,6 @@ export interface userState {
   level: number
   // 权限
   permissions: { [key: string]: any }
-  // 是否需要显示设置向导
-  wizard: boolean
 }
 
 export interface globalSettingsState {

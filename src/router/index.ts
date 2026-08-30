@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { configureNProgress } from '@/api/nprogress'
 import { useAuthStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { setNavigatingState as setRequestNavigatingState } from '@/utils/requestOptimizer'
+import { getInitializationState } from '@/utils/initialization'
 import {
   buildPluginPermissionFeatureKey,
   buildUserPermissionContext,
@@ -312,12 +313,8 @@ const router = createRouter({
           component: () => import('../pages/login.vue'),
         },
         {
-          path: 'setup-wizard',
-          component: () => import('../pages/setup.vue'),
-          meta: {
-            requiresAuth: true,
-            permission: 'admin',
-          },
+          path: 'initialize',
+          component: () => import('../pages/initialize.vue'),
         },
         {
           path: '/:pathMatch(.*)*',
@@ -359,10 +356,28 @@ router.beforeEach(async (to: any, from: any, next: any) => {
   // 设置导航状态 - 同时中断API请求
   setRequestNavigatingState(true)
 
+  let initialized: boolean | undefined
+  try {
+    initialized = await getInitializationState()
+  } catch {
+    // 老版本后端或服务暂不可用时保留原有导航，页面自身会显示请求错误。
+  }
+
+  if (initialized === false && to.path !== '/initialize') {
+    setRequestNavigatingState(false)
+    next('/initialize')
+    return
+  }
+  if (initialized === true && to.path === '/initialize') {
+    setRequestNavigatingState(false)
+    next('/login')
+    return
+  }
+
   // 认证 Store
   const authStore = useAuthStore()
   // 登录页的实验参数不是登录后可恢复的业务目标。
-  if (to.path !== '/login') authStore.originalPath = to.fullPath
+  if (to.path !== '/login' && to.path !== '/initialize') authStore.originalPath = to.fullPath
   const isAuthenticated = authStore.token !== null
 
   if (to.meta.requiresAuth && !isAuthenticated) {

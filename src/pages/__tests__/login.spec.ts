@@ -93,7 +93,6 @@ function loginResponse(overrides: Record<string, unknown> = {}) {
     super_user: false,
     user_id: 7,
     user_name: 'alice',
-    wizard: false,
     ...overrides,
   }
 }
@@ -302,16 +301,6 @@ describe('login page orchestration', () => {
     expect(await screen.findByText('登录失败，您没有任何功能权限，请联系管理员！')).toBeInTheDocument()
     expect(useAuthStore().token).toBeNull()
     expect(mocks.router.push).not.toHaveBeenCalled()
-  })
-
-  it('routes a login that requires setup to the wizard before any menu', async () => {
-    mocks.pluginApi.post.mockResolvedValue(loginResponse({ wizard: true }))
-    const { container } = await renderLogin()
-
-    await submitPassword(container)
-
-    await waitFor(() => expect(mocks.router.push).toHaveBeenCalledWith('/setup-wizard'))
-    expect(mocks.router.push).not.toHaveBeenCalledWith('/home')
   })
 
   it('maps password HTTP failures to a visible retryable error', async () => {

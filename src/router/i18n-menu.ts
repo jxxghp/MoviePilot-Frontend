@@ -1,15 +1,9 @@
-import { useGlobalSettingsStore } from '@/stores'
 import type { NavMenu, NavMenuTabItem } from '@/@layouts/types'
 import type { Composer } from 'vue-i18n'
 import { PERMISSION_FEATURE } from '@/utils/permission'
 
 /** 构建当前语言与全局模式对应的主导航菜单。 */
 export function getNavMenus(t: Composer['t']): NavMenu[] {
-  const globalSettingsStore = useGlobalSettingsStore()
-
-  // 检查是否为高级模式
-  const isAdvancedMode = globalSettingsStore.get('ADVANCED_MODE') !== false
-
   return [
     {
       title: t('navItems.dashboard'),
@@ -177,20 +171,16 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       admin: true,
       permission: 'admin',
     },
-    ...(isAdvancedMode
-      ? [
-          {
-            title: t('navItems.settings'),
-            icon: 'mdi-cog-outline',
-            iconColor: 'secondary',
-            to: '/setting',
-            header: t('menu.system'),
-            admin: true,
-            permission: 'admin',
-            tabs: getSettingTabs(t),
-          } as NavMenu,
-        ]
-      : []),
+    {
+      title: t('navItems.settings'),
+      icon: 'mdi-cog-outline',
+      iconColor: 'secondary',
+      to: '/setting',
+      header: t('menu.system'),
+      admin: true,
+      permission: 'admin',
+      tabs: getSettingTabs(t),
+    } as NavMenu,
   ]
 }
 

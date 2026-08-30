@@ -4,7 +4,7 @@ import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
 import api from '@/api'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { useAuthStore, useUserStore, useGlobalSettingsStore } from '@/stores'
+import { useAuthStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
@@ -39,8 +39,6 @@ const UserAuthDialog = defineAsyncComponent(() => import('@/components/dialog/Us
 const authStore = useAuthStore()
 // 用户 Store
 const userStore = useUserStore()
-// 全局设置 Store
-const globalSettingsStore = useGlobalSettingsStore()
 // 国际化
 const { t } = useI18n()
 // PWA
@@ -243,11 +241,6 @@ const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const userName = computed(() => userStore.userName)
 const avatar = computed(() => userStore.avatar || avatar1)
 const userLevel = computed(() => userStore.level)
-
-// 检查是否为高级模式
-const isAdvancedMode = computed(() => {
-  return globalSettingsStore.get('ADVANCED_MODE') !== false
-})
 
 // UI模式相关
 const uiModes = computed(() => [
@@ -605,14 +598,14 @@ onUnmounted(() => {
           <VListItem
             v-if="canAdmin"
             link
-            @click="isAdvancedMode ? router.push('/setting') : router.push('/setup-wizard')"
+            @click="router.push('/setting')"
             class="mb-1 rounded-lg"
             hover
           >
             <template #prepend>
-              <VIcon :icon="isAdvancedMode ? 'mdi-cog-outline' : 'mdi-wizard-hat'" />
+              <VIcon icon="mdi-cog-outline" />
             </template>
-            <VListItemTitle>{{ isAdvancedMode ? t('user.systemSettings') : t('user.wizardSettings') }}</VListItemTitle>
+            <VListItemTitle>{{ t('user.systemSettings') }}</VListItemTitle>
           </VListItem>
 
           <!-- 👉 Site Auth -->
