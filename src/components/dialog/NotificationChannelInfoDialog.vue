@@ -47,6 +47,7 @@ const notificationInfoDialog = computed({
 
 // 通知详情
 const notificationInfo = ref<NotificationConf>({
+  id: '',
   name: '',
   type: '',
   enabled: false,
@@ -183,9 +184,12 @@ async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null) {
 /** 组装微信客服状态接口所需的请求参数。 */
 function getWechatClawBotRequestParams(extraParams: Record<string, any> = {}) {
   const config = notificationInfo.value.config || {}
+  // 配置身份优先于显示名称；名称仅作为旧配置尚未归一化时的明确读取回退。
+  const source = notificationInfo.value.id || notificationInfo.value.name
+  const fallbackSource = props.notification.id || props.notification.name
   return {
-    source: notificationInfo.value.name,
-    fallback_source: props.notification.name,
+    source,
+    fallback_source: fallbackSource,
     WECHATCLAWBOT_BASE_URL: config.WECHATCLAWBOT_BASE_URL,
     WECHATCLAWBOT_DEFAULT_TARGET: config.WECHATCLAWBOT_DEFAULT_TARGET,
     WECHATCLAWBOT_ADMINS: config.WECHATCLAWBOT_ADMINS,
@@ -225,19 +229,24 @@ function openNotificationInfoDialog() {
 /** 保存通知渠道编辑结果并通知父级刷新。 */
 function saveNotificationInfo() {
   // 为空不保存，跳出警告框
-  if (!notificationInfo.value.name) {
+  const normalizedName = notificationInfo.value.name.trim()
+  if (!normalizedName) {
     $toast.error(t('notification.name') + t('common.required'))
     return
   }
   // 重名判断
-  if (props.notifications.some(item => item.name === notificationInfo.value.name && item !== props.notification)) {
-    $toast.error(t('notification.channel') + `【${notificationInfo.value.name}】` + t('common.exists'))
+  const duplicate = props.notifications.some(
+    item => item.id !== props.notification.id && item.name.trim().toLowerCase() === normalizedName.toLowerCase(),
+  )
+  if (duplicate) {
+    $toast.error(t('notification.channel') + `【${normalizedName}】` + t('common.exists'))
     return
   }
+  notificationInfo.value.name = normalizedName
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = false
-  emit('change', notificationInfo.value, props.notification.name)
+  emit('change', notificationInfo.value, props.notification.id)
   emit('done')
 }
 

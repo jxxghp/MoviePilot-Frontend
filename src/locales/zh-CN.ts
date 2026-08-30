@@ -13,6 +13,7 @@ export default {
     loading: '加载中',
     success: '成功',
     error: '错误',
+    exists: '已存在',
     openInNewWindow: '在新窗口中打开',
     download: '下载',
     inputMessage: '输入消息或命令',
@@ -2475,6 +2476,7 @@ export default {
     notification: {
       channels: '通知渠道',
       channelsDesc: '设置消息发送渠道参数',
+      channelsLoadFailed: '加载通知渠道失败，请刷新后重试',
       organizeSuccess: '资源入库',
       downloadAdded: '资源下载',
       subscribeAdded: '添加订阅',
