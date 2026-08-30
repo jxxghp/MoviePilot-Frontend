@@ -72,9 +72,9 @@ const FileNavigatorStub = defineComponent({
 const FileListStub = defineComponent({
   name: 'FileList',
   props: ['refreshpending', 'sort', 'showTree'],
-  emits: ['items-updated', 'loading', 'pathchanged', 'refreshed', 'switch-tree'],
+  emits: ['items-updated', 'loading', 'pathchanged', 'refreshed', 'switch-tree', 'filedeleted'],
   template:
-    '<div><button class="emit-loading" @click="$emit(`loading`, 1)" /><button class="emit-tree" @click="$emit(`switch-tree`, true)" /></div>',
+    '<div><button class="emit-loading" @click="$emit(`loading`, 1)" /><button class="emit-tree" @click="$emit(`switch-tree`, true)" /><button class="emit-filedeleted" @click="$emit(`filedeleted`)" /></div>',
 })
 
 function createBrowserProps() {
@@ -263,6 +263,15 @@ describe('FileBrowser state and child contracts', () => {
     expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(true)
     wrapper.getComponent(FileListStub).vm.$emit('refreshed')
     await nextTick()
+    expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(false)
+  })
+
+  it('does not schedule a second list refresh after the child completes a delete', async () => {
+    const wrapper = mountBrowser()
+
+    await wrapper.get('.emit-filedeleted').trigger('click')
+    await nextTick()
+
     expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(false)
   })
 
