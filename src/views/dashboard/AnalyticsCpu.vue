@@ -172,7 +172,7 @@ const { loading, refresh } = useDataRefresh(
   'analytics-cpu',
   loadCpuData,
   2000, // 2秒间隔
-  true // 立即执行
+  true, // 立即执行
 )
 
 useKeepAliveRefresh(refresh)
@@ -183,15 +183,19 @@ useKeepAliveRefresh(refresh)
     <VCardItem>
       <template #prepend><VIcon icon="mdi-cpu-64-bit" size="20" class="me-2" /></template>
       <VCardTitle>{{ t('dashboard.cpuUsage') }}</VCardTitle>
-      <template #append><strong class="dashboard-chart-current">{{ animatedCurrentText }}%</strong></template>
+      <template #append
+        ><strong class="dashboard-chart-current">{{ animatedCurrentText }}%</strong></template
+      >
     </VCardItem>
     <VCardText class="dashboard-chart-content">
       <div class="dashboard-chart-plot">
-        <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
+        <VApexChart v-if="props.allowRefresh" type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
       <div class="dashboard-chart-footer">
         <span>{{ t('dashboard.averageUsage') }}</span>
-        <span v-for="item in averageUsages" :key="item.label"><strong>{{ item.value }}</strong> {{ item.label }}</span>
+        <span v-for="item in averageUsages" :key="item.label"
+          ><strong>{{ item.value }}</strong> {{ item.label }}</span
+        >
       </div>
     </VCardText>
   </VCard>
@@ -236,5 +240,4 @@ useKeepAliveRefresh(refresh)
   gap: 0.6rem;
   padding-block-start: 0.55rem;
 }
-
 </style>

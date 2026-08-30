@@ -98,6 +98,15 @@ function getSeries() {
   return JSON.parse(serialized) as NetworkSeries[]
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>(promiseResolve => {
+    resolve = promiseResolve
+  })
+
+  return { promise, resolve }
+}
+
 async function renderNetwork(props: { allowRefresh?: boolean } = {}) {
   return renderWithProviders(AnalyticsNetwork, {
     props,
@@ -129,7 +138,7 @@ describe('AnalyticsNetwork', () => {
     await registration.refresh()
 
     expect(mocks.apiGet).not.toHaveBeenCalled()
-    expect(getSeries().map(item => item.data)).toEqual([[0], [0]])
+    expect(screen.queryByTestId('network-series')).not.toBeInTheDocument()
   })
 
   it('normalizes rates and updates current values and series through refresh and KeepAlive', async () => {
@@ -168,6 +177,32 @@ describe('AnalyticsNetwork', () => {
         [0, 0, 1024 ** 2],
       ])
     })
+  })
+
+  it('discards a response that finishes while the dashboard is inactive and refreshes after reactivation', async () => {
+    const inactiveResponse = deferred<[number, number]>()
+    mocks.apiGet.mockReturnValueOnce(inactiveResponse.promise).mockResolvedValueOnce([4096, 8192])
+    const view = await renderNetwork()
+
+    const registration = getRefreshRegistration()
+    const pendingRefresh = registration.refresh()
+    await view.rerender({ allowRefresh: false })
+
+    inactiveResponse.resolve([1024, 2048])
+    await pendingRefresh
+
+    expect(screen.queryByTestId('network-series')).not.toBeInTheDocument()
+
+    await view.rerender({ allowRefresh: true })
+    expect(getSeries().map(item => item.data)).toEqual([[0], [0]])
+    if (!mocks.keepAliveHandler) throw new Error('未注册 KeepAlive 刷新回调')
+    await mocks.keepAliveHandler()
+
+    expect(mocks.apiGet).toHaveBeenCalledTimes(2)
+    expect(getSeries().map(item => item.data)).toEqual([
+      [0, 4096],
+      [0, 8192],
+    ])
   })
 
   it('keeps only the latest 30 samples in both network series', async () => {

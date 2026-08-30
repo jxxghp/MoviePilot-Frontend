@@ -13,6 +13,7 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginRuntimeStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { useDisplay, useTheme } from 'vuetify'
+import { onBeforeRouteLeave } from 'vue-router'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
@@ -1894,6 +1895,12 @@ onBeforeMount(async () => {
 
 onMounted(() => {
   initializeDashboardGrid()
+})
+
+// KeepAlive 会先移动页面 DOM 再触发 deactivated；图表必须在容器仍连接时完成卸载，避免异步 watcher 访问失效根节点。
+onBeforeRouteLeave(async () => {
+  isRequest.value = false
+  await nextTick()
 })
 
 onActivated(() => {

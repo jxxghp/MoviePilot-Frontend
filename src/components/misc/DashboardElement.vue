@@ -130,9 +130,7 @@ let dashboardLoadGeneration = 0
 const pluginRenderMode = computed(() => props.config?.render_mode || 'vuetify')
 
 // 仪表盘远程组件共享源码，但所有插件动态 API 保持实例级隔离。
-const scopedPluginApi = computed(() =>
-  createPluginInstanceApi(props.config?.id || '', props.config?.source_plugin_id),
-)
+const scopedPluginApi = computed(() => createPluginInstanceApi(props.config?.id || '', props.config?.source_plugin_id))
 
 // 插件节点身份变化时重建异步组件，使失败后的远程模块可以再次加载。
 const pluginDashboardIdentity = computed(
@@ -241,7 +239,7 @@ onUnmounted(() => {
   <AnalyticsStorage v-if="config?.id === 'storage'" />
   <AnalyticsMediaStatistic v-else-if="config?.id === 'mediaStatistic'" />
   <MediaRecommend v-else-if="config?.id === 'mediaRecommend'" />
-  <AnalyticsWeeklyOverview v-else-if="config?.id === 'weeklyOverview'" />
+  <AnalyticsWeeklyOverview v-else-if="config?.id === 'weeklyOverview'" :allow-refresh="props.allowRefresh" />
   <AnalyticsSpeed v-else-if="config?.id === 'speed'" :allowRefresh="props.allowRefresh" />
   <AnalyticsScheduler v-else-if="config?.id === 'scheduler'" :allowRefresh="props.allowRefresh" />
   <AnalyticsCpu v-else-if="config?.id === 'cpu'" :allowRefresh="props.allowRefresh" />
@@ -274,7 +272,12 @@ onUnmounted(() => {
       <div v-if="props.config?.attrs.border === false">
         <VCard>
           <VCardText class="p-0">
-            <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
+            <DashboardRender
+              v-for="(item, index) in props.config?.elements"
+              :key="index"
+              :active="props.allowRefresh"
+              :config="item"
+            />
           </VCardText>
         </VCard>
       </div>
@@ -287,7 +290,12 @@ onUnmounted(() => {
           <VCardSubtitle v-if="props.config?.attrs?.subtitle"> {{ props.config?.attrs?.subtitle }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
+          <DashboardRender
+            v-for="(item, index) in props.config?.elements"
+            :key="index"
+            :active="props.allowRefresh"
+            :config="item"
+          />
         </VCardText>
       </VCard>
     </template>
