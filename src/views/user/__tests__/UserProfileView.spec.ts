@@ -1,5 +1,7 @@
 import UserProfileView from '@/views/user/UserProfileView.vue'
+import { type AxiosResponse } from 'axios'
 import type { PassKey } from '@/api/types'
+import { ApiRequestError } from '@/api/client'
 import { useUserStore } from '@/stores'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createPassKey, createUser } from '@tests/support/factories/user'
@@ -29,18 +31,28 @@ vi.mock('vue-toastification', () => ({
   useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
 }))
 
-function currentUser() {
+function currentUser(overrides: Partial<ReturnType<typeof createUser>> = {}) {
   return createUser({
     avatar: 'saved-avatar.png',
     email: 'alice@example.com',
     is_otp: false,
     settings: { nickname: 'Alice' },
+    ...overrides,
+  })
+}
+
+/** 构造带 HTTP 状态和 FastAPI detail 的统一请求错误。 */
+function createHttpError(status: number, detail: string) {
+  const payload = { detail }
+  return new ApiRequestError('Request failed', {
+    payload,
+    response: { data: payload, status } as AxiosResponse,
   })
 }
 
 function mockSuccessfulLoad() {
   mocks.apiGet.mockImplementation((url: string) => {
-    if (url === 'user/alice') return Promise.resolve(currentUser())
+    if (url === 'user/current') return Promise.resolve(currentUser())
     if (url === 'mfa/passkey/list') return Promise.resolve({ data: [createPassKey()], success: true })
     return Promise.reject(new Error(`unexpected GET ${url}`))
   })
@@ -89,7 +101,7 @@ describe('UserProfileView', () => {
 
     expect(await screen.findByDisplayValue('alice@example.com')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Alice')).toBeInTheDocument()
-    expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'user/alice')
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'user/current')
     expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'mfa/passkey/list')
 
     await fireEvent.click(screen.getByRole('button', { name: '账号安全' }))
@@ -98,7 +110,7 @@ describe('UserProfileView', () => {
 
   it('shows a retryable error instead of a blank profile after loading fails', async () => {
     mocks.apiGet.mockRejectedValueOnce(new Error('network')).mockImplementation((url: string) => {
-      if (url === 'user/alice') return Promise.resolve(currentUser())
+      if (url === 'user/current') return Promise.resolve(currentUser())
       return Promise.resolve({ data: [], success: true })
     })
     await renderProfile()
@@ -113,7 +125,7 @@ describe('UserProfileView', () => {
   it('shows the loaded profile while the passkey badge request is still pending', async () => {
     const passkeyRequest = deferred<{ data: PassKey[]; success: boolean }>()
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'user/alice') return Promise.resolve(currentUser())
+      if (url === 'user/current') return Promise.resolve(currentUser())
       if (url === 'mfa/passkey/list') return passkeyRequest.promise
       return Promise.reject(new Error(`unexpected GET ${url}`))
     })
@@ -159,7 +171,7 @@ describe('UserProfileView', () => {
 
   it('keeps notification identity fields editable in the profile payload', async () => {
     mockSuccessfulLoad()
-    mocks.apiPut.mockResolvedValue({ success: true })
+    mocks.apiPut.mockResolvedValue(currentUser())
     await renderProfile()
     await screen.findByDisplayValue('alice@example.com')
 
@@ -178,6 +190,9 @@ describe('UserProfileView', () => {
     await fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledOnce())
+    expect(mocks.apiPut.mock.calls[0][0]).toBe('user/current')
+    expect(Object.keys(mocks.apiPut.mock.calls[0][1]).sort()).toEqual(['avatar', 'email', 'settings'])
+    expect(mocks.apiPut.mock.calls[0][1]).not.toHaveProperty('password')
     expect(mocks.apiPut.mock.calls[0][1]).toMatchObject({
       settings: {
         discord_userid: 'discord-user',
@@ -195,7 +210,13 @@ describe('UserProfileView', () => {
 
   it('saves edited profile data and updates the current-user store only after success', async () => {
     mockSuccessfulLoad()
-    mocks.apiPut.mockResolvedValue({ success: true })
+    mocks.apiPut.mockResolvedValue(
+      currentUser({
+        avatar: 'server-avatar.png',
+        email: 'server@example.com',
+        settings: { nickname: 'Server Name' },
+      }),
+    )
     await renderProfile()
     await screen.findByDisplayValue('alice@example.com')
 
@@ -205,15 +226,40 @@ describe('UserProfileView', () => {
 
     await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledOnce())
     expect(mocks.apiPut).toHaveBeenCalledWith(
-      'user/',
+      'user/current',
       expect.objectContaining({
         email: 'updated@example.com',
-        name: 'alice',
         settings: expect.objectContaining({ nickname: 'Alice Updated' }),
       }),
     )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('用户信息保存成功！')
     expect(useUserStore().userName).toBe('alice')
+    await waitFor(() => expect(screen.getByDisplayValue('server@example.com')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('Server Name')).toBeInTheDocument()
+  })
+
+  it('仅在成功时提交非空密码并清空两次密码输入', async () => {
+    mockSuccessfulLoad()
+    mocks.apiPut.mockResolvedValue(currentUser({ email: 'updated@example.com' }))
+    await renderProfile()
+    await screen.findByDisplayValue('alice@example.com')
+
+    await fireEvent.update(screen.getByLabelText('邮箱'), 'updated@example.com')
+    await fireEvent.update(screen.getByLabelText('密码'), 'new-password')
+    await fireEvent.update(screen.getByLabelText('确认密码'), 'new-password')
+    await fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledOnce())
+    expect(mocks.apiPut.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        email: 'updated@example.com',
+        password: expect.any(String),
+      }),
+    )
+    expect(mocks.apiPut.mock.calls[0][1].password).toBe('new-password')
+    expect(Object.keys(mocks.apiPut.mock.calls[0][1]).sort()).toEqual(['avatar', 'email', 'password', 'settings'])
+    expect(screen.getByLabelText('密码')).toHaveValue('')
+    expect(screen.getByLabelText('确认密码')).toHaveValue('')
   })
 
   it('keeps edited input retryable after a business failure', async () => {
@@ -223,16 +269,54 @@ describe('UserProfileView', () => {
     await screen.findByDisplayValue('alice@example.com')
 
     await fireEvent.update(screen.getByLabelText('邮箱'), 'retry@example.com')
+    await fireEvent.update(screen.getByLabelText('密码'), 'new-password')
+    await fireEvent.update(screen.getByLabelText('确认密码'), 'new-password')
     await fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('用户信息保存失败：没有权限！'))
     expect(screen.getByDisplayValue('retry@example.com')).toBeInTheDocument()
+    expect(screen.getByLabelText('密码')).toHaveValue('new-password')
+    expect(screen.getByLabelText('确认密码')).toHaveValue('new-password')
+    expect(screen.getByRole('button', { name: '保存' })).toBeEnabled()
+  })
+
+  it('shows the HTTP 403 permission message once and keeps edited input', async () => {
+    mockSuccessfulLoad()
+    mocks.apiPut.mockRejectedValue(createHttpError(403, '当前用户无权修改资料'))
+    await renderProfile()
+    await screen.findByDisplayValue('alice@example.com')
+
+    await fireEvent.update(screen.getByLabelText('邮箱'), 'forbidden@example.com')
+    await fireEvent.update(screen.getByLabelText('密码'), 'new-password')
+    await fireEvent.update(screen.getByLabelText('确认密码'), 'new-password')
+    await fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(mocks.toastError).toHaveBeenCalledWith('用户信息保存失败：当前用户无权修改资料！')
+    expect(screen.getByDisplayValue('forbidden@example.com')).toBeInTheDocument()
+    expect(screen.getByLabelText('密码')).toHaveValue('new-password')
+    expect(screen.getByLabelText('确认密码')).toHaveValue('new-password')
+    expect(screen.getByRole('button', { name: '保存' })).toBeEnabled()
+  })
+
+  it('shows the HTTP 400 business detail and keeps edited input', async () => {
+    mockSuccessfulLoad()
+    mocks.apiPut.mockRejectedValue(createHttpError(400, '密码格式不符合要求'))
+    await renderProfile()
+    await screen.findByDisplayValue('alice@example.com')
+
+    await fireEvent.update(screen.getByLabelText('邮箱'), 'invalid@example.com')
+    await fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
+    expect(mocks.toastError).toHaveBeenCalledWith('用户信息保存失败：密码格式不符合要求！')
+    expect(screen.getByDisplayValue('invalid@example.com')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存' })).toBeEnabled()
   })
 
   it('shows an HTTP save failure and allows the same input to be retried', async () => {
     mockSuccessfulLoad()
-    mocks.apiPut.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({ success: true })
+    mocks.apiPut.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(currentUser())
     await renderProfile()
     await screen.findByDisplayValue('alice@example.com')
 
@@ -247,7 +331,7 @@ describe('UserProfileView', () => {
 
   it('prevents duplicate save submissions while a request is pending', async () => {
     mockSuccessfulLoad()
-    let resolveUpdate!: (value: { success: boolean }) => void
+    let resolveUpdate!: (value: ReturnType<typeof currentUser>) => void
     mocks.apiPut.mockReturnValue(
       new Promise(resolve => {
         resolveUpdate = resolve
@@ -261,7 +345,7 @@ describe('UserProfileView', () => {
     await fireEvent.click(save)
     expect(mocks.apiPut).toHaveBeenCalledOnce()
 
-    resolveUpdate({ success: true })
+    resolveUpdate(currentUser())
     await waitFor(() => expect(screen.getByRole('button', { name: '保存' })).toBeEnabled())
   })
 

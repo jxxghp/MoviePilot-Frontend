@@ -6,7 +6,7 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios'
-import { ApiRequestError, createApiClients, type ApiFeedbackNotifier } from '@/api/client'
+import { ApiRequestError, createApiClients, getApiErrorMessage, type ApiFeedbackNotifier } from '@/api/client'
 import type { ApiResponse } from '@/api/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -312,6 +312,23 @@ describe('MoviePilot API client', () => {
 
     expect(notifier.error).toHaveBeenCalledTimes(2)
     expect(notifier.error).toHaveBeenCalledWith('Cannot save')
+  })
+
+  it('从业务或 HTTP 错误提取 message/detail，网络错误交给连接 fallback', () => {
+    const businessError = new ApiRequestError('Cannot save', {
+      businessFailure: true,
+      payload: { message: '资料保存失败' },
+    })
+    const forbiddenPayload = { detail: '当前用户无权修改资料' }
+    const forbiddenError = new ApiRequestError('Forbidden', {
+      payload: forbiddenPayload,
+      response: createResponse({} as InternalAxiosRequestConfig, forbiddenPayload, 403),
+    })
+    const networkError = new ApiRequestError('Network Error')
+
+    expect(getApiErrorMessage(businessError)).toBe('资料保存失败')
+    expect(getApiErrorMessage(forbiddenError)).toBe('当前用户无权修改资料')
+    expect(getApiErrorMessage(networkError)).toBeUndefined()
   })
 
   it('取消请求保持原始 CanceledError，且不提示或触发离线探测', async () => {
