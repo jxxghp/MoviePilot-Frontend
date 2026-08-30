@@ -39,12 +39,13 @@ const ProgressiveCardGridStub = defineComponent({
   props: {
     getItemKey: { type: Function as PropType<(item: TorrentInfo, index: number) => string>, required: true },
     items: { type: Array as PropType<TorrentInfo[]>, required: true },
+    virtualizeInOverlay: Boolean,
   },
   setup(props, { slots }) {
     return () =>
       h(
         'section',
-        { 'data-testid': 'progressive-grid' },
+        { 'data-testid': 'progressive-grid', 'data-virtualize-in-overlay': String(props.virtualizeInOverlay) },
         props.items.map((item, index) =>
           h('article', { 'data-resource-key': props.getItemKey(item, index) }, slots.default?.({ item })),
         ),
@@ -399,6 +400,7 @@ describe('SiteResourceDialog', () => {
 
     await renderDialog()
     expect(await screen.findByText('详情资源')).toBeInTheDocument()
+    expect(screen.getByTestId('progressive-grid')).toHaveAttribute('data-virtualize-in-overlay', 'true')
     expect(screen.getByText('移动端资源说明')).toBeInTheDocument()
     expect(screen.getByText('移动标签')).toBeInTheDocument()
     const cards = screen.getByTestId('progressive-grid').querySelectorAll('[data-resource-key]')

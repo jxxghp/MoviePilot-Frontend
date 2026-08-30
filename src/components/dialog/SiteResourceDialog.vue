@@ -520,6 +520,7 @@ onMounted(() => {
               :gap="12"
               :estimated-item-height="220"
               :overscan-rows="5"
+              virtualize-in-overlay
               :get-item-key="getResourceItemKey"
             >
               <template #default="{ item }">

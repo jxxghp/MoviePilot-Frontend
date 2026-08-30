@@ -16,6 +16,8 @@ const props = withDefaults(
     initialCount?: number
     batchSize?: number
     overscanRows?: number
+    /** overlay 默认完整挂载以保证弹窗交互；仅在调用方能接受虚拟回收时显式开启。 */
+    virtualizeInOverlay?: boolean
     getItemKey?: (item: any, index: number) => string | number
   }>(),
   {
@@ -28,6 +30,7 @@ const props = withDefaults(
     initialCount: 6,
     batchSize: 6,
     overscanRows: 4,
+    virtualizeInOverlay: false,
     getItemKey: undefined,
   },
 )
@@ -54,6 +57,8 @@ const viewportBottom = ref(0)
 const heightVersion = ref(0)
 const frozenVisibleRange = ref<VirtualRange | null>(null)
 const isOverlayGrid = ref(false)
+// 焦点进入虚拟化弹窗后保留全部条目，确保键盘导航不会跨越未挂载节点。
+const keyboardInteractionActive = ref(false)
 const progressiveStartIndex = ref(0)
 const progressiveEndIndex = ref(0)
 
@@ -82,6 +87,9 @@ const safeInitialCount = computed(() => Math.max(1, Math.floor(props.initialCoun
 const safeBatchSize = computed(() => Math.max(1, Math.floor(props.batchSize)))
 const safeMinItemWidth = computed(() => Math.max(1, props.minItemWidth))
 const safeOverscanRows = computed(() => Math.max(1, props.overscanRows))
+const shouldRenderOverlayFully = computed(
+  () => isOverlayGrid.value && (!props.virtualizeInOverlay || keyboardInteractionActive.value),
+)
 
 const columnCount = computed(() => {
   if (props.columns && props.columns > 0) {
@@ -168,7 +176,7 @@ const rowMetrics = computed(() => {
 const totalHeight = computed(() => rowMetrics.value.totalHeight)
 
 const calculatedViewportRange = computed<VirtualRange>(() => {
-  if (isOverlayGrid.value) {
+  if (shouldRenderOverlayFully.value) {
     const rowCount = Math.max(1, Math.ceil(props.items.length / columnCount.value))
 
     return {
@@ -204,7 +212,7 @@ const calculatedViewportRange = computed<VirtualRange>(() => {
 })
 
 const calculatedVisibleRange = computed<VirtualRange>(() => {
-  if (isOverlayGrid.value || !props.items.length) {
+  if (shouldRenderOverlayFully.value || !props.items.length) {
     return calculatedViewportRange.value
   }
 
@@ -227,7 +235,7 @@ const visibleRange = computed(() => frozenVisibleRange.value ?? calculatedVisibl
 const renderedVisibleRange = computed<VirtualRange>(() => {
   const range = visibleRange.value
 
-  if (isOverlayGrid.value || frozenVisibleRange.value || range.endIndex <= range.startIndex) {
+  if (shouldRenderOverlayFully.value || frozenVisibleRange.value || range.endIndex <= range.startIndex) {
     return range
   }
 
@@ -273,7 +281,7 @@ const visibleCells = computed<VirtualCell[]>(() => {
 })
 
 const topSpacerHeight = computed(() => {
-  if (isOverlayGrid.value) {
+  if (shouldRenderOverlayFully.value) {
     return 0
   }
 
@@ -296,7 +304,7 @@ const visibleBlockHeight = computed(() => {
 })
 
 const bottomSpacerHeight = computed(() => {
-  if (isOverlayGrid.value) {
+  if (shouldRenderOverlayFully.value) {
     return 0
   }
 
@@ -379,6 +387,12 @@ function isGridInsideOverlay() {
 
 function syncOverlayGridState() {
   isOverlayGrid.value = isGridInsideOverlay()
+}
+
+function handleGridFocus() {
+  if (isOverlayGrid.value && props.virtualizeInOverlay) {
+    keyboardInteractionActive.value = true
+  }
 }
 
 function shouldPauseVirtualSync() {
@@ -681,7 +695,7 @@ function queueLayoutSync() {
       return
     }
 
-    // 弹窗内容已经由 overlay 限定生命周期，直接完整渲染可避免弹窗内交互被虚拟回收打断。
+    // 弹窗默认完整渲染；调用方显式开启虚拟化时，按视口窗口挂载条目以控制首开成本。
     syncOverlayGridState()
     releaseVisibleRange()
     syncLayoutWidth()
@@ -719,7 +733,7 @@ function cancelProgressiveRender() {
 }
 
 function syncProgressiveWindow() {
-  if (isOverlayGrid.value || frozenVisibleRange.value) {
+  if (shouldRenderOverlayFully.value || frozenVisibleRange.value) {
     return
   }
 
@@ -755,7 +769,7 @@ function queueProgressiveRender() {
     typeof window === 'undefined' ||
     !mounted ||
     progressiveFrameId !== null ||
-    isOverlayGrid.value ||
+    shouldRenderOverlayFully.value ||
     frozenVisibleRange.value
   ) {
     return
@@ -1152,7 +1166,7 @@ watch(
 </script>
 
 <template>
-  <div ref="containerRef" class="progressive-card-grid">
+  <div ref="containerRef" class="progressive-card-grid" @focusin="handleGridFocus">
     <!-- 完整高度由虚拟占位与可见网格共同承载，供上层自适应布局观察稳定的尺寸语义。 -->
     <div ref="trackRef" class="progressive-card-grid__track" data-layout-size-source>
       <div
