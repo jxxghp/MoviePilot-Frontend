@@ -4558,6 +4558,7 @@ export default {
     title: 'Welcome to MoviePilot',
     subtitle: 'Create the single super administrator account before you start managing your media library.',
     checking: 'Checking instance status…',
+    statusRetrying: 'The service is starting. Retrying automatically…',
     accountSection: 'Administrator account',
     username: 'Super administrator username',
     usernamePlaceholder: 'For example: admin',

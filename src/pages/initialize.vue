@@ -27,9 +27,13 @@ const isPasswordVisible = ref(false)
 const isConfirmPasswordVisible = ref(false)
 const loading = ref(false)
 const checking = ref(true)
+const statusRetrying = ref(false)
 const errorMessage = ref('')
 const apiKeyCopied = ref(false)
 const formRef = ref<HTMLFormElement | null>(null)
+const INITIALIZATION_STATUS_RETRY_MS = 1500
+let statusRetryTimer: ReturnType<typeof setTimeout> | undefined
+let disposed = false
 
 const form = ref<InitializationPayload>({
   username: '',
@@ -40,6 +44,9 @@ const form = ref<InitializationPayload>({
 
 const currentTheme = computed(() => theme.global.name.value)
 const themeClass = computed(() => 'initialize-page--' + currentTheme.value)
+const statusMessage = computed(() =>
+  t(statusRetrying.value ? 'initialization.statusRetrying' : 'initialization.checking'),
+)
 
 /** 使用浏览器密码学随机源生成一次性 API Key，避免把凭据交给第三方服务。 */
 function generateApiKey(): string {
@@ -73,6 +80,26 @@ function getErrorMessage(error: unknown): string {
   return getApiBusinessErrorMessage(error) || t('initialization.saveFailed')
 }
 
+/** 持续确认实例状态；服务尚未就绪时保持表单锁定并自动重试。 */
+async function checkInitializationStatus() {
+  try {
+    const initialized = await getInitializationState(true)
+    if (disposed) return
+    statusRetrying.value = false
+    if (initialized) {
+      await router.replace('/login')
+      return
+    }
+    checking.value = false
+  } catch {
+    if (disposed) return
+    statusRetrying.value = true
+    statusRetryTimer = setTimeout(() => {
+      void checkInitializationStatus()
+    }, INITIALIZATION_STATUS_RETRY_MS)
+  }
+}
+
 /** 提交首次初始化；后端会再次校验“零用户”条件，防止重复认领实例。 */
 async function submit() {
   if (loading.value) return
@@ -97,15 +124,14 @@ async function submit() {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   form.value.api_key = generateApiKey()
-  try {
-    if (await getInitializationState(true)) await router.replace('/login')
-  } catch (error) {
-    errorMessage.value = getErrorMessage(error)
-  } finally {
-    checking.value = false
-  }
+  void checkInitializationStatus()
+})
+
+onBeforeUnmount(() => {
+  disposed = true
+  if (statusRetryTimer) clearTimeout(statusRetryTimer)
 })
 </script>
 
@@ -159,12 +185,19 @@ onMounted(async () => {
         </VCardItem>
 
         <VCardText class="px-0 pt-6">
-          <VAlert v-if="errorMessage" type="error" variant="tonal" class="mb-5" closable @click:close="errorMessage = ''">
+          <VAlert
+            v-if="errorMessage"
+            type="error"
+            variant="tonal"
+            class="mb-5"
+            closable
+            @click:close="errorMessage = ''"
+          >
             {{ errorMessage }}
           </VAlert>
 
           <VAlert v-if="checking" type="info" variant="tonal" class="mb-5">
-            {{ t('initialization.checking') }}
+            {{ statusMessage }}
           </VAlert>
 
           <form ref="formRef" class="initialize-form" novalidate @submit.prevent="submit">
@@ -254,11 +287,21 @@ onMounted(async () => {
                 minlength="16"
               >
                 <template #append-inner>
-                  <VBtn icon="mdi-content-copy" variant="text" size="small" :aria-label="t('initialization.copyApiKey')" @click="copyApiKey" />
+                  <VBtn
+                    icon="mdi-content-copy"
+                    variant="text"
+                    size="small"
+                    :aria-label="t('initialization.copyApiKey')"
+                    @click="copyApiKey"
+                  />
                 </template>
               </VTextField>
               <div class="initialize-key-panel__actions">
-                <span><VIcon icon="mdi-information-outline" size="15" class="me-1" />{{ t('initialization.apiKeyWarning') }}</span>
+                <span
+                  ><VIcon icon="mdi-information-outline" size="15" class="me-1" />{{
+                    t('initialization.apiKeyWarning')
+                  }}</span
+                >
                 <VBtn variant="text" size="small" prepend-icon="mdi-refresh" @click="regenerateApiKey">
                   {{ t('initialization.regenerate') }}
                 </VBtn>

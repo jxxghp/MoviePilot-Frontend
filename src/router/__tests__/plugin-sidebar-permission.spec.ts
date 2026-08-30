@@ -13,6 +13,7 @@ type NavigationGuard = (
 ) => Promise<void>
 
 const routerMocks = vi.hoisted(() => ({
+  getInitializationState: vi.fn(),
   guard: undefined as NavigationGuard | undefined,
   next: vi.fn(),
   push: vi.fn(),
@@ -32,6 +33,10 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/nprogress', () => ({
   configureNProgress: vi.fn(),
+}))
+
+vi.mock('@/utils/initialization', () => ({
+  getInitializationState: routerMocks.getInitializationState,
 }))
 
 vi.mock('@/utils/requestOptimizer', () => ({
@@ -70,6 +75,8 @@ describe('plugin sidebar route permission', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     useAuthStore().login({ remember: false, token: 'test-token' })
+    routerMocks.getInitializationState.mockReset()
+    routerMocks.getInitializationState.mockResolvedValue(true)
     routerMocks.next.mockReset()
   })
 

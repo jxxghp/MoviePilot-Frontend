@@ -360,7 +360,12 @@ router.beforeEach(async (to: any, from: any, next: any) => {
   try {
     initialized = await getInitializationState()
   } catch {
-    // 老版本后端或服务暂不可用时保留原有导航，页面自身会显示请求错误。
+    // 未确认初始化状态时必须进入初始化页，由页面持续等待后端就绪，避免启动竞态误放行登录页。
+    if (to.path !== '/initialize') {
+      setRequestNavigatingState(false)
+      next('/initialize')
+      return
+    }
   }
 
   if (initialized === false && to.path !== '/initialize') {

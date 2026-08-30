@@ -4486,6 +4486,7 @@ export default {
     title: '欢迎使用 MoviePilot',
     subtitle: '先创建唯一的超级管理员，再开始管理你的媒体库。整个过程只需一步。',
     checking: '正在检查实例状态…',
+    statusRetrying: '服务正在启动，稍后将自动重试…',
     accountSection: '管理员账号',
     username: '超级管理员用户名',
     usernamePlaceholder: '例如：admin',

@@ -18,6 +18,7 @@ type Redirect = () => string
 
 const routerMocks = vi.hoisted(() => ({
   afterEach: undefined as AfterEachHook | undefined,
+  getInitializationState: vi.fn(),
   guard: undefined as NavigationGuard | undefined,
   next: vi.fn(),
   routes: [] as Array<{ path: string; redirect?: Redirect }>,
@@ -43,6 +44,10 @@ vi.mock('@/api/nprogress', () => ({
   configureNProgress: vi.fn(),
 }))
 
+vi.mock('@/utils/initialization', () => ({
+  getInitializationState: routerMocks.getInitializationState,
+}))
+
 vi.mock('@/utils/requestOptimizer', () => ({
   abortAllRequests: vi.fn(),
   initializeRequestOptimizer: vi.fn(),
@@ -66,6 +71,8 @@ describe('authentication route guard', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     routerMocks.next.mockReset()
+    routerMocks.getInitializationState.mockReset()
+    routerMocks.getInitializationState.mockResolvedValue(true)
     routerMocks.setRequestNavigatingState.mockReset()
   })
 
@@ -104,6 +111,33 @@ describe('authentication route guard', () => {
 
     expect(useAuthStore().originalPath).toBe('/resource?keyword=test')
     expect(routerMocks.next).toHaveBeenCalledWith()
+  })
+
+  it('redirects to initialization when the instance has no user', async () => {
+    routerMocks.getInitializationState.mockResolvedValue(false)
+
+    await runGuard(route({ fullPath: '/login', path: '/login' }))
+
+    expect(routerMocks.next).toHaveBeenCalledOnce()
+    expect(routerMocks.next).toHaveBeenCalledWith('/initialize')
+    expect(routerMocks.setRequestNavigatingState).toHaveBeenLastCalledWith(false)
+  })
+
+  it('redirects to initialization while the status endpoint is unavailable', async () => {
+    routerMocks.getInitializationState.mockRejectedValue(new Error('service starting'))
+
+    await runGuard(route({ fullPath: '/login', path: '/login' }))
+
+    expect(routerMocks.next).toHaveBeenCalledOnce()
+    expect(routerMocks.next).toHaveBeenCalledWith('/initialize')
+    expect(routerMocks.setRequestNavigatingState).toHaveBeenLastCalledWith(false)
+  })
+
+  it('keeps initialized instances out of the initialization page', async () => {
+    await runGuard(route({ fullPath: '/initialize', path: '/initialize' }))
+
+    expect(routerMocks.next).toHaveBeenCalledOnce()
+    expect(routerMocks.next).toHaveBeenCalledWith('/login')
   })
 
   it('allows ordinary protected routes and enforces declared permissions', async () => {
