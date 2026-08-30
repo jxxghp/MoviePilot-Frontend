@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { debounce } from 'lodash-es'
 import { useToast } from 'vue-toastification'
-import api from '@/api'
-import type { StorageConf, TransferHistory } from '@/api/types'
+import api, { isApiBusinessFailure } from '@/api'
+import type {
+  StorageConf,
+  TransferHistory,
+  TransferHistoryDeleteResult,
+  TransferHistoryDeleteStepStatus,
+} from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
@@ -81,6 +86,20 @@ const redoTargetStorage = ref<string>()
 
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
+
+// 当前删除尝试已完成的文件步骤，页面刷新后由后端“已不存在”状态重新确认。
+const completedDeleteSteps = new Map<number, { source: boolean; destination: boolean }>()
+
+type TransferHistoryStatusFilter = 'all' | 'success' | 'failed'
+
+// 独立状态筛选，不再把本地化文案作为 title 的后端协议。
+const statusFilter = ref<TransferHistoryStatusFilter>(getRouteStatusFilter(route.query.status))
+
+const statusFilterItems = computed(() => [
+  { title: t('transferHistory.statusFilter.all'), value: 'all' },
+  { title: t('transferHistory.status.success'), value: 'success' },
+  { title: t('transferHistory.status.failed'), value: 'failed' },
+])
 
 // 移动端批量选择模式
 const mobileBatchMode = ref(false)
@@ -421,6 +440,19 @@ watch([() => search.value, () => isComposing.value], () => {
   debouncedReloadSearchPage()
 })
 
+// 状态筛选变化时重置页码，并由地址栏保存可分享的查询条件。
+watch(
+  () => statusFilter.value,
+  () => {
+    if (syncingRouteQuery) return
+    if (isMobile.value) {
+      void reloadMobileSearchPage()
+      return
+    }
+    void reloadPage(true)
+  },
+)
+
 // 分组模式变化时同步到地址栏，方便返回页面时恢复用户选择。
 watch(
   () => group.value,
@@ -468,6 +500,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         page,
         count,
         title: search.value ?? '',
+        ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
       },
     })
     if (requestSeed !== fetchDataRequestSeed) return
@@ -493,9 +526,98 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
   }
 }
 
+const completedDeleteStatuses: TransferHistoryDeleteStepStatus[] = ['deleted', 'already_missing']
+
+function isCompletedDeleteStatus(status: TransferHistoryDeleteStepStatus) {
+  return completedDeleteStatuses.includes(status)
+}
+
+function parseDeleteResult(value: unknown): TransferHistoryDeleteResult | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  const parseStep = (step: unknown) => {
+    if (!step || typeof step !== 'object' || Array.isArray(step)) return undefined
+    const stepRecord = step as Record<string, unknown>
+    const statuses: TransferHistoryDeleteStepStatus[] = ['not_requested', 'deleted', 'already_missing', 'failed']
+    if (!statuses.includes(stepRecord.status as TransferHistoryDeleteStepStatus)) return undefined
+    return {
+      status: stepRecord.status as TransferHistoryDeleteStepStatus,
+      message: typeof stepRecord.message === 'string' ? stepRecord.message : undefined,
+    }
+  }
+  const source = parseStep(record.source)
+  const destination = parseStep(record.destination)
+  const history = record.history
+  if (!source || !destination || (history !== 'deleted' && history !== 'retained' && history !== 'not_found')) {
+    return undefined
+  }
+  return {
+    source,
+    destination,
+    history,
+    message: typeof record.message === 'string' ? record.message : undefined,
+  }
+}
+
+function rememberDeleteResult(item: TransferHistory, result: TransferHistoryDeleteResult) {
+  if (result.history === 'deleted' || result.history === 'not_found') {
+    completedDeleteSteps.delete(item.id)
+    return
+  }
+  const previous = completedDeleteSteps.get(item.id) ?? { source: false, destination: false }
+  completedDeleteSteps.set(item.id, {
+    source: previous.source || isCompletedDeleteStatus(result.source.status),
+    destination: previous.destination || isCompletedDeleteStatus(result.destination.status),
+  })
+}
+
+function getDeleteFlags(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean) {
+  const completed = completedDeleteSteps.get(item.id)
+  return {
+    deleteSrc: deleteSrc && !completed?.source,
+    deleteDest: deleteDest && !completed?.destination,
+  }
+}
+
+function formatDeleteStepSummary(result: TransferHistoryDeleteResult) {
+  const completed: string[] = []
+  const failed: string[] = []
+  const addStep = (label: string, status: TransferHistoryDeleteStepStatus) => {
+    if (status === 'not_requested') return
+    if (isCompletedDeleteStatus(status)) completed.push(label)
+    if (status === 'failed') failed.push(label)
+  }
+  addStep(t('transferHistory.deleteStep.source'), result.source.status)
+  addStep(t('transferHistory.deleteStep.destination'), result.destination.status)
+  if (result.history === 'deleted') completed.push(t('transferHistory.deleteStep.record'))
+  if (result.history === 'retained') failed.push(t('transferHistory.deleteStep.record'))
+  return { completed: completed.join(', '), failed: failed.join(', ') }
+}
+
+function getDeleteResultFromError(error: unknown): TransferHistoryDeleteResult | undefined {
+  if (!isApiBusinessFailure(error)) return undefined
+  const payload = error.payload
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return undefined
+  return parseDeleteResult((payload as Record<string, unknown>).data)
+}
+
+function notifyDeleteResult(result: TransferHistoryDeleteResult, notifyError: boolean) {
+  if (!notifyError) return
+  const summary = formatDeleteStepSummary(result)
+  if (!summary.failed) return
+  const detail = [
+    result.message,
+    summary.completed ? `${t('transferHistory.deleteStep.completed')}: ${summary.completed}` : '',
+    `${t('transferHistory.deleteStep.failed')}: ${summary.failed}`,
+  ]
+    .filter(Boolean)
+    .join('；')
+  $toast.error(t('transferHistory.deleteFailed', { message: detail }))
+}
+
 // 更新搜索建议，移动端追加加载时会合并已加载记录的标题。
 function updateSearchHintList(list: TransferHistory[]) {
-  searchHintList.value = ['失败', '成功', ...new Set(list.map((item: TransferHistory) => item.title || ''))].filter(
+  searchHintList.value = [...new Set(list.map((item: TransferHistory) => item.title || ''))].filter(
     (title): title is string => title !== '',
   )
 }
@@ -527,6 +649,7 @@ function syncMobileSearchFromRouteQuery() {
   syncingRouteQuery = true
   try {
     search.value = getRouteQueryString(route.query.search)
+    statusFilter.value = getRouteStatusFilter(route.query.status)
   } finally {
     void nextTick(() => {
       syncingRouteQuery = false
@@ -555,6 +678,7 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
         page: mobileCurrentPage.value,
         count: mobilePageSize,
         title: search.value ?? '',
+        ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
       },
     })
     if (requestSeed !== mobileFetchDataRequestSeed) {
@@ -610,11 +734,18 @@ function getRouteQueryString(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
+// 仅接受地址栏中的显式 success/failed，未知值回退到全部状态。
+function getRouteStatusFilter(value: unknown): TransferHistoryStatusFilter {
+  const raw = Array.isArray(value) ? value.find(item => typeof item === 'string') : value
+  return raw === 'success' || raw === 'failed' ? raw : 'all'
+}
+
 // 将当前路由查询参数同步回页面状态，并避免触发本地监听器反向写入地址栏。
 async function syncStateFromRouteQuery() {
   syncingRouteQuery = true
   try {
     search.value = getRouteQueryString(route.query.search)
+    statusFilter.value = getRouteStatusFilter(route.query.status)
     itemsPerPage.value = ensurePageSize(route.query.itemsPerPage, 50)
     currentPage.value = Math.max(1, ensureNumber(route.query.currentPage, 1))
     group.value = route.query.grouped === 'true'
@@ -688,20 +819,37 @@ async function removeHistory(item: TransferHistory) {
 }
 
 // 调用API删除记录
-async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean, notifyError = true) {
+async function remove(
+  item: TransferHistory,
+  deleteSrc: boolean,
+  deleteDest: boolean,
+  notifyError = true,
+): Promise<TransferHistoryDeleteResult | undefined> {
   try {
-    // 调用删除API
-    await api.delete<null>(`history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`, {
-      data: item,
-      feedback: 'silent',
-    })
-    return true
+    const result = await api.delete<TransferHistoryDeleteResult>(
+      `history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`,
+      {
+        data: item,
+        feedback: 'silent',
+      },
+    )
+    const parsed = parseDeleteResult(result)
+    if (!parsed) throw new Error('删除响应缺少分项结果')
+    rememberDeleteResult(item, parsed)
+    notifyDeleteResult(parsed, notifyError)
+    return parsed
   } catch (error) {
+    const businessResult = getDeleteResultFromError(error)
+    if (businessResult) {
+      rememberDeleteResult(item, businessResult)
+      notifyDeleteResult(businessResult, notifyError)
+      return businessResult
+    }
     console.error(error)
     if (notifyError) {
       $toast.error(t('transferHistory.deleteRequestFailed'))
     }
-    return false
+    return undefined
   }
 }
 
@@ -712,7 +860,8 @@ async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   if (!currentHistory.value) return
 
   // 删除
-  await remove(currentHistory.value, deleteSrc, deleteDest)
+  const flags = getDeleteFlags(currentHistory.value, deleteSrc, deleteDest)
+  await remove(currentHistory.value, flags.deleteSrc, flags.deleteDest)
   // 刷新
   await refreshDataAfterOperation()
 }
@@ -729,6 +878,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 已处理条数
   let handled = 0
   const failedItems: TransferHistory[] = []
+  const failedDetails: string[] = []
   // 显示进度条
   openProgressDialog()
   // 循环调用removeHistory
@@ -737,9 +887,15 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
     const seasonEpisode = `${item.seasons || ''}${item.episodes || ''}`
     const name = [item.title, seasonEpisode].filter(Boolean).join(' ')
     progressText.value = t('transferHistory.deleting', { name })
-    const success = await remove(item, deleteSrc, deleteDest, false)
-    if (!success) {
+    const flags = getDeleteFlags(item, deleteSrc, deleteDest)
+    const result = await remove(item, flags.deleteSrc, flags.deleteDest, false)
+    if (!result || result.history !== 'deleted') {
       failedItems.push(item)
+      if (result) {
+        const summary = formatDeleteStepSummary(result)
+        const detail = [summary.completed, summary.failed].filter(Boolean).join(' / ')
+        if (detail) failedDetails.push(`${name}: ${detail}`)
+      }
     }
     // 删除完成
     handled++
@@ -754,7 +910,12 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 隐藏进度条
   closeProgressDialog()
   if (failedItems.length > 0) {
-    $toast.error(t('transferHistory.batchDeleteFailed', { failed: failedItems.length, total }))
+    const summary = t('transferHistory.batchDeleteFailed', { failed: failedItems.length, total })
+    $toast.error(
+      failedDetails.length > 0
+        ? t('transferHistory.batchDeleteFailedDetail', { summary, details: failedDetails.join('；') })
+        : summary,
+    )
   }
   // 重新获取数据
   await refreshDataAfterOperation(failedItems)
@@ -1016,6 +1177,9 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
 
   if (search.value) {
     query.search = search.value
+  }
+  if (statusFilter.value !== 'all') {
+    query.status = statusFilter.value
   }
   if (itemsPerPage.value) {
     query.itemsPerPage = String(itemsPerPage.value)
@@ -1419,7 +1583,7 @@ onUnmounted(() => {
     <VCardItem>
       <VCardTitle>
         <VRow>
-          <VCol cols="8" md="6" class="flex">
+          <VCol cols="8" md="4" class="flex">
             <VCombobox
               key="search_navbar"
               :model-value="search"
@@ -1441,7 +1605,20 @@ onUnmounted(() => {
               clearable
             />
           </VCol>
-          <VCol cols="4" md="6" class="text-end">
+          <VCol cols="4" md="4">
+            <VSelect
+              v-model="statusFilter"
+              :items="statusFilterItems"
+              item-title="title"
+              item-value="value"
+              density="compact"
+              variant="solo-filled"
+              hide-details
+              flat
+              :label="t('transferHistory.statusFilter.label')"
+            />
+          </VCol>
+          <VCol cols="4" md="4" class="text-end">
             <VBtnGroup variant="outlined" divided rounded>
               <VBtn :icon="group ? 'mdi-format-list-bulleted' : 'mdi-format-list-group'" @click="group = !group" />
             </VBtnGroup>
@@ -1745,6 +1922,18 @@ onUnmounted(() => {
       clearable
     />
 
+    <VSelect
+      v-model="statusFilter"
+      :items="statusFilterItems"
+      item-title="title"
+      item-value="value"
+      density="comfortable"
+      variant="outlined"
+      hide-details
+      class="transfer-history-mobile-status"
+      :label="t('transferHistory.statusFilter.label')"
+    />
+
     <VInfiniteScroll
       :key="mobileInfiniteKey"
       mode="intersect"
@@ -2040,6 +2229,10 @@ onUnmounted(() => {
 
 .transfer-history-mobile-search {
   min-inline-size: 0;
+}
+
+.transfer-history-mobile-status {
+  margin-block: 0.75rem;
 }
 
 .transfer-history-mobile-search :deep(.v-field) {
