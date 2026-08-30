@@ -43,7 +43,7 @@ vi.mock('@/components/cards/NotificationChannelCard.vue', async () => {
           <input
             :aria-label="'name-' + notification.name"
             :value="notification.name"
-            @input="$emit('change', { ...notification, name: $event.target.value }, notification.name)"
+            @input="$emit('change', { ...notification, name: $event.target.value }, notification.id)"
           />
           <button :aria-label="'remove-' + notification.name" @click="$emit('close')">remove</button>
         </section>
@@ -73,9 +73,15 @@ vi.mock('vuedraggable', async () => {
   }
 })
 
-const notificationsFixture = [
-  { name: 'Alpha', type: 'wechatclawbot', enabled: true, config: { token: 'fixture-token' } },
-  { name: '通知3', type: 'telegram', enabled: false, config: {} },
+const notificationsFixture: Array<{
+  id?: string
+  name: string
+  type: string
+  enabled: boolean
+  config: Record<string, unknown>
+}> = [
+  { id: 'channel-alpha', name: 'Alpha', type: 'wechatclawbot', enabled: true, config: { token: 'fixture-token' } },
+  { id: 'channel-three', name: '通知3', type: 'telegram', enabled: false, config: {} },
 ]
 
 const templateFixture = {
@@ -85,10 +91,10 @@ const templateFixture = {
   subscribeComplete: '{}',
 }
 
-function mockLoadedSettings() {
+function mockLoadedSettings(channels = notificationsFixture) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/setting/Notifications') {
-      return { success: true, data: { value: structuredClone(notificationsFixture) } }
+      return { success: true, data: { value: structuredClone(channels) } }
     }
     if (endpoint === 'system/setting/NotificationSwitchs') {
       return { success: true, data: { value: [{ type: '资源下载', action: 'user' }] } }
@@ -156,7 +162,23 @@ describe('AccountSettingNotification', () => {
     expect(refreshOptions.active.value).toBe(false)
   })
 
-  it('creates a unique automatic channel name, removes channels, and saves the current order', async () => {
+  it('keeps the backend legacy identity when renaming a channel without an id', async () => {
+    mockLoadedSettings([{ name: 'Alpha', type: 'wechatclawbot', enabled: true, config: {} }])
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+
+    await fireEvent.update(screen.getByLabelText('name-Alpha'), 'Beta')
+    await user.click(getCard('通知渠道').getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith('notification/config', [
+        expect.objectContaining({ id: 'legacy-wechatclawbot-Alpha', name: 'Beta' }),
+      ]),
+    )
+  })
+
+  it('creates a unique automatic channel name, removes channels, and saves the current order once', async () => {
     const user = userEvent.setup()
     await renderNotificationSettings()
     await screen.findByText('Alpha / wechatclawbot')
@@ -172,12 +194,80 @@ describe('AccountSettingNotification', () => {
     await user.click(channelCard.getByRole('button', { name: '保存' }))
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/Notifications', [
-        expect.objectContaining({ name: '通知4', type: 'wechat' }),
-        expect.objectContaining({ name: 'Alpha', type: 'wechatclawbot' }),
+      expect(mocks.apiPost).toHaveBeenCalledWith('notification/config', [
+        expect.objectContaining({ id: expect.any(String), name: '通知4', type: 'wechat' }),
+        expect.objectContaining({ id: 'channel-alpha', name: 'Alpha', type: 'wechatclawbot' }),
       ])
     })
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('通知设置保存成功')
+    expect(mocks.apiPost).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('通知设置保存成功'))
+  })
+
+  it('trims channel names and rejects case-insensitive duplicates before saving', async () => {
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+
+    await fireEvent.update(screen.getByLabelText('name-Alpha'), ' 通知3 ')
+    expect(mocks.toastError).toHaveBeenCalledWith('通知渠道【通知3】已存在')
+    expect(screen.getByText('Alpha / wechatclawbot')).toBeInTheDocument()
+
+    await fireEvent.update(screen.getByLabelText('name-Alpha'), '  Beta  ')
+    expect(screen.getByText('Beta / wechatclawbot')).toBeInTheDocument()
+    await user.click(getCard('通知渠道').getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'notification/config',
+        expect.arrayContaining([expect.objectContaining({ id: 'channel-alpha', name: 'Beta' })]),
+      ),
+    )
+  })
+
+  it('keeps the current channels and disables saving when loading fails', async () => {
+    mocks.apiGet.mockImplementation((endpoint: string) => {
+      if (endpoint === 'system/setting/Notifications') throw new Error('notifications unavailable')
+      if (endpoint === 'system/setting/NotificationSwitchs') {
+        return { success: true, data: { value: [{ type: '资源下载', action: 'user' }] } }
+      }
+      if (endpoint === 'system/setting/NotificationSendTime') {
+        return { success: true, data: { value: { start: '08:30', end: '22:00' } } }
+      }
+      if (endpoint === 'system/setting/NotificationTemplates') {
+        return { success: true, data: { value: structuredClone(templateFixture) } }
+      }
+      throw new Error(`Unexpected GET ${endpoint}`)
+    })
+
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    expect(await screen.findByText('加载通知渠道失败，请刷新后重试')).toBeInTheDocument()
+    const save = getCard('通知渠道').getByRole('button', { name: '保存' })
+    expect(save).toBeDisabled()
+
+    await user.click(save)
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('prevents duplicate channel saves while the request is pending', async () => {
+    let resolveSave!: (value: unknown) => void
+    mocks.apiPost.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveSave = resolve
+        }),
+    )
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+    const save = getCard('通知渠道').getByRole('button', { name: '保存' })
+
+    await user.click(save)
+    await user.click(save)
+    expect(mocks.apiPost).toHaveBeenCalledTimes(1)
+
+    resolveSave({ success: true, data: { value: structuredClone(notificationsFixture) } })
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('通知设置保存成功'))
   })
 
   it('offers DingTalk as a native notification channel', async () => {
@@ -192,7 +282,7 @@ describe('AccountSettingNotification', () => {
     expect(screen.getByText('通知4 / dingtalk')).toBeInTheDocument()
   })
 
-  it('compresses chained ClawBot renames and migrates the original source before saving channels', async () => {
+  it('submits chained ClawBot renames and migration cleanup in one configuration request', async () => {
     const user = userEvent.setup()
     await renderNotificationSettings()
     await screen.findByText('Alpha / wechatclawbot')
@@ -201,27 +291,21 @@ describe('AccountSettingNotification', () => {
     await fireEvent.update(await screen.findByLabelText('name-Beta'), 'Gamma')
     await user.click(getCard('通知渠道').getByRole('button', { name: '保存' }))
 
-    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(2))
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'notification/manage', {
-      target: 'WechatClawBot',
-      action: 'migrate_cache',
-      params: { old_name: 'Alpha', new_name: 'Gamma' },
-    })
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(
-      2,
-      'system/setting/Notifications',
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(1))
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'notification/config',
       expect.arrayContaining([expect.objectContaining({ name: 'Gamma', type: 'wechatclawbot' })]),
     )
   })
 
-  it('keeps a failed ClawBot migration pending and retries it before saving channels', async () => {
+  it('keeps a failed configuration request editable and retries it as one request', async () => {
     const user = userEvent.setup()
     await renderNotificationSettings()
     await screen.findByText('Alpha / wechatclawbot')
     await fireEvent.update(screen.getByLabelText('name-Alpha'), 'Beta')
     const save = getCard('通知渠道').getByRole('button', { name: '保存' })
 
-    mocks.apiPost.mockResolvedValueOnce({ success: false, message: 'migration failed' })
+    mocks.apiPost.mockRejectedValueOnce(new Error('configuration failed'))
     await user.click(save)
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('通知设置保存失败！'))
     expect(mocks.apiPost).toHaveBeenCalledTimes(1)
@@ -229,15 +313,9 @@ describe('AccountSettingNotification', () => {
     mocks.apiPost.mockClear()
     mocks.apiPost.mockResolvedValue({ success: true })
     await user.click(save)
-    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(2))
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'notification/manage', {
-      target: 'WechatClawBot',
-      action: 'migrate_cache',
-      params: { old_name: 'Alpha', new_name: 'Beta' },
-    })
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(
-      2,
-      'system/setting/Notifications',
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(1))
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'notification/config',
       expect.arrayContaining([expect.objectContaining({ name: 'Beta' })]),
     )
   })

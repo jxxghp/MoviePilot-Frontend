@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import { manageNotificationChannel } from '@/api/manage'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
 import { useI18n } from 'vue-i18n'
@@ -79,6 +78,19 @@ const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dar
 // 所有消息渠道
 const notifications = ref<NotificationConf[]>([])
 
+type NotificationConfigInput = Partial<NotificationConf> & {
+  id?: unknown
+}
+
+interface NotificationConfigResponse {
+  value?: NotificationConfigInput[]
+}
+
+type NotificationLoadState = 'idle' | 'loading' | 'ready' | 'error'
+
+const notificationLoadState = ref<NotificationLoadState>('idle')
+const notificationSaveLoading = ref(false)
+
 // 提示框
 const $toast = useToast()
 
@@ -132,9 +144,74 @@ const notificationTime = ref({
   end: '23:59',
 })
 
-const wechatClawBotRenameMap = ref<Record<string, string>>({})
-
 let editorDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+/** 创建仅用于新建渠道的稳定身份；保存后以后端归一化身份为准。 */
+function createNotificationId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `notification-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+/** 为旧配置建立与后端一致的可重复身份，避免在保存前退回到显示名称作为列表 key。 */
+function createLegacyNotificationId(notification: NotificationConfigInput, index: number) {
+  const type = typeof notification.type === 'string' ? notification.type : 'notification'
+  const name = typeof notification.name === 'string' ? notification.name.trim() : ''
+  return `legacy-${type}-${name || String(index)}`
+}
+
+/** 统一通知配置的身份、名称和可选字段，供 GET、编辑和保存共用。 */
+function normalizeNotification(notification: NotificationConfigInput, index: number): NotificationConf {
+  const rawId = notification.id
+  const id =
+    typeof rawId === 'string' && rawId.trim()
+      ? rawId.trim()
+      : typeof rawId === 'number'
+        ? String(rawId)
+        : createLegacyNotificationId(notification, index)
+  const name = typeof notification.name === 'string' ? notification.name.trim() : ''
+  const type = typeof notification.type === 'string' ? notification.type : ''
+  const config = notification.config && typeof notification.config === 'object' ? notification.config : {}
+
+  return {
+    ...notification,
+    id,
+    name,
+    type,
+    config,
+    enabled: Boolean(notification.enabled),
+  }
+}
+
+function normalizeNotificationList(value: NotificationConfigInput[] = []) {
+  return value.map((notification, index) => normalizeNotification(notification, index))
+}
+
+function notificationNameKey(name: string) {
+  return name.trim().toLowerCase()
+}
+
+/** 检查名称是否为空或与另一个渠道重复，名称比较不区分大小写。 */
+function validateNotificationNames(value: NotificationConf[]) {
+  const names = new Set<string>()
+  for (const notification of value) {
+    const name = notification.name.trim()
+    if (!name) {
+      $toast.error(t('notification.nameRequired'))
+      return false
+    }
+    const key = notificationNameKey(name)
+    if (names.has(key)) {
+      $toast.error(`${t('notification.channel')}【${name}】${t('common.exists')}`)
+      return false
+    }
+    names.add(key)
+  }
+  return true
+}
+
+const canSaveNotifications = computed(() => notificationLoadState.value === 'ready' && !notificationSaveLoading.value)
 
 // 关闭通知模板共享弹窗，并同步本页的弹窗占用状态。
 function closeTemplateEditorDialog() {
@@ -184,11 +261,15 @@ watch(editorTheme, theme => {
 
 // 添加通知渠道
 function addNotification(notification: string) {
-  let name = `${t('setting.notification.channel')}${notifications.value.length + 1}`
-  while (notifications.value.some(item => item.name === name)) {
-    name = `${t('setting.notification.channel')}${parseInt(name.split(t('setting.notification.channel'))[1]) + 1}`
+  const prefix = t('setting.notification.channel')
+  let index = notifications.value.length + 1
+  let name = `${prefix}${index}`
+  while (notifications.value.some(item => notificationNameKey(item.name) === notificationNameKey(name))) {
+    index += 1
+    name = `${prefix}${index}`
   }
   notifications.value.push({
+    id: createNotificationId(),
     name: name,
     type: notification,
     enabled: false,
@@ -198,59 +279,21 @@ function addNotification(notification: string) {
 
 // 移除通知渠道
 function removeNotification(notification: NotificationConf) {
-  const index = notifications.value.indexOf(notification)
+  const index = notifications.value.findIndex(item => item.id === notification.id)
   if (index > -1) notifications.value.splice(index, 1)
-}
-
-function trackWechatClawBotRename(oldName: string, newName: string) {
-  if (!oldName || !newName || oldName === newName) {
-    return
-  }
-  const renameMap = { ...wechatClawBotRenameMap.value }
-  let chainedRename = false
-  // 连续改名只保留原始缓存名到当前渠道名，避免为不存在的中间名发起迁移。
-  for (const [source, target] of Object.entries(renameMap)) {
-    if (target === oldName) {
-      renameMap[source] = newName
-      chainedRename = true
-    }
-  }
-  if (!chainedRename) {
-    renameMap[oldName] = newName
-  }
-  wechatClawBotRenameMap.value = Object.fromEntries(
-    Object.entries(renameMap).filter(([source, target]) => source && target && source !== target),
-  )
-}
-
-async function migrateWechatClawBotRenames() {
-  const activeWechatClawBotNames = new Set(
-    notifications.value.filter(item => item.type === 'wechatclawbot').map(item => item.name),
-  )
-  const renameEntries = Object.entries(wechatClawBotRenameMap.value).filter(
-    ([oldName, newName]) => oldName && newName && oldName !== newName && activeWechatClawBotNames.has(newName),
-  )
-  for (const [oldName, newName] of renameEntries) {
-    await manageNotificationChannel(
-      'WechatClawBot',
-      'migrate_cache',
-      {
-        old_name: oldName,
-        new_name: newName,
-      },
-      { feedback: 'silent' },
-    )
-  }
 }
 
 // 调用API查询通知渠道设置
 async function loadNotificationSetting() {
+  notificationLoadState.value = 'loading'
   try {
-    const result = await api.get<{ value?: NotificationConf[] }>('system/setting/Notifications')
-    notifications.value = result.value ?? []
-    wechatClawBotRenameMap.value = {}
+    const result = await api.get<NotificationConfigResponse>('system/setting/Notifications')
+    notifications.value = normalizeNotificationList(result.value)
+    notificationLoadState.value = 'ready'
   } catch (error) {
-    console.log(error)
+    console.error(error)
+    // 读取失败时保留当前可见配置，并锁住保存，避免用不完整列表覆盖服务端数据。
+    notificationLoadState.value = 'error'
   }
 }
 
@@ -311,14 +354,22 @@ async function loadNotificationTime() {
 
 // 调用API保存通知设置
 async function saveNotificationSetting() {
+  if (!canSaveNotifications.value || !validateNotificationNames(notifications.value)) return
+
+  notificationSaveLoading.value = true
   try {
-    await migrateWechatClawBotRenames()
-    await api.post('system/setting/Notifications', notifications.value, { feedback: 'silent' })
-    wechatClawBotRenameMap.value = {}
+    const payload = notifications.value.map((notification, index) => normalizeNotification(notification, index))
+    notifications.value = payload
+    const result = await api.post<NotificationConfigResponse>('notification/config', payload, { feedback: 'silent' })
+    if (result?.value) {
+      notifications.value = normalizeNotificationList(result.value)
+    }
     $toast.success(t('setting.notification.saveSuccess'))
   } catch (error) {
-    console.log(error)
+    console.error(error)
     $toast.error(t('setting.notification.saveFailed'))
+  } finally {
+    notificationSaveLoading.value = false
   }
 }
 
@@ -334,14 +385,22 @@ async function saveNotificationTime() {
 }
 
 // 通知渠道设置变化时赋值
-function changNotificationSetting(notification: NotificationConf, name: string) {
-  const index = notifications.value.findIndex(item => item.name === name)
+function changNotificationSetting(notification: NotificationConf, id: string) {
+  const normalizedNotification = normalizeNotification(notification, notifications.value.length)
+  const index = notifications.value.findIndex(item => item.id === id)
   if (index !== -1) {
-    const previous = notifications.value[index]
-    notifications.value[index] = notification
-    if (previous?.type === 'wechatclawbot' && previous.name !== notification.name) {
-      trackWechatClawBotRename(previous.name, notification.name)
+    if (!normalizedNotification.name) {
+      $toast.error(t('notification.nameRequired'))
+      return
     }
+    const duplicate = notifications.value.some(
+      item => item.id !== id && notificationNameKey(item.name) === notificationNameKey(normalizedNotification.name),
+    )
+    if (duplicate) {
+      $toast.error(`${t('notification.channel')}【${normalizedNotification.name}】${t('common.exists')}`)
+      return
+    }
+    notifications.value[index] = normalizedNotification
   }
 }
 
@@ -410,10 +469,13 @@ useSilentSettingRefresh(loadPageData, {
           <VCardSubtitle>{{ t('setting.notification.channelsDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
+          <VAlert v-if="notificationLoadState === 'error'" type="error" variant="tonal" class="mb-4">
+            {{ t('setting.notification.channelsLoadFailed') }}
+          </VAlert>
           <Draggable
             v-model="notifications"
             handle=".cursor-move"
-            item-key="name"
+            item-key="id"
             tag="div"
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
@@ -430,7 +492,13 @@ useSilentSettingRefresh(loadPageData, {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn mtype="submit" @click="saveNotificationSetting" prepend-icon="mdi-content-save">
+              <VBtn
+                mtype="submit"
+                :loading="notificationSaveLoading"
+                :disabled="!canSaveNotifications"
+                @click="saveNotificationSetting"
+                prepend-icon="mdi-content-save"
+              >
                 {{ t('common.save') }}
               </VBtn>
               <VBtn color="success" variant="tonal">

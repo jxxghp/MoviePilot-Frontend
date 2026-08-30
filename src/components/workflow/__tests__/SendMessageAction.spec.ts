@@ -37,14 +37,14 @@ describe('SendMessageAction', () => {
     expect(getSelectItems(container, '渠道')).toEqual([])
   })
 
-  it('maps unwrapped admin notification channels to name options', async () => {
+  it('maps admin notification channels to name options while preserving workflow values', async () => {
     mocks.apiGet.mockResolvedValue({
       success: true,
       message: '',
       data: {
         value: [
-          { name: 'Telegram', type: 'telegram', enabled: true },
-          { name: '企业微信', type: 'wechat', enabled: false },
+          { id: 'telegram-channel', name: 'Telegram', type: 'telegram', enabled: true },
+          { id: 'wechat-channel', name: '企业微信', type: 'wechat', enabled: false },
         ],
       },
     })

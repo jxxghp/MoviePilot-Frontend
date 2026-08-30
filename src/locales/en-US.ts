@@ -13,6 +13,7 @@ export default {
     loading: 'Loading',
     success: 'Success',
     error: 'Error',
+    exists: 'Exists',
     openInNewWindow: 'Open in new window',
     download: 'Download',
     uploadSpeed: 'Upload speed',
@@ -2522,6 +2523,7 @@ export default {
     notification: {
       channels: 'Notification Channels',
       channelsDesc: 'Set message sending channel parameters',
+      channelsLoadFailed: 'Failed to load notification channels. Refresh and try again.',
       organizeSuccess: 'Media Import',
       downloadAdded: 'Download Added',
       subscribeAdded: 'Subscribe Added',
