@@ -46,6 +46,7 @@ const mocks = vi.hoisted(() => {
     grid,
     gridInit: vi.fn<(options: unknown, element: unknown) => unknown>(() => grid),
     openSharedDialog: vi.fn(),
+    routeLeaveGuard: undefined as undefined | (() => Promise<void>),
     themeName: undefined as unknown as { value: string },
     useDynamicButton: vi.fn(),
   }
@@ -121,6 +122,13 @@ vi.mock('@/api', () => ({
   }),
 }))
 
+vi.mock('vue-router', async importOriginal => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  onBeforeRouteLeave: (guard: () => Promise<void>) => {
+    mocks.routeLeaveGuard = guard
+  },
+}))
+
 vi.mock('vuetify', async importOriginal => {
   const { ref } = await import('vue')
   mocks.displayWidth = ref(1512)
@@ -161,6 +169,7 @@ vi.mock('@/components/misc/DashboardElement.vue', async () => {
     default: defineComponent({
       name: 'DashboardElement',
       props: {
+        allowRefresh: Boolean,
         config: { type: Object, required: true },
       },
       emits: ['loaded'],
@@ -174,6 +183,7 @@ vi.mock('@/components/misc/DashboardElement.vue', async () => {
             'section',
             {
               'data-dashboard-id': (props.config as { id: string }).id,
+              'data-refresh-enabled': String(props.allowRefresh),
               'data-testid': 'dashboard-item',
               onClick: () => {
                 showLayoutSizeSource.value = !showLayoutSizeSource.value
@@ -289,6 +299,7 @@ describe('dashboard page initial layout', () => {
     mocks.grid.setAnimation.mockClear()
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
+    mocks.routeLeaveGuard = undefined
     mocks.displayWidth.value = 1512
     mocks.themeName.value = 'light'
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
@@ -1027,6 +1038,30 @@ describe('dashboard page initial layout', () => {
     await fireEvent.click(screen.getByRole('button', { name: '启用仪表盘' }))
     await waitFor(() => expect(mocks.grid.resizeToContent).toHaveBeenCalled())
     expect(mocks.grid.load).not.toHaveBeenCalled()
+  })
+
+  it('disables dashboard refreshers before the router detaches the cached page', async () => {
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } }, updatedAt: 10 }),
+    )
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return { data: { value: [{ id: 'library', key: '' }] } }
+      if (url === '/user/config/DashboardGridLayout') {
+        return { data: { value: { enabled: enabledOnlyLibrary, items: { library: { x: 0, y: 0, w: 12 } } } } }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    await renderDashboard()
+    const dashboardItem = await screen.findByTestId('dashboard-item')
+    expect(dashboardItem).toHaveAttribute('data-refresh-enabled', 'true')
+    if (!mocks.routeLeaveGuard) throw new Error('未注册仪表盘路由离开守卫')
+
+    await mocks.routeLeaveGuard()
+
+    expect(dashboardItem).toHaveAttribute('data-refresh-enabled', 'false')
   })
 
   it('applies a newer remote profile and refreshes the local first-frame cache', async () => {

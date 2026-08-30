@@ -8,6 +8,14 @@ import { useI18n } from 'vue-i18n'
 // 国际化
 const { t } = useI18n()
 
+const props = defineProps({
+  /** 页面失活时卸载图表实例，卡片数据仍由 KeepAlive 保留。 */
+  allowRefresh: {
+    type: Boolean,
+    default: true,
+  },
+})
+
 const vuetifyTheme = useTheme()
 const WEEKLY_BAR_RADIUS = 8
 
@@ -180,6 +188,7 @@ onActivated(() => {
     <VCardText class="dashboard-work-content" :data-layout-size-source="isWeeklyLayoutReady ? '' : undefined">
       <div class="dashboard-work-chart dashboard-chart-plot">
         <VApexChart
+          v-if="props.allowRefresh"
           type="bar"
           :options="options"
           :series="series"

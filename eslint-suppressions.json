@@ -547,11 +547,6 @@
       "count": 3
     }
   },
-  "src/composables/useSetupWizard.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/composables/useSharedDialog.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -819,16 +814,6 @@
     }
   },
   "src/views/setting/AccountSettingSystem.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/setup/MediaServerSettingsStep.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/setup/PreferencesSettingsStep.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
     }

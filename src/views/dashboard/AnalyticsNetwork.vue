@@ -174,6 +174,9 @@ async function getNetworkUsage() {
       feedback: 'silent',
       skipNavigationCancellation: true,
     })) ?? [0, 0]
+    // 网络采样允许跨路由完成，但失活页面不得把在途响应提交给已脱离 DOM 的图表。
+    if (!props.allowRefresh) return
+
     currentUpload.value = Number(data[0]) || 0
     currentDownload.value = Number(data[1]) || 0
 
@@ -213,7 +216,7 @@ useKeepAliveRefresh(refresh)
     </VCardItem>
     <VCardText class="dashboard-chart-content">
       <div class="dashboard-chart-plot">
-        <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
+        <VApexChart v-if="props.allowRefresh" type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
       <div class="dashboard-chart-footer">
         <span
