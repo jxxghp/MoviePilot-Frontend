@@ -342,7 +342,6 @@ onUnmounted(cleanupDrag)
           @pathchanged="pathChanged"
           @loading="loadingChanged"
           @refreshed="refreshPending = false"
-          @filedeleted="refreshPending = true"
           @renamed="refreshPending = true"
           @items-updated="fileListUpdated"
           @switch-tree="switchDirTree"
