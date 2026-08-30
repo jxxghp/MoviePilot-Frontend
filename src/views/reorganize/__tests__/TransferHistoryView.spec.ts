@@ -32,6 +32,8 @@ vi.mock('@/api', () => ({
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
   }),
+  isApiBusinessFailure: (error: unknown) =>
+    Boolean(error && typeof error === 'object' && (error as { businessFailure?: unknown }).businessFailure === true),
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -298,6 +300,21 @@ function historyResponse(list: TransferHistory[], total = list.length) {
   return { data: { list, total }, success: true }
 }
 
+function deleteResultResponse(
+  overrides: Partial<{ history: 'deleted' | 'retained' | 'not_found'; source: string; destination: string }> = {},
+) {
+  return {
+    data: {
+      source: { status: overrides.source ?? 'not_requested' },
+      destination: { status: overrides.destination ?? 'not_requested' },
+      history: overrides.history ?? 'deleted',
+      message: '',
+    },
+    message: '',
+    success: true,
+  }
+}
+
 function storageResponse() {
   return { data: { value: [] }, success: true }
 }
@@ -380,7 +397,7 @@ describe('TransferHistoryView', () => {
     mocks.desktop = true
     mocks.dynamicButtonConfig = undefined
     mocks.progressCallback = undefined
-    mocks.apiDelete.mockResolvedValue({ success: true })
+    mocks.apiDelete.mockResolvedValue(deleteResultResponse())
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([]))
@@ -406,6 +423,19 @@ describe('TransferHistoryView', () => {
 
     expect(await screen.findByText('桌面结果')).toBeInTheDocument()
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
+  })
+
+  it('sends status as an explicit query while preserving the title search', async () => {
+    const requests: Array<Record<string, unknown>> = []
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      requests.push(config?.params ?? {})
+      return Promise.resolve(historyResponse([]))
+    })
+
+    await renderHistory('/history?search=失败&status=failed')
+
+    await waitFor(() => expect(requests).toEqual([{ count: 50, page: 1, status: false, title: '失败' }]))
   })
 
   it('prevents an older desktop request from replacing a newer route search', async () => {
@@ -663,8 +693,17 @@ describe('TransferHistoryView', () => {
       return Promise.resolve(historyResponse(histories))
     })
     mocks.apiDelete
-      .mockResolvedValueOnce({ success: true })
-      .mockResolvedValueOnce({ message: '记录被占用', success: false })
+      .mockResolvedValueOnce(deleteResultResponse())
+      .mockResolvedValueOnce({
+        data: {
+          source: { status: 'not_requested' },
+          destination: { status: 'failed', message: '目标文件被占用' },
+          history: 'retained',
+          message: '记录被占用',
+        },
+        message: '记录被占用',
+        success: false,
+      })
       .mockRejectedValueOnce(new Error('delete unavailable'))
 
     await renderHistory()
@@ -707,6 +746,38 @@ describe('TransferHistoryView', () => {
     await getDialogCall().events.delete(false, false)
 
     expect(mocks.toastError).toHaveBeenCalledWith('Failed to delete: Request failed')
+  })
+
+  it('retries only the unfinished file step after a partial deletion', async () => {
+    const item = createHistory(1, '部分删除')
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([item]))
+    })
+    mocks.apiDelete
+      .mockResolvedValueOnce({
+        data: {
+          source: { status: 'deleted' },
+          destination: { status: 'failed', message: '媒体库暂不可用' },
+          history: 'retained',
+          message: '媒体库暂不可用',
+        },
+        message: '媒体库暂不可用',
+        success: false,
+      })
+      .mockResolvedValueOnce(deleteResultResponse({ source: 'not_requested', destination: 'deleted' }))
+
+    await renderHistory()
+    expect(await screen.findByText('部分删除')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    await getDialogCall().events.delete(true, true)
+    await flushPromises()
+    await fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    await getDialogCall(1).events.delete(true, true)
+    await flushPromises()
+
+    expect(mocks.apiDelete.mock.calls[0]?.[0]).toBe('history/transfer?deletesrc=true&deletedest=true')
+    expect(mocks.apiDelete.mock.calls[1]?.[0]).toBe('history/transfer?deletesrc=false&deletedest=true')
   })
 
   it('releases delete-dialog ownership when either close contract fires', async () => {
@@ -759,8 +830,17 @@ describe('TransferHistoryView', () => {
       return Promise.resolve(historyResponse(historyCalls === 1 ? histories : histories.slice(1)))
     })
     mocks.apiDelete
-      .mockResolvedValueOnce({ success: true })
-      .mockResolvedValueOnce({ message: 'occupied', success: false })
+      .mockResolvedValueOnce(deleteResultResponse())
+      .mockResolvedValueOnce({
+        data: {
+          source: { status: 'not_requested' },
+          destination: { status: 'failed', message: 'occupied' },
+          history: 'retained',
+          message: 'occupied',
+        },
+        message: 'occupied',
+        success: false,
+      })
       .mockRejectedValueOnce(new Error('delete unavailable'))
 
     await renderHistory()
@@ -777,7 +857,7 @@ describe('TransferHistoryView', () => {
     expect(getDynamicMenuItems()?.find(item => item.titleKey === 'transferHistory.selectedCount')?.titleParams).toEqual(
       { count: 0, total: 0 },
     )
-    expect(mocks.toastError).toHaveBeenCalledWith('刪除失敗：2/3')
+    expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('刪除失敗：2/3'))
 
     await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
     expect(await screen.findByText('保留甲')).toBeInTheDocument()
