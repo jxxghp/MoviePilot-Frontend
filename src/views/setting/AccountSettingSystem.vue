@@ -1268,7 +1268,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 />
               </VCol>
 
-              <VCol cols="12" md="6">
+              <VCol v-if="!['static', ''].includes(SystemSettings.Basic.WALLPAPER)" cols="12" md="6">
                 <VSelect
                   v-model="SystemSettings.Basic.WALLPAPER_ROTATION_INTERVAL"
                   :label="t('setting.system.wallpaperRotationInterval')"

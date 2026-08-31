@@ -482,6 +482,7 @@ describe('AccountSettingSystem', () => {
         .getAllByRole('option')
         .map(option => option.textContent),
     ).toEqual(['TMDB电影海报', 'Bing每日壁纸', '媒体服务器', '静态图片', '自定义', '无壁纸'])
+    expect(screen.getByLabelText('壁纸轮换时间')).toHaveValue('15')
 
     const refreshOptions = mocks.useSilentSettingRefresh.mock.calls[0]?.[1]
     expect(refreshOptions.active.value).toBe(true)
@@ -754,12 +755,12 @@ describe('AccountSettingSystem', () => {
     )
   })
 
-  it('round-trips a static wallpaper address and a disabled rotation interval', async () => {
+  it('round-trips a static wallpaper address without showing rotation settings', async () => {
     await renderSettings()
     await screen.findByDisplayValue('https://moviepilot.example')
     await selectOption('背景壁纸', '静态图片')
     await fireEvent.update(screen.getByLabelText('静态壁纸地址'), '/local/wallpaper.jpg')
-    await selectOption('壁纸轮换时间', '不轮换')
+    expect(screen.queryByLabelText('壁纸轮换时间')).not.toBeInTheDocument()
 
     await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('基础设置保存成功'))
@@ -767,9 +768,18 @@ describe('AccountSettingSystem', () => {
       expect.objectContaining({
         WALLPAPER: 'static',
         WALLPAPER_IMAGE_URL: '/local/wallpaper.jpg',
-        WALLPAPER_ROTATION_INTERVAL: 0,
+        WALLPAPER_ROTATION_INTERVAL: 15,
       }),
     )
+  })
+
+  it('hides rotation settings when wallpaper is disabled', async () => {
+    await renderSettings()
+    await screen.findByDisplayValue('https://moviepilot.example')
+
+    await selectOption('背景壁纸', '无壁纸')
+
+    expect(screen.queryByLabelText('壁纸轮换时间')).not.toBeInTheDocument()
   })
 
   it('round-trips the user-editable LLM connection and inference settings', async () => {
