@@ -968,7 +968,7 @@ html[data-theme-radius='extra'] {
   block-size: 100%;
 }
 
-// 设置项强调卡片：复用通知模板入口的弱强调条、轻渐变与悬浮反馈。
+// 设置项卡片：保留图标主色的轻渐变与悬浮反馈，不额外添加边缘色条。
 .app-card-colorful {
   overflow: hidden;
   border-radius: var(--app-surface-radius);
@@ -992,24 +992,11 @@ html[data-theme-radius='extra'] {
   --app-card-accent-end-opacity: 0.012;
   --app-card-border-opacity: 0.08;
   --app-card-hover-border-opacity: 0.16;
-  --app-card-stripe-opacity: 0.22;
   --app-card-surface-opacity: 0.92;
   --app-surface-border: var(--app-surface-border-width) solid
     rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity));
   --app-surface-hover-shadow: var(--app-card-hover-shadow);
   --app-surface-shadow: var(--app-card-rest-shadow);
-}
-
-.app-card-colorful::before {
-  position: absolute;
-  background: rgb(var(--app-card-accent-rgb));
-  block-size: 100%;
-  content: '';
-  inline-size: 0.125rem;
-  inset-block: 0;
-  inset-inline-start: 0;
-  opacity: var(--app-card-stripe-opacity);
-  pointer-events: none;
 }
 
 .app-card-colorful:hover {
@@ -1040,7 +1027,6 @@ html[data-theme='transparent'] .app-card-colorful,
   --app-card-accent-end-opacity: 0.01;
   --app-card-border-opacity: var(--app-surface-border-opacity);
   --app-card-hover-border-opacity: var(--app-surface-border-opacity);
-  --app-card-stripe-opacity: 0.16;
   --app-card-surface-opacity: var(--transparent-opacity-light, 0.2);
   --app-surface-border: var(--app-surface-border-width) solid
     rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
