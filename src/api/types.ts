@@ -144,6 +144,12 @@ export interface Subscribe {
   episode_group?: string
 }
 
+/** 订阅删除成功后的机器可判断结果。 */
+export interface SubscribeDeletionResult {
+  // 数据库删除事务已提交
+  status: 'deleted'
+}
+
 // 订阅分享
 export interface SubscribeShare {
   // 分享ID

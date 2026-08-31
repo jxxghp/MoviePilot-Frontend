@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import draggable from 'vuedraggable'
 import api from '@/api'
-import type { Subscribe } from '@/api/types'
+import type { Subscribe, SubscribeDeletionResult } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
@@ -426,11 +426,19 @@ async function batchDeleteSubscribes() {
 
   try {
     loading.value = true
-    const promises = selectedSubscribes.value.map(id => api.delete<null>(`subscribe/${id}`, { feedback: 'silent' }))
+    const selectedIds = [...selectedSubscribes.value]
+    const promises = selectedIds.map(id =>
+      api.delete<SubscribeDeletionResult>(`subscribe/${id}`, { feedback: 'silent' }),
+    )
     const results = await Promise.allSettled(promises)
 
-    const successCount = results.filter(result => result.status === 'fulfilled').length
-    const failedCount = results.length - successCount
+    const deletedIds = selectedIds.filter((_, index) => {
+      const result = results[index]
+      return result.status === 'fulfilled' && result.value?.status === 'deleted'
+    })
+    const failedIds = selectedIds.filter(id => !deletedIds.includes(id))
+    const successCount = deletedIds.length
+    const failedCount = failedIds.length
 
     if (successCount > 0) {
       $toast.success(t('subscribe.batchDeleteSuccess', { count: successCount }))
@@ -439,8 +447,10 @@ async function batchDeleteSubscribes() {
       $toast.error(t('subscribe.batchDeleteFailed', { count: failedCount }))
     }
 
+    // 失败项保留在选择集中，用户可直接修复后重试；全部成功时才退出批量模式。
+    selectedSubscribes.value = failedIds
     await fetchData()
-    exitBatchMode()
+    if (failedIds.length === 0) exitBatchMode()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.batchDeleteError'))

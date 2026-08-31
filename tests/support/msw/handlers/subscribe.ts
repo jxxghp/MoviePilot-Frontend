@@ -351,7 +351,7 @@ export function subscribeDetailsHandler(
 
 export function deleteSubscribeByIdHandler(
   id: number,
-  response: SubscribeMutationResponse = { success: true },
+  response: SubscribeMutationResponse = { data: { status: 'deleted' }, success: true },
   status = 200,
   onRequest: () => void = () => {},
 ) {
