@@ -4518,7 +4518,6 @@ export default {
     title: '歡迎使用 MoviePilot',
     subtitle: '先建立唯一的超級管理員，再開始管理你的媒體庫。整個過程只需一步。',
     checking: '正在檢查實例狀態…',
-    statusRetrying: '服務正在啟動，稍後將自動重試…',
     accountSection: '管理員帳號',
     username: '超級管理員使用者名稱',
     usernamePlaceholder: '例如：admin',
@@ -4540,5 +4539,12 @@ export default {
     privateHint: '憑據只會保存為加密密碼和 API Key，不會寫入日誌',
     saved: '初始化完成，請使用新帳號登入',
     saveFailed: '初始化失敗，請檢查服務狀態後重試',
+  },
+  serviceStatus: {
+    kicker: '服務狀態',
+    title: 'MoviePilot 正在啟動',
+    subtitle: '正在等待後端服務就緒，這不會影響你的帳號和現有資料。',
+    checking: '正在偵測服務連線…',
+    automatic: '連線成功後將自動進入登入或初始化頁面',
   },
 }

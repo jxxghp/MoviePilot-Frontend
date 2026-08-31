@@ -4594,7 +4594,6 @@ export default {
     title: 'Welcome to MoviePilot',
     subtitle: 'Create the single super administrator account before you start managing your media library.',
     checking: 'Checking instance status…',
-    statusRetrying: 'The service is starting. Retrying automatically…',
     accountSection: 'Administrator account',
     username: 'Super administrator username',
     usernamePlaceholder: 'For example: admin',
@@ -4616,5 +4615,12 @@ export default {
     privateHint: 'Credentials are stored as a password hash and API Key; they are never written to logs',
     saved: 'Initialization complete. Sign in with your new account.',
     saveFailed: 'Initialization failed. Check the service and try again.',
+  },
+  serviceStatus: {
+    kicker: 'Service status',
+    title: 'MoviePilot is starting',
+    subtitle: 'Waiting for the backend service. Your account and existing data are not affected.',
+    checking: 'Checking the service connection…',
+    automatic: 'You will continue to sign-in or setup automatically once connected',
   },
 }

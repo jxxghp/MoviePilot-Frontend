@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 const route = useRoute()
 
-// 空白布局用于登录、初始化与 404，复用全局页面动效保持切换手感一致。
+// 空白布局用于登录、服务状态、初始化与 404，复用全局页面动效保持切换手感一致。
 const routeTransitionKey = computed(() => route.fullPath)
 </script>
 

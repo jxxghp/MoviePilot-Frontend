@@ -123,14 +123,35 @@ describe('authentication route guard', () => {
     expect(routerMocks.setRequestNavigatingState).toHaveBeenLastCalledWith(false)
   })
 
-  it('redirects to initialization while the status endpoint is unavailable', async () => {
+  it('redirects to the service status page while the status endpoint is unavailable', async () => {
     routerMocks.getInitializationState.mockRejectedValue(new Error('service starting'))
 
     await runGuard(route({ fullPath: '/login', path: '/login' }))
 
     expect(routerMocks.next).toHaveBeenCalledOnce()
-    expect(routerMocks.next).toHaveBeenCalledWith('/initialize')
+    expect(routerMocks.next).toHaveBeenCalledWith('/service-status')
     expect(routerMocks.setRequestNavigatingState).toHaveBeenLastCalledWith(false)
+  })
+
+  it('allows the service status page to keep checking while the endpoint remains unavailable', async () => {
+    routerMocks.getInitializationState.mockRejectedValue(new Error('service starting'))
+    useAuthStore().setOriginalPath('/resource?keyword=test')
+
+    await runGuard(route({ fullPath: '/service-status', path: '/service-status' }))
+
+    expect(routerMocks.next).toHaveBeenCalledOnce()
+    expect(routerMocks.next).toHaveBeenCalledWith()
+    expect(useAuthStore().originalPath).toBe('/resource?keyword=test')
+  })
+
+  it('leaves the service status page according to the confirmed initialization state', async () => {
+    await runGuard(route({ fullPath: '/service-status', path: '/service-status' }))
+    expect(routerMocks.next).toHaveBeenLastCalledWith('/login')
+
+    routerMocks.next.mockClear()
+    routerMocks.getInitializationState.mockResolvedValue(false)
+    await runGuard(route({ fullPath: '/service-status', path: '/service-status' }))
+    expect(routerMocks.next).toHaveBeenLastCalledWith('/initialize')
   })
 
   it('keeps initialized instances out of the initialization page', async () => {

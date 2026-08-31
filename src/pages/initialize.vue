@@ -27,13 +27,9 @@ const isPasswordVisible = ref(false)
 const isConfirmPasswordVisible = ref(false)
 const loading = ref(false)
 const checking = ref(true)
-const statusRetrying = ref(false)
 const errorMessage = ref('')
 const apiKeyCopied = ref(false)
 const formRef = ref<HTMLFormElement | null>(null)
-const INITIALIZATION_STATUS_RETRY_MS = 1500
-let statusRetryTimer: ReturnType<typeof setTimeout> | undefined
-let disposed = false
 
 const form = ref<InitializationPayload>({
   username: '',
@@ -44,9 +40,6 @@ const form = ref<InitializationPayload>({
 
 const currentTheme = computed(() => theme.global.name.value)
 const themeClass = computed(() => 'initialize-page--' + currentTheme.value)
-const statusMessage = computed(() =>
-  t(statusRetrying.value ? 'initialization.statusRetrying' : 'initialization.checking'),
-)
 
 /** 使用浏览器密码学随机源生成一次性 API Key，避免把凭据交给第三方服务。 */
 function generateApiKey(): string {
@@ -80,23 +73,17 @@ function getErrorMessage(error: unknown): string {
   return getApiBusinessErrorMessage(error) || t('initialization.saveFailed')
 }
 
-/** 持续确认实例状态；服务尚未就绪时保持表单锁定并自动重试。 */
+/** 进入表单前再次确认实例仍未初始化；服务不可达时交给独立状态页持续检测。 */
 async function checkInitializationStatus() {
   try {
     const initialized = await getInitializationState(true)
-    if (disposed) return
-    statusRetrying.value = false
     if (initialized) {
       await router.replace('/login')
       return
     }
     checking.value = false
   } catch {
-    if (disposed) return
-    statusRetrying.value = true
-    statusRetryTimer = setTimeout(() => {
-      void checkInitializationStatus()
-    }, INITIALIZATION_STATUS_RETRY_MS)
+    await router.replace('/service-status')
   }
 }
 
@@ -127,11 +114,6 @@ async function submit() {
 onMounted(() => {
   form.value.api_key = generateApiKey()
   void checkInitializationStatus()
-})
-
-onBeforeUnmount(() => {
-  disposed = true
-  if (statusRetryTimer) clearTimeout(statusRetryTimer)
 })
 </script>
 
@@ -197,7 +179,7 @@ onBeforeUnmount(() => {
           </VAlert>
 
           <VAlert v-if="checking" type="info" variant="tonal" class="mb-5">
-            {{ statusMessage }}
+            {{ t('initialization.checking') }}
           </VAlert>
 
           <form ref="formRef" class="initialize-form" novalidate @submit.prevent="submit">
