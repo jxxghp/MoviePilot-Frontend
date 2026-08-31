@@ -108,6 +108,11 @@ function handleNavScroll(evt: Event) {
   visibility: visible !important;
 }
 
+// 收紧展开态导航头部的右侧留白，确保 V3t 状态图标留在 overflow 裁剪区域内。
+.layout-nav-type-vertical .layout-vertical-nav .nav-header {
+  margin-inline-end: 0.5rem;
+}
+
 // 👉 Vertical Nav
 .layout-vertical-nav {
   position: fixed;
