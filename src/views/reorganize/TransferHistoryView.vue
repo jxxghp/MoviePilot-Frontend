@@ -509,6 +509,13 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
 
     isRefreshed.value = true
     dataList.value = list
+    if (isDesktop.value && selected.value.length > 0) {
+      const refreshedItems = new Map(list.map(item => [item.id, item]))
+      selected.value = selected.value.flatMap(item => {
+        const refreshed = refreshedItems.get(item.id)
+        return refreshed ? [refreshed] : []
+      })
+    }
     totalItems.value = ensureNumber(result.total, 0)
     updateSearchHintList(list)
 
@@ -871,8 +878,9 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   if (hasRunningAiRedo.value) return
   // 关闭弹窗
   closeDeleteConfirmDialog()
+  const batchItems = scopeSelectionToVisibleHistory()
   // 总条数
-  const total = selected.value.length
+  const total = batchItems.length
   if (total === 0) return
 
   // 已处理条数
@@ -882,7 +890,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 显示进度条
   openProgressDialog()
   // 循环调用removeHistory
-  for (const item of selected.value) {
+  for (const item of batchItems) {
     // 开始删除
     const seasonEpisode = `${item.seasons || ''}${item.episodes || ''}`
     const name = [item.title, seasonEpisode].filter(Boolean).join(' ')
@@ -930,12 +938,13 @@ async function deleteConfirmHandler(deleteSrc: boolean, deleteDest: boolean) {
 // 批量删除历史记录
 async function removeHistoryBatch() {
   if (hasRunningAiRedo.value) return
-  if (selected.value.length === 0) return
+  const batchItems = scopeSelectionToVisibleHistory()
+  if (batchItems.length === 0) return
 
   // 清空当前操作记录
   currentHistory.value = undefined
   confirmTitle.value = t('transferHistory.deleteConfirmBatch', {
-    count: selected.value.length,
+    count: batchItems.length,
   })
   // 打开确认弹窗
   openDeleteConfirmDialog()
@@ -943,12 +952,13 @@ async function removeHistoryBatch() {
 // 批量重新整理
 async function retransferBatch() {
   if (hasRunningAiRedo.value) return
-  if (selected.value.length === 0) return
+  const batchItems = scopeSelectionToVisibleHistory()
+  if (batchItems.length === 0) return
 
   // 清空当前操作记录
   currentHistory.value = undefined
   // 重新整理IDS
-  redoIds.value = selected.value.map(item => item.id)
+  redoIds.value = batchItems.map(item => item.id)
   // 打开识别弹窗
   openRedoDialog()
 }
@@ -1091,7 +1101,7 @@ async function triggerBatchAiRedo() {
   }
   if (hasRunningAiRedo.value) return
 
-  const historyIds = [...new Set(selected.value.map(item => item.id))]
+  const historyIds = [...new Set(scopeSelectionToVisibleHistory().map(item => item.id))]
   if (historyIds.length === 0) return
 
   aiRedoIds.value = [...new Set([...aiRedoIds.value, ...historyIds])]
@@ -1225,6 +1235,14 @@ function ensurePageSize(value: any, defaultValue: number = 50) {
 
 // 已选历史记录 ID 集合，供移动端卡片和分组选择状态复用。
 const selectedIdSet = computed(() => new Set(selected.value.map(item => item.id)))
+
+// 将批量操作限制在当前可见数据源，避免搜索或分页后遗留的隐藏选择项被处理。
+function scopeSelectionToVisibleHistory() {
+  const visibleItems = isMobile.value ? mobileDataList.value : dataList.value
+  const visibleSelected = visibleItems.filter(item => selectedIdSet.value.has(item.id))
+  selected.value = visibleSelected
+  return visibleSelected
+}
 
 // 移动端当前已加载记录数量，用于批量菜单展示选择进度。
 const mobileBatchTotalCount = computed(() => mobileDataList.value.length)

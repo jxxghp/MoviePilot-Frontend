@@ -458,6 +458,35 @@ describe('TransferHistoryView', () => {
     expect(screen.queryByText('旧结果')).not.toBeInTheDocument()
   })
 
+  it('drops hidden desktop selections before a filtered batch delete', async () => {
+    const hidden = createHistory(1, '筛选前记录')
+    const visible = createHistory(2, '筛选后记录')
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: { title?: string } }) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(config?.params?.title === 'new' ? [visible] : [hidden]))
+    })
+
+    const { router } = await renderHistory('/history')
+    expect(await screen.findByText('筛选前记录')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '选择当前页' }))
+    await nextTick()
+
+    await router.push('/history?search=new')
+    expect(await screen.findByText('筛选后记录')).toBeInTheDocument()
+    expect(getDynamicMenuItems()).toBeUndefined()
+
+    await fireEvent.click(screen.getByRole('button', { name: '选择当前页' }))
+    await nextTick()
+    runDynamicAction('transferHistory.actions.batchDelete')
+    await getDialogCall().events.delete(false, true)
+
+    expect(mocks.apiDelete).toHaveBeenCalledOnce()
+    expect(mocks.apiDelete).toHaveBeenCalledWith(
+      'history/transfer?deletesrc=false&deletedest=true',
+      expect.objectContaining({ data: expect.objectContaining({ id: 2 }) }),
+    )
+  })
+
   it('constrains desktop Poster images to a fixed 2:3 cover frame', async () => {
     const item = createHistory(1, '桌面海报', {
       image: '/poster.jpg',
