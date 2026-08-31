@@ -605,7 +605,7 @@ describe('SubscribeListView batch operations', () => {
 
   it('completes a successful batch delete through the id endpoint', async () => {
     const deleted = vi.fn()
-    server.use(deleteSubscribeByIdHandler(1, { success: true }, 200, deleted))
+    server.use(deleteSubscribeByIdHandler(1, { data: { status: 'deleted' }, success: true }, 200, deleted))
     await renderList({ listResponse: [movie(1, 'Alpha')] })
     await screen.findByText('Alpha')
     await fireEvent.click(screen.getByRole('button', { name: 'host-enter-batch' }))
@@ -615,6 +615,28 @@ describe('SubscribeListView batch operations', () => {
 
     await waitFor(() => expect(deleted).toHaveBeenCalledOnce())
     await waitFor(() => expect(batchState()).toMatchObject({ enabled: false, selectedCount: 0 }))
+  })
+
+  it('keeps failed subscriptions selected for an immediate retry', async () => {
+    const firstDeleted = vi.fn()
+    const secondDeleted = vi.fn()
+    server.use(
+      deleteSubscribeByIdHandler(1, { data: { status: 'deleted' }, success: true }, 200, firstDeleted),
+      deleteSubscribeByIdHandler(2, { message: '暂时失败', success: false }, 503, secondDeleted),
+    )
+    await renderList({ listResponse: [movie(1, 'Alpha'), movie(2, 'Beta')] })
+    await screen.findByText('Alpha')
+    await fireEvent.click(screen.getByRole('button', { name: 'host-enter-batch' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'host-toggle-select-all' }))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'host-batch-delete' }))
+
+    await waitFor(() => expect(firstDeleted).toHaveBeenCalledOnce())
+    await waitFor(() => expect(secondDeleted).toHaveBeenCalledOnce())
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('成功删除 1 个订阅'))
+    expect(mocks.toastError).toHaveBeenCalledWith('删除失败 1 个订阅')
+    await waitFor(() => expect(card(2)).toHaveAttribute('data-selected', 'true'))
+    expect(batchState()).toMatchObject({ enabled: true, selectedCount: 1 })
   })
 
   it.each([
