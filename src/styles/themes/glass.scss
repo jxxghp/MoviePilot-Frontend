@@ -646,10 +646,29 @@ html[data-theme='glass'] {
     }
   }
 
-  // 弹层材质按最终几何一次合成，避免 transform/filter 动画反复重采样背景。
-  .v-overlay__content.mp-dialog-transition-enter-active,
+  // 菜单与弹窗的材质从首个绘制帧就使用最终状态，避免父层淡入让背景模糊看起来延迟生效。
+  :is(.v-menu, .v-dialog) > .v-overlay__content[class*='-transition-enter-active'] {
+    filter: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto;
+  }
+
+  :is(.v-menu, .v-dialog) > .v-overlay__content[class*='-transition-enter-from'] {
+    filter: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  :is(.v-menu, .v-dialog) > .v-overlay__scrim.fade-transition-enter-active,
+  :is(.v-menu, .v-dialog) > .v-overlay__scrim.fade-transition-enter-from {
+    opacity: var(--v-overlay-opacity, 0.32) !important;
+    transition: none !important;
+  }
+
+  // 关闭弹窗时仍保留轻量淡出，但不再缩放需要重新采样的材质层。
   .v-overlay__content.mp-dialog-transition-leave-active,
-  .v-overlay__content.dialog-transition-enter-active,
   .v-overlay__content.dialog-transition-leave-active {
     filter: none;
     transform: none;
@@ -657,9 +676,7 @@ html[data-theme='glass'] {
     will-change: opacity;
   }
 
-  .v-overlay__content.mp-dialog-transition-enter-from,
   .v-overlay__content.mp-dialog-transition-leave-to,
-  .v-overlay__content.dialog-transition-enter-from,
   .v-overlay__content.dialog-transition-leave-to {
     filter: none;
     transform: none;

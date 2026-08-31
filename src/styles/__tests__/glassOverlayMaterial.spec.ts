@@ -138,14 +138,17 @@ describe('glass overlay material styles', () => {
     expect(styles).toContain("&[data-glass-appearance='tinted'] .workflow-share-card")
   })
 
-  it('composites glass dialogs at their final geometry instead of resampling a scaled backdrop', () => {
+  it('paints glass menus and dialogs with their final backdrop material on the first frame', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toMatch(
-      /\.v-overlay__content\.mp-dialog-transition-enter-active[\s\S]*?transition:\s*opacity 120ms var\(--mp-motion-ease-standard\);/,
+      /:is\(\.v-menu, \.v-dialog\) > \.v-overlay__content\[class\*='-transition-enter-active'\]\s*\{[\s\S]*?opacity:\s*1 !important;[\s\S]*?transform:\s*none !important;[\s\S]*?transition:\s*none !important;/,
     )
     expect(styles).toMatch(
-      /\.v-overlay__content\.mp-dialog-transition-enter-from[\s\S]*?filter:\s*none;[\s\S]*?transform:\s*none;/,
+      /:is\(\.v-menu, \.v-dialog\) > \.v-overlay__content\[class\*='-transition-enter-from'\]\s*\{[\s\S]*?opacity:\s*1 !important;[\s\S]*?transform:\s*none !important;/,
+    )
+    expect(styles).toMatch(
+      /:is\(\.v-menu, \.v-dialog\) > \.v-overlay__scrim\.fade-transition-enter-active,[\s\S]*?opacity:\s*var\(--v-overlay-opacity, 0\.32\) !important;[\s\S]*?transition:\s*none !important;/,
     )
   })
 
