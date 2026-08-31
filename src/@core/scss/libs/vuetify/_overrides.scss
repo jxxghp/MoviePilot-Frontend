@@ -241,6 +241,10 @@ html[data-theme="transparent"] .v-dialog--fullscreen .v-overlay__scrim {
 .v-messages {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   opacity: 1;
+
+  &__message {
+    line-height: 1.4;
+  }
 }
 
 // 👉 Alert close btn
