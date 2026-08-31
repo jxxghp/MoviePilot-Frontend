@@ -46,6 +46,7 @@ import {
   BACKGROUND_ROTATION_GRACE_MS,
   createBackgroundCandidateOrderResolver,
   findFirstAvailableBackground,
+  normalizeBackgroundRotationIntervalSeconds,
   preloadBackgroundRotationImages,
   shouldAllowBackgroundRotation,
 } from '@/utils/backgroundRotation'
@@ -195,13 +196,18 @@ const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivi
 const preferredMotion = usePreferredReducedMotion()
 const backgroundRotationGraceActive = ref(false)
 let backgroundRotationGraceTimer: number | null = null
+const backgroundRotationIntervalMs = computed(
+  () => normalizeBackgroundRotationIntervalSeconds(globalSettingsStore.get('WALLPAPER_ROTATION_INTERVAL')) * 1000,
+)
 // 壁纸时钟允许短时后台续跑；指针、滚动和流场仍服从更严格的应用活动状态。
-const allowsBackgroundRotation = computed(() =>
-  shouldAllowBackgroundRotation(
-    appActivityState.value,
-    backgroundRotationGraceActive.value,
-    preferredMotion.value === 'reduce',
-  ),
+const allowsBackgroundRotation = computed(
+  () =>
+    Boolean(backgroundRotationIntervalMs.value) &&
+    shouldAllowBackgroundRotation(
+      appActivityState.value,
+      backgroundRotationGraceActive.value,
+      preferredMotion.value === 'reduce',
+    ),
 )
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
@@ -549,9 +555,13 @@ async function fetchBackgroundImages() {
   const controller = new AbortController()
   backgroundRequestController = controller
   try {
-    return await api.get<string[], string[]>(`/login/wallpapers`, {
-      signal: controller.signal,
-    })
+    const [images] = await Promise.all([
+      api.get<string[], string[]>(`/login/wallpapers`, {
+        signal: controller.signal,
+      }),
+      globalSettingsStore.initialize(),
+    ])
+    return images
   } finally {
     if (backgroundRequestController === controller) backgroundRequestController = null
   }
@@ -737,15 +747,10 @@ function startBackgroundRotation() {
   if (allowsBackgroundRotation.value && backgroundImages.value.length > 1) {
     scheduleNextBackgroundPreload()
     // 隐藏页面也允许在有界宽限期内轮换，回调自身会再次核对生命周期。
-    addBackgroundTimer(
-      'background-rotation',
-      () => void rotateBackgroundImage(),
-      10000, // 每10秒切换一次
-      {
-        runInBackground: true,
-        skipInitialRun: true, // 不需要立即执行
-      },
-    )
+    addBackgroundTimer('background-rotation', () => void rotateBackgroundImage(), backgroundRotationIntervalMs.value, {
+      runInBackground: true,
+      skipInitialRun: true, // 不需要立即执行
+    })
   }
 }
 
@@ -777,6 +782,10 @@ watch(allowsBackgroundRotation, allowsRotation => {
   } else {
     stopBackgroundRotation()
   }
+})
+
+watch(backgroundRotationIntervalMs, () => {
+  if (backgroundImages.value.length > 1) startBackgroundRotation()
 })
 
 // 停止登录页、透明主题或玻璃主题背景图加载、重试和轮播。

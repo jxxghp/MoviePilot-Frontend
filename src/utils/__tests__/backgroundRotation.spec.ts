@@ -1,7 +1,9 @@
 import {
   BACKGROUND_ROTATION_GRACE_MS,
+  DEFAULT_BACKGROUND_ROTATION_INTERVAL_SECONDS,
   createBackgroundCandidateOrderResolver,
   findFirstAvailableBackground,
+  normalizeBackgroundRotationIntervalSeconds,
   preloadBackgroundRotationImages,
   shouldAllowBackgroundRotation,
 } from '@/utils/backgroundRotation'
@@ -25,6 +27,14 @@ describe('background rotation lifecycle', () => {
     expect(shouldAllowBackgroundRotation('passive', false, false)).toBe(false)
     expect(shouldAllowBackgroundRotation('idle', false, false)).toBe(false)
     expect(shouldAllowBackgroundRotation('active', false, true)).toBe(false)
+  })
+
+  it('normalizes the backend interval while preserving zero as disabled', () => {
+    expect(DEFAULT_BACKGROUND_ROTATION_INTERVAL_SECONDS).toBe(15)
+    expect(normalizeBackgroundRotationIntervalSeconds(undefined)).toBe(15)
+    expect(normalizeBackgroundRotationIntervalSeconds('60')).toBe(60)
+    expect(normalizeBackgroundRotationIntervalSeconds(0)).toBe(0)
+    expect(normalizeBackgroundRotationIntervalSeconds(-1)).toBe(15)
   })
 })
 

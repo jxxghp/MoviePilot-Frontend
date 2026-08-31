@@ -45,6 +45,8 @@ const SystemSettings = ref<any>({
     APP_DOMAIN: null,
     API_TOKEN: null,
     WALLPAPER: 'tmdb',
+    WALLPAPER_ROTATION_INTERVAL: 15,
+    WALLPAPER_IMAGE_URL: null,
     GITHUB_TOKEN: null,
     CUSTOMIZE_WALLPAPER_API_URL: null,
     AI_AGENT_ENABLE: false,
@@ -995,8 +997,23 @@ const wallpaperItems = [
   { title: t('setting.system.wallpaperItems.tmdb'), value: 'tmdb' },
   { title: t('setting.system.wallpaperItems.bing'), value: 'bing' },
   { title: t('setting.system.wallpaperItems.mediaserver'), value: 'mediaserver' },
+  { title: t('setting.system.wallpaperItems.static'), value: 'static' },
   { title: t('setting.system.wallpaperItems.customize'), value: 'customize' },
   { title: t('setting.system.wallpaperItems.none'), value: '' },
+]
+
+// 壁纸轮换间隔统一以秒提交给后端，0 表示保持当前壁纸。
+const wallpaperRotationIntervalItems = [
+  { title: t('setting.system.wallpaperRotationItems.never'), value: 0 },
+  { title: t('setting.system.wallpaperRotationItems.seconds15'), value: 15 },
+  { title: t('setting.system.wallpaperRotationItems.minute1'), value: 60 },
+  { title: t('setting.system.wallpaperRotationItems.minutes5'), value: 300 },
+  { title: t('setting.system.wallpaperRotationItems.minutes10'), value: 600 },
+  { title: t('setting.system.wallpaperRotationItems.minutes30'), value: 1800 },
+  { title: t('setting.system.wallpaperRotationItems.hour1'), value: 3600 },
+  { title: t('setting.system.wallpaperRotationItems.hours6'), value: 21600 },
+  { title: t('setting.system.wallpaperRotationItems.hours12'), value: 43200 },
+  { title: t('setting.system.wallpaperRotationItems.day1'), value: 86400 },
 ]
 
 // 预设部分Github加速站
@@ -1217,30 +1234,49 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               </VCol>
 
               <VCol cols="12" md="6">
-                <VRow>
-                  <VCol cols="12" :md="SystemSettings.Basic.WALLPAPER === 'customize' ? 6 : 12">
-                    <VSelect
-                      v-model="SystemSettings.Basic.WALLPAPER"
-                      :label="t('setting.system.wallpaper')"
-                      :hint="t('setting.system.wallpaperHint')"
-                      persistent-hint
-                      :items="wallpaperItems"
-                      prepend-inner-icon="mdi-image"
-                    />
-                  </VCol>
+                <VSelect
+                  v-model="SystemSettings.Basic.WALLPAPER"
+                  :label="t('setting.system.wallpaper')"
+                  :hint="t('setting.system.wallpaperHint')"
+                  persistent-hint
+                  :items="wallpaperItems"
+                  prepend-inner-icon="mdi-image"
+                />
+              </VCol>
 
-                  <VCol v-if="SystemSettings.Basic.WALLPAPER === 'customize'" cols="12" md="6">
-                    <VTextField
-                      v-model="SystemSettings.Basic.CUSTOMIZE_WALLPAPER_API_URL"
-                      :label="t('setting.system.customizeWallpaperApi')"
-                      :hint="t('setting.system.customizeWallpaperApiHint')"
-                      :placeholder="t('setting.system.customizeWallpaperApi')"
-                      persistent-hint
-                      :rules="[v => !!v || t('setting.system.customizeWallpaperApiRequired')]"
-                      prepend-inner-icon="mdi-api"
-                    />
-                  </VCol>
-                </VRow>
+              <VCol v-if="SystemSettings.Basic.WALLPAPER === 'customize'" cols="12" md="6">
+                <VTextField
+                  v-model="SystemSettings.Basic.CUSTOMIZE_WALLPAPER_API_URL"
+                  :label="t('setting.system.customizeWallpaperApi')"
+                  :hint="t('setting.system.customizeWallpaperApiHint')"
+                  :placeholder="t('setting.system.customizeWallpaperApi')"
+                  persistent-hint
+                  :rules="[v => !!v || t('setting.system.customizeWallpaperApiRequired')]"
+                  prepend-inner-icon="mdi-api"
+                />
+              </VCol>
+
+              <VCol v-if="SystemSettings.Basic.WALLPAPER === 'static'" cols="12" md="6">
+                <VTextField
+                  v-model="SystemSettings.Basic.WALLPAPER_IMAGE_URL"
+                  :label="t('setting.system.wallpaperImageUrl')"
+                  :hint="t('setting.system.wallpaperImageUrlHint')"
+                  :placeholder="t('setting.system.wallpaperImageUrlPlaceholder')"
+                  persistent-hint
+                  :rules="[v => !!v || t('setting.system.wallpaperImageUrlRequired')]"
+                  prepend-inner-icon="mdi-image-outline"
+                />
+              </VCol>
+
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="SystemSettings.Basic.WALLPAPER_ROTATION_INTERVAL"
+                  :label="t('setting.system.wallpaperRotationInterval')"
+                  :hint="t('setting.system.wallpaperRotationIntervalHint')"
+                  persistent-hint
+                  :items="wallpaperRotationIntervalItems"
+                  prepend-inner-icon="mdi-timer-outline"
+                />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField

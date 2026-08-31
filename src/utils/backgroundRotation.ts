@@ -2,12 +2,22 @@ import type { AppActivityState } from '@/utils/appActivityLifecycle'
 
 /** 壁纸在窗口失焦后继续轮换的最长时间，交互 renderer 仍由应用生命周期独立暂停。 */
 export const BACKGROUND_ROTATION_GRACE_MS = 60_000
+/** 未配置或配置无效时使用的壁纸轮换间隔。 */
+export const DEFAULT_BACKGROUND_ROTATION_INTERVAL_SECONDS = 15
 
 type RandomSource = () => number
 
 /** 壁纸轮换只在前台活动或失焦宽限期内运行，系统减少动态效果时始终停止。 */
 export function shouldAllowBackgroundRotation(state: AppActivityState, graceActive: boolean, reducedMotion: boolean) {
   return !reducedMotion && (state === 'active' || graceActive)
+}
+
+/** 将后端设置规范为非负整秒，0 保留为“不轮换”语义。 */
+export function normalizeBackgroundRotationIntervalSeconds(value: unknown) {
+  const interval = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(interval) || interval < 0) return DEFAULT_BACKGROUND_ROTATION_INTERVAL_SECONDS
+
+  return Math.floor(interval)
 }
 
 /**
