@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  startNProgress: vi.fn(),
+  doneNProgress: vi.fn(),
 }))
 
 const recordingId = '977e6978-139d-425c-bb98-6b0c62d1e45e'
@@ -34,6 +36,13 @@ vi.mock('vue-toastification', () => ({
     error: mocks.toastError,
     success: mocks.toastSuccess,
   }),
+}))
+
+// 音乐页测试不调用真实 NProgress，避免其延时清理跨过测试环境销毁。
+vi.mock('@/api/nprogress', () => ({
+  configureNProgress: vi.fn(),
+  doneNProgress: mocks.doneNProgress,
+  startNProgress: mocks.startNProgress,
 }))
 
 const musicResult = {
