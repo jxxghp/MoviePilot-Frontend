@@ -168,11 +168,11 @@ function isHexColor(color: unknown): color is string {
 
 /** 读取并校验本地存储中的主题偏好。 */
 function readStoredThemePreference(): ThemeCustomizerTheme {
-  if (!isBrowser()) return 'purple'
+  if (!isBrowser()) return 'glass'
 
   const storedTheme = localStorage.getItem('theme')
 
-  return validThemes.includes(storedTheme as ThemeCustomizerTheme) ? (storedTheme as ThemeCustomizerTheme) : 'purple'
+  return validThemes.includes(storedTheme as ThemeCustomizerTheme) ? (storedTheme as ThemeCustomizerTheme) : 'glass'
 }
 
 /** 从预设矩阵生成指定质量的清透自然玻璃默认设置。 */
@@ -660,7 +660,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     semiDarkMenu: false,
     shadow: '0',
     skin: 'default',
-    theme: 'purple',
+    theme: 'glass',
   })
 
   return (
@@ -897,7 +897,7 @@ export function useThemeCustomizer() {
       semiDarkMenu: false,
       shadow: '0',
       skin: 'default',
-      theme: 'purple',
+      theme: 'glass',
     })
   }
 

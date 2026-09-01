@@ -580,9 +580,9 @@
         return /^#[0-9a-f]{6}$/i.test(cachedBackground || '') ? cachedBackground : null
       }
 
-      // 读取已保存的主题偏好，缺省时使用紫色主题。
+      // 读取已保存的主题偏好，缺省时使用玻璃主题。
       function getSavedThemePreference() {
-        return getLocalStorageValue('theme') || 'purple'
+        return getLocalStorageValue('theme') || 'glass'
       }
 
       // 将启动阶段的主题偏好解析为实际主题。

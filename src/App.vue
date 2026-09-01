@@ -132,7 +132,7 @@ const glassMaterialTintColor = computed(
     normalizeThemeMaterialAccent(globalTheme.current.value.colors.primary)?.hex ??
     normalizeThemeMaterialAccent(themeCustomizerPrimaryColors[0].value)!.hex,
 )
-let themeValue = localStorage.getItem('theme') || 'purple'
+let themeValue = localStorage.getItem('theme') || 'glass'
 let resumeThemeSyncTimer: number | null = null
 globalTheme.name.value = resolveInitialThemeName(themeValue)
 applyStoredThemeCustomizerAppearance(vuetifyTheme)
@@ -422,7 +422,7 @@ function syncThemePreferenceFromStorage(preferCachedAuto = false) {
     resumeThemeSyncTimer = null
   }
 
-  themeValue = localStorage.getItem('theme') || 'purple'
+  themeValue = localStorage.getItem('theme') || 'glass'
 
   const resolvedTheme =
     themeValue === 'auto' && preferCachedAuto
@@ -456,7 +456,7 @@ function syncThemePreferenceFromStorage(preferCachedAuto = false) {
 
 // 系统配色变化时，在自动主题模式下刷新当前实际主题。
 function handleSystemThemeChange() {
-  if ((localStorage.getItem('theme') || 'purple') === 'auto') {
+  if ((localStorage.getItem('theme') || 'glass') === 'auto') {
     syncThemePreferenceFromStorage()
   }
 }

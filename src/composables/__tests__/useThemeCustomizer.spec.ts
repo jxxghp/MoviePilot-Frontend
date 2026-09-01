@@ -46,6 +46,7 @@ describe('useThemeCustomizer glass settings', () => {
   it('uses the checkpoint appearance, quality, and strength values by default', () => {
     const settings = readThemeCustomizerSettings()
 
+    expect(settings.theme).toBe('glass')
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassDeformationStrength).toBe(48)
     expect(settings.glassDynamicsMode).toBe('ripple')
@@ -70,6 +71,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     await customizer.resetSettings()
     expect(customizer.settings.value).toMatchObject(getDefaultGlassCustomizerSettings('balanced'))
+    expect(customizer.settings.value.theme).toBe('glass')
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
     expect(customizer.isCustomized.value).toBe(false)
 

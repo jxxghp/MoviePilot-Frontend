@@ -275,7 +275,7 @@ const getUIModeIcon = computed(() => {
 
 // 主题相关功能
 const { name: themeName, global: globalTheme } = useTheme()
-const savedTheme = ref(localStorage.getItem('theme') ?? 'purple')
+const savedTheme = ref(localStorage.getItem('theme') ?? 'glass')
 const currentThemeName = ref(savedTheme.value)
 const themeCustomizerSettings = ref(readThemeCustomizerSettings())
 
@@ -325,7 +325,7 @@ function getThemeLayoutTitle(layout: ThemeCustomizerSettings['layout']) {
 }
 
 const currentThemeSummary = computed(() => {
-  const themeTitle = themes.find(theme => theme.name === currentThemeName.value)?.title || t('theme.purple')
+  const themeTitle = themes.find(theme => theme.name === currentThemeName.value)?.title || t('theme.glass')
   const layoutTitle = appMode.value ? '' : getThemeLayoutTitle(themeCustomizerSettings.value.layout)
 
   if (layoutTitle) return `${themeTitle} · ${layoutTitle}`
@@ -595,13 +595,7 @@ onUnmounted(() => {
             <VListItemTitle>{{ t('user.profile') }}</VListItemTitle>
           </VListItem>
 
-          <VListItem
-            v-if="canAdmin"
-            link
-            @click="router.push('/setting')"
-            class="mb-1 rounded-lg"
-            hover
-          >
+          <VListItem v-if="canAdmin" link @click="router.push('/setting')" class="mb-1 rounded-lg" hover>
             <template #prepend>
               <VIcon icon="mdi-cog-outline" />
             </template>
