@@ -150,6 +150,7 @@ describe('UserProfileView', () => {
 
   it('validates avatar files and supports restoring the saved or default avatar', async () => {
     mockSuccessfulLoad()
+    mocks.apiPut.mockResolvedValue(currentUser({ avatar: '' }))
     const { container } = await renderProfile()
     await screen.findByDisplayValue('alice@example.com')
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
@@ -167,6 +168,10 @@ describe('UserProfileView', () => {
     await fireEvent.click(screen.getByRole('button', { name: '默认' }))
     expect(mocks.toastSuccess).toHaveBeenCalledWith('已还原当前使用头像！')
     expect(mocks.toastSuccess).toHaveBeenCalledWith('已重置为默认头像，待保存后生效！')
+
+    await fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledOnce())
+    expect(mocks.apiPut.mock.calls[0][1]).toMatchObject({ avatar: '' })
   })
 
   it('keeps notification identity fields editable in the profile payload', async () => {

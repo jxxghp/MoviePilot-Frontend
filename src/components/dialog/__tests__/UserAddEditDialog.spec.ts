@@ -350,4 +350,17 @@ describe('UserAddEditDialog', () => {
     await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledTimes(2))
     expect(mocks.apiPut.mock.calls[1][1]).toMatchObject({ avatar: 'saved-avatar.png' })
   })
+
+  it('persists an empty avatar after resetting a user to the built-in default', async () => {
+    mocks.apiGet.mockResolvedValue(createUser({ avatar: 'saved-avatar.png', name: 'alice' }))
+    mocks.apiPut.mockResolvedValue({ success: true })
+    await renderDialog('edit', 'alice')
+    await screen.findByDisplayValue('alice')
+
+    await fireEvent.click(screen.getByRole('button', { name: /重置默认头像/ }))
+    await fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledOnce())
+    expect(mocks.apiPut.mock.calls[0][1]).toMatchObject({ avatar: '' })
+  })
 })

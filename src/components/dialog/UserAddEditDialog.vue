@@ -46,7 +46,8 @@ const currentLoginUser = userStore.userName
 const userName = ref('')
 
 // 当前头像缓存
-const currentAvatar = ref(avatar1)
+const currentAvatar = ref('')
+const displayedAvatar = computed(() => currentAvatar.value || avatar1)
 
 // 用户名缓存
 const currentUserName = ref('')
@@ -82,7 +83,7 @@ const userForm = ref<ExtendedUser>({
   email: '',
   is_active: true,
   is_superuser: false,
-  avatar: avatar1,
+  avatar: '',
   is_otp: false,
   permissions: {
     discovery: true,
@@ -267,13 +268,13 @@ function changeAvatar(file: Event) {
 
 /** 将头像恢复为系统默认头像。 */
 function resetDefaultAvatar() {
-  currentAvatar.value = avatar1
+  currentAvatar.value = ''
   $toast.success(t('dialog.userAddEdit.resetAvatarSuccess'))
 }
 
 /** 还原为用户当前已保存的头像。 */
 function restoreCurrentAvatar() {
-  currentAvatar.value = userForm.value.avatar
+  currentAvatar.value = userForm.value.avatar || ''
   $toast.success(t('dialog.userAddEdit.restoreAvatarSuccess'))
 }
 
@@ -282,7 +283,7 @@ async function fetchUserInfo() {
   try {
     userForm.value = await api.get(`user/${props.username}`)
     if (userForm.value) {
-      userForm.value.avatar = userForm.value.avatar || avatar1
+      userForm.value.avatar = userForm.value.avatar || ''
       userForm.value.nickname = userForm.value.settings?.nickname ?? ''
       currentAvatar.value = userForm.value.avatar
       currentUserName.value = userForm.value.name
@@ -455,7 +456,7 @@ onMounted(() => {
       <VCardItem>
         <!-- 👉 Avatar -->
         <div class="flex flex-row">
-          <VAvatar rounded="lg" size="100" class="me-5" :image="currentAvatar" />
+          <VAvatar rounded="lg" size="100" class="me-5" :image="displayedAvatar" />
           <!-- 👉 Upload Photo -->
           <div class="flex flex-col justify-center gap-5">
             <div class="flex flex-wrap gap-2">
