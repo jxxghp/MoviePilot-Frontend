@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiRequests: [] as Promise<unknown>[],
   removeBackgroundTimer: vi.fn(),
+  loadSystemUpdateStatus: vi.fn(),
   timerRegistrations: [] as TimerRegistration[],
   toastSuccess: vi.fn(),
 }))
@@ -56,6 +57,10 @@ vi.mock('@/utils/backgroundManager', () => ({
 
 vi.mock('vue-toastification', () => ({
   useToast: () => ({ success: mocks.toastSuccess }),
+}))
+
+vi.mock('@/composables/useSystemUpdateStatus', () => ({
+  useSystemUpdateStatus: () => ({ loadStatus: mocks.loadSystemUpdateStatus }),
 }))
 
 function deferred<T>() {
@@ -105,6 +110,7 @@ describe('ServiceView', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset()
     mocks.apiRequests.length = 0
+    mocks.loadSystemUpdateStatus.mockReset()
     mocks.removeBackgroundTimer.mockReset()
     mocks.timerRegistrations.length = 0
     mocks.toastSuccess.mockReset()
@@ -255,11 +261,30 @@ describe('ServiceView', () => {
     })
     expect(mocks.toastSuccess).toHaveBeenCalledOnce()
     expect(mocks.toastSuccess).toHaveBeenCalledWith('定时作业执行请求提交成功！')
+    expect(mocks.loadSystemUpdateStatus).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(999)
     expect(listReads).toBe(1)
     await vi.advanceTimersByTimeAsync(1)
     expect(listReads).toBe(2)
+  })
+
+  it('refreshes the shared update status immediately after the system update check completes', async () => {
+    mocks.apiGet.mockImplementation((endpoint: string) => {
+      if (endpoint === 'dashboard/schedule') {
+        return [schedule({ id: 'system_update_check', name: '检查系统更新' })]
+      }
+      if (endpoint === 'system/runscheduler') return null
+      throw new Error(`Unexpected GET ${endpoint}`)
+    })
+    await renderServiceView()
+    expect(await screen.findAllByText('检查系统更新')).toHaveLength(2)
+
+    await fireEvent.click(executionButtons()[0])
+    await flushMicrotasks()
+
+    expect(mocks.loadSystemUpdateStatus).toHaveBeenCalledOnce()
+    expect(mocks.toastSuccess).toHaveBeenCalledOnce()
   })
 
   it.each([

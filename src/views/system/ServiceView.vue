@@ -4,6 +4,7 @@ import api from '@/api'
 import type { ScheduleInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
+import { useSystemUpdateStatus } from '@/composables/useSystemUpdateStatus'
 import {
   getScheduleName,
   getScheduleNextRunText,
@@ -18,6 +19,7 @@ import { getSchedulerVisual } from '@/utils/schedulerVisual'
 // 国际化
 const { t } = useI18n()
 const { useDataRefresh } = useBackground()
+const { loadStatus: loadSystemUpdateStatus } = useSystemUpdateStatus()
 
 // 提示框
 const $toast = useToast()
@@ -79,7 +81,7 @@ function getMobileSchedulerStatusText(scheduler: ScheduleInfo) {
   return getDisplayedSchedulerStatusText(scheduler)
 }
 
-/** 执行指定定时服务，并在请求成功后的短延迟刷新列表。 */
+/** 执行指定定时服务，并在统一更新检查完成后立即同步全局升级提示。 */
 async function runCommand(id: string) {
   try {
     await api.get('system/runscheduler', {
@@ -87,6 +89,7 @@ async function runCommand(id: string) {
         jobid: id,
       },
     })
+    if (id === 'system_update_check') await loadSystemUpdateStatus()
     $toast.success(t('setting.scheduler.executeSuccess'))
     setTimeout(() => {
       loadSchedulerList()
