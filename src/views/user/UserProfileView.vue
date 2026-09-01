@@ -41,7 +41,8 @@ const isProfileLoading = ref(true)
 const profileLoadFailed = ref(false)
 
 // 当前头像缓存
-const currentAvatar = ref(avatar1)
+const currentAvatar = ref('')
+const displayedAvatar = computed(() => currentAvatar.value || avatar1)
 
 // 当前用户名
 const currentUserName = ref('')
@@ -182,13 +183,13 @@ function changeAvatar(file: Event) {
 
 // 重置默认头像
 function resetDefaultAvatar() {
-  currentAvatar.value = avatar1
+  currentAvatar.value = ''
   $toast.success(t('profile.resetAvatarSuccess'))
 }
 
 // 还原当前头像
 function restoreCurrentAvatar() {
-  currentAvatar.value = accountInfo.value.avatar
+  currentAvatar.value = accountInfo.value.avatar || ''
   $toast.success(t('profile.restoreAvatarSuccess'))
 }
 
@@ -247,7 +248,7 @@ async function saveAccountInfo() {
     const updatedUser = await api.put<User>('user/current', userData, { feedback: 'silent' })
     applyUserProfile(updatedUser)
     userStore.setUserName(updatedUser.name)
-    userStore.setAvatar(currentAvatar.value)
+    userStore.setAvatar(updatedUser.avatar || '')
     // 凭据仅在服务端确认成功后清空，失败时保留输入便于修正或重试。
     newPassword.value = ''
     confirmPassword.value = ''
@@ -288,7 +289,7 @@ function applyUserProfile(user: User) {
     nickname: user.settings?.nickname ?? '',
   }
   currentUserName.value = user.name
-  currentAvatar.value = user.avatar || avatar1
+  currentAvatar.value = user.avatar || ''
 }
 
 // 密码验证并执行回调
@@ -356,7 +357,7 @@ watch(
         <VCard :title="t('profile.personalInfo')">
           <VCardText class="flex">
             <!-- 👉 Avatar -->
-            <VAvatar rounded="lg" size="100" class="me-6" :image="currentAvatar" />
+            <VAvatar rounded="lg" size="100" class="me-6" :image="displayedAvatar" />
 
             <!-- 👉 Upload Photo -->
             <form class="flex flex-col justify-center gap-5">
