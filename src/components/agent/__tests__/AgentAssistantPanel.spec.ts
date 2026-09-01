@@ -519,6 +519,49 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('adds a pasted clipboard image to the pending attachments', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => createAgentResponse([])))
+    const createObjectURL = vi.fn(() => 'blob:pasted-image')
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+    const screenshot = new File(['screenshot'], 'image.png', { type: 'image/png' })
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const pasteEvent = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        items: [
+          {
+            kind: 'file',
+            type: 'image/png',
+            getAsFile: () => screenshot,
+          },
+        ],
+      },
+    })
+    wrapper.get('textarea').element.dispatchEvent(pasteEvent)
+    await flushPromises()
+
+    expect(pasteEvent.defaultPrevented).toBe(true)
+    expect(createObjectURL).toHaveBeenCalledWith(screenshot)
+    expect(wrapper.get('.agent-assistant-pending-file').text()).toContain('image.png')
+
+    wrapper.unmount()
+    Reflect.deleteProperty(URL, 'createObjectURL')
+    Reflect.deleteProperty(URL, 'revokeObjectURL')
+  })
+
   it('renders protected delivery only as transient literal text and advertises the stream capability', async () => {
     const protectedMarker = 'MP-PROTECTED-MARKER **not bold** <script>literal</script>'
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
