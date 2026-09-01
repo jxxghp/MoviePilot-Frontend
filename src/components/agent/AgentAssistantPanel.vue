@@ -1721,10 +1721,8 @@ function openFilePicker() {
   fileInputRef.value?.click()
 }
 
-// 处理文件选择并生成待发送附件预览。
-function handleFileSelection(event: Event) {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files || [])
+// 将文件加入待发送附件并生成图片预览。
+function addPendingAttachments(files: File[]) {
   const nextAttachments = files.map(file => {
     const kind = getFileKind(file)
 
@@ -1740,7 +1738,26 @@ function handleFileSelection(event: Event) {
   })
 
   pendingAttachments.value.push(...nextAttachments)
+}
+
+// 处理文件选择并生成待发送附件预览。
+function handleFileSelection(event: Event) {
+  const input = event.target as HTMLInputElement
+  addPendingAttachments(Array.from(input.files || []))
   input.value = ''
+}
+
+// 将剪贴板中的截图或复制图片加入待发送附件。
+function handleInputPaste(event: ClipboardEvent) {
+  if (isBusy.value || recording.value) return
+  const images = Array.from(event.clipboardData?.items || [])
+    .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+  if (!images.length) return
+
+  event.preventDefault()
+  addPendingAttachments(images)
 }
 
 // 移除一条待发送附件。
@@ -2798,6 +2815,7 @@ onScopeDispose(() => {
             :placeholder="inputPlaceholder"
             @input="handleInputChange"
             @keydown="handleInputKeydown"
+            @paste="handleInputPaste"
             @compositionstart="handleCompositionStart"
             @compositionend="handleCompositionEnd"
           />
