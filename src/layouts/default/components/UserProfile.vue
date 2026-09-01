@@ -24,7 +24,9 @@ import {
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
+import { useSystemUpdateStatus } from '@/composables/useSystemUpdateStatus'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import type { SystemUpdateItemStatus } from '@/api/types'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
 const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
@@ -68,6 +70,12 @@ const isGlassTheme = computed(() => currentThemeName.value === 'glass')
 // 重启轮询控制标识
 const restartPollingId = ref<number | null>(null)
 const { isRestarting, startSystemRestart, finishSystemRestart } = useSystemRestartStatus()
+const {
+  status: systemUpdateStatus,
+  startPolling: startSystemUpdatePolling,
+  stopPolling: stopSystemUpdatePolling,
+  requestMenuUpdate,
+} = useSystemUpdateStatus()
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let siteAuthDialogController: ReturnType<typeof openSharedDialog> | null = null
 let customCssDialogController: ReturnType<typeof openSharedDialog> | null = null
@@ -241,6 +249,49 @@ const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const userName = computed(() => userStore.userName)
 const avatar = computed(() => userStore.avatar || avatar1)
 const userLevel = computed(() => userStore.level)
+
+const systemUpdateItems = computed<SystemUpdateItemStatus[]>(() => {
+  if (systemUpdateStatus.value?.updates?.length) return systemUpdateStatus.value.updates
+  if (!systemUpdateStatus.value) return []
+  return [
+    {
+      type: 'application',
+      state: systemUpdateStatus.value.state,
+      current_version: systemUpdateStatus.value.current_version,
+      version: systemUpdateStatus.value.version,
+      frontend_version: systemUpdateStatus.value.frontend_version,
+      downloaded_bytes: systemUpdateStatus.value.downloaded_bytes,
+      total_bytes: systemUpdateStatus.value.total_bytes,
+      progress: systemUpdateStatus.value.progress,
+      error: systemUpdateStatus.value.error,
+      can_update: systemUpdateStatus.value.can_update,
+      can_install: systemUpdateStatus.value.can_install,
+    },
+  ]
+})
+
+const systemUpdateMenuItems = computed(() =>
+  systemUpdateItems.value.filter(item => ['available', 'ready'].includes(item.state)),
+)
+
+function systemUpdateMenuVersion(item: SystemUpdateItemStatus): string {
+  if (item.type === 'application') return item.version || ''
+  return [item.auth_version, item.indexer_version].filter(Boolean).join(' / ')
+}
+
+function openSystemUpdate(item: SystemUpdateItemStatus) {
+  showUserMenu.value = false
+  requestMenuUpdate(item.type)
+}
+
+watch(
+  canAdmin,
+  enabled => {
+    if (enabled) startSystemUpdatePolling()
+    else stopSystemUpdatePolling()
+  },
+  { immediate: true },
+)
 
 // UI模式相关
 const uiModes = computed(() => [
@@ -547,6 +598,7 @@ onUnmounted(() => {
     restartPollingId.value = null
   }
   finishSystemRestart()
+  if (canAdmin.value) stopSystemUpdatePolling()
   closeRestartProgress()
   siteAuthDialogController?.close()
   customCssDialogController?.close()
@@ -609,6 +661,29 @@ onUnmounted(() => {
             </template>
             <VListItemTitle>{{ t('user.siteAuth') }}</VListItemTitle>
           </VListItem>
+
+          <template v-if="systemUpdateMenuItems.length">
+            <VDivider class="my-2" />
+            <VListItem
+              v-for="item in systemUpdateMenuItems"
+              :key="item.type"
+              link
+              class="mb-1 rounded-lg"
+              hover
+              @click="openSystemUpdate(item)"
+            >
+              <template #prepend>
+                <VIcon :icon="item.type === 'resources' ? 'mdi-database-cog-outline' : 'mdi-update'" />
+              </template>
+              <VListItemTitle>
+                {{
+                  t(item.state === 'ready' ? 'systemUpdate.menuRestartTo' : 'systemUpdate.menuUpdateTo', {
+                    version: systemUpdateMenuVersion(item),
+                  })
+                }}
+              </VListItemTitle>
+            </VListItem>
+          </template>
 
           <!-- 👉 UI模式设置 - 使用嵌套菜单 -->
           <VMenu location="end" offset-x width="15rem" v-model="showUIModeMenu" :close-on-content-click="true">

@@ -2392,7 +2392,33 @@ export interface SubscribeShareStatistics {
 /** 后端 API 的固定 envelope；失败及无返回值操作允许 data 为 null。 */
 export type SystemUpdateState = 'idle' | 'available' | 'downloading' | 'ready' | 'installing' | 'failed'
 
-/** 后端后台更新状态机快照。 */
+/** 后台更新支持的两类升级目标。 */
+export type SystemUpdateType = 'application' | 'resources'
+
+/** 单类升级的后台状态。 */
+export interface SystemUpdateItemStatus {
+  type: SystemUpdateType
+  state: SystemUpdateState
+  current_version?: string | null
+  version?: string | null
+  frontend_version?: string | null
+  current_auth_version?: string | null
+  auth_version?: string | null
+  current_indexer_version?: string | null
+  indexer_version?: string | null
+  release_name?: string | null
+  release_notes?: string | null
+  published_at?: string | null
+  checked_at?: string | null
+  downloaded_bytes: number
+  total_bytes: number
+  progress: number
+  error?: string | null
+  can_update: boolean
+  can_install: boolean
+}
+
+/** 后端主程序与站点资源后台更新状态机快照。 */
 export interface SystemUpdateStatus {
   state: SystemUpdateState
   current_version: string
@@ -2408,6 +2434,7 @@ export interface SystemUpdateStatus {
   error?: string | null
   can_update: boolean
   can_install: boolean
+  updates?: SystemUpdateItemStatus[]
 }
 
 export interface ApiResponse<T = unknown> {

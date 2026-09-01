@@ -87,6 +87,34 @@ export default {
     exit: 'Exit',
   },
   systemUpdate: {
+    applicationAvailableTitle: 'MoviePilot application update available',
+    applicationAvailableDescription:
+      'The application update downloads in the background, including the frontend resources declared by the backend version.',
+    applicationReadyTitle: 'Application update is ready',
+    applicationReadyDescription:
+      'The application and its matching frontend resources will be switched before the next start.',
+    resourcesAvailableTitle: 'Site resource update available',
+    resourcesAvailableDescription:
+      'Authentication and index resources download in the background without interrupting current tasks.',
+    resourcesReadyTitle: 'Site resource package is ready',
+    resourcesReadyDescription: 'The complete site resource package will be applied before the next start.',
+    frontendLabel: 'Frontend',
+    authResourceLabel: 'Authentication resources',
+    indexerResourceLabel: 'Index resources',
+    applicationDownloadTitle: 'Download the application update?',
+    applicationDownloadDescription:
+      'The backend release and the matching frontend resources declared by it will download in the background.',
+    resourcesDownloadTitle: 'Download the site resource package?',
+    resourcesDownloadDescription:
+      'The complete authentication and index resource package will download in the background.',
+    applicationRestartTitle: 'Restart to install the application update?',
+    applicationRestartDescription:
+      'The application and its matching frontend resources will be switched before the new process starts.',
+    resourcesRestartTitle: 'Restart to install the site resources?',
+    resourcesRestartDescription:
+      'The downloaded complete resource package will be applied before startup; the application will not restart again afterward.',
+    menuUpdateTo: 'Update to {version}',
+    menuRestartTo: 'Restart to apply {version}',
     availableTitle: 'A new MoviePilot version is available',
     availableDescription: 'The update downloads in the background without interrupting current tasks.',
     readyTitle: 'The update is ready',
@@ -2441,7 +2469,8 @@ export default {
       moviePilotDevUpdate: 'Track Dev builds',
       moviePilotDevUpdateHint: 'Update to the latest code on the current v3 development branch at every restart',
       autoUpdateResource: 'Auto Update Resource',
-      autoUpdateResourceHint: 'Automatically detect and update site resource package when restarting',
+      autoUpdateResourceHint:
+        'Check site resource updates in the background and apply the downloaded package before restarting',
       // Scraping Switch Settings
       scrapingSwitchSettings: 'Scraping Switch Settings',
       scrapingSwitchSettingsDesc: 'Control various media file scraping function switches',
