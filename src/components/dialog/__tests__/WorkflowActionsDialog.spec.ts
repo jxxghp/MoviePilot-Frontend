@@ -24,6 +24,9 @@ const mocks = vi.hoisted(() => ({
   toastWarning: vi.fn(),
   flowNodes: undefined as Ref<FlowNode[]> | undefined,
   flowEdges: undefined as Ref<FlowEdge[]> | undefined,
+  nodeTypes: undefined as Record<string, unknown> | undefined,
+  setNodes: vi.fn(),
+  setEdges: vi.fn(),
   onConnect: undefined as ((connection: Connection) => void) | undefined,
   isValidConnection: undefined as ((connection: Connection) => boolean) | undefined,
   conditionItems: [] as ConditionItem[],
@@ -58,11 +61,13 @@ vi.mock('@vue-flow/core', async () => {
     props: {
       nodes: { type: Array as PropType<FlowNode[]>, default: () => [] },
       edges: { type: Array as PropType<FlowEdge[]>, default: () => [] },
+      nodeTypes: { type: Object as PropType<Record<string, unknown>>, default: () => ({}) },
       isValidConnection: { type: Function as PropType<(connection: Connection) => boolean> },
     },
     emits: ['edge-click'],
     setup(props, { emit }) {
       mocks.isValidConnection = props.isValidConnection
+      mocks.nodeTypes = props.nodeTypes
       return () =>
         createElement('div', { 'data-testid': 'vue-flow' }, [
           createElement(
@@ -85,6 +90,14 @@ vi.mock('@vue-flow/core', async () => {
         mocks.flowEdges?.value.push(...(Array.isArray(newEdges) ? newEdges : [newEdges])),
       addNodes: (newNodes: FlowNode[] | FlowNode) =>
         mocks.flowNodes?.value.push(...(Array.isArray(newNodes) ? newNodes : [newNodes])),
+      setNodes: (newNodes: FlowNode[]) => {
+        mocks.setNodes(newNodes)
+        if (mocks.flowNodes) mocks.flowNodes.value = newNodes
+      },
+      setEdges: (newEdges: FlowEdge[]) => {
+        mocks.setEdges(newEdges)
+        if (mocks.flowEdges) mocks.flowEdges.value = newEdges
+      },
       edges: mocks.flowEdges,
       nodes: mocks.flowNodes,
       onConnect: (handler: (connection: Connection) => void) => {
@@ -279,6 +292,9 @@ describe('WorkflowActionsDialog data contract', () => {
     mocks.toastWarning.mockReset()
     mocks.flowNodes!.value = []
     mocks.flowEdges!.value = []
+    mocks.nodeTypes = undefined
+    mocks.setNodes.mockReset()
+    mocks.setEdges.mockReset()
     mocks.onConnect = undefined
     mocks.isValidConnection = undefined
     mocks.conditionItems = []
@@ -297,6 +313,25 @@ describe('WorkflowActionsDialog data contract', () => {
       },
     ])
     mocks.apiPut.mockResolvedValue(null)
+  })
+
+  it('registers workflow action components for Vue Flow nodes', async () => {
+    await renderDialog()
+
+    await waitFor(() =>
+      expect(mocks.nodeTypes).toEqual(expect.objectContaining({ AddDownloadAction: expect.anything() })),
+    )
+  })
+
+  it('loads persisted workflow nodes and edges through Vue Flow setters', async () => {
+    await renderDialog()
+
+    expect(mocks.setNodes).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: 'source', type: 'SourceAction' })]),
+    )
+    expect(mocks.setEdges).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: 'flow-1', source: 'source', target: 'target' })]),
+    )
   })
 
   it('accepts only known output-to-input connections and rejects invalid endpoints', async () => {

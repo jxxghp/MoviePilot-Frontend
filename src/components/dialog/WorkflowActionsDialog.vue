@@ -15,7 +15,7 @@ import { useI18n } from 'vue-i18n'
 // 多语言支持
 const { t } = useI18n()
 
-const { onConnect, addEdges, nodes, edges, addNodes, screenToFlowCoordinate } = useVueFlow()
+const { onConnect, addEdges, nodes, edges, addNodes, setNodes, setEdges, screenToFlowCoordinate } = useVueFlow()
 
 const { onDragOver, onDrop, onDragLeave, isDragOver } = useDragAndDrop()
 
@@ -123,7 +123,7 @@ const normalizeWorkflowEdge = (edge: any) => {
 
 // 标准化所有流程边，导入和保存前都会调用
 const normalizeWorkflowEdges = () => {
-  edges.value = (edges.value || []).map(edge => normalizeWorkflowEdge(edge))
+  setEdges((edges.value || []).map(edge => normalizeWorkflowEdge(edge)))
 }
 
 // 统一动作节点数据结构，保留后端可识别的运行配置，仅移除编辑器契约元数据。
@@ -139,7 +139,13 @@ const normalizeWorkflowNode = (node: any) => {
 
 // 标准化所有动作节点，导入和保存前都会调用
 const normalizeWorkflowNodes = () => {
-  nodes.value = (nodes.value || []).map(node => normalizeWorkflowNode(node))
+  setNodes((nodes.value || []).map(node => normalizeWorkflowNode(node)))
+}
+
+// 通过 Vue Flow 的 setter 导入节点和连线，确保初始图形具备尺寸、位置等内部运行状态。
+function setWorkflowGraph(actions: NonNullable<Workflow['actions']> = [], flows: NonNullable<Workflow['flows']> = []) {
+  setNodes(actions.map(action => normalizeWorkflowNode(action)))
+  setEdges(flows.map(flow => normalizeWorkflowEdge(flow)))
 }
 
 // 获取节点名称，便于在边设置面板展示流转关系
@@ -267,6 +273,11 @@ const nodeTypes: Record<string, any> = ref({})
 // 自动扫描目录下所有的 .vue 文件
 const components = import.meta.glob('../workflow/*Action.vue')
 
+// 从 import.meta.glob 返回的相对路径中提取动作组件名，兼容 ../workflow/ 前缀。
+function getActionComponentName(path: string) {
+  return path.match(/(?:^|\/)workflow\/([^/]+)\.vue$/)?.[1]
+}
+
 // 动态加载某个组件
 const loadComponent = async (componentName: string) => {
   const component = components[`../workflow/${componentName}.vue`]
@@ -277,14 +288,29 @@ const loadComponent = async (componentName: string) => {
 }
 
 // 将所有components中的组件加载到nodeTypes中
+let actionComponentLoaderActive = true
+
+// 对话框销毁后忽略仍在途的懒加载结果，避免已卸载实例处理异步异常。
+onUnmounted(() => {
+  actionComponentLoaderActive = false
+})
+
 for (const path in components) {
-  const componentName = path.match(/\.\/workflow\/(.*).vue$/)?.[1]
+  const componentName = getActionComponentName(path)
   if (!componentName) {
     continue
   }
-  loadComponent(componentName).then(component => {
-    nodeTypes.value[componentName] = markRaw(component)
-  })
+  loadComponent(componentName)
+    .then(component => {
+      if (!actionComponentLoaderActive) return
+      nodeTypes.value[componentName] = markRaw(component)
+    })
+    .catch(error => {
+      // 单个动作组件加载失败时保留其余节点，并记录原因供排查。
+      if (actionComponentLoaderActive) {
+        console.error(`Failed to load workflow action component: ${componentName}`, error)
+      }
+    })
 }
 
 // 加载动作契约，供边条件构造器使用
@@ -376,13 +402,10 @@ function saveCodeString(type: string, code: any) {
     if (code) {
       const codeObject = JSON.parse(code.value)
       if (type === 'workflow') {
-        nodes.value = codeObject.actions || []
-        edges.value = codeObject.flows || []
+        setWorkflowGraph(codeObject.actions || [], codeObject.flows || [])
         if (codeObject.execution_config) {
           workflowForm.value.execution_config = codeObject.execution_config
         }
-        normalizeWorkflowNodes()
-        normalizeWorkflowEdges()
       }
       importCodeDialog.value = false
       $toast.success(t('dialog.workflowActions.importSuccess'))
@@ -409,10 +432,7 @@ function shareWorkflow() {
 onMounted(() => {
   loadActionDefinitions()
   if (props.workflow) {
-    nodes.value = cloneDeep(workflowForm.value.actions ?? [])
-    edges.value = cloneDeep(workflowForm.value.flows ?? [])
-    normalizeWorkflowNodes()
-    normalizeWorkflowEdges()
+    setWorkflowGraph(cloneDeep(workflowForm.value.actions ?? []), cloneDeep(workflowForm.value.flows ?? []))
   }
 })
 
