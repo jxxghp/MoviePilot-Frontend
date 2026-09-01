@@ -24,6 +24,40 @@ export interface MediaSourceInfo {
   media_types: string[]
 }
 
+/** 订阅跨搜索与下载链路的当前业务状态。 */
+export interface SubscriptionExecutionStatus {
+  state: string
+  phase: string
+  updated_at: string
+  source?: string
+  batch_id?: string
+  task_id?: string
+  current_site_id?: number
+  error?: string
+  can_cancel: boolean
+  can_retry: boolean
+  requires_reconciliation: boolean
+}
+
+/** 订阅搜索批次的聚合进度与当前工作。 */
+export interface SubscriptionBatchStatus {
+  batch_id: string
+  source: string
+  state: string
+  phase: string
+  total_count: number
+  processed_count: number
+  finished_count: number
+  failed_count: number
+  cancelled_count: number
+  created_at: string
+  updated_at: string
+  current_subscription_id?: number
+  current_site_id?: number
+  error?: string
+  can_cancel: boolean
+}
+
 // 手动刮削选项
 export interface ManualScrapeOptions {
   // 媒体数据源
@@ -142,6 +176,8 @@ export interface Subscribe {
   downloader?: string
   // 自定义剧集组
   episode_group?: string
+  // 当前搜索或下载执行状态
+  execution_status?: SubscriptionExecutionStatus
 }
 
 /** 订阅删除成功后的机器可判断结果。 */

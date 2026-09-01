@@ -68,6 +68,34 @@ const subscribeState = ref<string>(props.media?.state ?? 'P')
 // 上一次更新时间
 const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDifference(props.media.last_update) : ''))
 
+// 将后端稳定业务状态映射为紧凑、可本地化的卡片展示。
+const executionStateDisplay = computed(() => {
+  const execution = props.media?.execution_status
+  if (!execution) return null
+  const displays: Record<string, { color: string; icon: string }> = {
+    queued: { color: 'info', icon: 'mdi-clock-outline' },
+    running: { color: 'info', icon: 'mdi-progress-clock' },
+    matching: { color: 'info', icon: 'mdi-filter-search-outline' },
+    searching: { color: 'primary', icon: 'mdi-magnify-scan' },
+    waiting_site_budget: { color: 'warning', icon: 'mdi-timer-sand' },
+    preparing: { color: 'primary', icon: 'mdi-package-variant-closed' },
+    submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
+    accepted: { color: 'success', icon: 'mdi-download-check-outline' },
+    retryable: { color: 'warning', icon: 'mdi-refresh-circle' },
+    reconcile_required: { color: 'warning', icon: 'mdi-alert-circle-outline' },
+    failed: { color: 'error', icon: 'mdi-alert-outline' },
+    cancelling: { color: 'warning', icon: 'mdi-cancel' },
+    cancelled: { color: 'secondary', icon: 'mdi-cancel' },
+    completed: { color: 'success', icon: 'mdi-check-circle-outline' },
+  }
+  const display = displays[execution.state] || displays[execution.phase] || displays.running
+  return {
+    ...display,
+    label: t(`subscribe.execution.state.${execution.state}`),
+    error: execution.error,
+  }
+})
+
 // 判断后端数字/布尔开关是否启用
 function isEnabledFlag(value: any) {
   return value === true || value === 1 || value === '1'
@@ -92,6 +120,9 @@ const hasBestVersion = computed(() => isEnabledFlag(props.media?.best_version))
 const isBestVersion = computed(() => hasBestVersion.value && isTvSubscribe(props.media))
 
 const rightBottomStateDisplay = computed(() => {
+  if (executionStateDisplay.value) {
+    return executionStateDisplay.value
+  }
   if (subscribeState.value === 'S') {
     return { icon: 'mdi-pause-circle', label: t('subscribe.cardStatePaused') }
   }
@@ -103,6 +134,9 @@ const rightBottomStateDisplay = computed(() => {
 
 // 移动端紧凑卡片的状态展示，颜色统一映射到 Vuetify 全局主题 token。
 const compactStateDisplay = computed(() => {
+  if (executionStateDisplay.value) {
+    return executionStateDisplay.value
+  }
   if (subscribeState.value === 'S') {
     return { color: 'secondary', icon: 'mdi-pause-circle-outline', label: t('subscribe.cardStatePaused') }
   }
@@ -175,6 +209,10 @@ const musicSubscribeMeta = computed(() => {
   }
 })
 
+const compactStateText = computed(
+  () => executionStateDisplay.value?.label || subscribeProgressText.value || musicSubscribeMeta.value?.text || '',
+)
+
 // 订阅卡片 hover 文案：
 // - 普通订阅：「已下载 X · 共 Y 集」
 // - 洗版订阅：「已下载 X · 已洗版 N · 共 Y 集」
@@ -240,7 +278,8 @@ async function removeSubscribe() {
 async function searchSubscribe() {
   try {
     await api.get(`subscribe/search/${props.media?.id}`, { feedback: 'silent' })
-    $toast.success(`${props.media?.name} 提交搜索请求成功！`)
+    $toast.success(t('subscribe.execution.searchSubmitted', { name: props.media?.name }))
+    emit('save')
   } catch (e) {
     $toast.error(t('subscribe.requestFailed'))
     console.log(e)
@@ -651,7 +690,7 @@ function handleCardClick() {
                       <div
                         class="subscribe-card-mobile-state"
                         :style="{ color: `rgb(var(--v-theme-${compactStateDisplay.color}))` }"
-                        :title="compactStateDisplay.label"
+                        :title="executionStateDisplay?.error || compactStateDisplay.label"
                         :aria-label="compactStateDisplay.label"
                       >
                         <VIcon
@@ -659,12 +698,16 @@ function handleCardClick() {
                           :data-subscribe-state-icon="compactStateDisplay.icon"
                           size="16"
                         />
-                        <span
-                          v-if="subscribeProgressText || musicSubscribeMeta"
-                          class="subscribe-card-mobile-progress-text"
-                        >
-                          {{ subscribeProgressText || musicSubscribeMeta?.text }}
+                        <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
+                          {{ compactStateText }}
                         </span>
+                        <VTooltip
+                          v-if="executionStateDisplay?.error"
+                          activator="parent"
+                          location="top"
+                        >
+                          {{ executionStateDisplay.error }}
+                        </VTooltip>
                       </div>
 
                       <IconBtn v-if="!props.sortable" class="subscribe-card-mobile-menu" size="small" @click.stop>
@@ -787,9 +830,18 @@ function handleCardClick() {
                 <VCardText
                   v-if="rightBottomStateDisplay"
                   class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
+                  :style="executionStateDisplay ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` } : undefined"
+                  :title="executionStateDisplay?.error || rightBottomStateDisplay.label"
                 >
                   <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
                   {{ rightBottomStateDisplay.label }}
+                  <VTooltip
+                    v-if="executionStateDisplay?.error"
+                    activator="parent"
+                    location="top"
+                  >
+                    {{ executionStateDisplay.error }}
+                  </VTooltip>
                 </VCardText>
                 <VCardText
                   v-else-if="lastUpdateText"

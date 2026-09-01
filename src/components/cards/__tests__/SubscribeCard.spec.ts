@@ -348,6 +348,26 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.queryByText('已暂停')).not.toBeInTheDocument()
     expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-paused')
   })
+
+  it.each([480, 1024])('shows governed execution state and safe failure detail at %ipx', async width => {
+    setViewport(width)
+    await renderCard({
+      execution_status: {
+        batch_id: 'batch-1',
+        can_cancel: true,
+        can_retry: false,
+        current_site_id: 9,
+        error: '站点 9 冷却中',
+        phase: 'waiting_site_budget',
+        requires_reconciliation: false,
+        state: 'waiting_site_budget',
+        updated_at: '2026-09-01T01:00:00+00:00',
+      },
+    })
+
+    expect(screen.getByText('等待站点额度')).toBeInTheDocument()
+    expect(screen.getByTitle('站点 9 冷却中')).toBeInTheDocument()
+  })
 })
 
 describe('SubscribeCard interaction boundaries', () => {
@@ -443,7 +463,7 @@ describe('SubscribeCard item operations', () => {
   })
 
   it.each([
-    ['success', 200, { success: true }, 'success', '卡片测试媒体 提交搜索请求成功！'],
+    ['success', 200, { success: true }, 'success', '卡片测试媒体 已提交搜索请求'],
     ['business failure', 200, { message: 'rejected', success: false }, 'error', '请求失败，请稍后重试'],
     ['HTTP failure', 500, { message: 'server down', success: false }, 'error', '请求失败，请稍后重试'],
   ] as const)('reports search %s through the exact endpoint', async (_case, status, response, toastType, message) => {
