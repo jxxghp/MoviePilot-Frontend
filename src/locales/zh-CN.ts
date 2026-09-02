@@ -847,6 +847,8 @@ export default {
       botId: '机器人ID',
       botIdHint: 'VoceChat机器人ID，不包含#号；用于判断群聊消息是否提及了当前机器人',
       botIdPlaceholder: '机器人ID，例如 5',
+      botIdRequired: '开启仅提及回复时必须填写机器人ID',
+      botIdInvalid: '机器人ID必须是正整数',
       mentionOnly: '仅在被提及时回复',
       mentionOnlyHint: '开启后忽略频道内未提及当前机器人的普通消息',
       admins: '管理员白名单',

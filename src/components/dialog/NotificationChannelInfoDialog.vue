@@ -248,6 +248,18 @@ function saveNotificationInfo() {
     $toast.error(t('notification.name') + t('common.required'))
     return
   }
+  if (notificationInfo.value.type === 'vocechat' && notificationInfo.value.config?.VOCECHAT_MENTION_ONLY) {
+    const botId = String(notificationInfo.value.config.VOCECHAT_BOT_ID ?? '').trim()
+    if (!botId) {
+      $toast.error(t('notification.vocechat.botIdRequired'))
+      return
+    }
+    if (!/^[1-9]\d*$/.test(botId)) {
+      $toast.error(t('notification.vocechat.botIdInvalid'))
+      return
+    }
+    notificationInfo.value.config.VOCECHAT_BOT_ID = botId
+  }
   // 重名判断
   const duplicate = props.notifications.some(
     item => item.id !== props.notification.id && item.name.trim().toLowerCase() === normalizedName.toLowerCase(),
@@ -1105,6 +1117,7 @@ onMounted(() => {
                 :hint="t('notification.vocechat.botIdHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-robot"
+                :required="notificationInfo.config.VOCECHAT_MENTION_ONLY"
               />
             </VCol>
             <VCol cols="12" md="6">

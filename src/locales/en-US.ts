@@ -866,6 +866,8 @@ export default {
       botId: 'Bot ID',
       botIdHint: 'VoceChat bot ID without #; used to identify mentions of this bot in group chats',
       botIdPlaceholder: 'Bot ID, for example 5',
+      botIdRequired: 'Bot ID is required when mention-only replies are enabled',
+      botIdInvalid: 'Bot ID must be a positive integer',
       mentionOnly: 'Reply only when mentioned',
       mentionOnlyHint: 'Ignore ordinary channel messages that do not mention this bot',
       admins: 'Admin Whitelist',

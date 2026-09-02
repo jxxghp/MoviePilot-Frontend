@@ -848,6 +848,8 @@ export default {
       botId: '機器人ID',
       botIdHint: 'VoceChat機器人ID，不包含#號；用於判斷群聊訊息是否提及了目前機器人',
       botIdPlaceholder: '機器人ID，例如 5',
+      botIdRequired: '開啟僅提及回覆時必須填寫機器人ID',
+      botIdInvalid: '機器人ID必須是正整數',
       mentionOnly: '僅在被提及時回覆',
       mentionOnlyHint: '開啟後忽略頻道內未提及目前機器人的一般訊息',
       admins: '管理員白名單',
