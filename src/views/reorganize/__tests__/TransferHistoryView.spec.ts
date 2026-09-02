@@ -438,6 +438,34 @@ describe('TransferHistoryView', () => {
     await waitFor(() => expect(requests).toEqual([{ count: 50, page: 1, status: false, title: '失败' }]))
   })
 
+  it('joins the desktop status filter to search and moves the mobile filter into the titlebar menu', () => {
+    expect(transferHistorySource).toContain('class="transfer-history-desktop-filter-group"')
+    expect(transferHistorySource).toContain('class="text-disabled transfer-history-desktop-search"')
+    expect(transferHistorySource).toContain('class="transfer-history-desktop-status"')
+    expect(transferHistorySource).toContain('border-start-end-radius: 0;')
+    expect(transferHistorySource).toContain('border-start-start-radius: 0;')
+    expect(transferHistorySource).toContain('data-menu-activator="history-status-filter-btn"')
+    expect(transferHistorySource).not.toContain('class="transfer-history-mobile-status"')
+  })
+
+  it('selects a mobile status from the titlebar dropdown and refreshes with the explicit status query', async () => {
+    mocks.desktop = false
+    const requests: Array<Record<string, unknown>> = []
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      requests.push(config?.params ?? {})
+      return Promise.resolve(historyResponse([]))
+    })
+
+    const { router } = await renderHistory()
+    await fireEvent.click(screen.getByRole('button', { name: '状态筛选' }))
+    await fireEvent.click(screen.getByRole('button', { name: '失败' }))
+
+    await waitFor(() => expect(router.currentRoute.value.query.status).toBe('failed'))
+    await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    await waitFor(() => expect(requests).toContainEqual({ count: 25, page: 1, status: false, title: '' }))
+  })
+
   it('prevents an older desktop request from replacing a newer route search', async () => {
     const oldRequest = createDeferred<ReturnType<typeof historyResponse>>()
     const newRequest = createDeferred<ReturnType<typeof historyResponse>>()

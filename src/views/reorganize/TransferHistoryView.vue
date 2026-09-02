@@ -92,14 +92,45 @@ const completedDeleteSteps = new Map<number, { source: boolean; destination: boo
 
 type TransferHistoryStatusFilter = 'all' | 'success' | 'failed'
 
+interface TransferHistoryStatusFilterItem {
+  title: string
+  value: TransferHistoryStatusFilter
+  icon: string
+  color?: string
+}
+
 // 独立状态筛选，不再把本地化文案作为 title 的后端协议。
 const statusFilter = ref<TransferHistoryStatusFilter>(getRouteStatusFilter(route.query.status))
+const mobileStatusFilterMenu = ref(false)
 
-const statusFilterItems = computed(() => [
-  { title: t('transferHistory.statusFilter.all'), value: 'all' },
-  { title: t('transferHistory.status.success'), value: 'success' },
-  { title: t('transferHistory.status.failed'), value: 'failed' },
+const statusFilterItems = computed<TransferHistoryStatusFilterItem[]>(() => [
+  { title: t('transferHistory.statusFilter.all'), value: 'all', icon: 'mdi-filter-multiple-outline' },
+  { title: t('transferHistory.status.success'), value: 'success', icon: 'mdi-check-circle', color: 'success' },
+  { title: t('transferHistory.status.failed'), value: 'failed', icon: 'mdi-alert-circle', color: 'error' },
 ])
+
+const currentStatusFilter = computed<TransferHistoryStatusFilterItem>(() => {
+  return (
+    statusFilterItems.value.find(item => item.value === statusFilter.value) ?? {
+      title: t('transferHistory.statusFilter.all'),
+      value: 'all',
+      icon: 'mdi-filter-multiple-outline',
+    }
+  )
+})
+
+const statusFilterButtonColor = computed(() =>
+  statusFilter.value === 'all' ? 'gray' : currentStatusFilter.value.color,
+)
+
+// 移动端状态筛选沿用订阅页的外部激活器菜单，确保按钮固定在标题栏右侧。
+const mobileStatusFilterActivator = computed(() => '[data-menu-activator="history-status-filter-btn"]')
+
+// 选择移动端状态后立即关闭菜单，状态监听器负责刷新列表并同步地址栏。
+function selectStatusFilter(value: TransferHistoryStatusFilter) {
+  statusFilter.value = value
+  mobileStatusFilterMenu.value = false
+}
 
 // 移动端批量选择模式
 const mobileBatchMode = ref(false)
@@ -1601,40 +1632,43 @@ onUnmounted(() => {
     <VCardItem>
       <VCardTitle>
         <VRow>
-          <VCol cols="8" md="4" class="flex">
-            <VCombobox
-              key="search_navbar"
-              :model-value="search"
-              @update:model-value="setSearchValue"
-              :items="searchHintList"
-              @compositionstart="isComposing = true"
-              @compositionend="isComposing = false"
-              class="text-disabled"
-              density="compact"
-              :placeholder="t('transferHistory.searchPlaceholder')"
-              :aria-label="t('transferHistory.searchPlaceholder')"
-              prepend-inner-icon="mdi-magnify"
-              variant="solo-filled"
-              max-width="25rem"
-              single-line
-              hide-details
-              flat
-              rounded="pill"
-              clearable
-            />
-          </VCol>
-          <VCol cols="4" md="4">
-            <VSelect
-              v-model="statusFilter"
-              :items="statusFilterItems"
-              item-title="title"
-              item-value="value"
-              density="compact"
-              variant="solo-filled"
-              hide-details
-              flat
-              :label="t('transferHistory.statusFilter.label')"
-            />
+          <VCol cols="8" class="flex">
+            <div
+              class="transfer-history-desktop-filter-group"
+              role="group"
+              :aria-label="t('transferHistory.statusFilter.label')"
+            >
+              <VCombobox
+                key="search_navbar"
+                :model-value="search"
+                @update:model-value="setSearchValue"
+                :items="searchHintList"
+                @compositionstart="isComposing = true"
+                @compositionend="isComposing = false"
+                class="text-disabled transfer-history-desktop-search"
+                density="compact"
+                :placeholder="t('transferHistory.searchPlaceholder')"
+                :aria-label="t('transferHistory.searchPlaceholder')"
+                prepend-inner-icon="mdi-magnify"
+                variant="outlined"
+                single-line
+                hide-details
+                clearable
+              />
+              <VSelect
+                v-model="statusFilter"
+                :items="statusFilterItems"
+                item-title="title"
+                item-value="value"
+                :prepend-inner-icon="currentStatusFilter.icon"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="transfer-history-desktop-status"
+                :label="t('transferHistory.statusFilter.label')"
+                :aria-label="t('transferHistory.statusFilter.label')"
+              />
+            </div>
           </VCol>
           <VCol cols="4" md="4" class="text-end">
             <VBtnGroup variant="outlined" divided rounded>
@@ -1904,20 +1938,32 @@ onUnmounted(() => {
         class="transfer-history-mobile-title my-0"
         style="margin-block: 0"
       />
-      <VBtn
-        v-if="canManage"
-        icon="mdi-checkbox-multiple-marked-outline"
-        :color="mobileBatchMode ? 'primary' : 'gray'"
-        :aria-label="
-          mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
-        "
-        :title="
-          mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
-        "
-        variant="text"
-        class="settings-icon-button transfer-history-mobile-titlebar__batch"
-        @click="toggleMobileBatchMode"
-      />
+      <div class="transfer-history-mobile-titlebar__actions">
+        <VBtn
+          icon="mdi-filter-multiple-outline"
+          :color="statusFilterButtonColor"
+          :aria-label="t('transferHistory.statusFilter.label')"
+          :title="t('transferHistory.statusFilter.label')"
+          variant="text"
+          class="settings-icon-button"
+          data-menu-activator="history-status-filter-btn"
+          @click="mobileStatusFilterMenu = true"
+        />
+        <VBtn
+          v-if="canManage"
+          icon="mdi-checkbox-multiple-marked-outline"
+          :color="mobileBatchMode ? 'primary' : 'gray'"
+          :aria-label="
+            mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
+          "
+          :title="
+            mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
+          "
+          variant="text"
+          class="settings-icon-button"
+          @click="toggleMobileBatchMode"
+        />
+      </div>
     </div>
 
     <VCombobox
@@ -1940,17 +1986,30 @@ onUnmounted(() => {
       clearable
     />
 
-    <VSelect
-      v-model="statusFilter"
-      :items="statusFilterItems"
-      item-title="title"
-      item-value="value"
-      density="comfortable"
-      variant="outlined"
-      hide-details
-      class="transfer-history-mobile-status"
-      :label="t('transferHistory.statusFilter.label')"
-    />
+    <Teleport to="body" v-if="mobileStatusFilterMenu">
+      <VMenu v-model="mobileStatusFilterMenu" :activator="mobileStatusFilterActivator" location="bottom end">
+        <VCard min-width="200">
+          <VList density="compact" class="px-2 py-1">
+            <VListSubheader>{{ t('transferHistory.statusFilter.label') }}</VListSubheader>
+            <VListItem
+              v-for="option in statusFilterItems"
+              :key="option.value"
+              :active="statusFilter === option.value"
+              density="compact"
+              @click="selectStatusFilter(option.value)"
+            >
+              <template #prepend>
+                <VIcon :icon="option.icon" :color="option.color" size="small" />
+              </template>
+              <VListItemTitle>{{ option.title }}</VListItemTitle>
+              <template #append>
+                <VIcon v-if="statusFilter === option.value" icon="mdi-check" color="primary" size="small" />
+              </template>
+            </VListItem>
+          </VList>
+        </VCard>
+      </VMenu>
+    </Teleport>
 
     <VInfiniteScroll
       :key="mobileInfiniteKey"
@@ -2169,6 +2228,31 @@ onUnmounted(() => {
   border-radius: 0;
 }
 
+.transfer-history-desktop-filter-group {
+  display: flex;
+  inline-size: min(100%, 36rem);
+}
+
+.transfer-history-desktop-search {
+  flex: 1 1 auto;
+  min-inline-size: 12rem;
+}
+
+.transfer-history-desktop-search :deep(.v-field) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.transfer-history-desktop-status {
+  flex: 0 0 10rem;
+  margin-inline-start: -1px;
+}
+
+.transfer-history-desktop-status :deep(.v-field) {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
 .transfer-history-desktop-media-cell {
   display: flex;
   align-items: center;
@@ -2236,8 +2320,10 @@ onUnmounted(() => {
   min-inline-size: 0;
 }
 
-.transfer-history-mobile-titlebar__batch {
+.transfer-history-mobile-titlebar__actions {
+  display: flex;
   flex: 0 0 auto;
+  align-items: center;
 }
 
 .transfer-history-mobile-title :deep(h2) {
@@ -2247,10 +2333,6 @@ onUnmounted(() => {
 
 .transfer-history-mobile-search {
   min-inline-size: 0;
-}
-
-.transfer-history-mobile-status {
-  margin-block: 0.75rem;
 }
 
 .transfer-history-mobile-search :deep(.v-field) {
