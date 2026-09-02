@@ -333,12 +333,17 @@ watch(
             />
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_type || props.directory.media_type === ''">
-            <VSwitch v-model="props.directory.download_type_folder" :label="t('directory.sortByType')"></VSwitch>
+            <VSwitch
+              v-model="props.directory.download_type_folder"
+              :label="t('directory.sortByType')"
+              mobile-control-width="65%"
+            ></VSwitch>
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_category || props.directory.media_category === ''">
             <VSwitch
               v-model="props.directory.download_category_folder"
               :label="t('directory.sortByCategory')"
+              mobile-control-width="65%"
             ></VSwitch>
           </VCol>
         </VRow>
@@ -402,19 +407,39 @@ watch(
             />
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_type || props.directory.media_type === ''">
-            <VSwitch v-model="props.directory.library_type_folder" :label="t('directory.sortByType')"></VSwitch>
+            <VSwitch
+              v-model="props.directory.library_type_folder"
+              :label="t('directory.sortByType')"
+              mobile-control-width="65%"
+            ></VSwitch>
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_category || props.directory.media_category === ''">
-            <VSwitch v-model="props.directory.library_category_folder" :label="t('directory.sortByCategory')"></VSwitch>
+            <VSwitch
+              v-model="props.directory.library_category_folder"
+              :label="t('directory.sortByCategory')"
+              mobile-control-width="65%"
+            ></VSwitch>
           </VCol>
           <VCol cols="6">
-            <VSwitch v-model="props.directory.renaming" :label="t('directory.smartRename')"></VSwitch>
+            <VSwitch
+              v-model="props.directory.renaming"
+              :label="t('directory.smartRename')"
+              mobile-control-width="65%"
+            ></VSwitch>
           </VCol>
           <VCol cols="6">
-            <VSwitch v-model="props.directory.scraping" :label="t('directory.scrapingMetadata')"></VSwitch>
+            <VSwitch
+              v-model="props.directory.scraping"
+              :label="t('directory.scrapingMetadata')"
+              mobile-control-width="65%"
+            ></VSwitch>
           </VCol>
           <VCol cols="6">
-            <VSwitch v-model="props.directory.notify" :label="t('directory.sendNotification')"></VSwitch>
+            <VSwitch
+              v-model="props.directory.notify"
+              :label="t('directory.sendNotification')"
+              mobile-control-width="65%"
+            ></VSwitch>
           </VCol>
         </VRow>
       </VForm>
