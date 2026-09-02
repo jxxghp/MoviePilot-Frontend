@@ -29,12 +29,15 @@ vi.mock('@/composables/useSystemRestart', () => ({
 }))
 vi.mock('@/composables/useSystemUpdateStatus', async () => {
   const { ref } = await import('vue')
-  const status = ref(null)
+  const status = ref<SystemUpdateStatus | null>(null)
   mocks.updateStatus = status
   return {
     SYSTEM_UPDATE_MENU_EVENT: 'moviepilot:system-update-menu',
     useSystemUpdateStatus: () => ({
       status,
+      setStatus: (nextStatus: SystemUpdateStatus) => {
+        status.value = nextStatus
+      },
       startPolling: vi.fn(),
       stopPolling: vi.fn(),
     }),

@@ -15,7 +15,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const { createConfirm } = useConfirm()
 const { startSystemRestart, finishSystemRestart } = useSystemRestartStatus()
-const { status, startPolling, stopPolling } = useSystemUpdateStatus()
+const { status, setStatus, startPolling, stopPolling } = useSystemUpdateStatus()
 const toast = useToast()
 const actionPending = ref(false)
 const pendingTarget = ref<SystemUpdateType | null>(null)
@@ -137,7 +137,8 @@ async function startDownload(item: SystemUpdateItemStatus) {
   actionPending.value = true
   pendingTarget.value = item.type
   try {
-    status.value = await api.post<SystemUpdateStatus>('system/update/download', { target: item.type })
+    const nextStatus = await api.post<SystemUpdateStatus>('system/update/download', { target: item.type })
+    setStatus(nextStatus)
   } catch (error) {
     console.error('[SystemUpdate] 启动下载失败', error)
     toast.error(t('systemUpdate.downloadFailed'))

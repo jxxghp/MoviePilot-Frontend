@@ -16,7 +16,14 @@ export function useSystemUpdateStatus() {
     } catch (error) {
       console.error('[SystemUpdate] 获取更新状态失败', error)
     }
+    schedulePolling()
     return status.value
+  }
+
+  /** 写入接口返回的最新状态，并按下载阶段切换轮询频率。 */
+  function setStatus(nextStatus: SystemUpdateStatus) {
+    status.value = nextStatus
+    schedulePolling()
   }
 
   function clearPollingTimer() {
@@ -31,7 +38,6 @@ export function useSystemUpdateStatus() {
     pollingTimer = setTimeout(
       async () => {
         await loadStatus()
-        schedulePolling()
       },
       hasActiveDownload ? 3000 : 60000,
     )
@@ -40,7 +46,7 @@ export function useSystemUpdateStatus() {
   function startPolling() {
     pollingConsumers += 1
     if (pollingConsumers === 1) {
-      void loadStatus().then(schedulePolling)
+      void loadStatus()
     }
   }
 
@@ -53,5 +59,5 @@ export function useSystemUpdateStatus() {
     window.dispatchEvent(new CustomEvent(SYSTEM_UPDATE_MENU_EVENT, { detail: { target } }))
   }
 
-  return { status, loadStatus, startPolling, stopPolling, requestMenuUpdate }
+  return { status, loadStatus, setStatus, startPolling, stopPolling, requestMenuUpdate }
 }
