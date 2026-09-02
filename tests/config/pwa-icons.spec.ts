@@ -24,8 +24,8 @@ const iconSpecs = [
   { alpha: false, path: 'public/apple-touch-icon-167x167.png', size: 167 },
   { alpha: false, path: 'public/apple-touch-icon-152x152.png', size: 152 },
   { alpha: false, path: 'public/mstile-150x150.png', size: 150 },
-  { alpha: false, path: 'public/favicon-32x32.png', size: 32 },
-  { alpha: false, path: 'public/favicon-16x16.png', size: 16 },
+  { alpha: true, path: 'public/favicon-32x32.png', size: 32 },
+  { alpha: true, path: 'public/favicon-16x16.png', size: 16 },
 ] as const
 
 /**
@@ -73,7 +73,7 @@ describe('PWA 跨平台图标资源', () => {
     )
   })
 
-  it('生成包含常见 Windows 尺寸的多分辨率 favicon', () => {
+  it('生成包含常见 Windows 尺寸的透明多分辨率 favicon', async () => {
     const favicon = readFileSync(resolve(projectRoot, 'public/favicon.ico'))
     const imageCount = favicon.readUInt16LE(4)
     const declaredSizes = Array.from({ length: imageCount }, (_, index) => {
@@ -83,6 +83,15 @@ describe('PWA 跨平台图标资源', () => {
 
     expect(favicon.readUInt16LE(2)).toBe(1)
     expect(declaredSizes).toEqual([16, 32, 48, 64, 128, 256])
+
+    for (let index = 0; index < imageCount; index += 1) {
+      const entryOffset = 6 + index * 16
+      const imageLength = favicon.readUInt32LE(entryOffset + 8)
+      const imageOffset = favicon.readUInt32LE(entryOffset + 12)
+      const metadata = await sharp(favicon.subarray(imageOffset, imageOffset + imageLength)).metadata()
+
+      expect(metadata.hasAlpha, `favicon entry ${declaredSizes[index]}x${declaredSizes[index]}`).toBe(true)
+    }
   })
 
   it('在构建前可重复生成图标，并让启动图消费最新矢量 Logo', () => {

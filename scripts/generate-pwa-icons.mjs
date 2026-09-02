@@ -137,10 +137,10 @@ async function createSquareIcon(mark, size, markScale, appearance = 'dark') {
 }
 
 /**
- * 将透明母版缩放到指定画布，供页面、通知和主题标识作为无底图资源使用。
+ * 将透明母版缩放到指定画布，供页面、通知和浏览器标签作为无底图资源使用。
  */
-async function createTransparentLogo(mark, size) {
-  const markSize = Math.round(size * 0.88)
+async function createTransparentIcon(mark, size, markScale = 0.88) {
+  const markSize = Math.round(size * markScale)
   const resizedMark = await sharp(mark)
     .resize(markSize, markSize, {
       background: { r: 0, g: 0, b: 0, alpha: 0 },
@@ -205,7 +205,7 @@ async function writeAsset(relativePath, buffer) {
 
 const sourceLogo = await readFile(sourceLogoPath)
 const cleanedLogo = await cleanLogoMaster(sourceLogo)
-const transparentLogo = await createTransparentLogo(cleanedLogo, 512)
+const transparentLogo = await createTransparentIcon(cleanedLogo, 512)
 const standardMaster = await createSquareIcon(cleanedLogo, 1024, 0.76)
 
 await Promise.all([
@@ -237,7 +237,7 @@ await Promise.all([
 
 const icoEntries = await Promise.all(
   [16, 32, 48, 64, 128, 256].map(async size => ({
-    buffer: await createSquareIcon(cleanedLogo, size, size <= 32 ? 0.84 : 0.78),
+    buffer: await createTransparentIcon(cleanedLogo, size, size <= 32 ? 0.84 : 0.78),
     size,
   })),
 )
