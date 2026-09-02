@@ -123,6 +123,19 @@ function ensureWechatClawBotConfigDefaults(notification: NotificationConf) {
   }
 }
 
+/** 补齐 VoceChat 通知的默认配置。 */
+function ensureVoceChatConfigDefaults(notification: NotificationConf) {
+  if (notification.type !== 'vocechat') {
+    return
+  }
+  if (!notification.config) {
+    notification.config = {}
+  }
+  if (notification.config.VOCECHAT_MENTION_ONLY === undefined) {
+    notification.config.VOCECHAT_MENTION_ONLY = true
+  }
+}
+
 const wechatClawBotLoading = ref(false)
 const wechatClawBotActionLoading = ref(false)
 const wechatClawBotStatus = ref<WechatClawBotStatus | null>(null)
@@ -217,6 +230,7 @@ function openNotificationInfoDialog() {
   notificationInfo.value = cloneDeep(props.notification)
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
+  ensureVoceChatConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = true
   if (notificationInfo.value.type === 'wechatclawbot') {
     fetchWechatClawBotStatus({
@@ -245,6 +259,7 @@ function saveNotificationInfo() {
   notificationInfo.value.name = normalizedName
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
+  ensureVoceChatConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = false
   emit('change', notificationInfo.value, props.notification.id)
   emit('done')
@@ -1080,6 +1095,25 @@ onMounted(() => {
                 :hint="t('notification.vocechat.channelIdHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-pound"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="notificationInfo.config.VOCECHAT_BOT_ID"
+                :label="t('notification.vocechat.botId')"
+                :placeholder="t('notification.vocechat.botIdPlaceholder')"
+                :hint="t('notification.vocechat.botIdHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-robot"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VSwitch
+                v-model="notificationInfo.config.VOCECHAT_MENTION_ONLY"
+                :label="t('notification.vocechat.mentionOnly')"
+                :hint="t('notification.vocechat.mentionOnlyHint')"
+                persistent-hint
+                color="primary"
               />
             </VCol>
             <VCol cols="12" md="6">
