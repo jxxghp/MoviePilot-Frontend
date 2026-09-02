@@ -83,7 +83,7 @@ type NotificationConfigInput = Partial<NotificationConf> & {
 }
 
 interface NotificationConfigResponse {
-  value?: NotificationConfigInput[]
+  value?: NotificationConfigInput[] | null
 }
 
 type NotificationLoadState = 'idle' | 'loading' | 'ready' | 'error'
@@ -184,8 +184,9 @@ function normalizeNotification(notification: NotificationConfigInput, index: num
   }
 }
 
-function normalizeNotificationList(value: NotificationConfigInput[] = []) {
-  return value.map((notification, index) => normalizeNotification(notification, index))
+/** 将后端尚未创建的空配置与已有渠道统一为可编辑列表。 */
+function normalizeNotificationList(value?: NotificationConfigInput[] | null) {
+  return (value ?? []).map((notification, index) => normalizeNotification(notification, index))
 }
 
 function notificationNameKey(name: string) {

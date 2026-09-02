@@ -91,7 +91,7 @@ const templateFixture = {
   subscribeComplete: '{}',
 }
 
-function mockLoadedSettings(channels = notificationsFixture) {
+function mockLoadedSettings(channels: typeof notificationsFixture | null = notificationsFixture) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/setting/Notifications') {
       return { success: true, data: { value: structuredClone(channels) } }
@@ -174,6 +174,27 @@ describe('AccountSettingNotification', () => {
     await waitFor(() =>
       expect(mocks.apiPost).toHaveBeenCalledWith('notification/config', [
         expect.objectContaining({ id: 'legacy-wechatclawbot-Alpha', name: 'Beta' }),
+      ]),
+    )
+  })
+
+  it('treats a null notification configuration as empty and allows the first channel to be saved', async () => {
+    mockLoadedSettings(null)
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('system/setting/Notifications'))
+    expect(screen.queryByText('加载通知渠道失败，请刷新后重试')).not.toBeInTheDocument()
+
+    const channelCard = getCard('通知渠道')
+    await user.click(channelCard.getAllByRole('button').at(-1)!)
+    await user.click(await screen.findByText('Telegram', { selector: '.v-list-item-title' }))
+    expect(screen.getByText('通知1 / telegram')).toBeInTheDocument()
+
+    await user.click(channelCard.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith('notification/config', [
+        expect.objectContaining({ id: expect.any(String), name: '通知1', type: 'telegram' }),
       ]),
     )
   })
