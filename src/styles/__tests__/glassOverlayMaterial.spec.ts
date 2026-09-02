@@ -107,6 +107,26 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toMatch(/\.v-chip--variant-(?:outlined|text|plain)\s*\{/)
   })
 
+  it('keeps media source links and episode group cards on glass material tokens', () => {
+    const mediaDetail = readFileSync(resolve(cwd(), 'src/views/discover/MediaDetailView.vue'), 'utf8')
+    const mediaSourceRule = mediaDetail.match(
+      /\.media-detail-glass \.media-source-link-chip\s*\{(?<declarations>[\s\S]*?)\n\}/u,
+    )?.groups?.declarations
+    const episodeGroupRule = mediaDetail.match(
+      /\.media-detail-glass \.episode-group-option\s*\{(?<declarations>[\s\S]*?)\n\}/u,
+    )?.groups?.declarations
+
+    expect(mediaDetail.match(/media-source-link-chip/g)).toHaveLength(8)
+    expect(mediaSourceRule).toContain('var(--glass-chip-backdrop-filter)')
+    expect(mediaSourceRule).toContain('var(--glass-button-surface)')
+    expect(mediaSourceRule).toContain('var(--glass-chip-sheen)')
+    expect(mediaSourceRule).toContain('var(--glass-control-shadow)')
+    expect(episodeGroupRule).toContain('var(--glass-surface-backdrop-filter)')
+    expect(episodeGroupRule).toContain('var(--glass-surface)')
+    expect(episodeGroupRule).toContain('var(--glass-sheen)')
+    expect(episodeGroupRule).toContain('var(--glass-control-shadow)')
+  })
+
   it('keeps workflow share gradients as colored glass in every appearance', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const card = readFileSync(resolve(cwd(), 'src/components/cards/WorkflowShareCard.vue'), 'utf8')

@@ -942,7 +942,7 @@ onUnmounted(() => {
               target="_blank"
             >
               <div
-                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
               >
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">TheMovieDb</span>
@@ -950,7 +950,7 @@ onUnmounted(() => {
             </a>
             <div v-if="mediaDetail.douban_id" class="mb-2 mr-2 inline-flex last:mr-0" @click="handleDoubanClick">
               <div
-                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
               >
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">豆瓣</span>
@@ -958,7 +958,7 @@ onUnmounted(() => {
             </div>
             <a v-if="mediaDetail.imdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getImdbLink()" target="_blank">
               <div
-                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
               >
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">IMDb</span>
@@ -966,7 +966,7 @@ onUnmounted(() => {
             </a>
             <a v-if="mediaDetail.tvdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getTvdbLink()" target="_blank">
               <div
-                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
               >
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">TheTvDb</span>
@@ -979,7 +979,7 @@ onUnmounted(() => {
               target="_blank"
             >
               <div
-                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
               >
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">Bangumi</span>
@@ -992,7 +992,7 @@ onUnmounted(() => {
               target="_blank"
             >
               <div
-                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
               >
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">AniList</span>
@@ -1570,6 +1570,22 @@ a.crew-name {
   font-weight: 400;
 }
 
+.media-detail-glass .media-source-link-chip {
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-chip-backdrop-filter);
+  backdrop-filter: var(--glass-chip-backdrop-filter);
+  background-color: var(--glass-button-surface);
+  background-image: var(--glass-chip-sheen);
+  box-shadow: var(--glass-control-shadow);
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.media-detail-glass .media-source-link-chip:hover {
+  border-color: var(--glass-border-hover);
+  background-color: var(--glass-button-surface-hover);
+  box-shadow: var(--glass-control-shadow-hover);
+}
+
 .media-status {
   margin-block-end: 0.5rem;
 }
@@ -1836,6 +1852,30 @@ a.crew-name {
 .media-detail-transparent .episode-group-nav {
   backdrop-filter: blur(var(--transparent-blur, 10px));
   background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
+}
+
+.media-detail-glass .episode-group-option {
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  border-color: var(--glass-border);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-control-shadow);
+}
+
+.media-detail-glass .episode-group-option:hover {
+  border-color: var(--glass-border-hover);
+  background-color: var(--glass-surface-soft);
+  box-shadow: var(--glass-control-shadow-hover);
+}
+
+.media-detail-glass .episode-group-option--active {
+  border-color: rgba(var(--v-theme-primary), 0.7);
+  background-color: rgba(var(--v-theme-primary), 0.22);
+}
+
+.media-detail-glass .episode-group-option--active:hover {
+  background-color: rgba(var(--v-theme-primary), 0.28);
 }
 
 @media (width <= 640px) {
