@@ -15,6 +15,7 @@ import {
 } from '@tests/support/msw/handlers/subscribe'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
+import { flushPromises } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref, watch, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -219,10 +220,12 @@ const SubscribeListHost = defineComponent({
 
 interface RenderListOptions {
   active?: boolean
-  batchResponse?: SubscriptionBatchStatus[]
+  batchResponse?:
+    SubscriptionBatchStatus[] | ((url: URL) => SubscriptionBatchStatus[] | Promise<SubscriptionBatchStatus[]>)
+  batchStatus?: number
   onBatchRequest?: (url: URL) => void
   keyword?: string
-  listResponse?: Subscribe[]
+  listResponse?: Subscribe[] | ((url: URL) => Subscribe[] | Promise<Subscribe[]>)
   listStatus?: number
   onListRequest?: (url: URL) => void
   onOrderRequest?: (url: URL) => void
@@ -242,7 +245,11 @@ async function renderList(options: RenderListOptions = {}) {
   server.use(
     subscribeOrderConfigHandler(type, options.orderValue, options.orderStatus ?? 200, options.onOrderRequest),
     subscribeListHandler(options.listResponse ?? [], options.listStatus ?? 200, options.onListRequest),
-    subscriptionExecutionBatchesHandler(options.batchResponse ?? [], 200, options.onBatchRequest),
+    subscriptionExecutionBatchesHandler(
+      options.batchResponse ?? [],
+      options.batchStatus ?? 200,
+      options.onBatchRequest,
+    ),
   )
 
   return renderWithProviders(SubscribeListHost, {
@@ -280,6 +287,46 @@ function movie(id: number, name: string, overrides: Partial<Subscribe> = {}) {
 
 function tv(id: number, name: string, overrides: Partial<Subscribe> = {}) {
   return createSubscribe({ id, name, type: '电视剧', username: 'tester', ...overrides })
+}
+
+function executionBatch(overrides: Partial<SubscriptionBatchStatus> = {}): SubscriptionBatchStatus {
+  return {
+    batch_id: 'batch-1',
+    can_cancel: false,
+    cancelled_count: 0,
+    created_at: '2026-09-01T00:00:00+00:00',
+    failed_count: 0,
+    finished_count: 0,
+    phase: 'searching',
+    processed_count: 0,
+    skipped_count: 0,
+    source: 'manual',
+    state: 'running',
+    total_count: 3,
+    updated_at: '2026-09-01T00:01:00+00:00',
+    ...overrides,
+  }
+}
+
+function sequenceResponse<T>(responses: T[]) {
+  let index = 0
+  return () => responses[Math.min(index++, responses.length - 1)]
+}
+
+function mockDocumentHidden(initialValue = false) {
+  let hidden = initialValue
+  vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden)
+  return {
+    set(value: boolean) {
+      hidden = value
+    },
+  }
+}
+
+async function flushAsync() {
+  await flushPromises()
+  await nextTick()
+  await flushPromises()
 }
 
 function card(id: number) {
@@ -329,6 +376,7 @@ describe('SubscribeListView loading and filtering', () => {
       finished_count: 1,
       phase: 'searching',
       processed_count: 1,
+      skipped_count: 0,
       source: 'manual',
       state: 'running',
       total_count: 3,
@@ -343,6 +391,248 @@ describe('SubscribeListView loading and filtering', () => {
 
     await waitFor(() => expect(cancelRequested).toHaveBeenCalledOnce())
     expect(mocks.toastSuccess).toHaveBeenCalledWith('已请求取消搜索批次')
+  })
+
+  it('keeps a successful subscription list visible when the batch endpoint fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    await renderList({
+      batchStatus: 500,
+      listResponse: [movie(1, '列表仍可见')],
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+
+    expect(await screen.findByText('列表仍可见')).toBeInTheDocument()
+    await waitFor(() => expect(batchRequested).toHaveBeenCalledOnce())
+    await flushAsync()
+    expect(listRequested).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('no-data')).not.toBeInTheDocument()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('retries a failed subscription list while an active batch remains unchanged', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const hidden = mockDocumentHidden(true)
+    const initialListRequested = vi.fn()
+    const recoveredListRequested = vi.fn()
+    const stableBatch = executionBatch()
+    await renderList({
+      batchResponse: [stableBatch],
+      listStatus: 500,
+      onListRequest: initialListRequested,
+    })
+
+    await waitFor(() => expect(initialListRequested).toHaveBeenCalledOnce())
+    expect(await screen.findByText('请求失败，请稍后重试')).toBeInTheDocument()
+
+    server.use(subscribeListHandler([movie(1, '列表已恢复')], 200, recoveredListRequested))
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(15_000)
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushAsync()
+
+    expect(recoveredListRequested).toHaveBeenCalledOnce()
+    expect(await screen.findByText('列表已恢复')).toBeInTheDocument()
+    expect(screen.queryByText('请求失败，请稍后重试')).not.toBeInTheDocument()
+  })
+
+  it('polls an unchanged active batch without reloading a large subscription list', async () => {
+    const hidden = mockDocumentHidden(true)
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    const activeExecution = {
+      batch_id: 'batch-1',
+      can_cancel: true,
+      can_retry: false,
+      phase: 'queued',
+      source: 'scheduler',
+      state: 'queued',
+      task_id: 'task-1',
+      updated_at: '2026-09-01T00:01:00+00:00',
+    }
+    const subscriptions = Array.from({ length: 120 }, (_, index) =>
+      movie(index + 1, `批量订阅 ${index + 1}`, { execution_status: activeExecution }),
+    )
+    const stableBatch = executionBatch({ source: 'scheduler', total_count: subscriptions.length })
+    await renderList({
+      batchResponse: sequenceResponse([[stableBatch], [stableBatch], [stableBatch]]),
+      listResponse: subscriptions,
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+
+    expect(await screen.findByText('批量订阅 1')).toBeInTheDocument()
+    expect(listRequested).toHaveBeenCalledOnce()
+    expect(batchRequested).toHaveBeenCalledOnce()
+    await flushAsync()
+
+    vi.useFakeTimers()
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledOnce()
+
+    for (let index = 0; index < 4; index += 1) {
+      await vi.advanceTimersByTimeAsync(2500)
+      await flushAsync()
+    }
+    expect(batchRequested).toHaveBeenCalledTimes(6)
+    expect(listRequested).toHaveBeenCalledOnce()
+  })
+
+  it('reloads subscriptions when batch progress changes during polling', async () => {
+    const hidden = mockDocumentHidden(true)
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    const initial = movie(1, '初始订阅')
+    const refreshed = movie(1, '进度变化后的订阅')
+    await renderList({
+      batchResponse: sequenceResponse([
+        [executionBatch({ processed_count: 0 })],
+        [executionBatch({ processed_count: 1, updated_at: '2026-09-01T00:02:00+00:00' })],
+      ]),
+      listResponse: sequenceResponse([[initial], [refreshed]]),
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+
+    expect(await screen.findByText('初始订阅')).toBeInTheDocument()
+    expect(listRequested).toHaveBeenCalledOnce()
+    await waitFor(() => expect(batchRequested).toHaveBeenCalledOnce())
+    await flushAsync()
+
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(15_000)
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('进度变化后的订阅')).toBeInTheDocument()
+  })
+
+  it('reloads subscriptions after the active-card refresh interval', async () => {
+    const hidden = mockDocumentHidden(true)
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    const activeExecution = {
+      can_cancel: false,
+      can_retry: false,
+      phase: 'searching',
+      state: 'searching',
+      updated_at: '2026-09-01T00:01:00+00:00',
+    }
+    const initial = movie(1, '卡片执行中')
+    const refreshed = movie(1, '卡片状态已更新')
+    await renderList({
+      batchResponse: sequenceResponse([[], []]),
+      listResponse: sequenceResponse([[{ ...initial, execution_status: activeExecution }], [refreshed]]),
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+
+    expect(await screen.findByText('卡片执行中')).toBeInTheDocument()
+    expect(listRequested).toHaveBeenCalledOnce()
+    expect(batchRequested).toHaveBeenCalledOnce()
+    await flushAsync()
+
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(15_000)
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('卡片状态已更新')).toBeInTheDocument()
+  })
+
+  it('stops polling while hidden and resumes with an immediate batch request when visible', async () => {
+    const hidden = mockDocumentHidden(false)
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    const stableBatch = executionBatch()
+    await renderList({
+      batchResponse: sequenceResponse([[stableBatch], [stableBatch]]),
+      listResponse: [movie(1, '可见性订阅')],
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+
+    expect(await screen.findByText('可见性订阅')).toBeInTheDocument()
+    expect(batchRequested).toHaveBeenCalledOnce()
+    expect(listRequested).toHaveBeenCalledOnce()
+
+    hidden.set(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledOnce()
+    expect(listRequested).toHaveBeenCalledOnce()
+
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledOnce()
+  })
+
+  it('reuses an in-flight batch request when visibility changes', async () => {
+    const hidden = mockDocumentHidden(false)
+    const batchRequested = vi.fn()
+    let resolveBatch!: (batches: SubscriptionBatchStatus[]) => void
+    const pendingBatch = new Promise<SubscriptionBatchStatus[]>(resolve => {
+      resolveBatch = resolve
+    })
+    const { rerender } = await renderList({
+      batchResponse: () => pendingBatch,
+      listResponse: [movie(1, '并发读取订阅')],
+      onBatchRequest: batchRequested,
+    })
+
+    await waitFor(() => expect(batchRequested).toHaveBeenCalledOnce())
+    hidden.set(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await rerender({ active: false })
+    await rerender({ active: true })
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledOnce()
+    resolveBatch([executionBatch()])
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledOnce()
+    expect(await screen.findByText('并发读取订阅')).toBeInTheDocument()
+  })
+
+  it('shows a skipped batch and uses its processed count in the progress label', async () => {
+    await renderList({
+      batchResponse: [
+        executionBatch({
+          batch_id: 'batch-skipped',
+          failed_count: 0,
+          finished_count: 1,
+          phase: 'skipped',
+          processed_count: 2,
+          skipped_count: 1,
+          state: 'skipped',
+          total_count: 3,
+        }),
+      ],
+      listResponse: [movie(1, '跳过批次订阅')],
+    })
+
+    expect(await screen.findByText('跳过批次订阅')).toBeInTheDocument()
+    expect(await screen.findByText('本轮已跳过')).toBeInTheDocument()
+    expect(await screen.findByText('2/3')).toBeInTheDocument()
   })
 
   it('lets a superuser see subscriptions from every owner while retaining type defense', async () => {

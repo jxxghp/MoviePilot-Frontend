@@ -70,7 +70,7 @@ const subscribeState = ref<string>(props.media?.state ?? 'P')
 // 上一次更新时间
 const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDifference(props.media.last_update) : ''))
 
-// 成功终态只承担短暂反馈，持久账本仍由后端保留，卡片随后恢复订阅进度。
+// 成功终态只承担短暂反馈，卡片随后恢复订阅自身的长期进度。
 const visibleExecutionStatus = ref<Subscribe['execution_status'] | null>(null)
 let completedExecutionTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -113,9 +113,7 @@ const executionStateDisplay = computed(() => {
     waiting_site_budget: { color: 'warning', icon: 'mdi-timer-sand' },
     preparing: { color: 'primary', icon: 'mdi-package-variant-closed' },
     submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
-    accepted: { color: 'success', icon: 'mdi-download-check-outline' },
-    retryable: { color: 'warning', icon: 'mdi-refresh-circle' },
-    reconcile_required: { color: 'warning', icon: 'mdi-alert-circle-outline' },
+    skipped: { color: 'secondary', icon: 'mdi-skip-next-circle-outline' },
     failed: { color: 'error', icon: 'mdi-alert-outline' },
     cancelling: { color: 'warning', icon: 'mdi-cancel' },
     cancelled: { color: 'secondary', icon: 'mdi-cancel' },

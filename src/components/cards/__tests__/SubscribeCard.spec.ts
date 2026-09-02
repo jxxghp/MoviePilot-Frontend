@@ -359,7 +359,6 @@ describe('SubscribeCard display and progress', () => {
         current_site_id: 9,
         error: '站点 9 冷却中',
         phase: 'waiting_site_budget',
-        requires_reconciliation: false,
         state: 'waiting_site_budget',
         updated_at: '2026-09-01T01:00:00+00:00',
       },
@@ -367,6 +366,24 @@ describe('SubscribeCard display and progress', () => {
 
     expect(screen.getByText('等待站点额度')).toBeInTheDocument()
     expect(screen.getByTitle('站点 9 冷却中')).toBeInTheDocument()
+  })
+
+  it.each([480, 1024])('shows a skipped execution as a non-error terminal state at %ipx', async width => {
+    setViewport(width)
+    await renderCard({
+      execution_status: {
+        can_cancel: false,
+        can_retry: false,
+        phase: 'skipped',
+        state: 'skipped',
+        updated_at: '2026-09-01T01:00:00+00:00',
+      },
+    })
+
+    expect(screen.getByText('本轮已跳过')).toBeInTheDocument()
+    if (width < 600) {
+      expect(document.querySelector('[data-subscribe-state-icon="mdi-skip-next-circle-outline"]')).toBeInTheDocument()
+    }
   })
 
   it.each([480, 1024])('briefly shows a fresh completion then restores normal metadata at %ipx', async width => {
@@ -388,7 +405,6 @@ describe('SubscribeCard display and progress', () => {
             can_cancel: false,
             can_retry: false,
             phase: 'completed',
-            requires_reconciliation: false,
             state: 'completed',
             updated_at: new Date().toISOString(),
           },
@@ -416,7 +432,6 @@ describe('SubscribeCard display and progress', () => {
         can_cancel: false,
         can_retry: false,
         phase: 'completed',
-        requires_reconciliation: false,
         state: 'completed',
         updated_at: new Date(Date.now() - 6_000).toISOString(),
       },
