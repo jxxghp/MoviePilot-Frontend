@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import draggable from 'vuedraggable'
 import api from '@/api'
-import type { Subscribe, SubscribeDeletionResult } from '@/api/types'
+import type { Subscribe, SubscriptionBatchStatus, SubscribeDeletionResult } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
@@ -81,6 +81,47 @@ const loadError = ref(false)
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
+
+// 最近批次用于展示聚合进度；订阅级状态仍由卡片各自渲染。
+const executionBatches = ref<SubscriptionBatchStatus[]>([])
+let executionPollTimer: ReturnType<typeof setTimeout> | undefined
+let isUnmounted = false
+
+const activeExecutionStates = new Set([
+  'queued',
+  'running',
+  'matching',
+  'searching',
+  'waiting_site_budget',
+  'preparing',
+  'submitting',
+  'accepted',
+  'cancelling',
+])
+
+const visibleExecutionBatch = computed(() => {
+  return (
+    executionBatches.value.find(batch => activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase)) ||
+    executionBatches.value.find(batch => batch.state === 'failed' || batch.state === 'cancelled') ||
+    null
+  )
+})
+
+const batchProgress = computed(() => {
+  const batch = visibleExecutionBatch.value
+  if (!batch?.total_count) return 0
+  return Math.min(100, Math.round((batch.processed_count / batch.total_count) * 100))
+})
+
+const hasActiveExecution = computed(() => {
+  return (
+    executionBatches.value.some(batch => activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase)) ||
+    dataList.value.some(item => {
+      const execution = item.execution_status
+      return !!execution && (activeExecutionStates.has(execution.state) || activeExecutionStates.has(execution.phase))
+    })
+  )
+})
 
 // 订阅顺序配置
 const orderConfig = ref<{ id: number }[]>([])
@@ -325,10 +366,16 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
     if (showLoading) {
       loading.value = true
     }
-    dataList.value = await api.get('subscribe/')
+    const [subscribes, batches] = await Promise.all([
+      api.get<Subscribe[]>('subscribe/'),
+      api.get<SubscriptionBatchStatus[]>('subscribe/execution/batches?limit=10'),
+    ])
+    dataList.value = subscribes
+    executionBatches.value = batches
     loadError.value = false
     isRefreshed.value = true
   } catch (error) {
+    if (isCancelledRequest(error)) return
     console.error(error)
     loadError.value = true
     if (isInitialLoad) {
@@ -341,6 +388,37 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
     if (showLoading) {
       loading.value = false
     }
+    scheduleExecutionPoll()
+  }
+}
+
+// 仅在页面可见且存在活动执行时轮询，终态后自动停止。
+function scheduleExecutionPoll() {
+  if (executionPollTimer) {
+    clearTimeout(executionPollTimer)
+    executionPollTimer = undefined
+  }
+  if (isUnmounted || !props.active || !hasActiveExecution.value) return
+  executionPollTimer = setTimeout(() => {
+    void fetchData({ silent: true })
+  }, 2500)
+}
+
+// 页面切换触发的请求取消是正常生命周期，不应展示为业务失败。
+function isCancelledRequest(error: unknown) {
+  return !!error && typeof error === 'object' && 'code' in error && error.code === 'ERR_CANCELED'
+}
+
+async function cancelExecutionBatch() {
+  const batch = visibleExecutionBatch.value
+  if (!batch?.can_cancel) return
+  try {
+    await api.put(`subscribe/execution/batches/${batch.batch_id}/cancel`, undefined, { feedback: 'silent' })
+    $toast.success(t('subscribe.execution.cancelRequested'))
+    await fetchData({ silent: true })
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('subscribe.execution.cancelFailed'))
   }
 }
 
@@ -558,6 +636,7 @@ const errorTitle = computed(() => {
 })
 
 onMounted(async () => {
+  isUnmounted = false
   await loadSubscribeOrderConfig()
   await fetchData()
   if (props.subid) {
@@ -568,6 +647,16 @@ onMounted(async () => {
       sub.page_open = true
     }
   }
+})
+
+watch(
+  () => props.active,
+  () => scheduleExecutionPoll(),
+)
+
+onBeforeUnmount(() => {
+  isUnmounted = true
+  if (executionPollTimer) clearTimeout(executionPollTimer)
 })
 
 useKeepAliveRefresh(fetchData, {
@@ -591,6 +680,47 @@ defineExpose({
 
   <VAlert v-if="loadError" type="error" variant="tonal" class="mb-4 mx-2">
     {{ t('subscribe.requestFailed') }}
+  </VAlert>
+
+  <VAlert
+    v-if="visibleExecutionBatch"
+    :color="visibleExecutionBatch.state === 'failed' ? 'error' : visibleExecutionBatch.state === 'cancelled' ? 'secondary' : 'info'"
+    variant="tonal"
+    class="subscribe-execution-banner mb-4 mx-2 py-2"
+  >
+    <div class="d-flex min-w-0 align-center gap-3">
+      <VIcon
+        :icon="activeExecutionStates.has(visibleExecutionBatch.state) ? 'mdi-progress-clock' : visibleExecutionBatch.state === 'failed' ? 'mdi-alert-outline' : 'mdi-cancel'"
+        size="20"
+      />
+      <div class="min-w-0 flex-grow-1">
+        <div class="d-flex min-w-0 align-center justify-space-between gap-2 text-body-2 font-weight-medium">
+          <span class="text-truncate">
+            {{ t(`subscribe.execution.state.${visibleExecutionBatch.phase}`) }}
+          </span>
+          <span class="flex-shrink-0">
+            {{ t('subscribe.execution.batchProgress', { processed: visibleExecutionBatch.processed_count, total: visibleExecutionBatch.total_count }) }}
+          </span>
+        </div>
+        <VProgressLinear
+          :model-value="batchProgress"
+          :indeterminate="visibleExecutionBatch.total_count === 0 && activeExecutionStates.has(visibleExecutionBatch.state)"
+          height="3"
+          class="mt-2"
+        />
+        <div v-if="visibleExecutionBatch.error" class="text-caption mt-1 text-truncate">
+          {{ visibleExecutionBatch.error }}
+        </div>
+      </div>
+      <IconBtn
+        v-if="visibleExecutionBatch.can_cancel"
+        size="small"
+        :title="t('subscribe.execution.cancel')"
+        @click="cancelExecutionBatch"
+      >
+        <VIcon icon="mdi-close-circle-outline" />
+      </IconBtn>
+    </div>
   </VAlert>
 
   <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 mx-2 py-0 app-surface-static">

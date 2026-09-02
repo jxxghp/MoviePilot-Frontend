@@ -4,6 +4,7 @@ import type {
   MediaInfo,
   Site,
   Subscribe,
+  SubscriptionBatchStatus,
   SubscribeShare,
   SubscribeShareStatistics,
   TransferDirectoryConf,
@@ -37,6 +38,9 @@ export const subscribeApiUrls = {
   deleteById: (id: number) => new URL(`subscribe/${id}`, API_BASE_URL).href,
   deleteByMedia: (mediaId: string) => new URL(`subscribe/media/${mediaId}`, API_BASE_URL).href,
   details: (id: number) => new URL(`subscribe/${id}`, API_BASE_URL).href,
+  executionBatches: new URL('subscribe/execution/batches', API_BASE_URL).href,
+  executionBatchCancel: (batchId: string) =>
+    new URL(`subscribe/execution/batches/${batchId}/cancel`, API_BASE_URL).href,
   directories: new URL('system/setting/public/Directories', API_BASE_URL).href,
   downloaders: new URL('download/clients', API_BASE_URL).href,
   episodeGroups: (tmdbId: number) => new URL(`media/groups/${tmdbId}`, API_BASE_URL).href,
@@ -85,6 +89,29 @@ export function subscribeListHandler(
   return http.get(subscribeApiUrls.list, ({ request }) => {
     onRequest(new URL(request.url))
     return dataResponse(response, status)
+  })
+}
+
+export function subscriptionExecutionBatchesHandler(
+  response: SubscriptionBatchStatus[] = [],
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(subscribeApiUrls.executionBatches, ({ request }) => {
+    onRequest(new URL(request.url))
+    return dataResponse(response as unknown as JsonBodyType, status)
+  })
+}
+
+export function cancelSubscriptionExecutionBatchHandler(
+  batchId: string,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.put(subscribeApiUrls.executionBatchCancel(batchId), ({ request }) => {
+    onRequest(new URL(request.url))
+    return mutationResponse(response, status)
   })
 }
 

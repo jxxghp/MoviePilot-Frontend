@@ -1,12 +1,14 @@
-import type { Subscribe } from '@/api/types'
+import type { Subscribe, SubscriptionBatchStatus } from '@/api/types'
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createSubscribe } from '@tests/support/factories/subscribe'
 import {
   deleteSubscribeByIdHandler,
+  cancelSubscriptionExecutionBatchHandler,
   saveSubscribeOrderConfigHandler,
   subscribeApiUrls,
   subscribeListHandler,
+  subscriptionExecutionBatchesHandler,
   subscribeOrderConfigHandler,
   updateSubscribeStatusHandler,
   type SubscribeMediaType,
@@ -217,6 +219,8 @@ const SubscribeListHost = defineComponent({
 
 interface RenderListOptions {
   active?: boolean
+  batchResponse?: SubscriptionBatchStatus[]
+  onBatchRequest?: (url: URL) => void
   keyword?: string
   listResponse?: Subscribe[]
   listStatus?: number
@@ -238,6 +242,7 @@ async function renderList(options: RenderListOptions = {}) {
   server.use(
     subscribeOrderConfigHandler(type, options.orderValue, options.orderStatus ?? 200, options.onOrderRequest),
     subscribeListHandler(options.listResponse ?? [], options.listStatus ?? 200, options.onListRequest),
+    subscriptionExecutionBatchesHandler(options.batchResponse ?? [], 200, options.onBatchRequest),
   )
 
   return renderWithProviders(SubscribeListHost, {
@@ -311,6 +316,33 @@ describe('SubscribeListView loading and filtering', () => {
     expect(orderRequested.mock.calls[0][0].href).toBe(subscribeApiUrls.orderConfig('电影'))
     expect(listRequested.mock.calls[0][0].href).toBe(subscribeApiUrls.list)
     expect(screen.getByTestId('sort-by-state')).toHaveTextContent('date')
+  })
+
+  it('shows batch progress and sends cancellation to the stable batch endpoint', async () => {
+    const cancelRequested = vi.fn()
+    const batch: SubscriptionBatchStatus = {
+      batch_id: 'batch-42',
+      can_cancel: true,
+      cancelled_count: 0,
+      created_at: '2026-09-01T00:00:00+00:00',
+      failed_count: 0,
+      finished_count: 1,
+      phase: 'searching',
+      processed_count: 1,
+      source: 'manual',
+      state: 'running',
+      total_count: 3,
+      updated_at: '2026-09-01T00:01:00+00:00',
+    }
+    server.use(cancelSubscriptionExecutionBatchHandler(batch.batch_id, { success: true }, 200, cancelRequested))
+    await renderList({ batchResponse: [batch], listResponse: [movie(1, 'Own movie')] })
+
+    expect(await screen.findByText('搜索站点')).toBeInTheDocument()
+    expect(screen.getByText('1/3')).toBeInTheDocument()
+    await fireEvent.click(screen.getByTitle('取消本批次'))
+
+    await waitFor(() => expect(cancelRequested).toHaveBeenCalledOnce())
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('已请求取消搜索批次')
   })
 
   it('lets a superuser see subscriptions from every owner while retaining type defense', async () => {
