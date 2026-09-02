@@ -1,7 +1,7 @@
 import WorkflowActionsDialog from '@/components/dialog/WorkflowActionsDialog.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
-import { defineComponent, h, type PropType, type Ref } from 'vue'
+import { defineComponent, h, nextTick, type PropType, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type FlowNode = Record<string, unknown>
@@ -24,10 +24,12 @@ const mocks = vi.hoisted(() => ({
   toastWarning: vi.fn(),
   flowNodes: undefined as Ref<FlowNode[]> | undefined,
   flowEdges: undefined as Ref<FlowEdge[]> | undefined,
+  nodeHandleBounds: {} as Record<string, unknown>,
   nodeTypes: undefined as Record<string, unknown> | undefined,
   setNodes: vi.fn(),
   setEdges: vi.fn(),
   onConnect: undefined as ((connection: Connection) => void) | undefined,
+  nodesInitializedHandlers: [] as Array<() => void>,
   isValidConnection: undefined as ((connection: Connection) => boolean) | undefined,
   conditionItems: [] as ConditionItem[],
   importCode: '',
@@ -92,7 +94,16 @@ vi.mock('@vue-flow/core', async () => {
         mocks.flowNodes?.value.push(...(Array.isArray(newNodes) ? newNodes : [newNodes])),
       setNodes: (newNodes: FlowNode[]) => {
         mocks.setNodes(newNodes)
-        if (mocks.flowNodes) mocks.flowNodes.value = newNodes
+        newNodes.forEach(node => {
+          mocks.nodeHandleBounds[String(node.id)] = node.handleBounds
+        })
+        if (mocks.flowNodes) {
+          mocks.flowNodes.value = newNodes.map(node => ({
+            ...node,
+            dimensions: { width: 0, height: 0 },
+            handleBounds: { source: [], target: [] },
+          }))
+        }
       },
       setEdges: (newEdges: FlowEdge[]) => {
         mocks.setEdges(newEdges)
@@ -103,7 +114,14 @@ vi.mock('@vue-flow/core', async () => {
       onConnect: (handler: (connection: Connection) => void) => {
         mocks.onConnect = handler
       },
-      onNodesInitialized: (handler: () => void) => ({ off: () => undefined, handler }),
+      onNodesInitialized: (handler: () => void) => {
+        mocks.nodesInitializedHandlers.push(handler)
+        return {
+          off: () => {
+            mocks.nodesInitializedHandlers = mocks.nodesInitializedHandlers.filter(item => item !== handler)
+          },
+        }
+      },
       screenToFlowCoordinate: (point: { x: number; y: number }) => point,
       updateNode: vi.fn(),
     }),
@@ -263,8 +281,18 @@ function createWorkflow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-async function renderDialog(workflow = createWorkflow(), onSave = vi.fn()) {
-  return renderWithProviders(WorkflowActionsDialog, {
+async function initializeFlowNodes() {
+  mocks.flowNodes!.value = mocks.flowNodes!.value.map(node => ({
+    ...node,
+    dimensions: { width: 240, height: 120 },
+    handleBounds: mocks.nodeHandleBounds[String(node.id)] ?? { source: [], target: [] },
+  }))
+  mocks.nodesInitializedHandlers.forEach(handler => handler())
+  await nextTick()
+}
+
+async function renderDialog(workflow = createWorkflow(), onSave = vi.fn(), initializeNodes = true) {
+  const rendered = renderWithProviders(WorkflowActionsDialog, {
     props: { workflow, onSave },
     global: {
       stubs: {
@@ -273,6 +301,12 @@ async function renderDialog(workflow = createWorkflow(), onSave = vi.fn()) {
       },
     },
   })
+  await nextTick()
+  if (initializeNodes && Array.isArray(workflow.actions) && workflow.actions.length) {
+    await waitFor(() => expect(mocks.setNodes).toHaveBeenCalled())
+    await initializeFlowNodes()
+  }
+  return rendered
 }
 
 async function clickToolbarButton(container: ParentNode, index: number) {
@@ -292,10 +326,12 @@ describe('WorkflowActionsDialog data contract', () => {
     mocks.toastWarning.mockReset()
     mocks.flowNodes!.value = []
     mocks.flowEdges!.value = []
+    mocks.nodeHandleBounds = {}
     mocks.nodeTypes = undefined
     mocks.setNodes.mockReset()
     mocks.setEdges.mockReset()
     mocks.onConnect = undefined
+    mocks.nodesInitializedHandlers = []
     mocks.isValidConnection = undefined
     mocks.conditionItems = []
     mocks.importCode = ''
@@ -323,14 +359,21 @@ describe('WorkflowActionsDialog data contract', () => {
     )
   })
 
-  it('loads persisted workflow nodes and edges through Vue Flow setters', async () => {
-    await renderDialog()
+  it('restores persisted edges only after Vue Flow initializes node handles', async () => {
+    await renderDialog(createWorkflow(), vi.fn(), false)
 
     expect(mocks.setNodes).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'source', type: 'SourceAction' })]),
     )
+    expect(mocks.setEdges).not.toHaveBeenCalled()
+    expect(mocks.flowEdges!.value).toEqual([])
+
+    await initializeFlowNodes()
+
     expect(mocks.setEdges).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ id: 'flow-1', source: 'source', target: 'target' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'flow-1', source: 'source', target: 'target', type: 'default' }),
+      ]),
     )
   })
 
@@ -353,7 +396,7 @@ describe('WorkflowActionsDialog data contract', () => {
         sourceHandle: 'out',
         target: 'target',
         targetHandle: 'in',
-        type: 'animation',
+        type: 'default',
         animated: true,
       }),
     )
