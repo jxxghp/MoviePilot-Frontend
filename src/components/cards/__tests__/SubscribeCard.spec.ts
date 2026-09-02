@@ -368,6 +368,67 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.getByText('等待站点额度')).toBeInTheDocument()
     expect(screen.getByTitle('站点 9 冷却中')).toBeInTheDocument()
   })
+
+  it.each([480, 1024])('briefly shows a fresh completion then restores normal metadata at %ipx', async width => {
+    setViewport(width)
+    const { media, rerender, unmount } = await renderCard({
+      lack_episode: 4,
+      state: 'R',
+      total_episode: 10,
+      type: '电视剧',
+    })
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-02T12:00:00+08:00'))
+
+    try {
+      await rerender({
+        media: {
+          ...media,
+          execution_status: {
+            can_cancel: false,
+            can_retry: false,
+            phase: 'completed',
+            requires_reconciliation: false,
+            state: 'completed',
+            updated_at: new Date().toISOString(),
+          },
+        },
+      })
+
+      expect(screen.getByText('执行完成')).toBeInTheDocument()
+      if (width < 600) expect(screen.queryByText('6 / 10')).not.toBeInTheDocument()
+
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      expect(screen.queryByText('执行完成')).not.toBeInTheDocument()
+      expect(screen.getByText('6 / 10')).toBeInTheDocument()
+      if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
+    } finally {
+      unmount()
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not revive an expired completion after the card is reloaded', async () => {
+    setViewport(480)
+    await renderCard({
+      execution_status: {
+        can_cancel: false,
+        can_retry: false,
+        phase: 'completed',
+        requires_reconciliation: false,
+        state: 'completed',
+        updated_at: new Date(Date.now() - 6_000).toISOString(),
+      },
+      lack_episode: 4,
+      state: 'R',
+      total_episode: 10,
+      type: '电视剧',
+    })
+
+    expect(screen.queryByText('执行完成')).not.toBeInTheDocument()
+    expect(screen.getByText('6 / 10')).toBeInTheDocument()
+  })
 })
 
 describe('SubscribeCard interaction boundaries', () => {

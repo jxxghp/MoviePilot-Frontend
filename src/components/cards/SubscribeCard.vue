@@ -14,6 +14,8 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from '@/utils/music'
 
+const COMPLETED_EXECUTION_VISIBLE_MS = 5_000
+
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
 const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/SubscribeShareDialog.vue'))
@@ -68,9 +70,40 @@ const subscribeState = ref<string>(props.media?.state ?? 'P')
 // 上一次更新时间
 const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDifference(props.media.last_update) : ''))
 
+// 成功终态只承担短暂反馈，持久账本仍由后端保留，卡片随后恢复订阅进度。
+const visibleExecutionStatus = ref<Subscribe['execution_status'] | null>(null)
+let completedExecutionTimer: ReturnType<typeof setTimeout> | undefined
+
+// 清理上一条成功终态的恢复计时器，避免卡片复用后由旧任务覆盖新状态。
+function clearCompletedExecutionTimer() {
+  if (!completedExecutionTimer) return
+  clearTimeout(completedExecutionTimer)
+  completedExecutionTimer = undefined
+}
+
+// 活动与异常状态持续展示；成功完成仅在后端更新时间后的短窗口内展示。
+function syncVisibleExecutionStatus(execution: Subscribe['execution_status']) {
+  clearCompletedExecutionTimer()
+  visibleExecutionStatus.value = execution
+  if (!execution || (execution.state !== 'completed' && execution.phase !== 'completed')) return
+
+  const updatedAt = Date.parse(execution.updated_at)
+  const elapsed = Number.isFinite(updatedAt) ? Math.max(0, Date.now() - updatedAt) : 0
+  const remaining = COMPLETED_EXECUTION_VISIBLE_MS - elapsed
+  if (remaining <= 0) {
+    visibleExecutionStatus.value = null
+    return
+  }
+
+  completedExecutionTimer = setTimeout(() => {
+    visibleExecutionStatus.value = null
+    completedExecutionTimer = undefined
+  }, remaining)
+}
+
 // 将后端稳定业务状态映射为紧凑、可本地化的卡片展示。
 const executionStateDisplay = computed(() => {
-  const execution = props.media?.execution_status
+  const execution = visibleExecutionStatus.value
   if (!execution) return null
   const displays: Record<string, { color: string; icon: string }> = {
     queued: { color: 'info', icon: 'mdi-clock-outline' },
@@ -474,6 +507,14 @@ watch(
   },
 )
 
+watch(
+  () => props.media?.execution_status,
+  execution => syncVisibleExecutionStatus(execution),
+  { immediate: true },
+)
+
+onBeforeUnmount(() => clearCompletedExecutionTimer())
+
 // 切换订阅记录时重新尝试加载图片，避免复用卡片组件后沿用旧的失败状态。
 watch(
   () => [props.media?.id, props.media?.backdrop, props.media?.poster],
@@ -701,11 +742,7 @@ function handleCardClick() {
                         <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
                           {{ compactStateText }}
                         </span>
-                        <VTooltip
-                          v-if="executionStateDisplay?.error"
-                          activator="parent"
-                          location="top"
-                        >
+                        <VTooltip v-if="executionStateDisplay?.error" activator="parent" location="top">
                           {{ executionStateDisplay.error }}
                         </VTooltip>
                       </div>
@@ -830,16 +867,14 @@ function handleCardClick() {
                 <VCardText
                   v-if="rightBottomStateDisplay"
                   class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-                  :style="executionStateDisplay ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` } : undefined"
+                  :style="
+                    executionStateDisplay ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` } : undefined
+                  "
                   :title="executionStateDisplay?.error || rightBottomStateDisplay.label"
                 >
                   <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
                   {{ rightBottomStateDisplay.label }}
-                  <VTooltip
-                    v-if="executionStateDisplay?.error"
-                    activator="parent"
-                    location="top"
-                  >
+                  <VTooltip v-if="executionStateDisplay?.error" activator="parent" location="top">
                     {{ executionStateDisplay.error }}
                   </VTooltip>
                 </VCardText>
