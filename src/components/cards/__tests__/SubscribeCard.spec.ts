@@ -355,7 +355,6 @@ describe('SubscribeCard display and progress', () => {
       execution_status: {
         batch_id: 'batch-1',
         can_cancel: true,
-        can_retry: false,
         current_site_id: 9,
         error: '站点 9 冷却中',
         phase: 'waiting_site_budget',
@@ -373,7 +372,6 @@ describe('SubscribeCard display and progress', () => {
     await renderCard({
       execution_status: {
         can_cancel: false,
-        can_retry: false,
         phase: 'skipped',
         state: 'skipped',
         updated_at: '2026-09-01T01:00:00+00:00',
@@ -403,7 +401,6 @@ describe('SubscribeCard display and progress', () => {
           ...media,
           execution_status: {
             can_cancel: false,
-            can_retry: false,
             phase: 'completed',
             state: 'completed',
             updated_at: new Date().toISOString(),
@@ -430,7 +427,6 @@ describe('SubscribeCard display and progress', () => {
     await renderCard({
       execution_status: {
         can_cancel: false,
-        can_retry: false,
         phase: 'completed',
         state: 'completed',
         updated_at: new Date(Date.now() - 6_000).toISOString(),

@@ -35,7 +35,6 @@ export interface SubscriptionExecutionStatus {
   current_site_id?: number
   error?: string
   can_cancel: boolean
-  can_retry: boolean
 }
 
 /** 订阅搜索批次的聚合进度与当前工作。 */

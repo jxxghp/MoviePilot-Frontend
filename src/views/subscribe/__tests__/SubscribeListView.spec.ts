@@ -447,7 +447,6 @@ describe('SubscribeListView loading and filtering', () => {
     const activeExecution = {
       batch_id: 'batch-1',
       can_cancel: true,
-      can_retry: false,
       phase: 'queued',
       source: 'scheduler',
       state: 'queued',
@@ -523,7 +522,6 @@ describe('SubscribeListView loading and filtering', () => {
     const batchRequested = vi.fn()
     const activeExecution = {
       can_cancel: false,
-      can_retry: false,
       phase: 'searching',
       state: 'searching',
       updated_at: '2026-09-01T00:01:00+00:00',
