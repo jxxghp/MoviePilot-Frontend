@@ -1939,19 +1939,18 @@ onUnmounted(() => {
         style="margin-block: 0"
       />
       <div class="transfer-history-mobile-titlebar__actions">
-        <VBtn
-          icon="mdi-filter-multiple-outline"
+        <IconBtn
           :color="statusFilterButtonColor"
           :aria-label="t('transferHistory.statusFilter.label')"
           :title="t('transferHistory.statusFilter.label')"
           variant="text"
-          class="settings-icon-button"
           data-menu-activator="history-status-filter-btn"
           @click="mobileStatusFilterMenu = true"
-        />
-        <VBtn
+        >
+          <VIcon icon="mdi-filter-multiple-outline" />
+        </IconBtn>
+        <IconBtn
           v-if="canManage"
-          icon="mdi-checkbox-multiple-marked-outline"
           :color="mobileBatchMode ? 'primary' : 'gray'"
           :aria-label="
             mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
@@ -1960,9 +1959,10 @@ onUnmounted(() => {
             mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
           "
           variant="text"
-          class="settings-icon-button"
           @click="toggleMobileBatchMode"
-        />
+        >
+          <VIcon icon="mdi-checkbox-multiple-marked-outline" />
+        </IconBtn>
       </div>
     </div>
 

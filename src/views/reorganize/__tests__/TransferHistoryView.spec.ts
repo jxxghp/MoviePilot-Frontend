@@ -229,6 +229,14 @@ const PassthroughStub = defineComponent({
   },
 })
 
+const IconButtonStub = defineComponent({
+  name: 'IconBtn',
+  inheritAttrs: false,
+  setup(_props, { attrs, slots }) {
+    return () => h('button', { ...attrs, type: 'button' }, slots.default?.())
+  },
+})
+
 const EmptyStub = defineComponent({
   inheritAttrs: false,
   setup() {
@@ -338,7 +346,7 @@ async function renderHistory(initialRoute = '/history') {
         VDataTableVirtual: HistoryTableStub,
         VImg: ImageStub,
         VInfiniteScroll: InfiniteScrollStub,
-        IconBtn: PassthroughStub,
+        IconBtn: IconButtonStub,
         VList: PassthroughStub,
         VListItem: ListItemStub,
         VListItemTitle: ListItemTitleStub,
@@ -439,6 +447,11 @@ describe('TransferHistoryView', () => {
   })
 
   it('joins the desktop status filter to search and moves the mobile filter into the titlebar menu', () => {
+    const mobileTitlebarSource = transferHistorySource.slice(
+      transferHistorySource.indexOf('<div class="transfer-history-mobile-titlebar__actions">'),
+      transferHistorySource.indexOf('<VCombobox\n      key="search_mobile"'),
+    )
+
     expect(transferHistorySource).toContain('class="transfer-history-desktop-filter-group"')
     expect(transferHistorySource).toContain('class="text-disabled transfer-history-desktop-search"')
     expect(transferHistorySource).toContain('class="transfer-history-desktop-status"')
@@ -446,6 +459,10 @@ describe('TransferHistoryView', () => {
     expect(transferHistorySource).toContain('border-start-start-radius: 0;')
     expect(transferHistorySource).toContain('data-menu-activator="history-status-filter-btn"')
     expect(transferHistorySource).not.toContain('class="transfer-history-mobile-status"')
+    expect(mobileTitlebarSource.match(/<IconBtn/g)).toHaveLength(2)
+    expect(mobileTitlebarSource).toContain('<VIcon icon="mdi-filter-multiple-outline" />')
+    expect(mobileTitlebarSource).toContain('<VIcon icon="mdi-checkbox-multiple-marked-outline" />')
+    expect(mobileTitlebarSource).not.toContain('settings-icon-button')
   })
 
   it('selects a mobile status from the titlebar dropdown and refreshes with the explicit status query', async () => {
