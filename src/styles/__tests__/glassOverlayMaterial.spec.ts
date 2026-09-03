@@ -225,11 +225,11 @@ describe('glass overlay material styles', () => {
     )
   })
 
-  it('reuses the menu overlay material for toast and assistant bubbles', () => {
+  it('reuses the menu overlay material for toast, assistant bubbles and update prompts', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toMatch(
-      /:where\(\.Vue-Toastification__toast, \.agent-assistant-fab__bubble\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-overlay-backdrop-filter\)\s*!important;[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
+      /:where\(\.Vue-Toastification__toast, \.agent-assistant-fab__bubble, \.system-update-prompt\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-overlay-backdrop-filter\)\s*!important;[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
     )
     expect(styles).toMatch(
       /\.agent-assistant-fab__bubbles::before\s*\{[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
