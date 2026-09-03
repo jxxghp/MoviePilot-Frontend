@@ -221,11 +221,14 @@ describe('glass overlay material styles', () => {
 
     expect(layout).toContain("html:is([data-theme='transparent'], [data-theme='glass'])")
     expect(layout).toContain('--shell-floating-navbar-radius: 1rem')
+    expect(layout).toContain('--shell-floating-navbar-inset: 0.75rem')
     expect(layout).toContain(
       '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',
     )
     expect(layout).not.toContain('&.layout-navbar-away-from-top.layout-horizontal-nav-active .layout-navbar')
     expect(layout).toContain('border-radius: var(--shell-floating-navbar-radius)')
+    expect(layout).toContain('inline-size: calc(100% - 2 * var(--shell-floating-navbar-inset))')
+    expect(layout).toContain('inset-block-start: var(--shell-floating-navbar-inset)')
     expect(layout).toMatch(
       /\.layout-wrapper\.layout-horizontal-nav-active\.layout-horizontal-nav-scrolled\.layout-navbar-fixed \.layout-navbar \{[\s\S]*?backdrop-filter:\s*none;[\s\S]*?background:\s*rgb\(var\(--v-theme-surface\)\) !important;/,
     )

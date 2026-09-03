@@ -219,6 +219,7 @@ export default defineComponent({
   --layout-navbar-safe-area-top: env(safe-area-inset-top, 0px);
   --layout-navbar-safe-area-inline: 0px;
   --shell-floating-navbar-radius: 1rem;
+  --shell-floating-navbar-inset: 0.75rem;
   --layout-navbar-block-size: calc(
     var(--layout-navbar-safe-area-top) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
   );
@@ -285,9 +286,9 @@ export default defineComponent({
       .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top
       .layout-navbar {
       border-radius: var(--shell-floating-navbar-radius);
-      inline-size: calc(100% - 1rem);
-      inset-block-start: 0.5rem;
-      inset-inline: 0.5rem;
+      inline-size: calc(100% - 2 * var(--shell-floating-navbar-inset));
+      inset-block-start: var(--shell-floating-navbar-inset);
+      inset-inline: var(--shell-floating-navbar-inset);
       overflow: clip;
     }
   }

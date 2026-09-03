@@ -476,19 +476,6 @@ html[data-agent-assistant-open='true'] {
   }
 }
 
-// 窄屏将上下文操作放到主 Dock 上方，避免侵入安全区或挤压一级导航。
-@media (width <= 480px) {
-  .footer-nav-container--with-accessory {
-    padding-block-start: 52px;
-  }
-
-  .dynamic-btn-card {
-    inset-block-end: calc(100% + 4px);
-    inset-inline-end: 0;
-    inset-inline-start: auto;
-  }
-}
-
 // 底部导航动画
 .footer-nav-enter-active,
 .footer-nav-leave-active {
