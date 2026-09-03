@@ -24,6 +24,7 @@ const PluginCloneDialog = defineAsyncComponent(() => import('../dialog/PluginClo
 const PluginLogDialog = defineAsyncComponent(() => import('../dialog/PluginLogDialog.vue'))
 const PluginMarketDetailDialog = defineAsyncComponent(() => import('../dialog/PluginMarketDetailDialog.vue'))
 const PluginVersionHistoryDialog = defineAsyncComponent(() => import('../dialog/PluginVersionHistoryDialog.vue'))
+const PluginInstanceVersionDialog = defineAsyncComponent(() => import('../dialog/PluginInstanceVersionDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -170,6 +171,7 @@ let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let cloneDialogController: ReturnType<typeof openSharedDialog> | null = null
 let marketDetailDialogController: ReturnType<typeof openSharedDialog> | null = null
 let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
+let versionManageDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 /** 打开插件操作进度弹窗，插件卡片自身不再持有进度弹窗实例。 */
 function showPluginProgress(text: string) {
@@ -553,6 +555,17 @@ function configDone() {
   emit('save')
 }
 
+/** 显示插件版本与实例管理弹窗。 */
+function showVersionManage() {
+  versionManageDialogController?.close()
+  versionManageDialogController = openSharedDialog(
+    PluginInstanceVersionDialog,
+    { plugin: props.plugin },
+    { save: configDone },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
 /** 显示插件分身共享弹窗。 */
 function showPluginClone() {
   cloneDialogController?.close()
@@ -605,6 +618,7 @@ onUnmounted(() => {
   cloneDialogController?.close()
   marketDetailDialogController?.close()
   versionHistoryDialogController?.close()
+  versionManageDialogController?.close()
 })
 
 // 弹出菜单
@@ -683,6 +697,15 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-update',
       click: () => showUpdateHistory(false),
+    },
+  },
+  {
+    title: t('plugin.versionManage'),
+    value: 11,
+    show: true,
+    props: {
+      prependIcon: 'mdi-source-branch',
+      click: showVersionManage,
     },
   },
   {
