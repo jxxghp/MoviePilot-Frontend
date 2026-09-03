@@ -642,6 +642,50 @@ describe('SubscribeListView loading and filtering', () => {
     expect(await screen.findByText('慢列表刷新完成')).toBeInTheDocument()
   })
 
+  it('runs one trailing list refresh when a card action overlaps a poll refresh', async () => {
+    vi.useFakeTimers()
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    let resolvePollingList!: (subscribes: Subscribe[]) => void
+    let listCallCount = 0
+    const pollingList = new Promise<Subscribe[]>(resolve => {
+      resolvePollingList = resolve
+    })
+    const initial = movie(1, '交错刷新前')
+    const refreshed = movie(1, '交错刷新后')
+
+    await renderList({
+      batchResponse: sequenceResponse([[], [executionBatch({ processed_count: 1 })]]),
+      listResponse: () => {
+        listCallCount += 1
+        if (listCallCount === 1) return [initial]
+        if (listCallCount === 2) return pollingList
+        return [refreshed]
+      },
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+    await flushAsync()
+
+    expect(await screen.findByText('交错刷新前')).toBeInTheDocument()
+    expect(listRequested).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(2500)
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+
+    await fireEvent.click(screen.getByRole('button', { name: 'save-1' }))
+    await flushAsync()
+    expect(listRequested).toHaveBeenCalledTimes(2)
+
+    resolvePollingList([initial])
+    await flushAsync()
+
+    expect(listRequested).toHaveBeenCalledTimes(3)
+    expect(await screen.findByText('交错刷新后')).toBeInTheDocument()
+  })
+
   it('reloads subscriptions after the active-card refresh interval', async () => {
     const hidden = mockDocumentHidden(true)
     const listRequested = vi.fn()

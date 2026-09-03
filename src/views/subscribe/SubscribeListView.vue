@@ -82,6 +82,7 @@ const loadError = ref(false)
 let initialSubscriptionOpened = false
 let lastSubscriptionRequestAt = Number.NEGATIVE_INFINITY
 let subscriptionRequest: Promise<void> | undefined
+let pendingSubscriptionRefreshContext: KeepAliveRefreshContext | undefined
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
@@ -421,15 +422,44 @@ async function requestSubscriptions(context: KeepAliveRefreshContext = {}) {
   }
 }
 
-// 所有刷新入口共享列表在途请求，避免慢响应期间并发读取和旧快照回写。
+// 合并在途请求期间的刷新意图，显式刷新优先于静默刷新。
+function mergeSubscriptionRefreshContext(current: KeepAliveRefreshContext | undefined, next: KeepAliveRefreshContext) {
+  if (!current) return next
+
+  return {
+    // 只要有一个显式入口，trailing 请求就不能继续静默处理。
+    silent: current.silent === true && next.silent === true ? true : undefined,
+    source: next.source ?? current.source,
+  }
+}
+
+// 在途请求结束后补一次最新列表；重复静默触发只更新同一个 trailing 槽位。
+async function runSubscriptionRefresh(context: KeepAliveRefreshContext) {
+  let nextContext = context
+
+  while (true) {
+    pendingSubscriptionRefreshContext = undefined
+    await requestSubscriptions(nextContext)
+
+    if (!pendingSubscriptionRefreshContext) return
+    nextContext = pendingSubscriptionRefreshContext
+  }
+}
+
+// 所有刷新入口共享列表刷新 worker，避免慢响应期间并发读取和旧快照回写。
 async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
-  if (subscriptionRequest) return subscriptionRequest
-  const request = requestSubscriptions(context)
+  if (subscriptionRequest) {
+    pendingSubscriptionRefreshContext = mergeSubscriptionRefreshContext(pendingSubscriptionRefreshContext, context)
+    return subscriptionRequest
+  }
+
+  const request = runSubscriptionRefresh(context)
   subscriptionRequest = request
   try {
     await request
   } finally {
     if (subscriptionRequest === request) subscriptionRequest = undefined
+    pendingSubscriptionRefreshContext = undefined
   }
 }
 
