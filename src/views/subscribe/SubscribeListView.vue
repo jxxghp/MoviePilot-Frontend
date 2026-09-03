@@ -14,6 +14,7 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
 
 const SubscribeHistoryDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeHistoryDialog.vue'))
+const ACTIVE_CARD_REFRESH_INTERVAL_MS = 15_000
 
 // 国际化
 const { t } = useI18n()
@@ -78,6 +79,10 @@ const loading = ref(false)
 
 // 最近一次列表请求是否失败，用于保留旧数据时持续展示错误状态。
 const loadError = ref(false)
+let initialSubscriptionOpened = false
+let lastSubscriptionRequestAt = Number.NEGATIVE_INFINITY
+let subscriptionRequest: Promise<void> | undefined
+let pendingSubscriptionRefreshContext: KeepAliveRefreshContext | undefined
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
@@ -95,16 +100,43 @@ const activeExecutionStates = new Set([
   'waiting_site_budget',
   'preparing',
   'submitting',
-  'accepted',
   'cancelling',
 ])
+const terminalExecutionStates = new Set(['completed', 'failed', 'cancelled', 'skipped'])
+
+function isActiveExecutionBatch(batch: SubscriptionBatchStatus) {
+  return (
+    !terminalExecutionStates.has(batch.state) &&
+    (activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase))
+  )
+}
 
 const visibleExecutionBatch = computed(() => {
   return (
-    executionBatches.value.find(batch => activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase)) ||
-    executionBatches.value.find(batch => batch.state === 'failed' || batch.state === 'cancelled') ||
+    executionBatches.value.find(isActiveExecutionBatch) ||
+    executionBatches.value.find(batch => ['failed', 'cancelled', 'skipped'].includes(batch.state)) ||
     null
   )
+})
+
+const visibleExecutionBatchAppearance = computed(() => {
+  const batch = visibleExecutionBatch.value
+  if (!batch || isActiveExecutionBatch(batch)) {
+    return { color: 'info', icon: 'mdi-progress-clock' }
+  }
+  if (batch.state === 'failed') {
+    return { color: 'error', icon: 'mdi-alert-outline' }
+  }
+  if (batch.state === 'skipped') {
+    return { color: 'secondary', icon: 'mdi-skip-next-circle-outline' }
+  }
+  return { color: 'secondary', icon: 'mdi-cancel' }
+})
+
+const visibleExecutionBatchState = computed(() => {
+  const batch = visibleExecutionBatch.value
+  if (!batch) return 'queued'
+  return terminalExecutionStates.has(batch.state) ? batch.state : batch.phase
 })
 
 const batchProgress = computed(() => {
@@ -113,14 +145,11 @@ const batchProgress = computed(() => {
   return Math.min(100, Math.round((batch.processed_count / batch.total_count) * 100))
 })
 
-const hasActiveExecution = computed(() => {
-  return (
-    executionBatches.value.some(batch => activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase)) ||
-    dataList.value.some(item => {
-      const execution = item.execution_status
-      return !!execution && (activeExecutionStates.has(execution.state) || activeExecutionStates.has(execution.phase))
-    })
-  )
+const hasActiveCardExecution = computed(() => {
+  return dataList.value.some(item => {
+    const execution = item.execution_status
+    return !!execution && (activeExecutionStates.has(execution.state) || activeExecutionStates.has(execution.phase))
+  })
 })
 
 // 订阅顺序配置
@@ -357,21 +386,23 @@ async function saveSubscribeOrder() {
   }
 }
 
-// 获取订阅列表数据
-async function fetchData(context: KeepAliveRefreshContext = {}) {
+// 获取订阅列表；批次状态使用独立错误边界，不参与列表成功判定。
+async function requestSubscriptions(context: KeepAliveRefreshContext = {}) {
   const showLoading = !context.silent || !isRefreshed.value
   const isInitialLoad = !isRefreshed.value
+  lastSubscriptionRequestAt = Date.now()
 
   try {
     if (showLoading) {
       loading.value = true
     }
-    const [subscribes, batches] = await Promise.all([
-      api.get<Subscribe[]>('subscribe/'),
-      api.get<SubscriptionBatchStatus[]>('subscribe/execution/batches?limit=10'),
-    ])
+    const subscribes = await api.get<Subscribe[]>('subscribe/', { feedback: 'silent' })
+    if (!initialSubscriptionOpened) {
+      initialSubscriptionOpened = true
+      const initialSubscription = subscribes.find(subscribe => subscribe.id.toString() === props.subid?.toString())
+      if (initialSubscription) initialSubscription.page_open = true
+    }
     dataList.value = subscribes
-    executionBatches.value = batches
     loadError.value = false
     isRefreshed.value = true
   } catch (error) {
@@ -388,20 +419,171 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
     if (showLoading) {
       loading.value = false
     }
-    scheduleExecutionPoll()
   }
 }
 
-// 仅在页面可见且存在活动执行时轮询，终态后自动停止。
-function scheduleExecutionPoll() {
+// 合并在途请求期间的刷新意图，显式刷新优先于静默刷新。
+function mergeSubscriptionRefreshContext(current: KeepAliveRefreshContext | undefined, next: KeepAliveRefreshContext) {
+  if (!current) return next
+
+  return {
+    // 只要有一个显式入口，trailing 请求就不能继续静默处理。
+    silent: current.silent === true && next.silent === true ? true : undefined,
+    source: next.source ?? current.source,
+  }
+}
+
+// 在途请求结束后补一次最新列表；重复静默触发只更新同一个 trailing 槽位。
+async function runSubscriptionRefresh(context: KeepAliveRefreshContext) {
+  let nextContext = context
+
+  while (true) {
+    pendingSubscriptionRefreshContext = undefined
+    await requestSubscriptions(nextContext)
+
+    if (!pendingSubscriptionRefreshContext) return
+    nextContext = pendingSubscriptionRefreshContext
+  }
+}
+
+// 所有刷新入口共享列表刷新 worker，避免慢响应期间并发读取和旧快照回写。
+async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
+  if (subscriptionRequest) {
+    pendingSubscriptionRefreshContext = mergeSubscriptionRefreshContext(pendingSubscriptionRefreshContext, context)
+    return subscriptionRequest
+  }
+
+  const request = runSubscriptionRefresh(context)
+  subscriptionRequest = request
+  try {
+    await request
+  } finally {
+    if (subscriptionRequest === request) subscriptionRequest = undefined
+    pendingSubscriptionRefreshContext = undefined
+  }
+}
+
+function executionBatchSignature(batches: SubscriptionBatchStatus[]) {
+  return JSON.stringify(
+    batches.map(batch => [
+      batch.batch_id,
+      batch.source,
+      batch.state,
+      batch.phase,
+      batch.total_count,
+      batch.processed_count,
+      batch.finished_count,
+      batch.failed_count,
+      batch.cancelled_count,
+      batch.skipped_count,
+      batch.created_at,
+      batch.current_subscription_id,
+      batch.current_site_id,
+      batch.updated_at,
+      batch.error,
+      batch.can_cancel,
+    ]),
+  )
+}
+
+let lastExecutionBatchSignature: string | undefined
+let executionBatchRequest: Promise<boolean> | undefined
+let executionPollRequest: Promise<void> | undefined
+let executionBatchRequestFailed = false
+
+// 批次读取失败时保留上次快照，让订阅列表和后续轮询仍可独立工作。
+async function requestExecutionBatches() {
+  try {
+    const batches = await api.get<SubscriptionBatchStatus[]>('subscribe/execution/batches?limit=10', {
+      feedback: 'silent',
+    })
+    if (isUnmounted) return false
+    const nextSignature = executionBatchSignature(batches)
+    const changed =
+      executionBatchRequestFailed ||
+      (lastExecutionBatchSignature !== undefined && nextSignature !== lastExecutionBatchSignature)
+    executionBatchRequestFailed = false
+    lastExecutionBatchSignature = nextSignature
+    executionBatches.value = batches
+    return changed
+  } catch (error) {
+    if (!isUnmounted && !isCancelledRequest(error)) {
+      console.error(error)
+      executionBatchRequestFailed = true
+    }
+    return false
+  }
+}
+
+// 可见性、手工刷新和定时轮询共享同一个在途请求，避免旧快照覆盖新状态。
+async function fetchExecutionBatches() {
+  if (executionBatchRequest) return executionBatchRequest
+  const request = requestExecutionBatches()
+  executionBatchRequest = request
+  try {
+    return await request
+  } finally {
+    if (executionBatchRequest === request) executionBatchRequest = undefined
+  }
+}
+
+// 列表和批次各自收口请求错误，任一失败都不覆盖另一份成功数据。
+async function fetchData(context: KeepAliveRefreshContext = {}) {
+  await Promise.all([fetchSubscriptions(context), fetchExecutionBatches()])
+  scheduleExecutionPoll()
+}
+
+function clearExecutionPoll() {
   if (executionPollTimer) {
     clearTimeout(executionPollTimer)
     executionPollTimer = undefined
   }
-  if (isUnmounted || !props.active || !hasActiveExecution.value) return
+}
+
+// 高频只读取轻量批次；进度变化、活动卡片或列表错误恢复时才刷新完整订阅列表。
+async function runExecutionPoll() {
+  executionPollTimer = undefined
+  if (isUnmounted || !props.active || document.hidden) return
+  const batchChanged = await fetchExecutionBatches()
+  const cardRefreshDue =
+    (hasActiveCardExecution.value || loadError.value) &&
+    Date.now() - lastSubscriptionRequestAt >= ACTIVE_CARD_REFRESH_INTERVAL_MS
+  if (!isUnmounted && props.active && !document.hidden && (batchChanged || cardRefreshDue)) {
+    void fetchSubscriptions({ silent: true })
+  }
+  scheduleExecutionPoll()
+}
+
+// 可见性和定时器触发的轮询共用完整生命周期，避免同一批次结果触发多次列表刷新。
+async function pollExecutionState() {
+  if (executionPollRequest) return executionPollRequest
+
+  const request = runExecutionPoll()
+  executionPollRequest = request
+  try {
+    await request
+  } finally {
+    if (executionPollRequest === request) {
+      executionPollRequest = undefined
+    }
+  }
+}
+
+// 页面可见时持续读取轻量批次，使外部入口启动的新批次和接口恢复能够被发现。
+function scheduleExecutionPoll() {
+  clearExecutionPoll()
+  if (isUnmounted || !props.active || document.hidden) return
   executionPollTimer = setTimeout(() => {
-    void fetchData({ silent: true })
+    void pollExecutionState()
   }, 2500)
+}
+
+function handleExecutionVisibilityChange() {
+  if (document.hidden) {
+    clearExecutionPoll()
+    return
+  }
+  if (!isUnmounted && props.active) void pollExecutionState()
 }
 
 // 页面切换触发的请求取消是正常生命周期，不应展示为业务失败。
@@ -637,26 +819,26 @@ const errorTitle = computed(() => {
 
 onMounted(async () => {
   isUnmounted = false
+  document.addEventListener('visibilitychange', handleExecutionVisibilityChange)
   await loadSubscribeOrderConfig()
   await fetchData()
-  if (props.subid) {
-    // 找到这个订阅
-    const sub = dataList.value.find(sub => sub.id.toString() == props.subid?.toString())
-    if (sub) {
-      // 打开编辑弹窗
-      sub.page_open = true
-    }
-  }
 })
 
 watch(
   () => props.active,
-  () => scheduleExecutionPoll(),
+  active => {
+    if (!active) {
+      clearExecutionPoll()
+      return
+    }
+    scheduleExecutionPoll()
+  },
 )
 
 onBeforeUnmount(() => {
   isUnmounted = true
-  if (executionPollTimer) clearTimeout(executionPollTimer)
+  clearExecutionPoll()
+  document.removeEventListener('visibilitychange', handleExecutionVisibilityChange)
 })
 
 useKeepAliveRefresh(fetchData, {
@@ -684,27 +866,31 @@ defineExpose({
 
   <VAlert
     v-if="visibleExecutionBatch"
-    :color="visibleExecutionBatch.state === 'failed' ? 'error' : visibleExecutionBatch.state === 'cancelled' ? 'secondary' : 'info'"
+    :color="visibleExecutionBatchAppearance.color"
     variant="tonal"
     class="subscribe-execution-banner mb-4 mx-2 py-2"
   >
     <div class="d-flex min-w-0 align-center gap-3">
-      <VIcon
-        :icon="activeExecutionStates.has(visibleExecutionBatch.state) ? 'mdi-progress-clock' : visibleExecutionBatch.state === 'failed' ? 'mdi-alert-outline' : 'mdi-cancel'"
-        size="20"
-      />
+      <VIcon :icon="visibleExecutionBatchAppearance.icon" size="20" />
       <div class="min-w-0 flex-grow-1">
         <div class="d-flex min-w-0 align-center justify-space-between gap-2 text-body-2 font-weight-medium">
           <span class="text-truncate">
-            {{ t(`subscribe.execution.state.${visibleExecutionBatch.phase}`) }}
+            {{ t(`subscribe.execution.state.${visibleExecutionBatchState}`) }}
           </span>
           <span class="flex-shrink-0">
-            {{ t('subscribe.execution.batchProgress', { processed: visibleExecutionBatch.processed_count, total: visibleExecutionBatch.total_count }) }}
+            {{
+              t('subscribe.execution.batchProgress', {
+                processed: visibleExecutionBatch.processed_count,
+                total: visibleExecutionBatch.total_count,
+              })
+            }}
           </span>
         </div>
         <VProgressLinear
           :model-value="batchProgress"
-          :indeterminate="visibleExecutionBatch.total_count === 0 && activeExecutionStates.has(visibleExecutionBatch.state)"
+          :indeterminate="
+            visibleExecutionBatch.total_count === 0 && activeExecutionStates.has(visibleExecutionBatch.state)
+          "
           height="3"
           class="mt-2"
         />

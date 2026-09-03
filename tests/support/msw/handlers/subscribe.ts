@@ -82,24 +82,29 @@ function mutationResponse(response: SubscribeMutationResponse, status: number) {
 }
 
 export function subscribeListHandler(
-  response: JsonBodyType = [],
+  response: JsonBodyType | ((url: URL) => JsonBodyType | Promise<JsonBodyType>) = [],
   status = 200,
   onRequest: (url: URL) => void = () => {},
 ) {
-  return http.get(subscribeApiUrls.list, ({ request }) => {
-    onRequest(new URL(request.url))
-    return dataResponse(response, status)
+  return http.get(subscribeApiUrls.list, async ({ request }) => {
+    const url = new URL(request.url)
+    onRequest(url)
+    const body = typeof response === 'function' ? await response(url) : response
+    return dataResponse(body, status)
   })
 }
 
 export function subscriptionExecutionBatchesHandler(
-  response: SubscriptionBatchStatus[] = [],
+  response:
+    SubscriptionBatchStatus[] | ((url: URL) => SubscriptionBatchStatus[] | Promise<SubscriptionBatchStatus[]>) = [],
   status = 200,
   onRequest: (url: URL) => void = () => {},
 ) {
-  return http.get(subscribeApiUrls.executionBatches, ({ request }) => {
-    onRequest(new URL(request.url))
-    return dataResponse(response as unknown as JsonBodyType, status)
+  return http.get(subscribeApiUrls.executionBatches, async ({ request }) => {
+    const url = new URL(request.url)
+    onRequest(url)
+    const body = typeof response === 'function' ? await response(url) : response
+    return dataResponse(body as unknown as JsonBodyType, status)
   })
 }
 

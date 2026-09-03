@@ -35,8 +35,6 @@ export interface SubscriptionExecutionStatus {
   current_site_id?: number
   error?: string
   can_cancel: boolean
-  can_retry: boolean
-  requires_reconciliation: boolean
 }
 
 /** 订阅搜索批次的聚合进度与当前工作。 */
@@ -50,6 +48,8 @@ export interface SubscriptionBatchStatus {
   finished_count: number
   failed_count: number
   cancelled_count: number
+  /** 未执行业务动作而结束的任务数，例如同订阅准入冲突。 */
+  skipped_count: number
   created_at: string
   updated_at: string
   current_subscription_id?: number
