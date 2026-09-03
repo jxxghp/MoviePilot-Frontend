@@ -441,6 +441,7 @@ function executionBatchSignature(batches: SubscriptionBatchStatus[]) {
 
 let lastExecutionBatchSignature: string | undefined
 let executionBatchRequest: Promise<boolean> | undefined
+let executionPollRequest: Promise<void> | undefined
 
 // 批次读取失败时保留上次快照，让订阅列表和后续轮询仍可独立工作。
 async function requestExecutionBatches() {
@@ -486,7 +487,7 @@ function clearExecutionPoll() {
 }
 
 // 高频只读取轻量批次；进度变化、活动卡片或列表错误恢复时才刷新完整订阅列表。
-async function pollExecutionState() {
+async function runExecutionPoll() {
   executionPollTimer = undefined
   if (isUnmounted || !props.active || document.hidden) return
   const batchChanged = await fetchExecutionBatches()
@@ -499,10 +500,25 @@ async function pollExecutionState() {
   scheduleExecutionPoll()
 }
 
-// 仅在页面可见且存在活动执行时轮询，终态后自动停止。
+// 可见性和定时器触发的轮询共用完整生命周期，避免同一批次结果触发多次列表刷新。
+async function pollExecutionState() {
+  if (executionPollRequest) return executionPollRequest
+
+  const request = runExecutionPoll()
+  executionPollRequest = request
+  try {
+    await request
+  } finally {
+    if (executionPollRequest === request) {
+      executionPollRequest = undefined
+    }
+  }
+}
+
+// 仅在页面可见且存在活动执行或列表错误时轮询，终态且无错误后自动停止。
 function scheduleExecutionPoll() {
   clearExecutionPoll()
-  if (isUnmounted || !props.active || document.hidden || !hasActiveExecution.value) return
+  if (isUnmounted || !props.active || document.hidden || (!hasActiveExecution.value && !loadError.value)) return
   executionPollTimer = setTimeout(() => {
     void pollExecutionState()
   }, 2500)

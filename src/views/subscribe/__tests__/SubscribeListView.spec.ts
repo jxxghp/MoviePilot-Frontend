@@ -440,6 +440,26 @@ describe('SubscribeListView loading and filtering', () => {
     expect(screen.queryByText('请求失败，请稍后重试')).not.toBeInTheDocument()
   })
 
+  it('keeps a failed subscription list on a recovery poll without an active execution', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.useFakeTimers()
+    const listRequested = vi.fn()
+    const recoveredListRequested = vi.fn()
+    await renderList({ listStatus: 500, onListRequest: listRequested })
+    await flushAsync()
+
+    expect(listRequested).toHaveBeenCalledOnce()
+    expect(screen.getByText('请求失败，请稍后重试')).toBeInTheDocument()
+
+    server.use(subscribeListHandler([movie(1, '无活动任务时已恢复')], 200, recoveredListRequested))
+    await vi.advanceTimersByTimeAsync(15_000)
+    await flushAsync()
+
+    expect(recoveredListRequested).toHaveBeenCalledOnce()
+    expect(await screen.findByText('无活动任务时已恢复')).toBeInTheDocument()
+    expect(screen.queryByText('请求失败，请稍后重试')).not.toBeInTheDocument()
+  })
+
   it('polls an unchanged active batch without reloading a large subscription list', async () => {
     const hidden = mockDocumentHidden(true)
     const listRequested = vi.fn()
@@ -609,6 +629,51 @@ describe('SubscribeListView loading and filtering', () => {
     await flushAsync()
     expect(batchRequested).toHaveBeenCalledOnce()
     expect(await screen.findByText('并发读取订阅')).toBeInTheDocument()
+  })
+
+  it('serializes the complete poll when visibility changes during a batch request', async () => {
+    const hidden = mockDocumentHidden(true)
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    let resolveBatch!: (batches: SubscriptionBatchStatus[]) => void
+    let batchCallCount = 0
+    const pendingBatch = new Promise<SubscriptionBatchStatus[]>(resolve => {
+      resolveBatch = resolve
+    })
+    const activeExecution = {
+      can_cancel: false,
+      phase: 'searching',
+      state: 'searching',
+      updated_at: '2026-09-01T00:01:00+00:00',
+    }
+    await renderList({
+      batchResponse: () => {
+        batchCallCount += 1
+        return batchCallCount === 1 ? [] : pendingBatch
+      },
+      listResponse: [movie(1, '轮询串行订阅', { execution_status: activeExecution })],
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+
+    expect(await screen.findByText('轮询串行订阅')).toBeInTheDocument()
+    await waitFor(() => expect(batchRequested).toHaveBeenCalledOnce())
+
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(15_000)
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    hidden.set(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    hidden.set(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    resolveBatch([executionBatch()])
+    await flushAsync()
+
+    expect(listRequested).toHaveBeenCalledTimes(2)
   })
 
   it('shows a skipped batch and uses its processed count in the progress label', async () => {
