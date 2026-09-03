@@ -2,6 +2,7 @@
 import api from '@/api'
 import type { SystemUpdateItemStatus, SystemUpdateStatus, SystemUpdateType } from '@/api/types'
 import { useConfirm } from '@/composables/useConfirm'
+import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { SYSTEM_UPDATE_MENU_EVENT, useSystemUpdateStatus } from '@/composables/useSystemUpdateStatus'
 import { useToast } from 'vue-toastification'
@@ -16,6 +17,7 @@ const { t } = useI18n()
 const { createConfirm } = useConfirm()
 const { startSystemRestart, finishSystemRestart } = useSystemRestartStatus()
 const { status, setStatus, startPolling, stopPolling } = useSystemUpdateStatus()
+const { footerDockHeight } = useFooterDockHeight()
 const toast = useToast()
 const actionPending = ref(false)
 const pendingTarget = ref<SystemUpdateType | null>(null)
@@ -35,6 +37,12 @@ type ReminderStore = Partial<Record<SystemUpdateType, UpdateReminder>>
 
 const reminders = ref<ReminderStore>(readReminders())
 const reminderClock = ref(Date.now())
+
+const promptStyle = computed<Record<string, string | undefined>>(() => {
+  if (!footerDockHeight.value) return {}
+
+  return { '--system-update-footer-height': `${footerDockHeight.value}px` }
+})
 
 const updateItems = computed<SystemUpdateItemStatus[]>(() => {
   if (!status.value) return []
@@ -323,6 +331,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
       v-if="visible"
       class="system-update-prompt"
       :class="{ 'system-update-prompt--avoid-agent': props.avoidAgentAssistant }"
+      :style="promptStyle"
     >
       <div v-for="(item, index) in visibleItems" :key="item.type" class="system-update-prompt__section">
         <VCardItem>
@@ -413,12 +422,28 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 
 <style scoped>
 .system-update-prompt {
+  --system-update-footer-height: env(safe-area-inset-bottom, 0px);
+  --system-update-prompt-bottom-gap: 20px;
+
   position: fixed;
   z-index: 2400;
   right: max(20px, env(safe-area-inset-right));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: calc(var(--system-update-footer-height) + var(--system-update-prompt-bottom-gap));
   width: min(400px, calc(100vw - 32px));
-  max-height: min(80vh, 680px);
+  max-height: min(
+    80vh,
+    calc(
+      100vh - var(--system-update-footer-height) - var(--system-update-prompt-bottom-gap) -
+        max(16px, env(safe-area-inset-top, 0px))
+    )
+  );
+  max-height: min(
+    680px,
+    calc(
+      100dvh - var(--system-update-footer-height) - var(--system-update-prompt-bottom-gap) -
+        max(16px, env(safe-area-inset-top, 0px))
+    )
+  );
   overflow-y: auto;
   border: var(--app-overlay-border);
   border-radius: var(--app-overlay-radius) !important;
@@ -431,7 +456,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 }
 
 .system-update-prompt--avoid-agent {
-  bottom: max(220px, env(safe-area-inset-bottom));
+  bottom: calc(var(--system-update-footer-height) + 220px);
 }
 
 .system-update-prompt :deep(.v-card-text) {
@@ -453,12 +478,13 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 
 @media (max-width: 600px) {
   .system-update-prompt {
+    --system-update-prompt-bottom-gap: 16px;
+
     right: 16px;
-    bottom: max(16px, env(safe-area-inset-bottom));
   }
 
   .system-update-prompt--avoid-agent {
-    bottom: max(210px, env(safe-area-inset-bottom));
+    bottom: calc(var(--system-update-footer-height) + 210px);
   }
 }
 </style>

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   finishRestart: vi.fn(),
+  footerDockHeight: null as { value: number | null } | null,
   get: vi.fn(),
   post: vi.fn(),
   startRestart: vi.fn(),
@@ -21,6 +22,12 @@ vi.mock('@/api', () => ({
   },
 }))
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ createConfirm: mocks.confirm }) }))
+vi.mock('@/composables/useFooterDockHeight', async () => {
+  const { ref } = await import('vue')
+  const footerDockHeight = ref<number | null>(null)
+  mocks.footerDockHeight = footerDockHeight
+  return { useFooterDockHeight: () => ({ footerDockHeight }) }
+})
 vi.mock('@/composables/useSystemRestart', () => ({
   useSystemRestartStatus: () => ({
     finishSystemRestart: mocks.finishRestart,
@@ -67,6 +74,7 @@ describe('SystemUpdatePrompt', () => {
     localStorage.clear()
     mocks.confirm.mockResolvedValue(true)
     mocks.updateStatus!.value = availableStatus
+    mocks.footerDockHeight!.value = null
   })
 
   it('asks an administrator to start the background download', async () => {
@@ -121,6 +129,14 @@ describe('SystemUpdatePrompt', () => {
 
     const title = await screen.findByText('systemUpdate.applicationAvailableTitle')
     expect(title.closest('.system-update-prompt')).toHaveClass('system-update-prompt--avoid-agent')
+  })
+
+  it('binds the measured Footer height to the floating prompt', async () => {
+    mocks.footerDockHeight!.value = 104
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+    const title = await screen.findByText('systemUpdate.applicationAvailableTitle')
+    expect(title.closest('.system-update-prompt')).toHaveStyle('--system-update-footer-height: 104px')
   })
 
   it('snoozes the current version for 24 hours', async () => {
