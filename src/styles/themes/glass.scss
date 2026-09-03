@@ -438,7 +438,7 @@ html[data-theme='glass'] {
   }
 
   // Toast 与助手气泡属于临时浮层，直接复用菜单材质 token，避免磨砂档出现不同的底色与模糊强度。
-  :where(.Vue-Toastification__toast, .agent-assistant-fab__bubble) {
+  :where(.Vue-Toastification__toast, .agent-assistant-fab__bubble, .system-update-prompt) {
     border-color: var(--glass-border-raised) !important;
     -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
     backdrop-filter: var(--glass-overlay-backdrop-filter) !important;

@@ -276,6 +276,12 @@ html[data-theme='transparent'] {
       ),
       rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
   }
+
+  // 更新提醒是非模态固定浮层，沿用菜单与其他临时浮层的透光强度。
+  .system-update-prompt {
+    backdrop-filter: blur(var(--transparent-blur)) !important;
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+  }
 }
 
 html[data-theme='transparent'].transparent-background-blur-disabled {
@@ -413,6 +419,7 @@ html[data-theme='transparent'].transparent-blur-disabled {
   .theme-customizer-panel,
   .agent-assistant-panel,
   .agent-assistant-fab__bubble,
+  .system-update-prompt,
   .nav-button,
   .layout-navbar {
     backdrop-filter: none !important;
