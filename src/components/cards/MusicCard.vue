@@ -63,7 +63,7 @@ const entityMeta = computed(() => {
 // 卡片只展示标准音乐模型中已映射的稳定字段
 const metaItems = computed(() => {
   const items: { hideOnNarrow?: boolean; icon: string; label: string }[] = []
-  const category = props.music?.category || props.music?.album_type
+  const category = props.music?.metadata_category || props.music?.album_type
   if (category) items.push({ hideOnNarrow: true, icon: 'mdi-label-outline', label: category })
   const releaseDate = props.music?.release_date || props.music?.year?.toString()
   if (releaseDate) items.push({ icon: 'mdi-calendar-blank-outline', label: releaseDate })

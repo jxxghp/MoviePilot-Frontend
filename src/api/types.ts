@@ -58,6 +58,23 @@ export interface SubscriptionBatchStatus {
   can_cancel: boolean
 }
 
+/** 自动分类中的单个推荐或生效选择快照。 */
+export interface MediaClassificationSelection {
+  category_id?: string
+  category_path?: string[]
+  rule_id?: string
+  source?: string
+}
+
+/** 媒体对象携带的分类结果快照。 */
+export interface MediaClassificationResult {
+  recommended?: MediaClassificationSelection
+  effective?: MediaClassificationSelection
+  labels?: string[]
+  policy_revision?: number
+  state?: 'complete' | 'partial' | 'not_evaluated' | 'invalid_policy'
+}
+
 // 手动刮削选项
 export interface ManualScrapeOptions {
   // 媒体数据源
@@ -459,7 +476,13 @@ export interface MediaInfo {
   vote_average?: number
   // 描述
   overview?: string
-  // 二级分类
+  // 媒体库目录分类
+  library_category?: string
+  // 数据源提供的描述性分类
+  metadata_category?: string
+  // 本次分类结果快照
+  classification?: MediaClassificationResult
+  // 媒体库目录分类兼容字段
   category?: string
   // 详情页面
   detail_link?: string
@@ -535,6 +558,14 @@ export interface MediaInfo {
   album_id?: string
   // 专辑主类型：Album、EP、Single 等
   album_type?: string
+  // 专辑副类型：Live、Compilation、Soundtrack 等
+  secondary_types?: string[]
+  // 音乐标签
+  tags?: string[]
+  // 艺术家国家或地区
+  artist_country?: string
+  // 发行状态
+  release_status?: string
   // 发行版本
   version?: string
   // 音轨号
@@ -634,7 +665,13 @@ export interface MusicAlbumInfo {
   genres?: string[]
   // 标签
   tags?: string[]
+  // 媒体库目录分类
+  library_category?: string
   // 主类型与副类型组合文本
+  metadata_category?: string
+  // 本次分类结果快照
+  classification?: MediaClassificationResult
+  // 媒体库目录分类兼容字段
   category?: string
   // 10 分制评分
   rating?: number
@@ -1943,6 +1980,8 @@ export interface TransferDirectoryConf {
   media_type?: string
   // 适用媒体类别
   media_category?: string
+  // 适用媒体类别稳定 ID；media_category 仅保存服务端规范化路径快照
+  media_category_id?: string | null
   // 下载类型子目录
   download_type_folder?: boolean
   // 下载类别子目录
@@ -2477,19 +2516,4 @@ export interface ApiResponse<T = unknown> {
   success: boolean
   message: string
   data: T | null
-}
-
-// 分类规则
-export interface CategoryRule {
-  genre_ids?: string
-  original_language?: string
-  production_countries?: string
-  origin_country?: string
-  release_year?: string
-}
-
-// 分类配置
-export interface CategoryConfig {
-  movie?: { [key: string]: CategoryRule }
-  tv?: { [key: string]: CategoryRule }
 }

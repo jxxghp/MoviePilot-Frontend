@@ -1,4 +1,6 @@
 import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
+import type { ClassificationCategory } from '@/api/mediaClassification'
+import type { TransferDirectoryConf } from '@/api/types'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
@@ -8,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
-  openSharedDialog: vi.fn(),
+  routerPush: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useSilentSettingRefresh: vi.fn(),
@@ -16,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/api', () => ({
   default: createDataApiMock({ get: mocks.apiGet, post: mocks.apiPost }),
+  getApiErrorMessage: (error: unknown) => (error instanceof Error ? error.message : undefined),
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -26,20 +29,30 @@ vi.mock('@/composables/useSilentSettingRefresh', () => ({
   useSilentSettingRefresh: mocks.useSilentSettingRefresh,
 }))
 
-vi.mock('@/composables/useSharedDialog', () => ({
-  openSharedDialog: mocks.openSharedDialog,
-}))
+vi.mock('vue-router', async importOriginal => {
+  const actual = await importOriginal<typeof import('vue-router')>()
+  return {
+    ...actual,
+    useRoute: () => ({ query: { section: 'directories' } }),
+    useRouter: () => ({ push: mocks.routerPush }),
+  }
+})
 
 vi.mock('@/components/cards/DirectoryCard.vue', async () => {
   const { defineComponent } = await import('vue')
   return {
     default: defineComponent({
       name: 'DirectoryCardStub',
-      props: { directory: { type: Object, required: true } },
+      props: {
+        directory: { type: Object, required: true },
+        categories: { type: Array, default: () => [] },
+      },
       emits: ['close', 'update:modelValue'],
       template: `
       <section :aria-label="'directory-' + directory.name">
         <span>{{ directory.name }}</span>
+        <span :data-testid="'category-path-' + directory.name">{{ directory.media_category }}</span>
+        <span :data-testid="'category-count-' + directory.name">{{ categories.length }}</span>
         <button :aria-label="'rename-' + directory.name" @click="directory.name = '目录1'">rename</button>
         <button :aria-label="'remove-' + directory.name" @click="$emit('close')">remove</button>
         <button
@@ -106,7 +119,7 @@ const storagesFixture = [
   { name: '自定义存储 1', type: 'custom1', config: {} },
 ]
 
-const directoriesFixture = [
+const directoriesFixture: TransferDirectoryConf[] = [
   {
     name: '目录1',
     storage: 'local',
@@ -116,6 +129,7 @@ const directoriesFixture = [
     monitor_type: '',
     media_type: '',
     media_category: '',
+    media_category_id: null,
     transfer_type: '',
   },
   {
@@ -127,16 +141,53 @@ const directoriesFixture = [
     monitor_type: '',
     media_type: '',
     media_category: '',
+    media_category_id: null,
     transfer_type: '',
   },
 ]
 
-function mockLoadedSettings(options: { mountedDisk?: boolean | null } = {}) {
+const classificationCategories: ClassificationCategory[] = [
+  { id: 'movie.animation', media_type: '电影', name: '动画', path: ['电影', '动画'], enabled: true, labels: [] },
+  { id: 'movie.disabled', media_type: '电影', name: '停用', path: ['电影', '停用'], enabled: false, labels: [] },
+]
+
+const classificationPolicyFixture = {
+  schema_version: 2,
+  revision: 7,
+  mode: 'first_match',
+  enrichment_mode: 'primary_only',
+  categories: classificationCategories,
+  rules: [],
+  fallbacks: {},
+  source_fallbacks: {},
+  field_aliases: {},
+}
+
+function mockLoadedSettings(
+  options: {
+    mountedDisk?: boolean | null
+    directories?: TransferDirectoryConf[]
+    reloadedDirectories?: TransferDirectoryConf[]
+    categories?: ClassificationCategory[]
+  } = {},
+) {
+  let directoryReadCount = 0
   mocks.apiGet.mockImplementation((endpoint: string) => {
-    if (endpoint === 'system/setting/public/Directories')
-      return { data: { value: structuredClone(directoriesFixture) } }
+    if (endpoint === 'system/setting/public/Directories') {
+      directoryReadCount += 1
+      const value =
+        directoryReadCount > 1 && options.reloadedDirectories
+          ? options.reloadedDirectories
+          : (options.directories ?? directoriesFixture)
+      return { data: { value: structuredClone(value) } }
+    }
     if (endpoint === 'system/setting/public/Storages') return { data: { value: structuredClone(storagesFixture) } }
-    if (endpoint === 'media/category') return { 电影: ['华语'] }
+    if (endpoint === 'media/classification/policy') {
+      return {
+        ...structuredClone(classificationPolicyFixture),
+        categories: structuredClone(options.categories ?? classificationCategories),
+      }
+    }
     if (endpoint === 'system/env') {
       return {
         success: true,
@@ -154,6 +205,7 @@ function mockLoadedSettings(options: { mountedDisk?: boolean | null } = {}) {
     throw new Error(`Unexpected GET ${endpoint}`)
   })
   mocks.apiPost.mockResolvedValue({ success: true })
+  return () => directoryReadCount
 }
 
 async function renderDirectorySettings() {
@@ -177,7 +229,7 @@ describe('AccountSettingDirectory', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
-    mocks.openSharedDialog.mockReset()
+    mocks.routerPush.mockReset().mockResolvedValue(undefined)
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.useSilentSettingRefresh.mockReset()
@@ -189,6 +241,8 @@ describe('AccountSettingDirectory', () => {
 
     expect(await screen.findByText('目录1')).toBeInTheDocument()
     expect(screen.getByText('目录3')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('category-count-目录1')).toHaveTextContent('2'))
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/classification/policy')
     expect(screen.getByRole('checkbox', { name: '挂载盘删除空目录' })).toBeChecked()
     expect(getRenameEditors().map(input => (input as HTMLTextAreaElement).value)).toEqual([
       '{{ title }}',
@@ -239,6 +293,57 @@ describe('AccountSettingDirectory', () => {
 
     expect(mocks.apiPost).not.toHaveBeenCalledWith('system/setting/Directories', expect.anything())
     expect(mocks.toastError).toHaveBeenCalledWith('存在重复目录名称！无法保存，请修改！')
+  })
+
+  it('blocks invalid stable category ids before saving', async () => {
+    const user = userEvent.setup()
+    mockLoadedSettings({
+      directories: [
+        {
+          ...directoriesFixture[0],
+          media_type: '电影',
+          media_category_id: 'movie.disabled',
+          media_category: '电影/停用',
+        },
+      ],
+    })
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(getCard('目录').getByRole('button', { name: '保存' }))
+
+    expect(mocks.apiPost).not.toHaveBeenCalledWith('system/setting/Directories', expect.anything())
+    expect(mocks.toastError).toHaveBeenCalledWith('目录中存在无效或失效的分类引用，请修复后再保存。')
+    expect(screen.getByTestId('directory-save-error')).toHaveTextContent(
+      '目录中存在无效或失效的分类引用，请修复后再保存。',
+    )
+  })
+
+  it('reloads normalized directory snapshots after a successful save', async () => {
+    const user = userEvent.setup()
+    const initialDirectory: TransferDirectoryConf = {
+      ...directoriesFixture[0],
+      media_type: '电影',
+      media_category_id: 'movie.animation',
+      media_category: '旧电影/动画',
+    }
+    const normalizedDirectory: TransferDirectoryConf = {
+      ...initialDirectory,
+      media_category: '电影/动画',
+    }
+    const directoryReads = mockLoadedSettings({
+      directories: [initialDirectory],
+      reloadedDirectories: [normalizedDirectory],
+    })
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+    expect(screen.getByTestId('category-path-目录1')).toHaveTextContent('旧电影/动画')
+
+    await user.click(getCard('目录').getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(directoryReads()).toBe(2))
+    expect(screen.getByTestId('category-path-目录1')).toHaveTextContent('电影/动画')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('目录设置保存成功')
   })
 
   it('removes directories and storages and persists the remaining collections', async () => {
@@ -317,20 +422,23 @@ describe('AccountSettingDirectory', () => {
 
     mocks.apiPost.mockRejectedValueOnce(new Error('offline'))
     await user.click(getCard('目录').getByRole('button', { name: '保存' }))
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('目录设置保存失败！'))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('offline'))
+    expect(screen.getByTestId('directory-save-error')).toHaveTextContent('offline')
 
     mocks.apiPost.mockRejectedValueOnce(new Error('offline'))
     await user.click(getCard('整理 & 刮削').getByRole('button', { name: '保存' }))
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('整理选项设置保存失败！'))
   })
 
-  it('opens the shared category editor and reloads storage data after a card completes', async () => {
+  it('opens unified classification settings and reloads storage data after a card completes', async () => {
     const user = userEvent.setup()
     await renderDirectorySettings()
     await screen.findByText('本地存储')
     const directoryCard = getCard('目录')
-    await user.click(directoryCard.getByRole('button', { name: '分类策略' }))
-    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    await user.click(directoryCard.getByRole('button', { name: '自动分类' }))
+    expect(mocks.routerPush).toHaveBeenCalledWith({
+      query: { section: 'directories', tab: 'classification' },
+    })
 
     const initialStorageLoads = mocks.apiGet.mock.calls.filter(
       ([url]) => url === 'system/setting/public/Storages',

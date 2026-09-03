@@ -169,7 +169,7 @@ describe('NameTestView media identity', () => {
       media_info: {
         album: '叶惠美',
         artist: '周杰伦',
-        category: 'Single',
+        metadata_category: 'Single',
         media_id: '8f97b17d-1234-4abc-9def-1234567890ab',
         media_source: 'musicbrainz',
         title: '晴天',

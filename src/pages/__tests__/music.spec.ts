@@ -52,7 +52,7 @@ const musicResult = {
   artist: '周杰伦',
   artists: ['周杰伦'],
   artist_ids: [artistId],
-  category: 'Album',
+  metadata_category: 'Album',
   duration: 269,
   media_id: recordingId,
   music_type: 'recording',
@@ -70,7 +70,7 @@ const albumResult = {
   artist: '周杰伦',
   artists: ['周杰伦'],
   artist_ids: [artistId],
-  category: 'Album',
+  metadata_category: 'Album',
   media_id: secondAlbumId,
   music_type: 'album',
   release_date: '2004-08-03',
@@ -81,7 +81,7 @@ const albumResult = {
 }
 
 const artistResult = {
-  category: 'Person',
+  metadata_category: 'Person',
   media_id: artistId,
   music_type: 'artist',
   media_source: 'musicbrainz',

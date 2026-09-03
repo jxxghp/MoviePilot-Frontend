@@ -49,7 +49,7 @@ const recording = {
   artist: '周杰伦',
   artists: ['周杰伦'],
   artist_ids: [artistId],
-  category: 'Album',
+  metadata_category: 'Album',
   cover_url: `https://coverartarchive.org/release-group/${albumId}/front-500`,
   duration: 269,
   genres: ['mandopop'],

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { StorageConf, TransferDirectoryConf } from '@/api/types'
+import type { ClassificationCategory } from '@/api/mediaClassification'
 import { manageStorage } from '@/api/manage'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -29,8 +30,8 @@ const props = defineProps({
     required: true, // 必填参数
   },
   categories: {
-    type: Object as PropType<{ [key: string]: any }>,
-    required: true,
+    type: Array as PropType<readonly ClassificationCategory[]>,
+    default: () => [],
   },
   storages: {
     type: Array as PropType<StorageConf[]>,
@@ -216,12 +217,113 @@ function onClose() {
   emit('close')
 }
 
-// 根据选中的媒体类型，获取对应的媒体类别
-const getCategories = computed(() => {
-  const default_value = [{ title: t('common.all'), value: '' }]
-  if (!props.categories || !props.categories[props.directory?.media_type ?? '']) return default_value
-  return default_value.concat(props.categories[props.directory.media_type ?? ''])
+/** 返回分类的服务端规范路径文本。 */
+function categoryPath(category: ClassificationCategory): string {
+  return category.path.join('/')
+}
+
+// 目录只能选择当前媒体类型下仍启用的稳定分类。
+const categoryItems = computed(() => [
+  { title: t('common.all'), value: '' },
+  ...props.categories
+    .filter(category => category.enabled && category.media_type === props.directory.media_type)
+    .map(category => ({
+      title: `${category.name} · ${categoryPath(category)} · ${category.id}`,
+      value: category.id,
+    })),
+])
+
+const selectedCategory = computed(() => {
+  const categoryId = props.directory.media_category_id?.trim()
+  if (!categoryId) return undefined
+  return props.categories.find(category => category.id === categoryId)
 })
+
+const legacyCategoryMatches = computed(() => {
+  if (props.directory.media_category_id || !props.directory.media_category || !props.directory.media_type) return []
+  return props.categories.filter(
+    category =>
+      category.media_type === props.directory.media_type && categoryPath(category) === props.directory.media_category,
+  )
+})
+
+// 无法自动迁移的旧路径保留原值；稳定 ID 的失效状态则必须显式修复。
+const categoryDiagnostic = computed(() => {
+  const categoryId = props.directory.media_category_id?.trim()
+  if (categoryId) {
+    if (!selectedCategory.value) {
+      return {
+        type: 'error' as const,
+        message: t('setting.directory.classification.categoryMissing', { id: categoryId }),
+      }
+    }
+    if (!selectedCategory.value.enabled) {
+      return {
+        type: 'error' as const,
+        message: t('setting.directory.classification.categoryDisabled', { id: categoryId }),
+      }
+    }
+    if (!props.directory.media_type || selectedCategory.value.media_type !== props.directory.media_type) {
+      return {
+        type: 'error' as const,
+        message: t('setting.directory.classification.mediaTypeMismatch', {
+          categoryType: selectedCategory.value.media_type,
+          directoryType: props.directory.media_type || t('common.all'),
+        }),
+      }
+    }
+    return null
+  }
+
+  if (!props.directory.media_category) return null
+  if (legacyCategoryMatches.value.length > 1) {
+    return {
+      type: 'warning' as const,
+      message: t('setting.directory.classification.legacyAmbiguous', { path: props.directory.media_category }),
+    }
+  }
+  if (legacyCategoryMatches.value.length === 0) {
+    return {
+      type: 'warning' as const,
+      message: t('setting.directory.classification.legacyUnresolved', { path: props.directory.media_category }),
+    }
+  }
+  return null
+})
+
+/** 切换媒体类型时清除不再具备类型语义的稳定 ID 和路径快照。 */
+function onMediaTypeChanged(value: string | null): void {
+  // 该卡片沿用现有约定，直接维护父页面传入的目录草稿。
+  // eslint-disable-next-line vue/no-mutating-props
+  props.directory.media_type = value ?? ''
+  props.directory.media_category_id = null
+  props.directory.media_category = ''
+}
+
+/** 更新稳定分类选择；路径快照等待保存后的服务端规范化回读。 */
+function onMediaCategoryChanged(value: string | null): void {
+  const nextCategoryId = value?.trim() || null
+  if (nextCategoryId === (props.directory.media_category_id?.trim() || null)) return
+  // eslint-disable-next-line vue/no-mutating-props
+  props.directory.media_category_id = nextCategoryId
+  props.directory.media_category = ''
+}
+
+// 旧路径只按同媒体类型的完整规范路径唯一精确匹配，不进行名称、末级或模糊推断。
+watch(
+  [
+    () => props.directory.media_category_id,
+    () => props.directory.media_category,
+    () => props.directory.media_type,
+    () => props.categories,
+  ],
+  () => {
+    if (props.directory.media_category_id || legacyCategoryMatches.value.length !== 1) return
+    // eslint-disable-next-line vue/no-mutating-props
+    props.directory.media_category_id = legacyCategoryMatches.value[0].id
+  },
+  { immediate: true, deep: true },
+)
 
 // 监听 资源存储与媒体库储存 变化，重新加载整理方式下拉字典
 watch(
@@ -245,13 +347,13 @@ watch(
 
 // 媒体类别和类型变更非空时，将按类型分类和按类别分类置为false
 watch(
-  [() => props.directory.media_type, () => props.directory.media_category],
-  ([newMediaType, newMediaCategory], [oldMediaType, oldMediaCategory]) => {
+  [() => props.directory.media_type, () => props.directory.media_category_id],
+  ([newMediaType, newMediaCategoryId], [oldMediaType, oldMediaCategoryId]) => {
     if (newMediaType && newMediaType !== oldMediaType) {
       props.directory.download_type_folder = false
       props.directory.library_type_folder = false
     }
-    if (newMediaCategory && newMediaCategory !== oldMediaCategory) {
+    if (newMediaCategoryId && newMediaCategoryId !== oldMediaCategoryId) {
       props.directory.download_category_folder = false
       props.directory.library_category_folder = false
     }
@@ -295,24 +397,51 @@ watch(
     <VCardText v-if="!isCollapsed">
       <VForm>
         <VRow>
-          <VCol cols="6">
+          <VCol cols="12" sm="6">
             <VAutocomplete
-              v-model="props.directory.media_type"
+              :model-value="props.directory.media_type"
               variant="underlined"
               :items="typeItems"
               :label="t('directory.mediaType')"
               mobile-control-width="65%"
-              @update:modelValue="props.directory.media_category = ''"
+              @update:model-value="onMediaTypeChanged"
             />
           </VCol>
-          <VCol cols="6">
+          <VCol cols="12" sm="6">
             <VAutocomplete
-              v-model="props.directory.media_category"
+              data-testid="directory-category-select"
+              :model-value="props.directory.media_category_id || ''"
               variant="underlined"
-              :items="getCategories"
-              :label="t('directory.mediaCategory')"
+              :items="categoryItems"
+              :label="t('setting.directory.classification.categoryLabel')"
               mobile-control-width="65%"
+              @update:model-value="onMediaCategoryChanged"
             />
+          </VCol>
+          <VCol cols="12">
+            <VTextField
+              data-testid="directory-category-path"
+              :model-value="props.directory.media_category || ''"
+              variant="underlined"
+              :label="t('setting.directory.classification.snapshotLabel')"
+              :hint="
+                props.directory.media_category_id && !props.directory.media_category
+                  ? t('setting.directory.classification.snapshotPending')
+                  : undefined
+              "
+              persistent-hint
+              readonly
+            />
+            <VAlert
+              v-if="categoryDiagnostic"
+              data-testid="directory-category-diagnostic"
+              :type="categoryDiagnostic.type"
+              variant="tonal"
+              density="compact"
+              class="mt-2"
+            >
+              {{ categoryDiagnostic.message }}
+            </VAlert>
           </VCol>
           <VCol cols="4">
             <VAutocomplete
@@ -446,7 +575,11 @@ watch(
     </VCardText>
     <VCardActions class="text-center py-0">
       <VSpacer />
-      <VBtn :icon="isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'" @click.stop="isCollapsed = !isCollapsed" />
+      <VBtn
+        data-testid="directory-card-toggle"
+        :icon="isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'"
+        @click.stop="isCollapsed = !isCollapsed"
+      />
       <VSpacer />
     </VCardActions>
   </VCard>

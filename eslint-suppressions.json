@@ -100,9 +100,6 @@
     }
   },
   "src/components/cards/DirectoryCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
     "sonarjs/super-linear-regex": {
       "count": 1
     },
@@ -174,14 +171,6 @@
   "src/components/dialog/AliyunAuthDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "src/components/dialog/CategoryEditDialog.vue": {
-    "@typescript-eslint/ban-ts-comment": {
-      "count": 16
-    },
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
     }
   },
   "src/components/dialog/ContentToggleSettingsDialog.vue": {
@@ -615,11 +604,6 @@
       "count": 2
     }
   },
-  "src/pages/setting.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/plugins/i18n.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
@@ -787,7 +771,7 @@
   },
   "src/views/setting/AccountSettingDirectory.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 4
+      "count": 3
     },
     "sonarjs/super-linear-regex": {
       "count": 1

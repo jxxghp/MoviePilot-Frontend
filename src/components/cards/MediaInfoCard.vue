@@ -224,11 +224,11 @@ watch(musicCover, () => {
             </VChip>
             <!-- 音乐分类 -->
             <VChip
-              v-if="isMusic && (context?.media_info?.category || context?.media_info?.album_type)"
+              v-if="isMusic && (context?.media_info?.metadata_category || context?.media_info?.album_type)"
               variant="elevated"
               class="me-1 mb-1 text-white bg-purple-500"
             >
-              {{ context?.media_info?.category || context?.media_info?.album_type }}
+              {{ context?.media_info?.metadata_category || context?.media_info?.album_type }}
             </VChip>
             <!-- 风格 -->
             <VChip

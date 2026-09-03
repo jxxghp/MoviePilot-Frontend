@@ -42,7 +42,7 @@ const album = {
   artist: 'Queen',
   artists: ['Queen'],
   artist_ids: [artistId],
-  category: 'Album',
+  metadata_category: 'Album',
   cover_url: `https://coverartarchive.org/release-group/${albumId}/front-500`,
   duration: 2580,
   genres: ['rock', 'art rock'],

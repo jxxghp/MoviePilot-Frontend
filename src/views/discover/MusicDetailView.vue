@@ -48,7 +48,7 @@ const primaryArtistId = computed(() => artistLinks.value.find(artist => artist.i
 // 头部属性行只展示各音乐源已映射到标准模型的字段
 const attributes = computed(() => {
   const values: string[] = []
-  if (music.value?.category) values.push(music.value.category)
+  if (music.value?.metadata_category) values.push(music.value.metadata_category)
   const releaseDate = music.value?.release_date || music.value?.year?.toString()
   if (releaseDate) values.push(releaseDate)
   const duration = formatMusicDuration(music.value?.duration)

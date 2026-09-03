@@ -1,19 +1,23 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
-import api from '@/api'
+import api, { getApiErrorMessage } from '@/api'
 import type { StorageConf, TransferDirectoryConf } from '@/api/types'
+import type { ClassificationCategory } from '@/api/mediaClassification'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 import StorageCard from '@/components/cards/StorageCard.vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { storageAttributes } from '@/api/constants'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
-import { openSharedDialog } from '@/composables/useSharedDialog'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
+import { useMediaClassification } from '@/composables/useMediaClassification'
+import { useRoute, useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
+const route = useRoute()
+const router = useRouter()
 
 const props = defineProps({
   active: {
@@ -22,9 +26,8 @@ const props = defineProps({
   },
 })
 
-// 拖拽排序和分类编辑弹窗按需加载，避免设置框架预加载目录页时带上这些交互依赖。
+// 拖拽排序按需加载，避免设置框架预加载目录页时带上交互依赖。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
-const CategoryEditDialog = defineAsyncComponent(() => import('@/components/dialog/CategoryEditDialog.vue'))
 
 // 所有下载目录
 const directories = ref<TransferDirectoryConf[]>([])
@@ -32,8 +35,18 @@ const directories = ref<TransferDirectoryConf[]>([])
 // 所有存储
 const storages = ref<StorageConf[]>([])
 
-// 二级分类策略
-const mediaCategories = ref<{ [key: string]: any }>({})
+const { activePolicy, refreshPolicy } = useMediaClassification()
+
+// 目录卡片只消费活动策略中的稳定分类定义。
+const mediaCategories = computed<ClassificationCategory[]>(() =>
+  (activePolicy.value?.categories ?? []).map(category => ({
+    ...category,
+    path: [...category.path],
+    labels: [...category.labels],
+  })),
+)
+const classificationLoadError = ref<string | null>(null)
+const directorySaveError = ref<string | null>(null)
 
 // 提示框
 const $toast = useToast()
@@ -85,16 +98,9 @@ const renameEditorOptions = {
   showGutter: true,
 }
 
-// 打开共享分类编辑弹窗，保存后刷新本页分类配置。
-function openCategoryDialog() {
-  openSharedDialog(
-    CategoryEditDialog,
-    {},
-    {
-      save: loadMediaCategories,
-    },
-    { closeOn: ['close', 'save', 'update:modelValue'] },
-  )
+/** 切换到统一自动分类设置页，并保留当前路由的其它查询参数。 */
+function openClassificationSettings(): void {
+  void router.push({ query: { ...route.query, tab: 'classification' } })
 }
 
 const movieRenameFormat = computed({
@@ -175,29 +181,59 @@ async function saveStorages() {
 }
 
 // 查询目录
-async function loadDirectories() {
+async function loadDirectories(options: { rethrow?: boolean } = {}) {
   try {
     const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
     directories.value = result.value ?? []
   } catch (error) {
     console.log(error)
+    if (options.rethrow) throw error
   }
+}
+
+/** 判断目录中的稳定分类引用是否必须在保存前修复。 */
+function invalidDirectoryCategory(directory: TransferDirectoryConf): boolean {
+  const categoryId = directory.media_category_id?.trim()
+  if (!categoryId) {
+    const legacyPath = directory.media_category?.trim()
+    if (!legacyPath) return false
+    if (!directory.media_type) return true
+    return (
+      mediaCategories.value.filter(
+        category =>
+          category.enabled && category.media_type === directory.media_type && category.path.join('/') === legacyPath,
+      ).length !== 1
+    )
+  }
+  const category = mediaCategories.value.find(item => item.id === categoryId)
+  return !category || !category.enabled || !directory.media_type || category.media_type !== directory.media_type
 }
 
 // 保存目录
 async function saveDirectories() {
   orderDirectoryCards()
+  directorySaveError.value = null
   try {
     const names = directories.value.map(item => item.name)
     if (new Set(names).size !== names.length) {
       $toast.error(t('setting.directory.duplicateDirectoryName'))
       return
     }
+    if (directories.value.some(invalidDirectoryCategory)) {
+      const message = t('setting.directory.classification.saveBlocked')
+      directorySaveError.value = message
+      $toast.error(message)
+      return
+    }
     await api.post('system/setting/Directories', directories.value, { feedback: 'silent' })
+    // 服务端负责把稳定 ID 解析为当前规范路径，成功后必须以回读快照替换本地草稿。
+    await loadDirectories({ rethrow: true })
     $toast.success(t('setting.directory.directorySaveSuccess'))
   } catch (error) {
     console.log(error)
-    $toast.error(t('setting.directory.directorySaveFailed'))
+    const message = getApiErrorMessage(error) || t('setting.directory.directorySaveFailed')
+    directorySaveError.value = message
+    $toast.error(message)
   }
 }
 
@@ -217,6 +253,7 @@ function addDirectory() {
     monitor_type: '',
     media_type: '',
     media_category: '',
+    media_category_id: null,
     transfer_type: '',
   })
   orderDirectoryCards()
@@ -232,10 +269,12 @@ function removeDirectory(directory: TransferDirectoryConf) {
 
 // 调用API查询自动分类配置
 async function loadMediaCategories() {
+  classificationLoadError.value = null
   try {
-    mediaCategories.value = await api.get('media/category')
+    await refreshPolicy()
   } catch (error) {
     console.log(error)
+    classificationLoadError.value = getApiErrorMessage(error) || t('setting.directory.classification.loadFailed')
   }
 }
 
@@ -366,6 +405,24 @@ useSilentSettingRefresh(loadPageData, {
           <VCardSubtitle>{{ t('setting.directory.directoryDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
+          <VAlert
+            v-if="classificationLoadError"
+            type="error"
+            variant="tonal"
+            class="mb-4"
+            data-testid="directory-classification-load-error"
+          >
+            {{ classificationLoadError }}
+          </VAlert>
+          <VAlert
+            v-if="directorySaveError"
+            type="error"
+            variant="tonal"
+            class="mb-4"
+            data-testid="directory-save-error"
+          >
+            {{ directorySaveError }}
+          </VAlert>
           <Draggable
             v-model="directories"
             handle=".cursor-move"
@@ -400,8 +457,8 @@ useSilentSettingRefresh(loadPageData, {
                 <VIcon icon="mdi-plus" />
               </VBtn>
               <VSpacer />
-              <VBtn color="info" variant="tonal" prepend-icon="mdi-shape-plus" @click="openCategoryDialog">
-                {{ t('setting.category.title') }}
+              <VBtn color="info" variant="tonal" prepend-icon="mdi-file-tree" @click="openClassificationSettings">
+                {{ t('settingTabs.classification.title') }}
               </VBtn>
             </div>
           </VForm>

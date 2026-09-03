@@ -24,7 +24,7 @@ describe('MediaInfoCard', () => {
           media_info: {
             album: '完美的一天',
             artist: '孙燕姿',
-            category: 'Album',
+            metadata_category: 'Album',
             cover_url: 'https://coverartarchive.org/release-group/album-1/front-500',
             duration: 221,
             genres: ['华语流行'],

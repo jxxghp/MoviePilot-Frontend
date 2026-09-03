@@ -60,7 +60,7 @@ const albumMedia = computed<MediaInfo | undefined>(() => {
 
 const attributes = computed(() => {
   const values: string[] = []
-  if (album.value?.category) values.push(album.value.category)
+  if (album.value?.metadata_category) values.push(album.value.metadata_category)
   if (album.value?.release_date) values.push(album.value.release_date)
   if (album.value?.total_tracks) values.push(t('music.trackCount', { count: album.value.total_tracks }))
   const duration = formatMusicDuration(album.value?.duration)
@@ -174,7 +174,7 @@ watch(() => [props.mediaSource, props.mediaId], loadAlbumDetail, { immediate: tr
       </div>
       <div v-if="album.album_type" class="music-fact">
         <span>{{ t('music.albumType') }}</span>
-        <span class="music-fact-value">{{ album.category || album.album_type }}</span>
+        <span class="music-fact-value">{{ album.metadata_category || album.album_type }}</span>
       </div>
       <div v-if="album.release_date" class="music-fact">
         <span>{{ t('music.releaseDate') }}</span>

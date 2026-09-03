@@ -144,7 +144,8 @@ const resultSubtitle = computed(() => {
   return parts.filter(Boolean).join(' · ') || t('nameTest.waitingResult')
 })
 const mediaClassification = computed(() => {
-  return [mediaInfo.value?.type || metaInfo.value?.type, mediaInfo.value?.category].filter(Boolean).join(' · ') || '-'
+  const libraryCategory = mediaInfo.value?.library_category || mediaInfo.value?.category
+  return [mediaInfo.value?.type || metaInfo.value?.type, libraryCategory].filter(Boolean).join(' · ') || '-'
 })
 const resourceChips = computed(() => {
   if (isMusicResult.value) {
@@ -152,7 +153,7 @@ const resourceChips = computed(() => {
       mediaInfo.value?.music_type,
       metaInfo.value?.audio_format,
       metaInfo.value?.audio_specs,
-      mediaInfo.value?.category,
+      mediaInfo.value?.metadata_category,
     ].filter(Boolean) as string[]
   }
   return [
