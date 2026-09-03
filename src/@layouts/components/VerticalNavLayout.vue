@@ -11,6 +11,8 @@ import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBac
 import { usePWA } from '@/composables/usePWA'
 import { useShellScrollState } from '@/composables/useShellScrollState'
 
+const FLOATING_NAVBAR_INSET_PX = 16
+
 export default defineComponent({
   setup(props, { slots }) {
     const isOverlayNavActive = ref(false)
@@ -27,6 +29,18 @@ export default defineComponent({
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
     const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
     const isFloatingNavbarEligible = computed(() => isHorizontalLayout.value && !isWindowControlsOverlayMode.value)
+    const floatingNavbarScale = ref(1)
+    const floatingNavbarContentScale = computed(() => 1 / floatingNavbarScale.value)
+
+    // 顶栏的布局宽度保持不变；缩进比例仅随视口变化，滚动动画可完全留在合成层。
+    const updateFloatingNavbarScale = () => {
+      const viewportWidth = document.documentElement.clientWidth
+
+      floatingNavbarScale.value =
+        viewportWidth > FLOATING_NAVBAR_INSET_PX * 2
+          ? (viewportWidth - FLOATING_NAVBAR_INSET_PX * 2) / viewportWidth
+          : 1
+    }
 
     // ℹ️ This is alternative to below two commented watcher
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
@@ -52,6 +66,8 @@ export default defineComponent({
 
     onMounted(() => {
       window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+      window.addEventListener('resize', updateFloatingNavbarScale, { passive: true })
+      updateFloatingNavbarScale()
 
       // 初始检查弹窗状态
       checkDialogState()
@@ -66,6 +82,7 @@ export default defineComponent({
 
     onBeforeUnmount(() => {
       window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+      window.removeEventListener('resize', updateFloatingNavbarScale)
       dialogObserver?.disconnect()
       dialogObserver = null
     })
@@ -188,6 +205,10 @@ export default defineComponent({
               ? 'theme-qualified'
               : 'connected',
           'data-shell-scroll-direction': shellScroll.direction.value,
+          style: {
+            '--shell-floating-navbar-scale-x': floatingNavbarScale.value,
+            '--shell-floating-navbar-content-scale-x': floatingNavbarContentScale.value,
+          },
         },
         [
           fixedShellBackplateNode,
@@ -220,6 +241,8 @@ export default defineComponent({
   --layout-navbar-safe-area-inline: 0px;
   --shell-floating-navbar-radius: 1rem;
   --shell-floating-navbar-inset: 1rem;
+  --shell-floating-navbar-motion-duration: 320ms;
+  --shell-floating-navbar-motion-easing: cubic-bezier(0.3, 0.7, 0.2, 1);
   --layout-navbar-block-size: calc(
     var(--layout-navbar-safe-area-top) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
   );
@@ -283,13 +306,42 @@ export default defineComponent({
   @at-root {
     // 只有具备连续透射背景的特殊主题可解释顶栏四周的空间；WCO 与连接式导航保持附着。
     html:is([data-theme='transparent'], [data-theme='glass'])
+      .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible
+      .layout-navbar {
+      inset-block-start: 0;
+      inset-inline: 0;
+      transform: translate3d(0, 0, 0) scaleX(1);
+      transform-origin: center top;
+      transition:
+        background-color var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+        border-color var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+        border-radius var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+        box-shadow var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+        transform var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing);
+
+      .navbar-content-container {
+        transform: scaleX(1);
+        transform-origin: center top;
+        transition:
+          background-color var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+          border-color var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+          border-radius var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+          box-shadow var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
+          opacity 180ms var(--mp-motion-ease-standard),
+          transform var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing);
+      }
+    }
+
+    html:is([data-theme='transparent'], [data-theme='glass'])
       .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top
       .layout-navbar {
       border-radius: var(--shell-floating-navbar-radius);
-      inline-size: calc(100% - 2 * var(--shell-floating-navbar-inset));
-      inset-block-start: var(--shell-floating-navbar-inset);
-      inset-inline: var(--shell-floating-navbar-inset);
       overflow: clip;
+      transform: translate3d(0, var(--shell-floating-navbar-inset), 0) scaleX(var(--shell-floating-navbar-scale-x));
+
+      .navbar-content-container {
+        transform: scaleX(var(--shell-floating-navbar-content-scale-x));
+      }
     }
   }
 

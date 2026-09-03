@@ -448,11 +448,12 @@ html[data-agent-assistant-open='true'] {
 // 动态按钮卡片样式
 .dynamic-btn-card {
   position: absolute;
-  block-size: auto;
-  inset-block-end: 0;
+  block-size: 48px;
+  inset-block: 0;
   inset-inline-start: calc(100% + 2px);
   inline-size: auto;
-  margin: 0 !important;
+  margin-block: auto !important;
+  margin-inline: 0 !important;
   max-inline-size: 60px;
   min-block-size: 0;
 

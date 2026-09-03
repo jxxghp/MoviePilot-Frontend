@@ -12,7 +12,7 @@ describe('Footer Dock geometry', () => {
     expect(source).toContain("'footer-nav-container--with-accessory': showDynamicButton")
     expect(source).toMatch(/\.footer-nav-group\s*\{[\s\S]*?position:\s*relative;/)
     expect(source).toMatch(
-      /\.dynamic-btn-card\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset-block-end:\s*0;[\s\S]*?inset-inline-start:\s*calc\(100% \+ 2px\);/,
+      /\.dynamic-btn-card\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?block-size:\s*48px;[\s\S]*?inset-block:\s*0;[\s\S]*?inset-inline-start:\s*calc\(100% \+ 2px\);[\s\S]*?margin-block:\s*auto !important;/,
     )
     expect(source).not.toContain('@media (width <= 480px)')
     expect(source).not.toContain('inset-block-end: calc(100% + 4px)')

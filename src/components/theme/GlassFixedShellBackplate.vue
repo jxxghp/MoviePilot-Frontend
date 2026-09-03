@@ -128,10 +128,15 @@ const transitionStyle = computed(() => ({
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-safe-area-top)) 0);
 }
 
+.layout-wrapper.layout-navbar-floating-eligible > .glass-fixed-shell-backplate--main {
+  transform: translate3d(0, 0, 0) scaleX(1);
+  transform-origin: center top;
+  transition: transform var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing);
+}
+
 .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top > .glass-fixed-shell-backplate--main {
-  clip-path: inset(
-    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--shell-floating-navbar-radius)
-  );
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0 round var(--shell-floating-navbar-radius));
+  transform: translate3d(0, var(--shell-floating-navbar-inset), 0) scaleX(var(--shell-floating-navbar-scale-x));
 }
 
 [dir='rtl'] .layout-wrapper > .glass-fixed-shell-backplate--main {
@@ -171,9 +176,7 @@ const transitionStyle = computed(() => ({
 [dir='rtl']
   .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   > .glass-fixed-shell-backplate--main {
-  clip-path: inset(
-    0.5rem 0.5rem calc(100% - var(--layout-navbar-block-size) - 0.5rem) 0.5rem round var(--shell-floating-navbar-radius)
-  );
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0 round var(--shell-floating-navbar-radius));
 }
 
 .glass-fixed-shell-backplate--overlay-nav {

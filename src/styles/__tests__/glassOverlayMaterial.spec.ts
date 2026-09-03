@@ -204,15 +204,25 @@ describe('glass overlay material styles', () => {
       '.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav, .layout-app-shell)',
     )
     expect(backplate).toContain('.layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top')
+    expect(backplate).toContain('transform: translate3d(0, var(--shell-floating-navbar-inset), 0)')
+    expect(backplate).toContain('scaleX(var(--shell-floating-navbar-scale-x))')
+    expect(backplate).toContain('.layout-wrapper.layout-navbar-floating-eligible > .glass-fixed-shell-backplate--main')
     expect(backplate).toContain('.glass-fixed-shell-backplate--overlay-nav')
     const mainBackplateRule = backplate.match(/\.glass-fixed-shell-backplate--main\s*\{(?<declarations>[\s\S]*?)\n\}/u)
       ?.groups?.declarations
     const overlayBackplateRule = backplate.match(
       /\.glass-fixed-shell-backplate--overlay-nav\s*\{(?<declarations>[\s\S]*?)\n\}/u,
     )?.groups?.declarations
+    const floatingBackplateRule = backplate.match(
+      /\.layout-wrapper\.layout-navbar-floating-eligible > \.glass-fixed-shell-backplate--main\s*\{(?<declarations>[\s\S]*?)\n\}/u,
+    )?.groups?.declarations
 
     expect(mainBackplateRule).toBeDefined()
     expect(mainBackplateRule).toMatch(/transition:\s*clip-path 240ms var\(--mp-motion-ease-standard\)/u)
+    expect(floatingBackplateRule).toContain(
+      'transition: transform var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
+    )
+    expect(floatingBackplateRule).not.toContain('clip-path')
     expect(overlayBackplateRule).toMatch(/transition:\s*clip-path 0\.25s ease-in-out/u)
   })
 
@@ -222,13 +232,31 @@ describe('glass overlay material styles', () => {
     expect(layout).toContain("html:is([data-theme='transparent'], [data-theme='glass'])")
     expect(layout).toContain('--shell-floating-navbar-radius: 1rem')
     expect(layout).toContain('--shell-floating-navbar-inset: 1rem')
+    expect(layout).toContain('--shell-floating-navbar-motion-duration: 320ms')
+    expect(layout).toContain('--shell-floating-navbar-motion-easing: cubic-bezier(0.3, 0.7, 0.2, 1)')
     expect(layout).toContain(
       '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',
     )
     expect(layout).not.toContain('&.layout-navbar-away-from-top.layout-horizontal-nav-active .layout-navbar')
     expect(layout).toContain('border-radius: var(--shell-floating-navbar-radius)')
-    expect(layout).toContain('inline-size: calc(100% - 2 * var(--shell-floating-navbar-inset))')
-    expect(layout).toContain('inset-block-start: var(--shell-floating-navbar-inset)')
+    expect(layout).not.toContain('inline-size: calc(100% - 2 * var(--shell-floating-navbar-inset))')
+    expect(layout).toContain('transform: translate3d(0, 0, 0) scaleX(1)')
+    expect(layout).toContain('scaleX(var(--shell-floating-navbar-scale-x))')
+    expect(layout).toContain('scaleX(var(--shell-floating-navbar-content-scale-x))')
+    const floatingRuleStart = layout.indexOf(
+      '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible\n      .layout-navbar {',
+    )
+    const floatingStateStart = layout.indexOf(
+      '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',
+      floatingRuleStart,
+    )
+    const floatingRule = layout.slice(floatingRuleStart, floatingStateStart)
+
+    expect(floatingRuleStart).toBeGreaterThanOrEqual(0)
+    expect(floatingStateStart).toBeGreaterThan(floatingRuleStart)
+    expect(floatingRule).not.toContain('inline-size var(--shell-floating-navbar-motion-duration)')
+    expect(floatingRule).not.toContain('inset-inline var(--shell-floating-navbar-motion-duration)')
+    expect(floatingRule).not.toContain('inset-block-start var(--shell-floating-navbar-motion-duration)')
     expect(layout).toMatch(
       /\.layout-wrapper\.layout-horizontal-nav-active\.layout-horizontal-nav-scrolled\.layout-navbar-fixed \.layout-navbar \{[\s\S]*?backdrop-filter:\s*none;[\s\S]*?background:\s*rgb\(var\(--v-theme-surface\)\) !important;/,
     )
