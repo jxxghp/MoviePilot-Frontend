@@ -789,7 +789,7 @@ describe('SubscribeListView loading and filtering', () => {
           batch_id: 'batch-skipped',
           failed_count: 0,
           finished_count: 1,
-          phase: 'completed',
+          phase: 'searching',
           processed_count: 2,
           skipped_count: 1,
           state: 'skipped',

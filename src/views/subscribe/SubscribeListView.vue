@@ -101,12 +101,18 @@ const activeExecutionStates = new Set([
   'submitting',
   'cancelling',
 ])
+const terminalExecutionStates = new Set(['completed', 'failed', 'cancelled', 'skipped'])
+
+function isActiveExecutionBatch(batch: SubscriptionBatchStatus) {
+  return (
+    !terminalExecutionStates.has(batch.state) &&
+    (activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase))
+  )
+}
 
 const visibleExecutionBatch = computed(() => {
   return (
-    executionBatches.value.find(
-      batch => activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase),
-    ) ||
+    executionBatches.value.find(isActiveExecutionBatch) ||
     executionBatches.value.find(batch => ['failed', 'cancelled', 'skipped'].includes(batch.state)) ||
     null
   )
@@ -114,7 +120,7 @@ const visibleExecutionBatch = computed(() => {
 
 const visibleExecutionBatchAppearance = computed(() => {
   const batch = visibleExecutionBatch.value
-  if (!batch || activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase)) {
+  if (!batch || isActiveExecutionBatch(batch)) {
     return { color: 'info', icon: 'mdi-progress-clock' }
   }
   if (batch.state === 'failed') {
@@ -129,7 +135,7 @@ const visibleExecutionBatchAppearance = computed(() => {
 const visibleExecutionBatchState = computed(() => {
   const batch = visibleExecutionBatch.value
   if (!batch) return 'queued'
-  return ['completed', 'failed', 'cancelled', 'skipped'].includes(batch.state) ? batch.state : batch.phase
+  return terminalExecutionStates.has(batch.state) ? batch.state : batch.phase
 })
 
 const batchProgress = computed(() => {
