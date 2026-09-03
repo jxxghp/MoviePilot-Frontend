@@ -232,7 +232,7 @@ describe('glass overlay material styles', () => {
     expect(layout).toContain("html:is([data-theme='transparent'], [data-theme='glass'])")
     expect(layout).toContain('--shell-floating-navbar-radius: 1rem')
     expect(layout).toContain('--shell-floating-navbar-inset: 1rem')
-    expect(layout).toContain('--shell-floating-navbar-motion-duration: 200ms')
+    expect(layout).toContain('--shell-floating-navbar-motion-duration: 150ms')
     expect(layout).toContain('--shell-floating-navbar-motion-easing: cubic-bezier(0.2, 0, 0, 1)')
     expect(layout).toContain(
       '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',

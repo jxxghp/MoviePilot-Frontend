@@ -241,7 +241,7 @@ export default defineComponent({
   --layout-navbar-safe-area-inline: 0px;
   --shell-floating-navbar-radius: 1rem;
   --shell-floating-navbar-inset: 1rem;
-  --shell-floating-navbar-motion-duration: 200ms;
+  --shell-floating-navbar-motion-duration: 150ms;
   --shell-floating-navbar-motion-easing: cubic-bezier(0.2, 0, 0, 1);
   --layout-navbar-block-size: calc(
     var(--layout-navbar-safe-area-top) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
