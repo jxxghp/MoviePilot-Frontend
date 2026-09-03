@@ -81,6 +81,7 @@ const loading = ref(false)
 const loadError = ref(false)
 let initialSubscriptionOpened = false
 let lastSubscriptionRequestAt = Number.NEGATIVE_INFINITY
+let subscriptionRequest: Promise<void> | undefined
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
@@ -123,6 +124,12 @@ const visibleExecutionBatchAppearance = computed(() => {
     return { color: 'secondary', icon: 'mdi-skip-next-circle-outline' }
   }
   return { color: 'secondary', icon: 'mdi-cancel' }
+})
+
+const visibleExecutionBatchState = computed(() => {
+  const batch = visibleExecutionBatch.value
+  if (!batch) return 'queued'
+  return ['completed', 'failed', 'cancelled', 'skipped'].includes(batch.state) ? batch.state : batch.phase
 })
 
 const batchProgress = computed(() => {
@@ -373,7 +380,7 @@ async function saveSubscribeOrder() {
 }
 
 // 获取订阅列表；批次状态使用独立错误边界，不参与列表成功判定。
-async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
+async function requestSubscriptions(context: KeepAliveRefreshContext = {}) {
   const showLoading = !context.silent || !isRefreshed.value
   const isInitialLoad = !isRefreshed.value
   lastSubscriptionRequestAt = Date.now()
@@ -405,6 +412,18 @@ async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
     if (showLoading) {
       loading.value = false
     }
+  }
+}
+
+// 所有刷新入口共享列表在途请求，避免慢响应期间并发读取和旧快照回写。
+async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
+  if (subscriptionRequest) return subscriptionRequest
+  const request = requestSubscriptions(context)
+  subscriptionRequest = request
+  try {
+    await request
+  } finally {
+    if (subscriptionRequest === request) subscriptionRequest = undefined
   }
 }
 
@@ -494,7 +513,7 @@ async function runExecutionPoll() {
     (hasActiveCardExecution.value || loadError.value) &&
     Date.now() - lastSubscriptionRequestAt >= ACTIVE_CARD_REFRESH_INTERVAL_MS
   if (!isUnmounted && props.active && !document.hidden && (batchChanged || cardRefreshDue)) {
-    await fetchSubscriptions({ silent: true })
+    void fetchSubscriptions({ silent: true })
   }
   scheduleExecutionPoll()
 }
@@ -820,7 +839,7 @@ defineExpose({
       <div class="min-w-0 flex-grow-1">
         <div class="d-flex min-w-0 align-center justify-space-between gap-2 text-body-2 font-weight-medium">
           <span class="text-truncate">
-            {{ t(`subscribe.execution.state.${visibleExecutionBatch.phase}`) }}
+            {{ t(`subscribe.execution.state.${visibleExecutionBatchState}`) }}
           </span>
           <span class="flex-shrink-0">
             {{

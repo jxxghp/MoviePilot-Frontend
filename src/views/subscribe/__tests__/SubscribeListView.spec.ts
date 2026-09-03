@@ -603,6 +603,45 @@ describe('SubscribeListView loading and filtering', () => {
     expect(await screen.findByText('进度变化后的订阅')).toBeInTheDocument()
   })
 
+  it('keeps lightweight batch polling active while a subscription refresh is pending', async () => {
+    vi.useFakeTimers()
+    const batchRequested = vi.fn()
+    const listRequested = vi.fn()
+    let resolveList!: (subscribes: Subscribe[]) => void
+    let listCallCount = 0
+    const pendingList = new Promise<Subscribe[]>(resolve => {
+      resolveList = resolve
+    })
+    await renderList({
+      batchResponse: sequenceResponse([
+        [],
+        [executionBatch()],
+        [executionBatch({ processed_count: 1, updated_at: '2026-09-01T00:02:00+00:00' })],
+      ]),
+      listResponse: () => {
+        listCallCount += 1
+        return listCallCount === 1 ? [movie(1, '慢列表刷新订阅')] : pendingList
+      },
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+    await flushAsync()
+
+    await vi.advanceTimersByTimeAsync(2500)
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(2500)
+    await flushAsync()
+    expect(batchRequested).toHaveBeenCalledTimes(3)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+
+    resolveList([movie(1, '慢列表刷新完成')])
+    await flushAsync()
+    expect(await screen.findByText('慢列表刷新完成')).toBeInTheDocument()
+  })
+
   it('reloads subscriptions after the active-card refresh interval', async () => {
     const hidden = mockDocumentHidden(true)
     const listRequested = vi.fn()
@@ -750,7 +789,7 @@ describe('SubscribeListView loading and filtering', () => {
           batch_id: 'batch-skipped',
           failed_count: 0,
           finished_count: 1,
-          phase: 'skipped',
+          phase: 'completed',
           processed_count: 2,
           skipped_count: 1,
           state: 'skipped',
