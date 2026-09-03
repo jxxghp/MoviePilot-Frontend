@@ -103,9 +103,15 @@ const fieldGroups = computed<ClassificationPreviewFieldGroup[]>(() => {
 
 const categoryMap = computed(() => new Map(props.categories.map(category => [category.id, category])))
 
-/** 为 VSelect 与 VCombobox 的真实激活元素提供业务标签。 */
-function comboboxMenuProps(label: string): { activatorProps: { 'aria-label': string } } {
-  return { activatorProps: { 'aria-label': label } }
+/** 为 VSelect 与 VCombobox 提供业务标签和有界浮层参数。 */
+function comboboxMenuProps(label: string) {
+  return {
+    activatorProps: { 'aria-label': label },
+    contentClass: 'classification-preview-menu',
+    maxHeight: 280,
+    location: 'bottom start' as const,
+    offset: 4,
+  }
 }
 
 /** 返回字段当前保存的值，数组会复制后再交给控件。 */

@@ -183,7 +183,7 @@ describe('ClassificationCategoryEditor', () => {
     const { events } = await renderEditor()
 
     await user.click(screen.getByRole('combobox', { name: '音乐回退分类' }))
-    await user.click(await screen.findByRole('option', { name: /无损音乐.*music.lossless/ }))
+    await user.click(await screen.findByRole('option', { name: '无损音乐 · 音乐 / 专辑 / 无损' }))
 
     await waitFor(() => expect(events.updateFallbacks).toHaveBeenCalledWith({ 音乐: 'music.lossless' }))
   })

@@ -80,6 +80,19 @@ const OPERATOR_LABELS: Record<ClassificationOperator, string> = {
   not_exists: '不存在',
 }
 
+const classificationMenuProps = {
+  contentClass: 'classification-condition-menu',
+  maxHeight: 280,
+  location: 'bottom start' as const,
+  offset: 4,
+}
+
+const classificationFieldMenuProps = {
+  ...classificationMenuProps,
+  contentClass: 'classification-field-menu',
+  maxWidth: 420,
+}
+
 /** 判断节点是否为字段条件叶子。 */
 function isCondition(node: ClassificationConditionNode): node is ClassificationCondition {
   return 'field' in node && 'operator' in node
@@ -441,7 +454,7 @@ function removeChild(index: number): void {
           density="compact"
           hide-details="auto"
           auto-select-first
-          :menu-props="{ contentClass: 'classification-field-menu', maxWidth: 420 }"
+          :menu-props="classificationFieldMenuProps"
           data-testid="field-select"
           @update:model-value="updateField"
         />
@@ -454,6 +467,7 @@ function removeChild(index: number): void {
           variant="outlined"
           density="compact"
           hide-details="auto"
+          :menu-props="classificationMenuProps"
           data-testid="operator-select"
           @update:model-value="updateOperator"
         />
@@ -508,6 +522,7 @@ function removeChild(index: number): void {
               variant="outlined"
               density="compact"
               hide-details="auto"
+              :menu-props="classificationMenuProps"
               data-testid="list-value-input"
               @update:model-value="updateCatalogListValue"
             />
@@ -523,6 +538,7 @@ function removeChild(index: number): void {
               variant="outlined"
               density="compact"
               hide-details="auto"
+              :menu-props="classificationMenuProps"
               data-testid="list-value-input"
               @update:model-value="updateListValue"
             />
@@ -567,6 +583,7 @@ function removeChild(index: number): void {
               variant="outlined"
               density="compact"
               hide-details="auto"
+              :menu-props="classificationMenuProps"
               data-testid="select-value-input"
               @update:model-value="updateCatalogScalarValue"
             />
@@ -579,6 +596,7 @@ function removeChild(index: number): void {
               variant="outlined"
               density="compact"
               hide-details="auto"
+              :menu-props="classificationMenuProps"
               data-testid="select-value-input"
               @update:model-value="updateScalarValue"
             />
@@ -779,7 +797,8 @@ function removeChild(index: number): void {
   justify-content: flex-end;
 }
 
-:global(.classification-field-menu .v-list-item-title) {
+:global(.classification-field-menu .v-list-item-title),
+:global(.classification-condition-menu .v-list-item-title) {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;

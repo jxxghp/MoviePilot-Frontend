@@ -139,10 +139,10 @@ function isCategoryProtected(categoryId: string): boolean {
   return categoryReferenceReasons(categoryId).length > 0
 }
 
-/** 为稳定 ID fallback 选择器生成可辨识的标题。 */
+/** 为 fallback 选择器生成不带内部稳定 ID 的可读标题。 */
 function fallbackItemTitle(category: ClassificationCategory): string {
   const path = category.path.length ? category.path.join(' / ') : t('setting.classification.category.pathUnset')
-  return `${category.name} · ${path} · ${category.id}`
+  return `${category.name} · ${path}`
 }
 
 /** 返回指定媒体类型可选的稳定分类 ID 列表。 */
@@ -150,9 +150,15 @@ function fallbackItems(mediaType: ClassificationMediaType): ClassificationCatego
   return props.categories.filter(category => category.media_type === mediaType)
 }
 
-/** 将业务标签传给 VSelect 的真实 combobox 激活元素。 */
-function comboboxMenuProps(label: string): { activatorProps: { 'aria-label': string } } {
-  return { activatorProps: { 'aria-label': label } }
+/** 将业务标签和有界浮层参数传给分类选择器。 */
+function comboboxMenuProps(label: string) {
+  return {
+    activatorProps: { 'aria-label': label },
+    contentClass: 'classification-category-menu',
+    maxHeight: 280,
+    location: 'bottom start' as const,
+    offset: 4,
+  }
 }
 
 /** 开始新增当前分段的分类。 */

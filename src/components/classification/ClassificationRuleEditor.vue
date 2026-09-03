@@ -15,6 +15,12 @@ import ClassificationConditionBuilder from './ClassificationConditionBuilder.vue
 const MEDIA_TYPES: ClassificationMediaType[] = ['电影', '电视剧', '音乐']
 const DEFAULT_MAX_RULES = 200
 const DEFAULT_MAX_CONDITION_DEPTH = 8
+const classificationRuleMenuProps = {
+  contentClass: 'classification-rule-menu',
+  maxHeight: 280,
+  location: 'bottom start' as const,
+  offset: 4,
+}
 
 const props = withDefaults(
   defineProps<{
@@ -330,7 +336,12 @@ watch(
       :component-data="{ class: 'classification-rule-list' }"
     >
       <template #item="{ element: rule, index }">
-        <article class="classification-rule" :aria-label="`规则 ${index + 1}：${rule.name || rule.id}`">
+        <VCard
+          class="classification-rule"
+          variant="outlined"
+          role="article"
+          :aria-label="`规则 ${index + 1}：${rule.name || rule.id}`"
+        >
           <div class="classification-rule-head">
             <IconBtn
               class="classification-rule-drag cursor-move"
@@ -464,6 +475,7 @@ watch(
                 clearable
                 density="compact"
                 hide-details="auto"
+                :menu-props="classificationRuleMenuProps"
                 :aria-label="`媒体类型 ${rule.name || rule.id}`"
                 @update:model-value="value => updateMediaTypes(index, value)"
               />
@@ -478,6 +490,7 @@ watch(
                 density="compact"
                 hide-details="auto"
                 hint="留空表示全部来源"
+                :menu-props="classificationRuleMenuProps"
                 :aria-label="`数据来源 ${rule.name || rule.id}`"
                 @update:model-value="value => updateSources(index, value)"
               />
@@ -507,6 +520,7 @@ watch(
                   density="compact"
                   hide-details="auto"
                   no-data-text="当前媒体类型没有可用分类"
+                  :menu-props="classificationRuleMenuProps"
                   :aria-label="`分类目标 ${rule.name || rule.id}`"
                   @update:model-value="value => updateTarget(index, { category_id: value })"
                 />
@@ -519,6 +533,7 @@ watch(
                   clearable
                   density="compact"
                   hide-details="auto"
+                  :menu-props="classificationRuleMenuProps"
                   :class="{ 'classification-rule-labels--wide': rule.kind === 'label' }"
                   :aria-label="`标签输出 ${rule.name || rule.id}`"
                   @update:model-value="value => updateTarget(index, { labels: value })"
@@ -526,7 +541,7 @@ watch(
               </div>
             </div>
           </div>
-        </article>
+        </VCard>
       </template>
     </Draggable>
 
@@ -583,7 +598,16 @@ watch(
   overflow: hidden;
   border: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
   border-radius: 8px;
-  background: var(--classification-panel-raised, rgb(var(--v-theme-surface)));
+  background-color: var(--classification-panel-raised, rgb(var(--v-theme-surface)));
+}
+
+:global(html[data-theme='glass'] .classification-rule) {
+  border-color: var(--glass-border-raised) !important;
+  -webkit-backdrop-filter: var(--glass-raised-backdrop-filter) !important;
+  backdrop-filter: var(--glass-raised-backdrop-filter) !important;
+  background-color: var(--glass-surface-raised) !important;
+  background-image: var(--glass-sheen) !important;
+  box-shadow: var(--glass-shadow-raised) !important;
 }
 
 .classification-rule-head {
