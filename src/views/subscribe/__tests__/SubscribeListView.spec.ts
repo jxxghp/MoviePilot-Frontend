@@ -413,6 +413,28 @@ describe('SubscribeListView loading and filtering', () => {
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
 
+  it('keeps polling lightweight batches after an idle initial response', async () => {
+    vi.useFakeTimers()
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    await renderList({
+      batchResponse: sequenceResponse([[], [executionBatch()]]),
+      listResponse: [movie(1, '空闲后发现新批次')],
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledOnce()
+    expect(listRequested).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(2500)
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+  })
+
   it('retries a failed subscription list while an active batch remains unchanged', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const hidden = mockDocumentHidden(true)

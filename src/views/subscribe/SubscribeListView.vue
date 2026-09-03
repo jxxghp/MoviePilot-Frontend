@@ -131,20 +131,12 @@ const batchProgress = computed(() => {
   return Math.min(100, Math.round((batch.processed_count / batch.total_count) * 100))
 })
 
-const hasActiveBatchExecution = computed(() =>
-  executionBatches.value.some(
-    batch => activeExecutionStates.has(batch.state) || activeExecutionStates.has(batch.phase),
-  ),
-)
-
 const hasActiveCardExecution = computed(() => {
   return dataList.value.some(item => {
     const execution = item.execution_status
     return !!execution && (activeExecutionStates.has(execution.state) || activeExecutionStates.has(execution.phase))
   })
 })
-
-const hasActiveExecution = computed(() => hasActiveBatchExecution.value || hasActiveCardExecution.value)
 
 // 订阅顺序配置
 const orderConfig = ref<{ id: number }[]>([])
@@ -515,10 +507,10 @@ async function pollExecutionState() {
   }
 }
 
-// 仅在页面可见且存在活动执行或列表错误时轮询，终态且无错误后自动停止。
+// 页面可见时持续读取轻量批次，使外部入口启动的新批次和接口恢复能够被发现。
 function scheduleExecutionPoll() {
   clearExecutionPoll()
-  if (isUnmounted || !props.active || document.hidden || (!hasActiveExecution.value && !loadError.value)) return
+  if (isUnmounted || !props.active || document.hidden) return
   executionPollTimer = setTimeout(() => {
     void pollExecutionState()
   }, 2500)
