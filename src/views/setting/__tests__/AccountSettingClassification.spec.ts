@@ -400,7 +400,7 @@ describe('AccountSettingClassification', () => {
 
     const state = mocks.useMediaClassification.mock.results[0].value
     expect(state.draftPolicy.value.enrichment_mode).toBe('primary_only')
-    await user.click(screen.getByRole('button', { name: '补充缺失事实' }))
+    await user.click(screen.getByRole('button', { name: '补充缺少的信息' }))
 
     expect(state.draftPolicy.value.enrichment_mode).toBe('enrich_missing')
     expect(state.isDirty.value).toBe(true)
@@ -436,12 +436,12 @@ describe('AccountSettingClassification', () => {
     await openWorkspace('来源')
     await user.click(
       screen.getByRole('button', {
-        name: 'musicbrainz 来源兜底，已配置 0 项',
+        name: 'MusicBrainz 默认分类，已设置 0 项',
       }),
     )
 
     const musicbrainzFallback = screen.getByRole('combobox', {
-      name: 'musicbrainz 的电影来源兜底',
+      name: 'MusicBrainz 的电影默认分类',
     })
     await user.click(musicbrainzFallback)
     await user.click(await screen.findByRole('option', { name: '电影' }))
@@ -455,13 +455,13 @@ describe('AccountSettingClassification', () => {
     await renderWithProviders(AccountSettingClassification)
     await openWorkspace('来源')
 
-    expect(screen.queryByRole('combobox', { name: 'musicbrainz 的电影来源兜底' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'musicbrainz 来源兜底，已配置 0 项' }))
-    expect(screen.getByRole('combobox', { name: 'musicbrainz 的电影来源兜底' })).toBeVisible()
+    expect(screen.queryByRole('combobox', { name: 'MusicBrainz 的电影默认分类' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'MusicBrainz 默认分类，已设置 0 项' }))
+    expect(screen.getByRole('combobox', { name: 'MusicBrainz 的电影默认分类' })).toBeVisible()
 
-    await user.click(screen.getByRole('button', { name: 'themoviedb 来源兜底，已配置 1 项' }))
-    expect(screen.queryByRole('combobox', { name: 'musicbrainz 的电影来源兜底' })).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'themoviedb 的电影来源兜底' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'TheMovieDb 默认分类，已设置 1 项' }))
+    expect(screen.queryByRole('combobox', { name: 'MusicBrainz 的电影默认分类' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'TheMovieDb 的电影默认分类' })).toBeVisible()
   })
 
   it('maps fact preview modes and bounded impact options to the composable', async () => {
@@ -568,7 +568,7 @@ describe('AccountSettingClassification', () => {
 
     await user.click(screen.getByRole('button', { name: 'control-publish' }))
     await waitFor(() => expect(mocks.publishDraft).toHaveBeenCalledTimes(1))
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('分类策略已发布为 revision 7')
+    expect(mocks.toastSuccess).toHaveBeenLastCalledWith('分类规则已发布为第 7 版')
 
     mocks.refreshPolicy.mockClear()
     mocks.analyzeImpact.mockClear()
@@ -583,6 +583,6 @@ describe('AccountSettingClassification', () => {
     await screen.findByRole('region', { name: 'policy-control-panel' })
     await user.click(screen.getByRole('button', { name: 'control-rollback' }))
     await waitFor(() => expect(mocks.rollback).toHaveBeenCalledWith(3))
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('revision 3 已回滚并发布为 revision 7')
+    expect(mocks.toastSuccess).toHaveBeenLastCalledWith('第 3 版已恢复，并发布为第 7 版')
   })
 })

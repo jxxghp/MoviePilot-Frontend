@@ -58,11 +58,11 @@ describe('DirectoryCard classification reference', () => {
     const categorySelect = within(screen.getByTestId('directory-category-select')).getByRole('combobox')
     await user.click(categorySelect)
 
-    expect(await screen.findByRole('option', { name: '电影 · movie.base' })).toBeInTheDocument()
-    expect(await screen.findByRole('option', { name: '动画 · 电影/动画 · movie.animation' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /movie.disabled/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /tv.animation/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /music.live/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: '电影' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: '动画 · 电影' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /停用/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /电视动画|tv.animation/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /现场|music.live/ })).not.toBeInTheDocument()
   })
 
   it('clears both the stable id and path snapshot when the media type changes', async () => {

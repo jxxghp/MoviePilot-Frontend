@@ -12,9 +12,6 @@ const settingTabs = computed(() => getSettingTabs(t))
 // 设置页的每个大类都很重，按标签页拆包，避免进入设置时一次性下载全部配置面板。
 const AccountSettingSystem = defineAsyncComponent(() => import('@/views/setting/AccountSettingSystem.vue'))
 const AccountSettingDirectory = defineAsyncComponent(() => import('@/views/setting/AccountSettingDirectory.vue'))
-const AccountSettingClassification = defineAsyncComponent(
-  () => import('@/views/setting/AccountSettingClassification.vue'),
-)
 const AccountSettingSite = defineAsyncComponent(() => import('@/views/setting/AccountSettingSite.vue'))
 const AccountSettingRule = defineAsyncComponent(() => import('@/views/setting/AccountSettingRule.vue'))
 const AccountSettingSearch = defineAsyncComponent(() => import('@/views/setting/AccountSettingSearch.vue'))
@@ -26,7 +23,6 @@ const visitedTabs = ref(new Set<string>())
 const settingTabComponents = [
   { value: 'system', component: AccountSettingSystem },
   { value: 'directory', component: AccountSettingDirectory },
-  { value: 'classification', component: AccountSettingClassification },
   { value: 'site', component: AccountSettingSite },
   { value: 'rule', component: AccountSettingRule },
   { value: 'search', component: AccountSettingSearch },

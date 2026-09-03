@@ -125,9 +125,9 @@ describe('ClassificationImpactPanel', () => {
     const analysis = createAnalysis()
     await renderPanel({ analysis })
 
-    expect(screen.getByText('sample_source: recent_history（近期下载与整理历史）')).toBeInTheDocument()
-    expect(screen.getByText('活动 revision 7')).toBeInTheDocument()
-    expect(screen.getByText('候选 revision 8')).toBeInTheDocument()
+    expect(screen.getByText('样本来源：近期下载与整理记录')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 7')).toBeInTheDocument()
+    expect(screen.getByText('待发布版本 8')).toBeInTheDocument()
 
     const expectedMetrics: Record<string, string> = {
       requested_limit: '100',
@@ -165,7 +165,7 @@ describe('ClassificationImpactPanel', () => {
     expect(screen.getByText('返回 1 条，共检测到 3 条变化')).toBeInTheDocument()
     const example = screen.getByRole('article', { name: '变化示例 1：流浪地球' })
     expect(example).toHaveTextContent('themoviedb:movie-1')
-    expect(within(example).getByRole('list', { name: '变化字段' })).toHaveTextContent('分类 ID分类路径命中规则')
+    expect(within(example).getByRole('list', { name: '变化字段' })).toHaveTextContent('分类编号分类路径命中规则')
 
     const previous = within(example).getByRole('region', { name: '变化示例 1 的活动策略结果' })
     expect(previous).toHaveTextContent('movie.scifi')
@@ -177,7 +177,7 @@ describe('ClassificationImpactPanel', () => {
     expect(candidate).toHaveTextContent('movie.china')
     expect(candidate).toHaveTextContent('电影 / 华语')
     expect(candidate).toHaveTextContent('source_fallback')
-    expect(candidate).toHaveTextContent('事实不完整')
+    expect(candidate).toHaveTextContent('媒体信息不完整')
 
     expect(screen.getByRole('alert')).toHaveTextContent('近期历史仅保留有限事实')
   })
@@ -196,7 +196,7 @@ describe('ClassificationImpactPanel', () => {
       }),
     })
 
-    expect(screen.getByText('sample_source: request（请求内显式事实）')).toBeInTheDocument()
+    expect(screen.getByText('样本来源：本次输入的媒体信息')).toBeInTheDocument()
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
     expect(screen.getByText('本次样本没有可展示的媒体类型与来源分组。')).toBeInTheDocument()
     expect(screen.getByText('有限样本内未返回分类变化示例。')).toBeInTheDocument()

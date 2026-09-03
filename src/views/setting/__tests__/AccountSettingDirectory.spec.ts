@@ -10,7 +10,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
-  routerPush: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useSilentSettingRefresh: vi.fn(),
@@ -28,15 +27,6 @@ vi.mock('vue-toastification', () => ({
 vi.mock('@/composables/useSilentSettingRefresh', () => ({
   useSilentSettingRefresh: mocks.useSilentSettingRefresh,
 }))
-
-vi.mock('vue-router', async importOriginal => {
-  const actual = await importOriginal<typeof import('vue-router')>()
-  return {
-    ...actual,
-    useRoute: () => ({ query: { section: 'directories' } }),
-    useRouter: () => ({ push: mocks.routerPush }),
-  }
-})
 
 vi.mock('@/components/cards/DirectoryCard.vue', async () => {
   const { defineComponent } = await import('vue')
@@ -81,6 +71,35 @@ vi.mock('@/components/cards/StorageCard.vue', async () => {
     `,
     }),
   }
+})
+
+vi.mock('@/views/setting/AccountSettingClassification.vue', async () => {
+  const { defineComponent } = await import('vue')
+  return {
+    default: defineComponent({
+      name: 'AccountSettingClassificationStub',
+      props: {
+        active: { type: Boolean, default: false },
+        showClose: { type: Boolean, default: false },
+      },
+      emits: ['close'],
+      template: `
+        <section v-if="active" aria-label="classification-dialog-content">
+          <button v-if="showClose" aria-label="关闭自动分类" @click="$emit('close')">close</button>
+        </section>
+      `,
+    }),
+  }
+})
+
+const DialogStub = defineComponent({
+  name: 'VDialogStub',
+  props: {
+    modelValue: { type: Boolean, default: false },
+    fullscreen: { type: Boolean, default: false },
+  },
+  template:
+    '<div v-if="modelValue" data-testid="classification-dialog" :data-fullscreen="String(fullscreen)"><slot /></div>',
 })
 
 vi.mock('vuedraggable', async () => {
@@ -210,7 +229,7 @@ function mockLoadedSettings(
 
 async function renderDirectorySettings() {
   return renderWithProviders(AccountSettingDirectory, {
-    global: { stubs: { VAceEditor: AceEditorStub } },
+    global: { stubs: { VAceEditor: AceEditorStub, VDialog: DialogStub } },
   })
 }
 
@@ -229,7 +248,6 @@ describe('AccountSettingDirectory', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
-    mocks.routerPush.mockReset().mockResolvedValue(undefined)
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.useSilentSettingRefresh.mockReset()
@@ -244,6 +262,7 @@ describe('AccountSettingDirectory', () => {
     await waitFor(() => expect(screen.getByTestId('category-count-目录1')).toHaveTextContent('2'))
     expect(mocks.apiGet).toHaveBeenCalledWith('media/classification/policy')
     expect(screen.getByRole('checkbox', { name: '挂载盘删除空目录' })).toBeChecked()
+    expect(screen.getByRole('button', { name: '自动分类策略' })).toBeInTheDocument()
     expect(getRenameEditors().map(input => (input as HTMLTextAreaElement).value)).toEqual([
       '{{ title }}',
       '{{ artist }}',
@@ -254,6 +273,21 @@ describe('AccountSettingDirectory', () => {
     expect(computed(() => refreshOptions.active.value).value).toBe(true)
     await rerender({ active: false })
     expect(refreshOptions.active.value).toBe(false)
+  })
+
+  it('从目录页打开全屏自动分类弹窗并支持关闭', async () => {
+    const user = userEvent.setup()
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(screen.getByRole('button', { name: '自动分类策略' }))
+
+    const dialog = screen.getByTestId('classification-dialog')
+    expect(dialog).toHaveAttribute('data-fullscreen', 'true')
+    expect(screen.getByRole('region', { name: 'classification-dialog-content' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '关闭自动分类' }))
+    expect(screen.queryByTestId('classification-dialog')).not.toBeInTheDocument()
   })
 
   it('adds a non-conflicting directory name, updates paths, and saves current priority order', async () => {
@@ -428,26 +462,5 @@ describe('AccountSettingDirectory', () => {
     mocks.apiPost.mockRejectedValueOnce(new Error('offline'))
     await user.click(getCard('整理 & 刮削').getByRole('button', { name: '保存' }))
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('整理选项设置保存失败！'))
-  })
-
-  it('opens unified classification settings and reloads storage data after a card completes', async () => {
-    const user = userEvent.setup()
-    await renderDirectorySettings()
-    await screen.findByText('本地存储')
-    const directoryCard = getCard('目录')
-    await user.click(directoryCard.getByRole('button', { name: '自动分类' }))
-    expect(mocks.routerPush).toHaveBeenCalledWith({
-      query: { section: 'directories', tab: 'classification' },
-    })
-
-    const initialStorageLoads = mocks.apiGet.mock.calls.filter(
-      ([url]) => url === 'system/setting/public/Storages',
-    ).length
-    await user.click(screen.getByRole('button', { name: 'reload-本地存储' }))
-    await waitFor(() => {
-      expect(mocks.apiGet.mock.calls.filter(([url]) => url === 'system/setting/public/Storages')).toHaveLength(
-        initialStorageLoads + 1,
-      )
-    })
   })
 })

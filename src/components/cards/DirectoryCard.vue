@@ -229,7 +229,7 @@ const categoryItems = computed(() => [
   ...props.categories
     .filter(category => category.enabled && category.media_type === props.directory.media_type)
     .map(category => ({
-      title: formatClassificationCategoryOptionTitle(category, { includeId: true, pathSeparator: '/' }),
+      title: formatClassificationCategoryOptionTitle(category, { pathSeparator: '/' }),
       value: category.id,
     })),
 ])

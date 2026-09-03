@@ -12,12 +12,9 @@ import { storageAttributes } from '@/api/constants'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
 import { useMediaClassification } from '@/composables/useMediaClassification'
-import { useRoute, useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
-const route = useRoute()
-const router = useRouter()
 
 const props = defineProps({
   active: {
@@ -28,6 +25,9 @@ const props = defineProps({
 
 // 拖拽排序按需加载，避免设置框架预加载目录页时带上交互依赖。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const AccountSettingClassification = defineAsyncComponent(() =>
+  import('@/views/setting/AccountSettingClassification.vue').then(module => module.default),
+)
 
 // 所有下载目录
 const directories = ref<TransferDirectoryConf[]>([])
@@ -36,6 +36,8 @@ const directories = ref<TransferDirectoryConf[]>([])
 const storages = ref<StorageConf[]>([])
 
 const { activePolicy, refreshPolicy } = useMediaClassification()
+const classificationDialogOpen = ref(false)
+const classificationDialogMounted = ref(false)
 
 // 目录卡片只消费活动策略中的稳定分类定义。
 const mediaCategories = computed<ClassificationCategory[]>(() =>
@@ -98,9 +100,10 @@ const renameEditorOptions = {
   showGutter: true,
 }
 
-/** 切换到统一自动分类设置页，并保留当前路由的其它查询参数。 */
+/** 打开目录页内的全屏自动分类编辑器，并保留已经打开过的草稿状态。 */
 function openClassificationSettings(): void {
-  void router.push({ query: { ...route.query, tab: 'classification' } })
+  classificationDialogMounted.value = true
+  classificationDialogOpen.value = true
 }
 
 const movieRenameFormat = computed({
@@ -458,7 +461,7 @@ useSilentSettingRefresh(loadPageData, {
               </VBtn>
               <VSpacer />
               <VBtn color="info" variant="tonal" prepend-icon="mdi-file-tree" @click="openClassificationSettings">
-                {{ t('settingTabs.classification.title') }}
+                {{ t('setting.directory.classification.manage') }}
               </VBtn>
             </div>
           </VForm>
@@ -578,6 +581,15 @@ useSilentSettingRefresh(loadPageData, {
       </VCard>
     </VCol>
   </VRow>
+
+  <VDialog v-model="classificationDialogOpen" fullscreen scrollable class="classification-settings-dialog">
+    <AccountSettingClassification
+      v-if="classificationDialogMounted"
+      :active="classificationDialogOpen"
+      show-close
+      @close="classificationDialogOpen = false"
+    />
+  </VDialog>
 </template>
 
 <style scoped>

@@ -24,7 +24,6 @@ vi.mock('@/router/i18n-menu', () => ({
   getSettingTabs: () => [
     { title: '系统', icon: 'mdi-server-network', tab: 'system' },
     { title: '目录', icon: 'mdi-folder', tab: 'directory' },
-    { title: '分类', icon: 'mdi-file-tree', tab: 'classification' },
   ],
 }))
 
@@ -65,10 +64,10 @@ describe('setting page', () => {
     expect(activeTab.value).toBe('directory')
 
     mocks.route.query.tab = 'classification'
-    await waitFor(() => expect(activeTab.value).toBe('classification'))
+    await waitFor(() => expect(activeTab.value).toBe('directory'))
 
     mocks.route.query.tab = 'missing'
-    await waitFor(() => expect(activeTab.value).toBe('classification'))
+    await waitFor(() => expect(activeTab.value).toBe('directory'))
   })
 
   it('无效初始标签回退到第一个设置页', async () => {
@@ -78,10 +77,10 @@ describe('setting page', () => {
     await waitFor(() => expect(registeredActiveTab().value).toBe('system'))
   })
 
-  it('注册包含自动分类入口的设置标签，并保持标签值与窗口一致', async () => {
+  it('不再把自动分类注册为设置页一级标签', async () => {
     await renderSettingPage()
 
-    expect(registeredSettingTabs()).toEqual(
+    expect(registeredSettingTabs()).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ tab: 'classification' })]),
     )
   })

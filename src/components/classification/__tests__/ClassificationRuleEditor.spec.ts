@@ -194,7 +194,7 @@ describe('ClassificationRuleEditor', () => {
     const editor = await renderEditor([createRule()])
 
     await fireEvent.update(screen.getByLabelText('规则名称 1'), '音乐来源规则')
-    await fireEvent.update(screen.getByLabelText('规则 ID 1'), 'rule-music-source')
+    await fireEvent.update(screen.getByLabelText('规则编号 1'), 'rule-music-source')
     await user.click(screen.getByRole('checkbox', { name: '启用规则 音乐来源规则' }))
     await selectOption('媒体类型 音乐来源规则', '音乐')
     await selectOption('数据来源 音乐来源规则', 'musicbrainz')
@@ -215,8 +215,8 @@ describe('ClassificationRuleEditor', () => {
     const editor = await renderEditor([createRule()])
 
     await user.click(screen.getByLabelText('分类目标 电影规则'))
-    expect(await screen.findByRole('option', { name: '电影 / 华语' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: '音乐 / 摇滚' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: '华语电影 · 电影 / 华语' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '摇滚专辑 · 音乐 / 摇滚' })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
 
     await selectOption('媒体类型 电影规则', '音乐')
@@ -226,7 +226,7 @@ describe('ClassificationRuleEditor', () => {
     expect(editor.latestRules()[0]?.media_types).toEqual(['音乐'])
     expect(editor.latestRules()[0]?.target.category_id).toBeNull()
 
-    await selectOption('分类目标 电影规则', '音乐 / 摇滚')
+    await selectOption('分类目标 电影规则', '摇滚专辑 · 音乐 / 摇滚')
     expect(editor.latestRules()[0]?.target.category_id).toBe('music-rock')
   })
 

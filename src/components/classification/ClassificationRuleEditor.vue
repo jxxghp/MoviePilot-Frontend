@@ -10,6 +10,7 @@ import type {
   ClassificationRule,
   ClassificationRuleKind,
 } from '@/api/mediaClassificationTypes'
+import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 import ClassificationConditionBuilder from './ClassificationConditionBuilder.vue'
 
 const MEDIA_TYPES: ClassificationMediaType[] = ['电影', '电视剧', '音乐']
@@ -127,7 +128,7 @@ function categoryItems(rule: ClassificationRule) {
   return props.categories
     .filter(category => selectedMediaTypes.size === 0 || selectedMediaTypes.has(category.media_type))
     .map(category => ({
-      title: `${category.path.join(' / ')}${category.enabled ? '' : '（已停用）'}`,
+      title: `${formatClassificationCategoryOptionTitle(category)}${category.enabled ? '' : '（已停用）'}`,
       value: category.id,
       props: { disabled: !category.enabled },
     }))
@@ -443,10 +444,10 @@ watch(
               />
               <VTextField
                 :model-value="rule.id"
-                label="稳定 ID"
+                label="规则编号"
                 density="compact"
                 hide-details="auto"
-                :aria-label="`规则 ID ${index + 1}`"
+                :aria-label="`规则编号 ${index + 1}`"
                 @update:model-value="value => updateRule(index, { id: value })"
               />
               <VBtnToggle

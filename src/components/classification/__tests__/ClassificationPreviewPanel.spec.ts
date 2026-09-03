@@ -104,7 +104,7 @@ describe('ClassificationPreviewPanel', () => {
     const result = await renderPanel()
 
     const sourceInput = screen.getByRole('textbox', { name: '媒体来源' })
-    const mediaIdInput = screen.getByRole('textbox', { name: '媒体 ID' })
+    const mediaIdInput = screen.getByRole('textbox', { name: '媒体编号' })
     await user.type(sourceInput, 'plugin.example')
     await user.type(mediaIdInput, 'release-42')
     await user.type(screen.getByRole('spinbutton', { name: '发行年份' }), '2024')
@@ -121,8 +121,8 @@ describe('ClassificationPreviewPanel', () => {
     await user.click(await screen.findByRole('option', { name: '专辑' }))
     await user.type(screen.getByRole('combobox', { name: '音乐标签' }), 'ambient{Enter}')
     await user.type(screen.getByRole('textbox', { name: '来源地区组' }), 'east-asia')
-    await user.click(screen.getByRole('button', { name: '活动策略' }))
-    await user.click(screen.getByRole('button', { name: '执行事实预览' }))
+    await user.click(screen.getByRole('button', { name: '已发布的规则' }))
+    await user.click(screen.getByRole('button', { name: '预览分类结果' }))
 
     await waitFor(() => expect(result.emitted()['request-preview']).toHaveLength(1))
     const previewEvents = result.emitted()['request-preview'] as unknown[][] | undefined
@@ -214,10 +214,8 @@ describe('ClassificationPreviewPanel', () => {
 
     expect(screen.getByText('部分完成')).toBeInTheDocument()
     expect(screen.getByText('18')).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '推荐分类' })).toHaveTextContent('科幻电影 · 电影 / 科幻 · movie.scifi')
-    expect(screen.getByRole('region', { name: '生效分类' })).toHaveTextContent(
-      '生效电影 · 电影 / 精选 · movie.effective',
-    )
+    expect(screen.getByRole('region', { name: '规则建议分类' })).toHaveTextContent('科幻电影 · 电影 / 科幻')
+    expect(screen.getByRole('region', { name: '生效分类' })).toHaveTextContent('生效电影 · 电影 / 精选')
     expect(screen.getByRole('region', { name: '标签' })).toHaveTextContent('经典高分')
     expect(screen.getByRole('region', { name: '警告' })).toHaveTextContent('missing_field：来源未提供内容分级')
     expect(screen.getByRole('region', { name: '警告' })).toHaveTextContent('facts.media.content_rating')
@@ -237,12 +235,12 @@ describe('ClassificationPreviewPanel', () => {
     const user = userEvent.setup()
     const result = await renderPanel()
 
-    await user.click(screen.getByRole('button', { name: '执行事实预览' }))
+    await user.click(screen.getByRole('button', { name: '预览分类结果' }))
     expect(screen.getByRole('alert')).toHaveTextContent('媒体来源不能为空')
     expect(result.emitted()['request-preview']).toBeUndefined()
 
     await result.rerender({ fields, categories, result: null, loading: true })
-    expect(screen.getByRole('button', { name: '执行事实预览' })).toBeDisabled()
-    expect(screen.getByRole('progressbar', { name: '正在执行事实预览' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '预览分类结果' })).toBeDisabled()
+    expect(screen.getByRole('progressbar', { name: '正在预览分类结果' })).toBeInTheDocument()
   })
 })

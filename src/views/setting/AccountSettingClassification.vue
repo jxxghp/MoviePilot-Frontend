@@ -21,6 +21,7 @@ import ClassificationPolicyControlPanel from '@/components/classification/Classi
 import ClassificationPreviewPanel from '@/components/classification/ClassificationPreviewPanel.vue'
 import ClassificationRuleEditor from '@/components/classification/ClassificationRuleEditor.vue'
 import { useMediaClassification } from '@/composables/useMediaClassification'
+import { useMediaSources } from '@/composables/useMediaSources'
 import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 import { cloneDeep, isEqual } from 'lodash-es'
 import { useToast } from 'vue-toastification'
@@ -40,9 +41,12 @@ interface ClassificationImpactRequestEvent {
 const props = withDefaults(
   defineProps<{
     active?: boolean
+    showClose?: boolean
   }>(),
-  { active: true },
+  { active: true, showClose: false },
 )
+
+const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
 const toast = useToast()
@@ -58,6 +62,22 @@ const validatedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const analyzedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const lastImpactOptions = ref<ClassificationImpactRequestEvent>({ sampleLimit: 100, exampleLimit: 20 })
 const mediaTypes: ClassificationMediaType[] = ['电影', '电视剧', '音乐']
+const builtinSourceLabelKeys: Record<string, string> = {
+  themoviedb: 'setting.cache.recognitionSource.themoviedb',
+  douban: 'setting.cache.recognitionSource.douban',
+  bangumi: 'setting.cache.recognitionSource.bangumi',
+  anilist: 'setting.cache.recognitionSource.anilist',
+  imdb: 'setting.classification.sourceNames.imdb',
+  tvdb: 'setting.classification.sourceNames.tvdb',
+  musicbrainz: 'setting.cache.recognitionSource.musicbrainz',
+  theaudiodb: 'setting.cache.recognitionSource.theaudiodb',
+  doubanmusic: 'setting.cache.recognitionSource.doubanmusic',
+  bilibili: 'setting.classification.sourceNames.bilibili',
+  mangguodiscover: 'setting.classification.sourceNames.mangguodiscover',
+  migu: 'setting.classification.sourceNames.migu',
+  tencentvideodiscover: 'setting.classification.sourceNames.tencentvideodiscover',
+  iqiyi: 'setting.classification.sourceNames.iqiyi',
+}
 
 const {
   activeRevision,
@@ -87,6 +107,7 @@ const {
   rollback,
   validateDraft,
 } = useMediaClassification()
+const { catalog: mediaSourceCatalog } = useMediaSources()
 
 /** 服务端校验结果是否仍对应当前未发布草稿。 */
 const validationIsCurrent = computed(
@@ -149,6 +170,14 @@ const availableSources = computed(() => {
   for (const source of Object.keys(draftPolicy.value?.source_fallbacks ?? {})) sources.add(source)
   return [...sources].sort((left, right) => left.localeCompare(right))
 })
+
+/** 将来源标识转换为后端注册名称，并为内置来源提供本地化兜底。 */
+function sourceDisplayName(source: string): string {
+  const registeredSource = mediaSourceCatalog.value.find(item => item.media_source === source)
+  if (registeredSource?.name?.trim()) return registeredSource.name.trim()
+  const labelKey = builtinSourceLabelKeys[source]
+  return labelKey ? t(labelKey) : source
+}
 
 /** 按条件树顺序提取当前策略实际引用的字段 ID。 */
 function collectConditionFieldIds(node: ClassificationConditionNode): string[] {
@@ -228,11 +257,14 @@ function fallbackCategoryOptions(mediaType: ClassificationMediaType) {
     }))
 }
 
-/** 将来源兜底标签和有界浮层参数传给 VSelect。 */
+/** 将来源默认分类标签和有界浮层参数传给 VSelect。 */
 function sourceFallbackMenuProps(source: string, mediaType: ClassificationMediaType) {
   return {
     activatorProps: {
-      'aria-label': t('setting.classification.sourceFallbackFor', { source, mediaType }),
+      'aria-label': t('setting.classification.sourceFallbackFor', {
+        source: sourceDisplayName(source),
+        mediaType,
+      }),
     },
     contentClass: 'classification-source-fallback-menu',
     maxHeight: 280,
@@ -456,7 +488,7 @@ watch(analysisTab, tab => {
 </script>
 
 <template>
-  <VCard class="classification-settings" variant="flat">
+  <VCard class="classification-settings" :class="{ 'classification-settings--dialog': showClose }" variant="flat">
     <VCardItem>
       <template #prepend>
         <VAvatar color="primary" variant="tonal" size="40">
@@ -466,13 +498,22 @@ watch(analysisTab, tab => {
       <VCardTitle>{{ t('setting.classification.title') }}</VCardTitle>
       <VCardSubtitle>{{ t('setting.classification.description') }}</VCardSubtitle>
       <template #append>
-        <div class="classification-settings__status">
-          <VChip size="small" variant="tonal" prepend-icon="mdi-source-branch">
-            {{ t('setting.classification.revision', { revision: activeRevision }) }}
-          </VChip>
-          <VChip v-if="isDirty" size="small" color="warning" variant="tonal">
-            {{ t('setting.classification.unsaved') }}
-          </VChip>
+        <div class="classification-settings__header-actions">
+          <div class="classification-settings__status">
+            <VChip size="small" variant="tonal" prepend-icon="mdi-source-branch">
+              {{ t('setting.classification.revision', { revision: activeRevision }) }}
+            </VChip>
+            <VChip v-if="isDirty" size="small" color="warning" variant="tonal">
+              {{ t('setting.classification.unsaved') }}
+            </VChip>
+          </div>
+          <VBtn
+            v-if="showClose"
+            icon="mdi-close"
+            variant="text"
+            :aria-label="t('common.close')"
+            @click="emit('close')"
+          />
         </div>
       </template>
     </VCardItem>
@@ -603,14 +644,14 @@ watch(analysisTab, tab => {
                     class="classification-settings__source-title"
                     :aria-label="
                       t('setting.classification.sourceFallbackPanel', {
-                        source,
+                        source: sourceDisplayName(source),
                         count: sourceFallbackCount(source),
                       })
                     "
                   >
                     <span class="classification-settings__source-name">
                       <VIcon icon="mdi-database-outline" size="18" />
-                      <code>{{ source }}</code>
+                      <span>{{ sourceDisplayName(source) }}</span>
                     </span>
                     <VChip size="x-small" variant="tonal">
                       {{
@@ -630,7 +671,12 @@ watch(analysisTab, tab => {
                         :model-value="draftPolicy.source_fallbacks[source]?.[mediaType] ?? null"
                         :items="fallbackCategoryOptions(mediaType)"
                         :label="mediaType"
-                        :aria-label="t('setting.classification.sourceFallbackFor', { source, mediaType })"
+                        :aria-label="
+                          t('setting.classification.sourceFallbackFor', {
+                            source: sourceDisplayName(source),
+                            mediaType,
+                          })
+                        "
                         :menu-props="sourceFallbackMenuProps(source, mediaType)"
                         density="compact"
                         variant="outlined"
@@ -762,6 +808,16 @@ watch(analysisTab, tab => {
 
   overflow: hidden;
   background: transparent;
+}
+
+.classification-settings--dialog {
+  block-size: 100%;
+}
+
+.classification-settings__header-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .classification-settings__status {

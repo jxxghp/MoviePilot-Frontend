@@ -50,7 +50,7 @@ async function renderEditor(
 }
 
 describe('ClassificationCategoryEditor', () => {
-  it('按电影、电视剧和音乐分段展示稳定 ID 与多级路径', async () => {
+  it('按电影、电视剧和音乐分段展示分类编号与多级路径', async () => {
     const user = userEvent.setup()
     await renderEditor()
 
@@ -69,14 +69,14 @@ describe('ClassificationCategoryEditor', () => {
     expect(screen.getByRole('list', { name: '无损音乐分类路径' })).toHaveTextContent('音乐专辑无损')
   })
 
-  it('新建时录入稳定 ID，并编辑既有分类的名称、路径、媒体类型和启停状态', async () => {
+  it('新建时录入分类编号，并编辑既有分类的名称、路径、媒体类型和启停状态', async () => {
     const user = userEvent.setup()
     const { events } = await renderEditor()
 
     await user.click(screen.getByRole('button', { name: '音乐' }))
     await user.click(screen.getByRole('button', { name: '新增音乐分类' }))
     await user.type(screen.getByRole('textbox', { name: /分类名称/ }), '现场专辑')
-    await user.type(screen.getByRole('textbox', { name: /稳定 ID/ }), 'music.live')
+    await user.type(screen.getByRole('textbox', { name: /分类编号/ }), 'music.live')
     await user.type(screen.getByRole('textbox', { name: /分类路径/ }), '音乐/专辑/现场')
     await user.click(screen.getByRole('button', { name: '保存分类' }))
 
@@ -98,7 +98,7 @@ describe('ClassificationCategoryEditor', () => {
     await user.click(screen.getByRole('button', { name: '电影' }))
     await user.click(screen.getByRole('button', { name: '编辑分类“科幻电影”' }))
     const nameInput = screen.getByRole('textbox', { name: /分类名称/ })
-    const idInput = screen.getByRole('textbox', { name: /稳定 ID/ })
+    const idInput = screen.getByRole('textbox', { name: /分类编号/ })
     const pathInput = screen.getByRole('textbox', { name: /分类路径/ })
     expect(idInput).toHaveValue('movie.scifi')
     expect(idInput).toHaveAttribute('readonly')
@@ -178,11 +178,11 @@ describe('ClassificationCategoryEditor', () => {
     })
   })
 
-  it('fallback 选择器提交稳定分类 ID 而不是名称或路径', async () => {
+  it('默认分类选择器提交分类编号而不是名称或路径', async () => {
     const user = userEvent.setup()
     const { events } = await renderEditor()
 
-    await user.click(screen.getByRole('combobox', { name: '音乐回退分类' }))
+    await user.click(screen.getByRole('combobox', { name: '音乐默认分类' }))
     await user.click(await screen.findByRole('option', { name: '无损音乐 · 音乐 / 专辑 / 无损' }))
 
     await waitFor(() => expect(events.updateFallbacks).toHaveBeenCalledWith({ 音乐: 'music.lossless' }))
@@ -194,7 +194,7 @@ describe('ClassificationCategoryEditor', () => {
 
     await user.click(screen.getByRole('button', { name: '新增电影分类' }))
     await user.type(screen.getByRole('textbox', { name: /分类名称/ }), '过深分类')
-    await user.type(screen.getByRole('textbox', { name: /稳定 ID/ }), 'movie.deep')
+    await user.type(screen.getByRole('textbox', { name: /分类编号/ }), 'movie.deep')
     await user.type(screen.getByRole('textbox', { name: /分类路径/ }), '电影/地区/华语')
     await user.click(screen.getByRole('button', { name: '保存分类' }))
 
@@ -203,7 +203,7 @@ describe('ClassificationCategoryEditor', () => {
     expect(businessError).toHaveAttribute('role', 'alert')
     expect(businessError.id).not.toBe('')
     expect(screen.getByRole('region', { name: '新增分类' })).toHaveAttribute('aria-describedby', businessError.id)
-    expect(screen.getByRole('textbox', { name: /稳定 ID/ })).toHaveValue('movie.deep')
+    expect(screen.getByRole('textbox', { name: /分类编号/ })).toHaveValue('movie.deep')
     expect(events.updateCategories).not.toHaveBeenCalled()
   })
 })

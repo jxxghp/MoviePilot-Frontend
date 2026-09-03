@@ -14,6 +14,7 @@ import type {
   ClassificationSelection,
   ClassificationSourceSupport,
 } from '@/api/mediaClassificationTypes'
+import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 
 defineOptions({ name: 'ClassificationPreviewPanel' })
 
@@ -262,17 +263,22 @@ function sourceSupportHint(field: ClassificationFieldDefinition): string | null 
   return key ? t(key) : null
 }
 
-/** 将分类选择解析为名称、路径和稳定 ID。 */
+/** 将分类选择转换为不重复内部编号的可读名称和路径。 */
 function selectionTitle(selection: ClassificationSelection | null | undefined): string {
   if (!selection?.category_id) return t('setting.classification.preview.selection.unmatched')
   const category = categoryMap.value.get(selection.category_id)
   const path = selection.category_path.length ? selection.category_path : (category?.path ?? [])
   const name = category?.name ?? t('setting.classification.preview.selection.unknown')
-  return t('setting.classification.preview.selection.summary', {
-    name,
-    path: path.length ? path.join(' / ') : t('setting.classification.preview.selection.unsetPath'),
-    id: selection.category_id,
-  })
+  return formatClassificationCategoryOptionTitle(
+    {
+      id: selection.category_id,
+      name,
+      path,
+    },
+    {
+      emptyPathLabel: t('setting.classification.preview.selection.unsetPath'),
+    },
+  )
 }
 
 /** 将选择来源转换为界面可读文本。 */

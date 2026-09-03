@@ -212,12 +212,6 @@ export function getSettingTabs(t: Composer['t']): NavMenuTabItem[] {
       description: t('settingTabs.directory.description'),
     },
     {
-      title: t('settingTabs.classification.title'),
-      icon: 'mdi-file-tree',
-      tab: 'classification',
-      description: t('settingTabs.classification.description'),
-    },
-    {
       title: t('settingTabs.site.title'),
       icon: 'mdi-web',
       tab: 'site',

@@ -13,7 +13,17 @@ describe('formatClassificationCategoryOptionTitle', () => {
         name: '动画',
         path: ['电影', '动画'],
       }),
-    ).toBe('动画 · 电影 / 动画')
+    ).toBe('动画 · 电影')
+  })
+
+  it('removes a repeated category name from the end of a hierarchical path', () => {
+    expect(
+      formatClassificationCategoryOptionTitle({
+        id: 'movie.china',
+        name: '华语电影',
+        path: ['电影', '华语电影'],
+      }),
+    ).toBe('华语电影 · 电影')
   })
 
   it('can preserve a caller-specific path separator and stable ID', () => {
@@ -22,7 +32,7 @@ describe('formatClassificationCategoryOptionTitle', () => {
         { id: 'movie.animation', name: '动画', path: ['电影', '动画'] },
         { includeId: true, pathSeparator: '/' },
       ),
-    ).toBe('动画 · 电影/动画 · movie.animation')
+    ).toBe('动画 · 电影 · movie.animation')
   })
 
   it('uses the configured label only when the category has no path', () => {
