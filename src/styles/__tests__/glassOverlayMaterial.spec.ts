@@ -221,7 +221,7 @@ describe('glass overlay material styles', () => {
 
     expect(layout).toContain("html:is([data-theme='transparent'], [data-theme='glass'])")
     expect(layout).toContain('--shell-floating-navbar-radius: 1rem')
-    expect(layout).toContain('--shell-floating-navbar-inset: 0.75rem')
+    expect(layout).toContain('--shell-floating-navbar-inset: 1rem')
     expect(layout).toContain(
       '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',
     )

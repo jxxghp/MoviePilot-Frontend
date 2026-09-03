@@ -219,7 +219,7 @@ export default defineComponent({
   --layout-navbar-safe-area-top: env(safe-area-inset-top, 0px);
   --layout-navbar-safe-area-inline: 0px;
   --shell-floating-navbar-radius: 1rem;
-  --shell-floating-navbar-inset: 0.75rem;
+  --shell-floating-navbar-inset: 1rem;
   --layout-navbar-block-size: calc(
     var(--layout-navbar-safe-area-top) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
   );
