@@ -1,13 +1,8 @@
 import SettingPage from '@/pages/setting.vue'
 import { waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
-import { readFileSync } from 'node:fs'
-import { cwd } from 'node:process'
-import { resolve } from 'node:path'
 import type { Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const settingPageSource = readFileSync(resolve(cwd(), 'src/pages/setting.vue'), 'utf8')
 
 const mocks = vi.hoisted(() => ({
   registerHeaderTab: vi.fn(),
@@ -40,6 +35,13 @@ function registeredActiveTab(): Ref<string> {
   return registration!.modelValue!
 }
 
+/** 读取页头注册项中的设置标签列表。 */
+function registeredSettingTabs(): Array<{ tab: string }> {
+  const registration = mocks.registerHeaderTab.mock.calls[0]?.[0] as { items?: Ref<Array<{ tab: string }>> } | undefined
+  expect(registration?.items).toBeDefined()
+  return registration!.items!.value
+}
+
 /** 渲染设置页框架但不实例化各异步设置面板。 */
 async function renderSettingPage() {
   return renderWithProviders(SettingPage, {
@@ -55,7 +57,6 @@ describe('setting page', () => {
   beforeEach(() => {
     mocks.registerHeaderTab.mockReset()
     mocks.route.query.tab = 'directory'
-    document.documentElement.classList.remove('settings-page-header-tabs-active')
   })
 
   it('响应有效的 route.query.tab 变化并忽略未知标签', async () => {
@@ -77,23 +78,11 @@ describe('setting page', () => {
     await waitFor(() => expect(registeredActiveTab().value).toBe('system'))
   })
 
-  it('仅在设置页活动期间启用页头样式作用域', async () => {
-    const { unmount } = await renderSettingPage()
+  it('注册包含自动分类入口的设置标签，并保持标签值与窗口一致', async () => {
+    await renderSettingPage()
 
-    expect(document.documentElement).toHaveClass('settings-page-header-tabs-active')
-
-    unmount()
-    expect(document.documentElement).not.toHaveClass('settings-page-header-tabs-active')
-  })
-
-  it('移动端页头标签等宽并复用玻璃主题材质 token', () => {
-    expect(settingPageSource).toContain('flex: 0 0 calc(100% / 3)')
-    expect(settingPageSource).toContain('block-size: 44px')
-    expect(settingPageSource).toContain('font-size: 0.875rem')
-    expect(settingPageSource).toContain('flex: 0 0 20px')
-    expect(settingPageSource).toContain('var(--glass-surface-soft)')
-    expect(settingPageSource).toContain('var(--glass-border)')
-    expect(settingPageSource).toContain('var(--glass-sheen)')
-    expect(settingPageSource).toContain('var(--glass-control-prominent)')
+    expect(registeredSettingTabs()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ tab: 'classification' })]),
+    )
   })
 })

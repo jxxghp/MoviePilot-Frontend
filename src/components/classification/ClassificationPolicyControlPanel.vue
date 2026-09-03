@@ -410,45 +410,47 @@ watch(
           {{ t('setting.classification.control.historyEmpty') }}
         </div>
 
-        <fieldset v-else class="classification-policy-control__history-list">
-          <legend class="sr-only">{{ t('setting.classification.control.selectHistoryLegend') }}</legend>
-          <label
+        <VRadioGroup
+          v-else
+          v-model="selectedRevision"
+          class="classification-policy-control__history-list"
+          hide-details
+          :aria-label="t('setting.classification.control.selectHistoryLegend')"
+        >
+          <VRadio
             v-for="policy in historyItems"
             :key="policy.revision"
             class="classification-policy-control__history-row"
             :class="{ 'classification-policy-control__history-row--selected': selectedRevision === policy.revision }"
             :data-testid="'classification-history-revision-' + policy.revision"
+            :value="policy.revision"
+            :aria-label="
+              t('setting.classification.control.selectHistoryAria', {
+                revision: policy.revision,
+                categories: policy.categories.length,
+                rules: policy.rules.length,
+              })
+            "
           >
-            <input
-              v-model="selectedRevision"
-              type="radio"
-              name="classification-history-revision"
-              :value="policy.revision"
-              :aria-label="
-                t('setting.classification.control.selectHistoryAria', {
-                  revision: policy.revision,
-                  categories: policy.categories.length,
-                  rules: policy.rules.length,
-                })
-              "
-            />
-            <span class="classification-policy-control__history-summary">
-              <span class="classification-policy-control__history-title">
-                <strong>revision {{ policy.revision }}</strong>
-                <time v-if="policy.updated_at" :datetime="policy.updated_at">{{
-                  formatUpdatedAt(policy.updated_at)
-                }}</time>
-                <span v-else>{{ t('setting.classification.control.updatedAtUnknown') }}</span>
+            <template #label>
+              <span class="classification-policy-control__history-summary">
+                <span class="classification-policy-control__history-title">
+                  <strong>revision {{ policy.revision }}</strong>
+                  <time v-if="policy.updated_at" :datetime="policy.updated_at">{{
+                    formatUpdatedAt(policy.updated_at)
+                  }}</time>
+                  <span v-else>{{ t('setting.classification.control.updatedAtUnknown') }}</span>
+                </span>
+                <span class="classification-policy-control__history-counts">
+                  <span>{{
+                    t('setting.classification.control.categoryCount', { count: policy.categories.length })
+                  }}</span>
+                  <span>{{ t('setting.classification.control.ruleCount', { count: policy.rules.length }) }}</span>
+                </span>
               </span>
-              <span class="classification-policy-control__history-counts">
-                <span>{{
-                  t('setting.classification.control.categoryCount', { count: policy.categories.length })
-                }}</span>
-                <span>{{ t('setting.classification.control.ruleCount', { count: policy.rules.length }) }}</span>
-              </span>
-            </span>
-          </label>
-        </fieldset>
+            </template>
+          </VRadio>
+        </VRadioGroup>
 
         <VAlert density="compact" type="info" variant="tonal">
           {{ t('setting.classification.control.rollbackNotice') }}
@@ -593,10 +595,14 @@ watch(
   border: 0;
 }
 
-.classification-policy-control__history-row {
+.classification-policy-control__history-list :deep(.v-selection-control-group) {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 8px;
+}
+
+.classification-policy-control__history-row {
+  display: flex;
+  width: 100%;
   align-items: center;
   min-inline-size: 0;
   padding: 12px;
@@ -605,17 +611,22 @@ watch(
   cursor: pointer;
 }
 
+.classification-policy-control__history-row :deep(.v-selection-control__wrapper) {
+  flex: 0 0 auto;
+  margin-inline-end: 12px;
+}
+
+.classification-policy-control__history-row :deep(.v-label) {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  opacity: 1;
+}
+
 .classification-policy-control__history-row:hover,
 .classification-policy-control__history-row:focus-within,
 .classification-policy-control__history-row--selected {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.06);
-}
-
-.classification-policy-control__history-row input {
-  inline-size: 18px;
-  block-size: 18px;
-  accent-color: rgb(var(--v-theme-primary));
 }
 
 .classification-policy-control__history-summary,

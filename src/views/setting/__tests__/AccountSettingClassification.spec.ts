@@ -1,4 +1,8 @@
-import type { ClassificationImpactAnalysis, ClassificationPolicy } from '@/api/mediaClassificationTypes'
+import type {
+  ClassificationFieldDefinition,
+  ClassificationImpactAnalysis,
+  ClassificationPolicy,
+} from '@/api/mediaClassificationTypes'
 import AccountSettingClassification from '@/views/setting/AccountSettingClassification.vue'
 import userEvent from '@testing-library/user-event'
 import { screen, waitFor } from '@testing-library/vue'
@@ -64,10 +68,15 @@ vi.mock('@/components/classification/ClassificationRuleEditor.vue', async () => 
   return {
     default: defineComponent({
       name: 'ClassificationRuleEditorStub',
-      props: { rules: { type: Array, required: true } },
+      props: {
+        rules: { type: Array, required: true },
+        fields: { type: Array, required: true },
+      },
       emits: ['update:rules'],
       template: `
         <section aria-label="rule-editor">
+          <output aria-label="editor-field-ids">{{ fields.map(field => field.id).join(',') }}</output>
+          <output aria-label="editor-field-labels">{{ fields.map(field => field.label).join(',') }}</output>
           <button aria-label="replace-rules" @click="$emit('update:rules', [{ ...rules[0], name: '新规则' }])">rules</button>
         </section>
       `,
@@ -174,6 +183,21 @@ function createPolicy(): ClassificationPolicy {
   }
 }
 
+/** 构造迁移后只应在旧规则仍引用时保留的 TMDB 兼容字段。 */
+function createLegacyTmdbField(): ClassificationFieldDefinition {
+  return {
+    id: 'extensions.themoviedb.genre_ids',
+    label: 'TMDB 旧字段 genre_ids',
+    group: 'TMDB 兼容',
+    value_type: 'string_list',
+    operators: ['contains_any'],
+    media_types: ['电影'],
+    options: [],
+    allow_custom_values: true,
+    source_support: { themoviedb: 'extension' },
+  }
+}
+
 /** 构造与活动 revision 对齐的有界影响分析结果。 */
 function createImpact(): ClassificationImpactAnalysis {
   return {
@@ -263,6 +287,18 @@ describe('AccountSettingClassification', () => {
             allow_custom_values: false,
             source_support: { themoviedb: 'native', musicbrainz: 'native' },
           },
+          {
+            id: 'media.genre_keys',
+            label: '规范类型',
+            group: '通用',
+            value_type: 'string_list',
+            operators: ['contains_any'],
+            media_types: ['电影', '电视剧', '音乐'],
+            options: [],
+            allow_custom_values: true,
+            source_support: { themoviedb: 'derived', musicbrainz: 'derived' },
+          },
+          createLegacyTmdbField(),
         ],
         limits: {
           max_category_depth: 4,
@@ -334,6 +370,29 @@ describe('AccountSettingClassification', () => {
     expect(screen.getByLabelText('directory-references')).toHaveTextContent('电影目录')
   })
 
+  it('hides migrated TMDB fields but keeps a field visible while an old rule still references it', async () => {
+    await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('规则')
+
+    expect(screen.getByLabelText('editor-field-ids')).toHaveTextContent('media.type,media.genre_keys')
+    expect(screen.getByLabelText('editor-field-ids')).not.toHaveTextContent('extensions.themoviedb.genre_ids')
+    expect(screen.getByLabelText('editor-field-labels')).toHaveTextContent('风格')
+
+    const state = mocks.useMediaClassification.mock.results[0].value
+    state.draftPolicy.value = {
+      ...state.draftPolicy.value,
+      rules: [
+        {
+          ...state.draftPolicy.value.rules[0],
+          when: { field: 'extensions.themoviedb.genre_ids', operator: 'contains_any', value: ['16'] },
+        },
+      ],
+    }
+    await nextTick()
+
+    expect(screen.getByLabelText('editor-field-ids')).toHaveTextContent('extensions.themoviedb.genre_ids')
+  })
+
   it('switches missing-fact enrichment through the policy draft', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
@@ -385,7 +444,7 @@ describe('AccountSettingClassification', () => {
       name: 'musicbrainz 的电影来源兜底',
     })
     await user.click(musicbrainzFallback)
-    await user.click(await screen.findByRole('option', { name: '电影 · 电影 · movie.base' }))
+    await user.click(await screen.findByRole('option', { name: '电影 · 电影' }))
 
     const state = mocks.useMediaClassification.mock.results[0].value
     expect(state.draftPolicy.value.source_fallbacks.musicbrainz.电影).toBe('movie.base')

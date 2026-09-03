@@ -3,6 +3,7 @@ import api from '@/api'
 import type { TransferDirectoryConf } from '@/api/types'
 import type {
   ClassificationCategory,
+  ClassificationConditionNode,
   ClassificationEnrichmentMode,
   ClassificationEvaluation,
   ClassificationFieldDefinition,
@@ -148,15 +149,47 @@ const availableSources = computed(() => {
   return [...sources].sort((left, right) => left.localeCompare(right))
 })
 
-/** 将只读 API 字段目录复制为编辑器输入，避免组件边界泄漏深层响应式只读类型。 */
+/** 按条件树顺序提取当前策略实际引用的字段 ID。 */
+function collectConditionFieldIds(node: ClassificationConditionNode): string[] {
+  if ('field' in node) return [node.field]
+  if (node.all) return node.all.flatMap(collectConditionFieldIds)
+  if (node.any) return node.any.flatMap(collectConditionFieldIds)
+  return node.not ? collectConditionFieldIds(node.not) : []
+}
+
+/** 识别仅为旧 TMDB 分类规则保留的来源扩展字段。 */
+function isLegacyCompatibilityField(field: Readonly<Pick<ClassificationFieldDefinition, 'group' | 'label'>>): boolean {
+  return field.group === 'TMDB 兼容' || field.label.startsWith('TMDB 旧字段')
+}
+
+const referencedFieldIds = computed(
+  () => new Set((draftPolicy.value?.rules ?? []).flatMap(rule => collectConditionFieldIds(rule.when))),
+)
+
+/** 将只读 API 字段目录复制为编辑器输入，并隐藏已迁移且未被使用的旧字段。 */
 const editorFields = computed<ClassificationFieldDefinition[]>(() =>
-  [...(fieldCatalog.value?.fields ?? []), ...(fieldCatalog.value?.retired_fields ?? [])].map(field => ({
-    ...field,
-    media_types: [...field.media_types],
-    operators: [...field.operators],
-    options: field.options.map(option => ({ ...option })),
-    source_support: { ...field.source_support },
-  })),
+  [...(fieldCatalog.value?.fields ?? []), ...(fieldCatalog.value?.retired_fields ?? [])]
+    .filter(field => !isLegacyCompatibilityField(field) || referencedFieldIds.value.has(field.id))
+    .map(field => {
+      const legacy = isLegacyCompatibilityField(field)
+      return {
+        ...field,
+        label: field.id === 'media.genre_keys' ? '风格' : field.label,
+        group: legacy ? 'TMDB 旧规则' : field.group,
+        selectable: legacy ? false : field.selectable,
+        replacement_field:
+          field.replacement_field ??
+          (field.id === 'extensions.themoviedb.genre_ids'
+            ? 'media.genre_keys'
+            : field.id === 'extensions.themoviedb.origin_country'
+              ? 'media.countries'
+              : null),
+        media_types: [...field.media_types],
+        operators: [...field.operators],
+        options: field.options.map(option => ({ ...option })),
+        source_support: { ...field.source_support },
+      }
+    }),
 )
 
 /** 将 JSON API 深层只读值复制并恢复为组件 DTO，副本不会回写 composable 状态。 */
@@ -189,17 +222,21 @@ function fallbackCategoryOptions(mediaType: ClassificationMediaType) {
   return (draftPolicy.value?.categories ?? [])
     .filter(category => category.enabled && category.media_type === mediaType)
     .map(category => ({
-      title: `${category.name} · ${category.path.join(' / ')} · ${category.id}`,
+      title: category.path.length ? `${category.name} · ${category.path.join(' / ')}` : category.name,
       value: category.id,
     }))
 }
 
-/** 将来源兜底标签传给 VSelect 的真实 combobox 激活元素。 */
+/** 将来源兜底标签和有界浮层参数传给 VSelect。 */
 function sourceFallbackMenuProps(source: string, mediaType: ClassificationMediaType) {
   return {
     activatorProps: {
       'aria-label': t('setting.classification.sourceFallbackFor', { source, mediaType }),
     },
+    contentClass: 'classification-source-fallback-menu',
+    maxHeight: 280,
+    location: 'bottom start' as const,
+    offset: 4,
   }
 }
 
@@ -748,15 +785,29 @@ watch(analysisTab, tab => {
 
 .classification-settings__workspace-tabs,
 .classification-settings__analysis-tabs {
+  --classification-tabs-height: 44px;
+  --v-tabs-height: var(--classification-tabs-height);
   inline-size: 100%;
+  block-size: var(--classification-tabs-height);
   border: 1px solid var(--classification-border);
   border-radius: 8px;
   background: var(--classification-control);
 }
 
+.classification-settings__workspace-tabs :deep(.v-slide-group),
+.classification-settings__workspace-tabs :deep(.v-slide-group__container),
+.classification-settings__workspace-tabs :deep(.v-slide-group__content),
+.classification-settings__analysis-tabs :deep(.v-slide-group),
+.classification-settings__analysis-tabs :deep(.v-slide-group__container),
+.classification-settings__analysis-tabs :deep(.v-slide-group__content) {
+  block-size: var(--classification-tabs-height);
+  min-block-size: var(--classification-tabs-height);
+}
+
 .classification-settings__workspace-tabs :deep(.v-slide-group__content),
 .classification-settings__analysis-tabs :deep(.v-slide-group__content) {
   display: grid;
+  inline-size: 100%;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -768,6 +819,7 @@ watch(analysisTab, tab => {
 .classification-settings__analysis-tabs :deep(.v-tab) {
   min-inline-size: 0;
   max-inline-size: none;
+  inline-size: 100%;
   min-block-size: 44px;
   padding-inline: 10px;
   font-size: 0.875rem;
@@ -874,6 +926,14 @@ watch(analysisTab, tab => {
   border-block-end: 0;
 }
 
+.classification-settings__source-list :deep(.v-expansion-panel-title) {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.classification-settings__source-list :deep(.v-expansion-panel-text__wrapper) {
+  padding: 12px 14px 14px;
+}
+
 .classification-settings__source-title {
   min-block-size: 52px;
   padding: 8px 14px;
@@ -925,7 +985,7 @@ watch(analysisTab, tab => {
   padding: 0.75rem 1.25rem;
 }
 
-:global(html[data-theme='glass']) .classification-settings {
+:global(html[data-theme='glass'] .classification-settings) {
   --classification-border: var(--glass-border);
   --classification-panel: var(--glass-surface-soft);
   --classification-panel-raised: var(--glass-surface);
@@ -939,15 +999,73 @@ watch(analysisTab, tab => {
   box-shadow: var(--glass-shadow);
 }
 
-:global(html[data-theme='glass']) .classification-settings__panel,
-:global(html[data-theme='glass']) .classification-settings__source-list {
+:global(html[data-theme='glass'] .classification-settings__panel),
+:global(html[data-theme='glass'] .classification-settings__source-list) {
   -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
   backdrop-filter: var(--glass-surface-backdrop-filter);
   background-image: var(--glass-sheen);
   box-shadow: var(--glass-control-shadow);
 }
 
+:global(html[data-theme='glass'] .classification-settings__source-list) {
+  border-color: var(--glass-border-raised) !important;
+  background-color: var(--glass-surface-raised) !important;
+  background-image: var(--glass-sheen) !important;
+  box-shadow: var(--glass-shadow-raised) !important;
+}
+
+:global(html[data-theme='glass'] .classification-settings__source-list .v-expansion-panel) {
+  border-color: var(--glass-border) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:global(.classification-source-fallback-menu),
+:global(.classification-category-menu),
+:global(.classification-preview-menu),
+:global(.classification-condition-menu),
+:global(.classification-field-menu),
+:global(.classification-rule-menu) {
+  max-block-size: min(280px, calc(100dvh - 8rem)) !important;
+  overflow-y: auto !important;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  background-color: rgb(var(--v-theme-surface)) !important;
+  color: rgb(var(--v-theme-on-surface));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+:global(.classification-source-fallback-menu .v-list),
+:global(.classification-category-menu .v-list),
+:global(.classification-preview-menu .v-list),
+:global(.classification-condition-menu .v-list),
+:global(.classification-field-menu .v-list),
+:global(.classification-rule-menu .v-list) {
+  background: transparent;
+  padding-block: 4px;
+}
+
+:global(html[data-theme='glass'] .classification-source-fallback-menu),
+:global(html[data-theme='glass'] .classification-category-menu),
+:global(html[data-theme='glass'] .classification-preview-menu),
+:global(html[data-theme='glass'] .classification-condition-menu),
+:global(html[data-theme='glass'] .classification-field-menu),
+:global(html[data-theme='glass'] .classification-rule-menu) {
+  border-color: var(--glass-border-raised) !important;
+  -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+  backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+  background-color: var(--glass-overlay-surface) !important;
+  background-image: var(--glass-sheen) !important;
+  box-shadow: var(--glass-shadow-raised) !important;
+}
+
 @media (max-width: 599px) {
+  .classification-settings__workspace-tabs,
+  .classification-settings__analysis-tabs {
+    --classification-tabs-height: 42px;
+  }
+
   .classification-settings :deep(.v-card-item) {
     padding: 14px 12px 10px;
   }
@@ -1004,6 +1122,11 @@ watch(analysisTab, tab => {
 }
 
 @media (max-width: 420px) {
+  .classification-settings__workspace-tabs,
+  .classification-settings__analysis-tabs {
+    --classification-tabs-height: 54px;
+  }
+
   .classification-settings__workspace-tabs :deep(.v-tab),
   .classification-settings__analysis-tabs :deep(.v-tab) {
     flex-direction: column;
