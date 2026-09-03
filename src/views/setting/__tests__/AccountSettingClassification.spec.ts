@@ -444,7 +444,7 @@ describe('AccountSettingClassification', () => {
       name: 'musicbrainz 的电影来源兜底',
     })
     await user.click(musicbrainzFallback)
-    await user.click(await screen.findByRole('option', { name: '电影 · 电影' }))
+    await user.click(await screen.findByRole('option', { name: '电影' }))
 
     const state = mocks.useMediaClassification.mock.results[0].value
     expect(state.draftPolicy.value.source_fallbacks.musicbrainz.电影).toBe('movie.base')

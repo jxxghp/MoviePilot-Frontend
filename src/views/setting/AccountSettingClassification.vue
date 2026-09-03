@@ -21,6 +21,7 @@ import ClassificationPolicyControlPanel from '@/components/classification/Classi
 import ClassificationPreviewPanel from '@/components/classification/ClassificationPreviewPanel.vue'
 import ClassificationRuleEditor from '@/components/classification/ClassificationRuleEditor.vue'
 import { useMediaClassification } from '@/composables/useMediaClassification'
+import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 import { cloneDeep, isEqual } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 
@@ -222,7 +223,7 @@ function fallbackCategoryOptions(mediaType: ClassificationMediaType) {
   return (draftPolicy.value?.categories ?? [])
     .filter(category => category.enabled && category.media_type === mediaType)
     .map(category => ({
-      title: category.path.length ? `${category.name} · ${category.path.join(' / ')}` : category.name,
+      title: formatClassificationCategoryOptionTitle(category),
       value: category.id,
     }))
 }

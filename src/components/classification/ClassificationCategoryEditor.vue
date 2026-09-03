@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ClassificationCategory, ClassificationMediaType } from '@/api/mediaClassificationTypes'
+import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 
 /** 分类树编辑器输入属性。 */
 interface ClassificationCategoryEditorProps {
@@ -141,8 +142,9 @@ function isCategoryProtected(categoryId: string): boolean {
 
 /** 为 fallback 选择器生成不带内部稳定 ID 的可读标题。 */
 function fallbackItemTitle(category: ClassificationCategory): string {
-  const path = category.path.length ? category.path.join(' / ') : t('setting.classification.category.pathUnset')
-  return `${category.name} · ${path}`
+  return formatClassificationCategoryOptionTitle(category, {
+    emptyPathLabel: t('setting.classification.category.pathUnset'),
+  })
 }
 
 /** 返回指定媒体类型可选的稳定分类 ID 列表。 */

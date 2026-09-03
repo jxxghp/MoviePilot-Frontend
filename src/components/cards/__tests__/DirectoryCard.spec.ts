@@ -11,6 +11,7 @@ vi.mock('@/api/manage', () => ({
 }))
 
 const categories: ClassificationCategory[] = [
+  { id: 'movie.base', media_type: '电影', name: '电影', path: ['电影'], enabled: true, labels: [] },
   { id: 'movie.animation', media_type: '电影', name: '动画', path: ['电影', '动画'], enabled: true, labels: [] },
   { id: 'movie.disabled', media_type: '电影', name: '停用', path: ['电影', '停用'], enabled: false, labels: [] },
   { id: 'tv.animation', media_type: '电视剧', name: '动画', path: ['电视剧', '动画'], enabled: true, labels: [] },
@@ -57,6 +58,7 @@ describe('DirectoryCard classification reference', () => {
     const categorySelect = within(screen.getByTestId('directory-category-select')).getByRole('combobox')
     await user.click(categorySelect)
 
+    expect(await screen.findByRole('option', { name: '电影 · movie.base' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: '动画 · 电影/动画 · movie.animation' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /movie.disabled/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /tv.animation/ })).not.toBeInTheDocument()

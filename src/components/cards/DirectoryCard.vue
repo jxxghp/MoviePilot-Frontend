@@ -2,6 +2,7 @@
 import type { StorageConf, TransferDirectoryConf } from '@/api/types'
 import type { ClassificationCategory } from '@/api/mediaClassification'
 import { manageStorage } from '@/api/manage'
+import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storageRemoteDict } from '@/api/constants'
@@ -228,7 +229,7 @@ const categoryItems = computed(() => [
   ...props.categories
     .filter(category => category.enabled && category.media_type === props.directory.media_type)
     .map(category => ({
-      title: `${category.name} · ${categoryPath(category)} · ${category.id}`,
+      title: formatClassificationCategoryOptionTitle(category, { includeId: true, pathSeparator: '/' }),
       value: category.id,
     })),
 ])
