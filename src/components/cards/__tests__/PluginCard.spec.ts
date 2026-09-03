@@ -601,6 +601,21 @@ describe('PluginCard lifecycle actions', () => {
     expect(emitted()).not.toHaveProperty('save')
   })
 
+  it('opens the version and instance management dialog and forwards its save event', async () => {
+    const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('版本与实例'))
+
+    expect(mocks.openSharedDialog.mock.calls[0][0]).toEqual(expect.any(Object))
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toEqual({ plugin })
+    expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({ closeOn: ['close', 'update:modelValue'] })
+
+    const versionManageEvents = mocks.openSharedDialog.mock.calls[0][2] as { save: () => void }
+    versionManageEvents.save()
+
+    expect(emitted().save).toHaveLength(1)
+  })
+
   it('opens plugin detail from an external action exactly once', async () => {
     const { emitted, rerender } = await renderWithProviders(PluginCard, {
       props: { plugin, action: false },
