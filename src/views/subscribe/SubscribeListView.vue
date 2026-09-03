@@ -382,7 +382,7 @@ async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
     if (showLoading) {
       loading.value = true
     }
-    const subscribes = await api.get<Subscribe[]>('subscribe/')
+    const subscribes = await api.get<Subscribe[]>('subscribe/', { feedback: 'silent' })
     if (!initialSubscriptionOpened) {
       initialSubscriptionOpened = true
       const initialSubscription = subscribes.find(subscribe => subscribe.id.toString() === props.subid?.toString())
@@ -434,6 +434,7 @@ function executionBatchSignature(batches: SubscriptionBatchStatus[]) {
 let lastExecutionBatchSignature: string | undefined
 let executionBatchRequest: Promise<boolean> | undefined
 let executionPollRequest: Promise<void> | undefined
+let executionBatchRequestFailed = false
 
 // 批次读取失败时保留上次快照，让订阅列表和后续轮询仍可独立工作。
 async function requestExecutionBatches() {
@@ -443,12 +444,18 @@ async function requestExecutionBatches() {
     })
     if (isUnmounted) return false
     const nextSignature = executionBatchSignature(batches)
-    const changed = lastExecutionBatchSignature !== undefined && nextSignature !== lastExecutionBatchSignature
+    const changed =
+      executionBatchRequestFailed ||
+      (lastExecutionBatchSignature !== undefined && nextSignature !== lastExecutionBatchSignature)
+    executionBatchRequestFailed = false
     lastExecutionBatchSignature = nextSignature
     executionBatches.value = batches
     return changed
   } catch (error) {
-    if (!isUnmounted && !isCancelledRequest(error)) console.error(error)
+    if (!isUnmounted && !isCancelledRequest(error)) {
+      console.error(error)
+      executionBatchRequestFailed = true
+    }
     return false
   }
 }

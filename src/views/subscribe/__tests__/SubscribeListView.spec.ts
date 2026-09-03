@@ -413,6 +413,51 @@ describe('SubscribeListView loading and filtering', () => {
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
 
+  it('synchronizes subscriptions after the batch endpoint recovers', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.useFakeTimers()
+    const listRequested = vi.fn()
+    const batchRequested = vi.fn()
+    await renderList({
+      batchStatus: 500,
+      listResponse: sequenceResponse([[movie(1, '批次接口恢复前')], [movie(1, '批次接口恢复后')]]),
+      onBatchRequest: batchRequested,
+      onListRequest: listRequested,
+    })
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledOnce()
+    expect(listRequested).toHaveBeenCalledOnce()
+
+    server.use(
+      subscriptionExecutionBatchesHandler(
+        [executionBatch({ phase: 'completed', state: 'skipped' })],
+        200,
+        batchRequested,
+      ),
+    )
+    await vi.advanceTimersByTimeAsync(2500)
+    await flushAsync()
+
+    expect(batchRequested).toHaveBeenCalledTimes(2)
+    expect(listRequested).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('批次接口恢复后')).toBeInTheDocument()
+  })
+
+  it('shows only one notification while silent list recovery keeps failing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.useFakeTimers()
+    await renderList({ listStatus: 500 })
+    await flushAsync()
+
+    expect(mocks.toastError).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    await flushAsync()
+
+    expect(mocks.toastError).toHaveBeenCalledOnce()
+  })
+
   it('keeps polling lightweight batches after an idle initial response', async () => {
     vi.useFakeTimers()
     const listRequested = vi.fn()
