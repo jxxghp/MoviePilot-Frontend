@@ -323,7 +323,6 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
       v-if="visible"
       class="system-update-prompt"
       :class="{ 'system-update-prompt--avoid-agent': props.avoidAgentAssistant }"
-      elevation="12"
     >
       <div v-for="(item, index) in visibleItems" :key="item.type" class="system-update-prompt__section">
         <VCardItem>
@@ -421,7 +420,9 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   width: min(400px, calc(100vw - 32px));
   max-height: min(80vh, 680px);
   overflow-y: auto;
-  border-radius: 8px;
+  border: var(--app-overlay-border);
+  border-radius: var(--app-overlay-radius) !important;
+  box-shadow: var(--app-overlay-shadow);
 }
 
 .system-update-prompt__title {
