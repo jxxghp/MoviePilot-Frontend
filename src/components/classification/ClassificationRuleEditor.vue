@@ -37,6 +37,7 @@ const emit = defineEmits<{
 // 拖拽能力仅在规则编辑器出现时加载，避免增加其他设置页的首屏体积。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const draftRules = ref<ClassificationRule[]>([])
+const expandedRuleId = ref<string | null>(null)
 
 /** 复制条件值，保留标量和列表的原始数据形状。 */
 function cloneConditionValue(value: ClassificationFactValue | undefined): ClassificationFactValue | undefined {
@@ -141,6 +142,7 @@ function updateRule(index: number, patch: Partial<ClassificationRule>) {
     ruleIndex === index ? cloneRule({ ...current, ...patch }) : cloneRule(rule),
   )
   commitRules(nextRules)
+  if (patch.id !== undefined && expandedRuleId.value === current.id) expandedRuleId.value = patch.id
 }
 
 /** 新增一条具备稳定默认值的分类规则。 */
@@ -164,6 +166,7 @@ function addRule() {
     },
   }
   commitRules([...draftRules.value, rule])
+  expandedRuleId.value = rule.id
 }
 
 /** 复制规则的完整条件与输出，同时生成新的稳定 ID 和名称。 */
@@ -175,11 +178,14 @@ function copyRule(index: number) {
   copied.id = uniqueId(`${source.id}-copy`)
   copied.name = uniqueName(`${source.name} 副本`)
   commitRules([...draftRules.value.slice(0, index + 1), copied, ...draftRules.value.slice(index + 1)])
+  expandedRuleId.value = copied.id
 }
 
 /** 删除指定位置的规则。 */
 function deleteRule(index: number) {
+  const deletedId = draftRules.value[index]?.id
   commitRules(draftRules.value.filter((_, ruleIndex) => ruleIndex !== index))
+  if (expandedRuleId.value === deletedId) expandedRuleId.value = null
 }
 
 /** 将规则移动到目标位置，并保护首尾边界。 */
@@ -242,6 +248,36 @@ function updateTarget(index: number, patch: Partial<ClassificationRule['target']
   })
 }
 
+/** 只展开当前正在编辑的规则，避免长条件树同时占满移动端页面。 */
+function toggleRule(ruleId: string): void {
+  expandedRuleId.value = expandedRuleId.value === ruleId ? null : ruleId
+}
+
+/** 递归统计叶子条件数量，供折叠摘要快速判断规则复杂度。 */
+function conditionCount(node: ClassificationConditionNode): number {
+  if ('field' in node) return 1
+  if (node.all) return node.all.reduce((count, child) => count + conditionCount(child), 0)
+  if (node.any) return node.any.reduce((count, child) => count + conditionCount(child), 0)
+  return node.not ? conditionCount(node.not) : 0
+}
+
+/** 将媒体类型压缩为可扫描的规则摘要。 */
+function mediaTypeSummary(rule: ClassificationRule): string {
+  return rule.media_types.length ? rule.media_types.join('、') : '全部媒体'
+}
+
+/** 将来源限制压缩为可扫描的规则摘要。 */
+function sourceSummary(rule: ClassificationRule): string {
+  return rule.sources.length ? rule.sources.join('、') : '全部来源'
+}
+
+/** 返回规则输出的人类可读摘要，不暴露稳定 ID 作为首要信息。 */
+function targetSummary(rule: ClassificationRule): string {
+  if (rule.kind === 'label') return rule.target.labels.length ? `标签 ${rule.target.labels.join('、')}` : '未设置标签'
+  const category = props.categories.find(item => item.id === rule.target.category_id)
+  return category?.name ?? '未设置分类'
+}
+
 const sourceItems = computed(() =>
   [...new Set(props.fields.flatMap(field => Object.keys(field.source_support)))].sort((left, right) =>
     left.localeCompare(right),
@@ -296,169 +332,198 @@ watch(
       <template #item="{ element: rule, index }">
         <article class="classification-rule" :aria-label="`规则 ${index + 1}：${rule.name || rule.id}`">
           <div class="classification-rule-head">
-            <div class="classification-rule-order">
-              <IconBtn
-                class="classification-rule-drag cursor-move"
-                icon="mdi-drag-vertical"
-                variant="text"
-                :aria-label="`拖拽排序规则 ${rule.name || rule.id}`"
-              >
-                <VTooltip activator="parent" location="top">拖拽排序</VTooltip>
-              </IconBtn>
-              <VChip size="small" variant="tonal" color="primary">优先级 {{ rule.priority }}</VChip>
-              <VSwitch
-                :model-value="rule.enabled"
-                color="primary"
-                density="compact"
-                hide-details
-                inset
-                :aria-label="`启用规则 ${rule.name || rule.id}`"
-                @update:model-value="value => updateRule(index, { enabled: Boolean(value) })"
-              />
-            </div>
-
-            <div class="classification-rule-actions">
-              <IconBtn
-                icon="mdi-arrow-up"
-                variant="text"
-                :disabled="index === 0"
-                :aria-label="`上移规则 ${rule.name || rule.id}`"
-                @click="moveRule(index, index - 1)"
-              >
-                <VTooltip activator="parent" location="top">上移规则</VTooltip>
-              </IconBtn>
-              <IconBtn
-                icon="mdi-arrow-down"
-                variant="text"
-                :disabled="index === draftRules.length - 1"
-                :aria-label="`下移规则 ${rule.name || rule.id}`"
-                @click="moveRule(index, index + 1)"
-              >
-                <VTooltip activator="parent" location="top">下移规则</VTooltip>
-              </IconBtn>
-              <IconBtn
-                icon="mdi-content-copy"
-                variant="text"
-                :disabled="hasReachedLimit"
-                :aria-label="`复制规则 ${rule.name || rule.id}`"
-                @click="copyRule(index)"
-              >
-                <VTooltip activator="parent" location="top">复制规则</VTooltip>
-              </IconBtn>
-              <IconBtn
-                icon="mdi-delete-outline"
-                variant="text"
-                color="error"
-                :aria-label="`删除规则 ${rule.name || rule.id}`"
-                @click="deleteRule(index)"
-              >
-                <VTooltip activator="parent" location="top">删除规则</VTooltip>
-              </IconBtn>
-            </div>
-          </div>
-
-          <div class="classification-rule-grid classification-rule-grid--identity">
-            <VTextField
-              :model-value="rule.name"
-              label="规则名称"
-              density="compact"
-              hide-details="auto"
-              :aria-label="`规则名称 ${index + 1}`"
-              @update:model-value="value => updateRule(index, { name: value })"
-            />
-            <VTextField
-              :model-value="rule.id"
-              label="稳定 ID"
-              density="compact"
-              hide-details="auto"
-              :aria-label="`规则 ID ${index + 1}`"
-              @update:model-value="value => updateRule(index, { id: value })"
-            />
-            <VBtnToggle
-              :model-value="rule.kind"
-              mandatory
-              divided
-              density="compact"
-              variant="outlined"
-              class="classification-rule-kind"
-              :aria-label="`规则类型 ${rule.name || rule.id}`"
-              @update:model-value="value => updateKind(index, value)"
+            <IconBtn
+              class="classification-rule-drag cursor-move"
+              icon="mdi-drag-vertical"
+              variant="text"
+              :aria-label="`拖拽排序规则 ${rule.name || rule.id}`"
             >
-              <VBtn value="category">分类</VBtn>
-              <VBtn value="label">标签</VBtn>
-            </VBtnToggle>
-          </div>
+              <VTooltip activator="parent" location="top">拖拽排序</VTooltip>
+            </IconBtn>
 
-          <div class="classification-rule-grid">
-            <VSelect
-              :model-value="rule.media_types"
-              :items="MEDIA_TYPES"
-              label="媒体类型"
-              multiple
-              chips
-              closable-chips
-              clearable
+            <button
+              class="classification-rule-summary"
+              type="button"
+              :aria-expanded="expandedRuleId === rule.id"
+              :aria-controls="`classification-rule-body-${rule.id}`"
+              @click="toggleRule(rule.id)"
+            >
+              <span class="classification-rule-title">
+                <strong>{{ rule.name || rule.id }}</strong>
+                <span>优先级 {{ rule.priority }}</span>
+              </span>
+              <span class="classification-rule-meta">
+                <span>{{ mediaTypeSummary(rule) }}</span>
+                <span>{{ sourceSummary(rule) }}</span>
+                <span>{{ conditionCount(rule.when) }} 个条件</span>
+                <span>{{ targetSummary(rule) }}</span>
+              </span>
+            </button>
+
+            <VSwitch
+              :model-value="rule.enabled"
+              class="classification-rule-enabled"
+              color="primary"
               density="compact"
-              hide-details="auto"
-              :aria-label="`媒体类型 ${rule.name || rule.id}`"
-              @update:model-value="value => updateMediaTypes(index, value)"
+              hide-details
+              inset
+              :aria-label="`启用规则 ${rule.name || rule.id}`"
+              @update:model-value="value => updateRule(index, { enabled: Boolean(value) })"
             />
-            <VSelect
-              :model-value="rule.sources"
-              :items="sourceItems"
-              label="数据来源"
-              multiple
-              chips
-              closable-chips
-              clearable
-              density="compact"
-              hide-details="auto"
-              hint="留空表示全部来源"
-              :aria-label="`数据来源 ${rule.name || rule.id}`"
-              @update:model-value="value => updateSources(index, value)"
+
+            <VMenu location="bottom end">
+              <template #activator="{ props: menuProps }">
+                <IconBtn
+                  v-bind="menuProps"
+                  icon="mdi-dots-vertical"
+                  variant="text"
+                  :aria-label="`规则操作 ${rule.name || rule.id}`"
+                />
+              </template>
+              <VList density="compact" min-width="180">
+                <VListItem
+                  prepend-icon="mdi-arrow-up"
+                  :title="`上移规则 ${rule.name || rule.id}`"
+                  :disabled="index === 0"
+                  @click="moveRule(index, index - 1)"
+                />
+                <VListItem
+                  prepend-icon="mdi-arrow-down"
+                  :title="`下移规则 ${rule.name || rule.id}`"
+                  :disabled="index === draftRules.length - 1"
+                  @click="moveRule(index, index + 1)"
+                />
+                <VListItem
+                  prepend-icon="mdi-content-copy"
+                  :title="`复制规则 ${rule.name || rule.id}`"
+                  :disabled="hasReachedLimit"
+                  @click="copyRule(index)"
+                />
+                <VListItem
+                  prepend-icon="mdi-delete-outline"
+                  :title="`删除规则 ${rule.name || rule.id}`"
+                  base-color="error"
+                  @click="deleteRule(index)"
+                />
+              </VList>
+            </VMenu>
+
+            <IconBtn
+              :icon="expandedRuleId === rule.id ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+              variant="text"
+              :aria-label="`${expandedRuleId === rule.id ? '收起' : '编辑'}规则 ${rule.name || rule.id}`"
+              @click="toggleRule(rule.id)"
             />
           </div>
 
-          <div class="classification-rule-condition">
-            <div class="classification-rule-section-title">匹配条件</div>
-            <ClassificationConditionBuilder
-              :model-value="rule.when"
-              :fields="fields"
-              :media-types="rule.media_types"
-              :sources="rule.sources"
-              :max-depth="maxConditionDepth"
-              @update:model-value="value => updateCondition(index, value)"
-            />
-          </div>
-
-          <div class="classification-rule-target">
-            <div class="classification-rule-section-title">规则输出</div>
-            <div class="classification-rule-grid">
-              <VSelect
-                v-if="rule.kind === 'category'"
-                :model-value="rule.target.category_id"
-                :items="categoryItems(rule)"
-                label="分类目标"
-                clearable
+          <div
+            v-if="expandedRuleId === rule.id"
+            :id="`classification-rule-body-${rule.id}`"
+            class="classification-rule-body"
+          >
+            <div class="classification-rule-grid classification-rule-grid--identity">
+              <VTextField
+                :model-value="rule.name"
+                label="规则名称"
                 density="compact"
                 hide-details="auto"
-                no-data-text="当前媒体类型没有可用分类"
-                :aria-label="`分类目标 ${rule.name || rule.id}`"
-                @update:model-value="value => updateTarget(index, { category_id: value })"
+                :aria-label="`规则名称 ${index + 1}`"
+                @update:model-value="value => updateRule(index, { name: value })"
               />
-              <VCombobox
-                :model-value="rule.target.labels"
-                label="输出标签"
+              <VTextField
+                :model-value="rule.id"
+                label="稳定 ID"
+                density="compact"
+                hide-details="auto"
+                :aria-label="`规则 ID ${index + 1}`"
+                @update:model-value="value => updateRule(index, { id: value })"
+              />
+              <VBtnToggle
+                :model-value="rule.kind"
+                mandatory
+                divided
+                density="compact"
+                variant="outlined"
+                class="classification-rule-kind"
+                :aria-label="`规则类型 ${rule.name || rule.id}`"
+                @update:model-value="value => updateKind(index, value)"
+              >
+                <VBtn value="category">分类</VBtn>
+                <VBtn value="label">标签</VBtn>
+              </VBtnToggle>
+            </div>
+
+            <div class="classification-rule-grid">
+              <VSelect
+                :model-value="rule.media_types"
+                :items="MEDIA_TYPES"
+                label="媒体类型"
                 multiple
                 chips
                 closable-chips
                 clearable
                 density="compact"
                 hide-details="auto"
-                :class="{ 'classification-rule-labels--wide': rule.kind === 'label' }"
-                :aria-label="`标签输出 ${rule.name || rule.id}`"
-                @update:model-value="value => updateTarget(index, { labels: value })"
+                :aria-label="`媒体类型 ${rule.name || rule.id}`"
+                @update:model-value="value => updateMediaTypes(index, value)"
               />
+              <VSelect
+                :model-value="rule.sources"
+                :items="sourceItems"
+                label="数据来源"
+                multiple
+                chips
+                closable-chips
+                clearable
+                density="compact"
+                hide-details="auto"
+                hint="留空表示全部来源"
+                :aria-label="`数据来源 ${rule.name || rule.id}`"
+                @update:model-value="value => updateSources(index, value)"
+              />
+            </div>
+
+            <div class="classification-rule-condition">
+              <div class="classification-rule-section-title">匹配条件</div>
+              <ClassificationConditionBuilder
+                :model-value="rule.when"
+                :fields="fields"
+                :media-types="rule.media_types"
+                :sources="rule.sources"
+                :max-depth="maxConditionDepth"
+                @update:model-value="value => updateCondition(index, value)"
+              />
+            </div>
+
+            <div class="classification-rule-target">
+              <div class="classification-rule-section-title">规则输出</div>
+              <div class="classification-rule-grid">
+                <VSelect
+                  v-if="rule.kind === 'category'"
+                  :model-value="rule.target.category_id"
+                  :items="categoryItems(rule)"
+                  label="分类目标"
+                  clearable
+                  density="compact"
+                  hide-details="auto"
+                  no-data-text="当前媒体类型没有可用分类"
+                  :aria-label="`分类目标 ${rule.name || rule.id}`"
+                  @update:model-value="value => updateTarget(index, { category_id: value })"
+                />
+                <VCombobox
+                  :model-value="rule.target.labels"
+                  label="输出标签"
+                  multiple
+                  chips
+                  closable-chips
+                  clearable
+                  density="compact"
+                  hide-details="auto"
+                  :class="{ 'classification-rule-labels--wide': rule.kind === 'label' }"
+                  :aria-label="`标签输出 ${rule.name || rule.id}`"
+                  @update:model-value="value => updateTarget(index, { labels: value })"
+                />
+              </div>
             </div>
           </div>
         </article>
@@ -481,8 +546,6 @@ watch(
 
 .classification-rule-toolbar,
 .classification-rule-head,
-.classification-rule-order,
-.classification-rule-actions,
 .classification-rule-count {
   display: flex;
   align-items: center;
@@ -516,21 +579,98 @@ watch(
 
 .classification-rule {
   display: grid;
-  gap: 12px;
   min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
-  background: rgb(var(--v-theme-surface));
+  overflow: hidden;
+  border: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
+  border-radius: 8px;
+  background: var(--classification-panel-raised, rgb(var(--v-theme-surface)));
 }
 
-.classification-rule-order,
-.classification-rule-actions {
-  gap: 2px;
+.classification-rule-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  gap: 4px;
+  min-inline-size: 0;
+  padding: 8px;
 }
 
 .classification-rule-drag {
   touch-action: none;
+}
+
+.classification-rule-summary {
+  display: grid;
+  gap: 3px;
+  min-inline-size: 0;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.classification-rule-summary:hover,
+.classification-rule-summary:focus-visible {
+  background: var(--classification-control, rgba(var(--v-theme-surface-variant), 0.24));
+}
+
+.classification-rule-summary:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+.classification-rule-title,
+.classification-rule-meta {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.classification-rule-title {
+  gap: 8px;
+}
+
+.classification-rule-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.classification-rule-title > span {
+  flex: 0 0 auto;
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.75rem;
+}
+
+.classification-rule-meta {
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+.classification-rule-meta > span {
+  position: relative;
+}
+
+.classification-rule-meta > span:not(:first-child)::before {
+  position: absolute;
+  inset-inline-start: -6px;
+  content: '·';
+}
+
+.classification-rule-enabled {
+  flex: 0 0 auto;
+}
+
+.classification-rule-body {
+  display: grid;
+  gap: 12px;
+  min-inline-size: 0;
+  padding: 12px;
+  border-block-start: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
 }
 
 .classification-rule-grid {
@@ -545,12 +685,15 @@ watch(
 }
 
 .classification-rule-kind {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-self: start;
   min-width: 144px;
+  block-size: auto;
 }
 
 .classification-rule-kind :deep(.v-btn) {
-  min-width: 70px;
+  min-width: 0;
 }
 
 .classification-rule-condition,
@@ -591,15 +734,6 @@ watch(
     width: 100%;
   }
 
-  .classification-rule-head {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .classification-rule-actions {
-    margin-inline-start: auto;
-  }
-
   .classification-rule-grid,
   .classification-rule-grid--identity {
     grid-template-columns: minmax(0, 1fr);
@@ -619,17 +753,32 @@ watch(
 }
 
 @media (max-width: 420px) {
-  .classification-rule {
+  .classification-rule-head {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    padding: 6px;
+  }
+
+  .classification-rule-drag {
+    display: none;
+  }
+
+  .classification-rule-summary {
+    padding-inline: 6px;
+  }
+
+  .classification-rule-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .classification-rule-meta > span:nth-child(2),
+  .classification-rule-meta > span:nth-child(3) {
+    display: none;
+  }
+
+  .classification-rule-body {
     padding: 10px;
-  }
-
-  .classification-rule-order {
-    flex-wrap: wrap;
-  }
-
-  .classification-rule-actions {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 </style>

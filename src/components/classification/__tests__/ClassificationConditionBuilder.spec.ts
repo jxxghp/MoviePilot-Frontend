@@ -197,6 +197,7 @@ const PassThroughStub = defineComponent({
 
 const componentStubs = {
   VAlert: PassThroughStub,
+  VAutocomplete: SelectStub,
   VBtn: ButtonStub,
   VBtnToggle: ButtonToggleStub,
   VChip: PassThroughStub,
@@ -252,9 +253,15 @@ const fields: ClassificationFieldDefinition[] = [
   fieldDefinition('media.runtime', '时长', 'integer', ['gt', 'between']),
   fieldDefinition('media.score', '评分', 'number', ['gte', 'between']),
   fieldDefinition('media.year', '年份', 'year', ['gte', 'between', 'exists'], [], ['电影', '电视剧']),
-  fieldDefinition('media.genres', '类型', 'string_list', ['contains_any', 'contains_all', 'exists']),
+  fieldDefinition('media.genre_keys', '风格', 'string_list', ['contains_any', 'contains_all', 'exists']),
   fieldDefinition('media.adult', '成人内容', 'boolean', ['equals', 'is_true', 'is_false', 'exists']),
   fieldDefinition('music.tags', '音乐标签', 'string_list', ['contains_any'], [], ['音乐']),
+  {
+    ...fieldDefinition('extensions.themoviedb.genre_ids', '风格（旧规则）', 'string_list', ['contains_any']),
+    group: '旧规则',
+    selectable: false,
+    replacement_field: 'media.genre_keys',
+  },
 ]
 
 const defaultProps = {
@@ -285,6 +292,7 @@ describe('ClassificationConditionBuilder', () => {
     expect(fieldSelect).toHaveAttribute('aria-label', '条件字段')
     expect(within(fieldSelect).getByRole('button', { name: '媒体 · 年份' })).toBeInTheDocument()
     expect(within(fieldSelect).queryByRole('button', { name: '音乐 · 音乐标签' })).not.toBeInTheDocument()
+    expect(within(fieldSelect).queryByRole('button', { name: '旧规则 · 风格（旧规则）' })).not.toBeInTheDocument()
 
     const operatorSelect = screen.getByTestId('operator-select')
     expect(operatorSelect).toHaveAttribute('aria-label', '条件操作符')
@@ -301,6 +309,20 @@ describe('ClassificationConditionBuilder', () => {
     expect(
       within(screen.getByTestId('operator-select')).queryByRole('button', { name: '介于' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('保留已有退役字段的编辑语义，但不允许将其用于新条件', async () => {
+    await renderBuilder({
+      field: 'extensions.themoviedb.genre_ids',
+      operator: 'contains_any',
+      value: ['16'],
+    })
+
+    expect(
+      within(screen.getByTestId('field-select')).getByRole('button', { name: '旧规则 · 风格（旧规则）' }),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('retired-field-hint')).toHaveTextContent('此字段只保留旧规则的原始匹配。')
+    expect(screen.getByTestId('retired-field-hint')).toHaveTextContent('建议改用“风格”')
   })
 
   it('按 string、enum、integer、number、year、string_list、boolean 和无值操作符输出类型化值', async () => {
@@ -331,12 +353,12 @@ describe('ClassificationConditionBuilder', () => {
 
     await result.rerender({
       ...defaultProps,
-      modelValue: { field: 'media.genres', operator: 'contains_any', value: ['剧情'] },
+      modelValue: { field: 'media.genre_keys', operator: 'contains_any', value: ['剧情'] },
     })
     expect(within(screen.getByTestId('list-value-input')).getByLabelText('条件值列表')).toBeInTheDocument()
     await fireEvent.update(within(screen.getByTestId('list-value-input')).getByRole('textbox'), '动画, 家庭')
     expect(latestModel(result)).toEqual({
-      field: 'media.genres',
+      field: 'media.genre_keys',
       operator: 'contains_any',
       value: ['动画', '家庭'],
     })

@@ -233,6 +233,8 @@ export interface ClassificationFieldDefinition {
   options: ClassificationFieldOption[]
   allow_custom_values: boolean
   source_support: Record<string, ClassificationSourceSupport>
+  selectable?: boolean
+  replacement_field?: string | null
 }
 
 /** 策略编辑器必须遵守的服务端结构限制。 */
@@ -249,6 +251,7 @@ export interface ClassificationPolicyLimits {
 /** 标准字段、扩展字段和服务端限制目录。 */
 export interface ClassificationFieldCatalog {
   fields: ClassificationFieldDefinition[]
+  retired_fields?: ClassificationFieldDefinition[]
   limits: ClassificationPolicyLimits
 }
 

@@ -106,6 +106,7 @@ async function renderEditor(rules: ClassificationRule[], options: { maxRules?: n
     },
   })
   await screen.findByTestId('rule-draggable')
+  if (rules[0]) await userEvent.click(screen.getByRole('button', { name: `编辑规则 ${rules[0].name}` }))
 
   return {
     ...result,
@@ -114,6 +115,13 @@ async function renderEditor(rules: ClassificationRule[], options: { maxRules?: n
       return events.at(-1)?.[0] as ClassificationRule[]
     },
   }
+}
+
+/** 从紧凑规则摘要的操作菜单执行排序、复制或删除。 */
+async function runRuleAction(ruleName: string, action: '上移' | '下移' | '复制' | '删除'): Promise<void> {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: `规则操作 ${ruleName}` }))
+  await user.click(await screen.findByText(`${action}规则 ${ruleName}`))
 }
 
 /** 打开 Vuetify 下拉框并选择一个选项。 */
@@ -144,14 +152,14 @@ describe('ClassificationRuleEditor', () => {
       expect.objectContaining({ id: 'rule-2', name: '新规则 2', priority: 1 }),
     ])
 
-    await user.click(screen.getByRole('button', { name: '复制规则 电影规则' }))
+    await runRuleAction('电影规则', '复制')
     expect(editor.latestRules()).toEqual([
       expect.objectContaining({ id: 'rule-movie', priority: 0 }),
       expect.objectContaining({ id: 'rule-movie-copy', name: '电影规则 副本', priority: 1 }),
       expect.objectContaining({ id: 'rule-2', priority: 2 }),
     ])
 
-    await user.click(screen.getByRole('button', { name: '删除规则 电影规则 副本' }))
+    await runRuleAction('电影规则 副本', '删除')
     expect(editor.latestRules().map(rule => [rule.id, rule.priority])).toEqual([
       ['rule-movie', 0],
       ['rule-2', 1],
@@ -166,7 +174,7 @@ describe('ClassificationRuleEditor', () => {
       createRule({ id: 'rule-tv', name: '剧集规则', priority: 2, media_types: ['电视剧'] }),
     ])
 
-    await user.click(screen.getByRole('button', { name: '下移规则 电影规则' }))
+    await runRuleAction('电影规则', '下移')
     expect(editor.latestRules().map(rule => [rule.id, rule.priority])).toEqual([
       ['rule-music', 0],
       ['rule-movie', 1],
@@ -243,12 +251,10 @@ describe('ClassificationRuleEditor', () => {
     const user = userEvent.setup()
     const editor = await renderEditor([createRule()], { maxRules: 1 })
     const addButton = screen.getByRole('button', { name: '新增分类规则' })
-    const copyButton = screen.getByRole('button', { name: '复制规则 电影规则' })
 
     expect(addButton).toBeDisabled()
-    expect(copyButton).toBeDisabled()
     await user.click(addButton)
-    await user.click(copyButton)
+    await runRuleAction('电影规则', '复制')
     expect(editor.emitted()['update:rules']).toBeUndefined()
   })
 })

@@ -107,12 +107,25 @@ function supportsSelectedMediaTypes(field: ClassificationFieldDefinition): boole
 }
 
 const availableFields = computed(() => props.fields.filter(supportsSelectedMediaTypes))
+const selectableFields = computed(() => availableFields.value.filter(field => field.selectable !== false))
+
+/** 将标准字段排在扩展字段之前，避免迁移字段遮住常用的风格、年份和国家字段。 */
+function fieldOrder(field: ClassificationFieldDefinition): number {
+  if (field.id.startsWith('extensions.')) return 100
+  if (field.group === '音乐') return 20
+  if (field.group === '影视') return 10
+  return 0
+}
 
 const fieldItems = computed(() =>
-  availableFields.value.map(field => ({
-    title: field.group ? `${field.group} · ${field.label}` : field.label,
-    value: field.id,
-  })),
+  [...availableFields.value]
+    .sort((left, right) => fieldOrder(left) - fieldOrder(right))
+    .filter(field => field.selectable !== false || field.id === selectedCondition.value?.field)
+    .map(field => ({
+      title: field.group ? `${field.group} · ${field.label}` : field.label,
+      value: field.id,
+      props: { disabled: field.selectable === false },
+    })),
 )
 
 const nodeKind = computed(() => getNodeKind(props.modelValue))
@@ -121,7 +134,7 @@ const canUseGroup = computed(() => props.depth < props.maxDepth)
 const canAddChild = computed(
   () =>
     nodeKind.value !== 'condition' &&
-    availableFields.value.length > 0 &&
+    selectableFields.value.length > 0 &&
     (nodeKind.value !== 'not' || groupChildren.value.length === 0),
 )
 
@@ -132,6 +145,11 @@ const selectedCondition = computed<ClassificationCondition | null>(() =>
 const selectedDefinition = computed(() => {
   const fieldId = selectedCondition.value?.field
   return fieldId ? availableFields.value.find(field => field.id === fieldId) : undefined
+})
+
+const replacementDefinition = computed(() => {
+  const replacementId = selectedDefinition.value?.replacement_field
+  return replacementId ? props.fields.find(field => field.id === replacementId) : undefined
 })
 
 const operatorItems = computed(() =>
@@ -244,7 +262,7 @@ function createDefaultValue(
 
 /** 由字段目录的首个可用字段构造叶子，不在前端臆造字段或操作符。 */
 function createDefaultCondition(): ClassificationCondition | null {
-  const definition = availableFields.value[0]
+  const definition = selectableFields.value[0]
   const operator = definition?.operators[0]
   if (!definition || !operator) return null
 
@@ -283,7 +301,7 @@ function updateNodeKind(kind: ConditionNodeKind): void {
 function updateField(fieldId: string): void {
   const definition = availableFields.value.find(field => field.id === fieldId)
   const operator = definition?.operators[0]
-  if (!definition || !operator) return
+  if (!definition || definition.selectable === false || !operator) return
 
   const value = createDefaultValue(definition, operator)
   updateNode(value === undefined ? { field: fieldId, operator } : { field: fieldId, operator, value })
@@ -413,14 +431,17 @@ function removeChild(index: number): void {
       </VAlert>
 
       <div v-else class="classification-condition-builder__leaf">
-        <VSelect
+        <VAutocomplete
           :model-value="selectedCondition?.field"
           :items="fieldItems"
           label="字段"
+          placeholder="搜索风格、年份、国家或字段 ID"
           aria-label="条件字段"
           variant="outlined"
           density="compact"
           hide-details="auto"
+          auto-select-first
+          :menu-props="{ contentClass: 'classification-field-menu', maxWidth: 420 }"
           data-testid="field-select"
           @update:model-value="updateField"
         />
@@ -576,6 +597,18 @@ function removeChild(index: number): void {
         </div>
       </div>
 
+      <p
+        v-if="selectedDefinition?.selectable === false"
+        class="classification-condition-builder__retired-field"
+        data-testid="retired-field-hint"
+      >
+        <VIcon icon="mdi-history" size="16" />
+        <span>
+          此字段只保留旧规则的原始匹配。
+          <template v-if="replacementDefinition">建议改用“{{ replacementDefinition.label }}”。</template>
+        </span>
+      </p>
+
       <div
         v-if="sourceSupportHints.length > 0"
         class="classification-condition-builder__source-hints"
@@ -652,8 +685,17 @@ function removeChild(index: number): void {
 .classification-condition-builder {
   min-inline-size: 0;
   padding: 12px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
   border-radius: 8px;
+  background: var(--classification-panel, rgba(var(--v-theme-surface-variant), 0.12));
+}
+
+.classification-condition-builder:not([data-depth='0']) {
+  padding: 8px 0 8px 10px;
+  border: 0;
+  border-inline-start: 2px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
+  border-radius: 0;
+  background: transparent;
 }
 
 .classification-condition-builder__toolbar,
@@ -666,13 +708,18 @@ function removeChild(index: number): void {
 }
 
 .classification-condition-builder__kind-toggle {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  inline-size: min(100%, 360px);
   block-size: auto;
-  max-inline-size: 100%;
 }
 
 .classification-condition-builder__kind-toggle :deep(.v-btn) {
-  min-inline-size: 64px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 36px;
+  padding-inline: 6px;
+  letter-spacing: 0;
 }
 
 .classification-condition-builder__leaf {
@@ -696,6 +743,15 @@ function removeChild(index: number): void {
 
 .classification-condition-builder__source-hints {
   margin-block-start: 10px;
+}
+
+.classification-condition-builder__retired-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: rgb(var(--v-theme-warning));
+  font-size: 0.8125rem;
 }
 
 .classification-condition-builder__group {
@@ -723,6 +779,12 @@ function removeChild(index: number): void {
   justify-content: flex-end;
 }
 
+:global(.classification-field-menu .v-list-item-title) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 @media (max-width: 720px) {
   .classification-condition-builder {
     padding: 10px;
@@ -733,14 +795,7 @@ function removeChild(index: number): void {
   }
 
   .classification-condition-builder__kind-toggle {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     inline-size: 100%;
-  }
-
-  .classification-condition-builder__kind-toggle :deep(.v-btn) {
-    inline-size: 100%;
-    min-inline-size: 0;
   }
 
   .classification-condition-builder__leaf,
@@ -755,6 +810,21 @@ function removeChild(index: number): void {
   .classification-condition-builder__child-action {
     justify-content: flex-end;
     padding-block-start: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .classification-condition-builder {
+    padding: 8px;
+  }
+
+  .classification-condition-builder:not([data-depth='0']) {
+    padding: 7px 0 7px 8px;
+  }
+
+  .classification-condition-builder__kind-toggle :deep(.v-btn) {
+    padding-inline: 2px;
+    font-size: 0.75rem;
   }
 }
 </style>

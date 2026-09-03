@@ -8,6 +8,7 @@ const route = useRoute()
 
 const activeTab = ref((route.query.tab as string) || '')
 const settingTabs = computed(() => getSettingTabs(t))
+const SETTINGS_HEADER_SCOPE_CLASS = 'settings-page-header-tabs-active'
 
 // 设置页的每个大类都很重，按标签页拆包，避免进入设置时一次性下载全部配置面板。
 const AccountSettingSystem = defineAsyncComponent(() => import('@/views/setting/AccountSettingSystem.vue'))
@@ -35,6 +36,7 @@ const settingTabComponents = [
 ]
 const settingTabValues = new Set(settingTabComponents.map(item => item.value))
 
+/** 记录已访问标签，保留重型设置面板的状态并避免首次加载全部面板。 */
 function markTabVisited(tab: string) {
   if (!tab) return
 
@@ -49,6 +51,13 @@ function validRouteTab(value: unknown): string | null {
   return typeof tab === 'string' && settingTabValues.has(tab) ? tab : null
 }
 
+/** 限定设置页动态页头样式，并在页面失活后及时移除全局标记。 */
+function setSettingsHeaderScope(enabled: boolean) {
+  if (typeof document === 'undefined') return
+
+  document.documentElement.classList.toggle(SETTINGS_HEADER_SCOPE_CLASS, enabled)
+}
+
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()
 
@@ -57,6 +66,11 @@ registerHeaderTab({
   items: settingTabs,
   modelValue: activeTab,
 })
+
+onBeforeMount(() => setSettingsHeaderScope(true))
+onActivated(() => setSettingsHeaderScope(true))
+onDeactivated(() => setSettingsHeaderScope(false))
+onUnmounted(() => setSettingsHeaderScope(false))
 
 // 注册动态标签页
 onMounted(() => {
@@ -89,3 +103,90 @@ watch(
     </VWindow>
   </div>
 </template>
+
+<style lang="scss">
+@media (max-width: 599.98px) {
+  html.settings-page-header-tabs-active {
+    .layout-dynamic-header-tab,
+    .layout-dynamic-header-tab .tab-header {
+      inline-size: 100%;
+    }
+
+    .layout-dynamic-header-tab .scroll-button {
+      display: none !important;
+    }
+
+    .layout-dynamic-header-tab .header-tabs {
+      display: flex;
+      gap: 0;
+      inline-size: 100%;
+      mask-image: none;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+      padding: 2px;
+      scroll-padding-inline: 2px;
+      scroll-snap-type: inline proximity;
+    }
+
+    .layout-dynamic-header-tab .header-tab {
+      box-sizing: border-box;
+      flex: 0 0 calc(100% / 3);
+      justify-content: center;
+      border-radius: 6px;
+      block-size: 44px;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      min-inline-size: 0;
+      padding-block: 0;
+      padding-inline: 8px;
+      scroll-snap-align: start;
+    }
+
+    .layout-dynamic-header-tab .header-tab > span {
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .layout-dynamic-header-tab .header-tab-icon {
+      flex: 0 0 20px;
+      block-size: 20px;
+      font-size: 20px;
+      inline-size: 20px;
+      margin-inline-end: 6px;
+    }
+
+    .layout-dynamic-header-tab .header-tab::after {
+      block-size: 2px;
+      inline-size: min(72px, calc(100% - 16px));
+      inset-block-end: 1px;
+    }
+  }
+
+  html[data-theme='glass'].settings-page-header-tabs-active {
+    .layout-dynamic-header-tab .header-tabs {
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      -webkit-backdrop-filter: var(--glass-control-backdrop-filter);
+      backdrop-filter: var(--glass-control-backdrop-filter);
+      background-color: var(--glass-surface-soft);
+      background-image: var(--glass-sheen);
+      box-shadow: var(--glass-control-shadow);
+    }
+
+    .layout-dynamic-header-tab .header-tab {
+      text-shadow: none;
+    }
+
+    .layout-dynamic-header-tab .header-tab:hover:not(.active) {
+      background-color: var(--glass-control);
+    }
+
+    .layout-dynamic-header-tab .header-tab.active {
+      background-color: var(--glass-control-prominent);
+      box-shadow: var(--glass-control-prominent-shadow);
+    }
+  }
+}
+</style>

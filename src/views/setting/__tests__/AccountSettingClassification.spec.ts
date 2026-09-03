@@ -298,6 +298,12 @@ describe('AccountSettingClassification', () => {
     })
   })
 
+  /** 切换一级工作区，模拟移动端按需展示大型编辑面板。 */
+  async function openWorkspace(name: '分类树' | '规则' | '来源' | '验证发布'): Promise<void> {
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('tab', { name }))
+  }
+
   it('loads only when the settings tab becomes active', async () => {
     const { rerender } = await renderWithProviders(AccountSettingClassification, { props: { active: false } })
 
@@ -315,6 +321,7 @@ describe('AccountSettingClassification', () => {
 
     await user.click(screen.getByRole('button', { name: 'replace-categories' }))
     await user.click(screen.getByRole('button', { name: 'replace-fallbacks' }))
+    await openWorkspace('规则')
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
     const state = mocks.useMediaClassification.mock.results[0].value
@@ -351,6 +358,7 @@ describe('AccountSettingClassification', () => {
   it('validates the draft and exposes discard as a separate action', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
@@ -366,7 +374,12 @@ describe('AccountSettingClassification', () => {
   it('updates source fallbacks through stable category IDs', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
-    await screen.findByRole('region', { name: 'category-editor' })
+    await openWorkspace('来源')
+    await user.click(
+      screen.getByRole('button', {
+        name: 'musicbrainz 来源兜底，已配置 0 项',
+      }),
+    )
 
     const musicbrainzFallback = screen.getByRole('combobox', {
       name: 'musicbrainz 的电影来源兜底',
@@ -378,9 +391,24 @@ describe('AccountSettingClassification', () => {
     expect(state.draftPolicy.value.source_fallbacks.musicbrainz.电影).toBe('movie.base')
   })
 
+  it('keeps source fallbacks collapsed and opens one source at a time', async () => {
+    const user = userEvent.setup()
+    await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('来源')
+
+    expect(screen.queryByRole('combobox', { name: 'musicbrainz 的电影来源兜底' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'musicbrainz 来源兜底，已配置 0 项' }))
+    expect(screen.getByRole('combobox', { name: 'musicbrainz 的电影来源兜底' })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'themoviedb 来源兜底，已配置 1 项' }))
+    expect(screen.queryByRole('combobox', { name: 'musicbrainz 的电影来源兜底' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'themoviedb 的电影来源兜底' })).toBeVisible()
+  })
+
   it('maps fact preview modes and bounded impact options to the composable', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('验证发布')
     await screen.findByRole('region', { name: 'preview-panel' })
 
     await user.click(screen.getByRole('button', { name: 'request-active-preview' }))
@@ -409,8 +437,10 @@ describe('AccountSettingClassification', () => {
   it('keeps validation and impact stale when the draft changes while requests are in flight', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
+    await openWorkspace('验证发布')
     await user.click(screen.getByRole('tab', { name: '发布与历史' }))
     await screen.findByRole('region', { name: 'policy-control-panel' })
 
@@ -459,9 +489,11 @@ describe('AccountSettingClassification', () => {
   it('requires current validation and impact snapshots before publishing, then sequences conflict recovery and rollback', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
+    await openWorkspace('验证发布')
     await user.click(screen.getByRole('tab', { name: '发布与历史' }))
     await screen.findByRole('region', { name: 'policy-control-panel' })
     await waitFor(() => expect(mocks.loadHistory).toHaveBeenCalledTimes(1))

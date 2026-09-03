@@ -319,110 +319,123 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 
     <p class="sr-only" role="status" aria-live="polite">{{ statusMessage }}</p>
 
-    <section
-      v-if="draft"
-      class="classification-category-form"
-      aria-labelledby="classification-category-form-title"
-      :aria-describedby="validationMessage ? validationErrorId : undefined"
+    <VDialog
+      :model-value="Boolean(draft)"
+      class="classification-category-dialog"
+      width="calc(100% - 24px)"
+      max-width="720"
+      scrollable
+      @update:model-value="
+        value => {
+          if (!value) cancelEdit()
+        }
+      "
     >
-      <div class="classification-category-form-header">
-        <h3 id="classification-category-form-title">
-          {{
-            draft.originalId
-              ? t('setting.classification.category.editTitle')
-              : t('setting.classification.category.addTitle')
-          }}
-        </h3>
-        <div class="classification-category-form-actions">
-          <VBtn icon variant="text" :aria-label="t('setting.classification.category.cancelEdit')" @click="cancelEdit">
-            <VIcon icon="mdi-close" />
-            <VTooltip activator="parent" location="top">
-              {{ t('setting.classification.category.cancelEdit') }}
-            </VTooltip>
-          </VBtn>
-          <VBtn
-            icon
-            color="primary"
-            variant="tonal"
-            :aria-label="t('setting.classification.category.save')"
-            @click="saveDraft"
-          >
-            <VIcon icon="mdi-content-save-outline" />
-            <VTooltip activator="parent" location="top">
-              {{ t('setting.classification.category.save') }}
-            </VTooltip>
-          </VBtn>
+      <section
+        v-if="draft"
+        class="classification-category-form"
+        aria-labelledby="classification-category-form-title"
+        :aria-describedby="validationMessage ? validationErrorId : undefined"
+      >
+        <div class="classification-category-form-header">
+          <h3 id="classification-category-form-title">
+            {{
+              draft.originalId
+                ? t('setting.classification.category.editTitle')
+                : t('setting.classification.category.addTitle')
+            }}
+          </h3>
+          <div class="classification-category-form-actions">
+            <VBtn icon variant="text" :aria-label="t('setting.classification.category.cancelEdit')" @click="cancelEdit">
+              <VIcon icon="mdi-close" />
+              <VTooltip activator="parent" location="top">
+                {{ t('setting.classification.category.cancelEdit') }}
+              </VTooltip>
+            </VBtn>
+            <VBtn
+              icon
+              color="primary"
+              variant="tonal"
+              :aria-label="t('setting.classification.category.save')"
+              @click="saveDraft"
+            >
+              <VIcon icon="mdi-content-save-outline" />
+              <VTooltip activator="parent" location="top">
+                {{ t('setting.classification.category.save') }}
+              </VTooltip>
+            </VBtn>
+          </div>
         </div>
-      </div>
 
-      <div class="classification-category-form-grid">
-        <VTextField
-          v-model="draft.name"
-          :label="t('setting.classification.category.name')"
-          hide-details="auto"
-          required
-        />
-        <VTextField
-          v-model="draft.id"
-          :label="t('setting.classification.category.stableId')"
-          :hint="
-            draft.originalId
-              ? t('setting.classification.category.existingIdHint')
-              : t('setting.classification.category.newIdHint')
-          "
-          persistent-hint
-          :readonly="draft.originalId !== null"
-          required
-        />
-        <VTextField
-          v-model="draft.pathText"
-          :label="t('setting.classification.category.path')"
-          :hint="t('setting.classification.category.pathHint', { count: effectiveMaxDepth })"
-          persistent-hint
-          required
-        />
-        <VSelect
-          v-model="draft.mediaType"
-          :label="t('setting.classification.category.mediaType')"
-          :aria-label="t('setting.classification.category.mediaType')"
-          :menu-props="comboboxMenuProps(t('setting.classification.category.mediaType'))"
-          :items="mediaTypes"
-          item-title="label"
-          item-value="label"
-          hide-details="auto"
-          :disabled="draftReferenceReasons.length > 0"
-        />
-      </div>
+        <div class="classification-category-form-grid">
+          <VTextField
+            v-model="draft.name"
+            :label="t('setting.classification.category.name')"
+            hide-details="auto"
+            required
+          />
+          <VTextField
+            v-model="draft.id"
+            :label="t('setting.classification.category.stableId')"
+            :hint="
+              draft.originalId
+                ? t('setting.classification.category.existingIdHint')
+                : t('setting.classification.category.newIdHint')
+            "
+            persistent-hint
+            :readonly="draft.originalId !== null"
+            required
+          />
+          <VTextField
+            v-model="draft.pathText"
+            :label="t('setting.classification.category.path')"
+            :hint="t('setting.classification.category.pathHint', { count: effectiveMaxDepth })"
+            persistent-hint
+            required
+          />
+          <VSelect
+            v-model="draft.mediaType"
+            :label="t('setting.classification.category.mediaType')"
+            :aria-label="t('setting.classification.category.mediaType')"
+            :menu-props="comboboxMenuProps(t('setting.classification.category.mediaType'))"
+            :items="mediaTypes"
+            item-title="label"
+            item-value="label"
+            hide-details="auto"
+            :disabled="draftReferenceReasons.length > 0"
+          />
+        </div>
 
-      <VSwitch
-        v-model="draft.enabled"
-        :label="t('setting.classification.category.enabled')"
-        color="primary"
-        hide-details
-        :disabled="draftReferenceReasons.length > 0 && draft.enabled"
-      />
-      <VAlert
-        v-if="draftReferenceReasons.length"
-        type="warning"
-        variant="tonal"
-        density="compact"
-        :title="t('setting.classification.category.protectedEditTitle')"
-      >
-        {{ t('setting.classification.category.protectedEditHint') }}
-        <ul class="classification-category-reference-list">
-          <li v-for="reason in draftReferenceReasons" :key="reason">{{ reason }}</li>
-        </ul>
-      </VAlert>
-      <p
-        v-if="validationMessage"
-        :id="validationErrorId"
-        class="classification-category-error"
-        role="alert"
-        data-testid="classification-category-error"
-      >
-        {{ validationMessage }}
-      </p>
-    </section>
+        <VSwitch
+          v-model="draft.enabled"
+          :label="t('setting.classification.category.enabled')"
+          color="primary"
+          hide-details
+          :disabled="draftReferenceReasons.length > 0 && draft.enabled"
+        />
+        <VAlert
+          v-if="draftReferenceReasons.length"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          :title="t('setting.classification.category.protectedEditTitle')"
+        >
+          {{ t('setting.classification.category.protectedEditHint') }}
+          <ul class="classification-category-reference-list">
+            <li v-for="reason in draftReferenceReasons" :key="reason">{{ reason }}</li>
+          </ul>
+        </VAlert>
+        <p
+          v-if="validationMessage"
+          :id="validationErrorId"
+          class="classification-category-error"
+          role="alert"
+          data-testid="classification-category-error"
+        >
+          {{ validationMessage }}
+        </p>
+      </section>
+    </VDialog>
 
     <div
       class="classification-category-list"
@@ -593,9 +606,11 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   display: grid;
   gap: 16px;
   padding: 16px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  max-block-size: calc(100dvh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
   border-radius: 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.18);
+  background: var(--classification-panel-raised, rgb(var(--v-theme-surface)));
 }
 
 .classification-category-form-actions,
@@ -640,8 +655,9 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   align-items: center;
   min-inline-size: 0;
   padding: 14px 12px 14px 16px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
   border-radius: 8px;
+  background: var(--classification-panel-raised, rgb(var(--v-theme-surface)));
 }
 
 .classification-category-summary {
@@ -714,7 +730,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   justify-items: center;
   gap: 6px;
   padding: 28px 16px;
-  border-block: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block: 1px dashed var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
   color: rgb(var(--v-theme-on-surface-variant));
 }
 
@@ -722,11 +738,26 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   display: grid;
   gap: 14px;
   padding-block-start: 4px;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
 }
 
 .classification-fallback-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+:global(html[data-theme='glass'] .classification-category-dialog .classification-category-form) {
+  border-color: var(--glass-border-raised) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(125%) !important;
+  backdrop-filter: blur(28px) saturate(125%) !important;
+  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 90%, transparent) !important;
+  background-image: var(--glass-sheen) !important;
+  box-shadow: var(--glass-shadow-raised) !important;
+}
+
+:global(html[data-theme='glass'] .classification-category-dialog > .v-overlay__scrim) {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  background: rgba(3, 7, 18, 72%);
 }
 
 .sr-only {
