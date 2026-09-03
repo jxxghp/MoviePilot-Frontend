@@ -1382,6 +1382,92 @@ export interface PluginReleaseVersionsResponse {
   items: PluginReleaseVersion[]
 }
 
+/** 插件某个已装版本的落盘信息。 */
+export interface PluginInstalledVersionInfo {
+  // 版本号
+  version: string
+  // 版本源码目录名
+  directory: string
+  // 安装时间，ISO 格式
+  installed_at?: string | null
+  // 版本来源，如 market、local、migrated
+  source?: string | null
+  // 是否为版本元信息登记的当前版本
+  is_current: boolean
+}
+
+/** 单个实例的版本绑定与运行状态。 */
+export interface PluginInstanceVersionBinding {
+  // 实例 ID
+  instance_id: string
+  // 该实例已生效的插件版本
+  plugin_version?: string | null
+  // 是否跟随插件当前版本
+  follow_current_version: boolean
+  // 该实例当前是否运行中
+  running: boolean
+  // 是否为源插件本体自身，而非共享源码的分身
+  is_host: boolean
+  // 该实例是否为本插件的默认调用目标
+  is_default_target: boolean
+}
+
+/** 插件已装版本总览与各实例的版本绑定。 */
+export interface PluginVersionOverview {
+  // 插件 ID
+  plugin_id: string
+  // 版本元信息登记的当前版本
+  current_version?: string | null
+  // 已装版本列表，按版本号升序排列
+  installed_versions: PluginInstalledVersionInfo[]
+  // 引用该插件源码的各实例版本绑定
+  instances: PluginInstanceVersionBinding[]
+}
+
+/** 设置实例版本绑定的请求参数。 */
+export interface PluginInstanceVersionUpdateRequest {
+  // 是否跟随插件当前版本
+  follow_current_version: boolean
+  // 不跟随当前版本时必填，且必须是已安装版本
+  plugin_version?: string | null
+}
+
+/** 插件已装版本目录回收结果。 */
+export interface PluginVersionRecycleOutcome {
+  // 本次已删除的版本号列表
+  removed: string[]
+  // 版本号到保留理由的映射
+  kept: Record<string, string>
+}
+
+/** 单个实例的日志等级设置与生效结果。 */
+export interface PluginInstanceLogLevel {
+  // 实例 ID
+  instance_id: string
+  // 该实例设置的日志等级覆盖，为空表示未设置或已过期
+  configured_level?: string | null
+  // 日志等级覆盖的失效时间，为空表示不过期
+  expires_at?: string | null
+  // 按过期回落判定后实际生效的日志等级
+  effective_level: string
+}
+
+/** 插件全部实例（含本体）的日志等级设置总览。 */
+export interface PluginInstanceLogLevelOverview {
+  // 插件 ID
+  plugin_id: string
+  // 该插件全部实例的日志等级设置，首项固定是本体自身
+  instances: PluginInstanceLogLevel[]
+}
+
+/** 设置实例日志等级覆盖的请求参数。 */
+export interface PluginInstanceLogLevelUpdateRequest {
+  // 目标日志等级，如 DEBUG、INFO、WARNING、ERROR、CRITICAL
+  level: string
+  // 覆盖失效时间，为空表示不过期
+  expires_at?: string | null
+}
+
 // 插件侧栏全页导航项（与后端 PluginSidebarNavItem 对齐）
 export interface PluginSidebarNavItem {
   plugin_id: string
