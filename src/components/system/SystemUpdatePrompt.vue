@@ -422,7 +422,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   overflow-y: auto;
   border: var(--app-overlay-border);
   border-radius: var(--app-overlay-radius) !important;
-  box-shadow: var(--app-overlay-shadow) !important;
+  box-shadow: var(--app-overlay-shadow);
 }
 
 .system-update-prompt__title {
