@@ -1,3 +1,5 @@
+import { isPWADisplayMode } from '@/@core/utils/navigator'
+
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[]
   readonly userChoice: Promise<{
@@ -13,23 +15,27 @@ declare global {
   }
 }
 
+const INSTALLED_DISPLAY_MODE_QUERIES = [
+  '(display-mode: standalone)',
+  '(display-mode: fullscreen)',
+  '(display-mode: minimal-ui)',
+  '(display-mode: window-controls-overlay)',
+] as const
+
 export function usePWAInstall() {
   const isInstallable = ref(false)
   const isInstalled = ref(false)
   const installPrompt = ref<BeforeInstallPromptEvent | null>(null)
   const installOutcome = ref<'accepted' | 'dismissed' | null>(null)
+  let displayModeMediaQueries: MediaQueryList[] = []
 
   // 检查是否已安装（通过检查display-mode）
   const checkIfInstalled = () => {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    const isFullscreen = window.matchMedia('(display-mode: fullscreen)').matches
-    const isMinimalUI = window.matchMedia('(display-mode: minimal-ui)').matches
-    const isWindowControlsOverlay = window.matchMedia('(display-mode: window-controls-overlay)').matches
+    return isPWADisplayMode()
+  }
 
-    // iOS Safari特殊检查
-    const isIOSStandalone = (window.navigator as any).standalone === true
-
-    return isStandalone || isFullscreen || isMinimalUI || isWindowControlsOverlay || isIOSStandalone
+  const syncInstalledDisplayMode = () => {
+    isInstalled.value = checkIfInstalled()
   }
 
   // 显示安装提示
@@ -159,16 +165,16 @@ export function usePWAInstall() {
     // 监听安装成功事件
     window.addEventListener('appinstalled', handleAppInstalled)
 
-    // 监听display-mode变化
-    const mediaQuery = window.matchMedia('(display-mode: standalone)')
-    mediaQuery.addEventListener('change', e => {
-      isInstalled.value = e.matches
-    })
+    // 任一安装态 display-mode 变化后都重新聚合检测，避免一个 query 退出时覆盖另一个仍生效的模式。
+    displayModeMediaQueries = INSTALLED_DISPLAY_MODE_QUERIES.map(query => window.matchMedia(query))
+    displayModeMediaQueries.forEach(mediaQuery => mediaQuery.addEventListener('change', syncInstalledDisplayMode))
   })
 
   onUnmounted(() => {
     window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.removeEventListener('appinstalled', handleAppInstalled)
+    displayModeMediaQueries.forEach(mediaQuery => mediaQuery.removeEventListener('change', syncInstalledDisplayMode))
+    displayModeMediaQueries = []
   })
 
   return {

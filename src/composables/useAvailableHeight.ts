@@ -12,10 +12,7 @@ import { usePWA } from '@/composables/usePWA'
  * @param componentOffset - 组件内部额外占用的空间（工具栏、分页栏等，默认 64）
  * @param minHeight - 最小高度（默认 300）
  */
-export function useAvailableHeight(
-  componentOffset: number = 64,
-  minHeight: number = 300,
-) {
+export function useAvailableHeight(componentOffset: number = 64, minHeight: number = 300) {
   const { appMode } = usePWA()
 
   // 响应式测量值
@@ -23,6 +20,17 @@ export function useAvailableHeight(
   const layoutPaddingTop = ref(72)
   const layoutPaddingBottom = ref(24)
   const footerDockMeasuredHeight = ref(0)
+  let footerResizeObserver: ResizeObserver | null = null
+  let observedFooter: HTMLElement | null = null
+
+  function observeFooter(footerEl: HTMLElement | null) {
+    if (!footerResizeObserver || observedFooter === footerEl) return
+
+    if (observedFooter) footerResizeObserver.unobserve(observedFooter)
+
+    observedFooter = footerEl
+    if (footerEl) footerResizeObserver.observe(footerEl)
+  }
 
   function updateMeasurements() {
     viewportHeight.value = window.innerHeight || document.documentElement.clientHeight
@@ -38,6 +46,7 @@ export function useAvailableHeight(
     // 直接查询 Footer Dock DOM，无论 appMode 状态
     // Dock 通过 Teleport 挂载到 body，存在即测量，不存在即为 0
     const footerEl = document.querySelector('.footer-nav-container') as HTMLElement | null
+    observeFooter(footerEl)
     footerDockMeasuredHeight.value = footerEl ? footerEl.offsetHeight : 0
   }
 
@@ -48,6 +57,10 @@ export function useAvailableHeight(
   })
 
   onMounted(() => {
+    if (typeof ResizeObserver !== 'undefined') {
+      footerResizeObserver = new ResizeObserver(updateMeasurements)
+    }
+
     nextTick(updateMeasurements)
 
     window.addEventListener('resize', updateMeasurements)
@@ -57,6 +70,10 @@ export function useAvailableHeight(
   })
 
   onUnmounted(() => {
+    footerResizeObserver?.disconnect()
+    footerResizeObserver = null
+    observedFooter = null
+
     window.removeEventListener('resize', updateMeasurements)
     if (window.visualViewport) {
       window.visualViewport.removeEventListener('resize', updateMeasurements)

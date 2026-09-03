@@ -101,14 +101,42 @@ const transitionStyle = computed(() => ({
     var(--glass-fixed-shell-nav-inline-size) 100%,
     0 100%
   );
+  transition: clip-path 240ms var(--mp-motion-ease-standard);
 }
 
 .layout-wrapper.layout-vertical-nav-collapsed > .glass-fixed-shell-backplate--main {
   --glass-fixed-shell-nav-inline-size: #{variables.$layout-vertical-nav-collapsed-width};
 }
 
-.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav) > .glass-fixed-shell-backplate--main {
+.layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav, .layout-app-shell)
+  > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
+}
+
+.layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell):not(
+    .layout-window-controls-overlay-shell
+  )
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 100% 0);
+}
+
+.layout-wrapper.layout-app-shell:is(
+    .layout-standalone-pwa-shell,
+    .layout-window-controls-overlay-shell
+  ).layout-navbar-compact
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-safe-area-top)) 0);
+}
+
+.layout-wrapper.layout-navbar-floating-eligible > .glass-fixed-shell-backplate--main {
+  transform: translate3d(0, 0, 0) scaleX(1);
+  transform-origin: center top;
+  transition: transform var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing);
+}
+
+.layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0 round var(--shell-floating-navbar-radius));
+  transform: translate3d(0, var(--shell-floating-navbar-inset), 0) scaleX(var(--shell-floating-navbar-scale-x));
 }
 
 [dir='rtl'] .layout-wrapper > .glass-fixed-shell-backplate--main {
@@ -123,9 +151,32 @@ const transitionStyle = computed(() => ({
 }
 
 [dir='rtl']
-  .layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav)
+  .layout-wrapper:is(.layout-horizontal-nav-active, .layout-overlay-nav, .layout-app-shell)
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0);
+}
+
+[dir='rtl']
+  .layout-wrapper.layout-app-shell.layout-navbar-compact:not(.layout-standalone-pwa-shell):not(
+    .layout-window-controls-overlay-shell
+  )
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 100% 0);
+}
+
+[dir='rtl']
+  .layout-wrapper.layout-app-shell:is(
+    .layout-standalone-pwa-shell,
+    .layout-window-controls-overlay-shell
+  ).layout-navbar-compact
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-safe-area-top)) 0);
+}
+
+[dir='rtl']
+  .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0 round var(--shell-floating-navbar-radius));
 }
 
 .glass-fixed-shell-backplate--overlay-nav {

@@ -302,13 +302,13 @@ const uiModes = computed(() => [
   },
   {
     name: 'desktop',
-    title: t('pwa.platforms.desktop'),
-    icon: 'mdi-monitor',
+    title: t('common.sideNavigation'),
+    icon: 'mdi-dock-left',
   },
   {
     name: 'app',
-    title: t('pwa.platforms.mobile'),
-    icon: 'mdi-cellphone',
+    title: t('common.appNavigation'),
+    icon: 'mdi-dock-bottom',
   },
 ])
 
@@ -607,8 +607,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VAvatar class="cursor-pointer ms-3 border" color="primary" variant="tonal">
-    <VImg :src="avatar" />
+  <VAvatar
+    class="cursor-pointer ms-3 border"
+    color="primary"
+    variant="tonal"
+    role="button"
+    tabindex="0"
+    aria-haspopup="menu"
+    :aria-label="t('common.userMenu')"
+    :aria-expanded="showUserMenu"
+    @keydown.enter.prevent="showUserMenu = true"
+    @keydown.space.prevent="showUserMenu = true"
+  >
+    <VImg :src="avatar" alt="" />
 
     <VMenu
       v-model="showUserMenu"
