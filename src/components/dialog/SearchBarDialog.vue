@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
+import { fetchAllPlugins } from '@/api/pluginCatalog'
 import type { MediaDataSource, Site, Plugin, Subscribe } from '@/api/types'
 import { getNavMenus, getSettingTabs } from '@/router/i18n-menu'
 import { NavMenu } from '@/@layouts/types'
@@ -355,11 +356,7 @@ const pluginItems = ref<Plugin[]>([])
 /** 加载已安装插件，供搜索结果匹配。 */
 async function fetchInstalledPlugins() {
   try {
-    pluginItems.value = await api.get('plugin/', {
-      params: {
-        state: 'installed',
-      },
-    })
+    pluginItems.value = await fetchAllPlugins({ state: 'installed' })
   } catch (error) {
     console.error(error)
   }

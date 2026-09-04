@@ -3,6 +3,7 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
+import { fetchAllPlugins } from '@/api/pluginCatalog'
 import type { Plugin, PluginRating, PluginSourceTransition } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
@@ -378,12 +379,7 @@ async function fetchMarketPlugin(pluginId?: string) {
   if (!pluginId) return null
 
   try {
-    const marketPlugins: Plugin[] = await api.get('plugin/', {
-      params: {
-        state: 'market',
-        force: false,
-      },
-    })
+    const marketPlugins: Plugin[] = await fetchAllPlugins({ state: 'market', force: false })
 
     return marketPlugins.find(plugin => plugin.id === pluginId) || null
   } catch (error) {

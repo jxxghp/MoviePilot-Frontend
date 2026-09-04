@@ -2,6 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
+import { fetchAllPlugins } from '@/api/pluginCatalog'
 import {
   changePluginSource,
   getPluginSourceOptions,
@@ -1100,11 +1101,7 @@ async function fetchInstalledPlugins(context: KeepAliveRefreshContext = {}): Pro
   }
 
   try {
-    const installedPlugins: Plugin[] = await api.get('plugin/', {
-      params: {
-        state: 'installed',
-      },
-    })
+    const installedPlugins: Plugin[] = await fetchAllPlugins({ state: 'installed' })
     if (generation !== installedWriterGeneration) return false
 
     const previousById = new Map([...uninstalledList.value, ...dataList.value].map(plugin => [plugin.id, plugin]))
@@ -1258,12 +1255,7 @@ async function fetchUninstalledPlugins(
   }
 
   try {
-    const marketResponse: Plugin[] = await api.get('plugin/', {
-      params: {
-        state: 'market',
-        force: force,
-      },
-    })
+    const marketResponse: Plugin[] = await fetchAllPlugins({ state: 'market', force })
     if (generation !== marketWriterGeneration) return
 
     if (commit) applyMarketSnapshot(marketResponse)

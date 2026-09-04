@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import api from '@/api'
+import { fetchAllPlugins } from '@/api/pluginCatalog'
 import type { Plugin } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
@@ -73,7 +73,7 @@ function getQuickAccessElement() {
   const element = quickAccessRef.value
   if (!element) return null
 
-  return element instanceof HTMLElement ? element : element.$el ?? null
+  return element instanceof HTMLElement ? element : (element.$el ?? null)
 }
 
 // 计算显示状态
@@ -162,11 +162,7 @@ async function fetchPluginsWithPage() {
 
   try {
     loading.value = true
-    const allPlugins: Plugin[] = await api.get('plugin/', {
-      params: {
-        state: 'installed',
-      },
-    })
+    const allPlugins: Plugin[] = await fetchAllPlugins({ state: 'installed' })
 
     // 只保留有详情页面且已启用的插件
     pluginsWithPage.value = allPlugins

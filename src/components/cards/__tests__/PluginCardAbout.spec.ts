@@ -152,7 +152,7 @@ describe('PluginCard about menu', () => {
 
     await waitFor(() => {
       expect(mocks.apiGet).toHaveBeenCalledWith('plugin/', {
-        params: { force: false, state: 'market' },
+        params: { count: 200, force: false, page: 1, state: 'market' },
       })
     })
     expect(open).toHaveBeenCalledWith('about:blank', '_blank')
