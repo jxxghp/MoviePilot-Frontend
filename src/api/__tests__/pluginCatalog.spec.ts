@@ -37,8 +37,21 @@ describe('fetchAllPlugins', () => {
     expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'plugin/', {
       params: { count: PLUGIN_LIST_PAGE_SIZE, force: true, page: 1, state: 'market' },
     })
+    // 强制刷新只在首页发送，后续页读取已刷新的清单。
     expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'plugin/', {
-      params: { count: PLUGIN_LIST_PAGE_SIZE, force: true, page: 2, state: 'market' },
+      params: { count: PLUGIN_LIST_PAGE_SIZE, force: false, page: 2, state: 'market' },
+    })
+  })
+
+  it('调用方显式传 force=false 时各页保持 force=false', async () => {
+    mocks.apiGet
+      .mockResolvedValueOnce(buildPlugins(PLUGIN_LIST_PAGE_SIZE))
+      .mockResolvedValueOnce(buildPlugins(1, PLUGIN_LIST_PAGE_SIZE))
+
+    await fetchAllPlugins({ state: 'market', force: false })
+
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'plugin/', {
+      params: { count: PLUGIN_LIST_PAGE_SIZE, force: false, page: 2, state: 'market' },
     })
   })
 

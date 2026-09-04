@@ -25,6 +25,9 @@ export interface PluginListOptions {
  * `GET /plugin/` 省略分页参数时后端只返回前 `max_results`（默认 50）条，
  * Web 端的市场、已安装列表和搜索都需要完整清单，因此按最大页大小逐页读取，
  * 直到返回不足一页或不再出现新插件为止。
+ *
+ * `force` 只随第一页发送：后端在首页完成强制刷新后，后续页读取同一份已刷新的清单，
+ * 避免一次刷新触发多次完整的市场拉取，也避免各页来自不同的刷新结果。
  */
 export async function fetchAllPlugins(params: PluginListParams, options: PluginListOptions = {}): Promise<Plugin[]> {
   const plugins: Plugin[] = []
@@ -33,7 +36,12 @@ export async function fetchAllPlugins(params: PluginListParams, options: PluginL
   for (let page = 1; page <= PLUGIN_LIST_MAX_PAGES; page += 1) {
     const chunk: Plugin[] = await api.get('plugin/', {
       ...options,
-      params: { ...params, page, count: PLUGIN_LIST_PAGE_SIZE },
+      params: {
+        ...params,
+        ...(params.force && page > 1 ? { force: false } : {}),
+        page,
+        count: PLUGIN_LIST_PAGE_SIZE,
+      },
     })
     if (!Array.isArray(chunk) || chunk.length === 0) break
 
