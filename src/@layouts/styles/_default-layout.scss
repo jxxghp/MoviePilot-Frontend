@@ -1,8 +1,8 @@
 // These are styles which are both common in layout w/ vertical nav & horizontal nav
-@use "@layouts/styles/rtl";
-@use "@layouts/styles/placeholders";
-@use "@layouts/styles/mixins";
-@use "@configured-variables" as variables;
+@use '@layouts/styles/rtl';
+@use '@layouts/styles/placeholders';
+@use '@layouts/styles/mixins';
+@use '@configured-variables' as variables;
 
 html {
   background: rgb(var(--v-theme-background));
@@ -46,7 +46,6 @@ body,
 
   // display: flex;display
 
-
   .page-content-container {
     // flex: 1;flex
     display: flex;
@@ -59,8 +58,15 @@ body,
   }
 }
 
-@media screen and (width <= 1280px){
-  .page-content-container > div:first-child  {
+// App Dock 固定在视口底部，页面末尾需要额外的滚动空间避免最后一项被覆盖。
+.layout-wrapper.layout-app-shell {
+  .layout-page-content {
+    padding-block-end: calc(1.5rem + var(--layout-footer-dock-height, 0px));
+  }
+}
+
+@media screen and (width <= 1280px) {
+  .page-content-container > div:first-child {
     inline-size: calc(100vw - 1rem) !important;
   }
 }

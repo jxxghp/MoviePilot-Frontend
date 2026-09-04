@@ -10,6 +10,7 @@ import {
 import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBackplate'
 import { usePWA } from '@/composables/usePWA'
 import { useShellScrollState } from '@/composables/useShellScrollState'
+import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
 
 const FLOATING_NAVBAR_INSET_PX = 16
 
@@ -22,6 +23,8 @@ export default defineComponent({
     const route = useRoute()
     const { mdAndDown } = useDisplay()
     const { appMode, displayEnvironment, isStandaloneMode, isWindowControlsOverlayMode } = usePWA()
+    // App Dock 通过 Teleport 挂载到 body，不参与内容流；将实际高度交给布局用于末尾避让。
+    const { footerDockHeight } = useFooterDockHeight()
     const fixedShellBackplate = useGlassFixedShellBackplate()
     const themeLayout = ref(readThemeCustomizerSettings().layout)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
@@ -206,6 +209,7 @@ export default defineComponent({
               : 'connected',
           'data-shell-scroll-direction': shellScroll.direction.value,
           style: {
+            '--layout-footer-dock-height': `${footerDockHeight.value ?? 0}px`,
             '--shell-floating-navbar-scale-x': floatingNavbarScale.value,
             '--shell-floating-navbar-content-scale-x': floatingNavbarContentScale.value,
           },

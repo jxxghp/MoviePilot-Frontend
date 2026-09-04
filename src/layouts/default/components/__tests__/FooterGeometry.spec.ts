@@ -4,6 +4,12 @@ import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
 
 describe('Footer Dock geometry', () => {
+  it('reserves the measured Dock height after the App content', () => {
+    const source = readFileSync(resolve(cwd(), 'src/@layouts/styles/_default-layout.scss'), 'utf8')
+
+    expect(source).toContain('padding-block-end: calc(1.5rem + var(--layout-footer-dock-height, 0px));')
+  })
+
   it('keeps the contextual accessory beside the primary Dock without narrowing primary navigation', () => {
     const source = readFileSync(resolve(cwd(), 'src/layouts/default/components/Footer.vue'), 'utf8')
 

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   direction: 'idle' as 'idle' | 'up' | 'down',
   hasPwaStatus: true,
   displayEnvironment: 'browser' as 'browser' | 'standalone' | 'window-controls-overlay',
+  footerDockHeight: undefined as { value: number | null } | undefined,
   isStandaloneDisplayMode: false,
   isStandaloneMode: false,
   isWindowControlsOverlayMode: false,
@@ -24,6 +25,16 @@ vi.mock('@/composables/useShellScrollState', async () => {
       direction: computed(() => mocks.direction),
       state: computed(() => mocks.state),
     }),
+  }
+})
+
+vi.mock('@/composables/useFooterDockHeight', async () => {
+  const { ref } = await import('vue')
+
+  mocks.footerDockHeight ??= ref<number | null>(null)
+
+  return {
+    useFooterDockHeight: () => ({ footerDockHeight: mocks.footerDockHeight }),
   }
 })
 
@@ -127,6 +138,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.displayEnvironment = 'browser'
     mocks.direction = 'idle'
     mocks.hasPwaStatus = true
+    mocks.footerDockHeight!.value = null
     mocks.isStandaloneDisplayMode = false
     mocks.isStandaloneMode = false
     mocks.isWindowControlsOverlayMode = false
@@ -188,6 +200,17 @@ describe('VerticalNavLayout shell states', () => {
     expect(drawerWrapper.find('[data-testid="vertical-nav"]').exists()).toBe(true)
     expect(drawerWrapper.find('.layout-overlay').exists()).toBe(true)
     expect(drawerWrapper.get('[data-testid="footer-state"]').attributes()).not.toHaveProperty('data-minimized')
+  })
+
+  it('publishes the measured App Dock height to the layout shell', async () => {
+    mocks.appMode = true
+    mocks.mdAndDown = true
+    const wrapper = mountLayout()
+
+    mocks.footerDockHeight!.value = 104
+    await nextTick()
+
+    expect(wrapper.get('.layout-wrapper').attributes('style')).toContain('--layout-footer-dock-height: 104px')
   })
 
   it('uses only the App navigation model at a wide viewport', () => {
