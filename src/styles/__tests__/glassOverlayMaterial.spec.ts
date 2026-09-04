@@ -395,6 +395,8 @@ describe('glass overlay material styles', () => {
 
   it('scopes live navbar refraction to Chromium clear and tinted floating shells', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const filterDefinitions = readFileSync(resolve(cwd(), 'src/components/theme/GlassNavbarRefractionDefs.vue'), 'utf8')
+    const refractionUtilities = readFileSync(resolve(cwd(), 'src/utils/glassNavbarRefraction.ts'), 'utf8')
 
     expect(styles).toContain("data-glass-navbar-refraction='chromium'")
     expect(styles).toContain("url('#glass-navbar-live-refraction-balanced')")
@@ -402,6 +404,63 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(
       /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-navbar-floating-eligible\.layout-navbar-away-from-top[\s\S]*?\.layout-navbar/,
     )
+    expect(styles).toContain('inline-size: auto !important')
+    expect(styles).toContain('inset-block-start: 0 !important')
+    expect(styles).toContain('inset-inline: 0 !important')
+    expect(styles).toContain('inset-block-start: var(--shell-floating-navbar-inset) !important')
+    expect(styles).toContain('inset-inline: var(--shell-floating-navbar-inset) !important')
+    expect(styles).toContain('transform: none !important')
+    expect(styles).toContain(
+      'inset-block-start var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
+    )
+    expect(styles).toContain(
+      'inset-inline-end var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
+    )
+    expect(styles).toContain(
+      'inset-inline-start var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
+    )
+    const highQualityStart = styles.indexOf("html[data-theme='glass'][data-glass-quality='high']")
+    const liveRefractionStart = styles.lastIndexOf(
+      "html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])",
+      highQualityStart,
+    )
+    const liveRefractionRule = styles.slice(liveRefractionStart, highQualityStart)
+
+    expect(liveRefractionStart).toBeGreaterThanOrEqual(0)
+    expect(highQualityStart).toBeGreaterThan(liveRefractionStart)
+    expect(liveRefractionRule).toContain("backdrop-filter: url('#glass-navbar-live-refraction-balanced')")
+    expect(liveRefractionRule).toContain('border: 0 !important')
+    expect(liveRefractionRule).toContain('linear-gradient(145deg, rgba(255, 255, 255, 0.13), transparent 34%)')
+    expect(liveRefractionRule).not.toContain('inset 0 1px 0 rgba(255, 255, 255, 0.4)')
+    expect(styles).toContain('inline-size: min(100vw, variables.$layout-boxed-content-width)')
+    expect(styles).toContain('transform: translateX(-50%) !important')
+    expect(styles).toMatch(
+      /\[data-glass-appearance='tinted'\][\s\S]*?\.layout-navbar\s*\{[\s\S]*?--glass-material-accent-rgb/,
+    )
+    expect(liveRefractionRule).not.toContain('&::before')
+    expect(styles).not.toContain('&::after')
     expect(styles).not.toContain("[data-glass-appearance='frosted'][data-glass-navbar-refraction='chromium']")
+    expect(filterDefinitions).toContain('createGlassNavbarDisplacementMap')
+    expect(filterDefinitions).toContain('NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP')
+    expect(filterDefinitions).toContain('getBoundingClientRect()')
+    expect(filterDefinitions).toContain('new ResizeObserver(scheduleDisplacementMapSync)')
+    expect(filterDefinitions).toContain('in2="map"')
+    expect(filterDefinitions).toContain(':width="displacementMapSize.width"')
+    expect(filterDefinitions).toContain(':height="displacementMapSize.height"')
+    expect(filterDefinitions).not.toContain('width="100%"')
+    expect(filterDefinitions).not.toContain('height="100%"')
+    expect(filterDefinitions).toContain('scale="-22"')
+    expect(filterDefinitions).toContain('scale="-34"')
+    expect(filterDefinitions).toContain('x="-8%"')
+    expect(filterDefinitions).toContain('width="116%"')
+    expect(filterDefinitions).toContain('x="-12%"')
+    expect(filterDefinitions).toContain('width="124%"')
+    expect(filterDefinitions).not.toContain('horizontal-continuity')
+    expect(filterDefinitions).not.toContain('<feComposite')
+    expect(filterDefinitions).not.toContain('<feGaussianBlur')
+    expect(refractionUtilities).toContain('createGlassNavbarDisplacementField')
+    expect(refractionUtilities).toContain('OUTER_NEUTRAL_GUARD_PX')
+    expect(refractionUtilities).toContain('Math.sin(Math.PI * normalizedDistance)')
+    expect(refractionUtilities).toContain("canvas.toDataURL('image/png')")
   })
 })

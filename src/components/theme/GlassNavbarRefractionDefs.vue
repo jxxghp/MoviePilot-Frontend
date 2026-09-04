@@ -1,35 +1,77 @@
 <script lang="ts" setup>
-const displacementMapMarkup = `
-  <svg viewBox="0 0 1200 80" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="x" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="rgb(24 128 0)" />
-        <stop offset="8%" stop-color="rgb(128 128 0)" />
-        <stop offset="92%" stop-color="rgb(128 128 0)" />
-        <stop offset="100%" stop-color="rgb(232 128 0)" />
-      </linearGradient>
-      <linearGradient id="y" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="rgb(0 0 28)" />
-        <stop offset="18%" stop-color="rgb(0 0 128)" />
-        <stop offset="82%" stop-color="rgb(0 0 128)" />
-        <stop offset="100%" stop-color="rgb(0 0 228)" />
-      </linearGradient>
-    </defs>
-    <rect width="1200" height="80" rx="20" fill="black" />
-    <rect width="1200" height="80" rx="20" fill="url(#x)" />
-    <rect width="1200" height="80" rx="20" fill="url(#y)" style="mix-blend-mode: screen" />
-    <rect
-      x="10"
-      y="10"
-      width="1180"
-      height="60"
-      rx="14"
-      fill="rgb(128 128 128)"
-      style="filter: blur(8px)"
-    />
-  </svg>
-`
-const displacementMapUrl = `data:image/svg+xml,${encodeURIComponent(displacementMapMarkup)}`
+import { createGlassNavbarDisplacementMap, NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP } from '@/utils/glassNavbarRefraction'
+
+const DEFAULT_NAVBAR_GEOMETRY = {
+  height: 64,
+  radius: 16,
+  width: 1200,
+}
+const MAP_RESIZE_SETTLE_MS = 180
+const displacementMapUrl = ref(NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP)
+const displacementMapSize = reactive({
+  height: DEFAULT_NAVBAR_GEOMETRY.height,
+  width: DEFAULT_NAVBAR_GEOMETRY.width,
+})
+
+let observedNavbar: HTMLElement | null = null
+let resizeObserver: ResizeObserver | null = null
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
+
+function syncDisplacementMap() {
+  if (!observedNavbar) return
+
+  const bounds = observedNavbar.getBoundingClientRect()
+  const styles = getComputedStyle(observedNavbar)
+  const floatingRadius = Number.parseFloat(styles.getPropertyValue('--shell-floating-navbar-radius'))
+  const borderRadius = Number.parseFloat(styles.borderStartStartRadius)
+  const height = Math.max(1, Math.round(bounds.height))
+  const width = Math.max(1, Math.round(bounds.width))
+
+  displacementMapSize.height = height
+  displacementMapSize.width = width
+  displacementMapUrl.value = createGlassNavbarDisplacementMap({
+    height,
+    radius: Number.isFinite(floatingRadius)
+      ? floatingRadius
+      : Number.isFinite(borderRadius)
+        ? borderRadius
+        : DEFAULT_NAVBAR_GEOMETRY.radius,
+    width,
+  })
+}
+
+// 几何动画期间沿用上一张位移图，尺寸稳定后再重建，避免逐帧生成并上传位移纹理。
+function scheduleDisplacementMapSync() {
+  if (resizeTimer !== null) clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    resizeTimer = null
+    syncDisplacementMap()
+  }, MAP_RESIZE_SETTLE_MS)
+}
+
+onMounted(() => {
+  observedNavbar = document.querySelector('.layout-wrapper[data-glass-navbar-refraction="chromium"] .layout-navbar')
+  if (!observedNavbar) return
+
+  syncDisplacementMap()
+  if (typeof ResizeObserver === 'undefined') {
+    window.addEventListener('resize', scheduleDisplacementMapSync, { passive: true })
+
+    return
+  }
+
+  resizeObserver = new ResizeObserver(scheduleDisplacementMapSync)
+  resizeObserver.observe(observedNavbar)
+})
+
+onBeforeUnmount(() => {
+  if (resizeTimer !== null) clearTimeout(resizeTimer)
+  resizeTimer = null
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  window.removeEventListener('resize', scheduleDisplacementMapSync)
+  observedNavbar = null
+})
 </script>
 
 <template>
@@ -46,8 +88,8 @@ const displacementMapUrl = `data:image/svg+xml,${encodeURIComponent(displacement
         <feImage
           x="0"
           y="0"
-          width="100%"
-          height="100%"
+          :width="displacementMapSize.width"
+          :height="displacementMapSize.height"
           preserveAspectRatio="none"
           :href="displacementMapUrl"
           result="map"
@@ -66,8 +108,8 @@ const displacementMapUrl = `data:image/svg+xml,${encodeURIComponent(displacement
         <feImage
           x="0"
           y="0"
-          width="100%"
-          height="100%"
+          :width="displacementMapSize.width"
+          :height="displacementMapSize.height"
           preserveAspectRatio="none"
           :href="displacementMapUrl"
           result="map"
