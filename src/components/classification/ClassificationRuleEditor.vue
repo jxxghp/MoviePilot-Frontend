@@ -718,6 +718,7 @@ watch(
 
 .classification-rule-kind :deep(.v-btn) {
   min-width: 0;
+  min-block-size: 36px;
 }
 
 .classification-rule-condition,
