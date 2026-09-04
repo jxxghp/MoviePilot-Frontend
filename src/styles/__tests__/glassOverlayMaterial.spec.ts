@@ -392,4 +392,16 @@ describe('glass overlay material styles', () => {
       /\[data-glass-appearance='frosted'\]\[data-page-presentation-motion='active'\]\s+\.mp-page-route\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?transform:\s*translate3d\(0,\s*var\(--mp-page-motion-translate-y,\s*0\),\s*0\);/,
     )
   })
+
+  it('scopes live navbar refraction to Chromium clear and tinted floating shells', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain("data-glass-navbar-refraction='chromium'")
+    expect(styles).toContain("url('#glass-navbar-live-refraction-balanced')")
+    expect(styles).toContain("url('#glass-navbar-live-refraction-high')")
+    expect(styles).toMatch(
+      /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-navbar-floating-eligible\.layout-navbar-away-from-top[\s\S]*?\.layout-navbar/,
+    )
+    expect(styles).not.toContain("[data-glass-appearance='frosted'][data-glass-navbar-refraction='chromium']")
+  })
 })

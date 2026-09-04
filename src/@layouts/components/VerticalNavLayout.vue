@@ -2,6 +2,7 @@
 import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
 import GlassFixedShellBackplate from '@/components/theme/GlassFixedShellBackplate.vue'
+import GlassNavbarRefractionDefs from '@/components/theme/GlassNavbarRefractionDefs.vue'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
@@ -11,6 +12,7 @@ import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBac
 import { usePWA } from '@/composables/usePWA'
 import { useShellScrollState } from '@/composables/useShellScrollState'
 import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
+import { supportsGlassNavbarLiveRefraction } from '@/utils/glassNavbarRefraction'
 
 const FLOATING_NAVBAR_INSET_PX = 16
 
@@ -26,6 +28,7 @@ export default defineComponent({
     // App Dock 通过 Teleport 挂载到 body，不参与内容流；将实际高度交给布局用于末尾避让。
     const { footerDockHeight } = useFooterDockHeight()
     const fixedShellBackplate = useGlassFixedShellBackplate()
+    const navbarRefractionMode = supportsGlassNavbarLiveRefraction() ? 'chromium' : 'goal1'
     const themeLayout = ref(readThemeCustomizerSettings().layout)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
     const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
@@ -208,6 +211,7 @@ export default defineComponent({
               ? 'theme-qualified'
               : 'connected',
           'data-shell-scroll-direction': shellScroll.direction.value,
+          'data-glass-navbar-refraction': navbarRefractionMode,
           style: {
             '--layout-footer-dock-height': `${footerDockHeight.value ?? 0}px`,
             '--shell-floating-navbar-scale-x': floatingNavbarScale.value,
@@ -215,6 +219,7 @@ export default defineComponent({
           },
         },
         [
+          navbarRefractionMode === 'chromium' ? h(GlassNavbarRefractionDefs) : null,
           fixedShellBackplateNode,
           verticalNav,
           h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]),

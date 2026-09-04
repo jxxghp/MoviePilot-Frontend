@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   isStandaloneMode: false,
   isWindowControlsOverlayMode: false,
   mdAndDown: false,
+  navbarRefractionSupported: false,
   revision: undefined as { value: number } | undefined,
   state: 'expanded' as 'expanded' | 'compact' | 'revealed',
 }))
@@ -85,6 +86,10 @@ vi.mock('@/composables/useGlassFixedShellBackplate', async () => {
   }
 })
 
+vi.mock('@/utils/glassNavbarRefraction', () => ({
+  supportsGlassNavbarLiveRefraction: () => mocks.navbarRefractionSupported,
+}))
+
 vi.mock('@/composables/useThemeCustomizer', () => ({
   readThemeCustomizerSettings: () => ({ layout: 'vertical' }),
   THEME_CUSTOMIZER_CHANGE_EVENT: 'moviepilot:theme-customizer-change',
@@ -92,6 +97,10 @@ vi.mock('@/composables/useThemeCustomizer', () => ({
 
 vi.mock('@/components/theme/GlassFixedShellBackplate.vue', () => ({
   default: { template: '<div data-testid="fixed-shell-backplate" />' },
+}))
+
+vi.mock('@/components/theme/GlassNavbarRefractionDefs.vue', () => ({
+  default: { template: '<svg data-testid="navbar-refraction-defs" />' },
 }))
 
 vi.mock('@layouts/components/VerticalNav.vue', () => ({
@@ -143,6 +152,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.isStandaloneMode = false
     mocks.isWindowControlsOverlayMode = false
     mocks.mdAndDown = false
+    mocks.navbarRefractionSupported = false
     mocks.state = 'expanded'
   })
 
@@ -175,6 +185,20 @@ describe('VerticalNavLayout shell states', () => {
     expect(revealedRoot.classes()).not.toContain('layout-navbar-compact')
     expect(revealedRoot.classes()).not.toContain('layout-navbar-revealed')
     expect(revealedWrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('revealed')
+  })
+
+  it('mounts live backdrop definitions only for the verified Chromium path', () => {
+    const goal1Wrapper = mountLayout()
+
+    expect(goal1Wrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('goal1')
+    expect(goal1Wrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(false)
+    goal1Wrapper.unmount()
+
+    mocks.navbarRefractionSupported = true
+    const chromiumWrapper = mountLayout()
+
+    expect(chromiumWrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('chromium')
+    expect(chromiumWrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(true)
   })
 
   it('keeps the footer contract stable across App and drawer shells', async () => {
