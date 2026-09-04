@@ -688,6 +688,13 @@ export default {
     clearSystemSuccess: 'System messages cleared',
     clearMediaSuccess: 'Media messages cleared',
     clearFailed: 'Failed to clear notifications',
+    fileOrganizeFailed: 'File organization failed',
+    fileOrganizePlanConflict:
+      'The file-organization plan no longer matches the current task. The operation was stopped. Refresh transfer history and try again.',
+    fileOrganizeLeaseLost:
+      'This file-organization task was taken over by another operation or has expired. Refresh transfer history and try again.',
+    fileOrganizeGenericError:
+      'File organization did not finish. The operation was stopped. Refresh transfer history and try again; if it still fails, check the system logs.',
     empty: 'No Notifications',
     systemMessages: 'System Messages',
     mediaMessages: 'Media Messages',

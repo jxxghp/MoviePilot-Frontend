@@ -1650,7 +1650,7 @@ onUnmounted(() => {
                 :placeholder="t('transferHistory.searchPlaceholder')"
                 :aria-label="t('transferHistory.searchPlaceholder')"
                 prepend-inner-icon="mdi-magnify"
-                variant="outlined"
+                variant="plain"
                 single-line
                 hide-details
                 clearable
@@ -1662,10 +1662,9 @@ onUnmounted(() => {
                 item-value="value"
                 :prepend-inner-icon="currentStatusFilter.icon"
                 density="compact"
-                variant="outlined"
+                variant="plain"
                 hide-details
                 class="transfer-history-desktop-status"
-                :label="t('transferHistory.statusFilter.label')"
                 :aria-label="t('transferHistory.statusFilter.label')"
               />
             </div>
@@ -2230,7 +2229,37 @@ onUnmounted(() => {
 
 .transfer-history-desktop-filter-group {
   display: flex;
+  align-items: stretch;
+  overflow: hidden;
   inline-size: min(100%, 36rem);
+  min-block-size: 40px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.16);
+  border-radius: var(--app-field-radius);
+  background: rgba(var(--v-theme-surface), 0.04);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.transfer-history-desktop-filter-group:focus-within {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.12);
+}
+
+.transfer-history-desktop-filter-group :deep(.v-input) {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.transfer-history-desktop-filter-group :deep(.v-field) {
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.transfer-history-desktop-filter-group :deep(.v-field__outline),
+.transfer-history-desktop-filter-group :deep(.v-field__overlay) {
+  display: none;
 }
 
 .transfer-history-desktop-search {
@@ -2238,19 +2267,10 @@ onUnmounted(() => {
   min-inline-size: 12rem;
 }
 
-.transfer-history-desktop-search :deep(.v-field) {
-  border-start-end-radius: 0;
-  border-end-end-radius: 0;
-}
-
 .transfer-history-desktop-status {
   flex: 0 0 10rem;
-  margin-inline-start: -1px;
-}
-
-.transfer-history-desktop-status :deep(.v-field) {
-  border-start-start-radius: 0;
-  border-end-start-radius: 0;
+  min-inline-size: 0;
+  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.14);
 }
 
 .transfer-history-desktop-media-cell {

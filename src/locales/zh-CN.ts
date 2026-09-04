@@ -672,6 +672,11 @@ export default {
     clearSystemSuccess: '系统消息已清理',
     clearMediaSuccess: '媒体消息已清理',
     clearFailed: '通知清理失败',
+    fileOrganizeFailed: '文件整理失败',
+    fileOrganizePlanConflict: '文件整理任务的执行计划与当前记录不一致，系统已停止本次操作。请刷新整理历史后重试。',
+    fileOrganizeLeaseLost: '这条文件整理任务已被其他操作接管或已失效，请刷新整理历史后重试。',
+    fileOrganizeGenericError:
+      '文件整理没有完成，系统已停止本次操作。请刷新整理历史后重试；如果仍然失败，请查看系统日志。',
     empty: '暂无通知',
     systemMessages: '系统类消息',
     mediaMessages: '媒体消息',
