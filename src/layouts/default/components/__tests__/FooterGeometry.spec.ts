@@ -16,6 +16,9 @@ describe('Footer Dock geometry', () => {
     expect(source).toContain('data-footer-nav-role="primary"')
     expect(source).toContain('data-footer-nav-role="accessory"')
     expect(source).toContain("'footer-nav-container--with-accessory': showDynamicButton")
+    expect(source).toMatch(
+      /\.footer-nav-container--with-accessory\s*\{[\s\S]*?--footer-nav-accessory-space:\s*60px;[\s\S]*?padding-inline-end:\s*calc\(var\(--footer-nav-accessory-space\) \+ 2px\);/,
+    )
     expect(source).toMatch(/\.footer-nav-group\s*\{[\s\S]*?position:\s*relative;/)
     expect(source).toMatch(
       /\.dynamic-btn-card\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?block-size:\s*48px;[\s\S]*?inset-block:\s*0;[\s\S]*?inset-inline-start:\s*calc\(100% \+ 2px\);[\s\S]*?margin-block:\s*auto !important;/,

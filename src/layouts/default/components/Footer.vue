@@ -345,6 +345,13 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
   pointer-events: none;
 }
 
+// 动态按钮脱离主导航布局后，预留其最大宽度和间距，保持整个 Footer 的视觉中心不偏移。
+.footer-nav-container--with-accessory {
+  --footer-nav-accessory-space: 60px;
+
+  padding-inline-end: calc(var(--footer-nav-accessory-space) + 2px);
+}
+
 // 移动端两个设置面板都是全屏展示，打开时隐藏底部导航，避免不可见控件继续参与焦点和合成。
 html[data-theme-customizer-open='true'],
 html[data-agent-assistant-open='true'] {
@@ -454,7 +461,7 @@ html[data-agent-assistant-open='true'] {
   inline-size: auto;
   margin-block: auto !important;
   margin-inline: 0 !important;
-  max-inline-size: 60px;
+  max-inline-size: var(--footer-nav-accessory-space, 60px);
   min-block-size: 0;
 
   .footer-card-content {
