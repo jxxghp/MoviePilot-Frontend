@@ -726,24 +726,30 @@ function handleCardClick() {
                 <div class="subscribe-card-mobile-body">
                   <div class="subscribe-card-mobile-footer">
                     <div class="subscribe-card-mobile-meta">
-                      <div
-                        class="subscribe-card-mobile-state"
-                        :style="{ color: `rgb(var(--v-theme-${compactStateDisplay.color}))` }"
-                        :title="executionStateDisplay?.error || compactStateDisplay.label"
-                        :aria-label="compactStateDisplay.label"
+                      <VTooltip
+                        :text="executionStateDisplay?.error"
+                        :disabled="!executionStateDisplay?.error"
+                        location="top"
                       >
-                        <VIcon
-                          :icon="compactStateDisplay.icon"
-                          :data-subscribe-state-icon="compactStateDisplay.icon"
-                          size="16"
-                        />
-                        <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
-                          {{ compactStateText }}
-                        </span>
-                        <VTooltip v-if="executionStateDisplay?.error" activator="parent" location="top">
-                          {{ executionStateDisplay.error }}
-                        </VTooltip>
-                      </div>
+                        <template #activator="{ props: tooltipProps }">
+                          <div
+                            v-bind="tooltipProps"
+                            class="subscribe-card-mobile-state"
+                            :style="{ color: `rgb(var(--v-theme-${compactStateDisplay.color}))` }"
+                            :title="executionStateDisplay?.error || compactStateDisplay.label"
+                            :aria-label="compactStateDisplay.label"
+                          >
+                            <VIcon
+                              :icon="compactStateDisplay.icon"
+                              :data-subscribe-state-icon="compactStateDisplay.icon"
+                              size="16"
+                            />
+                            <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
+                              {{ compactStateText }}
+                            </span>
+                          </div>
+                        </template>
+                      </VTooltip>
 
                       <IconBtn v-if="!props.sortable" class="subscribe-card-mobile-menu" size="small" @click.stop>
                         <VIcon icon="mdi-dots-horizontal" size="18" />
@@ -862,20 +868,28 @@ function handleCardClick() {
                   </div>
                 </VCardText>
                 <!-- 右下角元数据：暂停 / 待定时替换"x 天前"为状态文案 -->
-                <VCardText
+                <VTooltip
                   v-if="rightBottomStateDisplay"
-                  class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-                  :style="
-                    executionStateDisplay ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` } : undefined
-                  "
-                  :title="executionStateDisplay?.error || rightBottomStateDisplay.label"
+                  :text="executionStateDisplay?.error"
+                  :disabled="!executionStateDisplay?.error"
+                  location="top"
                 >
-                  <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
-                  {{ rightBottomStateDisplay.label }}
-                  <VTooltip v-if="executionStateDisplay?.error" activator="parent" location="top">
-                    {{ executionStateDisplay.error }}
-                  </VTooltip>
-                </VCardText>
+                  <template #activator="{ props: tooltipProps }">
+                    <VCardText
+                      v-bind="tooltipProps"
+                      class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
+                      :style="
+                        executionStateDisplay
+                          ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` }
+                          : undefined
+                      "
+                      :title="executionStateDisplay?.error || rightBottomStateDisplay.label"
+                    >
+                      <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
+                      {{ rightBottomStateDisplay.label }}
+                    </VCardText>
+                  </template>
+                </VTooltip>
                 <VCardText
                   v-else-if="lastUpdateText"
                   class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"

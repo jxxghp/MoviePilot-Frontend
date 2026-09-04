@@ -364,7 +364,10 @@ describe('SubscribeCard display and progress', () => {
     })
 
     expect(screen.getByText('等待站点额度')).toBeInTheDocument()
-    expect(screen.getByTitle('站点 9 冷却中')).toBeInTheDocument()
+    const status = screen.getByTitle('站点 9 冷却中')
+    expect(status).toBeInTheDocument()
+    await fireEvent.mouseEnter(status)
+    await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('站点 9 冷却中'))
   })
 
   it.each([480, 1024])('shows a skipped execution as a non-error terminal state at %ipx', async width => {
