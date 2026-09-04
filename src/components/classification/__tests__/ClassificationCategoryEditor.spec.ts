@@ -56,6 +56,7 @@ describe('ClassificationCategoryEditor', () => {
 
     expect(screen.getByText('科幻电影')).toBeInTheDocument()
     expect(screen.getByText('movie.scifi')).toBeInTheDocument()
+    expect(document.querySelector('.classification-media-segments')).toHaveClass('v-btn-group--density-compact')
     expect(screen.getByRole('list', { name: '科幻电影分类路径' })).toHaveTextContent('电影科幻')
     expect(screen.queryByText('纪录剧集')).not.toBeInTheDocument()
 

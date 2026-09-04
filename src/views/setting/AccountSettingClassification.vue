@@ -590,6 +590,7 @@ watch(analysisTab, tab => {
                     mandatory
                     color="primary"
                     variant="outlined"
+                    density="compact"
                     class="classification-settings__binary-toggle"
                     aria-labelledby="classification-enrichment-mode-label"
                     @update:model-value="updateEnrichmentMode"
@@ -917,7 +918,6 @@ watch(analysisTab, tab => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   min-inline-size: min(100%, 24rem);
-  block-size: auto;
 }
 
 .classification-settings__binary-toggle :deep(.v-btn) {

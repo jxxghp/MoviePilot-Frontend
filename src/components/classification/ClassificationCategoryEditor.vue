@@ -316,6 +316,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
       mandatory
       color="primary"
       variant="outlined"
+      density="compact"
       class="classification-media-segments"
       :aria-label="t('setting.classification.category.mediaTypeSegments')"
     >
@@ -603,7 +604,6 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   inline-size: 100%;
-  block-size: auto;
 }
 
 .classification-media-segments :deep(.v-btn) {

@@ -399,6 +399,9 @@ describe('AccountSettingClassification', () => {
     await screen.findByRole('region', { name: 'category-editor' })
 
     const state = mocks.useMediaClassification.mock.results[0].value
+    expect(document.querySelector('.classification-settings__binary-toggle')).toHaveClass(
+      'v-btn-group--density-compact',
+    )
     expect(state.draftPolicy.value.enrichment_mode).toBe('primary_only')
     await user.click(screen.getByRole('button', { name: '补充缺少的信息' }))
 
