@@ -22,6 +22,7 @@ import {
   type ClassificationRevisionConflict,
   type ClassificationValidationResult,
 } from '@/api/mediaClassification'
+import { normalizeClassificationPolicy } from '@/utils/mediaClassification'
 
 /** 分类影响分析的可选采样参数。 */
 export interface ClassificationImpactOptions {
@@ -124,8 +125,9 @@ export function useMediaClassification() {
 
   /** 应用服务端活动快照，并按调用语义决定是否同步草稿。 */
   function applyActivePolicy(policy: ClassificationPolicy, preserveDirtyDraft: boolean): void {
-    activePolicyState.value = cloneDeep(policy)
-    if (!preserveDirtyDraft || !draftPolicy.value) draftPolicy.value = cloneDeep(policy)
+    const normalizedPolicy = normalizeClassificationPolicy(policy)
+    activePolicyState.value = cloneDeep(normalizedPolicy)
+    if (!preserveDirtyDraft || !draftPolicy.value) draftPolicy.value = cloneDeep(normalizedPolicy)
   }
 
   /** 刷新活动策略；响应到达时若草稿已脏则只更新活动快照。 */
@@ -137,7 +139,7 @@ export function useMediaClassification() {
       const preserveDirtyDraft = isDirty.value
       applyActivePolicy(policy, preserveDirtyDraft)
       conflictState.value = null
-      return cloneDeep(policy)
+      return normalizeClassificationPolicy(policy)
     } catch (error) {
       captureError(error)
       throw error
@@ -184,7 +186,7 @@ export function useMediaClassification() {
     lastError.value = null
     validationState.value = null
     try {
-      const result = await validateClassificationPolicy({ policy: cloneDeep(policy) })
+      const result = await validateClassificationPolicy({ policy: normalizeClassificationPolicy(policy) })
       validationState.value = cloneDeep(result)
       return cloneDeep(result)
     } catch (error) {
@@ -207,7 +209,7 @@ export function useMediaClassification() {
       const selectedPolicy = options.policy === null ? null : (options.policy ?? requireDraft())
       const result = await previewClassificationPolicy({
         input: cloneDeep(input),
-        ...(selectedPolicy ? { policy: cloneDeep(selectedPolicy) } : {}),
+        ...(selectedPolicy ? { policy: normalizeClassificationPolicy(selectedPolicy) } : {}),
       })
       previewState.value = cloneDeep(result)
       return cloneDeep(result)
@@ -230,7 +232,7 @@ export function useMediaClassification() {
       const policy = options.policy ?? requireDraft()
       const result = await analyzeClassificationImpact({
         expected_revision: active.revision,
-        policy: cloneDeep(policy),
+        policy: normalizeClassificationPolicy(policy),
         ...(options.sampleLimit === undefined ? {} : { sample_limit: options.sampleLimit }),
         ...(options.exampleLimit === undefined ? {} : { example_limit: options.exampleLimit }),
         ...(options.samples === undefined ? {} : { samples: cloneDeep(options.samples) }),
@@ -255,7 +257,7 @@ export function useMediaClassification() {
       const active = requireActive()
       const policy = await publishClassificationPolicy({
         expected_revision: active.revision,
-        policy: cloneDeep(requireDraft()),
+        policy: normalizeClassificationPolicy(requireDraft()),
       })
       applyActivePolicy(policy, false)
       historyState.value = null
@@ -297,7 +299,7 @@ export function useMediaClassification() {
 
   /** 用指定策略替换可编辑草稿，不修改活动快照。 */
   function replaceDraft(policy: ClassificationPolicy): void {
-    draftPolicy.value = cloneDeep(policy)
+    draftPolicy.value = normalizeClassificationPolicy(policy)
     validationState.value = null
     previewState.value = null
     impactState.value = null

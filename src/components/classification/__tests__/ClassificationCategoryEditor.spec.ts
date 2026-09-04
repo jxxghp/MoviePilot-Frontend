@@ -136,7 +136,7 @@ describe('ClassificationCategoryEditor', () => {
     const protection = within(row as HTMLElement).getByRole('note')
     expect(deleteButton).toBeDisabled()
     expect(deleteButton).toHaveAttribute('aria-describedby', protection.id)
-    expect(protection).toHaveTextContent('已被分类规则或来源兜底引用')
+    expect(protection).toHaveTextContent('已被分类规则引用')
     expect(protection).toHaveTextContent('已设为电影全局兜底分类')
 
     await user.click(deleteButton)

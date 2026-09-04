@@ -217,7 +217,6 @@ function resultSource(result: ClassificationResult): string {
   const source = resultSelection(result)?.source
   const labels: Record<string, string> = {
     automatic: t('setting.classification.preview.selectionSource.automatic'),
-    source_fallback: t('setting.classification.preview.selectionSource.sourceFallback'),
     fallback: t('setting.classification.preview.selectionSource.fallback'),
   }
   return source ? (labels[source] ?? source) : t('setting.classification.impact.none')

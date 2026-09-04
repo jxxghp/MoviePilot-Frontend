@@ -1920,7 +1920,6 @@ export default {
       description: '按分類名稱和媒體資訊，為電影、電視劇和音樂設定統一的自動分類規則。',
       workspaceCategories: '分類樹',
       workspaceRules: '規則',
-      workspaceSources: '來源',
       workspaceReview: '驗證發佈',
       revision: '目前版本 {revision}',
       unsaved: '有未儲存修改',
@@ -1939,13 +1938,6 @@ export default {
       enrichmentModeLabel: '是否補充缺少的資訊',
       enrichmentPrimaryOnly: '只使用主要來源',
       enrichmentMissing: '補充缺少的資訊',
-      sourceFallbacks: '按資料源設定預設分類',
-      sourceFallbacksHint: '當某個資料源沒有命中規則時，使用這裡設定的預設分類。',
-      source: '資料源',
-      sourceFallbackPanel: '{source} 預設分類，已設定 {count} 項',
-      sourceFallbackConfigured: '已設定 {count} 項',
-      sourceFallbackEmpty: '未設定',
-      sourceFallbackFor: '{source} 的{mediaType}預設分類',
       sourceNames: {
         imdb: 'IMDb',
         tvdb: 'TVDB',
@@ -1983,26 +1975,22 @@ export default {
           },
           rules: {
             title: '2. 編寫規則',
-            body: '在「規則」中依順序設定條件。系統會由上到下使用第一條符合條件的規則；沒有規則符合時，再使用資料源預設分類或全域預設分類。',
-          },
-          sources: {
-            title: '3. 設定資料源預設分類',
-            body: '在「來源」中為每個資料源和媒體類型設定預設分類。只有規則沒有命中結果時，系統才會使用這裡的設定。',
+            body: '在「規則」中由上到下設定條件。系統先檢查規則限定的媒體類型和資料源，再讀取這筆媒體記錄實際提供的資訊。選擇多個資料源表示任一資料源都可以命中，系統不會把多個來源的資訊拼在一起；第一條符合條件的規則生效，都不符合時使用媒體類型預設分類。',
           },
           preview: {
-            title: '4. 預覽分類結果',
+            title: '3. 預覽分類結果',
             body: '在「結果預覽」中輸入關鍵字搜尋並選擇一筆媒體資訊。預覽會直接使用搜尋結果中的標題、年份、風格、國家和音樂資訊，不需要手動填寫編號或欄位。',
           },
           impact: {
-            title: '5. 查看影響範圍',
+            title: '4. 查看影響範圍',
             body: '系統會讀取近期下載和整理記錄，依照記錄中的資料源和編號重新取得完整媒體資訊，再比較目前規則和待發佈規則。無法取得詳情的記錄會單獨統計，不會被當成沒有變更。',
           },
           publish: {
-            title: '6. 檢查並發佈',
+            title: '5. 檢查並發佈',
             body: '先檢查草稿，再執行影響分析並查看結果。兩者都對應目前草稿後才能發佈；發佈只會儲存分類設定，不會移動檔案。',
           },
           history: {
-            title: '7. 查看歷史和回退',
+            title: '6. 查看歷史和回退',
             body: '每次發佈都會產生新版本。你可以查看以前的設定並回退；回退也會產生新版本，原有歷史不會被覆蓋。',
           },
         },
@@ -2039,7 +2027,7 @@ export default {
         pathRequired: '分類路徑不能為空',
         pathEmptySegment: '分類路徑不能包含空層級',
         pathTooDeep: '分類路徑最多支援 {count} 級',
-        ruleReference: '已被分類規則或來源兜底引用',
+        ruleReference: '已被分類規則引用',
         globalFallbackReference: '已設為{mediaTypes}全域兜底分類',
         directoryReference: '已被目錄配置引用：{directories}',
         listSeparator: '、',
@@ -2149,7 +2137,6 @@ export default {
         },
         selectionSource: {
           automatic: '規則命中',
-          sourceFallback: '資料源預設分類',
           fallback: '全域預設分類',
         },
         states: {

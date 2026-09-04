@@ -561,7 +561,7 @@ watch(
   gap: 8px;
   padding: 12px;
   border-radius: 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.24);
+  background: var(--classification-control, rgba(var(--v-theme-on-surface), 0.08));
 }
 
 .classification-policy-control__metrics {

@@ -2,6 +2,7 @@ import type {
   ClassificationCategory,
   ClassificationFieldDefinition,
   ClassificationRule,
+  ClassificationSourceOption,
 } from '@/api/mediaClassificationTypes'
 import ClassificationRuleEditor from '@/components/classification/ClassificationRuleEditor.vue'
 import userEvent from '@testing-library/user-event'
@@ -78,6 +79,11 @@ const fields: ClassificationFieldDefinition[] = [
   },
 ]
 
+const sourceOptions: ClassificationSourceOption[] = [
+  { value: 'themoviedb', title: 'TheMovieDB' },
+  { value: 'musicbrainz', title: 'MusicBrainz' },
+]
+
 /** 创建测试规则，覆盖分类规则和标签规则共用的数据结构。 */
 function createRule(overrides: Partial<ClassificationRule> = {}): ClassificationRule {
   return {
@@ -101,6 +107,7 @@ async function renderEditor(rules: ClassificationRule[], options: { maxRules?: n
       rules,
       categories,
       fields,
+      sourceOptions,
       maxConditionDepth: 6,
       ...options,
     },
@@ -189,6 +196,16 @@ describe('ClassificationRuleEditor', () => {
     ])
   })
 
+  it('显示可拖拽图标，并为新增规则生成媒体类型条件', async () => {
+    const user = userEvent.setup()
+    const editor = await renderEditor([createRule()])
+
+    expect(screen.getAllByTestId('classification-rule-drag')).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: '新增分类规则' }))
+
+    expect(editor.latestRules()[1]?.when).toEqual({ field: 'media.type', operator: 'equals', value: '电影' })
+  })
+
   it('编辑名称、稳定 ID、启停状态、媒体类型和来源', async () => {
     const user = userEvent.setup()
     const editor = await renderEditor([createRule()])
@@ -197,7 +214,7 @@ describe('ClassificationRuleEditor', () => {
     await fireEvent.update(screen.getByLabelText('规则编号 1'), 'rule-music-source')
     await user.click(screen.getByRole('checkbox', { name: '启用规则 音乐来源规则' }))
     await selectOption('媒体类型 音乐来源规则', '音乐')
-    await selectOption('数据来源 音乐来源规则', 'musicbrainz')
+    await selectOption('数据来源 音乐来源规则', 'MusicBrainz')
 
     expect(editor.latestRules()[0]).toEqual(
       expect.objectContaining({

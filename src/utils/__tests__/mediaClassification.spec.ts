@@ -1,4 +1,5 @@
-import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
+import type { ClassificationPolicy } from '@/api/mediaClassificationTypes'
+import { formatClassificationCategoryOptionTitle, normalizeClassificationPolicy } from '@/utils/mediaClassification'
 import { describe, expect, it } from 'vitest'
 
 describe('formatClassificationCategoryOptionTitle', () => {
@@ -42,5 +43,36 @@ describe('formatClassificationCategoryOptionTitle', () => {
         { emptyPathLabel: '未设置路径' },
       ),
     ).toBe('未分类 · 未设置路径')
+  })
+
+  it('does not send the removed source default field and repairs empty legacy conditions', () => {
+    const policy = {
+      schema_version: 2,
+      revision: 1,
+      mode: 'first_match',
+      enrichment_mode: 'primary_only',
+      categories: [],
+      rules: [
+        {
+          id: 'movie-rule',
+          name: '电影规则',
+          kind: 'category',
+          enabled: true,
+          priority: 0,
+          media_types: ['电影'],
+          sources: [],
+          when: { all: null },
+          target: { category_id: null, labels: [] },
+        },
+      ],
+      fallbacks: {},
+      field_aliases: {},
+      source_fallbacks: { themoviedb: { 电影: 'movie' } },
+    } as unknown as ClassificationPolicy & { source_fallbacks: unknown }
+
+    const normalized = normalizeClassificationPolicy(policy)
+
+    expect(normalized).not.toHaveProperty('source_fallbacks')
+    expect(normalized.rules[0].when).toEqual({ field: 'media.type', operator: 'equals', value: '电影' })
   })
 })

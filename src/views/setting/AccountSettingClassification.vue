@@ -13,6 +13,7 @@ import type {
   ClassificationPolicyHistory,
   ClassificationPreviewInput,
   ClassificationRule,
+  ClassificationSourceOption,
   ClassificationValidationResult,
 } from '@/api/mediaClassificationTypes'
 import ClassificationCategoryEditor from '@/components/classification/ClassificationCategoryEditor.vue'
@@ -23,7 +24,7 @@ import ClassificationPreviewPanel from '@/components/classification/Classificati
 import ClassificationRuleEditor from '@/components/classification/ClassificationRuleEditor.vue'
 import { useMediaClassification } from '@/composables/useMediaClassification'
 import { useMediaSources } from '@/composables/useMediaSources'
-import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
+import { normalizeClassificationPolicy } from '@/utils/mediaClassification'
 import { cloneDeep, isEqual } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 
@@ -56,14 +57,12 @@ const initializing = ref(false)
 const loadError = ref(false)
 const directoryReferencesUnavailable = ref(false)
 const directories = ref<TransferDirectoryConf[]>([])
-const workspaceTab = ref<'categories' | 'rules' | 'sources' | 'review'>('categories')
+const workspaceTab = ref<'categories' | 'rules' | 'review'>('categories')
 const analysisTab = ref<'preview' | 'impact' | 'publish'>('preview')
 const helpDialog = ref(false)
-const expandedSource = ref<string | null>(null)
 const validatedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const analyzedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const lastImpactOptions = ref<ClassificationImpactRequestEvent>({ sampleLimit: 100, exampleLimit: 20 })
-const mediaTypes: ClassificationMediaType[] = ['电影', '电视剧', '音乐']
 const builtinSourceLabelKeys: Record<string, string> = {
   themoviedb: 'setting.cache.recognitionSource.themoviedb',
   douban: 'setting.cache.recognitionSource.douban',
@@ -130,7 +129,7 @@ const impactIsCurrent = computed(
     isEqual(draftPolicy.value, analyzedDraftSnapshot.value),
 )
 
-/** 汇总规则和来源兜底引用；全局兜底由分类树按媒体类型单独判断。 */
+/** 汇总规则引用；全局兜底由分类树按媒体类型单独判断。 */
 const referencedCategoryIds = computed(() => {
   const policy = draftPolicy.value
   if (!policy) return []
@@ -138,11 +137,6 @@ const referencedCategoryIds = computed(() => {
   const references = new Set<string>()
   for (const rule of policy.rules) {
     if (rule.target.category_id) references.add(rule.target.category_id)
-  }
-  for (const sourceFallbacks of Object.values(policy.source_fallbacks)) {
-    for (const categoryId of Object.values(sourceFallbacks)) {
-      if (categoryId) references.add(categoryId)
-    }
   }
   return [...references]
 })
@@ -163,16 +157,6 @@ const directoryCategoryReferences = computed(() => {
   }))
 })
 
-/** 从动态字段支持表汇总当前可配置的内置和插件来源。 */
-const availableSources = computed(() => {
-  const sources = new Set<string>()
-  for (const field of fieldCatalog.value?.fields ?? []) {
-    for (const source of Object.keys(field.source_support)) sources.add(source)
-  }
-  for (const source of Object.keys(draftPolicy.value?.source_fallbacks ?? {})) sources.add(source)
-  return [...sources].sort((left, right) => left.localeCompare(right))
-})
-
 /** 将来源标识转换为后端注册名称，并为内置来源提供本地化兜底。 */
 function sourceDisplayName(source: string): string {
   const registeredSource = mediaSourceCatalog.value.find(item => item.media_source === source)
@@ -180,6 +164,20 @@ function sourceDisplayName(source: string): string {
   const labelKey = builtinSourceLabelKeys[source]
   return labelKey ? t(labelKey) : t('setting.classification.preview.unknownSource')
 }
+
+/** 汇总规则和字段目录中的来源，并为规则选择器提供稳定值与可读名称。 */
+const classificationSourceOptions = computed<ClassificationSourceOption[]>(() => {
+  const sourceIds = new Set<string>(mediaSourceCatalog.value.map(source => source.media_source))
+  for (const field of fieldCatalog.value?.fields ?? []) {
+    for (const source of Object.keys(field.source_support)) sourceIds.add(source)
+  }
+  for (const rule of draftPolicy.value?.rules ?? []) {
+    for (const source of rule.sources) sourceIds.add(source)
+  }
+  return [...sourceIds]
+    .sort((left, right) => sourceDisplayName(left).localeCompare(sourceDisplayName(right)))
+    .map(value => ({ value, title: sourceDisplayName(value) }))
+})
 
 /** 按条件树顺序提取当前策略实际引用的字段 ID。 */
 function collectConditionFieldIds(node: ClassificationConditionNode): string[] {
@@ -249,37 +247,6 @@ const historySnapshot = computed<ClassificationPolicyHistory | null>(() =>
   history.value ? mutableApiSnapshot<ClassificationPolicyHistory>(history.value) : null,
 )
 
-/** 返回指定媒体类型可作为来源兜底的启用分类。 */
-function fallbackCategoryOptions(mediaType: ClassificationMediaType) {
-  return (draftPolicy.value?.categories ?? [])
-    .filter(category => category.enabled && category.media_type === mediaType)
-    .map(category => ({
-      title: formatClassificationCategoryOptionTitle(category),
-      value: category.id,
-    }))
-}
-
-/** 将来源默认分类标签和有界浮层参数传给 VSelect。 */
-function sourceFallbackMenuProps(source: string, mediaType: ClassificationMediaType) {
-  return {
-    activatorProps: {
-      'aria-label': t('setting.classification.sourceFallbackFor', {
-        source: sourceDisplayName(source),
-        mediaType,
-      }),
-    },
-    contentClass: 'classification-source-fallback-menu',
-    maxHeight: 280,
-    location: 'bottom start' as const,
-    offset: 4,
-  }
-}
-
-/** 返回来源已配置的媒体类型数量，折叠状态下仍能快速识别有效配置。 */
-function sourceFallbackCount(source: string): number {
-  return Object.values(draftPolicy.value?.source_fallbacks[source] ?? {}).filter(Boolean).length
-}
-
 /** 标签首次激活时加载策略与动态字段，失败后允许用户显式重试。 */
 async function ensureInitialized(force = false): Promise<void> {
   if (!props.active || initializing.value || (initialized.value && !force)) return
@@ -335,27 +302,15 @@ function updateRules(rules: ClassificationRule[]): void {
   draftPolicy.value = { ...draftPolicy.value, rules }
 }
 
-/** 更新单个来源和媒体类型的稳定兜底引用，空值会清理无用来源节点。 */
-function updateSourceFallback(source: string, mediaType: ClassificationMediaType, categoryId: string | null): void {
-  if (!draftPolicy.value) return
-  const sourceFallbacks = Object.fromEntries(
-    Object.entries(draftPolicy.value.source_fallbacks).map(([sourceId, values]) => [sourceId, { ...values }]),
-  )
-  const sourceValues = { ...(sourceFallbacks[source] ?? {}) }
-  if (categoryId) sourceValues[mediaType] = categoryId
-  else delete sourceValues[mediaType]
-  if (Object.keys(sourceValues).length) sourceFallbacks[source] = sourceValues
-  else delete sourceFallbacks[source]
-  draftPolicy.value = { ...draftPolicy.value, source_fallbacks: sourceFallbacks }
-}
-
 /** 通过服务端真实字段目录校验当前草稿，并保留结构化问题供页面展示。 */
 async function validateCurrentDraft(): Promise<void> {
   if (!draftPolicy.value) return
-  const requestedPolicy = cloneDeep(draftPolicy.value)
+  const requestedPolicy = normalizeClassificationPolicy(draftPolicy.value)
+  const requestedSnapshot = cloneDeep(requestedPolicy)
+  draftPolicy.value = requestedPolicy
   try {
     const result = await validateDraft(requestedPolicy)
-    validatedDraftSnapshot.value = result.valid ? requestedPolicy : null
+    validatedDraftSnapshot.value = result.valid ? requestedSnapshot : null
     if (result.valid) toast.success(t('setting.classification.validationPassed'))
     else toast.error(t('setting.classification.validationFailed', { count: result.issues.length }))
   } catch (error) {
@@ -379,14 +334,16 @@ async function previewFacts(request: ClassificationPreviewRequestEvent): Promise
 async function analyzeCurrentDraft(options: ClassificationImpactRequestEvent = lastImpactOptions.value): Promise<void> {
   if (!draftPolicy.value) return
   lastImpactOptions.value = { ...options }
-  const requestedPolicy = cloneDeep(draftPolicy.value)
+  const requestedPolicy = normalizeClassificationPolicy(draftPolicy.value)
+  const requestedSnapshot = cloneDeep(requestedPolicy)
+  draftPolicy.value = requestedPolicy
   try {
     await analyzeImpact({
       policy: requestedPolicy,
       sampleLimit: options.sampleLimit,
       exampleLimit: options.exampleLimit,
     })
-    analyzedDraftSnapshot.value = requestedPolicy
+    analyzedDraftSnapshot.value = requestedSnapshot
     workspaceTab.value = 'review'
     analysisTab.value = 'impact'
   } catch (error) {
@@ -575,9 +532,6 @@ watch(analysisTab, tab => {
           <VTab value="rules" prepend-icon="mdi-filter-cog-outline">{{
             t('setting.classification.workspaceRules')
           }}</VTab>
-          <VTab value="sources" prepend-icon="mdi-database-sync-outline">{{
-            t('setting.classification.workspaceSources')
-          }}</VTab>
           <VTab value="review" prepend-icon="mdi-check-decagram-outline">{{
             t('setting.classification.workspaceReview')
           }}</VTab>
@@ -631,76 +585,11 @@ watch(analysisTab, tab => {
                 :rules="draftPolicy.rules"
                 :categories="draftPolicy.categories"
                 :fields="editorFields"
+                :source-options="classificationSourceOptions"
                 :max-rules="fieldCatalog.limits.max_rules"
                 :max-condition-depth="fieldCatalog.limits.max_condition_depth"
                 @update:rules="updateRules"
               />
-            </section>
-          </VWindowItem>
-
-          <VWindowItem value="sources">
-            <section class="classification-settings__panel classification-settings__source-fallbacks">
-              <div class="classification-settings__section-heading">
-                <div>
-                  <h3>{{ t('setting.classification.sourceFallbacks') }}</h3>
-                  <p>{{ t('setting.classification.sourceFallbacksHint') }}</p>
-                </div>
-                <span class="classification-settings__count">{{ availableSources.length }}</span>
-              </div>
-              <VExpansionPanels
-                v-model="expandedSource"
-                class="classification-settings__source-list"
-                variant="accordion"
-              >
-                <VExpansionPanel v-for="source in availableSources" :key="source" :value="source">
-                  <VExpansionPanelTitle
-                    class="classification-settings__source-title"
-                    :aria-label="
-                      t('setting.classification.sourceFallbackPanel', {
-                        source: sourceDisplayName(source),
-                        count: sourceFallbackCount(source),
-                      })
-                    "
-                  >
-                    <span class="classification-settings__source-name">
-                      <VIcon icon="mdi-database-outline" size="18" />
-                      <span>{{ sourceDisplayName(source) }}</span>
-                    </span>
-                    <VChip size="x-small" variant="tonal">
-                      {{
-                        sourceFallbackCount(source)
-                          ? t('setting.classification.sourceFallbackConfigured', {
-                              count: sourceFallbackCount(source),
-                            })
-                          : t('setting.classification.sourceFallbackEmpty')
-                      }}
-                    </VChip>
-                  </VExpansionPanelTitle>
-                  <VExpansionPanelText>
-                    <div class="classification-settings__source-options">
-                      <VSelect
-                        v-for="mediaType in mediaTypes"
-                        :key="mediaType"
-                        :model-value="draftPolicy.source_fallbacks[source]?.[mediaType] ?? null"
-                        :items="fallbackCategoryOptions(mediaType)"
-                        :label="mediaType"
-                        :aria-label="
-                          t('setting.classification.sourceFallbackFor', {
-                            source: sourceDisplayName(source),
-                            mediaType,
-                          })
-                        "
-                        :menu-props="sourceFallbackMenuProps(source, mediaType)"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        clearable
-                        @update:model-value="updateSourceFallback(source, mediaType, $event)"
-                      />
-                    </div>
-                  </VExpansionPanelText>
-                </VExpansionPanel>
-              </VExpansionPanels>
             </section>
           </VWindowItem>
 
@@ -817,10 +706,10 @@ watch(analysisTab, tab => {
 
 <style scoped>
 .classification-settings {
-  --classification-border: rgba(var(--v-border-color), var(--v-border-opacity));
-  --classification-panel: rgba(var(--v-theme-surface-variant), 0.12);
+  --classification-border: rgba(var(--v-theme-on-surface), 0.16);
+  --classification-panel: rgba(var(--v-theme-on-surface), 0.04);
   --classification-panel-raised: rgb(var(--v-theme-surface));
-  --classification-control: rgba(var(--v-theme-surface-variant), 0.24);
+  --classification-control: rgba(var(--v-theme-on-surface), 0.08);
 
   overflow: hidden;
   background: transparent;
@@ -881,7 +770,7 @@ watch(analysisTab, tab => {
 .classification-settings__analysis-tabs :deep(.v-slide-group__content) {
   display: grid;
   inline-size: 100%;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .classification-settings__analysis-tabs :deep(.v-slide-group__content) {
@@ -971,75 +860,6 @@ watch(analysisTab, tab => {
   margin-block-start: 0.25rem;
 }
 
-.classification-settings__count {
-  display: inline-grid;
-  min-inline-size: 28px;
-  block-size: 28px;
-  place-items: center;
-  border: 1px solid var(--classification-border);
-  border-radius: 50%;
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  font-size: 0.8125rem;
-}
-
-.classification-settings__source-list {
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.classification-settings__source-list :deep(.v-expansion-panel) {
-  border-block-end: 1px solid var(--classification-border);
-  background: transparent;
-}
-
-.classification-settings__source-list :deep(.v-expansion-panel:last-child) {
-  border-block-end: 0;
-}
-
-.classification-settings__source-list :deep(.v-expansion-panel-title) {
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.classification-settings__source-list :deep(.v-expansion-panel-text__wrapper) {
-  padding: 12px 14px 14px;
-}
-
-.classification-settings__source-title {
-  min-block-size: 52px;
-  padding: 8px 14px;
-}
-
-.classification-settings__source-title :deep(.v-expansion-panel-title__overlay) {
-  background: var(--classification-control);
-}
-
-.classification-settings__source-title :deep(.v-expansion-panel-title__icon) {
-  margin-inline-start: 10px;
-}
-
-.classification-settings__source-name {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 8px;
-  min-inline-size: 0;
-}
-
-.classification-settings__source-name code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.classification-settings__source-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .classification-settings__issues {
   display: grid;
   gap: 0.4rem;
@@ -1079,22 +899,6 @@ watch(analysisTab, tab => {
   box-shadow: var(--glass-control-shadow);
 }
 
-:global(html[data-theme='glass'] .classification-settings__source-list) {
-  border: 0 !important;
-  border-radius: 0;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-:global(html[data-theme='glass'] .classification-settings__source-list .v-expansion-panel) {
-  border-color: var(--glass-border) !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-:global(.classification-source-fallback-menu),
 :global(.classification-category-menu),
 :global(.classification-preview-menu),
 :global(.classification-condition-menu),
@@ -1109,7 +913,6 @@ watch(analysisTab, tab => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
 }
 
-:global(.classification-source-fallback-menu .v-list),
 :global(.classification-category-menu .v-list),
 :global(.classification-preview-menu .v-list),
 :global(.classification-condition-menu .v-list),
@@ -1119,7 +922,6 @@ watch(analysisTab, tab => {
   padding-block: 4px;
 }
 
-:global(html[data-theme='glass'] .classification-source-fallback-menu),
 :global(html[data-theme='glass'] .classification-category-menu),
 :global(html[data-theme='glass'] .classification-preview-menu),
 :global(html[data-theme='glass'] .classification-condition-menu),
@@ -1178,10 +980,6 @@ watch(analysisTab, tab => {
 
   .classification-settings__binary-toggle {
     inline-size: 100%;
-  }
-
-  .classification-settings__source-options {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .classification-settings__actions {

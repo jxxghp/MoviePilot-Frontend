@@ -50,7 +50,6 @@ function createPolicy(revision = 1): ClassificationPolicy {
       },
     ],
     fallbacks: { 电影: 'movie' },
-    source_fallbacks: {},
     field_aliases: {},
     updated_at: '2026-09-02T00:00:00Z',
   }

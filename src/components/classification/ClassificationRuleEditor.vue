@@ -1,16 +1,18 @@
 <script lang="ts" setup>
 import type {
   ClassificationCategory,
-  ClassificationCondition,
-  ClassificationConditionGroup,
   ClassificationConditionNode,
-  ClassificationFactValue,
   ClassificationFieldDefinition,
   ClassificationMediaType,
   ClassificationRule,
   ClassificationRuleKind,
+  ClassificationSourceOption,
 } from '@/api/mediaClassificationTypes'
-import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
+import {
+  createClassificationTypeCondition,
+  formatClassificationCategoryOptionTitle,
+  normalizeClassificationConditionNode,
+} from '@/utils/mediaClassification'
 import ClassificationConditionBuilder from './ClassificationConditionBuilder.vue'
 
 const MEDIA_TYPES: ClassificationMediaType[] = ['电影', '电视剧', '音乐']
@@ -28,10 +30,12 @@ const props = withDefaults(
     rules: ClassificationRule[]
     categories: ClassificationCategory[]
     fields: readonly ClassificationFieldDefinition[]
+    sourceOptions?: readonly ClassificationSourceOption[]
     maxRules?: number
     maxConditionDepth?: number
   }>(),
   {
+    sourceOptions: () => [],
     maxRules: DEFAULT_MAX_RULES,
     maxConditionDepth: DEFAULT_MAX_CONDITION_DEPTH,
   },
@@ -46,28 +50,9 @@ const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module 
 const draftRules = ref<ClassificationRule[]>([])
 const expandedRuleId = ref<string | null>(null)
 
-/** 复制条件值，保留标量和列表的原始数据形状。 */
-function cloneConditionValue(value: ClassificationFactValue | undefined): ClassificationFactValue | undefined {
-  return Array.isArray(value) ? [...value] : value
-}
-
 /** 按条件联合类型递归复制，避免 Vue 响应式代理进入 structuredClone。 */
 function cloneCondition(node: ClassificationConditionNode): ClassificationConditionNode {
-  if ('field' in node) {
-    const condition = node as ClassificationCondition
-    return {
-      field: condition.field,
-      operator: condition.operator,
-      ...(condition.value === undefined ? {} : { value: cloneConditionValue(condition.value) }),
-    }
-  }
-
-  const group = node as ClassificationConditionGroup
-  // API 序列化会为未选中的分支保留 null；只能复制真正有值的分支，避免覆盖 any/not。
-  if (group.all !== undefined && group.all !== null) return { all: group.all.map(cloneCondition) }
-  if (group.any !== undefined && group.any !== null) return { any: group.any.map(cloneCondition) }
-  if (group.not !== undefined && group.not !== null) return { not: cloneCondition(group.not) }
-  return {}
+  return normalizeClassificationConditionNode(node)
 }
 
 /** 深拷贝规则，隔离父级策略草稿和编辑器内部的临时修改。 */
@@ -76,7 +61,7 @@ function cloneRule(rule: ClassificationRule): ClassificationRule {
     ...rule,
     media_types: [...rule.media_types],
     sources: [...rule.sources],
-    when: cloneCondition(rule.when),
+    when: normalizeClassificationConditionNode(rule.when, createClassificationTypeCondition(rule.media_types)),
     target: {
       category_id: rule.target.category_id ?? null,
       labels: [...rule.target.labels],
@@ -167,7 +152,7 @@ function addRule() {
     priority: draftRules.value.length,
     media_types: mediaTypes,
     sources: [],
-    when: { all: [] },
+    when: createClassificationTypeCondition(mediaTypes),
     target: {
       category_id: defaultCategory?.id ?? null,
       labels: [],
@@ -276,7 +261,11 @@ function mediaTypeSummary(rule: ClassificationRule): string {
 
 /** 将来源限制压缩为可扫描的规则摘要。 */
 function sourceSummary(rule: ClassificationRule): string {
-  return rule.sources.length ? rule.sources.join('、') : '全部来源'
+  return rule.sources.length
+    ? rule.sources
+        .map(source => props.sourceOptions.find(option => option.value === source)?.title ?? source)
+        .join('、')
+    : '全部来源'
 }
 
 /** 返回规则输出的人类可读摘要，不暴露稳定 ID 作为首要信息。 */
@@ -286,11 +275,16 @@ function targetSummary(rule: ClassificationRule): string {
   return category?.name ?? '未设置分类'
 }
 
-const sourceItems = computed(() =>
-  [...new Set(props.fields.flatMap(field => Object.keys(field.source_support)))].sort((left, right) =>
-    left.localeCompare(right),
-  ),
-)
+const sourceItems = computed(() => {
+  const knownOptions = new Map(props.sourceOptions.map(option => [option.value, option.title]))
+  const sourceIds = new Set([
+    ...props.sourceOptions.map(option => option.value),
+    ...props.fields.flatMap(field => Object.keys(field.source_support)),
+  ])
+  return [...sourceIds]
+    .sort((left, right) => (knownOptions.get(left) ?? left).localeCompare(knownOptions.get(right) ?? right))
+    .map(value => ({ title: knownOptions.get(value) ?? value, value }))
+})
 
 const orderedRules = computed({
   get: () => draftRules.value,
@@ -345,14 +339,17 @@ watch(
           :aria-label="`规则 ${index + 1}：${rule.name || rule.id}`"
         >
           <div class="classification-rule-head">
-            <IconBtn
+            <VBtn
               class="classification-rule-drag cursor-move"
-              icon="mdi-drag-vertical"
+              data-testid="classification-rule-drag"
+              icon
               variant="text"
+              color="secondary"
               :aria-label="`拖拽排序规则 ${rule.name || rule.id}`"
             >
+              <VIcon icon="mdi-drag-vertical" size="20" />
               <VTooltip activator="parent" location="top">拖拽排序</VTooltip>
-            </IconBtn>
+            </VBtn>
 
             <button
               class="classification-rule-summary"
@@ -505,6 +502,7 @@ watch(
                 :fields="fields"
                 :media-types="rule.media_types"
                 :sources="rule.sources"
+                :source-options="sourceOptions"
                 :max-depth="maxConditionDepth"
                 @update:model-value="value => updateCondition(index, value)"
               />
@@ -639,7 +637,7 @@ watch(
 
 .classification-rule-summary:hover,
 .classification-rule-summary:focus-visible {
-  background: var(--classification-control, rgba(var(--v-theme-surface-variant), 0.24));
+  background: var(--classification-control, rgba(var(--v-theme-on-surface), 0.08));
 }
 
 .classification-rule-summary:focus-visible {

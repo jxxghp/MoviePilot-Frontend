@@ -102,7 +102,6 @@ export interface ClassificationPolicy {
   categories: ClassificationCategory[]
   rules: ClassificationRule[]
   fallbacks: Partial<Record<ClassificationMediaType, string>>
-  source_fallbacks: Record<string, Partial<Record<ClassificationMediaType, string>>>
   field_aliases: Record<string, Record<string, string>>
   updated_at?: string | null
 }
@@ -219,6 +218,12 @@ export interface ClassificationEvaluation {
 export interface ClassificationFieldOption {
   value: ClassificationFactScalar
   label: string
+}
+
+/** 数据源选择器使用的稳定值和人类可读名称。 */
+export interface ClassificationSourceOption {
+  value: string
+  title: string
 }
 
 /** 动态条件编辑器使用的字段能力目录项。 */

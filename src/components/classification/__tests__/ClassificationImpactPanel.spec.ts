@@ -58,7 +58,7 @@ function createAnalysis(overrides: Partial<ClassificationImpactAnalysis> = {}): 
         title: '流浪地球',
         changed_fields: ['category_id', 'category_path', 'rule_id'],
         previous: createResult(7, 'movie.scifi', ['电影', '科幻'], 'rule-scifi', 'rule'),
-        candidate: createResult(8, 'movie.china', ['电影', '华语'], 'rule-china', 'source_fallback', 'partial'),
+        candidate: createResult(8, 'movie.china', ['电影', '华语'], 'rule-china', 'fallback', 'partial'),
       },
     ],
     warnings: ['有 2 条记录无法获取完整媒体信息，未纳入比较。'],
@@ -197,7 +197,7 @@ describe('ClassificationImpactPanel', () => {
     const candidate = within(example).getByRole('region', { name: '变化示例 1 的候选策略结果' })
     expect(candidate).toHaveTextContent('华语电影 · 电影 / 华语')
     expect(candidate).toHaveTextContent('电影 / 华语')
-    expect(candidate).toHaveTextContent('数据源默认分类')
+    expect(candidate).toHaveTextContent('全局默认分类')
     expect(candidate).toHaveTextContent('媒体信息不完整')
 
     expect(screen.getByRole('alert')).toHaveTextContent('无法获取完整媒体信息')

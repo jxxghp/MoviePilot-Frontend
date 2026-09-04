@@ -90,7 +90,7 @@ function parseCategoryPath(pathText: string): ParsedCategoryPath {
   return { path, error: null }
 }
 
-/** 返回分类被规则、来源兜底和各媒体类型全局兜底引用的具体原因。 */
+/** 返回分类被规则和各媒体类型全局兜底引用的具体原因。 */
 function categoryReferenceReasons(categoryId: string): string[] {
   const reasons: string[] = []
   if (referencedIds.value.has(categoryId)) reasons.push(t('setting.classification.category.ruleReference'))
@@ -641,6 +641,18 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   gap: 14px;
 }
 
+.classification-category-form-grid {
+  align-items: start;
+}
+
+.classification-category-form-grid > :deep(.v-input) {
+  align-self: start;
+}
+
+.classification-category-form-grid > :deep(.v-input .v-field) {
+  min-block-size: var(--v-input-control-height, 56px);
+}
+
 .classification-category-error {
   margin: 0;
   color: rgb(var(--v-theme-error));
@@ -777,10 +789,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   --v-field-border-opacity: 0.72;
 }
 
-:global(html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-field__overlay),
-:global(
-  html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-selection-control__wrapper
-) {
+:global(html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-field__overlay) {
   background-color: var(--glass-control) !important;
 }
 
@@ -790,13 +799,6 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
     .classification-category-form
     .v-field--focused
     .v-field__overlay
-),
-:global(
-  html[data-theme='glass']
-    .classification-category-dialog
-    .classification-category-form
-    .v-selection-control--dirty
-    .v-selection-control__wrapper
 ) {
   background-color: var(--glass-control-prominent) !important;
 }
@@ -826,12 +828,8 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   --v-field-border-opacity: 0.72;
 }
 
-:global(html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-field__overlay),
 :global(
-  html[data-theme='transparent']
-    .classification-category-dialog
-    .classification-category-form
-    .v-selection-control__wrapper
+  html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-field__overlay
 ) {
   background-color: rgba(var(--v-theme-surface), var(--transparent-opacity)) !important;
 }
@@ -842,13 +840,6 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
     .classification-category-form
     .v-field--focused
     .v-field__overlay
-),
-:global(
-  html[data-theme='transparent']
-    .classification-category-dialog
-    .classification-category-form
-    .v-selection-control--dirty
-    .v-selection-control__wrapper
 ) {
   background-color: rgba(var(--v-theme-primary), 0.14) !important;
 }

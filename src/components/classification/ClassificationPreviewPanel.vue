@@ -196,7 +196,6 @@ function selectionTitle(selection: ClassificationSelection | null | undefined): 
 function selectionSourceLabel(source: string | null | undefined): string {
   const labels: Record<string, string> = {
     automatic: t('setting.classification.preview.selectionSource.automatic'),
-    source_fallback: t('setting.classification.preview.selectionSource.sourceFallback'),
     fallback: t('setting.classification.preview.selectionSource.fallback'),
   }
   return source ? (labels[source] ?? source) : t('setting.classification.preview.missing')
@@ -757,7 +756,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   overflow-y: auto;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.12);
+  background: var(--classification-panel, rgba(var(--v-theme-on-surface), 0.04));
 }
 
 .classification-preview__search-results :deep(.v-list-item) {

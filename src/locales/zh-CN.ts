@@ -1920,7 +1920,6 @@ export default {
       description: '按分类名称和媒体信息，为电影、电视剧和音乐设置统一的自动分类规则。',
       workspaceCategories: '分类树',
       workspaceRules: '规则',
-      workspaceSources: '来源',
       workspaceReview: '验证发布',
       revision: '当前版本 {revision}',
       unsaved: '有未保存修改',
@@ -1939,13 +1938,6 @@ export default {
       enrichmentModeLabel: '是否补充缺少的信息',
       enrichmentPrimaryOnly: '只使用主要来源',
       enrichmentMissing: '补充缺少的信息',
-      sourceFallbacks: '按数据源设置默认分类',
-      sourceFallbacksHint: '当某个数据源没有匹配到规则时，使用这里设置的默认分类。',
-      source: '数据源',
-      sourceFallbackPanel: '{source} 默认分类，已设置 {count} 项',
-      sourceFallbackConfigured: '已设置 {count} 项',
-      sourceFallbackEmpty: '未设置',
-      sourceFallbackFor: '{source} 的{mediaType}默认分类',
       sourceNames: {
         imdb: 'IMDb',
         tvdb: 'TVDB',
@@ -1983,26 +1975,22 @@ export default {
           },
           rules: {
             title: '2. 编写规则',
-            body: '在“规则”中按顺序设置条件。系统从上到下使用第一条符合条件的规则；没有规则符合时，再使用数据源默认分类或全局默认分类。',
-          },
-          sources: {
-            title: '3. 设置数据源默认分类',
-            body: '在“来源”中为每个数据源和媒体类型设置默认分类。只有规则没有匹配结果时，系统才会使用这里的设置。',
+            body: '在“规则”中从上到下设置条件。系统先检查规则限定的媒体类型和数据来源，再读取这条媒体记录实际提供的信息。选择多个来源表示任意一个来源都可以命中，系统不会把多个来源的信息拼在一起；第一条符合条件的规则生效，都不符合时使用媒体类型默认分类。',
           },
           preview: {
-            title: '4. 预览分类结果',
+            title: '3. 预览分类结果',
             body: '在“结果预览”中输入关键词搜索并选择一条媒体信息。预览会直接使用搜索结果里的标题、年份、风格、国家和音乐信息，不需要手工填写编号或字段。',
           },
           impact: {
-            title: '5. 查看影响范围',
+            title: '4. 查看影响范围',
             body: '系统会读取近期下载和整理记录，按照记录中的数据源和编号重新获取完整媒体信息，再比较当前规则和待发布规则。无法获取详情的记录会单独统计，不会被当成没有变化。',
           },
           publish: {
-            title: '6. 校验并发布',
+            title: '5. 校验并发布',
             body: '先校验草稿，再运行影响分析并检查结果。两者都对应当前草稿后才能发布；发布只保存分类配置，不会移动文件。',
           },
           history: {
-            title: '7. 查看历史和回退',
+            title: '6. 查看历史和回退',
             body: '每次发布都会产生新版本。你可以查看以前的配置并回退；回退也会产生一个新版本，原有历史不会被覆盖。',
           },
         },
@@ -2039,7 +2027,7 @@ export default {
         pathRequired: '分类路径不能为空',
         pathEmptySegment: '分类路径不能包含空层级',
         pathTooDeep: '分类路径最多支持 {count} 级',
-        ruleReference: '已被分类规则或来源兜底引用',
+        ruleReference: '已被分类规则引用',
         globalFallbackReference: '已设为{mediaTypes}全局兜底分类',
         directoryReference: '已被目录配置引用：{directories}',
         listSeparator: '、',
@@ -2149,7 +2137,6 @@ export default {
         },
         selectionSource: {
           automatic: '规则命中',
-          sourceFallback: '数据源默认分类',
           fallback: '全局默认分类',
         },
         states: {

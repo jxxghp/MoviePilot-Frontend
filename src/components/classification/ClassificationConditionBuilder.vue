@@ -7,6 +7,7 @@ import type {
   ClassificationFieldDefinition,
   ClassificationMediaType,
   ClassificationOperator,
+  ClassificationSourceOption,
   ClassificationSourceSupport,
 } from '@/api/mediaClassificationTypes'
 
@@ -18,12 +19,14 @@ const props = withDefaults(
     fields: readonly ClassificationFieldDefinition[]
     mediaTypes: readonly ClassificationMediaType[]
     sources: readonly string[]
+    sourceOptions?: readonly ClassificationSourceOption[]
     depth?: number
     maxDepth?: number
   }>(),
   {
     depth: 0,
     maxDepth: 3,
+    sourceOptions: () => [],
   },
 )
 
@@ -55,8 +58,15 @@ const NODE_KIND_ITEMS: ReadonlyArray<{ title: string; value: ConditionNodeKind }
   { title: '条件', value: 'condition' },
   { title: '全部', value: 'all' },
   { title: '任一', value: 'any' },
-  { title: '非', value: 'not' },
+  { title: '排除', value: 'not' },
 ]
+
+const NODE_KIND_HINTS: Record<ConditionNodeKind, string> = {
+  condition: '单个条件只判断一个字段。选择“全部”或“任一”后，可以添加同级条件。',
+  all: '全部满足：所有条件都满足时，规则才会命中。',
+  any: '任一满足：只要有一个条件满足，规则就会命中。',
+  not: '排除：括号内条件满足时，规则不会命中。',
+}
 
 const OPERATOR_LABELS: Record<ClassificationOperator, string> = {
   equals: '等于',
@@ -144,6 +154,7 @@ const fieldItems = computed(() =>
 const nodeKind = computed(() => getNodeKind(props.modelValue))
 const groupChildren = computed(() => getGroupChildren(props.modelValue))
 const canUseGroup = computed(() => props.depth < props.maxDepth)
+const nodeKindHint = computed(() => NODE_KIND_HINTS[nodeKind.value])
 const canAddChild = computed(
   () =>
     nodeKind.value !== 'condition' &&
@@ -202,6 +213,16 @@ const sourceSupportHints = computed<SourceSupportHint[]>(() => {
     }
   }
   return hints
+})
+
+/** 把规则来源限制解释成用户可理解的匹配范围。 */
+const sourceScopeNote = computed(() => {
+  if (props.sources.length === 0) return '未限定数据来源：这条规则适用于所有来源。'
+  const names = [...new Set(props.sources)].map(source => {
+    const option = props.sourceOptions.find(item => item.value === source)
+    return option?.title ?? source
+  })
+  return `已选数据来源：${names.join('、')}。多个来源表示任意一个来源，不会合并多条媒体信息；字段按当前媒体的实际来源读取。`
 })
 
 const valueControlKind = computed<ValueControlKind>(() => {
@@ -438,6 +459,10 @@ function removeChild(index: number): void {
       </VChip>
     </div>
 
+    <p class="classification-condition-builder__node-hint" data-testid="node-kind-hint">
+      {{ nodeKindHint }}
+    </p>
+
     <template v-if="nodeKind === 'condition'">
       <VAlert v-if="availableFields.length === 0" type="warning" variant="tonal" density="compact" class="mt-3">
         当前媒体类型没有共同可用的条件字段
@@ -615,6 +640,10 @@ function removeChild(index: number): void {
         </div>
       </div>
 
+      <p class="classification-condition-builder__source-scope-note" data-testid="source-scope-note">
+        {{ sourceScopeNote }}
+      </p>
+
       <p
         v-if="selectedDefinition?.selectable === false"
         class="classification-condition-builder__retired-field"
@@ -642,7 +671,7 @@ function removeChild(index: number): void {
           size="small"
           variant="tonal"
         >
-          {{ hint.source }}：{{ hint.label }}
+          {{ props.sourceOptions.find(item => item.value === hint.source)?.title ?? hint.source }}：{{ hint.label }}
         </VChip>
       </div>
     </template>
@@ -654,6 +683,7 @@ function removeChild(index: number): void {
           :fields="props.fields"
           :media-types="props.mediaTypes"
           :sources="props.sources"
+          :source-options="props.sourceOptions"
           :depth="props.depth + 1"
           :max-depth="props.maxDepth"
           @update:model-value="updateChild(index, $event)"
@@ -680,18 +710,20 @@ function removeChild(index: number): void {
       </div>
 
       <div class="classification-condition-builder__group-actions">
-        <VTooltip :text="canAddChild ? '新增子条件' : '没有可用字段或 not 已有子条件'" location="top">
+        <VTooltip :text="canAddChild ? '添加同级条件' : '没有可用字段，或排除已经有条件'" location="top">
           <template #activator="{ props: tooltipProps }">
             <VBtn
               v-bind="tooltipProps"
-              icon="mdi-plus"
+              prepend-icon="mdi-plus"
               variant="tonal"
               color="primary"
               size="small"
-              aria-label="新增子条件"
+              aria-label="添加条件"
               :disabled="!canAddChild"
               @click="addChild"
-            />
+            >
+              添加条件
+            </VBtn>
           </template>
         </VTooltip>
       </div>
@@ -703,15 +735,15 @@ function removeChild(index: number): void {
 .classification-condition-builder {
   min-inline-size: 0;
   padding: 12px;
-  border: 1px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
+  border: 1px solid var(--classification-border, rgba(var(--v-theme-on-surface), 0.16));
   border-radius: 8px;
-  background: var(--classification-panel, rgba(var(--v-theme-surface-variant), 0.12));
+  background: var(--classification-panel, rgba(var(--v-theme-on-surface), 0.04));
 }
 
 .classification-condition-builder:not([data-depth='0']) {
   padding: 8px 0 8px 10px;
   border: 0;
-  border-inline-start: 2px solid var(--classification-border, rgba(var(--v-border-color), var(--v-border-opacity)));
+  border-inline-start: 2px solid var(--classification-border, rgba(var(--v-theme-on-surface), 0.16));
   border-radius: 0;
   background: transparent;
 }
@@ -738,6 +770,14 @@ function removeChild(index: number): void {
   min-block-size: 36px;
   padding-inline: 6px;
   letter-spacing: 0;
+}
+
+.classification-condition-builder__node-hint,
+.classification-condition-builder__source-scope-note {
+  margin: 8px 0 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.5;
 }
 
 .classification-condition-builder__leaf {
@@ -794,7 +834,7 @@ function removeChild(index: number): void {
 }
 
 .classification-condition-builder__group-actions {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 :global(.classification-field-menu .v-list-item-title),

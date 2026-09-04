@@ -1941,7 +1941,6 @@ export default {
       description: 'Set shared automatic rules for movies, TV shows, and music using category names and media details.',
       workspaceCategories: 'Categories',
       workspaceRules: 'Rules',
-      workspaceSources: 'Sources',
       workspaceReview: 'Review',
       revision: 'Current version {revision}',
       unsaved: 'Unsaved changes',
@@ -1960,13 +1959,6 @@ export default {
       enrichmentModeLabel: 'Fill missing information',
       enrichmentPrimaryOnly: 'Primary source only',
       enrichmentMissing: 'Fill missing information',
-      sourceFallbacks: 'Default categories by source',
-      sourceFallbacksHint: 'Used when no rule matches for a data source.',
-      source: 'Source',
-      sourceFallbackPanel: '{source} default categories, {count} set',
-      sourceFallbackConfigured: '{count} set',
-      sourceFallbackEmpty: 'Not set',
-      sourceFallbackFor: 'Default {mediaType} category for {source}',
       sourceNames: {
         imdb: 'IMDb',
         tvdb: 'TVDB',
@@ -2005,26 +1997,22 @@ export default {
           },
           rules: {
             title: '2. Write rules',
-            body: 'Set conditions in order under Rules. The first matching rule from top to bottom is used. When no rule matches, the source default or global default category is used.',
-          },
-          sources: {
-            title: '3. Set source defaults',
-            body: 'Under Sources, set a default category for each data source and media type. These defaults are used only when no rule produces a match.',
+            body: 'Set conditions from top to bottom under Rules. The system first checks the media types and data sources allowed by the rule, then reads details from the actual media record. Selecting multiple sources means any one of them may match; information from different sources is never merged. The first matching rule wins, and the media-type default category is used when none matches.',
           },
           preview: {
-            title: '4. Preview a result',
+            title: '3. Preview a result',
             body: 'Under Result Preview, search for a keyword and select a media item. The preview uses the title, year, genres, countries, and music details from the selected result; nothing needs to be entered by hand.',
           },
           impact: {
-            title: '5. Review the impact',
+            title: '4. Review the impact',
             body: 'The system reads recent download and organization records, retrieves their complete media details using the recorded source and number, and compares the current rules with the pending rules. Records whose details cannot be retrieved are counted separately, not treated as unchanged.',
           },
           publish: {
-            title: '6. Validate and publish',
+            title: '5. Validate and publish',
             body: 'Validate the draft, run the impact analysis, and review the result. Both checks must match the current draft before publishing. Publishing saves classification settings only; it does not move files.',
           },
           history: {
-            title: '7. Review history and roll back',
+            title: '6. Review history and roll back',
             body: 'Each publication creates a new version. You can inspect an earlier configuration and roll it back. A rollback also creates a new version and keeps the existing history.',
           },
         },
@@ -2064,7 +2052,7 @@ export default {
         pathRequired: 'Category path is required',
         pathEmptySegment: 'Category path cannot contain an empty level',
         pathTooDeep: 'Category path supports at most {count} levels',
-        ruleReference: 'Referenced by a classification rule or source fallback',
+        ruleReference: 'Referenced by a classification rule',
         globalFallbackReference: 'Used as the global fallback for {mediaTypes}',
         directoryReference: 'Referenced by directories: {directories}',
         listSeparator: ', ',
@@ -2176,7 +2164,6 @@ export default {
         },
         selectionSource: {
           automatic: 'Rule Match',
-          sourceFallback: 'Source Default Category',
           fallback: 'Global Default Category',
         },
         states: {

@@ -21,7 +21,6 @@ const visible = computed({
 const sections = computed(() => [
   { icon: 'mdi-file-tree-outline', key: 'categories' },
   { icon: 'mdi-filter-cog-outline', key: 'rules' },
-  { icon: 'mdi-database-sync-outline', key: 'sources' },
   { icon: 'mdi-play-box-outline', key: 'preview' },
   { icon: 'mdi-chart-box-outline', key: 'impact' },
   { icon: 'mdi-check-decagram-outline', key: 'publish' },

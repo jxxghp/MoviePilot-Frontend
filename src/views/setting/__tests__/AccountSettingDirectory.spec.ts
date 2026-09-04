@@ -178,7 +178,6 @@ const classificationPolicyFixture = {
   categories: classificationCategories,
   rules: [],
   fallbacks: {},
-  source_fallbacks: {},
   field_aliases: {},
 }
 

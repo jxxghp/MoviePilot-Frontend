@@ -4,6 +4,7 @@ import type {
   ClassificationFieldValueType,
   ClassificationMediaType,
   ClassificationOperator,
+  ClassificationSourceOption,
 } from '@/api/mediaClassificationTypes'
 import ClassificationConditionBuilder from '@/components/classification/ClassificationConditionBuilder.vue'
 import { fireEvent, screen, within } from '@testing-library/vue'
@@ -268,6 +269,11 @@ const defaultProps = {
   fields,
   mediaTypes: ['电影'] as ClassificationMediaType[],
   sources: ['themoviedb', 'douban'],
+  sourceOptions: [
+    { value: 'themoviedb', title: 'TheMovieDB' },
+    { value: 'douban', title: '豆瓣' },
+    { value: 'musicbrainz', title: 'MusicBrainz' },
+  ] as ClassificationSourceOption[],
 }
 
 /** 渲染带生产插件和轻量输入控件的条件构建器。 */
@@ -398,7 +404,7 @@ describe('ClassificationConditionBuilder', () => {
     })
 
     await result.rerender({ ...defaultProps, modelValue: latestModel(result) })
-    await fireEvent.click(within(root as HTMLElement).getByRole('button', { name: '新增子条件' }))
+    await fireEvent.click(within(root as HTMLElement).getByRole('button', { name: '添加条件' }))
     expect((latestModel(result) as { all: ClassificationConditionNode[] }).all).toHaveLength(3)
 
     await result.rerender({ ...defaultProps, modelValue: latestModel(result) })
@@ -412,8 +418,25 @@ describe('ClassificationConditionBuilder', () => {
     expect(latestModel(result)).toHaveProperty('any')
 
     await result.rerender({ ...defaultProps, modelValue: latestModel(result) })
-    await fireEvent.click(within(root as HTMLElement).getAllByRole('button', { name: '非' })[0])
+    await fireEvent.click(within(root as HTMLElement).getAllByRole('button', { name: '排除' })[0])
     expect(latestModel(result)).toHaveProperty('not')
+  })
+
+  it('重复点击当前条件组不会继续嵌套，并能添加同级条件', async () => {
+    const initial: ClassificationConditionNode = { field: 'media.title', operator: 'equals', value: '标题' }
+    const result = await renderBuilder(initial)
+
+    await fireEvent.click(screen.getAllByRole('button', { name: '全部' })[0])
+    const group = latestModel(result)
+    expect(group).toEqual({ all: [initial] })
+
+    await result.rerender({ ...defaultProps, modelValue: group })
+    const updateCount = (result.emitted()['update:modelValue'] ?? []).length
+    await fireEvent.click(screen.getAllByRole('button', { name: '全部' })[0])
+    expect((result.emitted()['update:modelValue'] ?? []).length).toBe(updateCount)
+
+    await fireEvent.click(screen.getByRole('button', { name: '添加条件' }))
+    expect((latestModel(result) as { all: ClassificationConditionNode[] }).all).toHaveLength(2)
   })
 
   it('达到 maxDepth 后禁止继续切换为条件组', async () => {
@@ -423,7 +446,7 @@ describe('ClassificationConditionBuilder', () => {
     )
 
     expect(screen.getByTestId('depth-limit')).toHaveTextContent('已达最大组深度')
-    for (const label of ['全部', '任一', '非']) {
+    for (const label of ['全部', '任一', '排除']) {
       expect(screen.getByRole('button', { name: label })).toBeDisabled()
     }
 
@@ -435,9 +458,10 @@ describe('ClassificationConditionBuilder', () => {
     const result = await renderBuilder({ field: 'media.title', operator: 'equals', value: '标题' })
 
     const hints = screen.getByTestId('source-support-hints')
-    expect(hints).toHaveTextContent('themoviedb：部分支持')
-    expect(hints).toHaveTextContent('douban：不可用')
+    expect(hints).toHaveTextContent('TheMovieDB：部分支持')
+    expect(hints).toHaveTextContent('豆瓣：不可用')
     expect(hints).not.toHaveTextContent('musicbrainz')
+    expect(screen.getByTestId('source-scope-note')).toHaveTextContent('多个来源表示任意一个来源')
 
     await result.rerender({
       ...defaultProps,
@@ -464,7 +488,7 @@ describe('ClassificationConditionBuilder', () => {
     }
     const result = await renderBuilder(modelValue, { fields, mediaTypes, sources })
 
-    await fireEvent.click(screen.getByRole('button', { name: '新增子条件' }))
+    await fireEvent.click(screen.getByRole('button', { name: '添加条件' }))
 
     expect(latestModel(result)).not.toBe(modelValue)
     expect(modelValue).toEqual(snapshots.modelValue)

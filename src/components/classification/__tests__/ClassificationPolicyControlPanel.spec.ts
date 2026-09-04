@@ -38,7 +38,6 @@ function createPolicy(revision: number, categoryCount: number, ruleCount: number
       target: { category_id: categoryCount ? 'category-' + revision + '-0' : null, labels: [] },
     })),
     fallbacks: {},
-    source_fallbacks: {},
     field_aliases: {},
     updated_at: revision === 6 ? '2026-09-01T08:30:00+08:00' : '2026-08-31T08:30:00+08:00',
   }

@@ -180,7 +180,6 @@ function createPolicy(): ClassificationPolicy {
       },
     ],
     fallbacks: { 电影: 'movie.base' },
-    source_fallbacks: { themoviedb: { 电影: 'movie.base' } },
     field_aliases: {},
   }
 }
@@ -339,7 +338,7 @@ describe('AccountSettingClassification', () => {
   })
 
   /** 切换一级工作区，模拟移动端按需展示大型编辑面板。 */
-  async function openWorkspace(name: '分类树' | '规则' | '来源' | '验证发布'): Promise<void> {
+  async function openWorkspace(name: '分类树' | '规则' | '验证发布'): Promise<void> {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('tab', { name }))
   }
@@ -382,7 +381,6 @@ describe('AccountSettingClassification', () => {
     expect(state.draftPolicy.value.categories[0].name).toBe('新电影')
     expect(state.draftPolicy.value.fallbacks.电影).toBe('movie.new')
     expect(state.draftPolicy.value.rules[0].name).toBe('新规则')
-    expect(state.draftPolicy.value.source_fallbacks.themoviedb.电影).toBe('movie.base')
     expect(screen.getByLabelText('category-references')).toHaveTextContent('movie.base')
     expect(screen.getByLabelText('directory-references')).toHaveTextContent('movie.base')
     expect(screen.getByLabelText('directory-references')).toHaveTextContent('电影目录')
@@ -463,38 +461,14 @@ describe('AccountSettingClassification', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('请求参数不正确'))
   })
 
-  it('updates source fallbacks through stable category IDs', async () => {
-    const user = userEvent.setup()
+  it('只显示分类树、规则和验证发布三个工作区标签', async () => {
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('来源')
-    await user.click(
-      screen.getByRole('button', {
-        name: 'MusicBrainz 默认分类，已设置 0 项',
-      }),
-    )
+    await screen.findByRole('region', { name: 'category-editor' })
 
-    const musicbrainzFallback = screen.getByRole('combobox', {
-      name: 'MusicBrainz 的电影默认分类',
-    })
-    await user.click(musicbrainzFallback)
-    await user.click(await screen.findByRole('option', { name: '电影' }))
-
-    const state = mocks.useMediaClassification.mock.results[0].value
-    expect(state.draftPolicy.value.source_fallbacks.musicbrainz.电影).toBe('movie.base')
-  })
-
-  it('keeps source fallbacks collapsed and opens one source at a time', async () => {
-    const user = userEvent.setup()
-    await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('来源')
-
-    expect(screen.queryByRole('combobox', { name: 'MusicBrainz 的电影默认分类' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'MusicBrainz 默认分类，已设置 0 项' }))
-    expect(screen.getByRole('combobox', { name: 'MusicBrainz 的电影默认分类' })).toBeVisible()
-
-    await user.click(screen.getByRole('button', { name: 'TheMovieDb 默认分类，已设置 1 项' }))
-    expect(screen.queryByRole('combobox', { name: 'MusicBrainz 的电影默认分类' })).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'TheMovieDb 的电影默认分类' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: '分类树' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '规则' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '验证发布' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: '来源' })).not.toBeInTheDocument()
   })
 
   it('maps fact preview modes and bounded impact options to the composable', async () => {
