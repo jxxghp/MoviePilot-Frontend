@@ -163,7 +163,9 @@ watch(
         class="classification-policy-control__revision"
         :aria-label="t('setting.classification.control.policyStatusAria')"
       >
-        <VChip size="small" prepend-icon="mdi-source-branch" variant="tonal"> revision {{ activeRevision }} </VChip>
+        <VChip size="small" prepend-icon="mdi-source-branch" variant="tonal">
+          {{ t('setting.classification.control.versionLabel', { revision: activeRevision }) }}
+        </VChip>
         <VChip v-if="isDirty" size="small" color="warning" variant="tonal">
           {{ t('setting.classification.control.unpublishedChanges') }}
         </VChip>
@@ -435,7 +437,7 @@ watch(
             <template #label>
               <span class="classification-policy-control__history-summary">
                 <span class="classification-policy-control__history-title">
-                  <strong>revision {{ policy.revision }}</strong>
+                  <strong>{{ t('setting.classification.control.versionLabel', { revision: policy.revision }) }}</strong>
                   <time v-if="policy.updated_at" :datetime="policy.updated_at">{{
                     formatUpdatedAt(policy.updated_at)
                   }}</time>

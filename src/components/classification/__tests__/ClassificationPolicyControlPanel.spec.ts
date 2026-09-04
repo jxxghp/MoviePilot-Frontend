@@ -55,6 +55,7 @@ function createImpact(baselineRevision = 7, sampledAt = '2026-09-02T09:30:00+08:
     requested_limit: 100,
     scanned_count: 24,
     skipped_count: 0,
+    unresolved_count: 0,
     truncated: false,
     sample_count: 24,
     changed_count: 5,
@@ -122,7 +123,7 @@ describe('ClassificationPolicyControlPanel', () => {
 
     expect(panel.emitted().publish).toHaveLength(1)
     expect(screen.getByText('当前草稿已通过服务端校验')).toBeInTheDocument()
-    expect(screen.getByText('影响分析基于当前 revision 7')).toBeInTheDocument()
+    expect(screen.getByText('影响分析基于当前第 7 版')).toBeInTheDocument()
   })
 
   it('草稿门禁操作发出独立事件，并在影响分析变旧后撤销审阅确认', async () => {
@@ -174,10 +175,10 @@ describe('ClassificationPolicyControlPanel', () => {
       conflict,
     })
 
-    const alert = screen.getByText('检测到 revision 冲突').closest('[role="alert"]')
+    const alert = screen.getByText('检测到版本冲突').closest('[role="alert"]')
     expect(alert).not.toBeNull()
-    expect(alert).toHaveTextContent('本地操作基于 revision 7')
-    expect(alert).toHaveTextContent('服务端当前为 revision 9')
+    expect(alert).toHaveTextContent('本地操作基于第 7 版')
+    expect(alert).toHaveTextContent('服务器当前是第 9 版')
     expect(alert).toHaveTextContent('本地草稿已保留')
 
     await user.click(screen.getByRole('button', { name: '重新加载远端状态' }))
@@ -200,18 +201,18 @@ describe('ClassificationPolicyControlPanel', () => {
     const revision6 = screen.getByTestId('classification-history-revision-6')
     const revision5 = screen.getByTestId('classification-history-revision-5')
     expect(revision6.compareDocumentPosition(revision5) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(within(revision5).getByText('revision 5')).toBeInTheDocument()
+    expect(within(revision5).getByText('第 5 版')).toBeInTheDocument()
     expect(within(revision5).getByText('3 个分类')).toBeInTheDocument()
     expect(within(revision5).getByText('4 条规则')).toBeInTheDocument()
     expect(within(revision5).getByText(/2026/)).toBeInTheDocument()
-    expect(screen.getByText(/回滚不会改写或删除旧版本/)).toBeInTheDocument()
-    expect(screen.getByText(/创建一个新 revision/)).toBeInTheDocument()
+    expect(screen.getByText(/回退不会改写或删除旧版本/)).toBeInTheDocument()
+    expect(screen.getByText(/创建一个新版本/)).toBeInTheDocument()
 
     const rollback = screen.getByRole('button', { name: '将所选历史版本发布为新版本' })
     expect(rollback).toBeDisabled()
-    await user.click(screen.getByRole('radio', { name: /选择 revision 5，3 个分类，4 条规则/ }))
+    await user.click(screen.getByRole('radio', { name: /选择第 5 版，3 个分类，4 条规则/ }))
     expect(rollback).toBeEnabled()
-    expect(rollback).toHaveTextContent('将 revision 5 回滚为新版本')
+    expect(rollback).toHaveTextContent('将第 5 版恢复为新版本')
     await user.click(rollback)
 
     expect(panel.emitted().rollback).toEqual([[5]])
@@ -227,7 +228,7 @@ describe('ClassificationPolicyControlPanel', () => {
     expect(screen.getByRole('button', { name: '校验当前草稿' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '分析草稿影响' })).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByRole('button', { name: '刷新版本历史' })).toBeDisabled()
-    await user.click(screen.getByRole('radio', { name: /选择 revision 6/ }))
+    await user.click(screen.getByRole('radio', { name: /选择第 6 版/ }))
     expect(screen.getByRole('button', { name: '将所选历史版本发布为新版本' })).toBeDisabled()
 
     await panel.rerender({

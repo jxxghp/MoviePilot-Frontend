@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import type {
+  ClassificationCategory,
   ClassificationImpactAnalysis,
   ClassificationResult,
   ClassificationSelection,
 } from '@/api/mediaClassificationTypes'
+import type { MediaSourceInfo } from '@/api/types'
+import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 
 /** 影响分析面板输入属性。 */
 interface ClassificationImpactPanelProps {
+  categories?: readonly ClassificationCategory[]
+  sources?: readonly MediaSourceInfo[]
   analysis: ClassificationImpactAnalysis | null
   loading: boolean
   disabled: boolean
@@ -54,6 +59,11 @@ const overviewMetrics = computed<ClassificationImpactMetric[]>(() => {
       key: 'skipped_count',
       label: t('setting.classification.impact.metrics.skippedCount'),
       value: analysis.skipped_count,
+    },
+    {
+      key: 'unresolved_count',
+      label: t('setting.classification.impact.metrics.unresolvedCount'),
+      value: analysis.unresolved_count,
     },
     {
       key: 'truncated',
@@ -157,9 +167,25 @@ function formatSampledAt(value: string): string {
   }).format(date)
 }
 
-/** 按稳定分类 ID 排序聚合计数，保证前后策略列表易于比对。 */
+/** 按分类名称排序聚合计数，保证前后策略列表易于比对。 */
 function sortedCategoryCounts(counts: Record<string, number>): [string, number][] {
   return Object.entries(counts).sort(([left], [right]) => left.localeCompare(right))
+}
+
+/** 将分类编号转换为分类名称和路径，未找到时保留未分类提示。 */
+function categoryLabel(categoryId: string): string {
+  const category = props.categories?.find(item => item.id === categoryId)
+  if (!category) return t('setting.classification.impact.uncategorized')
+  return formatClassificationCategoryOptionTitle(category, {
+    emptyPathLabel: t('setting.classification.impact.noCategoryPath'),
+  })
+}
+
+/** 将来源编号转换为来源目录中的显示名称。 */
+function sourceDisplayName(source: string): string {
+  return (
+    props.sources?.find(item => item.media_source === source)?.name || t('setting.classification.impact.unknownSource')
+  )
 }
 
 /** 选择最终有效结果，缺失时退回自动推荐结果。 */
@@ -167,9 +193,10 @@ function resultSelection(result: ClassificationResult): ClassificationSelection 
   return result.effective ?? result.recommended ?? null
 }
 
-/** 返回结果中的稳定分类 ID。 */
+/** 返回结果中的分类名称和路径。 */
 function resultCategory(result: ClassificationResult): string {
-  return resultSelection(result)?.category_id || t('setting.classification.impact.uncategorized')
+  const categoryId = resultSelection(result)?.category_id
+  return categoryId ? categoryLabel(categoryId) : t('setting.classification.impact.uncategorized')
 }
 
 /** 返回结果中的多级分类路径。 */
@@ -178,14 +205,22 @@ function resultPath(result: ClassificationResult): string {
   return path.length ? path.join(' / ') : t('setting.classification.impact.noCategoryPath')
 }
 
-/** 返回结果中的命中规则 ID。 */
+/** 返回结果中的规则命中状态，避免把内部规则编号当作用户术语。 */
 function resultRule(result: ClassificationResult): string {
-  return resultSelection(result)?.rule_id || t('setting.classification.impact.none')
+  return resultSelection(result)?.rule_id
+    ? t('setting.classification.preview.selectionSource.automatic')
+    : t('setting.classification.impact.none')
 }
 
-/** 返回结果中的分类来源。 */
+/** 返回结果中的分类来源说明。 */
 function resultSource(result: ClassificationResult): string {
-  return resultSelection(result)?.source || t('setting.classification.impact.none')
+  const source = resultSelection(result)?.source
+  const labels: Record<string, string> = {
+    automatic: t('setting.classification.preview.selectionSource.automatic'),
+    source_fallback: t('setting.classification.preview.selectionSource.sourceFallback'),
+    fallback: t('setting.classification.preview.selectionSource.fallback'),
+  }
+  return source ? (labels[source] ?? source) : t('setting.classification.impact.none')
 }
 
 /** 返回求值状态的本地化说明。 */
@@ -265,6 +300,7 @@ function changedFieldLabel(field: string): string {
         color="primary"
         variant="tonal"
         prepend-icon="mdi-chart-box-outline"
+        class="classification-impact-analyze"
         :loading="loading"
         :disabled="disabled || loading"
         :aria-label="t('setting.classification.impact.analyzeAria')"
@@ -304,7 +340,7 @@ function changedFieldLabel(field: string): string {
             :data-testid="`impact-metric-${metric.key}`"
           >
             <dt>
-              {{ metric.label }} <code>{{ metric.key }}</code>
+              {{ metric.label }}
             </dt>
             <dd>{{ metric.value }}</dd>
           </div>
@@ -324,7 +360,7 @@ function changedFieldLabel(field: string): string {
             :data-testid="`impact-metric-${metric.key}`"
           >
             <dt>
-              {{ metric.label }} <code>{{ metric.key }}</code>
+              {{ metric.label }}
             </dt>
             <dd>{{ metric.value }}</dd>
           </div>
@@ -338,12 +374,10 @@ function changedFieldLabel(field: string): string {
         <h3 id="classification-impact-categories-title">{{ t('setting.classification.impact.categoriesTitle') }}</h3>
         <div class="classification-impact-category-columns">
           <div :aria-label="t('setting.classification.impact.previousCategoriesAria')">
-            <h4>previous_categories</h4>
+            <h4>{{ t('setting.classification.impact.previous') }}</h4>
             <dl v-if="sortedCategoryCounts(analysis.previous_categories).length" class="classification-impact-counts">
               <div v-for="[categoryId, count] in sortedCategoryCounts(analysis.previous_categories)" :key="categoryId">
-                <dt>
-                  <code>{{ categoryId }}</code>
-                </dt>
+                <dt>{{ categoryLabel(categoryId) }}</dt>
                 <dd>{{ count }}</dd>
               </div>
             </dl>
@@ -352,12 +386,10 @@ function changedFieldLabel(field: string): string {
             </p>
           </div>
           <div :aria-label="t('setting.classification.impact.candidateCategoriesAria')">
-            <h4>candidate_categories</h4>
+            <h4>{{ t('setting.classification.impact.candidate') }}</h4>
             <dl v-if="sortedCategoryCounts(analysis.candidate_categories).length" class="classification-impact-counts">
               <div v-for="[categoryId, count] in sortedCategoryCounts(analysis.candidate_categories)" :key="categoryId">
-                <dt>
-                  <code>{{ categoryId }}</code>
-                </dt>
+                <dt>{{ categoryLabel(categoryId) }}</dt>
                 <dd>{{ count }}</dd>
               </div>
             </dl>
@@ -391,7 +423,7 @@ function changedFieldLabel(field: string): string {
               <tr v-for="group in analysis.groups" :key="`${group.media_type}:${group.media_source}`">
                 <th scope="row">{{ group.media_type }}</th>
                 <td>
-                  <code>{{ group.media_source }}</code>
+                  {{ sourceDisplayName(group.media_source) }}
                 </td>
                 <td>{{ group.sampled }}</td>
                 <td>{{ group.changed }}</td>
@@ -435,7 +467,7 @@ function changedFieldLabel(field: string): string {
                   <strong>{{ change.title || t('setting.classification.impact.untitledMedia') }}</strong>
                   <span>{{ change.media_type }}</span>
                 </div>
-                <code>{{ change.identity.media_source }}:{{ change.identity.media_id }}</code>
+                <span>{{ sourceDisplayName(change.identity.media_source) }}</span>
               </header>
 
               <ul
@@ -452,7 +484,7 @@ function changedFieldLabel(field: string): string {
                     <div>
                       <dt>{{ t('setting.classification.impact.resultFields.category') }}</dt>
                       <dd>
-                        <code>{{ resultCategory(change.previous) }}</code>
+                        {{ resultCategory(change.previous) }}
                       </dd>
                     </div>
                     <div>
@@ -462,13 +494,13 @@ function changedFieldLabel(field: string): string {
                     <div>
                       <dt>{{ t('setting.classification.impact.resultFields.rule') }}</dt>
                       <dd>
-                        <code>{{ resultRule(change.previous) }}</code>
+                        {{ resultRule(change.previous) }}
                       </dd>
                     </div>
                     <div>
                       <dt>{{ t('setting.classification.impact.resultFields.source') }}</dt>
                       <dd>
-                        <code>{{ resultSource(change.previous) }}</code>
+                        {{ resultSource(change.previous) }}
                       </dd>
                     </div>
                     <div>
@@ -483,7 +515,7 @@ function changedFieldLabel(field: string): string {
                     <div>
                       <dt>{{ t('setting.classification.impact.resultFields.category') }}</dt>
                       <dd>
-                        <code>{{ resultCategory(change.candidate) }}</code>
+                        {{ resultCategory(change.candidate) }}
                       </dd>
                     </div>
                     <div>
@@ -493,13 +525,13 @@ function changedFieldLabel(field: string): string {
                     <div>
                       <dt>{{ t('setting.classification.impact.resultFields.rule') }}</dt>
                       <dd>
-                        <code>{{ resultRule(change.candidate) }}</code>
+                        {{ resultRule(change.candidate) }}
                       </dd>
                     </div>
                     <div>
                       <dt>{{ t('setting.classification.impact.resultFields.source') }}</dt>
                       <dd>
-                        <code>{{ resultSource(change.candidate) }}</code>
+                        {{ resultSource(change.candidate) }}
                       </dd>
                     </div>
                     <div>
@@ -590,6 +622,12 @@ function changedFieldLabel(field: string): string {
   min-height: 40px;
 }
 
+.classification-impact-analyze {
+  justify-self: start;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+}
+
 .classification-impact-scope,
 .classification-impact-status,
 .classification-impact-empty {
@@ -629,13 +667,13 @@ function changedFieldLabel(field: string): string {
 
 .classification-impact-metrics {
   display: grid;
-  grid-template-columns: repeat(7, minmax(92px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 8px;
   margin: 0;
 }
 
 .classification-impact-metrics--changes {
-  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 }
 
 .classification-impact-metric {
@@ -650,11 +688,6 @@ function changedFieldLabel(field: string): string {
 .classification-impact-metric dt {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
-}
-
-.classification-impact-metric dt code {
-  display: block;
-  overflow-wrap: anywhere;
 }
 
 .classification-impact-metric dd {
@@ -859,7 +892,7 @@ function changedFieldLabel(field: string): string {
   }
 
   .classification-impact-controls :deep(.v-btn) {
-    width: 100%;
+    inline-size: 100%;
   }
 
   .classification-impact-meta {

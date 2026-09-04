@@ -331,6 +331,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
     <VDialog
       :model-value="Boolean(draft)"
       class="classification-category-dialog"
+      content-class="classification-category-dialog-content"
       width="calc(100% - 24px)"
       max-width="720"
       scrollable
@@ -340,9 +341,11 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
         }
       "
     >
-      <section
+      <VCard
         v-if="draft"
         class="classification-category-form"
+        tag="section"
+        variant="flat"
         aria-labelledby="classification-category-form-title"
         :aria-describedby="validationMessage ? validationErrorId : undefined"
       >
@@ -443,7 +446,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
         >
           {{ validationMessage }}
         </p>
-      </section>
+      </VCard>
     </VDialog>
 
     <div
@@ -601,9 +604,11 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 }
 
 .classification-media-segments {
-  display: grid;
+  display: inline-grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  inline-size: 100%;
+  inline-size: min(100%, 360px);
+  max-inline-size: 100%;
+  justify-self: start;
 }
 
 .classification-media-segments :deep(.v-btn) {
@@ -755,17 +760,101 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 
 :global(html[data-theme='glass'] .classification-category-dialog .classification-category-form) {
   border-color: var(--glass-border-raised) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(125%) !important;
-  backdrop-filter: blur(28px) saturate(125%) !important;
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 90%, transparent) !important;
+  -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+  backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+  background-color: var(--glass-overlay-surface) !important;
   background-image: var(--glass-sheen) !important;
   box-shadow: var(--glass-shadow-raised) !important;
+}
+
+:global(html[data-theme='glass'] .classification-category-dialog .v-overlay__content) {
+  max-block-size: calc(100dvh - 24px);
+  padding: 0;
+}
+
+:global(html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-field),
+:global(html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-selection-control) {
+  --v-field-border-opacity: 0.72;
+}
+
+:global(html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-field__overlay),
+:global(
+  html[data-theme='glass'] .classification-category-dialog .classification-category-form .v-selection-control__wrapper
+) {
+  background-color: var(--glass-control) !important;
+}
+
+:global(
+  html[data-theme='glass']
+    .classification-category-dialog
+    .classification-category-form
+    .v-field--focused
+    .v-field__overlay
+),
+:global(
+  html[data-theme='glass']
+    .classification-category-dialog
+    .classification-category-form
+    .v-selection-control--dirty
+    .v-selection-control__wrapper
+) {
+  background-color: var(--glass-control-prominent) !important;
+}
+
+:global(html[data-theme='glass'] .classification-category-dialog-content .v-card-actions) {
+  border-block-start: 1px solid var(--glass-border);
 }
 
 :global(html[data-theme='glass'] .classification-category-dialog > .v-overlay__scrim) {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   background: rgba(3, 7, 18, 72%);
+}
+
+:global(html[data-theme='transparent'] .classification-category-dialog .classification-category-form) {
+  border-color: rgba(var(--v-theme-on-surface), 0.16) !important;
+  -webkit-backdrop-filter: blur(var(--transparent-blur-heavy)) !important;
+  backdrop-filter: blur(var(--transparent-blur-heavy)) !important;
+  background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28) !important;
+}
+
+:global(html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-field),
+:global(
+  html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-selection-control
+) {
+  --v-field-border-opacity: 0.72;
+}
+
+:global(html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-field__overlay),
+:global(
+  html[data-theme='transparent']
+    .classification-category-dialog
+    .classification-category-form
+    .v-selection-control__wrapper
+) {
+  background-color: rgba(var(--v-theme-surface), var(--transparent-opacity)) !important;
+}
+
+:global(
+  html[data-theme='transparent']
+    .classification-category-dialog
+    .classification-category-form
+    .v-field--focused
+    .v-field__overlay
+),
+:global(
+  html[data-theme='transparent']
+    .classification-category-dialog
+    .classification-category-form
+    .v-selection-control--dirty
+    .v-selection-control__wrapper
+) {
+  background-color: rgba(var(--v-theme-primary), 0.14) !important;
+}
+
+:global(html[data-theme='transparent'] .classification-category-dialog-content .v-card-actions) {
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.14);
 }
 
 .sr-only {
@@ -788,6 +877,10 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 }
 
 @media (max-width: 600px) {
+  .classification-media-segments {
+    inline-size: 100%;
+  }
+
   .classification-media-segments :deep(.v-btn) {
     padding-inline: 8px;
   }

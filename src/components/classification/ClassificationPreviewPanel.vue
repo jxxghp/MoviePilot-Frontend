@@ -1,50 +1,34 @@
 <script setup lang="ts">
+import api from '@/api'
+import type { MediaDataSource, MediaInfo, MediaSourceInfo } from '@/api/types'
 import type {
   ClassificationCategory,
   ClassificationEvaluation,
   ClassificationFactSource,
-  ClassificationFactScalar,
   ClassificationFactValue,
-  ClassificationFacts,
-  ClassificationFieldDefinition,
-  ClassificationMediaFacts,
   ClassificationMediaType,
-  ClassificationMusicFacts,
   ClassificationPreviewInput,
   ClassificationSelection,
-  ClassificationSourceSupport,
 } from '@/api/mediaClassificationTypes'
 import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 
 defineOptions({ name: 'ClassificationPreviewPanel' })
 
-/** 事实预览可选择的策略快照。 */
+/** 预览可选择的策略版本。 */
 type ClassificationPreviewPolicyMode = 'draft' | 'active'
 
-/** 事实预览组件的只读输入。 */
+/** 预览面板需要的分类目录、来源目录和当前请求状态。 */
 interface ClassificationPreviewPanelProps {
-  fields: readonly ClassificationFieldDefinition[]
   categories: readonly ClassificationCategory[]
+  sources?: readonly MediaSourceInfo[]
   result: ClassificationEvaluation | null
   loading: boolean
 }
 
-/** 向父层请求预览时提交的完整事实和策略模式。 */
+/** 向父层提交所选媒体和策略版本。 */
 interface ClassificationPreviewEvent {
   input: ClassificationPreviewInput
   policyMode: ClassificationPreviewPolicyMode
-}
-
-/** 动态字段在界面中的分组。 */
-interface ClassificationPreviewFieldGroup {
-  name: string
-  fields: ClassificationFieldDefinition[]
-}
-
-/** 扩展字段在事实对象中的来源与来源内键名。 */
-interface ClassificationExtensionPath {
-  source: string
-  key: string
 }
 
 const props = defineProps<ClassificationPreviewPanelProps>()
@@ -61,206 +45,133 @@ const MEDIA_TYPES: ReadonlyArray<{ value: ClassificationMediaType; labelKey: str
   { value: '音乐', labelKey: 'setting.classification.preview.mediaTypes.music', icon: 'mdi-music-note-outline' },
 ]
 
-const booleanItems = computed<ReadonlyArray<{ title: string; value: boolean | null }>>(() => [
-  { title: t('setting.classification.preview.boolean.unset'), value: null },
-  { title: t('setting.classification.preview.boolean.yes'), value: true },
-  { title: t('setting.classification.preview.boolean.no'), value: false },
-])
-
 const previewMode = ref<ClassificationPreviewPolicyMode>('draft')
 const mediaType = ref<ClassificationMediaType>('电影')
-const mediaSource = ref('')
-const mediaId = ref('')
-const fieldValues = ref<Record<string, ClassificationFactValue | undefined>>({})
+const keyword = ref('')
+const searchResults = ref<MediaInfo[]>([])
+const selectedMedia = shallowRef<MediaInfo | null>(null)
+const searching = ref(false)
+const searchMessage = ref('')
 const validationMessage = ref('')
 const validationErrorId = `classification-preview-error-${useId()}`
 
-const editableFields = computed(() =>
-  props.fields.filter(
-    field =>
-      field.id !== 'identity.media_source' &&
-      field.id !== 'media.type' &&
-      field.media_types.includes(mediaType.value) &&
-      (field.id.startsWith('media.') || field.id.startsWith('music.') || field.id.startsWith('extensions.')),
-  ),
-)
-
-const fieldGroups = computed<ClassificationPreviewFieldGroup[]>(() => {
-  const groups = new Map<string, ClassificationFieldDefinition[]>()
-  for (const field of editableFields.value) {
-    const groupName =
-      field.group ||
-      t(
-        field.id.startsWith('extensions.')
-          ? 'setting.classification.preview.groups.sourceExtension'
-          : 'setting.classification.preview.groups.shared',
-      )
-    const group = groups.get(groupName) ?? []
-    group.push(field)
-    groups.set(groupName, group)
-  }
-  return [...groups].map(([name, fields]) => ({ name, fields }))
-})
-
 const categoryMap = computed(() => new Map(props.categories.map(category => [category.id, category])))
 
-/** 为 VSelect 与 VCombobox 提供业务标签和有界浮层参数。 */
-function comboboxMenuProps(label: string) {
-  return {
-    activatorProps: { 'aria-label': label },
-    contentClass: 'classification-preview-menu',
-    maxHeight: 280,
-    location: 'bottom start' as const,
-    offset: 4,
-  }
+/** 判断来源是否声明了当前预览媒体类型；未声明时按兼容来源处理。 */
+function sourceSupportsMediaType(source: MediaSourceInfo): boolean {
+  const types = (source.media_types ?? []).map(type => type.trim().toLowerCase())
+  if (!types.length) return true
+  if (mediaType.value === '音乐') return types.includes('音乐') || types.includes('music')
+  return types.some(type => ['电影', '电视剧', 'movie', 'tv', 'media'].includes(type))
 }
 
-/** 返回字段当前保存的值，数组会复制后再交给控件。 */
-function fieldValue(fieldId: string): ClassificationFactValue | undefined {
-  const value = fieldValues.value[fieldId]
-  return Array.isArray(value) ? [...value] : value
+/** 返回当前媒体类型对应的已登记来源，保证搜索覆盖内置和插件来源。 */
+function searchSourceIds(): MediaDataSource[] {
+  return (props.sources ?? [])
+    .filter(sourceSupportsMediaType)
+    .map(source => source.media_source)
+    .filter((source, index, sources) => sources.indexOf(source) === index)
 }
 
-/** 返回多值控件需要的稳定数组，忽略与字段目录不一致的标量旧值。 */
-function listFieldValue(fieldId: string): ClassificationFactScalar[] {
-  const value = fieldValues.value[fieldId]
-  return Array.isArray(value) ? [...value] : []
+/** 将媒体来源编号换成设置中登记的显示名称。 */
+function sourceDisplayName(source: string | undefined): string {
+  if (!source) return t('setting.classification.preview.missing')
+  return (
+    props.sources?.find(item => item.media_source === source)?.name || t('setting.classification.preview.unknownSource')
+  )
 }
 
-/** 为 Vuetify 可自定义枚举控件收窄模板泛型，运行时仍保留原始标量。 */
-function comboboxScalarValue(fieldId: string): never {
-  const value = fieldValues.value[fieldId]
-  return (Array.isArray(value) ? undefined : value) as never
+/** 返回媒体搜索结果的可读标题，兼容艺术家结果没有 title 的情况。 */
+function mediaTitle(media: MediaInfo): string {
+  return media.title || media.artist || media.album || t('setting.classification.preview.untitledMedia')
 }
 
-/** 为 Vuetify 可自定义列表控件收窄模板泛型，运行时仍保留原始列表。 */
-function comboboxListValue(fieldId: string): never[] {
-  return listFieldValue(fieldId) as never[]
+/** 返回搜索结果卡片中的简短说明。 */
+function mediaSummary(media: MediaInfo): string {
+  const details = [media.type, media.year, media.artist || media.album].filter(Boolean)
+  return details.join(' · ')
 }
 
-/** 将控件值归一为字段目录声明的 JSON 值类型。 */
-function normalizeFieldValue(
-  field: ClassificationFieldDefinition,
-  value: unknown,
-): ClassificationFactValue | undefined {
-  if (value === undefined || value === null || value === '') return undefined
+/** 将数组字段转换为单行可读文本。 */
+function listText(values: string[] | undefined): string {
+  return values?.filter(Boolean).join('、') || t('setting.classification.preview.none')
+}
 
-  if (field.value_type === 'string_list') {
-    const values = Array.isArray(value) ? value : [value]
-    const normalized = values
-      .filter(
-        (item): item is Exclude<ClassificationFactScalar, null> => item !== null && item !== undefined && item !== '',
-      )
-      .map(item => (typeof item === 'string' ? item.trim() : item))
-      .filter(item => item !== '')
-    return normalized.length ? normalized : undefined
+/** 以统一参数搜索当前媒体类型的候选媒体。 */
+async function searchMedia(): Promise<void> {
+  const query = keyword.value.trim()
+  if (!query) {
+    searchResults.value = []
+    selectedMedia.value = null
+    searchMessage.value = t('setting.classification.preview.keywordRequired')
+    return
   }
 
-  if (field.value_type === 'integer' || field.value_type === 'year' || field.value_type === 'number') {
-    const numericValue = Number(value)
-    if (!Number.isFinite(numericValue)) return undefined
-    return field.value_type === 'number' ? numericValue : Math.trunc(numericValue)
-  }
-
-  if (field.value_type === 'boolean') return value === true || value === false ? value : undefined
-  if (typeof value === 'string') return value.trim() || undefined
-  if (typeof value === 'number' || typeof value === 'boolean') return value
-  return String(value)
-}
-
-/** 更新单个动态事实；空值会从请求中移除而不是提交 null。 */
-function updateFieldValue(field: ClassificationFieldDefinition, value: unknown): void {
-  const normalized = normalizeFieldValue(field, value)
-  const nextValues = { ...fieldValues.value }
-  if (normalized === undefined) delete nextValues[field.id]
-  else nextValues[field.id] = Array.isArray(normalized) ? [...normalized] : normalized
-  fieldValues.value = nextValues
-}
-
-/** 从字段能力声明中解析允许包含点号的扩展来源。 */
-function extensionPath(field: ClassificationFieldDefinition): ClassificationExtensionPath | null {
-  const source = Object.entries(field.source_support).find(([, support]) => support === 'extension')?.[0]
-  if (!source) return null
-
-  const prefix = `extensions.${source}.`
-  if (!field.id.startsWith(prefix)) return null
-  const key = field.id.slice(prefix.length)
-  return key ? { source, key } : null
-}
-
-/** 复制事实值，防止组件内部数组与父层请求共享引用。 */
-function cloneFactValue(value: ClassificationFactValue): ClassificationFactValue {
-  return Array.isArray(value) ? [...value] : value
-}
-
-/** 按后端标准事实结构组装当前可见字段，不把动态字段写回 identity。 */
-function buildFacts(): ClassificationFacts {
-  const media: Record<string, ClassificationFactValue> = { type: mediaType.value }
-  const music: Record<string, ClassificationFactValue> = {}
-  const extensions: Record<string, Record<string, ClassificationFactValue>> = {}
-
-  for (const field of editableFields.value) {
-    const value = fieldValues.value[field.id]
-    if (value === undefined) continue
-    const clonedValue = cloneFactValue(value)
-
-    if (field.id.startsWith('media.')) {
-      media[field.id.slice('media.'.length)] = clonedValue
-      continue
+  searching.value = true
+  searchMessage.value = ''
+  selectedMedia.value = null
+  try {
+    const params: Record<string, string | number | MediaDataSource[]> = {
+      title: query,
+      type: mediaType.value === '音乐' ? 'music' : 'media',
+      page: 1,
+      count: 20,
     }
-    if (field.id.startsWith('music.')) {
-      music[field.id.slice('music.'.length)] = clonedValue
-      continue
-    }
-
-    const path = extensionPath(field)
-    if (!path) continue
-    extensions[path.source] = { ...(extensions[path.source] ?? {}), [path.key]: clonedValue }
-  }
-
-  return {
-    identity: {
-      media_source: mediaSource.value.trim(),
-      media_id: mediaId.value.trim(),
-    },
-    media: media as unknown as ClassificationMediaFacts,
-    ...(mediaType.value === '音乐' ? { music: music as unknown as ClassificationMusicFacts } : {}),
-    extensions,
-    field_sources: {},
+    const sourceIds = searchSourceIds()
+    if (sourceIds.length) params.media_source = sourceIds
+    const result = await api.get<MediaInfo[]>('media/search', {
+      params,
+      paramsSerializer: { indexes: null },
+      feedback: 'silent',
+    })
+    searchResults.value = (Array.isArray(result) ? result : []).filter(
+      media => media.type === mediaType.value && !!media.media_source && !!media.media_id,
+    )
+    if (!searchResults.value.length) searchMessage.value = t('setting.classification.preview.noSearchResults')
+  } catch (error) {
+    console.error(error)
+    searchResults.value = []
+    searchMessage.value = t('setting.classification.preview.searchFailed')
+  } finally {
+    searching.value = false
   }
 }
 
-/** 校验稳定身份后发出预览请求，实际 API 调用由父层负责。 */
+/** 切换媒体类型时清除旧搜索结果，避免把不同类型的数据误用于预览。 */
+function changeMediaType(value: ClassificationMediaType): void {
+  mediaType.value = value
+  keyword.value = ''
+  searchResults.value = []
+  selectedMedia.value = null
+  searchMessage.value = ''
+  validationMessage.value = ''
+}
+
+/** 记住用户从搜索结果中选中的完整媒体对象。 */
+function selectMedia(media: MediaInfo): void {
+  selectedMedia.value = media
+  validationMessage.value = ''
+  searchMessage.value = ''
+}
+
+/** 清除已选媒体，要求用户重新搜索并选择。 */
+function clearSelection(): void {
+  selectedMedia.value = null
+  validationMessage.value = ''
+}
+
+/** 使用选中的完整媒体信息请求分类结果，禁止手工拼接分类数据。 */
 function requestPreview(): void {
-  if (!mediaSource.value.trim()) {
-    validationMessage.value = t('setting.classification.preview.validation.mediaSourceRequired')
+  const media = selectedMedia.value
+  if (!media) {
+    validationMessage.value = t('setting.classification.preview.selectionRequired')
     return
   }
-  if (!mediaId.value.trim()) {
-    validationMessage.value = t('setting.classification.preview.validation.mediaIdRequired')
-    return
-  }
-
   validationMessage.value = ''
   emit('request-preview', {
-    input: { kind: 'facts', facts: buildFacts() },
+    input: { kind: 'media', media: media as unknown as Record<string, unknown> },
     policyMode: previewMode.value,
   })
-}
-
-/** 返回当前媒体来源对字段的能力提示。 */
-function sourceSupportHint(field: ClassificationFieldDefinition): string | null {
-  const source = mediaSource.value.trim()
-  if (!source) return null
-  const support = field.source_support[source]
-  if (!support) return null
-  const supportKeys: Partial<Record<ClassificationSourceSupport, string>> = {
-    partial: 'setting.classification.preview.support.partial',
-    unavailable: 'setting.classification.preview.support.unavailable',
-    extension: 'setting.classification.preview.support.extension',
-  }
-  const key = supportKeys[support]
-  return key ? t(key) : null
 }
 
 /** 将分类选择转换为不重复内部编号的可读名称和路径。 */
@@ -281,7 +192,7 @@ function selectionTitle(selection: ClassificationSelection | null | undefined): 
   )
 }
 
-/** 将选择来源转换为界面可读文本。 */
+/** 将结果来源转换为界面可读文本。 */
 function selectionSourceLabel(source: string | null | undefined): string {
   const labels: Record<string, string> = {
     automatic: t('setting.classification.preview.selectionSource.automatic'),
@@ -289,6 +200,13 @@ function selectionSourceLabel(source: string | null | undefined): string {
     fallback: t('setting.classification.preview.selectionSource.fallback'),
   }
   return source ? (labels[source] ?? source) : t('setting.classification.preview.missing')
+}
+
+/** 将内部规则编号转换为“已命中”或“未使用”，避免把系统编号当成用户信息。 */
+function ruleLabel(ruleId: string | null | undefined): string {
+  return ruleId
+    ? t('setting.classification.preview.selectionSource.automatic')
+    : t('setting.classification.preview.none')
 }
 
 /** 将求值状态转换为界面可读文本。 */
@@ -309,25 +227,66 @@ function stateColor(state: ClassificationEvaluation['result']['state']): string 
   return 'error'
 }
 
-/** 将结构化路径格式化为可定位的点号与数组索引形式。 */
-function formatPath(path: readonly (string | number)[]): string {
-  if (!path.length) return t('setting.classification.preview.root')
-  return path.reduce<string>((result, segment) => {
-    if (typeof segment === 'number') return `${result}[${segment}]`
-    return result ? `${result}.${segment}` : segment
-  }, '')
+/** 将内部字段编号翻译成用户能理解的字段名称。 */
+function fieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    'media.type': t('setting.classification.preview.fieldLabels.mediaType'),
+    'media.title': t('setting.classification.preview.fieldLabels.title'),
+    'media.year': t('setting.classification.preview.fieldLabels.year'),
+    'media.language': t('setting.classification.preview.fieldLabels.language'),
+    'media.countries': t('setting.classification.preview.fieldLabels.countries'),
+    'media.genre_keys': t('setting.classification.preview.fieldLabels.genres'),
+    'media.genre_names': t('setting.classification.preview.fieldLabels.genreNames'),
+    'media.content_rating': t('setting.classification.preview.fieldLabels.contentRating'),
+    'music.entity_type': t('setting.classification.preview.fieldLabels.musicType'),
+    'music.album_type': t('setting.classification.preview.fieldLabels.albumType'),
+    'music.genres': t('setting.classification.preview.fieldLabels.musicGenres'),
+    'music.tags': t('setting.classification.preview.fieldLabels.tags'),
+    'music.artists': t('setting.classification.preview.fieldLabels.artists'),
+  }
+  if (labels[field]) return labels[field]
+  if (field.startsWith('extensions.')) return t('setting.classification.preview.fieldLabels.sourceExtension')
+  return field
 }
 
-/** 将 expected 与 actual 值稳定格式化，明确区分缺失和 null。 */
+/** 将英文操作符翻译为普通中文。 */
+function operatorLabel(operator: string): string {
+  const labels: Record<string, string> = {
+    equals: '等于',
+    not_equals: '不等于',
+    in: '属于',
+    not_in: '不属于',
+    contains: '包含',
+    starts_with: '开头是',
+    ends_with: '结尾是',
+    gt: '大于',
+    gte: '大于等于',
+    lt: '小于',
+    lte: '小于等于',
+    between: '介于',
+    contains_any: '包含任一项',
+    contains_all: '包含全部',
+    contains_none: '不包含这些项',
+    is_true: '是',
+    is_false: '否',
+    exists: '有内容',
+    not_exists: '没有内容',
+  }
+  return labels[operator] ?? operator
+}
+
+/** 将期望值和实际值稳定格式化，明确区分缺失和 null。 */
 function formatFactValue(value: ClassificationFactValue | undefined): string {
   if (value === undefined) return t('setting.classification.preview.missing')
   return JSON.stringify(value)
 }
 
-/** 将字段级来源转换为提供者和媒体源的稳定展示文本。 */
+/** 将字段来源转换为提供者和来源名称，避免只显示英文来源编号。 */
 function factSourceLabel(source: ClassificationFactSource | null | undefined): string {
   if (!source) return t('setting.classification.preview.missing')
-  return `${source.provider_name} · ${source.media_source}`
+  const providerName = source.provider_name?.trim()
+  const sourceName = sourceDisplayName(source.media_source)
+  return providerName && providerName !== sourceName ? `${providerName} · ${sourceName}` : sourceName
 }
 </script>
 
@@ -342,7 +301,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
         color="primary"
         prepend-icon="mdi-play-outline"
         :loading="loading"
-        :disabled="loading"
+        :disabled="loading || !selectedMedia"
         :aria-label="t('setting.classification.preview.run')"
         @click="requestPreview"
       >
@@ -357,6 +316,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
         mandatory
         color="primary"
         variant="outlined"
+        density="compact"
         aria-labelledby="classification-preview-mode-label"
       >
         <VBtn value="draft">{{ t('setting.classification.preview.draftPolicy') }}</VBtn>
@@ -369,35 +329,23 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
       aria-labelledby="classification-preview-facts-title"
       :aria-describedby="validationMessage ? validationErrorId : undefined"
     >
-      <h3 id="classification-preview-facts-title">{{ t('setting.classification.preview.factsTitle') }}</h3>
-
-      <div class="classification-preview__identity">
-        <VTextField
-          v-model="mediaSource"
-          :label="t('setting.classification.preview.mediaSource')"
-          :placeholder="t('setting.classification.preview.mediaSourcePlaceholder')"
-          autocomplete="off"
-          density="comfortable"
-          hide-details="auto"
-        />
-        <VTextField
-          v-model="mediaId"
-          :label="t('setting.classification.preview.mediaId')"
-          :placeholder="t('setting.classification.preview.mediaIdPlaceholder')"
-          autocomplete="off"
-          density="comfortable"
-          hide-details="auto"
-        />
+      <div class="classification-preview__section-heading">
+        <div>
+          <h3 id="classification-preview-facts-title">{{ t('setting.classification.preview.factsTitle') }}</h3>
+          <p>{{ t('setting.classification.preview.searchDescription') }}</p>
+        </div>
       </div>
 
       <div class="classification-preview__media-type">
         <span id="classification-preview-media-type-label">{{ t('setting.classification.preview.mediaType') }}</span>
         <VBtnToggle
-          v-model="mediaType"
+          :model-value="mediaType"
           mandatory
           color="primary"
           variant="outlined"
+          density="compact"
           aria-labelledby="classification-preview-media-type-label"
+          @update:model-value="changeMediaType"
         >
           <VBtn v-for="item in MEDIA_TYPES" :key="item.value" :value="item.value">
             <VIcon :icon="item.icon" start />
@@ -405,6 +353,145 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
           </VBtn>
         </VBtnToggle>
       </div>
+
+      <form class="classification-preview__search" @submit.prevent="searchMedia">
+        <VTextField
+          v-model="keyword"
+          :label="t('setting.classification.preview.keyword')"
+          :placeholder="t('setting.classification.preview.keywordPlaceholder')"
+          prepend-inner-icon="mdi-magnify"
+          autocomplete="off"
+          density="comfortable"
+          variant="outlined"
+          hide-details="auto"
+          :loading="searching"
+        />
+        <VBtn
+          type="submit"
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-magnify"
+          :loading="searching"
+          :disabled="searching"
+        >
+          {{ t('setting.classification.preview.search') }}
+        </VBtn>
+      </form>
+
+      <VAlert v-if="searchMessage" type="info" variant="tonal" density="compact" role="status">
+        {{ searchMessage }}
+      </VAlert>
+
+      <VList
+        v-if="searchResults.length"
+        class="classification-preview__search-results"
+        lines="two"
+        :aria-label="t('setting.classification.preview.searchResults')"
+      >
+        <VListItem
+          v-for="media in searchResults"
+          :key="`${media.media_source}:${media.media_id}`"
+          :value="media.media_id"
+          :active="selectedMedia?.media_id === media.media_id && selectedMedia?.media_source === media.media_source"
+          color="primary"
+          @click="selectMedia(media)"
+        >
+          <template #prepend>
+            <VImg
+              :src="media.cover_url || media.poster_path"
+              width="48"
+              height="68"
+              aspect-ratio="2/3"
+              cover
+              class="classification-preview__search-poster"
+            >
+              <template #placeholder>
+                <div class="classification-preview__poster-placeholder">
+                  <VIcon icon="mdi-image-outline" />
+                </div>
+              </template>
+            </VImg>
+          </template>
+          <VListItemTitle>{{ mediaTitle(media) }}</VListItemTitle>
+          <VListItemSubtitle>{{ mediaSummary(media) }}</VListItemSubtitle>
+          <template #append>
+            <VIcon
+              :icon="
+                selectedMedia?.media_id === media.media_id && selectedMedia?.media_source === media.media_source
+                  ? 'mdi-check-circle'
+                  : 'mdi-chevron-right'
+              "
+              :color="
+                selectedMedia?.media_id === media.media_id && selectedMedia?.media_source === media.media_source
+                  ? 'primary'
+                  : undefined
+              "
+            />
+          </template>
+        </VListItem>
+      </VList>
+
+      <article v-if="selectedMedia" class="classification-preview__selected" aria-labelledby="selected-media-title">
+        <div class="classification-preview__selected-heading">
+          <div>
+            <span class="classification-preview__eyebrow">{{ t('setting.classification.preview.selectedTitle') }}</span>
+            <h4 id="selected-media-title">{{ mediaTitle(selectedMedia) }}</h4>
+          </div>
+          <VBtn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            :aria-label="t('setting.classification.preview.clearSelection')"
+            @click="clearSelection"
+          />
+        </div>
+        <div class="classification-preview__selected-main">
+          <VImg
+            :src="selectedMedia.cover_url || selectedMedia.poster_path"
+            width="72"
+            height="104"
+            aspect-ratio="2/3"
+            cover
+            class="classification-preview__selected-poster"
+          >
+            <template #placeholder>
+              <div class="classification-preview__poster-placeholder">
+                <VIcon icon="mdi-image-outline" />
+              </div>
+            </template>
+          </VImg>
+          <dl class="classification-preview__selected-details">
+            <div>
+              <dt>{{ t('setting.classification.preview.selectedSource') }}</dt>
+              <dd>{{ sourceDisplayName(selectedMedia.media_source) }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('setting.classification.preview.selectedId') }}</dt>
+              <dd>{{ selectedMedia.media_id }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('setting.classification.preview.selectedType') }}</dt>
+              <dd>{{ selectedMedia.type }}</dd>
+            </div>
+            <div v-if="selectedMedia.year">
+              <dt>{{ t('setting.classification.preview.year') }}</dt>
+              <dd>{{ selectedMedia.year }}</dd>
+            </div>
+            <div v-if="selectedMedia.genres?.length">
+              <dt>{{ t('setting.classification.preview.genres') }}</dt>
+              <dd>{{ listText(selectedMedia.genres) }}</dd>
+            </div>
+            <div v-if="selectedMedia.artists?.length || selectedMedia.artist">
+              <dt>{{ t('setting.classification.preview.artists') }}</dt>
+              <dd>{{ listText(selectedMedia.artists || [selectedMedia.artist || '']) }}</dd>
+            </div>
+            <div v-if="selectedMedia.album">
+              <dt>{{ t('setting.classification.preview.album') }}</dt>
+              <dd>{{ selectedMedia.album }}</dd>
+            </div>
+          </dl>
+        </div>
+      </article>
 
       <VAlert
         v-if="validationMessage"
@@ -416,121 +503,6 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
       >
         {{ validationMessage }}
       </VAlert>
-
-      <div v-if="fieldGroups.length" class="classification-preview__field-groups">
-        <section
-          v-for="(group, groupIndex) in fieldGroups"
-          :key="group.name"
-          class="classification-preview__field-group"
-          :aria-labelledby="`classification-preview-field-group-${groupIndex}`"
-        >
-          <h4 :id="`classification-preview-field-group-${groupIndex}`">{{ group.name }}</h4>
-          <div class="classification-preview__field-grid">
-            <div v-for="field in group.fields" :key="field.id" class="classification-preview__field">
-              <VSelect
-                v-if="field.value_type === 'boolean'"
-                :model-value="fieldValue(field.id) ?? null"
-                :items="booleanItems"
-                :label="field.label"
-                :menu-props="comboboxMenuProps(field.label)"
-                clearable
-                density="comfortable"
-                hide-details="auto"
-                @update:model-value="value => updateFieldValue(field, value)"
-              />
-
-              <VSelect
-                v-else-if="field.value_type === 'enum' && !field.allow_custom_values"
-                :model-value="fieldValue(field.id)"
-                :items="field.options"
-                item-title="label"
-                item-value="value"
-                :label="field.label"
-                :menu-props="comboboxMenuProps(field.label)"
-                clearable
-                density="comfortable"
-                hide-details="auto"
-                @update:model-value="value => updateFieldValue(field, value)"
-              />
-
-              <VSelect
-                v-else-if="field.value_type === 'string_list' && field.options.length && !field.allow_custom_values"
-                :model-value="listFieldValue(field.id)"
-                :items="field.options"
-                item-title="label"
-                item-value="value"
-                :label="field.label"
-                :menu-props="comboboxMenuProps(field.label)"
-                multiple
-                chips
-                closable-chips
-                clearable
-                density="comfortable"
-                hide-details="auto"
-                @update:model-value="value => updateFieldValue(field, value)"
-              />
-
-              <VCombobox
-                v-else-if="field.value_type === 'enum'"
-                :model-value="comboboxScalarValue(field.id)"
-                :items="field.options"
-                item-title="label"
-                item-value="value"
-                :label="field.label"
-                :menu-props="comboboxMenuProps(field.label)"
-                clearable
-                density="comfortable"
-                hide-details="auto"
-                @update:model-value="value => updateFieldValue(field, value)"
-              />
-
-              <VCombobox
-                v-else-if="field.value_type === 'string_list'"
-                :model-value="comboboxListValue(field.id)"
-                :items="field.options"
-                item-title="label"
-                item-value="value"
-                :label="field.label"
-                :menu-props="comboboxMenuProps(field.label)"
-                multiple
-                chips
-                closable-chips
-                clearable
-                density="comfortable"
-                hide-details="auto"
-                @update:model-value="value => updateFieldValue(field, value)"
-              />
-
-              <VTextField
-                v-else
-                :model-value="fieldValue(field.id)"
-                :label="field.label"
-                :type="['integer', 'number', 'year'].includes(field.value_type) ? 'number' : 'text'"
-                :step="field.value_type === 'number' ? 'any' : undefined"
-                autocomplete="off"
-                clearable
-                density="comfortable"
-                hide-details="auto"
-                @update:model-value="value => updateFieldValue(field, value)"
-              />
-
-              <div class="classification-preview__field-meta">
-                <code>{{ field.id }}</code>
-                <span v-if="field.description">{{ field.description }}</span>
-                <VChip
-                  v-if="sourceSupportHint(field)"
-                  size="x-small"
-                  variant="tonal"
-                  :color="field.source_support[mediaSource.trim()] === 'unavailable' ? 'error' : 'warning'"
-                >
-                  {{ sourceSupportHint(field) }}
-                </VChip>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-      <p v-else class="classification-preview__empty">{{ t('setting.classification.preview.noEditableFields') }}</p>
     </section>
 
     <section
@@ -575,7 +547,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             <dl v-if="result.result.recommended">
               <div>
                 <dt>{{ t('setting.classification.preview.rule') }}</dt>
-                <dd>{{ result.result.recommended.rule_id || t('setting.classification.preview.none') }}</dd>
+                <dd>{{ ruleLabel(result.result.recommended.rule_id) }}</dd>
               </div>
               <div>
                 <dt>{{ t('setting.classification.preview.source') }}</dt>
@@ -589,7 +561,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             <dl v-if="result.result.effective">
               <div>
                 <dt>{{ t('setting.classification.preview.rule') }}</dt>
-                <dd>{{ result.result.effective.rule_id || t('setting.classification.preview.none') }}</dd>
+                <dd>{{ ruleLabel(result.result.effective.rule_id) }}</dd>
               </div>
               <div>
                 <dt>{{ t('setting.classification.preview.source') }}</dt>
@@ -622,16 +594,10 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             variant="tonal"
             density="compact"
           >
-            <strong>{{ warning.code }}</strong
-            >：{{ warning.message }}
+            {{ warning.message }}
             <div class="classification-preview__warning-meta">
-              <code>{{ formatPath(warning.path) }}</code>
-              <span v-if="warning.field">{{
-                t('setting.classification.preview.warningField', { field: warning.field })
-              }}</span>
-              <span v-if="warning.source">{{
-                t('setting.classification.preview.warningSource', { source: warning.source })
-              }}</span>
+              <span v-if="warning.field">{{ fieldLabel(warning.field) }}</span>
+              <span v-if="warning.source">{{ sourceDisplayName(warning.source) }}</span>
             </div>
           </VAlert>
         </section>
@@ -642,13 +608,13 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             {{ t('setting.classification.preview.noRules') }}
           </p>
           <details
-            v-for="rule in result.trace"
+            v-for="(rule, ruleIndex) in result.trace"
             :key="rule.rule_id"
             class="classification-preview__rule"
             :open="rule.matched"
           >
             <summary>
-              <code>{{ rule.rule_id }}</code>
+              <span>{{ t('setting.classification.preview.ruleNumber', { number: ruleIndex + 1 }) }}</span>
               <VChip :color="rule.matched ? 'success' : 'default'" size="x-small" variant="tonal">
                 {{
                   t(
@@ -661,7 +627,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             </summary>
             <div v-if="rule.conditions.length" class="classification-preview__trace-table">
               <VTable density="compact">
-                <table :aria-label="t('setting.classification.preview.traceTableAria', { rule: rule.rule_id })">
+                <table :aria-label="t('setting.classification.preview.traceTableAria', { rule: ruleIndex + 1 })">
                   <thead>
                     <tr>
                       <th scope="col">{{ t('setting.classification.preview.columns.result') }}</th>
@@ -670,7 +636,6 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
                       <th scope="col">{{ t('setting.classification.preview.columns.expected') }}</th>
                       <th scope="col">{{ t('setting.classification.preview.columns.actual') }}</th>
                       <th scope="col">{{ t('setting.classification.preview.columns.factSource') }}</th>
-                      <th scope="col">{{ t('setting.classification.preview.columns.path') }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -688,21 +653,12 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
                           "
                         />
                       </td>
-                      <td>
-                        <code>{{ condition.field }}</code>
-                      </td>
-                      <td>{{ condition.operator }}</td>
-                      <td>
-                        <code>{{ formatFactValue(condition.expected) }}</code>
-                      </td>
-                      <td>
-                        <code>{{ formatFactValue(condition.actual) }}</code>
-                      </td>
+                      <td>{{ fieldLabel(condition.field) }}</td>
+                      <td>{{ operatorLabel(condition.operator) }}</td>
+                      <td>{{ formatFactValue(condition.expected) }}</td>
+                      <td>{{ formatFactValue(condition.actual) }}</td>
                       <td>
                         <span :title="condition.source?.provider_id">{{ factSourceLabel(condition.source) }}</span>
-                      </td>
-                      <td>
-                        <code>{{ formatPath(condition.path) }}</code>
                       </td>
                     </tr>
                   </tbody>
@@ -723,6 +679,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 .classification-preview {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 .classification-preview__header,
@@ -730,12 +687,16 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 .classification-preview__mode,
 .classification-preview__media-type,
 .classification-preview__summary > div,
-.classification-preview__rule summary {
+.classification-preview__rule summary,
+.classification-preview__section-heading,
+.classification-preview__selected-heading {
   display: flex;
   align-items: center;
 }
 
-.classification-preview__header {
+.classification-preview__header,
+.classification-preview__section-heading,
+.classification-preview__selected-heading {
   justify-content: space-between;
   gap: 1rem;
 }
@@ -749,9 +710,15 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 }
 
 .classification-preview__header p,
-.classification-preview__field-meta,
-.classification-preview__empty {
+.classification-preview__section-heading p,
+.classification-preview__empty,
+.classification-preview__eyebrow {
   color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.classification-preview__header p,
+.classification-preview__section-heading p {
+  margin-block-start: 0.25rem;
 }
 
 .classification-preview__mode,
@@ -774,41 +741,94 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
-.classification-preview__identity,
-.classification-preview__field-grid,
-.classification-preview__selections {
+.classification-preview__search {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
 }
 
-.classification-preview__field-groups,
-.classification-preview__field-group,
-.classification-preview__result,
-.classification-preview__warnings,
-.classification-preview__trace {
+.classification-preview__search :deep(.v-btn) {
+  min-block-size: 48px;
+}
+
+.classification-preview__search-results {
+  max-block-size: min(23rem, 45dvh);
+  overflow-y: auto;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface-variant), 0.12);
+}
+
+.classification-preview__search-results :deep(.v-list-item) {
+  min-block-size: 84px;
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.classification-preview__search-results :deep(.v-list-item:last-child) {
+  border-block-end: 0;
+}
+
+.classification-preview__search-poster,
+.classification-preview__selected-poster {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 5px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.classification-preview__poster-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+
+.classification-preview__selected {
   display: grid;
   gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid rgba(var(--v-theme-primary), 0.45);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-primary), 0.08);
 }
 
-.classification-preview__field-group {
-  padding-block-start: 0.25rem;
-}
-
-.classification-preview__field {
-  min-inline-size: 0;
-}
-
-.classification-preview__field-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem 0.75rem;
-  padding-block-start: 0.35rem;
+.classification-preview__eyebrow {
+  display: block;
+  margin-block-end: 0.25rem;
   font-size: 0.75rem;
 }
 
-.classification-preview code {
+.classification-preview__selected-main {
+  display: flex;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.classification-preview__selected-details {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.classification-preview__selected-details > div {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.classification-preview__selected-details dt {
+  color: rgb(var(--v-theme-on-surface-variant));
+  white-space: nowrap;
+}
+
+.classification-preview__selected-details dd {
+  min-width: 0;
+  margin: 0;
   overflow-wrap: anywhere;
 }
 
@@ -827,9 +847,16 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   gap: 0.5rem;
 }
 
+.classification-preview__selections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .classification-preview__selections > section {
   display: grid;
   gap: 0.625rem;
+  min-width: 0;
   padding-block: 0.875rem;
   border-block: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
@@ -850,14 +877,18 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   gap: 0.5rem;
 }
 
+.classification-preview__selections dt,
+.classification-preview__selections dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .classification-preview__selections dt {
   color: rgb(var(--v-theme-on-surface-variant));
 }
 
 .classification-preview__selections dd {
-  min-inline-size: 0;
   margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .classification-preview__labels,
@@ -873,6 +904,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   flex-wrap: wrap;
   gap: 0.35rem 0.75rem;
   padding-block-start: 0.25rem;
+  color: rgb(var(--v-theme-on-surface-variant));
   font-size: 0.75rem;
 }
 
@@ -893,7 +925,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 }
 
 .classification-preview__trace-table table {
-  min-inline-size: 48rem;
+  min-inline-size: 42rem;
 }
 
 .classification-preview__trace-table th {
@@ -901,15 +933,23 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 }
 
 @media (max-width: 700px) {
-  .classification-preview__header {
+  .classification-preview__header,
+  .classification-preview__section-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .classification-preview__identity,
-  .classification-preview__field-grid,
+  .classification-preview__header :deep(.v-btn) {
+    inline-size: 100%;
+  }
+
+  .classification-preview__search,
   .classification-preview__selections {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .classification-preview__search :deep(.v-btn) {
+    inline-size: 100%;
   }
 
   .classification-preview__mode .v-btn-toggle,
@@ -927,5 +967,22 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   .classification-preview__media-type .v-btn {
     min-inline-size: 0;
   }
+}
+
+@media (max-width: 420px) {
+  .classification-preview__selected-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+:global(html[data-theme='glass'] .classification-preview__search-results),
+:global(html[data-theme='glass'] .classification-preview__selected) {
+  border-color: var(--glass-border-raised);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface-soft);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-control-shadow);
 }
 </style>

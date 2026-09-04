@@ -448,7 +448,7 @@ function removeChild(index: number): void {
           :model-value="selectedCondition?.field"
           :items="fieldItems"
           label="字段"
-          placeholder="搜索风格、年份、国家或字段 ID"
+          placeholder="搜索风格、年份、国家或字段名称"
           aria-label="条件字段"
           variant="outlined"
           density="compact"

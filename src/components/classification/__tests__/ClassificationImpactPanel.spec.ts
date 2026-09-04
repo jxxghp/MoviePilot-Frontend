@@ -34,6 +34,7 @@ function createAnalysis(overrides: Partial<ClassificationImpactAnalysis> = {}): 
     requested_limit: 100,
     scanned_count: 128,
     skipped_count: 8,
+    unresolved_count: 2,
     truncated: true,
     sample_count: 100,
     changed_count: 3,
@@ -60,7 +61,7 @@ function createAnalysis(overrides: Partial<ClassificationImpactAnalysis> = {}): 
         candidate: createResult(8, 'movie.china', ['电影', '华语'], 'rule-china', 'source_fallback', 'partial'),
       },
     ],
-    warnings: ['近期历史仅保留有限事实，结果只反映当前可用字段。'],
+    warnings: ['有 2 条记录无法获取完整媒体信息，未纳入比较。'],
     ...overrides,
   }
 }
@@ -75,6 +76,22 @@ async function renderPanel(
 ) {
   return renderWithProviders(ClassificationImpactPanel, {
     props: {
+      categories: [
+        { id: 'movie.scifi', media_type: '电影', name: '科幻电影', path: ['电影', '科幻'], enabled: true, labels: [] },
+        { id: 'movie.china', media_type: '电影', name: '华语电影', path: ['电影', '华语'], enabled: true, labels: [] },
+        {
+          id: 'music.lossless',
+          media_type: '音乐',
+          name: '无损音乐',
+          path: ['音乐', '专辑', '无损'],
+          enabled: true,
+          labels: [],
+        },
+      ],
+      sources: [
+        { name: 'The Movie Database', media_source: 'themoviedb', media_types: ['电影', '电视剧'] },
+        { name: 'MusicBrainz', media_source: 'musicbrainz', media_types: ['音乐'] },
+      ],
       analysis: overrides.analysis ?? null,
       loading: overrides.loading ?? false,
       disabled: overrides.disabled ?? false,
@@ -83,15 +100,18 @@ async function renderPanel(
 }
 
 describe('ClassificationImpactPanel', () => {
-  it('明确说明有界估算，并携带规范化后的样本和示例上限触发分析', async () => {
+  it('说明近期记录比较范围，并携带规范化后的样本和示例上限触发分析', async () => {
     const user = userEvent.setup()
     const panel = await renderPanel()
 
     expect(screen.getByRole('region', { name: '影响分析' })).toHaveAttribute('aria-busy', 'false')
-    expect(screen.getByText('使用有限样本比较活动策略与当前草稿，不代表全库精确统计。')).toBeInTheDocument()
-    expect(screen.getByText(/结果将始终以有界样本估算展示/)).toBeInTheDocument()
+    expect(
+      screen.getByText('读取近期下载和整理记录对应的完整媒体信息，比较当前规则与待发布规则的结果。'),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/最多比较 200 条近期记录/)).toBeInTheDocument()
     expect(screen.getByRole('spinbutton', { name: '最大样本数' })).toHaveValue(100)
     expect(screen.getByRole('spinbutton', { name: '变化示例上限' })).toHaveValue(20)
+    expect(screen.getByRole('button', { name: '分析当前分类草稿影响' })).toHaveClass('classification-impact-analyze')
 
     await fireEvent.update(screen.getByRole('spinbutton', { name: '最大样本数' }), '260.8')
     await fireEvent.update(screen.getByRole('spinbutton', { name: '变化示例上限' }), '-4')
@@ -109,7 +129,7 @@ describe('ClassificationImpactPanel', () => {
     const analyzeButton = screen.getByRole('button', { name: '分析当前分类草稿影响' })
 
     expect(region).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByRole('status')).toHaveTextContent('正在生成有界样本估算')
+    expect(screen.getByRole('status')).toHaveTextContent('正在读取近期记录并比较规则')
     expect(screen.getByRole('spinbutton', { name: '最大样本数' })).toBeDisabled()
     expect(analyzeButton).toBeDisabled()
     await user.click(analyzeButton)
@@ -125,7 +145,7 @@ describe('ClassificationImpactPanel', () => {
     const analysis = createAnalysis()
     await renderPanel({ analysis })
 
-    expect(screen.getByText('样本来源：近期下载与整理记录')).toBeInTheDocument()
+    expect(screen.getByText('样本来源：近期下载与整理记录（会重新获取媒体信息）')).toBeInTheDocument()
     expect(screen.getByText('当前版本 7')).toBeInTheDocument()
     expect(screen.getByText('待发布版本 8')).toBeInTheDocument()
 
@@ -133,6 +153,7 @@ describe('ClassificationImpactPanel', () => {
       requested_limit: '100',
       scanned_count: '128',
       skipped_count: '8',
+      unresolved_count: '2',
       truncated: '是',
       sample_count: '100',
       changed_count: '3',
@@ -148,10 +169,10 @@ describe('ClassificationImpactPanel', () => {
       expect(screen.getByTestId(`impact-metric-${key}`)).toHaveTextContent(value)
     }
 
-    expect(screen.getByRole('note')).toHaveTextContent('未展示的记录不应推断为无变化')
-    expect(screen.getByLabelText('活动策略分类计数')).toHaveTextContent('movie.scifi70')
-    expect(screen.getByLabelText('候选策略分类计数')).toHaveTextContent('movie.china1')
-    expect(screen.getByLabelText('候选策略分类计数')).toHaveTextContent('music.lossless30')
+    expect(screen.getByRole('note')).toHaveTextContent('未展示的记录不能据此判断是否发生变化')
+    expect(screen.getByLabelText('当前规则分类计数')).toHaveTextContent('科幻电影 · 电影 / 科幻70')
+    expect(screen.getByLabelText('待发布规则分类计数')).toHaveTextContent('华语电影 · 电影 / 华语1')
+    expect(screen.getByLabelText('待发布规则分类计数')).toHaveTextContent('无损音乐 · 音乐 / 专辑 / 无损30')
   })
 
   it('按媒体类型和来源展示分组，并完整呈现有限变化示例的前后结果', async () => {
@@ -159,27 +180,27 @@ describe('ClassificationImpactPanel', () => {
 
     const groupTable = screen.getByRole('region', { name: '媒体类型与来源影响分组表' })
     expect(groupTable).toHaveAttribute('tabindex', '0')
-    expect(within(groupTable).getByRole('row', { name: '电影 themoviedb 70 2 1' })).toBeInTheDocument()
-    expect(within(groupTable).getByRole('row', { name: '音乐 musicbrainz 30 1 0' })).toBeInTheDocument()
+    expect(within(groupTable).getByRole('row', { name: '电影 The Movie Database 70 2 1' })).toBeInTheDocument()
+    expect(within(groupTable).getByRole('row', { name: '音乐 MusicBrainz 30 1 0' })).toBeInTheDocument()
 
     expect(screen.getByText('返回 1 条，共检测到 3 条变化')).toBeInTheDocument()
     const example = screen.getByRole('article', { name: '变化示例 1：流浪地球' })
-    expect(example).toHaveTextContent('themoviedb:movie-1')
-    expect(within(example).getByRole('list', { name: '变化字段' })).toHaveTextContent('分类编号分类路径命中规则')
+    expect(example).toHaveTextContent('The Movie Database')
+    expect(within(example).getByRole('list', { name: '变化字段' })).toHaveTextContent('分类变化分类路径命中规则')
 
     const previous = within(example).getByRole('region', { name: '变化示例 1 的活动策略结果' })
-    expect(previous).toHaveTextContent('movie.scifi')
+    expect(previous).toHaveTextContent('科幻电影 · 电影 / 科幻')
     expect(previous).toHaveTextContent('电影 / 科幻')
-    expect(previous).toHaveTextContent('rule-scifi')
+    expect(previous).toHaveTextContent('规则命中')
     expect(previous).toHaveTextContent('完整')
 
     const candidate = within(example).getByRole('region', { name: '变化示例 1 的候选策略结果' })
-    expect(candidate).toHaveTextContent('movie.china')
+    expect(candidate).toHaveTextContent('华语电影 · 电影 / 华语')
     expect(candidate).toHaveTextContent('电影 / 华语')
-    expect(candidate).toHaveTextContent('source_fallback')
+    expect(candidate).toHaveTextContent('数据源默认分类')
     expect(candidate).toHaveTextContent('媒体信息不完整')
 
-    expect(screen.getByRole('alert')).toHaveTextContent('近期历史仅保留有限事实')
+    expect(screen.getByRole('alert')).toHaveTextContent('无法获取完整媒体信息')
   })
 
   it('区分显式请求样本来源，并为无分组和无变化结果提供清晰空状态', async () => {
@@ -199,7 +220,7 @@ describe('ClassificationImpactPanel', () => {
     expect(screen.getByText('样本来源：本次输入的媒体信息')).toBeInTheDocument()
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
     expect(screen.getByText('本次样本没有可展示的媒体类型与来源分组。')).toBeInTheDocument()
-    expect(screen.getByText('有限样本内未返回分类变化示例。')).toBeInTheDocument()
+    expect(screen.getByText('近期记录中没有可展示的分类变化示例。')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

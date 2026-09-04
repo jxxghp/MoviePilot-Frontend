@@ -209,6 +209,7 @@ function createImpact(): ClassificationImpactAnalysis {
     requested_limit: 30,
     scanned_count: 10,
     skipped_count: 0,
+    unresolved_count: 0,
     truncated: false,
     sample_count: 10,
     changed_count: 1,
@@ -348,6 +349,20 @@ describe('AccountSettingClassification', () => {
 
     await waitFor(() => expect(mocks.initialize).toHaveBeenCalledTimes(1))
     expect(await screen.findByRole('region', { name: 'category-editor' })).toBeInTheDocument()
+  })
+
+  it('opens the complete automatic classification guide from the top-right help button', async () => {
+    const user = userEvent.setup()
+    await renderWithProviders(AccountSettingClassification)
+
+    await user.click(await screen.findByRole('button', { name: '查看自动分类帮助' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('自动分类使用说明')
+    expect(dialog).toHaveTextContent('建立分类')
+    expect(dialog).toHaveTextContent('预览分类结果')
+    expect(dialog).toHaveTextContent('查看影响范围')
+    expect(dialog).toHaveTextContent('查看历史和回退')
   })
 
   it('replaces category, fallback, and rule slices without losing the rest of the draft', async () => {

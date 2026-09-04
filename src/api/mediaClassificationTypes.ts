@@ -291,8 +291,14 @@ export interface ClassificationFactsPreviewInput {
   facts: ClassificationFacts
 }
 
+/** 从媒体搜索结果选择完整媒体信息的预览输入。 */
+export interface ClassificationMediaPreviewInput {
+  kind: 'media'
+  media: Record<string, unknown>
+}
+
 /** 当前后端支持的可判别预览输入。 */
-export type ClassificationPreviewInput = ClassificationFactsPreviewInput
+export type ClassificationPreviewInput = ClassificationFactsPreviewInput | ClassificationMediaPreviewInput
 
 /** 使用活动策略或未发布草稿执行预览的请求。 */
 export interface ClassificationPreviewRequest {
@@ -338,6 +344,7 @@ export interface ClassificationImpactAnalysis {
   requested_limit: number
   scanned_count: number
   skipped_count: number
+  unresolved_count: number
   truncated: boolean
   sample_count: number
   changed_count: number

@@ -16,6 +16,7 @@ import type {
   ClassificationValidationResult,
 } from '@/api/mediaClassificationTypes'
 import ClassificationCategoryEditor from '@/components/classification/ClassificationCategoryEditor.vue'
+import ClassificationHelpDialog from '@/components/classification/ClassificationHelpDialog.vue'
 import ClassificationImpactPanel from '@/components/classification/ClassificationImpactPanel.vue'
 import ClassificationPolicyControlPanel from '@/components/classification/ClassificationPolicyControlPanel.vue'
 import ClassificationPreviewPanel from '@/components/classification/ClassificationPreviewPanel.vue'
@@ -26,7 +27,7 @@ import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassifica
 import { cloneDeep, isEqual } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 
-/** 事实预览组件提交的策略模式与完整输入。 */
+/** 结果预览组件提交的策略模式与所选媒体信息。 */
 interface ClassificationPreviewRequestEvent {
   input: ClassificationPreviewInput
   policyMode: 'draft' | 'active'
@@ -57,6 +58,7 @@ const directoryReferencesUnavailable = ref(false)
 const directories = ref<TransferDirectoryConf[]>([])
 const workspaceTab = ref<'categories' | 'rules' | 'sources' | 'review'>('categories')
 const analysisTab = ref<'preview' | 'impact' | 'publish'>('preview')
+const helpDialog = ref(false)
 const expandedSource = ref<string | null>(null)
 const validatedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const analyzedDraftSnapshot = ref<ClassificationPolicy | null>(null)
@@ -176,7 +178,7 @@ function sourceDisplayName(source: string): string {
   const registeredSource = mediaSourceCatalog.value.find(item => item.media_source === source)
   if (registeredSource?.name?.trim()) return registeredSource.name.trim()
   const labelKey = builtinSourceLabelKeys[source]
-  return labelKey ? t(labelKey) : source
+  return labelKey ? t(labelKey) : t('setting.classification.preview.unknownSource')
 }
 
 /** 按条件树顺序提取当前策略实际引用的字段 ID。 */
@@ -363,7 +365,7 @@ async function validateCurrentDraft(): Promise<void> {
   }
 }
 
-/** 使用草稿或活动策略执行显式事实预览，并保留完整命中解释。 */
+/** 使用草稿或活动策略执行所选媒体的分类预览，并保留完整匹配说明。 */
 async function previewFacts(request: ClassificationPreviewRequestEvent): Promise<void> {
   try {
     await preview(request.input, { policy: request.policyMode === 'active' ? null : undefined })
@@ -507,6 +509,16 @@ watch(analysisTab, tab => {
               {{ t('setting.classification.unsaved') }}
             </VChip>
           </div>
+          <VBtn
+            icon="mdi-help-circle-outline"
+            variant="text"
+            :aria-label="t('setting.classification.helpButton')"
+            @click="helpDialog = true"
+          >
+            <VTooltip activator="parent" location="bottom">
+              {{ t('setting.classification.helpButton') }}
+            </VTooltip>
+          </VBtn>
           <VBtn
             v-if="showClose"
             icon="mdi-close"
@@ -719,8 +731,8 @@ watch(analysisTab, tab => {
               <VWindow v-model="analysisTab" class="classification-settings__analysis-window">
                 <VWindowItem value="preview">
                   <ClassificationPreviewPanel
-                    :fields="editorFields"
                     :categories="draftPolicy.categories"
+                    :sources="mediaSourceCatalog"
                     :result="previewResultSnapshot"
                     :loading="previewing"
                     @request-preview="previewFacts"
@@ -728,6 +740,8 @@ watch(analysisTab, tab => {
                 </VWindowItem>
                 <VWindowItem value="impact">
                   <ClassificationImpactPanel
+                    :categories="draftPolicy.categories"
+                    :sources="mediaSourceCatalog"
                     :analysis="impactResultSnapshot"
                     :loading="analyzingImpact"
                     :disabled="publishing || rollingBack"
@@ -798,6 +812,7 @@ watch(analysisTab, tab => {
       </VCardActions>
     </template>
   </VCard>
+  <ClassificationHelpDialog v-model="helpDialog" />
 </template>
 
 <style scoped>
