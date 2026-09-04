@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
+  apiErrorMessage: vi.fn(),
   analyzeImpact: vi.fn(),
   initialize: vi.fn(),
   loadHistory: vi.fn(),
@@ -29,6 +30,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/api', () => ({
   default: { get: mocks.apiGet },
+  getApiErrorMessage: mocks.apiErrorMessage,
 }))
 
 vi.mock('@/composables/useMediaClassification', () => ({
@@ -243,6 +245,7 @@ describe('AccountSettingClassification', () => {
         },
       ],
     })
+    mocks.apiErrorMessage.mockReset().mockReturnValue(undefined)
     mocks.analyzeImpact.mockReset()
     mocks.initialize.mockReset().mockResolvedValue(undefined)
     mocks.loadHistory.mockReset().mockResolvedValue(undefined)
@@ -446,6 +449,18 @@ describe('AccountSettingClassification', () => {
     await user.click(screen.getByRole('button', { name: '放弃修改' }))
     expect(mocks.resetDraft).toHaveBeenCalledTimes(1)
     expect(mocks.toastInfo).toHaveBeenCalledWith('已恢复当前活动策略')
+  })
+
+  it('surfaces the server reason when validation rejects a changed rule draft', async () => {
+    const user = userEvent.setup()
+    mocks.validateDraft.mockRejectedValueOnce(new Error('validation rejected'))
+    mocks.apiErrorMessage.mockReturnValueOnce('请求参数不正确')
+    await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('验证发布')
+
+    await user.click(screen.getByRole('button', { name: '校验草稿' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('请求参数不正确'))
   })
 
   it('updates source fallbacks through stable category IDs', async () => {

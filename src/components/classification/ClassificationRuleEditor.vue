@@ -63,9 +63,10 @@ function cloneCondition(node: ClassificationConditionNode): ClassificationCondit
   }
 
   const group = node as ClassificationConditionGroup
-  if (group.all !== undefined) return { all: group.all?.map(cloneCondition) ?? group.all }
-  if (group.any !== undefined) return { any: group.any?.map(cloneCondition) ?? group.any }
-  if (group.not !== undefined) return { not: group.not ? cloneCondition(group.not) : group.not }
+  // API 序列化会为未选中的分支保留 null；只能复制真正有值的分支，避免覆盖 any/not。
+  if (group.all !== undefined && group.all !== null) return { all: group.all.map(cloneCondition) }
+  if (group.any !== undefined && group.any !== null) return { any: group.any.map(cloneCondition) }
+  if (group.not !== undefined && group.not !== null) return { not: cloneCondition(group.not) }
   return {}
 }
 

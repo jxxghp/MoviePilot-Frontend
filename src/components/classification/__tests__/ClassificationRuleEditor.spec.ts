@@ -210,6 +210,25 @@ describe('ClassificationRuleEditor', () => {
     )
   })
 
+  it('切换规则开关时保留条件组的有效分支', async () => {
+    const user = userEvent.setup()
+    const condition = {
+      all: null,
+      any: [{ field: 'media.genre_names', operator: 'contains_any', value: ['动画'] }],
+      not: null,
+    } as ClassificationRule['when']
+    const editor = await renderEditor([createRule({ when: condition })])
+
+    await user.click(screen.getByRole('checkbox', { name: '启用规则 电影规则' }))
+
+    expect(editor.latestRules()[0]).toEqual(
+      expect.objectContaining({
+        enabled: false,
+        when: { any: [{ field: 'media.genre_names', operator: 'contains_any', value: ['动画'] }] },
+      }),
+    )
+  })
+
   it('按媒体类型过滤分类目标，并在目标失效时自动清空', async () => {
     const user = userEvent.setup()
     const editor = await renderEditor([createRule()])

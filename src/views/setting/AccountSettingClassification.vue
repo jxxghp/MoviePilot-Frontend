@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import api from '@/api'
+import api, { getApiErrorMessage } from '@/api'
 import type { TransferDirectoryConf } from '@/api/types'
 import type {
   ClassificationCategory,
@@ -361,7 +361,7 @@ async function validateCurrentDraft(): Promise<void> {
   } catch (error) {
     console.error(error)
     validatedDraftSnapshot.value = null
-    toast.error(t('setting.classification.validationRequestFailed'))
+    toast.error(getApiErrorMessage(error) || t('setting.classification.validationRequestFailed'))
   }
 }
 
