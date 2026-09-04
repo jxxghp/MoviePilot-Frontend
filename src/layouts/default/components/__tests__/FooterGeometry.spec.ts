@@ -15,16 +15,14 @@ describe('Footer Dock geometry', () => {
 
     expect(source).toContain('data-footer-nav-role="primary"')
     expect(source).toContain('data-footer-nav-role="accessory"')
-    expect(source).toContain("'footer-nav-container--with-accessory': showDynamicButton")
+    expect(source).not.toContain('footer-nav-container--with-accessory')
+    expect(source).toMatch(/\.footer-nav-group\s*\{[\s\S]*?display:\s*flex;[\s\S]*?gap:\s*2px;/)
+    expect(source).toMatch(/\.footer-nav-card\s*\{[\s\S]*?flex:\s*0 0 auto;/)
     expect(source).toMatch(
-      /\.footer-nav-container--with-accessory\s*\{[\s\S]*?--footer-nav-accessory-space:\s*60px;[\s\S]*?padding-inline-end:\s*calc\(var\(--footer-nav-accessory-space\) \+ 2px\);/,
+      /\.dynamic-btn-card\s*\{[\s\S]*?block-size:\s*48px;[\s\S]*?inline-size:\s*auto;[\s\S]*?max-inline-size:\s*60px;/,
     )
-    expect(source).toMatch(/\.footer-nav-group\s*\{[\s\S]*?position:\s*relative;/)
-    expect(source).toMatch(
-      /\.dynamic-btn-card\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?block-size:\s*48px;[\s\S]*?inset-block:\s*0;[\s\S]*?inset-inline-start:\s*calc\(100% \+ 2px\);[\s\S]*?margin-block:\s*auto !important;/,
-    )
+    expect(source).not.toMatch(/\.dynamic-btn-card\s*\{[\s\S]*?position:\s*absolute;/)
     expect(source).not.toContain('@media (width <= 480px)')
-    expect(source).not.toContain('inset-block-end: calc(100% + 4px)')
     expect(source).toMatch(
       /\[dir='rtl'\] \.footer-nav-enter-from,[\s\S]*?\[dir='rtl'\] \.footer-nav-leave-to\s*\{[\s\S]*?transform:\s*translateX\(-20px\);/,
     )
