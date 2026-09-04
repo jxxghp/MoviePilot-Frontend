@@ -984,9 +984,10 @@ watch(analysisTab, tab => {
 
 .classification-settings__source-list {
   overflow: hidden;
-  border: 1px solid var(--classification-border);
-  border-radius: 8px;
-  background: var(--classification-panel-raised);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .classification-settings__source-list :deep(.v-expansion-panel) {
@@ -1071,8 +1072,7 @@ watch(analysisTab, tab => {
   box-shadow: var(--glass-shadow);
 }
 
-:global(html[data-theme='glass'] .classification-settings__panel),
-:global(html[data-theme='glass'] .classification-settings__source-list) {
+:global(html[data-theme='glass'] .classification-settings__panel) {
   -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
   backdrop-filter: var(--glass-surface-backdrop-filter);
   background-image: var(--glass-sheen);
@@ -1080,10 +1080,11 @@ watch(analysisTab, tab => {
 }
 
 :global(html[data-theme='glass'] .classification-settings__source-list) {
-  border-color: var(--glass-border-raised) !important;
-  background-color: var(--glass-surface-raised) !important;
-  background-image: var(--glass-sheen) !important;
-  box-shadow: var(--glass-shadow-raised) !important;
+  border: 0 !important;
+  border-radius: 0;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 :global(html[data-theme='glass'] .classification-settings__source-list .v-expansion-panel) {
