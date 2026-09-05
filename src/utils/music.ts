@@ -1,5 +1,6 @@
-import type { MediaDataSource, MediaInfo, MusicAlbumInfo, MusicArtistInfo, MusicEntityType } from '@/api/types'
+import type { Context, MediaDataSource, MediaInfo, MusicAlbumInfo, MusicArtistInfo, MusicEntityType } from '@/api/types'
 import type { RouteLocationRaw } from 'vue-router'
+import { isMusicResource, isUnconfirmedResource } from '@/utils/torrent'
 
 export interface MusicRouteTarget {
   media_source?: MediaDataSource
@@ -8,6 +9,11 @@ export interface MusicRouteTarget {
   title?: string
   name?: string
   year?: string | number
+}
+
+/** 未确认的音乐资源不得将搜索目标当成候选自身的媒体身份。 */
+export function requiresMusicConfirmation(context?: Context): boolean {
+  return isMusicResource(context) && isUnconfirmedResource(context)
 }
 
 // 音乐体系中一位可跳转的艺术家

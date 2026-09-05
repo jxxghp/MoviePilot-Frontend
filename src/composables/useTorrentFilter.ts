@@ -1,4 +1,5 @@
 import type { Context } from '@/api/types'
+import { getTorrentTitle, isMusicResource, isUnconfirmedResource } from '@/utils/torrent'
 import { cloneDeepWith } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 
@@ -253,7 +254,12 @@ export function useTorrentFilter() {
       // init options
       initOptions(item)
       // group data
-      const key = `${meta_info.name}_${meta_info.resource_pix}_${meta_info.edition}_${meta_info.resource_team}_${meta_info.season_episode}_${torrent_info.size}`
+      const resourceName = isMusicResource(item) ? getTorrentTitle(item) : meta_info.name
+      const musicQuality = isMusicResource(item)
+        ? `${meta_info.audio_format}_${meta_info.bit_depth}_${meta_info.sample_rate}_${meta_info.bitrate}`
+        : ''
+      const pendingKey = isUnconfirmedResource(item) ? index : ''
+      const key = `${pendingKey}_${item.match_status || ''}_${resourceName}_${musicQuality}_${meta_info.resource_pix}_${meta_info.edition}_${meta_info.resource_team}_${meta_info.season_episode}_${torrent_info.size}`
       const groupedItem = { data: item, originalIndex: index }
       if (groupMap.has(key)) {
         const group = groupMap.get(key)

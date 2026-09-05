@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Context } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
+import MusicMatchBadge from '@/components/misc/MusicMatchBadge.vue'
 
 // 输入参数
 const props = defineProps({
@@ -83,6 +84,7 @@ function handleDetail(item: Context) {
                   {{ item.torrent_info?.site_name?.substring(0, 1) }}
                 </VAvatar>
                 <span class="text-body-2 font-weight-bold">{{ item.torrent_info.site_name }}</span>
+                <MusicMatchBadge :context="item" />
 
                 <VChip
                   v-if="item.meta_info?.season_episode"

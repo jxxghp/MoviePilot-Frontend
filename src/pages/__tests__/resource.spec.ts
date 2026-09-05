@@ -102,7 +102,7 @@ interface TorrentOverrides {
 
 interface SearchRouteCase {
   apiEndpoint: string
-  apiParams: Record<string, string>
+  apiParams: Record<string, string | boolean>
   displayTitle: string
   expectedPath: string
   query: Record<string, string>
@@ -350,6 +350,7 @@ const searchRouteCases: SearchRouteCase[] = [
   {
     apiEndpoint: `search/media/${musicBrainzAlbumId}`,
     apiParams: {
+      include_candidates: true,
       area: 'title',
       media_source: 'musicbrainz',
       mtype: '音乐',
@@ -371,6 +372,7 @@ const searchRouteCases: SearchRouteCase[] = [
     },
     result: createTorrent({ title: '专辑资源结果' }),
     streamParams: {
+      include_candidates: 'true',
       area: 'title',
       media_source: 'musicbrainz',
       mtype: '音乐',
@@ -660,6 +662,31 @@ describe('resource page search flow', () => {
     expect(await screen.findByText('筛选后可恢复资源')).toBeInTheDocument()
     expect(screen.getByTestId('torrent-filter-bar')).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '当前筛选条件没有匹配项' })).not.toBeInTheDocument()
+  })
+
+  it('separates confirmed music results from candidates without losing either view', async () => {
+    await renderResource({
+      path: '/resource',
+      query: { keyword: '音乐确认', result_type: 'torrent', type: '音乐' },
+    })
+    const exact = createTorrent({ title: '精确资源' })
+    exact.meta_info.type = '音乐'
+    exact.match_status = 'exact'
+    const pending = createTorrent({ title: '待确认资源' })
+    pending.meta_info.type = '音乐'
+    pending.match_status = 'candidate'
+    pending.match_reason = 'artist_unverified'
+    finishStream(await latestEventSource(), [exact, pending])
+    expect(await screen.findByText('精确资源')).toBeInTheDocument()
+    expect(screen.getByText('待确认资源')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('tab', { name: /^待确认$/ }))
+    await waitFor(() => expect(screen.queryByText('精确资源')).not.toBeInTheDocument())
+    expect(screen.getByText('待确认资源')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('tab', { name: /^精确匹配$/ }))
+    await waitFor(() => expect(screen.queryByText('待确认资源')).not.toBeInTheDocument())
+    expect(screen.getByText('精确资源')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('tab', { name: /^全部资源$/ }))
+    expect(await screen.findByText('待确认资源')).toBeInTheDocument()
   })
 
   it.each([

@@ -150,6 +150,25 @@ describe('TorrentCard approved regressions', () => {
     })
   })
 
+  it('shows unconfirmed music evidence and never forwards a cached target ID', async () => {
+    const context = createContext({
+      media: { type: '音乐', title: '旧目标', title_year: '旧目标 (2003)' },
+      meta: { type: '音乐', title: '晴天', name: '叶惠美', season_episode: undefined },
+      torrent: { title: 'Jay Chou - 晴天 FLAC', category: '音乐' },
+    })
+    context.match_status = 'candidate'
+    context.match_reason = 'artist_unverified'
+    const { container } = await renderCard(context)
+    expect(screen.getByText('晴天', { exact: true })).toBeInTheDocument()
+    expect(screen.getByTestId('music-match-status')).toHaveTextContent('待确认')
+    expect(screen.getByTestId('music-match-status')).toHaveAttribute('aria-label', '艺术家署名尚未核验')
+    await fireEvent.click(getCard(container))
+    const props = getDialogCall().props
+    expect(props.media).toBeUndefined()
+    expect((props.torrent as TorrentInfo).media_id).toBeUndefined()
+    expect(props.title).toBe('晴天')
+  })
+
   it('does not open a blank detail page or trigger download when the URL is missing', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     const context = createContext({ torrent: { page_url: undefined } })

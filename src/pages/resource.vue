@@ -21,6 +21,7 @@ import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { SearchReplaceBatchCollector, isSearchReplaceBatchEvent } from '@/utils/searchStream'
 import { getCurrentLocale } from '@/plugins/i18n'
 import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
+import { requiresMusicConfirmation } from '@/utils/music'
 
 // 国际化
 const { t } = useI18n()
@@ -332,6 +333,25 @@ interface SearchTorrent extends Context {
   more?: Array<Context>
 }
 const filteredCardDataList = ref<Array<SearchTorrent>>([])
+const musicResultMode = ref<'all' | 'exact' | 'candidate'>('all')
+const hasMusicCandidates = computed(() => rawDataList.value.some(requiresMusicConfirmation))
+watch(hasMusicCandidates, available => {
+  if (!available) musicResultMode.value = 'all'
+})
+
+/** 在常规筛选之后切换音乐匹配等级，不改变传给推荐接口的原始资源索引。 */
+function matchesMusicMode(context: Context) {
+  return (
+    musicResultMode.value === 'all' ||
+    (musicResultMode.value === 'candidate' ? requiresMusicConfirmation(context) : !requiresMusicConfirmation(context))
+  )
+}
+
+const visibleRowDataList = computed(() => filteredRowDataList.value.filter(matchesMusicMode))
+const visibleCardDataList = computed(() => filteredCardDataList.value.filter(matchesMusicMode))
+const hasVisibleMusicResults = computed(() =>
+  viewType.value === 'row' ? visibleRowDataList.value.length > 0 : visibleCardDataList.value.length > 0,
+)
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -415,7 +435,11 @@ const displayResourceCount = computed(() =>
     ? streamTotalCount.value
     : isSubtitleSearch.value
       ? rawSubtitleDataList.value.length
-      : torrentFilter.totalFilteredCount.value,
+      : musicResultMode.value === 'all'
+        ? torrentFilter.totalFilteredCount.value
+        : viewType.value === 'row'
+          ? visibleRowDataList.value.length
+          : visibleCardDataList.value.reduce((count, item) => count + 1 + (item.more?.length || 0), 0),
 )
 
 // 搜索中只显示进度区域，避免结果抬头和进度条同时占用顶部空间。
@@ -655,6 +679,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
     setSearchParam(url.searchParams, 'season', params.season)
     setSearchParam(url.searchParams, 'sites', params.sites)
     setSearchParam(url.searchParams, 'music_type', params.music_type)
+    if (params.type === '音乐') setSearchParam(url.searchParams, 'include_candidates', 'true')
   } else {
     setSearchParam(url.searchParams, 'keyword', params.keyword)
     setSearchParam(url.searchParams, 'mtype', params.type)
@@ -676,6 +701,7 @@ function resetSearchResults() {
   isRefreshed.value = false
   errorDescription.value = t('resource.noResourceFound')
   streamCandidateCount = 0
+  musicResultMode.value = 'all'
   rawDataList.value = []
   rawSubtitleDataList.value = []
   originalDataList.value = []
@@ -927,6 +953,7 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
         ...(params.season ? { season: params.season } : {}),
         ...(params.sites ? { sites: params.sites } : {}),
         ...(params.music_type ? { music_type: params.music_type } : {}),
+        ...(params.type === '音乐' ? { include_candidates: true } : {}),
         _ts: requestToken,
       },
     })
@@ -1619,6 +1646,11 @@ onUnmounted(() => {
 
     <!-- 搜索结果 -->
     <div v-if="isRefreshed && hasData" class="search-results-container">
+      <VTabs v-if="hasMusicCandidates && !progressActive" v-model="musicResultMode" class="mb-3" density="compact">
+        <VTab value="all">{{ t('torrent.musicMatch.all') }}</VTab>
+        <VTab value="exact">{{ t('torrent.musicMatch.exact') }}</VTab>
+        <VTab value="candidate">{{ t('torrent.musicMatch.candidate') }}</VTab>
+      </VTabs>
       <!-- 筛选栏 -->
       <TorrentFilterBar
         v-if="!progressActive && !isSubtitleSearch"
@@ -1640,7 +1672,7 @@ onUnmounted(() => {
       />
 
       <!-- 视图切换区域 -->
-      <VFadeTransition mode="out-in">
+      <VFadeTransition v-if="!hasMusicCandidates || hasVisibleMusicResults || progressActive" mode="out-in">
         <div :key="viewType">
           <!-- 卡片视图模式 -->
           <div v-if="viewType === 'card'">
@@ -1684,14 +1716,14 @@ onUnmounted(() => {
               />
             </div>
             <ProgressiveCardGrid
-              v-else-if="filteredCardDataList.length > 0"
-              :items="filteredCardDataList"
+              v-else-if="visibleCardDataList.length > 0"
+              :items="visibleCardDataList"
               :get-item-key="getTorrentItemKey"
               :min-item-width="300"
               :estimated-item-height="400"
             >
               <template #default="{ item }">
-                <TorrentCard :torrent="item" :more="item.more" />
+                <TorrentCard :torrent="item" :more="item.more" :target-music-type="activeSearchParams.music_type" />
               </template>
             </ProgressiveCardGrid>
           </div>
@@ -1744,13 +1776,13 @@ onUnmounted(() => {
                   :key="getTorrentItemKey(item, index)"
                   class="stream-result-item"
                 >
-                  <TorrentItem :torrent="item" />
+                  <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
                   <VDivider v-if="index < streamPreviewDataList.length - 1" class="my-2" />
                 </div>
               </div>
-              <div v-else-if="!isSubtitleSearch && filteredRowDataList.length > 0" class="resource-list">
+              <div v-else-if="!isSubtitleSearch && visibleRowDataList.length > 0" class="resource-list">
                 <ProgressiveCardGrid
-                  :items="filteredRowDataList"
+                  :items="visibleRowDataList"
                   :columns="1"
                   :gap="8"
                   :estimated-item-height="240"
@@ -1758,8 +1790,8 @@ onUnmounted(() => {
                   :get-item-key="getTorrentItemKey"
                 >
                   <template #default="{ item, index }">
-                    <TorrentItem :torrent="item" />
-                    <VDivider v-if="index < filteredRowDataList.length - 1" class="my-2" />
+                    <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
+                    <VDivider v-if="index < visibleRowDataList.length - 1" class="my-2" />
                   </template>
                 </ProgressiveCardGrid>
               </div>
@@ -1767,6 +1799,12 @@ onUnmounted(() => {
           </div>
         </div>
       </VFadeTransition>
+      <ResourceSearchEmptyState
+        v-else
+        :title="t('torrent.noResults')"
+        description=""
+        icon="mdi-music-note-search-outline"
+      />
     </div>
 
     <!-- 无数据显示 -->

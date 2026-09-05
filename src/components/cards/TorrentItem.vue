@@ -8,20 +8,20 @@ import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDown
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { buildTorrentDownloadProps, getTorrentTitle } from '@/utils/torrent'
+import MusicMatchBadge from '@/components/misc/MusicMatchBadge.vue'
 
 const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
 
 // 输入参数
 const props = defineProps({
   torrent: Object as PropType<Context>,
+  targetMusicType: String,
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info)
-
-// 媒体信息
-const media = ref(props.torrent?.media_info)
 
 // 识别元数据
 const meta = ref(props.torrent?.meta_info)
@@ -69,16 +69,12 @@ function getPromotionClass(downloadVolumeFactor: number | undefined, uploadVolum
   else return ''
 }
 
-// 询问并添加下载
+/** 待确认音乐只提交资源本身，避免继承缓存中的目标媒体身份。 */
 async function handleAddDownload() {
   // 打开下载对话框
   openSharedDialog(
     AddDownloadDialog,
-    {
-      title: `${media.value?.title_year || meta.value?.name} ${meta.value?.season_episode || ''}`,
-      media: media.value,
-      torrent: torrent.value,
-    },
+    buildTorrentDownloadProps(props.torrent, props.targetMusicType),
     {
       done: addDownloadSuccess,
       error: addDownloadError,
@@ -108,7 +104,6 @@ watch(
   () => props.torrent,
   value => {
     torrent.value = value?.torrent_info
-    media.value = value?.media_info
     meta.value = value?.meta_info
     getSiteIcon(value?.torrent_info?.site)
   },
@@ -156,7 +151,8 @@ watch(
 
       <VListItemTitle class="whitespace-normal">
         <div class="d-flex flex-row flex-wrap align-center mb-2">
-          <span class="text-h6 font-weight-bold me-2">{{ media?.title ?? meta?.name }}</span>
+          <span class="text-h6 font-weight-bold me-2 torrent-heading">{{ getTorrentTitle(props.torrent) }}</span>
+          <MusicMatchBadge :context="props.torrent" />
           <VChip
             v-if="meta?.season_episode"
             class="chip-season rounded-sm font-weight-bold"
@@ -230,7 +226,7 @@ watch(
       </VListItemTitle>
 
       <template v-slot:append>
-        <div class="d-flex flex-column align-end gap-2">
+        <div class="torrent-item-actions d-flex flex-row flex-sm-column align-center align-sm-end gap-2">
           <div class="d-flex align-center gap-3">
             <span v-if="torrent?.seeders" class="d-flex align-center font-weight-bold">
               <VIcon size="small" color="success" icon="mdi-arrow-up" class="mr-1"></VIcon>
@@ -258,6 +254,32 @@ watch(
 </template>
 
 <style scoped>
+.torrent-heading {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.torrent-item :deep(.v-list-item__content) {
+  min-inline-size: 0;
+}
+
+@media (width < 600px) {
+  .torrent-item {
+    grid-template-areas: 'prepend content' '. append';
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .torrent-item :deep(.v-list-item__append) {
+    margin-block-start: 0.5rem;
+  }
+
+  .torrent-item-actions {
+    justify-content: space-between;
+    inline-size: 100%;
+  }
+}
+
 .discount-banner {
   position: absolute;
   z-index: 3;

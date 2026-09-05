@@ -48,6 +48,24 @@ function createTorrent(overrides: TorrentOverrides = {}): Context {
 }
 
 describe('useTorrentFilter', () => {
+  it('does not merge different music tracks merely because they share an album', () => {
+    const filter = useTorrentFilter()
+    const first = createTorrent({ name: '同一专辑', title: '第一首' })
+    const second = createTorrent({ name: '同一专辑', title: '第二首' })
+    first.meta_info.type = second.meta_info.type = '音乐'
+    first.meta_info.title = '第一首'
+    second.meta_info.title = '第二首'
+    expect(filter.filterCardData([first, second])).toHaveLength(2)
+  })
+
+  it('keeps unconfirmed sources individually visible', () => {
+    const filter = useTorrentFilter()
+    const first = createTorrent({ title: '同名资源' })
+    const second = createTorrent({ title: '同名资源', site: 'Site B' })
+    first.match_status = second.match_status = 'candidate'
+    expect(filter.filterCardData([first, second])).toHaveLength(2)
+  })
+
   it('builds unique options and naturally orders whole seasons before episodes', () => {
     const filter = useTorrentFilter()
 

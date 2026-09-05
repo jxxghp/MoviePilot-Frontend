@@ -9,6 +9,8 @@ import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDown
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { buildTorrentDownloadProps, getTorrentTitle } from '@/utils/torrent'
+import MusicMatchBadge from '@/components/misc/MusicMatchBadge.vue'
 
 const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
 const TorrentMoreSourcesDialog = defineAsyncComponent(() => import('../dialog/TorrentMoreSourcesDialog.vue'))
@@ -19,14 +21,12 @@ const props = defineProps({
   more: Array as PropType<Context[]>,
   width: String,
   height: String,
+  targetMusicType: String,
 })
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info)
-
-// 媒体信息
-const media = ref(props.torrent?.media_info)
 
 // 识别元数据
 const meta = ref(props.torrent?.meta_info)
@@ -70,7 +70,7 @@ async function getSiteIcon(site: number | undefined) {
   }
 }
 
-// 询问并添加下载
+/** 待确认音乐只提交资源本身，已确认资源沿用媒体身份下载。 */
 async function handleAddDownload(item: Context | null = null) {
   if (item && !isNullOrEmptyObject(item)) {
     downloadItem.value = item
@@ -78,16 +78,7 @@ async function handleAddDownload(item: Context | null = null) {
   // 打开下载对话框
   openSharedDialog(
     AddDownloadDialog,
-    {
-      title: [
-        downloadItem.value?.media_info?.title_year || downloadItem.value?.meta_info?.name,
-        downloadItem.value?.meta_info?.season_episode,
-      ]
-        .filter(Boolean)
-        .join(' '),
-      media: downloadItem.value?.media_info,
-      torrent: downloadItem.value?.torrent_info,
-    },
+    buildTorrentDownloadProps(downloadItem.value, props.targetMusicType),
     {
       done: addDownloadSuccess,
       error: addDownloadError,
@@ -136,7 +127,6 @@ watch(
   () => props.torrent,
   value => {
     torrent.value = value?.torrent_info
-    media.value = value?.media_info
     meta.value = value?.meta_info
     downloadItem.value = value
     getSiteIcon(value?.torrent_info?.site)
@@ -168,9 +158,10 @@ watch(
       <!-- 媒体标题 -->
       <VCardItem class="pt-3 pb-0">
         <div class="d-flex flex-row flex-wrap justify-start align-center mb-2 pr-8">
-          <span class="text-h6 font-weight-bold me-2">
-            {{ media?.title ?? meta?.name }}
+          <span class="text-h6 font-weight-bold me-2 torrent-heading">
+            {{ getTorrentTitle(props.torrent) }}
           </span>
+          <MusicMatchBadge :context="props.torrent" />
           <VChip
             v-if="meta?.season_episode"
             class="chip-season rounded-sm font-weight-bold"
@@ -311,6 +302,12 @@ watch(
 </template>
 
 <style scoped>
+.torrent-heading {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 .discount-banner {
   position: absolute;
   inset-block-start: 0;

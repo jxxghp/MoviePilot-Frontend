@@ -214,12 +214,14 @@ async function renderDialog({
   directories = [],
   downloaders = [],
   media,
+  musicType,
   recognizeSource = 'themoviedb',
   torrent = createTorrent(),
 }: {
   directories?: DownloadDirectory[]
   downloaders?: Array<{ name: string; type: string }>
   media?: MediaInfo
+  musicType?: 'album' | 'recording'
   recognizeSource?: string
   torrent?: TorrentInfo
 } = {}) {
@@ -252,6 +254,7 @@ async function renderDialog({
     },
     props: {
       media,
+      musicType,
       modelValue: true,
       onClose: events.close,
       onDone: events.done,
@@ -420,6 +423,28 @@ describe('AddDownloadDialog submissions', () => {
     expect(screen.getByLabelText('数据源')).toHaveValue('musicbrainz')
     expect(screen.getByLabelText('音乐实体')).toBeInTheDocument()
     expect(screen.getByLabelText('MusicBrainz ID')).toBeEnabled()
+  })
+
+  it('submits an unconfirmed album intent even without a media ID or site category', async () => {
+    const user = userEvent.setup()
+    const submitted = vi.fn()
+    server.use(
+      http.post('/api/v1/download/add', async ({ request }) => {
+        submitted(await request.json())
+        return HttpResponse.json({ success: true, data: { download_id: 'album-task' } })
+      }),
+    )
+    await renderDialog({
+      musicType: 'album',
+      torrent: createTorrent({ category: '未知', media_id: undefined, media_source: undefined }),
+    })
+    await user.click(screen.getByRole('button', { name: '开始下载' }))
+    await waitFor(() => expect(submitted).toHaveBeenCalledOnce())
+    const payload = submitted.mock.calls[0][0]
+    expect(payload.music_type).toBe('album')
+    expect(payload.media_id).toBeUndefined()
+    expect(payload.media_source).toBeUndefined()
+    expect(payload.media_in).toBeUndefined()
   })
 
   it('switches the source to MusicBrainz and reveals the entity selector when the music type is picked', async () => {

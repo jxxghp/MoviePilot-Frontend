@@ -36,6 +36,7 @@ const props = defineProps({
   title: String,
   media: Object as PropType<MediaInfo>,
   torrent: Object as PropType<TorrentInfo>,
+  musicType: String as PropType<Exclude<MusicEntityType, 'artist'>>,
 })
 
 // 媒体类型选择项：自动跟随媒体/种子上下文，其余类型由用户显式指定。
@@ -135,16 +136,22 @@ const loading = ref(false)
 const showAdvancedOptions = ref(false)
 
 // 当前数据源：优先使用已随媒体或种子传入的完整身份，可在高级选项手动切换。
-const mediaSource = ref<MediaDataSource>(deriveMediaSource(props.media, props.torrent))
+const mediaSource = ref<MediaDataSource>(
+  props.musicType && !props.media ? 'musicbrainz' : deriveMediaSource(props.media, props.torrent),
+)
 
 // 当前数据源的原生媒体ID
 const mediaId = ref<string | undefined>(deriveMediaId(props.media, props.torrent))
 
 // 无完整媒体上下文时，音乐原生 ID 需要实体命名空间才能区分单曲和专辑。
-const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.media?.music_type === 'album' ? 'album' : 'recording')
+const musicType = ref<Exclude<MusicEntityType, 'artist'>>(
+  (props.media?.music_type || props.musicType) === 'album' ? 'album' : 'recording',
+)
 
 // 当前媒体类型：由媒体/种子类别推导，用户可在高级选项显式切换。
-const mediaType = ref<DownloadMediaType>(deriveMediaType(mediaSource.value, props.media, props.torrent))
+const mediaType = ref<DownloadMediaType>(
+  props.musicType && !props.media ? '音乐' : deriveMediaType(mediaSource.value, props.media, props.torrent),
+)
 
 const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
 
@@ -203,13 +210,15 @@ watch(mediaType, type => {
 
 // 运行中媒体/种子 props 变化时兜底同步身份，弹窗每次打开都是新实例。
 watch(
-  () => [props.media, props.torrent] as const,
-  ([media, torrent]) => {
-    mediaSource.value = deriveMediaSource(media, torrent)
+  () => [props.media, props.torrent, props.musicType] as const,
+  ([media, torrent, musicHint]) => {
+    mediaSource.value = musicHint && !media ? 'musicbrainz' : deriveMediaSource(media, torrent)
     mediaId.value = deriveMediaId(media, torrent)
-    mediaType.value = deriveMediaType(mediaSource.value, media, torrent)
+    mediaType.value = musicHint && !media ? '音乐' : deriveMediaType(mediaSource.value, media, torrent)
     if (media?.music_type === 'recording' || media?.music_type === 'album') {
       musicType.value = media.music_type
+    } else if (musicHint) {
+      musicType.value = musicHint
     }
   },
 )
@@ -295,8 +304,8 @@ async function addDownload() {
     if (normalizedMediaId && isValidMediaSourceId(normalizedMediaId, mediaSource.value)) {
       payload.media_source = mediaSource.value
       payload.media_id = normalizedMediaId
-      if (isMusicSelection.value) payload.music_type = musicType.value
     }
+    if (isMusicSelection.value) payload.music_type = musicType.value
 
     const endpoint = props.media ? 'download/' : 'download/add'
 

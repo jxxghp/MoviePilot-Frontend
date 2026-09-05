@@ -1604,6 +1604,8 @@ export interface Context {
   media_info: MediaInfo
   // 种子信息
   torrent_info: TorrentInfo
+  match_status?: 'exact' | 'candidate' | null
+  match_reason?: string | null
 }
 
 // 用户信息
