@@ -1827,6 +1827,17 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (fluidDynamics && advanceFlow) {
       resources.uniforms.uFlowTexture.value = fluidDynamics.step()
     }
+    // 原生 backdrop 接管期间 scroll canvas 已由 CSS 隐藏；保留事务、流场和 uniform 同步，跳过主材质输出。
+    if (
+      presentationSpace === 'scroll' &&
+      scrollWallpaperSamplingSuppressed &&
+      state.value === 'ready' &&
+      document.documentElement.dataset.glassRendererState === 'ready' &&
+      document.documentElement.dataset.glassScrollPresentation === 'native'
+    ) {
+      return
+    }
+
     if (presentationSpace === 'scroll') {
       const { height: presentationHeight } = getCommittedPresentationSize()
       const scaleY = presentationBufferHeight / Math.max(presentationHeight, 1)
