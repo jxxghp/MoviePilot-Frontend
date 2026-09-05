@@ -76,6 +76,7 @@ describe('TransferManualReviewDialog', () => {
     expect(transferManualReviewSource).toContain(':fullscreen="!display.mdAndUp.value"')
     expect(transferManualReviewSource).toContain('.manual-review-dialog__error > span')
     expect(transferManualReviewSource).toContain('.manual-review-dialog__notice :deep(.v-alert__content)')
+    expect(transferManualReviewSource).toMatch(/\.manual-review-dialog__notice\s*\{[^}]*flex: 0 0 auto;/s)
     expect(transferManualReviewSource).not.toMatch(/\.manual-review-dialog__evidence\s*\{[^}]*border:/s)
   })
 

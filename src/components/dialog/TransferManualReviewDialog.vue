@@ -294,6 +294,7 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
 }
 
 .manual-review-dialog__notice {
+  flex: 0 0 auto;
   inline-size: 100%;
   margin: 0;
 }
