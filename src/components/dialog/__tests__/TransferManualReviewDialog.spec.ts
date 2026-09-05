@@ -5,6 +5,14 @@ import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { cwd } from 'node:process'
+
+const transferManualReviewSource = readFileSync(
+  resolve(cwd(), 'src/components/dialog/TransferManualReviewDialog.vue'),
+  'utf8',
+)
 
 const mocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
@@ -62,6 +70,13 @@ describe('TransferManualReviewDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.apiPost.mockResolvedValue({})
+  })
+
+  it('uses mobile fullscreen and keeps long review content readable', () => {
+    expect(transferManualReviewSource).toContain(':fullscreen="!display.mdAndUp.value"')
+    expect(transferManualReviewSource).toContain('.manual-review-dialog__error > span')
+    expect(transferManualReviewSource).toContain('.manual-review-dialog__notice :deep(.v-alert__content)')
+    expect(transferManualReviewSource).not.toMatch(/\.manual-review-dialog__evidence\s*\{[^}]*border:/s)
   })
 
   it('requires review notes before submitting a decision', async () => {
