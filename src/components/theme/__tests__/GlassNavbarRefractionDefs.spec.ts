@@ -132,20 +132,61 @@ describe('GlassNavbarRefractionDefs', () => {
     expectReadyForWidth(1423)
   })
 
-  it('disables old sampling during resize and caches unchanged geometry', async () => {
+  it('keeps unchanged geometry ready but disables old sampling when the size changes', async () => {
     wrapper = mount(GlassNavbarRefractionDefs)
     await settle()
     resize?.([], {} as ResizeObserver)
-    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('true')
     await settle()
     expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
     width = 1200
     resize?.([], {} as ResizeObserver)
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
     await settle()
     expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ width: 1200, height: 64, radius: 16 }),
     )
     expectReadyForWidth(1200)
+  })
+
+  it('restores a cached map immediately when the final geometry transition ends', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    dispatchTransition('transitionrun', 'inset-inline-start')
+    dispatchTransition('transitionrun', 'border-radius')
+    dispatchTransition('transitionend', 'inset-inline-start')
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    dispatchTransition('transitionend', 'border-radius')
+    await flushPromises()
+    expectReadyForWidth(1423)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not cancel a pending decode on a duplicate resize notification', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await vi.advanceTimersByTimeAsync(65)
+    resize?.([], {} as ResizeObserver)
+    completePendingDecode()
+    await flushPromises()
+    expectReadyForWidth(1423)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a late draft decode when cancellation already restored the cached map', async () => {
+    vi.mocked(createGlassNavbarDisplacementMap)
+      .mockReturnValueOnce('data:image/png;base64,saved')
+      .mockReturnValueOnce('data:image/png;base64,draft')
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    effectiveSettings.value = { glassDeformationStrength: 99, glassTranslationStrength: 99 }
+    await vi.advanceTimersByTimeAsync(65)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+    effectiveSettings.value = { glassDeformationStrength: 48, glassTranslationStrength: 48 }
+    expectReadyForWidth(1423)
+    completePendingDecode()
+    await flushPromises()
+    expect(wrapper.get('feImage').attributes('href')).toBe('data:image/png;base64,saved')
   })
 
   it('does not generate a map in CSS quality', async () => {

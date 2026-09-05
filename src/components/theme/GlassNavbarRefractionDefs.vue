@@ -48,6 +48,7 @@ let transparencyQuery: MediaQueryList | null = null
 let mapRevision = 0
 let cachedGeometry = ''
 let cachedMap = NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP
+let pendingGeometry = ''
 let failedGeometry = ''
 let lastObservedGeometry = ''
 const geometryTransitions = new Set<string>()
@@ -69,6 +70,7 @@ function isRefractionActive() {
 /** 几何或状态变化后立即撤销旧 map，避免在另一个尺寸中采样。 */
 function invalidateDisplacementMap() {
   mapRevision += 1
+  pendingGeometry = ''
   observedShell?.setAttribute('data-glass-navbar-refraction-ready', 'false')
 }
 
@@ -94,11 +96,9 @@ function handleStateMutations(records: MutationRecord[]) {
   if (records.some(hasObservedSizeStyleChange)) scheduleDisplacementMapSync()
 }
 
-/** map 与 feImage 尺寸同批更新；解码失败或过期结果继续使用 CSS 材质。 */
-async function syncDisplacementMap() {
-  if (!observedNavbar || !isRefractionActive() || geometryTransitions.size > 0) return
-  const revision = ++mapRevision
-
+/** 以真实边界和计算后的圆角统一比较已解码、待解码与当前采样几何。 */
+function readDisplacementGeometry() {
+  if (!observedNavbar) return null
   const bounds = observedNavbar.getBoundingClientRect()
   const styles = getComputedStyle(observedNavbar)
   // 自定义属性可能保留 rem；只有计算后的圆角与位移图使用同一 CSS 像素坐标。
@@ -108,7 +108,23 @@ async function syncDisplacementMap() {
 
   const radius = Number.isFinite(borderRadius) ? borderRadius : DEFAULT_NAVBAR_GEOMETRY.radius
   const optics = opticalResponse.value
-  const geometryKey = `${width}:${height}:${radius}:${optics.horizontalRatio}:${optics.verticalRatio}:${optics.translationPx}`
+  return {
+    height,
+    radius,
+    width,
+    optics,
+    key: `${width}:${height}:${radius}:${optics.horizontalRatio}:${optics.verticalRatio}:${optics.translationPx}`,
+  }
+}
+
+/** map 与 feImage 尺寸同批更新；解码失败或过期结果继续使用 CSS 材质。 */
+async function syncDisplacementMap() {
+  if (!isRefractionActive() || geometryTransitions.size > 0) return
+  const geometry = readDisplacementGeometry()
+  if (!geometry || pendingGeometry === geometry.key) return
+  const { height, radius, width, optics, key: geometryKey } = geometry
+  const revision = ++mapRevision
+  pendingGeometry = geometryKey
   if (lastObservedGeometry !== geometryKey) {
     lastObservedGeometry = geometryKey
     failedGeometry = ''
@@ -144,14 +160,28 @@ async function syncDisplacementMap() {
       failedGeometry = geometryKey
       invalidateDisplacementMap()
     }
+  } finally {
+    if (revision === mapRevision) pendingGeometry = ''
   }
 }
 
-// 动画期间使用同族 CSS 材质；尺寸稳定后只重建一次，不逐帧生成或拉伸旧图。
+// 连续 resize 需要合并；相同几何的通知不撤销已就绪或正在解码的位移图。
 function scheduleDisplacementMapSync() {
-  invalidateDisplacementMap()
   if (resizeTimer !== null) clearTimeout(resizeTimer)
-  if (!isRefractionActive()) return
+  resizeTimer = null
+  if (!isRefractionActive() || geometryTransitions.size > 0) {
+    invalidateDisplacementMap()
+    return
+  }
+  const geometry = readDisplacementGeometry()
+  if (geometry?.key === pendingGeometry) return
+  if (geometry?.key === cachedGeometry && displacementMapUrl.value === cachedMap) {
+    // 取消草稿可能命中旧缓存，同时还有另一参数的解码；先使该异步结果失效。
+    if (pendingGeometry) invalidateDisplacementMap()
+    observedShell?.setAttribute('data-glass-navbar-refraction-ready', 'true')
+    return
+  }
+  invalidateDisplacementMap()
   resizeTimer = setTimeout(() => {
     resizeTimer = null
     void syncDisplacementMap()
@@ -169,7 +199,12 @@ function handleGeometryTransition(event: TransitionEvent) {
     invalidateDisplacementMap()
   } else {
     geometryTransitions.delete(event.propertyName)
-    if (geometryTransitions.size === 0) scheduleDisplacementMapSync()
+    // transitionend/cancel 已给出稳定尺寸，无需再附加 resize 防抖等待。
+    if (geometryTransitions.size === 0) {
+      if (resizeTimer !== null) clearTimeout(resizeTimer)
+      resizeTimer = null
+      void syncDisplacementMap()
+    }
   }
 }
 
