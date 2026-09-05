@@ -4365,6 +4365,7 @@ export default {
     ratingSuccess: '已提交對插件 {name} 的評分',
     ratingFailed: '評分提交失敗：{message}',
     viewData: '查看數據',
+    advancedActions: '進階操作',
     update: '更新',
     reset: '重置',
     uninstall: '卸載',

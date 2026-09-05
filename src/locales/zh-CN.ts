@@ -4398,6 +4398,7 @@ export default {
     ratingSuccess: '已提交对插件 {name} 的评分',
     ratingFailed: '评分提交失败：{message}',
     viewData: '查看数据',
+    advancedActions: '高级操作',
     runtimeCapabilities: '运行能力',
     runtimeCapabilitiesTitle: '{name}运行能力',
     capabilityCommands: '命令',

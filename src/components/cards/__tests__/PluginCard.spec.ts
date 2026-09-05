@@ -67,6 +67,12 @@ const ImageStub = defineComponent({
     '<button data-testid="plugin-image" @click="$emit(\'load\')" @contextmenu.prevent="$emit(\'error\')"><img /></button>',
 })
 
+/** 展开插件卡片一级菜单及其中的高级操作二级菜单。 */
+async function openAdvancedActions(container: Element) {
+  await fireEvent.click(container.querySelector<HTMLButtonElement>('.plugin-card__menu')!)
+  await fireEvent.click(await screen.findByTestId('plugin-advanced-menu'))
+}
+
 describe('PluginCard lifecycle actions', () => {
   beforeEach(() => {
     mocks.accentFromImage.mockReset().mockResolvedValue('#123456')
@@ -508,7 +514,9 @@ describe('PluginCard lifecycle actions', () => {
 
   it('opens the shared read-only runtime capabilities dialog from the menu', async () => {
     const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
-    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.plugin-card__menu')!)
+    expect(screen.queryByText('运行能力')).not.toBeInTheDocument()
+    await fireEvent.click(await screen.findByTestId('plugin-advanced-menu'))
     await fireEvent.click(await screen.findByText('运行能力'))
 
     expect(mocks.openSharedDialog).toHaveBeenCalledWith(
@@ -521,7 +529,7 @@ describe('PluginCard lifecycle actions', () => {
 
   it('opens the shared redacted data diagnostics dialog from the menu', async () => {
     const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
-    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await openAdvancedActions(container)
     await fireEvent.click(await screen.findByText('数据诊断'))
 
     expect(mocks.openSharedDialog).toHaveBeenCalledWith(
@@ -540,7 +548,7 @@ describe('PluginCard lifecycle actions', () => {
     vi.spyOn(runtimeStore, 'refreshNow').mockResolvedValue(undefined)
     vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
 
-    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await openAdvancedActions(container)
     await fireEvent.click(await screen.findByText('重新加载'))
 
     await waitFor(() => expect(mocks.reloadPluginRuntime).toHaveBeenCalledWith('DemoPlugin'))
@@ -563,9 +571,10 @@ describe('PluginCard lifecycle actions', () => {
     vi.spyOn(runtimeStore, 'refreshNow').mockResolvedValue(undefined)
 
     const menuButton = container.querySelector<HTMLButtonElement>('.plugin-card__menu')!
-    await fireEvent.click(menuButton)
+    await openAdvancedActions(container)
     await fireEvent.click(await screen.findByText('重新加载'))
     await fireEvent.click(menuButton)
+    await fireEvent.click(await screen.findByTestId('plugin-advanced-menu'))
     const pendingReloadItem = (await screen.findByText('重新加载')).closest('.v-list-item')
 
     expect(pendingReloadItem).toHaveClass('v-list-item--disabled')
@@ -584,7 +593,7 @@ describe('PluginCard lifecycle actions', () => {
     const runtimeStore = usePluginRuntimeStore(pinia)
     vi.spyOn(runtimeStore, 'refreshNow').mockResolvedValue(undefined)
 
-    await fireEvent.click(container.querySelector<HTMLButtonElement>('.plugin-card__menu')!)
+    await openAdvancedActions(container)
     await fireEvent.click(await screen.findByText('重新加载'))
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 重新加载失败：服务器连接失败'))

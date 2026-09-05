@@ -158,6 +158,7 @@ const isVisible = ref(true)
 
 // 菜单显示状态
 const menuVisible = ref(false)
+const advancedMenuVisible = ref(false)
 
 // 用户头像是否加载完成
 const isAvatarLoaded = ref(false)
@@ -627,33 +628,6 @@ const dropdownItems = ref([
     },
   },
   {
-    title: t('plugin.runtimeCapabilities'),
-    value: 11,
-    show: Boolean(props.plugin?.installed),
-    props: {
-      prependIcon: 'mdi-puzzle-check-outline',
-      click: showPluginCapabilities,
-    },
-  },
-  {
-    title: t('plugin.dataSummary'),
-    value: 13,
-    show: Boolean(props.plugin?.installed),
-    props: {
-      prependIcon: 'mdi-database-eye-outline',
-      click: showPluginDataSummary,
-    },
-  },
-  {
-    title: t('plugin.reload'),
-    value: 12,
-    show: Boolean(props.plugin?.installed),
-    props: {
-      prependIcon: 'mdi-reload',
-      click: reloadPlugin,
-    },
-  },
-  {
     title: t('plugin.settings'),
     value: 2,
     show: true,
@@ -732,6 +706,28 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 低频诊断与维护能力收进二级菜单，避免插件卡片一级菜单过长。
+const advancedDropdownItems = [
+  {
+    title: t('plugin.runtimeCapabilities'),
+    value: 11,
+    prependIcon: 'mdi-puzzle-check-outline',
+    click: showPluginCapabilities,
+  },
+  {
+    title: t('plugin.dataSummary'),
+    value: 13,
+    prependIcon: 'mdi-database-eye-outline',
+    click: showPluginDataSummary,
+  },
+  {
+    title: t('plugin.reload'),
+    value: 12,
+    prependIcon: 'mdi-reload',
+    click: reloadPlugin,
+  },
+]
 
 // 监听插件状态变化
 watch(
@@ -870,19 +866,56 @@ watch(
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
                     <VList>
-                      <VListItem
-                        v-for="(item, i) in dropdownItems"
-                        v-show="item.show"
-                        :key="i"
-                        :base-color="item.props.color"
-                        :disabled="isDropdownItemDisabled(item.value)"
-                        @click="item.props.click"
-                      >
-                        <template #prepend>
-                          <VIcon :icon="item.props.prependIcon" />
-                        </template>
-                        <VListItemTitle>{{ item.title }}</VListItemTitle>
-                      </VListItem>
+                      <template v-for="(item, i) in dropdownItems" :key="i">
+                        <VListItem
+                          v-show="item.show"
+                          :base-color="item.props.color"
+                          :disabled="isDropdownItemDisabled(item.value)"
+                          @click="item.props.click"
+                        >
+                          <template #prepend>
+                            <VIcon :icon="item.props.prependIcon" />
+                          </template>
+                          <VListItemTitle>{{ item.title }}</VListItemTitle>
+                        </VListItem>
+
+                        <VMenu
+                          v-if="item.value === 1 && props.plugin?.installed"
+                          v-model="advancedMenuVisible"
+                          :location="display.smAndDown.value ? 'bottom end' : 'start top'"
+                          :offset="display.smAndDown.value ? 4 : 8"
+                          :close-on-content-click="true"
+                        >
+                          <template #activator="{ props: menuProps }">
+                            <VListItem v-bind="menuProps" data-testid="plugin-advanced-menu">
+                              <template #prepend>
+                                <VIcon icon="mdi-tools" />
+                              </template>
+                              <VListItemTitle>{{ t('plugin.advancedActions') }}</VListItemTitle>
+                              <template #append>
+                                <VIcon
+                                  :icon="display.smAndDown.value ? 'mdi-chevron-down' : 'mdi-chevron-left'"
+                                  size="small"
+                                />
+                              </template>
+                            </VListItem>
+                          </template>
+
+                          <VList min-width="12rem">
+                            <VListItem
+                              v-for="advancedItem in advancedDropdownItems"
+                              :key="advancedItem.value"
+                              :disabled="isDropdownItemDisabled(advancedItem.value)"
+                              @click="advancedItem.click"
+                            >
+                              <template #prepend>
+                                <VIcon :icon="advancedItem.prependIcon" />
+                              </template>
+                              <VListItemTitle>{{ advancedItem.title }}</VListItemTitle>
+                            </VListItem>
+                          </VList>
+                        </VMenu>
+                      </template>
                     </VList>
                   </VMenu>
                 </IconBtn>

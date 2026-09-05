@@ -4490,6 +4490,7 @@ export default {
     ratingSuccess: 'Your rating for {name} was submitted',
     ratingFailed: 'Failed to submit rating: {message}',
     viewData: 'View Data',
+    advancedActions: 'Advanced Actions',
     runtimeCapabilities: 'Runtime Capabilities',
     runtimeCapabilitiesTitle: '{name} Runtime Capabilities',
     capabilityCommands: 'Commands',
