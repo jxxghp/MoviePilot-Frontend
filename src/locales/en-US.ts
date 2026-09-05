@@ -1559,7 +1559,7 @@ export default {
     emptySearchHint: 'Search again, or adjust the keyword and site scope before retrying.',
     emptyStartHint: 'Return home to start a new search.',
     filteredEmptyTitle: 'No resources match the current filters',
-    filteredEmptyHint: '{count} resource(s) were found. Clear the filters to view them.',
+    filteredEmptyHint: 'Clear the filters to view all search results.',
     searchStreamTimeout: 'The search connection timed out. Please try again later.',
     searchStreamDisconnected: 'The search connection was interrupted. Please try again later.',
     aiRecommend: 'AI Recommendation',

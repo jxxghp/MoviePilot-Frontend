@@ -523,6 +523,47 @@ describe('resource page search flow', () => {
     })
   })
 
+  it('ignores malformed cached entries while restoring valid previous results', async () => {
+    const malformed = {
+      meta_info: createTorrent().meta_info,
+      title: '被错误响应模型展平的缓存资源',
+    } as unknown as Context
+    mocks.apiGet.mockResolvedValueOnce({
+      success: true,
+      data: {
+        params: { keyword: '上次关键词', result_type: 'torrent' },
+        results: [malformed, createTorrent({ title: '重启后恢复的资源' })],
+      },
+    })
+
+    await renderResource()
+
+    expect(await screen.findByText('重启后恢复的资源')).toBeInTheDocument()
+    expect(screen.getByTestId('torrent-filter-bar')).toBeInTheDocument()
+    expect(screen.queryByText('被错误响应模型展平的缓存资源')).not.toBeInTheDocument()
+  })
+
+  it('shows a clean empty state when cached results contain no renderable resources', async () => {
+    const malformed = {
+      meta_info: createTorrent().meta_info,
+      title: '被错误响应模型展平的缓存资源',
+    } as unknown as Context
+    mocks.apiGet.mockResolvedValueOnce({
+      success: true,
+      data: {
+        params: { keyword: '上次关键词', result_type: 'torrent' },
+        results: Array.from({ length: 74 }, () => malformed),
+      },
+    })
+
+    await renderResource()
+
+    const emptyState = await screen.findByRole('status', { name: '没有找到匹配的资源' })
+    expect(emptyState).toHaveTextContent('可以重新搜索，或调整关键词和站点范围后再试。')
+    expect(emptyState).not.toHaveTextContent('74')
+    expect(screen.queryByTestId('torrent-filter-bar')).not.toBeInTheDocument()
+  })
+
   it('migrates a legacy composite media keyword only when restoring local search state', async () => {
     localStorage.setItem(
       'MP_ResourceSearchParams',
@@ -588,6 +629,7 @@ describe('resource page search flow', () => {
     const emptyState = await screen.findByRole('status', { name: '没有找到匹配的资源' })
     expect(emptyState).toHaveTextContent('可以重新搜索，或调整关键词和站点范围后再试。')
     expect(emptyState).toHaveTextContent('冷门资源')
+    expect(screen.queryByTestId('torrent-filter-bar')).not.toBeInTheDocument()
 
     await fireEvent.click(within(emptyState).getByRole('button', { name: '重新搜索' }))
 
@@ -608,12 +650,15 @@ describe('resource page search flow', () => {
     await fireEvent.click(screen.getByRole('button', { name: '筛选 Site A' }))
 
     const emptyState = await screen.findByRole('status', { name: '当前筛选条件没有匹配项' })
-    expect(emptyState).toHaveTextContent('已获取 1 个资源，清除筛选后即可查看。')
+    expect(emptyState).toHaveTextContent('清除筛选后可查看全部搜索结果。')
+    expect(emptyState).not.toHaveTextContent('1 个资源')
+    expect(screen.queryByTestId('torrent-filter-bar')).not.toBeInTheDocument()
     expect(screen.queryByText('筛选后可恢复资源')).not.toBeInTheDocument()
 
     await fireEvent.click(within(emptyState).getByRole('button', { name: '清除筛选' }))
 
     expect(await screen.findByText('筛选后可恢复资源')).toBeInTheDocument()
+    expect(screen.getByTestId('torrent-filter-bar')).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '当前筛选条件没有匹配项' })).not.toBeInTheDocument()
   })
 

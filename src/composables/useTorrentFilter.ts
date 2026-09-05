@@ -167,6 +167,11 @@ export function useTorrentFilter() {
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
 
+  // 搜索结果必须同时包含可展示的元数据和种子信息。
+  function isRenderableContext(data: Context | null | undefined): data is Context {
+    return Boolean(data?.meta_info && data?.torrent_info)
+  }
+
   // 筛选列表视图数据（不分组）
   function filterRowData(items: Context[] | undefined): Context[] {
     // 重置状态
@@ -184,13 +189,17 @@ export function useTorrentFilter() {
 
     // 首先收集所有过滤选项
     items.forEach(data => {
-      initOptions(data)
+      if (isRenderableContext(data)) {
+        initOptions(data)
+      }
     })
 
     // 筛选数据
     let filteredData: Context[] = []
 
     items.forEach((data, index) => {
+      if (!isRenderableContext(data)) return
+
       const { meta_info, torrent_info } = data
       if (
         match(filterForm.site, torrent_info.site_name) &&
@@ -238,6 +247,8 @@ export function useTorrentFilter() {
     const groupMap = new Map<string, GroupedItem[]>()
 
     items.forEach((item, index) => {
+      if (!isRenderableContext(item)) return
+
       const { torrent_info, meta_info } = item
       // init options
       initOptions(item)

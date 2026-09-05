@@ -1538,7 +1538,7 @@ export default {
     emptySearchHint: '可以重新搜索，或调整关键词和站点范围后再试。',
     emptyStartHint: '返回首页后可通过搜索入口发起新的搜索。',
     filteredEmptyTitle: '当前筛选条件没有匹配项',
-    filteredEmptyHint: '已获取 {count} 个资源，清除筛选后即可查看。',
+    filteredEmptyHint: '清除筛选后可查看全部搜索结果。',
     searchStreamTimeout: '搜索连接长时间无响应，请稍后重试',
     searchStreamDisconnected: '搜索连接已中断，请稍后重试',
     aiRecommend: '智能推荐',

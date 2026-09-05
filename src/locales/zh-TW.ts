@@ -1510,7 +1510,7 @@ export default {
     emptySearchHint: '可以重新搜尋，或調整關鍵詞和站點範圍後再試。',
     emptyStartHint: '返回首頁後可通過搜索入口發起新的搜索。',
     filteredEmptyTitle: '當前篩選條件沒有匹配項',
-    filteredEmptyHint: '已獲取 {count} 個資源，清除篩選後即可查看。',
+    filteredEmptyHint: '清除篩選後可查看全部搜索結果。',
     searchStreamTimeout: '搜索連線長時間無回應，請稍後重試',
     searchStreamDisconnected: '搜索連線已中斷，請稍後重試',
     aiRecommend: '智能推薦',

@@ -83,6 +83,27 @@ describe('useTorrentFilter', () => {
     expect(filter.totalFilteredCount.value).toBe(2)
   })
 
+  it('ignores malformed restored contexts and preserves valid original indices', () => {
+    const filter = useTorrentFilter()
+    const malformedWithoutTorrent = {
+      meta_info: createTorrent().meta_info,
+      title: '被错误响应模型展平的缓存资源',
+    } as unknown as Context
+    const malformedWithoutMeta = {
+      torrent_info: createTorrent({ title: '缺少元数据的缓存资源' }).torrent_info,
+    } as unknown as Context
+    const valid = createTorrent({ title: '可恢复资源' })
+    const contexts = [malformedWithoutTorrent, malformedWithoutMeta, valid]
+
+    expect(filter.filterRowData(contexts).map(item => item.torrent_info.title)).toEqual(['可恢复资源'])
+    expect(filter.getFilteredIndices()).toEqual([2])
+    expect(filter.totalFilteredCount.value).toBe(1)
+
+    expect(filter.filterCardData(contexts).map(item => item.torrent_info.title)).toEqual(['可恢复资源'])
+    expect(filter.getFilteredIndices()).toEqual([2])
+    expect(filter.totalFilteredCount.value).toBe(1)
+  })
+
   it.each([
     ['default', ['默认小', '默认大']],
     ['site', ['站点 A', '站点 B']],

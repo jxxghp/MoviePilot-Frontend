@@ -1389,29 +1389,17 @@ const hasData = computed(() => {
   }
 
   if (viewType.value === 'row') {
-    return filteredRowDataList.value.length > 0 || rawDataList.value.length > 0
+    return filteredRowDataList.value.length > 0
   } else {
-    return filteredCardDataList.value.length > 0 || rawDataList.value.length > 0
+    return filteredCardDataList.value.length > 0
   }
-})
-
-// 区分原始搜索有数据但当前视图被筛选为空的状态。
-const hasVisibleData = computed(() => {
-  if (isSubtitleSearch.value) {
-    return progressActive.value
-      ? streamPreviewSubtitleDataList.value.length > 0 || rawSubtitleDataList.value.length > 0
-      : rawSubtitleDataList.value.length > 0
-  }
-
-  if (progressActive.value) {
-    return streamPreviewDataList.value.length > 0 || rawDataList.value.length > 0
-  }
-
-  return viewType.value === 'row' ? filteredRowDataList.value.length > 0 : filteredCardDataList.value.length > 0
 })
 
 // 空态保留用户可识别的搜索词，不展示内部媒体来源 ID。
 const emptySearchQuery = computed(() => title.value.trim() || keyword.value.trim())
+
+// 只有用户实际选择了筛选值时，空态才提供清除筛选操作。
+const hasActiveTorrentFilters = computed(() => !isSubtitleSearch.value && torrentFilter.hasActiveFilters())
 
 // 只有存在可重放参数时才提供重新搜索操作。
 const hasRefreshableSearch = computed(
@@ -1426,6 +1414,14 @@ const searchEmptyTitle = computed(() =>
 
 const searchEmptyDescription = computed(() =>
   hasRefreshableSearch.value ? t('resource.emptySearchHint') : t('resource.emptyStartHint'),
+)
+
+const resultEmptyTitle = computed(() =>
+  hasActiveTorrentFilters.value ? t('resource.filteredEmptyTitle') : searchEmptyTitle.value,
+)
+
+const resultEmptyDescription = computed(() =>
+  hasActiveTorrentFilters.value ? t('resource.filteredEmptyHint') : searchEmptyDescription.value,
 )
 
 // 监听 AI_RECOMMEND_ENABLED 状态和数据加载状态
@@ -1645,7 +1641,7 @@ onUnmounted(() => {
 
       <!-- 视图切换区域 -->
       <VFadeTransition mode="out-in">
-        <div v-if="hasVisibleData" :key="viewType">
+        <div :key="viewType">
           <!-- 卡片视图模式 -->
           <div v-if="viewType === 'card'">
             <div
@@ -1770,22 +1766,6 @@ onUnmounted(() => {
             </VCard>
           </div>
         </div>
-
-        <ResourceSearchEmptyState
-          v-else-if="!progressActive"
-          key="filtered-empty"
-          class="resource-page-empty-state"
-          :title="t('resource.filteredEmptyTitle')"
-          :description="t('resource.filteredEmptyHint', { count: rawDataList.length })"
-          :query="emptySearchQuery"
-          icon="mdi-filter-off-outline"
-        >
-          <template #actions>
-            <VBtn color="primary" variant="tonal" prepend-icon="mdi-filter-off-outline" @click="handleClearAllFilters">
-              {{ t('torrent.clearFilters') }}
-            </VBtn>
-          </template>
-        </ResourceSearchEmptyState>
       </VFadeTransition>
     </div>
 
@@ -1793,13 +1773,23 @@ onUnmounted(() => {
     <ResourceSearchEmptyState
       v-else-if="isRefreshed && !progressActive"
       class="resource-page-empty-state"
-      :title="searchEmptyTitle"
-      :description="searchEmptyDescription"
+      :title="resultEmptyTitle"
+      :description="resultEmptyDescription"
       :query="emptySearchQuery"
+      :icon="hasActiveTorrentFilters ? 'mdi-filter-off-outline' : 'mdi-database-search-outline'"
     >
       <template #actions>
         <VBtn
-          v-if="hasRefreshableSearch"
+          v-if="hasActiveTorrentFilters"
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-filter-off-outline"
+          @click="handleClearAllFilters"
+        >
+          {{ t('torrent.clearFilters') }}
+        </VBtn>
+        <VBtn
+          v-else-if="hasRefreshableSearch"
           color="primary"
           variant="tonal"
           prepend-icon="mdi-refresh"
@@ -1809,7 +1799,7 @@ onUnmounted(() => {
         >
           {{ t('resource.refreshSearch') }}
         </VBtn>
-        <VBtn variant="text" color="default" prepend-icon="mdi-home-outline" to="/">
+        <VBtn v-if="!hasActiveTorrentFilters" variant="text" color="default" prepend-icon="mdi-home-outline" to="/">
           {{ t('resource.backToHome') }}
         </VBtn>
       </template>
