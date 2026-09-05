@@ -395,67 +395,71 @@ describe('glass overlay material styles', () => {
 
   it('keeps floating clear and tinted navbars on CSS material until Chromium SVG is ready', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
-    const filterDefinitions = readFileSync(resolve(cwd(), 'src/components/theme/GlassNavbarRefractionDefs.vue'), 'utf8')
-    const refractionUtilities = readFileSync(resolve(cwd(), 'src/utils/glassNavbarRefraction.ts'), 'utf8')
     const baseMaterialStart = styles.lastIndexOf('// 基础材质由单一真实表面承载')
     const svgEnhancementStart = styles.indexOf('// 只有已确认的 Chromium SVG 能力')
     const reducedTransparencyStart = styles.lastIndexOf('@media (prefers-reduced-transparency: reduce)')
     const reducedMotionStart = styles.lastIndexOf('@media (prefers-reduced-motion: reduce)')
+    const tintedNavbarStart = styles.indexOf(
+      "html[data-theme='glass'][data-glass-appearance='tinted']",
+      svgEnhancementStart,
+    )
     const baseMaterialRule = styles.slice(baseMaterialStart, svgEnhancementStart)
+    const svgFilterRule = styles.slice(svgEnhancementStart, tintedNavbarStart)
     const reducedTransparencyRule = styles.slice(reducedTransparencyStart, reducedMotionStart)
     const reducedMotionRule = styles.slice(reducedMotionStart)
 
-    expect(styles).toContain("data-glass-navbar-refraction='chromium'")
-    expect(styles).toContain("url('#glass-navbar-live-refraction-balanced')")
-    expect(styles).toContain("url('#glass-navbar-live-refraction-high')")
-    expect(styles).toMatch(
-      /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-navbar-floating-eligible\.layout-navbar-away-from-top[\s\S]*?\.layout-navbar/,
-    )
-    expect(styles).toContain('inline-size: auto !important')
-    expect(styles).toContain('inset-block-start: 0 !important')
-    expect(styles).toContain('inset-inline: 0 !important')
-    expect(styles).toContain('inset-block-start: var(--shell-floating-navbar-inset) !important')
-    expect(styles).toContain('inset-inline: var(--shell-floating-navbar-inset) !important')
-    expect(styles).toContain('transform: none !important')
-    expect(styles).toContain(
-      'inset-block-start var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
-    )
-    expect(styles).toContain(
-      'inset-inline-end var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
-    )
-    expect(styles).toContain(
-      'inset-inline-start var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing)',
-    )
     expect(baseMaterialStart).toBeGreaterThanOrEqual(0)
     expect(svgEnhancementStart).toBeGreaterThan(baseMaterialStart)
-    expect(baseMaterialRule).toContain('.layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top')
-    expect(baseMaterialRule).not.toContain("data-glass-navbar-refraction='chromium'")
-    expect(styles).toContain('--glass-navbar-live-filter: none;')
-    expect(baseMaterialRule).toContain('--glass-navbar-live-filter: blur(1.5px) saturate(118%)')
-    expect(baseMaterialRule).toContain('-webkit-backdrop-filter: var(--glass-navbar-live-filter) !important')
-    expect(baseMaterialRule).toContain('backdrop-filter: var(--glass-navbar-live-filter) !important')
+    expect(baseMaterialRule).toContain("[data-glass-appearance='clear'], [data-glass-appearance='tinted']")
+    expect(baseMaterialRule).toContain('--glass-navbar-opacity: clamp(')
+    expect(baseMaterialRule).toContain(
+      '--glass-navbar-reflection-ratio: clamp(0, calc(var(--glass-reflection, 0.38) * 2.6316), 1.7)',
+    )
+    expect(baseMaterialRule).toContain(
+      '--glass-navbar-sheen-opacity: clamp(0, calc(0.18 * var(--glass-navbar-reflection-ratio)), 0.3)',
+    )
+    expect(baseMaterialRule).toContain(
+      '--glass-navbar-rim-opacity: clamp(0, calc(0.24 * var(--glass-navbar-reflection-ratio)), 0.4)',
+    )
+    expect(baseMaterialRule).toContain(
+      '--glass-navbar-top-opacity: clamp(0, calc(0.4 * var(--glass-navbar-reflection-ratio)), 0.65)',
+    )
+    expect(baseMaterialRule).toContain('var(--glass-background-visibility, 0.58)')
+    expect(baseMaterialRule).toContain('var(--glass-surface-density, 0.62)')
+    expect(baseMaterialRule).toContain('--glass-navbar-blur: clamp(')
+    expect(baseMaterialRule).toContain('0.62px + var(--glass-surface-density, 0.62) * 0.8px')
+    expect(baseMaterialRule).toContain('- var(--glass-background-visibility, 0.58) * 0.25px')
+    expect(baseMaterialRule).toContain('--glass-navbar-brightness: var(--glass-transmission-brightness, 1)')
+    expect(baseMaterialRule).toContain('--glass-navbar-saturation: clamp(')
+    expect(baseMaterialRule).toContain('--glass-navbar-sheen: linear-gradient(')
+    expect(baseMaterialRule).toContain('var(--glass-navbar-reflection-ratio)')
+    expect(baseMaterialRule).toContain('--glass-navbar-scrim: linear-gradient(')
+    expect(baseMaterialRule).toContain(
+      '--glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18)',
+    )
+    expect(baseMaterialRule).toContain('--glass-navbar-live-filter: blur(var(--glass-navbar-blur))')
+    expect(baseMaterialRule).toContain('brightness(var(--glass-navbar-brightness))')
+    expect(baseMaterialRule).toContain('background: var(--glass-navbar-sheen), var(--glass-navbar-scrim) !important')
+    expect(baseMaterialRule).toContain('box-shadow: var(--glass-navbar-shadow) !important')
     expect(baseMaterialRule).toContain('border: 0 !important')
-    expect(baseMaterialRule).toContain('linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 38%)')
-    expect(baseMaterialRule).toContain('inset 0 1px 2px rgba(255, 255, 255, 0.4)')
-    expect(baseMaterialRule).not.toContain('inset 0 1px 0 rgba(255, 255, 255, 0.4)')
-    expect(baseMaterialRule).not.toContain("url('#glass-navbar-live-refraction-")
-    expect(styles).toMatch(
-      /html\[data-theme='glass'\]\[data-glass-quality='balanced'\]:is\([\s\S]*?\.layout-wrapper\[data-glass-navbar-refraction='chromium'\]\[data-glass-navbar-refraction-ready='true'\]\.layout-navbar-floating-eligible\.layout-navbar-away-from-top\s+\.layout-navbar\s*\{[\s\S]*?--glass-navbar-live-filter: url\('#glass-navbar-live-refraction-balanced'\) blur\(1\.5px\) saturate\(118%\);/,
-    )
-    expect(styles).toMatch(
-      /html\[data-theme='glass'\]\[data-glass-quality='high'\]:is\([\s\S]*?\.layout-wrapper\[data-glass-navbar-refraction='chromium'\]\[data-glass-navbar-refraction-ready='true'\]\.layout-navbar-floating-eligible\.layout-navbar-away-from-top\s+\.layout-navbar\s*\{[\s\S]*?--glass-navbar-live-filter: url\('#glass-navbar-live-refraction-high'\) blur\(1px\) saturate\(122%\);/,
-    )
-    expect(styles).not.toMatch(
-      /data-glass-navbar-refraction='chromium'\](?!\[data-glass-navbar-refraction-ready='true'\])[^{]*\{[\s\S]*?url\('#glass-navbar-live-refraction-/u,
-    )
-    expect(styles).toContain('inline-size: min(100vw, variables.$layout-boxed-content-width)')
-    expect(styles).toContain('transform: translateX(-50%) !important')
-    expect(styles).toMatch(
-      /\[data-glass-appearance='tinted'\][\s\S]*?\.layout-navbar\s*\{[\s\S]*?--glass-material-accent-rgb/,
-    )
+    expect(baseMaterialRule).toContain('inset-block-start: var(--shell-floating-navbar-inset) !important')
+    expect(baseMaterialRule).toContain('inset-inline: var(--shell-floating-navbar-inset) !important')
+    expect(baseMaterialRule).not.toContain('data-glass-navbar-refraction-ready')
     expect(baseMaterialRule).not.toContain('&::before')
-    expect(styles).not.toContain('&::after')
-    expect(styles).not.toContain("[data-glass-appearance='frosted'][data-glass-navbar-refraction='chromium']")
+    expect(baseMaterialRule).not.toContain('&::after')
+    expect(baseMaterialRule).not.toContain("url('#glass-navbar-live-refraction-")
+    expect(svgFilterRule).toContain("data-glass-navbar-refraction-ready='true'")
+    expect(svgFilterRule).toContain("url('#glass-navbar-live-refraction-balanced')")
+    expect(svgFilterRule).toContain("url('#glass-navbar-live-refraction-high')")
+    expect(svgFilterRule).toContain('blur(var(--glass-navbar-blur))')
+    expect(svgFilterRule).toContain('saturate(var(--glass-navbar-saturation))')
+    expect(svgFilterRule).toContain('brightness(var(--glass-navbar-brightness))')
+    expect(svgFilterRule).not.toContain('background:')
+    expect(svgFilterRule).not.toContain('box-shadow:')
+    expect(svgFilterRule).not.toContain('border:')
+    expect(tintedNavbarStart).toBeGreaterThan(svgEnhancementStart)
+    expect(styles.slice(tintedNavbarStart, reducedTransparencyStart)).toContain('var(--glass-material-accent-rgb)')
+    expect(styles.slice(tintedNavbarStart, reducedTransparencyStart)).toContain('var(--glass-navbar-tint)')
     expect(reducedTransparencyRule).toContain('--glass-navbar-live-filter: none !important')
     expect(reducedTransparencyRule).toContain('-webkit-backdrop-filter: none !important')
     expect(reducedTransparencyRule).toContain('backdrop-filter: none !important')
@@ -466,31 +470,5 @@ describe('glass overlay material styles', () => {
     expect(reducedMotionRule).toContain('transition: none !important')
     expect(reducedMotionRule).not.toContain('inset-block-start: 0 !important')
     expect(reducedMotionRule).not.toContain('inset-inline: 0 !important')
-    expect(filterDefinitions).toContain('createGlassNavbarDisplacementMap')
-    expect(filterDefinitions).toContain('NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP')
-    expect(filterDefinitions).toContain('getBoundingClientRect()')
-    expect(filterDefinitions).toContain('new ResizeObserver(scheduleDisplacementMapSync)')
-    expect(filterDefinitions).toContain('in2="map"')
-    expect(filterDefinitions).toContain(':width="displacementMapSize.width"')
-    expect(filterDefinitions).toContain(':height="displacementMapSize.height"')
-    expect(filterDefinitions).not.toMatch(/<feImage\b[^>]*\bwidth="100%"/u)
-    expect(filterDefinitions).not.toMatch(/<feImage\b[^>]*\bheight="100%"/u)
-    expect(filterDefinitions).toContain('scale="-22"')
-    expect(filterDefinitions).toContain('scale="-34"')
-    expect(filterDefinitions).toContain('x="0%"')
-    expect(filterDefinitions).toContain('y="0%"')
-    expect(filterDefinitions).toContain('width="100%"')
-    expect(filterDefinitions).toContain('height="100%"')
-    expect(filterDefinitions).not.toContain('x="-8%"')
-    expect(filterDefinitions).not.toContain('width="116%"')
-    expect(filterDefinitions).not.toContain('x="-12%"')
-    expect(filterDefinitions).not.toContain('width="124%"')
-    expect(filterDefinitions).not.toContain('horizontal-continuity')
-    expect(filterDefinitions).not.toContain('<feComposite')
-    expect(filterDefinitions).not.toContain('<feGaussianBlur')
-    expect(refractionUtilities).toContain('createGlassNavbarDisplacementField')
-    expect(refractionUtilities).toContain('OUTER_NEUTRAL_GUARD_PX')
-    expect(refractionUtilities).toContain('refractionProfile(distanceInside, bandWidth, outerGuard)')
-    expect(refractionUtilities).toContain("canvas.toDataURL('image/png')")
   })
 })

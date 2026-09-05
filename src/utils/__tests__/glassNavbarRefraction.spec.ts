@@ -1,5 +1,41 @@
 import { describe, expect, it } from 'vitest'
-import { createGlassNavbarDisplacementField, supportsGlassNavbarLiveRefraction } from '@/utils/glassNavbarRefraction'
+import {
+  createGlassNavbarDisplacementField,
+  getGlassNavbarOpticalResponse,
+  supportsGlassNavbarLiveRefraction,
+} from '@/utils/glassNavbarRefraction'
+
+describe('getGlassNavbarOpticalResponse', () => {
+  it('keeps default vertical deformation small while retaining substantial translation', () => {
+    const optics = getGlassNavbarOpticalResponse({ deformation: 48, translation: 48 })
+    expect(optics.translationPx).toBeCloseTo(8.16)
+    expect(optics.verticalRatio * 24).toBeLessThan(0.4)
+    expect(optics.horizontalRatio * 24).toBeGreaterThan(3)
+  })
+  it.each([
+    [0, 0],
+    [50, 8.5],
+    [99, 16.83],
+    [100, 17],
+  ])('maps translation %s linearly to %s pixels', (translation, pixels) => {
+    expect(getGlassNavbarOpticalResponse({ deformation: 48, translation }).translationPx).toBeCloseTo(pixels)
+  })
+  it('separates translation from deformation and limits the maximum translation', () => {
+    expect(getGlassNavbarOpticalResponse({ deformation: 0, translation: 100 })).toEqual({
+      horizontalRatio: 0,
+      verticalRatio: 0,
+      translationPx: 17,
+    })
+    expect(getGlassNavbarOpticalResponse({ deformation: 100, translation: 0 })).toEqual({
+      horizontalRatio: 0.42,
+      verticalRatio: 0.055,
+      translationPx: 0,
+    })
+    expect(getGlassNavbarOpticalResponse({ deformation: -30, translation: 300 }).translationPx).toBe(17)
+    expect(getGlassNavbarOpticalResponse({ deformation: 48, translation: 99 }).translationPx).toBeGreaterThan(16)
+    expect(getGlassNavbarOpticalResponse({ deformation: 48, translation: 99 }).translationPx).toBeLessThan(17)
+  })
+})
 
 describe('createGlassNavbarDisplacementField', () => {
   function pixelAt(field: ReturnType<typeof createGlassNavbarDisplacementField>, x: number, y: number) {
@@ -9,7 +45,12 @@ describe('createGlassNavbarDisplacementField', () => {
   }
 
   it('keeps both contour boundary and interior neutral while bending only the narrow rim', () => {
-    const field = createGlassNavbarDisplacementField({ height: 41, radius: 12, width: 101 })
+    const field = createGlassNavbarDisplacementField({
+      height: 41,
+      radius: 12,
+      width: 101,
+      optics: getGlassNavbarOpticalResponse({ deformation: 100, translation: 0 }),
+    })
 
     expect(field.width).toBe(101)
     expect(field.height).toBe(41)
@@ -27,38 +68,43 @@ describe('createGlassNavbarDisplacementField', () => {
     { width: 127, height: 64, radius: 8 },
     { width: 127, height: 64, radius: 32 },
   ])('keeps two-dimensional sampling forward and inside the image for $width x $height r$radius', geometry => {
-    const field = createGlassNavbarDisplacementField(geometry)
-    for (const scale of [-22, -34]) {
-      const source = (x: number, y: number) => {
-        const pixel = pixelAt(field, x, y)
-        return [x + 0.5 + scale * (pixel[0] / 255 - 0.5), y + 0.5 + scale * (pixel[2] / 255 - 0.5)]
-      }
-      let minimumDeterminant = Number.POSITIVE_INFINITY
-      let minimumX = Number.POSITIVE_INFINITY
-      let minimumY = Number.POSITIVE_INFINITY
-      let maximumX = 0
-      let maximumY = 0
-      for (let y = 0; y < field.height; y += 1) {
-        for (let x = 0; x < field.width; x += 1) {
-          const point = source(x, y)
-          minimumX = Math.min(minimumX, point[0])
-          minimumY = Math.min(minimumY, point[1])
-          maximumX = Math.max(maximumX, point[0])
-          maximumY = Math.max(maximumY, point[1])
-          if (x === field.width - 1 || y === field.height - 1) continue
-          const nextX = source(x + 1, y)
-          const nextY = source(x, y + 1)
-          const determinant =
-            (nextX[0] - point[0]) * (nextY[1] - point[1]) - (nextY[0] - point[0]) * (nextX[1] - point[1])
-          minimumDeterminant = Math.min(minimumDeterminant, determinant)
+    for (const deformation of [0, 48, 100])
+      for (const translation of [0, 48, 100])
+        for (const scale of [-22, -34]) {
+          const field = createGlassNavbarDisplacementField({
+            ...geometry,
+            optics: getGlassNavbarOpticalResponse({ deformation, translation }),
+          })
+          const source = (x: number, y: number) => {
+            const pixel = pixelAt(field, x, y)
+            return [x + 0.5 + scale * (pixel[0] / 255 - 0.5), y + 0.5 + scale * (pixel[2] / 255 - 0.5)]
+          }
+          let minimumDeterminant = Number.POSITIVE_INFINITY
+          let minimumX = Number.POSITIVE_INFINITY
+          let minimumY = Number.POSITIVE_INFINITY
+          let maximumX = 0
+          let maximumY = 0
+          for (let y = 0; y < field.height; y += 1) {
+            for (let x = 0; x < field.width; x += 1) {
+              const point = source(x, y)
+              minimumX = Math.min(minimumX, point[0])
+              minimumY = Math.min(minimumY, point[1])
+              maximumX = Math.max(maximumX, point[0])
+              maximumY = Math.max(maximumY, point[1])
+              if (x === field.width - 1 || y === field.height - 1) continue
+              const nextX = source(x + 1, y)
+              const nextY = source(x, y + 1)
+              const determinant =
+                (nextX[0] - point[0]) * (nextY[1] - point[1]) - (nextY[0] - point[0]) * (nextX[1] - point[1])
+              minimumDeterminant = Math.min(minimumDeterminant, determinant)
+            }
+          }
+          expect(minimumDeterminant).toBeGreaterThan(0.05)
+          expect(minimumX).toBeGreaterThanOrEqual(0)
+          expect(minimumY).toBeGreaterThanOrEqual(0)
+          expect(maximumX).toBeLessThanOrEqual(field.width)
+          expect(maximumY).toBeLessThanOrEqual(field.height)
         }
-      }
-      expect(minimumDeterminant).toBeGreaterThan(0.05)
-      expect(minimumX).toBeGreaterThanOrEqual(0)
-      expect(minimumY).toBeGreaterThanOrEqual(0)
-      expect(maximumX).toBeLessThanOrEqual(field.width)
-      expect(maximumY).toBeLessThanOrEqual(field.height)
-    }
   })
 
   it('clamps invalidly small geometry to a renderable pixel surface', () => {
@@ -84,10 +130,10 @@ describe('createGlassNavbarDisplacementField', () => {
       maximumVerticalStep = Math.max(maximumVerticalStep, 1 + current - previous)
     }
     for (let x = 0; x < 32; x += 1) maximumHorizontal = Math.max(maximumHorizontal, Math.abs(displacement(x, 32, 0)))
-    expect(maximumHorizontal).toBeGreaterThan(7)
-    expect(maximumVertical).toBeLessThan(2.6)
-    expect(minimumVerticalStep).toBeGreaterThan(0.59)
-    expect(maximumVerticalStep).toBeLessThan(1.41)
+    expect(maximumHorizontal).toBeGreaterThan(1.5)
+    expect(maximumVertical).toBeLessThan(0.5)
+    expect(minimumVerticalStep).toBeGreaterThan(0.85)
+    expect(maximumVerticalStep).toBeLessThan(1.15)
   })
 })
 

@@ -1686,19 +1686,57 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   body[data-theme='glass']
   .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: blur(1.5px) saturate(118%);
+  // 共享材质响应只改变浮动表面的光学参数，不把内容层一起变暗或变透明。
+  // 0.38 是 Natural clear/high 的反射参考值，三个亮边在该点保持默认材质能量。
+  --glass-navbar-reflection-ratio: clamp(0, calc(var(--glass-reflection, 0.38) * 2.6316), 1.7);
+  --glass-navbar-sheen-opacity: clamp(0, calc(0.18 * var(--glass-navbar-reflection-ratio)), 0.3);
+  --glass-navbar-rim-opacity: clamp(0, calc(0.24 * var(--glass-navbar-reflection-ratio)), 0.4);
+  --glass-navbar-top-opacity: clamp(0, calc(0.4 * var(--glass-navbar-reflection-ratio)), 0.65);
+  --glass-navbar-opacity: clamp(
+    0,
+    calc(0.02 + var(--glass-surface-density, 0.62) * 0.05 + (1 - var(--glass-background-visibility, 0.58)) * 0.02),
+    0.2
+  );
+  --glass-navbar-scrim-end: clamp(
+    0,
+    calc(0.045 + var(--glass-surface-density, 0.62) * 0.1 + (1 - var(--glass-background-visibility, 0.58)) * 0.05),
+    0.28
+  );
+  --glass-navbar-blur: clamp(
+    0.35px,
+    calc(0.62px + var(--glass-surface-density, 0.62) * 0.8px - var(--glass-background-visibility, 0.58) * 0.25px),
+    1.4px
+  );
+  --glass-navbar-brightness: var(--glass-transmission-brightness, 1);
+  --glass-navbar-saturation: clamp(
+    110%,
+    calc(110% + var(--glass-background-visibility, 0.58) * 12% + var(--glass-tint-density, 0.65) * 4%),
+    124%
+  );
+  --glass-navbar-sheen: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, var(--glass-navbar-sheen-opacity)),
+    transparent 38%
+  );
+  --glass-navbar-rim: rgba(255, 255, 255, var(--glass-navbar-rim-opacity));
+  --glass-navbar-scrim: linear-gradient(
+    rgba(7, 14, 25, var(--glass-navbar-opacity)),
+    rgba(7, 14, 25, var(--glass-navbar-scrim-end))
+  );
+  --glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18);
+  --glass-navbar-shadow:
+    inset 0 0 0 1px var(--glass-navbar-rim), inset 0 1px 2px rgba(255, 255, 255, var(--glass-navbar-top-opacity)),
+    inset 0 -1px 2px rgba(4, 10, 20, calc(0.1 + var(--glass-surface-density, 0.62) * 0.12)),
+    0 12px 32px
+      rgba(3, 7, 18, calc(0.08 + var(--glass-reflection, 0.5) * 0.1 + var(--glass-surface-density, 0.62) * 0.08));
+  --glass-navbar-live-filter: blur(var(--glass-navbar-blur)) saturate(var(--glass-navbar-saturation))
+    brightness(var(--glass-navbar-brightness));
 
   border: 0 !important;
   -webkit-backdrop-filter: var(--glass-navbar-live-filter) !important;
   backdrop-filter: var(--glass-navbar-live-filter) !important;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 38%),
-    linear-gradient(rgba(7, 14, 25, 0.06), rgba(7, 14, 25, 0.13)) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
-    inset 0 1px 2px rgba(255, 255, 255, 0.4),
-    inset 0 -1px 2px rgba(4, 10, 20, 0.22),
-    0 12px 32px rgba(3, 7, 18, 0.16) !important;
+  background: var(--glass-navbar-sheen), var(--glass-navbar-scrim) !important;
+  box-shadow: var(--glass-navbar-shadow) !important;
   inset-block-start: var(--shell-floating-navbar-inset) !important;
   inset-inline: var(--shell-floating-navbar-inset) !important;
 }
@@ -1711,7 +1749,8 @@ html[data-theme='glass'][data-glass-quality='high']:is(
   body[data-theme='glass']
   .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-high') blur(1px) saturate(122%);
+  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-high') blur(var(--glass-navbar-blur))
+    saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
 }
 
 html[data-theme='glass'][data-glass-quality='balanced']:is(
@@ -1721,7 +1760,8 @@ html[data-theme='glass'][data-glass-quality='balanced']:is(
   body[data-theme='glass']
   .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-balanced') blur(1.5px) saturate(118%);
+  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-balanced') blur(var(--glass-navbar-blur))
+    saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
 }
 
 html[data-theme='glass'][data-glass-appearance='tinted']
@@ -1729,9 +1769,12 @@ html[data-theme='glass'][data-glass-appearance='tinted']
   .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 38%),
-    linear-gradient(rgba(var(--glass-material-accent-rgb), 0.09), rgba(var(--glass-material-accent-rgb), 0.035)),
-    linear-gradient(rgba(7, 14, 25, 0.08), rgba(7, 14, 25, 0.15)) !important;
+    var(--glass-navbar-sheen),
+    linear-gradient(
+      rgba(var(--glass-material-accent-rgb), var(--glass-navbar-tint)),
+      rgba(var(--glass-material-accent-rgb), calc(var(--glass-navbar-tint) * 0.45))
+    ),
+    var(--glass-navbar-scrim) !important;
 }
 
 @media (prefers-reduced-transparency: reduce) {

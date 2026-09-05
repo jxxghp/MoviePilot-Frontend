@@ -1,5 +1,18 @@
 <script lang="ts" setup>
-import { createGlassNavbarDisplacementMap, NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP } from '@/utils/glassNavbarRefraction'
+import {
+  createGlassNavbarDisplacementMap,
+  getGlassNavbarOpticalResponse,
+  NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP,
+} from '@/utils/glassNavbarRefraction'
+import { useEffectiveGlassSettings } from '@/composables/useThemeCustomizer'
+
+const settings = useEffectiveGlassSettings()
+const opticalResponse = computed(() =>
+  getGlassNavbarOpticalResponse({
+    deformation: settings.value.glassDeformationStrength,
+    translation: settings.value.glassTranslationStrength,
+  }),
+)
 
 const DEFAULT_NAVBAR_GEOMETRY = {
   height: 64,
@@ -94,7 +107,8 @@ async function syncDisplacementMap() {
   const width = Math.max(1, Math.round(bounds.width))
 
   const radius = Number.isFinite(borderRadius) ? borderRadius : DEFAULT_NAVBAR_GEOMETRY.radius
-  const geometryKey = `${width}:${height}:${radius}`
+  const optics = opticalResponse.value
+  const geometryKey = `${width}:${height}:${radius}:${optics.horizontalRatio}:${optics.verticalRatio}:${optics.translationPx}`
   if (lastObservedGeometry !== geometryKey) {
     lastObservedGeometry = geometryKey
     failedGeometry = ''
@@ -103,7 +117,7 @@ async function syncDisplacementMap() {
   try {
     if (cachedGeometry !== geometryKey) {
       if (failedGeometry === geometryKey) return
-      const map = createGlassNavbarDisplacementMap({ height, radius, width })
+      const map = createGlassNavbarDisplacementMap({ height, radius, width, optics })
       if (map === NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP) {
         failedGeometry = geometryKey
         invalidateDisplacementMap()
@@ -158,6 +172,9 @@ function handleGeometryTransition(event: TransitionEvent) {
     if (geometryTransitions.size === 0) scheduleDisplacementMapSync()
   }
 }
+
+// 草稿预览和取消复用同一有效参数源，旧异步解码不可覆盖新的滑杆值。
+watch(opticalResponse, scheduleDisplacementMapSync, { flush: 'sync' })
 
 onMounted(() => {
   observedNavbar = document.querySelector('.layout-wrapper[data-glass-navbar-refraction="chromium"] .layout-navbar')

@@ -2,11 +2,15 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import GlassNavbarRefractionDefs from '../GlassNavbarRefractionDefs.vue'
 import { createGlassNavbarDisplacementMap } from '@/utils/glassNavbarRefraction'
+import { ref } from 'vue'
 
-vi.mock('@/utils/glassNavbarRefraction', () => ({
+vi.mock('@/utils/glassNavbarRefraction', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/utils/glassNavbarRefraction')>()),
   createGlassNavbarDisplacementMap: vi.fn(() => 'data:image/png;base64,test'),
   NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP: 'neutral',
 }))
+const effectiveSettings = ref({ glassDeformationStrength: 48, glassTranslationStrength: 48 })
+vi.mock('@/composables/useThemeCustomizer', () => ({ useEffectiveGlassSettings: () => effectiveSettings }))
 
 describe('GlassNavbarRefractionDefs', () => {
   let shell: HTMLDivElement
@@ -24,6 +28,7 @@ describe('GlassNavbarRefractionDefs', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    effectiveSettings.value = { glassDeformationStrength: 48, glassTranslationStrength: 48 }
     width = 1423
     radius = 16
     transparencyReduced = false
@@ -121,7 +126,9 @@ describe('GlassNavbarRefractionDefs', () => {
     wrapper = mount(GlassNavbarRefractionDefs)
     expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
     await settle()
-    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledWith({ width: 1423, height: 64, radius: 16 })
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 1423, height: 64, radius: 16 }),
+    )
     expectReadyForWidth(1423)
   })
 
@@ -135,7 +142,9 @@ describe('GlassNavbarRefractionDefs', () => {
     width = 1200
     resize?.([], {} as ResizeObserver)
     await settle()
-    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith({ width: 1200, height: 64, radius: 16 })
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1200, height: 64, radius: 16 }),
+    )
     expectReadyForWidth(1200)
   })
 
@@ -145,6 +154,22 @@ describe('GlassNavbarRefractionDefs', () => {
     await settle()
     expect(createGlassNavbarDisplacementMap).not.toHaveBeenCalled()
     expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+  })
+
+  it('rebuilds on effective preview parameters and restores the cancelled draft', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    effectiveSettings.value = { glassDeformationStrength: 0, glassTranslationStrength: 100 }
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    await settle()
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ optics: { horizontalRatio: 0, verticalRatio: 0, translationPx: 17 } }),
+    )
+    effectiveSettings.value = { glassDeformationStrength: 48, glassTranslationStrength: 48 }
+    await settle()
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ optics: expect.objectContaining({ translationPx: 8.16 }) }),
+    )
   })
 
   it('does not activate a pending map after switching to CSS quality', async () => {
@@ -181,14 +206,18 @@ describe('GlassNavbarRefractionDefs', () => {
     expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
     dispatchTransition('transitionend', 'width')
     await settle()
-    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith({ width: 1200, height: 64, radius: 16 })
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1200, height: 64, radius: 16 }),
+    )
     expectReadyForWidth(1200)
 
     radius = 20
     dispatchTransition('transitionrun', 'border-radius')
     dispatchTransition('transitioncancel', 'border-radius')
     await settle()
-    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith({ width: 1200, height: 64, radius: 20 })
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1200, height: 64, radius: 20 }),
+    )
     expectReadyForWidth(1200)
   })
 
@@ -221,7 +250,9 @@ describe('GlassNavbarRefractionDefs', () => {
     shell.style.setProperty('--shell-floating-navbar-radius', '20px')
     await flushPromises()
     await settle()
-    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith({ width: 1423, height: 64, radius: 20 })
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1423, height: 64, radius: 20 }),
+    )
   })
 
   it('does not retry a failed geometry in a feedback loop', async () => {
@@ -248,7 +279,9 @@ describe('GlassNavbarRefractionDefs', () => {
     width = 1200
     window.dispatchEvent(new Event('resize'))
     await settle()
-    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith({ width: 1200, height: 64, radius: 16 })
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1200, height: 64, radius: 16 }),
+    )
 
     wrapper.unmount()
     wrapper = undefined

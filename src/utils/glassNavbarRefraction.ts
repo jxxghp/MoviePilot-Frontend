@@ -1,3 +1,9 @@
+import {
+  getGlassOpticalPresetParameters,
+  normalizeGlassOpticalStrength,
+  type GlassOpticalParameters,
+} from '@/utils/glassOptics'
+
 export interface GlassNavbarRefractionBrowserIdentity {
   /** User-Agent Client Hints 暴露的浏览器品牌。 */
   userAgentData?: {
@@ -16,6 +22,32 @@ export interface GlassNavbarDisplacementGeometry {
   radius: number
   /** 折射表面的实际 CSS 像素宽度。 */
   width: number
+  /** 由当前生效滑杆计算的顶栏光学响应；省略时采用清透自然默认值。 */
+  optics?: GlassNavbarOpticalResponse
+}
+
+/** 顶栏局部取样预算，不包含共享 renderer 的流动、尾波与惯性。 */
+export interface GlassNavbarOpticalResponse {
+  /** 横向边缘峰值位移与轮廓带宽之比。 */
+  horizontalRatio: number
+  /** 纵向峰值位移与轮廓带宽之比，严格小于横向以保护字形高度。 */
+  verticalRatio: number
+  /** 主体内容统一向右显示的 CSS 像素偏移，外轮廓平缓回零。 */
+  translationPx: number
+}
+
+/** 自然默认值即呈现明显短边折射；纵向形变与平移独立限幅以保护阅读。 */
+export function getGlassNavbarOpticalResponse(
+  parameters: Pick<GlassOpticalParameters, 'deformation' | 'translation'>,
+): GlassNavbarOpticalResponse {
+  const deformation = normalizeGlassOpticalStrength(parameters.deformation) / 100
+  const translation = normalizeGlassOpticalStrength(parameters.translation) / 100
+  return {
+    horizontalRatio: 0.42 * (1 - (1 - deformation) ** 3),
+    verticalRatio: 0.055 * deformation ** 2,
+    // 平移使用线性刻度，50% 对应 8.5px；不把平移强度叠加到字形纵向缩放。
+    translationPx: 17 * translation,
+  }
 }
 
 export interface GlassNavbarDisplacementField {
@@ -35,10 +67,8 @@ const HIGH_REFRACTION_SCALE_PX = 34
 const OUTER_NEUTRAL_GUARD_PX = 0.5
 const REFRACTION_BAND_PX = 24
 // 峰值靠近外沿，内侧有足够距离释放放大率；对称波峰会在窄轮廓内反向采样。
-const MAX_DISPLACEMENT_BAND_RATIO = 0.42
 const PEAK_DEPTH_RATIO = 0.16
-// 文本沿纵向滚动穿过长边时，限制字形高度的局部伸缩；短边保留更强的水平透镜。
-const VERTICAL_DISPLACEMENT_BAND_RATIO = 0.1
+const DEFAULT_NAVBAR_OPTICS = getGlassNavbarOpticalResponse(getGlassOpticalPresetParameters('clear', 'high', 'natural'))
 
 function normalizePixelSize(value: number) {
   return Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1
@@ -70,12 +100,13 @@ function refractionProfile(depth: number, band: number, guard: number) {
 
 /**
  * 生成圆角表面的法线位移场。
- * 外轮廓和内区都保持中性采样，避免折射在裁剪边界或主体内容区形成整带错位。
+ * 外轮廓回到中性；内部统一平移与局部透镜分开计算，不用弯曲字形代替平移。
  */
 export function createGlassNavbarDisplacementField({
   height,
   radius,
   width,
+  optics = DEFAULT_NAVBAR_OPTICS,
 }: GlassNavbarDisplacementGeometry): GlassNavbarDisplacementField {
   const pixelWidth = normalizePixelSize(width)
   const pixelHeight = normalizePixelSize(height)
@@ -104,14 +135,20 @@ export function createGlassNavbarDisplacementField({
       const cornerBand = Math.min(maximumBand, pixelRadius)
       const bandWidth = cornerBand + (maximumBand - cornerBand) * straightWeight
       const outerGuard = Math.min(OUTER_NEUTRAL_GUARD_PX, bandWidth / 4)
-      const channelAmplitude = (bandWidth * MAX_DISPLACEMENT_BAND_RATIO * 255) / HIGH_REFRACTION_SCALE_PX
+      const channelAmplitude = (bandWidth * optics.horizontalRatio * 255) / HIGH_REFRACTION_SCALE_PX
 
-      if (signedDistance > 0 || distanceInside <= outerGuard || distanceInside >= bandWidth) continue
+      if (
+        signedDistance > 0 ||
+        distanceInside <= outerGuard ||
+        bandWidth <= outerGuard ||
+        Math.min(pixelWidth, pixelHeight) < 4
+      )
+        continue
 
-      const profile = refractionProfile(distanceInside, bandWidth, outerGuard)
-      const verticalProgress = (distanceInside - outerGuard) / (bandWidth - outerGuard)
+      const profile = distanceInside < bandWidth ? refractionProfile(distanceInside, bandWidth, outerGuard) : 0
+      const verticalProgress = Math.min(1, (distanceInside - outerGuard) / (bandWidth - outerGuard))
       const verticalProfile = Math.sin(Math.PI * verticalProgress) ** 2
-      const verticalAmplitude = (bandWidth * VERTICAL_DISPLACEMENT_BAND_RATIO * 255) / HIGH_REFRACTION_SCALE_PX
+      const verticalAmplitude = (bandWidth * optics.verticalRatio * 255) / HIGH_REFRACTION_SCALE_PX
       const gradientX =
         roundedRectangleSignedDistance(sampleX + 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius) -
         roundedRectangleSignedDistance(sampleX - 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius)
@@ -120,9 +157,13 @@ export function createGlassNavbarDisplacementField({
         roundedRectangleSignedDistance(sampleX, sampleY - 0.5, pixelWidth, pixelHeight, pixelRadius)
       const gradientLength = Math.hypot(gradientX, gradientY) || 1
       const offset = (y * pixelWidth + x) * 4
+      // 横向平移从边缘透镜退出后进入，避免两种回落梯度叠加导致局部反向采样。
+      const horizontalRamp = smoothstep(Math.max(0, Math.min(1, (edgeX - maximumBand) / 64)))
+      const verticalRamp = smoothstep(Math.min(1, (edgeY - outerGuard) / Math.max(1, Math.min(12, maximumBand))))
+      const translationChannel = (optics.translationPx * horizontalRamp * verticalRamp * 255) / HIGH_REFRACTION_SCALE_PX
 
       pixels[offset] = clampChannel(
-        DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientX * profile) / gradientLength,
+        DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientX * profile) / gradientLength + translationChannel,
       )
       pixels[offset + 2] = clampChannel(
         DISPLACEMENT_NEUTRAL_CHANNEL + (verticalAmplitude * gradientY * verticalProfile) / gradientLength,
