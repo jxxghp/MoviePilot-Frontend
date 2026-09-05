@@ -74,7 +74,7 @@ const aiRedoIds = ref<number[]>([])
 // AI整理进度
 const aiRedoProgressActive = ref(false)
 const aiRedoProgressText = ref(t('transferHistory.actions.aiRedoPending'))
-const aiRedoProgressSSE = ref<any>(null)
+const aiRedoProgressSSE = ref<ReturnType<typeof useProgressSSE> | null>(null)
 const aiRedoProgressHistoryIds = ref<number[]>([])
 let aiRedoProgressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
@@ -86,6 +86,13 @@ const redoTargetStorage = ref<string>()
 
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
+
+interface TransferHistoryDisplayItem extends TransferHistory {
+  history_group_is_music_album: boolean
+  history_group_key: string
+  history_group_label: string
+  history_group_track_key: string
+}
 
 // 当前删除尝试已完成的文件步骤，页面刷新后由后端“已不存在”状态重新确认。
 const completedDeleteSteps = new Map<number, { source: boolean; destination: boolean }>()
@@ -255,7 +262,7 @@ const pageRange = [
 const pageRangeValues = pageRange.map(item => item.value)
 
 // 数据列表
-const dataList = ref<TransferHistory[]>([])
+const dataList = ref<TransferHistoryDisplayItem[]>([])
 
 // 移动端历史记录列表，独立于桌面分页表格。
 const mobileDataList = ref<TransferHistory[]>([])
@@ -297,11 +304,13 @@ const totalItems = ref(0)
 
 // 是否要分组
 const group = ref<boolean>(route.query.grouped === 'true')
+// 区分默认平铺与用户显式选择平铺，避免搜索/翻页提前关闭后续专辑自动分组。
+const groupPreferenceExplicit = ref(route.query.grouped !== undefined)
 
 // 分组条件
-const groupBy = ref<any>([
+const groupBy = ref<Array<{ key: string }>>([
   {
-    key: 'title',
+    key: 'history_group_key',
   },
 ])
 
@@ -517,6 +526,72 @@ watch(isDesktop, desktop => {
   }
 })
 
+// 统一 Windows 与 POSIX 路径后返回父目录；音乐整理后的父目录就是播放器使用的专辑目录。
+function normalizeHistoryPath(path?: string) {
+  let normalized = (path || '').replaceAll('\\', '/')
+  while (normalized.endsWith('/')) normalized = normalized.slice(0, -1)
+  return normalized
+}
+
+function getHistoryParentPath(path?: string) {
+  const normalized = normalizeHistoryPath(path)
+  const separator = normalized.lastIndexOf('/')
+  return separator > 0 ? normalized.slice(0, separator) : ''
+}
+
+// 从完整路径中提取分组标题，保留整理规则生成的专辑名与年份。
+function getHistoryPathName(path: string) {
+  return path.split('/').filter(Boolean).at(-1) || path
+}
+
+// 音乐按目标专辑目录分组，旧记录或失败记录则回退到源目录；其它媒体保持原有的标题分组。
+function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem {
+  if (item.type === '音乐') {
+    const candidates = item.status
+      ? ([
+          [item.dest, item.dest_storage],
+          [item.src, item.src_storage],
+        ] as const)
+      : item.src
+        ? ([[item.src, item.src_storage]] as const)
+        : ([[item.dest, item.dest_storage]] as const)
+    for (const [path, storage] of candidates) {
+      const normalizedPath = normalizeHistoryPath(path)
+      const albumPath = getHistoryParentPath(normalizedPath)
+      if (!albumPath) continue
+      return {
+        ...item,
+        history_group_is_music_album: true,
+        history_group_key: `music:${JSON.stringify([storage || '', albumPath])}`,
+        history_group_label: getHistoryPathName(albumPath),
+        history_group_track_key: JSON.stringify([storage || '', normalizedPath]),
+      }
+    }
+  }
+
+  const title = item.title || t('common.unknown')
+  return {
+    ...item,
+    history_group_is_music_album: false,
+    history_group_key: `title:${JSON.stringify(item.title ?? null)}`,
+    history_group_label: title,
+    history_group_track_key: `history:${item.id}`,
+  }
+}
+
+// 当前页出现同一专辑的多首音乐时，首次访问自动切换到可展开的分组视图。
+function hasMusicAlbumGroup(items: TransferHistoryDisplayItem[]) {
+  const tracksByAlbum = new Map<string, Set<string>>()
+  for (const item of items) {
+    if (!item.history_group_is_music_album) continue
+    const tracks = tracksByAlbum.get(item.history_group_key) || new Set<string>()
+    tracks.add(item.history_group_track_key)
+    if (tracks.size > 1) return true
+    tracksByAlbum.set(item.history_group_key, tracks)
+  }
+  return false
+}
+
 // 获取历史记录数据，keep-alive 重新进入时可静默刷新，避免表格出现重新加载感。
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
   const requestSeed = ++fetchDataRequestSeed
@@ -539,9 +614,10 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     const list = Array.isArray(result.list) ? result.list : []
 
     isRefreshed.value = true
-    dataList.value = list
+    const displayList = list.map(toHistoryDisplayItem)
+    dataList.value = displayList
     if (isDesktop.value && selected.value.length > 0) {
-      const refreshedItems = new Map(list.map(item => [item.id, item]))
+      const refreshedItems = new Map(displayList.map(item => [item.id, item]))
       selected.value = selected.value.flatMap(item => {
         const refreshed = refreshedItems.get(item.id)
         return refreshed ? [refreshed] : []
@@ -549,6 +625,10 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     }
     totalItems.value = ensureNumber(result.total, 0)
     updateSearchHintList(list)
+
+    if (isDesktop.value && route.query.grouped === undefined && hasMusicAlbumGroup(displayList)) {
+      group.value = true
+    }
 
     return {
       list,
@@ -682,12 +762,14 @@ function resetMobileHistory(options: MobileHistoryResetOptions = {}) {
   mobileInfiniteKey.value++
 }
 
-// 移动端只从路由同步搜索词，不接收桌面分页和分组状态。
+// 移动端不启用桌面分组视图，但保留其显式偏好，避免搜索时从地址栏丢失。
 function syncMobileSearchFromRouteQuery() {
   syncingRouteQuery = true
   try {
     search.value = getRouteQueryString(route.query.search)
     statusFilter.value = getRouteStatusFilter(route.query.status)
+    group.value = route.query.grouped === 'true'
+    groupPreferenceExplicit.value = route.query.grouped !== undefined
   } finally {
     void nextTick(() => {
       syncingRouteQuery = false
@@ -787,6 +869,7 @@ async function syncStateFromRouteQuery() {
     itemsPerPage.value = ensurePageSize(route.query.itemsPerPage, 50)
     currentPage.value = Math.max(1, ensureNumber(route.query.currentPage, 1))
     group.value = route.query.grouped === 'true'
+    groupPreferenceExplicit.value = route.query.grouped !== undefined
   } finally {
     await nextTick()
     syncingRouteQuery = false
@@ -1228,8 +1311,8 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
   if (page) {
     query.currentPage = String(page)
   }
-  if (group.value) {
-    query.grouped = 'true'
+  if (group.value || groupPreferenceExplicit.value) {
+    query.grouped = String(group.value)
   }
 
   return {
@@ -1248,18 +1331,21 @@ async function reloadMobileSearchPage() {
   await router.push(createHistoryUrl(true))
 }
 
+// 只有工具栏按钮切换才属于显式偏好；数据驱动的自动分组不把默认平铺误记为用户选择。
+function toggleHistoryGrouping() {
+  groupPreferenceExplicit.value = true
+  group.value = !group.value
+}
+
 // 确保值为number类型
-function ensureNumber(value: any, defaultValue: number = 0) {
-  value = Number(value)
+function ensureNumber(value: unknown, defaultValue: number = 0) {
+  const numberValue = Number(value)
   // 如果不是数字
-  if (Number.isNaN(value)) {
-    value = defaultValue
-  }
-  return value
+  return Number.isNaN(numberValue) ? defaultValue : numberValue
 }
 
 // 校验分页条数，避免地址栏参数超出可选范围。
-function ensurePageSize(value: any, defaultValue: number = 50) {
+function ensurePageSize(value: unknown, defaultValue: number = 50) {
   const pageSize = ensureNumber(value, defaultValue)
   return pageRangeValues.includes(pageSize) ? pageSize : defaultValue
 }
@@ -1438,20 +1524,34 @@ function deselectAllMobileHistory() {
   updateHistorySelection(mobileDataList.value, false)
 }
 
-// 按标题分组后的选中数量统计，键为标题，值为对应分组的选中数
-const selectedCountsGroupedByTitle = computed(() => {
+// 按展示分组统计选中数量，音乐专辑使用目录身份，其它媒体沿用标题身份。
+const selectedCountsGroupedByKey = computed(() => {
   return selected.value.reduce(
     (acc, item) => {
-      const title = item.title || ''
-      acc[title] = (acc[title] || 0) + 1
+      const key = (item as Partial<TransferHistoryDisplayItem>).history_group_key || item.title || ''
+      acc[key] = (acc[key] || 0) + 1
       return acc
     },
     {} as Record<string, number>,
   )
 })
 
+interface TransferHistoryGroupItem {
+  value: TransferHistoryDisplayItem
+}
+
+// Vuetify 分组项包装了原始记录，标题取第一条记录的展示标签。
+function getHistoryGroupLabel(items: readonly TransferHistoryGroupItem[]) {
+  return items[0]?.value?.history_group_label || t('common.unknown')
+}
+
+// 曲目数量只属于音乐专辑组，非音乐标题组保持原有展示。
+function isMusicAlbumGroup(items: readonly TransferHistoryGroupItem[]) {
+  return Boolean(items[0]?.value?.history_group_is_music_album)
+}
+
 // 控制分组内所有子项的选中状态
-const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) => {
+const toggleGroupSelection = (checked: boolean | null, items: readonly TransferHistoryGroupItem[]) => {
   const values = items.map(item => item.value)
   updateHistorySelection(values, checked)
 }
@@ -1599,6 +1699,7 @@ onMounted(() => {
   if (isDesktop.value) {
     void refreshDataFromRouteQuery()
   } else {
+    syncMobileSearchFromRouteQuery()
     resetMobileHistory()
   }
 })
@@ -1671,7 +1772,10 @@ onUnmounted(() => {
           </VCol>
           <VCol cols="4" md="4" class="text-end">
             <VBtnGroup variant="outlined" divided rounded>
-              <VBtn :icon="group ? 'mdi-format-list-bulleted' : 'mdi-format-list-group'" @click="group = !group" />
+              <VBtn
+                :icon="group ? 'mdi-format-list-bulleted' : 'mdi-format-list-group'"
+                @click="toggleHistoryGrouping"
+              />
             </VBtnGroup>
           </VCol>
         </VRow>
@@ -1707,11 +1811,17 @@ onUnmounted(() => {
                 @click="toggleGroup(item)"
               />
               <VCheckbox
-                :model-value="selectedCountsGroupedByTitle[item.value] == item.items.length"
-                :indeterminate="selectedCountsGroupedByTitle[item.value] < item.items.length"
+                :model-value="selectedCountsGroupedByKey[item.value] == item.items.length"
+                :indeterminate="
+                  selectedCountsGroupedByKey[item.value] > 0 &&
+                  selectedCountsGroupedByKey[item.value] < item.items.length
+                "
                 @update:modelValue="checked => toggleGroupSelection(checked, item.items)"
               />
-              {{ item.value }}
+              <span>{{ getHistoryGroupLabel(item.items) }}</span>
+              <VChip v-if="item.items.length > 1 && isMusicAlbumGroup(item.items)" size="x-small" variant="tonal">
+                {{ t('music.trackCount', { count: item.items.length }) }}
+              </VChip>
             </div>
           </td>
         </tr>
