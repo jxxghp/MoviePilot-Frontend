@@ -7,10 +7,18 @@ import { useToast } from 'vue-toastification'
 import noImage from '@images/no-image.jpeg'
 import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
-import type { FileItem, MediaInfo, TransferQueue } from '@/api/types'
+import type {
+  FileItem,
+  MediaInfo,
+  TransferManualReviewPage,
+  TransferManualReviewTask,
+  TransferQueue,
+} from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import TransferManualReviewDialog from './TransferManualReviewDialog.vue'
 
 type TransferTask = TransferQueue['tasks'][number]
 type FileProgressSSE = ReturnType<ReturnType<typeof useBackground>['useProgressSSE']>
@@ -44,6 +52,11 @@ const dataList = ref<TransferQueue[]>([])
 
 const queueLoadFailed = ref(false)
 
+// durable 整理执行异常后等待管理员判定的任务。
+const manualReviews = ref<TransferManualReviewTask[]>([])
+const manualReviewTotal = ref(0)
+const manualReviewLoadFailed = ref(false)
+
 // 文件进度映射
 const fileProgressMap = ref<Map<string, { enable: boolean; value: number }>>(new Map())
 
@@ -62,6 +75,8 @@ const fileProgressSSEMap = ref<Map<string, FileProgressSSE>>(new Map())
 // 请求只能覆盖更早提交的快照，较新的未完成请求不阻塞当前可用结果。
 let nextQueueRequestId = 0
 let latestCommittedQueueRequestId = 0
+let nextManualReviewRequestId = 0
+let latestCommittedManualReviewRequestId = 0
 
 // 异步操作完成后只有仍挂载的弹窗可以继续刷新队列或提示错误。
 let isMounted = false
@@ -209,6 +224,12 @@ function getTaskProgress(task: TransferTask) {
   return getFileProgress(task.fileitem.path).value
 }
 
+// 从完整源路径提取文件名，列表保留完整路径作为 title 方便定位原文件。
+function getManualReviewFileName(path: string) {
+  const normalizedPath = path.replace(/\\/g, '/')
+  return normalizedPath.split('/').pop() || path
+}
+
 // 调用API获取队列信息。
 async function get_transfer_queue() {
   const requestId = ++nextQueueRequestId
@@ -234,6 +255,48 @@ async function get_transfer_queue() {
     queueLoadFailed.value = true
     console.error(error)
   }
+}
+
+// 单独拉取人工复核列表，避免队列接口异常时覆盖另一类状态的可见结果。
+async function get_manual_reviews() {
+  const requestId = ++nextManualReviewRequestId
+
+  try {
+    const result = (await api.get<TransferManualReviewPage>('transfer/tasks/manual-reviews', {
+      params: {
+        state: 'manual_review',
+        page: 1,
+        page_size: 100,
+      },
+    })) as TransferManualReviewPage
+    if (!isMounted || requestId < latestCommittedManualReviewRequestId) return
+
+    latestCommittedManualReviewRequestId = requestId
+    manualReviewLoadFailed.value = false
+    manualReviews.value = Array.isArray(result?.items) ? result.items : []
+    manualReviewTotal.value = typeof result?.total === 'number' ? result.total : manualReviews.value.length
+  } catch (error) {
+    if (!isMounted || requestId < latestCommittedManualReviewRequestId) return
+
+    latestCommittedManualReviewRequestId = requestId
+    manualReviewLoadFailed.value = true
+    console.error('加载整理人工复核任务失败:', error)
+  }
+}
+
+// 打开人工复核详情；提交成功后同时刷新 durable 复核列表和活动队列。
+function openManualReview(review: TransferManualReviewTask) {
+  openSharedDialog(
+    TransferManualReviewDialog,
+    { review },
+    {
+      resolved: () => {
+        void get_manual_reviews()
+        void get_transfer_queue()
+      },
+    },
+    { closeOn: ['close', 'resolved'] },
+  )
 }
 
 // 移除队列任务。
@@ -338,8 +401,12 @@ function stopLoadingProgress() {
 function startQueueTimer() {
   if (queueTimer.value) clearInterval(queueTimer.value)
 
-  get_transfer_queue()
-  queueTimer.value = setInterval(() => get_transfer_queue(), 3000)
+  void get_transfer_queue()
+  void get_manual_reviews()
+  queueTimer.value = setInterval(() => {
+    void get_transfer_queue()
+    void get_manual_reviews()
+  }, 3000)
 }
 
 // 停止定时获取队列。
@@ -366,12 +433,17 @@ onUnmounted(() => {
 <template>
   <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="mx-auto" width="100%">
-      <VCardItem :class="{ 'py-2': dataList.length > 0 }">
+      <VCardItem :class="{ 'py-2': dataList.length > 0 || manualReviews.length > 0 }">
         <VDialogCloseBtn @click="emit('close')" />
         <template #prepend>
           <VIcon icon="mdi-menu" color="primary" size="28" class="me-2" />
         </template>
-        <VCardTitle>{{ t('dialog.transferQueue.title') }}</VCardTitle>
+        <VCardTitle class="d-flex align-center ga-2">
+          <span>{{ t('dialog.transferQueue.title') }}</span>
+          <VChip v-if="manualReviews.length > 0" color="warning" size="small" variant="tonal">
+            {{ manualReviewTotal }}
+          </VChip>
+        </VCardTitle>
         <VCardSubtitle v-if="dataList.length > 0">
           {{
             t('dialog.transferQueue.queueSummary', {
@@ -384,7 +456,10 @@ onUnmounted(() => {
 
       <VDivider />
 
-      <VCardText v-if="queueLoadFailed" class="transfer-queue-empty">
+      <VCardText
+        v-if="queueLoadFailed && dataList.length === 0 && manualReviews.length === 0 && !manualReviewLoadFailed"
+        class="transfer-queue-empty"
+      >
         <VIcon class="transfer-queue-empty__icon" icon="mdi-alert-outline" size="30" />
         <div class="transfer-queue-empty__headline">
           {{ t('common.serverConnectionFailed') }}
@@ -394,7 +469,10 @@ onUnmounted(() => {
         </VBtn>
       </VCardText>
 
-      <VCardText v-else-if="dataList.length === 0" class="transfer-queue-empty">
+      <VCardText
+        v-else-if="dataList.length === 0 && manualReviews.length === 0 && !manualReviewLoadFailed"
+        class="transfer-queue-empty"
+      >
         <VIcon class="transfer-queue-empty__icon" icon="mdi-sync" size="30" />
         <div class="transfer-queue-empty__headline">
           {{ t('dialog.transferQueue.noTasks') }}
@@ -405,140 +483,206 @@ onUnmounted(() => {
       </VCardText>
 
       <VCardText v-else class="transfer-queue-content">
-        <section class="queue-overall app-surface-shape" :aria-label="t('dialog.transferQueue.overallProgress')">
-          <div class="queue-overall__label">{{ t('dialog.transferQueue.overallProgress') }}</div>
-          <div class="queue-overall__count">
-            {{
-              t('dialog.transferQueue.overallCount', {
-                completed: completedTaskCount,
-                total: totalTaskCount,
-              })
-            }}
-          </div>
-          <div class="queue-overall__value">{{ overallProgressDisplay }}%</div>
-          <VProgressLinear
-            class="queue-overall__progress"
-            :model-value="overallProgressComputed"
-            color="primary"
-            bg-color="secondary"
-            :height="6"
-            rounded
-          />
+        <section v-if="queueLoadFailed" class="manual-review-load-error app-surface-shape" role="alert">
+          <VIcon icon="mdi-alert-outline" color="error" size="22" />
+          <span class="manual-review-load-error__message">{{ t('common.serverConnectionFailed') }}</span>
+          <VBtn color="primary" variant="tonal" size="small" @click="get_transfer_queue">
+            {{ t('common.retry') }}
+          </VBtn>
         </section>
 
-        <div class="queue-main">
-          <nav class="media-selector" :aria-label="t('dialog.transferQueue.mediaList')">
-            <button
-              v-for="group in mediaTaskGroups"
-              :key="group.key"
-              type="button"
-              class="media-selector__item app-surface-shape"
-              :class="{ 'media-selector__item--active': activeTab === group.key }"
-              :aria-current="activeTab === group.key ? 'true' : undefined"
-              @click="activeTab = group.key"
-            >
-              <VImg
-                class="media-selector__poster"
-                :src="getPosterUrl(group.media)"
-                :alt="getMediaTitle(group.media, group.season)"
-                cover
-                rounded="md"
-              />
-              <div class="media-selector__info">
-                <div class="media-selector__title">{{ getMediaTitle(group.media, group.season) }}</div>
-                <div class="media-selector__meta">
-                  <span>{{ getMediaCount(group) }}</span>
-                  <span class="media-selector__percent">{{ Math.round(getMediaProgress(group)) }}%</span>
-                </div>
-                <VProgressLinear
-                  :model-value="getMediaProgress(group)"
-                  color="primary"
-                  bg-color="secondary"
-                  :height="4"
-                  rounded
-                />
-              </div>
-            </button>
-          </nav>
-
-          <section class="queue-detail">
-            <header class="active-media">
-              <VImg
-                class="active-media__poster"
-                :src="getPosterUrl(activeMediaGroup?.media)"
-                :alt="getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season)"
-                cover
-                rounded="md"
-              />
-              <div class="active-media__info">
-                <h3 class="active-media__title">
-                  {{ getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season) }}
-                </h3>
-                <p class="active-media__meta">
-                  {{
-                    t('dialog.transferQueue.mediaFileSummary', {
-                      count: activeTasks.length,
-                      size: formatFileSize(activeMediaSize),
-                    })
-                  }}
+        <section
+          v-if="manualReviews.length > 0"
+          class="manual-review-section app-surface-shape"
+          :aria-labelledby="'transfer-manual-review-title'"
+        >
+          <header class="manual-review-section__header">
+            <div class="manual-review-section__heading">
+              <VIcon icon="mdi-help-circle-outline" color="warning" size="24" />
+              <div>
+                <h2 id="transfer-manual-review-title" class="manual-review-section__title">
+                  {{ t('dialog.transferQueue.manualReviewTitle') }}
+                </h2>
+                <p class="manual-review-section__hint">
+                  {{ t('dialog.transferQueue.manualReviewHint') }}
                 </p>
               </div>
-            </header>
-
-            <div class="queue-task-header" aria-hidden="true">
-              <span></span>
-              <span>{{ t('dialog.transferQueue.fileName') }}</span>
-              <span>{{ t('dialog.transferQueue.sizeTitle') }}</span>
-              <span>{{ t('dialog.transferQueue.state') }}</span>
-              <span>{{ t('dialog.transferQueue.progress') }}</span>
-              <span>{{ t('dialog.transferQueue.operation') }}</span>
             </div>
+            <VChip color="warning" size="small" variant="tonal">
+              {{ t('dialog.transferQueue.manualReviewCount', { count: manualReviewTotal }) }}
+            </VChip>
+          </header>
 
-            <div class="queue-task-list">
-              <div v-for="task in activeTasks" :key="task.fileitem.path" class="queue-task">
-                <VIcon
-                  class="queue-task__state-icon"
-                  :icon="getStateIcon(task.state)"
-                  :color="getStateColor(task.state)"
-                  size="22"
-                />
-                <div class="queue-task__content">
-                  <div class="queue-task__name" :title="task.fileitem.name">
-                    {{ task.fileitem.name }}
-                  </div>
-                  <div class="queue-task__size">{{ formatFileSize(task.fileitem.size || 0) }}</div>
-                  <div class="queue-task__status">
-                    <VChip size="small" :color="getStateColor(task.state)" variant="tonal">
-                      {{ stateDict[task.state] }}
-                    </VChip>
-                  </div>
-                  <div
-                    class="queue-task__progress"
-                    :class="{ 'queue-task__progress--completed': task.state === 'completed' }"
-                  >
-                    <VProgressLinear
-                      v-if="task.state !== 'completed'"
-                      :model-value="getTaskProgress(task)"
-                      color="primary"
-                      bg-color="secondary"
-                      :height="5"
-                      rounded
-                    />
-                    <span>{{ Math.round(getTaskProgress(task)) }}%</span>
-                  </div>
+          <div class="manual-review-list">
+            <article v-for="review in manualReviews" :key="review.task_id" class="manual-review-item">
+              <VIcon class="manual-review-item__icon" icon="mdi-alert-circle-outline" color="warning" size="22" />
+              <div class="manual-review-item__content">
+                <div class="manual-review-item__name" :title="review.source.path">
+                  {{ getManualReviewFileName(review.source.path) }}
                 </div>
-                <IconBtn
-                  class="queue-task__action"
-                  size="small"
-                  icon="mdi-close-circle-outline"
-                  :aria-label="t('dialog.transferQueue.cancelTask')"
-                  :disabled="task.state === 'completed'"
-                  @click="remove_queue_task(task.fileitem)"
-                />
+                <div class="manual-review-item__path">{{ review.source.path }}</div>
+                <div class="manual-review-item__meta">{{ review.source.storage }} · {{ review.step.kind }}</div>
+                <div v-if="review.step.error" class="manual-review-item__error">
+                  {{ review.step.error }}
+                </div>
               </div>
+              <VBtn
+                class="manual-review-item__action"
+                color="warning"
+                variant="tonal"
+                size="small"
+                @click="openManualReview(review)"
+              >
+                {{ t('dialog.transferQueue.manualReviewDetails') }}
+              </VBtn>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="manualReviewLoadFailed" class="manual-review-load-error app-surface-shape" role="alert">
+          <VIcon icon="mdi-alert-outline" color="warning" size="22" />
+          <span class="manual-review-load-error__message">{{ t('dialog.transferQueue.manualReviewLoadFailed') }}</span>
+          <VBtn color="warning" variant="tonal" size="small" @click="get_manual_reviews">
+            {{ t('dialog.transferQueue.manualReviewRetry') }}
+          </VBtn>
+        </section>
+
+        <template v-if="dataList.length > 0">
+          <section class="queue-overall app-surface-shape" :aria-label="t('dialog.transferQueue.overallProgress')">
+            <div class="queue-overall__label">{{ t('dialog.transferQueue.overallProgress') }}</div>
+            <div class="queue-overall__count">
+              {{
+                t('dialog.transferQueue.overallCount', {
+                  completed: completedTaskCount,
+                  total: totalTaskCount,
+                })
+              }}
             </div>
+            <div class="queue-overall__value">{{ overallProgressDisplay }}%</div>
+            <VProgressLinear
+              class="queue-overall__progress"
+              :model-value="overallProgressComputed"
+              color="primary"
+              bg-color="secondary"
+              :height="6"
+              rounded
+            />
           </section>
-        </div>
+
+          <div class="queue-main">
+            <nav class="media-selector" :aria-label="t('dialog.transferQueue.mediaList')">
+              <button
+                v-for="group in mediaTaskGroups"
+                :key="group.key"
+                type="button"
+                class="media-selector__item app-surface-shape"
+                :class="{ 'media-selector__item--active': activeTab === group.key }"
+                :aria-current="activeTab === group.key ? 'true' : undefined"
+                @click="activeTab = group.key"
+              >
+                <VImg
+                  class="media-selector__poster"
+                  :src="getPosterUrl(group.media)"
+                  :alt="getMediaTitle(group.media, group.season)"
+                  cover
+                  rounded="md"
+                />
+                <div class="media-selector__info">
+                  <div class="media-selector__title">{{ getMediaTitle(group.media, group.season) }}</div>
+                  <div class="media-selector__meta">
+                    <span>{{ getMediaCount(group) }}</span>
+                    <span class="media-selector__percent">{{ Math.round(getMediaProgress(group)) }}%</span>
+                  </div>
+                  <VProgressLinear
+                    :model-value="getMediaProgress(group)"
+                    color="primary"
+                    bg-color="secondary"
+                    :height="4"
+                    rounded
+                  />
+                </div>
+              </button>
+            </nav>
+
+            <section class="queue-detail">
+              <header class="active-media">
+                <VImg
+                  class="active-media__poster"
+                  :src="getPosterUrl(activeMediaGroup?.media)"
+                  :alt="getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season)"
+                  cover
+                  rounded="md"
+                />
+                <div class="active-media__info">
+                  <h3 class="active-media__title">
+                    {{ getMediaTitle(activeMediaGroup?.media, activeMediaGroup?.season) }}
+                  </h3>
+                  <p class="active-media__meta">
+                    {{
+                      t('dialog.transferQueue.mediaFileSummary', {
+                        count: activeTasks.length,
+                        size: formatFileSize(activeMediaSize),
+                      })
+                    }}
+                  </p>
+                </div>
+              </header>
+
+              <div class="queue-task-header" aria-hidden="true">
+                <span></span>
+                <span>{{ t('dialog.transferQueue.fileName') }}</span>
+                <span>{{ t('dialog.transferQueue.sizeTitle') }}</span>
+                <span>{{ t('dialog.transferQueue.state') }}</span>
+                <span>{{ t('dialog.transferQueue.progress') }}</span>
+                <span>{{ t('dialog.transferQueue.operation') }}</span>
+              </div>
+
+              <div class="queue-task-list">
+                <div v-for="task in activeTasks" :key="task.fileitem.path" class="queue-task">
+                  <VIcon
+                    class="queue-task__state-icon"
+                    :icon="getStateIcon(task.state)"
+                    :color="getStateColor(task.state)"
+                    size="22"
+                  />
+                  <div class="queue-task__content">
+                    <div class="queue-task__name" :title="task.fileitem.name">
+                      {{ task.fileitem.name }}
+                    </div>
+                    <div class="queue-task__size">{{ formatFileSize(task.fileitem.size || 0) }}</div>
+                    <div class="queue-task__status">
+                      <VChip size="small" :color="getStateColor(task.state)" variant="tonal">
+                        {{ stateDict[task.state] }}
+                      </VChip>
+                    </div>
+                    <div
+                      class="queue-task__progress"
+                      :class="{ 'queue-task__progress--completed': task.state === 'completed' }"
+                    >
+                      <VProgressLinear
+                        v-if="task.state !== 'completed'"
+                        :model-value="getTaskProgress(task)"
+                        color="primary"
+                        bg-color="secondary"
+                        :height="5"
+                        rounded
+                      />
+                      <span>{{ Math.round(getTaskProgress(task)) }}%</span>
+                    </div>
+                  </div>
+                  <IconBtn
+                    class="queue-task__action"
+                    size="small"
+                    icon="mdi-close-circle-outline"
+                    :aria-label="t('dialog.transferQueue.cancelTask')"
+                    :disabled="task.state === 'completed'"
+                    @click="remove_queue_task(task.fileitem)"
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+        </template>
       </VCardText>
     </VCard>
   </VDialog>
@@ -554,6 +698,131 @@ onUnmounted(() => {
   padding: 1.5rem !important;
   min-block-size: 34rem;
   scrollbar-width: none;
+}
+
+.manual-review-section {
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--v-theme-warning), 0.24);
+  padding: 1.1rem 1.25rem;
+}
+
+.manual-review-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.manual-review-section__heading {
+  display: flex;
+  align-items: flex-start;
+  min-inline-size: 0;
+  gap: 0.75rem;
+}
+
+.manual-review-section__title {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.manual-review-section__hint {
+  margin: 0.3rem 0 0;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.manual-review-list {
+  display: flex;
+  flex-direction: column;
+  max-block-size: min(20rem, 35vh);
+  overflow-y: auto;
+  margin-block-start: 1rem;
+  scrollbar-width: none;
+}
+
+.manual-review-list::-webkit-scrollbar {
+  display: none;
+}
+
+.manual-review-item {
+  display: grid;
+  align-items: start;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  gap: 0.75rem;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  padding-block: 0.9rem 0;
+}
+
+.manual-review-item + .manual-review-item {
+  margin-block-start: 0.9rem;
+}
+
+.manual-review-item__icon {
+  margin-block-start: 0.1rem;
+}
+
+.manual-review-item__content {
+  min-inline-size: 0;
+}
+
+.manual-review-item__name {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-review-item__path,
+.manual-review-item__meta,
+.manual-review-item__error {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-review-item__path {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.74rem;
+  margin-block-start: 0.28rem;
+}
+
+.manual-review-item__meta {
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 0.75rem;
+  margin-block-start: 0.35rem;
+}
+
+.manual-review-item__error {
+  color: rgb(var(--v-theme-error));
+  font-size: 0.78rem;
+  margin-block-start: 0.35rem;
+}
+
+.manual-review-item__action {
+  align-self: center;
+}
+
+.manual-review-load-error {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  color: rgba(var(--v-theme-on-surface), 0.78);
+  gap: 0.65rem;
+  padding: 0.8rem 1rem;
+}
+
+.manual-review-load-error__message {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  font-size: 0.84rem;
 }
 
 .transfer-queue-content::-webkit-scrollbar,
@@ -840,6 +1109,10 @@ onUnmounted(() => {
     padding-inline: 1rem;
   }
 
+  .manual-review-section {
+    padding: 1rem;
+  }
+
   .queue-overall__count {
     justify-self: center;
   }
@@ -983,6 +1256,30 @@ onUnmounted(() => {
 }
 
 @media (width <= 600px) {
+  .manual-review-section__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .manual-review-item {
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+  }
+
+  .manual-review-item__action {
+    grid-column: 2;
+    justify-self: start;
+    margin-block-start: 0.25rem;
+  }
+
+  .manual-review-load-error {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .manual-review-load-error :deep(.v-btn) {
+    margin-inline-start: 2rem;
+  }
+
   .transfer-queue-empty {
     min-block-size: 11rem;
     padding-block: 2rem !important;

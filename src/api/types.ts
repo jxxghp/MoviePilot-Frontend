@@ -2263,6 +2263,52 @@ export interface TransferQueue {
   }[]
 }
 
+// 人工复核允许管理员判定 durable 整理步骤的外部执行结果。
+export type TransferManualReviewDecision = 'not_applied' | 'applied'
+
+// 人工复核任务中的步骤证据与冻结意图。
+export interface TransferManualReviewStep {
+  // 稳定的整理操作标识
+  operation_id: string
+  // 整理步骤类型
+  kind: string
+  // 执行前冻结的步骤参数
+  intent: Record<string, unknown>
+  // 执行异常后留下的外部事实证据
+  evidence?: Record<string, unknown> | null
+  // 最后一次执行错误
+  error?: string | null
+}
+
+// 队列中需要管理员处理的单条人工复核任务。
+export interface TransferManualReviewTask {
+  // durable 整理任务标识
+  task_id: string
+  // 源文件身份
+  source: {
+    storage: string
+    path: string
+  }
+  // 当前复核状态
+  state: 'manual_review' | 'retry_wait'
+  // 待判定步骤
+  step: TransferManualReviewStep
+  // 人工复核版本，避免旧详情覆盖新状态
+  review_revision: number
+}
+
+// 人工复核列表响应。
+export interface TransferManualReviewPage {
+  // 当前页任务
+  items: TransferManualReviewTask[]
+  // 服务端总数
+  total: number
+  // 当前页码
+  page: number
+  // 每页大小
+  page_size: number
+}
+
 // 探索的数据源
 export interface DiscoverSource {
   // 数据源名称

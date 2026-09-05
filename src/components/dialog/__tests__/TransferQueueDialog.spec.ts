@@ -1,4 +1,4 @@
-import type { MetaInfo, TransferQueue } from '@/api/types'
+import type { MetaInfo, TransferManualReviewTask, TransferQueue } from '@/api/types'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import { screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
@@ -14,6 +14,8 @@ const transferQueueSource = readFileSync(resolve(cwd(), 'src/components/dialog/T
 const mocks = vi.hoisted(() => ({
   apiDelete: vi.fn(),
   apiGet: vi.fn(),
+  apiManualReviewGet: vi.fn(),
+  openSharedDialog: vi.fn(),
   progressControllers: [] as Array<{
     handler: (event: MessageEvent) => void
     start: ReturnType<typeof vi.fn>
@@ -26,8 +28,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/api', () => ({
   default: {
     delete: (...args: unknown[]) => mocks.apiDelete(...args),
-    get: (...args: unknown[]) => mocks.apiGet(...args),
+    get: (url: unknown, ...args: unknown[]) =>
+      url === 'transfer/tasks/manual-reviews' ? mocks.apiManualReviewGet(url, ...args) : mocks.apiGet(url, ...args),
   },
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
 vi.mock('@/composables/useBackground', () => ({
@@ -113,6 +120,33 @@ function createQueue(title: string, path: string, state = 'running'): TransferQu
   return [createQueueItem({ id: path.length, path, state, title })]
 }
 
+function createManualReview(path = '/downloads/needs-review.mkv'): TransferManualReviewTask {
+  return {
+    task_id: 'manual-review-task-1',
+    source: {
+      storage: 'local',
+      path,
+    },
+    state: 'manual_review',
+    step: {
+      operation_id: 'manual-review-operation-1',
+      kind: 'materialize_target',
+      intent: {
+        target_path: '/media/needs-review.mkv',
+        target_storage: 'smb',
+        transfer_type: 'copy',
+      },
+      evidence: {
+        source_exists: true,
+        target_exists: true,
+        item: { name: 'needs-review.mkv' },
+      },
+      error: '上传 smb 失败',
+    },
+    review_revision: 1,
+  }
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>(done => {
@@ -144,6 +178,12 @@ describe('TransferQueueDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.progressControllers.length = 0
+    mocks.apiManualReviewGet.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 100,
+    })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     mocks.useProgressSSE.mockImplementation((_url: string, handler: (event: MessageEvent) => void) => {
       const controller = {
@@ -169,6 +209,41 @@ describe('TransferQueueDialog', () => {
     await vi.advanceTimersByTimeAsync(3000)
 
     expect(mocks.apiGet).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows manual-review tasks in the queue and opens their detail dialog', async () => {
+    const user = userEvent.setup()
+    const review = createManualReview()
+    mocks.apiGet.mockResolvedValue([])
+    mocks.apiManualReviewGet.mockResolvedValue({
+      items: [review],
+      total: 1,
+      page: 1,
+      page_size: 100,
+    })
+
+    await renderDialog()
+
+    expect(await screen.findByText('待人工复核')).toBeInTheDocument()
+    expect(screen.getByText('needs-review.mkv')).toBeInTheDocument()
+    expect(screen.getByText('/downloads/needs-review.mkv')).toBeInTheDocument()
+    expect(screen.getByText('上传 smb 失败')).toBeInTheDocument()
+    expect(mocks.apiManualReviewGet).toHaveBeenCalledWith('transfer/tasks/manual-reviews', {
+      params: {
+        state: 'manual_review',
+        page: 1,
+        page_size: 100,
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: '查看详情' }))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.anything(),
+      { review },
+      { resolved: expect.any(Function) },
+      { closeOn: ['close', 'resolved'] },
+    )
   })
 
   it('keeps media with different real identities in separate tabs even when title_year matches', async () => {
