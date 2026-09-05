@@ -53,6 +53,7 @@ html[data-theme='glass'] {
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%);
+  --glass-navbar-live-filter: none;
   --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
   --glass-overlay-blur: var(--glass-overlay-clarity-blur, 6px);
   --glass-overlay-saturate: 115%;
@@ -1652,10 +1653,10 @@ html[data-theme='glass'] body[data-theme='glass'] .native-login-field:focus-with
   }
 }
 
-// 实时折射表面在贴顶与浮动状态使用同一布局坐标系，只插值真实 inset，避免切换 transform 采样空间。
+// 浮动顶栏使用同一布局坐标系，只插值真实 inset，避免切换 transform 采样空间。
 html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
   body[data-theme='glass']
-  .layout-wrapper[data-glass-navbar-refraction='chromium'].layout-navbar-floating-eligible
+  .layout-wrapper.layout-navbar-floating-eligible
   .layout-navbar {
   inline-size: auto !important;
   inset-block-start: 0 !important;
@@ -1680,42 +1681,82 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   }
 }
 
-// 位移、材质和轮廓由同一个真实尺寸的表面完成；顶部不叠加硬高光线。
+// 基础材质由单一真实表面承载；柔和迎光表达厚度，不叠加父子两层硬高光。
 html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
   body[data-theme='glass']
-  .layout-wrapper[data-glass-navbar-refraction='chromium'].layout-navbar-floating-eligible.layout-navbar-away-from-top
+  .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
+  --glass-navbar-live-filter: blur(1.5px) saturate(118%);
+
   border: 0 !important;
-  -webkit-backdrop-filter: blur(1.5px) saturate(118%) !important;
-  backdrop-filter: url('#glass-navbar-live-refraction-balanced') blur(1.5px) saturate(118%) !important;
+  -webkit-backdrop-filter: var(--glass-navbar-live-filter) !important;
+  backdrop-filter: var(--glass-navbar-live-filter) !important;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.13), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 38%),
     linear-gradient(rgba(7, 14, 25, 0.06), rgba(7, 14, 25, 0.13)) !important;
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.2),
-    inset -1px 0 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(4, 10, 20, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(4, 10, 20, 0.22),
     0 12px 32px rgba(3, 7, 18, 0.16) !important;
   inset-block-start: var(--shell-floating-navbar-inset) !important;
   inset-inline: var(--shell-floating-navbar-inset) !important;
 }
 
+// 只有已确认的 Chromium SVG 能力才替换基础 CSS 滤镜；未就绪时保持同族材质与真实几何。
 html[data-theme='glass'][data-glass-quality='high']:is(
     [data-glass-appearance='clear'],
     [data-glass-appearance='tinted']
   )
   body[data-theme='glass']
-  .layout-wrapper[data-glass-navbar-refraction='chromium'].layout-navbar-floating-eligible.layout-navbar-away-from-top
+  .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  backdrop-filter: url('#glass-navbar-live-refraction-high') blur(1px) saturate(122%) !important;
+  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-high') blur(1px) saturate(122%);
+}
+
+html[data-theme='glass'][data-glass-quality='balanced']:is(
+    [data-glass-appearance='clear'],
+    [data-glass-appearance='tinted']
+  )
+  body[data-theme='glass']
+  .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
+  .layout-navbar {
+  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-balanced') blur(1.5px) saturate(118%);
 }
 
 html[data-theme='glass'][data-glass-appearance='tinted']
   body[data-theme='glass']
-  .layout-wrapper[data-glass-navbar-refraction='chromium'].layout-navbar-floating-eligible.layout-navbar-away-from-top
+  .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.14), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 38%),
     linear-gradient(rgba(var(--glass-material-accent-rgb), 0.09), rgba(var(--glass-material-accent-rgb), 0.035)),
     linear-gradient(rgba(7, 14, 25, 0.08), rgba(7, 14, 25, 0.15)) !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass']
+    .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
+    .layout-navbar {
+    --glass-navbar-live-filter: none !important;
+
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgb(11, 19, 34) !important;
+    background-image: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass']
+    .layout-wrapper.layout-navbar-floating-eligible
+    .layout-navbar,
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass']
+    .layout-wrapper.layout-navbar-floating-eligible
+    .navbar-content-container {
+    transition: none !important;
+  }
 }

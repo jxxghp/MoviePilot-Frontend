@@ -6,7 +6,20 @@ const DEFAULT_NAVBAR_GEOMETRY = {
   radius: 16,
   width: 1200,
 }
-const MAP_RESIZE_SETTLE_MS = 180
+const MAP_RESIZE_SETTLE_MS = 60
+const OBSERVED_SIZE_STYLE_PROPERTIES = [
+  '--shell-floating-navbar-radius',
+  '--shell-floating-navbar-inset',
+  '--layout-navbar-block-size',
+  '--layout-navbar-safe-area-top',
+  '--navbar-tab-height',
+  'border-radius',
+  'border-start-start-radius',
+  'width',
+  'height',
+  'inline-size',
+  'block-size',
+]
 const displacementMapUrl = ref(NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP)
 const displacementMapSize = reactive({
   height: DEFAULT_NAVBAR_GEOMETRY.height,
@@ -14,46 +27,167 @@ const displacementMapSize = reactive({
 })
 
 let observedNavbar: HTMLElement | null = null
+let observedShell: HTMLElement | null = null
 let resizeObserver: ResizeObserver | null = null
+let stateObserver: MutationObserver | null = null
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
+let transparencyQuery: MediaQueryList | null = null
+let mapRevision = 0
+let cachedGeometry = ''
+let cachedMap = NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP
+let failedGeometry = ''
+let lastObservedGeometry = ''
+const geometryTransitions = new Set<string>()
 
-function syncDisplacementMap() {
-  if (!observedNavbar) return
+/** CSS 档、非水平浮动态与无障碍回退不生成或启用位移图。 */
+function isRefractionActive() {
+  const { theme, glassAppearance, glassQuality } = document.documentElement.dataset
+
+  return (
+    theme === 'glass' &&
+    (glassAppearance === 'clear' || glassAppearance === 'tinted') &&
+    (glassQuality === 'balanced' || glassQuality === 'high') &&
+    observedShell?.classList.contains('layout-navbar-floating-eligible') &&
+    observedShell.classList.contains('layout-navbar-away-from-top') &&
+    !transparencyQuery?.matches
+  )
+}
+
+/** 几何或状态变化后立即撤销旧 map，避免在另一个尺寸中采样。 */
+function invalidateDisplacementMap() {
+  mapRevision += 1
+  observedShell?.setAttribute('data-glass-navbar-refraction-ready', 'false')
+}
+
+function getInlineStyleValue(styleText: string | null, property: string) {
+  const declarations = document.createElement('div').style
+  declarations.cssText = styleText ?? ''
+  return declarations.getPropertyValue(property).trim()
+}
+
+/** 滚动缩放变量不改变真实采样几何，只有尺寸声明变化才撤销当前 map。 */
+function hasObservedSizeStyleChange(record: MutationRecord) {
+  if (record.attributeName !== 'style') return true
+
+  const target = record.target as Element
+  const currentStyle = target.getAttribute('style')
+
+  return OBSERVED_SIZE_STYLE_PROPERTIES.some(
+    property => getInlineStyleValue(record.oldValue, property) !== getInlineStyleValue(currentStyle, property),
+  )
+}
+
+function handleStateMutations(records: MutationRecord[]) {
+  if (records.some(hasObservedSizeStyleChange)) scheduleDisplacementMapSync()
+}
+
+/** map 与 feImage 尺寸同批更新；解码失败或过期结果继续使用 CSS 材质。 */
+async function syncDisplacementMap() {
+  if (!observedNavbar || !isRefractionActive() || geometryTransitions.size > 0) return
+  const revision = ++mapRevision
 
   const bounds = observedNavbar.getBoundingClientRect()
   const styles = getComputedStyle(observedNavbar)
-  const floatingRadius = Number.parseFloat(styles.getPropertyValue('--shell-floating-navbar-radius'))
+  // 自定义属性可能保留 rem；只有计算后的圆角与位移图使用同一 CSS 像素坐标。
   const borderRadius = Number.parseFloat(styles.borderStartStartRadius)
   const height = Math.max(1, Math.round(bounds.height))
   const width = Math.max(1, Math.round(bounds.width))
 
-  displacementMapSize.height = height
-  displacementMapSize.width = width
-  displacementMapUrl.value = createGlassNavbarDisplacementMap({
-    height,
-    radius: Number.isFinite(floatingRadius)
-      ? floatingRadius
-      : Number.isFinite(borderRadius)
-        ? borderRadius
-        : DEFAULT_NAVBAR_GEOMETRY.radius,
-    width,
-  })
+  const radius = Number.isFinite(borderRadius) ? borderRadius : DEFAULT_NAVBAR_GEOMETRY.radius
+  const geometryKey = `${width}:${height}:${radius}`
+  if (lastObservedGeometry !== geometryKey) {
+    lastObservedGeometry = geometryKey
+    failedGeometry = ''
+  }
+
+  try {
+    if (cachedGeometry !== geometryKey) {
+      if (failedGeometry === geometryKey) return
+      const map = createGlassNavbarDisplacementMap({ height, radius, width })
+      if (map === NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP) {
+        failedGeometry = geometryKey
+        invalidateDisplacementMap()
+        return
+      }
+      const decoded = new Image()
+      decoded.src = map
+      await decoded.decode()
+      if (revision !== mapRevision || !isRefractionActive()) return
+      cachedGeometry = geometryKey
+      cachedMap = map
+      failedGeometry = ''
+    }
+    displacementMapSize.height = height
+    displacementMapSize.width = width
+    displacementMapUrl.value = cachedMap
+    await nextTick()
+    if (revision === mapRevision && isRefractionActive()) {
+      observedShell?.setAttribute('data-glass-navbar-refraction-ready', 'true')
+    }
+  } catch {
+    // 位移是增强能力；图片解码失败不阻断导航和原生玻璃表面。
+    if (revision === mapRevision) {
+      failedGeometry = geometryKey
+      invalidateDisplacementMap()
+    }
+  }
 }
 
-// 几何动画期间沿用上一张位移图，尺寸稳定后再重建，避免逐帧生成并上传位移纹理。
+// 动画期间使用同族 CSS 材质；尺寸稳定后只重建一次，不逐帧生成或拉伸旧图。
 function scheduleDisplacementMapSync() {
+  invalidateDisplacementMap()
   if (resizeTimer !== null) clearTimeout(resizeTimer)
+  if (!isRefractionActive()) return
   resizeTimer = setTimeout(() => {
     resizeTimer = null
-    syncDisplacementMap()
+    void syncDisplacementMap()
   }, MAP_RESIZE_SETTLE_MS)
+}
+
+function handleGeometryTransition(event: TransitionEvent) {
+  if (
+    event.target !== observedNavbar ||
+    !/^(inset|top|left|right|width|height|inline-size|block-size|border.*radius)/u.test(event.propertyName)
+  )
+    return
+  if (event.type === 'transitionrun') {
+    geometryTransitions.add(event.propertyName)
+    invalidateDisplacementMap()
+  } else {
+    geometryTransitions.delete(event.propertyName)
+    if (geometryTransitions.size === 0) scheduleDisplacementMapSync()
+  }
 }
 
 onMounted(() => {
   observedNavbar = document.querySelector('.layout-wrapper[data-glass-navbar-refraction="chromium"] .layout-navbar')
   if (!observedNavbar) return
+  observedShell = observedNavbar.closest('.layout-wrapper')
+  transparencyQuery = window.matchMedia('(prefers-reduced-transparency: reduce)')
+  transparencyQuery.addEventListener('change', scheduleDisplacementMapSync)
+  stateObserver = new MutationObserver(handleStateMutations)
+  stateObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeOldValue: true,
+    attributeFilter: ['class', 'style', 'data-theme', 'data-glass-appearance', 'data-glass-quality'],
+  })
+  if (observedShell) {
+    stateObserver.observe(observedShell, {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ['class', 'style'],
+    })
+  }
+  stateObserver.observe(observedNavbar, {
+    attributes: true,
+    attributeOldValue: true,
+    attributeFilter: ['class', 'style'],
+  })
+  observedNavbar.addEventListener('transitionrun', handleGeometryTransition)
+  observedNavbar.addEventListener('transitionend', handleGeometryTransition)
+  observedNavbar.addEventListener('transitioncancel', handleGeometryTransition)
 
-  syncDisplacementMap()
+  scheduleDisplacementMapSync()
   if (typeof ResizeObserver === 'undefined') {
     window.addEventListener('resize', scheduleDisplacementMapSync, { passive: true })
 
@@ -65,12 +199,23 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  invalidateDisplacementMap()
+  geometryTransitions.clear()
   if (resizeTimer !== null) clearTimeout(resizeTimer)
   resizeTimer = null
   resizeObserver?.disconnect()
   resizeObserver = null
+  stateObserver?.disconnect()
+  stateObserver = null
+  transparencyQuery?.removeEventListener('change', scheduleDisplacementMapSync)
+  transparencyQuery = null
+  observedNavbar?.removeEventListener('transitionrun', handleGeometryTransition)
+  observedNavbar?.removeEventListener('transitionend', handleGeometryTransition)
+  observedNavbar?.removeEventListener('transitioncancel', handleGeometryTransition)
+  observedShell?.removeAttribute('data-glass-navbar-refraction-ready')
   window.removeEventListener('resize', scheduleDisplacementMapSync)
   observedNavbar = null
+  observedShell = null
 })
 </script>
 
@@ -79,10 +224,10 @@ onBeforeUnmount(() => {
     <defs>
       <filter
         id="glass-navbar-live-refraction-balanced"
-        x="-8%"
-        y="-80%"
-        width="116%"
-        height="260%"
+        x="0%"
+        y="0%"
+        width="100%"
+        height="100%"
         color-interpolation-filters="sRGB"
       >
         <feImage
@@ -99,10 +244,10 @@ onBeforeUnmount(() => {
 
       <filter
         id="glass-navbar-live-refraction-high"
-        x="-12%"
-        y="-100%"
-        width="124%"
-        height="300%"
+        x="0%"
+        y="0%"
+        width="100%"
+        height="100%"
         color-interpolation-filters="sRGB"
       >
         <feImage

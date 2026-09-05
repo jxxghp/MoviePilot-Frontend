@@ -31,10 +31,12 @@ export const NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Cpath fill="%23808080" d="M0 0h1v1H0z"/%3E%3C/svg%3E'
 
 const DISPLACEMENT_NEUTRAL_CHANNEL = 128
-const DISPLACEMENT_CHANNEL_AMPLITUDE = 127
-const OUTER_NEUTRAL_GUARD_PX = 2
-const REFRACTION_BAND_PX = 12
-const REFRACTION_PROFILE_POWER = 2
+const HIGH_REFRACTION_SCALE_PX = 34
+const OUTER_NEUTRAL_GUARD_PX = 0.5
+const REFRACTION_BAND_PX = 24
+// 峰值靠近外沿，内侧有足够距离释放放大率；对称波峰会在窄轮廓内反向采样。
+const MAX_DISPLACEMENT_BAND_RATIO = 0.42
+const PEAK_DEPTH_RATIO = 0.16
 
 function normalizePixelSize(value: number) {
   return Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1
@@ -53,6 +55,17 @@ function clampChannel(value: number) {
   return Math.max(0, Math.min(255, Math.round(value)))
 }
 
+function smoothstep(value: number) {
+  return value * value * (3 - 2 * value)
+}
+
+/** 外侧快速形成厚度，内侧缓慢回到中性，保留清透中心且不折返背景。 */
+function refractionProfile(depth: number, band: number, guard: number) {
+  const peakDepth = Math.max(guard, band * PEAK_DEPTH_RATIO)
+  if (depth <= peakDepth) return smoothstep((depth - guard) / (peakDepth - guard))
+  return 1 - smoothstep((depth - peakDepth) / (band - peakDepth))
+}
+
 /**
  * 生成圆角表面的法线位移场。
  * 外轮廓和内区都保持中性采样，避免折射在裁剪边界或主体内容区形成整带错位。
@@ -66,8 +79,7 @@ export function createGlassNavbarDisplacementField({
   const pixelHeight = normalizePixelSize(height)
   const maxRadius = Math.min(pixelWidth, pixelHeight) / 2
   const pixelRadius = Number.isFinite(radius) ? Math.max(0, Math.min(maxRadius, radius)) : 0
-  const bandWidth = Math.min(REFRACTION_BAND_PX, Math.min(pixelWidth, pixelHeight) / 2)
-  const outerGuard = Math.min(OUTER_NEUTRAL_GUARD_PX, bandWidth / 4)
+  const maximumBand = Math.min(REFRACTION_BAND_PX, pixelRadius * 1.5, Math.min(pixelWidth, pixelHeight) / 2)
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
 
   for (let offset = 0; offset < pixels.length; offset += 4) {
@@ -83,11 +95,18 @@ export function createGlassNavbarDisplacementField({
       const sampleY = y + 0.5
       const signedDistance = roundedRectangleSignedDistance(sampleX, sampleY, pixelWidth, pixelHeight, pixelRadius)
       const distanceInside = -signedDistance
+      // 长直边允许更厚的透镜；向圆角与法线交汇轴渐缩，避免高曲率区产生聚焦尖点。
+      const edgeX = Math.min(sampleX, pixelWidth - sampleX)
+      const edgeY = Math.min(sampleY, pixelHeight - sampleY)
+      const straightWeight = smoothstep(Math.min(1, Math.abs(edgeX - edgeY) / (maximumBand * 2 || 1)))
+      const cornerBand = Math.min(maximumBand, pixelRadius)
+      const bandWidth = cornerBand + (maximumBand - cornerBand) * straightWeight
+      const outerGuard = Math.min(OUTER_NEUTRAL_GUARD_PX, bandWidth / 4)
+      const channelAmplitude = (bandWidth * MAX_DISPLACEMENT_BAND_RATIO * 255) / HIGH_REFRACTION_SCALE_PX
 
       if (signedDistance > 0 || distanceInside <= outerGuard || distanceInside >= bandWidth) continue
 
-      const normalizedDistance = (distanceInside - outerGuard) / (bandWidth - outerGuard)
-      const profile = Math.sin(Math.PI * normalizedDistance) ** REFRACTION_PROFILE_POWER
+      const profile = refractionProfile(distanceInside, bandWidth, outerGuard)
       const gradientX =
         roundedRectangleSignedDistance(sampleX + 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius) -
         roundedRectangleSignedDistance(sampleX - 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius)
@@ -98,10 +117,10 @@ export function createGlassNavbarDisplacementField({
       const offset = (y * pixelWidth + x) * 4
 
       pixels[offset] = clampChannel(
-        DISPLACEMENT_NEUTRAL_CHANNEL + (DISPLACEMENT_CHANNEL_AMPLITUDE * gradientX * profile) / gradientLength,
+        DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientX * profile) / gradientLength,
       )
       pixels[offset + 2] = clampChannel(
-        DISPLACEMENT_NEUTRAL_CHANNEL + (DISPLACEMENT_CHANNEL_AMPLITUDE * gradientY * profile) / gradientLength,
+        DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientY * profile) / gradientLength,
       )
     }
   }

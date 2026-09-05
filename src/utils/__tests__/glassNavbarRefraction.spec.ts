@@ -15,10 +15,50 @@ describe('createGlassNavbarDisplacementField', () => {
     expect(field.height).toBe(41)
     expect(pixelAt(field, 50, 0)).toEqual([128, 128, 128, 255])
     expect(pixelAt(field, 50, 20)).toEqual([128, 128, 128, 255])
-    expect(pixelAt(field, 50, 5)[2]).toBeLessThan(64)
-    expect(pixelAt(field, 5, 20)[0]).toBeLessThan(64)
-    expect(pixelAt(field, 95, 20)[0]).toBeGreaterThan(192)
-    expect(pixelAt(field, 50, 35)[2]).toBeGreaterThan(192)
+    expect(pixelAt(field, 50, 5)[2]).toBeLessThan(120)
+    expect(pixelAt(field, 5, 20)[0]).toBeLessThan(120)
+    expect(pixelAt(field, 95, 20)[0]).toBeGreaterThan(136)
+    expect(pixelAt(field, 50, 35)[2]).toBeGreaterThan(136)
+  })
+
+  it.each([
+    { width: 1423, height: 64, radius: 16 },
+    { width: 401, height: 72, radius: 16 },
+    { width: 127, height: 64, radius: 8 },
+    { width: 127, height: 64, radius: 32 },
+  ])('keeps two-dimensional sampling forward and inside the image for $width x $height r$radius', geometry => {
+    const field = createGlassNavbarDisplacementField(geometry)
+    for (const scale of [-22, -34]) {
+      const source = (x: number, y: number) => {
+        const pixel = pixelAt(field, x, y)
+        return [x + 0.5 + scale * (pixel[0] / 255 - 0.5), y + 0.5 + scale * (pixel[2] / 255 - 0.5)]
+      }
+      let minimumDeterminant = Number.POSITIVE_INFINITY
+      let minimumX = Number.POSITIVE_INFINITY
+      let minimumY = Number.POSITIVE_INFINITY
+      let maximumX = 0
+      let maximumY = 0
+      for (let y = 0; y < field.height; y += 1) {
+        for (let x = 0; x < field.width; x += 1) {
+          const point = source(x, y)
+          minimumX = Math.min(minimumX, point[0])
+          minimumY = Math.min(minimumY, point[1])
+          maximumX = Math.max(maximumX, point[0])
+          maximumY = Math.max(maximumY, point[1])
+          if (x === field.width - 1 || y === field.height - 1) continue
+          const nextX = source(x + 1, y)
+          const nextY = source(x, y + 1)
+          const determinant =
+            (nextX[0] - point[0]) * (nextY[1] - point[1]) - (nextY[0] - point[0]) * (nextX[1] - point[1])
+          minimumDeterminant = Math.min(minimumDeterminant, determinant)
+        }
+      }
+      expect(minimumDeterminant).toBeGreaterThan(0.05)
+      expect(minimumX).toBeGreaterThanOrEqual(0)
+      expect(minimumY).toBeGreaterThanOrEqual(0)
+      expect(maximumX).toBeLessThanOrEqual(field.width)
+      expect(maximumY).toBeLessThanOrEqual(field.height)
+    }
   })
 
   it('clamps invalidly small geometry to a renderable pixel surface', () => {
