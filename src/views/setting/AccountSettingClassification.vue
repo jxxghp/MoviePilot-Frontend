@@ -537,7 +537,7 @@ watch(analysisTab, tab => {
           }}</VTab>
         </VTabs>
 
-        <VWindow v-model="workspaceTab" class="classification-settings__workspace-window">
+        <VWindow v-model="workspaceTab" class="classification-settings__workspace-window" :touch="false">
           <VWindowItem value="categories">
             <section class="classification-settings__panel">
               <section class="classification-settings__enrichment" aria-labelledby="classification-enrichment-title">
@@ -617,7 +617,7 @@ watch(analysisTab, tab => {
                 </VTab>
               </VTabs>
 
-              <VWindow v-model="analysisTab" class="classification-settings__analysis-window">
+              <VWindow v-model="analysisTab" class="classification-settings__analysis-window" :touch="false">
                 <VWindowItem value="preview">
                   <ClassificationPreviewPanel
                     :categories="draftPolicy.categories"

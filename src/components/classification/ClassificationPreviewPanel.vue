@@ -639,7 +639,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
                   </thead>
                   <tbody>
                     <tr v-for="(condition, index) in rule.conditions" :key="`${condition.field}-${index}`">
-                      <td>
+                      <td :data-label="t('setting.classification.preview.columns.result')">
                         <VIcon
                           :icon="condition.matched ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"
                           :color="condition.matched ? 'success' : 'error'"
@@ -652,11 +652,19 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
                           "
                         />
                       </td>
-                      <td>{{ fieldLabel(condition.field) }}</td>
-                      <td>{{ operatorLabel(condition.operator) }}</td>
-                      <td>{{ formatFactValue(condition.expected) }}</td>
-                      <td>{{ formatFactValue(condition.actual) }}</td>
-                      <td>
+                      <td :data-label="t('setting.classification.preview.columns.field')">
+                        {{ fieldLabel(condition.field) }}
+                      </td>
+                      <td :data-label="t('setting.classification.preview.columns.operator')">
+                        {{ operatorLabel(condition.operator) }}
+                      </td>
+                      <td :data-label="t('setting.classification.preview.columns.expected')">
+                        {{ formatFactValue(condition.expected) }}
+                      </td>
+                      <td :data-label="t('setting.classification.preview.columns.actual')">
+                        {{ formatFactValue(condition.actual) }}
+                      </td>
+                      <td :data-label="t('setting.classification.preview.columns.factSource')">
                         <span :title="condition.source?.provider_id">{{ factSourceLabel(condition.source) }}</span>
                       </td>
                     </tr>
@@ -762,6 +770,21 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 .classification-preview__search-results :deep(.v-list-item) {
   min-block-size: 84px;
   border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.classification-preview__search-results :deep(.v-list-item__prepend) {
+  align-self: center;
+  margin-inline-end: 0.875rem;
+}
+
+.classification-preview__search-results :deep(.v-list-item__content) {
+  min-inline-size: 0;
+}
+
+.classification-preview__search-results :deep(.v-list-item-title),
+.classification-preview__search-results :deep(.v-list-item-subtitle) {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .classification-preview__search-results :deep(.v-list-item:last-child) {
@@ -898,6 +921,33 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   gap: 0.5rem;
 }
 
+.classification-preview__warnings,
+.classification-preview__trace,
+.classification-preview__rule,
+.classification-preview__trace-table,
+.classification-preview__trace-table :deep(.v-table),
+.classification-preview__trace-table :deep(.v-table__wrapper) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.classification-preview__warnings {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.classification-preview__warnings :deep(.v-alert),
+.classification-preview__warnings :deep(.v-alert__content) {
+  min-inline-size: 0;
+}
+
+.classification-preview__warnings :deep(.v-alert__content),
+.classification-preview__warning-meta > span,
+.classification-preview__rule summary > span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .classification-preview__warning-meta {
   display: flex;
   flex-wrap: wrap;
@@ -908,6 +958,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 }
 
 .classification-preview__rule {
+  padding-inline: 0.75rem;
   border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
@@ -919,7 +970,12 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 }
 
 .classification-preview__trace-table {
+  inline-size: 100%;
   max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.classification-preview__trace-table :deep(.v-table__wrapper) {
   overflow-x: auto;
 }
 
@@ -965,6 +1021,68 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   .classification-preview__mode .v-btn,
   .classification-preview__media-type .v-btn {
     min-inline-size: 0;
+  }
+
+  .classification-preview__trace-table,
+  .classification-preview__trace-table :deep(.v-table__wrapper) {
+    overflow: visible;
+  }
+
+  .classification-preview__trace-table table {
+    display: block;
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .classification-preview__trace-table thead {
+    position: absolute;
+    overflow: hidden;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .classification-preview__trace-table tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .classification-preview__trace-table tr {
+    display: grid;
+    gap: 0.25rem;
+    min-inline-size: 0;
+    padding: 0.625rem 0;
+    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+
+  .classification-preview__trace-table td {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.75rem;
+    min-inline-size: 0;
+    block-size: auto;
+    padding: 0.25rem 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .classification-preview__trace-table td::before {
+    content: attr(data-label);
+    color: rgb(var(--v-theme-on-surface-variant));
+    font-weight: 600;
+  }
+
+  .classification-preview__trace-table td > * {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }
 

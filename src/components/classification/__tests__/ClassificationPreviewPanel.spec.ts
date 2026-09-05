@@ -178,11 +178,11 @@ describe('ClassificationPreviewPanel', () => {
     expect(screen.queryByText('missing_field')).not.toBeInTheDocument()
 
     const traceTable = screen.getByRole('table', { name: '规则 1 的条件命中解释' })
-    expect(within(traceTable).getByText('年份')).toBeInTheDocument()
-    expect(within(traceTable).getByText('大于等于')).toBeInTheDocument()
-    expect(within(traceTable).getByText('1990')).toBeInTheDocument()
-    expect(within(traceTable).getByText('1999')).toBeInTheDocument()
-    expect(within(traceTable).getByText('The Movie Database')).toBeInTheDocument()
+    expect(within(traceTable).getByText('年份').closest('td')).toHaveAttribute('data-label', '字段')
+    expect(within(traceTable).getByText('大于等于').closest('td')).toHaveAttribute('data-label', '操作符')
+    expect(within(traceTable).getByText('1990').closest('td')).toHaveAttribute('data-label', '条件要求')
+    expect(within(traceTable).getByText('1999').closest('td')).toHaveAttribute('data-label', '媒体信息')
+    expect(within(traceTable).getByText('The Movie Database').closest('td')).toHaveAttribute('data-label', '信息来源')
   })
 
   it('没有选择媒体时禁用预览，搜索和加载期间显示对应状态', async () => {
