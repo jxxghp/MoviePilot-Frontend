@@ -15,10 +15,10 @@ describe('createGlassNavbarDisplacementField', () => {
     expect(field.height).toBe(41)
     expect(pixelAt(field, 50, 0)).toEqual([128, 128, 128, 255])
     expect(pixelAt(field, 50, 20)).toEqual([128, 128, 128, 255])
-    expect(pixelAt(field, 50, 5)[2]).toBeLessThan(120)
+    expect(pixelAt(field, 50, 5)[2]).toBeLessThan(128)
     expect(pixelAt(field, 5, 20)[0]).toBeLessThan(120)
     expect(pixelAt(field, 95, 20)[0]).toBeGreaterThan(136)
-    expect(pixelAt(field, 50, 35)[2]).toBeGreaterThan(136)
+    expect(pixelAt(field, 50, 35)[2]).toBeGreaterThan(128)
   })
 
   it.each([
@@ -67,6 +67,27 @@ describe('createGlassNavbarDisplacementField', () => {
     expect(field.width).toBe(1)
     expect(field.height).toBe(1)
     expect([...field.pixels]).toEqual([128, 128, 128, 255])
+  })
+
+  it('limits vertical text stretching without flattening the horizontal lens', () => {
+    const field = createGlassNavbarDisplacementField({ width: 1423, height: 64, radius: 16 })
+    const displacement = (x: number, y: number, channel: number) => -34 * (pixelAt(field, x, y)[channel] / 255 - 0.5)
+    let maximumHorizontal = 0
+    let maximumVertical = 0
+    let minimumVerticalStep = Infinity
+    let maximumVerticalStep = 0
+    for (let y = 1; y < field.height; y += 1) {
+      const previous = displacement(711, y - 1, 2)
+      const current = displacement(711, y, 2)
+      maximumVertical = Math.max(maximumVertical, Math.abs(current))
+      minimumVerticalStep = Math.min(minimumVerticalStep, 1 + current - previous)
+      maximumVerticalStep = Math.max(maximumVerticalStep, 1 + current - previous)
+    }
+    for (let x = 0; x < 32; x += 1) maximumHorizontal = Math.max(maximumHorizontal, Math.abs(displacement(x, 32, 0)))
+    expect(maximumHorizontal).toBeGreaterThan(7)
+    expect(maximumVertical).toBeLessThan(2.6)
+    expect(minimumVerticalStep).toBeGreaterThan(0.59)
+    expect(maximumVerticalStep).toBeLessThan(1.41)
   })
 })
 

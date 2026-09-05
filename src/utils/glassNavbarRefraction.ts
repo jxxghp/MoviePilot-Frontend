@@ -37,6 +37,8 @@ const REFRACTION_BAND_PX = 24
 // 峰值靠近外沿，内侧有足够距离释放放大率；对称波峰会在窄轮廓内反向采样。
 const MAX_DISPLACEMENT_BAND_RATIO = 0.42
 const PEAK_DEPTH_RATIO = 0.16
+// 文本沿纵向滚动穿过长边时，限制字形高度的局部伸缩；短边保留更强的水平透镜。
+const VERTICAL_DISPLACEMENT_BAND_RATIO = 0.1
 
 function normalizePixelSize(value: number) {
   return Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1
@@ -107,6 +109,9 @@ export function createGlassNavbarDisplacementField({
       if (signedDistance > 0 || distanceInside <= outerGuard || distanceInside >= bandWidth) continue
 
       const profile = refractionProfile(distanceInside, bandWidth, outerGuard)
+      const verticalProgress = (distanceInside - outerGuard) / (bandWidth - outerGuard)
+      const verticalProfile = Math.sin(Math.PI * verticalProgress) ** 2
+      const verticalAmplitude = (bandWidth * VERTICAL_DISPLACEMENT_BAND_RATIO * 255) / HIGH_REFRACTION_SCALE_PX
       const gradientX =
         roundedRectangleSignedDistance(sampleX + 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius) -
         roundedRectangleSignedDistance(sampleX - 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius)
@@ -120,7 +125,7 @@ export function createGlassNavbarDisplacementField({
         DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientX * profile) / gradientLength,
       )
       pixels[offset + 2] = clampChannel(
-        DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientY * profile) / gradientLength,
+        DISPLACEMENT_NEUTRAL_CHANNEL + (verticalAmplitude * gradientY * verticalProfile) / gradientLength,
       )
     }
   }
