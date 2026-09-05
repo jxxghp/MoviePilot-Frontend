@@ -29,7 +29,9 @@ export default defineComponent({
     const { footerDockHeight } = useFooterDockHeight()
     const fixedShellBackplate = useGlassFixedShellBackplate()
     const navbarRefractionMode = supportsGlassNavbarLiveRefraction() ? 'chromium' : 'goal1'
-    const themeLayout = ref(readThemeCustomizerSettings().layout)
+    const initialThemeSettings = readThemeCustomizerSettings()
+    const themeLayout = ref(initialThemeSettings.layout)
+    const shellTheme = ref(initialThemeSettings.theme)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
     const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
@@ -60,9 +62,22 @@ export default defineComponent({
     const isDialogOpen = ref(false)
     let dialogObserver: MutationObserver | null = null
     const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
+    const isGlassFloatingAway = ref(false)
+
+    // 桌面脱离窗口边缘是材质状态；复用滚动坐标，但不等待移动App的64px收起阈值。
+    watch(
+      () => [shellScroll.scrollY.value, isFloatingNavbarEligible.value, shellTheme.value] as const,
+      ([scrollY, eligible, theme]) => {
+        if (!eligible || theme !== 'glass' || scrollY <= 4) isGlassFloatingAway.value = false
+        else if (scrollY >= 12) isGlassFloatingAway.value = true
+      },
+      { immediate: true },
+    )
 
     const handleThemeCustomizerChange = (event: Event) => {
-      themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
+      const settings = (event as CustomEvent<ThemeCustomizerSettings>).detail
+      themeLayout.value = settings.layout
+      shellTheme.value = settings.theme
     }
 
     // 监听弹窗状态变化
@@ -152,7 +167,10 @@ export default defineComponent({
 
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
-      const isNavbarAwayFromTop = shellScroll.state.value !== 'expanded'
+      const isNavbarAwayFromTop =
+        isFloatingNavbarEligible.value && shellTheme.value === 'glass'
+          ? isGlassFloatingAway.value
+          : shellScroll.state.value !== 'expanded'
       // compact/revealed 是 App 上下文顶栏的呈现状态；其他 Shell 只消费 away-from-top 材质状态。
       const isNavbarCompact = appMode.value && shellScroll.state.value === 'compact'
       const isNavbarRevealed = appMode.value && shellScroll.state.value === 'revealed'

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   isWindowControlsOverlayMode: false,
   mdAndDown: false,
   navbarRefractionSupported: false,
+  scrollY: 0,
   revision: undefined as { value: number } | undefined,
   state: 'expanded' as 'expanded' | 'compact' | 'revealed',
 }))
@@ -25,6 +26,10 @@ vi.mock('@/composables/useShellScrollState', async () => {
     useShellScrollState: () => ({
       direction: computed(() => mocks.direction),
       state: computed(() => mocks.state),
+      scrollY: computed(() => {
+        void mocks.revision!.value
+        return mocks.scrollY
+      }),
     }),
   }
 })
@@ -153,6 +158,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.isWindowControlsOverlayMode = false
     mocks.mdAndDown = false
     mocks.navbarRefractionSupported = false
+    mocks.scrollY = 0
     mocks.state = 'expanded'
   })
 
@@ -380,6 +386,26 @@ describe('VerticalNavLayout shell states', () => {
     )
     expect(appRoot.classes()).not.toContain('layout-standalone-pwa-shell')
     expect(appWrapper.get('.layout-navbar').attributes()).toHaveProperty('inert')
+  })
+
+  it('responds to glass floating early with hysteresis without compacting App controls', async () => {
+    const wrapper = mountLayout()
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal', theme: 'glass' } }),
+    )
+    await nextTick()
+    const root = wrapper.get('.layout-wrapper')
+    mocks.scrollY = 12
+    await refreshShell()
+    expect(root.classes()).toContain('layout-navbar-away-from-top')
+    expect(wrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('expanded')
+    mocks.scrollY = 8
+    await refreshShell()
+    expect(root.classes()).toContain('layout-navbar-away-from-top')
+    mocks.scrollY = 4
+    await refreshShell()
+    expect(root.classes()).not.toContain('layout-navbar-away-from-top')
+    wrapper.unmount()
   })
 
   it('exposes floating eligibility only for an ordinary desktop horizontal environment', async () => {

@@ -146,6 +146,25 @@ describe('GlassNavbarRefractionDefs', () => {
     wrapper = mount(GlassNavbarRefractionDefs)
   }
 
+  it('enables a readable rectangular lens on the fixed desktop navbar', async () => {
+    shell.className = 'layout-wrapper'
+    shell.dataset.shellMode = 'desktop'
+    radius = 0
+    mountWithSidebar()
+    await settle()
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 1423, height: 64, radius: 0 }),
+    )
+    shell.classList.add('layout-overlay-nav')
+    shell.dataset.shellMode = 'drawer'
+    sidebar?.classList.add('overlay-nav')
+    await flushPromises()
+    await settle()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+  })
+
   it('uses computed pixel radius and activates only a decoded map with matching dimensions', async () => {
     wrapper = mount(GlassNavbarRefractionDefs)
     expect(shell.dataset.glassNavbarRefractionReady).toBe('false')

@@ -2,6 +2,7 @@
 /* stylelint-disable scss/at-rule-no-unknown */
 
 @use '@configured-variables' as variables;
+@use 'glass-v3';
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
@@ -1929,3 +1930,5 @@ html[data-theme='glass'][data-glass-appearance='tinted']
     transition: none !important;
   }
 }
+
+@include glass-v3.surfaces;
