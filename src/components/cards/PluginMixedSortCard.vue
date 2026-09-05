@@ -34,8 +34,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   openFolder: [folderName: string]
   deleteFolder: [folderName: string]
-  renameFolder: [oldName: string, newName: string]
-  updateFolderConfig: [folderName: string, config: any]
+  renameFolder: [oldName: string, newName: string, onComplete?: (success: boolean) => void]
+  updateFolderConfig: [folderName: string, config: any, onComplete?: (success: boolean) => void]
   refreshData: []
   rating: [pluginRating: PluginRating]
   sourceTransition: [plugin: Plugin, transition: PluginSourceTransition]
@@ -104,8 +104,8 @@ function handleDropToFolder(event: DragEvent) {
         :sortable="sortable"
         @open="$emit('openFolder', item.id)"
         @delete="$emit('deleteFolder', item.id)"
-        @rename="(oldName, newName) => $emit('renameFolder', oldName, newName)"
-        @update-config="(folderName, config) => $emit('updateFolderConfig', folderName, config)"
+        @rename="(oldName, newName, onComplete) => $emit('renameFolder', oldName, newName, onComplete)"
+        @update-config="(folderName, config, onComplete) => $emit('updateFolderConfig', folderName, config, onComplete)"
       />
     </div>
 

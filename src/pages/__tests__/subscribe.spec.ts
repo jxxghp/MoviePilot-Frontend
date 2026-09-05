@@ -8,9 +8,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   appMode: false,
+  confirm: vi.fn(),
   openSharedDialog: vi.fn(),
+  refreshSubscriptionMetadata: vi.fn(),
+  refreshSubscriptions: vi.fn(),
   registerHeaderTab: vi.fn(),
+  searchAllSubscriptions: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
   useDynamicButton: vi.fn(),
+}))
+
+vi.mock('@/api/subscription', () => ({
+  refreshSubscriptionMetadata: mocks.refreshSubscriptionMetadata,
+  refreshSubscriptions: mocks.refreshSubscriptions,
+  searchAllSubscriptions: mocks.searchAllSubscriptions,
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => mocks.confirm,
+}))
+
+vi.mock('vue-toastification', () => ({
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
 }))
 
 vi.mock('@/composables/useDynamicHeaderTab', () => ({
@@ -222,6 +242,10 @@ describe('subscribe page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.appMode = false
+    mocks.confirm.mockResolvedValue(true)
+    mocks.refreshSubscriptionMetadata.mockResolvedValue(null)
+    mocks.refreshSubscriptions.mockResolvedValue(null)
+    mocks.searchAllSubscriptions.mockResolvedValue(null)
   })
 
   it('uses movie route meta and query values to register the movie page contract', async () => {
@@ -323,7 +347,8 @@ describe('subscribe page', () => {
     expect(getListOutput('list sort mode')).toHaveTextContent('true')
     expect(getListOutput('list sort by')).toHaveTextContent('custom')
     expect(unref(batchButton.color)).toBe('gray')
-    expect(unref(getDynamicButtonConfig().show)).toBe(false)
+    expect(unref(getDynamicButtonConfig().show)).toBe(true)
+    expect(unref(getDynamicButtonConfig().icon)).toBe('mdi-magnify-scan')
   })
 
   it('delegates PWA batch actions to the list public API', async () => {
@@ -373,8 +398,11 @@ describe('subscribe page', () => {
   it('exposes administrator history and default-rule actions on desktop and PWA', async () => {
     const { unmount } = await renderSubscribe({ superUser: true })
 
-    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(2))
-    const [historyButton, defaultRuleButton] = document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
+    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(3))
+    const [maintenanceButton, historyButton, defaultRuleButton] =
+      document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
+
+    expect(maintenanceButton.closest('[aria-label="订阅维护"]')).not.toBeNull()
 
     await fireEvent.click(historyButton)
     expect(getListOutput('last list command')).toHaveTextContent('open-history')
@@ -394,14 +422,19 @@ describe('subscribe page', () => {
     expect(unref(dynamicButton.menuItems)?.map(item => item.titleKey)).toEqual([
       'dialog.subscribeHistory.title',
       'dialog.subscribeEdit.titleDefault',
+      'subscribe.maintenance.searchAll',
+      'subscribe.maintenance.refresh',
+      'subscribe.maintenance.refreshMetadata',
     ])
   })
 
   it('exposes only subscription history for music on desktop and PWA', async () => {
     const { unmount } = await renderSubscribe({ subType: '音乐', superUser: true })
 
-    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(1))
-    await fireEvent.click(document.querySelector<HTMLButtonElement>('.compact-fab button')!)
+    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(2))
+    const [maintenanceButton, historyButton] = document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
+    expect(maintenanceButton.closest('[aria-label="订阅维护"]')).not.toBeNull()
+    await fireEvent.click(historyButton)
     expect(getListOutput('last list command')).toHaveTextContent('open-history')
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
     unmount()
@@ -410,10 +443,70 @@ describe('subscribe page', () => {
     const dynamicButton = getDynamicButtonConfig()
     expect(unref(dynamicButton.show)).toBe(true)
     expect(unref(dynamicButton.icon)).toBe('mdi-history')
+    expect(unref(dynamicButton.menuItems)?.map(item => item.titleKey)).toEqual([
+      'dialog.subscribeHistory.title',
+      'subscribe.maintenance.searchAll',
+      'subscribe.maintenance.refresh',
+      'subscribe.maintenance.refreshMetadata',
+    ])
+  })
+
+  it('confirms and starts an all-subscription search for a regular subscriber', async () => {
+    await renderSubscribe({ appMode: true })
+    const dynamicButton = getDynamicButtonConfig()
+
+    expect(unref(dynamicButton.show)).toBe(true)
+    expect(unref(dynamicButton.icon)).toBe('mdi-magnify-scan')
     expect(unref(dynamicButton.menuItems)).toBeUndefined()
+
     dynamicButton.onClick?.()
-    await nextTick()
-    expect(getListOutput('last list command')).toHaveTextContent('open-history')
+
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
+    await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索任务已启动！')
+  })
+
+  it('does not start an all-subscription search after confirmation cancellation', async () => {
+    mocks.confirm.mockResolvedValue(false)
+    await renderSubscribe({ appMode: true })
+
+    getDynamicButtonConfig().onClick?.()
+
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
+    expect(mocks.searchAllSubscriptions).not.toHaveBeenCalled()
+  })
+
+  it('runs administrator maintenance commands from the existing dynamic menu', async () => {
+    await renderSubscribe({ appMode: true, superUser: true })
+    const items = unref(getDynamicButtonConfig().menuItems) ?? []
+
+    items.find(item => item.titleKey === 'subscribe.maintenance.refresh')?.action()
+    items.find(item => item.titleKey === 'subscribe.maintenance.refreshMetadata')?.action()
+
+    await waitFor(() => expect(mocks.refreshSubscriptions).toHaveBeenCalledOnce())
+    await waitFor(() => expect(mocks.refreshSubscriptionMetadata).toHaveBeenCalledOnce())
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅刷新任务已启动！')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅元数据更新任务已启动！')
+  })
+
+  it('blocks duplicate all-subscription search submissions while the first request is pending', async () => {
+    let resolveSearch: ((value: null) => void) | undefined
+    mocks.searchAllSubscriptions.mockImplementation(
+      () =>
+        new Promise<null>(resolve => {
+          resolveSearch = resolve
+        }),
+    )
+    await renderSubscribe({ appMode: true })
+    const dynamicButton = getDynamicButtonConfig()
+
+    dynamicButton.onClick?.()
+    dynamicButton.onClick?.()
+
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
+    await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
+    resolveSearch?.(null)
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索任务已启动！'))
   })
 
   it.each([

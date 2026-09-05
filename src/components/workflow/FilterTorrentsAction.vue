@@ -1,17 +1,11 @@
 <script setup lang="ts">
-import api from '@/api'
+import { listFilterRuleGroups } from '@/api/rule'
 import { FilterRuleGroup } from '@/api/types'
 import { Handle, Position } from '@vue-flow/core'
 import { useI18n } from 'vue-i18n'
 import { qualityOptions, resolutionOptions, effectOptions } from '@/api/constants'
-import { useUserStore } from '@/stores'
-import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const { t } = useI18n()
-const userStore = useUserStore()
-const canAdmin = computed(() =>
-  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
-)
 
 defineProps({
   id: {
@@ -29,11 +23,8 @@ const filterRuleGroups = ref<FilterRuleGroup[]>([])
 
 // 加载规则组
 async function queryFilterRuleGroups() {
-  if (!canAdmin.value) return
-
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.value ?? []
+    filterRuleGroups.value = await listFilterRuleGroups()
   } catch (error) {
     console.log(error)
   }

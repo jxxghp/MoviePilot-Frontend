@@ -1,4 +1,4 @@
-import type { MediaInfo, TorrentInfo, TransferDirectoryConf } from '@/api/types'
+import type { DownloadDirectory, MediaInfo, TorrentInfo } from '@/api/types'
 import AddDownloadDialog from '@/components/dialog/AddDownloadDialog.vue'
 import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -126,13 +126,17 @@ const DialogCloseButtonStub = defineComponent({
   },
 })
 
-function createDirectory(overrides: Partial<TransferDirectoryConf> = {}): TransferDirectoryConf {
+function createDirectory(overrides: Partial<DownloadDirectory> = {}): DownloadDirectory {
+  const downloadPath = Object.hasOwn(overrides, 'download_path') ? overrides.download_path : '/downloads/default'
+  const storage = Object.hasOwn(overrides, 'storage') ? overrides.storage : 'local'
+  const savePath = downloadPath && storage && storage !== 'local' ? `${storage}:${downloadPath}` : downloadPath
+
   return {
-    download_path: '/downloads/default',
+    download_path: downloadPath,
     name: '下载目录',
     priority: 0,
-    storage: 'local',
-    transfer_type: 'link',
+    save_path: savePath,
+    storage,
     ...overrides,
   }
 }
@@ -184,10 +188,8 @@ function createDeferred<T>() {
   return { promise, resolve }
 }
 
-function directoriesHandler(directories: TransferDirectoryConf[]) {
-  return http.get(new URL('system/setting/public/Directories', API_BASE_URL).href, () =>
-    apiJson({ value: directories }),
-  )
+function directoriesHandler(directories: DownloadDirectory[]) {
+  return http.get(new URL('download/paths', API_BASE_URL).href, () => apiJson(directories))
 }
 
 function downloadersHandler(downloaders: Array<{ name: string; type: string }> = []) {
@@ -215,7 +217,7 @@ async function renderDialog({
   recognizeSource = 'themoviedb',
   torrent = createTorrent(),
 }: {
-  directories?: TransferDirectoryConf[]
+  directories?: DownloadDirectory[]
   downloaders?: Array<{ name: string; type: string }>
   media?: MediaInfo
   recognizeSource?: string
@@ -269,35 +271,24 @@ describe('AddDownloadDialog directories', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
-  it('normalizes local, remote, missing-storage, and duplicate directories while loading downloaders', async () => {
-    const missingStorage = createDirectory({
-      download_path: '/downloads/legacy',
-      name: '兼容目录',
-      storage: undefined as unknown as string,
-    })
-    const nullStorage = createDirectory({ download_path: '/downloads/null-storage', name: '空存储目录' })
-    nullStorage.storage = null as unknown as string
-
+  it('uses API-ready paths, removes duplicates, and loads downloaders', async () => {
     await renderDialog({
       directories: [
-        createDirectory({ download_path: '/downloads/local' }),
-        createDirectory({ download_path: '/downloads/remote', name: '远程目录', storage: 'rclone' }),
-        missingStorage,
-        nullStorage,
-        createDirectory({ download_path: '/downloads/empty-storage', name: '空字符串存储', storage: '' }),
+        createDirectory({ download_path: '/downloads/local', save_path: '/downloads/local' }),
+        createDirectory({
+          download_path: '/downloads/remote',
+          name: '远程目录',
+          save_path: 'rclone:/downloads/remote',
+          storage: 'rclone',
+        }),
         createDirectory({ download_path: '/downloads/remote', name: '重复目录', storage: 'rclone' }),
-        createDirectory({ download_path: undefined, name: '无下载路径' }),
+        createDirectory({ download_path: undefined, name: '无下载路径', save_path: undefined }),
       ],
       downloaders: [{ name: '下载器 A', type: 'qbittorrent' }],
     })
 
     expect(await screen.findByRole('option', { name: '/downloads/local' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '/downloads/legacy' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '/downloads/null-storage' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: ':/downloads/empty-storage' })).toBeInTheDocument()
     expect(screen.getAllByRole('option', { name: 'rclone:/downloads/remote' })).toHaveLength(1)
-    expect(screen.queryByText('undefined:/downloads/legacy')).not.toBeInTheDocument()
-    expect(screen.queryByText('null:/downloads/null-storage')).not.toBeInTheDocument()
     expect(await screen.findByRole('option', { name: '下载器 A' })).toBeInTheDocument()
     expect(screen.getByLabelText('保存目录（自动）')).toHaveValue('')
     expect(screen.getByLabelText('下载器（默认）')).toHaveValue('')

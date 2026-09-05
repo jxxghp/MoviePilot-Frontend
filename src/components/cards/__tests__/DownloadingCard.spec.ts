@@ -58,11 +58,11 @@ async function renderCard(info = downloading(), downloaderName = 'qb-main', glob
   })
 }
 
-/** 获取卡片的继续/暂停和删除操作按钮。 */
+/** 获取卡片的继续/暂停、设置和删除操作按钮。 */
 function actionButtons(container: Element) {
   const buttons = [...container.querySelectorAll<HTMLButtonElement>('.v-card-actions button')]
-  expect(buttons).toHaveLength(2)
-  return { deleteButton: buttons[1]!, toggleButton: buttons[0]! }
+  expect(buttons).toHaveLength(3)
+  return { deleteButton: buttons[2]!, settingsButton: buttons[1]!, toggleButton: buttons[0]! }
 }
 
 beforeEach(() => {
@@ -304,6 +304,15 @@ describe('DownloadingCard display and pause state', () => {
     expect(startRequested.mock.calls[0][0].searchParams.get('name')).toBe('transmission')
     await fireEvent.click(toggleButton)
     await waitFor(() => expect(stopRequested).toHaveBeenCalledTimes(3))
+  })
+
+  it('offers advanced settings without displacing pause and delete actions', async () => {
+    const { container } = await renderCard()
+    const { deleteButton, settingsButton, toggleButton } = actionButtons(container)
+
+    expect(toggleButton).toHaveAccessibleName('暂停')
+    expect(settingsButton).toHaveAccessibleName('高级设置')
+    expect(deleteButton).toHaveAccessibleName('删除')
   })
 
   it('keeps the current state when the pause request fails at the HTTP boundary', async () => {

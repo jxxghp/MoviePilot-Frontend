@@ -32,8 +32,8 @@ function mockLoadedSettings() {
         { id: 4, name: 'RSS Disabled', is_active: false },
       ]
     }
-    if (endpoint === 'system/setting/UserFilterRuleGroups') {
-      return { success: true, data: { value: [{ name: 'HDR' }, { name: 'Remux' }] } }
+    if (endpoint === 'rule/groups') {
+      return { count: 2, rule_groups: [{ name: 'HDR' }, { name: 'Remux' }] }
     }
     if (endpoint === 'system/setting/RssSites') return { success: true, data: { value: [3] } }
     if (endpoint === 'system/setting/SubscribeFilterRuleGroups') {

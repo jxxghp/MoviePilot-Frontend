@@ -2,6 +2,8 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api, { getApiErrorMessage } from '@/api'
+import { listTransferDirectories } from '@/api/storage'
+import { getSystemSetting } from '@/api/systemSettings'
 import type { StorageConf, TransferDirectoryConf } from '@/api/types'
 import type { ClassificationCategory } from '@/api/mediaClassification'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
@@ -130,14 +132,12 @@ const musicRenameFormat = computed({
 // 加载系统设置
 async function loadSystemSettings() {
   try {
-    const result: { [key: string]: any } = await api.get('system/env')
-    // 将API返回的值赋值给SystemSettings
-    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
-      Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-        if (Object.prototype.hasOwnProperty.call(result, key)) {
-          Reflect.set(SystemSettings.value[sectionKey], key, result[key])
-        }
-      })
+    const keys = Object.keys(SystemSettings.value.Basic)
+    const settings = await Promise.all(keys.map(key => getSystemSetting(key)))
+    for (const setting of settings) {
+      if (setting && Object.prototype.hasOwnProperty.call(SystemSettings.value.Basic, setting.setting_key)) {
+        Reflect.set(SystemSettings.value.Basic, setting.setting_key, setting.value)
+      }
     }
   } catch (error) {
     console.log(error)
@@ -165,7 +165,7 @@ function orderDirectoryCards() {
 // 查询存储
 async function loadStorages() {
   try {
-    const result = await api.get<{ value?: StorageConf[] }>('system/setting/public/Storages')
+    const result = await api.get<{ value?: StorageConf[] }>('system/setting/Storages')
     storages.value = result.value ?? []
   } catch (error) {
     console.log(error)
@@ -186,8 +186,7 @@ async function saveStorages() {
 // 查询目录
 async function loadDirectories(options: { rethrow?: boolean } = {}) {
   try {
-    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
-    directories.value = result.value ?? []
+    directories.value = await listTransferDirectories()
   } catch (error) {
     console.log(error)
     if (options.rethrow) throw error

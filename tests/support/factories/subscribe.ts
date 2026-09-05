@@ -1,4 +1,5 @@
 import type {
+  DownloadDirectory,
   DownloaderConf,
   FilterRuleGroup,
   MediaInfo,
@@ -6,7 +7,6 @@ import type {
   Subscribe,
   SubscribeShare,
   SubscribeShareStatistics,
-  TransferDirectoryConf,
 } from '@/api/types'
 import { createMediaInfo } from './media'
 
@@ -121,13 +121,17 @@ export function createSubscribeDownloader(overrides: Partial<DownloaderConf> = {
 }
 
 /** 构造下载目录配置。 */
-export function createSubscribeDirectory(overrides: Partial<TransferDirectoryConf> = {}): TransferDirectoryConf {
+export function createSubscribeDirectory(overrides: Partial<DownloadDirectory> = {}): DownloadDirectory {
+  const downloadPath = Object.hasOwn(overrides, 'download_path') ? overrides.download_path : '/downloads'
+  const storage = Object.hasOwn(overrides, 'storage') ? overrides.storage : 'local'
+  const savePath = downloadPath && storage && storage !== 'local' ? `${storage}:${downloadPath}` : downloadPath
+
   return {
-    download_path: '/downloads',
+    download_path: downloadPath,
     name: '测试目录',
     priority: 1,
-    storage: 'local',
-    transfer_type: 'link',
+    save_path: savePath,
+    storage,
     ...overrides,
   }
 }

@@ -7,7 +7,10 @@ import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useD
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useConfirm } from '@/composables/useConfirm'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { refreshSubscriptionMetadata, refreshSubscriptions, searchAllSubscriptions } from '@/api/subscription'
+import { useToast } from 'vue-toastification'
 
 import { getSubscribeMovieTabs, getSubscribeMusicTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
@@ -17,6 +20,8 @@ const { t } = useI18n()
 const route = useRoute()
 const userStore = useUserStore()
 const { appMode } = usePWA()
+const createConfirm = useConfirm()
+const $toast = useToast()
 
 // 非默认标签页和弹窗按需加载，避免进入订阅列表时同步下载分享/统计相关代码。
 const SubscribePopularView = defineAsyncComponent(() => import('@/views/subscribe/SubscribePopularView.vue'))
@@ -60,6 +65,20 @@ const filterSubscribeDialog = ref(false)
 
 // 搜索订阅分享弹窗
 const searchShareDialog = ref(false)
+
+type SubscriptionMaintenanceAction = 'search' | 'refresh' | 'metadata'
+
+interface SubscriptionMaintenanceMenuItem extends DynamicButtonMenuItem {
+  id: SubscriptionMaintenanceAction
+}
+
+// 订阅维护菜单和各命令的独立忙碌状态。
+const subscriptionMaintenanceMenu = ref(false)
+const subscriptionMaintenanceBusy = reactive<Record<SubscriptionMaintenanceAction, boolean>>({
+  search: false,
+  refresh: false,
+  metadata: false,
+})
 
 // 排序模式
 const subscribeSortMode = ref(false)
@@ -236,6 +255,7 @@ const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscr
 const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value && subType !== '音乐')
 const showSubscribeHistoryAction = computed(() => activeTab.value === 'mysub' && canAdmin.value)
 const showShareStatisticsAction = computed(() => activeTab.value === 'share' && canSubscribe.value)
+const showSubscriptionMaintenanceAction = computed(() => activeTab.value === 'mysub' && canSubscribe.value)
 const subscribeRoutePath = computed(() => {
   if (subType === '电影') return '/subscribe/movie'
   if (subType === '音乐') return '/subscribe/music'
@@ -261,6 +281,72 @@ function openSubscribeHistoryDialog() {
 function openShareStatisticsDialog() {
   openSharedDialog(SubscribeShareStatisticsDialog, {}, {}, { closeOn: ['close'] })
 }
+
+/** 触发一项订阅维护命令，并只锁定当前命令入口。 */
+async function runSubscriptionMaintenance(action: SubscriptionMaintenanceAction) {
+  if (subscriptionMaintenanceBusy[action]) return
+  subscriptionMaintenanceBusy[action] = true
+
+  try {
+    if (action === 'search') {
+      const confirmed = await createConfirm({
+        title: t('subscribe.maintenance.searchAllConfirmTitle'),
+        content: t('subscribe.maintenance.searchAllConfirm'),
+      })
+      if (!confirmed) return
+      await searchAllSubscriptions()
+      $toast.success(t('subscribe.maintenance.searchAllStarted'))
+    } else if (action === 'refresh') {
+      await refreshSubscriptions()
+      $toast.success(t('subscribe.maintenance.refreshStarted'))
+    } else {
+      await refreshSubscriptionMetadata()
+      $toast.success(t('subscribe.maintenance.metadataRefreshStarted'))
+    }
+    subscriptionMaintenanceMenu.value = false
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('subscribe.requestFailed'))
+  } finally {
+    subscriptionMaintenanceBusy[action] = false
+  }
+}
+
+const subscriptionMaintenanceItems = computed<SubscriptionMaintenanceMenuItem[]>(() => {
+  const items: SubscriptionMaintenanceMenuItem[] = [
+    {
+      id: 'search',
+      titleKey: 'subscribe.maintenance.searchAll',
+      icon: subscriptionMaintenanceBusy.search ? 'mdi-loading' : 'mdi-magnify-scan',
+      permission: 'subscribe',
+      disabled: subscriptionMaintenanceBusy.search,
+      action: () => void runSubscriptionMaintenance('search'),
+    },
+  ]
+
+  if (canAdmin.value) {
+    items.push(
+      {
+        id: 'refresh',
+        titleKey: 'subscribe.maintenance.refresh',
+        icon: subscriptionMaintenanceBusy.refresh ? 'mdi-loading' : 'mdi-refresh',
+        permission: 'admin',
+        disabled: subscriptionMaintenanceBusy.refresh,
+        action: () => void runSubscriptionMaintenance('refresh'),
+      },
+      {
+        id: 'metadata',
+        titleKey: 'subscribe.maintenance.refreshMetadata',
+        icon: subscriptionMaintenanceBusy.metadata ? 'mdi-loading' : 'mdi-database-refresh-outline',
+        permission: 'admin',
+        disabled: subscriptionMaintenanceBusy.metadata,
+        action: () => void runSubscriptionMaintenance('metadata'),
+      },
+    )
+  }
+
+  return items
+})
 
 // 订阅列表批量状态变化响应，用于驱动移动端 Footer 和桌面 FAB 操作按钮。
 function handleSubscribeBatchStateChange(state: SubscribeBatchState) {
@@ -428,6 +514,8 @@ const subscribeDynamicMenuItems = computed<DynamicButtonMenuItem[] | undefined>(
       })
     }
 
+    items.push(...subscriptionMaintenanceItems.value)
+
     return items.length > 1 ? items : undefined
   }
 
@@ -438,6 +526,7 @@ const subscribeDynamicIcon = computed(() => {
   if (subscribeBatchState.value.enabled) return 'mdi-checkbox-multiple-marked-outline'
   if (showShareStatisticsAction.value) return 'mdi-chart-line'
   if (showSubscribeHistoryAction.value) return 'mdi-history'
+  if (showSubscriptionMaintenanceAction.value) return 'mdi-magnify-scan'
   return 'mdi-clipboard-edit-outline'
 })
 
@@ -459,6 +548,11 @@ function handleSubscribeDynamicAction() {
 
   if (showDefaultRuleAction.value) {
     openDefaultRuleDialog()
+    return
+  }
+
+  if (showSubscriptionMaintenanceAction.value) {
+    void runSubscriptionMaintenance('search')
   }
 }
 
@@ -473,7 +567,8 @@ useDynamicButton({
       (subscribeBatchState.value.enabled ||
         showDefaultRuleAction.value ||
         showSubscribeHistoryAction.value ||
-        showShareStatisticsAction.value),
+        showShareStatisticsAction.value ||
+        showSubscriptionMaintenanceAction.value),
   ),
 })
 
@@ -671,6 +766,44 @@ onMounted(() => {
 
     <Teleport to="body" v-if="!appMode && route.path.startsWith(subscribeRoutePath)">
       <div class="compact-fab-stack">
+        <VMenu
+          v-if="!subscribeBatchState.enabled && showSubscriptionMaintenanceAction"
+          v-model="subscriptionMaintenanceMenu"
+          location="top end"
+          :close-on-content-click="false"
+        >
+          <template #activator="{ props }">
+            <VFab
+              v-bind="props"
+              icon="mdi-tools"
+              color="secondary"
+              variant="tonal"
+              appear
+              class="compact-fab compact-fab--secondary"
+              :aria-label="t('subscribe.maintenance.title')"
+            />
+          </template>
+          <VList min-width="240" density="comfortable">
+            <VListItem
+              v-for="item in subscriptionMaintenanceItems"
+              :key="item.id"
+              :disabled="item.disabled"
+              @click="item.action"
+            >
+              <template #prepend>
+                <VProgressCircular
+                  v-if="subscriptionMaintenanceBusy[item.id]"
+                  indeterminate
+                  color="primary"
+                  size="20"
+                  width="2"
+                />
+                <VIcon v-else :icon="item.icon" />
+              </template>
+              <VListItemTitle>{{ item.titleKey ? t(item.titleKey) : item.title }}</VListItemTitle>
+            </VListItem>
+          </VList>
+        </VMenu>
         <VFab
           v-if="subscribeBatchState.enabled"
           icon="mdi-close"

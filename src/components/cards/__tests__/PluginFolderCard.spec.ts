@@ -168,14 +168,24 @@ describe('PluginFolderCard', () => {
   })
 
   it('delegates appearance persistence without announcing success before the owner responds', async () => {
+    const close = vi.fn()
+    const updateProps = vi.fn()
+    mocks.openSharedDialog.mockReturnValueOnce({ close, id: 1, updateProps })
     const { emitted } = await renderFolder()
 
     await fireEvent.click(screen.getByText('设置外观'))
     const config = { color: '#ff0000', icon: 'mdi-folder-heart', showIcon: false }
-    getDialogEvents().save(config)
+    const savePromise = getDialogEvents().save(config)
+    const saveEmission = emitted('update-config')?.[0] as unknown[] | undefined
 
-    expect(emitted('update-config')).toEqual([['媒体工具', config]])
+    expect(saveEmission?.slice(0, 2)).toEqual(['媒体工具', config])
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(updateProps).toHaveBeenCalledWith({ saving: true })
+
+    ;(saveEmission?.[2] as (success: boolean) => void)(false)
+    await savePromise
+    expect(close).not.toHaveBeenCalled()
+    expect(updateProps).toHaveBeenLastCalledWith({ saving: false })
   })
 
   it('validates rename input and emits a valid rename through the shared dialog', async () => {
@@ -187,8 +197,11 @@ describe('PluginFolderCard', () => {
     await events.rename('   ')
     expect(mocks.toastError).toHaveBeenCalledWith('文件夹名称不能为空')
 
-    await events.rename('影音工具')
-    expect(emitted('rename')).toEqual([['媒体工具', '影音工具']])
+    const renamePromise = events.rename('影音工具')
+    const renameEmission = emitted('rename')?.[0] as unknown[] | undefined
+    expect(renameEmission?.slice(0, 2)).toEqual(['媒体工具', '影音工具'])
+    ;(renameEmission?.[2] as (success: boolean) => void)(true)
+    await renamePromise
   })
 
   it('closes rename without emitting when the name is unchanged', async () => {

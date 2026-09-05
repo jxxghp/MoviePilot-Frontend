@@ -1,5 +1,5 @@
 import WordsView from '@/views/system/WordsView.vue'
-import { screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent } from 'vue'
@@ -50,6 +50,7 @@ const AceEditorStub = defineComponent({
       :data-show-gutter="String(Boolean(options.showGutter))"
       :data-show-line-numbers="String(Boolean(options.showLineNumbers))"
       :data-value="value"
+      @click="$emit('update:value', value + '\\ngamma')"
     />
   `,
 })
@@ -67,6 +68,7 @@ async function renderWordsView() {
 describe('WordsView editor preferences', () => {
   beforeEach(() => {
     mocks.apiGet.mockImplementation((endpoint: string) => {
+      if (endpoint === 'system/identifiers') return Promise.resolve({ data: { identifiers: ['alpha', 'beta'] } })
       if (endpoint.includes('EpisodeFormatRuleTable')) return Promise.resolve({ data: { value: [] } })
       return Promise.resolve({ data: { value: ['alpha', 'beta'] } })
     })
@@ -152,6 +154,26 @@ describe('WordsView editor preferences', () => {
       expect(editor).toHaveAttribute('data-show-line-numbers', 'false')
       expect(localStorage.getItem('MP_WORDS_SHOW_LINE_NUMBERS')).toBe('false')
     })
+  })
+
+  it('loads and conditionally replaces identifiers through the dedicated API', async () => {
+    const user = userEvent.setup()
+    await renderWordsView()
+
+    const editor = await screen.findByTestId('words-ace-editor')
+    await waitFor(() => expect(editor).toHaveAttribute('data-value', 'alpha\nbeta'))
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/identifiers')
+
+    await fireEvent.click(editor)
+    await user.click(screen.getByRole('button', { name: '保存更改' }))
+
+    await waitFor(() => {
+      expect(mocks.apiPost).toHaveBeenCalledWith('system/identifiers', {
+        identifiers: ['alpha', 'beta', 'gamma'],
+        expected_identifiers: ['alpha', 'beta'],
+      })
+    })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('自定义识别词保存成功')
   })
 
   it('switches word list syntax highlighting and persists the preference without changing content', async () => {

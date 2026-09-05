@@ -5,15 +5,18 @@ import { numberValidator } from '@/@validators'
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
 import { transferTypeOptions } from '@/api/constants'
+import { listStorageOptions, listTransferDirectories } from '@/api/storage'
 import {
   FileItem,
   ManualTransferHistoryInfo,
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
+  ManualTransferTargetPathData,
+  ManualTransferTargetPathRequest,
   MediaDataSource,
   MediaInfo,
-  StorageConf,
+  StorageOption,
   TransferDirectoryConf,
   TransferForm,
 } from '@/api/types'
@@ -119,6 +122,12 @@ const previewData = ref<ManualTransferPreviewData>()
 const manualHistoryLoading = ref(false)
 const manualHistoryCount = ref(0)
 
+// 自动目的路径匹配状态
+const targetPathMatchLoading = ref(false)
+const targetPathMatch = ref<ManualTransferTargetPathData>()
+const targetPathMatchFailed = ref(false)
+let targetPathMatchRequestId = 0
+
 interface EpisodeFormatRecommendData {
   rule_name?: string
   rule_index?: number
@@ -205,7 +214,7 @@ const previewPage = ref(1)
 const previewPageSize = ref(20)
 
 // 所有存储
-const storages = ref<StorageConf[]>([])
+const storages = ref<StorageOption[]>([])
 
 // 所有剧集组
 const episodeGroups = ref<{ [key: string]: any }[]>([])
@@ -219,9 +228,7 @@ let episodeGroupQueryTimer: ReturnType<typeof setTimeout> | undefined
 // 查询存储
 async function loadStorages() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
-
-    storages.value = result.value ?? []
+    storages.value = await listStorageOptions()
   } catch (error) {
     console.log(error)
   }
@@ -359,6 +366,16 @@ const transferForm = reactive<TransferForm>({
 // 历史记录入口和文件浏览器命中的成功历史都属于重新整理。
 const isReorganize = computed(() => Boolean(props.logids?.length || transferForm.reorganize))
 
+// 当前是否保留后端自动匹配目的路径的语义。
+const isAutomaticTargetPath = computed(() => !normalizeTargetPath(transferForm.target_path))
+
+// 自动匹配返回的存储使用用户配置名称展示，未知类型回退到稳定标识。
+const matchedTargetStorageLabel = computed(() => {
+  const storage = targetPathMatch.value?.target_storage
+  if (!storage) return t('dialog.reorganize.auto')
+  return storages.value.find(item => item.type === storage)?.name || storage
+})
+
 // 当前手动识别与刮削数据源；自动模式按媒体类型解析实际来源。
 const mediaSource = computed(() => {
   if (transferForm.media_source) return transferForm.media_source
@@ -396,8 +413,7 @@ const directories = ref<TransferDirectoryConf[]>([])
 // 查询目录
 async function loadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
-    directories.value = result.value ?? []
+    directories.value = await listTransferDirectories({ directory_type: 'library' })
   } catch (error) {
     console.log(error)
   }
@@ -444,6 +460,58 @@ function resetAutomaticTargetConfig() {
   transferForm.library_category_folder = null
 }
 
+/** 构造目的路径匹配所需的最小来源请求。 */
+function createTargetPathMatchRequest(): ManualTransferTargetPathRequest | undefined {
+  const targetStorage = normalizeOptionalText(transferForm.target_storage)
+  if (props.logids?.length) {
+    return { logids: [...props.logids], target_storage: targetStorage }
+  }
+  if (!normalizedItems.value.length) return undefined
+  if (normalizedItems.value.length === 1) {
+    return { fileitem: normalizedItems.value[0], target_storage: targetStorage }
+  }
+  return { fileitems: normalizedItems.value, target_storage: targetStorage }
+}
+
+/** 查询自动目的路径，但不覆盖用户已经明确选择的路径。 */
+async function loadTargetPathMatch() {
+  if (!isAutomaticTargetPath.value) return
+  const payload = createTargetPathMatchRequest()
+  if (!payload) return
+
+  const requestId = ++targetPathMatchRequestId
+  targetPathMatchLoading.value = true
+  targetPathMatchFailed.value = false
+  targetPathMatch.value = undefined
+  try {
+    const result = await api.post<ManualTransferTargetPathData>('transfer/manual/target-path', payload, {
+      feedback: 'silent',
+    })
+    if (requestId !== targetPathMatchRequestId || !isAutomaticTargetPath.value) return
+    targetPathMatch.value = result
+  } catch (error) {
+    if (requestId !== targetPathMatchRequestId || !isAutomaticTargetPath.value) return
+    targetPathMatchFailed.value = true
+    console.error('查询手动整理目的路径失败:', error)
+  } finally {
+    if (requestId === targetPathMatchRequestId) targetPathMatchLoading.value = false
+  }
+}
+
+/** 将用户确认的自动匹配结果应用到本次整理表单。 */
+function applyTargetPathMatch() {
+  const match = targetPathMatch.value
+  const targetPath = normalizeTargetPath(match?.target_path)
+  if (!match || !targetPath) return
+
+  transferForm.target_path = targetPath
+  transferForm.target_storage = normalizeOptionalText(match.target_storage) || 'local'
+  transferForm.transfer_type = normalizeOptionalText(match.transfer_type)
+  transferForm.scrape = match.scrape ?? false
+  transferForm.library_type_folder = match.library_type_folder ?? false
+  transferForm.library_category_folder = match.library_category_folder ?? false
+}
+
 // 监听目的路径变化，配置默认值
 watch(
   () => transferForm.target_path,
@@ -469,6 +537,14 @@ watch(
       transferForm.library_type_folder = null
       transferForm.library_category_folder = null
     }
+  },
+)
+
+// 自动模式下切换目标存储时重新匹配，不在显式路径模式中产生额外请求。
+watch(
+  () => transferForm.target_storage,
+  () => {
+    if (isAutomaticTargetPath.value) void loadTargetPathMatch()
   },
 )
 
@@ -1410,12 +1486,13 @@ async function transfer(background: boolean = false) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadDirectories(), loadManualTransferHistory()])
+  await Promise.all([loadDirectories(), loadManualTransferHistory(), loadTargetPathMatch()])
   loadStorages()
   loadEpisodeFormatRuleConfiguration()
 })
 
 onUnmounted(() => {
+  targetPathMatchRequestId += 1
   stopLoadingProgress()
   if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
 })
@@ -1431,7 +1508,7 @@ onUnmounted(() => {
       class="reorganize-dialog-card"
       :class="{ 'reorganize-dialog-card--split': previewVisible && display.mdAndUp.value }"
     >
-      <VCardItem class="py-2">
+      <VCardItem class="py-2 reorganize-dialog-card__header">
         <template #prepend> <VIcon icon="mdi-folder-move" class="me-2" /> </template>
         <VCardTitle>{{ dialogTitle }}</VCardTitle>
         <VCardSubtitle>{{ dialogSubtitle }}</VCardSubtitle>
@@ -1488,6 +1565,54 @@ onUnmounted(() => {
                       persistent-hint
                       prepend-inner-icon="mdi-folder-outline"
                     />
+                    <VAlert
+                      v-if="isAutomaticTargetPath"
+                      class="target-path-match mt-3"
+                      :type="targetPathMatchFailed ? 'warning' : 'info'"
+                      variant="tonal"
+                      density="compact"
+                      :icon="false"
+                    >
+                      <div class="target-path-match__content">
+                        <div class="target-path-match__message">
+                          <VProgressCircular
+                            v-if="targetPathMatchLoading"
+                            color="info"
+                            indeterminate
+                            size="18"
+                            width="2"
+                          />
+                          <VIcon
+                            v-else
+                            :icon="targetPathMatchFailed ? 'mdi-alert-outline' : 'mdi-source-branch-check'"
+                            size="20"
+                          />
+                          <span v-if="targetPathMatchLoading">{{ t('dialog.reorganize.targetPathMatchLoading') }}</span>
+                          <span v-else-if="targetPathMatchFailed">{{
+                            t('dialog.reorganize.targetPathMatchFailed')
+                          }}</span>
+                          <span v-else-if="targetPathMatch?.target_path">
+                            {{
+                              t('dialog.reorganize.targetPathMatchSuccess', {
+                                storage: matchedTargetStorageLabel,
+                                path: targetPathMatch.target_path,
+                              })
+                            }}
+                          </span>
+                          <span v-else>{{ t('dialog.reorganize.targetPathMatchEmpty') }}</span>
+                        </div>
+                        <VBtn
+                          v-if="targetPathMatch?.target_path && !targetPathMatchLoading"
+                          color="info"
+                          variant="text"
+                          size="small"
+                          prepend-icon="mdi-check"
+                          @click="applyTargetPathMatch"
+                        >
+                          {{ t('dialog.reorganize.useMatchedTargetPath') }}
+                        </VBtn>
+                      </div>
+                    </VAlert>
                   </VCol>
                 </VRow>
                 <VRow>
@@ -1881,6 +2006,10 @@ onUnmounted(() => {
   max-block-size: min(92vh, 64rem);
 }
 
+.reorganize-dialog-card__header {
+  padding-inline-end: 4rem !important;
+}
+
 .reorganize-dialog-card__body {
   min-block-size: 0;
 }
@@ -1952,6 +2081,27 @@ onUnmounted(() => {
 
 .reorganize-action-btn--active {
   background: rgba(var(--v-theme-info), 0.12);
+}
+
+.target-path-match {
+  border-radius: var(--app-control-radius);
+}
+
+.target-path-match__content,
+.target-path-match__message {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.target-path-match__content {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.target-path-match__message {
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
 }
 
 .reorganize-preview-pane {
@@ -2309,6 +2459,15 @@ onUnmounted(() => {
 }
 
 @media (width <= 640px) {
+  .target-path-match__content {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .target-path-match__content .v-btn {
+    inline-size: 100%;
+  }
+
   .reorganize-form-pane__actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

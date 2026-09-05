@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
+import { listMediaServerClients } from '@/api/mediaServer'
+import type { MediaServerClient, MediaServerPlayItem } from '@/api/types'
 import PlayingBackdropCard from '@/components/cards/PlayingBackdropCard.vue'
 import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
 import DashboardMediaState from '@/components/misc/DashboardMediaState.vue'
@@ -32,8 +33,8 @@ const hasSnapshot = ref(currentSnapshot !== undefined)
 const isLoading = ref(!currentSnapshot)
 const loadFailed = ref(false)
 
-// 所有媒体服务器设置
-const mediaServers = ref<MediaServerConf[]>([])
+// 已启用且不包含连接配置的媒体服务器客户端
+const mediaServers = ref<MediaServerClient[]>([])
 
 // 小屏幕纵向空间更紧凑，展示三行；桌面端保持两行横向铺满。
 const mediaGridRows = computed(() => (display.smAndDown.value ? 3 : 2))
@@ -55,12 +56,11 @@ const displayedPlayingList = computed(() => playingList.value.slice(0, playingIt
 let playingLoadId = 0
 
 /**
- * 查询媒体服务器设置。
+ * 查询已启用的媒体服务器客户端。
  */
 async function loadMediaServerSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
-    mediaServers.value = result.value ?? []
+    mediaServers.value = await listMediaServerClients()
     return true
   } catch (error) {
     console.log(error)
@@ -106,8 +106,7 @@ async function loadData() {
   }
   if (loadId !== playingLoadId) return
 
-  const enabledServers = mediaServers.value.filter(server => server.enabled)
-  const serverItems = await Promise.all(enabledServers.map(server => loadPlayingList(server.name, count)))
+  const serverItems = await Promise.all(mediaServers.value.map(server => loadPlayingList(server.name, count)))
 
   if (loadId !== playingLoadId) return
   if (serverItems.some(items => items === undefined)) {

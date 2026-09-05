@@ -25,12 +25,8 @@ function mockSettings(
   directories: Array<{ download_path?: string; storage: string }> | null,
 ) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
-    if (endpoint === 'system/setting/public/Storages') {
-      return { data: { value: storages }, success: true }
-    }
-    if (endpoint === 'system/setting/public/Directories') {
-      return { data: { value: directories }, success: true }
-    }
+    if (endpoint === 'storage/options') return storages
+    if (endpoint === 'download/paths') return directories
     throw new Error(`Unexpected GET ${endpoint}`)
   })
 }
@@ -52,7 +48,7 @@ describe('FileBrowserView initialization', () => {
     mocks.apiGet.mockReset()
   })
 
-  it('falls back to the storage root when Directories is null', async () => {
+  it('falls back to the storage root when download paths are null', async () => {
     mockSettings([{ name: '本地', type: 'local' }], null)
     const wrapper = await mountView()
 
@@ -74,7 +70,7 @@ describe('FileBrowserView initialization', () => {
     ])
   })
 
-  it('falls back to local root when Storages and Directories are null', async () => {
+  it('falls back to local root when storage options and download paths are null', async () => {
     mockSettings(null, null)
     const browser = (await mountView()).getComponent(FileBrowserStub)
 

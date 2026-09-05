@@ -190,30 +190,58 @@ function mockLoadedSettings(
   } = {},
 ) {
   let directoryReadCount = 0
-  mocks.apiGet.mockImplementation((endpoint: string) => {
-    if (endpoint === 'system/setting/public/Directories') {
+  mocks.apiGet.mockImplementation((endpoint: string, config?: { params?: { setting_key?: string } }) => {
+    if (endpoint === 'storage/directories') {
       directoryReadCount += 1
       const value =
         directoryReadCount > 1 && options.reloadedDirectories
           ? options.reloadedDirectories
           : (options.directories ?? directoriesFixture)
-      return { data: { value: structuredClone(value) } }
+      return { data: structuredClone(value) }
     }
-    if (endpoint === 'system/setting/public/Storages') return { data: { value: structuredClone(storagesFixture) } }
+    if (endpoint === 'system/setting/Storages') return { data: { value: structuredClone(storagesFixture) } }
     if (endpoint === 'media/classification/policy') {
       return {
         ...structuredClone(classificationPolicyFixture),
         categories: structuredClone(options.categories ?? classificationCategories),
       }
     }
-    if (endpoint === 'system/env') {
+    if (endpoint === 'system/settings') {
+      const settingKey = config?.params?.setting_key
+      const values: Record<string, unknown> = {
+        SCRAP_SOURCE: 'themoviedb',
+        MOVIE_RENAME_FORMAT: '{{ title }}',
+        TV_RENAME_FORMAT: '{{ name }}',
+        MUSIC_RENAME_FORMAT: '{{ artist }}',
+      }
       return {
-        success: true,
         data: {
-          MOVIE_RENAME_FORMAT: '{{ title }}',
-          TV_RENAME_FORMAT: '{{ name }}',
-          MUSIC_RENAME_FORMAT: '{{ artist }}',
-          UNRELATED: 'ignored',
+          include_values: true,
+          matched_count: settingKey && Object.hasOwn(values, settingKey) ? 1 : 0,
+          settings:
+            settingKey && Object.hasOwn(values, settingKey)
+              ? [
+                  {
+                    definition: {
+                      declared_type: 'unknown',
+                      nullable: values[settingKey] == null,
+                      persistence: 'app.env',
+                      sensitive: false,
+                      update_operations: ['replace'],
+                      value_shape: typeof values[settingKey],
+                    },
+                    group: 'settings',
+                    has_value: values[settingKey] != null,
+                    label: settingKey,
+                    redacted: false,
+                    setting_key: settingKey,
+                    source: 'settings',
+                    value: values[settingKey],
+                    value_type: typeof values[settingKey],
+                  },
+                ]
+              : [],
+          show_secrets: false,
         },
       }
     }
@@ -260,6 +288,12 @@ describe('AccountSettingDirectory', () => {
     expect(screen.getByText('目录3')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByTestId('category-count-目录1')).toHaveTextContent('2'))
     expect(mocks.apiGet).toHaveBeenCalledWith('media/classification/policy')
+    expect(mocks.apiGet).toHaveBeenCalledWith('storage/directories', { params: {} })
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/setting/Storages')
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/settings', {
+      params: { setting_key: 'MOVIE_RENAME_FORMAT' },
+    })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('system/env')
     expect(screen.getByRole('checkbox', { name: '挂载盘删除空目录' })).toBeChecked()
     expect(screen.getByRole('button', { name: '自动分类策略' })).toBeInTheDocument()
     expect(getRenameEditors().map(input => (input as HTMLTextAreaElement).value)).toEqual([

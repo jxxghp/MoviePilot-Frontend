@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  requestCookieCloudSync: vi.fn(),
+  resetSiteData: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useSilentSettingRefresh: vi.fn(),
@@ -14,6 +16,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/api', () => ({
   default: createDataApiMock({ get: mocks.apiGet, post: mocks.apiPost }),
+}))
+
+vi.mock('@/api/site', () => ({
+  requestCookieCloudSync: mocks.requestCookieCloudSync,
+  resetSiteData: mocks.resetSiteData,
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -46,7 +53,6 @@ function mockLoadedSettings() {
         },
       }
     }
-    if (endpoint === 'site/reset') return { success: true }
     throw new Error(`Unexpected GET ${endpoint}`)
   })
 }
@@ -66,6 +72,8 @@ describe('AccountSettingSite', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
+    mocks.requestCookieCloudSync.mockReset().mockResolvedValue(null)
+    mocks.resetSiteData.mockReset().mockResolvedValue(null)
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.useSilentSettingRefresh.mockReset()
@@ -155,38 +163,67 @@ describe('AccountSettingSite', () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
+  it('starts one CookieCloud sync at a time and restores the action after success', async () => {
+    const user = userEvent.setup()
+    let resolveSync: (() => void) | undefined
+    mocks.requestCookieCloudSync.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveSync = resolve
+        }),
+    )
+    await renderSettings()
+    const syncButton = getCard('站点同步').getByRole('button', { name: '立即同步' })
+
+    await user.click(syncButton)
+    await waitFor(() => expect(mocks.requestCookieCloudSync).toHaveBeenCalledTimes(1))
+    expect(syncButton).toBeDisabled()
+    await user.click(syncButton)
+    expect(mocks.requestCookieCloudSync).toHaveBeenCalledTimes(1)
+
+    resolveSync?.()
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('CookieCloud同步任务已启动！'))
+    expect(syncButton).toBeEnabled()
+  })
+
+  it('restores CookieCloud sync after an API failure', async () => {
+    mocks.requestCookieCloudSync.mockRejectedValueOnce(new Error('offline'))
+    await renderSettings()
+    const syncButton = getCard('站点同步').getByRole('button', { name: '立即同步' })
+
+    await fireEvent.click(syncButton)
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('CookieCloud同步启动失败！'))
+    expect(syncButton).toBeEnabled()
+  })
+
   it('requires confirmation and restores the reset action after success or business failure', async () => {
     const user = userEvent.setup()
     await renderSettings()
     const resetCard = getCard('站点重置')
     const resetButton = resetCard.getByRole('button', { name: '重置站点数据' })
-    let resolveReset: ((value: { success: boolean }) => void) | undefined
-    mocks.apiGet.mockImplementation((endpoint: string) => {
-      if (endpoint === 'site/reset') {
-        return new Promise(resolve => {
+    let resolveReset: (() => void) | undefined
+    mocks.resetSiteData.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
           resolveReset = resolve
-        })
-      }
-      throw new Error(`Unexpected GET ${endpoint}`)
-    })
+        }),
+    )
     expect(resetButton).toBeDisabled()
 
     await user.click(resetCard.getByRole('checkbox', { name: '确认删除所有站点数据并重新同步。' }))
     expect(resetButton).toBeEnabled()
     await user.click(resetButton)
-    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('site/reset'))
+    await waitFor(() => expect(mocks.resetSiteData).toHaveBeenCalledTimes(1))
     expect(resetCard.getByRole('button', { name: '正在重置...' })).toBeDisabled()
     await user.click(resetCard.getByRole('button', { name: '正在重置...' }))
-    expect(mocks.apiGet.mock.calls.filter(([endpoint]) => endpoint === 'site/reset')).toHaveLength(1)
+    expect(mocks.resetSiteData).toHaveBeenCalledTimes(1)
 
-    resolveReset?.({ success: true })
+    resolveReset?.()
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('站点重置成功，请等待CookieCloud同步完成！'))
     expect(resetCard.getByRole('button', { name: '重置站点数据' })).toBeEnabled()
 
-    mocks.apiGet.mockImplementation((endpoint: string) => {
-      if (endpoint === 'site/reset') return { success: false }
-      return mockLoadedSettings()
-    })
+    mocks.resetSiteData.mockRejectedValueOnce(new Error('business failure'))
     mocks.toastSuccess.mockReset()
     await user.click(resetCard.getByRole('button', { name: '重置站点数据' }))
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('站点重置失败！'))
@@ -197,10 +234,7 @@ describe('AccountSettingSite', () => {
     await renderSettings()
     const resetCard = getCard('站点重置')
     await fireEvent.click(resetCard.getByRole('checkbox', { name: '确认删除所有站点数据并重新同步。' }))
-    mocks.apiGet.mockImplementation((endpoint: string) => {
-      if (endpoint === 'site/reset') throw new Error('offline')
-      throw new Error(`Unexpected GET ${endpoint}`)
-    })
+    mocks.resetSiteData.mockRejectedValueOnce(new Error('offline'))
 
     await fireEvent.click(resetCard.getByRole('button', { name: '重置站点数据' }))
 

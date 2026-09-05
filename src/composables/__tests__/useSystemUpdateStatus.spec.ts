@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
   default: {
     get: (...args: unknown[]) => mocks.get(...args),
+    post: (...args: unknown[]) => mocks.post(...args),
   },
 }))
 
@@ -44,6 +46,7 @@ describe('useSystemUpdateStatus', () => {
     vi.useFakeTimers()
     vi.resetModules()
     mocks.get.mockReset()
+    mocks.post.mockReset()
   })
 
   afterEach(() => {
@@ -68,5 +71,30 @@ describe('useSystemUpdateStatus', () => {
     expect(mocks.get).toHaveBeenCalledTimes(2)
     expect(updates.status.value?.updates?.[0].state).toBe('ready')
     updates.stopPolling()
+  })
+
+  it('coalesces concurrent manual checks and writes the returned shared status', async () => {
+    let resolveCheck!: (status: SystemUpdateStatus) => void
+    mocks.post.mockReturnValue(
+      new Promise<SystemUpdateStatus>(resolve => {
+        resolveCheck = resolve
+      }),
+    )
+    const { useSystemUpdateStatus } = await import('@/composables/useSystemUpdateStatus')
+    const updates = useSystemUpdateStatus()
+
+    const first = updates.checkStatus()
+    const second = updates.checkStatus()
+
+    expect(first).toBe(second)
+    expect(updates.checking.value).toBe(true)
+    expect(mocks.post).toHaveBeenCalledOnce()
+    expect(mocks.post).toHaveBeenCalledWith('system/update/check', undefined, { feedback: 'silent' })
+
+    const checkedStatus = updateStatus('available')
+    resolveCheck(checkedStatus)
+    await expect(first).resolves.toEqual(checkedStatus)
+    expect(updates.status.value).toEqual(checkedStatus)
+    expect(updates.checking.value).toBe(false)
   })
 })

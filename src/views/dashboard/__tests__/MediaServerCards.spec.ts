@@ -118,7 +118,7 @@ describe('dashboard media server cards', () => {
 
   it('loads media libraries on an ordinary initial mount', async () => {
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === 'mediaserver/library') return [{ id: 'movies', name: '电影库' }]
       throw new Error(`Unexpected GET ${url}`)
     })
@@ -137,7 +137,7 @@ describe('dashboard media server cards', () => {
     [MediaServerLibrary, 'mediaserver/library', '暂无媒体库数据'],
   ])('shows the explicit empty state for %s', async (component, endpoint, emptyText) => {
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === endpoint) return []
       throw new Error(`Unexpected GET ${url}`)
     })
@@ -155,7 +155,7 @@ describe('dashboard media server cards', () => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     let endpointReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === endpoint) {
         endpointReads += 1
         if (endpointReads === 1) return []
@@ -185,7 +185,7 @@ describe('dashboard media server cards', () => {
     let endpointReads = 0
     let shouldFail = true
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === endpoint) {
         endpointReads += 1
         if (shouldFail) throw new Error('remote unavailable')
@@ -209,11 +209,11 @@ describe('dashboard media server cards', () => {
   })
 
   it('restores the last successful library snapshot before F5 revalidation completes', async () => {
-    const pendingSettings = deferred<{ data: { value: Array<{ enabled: boolean; name: string }> } }>()
+    const pendingSettings = deferred<Array<{ name: string; type: string }>>()
     let reload = false
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') {
-        return reload ? pendingSettings.promise : { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') {
+        return reload ? pendingSettings.promise : [{ name: 'home', type: 'emby' }]
       }
       if (url === 'mediaserver/library') return [{ id: 'movies', name: '已缓存媒体库' }]
       throw new Error(`Unexpected GET ${url}`)
@@ -234,9 +234,9 @@ describe('dashboard media server cards', () => {
     let settingReads = 0
     let playingReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') {
+      if (url === 'mediaserver/clients') {
         settingReads += 1
-        return { data: { value: [{ enabled: true, name: 'home' }] } }
+        return [{ name: 'home', type: 'emby' }]
       }
       if (url === 'mediaserver/playing') {
         playingReads += 1
@@ -264,7 +264,7 @@ describe('dashboard media server cards', () => {
     const refresh = deferred<Array<{ id: string; title: string }>>()
     let playingReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === 'mediaserver/playing') {
         playingReads += 1
         return playingReads === 1 ? [{ id: 'old', title: '旧继续观看' }] : refresh.promise
@@ -294,7 +294,7 @@ describe('dashboard media server cards', () => {
     const refresh = deferred<Array<{ id: string; title: string }>>()
     let latestReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === 'mediaserver/latest') {
         latestReads += 1
         return latestReads === 1 ? [{ id: 'old', title: '旧最近入库' }] : refresh.promise
@@ -322,7 +322,7 @@ describe('dashboard media server cards', () => {
     const refresh = deferred<Array<{ id: string; name: string }>>()
     let libraryReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === 'mediaserver/library') {
         libraryReads += 1
         return libraryReads === 1 ? [{ id: 'old', name: '旧媒体库' }] : refresh.promise
@@ -346,7 +346,7 @@ describe('dashboard media server cards', () => {
     const refresh = deferred<Array<{ id: string; name: string }>>()
     let libraryReads = 0
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/clients') return [{ name: 'home', type: 'emby' }]
       if (url === 'mediaserver/library') {
         libraryReads += 1
         return libraryReads === 1 ? [{ id: 'old', name: '旧媒体库' }] : refresh.promise
@@ -372,15 +372,11 @@ describe('dashboard media server cards', () => {
 
   it('keeps same-id libraries from different media servers', async () => {
     mocks.apiGet.mockImplementation((url: string, options?: { params?: { server?: string } }) => {
-      if (url === 'system/setting/MediaServers') {
-        return {
-          data: {
-            value: [
-              { enabled: true, name: 'home-a' },
-              { enabled: true, name: 'home-b' },
-            ],
-          },
-        }
+      if (url === 'mediaserver/clients') {
+        return [
+          { name: 'home-a', type: 'emby' },
+          { name: 'home-b', type: 'plex' },
+        ]
       }
       if (url === 'mediaserver/library') {
         const server = options?.params?.server
@@ -403,15 +399,11 @@ describe('dashboard media server cards', () => {
 
   it('keeps same-id continue-watching items from different media servers', async () => {
     mocks.apiGet.mockImplementation((url: string, options?: { params?: { server?: string } }) => {
-      if (url === 'system/setting/MediaServers') {
-        return {
-          data: {
-            value: [
-              { enabled: true, name: 'home-a' },
-              { enabled: true, name: 'home-b' },
-            ],
-          },
-        }
+      if (url === 'mediaserver/clients') {
+        return [
+          { name: 'home-a', type: 'emby' },
+          { name: 'home-b', type: 'plex' },
+        ]
       }
       if (url === 'mediaserver/playing') {
         const server = options?.params?.server

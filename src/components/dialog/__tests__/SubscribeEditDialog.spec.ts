@@ -199,7 +199,7 @@ describe('SubscribeEditDialog', () => {
     expect(await screen.findByText('高优先级')).toBeInTheDocument()
   })
 
-  it('allows non-admin users to read public defaults but not private rules or save them', async () => {
+  it('allows non-admin users to read public defaults and rule groups but not save administrator defaults', async () => {
     const configRequested = vi.fn()
     const rulesRequested = vi.fn()
     const saved = vi.fn()
@@ -211,7 +211,7 @@ describe('SubscribeEditDialog', () => {
     const { events } = await renderDialog({ default: true, type: '电视剧' }, false)
 
     await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
-    expect(rulesRequested).not.toHaveBeenCalled()
+    await waitFor(() => expect(rulesRequested).toHaveBeenCalledOnce())
     await fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     expect(saved).not.toHaveBeenCalled()

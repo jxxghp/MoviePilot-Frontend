@@ -25,7 +25,10 @@ interface FolderConfig {
 
 // 输入参数
 const props = defineProps({
-  folderName: String,
+  folderName: {
+    type: String,
+    required: true,
+  },
   pluginCount: Number,
   folderConfig: {
     type: Object as PropType<FolderConfig>,
@@ -41,7 +44,12 @@ const props = defineProps({
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 定义触发的自定义事件
-const emit = defineEmits(['open', 'delete', 'rename', 'update-config'])
+const emit = defineEmits<{
+  open: [folderName: string]
+  delete: [folderName: string]
+  rename: [oldName: string, newName: string, onComplete: (success: boolean) => void]
+  'update-config': [folderName: string, config: FolderConfig, onComplete: (success: boolean) => void]
+}>()
 
 // 多语言
 const { t } = useI18n()
@@ -58,6 +66,7 @@ const createConfirm = useConfirm()
 // 菜单显示状态
 const menuVisible = ref(false)
 let renameDialogController: ReturnType<typeof openSharedDialog> | null = null
+let settingsDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 默认颜色
 const defaultColor = '#2196F3'
@@ -134,11 +143,17 @@ async function confirmRename(newFolderName: string) {
   }
 
   try {
-    emit('rename', props.folderName, newFolderName)
+    renameDialogController?.updateProps({ saving: true })
+    const saved = await new Promise<boolean>(resolve => {
+      emit('rename', props.folderName, newFolderName, resolve)
+    })
+    if (!saved) return
     renameDialogController?.close()
     renameDialogController = null
   } catch (error) {
     console.error(error)
+  } finally {
+    renameDialogController?.updateProps({ saving: false })
   }
 }
 
@@ -160,21 +175,35 @@ async function deleteFolder() {
 
 // 显示设置对话框
 function showSettingDialog() {
-  openSharedDialog(
+  settingsDialogController?.close()
+  settingsDialogController = openSharedDialog(
     PluginFolderSettingsDialog,
     { folderConfig: props.folderConfig },
     { save: saveSettings },
-    { closeOn: ['close', 'save', 'update:modelValue'] },
+    { closeOn: ['close', 'update:modelValue'] },
   )
 }
 
 // 保存设置
-function saveSettings(config: FolderConfig) {
-  emit('update-config', props.folderName, config)
+async function saveSettings(config: FolderConfig) {
+  try {
+    settingsDialogController?.updateProps({ saving: true })
+    const saved = await new Promise<boolean>(resolve => {
+      emit('update-config', props.folderName, config, resolve)
+    })
+    if (!saved) return
+    settingsDialogController?.close()
+    settingsDialogController = null
+  } catch (error) {
+    console.error(error)
+  } finally {
+    settingsDialogController?.updateProps({ saving: false })
+  }
 }
 
 onUnmounted(() => {
   renameDialogController?.close()
+  settingsDialogController?.close()
 })
 
 // 弹出菜单

@@ -2,13 +2,14 @@
 import { useToast } from 'vue-toastification'
 import api, { isApiBusinessFailure, isApiResponse } from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
+import { listDownloadDirectories } from '@/api/storage'
 import type {
+  DownloadDirectory,
   DownloaderConf,
   MediaDataSource,
   MediaInfo,
   MusicEntityType,
   TorrentInfo,
-  TransferDirectoryConf,
 } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
@@ -125,7 +126,7 @@ const selectedDirectory = ref<string | null>(null)
 const downloaders = ref<Array<Pick<DownloaderConf, 'name' | 'type'>>>([])
 
 // 所有目录设置
-const directories = ref<TransferDirectoryConf[]>([])
+const directories = ref<DownloadDirectory[]>([])
 
 // 是否正在加载
 const loading = ref(false)
@@ -232,29 +233,16 @@ const dialogSubtitle = computed(() => {
 // 加载目录设置
 async function loadDirectories() {
   try {
-    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
-    directories.value = result.value ?? []
+    directories.value = await listDownloadDirectories()
   } catch (error) {
     console.log(error)
   }
 }
 
-// 将下载目录配置转换为下载器可识别的存储路径。
-function convertToUri(item: TransferDirectoryConf) {
-  if (!item.download_path) {
-    return undefined
-  }
-  // storage 缺省是受支持的本地目录配置，不能生成 undefined/null 前缀。
-  if (item.storage === undefined || item.storage === null || item.storage === 'local') {
-    return item.download_path
-  }
-  return item.storage + ':' + item.download_path
-}
-
 // 获取保存目录
 const targetDirectories = computed(() => {
   const downloadDirectories = directories.value
-    .map(item => convertToUri(item))
+    .map(item => item.save_path?.trim())
     .filter((item): item is string => item !== undefined)
   return [...new Set(downloadDirectories)]
 })

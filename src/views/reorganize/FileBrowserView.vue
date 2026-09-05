@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
-import { FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
+import { listDownloadDirectories, listStorageOptions } from '@/api/storage'
+import type { DownloadDirectory, FileItem, StorageOption } from '@/api/types'
 import FileBrowser from '@/components/filebrowser/FileBrowser.vue'
 
 const endpoints = {
@@ -31,7 +32,7 @@ const endpoints = {
 }
 
 // 所有存储
-const storages = ref<StorageConf[]>([])
+const storages = ref<StorageOption[]>([])
 const storageTypes = computed(() => storages.value.map(s => s.type))
 
 // 当前文件项
@@ -83,20 +84,21 @@ interface BrowserInitialParams {
 }
 
 /** 从可用存储和下载目录中选择初始入口，未配置有效目录时回退到存储根路径。 */
-function determineBrowserInitialParams(downloadDirectories: TransferDirectoryConf[]): BrowserInitialParams {
+function determineBrowserInitialParams(downloadDirectories: DownloadDirectory[]): BrowserInitialParams {
   const isAvailable = (storage: string) => storageTypes.value.includes(storage)
   const buckets = downloadDirectories.reduce<Map<string, string[]>>((dict, item) => {
+    const storage = item.storage || 'local'
     // filter out directories whose storage is not available
-    if (!isAvailable(item.storage)) {
+    if (!isAvailable(storage)) {
       return dict
     }
     if (item.download_path == undefined) {
       return dict
     }
-    if (!dict.has(item.storage)) {
-      dict.set(item.storage, [item.download_path])
+    if (!dict.has(storage)) {
+      dict.set(storage, [item.download_path])
     } else {
-      dict.get(item.storage)!.push(item.download_path)
+      dict.get(storage)!.push(item.download_path)
     }
     return dict
   }, new Map())
@@ -132,11 +134,8 @@ function determineBrowserInitialParams(downloadDirectories: TransferDirectoryCon
 async function loadDownloadDirectories() {
   try {
     // fetch available storages
-    const storageResult = await api.get<{ value?: StorageConf[] | null }>('system/setting/public/Storages')
-    storages.value = storageResult.value ?? []
-
-    const result = await api.get<{ value?: TransferDirectoryConf[] | null }>('system/setting/public/Directories')
-    const directories = Array.isArray(result.value) ? result.value : []
+    storages.value = await listStorageOptions()
+    const directories = await listDownloadDirectories()
     const { storage, path, name } = determineBrowserInitialParams(directories)
     // operItem初始化
     operItem.value = {

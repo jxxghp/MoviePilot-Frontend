@@ -5,8 +5,10 @@ import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  apiDelete: vi.fn(),
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  apiPut: vi.fn(),
   copyToClipboard: vi.fn(),
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
@@ -16,7 +18,12 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: createDataApiMock({ get: mocks.apiGet, post: mocks.apiPost }),
+  default: createDataApiMock({
+    delete: mocks.apiDelete,
+    get: mocks.apiGet,
+    post: mocks.apiPost,
+    put: mocks.apiPut,
+  }),
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -118,18 +125,20 @@ const groupsFixture = [
 function mockLoadedRules() {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'media/category') return { 电影: ['华语'] }
-    if (endpoint === 'system/setting/CustomFilterRules') {
-      return { success: true, data: { value: structuredClone(customRulesFixture) } }
+    if (endpoint === 'rule/custom') {
+      return { count: customRulesFixture.length, rules: structuredClone(customRulesFixture) }
     }
-    if (endpoint === 'system/setting/UserFilterRuleGroups') {
-      return { success: true, data: { value: structuredClone(groupsFixture) } }
+    if (endpoint === 'rule/groups') {
+      return { count: groupsFixture.length, rule_groups: structuredClone(groupsFixture) }
     }
     if (endpoint === 'system/setting/TorrentsPriority') {
       return { success: true, data: { value: ['site', 'seeder'] } }
     }
     throw new Error(`Unexpected GET ${endpoint}`)
   })
+  mocks.apiDelete.mockResolvedValue({ success: true })
   mocks.apiPost.mockResolvedValue({ success: true })
+  mocks.apiPut.mockResolvedValue({ success: true })
 }
 
 async function renderRuleSettings() {
@@ -156,8 +165,10 @@ describe('AccountSettingRule', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.apiDelete.mockReset()
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
+    mocks.apiPut.mockReset()
     mocks.copyToClipboard.mockReset()
     mocks.openSharedDialog.mockReset()
     mocks.toastError.mockReset()
@@ -188,17 +199,17 @@ describe('AccountSettingRule', () => {
 
     await user.click(screen.getByRole('button', { name: 'reverse-规则1' }))
     await user.click(getCard('自定义规则').getByRole('button', { name: '保存' }))
-    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/CustomFilterRules', [
-      expect.objectContaining({ id: 'RULE3' }),
-      expect.objectContaining({ id: 'RULE1' }),
-    ])
+    expect(mocks.apiPut).toHaveBeenCalledWith('rule/custom/reorder', {
+      rule_ids: ['RULE3', 'RULE1'],
+      expected_rule_ids: ['RULE1', 'RULE3'],
+    })
 
     await user.click(screen.getByRole('button', { name: 'reverse-规则组1' }))
     await user.click(getCard('优先级规则组').getByRole('button', { name: '保存' }))
-    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/UserFilterRuleGroups', [
-      expect.objectContaining({ name: '规则组3' }),
-      expect.objectContaining({ name: '规则组1' }),
-    ])
+    expect(mocks.apiPut).toHaveBeenCalledWith('rule/groups/reorder', {
+      group_names: ['规则组3', '规则组1'],
+      expected_group_names: ['规则组1', '规则组3'],
+    })
 
     await user.click(getCard('下载规则').getByRole('button', { name: '保存' }))
     expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/TorrentsPriority', ['site', 'seeder'])
@@ -218,6 +229,35 @@ describe('AccountSettingRule', () => {
     expect(screen.getByText('规则组4')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'remove-group-规则组1' }))
     expect(screen.queryByText('规则组1')).not.toBeInTheDocument()
+  })
+
+  it('reconciles custom rule deletions, edits, and additions through incremental endpoints', async () => {
+    const user = userEvent.setup()
+    await renderRuleSettings()
+    await screen.findByText('RULE1 / 规则1')
+
+    const idInput = screen.getByLabelText('custom-id-RULE1')
+    const nameInput = screen.getByLabelText('custom-name-RULE1')
+    await fireEvent.update(idInput, 'RULE2')
+    await fireEvent.update(nameInput, '规则2')
+    await user.click(screen.getByRole('button', { name: 'remove-custom-RULE3' }))
+    await user.click(getCommandButtons('自定义规则')[1])
+    await user.click(getCard('自定义规则').getByRole('button', { name: '保存' }))
+
+    expect(mocks.apiDelete).toHaveBeenCalledWith('rule/custom/RULE3')
+    expect(mocks.apiPut).toHaveBeenCalledWith('rule/custom/RULE1', {
+      new_rule_id: 'RULE2',
+      name: '规则2',
+    })
+    expect(mocks.apiPost).toHaveBeenCalledWith('rule/custom', {
+      rule_id: 'RULE3',
+      name: '规则3',
+      include: undefined,
+      exclude: undefined,
+      size_range: undefined,
+      seeders: undefined,
+      publish_time: undefined,
+    })
   })
 
   it('blocks empty and duplicate custom rule identifiers or names', async () => {
@@ -275,20 +315,15 @@ describe('AccountSettingRule', () => {
     })
     expect(await screen.findByText('RULE9 / 规则9')).toBeInTheDocument()
     await user.click(getCard('自定义规则').getByRole('button', { name: '保存' }))
-    expect(mocks.apiPost).toHaveBeenLastCalledWith(
-      'system/setting/CustomFilterRules',
-      expect.arrayContaining([
-        {
-          id: 'RULE9',
-          name: '规则9',
-          include: 'REMUX',
-          exclude: undefined,
-          size_range: undefined,
-          seeders: undefined,
-          publish_time: undefined,
-        },
-      ]),
-    )
+    expect(mocks.apiPost).toHaveBeenLastCalledWith('rule/custom', {
+      rule_id: 'RULE9',
+      name: '规则9',
+      include: 'REMUX',
+      exclude: undefined,
+      size_range: undefined,
+      seeders: undefined,
+      publish_time: undefined,
+    })
 
     await user.click(getCommandButtons('优先级规则组')[2])
     getImportSave(1)('group', {
@@ -296,10 +331,12 @@ describe('AccountSettingRule', () => {
     })
     expect(await screen.findByText('规则组9')).toBeInTheDocument()
     await user.click(getCard('优先级规则组').getByRole('button', { name: '保存' }))
-    expect(mocks.apiPost).toHaveBeenLastCalledWith(
-      'system/setting/UserFilterRuleGroups',
-      expect.arrayContaining([{ name: '规则组9', rule_string: 'RULE9', media_type: '电影', category: undefined }]),
-    )
+    expect(mocks.apiPost).toHaveBeenLastCalledWith('rule/groups', {
+      name: '规则组9',
+      rule_string: 'RULE9',
+      media_type: '电影',
+      category: undefined,
+    })
   })
 
   it('rejects malformed or structurally invalid imports without mutating rules', async () => {
@@ -350,24 +387,39 @@ describe('AccountSettingRule', () => {
     await renderRuleSettings()
     await screen.findByText('RULE1 / 规则1')
 
-    const responsibilities = [
-      { card: '自定义规则', failure: '自定义规则保存失败！' },
-      { card: '优先级规则组', failure: '优先级规则组保存失败！' },
-      { card: '下载规则', failure: '优先规则保存失败！' },
-    ]
+    await fireEvent.update(screen.getByLabelText('custom-name-RULE1'), '规则一')
+    mocks.apiPut.mockResolvedValueOnce({ success: false })
+    await user.click(getCard('自定义规则').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('自定义规则保存失败！'))
+    expect(await screen.findByText('RULE1 / 规则1')).toBeInTheDocument()
 
-    for (const responsibility of responsibilities) {
-      mocks.apiPost.mockResolvedValueOnce({ success: false })
-      await user.click(getCard(responsibility.card).getByRole('button', { name: '保存' }))
-      await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(responsibility.failure))
-      expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    mocks.toastError.mockClear()
+    await fireEvent.update(screen.getByLabelText('custom-name-RULE1'), '规则一')
+    mocks.apiPut.mockRejectedValueOnce(new Error('offline'))
+    await user.click(getCard('自定义规则').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('自定义规则保存失败！'))
 
-      mocks.toastError.mockClear()
-      mocks.apiPost.mockRejectedValueOnce(new Error('offline'))
-      await user.click(getCard(responsibility.card).getByRole('button', { name: '保存' }))
-      await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(responsibility.failure))
-      expect(mocks.toastSuccess).not.toHaveBeenCalled()
-      mocks.toastError.mockClear()
-    }
+    mocks.toastError.mockClear()
+    await fireEvent.update(screen.getByLabelText('group-name-规则组1'), '规则组一')
+    mocks.apiPut.mockResolvedValueOnce({ success: false })
+    await user.click(getCard('优先级规则组').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('优先级规则组保存失败！'))
+    expect(await screen.findByText('规则组1')).toBeInTheDocument()
+
+    mocks.toastError.mockClear()
+    await fireEvent.update(screen.getByLabelText('group-name-规则组1'), '规则组一')
+    mocks.apiPut.mockRejectedValueOnce(new Error('offline'))
+    await user.click(getCard('优先级规则组').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('优先级规则组保存失败！'))
+
+    mocks.toastError.mockClear()
+    mocks.apiPost.mockResolvedValueOnce({ success: false })
+    await user.click(getCard('下载规则').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('优先规则保存失败！'))
+
+    mocks.toastError.mockClear()
+    mocks.apiPost.mockRejectedValueOnce(new Error('offline'))
+    await user.click(getCard('下载规则').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('优先规则保存失败！'))
   })
 })

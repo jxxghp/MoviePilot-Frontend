@@ -6,7 +6,7 @@ import { createSubscribeShare } from '@tests/support/factories/subscribe'
 import {
   deleteSubscribeShareHandler,
   followSubscriberHandler,
-  followSubscribersSettingHandler,
+  followedSubscribersHandler,
   forkSubscribeHandler,
   unfollowSubscriberHandler,
 } from '@tests/support/msw/handlers/subscribe'
@@ -126,7 +126,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
   it('loads the followed users and shows the current action', async () => {
     const media = createSubscribeShare({ share_uid: 'followed-user' })
     const requested = vi.fn()
-    server.use(followSubscribersSettingHandler(['followed-user'], 200, requested))
+    server.use(followedSubscribersHandler(['followed-user'], 200, requested))
 
     await renderDialog(media)
 
@@ -136,7 +136,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
   })
 
   it('places long recognition words in a full-width metadata row', async () => {
-    server.use(followSubscribersSettingHandler([]))
+    server.use(followedSubscribersHandler([]))
     const { media } = await renderDialog(
       createSubscribeShare({
         custom_words: '#九门2026\n【ADWeb】\n^The.Mystic.Nine => 九门.The.Mystic.Nine',
@@ -156,7 +156,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
     const writeRequest = vi.fn((url: URL) => {
       users.push(url.searchParams.get('share_uid') || '')
     })
-    server.use(followSubscribersSettingHandler(users), followSubscriberHandler({ success: true }, 200, writeRequest))
+    server.use(followedSubscribersHandler(users), followSubscriberHandler({ success: true }, 200, writeRequest))
     const user = userEvent.setup()
     await renderDialog(media)
 
@@ -174,7 +174,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
     const writeRequest = vi.fn((url: URL) => {
       users.splice(users.indexOf(url.searchParams.get('share_uid') || ''), 1)
     })
-    server.use(followSubscribersSettingHandler(users), unfollowSubscriberHandler({ success: true }, 200, writeRequest))
+    server.use(followedSubscribersHandler(users), unfollowSubscriberHandler({ success: true }, 200, writeRequest))
     const user = userEvent.setup()
     await renderDialog(media)
 
@@ -188,7 +188,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
 
   it('does not show follow actions when the share has no UID', async () => {
     const media = createSubscribeShare({ share_uid: undefined })
-    server.use(followSubscribersSettingHandler([]))
+    server.use(followedSubscribersHandler([]))
 
     await renderDialog(media)
     await waitFor(() => expect(screen.getByRole('button', { name: '订阅' })).toBeInTheDocument())
@@ -198,7 +198,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
   })
 
   it('shows visible feedback when the followed-user list request fails', async () => {
-    server.use(followSubscribersSettingHandler([], 500))
+    server.use(followedSubscribersHandler([], 500))
 
     await renderDialog(createSubscribeShare())
 
@@ -207,7 +207,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
 
   it('keeps the follow action and shows feedback when the follow request fails', async () => {
     const media = createSubscribeShare({ share_uid: 'failed-follow-user' })
-    server.use(followSubscribersSettingHandler([]), followSubscriberHandler({ success: true }, 500))
+    server.use(followedSubscribersHandler([]), followSubscriberHandler({ success: true }, 500))
     const user = userEvent.setup()
     await renderDialog(media)
 
@@ -219,10 +219,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
 
   it('keeps the unfollow action and shows feedback when the unfollow request fails', async () => {
     const media = createSubscribeShare({ share_uid: 'failed-unfollow-user' })
-    server.use(
-      followSubscribersSettingHandler(['failed-unfollow-user']),
-      unfollowSubscriberHandler({ success: true }, 500),
-    )
+    server.use(followedSubscribersHandler(['failed-unfollow-user']), unfollowSubscriberHandler({ success: true }, 500))
     const user = userEvent.setup()
     await renderDialog(media)
 
@@ -245,7 +242,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
     const deferred = createDeferred()
     const forkPayload = vi.fn(() => deferred.promise)
     server.use(
-      followSubscribersSettingHandler([]),
+      followedSubscribersHandler([]),
       forkSubscribeHandler({ data: { id: 7101 }, success: true }, 200, forkPayload),
     )
     const user = userEvent.setup()
@@ -264,7 +261,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
   })
 
   it('reports a fork business failure and does not emit', async () => {
-    server.use(followSubscribersSettingHandler([]), forkSubscribeHandler({ message: '订阅已存在', success: false }))
+    server.use(followedSubscribersHandler([]), forkSubscribeHandler({ message: '订阅已存在', success: false }))
     const user = userEvent.setup()
     const { events } = await renderDialog(createSubscribeShare({ share_title: '冲突分享' }))
 
@@ -276,7 +273,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
   })
 
   it('reports an HTTP fork failure, restores the action, and does not emit', async () => {
-    server.use(followSubscribersSettingHandler([]), forkSubscribeHandler({ success: true }, 500))
+    server.use(followedSubscribersHandler([]), forkSubscribeHandler({ success: true }, 500))
     const user = userEvent.setup()
     const { events } = await renderDialog(createSubscribeShare())
 
@@ -292,7 +289,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
     ['a share manager', 'other-user', true, true],
     ['another ordinary user', 'other-user', false, false],
   ])('shows delete permission for %s', async (_case, shareUid, canManage, visible) => {
-    server.use(followSubscribersSettingHandler([]))
+    server.use(followedSubscribersHandler([]))
 
     await renderDialog(createSubscribeShare({ share_uid: shareUid }), {
       SUBSCRIBE_SHARE_MANAGE: canManage,
@@ -308,10 +305,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
     const media = createSubscribeShare({ id: 6201, share_uid: 'owned-share' })
     const deferred = createDeferred()
     const deleteRequest = vi.fn((_url: URL) => deferred.promise)
-    server.use(
-      followSubscribersSettingHandler([]),
-      deleteSubscribeShareHandler(6201, { success: true }, 200, deleteRequest),
-    )
+    server.use(followedSubscribersHandler([]), deleteSubscribeShareHandler(6201, { success: true }, 200, deleteRequest))
     const user = userEvent.setup()
     const { events } = await renderDialog(media, { USER_UNIQUE_ID: 'owned-share' })
     const deleteButton = screen.getByRole('button', { name: '取消分享' })
@@ -330,7 +324,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
   it('reports a delete business failure and does not emit', async () => {
     const media = createSubscribeShare({ id: 6202, share_uid: 'owned-share' })
     server.use(
-      followSubscribersSettingHandler([]),
+      followedSubscribersHandler([]),
       deleteSubscribeShareHandler(6202, { message: '没有删除权限', success: false }),
     )
     const user = userEvent.setup()
@@ -345,7 +339,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
 
   it('reports an HTTP delete failure, restores the action, and does not emit', async () => {
     const media = createSubscribeShare({ id: 6203, share_uid: 'owned-share' })
-    server.use(followSubscribersSettingHandler([]), deleteSubscribeShareHandler(6203, { success: true }, 500))
+    server.use(followedSubscribersHandler([]), deleteSubscribeShareHandler(6203, { success: true }, 500))
     const user = userEvent.setup()
     const { events } = await renderDialog(media, { USER_UNIQUE_ID: 'owned-share' })
 
@@ -357,7 +351,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
   })
 
   it('emits close from the dialog close control', async () => {
-    server.use(followSubscribersSettingHandler([]))
+    server.use(followedSubscribersHandler([]))
     const user = userEvent.setup()
     const { events } = await renderDialog(createSubscribeShare())
 
@@ -371,7 +365,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
       media_id: mediaId,
       media_source: mediaSource as SubscribeShare['media_source'],
     })
-    server.use(followSubscribersSettingHandler([]))
+    server.use(followedSubscribersHandler([]))
     const user = userEvent.setup()
     await renderDialog(media)
 

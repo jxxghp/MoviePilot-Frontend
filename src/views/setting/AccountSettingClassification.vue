@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import api, { getApiErrorMessage } from '@/api'
+import { getApiErrorMessage } from '@/api'
+import { listTransferDirectories } from '@/api/storage'
 import type { TransferDirectoryConf } from '@/api/types'
 import type {
   ClassificationCategory,
@@ -267,10 +268,7 @@ async function ensureInitialized(force = false): Promise<void> {
 async function loadDirectoryReferences(): Promise<void> {
   directoryReferencesUnavailable.value = false
   try {
-    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories', {
-      feedback: 'silent',
-    })
-    directories.value = result.value ?? []
+    directories.value = await listTransferDirectories()
   } catch (error) {
     console.error(error)
     directories.value = []

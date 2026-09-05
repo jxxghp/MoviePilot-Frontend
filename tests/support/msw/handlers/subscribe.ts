@@ -1,4 +1,5 @@
 import type {
+  DownloadDirectory,
   DownloaderConf,
   FilterRuleGroup,
   MediaInfo,
@@ -7,7 +8,6 @@ import type {
   SubscriptionBatchStatus,
   SubscribeShare,
   SubscribeShareStatistics,
-  TransferDirectoryConf,
 } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType, type RequestHandler } from 'msw'
 import { apiFailureJson, apiJson } from '../response'
@@ -41,15 +41,14 @@ export const subscribeApiUrls = {
   executionBatches: new URL('subscribe/execution/batches', API_BASE_URL).href,
   executionBatchCancel: (batchId: string) =>
     new URL(`subscribe/execution/batches/${batchId}/cancel`, API_BASE_URL).href,
-  directories: new URL('system/setting/public/Directories', API_BASE_URL).href,
+  directories: new URL('download/paths', API_BASE_URL).href,
   downloaders: new URL('download/clients', API_BASE_URL).href,
   episodeGroups: (tmdbId: number) => new URL(`media/groups/${tmdbId}`, API_BASE_URL).href,
-  filterRuleGroups: new URL('system/setting/UserFilterRuleGroups', API_BASE_URL).href,
+  filterRuleGroups: new URL('rule/groups', API_BASE_URL).href,
   filesById: (id: number) => new URL(`subscribe/files/${id}`, API_BASE_URL).href,
   historyById: (id: number) => new URL(`subscribe/history/${id}`, API_BASE_URL).href,
   historyByType: (type: SubscribeMediaType) => new URL(`subscribe/history/${type}`, API_BASE_URL).href,
   follow: new URL('subscribe/follow', API_BASE_URL).href,
-  followSubscribers: new URL('system/setting/public/FollowSubscribers', API_BASE_URL).href,
   fork: new URL('subscribe/fork', API_BASE_URL).href,
   queryByMedia: (mediaId: string) => new URL(`subscribe/media/${mediaId}`, API_BASE_URL).href,
   list: new URL('subscribe/', API_BASE_URL).href,
@@ -166,15 +165,15 @@ export function forkSubscribeHandler(
   })
 }
 
-export function followSubscribersSettingHandler(
+export function followedSubscribersHandler(
   users: string[] = [],
   status = 200,
   onRequest: (url: URL) => void | Promise<void> = () => {},
 ) {
-  return http.get(subscribeApiUrls.followSubscribers, async ({ request }) => {
+  return http.get(subscribeApiUrls.follow, async ({ request }) => {
     await onRequest(new URL(request.url))
     if (status >= 400) return HttpResponse.json({ detail: 'failed' }, { status })
-    return apiJson({ value: users }, { status })
+    return apiJson(users, { status })
   })
 }
 
@@ -303,7 +302,7 @@ export function searchSubscribeByIdHandler(
   status = 200,
   onRequest: (url: URL) => void = () => {},
 ) {
-  return http.get(subscribeApiUrls.searchById(id), ({ request }) => {
+  return http.post(subscribeApiUrls.searchById(id), ({ request }) => {
     onRequest(new URL(request.url))
     return mutationResponse(response, status)
   })
@@ -315,7 +314,7 @@ export function resetSubscribeByIdHandler(
   status = 200,
   onRequest: (url: URL) => void = () => {},
 ) {
-  return http.get(subscribeApiUrls.resetById(id), ({ request }) => {
+  return http.post(subscribeApiUrls.resetById(id), ({ request }) => {
     onRequest(new URL(request.url))
     return mutationResponse(response, status)
   })
@@ -420,7 +419,7 @@ export function saveDefaultSubscribeConfigHandler(
 }
 
 export interface SubscribeDialogOptions {
-  directories?: TransferDirectoryConf[]
+  directories?: DownloadDirectory[]
   downloaders?: DownloaderConf[]
   episodeGroups?: Record<string, unknown>[]
   filterRuleGroups?: FilterRuleGroup[]
@@ -460,11 +459,11 @@ export function subscribeDialogOptionHandlers(options: SubscribeDialogOptions = 
     }),
     http.get(subscribeApiUrls.directories, () => {
       onDirectories()
-      return apiJson({ value: directories })
+      return apiJson(directories)
     }),
     http.get(subscribeApiUrls.filterRuleGroups, () => {
       onFilterRuleGroups()
-      return apiJson({ value: filterRuleGroups })
+      return apiJson({ count: filterRuleGroups.length, rule_groups: filterRuleGroups })
     }),
     http.get(subscribeApiUrls.episodeGroups(tmdbId), () => {
       onEpisodeGroups()

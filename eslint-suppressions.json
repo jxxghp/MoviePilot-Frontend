@@ -209,7 +209,7 @@
   },
   "src/components/dialog/ReorganizeDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 3
     },
     "sonarjs/super-linear-regex": {
       "count": 1
@@ -253,7 +253,7 @@
   },
   "src/components/dialog/SubscribeEditDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 3
+      "count": 2
     }
   },
   "src/components/dialog/SubscribeHistoryDialog.vue": {
@@ -441,9 +441,6 @@
     }
   },
   "src/components/workflow/FilterTorrentsAction.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
     "vue/no-mutating-props": {
       "count": 7
     }
@@ -459,9 +456,6 @@
     }
   },
   "src/components/workflow/ScanFileAction.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
     "vue/no-mutating-props": {
       "count": 2
     }
@@ -736,16 +730,6 @@
       "count": 1
     }
   },
-  "src/views/dashboard/MediaServerLibrary.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/dashboard/MediaServerPlaying.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/views/discover/MediaCardSlideView.vue": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -771,7 +755,7 @@
   },
   "src/views/setting/AccountSettingDirectory.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 3
+      "count": 2
     },
     "sonarjs/super-linear-regex": {
       "count": 1
@@ -849,19 +833,9 @@
       "count": 1
     }
   },
-  "src/views/system/NameTestView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/system/RuleTestView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/views/system/WordsView.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     }
   },
   "src/views/workflow/WorkflowShareView.vue": {

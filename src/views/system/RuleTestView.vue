@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
+import { listFilterRuleGroups } from '@/api/rule'
 import type { FilterRuleGroup, RuleTestData } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 
@@ -136,8 +137,7 @@ function countRules(ruleString = '') {
 async function queryFilterRuleGroups() {
   try {
     filterRuleGroupLoading.value = true
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.value ?? []
+    filterRuleGroups.value = await listFilterRuleGroups()
   } catch (error) {
     console.log(error)
   } finally {

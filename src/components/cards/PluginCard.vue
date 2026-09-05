@@ -12,9 +12,12 @@ import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useGlobalSettingsStore, usePluginRuntimeStore } from '@/stores'
+import { reloadPluginRuntime } from '@/api/pluginCapabilities'
 
 // 插件日志面板只有点击“查看日志”时才需要，延后加载可减轻插件列表首屏。
 const PluginConfigDialog = defineAsyncComponent(() => import('../dialog/PluginConfigDialog.vue'))
+const PluginCapabilitiesDialog = defineAsyncComponent(() => import('../dialog/PluginCapabilitiesDialog.vue'))
+const PluginDataSummaryDialog = defineAsyncComponent(() => import('../dialog/PluginDataSummaryDialog.vue'))
 const PluginDataDialog = defineAsyncComponent(() => import('../dialog/PluginDataDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('../dialog/ProgressDialog.vue'))
 const PluginCloneDialog = defineAsyncComponent(() => import('../dialog/PluginCloneDialog.vue'))
@@ -48,6 +51,7 @@ const props = defineProps({
 })
 const globalSettingsStore = useGlobalSettingsStore()
 const pluginRuntimeStore = usePluginRuntimeStore()
+const reloading = ref(false)
 
 // 定义触发的自定义事件
 const emit = defineEmits<{
@@ -99,7 +103,10 @@ const runtimeUnavailable = computed(
     ['blocked_by_policy', 'load_failed'].includes(runtimeStatus.value || '') ||
     (!props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || '')),
 )
-const runtimeActionsBlocked = computed(() => props.installing || runtimePending.value || runtimeUnavailable.value)
+const runtimeActionsBlocked = computed(
+  () => props.installing || reloading.value || runtimePending.value || runtimeUnavailable.value,
+)
+const reloadBlocked = computed(() => props.installing || reloading.value || runtimePending.value)
 const runtimePendingStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
   source_missing: 'plugin.sourceRestoring',
   dependency_pending: 'plugin.dependencyInstalling',
@@ -254,6 +261,46 @@ async function showPluginInfo() {
     },
     { closeOn: ['close', 'switch'] },
   )
+}
+
+/** 显示当前插件注册的安全只读运行能力。 */
+function showPluginCapabilities() {
+  openSharedDialog(PluginCapabilitiesDialog, { plugin: props.plugin }, {}, { closeOn: ['close', 'update:modelValue'] })
+}
+
+/** 显示当前插件不包含持久化原值的数据诊断摘要。 */
+function showPluginDataSummary() {
+  openSharedDialog(PluginDataSummaryDialog, { plugin: props.plugin }, {}, { closeOn: ['close', 'update:modelValue'] })
+}
+
+/** 重新加载当前插件并刷新插件页相关运行事实。 */
+async function reloadPlugin() {
+  const pluginId = props.plugin?.id
+  if (!pluginId || reloadBlocked.value) return
+
+  reloading.value = true
+  try {
+    await reloadPluginRuntime(pluginId)
+    await Promise.all([pluginRuntimeStore.refreshNow(), pluginSidebarNavStore.ensureSidebarNav(true)])
+    $toast.success(t('plugin.reloadSuccess', { name: props.plugin?.plugin_name }))
+    emit('save')
+  } catch (error) {
+    $toast.error(
+      t('plugin.reloadFailed', {
+        name: props.plugin?.plugin_name,
+        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
+      }),
+    )
+    console.error(error)
+  } finally {
+    reloading.value = false
+  }
+}
+
+/** 根据运行态决定插件菜单项是否可操作。 */
+function isDropdownItemDisabled(value: number) {
+  if (value === 12) return reloadBlocked.value
+  return runtimeActionsBlocked.value && [1, 2, 4, 8].includes(value)
 }
 
 // 显示插件配置
@@ -580,6 +627,33 @@ const dropdownItems = ref([
     },
   },
   {
+    title: t('plugin.runtimeCapabilities'),
+    value: 11,
+    show: Boolean(props.plugin?.installed),
+    props: {
+      prependIcon: 'mdi-puzzle-check-outline',
+      click: showPluginCapabilities,
+    },
+  },
+  {
+    title: t('plugin.dataSummary'),
+    value: 13,
+    show: Boolean(props.plugin?.installed),
+    props: {
+      prependIcon: 'mdi-database-eye-outline',
+      click: showPluginDataSummary,
+    },
+  },
+  {
+    title: t('plugin.reload'),
+    value: 12,
+    show: Boolean(props.plugin?.installed),
+    props: {
+      prependIcon: 'mdi-reload',
+      click: reloadPlugin,
+    },
+  },
+  {
     title: t('plugin.settings'),
     value: 2,
     show: true,
@@ -801,7 +875,7 @@ watch(
                         v-show="item.show"
                         :key="i"
                         :base-color="item.props.color"
-                        :disabled="runtimeActionsBlocked && [1, 2, 4, 8].includes(item.value)"
+                        :disabled="isDropdownItemDisabled(item.value)"
                         @click="item.props.click"
                       >
                         <template #prepend>

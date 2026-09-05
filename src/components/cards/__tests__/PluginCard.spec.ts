@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   dialogCloses: [] as Array<ReturnType<typeof vi.fn>>,
   openSharedDialog: vi.fn(),
+  reloadPluginRuntime: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   toastWarning: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('@/composables/useConfirm', () => ({
 
 vi.mock('@/composables/useSharedDialog', () => ({
   openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
+}))
+
+vi.mock('@/api/pluginCapabilities', () => ({
+  reloadPluginRuntime: mocks.reloadPluginRuntime,
 }))
 
 vi.mock('@/@core/utils/image', () => ({
@@ -79,6 +84,7 @@ describe('PluginCard lifecycle actions', () => {
         updateProps: vi.fn(),
       }
     })
+    mocks.reloadPluginRuntime.mockReset()
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.toastWarning.mockReset()
@@ -498,6 +504,92 @@ describe('PluginCard lifecycle actions', () => {
       {},
       { closeOn: ['close', 'update:modelValue'] },
     )
+  })
+
+  it('opens the shared read-only runtime capabilities dialog from the menu', async () => {
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('运行能力'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.any(Object),
+      { plugin },
+      {},
+      { closeOn: ['close', 'update:modelValue'] },
+    )
+  })
+
+  it('opens the shared redacted data diagnostics dialog from the menu', async () => {
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('数据诊断'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.any(Object),
+      { plugin },
+      {},
+      { closeOn: ['close', 'update:modelValue'] },
+    )
+  })
+
+  it('reloads an installed plugin and refreshes runtime, list and dynamic navigation facts', async () => {
+    mocks.reloadPluginRuntime.mockResolvedValueOnce(undefined)
+    const { container, emitted, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    const sidebarStore = usePluginSidebarNavStore(pinia)
+    vi.spyOn(runtimeStore, 'refreshNow').mockResolvedValue(undefined)
+    vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('重新加载'))
+
+    await waitFor(() => expect(mocks.reloadPluginRuntime).toHaveBeenCalledWith('DemoPlugin'))
+    expect(runtimeStore.refreshNow).toHaveBeenCalledOnce()
+    expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 已重新加载')
+    expect(emitted().save).toHaveLength(1)
+  })
+
+  it('prevents a second reload while the first request is still running', async () => {
+    let resolveReload!: () => void
+    mocks.reloadPluginRuntime.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          resolveReload = resolve
+        }),
+    )
+    const { container, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    vi.spyOn(runtimeStore, 'refreshNow').mockResolvedValue(undefined)
+
+    const menuButton = container.querySelector<HTMLButtonElement>('.plugin-card__menu')!
+    await fireEvent.click(menuButton)
+    await fireEvent.click(await screen.findByText('重新加载'))
+    await fireEvent.click(menuButton)
+    const pendingReloadItem = (await screen.findByText('重新加载')).closest('.v-list-item')
+
+    expect(pendingReloadItem).toHaveClass('v-list-item--disabled')
+    await fireEvent.click(pendingReloadItem!)
+    expect(mocks.reloadPluginRuntime).toHaveBeenCalledOnce()
+
+    resolveReload()
+    await waitFor(() => expect(runtimeStore.refreshNow).toHaveBeenCalledOnce())
+  })
+
+  it('keeps terminal load failures reloadable and reports reload errors without refreshing', async () => {
+    mocks.reloadPluginRuntime.mockRejectedValueOnce(new Error('network unavailable'))
+    const { container, emitted, pinia } = await renderWithProviders(PluginCard, {
+      props: { plugin: { ...plugin, runtime_status: 'load_failed' } },
+    })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    vi.spyOn(runtimeStore, 'refreshNow').mockResolvedValue(undefined)
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.plugin-card__menu')!)
+    await fireEvent.click(await screen.findByText('重新加载'))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 重新加载失败：服务器连接失败'))
+    expect(runtimeStore.refreshNow).not.toHaveBeenCalled()
+    expect(emitted()).not.toHaveProperty('save')
   })
 
   it('opens plugin detail from an external action exactly once', async () => {

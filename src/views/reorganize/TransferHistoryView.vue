@@ -2,8 +2,9 @@
 import { debounce } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 import api, { isApiBusinessFailure } from '@/api'
+import { listStorageOptions } from '@/api/storage'
 import type {
-  StorageConf,
+  StorageOption,
   TransferHistory,
   TransferHistoryDeleteResult,
   TransferHistoryDeleteStepStatus,
@@ -327,14 +328,12 @@ const hasActivatedOnce = ref(false)
 const confirmTitle = ref('')
 
 // 所有存储
-const storages = ref<StorageConf[]>([])
+const storages = ref<StorageOption[]>([])
 
 // 查询存储
 async function loadStorages() {
   try {
-    const result = await api.get<{ value?: StorageConf[] }>('system/setting/public/Storages')
-
-    storages.value = result.value ?? []
+    storages.value = await listStorageOptions()
   } catch (error) {
     console.log(error)
   }

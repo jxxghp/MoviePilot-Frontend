@@ -8,6 +8,7 @@ import { DownloaderConf, MediaServerConf } from '@/api/types'
 import DownloaderCard from '@/components/cards/DownloaderCard.vue'
 import MediaServerCard from '@/components/cards/MediaServerCard.vue'
 import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
+import TransferHistoryMaintenancePanel from '@/components/system/TransferHistoryMaintenancePanel.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
 import { downloaderOptions, mediaServerOptions } from '@/api/constants'
@@ -2816,6 +2817,9 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     />
                   </VCol>
                 </template>
+                <VCol cols="12">
+                  <TransferHistoryMaintenancePanel />
+                </VCol>
               </VRow>
             </div>
           </VWindowItem>

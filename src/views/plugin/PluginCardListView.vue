@@ -8,6 +8,15 @@ import {
   installPluginFromSource,
   requiresExplicitPluginSourceInstall,
 } from '@/api/pluginSource'
+import {
+  assignPluginToFolder,
+  createPluginFolder,
+  deletePluginFolder,
+  listPluginFolders,
+  removePluginFromFolder,
+  replacePluginFolderMembers,
+  updatePluginFolder,
+} from '@/api/pluginFolders'
 import type {
   Plugin,
   PluginInstallOutcome,
@@ -635,11 +644,18 @@ function restoreFolderState(snapshot: FolderStateSnapshot) {
   currentFolder.value = snapshot.currentFolder
 }
 
-/** 双写发生部分提交时，按服务端已持久化的两个事实源重建排序状态。 */
+/** 多个持久化事实发生部分提交时，按服务端快照重建排序状态。 */
 async function reloadPersistedOrderingState() {
   await loadPluginOrderConfig()
   await loadPluginFolders()
   sortPluginOrder()
+}
+
+/** 文件夹增量写失败后优先读取服务端，校准失败时才恢复本地快照。 */
+async function reloadPluginFoldersAfterFailure(snapshot: FolderStateSnapshot) {
+  if (!(await loadPluginFolders(true))) {
+    restoreFolderState(snapshot)
+  }
 }
 
 // 按order的顺序对插件进行排序
@@ -664,7 +680,6 @@ async function saveMixedSortOrder() {
   const folderSnapshot = captureFolderState()
   const previousOrder = orderConfig.value.map(item => ({ ...item }))
   const previousFilteredData = [...filteredDataList.value]
-  let orderPersisted = false
 
   try {
     // 分离文件夹和插件，并记录它们的全局排序位置
@@ -723,19 +738,11 @@ async function saveMixedSortOrder() {
 
     // 保存到服务端
     await savePluginOrderConfig(orderObj)
-    orderPersisted = true
-
-    // 保存文件夹排序
-    await savePluginFolders()
   } catch (error) {
     console.error(error)
-    if (orderPersisted) {
-      await reloadPersistedOrderingState()
-    } else {
-      restoreFolderState(folderSnapshot)
-      orderConfig.value = previousOrder
-      filteredDataList.value = previousFilteredData
-    }
+    restoreFolderState(folderSnapshot)
+    orderConfig.value = previousOrder
+    filteredDataList.value = previousFilteredData
     $toast.error(t('plugin.operationFailed'))
   } finally {
     // 清除拖拽标志
@@ -759,6 +766,10 @@ async function saveFolderPluginOrder() {
     const folderData = pluginFolders.value[currentFolder.value]
     if (folderData) {
       const newPluginIds = draggableFolderPlugins.value.map(plugin => plugin.id)
+      const previousFolderData = folderSnapshot.folders[currentFolder.value]
+      const expectedPluginIds = Array.isArray(previousFolderData)
+        ? [...previousFolderData]
+        : [...(previousFolderData?.plugins || [])]
 
       if (Array.isArray(folderData)) {
         // 旧格式，直接替换数组
@@ -790,8 +801,8 @@ async function saveFolderPluginOrder() {
       await savePluginOrderConfig(orderConfig.value)
       orderPersisted = true
 
-      // 保存到后端
-      await savePluginFolders()
+      // 只条件替换当前文件夹成员，避免覆盖其他文件夹和展示配置。
+      await replacePluginFolderMembers(currentFolder.value, newPluginIds, expectedPluginIds)
     }
   } catch (error) {
     console.error(error)
@@ -1712,12 +1723,9 @@ useDynamicButton({
 })
 
 // 获取插件文件夹配置
-async function loadPluginFolders() {
+async function loadPluginFolders(preserveOnError = false): Promise<boolean> {
   try {
-    const foldersData = await api.get<
-      Record<string, string[] | Partial<PluginFolderConfig>>,
-      Record<string, string[] | Partial<PluginFolderConfig>>
-    >('plugin/folders')
+    const foldersData = await listPluginFolders()
 
     // 处理旧格式兼容性（array）和新格式（object with config）
     const processedFolders: Record<string, PluginFolderConfig> = {}
@@ -1763,38 +1771,15 @@ async function loadPluginFolders() {
 
       return aOrder - bOrder
     })
+    return true
   } catch (error) {
     console.error(error)
-    pluginFolders.value = {}
-    folderOrder.value = []
-  }
-}
-
-// 保存插件文件夹配置
-async function savePluginFolders() {
-  const foldersToSave: Record<string, PluginFolderConfig> = {}
-  Object.keys(pluginFolders.value).forEach(folderName => {
-    const folderData = pluginFolders.value[folderName]
-    const orderIndex = folderOrder.value.indexOf(folderName)
-    const normalizedFolder = Array.isArray(folderData)
-      ? {
-          plugins: [...folderData],
-          order: orderIndex,
-          icon: defaultIcon,
-          color: defaultColor,
-          gradient: defaultGradient,
-          background: '',
-          showIcon: true,
-        }
-      : folderData
-
-    foldersToSave[folderName] = {
-      ...normalizedFolder,
-      order: orderIndex >= 0 ? orderIndex : 999,
+    if (!preserveOnError) {
+      pluginFolders.value = {}
+      folderOrder.value = []
     }
-  })
-
-  await api.post('plugin/folders', foldersToSave, { feedback: 'silent' })
+    return false
+  }
 }
 
 // 创建新文件夹
@@ -1827,8 +1812,8 @@ async function createNewFolder() {
     // 添加到排序列表
     folderOrder.value.push(folderName)
 
-    // 保存到后端
-    await savePluginFolders()
+    // 只创建目标文件夹，展示默认值由前端兼容层负责。
+    await createPluginFolder(folderName)
 
     folderCreateDialogController?.close()
     folderCreateDialogController = null
@@ -1836,7 +1821,7 @@ async function createNewFolder() {
     $toast.success(t('plugin.folderCreateSuccess'))
   } catch (error) {
     console.error(error)
-    restoreFolderState(snapshot)
+    await reloadPluginFoldersAfterFailure(snapshot)
     $toast.error(t('plugin.operationFailed'))
   }
 }
@@ -1852,44 +1837,76 @@ function backToMain() {
 }
 
 // 重命名文件夹
-async function renameFolder(oldName: string, newName: string) {
-  if (pluginFolders.value[newName]) {
+async function renameFolder(
+  oldName: string,
+  newName: string,
+  onComplete?: (success: boolean) => void,
+): Promise<boolean> {
+  const normalizedName = newName.trim()
+  if (!normalizedName) {
+    $toast.error(t('plugin.folderNameEmpty'))
+    onComplete?.(false)
+    return false
+  }
+  if (pluginFolders.value[normalizedName]) {
     $toast.error(t('plugin.folderExists'))
-    return
+    onComplete?.(false)
+    return false
   }
 
   const snapshot = captureFolderState()
+  const previousOrder = orderConfig.value.map(item => ({ ...item }))
+  let folderPersisted = false
   try {
     // 更新本地状态
     const folderData = pluginFolders.value[oldName] || { plugins: [] }
-    pluginFolders.value[newName] = folderData
+    pluginFolders.value[normalizedName] = folderData
     delete pluginFolders.value[oldName]
 
     // 更新排序列表
     const orderIndex = folderOrder.value.indexOf(oldName)
     if (orderIndex >= 0) {
-      folderOrder.value[orderIndex] = newName
+      folderOrder.value[orderIndex] = normalizedName
     }
 
     // 如果正在查看该文件夹，更新当前文件夹名
     if (currentFolder.value === oldName) {
-      currentFolder.value = newName
+      currentFolder.value = normalizedName
     }
 
-    // 保存到后端
-    await savePluginFolders()
+    const nextOrder = orderConfig.value.map(item =>
+      item.type === 'folder' && item.id === oldName ? { ...item, id: normalizedName } : item,
+    )
+    orderConfig.value = nextOrder
+
+    await updatePluginFolder(oldName, { new_name: normalizedName })
+    folderPersisted = true
+    if (nextOrder.some((item, index) => item.id !== previousOrder[index]?.id)) {
+      await savePluginOrderConfig(nextOrder)
+    }
 
     $toast.success(t('plugin.folderRenameSuccess'))
+    onComplete?.(true)
+    return true
   } catch (error) {
     console.error(error)
-    restoreFolderState(snapshot)
+    if (folderPersisted) {
+      await reloadPersistedOrderingState()
+    } else {
+      await reloadPluginFoldersAfterFailure(snapshot)
+      orderConfig.value = previousOrder
+    }
     $toast.error(t('plugin.folderRenameFailed'))
+    onComplete?.(false)
+    return false
   }
 }
 
 // 删除文件夹
 async function deleteFolder(folderName: string) {
   const snapshot = captureFolderState()
+  const previousOrder = orderConfig.value.map(item => ({ ...item }))
+  let folderPersisted = false
   try {
     delete pluginFolders.value[folderName]
 
@@ -1901,13 +1918,24 @@ async function deleteFolder(folderName: string) {
       currentFolder.value = ''
     }
 
-    // 保存到后端
-    await savePluginFolders()
+    const nextOrder = orderConfig.value.filter(item => !(item.type === 'folder' && item.id === folderName))
+    orderConfig.value = nextOrder
+
+    await deletePluginFolder(folderName)
+    folderPersisted = true
+    if (nextOrder.length !== previousOrder.length) {
+      await savePluginOrderConfig(nextOrder)
+    }
 
     $toast.success(t('plugin.folderDeleteSuccess'))
   } catch (error) {
     console.error(error)
-    restoreFolderState(snapshot)
+    if (folderPersisted) {
+      await reloadPersistedOrderingState()
+    } else {
+      await reloadPluginFoldersAfterFailure(snapshot)
+      orderConfig.value = previousOrder
+    }
     $toast.error(t('plugin.folderDeleteFailed'))
   }
 }
@@ -1945,20 +1973,23 @@ async function removeFromFolder(pluginId: string) {
         folderData.plugins = plugins
       }
 
-      // 保存配置
-      await savePluginFolders()
+      await removePluginFromFolder(currentFolder.value, pluginId)
 
       $toast.success(t('plugin.removeFromFolderSuccess'))
     }
   } catch (error) {
     console.error(error)
-    restoreFolderState(snapshot)
+    await reloadPluginFoldersAfterFailure(snapshot)
     $toast.error(t('plugin.operationFailed'))
   }
 }
 
 // 更新文件夹配置
-async function updateFolderConfig(folderName: string, config: Partial<PluginFolderConfig>) {
+async function updateFolderConfig(
+  folderName: string,
+  config: Partial<PluginFolderConfig>,
+  onComplete?: (success: boolean) => void,
+): Promise<boolean> {
   const snapshot = captureFolderState()
   try {
     // 更新本地配置
@@ -1968,14 +1999,23 @@ async function updateFolderConfig(folderName: string, config: Partial<PluginFold
         ...config,
       }
 
-      // 保存到后端
-      await savePluginFolders()
+      await updatePluginFolder(folderName, {
+        background: config.background,
+        color: config.color,
+        gradient: config.gradient,
+        icon: config.icon,
+        showIcon: config.showIcon,
+      })
       $toast.success(t('folder.folderSettingsSaved'))
     }
+    onComplete?.(true)
+    return true
   } catch (error) {
     console.error(error)
-    restoreFolderState(snapshot)
+    await reloadPluginFoldersAfterFailure(snapshot)
     $toast.error(t('plugin.saveFolderConfigFailed'))
+    onComplete?.(false)
+    return false
   }
 }
 
@@ -2062,8 +2102,7 @@ async function handleDropToFolder(event: DragEvent, folderName: string) {
       targetFolder.plugins.push(pluginId)
     }
 
-    // 保存配置
-    await savePluginFolders()
+    await assignPluginToFolder(folderName, pluginId)
 
     // 更新混合排序列表
     updateMixedSortList()
@@ -2071,7 +2110,7 @@ async function handleDropToFolder(event: DragEvent, folderName: string) {
     $toast.success(`插件已移动到文件夹 "${folderName}"`)
   } catch (error) {
     console.error(error)
-    restoreFolderState(snapshot)
+    await reloadPluginFoldersAfterFailure(snapshot)
     isDraggingSortMode.value = false
     currentDraggedPluginId.value = ''
     updateMixedSortList()
@@ -2324,8 +2363,10 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :sortable="true"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
-                    @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
-                    @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
+                    @rename-folder="(oldName, newName, onComplete) => renameFolder(oldName, newName, onComplete)"
+                    @update-folder-config="
+                      (folderName, config, onComplete) => updateFolderConfig(folderName, config, onComplete)
+                    "
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
                     @source-transition="transitionPluginSource"
@@ -2358,8 +2399,10 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                     :sortable="false"
                     @open-folder="openFolder"
                     @delete-folder="deleteFolder"
-                    @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
-                    @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
+                    @rename-folder="(oldName, newName, onComplete) => renameFolder(oldName, newName, onComplete)"
+                    @update-folder-config="
+                      (folderName, config, onComplete) => updateFolderConfig(folderName, config, onComplete)
+                    "
                     @refresh-data="refreshData"
                     @rating="applyPluginRating"
                     @source-transition="transitionPluginSource"

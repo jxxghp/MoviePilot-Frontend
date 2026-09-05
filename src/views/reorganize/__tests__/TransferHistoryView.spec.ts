@@ -324,7 +324,7 @@ function deleteResultResponse(
 }
 
 function storageResponse() {
-  return { data: { value: [] }, success: true }
+  return []
 }
 
 function createDeferred<T>() {
@@ -407,7 +407,7 @@ describe('TransferHistoryView', () => {
     mocks.progressCallback = undefined
     mocks.apiDelete.mockResolvedValue(deleteResultResponse())
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([]))
     })
     mocks.apiPost.mockResolvedValue({ data: { history_ids: [1], progress_key: 'progress-1' }, success: true })
@@ -422,7 +422,7 @@ describe('TransferHistoryView', () => {
   it('uses the desktop URL query as the request source and falls back from invalid pagination values', async () => {
     const requests: Array<Record<string, unknown>> = []
     mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       requests.push(config?.params ?? {})
       return Promise.resolve(historyResponse([createHistory(1, '桌面结果')], 51))
     })
@@ -436,7 +436,7 @@ describe('TransferHistoryView', () => {
   it('sends status as an explicit query while preserving the title search', async () => {
     const requests: Array<Record<string, unknown>> = []
     mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       requests.push(config?.params ?? {})
       return Promise.resolve(historyResponse([]))
     })
@@ -471,7 +471,7 @@ describe('TransferHistoryView', () => {
     mocks.desktop = false
     const requests: Array<Record<string, unknown>> = []
     mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       requests.push(config?.params ?? {})
       return Promise.resolve(historyResponse([]))
     })
@@ -490,7 +490,7 @@ describe('TransferHistoryView', () => {
     const newRequest = createDeferred<ReturnType<typeof historyResponse>>()
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       return historyCalls === 1 ? oldRequest.promise : newRequest.promise
     })
@@ -509,7 +509,7 @@ describe('TransferHistoryView', () => {
     const hidden = createHistory(1, '筛选前记录')
     const visible = createHistory(2, '筛选后记录')
     mocks.apiGet.mockImplementation((path: string, config?: { params?: { title?: string } }) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse(config?.params?.title === 'new' ? [visible] : [hidden]))
     })
 
@@ -539,7 +539,7 @@ describe('TransferHistoryView', () => {
       image: '/poster.jpg',
     })
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
 
@@ -584,7 +584,7 @@ describe('TransferHistoryView', () => {
       }),
     ]
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse(histories))
     })
 
@@ -618,7 +618,7 @@ describe('TransferHistoryView', () => {
     ]
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       return Promise.resolve(historyResponse(historyCalls === 1 ? firstPage : secondPage, 29))
     })
@@ -639,7 +639,7 @@ describe('TransferHistoryView', () => {
     mocks.desktop = false
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       if (historyCalls === 1) return Promise.reject(new Error('temporary failure'))
       return Promise.resolve(historyResponse([createHistory(1, '重试结果')]))
@@ -667,7 +667,7 @@ describe('TransferHistoryView', () => {
       year: '2025',
     })
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
 
@@ -714,7 +714,7 @@ describe('TransferHistoryView', () => {
       year: '2003',
     })
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
 
@@ -730,7 +730,7 @@ describe('TransferHistoryView', () => {
     const newRequest = createDeferred<ReturnType<typeof historyResponse>>()
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       return historyCalls === 1 ? oldRequest.promise : newRequest.promise
     })
@@ -765,7 +765,7 @@ describe('TransferHistoryView', () => {
   it('summarizes batch deletion failures, retains failed selections, and never renders undefined progress text', async () => {
     const histories = [createHistory(1, '成功项'), createHistory(2, '业务失败项'), createHistory(3, '异常失败项')]
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse(histories))
     })
     mocks.apiDelete
@@ -810,7 +810,7 @@ describe('TransferHistoryView', () => {
   it('shows the existing toast-style feedback when a single deletion request throws', async () => {
     const item = createHistory(1, '异常删除')
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
     mocks.apiDelete.mockRejectedValueOnce(new Error('delete unavailable'))
@@ -827,7 +827,7 @@ describe('TransferHistoryView', () => {
   it('retries only the unfinished file step after a partial deletion', async () => {
     const item = createHistory(1, '部分删除')
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
     mocks.apiDelete
@@ -859,7 +859,7 @@ describe('TransferHistoryView', () => {
   it('releases delete-dialog ownership when either close contract fires', async () => {
     const item = createHistory(1, '删除弹窗生命周期')
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
 
@@ -881,7 +881,7 @@ describe('TransferHistoryView', () => {
     const item = createHistory(26, '第二页唯一记录')
     const requestedPages: number[] = []
     mocks.apiGet.mockImplementation((path: string, config?: { params?: { page?: number } }) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       const page = config?.params?.page ?? 1
       requestedPages.push(page)
       if (requestedPages.length === 1) return Promise.resolve(historyResponse([item], 26))
@@ -901,7 +901,7 @@ describe('TransferHistoryView', () => {
     const histories = [createHistory(1, '删除成功'), createHistory(2, '保留甲'), createHistory(3, '保留乙')]
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       return Promise.resolve(historyResponse(historyCalls === 1 ? histories : histories.slice(1)))
     })
@@ -956,7 +956,7 @@ describe('TransferHistoryView', () => {
     const histories = [createHistory(10, '重整甲'), createHistory(11, '重整乙')]
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       return Promise.resolve(historyResponse(histories))
     })
@@ -979,7 +979,7 @@ describe('TransferHistoryView', () => {
     const histories = [createHistory(1, 'AI 重整')]
     let historyCalls = 0
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       historyCalls += 1
       return Promise.resolve(historyResponse(histories))
     })
@@ -1023,7 +1023,7 @@ describe('TransferHistoryView', () => {
   it('starts the single AI redo progress boundary with the accepted progress key', async () => {
     const item = createHistory(7, '单条 AI')
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
     mocks.apiPost.mockResolvedValueOnce({ data: { progress_key: 'single-progress' }, success: true })
@@ -1042,7 +1042,7 @@ describe('TransferHistoryView', () => {
     const item = createHistory(1, '卸载中的单条 AI')
     const pending = createDeferred<{ data: { progress_key: string }; success: boolean }>()
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
     mocks.apiPost.mockReturnValueOnce(pending.promise)
@@ -1065,7 +1065,7 @@ describe('TransferHistoryView', () => {
       success: boolean
     }>()
     mocks.apiGet.mockImplementation((path: string) => {
-      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
       return Promise.resolve(historyResponse([item]))
     })
     mocks.apiPost.mockReturnValueOnce(pending.promise)

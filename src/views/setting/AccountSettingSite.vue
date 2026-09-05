@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { requestCookieCloudSync, resetSiteData } from '@/api/site'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
@@ -25,6 +26,9 @@ const resetSitesText = ref(t('setting.site.resetSites'))
 
 // 站点重置按钮可用状态
 const resetSitesDisabled = ref(false)
+
+// CookieCloud 手工同步状态
+const syncingCookieCloud = ref(false)
 
 const isPasswordVisible = ref(false)
 
@@ -80,11 +84,12 @@ const BrowserEmulationItems = [
 
 // 重置站点
 async function resetSites() {
+  if (resetSitesDisabled.value) return
   try {
     resetSitesDisabled.value = true
     resetSitesText.value = t('setting.site.resettingSites')
 
-    await api.get('site/reset', { feedback: 'silent' })
+    await resetSiteData()
     $toast.success(t('setting.site.resetSuccess'))
   } catch (error) {
     console.log(error)
@@ -92,6 +97,21 @@ async function resetSites() {
   } finally {
     resetSitesDisabled.value = false
     resetSitesText.value = t('setting.site.resetSites')
+  }
+}
+
+/** 使用已保存的 CookieCloud 配置触发一次手工同步。 */
+async function syncCookieCloud() {
+  if (syncingCookieCloud.value) return
+  syncingCookieCloud.value = true
+  try {
+    await requestCookieCloudSync()
+    $toast.success(t('setting.site.syncSuccess'))
+  } catch (error) {
+    console.log(error)
+    $toast.error(t('setting.site.syncFailed'))
+  } finally {
+    syncingCookieCloud.value = false
   }
 }
 
@@ -223,9 +243,18 @@ useSilentSettingRefresh(loadSiteSettings, {
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
-            <div class="d-flex flex-wrap gap-4 mt-4">
+            <div class="site-setting-actions d-flex flex-wrap gap-4 mt-4">
               <VBtn type="submit" @click="saveSiteSetting(siteSetting.CookieCloud)" prepend-icon="mdi-content-save">
                 {{ t('common.save') }}
+              </VBtn>
+              <VBtn
+                variant="tonal"
+                prepend-icon="mdi-cloud-sync-outline"
+                :loading="syncingCookieCloud"
+                :disabled="syncingCookieCloud"
+                @click="syncCookieCloud"
+              >
+                {{ t('setting.site.syncNow') }}
               </VBtn>
             </div>
           </VForm>
@@ -340,3 +369,11 @@ useSilentSettingRefresh(loadSiteSettings, {
   </VRow>
   <!-- 进度框 -->
 </template>
+
+<style scoped>
+@media (max-width: 600px) {
+  .site-setting-actions :deep(.v-btn) {
+    inline-size: 100%;
+  }
+}
+</style>

@@ -2,7 +2,9 @@
 import { useToast } from 'vue-toastification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
-import type { DownloaderConf, FilterRuleGroup, Site, Subscribe, TransferDirectoryConf } from '@/api/types'
+import { listFilterRuleGroups } from '@/api/rule'
+import { listDownloadDirectories } from '@/api/storage'
+import type { DownloadDirectory, DownloaderConf, FilterRuleGroup, Site, Subscribe } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from 'vue-i18n'
@@ -59,7 +61,7 @@ const activeTab = ref('basic')
 const siteList = ref<Site[]>([])
 
 // 下载目录列表
-const downloadDirectories = ref<TransferDirectoryConf[]>([])
+const downloadDirectories = ref<DownloadDirectory[]>([])
 
 // 站点选择下载框
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
@@ -171,11 +173,8 @@ async function loadDownloaderSetting() {
 
 // 加载规则组
 async function queryFilterRuleGroups() {
-  if (!canAdmin.value) return
-
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.value ?? []
+    filterRuleGroups.value = await listFilterRuleGroups()
   } catch (error) {
     console.log(error)
   }
@@ -319,8 +318,7 @@ async function removeSubscribe() {
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
-    const result = await api.get<{ value?: TransferDirectoryConf[] }>('system/setting/public/Directories')
-    downloadDirectories.value = result.value ?? []
+    downloadDirectories.value = await listDownloadDirectories()
   } catch (error) {
     console.log(error)
   }

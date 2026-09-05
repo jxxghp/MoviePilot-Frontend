@@ -240,8 +240,8 @@ describe('NameTestView media identity', () => {
   })
 
   it('treats a resolved custom-word save as success after the data client unwraps the response', async () => {
-    mocks.apiGet.mockResolvedValueOnce({ value: ['已存在规则'] })
-    mocks.apiPost.mockResolvedValueOnce(null)
+    mocks.apiGet.mockResolvedValueOnce({ identifiers: ['已存在规则'] })
+    mocks.apiPost.mockResolvedValueOnce({ identifiers: ['已存在规则', '新增规则'] })
     await renderWithProviders(NameTestView, {
       initialState: {
         globalSettings: {
@@ -254,10 +254,15 @@ describe('NameTestView media identity', () => {
     await user.type(screen.getByLabelText('识别词'), '新增规则')
     await user.click(screen.getByRole('button', { name: '保存识别词' }))
 
-    expect(mocks.apiGet).toHaveBeenCalledWith('system/setting/CustomIdentifiers')
-    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/CustomIdentifiers', ['已存在规则', '新增规则'], {
-      feedback: 'silent',
-    })
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/identifiers', { feedback: 'silent' })
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'system/identifiers',
+      {
+        identifiers: ['已存在规则', '新增规则'],
+        expected_identifiers: ['已存在规则'],
+      },
+      { feedback: 'silent' },
+    )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('识别词已保存到识别词表末尾')
   })
 

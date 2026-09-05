@@ -3,6 +3,7 @@ import { computed, nextTick, reactive, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
+import { listCustomIdentifiers, replaceCustomIdentifiers } from '@/api/customIdentifiers'
 import type { Context, MediaDataSource, MediaInfo } from '@/api/types'
 import { getMediaSubscribeIdentity } from '@/composables/useMediaSubscribe'
 import router from '@/router'
@@ -334,8 +335,7 @@ async function saveCustomWords() {
 
   savingCustomWords.value = true
   try {
-    const queryResult: { [key: string]: any } = await api.get('system/setting/CustomIdentifiers')
-    const existingLines: string[] = Array.isArray(queryResult?.value) ? queryResult.value : []
+    const existingLines = await listCustomIdentifiers()
     const appendLines = newLines.filter(line => !existingLines.includes(line))
 
     if (!appendLines.length) {
@@ -343,7 +343,7 @@ async function saveCustomWords() {
       return
     }
 
-    await api.post<null>('system/setting/CustomIdentifiers', [...existingLines, ...appendLines], { feedback: 'silent' })
+    await replaceCustomIdentifiers([...existingLines, ...appendLines], existingLines)
     $toast.success(t('nameTest.saveWordsSuccess'))
   } catch (error) {
     console.error(error)

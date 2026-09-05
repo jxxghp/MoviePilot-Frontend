@@ -30,20 +30,14 @@ describe('ScanFileAction', () => {
   })
 
   it('maps unwrapped storage names and types to options', async () => {
-    mocks.apiGet.mockResolvedValue({
-      success: true,
-      message: '',
-      data: {
-        value: [
-          { name: '本地存储', type: 'local' },
-          { name: '阿里云盘', type: 'alipan' },
-        ],
-      },
-    })
+    mocks.apiGet.mockResolvedValue([
+      { name: '本地存储', type: 'local' },
+      { name: '阿里云盘', type: 'alipan' },
+    ])
 
     const { container } = await renderAction()
 
-    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('system/setting/public/Storages'))
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('storage/options'))
     expect(getSelectItems(container, '存储')).toEqual([
       { title: '本地存储', value: 'local' },
       { title: '阿里云盘', value: 'alipan' },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import api from '@/api'
-import { StorageConf } from '@/api/types'
+import { listStorageOptions } from '@/api/storage'
+import type { StorageOption } from '@/api/types'
 import { Handle, Position } from '@vue-flow/core'
 import { useI18n } from 'vue-i18n'
 
@@ -18,12 +18,11 @@ defineProps({
 })
 
 // 所有存储
-const storages = ref<StorageConf[]>([])
+const storages = ref<StorageOption[]>([])
 
 // 查询存储
 async function loadStorages() {
-  const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
-  storages.value = result.value ?? []
+  storages.value = await listStorageOptions()
 }
 
 // 存储字典

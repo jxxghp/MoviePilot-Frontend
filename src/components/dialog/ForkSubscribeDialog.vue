@@ -2,6 +2,7 @@
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
+import { followSubscriber, listFollowedSubscribers, unfollowSubscriber } from '@/api/subscription'
 import { SubscribeShare } from '@/api/types'
 import router from '@/router'
 import { useToast } from 'vue-toastification'
@@ -52,8 +53,7 @@ function toggleExpand() {
 // 加载follow用户列表
 async function queryFollowUsers() {
   try {
-    const result = await api.get<{ value?: string[] }>('system/setting/public/FollowSubscribers')
-    followUsers.value = result.value ?? []
+    followUsers.value = await listFollowedSubscribers()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.requestFailed'))
@@ -63,7 +63,8 @@ async function queryFollowUsers() {
 // follow用户
 async function followUser() {
   try {
-    await api.post<null>(`subscribe/follow?share_uid=${props.media?.share_uid}`, undefined, { feedback: 'silent' })
+    if (!props.media?.share_uid) return
+    await followSubscriber(props.media.share_uid)
     queryFollowUsers()
   } catch (error) {
     console.error(error)
@@ -74,12 +75,8 @@ async function followUser() {
 // unfollow用户
 async function unfollowUser() {
   try {
-    await api.delete<null>('subscribe/follow', {
-      params: {
-        share_uid: props.media?.share_uid,
-      },
-      feedback: 'silent',
-    })
+    if (!props.media?.share_uid) return
+    await unfollowSubscriber(props.media.share_uid)
     queryFollowUsers()
   } catch (error) {
     console.error(error)

@@ -5,6 +5,7 @@ import { formatDateDifference } from '@/@core/utils/formatters'
 import { formatSeasonLabel } from '@/@core/utils/season'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
+import { resetSubscription, searchSubscription } from '@/api/subscription'
 import type { Subscribe } from '@/api/types'
 import router from '@/router'
 import { useI18n } from 'vue-i18n'
@@ -308,7 +309,8 @@ async function removeSubscribe() {
 // 搜索订阅
 async function searchSubscribe() {
   try {
-    await api.get(`subscribe/search/${props.media?.id}`, { feedback: 'silent' })
+    if (!props.media?.id) return
+    await searchSubscription(props.media.id)
     $toast.success(t('subscribe.execution.searchSubmitted', { name: props.media?.name }))
     emit('save')
   } catch (e) {
@@ -350,7 +352,8 @@ async function resetSubscribe() {
     })
     if (!isConfirmed) return
     // 重置
-    await api.get(`subscribe/reset/${props.media?.id}`, { feedback: 'silent' })
+    if (!props.media?.id) return
+    await resetSubscription(props.media.id)
     $toast.success(t('subscribe.resetSuccess', { name: props.media?.name }))
     subscribeState.value = 'R'
     emit('save')

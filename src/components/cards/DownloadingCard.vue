@@ -7,17 +7,20 @@ import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 
-/** 卡片使用的下载任务信息，兼容接口已经返回但公共类型尚未声明的来源站点。 */
-interface DownloadingCardInfo extends DownloadingInfo {
-  site_name?: string
-  trackers?: string[]
-}
+const DownloadTaskSettingsDialog = defineAsyncComponent(
+  () => import('@/components/dialog/DownloadTaskSettingsDialog.vue'),
+)
 
-/** 正在下载任务卡片，负责展示任务状态并提供暂停、继续和删除操作。 */
+/** 正在下载任务卡片，负责展示任务状态并提供设置、暂停、继续和删除操作。 */
 const props = defineProps({
-  info: Object as PropType<DownloadingCardInfo>,
+  info: Object as PropType<DownloadingInfo>,
   downloaderName: String,
+  downloaderType: String,
 })
+
+const emit = defineEmits<{
+  updated: []
+}>()
 
 const { t } = useI18n()
 const createConfirm = useConfirm()
@@ -28,6 +31,7 @@ const cardState = ref(true)
 const pendingAction = ref<'delete' | 'toggle' | null>(null)
 const deleteConfirmationPending = ref(false)
 const imageLoadError = ref(false)
+const settingsDialog = ref(false)
 const media = computed(() => props.info?.media ?? {})
 
 watch(
@@ -289,6 +293,17 @@ async function deleteDownload() {
                     </VTooltip>
                   </VBtn>
                   <VBtn
+                    :aria-label="t('downloading.settings.title')"
+                    :disabled="Boolean(pendingAction) || !props.info?.hash"
+                    icon
+                    size="small"
+                    variant="text"
+                    @click="settingsDialog = true"
+                  >
+                    <VIcon icon="mdi-tune-variant" />
+                    <VTooltip activator="parent" location="top">{{ t('downloading.settings.title') }}</VTooltip>
+                  </VBtn>
+                  <VBtn
                     :aria-label="t('common.delete')"
                     class="downloading-card__delete-action"
                     color="on-surface"
@@ -310,6 +325,14 @@ async function deleteDownload() {
       </div>
     </template>
   </VHover>
+  <DownloadTaskSettingsDialog
+    v-if="settingsDialog && props.info"
+    v-model="settingsDialog"
+    :task="props.info"
+    :downloader-name="props.downloaderName"
+    :downloader-type="props.downloaderType"
+    @saved="emit('updated')"
+  />
 </template>
 
 <style lang="scss" scoped>

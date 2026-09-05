@@ -1,4 +1,4 @@
-import type { DownloadHistory, DownloadingInfo } from '@/api/types'
+import type { DownloadHistory, DownloadingInfo, DownloadTaskUpdateData, DownloadTaskUpdateRequest } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
 import { apiFailureJson, apiJson } from '../response'
 
@@ -12,8 +12,24 @@ export interface DownloadMutationResponse {
 export const downloadApiUrls = {
   action: (operation: 'start' | 'stop', hash: string) => new URL(`download/${operation}/${hash}`, API_BASE_URL).href,
   delete: (hash: string) => new URL(`download/${hash}`, API_BASE_URL).href,
+  update: (hash: string) => new URL(`download/${hash}`, API_BASE_URL).href,
   list: new URL('download/', API_BASE_URL).href,
   history: new URL('history/download', API_BASE_URL).href,
+}
+
+/** 拦截下载任务高级修改并保留请求体供断言。 */
+export function updateDownloadTaskHandler(
+  hash: string,
+  response: { success: boolean; message?: string; data: DownloadTaskUpdateData },
+  status = 200,
+  onRequest: (body: DownloadTaskUpdateRequest) => void | Promise<void> = () => {},
+) {
+  return http.patch(downloadApiUrls.update(hash), async ({ request }) => {
+    await onRequest((await request.json()) as DownloadTaskUpdateRequest)
+    if (status >= 400) return HttpResponse.json(response as unknown as JsonBodyType, { status })
+    if (!response.success) return apiFailureJson(response.message ?? '', response.data, { status })
+    return apiJson(response.data, { status })
+  })
 }
 
 function dataResponse(body: JsonBodyType, status: number) {

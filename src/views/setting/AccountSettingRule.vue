@@ -3,7 +3,21 @@
 import { useToast } from 'vue-toastification'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import api from '@/api'
-import { CustomRule, FilterRuleGroup } from '@/api/types'
+import {
+  createCustomRule,
+  createFilterRuleGroup,
+  deleteCustomRule,
+  deleteFilterRuleGroup,
+  listCustomRules,
+  listFilterRuleGroups,
+  reorderCustomRules,
+  reorderFilterRuleGroups,
+  updateCustomRule,
+  updateFilterRuleGroup,
+  type CustomRuleUpdateInput,
+  type FilterRuleGroupUpdateInput,
+} from '@/api/rule'
+import type { CustomRule, FilterRuleGroup } from '@/api/types'
 import CustomerRuleCard from '@/components/cards/CustomRuleCard.vue'
 import FilterRuleGroupCard from '@/components/cards/FilterRuleGroupCard.vue'
 import { useI18n } from 'vue-i18n'
@@ -24,11 +38,21 @@ const props = defineProps({
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const ImportCodeDialog = defineAsyncComponent(() => import('@/components/dialog/ImportCodeDialog.vue'))
 
+const originalCustomRuleId = Symbol('originalCustomRuleId')
+const originalRuleGroupName = Symbol('originalRuleGroupName')
+
+type CustomRuleDraft = CustomRule & { [originalCustomRuleId]?: string }
+type FilterRuleGroupDraft = FilterRuleGroup & { [originalRuleGroupName]?: string }
+
 // 自定义规则列表
-const customRules = ref<CustomRule[]>([])
+const customRules = ref<CustomRuleDraft[]>([])
+const customRuleBaseline = ref<CustomRule[]>([])
+const savingCustomRules = ref(false)
 
 // 所有规则组列表
-const filterRuleGroups = ref<FilterRuleGroup[]>([])
+const filterRuleGroups = ref<FilterRuleGroupDraft[]>([])
+const filterRuleGroupBaseline = ref<FilterRuleGroup[]>([])
+const savingFilterRuleGroups = ref(false)
 
 // 种子优先规则
 const selectedTorrentPriority = ref<string[]>(['seeder'])
@@ -56,6 +80,95 @@ async function loadMediaCategories() {
   }
 }
 
+/** 复制自定义规则的公开字段，排除页面草稿身份。 */
+function copyCustomRule(rule: CustomRule): CustomRule {
+  return {
+    id: rule.id,
+    name: rule.name,
+    include: rule.include,
+    exclude: rule.exclude,
+    size_range: rule.size_range,
+    seeders: rule.seeders,
+    publish_time: rule.publish_time,
+  }
+}
+
+/** 复制规则组的公开字段，排除页面草稿身份。 */
+function copyFilterRuleGroup(group: FilterRuleGroup): FilterRuleGroup {
+  return {
+    name: group.name,
+    rule_string: group.rule_string,
+    media_type: group.media_type,
+    category: group.category,
+  }
+}
+
+/** 为服务端已有自定义规则附加不可序列化的原始身份。 */
+function createCustomRuleDraft(rule: CustomRule, originalId?: string): CustomRuleDraft {
+  const draft = copyCustomRule(rule) as CustomRuleDraft
+  if (originalId) draft[originalCustomRuleId] = originalId
+  return draft
+}
+
+/** 为服务端已有规则组附加不可序列化的原始身份。 */
+function createFilterRuleGroupDraft(group: FilterRuleGroup, originalName?: string): FilterRuleGroupDraft {
+  const draft = copyFilterRuleGroup(group) as FilterRuleGroupDraft
+  if (originalName) draft[originalRuleGroupName] = originalName
+  return draft
+}
+
+/** 比较可选文本字段，空值和缺省值视为同一状态。 */
+function optionalTextChanged(current: string | undefined, baseline: string | undefined): boolean {
+  return (current ?? '') !== (baseline ?? '')
+}
+
+/** 生成一条已有自定义规则的最小更新载荷。 */
+function buildCustomRuleUpdate(draft: CustomRuleDraft, baseline: CustomRule): CustomRuleUpdateInput {
+  const payload: CustomRuleUpdateInput = {}
+  if (draft.id !== baseline.id) payload.new_rule_id = draft.id
+  if (draft.name !== baseline.name) payload.name = draft.name
+  if (optionalTextChanged(draft.include, baseline.include)) payload.include = draft.include ?? ''
+  if (optionalTextChanged(draft.exclude, baseline.exclude)) payload.exclude = draft.exclude ?? ''
+  if (optionalTextChanged(draft.size_range, baseline.size_range)) payload.size_range = draft.size_range ?? ''
+  if (optionalTextChanged(draft.seeders, baseline.seeders)) payload.seeders = draft.seeders ?? ''
+  if (optionalTextChanged(draft.publish_time, baseline.publish_time)) payload.publish_time = draft.publish_time ?? ''
+  return payload
+}
+
+/** 生成一个已有规则组的最小更新载荷。 */
+function buildFilterRuleGroupUpdate(
+  draft: FilterRuleGroupDraft,
+  baseline: FilterRuleGroup,
+): FilterRuleGroupUpdateInput {
+  const payload: FilterRuleGroupUpdateInput = {}
+  if (draft.name !== baseline.name) payload.new_name = draft.name
+  if (optionalTextChanged(draft.rule_string, baseline.rule_string)) payload.rule_string = draft.rule_string ?? ''
+  if (optionalTextChanged(draft.media_type, baseline.media_type)) payload.media_type = draft.media_type ?? ''
+  if (optionalTextChanged(draft.category, baseline.category)) payload.category = draft.category ?? ''
+  return payload
+}
+
+/** 判断增量更新载荷是否包含实际变化。 */
+function hasUpdates(payload: CustomRuleUpdateInput | FilterRuleGroupUpdateInput): boolean {
+  return Object.keys(payload).length > 0
+}
+
+/** 在本地规则组草稿和基线中同步后端完成的规则 ID 改名。 */
+function replaceCustomRuleReferences(previousId: string, currentId: string) {
+  const escaped = previousId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`, 'g')
+  for (const groups of [filterRuleGroups.value, filterRuleGroupBaseline.value]) {
+    for (const group of groups) {
+      if (group.rule_string) group.rule_string = group.rule_string.replace(pattern, currentId)
+    }
+  }
+}
+
+/** 失败后重新读取规则与规则组，丢弃可能只完成一部分的页面草稿。 */
+async function reloadRuleCollections() {
+  await Promise.allSettled([queryCustomRules(), queryFilterRuleGroups()])
+}
+
 // 保存自定义规则
 async function saveCustomRules() {
   // 检查是否存在空id规则
@@ -81,12 +194,62 @@ async function saveCustomRules() {
     $toast.error(t('setting.rule.duplicateNameError'))
     return
   }
+  if (savingCustomRules.value) return
+  savingCustomRules.value = true
   try {
-    await api.post('system/setting/CustomFilterRules', customRules.value, { feedback: 'silent' })
+    const baselineById = new Map(customRuleBaseline.value.map(rule => [rule.id, rule]))
+    const retainedIds = new Set(
+      customRules.value.map(rule => rule[originalCustomRuleId]).filter((id): id is string => Boolean(id)),
+    )
+    const expectedOrder = customRuleBaseline.value.map(rule => rule.id)
+
+    for (const rule of customRuleBaseline.value) {
+      if (retainedIds.has(rule.id)) continue
+      await deleteCustomRule(rule.id)
+      expectedOrder.splice(expectedOrder.indexOf(rule.id), 1)
+    }
+
+    for (const draft of customRules.value) {
+      const originalId = draft[originalCustomRuleId]
+      if (!originalId) continue
+      const baseline = baselineById.get(originalId)
+      if (!baseline) throw new Error(`Missing baseline for custom rule ${originalId}`)
+      const payload = buildCustomRuleUpdate(draft, baseline)
+      if (!hasUpdates(payload)) continue
+      await updateCustomRule(originalId, payload)
+      if (draft.id !== originalId) {
+        const index = expectedOrder.indexOf(originalId)
+        if (index !== -1) expectedOrder[index] = draft.id
+        replaceCustomRuleReferences(originalId, draft.id)
+      }
+    }
+
+    for (const draft of customRules.value) {
+      if (draft[originalCustomRuleId]) continue
+      await createCustomRule({
+        rule_id: draft.id,
+        name: draft.name,
+        include: draft.include,
+        exclude: draft.exclude,
+        size_range: draft.size_range,
+        seeders: draft.seeders,
+        publish_time: draft.publish_time,
+      })
+      expectedOrder.push(draft.id)
+    }
+
+    const desiredOrder = customRules.value.map(rule => rule.id)
+    if (desiredOrder.some((ruleId, index) => expectedOrder[index] !== ruleId)) {
+      await reorderCustomRules(desiredOrder, expectedOrder)
+    }
+    await queryCustomRules()
     $toast.success(t('setting.rule.customRuleSaveSuccess'))
   } catch (error) {
     console.log(error)
+    await reloadRuleCollections()
     $toast.error(t('setting.rule.customRuleSaveFailed'))
+  } finally {
+    savingCustomRules.value = false
   }
 }
 
@@ -107,16 +270,17 @@ async function addCustomRule() {
 }
 
 // 移除自定义规则
-function removeCustomRule(rule: CustomRule) {
-  const index = customRules.value.findIndex(item => item.id === rule.id)
+function removeCustomRule(rule: CustomRuleDraft) {
+  const index = customRules.value.indexOf(rule)
   if (index !== -1) customRules.value.splice(index, 1)
 }
 
 // 加载规则组
 async function queryFilterRuleGroups() {
   try {
-    const result = await api.get<{ value?: FilterRuleGroup[] }>('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.value ?? []
+    const groups = await listFilterRuleGroups()
+    filterRuleGroupBaseline.value = groups.map(copyFilterRuleGroup)
+    filterRuleGroups.value = groups.map(group => createFilterRuleGroupDraft(group, group.name))
   } catch (error) {
     console.log(error)
   }
@@ -135,12 +299,58 @@ async function saveFilterRuleGroups() {
     $toast.error(t('setting.rule.duplicateGroupNameError'))
     return
   }
+  if (savingFilterRuleGroups.value) return
+  savingFilterRuleGroups.value = true
   try {
-    await api.post('system/setting/UserFilterRuleGroups', filterRuleGroups.value, { feedback: 'silent' })
+    const baselineByName = new Map(filterRuleGroupBaseline.value.map(group => [group.name, group]))
+    const retainedNames = new Set(
+      filterRuleGroups.value.map(group => group[originalRuleGroupName]).filter((name): name is string => Boolean(name)),
+    )
+    const expectedOrder = filterRuleGroupBaseline.value.map(group => group.name)
+
+    for (const group of filterRuleGroupBaseline.value) {
+      if (retainedNames.has(group.name)) continue
+      await deleteFilterRuleGroup(group.name)
+      expectedOrder.splice(expectedOrder.indexOf(group.name), 1)
+    }
+
+    for (const draft of filterRuleGroups.value) {
+      const originalName = draft[originalRuleGroupName]
+      if (!originalName) continue
+      const baseline = baselineByName.get(originalName)
+      if (!baseline) throw new Error(`Missing baseline for rule group ${originalName}`)
+      const payload = buildFilterRuleGroupUpdate(draft, baseline)
+      if (!hasUpdates(payload)) continue
+      await updateFilterRuleGroup(originalName, payload)
+      if (draft.name !== originalName) {
+        const index = expectedOrder.indexOf(originalName)
+        if (index !== -1) expectedOrder[index] = draft.name
+      }
+    }
+
+    for (const draft of filterRuleGroups.value) {
+      if (draft[originalRuleGroupName]) continue
+      await createFilterRuleGroup({
+        name: draft.name,
+        rule_string: draft.rule_string ?? '',
+        media_type: draft.media_type,
+        category: draft.category,
+      })
+      expectedOrder.push(draft.name)
+    }
+
+    const desiredOrder = filterRuleGroups.value.map(group => group.name)
+    if (desiredOrder.some((name, index) => expectedOrder[index] !== name)) {
+      await reorderFilterRuleGroups(desiredOrder, expectedOrder)
+    }
+    await queryFilterRuleGroups()
     $toast.success(t('setting.rule.ruleGroupSaveSuccess'))
   } catch (error) {
     console.log(error)
+    await queryFilterRuleGroups()
     $toast.error(t('setting.rule.ruleGroupSaveFailed'))
+  } finally {
+    savingFilterRuleGroups.value = false
   }
 }
 
@@ -326,19 +536,23 @@ function deleteAllRules(dateType: string) {
 // 规则变化时赋值
 function onRuleChange(rule: CustomRule, id: string) {
   const index = customRules.value.findIndex(item => item.id === id)
-  if (index !== -1) customRules.value[index] = rule
+  if (index === -1) return
+  const draft = createCustomRuleDraft(rule, customRules.value[index][originalCustomRuleId])
+  customRules.value[index] = draft
 }
 
 // 移除规则组
-function removeFilterRuleGroup(rule: FilterRuleGroup) {
-  const index = filterRuleGroups.value.findIndex(item => item.name === rule.name)
+function removeFilterRuleGroup(rule: FilterRuleGroupDraft) {
+  const index = filterRuleGroups.value.indexOf(rule)
   if (index !== -1) filterRuleGroups.value.splice(index, 1)
 }
 
 // 规则组变化时赋值
 function changeRuleGroup(group: FilterRuleGroup, name: string) {
   const index = filterRuleGroups.value.findIndex(item => item.name === name)
-  if (index !== -1) filterRuleGroups.value[index] = group
+  if (index === -1) return
+  const draft = createFilterRuleGroupDraft(group, filterRuleGroups.value[index][originalRuleGroupName])
+  filterRuleGroups.value[index] = draft
 }
 
 // 查询种子优先规则
@@ -354,8 +568,9 @@ async function queryTorrentPriority() {
 // 查询自定义规则项
 async function queryCustomRules() {
   try {
-    const result = await api.get<{ value?: CustomRule[] }>('system/setting/CustomFilterRules')
-    customRules.value = result.value ?? []
+    const rules = await listCustomRules()
+    customRuleBaseline.value = rules.map(copyCustomRule)
+    customRules.value = rules.map(rule => createCustomRuleDraft(rule, rule.id))
   } catch (error) {
     console.log(error)
   }
@@ -415,7 +630,14 @@ useSilentSettingRefresh(loadPageData, {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn type="submit" class="me-2" @click="saveCustomRules" prepend-icon="mdi-content-save">
+              <VBtn
+                type="submit"
+                class="me-2"
+                :loading="savingCustomRules"
+                :disabled="savingCustomRules"
+                @click="saveCustomRules"
+                prepend-icon="mdi-content-save"
+              >
                 {{ t('common.save') }}
               </VBtn>
               <VBtnGroup density="comfortable">
@@ -468,7 +690,14 @@ useSilentSettingRefresh(loadPageData, {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn type="submit" class="me-2" @click="saveFilterRuleGroups" prepend-icon="mdi-content-save">
+              <VBtn
+                type="submit"
+                class="me-2"
+                :loading="savingFilterRuleGroups"
+                :disabled="savingFilterRuleGroups"
+                @click="saveFilterRuleGroups"
+                prepend-icon="mdi-content-save"
+              >
                 {{ t('common.save') }}
               </VBtn>
               <VBtnGroup density="comfortable">

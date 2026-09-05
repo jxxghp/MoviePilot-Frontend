@@ -43,15 +43,16 @@ const DownloadingListViewStub = defineComponent({
   props: {
     active: Boolean,
     name: String,
+    type: String,
   },
   setup(props) {
-    return () => h('div', `${props.name}:${props.active}`)
+    return () => h('div', `${props.name}:${props.type}:${props.active}`)
   },
 })
 
 async function renderPage(appMode: boolean) {
   mocks.appMode = appMode
-  mocks.apiGet.mockResolvedValue([{ name: 'qb-main' }])
+  mocks.apiGet.mockResolvedValue([{ name: 'qb-main', type: 'qbittorrent' }])
   return renderWithProviders(DownloadingPage, {
     initialRoute: '/downloading',
     global: {
@@ -87,6 +88,7 @@ describe('Downloading page history action', () => {
   it('renders a compact desktop FAB that opens download history', async () => {
     await renderPage(false)
 
+    await waitFor(() => expect(document.body).toHaveTextContent('qb-main:qbittorrent:true'))
     await waitFor(() => expect(document.querySelector('.compact-fab button')).toBeInTheDocument())
     expect(document.querySelector('.compact-fab--primary')).toBeInTheDocument()
     await fireEvent.click(document.querySelector('.compact-fab button') as HTMLButtonElement)

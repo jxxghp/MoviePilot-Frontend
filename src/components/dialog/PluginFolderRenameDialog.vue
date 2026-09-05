@@ -14,6 +14,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  saving: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 定义触发的自定义事件
@@ -59,7 +63,17 @@ function confirmRename() {
       </VCardText>
       <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" variant="flat" prepend-icon="mdi-check" class="px-5" @click="confirmRename">确认</VBtn>
+        <VBtn
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-check"
+          class="px-5"
+          :loading="props.saving"
+          :disabled="props.saving"
+          @click="confirmRename"
+        >
+          确认
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

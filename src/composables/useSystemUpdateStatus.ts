@@ -5,8 +5,10 @@ import api from '@/api'
 export const SYSTEM_UPDATE_MENU_EVENT = 'moviepilot:system-update-menu'
 
 const status = ref<SystemUpdateStatus | null>(null)
+const checking = ref(false)
 let pollingConsumers = 0
 let pollingTimer: ReturnType<typeof setTimeout> | null = null
+let checkRequest: Promise<SystemUpdateStatus> | null = null
 
 /** 共享后台更新状态，避免升级提示和头像菜单各自维护过期快照。 */
 export function useSystemUpdateStatus() {
@@ -24,6 +26,24 @@ export function useSystemUpdateStatus() {
   function setStatus(nextStatus: SystemUpdateStatus) {
     status.value = nextStatus
     schedulePolling()
+  }
+
+  /** 立即检查更新并合并并发请求，成功后写入共享状态。 */
+  function checkStatus(): Promise<SystemUpdateStatus> {
+    if (checkRequest) return checkRequest
+
+    checking.value = true
+    checkRequest = api
+      .post<SystemUpdateStatus>('system/update/check', undefined, { feedback: 'silent' })
+      .then(nextStatus => {
+        setStatus(nextStatus)
+        return nextStatus
+      })
+      .finally(() => {
+        checking.value = false
+        checkRequest = null
+      })
+    return checkRequest
   }
 
   function clearPollingTimer() {
@@ -59,5 +79,5 @@ export function useSystemUpdateStatus() {
     window.dispatchEvent(new CustomEvent(SYSTEM_UPDATE_MENU_EVENT, { detail: { target } }))
   }
 
-  return { status, loadStatus, setStatus, startPolling, stopPolling, requestMenuUpdate }
+  return { status, checking, checkStatus, loadStatus, setStatus, startPolling, stopPolling, requestMenuUpdate }
 }

@@ -15,7 +15,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 const apiUrls = {
+  assignFolderPlugin: (folderName: string, pluginId: string) =>
+    new URL(`plugin/folders/${folderName}/plugins/${pluginId}`, API_BASE_URL).href,
+  createFolder: (folderName: string) => new URL(`plugin/folders/${folderName}`, API_BASE_URL).href,
+  deleteFolder: (folderName: string) => new URL(`plugin/folders/${folderName}`, API_BASE_URL).href,
   folders: new URL('plugin/folders', API_BASE_URL).href,
+  folderPlugins: (folderName: string) => new URL(`plugin/folders/${folderName}/plugins`, API_BASE_URL).href,
   install: (pluginId: string) => new URL(`plugin/install/${pluginId}`, API_BASE_URL).href,
   list: new URL('plugin/', API_BASE_URL).href,
   order: new URL('user/config/PluginOrder', API_BASE_URL).href,
@@ -26,6 +31,7 @@ const apiUrls = {
   sourceBind: (pluginId: string) => new URL(`plugin/source/${pluginId}/install`, API_BASE_URL).href,
   sourceChange: (pluginId: string) => new URL(`plugin/source/${pluginId}`, API_BASE_URL).href,
   statistic: new URL('plugin/statistic', API_BASE_URL).href,
+  updateFolder: (folderName: string) => new URL(`plugin/folders/${folderName}`, API_BASE_URL).href,
 }
 
 const mocks = vi.hoisted(() => ({
@@ -435,6 +441,12 @@ function registerListHandlers(responses: ListResponses = {}) {
   server.use(
     http.get(apiUrls.order, () => apiJson({ value: responses.order ?? [] })),
     http.get(apiUrls.folders, async () => apiJson((await responses.folders?.()) ?? {})),
+    http.post(new URL('plugin/folders/:folderName', API_BASE_URL).href, () => apiJson(null)),
+    http.patch(new URL('plugin/folders/:folderName', API_BASE_URL).href, () => apiJson(null)),
+    http.delete(new URL('plugin/folders/:folderName', API_BASE_URL).href, () => apiJson(null)),
+    http.put(new URL('plugin/folders/:folderName/plugins', API_BASE_URL).href, () => apiJson(null)),
+    http.put(new URL('plugin/folders/:folderName/plugins/:pluginId', API_BASE_URL).href, () => apiJson(null)),
+    http.delete(new URL('plugin/folders/:folderName/plugins/:pluginId', API_BASE_URL).href, () => apiJson(null)),
     http.get(apiUrls.list, async ({ request }) => {
       const state = new URL(request.url).searchParams.get('state')
       const plugins = state === 'installed' ? await responses.installed?.() : await responses.market?.()
@@ -2014,7 +2026,7 @@ describe('PluginCardListView folders and persistence', () => {
     })
     await screen.findByText('plugin:已安装插件')
     await waitForRequestsToFinish()
-    server.use(http.post(apiUrls.folders, () => apiFailureJson('保存被拒绝')))
+    server.use(http.post(apiUrls.createFolder('失败文件夹'), () => apiFailureJson('保存被拒绝')))
 
     getDynamicMenuItem('plugin.newFolder').action()
     const events = getDialogEvents()
@@ -2032,8 +2044,6 @@ describe('PluginCardListView folders and persistence', () => {
     await renderList({ folders: () => ({ Existing: [] }) })
     await screen.findByText('folder:Existing')
     await waitForRequestsToFinish()
-    server.use(http.post(apiUrls.folders, () => apiJson(null)))
-
     getDynamicMenuItem('plugin.newFolder').action()
     const events = getDialogEvents()
     events['update:name']('   ')
@@ -2057,8 +2067,6 @@ describe('PluginCardListView folders and persistence', () => {
     })
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
-    server.use(http.post(apiUrls.folders, () => apiJson(null)))
-
     await fireEvent.click(screen.getByRole('button', { name: 'configure-folder-Tools' }))
     await waitFor(() => expect(screen.getByLabelText('folder-color-Tools')).toHaveTextContent('#ff0000'))
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('文件夹设置已保存'))
@@ -2080,14 +2088,9 @@ describe('PluginCardListView folders and persistence', () => {
     })
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
-    let saveAttempt = 0
     server.use(
-      http.post(apiUrls.folders, () => {
-        saveAttempt += 1
-        return saveAttempt === 2
-          ? HttpResponse.json({ message: 'HTTP failure' }, { status: 500 })
-          : apiFailureJson('Rejected')
-      }),
+      http.patch(apiUrls.updateFolder('Tools'), () => apiFailureJson('Rejected')),
+      http.delete(apiUrls.deleteFolder('Tools'), () => HttpResponse.json({ message: 'HTTP failure' }, { status: 500 })),
     )
 
     await fireEvent.click(screen.getByRole('button', { name: 'configure-folder-Tools' }))
@@ -2105,6 +2108,33 @@ describe('PluginCardListView folders and persistence', () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
+  it('reloads folder and user-order facts when rename succeeds before order persistence fails', async () => {
+    let foldersState: JsonBodyType = { Tools: { plugins: [], color: '#00ff00' } }
+    const persistedOrder = [{ id: 'Tools', order: 0, type: 'folder' }]
+    await renderList({
+      folders: () => foldersState,
+      order: persistedOrder,
+    })
+    await screen.findByText('folder:Tools')
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.order, () => apiJson({ value: persistedOrder })),
+      http.patch(apiUrls.updateFolder('Tools'), async ({ request }) => {
+        const body = (await request.json()) as { new_name?: string }
+        foldersState = { 'Tools-renamed': { plugins: [], color: '#00ff00' } }
+        expect(body).toEqual({ new_name: 'Tools-renamed' })
+        return apiJson(null)
+      }),
+      http.post(apiUrls.order, () => apiFailureJson('Order rejected')),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'rename-folder-Tools' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('重命名文件夹失败'))
+    expect(await screen.findByText('folder:Tools-renamed')).toBeInTheDocument()
+    expect(screen.queryByText('folder:Tools')).not.toBeInTheDocument()
+  })
+
   it('rolls back a failed removal and persists a later removal from a folder', async () => {
     let saveSucceeds = false
     await renderList({
@@ -2114,7 +2144,7 @@ describe('PluginCardListView folders and persistence', () => {
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
     server.use(
-      http.post(apiUrls.folders, () =>
+      http.delete(apiUrls.assignFolderPlugin('Tools', 'Installed'), () =>
         saveSucceeds ? apiJson(null) : HttpResponse.json({ message: 'Rejected' }, { status: 500 }),
       ),
     )
@@ -2153,7 +2183,6 @@ describe('PluginCardListView folders and persistence', () => {
         savedOrder = await request.json()
         return orderSucceeds ? apiJson(null) : apiFailureJson('Rejected')
       }),
-      http.post(apiUrls.folders, () => apiJson(null)),
     )
 
     getHeaderButton('mdi-sort-variant').action?.()
@@ -2176,14 +2205,13 @@ describe('PluginCardListView folders and persistence', () => {
     await waitForRequestsToFinish()
   })
 
-  it('reloads server ordering when folders fail after PluginOrder is persisted', async () => {
+  it('persists mixed ordering without rewriting the folder snapshot', async () => {
     let persistedOrder: unknown[] = [
       { id: 'Plugin-A', order: 0, type: 'plugin' },
       { id: 'Tools', order: 1, type: 'folder' },
       { id: 'Plugin-B', order: 2, type: 'plugin' },
     ]
-    let folderReads = 0
-    let orderReads = 0
+    let folderWrites = 0
     await renderList({
       folders: () => ({ Tools: [] }),
       installed: () => [
@@ -2195,34 +2223,33 @@ describe('PluginCardListView folders and persistence', () => {
     await screen.findByText('folder:Tools')
     await waitForRequestsToFinish()
     server.use(
-      http.get(apiUrls.order, () => {
-        orderReads += 1
-        return apiJson({ value: persistedOrder })
-      }),
-      http.get(apiUrls.folders, () => {
-        folderReads += 1
-        return apiJson({ Tools: [] })
-      }),
       http.post(apiUrls.order, async ({ request }) => {
         persistedOrder = (await request.json()) as unknown[]
         return apiJson(null)
       }),
-      http.post(apiUrls.folders, () => apiFailureJson('Rejected')),
+      http.post(apiUrls.folders, () => {
+        folderWrites += 1
+        return apiFailureJson('整表保存不应发生')
+      }),
     )
 
     getHeaderButton('mdi-sort-variant').action?.()
     await nextTick()
     await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
 
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce())
-    expect(orderReads).toBe(1)
-    expect(folderReads).toBe(1)
+    await waitFor(() =>
+      expect(getInstalledLabels().slice(0, 3)).toEqual(['plugin:插件 B', 'folder:Tools', 'plugin:插件 A']),
+    )
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(folderWrites).toBe(0)
     expect(getInstalledLabels().slice(0, 3)).toEqual(['plugin:插件 B', 'folder:Tools', 'plugin:插件 A'])
-    expect(persistedOrder).toEqual([
-      { id: 'Plugin-B', order: 0, type: 'plugin' },
-      { id: 'Tools', order: 1, type: 'folder' },
-      { id: 'Plugin-A', order: 2, type: 'plugin' },
-    ])
+    await waitFor(() =>
+      expect(persistedOrder).toEqual([
+        { id: 'Plugin-B', order: 0, type: 'plugin' },
+        { id: 'Tools', order: 1, type: 'folder' },
+        { id: 'Plugin-A', order: 2, type: 'plugin' },
+      ]),
+    )
     await waitForRequestsToFinish()
   })
 
@@ -2257,7 +2284,7 @@ describe('PluginCardListView folders and persistence', () => {
         persistedOrder = (await request.json()) as unknown[]
         return apiJson(null)
       }),
-      http.post(apiUrls.folders, () => HttpResponse.json({ message: 'Rejected' }, { status: 500 })),
+      http.put(apiUrls.folderPlugins('Tools'), () => HttpResponse.json({ message: 'Rejected' }, { status: 500 })),
     )
 
     await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
@@ -2286,7 +2313,9 @@ describe('PluginCardListView folders and persistence', () => {
     await waitForRequestsToFinish()
     server.use(
       http.post(apiUrls.order, () => apiJson(null)),
-      http.post(apiUrls.folders, () => (folderSaveSucceeds ? apiJson(null) : apiFailureJson('Rejected'))),
+      http.put(apiUrls.assignFolderPlugin('Tools', 'Plugin-A'), () =>
+        folderSaveSucceeds ? apiJson(null) : apiFailureJson('Rejected'),
+      ),
     )
 
     getHeaderButton('mdi-sort-variant').action?.()
@@ -2311,6 +2340,7 @@ describe('PluginCardListView folders and persistence', () => {
 
   it('rolls back folder-internal order and persists a later successful order', async () => {
     let orderSucceeds = false
+    let folderUpdateBody: unknown
     await renderList({
       folders: () => ({ Tools: ['Plugin-A', 'Plugin-B'] }),
       installed: () => [
@@ -2327,7 +2357,10 @@ describe('PluginCardListView folders and persistence', () => {
     await waitForRequestsToFinish()
     server.use(
       http.post(apiUrls.order, () => (orderSucceeds ? apiJson(null) : apiFailureJson('Rejected'))),
-      http.post(apiUrls.folders, () => apiJson(null)),
+      http.put(apiUrls.folderPlugins('Tools'), async ({ request }) => {
+        folderUpdateBody = await request.json()
+        return apiJson(null)
+      }),
     )
 
     await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
@@ -2341,6 +2374,12 @@ describe('PluginCardListView folders and persistence', () => {
     orderSucceeds = true
     await fireEvent.click(screen.getByRole('button', { name: 'reverse-plugin-order' }))
     await waitFor(() => expect(getInstalledLabels().slice(0, 2)).toEqual(['plugin:插件 B', 'plugin:插件 A']))
+    await waitFor(() =>
+      expect(folderUpdateBody).toEqual({
+        expected_plugins: ['Plugin-A', 'Plugin-B'],
+        plugins: ['Plugin-B', 'Plugin-A'],
+      }),
+    )
     await waitForRequestsToFinish()
 
     getHeaderButton('mdi-arrow-left').action?.()

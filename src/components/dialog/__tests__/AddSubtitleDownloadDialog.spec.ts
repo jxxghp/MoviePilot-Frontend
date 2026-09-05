@@ -1,4 +1,4 @@
-import type { MediaDataSource, SubtitleInfo, TransferDirectoryConf } from '@/api/types'
+import type { DownloadDirectory, MediaDataSource, SubtitleInfo } from '@/api/types'
 import AddSubtitleDownloadDialog from '@/components/dialog/AddSubtitleDownloadDialog.vue'
 import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -118,13 +118,17 @@ const DialogCloseButtonStub = defineComponent({
   },
 })
 
-function createDirectory(overrides: Partial<TransferDirectoryConf> = {}): TransferDirectoryConf {
+function createDirectory(overrides: Partial<DownloadDirectory> = {}): DownloadDirectory {
+  const downloadPath = Object.hasOwn(overrides, 'download_path') ? overrides.download_path : '/subtitles/default'
+  const storage = Object.hasOwn(overrides, 'storage') ? overrides.storage : 'local'
+  const savePath = downloadPath && storage && storage !== 'local' ? `${storage}:${downloadPath}` : downloadPath
+
   return {
-    download_path: '/subtitles/default',
+    download_path: downloadPath,
     name: '字幕目录',
     priority: 0,
-    storage: 'local',
-    transfer_type: 'link',
+    save_path: savePath,
+    storage,
     ...overrides,
   }
 }
@@ -150,10 +154,8 @@ function createDeferred<T>() {
   return { promise, resolve }
 }
 
-function directoriesHandler(directories: TransferDirectoryConf[]) {
-  return http.get(new URL('system/setting/public/Directories', API_BASE_URL).href, () =>
-    apiJson({ value: directories }),
-  )
+function directoriesHandler(directories: DownloadDirectory[]) {
+  return http.get(new URL('download/paths', API_BASE_URL).href, () => apiJson(directories))
 }
 
 function subtitleDownloadHandler(
@@ -176,7 +178,7 @@ async function renderDialog({
   recognizeSource = 'themoviedb',
   subtitle = createSubtitle(),
 }: {
-  directories?: TransferDirectoryConf[]
+  directories?: DownloadDirectory[]
   mediaId?: string | null
   mediaSource?: MediaDataSource
   recognizeSource?: string
@@ -230,34 +232,23 @@ describe('AddSubtitleDownloadDialog directories', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
-  it('normalizes local, remote, missing-storage, and duplicate directories while keeping the default empty option', async () => {
-    const missingStorage = createDirectory({
-      download_path: '/subtitles/legacy',
-      name: '兼容目录',
-      storage: undefined as unknown as string,
-    })
-    const nullStorage = createDirectory({ download_path: '/subtitles/null-storage', name: '空存储目录' })
-    nullStorage.storage = null as unknown as string
-
+  it('uses API-ready paths, removes duplicates, and keeps the default empty option', async () => {
     await renderDialog({
       directories: [
-        createDirectory({ download_path: '/subtitles/local' }),
-        createDirectory({ download_path: '/subtitles/remote', name: '远程目录', storage: 's3' }),
-        missingStorage,
-        nullStorage,
-        createDirectory({ download_path: '/subtitles/empty-storage', name: '空字符串存储', storage: '' }),
+        createDirectory({ download_path: '/subtitles/local', save_path: '/subtitles/local' }),
+        createDirectory({
+          download_path: '/subtitles/remote',
+          name: '远程目录',
+          save_path: 's3:/subtitles/remote',
+          storage: 's3',
+        }),
         createDirectory({ download_path: '/subtitles/remote', name: '重复目录', storage: 's3' }),
-        createDirectory({ download_path: undefined, name: '无下载路径' }),
+        createDirectory({ download_path: undefined, name: '无下载路径', save_path: undefined }),
       ],
     })
 
     expect(await screen.findByRole('option', { name: '/subtitles/local' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '/subtitles/legacy' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '/subtitles/null-storage' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: ':/subtitles/empty-storage' })).toBeInTheDocument()
     expect(screen.getAllByRole('option', { name: 's3:/subtitles/remote' })).toHaveLength(1)
-    expect(screen.queryByText('undefined:/subtitles/legacy')).not.toBeInTheDocument()
-    expect(screen.queryByText('null:/subtitles/null-storage')).not.toBeInTheDocument()
     expect(screen.getByLabelText('保存目录（自动）')).toHaveValue('')
   })
 })

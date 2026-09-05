@@ -231,19 +231,17 @@ function createImpact(): ClassificationImpactAnalysis {
 
 describe('AccountSettingClassification', () => {
   beforeEach(() => {
-    mocks.apiGet.mockReset().mockResolvedValue({
-      value: [
-        {
-          name: '电影目录',
-          priority: 0,
-          storage: 'local',
-          transfer_type: 'copy',
-          media_type: '电影',
-          media_category_id: 'movie.base',
-          media_category: '电影',
-        },
-      ],
-    })
+    mocks.apiGet.mockReset().mockResolvedValue([
+      {
+        name: '电影目录',
+        priority: 0,
+        storage: 'local',
+        transfer_type: 'copy',
+        media_type: '电影',
+        media_category_id: 'movie.base',
+        media_category: '电影',
+      },
+    ])
     mocks.apiErrorMessage.mockReset().mockReturnValue(undefined)
     mocks.analyzeImpact.mockReset()
     mocks.initialize.mockReset().mockResolvedValue(undefined)

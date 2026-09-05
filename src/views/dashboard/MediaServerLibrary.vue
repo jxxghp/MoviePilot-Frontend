@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { MediaServerConf, MediaServerLibrary } from '@/api/types'
+import { listMediaServerClients } from '@/api/mediaServer'
+import type { MediaServerClient, MediaServerLibrary } from '@/api/types'
 import LibraryCard from '@/components/cards/LibraryCard.vue'
 import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
 import DashboardMediaState from '@/components/misc/DashboardMediaState.vue'
@@ -26,18 +27,17 @@ const hasSnapshot = ref(currentSnapshot !== undefined)
 const isLoading = ref(!currentSnapshot)
 const loadFailed = ref(false)
 
-// 所有媒体服务器设置
-const mediaServers = ref<MediaServerConf[]>([])
+// 已启用且不包含连接配置的媒体服务器客户端
+const mediaServers = ref<MediaServerClient[]>([])
 let libraryLoadId = 0
 let canRefreshOnActivated = false
 
 /**
- * 查询媒体服务器设置。
+ * 查询已启用的媒体服务器客户端。
  */
 async function loadMediaServerSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
-    mediaServers.value = result.value ?? []
+    mediaServers.value = await listMediaServerClients()
     return true
   } catch (error) {
     console.log(error)
@@ -76,8 +76,7 @@ async function loadData() {
   }
   if (loadId !== libraryLoadId) return
 
-  const enabledServers = mediaServers.value.filter(server => server.enabled)
-  const serverLibraries = await Promise.all(enabledServers.map(server => loadLibrary(server.name)))
+  const serverLibraries = await Promise.all(mediaServers.value.map(server => loadLibrary(server.name)))
 
   if (loadId !== libraryLoadId) return
   if (serverLibraries.some(libraries => libraries === undefined)) {

@@ -30,23 +30,22 @@ describe('FilterTorrentsAction', () => {
     mocks.apiGet.mockReset()
   })
 
-  it('does not request admin filter groups for regular users', async () => {
+  it('loads filter groups for regular users through the active-user endpoint', async () => {
+    mocks.apiGet.mockResolvedValue({ rule_groups: [{ name: '普通用户规则' }] })
     const { container } = await renderAction()
 
-    expect(mocks.apiGet).not.toHaveBeenCalled()
-    expect(getSelectItems(container, '过滤规则组')).toEqual([])
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('rule/groups', { params: { include_usage: false } }))
+    expect(getSelectItems(container, '过滤规则组')).toEqual([{ title: '普通用户规则', value: '普通用户规则' }])
   })
 
-  it('maps unwrapped admin filter groups to name options', async () => {
+  it('maps structured filter groups to name options', async () => {
     mocks.apiGet.mockResolvedValue({
-      success: true,
-      message: '',
-      data: { value: [{ name: '高清规则' }, { name: '字幕规则' }] },
+      rule_groups: [{ name: '高清规则' }, { name: '字幕规则' }],
     })
 
     const { container } = await renderAction({ user: { superUser: true } })
 
-    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('system/setting/UserFilterRuleGroups'))
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('rule/groups', { params: { include_usage: false } }))
     expect(getSelectItems(container, '过滤规则组')).toEqual([
       { title: '高清规则', value: '高清规则' },
       { title: '字幕规则', value: '字幕规则' },

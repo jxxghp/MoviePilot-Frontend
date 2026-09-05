@@ -73,7 +73,7 @@ useKeepAliveRefresh(async () => {
     <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
       <VWindowItem v-for="item in downloaders" :key="item.name" :value="item.name">
         <div>
-          <DownloadingListView :name="item.name" :active="activeTab === item.name" />
+          <DownloadingListView :name="item.name" :type="item.type" :active="activeTab === item.name" />
         </div>
       </VWindowItem>
     </VWindow>

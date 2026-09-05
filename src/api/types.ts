@@ -982,6 +982,8 @@ export interface SiteUserData {
 
 // 正在下载
 export interface DownloadingInfo {
+  // 下载器实例名称
+  downloader?: string
   // HASH
   hash?: string
   // 种子名称
@@ -1002,6 +1004,26 @@ export interface DownloadingInfo {
   dlspeed?: string
   // 上传速度
   upspeed?: string
+  // 标签，下载器返回逗号分隔文本
+  tags?: string
+  // 保存目录
+  save_path?: string
+  // 内容目录
+  content_path?: string
+  // 下载器分类
+  category?: string
+  // 下载限速（KB/s）
+  download_limit?: number
+  // 上传限速（KB/s）
+  upload_limit?: number
+  // 分享率限制
+  ratio_limit?: number
+  // 做种时间限制（分钟）
+  seeding_time_limit?: number
+  // Tracker 地址
+  trackers?: string[]
+  // 来源站点
+  site_name?: string
   // 媒体信息
   media: { [key: string]: any }
   // 下载用户ID
@@ -1010,6 +1032,33 @@ export interface DownloadingInfo {
   username?: string
   // 剩余时间
   left_time?: string
+}
+
+/** 下载任务高级修改请求。 */
+export interface DownloadTaskUpdateRequest {
+  tags?: string[]
+  downloader?: string
+  download_limit?: number
+  upload_limit?: number
+  trackers?: string[]
+  save_path?: string
+  category?: string
+  ratio_limit?: number
+  seeding_time_limit?: number
+}
+
+/** 下载任务单项修改结果。 */
+export interface DownloadTaskMutationResult {
+  operation: string
+  success: boolean
+  message: string
+}
+
+/** 下载任务高级修改聚合结果。 */
+export interface DownloadTaskUpdateData {
+  hash: string
+  downloader: string
+  results: DownloadTaskMutationResult[]
 }
 
 // 缺失剧集信息
@@ -1950,6 +1999,14 @@ export interface StorageConf {
   config?: { [key: string]: any }
 }
 
+// 不包含连接配置的存储选择项
+export interface StorageOption {
+  // 名称
+  name: string
+  // 类型 local/alipan/u115/rclone
+  type: string
+}
+
 // 媒体服务器配置
 export interface MediaServerConf {
   // 名称
@@ -1964,6 +2021,14 @@ export interface MediaServerConf {
   sync_libraries?: string[]
   // 自动同步间隔（小时），为空时使用旧全局配置
   sync_interval?: number | null
+}
+
+// 不包含连接配置和凭据的媒体服务器选择项
+export interface MediaServerClient {
+  // 实例名称
+  name: string
+  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen/navidrome
+  type: string
 }
 
 // 文件整理目录配置
@@ -2008,6 +2073,26 @@ export interface TransferDirectoryConf {
   library_category_folder?: boolean
   // 是否发送通知
   notify?: boolean
+}
+
+// 可直接用于下载保存路径选择的目录摘要
+export interface DownloadDirectory {
+  // 目录名称
+  name?: string
+  // 存储类型
+  storage?: string
+  // 原始下载目录
+  download_path?: string
+  // 可直接提交给下载接口的保存路径
+  save_path?: string
+  // 优先级
+  priority?: number
+  // 适用媒体类型
+  media_type?: string
+  // 适用媒体分类
+  media_category?: string
+  // 适用媒体分类稳定 ID
+  media_category_id?: string | null
 }
 
 // 自定义规则项
@@ -2166,6 +2251,18 @@ export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem'> {
   fileitem?: FileItem
   // 多选文件批量请求
   fileitems?: FileItem[]
+}
+
+// 手动整理目的路径匹配请求
+export interface ManualTransferTargetPathRequest {
+  // 单个源文件项
+  fileitem?: FileItem
+  // 多个源文件项
+  fileitems?: FileItem[]
+  // 整理历史记录
+  logids?: number[]
+  // 限定目标存储
+  target_storage?: string | null
 }
 
 // 手动整理目的路径匹配结果

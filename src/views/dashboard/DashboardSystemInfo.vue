@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { DashboardSystemInfo } from '@/api/types'
-import { openSharedDialog } from '@/composables/useSharedDialog'
+import type { DashboardSystemInfo, SystemUpdateItemStatus, SystemUpdateStatus } from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
+import { useSystemUpdateStatus } from '@/composables/useSystemUpdateStatus'
 import { useI18n } from 'vue-i18n'
-
-const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
+import { useToast } from 'vue-toastification'
 
 const props = defineProps({
   // 是否允许刷新数据
@@ -16,7 +15,9 @@ const props = defineProps({
 })
 
 const { t } = useI18n()
+const toast = useToast()
 const { useDataRefresh } = useBackground()
+const { checking: updateChecking, checkStatus: checkSystemUpdateStatus } = useSystemUpdateStatus()
 
 // 系统摘要与本地运行时间校准点。
 const systemInfo = ref<DashboardSystemInfo | null>(null)
@@ -52,9 +53,26 @@ function formatRuntime(totalSeconds: number) {
   return t('dashboard.systemInfo.runtimeValue', { days, hours, minutes })
 }
 
-/** 打开关于页复用现有版本检查能力。 */
-function openVersionDetails() {
-  openSharedDialog(AboutDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
+/** 判断聚合更新状态中是否存在需要用户处理的更新。 */
+function hasAvailableUpdate(status: SystemUpdateStatus) {
+  const updates: Array<Partial<SystemUpdateItemStatus>> = status.updates?.length ? status.updates : [status]
+  return updates.some(
+    item =>
+      item.can_update ||
+      item.can_install ||
+      ['available', 'downloading', 'ready', 'installing'].includes(item.state || 'idle'),
+  )
+}
+
+/** 立即检查更新，并通过共享状态触发现有更新提示。 */
+async function checkSystemUpdate() {
+  try {
+    const status = await checkSystemUpdateStatus()
+    toast.success(t(hasAvailableUpdate(status) ? 'systemUpdate.checkFound' : 'systemUpdate.upToDate'))
+  } catch (error) {
+    console.error('[SystemUpdate] 检查更新失败', error)
+    toast.error(t('systemUpdate.checkFailed'))
+  }
 }
 
 useDataRefresh('dashboard-system-info', loadSystemInfo, 60000, true)
@@ -93,7 +111,16 @@ onBeforeUnmount(() => {
       <div class="dashboard-system-footer">
         <span>{{ t('dashboard.systemInfo.version') }}</span>
         <strong>{{ systemInfo?.version || '—' }}</strong>
-        <VBtn size="small" variant="text" color="primary" class="dashboard-grid-no-drag" @click="openVersionDetails">
+        <VBtn
+          size="small"
+          variant="text"
+          color="primary"
+          class="dashboard-grid-no-drag"
+          prepend-icon="mdi-refresh"
+          :loading="updateChecking"
+          :disabled="updateChecking"
+          @click="checkSystemUpdate"
+        >
           {{ t('dashboard.systemInfo.checkUpdate') }}
         </VBtn>
       </div>

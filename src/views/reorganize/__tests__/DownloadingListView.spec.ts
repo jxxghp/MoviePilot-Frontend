@@ -80,9 +80,16 @@ const NoDataFoundStub = defineComponent({
 const DownloadingCardStub = defineComponent({
   props: {
     downloaderName: String,
+    downloaderType: String,
     info: Object,
   },
-  template: '<article :data-testid="`download-${info.hash}`">{{ info.title }}|{{ downloaderName }}</article>',
+  emits: ['updated'],
+  template: `
+    <article :data-testid="\`download-\${info.hash}\`">
+      {{ info.title }}|{{ downloaderName }}|{{ downloaderType }}
+      <button type="button" @click="$emit('updated')">refresh {{ info.hash }}</button>
+    </article>
+  `,
 })
 
 const ProgressiveCardGridStub = defineComponent({
@@ -124,7 +131,7 @@ function downloading(hash: string, title: string, overrides: Partial<Downloading
 }
 
 async function renderList(
-  props: { active?: boolean; name?: string } = {},
+  props: { active?: boolean; name?: string; type?: string } = {},
   options: {
     onRequest?: (url: URL) => void
     response?: DownloadingInfo[] | ((url: URL) => DownloadingInfo[] | Promise<DownloadingInfo[]>)
@@ -138,6 +145,7 @@ async function renderList(
     props: {
       active: props.active ?? true,
       name: props.name ?? 'primary',
+      type: props.type ?? 'qbittorrent',
     },
     initialState: {
       user: {
@@ -174,7 +182,7 @@ describe('DownloadingListView loading and ownership', () => {
   it('queries the selected downloader and filters a normal user by either owner field', async () => {
     const requested = vi.fn()
     await renderList(
-      { name: 'qb-main' },
+      { name: 'qb-main', type: 'qbittorrent' },
       {
         onRequest: requested,
         response: [
@@ -185,11 +193,14 @@ describe('DownloadingListView loading and ownership', () => {
       },
     )
 
-    expect(await screen.findByText('Own by id|qb-main')).toBeInTheDocument()
-    expect(screen.getByText('Own by name|qb-main')).toBeInTheDocument()
-    expect(screen.getByText('Own by id|qb-main').parentElement).toHaveAttribute('data-item-key', 'own-id')
-    expect(screen.getByText('Own by name|qb-main').parentElement).toHaveAttribute('data-item-key', 'Own by name')
-    expect(screen.queryByText('Other task|qb-main')).not.toBeInTheDocument()
+    expect(await screen.findByText(/Own by id\|qb-main\|qbittorrent/)).toBeInTheDocument()
+    expect(screen.getByText(/Own by name\|qb-main\|qbittorrent/)).toBeInTheDocument()
+    expect(screen.getByText(/Own by id\|qb-main\|qbittorrent/).parentElement).toHaveAttribute('data-item-key', 'own-id')
+    expect(screen.getByText(/Own by name\|qb-main\|qbittorrent/).parentElement).toHaveAttribute(
+      'data-item-key',
+      'Own by name',
+    )
+    expect(screen.queryByText(/Other task\|qb-main\|qbittorrent/)).not.toBeInTheDocument()
     expect(requested).toHaveBeenCalledOnce()
     expect(requested.mock.calls[0][0].searchParams.get('name')).toBe('qb-main')
   })
@@ -206,8 +217,8 @@ describe('DownloadingListView loading and ownership', () => {
       },
     )
 
-    expect(await screen.findByText('Own task|transmission')).toBeInTheDocument()
-    expect(screen.getByText('Other task|transmission')).toBeInTheDocument()
+    expect(await screen.findByText(/Own task\|transmission\|qbittorrent/)).toBeInTheDocument()
+    expect(screen.getByText(/Other task\|transmission\|qbittorrent/)).toBeInTheDocument()
   })
 
   it('replaces the loading state with the successful empty state', async () => {
@@ -238,6 +249,26 @@ describe('DownloadingListView loading and ownership', () => {
 })
 
 describe('DownloadingListView refresh ownership', () => {
+  it('refreshes the current downloader after a task settings update', async () => {
+    const requested = vi.fn()
+    let snapshot = [downloading('task', 'Before update')]
+    await renderList(
+      { name: 'qb-main' },
+      {
+        onRequest: requested,
+        response: () => snapshot,
+        superUser: true,
+      },
+    )
+
+    expect(await screen.findByText(/Before update\|qb-main\|qbittorrent/)).toBeInTheDocument()
+    snapshot = [downloading('task', 'After update')]
+    await fireEvent.click(screen.getByRole('button', { name: 'refresh task' }))
+
+    expect(await screen.findByText(/After update\|qb-main\|qbittorrent/)).toBeInTheDocument()
+    expect(requested).toHaveBeenCalledTimes(2)
+  })
+
   it('uses downloader-scoped identities and refreshes only the active downloader snapshot', async () => {
     const requested = vi.fn()
     const snapshots: Record<string, DownloadingInfo[]> = {
@@ -270,8 +301,8 @@ describe('DownloadingListView refresh ownership', () => {
       },
     })
 
-    expect(await screen.findByText('Alpha old|alpha')).toBeInTheDocument()
-    expect(await screen.findByText('Beta old|beta')).toBeInTheDocument()
+    expect(await screen.findByText(/Alpha old\|alpha\|/)).toBeInTheDocument()
+    expect(await screen.findByText(/Beta old\|beta\|/)).toBeInTheDocument()
     expect(requested).toHaveBeenCalledTimes(2)
     expect(requested.mock.calls.map(call => call[0].searchParams.get('name')).sort()).toEqual(['alpha', 'beta'])
     snapshots.alpha = [downloading('alpha-new', 'Alpha new')]
@@ -279,10 +310,10 @@ describe('DownloadingListView refresh ownership', () => {
 
     await runRegisteredRefreshes()
 
-    await waitFor(() => expect(screen.getByText('Alpha new|alpha')).toBeInTheDocument())
-    expect(screen.queryByText('Alpha old|alpha')).not.toBeInTheDocument()
-    expect(screen.getByText('Beta old|beta')).toBeInTheDocument()
-    expect(screen.queryByText('Beta new|beta')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/Alpha new\|alpha\|/)).toBeInTheDocument())
+    expect(screen.queryByText(/Alpha old\|alpha\|/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Beta old\|beta\|/)).toBeInTheDocument()
+    expect(screen.queryByText(/Beta new\|beta\|/)).not.toBeInTheDocument()
     expect(requested).toHaveBeenCalledTimes(3)
     expect(requested.mock.calls.filter(call => call[0].searchParams.get('name') === 'alpha')).toHaveLength(2)
     expect(requested.mock.calls.filter(call => call[0].searchParams.get('name') === 'beta')).toHaveLength(1)
@@ -291,7 +322,7 @@ describe('DownloadingListView refresh ownership', () => {
     snapshots.beta = [downloading('beta-activated', 'Beta activated')]
     await fireEvent.click(screen.getByRole('button', { name: 'activate beta' }))
 
-    await waitFor(() => expect(screen.getByText('Beta activated|beta')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Beta activated\|beta\|/)).toBeInTheDocument())
     expect(requested).toHaveBeenCalledTimes(4)
     expect(requested.mock.calls.filter(call => call[0].searchParams.get('name') === 'alpha')).toHaveLength(2)
     expect(requested.mock.calls.filter(call => call[0].searchParams.get('name') === 'beta')).toHaveLength(2)
@@ -299,9 +330,9 @@ describe('DownloadingListView refresh ownership', () => {
     snapshots.beta = [downloading('beta-new', 'Beta new')]
     await runRegisteredRefreshes()
 
-    await waitFor(() => expect(screen.getByText('Beta new|beta')).toBeInTheDocument())
-    expect(screen.getByText('Alpha new|alpha')).toBeInTheDocument()
-    expect(screen.queryByText('Alpha later|alpha')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/Beta new\|beta\|/)).toBeInTheDocument())
+    expect(screen.getByText(/Alpha new\|alpha\|/)).toBeInTheDocument()
+    expect(screen.queryByText(/Alpha later\|alpha\|/)).not.toBeInTheDocument()
     expect(requested).toHaveBeenCalledTimes(5)
     expect(requested.mock.calls.filter(call => call[0].searchParams.get('name') === 'alpha')).toHaveLength(2)
     expect(requested.mock.calls.filter(call => call[0].searchParams.get('name') === 'beta')).toHaveLength(3)

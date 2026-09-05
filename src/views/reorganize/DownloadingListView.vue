@@ -16,6 +16,7 @@ const { useConditionalDataRefresh } = useBackground()
 // 定义输入参数
 const props = defineProps<{
   name: string
+  type?: string
   active?: boolean
 }>()
 
@@ -73,7 +74,7 @@ useKeepAliveRefresh(fetchData, {
     :estimated-item-height="230"
   >
     <template #default="{ item }">
-      <DownloadingCard :info="item" :downloader-name="props.name" />
+      <DownloadingCard :info="item" :downloader-name="props.name" :downloader-type="props.type" @updated="fetchData" />
     </template>
   </ProgressiveCardGrid>
   <NoDataFound

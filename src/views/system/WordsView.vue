@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
 import type { Ace } from 'ace-builds'
+import { listCustomIdentifiers, replaceCustomIdentifiers } from '@/api/customIdentifiers'
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 
@@ -102,6 +103,7 @@ const savedTextValues = reactive<Record<TextSectionKey, string>>({
   customization: '',
   excludeWords: '',
 })
+const savedCustomIdentifierLines = ref<string[]>([])
 const savedEpisodeRules = ref('[]')
 
 const textSectionModels: Record<TextSectionKey, typeof customIdentifiers> = {
@@ -113,7 +115,7 @@ const textSectionModels: Record<TextSectionKey, typeof customIdentifiers> = {
 
 const textSectionSettings = computed<Record<TextSectionKey, TextSectionSetting>>(() => ({
   identifiers: {
-    endpoint: 'system/setting/CustomIdentifiers',
+    endpoint: 'system/identifiers',
     failedMessage: t('setting.words.identifierSaveFailed'),
     successMessage: t('setting.words.identifierSaveSuccess'),
   },
@@ -324,10 +326,16 @@ function deleteEpisodeRule(index: number) {
 /** 查询一个多行词表配置，并同步其已保存快照。 */
 async function queryTextSection(section: TextSectionKey) {
   try {
-    const result: { [key: string]: any } = await api.get(textSectionSettings.value[section].endpoint)
-    const value = Array.isArray(result?.value) ? result.value.join('\n') : ''
+    const lines =
+      section === 'identifiers'
+        ? await listCustomIdentifiers()
+        : await api
+            .get<{ value?: unknown }>(textSectionSettings.value[section].endpoint)
+            .then(result => (Array.isArray(result?.value) ? result.value.filter(item => typeof item === 'string') : []))
+    const value = lines.join('\n')
     textSectionModels[section].value = value
     savedTextValues[section] = value
+    if (section === 'identifiers') savedCustomIdentifierLines.value = [...lines]
   } catch (error) {
     console.log(error)
   }
@@ -339,8 +347,16 @@ async function saveTextSection(section: TextSectionKey) {
 
   try {
     const value = textSectionModels[section].value
-    await api.post<null>(setting.endpoint, value.split('\n'), { feedback: 'silent' })
-    savedTextValues[section] = value
+    if (section === 'identifiers') {
+      const savedLines = await replaceCustomIdentifiers(value.split('\n'), savedCustomIdentifierLines.value)
+      const savedValue = savedLines.join('\n')
+      customIdentifiers.value = savedValue
+      savedCustomIdentifierLines.value = [...savedLines]
+      savedTextValues[section] = savedValue
+    } else {
+      await api.post<null>(setting.endpoint, value.split('\n'), { feedback: 'silent' })
+      savedTextValues[section] = value
+    }
     $toast.success(setting.successMessage)
     return true
   } catch (error) {

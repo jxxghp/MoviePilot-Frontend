@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { listFilterRuleGroups } from '@/api/rule'
 import type { FilterRuleGroup, Site } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
@@ -92,8 +93,7 @@ async function querySites() {
 // 加载规则组
 async function queryFilterRuleGroups() {
   try {
-    const result = await api.get<{ value?: FilterRuleGroup[] }>('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.value ?? []
+    filterRuleGroups.value = await listFilterRuleGroups()
   } catch (error) {
     console.log(error)
   }

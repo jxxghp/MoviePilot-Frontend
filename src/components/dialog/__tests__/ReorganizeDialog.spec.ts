@@ -1,4 +1,11 @@
-import type { ApiResponse, FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
+import type {
+  ApiResponse,
+  FileItem,
+  ManualTransferTargetPathData,
+  ManualTransferTargetPathRequest,
+  StorageConf,
+  TransferDirectoryConf,
+} from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -252,20 +259,26 @@ function apiEnvelope<T>(data: T | null, success = true, message = ''): ApiRespon
 function publicSettingHandlers({
   directories = [],
   episodeRules = [],
+  onTargetPathRequest,
   storages = [],
+  targetPathMatch = {},
+  targetPathStatus = 200,
 }: {
   directories?: TransferDirectoryConf[]
   episodeRules?: unknown[]
+  onTargetPathRequest?: (payload: ManualTransferTargetPathRequest) => void
   storages?: StorageConf[]
+  targetPathMatch?: ManualTransferTargetPathData
+  targetPathStatus?: number
 } = {}) {
   return [
-    http.get(new URL('system/setting/public/Directories', API_BASE_URL).href, () => {
+    http.get(new URL('storage/directories', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json(apiEnvelope({ value: directories }))
+      return HttpResponse.json(apiEnvelope(directories))
     }),
-    http.get(new URL('system/setting/public/Storages', API_BASE_URL).href, () => {
+    http.get(new URL('storage/options', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json(apiEnvelope({ value: storages }))
+      return HttpResponse.json(apiEnvelope(storages))
     }),
     http.get(new URL('system/setting/public/EpisodeFormatRuleTable', API_BASE_URL).href, () => {
       initializationRequestCount += 1
@@ -274,6 +287,13 @@ function publicSettingHandlers({
     http.post(new URL('transfer/manual/history', API_BASE_URL).href, () => {
       initializationRequestCount += 1
       return HttpResponse.json(apiEnvelope({ history_count: 0, reorganize: false }))
+    }),
+    http.post(new URL('transfer/manual/target-path', API_BASE_URL).href, async ({ request }) => {
+      onTargetPathRequest?.((await request.json()) as ManualTransferTargetPathRequest)
+      if (targetPathStatus >= 400) {
+        return HttpResponse.json({ detail: 'target path unavailable' }, { status: targetPathStatus })
+      }
+      return HttpResponse.json(apiEnvelope(targetPathMatch))
     }),
   ]
 }
@@ -285,7 +305,12 @@ async function renderDialog({
   logids,
   onClose = vi.fn(),
   onDone = vi.fn(),
+  onTargetPathRequest,
   storages = [],
+  targetPath,
+  targetPathMatch = {},
+  targetPathStatus = 200,
+  targetStorage,
 }: {
   directories?: TransferDirectoryConf[]
   episodeRules?: unknown[]
@@ -293,10 +318,24 @@ async function renderDialog({
   logids?: number[]
   onClose?: ReturnType<typeof vi.fn>
   onDone?: ReturnType<typeof vi.fn>
+  onTargetPathRequest?: (payload: ManualTransferTargetPathRequest) => void
   storages?: StorageConf[]
+  targetPath?: string
+  targetPathMatch?: ManualTransferTargetPathData
+  targetPathStatus?: number
+  targetStorage?: string
 } = {}) {
   const resolvedItems = items ?? (logids?.length ? [] : [createFileItem()])
-  server.use(...publicSettingHandlers({ directories, episodeRules, storages }))
+  server.use(
+    ...publicSettingHandlers({
+      directories,
+      episodeRules,
+      onTargetPathRequest,
+      storages,
+      targetPathMatch,
+      targetPathStatus,
+    }),
+  )
   const result = await renderWithProviders(ReorganizeDialog, {
     global: {
       stubs: {
@@ -325,6 +364,8 @@ async function renderDialog({
       modelValue: true,
       onClose,
       onDone,
+      target_path: targetPath,
+      target_storage: targetStorage,
     },
   })
 
@@ -716,6 +757,112 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
         transfer_type: null,
       }),
     )
+  })
+
+  it('previews and explicitly applies the backend matched target path', async () => {
+    const bodies: unknown[] = []
+    const targetRequests: ManualTransferTargetPathRequest[] = []
+    const directory: TransferDirectoryConf = {
+      library_category_folder: true,
+      library_path: '/library/tv',
+      library_storage: 'rclone',
+      library_type_folder: true,
+      name: '电视剧目录',
+      priority: 1,
+      scraping: true,
+      storage: 'local',
+      transfer_type: 'copy',
+    }
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({
+      directories: [directory],
+      onTargetPathRequest: payload => targetRequests.push(payload),
+      storages: [{ name: '远程存储', type: 'rclone' }],
+      targetPathMatch: {
+        library_category_folder: true,
+        library_type_folder: true,
+        scrape: true,
+        target_path: '/library/tv',
+        target_storage: 'rclone',
+        transfer_type: 'copy',
+      },
+    })
+
+    expect(await screen.findByText('自动匹配到 远程存储 · /library/tv')).toBeInTheDocument()
+    expect(targetRequests).toEqual([
+      {
+        fileitem: expect.objectContaining({ path: '/downloads/Movie.mkv' }),
+        target_storage: null,
+      },
+    ])
+    await user.click(screen.getByRole('button', { name: '使用匹配路径' }))
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual(
+      expect.objectContaining({
+        library_category_folder: true,
+        library_type_folder: true,
+        scrape: true,
+        target_path: '/library/tv',
+        target_storage: 'rclone',
+        transfer_type: 'copy',
+      }),
+    )
+  })
+
+  it('does not request or overwrite an explicit target path', async () => {
+    const bodies: unknown[] = []
+    const targetRequest = vi.fn()
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({
+      onTargetPathRequest: targetRequest,
+      targetPath: '/custom/library',
+      targetStorage: 'local',
+    })
+
+    expect(screen.queryByText(/自动匹配到/)).not.toBeInTheDocument()
+    expect(targetRequest).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual(
+      expect.objectContaining({
+        target_path: '/custom/library',
+        target_storage: 'local',
+      }),
+    )
+  })
+
+  it('keeps manual organization available when target path matching fails', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({ targetPathStatus: 503 })
+
+    expect(await screen.findByText('无法预览自动目的路径，不影响手动选择或整理')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(bodies).toHaveLength(1)
+    expect(bodies[0]).toEqual(expect.objectContaining({ target_path: null, target_storage: null }))
   })
 
   it('submits media selection, episode group, episode formatting, and folder options from the form', async () => {
