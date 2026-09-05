@@ -464,12 +464,8 @@ watch(analysisTab, tab => {
               {{ t('setting.classification.unsaved') }}
             </VChip>
           </div>
-          <VBtn
-            icon="mdi-help-circle-outline"
-            variant="text"
-            :aria-label="t('setting.classification.helpButton')"
-            @click="helpDialog = true"
-          >
+          <VBtn icon variant="text" :aria-label="t('setting.classification.helpButton')" @click="helpDialog = true">
+            <VIcon icon="mdi-help-circle-outline" />
             <VTooltip activator="parent" location="bottom">
               {{ t('setting.classification.helpButton') }}
             </VTooltip>
@@ -719,7 +715,7 @@ watch(analysisTab, tab => {
 
 .classification-settings__header-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
 }
 

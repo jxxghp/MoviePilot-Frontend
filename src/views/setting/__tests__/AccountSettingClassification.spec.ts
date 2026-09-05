@@ -355,7 +355,9 @@ describe('AccountSettingClassification', () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
 
-    await user.click(await screen.findByRole('button', { name: '查看自动分类帮助' }))
+    const helpButton = await screen.findByRole('button', { name: '查看自动分类帮助' })
+    expect(helpButton.querySelector('.v-icon')).toBeInTheDocument()
+    await user.click(helpButton)
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('自动分类使用说明')
@@ -363,6 +365,9 @@ describe('AccountSettingClassification', () => {
     expect(dialog).toHaveTextContent('预览分类结果')
     expect(dialog).toHaveTextContent('查看影响范围')
     expect(dialog).toHaveTextContent('查看历史和回退')
+    expect(
+      screen.getByRole('button', { name: '知道了' }).closest('.classification-help-dialog__actions'),
+    ).not.toBeNull()
   })
 
   it('replaces category, fallback, and rule slices without losing the rest of the draft', async () => {

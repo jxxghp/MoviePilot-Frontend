@@ -69,7 +69,7 @@ function close(): void {
       </VCardText>
 
       <VDivider />
-      <VCardActions>
+      <VCardActions class="classification-help-dialog__actions">
         <VSpacer />
         <VBtn color="primary" variant="tonal" prepend-icon="mdi-check" @click="close">
           {{ t('setting.classification.helpClose') }}
@@ -80,6 +80,10 @@ function close(): void {
 </template>
 
 <style scoped>
+.classification-help-dialog__actions {
+  padding: 16px 24px;
+}
+
 .classification-help-dialog__content {
   display: grid;
   gap: 0;
@@ -147,6 +151,10 @@ function close(): void {
 }
 
 @media (max-width: 599px) {
+  .classification-help-dialog__actions {
+    padding-inline: 14px;
+  }
+
   .classification-help-dialog__content {
     padding-inline: 14px;
   }

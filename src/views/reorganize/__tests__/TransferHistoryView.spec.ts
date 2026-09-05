@@ -455,7 +455,6 @@ describe('TransferHistoryView', () => {
     expect(transferHistorySource).toContain('class="transfer-history-desktop-filter-group"')
     expect(transferHistorySource).toContain('class="text-disabled transfer-history-desktop-search"')
     expect(transferHistorySource).toContain('class="transfer-history-desktop-status"')
-    expect(transferHistorySource).toContain('variant="plain"')
     expect(transferHistorySource).toContain('transfer-history-desktop-filter-group:focus-within')
     expect(transferHistorySource).toContain('border-inline-start: 1px solid')
     expect(transferHistorySource).not.toContain(':label="t(\'transferHistory.statusFilter.label\')"')
@@ -465,6 +464,27 @@ describe('TransferHistoryView', () => {
     expect(mobileTitlebarSource).toContain('<VIcon icon="mdi-filter-multiple-outline" />')
     expect(mobileTitlebarSource).toContain('<VIcon icon="mdi-checkbox-multiple-marked-outline" />')
     expect(mobileTitlebarSource).not.toContain('settings-icon-button')
+  })
+
+  it('keeps native outlined alignment and icon insets inside the shared desktop border', () => {
+    const desktopFilterSource = transferHistorySource.slice(
+      transferHistorySource.indexOf('class="transfer-history-desktop-filter-group"'),
+      transferHistorySource.indexOf('<VCol cols="4" md="4"'),
+    )
+
+    expect(desktopFilterSource.match(/variant="outlined"/g)).toHaveLength(2)
+    expect(desktopFilterSource).not.toContain('variant="plain"')
+    expect(transferHistorySource).toContain('.transfer-history-desktop-filter-group .v-input .v-field {')
+    expect(transferHistorySource).toContain(
+      '.transfer-history-desktop-filter-group .v-input {\n  grid-template-rows: 1fr;',
+    )
+    expect(transferHistorySource).toContain(
+      '.transfer-history-desktop-filter-group .v-field__outline,\n.transfer-history-desktop-filter-group .v-field__overlay {\n  display: none;',
+    )
+    expect(transferHistorySource).not.toContain('.transfer-history-desktop-filter-group :deep(')
+    expect(transferHistorySource).toContain(
+      '.transfer-history-desktop-filter-group .v-field__field {\n  align-items: center;',
+    )
   })
 
   it('selects a mobile status from the titlebar dropdown and refreshes with the explicit status query', async () => {

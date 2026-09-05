@@ -1649,7 +1649,7 @@ onUnmounted(() => {
                 :placeholder="t('transferHistory.searchPlaceholder')"
                 :aria-label="t('transferHistory.searchPlaceholder')"
                 prepend-inner-icon="mdi-magnify"
-                variant="plain"
+                variant="outlined"
                 single-line
                 hide-details
                 clearable
@@ -1661,7 +1661,7 @@ onUnmounted(() => {
                 item-value="value"
                 :prepend-inner-icon="currentStatusFilter.icon"
                 density="compact"
-                variant="plain"
+                variant="outlined"
                 hide-details
                 class="transfer-history-desktop-status"
                 :aria-label="t('transferHistory.statusFilter.label')"
@@ -2245,20 +2245,29 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.12);
 }
 
-.transfer-history-desktop-filter-group :deep(.v-input) {
+// 当前样式未 scoped，直接限定组合框后代，保留 outlined 控件的居中和图标留白。
+.transfer-history-desktop-filter-group .v-input {
+  grid-template-rows: 1fr;
   min-inline-size: 0;
   margin: 0;
 }
 
-.transfer-history-desktop-filter-group :deep(.v-field) {
+.transfer-history-desktop-filter-group .v-input .v-field {
   border-radius: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-.transfer-history-desktop-filter-group :deep(.v-field__outline),
-.transfer-history-desktop-filter-group :deep(.v-field__overlay) {
+.transfer-history-desktop-filter-group .v-field__outline,
+.transfer-history-desktop-filter-group .v-field__overlay {
   display: none;
+}
+
+// 组合框随工具栏拉高时，文字行与两侧图标仍共用同一条中心线。
+.transfer-history-desktop-filter-group .v-field__field {
+  align-items: center;
 }
 
 .transfer-history-desktop-search {
