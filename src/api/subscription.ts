@@ -1,8 +1,9 @@
 import api from '@/api'
+import type { SubscriptionSearchSubmission } from '@/api/types'
 
 /** 立即搜索一条现有订阅。 */
-export function searchSubscription(subscriptionId: number): Promise<null> {
-  return api.post<null>(`subscribe/search/${subscriptionId}`, undefined, { feedback: 'silent' })
+export function searchSubscription(subscriptionId: number): Promise<SubscriptionSearchSubmission> {
+  return api.post<SubscriptionSearchSubmission>(`subscribe/search/${subscriptionId}`, undefined, { feedback: 'silent' })
 }
 
 /** 重置一条现有订阅，使其重新进入处理状态。 */
@@ -11,8 +12,8 @@ export function resetSubscription(subscriptionId: number): Promise<null> {
 }
 
 /** 立即搜索当前用户可访问的全部订阅。 */
-export function searchAllSubscriptions(): Promise<null> {
-  return api.post<null>('subscribe/search', undefined, { feedback: 'silent' })
+export function searchAllSubscriptions(): Promise<SubscriptionSearchSubmission> {
+  return api.post<SubscriptionSearchSubmission>('subscribe/search', undefined, { feedback: 'silent' })
 }
 
 /** 启动全局订阅刷新任务。 */

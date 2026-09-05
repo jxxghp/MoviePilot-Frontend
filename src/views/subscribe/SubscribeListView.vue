@@ -94,15 +94,37 @@ let isUnmounted = false
 
 const activeExecutionStates = new Set([
   'queued',
+  'scheduled',
   'running',
   'matching',
   'searching',
+  'waiting_subscription',
   'waiting_site_budget',
   'preparing',
   'submitting',
   'cancelling',
 ])
 const terminalExecutionStates = new Set(['completed', 'failed', 'cancelled', 'skipped'])
+const userRequestedExecutionSources = new Set(['manual', 'targeted'])
+const terminalBatchVisibleMs: Record<string, number> = {
+  failed: 60_000,
+  cancelled: 10_000,
+  skipped: 10_000,
+}
+const dismissedExecutionBatchIds = ref<Set<string>>(new Set())
+
+// 批次横幅只展示用户主动发起的搜索，后台自动检查保持安静运行。
+function isUserRequestedExecutionBatch(batch: SubscriptionBatchStatus) {
+  return userRequestedExecutionSources.has(batch.source)
+}
+
+// 结束状态只保留短暂反馈，避免旧失败或旧取消长期占据页面。
+function isRecentTerminalExecutionBatch(batch: SubscriptionBatchStatus) {
+  const visibleMs = terminalBatchVisibleMs[batch.state]
+  if (!visibleMs || dismissedExecutionBatchIds.value.has(batch.batch_id)) return false
+  const updatedAt = Date.parse(batch.updated_at)
+  return !Number.isFinite(updatedAt) || Date.now() - updatedAt < visibleMs
+}
 
 function isActiveExecutionBatch(batch: SubscriptionBatchStatus) {
   return (
@@ -112,16 +134,19 @@ function isActiveExecutionBatch(batch: SubscriptionBatchStatus) {
 }
 
 const visibleExecutionBatch = computed(() => {
-  return (
-    executionBatches.value.find(isActiveExecutionBatch) ||
-    executionBatches.value.find(batch => ['failed', 'cancelled', 'skipped'].includes(batch.state)) ||
-    null
-  )
+  const requestedBatches = executionBatches.value.filter(isUserRequestedExecutionBatch)
+  return requestedBatches.find(isActiveExecutionBatch) || requestedBatches.find(isRecentTerminalExecutionBatch) || null
 })
 
 const visibleExecutionBatchAppearance = computed(() => {
   const batch = visibleExecutionBatch.value
-  if (!batch || isActiveExecutionBatch(batch)) {
+  if (!batch) {
+    return { color: 'info', icon: 'mdi-progress-clock' }
+  }
+  if (isActiveExecutionBatch(batch)) {
+    if (['waiting_subscription', 'waiting_site_budget'].includes(batch.phase)) {
+      return { color: 'warning', icon: 'mdi-timer-sand' }
+    }
     return { color: 'info', icon: 'mdi-progress-clock' }
   }
   if (batch.state === 'failed') {
@@ -148,7 +173,11 @@ const batchProgress = computed(() => {
 const hasActiveCardExecution = computed(() => {
   return dataList.value.some(item => {
     const execution = item.execution_status
-    return !!execution && (activeExecutionStates.has(execution.state) || activeExecutionStates.has(execution.phase))
+    return (
+      !!execution &&
+      (!execution.source || !['new', 'fallback'].includes(execution.source)) &&
+      (activeExecutionStates.has(execution.state) || activeExecutionStates.has(execution.phase))
+    )
   })
 })
 
@@ -604,6 +633,13 @@ async function cancelExecutionBatch() {
   }
 }
 
+// 隐藏已经结束的搜索提示，不影响后台记录或后续搜索。
+function dismissExecutionBatch() {
+  const batch = visibleExecutionBatch.value
+  if (!batch || isActiveExecutionBatch(batch)) return
+  dismissedExecutionBatchIds.value = new Set([...dismissedExecutionBatchIds.value, batch.batch_id])
+}
+
 // 历史记录窗口完成
 function historyDone() {
   fetchData()
@@ -905,6 +941,14 @@ defineExpose({
         @click="cancelExecutionBatch"
       >
         <VIcon icon="mdi-close-circle-outline" />
+      </IconBtn>
+      <IconBtn
+        v-else-if="terminalExecutionStates.has(visibleExecutionBatch.state)"
+        size="small"
+        :title="t('common.close')"
+        @click="dismissExecutionBatch"
+      >
+        <VIcon icon="mdi-close" />
       </IconBtn>
     </div>
   </VAlert>

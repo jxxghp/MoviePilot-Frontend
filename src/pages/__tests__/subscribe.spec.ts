@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   registerHeaderTab: vi.fn(),
   searchAllSubscriptions: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
   toastSuccess: vi.fn(),
   useDynamicButton: vi.fn(),
 }))
@@ -30,7 +31,7 @@ vi.mock('@/composables/useConfirm', () => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+  useToast: () => ({ error: mocks.toastError, info: mocks.toastInfo, success: mocks.toastSuccess }),
 }))
 
 vi.mock('@/composables/useDynamicHeaderTab', () => ({
@@ -463,7 +464,7 @@ describe('subscribe page', () => {
 
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
     await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索任务已启动！')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索已安排！')
   })
 
   it('does not start an all-subscription search after confirmation cancellation', async () => {
@@ -506,7 +507,24 @@ describe('subscribe page', () => {
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
     await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
     resolveSearch?.(null)
-    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索任务已启动！'))
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索已安排！'))
+  })
+
+  it('reports how many searches were scheduled and already running', async () => {
+    mocks.searchAllSubscriptions.mockResolvedValue({
+      batch_id: 'batch-1',
+      batch_ids: ['batch-1', 'batch-2'],
+      ongoing_count: 2,
+      queued_count: 3,
+      single: false,
+      target_count: 5,
+    })
+    await renderSubscribe({ appMode: true })
+
+    getDynamicButtonConfig().onClick?.()
+
+    await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('已安排 3 个订阅搜索，另有 2 个正在处理中')
   })
 
   it.each([

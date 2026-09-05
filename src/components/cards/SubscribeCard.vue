@@ -15,7 +15,13 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from '@/utils/music'
 
-const COMPLETED_EXECUTION_VISIBLE_MS = 5_000
+const TERMINAL_EXECUTION_VISIBLE_MS: Record<string, number> = {
+  completed: 5_000,
+  skipped: 10_000,
+  cancelled: 10_000,
+  failed: 60_000,
+}
+const BACKGROUND_EXECUTION_SOURCES = new Set(['new', 'fallback'])
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
@@ -71,34 +77,45 @@ const subscribeState = ref<string>(props.media?.state ?? 'P')
 // 上一次更新时间
 const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDifference(props.media.last_update) : ''))
 
-// 成功终态只承担短暂反馈，卡片随后恢复订阅自身的长期进度。
+// 用户主动搜索的状态承担短暂反馈，后台自动检查不覆盖卡片长期进度。
 const visibleExecutionStatus = ref<Subscribe['execution_status'] | null>(null)
-let completedExecutionTimer: ReturnType<typeof setTimeout> | undefined
+let executionStatusTimer: ReturnType<typeof setTimeout> | undefined
 
-// 清理上一条成功终态的恢复计时器，避免卡片复用后由旧任务覆盖新状态。
-function clearCompletedExecutionTimer() {
-  if (!completedExecutionTimer) return
-  clearTimeout(completedExecutionTimer)
-  completedExecutionTimer = undefined
+// 清理上一条终态的恢复计时器，避免卡片复用后由旧任务覆盖新状态。
+function clearExecutionStatusTimer() {
+  if (!executionStatusTimer) return
+  clearTimeout(executionStatusTimer)
+  executionStatusTimer = undefined
 }
 
-// 活动与异常状态持续展示；成功完成仅在后端更新时间后的短窗口内展示。
+// 活动状态持续展示；各种结束状态按重要程度短暂显示后恢复卡片原始信息。
 function syncVisibleExecutionStatus(execution: Subscribe['execution_status']) {
-  clearCompletedExecutionTimer()
+  clearExecutionStatusTimer()
+  if (execution?.source && BACKGROUND_EXECUTION_SOURCES.has(execution.source)) {
+    visibleExecutionStatus.value = null
+    return
+  }
   visibleExecutionStatus.value = execution
-  if (!execution || (execution.state !== 'completed' && execution.phase !== 'completed')) return
+  if (!execution) return
+
+  const terminalState = TERMINAL_EXECUTION_VISIBLE_MS[execution.state]
+    ? execution.state
+    : TERMINAL_EXECUTION_VISIBLE_MS[execution.phase]
+      ? execution.phase
+      : undefined
+  if (!terminalState) return
 
   const updatedAt = Date.parse(execution.updated_at)
   const elapsed = Number.isFinite(updatedAt) ? Math.max(0, Date.now() - updatedAt) : 0
-  const remaining = COMPLETED_EXECUTION_VISIBLE_MS - elapsed
+  const remaining = TERMINAL_EXECUTION_VISIBLE_MS[terminalState] - elapsed
   if (remaining <= 0) {
     visibleExecutionStatus.value = null
     return
   }
 
-  completedExecutionTimer = setTimeout(() => {
+  executionStatusTimer = setTimeout(() => {
     visibleExecutionStatus.value = null
-    completedExecutionTimer = undefined
+    executionStatusTimer = undefined
   }, remaining)
 }
 
@@ -108,9 +125,11 @@ const executionStateDisplay = computed(() => {
   if (!execution) return null
   const displays: Record<string, { color: string; icon: string }> = {
     queued: { color: 'info', icon: 'mdi-clock-outline' },
+    scheduled: { color: 'info', icon: 'mdi-calendar-clock-outline' },
     running: { color: 'info', icon: 'mdi-progress-clock' },
     matching: { color: 'info', icon: 'mdi-filter-search-outline' },
     searching: { color: 'primary', icon: 'mdi-magnify-scan' },
+    waiting_subscription: { color: 'warning', icon: 'mdi-timer-sync-outline' },
     waiting_site_budget: { color: 'warning', icon: 'mdi-timer-sand' },
     preparing: { color: 'primary', icon: 'mdi-package-variant-closed' },
     submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
@@ -120,10 +139,13 @@ const executionStateDisplay = computed(() => {
     cancelled: { color: 'secondary', icon: 'mdi-cancel' },
     completed: { color: 'success', icon: 'mdi-check-circle-outline' },
   }
-  const display = displays[execution.state] || displays[execution.phase] || displays.running
+  const displayState = TERMINAL_EXECUTION_VISIBLE_MS[execution.state]
+    ? execution.state
+    : execution.phase || execution.state
+  const display = displays[displayState] || displays[execution.state] || displays.running
   return {
     ...display,
-    label: t(`subscribe.execution.state.${execution.state}`),
+    label: t(`subscribe.execution.state.${displayState}`),
     error: execution.error,
   }
 })
@@ -310,8 +332,16 @@ async function removeSubscribe() {
 async function searchSubscribe() {
   try {
     if (!props.media?.id) return
-    await searchSubscription(props.media.id)
-    $toast.success(t('subscribe.execution.searchSubmitted', { name: props.media?.name }))
+    const submission = await searchSubscription(props.media.id)
+    const messageKey =
+      submission?.queued_count === 0 && submission?.ongoing_count
+        ? 'subscribe.execution.searchAlreadyRunning'
+        : 'subscribe.execution.searchScheduled'
+    if (messageKey === 'subscribe.execution.searchAlreadyRunning') {
+      $toast.info(t(messageKey, { name: props.media?.name }))
+    } else {
+      $toast.success(t(messageKey, { name: props.media?.name }))
+    }
     emit('save')
   } catch (e) {
     $toast.error(t('subscribe.requestFailed'))
@@ -514,7 +544,7 @@ watch(
   { immediate: true },
 )
 
-onBeforeUnmount(() => clearCompletedExecutionTimer())
+onBeforeUnmount(() => clearExecutionStatusTimer())
 
 // 切换订阅记录时重新尝试加载图片，避免复用卡片组件后沿用旧的失败状态。
 watch(

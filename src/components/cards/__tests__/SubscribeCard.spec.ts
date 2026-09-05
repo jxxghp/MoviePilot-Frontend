@@ -18,11 +18,12 @@ const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
   routerPush: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
   toastSuccess: vi.fn(),
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+  useToast: () => ({ error: mocks.toastError, info: mocks.toastInfo, success: mocks.toastSuccess }),
 }))
 
 vi.mock('@/composables/useConfirm', () => ({
@@ -356,18 +357,18 @@ describe('SubscribeCard display and progress', () => {
         batch_id: 'batch-1',
         can_cancel: true,
         current_site_id: 9,
-        error: '站点 9 冷却中',
+        error: '站点暂时忙，系统会自动继续搜索',
         phase: 'waiting_site_budget',
-        state: 'waiting_site_budget',
+        state: 'running',
         updated_at: '2026-09-01T01:00:00+00:00',
       },
     })
 
-    expect(screen.getByText('等待站点额度')).toBeInTheDocument()
-    const status = screen.getByTitle('站点 9 冷却中')
+    expect(screen.getByText('站点暂时忙，稍后继续')).toBeInTheDocument()
+    const status = screen.getByTitle('站点暂时忙，系统会自动继续搜索')
     expect(status).toBeInTheDocument()
     await fireEvent.mouseEnter(status)
-    await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('站点 9 冷却中'))
+    await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('站点暂时忙，系统会自动继续搜索'))
   })
 
   it.each([480, 1024])('shows a skipped execution as a non-error terminal state at %ipx', async width => {
@@ -377,11 +378,11 @@ describe('SubscribeCard display and progress', () => {
         can_cancel: false,
         phase: 'skipped',
         state: 'skipped',
-        updated_at: '2026-09-01T01:00:00+00:00',
+        updated_at: new Date().toISOString(),
       },
     })
 
-    expect(screen.getByText('本轮已跳过')).toBeInTheDocument()
+    expect(screen.getByText('这次未搜索')).toBeInTheDocument()
     if (width < 600) {
       expect(document.querySelector('[data-subscribe-state-icon="mdi-skip-next-circle-outline"]')).toBeInTheDocument()
     }
@@ -411,12 +412,12 @@ describe('SubscribeCard display and progress', () => {
         },
       })
 
-      expect(screen.getByText('执行完成')).toBeInTheDocument()
+      expect(screen.getByText('搜索完成')).toBeInTheDocument()
       if (width < 600) expect(screen.queryByText('6 / 10')).not.toBeInTheDocument()
 
       await vi.advanceTimersByTimeAsync(5_000)
 
-      expect(screen.queryByText('执行完成')).not.toBeInTheDocument()
+      expect(screen.queryByText('搜索完成')).not.toBeInTheDocument()
       expect(screen.getByText('6 / 10')).toBeInTheDocument()
       if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
     } finally {
@@ -440,8 +441,29 @@ describe('SubscribeCard display and progress', () => {
       type: '电视剧',
     })
 
-    expect(screen.queryByText('执行完成')).not.toBeInTheDocument()
+    expect(screen.queryByText('搜索完成')).not.toBeInTheDocument()
     expect(screen.getByText('6 / 10')).toBeInTheDocument()
+  })
+
+  it.each([480, 1024])('keeps automatic background search off the primary card state at %ipx', async width => {
+    setViewport(width)
+    const { media } = await renderCard({
+      execution_status: {
+        can_cancel: true,
+        phase: 'scheduled',
+        source: 'new',
+        state: 'scheduled',
+        updated_at: new Date().toISOString(),
+      },
+      lack_episode: 4,
+      state: 'R',
+      total_episode: 10,
+      type: '电视剧',
+    })
+
+    expect(screen.queryByText('已安排，稍后开始')).not.toBeInTheDocument()
+    expect(screen.getByText('6 / 10')).toBeInTheDocument()
+    if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
   })
 })
 
@@ -538,7 +560,7 @@ describe('SubscribeCard item operations', () => {
   })
 
   it.each([
-    ['success', 200, { success: true }, 'success', '卡片测试媒体 已提交搜索请求'],
+    ['success', 200, { success: true }, 'success', '卡片测试媒体 已安排搜索，很快开始'],
     ['business failure', 200, { message: 'rejected', success: false }, 'error', '请求失败，请稍后重试'],
     ['HTTP failure', 500, { message: 'server down', success: false }, 'error', '请求失败，请稍后重试'],
   ] as const)('reports search %s through the exact endpoint', async (_case, status, response, toastType, message) => {
@@ -551,6 +573,35 @@ describe('SubscribeCard item operations', () => {
     await waitFor(() => expect(requested).toHaveBeenCalledOnce())
     const toast = toastType === 'success' ? mocks.toastSuccess : mocks.toastError
     await waitFor(() => expect(toast).toHaveBeenCalledWith(message))
+  })
+
+  it('reports an already-running search without pretending a new search started', async () => {
+    const requested = vi.fn()
+    const { container, media } = await renderCard()
+    server.use(
+      searchSubscribeByIdHandler(
+        media.id,
+        {
+          data: {
+            batch_id: 'batch-1',
+            batch_ids: ['batch-1'],
+            ongoing_count: 1,
+            queued_count: 0,
+            single: true,
+            target_count: 1,
+          },
+          success: true,
+        },
+        200,
+        requested,
+      ),
+    )
+
+    await chooseMenuItem(container, '搜索')
+
+    await waitFor(() => expect(requested).toHaveBeenCalledOnce())
+    expect(mocks.toastInfo).toHaveBeenCalledWith('卡片测试媒体 已经在搜索中，请稍候')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
   it('pauses and enables only after confirmed successful status responses', async () => {

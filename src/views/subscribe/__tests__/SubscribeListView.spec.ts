@@ -385,12 +385,12 @@ describe('SubscribeListView loading and filtering', () => {
     server.use(cancelSubscriptionExecutionBatchHandler(batch.batch_id, { success: true }, 200, cancelRequested))
     await renderList({ batchResponse: [batch], listResponse: [movie(1, 'Own movie')] })
 
-    expect(await screen.findByText('搜索站点')).toBeInTheDocument()
+    expect(await screen.findByText('正在搜索')).toBeInTheDocument()
     expect(screen.getByText('1/3')).toBeInTheDocument()
-    await fireEvent.click(screen.getByTitle('取消本批次'))
+    await fireEvent.click(screen.getByTitle('停止这次搜索'))
 
     await waitFor(() => expect(cancelRequested).toHaveBeenCalledOnce())
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('已请求取消搜索批次')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('正在停止这次搜索')
   })
 
   it('keeps a successful subscription list visible when the batch endpoint fails', async () => {
@@ -838,14 +838,26 @@ describe('SubscribeListView loading and filtering', () => {
           skipped_count: 1,
           state: 'skipped',
           total_count: 3,
+          updated_at: new Date().toISOString(),
         }),
       ],
       listResponse: [movie(1, '跳过批次订阅')],
     })
 
     expect(await screen.findByText('跳过批次订阅')).toBeInTheDocument()
-    expect(await screen.findByText('本轮已跳过')).toBeInTheDocument()
+    expect(await screen.findByText('这次未搜索')).toBeInTheDocument()
     expect(await screen.findByText('2/3')).toBeInTheDocument()
+  })
+
+  it('does not show background automatic batches in the user action banner', async () => {
+    await renderList({
+      batchResponse: [executionBatch({ source: 'new', state: 'queued', phase: 'scheduled' })],
+      listResponse: [movie(1, '后台自动搜索订阅')],
+    })
+
+    expect(await screen.findByText('后台自动搜索订阅')).toBeInTheDocument()
+    expect(screen.queryByText('已安排，稍后开始')).not.toBeInTheDocument()
+    expect(document.querySelector('.subscribe-execution-banner')).not.toBeInTheDocument()
   })
 
   it('lets a superuser see subscriptions from every owner while retaining type defense', async () => {

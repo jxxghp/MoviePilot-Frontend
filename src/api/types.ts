@@ -33,8 +33,19 @@ export interface SubscriptionExecutionStatus {
   batch_id?: string
   task_id?: string
   current_site_id?: number
+  next_run_at?: string
   error?: string
   can_cancel: boolean
+}
+
+/** 用户主动发起订阅搜索后的安排结果。 */
+export interface SubscriptionSearchSubmission {
+  batch_id?: string
+  batch_ids: string[]
+  target_count: number
+  queued_count: number
+  ongoing_count: number
+  single: boolean
 }
 
 /** 订阅搜索批次的聚合进度与当前工作。 */
