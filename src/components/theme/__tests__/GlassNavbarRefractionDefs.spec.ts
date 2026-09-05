@@ -168,7 +168,7 @@ describe('GlassNavbarRefractionDefs', () => {
     effectiveSettings.value = { glassDeformationStrength: 48, glassTranslationStrength: 48 }
     await settle()
     expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
-      expect.objectContaining({ optics: expect.objectContaining({ translationPx: 8.16 }) }),
+      expect.objectContaining({ optics: expect.objectContaining({ translationPx: expect.closeTo(1.880064) }) }),
     )
   })
 

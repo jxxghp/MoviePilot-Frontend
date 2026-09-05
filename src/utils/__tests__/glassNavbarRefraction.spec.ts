@@ -6,19 +6,27 @@ import {
 } from '@/utils/glassNavbarRefraction'
 
 describe('getGlassNavbarOpticalResponse', () => {
-  it('keeps default vertical deformation small while retaining substantial translation', () => {
+  it('prioritizes default reading while retaining the horizontal lens', () => {
     const optics = getGlassNavbarOpticalResponse({ deformation: 48, translation: 48 })
-    expect(optics.translationPx).toBeCloseTo(8.16)
-    expect(optics.verticalRatio * 24).toBeLessThan(0.4)
-    expect(optics.horizontalRatio * 24).toBeGreaterThan(3)
+    expect(optics.translationPx).toBeCloseTo(1.880064)
+    expect(optics.verticalRatio * 24).toBeLessThan(0.02)
+    expect(optics.horizontalRatio * 24).toBeGreaterThan(2.9)
   })
   it.each([
     [0, 0],
-    [50, 8.5],
-    [99, 16.83],
+    [50, 2.125],
+    [80, 8.704],
+    [99, 16.495083],
     [100, 17],
-  ])('maps translation %s linearly to %s pixels', (translation, pixels) => {
+  ])('maps translation %s to the readable curve at %s pixels', (translation, pixels) => {
     expect(getGlassNavbarOpticalResponse({ deformation: 48, translation }).translationPx).toBeCloseTo(pixels)
+  })
+  it('keeps the midpoint deformation equivalent to the original 12.5% input', () => {
+    const parameters = Object.freeze({ deformation: 50, translation: 50 })
+    const optics = getGlassNavbarOpticalResponse(parameters)
+    expect(optics.horizontalRatio).toBeCloseTo(0.1386328125)
+    expect(optics.verticalRatio).toBeCloseTo(0.000859375)
+    expect(parameters).toEqual({ deformation: 50, translation: 50 })
   })
   it('separates translation from deformation and limits the maximum translation', () => {
     expect(getGlassNavbarOpticalResponse({ deformation: 0, translation: 100 })).toEqual({

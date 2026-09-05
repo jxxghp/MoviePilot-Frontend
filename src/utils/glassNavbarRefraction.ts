@@ -36,16 +36,16 @@ export interface GlassNavbarOpticalResponse {
   translationPx: number
 }
 
-/** 自然默认值即呈现明显短边折射；纵向形变与平移独立限幅以保护阅读。 */
+/** 导航以低中段可读性为优先，高段保留完整位移预算；不改写共享参数或材质响应。 */
 export function getGlassNavbarOpticalResponse(
   parameters: Pick<GlassOpticalParameters, 'deformation' | 'translation'>,
 ): GlassNavbarOpticalResponse {
-  const deformation = normalizeGlassOpticalStrength(parameters.deformation) / 100
-  const translation = normalizeGlassOpticalStrength(parameters.translation) / 100
+  // 两个滑杆分别映射，50% 均使用 12.5% 的光学输入，避免平移维持高强度而抵消阅读改善。
+  const deformation = (normalizeGlassOpticalStrength(parameters.deformation) / 100) ** 3
+  const translation = (normalizeGlassOpticalStrength(parameters.translation) / 100) ** 3
   return {
     horizontalRatio: 0.42 * (1 - (1 - deformation) ** 3),
     verticalRatio: 0.055 * deformation ** 2,
-    // 平移使用线性刻度，50% 对应 8.5px；不把平移强度叠加到字形纵向缩放。
     translationPx: 17 * translation,
   }
 }
