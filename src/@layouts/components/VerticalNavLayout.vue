@@ -211,6 +211,7 @@ export default defineComponent({
               ? 'theme-qualified'
               : 'connected',
           'data-shell-scroll-direction': shellScroll.direction.value,
+          'data-glass-navigation-refraction': navbarRefractionMode,
           'data-glass-navbar-refraction': navbarRefractionMode,
           style: {
             '--layout-footer-dock-height': `${footerDockHeight.value ?? 0}px`,

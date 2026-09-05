@@ -189,7 +189,7 @@ describe('glass overlay material styles', () => {
 
     expect(styles).toContain('--glass-fixed-shell-backplate-filter: blur(min(var(--glass-blur-raised), 60px))')
     expect(styles).toMatch(
-      /&\[data-glass-appearance='frosted'\]\[data-glass-quality='css'\][\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-vertical-nav::before,[\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-navbar,[\s\S]*?backdrop-filter:\s*none\s*!important;/,
+      /&\[data-glass-appearance='frosted'\]\[data-glass-quality='css'\]\s+body\[data-theme='glass'\][\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-vertical-nav::before,[\s\S]*?\.layout-wrapper\.layout-fixed-shell-backplate-active \.layout-navbar,[\s\S]*?backdrop-filter:\s*none\s*!important;/,
     )
     expect(styles).toMatch(
       /\[data-glass-appearance='frosted'\]\[data-glass-quality='balanced'\]\s*\{[\s\S]*?--glass-fixed-shell-backplate-filter:\s*var\(--glass-native-surface-backdrop-filter\);/,
@@ -224,6 +224,42 @@ describe('glass overlay material styles', () => {
     )
     expect(floatingBackplateRule).not.toContain('clip-path')
     expect(overlayBackplateRule).toMatch(/transition:\s*clip-path 0\.25s ease-in-out/u)
+  })
+
+  it('keeps desktop sidebar refraction isolated from the attached navbar and mobile Drawer', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const defs = readFileSync(resolve(cwd(), 'src/components/theme/GlassNavbarRefractionDefs.vue'), 'utf8')
+    const layout = readFileSync(resolve(cwd(), 'src/@layouts/components/VerticalNavLayout.vue'), 'utf8')
+
+    expect(styles).toContain('--glass-sidebar-live-filter: var(--glass-fixed-shell-backdrop-filter)')
+    expect(styles).toContain('--glass-sidebar-diffusion-blur: clamp(')
+    expect(styles).toContain('--glass-sidebar-absorption-start: clamp(')
+    expect(styles).toContain('--glass-sidebar-absorption-end: clamp(')
+    expect(styles).toContain('--glass-sidebar-edge-opacity: clamp(')
+    expect(styles).toMatch(
+      /\.layout-vertical-nav\s*\{[\s\S]*?&::before\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-sidebar-live-filter\);[\s\S]*?background-image:\s*var\(--glass-sheen\)/,
+    )
+    expect(styles).toMatch(
+      /\.layout-wrapper\[data-glass-navigation-refraction='chromium'\]\[data-glass-sidebar-refraction-ready='true'\][\s\S]*?\.layout-vertical-nav:not\(\.overlay-nav\)\s*\{[\s\S]*?url\('#glass-sidebar-live-refraction-high'\)/,
+    )
+    expect(styles).toMatch(
+      /\.layout-wrapper\[data-glass-navigation-refraction='chromium'\]\[data-glass-sidebar-refraction-ready='true'\][\s\S]*?\.layout-vertical-nav:not\(\.overlay-nav\)\s*\{[\s\S]*?url\('#glass-sidebar-live-refraction-balanced'\)/,
+    )
+    expect(styles).toMatch(
+      /&\[data-glass-appearance='frosted'\]\s*\{[\s\S]*?\.layout-vertical-nav::before\s*\{[\s\S]*?var\(--glass-sidebar-absorption-start\)[\s\S]*?var\(--glass-sidebar-absorption-end\)[\s\S]*?var\(--glass-sidebar-edge-opacity\)/,
+    )
+    expect(defs).toContain('id="glass-sidebar-live-refraction-balanced"')
+    expect(defs).toContain('id="glass-sidebar-live-refraction-high"')
+    expect(styles).not.toContain("url('#glass-sidebar-live-refraction-high') var(--glass-fixed-shell-backdrop-filter)")
+    expect(styles).toContain('--glass-sidebar-live-filter: none !important')
+    expect(styles).toContain('--glass-fixed-shell-backplate-filter: var(--glass-sidebar-backdrop-filter)')
+    expect(styles).toContain('--glass-navbar-scrolled-backdrop-filter: none')
+    expect(defs).toContain("readyAttribute: 'data-glass-sidebar-refraction-ready'")
+    expect(layout).toContain("'data-glass-navigation-refraction': navbarRefractionMode")
+    expect(layout).toContain("'data-glass-navbar-refraction': navbarRefractionMode")
+    expect(styles).not.toContain(
+      ".layout-wrapper[data-glass-navigation-refraction='chromium'][data-glass-sidebar-refraction-ready='true']\n  .layout-navbar",
+    )
   })
 
   it('limits detached navbar geometry to eligible Transparent and Glass horizontal shells', () => {

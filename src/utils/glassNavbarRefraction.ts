@@ -93,8 +93,10 @@ function smoothstep(value: number) {
 
 /** 外侧快速形成厚度，内侧缓慢回到中性，保留清透中心且不折返背景。 */
 function refractionProfile(depth: number, band: number, guard: number) {
+  if (depth <= guard || depth >= band) return 0
+
   const peakDepth = Math.max(guard, band * PEAK_DEPTH_RATIO)
-  if (depth <= peakDepth) return smoothstep((depth - guard) / (peakDepth - guard))
+  if (depth <= peakDepth) return smoothstep((depth - guard) / (peakDepth - guard || 1))
   return 1 - smoothstep((depth - peakDepth) / (band - peakDepth))
 }
 
@@ -112,7 +114,9 @@ export function createGlassNavbarDisplacementField({
   const pixelHeight = normalizePixelSize(height)
   const maxRadius = Math.min(pixelWidth, pixelHeight) / 2
   const pixelRadius = Number.isFinite(radius) ? Math.max(0, Math.min(maxRadius, radius)) : 0
-  const maximumBand = Math.min(REFRACTION_BAND_PX, pixelRadius * 1.5, Math.min(pixelWidth, pixelHeight) / 2)
+  // 直角固定表面没有圆角半径可供推导，仍使用受最短边约束的直边带；radius=0 不能被当成无折射。
+  const radiusBand = pixelRadius > 0 ? pixelRadius * 1.5 : REFRACTION_BAND_PX
+  const maximumBand = Math.min(REFRACTION_BAND_PX, radiusBand, Math.min(pixelWidth, pixelHeight) / 2)
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
 
   for (let offset = 0; offset < pixels.length; offset += 4) {
@@ -133,7 +137,8 @@ export function createGlassNavbarDisplacementField({
       const edgeY = Math.min(sampleY, pixelHeight - sampleY)
       const straightWeight = smoothstep(Math.min(1, Math.abs(edgeX - edgeY) / (maximumBand * 2 || 1)))
       const cornerBand = Math.min(maximumBand, pixelRadius)
-      const bandWidth = cornerBand + (maximumBand - cornerBand) * straightWeight
+      // 矩形角点没有圆弧法线；固定带宽交给四条直边的轴向剖面处理，避免角点成为采样断点。
+      const bandWidth = pixelRadius === 0 ? maximumBand : cornerBand + (maximumBand - cornerBand) * straightWeight
       const outerGuard = Math.min(OUTER_NEUTRAL_GUARD_PX, bandWidth / 4)
       const channelAmplitude = (bandWidth * optics.horizontalRatio * 255) / HIGH_REFRACTION_SCALE_PX
 
@@ -144,6 +149,29 @@ export function createGlassNavbarDisplacementField({
         Math.min(pixelWidth, pixelHeight) < 4
       )
         continue
+
+      // 横向平移从边缘透镜退出后进入，避免两种回落梯度叠加导致局部反向采样。
+      const horizontalRamp = smoothstep(Math.max(0, Math.min(1, (edgeX - maximumBand) / 64)))
+      const verticalRamp = smoothstep(Math.min(1, (edgeY - outerGuard) / Math.max(1, Math.min(12, maximumBand))))
+      const translationChannel = (optics.translationPx * horizontalRamp * verticalRamp * 255) / HIGH_REFRACTION_SCALE_PX
+
+      if (pixelRadius === 0) {
+        // 矩形的四条直边分别取样，角点用叠加的轴向剖面保持连续，不伪造圆角法线。
+        const leftProfile = refractionProfile(sampleX, maximumBand, outerGuard)
+        const rightProfile = refractionProfile(pixelWidth - sampleX, maximumBand, outerGuard)
+        const topProfile = refractionProfile(sampleY, maximumBand, outerGuard)
+        const bottomProfile = refractionProfile(pixelHeight - sampleY, maximumBand, outerGuard)
+        const verticalAmplitude = (maximumBand * optics.verticalRatio * 255) / HIGH_REFRACTION_SCALE_PX
+        const offset = (y * pixelWidth + x) * 4
+
+        pixels[offset] = clampChannel(
+          DISPLACEMENT_NEUTRAL_CHANNEL + channelAmplitude * (rightProfile - leftProfile) + translationChannel,
+        )
+        pixels[offset + 2] = clampChannel(
+          DISPLACEMENT_NEUTRAL_CHANNEL + verticalAmplitude * (bottomProfile - topProfile),
+        )
+        continue
+      }
 
       const profile = distanceInside < bandWidth ? refractionProfile(distanceInside, bandWidth, outerGuard) : 0
       const verticalProgress = Math.min(1, (distanceInside - outerGuard) / (bandWidth - outerGuard))
@@ -157,11 +185,6 @@ export function createGlassNavbarDisplacementField({
         roundedRectangleSignedDistance(sampleX, sampleY - 0.5, pixelWidth, pixelHeight, pixelRadius)
       const gradientLength = Math.hypot(gradientX, gradientY) || 1
       const offset = (y * pixelWidth + x) * 4
-      // 横向平移从边缘透镜退出后进入，避免两种回落梯度叠加导致局部反向采样。
-      const horizontalRamp = smoothstep(Math.max(0, Math.min(1, (edgeX - maximumBand) / 64)))
-      const verticalRamp = smoothstep(Math.min(1, (edgeY - outerGuard) / Math.max(1, Math.min(12, maximumBand))))
-      const translationChannel = (optics.translationPx * horizontalRamp * verticalRamp * 255) / HIGH_REFRACTION_SCALE_PX
-
       pixels[offset] = clampChannel(
         DISPLACEMENT_NEUTRAL_CHANNEL + (channelAmplitude * gradientX * profile) / gradientLength + translationChannel,
       )

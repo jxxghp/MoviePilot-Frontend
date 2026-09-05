@@ -75,6 +75,7 @@ describe('createGlassNavbarDisplacementField', () => {
     { width: 401, height: 72, radius: 16 },
     { width: 127, height: 64, radius: 8 },
     { width: 127, height: 64, radius: 32 },
+    { width: 260, height: 800, radius: 0 },
   ])('keeps two-dimensional sampling forward and inside the image for $width x $height r$radius', geometry => {
     for (const deformation of [0, 48, 100])
       for (const translation of [0, 48, 100])
@@ -113,6 +114,21 @@ describe('createGlassNavbarDisplacementField', () => {
           expect(maximumX).toBeLessThanOrEqual(field.width)
           expect(maximumY).toBeLessThanOrEqual(field.height)
         }
+  })
+
+  it('keeps a fixed rectangle optically active without substituting a rounded corner', () => {
+    const field = createGlassNavbarDisplacementField({
+      height: 800,
+      radius: 0,
+      width: 260,
+      optics: getGlassNavbarOpticalResponse({ deformation: 100, translation: 0 }),
+    })
+
+    expect(pixelAt(field, 130, 0)).toEqual([128, 128, 128, 255])
+    expect(pixelAt(field, 130, 8)[2]).toBeLessThan(128)
+    expect(pixelAt(field, 8, 400)[0]).toBeLessThan(128)
+    expect(pixelAt(field, 8, 8)[0]).toBeLessThan(128)
+    expect(pixelAt(field, 8, 8)[2]).toBeLessThan(128)
   })
 
   it('clamps invalidly small geometry to a renderable pixel surface', () => {
