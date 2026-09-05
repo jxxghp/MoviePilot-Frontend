@@ -117,10 +117,17 @@ const HistoryTableStub = defineComponent({
       return h('section', { 'aria-label': '整理历史桌面列表' }, [
         h('output', { 'aria-label': '整理历史排序结果' }, JSON.stringify(sortResults)),
         ...props.items.map(item =>
-          h('article', { 'data-history-id': item.id }, [
-            item.image ? (slots['item.title']?.({ item }) ?? h('span', item.title)) : h('span', item.title),
-            slots['item.actions']?.({ item }),
-          ]),
+          h(
+            'article',
+            {
+              'data-history-group-key': (item as TransferHistory & { history_group_key?: string }).history_group_key,
+              'data-history-id': item.id,
+            },
+            [
+              item.image ? (slots['item.title']?.({ item }) ?? h('span', item.title)) : h('span', item.title),
+              slots['item.actions']?.({ item }),
+            ],
+          ),
         ),
         h(
           'button',
@@ -446,6 +453,217 @@ describe('TransferHistoryView', () => {
     await waitFor(() => expect(requests).toEqual([{ count: 50, page: 1, status: false, title: '失败' }]))
   })
 
+  it('automatically groups multiple music tracks by their organized album directory', async () => {
+    const tracks = [
+      createHistory(1, '女骑士', {
+        dest: '/media/徐良/情话 (2013)/01 - 女骑士.flac',
+        src: '/downloads/徐良 情话/01 - 女骑士.flac',
+        type: '音乐',
+      }),
+      createHistory(2, '悲伤的李白', {
+        dest: '/media/徐良/情话 (2013)/02 - 悲伤的李白.flac',
+        src: '/downloads/徐良 情话/02 - 悲伤的李白.flac',
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(tracks))
+    })
+
+    const { container, router } = await renderHistory('/history')
+
+    await waitFor(() => expect(router.currentRoute.value.query.grouped).toBe('true'))
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-history-group-key]')]
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.dataset.historyGroupKey).toBe(rows[1]?.dataset.historyGroupKey)
+    expect(rows[0]?.dataset.historyGroupKey).toContain('/media/徐良/情话 (2013)')
+  })
+
+  it('groups failed music records by their source album directory and source storage', async () => {
+    const tracks = [
+      createHistory(1, 'Track 1', {
+        dest: '/media/Artist/Predicted Album A/01.flac',
+        src: '/downloads/Album Bundle/01.flac',
+        status: false,
+        type: '音乐',
+      }),
+      createHistory(2, 'Track 2', {
+        dest: '/media/Artist/Predicted Album B/02.flac',
+        src: '/downloads/Album Bundle/02.flac',
+        status: false,
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(tracks))
+    })
+
+    const { container } = await renderHistory('/history')
+
+    const rows = await waitFor(() => {
+      const items = [...container.querySelectorAll<HTMLElement>('[data-history-group-key]')]
+      expect(items).toHaveLength(2)
+      return items
+    })
+    expect(rows[0]?.dataset.historyGroupKey).toBe('music:["downloads","/downloads/Album Bundle"]')
+    expect(rows[1]?.dataset.historyGroupKey).toBe(rows[0]?.dataset.historyGroupKey)
+  })
+
+  it('preserves the original exact-title grouping identity for non-music records', async () => {
+    const histories = [
+      createHistory(1, 'Shared Title', { type: '电影' }),
+      createHistory(2, 'Shared Title', { type: '电视剧' }),
+      createHistory(3, 'shared title', { type: '电影' }),
+      createHistory(4, '', { type: '电影' }),
+      createHistory(5, '未知', { type: '电影' }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    const { container } = await renderHistory('/history?grouped=true')
+
+    const rows = await waitFor(() => {
+      const items = [...container.querySelectorAll<HTMLElement>('[data-history-group-key]')]
+      expect(items).toHaveLength(5)
+      return items
+    })
+    expect(rows.map(row => row.dataset.historyGroupKey)).toEqual([
+      'title:"Shared Title"',
+      'title:"Shared Title"',
+      'title:"shared title"',
+      'title:""',
+      'title:"未知"',
+    ])
+  })
+
+  it('keeps music album and non-music title group namespaces separate', async () => {
+    const musicKeyAsTitle = 'music:["library","/media/Artist/Album"]'
+    const histories = [
+      createHistory(1, 'Track', {
+        dest: '/media/Artist/Album/01.flac',
+        type: '音乐',
+      }),
+      createHistory(2, musicKeyAsTitle),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    const { container } = await renderHistory('/history?grouped=true')
+
+    const rows = await waitFor(() => {
+      const items = [...container.querySelectorAll<HTMLElement>('[data-history-group-key]')]
+      expect(items).toHaveLength(2)
+      return items
+    })
+    expect(rows[0]?.dataset.historyGroupKey).toBe(musicKeyAsTitle)
+    expect(rows[1]?.dataset.historyGroupKey).toBe(`title:${JSON.stringify(musicKeyAsTitle)}`)
+  })
+
+  it('does not auto-group non-music titles that resemble music group keys', async () => {
+    const histories = [createHistory(1, 'music:archive'), createHistory(2, 'music:archive')]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    const { router } = await renderHistory('/history')
+
+    await waitFor(() => expect(screen.getAllByText('music:archive')).toHaveLength(2))
+    expect(router.currentRoute.value.query.grouped).toBeUndefined()
+  })
+
+  it('does not auto-group music records without a shared album directory', async () => {
+    const histories = [
+      createHistory(1, 'Unknown Track', { dest: '', src: '01.flac', type: '音乐' }),
+      createHistory(2, 'Unknown Track', { dest: '', src: '02.flac', type: '音乐' }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    const { router } = await renderHistory('/history')
+
+    await waitFor(() => expect(screen.getAllByText('Unknown Track')).toHaveLength(2))
+    expect(router.currentRoute.value.query.grouped).toBeUndefined()
+  })
+
+  it('does not use a planned destination when a failed source path has no directory', async () => {
+    const histories = [
+      createHistory(1, 'Track 1', {
+        dest: '/media/Artist/Predicted Album/01.flac',
+        src: '01.flac',
+        status: false,
+        type: '音乐',
+      }),
+      createHistory(2, 'Track 2', {
+        dest: '/media/Artist/Predicted Album/02.flac',
+        src: '02.flac',
+        status: false,
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    const { router } = await renderHistory('/history')
+
+    await waitFor(() => expect(screen.getByText('Track 1')).toBeInTheDocument())
+    expect(router.currentRoute.value.query.grouped).toBeUndefined()
+  })
+
+  it('does not count repeated history rows for one file as multiple album tracks', async () => {
+    const histories = [
+      createHistory(1, 'Track', {
+        dest: '/media/Artist/Album/01.flac',
+        type: '音乐',
+      }),
+      createHistory(2, 'Track retry', {
+        dest: '/media/Artist/Album/01.flac',
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    const { router } = await renderHistory('/history')
+
+    await waitFor(() => expect(screen.getByText('Track retry')).toBeInTheDocument())
+    expect(router.currentRoute.value.query.grouped).toBeUndefined()
+  })
+
+  it('respects an explicit flat-view choice for a multi-track music album', async () => {
+    const tracks = [
+      createHistory(1, 'Track 1', {
+        dest: 'D:\\Music\\Artist\\Album\\01.flac',
+        type: '音乐',
+      }),
+      createHistory(2, 'Track 2', {
+        dest: 'D:\\Music\\Artist\\Album\\02.flac',
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(tracks))
+    })
+
+    const { container, router } = await renderHistory('/history?grouped=false')
+
+    await waitFor(() => expect(container.querySelectorAll('[data-history-group-key]')).toHaveLength(2))
+    expect(router.currentRoute.value.query.grouped).toBe('false')
+  })
+
   it('joins the desktop status filter to search and moves the mobile filter into the titlebar menu', () => {
     const mobileTitlebarSource = transferHistorySource.slice(
       transferHistorySource.indexOf('<div class="transfer-history-mobile-titlebar__actions">'),
@@ -607,6 +825,7 @@ describe('TransferHistoryView', () => {
       itemsPerPage: '50',
       search: 'desktop-query',
     })
+    expect(router.currentRoute.value.query.grouped).toBeUndefined()
   })
 
   it('loads mobile pages with deduplication and reports empty when the last page is exhausted', async () => {
@@ -750,7 +969,7 @@ describe('TransferHistoryView', () => {
   it('persists mobile search in the URL before resetting the infinite list', async () => {
     vi.useFakeTimers()
     mocks.desktop = false
-    const { router } = await renderHistory('/history?search=old')
+    const { router } = await renderHistory('/history?search=old&grouped=false')
     await flushPromises()
 
     await fireEvent.update(screen.getByLabelText('搜索（支持 * ? 通配符）'), 'new')
@@ -758,7 +977,7 @@ describe('TransferHistoryView', () => {
 
     expect(router.currentRoute.value).toMatchObject({
       path: '/history',
-      query: { currentPage: '1', itemsPerPage: '50', search: 'new' },
+      query: { currentPage: '1', grouped: 'false', itemsPerPage: '50', search: 'new' },
     })
   })
 

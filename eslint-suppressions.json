@@ -746,9 +746,6 @@
     }
   },
   "src/views/reorganize/TransferHistoryView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    },
     "vue/no-v-text-v-html-on-component": {
       "count": 3
     }
