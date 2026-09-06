@@ -1,0 +1,309 @@
+@use '@configured-variables' as variables;
+
+// V3 表面按信息角色统一材料；只改变承载层，不改变图表、业务数据与交互命中区。
+@mixin surfaces {
+  html[data-theme='glass'] {
+    --glass-v3-ink: 23, 27, 32;
+    --glass-v3-fill: clamp(0.1, calc(0.08 + var(--glass-surface-density, 0.62) * 0.12), 0.22);
+    --glass-v3-rim: clamp(0.12, calc(0.16 + var(--glass-reflection, 0.38) * 0.28), 0.4);
+    --glass-v3-sheen: clamp(0.04, calc(0.035 + var(--glass-reflection, 0.38) * 0.18), 0.2);
+    --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+    --glass-v3-card-tint: 0;
+    --glass-v3-navigation-blur: clamp(
+      0.65px,
+      calc(0.9px + var(--glass-surface-density, 0.62) * 0.6px - var(--glass-background-visibility, 0.58) * 0.25px),
+      1.6px
+    );
+    --glass-v3-navigation-filter: blur(var(--glass-v3-navigation-blur)) saturate(118%)
+      brightness(var(--glass-transmission-brightness, 1));
+    --glass-v3-card-background:
+      linear-gradient(128deg, rgba(255, 255, 255, var(--glass-v3-sheen)), transparent 38%),
+      linear-gradient(
+        135deg,
+        rgba(var(--glass-material-accent-rgb, var(--v-theme-primary)), var(--glass-v3-card-tint)),
+        rgba(var(--glass-material-accent-rgb, var(--v-theme-primary)), calc(var(--glass-v3-card-tint) * 0.35))
+      ),
+      linear-gradient(
+        180deg,
+        rgba(var(--glass-v3-ink), var(--glass-v3-fill)),
+        rgba(var(--glass-v3-ink), calc(var(--glass-v3-fill) + 0.055))
+      );
+
+    &[data-glass-appearance='tinted'] {
+      --glass-v3-card-tint: clamp(0.025, calc(var(--glass-tint-density, 0.65) * 0.13), 0.15);
+    }
+
+    &[data-glass-appearance='frosted'] {
+      --glass-v3-ink: 243, 246, 249;
+      --glass-v3-fill: clamp(0.08, calc(0.065 + var(--glass-surface-density, 0.86) * 0.11), 0.21);
+      --glass-v3-sheen: clamp(0.08, calc(0.07 + var(--glass-reflection, 0.35) * 0.22), 0.24);
+      --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    body[data-theme='glass'] {
+      // 已有业务类是语义材料的适配入口；海报整图、内部图表和菜单不承载第二层卡片材料。
+      .layout-page-content
+        .v-card:not(
+          .v-card .v-card,
+          .no-blur,
+          .media-card,
+          .playing-card,
+          .bg-primary,
+          .bg-success,
+          .bg-info,
+          .bg-warning,
+          .bg-error
+        ),
+      .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card),
+      .dashboard-grid-content-measure > .v-card,
+      .dashboard-grid-content-measure > :first-child > .v-card {
+        border-radius: var(--app-theme-surface-radius, 20px) !important;
+        background: var(--glass-v3-card-background) !important;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, var(--glass-v3-rim)),
+          inset 1px 0 0 rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.6)),
+          inset -1px -2px 2px rgba(0, 0, 0, 0.16),
+          inset 0 0 0 1px rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.25)),
+          var(--glass-v3-shadow) !important;
+      }
+
+      .layout-page-content
+        .v-card:not(
+          .v-card .v-card,
+          .no-blur,
+          .media-card,
+          .playing-card,
+          .bg-primary,
+          .bg-success,
+          .bg-info,
+          .bg-warning,
+          .bg-error
+        ):focus-within,
+      .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card):focus-within,
+      .dashboard-grid-content-measure > .v-card:focus-within {
+        outline: 2px solid rgba(var(--v-theme-primary), 0.65);
+        outline-offset: 2px;
+      }
+
+      .dashboard-grid-content-measure > .v-card :is(h4, h5, h6),
+      .site-card .font-semibold,
+      .downloading-card__metrics strong {
+        font-variant-numeric: tabular-nums;
+      }
+
+      // 列表和图表内部使用平面分组，不叠加同一强度的高光、边框或阴影。
+      .dashboard-grid-content-measure > .v-card .v-list {
+        background: transparent !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
+      .layout-page-content .site-card > .v-sheet {
+        background: rgba(var(--glass-v3-ink), 0.1) !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-inline-start: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .layout-page-content .site-card .border-t .text-medium-emphasis {
+        // 上传/下载是核心读数，信息权重高于网址和能力标识。
+        color: rgb(var(--v-theme-on-surface)) !important;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .layout-page-content .site-card h3,
+      .layout-page-content .plugin-card__banner .v-card-title {
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
+      .layout-page-content .plugin-card__banner {
+        --plugin-card-banner-scrim: linear-gradient(rgba(23, 27, 32, 0.035), rgba(23, 27, 32, 0.1));
+        --plugin-card-banner-tint: linear-gradient(
+          125deg,
+          rgba(var(--plugin-card-effective-accent-rgb), 0.16),
+          rgba(var(--plugin-card-effective-accent-rgb), 0.045) 70%
+        );
+
+        border-block-end: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .layout-page-content .plugin-card__banner .text-shadow {
+        text-shadow: none;
+      }
+
+      .layout-page-content .plugin-card__plugin-icon {
+        border-radius: var(--app-control-radius, 14px);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.25),
+          0 5px 12px rgba(0, 0, 0, 0.12);
+      }
+
+      .layout-page-content .media-card > .v-card-text {
+        // 电影画面仍可检查，文字所在的下半区才承担阅读吸收。
+        background: linear-gradient(
+          180deg,
+          rgba(23, 27, 32, 0.04),
+          rgba(23, 27, 32, 0.64) 52%,
+          rgba(23, 27, 32, 0.92)
+        ) !important;
+      }
+    }
+  }
+
+  // 固定导航保留布局占位，玻璃实体在占位内留出空气，采样几何仍由真实元素提供。
+  html[data-theme='glass']
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode='desktop']:not(
+      .layout-horizontal-nav-active,
+      .layout-window-controls-overlay-shell
+    ) {
+    --glass-v3-nav-reserved-width: #{variables.$layout-vertical-nav-width};
+
+    &.layout-vertical-nav-collapsed {
+      --glass-v3-nav-reserved-width: #{variables.$layout-vertical-nav-collapsed-width};
+    }
+
+    .layout-vertical-nav {
+      border-radius: 16px;
+      box-shadow: var(--glass-v3-shadow) !important;
+      block-size: calc(100% - 16px);
+      inline-size: calc(var(--glass-v3-nav-reserved-width) - 8px) !important;
+      inset-block-start: 8px;
+      inset-inline-start: 8px;
+      overflow: clip;
+    }
+
+    &.layout-vertical-nav-collapsed .layout-vertical-nav.hovered {
+      inline-size: calc(#{variables.$layout-vertical-nav-width} - 8px) !important;
+    }
+
+    .layout-navbar {
+      border-radius: 16px !important;
+      inline-size: calc(100% - var(--glass-v3-nav-reserved-width) - 16px) !important;
+      inset-block-start: 8px !important;
+      inset-inline-start: calc(var(--glass-v3-nav-reserved-width) + 8px) !important;
+      overflow: clip;
+    }
+  }
+
+  @media (hover: hover) {
+    html[data-theme='glass'] body[data-theme='glass'] {
+      .layout-page-content
+        .v-card:not(
+          .v-card .v-card,
+          .no-blur,
+          .media-card,
+          .playing-card,
+          .bg-primary,
+          .bg-success,
+          .bg-info,
+          .bg-warning,
+          .bg-error
+        ):hover,
+      .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card):hover,
+      .dashboard-grid-content-measure > .v-card:hover,
+      .dashboard-grid-content-measure > :first-child > .v-card:hover {
+        --glass-v3-rim: clamp(0.2, calc(0.22 + var(--glass-reflection, 0.38) * 0.36), 0.54);
+        --glass-v3-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+      }
+    }
+  }
+
+  // 固定导航与已认可水平透镜使用同族材料；真实折射留在单个背景承载层。
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active) {
+    .layout-navbar {
+      --glass-navbar-live-filter: var(--glass-v3-navigation-filter);
+
+      transform: none !important;
+      background: var(--glass-v3-card-background) !important;
+      backdrop-filter: var(--glass-navbar-live-filter) !important;
+      -webkit-backdrop-filter: var(--glass-navbar-live-filter) !important;
+      box-shadow:
+        inset 0 -1px 0 rgba(255, 255, 255, var(--glass-v3-rim)),
+        0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .layout-vertical-nav::before {
+      border-inline-end: 0;
+      background: var(--glass-v3-card-background) !important;
+      box-shadow:
+        inset -1px 0 0 rgba(255, 255, 255, var(--glass-v3-rim)),
+        inset -3px 0 4px rgba(255, 255, 255, 0.035),
+        8px 0 24px rgba(0, 0, 0, 0.08) !important;
+    }
+  }
+
+  @each $quality, $filter in ('balanced': 'balanced', 'high': 'high') {
+    html[data-theme='glass'][data-glass-quality='#{$quality}']:is(
+        [data-glass-appearance='clear'],
+        [data-glass-appearance='tinted']
+      )
+      body[data-theme='glass']
+      .layout-wrapper[data-shell-mode='desktop'][data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true']:not(
+        .layout-horizontal-nav-active
+      )
+      .layout-navbar {
+      --glass-navbar-live-filter: url('#glass-navbar-live-refraction-#{$filter}') var(--glass-v3-navigation-filter);
+    }
+  }
+
+  // 稳定背板已承担背景吸收，侧栏用明亮散射层呈现厚度，避免再覆盖一层深色渐变。
+  html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass'] {
+    .layout-wrapper[data-shell-mode='desktop'] .layout-vertical-nav::before {
+      background: var(--glass-v3-card-background) !important;
+      box-shadow:
+        inset -1px 0 0 rgba(255, 255, 255, 0.32),
+        8px 0 24px rgba(0, 0, 0, 0.07) !important;
+    }
+  }
+
+  // 圆角在脱离边缘的首帧采用最终值，真实inset或transform继续使用同一150ms运动节奏。
+  html[data-theme='glass']:is(
+      [data-glass-appearance='clear'],
+      [data-glass-appearance='tinted'],
+      [data-glass-appearance='frosted']
+    )
+    body[data-theme='glass']
+    .layout-wrapper.layout-navbar-floating-eligible {
+    .layout-navbar,
+    .navbar-content-container {
+      transition-property:
+        transform, background-color, box-shadow, opacity, inset-block-start, inset-inline-start, inset-inline-end !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html[data-theme='glass'] body[data-theme='glass'] .layout-wrapper.layout-navbar-floating-eligible {
+      .layout-navbar,
+      .navbar-content-container {
+        transition-duration: 0s !important;
+      }
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    html[data-theme='glass'] {
+      --glass-v3-navigation-filter: none !important;
+      --glass-v3-card-background: linear-gradient(rgb(31, 34, 39), rgb(31, 34, 39)) !important;
+    }
+
+    html[data-theme='glass'] body[data-theme='glass'] {
+      .layout-wrapper[data-shell-mode='desktop'] .layout-navbar,
+      .layout-wrapper[data-shell-mode='desktop'] .layout-vertical-nav::before,
+      .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card),
+      .dashboard-grid-content-measure > .v-card,
+      .dashboard-grid-content-measure > :first-child > .v-card {
+        background: rgb(31, 34, 39) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+    }
+  }
+}

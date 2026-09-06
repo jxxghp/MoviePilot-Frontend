@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import type { GlassFixedShellBackplateLayer } from '@/composables/useGlassFixedShellBackplate'
 
 interface Props {
@@ -12,17 +13,292 @@ interface Props {
   transitionDurationMs: number
 }
 
+/** 共用稳定壁纸背板、但拥有独立外轮廓的导航表面。 */
+type GeometrySurface = 'sidebar' | 'navbar'
+
+/** SVG objectBoundingBox 坐标，分别以背板的实际宽和高归一化。 */
+interface NormalizedClipRect {
+  /** 可见高度占背板高度的比例。 */
+  height: number
+  /** 水平方向圆角半径占背板宽度的比例。 */
+  rx: number
+  /** 垂直方向圆角半径占背板高度的比例。 */
+  ry: number
+  /** 可见宽度占背板宽度的比例。 */
+  width: number
+  /** 相对背板左边缘的位置。 */
+  x: number
+  /** 相对背板上边缘的位置。 */
+  y: number
+}
+
+/** 背板实际CSS像素边界，不使用可能包含滚动条的window.innerWidth。 */
+interface BackplateBounds {
+  /** 真实高度。 */
+  height: number
+  /** 实际左侧视口坐标。 */
+  left: number
+  /** 实际顶部视口坐标。 */
+  top: number
+  /** 排除滚动条后的实际宽度。 */
+  width: number
+}
+
+const GEOMETRY_SURFACES: readonly GeometrySurface[] = ['sidebar', 'navbar']
+const GEOMETRY_ATTRIBUTE_FILTER = [
+  'class',
+  'data-glass-appearance',
+  'data-glass-quality',
+  'data-shell-display-environment',
+  'data-shell-mode',
+  'data-shell-navbar-attachment',
+  'data-theme',
+  'style',
+]
+
 const props = defineProps<Props>()
+const mainBackplateRef = ref<HTMLElement | null>(null)
+const clipRects = ref<NormalizedClipRect[]>([])
+const clipPathId = `glass-fixed-shell-clip-${useId().replace(/[^a-zA-Z0-9_-]/gu, '-')}`
 const transitionStyle = computed(() => ({
   '--glass-fixed-shell-transition-duration': `${Math.max(0, props.transitionDurationMs)}ms`,
 }))
+const mainBackplateStyle = computed(() => ({
+  ...transitionStyle.value,
+  clipPath: clipRects.value.length === GEOMETRY_SURFACES.length ? `url(#${clipPathId})` : undefined,
+}))
+
+const observedElements: Record<GeometrySurface, HTMLElement | null> = {
+  navbar: null,
+  sidebar: null,
+}
+const transitionHandlers: Record<GeometrySurface, EventListener | null> = {
+  navbar: null,
+  sidebar: null,
+}
+
+let isMounted = false
+let observedShell: HTMLElement | null = null
+let resizeObserver: ResizeObserver | null = null
+let stateObserver: MutationObserver | null = null
+let geometrySyncQueued = false
+let usesResizeFallback = false
+let lastGeometryKey = ''
+
+function getLayoutShell() {
+  return mainBackplateRef.value?.closest('.layout-wrapper') as HTMLElement | null
+}
+
+/** 仅为桌面连接式导航启用几何裁剪，其他壳层继续使用主题原有 CSS 裁剪。 */
+function isConnectedDesktopShell(shell: HTMLElement) {
+  return (
+    document.documentElement.dataset.theme === 'glass' &&
+    !props.isOverlayNav &&
+    shell.dataset.shellMode === 'desktop' &&
+    shell.dataset.shellNavbarAttachment === 'connected' &&
+    !shell.classList.contains('layout-horizontal-nav-active') &&
+    !shell.classList.contains('layout-overlay-nav') &&
+    !shell.classList.contains('layout-app-shell') &&
+    !shell.classList.contains('layout-window-controls-overlay-shell')
+  )
+}
+
+function readBackplateBounds(): BackplateBounds | null {
+  const backplate = mainBackplateRef.value
+  if (!backplate) return null
+
+  const bounds = backplate.getBoundingClientRect()
+  const width = Number.isFinite(bounds.width) ? Math.max(0, bounds.width) : 0
+  const height = Number.isFinite(bounds.height) ? Math.max(0, bounds.height) : 0
+  if (width <= 0 || height <= 0) return null
+
+  return {
+    height,
+    left: Number.isFinite(bounds.left) ? bounds.left : 0,
+    top: Number.isFinite(bounds.top) ? bounds.top : 0,
+    width,
+  }
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum)
+}
+
+/** 固定导航四角共用等半径；读取计算后的像素值与CSS轮廓保持一致。 */
+function readComputedRadius(element: HTMLElement) {
+  const radius = Number.parseFloat(window.getComputedStyle(element).borderTopLeftRadius)
+  return Number.isFinite(radius) ? Math.max(0, radius) : 0
+}
+
+function readNormalizedClipRect(element: HTMLElement, backplate: BackplateBounds) {
+  const bounds = element.getBoundingClientRect()
+  const left = Number.isFinite(bounds.left) ? bounds.left : 0
+  const top = Number.isFinite(bounds.top) ? bounds.top : 0
+  const width = Number.isFinite(bounds.width) ? Math.max(0, bounds.width) : 0
+  const height = Number.isFinite(bounds.height) ? Math.max(0, bounds.height) : 0
+  const right = Number.isFinite(bounds.right) ? bounds.right : left + width
+  const bottom = Number.isFinite(bounds.bottom) ? bounds.bottom : top + height
+  const visibleLeft = clamp(Math.min(left, right) - backplate.left, 0, backplate.width)
+  const visibleTop = clamp(Math.min(top, bottom) - backplate.top, 0, backplate.height)
+  const visibleRight = clamp(Math.max(left, right) - backplate.left, 0, backplate.width)
+  const visibleBottom = clamp(Math.max(top, bottom) - backplate.top, 0, backplate.height)
+  const visibleWidth = visibleRight - visibleLeft
+  const visibleHeight = visibleBottom - visibleTop
+
+  if (visibleWidth <= 0 || visibleHeight <= 0) return null
+
+  const radius = readComputedRadius(element)
+  const normalizedWidth = visibleWidth / backplate.width
+  const normalizedHeight = visibleHeight / backplate.height
+
+  return {
+    height: normalizedHeight,
+    rx: clamp(radius / backplate.width, 0, normalizedWidth / 2),
+    ry: clamp(radius / backplate.height, 0, normalizedHeight / 2),
+    width: normalizedWidth,
+    x: visibleLeft / backplate.width,
+    y: visibleTop / backplate.height,
+  } satisfies NormalizedClipRect
+}
+
+function bindGeometrySurface(surface: GeometrySurface, element: HTMLElement | null) {
+  const previousElement = observedElements[surface]
+  if (previousElement === element) return
+
+  if (resizeObserver && previousElement) resizeObserver.unobserve(previousElement)
+  const previousHandler = transitionHandlers[surface]
+  if (previousElement && previousHandler) {
+    previousElement.removeEventListener('transitionrun', previousHandler)
+    previousElement.removeEventListener('transitionend', previousHandler)
+    previousElement.removeEventListener('transitioncancel', previousHandler)
+  }
+
+  observedElements[surface] = element
+  transitionHandlers[surface] = null
+  if (!element) return
+
+  resizeObserver?.observe(element)
+  const transitionHandler: EventListener = () => scheduleGeometrySync()
+  transitionHandlers[surface] = transitionHandler
+  element.addEventListener('transitionrun', transitionHandler)
+  element.addEventListener('transitionend', transitionHandler)
+  element.addEventListener('transitioncancel', transitionHandler)
+}
+
+function observeStateSources() {
+  if (!stateObserver) return
+
+  stateObserver.disconnect()
+  stateObserver.observe(document.documentElement, {
+    attributeFilter: GEOMETRY_ATTRIBUTE_FILTER,
+    attributes: true,
+  })
+  if (document.body) {
+    stateObserver.observe(document.body, {
+      attributeFilter: GEOMETRY_ATTRIBUTE_FILTER,
+      attributes: true,
+    })
+  }
+  if (observedShell) {
+    stateObserver.observe(observedShell, {
+      attributeFilter: GEOMETRY_ATTRIBUTE_FILTER,
+      attributes: true,
+    })
+  }
+}
+
+function refreshObservedElements() {
+  const shell = getLayoutShell()
+  if (shell !== observedShell) {
+    observedShell = shell
+    observeStateSources()
+  }
+
+  bindGeometrySurface('sidebar', shell?.querySelector<HTMLElement>('.layout-vertical-nav:not(.overlay-nav)') ?? null)
+  bindGeometrySurface('navbar', shell?.querySelector<HTMLElement>('.layout-navbar') ?? null)
+}
+
+function applyGeometry(nextRects: NormalizedClipRect[]) {
+  const nextKey = JSON.stringify(nextRects)
+  if (nextKey === lastGeometryKey) return
+
+  lastGeometryKey = nextKey
+  clipRects.value = nextRects
+}
+
+function syncGeometry() {
+  if (!isMounted) return
+
+  refreshObservedElements()
+  const shell = observedShell
+  const backplate = readBackplateBounds()
+  const sidebar = observedElements.sidebar
+  const navbar = observedElements.navbar
+
+  if (!shell || !backplate || !isConnectedDesktopShell(shell) || !sidebar || !navbar) {
+    applyGeometry([])
+    return
+  }
+
+  const nextRects = GEOMETRY_SURFACES.map(surface =>
+    readNormalizedClipRect(observedElements[surface] as HTMLElement, backplate),
+  )
+  if (nextRects.some(rect => rect === null)) {
+    applyGeometry([])
+    return
+  }
+
+  applyGeometry(nextRects as NormalizedClipRect[])
+}
+
+function scheduleGeometrySync() {
+  if (geometrySyncQueued) return
+
+  geometrySyncQueued = true
+  queueMicrotask(() => {
+    geometrySyncQueued = false
+    syncGeometry()
+  })
+}
+
+watch(() => props.isOverlayNav, scheduleGeometrySync, { flush: 'sync' })
+
+onMounted(() => {
+  isMounted = true
+  stateObserver = new MutationObserver(scheduleGeometrySync)
+  resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => scheduleGeometrySync())
+  usesResizeFallback = resizeObserver === null
+  if (usesResizeFallback) window.addEventListener('resize', scheduleGeometrySync, { passive: true })
+  else if (mainBackplateRef.value) resizeObserver?.observe(mainBackplateRef.value)
+
+  refreshObservedElements()
+  observeStateSources()
+  syncGeometry()
+  void nextTick(syncGeometry)
+})
+
+onBeforeUnmount(() => {
+  isMounted = false
+  stateObserver?.disconnect()
+  stateObserver = null
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  if (usesResizeFallback) window.removeEventListener('resize', scheduleGeometrySync)
+  usesResizeFallback = false
+
+  for (const surface of GEOMETRY_SURFACES) bindGeometrySurface(surface, null)
+  observedShell = null
+  geometrySyncQueued = false
+  lastGeometryKey = ''
+})
 </script>
 
 <template>
   <div
+    ref="mainBackplateRef"
     class="glass-fixed-shell-backplate glass-fixed-shell-backplate--main"
     data-backplate-surface="main"
-    :style="transitionStyle"
+    :style="mainBackplateStyle"
     aria-hidden="true"
   >
     <div
@@ -45,6 +321,24 @@ const transitionStyle = computed(() => ({
       </div>
     </div>
   </div>
+
+  <svg class="glass-fixed-shell-backplate__geometry" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <clipPath :id="clipPathId" clipPathUnits="objectBoundingBox">
+        <rect
+          v-for="(rect, index) in clipRects"
+          :key="GEOMETRY_SURFACES[index]"
+          :data-clip-surface="GEOMETRY_SURFACES[index]"
+          :height="rect.height"
+          :rx="rect.rx"
+          :ry="rect.ry"
+          :width="rect.width"
+          :x="rect.x"
+          :y="rect.y"
+        />
+      </clipPath>
+    </defs>
+  </svg>
 
   <div
     v-if="isOverlayNav"
@@ -86,6 +380,12 @@ const transitionStyle = computed(() => ({
   contain: strict;
   inset: 0;
   isolation: isolate;
+  pointer-events: none;
+}
+
+.glass-fixed-shell-backplate__geometry {
+  position: fixed;
+  overflow: hidden;
   pointer-events: none;
 }
 

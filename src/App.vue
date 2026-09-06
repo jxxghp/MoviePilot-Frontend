@@ -286,7 +286,20 @@ const shouldRenderGlassOpticalLayer = computed(
     isInitialRouteReady.value &&
     Boolean(activeBackgroundImage.value),
 )
-const GlassOpticalLayer = defineAsyncComponent(() => import('@/components/theme/GlassOpticalLayer.vue'))
+const loadGlassOpticalLayer = () => import('@/components/theme/GlassOpticalLayer.vue')
+const GlassOpticalLayer = defineAsyncComponent(loadGlassOpticalLayer)
+
+// 模块下载与壁纸准备并行；实际挂载仍等待路由和壁纸，CSS 档不请求光学组件。
+watch(
+  () => isGlassTheme.value && opticalQuality.value !== 'css',
+  enabled => {
+    if (!enabled) return
+    void loadGlassOpticalLayer().catch(error => {
+      console.warn('[Glass] Optical component preload failed', error)
+    })
+  },
+  { immediate: true },
+)
 const transparentBackgroundBlur = ref(16)
 const transparencyGlassQuality = ref<TransparencyGlassQuality>(
   localStorage.getItem('transparency-glass-quality') === 'realtime' ? 'realtime' : 'lightweight',
@@ -864,13 +877,15 @@ async function removeLoadingWithStateCheck() {
     globalLoadingStateManager.setLoadingState('pwa-state', true)
 
     // 静默检查PWA状态恢复，但不能让恢复异常或慢请求挡住应用外壳。
-    const pwaController = (window as any).pwaStateController
+    const pwaController = (
+      window as Window & {
+        /** 宿主可选的状态恢复钩子；启动预算到期后不阻塞外壳。 */
+        pwaStateController?: { waitForStateRestore?: () => unknown }
+      }
+    ).pwaStateController
     if (pwaController?.waitForStateRestore) {
-      await waitForLaunchTask(
-        Promise.resolve().then(() => pwaController.waitForStateRestore()),
-        getRemainingLaunchBudget(),
-        'PWA state restore',
-      )
+      const restoreState = pwaController.waitForStateRestore.bind(pwaController)
+      await waitForLaunchTask(Promise.resolve().then(restoreState), getRemainingLaunchBudget(), 'PWA state restore')
     }
     globalLoadingStateManager.setLoadingState('pwa-state', false)
 
@@ -893,7 +908,7 @@ async function removeLoadingWithStateCheck() {
       checkAndEmitUnreadMessages()
     }
   } catch (error) {
-    // 即使出错也要移除加载界面
+    console.warn('[Launch] State checks failed; revealing the application shell', error)
     globalLoadingStateManager.reset()
     await animateAndRemoveLoader()
   }
@@ -927,9 +942,12 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
     resetBackgroundCrossfade()
     recordGlassLaunchTiming('wallpaper-committed', activeBackgroundImage.value)
     startBackgroundRotation()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (loadVersion !== backgroundLoadVersion) return
-    const isAbortError = error.name === 'AbortError' || error.code === 'ERR_CANCELED'
+    const isAbortError =
+      typeof error === 'object' &&
+      error !== null &&
+      (('name' in error && error.name === 'AbortError') || ('code' in error && error.code === 'ERR_CANCELED'))
     if (retryCount < maxRetries) {
       const baseDelay = isAbortError ? 1000 : 3000
       const retryDelay = Math.min(baseDelay * Math.pow(2, retryCount), 10000)

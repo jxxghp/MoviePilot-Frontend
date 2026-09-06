@@ -2,6 +2,7 @@
 import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
 import GlassFixedShellBackplate from '@/components/theme/GlassFixedShellBackplate.vue'
+import GlassNavbarRefractionDefs from '@/components/theme/GlassNavbarRefractionDefs.vue'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
@@ -11,6 +12,7 @@ import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBac
 import { usePWA } from '@/composables/usePWA'
 import { useShellScrollState } from '@/composables/useShellScrollState'
 import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
+import { supportsGlassNavbarLiveRefraction } from '@/utils/glassNavbarRefraction'
 
 const FLOATING_NAVBAR_INSET_PX = 16
 
@@ -26,7 +28,10 @@ export default defineComponent({
     // App Dock 通过 Teleport 挂载到 body，不参与内容流；将实际高度交给布局用于末尾避让。
     const { footerDockHeight } = useFooterDockHeight()
     const fixedShellBackplate = useGlassFixedShellBackplate()
-    const themeLayout = ref(readThemeCustomizerSettings().layout)
+    const navbarRefractionMode = supportsGlassNavbarLiveRefraction() ? 'chromium' : 'goal1'
+    const initialThemeSettings = readThemeCustomizerSettings()
+    const themeLayout = ref(initialThemeSettings.layout)
+    const shellTheme = ref(initialThemeSettings.theme)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
     const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
@@ -57,9 +62,22 @@ export default defineComponent({
     const isDialogOpen = ref(false)
     let dialogObserver: MutationObserver | null = null
     const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
+    const isGlassFloatingAway = ref(false)
+
+    // 桌面脱离窗口边缘是材质状态；复用滚动坐标，但不等待移动App的64px收起阈值。
+    watch(
+      () => [shellScroll.scrollY.value, isFloatingNavbarEligible.value, shellTheme.value] as const,
+      ([scrollY, eligible, theme]) => {
+        if (!eligible || theme !== 'glass' || scrollY <= 4) isGlassFloatingAway.value = false
+        else if (scrollY >= 12) isGlassFloatingAway.value = true
+      },
+      { immediate: true },
+    )
 
     const handleThemeCustomizerChange = (event: Event) => {
-      themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
+      const settings = (event as CustomEvent<ThemeCustomizerSettings>).detail
+      themeLayout.value = settings.layout
+      shellTheme.value = settings.theme
     }
 
     // 监听弹窗状态变化
@@ -149,7 +167,10 @@ export default defineComponent({
 
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
-      const isNavbarAwayFromTop = shellScroll.state.value !== 'expanded'
+      const isNavbarAwayFromTop =
+        isFloatingNavbarEligible.value && shellTheme.value === 'glass'
+          ? isGlassFloatingAway.value
+          : shellScroll.state.value !== 'expanded'
       // compact/revealed 是 App 上下文顶栏的呈现状态；其他 Shell 只消费 away-from-top 材质状态。
       const isNavbarCompact = appMode.value && shellScroll.state.value === 'compact'
       const isNavbarRevealed = appMode.value && shellScroll.state.value === 'revealed'
@@ -208,6 +229,8 @@ export default defineComponent({
               ? 'theme-qualified'
               : 'connected',
           'data-shell-scroll-direction': shellScroll.direction.value,
+          'data-glass-navigation-refraction': navbarRefractionMode,
+          'data-glass-navbar-refraction': navbarRefractionMode,
           style: {
             '--layout-footer-dock-height': `${footerDockHeight.value ?? 0}px`,
             '--shell-floating-navbar-scale-x': floatingNavbarScale.value,
@@ -215,6 +238,7 @@ export default defineComponent({
           },
         },
         [
+          navbarRefractionMode === 'chromium' ? h(GlassNavbarRefractionDefs) : null,
           fixedShellBackplateNode,
           verticalNav,
           h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]),

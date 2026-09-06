@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   isStandaloneMode: false,
   isWindowControlsOverlayMode: false,
   mdAndDown: false,
+  navbarRefractionSupported: false,
+  scrollY: 0,
   revision: undefined as { value: number } | undefined,
   state: 'expanded' as 'expanded' | 'compact' | 'revealed',
 }))
@@ -24,6 +26,10 @@ vi.mock('@/composables/useShellScrollState', async () => {
     useShellScrollState: () => ({
       direction: computed(() => mocks.direction),
       state: computed(() => mocks.state),
+      scrollY: computed(() => {
+        void mocks.revision!.value
+        return mocks.scrollY
+      }),
     }),
   }
 })
@@ -85,6 +91,10 @@ vi.mock('@/composables/useGlassFixedShellBackplate', async () => {
   }
 })
 
+vi.mock('@/utils/glassNavbarRefraction', () => ({
+  supportsGlassNavbarLiveRefraction: () => mocks.navbarRefractionSupported,
+}))
+
 vi.mock('@/composables/useThemeCustomizer', () => ({
   readThemeCustomizerSettings: () => ({ layout: 'vertical' }),
   THEME_CUSTOMIZER_CHANGE_EVENT: 'moviepilot:theme-customizer-change',
@@ -92,6 +102,10 @@ vi.mock('@/composables/useThemeCustomizer', () => ({
 
 vi.mock('@/components/theme/GlassFixedShellBackplate.vue', () => ({
   default: { template: '<div data-testid="fixed-shell-backplate" />' },
+}))
+
+vi.mock('@/components/theme/GlassNavbarRefractionDefs.vue', () => ({
+  default: { template: '<svg data-testid="navbar-refraction-defs" />' },
 }))
 
 vi.mock('@layouts/components/VerticalNav.vue', () => ({
@@ -143,6 +157,8 @@ describe('VerticalNavLayout shell states', () => {
     mocks.isStandaloneMode = false
     mocks.isWindowControlsOverlayMode = false
     mocks.mdAndDown = false
+    mocks.navbarRefractionSupported = false
+    mocks.scrollY = 0
     mocks.state = 'expanded'
   })
 
@@ -175,6 +191,20 @@ describe('VerticalNavLayout shell states', () => {
     expect(revealedRoot.classes()).not.toContain('layout-navbar-compact')
     expect(revealedRoot.classes()).not.toContain('layout-navbar-revealed')
     expect(revealedWrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('revealed')
+  })
+
+  it('mounts live backdrop definitions only for the verified Chromium path', () => {
+    const goal1Wrapper = mountLayout()
+
+    expect(goal1Wrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('goal1')
+    expect(goal1Wrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(false)
+    goal1Wrapper.unmount()
+
+    mocks.navbarRefractionSupported = true
+    const chromiumWrapper = mountLayout()
+
+    expect(chromiumWrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('chromium')
+    expect(chromiumWrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(true)
   })
 
   it('keeps the footer contract stable across App and drawer shells', async () => {
@@ -356,6 +386,26 @@ describe('VerticalNavLayout shell states', () => {
     )
     expect(appRoot.classes()).not.toContain('layout-standalone-pwa-shell')
     expect(appWrapper.get('.layout-navbar').attributes()).toHaveProperty('inert')
+  })
+
+  it('responds to glass floating early with hysteresis without compacting App controls', async () => {
+    const wrapper = mountLayout()
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal', theme: 'glass' } }),
+    )
+    await nextTick()
+    const root = wrapper.get('.layout-wrapper')
+    mocks.scrollY = 12
+    await refreshShell()
+    expect(root.classes()).toContain('layout-navbar-away-from-top')
+    expect(wrapper.get('.layout-navbar').attributes('data-shell-navbar-state')).toBe('expanded')
+    mocks.scrollY = 8
+    await refreshShell()
+    expect(root.classes()).toContain('layout-navbar-away-from-top')
+    mocks.scrollY = 4
+    await refreshShell()
+    expect(root.classes()).not.toContain('layout-navbar-away-from-top')
+    wrapper.unmount()
   })
 
   it('exposes floating eligibility only for an ordinary desktop horizontal environment', async () => {

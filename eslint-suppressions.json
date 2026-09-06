@@ -47,17 +47,6 @@
       "count": 3
     }
   },
-  "src/App.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 1
-    }
-  },
   "src/ace-config.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 24
