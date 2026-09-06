@@ -16,8 +16,8 @@ export interface GlassNavbarRefractionBrowserIdentity {
 }
 
 export interface GlassNavbarDisplacementGeometry {
-  /** 侧栏使用四边等向的窄透镜；省略时保留顶栏的横向阅读保护方案。 */
-  surface?: 'navbar' | 'sidebar'
+  /** 顶栏保护字形高度；侧栏使用窄边透镜；大面板沿长边展开光学过渡。 */
+  surface?: 'navbar' | 'sidebar' | 'panel'
   /** 折射表面的实际 CSS 像素高度。 */
   height: number
   /** 最终可见外轮廓的圆角半径。 */
@@ -65,10 +65,22 @@ export function getGlassNavbarOpticalResponse(
 export interface GlassNavbarDisplacementField {
   /** 位移图的 CSS 像素高度。 */
   height: number
-  /** 按 RGBA 顺序存储的非预乘像素通道。 */
+  /** 非预乘 RGBA；R/B 为位移，panel 的 G 为中心散射权重，其余模式保持中性 G。 */
   pixels: Uint8ClampedArray
   /** 位移图的 CSS 像素宽度。 */
   width: number
+}
+
+/** 稳定背板内各玻璃表面的局部坐标，按绘制顺序处理重叠区域。 */
+export interface GlassPanelBackdropGeometry {
+  /** 背板的 CSS 像素宽度。 */
+  width: number
+  /** 背板的 CSS 像素高度。 */
+  height: number
+  /** 同一背板内、均匀圆角的导航轮廓。 */
+  panels: Array<{ x: number; y: number; width: number; height: number; radius: number }>
+  /** 背板各轮廓共用的有效光学参数。 */
+  optics: GlassNavbarOpticalResponse
 }
 
 export const NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP =
@@ -121,7 +133,7 @@ export function createGlassNavbarDisplacementField({
   radius,
   width,
   surface = 'navbar',
-  optics = surface === 'sidebar'
+  optics = surface !== 'navbar'
     ? getGlassSidebarOpticalResponse(getGlassOpticalPresetParameters('clear', 'high', 'natural'))
     : DEFAULT_NAVBAR_OPTICS,
 }: GlassNavbarDisplacementGeometry): GlassNavbarDisplacementField {
@@ -135,12 +147,14 @@ export function createGlassNavbarDisplacementField({
   const maximumBand =
     surface === 'sidebar'
       ? Math.min(12, pixelRadius || 12, Math.min(pixelWidth, pixelHeight) / 2)
-      : Math.min(REFRACTION_BAND_PX, radiusBand, Math.min(pixelWidth, pixelHeight) / 2)
+      : surface === 'panel'
+        ? Math.min(48, radiusBand * 2, Math.min(pixelWidth, pixelHeight) / 2)
+        : Math.min(REFRACTION_BAND_PX, radiusBand, Math.min(pixelWidth, pixelHeight) / 2)
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
 
   for (let offset = 0; offset < pixels.length; offset += 4) {
     pixels[offset] = DISPLACEMENT_NEUTRAL_CHANNEL
-    pixels[offset + 1] = DISPLACEMENT_NEUTRAL_CHANNEL
+    pixels[offset + 1] = surface === 'panel' ? 0 : DISPLACEMENT_NEUTRAL_CHANNEL
     pixels[offset + 2] = DISPLACEMENT_NEUTRAL_CHANNEL
     pixels[offset + 3] = 255
   }
@@ -169,13 +183,24 @@ export function createGlassNavbarDisplacementField({
       )
         continue
 
+      if (surface === 'panel') {
+        // 清亮边缘向散射中心连续过渡；合成时两路权重互补，避免透明度凹陷形成第二圈轮廓。
+        const diffusionProgress = Math.min(1, (distanceInside - outerGuard) / Math.min(4, bandWidth / 3))
+        pixels[(y * pixelWidth + x) * 4 + 1] = clampChannel(255 * smoothstep(diffusionProgress))
+      }
+
       // 横向平移从边缘透镜退出后进入，避免两种回落梯度叠加导致局部反向采样。
       const horizontalRamp = smoothstep(Math.max(0, Math.min(1, (edgeX - maximumBand) / 64)))
       const verticalRamp =
-        surface === 'sidebar'
+        surface !== 'navbar'
           ? smoothstep(Math.max(0, Math.min(1, (edgeY - maximumBand) / 64)))
           : smoothstep(Math.min(1, (edgeY - outerGuard) / Math.max(1, Math.min(12, maximumBand))))
       const translationChannel = (optics.translationPx * horizontalRamp * verticalRamp * 255) / HIGH_REFRACTION_SCALE_PX
+
+      if (surface === 'panel' && distanceInside >= bandWidth) {
+        pixels[(y * pixelWidth + x) * 4] = clampChannel(DISPLACEMENT_NEUTRAL_CHANNEL + translationChannel)
+        continue
+      }
 
       if (pixelRadius === 0) {
         // 矩形的四条直边分别取样，角点用叠加的轴向剖面保持连续，不伪造圆角法线。
@@ -198,7 +223,7 @@ export function createGlassNavbarDisplacementField({
       const profile = distanceInside < bandWidth ? refractionProfile(distanceInside, bandWidth, outerGuard) : 0
       const verticalProgress = Math.min(1, (distanceInside - outerGuard) / (bandWidth - outerGuard))
       // 侧栏的两轴必须共用同一深度剖面，圆角法线旋转时才不会变成扁平或椭圆透镜。
-      const verticalProfile = surface === 'sidebar' ? profile : Math.sin(Math.PI * verticalProgress) ** 2
+      const verticalProfile = surface !== 'navbar' ? profile : Math.sin(Math.PI * verticalProgress) ** 2
       const verticalAmplitude = (bandWidth * optics.verticalRatio * 255) / HIGH_REFRACTION_SCALE_PX
       const gradientX =
         roundedRectangleSignedDistance(sampleX + 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius) -
@@ -220,9 +245,7 @@ export function createGlassNavbarDisplacementField({
   return { height: pixelHeight, pixels, width: pixelWidth }
 }
 
-/** 把位移场栅格化为浏览器可直接加载的无损 PNG。 */
-export function createGlassNavbarDisplacementMap(geometry: GlassNavbarDisplacementGeometry) {
-  const field = createGlassNavbarDisplacementField(geometry)
+function encodeDisplacementField(field: GlassNavbarDisplacementField) {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
 
@@ -236,6 +259,44 @@ export function createGlassNavbarDisplacementMap(geometry: GlassNavbarDisplaceme
   context.putImageData(imageData, 0, 0)
 
   return canvas.toDataURL('image/png')
+}
+
+/** 把位移场栅格化为浏览器可直接加载的无损 PNG。 */
+export function createGlassNavbarDisplacementMap(geometry: GlassNavbarDisplacementGeometry) {
+  return encodeDisplacementField(createGlassNavbarDisplacementField(geometry))
+}
+
+/** 固定导航共用稳定壁纸输入，背板只在真实导航轮廓内进行局部折射。 */
+export function createGlassPanelBackdropField({ width, height, panels, optics }: GlassPanelBackdropGeometry) {
+  const pixelWidth = normalizePixelSize(width)
+  const pixelHeight = normalizePixelSize(height)
+  const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    pixels[offset] = DISPLACEMENT_NEUTRAL_CHANNEL
+    pixels[offset + 1] = 255
+    pixels[offset + 2] = DISPLACEMENT_NEUTRAL_CHANNEL
+    pixels[offset + 3] = 255
+  }
+  for (const panel of panels) {
+    const field = createGlassNavbarDisplacementField({ ...panel, optics, surface: 'panel' })
+    const left = Math.round(panel.x)
+    const top = Math.round(panel.y)
+    const radius = Math.max(0, Math.min(panel.radius, field.width / 2, field.height / 2))
+    for (let y = Math.max(0, -top); y < Math.min(field.height, pixelHeight - top); y += 1) {
+      for (let x = Math.max(0, -left); x < Math.min(field.width, pixelWidth - left); x += 1) {
+        if (roundedRectangleSignedDistance(x + 0.5, y + 0.5, field.width, field.height, radius) > 0) continue
+        const source = (y * field.width + x) * 4
+        const destination = ((top + y) * pixelWidth + left + x) * 4
+        pixels.set(field.pixels.subarray(source, source + 4), destination)
+      }
+    }
+  }
+  return { width: pixelWidth, height: pixelHeight, pixels }
+}
+
+/** 稳定背板与独立表面使用同一 PNG 编码与坐标精度。 */
+export function createGlassPanelBackdropMap(geometry: GlassPanelBackdropGeometry) {
+  return encodeDisplacementField(createGlassPanelBackdropField(geometry))
 }
 
 /** 仅在已验证 SVG backdrop 位移的 Chromium 引擎启用实时顶栏折射。 */

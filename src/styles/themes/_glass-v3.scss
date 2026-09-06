@@ -4,7 +4,7 @@
 @mixin surfaces {
   html[data-theme='glass'] {
     --glass-v3-ink: 23, 27, 32;
-    --glass-v3-fill: clamp(0.1, calc(0.08 + var(--glass-surface-density, 0.62) * 0.12), 0.22);
+    --glass-v3-fill: clamp(0.12, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2), 0.32);
     --glass-v3-rim: clamp(0.12, calc(0.16 + var(--glass-reflection, 0.38) * 0.28), 0.4);
     --glass-v3-sheen: clamp(0.04, calc(0.035 + var(--glass-reflection, 0.38) * 0.18), 0.2);
     --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
@@ -14,13 +14,7 @@
     --glass-v3-navigation-inset: 8px;
     --glass-v3-navigation-content-gap: 16px;
     --glass-v3-navigation-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-    --glass-v3-navigation-blur: clamp(
-      0.65px,
-      calc(0.9px + var(--glass-surface-density, 0.62) * 0.6px - var(--glass-background-visibility, 0.58) * 0.25px),
-      1.6px
-    );
-    --glass-v3-navigation-filter: blur(var(--glass-v3-navigation-blur)) saturate(118%)
-      brightness(var(--glass-transmission-brightness, 1));
+    --glass-v3-navigation-filter: saturate(118%) brightness(var(--glass-transmission-brightness, 1));
     --glass-v3-card-background:
       linear-gradient(128deg, rgba(255, 255, 255, var(--glass-v3-sheen)), transparent 38%),
       linear-gradient(
@@ -210,6 +204,36 @@
       overflow: clip;
     }
 
+    .layout-navbar[data-glass-panel-refraction] {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: var(--glass-v3-navigation-shadow) !important;
+
+      &::before {
+        position: absolute;
+        z-index: -1;
+        content: '';
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: var(--glass-v3-card-background);
+        box-shadow: var(--glass-v3-surface-edge);
+      }
+    }
+
+    // 外投影与背景采样分属两层，前景导航不进入滤镜，也不让投影扩张采样边界。
+    .layout-vertical-nav[data-glass-panel-refraction] {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+
+    .layout-vertical-nav[data-glass-panel-refraction]::before,
+    .layout-navbar[data-glass-panel-refraction]::before {
+      backdrop-filter: var(--glass-panel-filter) !important;
+      -webkit-backdrop-filter: var(--glass-panel-filter) !important;
+    }
+
     // 标签栏由内容层另行预留；这里只补主导航内缩和下方间距，避免标签高度重复占位。
     .layout-page-content {
       padding-block-start: calc(
@@ -249,7 +273,7 @@
   html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
     body[data-theme='glass']
     .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active) {
-    .layout-navbar {
+    .layout-navbar:not([data-glass-panel-refraction]) {
       --glass-navbar-live-filter: var(--glass-v3-navigation-filter);
 
       transform: none !important;
@@ -295,6 +319,25 @@
       .layout-navbar,
       .navbar-content-container {
         transition-duration: 0s !important;
+      }
+    }
+  }
+
+  // 清透材质以单条原生轮廓承接真实折射，不让多组柔光在圆角处形成分离的内外弧线。
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass'] {
+    .v-card {
+      --glass-v3-surface-edge: inset 0 1px 0 var(--glass-highlight);
+    }
+
+    .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active) .layout-navbar,
+    .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active) .layout-vertical-nav::before {
+      --glass-v3-surface-edge: inset 0 0 0 1px var(--glass-border-raised);
+    }
+
+    @media (hover: hover) {
+      .v-card:hover {
+        --glass-v3-surface-edge: inset 0 1px 0 var(--glass-border-hover);
       }
     }
   }

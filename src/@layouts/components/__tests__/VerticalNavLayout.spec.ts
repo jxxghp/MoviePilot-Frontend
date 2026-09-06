@@ -108,6 +108,10 @@ vi.mock('@/components/theme/GlassNavbarRefractionDefs.vue', () => ({
   default: { template: '<svg data-testid="navbar-refraction-defs" />' },
 }))
 
+vi.mock('@/components/theme/GlassPanelRefractionDefs.vue', () => ({
+  default: { template: '<svg data-testid="panel-refraction-defs" />' },
+}))
+
 vi.mock('@layouts/components/VerticalNav.vue', () => ({
   default: { template: '<aside data-testid="vertical-nav"><slot /></aside>' },
 }))
@@ -198,6 +202,7 @@ describe('VerticalNavLayout shell states', () => {
 
     expect(goal1Wrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('goal1')
     expect(goal1Wrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(false)
+    expect(goal1Wrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(false)
     goal1Wrapper.unmount()
 
     mocks.navbarRefractionSupported = true
@@ -205,6 +210,7 @@ describe('VerticalNavLayout shell states', () => {
 
     expect(chromiumWrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('chromium')
     expect(chromiumWrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(true)
+    expect(chromiumWrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(true)
   })
 
   it('keeps the footer contract stable across App and drawer shells', async () => {

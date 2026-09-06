@@ -153,7 +153,7 @@ function createRippleHarness(
   } as unknown as typeof import('three')
 
   return {
-    create: () =>
+    create: (overrides: Partial<Parameters<typeof createGlassRippleDynamics>[0]> = {}) =>
       createGlassRippleDynamics({
         camera: {} as never,
         geometry: {} as never,
@@ -162,6 +162,7 @@ function createRippleHarness(
         three,
         viewportHeight: 800,
         viewportWidth: 1200,
+        ...overrides,
       }),
     renderer,
     snapshots,
@@ -174,6 +175,50 @@ beforeEach(() => {
 })
 
 describe('glass ripple dynamics', () => {
+  it('waits for owner compilation before rendering the initial neutral field', async () => {
+    let finish: (() => void) | undefined
+    const compile = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          finish = resolve
+        }),
+    )
+    const harness = createRippleHarness()
+    const creation = harness.create({ compile, isCurrent: () => true })
+
+    expect(compile).toHaveBeenCalledOnce()
+    expect(harness.renderer.render).not.toHaveBeenCalled()
+
+    finish?.()
+    const dynamics = await creation
+
+    expect(harness.renderer.render).toHaveBeenCalledTimes(2)
+    expect(harness.snapshots.every(snapshot => snapshot.reset === 1)).toBe(true)
+    dynamics.dispose()
+  })
+
+  it('retains pending material until compilation finishes and skips superseded initialization', async () => {
+    let finish: (() => void) | undefined
+    let current = true
+    const compile = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          finish = resolve
+        }),
+    )
+    const harness = createRippleHarness()
+    const creation = harness.create({ compile, isCurrent: () => current })
+    const result = expect(creation).rejects.toThrow('superseded')
+    const initialRenders = harness.renderer.render.mock.calls.length
+    current = false
+    expect(FakeShaderMaterial.instances[0].dispose).not.toHaveBeenCalled()
+    finish?.()
+    await result
+    expect(FakeShaderMaterial.instances[0].dispose).toHaveBeenCalledOnce()
+    expect(harness.renderer.render).toHaveBeenCalledTimes(initialRenders)
+    expect(harness.renderer.compileAsync).not.toHaveBeenCalled()
+  })
+
   it('uses one bounded half-float ping-pong field when the renderer supports it', async () => {
     const harness = createRippleHarness()
     const dynamics = await harness.create()

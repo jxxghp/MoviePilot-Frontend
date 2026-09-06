@@ -49,8 +49,9 @@ describe('glass overlay material styles', () => {
   it('keeps overlays translucent enough for CSS backdrop compositing in every material', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
-    expect(styles).toContain('calc(0.1 + var(--glass-surface-density, 0.62) * 0.22)')
-    expect(styles.match(/--glass-overlay-blur:\s*var\(--glass-overlay-clarity-blur, 6px\)/g)).toHaveLength(2)
+    expect(styles).toContain('calc(0.58 + var(--glass-surface-density, 0.62) * 0.18)')
+    expect(styles).toContain('calc(0.58 + var(--glass-surface-density, 0.72) * 0.18)')
+    expect(styles.match(/--glass-overlay-blur:\s*0px/g)).toHaveLength(2)
     expect(styles).toContain('--glass-overlay-saturate: 115%')
     expect(styles).toContain('--glass-overlay-saturate: 120%')
     expect(styles).toContain('--glass-overlay-blur: min(var(--glass-blur-raised), 36px)')
@@ -282,10 +283,10 @@ describe('glass overlay material styles', () => {
       /\.layout-vertical-nav\s*\{[\s\S]*?&::before\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-sidebar-live-filter\);[\s\S]*?background-image:\s*var\(--glass-sheen\)/,
     )
     expect(styles).toMatch(
-      /\.layout-wrapper\[data-glass-navigation-refraction='chromium'\]\[data-glass-sidebar-refraction-ready='true'\][\s\S]*?\.layout-vertical-nav:not\(\.overlay-nav\)\s*\{[\s\S]*?url\('#glass-sidebar-live-refraction-high'\)/,
+      /\.layout-wrapper\[data-glass-navigation-refraction='chromium'\]\[data-glass-sidebar-refraction-ready='true'\][\s\S]*?\.layout-vertical-nav:not\(\.overlay-nav\):not\(\[data-glass-panel-refraction\]\)\s*\{[\s\S]*?url\('#glass-sidebar-live-refraction-high'\)/,
     )
     expect(styles).toMatch(
-      /\.layout-wrapper\[data-glass-navigation-refraction='chromium'\]\[data-glass-sidebar-refraction-ready='true'\][\s\S]*?\.layout-vertical-nav:not\(\.overlay-nav\)\s*\{[\s\S]*?url\('#glass-sidebar-live-refraction-balanced'\)/,
+      /\.layout-wrapper\[data-glass-navigation-refraction='chromium'\]\[data-glass-sidebar-refraction-ready='true'\][\s\S]*?\.layout-vertical-nav:not\(\.overlay-nav\):not\(\[data-glass-panel-refraction\]\)\s*\{[\s\S]*?url\('#glass-sidebar-live-refraction-balanced'\)/,
     )
     expect(styles).toMatch(
       /&\[data-glass-appearance='frosted'\]\s*\{[\s\S]*?\.layout-vertical-nav::before\s*\{[\s\S]*?var\(--glass-sidebar-absorption-start\)[\s\S]*?var\(--glass-sidebar-absorption-end\)[\s\S]*?var\(--glass-sidebar-edge-opacity\)/,
@@ -343,7 +344,7 @@ describe('glass overlay material styles', () => {
   it('shares the same light frost when glass navbars overlap scrolled content', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
-    expect(styles).toContain('--glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%)')
+    expect(styles).toContain('--glass-navbar-scrolled-backdrop-filter: saturate(115%)')
     expect(styles).toMatch(
       /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-wrapper\.window-scrolled\.layout-navbar-fixed \.layout-navbar,[\s\S]*?backdrop-filter:\s*var\(--glass-navbar-scrolled-backdrop-filter\)\s*!important;/,
     )
@@ -504,9 +505,7 @@ describe('glass overlay material styles', () => {
     )
     expect(baseMaterialRule).toContain('var(--glass-background-visibility, 0.58)')
     expect(baseMaterialRule).toContain('var(--glass-surface-density, 0.62)')
-    expect(baseMaterialRule).toContain('--glass-navbar-blur: clamp(')
-    expect(baseMaterialRule).toContain('0.62px + var(--glass-surface-density, 0.62) * 0.8px')
-    expect(baseMaterialRule).toContain('- var(--glass-background-visibility, 0.58) * 0.25px')
+    expect(baseMaterialRule).not.toContain('blur(')
     expect(baseMaterialRule).toContain('--glass-navbar-brightness: var(--glass-transmission-brightness, 1)')
     expect(baseMaterialRule).toContain('--glass-navbar-saturation: clamp(')
     expect(baseMaterialRule).toContain('--glass-navbar-sheen: linear-gradient(')
@@ -515,7 +514,7 @@ describe('glass overlay material styles', () => {
     expect(baseMaterialRule).toContain(
       '--glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18)',
     )
-    expect(baseMaterialRule).toContain('--glass-navbar-live-filter: blur(var(--glass-navbar-blur))')
+    expect(baseMaterialRule).toContain('--glass-navbar-live-filter: saturate(var(--glass-navbar-saturation))')
     expect(baseMaterialRule).toContain('brightness(var(--glass-navbar-brightness))')
     expect(baseMaterialRule).toContain('background: var(--glass-navbar-sheen), var(--glass-navbar-scrim) !important')
     expect(baseMaterialRule).toContain('box-shadow: var(--glass-navbar-shadow) !important')
@@ -529,7 +528,7 @@ describe('glass overlay material styles', () => {
     expect(svgFilterRule).toContain("data-glass-navbar-refraction-ready='true'")
     expect(svgFilterRule).toContain("url('#glass-navbar-live-refraction-balanced')")
     expect(svgFilterRule).toContain("url('#glass-navbar-live-refraction-high')")
-    expect(svgFilterRule).toContain('blur(var(--glass-navbar-blur))')
+    expect(svgFilterRule).not.toContain('blur(')
     expect(svgFilterRule).toContain('saturate(var(--glass-navbar-saturation))')
     expect(svgFilterRule).toContain('brightness(var(--glass-navbar-brightness))')
     expect(svgFilterRule).not.toContain('background:')

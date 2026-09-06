@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createGlassNavbarDisplacementField,
+  createGlassPanelBackdropField,
   getGlassNavbarOpticalResponse,
   getGlassSidebarOpticalResponse,
   supportsGlassNavbarLiveRefraction,
@@ -81,6 +82,34 @@ describe('createGlassNavbarDisplacementField', () => {
     expect(pixelAt(field, 50, 35)[2]).toBeGreaterThan(128)
   })
 
+  it('encodes a monotonic diffusion mask without changing the panel displacement channels', () => {
+    const field = createGlassNavbarDisplacementField({ width: 400, height: 240, radius: 20, surface: 'panel' })
+    const weights = Array.from({ length: 24 }, (_, y) => pixelAt(field, 200, y)[1])
+    expect(weights[0]).toBe(0)
+    expect(weights[weights.length - 1]).toBe(255)
+    expect(weights.every((value, index) => index === 0 || value >= weights[index - 1])).toBe(true)
+    expect(pixelAt(field, 0, 0)[1]).toBe(0)
+    expect(pixelAt(field, 200, 120)[1]).toBe(255)
+  })
+
+  it('places backdrop contours in their real coordinates without overwriting rounded gaps', () => {
+    const field = createGlassPanelBackdropField({
+      width: 100,
+      height: 80,
+      optics: getGlassSidebarOpticalResponse({ deformation: 0, translation: 0 }),
+      panels: [
+        { x: 10, y: 10, width: 70, height: 60, radius: 10 },
+        { x: 30, y: 15, width: 50, height: 40, radius: 10 },
+      ],
+    })
+    expect(pixelAt(field, 5, 5)).toEqual([128, 255, 128, 255])
+    expect(pixelAt(field, 10, 10)[1]).toBe(255)
+    expect(pixelAt(field, 25, 10)[1]).toBe(0)
+    expect(pixelAt(field, 35, 15)[1]).toBe(255)
+    expect(pixelAt(field, 45, 15)[1]).toBe(0)
+    expect(pixelAt(field, 50, 40)[1]).toBe(255)
+  })
+
   it.each([
     { width: 1423, height: 64, radius: 16 },
     { width: 401, height: 72, radius: 16 },
@@ -97,6 +126,10 @@ describe('createGlassNavbarDisplacementField', () => {
     ...[60, 252].flatMap(width =>
       [0, 8, 12, 16, 20, 24].map(radius => ({ width, height: 180, radius, surface: 'sidebar' as const })),
     ),
+    { width: 1163, height: 448, radius: 20, surface: 'panel' as const },
+    { width: 358, height: 300, radius: 20, surface: 'panel' as const },
+    { width: 140, height: 120, radius: 8, surface: 'panel' as const },
+    { width: 140, height: 120, radius: 32, surface: 'panel' as const },
   ])('keeps two-dimensional sampling forward and inside the image for $width x $height r$radius', geometry => {
     for (const deformation of [0, 48, 100])
       for (const translation of [0, 48, 100])

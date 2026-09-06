@@ -1,6 +1,7 @@
 import type {
   BufferGeometry,
   IUniform,
+  Object3D,
   OrthographicCamera,
   Texture,
   Vector2,
@@ -71,6 +72,10 @@ interface CreateGlassRippleDynamicsOptions {
   three: ThreeModule
   viewportHeight: number
   viewportWidth: number
+  /** 由 owner 跟踪的异步编译，确保编译检查结束前资源保持有效。 */
+  compile?: (scene: Object3D) => Promise<unknown>
+  /** 代次失效后不再初始化或呈现波场。 */
+  isCurrent?: () => boolean
 }
 
 const RIPPLE_VERTEX_SHADER = `
@@ -233,6 +238,8 @@ export async function createGlassRippleDynamics(
   let clearOnNextFrame = false
   let fieldActive = false
   let disposed = false
+  // 初次尺寸准备只能更新 target 和 uniform；GPU 中性场必须等 owner 编译完成后再写入。
+  let compilationSettled = false
   const targetType = renderer.extensions?.has?.('EXT_color_buffer_float') ? three.HalfFloatType : three.UnsignedByteType
 
   const createTarget = () => {
@@ -332,7 +339,7 @@ export async function createGlassRippleDynamics(
     }
     uniforms.uTexelSize.value.set(1 / target.width, 1 / target.height)
     uniforms.uViewportSize.value.set(viewportWidth, viewportHeight)
-    reset()
+    if (compilationSettled) reset()
 
     return true
   }
@@ -365,10 +372,12 @@ export async function createGlassRippleDynamics(
   }
 
   try {
-    const initializedByResize = resize(viewportWidth, viewportHeight)
-    await renderer.compileAsync(scene, camera)
-    if (disposed) throw new Error('Ripple resources were disposed during compilation')
-    if (!initializedByResize) reset()
+    resize(viewportWidth, viewportHeight)
+    await (options.compile ? options.compile(scene) : renderer.compileAsync(scene, camera))
+    if (disposed || options.isCurrent?.() === false)
+      throw new Error('Ripple resources were superseded during compilation')
+    compilationSettled = true
+    reset()
   } catch (error) {
     material.dispose()
     readTarget.dispose()
