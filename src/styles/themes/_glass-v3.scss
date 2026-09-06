@@ -13,6 +13,7 @@
     --glass-v3-navigation-radius: var(--app-field-radius, 16px);
     --glass-v3-navigation-inset: 8px;
     --glass-v3-navigation-content-gap: 16px;
+    --glass-v3-navigation-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     --glass-v3-navigation-blur: clamp(
       0.65px,
       calc(0.9px + var(--glass-surface-density, 0.62) * 0.6px - var(--glass-background-visibility, 0.58) * 0.25px),
@@ -45,6 +46,16 @@
     }
 
     body[data-theme='glass'] {
+      .v-card,
+      .layout-navbar,
+      .layout-vertical-nav::before {
+        // 在表面上解析反光强度，卡片 hover 的局部参数不能被根节点预先求值。
+        --glass-v3-surface-edge:
+          inset 1px 1px 3px rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.3)),
+          inset -1px -1px 3px rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.22)),
+          inset 0 0 5px rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.1));
+      }
+
       // 已有业务类是语义材料的适配入口；海报整图、内部图表和菜单不承载第二层卡片材料。
       .layout-page-content
         .v-card:not(
@@ -63,12 +74,7 @@
       .dashboard-grid-content-measure > :first-child > .v-card {
         border-radius: var(--app-theme-surface-radius, 20px) !important;
         background: var(--glass-v3-card-background) !important;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, var(--glass-v3-rim)),
-          inset 1px 0 0 rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.6)),
-          inset -1px -2px 2px rgba(0, 0, 0, 0.16),
-          inset 0 0 0 1px rgba(255, 255, 255, calc(var(--glass-v3-rim) * 0.25)),
-          var(--glass-v3-shadow) !important;
+        box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-shadow) !important;
       }
 
       .layout-page-content
@@ -174,12 +180,21 @@
 
     .layout-vertical-nav {
       border-radius: var(--glass-v3-navigation-radius);
-      box-shadow: var(--glass-v3-shadow) !important;
+      box-shadow: var(--glass-v3-navigation-shadow) !important;
       block-size: calc(100% - 2 * var(--glass-v3-navigation-inset));
       inline-size: calc(var(--glass-v3-nav-reserved-width) - var(--glass-v3-navigation-inset)) !important;
       inset-block-start: var(--glass-v3-navigation-inset);
       inset-inline-start: var(--glass-v3-navigation-inset);
       overflow: clip;
+
+      &::before {
+        // 材质与采样外壳共用圆角，内沿高光必须绕四角延续，不能绘制直边后再裁断。
+        border-radius: inherit;
+        border-inline-end: 0;
+        background: var(--glass-v3-card-background) !important;
+        // 固定导航共用柔和的掠射光，四角厚度由透镜承担，不叠加等宽硬质亮线。
+        box-shadow: var(--glass-v3-surface-edge) !important;
+      }
     }
 
     &.layout-vertical-nav-collapsed .layout-vertical-nav.hovered {
@@ -188,6 +203,7 @@
 
     .layout-navbar {
       border-radius: var(--glass-v3-navigation-radius) !important;
+      box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-navigation-shadow) !important;
       inline-size: calc(100% - var(--glass-v3-nav-reserved-width) - 2 * var(--glass-v3-navigation-inset)) !important;
       inset-block-start: var(--glass-v3-navigation-inset) !important;
       inset-inline-start: calc(var(--glass-v3-nav-reserved-width) + var(--glass-v3-navigation-inset)) !important;
@@ -237,18 +253,6 @@
       background: var(--glass-v3-card-background) !important;
       backdrop-filter: var(--glass-navbar-live-filter) !important;
       -webkit-backdrop-filter: var(--glass-navbar-live-filter) !important;
-      box-shadow:
-        inset 0 -1px 0 rgba(255, 255, 255, var(--glass-v3-rim)),
-        0 8px 24px rgba(0, 0, 0, 0.1) !important;
-    }
-
-    .layout-vertical-nav::before {
-      border-inline-end: 0;
-      background: var(--glass-v3-card-background) !important;
-      box-shadow:
-        inset -1px 0 0 rgba(255, 255, 255, var(--glass-v3-rim)),
-        inset -3px 0 4px rgba(255, 255, 255, 0.035),
-        8px 0 24px rgba(0, 0, 0, 0.08) !important;
     }
   }
 
@@ -263,16 +267,6 @@
       )
       .layout-navbar {
       --glass-navbar-live-filter: url('#glass-navbar-live-refraction-#{$filter}') var(--glass-v3-navigation-filter);
-    }
-  }
-
-  // 稳定背板已承担背景吸收，侧栏用明亮散射层呈现厚度，避免再覆盖一层深色渐变。
-  html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass'] {
-    .layout-wrapper[data-shell-mode='desktop'] .layout-vertical-nav::before {
-      background: var(--glass-v3-card-background) !important;
-      box-shadow:
-        inset -1px 0 0 rgba(255, 255, 255, 0.32),
-        8px 0 24px rgba(0, 0, 0, 0.07) !important;
     }
   }
 

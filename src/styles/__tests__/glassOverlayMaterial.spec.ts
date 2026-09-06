@@ -4,6 +4,16 @@ import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
 
 describe('glass overlay material styles', () => {
+  it('shares the soft contour between content cards and detached navigation', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+
+    expect(styles).toContain('box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-shadow)')
+    expect(styles).toContain('box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-navigation-shadow)')
+    expect(styles).toMatch(
+      /&::before\s*\{[\s\S]*?border-radius: inherit;[\s\S]*?box-shadow: var\(--glass-v3-surface-edge\)/u,
+    )
+  })
+
   it('reserves space below detached desktop navigation and follows the compact theme radius', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
 

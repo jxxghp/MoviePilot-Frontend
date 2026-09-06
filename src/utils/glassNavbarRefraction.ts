@@ -16,24 +16,36 @@ export interface GlassNavbarRefractionBrowserIdentity {
 }
 
 export interface GlassNavbarDisplacementGeometry {
+  /** 侧栏使用四边等向的窄透镜；省略时保留顶栏的横向阅读保护方案。 */
+  surface?: 'navbar' | 'sidebar'
   /** 折射表面的实际 CSS 像素高度。 */
   height: number
   /** 最终可见外轮廓的圆角半径。 */
   radius: number
   /** 折射表面的实际 CSS 像素宽度。 */
   width: number
-  /** 由当前生效滑杆计算的顶栏光学响应；省略时采用清透自然默认值。 */
+  /** 由当前生效滑杆计算的导航光学响应；省略时采用清透自然默认值。 */
   optics?: GlassNavbarOpticalResponse
 }
 
-/** 顶栏局部取样预算，不包含共享 renderer 的流动、尾波与惯性。 */
+/** 导航局部取样预算，不包含共享 renderer 的流动、尾波与惯性。 */
 export interface GlassNavbarOpticalResponse {
   /** 横向边缘峰值位移与轮廓带宽之比。 */
   horizontalRatio: number
-  /** 纵向峰值位移与轮廓带宽之比，严格小于横向以保护字形高度。 */
+  /** 纵向峰值位移与轮廓带宽之比；顶栏弱于横向，侧栏沿四边等向响应。 */
   verticalRatio: number
   /** 主体内容统一向右显示的 CSS 像素偏移，外轮廓平缓回零。 */
   translationPx: number
+}
+
+/** 侧栏的阅读区由窄边带保护，圆角处两轴使用相同强度，避免转角时透镜厚度消失。 */
+export function getGlassSidebarOpticalResponse(
+  parameters: Pick<GlassOpticalParameters, 'deformation' | 'translation'>,
+): GlassNavbarOpticalResponse {
+  const navbar = getGlassNavbarOpticalResponse(parameters)
+  // 最大位移不超过带宽的 30%，为圆角内侧的取样回落保留单调余量。
+  const ratio = (navbar.horizontalRatio / 0.42) * 0.3
+  return { horizontalRatio: ratio, verticalRatio: ratio, translationPx: navbar.translationPx }
 }
 
 /** 导航以低中段可读性为优先，高段保留完整位移预算；不改写共享参数或材质响应。 */
@@ -108,7 +120,10 @@ export function createGlassNavbarDisplacementField({
   height,
   radius,
   width,
-  optics = DEFAULT_NAVBAR_OPTICS,
+  surface = 'navbar',
+  optics = surface === 'sidebar'
+    ? getGlassSidebarOpticalResponse(getGlassOpticalPresetParameters('clear', 'high', 'natural'))
+    : DEFAULT_NAVBAR_OPTICS,
 }: GlassNavbarDisplacementGeometry): GlassNavbarDisplacementField {
   const pixelWidth = normalizePixelSize(width)
   const pixelHeight = normalizePixelSize(height)
@@ -116,7 +131,11 @@ export function createGlassNavbarDisplacementField({
   const pixelRadius = Number.isFinite(radius) ? Math.max(0, Math.min(maxRadius, radius)) : 0
   // 直角固定表面没有圆角半径可供推导，仍使用受最短边约束的直边带；radius=0 不能被当成无折射。
   const radiusBand = pixelRadius > 0 ? pixelRadius * 1.5 : REFRACTION_BAND_PX
-  const maximumBand = Math.min(REFRACTION_BAND_PX, radiusBand, Math.min(pixelWidth, pixelHeight) / 2)
+  // 侧栏边带不穿过圆角圆心，四角法线能连续转向且不会在内侧形成聚焦尖点。
+  const maximumBand =
+    surface === 'sidebar'
+      ? Math.min(12, pixelRadius || 12, Math.min(pixelWidth, pixelHeight) / 2)
+      : Math.min(REFRACTION_BAND_PX, radiusBand, Math.min(pixelWidth, pixelHeight) / 2)
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
 
   for (let offset = 0; offset < pixels.length; offset += 4) {
@@ -152,7 +171,10 @@ export function createGlassNavbarDisplacementField({
 
       // 横向平移从边缘透镜退出后进入，避免两种回落梯度叠加导致局部反向采样。
       const horizontalRamp = smoothstep(Math.max(0, Math.min(1, (edgeX - maximumBand) / 64)))
-      const verticalRamp = smoothstep(Math.min(1, (edgeY - outerGuard) / Math.max(1, Math.min(12, maximumBand))))
+      const verticalRamp =
+        surface === 'sidebar'
+          ? smoothstep(Math.max(0, Math.min(1, (edgeY - maximumBand) / 64)))
+          : smoothstep(Math.min(1, (edgeY - outerGuard) / Math.max(1, Math.min(12, maximumBand))))
       const translationChannel = (optics.translationPx * horizontalRamp * verticalRamp * 255) / HIGH_REFRACTION_SCALE_PX
 
       if (pixelRadius === 0) {
@@ -175,7 +197,8 @@ export function createGlassNavbarDisplacementField({
 
       const profile = distanceInside < bandWidth ? refractionProfile(distanceInside, bandWidth, outerGuard) : 0
       const verticalProgress = Math.min(1, (distanceInside - outerGuard) / (bandWidth - outerGuard))
-      const verticalProfile = Math.sin(Math.PI * verticalProgress) ** 2
+      // 侧栏的两轴必须共用同一深度剖面，圆角法线旋转时才不会变成扁平或椭圆透镜。
+      const verticalProfile = surface === 'sidebar' ? profile : Math.sin(Math.PI * verticalProgress) ** 2
       const verticalAmplitude = (bandWidth * optics.verticalRatio * 255) / HIGH_REFRACTION_SCALE_PX
       const gradientX =
         roundedRectangleSignedDistance(sampleX + 0.5, sampleY, pixelWidth, pixelHeight, pixelRadius) -

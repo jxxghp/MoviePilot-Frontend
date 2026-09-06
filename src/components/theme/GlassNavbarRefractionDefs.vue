@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 import {
   createGlassNavbarDisplacementMap,
   getGlassNavbarOpticalResponse,
+  getGlassSidebarOpticalResponse,
   NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP,
 } from '@/utils/glassNavbarRefraction'
 import { useEffectiveGlassSettings } from '@/composables/useThemeCustomizer'
@@ -214,7 +215,13 @@ function readDisplacementGeometry(surface: NavigationSurface) {
   const width = Math.max(1, Math.round(bounds.width))
 
   const radius = Number.isFinite(borderRadius) ? borderRadius : state.defaultGeometry.radius
-  const optics = opticalResponse.value
+  const optics =
+    surface === 'sidebar'
+      ? getGlassSidebarOpticalResponse({
+          deformation: settings.value.glassDeformationStrength,
+          translation: settings.value.glassTranslationStrength,
+        })
+      : opticalResponse.value
   return {
     height,
     radius,
@@ -241,7 +248,7 @@ async function syncDisplacementMap(surface: NavigationSurface) {
   try {
     if (state.cachedGeometry !== geometryKey) {
       if (state.failedGeometry === geometryKey) return
-      const map = createGlassNavbarDisplacementMap({ height, radius, width, optics })
+      const map = createGlassNavbarDisplacementMap({ height, radius, width, optics, surface })
       if (map === NEUTRAL_GLASS_NAVBAR_DISPLACEMENT_MAP) {
         state.failedGeometry = geometryKey
         invalidateDisplacementMap(surface)
