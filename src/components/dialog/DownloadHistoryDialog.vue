@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { DownloadHistory } from '@/api/types'
+import type { DownloadHistory, DownloadingInfo } from '@/api/types'
+import DownloadTaskSettingsDialog from '@/components/dialog/DownloadTaskSettingsDialog.vue'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { formatDateDifference } from '@core/utils/formatters'
@@ -21,6 +22,8 @@ const currentPage = ref(1)
 const pageSize = 30
 const loading = ref(false)
 const isRefreshed = ref(false)
+const selectedTask = ref<DownloadingInfo>()
+const taskSettingsVisible = ref(false)
 
 /** 分页加载下载历史，并将新页追加到现有列表。 */
 async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') => void }) {
@@ -81,6 +84,18 @@ function getHistoryTitle(item: DownloadHistory) {
 /** 合并下载历史的季号和集号。 */
 function getSeasonEpisode(item: DownloadHistory) {
   return `${item.seasons || ''}${item.episodes || ''}`
+}
+
+/** 以下载历史中的精确 Hash 打开任务设置和资源目录分类。 */
+function openTaskSettings(item: DownloadHistory) {
+  if (!item.download_hash) return
+  selectedTask.value = {
+    downloader: item.downloader,
+    hash: item.download_hash,
+    media: {},
+    title: getHistoryTitle(item),
+  }
+  taskSettingsVisible.value = true
 }
 </script>
 
@@ -170,6 +185,12 @@ function getSeasonEpisode(item: DownloadHistory) {
                       <VIcon icon="mdi-dots-vertical" />
                       <VMenu activator="parent" close-on-content-click>
                         <VList>
+                          <VListItem v-if="item.download_hash" @click="openTaskSettings(item)">
+                            <template #prepend>
+                              <VIcon icon="mdi-folder-move-outline" />
+                            </template>
+                            <VListItemTitle>{{ t('dialog.downloadHistory.classifySource') }}</VListItemTitle>
+                          </VListItem>
                           <VListItem base-color="error" @click="deleteHistory(item)">
                             <template #prepend>
                               <VIcon icon="mdi-delete" />
@@ -196,6 +217,13 @@ function getSeasonEpisode(item: DownloadHistory) {
           {{ t('dialog.downloadHistory.noDataHint') }}
         </div>
       </VCardText>
+
+      <DownloadTaskSettingsDialog
+        v-if="selectedTask"
+        v-model="taskSettingsVisible"
+        :task="selectedTask"
+        :downloader-name="selectedTask.downloader"
+      />
     </VCard>
   </VDialog>
 </template>

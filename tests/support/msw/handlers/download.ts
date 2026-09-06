@@ -1,4 +1,10 @@
-import type { DownloadHistory, DownloadingInfo, DownloadTaskUpdateData, DownloadTaskUpdateRequest } from '@/api/types'
+import type {
+  DownloadHistory,
+  DownloadingInfo,
+  DownloadSourceClassificationData,
+  DownloadTaskUpdateData,
+  DownloadTaskUpdateRequest,
+} from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
 import { apiFailureJson, apiJson } from '../response'
 
@@ -13,8 +19,28 @@ export const downloadApiUrls = {
   action: (operation: 'start' | 'stop', hash: string) => new URL(`download/${operation}/${hash}`, API_BASE_URL).href,
   delete: (hash: string) => new URL(`download/${hash}`, API_BASE_URL).href,
   update: (hash: string) => new URL(`download/${hash}`, API_BASE_URL).href,
+  classifySource: (hash: string) => new URL(`download/${hash}/classify-source`, API_BASE_URL).href,
   list: new URL('download/', API_BASE_URL).href,
   history: new URL('history/download', API_BASE_URL).href,
+}
+
+/** 拦截资源目录分类预览或执行请求。 */
+export function classifyDownloadSourceHandler(
+  hash: string,
+  response:
+    | DownloadSourceClassificationData
+    | ((body: { downloader?: string; execute: boolean; media_category?: string }) => DownloadSourceClassificationData),
+  onRequest: (body: {
+    downloader?: string
+    execute: boolean
+    media_category?: string
+  }) => void | Promise<void> = () => {},
+) {
+  return http.post(downloadApiUrls.classifySource(hash), async ({ request }) => {
+    const body = (await request.json()) as { downloader?: string; execute: boolean; media_category?: string }
+    await onRequest(body)
+    return apiJson(typeof response === 'function' ? response(body) : response)
+  })
 }
 
 /** 拦截下载任务高级修改并保留请求体供断言。 */

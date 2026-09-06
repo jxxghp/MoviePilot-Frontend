@@ -1549,6 +1549,19 @@ export default {
       saveSuccess: 'Download task settings saved',
       saveFailed: 'Failed to save download task settings',
       partialFailure: 'Some settings were not applied. Review the operation results.',
+      sourceClassificationHint:
+        'Recalculate the location from the media category stored at download time and the current resource-directory rules. After confirmation, the downloader moves the task without directly manipulating PT files.',
+      previewSourceClassification: 'Preview category location',
+      confirmSourceClassification: 'Move with downloader',
+      classificationCategory: 'Media Category',
+      currentSavePath: 'Current Save Path',
+      targetSavePath: 'Target Save Path',
+      sourceClassificationSuccess: 'Resource directory moved to its category location',
+      sourceClassificationUnchanged: 'The current save path already matches the category rule',
+      sourceClassificationFailed: 'Failed to classify the resource directory',
+      manualMediaCategory: 'Manual Media Category (optional)',
+      manualMediaCategoryHint:
+        'Use only when old download history has no category, for example Album. It must exactly match a path in the active classification policy.',
     },
   },
   resource: {
@@ -4271,6 +4284,7 @@ export default {
       noDataHint: 'Added download tasks will be displayed here',
       loadFailed: 'Failed to load download history',
       deleteFailed: 'Failed to delete download history',
+      classifySource: 'Classify resource directory',
     },
     siteUserData: {
       title: 'Site User Data',

@@ -3,6 +3,7 @@ import DownloadTaskSettingsDialog from '@/components/dialog/DownloadTaskSettings
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { updateDownloadTaskHandler } from '@tests/support/msw/handlers/download'
+import { classifyDownloadSourceHandler } from '@tests/support/msw/handlers/download'
 import { server } from '@tests/support/msw/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -154,5 +155,47 @@ describe('DownloadTaskSettingsDialog', () => {
     await renderDialog()
 
     expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+  })
+
+  it('previews the category target before asking the downloader to move', async () => {
+    const requested = vi.fn<(body: { downloader?: string; execute: boolean; media_category?: string }) => void>()
+    server.use(
+      classifyDownloadSourceHandler(
+        HASH,
+        body => ({
+          category: 'Album',
+          changed: true,
+          current_save_path: '/volume1/UT/Musics',
+          downloader: 'qb-main',
+          executed: body.execute,
+          hash: HASH,
+          target_save_path: '/volume1/UT/Musics/Album',
+        }),
+        requested,
+      ),
+    )
+    const { emitted } = await renderDialog()
+
+    await fireEvent.update(screen.getByLabelText('手动媒体分类（可选）'), 'Album')
+    await fireEvent.click(screen.getByRole('button', { name: '预览按类别分类' }))
+
+    expect(await screen.findByText('/volume1/UT/Musics/Album')).toBeInTheDocument()
+    expect(requested).toHaveBeenNthCalledWith(1, {
+      downloader: 'qb-main',
+      execute: false,
+      media_category: 'Album',
+    })
+    expect(emitted().saved).toBeUndefined()
+
+    await fireEvent.click(screen.getByRole('button', { name: '确认由下载器移动' }))
+
+    await waitFor(() => expect(requested).toHaveBeenCalledTimes(2))
+    expect(requested).toHaveBeenNthCalledWith(2, {
+      downloader: 'qb-main',
+      execute: true,
+      media_category: 'Album',
+    })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('资源目录已按类别重新定位')
+    expect(emitted().saved).toHaveLength(1)
   })
 })
