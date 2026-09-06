@@ -707,27 +707,34 @@ vec3 toneMapWallpaper(vec3 color, vec2 uv, float wallpaperExposure) {
 vec3 sampleWallpaper(vec2 uv) {
   vec2 viewportUv = vec2(0.5) + (uv - vec2(0.5)) / max(uCoverScale, vec2(0.0001));
   vec2 previousUv = vec2(0.5) + (viewportUv - vec2(0.5)) * uPreviousCoverScale;
-  vec3 previous;
-  vec3 current;
+  vec3 previous = vec3(0.0);
+  vec3 current = vec3(0.0);
+  // 稳定端点只读取参与输出的纹理；过渡中仍按各自曝光映射后混合。
+  bool needsPrevious = uTextureMix < 0.999;
+  bool needsCurrent = uTextureMix > 0.001;
   if (uAppearance > 1.5 && uHasFrostedTexture > 0.5) {
     float frostLod = (1.0 - uFrostDetailLevel) * 6.0;
     // 低分辨率预滤已经扩大了每个 texel 的原图 footprint，LOD 只追加当前纹理内的低通层级。
     float frostGradientScale = exp2(frostLod);
-    previous = texture2DGradEXT(
-      uPreviousFrostedTexture,
-      previousUv,
-      dFdx(previousUv) * frostGradientScale,
-      dFdy(previousUv) * frostGradientScale
-    ).rgb;
-    current = texture2DGradEXT(
-      uFrostedTexture,
-      uv,
-      dFdx(uv) * frostGradientScale,
-      dFdy(uv) * frostGradientScale
-    ).rgb;
+    if (needsPrevious) {
+      previous = texture2DGradEXT(
+        uPreviousFrostedTexture,
+        previousUv,
+        dFdx(previousUv) * frostGradientScale,
+        dFdy(previousUv) * frostGradientScale
+      ).rgb;
+    }
+    if (needsCurrent) {
+      current = texture2DGradEXT(
+        uFrostedTexture,
+        uv,
+        dFdx(uv) * frostGradientScale,
+        dFdy(uv) * frostGradientScale
+      ).rgb;
+    }
   } else {
-    previous = texture2D(uPreviousTexture, previousUv).rgb;
-    current = texture2D(uTexture, uv).rgb;
+    if (needsPrevious) previous = texture2D(uPreviousTexture, previousUv).rgb;
+    if (needsCurrent) current = texture2D(uTexture, uv).rgb;
   }
 
   if (uTextureMix <= 0.001) {
@@ -929,25 +936,23 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
     ? refracted
     : sampleChromatic(sourceUv, detailSeparation);
   refracted = mix(refracted, detailed, mix(0.06, 0.16, uQuality) * (1.0 - frosted));
-  vec2 diffusionAxis = length(refraction) > 0.00001 ? normalize(refraction) : wakePerpendicular;
-  float diffusionRadius =
-    mix(0.0022, 0.0038, uQuality) *
-    (
-      0.82 +
-      materialEnergy * mix(0.28, 0.76, uMotionExpansion) +
-      flowSurfaceDetail * dynamicMask * 0.38
-    );
-  float frostedDensity = frosted * (1.0 - uFrostDetailLevel);
-  diffusionRadius *= 1.0 + frostedDensity * mix(1.15, 1.55, uQuality);
-  vec3 diffused;
-  if (usesPrefilteredFrost > 0.5) {
-    diffused = refracted;
-  } else if (uQuality > 0.5) {
-    diffused = sampleHighQualityDiffuse(sourceUv, diffusionAxis, diffusionRadius);
-  } else {
-    diffused = sampleBalancedDiffuse(sourceUv, diffusionAxis, diffusionRadius);
+  // 非磨砂不使用扩散结果；预滤磨砂已具备低通纹理，两者都无需额外邻域采样。
+  if (frosted > 0.5 && usesPrefilteredFrost <= 0.5) {
+    vec2 diffusionAxis = length(refraction) > 0.00001 ? normalize(refraction) : wakePerpendicular;
+    float diffusionRadius =
+      mix(0.0022, 0.0038, uQuality) *
+      (
+        0.82 +
+        materialEnergy * mix(0.28, 0.76, uMotionExpansion) +
+        flowSurfaceDetail * dynamicMask * 0.38
+      );
+    float frostedDensity = frosted * (1.0 - uFrostDetailLevel);
+    diffusionRadius *= 1.0 + frostedDensity * mix(1.15, 1.55, uQuality);
+    vec3 diffused = uQuality > 0.5
+      ? sampleHighQualityDiffuse(sourceUv, diffusionAxis, diffusionRadius)
+      : sampleBalancedDiffuse(sourceUv, diffusionAxis, diffusionRadius);
+    refracted = mix(refracted, diffused, frosted);
   }
-  refracted = mix(refracted, diffused, frosted);
   float refractedLuminance = dot(refracted, vec3(0.2126, 0.7152, 0.0722));
   float tinted = step(0.5, uAppearance) * (1.0 - step(1.5, uAppearance));
   float transmissionOffset = min(uTransmissionStrength - 1.0, 0.0);
@@ -1326,11 +1331,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let contextRecoveryPending = false
   let resumePromise: Promise<void> | null = null
   let resumeVersion = 0
+  // 失焦后的暂停状态由活动事件解除，观察器与参数更新不能自行恢复呈现。
+  let presentationPaused = document.visibilityState === 'hidden' || !document.hasFocus()
   let dynamicsGeneration = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
   const usesDynamicsOnly = () =>
     presentationSpace === 'scroll' || (presentationSpace === 'fixed' && toValue(options.appearance) === 'frosted')
   const wallpaperSourceCache = options.wallpaperSourceCache ?? createGlassWallpaperSourceCache()
+
+  /** 所有持续绘制入口共享活动边界，资源准备和 uniform 同步不依赖呈现帧。 */
+  function canPresentFrame() {
+    return toValue(options.active) && !presentationPaused && document.visibilityState !== 'hidden'
+  }
 
   /** 滚动期间由原生 backdrop 接管壁纸；稳定态恢复完整纹理折射与流体反馈。 */
   function syncWallpaperSamplingMode() {
@@ -1347,18 +1359,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollPresentationRestoreTimer = null
   }
 
-  function finishNativeScrollPresentation(timestamp = performance.now()) {
+  function finishNativeScrollPresentation(timestamp = performance.now(), advanceFlow = false) {
     clearScrollPresentationRestoreTimer()
-    if (presentationSpace !== 'scroll' || !scrollWallpaperSamplingSuppressed) return
+    if (presentationSpace !== 'scroll' || !scrollWallpaperSamplingSuppressed || !canPresentFrame()) return
 
     scrollWallpaperSamplingSuppressed = false
     syncWallpaperSamplingMode()
-    renderFrame(timestamp, false)
+    renderFrame(timestamp, advanceFlow)
     document.documentElement.removeAttribute('data-glass-scroll-presentation')
   }
 
   function beginNativeScrollPresentation() {
-    if (presentationSpace !== 'scroll' || !resources) return
+    if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
     clearScrollPresentationRestoreTimer()
     scrollPresentationRestoreTimer = window.setTimeout(() => finishNativeScrollPresentation(), 180)
@@ -1532,6 +1544,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     transformingSurfaces.clear()
   }
 
+  /** 暂停和销毁共用几何帧清理，恢复时按最新 DOM 重新测量。 */
+  function cancelSurfaceUpdateFrames() {
+    if (surfaceUpdateFrame !== null) cancelAnimationFrame(surfaceUpdateFrame)
+    surfaceUpdateFrame = null
+    if (surfaceStabilityFrame !== null) cancelAnimationFrame(surfaceStabilityFrame)
+    surfaceStabilityFrame = null
+    if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
+    presentationResizeTimer = null
+    presentationResizeCandidate = ''
+    presentationResizeStableSamples = 0
+  }
+
   function clearBackgroundDisposeTimer() {
     if (backgroundDisposeTimer === null) return
 
@@ -1584,7 +1608,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function renderWallpaperTransitionFrame(timestamp: number) {
     wallpaperTransitionFrame = null
-    if (document.visibilityState === 'hidden') return
+    if (!canPresentFrame()) return
 
     renderFrame(timestamp)
     if (previousTexture && wallpaperTransitionFrame === null) {
@@ -1593,7 +1617,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function scheduleWallpaperTransition() {
-    if (wallpaperTransitionFrame !== null || !previousTexture || document.visibilityState === 'hidden') return
+    if (wallpaperTransitionFrame !== null || !previousTexture || !canPresentFrame()) return
 
     wallpaperTransitionFrame = requestAnimationFrame(renderWallpaperTransitionFrame)
   }
@@ -1821,7 +1845,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function renderFrame(timestamp = performance.now(), advanceFlow = true) {
-    if (!resources || !toValue(options.active) || document.visibilityState === 'hidden') return
+    if (!resources || !canPresentFrame()) return
 
     updateWallpaperTransition(timestamp)
     if (fluidDynamics && advanceFlow) {
@@ -1859,7 +1883,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function scheduleFrame() {
-    if (animationFrame !== null || !resources) return
+    if (animationFrame !== null || !resources || !canPresentFrame()) return
 
     animationFrame = requestAnimationFrame(renderScheduledFrame)
   }
@@ -2141,11 +2165,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function scheduleSurfaceUpdate() {
+    if (!canPresentFrame()) return
     if (queueScrollGeometryRefresh(false)) return
     if (surfaceUpdateFrame !== null || !resources) return
 
     surfaceUpdateFrame = requestAnimationFrame(timestamp => {
       surfaceUpdateFrame = null
+      if (!canPresentFrame()) return
       updateSurfaceUniforms(timestamp, false)
       // 表面失效必须在同一有界帧内清除旧像素，不能等待下一次指针或壁纸事件。
       renderFrame(timestamp, false)
@@ -2155,6 +2181,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** DOM 重排后连续采样少量帧，避免把虚拟列表的中间几何误认为最终表面。 */
   function scheduleSurfaceStabilityUpdate(motionEpoch?: number) {
     if (motionEpoch !== undefined) pagePresentationMotionEpoch = motionEpoch
+    if (!canPresentFrame()) return
     if (queueScrollGeometryRefresh(true)) return
     surfaceStabilityPass = 0
     surfaceStableFrameCount = 0
@@ -2163,7 +2190,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     const sample = (timestamp: number) => {
       surfaceStabilityFrame = null
-      if (!resources || !toValue(options.active) || document.visibilityState === 'hidden') return
+      if (!resources || !canPresentFrame()) return
 
       updateSurfaceUniforms(timestamp, false)
       const signature = surfaceSlots
@@ -2203,13 +2230,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
    * 连续两个 80ms 样本一致才允许覆盖已提交的 presentation 首帧。
    */
   function schedulePresentationResizeUpdate() {
+    if (!canPresentFrame()) return
     if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
     presentationResizeCandidate = ''
     presentationResizeStableSamples = 0
 
     const sample = () => {
       presentationResizeTimer = null
-      if (!resources) return
+      if (!resources || !canPresentFrame()) return
 
       const presentation = measurePresentationSize()
       const candidate = `${window.innerWidth},${window.innerHeight},${presentation.width},${presentation.height}`
@@ -2231,7 +2259,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 共享页面 motion 活跃时，页面几何变化必须在浏览器绘制前完成一次完整 presentation 提交。 */
   function commitActivePagePresentation(timestamp = performance.now()) {
-    if (!resources || presentationSpace !== 'scroll' || !toValue(options.pageMotion?.active ?? false)) return false
+    if (
+      !resources ||
+      !canPresentFrame() ||
+      presentationSpace !== 'scroll' ||
+      !toValue(options.pageMotion?.active ?? false)
+    )
+      return false
 
     if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
     presentationResizeTimer = null
@@ -2246,7 +2280,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 普通表面尺寸即时更新；页面根尺寸在稳定后覆盖 presentation。 */
   function handleSurfaceResize(entries: ResizeObserverEntry[]) {
-    if (!resources) return
+    if (!resources || !canPresentFrame()) return
 
     const presentationRoot = presentationSpace === 'scroll' ? options.canvas.value?.parentElement : null
     const presentationChanged = presentationRoot && entries.some(entry => entry.target === presentationRoot)
@@ -2262,12 +2296,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** CSS transform 不改变布局尺寸，过渡期间用有界帧同步真实几何并清除旧蒙版。 */
   function scheduleSurfaceTransformFrame() {
+    if (!canPresentFrame()) return
     if (queueScrollGeometryRefresh(false)) return
     if (surfaceTransformFrame !== null || !resources) return
 
     surfaceTransformFrame = requestAnimationFrame(timestamp => {
       surfaceTransformFrame = null
-      if (!resources || !toValue(options.active) || document.visibilityState === 'hidden') {
+      if (!resources || !canPresentFrame()) {
         cancelSurfaceTransformFrame()
         return
       }
@@ -2455,7 +2490,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function resizeRenderer() {
-    if (!resources) return
+    if (!resources || !canPresentFrame()) return
 
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
@@ -2660,7 +2695,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function renderInteractionFrame(timestamp: number) {
-    if (!resources || !toValue(options.active) || document.visibilityState === 'hidden') {
+    if (!resources || !canPresentFrame()) {
       animationFrame = null
       interactionAnimating = false
       return
@@ -2725,7 +2760,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function startInteractionAnimation() {
-    if (interactionAnimating) return
+    if (interactionAnimating || !canPresentFrame()) return
 
     cancelScheduledFrame()
     interactionAnimating = true
@@ -2742,6 +2777,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     target?: EventTarget | null,
   ) {
     if (
+      !canPresentFrame() ||
       !hasDynamicCapability() ||
       (hasRippleCapability() && presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed)
     ) {
@@ -2940,12 +2976,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollAnimationFrame = null
     scrollFrameCommitted = false
     scrollLateGeometryCommitted = false
-    if (
-      presentationSpace !== 'scroll' ||
-      !resources ||
-      !toValue(options.active) ||
-      document.visibilityState === 'hidden'
-    ) {
+    if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) {
       scrollDirty = false
       scrollStableFrameCount = 0
       return
@@ -2991,13 +3022,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function scheduleScrollFrame() {
-    if (scrollAnimationFrame !== null || presentationSpace !== 'scroll' || !resources) return
+    if (scrollAnimationFrame !== null || presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
     scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
   }
 
   function handleScroll(event: Event) {
-    if (presentationSpace !== 'scroll' || !resources) return
+    if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
     const target = event.target
     if (!isRelevantScrollTarget(target)) return
@@ -3034,7 +3065,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function handleScrollEnd(event: Event) {
-    if (presentationSpace !== 'scroll' || !resources) return
+    if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
     const target = event.target
     if (
@@ -3052,20 +3083,25 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 暂停事件驱动帧但保留 WebGL context、纹理、流场和最后一张稳定画面。 */
   function pauseRenderer() {
+    presentationPaused = true
+    resumeVersion += 1
+    resumePromise = null
     cancelScheduledFrame()
     cancelScrollFrame()
-    finishNativeScrollPresentation()
+    // 原生滚动背板保持接管，恢复时先提交正确像素再揭示 canvas。
     cancelWallpaperTransitionFrame()
     cancelSurfaceTransformFrame()
+    cancelSurfaceUpdateFrames()
     interactionAnimating = false
   }
 
   /** 合并同一可见性事务的多个浏览器事件，只恢复一次稳定帧。 */
   function resumeRenderer() {
+    if (!canPresentFrame()) return Promise.resolve()
     if (resumePromise) return resumePromise
 
     const version = resumeVersion
-    const canResume = () => toValue(options.active) && document.visibilityState !== 'hidden'
+    const canResume = () => canPresentFrame()
     const task = (async () => {
       clearBackgroundDisposeTimer()
       if (!canResume()) return
@@ -3074,6 +3110,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (version !== resumeVersion || !canResume()) return
       if (!resources) {
         await initializeRenderer()
+        if (canPresentFrame() && !pagePresentationGeometryReady) scheduleSurfaceStabilityUpdate()
         return
       }
 
@@ -3082,12 +3119,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const timestamp = performance.now()
       const keepRippleAnimating = hasRippleCapability() ? advanceRipple(timestamp) : false
       if (!keepRippleAnimating) resetInteractionState()
-      renderFrame(timestamp, !hasRippleCapability())
+      if (scrollWallpaperSamplingSuppressed) finishNativeScrollPresentation(timestamp, !hasRippleCapability())
+      else renderFrame(timestamp, !hasRippleCapability())
       if (keepRippleAnimating) {
         interactionAnimating = true
         animationFrame = requestAnimationFrame(renderInteractionFrame)
       }
       scheduleWallpaperTransition()
+      if (!pagePresentationGeometryReady) scheduleSurfaceStabilityUpdate()
     })()
 
     resumePromise = task
@@ -3111,12 +3150,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function handleVisibilityChange() {
-    if (document.visibilityState === 'hidden') {
+    if (document.visibilityState === 'hidden' || !document.hasFocus()) {
       pauseRenderer()
-      scheduleInactiveRendererDisposal(() => document.visibilityState === 'hidden')
+      scheduleInactiveRendererDisposal(() => document.visibilityState === 'hidden' || !document.hasFocus())
       return
     }
 
+    presentationPaused = false
     void resumeRenderer()
   }
 
@@ -3127,8 +3167,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scheduleInactiveRendererDisposal(() => document.visibilityState === 'visible' && !document.hasFocus())
   }
 
-  function handleWindowResume() {
-    if (document.visibilityState === 'visible') void resumeRenderer()
+  function handleWindowResume(event: Event) {
+    if (document.visibilityState !== 'visible') return
+    if (event.type === 'pageshow' && !document.hasFocus()) {
+      handleWindowBlur()
+      return
+    }
+
+    presentationPaused = false
+    void resumeRenderer()
   }
 
   function handleContextLost(event: Event) {
@@ -3350,21 +3397,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     cancelScrollFrame()
     cancelWallpaperTransitionFrame()
     cancelSurfaceTransformFrame()
+    cancelSurfaceUpdateFrames()
     clearBackgroundDisposeTimer()
-    if (surfaceUpdateFrame !== null) {
-      cancelAnimationFrame(surfaceUpdateFrame)
-      surfaceUpdateFrame = null
-    }
-    if (surfaceStabilityFrame !== null) {
-      cancelAnimationFrame(surfaceStabilityFrame)
-      surfaceStabilityFrame = null
-    }
-    if (presentationResizeTimer !== null) {
-      window.clearTimeout(presentationResizeTimer)
-      presentationResizeTimer = null
-    }
-    presentationResizeCandidate = ''
-    presentationResizeStableSamples = 0
     removeEvents()
     resizeObserver?.disconnect()
     resizeObserver = null
@@ -3994,6 +4028,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resizeRenderer()
       await loadWallpaper(toValue(options.wallpaperUrl), version)
       preparePendingWallpaper()
+      if (version === loadVersion && presentationPaused) {
+        scheduleInactiveRendererDisposal(() => document.visibilityState === 'hidden' || !document.hasFocus())
+      }
     } catch (error) {
       fallbackFromCurrentLoad(version, '玻璃光学渲染器初始化失败，已回退标准材质:', error)
     }
