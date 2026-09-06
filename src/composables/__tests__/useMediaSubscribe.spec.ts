@@ -21,8 +21,12 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
+import { delay, http, HttpResponse } from 'msw'
 import { defineComponent, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { setNavigatingState } from '@/utils/requestOptimizer'
+
+const SUBSCRIBE_CREATE_URL = 'http://localhost/api/v1/subscribe/'
 
 const mocks = vi.hoisted(() => ({
   cacheStatus: vi.fn(),
@@ -737,6 +741,28 @@ describe('useMediaSubscribe entry flows', () => {
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
     if (status === 500) expect(consoleError).toHaveBeenCalledOnce()
+  })
+
+  it('records a cancelled create request without showing a failure toast', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.toastError.mockClear()
+    const requestStarted = vi.fn()
+    server.use(
+      http.post(SUBSCRIBE_CREATE_URL, async () => {
+        requestStarted()
+        await delay(100)
+        return HttpResponse.json({ data: { id: 513 }, message: '', success: true })
+      }),
+    )
+    await renderSubscribeHarness({ media: createSubscribeMovie({ tmdb_id: 111 }) })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'add-normal' }))
+    await waitFor(() => expect(requestStarted).toHaveBeenCalledOnce())
+    setNavigatingState(true)
+
+    await waitFor(() => expect(consoleError).toHaveBeenCalledOnce())
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    setNavigatingState(false)
   })
 
   it.each([
