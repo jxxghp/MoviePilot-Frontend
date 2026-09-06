@@ -27,6 +27,16 @@ describe('formatClassificationCategoryOptionTitle', () => {
     ).toBe('华语电影 · 电影')
   })
 
+  it('removes a repeated category name from any path segment', () => {
+    expect(
+      formatClassificationCategoryOptionTitle({
+        id: 'tv.uncategorized',
+        name: '未分类',
+        path: ['未分类', '通用'],
+      }),
+    ).toBe('未分类 · 通用')
+  })
+
   it('can preserve a caller-specific path separator and stable ID', () => {
     expect(
       formatClassificationCategoryOptionTitle(

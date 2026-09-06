@@ -189,6 +189,18 @@ describe('ClassificationCategoryEditor', () => {
     await waitFor(() => expect(events.updateFallbacks).toHaveBeenCalledWith({ 音乐: 'music.lossless' }))
   })
 
+  it('默认分类选项不会重复显示路径中的分类名称', async () => {
+    const user = userEvent.setup()
+    await renderEditor({
+      categories: [createCategory('tv.uncategorized', '电视剧', '未分类', ['未分类', '通用'])],
+    })
+
+    await user.click(screen.getByRole('combobox', { name: '电视剧默认分类' }))
+
+    expect(await screen.findByRole('option', { name: '未分类 · 通用' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '未分类 · 未分类 / 通用' })).not.toBeInTheDocument()
+  })
+
   it('路径超过最大深度时保留草稿并拒绝发出分类更新', async () => {
     const user = userEvent.setup()
     const { events } = await renderEditor({ maxDepth: 2 })
