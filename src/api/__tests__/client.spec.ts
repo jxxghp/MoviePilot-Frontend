@@ -6,7 +6,13 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios'
-import { ApiRequestError, createApiClients, getApiErrorMessage, type ApiFeedbackNotifier } from '@/api/client'
+import {
+  ApiRequestError,
+  createApiClients,
+  getApiErrorMessage,
+  isApiRequestCancellation,
+  type ApiFeedbackNotifier,
+} from '@/api/client'
 import type { ApiResponse } from '@/api/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -344,6 +350,13 @@ describe('MoviePilot API client', () => {
     expect(error).not.toBeInstanceOf(ApiRequestError)
     expect(notifier.error).not.toHaveBeenCalled()
     expect(reportConnectionFailure).not.toHaveBeenCalled()
+  })
+
+  it('识别 API 请求取消错误，供调用方跳过业务失败提示', () => {
+    expect(isApiRequestCancellation(new CanceledError('Request cancelled'))).toBe(true)
+    expect(isApiRequestCancellation({ name: 'AbortError' })).toBe(true)
+    expect(isApiRequestCancellation(new AxiosError('Request cancelled', AxiosError.ERR_CANCELED))).toBe(true)
+    expect(isApiRequestCancellation(new Error('Request failed'))).toBe(false)
   })
 
   it.each([502, 503, 504])('网关错误 %d 上报连接失败且不弹请求层 Toast', async status => {

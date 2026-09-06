@@ -1,7 +1,7 @@
 import { defineAsyncComponent, ref, type Ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
-import api from '@/api'
+import api, { isApiRequestCancellation } from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
 import type { MediaDataSource, MediaInfo, MediaSeason, Subscribe } from '@/api/types'
@@ -329,6 +329,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       }
     } catch (error) {
       console.error(error)
+      if (isApiRequestCancellation(error)) return
       showSubscribeAddToast(
         false,
         media.title ?? '',
@@ -373,6 +374,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       $toast.success(`${title} ${t('subscribe.cancelSuccess')}`)
     } catch (error) {
       console.error(error)
+      if (isApiRequestCancellation(error)) return
       $toast.error(
         `${title} ${t('subscribe.cancelFailed', {
           message: getRequestErrorMessage(error, t('subscribe.requestFailed')),
@@ -457,6 +459,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       $toast.success(`${title} ${t('subscribe.modeUpdateSuccess', { mode: getModeName(t, mode) })}`)
     } catch (error) {
       console.error(error)
+      if (isApiRequestCancellation(error)) return
       $toast.error(
         `${title} ${t('subscribe.addFailed', {
           name: getModeName(t, mode),

@@ -274,7 +274,7 @@ function installResponseInterceptors(
       return responseMode === 'envelope' ? payload : payload.data
     },
     async (reason: unknown) => {
-      if (isCancellation(reason)) return Promise.reject(reason)
+      if (isApiRequestCancellation(reason)) return Promise.reject(reason)
       // fulfilled 分支生成的协议错误已经携带完整上下文，不应再次按响应 message 包装。
       if (reason instanceof ApiRequestError) return Promise.reject(reason)
 
@@ -354,10 +354,14 @@ function isJsonBlob(response: AxiosResponse): boolean {
 }
 
 /** 取消属于正常控制流，保持原始取消对象且不触发 Toast 或离线探测。 */
-function isCancellation(reason: unknown): boolean {
+export function isApiRequestCancellation(reason: unknown): boolean {
   if (axios.isCancel(reason)) return true
-  if (!(reason instanceof Error)) return false
-  return reason.name === 'AbortError' || reason.name === 'CanceledError'
+  if (!reason || typeof reason !== 'object') return false
+
+  const error = reason as { code?: unknown; name?: unknown }
+  return (
+    error.code === AxiosError.ERR_CANCELED || error.name === 'AbortError' || error.name === 'CanceledError'
+  )
 }
 
 /** 优先使用后端 message，并兼容尚未进入统一 envelope 的 detail 错误。 */
