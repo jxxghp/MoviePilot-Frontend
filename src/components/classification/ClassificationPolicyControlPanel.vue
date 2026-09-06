@@ -598,7 +598,8 @@ watch(
 }
 
 .classification-policy-control__history-list :deep(.v-selection-control-group) {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
