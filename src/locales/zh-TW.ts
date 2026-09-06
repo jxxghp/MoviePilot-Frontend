@@ -4573,6 +4573,10 @@ export default {
       success: '成功',
       failed: '失敗',
     },
+    category: {
+      subtitle: '字幕',
+      audio: '音訊',
+    },
     deleteStep: {
       source: '來源檔案',
       destination: '媒體庫檔案',

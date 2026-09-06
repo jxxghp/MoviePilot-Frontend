@@ -963,6 +963,41 @@ describe('TransferHistoryView', () => {
     expect(await screen.findByText('华语流行 / 2003 / FLAC · 24-bit · 96 kHz · 2,304 kbps')).toBeInTheDocument()
   })
 
+  it('shows subtitle and attached audio as distinct history categories', async () => {
+    mocks.desktop = false
+    const histories = [
+      createHistory(1, '字幕文件', {
+        category: '电影',
+        image: '/subtitle-poster.jpg',
+        src: '/downloads/电影.zh.srt',
+        src_fileitem: { extension: 'srt', size: 100 } as TransferHistory['src_fileitem'],
+      }),
+      createHistory(2, '音频文件', {
+        category: '电影',
+        image: '/audio-poster.jpg',
+        src: '/downloads/电影.commentary.mka',
+        src_fileitem: { extension: 'mka', size: 200 } as TransferHistory['src_fileitem'],
+      }),
+      createHistory(3, '正常媒体', {
+        category: '动作',
+        image: '/movie-poster.jpg',
+        src: '/downloads/电影.mkv',
+        src_fileitem: { extension: 'mkv', size: 300 } as TransferHistory['src_fileitem'],
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(histories))
+    })
+
+    await renderHistory()
+    await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+
+    expect(await screen.findByText('字幕')).toBeInTheDocument()
+    expect(screen.getByText('音频')).toBeInTheDocument()
+    expect(screen.getByText('动作')).toBeInTheDocument()
+  })
+
   it('prevents a mobile request invalidated by a route reset from appending stale records', async () => {
     mocks.desktop = false
     const oldRequest = createDeferred<ReturnType<typeof historyResponse>>()

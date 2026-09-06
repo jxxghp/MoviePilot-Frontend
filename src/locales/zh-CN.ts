@@ -4632,6 +4632,10 @@ export default {
       success: '成功',
       failed: '失败',
     },
+    category: {
+      subtitle: '字幕',
+      audio: '音频',
+    },
     deleteStep: {
       source: '源文件',
       destination: '媒体库文件',

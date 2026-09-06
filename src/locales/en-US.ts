@@ -4728,6 +4728,10 @@ export default {
       success: 'Success',
       failed: 'Failed',
     },
+    category: {
+      subtitle: 'Subtitle',
+      audio: 'Audio',
+    },
     deleteStep: {
       source: 'Source file',
       destination: 'Media library file',

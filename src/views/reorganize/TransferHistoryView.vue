@@ -1388,8 +1388,67 @@ function getHistoryDisplayTitle(item: TransferHistory) {
 
 // 获取移动端卡片副标题，优先展示二级分类和年份。
 function getHistorySubtitle(item: TransferHistory) {
-  return [item.category, item.year, item.type === '音乐' ? formatMusicAudioSpecs(item) : ''].filter(Boolean).join(' / ')
+  return [getHistoryCategory(item), item.year, item.type === '音乐' ? formatMusicAudioSpecs(item) : '']
+    .filter(Boolean)
+    .join(' / ')
 }
+
+// 附加文件不属于媒体分类，按源文件扩展名显示独立类别，避免与电影/剧集分类混淆。
+function getHistoryCategory(item: TransferHistory) {
+  const rawExtension = item.src_fileitem?.extension || getFileExtension(item.src)
+  const extension = rawExtension ? `.${rawExtension.replace(/^\./, '').toLowerCase()}` : ''
+  if (subtitleExtensions.has(extension)) return t('transferHistory.category.subtitle')
+  if (audioExtensions.has(extension) && item.type !== '音乐') return t('transferHistory.category.audio')
+  return item.category
+}
+
+function getFileExtension(path?: string) {
+  const filename = path?.split(/[\\/]/).at(-1) || ''
+  const dot = filename.lastIndexOf('.')
+  return dot >= 0 ? filename.slice(dot) : ''
+}
+
+const subtitleExtensions = new Set(['.srt', '.ass', '.ssa', '.sup'])
+const audioExtensions = new Set([
+  '.aac',
+  '.ac3',
+  '.amr',
+  '.caf',
+  '.cda',
+  '.dsf',
+  '.dff',
+  '.kar',
+  '.m4a',
+  '.mp1',
+  '.mp2',
+  '.mp3',
+  '.mid',
+  '.mod',
+  '.mka',
+  '.mpc',
+  '.nsf',
+  '.ogg',
+  '.pcm',
+  '.rmi',
+  '.s3m',
+  '.snd',
+  '.spx',
+  '.tak',
+  '.tta',
+  '.vqf',
+  '.wav',
+  '.wma',
+  '.aifc',
+  '.aiff',
+  '.alac',
+  '.adif',
+  '.adts',
+  '.ape',
+  '.flac',
+  '.midi',
+  '.opus',
+  '.sfalc',
+])
 
 // 获取存储展示名称，配置缺失时回退到原始存储标识。
 function getHistoryStorageName(storage?: string) {
@@ -1849,7 +1908,7 @@ onUnmounted(() => {
             <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.seasons }}{{ item?.episodes }}
             </span>
-            <small>{{ item?.category }}</small>
+            <small>{{ getHistoryCategory(item) }}</small>
           </div>
         </div>
       </template>
@@ -1955,7 +2014,7 @@ onUnmounted(() => {
             <span v-else class="d-block text-high-emphasis min-w-20">
               {{ item?.title }}
             </span>
-            <small>{{ item?.category }}</small>
+            <small>{{ getHistoryCategory(item) }}</small>
           </div>
         </div>
       </template>
