@@ -448,18 +448,6 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-dashboard-shadow) !important;
   }
 
-  @media (hover: hover) {
-    // Dashboard 悬停沿左上来光增强顶部高光，并在右下背光面保留轻吸收。
-    .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card:hover,
-    .dashboard-grid-item-content
-      > .dashboard-grid-auto-size
-      > .dashboard-grid-content-measure
-      > :first-child
-      > .v-card:hover {
-      box-shadow: var(--glass-dashboard-shadow-hover) !important;
-    }
-  }
-
   .layout-navbar {
     border-color: var(--glass-border-raised) !important;
     -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);

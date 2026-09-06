@@ -4,6 +4,18 @@ import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
 
 describe('glass overlay material styles', () => {
+  it('keeps dashboard hover on one contour instead of restoring legacy inset lines', () => {
+    const legacy = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const surfaces = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+
+    expect(legacy).not.toContain(
+      '.dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card:hover',
+    )
+    expect(surfaces).toMatch(
+      /--glass-v3-rim: clamp\(0\.2,[\s\S]*?box-shadow: var\(--glass-v3-surface-edge\), var\(--glass-v3-shadow\) !important/u,
+    )
+  })
+
   it('shares the soft contour between content cards and detached navigation', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
 

@@ -238,6 +238,9 @@
       .dashboard-grid-content-measure > :first-child > .v-card:hover {
         --glass-v3-rim: clamp(0.2, calc(0.22 + var(--glass-reflection, 0.38) * 0.36), 0.54);
         --glass-v3-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+
+        // 悬停沿用静态轮廓，只增强其受光和投影，不切换到独立的硬质描边。
+        box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-shadow) !important;
       }
     }
   }
