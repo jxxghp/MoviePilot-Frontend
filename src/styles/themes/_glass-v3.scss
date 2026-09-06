@@ -1,3 +1,5 @@
+@use '@configured-variables' as variables;
+
 // V3 表面按信息角色统一材料；只改变承载层，不改变图表、业务数据与交互命中区。
 @mixin surfaces {
   html[data-theme='glass'] {
@@ -106,6 +108,19 @@
         border-inline-start: 1px solid rgba(255, 255, 255, 0.12);
       }
 
+      .layout-page-content .site-card .border-t .text-medium-emphasis {
+        // 上传/下载是核心读数，信息权重高于网址和能力标识。
+        color: rgb(var(--v-theme-on-surface)) !important;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .layout-page-content .site-card h3,
+      .layout-page-content .plugin-card__banner .v-card-title {
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
       .layout-page-content .plugin-card__banner {
         --plugin-card-banner-scrim: linear-gradient(rgba(23, 27, 32, 0.035), rgba(23, 27, 32, 0.1));
         --plugin-card-banner-tint: linear-gradient(
@@ -137,6 +152,42 @@
           rgba(23, 27, 32, 0.92)
         ) !important;
       }
+    }
+  }
+
+  // 固定导航保留布局占位，玻璃实体在占位内留出空气，采样几何仍由真实元素提供。
+  html[data-theme='glass']
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode='desktop']:not(
+      .layout-horizontal-nav-active,
+      .layout-window-controls-overlay-shell
+    ) {
+    --glass-v3-nav-reserved-width: #{variables.$layout-vertical-nav-width};
+
+    &.layout-vertical-nav-collapsed {
+      --glass-v3-nav-reserved-width: #{variables.$layout-vertical-nav-collapsed-width};
+    }
+
+    .layout-vertical-nav {
+      border-radius: 16px;
+      box-shadow: var(--glass-v3-shadow) !important;
+      block-size: calc(100% - 16px);
+      inline-size: calc(var(--glass-v3-nav-reserved-width) - 8px) !important;
+      inset-block-start: 8px;
+      inset-inline-start: 8px;
+      overflow: clip;
+    }
+
+    &.layout-vertical-nav-collapsed .layout-vertical-nav.hovered {
+      inline-size: calc(#{variables.$layout-vertical-nav-width} - 8px) !important;
+    }
+
+    .layout-navbar {
+      border-radius: 16px !important;
+      inline-size: calc(100% - var(--glass-v3-nav-reserved-width) - 16px) !important;
+      inset-block-start: 8px !important;
+      inset-inline-start: calc(var(--glass-v3-nav-reserved-width) + 8px) !important;
+      overflow: clip;
     }
   }
 

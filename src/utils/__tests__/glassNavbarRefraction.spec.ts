@@ -77,6 +77,8 @@ describe('createGlassNavbarDisplacementField', () => {
     { width: 127, height: 64, radius: 32 },
     { width: 260, height: 800, radius: 0 },
     { width: 68, height: 862, radius: 0 },
+    { width: 252, height: 846, radius: 16 },
+    { width: 60, height: 846, radius: 16 },
   ])('keeps two-dimensional sampling forward and inside the image for $width x $height r$radius', geometry => {
     for (const deformation of [0, 48, 100])
       for (const translation of [0, 48, 100])

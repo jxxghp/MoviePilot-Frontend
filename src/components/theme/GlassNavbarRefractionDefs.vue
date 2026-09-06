@@ -156,7 +156,9 @@ function isRefractionActive(surface: NavigationSurface) {
 
   if (surface === 'navbar') {
     return (
-      (shell.dataset.shellMode === 'desktop' && !shell.classList.contains('layout-horizontal-nav-active')) ||
+      (shell.dataset.shellMode === 'desktop' &&
+        !shell.classList.contains('layout-horizontal-nav-active') &&
+        !shell.classList.contains('layout-window-controls-overlay-shell')) ||
       (shell.classList.contains('layout-navbar-floating-eligible') &&
         shell.classList.contains('layout-navbar-away-from-top'))
     )
