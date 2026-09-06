@@ -350,7 +350,14 @@ onMounted(() => {
   stateObserver.observe(document.documentElement, {
     attributes: true,
     attributeOldValue: true,
-    attributeFilter: ['class', 'style', 'data-theme', 'data-glass-appearance', 'data-glass-quality'],
+    attributeFilter: [
+      'class',
+      'style',
+      'data-theme',
+      'data-theme-radius',
+      'data-glass-appearance',
+      'data-glass-quality',
+    ],
   })
   stateObserver.observe(observedShell, {
     attributes: true,

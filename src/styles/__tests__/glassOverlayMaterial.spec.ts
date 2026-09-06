@@ -4,6 +4,26 @@ import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
 
 describe('glass overlay material styles', () => {
+  it('reserves space below detached desktop navigation and follows the compact theme radius', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+
+    expect(styles).toContain('--glass-v3-navigation-radius: var(--app-field-radius, 16px)')
+    expect(styles).toContain('--glass-v3-navigation-content-gap: 16px')
+    expect(styles).toContain('border-radius: var(--glass-v3-navigation-radius)')
+    expect(styles).toContain('--shell-floating-navbar-radius: var(--glass-v3-navigation-radius)')
+    expect(styles).toMatch(/var\(--layout-navbar-block-size\)\s*-\s*var\(--navbar-tab-height, 0px\)/u)
+    expect(styles).toContain('var(--glass-v3-navigation-content-gap)')
+    expect(styles).toContain('.layout-window-controls-overlay-shell')
+    expect(styles).not.toContain('border-radius: 16px')
+  })
+
+  it('keeps plugin logo tinting on the material formulas and displays complete logos', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+
+    expect(styles).not.toMatch(/--plugin-card-banner-(?:tint|scrim)\s*:/u)
+    expect(styles).toMatch(/\.plugin-card__plugin-icon \.v-img__img\s*\{\s*object-fit:\s*contain;/u)
+  })
+
   it('keeps overlays translucent enough for CSS backdrop compositing in every material', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
