@@ -100,6 +100,8 @@ export interface ManualScrapeOptions {
 
 // 订阅
 export interface Subscribe {
+  /** 独立定时搜索间隔（小时）；null 或缺省跟随系统。 */
+  search_interval?: number | null
   // 订阅ID
   id: number
   // 订阅名称

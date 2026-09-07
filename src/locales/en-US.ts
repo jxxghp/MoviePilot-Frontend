@@ -4158,6 +4158,13 @@ export default {
       bestVersionFull: 'Full',
     },
     subscribeEdit: {
+      searchInterval: 'Search schedule',
+      searchIntervalSystem: 'Use system setting',
+      searchIntervalCustom: 'Custom',
+      searchIntervalHours: 'Search interval (hours)',
+      searchIntervalHint:
+        'Requires scheduled subscription search to be enabled. Manual searches and RSS refreshes are unaffected.',
+      searchIntervalInvalid: 'Enter a whole number of hours from 1 to 8760',
       titleDefault: 'Default Subscription Rules',
       titleEdit: 'Edit Subscription',
       seasonFormat: 'Season {number}',

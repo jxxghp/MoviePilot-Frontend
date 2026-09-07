@@ -4036,6 +4036,12 @@ export default {
       bestVersionFull: '全集洗版',
     },
     subscribeEdit: {
+      searchInterval: '搜尋週期',
+      searchIntervalSystem: '跟隨系統',
+      searchIntervalCustom: '自訂',
+      searchIntervalHours: '搜尋間隔（小時）',
+      searchIntervalHint: '僅在開啟訂閱定時搜尋時生效；手動搜尋與 RSS 更新不受影響。',
+      searchIntervalInvalid: '請輸入 1–8760 的整數小時數',
       titleDefault: '默認訂閱規則',
       titleEdit: '編輯訂閱',
       seasonFormat: '第 {number} 季',

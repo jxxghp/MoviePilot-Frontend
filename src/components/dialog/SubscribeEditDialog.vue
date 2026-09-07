@@ -78,6 +78,7 @@ const subscribeForm = ref<Subscribe>({
   media_source: undefined,
   media_id: undefined,
   state: '',
+  search_interval: null,
   last_update: '',
   username: '',
   sites: [],
@@ -88,6 +89,20 @@ const subscribeForm = ref<Subscribe>({
   date: '',
   show_edit_dialog: false,
   episode_group: '',
+})
+
+// 切换为系统周期时显式提交 null，确保覆盖已保存的独立周期。
+const customSearchInterval = computed({
+  get: () => subscribeForm.value.search_interval != null,
+  set: value => {
+    subscribeForm.value.search_interval = value ? 24 : null
+  },
+})
+
+// 空输入和非整数不能保存；接口采用同样的小时范围。
+const searchIntervalValid = computed(() => {
+  const interval = subscribeForm.value.search_interval
+  return interval == null || (Number.isInteger(Number(interval)) && Number(interval) >= 1 && Number(interval) <= 8760)
 })
 
 // 提示框
@@ -190,6 +205,7 @@ const filterRuleGroupOptions = computed(() => {
 
 // 调用API修改订阅
 async function updateSubscribeInfo() {
+  if (!searchIntervalValid.value) return
   const displayName = getSubscribeDisplayName()
   try {
     await api.put<null>('subscribe/', subscribeForm.value, { feedback: 'silent' })
@@ -209,7 +225,7 @@ async function updateSubscribeInfo() {
 
 // 设置用户设置的默认订阅规则
 async function saveDefaultSubscribeConfig() {
-  if (!canAdmin.value) return
+  if (!canAdmin.value || !searchIntervalValid.value) return
 
   const typeName = getDefaultSubscribeTypeName()
   try {
@@ -524,6 +540,32 @@ onMounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
+                  <VCol cols="12" :md="customSearchInterval ? 6 : 12">
+                    <VSelect
+                      v-model="customSearchInterval"
+                      :items="[
+                        { title: t('dialog.subscribeEdit.searchIntervalSystem'), value: false },
+                        { title: t('dialog.subscribeEdit.searchIntervalCustom'), value: true },
+                      ]"
+                      :label="t('dialog.subscribeEdit.searchInterval')"
+                      :hint="t('dialog.subscribeEdit.searchIntervalHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-timer-outline"
+                    />
+                  </VCol>
+                  <VCol v-if="customSearchInterval" cols="12" md="6">
+                    <VTextField
+                      v-model.number="subscribeForm.search_interval"
+                      type="number"
+                      min="1"
+                      max="8760"
+                      step="1"
+                      :label="t('dialog.subscribeEdit.searchIntervalHours')"
+                      :error-messages="searchIntervalValid ? [] : [t('dialog.subscribeEdit.searchIntervalInvalid')]"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
                   <VCol cols="12" md="6">
                     <VAutocomplete
                       v-model="subscribeForm.downloader"
@@ -677,6 +719,7 @@ onMounted(() => {
         <VBtn
           color="primary"
           variant="flat"
+          :disabled="!searchIntervalValid"
           @click=";`${props.default ? saveDefaultSubscribeConfig() : updateSubscribeInfo()}`"
           prepend-icon="mdi-content-save"
           class="px-5"

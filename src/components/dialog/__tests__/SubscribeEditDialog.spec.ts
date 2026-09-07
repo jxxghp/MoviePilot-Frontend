@@ -117,6 +117,55 @@ describe('SubscribeEditDialog', () => {
     expect(screen.getByText('2 季 • 24 集')).toBeInTheDocument()
   })
 
+  it('saves a custom search interval and explicitly restores the system setting', async () => {
+    const updated = vi.fn()
+    server.use(
+      subscribeDetailsHandler(
+        820,
+        createSubscribe({ id: 820, name: '搜索周期测试', search_interval: null, type: '电影' }),
+      ),
+      updateSubscribeHandler({ success: true }, 200, updated),
+    )
+    useDialogOptions()
+    const user = userEvent.setup()
+    await renderDialog({ subid: 820 })
+    await screen.findByText('搜索周期测试')
+    await user.click(screen.getByLabelText('搜索周期'))
+    await user.click(await screen.findByRole('option', { name: '自定义' }))
+    await fireEvent.update(screen.getByLabelText('搜索间隔（小时）'), '6')
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+    expect(updated.mock.calls[0][0]).toMatchObject({ search_interval: 6 })
+
+    await user.click(screen.getByLabelText('搜索周期'))
+    await user.click(await screen.findByRole('option', { name: '跟随系统' }))
+    expect(screen.queryByLabelText('搜索间隔（小时）')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(updated).toHaveBeenCalledTimes(2))
+    expect(updated.mock.calls[1][0]).toMatchObject({ search_interval: null })
+  })
+
+  it('loads a saved custom interval and prevents invalid values from being submitted', async () => {
+    const updated = vi.fn()
+    server.use(
+      subscribeDetailsHandler(
+        821,
+        createSubscribe({ id: 821, name: '周期校验测试', search_interval: 48, type: '电影' }),
+      ),
+      updateSubscribeHandler({ success: true }, 200, updated),
+    )
+    useDialogOptions()
+    await renderDialog({ subid: 821 })
+    expect(await screen.findByLabelText('搜索间隔（小时）')).toHaveValue(48)
+    for (const value of ['', '0', '-1', '1.5', '8761']) {
+      await fireEvent.update(screen.getByLabelText('搜索间隔（小时）'), value)
+      expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+    }
+    expect(updated).not.toHaveBeenCalled()
+    await fireEvent.update(screen.getByLabelText('搜索间隔（小时）'), '24')
+    expect(screen.getByRole('button', { name: '保存' })).toBeEnabled()
+  })
+
   it('keeps movie titles free of season suffixes and skips episode groups', async () => {
     const record = createSubscribe({ id: 802, media_id: '8020', name: '电影测试项', season: undefined, type: '电影' })
     const episodeGroupsRequested = vi.fn()

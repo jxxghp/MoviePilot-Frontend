@@ -4067,6 +4067,12 @@ export default {
       bestVersionFull: '全集洗版',
     },
     subscribeEdit: {
+      searchInterval: '搜索周期',
+      searchIntervalSystem: '跟随系统',
+      searchIntervalCustom: '自定义',
+      searchIntervalHours: '搜索间隔（小时）',
+      searchIntervalHint: '仅在开启订阅定时搜索时生效；手动搜索和 RSS 刷新不受影响。',
+      searchIntervalInvalid: '请输入 1–8760 的整数小时数',
       titleDefault: '默认订阅规则',
       titleEdit: '编辑订阅',
       seasonFormat: '第 {number} 季',
