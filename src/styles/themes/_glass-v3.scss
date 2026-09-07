@@ -590,7 +590,7 @@ $-popup-hosts: (
     }
   }
 
-  html[data-theme='glass'][data-glass-appearance='frosted']:not([data-glass-navbar-style='clear'])
+  html[data-theme='glass'][data-glass-appearance='frosted']
     body[data-theme='glass']
     .layout-wrapper[data-shell-mode='desktop'].layout-navbar-fixed.layout-navbar-away-from-top
     .layout-navbar {

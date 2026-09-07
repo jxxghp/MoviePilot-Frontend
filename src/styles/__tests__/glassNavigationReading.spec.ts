@@ -46,7 +46,7 @@ describe('glass navigation reading material', () => {
   it('separates overlapping frosted navigation without a second diffusion pass', () => {
     expect(surfaces).toContain('--glass-navbar-frosted-separation: 0')
     expect(surfaces).toContain('--glass-navbar-frosted-separation: 0.08')
-    expect(surfaces).toContain("[data-glass-appearance='frosted']:not([data-glass-navbar-style='clear'])")
+    expect(surfaces).not.toContain("[data-glass-appearance='frosted']:not([data-glass-navbar-style='clear'])")
     expect(surfaces).toContain('var(--glass-v3-card-background) !important')
     const backplate = readFileSync(resolve('src/components/theme/GlassFixedShellBackplate.vue'), 'utf8')
     const style = parseComponent(backplate).descriptor.styles[0]

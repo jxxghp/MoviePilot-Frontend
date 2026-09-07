@@ -59,6 +59,7 @@ const isSaving = ref(false)
 const usesRealtimeOptics = computed(() => draftQuality.value !== 'css')
 const showsDynamicsMode = computed(() => usesRealtimeOptics.value && !usesMobilePresentation.value)
 const showsDynamicTuning = computed(() => showsDynamicsMode.value && draftDynamicsMode.value !== 'off')
+const showsNavbarStyle = computed(() => draftAppearance.value !== 'frosted')
 const availablePresets = computed(() => getAvailableGlassOpticalPresets(draftQuality.value))
 const activePreset = computed<GlassOpticalPreset>(() =>
   availablePresets.value.includes(draftPreset.value) ? draftPreset.value : 'natural',
@@ -370,7 +371,7 @@ onScopeDispose(cancelGlassPreview)
           <p class="glass-settings-dialog__hint">{{ t('theme.glassAppearanceHint') }}</p>
         </section>
 
-        <section>
+        <section v-if="showsNavbarStyle">
           <h3 class="glass-settings-dialog__label">{{ t('theme.glassNavbarStyle') }}</h3>
           <VBtnToggle
             :model-value="draftNavbarStyle"

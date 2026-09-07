@@ -160,6 +160,55 @@ describe('GlassSettingsDialog', () => {
     )
   })
 
+  it.each(['clear', 'tinted'] as const)(
+    'hides navbar style choices in frosted and restores the draft for %s',
+    async appearance => {
+      mocks.settings.value.glassAppearance = appearance
+      mocks.settings.value.glassNavbarStyle = 'clear'
+      const wrapper = shallowMount(GlassSettingsDialog, {
+        global: {
+          stubs: {
+            VCard: slotStub,
+            VCardActions: slotStub,
+            VCardText: slotStub,
+            VBtn: slotStub,
+            VBtnToggle: toggleStub,
+            VDialog: dialogStub,
+            VDialogCloseBtn: true,
+            VDivider: true,
+            VSlider: sliderStub,
+          },
+        },
+        props: { modelValue: true },
+      })
+      const appearanceControl = wrapper
+        .findAllComponents(toggleStub)
+        .find(component => component.classes().includes('glass-settings-dialog__appearance'))
+
+      if (!appearanceControl) throw new Error('appearance control was not rendered')
+
+      expect(wrapper.find('.glass-settings-dialog__navbar-style').attributes('data-model-value')).toBe('clear')
+
+      await appearanceControl.vm.$emit('update:modelValue', 'frosted')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.glass-settings-dialog__navbar-style').exists()).toBe(false)
+      expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({ glassAppearance: 'frosted', glassNavbarStyle: 'clear' }),
+      )
+
+      await appearanceControl.vm.$emit('update:modelValue', appearance)
+      await wrapper.vm.$nextTick()
+
+      const restoredStyleControl = wrapper.find('.glass-settings-dialog__navbar-style')
+      expect(restoredStyleControl.attributes('data-model-value')).toBe('clear')
+      expect(wrapper.findAll('.glass-settings-dialog__navbar-style-option')).toHaveLength(2)
+      expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({ glassAppearance: appearance, glassNavbarStyle: 'clear' }),
+      )
+    },
+  )
+
   it('includes the selected navbar style when saving the draft', async () => {
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
@@ -191,6 +240,77 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(expect.objectContaining({ glassNavbarStyle: 'clear' }))
     expect(mocks.commitGlassPreview).toHaveBeenCalledOnce()
+  })
+
+  it('saves the retained navbar style after the selector is hidden by frosted', async () => {
+    mocks.settings.value.glassNavbarStyle = 'clear'
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardActions: slotStub,
+          VCardText: slotStub,
+          VBtn: {
+            emits: ['click'],
+            props: ['prependIcon'],
+            template: '<button :data-icon="prependIcon" @click="$emit(\'click\')"><slot /></button>',
+          },
+          VBtnToggle: toggleStub,
+          VDialog: dialogStub,
+          VDialogCloseBtn: true,
+          VDivider: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const appearanceControl = wrapper
+      .findAllComponents(toggleStub)
+      .find(component => component.classes().includes('glass-settings-dialog__appearance'))
+    if (!appearanceControl) throw new Error('appearance control was not rendered')
+
+    await appearanceControl.vm.$emit('update:modelValue', 'frosted')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-icon="mdi-content-save"]').trigger('click')
+
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ glassAppearance: 'frosted', glassNavbarStyle: 'clear' }),
+    )
+    expect(mocks.commitGlassPreview).toHaveBeenCalledOnce()
+  })
+
+  it('cancels a frosted draft without committing the retained navbar style', async () => {
+    mocks.settings.value.glassNavbarStyle = 'clear'
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardActions: slotStub,
+          VCardText: slotStub,
+          VBtn: slotStub,
+          VBtnToggle: toggleStub,
+          VDialog: dialogStub,
+          VDialogCloseBtn: true,
+          VDivider: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const appearanceControl = wrapper
+      .findAllComponents(toggleStub)
+      .find(component => component.classes().includes('glass-settings-dialog__appearance'))
+    if (!appearanceControl) throw new Error('appearance control was not rendered')
+
+    await appearanceControl.vm.$emit('update:modelValue', 'frosted')
+    await wrapper.vm.$nextTick()
+    await wrapper.setProps({ modelValue: false })
+
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ glassAppearance: 'frosted', glassNavbarStyle: 'clear' }),
+    )
+    expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
+    expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })
 
   it('resets parameters to the current material, quality, and preset without committing', async () => {
