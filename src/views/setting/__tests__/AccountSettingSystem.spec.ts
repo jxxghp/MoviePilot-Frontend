@@ -1072,6 +1072,8 @@ describe('AccountSettingSystem', () => {
     await renderSettings()
     const dialog = await openAdvancedTab('媒体')
     expect(dialog.getByLabelText('音乐媒体信息转简体中文')).toBeChecked()
+    expect(dialog.getByLabelText('音乐发行地区优先级')).toHaveValue(['CN', 'TW', 'HK'])
+    expect(dialog.getByLabelText('音乐文字字形优先级')).toHaveValue(['Hans', 'Hant', 'Latn'])
     await fireEvent.update(dialog.getByLabelText('TMDB API服务地址'), 'api.tmdb.org')
     await fireEvent.update(dialog.getByLabelText('TMDB API Key'), 'tmdb-key')
     await fireEvent.update(dialog.getByLabelText('AcoustID API Key'), 'acoustid-key')
@@ -1116,6 +1118,8 @@ describe('AccountSettingSystem', () => {
         LYRICS_PROVIDER_RETRY_MAX_WAIT: 3,
         MUSIC_COVER_PROXY: 'https://music.example',
         MUSIC_METADATA_TO_SIMPLIFIED: false,
+        MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
+        MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
         MUSIXMATCH_API_KEY: 'musixmatch-key',
         MUSIXMATCH_BASE_URL: 'https://musixmatch.example/ws/1.1',
         RECOGNIZE_PLUGIN_FIRST: true,

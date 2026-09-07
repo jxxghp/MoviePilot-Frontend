@@ -2226,6 +2226,10 @@ export interface TransferForm {
   media_id?: string | null
   // 音乐实体类型
   music_type?: Exclude<MusicEntityType, 'artist'> | null
+  // MusicBrainz 发行地区优先级；未传时继承系统设置
+  music_release_regions?: string[] | null
+  // MusicBrainz 文字字形优先级；未传时继承系统设置
+  music_release_scripts?: string[] | null
   // 季号
   season?: number
   // 类型

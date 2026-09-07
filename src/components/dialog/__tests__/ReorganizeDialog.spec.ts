@@ -960,6 +960,32 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     )
   })
 
+  it('inherits music release preferences by default and can override them for one request', async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>)
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({
+      items: [createFileItem({ name: '七里香', path: '/downloads/七里香', type: 'dir' })],
+    })
+
+    await selectOption('类型', 3)
+    await user.click(screen.getByLabelText('本次覆盖发行偏好'))
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual(
+      expect.objectContaining({
+        music_release_regions: ['CN', 'TW', 'HK'],
+        music_release_scripts: ['Hans', 'Hant', 'Latn'],
+      }),
+    )
+  })
+
   it('defaults a selected audio file to the recording namespace', async () => {
     await renderDialog({
       items: [createFileItem({ name: '晴天.flac', path: '/downloads/晴天.flac' })],
