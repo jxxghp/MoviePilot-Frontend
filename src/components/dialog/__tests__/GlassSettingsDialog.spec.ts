@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   settings: {
     value: {
       glassAppearance: 'clear',
+      glassNavbarStyle: 'adaptive',
       glassDeformationStrength: 50,
       glassDynamicsMode: 'fluid',
       glassFlowStrength: 50,
@@ -80,6 +81,7 @@ describe('GlassSettingsDialog', () => {
     mocks.usesMobilePresentation!.value = false
     mocks.display.smAndDown.value = false
     mocks.settings.value.glassAppearance = 'clear'
+    mocks.settings.value.glassNavbarStyle = 'adaptive'
     mocks.settings.value.glassDeformationStrength = 50
     mocks.settings.value.glassDynamicsMode = 'fluid'
     mocks.settings.value.glassFlowStrength = 50
@@ -117,6 +119,78 @@ describe('GlassSettingsDialog', () => {
     await wrapper.setProps({ modelValue: false })
 
     expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
+  })
+
+  it('renders two navbar style choices and previews the selected style', async () => {
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardActions: slotStub,
+          VCardText: slotStub,
+          VBtn: slotStub,
+          VBtnToggle: toggleStub,
+          VDialog: dialogStub,
+          VDialogCloseBtn: true,
+          VDivider: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+
+    const styleControl = wrapper
+      .findAllComponents(toggleStub)
+      .find(component => component.classes().includes('glass-settings-dialog__navbar-style'))
+    if (!styleControl) throw new Error('navbar style control was not rendered')
+
+    expect(styleControl.attributes('data-model-value')).toBe('adaptive')
+    expect(wrapper.findAll('.glass-settings-dialog__navbar-style-option')).toHaveLength(2)
+
+    await styleControl.vm.$emit('update:modelValue', 'clear')
+    await wrapper.vm.$nextTick()
+
+    expect(styleControl.attributes('data-model-value')).toBe('clear')
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        glassAppearance: 'clear',
+        glassNavbarStyle: 'clear',
+        glassQuality: 'css',
+      }),
+    )
+  })
+
+  it('includes the selected navbar style when saving the draft', async () => {
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardActions: slotStub,
+          VCardText: slotStub,
+          VBtn: {
+            emits: ['click'],
+            props: ['prependIcon'],
+            template: '<button :data-icon="prependIcon" @click="$emit(\'click\')"><slot /></button>',
+          },
+          VBtnToggle: toggleStub,
+          VDialog: dialogStub,
+          VDialogCloseBtn: true,
+          VDivider: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const styleControl = wrapper
+      .findAllComponents(toggleStub)
+      .find(component => component.classes().includes('glass-settings-dialog__navbar-style'))
+    if (!styleControl) throw new Error('navbar style control was not rendered')
+
+    await styleControl.vm.$emit('update:modelValue', 'clear')
+    await wrapper.find('[data-icon="mdi-content-save"]').trigger('click')
+
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(expect.objectContaining({ glassNavbarStyle: 'clear' }))
+    expect(mocks.commitGlassPreview).toHaveBeenCalledOnce()
   })
 
   it('resets parameters to the current material, quality, and preset without committing', async () => {
@@ -177,6 +251,7 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'frosted',
+      glassNavbarStyle: 'adaptive',
       glassDeformationStrength: 79,
       glassDynamicsMode: 'fluid',
       glassFlowStrength: 77,
@@ -222,6 +297,7 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'clear',
+      glassNavbarStyle: 'adaptive',
       glassDeformationStrength: 50,
       glassDynamicsMode: 'fluid',
       glassFlowStrength: 50,
@@ -341,6 +417,7 @@ describe('GlassSettingsDialog', () => {
     expect(mocks.previewGlassSettings).toHaveBeenCalledTimes(6)
     expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith({
       glassAppearance: 'clear',
+      glassNavbarStyle: 'adaptive',
       glassDeformationStrength: 69,
       glassDynamicsMode: 'fluid',
       glassFlowStrength: 62,
@@ -473,6 +550,7 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith({
       glassAppearance: 'clear',
+      glassNavbarStyle: 'adaptive',
       glassDeformationStrength: 62,
       glassDynamicsMode: 'off',
       glassFlowStrength: 58,

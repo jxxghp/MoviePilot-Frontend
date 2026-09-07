@@ -393,6 +393,8 @@ onBeforeUnmount(() => {
 .glass-fixed-shell-backplate--main {
   --glass-fixed-shell-nav-inline-size: #{variables.$layout-vertical-nav-width};
 
+  // 壁纸槽位以0.92透明度交叉淡化；不透明底板阻止未扩散的正文从槽位余量透穿。
+  background-color: rgb(23, 27, 32);
   z-index: variables.$layout-vertical-nav-layout-navbar-z-index - 1;
   clip-path: polygon(
     0 0,

@@ -477,11 +477,6 @@
       "count": 1
     }
   },
-  "src/composables/useDynamicButton.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/composables/useDynamicHeaderTab.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
@@ -523,14 +518,6 @@
   },
   "src/composables/useTorrentFilter.ts": {
     "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "src/layouts/default/components/Footer.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 6
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },

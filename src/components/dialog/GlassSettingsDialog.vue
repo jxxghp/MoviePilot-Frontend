@@ -6,6 +6,7 @@ import {
   useThemeCustomizer,
   type ThemeCustomizerGlassAppearance,
   type ThemeCustomizerGlassDynamicsMode,
+  type ThemeCustomizerGlassNavbarStyle,
   type ThemeCustomizerGlassQuality,
 } from '@/composables/useThemeCustomizer'
 import {
@@ -43,6 +44,7 @@ const display = useDisplay()
 const usesMobilePresentation = useGlassMobilePresentation()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
+const draftNavbarStyle = ref<ThemeCustomizerGlassNavbarStyle>(settings.value.glassNavbarStyle)
 const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
 const draftDynamicsMode = ref<ThemeCustomizerGlassDynamicsMode>(settings.value.glassDynamicsMode)
 const draftFlowStrength = ref(settings.value.glassFlowStrength)
@@ -77,6 +79,7 @@ watch(
   (value, previous) => {
     if (value) {
       draftAppearance.value = settings.value.glassAppearance
+      draftNavbarStyle.value = settings.value.glassNavbarStyle
       draftDeformationStrength.value = settings.value.glassDeformationStrength
       draftDynamicsMode.value = settings.value.glassDynamicsMode
       draftFlowStrength.value = settings.value.glassFlowStrength
@@ -100,6 +103,15 @@ const appearanceOptions: Array<{
   { label: 'theme.glassAppearanceClear', value: 'clear' },
   { label: 'theme.glassAppearanceTinted', value: 'tinted' },
   { label: 'theme.glassAppearanceFrosted', value: 'frosted' },
+]
+const navbarStyleOptions: Array<{
+  /** 分段按钮使用的本地化文案键。 */
+  label: string
+  /** 顶栏风格的持久化值。 */
+  value: ThemeCustomizerGlassNavbarStyle
+}> = [
+  { label: 'theme.glassNavbarStyleAdaptive', value: 'adaptive' },
+  { label: 'theme.glassNavbarStyleClear', value: 'clear' },
 ]
 
 const qualityOptions: Array<{
@@ -145,6 +157,15 @@ function updateAppearance(value: unknown) {
   applyPreset(activePreset.value)
 }
 
+/** 仅允许面板声明的顶栏风格进入待保存设置。 */
+function updateNavbarStyle(value: unknown) {
+  const option = navbarStyleOptions.find(item => item.value === value)
+  if (!option) return
+
+  draftNavbarStyle.value = option.value
+  previewDraftParameters()
+}
+
 /** 仅允许面板声明的质量档位进入待保存设置。 */
 function updateQuality(value: unknown) {
   const option = qualityOptions.find(item => item.value === value)
@@ -167,6 +188,7 @@ function updateDynamicsMode(value: unknown) {
 function previewDraftParameters() {
   previewGlassSettings({
     glassAppearance: draftAppearance.value,
+    glassNavbarStyle: draftNavbarStyle.value,
     glassDeformationStrength: draftDeformationStrength.value,
     glassDynamicsMode: draftDynamicsMode.value,
     glassFlowStrength: draftFlowStrength.value,
@@ -283,6 +305,7 @@ async function saveSettings() {
   try {
     previewGlassSettings({
       glassAppearance: draftAppearance.value,
+      glassNavbarStyle: draftNavbarStyle.value,
       glassDeformationStrength: draftDeformationStrength.value,
       glassDynamicsMode: draftDynamicsMode.value,
       glassFlowStrength: draftFlowStrength.value,
@@ -345,6 +368,27 @@ onScopeDispose(cancelGlassPreview)
             </VBtn>
           </VBtnToggle>
           <p class="glass-settings-dialog__hint">{{ t('theme.glassAppearanceHint') }}</p>
+        </section>
+
+        <section>
+          <h3 class="glass-settings-dialog__label">{{ t('theme.glassNavbarStyle') }}</h3>
+          <VBtnToggle
+            :model-value="draftNavbarStyle"
+            mandatory
+            color="primary"
+            variant="text"
+            class="glass-settings-dialog__navbar-style"
+            @update:model-value="updateNavbarStyle"
+          >
+            <VBtn
+              v-for="option in navbarStyleOptions"
+              :key="option.value"
+              :value="option.value"
+              class="glass-settings-dialog__navbar-style-option"
+            >
+              {{ t(option.label) }}
+            </VBtn>
+          </VBtnToggle>
         </section>
 
         <section>
@@ -631,6 +675,7 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance,
+.glass-settings-dialog__navbar-style,
 .glass-settings-dialog__dynamics-mode,
 .glass-settings-dialog__quality,
 .glass-settings-dialog__preset {
@@ -647,6 +692,11 @@ onScopeDispose(cancelGlassPreview)
 .glass-settings-dialog__appearance {
   block-size: 42px !important;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.glass-settings-dialog__navbar-style {
+  block-size: 42px !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .glass-settings-dialog__dynamics-mode {
@@ -672,6 +722,7 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance-option,
+.glass-settings-dialog__navbar-style-option,
 .glass-settings-dialog__dynamics-mode-option,
 .glass-settings-dialog__quality-option,
 .glass-settings-dialog__preset-option {
@@ -688,6 +739,10 @@ onScopeDispose(cancelGlassPreview)
   block-size: 32px !important;
 }
 
+.glass-settings-dialog__navbar-style-option {
+  block-size: 32px !important;
+}
+
 .glass-settings-dialog__dynamics-mode-option {
   block-size: 32px !important;
 }
@@ -697,6 +752,7 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance-option:deep(.v-btn--active),
+.glass-settings-dialog__navbar-style-option:deep(.v-btn--active),
 .glass-settings-dialog__dynamics-mode-option:deep(.v-btn--active),
 .glass-settings-dialog__quality-option:deep(.v-btn--active),
 .glass-settings-dialog__preset-option:deep(.v-btn--active) {

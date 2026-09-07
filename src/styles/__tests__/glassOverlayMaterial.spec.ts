@@ -43,7 +43,7 @@ describe('glass overlay material styles', () => {
   it('diffuses transient overlay backgrounds independently from clear page surfaces', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const popupStart = styles.indexOf('// 所有临时表面采用同族阅读材质')
-    const popupEnd = styles.indexOf('  @supports not', popupStart)
+    const popupEnd = styles.indexOf('  // 两种顶栏风格', popupStart)
     const popup = styles.slice(popupStart, popupEnd)
 
     expect(styles).toContain('--glass-popup-blur: 18px')
@@ -400,15 +400,12 @@ describe('glass overlay material styles', () => {
     )
   })
 
-  it('shares the same light frost when glass navbars overlap scrolled content', () => {
+  it('limits the legacy scrolled tint to desktop navigation without overriding App material', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toContain('--glass-navbar-scrolled-backdrop-filter: saturate(115%)')
     expect(styles).toMatch(
-      /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-wrapper\.window-scrolled\.layout-navbar-fixed \.layout-navbar,[\s\S]*?backdrop-filter:\s*var\(--glass-navbar-scrolled-backdrop-filter\)\s*!important;/,
-    )
-    expect(styles).toMatch(
-      /\[data-glass-appearance='frosted'\][\s\S]*?\.layout-wrapper\.window-scrolled\.layout-navbar-fixed \.layout-navbar,[\s\S]*?\.layout-horizontal-nav-scrolled[\s\S]*?backdrop-filter:\s*var\(--glass-navbar-scrolled-backdrop-filter\)\s*!important;/,
+      /:is\(\[data-glass-appearance='clear'\], \[data-glass-appearance='tinted'\]\)[\s\S]*?\.layout-wrapper:where\(\[data-shell-mode='desktop'\]\)\.window-scrolled\.layout-navbar-fixed \.layout-navbar,[\s\S]*?backdrop-filter:\s*var\(--glass-navbar-scrolled-backdrop-filter\)\s*!important;/,
     )
   })
 
@@ -575,7 +572,8 @@ describe('glass overlay material styles', () => {
     expect(baseMaterialRule).toContain(
       '--glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18)',
     )
-    expect(baseMaterialRule).toContain('--glass-navbar-live-filter: saturate(var(--glass-navbar-saturation))')
+    expect(baseMaterialRule).toContain('--glass-navbar-live-filter: var(--glass-navbar-reading-filter')
+    expect(baseMaterialRule).toContain('saturate(var(--glass-navbar-saturation))')
     expect(baseMaterialRule).toContain('brightness(var(--glass-navbar-brightness))')
     expect(baseMaterialRule).toContain('background: var(--glass-navbar-sheen), var(--glass-navbar-scrim) !important')
     expect(baseMaterialRule).toContain('box-shadow: var(--glass-navbar-shadow) !important')

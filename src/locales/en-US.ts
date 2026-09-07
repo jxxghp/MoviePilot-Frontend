@@ -222,6 +222,9 @@ export default {
     glassAppearanceFrosted: 'Frosted',
     glassAppearanceHint:
       'Clear emphasizes wallpaper detail, Tinted adds color coverage, and Frosted uses blur diffusion for a denser glass surface.',
+    glassNavbarStyle: 'Navbar Style',
+    glassNavbarStyleAdaptive: 'Adaptive',
+    glassNavbarStyleClear: 'Clear',
     glassQuality: 'Quality',
     glassQualityCss: 'Standard',
     glassQualityBalanced: 'Balanced',
