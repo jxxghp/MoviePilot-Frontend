@@ -151,7 +151,9 @@ function isRefractionActive(surface: NavigationSurface) {
     theme !== 'glass' ||
     (glassAppearance !== 'clear' && glassAppearance !== 'tinted') ||
     (glassQuality !== 'balanced' && glassQuality !== 'high') ||
-    transparencyQuery?.matches
+    transparencyQuery?.matches ||
+    document.visibilityState === 'hidden' ||
+    !document.hasFocus()
   )
     return false
 
@@ -356,6 +358,10 @@ onMounted(() => {
 
   transparencyQuery = window.matchMedia('(prefers-reduced-transparency: reduce)')
   transparencyQuery.addEventListener('change', scheduleDisplacementMapSync)
+  // Panel 暂停时会释放绑定，后台不能因此启动备用图；恢复后再检查当前几何与所有权。
+  window.addEventListener('focus', scheduleDisplacementMapSync)
+  window.addEventListener('blur', scheduleDisplacementMapSync)
+  document.addEventListener('visibilitychange', scheduleDisplacementMapSync)
   stateObserver = new MutationObserver(handleStateMutations)
   stateObserver.observe(document.documentElement, {
     attributes: true,
@@ -427,6 +433,9 @@ onBeforeUnmount(() => {
   stateObserver = null
   transparencyQuery?.removeEventListener('change', scheduleDisplacementMapSync)
   transparencyQuery = null
+  window.removeEventListener('focus', scheduleDisplacementMapSync)
+  window.removeEventListener('blur', scheduleDisplacementMapSync)
+  document.removeEventListener('visibilitychange', scheduleDisplacementMapSync)
   window.removeEventListener('resize', scheduleDisplacementMapSync)
   observedShell = null
 })
