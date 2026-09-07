@@ -89,10 +89,29 @@ const redoTargetStorage = ref<string>()
 const selected = ref<TransferHistory[]>([])
 
 interface TransferHistoryDisplayItem extends TransferHistory {
+  history_group_album_path: string
   history_group_is_music_album: boolean
   history_group_key: string
   history_group_label: string
+  history_group_storage?: string
+  history_group_summary?: TransferHistoryGroupSummary
   history_group_track_key: string
+  history_group_uses_destination: boolean
+}
+
+interface TransferHistoryGroupSummary {
+  albumPath: string
+  artist: string
+  category: string
+  coverItem: TransferHistoryDisplayItem
+  date: string
+  failedCount: number
+  label: string
+  mode: string
+  size: number
+  storage?: string
+  successCount: number
+  trackCount: number
 }
 
 // 当前删除尝试已完成的文件步骤，页面刷新后由后端“已不存在”状态重新确认。
@@ -548,22 +567,25 @@ function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem
   if (item.type === '音乐') {
     const candidates = item.status
       ? ([
-          [item.dest, item.dest_storage],
-          [item.src, item.src_storage],
+          [item.dest, item.dest_storage, true],
+          [item.src, item.src_storage, false],
         ] as const)
       : item.src
-        ? ([[item.src, item.src_storage]] as const)
-        : ([[item.dest, item.dest_storage]] as const)
-    for (const [path, storage] of candidates) {
+        ? ([[item.src, item.src_storage, false]] as const)
+        : ([[item.dest, item.dest_storage, true]] as const)
+    for (const [path, storage, usesDestination] of candidates) {
       const normalizedPath = normalizeHistoryPath(path)
       const albumPath = getHistoryParentPath(normalizedPath)
       if (!albumPath) continue
       return {
         ...item,
+        history_group_album_path: albumPath,
         history_group_is_music_album: true,
         history_group_key: `music:${JSON.stringify([storage || '', albumPath])}`,
         history_group_label: getHistoryPathName(albumPath),
+        history_group_storage: storage,
         history_group_track_key: JSON.stringify([storage || '', normalizedPath]),
+        history_group_uses_destination: usesDestination,
       }
     }
   }
@@ -571,11 +593,53 @@ function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem
   const title = item.title || t('common.unknown')
   return {
     ...item,
+    history_group_album_path: '',
     history_group_is_music_album: false,
     history_group_key: `title:${JSON.stringify(item.title ?? null)}`,
     history_group_label: title,
     history_group_track_key: `history:${item.id}`,
+    history_group_uses_destination: false,
   }
+}
+
+// 为折叠后的音乐专辑补齐可直接浏览的摘要，避免聚合行只剩一个标题。
+function addHistoryGroupSummaries(items: TransferHistoryDisplayItem[]) {
+  const groups = new Map<string, TransferHistoryDisplayItem[]>()
+  for (const item of items) {
+    if (!item.history_group_is_music_album) continue
+    const groupItems = groups.get(item.history_group_key) || []
+    groupItems.push(item)
+    groups.set(item.history_group_key, groupItems)
+  }
+
+  for (const groupItems of groups.values()) {
+    const firstItem = groupItems[0]
+    if (!firstItem) continue
+    const modes = [...new Set(groupItems.map(item => item.mode).filter((mode): mode is string => Boolean(mode)))]
+    const summary: TransferHistoryGroupSummary = {
+      albumPath: firstItem.history_group_album_path,
+      artist: firstItem.history_group_uses_destination
+        ? getHistoryPathName(getHistoryParentPath(firstItem.history_group_album_path))
+        : '',
+      category: groupItems.find(item => item.category)?.category || '',
+      coverItem: groupItems.find(item => item.image) || firstItem,
+      date:
+        groupItems
+          .map(item => item.date || '')
+          .sort()
+          .at(-1) || '',
+      failedCount: groupItems.filter(item => !item.status).length,
+      label: firstItem.history_group_label,
+      mode: modes.map(mode => TransferDict[mode] || mode).join(' · '),
+      size: groupItems.reduce((total, item) => total + (item.src_fileitem?.size || 0), 0),
+      storage: firstItem.history_group_storage,
+      successCount: groupItems.filter(item => item.status).length,
+      trackCount: groupItems.length,
+    }
+    for (const item of groupItems) item.history_group_summary = summary
+  }
+
+  return items
 }
 
 // 当前页出现同一专辑的多首音乐时，首次访问自动切换到可展开的分组视图。
@@ -613,7 +677,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     const list = Array.isArray(result.list) ? result.list : []
 
     isRefreshed.value = true
-    const displayList = list.map(toHistoryDisplayItem)
+    const displayList = addHistoryGroupSummaries(list.map(toHistoryDisplayItem))
     dataList.value = displayList
     if (isDesktop.value && selected.value.length > 0) {
       const refreshedItems = new Map(displayList.map(item => [item.id, item]))
@@ -1608,6 +1672,16 @@ function isMusicAlbumGroup(items: readonly TransferHistoryGroupItem[]) {
   return Boolean(items[0]?.value?.history_group_is_music_album)
 }
 
+// 同一组的每条记录共享预先计算的摘要，模板始终从首项读取。
+function getHistoryGroupSummary(items: readonly TransferHistoryGroupItem[]) {
+  return items[0]?.value?.history_group_summary
+}
+
+function getHistoryGroupPosterUrl(items: readonly TransferHistoryGroupItem[]) {
+  const coverItem = getHistoryGroupSummary(items)?.coverItem
+  return coverItem ? getHistoryPosterUrl(coverItem) : ''
+}
+
 // 控制分组内所有子项的选中状态
 const toggleGroupSelection = (checked: boolean | null, items: readonly TransferHistoryGroupItem[]) => {
   const values = items.map(item => item.value)
@@ -1860,7 +1934,106 @@ onUnmounted(() => {
         <span>{{ t('transferHistory.titleColumn') }}</span>
       </template>
       <template v-slot:group-header="{ item, columns, toggleGroup, isGroupOpen }">
-        <tr>
+        <tr
+          v-if="isMusicAlbumGroup(item.items)"
+          class="transfer-history-album-group-row"
+          :class="{ 'transfer-history-album-group-row--open': isGroupOpen(item) }"
+        >
+          <td :colspan="columns.length">
+            <div class="transfer-history-album-summary">
+              <div class="transfer-history-album-summary__controls">
+                <VBtn
+                  :aria-label="isGroupOpen(item) ? t('setting.about.collapse') : t('setting.about.expand')"
+                  :icon="isGroupOpen(item) ? '$expand' : '$next'"
+                  size="small"
+                  variant="text"
+                  @click="toggleGroup(item)"
+                />
+                <VCheckbox
+                  density="compact"
+                  hide-details
+                  :model-value="selectedCountsGroupedByKey[item.value] == item.items.length"
+                  :indeterminate="
+                    selectedCountsGroupedByKey[item.value] > 0 &&
+                    selectedCountsGroupedByKey[item.value] < item.items.length
+                  "
+                  @update:modelValue="checked => toggleGroupSelection(checked, item.items)"
+                />
+              </div>
+
+              <div class="transfer-history-album-summary__cover">
+                <VImg
+                  v-if="getHistoryGroupPosterUrl(item.items)"
+                  :src="getHistoryGroupPosterUrl(item.items)"
+                  :alt="getHistoryGroupLabel(item.items)"
+                  cover
+                >
+                  <template #error>
+                    <VIcon icon="mdi-album" size="22" color="medium-emphasis" />
+                  </template>
+                </VImg>
+                <VIcon v-else icon="mdi-album" size="22" color="medium-emphasis" />
+              </div>
+
+              <div class="transfer-history-album-summary__identity">
+                <div class="transfer-history-album-summary__title-line">
+                  <strong>{{ getHistoryGroupSummary(item.items)?.label }}</strong>
+                  <VChip size="x-small" variant="tonal" color="primary">
+                    {{ t('music.trackCount', { count: getHistoryGroupSummary(item.items)?.trackCount || 0 }) }}
+                  </VChip>
+                </div>
+                <div class="transfer-history-album-summary__meta">
+                  <span v-if="getHistoryGroupSummary(item.items)?.artist">
+                    <VIcon icon="mdi-account-music-outline" size="14" />
+                    {{ getHistoryGroupSummary(item.items)?.artist }}
+                  </span>
+                  <span v-if="getHistoryGroupSummary(item.items)?.category">
+                    {{ getHistoryGroupSummary(item.items)?.category }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="transfer-history-album-summary__path" :title="getHistoryGroupSummary(item.items)?.albumPath">
+                <VIcon icon="mdi-folder-music-outline" size="17" color="medium-emphasis" />
+                <VChip size="x-small" variant="tonal" label>
+                  {{ getHistoryStorageName(getHistoryGroupSummary(item.items)?.storage) }}
+                </VChip>
+                <span>{{ getHistoryGroupSummary(item.items)?.albumPath }}</span>
+              </div>
+
+              <div class="transfer-history-album-summary__facts">
+                <VChip
+                  v-if="getHistoryGroupSummary(item.items)?.mode"
+                  size="x-small"
+                  variant="outlined"
+                  color="primary"
+                >
+                  {{ getHistoryGroupSummary(item.items)?.mode }}
+                </VChip>
+                <span v-if="getHistoryGroupSummary(item.items)?.size" class="transfer-history-album-summary__fact">
+                  <VIcon icon="mdi-database-outline" size="15" />
+                  {{ formatFileSize(getHistoryGroupSummary(item.items)?.size || 0) }}
+                </span>
+                <span v-if="getHistoryGroupSummary(item.items)?.date" class="transfer-history-album-summary__fact">
+                  <VIcon icon="mdi-clock-outline" size="15" />
+                  {{ getHistoryDateText(getHistoryGroupSummary(item.items)?.date) }}
+                </span>
+                <VChip size="x-small" color="success" variant="tonal">
+                  {{ t('transferHistory.status.success') }} {{ getHistoryGroupSummary(item.items)?.successCount || 0 }}
+                </VChip>
+                <VChip
+                  v-if="getHistoryGroupSummary(item.items)?.failedCount"
+                  size="x-small"
+                  color="error"
+                  variant="tonal"
+                >
+                  {{ t('transferHistory.status.failed') }} {{ getHistoryGroupSummary(item.items)?.failedCount }}
+                </VChip>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr v-else>
           <td :colspan="columns.length">
             <div class="d-flex align-center gap-2">
               <VBtn
@@ -1878,9 +2051,6 @@ onUnmounted(() => {
                 @update:modelValue="checked => toggleGroupSelection(checked, item.items)"
               />
               <span>{{ getHistoryGroupLabel(item.items) }}</span>
-              <VChip v-if="item.items.length > 1 && isMusicAlbumGroup(item.items)" size="x-small" variant="tonal">
-                {{ t('music.trackCount', { count: item.items.length }) }}
-              </VChip>
             </div>
           </td>
         </tr>
@@ -2450,6 +2620,141 @@ onUnmounted(() => {
   flex: 0 0 10rem;
   border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.14);
   min-inline-size: 0;
+}
+
+.transfer-history-album-group-row > td {
+  padding: 0 !important;
+  background: rgba(var(--v-theme-primary), 0.025);
+  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.09) !important;
+}
+
+.transfer-history-album-group-row--open > td {
+  background: rgba(var(--v-theme-primary), 0.065);
+  border-block-end-color: rgba(var(--v-theme-primary), 0.18) !important;
+}
+
+.transfer-history-album-summary {
+  display: grid;
+  grid-template-columns: auto 46px minmax(13rem, 0.85fr) minmax(18rem, 1.25fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-block-size: 68px;
+  padding-block: 0.55rem;
+  padding-inline: 0.4rem 1rem;
+  transition: background-color 160ms ease;
+}
+
+.transfer-history-album-summary:hover {
+  background: rgba(var(--v-theme-primary), 0.045);
+}
+
+.transfer-history-album-summary__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.transfer-history-album-summary__controls :deep(.v-selection-control) {
+  min-block-size: auto;
+}
+
+.transfer-history-album-summary__cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 46px;
+  block-size: 46px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-on-surface), 0.07);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+.transfer-history-album-summary__cover :deep(.v-img),
+.transfer-history-album-summary__cover :deep(.v-img__img) {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.transfer-history-album-summary__identity,
+.transfer-history-album-summary__path {
+  min-inline-size: 0;
+}
+
+.transfer-history-album-summary__title-line,
+.transfer-history-album-summary__meta,
+.transfer-history-album-summary__path,
+.transfer-history-album-summary__facts,
+.transfer-history-album-summary__fact {
+  display: flex;
+  align-items: center;
+}
+
+.transfer-history-album-summary__title-line {
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.transfer-history-album-summary__title-line strong {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-history-album-summary__meta {
+  gap: 0.65rem;
+  margin-block-start: 0.2rem;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.transfer-history-album-summary__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transfer-history-album-summary__path {
+  gap: 0.4rem;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+.transfer-history-album-summary__path > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-history-album-summary__facts {
+  justify-content: flex-end;
+  gap: 0.55rem;
+  white-space: nowrap;
+}
+
+.transfer-history-album-summary__fact {
+  gap: 0.25rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1280px) {
+  .transfer-history-album-summary {
+    grid-template-columns: auto 46px minmax(12rem, 1fr) auto;
+  }
+
+  .transfer-history-album-summary__path {
+    display: none;
+  }
 }
 
 .transfer-history-desktop-media-cell {

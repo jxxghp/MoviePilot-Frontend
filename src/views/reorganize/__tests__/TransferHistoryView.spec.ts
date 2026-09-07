@@ -84,6 +84,10 @@ vi.mock('@/composables/useDynamicButton', () => ({
 const HistoryTableStub = defineComponent({
   name: 'VDataTableVirtual',
   props: {
+    groupBy: {
+      type: Array as PropType<Array<{ key: string }>>,
+      default: () => [],
+    },
     headers: {
       type: Array as PropType<
         Array<{
@@ -114,8 +118,32 @@ const HistoryTableStub = defineComponent({
             )
           : {}
 
+      const groups = new Map<string, TransferHistory[]>()
+      const groupKey = props.groupBy[0]?.key
+      if (groupKey && slots['group-header']) {
+        for (const item of props.items) {
+          const key = String((item as unknown as Record<string, unknown>)[groupKey] ?? '')
+          groups.set(key, [...(groups.get(key) || []), item])
+        }
+      }
+
+      const groupHeaders = [...groups].flatMap(([value, items]) => {
+        if (!(items[0] as TransferHistory & { history_group_is_music_album?: boolean }).history_group_is_music_album) {
+          return []
+        }
+        return (
+          slots['group-header']?.({
+            columns: props.headers,
+            isGroupOpen: () => false,
+            item: { items: items.map(item => ({ value: item })), value },
+            toggleGroup: () => undefined,
+          }) ?? []
+        )
+      })
+
       return h('section', { 'aria-label': '整理历史桌面列表' }, [
         h('output', { 'aria-label': '整理历史排序结果' }, JSON.stringify(sortResults)),
+        ...groupHeaders,
         ...props.items.map(item =>
           h(
             'article',
@@ -480,6 +508,49 @@ describe('TransferHistoryView', () => {
     expect(rows[0]?.dataset.historyGroupKey).toContain('/media/徐良/情话 (2013)')
   })
 
+  it('shows a useful album summary while music history is collapsed', async () => {
+    const tracks = [
+      createHistory(1, 'Hotel California', {
+        category: 'Album / Compilation',
+        date: '2000-01-02 00:35:10',
+        dest: '/media/Eagles/Hotel California (1976)/01 - Hotel California.dsf',
+        image: 'https://example.com/hotel-california.jpg',
+        src: '/media/Eagles/Hotel California (1976)/01 - Hotel California.dsf',
+        src_fileitem: { size: 1024 } as TransferHistory['src_fileitem'],
+        src_storage: 'library',
+        type: '音乐',
+      }),
+      createHistory(2, 'New Kid in Town', {
+        category: 'Album / Compilation',
+        date: '2000-01-02 00:36:15',
+        dest: '/media/Eagles/Hotel California (1976)/02 - New Kid in Town.dsf',
+        image: 'https://example.com/hotel-california.jpg',
+        src: '/media/Eagles/Hotel California (1976)/02 - New Kid in Town.dsf',
+        src_fileitem: { size: 1024 } as TransferHistory['src_fileitem'],
+        src_storage: 'library',
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(tracks))
+    })
+
+    await renderHistory('/history?grouped=true')
+
+    expect(await screen.findByText('Hotel California (1976)')).toBeInTheDocument()
+    expect(screen.getByText('Eagles')).toBeInTheDocument()
+    expect(screen.getAllByText('Album / Compilation')).toHaveLength(3)
+    expect(screen.getByText('/media/Eagles/Hotel California (1976)')).toBeInTheDocument()
+    expect(screen.getByText('2.00 KB')).toBeInTheDocument()
+    expect(screen.getByText('01-02 00:36')).toBeInTheDocument()
+    expect(screen.getByText('成功 2')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Hotel California (1976)' })).toHaveAttribute(
+      'src',
+      'https://example.com/hotel-california.jpg',
+    )
+  })
+
   it('groups failed music records by their source album directory and source storage', async () => {
     const tracks = [
       createHistory(1, 'Track 1', {
@@ -667,7 +738,7 @@ describe('TransferHistoryView', () => {
   it('joins the desktop status filter to search and moves the mobile filter into the titlebar menu', () => {
     const mobileTitlebarSource = transferHistorySource.slice(
       transferHistorySource.indexOf('<div class="transfer-history-mobile-titlebar__actions">'),
-      transferHistorySource.indexOf('<VCombobox\n      key="search_mobile"'),
+      transferHistorySource.indexOf('class="transfer-history-mobile-search"'),
     )
 
     expect(transferHistorySource).toContain('class="transfer-history-desktop-filter-group"')
@@ -693,8 +764,8 @@ describe('TransferHistoryView', () => {
     expect(desktopFilterSource.match(/variant="outlined"/g)).toHaveLength(2)
     expect(desktopFilterSource).not.toContain('variant="plain"')
     expect(transferHistorySource).toContain('.transfer-history-desktop-filter-group .v-input .v-field {')
-    expect(transferHistorySource).toContain(
-      '.transfer-history-desktop-filter-group .v-input {\n  grid-template-rows: 1fr;',
+    expect(transferHistorySource).toMatch(
+      /\.transfer-history-desktop-filter-group \.v-input \{[^}]*grid-template-rows: 1fr;/,
     )
     expect(transferHistorySource).toContain(
       '.transfer-history-desktop-filter-group .v-field__outline,\n.transfer-history-desktop-filter-group .v-field__overlay {\n  display: none;',
