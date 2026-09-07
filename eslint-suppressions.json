@@ -332,11 +332,6 @@
       "count": 1
     }
   },
-  "src/components/misc/OpticalLogoLab.vue": {
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
   "src/components/misc/ProgressiveCardGrid.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4

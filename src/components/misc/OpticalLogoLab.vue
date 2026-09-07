@@ -375,9 +375,7 @@ const MATTE_LOGO_PIECES: readonly MattePieceDefinition[] = [
   },
 ]
 
-const STATIC_LOGO_PATHS = LOGO_PIECES.map(
-  ({ points }) => `M ${points.map(([x, y]) => `${x} ${y}`).join(' L ')} Z`,
-)
+const STATIC_LOGO_PATHS = LOGO_PIECES.map(({ points }) => `M ${points.map(([x, y]) => `${x} ${y}`).join(' L ')} Z`)
 
 const ASSEMBLE_OFFSETS = [
   { x: -0.7, y: 0.42, z: -0.78, rotation: 0.34 },
@@ -476,15 +474,20 @@ function isStaticMotionMode(value: unknown): value is StaticMotionMode {
 
 let THREE: ThreeApi | null = null
 let gsapApi: GsapApi | null = null
-let EffectComposerClass: typeof import('three/examples/jsm/postprocessing/EffectComposer.js').EffectComposer | null = null
+let EffectComposerClass: typeof import('three/examples/jsm/postprocessing/EffectComposer.js').EffectComposer | null =
+  null
 let RenderPassClass: typeof import('three/examples/jsm/postprocessing/RenderPass.js').RenderPass | null = null
 let ShaderPassClass: typeof import('three/examples/jsm/postprocessing/ShaderPass.js').ShaderPass | null = null
-let UnrealBloomPassClass: typeof import('three/examples/jsm/postprocessing/UnrealBloomPass.js').UnrealBloomPass | null = null
+let UnrealBloomPassClass: typeof import('three/examples/jsm/postprocessing/UnrealBloomPass.js').UnrealBloomPass | null =
+  null
 let SMAAPassClass: typeof import('three/examples/jsm/postprocessing/SMAAPass.js').SMAAPass | null = null
 let OutputPassClass: typeof import('three/examples/jsm/postprocessing/OutputPass.js').OutputPass | null = null
-let RoomEnvironmentClass: typeof import('three/examples/jsm/environments/RoomEnvironment.js').RoomEnvironment | null = null
+let RoomEnvironmentClass: typeof import('three/examples/jsm/environments/RoomEnvironment.js').RoomEnvironment | null =
+  null
 
 let renderer: ThreeWebGLRenderer | null = null
+// Three 的异步就绪轮询消费 compile 返回的集合；退休时清空该集合，阻止轮询已释放的 program。
+const compilingMaterials = new WeakMap<ThreeWebGLRenderer, Set<Set<ThreeMaterial>>>()
 let composer: EffectComposerInstance | null = null
 let scene: ThreeScene | null = null
 let camera: ThreePerspectiveCamera | null = null
@@ -821,9 +824,7 @@ function readPersistedState(): PersistedState {
     const persistedLogoSize = Number(parsed.logoSize)
     return {
       bag: Array.isArray(parsed.bag) ? parsed.bag.filter(item => parseCombination(item)) : [],
-      lastCombination: parseCombination(parsed.lastCombination)?.material
-        ? parsed.lastCombination
-        : undefined,
+      lastCombination: parseCombination(parsed.lastCombination)?.material ? parsed.lastCombination : undefined,
       lightIntensity: Number.isFinite(persistedLightIntensity)
         ? Math.min(100, Math.max(0, persistedLightIntensity))
         : fallback.lightIntensity,
@@ -992,11 +993,7 @@ function getThemeColors() {
     { lightness: 0.025, saturationScale: 1.04 },
   ] as const
   const tones = toneAdjustments.map(({ lightness, saturationScale }) =>
-    new T.Color().setHSL(
-      hsl.h,
-      T.MathUtils.clamp(hsl.s * saturationScale, 0, 0.96),
-      baseLightness + lightness,
-    ),
+    new T.Color().setHSL(hsl.h, T.MathUtils.clamp(hsl.s * saturationScale, 0, 0.96), baseLightness + lightness),
   )
   return { onSurface, primary, surface, tones }
 }
@@ -1182,9 +1179,7 @@ function createMaterialLibrary() {
       core: LOGO_PIECES.map((_, index) => createCoreMaterial(mode, index)),
       face: LOGO_PIECES.map((_, index) => createPhysicalMaterial(mode, index, false)),
       facets: MATTE_LOGO_PIECES.map((piece, index) =>
-        mode === 'matte'
-          ? piece.facets.map(facet => createPhysicalMaterial(mode, index, false, facet.lightness))
-          : [],
+        mode === 'matte' ? piece.facets.map(facet => createPhysicalMaterial(mode, index, false, facet.lightness)) : [],
       ),
       side: LOGO_PIECES.map((_, index) => createPhysicalMaterial(mode, index, true)),
     },
@@ -2096,7 +2091,14 @@ function trackAudioSource<T extends AudioScheduledSourceNode>(source: T) {
   return source
 }
 
-function playTone(frequency: number, duration: number, gainValue: number, delay = 0, type: OscillatorType = 'sine', end?: number) {
+function playTone(
+  frequency: number,
+  duration: number,
+  gainValue: number,
+  delay = 0,
+  type: OscillatorType = 'sine',
+  end?: number,
+) {
   if (!audioContext || !audioMaster) return
   const start = audioContext.currentTime + delay
   const oscillator = trackAudioSource(audioContext.createOscillator())
@@ -2176,7 +2178,7 @@ function playEntranceSound(mode: EntranceMode) {
 }
 
 async function startDragAudio() {
-  let context: AudioContext | null = null
+  let context: AudioContext | null
   try {
     context = await ensureAudioContext()
   } catch {
@@ -2205,7 +2207,11 @@ function updateDragAudio() {
   const speed = Math.min(1, Math.abs(dragState.velocityYaw) * 0.32 + Math.abs(dragState.velocityPitch) * 0.4)
   const now = audioContext.currentTime
   const { profile } = dragAudio
-  dragAudio.gain.gain.setTargetAtTime(isDragging.value ? profile.gainBase + speed * profile.gainRange : 0.0001, now, 0.045)
+  dragAudio.gain.gain.setTargetAtTime(
+    isDragging.value ? profile.gainBase + speed * profile.gainRange : 0.0001,
+    now,
+    0.045,
+  )
   dragAudio.filter.frequency.setTargetAtTime(profile.baseFilter + speed * profile.filterRange, now, 0.05)
   dragAudio.oscillator.frequency.setTargetAtTime(profile.baseFrequency + speed * profile.frequencyRange, now, 0.045)
   dragAudio.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, dragState.velocityYaw * 0.18)), now, 0.06)
@@ -2272,7 +2278,11 @@ function handleCardPointerLeave() {
 }
 
 function isFormInput(element: Element | null) {
-  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement
+  return (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  )
 }
 
 function handleCardFocusIn(event: FocusEvent) {
@@ -2345,6 +2355,7 @@ function finishPointerInteraction(event?: PointerEvent) {
   }
   dragState.pointerId = -1
   scheduleAutomaticReplay()
+  scheduleMaterialPrewarm()
 }
 
 function handleLostPointerCapture() {
@@ -2447,12 +2458,12 @@ function handleVisibilityChange() {
   if (!isDocumentVisible) {
     pauseAutomaticReplay()
     suspendAudioForInvisibility()
-  }
-  else {
+  } else {
     lastRenderTime = 0
     highRefreshUntil = performance.now() + 500
     reducedMotionRenderPending = true
     scheduleAutomaticReplay()
+    scheduleMaterialPrewarm()
   }
 }
 
@@ -2461,12 +2472,12 @@ function handleIntersection(entries: IntersectionObserverEntry[]) {
   if (!isIntersecting) {
     pauseAutomaticReplay()
     suspendAudioForInvisibility()
-  }
-  else {
+  } else {
     lastRenderTime = 0
     highRefreshUntil = performance.now() + 500
     reducedMotionRenderPending = true
     scheduleAutomaticReplay()
+    scheduleMaterialPrewarm()
   }
 }
 
@@ -2483,16 +2494,16 @@ function handleReducedMotionChange(event?: MediaQueryListEvent) {
     lastRenderTime = 0
     highRefreshUntil = performance.now() + 500
     scheduleAutomaticReplay()
+    scheduleMaterialPrewarm()
   }
 }
 
 function handleContextLost(event: Event) {
   event.preventDefault()
-  generation += 1
   isReady.value = false
   phase.value = 'fallback'
-  pauseAutomaticReplay()
-  if (gsapApi) gsapApi.ticker.remove(renderTick)
+  // 在上下文失效时退休，不能把旧 GL 句柄的删除推迟到恢复后的新上下文。
+  destroyScene(false)
 }
 
 function handleContextRestored() {
@@ -2534,6 +2545,43 @@ async function loadRuntime() {
   RoomEnvironmentClass = roomModule.RoomEnvironment
 }
 
+/** 保留 Three 的异步编译与轮询，仅持有其公开 compile 结果以支持场景退休。 */
+async function compileScene(
+  owner: ThreeWebGLRenderer,
+  object: import('three').Object3D,
+  targetCamera: ThreePerspectiveCamera,
+  targetScene?: ThreeScene,
+) {
+  const compile = owner.compile
+  const work = compilingMaterials.get(owner) ?? new Set<Set<ThreeMaterial>>()
+  compilingMaterials.set(owner, work)
+  let batch: Set<ThreeMaterial> | undefined
+  // compileAsync 在返回 promise 前同步调用 compile；方法替换只覆盖这一次同步调用。
+  owner.compile = (...args) => {
+    batch = compile.apply(owner, args)
+    work.add(batch)
+    return batch
+  }
+  try {
+    let pending: Promise<unknown>
+    try {
+      pending = owner.compileAsync(object, targetCamera, targetScene)
+    } finally {
+      owner.compile = compile
+    }
+    await pending
+  } finally {
+    if (batch) work.delete(batch)
+  }
+}
+
+/** 清除的是就绪检查集合，不取消已提交的 GPU 工作；generation 阻止取消后的继续呈现。 */
+function cancelSceneCompilation() {
+  if (!renderer) return
+  compilingMaterials.get(renderer)?.forEach(batch => batch.clear())
+  compilingMaterials.delete(renderer)
+}
+
 async function prewarmRemainingMaterials() {
   if (
     !renderer ||
@@ -2554,7 +2602,20 @@ async function prewarmRemainingMaterials() {
   const T = requireThree()
   try {
     for (const mode of MATERIAL_MODES) {
-      if (prewarmedMaterials.has(mode) || token !== generation || !renderer || !scene || !camera || !materialRigs) continue
+      if (
+        token !== generation ||
+        !renderer ||
+        !scene ||
+        !camera ||
+        !materialRigs ||
+        !isDocumentVisible ||
+        !isIntersecting ||
+        prefersReducedMotion ||
+        phase.value !== 'idle' ||
+        isDragging.value
+      )
+        break
+      if (prewarmedMaterials.has(mode)) continue
       const rig = materialRigs[mode]
       const prewarmGroup = new T.Group()
       pieceRigs.forEach((piece, index) => {
@@ -2569,20 +2630,25 @@ async function prewarmRemainingMaterials() {
           })
         }
       })
-      await renderer.compileAsync(prewarmGroup, camera, scene)
-      prewarmGroup.clear()
+      try {
+        await compileScene(renderer, prewarmGroup, camera, scene)
+      } finally {
+        prewarmGroup.clear()
+      }
       if (token === generation) prewarmedMaterials.add(mode)
     }
   } catch {
     // 预编译失败不影响当前材质继续渲染。
   } finally {
-    isPrewarming = false
-    highRefreshUntil = performance.now() + 300
+    if (token === generation) {
+      isPrewarming = false
+      highRefreshUntil = performance.now() + 300
+    }
   }
 }
 
 function scheduleMaterialPrewarm() {
-  if (idleTaskId !== null || isPrewarming || prewarmedMaterials.size === MATERIAL_MODES.length) return
+  if (!isReady.value || idleTaskId !== null || isPrewarming || prewarmedMaterials.size === MATERIAL_MODES.length) return
   const idleWindow = window as typeof window & {
     requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
   }
@@ -2631,7 +2697,7 @@ async function initializeScene() {
     )
     updateRendererSize()
     updateThemeMaterials()
-    await renderer.compileAsync(scene, camera)
+    await compileScene(renderer, scene, camera)
     if (token !== generation) return
     if (selectedMaterial.value !== 'prismatic') prewarmedMaterials.add(selectedMaterial.value)
     isReady.value = true
@@ -2645,6 +2711,7 @@ async function initializeScene() {
       reducedMotionRenderPending = false
     }
   } catch (error) {
+    if (token !== generation) return
     console.warn('无法初始化登录页 3D 光学 Logo，已回退到静态版本。', error)
     isReady.value = false
     phase.value = 'fallback'
@@ -2653,6 +2720,8 @@ async function initializeScene() {
 }
 
 function destroyScene(forceContextLoss: boolean) {
+  generation += 1
+  cancelSceneCompilation()
   gsapApi?.ticker.remove(renderTick)
   killMotionTimelines()
   stopAutonomousTurn()
@@ -2840,19 +2909,28 @@ onBeforeUnmount(() => {
           />
         </span>
       </span>
-      <svg
-        class="optical-logo-lab__fallback"
-        viewBox="0 0 192 192"
-        aria-hidden="true"
-        focusable="false"
-      >
+      <svg class="optical-logo-lab__fallback" viewBox="0 0 192 192" aria-hidden="true" focusable="false">
         <defs>
-          <linearGradient id="optical-logo-fallback-fill" x1="24" y1="22" x2="168" y2="170" gradientUnits="userSpaceOnUse">
+          <linearGradient
+            id="optical-logo-fallback-fill"
+            x1="24"
+            y1="22"
+            x2="168"
+            y2="170"
+            gradientUnits="userSpaceOnUse"
+          >
             <stop offset="0" stop-color="rgb(var(--v-theme-on-surface))" stop-opacity="0.74" />
             <stop offset="0.46" stop-color="rgb(var(--v-theme-primary))" />
             <stop offset="1" stop-color="rgb(var(--v-theme-primary))" stop-opacity="0.5" />
           </linearGradient>
-          <radialGradient id="optical-logo-fallback-specular" cx="0" cy="0" r="1" gradientTransform="translate(76 58) rotate(50) scale(86 64)" gradientUnits="userSpaceOnUse">
+          <radialGradient
+            id="optical-logo-fallback-specular"
+            cx="0"
+            cy="0"
+            r="1"
+            gradientTransform="translate(76 58) rotate(50) scale(86 64)"
+            gradientUnits="userSpaceOnUse"
+          >
             <stop stop-color="#ffffff" stop-opacity="0.72" />
             <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.16" />
             <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
@@ -2943,11 +3021,7 @@ onBeforeUnmount(() => {
           track-color="on-surface"
           :track-size="2"
         />
-        <output
-          class="optical-logo-lab__size-value"
-          for="optical-logo-size"
-          :aria-label="text.logoSize"
-        >
+        <output class="optical-logo-lab__size-value" for="optical-logo-size" :aria-label="text.logoSize">
           {{ logoSize }}
         </output>
       </div>
@@ -3039,10 +3113,7 @@ onBeforeUnmount(() => {
             </template>
           </VTooltip>
 
-          <VTooltip
-            :text="unifiedThemeFamily ? text.useSplitPalette : text.useUnifiedPalette"
-            location="top"
-          >
+          <VTooltip :text="unifiedThemeFamily ? text.useSplitPalette : text.useUnifiedPalette" location="top">
             <template #activator="{ props: tooltipProps }">
               <button
                 v-bind="tooltipProps"
@@ -3160,9 +3231,7 @@ onBeforeUnmount(() => {
   position: absolute;
   display: block;
   block-size: var(--optical-logo-size, 144px);
-  filter:
-    drop-shadow(0 9px 15px rgba(16, 8, 38, 0.26))
-    drop-shadow(0 0 14px rgba(var(--v-theme-primary), 0.2));
+  filter: drop-shadow(0 9px 15px rgba(16, 8, 38, 0.26)) drop-shadow(0 0 14px rgba(var(--v-theme-primary), 0.2));
   inline-size: var(--optical-logo-size, 144px);
   inset: 50% auto auto 50%;
   opacity: 0;
@@ -3195,7 +3264,12 @@ onBeforeUnmount(() => {
 .optical-logo-lab__status {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.84), rgba(var(--v-theme-primary), 0.36) 38%, transparent 74%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.84),
+    rgba(var(--v-theme-primary), 0.36) 38%,
+    transparent 74%
+  );
   block-size: 14px;
   filter: blur(5px);
   inline-size: 14px;
@@ -3224,9 +3298,7 @@ onBeforeUnmount(() => {
   align-items: center;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%),
-    rgba(var(--v-theme-surface), 0.16);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%), rgba(var(--v-theme-surface), 0.16);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 8px 24px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.08);
@@ -3243,8 +3315,7 @@ onBeforeUnmount(() => {
   &:focus-within {
     border-color: rgba(var(--v-theme-primary), 0.28);
     background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 48%),
-      rgba(var(--v-theme-surface), 0.26);
+      linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 48%), rgba(var(--v-theme-surface), 0.26);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       0 10px 28px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.12);
@@ -3361,18 +3432,24 @@ onBeforeUnmount(() => {
 }
 
 .optical-logo-lab__swatch--chrome > span {
-  background: linear-gradient(135deg, #424956, #f8fbff 34%, #7e8796 52%, rgba(var(--v-theme-primary), 0.48) 72%, #373d47);
+  background: linear-gradient(
+    135deg,
+    #424956,
+    #f8fbff 34%,
+    #7e8796 52%,
+    rgba(var(--v-theme-primary), 0.48) 72%,
+    #373d47
+  );
 }
 
 .optical-logo-lab__swatch--energy > span {
-  background:
-    radial-gradient(
-      circle,
-      rgb(var(--v-theme-on-surface)) 0 8%,
-      rgb(var(--v-theme-primary)) 28%,
-      rgba(var(--v-theme-primary), 0.54) 54%,
-      rgba(var(--v-theme-surface), 0.96) 76%
-    );
+  background: radial-gradient(
+    circle,
+    rgb(var(--v-theme-on-surface)) 0 8%,
+    rgb(var(--v-theme-primary)) 28%,
+    rgba(var(--v-theme-primary), 0.54) 54%,
+    rgba(var(--v-theme-surface), 0.96) 76%
+  );
   box-shadow: inset 0 0 7px rgba(255, 255, 255, 0.58);
 }
 
