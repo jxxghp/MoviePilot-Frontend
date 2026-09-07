@@ -91,6 +91,7 @@ describe('GlassPanelRefractionDefs', () => {
         width = 1200
         height = 900
       }
+      if (this.dataset.card === 'second') width += 120
 
       return {
         x: left,
@@ -366,6 +367,33 @@ describe('GlassPanelRefractionDefs', () => {
     expectNoPanelFilter(shell.querySelector('.layout-navbar') as HTMLElement)
     expectNoPanelFilter(shell.querySelector('.layout-vertical-nav') as HTMLElement)
     expect(createGlassPanelBackdropMap).not.toHaveBeenCalled()
+  })
+
+  it('starts the scheduled frame even when more layout events arrive before it', async () => {
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(8)
+    window.dispatchEvent(new Event('resize'))
+    await vi.advanceTimersByTimeAsync(8)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+    completePendingDecode()
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+  })
+
+  it('starts different visible map decodes together instead of serializing them', async () => {
+    const second = document.createElement('div')
+    second.className = 'v-card'
+    second.dataset.card = 'second'
+    card.parentElement!.append(second)
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(2)
+    expectNoPanelFilter(card)
+    expectNoPanelFilter(second)
+    completePendingDecode()
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
   })
 
   it('enhances site and plugin routes without requiring a dashboard', async () => {

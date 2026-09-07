@@ -523,12 +523,14 @@ describe('glass overlay material styles', () => {
     }
   })
 
-  it('keeps frosted route opacity static while preserving its short movement', () => {
+  it('keeps every glass route on the same backdrop root while preserving its short movement', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
-
-    expect(styles).toMatch(
-      /\[data-glass-appearance='frosted'\]\[data-page-presentation-motion='active'\]\s+\.mp-page-route\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?transform:\s*translate3d\(0,\s*var\(--mp-page-motion-translate-y,\s*0\),\s*0\);/,
-    )
+    const rule = styles.match(/&\[data-page-presentation-motion='active'\]\s+\.mp-page-route\s*\{([^}]+)\}/)?.[1]
+    expect(rule).toBeDefined()
+    expect(rule).toContain('opacity: 1;')
+    expect(rule).toContain('filter: none;')
+    expect(rule).toContain('transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);')
+    expect(rule).toContain('will-change: transform;')
   })
 
   it('keeps floating clear and tinted navbars on CSS material until Chromium SVG is ready', () => {
