@@ -36,9 +36,38 @@ describe('glass overlay material styles', () => {
     expect(reading).toContain('.layout-window-controls-overlay-shell')
     expect(reading).toContain('.search-desktop-activator')
     expect(reading).toContain('--glass-control-placeholder-color: rgba(242, 245, 250, 82%)')
-    expect(reading).toContain('linear-gradient(rgba(var(--glass-v3-ink), 0.4), rgba(var(--glass-v3-ink), 0.4))')
     expect(reading).not.toContain('backdrop-filter')
     expect(reading).not.toContain('border-radius:')
+  })
+
+  it('diffuses transient overlay backgrounds independently from clear page surfaces', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+    const popupStart = styles.indexOf('// 所有临时表面采用同族阅读材质')
+    const popupEnd = styles.indexOf('  @supports not', popupStart)
+    const popup = styles.slice(popupStart, popupEnd)
+
+    expect(styles).toContain('--glass-popup-blur: 18px')
+    expect(styles).toContain('--glass-popup-blur: 24px')
+    expect(popup).toContain('--glass-overlay-blur: var(--glass-popup-blur)')
+    expect(popup).toContain('--glass-surface-backdrop-filter: none')
+    expect(popup).toContain('--glass-native-surface-backdrop-filter: none')
+    expect(popup).toContain('--app-grouped-list-backdrop-filter: none')
+    expect(popup).toContain('--v-medium-emphasis-opacity: 0.9')
+    expect(popup).toContain('.v-dialog > .v-overlay__scrim')
+    expect(popup).toContain('--v-overlay-opacity: 1')
+    expect(popup).toContain('backdrop-filter: blur(3px)')
+    for (const host of [
+      '.theme-customizer-panel-host',
+      '.plugin-quick-access',
+      '.agent-assistant-panel',
+      '.v-snackbar__wrapper',
+    ]) {
+      expect(styles).toContain(`'${host}'`)
+    }
+    expect(popup).not.toContain('.layout-navbar')
+    expect(popup).not.toContain('.v-menu > .v-overlay__scrim')
+    expect(styles).toContain('--glass-overlay-backdrop-filter: none !important')
+    expect(styles).not.toContain('linear-gradient(rgba(var(--glass-v3-ink), 0.4)')
   })
 
   it('reserves space below detached desktop navigation and follows the compact theme radius', () => {
