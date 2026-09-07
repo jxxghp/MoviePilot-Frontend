@@ -772,6 +772,97 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it.each(['fixed', 'scroll'] as const)(
+    'commits matching material uniforms when appearance and quality change together in %s space',
+    async surfaceSpace => {
+      const three = await import('three')
+      const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+      const appearance = ref<'clear' | 'frosted' | 'tinted'>('tinted')
+      const quality = ref<'balanced' | 'high'>('high')
+      const scope = effectScope()
+      try {
+        const renderer = scope.run(() =>
+          useGlassOpticalRenderer({
+            active: ref(true),
+            appearance,
+            canvas: ref(document.createElement('canvas')),
+            dynamicsMode: ref('off'),
+            quality,
+            routeKey: ref('/dashboard'),
+            surfaceSpace,
+            tintColor: ref('#8D51F9'),
+            wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+          }),
+        )
+        await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+        const scene = render.mock.calls.find(([scene]) => getGlassMainSceneMaterial(scene))![0]
+        const uniforms = getGlassMainSceneMaterial(scene)!.uniforms
+        expect(uniforms.uAppearance.value).toBe(1)
+        expect(uniforms.uQuality.value).toBe(1)
+
+        appearance.value = 'frosted'
+        quality.value = 'balanced'
+        await vi.waitFor(() => expect(renderer?.activeWallpaperPreparationKey.value).toContain('frosted:balanced:'))
+        expect(uniforms.uAppearance.value).toBe(2)
+        expect(uniforms.uDynamicsOnly.value).toBe(1)
+        expect(uniforms.uQuality.value).toBe(0)
+        expect(renderer?.state.value).toBe('ready')
+
+        quality.value = 'high'
+        appearance.value = 'clear'
+        await vi.waitFor(() => expect(renderer?.activeWallpaperPreparationKey.value).toContain('plain:high:'))
+        expect(uniforms.uAppearance.value).toBe(0)
+        expect(uniforms.uDynamicsOnly.value).toBe(surfaceSpace === 'scroll' ? 1 : 0)
+        expect(uniforms.uQuality.value).toBe(1)
+      } finally {
+        scope.stop()
+      }
+    },
+  )
+
+  it('retains committed material uniforms when a concurrent appearance and quality reload fails', async () => {
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const appearance = ref<'frosted' | 'tinted'>('tinted')
+    const quality = ref<'balanced' | 'high'>('high')
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const scope = effectScope()
+    try {
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance,
+          canvas: ref(document.createElement('canvas')),
+          dynamicsMode: ref('off'),
+          quality,
+          routeKey: ref('/dashboard'),
+          surfaceSpace: 'fixed',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+        }),
+      )
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      const scene = render.mock.calls.find(([scene]) => getGlassMainSceneMaterial(scene))![0]
+      const uniforms = getGlassMainSceneMaterial(scene)!.uniforms
+      const key = renderer?.activeWallpaperPreparationKey.value
+      const previous = Object.fromEntries(
+        ['uAppearance', 'uDynamicsOnly', 'uQuality', 'uBackgroundVisibility', 'uSurfaceDensity', 'uTintDensity'].map(
+          key => [key, uniforms[key].value],
+        ),
+      )
+      vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockRejectedValue(new Error('replacement failed'))
+      appearance.value = 'frosted'
+      quality.value = 'balanced'
+      await vi.waitFor(() => expect(consoleWarn).toHaveBeenCalled())
+      await nextTick()
+      expect(renderer?.activeWallpaperPreparationKey.value).toBe(key)
+      expect(renderer?.state.value).toBe('ready')
+      for (const [key, value] of Object.entries(previous)) expect(uniforms[key].value).toBe(value)
+    } finally {
+      scope.stop()
+    }
+  })
+
   it('re-samples scroll surfaces and material weight on a shared page motion revision', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)

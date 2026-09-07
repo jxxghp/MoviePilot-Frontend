@@ -2599,6 +2599,28 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     )
   }
 
+  /** 同步材质读数；需要替换纹理时只能在有效加载成功后提交。 */
+  function syncAppearanceUniforms() {
+    if (!resources) return
+
+    const materialResponse = getMaterialResponse()
+    resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(toValue(options.appearance))
+    resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
+    resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
+    resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
+    resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
+    resources.uniforms.uTintDensity.value = materialResponse.tintDensity
+  }
+
+  /** 静态质量读数与动态资源的重置分离，允许被最终纹理事务一并提交。 */
+  function syncQualityUniforms() {
+    if (!resources) return
+
+    resources.uniforms.uMaxRefractionPixels.value = getMaxRefractionPixels()
+    resources.uniforms.uQuality.value = toValue(options.quality) === 'high' ? 1 : 0
+    resources.uniforms.uTrailCount.value = hasFluidCapability() ? getRenderProfile().trailCount : 0
+  }
+
   function resizeRenderer() {
     if (!resources || !canPresentFrame()) return
 
@@ -3924,6 +3946,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     const timestamp = performance.now()
     beforeActivate?.()
+    // 并发配置刷新共用加载代次；获胜事务必须提交完整读数，不能依赖已过期请求的回调。
+    syncAppearanceUniforms()
+    syncQualityUniforms()
     activateLoadedTexture(
       prepared.texture,
       prepared.frostedTarget,
@@ -4279,16 +4304,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const applyAppearance = () => {
         if (!resources || toValue(options.appearance) !== appearance) return
 
-        const materialResponse = getGlassMaterialResponse(
-          appearance,
-          toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
-        )
-        resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(appearance)
-        resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
-        resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
-        resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
-        resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
-        resources.uniforms.uTintDensity.value = materialResponse.tintDensity
+        syncAppearanceUniforms()
       }
       const wallpaperUrl = toValue(options.wallpaperUrl)
       const quality = toValue(options.quality)
@@ -4337,9 +4353,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const applyQuality = () => {
         if (!resources || toValue(options.quality) !== quality) return
 
-        resources.uniforms.uMaxRefractionPixels.value = getMaxRefractionPixels()
-        resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
-        resources.uniforms.uTrailCount.value = hasFluidCapability() ? nextProfile.trailCount : 0
+        syncQualityUniforms()
         interactionAnimating = false
         cancelScheduledFrame()
         resetInteractionState()
