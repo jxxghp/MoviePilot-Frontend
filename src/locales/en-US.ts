@@ -1583,6 +1583,10 @@ export default {
   },
   appcenter: {
     others: 'Others',
+    search: 'Search app entries',
+    searchPlaceholder: 'Search by app name',
+    closeSearch: 'Exit app search',
+    noResults: 'No matching app entries found',
   },
   notFound: {
     title: '⚠️ Page Not Found',

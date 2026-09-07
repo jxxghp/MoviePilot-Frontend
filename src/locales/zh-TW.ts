@@ -1534,6 +1534,10 @@ export default {
   },
   appcenter: {
     others: '其他',
+    search: '搜尋應用入口',
+    searchPlaceholder: '按名稱搜尋應用',
+    closeSearch: '退出應用搜尋',
+    noResults: '找不到符合的應用入口',
   },
   notFound: {
     title: '⚠️ 頁面不存在',

@@ -1562,6 +1562,10 @@ export default {
   },
   appcenter: {
     others: '其他',
+    search: '搜索应用入口',
+    searchPlaceholder: '按名称搜索应用',
+    closeSearch: '退出应用搜索',
+    noResults: '没有找到匹配的应用入口',
   },
   notFound: {
     title: '⚠️ 页面不存在',

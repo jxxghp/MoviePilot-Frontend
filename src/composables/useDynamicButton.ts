@@ -154,6 +154,8 @@ export function useDynamicButton(options: {
 
   function retryGlobalBridge(generation: number) {
     if (!componentActive.value || generation !== setupGeneration || registrationTarget?.kind !== 'shared') return
+    // 交接窗口内新页面可以先注册；旧实例仍未卸载也不能重新夺回命令。
+    if (dynamicButtonRegistry.registration.value?.ownerId !== ownerId || route.path !== ownerRoutePath) return
 
     const target = resolveRegistrationTarget()
     if (target.kind === 'shared') return

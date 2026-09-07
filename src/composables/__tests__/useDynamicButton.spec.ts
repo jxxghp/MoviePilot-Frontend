@@ -54,6 +54,45 @@ afterEach(() => {
 })
 
 describe('useDynamicButton', () => {
+  it('does not let a pending shared handoff overwrite a newer global registration', async () => {
+    vi.useFakeTimers()
+    wrappers.push(mount(createPage('mdi-old')))
+    const register = vi.fn(dynamicButtonRegistry.register)
+    window.__VUE_INJECT_DYNAMIC_BUTTON__ = register
+    window.__VUE_UNINJECT_DYNAMIC_BUTTON__ = dynamicButtonRegistry.unregister
+    wrappers.push(mount(createPage('mdi-new')))
+    const newOwner = dynamicButtonRegistry.registration.value?.ownerId
+
+    await vi.runAllTimersAsync()
+
+    expect(register).toHaveBeenCalledTimes(1)
+    expect(dynamicButtonRegistry.registration.value).toMatchObject({ button: { icon: 'mdi-new' }, ownerId: newOwner })
+  })
+
+  it('hands its own shared registration to a bridge that becomes available after mount', async () => {
+    vi.useFakeTimers()
+    wrappers.push(mount(createPage('mdi-old')))
+    const ownerId = dynamicButtonRegistry.registration.value?.ownerId
+    const register = vi.fn(dynamicButtonRegistry.register)
+    window.__VUE_INJECT_DYNAMIC_BUTTON__ = register
+    window.__VUE_UNINJECT_DYNAMIC_BUTTON__ = dynamicButtonRegistry.unregister
+
+    await vi.runAllTimersAsync()
+
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ icon: 'mdi-old' }), ownerId)
+    expect(dynamicButtonRegistry.registration.value?.ownerId).toBe(ownerId)
+  })
+
+  it('does not hand a departed route command to a late bridge', async () => {
+    vi.useFakeTimers()
+    wrappers.push(mount(createPage('mdi-old')))
+    mocks.route.path = '/new'
+    const register = vi.fn()
+    window.__VUE_INJECT_DYNAMIC_BUTTON__ = register
+    await vi.runAllTimersAsync()
+    expect(register).not.toHaveBeenCalled()
+  })
+
   it('registers immediately through the shared registry before Footer mounts', () => {
     const wrapper = mountWithRegistry(createPage('mdi-old'))
 
