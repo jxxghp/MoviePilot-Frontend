@@ -103,8 +103,10 @@ function roundedRectangleSignedDistance(x: number, y: number, width: number, hei
   const offsetY = Math.abs(y - height / 2) - (height / 2 - radius)
   const outsideX = Math.max(offsetX, 0)
   const outsideY = Math.max(offsetY, 0)
+  // 圆角中心矩形内的外部距离恒为零，只有超出该区域的采样才需要计算欧氏距离。
+  const outsideDistance = outsideX === 0 && outsideY === 0 ? 0 : Math.hypot(outsideX, outsideY)
 
-  return Math.hypot(outsideX, outsideY) + Math.min(Math.max(offsetX, offsetY), 0) - radius
+  return outsideDistance + Math.min(Math.max(offsetX, offsetY), 0) - radius
 }
 
 function clampChannel(value: number) {
