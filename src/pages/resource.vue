@@ -1837,7 +1837,7 @@ onUnmounted(() => {
         >
           {{ t('resource.refreshSearch') }}
         </VBtn>
-        <VBtn v-if="!hasActiveTorrentFilters" variant="text" color="default" prepend-icon="mdi-home-outline" to="/">
+        <VBtn v-if="!hasActiveTorrentFilters" variant="tonal" color="default" prepend-icon="mdi-home-outline" to="/">
           {{ t('resource.backToHome') }}
         </VBtn>
       </template>
