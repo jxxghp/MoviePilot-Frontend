@@ -19,6 +19,7 @@ import {
   getGlassOpticalPresetKey,
   getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
+  getGlassOpticalScissor,
   getGlassOpticalTransparency,
   getGlassOpticalTransmissionStrength,
   getGlassOpticalSurfaceTransitionWeights,
@@ -36,6 +37,46 @@ import {
 import { describe, expect, it } from 'vitest'
 
 describe('glass optics geometry', () => {
+  it('bounds fixed shading with the outward feather in bottom-origin buffer coordinates', () => {
+    expect(
+      getGlassOpticalScissor(
+        [{ x: 16, y: 16, width: 1168, height: 64 }],
+        { width: 1200, height: 800 },
+        { width: 1800, height: 1200 },
+      ),
+    ).toEqual({ x: 21, y: 1077, width: 1758, height: 102 })
+  })
+
+  it('keeps all surfaces in the union and clips against the framebuffer', () => {
+    expect(
+      getGlassOpticalScissor(
+        [
+          { x: -10, y: -5, width: 1220, height: 64 },
+          { x: 8, y: 64, width: 250, height: 750 },
+        ],
+        { width: 1200, height: 800 },
+        { width: 1800, height: 1200 },
+      ),
+    ).toEqual({ x: 0, y: 0, width: 1800, height: 1200 })
+  })
+
+  it('rounds fractional low-resolution edges outwards', () => {
+    expect(
+      getGlassOpticalScissor(
+        [{ x: 15.75, y: 8.25, width: 320.5, height: 63.5 }],
+        { width: 1000, height: 800 },
+        { width: 750, height: 600 },
+      ),
+    ).toEqual({ x: 10, y: 544, width: 244, height: 52 })
+  })
+
+  it('does not shade absent, zero-sized or fully offscreen surfaces', () => {
+    for (const rects of [[], [{ x: 0, y: 0, width: 0, height: 64 }], [{ x: 1205, y: 805, width: 80, height: 80 }]]) {
+      const scissor = getGlassOpticalScissor(rects, { width: 1200, height: 800 }, { width: 1200, height: 800 })
+      expect(scissor.width * scissor.height).toBe(0)
+    }
+  })
+
   it('caps the renderer buffer independently from device pixel ratio', () => {
     expect(getGlassOpticalBufferSize(3456, 2234, false)).toEqual({ height: 931, width: 1440 })
     expect(getGlassOpticalBufferSize(390, 844, true)).toEqual({ height: 844, width: 390 })

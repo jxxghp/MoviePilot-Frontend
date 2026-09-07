@@ -757,3 +757,35 @@ export function normalizeGlassOpticalRect(rect: GlassOpticalRect, viewportWidth:
     ] as const,
   }
 }
+
+/**
+ * 将已提交表面的并集映射到 drawing buffer 裁剪框，不改变纹理采样坐标或表面几何。
+ * shader 的圆角蒙版向外羽化 1.5 CSS px；保留 2px 并向外取整，覆盖缩放后的边缘像素。
+ */
+export function getGlassOpticalScissor(
+  rects: readonly Pick<GlassOpticalRect, 'x' | 'y' | 'width' | 'height'>[],
+  presentation: { width: number; height: number },
+  buffer: { width: number; height: number },
+) {
+  const scaleX = buffer.width / Math.max(1, presentation.width)
+  const scaleY = buffer.height / Math.max(1, presentation.height)
+  let left = buffer.width
+  let bottom = buffer.height
+  let right = 0
+  let top = 0
+
+  for (const rect of rects) {
+    if (rect.width <= 0 || rect.height <= 0) continue
+    left = Math.min(left, Math.floor((rect.x - 2) * scaleX))
+    right = Math.max(right, Math.ceil((rect.x + rect.width + 2) * scaleX))
+    bottom = Math.min(bottom, Math.floor((presentation.height - rect.y - rect.height - 2) * scaleY))
+    top = Math.max(top, Math.ceil((presentation.height - rect.y + 2) * scaleY))
+  }
+
+  left = Math.max(0, Math.min(buffer.width, left))
+  bottom = Math.max(0, Math.min(buffer.height, bottom))
+  right = Math.max(left, Math.min(buffer.width, right))
+  top = Math.max(bottom, Math.min(buffer.height, top))
+
+  return { x: left, y: bottom, width: right - left, height: top - bottom }
+}

@@ -30,6 +30,7 @@ import {
   getGlassOpticalMotionEnergy,
   getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
+  getGlassOpticalScissor,
   getGlassOpticalTransmissionStrength,
   getGlassScrollBufferSize,
   getGlassOpticalTranslationStrengthScale,
@@ -1964,7 +1965,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.renderer.setScissor(0, scissorY, presentationBufferWidth, scissorHeight)
       resources.renderer.clear()
     } else {
+      const scissor = getGlassOpticalScissor(
+        surfaceSlots.map(slot => slot.rect),
+        getCommittedPresentationSize(),
+        { width: presentationBufferWidth, height: presentationBufferHeight },
+      )
+      // 旧位置必须先完整清空；scissor 仅限制片元执行，不能把上一帧的轮廓留在裁剪框外。
       resources.renderer.setScissorTest(false)
+      resources.renderer.clear()
+      resources.renderer.setScissor(scissor.x, scissor.y, scissor.width, scissor.height)
+      resources.renderer.setScissorTest(true)
     }
     resources.renderer.render(resources.scene, resources.camera)
     renderedFrames.value += 1

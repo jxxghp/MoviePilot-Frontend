@@ -575,6 +575,53 @@ describe('glass optical surface discovery', () => {
     expect(collectGlassOpticalRects(1200, 800, 'clear')).toEqual([])
   })
 
+  it('clears the full fixed framebuffer before shading the current bounded surfaces', async () => {
+    const three = await import('three')
+    const commands: Array<{ kind: string; value?: unknown }> = []
+    vi.spyOn(three.WebGLRenderer.prototype, 'setScissorTest').mockImplementation(value => {
+      commands.push({ kind: 'scissor-test', value })
+    })
+    vi.spyOn(three.WebGLRenderer.prototype, 'setScissor').mockImplementation((...value) => {
+      commands.push({ kind: 'scissor', value })
+    })
+    vi.spyOn(three.WebGLRenderer.prototype, 'clear').mockImplementation(() => {
+      commands.push({ kind: 'clear' })
+    })
+    vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(scene => {
+      if (getGlassMainSceneMaterial(scene)) commands.push({ kind: 'render' })
+    })
+    appendOpticalSurface('layout-navbar', { x: 16, y: 16, width: 1100, height: 64 })
+    const scope = effectScope()
+    try {
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          quality: ref('high'),
+          dynamicsMode: ref('off'),
+          routeKey: ref('/recommend'),
+          surfaceSpace: 'fixed',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+        }),
+      )
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      await vi.waitFor(() => expect(commands.some(command => command.kind === 'render')).toBe(true))
+      for (const [index, command] of commands.entries()) {
+        if (command.kind !== 'render') continue
+        expect(commands.slice(index - 4, index)).toEqual([
+          { kind: 'scissor-test', value: false },
+          { kind: 'clear' },
+          { kind: 'scissor', value: expect.any(Array) },
+          { kind: 'scissor-test', value: true },
+        ])
+      }
+    } finally {
+      scope.stop()
+    }
+  })
+
   it('blocks transient subtree input before it can animate an underlying content surface', async () => {
     const three = await import('three')
     const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
