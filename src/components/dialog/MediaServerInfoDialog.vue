@@ -764,6 +764,81 @@ onMounted(() => {
               />
             </VCol>
           </VRow>
+          <VRow v-else-if="mediaServerInfo.type == 'mediavault'">
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="mediaServerInfo.name"
+                :label="t('common.name')"
+                :placeholder="t('mediaserver.nameRequired')"
+                :hint="t('mediaserver.serverAlias')"
+                persistent-hint
+                active
+                prepend-inner-icon="mdi-label"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="mediaServerInfo.config.host"
+                :label="t('mediaserver.host')"
+                :placeholder="t('mediaserver.hostPlaceholder')"
+                :hint="t('mediaserver.mediaVaultHostHint')"
+                persistent-hint
+                active
+                prepend-inner-icon="mdi-server"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="mediaServerInfo.config.play_host"
+                :label="t('mediaserver.playHost')"
+                :placeholder="t('mediaserver.playHostPlaceholder')"
+                :hint="t('mediaserver.playHostHint')"
+                persistent-hint
+                active
+                prepend-inner-icon="mdi-play-network"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="mediaServerInfo.config.apikey"
+                :label="t('mediaserver.apiKey')"
+                :hint="t('mediaserver.mediaVaultApiKeyHint')"
+                persistent-hint
+                active
+                prepend-inner-icon="mdi-key"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model.number="mediaServerInfo.sync_interval"
+                type="number"
+                min="0"
+                step="1"
+                clearable
+                :label="t('mediaserver.syncInterval')"
+                :hint="t('mediaserver.syncIntervalHint', { interval: props.defaultSyncInterval ?? 6 })"
+                persistent-hint
+                suffix="h"
+                prepend-inner-icon="mdi-sync"
+              />
+            </VCol>
+            <VCol cols="12">
+              <VAutocomplete
+                v-model="mediaServerInfo.sync_libraries"
+                :label="t('mediaserver.syncLibraries')"
+                :items="librariesOptions"
+                chips
+                multiple
+                clearable
+                :hint="t('mediaserver.syncLibrariesHint')"
+                persistent-hint
+                active
+                append-inner-icon="mdi-refresh"
+                prepend-inner-icon="mdi-library"
+                @click:append-inner="loadLibrary(mediaServerInfo.name)"
+              />
+            </VCol>
+          </VRow>
           <VRow v-else>
             <VCol cols="12" md="6">
               <VTextField
