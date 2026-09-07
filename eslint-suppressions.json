@@ -340,9 +340,6 @@
   "src/components/misc/ProgressiveCardGrid.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
-    },
-    "@typescript-eslint/no-unused-expressions": {
-      "count": 1
     }
   },
   "src/components/pwa/PWAInstallPrompt.vue": {

@@ -6,18 +6,29 @@ type ItemKey = string | number
 
 const props = withDefaults(
   defineProps<{
+    /** 完整业务列表，slot 按调用方数据结构渲染，可见窗口不修改原数组。 */
     items: any[]
+    /** 自动分列时允许的最小条目宽度，单位为 CSS 像素。 */
     minItemWidth?: number
+    /** 未提供固定高度估值时，按条目宽度乘此比率估算高度。 */
     itemAspectRatio?: number
+    /** 未测量条目的高度估值，用于虚拟占位。 */
     estimatedItemHeight?: number
+    /** 需要滚动呈现的零基条目索引。 */
     scrollToIndex?: number
+    /** 行列共用的 CSS 像素间距。 */
     gap?: number
+    /** 显式列数优先于基于宽度的自动分列。 */
     columns?: number
+    /** 首批最少条目数，实际提交时补齐整行并覆盖当前视口。 */
     initialCount?: number
+    /** 后续每帧补充的条目数，至少完成一整行。 */
     batchSize?: number
+    /** 可见窗口上下额外保留的行数。 */
     overscanRows?: number
     /** overlay 默认完整挂载以保证弹窗交互；仅在调用方能接受虚拟回收时显式开启。 */
     virtualizeInOverlay?: boolean
+    /** 稳定业务键；缺省使用索引，列表重排需显式传入。 */
     getItemKey?: (item: any, index: number) => string | number
   }>(),
   {
@@ -36,15 +47,22 @@ const props = withDefaults(
 )
 
 interface VirtualCell {
+  /** 透传给条目 slot 的业务对象。 */
   item: any
+  /** 完整列表中的零基索引。 */
   index: number
+  /** DOM 与测高缓存共同使用的稳定键。 */
   key: ItemKey
 }
 
 interface VirtualRange {
+  /** 窗口最后一个条目的后一位索引。 */
   endIndex: number
+  /** 窗口最后一行，包含该行。 */
   endRow: number
+  /** 窗口第一个条目索引。 */
   startIndex: number
+  /** 窗口第一行。 */
   startRow: number
 }
 
@@ -131,7 +149,8 @@ const keyIndexMap = computed(() => {
 })
 
 const rowMetrics = computed(() => {
-  heightVersion.value
+  // 高度缓存使用普通 Map，显式跟踪版本以响应 ResizeObserver 的批量更新。
+  void heightVersion.value
 
   const rows = Math.ceil(props.items.length / columnCount.value)
   const heights: number[] = []
@@ -1043,6 +1062,9 @@ onMounted(() => {
   syncOverlayGridState()
   scrollTarget = findScrollTarget()
   addScrollListener(scrollTarget)
+
+  // 首次可测宽度先参与占位计算，避免父布局读取单列高度；最终尺寸仍由 ResizeObserver 持续校正。
+  if (!shouldPauseVirtualSync() && trackRef.value?.clientWidth) syncLayoutWidth()
 
   resizeObserver = new ResizeObserver(queueLayoutSync)
   if (trackRef.value) {
