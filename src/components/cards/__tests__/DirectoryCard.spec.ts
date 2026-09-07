@@ -59,7 +59,7 @@ describe('DirectoryCard classification reference', () => {
     await user.click(categorySelect)
 
     expect(await screen.findByRole('option', { name: '电影' })).toBeInTheDocument()
-    expect(await screen.findByRole('option', { name: '动画 · 电影' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: '动画 · 路径：电影/动画' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /停用/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /电视动画|tv.animation/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /现场|music.live/ })).not.toBeInTheDocument()
