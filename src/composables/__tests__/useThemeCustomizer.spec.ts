@@ -48,7 +48,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(settings.theme).toBe('glass')
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassNavbarStyle).toBe('adaptive')
+    expect(settings.glassNavbarStyle).toBe('clear')
     expect(settings.glassDeformationStrength).toBe(48)
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassFlowStrength).toBe(48)
@@ -90,13 +90,13 @@ describe('useThemeCustomizer glass settings', () => {
   it('treats navbar style as an independent setting and default criterion', async () => {
     const { customizer, wrapper } = mountThemeCustomizer()
 
-    await customizer.setGlassNavbarStyle('clear')
+    await customizer.setGlassNavbarStyle('adaptive')
 
-    expect(customizer.settings.value.glassNavbarStyle).toBe('clear')
-    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe('clear')
+    expect(customizer.settings.value.glassNavbarStyle).toBe('adaptive')
+    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe('adaptive')
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(false)
 
-    await customizer.setGlassNavbarStyle('adaptive')
+    await customizer.setGlassNavbarStyle('clear')
 
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
     wrapper.unmount()
@@ -105,7 +105,7 @@ describe('useThemeCustomizer glass settings', () => {
   it('derives app-mode glass reset values from the standard-quality matrix', () => {
     expect(getDefaultGlassCustomizerSettings('css')).toEqual({
       glassAppearance: 'clear',
-      glassNavbarStyle: 'adaptive',
+      glassNavbarStyle: 'clear',
       glassDeformationStrength: 48,
       glassDynamicsMode: 'ripple',
       glassFlowStrength: 48,
@@ -158,7 +158,7 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassNavbarStyle).toBe('adaptive')
+    expect(settings.glassNavbarStyle).toBe('clear')
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
@@ -299,6 +299,7 @@ describe('useThemeCustomizer glass settings', () => {
   })
 
   it('previews, cancels, and commits navbar style independently', () => {
+    persistPartialThemeCustomizerSettings({ glassNavbarStyle: 'adaptive' })
     previewGlassSettings({
       glassAppearance: 'frosted',
       glassNavbarStyle: 'clear',

@@ -542,15 +542,31 @@ $-popup-hosts: (
     }
   }
 
-  html[data-theme='glass']:not([data-glass-navbar-style='clear']) body[data-theme='glass'] {
-    .layout-wrapper[data-shell-mode] .layout-navbar {
-      --glass-navbar-reading-filter: blur(6px);
-    }
+  // 各端按内容覆盖状态保护阅读；停滚或 App 顶栏重新出现时仍保留扩散，回到页顶才撤销。
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode].layout-navbar-away-from-top
+    .layout-navbar {
+    // 阅读修正不重复提升饱和度；亮度在材质原有透光响应上只额外衰减一次。
+    --glass-navbar-reading-filter: blur(2px) brightness(92%);
+  }
 
-    .layout-wrapper[data-shell-mode='desktop'].layout-navbar-away-from-top .layout-navbar,
-    .layout-wrapper[data-shell-mode='app'] .layout-navbar {
-      --glass-navbar-reading-filter: blur(14px);
-    }
+  // 窄屏标签与背景更密集，App 和抽屉布局的通透导航保留更强的阅读扩散。
+  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode]:not([data-shell-mode='desktop']).layout-navbar-away-from-top
+    .layout-navbar {
+    --glass-navbar-reading-filter: blur(3px) brightness(92%);
+  }
+
+  html[data-theme='glass'][data-glass-navbar-style='adaptive']:is(
+      [data-glass-appearance='clear'],
+      [data-glass-appearance='tinted']
+    )
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode].layout-navbar-away-from-top
+    .layout-navbar {
+    --glass-navbar-reading-filter: blur(6px) brightness(92%);
   }
 
   html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])

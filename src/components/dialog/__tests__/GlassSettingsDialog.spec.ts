@@ -145,7 +145,10 @@ describe('GlassSettingsDialog', () => {
     if (!styleControl) throw new Error('navbar style control was not rendered')
 
     expect(styleControl.attributes('data-model-value')).toBe('adaptive')
-    expect(wrapper.findAll('.glass-settings-dialog__navbar-style-option')).toHaveLength(2)
+    expect(wrapper.findAll('.glass-settings-dialog__navbar-style-option').map(option => option.text())).toEqual([
+      'theme.glassNavbarStyleClear',
+      'theme.glassNavbarStyleAdaptive',
+    ])
 
     await styleControl.vm.$emit('update:modelValue', 'clear')
     await wrapper.vm.$nextTick()

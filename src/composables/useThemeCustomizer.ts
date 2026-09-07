@@ -72,7 +72,7 @@ export const themeCustomizerShadowLevels = [
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
 export type ThemeCustomizerGlassAppearance = 'clear' | 'frosted' | 'tinted'
-/** 玻璃顶栏风格：adaptive 根据内容覆盖启用自适应保护；clear 保留所选材质，仅关闭自适应保护。 */
+/** 玻璃顶栏风格：clear 在内容覆盖时轻度扩散；adaptive 提供更强的阅读保护。 */
 export type ThemeCustomizerGlassNavbarStyle = 'adaptive' | 'clear'
 /** 玻璃动态效果的持久化选择；关闭模式仍保留用户配置的动态参数。 */
 export type ThemeCustomizerGlassDynamicsMode = 'fluid' | 'ripple' | 'off'
@@ -132,7 +132,7 @@ const validGlassDynamicsModes: ThemeCustomizerGlassDynamicsMode[] = ['fluid', 'r
 const validGlassPresets: GlassOpticalPreset[] = ['natural', 'glide', 'liquid']
 const validGlassQualities: ThemeCustomizerGlassQuality[] = ['css', 'balanced', 'high']
 const defaultGlassQuality: ThemeCustomizerGlassQuality = 'balanced'
-const defaultGlassNavbarStyle: ThemeCustomizerGlassNavbarStyle = 'adaptive'
+const defaultGlassNavbarStyle: ThemeCustomizerGlassNavbarStyle = 'clear'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
 const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels

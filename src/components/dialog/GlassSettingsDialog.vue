@@ -111,8 +111,8 @@ const navbarStyleOptions: Array<{
   /** 顶栏风格的持久化值。 */
   value: ThemeCustomizerGlassNavbarStyle
 }> = [
-  { label: 'theme.glassNavbarStyleAdaptive', value: 'adaptive' },
   { label: 'theme.glassNavbarStyleClear', value: 'clear' },
+  { label: 'theme.glassNavbarStyleAdaptive', value: 'adaptive' },
 ]
 
 const qualityOptions: Array<{
