@@ -161,11 +161,11 @@ export function createGlassNavbarDisplacementField({
     pixels[offset + 3] = 255
   }
 
-  // 中心越过圆角和两轴平移渐入带后，RGBA 恒定；仅批量填充这一区域，边带仍按完整公式计算。
+  // 中心越过圆角和两轴平移渐入带后，RGBA 恒定；非恒定区域仍按完整公式计算。
   const bodyStart = Math.ceil(Math.max(pixelRadius, maximumBand + 64) - 0.5)
   const bodyEnd = pixelWidth - bodyStart
   const hasConstantBody = surface === 'panel' && bodyEnd > bodyStart && pixelHeight > bodyStart * 2
-  const pixelWords = hasConstantBody ? new Uint32Array(pixels.buffer) : null
+  const pixelWords = surface === 'panel' ? new Uint32Array(pixels.buffer) : null
   // 从字节视图取得填充值，与目标视图共享平台字节序，不依赖大小端假设。
   const bodyWord = new Uint32Array(
     new Uint8ClampedArray([
@@ -175,13 +175,33 @@ export function createGlassNavbarDisplacementField({
       255,
     ]).buffer,
   )[0]
+  // 长竖面越过两端过渡后，整行结果不再随 y 改变；复用整行仍保留侧边逐像素精度。
+  const repeatRowStart = Math.ceil(
+    Math.max(pixelRadius + 1, maximumBand + 64, pixelWidth / 2 + maximumBand * 2 + 1) - 0.5,
+  )
+  const repeatRowEnd = pixelHeight - repeatRowStart
 
   for (let y = 0; y < pixelHeight; y += 1) {
-    const constantBodyRow = pixelWords && y >= bodyStart && y < pixelHeight - bodyStart
+    if (pixelWords && y > repeatRowStart && y < repeatRowEnd) {
+      pixelWords.copyWithin(y * pixelWidth, repeatRowStart * pixelWidth, (repeatRowStart + 1) * pixelWidth)
+      continue
+    }
+    const constantBodyRow = hasConstantBody && y >= bodyStart && y < pixelHeight - bodyStart
+    const edgeY = Math.min(y + 0.5, pixelHeight - y - 0.5)
+    // 越过圆角、横向平移渐入和直边权重后，同一行的距离与法线均不再依赖 x。
+    // 多留一个像素覆盖法线差分的半像素邻域，短行仍逐点计算。
+    const repeatStart = Math.ceil(Math.max(pixelRadius + 1, maximumBand + 64, edgeY + maximumBand * 2 + 1) - 0.5)
+    const repeatEnd = pixelWidth - repeatStart
+    const fillStart = pixelWords ? (constantBodyRow ? bodyStart : repeatStart + 1) : -1
+    const fillEnd = constantBodyRow ? bodyEnd : repeatEnd
     for (let x = 0; x < pixelWidth; x += 1) {
-      if (constantBodyRow && x === bodyStart) {
-        pixelWords.fill(bodyWord, y * pixelWidth + bodyStart, y * pixelWidth + bodyEnd)
-        x = bodyEnd - 1
+      if (pixelWords && x === fillStart && fillEnd > x) {
+        pixelWords.fill(
+          constantBodyRow ? bodyWord : pixelWords[y * pixelWidth + repeatStart],
+          y * pixelWidth + x,
+          y * pixelWidth + fillEnd,
+        )
+        x = fillEnd - 1
         continue
       }
       const sampleX = x + 0.5
@@ -190,7 +210,6 @@ export function createGlassNavbarDisplacementField({
       const distanceInside = -signedDistance
       // 长直边允许更厚的透镜；向圆角与法线交汇轴渐缩，避免高曲率区产生聚焦尖点。
       const edgeX = Math.min(sampleX, pixelWidth - sampleX)
-      const edgeY = Math.min(sampleY, pixelHeight - sampleY)
       const straightWeight = smoothstep(Math.min(1, Math.abs(edgeX - edgeY) / (maximumBand * 2 || 1)))
       const cornerBand = Math.min(maximumBand, pixelRadius)
       // 矩形角点没有圆弧法线；固定带宽交给四条直边的轴向剖面处理，避免角点成为采样断点。
