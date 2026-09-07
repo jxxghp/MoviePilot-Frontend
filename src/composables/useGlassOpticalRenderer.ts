@@ -1264,6 +1264,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   const pendingCompilations = new WeakMap<GlassRendererResources, Set<Promise<unknown>>>()
   const retiredResources = new WeakSet<GlassRendererResources>()
   const compiledMainScenes = new WeakSet<GlassRendererResources>()
+  const mainSceneCompilations = new WeakMap<GlassRendererResources, Promise<void>>()
   let fluidDynamics: GlassFluidDynamics | null = null
   let rippleResources: GlassRippleDynamics | null = null
   let frostPrefilterResources: GlassFrostPrefilterResources | null = null
@@ -1667,6 +1668,23 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     } finally {
       work.delete(pending)
     }
+  }
+
+  /** 主材质的模式、纹理和质量均通过 uniform 更新；同一 context 复用编译结果，重建后独立准备。 */
+  function compileMainScene(owner: GlassRendererResources): Promise<void> {
+    if (retiredResources.has(owner)) return Promise.reject(new Error('Glass renderer was retired before compilation'))
+    if (compiledMainScenes.has(owner)) return Promise.resolve()
+    const pending = mainSceneCompilations.get(owner)
+    if (pending) return pending
+
+    recordGlassRendererTiming(presentationSpace, 'main-compile-start')
+    const compilation = compileOwnedScene(owner, owner.scene)
+      .then(() => {
+        recordGlassRendererTiming(presentationSpace, 'main-compile-ready')
+      })
+      .finally(() => mainSceneCompilations.delete(owner))
+    mainSceneCompilations.set(owner, compilation)
+    return compilation
   }
 
   function disposeAfterCompilation(owner: GlassRendererResources, dispose: () => void) {
@@ -3817,7 +3835,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       resources.renderer.initTexture(prepared.texture)
       recordGlassRendererTiming(presentationSpace, 'prepare-compile-start')
-      await compileOwnedScene(resources, resources.scene)
+      await compileMainScene(resources)
       recordGlassRendererTiming(presentationSpace, 'prepare-compile-ready')
       if (
         version !== prepareVersion ||
@@ -3861,7 +3879,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     recordGlassRendererTiming(presentationSpace, 'compile-start')
-    await compileOwnedScene(resources, resources.scene)
+    await compileMainScene(resources)
     recordGlassRendererTiming(presentationSpace, 'compile-ready')
     if (
       version !== loadVersion ||

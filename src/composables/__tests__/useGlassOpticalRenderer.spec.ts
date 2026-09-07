@@ -224,6 +224,13 @@ function flushQueuedAnimationFrames(callbacks: Map<number, FrameRequestCallback>
   }
 }
 
+/** 按主材质 uniform 契约识别缓存对象，不把波场或磨砂预滤编译计入主场景。 */
+function getGlassMainSceneMaterial(scene: Object3D) {
+  const material = (scene as unknown as { children: Array<{ material?: ShaderMaterial }> }).children[0]?.material
+
+  return material?.uniforms.uDynamicsMode ? material : undefined
+}
+
 function dispatchTouchEvent(
   type: 'touchcancel' | 'touchend' | 'touchmove' | 'touchstart',
   touches: Array<{ clientX: number; clientY: number; identifier: number }>,
@@ -4412,6 +4419,148 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(listenerCountsBeforeLateResult.resize)
     scope.stop()
   })
+
+  it.each(['off', 'fluid', 'ripple'] as const)(
+    'compiles the main scene once per context and reuses it for %s wallpaper work',
+    async initialMode => {
+      const three = await import('three')
+      const compileAsync = vi.spyOn(three.WebGLRenderer.prototype, 'compileAsync')
+      const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+      const canvas = document.createElement('canvas')
+      const appearance = ref<'clear' | 'frosted'>('clear')
+      const quality = ref<'balanced' | 'high'>('balanced')
+      const dynamicsMode = ref<'off' | 'fluid' | 'ripple'>(initialMode)
+      const wallpaperUrl = ref('https://example.com/wallpaper-initial.jpg')
+      const pendingWallpaperUrl = ref('')
+      const pendingWallpaperRevision = ref(0)
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance,
+          canvas: ref(canvas),
+          dynamicsMode,
+          pendingWallpaperRevision,
+          pendingWallpaperUrl,
+          quality,
+          routeKey: ref('/dashboard'),
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl,
+        }),
+      )
+      const getMainCompileCalls = () => compileAsync.mock.calls.filter(([scene]) => getGlassMainSceneMaterial(scene))
+
+      try {
+        await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+        expect(getMainCompileCalls()).toHaveLength(1)
+        const mainScene = getMainCompileCalls()[0][0]
+        const uniforms = getGlassMainSceneMaterial(mainScene)!.uniforms
+
+        wallpaperUrl.value = 'https://example.com/wallpaper-refresh.jpg'
+        await vi.waitFor(() => expect(renderer?.activeWallpaperUrl.value).toBe(wallpaperUrl.value))
+        expect(getMainCompileCalls()).toHaveLength(1)
+
+        pendingWallpaperRevision.value = 7
+        pendingWallpaperUrl.value = 'https://example.com/wallpaper-prepared.jpg'
+        await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(7))
+        expect(getMainCompileCalls()).toHaveLength(1)
+
+        quality.value = 'high'
+        await vi.waitFor(() => expect(renderer?.preparedWallpaperPreparationKey.value).toContain('plain:high:'))
+        expect(uniforms.uQuality.value).toBe(1)
+        expect(getMainCompileCalls()).toHaveLength(1)
+
+        appearance.value = 'frosted'
+        await vi.waitFor(() => expect(renderer?.preparedWallpaperPreparationKey.value).toContain('frosted:high:'))
+        expect(uniforms.uAppearance.value).toBe(2)
+        expect(uniforms.uHasFrostedTexture.value).toBe(1)
+        expect(getMainCompileCalls()).toHaveLength(1)
+
+        for (const mode of ['off', 'fluid', 'ripple', initialMode] as const) {
+          if (dynamicsMode.value === mode) continue
+          const framesBeforeSwitch = renderer?.renderedFrames.value ?? 0
+          dynamicsMode.value = mode
+          await vi.waitFor(() => expect(renderer?.renderedFrames.value).toBeGreaterThan(framesBeforeSwitch))
+          expect(uniforms.uDynamicsMode.value).toBe({ off: 2, fluid: 0, ripple: 1 }[mode])
+          expect(uniforms.uHasFlowTexture.value).toBe(mode === 'fluid' ? 1 : 0)
+          expect(getMainCompileCalls()).toHaveLength(1)
+          expect(renderer?.state.value).toBe('ready')
+        }
+        const mainRenderCalls = render.mock.calls.filter(([scene]) => getGlassMainSceneMaterial(scene))
+        expect(mainRenderCalls.length).toBeGreaterThan(0)
+        expect(new Set(mainRenderCalls.map(([scene]) => scene))).toEqual(new Set([mainScene]))
+
+        canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+        expect(renderer?.state.value).toBe('fallback')
+        canvas.dispatchEvent(new Event('webglcontextrestored'))
+        await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+
+        expect(getMainCompileCalls()).toHaveLength(2)
+        expect(new Set(getMainCompileCalls().map(([scene]) => scene))).toHaveLength(2)
+        await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(7))
+        expect(getMainCompileCalls()).toHaveLength(2)
+      } finally {
+        scope.stop()
+      }
+    },
+  )
+
+  it.each(['off', 'fluid', 'ripple'] as const)(
+    'shares the pending main compilation between %s wallpaper loading and preparation',
+    async dynamicsMode => {
+      const three = await import('three')
+      const pendingCompilation: { resolve?: () => void } = {}
+      const compileAsync = vi.spyOn(three.WebGLRenderer.prototype, 'compileAsync').mockImplementation(scene => {
+        if (!getGlassMainSceneMaterial(scene)) return Promise.resolve(scene)
+
+        return new Promise<Object3D>(resolve => {
+          pendingCompilation.resolve = () => resolve(scene)
+        })
+      })
+      const upload = vi.spyOn(three.WebGLRenderer.prototype, 'initTexture')
+      const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+      const pendingWallpaperUrl = ref('')
+      const pendingWallpaperRevision = ref(0)
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          dynamicsMode: ref(dynamicsMode),
+          pendingWallpaperRevision,
+          pendingWallpaperUrl,
+          quality: ref('high'),
+          routeKey: ref('/dashboard'),
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('https://example.com/wallpaper-initial.jpg'),
+        }),
+      )
+      const getMainCompileCalls = () => compileAsync.mock.calls.filter(([scene]) => getGlassMainSceneMaterial(scene))
+
+      try {
+        await vi.waitFor(() => expect(getMainCompileCalls()).toHaveLength(1))
+        pendingWallpaperRevision.value = 7
+        pendingWallpaperUrl.value = 'https://example.com/wallpaper-prepared.jpg'
+        // prepare 上传纹理后才等待主编译，保证两个调用方确实重叠在同一 pending 上。
+        await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce())
+        expect(getMainCompileCalls()).toHaveLength(1)
+        expect(renderer?.state.value).toBe('loading')
+        expect(renderer?.preparedWallpaperRevision.value).toBe(0)
+        expect(render.mock.calls.filter(([scene]) => getGlassMainSceneMaterial(scene))).toHaveLength(0)
+
+        pendingCompilation.resolve?.()
+        await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+        await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(7))
+        expect(renderer?.activeWallpaperUrl.value).toBe('https://example.com/wallpaper-initial.jpg')
+        expect(renderer?.preparedWallpaperUrl.value).toBe(pendingWallpaperUrl.value)
+        expect(getMainCompileCalls()).toHaveLength(1)
+      } finally {
+        pendingCompilation.resolve?.()
+        scope.stop()
+      }
+    },
+  )
 
   it('restores the latest off mode after an active ripple renderer loses context', async () => {
     const three = await import('three')
