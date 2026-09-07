@@ -469,6 +469,33 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.openSharedDialog).toHaveBeenCalledTimes(3)
   })
 
+  it('hides the clone action and shows the instance badge on a clone card', async () => {
+    const clonePlugin: Plugin = {
+      ...plugin,
+      id: 'DemoPluginwork',
+      is_instance: true,
+      instance_mode: 'virtual',
+      source_plugin_id: 'DemoPlugin',
+    }
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin: clonePlugin } })
+
+    expect(screen.getByTestId('plugin-instance-badge')).toBeInTheDocument()
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+
+    expect(screen.getByTestId('plugin-menu-item-8')).not.toBeVisible()
+  })
+
+  it('shows the clone action and no instance badge on a host card', async () => {
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    expect(screen.queryByTestId('plugin-instance-badge')).not.toBeInTheDocument()
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+
+    expect(screen.getByTestId('plugin-menu-item-8')).toBeVisible()
+  })
+
   it('handles image lifecycle and ignores card clicks while sorting', async () => {
     mocks.accentFromImage.mockResolvedValueOnce(undefined).mockResolvedValueOnce('#123456')
     const { container } = await renderWithProviders(PluginCard, {

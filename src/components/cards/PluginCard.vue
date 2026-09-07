@@ -67,6 +67,9 @@ const emit = defineEmits<{
 // 多语言
 const { t } = useI18n()
 
+/** 卡片对应的是分身实例而非源插件本体：分身不能作为克隆来源，也不是版本/日志总览的正确入口 ID。 */
+const isCloneInstance = computed(() => props.plugin?.is_instance === true)
+
 const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
 const sourceBindingRequired = computed(() => props.plugin?.source_binding_status === 'binding_required')
 const restartRequired = computed(() =>
@@ -653,7 +656,7 @@ const dropdownItems = ref([
   {
     title: t('plugin.clone'),
     value: 8,
-    show: true,
+    show: !isCloneInstance.value,
     props: {
       prependIcon: 'mdi-content-copy',
       color: 'info',
@@ -816,6 +819,16 @@ watch(
                   />
                   {{ props.plugin?.plugin_name }}
                   <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
+                  <VChip
+                    v-if="isCloneInstance"
+                    data-testid="plugin-instance-badge"
+                    size="x-small"
+                    variant="tonal"
+                    color="secondary"
+                    class="align-middle"
+                  >
+                    {{ t('plugin.instanceClone') }}
+                  </VChip>
                 </VCardTitle>
               </VCardText>
               <div class="relative flex flex-row items-start px-2 justify-between grow">
@@ -892,6 +905,7 @@ watch(
                       <template v-for="(item, i) in dropdownItems" :key="i">
                         <VListItem
                           v-show="item.show"
+                          :data-testid="`plugin-menu-item-${item.value}`"
                           :base-color="item.props.color"
                           :disabled="isDropdownItemDisabled(item.value)"
                           @click="item.props.click"

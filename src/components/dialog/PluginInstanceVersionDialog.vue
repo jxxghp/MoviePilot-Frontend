@@ -82,6 +82,11 @@ const logLevelSavingId = ref<string | null>(null)
 
 const defaultTargetSavingId = ref<string | null>(null)
 
+/** 版本/日志等级/默认目标接口的正确入口 ID：分身卡片必须重定向到其源插件本体。 */
+const effectivePluginId = computed(() =>
+  props.plugin?.is_instance ? props.plugin?.source_plugin_id || props.plugin?.id : props.plugin?.id,
+)
+
 const installedVersions = computed(() => overview.value?.installed_versions ?? [])
 
 const installedVersionSelectItems = computed(() =>
@@ -140,13 +145,13 @@ function formatDateTime(value?: string | null): string {
 
 /** 并行加载插件版本总览与各实例日志等级设置。 */
 async function loadData() {
-  if (!props.plugin?.id) return
+  if (!effectivePluginId.value) return
   loading.value = true
   loadError.value = ''
   try {
     const [overviewData, logLevelData] = await Promise.all([
-      getPluginVersionOverview(props.plugin.id),
-      getPluginInstanceLogLevels(props.plugin.id),
+      getPluginVersionOverview(effectivePluginId.value),
+      getPluginInstanceLogLevels(effectivePluginId.value),
     ])
     overview.value = overviewData
     logLevelOverview.value = logLevelData
@@ -172,11 +177,11 @@ function closeVersionEditor() {
 /** 提交实例版本绑定切换，成功后刷新总览并通知父级卡片列表可能需要的状态刷新。 */
 async function submitVersionChange(item: InstanceRow) {
   if (!versionForm.follow && !versionForm.pinnedVersion) return
-  if (!props.plugin?.id) return
+  if (!effectivePluginId.value) return
 
   versionSavingId.value = item.instance_id
   try {
-    await setPluginInstanceVersion(props.plugin.id, item.instance_id, {
+    await setPluginInstanceVersion(effectivePluginId.value, item.instance_id, {
       follow_current_version: versionForm.follow,
       plugin_version: versionForm.follow ? null : versionForm.pinnedVersion,
     })
@@ -196,15 +201,15 @@ async function submitVersionChange(item: InstanceRow) {
 
 /** 设置或取消实例的默认调用目标；设置时后端自动清除同插件的旧默认。 */
 async function toggleDefaultTarget(item: InstanceRow) {
-  if (!props.plugin?.id) return
+  if (!effectivePluginId.value) return
 
   defaultTargetSavingId.value = item.instance_id
   try {
     if (item.is_default_target) {
-      await clearPluginInstanceDefaultTarget(props.plugin.id, item.instance_id)
+      await clearPluginInstanceDefaultTarget(effectivePluginId.value, item.instance_id)
       $toast.success(t('plugin.defaultTargetClearSuccess'))
     } else {
-      await setPluginInstanceDefaultTarget(props.plugin.id, item.instance_id)
+      await setPluginInstanceDefaultTarget(effectivePluginId.value, item.instance_id)
       $toast.success(t('plugin.defaultTargetSetSuccess'))
     }
     await loadData()
@@ -232,11 +237,11 @@ function closeLogLevelEditor() {
 
 /** 提交实例日志等级覆盖，运行期立即生效。 */
 async function submitLogLevel(item: InstanceRow) {
-  if (!props.plugin?.id || !logLevelForm.level) return
+  if (!effectivePluginId.value || !logLevelForm.level) return
 
   logLevelSavingId.value = item.instance_id
   try {
-    await setPluginInstanceLogLevel(props.plugin.id, item.instance_id, {
+    await setPluginInstanceLogLevel(effectivePluginId.value, item.instance_id, {
       level: logLevelForm.level,
       expires_at: fromDatetimeLocalValue(logLevelForm.expiresAt),
     })
@@ -255,11 +260,11 @@ async function submitLogLevel(item: InstanceRow) {
 
 /** 清除实例的日志等级覆盖，立即回落全局等级。 */
 async function clearLogLevel(item: InstanceRow) {
-  if (!props.plugin?.id) return
+  if (!effectivePluginId.value) return
 
   logLevelSavingId.value = item.instance_id
   try {
-    await clearPluginInstanceLogLevel(props.plugin.id, item.instance_id)
+    await clearPluginInstanceLogLevel(effectivePluginId.value, item.instance_id)
     $toast.success(t('plugin.logLevelClearSuccess'))
     closeLogLevelEditor()
     await loadData()
@@ -275,7 +280,7 @@ async function clearLogLevel(item: InstanceRow) {
 
 /** 手动触发回收不再被任何实例引用、也不在最近版本窗口内的已装版本目录。 */
 async function recycleVersions() {
-  if (!props.plugin?.id) return
+  if (!effectivePluginId.value) return
 
   const confirmed = await createConfirm({
     type: 'warn',
@@ -286,7 +291,7 @@ async function recycleVersions() {
 
   recycling.value = true
   try {
-    const outcome = await recyclePluginVersions(props.plugin.id)
+    const outcome = await recyclePluginVersions(effectivePluginId.value)
     recycleOutcome.value = outcome
     if (outcome.removed.length > 0) {
       $toast.success(t('plugin.versionRecycleSuccess', { count: outcome.removed.length }))
@@ -305,7 +310,7 @@ async function recycleVersions() {
 }
 
 watch(
-  () => [visible.value, props.plugin?.id],
+  () => [visible.value, effectivePluginId.value],
   ([isVisible]) => {
     if (isVisible) {
       recycleOutcome.value = null

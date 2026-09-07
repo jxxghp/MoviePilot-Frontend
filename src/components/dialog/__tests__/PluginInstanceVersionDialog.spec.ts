@@ -135,6 +135,23 @@ describe('PluginInstanceVersionDialog', () => {
     expect(screen.getByText('跟随全局')).toBeInTheDocument()
   })
 
+  it('resolves API calls to the true source plugin id when opened from a clone card', async () => {
+    const clonePlugin: Plugin = {
+      id: 'DemoPluginwork',
+      plugin_name: '演示插件（分身）',
+      plugin_version: '1.1.0',
+      installed: true,
+      is_instance: true,
+      instance_mode: 'virtual',
+      source_plugin_id: 'DemoPlugin',
+    }
+
+    await renderDialog({ modelValue: true, plugin: clonePlugin })
+
+    expect(mocks.getPluginVersionOverview).toHaveBeenCalledWith('DemoPlugin')
+    expect(mocks.getPluginInstanceLogLevels).toHaveBeenCalledWith('DemoPlugin')
+  })
+
   it('shows a load error with a retry action', async () => {
     mocks.getPluginVersionOverview.mockRejectedValueOnce(new Error('版本信息加载失败'))
 
