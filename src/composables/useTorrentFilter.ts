@@ -78,27 +78,17 @@ export function useTorrentFilter() {
   // 筛选后的总数量
   const totalFilteredCount = ref(0)
 
-  // 初始化过滤选项
-  function initOptions(data: Context) {
-    const { torrent_info, meta_info } = data
-    const optionValue = (options: Array<string>, value: string | undefined) => {
-      if (value && !options.includes(value)) {
-        options.push(value)
-        // 如果是season选项，立即触发重新计算
-        if (options === filterOptions.season) {
-          sortSeasonOptions()
-        }
-      }
-    }
-
-    optionValue(filterOptions.site, torrent_info?.site_name)
-    optionValue(filterOptions.season, meta_info?.season_episode)
-    optionValue(filterOptions.releaseGroup, meta_info?.resource_team)
-    optionValue(filterOptions.videoCode, meta_info?.video_encode)
-    optionValue(filterOptions.freeState, torrent_info?.volume_factor)
-    optionValue(filterOptions.edition, meta_info?.edition)
-    optionValue(filterOptions.resolution, meta_info?.resource_pix)
+  // 各筛选维度对应的资源字段读取器，选项收集与结果筛选共用同一来源
+  const filterValueGetters: Record<string, (data: Context) => string | undefined> = {
+    site: data => data.torrent_info?.site_name,
+    season: data => data.meta_info?.season_episode,
+    releaseGroup: data => data.meta_info?.resource_team,
+    videoCode: data => data.meta_info?.video_encode,
+    freeState: data => data.torrent_info?.volume_factor,
+    edition: data => data.meta_info?.edition,
+    resolution: data => data.meta_info?.resource_pix,
   }
+  const filterKeys = Object.keys(filterValueGetters)
 
   // 直接对季集选项进行排序的函数
   function sortSeasonOptions() {
@@ -166,11 +156,60 @@ export function useTorrentFilter() {
 
   // 匹配过滤函数
   const match = (filter: Array<string>, value: string | undefined) =>
-    filter.length === 0 || (value && filter.includes(value))
+    filter.length === 0 || (!!value && filter.includes(value))
 
   // 搜索结果必须同时包含可展示的元数据和种子信息。
   function isRenderableContext(data: Context | null | undefined): data is Context {
     return Boolean(data?.meta_info && data?.torrent_info)
+  }
+
+  // 资源是否满足某个维度当前选中的筛选条件
+  function matchesFilter(key: string, data: Context) {
+    return match(filterForm[key], filterValueGetters[key](data))
+  }
+
+  // 资源是否同时满足全部维度的筛选条件
+  function matchesAllFilters(data: Context) {
+    return filterKeys.every(key => matchesFilter(key, data))
+  }
+
+  // 清空全部过滤选项
+  function resetOptions() {
+    for (const key of filterKeys) {
+      filterOptions[key] = []
+    }
+  }
+
+  // 级联收集过滤选项：每个维度只提供“满足其余维度筛选条件”的资源取值，自身维度不参与约束。
+  // 例如选中促销=免费后，站点选项只剩仍有免费资源的站点，而促销维度本身仍可切换或多选。
+  // 已选中的值始终保留在选项中，保证对应筹码可见、可取消，不会因其他维度收窄而静默丢失。
+  function collectOptions(items: Context[]) {
+    const collected: Record<string, Set<string>> = {}
+    for (const key of filterKeys) {
+      collected[key] = new Set<string>()
+    }
+
+    for (const data of items) {
+      if (!isRenderableContext(data)) continue
+
+      const unmatchedKeys = filterKeys.filter(key => !matchesFilter(key, data))
+      // 两个及以上维度不满足时，无论排除哪一个维度都无法命中，不贡献任何选项
+      if (unmatchedKeys.length > 1) continue
+      // 全部满足时贡献到每个维度；仅一个维度不满足时只贡献到该维度（即排除自身维度）
+      const targetKeys = unmatchedKeys.length === 1 ? unmatchedKeys : filterKeys
+      for (const key of targetKeys) {
+        const value = filterValueGetters[key](data)
+        if (value) collected[key].add(value)
+      }
+    }
+
+    for (const key of filterKeys) {
+      for (const value of filterForm[key]) {
+        collected[key].add(value)
+      }
+      filterOptions[key] = [...collected[key]]
+    }
+    sortSeasonOptions()
   }
 
   // 筛选列表视图数据（不分组）
@@ -178,22 +217,14 @@ export function useTorrentFilter() {
     // 重置状态
     filteredIndices.value = []
 
-    // 清空并重新初始化过滤选项
-    for (const key in filterOptions) {
-      filterOptions[key] = []
-    }
-
     if (!items?.length) {
+      resetOptions()
       totalFilteredCount.value = 0
       return []
     }
 
-    // 首先收集所有过滤选项
-    items.forEach(data => {
-      if (isRenderableContext(data)) {
-        initOptions(data)
-      }
-    })
+    // 按当前筛选条件级联收集过滤选项
+    collectOptions(items)
 
     // 筛选数据
     let filteredData: Context[] = []
@@ -201,16 +232,7 @@ export function useTorrentFilter() {
     items.forEach((data, index) => {
       if (!isRenderableContext(data)) return
 
-      const { meta_info, torrent_info } = data
-      if (
-        match(filterForm.site, torrent_info.site_name) &&
-        match(filterForm.freeState, torrent_info.volume_factor) &&
-        match(filterForm.season, meta_info.season_episode) &&
-        match(filterForm.releaseGroup, meta_info.resource_team) &&
-        match(filterForm.videoCode, meta_info.video_encode) &&
-        match(filterForm.resolution, meta_info.resource_pix) &&
-        match(filterForm.edition, meta_info.edition)
-      ) {
+      if (matchesAllFilters(data)) {
         filteredData.push(data)
         filteredIndices.value.push(index)
       }
@@ -221,11 +243,6 @@ export function useTorrentFilter() {
     // 排序
     filteredData = sortData(filteredData)
 
-    // 确保季集选项排序
-    if (filterOptions.season.length > 0) {
-      sortSeasonOptions()
-    }
-
     return filteredData
   }
 
@@ -234,15 +251,14 @@ export function useTorrentFilter() {
     // 重置状态
     filteredIndices.value = []
 
-    // 清空并重新初始化过滤选项
-    for (const key in filterOptions) {
-      filterOptions[key] = []
-    }
-
     if (!items?.length) {
+      resetOptions()
       totalFilteredCount.value = 0
       return []
     }
+
+    // 按当前筛选条件级联收集过滤选项
+    collectOptions(items)
 
     // 数据分组
     const groupMap = new Map<string, GroupedItem[]>()
@@ -251,8 +267,6 @@ export function useTorrentFilter() {
       if (!isRenderableContext(item)) return
 
       const { torrent_info, meta_info } = item
-      // init options
-      initOptions(item)
       // group data
       const resourceName = isMusicResource(item) ? getTorrentTitle(item) : meta_info.name
       const musicQuality = isMusicResource(item)
@@ -277,18 +291,7 @@ export function useTorrentFilter() {
 
     groupMap.forEach(value => {
       if (value.length > 0) {
-        const matchData = value.filter(item => {
-          const { meta_info, torrent_info } = item.data
-          return (
-            match(filterForm.site, torrent_info.site_name) &&
-            match(filterForm.freeState, torrent_info.volume_factor) &&
-            match(filterForm.season, meta_info.season_episode) &&
-            match(filterForm.releaseGroup, meta_info.resource_team) &&
-            match(filterForm.videoCode, meta_info.video_encode) &&
-            match(filterForm.resolution, meta_info.resource_pix) &&
-            match(filterForm.edition, meta_info.edition)
-          )
-        })
+        const matchData = value.filter(item => matchesAllFilters(item.data))
         if (matchData.length > 0) {
           matchCount += matchData.length
           const firstItem = matchData[0]
@@ -310,11 +313,6 @@ export function useTorrentFilter() {
 
     // 索引顺序跟随排序后的卡片分组，同时保留组内的原始资源顺序。
     filteredIndices.value = sortedData.flatMap(item => groupIndicesMap.get(item) ?? [])
-
-    // 确保季集选项排序
-    if (filterOptions.season.length > 0) {
-      sortSeasonOptions()
-    }
 
     return sortedData
   }

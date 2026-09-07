@@ -81,6 +81,92 @@ describe('useTorrentFilter', () => {
     expect(filter.filterOptions.season).toEqual(['S10', 'S02', 'S10E01-E03', 'S01E12', 'Special'])
   })
 
+  it('cascades filter options to the values that still match the other selected dimensions', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ freeState: 'FREE', season: 'S01', site: 'Site A' }),
+      createTorrent({ freeState: 'NORMAL', season: 'S02', site: 'Site B' }),
+      createTorrent({ freeState: 'NORMAL', season: 'S02', site: 'Site A' }),
+      createTorrent({ freeState: 'FREE', season: 'S03', site: 'Site C' }),
+    ]
+    filter.filterForm.freeState = ['FREE']
+
+    const result = filter.filterRowData(torrents)
+
+    expect(filter.filterOptions.site).toEqual(['Site A', 'Site C'])
+    expect(filter.filterOptions.season).toEqual(['S03', 'S01'])
+    expect(filter.filterOptions.freeState).toEqual(['FREE', 'NORMAL'])
+    expect(result.map(item => item.torrent_info.site_name)).toEqual(['Site A', 'Site C'])
+    expect(filter.totalFilteredCount.value).toBe(2)
+  })
+
+  it('excludes only the dimension itself so a constrained dimension keeps its alternative values', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ freeState: 'FREE', site: 'Site A' }),
+      createTorrent({ freeState: 'NORMAL', site: 'Site A' }),
+      createTorrent({ freeState: 'FREE', site: 'Site C' }),
+      createTorrent({ freeState: 'NORMAL', site: 'Site B' }),
+    ]
+    filter.filterForm.site = ['Site A']
+    filter.filterForm.freeState = ['FREE']
+
+    filter.filterRowData(torrents)
+
+    expect(filter.filterOptions.site).toEqual(['Site A', 'Site C'])
+    expect(filter.filterOptions.freeState).toEqual(['FREE', 'NORMAL'])
+    expect(filter.totalFilteredCount.value).toBe(1)
+  })
+
+  it('keeps an already selected value available and sticky when other dimensions exclude it', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ freeState: 'NORMAL', site: 'Site A', title: '普通资源' }),
+      createTorrent({ freeState: 'FREE', site: 'Site B', title: '免费资源 B' }),
+      createTorrent({ freeState: 'FREE', site: 'Site C', title: '免费资源 C' }),
+    ]
+    filter.filterForm.site = ['Site A', 'Site B']
+    filter.filterForm.freeState = ['FREE']
+    const selectedSites = filter.filterForm.site
+
+    expect(filter.filterRowData(torrents).map(item => item.torrent_info.title)).toEqual(['免费资源 B'])
+    expect(filter.getFilteredIndices()).toEqual([1])
+    expect(filter.filterOptions.site).toEqual(['Site B', 'Site C', 'Site A'])
+    expect(filter.filterForm.site).toBe(selectedSites)
+    expect(filter.filterForm.site).toEqual(['Site A', 'Site B'])
+
+    filter.filterForm.freeState = []
+    expect(filter.filterRowData(torrents).map(item => item.torrent_info.title)).toEqual(['普通资源', '免费资源 B'])
+  })
+
+  it('cascades options with the same rules in grouped card view', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ freeState: 'FREE', pageUrl: 'https://example.test/a1', site: 'Site A', title: '同组一' }),
+      createTorrent({ freeState: 'FREE', pageUrl: 'https://example.test/a2', site: 'Site A', title: '同组二' }),
+      createTorrent({ freeState: 'NORMAL', name: '另一媒体', site: 'Site B', title: '另一组' }),
+    ]
+    filter.filterForm.freeState = ['FREE']
+
+    const result = filter.filterCardData(torrents)
+
+    expect(filter.filterOptions.site).toEqual(['Site A'])
+    expect(filter.filterOptions.freeState).toEqual(['FREE', 'NORMAL'])
+    expect(result).toHaveLength(1)
+    expect(result[0].more?.map(item => item.torrent_info.title)).toEqual(['同组二'])
+    expect(filter.totalFilteredCount.value).toBe(2)
+    expect(filter.getFilteredIndices()).toEqual([0, 1])
+  })
+
+  it('clears options but keeps selections when there is nothing to filter', () => {
+    const filter = useTorrentFilter()
+    filter.filterForm.site = ['Site A']
+
+    expect(filter.filterRowData([])).toEqual([])
+    expect(filter.filterOptions.site).toEqual([])
+    expect(filter.filterForm.site).toEqual(['Site A'])
+  })
+
   it('combines filters and exposes every matching original row index', () => {
     const filter = useTorrentFilter()
     const torrents = [
