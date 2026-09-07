@@ -155,6 +155,9 @@ function isRefractionActive(surface: NavigationSurface) {
   )
     return false
 
+  // Panel 解码并绑定后无需准备第二张备用图；只有 owner 标记时仍须保留未就绪/失败回退。
+  if (element.hasAttribute('data-glass-panel-refraction')) return false
+
   if (surface === 'navbar') {
     return (
       (shell.dataset.shellMode === 'desktop' &&
@@ -378,7 +381,7 @@ onMounted(() => {
     stateObserver.observe(element, {
       attributes: true,
       attributeOldValue: true,
-      attributeFilter: ['class', 'style'],
+      attributeFilter: ['class', 'style', 'data-glass-panel-refraction'],
     })
     const transitionHandler: EventListener = event => handleGeometryTransition(surface, event as TransitionEvent)
     transitionHandlers[surface] = transitionHandler

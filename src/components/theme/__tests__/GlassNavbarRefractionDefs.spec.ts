@@ -176,6 +176,63 @@ describe('GlassNavbarRefractionDefs', () => {
     expectReadyForWidth(1423)
   })
 
+  it('skips fallback maps only after the panel material has actually taken over', async () => {
+    shell.className = 'layout-wrapper'
+    shell.dataset.shellMode = 'desktop'
+    navbar.dataset.glassPanelRefraction = 'panel-navbar'
+    mountWithSidebar()
+    sidebar!.dataset.glassPanelRefraction = 'panel-sidebar'
+    await settle()
+
+    expect(createGlassNavbarDisplacementMap).not.toHaveBeenCalled()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(shell.dataset.glassSidebarRefractionReady).toBe('false')
+
+    // 所有权先于解码发布；只有就绪标记能够抑制备用透镜。
+    navbar.dataset.glassPanelOwner = 'panel-navbar'
+    sidebar!.dataset.glassPanelOwner = 'panel-sidebar'
+    delete navbar.dataset.glassPanelRefraction
+    delete sidebar!.dataset.glassPanelRefraction
+    await flushPromises()
+    await settle()
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
+  })
+
+  it('reuses decoded fallback maps when panel refraction is suspended', async () => {
+    shell.className = 'layout-wrapper'
+    shell.dataset.shellMode = 'desktop'
+    mountWithSidebar()
+    await settle()
+
+    navbar.dataset.glassPanelRefraction = 'panel-navbar'
+    sidebar!.dataset.glassPanelRefraction = 'panel-sidebar'
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(shell.dataset.glassSidebarRefractionReady).toBe('false')
+
+    delete navbar.dataset.glassPanelRefraction
+    delete sidebar!.dataset.glassPanelRefraction
+    await flushPromises()
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not activate a pending fallback after panel takeover', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await vi.advanceTimersByTimeAsync(65)
+    expect(decodePending).toHaveLength(1)
+
+    navbar.dataset.glassPanelRefraction = 'panel-navbar'
+    await flushPromises()
+    completePendingDecode()
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(wrapper.get('feImage').attributes('href')).toBe('neutral')
+  })
+
   it('keeps independent geometry caches when switching between horizontal and vertical navigation', async () => {
     mountWithSidebar()
     await settle()
