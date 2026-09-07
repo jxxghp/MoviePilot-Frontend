@@ -390,6 +390,7 @@ onScopeDispose(cancelGlassPreview)
               {{ t(option.label) }}
             </VBtn>
           </VBtnToggle>
+          <p class="glass-settings-dialog__hint">{{ t('theme.glassNavbarStyleHint') }}</p>
         </section>
 
         <section>

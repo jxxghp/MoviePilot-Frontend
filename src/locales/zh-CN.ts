@@ -215,6 +215,7 @@ export default {
     glassNavbarStyle: '顶栏风格',
     glassNavbarStyleAdaptive: '自适应',
     glassNavbarStyleClear: '通透',
+    glassNavbarStyleHint: '通透保留更多背景细节，自适应更注重文字清晰；两者仅在滚动内容经过顶栏下方时增强阅读保护。',
     glassQuality: '质量',
     glassQualityCss: '标准',
     glassQualityBalanced: '均衡',
