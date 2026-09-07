@@ -17,7 +17,6 @@ import { themeManager } from '@/utils/themeManager'
 import { usePWA, type UIMode } from '@/composables/usePWA'
 import { applyStoredTransparencySettings } from '@/composables/useTransparencySettings'
 import {
-  persistPartialThemeCustomizerSettings,
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
   THEME_CUSTOMIZER_OPEN_EVENT,
@@ -116,7 +115,8 @@ async function checkServiceStatus(): Promise<boolean> {
   try {
     await api.get<null>('system/ping', { timeout: 3000, feedback: 'silent' })
     return true
-  } catch (error) {
+  } catch {
+    // 探测失败表示服务尚未就绪，交由既有轮询间隔重试。
     return false
   }
 }
@@ -325,7 +325,7 @@ const getUIModeIcon = computed(() => {
 })
 
 // 主题相关功能
-const { name: themeName, global: globalTheme } = useTheme()
+const { global: globalTheme } = useTheme()
 const savedTheme = ref(localStorage.getItem('theme') ?? 'glass')
 const currentThemeName = ref(savedTheme.value)
 const themeCustomizerSettings = ref(readThemeCustomizerSettings())
@@ -401,30 +401,6 @@ async function updateTheme() {
   savedTheme.value = currentThemeName.value
   // 保存主题到本地
   saveLocalTheme(currentThemeName.value, globalTheme)
-}
-
-// 切换主题
-async function changeTheme(theme: string) {
-  currentThemeName.value = theme
-  showThemeMenu.value = false
-
-  // 立即更新主题（不再刷新页面）
-  await updateTheme()
-
-  // 如果是透明主题，应用透明度设置
-  if (theme === 'transparent') {
-    applyStoredTransparencySettings()
-  }
-
-  // 保存主题到服务端
-  try {
-    persistPartialThemeCustomizerSettings({ theme: theme as ThemeCustomizerSettings['theme'] })
-    api.post('/user/config/Layout', {
-      theme,
-    })
-  } catch (e) {
-    console.error(e)
-  }
 }
 
 function handleThemeCustomizerSettingsChange(event: Event) {
@@ -515,7 +491,7 @@ async function saveCustomCSS(css: string) {
     customCssDialogController?.close()
     customCssDialogController = null
     $toast.success(t('theme.customCssSaveSuccess'))
-  } catch (e) {
+  } catch {
     console.error(t('theme.customCssSaveFailed'))
   }
 }
@@ -538,7 +514,7 @@ try {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async () => {
     await updateTheme()
   })
-} catch (e) {
+} catch {
   console.error(t('theme.deviceNotSupport'))
 }
 
@@ -627,7 +603,7 @@ onUnmounted(() => {
       width="15rem"
       location="bottom end"
       offset="14px"
-      class="user-menu"
+      class="user-menu user-profile-menu"
       :close-on-content-click="true"
       scrim
     >
@@ -674,7 +650,14 @@ onUnmounted(() => {
           </VListItem>
 
           <!-- 👉 UI模式设置 - 使用嵌套菜单 -->
-          <VMenu location="end" offset-x width="15rem" v-model="showUIModeMenu" :close-on-content-click="true">
+          <VMenu
+            class="user-profile-menu"
+            location="end"
+            offset-x
+            width="15rem"
+            v-model="showUIModeMenu"
+            :close-on-content-click="true"
+          >
             <template v-slot:activator="{ props: menuProps }">
               <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
                 <template #prepend>
@@ -709,7 +692,14 @@ onUnmounted(() => {
           </VMenu>
 
           <!-- 👉 主题设置 - 使用嵌套菜单 -->
-          <VMenu location="end" offset-x width="15rem" v-model="showThemeMenu" :close-on-content-click="true">
+          <VMenu
+            class="user-profile-menu"
+            location="end"
+            offset-x
+            width="15rem"
+            v-model="showThemeMenu"
+            :close-on-content-click="true"
+          >
             <template v-slot:activator="{ props: menuProps }">
               <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
                 <template #prepend>
@@ -773,7 +763,14 @@ onUnmounted(() => {
           </VMenu>
 
           <!-- 👉 语言设置 - 使用嵌套菜单 -->
-          <VMenu location="end" offset-x width="15rem" v-model="showLanguageMenu" :close-on-content-click="true">
+          <VMenu
+            class="user-profile-menu"
+            location="end"
+            offset-x
+            width="15rem"
+            v-model="showLanguageMenu"
+            :close-on-content-click="true"
+          >
             <template v-slot:activator="{ props: menuProps }">
               <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
                 <template #prepend>

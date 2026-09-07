@@ -684,6 +684,12 @@ html[data-theme='glass'] {
     background: var(--glass-overlay-scrim);
   }
 
+  // 弹窗实际呈现后才移除来源菜单的绘制，避免双重遮罩和异步加载期间无遮罩的亮帧。
+  // 仅约束头像菜单树，弹窗内新打开的选择菜单仍独立呈现；关闭状态由 VMenu 自身完成。
+  .v-overlay-container:has(> .v-dialog.v-overlay--active) > .user-profile-menu {
+    display: none;
+  }
+
   .v-dialog--fullscreen {
     background-color: transparent !important;
   }
