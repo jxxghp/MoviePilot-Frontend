@@ -150,6 +150,21 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toMatch(/\.v-chip--variant-(?:outlined|text|plain)\s*\{/)
   })
 
+  it('shares a sampling-free chip material without reducing the main frosted surfaces', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles.match(/--glass-chip-backdrop-filter:[^;]+;/gu)).toEqual(['--glass-chip-backdrop-filter: none;'])
+    expect(styles.match(/--glass-chip-sheen:/gu)).toHaveLength(2)
+    expect(styles).toContain('linear-gradient(rgba(11, 19, 34, 42%), rgba(11, 19, 34, 42%))')
+    expect(styles).toContain('--glass-chip-tint-opacity: calc(')
+    expect(styles).toContain('--glass-sidebar-backdrop-filter: blur(var(--glass-sidebar-diffusion-blur))')
+    expect(styles).toContain(
+      '--glass-native-surface-backdrop-filter: blur(calc(10px * var(--glass-frost-blur-scale, 1)))',
+    )
+    expect(styles).toContain("url('#glass-navbar-live-refraction-high')")
+    expect(styles).toContain("url('#glass-navbar-live-refraction-balanced')")
+  })
+
   it('keeps media source links and episode group cards on glass material tokens', () => {
     const mediaDetail = readFileSync(resolve(cwd(), 'src/views/discover/MediaDetailView.vue'), 'utf8')
     const mediaSourceRule = mediaDetail.match(
