@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   createGlassNavbarDisplacementField,
+  createGlassPanelBackdropField,
   getGlassNavbarOpticalResponse,
+  getGlassSidebarOpticalResponse,
   supportsGlassNavbarLiveRefraction,
 } from '@/utils/glassNavbarRefraction'
 
@@ -45,6 +47,16 @@ describe('getGlassNavbarOpticalResponse', () => {
   })
 })
 
+describe('getGlassSidebarOpticalResponse', () => {
+  it.each([0, 50, 99, 100])('keeps the same cubic sliders and equal corner axes at %s', strength => {
+    const parameters = Object.freeze({ deformation: strength, translation: strength })
+    const optics = getGlassSidebarOpticalResponse(parameters)
+    expect(optics.horizontalRatio).toBe(optics.verticalRatio)
+    expect(optics.horizontalRatio).toBeLessThanOrEqual(0.3)
+    expect(optics.translationPx).toBe(getGlassNavbarOpticalResponse(parameters).translationPx)
+  })
+})
+
 describe('createGlassNavbarDisplacementField', () => {
   function pixelAt(field: ReturnType<typeof createGlassNavbarDisplacementField>, x: number, y: number) {
     const offset = (y * field.width + x) * 4
@@ -70,6 +82,34 @@ describe('createGlassNavbarDisplacementField', () => {
     expect(pixelAt(field, 50, 35)[2]).toBeGreaterThan(128)
   })
 
+  it('encodes a monotonic diffusion mask without changing the panel displacement channels', () => {
+    const field = createGlassNavbarDisplacementField({ width: 400, height: 240, radius: 20, surface: 'panel' })
+    const weights = Array.from({ length: 24 }, (_, y) => pixelAt(field, 200, y)[1])
+    expect(weights[0]).toBe(0)
+    expect(weights[weights.length - 1]).toBe(255)
+    expect(weights.every((value, index) => index === 0 || value >= weights[index - 1])).toBe(true)
+    expect(pixelAt(field, 0, 0)[1]).toBe(0)
+    expect(pixelAt(field, 200, 120)[1]).toBe(255)
+  })
+
+  it('places backdrop contours in their real coordinates without overwriting rounded gaps', () => {
+    const field = createGlassPanelBackdropField({
+      width: 100,
+      height: 80,
+      optics: getGlassSidebarOpticalResponse({ deformation: 0, translation: 0 }),
+      panels: [
+        { x: 10, y: 10, width: 70, height: 60, radius: 10 },
+        { x: 30, y: 15, width: 50, height: 40, radius: 10 },
+      ],
+    })
+    expect(pixelAt(field, 5, 5)).toEqual([128, 255, 128, 255])
+    expect(pixelAt(field, 10, 10)[1]).toBe(255)
+    expect(pixelAt(field, 25, 10)[1]).toBe(0)
+    expect(pixelAt(field, 35, 15)[1]).toBe(255)
+    expect(pixelAt(field, 45, 15)[1]).toBe(0)
+    expect(pixelAt(field, 50, 40)[1]).toBe(255)
+  })
+
   it.each([
     { width: 1423, height: 64, radius: 16 },
     { width: 401, height: 72, radius: 16 },
@@ -79,13 +119,27 @@ describe('createGlassNavbarDisplacementField', () => {
     { width: 68, height: 862, radius: 0 },
     { width: 252, height: 846, radius: 16 },
     { width: 60, height: 846, radius: 16 },
+    { width: 252, height: 846, radius: 8 },
+    { width: 252, height: 846, radius: 24 },
+    { width: 60, height: 846, radius: 8 },
+    { width: 60, height: 846, radius: 24 },
+    ...[60, 252].flatMap(width =>
+      [0, 8, 12, 16, 20, 24].map(radius => ({ width, height: 180, radius, surface: 'sidebar' as const })),
+    ),
+    { width: 1163, height: 448, radius: 20, surface: 'panel' as const },
+    { width: 358, height: 300, radius: 20, surface: 'panel' as const },
+    { width: 140, height: 120, radius: 8, surface: 'panel' as const },
+    { width: 140, height: 120, radius: 32, surface: 'panel' as const },
   ])('keeps two-dimensional sampling forward and inside the image for $width x $height r$radius', geometry => {
     for (const deformation of [0, 48, 100])
       for (const translation of [0, 48, 100])
         for (const scale of [-22, -34]) {
           const field = createGlassNavbarDisplacementField({
             ...geometry,
-            optics: getGlassNavbarOpticalResponse({ deformation, translation }),
+            optics:
+              'surface' in geometry
+                ? getGlassSidebarOpticalResponse({ deformation, translation })
+                : getGlassNavbarOpticalResponse({ deformation, translation }),
           })
           const source = (x: number, y: number) => {
             const pixel = pixelAt(field, x, y)
@@ -117,6 +171,31 @@ describe('createGlassNavbarDisplacementField', () => {
           expect(maximumX).toBeLessThanOrEqual(field.width)
           expect(maximumY).toBeLessThanOrEqual(field.height)
         }
+  })
+
+  it.each([8, 12, 16, 20, 24])('turns all four sidebar corners with one radial profile at radius %s', radius => {
+    const field = createGlassNavbarDisplacementField({
+      width: 252,
+      height: 180,
+      radius,
+      surface: 'sidebar',
+      optics: getGlassSidebarOpticalResponse({ deformation: 50, translation: 0 }),
+    })
+    for (let y = 0; y < radius; y += 1)
+      for (let x = 0; x < radius; x += 1) {
+        const topLeft = pixelAt(field, x, y)
+        const topRight = pixelAt(field, field.width - 1 - x, y)
+        const bottomLeft = pixelAt(field, x, field.height - 1 - y)
+        const bottomRight = pixelAt(field, field.width - 1 - x, field.height - 1 - y)
+        expect(topLeft[0] + topRight[0]).toBe(256)
+        expect(topLeft[2] + bottomLeft[2]).toBe(256)
+        expect(bottomRight[0]).toBe(topRight[0])
+        expect(bottomRight[2]).toBe(bottomLeft[2])
+        expect(pixelAt(field, y, x)[0]).toBe(topLeft[2])
+      }
+    expect(pixelAt(field, 126, 2)[2]).toBeLessThan(128)
+    expect(pixelAt(field, 126, 177)[2]).toBeGreaterThan(128)
+    expect(pixelAt(field, 126, 90)).toEqual([128, 128, 128, 255])
   })
 
   it('keeps a fixed rectangle optically active without substituting a rounded corner', () => {

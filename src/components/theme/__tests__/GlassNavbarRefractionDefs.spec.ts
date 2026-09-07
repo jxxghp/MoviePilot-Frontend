@@ -1,7 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import GlassNavbarRefractionDefs from '../GlassNavbarRefractionDefs.vue'
-import { createGlassNavbarDisplacementMap } from '@/utils/glassNavbarRefraction'
+import { createGlassNavbarDisplacementMap, getGlassSidebarOpticalResponse } from '@/utils/glassNavbarRefraction'
 import { ref } from 'vue'
 
 vi.mock('@/utils/glassNavbarRefraction', async importOriginal => ({
@@ -107,6 +107,7 @@ describe('GlassNavbarRefractionDefs', () => {
     wrapper?.unmount()
     wrapper = undefined
     shell.remove()
+    delete document.documentElement.dataset.themeRadius
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.useRealTimers()
@@ -189,7 +190,13 @@ describe('GlassNavbarRefractionDefs', () => {
       expect.objectContaining({ width: 1423, height: 64, radius: 16 }),
     )
     expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
-      expect.objectContaining({ width: 260, height: 800, radius: 0 }),
+      expect.objectContaining({
+        width: 260,
+        height: 800,
+        radius: 0,
+        surface: 'sidebar',
+        optics: getGlassSidebarOpticalResponse({ deformation: 48, translation: 48 }),
+      }),
     )
     expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
     expectReadyForSidebar(260)
@@ -418,6 +425,21 @@ describe('GlassNavbarRefractionDefs', () => {
     expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ width: 1423, height: 64, radius: 20 }),
     )
+  })
+
+  it('regenerates the optical outline when the theme radius attribute changes', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+
+    radius = 24
+    document.documentElement.dataset.themeRadius = 'extra'
+    await flushPromises()
+    await settle()
+
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1423, height: 64, radius: 24 }),
+    )
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('true')
   })
 
   it('does not retry a failed geometry in a feedback loop', async () => {

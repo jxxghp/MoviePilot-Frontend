@@ -53,11 +53,12 @@ html[data-theme='glass'] {
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
-  --glass-navbar-scrolled-backdrop-filter: blur(3px) saturate(115%);
+  --glass-navbar-scrolled-backdrop-filter: saturate(115%);
   --glass-navbar-live-filter: none;
   --glass-sidebar-live-filter: var(--glass-fixed-shell-backdrop-filter);
-  --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
-  --glass-overlay-blur: var(--glass-overlay-clarity-blur, 6px);
+  // 清透弹层不散射背景，靠独立吸收层区分前后两组文字，不改变内容卡片的通透度。
+  --glass-overlay-surface: rgba(11, 19, 34, calc(0.58 + var(--glass-surface-density, 0.62) * 0.18));
+  --glass-overlay-blur: 0px;
   --glass-overlay-saturate: 115%;
   --glass-overlay-scrim: rgba(3, 7, 18, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
@@ -66,15 +67,11 @@ html[data-theme='glass'] {
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
   --glass-control-shortcut-border: rgba(255, 255, 255, 12%);
   --glass-control-shortcut-color: rgba(242, 245, 250, 68%);
-  // Chip 面积很小，使用更明显的镜面层与色相透光，避免标签在背景采样中变成灰色。
-  --glass-chip-backdrop-filter: blur(8px) saturate(150%) brightness(var(--glass-transmission-brightness));
-  --glass-chip-sheen: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 12%),
-    transparent 38%,
-    rgba(255, 255, 255, 3%) 72%,
-    transparent
-  );
+  // 小标签由透光底色与镜面高光承载材质，不为每个标签重复采样背景；光学预算留给主要表面。
+  --glass-chip-backdrop-filter: none;
+  --glass-chip-sheen:
+    linear-gradient(135deg, rgba(255, 255, 255, 12%), transparent 38%, rgba(255, 255, 255, 3%) 72%, transparent),
+    linear-gradient(rgba(11, 19, 34, 36%), rgba(11, 19, 34, 36%));
   --glass-chip-tint-opacity: calc(0.22 + var(--glass-tint-density, 0.65) * 0.18);
   --glass-button-surface: rgba(255, 255, 255, 8%);
   --glass-button-surface-hover: rgba(255, 255, 255, 12%);
@@ -187,13 +184,12 @@ html[data-theme='glass'] {
     );
     --glass-overlay-surface: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
+      rgba(11, 19, 34, calc(0.58 + var(--glass-surface-density, 0.72) * 0.18)) 88%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
-    --glass-overlay-blur: var(--glass-overlay-clarity-blur, 6px);
+    --glass-overlay-blur: 0px;
     --glass-overlay-saturate: 120%;
     --glass-overlay-scrim: rgba(3, 7, 18, 32%);
-    --glass-chip-backdrop-filter: blur(10px) saturate(165%) brightness(var(--glass-transmission-brightness));
   }
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
@@ -264,14 +260,10 @@ html[data-theme='glass'] {
     --glass-overlay-blur: min(var(--glass-blur-raised), 36px);
     --glass-overlay-saturate: 135%;
     --glass-overlay-scrim: rgba(3, 7, 18, 36%);
-    --glass-chip-backdrop-filter: blur(14px) saturate(175%) brightness(var(--glass-transmission-brightness));
-    --glass-chip-sheen: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 14%),
-      transparent 36%,
-      rgba(255, 255, 255, 5%) 72%,
-      transparent
-    );
+    // 高光负责透光感，轻量吸收底面隔开海报细节与标签文字，不重新建立背景滤镜。
+    --glass-chip-sheen:
+      linear-gradient(135deg, rgba(255, 255, 255, 14%), transparent 36%, rgba(255, 255, 255, 5%) 72%, transparent),
+      linear-gradient(rgba(11, 19, 34, 42%), rgba(11, 19, 34, 42%));
     --glass-blur-surface: 40px;
     --glass-blur: 40px;
     --glass-blur-raised: 60px;
@@ -446,18 +438,6 @@ html[data-theme='glass'] {
     -webkit-backdrop-filter: var(--glass-dashboard-backdrop-filter);
     backdrop-filter: var(--glass-dashboard-backdrop-filter);
     box-shadow: var(--glass-dashboard-shadow) !important;
-  }
-
-  @media (hover: hover) {
-    // Dashboard 悬停沿左上来光增强顶部高光，并在右下背光面保留轻吸收。
-    .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card:hover,
-    .dashboard-grid-item-content
-      > .dashboard-grid-auto-size
-      > .dashboard-grid-content-measure
-      > :first-child
-      > .v-card:hover {
-      box-shadow: var(--glass-dashboard-shadow-hover) !important;
-    }
   }
 
   .layout-navbar {
@@ -1786,11 +1766,6 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
     calc(0.045 + var(--glass-surface-density, 0.62) * 0.1 + (1 - var(--glass-background-visibility, 0.58)) * 0.05),
     0.28
   );
-  --glass-navbar-blur: clamp(
-    0.35px,
-    calc(0.62px + var(--glass-surface-density, 0.62) * 0.8px - var(--glass-background-visibility, 0.58) * 0.25px),
-    1.4px
-  );
   --glass-navbar-brightness: var(--glass-transmission-brightness, 1);
   --glass-navbar-saturation: clamp(
     110%,
@@ -1813,8 +1788,7 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
     inset 0 -1px 2px rgba(4, 10, 20, calc(0.1 + var(--glass-surface-density, 0.62) * 0.12)),
     0 12px 32px
       rgba(3, 7, 18, calc(0.08 + var(--glass-reflection, 0.5) * 0.1 + var(--glass-surface-density, 0.62) * 0.08));
-  --glass-navbar-live-filter: blur(var(--glass-navbar-blur)) saturate(var(--glass-navbar-saturation))
-    brightness(var(--glass-navbar-brightness));
+  --glass-navbar-live-filter: saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
 
   border: 0 !important;
   -webkit-backdrop-filter: var(--glass-navbar-live-filter) !important;
@@ -1833,8 +1807,8 @@ html[data-theme='glass'][data-glass-quality='high']:is(
   body[data-theme='glass']
   .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-high') blur(var(--glass-navbar-blur))
-    saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
+  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-high') saturate(var(--glass-navbar-saturation))
+    brightness(var(--glass-navbar-brightness));
 }
 
 html[data-theme='glass'][data-glass-quality='balanced']:is(
@@ -1844,8 +1818,8 @@ html[data-theme='glass'][data-glass-quality='balanced']:is(
   body[data-theme='glass']
   .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-balanced') blur(var(--glass-navbar-blur))
-    saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
+  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-balanced') saturate(var(--glass-navbar-saturation))
+    brightness(var(--glass-navbar-brightness));
 }
 
 // 常驻侧栏保持附着几何，只有同源位移图解码完成后才接管其单独的背景表面。
@@ -1855,8 +1829,8 @@ html[data-theme='glass'][data-glass-quality='high']:is(
   )
   body[data-theme='glass']
   .layout-wrapper[data-glass-navigation-refraction='chromium'][data-glass-sidebar-refraction-ready='true']
-  .layout-vertical-nav:not(.overlay-nav) {
-  --glass-sidebar-live-filter: url('#glass-sidebar-live-refraction-high') blur(1px) saturate(115%)
+  .layout-vertical-nav:not(.overlay-nav):not([data-glass-panel-refraction]) {
+  --glass-sidebar-live-filter: url('#glass-sidebar-live-refraction-high') saturate(115%)
     brightness(var(--glass-transmission-brightness));
 
   -webkit-backdrop-filter: var(--glass-sidebar-live-filter) !important;
@@ -1874,8 +1848,8 @@ html[data-theme='glass'][data-glass-quality='balanced']:is(
   )
   body[data-theme='glass']
   .layout-wrapper[data-glass-navigation-refraction='chromium'][data-glass-sidebar-refraction-ready='true']
-  .layout-vertical-nav:not(.overlay-nav) {
-  --glass-sidebar-live-filter: url('#glass-sidebar-live-refraction-balanced') blur(1px) saturate(115%)
+  .layout-vertical-nav:not(.overlay-nav):not([data-glass-panel-refraction]) {
+  --glass-sidebar-live-filter: url('#glass-sidebar-live-refraction-balanced') saturate(115%)
     brightness(var(--glass-transmission-brightness));
 
   -webkit-backdrop-filter: var(--glass-sidebar-live-filter) !important;

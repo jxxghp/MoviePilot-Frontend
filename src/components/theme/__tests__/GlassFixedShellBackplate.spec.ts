@@ -161,6 +161,7 @@ describe('GlassFixedShellBackplate', () => {
     for (const wrapper of mountedWrappers.splice(0)) wrapper.unmount()
     document.querySelectorAll('.layout-wrapper').forEach(element => element.remove())
     document.documentElement.removeAttribute('data-theme')
+    document.documentElement.removeAttribute('data-theme-radius')
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
@@ -263,6 +264,21 @@ describe('GlassFixedShellBackplate', () => {
 
     expect((wrapper.get('[data-backplate-surface="main"]').element as HTMLElement).style.clipPath).toBe('')
     expect(wrapper.findAll('clipPath rect')).toHaveLength(0)
+  })
+
+  it('updates the shared clip when theme radius changes without resizing navigation', async () => {
+    const { wrapper, sidebar } = mountConnectedShell()
+    await settleGeometry()
+    const style = window.getComputedStyle(sidebar)
+    vi.mocked(window.getComputedStyle).mockReturnValue({ ...style, borderTopLeftRadius: '24px' })
+
+    document.documentElement.dataset.themeRadius = 'extra'
+    await settleGeometry()
+
+    for (const rect of wrapper.findAll('clipPath rect')) {
+      expect(Number(rect.attributes('rx'))).toBeCloseTo(24 / backplateRect.width, 8)
+      expect(Number(rect.attributes('ry'))).toBeCloseTo(24 / backplateRect.height, 8)
+    }
   })
 
   it('refreshes dimensions and disconnects the resize observer on unmount', async () => {

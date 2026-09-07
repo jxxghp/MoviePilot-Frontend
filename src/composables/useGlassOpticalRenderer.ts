@@ -4,6 +4,7 @@ import type {
   Color,
   IUniform,
   Mesh,
+  Object3D,
   OrthographicCamera,
   Scene,
   ShaderMaterial,
@@ -314,6 +315,8 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uRects: IUniform<Vector4[]>
   uSurfaceWeights: IUniform<number[]>
   uSurfaceDynamics: IUniform<number[]>
+  /** 原生材质已持有背景的表面不重复绘制静态壁纸，但继续消费共享动态场。 */
+  uSurfaceBaseWeights: IUniform<number[]>
   uPreviousTexture: IUniform<Texture | null>
   uPreviousFrostedTexture: IUniform<Texture | null>
   uTexture: IUniform<Texture | null>
@@ -344,6 +347,8 @@ interface GlassRendererResources {
 }
 
 interface GlassFrostPrefilterResources {
+  /** 编译与释放预滤材质的 WebGL 资源所有者。 */
+  owner: GlassRendererResources
   material: ShaderMaterial
   mesh: Mesh
   scene: Scene
@@ -573,6 +578,7 @@ uniform vec4 uRects[8];
 uniform vec4 uRadii[8];
 uniform float uSurfaceWeights[8];
 uniform float uSurfaceDynamics[8];
+uniform float uSurfaceBaseWeights[8];
 uniform int uRectCount;
 uniform float uAppearance;
 uniform float uBackgroundVisibility;
@@ -814,6 +820,7 @@ vec2 softLimitDynamicRefraction(vec2 refraction) {
 
 void main() {
   float mask = 0.0;
+  float baseMask = 0.0;
   float edge = 0.0;
   float caustic = 0.0;
   float directionalReflection = 0.0;
@@ -869,6 +876,7 @@ ${GLASS_FLUID_FRAGMENT_TRAIL_AND_FIELD}
 
     vec4 rect = uRects[i];
     float surfaceDynamic = uSurfaceDynamics[i];
+    float surfaceBase = uSurfaceBaseWeights[i];
     vec2 local = (vUv - rect.xy) / rect.zw;
     float rectMask = roundedRectMask(local, rect.zw * uPresentationSize, uRadii[i]) * uSurfaceWeights[i];
     if (rectMask <= 0.0) continue;
@@ -892,18 +900,19 @@ ${GLASS_FLUID_FRAGMENT_TRAIL_AND_FIELD}
 ${GLASS_FLUID_FRAGMENT_SURFACE_SHAPE}
     float staticLens = 0.00008 + edgeResponse * mix(0.00045, 0.00072, uQuality);
 ${GLASS_FLUID_FRAGMENT_SURFACE_OPTICS}
-    staticRefraction += lens * staticLens * mix(1.0, 0.72, frosted) * rectMask * surfaceDynamic;
+    staticRefraction += lens * staticLens * mix(1.0, 0.72, frosted) * rectMask * surfaceDynamic * surfaceBase;
 ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
     dynamicRefraction += rippleRefraction * rippleMode * rectMask * surfaceDynamic * interactionMask;
-    edge = max(edge, edgeResponse * rectMask * surfaceDynamic);
+    edge = max(edge, edgeResponse * rectMask * surfaceDynamic * surfaceBase);
     caustic = max(caustic, localCaustic);
     caustic = max(
       caustic,
       rippleGradientEnergy * rippleState.z * rippleMode * rectMask * surfaceDynamic * interactionMask
     );
-    directionalReflection = max(directionalReflection, localDirectionalReflection);
-    topPrism = max(topPrism, localTopPrism);
-    backlightAbsorption = max(backlightAbsorption, localBacklightAbsorption);
+    // 原生表面已有静态轮廓；交互只叠加局部位移与动态焦散，不重新点亮另一套静态棱边。
+    directionalReflection = max(directionalReflection, localDirectionalReflection * surfaceBase);
+    topPrism = max(topPrism, localTopPrism * surfaceBase);
+    backlightAbsorption = max(backlightAbsorption, localBacklightAbsorption * surfaceBase);
     materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask);
     materialEnergy = max(
       materialEnergy,
@@ -915,12 +924,18 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
     );
     dynamicMask = max(dynamicMask, rectMask * surfaceDynamic * interactionMask);
     mask = max(mask, rectMask);
+    baseMask = max(baseMask, rectMask * uSurfaceBaseWeights[i]);
   }
 
   if (mask <= 0.0) discard;
 
-  float contentProtection = getContentProtection(coverUv(vUv + staticRefraction));
-  dynamicRefraction *= contentProtection;
+  float dynamicsPresence = max(materialEnergy, sharedMotionPresence * 0.36);
+  bool dynamicsOnlyOutput = uDynamicsOnly > 0.5 || baseMask <= 0.0;
+  // 原生材质持有静态背景；无动态能量的像素不重复采样或输出另一套轮廓。
+  if (dynamicsOnlyOutput && dynamicsPresence <= 0.0) discard;
+  if (dot(dynamicRefraction, dynamicRefraction) > 0.0) {
+    dynamicRefraction *= getContentProtection(coverUv(vUv + staticRefraction));
+  }
   // 高光足迹与壁纸位移强度独立校准，收紧反馈范围不能同步削弱三项动态参数。
   dynamicRefraction *= 1.2;
   dynamicRefraction = softLimitDynamicRefraction(dynamicRefraction);
@@ -1010,6 +1025,7 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
         caustic * proceduralCausticAlpha
       ) *
       uReflectionStrength;
+    if (dynamicsOnlyOutput) proceduralAlpha *= clamp(dynamicsPresence, 0.0, 1.0);
     gl_FragColor = vec4(proceduralHighlight, proceduralAlpha);
     return;
   }
@@ -1028,8 +1044,7 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
   refracted = mix(refracted, highlight, reflectionMix);
   refracted += highlight * caustic * causticHighlightMix * uReflectionStrength * highlightBudget;
 
-  if (uDynamicsOnly > 0.5) {
-    float dynamicsPresence = max(materialEnergy, sharedMotionPresence * 0.36);
+  if (dynamicsOnlyOutput) {
     float dynamicsAlpha =
       clamp(dynamicsPresence * mix(0.5, 0.72, uQuality) * mix(1.0, 1.12, frosted), 0.0, 0.82);
     gl_FragColor = vec4(refracted, dynamicsAlpha);
@@ -1039,7 +1054,7 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
   gl_FragColor = vec4(
     refracted,
     clamp(
-      mask *
+      baseMask *
         (
           materialAlpha +
           (
@@ -1240,6 +1255,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   const failedWallpaperPreparationKey = ref('')
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
+  const pendingCompilations = new WeakMap<GlassRendererResources, Set<Promise<unknown>>>()
+  const retiredResources = new WeakSet<GlassRendererResources>()
+  const compiledMainScenes = new WeakSet<GlassRendererResources>()
   let fluidDynamics: GlassFluidDynamics | null = null
   let rippleResources: GlassRippleDynamics | null = null
   let frostPrefilterResources: GlassFrostPrefilterResources | null = null
@@ -1333,6 +1351,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let resumeVersion = 0
   // 失焦后的暂停状态由活动事件解除，观察器与参数更新不能自行恢复呈现。
   let presentationPaused = document.visibilityState === 'hidden' || !document.hasFocus()
+  let preparationDeferred = false
   let dynamicsGeneration = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
   const usesDynamicsOnly = () =>
@@ -1342,6 +1361,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 所有持续绘制入口共享活动边界，资源准备和 uniform 同步不依赖呈现帧。 */
   function canPresentFrame() {
     return toValue(options.active) && !presentationPaused && document.visibilityState !== 'hidden'
+  }
+
+  /** 后台只保留最新配置；恢复时合并重建，避免准备完的纹理和波场立即被释放。 */
+  function canPrepareResources() {
+    if (canPresentFrame()) return true
+    preparationDeferred = true
+    return false
   }
 
   /** 滚动期间由原生 backdrop 接管壁纸；稳定态恢复完整纹理折射与流体反馈。 */
@@ -1622,12 +1648,34 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     wallpaperTransitionFrame = requestAnimationFrame(renderWallpaperTransitionFrame)
   }
 
+  /** Three 会在异步检查中读取材质的 program；该检查完成前不能释放其 properties。 */
+  async function compileOwnedScene(owner: GlassRendererResources, scene: Object3D) {
+    if (retiredResources.has(owner)) throw new Error('Glass renderer was retired before compilation')
+    const pending = owner.renderer.compileAsync(scene, owner.camera)
+    const work = pendingCompilations.get(owner) ?? new Set<Promise<unknown>>()
+    work.add(pending)
+    pendingCompilations.set(owner, work)
+    try {
+      await pending
+      if (scene === owner.scene && !retiredResources.has(owner)) compiledMainScenes.add(owner)
+    } finally {
+      work.delete(pending)
+    }
+  }
+
+  function disposeAfterCompilation(owner: GlassRendererResources, dispose: () => void) {
+    const pending = pendingCompilations.get(owner)
+    if (pending?.size) void Promise.allSettled([...pending]).then(dispose)
+    else dispose()
+  }
+
   /** 释放壁纸准备阶段复用的预滤 shader；活动低通纹理由各自 RenderTarget 单独持有。 */
   function disposeFrostPrefilterResources() {
     if (!frostPrefilterResources) return
 
-    frostPrefilterResources.material.dispose()
+    const retired = frostPrefilterResources
     frostPrefilterResources = null
+    disposeAfterCompilation(retired.owner, () => retired.material.dispose())
   }
 
   /** 为当前 WebGL context 创建一次性低分辨率壁纸预滤管线。 */
@@ -1651,13 +1699,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const mesh = new three.Mesh(resources.geometry, material)
     mesh.frustumCulled = false
     scene.add(mesh)
-    frostPrefilterResources = { material, mesh, scene, uniforms }
+    frostPrefilterResources = { owner: resources, material, mesh, scene, uniforms }
 
     return frostPrefilterResources
   }
 
   /** 壁纸上传时执行两次 separable blur，常态只保留既定分辨率的低通 RenderTarget。 */
   async function createFrostedWallpaperTarget(texture: Texture, width: number, height: number, targetLongEdge: number) {
+    if (!canPrepareResources()) return null
     if (!resources || !three) return null
 
     const ownerResources = resources
@@ -1681,8 +1730,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     try {
       ownerResources.renderer.initTexture(texture)
-      await ownerResources.renderer.compileAsync(prefilter.scene, ownerResources.camera)
-      if (resources !== ownerResources) {
+      await compileOwnedScene(ownerResources, prefilter.scene)
+      if (resources !== ownerResources || !canPrepareResources()) {
         outputTarget.dispose()
         return null
       }
@@ -1759,6 +1808,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 只在水漾被选中时为当前 context 编译并分配独占 ping-pong 场。 */
   async function syncRippleResources() {
     if (!resources || !three) return
+    if (!canPrepareResources()) return
     if (!hasRippleCapability()) {
       disposeRippleResources()
       return
@@ -1778,9 +1828,21 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         three,
         viewportHeight: window.innerHeight,
         viewportWidth: window.innerWidth,
+        compile: scene => compileOwnedScene(ownerResources, scene),
+        isCurrent: () =>
+          generation === dynamicsGeneration &&
+          resources === ownerResources &&
+          hasRippleCapability() &&
+          canPrepareResources(),
       })
     } catch (error) {
-      if (generation !== dynamicsGeneration || resources !== ownerResources || !hasRippleCapability()) return
+      if (
+        generation !== dynamicsGeneration ||
+        resources !== ownerResources ||
+        !hasRippleCapability() ||
+        !canPrepareResources()
+      )
+        return
       throw error
     }
     if (generation !== dynamicsGeneration || resources !== ownerResources || !hasRippleCapability()) {
@@ -1801,6 +1863,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 模式切换时同步释放旧策略、清空输入历史并在资源就绪后恢复订阅。 */
   async function syncDynamicsMode() {
     if (!resources) return
+    if (!canPrepareResources()) return
 
     interactionAnimating = false
     activeTouchIdentifier = null
@@ -1845,7 +1908,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function renderFrame(timestamp = performance.now(), advanceFlow = true) {
-    if (!resources || !canPresentFrame()) return
+    // 首次 resize/observer 只能同步几何，不能在异步预编译前触发同步材质编译。
+    if (!resources || !canPresentFrame() || !compiledMainScenes.has(resources)) return
 
     updateWallpaperTransition(timestamp)
     if (fluidDynamics && advanceFlow) {
@@ -1923,6 +1987,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const uniformRadii = resources.uniforms.uRadii.value
     const uniformWeights = resources.uniforms.uSurfaceWeights.value
     const uniformDynamics = resources.uniforms.uSurfaceDynamics.value
+    const uniformBaseWeights = resources.uniforms.uSurfaceBaseWeights.value
     const ownersWithVisibleInteractionClips = new Set(interactionClips.map(clip => clip.owner))
     const transitionWeights = outgoingSurface
       ? getGlassOpticalSurfaceTransitionWeights(timestamp - surfaceTransitionStartedAt, SURFACE_TRANSITION_DURATION_MS)
@@ -1952,6 +2017,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const nestedInteractionAvailable =
         !slot || !interactionClipConstrainedOwners.has(slot.key) || ownersWithVisibleInteractionClips.has(slot.key)
       uniformDynamics[index] = slot?.mode === 'static-material' || !nestedInteractionAvailable ? 0 : 1
+      uniformBaseWeights[index] =
+        slot &&
+        !slot.key.hasAttribute('data-glass-panel-owner') &&
+        !slot.key.hasAttribute('data-glass-panel-refraction')
+          ? 1
+          : 0
     }
 
     resources.uniforms.uRectCount.value = normalized.length
@@ -3108,8 +3179,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       await nextTick()
       if (version !== resumeVersion || !canResume()) return
-      if (!resources) {
-        await initializeRenderer()
+      if (!resources || preparationDeferred) {
+        await initializeRenderer(false)
         if (canPresentFrame() && !pagePresentationGeometryReady) scheduleSurfaceStabilityUpdate()
         return
       }
@@ -3126,6 +3197,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         animationFrame = requestAnimationFrame(renderInteractionFrame)
       }
       scheduleWallpaperTransition()
+      preparePendingWallpaper()
       if (!pagePresentationGeometryReady) scheduleSurfaceStabilityUpdate()
     })()
 
@@ -3283,7 +3355,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       observedMutationRoots.add(root)
       surfaceMutationObserver?.observe(root, {
-        attributeFilter: ['data-glass-optical-boundary', 'data-glass-optical-mode'],
+        attributeFilter: [
+          'data-glass-optical-boundary',
+          'data-glass-optical-mode',
+          'data-glass-panel-refraction',
+          'data-glass-panel-owner',
+        ],
         attributes: true,
         childList: true,
         subtree,
@@ -3293,6 +3370,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceMutationObserver = new MutationObserver(mutations => {
       // Vuetify 可能在首个弹层打开时才创建容器，后续变更需要纳入同一个表面生命周期。
       observeMutationRoot(document.querySelector('.v-overlay-container'), true)
+      if (
+        mutations.some(
+          mutation =>
+            mutation.attributeName === 'data-glass-panel-owner' &&
+            mutation.target instanceof Element &&
+            mutation.target.hasAttribute('data-glass-panel-owner'),
+        )
+      ) {
+        // 背景所有权交接无需等待几何稳定采样，避免同一帧出现两套静态材质。
+        writeSurfaceUniforms()
+        scheduleFrame()
+      }
       if (!mutationTouchesOpticalSurface(mutations)) return
 
       interactionClipMembershipDirty = true
@@ -3388,6 +3477,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function disposeRenderer(releaseContext = true) {
+    if (resources) retiredResources.add(resources)
     resumeVersion += 1
     loadVersion += 1
     prepareVersion += 1
@@ -3458,11 +3548,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     disposeRippleResources()
     disposeFrostPrefilterResources()
     if (resources) {
-      resources.geometry.dispose()
-      resources.material.dispose()
-      resources.renderer.dispose()
-      if (releaseContext) resources.renderer.forceContextLoss()
+      const retired = resources
       resources = null
+      // KHR 在 context loss 后把编译状态报告为完成，原生轮询可正常退出，再安全释放缓存。
+      if (releaseContext) retired.renderer.forceContextLoss()
+      disposeAfterCompilation(retired, () => {
+        retired.geometry.dispose()
+        retired.material.dispose()
+        retired.renderer.dispose()
+      })
     }
 
     delete document.documentElement.dataset.glassRendererState
@@ -3479,6 +3573,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 后台替换活动纹理；已有纹理在加载失败或完成前继续保持可交互。 */
   async function refreshWallpaper(message: string, beforeActivate?: () => void) {
+    if (!canPrepareResources()) return
     const version = ++loadVersion
     const retainsActiveTexture = Boolean(resources && activeTexture)
     if (!retainsActiveTexture) updateRendererState('loading')
@@ -3696,6 +3791,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     releasePreparedWallpaper()
     clearPreparedWallpaperFailure()
     if (!url || !resources || contextRecoveryPending || url === toValue(options.wallpaperUrl)) return
+    if (!canPrepareResources()) return
     const preparationKey = getWallpaperPreparationKey(url)
 
     try {
@@ -3706,7 +3802,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         !resources ||
         contextRecoveryPending ||
         preparationKey !== prepared.preparationKey ||
-        preparationKey !== getWallpaperPreparationKey(url)
+        preparationKey !== getWallpaperPreparationKey(url) ||
+        !canPrepareResources()
       ) {
         disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
         return
@@ -3714,7 +3811,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       resources.renderer.initTexture(prepared.texture)
       recordGlassRendererTiming(presentationSpace, 'prepare-compile-start')
-      await resources.renderer.compileAsync(resources.scene, resources.camera)
+      await compileOwnedScene(resources, resources.scene)
       recordGlassRendererTiming(presentationSpace, 'prepare-compile-ready')
       if (
         version !== prepareVersion ||
@@ -3742,6 +3839,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   async function loadWallpaper(url: string, version: number, beforeActivate?: () => void) {
     if (!resources || !three || !url) return
+    if (!canPrepareResources()) return
 
     const prepared = await createWallpaperTexture(url)
     if (!prepared) return
@@ -3749,20 +3847,22 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       version !== loadVersion ||
       !resources ||
       contextRecoveryPending ||
-      prepared.preparationKey !== getWallpaperPreparationKey(url)
+      prepared.preparationKey !== getWallpaperPreparationKey(url) ||
+      !canPrepareResources()
     ) {
       disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
       return
     }
 
     recordGlassRendererTiming(presentationSpace, 'compile-start')
-    await resources.renderer.compileAsync(resources.scene, resources.camera)
+    await compileOwnedScene(resources, resources.scene)
     recordGlassRendererTiming(presentationSpace, 'compile-ready')
     if (
       version !== loadVersion ||
       !resources ||
       contextRecoveryPending ||
-      prepared.preparationKey !== getWallpaperPreparationKey(url)
+      prepared.preparationKey !== getWallpaperPreparationKey(url) ||
+      !canPrepareResources()
     ) {
       disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
       return
@@ -3901,6 +4001,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   async function initializeRenderer(releaseContext = true) {
+    if (!canPrepareResources()) return
+    preparationDeferred = false
     recordGlassRendererTiming(presentationSpace, 'initialize-start')
     disposeRenderer(releaseContext)
     if (!toValue(options.active) || !options.canvas.value) return
@@ -3916,7 +4018,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     try {
       three = await import('three')
       recordGlassRendererTiming(presentationSpace, 'three-ready')
-      if (version !== loadVersion || !options.canvas.value) return
+      if (version !== loadVersion || !options.canvas.value || !canPrepareResources()) return
       const Vector4Class = three.Vector4
       const canvas = options.canvas.value
       const context = prepareGlassWebGLContext(canvas)
@@ -3974,6 +4076,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uSurfaceWeights: { value: Array.from({ length: 8 }, () => 0) },
         uSurfaceDynamics: { value: Array.from({ length: 8 }, () => 1) },
+        uSurfaceBaseWeights: { value: Array.from({ length: 8 }, () => 1) },
         uPreviousTexture: { value: null },
         uPreviousFrostedTexture: { value: null },
         uTexture: { value: null },
@@ -4018,7 +4121,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         version !== loadVersion ||
         resources !== ownerResources ||
         !toValue(options.active) ||
-        options.canvas.value !== canvas
+        options.canvas.value !== canvas ||
+        !canPrepareResources()
       ) {
         return
       }
@@ -4115,6 +4219,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     () => toValue(options.appearance),
     async (appearance, previousAppearance) => {
       if (!resources) return
+      if (!canPrepareResources()) return
 
       const applyAppearance = () => {
         if (!resources || toValue(options.appearance) !== appearance) return
@@ -4170,6 +4275,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     () => toValue(options.quality),
     async (quality, previousQuality) => {
       if (!resources) return
+      if (!canPrepareResources()) return
 
       const previousProfile = getGlassOpticalRenderProfile(previousQuality, toValue(options.routeKey))
       const nextProfile = getGlassOpticalRenderProfile(quality, toValue(options.routeKey))

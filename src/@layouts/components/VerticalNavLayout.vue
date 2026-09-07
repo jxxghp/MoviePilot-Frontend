@@ -3,6 +3,7 @@ import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
 import GlassFixedShellBackplate from '@/components/theme/GlassFixedShellBackplate.vue'
 import GlassNavbarRefractionDefs from '@/components/theme/GlassNavbarRefractionDefs.vue'
+import GlassPanelRefractionDefs from '@/components/theme/GlassPanelRefractionDefs.vue'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
@@ -239,6 +240,7 @@ export default defineComponent({
         },
         [
           navbarRefractionMode === 'chromium' ? h(GlassNavbarRefractionDefs) : null,
+          navbarRefractionMode === 'chromium' ? h(GlassPanelRefractionDefs) : null,
           fixedShellBackplateNode,
           verticalNav,
           h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]),

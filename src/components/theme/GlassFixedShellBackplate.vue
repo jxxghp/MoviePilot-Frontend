@@ -53,6 +53,7 @@ const GEOMETRY_ATTRIBUTE_FILTER = [
   'data-shell-mode',
   'data-shell-navbar-attachment',
   'data-theme',
+  'data-theme-radius',
   'style',
 ]
 

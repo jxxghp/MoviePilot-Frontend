@@ -2049,6 +2049,53 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('hands only native-owned surfaces their static background while preserving shared dynamics', async () => {
+    const three = await import('three')
+    const navbar = appendOpticalSurface('layout-navbar', { height: 64, width: 600, x: 20, y: 20 })
+    const assistant = appendOpticalSurface('agent-assistant-panel', { height: 240, width: 250, x: 700, y: 120 })
+    const root = document.createElement('div')
+    root.className = 'app-wrapper'
+    root.append(navbar, assistant)
+    document.body.append(root)
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'fixed',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const getUniforms = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uRectCount: { value: number }
+              uSurfaceBaseWeights: { value: number[] }
+              uSurfaceDynamics: { value: number[] }
+            }
+          }
+        }>
+      }
+      return scene.children[0].material.uniforms
+    }
+    expect(getUniforms().uRectCount.value).toBe(2)
+    expect(getUniforms().uSurfaceBaseWeights.value.slice(0, 2)).toEqual([1, 1])
+    navbar.dataset.glassPanelRefraction = 'glass-panel-ready'
+    await vi.waitFor(() => expect(getUniforms().uSurfaceBaseWeights.value.slice(0, 2).sort()).toEqual([0, 1]))
+    expect(getUniforms().uSurfaceDynamics.value.slice(0, 2)).toEqual([1, 1])
+    navbar.removeAttribute('data-glass-panel-refraction')
+    await vi.waitFor(() => expect(getUniforms().uSurfaceBaseWeights.value.slice(0, 2)).toEqual([1, 1]))
+    scope.stop()
+  })
+
   it('shares dynamics across nested hover cards without allocating another material slot', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
@@ -2880,35 +2927,49 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('keeps an initially unfocused visible renderer ready without drawing until focus resumes it', async () => {
+  it('defers all GPU preparation while initially unfocused and uses the latest configuration on focus', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
     const visibilityState: DocumentVisibilityState = 'visible'
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState)
     documentHasFocus = false
     const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const compile = vi.spyOn(three.WebGLRenderer.prototype, 'compileAsync')
+    const upload = vi.spyOn(three.WebGLRenderer.prototype, 'initTexture')
+    const appearance = ref<'clear' | 'frosted'>('clear')
+    const quality = ref<'balanced' | 'high'>('balanced')
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
         active: ref(true),
-        appearance: ref('clear'),
+        appearance,
         canvas: ref(canvas),
-        quality: ref('balanced'),
+        quality,
         routeKey: ref('/dashboard'),
         tintColor: ref('#8D51F9'),
         wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
       }),
     )
 
-    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await nextTick()
+    appearance.value = 'frosted'
+    quality.value = 'high'
+    await nextTick()
     expect(render).not.toHaveBeenCalled()
+    expect(compile).not.toHaveBeenCalled()
+    expect(upload).not.toHaveBeenCalled()
 
     documentHasFocus = true
     window.dispatchEvent(new Event('focus'))
-    await nextTick()
-    await Promise.resolve()
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
 
     expect(render).toHaveBeenCalled()
+    expect(compile).toHaveBeenCalled()
+    expect(upload).toHaveBeenCalled()
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as { children: Array<{ material: ShaderMaterial }> }
+    const material = scene.children[0].material
+    expect(material.uniforms.uAppearance.value).toBe(2)
+    expect(material.uniforms.uQuality.value).toBe(1)
     scope.stop()
   })
 
@@ -3572,7 +3633,7 @@ describe('glass optical surface discovery', () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
-    documentHasFocus = false
+    documentHasFocus = true
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
@@ -3590,6 +3651,7 @@ describe('glass optical surface discovery', () => {
     const dispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
     const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
     vi.useFakeTimers()
+    documentHasFocus = false
     window.dispatchEvent(new Event('blur'))
 
     await vi.advanceTimersByTimeAsync(APP_ACTIVITY_SUSPEND_DELAY_MS)
@@ -4049,6 +4111,41 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('does not draw the main material before its asynchronous compilation completes', async () => {
+    const three = await import('three')
+    let finish: (() => void) | undefined
+    const compile = vi.spyOn(three.WebGLRenderer.prototype, 'compileAsync').mockImplementationOnce(
+      scene =>
+        new Promise<Object3D>(resolve => {
+          finish = () => resolve(scene)
+        }),
+    )
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        dynamicsMode: ref('off'),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+    try {
+      await vi.waitFor(() => expect(compile).toHaveBeenCalledOnce())
+      expect(render).not.toHaveBeenCalled()
+      finish?.()
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      expect(render).toHaveBeenCalled()
+    } finally {
+      finish?.()
+      scope.stop()
+    }
+  })
+
   it('does not attach renderer observers or events after initial ripple compilation outlives its scope', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
@@ -4060,6 +4157,10 @@ describe('glass optical surface discovery', () => {
         }),
     )
     const disposeTarget = vi.spyOn(three.WebGLRenderTarget.prototype, 'dispose')
+    const disposeRenderer = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const disposeMaterial = vi.spyOn(three.ShaderMaterial.prototype, 'dispose')
+    const forceContextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
     const addWindowListener = vi.spyOn(window, 'addEventListener')
     const addCanvasListener = vi.spyOn(canvas, 'addEventListener')
     const countListenerAdds = (calls: readonly (readonly unknown[])[], eventName: string) =>
@@ -4083,10 +4184,17 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(0)
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextlost')).toBe(1)
     const baselineDisposeCalls = disposeTarget.mock.calls.length
+    const baselineRenderCalls = render.mock.calls.length
 
     scope.stop()
+    expect(forceContextLoss).toHaveBeenCalledOnce()
+    expect(disposeRenderer).not.toHaveBeenCalled()
+    expect(disposeMaterial).not.toHaveBeenCalled()
     ;(finishCompilation as ((result: Object3D) => void) | null)?.({} as Object3D)
     await vi.waitFor(() => expect(disposeTarget).toHaveBeenCalledTimes(baselineDisposeCalls + 2))
+    expect(disposeRenderer).toHaveBeenCalledOnce()
+    expect(disposeMaterial).toHaveBeenCalledTimes(2)
+    expect(render).toHaveBeenCalledTimes(baselineRenderCalls)
 
     expect(ResizeObserverMock.instances).toHaveLength(0)
     expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(0)
