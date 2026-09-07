@@ -213,6 +213,46 @@ describe('VerticalNavLayout shell states', () => {
     expect(chromiumWrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(true)
   })
 
+  it.each(['vertical', 'collapsed', 'horizontal'])(
+    'protects glass %s navigation before the App collapse threshold',
+    async layout => {
+      const wrapper = mountLayout()
+      window.dispatchEvent(
+        new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout } }),
+      )
+      await nextTick()
+      const root = wrapper.get('.layout-wrapper')
+      expect(root.classes()).not.toContain('layout-navbar-away-from-top')
+
+      mocks.scrollY = 12
+      await refreshShell()
+      expect(root.classes()).toContain('layout-navbar-away-from-top')
+      expect(root.classes()).not.toContain('layout-navbar-compact')
+
+      mocks.scrollY = 7
+      await refreshShell()
+      expect(root.classes()).toContain('layout-navbar-away-from-top')
+      mocks.scrollY = 4
+      await refreshShell()
+      expect(root.classes()).not.toContain('layout-navbar-away-from-top')
+      wrapper.unmount()
+    },
+  )
+
+  it('does not apply desktop glass material thresholds to the contextual App header', async () => {
+    mocks.appMode = true
+    const wrapper = mountLayout()
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout: 'vertical' } }),
+    )
+    mocks.scrollY = 24
+    await refreshShell()
+
+    expect(wrapper.get('.layout-wrapper').classes()).not.toContain('layout-navbar-away-from-top')
+    expect(wrapper.get('.layout-navbar').attributes()).not.toHaveProperty('inert')
+    wrapper.unmount()
+  })
+
   it('keeps the footer contract stable across App and drawer shells', async () => {
     mocks.appMode = true
     mocks.mdAndDown = true

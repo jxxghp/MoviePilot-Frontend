@@ -7,10 +7,12 @@ import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { openMediaServerItem } from '@/utils/appDeepLink'
 import { useGlobalSettingsStore } from '@/stores'
 
-// 输入参数
 const props = defineProps({
+  /** 媒体库元数据及封面候选，沿用服务端海报顺序。 */
   media: Object as PropType<MediaServerLibrary>,
+  /** 未指定时填满所在网格列。 */
   width: String,
+  /** 未指定时使用卡片固有宽高比。 */
   height: String,
 })
 const globalSettingsStore = useGlobalSettingsStore()
@@ -20,6 +22,15 @@ const canvasRef = ref<HTMLCanvasElement>()
 
 // 图片地址
 const imgUrl = ref('')
+// 合成封面在组件存活期间复用，停用缓存页不释放仍被 VImg 引用的地址。
+let compositeImageUrl: string | null = null
+let disposed = false
+
+function releaseCompositeImage() {
+  if (!compositeImageUrl) return
+  URL.revokeObjectURL(compositeImageUrl)
+  compositeImageUrl = null
+}
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
@@ -33,7 +44,7 @@ const cardStyle = computed(() => ({
   inlineSize: props.width || '100%',
 }))
 
-// 媒体库内条目数量，兼容不同后端字段。
+// 媒体库内条目数量；未知数量不展示折角。
 const libraryItemCount = computed(() => props.media?.item_count)
 
 // 是否展示右上角数量折角。
@@ -58,6 +69,7 @@ function formatLibraryCount(count: number) {
  * 标记封面加载完成。
  */
 function imageLoadHandler() {
+  if (disposed) return
   imageLoaded.value = true
 }
 
@@ -65,8 +77,10 @@ function imageLoadHandler() {
  * 标记封面加载失败并切换默认图。
  */
 function imageErrorHandler() {
+  if (disposed) return
   imageError.value = true
   imgUrl.value = getDefaultImage()
+  releaseCompositeImage()
 }
 
 /**
@@ -160,11 +174,13 @@ async function drawImages(imageList: string[], use_cookies?: boolean) {
         img.onerror = () => reject(new Error(`Failed to load image: ${imgSrc}`))
       })
     } catch (error) {
+      if (disposed) return
       console.error(error)
       ctx.fillStyle = '#e5e7eb'
       ctx.fillRect(MARGIN_WIDTH * index + POSTER_WIDTH * (index - 1), 0, POSTER_WIDTH, POSTER_HEIGHT)
       return
     }
+    if (disposed) return
 
     const x = MARGIN_WIDTH * index + POSTER_WIDTH * (index - 1)
     const y = 0 // 海报紧贴顶部
@@ -189,16 +205,35 @@ async function drawImages(imageList: string[], use_cookies?: boolean) {
 
   // 绘制多张图片
   const loopCount = Math.min(4, IMAGES.length)
-  for (let i = 0; i < loopCount; i++) await drawImageWithReflection(IMAGES[i], i + 1)
+  for (let i = 0; i < loopCount; i++) {
+    if (disposed) return ''
+    await drawImageWithReflection(IMAGES[i], i + 1)
+  }
 
-  // 转换为图片地址
-  return canvas.toDataURL('image/png')
+  if (disposed) return ''
+  // 无损 PNG Blob 保持原像素并省去 Base64 字符串；浏览器获取画布快照仍可能占用主线程。
+  try {
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+    // 切页可能先于编码回调完成；销毁后不能再创建无人持有的对象 URL。
+    if (disposed) return ''
+    if (!blob) return getDefaultImage()
+    compositeImageUrl = URL.createObjectURL(blob)
+    return compositeImageUrl
+  } catch {
+    return getDefaultImage()
+  }
 }
 
 onMounted(async () => {
-  if (props.media?.image_list && props.media?.image_list.length > 0)
-    imgUrl.value = await drawImages(props.media?.image_list || [], props.media?.use_cookies)
-  else imgUrl.value = getImgUrl(props.media?.image || '', props.media?.use_cookies)
+  const source = props.media?.image_list?.length
+    ? await drawImages(props.media.image_list, props.media.use_cookies)
+    : getImgUrl(props.media?.image || '', props.media?.use_cookies)
+  if (!disposed) imgUrl.value = source
+})
+
+onBeforeUnmount(() => {
+  disposed = true
+  releaseCompositeImage()
 })
 </script>
 

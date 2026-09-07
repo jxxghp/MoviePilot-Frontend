@@ -65,9 +65,9 @@ export default defineComponent({
     const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
     const isGlassFloatingAway = ref(false)
 
-    // 桌面脱离窗口边缘是材质状态；复用滚动坐标，但不等待移动App的64px收起阈值。
+    // 桌面内容进入导航下方即启用阅读保护，不等待移动 App 的 64px 收起阈值。
     watch(
-      () => [shellScroll.scrollY.value, isFloatingNavbarEligible.value, shellTheme.value] as const,
+      () => [shellScroll.scrollY.value, canUseDesktopLayout.value, shellTheme.value] as const,
       ([scrollY, eligible, theme]) => {
         if (!eligible || theme !== 'glass' || scrollY <= 4) isGlassFloatingAway.value = false
         else if (scrollY >= 12) isGlassFloatingAway.value = true
@@ -169,7 +169,7 @@ export default defineComponent({
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
       const isNavbarAwayFromTop =
-        isFloatingNavbarEligible.value && shellTheme.value === 'glass'
+        canUseDesktopLayout.value && shellTheme.value === 'glass'
           ? isGlassFloatingAway.value
           : shellScroll.state.value !== 'expanded'
       // compact/revealed 是 App 上下文顶栏的呈现状态；其他 Shell 只消费 away-from-top 材质状态。

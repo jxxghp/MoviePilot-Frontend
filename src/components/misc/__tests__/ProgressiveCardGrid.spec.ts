@@ -162,6 +162,126 @@ describe('ProgressiveCardGrid mount scheduling', () => {
     vi.restoreAllMocks()
   })
 
+  it('uses the mounted track width before the first layout frame can observe a single-column spacer', async () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
+    const clientWidth = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')!.get!
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(function (this: Element) {
+      return this.classList.contains('progressive-card-grid__track') ? 1178 : clientWidth.call(this)
+    })
+    const { container } = render(ProgressiveCardGrid, {
+      props: {
+        items: Array.from({ length: 8 }, (_, id) => ({ id })),
+        minItemWidth: 240,
+        estimatedItemHeight: 160,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: { default: '<div>item</div>' },
+    })
+
+    await nextTick()
+    expect(container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    })
+    expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(8)
+    expect(container.querySelector('.progressive-card-grid__spacer')).toBeNull()
+  })
+
+  it('updates the initially measured columns when the parent later supplies a different width', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callbacks.set(++frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    let width = 1178
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(function (this: Element) {
+      return this.classList.contains('progressive-card-grid__track') ? width : 0
+    })
+    const { container } = render(ProgressiveCardGrid, {
+      props: { items: Array.from({ length: 8 }, (_, id) => id), minItemWidth: 240, estimatedItemHeight: 160 },
+      slots: { default: '<div>item</div>' },
+    })
+    await nextTick()
+    expect(container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    })
+
+    for (const [nextWidth, columns] of [
+      [752, 3],
+      [1178, 4],
+    ]) {
+      width = nextWidth
+      window.dispatchEvent(new Event('resize'))
+      const pending = [...callbacks.values()]
+      callbacks.clear()
+      pending.forEach(callback => callback(performance.now()))
+      await nextTick()
+      expect(container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+      })
+      expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(8)
+    }
+  })
+
+  it('does not guess the viewport width for an initially unmeasurable track', async () => {
+    const callbacks: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callbacks.push(callback)
+      return callbacks.length
+    })
+    let width = 0
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(function (this: Element) {
+      return this.classList.contains('progressive-card-grid__track') ? width : 0
+    })
+    const { container } = render(ProgressiveCardGrid, {
+      props: {
+        items: Array.from({ length: 8 }, (_, id) => ({ id })),
+        minItemWidth: 240,
+        estimatedItemHeight: 160,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: { default: '<div>item</div>' },
+    })
+    await nextTick()
+    expect(container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
+    })
+    width = 752
+    callbacks.splice(0).forEach(callback => callback(performance.now()))
+    await nextTick()
+    expect(container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    })
+  })
+
+  it('preserves explicit columns and overlay-lock scheduling during initial width measurement', async () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(1178)
+    const { container, unmount } = render(ProgressiveCardGrid, {
+      props: { items: [1, 2, 3, 4], columns: 2 },
+      slots: { default: '<div>item</div>' },
+    })
+    await nextTick()
+    expect(container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    })
+    unmount()
+    document.documentElement.classList.add('v-overlay-scroll-blocked')
+    try {
+      const locked = render(ProgressiveCardGrid, {
+        props: { items: [1, 2, 3, 4], minItemWidth: 240 },
+        slots: { default: '<div>item</div>' },
+      })
+      await nextTick()
+      expect(locked.container.querySelector('.progressive-card-grid__grid')).toHaveStyle({
+        gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
+      })
+    } finally {
+      document.documentElement.classList.remove('v-overlay-scroll-blocked')
+    }
+  })
+
   it('mounts an appended visible range in frame-bounded batches', async () => {
     const callbacks = new Map<number, FrameRequestCallback>()
     let frameId = 0

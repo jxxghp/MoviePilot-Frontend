@@ -103,8 +103,10 @@ function roundedRectangleSignedDistance(x: number, y: number, width: number, hei
   const offsetY = Math.abs(y - height / 2) - (height / 2 - radius)
   const outsideX = Math.max(offsetX, 0)
   const outsideY = Math.max(offsetY, 0)
+  // 圆角中心矩形内的外部距离恒为零，只有超出该区域的采样才需要计算欧氏距离。
+  const outsideDistance = outsideX === 0 && outsideY === 0 ? 0 : Math.hypot(outsideX, outsideY)
 
-  return Math.hypot(outsideX, outsideY) + Math.min(Math.max(offsetX, offsetY), 0) - radius
+  return outsideDistance + Math.min(Math.max(offsetX, offsetY), 0) - radius
 }
 
 function clampChannel(value: number) {
@@ -159,8 +161,29 @@ export function createGlassNavbarDisplacementField({
     pixels[offset + 3] = 255
   }
 
+  // 中心越过圆角和两轴平移渐入带后，RGBA 恒定；仅批量填充这一区域，边带仍按完整公式计算。
+  const bodyStart = Math.ceil(Math.max(pixelRadius, maximumBand + 64) - 0.5)
+  const bodyEnd = pixelWidth - bodyStart
+  const hasConstantBody = surface === 'panel' && bodyEnd > bodyStart && pixelHeight > bodyStart * 2
+  const pixelWords = hasConstantBody ? new Uint32Array(pixels.buffer) : null
+  // 从字节视图取得填充值，与目标视图共享平台字节序，不依赖大小端假设。
+  const bodyWord = new Uint32Array(
+    new Uint8ClampedArray([
+      clampChannel(DISPLACEMENT_NEUTRAL_CHANNEL + (optics.translationPx * 255) / HIGH_REFRACTION_SCALE_PX),
+      255,
+      DISPLACEMENT_NEUTRAL_CHANNEL,
+      255,
+    ]).buffer,
+  )[0]
+
   for (let y = 0; y < pixelHeight; y += 1) {
+    const constantBodyRow = pixelWords && y >= bodyStart && y < pixelHeight - bodyStart
     for (let x = 0; x < pixelWidth; x += 1) {
+      if (constantBodyRow && x === bodyStart) {
+        pixelWords.fill(bodyWord, y * pixelWidth + bodyStart, y * pixelWidth + bodyEnd)
+        x = bodyEnd - 1
+        continue
+      }
       const sampleX = x + 0.5
       const sampleY = y + 0.5
       const signedDistance = roundedRectangleSignedDistance(sampleX, sampleY, pixelWidth, pixelHeight, pixelRadius)

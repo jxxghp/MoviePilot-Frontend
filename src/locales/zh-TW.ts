@@ -210,6 +210,9 @@ export default {
     glassAppearanceTinted: '色調',
     glassAppearanceFrosted: '磨砂',
     glassAppearanceHint: '透明強調桌布紋理，色調增加色彩覆蓋，磨砂透過模糊擴散呈現更厚實的玻璃質感。',
+    glassNavbarStyle: '頂欄風格',
+    glassNavbarStyleAdaptive: '自適應',
+    glassNavbarStyleClear: '通透',
     glassQuality: '品質',
     glassQualityCss: '標準',
     glassQualityBalanced: '均衡',
@@ -1531,6 +1534,10 @@ export default {
   },
   appcenter: {
     others: '其他',
+    search: '搜尋應用入口',
+    searchPlaceholder: '按名稱搜尋應用',
+    closeSearch: '退出應用搜尋',
+    noResults: '找不到符合的應用入口',
   },
   notFound: {
     title: '⚠️ 頁面不存在',

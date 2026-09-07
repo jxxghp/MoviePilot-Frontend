@@ -24,7 +24,7 @@ describe('Footer Dock geometry', () => {
     expect(source).not.toMatch(/\.dynamic-btn-card\s*\{[\s\S]*?position:\s*absolute;/)
     expect(source).not.toContain('@media (width <= 480px)')
     expect(source).toMatch(
-      /\[dir='rtl'\] \.footer-nav-enter-from,[\s\S]*?\[dir='rtl'\] \.footer-nav-leave-to\s*\{[\s\S]*?transform:\s*translateX\(-20px\);/,
+      /\[dir='rtl'\] \.footer-nav-card\.dynamic-btn-card\.footer-nav-card--collapsed\s*\{[\s\S]*?transform:\s*translateX\(-8px\);/,
     )
   })
 })

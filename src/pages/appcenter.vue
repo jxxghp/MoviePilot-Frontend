@@ -5,18 +5,27 @@ import { usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
+import { useDynamicButton } from '@/composables/useDynamicButton'
+import { usePWA } from '@/composables/usePWA'
 
 // 国际化
 const { t } = useI18n()
 
 const userStore = useUserStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
+const { appMode } = usePWA()
 
 // 获取用户权限信息
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 
 // 应用分组（以header分组）
 const appGroups = ref<Record<string, NavMenu[]>>({})
+const appGroupsReady = ref(false)
+
+// 搜索状态
+const appSearchOpen = ref(false)
+const appSearchKeyword = ref<string | null>('')
+const appSearchInput = ref<{ focus: () => void } | null>(null)
 
 /** 按菜单 header 聚合当前内置与插件入口，并保持与桌面侧栏一致的权限过滤结果。 */
 function categorizeApps() {
@@ -42,7 +51,52 @@ function categorizeApps() {
   })
 
   appGroups.value = groupedMenus
+  appGroupsReady.value = true
 }
+
+const normalizedAppSearchKeyword = computed(() => (appSearchKeyword.value ?? '').trim().toLocaleLowerCase())
+
+/** 按当前展示文案匹配入口，确保内置和插件入口使用同一套搜索规则。 */
+function matchesAppSearch(menu: NavMenu, keyword: string) {
+  return [menu.full_title, menu.title, menu.description].some(value => value?.toLocaleLowerCase().includes(keyword))
+}
+
+const filteredAppGroups = computed(() => {
+  const keyword = normalizedAppSearchKeyword.value
+  if (!keyword) return appGroups.value
+
+  return Object.fromEntries(
+    Object.entries(appGroups.value)
+      .map(([header, apps]) => [header, apps.filter(app => matchesAppSearch(app, keyword))] as const)
+      .filter(([, apps]) => apps.length > 0),
+  )
+})
+
+const hasFilteredApps = computed(() => Object.values(filteredAppGroups.value).some(apps => apps.length > 0))
+const showAppSearchEmpty = computed(
+  () =>
+    appSearchOpen.value && appGroupsReady.value && Boolean(normalizedAppSearchKeyword.value) && !hasFilteredApps.value,
+)
+
+/** 打开或重新聚焦应用入口搜索。 */
+function openAppSearch() {
+  appSearchOpen.value = true
+  void nextTick(() => {
+    if (appSearchOpen.value) appSearchInput.value?.focus()
+  })
+}
+
+/** 退出应用入口搜索并恢复完整入口列表。 */
+function closeAppSearch() {
+  appSearchOpen.value = false
+  appSearchKeyword.value = ''
+}
+
+useDynamicButton({
+  icon: 'mdi-magnify',
+  onClick: openAppSearch,
+  show: computed(() => appMode.value),
+})
 
 let appGroupsMounted = false
 watch([() => pluginSidebarNavStore.items, userPermissions], () => {
@@ -58,8 +112,36 @@ onMounted(async () => {
 <template>
   <div class="app-settings-container">
     <VContainer class="app-settings-content">
+      <div v-if="appSearchOpen" class="app-search-controls">
+        <VTextField
+          ref="appSearchInput"
+          v-model="appSearchKeyword"
+          :aria-label="t('appcenter.search')"
+          :placeholder="t('appcenter.searchPlaceholder')"
+          prepend-inner-icon="mdi-magnify"
+          density="compact"
+          variant="outlined"
+          hide-details
+          clearable
+          class="app-search-field"
+          @keydown.escape.stop="closeAppSearch"
+        />
+        <VBtn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          class="app-search-close"
+          :aria-label="t('appcenter.closeSearch')"
+          @click="closeAppSearch"
+        />
+      </div>
+
+      <div v-if="showAppSearchEmpty" class="app-search-empty" role="status" data-testid="appcenter-no-results">
+        {{ t('appcenter.noResults') }}
+      </div>
+
       <!-- 遍历所有分组 -->
-      <section v-for="(apps, header) in appGroups" :key="header" class="settings-section">
+      <section v-for="(apps, header) in filteredAppGroups" :key="header" class="settings-section">
         <VListSubheader class="settings-section-title">
           {{ header }}
         </VListSubheader>
@@ -118,6 +200,28 @@ onMounted(async () => {
 
 .settings-section {
   margin-block-end: 12px;
+}
+
+.app-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 16px;
+}
+
+.app-search-field {
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.app-search-close {
+  flex: 0 0 auto;
+}
+
+.app-search-empty {
+  padding: 24px 12px;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  text-align: center;
 }
 
 .settings-section-title {

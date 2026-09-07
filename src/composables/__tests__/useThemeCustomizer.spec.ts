@@ -48,6 +48,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(settings.theme).toBe('glass')
     expect(settings.glassAppearance).toBe('clear')
+    expect(settings.glassNavbarStyle).toBe('clear')
     expect(settings.glassDeformationStrength).toBe(48)
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassFlowStrength).toBe(48)
@@ -86,9 +87,25 @@ describe('useThemeCustomizer glass settings', () => {
     wrapper.unmount()
   })
 
+  it('treats navbar style as an independent setting and default criterion', async () => {
+    const { customizer, wrapper } = mountThemeCustomizer()
+
+    await customizer.setGlassNavbarStyle('adaptive')
+
+    expect(customizer.settings.value.glassNavbarStyle).toBe('adaptive')
+    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe('adaptive')
+    expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(false)
+
+    await customizer.setGlassNavbarStyle('clear')
+
+    expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
+    wrapper.unmount()
+  })
+
   it('derives app-mode glass reset values from the standard-quality matrix', () => {
     expect(getDefaultGlassCustomizerSettings('css')).toEqual({
       glassAppearance: 'clear',
+      glassNavbarStyle: 'clear',
       glassDeformationStrength: 48,
       glassDynamicsMode: 'ripple',
       glassFlowStrength: 48,
@@ -114,6 +131,12 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings().glassAppearance).toBe(glassAppearance)
   })
 
+  it.each(['adaptive', 'clear'] as const)('preserves the %s navbar style contract', glassNavbarStyle => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassNavbarStyle }))
+
+    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe(glassNavbarStyle)
+  })
+
   it.each(['fluid', 'ripple', 'off'] as const)('preserves the %s dynamics mode contract', glassDynamicsMode => {
     localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassDynamicsMode }))
 
@@ -125,6 +148,7 @@ describe('useThemeCustomizer glass settings', () => {
       THEME_CUSTOMIZER_STORAGE_KEY,
       JSON.stringify({
         glassAppearance: 'opaque',
+        glassNavbarStyle: 'opaque',
         glassDynamicsMode: 'elastic',
         glassPreset: 'elastic',
         glassQuality: 'ultra',
@@ -134,6 +158,7 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
+    expect(settings.glassNavbarStyle).toBe('clear')
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
@@ -198,12 +223,15 @@ describe('useThemeCustomizer glass settings', () => {
     applyThemeCustomizerRootSettings({
       ...settings,
       glassAppearance: 'tinted',
+      glassNavbarStyle: 'clear',
       glassQuality: 'high',
     })
 
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
+    expect(document.documentElement.dataset.glassNavbarStyle).toBe('clear')
     expect(document.documentElement.dataset.glassQuality).toBe('high')
     expect(document.body.dataset.glassAppearance).toBe('tinted')
+    expect(document.body.dataset.glassNavbarStyle).toBe('clear')
     expect(document.body.dataset.glassQuality).toBe('high')
     expect(document.documentElement.style.getPropertyValue('--glass-reflection')).toBe('0.42')
     expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.42')
@@ -268,6 +296,39 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings().glassDynamicsMode).toBe('ripple')
     expect(useEffectiveGlassSettings().value.glassDynamicsMode).toBe('ripple')
     expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(storedBeforePreview)
+  })
+
+  it('previews, cancels, and commits navbar style independently', () => {
+    persistPartialThemeCustomizerSettings({ glassNavbarStyle: 'adaptive' })
+    previewGlassSettings({
+      glassAppearance: 'frosted',
+      glassNavbarStyle: 'clear',
+      glassDynamicsMode: 'off',
+      glassQuality: 'high',
+    })
+
+    expect(document.documentElement.dataset.glassNavbarStyle).toBe('clear')
+    expect(useEffectiveGlassSettings().value).toMatchObject({
+      glassAppearance: 'frosted',
+      glassNavbarStyle: 'clear',
+      glassDynamicsMode: 'off',
+      glassQuality: 'high',
+    })
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassAppearance: 'clear',
+      glassNavbarStyle: 'adaptive',
+      glassQuality: 'balanced',
+    })
+
+    cancelGlassPreview()
+    expect(document.documentElement.dataset.glassNavbarStyle).toBe('adaptive')
+    expect(useEffectiveGlassSettings().value.glassNavbarStyle).toBe('adaptive')
+
+    previewGlassSettings({ glassNavbarStyle: 'clear' })
+    commitGlassPreview()
+
+    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe('clear')
+    expect(document.body.dataset.glassNavbarStyle).toBe('clear')
   })
 
   it('commits the latest glass preview as one persisted state', () => {

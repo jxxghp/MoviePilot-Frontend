@@ -212,6 +212,9 @@ export default {
     glassAppearanceTinted: '色调',
     glassAppearanceFrosted: '磨砂',
     glassAppearanceHint: '透明突出壁纸纹理，色调增加颜色覆盖，磨砂通过模糊扩散呈现更厚的玻璃质感。',
+    glassNavbarStyle: '顶栏风格',
+    glassNavbarStyleAdaptive: '自适应',
+    glassNavbarStyleClear: '通透',
     glassQuality: '质量',
     glassQualityCss: '标准',
     glassQualityBalanced: '均衡',
@@ -1559,6 +1562,10 @@ export default {
   },
   appcenter: {
     others: '其他',
+    search: '搜索应用入口',
+    searchPlaceholder: '按名称搜索应用',
+    closeSearch: '退出应用搜索',
+    noResults: '没有找到匹配的应用入口',
   },
   notFound: {
     title: '⚠️ 页面不存在',

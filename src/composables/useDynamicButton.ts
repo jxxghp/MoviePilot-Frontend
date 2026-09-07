@@ -1,7 +1,6 @@
 import {
   computed,
   inject,
-  nextTick,
   onActivated,
   onDeactivated,
   onMounted,
@@ -12,34 +11,35 @@ import {
   type ComputedRef,
   type Ref,
 } from 'vue'
+import {
+  dynamicButtonRegistry,
+  type DynamicButton,
+  type DynamicButtonMenuItem,
+  type DynamicButtonOwnerId,
+  type DynamicButtonRegister,
+  type DynamicButtonUnregister,
+} from '@/composables/dynamicButtonRegistry'
 import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
 
-// 声明全局变量类型
-declare global {
-  interface Window {
-    __VUE_INJECT_DYNAMIC_BUTTON__?: (button: any) => void
-    __VUE_UNINJECT_DYNAMIC_BUTTON__?: () => void
-  }
-}
+export type { DynamicButton, DynamicButtonMenuItem }
 
 type MaybeRefValue<T> = T | Ref<T> | ComputedRef<T>
-
-export interface DynamicButtonMenuItem {
-  title?: string
-  titleKey?: string
-  titleParams?: Record<string, unknown>
-  icon?: string
-  color?: string
-  permission?: UserPermissionKey
-  feature?: UserPermissionFeatureKey
-  disabled?: boolean
-  action: () => void
-}
 
 function resolveMaybeRef<T>(value: MaybeRefValue<T> | undefined): T | undefined
 function resolveMaybeRef<T>(value: MaybeRefValue<T> | undefined, fallback: T): T
 function resolveMaybeRef<T>(value: MaybeRefValue<T> | undefined, fallback?: T) {
   return value !== undefined ? unref(value) : fallback
+}
+
+let dynamicButtonOwnerSequence = 0
+
+function createDynamicButtonOwnerId(): DynamicButtonOwnerId {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `dynamic-button:${crypto.randomUUID()}`
+  }
+
+  dynamicButtonOwnerSequence += 1
+  return `dynamic-button:${Date.now().toString(36)}:${dynamicButtonOwnerSequence.toString(36)}`
 }
 
 /**
@@ -69,13 +69,20 @@ export function useDynamicButton(options: {
   // 提取配置
   const { icon, onClick, menuItems, permission, feature, show, autoRegister = true } = options
 
-  // 动态按钮相关
-  const registerDynamicButton = inject<((button: any) => void) | null>('registerDynamicButton', null)
-  const unregisterDynamicButton = inject<(() => void) | null>('unregisterDynamicButton', null)
+  const route = useRoute()
+  const ownerId = createDynamicButtonOwnerId()
+  const ownerRoutePath = route.path
+
+  // 页面可能在 Footer 之前 setup；共享 registry 承接该窗口，global bridge 仍兼容外部模块。
+  const injectedRegister = inject<DynamicButtonRegister | null>('registerDynamicButton', null)
+  const injectedUnregister = inject<DynamicButtonUnregister | null>('unregisterDynamicButton', null)
 
   // 按钮注册状态
   const dynamicButtonRegistered = ref(false)
   const componentActive = ref(false)
+  let registrationTarget: RegistrationTarget | null = null
+  let globalBridgeRetryTimer: ReturnType<typeof setTimeout> | null = null
+  let setupGeneration = 0
 
   const resolvedIcon = computed(() => resolveMaybeRef(icon, 'mdi-plus'))
   const resolvedShow = computed(() => resolveMaybeRef(show, true))
@@ -91,14 +98,85 @@ export function useDynamicButton(options: {
       permission,
       feature,
       show: resolvedShow.value,
+      routePath: ownerRoutePath,
       menuItems: buttonMenuItems && buttonMenuItems.length > 0 ? buttonMenuItems : undefined,
     }
   }
 
+  type RegistrationTarget = {
+    kind: 'inject' | 'global' | 'shared'
+    register: DynamicButtonRegister
+    unregister: DynamicButtonUnregister
+  }
+
+  const sharedRegistrationTarget: RegistrationTarget = {
+    kind: 'shared',
+    register: dynamicButtonRegistry.register,
+    unregister: dynamicButtonRegistry.unregister,
+  }
+
+  function resolveRegistrationTarget(): RegistrationTarget {
+    if (injectedRegister) {
+      return {
+        kind: 'inject',
+        register: injectedRegister,
+        unregister: injectedUnregister ?? (() => undefined),
+      }
+    }
+
+    if (typeof window !== 'undefined' && window.__VUE_INJECT_DYNAMIC_BUTTON__) {
+      return {
+        kind: 'global',
+        register: window.__VUE_INJECT_DYNAMIC_BUTTON__,
+        unregister: window.__VUE_UNINJECT_DYNAMIC_BUTTON__ ?? (() => undefined),
+      }
+    }
+
+    return sharedRegistrationTarget
+  }
+
+  function clearGlobalBridgeRetry() {
+    if (globalBridgeRetryTimer === null) return
+
+    clearTimeout(globalBridgeRetryTimer)
+    globalBridgeRetryTimer = null
+  }
+
+  function commitRegistration(button: DynamicButton, target: RegistrationTarget) {
+    if (registrationTarget && registrationTarget.kind !== target.kind) {
+      registrationTarget.unregister(ownerId)
+    }
+
+    target.register(button, ownerId)
+    registrationTarget = target
+    dynamicButtonRegistered.value = true
+  }
+
+  function retryGlobalBridge(generation: number) {
+    if (!componentActive.value || generation !== setupGeneration || registrationTarget?.kind !== 'shared') return
+    // 交接窗口内新页面可以先注册；旧实例仍未卸载也不能重新夺回命令。
+    if (dynamicButtonRegistry.registration.value?.ownerId !== ownerId || route.path !== ownerRoutePath) return
+
+    const target = resolveRegistrationTarget()
+    if (target.kind === 'shared') return
+
+    commitRegistration(buildDynamicButton(), target)
+  }
+
+  function scheduleGlobalBridgeRetry(generation: number) {
+    clearGlobalBridgeRetry()
+    globalBridgeRetryTimer = setTimeout(() => {
+      globalBridgeRetryTimer = null
+      retryGlobalBridge(generation)
+    }, 0)
+  }
+
   /** 在当前页面激活时注册动态按钮。 */
   function setupDynamicButton() {
+    const generation = ++setupGeneration
     if (!componentActive.value) return
 
+    clearGlobalBridgeRetry()
     const button = buildDynamicButton()
 
     if (!button.show) {
@@ -106,49 +184,22 @@ export function useDynamicButton(options: {
       return
     }
 
-    // 确保注册方法存在
-    if (!registerDynamicButton) {
-      // 尝试获取全局注册方法
-      const tryUseGlobalMethod = () => {
-        if (!componentActive.value) return false
+    const target = resolveRegistrationTarget()
+    commitRegistration(button, target)
 
-        if (typeof window !== 'undefined' && window.__VUE_INJECT_DYNAMIC_BUTTON__) {
-          window.__VUE_INJECT_DYNAMIC_BUTTON__(button)
-          dynamicButtonRegistered.value = true
-          return true
-        }
-        return false
-      }
-
-      // 立即尝试一次
-      if (!tryUseGlobalMethod()) {
-        // 如果失败，延迟再试一次
-        setTimeout(tryUseGlobalMethod, 1000)
-      }
-      return
+    if (target.kind === 'shared' && !injectedRegister) {
+      scheduleGlobalBridgeRetry(generation)
     }
-
-    // 如果注册方法存在，直接注册
-    nextTick(() => {
-      if (!componentActive.value) return
-
-      registerDynamicButton(button)
-      dynamicButtonRegistered.value = true
-    })
   }
 
   /** 清理当前页面注册过的动态按钮。 */
   function cleanupDynamicButton() {
-    if (unregisterDynamicButton && dynamicButtonRegistered.value) {
-      unregisterDynamicButton()
-      dynamicButtonRegistered.value = false
-      return
-    }
+    setupGeneration += 1
+    clearGlobalBridgeRetry()
 
-    if (typeof window !== 'undefined' && window.__VUE_UNINJECT_DYNAMIC_BUTTON__) {
-      window.__VUE_UNINJECT_DYNAMIC_BUTTON__()
-      dynamicButtonRegistered.value = false
-    }
+    registrationTarget?.unregister(ownerId)
+    registrationTarget = null
+    dynamicButtonRegistered.value = false
   }
 
   /** 手动触发动态按钮主操作。 */
@@ -160,16 +211,11 @@ export function useDynamicButton(options: {
   if (autoRegister) {
     onMounted(() => {
       componentActive.value = true
-      // 延迟执行，确保Footer组件已加载
-      setTimeout(() => {
-        setupDynamicButton()
-      }, 500)
+      setupDynamicButton()
     })
 
     onActivated(() => {
       componentActive.value = true
-      // 重置注册状态，确保每次激活时都重新注册
-      dynamicButtonRegistered.value = false
       setupDynamicButton()
     })
 
@@ -183,11 +229,15 @@ export function useDynamicButton(options: {
       cleanupDynamicButton()
     })
 
-    watch([resolvedIcon, resolvedShow, resolvedMenuItems, () => permission], () => {
-      if (!componentActive.value) return
+    watch(
+      [resolvedIcon, resolvedShow, resolvedMenuItems, () => permission],
+      () => {
+        if (!componentActive.value) return
 
-      setupDynamicButton()
-    }, { deep: true })
+        setupDynamicButton()
+      },
+      { deep: true },
+    )
   }
 
   // 返回控制函数和状态

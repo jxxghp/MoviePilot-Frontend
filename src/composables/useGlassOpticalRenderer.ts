@@ -1264,6 +1264,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   const pendingCompilations = new WeakMap<GlassRendererResources, Set<Promise<unknown>>>()
   const retiredResources = new WeakSet<GlassRendererResources>()
   const compiledMainScenes = new WeakSet<GlassRendererResources>()
+  const mainSceneCompilations = new WeakMap<GlassRendererResources, Promise<void>>()
   let fluidDynamics: GlassFluidDynamics | null = null
   let rippleResources: GlassRippleDynamics | null = null
   let frostPrefilterResources: GlassFrostPrefilterResources | null = null
@@ -1326,6 +1327,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let scrollLateGeometryCommitted = false
   let scrollSurfaceStabilityPending = false
   let scrollStableFrameCount = 0
+  // 指针提前交接只接受最新输入之后的文档滚动；嵌套容器由静默计时器收口。
+  let documentScrollObserved = false
   let lastRenderedScrollX = window.scrollX
   let lastRenderedScrollY = window.scrollY
   let unsubscribeInteractionSource: (() => void) | null = null
@@ -1404,6 +1407,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function beginNativeScrollPresentation() {
     if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
+    scrollStableFrameCount = 0
+    documentScrollObserved = false
     clearScrollPresentationRestoreTimer()
     scrollPresentationRestoreTimer = window.setTimeout(() => finishNativeScrollPresentation(), 180)
     if (scrollWallpaperSamplingSuppressed) return
@@ -1559,6 +1564,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollLateGeometryCommitted = false
     scrollSurfaceStabilityPending = false
     scrollStableFrameCount = 0
+    documentScrollObserved = false
     clearScrollPresentationRestoreTimer()
   }
 
@@ -1667,6 +1673,23 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     } finally {
       work.delete(pending)
     }
+  }
+
+  /** 主材质的模式、纹理和质量均通过 uniform 更新；同一 context 复用编译结果，重建后独立准备。 */
+  function compileMainScene(owner: GlassRendererResources): Promise<void> {
+    if (retiredResources.has(owner)) return Promise.reject(new Error('Glass renderer was retired before compilation'))
+    if (compiledMainScenes.has(owner)) return Promise.resolve()
+    const pending = mainSceneCompilations.get(owner)
+    if (pending) return pending
+
+    recordGlassRendererTiming(presentationSpace, 'main-compile-start')
+    const compilation = compileOwnedScene(owner, owner.scene)
+      .then(() => {
+        recordGlassRendererTiming(presentationSpace, 'main-compile-ready')
+      })
+      .finally(() => mainSceneCompilations.delete(owner))
+    mainSceneCompilations.set(owner, compilation)
+    return compilation
   }
 
   function disposeAfterCompilation(owner: GlassRendererResources, dispose: () => void) {
@@ -2853,14 +2876,28 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     velocityOverride?: { x: number; y: number },
     target?: EventTarget | null,
   ) {
-    if (
-      !canPresentFrame() ||
-      !hasDynamicCapability() ||
-      (hasRippleCapability() && presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed)
-    ) {
-      return
-    }
+    if (!canPresentFrame() || !hasDynamicCapability()) return
     if (target instanceof Element && isGlassOpticalElementExcluded(target)) return
+
+    // 几何稳定后的真实指针移动可立即恢复动态反馈，不让滚动静默期延迟下一次交互。
+    if (presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed) {
+      if (
+        (clientX !== lastPointerX || clientY !== lastPointerY) &&
+        documentScrollObserved &&
+        scrollStableFrameCount >= SCROLL_STABLE_TAIL_FRAMES &&
+        !scrollDirty &&
+        !scrollGeometryRefreshPending &&
+        !scrollSurfaceStabilityPending &&
+        surfaceUpdateFrame === null &&
+        surfaceStabilityFrame === null &&
+        surfaceTransformFrame === null &&
+        window.scrollX === lastRenderedScrollX &&
+        window.scrollY === lastRenderedScrollY
+      ) {
+        finishNativeScrollPresentation(timestamp)
+      }
+      if (hasRippleCapability() && scrollWallpaperSamplingSuppressed) return
+    }
 
     const viewportWidth = Math.max(window.innerWidth, 1)
     const viewportHeight = Math.max(window.innerHeight, 1)
@@ -3090,7 +3127,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
       scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
     } else {
-      finishNativeScrollPresentation(timestamp)
+      // 两帧只确认几何稳定；高刷新率下输入间隙也可满足，呈现接管仍等待输入静默计时器。
       if (scrollSurfaceStabilityPending) {
         scrollSurfaceStabilityPending = false
         scheduleSurfaceStabilityUpdate()
@@ -3115,6 +3152,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollLateGeometryCommitted = false
     const isDocumentScroll =
       !(target instanceof Element) || target === document.documentElement || target === document.body
+    documentScrollObserved = isDocumentScroll
     if (!isDocumentScroll) {
       if (!(target instanceof Element) || !observedSurfaces.some(surface => target.contains(surface))) return
       scrollGeometryRefreshPending = true
@@ -3817,7 +3855,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       resources.renderer.initTexture(prepared.texture)
       recordGlassRendererTiming(presentationSpace, 'prepare-compile-start')
-      await compileOwnedScene(resources, resources.scene)
+      await compileMainScene(resources)
       recordGlassRendererTiming(presentationSpace, 'prepare-compile-ready')
       if (
         version !== prepareVersion ||
@@ -3861,7 +3899,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     recordGlassRendererTiming(presentationSpace, 'compile-start')
-    await compileOwnedScene(resources, resources.scene)
+    await compileMainScene(resources)
     recordGlassRendererTiming(presentationSpace, 'compile-ready')
     if (
       version !== loadVersion ||

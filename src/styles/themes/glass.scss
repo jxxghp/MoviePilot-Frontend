@@ -737,10 +737,13 @@ html[data-theme='glass'] {
     transform: none;
   }
 
-  // 透明与色调材质在内容上滚后增强顶栏表面，顶部时仍保持原有透光感。
+  // 桌面内容进入固定导航下方时启用阅读保护；App 自身的显隐不改变材质密度。
   &:is([data-glass-appearance='clear'], [data-glass-appearance='tinted']) {
-    .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
-    .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+    .layout-wrapper:where([data-shell-mode='desktop']).window-scrolled.layout-navbar-fixed .layout-navbar,
+    .layout-wrapper:where(
+        [data-shell-mode='desktop']
+      ).layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .layout-navbar {
       border-color: var(--glass-border-raised) !important;
       -webkit-backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
       backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
@@ -1564,7 +1567,7 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
   }
 }
 
-// 磨砂顶栏在页面顶部不重复采样；内容上滚到其下方后仅补一层轻量原生磨砂以保护可读性。
+// 稳定背板已持有磨砂；没有背板的浏览器在所有滚动状态中都由原生滤镜持有磨砂。
 html[data-glass-appearance='frosted']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
@@ -1580,12 +1583,6 @@ html[data-glass-appearance='frosted']:is(
   .layout-wrapper:not(.layout-fixed-shell-backplate-active) .layout-navbar {
     -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
     backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
-  }
-
-  .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
-  .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
-    -webkit-backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
-    backdrop-filter: var(--glass-navbar-scrolled-backdrop-filter) !important;
   }
 }
 
@@ -1778,7 +1775,8 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
     inset 0 -1px 2px rgba(4, 10, 20, calc(0.1 + var(--glass-surface-density, 0.62) * 0.12)),
     0 12px 32px
       rgba(3, 7, 18, calc(0.08 + var(--glass-reflection, 0.5) * 0.1 + var(--glass-surface-density, 0.62) * 0.08));
-  --glass-navbar-live-filter: saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
+  --glass-navbar-live-filter: var(--glass-navbar-reading-filter, saturate(100%))
+    saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
 
   border: 0 !important;
   -webkit-backdrop-filter: var(--glass-navbar-live-filter) !important;
@@ -1797,7 +1795,8 @@ html[data-theme='glass'][data-glass-quality='high']:is(
   body[data-theme='glass']
   .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-high') saturate(var(--glass-navbar-saturation))
+  --glass-navbar-live-filter: var(--glass-navbar-reading-filter, saturate(100%))
+    url('#glass-navbar-live-refraction-high') saturate(var(--glass-navbar-saturation))
     brightness(var(--glass-navbar-brightness));
 }
 
@@ -1808,7 +1807,8 @@ html[data-theme='glass'][data-glass-quality='balanced']:is(
   body[data-theme='glass']
   .layout-wrapper[data-glass-navbar-refraction='chromium'][data-glass-navbar-refraction-ready='true'].layout-navbar-floating-eligible.layout-navbar-away-from-top
   .layout-navbar {
-  --glass-navbar-live-filter: url('#glass-navbar-live-refraction-balanced') saturate(var(--glass-navbar-saturation))
+  --glass-navbar-live-filter: var(--glass-navbar-reading-filter, saturate(100%))
+    url('#glass-navbar-live-refraction-balanced') saturate(var(--glass-navbar-saturation))
     brightness(var(--glass-navbar-brightness));
 }
 

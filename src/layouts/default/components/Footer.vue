@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { getNavMenus } from '@/router/i18n-menu'
-import { useDisplay } from 'vuetify'
 import { NavMenu } from '@/@layouts/types'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
@@ -12,7 +11,14 @@ import {
 } from '@/utils/permission'
 import { useLaunchLoading } from '@/composables/useLaunchLoading'
 import { usePWA } from '@/composables/usePWA'
+import {
+  dynamicButtonRegistry,
+  type DynamicButtonRegister,
+  type DynamicButtonUnregister,
+} from '@/composables/dynamicButtonRegistry'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
+
+const { register: registerSharedDynamicButton, unregister: unregisterSharedDynamicButton } = dynamicButtonRegistry
 
 // 是否显示的输入参数
 const props = defineProps({
@@ -22,7 +28,6 @@ const props = defineProps({
   },
 })
 
-const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
 const { isLaunchLoading } = useLaunchLoading()
@@ -112,44 +117,39 @@ watch(
   () => route.path,
   newPath => {
     currentMenu.value = getMenuPathFromRoute(newPath)
-    // 当路由变化时，清除动态按钮
-    dynamicButton.value = null
+    // 路由离开后立即撤销旧命令；新页面可在同一状态窗口直接替换它。
+    const registration = dynamicButtonRegistry.registration.value
+    if (registration?.button.routePath && registration.button.routePath !== newPath) {
+      unregisterSharedDynamicButton(registration.ownerId ?? undefined)
+    }
   },
   { immediate: false },
 )
 
 // 动态按钮相关
-// 定义动态按钮类型
-interface DynamicButton {
-  icon: string
-  action: () => void
-  permission?: DynamicButtonMenuItem['permission']
-  feature?: DynamicButtonMenuItem['feature']
-  show: boolean
-  routePath?: string // 添加路径属性，用于标识哪个路由注册的
-  menuItems?: DynamicButtonMenuItem[]
+const dynamicButton = computed(() => dynamicButtonRegistry.registration.value?.button ?? null)
+
+/** 注册动态按钮并补齐旧 global bridge 未携带的路由归属。 */
+const registerDynamicButton: DynamicButtonRegister = (button, ownerId) => {
+  registerSharedDynamicButton(
+    {
+      ...button,
+      routePath: button.routePath ?? route.path,
+    },
+    ownerId,
+  )
 }
 
-// 提供动态按钮注册和获取的方法
-const dynamicButton = ref<DynamicButton | null>(null)
-
-// 提供一个方法让其他组件注册动态按钮
-const registerDynamicButton = (button: DynamicButton) => {
-  // 保存注册按钮的路由路径
-  button.routePath = route.path
-  dynamicButton.value = button
-}
-
-// 提供一个方法让其他组件取消注册动态按钮
-const unregisterDynamicButton = () => {
-  dynamicButton.value = null
+/** 仅注销仍由指定页面持有的动态按钮；无 owner 时保留旧 bridge 的清空语义。 */
+const unregisterDynamicButton: DynamicButtonUnregister = ownerId => {
+  unregisterSharedDynamicButton(ownerId)
 }
 
 // 添加全局注册方法，解决注入不可用的问题
 if (typeof window !== 'undefined') {
   // 确保在浏览器环境中
-  ;(window as any).__VUE_INJECT_DYNAMIC_BUTTON__ = registerDynamicButton
-  ;(window as any).__VUE_UNINJECT_DYNAMIC_BUTTON__ = unregisterDynamicButton
+  window.__VUE_INJECT_DYNAMIC_BUTTON__ = registerDynamicButton
+  window.__VUE_UNINJECT_DYNAMIC_BUTTON__ = unregisterDynamicButton
 }
 
 // 提供给其他组件使用
@@ -159,13 +159,28 @@ provide('dynamicButton', dynamicButton)
 
 // 在组件销毁时清理
 onUnmounted(() => {
-  dynamicButton.value = null
-  // 清理全局方法
-  if (typeof window !== 'undefined') {
-    delete (window as any).__VUE_INJECT_DYNAMIC_BUTTON__
-    delete (window as any).__VUE_UNINJECT_DYNAMIC_BUTTON__
+  if (typeof window === 'undefined') return
+
+  const ownsRegisterBridge = window.__VUE_INJECT_DYNAMIC_BUTTON__ === registerDynamicButton
+  const ownsUnregisterBridge = window.__VUE_UNINJECT_DYNAMIC_BUTTON__ === unregisterDynamicButton
+
+  // 旧 Footer 可能晚于新 Footer 销毁，只有仍拥有完整 bridge 的实例才能清理共享注册。
+  if (ownsRegisterBridge && ownsUnregisterBridge) {
+    const registration = dynamicButtonRegistry.registration.value
+    if (registration) unregisterSharedDynamicButton(registration.ownerId ?? undefined)
+  }
+
+  if (ownsRegisterBridge) {
+    delete window.__VUE_INJECT_DYNAMIC_BUTTON__
+  }
+  if (ownsUnregisterBridge) {
+    delete window.__VUE_UNINJECT_DYNAMIC_BUTTON__
   }
 })
+
+const isDynamicButtonOnCurrentRoute = computed(
+  () => !dynamicButton.value?.routePath || dynamicButton.value.routePath === route.path,
+)
 
 // 显示动态按钮
 const showDynamicButton = computed(() => {
@@ -173,16 +188,41 @@ const showDynamicButton = computed(() => {
     dynamicButton.value &&
     dynamicButton.value.show &&
     hasItemPermission(dynamicButton.value, userPermissions.value) &&
-    // 确保只在注册的路由路径下显示按钮
-    (!dynamicButton.value.routePath || dynamicButton.value.routePath === route.path)
+    isDynamicButtonOnCurrentRoute.value
   )
 })
 
 const visibleDynamicButtonMenuItems = computed(() => {
+  if (!showDynamicButton.value) return []
+
   return filterItemsByPermission(dynamicButton.value?.menuItems ?? [], userPermissions.value)
 })
 
 const hasDynamicButtonMenu = computed(() => visibleDynamicButtonMenuItems.value.length > 0)
+const isAccessoryVisible = ref(false)
+const accessoryIcon = ref('mdi-plus')
+let accessoryExitTimer: ReturnType<typeof setTimeout> | undefined
+
+// 路由的异步组件可能稍晚注册命令；只给外形一个120ms交接窗口，旧操作及菜单立即失效。
+watch(
+  () => [showDynamicButton.value, hasDynamicButtonMenu.value, dynamicButton.value?.icon] as const,
+  ([visible, hasMenu, icon]) => {
+    if (visible) {
+      clearTimeout(accessoryExitTimer)
+      accessoryExitTimer = undefined
+      accessoryIcon.value = hasMenu ? 'mdi-chevron-up' : icon || 'mdi-plus'
+      isAccessoryVisible.value = true
+    } else if (isAccessoryVisible.value && accessoryExitTimer === undefined) {
+      accessoryExitTimer = setTimeout(() => {
+        isAccessoryVisible.value = false
+        accessoryExitTimer = undefined
+      }, 120)
+    }
+  },
+  { immediate: true, flush: 'sync' },
+)
+onUnmounted(() => clearTimeout(accessoryExitTimer))
+
 const shouldRenderFooterNav = computed(() => appMode.value && props.showNav)
 const shouldRevealFooterNav = computed(() => shouldRenderFooterNav.value && !isLaunchLoading.value)
 
@@ -196,7 +236,7 @@ const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
 // 解析动态按钮菜单项标题，兼容旧版直接传入 i18n key 的写法。
 function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   if (item.titleKey) {
-    return t(item.titleKey, item.titleParams as any)
+    return t(item.titleKey, item.titleParams ?? {})
   }
 
   if (!item.title) {
@@ -206,19 +246,32 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   const normalizedTitleKey = legacyDynamicMenuTitleKeyMap[item.title] || item.title
   const looksLikeI18nKey = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$/i.test(normalizedTitleKey)
 
-  return looksLikeI18nKey ? t(normalizedTitleKey, item.titleParams as any) : item.title
+  return looksLikeI18nKey ? t(normalizedTitleKey, item.titleParams ?? {}) : item.title
 }
 
 // 处理页面注册的动态按钮主操作点击。
 function handleDynamicButtonClick() {
-  if (!dynamicButton.value || !hasItemPermission(dynamicButton.value, userPermissions.value)) return
+  if (
+    !showDynamicButton.value ||
+    !dynamicButton.value ||
+    !hasItemPermission(dynamicButton.value, userPermissions.value)
+  ) {
+    return
+  }
 
   dynamicButton.value.action()
 }
 
 // 处理页面注册的动态按钮菜单项点击。
 function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
-  if (item.disabled || !hasItemPermission(item, userPermissions.value)) return
+  if (
+    !showDynamicButton.value ||
+    !visibleDynamicButtonMenuItems.value.includes(item) ||
+    item.disabled ||
+    !hasItemPermission(item, userPermissions.value)
+  ) {
+    return
+  }
 
   item.action()
 }
@@ -227,7 +280,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
 <template>
   <Teleport v-if="shouldRenderFooterNav" to="body">
     <div v-show="shouldRevealFooterNav" class="footer-nav-container">
-      <TransitionGroup name="footer-nav" tag="div" class="footer-nav-group">
+      <div class="footer-nav-group">
         <VCard
           key="main-nav"
           data-footer-nav-role="primary"
@@ -280,11 +333,12 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
           </VCardText>
         </VCard>
         <VCard
-          v-if="showDynamicButton"
           key="dynamic-btn"
           data-footer-nav-role="accessory"
           elevation="3"
           class="footer-nav-card dynamic-btn-card border"
+          :class="{ 'footer-nav-card--collapsed': !isAccessoryVisible }"
+          :aria-hidden="showDynamicButton ? undefined : 'true'"
           rounded="pill"
         >
           <VCardText class="footer-card-content">
@@ -294,15 +348,13 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
                 icon
                 variant="text"
                 :ripple="false"
+                :disabled="!showDynamicButton"
+                :tabindex="showDynamicButton ? undefined : -1"
                 @click="!hasDynamicButtonMenu && handleDynamicButtonClick()"
                 rounded="pill"
                 class="footer-nav-btn"
               >
-                <VIcon
-                  color="secondary"
-                  :icon="hasDynamicButtonMenu ? 'mdi-chevron-up' : dynamicButton?.icon || 'mdi-plus'"
-                  size="28"
-                ></VIcon>
+                <VIcon color="secondary" :icon="accessoryIcon" size="28"></VIcon>
               </VBtn>
               <VMenu v-if="hasDynamicButtonMenu" activator="parent" location="top end" close-on-content-click>
                 <VList>
@@ -323,7 +375,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
             </div>
           </VCardText>
         </VCard>
-      </TransitionGroup>
+      </div>
     </div>
   </Teleport>
 </template>
@@ -449,6 +501,13 @@ html[data-agent-assistant-open='true'] {
   inline-size: auto;
   max-inline-size: 60px;
   min-block-size: 0;
+  transition:
+    flex-basis var(--mp-motion-duration-overlay, 160ms) var(--mp-motion-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    max-inline-size var(--mp-motion-duration-overlay, 160ms)
+      var(--mp-motion-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    opacity 120ms var(--mp-motion-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    transform var(--mp-motion-duration-overlay, 160ms) var(--mp-motion-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
+  will-change: flex-basis, max-inline-size, opacity, transform;
 
   .footer-card-content {
     padding: 3px;
@@ -470,37 +529,31 @@ html[data-agent-assistant-open='true'] {
   }
 }
 
-// 底部导航动画
-.footer-nav-enter-active,
-.footer-nav-leave-active {
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.footer-nav-enter-from,
-.footer-nav-leave-to {
-  padding: 0 !important;
-  border-width: 0 !important;
-  margin-inline-start: 0 !important;
+// 动态按钮容器常驻 Dock；折叠态不占横向空间，也不让隐藏控件参与点击或焦点。
+.footer-nav-card.dynamic-btn-card.footer-nav-card--collapsed {
+  flex-basis: 0 !important;
+  min-inline-size: 0 !important;
   max-inline-size: 0 !important;
+  border-width: 0 !important;
   opacity: 0;
-  transform: translateX(20px);
+  pointer-events: none;
+  transform: translateX(8px);
+
+  .footer-card-content {
+    padding-inline: 0;
+  }
 }
 
-[dir='rtl'] .footer-nav-enter-from,
-[dir='rtl'] .footer-nav-leave-to {
-  transform: translateX(-20px);
+.footer-nav-group:has(.footer-nav-card--collapsed) {
+  gap: 0;
 }
 
-.footer-nav-move {
-  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+[dir='rtl'] .footer-nav-card.dynamic-btn-card.footer-nav-card--collapsed {
+  transform: translateX(-8px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .footer-nav-card,
-  .footer-nav-enter-active,
-  .footer-nav-leave-active,
-  .footer-nav-move {
+  .footer-nav-card {
     transition-duration: 0.01ms !important;
   }
 }

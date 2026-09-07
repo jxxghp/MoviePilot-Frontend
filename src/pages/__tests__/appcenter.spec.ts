@@ -2,13 +2,37 @@ import AppCenter from '@/pages/appcenter.vue'
 import type { PluginSidebarNavItem } from '@/api/types'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useUserStore } from '@/stores/user'
-import { screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { server } from '@tests/support/msw/server'
 import { http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+interface DynamicButtonOptions {
+  icon: string
+  onClick: () => void
+  show: { value: boolean }
+}
+
+const mocks = vi.hoisted(() => ({
+  dynamicButtonOptions: null as DynamicButtonOptions | null,
+}))
+
+vi.mock('@/composables/useDynamicButton', () => ({
+  useDynamicButton: (options: DynamicButtonOptions) => {
+    mocks.dynamicButtonOptions = options
+    return {}
+  },
+}))
+
+vi.mock('@/composables/usePWA', async () => {
+  const { computed } = await import('vue')
+  return {
+    usePWA: () => ({ appMode: computed(() => true) }),
+  }
+})
 
 const SIDEBAR_NAV_URL = 'http://localhost/api/v1/plugin/sidebar_nav'
 
@@ -33,6 +57,11 @@ function createNavItem(overrides: Partial<PluginSidebarNavItem> = {}): PluginSid
 
 function sidebarNavHandler(items: PluginSidebarNavItem[]) {
   return http.get(SIDEBAR_NAV_URL, () => apiJson(items))
+}
+
+function getDynamicButtonOptions() {
+  if (!mocks.dynamicButtonOptions) throw new Error('动态搜索按钮尚未注册')
+  return mocks.dynamicButtonOptions
 }
 
 async function renderAppCenter(items: PluginSidebarNavItem[], permissions: Record<string, unknown> = {}) {
@@ -62,7 +91,73 @@ async function renderAppCenter(items: PluginSidebarNavItem[], permissions: Recor
   })
 }
 
+beforeEach(() => {
+  mocks.dynamicButtonOptions = null
+})
+
 describe('app center plugin navigation', () => {
+  it('registers the app search button and filters both built-in and plugin entries', async () => {
+    await renderAppCenter([createNavItem({ title: '插件入口' })])
+    expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+
+    const dynamicButton = getDynamicButtonOptions()
+    expect(dynamicButton.icon).toBe('mdi-magnify')
+    expect(dynamicButton.show.value).toBe(true)
+    expect(screen.queryByRole('textbox', { name: '搜索应用入口' })).not.toBeInTheDocument()
+
+    dynamicButton.onClick()
+    const searchInput = await screen.findByRole('textbox', { name: '搜索应用入口' })
+    await waitFor(() => expect(searchInput).toHaveFocus())
+
+    await fireEvent.update(searchInput, '搜索结果')
+    expect(screen.getByText('搜索结果')).toBeInTheDocument()
+    expect(screen.queryByText('插件入口')).not.toBeInTheDocument()
+
+    await fireEvent.update(searchInput, '插件入口')
+    expect(screen.getByText('插件入口')).toBeInTheDocument()
+    expect(screen.queryByText('搜索结果')).not.toBeInTheDocument()
+  })
+
+  it('keeps permission filtering in search results and shows a localized empty state', async () => {
+    await renderAppCenter([
+      createNavItem({ permission: 'manage', plugin_id: 'hidden', title: '隐藏插件入口' }),
+      createNavItem({ permission: null, plugin_id: 'visible', title: '可见插件入口' }),
+    ])
+    expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+
+    getDynamicButtonOptions().onClick()
+    const searchInput = await screen.findByRole('textbox', { name: '搜索应用入口' })
+
+    await fireEvent.update(searchInput, '插件入口')
+    expect(screen.getByText('可见插件入口')).toBeInTheDocument()
+    expect(screen.queryByText('隐藏插件入口')).not.toBeInTheDocument()
+
+    await fireEvent.update(searchInput, '不存在的入口')
+    expect(await screen.findByTestId('appcenter-no-results')).toHaveTextContent('没有找到匹配的应用入口')
+    expect(screen.queryByText('可见插件入口')).not.toBeInTheDocument()
+  })
+
+  it('clears the query and exits search without losing the complete entry list', async () => {
+    await renderAppCenter([createNavItem({ title: '插件入口' })])
+    expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+
+    getDynamicButtonOptions().onClick()
+    const searchInput = await screen.findByRole('textbox', { name: '搜索应用入口' })
+    await fireEvent.update(searchInput, '插件入口')
+    expect(screen.queryByText('搜索结果')).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Clear/i }))
+    await waitFor(() => {
+      expect(screen.getByText('搜索结果')).toBeInTheDocument()
+      expect(screen.getByText('插件入口')).toBeInTheDocument()
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: '退出应用搜索' }))
+    expect(screen.queryByRole('textbox', { name: '搜索应用入口' })).not.toBeInTheDocument()
+    expect(screen.getByText('搜索结果')).toBeInTheDocument()
+    expect(screen.getByText('插件入口')).toBeInTheDocument()
+  })
+
   it('keeps resource search and omits the standalone music search menu', async () => {
     await renderAppCenter([])
 
