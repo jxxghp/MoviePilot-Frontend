@@ -4690,7 +4690,7 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('coalesces scroll updates and renders two stable tail frames without injecting motion', async () => {
+  it('coalesces scroll updates and stops after two stable geometry frames without injecting motion', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
     let scrollY = 0
@@ -4770,7 +4770,8 @@ describe('glass optical surface discovery', () => {
       callbacks.clear()
       scheduledCallbacks.forEach(callback => callback(performance.now() + 200 + pass * 16))
     }
-    expect(render).toHaveBeenCalledTimes(2)
+    expect(render).not.toHaveBeenCalled()
+    expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
     expect(callbacks.size).toBe(0)
 
     window.dispatchEvent(new Event('scroll'))
@@ -4823,6 +4824,7 @@ describe('glass optical surface discovery', () => {
     const wallpaperSampling = mainScene.children[0].material!.uniforms.uHasWallpaperTexture
     expect(wallpaperSampling.value).toBe(1)
 
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
 
     expect(wallpaperSampling.value).toBe(0)
@@ -4836,6 +4838,9 @@ describe('glass optical surface discovery', () => {
       scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
     }
 
+    expect(wallpaperSampling.value).toBe(0)
+    expect(callbacks.size).toBe(0)
+    vi.advanceTimersByTime(180)
     expect(wallpaperSampling.value).toBe(1)
     expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
     expect(callbacks.size).toBe(0)
@@ -4889,6 +4894,7 @@ describe('glass optical surface discovery', () => {
     })
     render.mockClear()
 
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
 
     expect(render).not.toHaveBeenCalled()
@@ -4916,6 +4922,12 @@ describe('glass optical surface discovery', () => {
     callbacks.clear()
     restoreFrame?.(performance.now() + 132)
 
+    expect(render).not.toHaveBeenCalled()
+    expect(callbacks.size).toBe(0)
+    vi.advanceTimersByTime(179)
+    expect(render).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+
     expect(render).toHaveBeenCalledTimes(1)
     expect(presentationAtRestoreRender).toBe('native')
     expect(renderer?.renderedFrames.value).toBe((framesBeforeNativeScroll ?? 0) + 1)
@@ -4923,6 +4935,138 @@ describe('glass optical surface discovery', () => {
 
     scope.stop()
   })
+
+  it.each(['off', 'fluid', 'ripple'] as const)(
+    'keeps native ownership across sparse %s scroll input and restores once after the final intent',
+    async dynamicsMode => {
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+      let scrollY = 0
+      vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+      const callbacks = new Map<number, FrameRequestCallback>()
+      let frameId = 0
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+        callbacks.set(++frameId, callback)
+        return frameId
+      })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+      const flushFrames = () => {
+        for (let pass = 0; pass < 4 && callbacks.size > 0; pass++) {
+          const scheduled = [...callbacks.values()]
+          callbacks.clear()
+          scheduled.forEach(callback => callback(performance.now() + pass * 8))
+        }
+      }
+      appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          dynamicsMode: ref(dynamicsMode),
+          quality: ref('high'),
+          routeKey: ref('/dashboard'),
+          surfaceSpace: 'scroll',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+        }),
+      )
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      flushFrames()
+      const initialFrames = renderer!.renderedFrames.value
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
+      for (let input = 0; input < 5; input++) {
+        window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+        scrollY += 80
+        window.dispatchEvent(new Event('scroll'))
+        flushFrames()
+        window.dispatchEvent(new Event('scrollend'))
+        flushFrames()
+        vi.advanceTimersByTime(100)
+        expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+        expect(renderer!.renderedFrames.value).toBe(initialFrames)
+        expect(callbacks.size).toBe(0)
+      }
+
+      // 到达滚动边界后仍可能有 wheel 意图而没有 scroll 事件，计时器也必须完成交接。
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+      vi.advanceTimersByTime(179)
+      expect(renderer!.renderedFrames.value).toBe(initialFrames)
+      vi.advanceTimersByTime(1)
+      expect(renderer!.renderedFrames.value).toBe(initialFrames + 1)
+      expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
+      vi.advanceTimersByTime(360)
+      expect(renderer!.renderedFrames.value).toBe(initialFrames + 1)
+      scope.stop()
+    },
+  )
+
+  it.each(['fluid', 'ripple'] as const)(
+    'restores %s on a moving pointer only after scroll geometry settles',
+    async dynamicsMode => {
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+      const callbacks = new Map<number, FrameRequestCallback>()
+      let frameId = 0
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+        callbacks.set(++frameId, callback)
+        return frameId
+      })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+      const flushFrames = () => {
+        for (let pass = 0; pass < 4 && callbacks.size > 0; pass++) {
+          const scheduled = [...callbacks.values()]
+          callbacks.clear()
+          scheduled.forEach(callback => callback(performance.now() + pass * 8))
+        }
+      }
+      appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          dynamicsMode: ref(dynamicsMode),
+          quality: ref('balanced'),
+          routeKey: ref('/dashboard'),
+          surfaceSpace: 'scroll',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+        }),
+      )
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      flushFrames()
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: 900, clientY: 700 }))
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+      window.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: 880, clientY: 700 }))
+      expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+      flushFrames()
+
+      const anchorX = dynamicsMode === 'fluid' ? 880 : 900
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: anchorX, clientY: 700 }))
+      expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+
+      // 新的滚轮意图先撤销稳定判断，即便 scroll 事件还未派发也不能揭示旧坐标。
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: 850, clientY: 700 }))
+      expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+      window.dispatchEvent(new Event('scroll'))
+      flushFrames()
+
+      const beforeInteraction = renderer!.renderedFrames.value
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+      expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
+      expect(renderer!.renderedFrames.value).toBe(beforeInteraction + 1)
+      flushFrames()
+      expect(renderer!.renderedFrames.value).toBeGreaterThan(beforeInteraction + 1)
+      scope.stop()
+    },
+  )
 
   it.each(['loading', 'fallback'] as const)(
     'keeps drawing while the scroll context is ready but the composite renderer state is %s',

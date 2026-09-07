@@ -1405,6 +1405,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function beginNativeScrollPresentation() {
     if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
+    scrollStableFrameCount = 0
     clearScrollPresentationRestoreTimer()
     scrollPresentationRestoreTimer = window.setTimeout(() => finishNativeScrollPresentation(), 180)
     if (scrollWallpaperSamplingSuppressed) return
@@ -2871,14 +2872,23 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     velocityOverride?: { x: number; y: number },
     target?: EventTarget | null,
   ) {
-    if (
-      !canPresentFrame() ||
-      !hasDynamicCapability() ||
-      (hasRippleCapability() && presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed)
-    ) {
-      return
-    }
+    if (!canPresentFrame() || !hasDynamicCapability()) return
     if (target instanceof Element && isGlassOpticalElementExcluded(target)) return
+
+    // 几何稳定后的真实指针移动可立即恢复动态反馈，不让滚动静默期延迟下一次交互。
+    if (presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed) {
+      if (
+        (clientX !== lastPointerX || clientY !== lastPointerY) &&
+        scrollStableFrameCount >= SCROLL_STABLE_TAIL_FRAMES &&
+        !scrollDirty &&
+        !scrollGeometryRefreshPending &&
+        window.scrollX === lastRenderedScrollX &&
+        window.scrollY === lastRenderedScrollY
+      ) {
+        finishNativeScrollPresentation(timestamp)
+      }
+      if (hasRippleCapability() && scrollWallpaperSamplingSuppressed) return
+    }
 
     const viewportWidth = Math.max(window.innerWidth, 1)
     const viewportHeight = Math.max(window.innerHeight, 1)
@@ -3108,7 +3118,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
       scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
     } else {
-      finishNativeScrollPresentation(timestamp)
+      // 两帧只确认几何稳定；高刷新率下输入间隙也可满足，呈现接管仍等待输入静默计时器。
       if (scrollSurfaceStabilityPending) {
         scrollSurfaceStabilityPending = false
         scheduleSurfaceStabilityUpdate()
