@@ -37,6 +37,9 @@ const visible = computed({
   },
 })
 
+// 插件分身表单的校验入口
+const cloneFormRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
+
 // 插件分身表单
 const cloneForm = ref({
   suffix: '',
@@ -56,7 +59,11 @@ function initializeCloneForm() {
 }
 
 /** 提交插件分身表单。 */
-function submitClone() {
+async function submitClone() {
+  // 校验规则此前只负责标红：按钮只按后缀是否为空禁用，不合规的后缀照样能提交，
+  // 要等后端 422 才被拦下。提交前先跑一次表单校验，把拦截落在输入侧。
+  const validation = await cloneFormRef.value?.validate()
+  if (validation && validation.valid === false) return
   emit('clone', { ...cloneForm.value })
 }
 
@@ -78,7 +85,7 @@ onMounted(() => {
       <VDialogCloseBtn v-model="visible" />
       <VDivider />
       <VCardText>
-        <VForm>
+        <VForm ref="cloneFormRef">
           <VRow>
             <VCol cols="12" md="6">
               <VTextField
