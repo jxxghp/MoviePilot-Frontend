@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { createHash } from 'node:crypto'
+import displacementFixtures from './fixtures/glass-displacement-fields.json'
 import {
   createGlassNavbarDisplacementField,
   createGlassPanelBackdropField,
   getGlassNavbarOpticalResponse,
   getGlassSidebarOpticalResponse,
   supportsGlassNavbarLiveRefraction,
+  type GlassNavbarDisplacementGeometry,
 } from '@/utils/glassNavbarRefraction'
 
 describe('getGlassNavbarOpticalResponse', () => {
@@ -58,6 +61,21 @@ describe('getGlassSidebarOpticalResponse', () => {
 })
 
 describe('createGlassNavbarDisplacementField', () => {
+  // 完整图像指纹同时保护位移、圆角与散射权重，计算路径优化不能改变任何 RGBA 字节。
+  it.each(displacementFixtures)(
+    'preserves all RGBA bytes for $geometry.surface $geometry.width x $geometry.height r$geometry.radius at $parameters.translation',
+    ({ geometry, parameters, sha256 }) => {
+      const field = createGlassNavbarDisplacementField({
+        ...(geometry as GlassNavbarDisplacementGeometry),
+        optics:
+          geometry.surface === 'navbar'
+            ? getGlassNavbarOpticalResponse(parameters)
+            : getGlassSidebarOpticalResponse(parameters),
+      })
+      expect(createHash('sha256').update(field.pixels).digest('hex')).toBe(sha256)
+    },
+  )
+
   function pixelAt(field: ReturnType<typeof createGlassNavbarDisplacementField>, x: number, y: number) {
     const offset = (y * field.width + x) * 4
 
