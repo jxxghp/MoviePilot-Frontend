@@ -5068,6 +5068,87 @@ describe('glass optical surface discovery', () => {
     },
   )
 
+  it.each(['uncommitted-intent', 'nested-scroll', 'pending-stability'] as const)(
+    'does not reveal native presentation on pointer input during %s',
+    async boundary => {
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+      const callbacks = new Map<number, FrameRequestCallback>()
+      let frameId = 0
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+        callbacks.set(++frameId, callback)
+        return frameId
+      })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+      const flushFrames = (limit = 4) => {
+        for (let pass = 0; pass < limit && callbacks.size > 0; pass++) {
+          const scheduled = [...callbacks.values()]
+          callbacks.clear()
+          scheduled.forEach(callback => callback(performance.now() + pass * 8))
+        }
+      }
+      const surface = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+      const scroller = document.createElement('div')
+      scroller.style.overflowY = 'auto'
+      Object.defineProperties(scroller, {
+        clientHeight: { configurable: true, value: 200 },
+        scrollHeight: { configurable: true, value: 600 },
+        scrollTop: { configurable: true, value: 0, writable: true },
+      })
+      document.body.append(scroller)
+      scroller.append(surface)
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          dynamicsMode: ref('ripple'),
+          quality: ref('high'),
+          routeKey: ref('/dashboard'),
+          surfaceSpace: 'scroll',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+        }),
+      )
+      try {
+        await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+        flushFrames()
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+        if (boundary === 'nested-scroll') {
+          scroller.scrollTop = 80
+          scroller.dispatchEvent(new Event('scroll'))
+        } else {
+          window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+          window.dispatchEvent(new Event('scroll'))
+        }
+        if (boundary === 'uncommitted-intent') {
+          flushFrames(1)
+          expect(callbacks.size).toBe(1)
+          window.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+        }
+        flushFrames()
+        expect(callbacks.size).toBe(0)
+        if (boundary === 'pending-stability') {
+          const transitionEnd = new Event('transitionend', { bubbles: true }) as TransitionEvent
+          Object.defineProperty(transitionEnd, 'propertyName', { value: 'transform' })
+          surface.dispatchEvent(transitionEnd)
+          expect(callbacks.size).toBeGreaterThan(0)
+        }
+
+        const framesBeforePointer = renderer!.renderedFrames.value
+        window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+        expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+        expect(renderer!.renderedFrames.value).toBe(framesBeforePointer)
+        flushFrames()
+        vi.advanceTimersByTime(180)
+        expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
+      } finally {
+        scope.stop()
+      }
+    },
+  )
+
   it.each(['loading', 'fallback'] as const)(
     'keeps drawing while the scroll context is ready but the composite renderer state is %s',
     async rootState => {

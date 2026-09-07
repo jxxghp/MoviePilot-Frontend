@@ -1327,6 +1327,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let scrollLateGeometryCommitted = false
   let scrollSurfaceStabilityPending = false
   let scrollStableFrameCount = 0
+  // 指针提前交接只接受最新输入之后的文档滚动；嵌套容器由静默计时器收口。
+  let documentScrollObserved = false
   let lastRenderedScrollX = window.scrollX
   let lastRenderedScrollY = window.scrollY
   let unsubscribeInteractionSource: (() => void) | null = null
@@ -1406,6 +1408,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (presentationSpace !== 'scroll' || !resources || !canPresentFrame()) return
 
     scrollStableFrameCount = 0
+    documentScrollObserved = false
     clearScrollPresentationRestoreTimer()
     scrollPresentationRestoreTimer = window.setTimeout(() => finishNativeScrollPresentation(), 180)
     if (scrollWallpaperSamplingSuppressed) return
@@ -1561,6 +1564,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollLateGeometryCommitted = false
     scrollSurfaceStabilityPending = false
     scrollStableFrameCount = 0
+    documentScrollObserved = false
     clearScrollPresentationRestoreTimer()
   }
 
@@ -2879,9 +2883,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed) {
       if (
         (clientX !== lastPointerX || clientY !== lastPointerY) &&
+        documentScrollObserved &&
         scrollStableFrameCount >= SCROLL_STABLE_TAIL_FRAMES &&
         !scrollDirty &&
         !scrollGeometryRefreshPending &&
+        !scrollSurfaceStabilityPending &&
+        surfaceUpdateFrame === null &&
+        surfaceStabilityFrame === null &&
+        surfaceTransformFrame === null &&
         window.scrollX === lastRenderedScrollX &&
         window.scrollY === lastRenderedScrollY
       ) {
@@ -3143,6 +3152,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollLateGeometryCommitted = false
     const isDocumentScroll =
       !(target instanceof Element) || target === document.documentElement || target === document.body
+    documentScrollObserved = isDocumentScroll
     if (!isDocumentScroll) {
       if (!(target instanceof Element) || !observedSurfaces.some(surface => target.contains(surface))) return
       scrollGeometryRefreshPending = true
