@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClassificationCategory, ClassificationMediaType } from '@/api/mediaClassificationTypes'
-import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
+import { classificationCategoryDisplayName, formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 
 /** 分类树编辑器输入属性。 */
 interface ClassificationCategoryEditorProps {
@@ -461,7 +461,10 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
       >
         <div class="classification-category-summary">
           <div class="classification-category-title-line">
-            <strong>{{ category.name }}</strong>
+            <strong>{{ classificationCategoryDisplayName(category) }}</strong>
+            <VChip v-if="fallbacks[category.media_type] === category.id" size="small" color="primary" variant="tonal"
+              >默认分类</VChip
+            >
             <VChip size="small" :color="category.enabled ? 'success' : undefined" variant="tonal">
               {{
                 category.enabled
@@ -470,7 +473,9 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
               }}
             </VChip>
           </div>
-          <code class="classification-category-id">{{ category.id }}</code>
+          <p v-if="classificationCategoryDisplayName(category) !== category.name" class="classification-category-id">
+            旧版迁移时额外创建的备用目录；只有被规则、默认分类或目录设置选中时才会使用。
+          </p>
           <ol
             class="classification-category-path"
             :aria-label="t('setting.classification.category.pathAria', { name: category.name })"

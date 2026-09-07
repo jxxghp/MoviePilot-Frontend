@@ -37,6 +37,7 @@ const emit = defineEmits<{
 type ConditionNodeKind = 'condition' | 'all' | 'any' | 'not'
 type ValueControlKind = 'none' | 'range' | 'list' | 'boolean' | 'number' | 'select' | 'text'
 
+/** 当前规则所选来源的字段可用性提示。 */
 interface SourceSupportHint {
   source: string
   support: Extract<ClassificationSourceSupport, 'partial' | 'unavailable'>
@@ -145,7 +146,12 @@ const fieldItems = computed(() =>
     .sort((left, right) => fieldOrder(left) - fieldOrder(right))
     .filter(field => field.selectable !== false || field.id === selectedCondition.value?.field)
     .map(field => ({
-      title: field.group ? `${field.group} · ${field.label}` : field.label,
+      title:
+        field.selectable === false
+          ? `${field.label.replace('（旧规则）', '')}（兼容字段）`
+          : field.group
+            ? `${field.group} · ${field.label}`
+            : field.label,
       value: field.id,
       props: { disabled: field.selectable === false },
     })),
@@ -183,20 +189,60 @@ const operatorItems = computed(() =>
   })),
 )
 
-const optionItems = computed(() =>
-  (selectedDefinition.value?.options ?? []).map(option => ({
-    title: option.label,
-    value: option.value,
-  })),
-)
+/** 合并通用字典与已选来源候选，来源切换只改变建议，不清空已有值。 */
+const optionItems = computed(() => {
+  const definition = selectedDefinition.value
+  const options = new Map<ClassificationFactScalar, { title: string; value: ClassificationFactScalar }>()
+  for (const option of definition?.options ?? []) {
+    options.set(option.value, {
+      title: option.label === String(option.value) ? option.label : `${option.label} · ${option.value}`,
+      value: option.value,
+    })
+  }
+  if (definition?.id === 'identity.media_source') {
+    for (const source of props.sourceOptions)
+      options.set(source.value, { title: `${source.title} · ${source.value}`, value: source.value })
+  }
+  for (const [source, candidates] of Object.entries(definition?.source_options ?? {})) {
+    if (props.sources.length && !props.sources.includes(source)) continue
+    const sourceName = props.sourceOptions.find(option => option.value === source)?.title ?? source
+    for (const option of candidates) {
+      const previous = options.get(option.value)
+      const title = option.label === String(option.value) ? option.label : `${option.label} · ${option.value}`
+      options.set(option.value, {
+        title: previous ? `${previous.title} / ${sourceName}` : `${title} · ${sourceName}`,
+        value: option.value,
+      })
+    }
+  }
+  return [...options.values()]
+})
 
+/** 字典之外的历史值仍显示并原样保存，不能因切换来源或选项升级而丢失。 */
 const catalogListSelection = computed(() =>
-  optionItems.value.filter(option => listValue.value.some(value => Object.is(value, option.value))),
+  listValue.value.map(
+    value => optionItems.value.find(option => Object.is(value, option.value)) ?? { title: String(value), value },
+  ),
+)
+const catalogScalarSelection = computed(
+  () =>
+    optionItems.value.find(option => Object.is(option.value, scalarValue.value)) ??
+    (scalarValue.value === undefined || scalarValue.value === null
+      ? null
+      : { title: String(scalarValue.value), value: scalarValue.value }),
 )
 
-const catalogScalarSelection = computed(
-  () => optionItems.value.find(option => Object.is(option.value, scalarValue.value)) ?? null,
-)
+/** 明确区分可搜索字典与没有封闭枚举的来源原值。 */
+const valueHint = computed(() => {
+  if (NO_VALUE_OPERATORS.has(selectedCondition.value?.operator as ClassificationOperator)) return ''
+  if (optionItems.value.length)
+    return selectedDefinition.value?.allow_custom_values
+      ? '搜索名称或代码选择；列表外的来源原值也可输入，按回车确认。'
+      : '搜索名称或代码，可直接选择条件值。'
+  return ['string', 'string_list'].includes(selectedDefinition.value?.value_type ?? '')
+    ? '此字段没有固定字典，请按媒体预览中的原值填写；多个值逐个输入并按回车确认。'
+    : ''
+})
 
 const sourceSupportHints = computed<SourceSupportHint[]>(() => {
   const definition = selectedDefinition.value
@@ -233,7 +279,7 @@ const valueControlKind = computed<ValueControlKind>(() => {
   if (LIST_VALUE_OPERATORS.has(condition.operator) || definition.value_type === 'string_list') return 'list'
   if (definition.value_type === 'boolean') return 'boolean'
   if (['integer', 'number', 'year'].includes(definition.value_type)) return 'number'
-  if (definition.value_type === 'enum' || definition.options.length > 0) return 'select'
+  if (definition.value_type === 'enum' || optionItems.value.length > 0) return 'select'
   return 'text'
 })
 
@@ -257,12 +303,14 @@ const scalarValue = computed(() => {
 
 const booleanValue = computed(() => scalarValue.value === true)
 const numericStep = computed(() => (selectedDefinition.value?.value_type === 'number' ? 'any' : 1))
-const usesCatalogSelect = computed(
-  () => (selectedDefinition.value?.options.length ?? 0) > 0 && !selectedDefinition.value?.allow_custom_values,
-)
+const usesCatalogSelect = computed(() => optionItems.value.length > 0 && !selectedDefinition.value?.allow_custom_values)
 // Vuetify 会从对象 items 推断 return-object；这里仅收窄模板泛型，运行时仍传递原始标量。
-const comboboxListModel = computed(() => listValue.value as never[])
-const comboboxScalarModel = computed(() => scalarValue.value as never)
+const comboboxListModel = computed(
+  () => (optionItems.value.length ? catalogListSelection.value : listValue.value) as never[],
+)
+const comboboxScalarModel = computed(
+  () => (optionItems.value.length ? catalogScalarSelection.value : scalarValue.value) as never,
+)
 
 /** 根据字段值类型把控件输出转换为分类条件允许的标量。 */
 function normalizeScalarValue(value: unknown, definition: ClassificationFieldDefinition): ClassificationFactScalar {
@@ -291,7 +339,8 @@ function createDefaultValue(
   if (definition.value_type === 'integer' || definition.value_type === 'number' || definition.value_type === 'year') {
     return null
   }
-  return definition.options[0]?.value ?? ''
+  // 开放字段的候选只是录入建议，不能把第一个语言或国家自动变成匹配条件。
+  return definition.value_type === 'enum' && !definition.allow_custom_values ? (definition.options[0]?.value ?? '') : ''
 }
 
 /** 由字段目录的首个可用字段构造叶子，不在前端臆造字段或操作符。 */
@@ -356,7 +405,7 @@ function updateScalarValue(value: unknown): void {
   const condition = selectedCondition.value
   const definition = selectedDefinition.value
   if (!condition || !definition) return
-  updateNode({ ...condition, value: normalizeScalarValue(value, definition) })
+  updateNode({ ...condition, value: normalizeScalarValue(catalogOptionValue(value), definition) })
 }
 
 /** 写入成员列表，数字字段会把控件字符串转换为 number。 */
@@ -367,7 +416,7 @@ function updateListValue(value: unknown): void {
 
   const values = Array.isArray(value) ? value : value === null || value === undefined ? [] : [value]
   const normalized = values
-    .map(item => normalizeScalarValue(item, definition))
+    .map(item => normalizeScalarValue(catalogOptionValue(item), definition))
     .filter((item): item is Exclude<ClassificationFactScalar, null> => item !== null)
   updateNode({ ...condition, value: normalized })
 }
@@ -534,11 +583,12 @@ function removeChild(index: number): void {
           </div>
 
           <template v-else-if="valueControlKind === 'list'">
-            <VSelect
+            <VAutocomplete
               v-if="usesCatalogSelect"
               :model-value="catalogListSelection"
               :items="optionItems"
               return-object
+              placeholder="搜索或输入条件值"
               label="条件值"
               aria-label="条件值列表"
               multiple
@@ -555,6 +605,8 @@ function removeChild(index: number): void {
               v-else
               :model-value="comboboxListModel"
               :items="optionItems"
+              return-object
+              placeholder="搜索或输入条件值"
               label="条件值"
               aria-label="条件值列表"
               multiple
@@ -598,11 +650,12 @@ function removeChild(index: number): void {
           />
 
           <template v-else-if="valueControlKind === 'select'">
-            <VSelect
+            <VAutocomplete
               v-if="usesCatalogSelect"
               :model-value="catalogScalarSelection"
               :items="optionItems"
               return-object
+              placeholder="搜索或输入条件值"
               label="条件值"
               aria-label="条件值"
               variant="outlined"
@@ -616,6 +669,8 @@ function removeChild(index: number): void {
               v-else
               :model-value="comboboxScalarModel"
               :items="optionItems"
+              return-object
+              placeholder="搜索或输入条件值"
               label="条件值"
               aria-label="条件值"
               variant="outlined"
@@ -640,6 +695,17 @@ function removeChild(index: number): void {
         </div>
       </div>
 
+      <p
+        v-if="selectedDefinition?.description"
+        class="classification-condition-builder__node-hint"
+        data-testid="field-description"
+      >
+        {{ selectedDefinition.description }}
+      </p>
+      <p v-if="valueHint" class="classification-condition-builder__node-hint" data-testid="value-hint">
+        {{ valueHint }}
+      </p>
+
       <p class="classification-condition-builder__source-scope-note" data-testid="source-scope-note">
         {{ sourceScopeNote }}
       </p>
@@ -651,8 +717,10 @@ function removeChild(index: number): void {
       >
         <VIcon icon="mdi-history" size="16" />
         <span>
-          此字段只保留旧规则的原始匹配。
-          <template v-if="replacementDefinition">建议改用“{{ replacementDefinition.label }}”。</template>
+          这条条件从旧分类配置迁移而来，继续按原来的方式匹配，不需要重新配置。
+          <template v-if="replacementDefinition"
+            >新增条件请选“{{ replacementDefinition.label }}”；更换字段可能改变匹配结果，请先预览。</template
+          >
         </span>
       </p>
 

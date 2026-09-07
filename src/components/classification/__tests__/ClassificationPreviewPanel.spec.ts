@@ -169,8 +169,8 @@ describe('ClassificationPreviewPanel', () => {
   it('只显示人类可读的分类、规则来源和字段名称', async () => {
     await renderPanel({ result: createEvaluation() })
 
-    expect(screen.getByRole('region', { name: '规则建议分类' })).toHaveTextContent('科幻电影 · 电影 / 科幻')
-    expect(screen.getByRole('region', { name: '生效分类' })).toHaveTextContent('精选电影 · 电影 / 精选')
+    expect(screen.getByRole('region', { name: '规则建议分类' })).toHaveTextContent('科幻电影 · 路径：电影 / 科幻')
+    expect(screen.getByRole('region', { name: '生效分类' })).toHaveTextContent('精选电影 · 路径：电影 / 精选')
     expect(screen.getByRole('region', { name: '标签' })).toHaveTextContent('经典')
     expect(screen.getByRole('region', { name: '警告' })).toHaveTextContent('当前媒体没有内容分级')
     expect(screen.getByRole('region', { name: '警告' })).toHaveTextContent('内容分级')

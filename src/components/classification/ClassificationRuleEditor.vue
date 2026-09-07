@@ -114,7 +114,7 @@ function categoryItems(rule: ClassificationRule) {
   return props.categories
     .filter(category => selectedMediaTypes.size === 0 || selectedMediaTypes.has(category.media_type))
     .map(category => ({
-      title: `${formatClassificationCategoryOptionTitle(category)}${category.enabled ? '' : '（已停用）'}`,
+      title: `${formatClassificationCategoryOptionTitle(category, { includeMediaType: rule.media_types.length !== 1 })}${category.enabled ? '' : '（已停用）'}`,
       value: category.id,
       props: { disabled: !category.enabled },
     }))
@@ -272,7 +272,7 @@ function sourceSummary(rule: ClassificationRule): string {
 function targetSummary(rule: ClassificationRule): string {
   if (rule.kind === 'label') return rule.target.labels.length ? `标签 ${rule.target.labels.join('、')}` : '未设置标签'
   const category = props.categories.find(item => item.id === rule.target.category_id)
-  return category?.name ?? '未设置分类'
+  return category ? formatClassificationCategoryOptionTitle(category) : '未设置分类'
 }
 
 const sourceItems = computed(() => {
@@ -509,13 +509,13 @@ watch(
             </div>
 
             <div class="classification-rule-target">
-              <div class="classification-rule-section-title">规则输出</div>
+              <div class="classification-rule-section-title">命中后执行</div>
               <div class="classification-rule-grid">
                 <VSelect
                   v-if="rule.kind === 'category'"
                   :model-value="rule.target.category_id"
                   :items="categoryItems(rule)"
-                  label="分类目标"
+                  label="归入分类"
                   clearable
                   density="compact"
                   hide-details="auto"

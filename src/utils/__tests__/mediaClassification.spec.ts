@@ -3,6 +3,13 @@ import { formatClassificationCategoryOptionTitle, normalizeClassificationPolicy 
 import { describe, expect, it } from 'vitest'
 
 describe('formatClassificationCategoryOptionTitle', () => {
+  it('distinguishes identical category names by media type without changing custom category names', () => {
+    const category = { id: 'custom', name: '未分类', path: ['未分类', '通用'], media_type: '电影' as const }
+    expect(formatClassificationCategoryOptionTitle(category, { includeMediaType: true })).toBe(
+      '电影 · 未分类 · 路径：未分类 / 通用',
+    )
+  })
+
   it('omits a path that is identical to the category name', () => {
     expect(formatClassificationCategoryOptionTitle({ id: 'movie.base', name: '电影', path: ['电影'] })).toBe('电影')
   })
@@ -14,27 +21,27 @@ describe('formatClassificationCategoryOptionTitle', () => {
         name: '动画',
         path: ['电影', '动画'],
       }),
-    ).toBe('动画 · 电影')
+    ).toBe('动画 · 路径：电影 / 动画')
   })
 
-  it('removes a repeated category name from the end of a hierarchical path', () => {
+  it('preserves the complete directory path when the name repeats', () => {
     expect(
       formatClassificationCategoryOptionTitle({
         id: 'movie.china',
         name: '华语电影',
         path: ['电影', '华语电影'],
       }),
-    ).toBe('华语电影 · 电影')
+    ).toBe('华语电影 · 路径：电影 / 华语电影')
   })
 
-  it('removes a repeated category name from any path segment', () => {
+  it('explains the generated spare category without altering its path', () => {
     expect(
       formatClassificationCategoryOptionTitle({
         id: 'tv.uncategorized',
         name: '未分类',
         path: ['未分类', '通用'],
       }),
-    ).toBe('未分类 · 通用')
+    ).toBe('备用未分类 · 路径：未分类 / 通用')
   })
 
   it('can preserve a caller-specific path separator and stable ID', () => {
@@ -43,7 +50,7 @@ describe('formatClassificationCategoryOptionTitle', () => {
         { id: 'movie.animation', name: '动画', path: ['电影', '动画'] },
         { includeId: true, pathSeparator: '/' },
       ),
-    ).toBe('动画 · 电影 · movie.animation')
+    ).toBe('动画 · 路径：电影/动画 · movie.animation')
   })
 
   it('uses the configured label only when the category has no path', () => {

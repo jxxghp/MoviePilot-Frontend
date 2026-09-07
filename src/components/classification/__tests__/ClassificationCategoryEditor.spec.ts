@@ -50,23 +50,23 @@ async function renderEditor(
 }
 
 describe('ClassificationCategoryEditor', () => {
-  it('按电影、电视剧和音乐分段展示分类编号与多级路径', async () => {
+  it('按电影、电视剧和音乐分段展示分类名称与多级路径，内部编号留在编辑表单', async () => {
     const user = userEvent.setup()
     await renderEditor()
 
     expect(screen.getByText('科幻电影')).toBeInTheDocument()
-    expect(screen.getByText('movie.scifi')).toBeInTheDocument()
+    expect(screen.queryByText('movie.scifi')).not.toBeInTheDocument()
     expect(document.querySelector('.classification-media-segments')).toHaveClass('v-btn-group--density-compact')
     expect(screen.getByRole('list', { name: '科幻电影分类路径' })).toHaveTextContent('电影科幻')
     expect(screen.queryByText('纪录剧集')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '电视剧' }))
     expect(screen.getByText('纪录剧集')).toBeInTheDocument()
-    expect(screen.getByText('tv.documentary')).toBeInTheDocument()
+    expect(screen.queryByText('tv.documentary')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '音乐' }))
     expect(screen.getByText('无损音乐')).toBeInTheDocument()
-    expect(screen.getByText('music.lossless')).toBeInTheDocument()
+    expect(screen.queryByText('music.lossless')).not.toBeInTheDocument()
     expect(screen.getByRole('list', { name: '无损音乐分类路径' })).toHaveTextContent('音乐专辑无损')
   })
 
@@ -137,7 +137,7 @@ describe('ClassificationCategoryEditor', () => {
     expect(deleteButton).toBeDisabled()
     expect(deleteButton).toHaveAttribute('aria-describedby', protection.id)
     expect(protection).toHaveTextContent('已被分类规则引用')
-    expect(protection).toHaveTextContent('已设为电影全局兜底分类')
+    expect(protection).toHaveTextContent('已设为电影默认分类')
 
     await user.click(deleteButton)
     expect(events.updateCategories).not.toHaveBeenCalled()
@@ -184,7 +184,7 @@ describe('ClassificationCategoryEditor', () => {
     const { events } = await renderEditor()
 
     await user.click(screen.getByRole('combobox', { name: '音乐默认分类' }))
-    await user.click(await screen.findByRole('option', { name: '无损音乐 · 音乐 / 专辑 / 无损' }))
+    await user.click(await screen.findByRole('option', { name: '无损音乐 · 路径：音乐 / 专辑 / 无损' }))
 
     await waitFor(() => expect(events.updateFallbacks).toHaveBeenCalledWith({ 音乐: 'music.lossless' }))
   })
@@ -197,7 +197,7 @@ describe('ClassificationCategoryEditor', () => {
 
     await user.click(screen.getByRole('combobox', { name: '电视剧默认分类' }))
 
-    expect(await screen.findByRole('option', { name: '未分类 · 通用' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: '备用未分类 · 路径：未分类 / 通用' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: '未分类 · 未分类 / 通用' })).not.toBeInTheDocument()
   })
 

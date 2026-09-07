@@ -12,19 +12,33 @@ interface ClassificationCategoryOptionTitleOptions {
   emptyPathLabel?: string
   includeId?: boolean
   pathSeparator?: string
+  includeMediaType?: boolean
 }
 
-/** 生成分类选择器标题，避免分类名与路径中的同名段重复显示。 */
+/** 生成分类标题：同名单层路径省略，多级路径完整标注，跨媒体类型选项增加类型。 */
 export function formatClassificationCategoryOptionTitle(
-  category: Pick<ClassificationCategory, 'name' | 'path' | 'id'>,
+  category: Pick<ClassificationCategory, 'name' | 'path' | 'id'> & Partial<Pick<ClassificationCategory, 'media_type'>>,
   options: ClassificationCategoryOptionTitleOptions = {},
 ): string {
-  const pathSegments = category.path.filter(segment => segment !== category.name)
-  const path = pathSegments.join(options.pathSeparator ?? ' / ')
-  const displayPath = path || (category.path.length ? '' : (options.emptyPathLabel ?? ''))
-  const parts = [category.name, displayPath]
+  const path = category.path.join(options.pathSeparator ?? ' / ')
+  const name = classificationCategoryDisplayName(category)
+  const displayPath = path && path !== name ? `路径：${path}` : !path ? (options.emptyPathLabel ?? '') : ''
+  const parts = [options.includeMediaType ? category.media_type : '', name, displayPath]
   if (options.includeId) parts.push(category.id)
   return parts.filter(Boolean).join(' · ')
+}
+
+/** 仅解释早期迁移生成的备用目录，保持用户命名、稳定编号和实际路径不变。 */
+export function classificationCategoryDisplayName(
+  category: Pick<ClassificationCategory, 'id' | 'name' | 'path'>,
+): string {
+  return /^(movie|tv|music)\.uncategorized$/.test(category.id) &&
+    category.name === '未分类' &&
+    category.path.length === 2 &&
+    category.path[0] === '未分类' &&
+    category.path[1] === '通用'
+    ? '备用未分类'
+    : category.name
 }
 
 /** 根据规则媒体类型生成一个明确、可直接编辑的默认条件。 */

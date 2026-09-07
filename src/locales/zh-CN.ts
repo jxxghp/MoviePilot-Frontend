@@ -2039,7 +2039,7 @@ export default {
           },
           rules: {
             title: '2. 编写规则',
-            body: '在“规则”中从上到下设置条件。系统先检查规则限定的媒体类型和数据来源，再读取这条媒体记录实际提供的信息。选择多个来源表示任意一个来源都可以命中，系统不会把多个来源的信息拼在一起；第一条符合条件的规则生效，都不符合时使用媒体类型默认分类。',
+            body: '在“规则”中从上到下设置条件。国家、语言和风格可搜索名称选择，系统自动保存对应代码；“来源风格”的候选随数据源变化，没有固定字典的字段按媒体预览中的原值填写。带“兼容字段”的条件来自旧配置，保留原来的匹配方式。系统先检查规则限定的媒体类型和数据来源，再读取这条媒体记录实际提供的信息。选择多个来源表示任意一个来源都可以命中，系统不会把多个来源的信息拼在一起；第一条符合条件的规则生效，都不符合时使用媒体类型默认分类。',
           },
           preview: {
             title: '3. 预览分类结果',
@@ -2061,7 +2061,7 @@ export default {
       },
       category: {
         title: '分类树',
-        description: '分类路径最多 {count} 级，规则和目录设置会跟随分类编号保存。',
+        description: '分类是规则命中或未命中后归入的目录。名称便于识别，路径决定目录层级，最多 {count} 级。',
         add: '新增{mediaType}分类',
         mediaTypeSegments: '分类媒体类型',
         editTitle: '编辑分类',
@@ -2086,13 +2086,13 @@ export default {
         edit: '编辑分类“{name}”',
         empty: '暂无{mediaType}分类',
         fallbackTitle: '未匹配时的默认分类',
-        fallbackHint: '没有规则匹配时，按媒体类型使用这里设置的分类。',
+        fallbackHint: '只有所有分类规则都未命中时，才归入这里选择的分类。它与规则中的“归入分类”使用同一份分类列表。',
         fallbackFor: '{mediaType}默认分类',
         pathRequired: '分类路径不能为空',
         pathEmptySegment: '分类路径不能包含空层级',
         pathTooDeep: '分类路径最多支持 {count} 级',
         ruleReference: '已被分类规则引用',
-        globalFallbackReference: '已设为{mediaTypes}全局兜底分类',
+        globalFallbackReference: '已设为{mediaTypes}默认分类',
         directoryReference: '已被目录配置引用：{directories}',
         listSeparator: '、',
         reasonSeparator: '；',

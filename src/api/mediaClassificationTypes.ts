@@ -236,6 +236,8 @@ export interface ClassificationFieldDefinition {
   operators: ClassificationOperator[]
   media_types: ClassificationMediaType[]
   options: ClassificationFieldOption[]
+  /** 按来源区分的候选，保持原始值和大小写。 */
+  source_options?: Record<string, ClassificationFieldOption[]>
   allow_custom_values: boolean
   source_support: Record<string, ClassificationSourceSupport>
   selectable?: boolean

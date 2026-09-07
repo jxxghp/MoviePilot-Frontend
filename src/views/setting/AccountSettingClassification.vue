@@ -218,6 +218,12 @@ const editorFields = computed<ClassificationFieldDefinition[]>(() =>
         media_types: [...field.media_types],
         operators: [...field.operators],
         options: field.options.map(option => ({ ...option })),
+        source_options: Object.fromEntries(
+          Object.entries(field.source_options ?? {}).map(([source, options]) => [
+            source,
+            options.map(option => ({ ...option })),
+          ]),
+        ),
         source_support: { ...field.source_support },
       }
     }),

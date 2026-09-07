@@ -7,6 +7,7 @@ import type {
   ClassificationSourceOption,
 } from '@/api/mediaClassificationTypes'
 import ClassificationConditionBuilder from '@/components/classification/ClassificationConditionBuilder.vue'
+import userEvent from '@testing-library/user-event'
 import { fireEvent, screen, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { Fragment, defineComponent, h, inject, provide, type InjectionKey, type PropType } from 'vue'
@@ -298,7 +299,7 @@ describe('ClassificationConditionBuilder', () => {
     expect(fieldSelect).toHaveAttribute('aria-label', '条件字段')
     expect(within(fieldSelect).getByRole('button', { name: '媒体 · 年份' })).toBeInTheDocument()
     expect(within(fieldSelect).queryByRole('button', { name: '音乐 · 音乐标签' })).not.toBeInTheDocument()
-    expect(within(fieldSelect).queryByRole('button', { name: '旧规则 · 风格（旧规则）' })).not.toBeInTheDocument()
+    expect(within(fieldSelect).queryByRole('button', { name: '风格（兼容字段）' })).not.toBeInTheDocument()
 
     const operatorSelect = screen.getByTestId('operator-select')
     expect(operatorSelect).toHaveAttribute('aria-label', '条件操作符')
@@ -325,10 +326,12 @@ describe('ClassificationConditionBuilder', () => {
     })
 
     expect(
-      within(screen.getByTestId('field-select')).getByRole('button', { name: '旧规则 · 风格（旧规则）' }),
+      within(screen.getByTestId('field-select')).getByRole('button', { name: '风格（兼容字段）' }),
     ).toBeInTheDocument()
-    expect(screen.getByTestId('retired-field-hint')).toHaveTextContent('此字段只保留旧规则的原始匹配。')
-    expect(screen.getByTestId('retired-field-hint')).toHaveTextContent('建议改用“风格”')
+    expect(screen.getByTestId('retired-field-hint')).toHaveTextContent(
+      '这条条件从旧分类配置迁移而来，继续按原来的方式匹配，不需要重新配置。',
+    )
+    expect(screen.getByTestId('retired-field-hint')).toHaveTextContent('新增条件请选“风格”')
   })
 
   it('按 string、enum、integer、number、year、string_list、boolean 和无值操作符输出类型化值', async () => {
@@ -495,5 +498,103 @@ describe('ClassificationConditionBuilder', () => {
     expect(fields).toEqual(snapshots.fields)
     expect(mediaTypes).toEqual(snapshots.mediaTypes)
     expect(sources).toEqual(snapshots.sources)
+  })
+})
+
+describe('分类字典的真实输入控件', () => {
+  it('搜索中文国家名后保存代码，并保留目录外的历史值', async () => {
+    const user = userEvent.setup()
+    const definition = fieldDefinition('media.countries', '原产国家/地区', 'string_list', ['contains_any'])
+    definition.options = [
+      { value: 'JP', label: '日本' },
+      { value: 'KR', label: '韩国' },
+    ]
+    const result = await renderWithProviders(ClassificationConditionBuilder, {
+      props: {
+        ...defaultProps,
+        fields: [definition],
+        modelValue: { field: definition.id, operator: 'contains_any', value: ['历史原值'] },
+      },
+    })
+    await user.type(screen.getByRole('textbox', { name: '条件值列表' }), '日本')
+    await user.click(await screen.findByRole('option', { name: '日本 · JP' }))
+    expect((result.emitted()['update:modelValue'] as unknown[][]).at(-1)?.[0]).toEqual({
+      field: 'media.countries',
+      operator: 'contains_any',
+      value: ['历史原值', 'JP'],
+    })
+  })
+
+  it('来源切换刷新候选但不修改已有值，选择候选保存来源的原始文本', async () => {
+    const user = userEvent.setup()
+    const definition = fieldDefinition('media.genre_names', '来源风格', 'string_list', ['contains_any'])
+    definition.source_options = {
+      douban: [{ value: '动画', label: '动画' }],
+      anilist: [{ value: 'Action', label: '动作' }],
+    }
+    const modelValue: ClassificationConditionNode = {
+      field: definition.id,
+      operator: 'contains_any',
+      value: ['自定义风格'],
+    }
+    const result = await renderWithProviders(ClassificationConditionBuilder, {
+      props: { ...defaultProps, fields: [definition], sources: ['douban'], modelValue },
+    })
+    await user.click(screen.getByRole('textbox', { name: '条件值列表' }))
+    expect(await screen.findByRole('option', { name: '动画 · 豆瓣' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '动作 · Action · anilist' })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await result.rerender({ sources: ['anilist'] })
+    expect(result.emitted()['update:modelValue']).toBeUndefined()
+    await user.click(screen.getByRole('textbox', { name: '条件值列表' }))
+    await user.click(await screen.findByRole('option', { name: '动作 · Action · anilist' }))
+    expect((result.emitted()['update:modelValue'] as unknown[][]).at(-1)?.[0]).toEqual({
+      ...modelValue,
+      value: ['自定义风格', 'Action'],
+    })
+  })
+
+  it('单选语言保存语言代码，开放字段仍可输入字典外原值', async () => {
+    const user = userEvent.setup()
+    const definition = fieldDefinition('media.language', '原始语言', 'string', ['equals'])
+    definition.options = [{ value: 'ja', label: '日语' }]
+    const result = await renderWithProviders(ClassificationConditionBuilder, {
+      props: {
+        ...defaultProps,
+        fields: [definition],
+        modelValue: { field: definition.id, operator: 'equals', value: '' },
+      },
+    })
+    await user.type(screen.getByRole('textbox', { name: '条件值' }), '日语')
+    await user.click(await screen.findByRole('option', { name: '日语 · ja' }))
+    expect((result.emitted()['update:modelValue'] as unknown[][]).at(-1)?.[0]).toEqual({
+      field: definition.id,
+      operator: 'equals',
+      value: 'ja',
+    })
+    await result.rerender({ modelValue: { field: definition.id, operator: 'equals', value: '' } })
+    const input = screen.getByRole('textbox', { name: '条件值' })
+    await user.clear(input)
+    await user.type(input, '未知语言{Enter}{Tab}')
+    expect((result.emitted()['update:modelValue'] as unknown[][]).at(-1)?.[0]).toEqual({
+      field: definition.id,
+      operator: 'equals',
+      value: '未知语言',
+    })
+  })
+
+  it('新增开放字段条件时保持空值，不把字典首项误设为匹配条件', async () => {
+    const definition = fieldDefinition('media.language', '原始语言', 'string', ['equals'])
+    definition.options = [{ value: 'ja', label: '日语' }]
+    const result = await renderWithProviders(ClassificationConditionBuilder, {
+      props: {
+        ...defaultProps,
+        fields: [definition],
+        modelValue: { field: definition.id, operator: 'equals', value: '' },
+      },
+    })
+
+    expect(screen.getByRole('textbox', { name: '条件值' })).toHaveValue('')
+    expect(result.emitted()['update:modelValue']).toBeUndefined()
   })
 })

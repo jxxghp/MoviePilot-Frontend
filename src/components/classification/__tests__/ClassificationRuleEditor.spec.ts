@@ -251,8 +251,8 @@ describe('ClassificationRuleEditor', () => {
     const editor = await renderEditor([createRule()])
 
     await user.click(screen.getByLabelText('分类目标 电影规则'))
-    expect(await screen.findByRole('option', { name: '华语电影 · 电影 / 华语' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: '摇滚专辑 · 音乐 / 摇滚' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: '华语电影 · 路径：电影 / 华语' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '摇滚专辑 · 路径：音乐 / 摇滚' })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
 
     await selectOption('媒体类型 电影规则', '音乐')
@@ -262,7 +262,7 @@ describe('ClassificationRuleEditor', () => {
     expect(editor.latestRules()[0]?.media_types).toEqual(['音乐'])
     expect(editor.latestRules()[0]?.target.category_id).toBeNull()
 
-    await selectOption('分类目标 电影规则', '摇滚专辑 · 音乐 / 摇滚')
+    await selectOption('分类目标 电影规则', '摇滚专辑 · 路径：音乐 / 摇滚')
     expect(editor.latestRules()[0]?.target.category_id).toBe('music-rock')
   })
 

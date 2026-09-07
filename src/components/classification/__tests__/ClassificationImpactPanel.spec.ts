@@ -170,9 +170,9 @@ describe('ClassificationImpactPanel', () => {
     }
 
     expect(screen.getByRole('note')).toHaveTextContent('未展示的记录不能据此判断是否发生变化')
-    expect(screen.getByLabelText('当前规则分类计数')).toHaveTextContent('科幻电影 · 电影 / 科幻70')
-    expect(screen.getByLabelText('待发布规则分类计数')).toHaveTextContent('华语电影 · 电影 / 华语1')
-    expect(screen.getByLabelText('待发布规则分类计数')).toHaveTextContent('无损音乐 · 音乐 / 专辑 / 无损30')
+    expect(screen.getByLabelText('当前规则分类计数')).toHaveTextContent('科幻电影 · 路径：电影 / 科幻70')
+    expect(screen.getByLabelText('待发布规则分类计数')).toHaveTextContent('华语电影 · 路径：电影 / 华语1')
+    expect(screen.getByLabelText('待发布规则分类计数')).toHaveTextContent('无损音乐 · 路径：音乐 / 专辑 / 无损30')
   })
 
   it('按媒体类型和来源展示分组，并完整呈现有限变化示例的前后结果', async () => {
@@ -189,13 +189,13 @@ describe('ClassificationImpactPanel', () => {
     expect(within(example).getByRole('list', { name: '变化字段' })).toHaveTextContent('分类变化分类路径命中规则')
 
     const previous = within(example).getByRole('region', { name: '变化示例 1 的活动策略结果' })
-    expect(previous).toHaveTextContent('科幻电影 · 电影 / 科幻')
+    expect(previous).toHaveTextContent('科幻电影 · 路径：电影 / 科幻')
     expect(previous).toHaveTextContent('电影 / 科幻')
     expect(previous).toHaveTextContent('规则命中')
     expect(previous).toHaveTextContent('完整')
 
     const candidate = within(example).getByRole('region', { name: '变化示例 1 的候选策略结果' })
-    expect(candidate).toHaveTextContent('华语电影 · 电影 / 华语')
+    expect(candidate).toHaveTextContent('华语电影 · 路径：电影 / 华语')
     expect(candidate).toHaveTextContent('电影 / 华语')
     expect(candidate).toHaveTextContent('全局默认分类')
     expect(candidate).toHaveTextContent('媒体信息不完整')
