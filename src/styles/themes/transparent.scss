@@ -243,6 +243,12 @@ html[data-theme='transparent'] {
     background: rgba(var(--v-theme-surface), var(--transparent-opacity));
   }
 
+  // 搜索框
+  .search-desktop-activator .search-input-wrapper,
+  .v-theme--transparent .search-desktop-activator .search-input-wrapper {
+    background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
+  }
+
   // 智能助手面板
   .agent-assistant-panel {
     backdrop-filter: blur(var(--transparent-blur-heavy));

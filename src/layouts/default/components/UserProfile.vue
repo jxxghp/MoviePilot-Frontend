@@ -673,29 +673,6 @@ onUnmounted(() => {
             <VListItemTitle>{{ t('user.siteAuth') }}</VListItemTitle>
           </VListItem>
 
-          <template v-if="systemUpdateMenuItems.length">
-            <VDivider class="my-2" />
-            <VListItem
-              v-for="item in systemUpdateMenuItems"
-              :key="item.type"
-              link
-              class="mb-1 rounded-lg"
-              hover
-              @click="openSystemUpdate(item)"
-            >
-              <template #prepend>
-                <VIcon :icon="item.type === 'resources' ? 'mdi-database-cog-outline' : 'mdi-update'" />
-              </template>
-              <VListItemTitle>
-                {{
-                  t(item.state === 'ready' ? 'systemUpdate.menuRestartTo' : 'systemUpdate.menuUpdateTo', {
-                    version: systemUpdateMenuVersion(item),
-                  })
-                }}
-              </VListItemTitle>
-            </VListItem>
-          </template>
-
           <!-- 👉 UI模式设置 - 使用嵌套菜单 -->
           <VMenu location="end" offset-x width="15rem" v-model="showUIModeMenu" :close-on-content-click="true">
             <template v-slot:activator="{ props: menuProps }">
@@ -844,6 +821,28 @@ onUnmounted(() => {
             </template>
             <VListItemTitle>{{ t('setting.about.title') }}</VListItemTitle>
           </VListItem>
+
+          <template v-if="canAdmin && systemUpdateMenuItems.length">
+            <VListItem
+              v-for="item in systemUpdateMenuItems"
+              :key="item.type"
+              link
+              class="mb-1 rounded-lg"
+              hover
+              @click="openSystemUpdate(item)"
+            >
+              <template #prepend>
+                <VIcon :icon="item.type === 'resources' ? 'mdi-database-cog-outline' : 'mdi-update'" />
+              </template>
+              <VListItemTitle>
+                {{
+                  t(item.state === 'ready' ? 'systemUpdate.menuRestartTo' : 'systemUpdate.menuUpdateTo', {
+                    version: systemUpdateMenuVersion(item),
+                  })
+                }}
+              </VListItemTitle>
+            </VListItem>
+          </template>
 
           <!-- Divider -->
           <VDivider v-if="canAdmin" class="my-3" />

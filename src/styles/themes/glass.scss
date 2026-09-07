@@ -597,14 +597,12 @@ html[data-theme='glass'] {
     border: 1px solid var(--glass-control-prominent-border) !important;
     -webkit-backdrop-filter: var(--glass-control-prominent-backdrop-filter);
     backdrop-filter: var(--glass-control-prominent-backdrop-filter);
-    background-color: var(--glass-control-prominent) !important;
     background-image: var(--glass-sheen) !important;
     box-shadow: var(--glass-control-prominent-shadow);
   }
 
   :where(.search-desktop-activator, .search-header) .search-input-wrapper:focus-within {
     border-color: rgba(var(--v-theme-primary), 70%) !important;
-    background: var(--glass-control-prominent-focus) !important;
     box-shadow: var(--glass-control-prominent-focus-shadow);
   }
 

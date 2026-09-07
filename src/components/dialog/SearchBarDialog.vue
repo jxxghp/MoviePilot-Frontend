@@ -1077,15 +1077,8 @@ onMounted(() => {
 }
 
 .search-desktop-activator .search-input-wrapper {
-  border-color: rgba(var(--v-theme-on-surface), 0.12);
-  background: rgba(var(--v-theme-surface), 0.72);
   block-size: 42px;
   padding-inline: 14px 8px;
-}
-
-html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
-.v-theme--transparent .search-desktop-activator .search-input-wrapper {
-  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
 }
 
 .search-icon-trigger {
@@ -1106,7 +1099,6 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  border: 1.5px solid rgba(var(--v-theme-primary), 0.4);
   border-radius: var(--app-vuetify-rounded-pill);
   background-color: rgba(var(--v-theme-surface-variant), 0.04);
   block-size: 48px;
