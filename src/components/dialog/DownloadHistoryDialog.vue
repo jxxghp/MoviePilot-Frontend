@@ -84,7 +84,6 @@ function getHistoryTitle(item: DownloadHistory) {
 function getSeasonEpisode(item: DownloadHistory) {
   return `${item.seasons || ''}${item.episodes || ''}`
 }
-
 </script>
 
 <template>
