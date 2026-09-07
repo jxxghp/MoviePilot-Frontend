@@ -2024,7 +2024,7 @@ export interface StorageOption {
 export interface MediaServerConf {
   // 名称
   name: string
-  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen/navidrome
+  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen/navidrome/mediavault
   type: string
   // 配置
   config: { [key: string]: any }
@@ -2040,7 +2040,7 @@ export interface MediaServerConf {
 export interface MediaServerClient {
   // 实例名称
   name: string
-  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen/navidrome
+  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen/navidrome/mediavault
   type: string
 }
 

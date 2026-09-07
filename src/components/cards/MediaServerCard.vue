@@ -86,6 +86,8 @@ const getIcon = computed(() => {
       return getLogoUrl('ugreen')
     case 'plex':
       return getLogoUrl('plex')
+    case 'mediavault':
+      return getLogoUrl('mediavault')
     default:
       // Navidrome 等未内置图标的服务器统一回退到通用媒体服务器图标
       return getLogoUrl('mediaserver')

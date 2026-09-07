@@ -106,6 +106,10 @@ export const mediaServerOptions = [
     value: 'navidrome',
     title: i18n.global.t('setting.system.navidrome'),
   },
+  {
+    value: 'mediavault',
+    title: i18n.global.t('setting.system.mediaVault'),
+  },
 ]
 
 export const mediaServerDict = mediaServerOptions.reduce(
