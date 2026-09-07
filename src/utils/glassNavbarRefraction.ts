@@ -313,24 +313,59 @@ export function createGlassPanelBackdropField({ width, height, panels, optics }:
   const pixelWidth = normalizePixelSize(width)
   const pixelHeight = normalizePixelSize(height)
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
-  for (let offset = 0; offset < pixels.length; offset += 4) {
-    pixels[offset] = DISPLACEMENT_NEUTRAL_CHANNEL
-    pixels[offset + 1] = 255
-    pixels[offset + 2] = DISPLACEMENT_NEUTRAL_CHANNEL
-    pixels[offset + 3] = 255
-  }
+  const pixelWords = new Uint32Array(pixels.buffer)
+  // 从字节视图取得填充值，与目标视图共享平台字节序，不依赖大小端假设。
+  const neutralWord = new Uint32Array(
+    new Uint8ClampedArray([DISPLACEMENT_NEUTRAL_CHANNEL, 255, DISPLACEMENT_NEUTRAL_CHANNEL, 255]).buffer,
+  )[0]
+  pixelWords.fill(neutralWord)
   for (const panel of panels) {
     const field = createGlassNavbarDisplacementField({ ...panel, optics, surface: 'panel' })
     const left = Math.round(panel.x)
     const top = Math.round(panel.y)
     const radius = Math.max(0, Math.min(panel.radius, field.width / 2, field.height / 2))
-    for (let y = Math.max(0, -top); y < Math.min(field.height, pixelHeight - top); y += 1) {
-      for (let x = Math.max(0, -left); x < Math.min(field.width, pixelWidth - left); x += 1) {
-        if (roundedRectangleSignedDistance(x + 0.5, y + 0.5, field.width, field.height, radius) > 0) continue
-        const source = (y * field.width + x) * 4
-        const destination = ((top + y) * pixelWidth + left + x) * 4
-        pixels.set(field.pixels.subarray(source, source + 4), destination)
+    const sourceTop = Math.max(0, -top)
+    const sourceBottom = Math.min(field.height, pixelHeight - top)
+    const sourceLeft = Math.max(0, -left)
+    const sourceRight = Math.min(field.width, pixelWidth - left)
+    if (!(sourceTop < sourceBottom && sourceLeft < sourceRight)) continue
+    for (let y = sourceTop; y < sourceBottom; y += 1) {
+      let spanStart = 0
+      let spanEnd = field.width
+
+      // NaN 半径的 `signedDistance > 0` 判定为 false，因此该输入保持整行复制语义。
+      if (!Number.isNaN(radius)) {
+        // 圆角扫描线的行中点必在内部，左右半行各自单调，可二分连续区间的两端。
+        const isInside = (x: number) =>
+          roundedRectangleSignedDistance(x + 0.5, y + 0.5, field.width, field.height, radius) <= 0
+        let searchStart = 0
+        let searchEnd = field.width
+        while (searchStart < searchEnd) {
+          const middle = Math.floor((searchStart + searchEnd) / 2)
+          if (isInside(middle)) searchEnd = middle
+          else searchStart = middle + 1
+        }
+        spanStart = searchStart
+        spanEnd = spanStart
+
+        if (spanStart < field.width) {
+          searchEnd = field.width
+          while (searchStart < searchEnd) {
+            const middle = Math.floor((searchStart + searchEnd) / 2)
+            if (isInside(middle)) searchStart = middle + 1
+            else searchEnd = middle
+          }
+          spanEnd = searchStart
+        }
       }
+
+      const copyStart = Math.max(spanStart, sourceLeft)
+      const copyEnd = Math.min(spanEnd, sourceRight)
+      if (copyEnd <= copyStart) continue
+
+      const source = (y * field.width + copyStart) * 4
+      const destination = ((top + y) * pixelWidth + left + copyStart) * 4
+      pixels.set(field.pixels.subarray(source, source + (copyEnd - copyStart) * 4), destination)
     }
   }
   return { width: pixelWidth, height: pixelHeight, pixels }

@@ -10,6 +10,48 @@ import {
   type GlassNavbarDisplacementGeometry,
 } from '@/utils/glassNavbarRefraction'
 
+type GlassPanelBackdropGeometry = Parameters<typeof createGlassPanelBackdropField>[0]
+
+function roundedRectangleSignedDistanceReference(x: number, y: number, width: number, height: number, radius: number) {
+  const offsetX = Math.abs(x - width / 2) - (width / 2 - radius)
+  const offsetY = Math.abs(y - height / 2) - (height / 2 - radius)
+  const outsideX = Math.max(offsetX, 0)
+  const outsideY = Math.max(offsetY, 0)
+  const outsideDistance = outsideX === 0 && outsideY === 0 ? 0 : Math.hypot(outsideX, outsideY)
+
+  return outsideDistance + Math.min(Math.max(offsetX, offsetY), 0) - radius
+}
+
+// 独立标量合成保护圆角裁剪、覆盖顺序和透明通道契约，避免优化路径与自身比较。
+function createScalarGlassPanelBackdropReference({ width, height, panels, optics }: GlassPanelBackdropGeometry) {
+  const pixelWidth = Number.isFinite(width) ? Math.max(1, Math.round(width)) : 1
+  const pixelHeight = Number.isFinite(height) ? Math.max(1, Math.round(height)) : 1
+  const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    pixels[offset] = 128
+    pixels[offset + 1] = 255
+    pixels[offset + 2] = 128
+    pixels[offset + 3] = 255
+  }
+
+  for (const panel of panels) {
+    const field = createGlassNavbarDisplacementField({ ...panel, optics, surface: 'panel' })
+    const left = Math.round(panel.x)
+    const top = Math.round(panel.y)
+    const radius = Math.max(0, Math.min(panel.radius, field.width / 2, field.height / 2))
+    for (let y = Math.max(0, -top); y < Math.min(field.height, pixelHeight - top); y += 1) {
+      for (let x = Math.max(0, -left); x < Math.min(field.width, pixelWidth - left); x += 1) {
+        if (roundedRectangleSignedDistanceReference(x + 0.5, y + 0.5, field.width, field.height, radius) > 0) continue
+        const source = (y * field.width + x) * 4
+        const destination = ((top + y) * pixelWidth + left + x) * 4
+        pixels.set(field.pixels.subarray(source, source + 4), destination)
+      }
+    }
+  }
+
+  return { width: pixelWidth, height: pixelHeight, pixels }
+}
+
 describe('getGlassNavbarOpticalResponse', () => {
   it('prioritizes default reading while retaining the horizontal lens', () => {
     const optics = getGlassNavbarOpticalResponse({ deformation: 48, translation: 48 })
@@ -126,6 +168,88 @@ describe('createGlassNavbarDisplacementField', () => {
     expect(pixelAt(field, 35, 15)[1]).toBe(255)
     expect(pixelAt(field, 45, 15)[1]).toBe(0)
     expect(pixelAt(field, 50, 40)[1]).toBe(255)
+  })
+
+  it.each([
+    {
+      width: 0,
+      height: -4,
+      panels: [{ x: -0.5, y: 0.5, width: 0, height: 0, radius: 99 }],
+    },
+    {
+      width: 3,
+      height: 2,
+      panels: [
+        { x: 0.5, y: 0.5, width: 3, height: 2, radius: 99 },
+        { x: 1.5, y: -0.5, width: 2, height: 1, radius: -4 },
+      ],
+    },
+    {
+      width: 11,
+      height: 9,
+      panels: [
+        { x: -2.5, y: -1.5, width: 8, height: 7, radius: 3.5 },
+        { x: 4.5, y: 2.5, width: 6, height: 6, radius: 1.5 },
+      ],
+    },
+    {
+      width: 13,
+      height: 7,
+      panels: [
+        { x: 13.5, y: 0.5, width: 5, height: 5, radius: 2 },
+        { x: -7.5, y: 1.5, width: 5, height: 4, radius: 2 },
+      ],
+    },
+    {
+      width: 16,
+      height: 12,
+      panels: [
+        { x: 3.5, y: 2.5, width: 8, height: 7, radius: Number.NaN },
+        { x: 4.5, y: 3.5, width: 7, height: 6, radius: 4 },
+      ],
+    },
+    {
+      width: 8,
+      height: 8,
+      panels: [
+        { x: 99, y: 99, width: 4, height: 4, radius: 2 },
+        { x: -99, y: -99, width: 4, height: 4, radius: 2 },
+        { x: 2.5, y: 2.5, width: 4, height: 4, radius: Number.POSITIVE_INFINITY },
+      ],
+    },
+    {
+      width: 5,
+      height: 4,
+      panels: [],
+    },
+    // 窄圆形覆盖奇偶宽度，并把每一行分别贴到背板的上下边界。
+    {
+      width: 18,
+      height: 18,
+      panels: [
+        { x: 0, y: 0, width: 1, height: 1, radius: 0.5 },
+        { x: 2, y: 0, width: 2, height: 2, radius: 1 },
+        { x: 5, y: 0, width: 3, height: 3, radius: 1.5 },
+        { x: 9, y: 0, width: 4, height: 4, radius: 2 },
+        { x: 14, y: 0, width: 5, height: 5, radius: 2.5 },
+        { x: 0, y: 17, width: 1, height: 1, radius: 0.5 },
+        { x: 2, y: 16, width: 2, height: 2, radius: 1 },
+        { x: 5, y: 15, width: 3, height: 3, radius: 1.5 },
+        { x: 9, y: 14, width: 4, height: 4, radius: 2 },
+        { x: 13, y: 13, width: 5, height: 5, radius: 2.5 },
+      ],
+    },
+  ])('matches the independent scalar backdrop reference for $width x $height', geometry => {
+    const input = {
+      ...geometry,
+      optics: getGlassSidebarOpticalResponse({ deformation: 80, translation: 80 }),
+    }
+    const expected = createScalarGlassPanelBackdropReference(input)
+    const actual = createGlassPanelBackdropField(input)
+
+    expect(actual.width).toBe(expected.width)
+    expect(actual.height).toBe(expected.height)
+    expect([...actual.pixels]).toEqual([...expected.pixels])
   })
 
   it.each([
