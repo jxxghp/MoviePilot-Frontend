@@ -1854,6 +1854,7 @@ onUnmounted(() => {
       :loading-text="t('transferHistory.loading')"
       hover
       :style="{ height: `${availableHeight}px` }"
+      class="rounded-0"
     >
       <template #header.data-table-group>
         <span>{{ t('transferHistory.titleColumn') }}</span>
@@ -1986,6 +1987,7 @@ onUnmounted(() => {
       :loading-text="t('transferHistory.loading')"
       hover
       :style="{ height: `${availableHeight}px` }"
+      class="rounded-0"
     >
       <template #item.title="{ item }">
         <div class="transfer-history-desktop-media-cell">
@@ -2397,13 +2399,13 @@ onUnmounted(() => {
 
 .transfer-history-desktop-filter-group {
   display: flex;
-  align-items: stretch;
   overflow: hidden;
-  inline-size: min(100%, 36rem);
-  min-block-size: 40px;
+  align-items: stretch;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.16);
   border-radius: var(--app-field-radius);
   background: rgba(var(--v-theme-surface), 0.04);
+  inline-size: min(100%, 36rem);
+  min-block-size: 40px;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
@@ -2416,14 +2418,14 @@ onUnmounted(() => {
 
 // 当前样式未 scoped，直接限定组合框后代，保留 outlined 控件的居中和图标留白。
 .transfer-history-desktop-filter-group .v-input {
+  margin: 0;
   grid-template-rows: 1fr;
   min-inline-size: 0;
-  margin: 0;
 }
 
 .transfer-history-desktop-filter-group .v-input .v-field {
   border-radius: 0;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   backdrop-filter: none;
   background: transparent !important;
   box-shadow: none !important;
@@ -2446,8 +2448,8 @@ onUnmounted(() => {
 
 .transfer-history-desktop-status {
   flex: 0 0 10rem;
-  min-inline-size: 0;
   border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  min-inline-size: 0;
 }
 
 .transfer-history-desktop-media-cell {
@@ -2458,25 +2460,25 @@ onUnmounted(() => {
 }
 
 .transfer-history-desktop-poster-frame {
-  flex: 0 0 36px;
-  inline-size: 36px;
-  block-size: 54px;
-  min-inline-size: 36px;
-  min-block-size: 54px;
-  max-inline-size: 36px;
-  max-block-size: 54px;
   overflow: hidden;
+  flex: 0 0 36px;
   border-radius: 4px;
   aspect-ratio: 2 / 3;
   background: rgba(var(--v-theme-on-surface), 0.08);
+  block-size: 54px;
+  inline-size: 36px;
+  max-block-size: 54px;
+  max-inline-size: 36px;
+  min-block-size: 54px;
+  min-inline-size: 36px;
 }
 
 .transfer-history-desktop-poster,
 .transfer-history-desktop-poster-placeholder {
-  inline-size: 100%;
   block-size: 100%;
-  max-inline-size: 100%;
+  inline-size: 100%;
   max-block-size: 100%;
+  max-inline-size: 100%;
 }
 
 .transfer-history-desktop-poster :deep(.v-img__img) {
@@ -2603,19 +2605,19 @@ onUnmounted(() => {
 
 .transfer-history-mobile-record__poster-wrapper {
   position: relative;
+  overflow: hidden;
+  border-radius: var(--app-control-radius);
+  background: var(--transfer-history-mobile-muted-bg);
+  block-size: 5.25rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 18%);
   grid-row: 1 / span 2;
   inline-size: 3.5rem;
-  block-size: 5.25rem;
-  border-radius: var(--app-control-radius);
-  overflow: hidden;
-  background: var(--transfer-history-mobile-muted-bg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
 .transfer-history-mobile-record__poster {
-  inline-size: 100%;
-  block-size: 100%;
   border-radius: var(--app-control-radius);
+  block-size: 100%;
+  inline-size: 100%;
 }
 
 .transfer-history-mobile-record__poster :deep(.v-img__img) {
@@ -2623,32 +2625,32 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-record__poster-skeleton {
-  inline-size: 100%;
   block-size: 100%;
+  inline-size: 100%;
 }
 
 .transfer-history-mobile-record__poster-skeleton :deep(.v-skeleton-loader) {
-  inline-size: 100%;
   block-size: 100%;
+  inline-size: 100%;
 }
 
 .transfer-history-mobile-record__poster-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  inline-size: 100%;
-  block-size: 100%;
   background: rgba(var(--v-theme-on-surface), 0.08);
+  block-size: 100%;
+  inline-size: 100%;
 }
 
 .transfer-history-mobile-record__poster-type {
   position: absolute;
-  inset-block-end: 4px;
-  inset-inline-start: 4px;
   padding: 2px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 55%);
   color: rgb(255, 255, 255);
+  inset-block-end: 4px;
+  inset-inline-start: 4px;
   opacity: 0.92;
 }
 
@@ -2688,9 +2690,9 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-record__checkbox {
-  place-self: start end;
   margin-block-start: -0.35rem;
   margin-inline-end: -0.35rem;
+  place-self: start end;
 }
 
 .transfer-history-mobile-record__checkbox :deep(.v-selection-control) {
@@ -2698,23 +2700,23 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-record__meta {
-  grid-column: 2 / -1;
-  grid-row: 2;
   display: flex;
+  overflow: hidden;
   align-items: center;
   justify-content: flex-start;
   gap: 0.65rem;
+  grid-column: 2 / -1;
+  grid-row: 2;
   margin-block-start: 0;
   min-inline-size: 0;
-  overflow: hidden;
   white-space: nowrap;
 }
 
 .transfer-history-mobile-record__meta > span {
+  overflow: hidden;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   line-height: 1.4;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
 
