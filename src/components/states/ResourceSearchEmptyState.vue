@@ -38,67 +38,60 @@ withDefaults(defineProps<Props>(), {
 .resource-search-empty-state {
   display: grid;
   align-content: center;
-  justify-items: center;
-  border: var(--app-grouped-list-border);
-  border-radius: 8px;
-  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
-  backdrop-filter: var(--app-grouped-list-backdrop-filter);
-  background-color: rgba(var(--v-theme-surface), 0.68);
-  background-image: var(--glass-sheen, none);
-  box-shadow: var(--app-surface-shadow, none);
+  padding: clamp(28px, 5vw, 48px);
+  animation: resource-empty-state-enter 0.24s ease-out both;
   gap: 20px;
   inline-size: min(100%, 720px);
+  justify-items: center;
   margin-inline: auto;
   min-block-size: clamp(280px, 38vh, 380px);
-  padding: clamp(28px, 5vw, 48px);
   text-align: center;
-  animation: resource-empty-state-enter 0.24s ease-out both;
 }
 
 .resource-search-empty-state__visual {
   display: grid;
-  place-items: center;
   border: 1px solid rgba(var(--v-theme-primary), 0.24);
   border-radius: 8px;
   background: rgba(var(--v-theme-primary), 0.1);
   block-size: 76px;
+  box-shadow: inset 0 1px 0 rgba(var(--v-theme-on-surface), 0.1);
   color: rgb(var(--v-theme-primary));
   inline-size: 76px;
-  box-shadow: inset 0 1px 0 rgba(var(--v-theme-on-surface), 0.1);
+  place-items: center;
 }
 
 .resource-search-empty-state__copy {
   display: grid;
-  justify-items: center;
   gap: 10px;
+  justify-items: center;
   max-inline-size: 520px;
 }
 
 .resource-search-empty-state__title {
+  margin: 0;
   color: rgb(var(--v-theme-on-surface));
   font-size: 1.25rem;
   font-weight: 650;
   line-height: 1.4;
-  margin: 0;
 }
 
 .resource-search-empty-state__description {
+  margin: 0;
   color: rgba(var(--v-theme-on-surface), 0.7);
   font-size: 0.95rem;
   line-height: 1.7;
-  margin: 0;
 }
 
 .resource-search-empty-state__query {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 6px;
   background: rgba(var(--v-theme-on-surface), 0.05);
   color: rgba(var(--v-theme-on-surface), 0.78);
   font-size: 0.8125rem;
+  gap: 7px;
   line-height: 1.5;
   margin-block-start: 4px;
   max-inline-size: min(100%, 420px);
