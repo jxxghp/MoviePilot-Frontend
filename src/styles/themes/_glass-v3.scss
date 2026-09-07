@@ -326,6 +326,26 @@
   // 清透材质以单条原生轮廓承接真实折射，不让多组柔光在圆角处形成分离的内外弧线。
   html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
     body[data-theme='glass'] {
+    // 固定导航的输入区需要隔开底下滚过的文字；透明与折射保留在外围玻璃表面。
+    .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active, .layout-window-controls-overlay-shell)
+      .layout-navbar
+      .search-desktop-activator {
+      --glass-control-prominent: rgba(
+        var(--glass-v3-ink),
+        clamp(0.64, calc(0.62 + var(--glass-surface-density, 0.62) * 0.18), 0.82)
+      );
+      --glass-control-prominent-focus: rgba(var(--glass-v3-ink), 0.84);
+      --glass-control-placeholder-color: rgba(242, 245, 250, 82%);
+      --glass-control-icon-color: rgba(242, 245, 250, 90%);
+    }
+
+    // 弹层作为阅读层额外吸收背景细节，沿用原有染色与高光，不对背景做散射。
+    .v-overlay__content > :where(.v-card, .v-sheet, .v-list),
+    .v-overlay__content > form > :where(.v-card, .v-sheet) {
+      background-image:
+        var(--glass-sheen), linear-gradient(rgba(var(--glass-v3-ink), 0.4), rgba(var(--glass-v3-ink), 0.4)) !important;
+    }
+
     .v-card {
       --glass-v3-surface-edge: inset 0 1px 0 var(--glass-highlight);
     }
