@@ -423,7 +423,6 @@ interface PreparedWallpaperTexture {
 }
 
 const SURFACE_SELECTORS = [
-  { rank: 1, selector: '.agent-assistant-panel', space: 'fixed' },
   { rank: 1, selector: '.login-card', space: 'fixed' },
   { rank: 2, selector: '.layout-vertical-nav', space: 'fixed' },
   { rank: 2, selector: '.layout-navbar', space: 'fixed' },
@@ -447,10 +446,17 @@ const SURFACE_SELECTORS = [
 const SURFACE_SELECTOR_QUERY = SURFACE_SELECTORS.map(({ selector }) => selector).join(',')
 const INTERACTION_CLIP_SELECTOR = '.app-hover-lift-card'
 const OPTICAL_BOUNDARY_SELECTOR = '[data-glass-optical-boundary]'
-const OPTICAL_EXCLUSION_SELECTOR = '[data-glass-optical-mode="excluded"]'
+const OPTICAL_EXCLUSION_SELECTOR = [
+  '[data-glass-optical-mode="excluded"]',
+  '.v-overlay__content',
+  '.theme-customizer-panel-host',
+  '.plugin-quick-access',
+  '.agent-assistant-panel',
+  '.layout-vertical-nav.overlay-nav',
+].join(',')
 const INTERACTION_CLIP_OVERSCAN_PX = 96
 
-/** 排除合同覆盖整个子树；后代不能用 dynamic 声明重新加入 renderer。 */
+/** 显式 excluded 标记与原生 CSS 临时承载层共用排除合同；后代不能重新加入 renderer。 */
 function isGlassOpticalElementExcluded(element: Element) {
   return Boolean(element.closest(OPTICAL_EXCLUSION_SELECTOR))
 }
@@ -4152,7 +4158,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!toValue(options.active)) return
 
     if (event.matches) {
-      disposeRenderer()
+      // Canvas 仍挂载，恢复时需要复用它；释放资源但不主动丢失其 context。
+      disposeRenderer(false)
       updateRendererState('fallback')
       return
     }

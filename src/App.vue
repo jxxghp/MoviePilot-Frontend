@@ -289,12 +289,12 @@ const shouldRenderGlassOpticalLayer = computed(
 const loadGlassOpticalLayer = () => import('@/components/theme/GlassOpticalLayer.vue')
 const GlassOpticalLayer = defineAsyncComponent(loadGlassOpticalLayer)
 
-// 模块下载与壁纸准备并行；实际挂载仍等待路由和壁纸，CSS 档不请求光学组件。
+// 玻璃光学组件与 Three 模块并行预载；实际挂载仍等待路由和壁纸，非玻璃或 CSS 档位不请求光学模块。
 watch(
   () => isGlassTheme.value && opticalQuality.value !== 'css',
   enabled => {
     if (!enabled) return
-    void loadGlassOpticalLayer().catch(error => {
+    void Promise.all([loadGlassOpticalLayer(), import('three')]).catch(error => {
       console.warn('[Glass] Optical component preload failed', error)
     })
   },

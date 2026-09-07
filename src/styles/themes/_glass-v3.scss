@@ -1,5 +1,22 @@
 @use '@configured-variables' as variables;
 
+// 临时阅读表面共用材质入口；常驻导航、内容卡片和 Footer Dock 不属于这个集合。
+$-popup-hosts: (
+  '.v-overlay__content',
+  '.theme-customizer-panel-host',
+  '.plugin-quick-access',
+  '.agent-assistant-panel',
+  '.agent-assistant-fab__bubbles',
+  '.agent-assistant-fab__bubble',
+  '.agent-assistant-command-menu',
+  '.agent-assistant-pending-files',
+  '.agent-assistant-input',
+  '.v-snackbar__wrapper',
+  '.Vue-Toastification__toast',
+  '.system-update-prompt',
+  '.layout-vertical-nav.overlay-nav'
+);
+
 // V3 表面按信息角色统一材料；只改变承载层，不改变图表、业务数据与交互命中区。
 @mixin surfaces {
   html[data-theme='glass'] {
@@ -15,6 +32,9 @@
     --glass-v3-navigation-content-gap: 16px;
     --glass-v3-navigation-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     --glass-v3-navigation-filter: saturate(118%) brightness(var(--glass-transmission-brightness, 1));
+    --glass-popup-blur: 18px;
+    --glass-popup-surface: rgba(31, 34, 39, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.62) * 0.16), 0.32));
+    --glass-popup-filter: blur(var(--glass-popup-blur)) saturate(135%);
     --glass-v3-card-background:
       linear-gradient(128deg, rgba(255, 255, 255, var(--glass-v3-sheen)), transparent 38%),
       linear-gradient(
@@ -30,6 +50,11 @@
 
     &[data-glass-appearance='tinted'] {
       --glass-v3-card-tint: clamp(0.025, calc(var(--glass-tint-density, 0.65) * 0.13), 0.15);
+      --glass-popup-surface: color-mix(
+        in srgb,
+        rgba(31, 34, 39, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.72) * 0.16), 0.32)) 90%,
+        rgba(var(--glass-material-accent-rgb), 0.18)
+      );
     }
 
     &[data-glass-appearance='frosted'] {
@@ -37,6 +62,14 @@
       --glass-v3-fill: clamp(0.08, calc(0.065 + var(--glass-surface-density, 0.86) * 0.11), 0.21);
       --glass-v3-sheen: clamp(0.08, calc(0.07 + var(--glass-reflection, 0.35) * 0.22), 0.24);
       --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+      // 弹层只比清透变体稍厚，避免与模态遮罩累加成看不见背景的灰板。
+      --glass-popup-blur: 24px;
+      --glass-popup-surface: rgba(
+        31,
+        34,
+        39,
+        clamp(0.24, calc(0.18 + var(--glass-surface-density, 0.86) * 0.14), 0.36)
+      );
     }
 
     body[data-theme='glass'] {
@@ -326,6 +359,19 @@
   // 清透材质以单条原生轮廓承接真实折射，不让多组柔光在圆角处形成分离的内外弧线。
   html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
     body[data-theme='glass'] {
+    // 固定导航的输入区需要隔开底下滚过的文字；透明与折射保留在外围玻璃表面。
+    .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active, .layout-window-controls-overlay-shell)
+      .layout-navbar
+      .search-desktop-activator {
+      --glass-control-prominent: rgba(
+        var(--glass-v3-ink),
+        clamp(0.64, calc(0.62 + var(--glass-surface-density, 0.62) * 0.18), 0.82)
+      );
+      --glass-control-prominent-focus: rgba(var(--glass-v3-ink), 0.84);
+      --glass-control-placeholder-color: rgba(242, 245, 250, 82%);
+      --glass-control-icon-color: rgba(242, 245, 250, 90%);
+    }
+
     .v-card {
       --glass-v3-surface-edge: inset 0 1px 0 var(--glass-highlight);
     }
@@ -342,6 +388,62 @@
     }
   }
 
+  // 所有临时表面采用同族阅读材质，Vuetify 容器只传递 token，由真正的表面执行一次采样。
+  html[data-theme='glass'] body[data-theme='glass'] {
+    :is(#{$-popup-hosts}) {
+      --glass-overlay-surface: var(--glass-popup-surface);
+      --glass-overlay-blur: var(--glass-popup-blur);
+      --glass-overlay-backdrop-filter: var(--glass-popup-filter);
+      --glass-native-surface-backdrop-filter: none;
+      --glass-surface-backdrop-filter: none;
+      --glass-raised-backdrop-filter: none;
+      --app-grouped-list-backdrop-filter: none;
+      --v-medium-emphasis-opacity: 0.9;
+      --v-high-emphasis-opacity: 1;
+    }
+
+    // Vuetify 子表面会重新声明主题强调度，阅读层需在实际文字所在的主题边界保持对比。
+    :is(#{$-popup-hosts}) .v-theme--glass {
+      --v-medium-emphasis-opacity: 0.9;
+      --v-high-emphasis-opacity: 1;
+    }
+
+    .v-overlay__content > :where(.v-card, .v-sheet, .v-list),
+    .v-overlay__content > form > :where(.v-card, .v-sheet) {
+      background-image: var(--glass-sheen) !important;
+    }
+
+    .layout-vertical-nav.overlay-nav::before,
+    :is(.agent-assistant-command-menu, .agent-assistant-pending-files, .agent-assistant-input) {
+      backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+      -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+      background-color: var(--glass-overlay-surface) !important;
+      background-image: var(--glass-sheen) !important;
+    }
+
+    // 消息列表已位于扩散后的面板上，只有浮起的输入和命令区域单独处理其后方内容。
+    .agent-assistant-panel .agent-assistant-shell {
+      --agent-assistant-panel-blur: 0px;
+    }
+
+    .v-dialog {
+      --v-overlay-opacity: 1;
+    }
+
+    .v-dialog > .v-overlay__scrim {
+      background: rgba(12, 14, 18, 0.16);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    html[data-theme='glass'] body[data-theme='glass'] :is(#{$-popup-hosts}) {
+      --glass-overlay-backdrop-filter: none !important;
+      --glass-overlay-surface: rgb(31, 34, 39) !important;
+    }
+  }
+
   @media (prefers-reduced-transparency: reduce) {
     html[data-theme='glass'] {
       --glass-v3-navigation-filter: none !important;
@@ -349,6 +451,16 @@
     }
 
     html[data-theme='glass'] body[data-theme='glass'] {
+      :is(#{$-popup-hosts}) {
+        --glass-overlay-backdrop-filter: none !important;
+        --glass-overlay-surface: rgb(31, 34, 39) !important;
+      }
+
+      .v-dialog > .v-overlay__scrim {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
       .layout-wrapper[data-shell-mode='desktop'] .layout-navbar,
       .layout-wrapper[data-shell-mode='desktop'] .layout-vertical-nav::before,
       .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card),

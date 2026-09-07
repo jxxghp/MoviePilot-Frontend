@@ -71,7 +71,7 @@ let observer: MutationObserver | null = null
 let resizeObserver: ResizeObserver | null = null
 let intersectionObserver: IntersectionObserver | null = null
 let reducedTransparency: MediaQueryList | null = null
-let timer: ReturnType<typeof setTimeout> | null = null
+let syncFrame: number | null = null
 let revision = 0
 let sequence = 0
 let disposed = false
@@ -116,8 +116,8 @@ function forget(binding: SurfaceBinding) {
 
 function suspend() {
   revision += 1
-  if (timer !== null) clearTimeout(timer)
-  timer = null
+  if (syncFrame !== null) cancelAnimationFrame(syncFrame)
+  syncFrame = null
   for (const binding of surfaces.values()) release(binding)
 }
 
@@ -260,7 +260,7 @@ function reconcileBindings() {
 }
 
 async function syncSurfaces() {
-  timer = null
+  syncFrame = null
   if (!canEnhance()) {
     suspend()
     return
@@ -274,7 +274,7 @@ async function syncSurfaces() {
     geometryAnchors.add(element)
     resizeObserver?.observe(element)
   }
-  const active: Array<{ binding: SurfaceBinding; definition: FilterDefinition }> = []
+  const pending: Array<Promise<{ binding: SurfaceBinding; definition: FilterDefinition } | null>> = []
   for (const binding of surfaces.values()) {
     if (binding.kind === 'card' && intersectionObserver && !nearbyCards.has(binding.element)) {
       release(binding)
@@ -287,15 +287,21 @@ async function syncSurfaces() {
     }
     const key = JSON.stringify(geometry)
     if (key !== binding.key) release(binding)
-    try {
-      const image = await decodedMap(geometry, key)
-      if (currentRevision !== revision || !canEnhance()) return
-      binding.key = key
-      active.push({ binding, definition: { id: binding.id, width: geometry.width, height: geometry.height, image } })
-    } catch {
-      if (currentRevision === revision) release(binding)
-    }
+    // 同屏表面并行解码，避免每张图各等一次浏览器解码周期后才让整页接管材质。
+    pending.push(
+      decodedMap(geometry, key)
+        .then(image => {
+          if (currentRevision !== revision || !canEnhance()) return null
+          binding.key = key
+          return { binding, definition: { id: binding.id, width: geometry.width, height: geometry.height, image } }
+        })
+        .catch(() => {
+          if (currentRevision === revision) release(binding)
+          return null
+        }),
+    )
   }
+  const active = (await Promise.all(pending)).filter(surface => surface !== null)
   // 过期失败也不能清空新一轮 defs，否则已经绑定的新表面会引用不存在的滤镜。
   if (currentRevision !== revision || !canEnhance()) return
   definitions.value = active.map(surface => surface.definition)
@@ -314,7 +320,6 @@ async function syncSurfaces() {
 }
 
 function scheduleSync() {
-  if (timer !== null) clearTimeout(timer)
   if (!isEligible()) {
     reset()
     return
@@ -334,9 +339,11 @@ function scheduleSync() {
     suspend()
     return
   }
-  timer = setTimeout(() => {
+  // 路由挂载、图片布局和观察器共享下一帧；连续变更不能不断延后已排定的材质接管。
+  if (syncFrame !== null) return
+  syncFrame = requestAnimationFrame(() => {
     void syncSurfaces()
-  }, 60)
+  })
 }
 
 watch(

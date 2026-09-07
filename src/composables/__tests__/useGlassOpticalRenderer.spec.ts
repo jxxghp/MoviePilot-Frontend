@@ -144,6 +144,15 @@ function setOpticalSurfaceBounds(element: HTMLElement, bounds: Pick<DOMRect, 'he
     }) as DOMRect
 }
 
+/** 与临时玻璃 CSS 材质入口对应的排除子树 fixture。 */
+const TRANSIENT_GLASS_HOST_CLASS_NAMES = [
+  ['v-overlay__content'],
+  ['theme-customizer-panel-host'],
+  ['plugin-quick-access'],
+  ['agent-assistant-panel'],
+  ['layout-vertical-nav', 'overlay-nav'],
+] as const
+
 function stubMediaPreferences({ coarsePointer = false, reducedMotion = false, reducedTransparency = false } = {}) {
   vi.stubGlobal(
     'matchMedia',
@@ -542,6 +551,104 @@ describe('glass optical surface discovery', () => {
     expect(containsGlassOpticalSurface(excludedContainer)).toBe(false)
     expect(resolveGlassOpticalSurfaceMode(overridden)).toBe('dynamic')
     expect(collectGlassOpticalRects(390, 844, 'clear')).toEqual([])
+  })
+
+  it('excludes CSS-owned transient subtrees from wallpaper optical surfaces', () => {
+    for (const classNames of TRANSIENT_GLASS_HOST_CLASS_NAMES) {
+      const host = document.createElement('div')
+      host.className = classNames.join(' ')
+      const surface = document.createElement('section')
+      surface.dataset.glassOpticalSurface = ''
+      host.append(surface)
+      document.body.append(host)
+
+      expect(containsGlassOpticalSurface(host)).toBe(false)
+    }
+
+    expect(collectGlassOpticalRects(1200, 800, 'clear')).toEqual([])
+  })
+
+  it('blocks transient subtree input before it can animate an underlying content surface', async () => {
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const content = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const targets = TRANSIENT_GLASS_HOST_CLASS_NAMES.map(classNames => {
+      const host = document.createElement('div')
+      host.className = classNames.join(' ')
+      const target = document.createElement('span')
+      host.append(target)
+      document.body.append(host)
+
+      return target
+    })
+    let interactionListener: ((event: PointerEvent | TouchEvent) => void) | null = null
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        interactionSource: {
+          subscribe: vi.fn((_space, listener) => {
+            interactionListener = listener
+            return vi.fn()
+          }),
+        },
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const mainScene = render.mock.calls
+      .map(call => call[0] as unknown as { children: Array<{ material?: ShaderMaterial }> })
+      .find(candidate => candidate.children[0]?.material?.uniforms.uDynamicsMode)
+    if (!mainScene) throw new Error('main optical interaction path was not initialized')
+    const dispatchInteraction: (event: PointerEvent | TouchEvent) => void =
+      interactionListener ??
+      (() => {
+        throw new Error('main optical interaction callback was not initialized')
+      })
+    const uniforms = mainScene.children[0].material!.uniforms
+
+    expect(uniforms.uRectCount.value).toBe(1)
+    expect(uniforms.uMotion.value).toBe(0)
+    for (const target of targets) {
+      dispatchInteraction({
+        clientX: 160,
+        clientY: 180,
+        pointerType: 'mouse',
+        target,
+        timeStamp: 100,
+        type: 'pointermove',
+      } as unknown as PointerEvent)
+
+      expect(uniforms.uMotion.value).toBe(0)
+    }
+
+    dispatchInteraction({
+      clientX: 180,
+      clientY: 200,
+      pointerType: 'mouse',
+      target: content,
+      timeStamp: 200,
+      type: 'pointermove',
+    } as unknown as PointerEvent)
+    dispatchInteraction({
+      clientX: 210,
+      clientY: 220,
+      pointerType: 'mouse',
+      target: content,
+      timeStamp: 220,
+      type: 'pointermove',
+    } as unknown as PointerEvent)
+    expect(uniforms.uMotion.value).toBeGreaterThan(0)
+
+    scope.stop()
   })
 
   it('discovers the shared interactive card contract used across routes', () => {
@@ -2052,10 +2159,10 @@ describe('glass optical surface discovery', () => {
   it('hands only native-owned surfaces their static background while preserving shared dynamics', async () => {
     const three = await import('three')
     const navbar = appendOpticalSurface('layout-navbar', { height: 64, width: 600, x: 20, y: 20 })
-    const assistant = appendOpticalSurface('agent-assistant-panel', { height: 240, width: 250, x: 700, y: 120 })
+    const loginCard = appendOpticalSurface('login-card', { height: 240, width: 250, x: 700, y: 120 })
     const root = document.createElement('div')
     root.className = 'app-wrapper'
-    root.append(navbar, assistant)
+    root.append(navbar, loginCard)
     document.body.append(root)
     const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
     const scope = effectScope()
@@ -3659,6 +3766,49 @@ describe('glass optical surface discovery', () => {
     expect(dispose).toHaveBeenCalledTimes(1)
     expect(contextLoss).not.toHaveBeenCalled()
     scope.stop()
+  })
+
+  it('retains the mounted canvas context across reduced-transparency toggles', async () => {
+    const three = await import('three')
+    let reduced = false
+    let change: ((event: MediaQueryListEvent) => void) | undefined
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      get matches() {
+        return query === '(prefers-reduced-transparency: reduce)' && reduced
+      },
+      addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        if (query === '(prefers-reduced-transparency: reduce)') change = listener
+      },
+      removeEventListener: vi.fn(),
+    }))
+    const loseContext = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
+    const dispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+    try {
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      reduced = true
+      change?.({ matches: true } as MediaQueryListEvent)
+      expect(renderer?.state.value).toBe('fallback')
+      expect(dispose).toHaveBeenCalledOnce()
+      expect(loseContext).not.toHaveBeenCalled()
+      reduced = false
+      change?.({ matches: false } as MediaQueryListEvent)
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      expect(loseContext).not.toHaveBeenCalled()
+    } finally {
+      scope.stop()
+    }
   })
 
   it('uses the CSS fallback when reduced transparency is active', async () => {

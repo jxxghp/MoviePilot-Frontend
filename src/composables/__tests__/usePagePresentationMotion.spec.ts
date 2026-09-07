@@ -2,7 +2,6 @@ import {
   getPagePresentationMotionProgress,
   PAGE_PRESENTATION_FROSTED_START_TRANSLATE_Y,
   PAGE_PRESENTATION_MOTION_DURATION_MS,
-  PAGE_PRESENTATION_MOTION_START_OPACITY,
   PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y,
   usePagePresentationMotion,
 } from '@/composables/usePagePresentationMotion'
@@ -45,12 +44,14 @@ afterEach(() => {
 })
 
 describe('page presentation motion', () => {
-  it('delegates standard clear glass to the ordinary compositor animation', () => {
+  it.each(['clear', 'tinted'])('keeps standard %s glass on the backdrop-safe motion path', appearance => {
     document.documentElement.dataset.glassQuality = 'css'
+    document.documentElement.dataset.glassAppearance = appearance
 
-    expect(motion.start('/dashboard', document.createElement('div'))).toBe(false)
-    expect(motion.active.value).toBe(false)
-    expect(callbacks.size).toBe(0)
+    expect(motion.start('/dashboard', document.createElement('div'))).toBe(true)
+    expect(motion.active.value).toBe(true)
+    expect(motion.opacity.value).toBe(1)
+    expect(callbacks.size).toBe(1)
   })
 
   it('starts standard frosted motion without waiting for a renderer geometry acknowledgement', () => {
@@ -84,12 +85,12 @@ describe('page presentation motion', () => {
 
     expect(motion.start('/dashboard')).toBe(true)
     expect(motion.active.value).toBe(true)
-    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(motion.opacity.value).toBe(1)
     expect(callbacks.size).toBe(1)
     expect(document.documentElement.dataset.pagePresentationMotion).toBe('active')
   })
 
-  it('holds a glass route until its shared layout geometry remains stable', () => {
+  it('holds motion until layout geometry is stable without hiding native glass', () => {
     const routeRoot = document.createElement('div')
     let routeHeight = 2096
     Object.defineProperties(routeRoot, {
@@ -102,24 +103,27 @@ describe('page presentation motion', () => {
 
     expect(motion.start('/dashboard', routeRoot)).toBe(true)
     expect(motion.active.value).toBe(true)
-    expect(motion.opacity.value).toBe(0)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.progress.value).toBe(0)
     expect(document.documentElement.dataset.pagePresentationMotion).toBe('active')
 
     ;[1016, 1080].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
-    expect(motion.opacity.value).toBe(0)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.progress.value).toBe(0)
 
     routeHeight = 1520
     ;[1110, 1200].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
-    expect(motion.opacity.value).toBe(0)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.progress.value).toBe(0)
 
     ;[1231].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
-    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(motion.opacity.value).toBe(1)
     expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
 
     routeRoot.remove()
   })
 
-  it('reveals clear glass when the renderer confirms current surface geometry', () => {
+  it('starts clear glass motion when the renderer confirms geometry without changing opacity', () => {
     const routeRoot = document.createElement('div')
     Object.defineProperties(routeRoot, {
       offsetHeight: { configurable: true, get: () => 2096 },
@@ -131,12 +135,12 @@ describe('page presentation motion', () => {
 
     expect(motion.start('/dashboard', routeRoot)).toBe(true)
     const motionEpoch = motion.epoch.value
-    expect(motion.opacity.value).toBe(0)
+    expect(motion.opacity.value).toBe(1)
     expect(motion.reader.acknowledgeGeometryReady(motionEpoch - 1, 1040)).toBe(false)
-    expect(motion.opacity.value).toBe(0)
+    expect(motion.opacity.value).toBe(1)
 
     expect(motion.reader.acknowledgeGeometryReady(motionEpoch, 1040)).toBe(true)
-    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(motion.opacity.value).toBe(1)
     expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
     expect(callbacks.size).toBe(1)
 
@@ -208,7 +212,7 @@ describe('page presentation motion', () => {
 
     expect(motion.start('/dashboard')).toBe(true)
     expect(motion.active.value).toBe(true)
-    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(motion.opacity.value).toBe(1)
     expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
     expect(motion.revision.value).toBe(initialRevision + 1)
     expect(document.documentElement.dataset.pagePresentationMotion).toBe('active')
@@ -217,8 +221,7 @@ describe('page presentation motion', () => {
     firstFrame(1000 + PAGE_PRESENTATION_MOTION_DURATION_MS / 2)
     expect(motion.progress.value).toBeGreaterThan(0)
     expect(motion.progress.value).toBeLessThan(1)
-    expect(motion.opacity.value).toBeGreaterThan(PAGE_PRESENTATION_MOTION_START_OPACITY)
-    expect(motion.opacity.value).toBeLessThan(1)
+    expect(motion.opacity.value).toBe(1)
     expect(motion.translateY.value).toBeGreaterThan(0)
     expect(motion.translateY.value).toBeLessThan(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
 
