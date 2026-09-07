@@ -2989,6 +2989,9 @@ export default {
       imageProxyAllowedPrivateRangeAdd: 'Add CIDR, e.g.: 198.18.0.0/15',
       proxyHost: 'Proxy Server',
       proxyHostHint: 'Set proxy server address, support: http(s), socks5, socks5h, etc.',
+      moviePilotAutoUpdate: 'Automatically check for updates',
+      moviePilotAutoUpdateHint:
+        'Check for application updates every 6 hours and show reminders; confirm downloads and installation manually',
       moviePilotDevUpdate: 'Track Dev builds',
       moviePilotDevUpdateHint: 'Update to the latest code on the current v3 development branch at every restart',
       autoUpdateResource: 'Auto Update Resource',

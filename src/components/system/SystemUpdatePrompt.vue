@@ -70,6 +70,9 @@ const updateItems = computed<SystemUpdateItemStatus[]>(() => {
 
 const visibleItems = computed(() =>
   updateItems.value.filter(item => {
+    // 关闭自动检查后隐藏版本提醒，手动发起的下载、安装和失败反馈仍可见。
+    const enabled = item.type === 'resources' ? status.value?.auto_update_resource : status.value?.auto_update
+    if (['available', 'ready'].includes(item.state) && enabled !== true) return false
     if (!['available', 'downloading', 'ready', 'installing', 'failed'].includes(item.state)) return false
     return !['available', 'ready'].includes(item.state) || !isCurrentVersionSuppressed(item)
   }),

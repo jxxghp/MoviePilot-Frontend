@@ -2897,6 +2897,8 @@ export default {
       imageProxyAllowedPrivateRangeAdd: '添加 CIDR，如：198.18.0.0/15',
       proxyHost: '代理服務器',
       proxyHostHint: '設置代理服務器地址，支持：http(s)、socks5、socks5h 等協議',
+      moviePilotAutoUpdate: '自動檢查版本更新',
+      moviePilotAutoUpdateHint: '每 6 小時檢查主程式版本更新並提示，下載和安裝需手動確認',
       moviePilotDevUpdate: '追蹤 Dev 開發版',
       moviePilotDevUpdateHint: '每次重新啟動時更新到目前 v3 開發分支的最新程式碼',
       autoUpdateResource: '自動更新站點資源',

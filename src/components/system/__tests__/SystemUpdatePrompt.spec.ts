@@ -57,6 +57,8 @@ vi.mock('vue-i18n', async importOriginal => ({
 }))
 
 const availableStatus: SystemUpdateStatus = {
+  auto_update: true,
+  auto_update_resource: true,
   state: 'available',
   current_version: 'v3.0.0',
   version: 'v3.1.0',
@@ -75,6 +77,43 @@ describe('SystemUpdatePrompt', () => {
     mocks.confirm.mockResolvedValue(true)
     mocks.updateStatus!.value = availableStatus
     mocks.footerDockHeight!.value = null
+  })
+
+  it.each(['available', 'ready'] as const)(
+    'hides cached %s reminders when automatic checks are disabled',
+    async state => {
+      mocks.updateStatus!.value = { ...availableStatus, state, auto_update: false }
+      await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+      expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument()
+
+      mocks.updateStatus!.value = { ...availableStatus, state, auto_update: true }
+      await waitFor(() => expect(document.querySelector('.system-update-prompt')).toBeInTheDocument())
+      mocks.updateStatus!.value = { ...availableStatus, state, auto_update: false }
+      await waitFor(() => expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument())
+    },
+  )
+
+  it('keeps manually started download progress visible with automatic checks disabled', async () => {
+    mocks.updateStatus!.value = { ...availableStatus, state: 'downloading', auto_update: false, progress: 25 }
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+    expect(screen.getByText('25%')).toBeInTheDocument()
+  })
+
+  it('shows only resource reminders when only automatic resource updates are enabled', async () => {
+    mocks.updateStatus!.value = {
+      ...availableStatus,
+      auto_update: false,
+      auto_update_resource: true,
+      updates: [
+        { ...availableStatus, type: 'application' },
+        { ...availableStatus, type: 'resources', auth_version: '3.1.0' },
+      ],
+    }
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+    expect(screen.queryByText('systemUpdate.applicationAvailableTitle')).not.toBeInTheDocument()
+    expect(screen.getByText('systemUpdate.resourcesAvailableTitle')).toBeInTheDocument()
+    mocks.updateStatus!.value = { ...mocks.updateStatus!.value, auto_update_resource: false }
+    await waitFor(() => expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument())
   })
 
   it('asks an administrator to start the background download', async () => {

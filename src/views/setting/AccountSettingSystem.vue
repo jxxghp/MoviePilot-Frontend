@@ -99,6 +99,7 @@ const SystemSettings = ref<any>({
     DB_WAL_ENABLE: false,
     AUTO_UPDATE_RESOURCE: true,
     MOVIEPILOT_AUTO_UPDATE: false,
+    MOVIEPILOT_UPDATE_DEV: false,
     DATA_CLEANUP_ENABLE: false,
     DATA_CLEANUP_MESSAGE_DAYS: 90,
     DATA_CLEANUP_DOWNLOAD_HISTORY_DAYS: 180,
@@ -1117,13 +1118,6 @@ function onMediaServerChange(mediaserver: MediaServerConf, name: string) {
   if (index !== -1) mediaServers.value[index] = mediaserver
 }
 
-const moviePilotDevUpdate = computed({
-  get: () => SystemSettings.value.Advanced.MOVIEPILOT_AUTO_UPDATE === 'dev',
-  set: enabled => {
-    SystemSettings.value.Advanced.MOVIEPILOT_AUTO_UPDATE = enabled ? 'dev' : 'false'
-  },
-})
-
 // Fanart语言多选处理
 const fanartLanguageSelection = computed({
   get: () => {
@@ -2131,7 +2125,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="moviePilotDevUpdate"
+                    v-model="SystemSettings.Advanced.MOVIEPILOT_AUTO_UPDATE"
+                    :label="t('setting.system.moviePilotAutoUpdate')"
+                    :hint="t('setting.system.moviePilotAutoUpdateHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.MOVIEPILOT_UPDATE_DEV"
                     :label="t('setting.system.moviePilotDevUpdate')"
                     :hint="t('setting.system.moviePilotDevUpdateHint')"
                     persistent-hint

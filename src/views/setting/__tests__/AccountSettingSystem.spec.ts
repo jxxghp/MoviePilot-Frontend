@@ -1006,7 +1006,30 @@ describe('AccountSettingSystem', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('高级设置保存成功')
   })
 
-  it('round-trips all advanced system switches and enables only the Dev update mode', async () => {
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])('loads and saves independent update switches (%s, %s)', async (autoUpdate, updateDev) => {
+    systemEnv.MOVIEPILOT_AUTO_UPDATE = autoUpdate
+    systemEnv.MOVIEPILOT_UPDATE_DEV = updateDev
+    await renderSettings()
+    const dialog = await openAdvancedTab('系统')
+    const autoSwitch = dialog.getByLabelText('自动检查版本更新')
+    const devSwitch = dialog.getByLabelText('跟踪 Dev 开发版')
+    expect((autoSwitch as HTMLInputElement).checked).toBe(autoUpdate)
+    expect((devSwitch as HTMLInputElement).checked).toBe(updateDev)
+    await fireEvent.click(autoSwitch)
+    expect((devSwitch as HTMLInputElement).checked).toBe(updateDev)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({ MOVIEPILOT_AUTO_UPDATE: !autoUpdate, MOVIEPILOT_UPDATE_DEV: updateDev }),
+    )
+  })
+
+  it('round-trips all advanced system switches with independent boolean update settings', async () => {
     await renderSettings()
     const dialog = await openAdvancedTab('系统')
     for (const label of [
@@ -1018,6 +1041,7 @@ describe('AccountSettingSystem', () => {
       '分享工作流数据',
       '大内存模式',
       '数据库WAL模式',
+      '自动检查版本更新',
       '跟踪 Dev 开发版',
       '自动更新站点资源',
     ]) {
@@ -1033,7 +1057,8 @@ describe('AccountSettingSystem', () => {
         BIG_MEMORY_MODE: true,
         DB_WAL_ENABLE: true,
         GLOBAL_IMAGE_CACHE: true,
-        MOVIEPILOT_AUTO_UPDATE: 'dev',
+        MOVIEPILOT_AUTO_UPDATE: true,
+        MOVIEPILOT_UPDATE_DEV: true,
         PLUGIN_STATISTIC_SHARE: false,
         SUBSCRIBE_STATISTIC_SHARE: false,
         USAGE_STATISTIC_SHARE: false,
