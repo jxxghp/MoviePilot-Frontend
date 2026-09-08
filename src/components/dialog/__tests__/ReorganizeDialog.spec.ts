@@ -645,7 +645,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     expect(mocks.progressControllers[1].stop).toHaveBeenCalledTimes(1)
   })
 
-  it('submits each historical record with reorganize semantics', async () => {
+  it('submits selected historical records as one batch with reorganize semantics', async () => {
     const bodies: unknown[] = []
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
@@ -662,24 +662,16 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
     expect(bodies).toEqual([
       expect.objectContaining({
-        fileitem: {},
         from_history: false,
-        logid: 41,
-        reorganize: true,
-        target_path: null,
-        target_storage: null,
-      }),
-      expect.objectContaining({
-        fileitem: {},
-        from_history: false,
-        logid: 42,
+        logids: [41, 42],
         reorganize: true,
         target_path: null,
         target_storage: null,
       }),
     ])
-    expect(mocks.toastSuccess).toHaveBeenNthCalledWith(1, '历史记录 41 已加入整理队列！')
-    expect(mocks.toastSuccess).toHaveBeenNthCalledWith(2, '历史记录 42 已加入整理队列！')
+    expect(bodies[0]).not.toHaveProperty('fileitem')
+    expect(bodies[0]).not.toHaveProperty('logid')
+    expect(mocks.toastSuccess).toHaveBeenCalledTimes(1)
   })
 
   it('updates synchronous progress from SSE and always stops it after success', async () => {
@@ -1087,7 +1079,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(bodies).toHaveLength(1))
-    expect(bodies[0]).toEqual(expect.objectContaining({ from_history: true, logid: 41 }))
+    expect(bodies[0]).toEqual(expect.objectContaining({ from_history: true, logids: [41] }))
   })
 })
 
@@ -1157,6 +1149,47 @@ describe('ReorganizeDialog preview', () => {
     expect(mocks.toastWarning).toHaveBeenCalledWith('成功 1，失败 1')
     expect(mocks.toastError).not.toHaveBeenCalled()
     expect(onDone).not.toHaveBeenCalled()
+  })
+
+  it('previews selected historical records in one batch request', async () => {
+    const payloads: unknown[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        payloads.push(await request.json())
+        return HttpResponse.json(
+          previewResponse([
+            {
+              source: '/downloads/七里香/01.flac',
+              target: '/library/Album/周杰伦/七里香 (2004)/01.flac',
+              success: true,
+              title: '七里香 (2004)',
+              type: '音乐',
+            },
+            {
+              source: '/downloads/七里香/02.flac',
+              target: '/library/Album/周杰伦/七里香 (2004)/02.flac',
+              success: true,
+              title: '七里香 (2004)',
+              type: '音乐',
+            },
+          ]),
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({ logids: [41, 42] })
+
+    await user.click(screen.getByRole('button', { name: '预览' }))
+
+    expect(await screen.findByText('七里香 (2004)')).toBeInTheDocument()
+    expect(screen.getByText('总数 2')).toBeInTheDocument()
+    expect(payloads).toEqual([
+      expect.objectContaining({
+        logids: [41, 42],
+        preview: true,
+        reorganize: true,
+      }),
+    ])
   })
 
   it('merges and deduplicates preview results from separate source requests', async () => {
