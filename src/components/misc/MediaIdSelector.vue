@@ -10,6 +10,7 @@ const { t } = useI18n()
 const props = defineProps<{
   type: MediaDataSource
   musicTypes?: MusicEntityType[]
+  initialKeyword?: string
 }>()
 
 interface MediaSelectorItem {
@@ -25,6 +26,10 @@ interface MediaSelectorItem {
   type?: string
   // 音乐实体类型
   music_type?: MusicEntityType
+  // MusicBrainz Release Group 主类型
+  album_type?: string
+  // MusicBrainz Release Group 副类型
+  secondary_types?: string[]
 }
 
 // update:modelValue 事件
@@ -33,10 +38,13 @@ const emit = defineEmits(['update:modelValue', 'select', 'close'])
 const items = ref<MediaSelectorItem[]>([])
 
 // 搜索词
-const keyword = ref('')
+const keyword = ref(props.initialKeyword?.trim() || '')
 
 // 加载中
 const loading = ref(false)
+
+// 只允许最后一次搜索更新列表，避免预填请求覆盖用户随后提交的新关键词。
+let searchRequestId = 0
 
 // ref
 const inputKeyword = ref<HTMLElement | null>(null)
@@ -58,6 +66,7 @@ function getW500Image(url = '') {
 async function searchMedias() {
   const searchKeyword = keyword.value.trim()
   if (!searchKeyword) return
+  const requestId = ++searchRequestId
 
   // 调用API搜索词条
   try {
@@ -69,8 +78,11 @@ async function searchMedias() {
         page: 1,
         count: 20,
         media_source: props.type,
+        ...(props.musicTypes?.length === 1 ? { music_type: props.musicTypes[0] } : {}),
       },
     })
+
+    if (requestId !== searchRequestId) return
 
     // 清空
     items.value = []
@@ -84,32 +96,61 @@ async function searchMedias() {
       const mediaId = item.media_id?.toString().trim()
       if (!mediaId) continue
       const musicAlbum = item.music_type === 'album' || item.album === item.title ? undefined : item.album
+      const musicEntityLabels: Partial<Record<MusicEntityType, string>> = {
+        recording: t('music.entityRecording'),
+        album: t('music.entityAlbum'),
+        artist: t('music.entityArtist'),
+      }
+      const musicLabels = [
+        item.music_type ? musicEntityLabels[item.music_type] : undefined,
+        item.album_type,
+        ...(item.secondary_types || []),
+      ].filter(Boolean)
       items.value.push({
         id: mediaId,
         poster: getW500Image(item.cover_url || item.poster_path),
         type: item.type,
         music_type: item.music_type,
+        album_type: item.album_type,
+        secondary_types: item.secondary_types,
         title: item.year ? `${item.title}（${item.year}）` : item.title || '',
         overview:
           item.type === '音乐'
-            ? `<span class="text-primary">${item.type}</span> ${[item.artist, musicAlbum].filter(Boolean).join(' · ')}`
+            ? `<span class="text-primary">${musicLabels.join(' · ') || item.type}</span> ${[item.artist, musicAlbum]
+                .filter(Boolean)
+                .join(' · ')}`
             : `<span class="text-primary">${item.type}</span> ${item.overview || ''}`,
       })
     }
   } catch (e) {
-    console.error(e)
+    if (requestId === searchRequestId) console.error(e)
   } finally {
-    loading.value = false
+    if (requestId === searchRequestId) loading.value = false
   }
 }
 
 // 加载时聚焦搜索框
 onMounted(() => {
+  if (keyword.value) void searchMedias()
   // 500ms后聚焦
   setTimeout(() => {
     inputKeyword.value?.focus()
   }, 500)
 })
+
+watch(
+  () => [props.initialKeyword?.trim() || '', props.type, props.musicTypes?.join(',') || ''] as const,
+  ([nextKeyword, nextType, nextMusicTypes], [previousKeyword, previousType, previousMusicTypes]) => {
+    const keywordChanged = nextKeyword !== previousKeyword && nextKeyword !== keyword.value
+    const scopeChanged = nextType !== previousType || nextMusicTypes !== previousMusicTypes
+    if (!keywordChanged && !scopeChanged) return
+    searchRequestId += 1
+    loading.value = false
+    if (keywordChanged) keyword.value = nextKeyword
+    items.value = []
+    if (keyword.value) void searchMedias()
+  },
+)
 </script>
 
 <template>

@@ -251,6 +251,14 @@ const defaultMusicEntity = computed<'album' | 'recording'>(() =>
   normalizedItems.value.length > 0 && normalizedItems.value.every(item => item.type === 'dir') ? 'album' : 'recording',
 )
 
+// 使用当前目录或文件名预填媒体搜索，保留艺术家和年份线索以区分同名专辑。
+const mediaSearchHint = computed(() => {
+  if (normalizedItems.value.length !== 1) return ''
+  const path = normalizedItems.value[0]?.path || ''
+  const name = path.split(/[\\/]/).filter(Boolean).at(-1) || ''
+  return normalizedItems.value[0]?.type === 'dir' ? name : name.replace(/\.[^.]+$/, '')
+})
+
 // 分页
 const previewPage = ref(1)
 const previewPageSize = ref(20)
@@ -2126,7 +2134,8 @@ onUnmounted(() => {
         @close="mediaSelectorDialog = false"
         @select="handleMediaSelected"
         :type="mediaSource"
-        :music-types="['recording', 'album']"
+        :music-types="transferForm.type_name === '音乐' ? [transferForm.music_type || defaultMusicEntity] : undefined"
+        :initial-keyword="transferForm.type_name === '音乐' ? mediaSearchHint : undefined"
       />
     </VDialog>
   </VDialog>

@@ -1,5 +1,5 @@
 import MediaIdSelector from '@/components/misc/MediaIdSelector.vue'
-import { fireEvent, screen } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -111,7 +111,231 @@ describe('MediaIdSelector layout', () => {
     const subtitles = Array.from(container.querySelectorAll('.v-list-item-subtitle')).map(item =>
       item.textContent?.trim(),
     )
-    expect(subtitles).toEqual(['音乐 周杰伦', '音乐 周杰伦 · 叶惠美'])
+    expect(subtitles).toEqual(['专辑 周杰伦', '单曲 周杰伦 · 叶惠美'])
+  })
+
+  it('prefills album searches, scopes the API request, and exposes release-group types', async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        album_type: 'Single',
+        artist: 'Eagles',
+        media_id: 'live-single',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        secondary_types: ['Live'],
+        title: 'Hotel California',
+        type: '音乐',
+      },
+      {
+        album_type: 'Album',
+        artist: 'Eagles',
+        media_id: 'studio-album',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        title: 'Hotel California',
+        type: '音乐',
+        year: 1976,
+      },
+      {
+        artist: 'Eagles',
+        media_id: 'recording-1',
+        media_source: 'musicbrainz',
+        music_type: 'recording',
+        title: 'Hotel California',
+        type: '音乐',
+      },
+    ])
+
+    const { container } = await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Eagles - Hotel California (1976)',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    expect(await screen.findByText('Hotel California（1976）')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('输入媒体名称')).toHaveValue('Eagles - Hotel California (1976)')
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
+      params: {
+        count: 20,
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        page: 1,
+        title: 'Eagles - Hotel California (1976)',
+        type: 'music',
+      },
+    })
+    expect(screen.queryByText('单曲 Eagles')).not.toBeInTheDocument()
+    const subtitles = Array.from(container.querySelectorAll('.v-list-item-subtitle')).map(item =>
+      item.textContent?.trim(),
+    )
+    expect(subtitles).toEqual(['专辑 · Single · Live Eagles', '专辑 · Album Eagles'])
+  })
+
+  it('keeps newer manual search results when the initial search finishes later', async () => {
+    let resolveInitialSearch: (value: Array<Record<string, unknown>>) => void = () => undefined
+    const initialSearch = new Promise<Array<Record<string, unknown>>>(resolve => {
+      resolveInitialSearch = resolve
+    })
+    mocks.apiGet.mockReturnValueOnce(initialSearch).mockResolvedValueOnce([
+      {
+        album_type: 'Album',
+        artist: 'Eagles',
+        media_id: 'new-result',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        title: 'Hotel California',
+        type: '音乐',
+        year: 1976,
+      },
+    ])
+
+    await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Hotel California',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledTimes(1))
+    const input = screen.getByPlaceholderText('输入媒体名称')
+    await fireEvent.update(input, 'Eagles - Hotel California (1976)')
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    expect(await screen.findByText('Hotel California（1976）')).toBeInTheDocument()
+
+    resolveInitialSearch([
+      {
+        album_type: 'Single',
+        artist: 'Cover Artist',
+        media_id: 'old-result',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        title: 'Stale Hotel California',
+        type: '音乐',
+      },
+    ])
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(screen.queryByText('Stale Hotel California')).not.toBeInTheDocument()
+    expect(screen.getByText('Hotel California（1976）')).toBeInTheDocument()
+  })
+
+  it('ends loading when a pending initial search is cancelled', async () => {
+    mocks.apiGet.mockReturnValue(new Promise(() => undefined))
+
+    const view = await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Hotel California',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    const fieldProgress = () => view.container.querySelector('.v-field__loader .v-progress-linear')
+    await waitFor(() => expect(fieldProgress()).toHaveStyle({ height: '2px' }))
+    await view.rerender({
+      initialKeyword: '',
+      musicTypes: ['album'],
+      type: 'musicbrainz',
+    })
+
+    await waitFor(() => expect(fieldProgress()).toHaveStyle({ height: '0px' }))
+  })
+
+  it('invalidates old results and searches again when the music entity scope changes', async () => {
+    let resolveAlbumSearch: (value: Array<Record<string, unknown>>) => void = () => undefined
+    const albumSearch = new Promise<Array<Record<string, unknown>>>(resolve => {
+      resolveAlbumSearch = resolve
+    })
+    mocks.apiGet.mockReturnValueOnce(albumSearch).mockResolvedValueOnce([
+      {
+        artist: 'Eagles',
+        media_id: 'recording-1',
+        media_source: 'musicbrainz',
+        music_type: 'recording',
+        title: 'Hotel California recording',
+        type: '音乐',
+      },
+    ])
+
+    const view = await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Hotel California',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledTimes(1))
+    await view.rerender({
+      initialKeyword: 'Hotel California',
+      musicTypes: ['recording'],
+      type: 'musicbrainz',
+    })
+
+    expect(await screen.findByText('Hotel California recording')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenLastCalledWith('media/search', {
+      params: {
+        count: 20,
+        media_source: 'musicbrainz',
+        music_type: 'recording',
+        page: 1,
+        title: 'Hotel California',
+        type: 'music',
+      },
+    })
+
+    resolveAlbumSearch([
+      {
+        album_type: 'Album',
+        artist: 'Eagles',
+        media_id: 'album-1',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        title: 'Stale Hotel California album',
+        type: '音乐',
+      },
+    ])
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(screen.queryByText('Stale Hotel California album')).not.toBeInTheDocument()
+    expect(screen.getByText('Hotel California recording')).toBeInTheDocument()
   })
 
   it('does not infer a primary identity from auxiliary provider IDs', async () => {
