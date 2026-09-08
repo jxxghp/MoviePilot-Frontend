@@ -1099,8 +1099,7 @@ const SURFACE_TRANSITION_DURATION_MS = 96
 const SURFACE_TRANSFORM_TRACKING_MAX_MS = 1000
 
 /** 按 shader 协议读取视觉表面的四角圆角。 */
-function readBorderRadii(element: HTMLElement) {
-  const style = getComputedStyle(element)
+function readBorderRadii(element: HTMLElement, style = getComputedStyle(element)) {
   const parseRadius = (value: string) => {
     const radius = Number.parseFloat(value)
 
@@ -1116,9 +1115,7 @@ function readBorderRadii(element: HTMLElement) {
 }
 
 /** 判断元素是否在布局和视口中实际可见。 */
-function isVisibleSurface(element: HTMLElement, bounds: DOMRect) {
-  const style = getComputedStyle(element)
-
+function isVisibleSurface(style: CSSStyleDeclaration, bounds: DOMRect) {
   return (
     style.display !== 'none' &&
     style.visibility !== 'hidden' &&
@@ -1160,7 +1157,8 @@ function collectGlassOpticalSurfaceDescriptors(
       collectedElements?.push(element)
 
       const bounds = element.getBoundingClientRect()
-      if (!isVisibleSurface(element, bounds)) continue
+      const style = getComputedStyle(element)
+      if (!isVisibleSurface(style, bounds)) continue
 
       const left = Math.max(0, bounds.left)
       const top = Math.max(0, bounds.top)
@@ -1177,7 +1175,7 @@ function collectGlassOpticalSurfaceDescriptors(
         mode: resolveGlassOpticalSurfaceMode(element),
         rect: {
           height: bounds.height,
-          radii: [...readBorderRadii(element)] as GlassCornerRadii,
+          radii: [...readBorderRadii(element, style)] as GlassCornerRadii,
           rank: rank + candidates.length * 0.001,
           width: bounds.width,
           x: bounds.left + coordinateOffsetX,
@@ -2275,7 +2273,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       scrollGeometryRefreshPending = true
       return true
     }
-    if (scrollLateGeometryCommitted) return true
+    if (scrollLateGeometryCommitted) {
+      // 一帧只补交一次；其后的失效留给下一滚动帧，不能丢失新的表面资格。
+      scrollGeometryRefreshPending = true
+      return true
+    }
 
     scrollLateGeometryCommitted = true
     scrollGeometryRefreshPending = false
@@ -3519,7 +3521,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       interactionClipMembershipDirty = true
       commitActivePagePresentation()
-      scheduleSurfaceStabilityUpdate()
+      const membershipOnly = mutations.every(
+        mutation => mutation.type === 'attributes' && mutation.attributeName === 'data-glass-optical-mode',
+      )
+      if (membershipOnly) {
+        // 模式只改变光学资格，不改变布局；已有稳定帧仍需完成真实几何采样。
+        if (surfaceStabilityFrame === null) scheduleSurfaceUpdate()
+      } else scheduleSurfaceStabilityUpdate()
     })
     observeMutationRoot(document.querySelector('.app-wrapper'), true)
     observeMutationRoot(document.querySelector('.v-overlay-container'), true)

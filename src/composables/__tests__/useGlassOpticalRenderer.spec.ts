@@ -1641,6 +1641,94 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it.each(['mode-only', 'mixed-child-list', 'mixed-radius', 'pending-geometry', 'late-scroll'] as const)(
+    'coalesces optical membership updates without losing %s geometry work',
+    async boundary => {
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+      vi.stubGlobal('MutationObserver', MutationObserverTriggerMock)
+      const three = await import('three')
+      const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+      const callbacks = new Map<number, FrameRequestCallback>()
+      let frameId = 0
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+        callbacks.set(++frameId, callback)
+        return frameId
+      })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+      const wrapper = document.createElement('main')
+      wrapper.className = 'app-wrapper layout-page-content'
+      document.body.append(wrapper)
+      const cards = [40, 520].map(x => {
+        const card = appendOpticalSurface('app-hover-lift-card media-card', {
+          height: 300,
+          width: 400,
+          x,
+          y: 100,
+        })
+        wrapper.append(card)
+        return card
+      })
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          quality: ref('balanced'),
+          routeKey: ref('/discover'),
+          surfaceSpace: 'scroll',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+        }),
+      )
+
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      flushQueuedAnimationFrames(callbacks)
+      expect(callbacks.size).toBe(0)
+      const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+      const scanCount = () =>
+        querySelectorAll.mock.calls.filter(([selector]) => selector === '[data-glass-optical-surface]').length
+      const observer = MutationObserverTriggerMock.instances[0]
+      if (boundary === 'late-scroll') {
+        vi.spyOn(window, 'scrollY', 'get').mockReturnValue(40)
+        window.dispatchEvent(new Event('scroll'))
+        flushQueuedAnimationFrames(callbacks, 1)
+        expect(callbacks.size).toBe(1)
+      }
+      const records = [createAttributeRecord(cards[0])]
+      if (boundary === 'mixed-child-list') records.push(createChildListRecord(wrapper, [cards[1]]))
+      if (boundary === 'mixed-radius')
+        records.push({ ...createAttributeRecord(document.documentElement), attributeName: 'data-theme-radius' })
+      if (boundary === 'pending-geometry') observer.trigger([createChildListRecord(wrapper, [cards[1]])])
+
+      cards[0].dataset.glassOpticalMode = 'excluded'
+      observer.trigger(records)
+      if (boundary === 'late-scroll') {
+        cards[1].dataset.glassOpticalMode = 'excluded'
+        observer.trigger([createAttributeRecord(cards[1])])
+      } else observer.trigger([createAttributeRecord(cards[0])])
+      flushQueuedAnimationFrames(callbacks)
+
+      expect(callbacks.size).toBe(0)
+      let material = getGlassMainSceneMaterial(render.mock.calls.at(-1)?.[0] as Object3D)
+      expect(material?.uniforms.uRectCount.value).toBe(boundary === 'late-scroll' ? 0 : 1)
+      if (boundary !== 'late-scroll') expect(material?.uniforms.uRects.value[0].x).toBeCloseTo(520 / 1200)
+      if (boundary === 'mode-only') expect(scanCount()).toBe(1)
+      else expect(scanCount()).toBeGreaterThan(1)
+
+      querySelectorAll.mockClear()
+      delete cards[0].dataset.glassOpticalMode
+      observer.trigger([createAttributeRecord(cards[0])])
+      flushQueuedAnimationFrames(callbacks)
+      expect(scanCount()).toBe(1)
+      material = getGlassMainSceneMaterial(render.mock.calls.at(-1)?.[0] as Object3D)
+      expect(material?.uniforms.uRectCount.value).toBe(boundary === 'late-scroll' ? 1 : 2)
+      expect(callbacks.size).toBe(0)
+      scope.stop()
+    },
+  )
+
   it('keeps old and new wallpaper textures in the same renderer during the shared transition', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
