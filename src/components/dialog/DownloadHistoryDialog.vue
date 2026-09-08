@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import type { DownloadHistory } from '@/api/types'
+import SourceClassificationDialog from '@/components/dialog/SourceClassificationDialog.vue'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { formatDateDifference } from '@core/utils/formatters'
@@ -21,6 +22,7 @@ const currentPage = ref(1)
 const pageSize = 30
 const loading = ref(false)
 const isRefreshed = ref(false)
+const classifyTask = ref<DownloadHistory>()
 
 /** 分页加载下载历史，并将新页追加到现有列表。 */
 async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') => void }) {
@@ -170,6 +172,10 @@ function getSeasonEpisode(item: DownloadHistory) {
                       <VIcon icon="mdi-dots-vertical" />
                       <VMenu activator="parent" close-on-content-click>
                         <VList>
+                          <VListItem v-if="item.download_hash" @click="classifyTask = item">
+                            <template #prepend><VIcon icon="mdi-folder-move-outline" /></template>
+                            <VListItemTitle>识别与资源归类</VListItemTitle>
+                          </VListItem>
                           <VListItem base-color="error" @click="deleteHistory(item)">
                             <template #prepend>
                               <VIcon icon="mdi-delete" />
@@ -196,6 +202,8 @@ function getSeasonEpisode(item: DownloadHistory) {
           {{ t('dialog.downloadHistory.noDataHint') }}
         </div>
       </VCardText>
+
+      <SourceClassificationDialog v-if="classifyTask" :task="classifyTask" @close="classifyTask = undefined" />
     </VCard>
   </VDialog>
 </template>

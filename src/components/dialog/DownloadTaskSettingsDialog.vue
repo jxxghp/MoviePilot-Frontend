@@ -2,6 +2,7 @@
 import api, { ApiRequestError, getApiBusinessErrorMessage, isApiResponse } from '@/api'
 import type {
   DownloadingInfo,
+  DownloadSourceClassificationData,
   DownloadTaskMutationResult,
   DownloadTaskUpdateData,
   DownloadTaskUpdateRequest,
@@ -39,7 +40,10 @@ const toast = useToast()
 const display = useDisplay()
 const formRef = ref()
 const saving = ref(false)
+const classifying = ref(false)
 const results = ref<DownloadTaskMutationResult[]>([])
+const classificationPreview = ref<DownloadSourceClassificationData>()
+const manualMediaCategory = ref('')
 const initialValues = ref<DownloadTaskSettingsForm>()
 
 const visible = computed({
@@ -85,6 +89,8 @@ function resetForm() {
   form.value = createInitialForm()
   initialValues.value = { ...form.value, tags: [], trackers: '' }
   results.value = []
+  classificationPreview.value = undefined
+  manualMediaCategory.value = ''
   formRef.value?.resetValidation?.()
 }
 
@@ -234,6 +240,51 @@ async function saveSettings() {
   }
 }
 
+/** 请求后端按下载历史与当前目录规则计算目标位置。 */
+async function classifySource(execute: boolean) {
+  if (!props.task.hash || classifying.value) return
+  classifying.value = true
+  try {
+    const request: { downloader?: string; execute: boolean; media_category?: string } = {
+      downloader: props.downloaderName || props.task.downloader,
+      execute,
+    }
+    const mediaCategory = manualMediaCategory.value.trim()
+    if (mediaCategory) request.media_category = mediaCategory
+    const data = await api.post<DownloadSourceClassificationData>(
+      `download/${props.task.hash}/classify-source`,
+      request,
+      { feedback: 'silent' },
+    )
+    classificationPreview.value = data
+    if (!execute) return
+    toast.success(
+      data.executed
+        ? t('downloading.settings.sourceClassificationSuccess')
+        : t('downloading.settings.sourceClassificationUnchanged'),
+    )
+    emit('saved', {
+      downloader: data.downloader,
+      hash: data.hash,
+      results: [
+        {
+          operation: 'save_path',
+          success: true,
+          message: data.executed
+            ? t('downloading.settings.sourceClassificationSuccess')
+            : t('downloading.settings.sourceClassificationUnchanged'),
+        },
+      ],
+    })
+    visible.value = false
+  } catch (error) {
+    console.error('资源目录按类别分类失败:', error)
+    toast.error(getApiBusinessErrorMessage(error) || t('downloading.settings.sourceClassificationFailed'))
+  } finally {
+    classifying.value = false
+  }
+}
+
 watch(
   () => props.modelValue,
   value => {
@@ -331,6 +382,69 @@ watch(
                 />
               </VCol>
             </VRow>
+
+            <VTextField
+              v-model="manualMediaCategory"
+              class="mt-3"
+              :label="t('downloading.settings.manualMediaCategory')"
+              :hint="t('downloading.settings.manualMediaCategoryHint')"
+              persistent-hint
+              prepend-inner-icon="mdi-shape-plus-outline"
+              @update:model-value="classificationPreview = undefined"
+            />
+
+            <VAlert class="mt-3" type="info" variant="tonal" density="compact">
+              <div>{{ t('downloading.settings.sourceClassificationHint') }}</div>
+              <template #append>
+                <VBtn
+                  variant="tonal"
+                  size="small"
+                  prepend-icon="mdi-folder-arrow-right-outline"
+                  :loading="classifying && !classificationPreview"
+                  :disabled="classifying || !task.hash"
+                  @click="classifySource(false)"
+                >
+                  {{ t('downloading.settings.previewSourceClassification') }}
+                </VBtn>
+              </template>
+            </VAlert>
+
+            <VCard
+              v-if="classificationPreview"
+              class="download-task-settings-dialog__classification-preview mt-3"
+              variant="outlined"
+            >
+              <VCardText>
+                <div class="text-caption text-medium-emphasis">
+                  {{ t('downloading.settings.classificationCategory') }}
+                </div>
+                <div class="mb-2">{{ classificationPreview.category }}</div>
+                <div class="text-caption text-medium-emphasis">
+                  {{ t('downloading.settings.currentSavePath') }}
+                </div>
+                <code>{{ classificationPreview.current_save_path }}</code>
+                <div class="text-caption text-medium-emphasis mt-2">
+                  {{ t('downloading.settings.targetSavePath') }}
+                </div>
+                <code>{{ classificationPreview.target_save_path }}</code>
+              </VCardText>
+              <VCardActions v-if="classificationPreview.changed">
+                <VSpacer />
+                <VBtn
+                  color="primary"
+                  variant="flat"
+                  prepend-icon="mdi-folder-move-outline"
+                  :loading="classifying"
+                  :disabled="classifying"
+                  @click="classifySource(true)"
+                >
+                  {{ t('downloading.settings.confirmSourceClassification') }}
+                </VBtn>
+              </VCardActions>
+              <VCardText v-else class="pt-0 text-success">
+                {{ t('downloading.settings.sourceClassificationUnchanged') }}
+              </VCardText>
+            </VCard>
           </section>
 
           <section class="download-task-settings-dialog__section">
@@ -423,6 +537,10 @@ watch(
 
 .download-task-settings-dialog__results {
   border-radius: var(--app-control-radius);
+}
+
+.download-task-settings-dialog__classification-preview code {
+  overflow-wrap: anywhere;
 }
 
 .download-task-settings-dialog__result {
