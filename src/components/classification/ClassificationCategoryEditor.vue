@@ -573,6 +573,8 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 
 <style scoped>
 .classification-category-editor {
+  --glass-button-surface-hover: rgba(var(--v-theme-primary), 0.12);
+
   display: grid;
   gap: 20px;
   inline-size: 100%;

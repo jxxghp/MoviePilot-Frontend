@@ -751,6 +751,8 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 .classification-preview__search {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  inline-size: 100%;
+  max-inline-size: 40rem;
   align-items: start;
   gap: 0.75rem;
 }

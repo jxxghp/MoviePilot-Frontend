@@ -555,6 +555,8 @@ watch(
 
 <style scoped>
 .classification-rule-editor {
+  --glass-button-surface-hover: rgba(var(--v-theme-primary), 0.12);
+
   display: grid;
   gap: 12px;
   min-width: 0;
@@ -640,7 +642,7 @@ watch(
 
 .classification-rule-summary:hover,
 .classification-rule-summary:focus-visible {
-  background: var(--classification-control, rgba(var(--v-theme-on-surface), 0.08));
+  background: rgba(var(--v-theme-primary), 0.08);
 }
 
 .classification-rule-summary:focus-visible {
