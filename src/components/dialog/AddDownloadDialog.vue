@@ -155,6 +155,8 @@ const mediaType = ref<DownloadMediaType>(
 
 const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
 
+const mediaSearchHint = computed(() => props.title || props.torrent?.title || props.media?.title || '')
+
 const musicEntityOptions = computed(() => [
   { title: t('setting.cache.musicType.recording'), value: 'recording' },
   { title: t('setting.cache.musicType.album'), value: 'album' },
@@ -506,7 +508,8 @@ onMounted(() => {
       <MediaIdSelector
         v-model="mediaId"
         :type="mediaSource"
-        :music-types="isMusicSelection ? ['recording', 'album'] : undefined"
+        :music-types="isMusicSelection ? [musicType] : undefined"
+        :initial-keyword="isMusicSelection ? mediaSearchHint : undefined"
         @select="handleMediaSelected"
         @close="mediaSelectorDialog = false"
       />

@@ -10,6 +10,7 @@ const { t } = useI18n()
 const props = defineProps<{
   type: MediaDataSource
   musicTypes?: MusicEntityType[]
+  initialKeyword?: string
 }>()
 
 interface MediaSelectorItem {
@@ -25,6 +26,10 @@ interface MediaSelectorItem {
   type?: string
   // 音乐实体类型
   music_type?: MusicEntityType
+  // MusicBrainz Release Group 主类型
+  album_type?: string
+  // MusicBrainz Release Group 副类型
+  secondary_types?: string[]
 }
 
 // update:modelValue 事件
@@ -33,7 +38,7 @@ const emit = defineEmits(['update:modelValue', 'select', 'close'])
 const items = ref<MediaSelectorItem[]>([])
 
 // 搜索词
-const keyword = ref('')
+const keyword = ref(props.initialKeyword?.trim() || '')
 
 // 加载中
 const loading = ref(false)
@@ -69,6 +74,7 @@ async function searchMedias() {
         page: 1,
         count: 20,
         media_source: props.type,
+        ...(props.musicTypes?.length === 1 ? { music_type: props.musicTypes[0] } : {}),
       },
     })
 
@@ -84,15 +90,29 @@ async function searchMedias() {
       const mediaId = item.media_id?.toString().trim()
       if (!mediaId) continue
       const musicAlbum = item.music_type === 'album' || item.album === item.title ? undefined : item.album
+      const musicEntityLabels: Partial<Record<MusicEntityType, string>> = {
+        recording: t('music.entityRecording'),
+        album: t('music.entityAlbum'),
+        artist: t('music.entityArtist'),
+      }
+      const musicLabels = [
+        item.music_type ? musicEntityLabels[item.music_type] : undefined,
+        item.album_type,
+        ...(item.secondary_types || []),
+      ].filter(Boolean)
       items.value.push({
         id: mediaId,
         poster: getW500Image(item.cover_url || item.poster_path),
         type: item.type,
         music_type: item.music_type,
+        album_type: item.album_type,
+        secondary_types: item.secondary_types,
         title: item.year ? `${item.title}（${item.year}）` : item.title || '',
         overview:
           item.type === '音乐'
-            ? `<span class="text-primary">${item.type}</span> ${[item.artist, musicAlbum].filter(Boolean).join(' · ')}`
+            ? `<span class="text-primary">${musicLabels.join(' · ') || item.type}</span> ${[item.artist, musicAlbum]
+                .filter(Boolean)
+                .join(' · ')}`
             : `<span class="text-primary">${item.type}</span> ${item.overview || ''}`,
       })
     }
@@ -105,11 +125,23 @@ async function searchMedias() {
 
 // 加载时聚焦搜索框
 onMounted(() => {
+  if (keyword.value) void searchMedias()
   // 500ms后聚焦
   setTimeout(() => {
     inputKeyword.value?.focus()
   }, 500)
 })
+
+watch(
+  () => props.initialKeyword,
+  value => {
+    const nextKeyword = value?.trim() || ''
+    if (nextKeyword === keyword.value) return
+    keyword.value = nextKeyword
+    items.value = []
+    if (nextKeyword) void searchMedias()
+  },
+)
 </script>
 
 <template>

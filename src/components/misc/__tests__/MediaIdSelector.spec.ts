@@ -111,7 +111,74 @@ describe('MediaIdSelector layout', () => {
     const subtitles = Array.from(container.querySelectorAll('.v-list-item-subtitle')).map(item =>
       item.textContent?.trim(),
     )
-    expect(subtitles).toEqual(['音乐 周杰伦', '音乐 周杰伦 · 叶惠美'])
+    expect(subtitles).toEqual(['专辑 周杰伦', '单曲 周杰伦 · 叶惠美'])
+  })
+
+  it('prefills album searches, scopes the API request, and exposes release-group types', async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        album_type: 'Single',
+        artist: 'Eagles',
+        media_id: 'live-single',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        secondary_types: ['Live'],
+        title: 'Hotel California',
+        type: '音乐',
+      },
+      {
+        album_type: 'Album',
+        artist: 'Eagles',
+        media_id: 'studio-album',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        title: 'Hotel California',
+        type: '音乐',
+        year: 1976,
+      },
+      {
+        artist: 'Eagles',
+        media_id: 'recording-1',
+        media_source: 'musicbrainz',
+        music_type: 'recording',
+        title: 'Hotel California',
+        type: '音乐',
+      },
+    ])
+
+    const { container } = await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Eagles - Hotel California (1976)',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    expect(await screen.findByText('Hotel California（1976）')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('输入媒体名称')).toHaveValue('Eagles - Hotel California (1976)')
+    expect(mocks.apiGet).toHaveBeenCalledWith('media/search', {
+      params: {
+        count: 20,
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        page: 1,
+        title: 'Eagles - Hotel California (1976)',
+        type: 'music',
+      },
+    })
+    expect(screen.queryByText('单曲 Eagles')).not.toBeInTheDocument()
+    const subtitles = Array.from(container.querySelectorAll('.v-list-item-subtitle')).map(item =>
+      item.textContent?.trim(),
+    )
+    expect(subtitles).toEqual(['专辑 · Single · Live Eagles', '专辑 · Album Eagles'])
   })
 
   it('does not infer a primary identity from auxiliary provider IDs', async () => {

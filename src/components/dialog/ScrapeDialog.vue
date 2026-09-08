@@ -47,8 +47,14 @@ const mediaSource = ref<MediaDataSource>(getDefaultMediaSource())
 const mediaId = ref<string | null>(null)
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>('recording')
 const mediaSelectorDialog = ref(false)
-const scrapeMusicTypes: MusicEntityType[] = ['recording', 'album']
 const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
+
+const mediaSearchHint = computed(() => {
+  if (props.items.length !== 1) return ''
+  const path = props.items[0]?.path || ''
+  const name = path.split(/[\\/]/).filter(Boolean).at(-1) || ''
+  return props.items[0]?.type === 'dir' ? name : name.replace(/\.[^.]+$/, '')
+})
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -224,7 +230,8 @@ watch(mediaType, type => {
       <MediaIdSelector
         v-model="mediaId"
         :type="mediaSource"
-        :music-types="scrapeMusicTypes"
+        :music-types="isMusicSelection ? [musicType] : undefined"
+        :initial-keyword="isMusicSelection ? mediaSearchHint : undefined"
         @close="mediaSelectorDialog = false"
         @select="handleMediaSelected"
       />
