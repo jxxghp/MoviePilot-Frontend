@@ -131,6 +131,8 @@ const SystemSettings = ref<any>({
     LYRICS_BATCH_TIMEOUT: 120,
     LYRICS_PROVIDER_RETRY_MAX_WAIT: 5,
     MUSIC_METADATA_TO_SIMPLIFIED: true,
+    MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
+    MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
     TMDB_IMAGE_DOMAIN: null,
     MUSIC_COVER_PROXY: null,
     TMDB_LOCALE: null,
@@ -1128,6 +1130,41 @@ const fanartLanguageSelection = computed({
     SystemSettings.value.Advanced.FANART_LANG = val.join(',')
   },
 })
+
+const musicReleaseRegionItems = computed(() => [
+  { title: t('setting.system.musicRegionChina'), value: 'CN' },
+  { title: t('setting.system.musicRegionTaiwan'), value: 'TW' },
+  { title: t('setting.system.musicRegionHongKong'), value: 'HK' },
+  { title: t('setting.system.musicRegionWorldwide'), value: 'XW' },
+  { title: t('setting.system.musicRegionJapan'), value: 'JP' },
+  { title: t('setting.system.musicRegionUnitedStates'), value: 'US' },
+  { title: t('setting.system.musicRegionUnitedKingdom'), value: 'GB' },
+  { title: t('setting.system.musicRegionSouthKorea'), value: 'KR' },
+])
+
+const musicReleaseScriptItems = computed(() => [
+  { title: t('setting.system.musicScriptSimplified'), value: 'Hans' },
+  { title: t('setting.system.musicScriptTraditional'), value: 'Hant' },
+  { title: t('setting.system.musicScriptLatin'), value: 'Latn' },
+  { title: t('setting.system.musicScriptJapanese'), value: 'Jpan' },
+  { title: t('setting.system.musicScriptKorean'), value: 'Kore' },
+])
+
+function preferenceSelection(setting: 'MUSIC_RELEASE_REGION_PRIORITY' | 'MUSIC_RELEASE_SCRIPT_PRIORITY') {
+  return computed({
+    get: () =>
+      String(SystemSettings.value.Advanced[setting] ?? '')
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean),
+    set: (values: string[]) => {
+      SystemSettings.value.Advanced[setting] = values.slice(0, 3).join(',')
+    },
+  })
+}
+
+const musicReleaseRegionSelection = preferenceSelection('MUSIC_RELEASE_REGION_PRIORITY')
+const musicReleaseScriptSelection = preferenceSelection('MUSIC_RELEASE_SCRIPT_PRIORITY')
 
 // 加载刮削开关设置
 async function loadScrapingSwitchs() {
@@ -2313,6 +2350,34 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :label="t('setting.system.scrapOriginalImage')"
                     :hint="t('setting.system.scrapOriginalImageHint')"
                     persistent-hint
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol cols="12" md="6">
+                  <VSelect
+                    v-model="musicReleaseRegionSelection"
+                    :items="musicReleaseRegionItems"
+                    :label="t('setting.system.musicReleaseRegionPriority')"
+                    :hint="t('setting.system.musicReleaseRegionPriorityHint')"
+                    multiple
+                    chips
+                    closable-chips
+                    persistent-hint
+                    prepend-inner-icon="mdi-earth"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSelect
+                    v-model="musicReleaseScriptSelection"
+                    :items="musicReleaseScriptItems"
+                    :label="t('setting.system.musicReleaseScriptPriority')"
+                    :hint="t('setting.system.musicReleaseScriptPriorityHint')"
+                    multiple
+                    chips
+                    closable-chips
+                    persistent-hint
+                    prepend-inner-icon="mdi-translate"
                   />
                 </VCol>
               </VRow>

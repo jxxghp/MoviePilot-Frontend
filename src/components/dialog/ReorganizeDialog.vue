@@ -65,6 +65,48 @@ const mediaSourceItems = computed<{ title: string; value: MediaDataSource | null
   ...customMusicSourceItems.value,
 ])
 
+const musicReleaseRegionItems = computed(() => [
+  { title: t('dialog.reorganize.musicRegionChina'), value: 'CN' },
+  { title: t('dialog.reorganize.musicRegionTaiwan'), value: 'TW' },
+  { title: t('dialog.reorganize.musicRegionHongKong'), value: 'HK' },
+  { title: t('dialog.reorganize.musicRegionWorldwide'), value: 'XW' },
+  { title: t('dialog.reorganize.musicRegionJapan'), value: 'JP' },
+  { title: t('dialog.reorganize.musicRegionUnitedStates'), value: 'US' },
+  { title: t('dialog.reorganize.musicRegionUnitedKingdom'), value: 'GB' },
+  { title: t('dialog.reorganize.musicRegionSouthKorea'), value: 'KR' },
+])
+
+const musicReleaseScriptItems = computed(() => [
+  { title: t('dialog.reorganize.musicScriptSimplified'), value: 'Hans' },
+  { title: t('dialog.reorganize.musicScriptTraditional'), value: 'Hant' },
+  { title: t('dialog.reorganize.musicScriptLatin'), value: 'Latn' },
+  { title: t('dialog.reorganize.musicScriptJapanese'), value: 'Jpan' },
+  { title: t('dialog.reorganize.musicScriptKorean'), value: 'Kore' },
+])
+
+function parsePreferenceSetting(value: unknown, fallback: string[]) {
+  const parsed = String(value ?? '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+  return (parsed.length ? parsed : fallback).slice(0, 3)
+}
+
+const customMusicReleasePreference = ref(false)
+
+function applyDefaultMusicReleasePreference() {
+  transferForm.music_release_regions = parsePreferenceSetting(globalSettings.MUSIC_RELEASE_REGION_PRIORITY, [
+    'CN',
+    'TW',
+    'HK',
+  ])
+  transferForm.music_release_scripts = parsePreferenceSetting(globalSettings.MUSIC_RELEASE_SCRIPT_PRIORITY, [
+    'Hans',
+    'Hant',
+    'Latn',
+  ])
+}
+
 /** 获取后台设置中的默认识别数据源，未知值兼容回退到 TheMovieDb。 */
 function getDefaultMediaSource(): MediaDataSource {
   const configuredSource = globalSettings.RECOGNIZE_SOURCE as MediaDataSource
@@ -353,6 +395,8 @@ const transferForm = reactive<TransferForm>({
   media_source: null,
   media_id: null,
   music_type: null,
+  music_release_regions: null,
+  music_release_scripts: null,
   transfer_type: null,
   min_filesize: 0,
   scrape: initialTargetPath ? false : null,
@@ -581,8 +625,22 @@ watch(
       transferForm.media_source = null
     }
     transferForm.music_type = isMusicType ? (transferForm.music_type ?? defaultMusicEntity.value) : null
+    if (!isMusicType) {
+      customMusicReleasePreference.value = false
+      transferForm.music_release_regions = null
+      transferForm.music_release_scripts = null
+    }
   },
 )
+
+watch(customMusicReleasePreference, enabled => {
+  if (enabled) {
+    applyDefaultMusicReleasePreference()
+    return
+  }
+  transferForm.music_release_regions = null
+  transferForm.music_release_scripts = null
+})
 
 // 切换数据源时清空上一来源的原生ID，避免把同一数字误传给新来源。
 watch(
@@ -1017,8 +1075,20 @@ watch(
 )
 
 // 判断文件集合是否可以按批量文件请求提交。
+// 整理历史中的旧 FileItem 可能没有 type，但仍会保留文件扩展名或完整路径；
+// 这类记录必须继续作为一个批次提交，否则专辑会被拆成逐曲请求而丢失专辑上下文。
+function isFileLikeItem(item: FileItem) {
+  if (item.type === 'file') return true
+  if (item.type === 'dir') return false
+  if (item.extension?.trim()) return true
+
+  const itemPath = item.path || item.name || ''
+  const basename = itemPath.split(/[\\/]/).pop() || ''
+  return /\.[^.]+$/.test(basename)
+}
+
 function shouldUseBatchFileItems(items: FileItem[]) {
-  return items.length > 0 && items.every(item => item.type === 'file')
+  return items.length > 0 && items.every(isFileLikeItem)
 }
 
 // 生成批量文件在提示和错误信息中的显示名称。
@@ -1665,6 +1735,50 @@ onUnmounted(() => {
                       persistent-hint
                       prepend-inner-icon="mdi-identifier"
                       @click:append-inner="mediaSelectorDialog = true"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-if="transferForm.type_name === '音乐'">
+                  <VCol cols="12" md="4">
+                    <VSwitch
+                      v-model="customMusicReleasePreference"
+                      :label="t('dialog.reorganize.musicReleasePreferenceOverride')"
+                      :hint="t('dialog.reorganize.musicReleasePreferenceOverrideHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="transferForm.music_release_regions"
+                      :disabled="!customMusicReleasePreference"
+                      :items="musicReleaseRegionItems"
+                      :label="t('dialog.reorganize.musicReleaseRegions')"
+                      :hint="t('dialog.reorganize.musicReleaseRegionsHint')"
+                      multiple
+                      chips
+                      closable-chips
+                      persistent-hint
+                      prepend-inner-icon="mdi-earth"
+                      @update:model-value="
+                        (value: string[]) => (transferForm.music_release_regions = value.slice(0, 3))
+                      "
+                    />
+                  </VCol>
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="transferForm.music_release_scripts"
+                      :disabled="!customMusicReleasePreference"
+                      :items="musicReleaseScriptItems"
+                      :label="t('dialog.reorganize.musicReleaseScripts')"
+                      :hint="t('dialog.reorganize.musicReleaseScriptsHint')"
+                      multiple
+                      chips
+                      closable-chips
+                      persistent-hint
+                      prepend-inner-icon="mdi-translate"
+                      @update:model-value="
+                        (value: string[]) => (transferForm.music_release_scripts = value.slice(0, 3))
+                      "
                     />
                   </VCol>
                 </VRow>
