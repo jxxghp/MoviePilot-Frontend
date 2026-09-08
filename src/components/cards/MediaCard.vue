@@ -710,7 +710,13 @@ onBeforeUnmount(() => {
               :icon="musicSourceIconDict[mediaSource].icon"
               size="24"
             />
-            <VImg v-else cover :src="sourceIconDict[mediaSource]" class="shadow-lg" />
+            <VImg
+              v-else
+              cover
+              :src="sourceIconDict[mediaSource]"
+              :transition="imageRequest.transition"
+              class="shadow-lg"
+            />
           </VAvatar>
         </VCard>
       </div>

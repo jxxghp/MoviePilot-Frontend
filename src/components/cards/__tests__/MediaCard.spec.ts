@@ -883,7 +883,7 @@ describe('MediaCard', () => {
     expect(getCard(second.container)).not.toHaveClass('media-card--poster-revisit')
   })
 
-  it('does not run CSS transition layout hooks when a revealed poster re-enters', async () => {
+  it('does not run CSS transition layout hooks when a revealed poster and its source badge re-enter', async () => {
     const media = createMediaInfo({ poster_path: '/original/revisit-transition.jpg', tmdb_id: 9564 })
     const requests: ControlledImageRequest[] = []
     const first = await renderWithProviders(MediaCard, {
@@ -913,6 +913,44 @@ describe('MediaCard', () => {
     expect(second.container.querySelector('.v-img__placeholder')).toBeNull()
     expect(second.container.querySelector('[class*="-enter-"], [class*="-leave-"]')).toBeNull()
     expect(getCard(second.container)).toHaveAttribute('data-glass-optical-mode', 'excluded')
+
+    const badgeObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(
+        ([element]) => second.container.contains(element) && element.closest('.v-avatar'),
+      ),
+    )
+    expect(badgeObserver).toBeDefined()
+    badgeObserver!.trigger()
+    await waitFor(() => expect(second.container.querySelector('.v-avatar .v-img__img')).not.toBeNull())
+    const badge = second.container.querySelector<HTMLImageElement>('.v-avatar .v-img__img')!
+    await fireEvent.load(badge)
+    expect(badge).not.toHaveStyle({ display: 'none' })
+    expect(second.container.querySelector('[class*="-enter-"], [class*="-leave-"]')).toBeNull()
+    expect(forcedLayout).not.toHaveBeenCalled()
+  })
+
+  it('keeps the source badge fade on the first poster presentation', async () => {
+    const { container } = await renderWithProviders(MediaCard, {
+      props: { media: createMediaInfo({ poster_path: '/original/first-badge.jpg', tmdb_id: 9565 }) },
+      global: { stubs: { transition: false } },
+    })
+    const imageObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(([element]) => element.classList.contains('v-img')),
+    )
+    expect(imageObserver).toBeDefined()
+    imageObserver!.trigger()
+    await waitFor(() => expect(container.querySelector('.v-img__img')).not.toBeNull())
+    await fireEvent.load(container.querySelector<HTMLImageElement>('.v-img__img')!)
+
+    const badgeObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(([element]) => container.contains(element) && element.closest('.v-avatar')),
+    )
+    expect(badgeObserver).toBeDefined()
+    badgeObserver!.trigger()
+    await waitFor(() => expect(container.querySelector('.v-avatar .v-img__img')).not.toBeNull())
+    const badge = container.querySelector<HTMLImageElement>('.v-avatar .v-img__img')!
+    await fireEvent.load(badge)
+    expect(badge).toHaveClass('fade-transition-enter-from', 'fade-transition-enter-active')
   })
 
   it('uses the real VImg lazy lifecycle only for the first presentation', async () => {
