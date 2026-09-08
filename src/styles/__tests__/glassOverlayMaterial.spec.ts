@@ -90,6 +90,14 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(/\.plugin-card__plugin-icon \.v-img__img\s*\{\s*object-fit:\s*contain;/u)
   })
 
+  it('flattens nested shortcut dialog surfaces while keeping the outer overlay contour', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain('.words-shortcut-dialog-card .words-workspace')
+    expect(styles).toContain('.scheduler-shortcut-dialog-card .d-none.d-md-block')
+    expect(styles).toMatch(/\.words-shortcut-dialog-card \.words-workspace,[\s\S]*?border-radius: 0 !important;/u)
+  })
+
   it('keeps overlays translucent enough for CSS backdrop compositing in every material', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 

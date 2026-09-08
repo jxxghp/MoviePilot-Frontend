@@ -693,6 +693,12 @@ html[data-theme='glass'] {
     background-color: transparent !important;
   }
 
+  // 快捷弹窗内部视图贴合外层玻璃表面，避免嵌套容器圆角形成断层。
+  .words-shortcut-dialog-card .words-workspace,
+  .scheduler-shortcut-dialog-card .d-none.d-md-block {
+    border-radius: 0 !important;
+  }
+
   .v-overlay__content {
     border-radius: var(--app-overlay-radius);
 
