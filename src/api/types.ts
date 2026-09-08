@@ -2265,11 +2265,15 @@ export interface TransferForm {
 }
 
 // 手动整理请求
-export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem'> {
+export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem' | 'logid'> {
   // 文件项
   fileitem?: FileItem
   // 多选文件批量请求
   fileitems?: FileItem[]
+  // 单条整理历史请求
+  logid?: number
+  // 多选整理历史批量请求
+  logids?: number[]
 }
 
 // 手动整理目的路径匹配请求
