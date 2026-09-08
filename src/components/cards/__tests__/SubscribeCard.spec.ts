@@ -1,6 +1,8 @@
 import { formatDateDifference } from '@/@core/utils/formatters'
 import type { Subscribe } from '@/api/types'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
+import zhCN from '@/locales/zh-CN'
+import zhTW from '@/locales/zh-TW'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createSubscribe } from '@tests/support/factories/subscribe'
 import {
@@ -12,6 +14,7 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createI18n } from 'vue-i18n'
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -350,7 +353,7 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-paused')
   })
 
-  it.each([480, 1024])('shows governed execution state and safe failure detail at %ipx', async width => {
+  it.each([375, 480, 1024])('shows governed execution state and safe failure detail at %ipx', async width => {
     setViewport(width)
     await renderCard({
       execution_status: {
@@ -364,11 +367,27 @@ describe('SubscribeCard display and progress', () => {
       },
     })
 
-    expect(screen.getByText('站点暂时忙，稍后继续')).toBeInTheDocument()
+    expect(screen.getByText('等待站点')).toBeInTheDocument()
     const status = screen.getByTitle('站点暂时忙，系统会自动继续搜索')
     expect(status).toBeInTheDocument()
     await fireEvent.mouseEnter(status)
     await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('站点暂时忙，系统会自动继续搜索'))
+  })
+
+  it.each([375, 1024])('clears old waiting detail when search resumes at %ipx', async width => {
+    setViewport(width)
+    await renderCard({
+      execution_status: {
+        can_cancel: true,
+        error: '站点暂时忙，系统会自动继续搜索',
+        phase: 'searching',
+        state: 'running',
+        updated_at: new Date().toISOString(),
+      },
+    })
+
+    expect(screen.getByText('搜索中')).toBeInTheDocument()
+    expect(screen.queryByTitle('站点暂时忙，系统会自动继续搜索')).not.toBeInTheDocument()
   })
 
   it.each([480, 1024])('shows a skipped execution as a non-error terminal state at %ipx', async width => {
@@ -382,7 +401,7 @@ describe('SubscribeCard display and progress', () => {
       },
     })
 
-    expect(screen.getByText('这次未搜索')).toBeInTheDocument()
+    expect(screen.getByText('已跳过')).toBeInTheDocument()
     if (width < 600) {
       expect(document.querySelector('[data-subscribe-state-icon="mdi-skip-next-circle-outline"]')).toBeInTheDocument()
     }
@@ -461,7 +480,7 @@ describe('SubscribeCard display and progress', () => {
       type: '电视剧',
     })
 
-    expect(screen.queryByText('已安排，稍后开始')).not.toBeInTheDocument()
+    expect(screen.queryByText('待搜索')).not.toBeInTheDocument()
     expect(screen.getByText('6 / 10')).toBeInTheDocument()
     if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
   })
@@ -709,4 +728,13 @@ describe('SubscribeCard item operations', () => {
       else expect(mocks.toastError).not.toHaveBeenCalled()
     },
   )
+})
+
+describe('SubscribeCard compact execution vocabulary', () => {
+  it.each([zhCN, zhTW])('keeps every Chinese state within four characters', locale => {
+    const i18n = createI18n({ legacy: false, locale: 'test', messages: { test: locale } })
+    for (const state of Object.keys(locale.subscribe.execution.state)) {
+      expect([...i18n.global.t(`subscribe.execution.state.${state}`)].length).toBeLessThanOrEqual(4)
+    }
+  })
 })

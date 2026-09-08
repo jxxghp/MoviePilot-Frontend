@@ -385,7 +385,7 @@ describe('SubscribeListView loading and filtering', () => {
     server.use(cancelSubscriptionExecutionBatchHandler(batch.batch_id, { success: true }, 200, cancelRequested))
     await renderList({ batchResponse: [batch], listResponse: [movie(1, 'Own movie')] })
 
-    expect(await screen.findByText('正在搜索')).toBeInTheDocument()
+    expect(await screen.findByText('搜索中')).toBeInTheDocument()
     expect(screen.getByText('1/3')).toBeInTheDocument()
     await fireEvent.click(screen.getByTitle('停止这次搜索'))
 
@@ -845,7 +845,7 @@ describe('SubscribeListView loading and filtering', () => {
     })
 
     expect(await screen.findByText('跳过批次订阅')).toBeInTheDocument()
-    expect(await screen.findByText('这次未搜索')).toBeInTheDocument()
+    expect(await screen.findByText('已跳过')).toBeInTheDocument()
     expect(await screen.findByText('2/3')).toBeInTheDocument()
   })
 
@@ -856,7 +856,7 @@ describe('SubscribeListView loading and filtering', () => {
     })
 
     expect(await screen.findByText('后台自动搜索订阅')).toBeInTheDocument()
-    expect(screen.queryByText('已安排，稍后开始')).not.toBeInTheDocument()
+    expect(screen.queryByText('待搜索')).not.toBeInTheDocument()
     expect(document.querySelector('.subscribe-execution-banner')).not.toBeInTheDocument()
   })
 

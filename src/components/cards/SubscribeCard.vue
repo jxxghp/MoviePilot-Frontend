@@ -146,7 +146,10 @@ const executionStateDisplay = computed(() => {
   return {
     ...display,
     label: t(`subscribe.execution.state.${displayState}`),
-    error: execution.error,
+    // 兼容旧后端残留的等待原因：恢复搜索后不再把旧提示带入 tooltip。
+    error: ['matching', 'searching', 'preparing', 'submitting', 'running'].includes(displayState)
+      ? undefined
+      : execution.error,
   }
 })
 
@@ -1106,8 +1109,10 @@ function handleCardClick() {
   text-overflow: ellipsis;
 }
 
+/* 状态与集数共用单行槽位，小屏空间不足时允许省略而不挤压操作按钮。 */
 .subscribe-card-mobile-progress-text {
-  flex-shrink: 0;
+  min-inline-size: 0;
+  flex-shrink: 1;
 }
 
 .subscribe-card-mobile-menu {
