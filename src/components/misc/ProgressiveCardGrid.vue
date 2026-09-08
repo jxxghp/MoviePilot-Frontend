@@ -194,7 +194,7 @@ const rowMetrics = computed(() => {
 
 const totalHeight = computed(() => rowMetrics.value.totalHeight)
 
-const calculatedViewportRange = computed<VirtualRange>(() => {
+const calculatedViewportRange = computed<VirtualRange>(previous => {
   if (shouldRenderOverlayFully.value) {
     const rowCount = Math.max(1, Math.ceil(props.items.length / columnCount.value))
 
@@ -222,12 +222,25 @@ const calculatedViewportRange = computed<VirtualRange>(() => {
   const firstVisibleRow = findFirstRowAtOrAfterOffset(offsets, heights, top)
   const lastVisibleRow = findLastRowAtOrBeforeOffset(offsets, rowCount, bottom)
 
-  return {
+  const nextRange = {
     endIndex: Math.min(props.items.length, (lastVisibleRow + 1) * columnCount.value),
     endRow: lastVisibleRow,
     startIndex: firstVisibleRow * columnCount.value,
     startRow: firstVisibleRow,
   }
+
+  // 行内滚动不改变挂载窗口，复用范围以避免整批 slot 更新和渐进任务重排。
+  if (
+    previous &&
+    previous.startIndex === nextRange.startIndex &&
+    previous.endIndex === nextRange.endIndex &&
+    previous.startRow === nextRange.startRow &&
+    previous.endRow === nextRange.endRow
+  ) {
+    return previous
+  }
+
+  return nextRange
 })
 
 const calculatedVisibleRange = computed<VirtualRange>(() => {
