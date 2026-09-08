@@ -144,6 +144,7 @@ watch(
     const nextKeyword = value?.trim() || ''
     if (nextKeyword === keyword.value) return
     searchRequestId += 1
+    loading.value = false
     keyword.value = nextKeyword
     items.value = []
     if (nextKeyword) void searchMedias()

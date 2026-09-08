@@ -239,6 +239,36 @@ describe('MediaIdSelector layout', () => {
     expect(screen.getByText('Hotel California（1976）')).toBeInTheDocument()
   })
 
+  it('ends loading when a pending initial search is cancelled', async () => {
+    mocks.apiGet.mockReturnValue(new Promise(() => undefined))
+
+    const view = await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Hotel California',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    const fieldProgress = () => view.container.querySelector('.v-field__loader .v-progress-linear')
+    await waitFor(() => expect(fieldProgress()).toHaveStyle({ height: '2px' }))
+    await view.rerender({
+      initialKeyword: '',
+      musicTypes: ['album'],
+      type: 'musicbrainz',
+    })
+
+    await waitFor(() => expect(fieldProgress()).toHaveStyle({ height: '0px' }))
+  })
+
   it('does not infer a primary identity from auxiliary provider IDs', async () => {
     mocks.apiGet.mockResolvedValue([
       {
