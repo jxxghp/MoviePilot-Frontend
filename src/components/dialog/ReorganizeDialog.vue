@@ -1703,7 +1703,7 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
+                  <VCol cols="12" :md="6">
                     <VSelect
                       v-model="transferForm.type_name"
                       :label="t('dialog.reorganize.mediaType')"
@@ -1718,7 +1718,7 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-movie-open"
                     />
                   </VCol>
-                  <VCol cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
+                  <VCol cols="12" :md="6">
                     <VSelect
                       v-model="transferForm.media_source"
                       :items="mediaSourceItems"
@@ -1728,7 +1728,7 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-database-search"
                     />
                   </VCol>
-                  <VCol v-if="transferForm.type_name === '音乐'" cols="12" md="3">
+                  <VCol v-if="transferForm.type_name === '音乐'" cols="12" md="6">
                     <VSelect
                       v-model="transferForm.music_type"
                       :label="t('dialog.reorganize.musicEntity')"
@@ -1741,7 +1741,7 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-music-box-multiple"
                     />
                   </VCol>
-                  <VCol v-if="transferForm.type_name !== ''" cols="12" :md="transferForm.type_name === '音乐' ? 3 : 4">
+                  <VCol v-if="transferForm.type_name !== ''" :cols="transferForm.type_name === '音乐' ? 6 : 12">
                     <VTextField
                       v-model="transferForm.media_id"
                       :label="mediaIdLabel"
@@ -1756,7 +1756,7 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
                 <VRow v-if="transferForm.type_name === '音乐'">
-                  <VCol cols="12" md="4">
+                  <VCol cols="12">
                     <VSwitch
                       v-model="customMusicReleasePreference"
                       :label="t('dialog.reorganize.musicReleasePreferenceOverride')"
@@ -1764,7 +1764,7 @@ onUnmounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" md="6">
                     <VSelect
                       v-model="transferForm.music_release_regions"
                       :disabled="!customMusicReleasePreference"
@@ -1781,7 +1781,7 @@ onUnmounted(() => {
                       "
                     />
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" md="6">
                     <VSelect
                       v-model="transferForm.music_release_scripts"
                       :disabled="!customMusicReleasePreference"
@@ -2591,8 +2591,8 @@ onUnmounted(() => {
 
 @media (width <= 640px) {
   .target-path-match__content {
-    align-items: stretch;
     flex-direction: column;
+    align-items: stretch;
   }
 
   .target-path-match__content .v-btn {
