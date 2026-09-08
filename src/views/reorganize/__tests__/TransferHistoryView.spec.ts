@@ -1152,6 +1152,50 @@ describe('TransferHistoryView', () => {
     expect(getDynamicMenuItems()?.some(item => item.titleKey === 'transferHistory.actions.batchDelete')).toBe(true)
   })
 
+  it.each([
+    [true, false],
+    [true, true],
+    [false, false],
+    [false, true],
+  ])('serializes music deletion by ID on desktop=%s batch=%s', async (desktop, batch) => {
+    // 通过真实页面生成专辑摘要，并模拟 HTTP 客户端序列化，防止循环引用被 API mock 掩盖。
+    mocks.desktop = desktop
+    const item = createHistory(7, '音乐删除回归', {
+      dest: '/media/歌手/专辑/01.flac',
+      image: '/cover.jpg',
+      type: '音乐',
+    })
+    const payloads: string[] = []
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([item]))
+    })
+    mocks.apiDelete.mockImplementation((_path: string, config: { data: unknown }) => {
+      payloads.push(JSON.stringify(config.data))
+      return Promise.resolve(deleteResultResponse())
+    })
+
+    const { container } = await renderHistory()
+    if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    expect(await screen.findByText('音乐删除回归')).toBeInTheDocument()
+    if (batch) {
+      if (desktop) {
+        await fireEvent.click(screen.getByRole('button', { name: '选择当前页' }))
+      } else {
+        await fireEvent.click(screen.getByRole('button', { name: '批量选择' }))
+        await fireEvent.click(container.querySelector('.transfer-history-mobile-record') as HTMLElement)
+      }
+      await nextTick()
+      runDynamicAction('transferHistory.actions.batchDelete')
+    } else {
+      await fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    }
+    await getDialogCall().events.delete(false, false)
+
+    expect(payloads).toEqual(['{"id":7}'])
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
   it('shows the existing toast-style feedback when a single deletion request throws', async () => {
     const item = createHistory(1, '异常删除')
     mocks.apiGet.mockImplementation((path: string) => {

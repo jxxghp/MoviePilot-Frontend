@@ -1013,7 +1013,8 @@ async function remove(
     const result = await api.delete<TransferHistoryDeleteResult>(
       `history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`,
       {
-        data: item,
+        // 删除接口只需要 ID；音乐分组摘要会回指封面记录，整条展示对象无法序列化。
+        data: { id: item.id },
         feedback: 'silent',
       },
     )
