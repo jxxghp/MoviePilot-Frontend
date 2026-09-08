@@ -417,6 +417,11 @@ html[data-theme='glass'] {
     opacity: 1;
   }
 
+  // 缓存海报重入只恢复内容；真实 load 提交前仍保持不可见和原有玻璃占位。
+  .media-card--poster-revisit .v-img__img {
+    transition: none;
+  }
+
   .v-toolbar {
     border-color: var(--glass-border);
     -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);

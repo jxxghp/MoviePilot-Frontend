@@ -106,17 +106,6 @@
       "count": 1
     }
   },
-  "src/components/cards/MediaCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
   "src/components/cards/PersonCard.vue": {
     "no-useless-assignment": {
       "count": 1

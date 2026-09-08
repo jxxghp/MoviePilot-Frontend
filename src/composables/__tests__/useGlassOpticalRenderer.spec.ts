@@ -178,8 +178,12 @@ function createTouchList(points: Array<{ clientX: number; clientY: number; ident
   }) as unknown as TouchList
 }
 
-/** 构造浏览器在 detached 子树交付前保留的 child-list 移除记录。 */
-function createRemovalRecord(target: Element, removedNodes: Element[]): MutationRecord {
+/** 构造浏览器交付的 child-list 记录，并保留 detached 子树的节点身份。 */
+function createChildListRecord(
+  target: Element,
+  addedNodes: Element[] = [],
+  removedNodes: Element[] = [],
+): MutationRecord {
   const toNodeList = (nodes: Node[]) =>
     Object.assign(nodes, {
       item(index: number) {
@@ -188,7 +192,7 @@ function createRemovalRecord(target: Element, removedNodes: Element[]): Mutation
     }) as unknown as NodeList
 
   return {
-    addedNodes: toNodeList([]),
+    addedNodes: toNodeList(addedNodes),
     attributeName: null,
     attributeNamespace: null,
     nextSibling: null,
@@ -198,6 +202,11 @@ function createRemovalRecord(target: Element, removedNodes: Element[]): Mutation
     target,
     type: 'childList',
   }
+}
+
+/** 构造浏览器在 detached 子树交付前保留的 child-list 移除记录。 */
+function createRemovalRecord(target: Element, removedNodes: Element[]): MutationRecord {
+  return createChildListRecord(target, [], removedNodes)
 }
 
 /** 构造会改变光学表面资格的属性变更记录。 */
@@ -1548,6 +1557,87 @@ describe('glass optical surface discovery', () => {
     expect(renderedRectCounts.at(-1)).toBe(0)
     expect(setRenderTarget).not.toHaveBeenCalled()
     expect(callbacks.size).toBe(0)
+    scope.stop()
+  })
+
+  it('limits fixed redraws to fixed surface mutations', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    vi.stubGlobal('MutationObserver', MutationObserverTriggerMock)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const appWrapper = document.createElement('div')
+    appWrapper.className = 'app-wrapper'
+    const navbar = document.createElement('aside')
+    navbar.className = 'layout-navbar'
+    setOpticalSurfaceBounds(navbar, { height: 64, width: 600, x: 0, y: 0 })
+    const pageContent = document.createElement('main')
+    pageContent.className = 'layout-page-content'
+    appWrapper.append(navbar, pageContent)
+    document.body.append(appWrapper)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'fixed',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    flushQueuedAnimationFrames(callbacks)
+    render.mockClear()
+    const mutationObserver = MutationObserverTriggerMock.instances[0]
+    expect(mutationObserver).toBeDefined()
+    const fixedFramesBeforeScrollMutations = renderer?.renderedFrames.value
+
+    const scrollCard = document.createElement('article')
+    scrollCard.className = 'app-hover-lift-card'
+    setOpticalSurfaceBounds(scrollCard, { height: 180, width: 320, x: 40, y: 120 })
+    pageContent.append(scrollCard)
+    mutationObserver?.trigger([createChildListRecord(pageContent, [scrollCard])])
+    expect(render).not.toHaveBeenCalled()
+    expect(callbacks.size).toBe(0)
+
+    scrollCard.dataset.glassOpticalMode = 'excluded'
+    mutationObserver?.trigger([createAttributeRecord(scrollCard)])
+    expect(render).not.toHaveBeenCalled()
+    expect(callbacks.size).toBe(0)
+
+    scrollCard.remove()
+    mutationObserver?.trigger([createRemovalRecord(pageContent, [scrollCard])])
+    expect(render).not.toHaveBeenCalled()
+    expect(callbacks.size).toBe(0)
+    expect(renderer?.renderedFrames.value).toBe(fixedFramesBeforeScrollMutations)
+
+    const replacementNavbar = document.createElement('aside')
+    replacementNavbar.className = 'layout-navbar'
+    setOpticalSurfaceBounds(replacementNavbar, { height: 64, width: 600, x: 120, y: 0 })
+    navbar.remove()
+    appWrapper.append(replacementNavbar)
+    mutationObserver?.trigger([createChildListRecord(appWrapper, [replacementNavbar], [navbar])])
+    flushQueuedAnimationFrames(callbacks)
+
+    expect(render).toHaveBeenCalled()
+    const scene = render.mock.calls.at(-1)?.[0] as Object3D
+    const material = getGlassMainSceneMaterial(scene)
+    if (!material) throw new Error('main optical scene was not rendered')
+    expect(material.uniforms.uRectCount.value).toBe(1)
+    expect(material.uniforms.uRects.value[0].x).toBeCloseTo(120 / 1200)
     scope.stop()
   })
 
