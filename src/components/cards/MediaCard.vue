@@ -537,6 +537,8 @@ const imageRequest = computed(() => {
     key: revision,
     revisit,
     src,
+    // Vuetify 的布尔 false 仍会创建默认 CSS Transition；重入需关闭 CSS 钩子，避免无动画仍强制布局。
+    transition: revisit ? { css: false } : 'fade-transition',
   }
 })
 
@@ -630,7 +632,7 @@ onBeforeUnmount(() => {
             aspect-ratio="2/3"
             :src="imageRequest.src"
             :eager="imageRequest.revisit"
-            :transition="imageRequest.revisit ? false : 'fade-transition'"
+            :transition="imageRequest.transition"
             class="object-cover aspect-w-2 aspect-h-3"
             cover
             @load="imageRequest.handleLoad"
