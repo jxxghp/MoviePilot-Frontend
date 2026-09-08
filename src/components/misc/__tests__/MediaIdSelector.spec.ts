@@ -269,6 +269,75 @@ describe('MediaIdSelector layout', () => {
     await waitFor(() => expect(fieldProgress()).toHaveStyle({ height: '0px' }))
   })
 
+  it('invalidates old results and searches again when the music entity scope changes', async () => {
+    let resolveAlbumSearch: (value: Array<Record<string, unknown>>) => void = () => undefined
+    const albumSearch = new Promise<Array<Record<string, unknown>>>(resolve => {
+      resolveAlbumSearch = resolve
+    })
+    mocks.apiGet.mockReturnValueOnce(albumSearch).mockResolvedValueOnce([
+      {
+        artist: 'Eagles',
+        media_id: 'recording-1',
+        media_source: 'musicbrainz',
+        music_type: 'recording',
+        title: 'Hotel California recording',
+        type: '音乐',
+      },
+    ])
+
+    const view = await renderWithProviders(MediaIdSelector, {
+      props: {
+        initialKeyword: 'Hotel California',
+        musicTypes: ['album'],
+        type: 'musicbrainz',
+      },
+      global: {
+        stubs: {
+          VDialogCloseBtn: {
+            props: ['innerClass'],
+            template: '<button type="button" :class="innerClass"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledTimes(1))
+    await view.rerender({
+      initialKeyword: 'Hotel California',
+      musicTypes: ['recording'],
+      type: 'musicbrainz',
+    })
+
+    expect(await screen.findByText('Hotel California recording')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenLastCalledWith('media/search', {
+      params: {
+        count: 20,
+        media_source: 'musicbrainz',
+        music_type: 'recording',
+        page: 1,
+        title: 'Hotel California',
+        type: 'music',
+      },
+    })
+
+    resolveAlbumSearch([
+      {
+        album_type: 'Album',
+        artist: 'Eagles',
+        media_id: 'album-1',
+        media_source: 'musicbrainz',
+        music_type: 'album',
+        title: 'Stale Hotel California album',
+        type: '音乐',
+      },
+    ])
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(screen.queryByText('Stale Hotel California album')).not.toBeInTheDocument()
+    expect(screen.getByText('Hotel California recording')).toBeInTheDocument()
+  })
+
   it('does not infer a primary identity from auxiliary provider IDs', async () => {
     mocks.apiGet.mockResolvedValue([
       {

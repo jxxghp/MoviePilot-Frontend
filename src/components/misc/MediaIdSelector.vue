@@ -139,15 +139,16 @@ onMounted(() => {
 })
 
 watch(
-  () => props.initialKeyword,
-  value => {
-    const nextKeyword = value?.trim() || ''
-    if (nextKeyword === keyword.value) return
+  () => [props.initialKeyword?.trim() || '', props.type, props.musicTypes?.join(',') || ''] as const,
+  ([nextKeyword, nextType, nextMusicTypes], [previousKeyword, previousType, previousMusicTypes]) => {
+    const keywordChanged = nextKeyword !== previousKeyword && nextKeyword !== keyword.value
+    const scopeChanged = nextType !== previousType || nextMusicTypes !== previousMusicTypes
+    if (!keywordChanged && !scopeChanged) return
     searchRequestId += 1
     loading.value = false
-    keyword.value = nextKeyword
+    if (keywordChanged) keyword.value = nextKeyword
     items.value = []
-    if (nextKeyword) void searchMedias()
+    if (keyword.value) void searchMedias()
   },
 )
 </script>
