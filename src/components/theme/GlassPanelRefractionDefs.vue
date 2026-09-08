@@ -23,6 +23,13 @@ interface FilterDefinition {
   image: string
 }
 
+interface CachedDisplacementMap {
+  /** 相同几何共享一次解码；未完成的图片不能用于同步接管。 */
+  pending: Promise<string>
+  /** 解码完成的图像地址；与 pending 共用同一缓存淘汰边界。 */
+  image: string | null
+}
+
 interface SurfaceBinding {
   /** 表面拥有者；前景内容不进入滤镜输入。 */
   element: HTMLElement
@@ -61,7 +68,9 @@ const scale = computed(() => {
   return settings.value.glassQuality === 'high' ? -34 : -22
 })
 const surfaces = new Map<HTMLElement, SurfaceBinding>()
-const imageCache = new Map<string, Promise<string>>()
+// 页面缓存可复用节点身份，但不强引用已卸载页面或保留其 SVG 绘制资源。
+const surfaceIds = new WeakMap<HTMLElement, string>()
+const imageCache = new Map<string, CachedDisplacementMap>()
 const geometryAnchors = new Set<HTMLElement>()
 const nearbyCards = new Set<HTMLElement>()
 // 提前一个短滚动距离准备材质；远处卡片不分配 SVG 滤镜和全尺寸位移图。
@@ -208,9 +217,9 @@ function readGeometry(binding: SurfaceBinding) {
 }
 
 async function decodedMap(geometry: NonNullable<ReturnType<typeof readGeometry>>, key: string) {
-  let pending = imageCache.get(key)
-  if (!pending) {
-    pending = (async () => {
+  let cached = imageCache.get(key)
+  if (!cached) {
+    const pending = (async () => {
       const map = geometry.panels
         ? createGlassPanelBackdropMap({ ...geometry, panels: geometry.panels })
         : createGlassNavbarDisplacementMap({ ...geometry, surface: 'panel' })
@@ -220,35 +229,47 @@ async function decodedMap(geometry: NonNullable<ReturnType<typeof readGeometry>>
       await image.decode()
       return map
     })()
-    imageCache.set(key, pending)
+    const entry: CachedDisplacementMap = { pending, image: null }
+    cached = entry
+    imageCache.set(key, entry)
     if (imageCache.size > 24) imageCache.delete(imageCache.keys().next().value!)
-    void pending.catch(() => {
-      if (imageCache.get(key) === pending) imageCache.delete(key)
-    })
+    void pending.then(
+      image => {
+        entry.image = image
+      },
+      () => {
+        if (imageCache.get(key) === entry) imageCache.delete(key)
+      },
+    )
   }
-  return pending
+  return cached.pending
 }
 
 function reconcileBindings() {
   const candidates = collectSurfaces()
+  let changed = false
   for (const [element, binding] of surfaces) {
     if (!candidates.has(element) || candidates.get(element) !== binding.kind) {
       forget(binding)
       surfaces.delete(element)
+      changed = true
     }
   }
   for (const [element, kind] of candidates) {
     if (surfaces.has(element)) continue
+    const id = surfaceIds.get(element) ?? `${prefix}-${sequence++}`
+    surfaceIds.set(element, id)
     const binding: SurfaceBinding = {
       element,
       kind,
-      id: `${prefix}-${sequence++}`,
+      id,
       key: '',
       styles: new Map(),
       previousMarker: element.getAttribute('data-glass-panel-refraction'),
       previousOwner: element.getAttribute('data-glass-panel-owner'),
     }
     surfaces.set(element, binding)
+    changed = true
     element.dataset.glassPanelOwner = binding.id
     if (kind === 'card') {
       const bounds = element.getBoundingClientRect()
@@ -257,6 +278,45 @@ function reconcileBindings() {
       intersectionObserver?.observe(element)
     }
   }
+  // 解码完成与路由 DOM 移动可能发生在同一帧，旧批次不能再次绑定已退出的页面。
+  if (changed) revision += 1
+}
+
+/** 必须先将对应 defs 提交到 DOM，再发布表面引用和材质接管标记。 */
+function bindFilter(binding: SurfaceBinding) {
+  const suffix = settings.value.glassQuality === 'balanced' && bodyBlur.value > 0 ? ` blur(${bodyBlur.value}px)` : ''
+  const filter = `url("#${binding.id}")${suffix} saturate(118%) brightness(var(--glass-transmission-brightness, 1))`
+  if (binding.kind === 'backplate') setStyle(binding, 'filter', filter)
+  else if (binding.kind === 'card') {
+    setStyle(binding, 'backdrop-filter', filter)
+    setStyle(binding, '-webkit-backdrop-filter', filter)
+  } else setStyle(binding, '--glass-panel-filter', filter)
+  binding.element.dataset.glassPanelRefraction = binding.id
+}
+
+/** 暖返回在首次绘制前恢复已解码材质，不等待同批新卡片或下一帧的冷准备。 */
+async function restoreCachedSurfaces() {
+  if (!imageCache.size) return
+  const currentRevision = revision
+  const restored: Array<{ binding: SurfaceBinding; definition: FilterDefinition }> = []
+  for (const binding of surfaces.values()) {
+    if (binding.element.dataset.glassPanelRefraction === binding.id) continue
+    if (binding.kind === 'card' && intersectionObserver && !nearbyCards.has(binding.element)) continue
+    const geometry = readGeometry(binding)
+    if (!geometry) continue
+    const key = JSON.stringify(geometry)
+    const image = imageCache.get(key)?.image
+    if (!image) continue
+    binding.key = key
+    restored.push({ binding, definition: { id: binding.id, width: geometry.width, height: geometry.height, image } })
+  }
+  if (!restored.length) return
+  const available = new Map(definitions.value.map(definition => [definition.id, definition]))
+  for (const { definition } of restored) available.set(definition.id, definition)
+  definitions.value = [...available.values()]
+  await nextTick()
+  if (currentRevision !== revision || !canEnhance()) return
+  for (const { binding } of restored) bindFilter(binding)
 }
 
 async function syncSurfaces() {
@@ -265,8 +325,8 @@ async function syncSurfaces() {
     suspend()
     return
   }
-  const currentRevision = ++revision
   reconcileBindings()
+  const currentRevision = ++revision
   for (const binding of surfaces.values()) resizeObserver?.observe(binding.element)
   // 稳定背板自身不随侧栏展开改变尺寸，仍需观察其内部导航轮廓。
   for (const element of shell?.querySelectorAll<HTMLElement>('.layout-navbar, .layout-vertical-nav') ?? []) {
@@ -307,16 +367,7 @@ async function syncSurfaces() {
   definitions.value = active.map(surface => surface.definition)
   await nextTick()
   if (currentRevision !== revision || !canEnhance()) return
-  for (const { binding } of active) {
-    const suffix = settings.value.glassQuality === 'balanced' && bodyBlur.value > 0 ? ` blur(${bodyBlur.value}px)` : ''
-    const filter = `url("#${binding.id}")${suffix} saturate(118%) brightness(var(--glass-transmission-brightness, 1))`
-    if (binding.kind === 'backplate') setStyle(binding, 'filter', filter)
-    else if (binding.kind === 'card') {
-      setStyle(binding, 'backdrop-filter', filter)
-      setStyle(binding, '-webkit-backdrop-filter', filter)
-    } else setStyle(binding, '--glass-panel-filter', filter)
-    binding.element.dataset.glassPanelRefraction = binding.id
-  }
+  for (const { binding } of active) bindFilter(binding)
 }
 
 function scheduleSync() {
@@ -339,6 +390,7 @@ function scheduleSync() {
     suspend()
     return
   }
+  void restoreCachedSurfaces()
   // 路由挂载、图片布局和观察器共享下一帧；连续变更不能不断延后已排定的材质接管。
   if (syncFrame !== null) return
   syncFrame = requestAnimationFrame(() => {

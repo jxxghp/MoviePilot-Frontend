@@ -1,6 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { defineComponent, h, KeepAlive, ref } from 'vue'
 import GlassPanelRefractionDefs from '../GlassPanelRefractionDefs.vue'
 import { createGlassNavbarDisplacementMap, createGlassPanelBackdropMap } from '@/utils/glassNavbarRefraction'
 
@@ -421,6 +421,162 @@ describe('GlassPanelRefractionDefs', () => {
     await settle()
     expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(calls)
     expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+  })
+
+  it('restores a warm KeepAlive surface before the next animation frame', async () => {
+    shell.querySelector('.dashboard-grid')!.remove()
+    const route = ref('dashboard')
+    const Dashboard = defineComponent({ render: () => h('div', { class: 'v-card', 'data-card': 'eligible' }) })
+    const Search = defineComponent({ render: () => h('div', { class: 'v-card', 'data-card': 'second' }) })
+    wrapper = mount(
+      defineComponent({
+        render: () => [
+          h(GlassPanelRefractionDefs),
+          h('main', { class: 'layout-page-content' }, [
+            h(KeepAlive, null, () => (route.value === 'dashboard' ? h(Dashboard) : h(Search))),
+          ]),
+        ],
+      }),
+      { attachTo: shell },
+    )
+    await settle()
+    card = shell.querySelector('[data-card="eligible"]') as HTMLElement
+    const originalFilter = card.style.getPropertyValue('backdrop-filter')
+    const originalId = card.dataset.glassPanelRefraction
+    expect(originalId).toBeTruthy()
+
+    route.value = 'search'
+    await settle()
+    expect(card.isConnected).toBe(false)
+    expectNoPanelFilter(card)
+    expect(shell.querySelector(`[id="${originalId}"]`)).toBeNull()
+    const decodeCount = vi.mocked(createGlassNavbarDisplacementMap).mock.calls.length
+
+    route.value = 'dashboard'
+    await flushPromises()
+
+    expect(shell.querySelector('[data-card="eligible"]')).toBe(card)
+    expect(card.style.getPropertyValue('backdrop-filter')).toBe(originalFilter)
+    expect(card.dataset.glassPanelRefraction).toBe(originalId)
+    expect(shell.querySelector(`[id="${originalId}"]`)).not.toBeNull()
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(decodeCount)
+    expect(decodePending).toHaveLength(0)
+  })
+
+  it('restores cached surfaces without waiting for a new sibling map to decode', async () => {
+    mountPanel()
+    await settle()
+    const parent = card.parentElement!
+    card.remove()
+    await settle()
+
+    const second = document.createElement('div')
+    second.className = 'v-card'
+    second.dataset.card = 'second'
+    parent.append(card, second)
+    await vi.advanceTimersByTimeAsync(16)
+    await flushPromises()
+
+    expect(decodePending).toHaveLength(1)
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expectNoPanelFilter(second)
+    completePendingDecode()
+    await flushPromises()
+    expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
+  })
+
+  it('does not restore a cached map with a different geometry', async () => {
+    mountPanel()
+    await settle()
+    const parent = card.parentElement!
+    card.remove()
+    await settle()
+    panelWidth = 640
+    parent.append(card)
+    await flushPromises()
+    expectNoPanelFilter(card)
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(1)
+    await settle()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(wrapper?.find('feImage').attributes('width')).toBe('640')
+  })
+
+  it.each(['blur', 'hidden'] as const)('keeps warm re-entry suspended during %s', async state => {
+    mountPanel()
+    await settle()
+    const parent = card.parentElement!
+    card.remove()
+    await settle()
+    if (state === 'blur') focused = false
+    else visibility = 'hidden'
+    parent.append(card)
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(16)
+    expectNoPanelFilter(card)
+    expect(wrapper?.findAll('filter')).toHaveLength(0)
+
+    focused = true
+    visibility = 'visible'
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(decodePending).toHaveLength(0)
+  })
+
+  it('cancels a queued warm restoration when CSS quality is selected', async () => {
+    mountPanel()
+    await settle()
+    const parent = card.parentElement!
+    card.remove()
+    await settle()
+    parent.append(card)
+    window.dispatchEvent(new Event('resize'))
+    effectiveSettings.value.glassQuality = 'css'
+    await flushPromises()
+    expectNoPanelFilter(card)
+    expect(card.hasAttribute('data-glass-panel-owner')).toBe(false)
+    expect(wrapper?.findAll('filter')).toHaveLength(0)
+  })
+
+  it('does not revive an evicted map through a retained node identity', async () => {
+    mountPanel()
+    await settle()
+    const parent = card.parentElement!
+    const originalId = card.dataset.glassPanelRefraction
+    card.remove()
+    await settle()
+    const other = document.createElement('div')
+    other.className = 'v-card'
+    for (let index = 0; index < 24; index++) {
+      panelWidth = 600 + index
+      parent.append(other)
+      await settle()
+      other.remove()
+      await settle()
+    }
+    panelWidth = 480
+    parent.append(card)
+    await flushPromises()
+    expectNoPanelFilter(card)
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(1)
+    await settle()
+    expect(card.dataset.glassPanelRefraction).toBe(originalId)
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+  })
+
+  it('does not attach a late decoded map to a detached route before the next frame', async () => {
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(1)
+    card.remove()
+    await flushPromises()
+    completePendingDecode()
+    await flushPromises()
+    expectNoPanelFilter(card)
+    expect(card.hasAttribute('data-glass-panel-owner')).toBe(false)
+    expect(wrapper?.findAll('filter')).toHaveLength(0)
   })
 
   it.each(['clear', 'tinted'] as const)(
