@@ -1811,6 +1811,8 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
 
 .v-menu {
   .v-list-item:hover {
+    // Keep hover highlights aligned with the active global control radius token.
+    border-radius: var(--app-control-radius);
     background-color: rgba(var(--v-theme-on-surface), 0.04);
   }
 }
