@@ -13,8 +13,8 @@ interface Props {
   transitionDurationMs: number
 }
 
-/** 共用稳定壁纸背板、但拥有独立外轮廓的导航表面。 */
-type GeometrySurface = 'sidebar' | 'navbar'
+/** 桌面侧栏的稳定壁纸范围；顶栏从自身下方读取滚动正文。 */
+type GeometrySurface = 'sidebar'
 
 /** SVG objectBoundingBox 坐标，分别以背板的实际宽和高归一化。 */
 interface NormalizedClipRect {
@@ -44,7 +44,7 @@ interface BackplateBounds {
   width: number
 }
 
-const GEOMETRY_SURFACES: readonly GeometrySurface[] = ['sidebar', 'navbar']
+const GEOMETRY_SURFACES: readonly GeometrySurface[] = ['sidebar']
 const GEOMETRY_ATTRIBUTE_FILTER = [
   'class',
   'data-glass-appearance',
@@ -70,11 +70,9 @@ const mainBackplateStyle = computed(() => ({
 }))
 
 const observedElements: Record<GeometrySurface, HTMLElement | null> = {
-  navbar: null,
   sidebar: null,
 }
 const transitionHandlers: Record<GeometrySurface, EventListener | null> = {
-  navbar: null,
   sidebar: null,
 }
 
@@ -216,7 +214,6 @@ function refreshObservedElements() {
   }
 
   bindGeometrySurface('sidebar', shell?.querySelector<HTMLElement>('.layout-vertical-nav:not(.overlay-nav)') ?? null)
-  bindGeometrySurface('navbar', shell?.querySelector<HTMLElement>('.layout-navbar') ?? null)
 }
 
 function applyGeometry(nextRects: NormalizedClipRect[]) {
@@ -234,9 +231,8 @@ function syncGeometry() {
   const shell = observedShell
   const backplate = readBackplateBounds()
   const sidebar = observedElements.sidebar
-  const navbar = observedElements.navbar
 
-  if (!shell || !backplate || !isConnectedDesktopShell(shell) || !sidebar || !navbar) {
+  if (!shell || !backplate || !isConnectedDesktopShell(shell) || !sidebar) {
     applyGeometry([])
     return
   }
@@ -480,6 +476,30 @@ onBeforeUnmount(() => {
   .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top
   > .glass-fixed-shell-backplate--main {
   clip-path: inset(0 0 calc(100% - var(--layout-navbar-block-size)) 0 round var(--shell-floating-navbar-radius));
+}
+
+// 桌面顶栏必须直接采样正文；首帧 CSS 与运行时圆角裁剪都只为侧栏保留壁纸。
+.layout-wrapper[data-shell-mode='desktop']:not(.layout-window-controls-overlay-shell)
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(
+    var(--glass-v3-navigation-inset, 8px) calc(100% - var(--glass-fixed-shell-nav-inline-size))
+      var(--glass-v3-navigation-inset, 8px) var(--glass-v3-navigation-inset, 8px) round
+      var(--glass-v3-navigation-radius, 16px)
+  );
+}
+
+[dir='rtl']
+  .layout-wrapper[data-shell-mode='desktop']:not(.layout-window-controls-overlay-shell)
+  > .glass-fixed-shell-backplate--main {
+  clip-path: inset(
+    var(--glass-v3-navigation-inset, 8px) var(--glass-v3-navigation-inset, 8px) var(--glass-v3-navigation-inset, 8px)
+      calc(100% - var(--glass-fixed-shell-nav-inline-size)) round var(--glass-v3-navigation-radius, 16px)
+  );
+}
+
+.layout-wrapper[data-shell-mode='desktop'].layout-horizontal-nav-active:not(.layout-window-controls-overlay-shell)
+  > .glass-fixed-shell-backplate--main {
+  display: none;
 }
 
 .glass-fixed-shell-backplate--overlay-nav {

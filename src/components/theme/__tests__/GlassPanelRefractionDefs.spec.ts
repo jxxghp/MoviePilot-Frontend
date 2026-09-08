@@ -534,33 +534,93 @@ describe('GlassPanelRefractionDefs', () => {
     expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
   })
 
-  it('uses the stable frosted backplate for fixed navigation instead of navigation backdrop filters', async () => {
+  it.each(['balanced', 'high'] as const)(
+    'keeps %s frosted navbar live while the sidebar samples its backplate',
+    async quality => {
+      resetFixture(false)
+      effectiveSettings.value.glassAppearance = 'frosted'
+      effectiveSettings.value.glassQuality = quality
+      document.documentElement.dataset.glassAppearance = 'frosted'
+      document.documentElement.dataset.glassQuality = quality
+      mountPanel()
+      await settle()
+
+      const layer = shell.querySelector('.glass-fixed-shell-backplate__layer') as HTMLElement
+      const navbar = shell.querySelector('.layout-navbar') as HTMLElement
+      const sidebar = shell.querySelector('.layout-vertical-nav') as HTMLElement
+
+      expect(createGlassPanelBackdropMap).toHaveBeenCalledTimes(1)
+      expect(createGlassPanelBackdropMap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          height: 900,
+          panels: [expect.objectContaining({ height: 800, width: 260 })],
+          width: 1200,
+        }),
+      )
+      expect(layer.style.getPropertyValue('filter')).toContain('url(')
+      expect(navbar.style.getPropertyValue('--glass-panel-filter')).toContain('url(')
+      expect(navbar.style.getPropertyValue('filter')).toBe('')
+      expect(navbar.style.getPropertyValue('backdrop-filter')).toBe('')
+      expect(navbar.hasAttribute('data-glass-panel-refraction')).toBe(true)
+      expect(sidebar.style.getPropertyValue('--glass-panel-filter')).toBe('')
+      expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+      expect(createGlassNavbarDisplacementMap).toHaveBeenCalledWith(
+        expect.objectContaining({ height: 64, width: 1200, surface: 'panel' }),
+      )
+      expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+      expect(wrapper?.findAll('feGaussianBlur')).toHaveLength(quality === 'high' ? 3 : 0)
+      expect(navbar.style.getPropertyValue('--glass-panel-filter').includes(' blur(')).toBe(quality === 'balanced')
+    },
+  )
+
+  it('does not regenerate the sidebar backplate map when only navbar geometry changes', async () => {
     resetFixture(false)
     effectiveSettings.value.glassAppearance = 'frosted'
-    document.documentElement.dataset.glassAppearance = 'frosted'
     mountPanel()
+    await settle()
+    const navbar = shell.querySelector('.layout-navbar') as HTMLElement
+    const bounds = navbar.getBoundingClientRect()
+    vi.spyOn(navbar, 'getBoundingClientRect').mockReturnValue({ ...bounds, width: 1100, right: 1100 })
+
+    resize?.([], {} as ResizeObserver)
+    await settle()
+
+    expect(createGlassPanelBackdropMap).toHaveBeenCalledTimes(1)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(3)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ height: 64, width: 1100, surface: 'panel' }),
+    )
+  })
+
+  it('preserves sidebar enhancement if the live frosted navbar map fails to decode', async () => {
+    resetFixture(false)
+    effectiveSettings.value.glassAppearance = 'frosted'
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(65)
+    expect(decodePending).toHaveLength(3)
+    decodePending.splice(1, 1)[0].reject(new Error('navbar image unavailable'))
+    completePendingDecode()
+    await flushPromises()
+
+    const layer = shell.querySelector('.glass-fixed-shell-backplate__layer') as HTMLElement
+    const navbar = shell.querySelector('.layout-navbar') as HTMLElement
+    expect(layer.style.getPropertyValue('filter')).toContain('url(')
+    expect(navbar.style.getPropertyValue('--glass-panel-filter')).toBe('')
+    expect(navbar.hasAttribute('data-glass-panel-refraction')).toBe(false)
+  })
+
+  it('releases both frosted sampling owners when selecting CSS quality', async () => {
+    resetFixture(false)
+    effectiveSettings.value.glassAppearance = 'frosted'
+    mountPanel()
+    await settle()
+    effectiveSettings.value.glassQuality = 'css'
     await settle()
 
     const layer = shell.querySelector('.glass-fixed-shell-backplate__layer') as HTMLElement
     const navbar = shell.querySelector('.layout-navbar') as HTMLElement
-    const sidebar = shell.querySelector('.layout-vertical-nav') as HTMLElement
-
-    expect(createGlassPanelBackdropMap).toHaveBeenCalledTimes(1)
-    expect(createGlassPanelBackdropMap).toHaveBeenCalledWith(
-      expect.objectContaining({
-        height: 900,
-        panels: expect.arrayContaining([
-          expect.objectContaining({ height: 64, width: 1200 }),
-          expect.objectContaining({ height: 800, width: 260 }),
-        ]),
-        width: 1200,
-      }),
-    )
-    expect(layer.style.getPropertyValue('filter')).toContain('url(')
+    expect(layer.style.getPropertyValue('filter')).toBe('')
     expect(navbar.style.getPropertyValue('--glass-panel-filter')).toBe('')
-    expect(sidebar.style.getPropertyValue('--glass-panel-filter')).toBe('')
-    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
-    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
-    expect(wrapper?.findAll('feGaussianBlur')).toHaveLength(2)
+    expect(shell.querySelectorAll('[data-glass-panel-refraction]')).toHaveLength(0)
   })
 })

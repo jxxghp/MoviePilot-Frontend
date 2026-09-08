@@ -9,7 +9,7 @@ import {
 } from '@/utils/glassNavbarRefraction'
 import { getGlassMaterialResponse } from '@/utils/glassOptics'
 
-/** 内容面使用真实背景，固定磨砂导航复用稳定背板。 */
+/** 内容面和顶栏使用真实背景，磨砂侧栏复用稳定背板。 */
 type SurfaceKind = 'card' | 'navbar' | 'sidebar' | 'backplate'
 
 interface FilterDefinition {
@@ -165,15 +165,15 @@ function collectSurfaces() {
     result.set(element, 'card')
   }
   if (!shell.matches('.layout-horizontal-nav-active, .layout-window-controls-overlay-shell')) {
+    const header = shell.querySelector<HTMLElement>('.layout-navbar')
+    if (header) result.set(header, 'navbar')
     if (settings.value.glassAppearance === 'frosted') {
       for (const element of shell.querySelectorAll<HTMLElement>(
         '.glass-fixed-shell-backplate--main .glass-fixed-shell-backplate__layer',
       ))
         result.set(element, 'backplate')
     } else {
-      const header = shell.querySelector<HTMLElement>('.layout-navbar')
       const sidebar = shell.querySelector<HTMLElement>('.layout-vertical-nav:not(.overlay-nav)')
-      if (header) result.set(header, 'navbar')
       if (sidebar) result.set(sidebar, 'sidebar')
     }
   }
@@ -189,7 +189,7 @@ function readGeometry(binding: SurfaceBinding) {
   const radius = Number.parseFloat(getComputedStyle(binding.element).borderTopLeftRadius) || 0
   const panels =
     binding.kind === 'backplate'
-      ? ['.layout-navbar', '.layout-vertical-nav'].flatMap(selector => {
+      ? ['.layout-vertical-nav'].flatMap(selector => {
           const element = shell?.querySelector<HTMLElement>(selector)
           if (!element) return []
           const rect = element.getBoundingClientRect()

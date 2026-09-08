@@ -108,9 +108,15 @@ describe('glass navigation reading material', () => {
     }
   })
 
-  it('retains native frosted diffusion without a stable backplate in every quality', () => {
+  it('retains native frosted diffusion for desktop navigation and backplate-free shells in every quality', () => {
     expect(surfaces).toMatch(
-      /:not\(\.layout-fixed-shell-backplate-active\) \.layout-navbar\s*\{\s*backdrop-filter: var\(--glass-sidebar-backdrop-filter\) !important;/u,
+      /:not\(\.layout-fixed-shell-backplate-active\) \.layout-navbar,\s*\.layout-wrapper\[data-shell-mode='desktop'\]:not\(\.layout-window-controls-overlay-shell\)\s*\.layout-navbar:not\(\[data-glass-panel-refraction\]\)\s*\{\s*backdrop-filter: var\(--glass-sidebar-backdrop-filter\) !important;/u,
+    )
+    expect(surfaces).toMatch(
+      /\.layout-wrapper\[data-shell-mode\]:not\(\s*\[data-shell-mode='desktop'\]\s*\)\.layout-fixed-shell-backplate-active/u,
+    )
+    expect(surfaces).toMatch(
+      /\.layout-navbar\[data-glass-panel-refraction\]\s*\{\s*background: transparent !important;\s*backdrop-filter: none !important;\s*-webkit-backdrop-filter: none !important;\s*&::before\s*\{\s*background: var\(--glass-navbar-frosted-background\);\s*backdrop-filter: var\(--glass-panel-filter\) !important;/u,
     )
     const frosted = styles.slice(styles.indexOf('// 稳定背板已持有磨砂'), styles.indexOf('// 滚动表面由原生 backdrop'))
     expect(frosted).not.toContain('--glass-navbar-scrolled-backdrop-filter')

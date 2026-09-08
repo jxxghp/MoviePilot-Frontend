@@ -526,14 +526,11 @@ html[data-theme='glass'] {
     }
 
     .layout-wrapper[data-shell-mode='desktop'] > .glass-fixed-shell-backplate--main {
-      // 固定顶栏与侧栏共用同一 L 形稳定背板，扩散参数必须作用于真实承载层。
+      // 侧栏稳定背板的扩散参数作用于真实承载层，顶栏独立读取滚动正文。
       --glass-fixed-shell-backplate-filter: var(--glass-sidebar-backdrop-filter);
     }
 
     .layout-wrapper[data-shell-mode='desktop'].layout-fixed-shell-backplate-active {
-      --glass-navbar-scrolled-backdrop-filter: none;
-
-      .layout-navbar,
       .layout-vertical-nav::before {
         -webkit-backdrop-filter: none !important;
         backdrop-filter: none !important;
@@ -557,12 +554,9 @@ html[data-theme='glass'] {
     }
   }
 
-  // Chromium 磨砂 fixed 层直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
+  // Chromium 磨砂侧栏已有稳定壁纸背板，不再重复读取 document backdrop。
   &[data-glass-appearance='frosted'][data-glass-quality='css'] body[data-theme='glass'] {
-    .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before,
-    .layout-wrapper.layout-fixed-shell-backplate-active .layout-navbar,
-    .layout-wrapper.layout-fixed-shell-backplate-active.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
-      .layout-navbar {
+    .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
     }
@@ -1579,8 +1573,7 @@ html[data-glass-appearance='frosted']:is(
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready']
   body[data-theme='glass'] {
-  .layout-vertical-nav::before,
-  .layout-navbar {
+  .layout-vertical-nav::before {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }

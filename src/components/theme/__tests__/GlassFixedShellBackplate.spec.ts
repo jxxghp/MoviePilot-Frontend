@@ -162,6 +162,7 @@ describe('GlassFixedShellBackplate', () => {
     document.querySelectorAll('.layout-wrapper').forEach(element => element.remove())
     document.documentElement.removeAttribute('data-theme')
     document.documentElement.removeAttribute('data-theme-radius')
+    document.documentElement.removeAttribute('dir')
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
@@ -230,7 +231,7 @@ describe('GlassFixedShellBackplate', () => {
     expect(overlay.findAll('[data-backplate-slot]')).toHaveLength(2)
   })
 
-  it('maps both connected surfaces to backplate-relative objectBoundingBox geometry', async () => {
+  it('maps the connected sidebar to backplate-relative objectBoundingBox geometry', async () => {
     const { wrapper } = mountConnectedShell()
     await settleGeometry()
 
@@ -240,7 +241,7 @@ describe('GlassFixedShellBackplate', () => {
     const rects = clipPath.findAll('rect')
 
     expect(clipPath.attributes('clipPathUnits')).toBe('objectBoundingBox')
-    expect(rects).toHaveLength(2)
+    expect(rects).toHaveLength(1)
     expect(mainElement.style.clipPath).toMatch(/^url\(#glass-fixed-shell-clip-/u)
     expect(Number(rects[0].attributes('x'))).toBeCloseTo(8 / 1185, 8)
     expect(Number(rects[0].attributes('y'))).toBeCloseTo(8 / 790, 8)
@@ -248,12 +249,6 @@ describe('GlassFixedShellBackplate', () => {
     expect(Number(rects[0].attributes('height'))).toBeCloseTo(774 / 790, 8)
     expect(Number(rects[0].attributes('rx'))).toBeCloseTo(16 / 1185, 8)
     expect(Number(rects[0].attributes('ry'))).toBeCloseTo(16 / 790, 8)
-    expect(Number(rects[1].attributes('x'))).toBeCloseTo(268 / 1185, 8)
-    expect(Number(rects[1].attributes('y'))).toBeCloseTo(8 / 790, 8)
-    expect(Number(rects[1].attributes('width'))).toBeCloseTo(909 / 1185, 8)
-    expect(Number(rects[1].attributes('height'))).toBeCloseTo(72 / 790, 8)
-    expect(Number(rects[1].attributes('rx'))).toBeCloseTo(16 / 1185, 8)
-    expect(Number(rects[1].attributes('ry'))).toBeCloseTo(16 / 790, 8)
     expect(wrapper.findAll('[data-backplate-surface="main"]')).toHaveLength(1)
     expect(wrapper.findAll('[data-backplate-slot]')).toHaveLength(2)
   })
@@ -266,7 +261,7 @@ describe('GlassFixedShellBackplate', () => {
     expect(wrapper.findAll('clipPath rect')).toHaveLength(0)
   })
 
-  it('updates the shared clip when theme radius changes without resizing navigation', async () => {
+  it('updates the shared clip when theme radius changes without resizing the sidebar', async () => {
     const { wrapper, sidebar } = mountConnectedShell()
     await settleGeometry()
     const style = window.getComputedStyle(sidebar)
@@ -281,20 +276,64 @@ describe('GlassFixedShellBackplate', () => {
     }
   })
 
+  it('keeps the sidebar clip when the navbar changes size or is missing', async () => {
+    const { wrapper, navbar } = mountConnectedShell()
+    await settleGeometry()
+
+    navbarRect = createRect(273, 11, 640, 112)
+    resizeCallback?.([], {} as ResizeObserver)
+    await settleGeometry()
+
+    expect(wrapper.findAll('clipPath rect')).toHaveLength(1)
+    expect(Number(wrapper.find('clipPath rect').attributes('width'))).toBeCloseTo(252 / 1185, 8)
+
+    navbar.remove()
+    resizeCallback?.([], {} as ResizeObserver)
+    await settleGeometry()
+
+    expect(wrapper.findAll('clipPath rect')).toHaveLength(1)
+    expect(Number(wrapper.find('clipPath rect').attributes('x'))).toBeCloseTo(8 / 1185, 8)
+  })
+
+  it('falls back to no dynamic clip when the connected sidebar is missing', async () => {
+    const { wrapper, sidebar } = mountConnectedShell()
+    await settleGeometry()
+
+    sidebar.remove()
+    resizeCallback?.([], {} as ResizeObserver)
+    await settleGeometry()
+
+    expect((wrapper.get('[data-backplate-surface="main"]').element as HTMLElement).style.clipPath).toBe('')
+    expect(wrapper.findAll('clipPath rect')).toHaveLength(0)
+  })
+
+  it('uses the real collapsed sidebar bounds in RTL', async () => {
+    document.documentElement.setAttribute('dir', 'rtl')
+    sidebarRect = createRect(1122, 11, 60, 774)
+    navbarRect = createRect(13, 11, 909, 72)
+    const { wrapper } = mountConnectedShell()
+    await settleGeometry()
+
+    const rect = wrapper.get('clipPath rect')
+    expect(Number(rect.attributes('x'))).toBeCloseTo((1122 - 5) / 1185, 8)
+    expect(Number(rect.attributes('y'))).toBeCloseTo(8 / 790, 8)
+    expect(Number(rect.attributes('width'))).toBeCloseTo(60 / 1185, 8)
+    expect(Number(rect.attributes('height'))).toBeCloseTo(774 / 790, 8)
+  })
+
   it('refreshes dimensions and disconnects the resize observer on unmount', async () => {
     const { wrapper } = mountConnectedShell()
     await settleGeometry()
 
     backplateRect = createRect(5, 3, 1180, 790)
     sidebarRect = createRect(13, 11, 60, 774)
-    navbarRect = createRect(273, 11, 904, 96)
     resizeCallback?.([], {} as ResizeObserver)
     await settleGeometry()
 
     const rects = wrapper.findAll('clipPath rect')
     expect(Number(rects[0].attributes('width'))).toBeCloseTo(60 / 1180, 8)
-    expect(Number(rects[1].attributes('x'))).toBeCloseTo(268 / 1180, 8)
-    expect(Number(rects[1].attributes('height'))).toBeCloseTo(96 / 790, 8)
+    expect(Number(rects[0].attributes('x'))).toBeCloseTo(8 / 1180, 8)
+    expect(Number(rects[0].attributes('height'))).toBeCloseTo(774 / 790, 8)
 
     wrapper.unmount()
     expect(resizeDisconnect).toHaveBeenCalledOnce()
