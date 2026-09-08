@@ -43,6 +43,9 @@ const keyword = ref(props.initialKeyword?.trim() || '')
 // 加载中
 const loading = ref(false)
 
+// 只允许最后一次搜索更新列表，避免预填请求覆盖用户随后提交的新关键词。
+let searchRequestId = 0
+
 // ref
 const inputKeyword = ref<HTMLElement | null>(null)
 
@@ -63,6 +66,7 @@ function getW500Image(url = '') {
 async function searchMedias() {
   const searchKeyword = keyword.value.trim()
   if (!searchKeyword) return
+  const requestId = ++searchRequestId
 
   // 调用API搜索词条
   try {
@@ -77,6 +81,8 @@ async function searchMedias() {
         ...(props.musicTypes?.length === 1 ? { music_type: props.musicTypes[0] } : {}),
       },
     })
+
+    if (requestId !== searchRequestId) return
 
     // 清空
     items.value = []
@@ -117,9 +123,9 @@ async function searchMedias() {
       })
     }
   } catch (e) {
-    console.error(e)
+    if (requestId === searchRequestId) console.error(e)
   } finally {
-    loading.value = false
+    if (requestId === searchRequestId) loading.value = false
   }
 }
 
@@ -137,6 +143,7 @@ watch(
   value => {
     const nextKeyword = value?.trim() || ''
     if (nextKeyword === keyword.value) return
+    searchRequestId += 1
     keyword.value = nextKeyword
     items.value = []
     if (nextKeyword) void searchMedias()
