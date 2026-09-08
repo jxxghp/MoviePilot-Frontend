@@ -182,8 +182,8 @@ describe('MediaIdSelector layout', () => {
   })
 
   it('keeps newer manual search results when the initial search finishes later', async () => {
-    let resolveInitialSearch: (value: MediaInfo[]) => void = () => undefined
-    const initialSearch = new Promise<MediaInfo[]>(resolve => {
+    let resolveInitialSearch: (value: Array<Record<string, unknown>>) => void = () => undefined
+    const initialSearch = new Promise<Array<Record<string, unknown>>>(resolve => {
       resolveInitialSearch = resolve
     })
     mocks.apiGet.mockReturnValueOnce(initialSearch).mockResolvedValueOnce([
