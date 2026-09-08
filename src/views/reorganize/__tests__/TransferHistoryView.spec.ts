@@ -919,6 +919,27 @@ describe('TransferHistoryView', () => {
     expect(router.currentRoute.value.query.grouped).toBeUndefined()
   })
 
+  it('does not restore the history route after navigation changes the global query', async () => {
+    const tracks = [
+      createHistory(1, 'Hotel California', {
+        dest: '/media/Eagles/Hotel California (1976)/01 - Hotel California.dsf',
+        src: '/downloads/Eagles - Hotel California/01 - Hotel California.dsf',
+        type: '音乐',
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse(tracks))
+    })
+
+    const { router } = await renderHistory('/history?itemsPerPage=50&currentPage=1&grouped=true')
+    await flushPromises()
+    await router.push('/downloading')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/downloading')
+  })
+
   it('loads mobile pages with deduplication and reports empty when the last page is exhausted', async () => {
     mocks.desktop = false
     const firstPage = Array.from({ length: 25 }, (_, index) => createHistory(index + 1, `记录 ${index + 1}`))

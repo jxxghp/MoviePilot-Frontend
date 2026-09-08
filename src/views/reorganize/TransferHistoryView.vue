@@ -525,6 +525,7 @@ watch(
 watch(
   () => route.query,
   () => {
+    if (route.path !== '/history') return
     if (isDesktop.value) {
       void refreshDataFromRouteQuery()
     } else {
@@ -537,6 +538,7 @@ watch(
 
 // 响应桌面与移动端断点切换，进入对应布局后刷新对应数据源。
 watch(isDesktop, desktop => {
+  if (route.path !== '/history') return
   if (desktop) {
     void refreshDataFromRouteQuery()
   } else {
@@ -1387,11 +1389,13 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
 
 // 重载页面，先更新路由，再由路由监听统一拉取列表数据。
 async function reloadPage(resetPage = false) {
+  if (route.path !== '/history') return
   await router.push(createHistoryUrl(resetPage))
 }
 
 // 移动端搜索同样以 URL 为持久事实源，刷新和断点切换后可恢复同一查询。
 async function reloadMobileSearchPage() {
+  if (route.path !== '/history') return
   await router.push(createHistoryUrl(true))
 }
 
@@ -1848,6 +1852,15 @@ onActivated(() => {
   } else if (isMobile.value && !mobileLoading.value) {
     resetMobileHistory()
   }
+})
+
+// 页面由 KeepAlive 缓存时不会卸载；离开后必须停止路由回写并作废在途请求。
+onDeactivated(() => {
+  fetchDataRequestSeed++
+  mobileFetchDataRequestSeed++
+  debouncedReloadPage.cancel()
+  debouncedReloadSearchPage.cancel()
+  debouncedReloadMobileSearchPage.cancel()
 })
 
 onUnmounted(() => {
