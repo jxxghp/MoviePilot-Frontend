@@ -191,10 +191,12 @@ function getActionButtons(container: Element) {
 }
 
 /** 获取媒体搜索操作按钮并确保其已渲染。 */
-function getSearchButton(container: Element) {
-  const button = getActionButtons(container)[0]
-  expect(button).toBeDefined()
-  return button
+async function getSearchButton(container: Element) {
+  return waitFor(() => {
+    const button = getActionButtons(container)[0]
+    expect(button).toBeDefined()
+    return button
+  })
 }
 
 /** 筛选用于触发媒体状态懒加载的观察器。 */
@@ -260,6 +262,7 @@ describe('MediaCard', () => {
       title: '视口状态剧集',
       year: '2026',
     })
+    await fireEvent.mouseEnter(getHoverArea(container))
     await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     expect(getStatusObservers()[0]?.disconnect).toHaveBeenCalledOnce()
   })
@@ -284,6 +287,7 @@ describe('MediaCard', () => {
 
     expect(getStatusObservers()).toHaveLength(2)
     getStatusObservers().forEach(observer => observer.trigger())
+    for (const area of container.querySelectorAll('.media-card-hover-area')) await fireEvent.mouseEnter(area)
 
     await waitFor(() => {
       expect(subscribeRequest).toHaveBeenCalledOnce()
@@ -496,7 +500,7 @@ describe('MediaCard', () => {
         type: '音乐',
       })
 
-      await fireEvent.click(getSearchButton(container))
+      await fireEvent.click(await getSearchButton(container))
       await waitFor(() =>
         expect(mocks.routerPush).toHaveBeenCalledWith({
           path: '/resource',
@@ -534,7 +538,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
 
     await waitFor(() =>
       expect(mocks.routerPush).toHaveBeenCalledWith({
@@ -563,7 +567,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
 
     await waitFor(() =>
       expect(mocks.routerPush).toHaveBeenCalledWith(
@@ -591,7 +595,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
 
     const [, dialogProps, dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
@@ -632,7 +636,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(createMediaInfo({ tmdb_id: 9504 }))
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
     const [, dialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, { selected: number[] }]
@@ -669,9 +673,8 @@ describe('MediaCard', () => {
     )
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
-    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
-
     await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
@@ -717,9 +720,8 @@ describe('MediaCard', () => {
     )
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
-    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
-
     await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
@@ -772,9 +774,8 @@ describe('MediaCard', () => {
     )
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
-    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
-
     await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
@@ -1086,6 +1087,22 @@ describe('MediaCard', () => {
     expect(getActionButtons(container)).toHaveLength(0)
   })
 
+  it('mounts details only while hovered without replacing the media shell', async () => {
+    const { container } = await renderCard(createMediaInfo({ tmdb_id: 9700 }))
+    const card = getCard(container)
+    expect(container.querySelector('.media-card-title')).toBeNull()
+    expect(getActionButtons(container)).toHaveLength(0)
+
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container)).toHaveLength(2))
+    expect(getCard(container)).toBe(card)
+
+    await fireEvent.mouseLeave(getHoverArea(container))
+    await waitFor(() => expect(container.querySelector('.media-card-title')).toBeNull())
+    expect(getActionButtons(container)).toHaveLength(0)
+    expect(getCard(container)).toBe(card)
+  })
+
   it('uses first tap to reveal details, second tap to route, and outside pointerdown to collapse', async () => {
     vi.spyOn(window, 'matchMedia').mockReturnValue({
       ...window.matchMedia(''),
@@ -1093,15 +1110,16 @@ describe('MediaCard', () => {
     })
     const media = createMediaInfo({ title: '触摸卡片', tmdb_id: 9701 })
     const { container } = await renderCard(media)
-    const detail = container.querySelector<HTMLElement>('.media-card-title')?.parentElement
-    expect(detail).not.toBeNull()
+    expect(container.querySelector('.media-card-title')).toBeNull()
 
     await fireEvent.click(getCard(container))
+    const detail = container.querySelector<HTMLElement>('.media-card-title')?.parentElement
+    expect(detail).toBeInTheDocument()
     expect(detail).not.toHaveStyle({ display: 'none' })
     expect(mocks.routerPush).not.toHaveBeenCalled()
 
     await fireEvent.pointerDown(document.body)
-    expect(detail).toHaveStyle({ display: 'none' })
+    expect(container.querySelector('.media-card-title')).toBeNull()
 
     await fireEvent.click(getCard(container))
     await fireEvent.click(getCard(container))

@@ -644,9 +644,9 @@ onBeforeUnmount(() => {
             </template>
           </VImg>
 
-          <!-- 详情 -->
+          <!-- 详情按实际可见状态挂载，虚拟列表重入不创建不可见的操作组件。 -->
           <VCardText
-            v-show="isMediaCardDetailVisible(hover.isHovering)"
+            v-if="isMediaCardDetailVisible(hover.isHovering)"
             class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
             style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
           >
