@@ -583,6 +583,40 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('文件 共 2 项 已加入整理队列！')
   })
 
+  it('submits legacy history file items without type as one batch', async () => {
+    const bodies: unknown[] = []
+    const first = createFileItem({
+      extension: 'flac',
+      name: '01 - 我的地盤.flac',
+      path: '/downloads/七里香/01 - 我的地盤.flac',
+      type: undefined,
+    })
+    const second = createFileItem({
+      extension: 'flac',
+      name: '02 - 七里香.flac',
+      path: '/downloads/七里香/02 - 七里香.flac',
+      type: undefined,
+    })
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({ items: [first, second] })
+
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(bodies).toEqual([
+      expect.objectContaining({
+        fileitems: [first, second],
+      }),
+    ])
+    expect(bodies[0]).not.toHaveProperty('fileitem')
+  })
+
   it('submits mixed file and directory items separately and rotates synchronous progress streams', async () => {
     const bodies: unknown[] = []
     const directory = createFileItem({ name: 'Series', path: '/downloads/Series', type: 'dir' })

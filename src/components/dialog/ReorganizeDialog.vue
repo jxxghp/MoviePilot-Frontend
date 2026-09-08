@@ -1075,8 +1075,20 @@ watch(
 )
 
 // 判断文件集合是否可以按批量文件请求提交。
+// 整理历史中的旧 FileItem 可能没有 type，但仍会保留文件扩展名或完整路径；
+// 这类记录必须继续作为一个批次提交，否则专辑会被拆成逐曲请求而丢失专辑上下文。
+function isFileLikeItem(item: FileItem) {
+  if (item.type === 'file') return true
+  if (item.type === 'dir') return false
+  if (item.extension?.trim()) return true
+
+  const itemPath = item.path || item.name || ''
+  const basename = itemPath.split(/[\\/]/).pop() || ''
+  return /\.[^.]+$/.test(basename)
+}
+
 function shouldUseBatchFileItems(items: FileItem[]) {
-  return items.length > 0 && items.every(item => item.type === 'file')
+  return items.length > 0 && items.every(isFileLikeItem)
 }
 
 // 生成批量文件在提示和错误信息中的显示名称。
