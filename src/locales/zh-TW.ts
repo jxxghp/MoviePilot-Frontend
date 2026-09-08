@@ -2930,6 +2930,24 @@ export default {
       autoUpdateResource: '自動更新站點資源',
       autoUpdateResourceHint: '在背景檢查站點資源包，確認後於重新啟動前套用完整資源包',
       // 刮削開關設定
+      mediaGroups: {
+        recognition: {
+          title: '通用識別',
+          description: '設定媒體識別優先順序、快取與識別結果共享。',
+        },
+        movie: {
+          title: '影視中繼資料與圖片',
+          description: '設定 TMDB 服務、中繼資料語言及影視圖片刮削。',
+        },
+        music: {
+          title: '音樂中繼資料',
+          description: '設定音樂識別服務、發行偏好、封面與文字轉換。',
+        },
+        lyrics: {
+          title: '歌詞服務',
+          description: '設定歌詞來源及請求逾時、重試等待時間。',
+        },
+      },
       scrapingSwitchSettings: '刮削開關設定',
       scrapingSwitchSettingsDesc: '控制各類媒體檔案的刮削功能開關',
       movie: '電影',

@@ -2957,6 +2957,24 @@ export default {
       autoUpdateResource: '自动更新站点资源',
       autoUpdateResourceHint: '后台检查站点资源包，确认后在重启前应用已下载的完整资源包',
       // 刮削开关设置
+      mediaGroups: {
+        recognition: {
+          title: '通用识别',
+          description: '配置媒体识别优先级、缓存与识别结果共享。',
+        },
+        movie: {
+          title: '影视元数据与图片',
+          description: '配置 TMDB 服务、元数据语言及影视图片刮削。',
+        },
+        music: {
+          title: '音乐元数据',
+          description: '配置音乐识别服务、发行偏好、封面与文字转换。',
+        },
+        lyrics: {
+          title: '歌词服务',
+          description: '配置歌词来源及请求超时、重试等待时间。',
+        },
+      },
       scrapingSwitchSettings: '刮削开关设置',
       scrapingSwitchSettingsDesc: '控制各类媒体文件的刮削功能开关',
       movie: '电影',

@@ -3026,6 +3026,24 @@ export default {
       autoUpdateResourceHint:
         'Check site resource updates in the background and apply the downloaded package before restarting',
       // Scraping Switch Settings
+      mediaGroups: {
+        recognition: {
+          title: 'General recognition',
+          description: 'Configure recognition priority, caching, and shared recognition results.',
+        },
+        movie: {
+          title: 'Movie & TV metadata and images',
+          description: 'Configure TMDB, metadata language, and image scraping.',
+        },
+        music: {
+          title: 'Music metadata',
+          description: 'Configure music recognition, release preferences, covers, and text conversion.',
+        },
+        lyrics: {
+          title: 'Lyrics services',
+          description: 'Configure lyrics providers, request timeouts, and retry wait times.',
+        },
+      },
       scrapingSwitchSettings: 'Scraping Switch Settings',
       scrapingSwitchSettingsDesc: 'Control various media file scraping function switches',
       movie: 'Movie',

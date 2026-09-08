@@ -2189,247 +2189,295 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           </VWindowItem>
           <VWindowItem value="media">
             <div>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VCombobox
-                    v-model="SystemSettings.Advanced.TMDB_API_DOMAIN"
-                    :label="t('setting.system.tmdbApiDomain')"
-                    :hint="t('setting.system.tmdbApiDomainHint')"
-                    persistent-hint
-                    :placeholder="t('setting.system.tmdbApiDomainPlaceholder')"
-                    :items="['api.themoviedb.org', 'api.tmdb.org']"
-                    :rules="[(v: string) => !!v || t('setting.system.tmdbApiDomainRequired')]"
-                    prepend-inner-icon="mdi-api"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.TMDB_API_KEY"
-                    :label="t('setting.system.tmdbApiKey')"
-                    :hint="t('setting.system.tmdbApiKeyHint')"
-                    persistent-hint
-                    :placeholder="t('setting.system.tmdbApiKeyPlaceholder')"
-                    :rules="[(v: string) => !!v || t('setting.system.tmdbApiKeyRequired')]"
-                    prepend-inner-icon="mdi-key-variant"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.ACOUSTID_API_KEY"
-                    :label="t('setting.system.acoustIdApiKey')"
-                    :hint="t('setting.system.acoustIdApiKeyHint')"
-                    persistent-hint
-                    :placeholder="t('setting.system.acoustIdApiKeyPlaceholder')"
-                    :rules="[(v: string) => !!v || t('setting.system.acoustIdApiKeyRequired')]"
-                    prepend-inner-icon="mdi-music-box-multiple-outline"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.THEAUDIODB_API_KEY"
-                    :label="t('setting.system.theAudioDbApiKey')"
-                    :hint="t('setting.system.theAudioDbApiKeyHint')"
-                    persistent-hint
-                    prepend-inner-icon="mdi-key-variant"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.LRCLIB_BASE_URL"
-                    :label="t('setting.system.lrclibBaseUrl')"
-                    :hint="t('setting.system.lrclibBaseUrlHint')"
-                    persistent-hint
-                    prepend-inner-icon="mdi-music-note-plus"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.MUSIXMATCH_API_KEY"
-                    :label="t('setting.system.musixmatchApiKey')"
-                    :hint="t('setting.system.musixmatchApiKeyHint')"
-                    persistent-hint
-                    type="password"
-                    prepend-inner-icon="mdi-key-variant"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.MUSIXMATCH_BASE_URL"
-                    :label="t('setting.system.musixmatchBaseUrl')"
-                    :hint="t('setting.system.musixmatchBaseUrlHint')"
-                    persistent-hint
-                    prepend-inner-icon="mdi-api"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.LYRICS_BATCH_TIMEOUT"
-                    :label="t('setting.system.lyricsBatchTimeout')"
-                    :hint="t('setting.system.lyricsBatchTimeoutHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.secondUnit')"
-                    prepend-inner-icon="mdi-timer-outline"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.LYRICS_PROVIDER_RETRY_MAX_WAIT"
-                    :label="t('setting.system.lyricsRetryMaxWait')"
-                    :hint="t('setting.system.lyricsRetryMaxWaitHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.secondUnit')"
-                    prepend-inner-icon="mdi-timer-sand"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VCombobox
-                    v-model="SystemSettings.Advanced.TMDB_IMAGE_DOMAIN"
-                    :label="t('setting.system.tmdbImageDomain')"
-                    :hint="t('setting.system.tmdbImageDomainHint')"
-                    persistent-hint
-                    :placeholder="t('setting.system.tmdbImageDomainPlaceholder')"
-                    :items="['image.tmdb.org']"
-                    :rules="[(v: string) => !!v || t('setting.system.tmdbImageDomainRequired')]"
-                    prepend-inner-icon="mdi-image"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.MUSIC_COVER_PROXY"
-                    :label="t('setting.system.musicCoverProxy')"
-                    :hint="t('setting.system.musicCoverProxyHint')"
-                    persistent-hint
-                    :placeholder="t('setting.system.musicCoverProxyPlaceholder')"
-                    prepend-inner-icon="mdi-music"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSelect
-                    v-model="SystemSettings.Advanced.TMDB_LOCALE"
-                    :label="t('setting.system.tmdbLocale')"
-                    :hint="t('setting.system.tmdbLocaleHint')"
-                    persistent-hint
-                    :placeholder="t('setting.system.tmdbLocalePlaceholder')"
-                    :items="tmdbLanguageItems"
-                    prepend-inner-icon="mdi-translate"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.META_CACHE_EXPIRE"
-                    :label="t('setting.system.metaCacheExpire')"
-                    :hint="t('setting.system.metaCacheExpireHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.hour')"
-                    :rules="[
-                      (v: any) => v === 0 || !!v || t('setting.system.metaCacheExpireRequired'),
-                      (v: any) => v >= 0 || t('setting.system.metaCacheExpireMin'),
-                    ]"
-                    prepend-inner-icon="mdi-timer"
-                  />
-                </VCol>
-              </VRow>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.SCRAP_FOLLOW_TMDB"
-                    :label="t('setting.system.scrapFollowTmdb')"
-                    :hint="t('setting.system.scrapFollowTmdbHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.TMDB_SCRAP_ORIGINAL_IMAGE"
-                    :label="t('setting.system.scrapOriginalImage')"
-                    :hint="t('setting.system.scrapOriginalImageHint')"
-                    persistent-hint
-                  />
-                </VCol>
-              </VRow>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VSelect
-                    v-model="musicReleaseRegionSelection"
-                    :items="musicReleaseRegionItems"
-                    :label="t('setting.system.musicReleaseRegionPriority')"
-                    :hint="t('setting.system.musicReleaseRegionPriorityHint')"
-                    multiple
-                    chips
-                    closable-chips
-                    persistent-hint
-                    prepend-inner-icon="mdi-earth"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSelect
-                    v-model="musicReleaseScriptSelection"
-                    :items="musicReleaseScriptItems"
-                    :label="t('setting.system.musicReleaseScriptPriority')"
-                    :hint="t('setting.system.musicReleaseScriptPriorityHint')"
-                    multiple
-                    chips
-                    closable-chips
-                    persistent-hint
-                    prepend-inner-icon="mdi-translate"
-                  />
-                </VCol>
-              </VRow>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.MUSIC_METADATA_TO_SIMPLIFIED"
-                    :label="t('setting.system.musicMetadataToSimplified')"
-                    :hint="t('setting.system.musicMetadataToSimplifiedHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.RECOGNIZE_PLUGIN_FIRST"
-                    :label="t('setting.system.recognizePluginFirst')"
-                    :hint="t('setting.system.recognizePluginFirstHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.MEDIA_RECOGNIZE_SHARE"
-                    :label="t('setting.system.mediaRecognizeShare')"
-                    :hint="t('setting.system.mediaRecognizeShareHint')"
-                    persistent-hint
-                  />
-                </VCol>
-              </VRow>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.FANART_ENABLE"
-                    :label="t('setting.system.fanartEnable')"
-                    :hint="t('setting.system.fanartEnableHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol v-if="SystemSettings.Advanced.FANART_ENABLE" cols="12" md="6">
-                  <VSelect
-                    v-model="fanartLanguageSelection"
-                    :label="t('setting.system.fanartLang')"
-                    :hint="t('setting.system.fanartLangHint')"
-                    persistent-hint
-                    :items="fanartLanguageItems"
-                    multiple
-                    chips
-                    closable-chips
-                    prepend-inner-icon="mdi-translate"
-                  />
-                </VCol>
-              </VRow>
+              <section class="media-settings-section" aria-labelledby="media-settings-recognition">
+                <div class="mb-5">
+                  <h3
+                    id="media-settings-recognition"
+                    class="text-subtitle-1 font-weight-medium d-flex align-center mb-1"
+                  >
+                    <VIcon icon="mdi-text-box-search-outline" size="20" class="me-2" aria-hidden="true" />
+                    {{ t('setting.system.mediaGroups.recognition.title') }}
+                  </h3>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    {{ t('setting.system.mediaGroups.recognition.description') }}
+                  </p>
+                </div>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.META_CACHE_EXPIRE"
+                      :label="t('setting.system.metaCacheExpire')"
+                      :hint="t('setting.system.metaCacheExpireHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.hour')"
+                      :rules="[
+                        (v: any) => v === 0 || !!v || t('setting.system.metaCacheExpireRequired'),
+                        (v: any) => v >= 0 || t('setting.system.metaCacheExpireMin'),
+                      ]"
+                      prepend-inner-icon="mdi-timer"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.RECOGNIZE_PLUGIN_FIRST"
+                      :label="t('setting.system.recognizePluginFirst')"
+                      :hint="t('setting.system.recognizePluginFirstHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.MEDIA_RECOGNIZE_SHARE"
+                      :label="t('setting.system.mediaRecognizeShare')"
+                      :hint="t('setting.system.mediaRecognizeShareHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+              </section>
+
+              <section class="media-settings-section" aria-labelledby="media-settings-movie">
+                <div class="mb-5">
+                  <h3 id="media-settings-movie" class="text-subtitle-1 font-weight-medium d-flex align-center mb-1">
+                    <VIcon icon="mdi-movie-outline" size="20" class="me-2" aria-hidden="true" />
+                    {{ t('setting.system.mediaGroups.movie.title') }}
+                  </h3>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    {{ t('setting.system.mediaGroups.movie.description') }}
+                  </p>
+                </div>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VCombobox
+                      v-model="SystemSettings.Advanced.TMDB_API_DOMAIN"
+                      :label="t('setting.system.tmdbApiDomain')"
+                      :hint="t('setting.system.tmdbApiDomainHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.tmdbApiDomainPlaceholder')"
+                      :items="['api.themoviedb.org', 'api.tmdb.org']"
+                      :rules="[(v: string) => !!v || t('setting.system.tmdbApiDomainRequired')]"
+                      prepend-inner-icon="mdi-api"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.TMDB_API_KEY"
+                      :label="t('setting.system.tmdbApiKey')"
+                      :hint="t('setting.system.tmdbApiKeyHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.tmdbApiKeyPlaceholder')"
+                      :rules="[(v: string) => !!v || t('setting.system.tmdbApiKeyRequired')]"
+                      prepend-inner-icon="mdi-key-variant"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VCombobox
+                      v-model="SystemSettings.Advanced.TMDB_IMAGE_DOMAIN"
+                      :label="t('setting.system.tmdbImageDomain')"
+                      :hint="t('setting.system.tmdbImageDomainHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.tmdbImageDomainPlaceholder')"
+                      :items="['image.tmdb.org']"
+                      :rules="[(v: string) => !!v || t('setting.system.tmdbImageDomainRequired')]"
+                      prepend-inner-icon="mdi-image"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="SystemSettings.Advanced.TMDB_LOCALE"
+                      :label="t('setting.system.tmdbLocale')"
+                      :hint="t('setting.system.tmdbLocaleHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.tmdbLocalePlaceholder')"
+                      :items="tmdbLanguageItems"
+                      prepend-inner-icon="mdi-translate"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.SCRAP_FOLLOW_TMDB"
+                      :label="t('setting.system.scrapFollowTmdb')"
+                      :hint="t('setting.system.scrapFollowTmdbHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.TMDB_SCRAP_ORIGINAL_IMAGE"
+                      :label="t('setting.system.scrapOriginalImage')"
+                      :hint="t('setting.system.scrapOriginalImageHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.FANART_ENABLE"
+                      :label="t('setting.system.fanartEnable')"
+                      :hint="t('setting.system.fanartEnableHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol v-if="SystemSettings.Advanced.FANART_ENABLE" cols="12" md="6">
+                    <VSelect
+                      v-model="fanartLanguageSelection"
+                      :label="t('setting.system.fanartLang')"
+                      :hint="t('setting.system.fanartLangHint')"
+                      persistent-hint
+                      :items="fanartLanguageItems"
+                      multiple
+                      chips
+                      closable-chips
+                      prepend-inner-icon="mdi-translate"
+                    />
+                  </VCol>
+                </VRow>
+              </section>
+
+              <section class="media-settings-section" aria-labelledby="media-settings-music">
+                <div class="mb-5">
+                  <h3 id="media-settings-music" class="text-subtitle-1 font-weight-medium d-flex align-center mb-1">
+                    <VIcon icon="mdi-music" size="20" class="me-2" aria-hidden="true" />
+                    {{ t('setting.system.mediaGroups.music.title') }}
+                  </h3>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    {{ t('setting.system.mediaGroups.music.description') }}
+                  </p>
+                </div>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.ACOUSTID_API_KEY"
+                      :label="t('setting.system.acoustIdApiKey')"
+                      :hint="t('setting.system.acoustIdApiKeyHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.acoustIdApiKeyPlaceholder')"
+                      :rules="[(v: string) => !!v || t('setting.system.acoustIdApiKeyRequired')]"
+                      prepend-inner-icon="mdi-music-box-multiple-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.THEAUDIODB_API_KEY"
+                      :label="t('setting.system.theAudioDbApiKey')"
+                      :hint="t('setting.system.theAudioDbApiKeyHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-key-variant"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="musicReleaseRegionSelection"
+                      :items="musicReleaseRegionItems"
+                      :label="t('setting.system.musicReleaseRegionPriority')"
+                      :hint="t('setting.system.musicReleaseRegionPriorityHint')"
+                      multiple
+                      chips
+                      closable-chips
+                      persistent-hint
+                      prepend-inner-icon="mdi-earth"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="musicReleaseScriptSelection"
+                      :items="musicReleaseScriptItems"
+                      :label="t('setting.system.musicReleaseScriptPriority')"
+                      :hint="t('setting.system.musicReleaseScriptPriorityHint')"
+                      multiple
+                      chips
+                      closable-chips
+                      persistent-hint
+                      prepend-inner-icon="mdi-translate"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.MUSIC_COVER_PROXY"
+                      :label="t('setting.system.musicCoverProxy')"
+                      :hint="t('setting.system.musicCoverProxyHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.musicCoverProxyPlaceholder')"
+                      prepend-inner-icon="mdi-music"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.MUSIC_METADATA_TO_SIMPLIFIED"
+                      :label="t('setting.system.musicMetadataToSimplified')"
+                      :hint="t('setting.system.musicMetadataToSimplifiedHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+              </section>
+
+              <section class="media-settings-section" aria-labelledby="media-settings-lyrics">
+                <div class="mb-5">
+                  <h3 id="media-settings-lyrics" class="text-subtitle-1 font-weight-medium d-flex align-center mb-1">
+                    <VIcon icon="mdi-text-box-multiple-outline" size="20" class="me-2" aria-hidden="true" />
+                    {{ t('setting.system.mediaGroups.lyrics.title') }}
+                  </h3>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    {{ t('setting.system.mediaGroups.lyrics.description') }}
+                  </p>
+                </div>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.LRCLIB_BASE_URL"
+                      :label="t('setting.system.lrclibBaseUrl')"
+                      :hint="t('setting.system.lrclibBaseUrlHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-music-note-plus"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.MUSIXMATCH_BASE_URL"
+                      :label="t('setting.system.musixmatchBaseUrl')"
+                      :hint="t('setting.system.musixmatchBaseUrlHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-api"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.MUSIXMATCH_API_KEY"
+                      :label="t('setting.system.musixmatchApiKey')"
+                      :hint="t('setting.system.musixmatchApiKeyHint')"
+                      persistent-hint
+                      type="password"
+                      prepend-inner-icon="mdi-key-variant"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.LYRICS_BATCH_TIMEOUT"
+                      :label="t('setting.system.lyricsBatchTimeout')"
+                      :hint="t('setting.system.lyricsBatchTimeoutHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.secondUnit')"
+                      prepend-inner-icon="mdi-timer-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.LYRICS_PROVIDER_RETRY_MAX_WAIT"
+                      :label="t('setting.system.lyricsRetryMaxWait')"
+                      :hint="t('setting.system.lyricsRetryMaxWaitHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.secondUnit')"
+                      prepend-inner-icon="mdi-timer-sand"
+                    />
+                  </VCol>
+                </VRow>
+              </section>
 
               <!-- 刮削开关设置 -->
               <VRow class="mt-4">
@@ -3080,6 +3128,12 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
 </template>
 
 <style scoped>
+.media-settings-section + .media-settings-section {
+  margin-block-start: 1.75rem;
+  padding-block-start: 1.5rem;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .ai-agent-settings-card {
   border-color: rgba(var(--v-theme-primary), 0.15);
   background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
