@@ -3,7 +3,6 @@ import type { SystemNotification } from '@/api/types'
 import api from '@/api'
 import { appUnreadMessageCount, clearUnreadMessages } from '@/utils/badge'
 import { emitAgentAssistantNotificationBubble } from '@/utils/agentAssistantBubble'
-import { formatNotificationForDisplay } from '@/utils/notification'
 import { formatDateDifference } from '@core/utils/formatters'
 import { useBackground } from '@/composables/useBackground'
 import { useToast } from 'vue-toastification'
@@ -159,13 +158,11 @@ function compactNotifications(items: SystemNotification[]) {
 
 /** 规范化通知展示字段，并补齐默认标题、类型和已读状态。 */
 function normalizeNotification(item: SystemNotification, read = true): SystemNotification {
-  const displayText = formatNotificationForDisplay(item.title, item.text, t)
-
   return {
     ...item,
     read,
-    title: displayText.title || item.source || item.mtype || t('notification.center'),
-    text: displayText.text,
+    title: item.title || item.source || item.mtype || t('notification.center'),
+    text: item.text,
     type: item.type || (item.action === 1 ? 'notification' : item.type),
   }
 }
