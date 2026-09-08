@@ -1,6 +1,7 @@
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
+import { clearMediaPosterPresentationCache, wasMediaPosterRevealed } from '@/utils/mediaPosterPresentationCache'
 import { fireEvent, waitFor } from '@testing-library/vue'
 import { createMediaInfo } from '@tests/support/factories/media'
 import { mediaExistsHandler } from '@tests/support/msw/handlers/media'
@@ -100,6 +101,8 @@ interface RenderCardOptions {
 }
 
 interface ControlledImageRequest {
+  /** 图片是否在进入视口前发起加载。 */
+  eager: boolean
   /** 模拟当前 VImg 请求失败。 */
   fail: () => void
   /** 模拟当前 VImg 请求成功。 */
@@ -108,6 +111,8 @@ interface ControlledImageRequest {
   reveal: () => void
   /** 当前 VImg 实例发起的图片地址。 */
   src: string
+  /** VImg 自身的图片呈现过渡，不等同卡片的 CSS 淡入。 */
+  transition: boolean | string | undefined
 }
 
 /** 创建可保留旧实例回调的图片替身，用于验证媒体复用时的迟到事件隔离。 */
@@ -115,11 +120,12 @@ function createControlledImageStub(requests: ControlledImageRequest[]) {
   return defineComponent({
     name: 'VImg',
     emits: ['error', 'load'],
-    props: { src: String },
+    props: { src: String, eager: Boolean, transition: [Boolean, String] },
     setup(props, { emit, slots }) {
       const src = props.src ?? ''
       const imageElement = ref<HTMLImageElement | null>(null)
       const request = {
+        eager: props.eager,
         fail: () => emit('error', src),
         load: () => emit('load', src),
         reveal: () => {
@@ -128,6 +134,7 @@ function createControlledImageStub(requests: ControlledImageRequest[]) {
           imageElement.value?.dispatchEvent(event)
         },
         src,
+        transition: props.transition,
       }
       requests.push(request)
 
@@ -184,10 +191,12 @@ function getActionButtons(container: Element) {
 }
 
 /** 获取媒体搜索操作按钮并确保其已渲染。 */
-function getSearchButton(container: Element) {
-  const button = getActionButtons(container)[0]
-  expect(button).toBeDefined()
-  return button
+async function getSearchButton(container: Element) {
+  return waitFor(() => {
+    const button = getActionButtons(container)[0]
+    expect(button).toBeDefined()
+    return button
+  })
 }
 
 /** 筛选用于触发媒体状态懒加载的观察器。 */
@@ -216,6 +225,7 @@ describe('MediaCard', () => {
   beforeEach(() => {
     intersectionObservers = []
     clearCachedMediaSubscribeStatuses()
+    clearMediaPosterPresentationCache()
     vi.stubGlobal('IntersectionObserver', IntersectionObserverMock)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -252,6 +262,7 @@ describe('MediaCard', () => {
       title: '视口状态剧集',
       year: '2026',
     })
+    await fireEvent.mouseEnter(getHoverArea(container))
     await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     expect(getStatusObservers()[0]?.disconnect).toHaveBeenCalledOnce()
   })
@@ -276,6 +287,7 @@ describe('MediaCard', () => {
 
     expect(getStatusObservers()).toHaveLength(2)
     getStatusObservers().forEach(observer => observer.trigger())
+    for (const area of container.querySelectorAll('.media-card-hover-area')) await fireEvent.mouseEnter(area)
 
     await waitFor(() => {
       expect(subscribeRequest).toHaveBeenCalledOnce()
@@ -488,7 +500,7 @@ describe('MediaCard', () => {
         type: '音乐',
       })
 
-      await fireEvent.click(getSearchButton(container))
+      await fireEvent.click(await getSearchButton(container))
       await waitFor(() =>
         expect(mocks.routerPush).toHaveBeenCalledWith({
           path: '/resource',
@@ -526,7 +538,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
 
     await waitFor(() =>
       expect(mocks.routerPush).toHaveBeenCalledWith({
@@ -555,7 +567,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
 
     await waitFor(() =>
       expect(mocks.routerPush).toHaveBeenCalledWith(
@@ -583,7 +595,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(media)
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
 
     const [, dialogProps, dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
@@ -624,7 +636,7 @@ describe('MediaCard', () => {
     const { container } = await renderCard(createMediaInfo({ tmdb_id: 9504 }))
 
     await fireEvent.mouseEnter(getHoverArea(container))
-    await fireEvent.click(getSearchButton(container))
+    await fireEvent.click(await getSearchButton(container))
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
     const [, dialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, { selected: number[] }]
@@ -661,9 +673,8 @@ describe('MediaCard', () => {
     )
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
-    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
-
     await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
@@ -709,9 +720,8 @@ describe('MediaCard', () => {
     )
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
-    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
-
     await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
@@ -764,9 +774,8 @@ describe('MediaCard', () => {
     )
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
-    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
-
     await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
     await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
@@ -822,6 +831,128 @@ describe('MediaCard', () => {
     expect(container.querySelector('.media-card-placeholder')).not.toBeNull()
     expect(getCard(container)).not.toHaveClass('ring-1')
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+  })
+
+  it('reuses a revealed poster without replaying either fade but still waits for its own load', async () => {
+    const requests: ControlledImageRequest[] = []
+    const media = createMediaInfo({ poster_path: '/original/revisit.jpg', tmdb_id: 9560 })
+    const options = {
+      props: { media },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    }
+    const first = await renderWithProviders(MediaCard, options)
+    expect(requests[0]).toMatchObject({ eager: false, transition: 'fade-transition' })
+    requests[0].load()
+    requests[0].reveal()
+    await waitFor(() => expect(getCard(first.container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+    first.unmount()
+
+    const second = await renderWithProviders(MediaCard, options)
+    const request = requests.at(-1)!
+    expect(request).toMatchObject({ eager: true, transition: false })
+    expect(getCard(second.container)).toHaveClass('media-card--poster-revisit')
+    expect(getCard(second.container)).not.toHaveClass('media-card--image-loaded')
+    expect(getCard(second.container)).not.toHaveAttribute('data-glass-optical-mode')
+    request.load()
+    await waitFor(() => expect(getCard(second.container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+
+    request.fail()
+    await waitFor(() => expect(getCard(second.container)).not.toHaveAttribute('data-glass-optical-mode'))
+    expect(wasMediaPosterRevealed(request.src)).toBe(false)
+    expect(second.container.querySelector('.media-card-placeholder')).not.toBeNull()
+  })
+
+  it('does not remember a poster that unmounted before completing its first reveal', async () => {
+    const requests: ControlledImageRequest[] = []
+    const media = createMediaInfo({ poster_path: '/original/partial-reveal.jpg', tmdb_id: 9561 })
+    const options = {
+      props: { media },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    }
+    const first = await renderWithProviders(MediaCard, options)
+    requests[0].load()
+    first.unmount()
+    const second = await renderWithProviders(MediaCard, options)
+    expect(requests.at(-1)).toMatchObject({ eager: false, transition: 'fade-transition' })
+    expect(getCard(second.container)).not.toHaveClass('media-card--poster-revisit')
+  })
+
+  it('uses the real VImg lazy lifecycle only for the first presentation', async () => {
+    const media = createMediaInfo({ poster_path: '/original/real-revisit.jpg', tmdb_id: 9562 })
+    const first = await renderCard(media)
+    expect(first.container.querySelector('.v-img__img')).toBeNull()
+    const imageObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(([element]) => element.classList.contains('v-img')),
+    )
+    expect(imageObserver).toBeDefined()
+    imageObserver!.trigger()
+
+    await waitFor(() => expect(first.container.querySelector('.v-img__img')).not.toBeNull())
+    const firstImage = first.container.querySelector<HTMLImageElement>('.v-img__img')!
+    expect(firstImage).toHaveStyle({ display: 'none' })
+    expect(first.container.querySelector('.v-img__placeholder')).not.toBeNull()
+    expect(getCard(first.container)).not.toHaveAttribute('data-glass-optical-mode')
+    await fireEvent.load(firstImage)
+    expect(getCard(first.container)).toHaveClass('media-card--image-loaded')
+    expect(getCard(first.container)).not.toHaveAttribute('data-glass-optical-mode')
+    const revealed = new Event('transitionend', { bubbles: true })
+    Object.defineProperty(revealed, 'propertyName', { value: 'opacity' })
+    await fireEvent(firstImage, revealed)
+    await waitFor(() => expect(getCard(first.container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+    first.unmount()
+
+    // 不触发任何 IntersectionObserver，真实 VImg 在重挂载时即进入 loading。
+    const second = await renderCard(media)
+    await waitFor(() => expect(second.container.querySelector('.v-img__img')).not.toBeNull())
+    const secondImage = second.container.querySelector<HTMLImageElement>('.v-img__img')!
+    expect(secondImage).toHaveStyle({ display: 'none' })
+    expect(second.container.querySelector('.v-img__placeholder')).not.toBeNull()
+    expect(getCard(second.container)).not.toHaveAttribute('data-glass-optical-mode')
+    await fireEvent.load(secondImage)
+    expect(secondImage).not.toHaveStyle({ display: 'none' })
+    expect(second.container.querySelector('.v-img__placeholder')).toBeNull()
+    expect(getCard(second.container)).toHaveAttribute('data-glass-optical-mode', 'excluded')
+  })
+
+  it('resets poster presentation when the same media object changes its effective image source', async () => {
+    const requests: ControlledImageRequest[] = []
+    const media = reactive(
+      createMediaInfo({
+        poster_path: '/original/movie-cover.jpg',
+        cover_url: 'https://example.com/music-cover.jpg',
+        tmdb_id: 9563,
+        type: '电影',
+      }),
+    )
+    const { container } = await renderWithProviders(MediaCard, {
+      props: { media },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    })
+    const movieRequest = requests[0]
+    movieRequest.load()
+    movieRequest.reveal()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+
+    media.type = '音乐'
+    await waitFor(() => expect(requests.some(request => request.src.includes('music-cover.jpg'))).toBe(true))
+    const musicRequest = requests.find(request => request.src.includes('music-cover.jpg'))!
+    expect(musicRequest.src).not.toBe(movieRequest.src)
+    expect(getCard(container)).not.toHaveClass('media-card--image-loaded')
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+    movieRequest.load()
+    movieRequest.reveal()
+    movieRequest.fail()
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+    expect(container.querySelector('.media-card-placeholder')).toBeNull()
+
+    musicRequest.load()
+    await waitFor(() => expect(getCard(container)).toHaveClass('media-card--image-loaded'))
+    expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
+    musicRequest.reveal()
+    await waitFor(() => expect(getCard(container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
   })
 
   it('excludes music cards from the renderer after the cover finishes revealing', async () => {
@@ -956,6 +1087,22 @@ describe('MediaCard', () => {
     expect(getActionButtons(container)).toHaveLength(0)
   })
 
+  it('mounts details only while hovered without replacing the media shell', async () => {
+    const { container } = await renderCard(createMediaInfo({ tmdb_id: 9700 }))
+    const card = getCard(container)
+    expect(container.querySelector('.media-card-title')).toBeNull()
+    expect(getActionButtons(container)).toHaveLength(0)
+
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container)).toHaveLength(2))
+    expect(getCard(container)).toBe(card)
+
+    await fireEvent.mouseLeave(getHoverArea(container))
+    await waitFor(() => expect(container.querySelector('.media-card-title')).toBeNull())
+    expect(getActionButtons(container)).toHaveLength(0)
+    expect(getCard(container)).toBe(card)
+  })
+
   it('uses first tap to reveal details, second tap to route, and outside pointerdown to collapse', async () => {
     vi.spyOn(window, 'matchMedia').mockReturnValue({
       ...window.matchMedia(''),
@@ -963,15 +1110,16 @@ describe('MediaCard', () => {
     })
     const media = createMediaInfo({ title: '触摸卡片', tmdb_id: 9701 })
     const { container } = await renderCard(media)
-    const detail = container.querySelector<HTMLElement>('.media-card-title')?.parentElement
-    expect(detail).not.toBeNull()
+    expect(container.querySelector('.media-card-title')).toBeNull()
 
     await fireEvent.click(getCard(container))
+    const detail = container.querySelector<HTMLElement>('.media-card-title')?.parentElement
+    expect(detail).toBeInTheDocument()
     expect(detail).not.toHaveStyle({ display: 'none' })
     expect(mocks.routerPush).not.toHaveBeenCalled()
 
     await fireEvent.pointerDown(document.body)
-    expect(detail).toHaveStyle({ display: 'none' })
+    expect(container.querySelector('.media-card-title')).toBeNull()
 
     await fireEvent.click(getCard(container))
     await fireEvent.click(getCard(container))

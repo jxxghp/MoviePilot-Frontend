@@ -582,27 +582,49 @@ $-popup-hosts: (
     }
   }
 
-  // Frosted 必须有且仅有一个磨砂所有者；原生回退与稳定背板共用导航而非卡片的扩散参数。
+  // Frosted 顶栏只由一个表面采样；桌面读取滚动正文，移动端保留其稳定背板合同。
   html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass'] {
     .layout-wrapper[data-shell-mode].layout-navbar-fixed .layout-navbar {
       --glass-navbar-frosted-separation: 0;
 
-      background:
+      --glass-navbar-frosted-background:
         linear-gradient(
           rgba(23, 27, 32, var(--glass-navbar-frosted-separation)),
           rgba(23, 27, 32, var(--glass-navbar-frosted-separation))
         ),
-        var(--glass-v3-card-background) !important;
+        var(--glass-v3-card-background);
+
+      background: var(--glass-navbar-frosted-background) !important;
     }
 
-    .layout-wrapper[data-shell-mode]:not(.layout-fixed-shell-backplate-active) .layout-navbar {
+    .layout-wrapper[data-shell-mode]:not(.layout-fixed-shell-backplate-active) .layout-navbar,
+    .layout-wrapper[data-shell-mode='desktop']:not(.layout-window-controls-overlay-shell)
+      .layout-navbar:not([data-glass-panel-refraction]) {
       backdrop-filter: var(--glass-sidebar-backdrop-filter) !important;
       -webkit-backdrop-filter: var(--glass-sidebar-backdrop-filter) !important;
     }
 
-    .layout-wrapper[data-shell-mode].layout-fixed-shell-backplate-active.layout-navbar-fixed .layout-navbar {
+    .layout-wrapper[data-shell-mode]:not(
+        [data-shell-mode='desktop']
+      ).layout-fixed-shell-backplate-active.layout-navbar-fixed
+      .layout-navbar,
+    .layout-wrapper.layout-window-controls-overlay-shell.layout-fixed-shell-backplate-active.layout-navbar-fixed
+      .layout-navbar {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
+    }
+
+    // 透镜保持原有位移和中心扩散；材质、边缘反光与背景滤镜一起由伪元素持有。
+    .layout-wrapper[data-shell-mode='desktop'].layout-navbar-fixed .layout-navbar[data-glass-panel-refraction] {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+
+      &::before {
+        background: var(--glass-navbar-frosted-background);
+        backdrop-filter: var(--glass-panel-filter) !important;
+        -webkit-backdrop-filter: var(--glass-panel-filter) !important;
+      }
     }
   }
 
@@ -610,12 +632,17 @@ $-popup-hosts: (
     body[data-theme='glass']
     .layout-wrapper[data-shell-mode='desktop'].layout-navbar-fixed.layout-navbar-away-from-top
     .layout-navbar {
-    // 稳定壁纸已经扩散，离顶只增强前后景分离，不重采样整片磨砂或改变侧栏亮度。
+    // 既有材质始终承担扩散，离顶只增强分离，不叠加第二层模糊或改变侧栏亮度。
     --glass-navbar-frosted-separation: 0.08;
 
     box-shadow:
       var(--glass-v3-surface-edge),
       0 12px 30px rgba(0, 0, 0, 0.18) !important;
+
+    &[data-glass-panel-refraction] {
+      // 边缘反光已在采样伪元素上，外壳只承担投影。
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18) !important;
+    }
   }
 
   @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {

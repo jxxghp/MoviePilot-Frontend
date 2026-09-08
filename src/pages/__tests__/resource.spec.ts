@@ -4,6 +4,7 @@ import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -248,6 +249,32 @@ const pageStubs = {
   VScrollToTopBtn: true,
 }
 
+const DashboardRouteStub = defineComponent({
+  name: 'DashboardRouteStub',
+  template: `
+    <main data-testid="dashboard-window">
+      <div data-testid="dashboard-navbar-below">dashboard content</div>
+    </main>
+  `,
+})
+
+const ResourceRouteLifecycleHarness = defineComponent({
+  name: 'ResourceRouteLifecycleHarness',
+  setup() {
+    return { route: useRoute() }
+  },
+  template: `
+    <RouterView v-slot="{ Component }">
+      <div class="mp-page-route" data-testid="visible-page-window">
+        <KeepAlive :max="24">
+          <component :is="Component" v-if="route.meta.keepAlive" :key="route.path" />
+        </KeepAlive>
+        <component :is="Component" v-if="!route.meta.keepAlive" :key="route.fullPath" />
+      </div>
+    </RouterView>
+  `,
+})
+
 async function renderResource(
   initialRoute: { path: string; query?: Record<string, string> } = { path: '/resource' },
   aiEnabled = false,
@@ -268,6 +295,63 @@ async function renderResource(
     stubActions: false,
     global: { stubs: pageStubs },
   })
+}
+
+async function renderResourceRouteLifecycle(query: Record<string, string>) {
+  const rendered = await renderWithProviders(ResourceRouteLifecycleHarness, {
+    initialRoute: '/',
+    initialState: {
+      globalSettings: {
+        data: { AI_RECOMMEND_ENABLED: false },
+        initialized: true,
+        loading: false,
+      },
+      user: {
+        permissions: { ...DEFAULT_PERMISSIONS, search: true },
+        superUser: false,
+      },
+    },
+    stubActions: false,
+    global: { stubs: pageStubs },
+  })
+
+  rendered.router.addRoute({
+    path: '/resource',
+    component: ResourcePage,
+    meta: { keepAlive: true },
+  })
+  rendered.router.addRoute({
+    path: '/dashboard',
+    component: DashboardRouteStub,
+    meta: { keepAlive: true },
+  })
+  await rendered.router.push({ path: '/resource', query })
+  await rendered.router.isReady()
+  await nextTick()
+
+  return rendered
+}
+
+function installClearHighGlassState() {
+  const root = document.documentElement
+  const previous = {
+    theme: root.dataset.theme,
+    glassAppearance: root.dataset.glassAppearance,
+    glassQuality: root.dataset.glassQuality,
+  }
+
+  root.dataset.theme = 'glass'
+  root.dataset.glassAppearance = 'clear'
+  root.dataset.glassQuality = 'high'
+
+  return () => {
+    if (previous.theme === undefined) delete root.dataset.theme
+    else root.dataset.theme = previous.theme
+    if (previous.glassAppearance === undefined) delete root.dataset.glassAppearance
+    else root.dataset.glassAppearance = previous.glassAppearance
+    if (previous.glassQuality === undefined) delete root.dataset.glassQuality
+    else root.dataset.glassQuality = previous.glassQuality
+  }
 }
 
 async function latestEventSource(expectedCount = 1) {
@@ -1073,6 +1157,93 @@ describe('resource page search flow', () => {
       'search/media/42',
       expect.objectContaining({ params: expect.objectContaining({ media_source: 'themoviedb' }) }),
     )
+  })
+
+  it('keeps an in-flight 25% search out of the visible Dashboard window after route deactivation', async () => {
+    const restoreGlassState = installClearHighGlassState()
+    vi.useFakeTimers()
+
+    try {
+      const rendered = await renderResourceRouteLifecycle({ keyword: '离页渐进搜索', result_type: 'torrent' })
+      const source = await latestEventSource()
+      source.message({
+        items: [createTorrent({ title: '离页前预览结果' })],
+        total_items: 1,
+        type: 'append',
+        value: 25,
+      })
+      await vi.advanceTimersByTimeAsync(1000)
+      await nextTick()
+
+      expect(rendered.router.currentRoute.value.path).toBe('/resource')
+      expect(screen.getByText('25%')).toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).toBeInTheDocument()
+
+      await rendered.router.push('/dashboard')
+      await nextTick()
+
+      // KeepAlive 离页只停用页面，后台搜索仍需继续接收 SSE 收尾消息。
+      expect(source.closed).toBe(false)
+      expect(screen.getByTestId('dashboard-window')).toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+
+      source.message({
+        items: [createTorrent({ title: '离页后最终结果' })],
+        total_items: 1,
+        type: 'done',
+        value: 100,
+      })
+      await vi.advanceTimersByTimeAsync(1000)
+      await nextTick()
+      expect(source.closed).toBe(false)
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+
+      await vi.advanceTimersByTimeAsync(500)
+      await Promise.resolve()
+      await nextTick()
+
+      expect(source.closed).toBe(true)
+      expect(screen.getByTestId('dashboard-window')).toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+
+      await rendered.router.push('/resource')
+      expect(await screen.findByText('离页后最终结果')).toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+    } finally {
+      restoreGlassState()
+    }
+  })
+
+  it('keeps a completed static result out of the visible Dashboard window after leaving resource', async () => {
+    const restoreGlassState = installClearHighGlassState()
+
+    try {
+      const rendered = await renderResourceRouteLifecycle({ keyword: '已完成静态结果', result_type: 'torrent' })
+      const source = await latestEventSource()
+      const result = createTorrent({ title: '已完成静态资源' })
+      finishStream(source, [result])
+
+      expect(await screen.findByText('已完成静态资源')).toBeInTheDocument()
+      await waitFor(() => expect(rendered.router.currentRoute.value.query).toEqual({}))
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+
+      await rendered.router.push('/dashboard')
+
+      expect(source.closed).toBe(true)
+      expect(screen.getByTestId('dashboard-window')).toBeInTheDocument()
+      expect(screen.queryByText('已完成静态资源')).not.toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+
+      await new Promise(resolve => window.setTimeout(resolve, 1600))
+      expect(screen.getByTestId('dashboard-window')).toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+
+      await rendered.router.push('/resource')
+      expect(await screen.findByText('已完成静态资源')).toBeInTheDocument()
+      expect(document.querySelector('.search-progress-card')).not.toBeInTheDocument()
+    } finally {
+      restoreGlassState()
+    }
   })
 
   it('keeps the query of other routes when a search finishes after navigating away', async () => {

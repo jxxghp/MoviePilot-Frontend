@@ -518,5 +518,44 @@
       "translation": 100
     },
     "sha256": "c2b238e970fc079b0eb344ced8cb87d1d109a5c1dbb5b8f8c0f0904cfe44edd0"
+  },
+  {
+    "geometry": {
+      "width": 1179,
+      "height": 64,
+      "radius": 16,
+      "surface": "panel"
+    },
+    "parameters": {
+      "deformation": 48,
+      "translation": 48
+    },
+    "sha256": "63ff042bbd83f8454ca04da5e30b8c435787709d37632b237c4fac2076c0ddb4"
+  },
+  {
+    "geometry": {
+      "width": 252,
+      "height": 846,
+      "radius": 16,
+      "surface": "panel"
+    },
+    "parameters": {
+      "deformation": 48,
+      "translation": 48
+    },
+    "sha256": "2a62d288e06bd3b93e7b4813a5411788d41e25b9f2eb8ce1ed37922a461cb4b9"
+  },
+  {
+    "geometry": {
+      "width": 60,
+      "height": 846,
+      "radius": 16,
+      "surface": "panel"
+    },
+    "parameters": {
+      "deformation": 48,
+      "translation": 48
+    },
+    "sha256": "11a5ff7bc36d5ff6cc3b3f9617c57751b7a7a1a80f2af70942fe584e8b9190b3"
   }
 ]

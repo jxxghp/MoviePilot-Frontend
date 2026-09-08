@@ -191,11 +191,13 @@ describe('GlassSettingsDialog', () => {
       if (!appearanceControl) throw new Error('appearance control was not rendered')
 
       expect(wrapper.find('.glass-settings-dialog__navbar-style').attributes('data-model-value')).toBe('clear')
+      expect(wrapper.text()).toContain('theme.glassNavbarStyleHint')
 
       await appearanceControl.vm.$emit('update:modelValue', 'frosted')
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('.glass-settings-dialog__navbar-style').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('theme.glassNavbarStyleHint')
       expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
         expect.objectContaining({ glassAppearance: 'frosted', glassNavbarStyle: 'clear' }),
       )
@@ -206,6 +208,7 @@ describe('GlassSettingsDialog', () => {
       const restoredStyleControl = wrapper.find('.glass-settings-dialog__navbar-style')
       expect(restoredStyleControl.attributes('data-model-value')).toBe('clear')
       expect(wrapper.findAll('.glass-settings-dialog__navbar-style-option')).toHaveLength(2)
+      expect(wrapper.text()).toContain('theme.glassNavbarStyleHint')
       expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
         expect.objectContaining({ glassAppearance: appearance, glassNavbarStyle: 'clear' }),
       )

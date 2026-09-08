@@ -106,17 +106,6 @@
       "count": 1
     }
   },
-  "src/components/cards/MediaCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
   "src/components/cards/PersonCard.vue": {
     "no-useless-assignment": {
       "count": 1
@@ -535,14 +524,6 @@
   "src/layouts/default/components/UserNotification.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "src/layouts/default/components/UserProfile.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 5
-    },
-    "sonarjs/no-ignored-exceptions": {
-      "count": 2
     }
   },
   "src/pages/__tests__/subscribe.spec.ts": {

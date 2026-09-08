@@ -225,6 +225,7 @@ export default {
     glassNavbarStyle: 'Navbar Style',
     glassNavbarStyleAdaptive: 'Adaptive',
     glassNavbarStyleClear: 'Clear',
+    glassNavbarStyleHint: 'Clear preserves more background detail, while Adaptive puts more emphasis on text clarity.',
     glassQuality: 'Quality',
     glassQualityCss: 'Standard',
     glassQualityBalanced: 'Balanced',

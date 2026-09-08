@@ -161,11 +161,11 @@ export function createGlassNavbarDisplacementField({
     pixels[offset + 3] = 255
   }
 
-  // 中心越过圆角和两轴平移渐入带后，RGBA 恒定；仅批量填充这一区域，边带仍按完整公式计算。
+  // 中心越过圆角和两轴平移渐入带后，RGBA 恒定；非恒定区域仍按完整公式计算。
   const bodyStart = Math.ceil(Math.max(pixelRadius, maximumBand + 64) - 0.5)
   const bodyEnd = pixelWidth - bodyStart
   const hasConstantBody = surface === 'panel' && bodyEnd > bodyStart && pixelHeight > bodyStart * 2
-  const pixelWords = hasConstantBody ? new Uint32Array(pixels.buffer) : null
+  const pixelWords = surface === 'panel' ? new Uint32Array(pixels.buffer) : null
   // 从字节视图取得填充值，与目标视图共享平台字节序，不依赖大小端假设。
   const bodyWord = new Uint32Array(
     new Uint8ClampedArray([
@@ -175,13 +175,33 @@ export function createGlassNavbarDisplacementField({
       255,
     ]).buffer,
   )[0]
+  // 长竖面越过两端过渡后，整行结果不再随 y 改变；复用整行仍保留侧边逐像素精度。
+  const repeatRowStart = Math.ceil(
+    Math.max(pixelRadius + 1, maximumBand + 64, pixelWidth / 2 + maximumBand * 2 + 1) - 0.5,
+  )
+  const repeatRowEnd = pixelHeight - repeatRowStart
 
   for (let y = 0; y < pixelHeight; y += 1) {
-    const constantBodyRow = pixelWords && y >= bodyStart && y < pixelHeight - bodyStart
+    if (pixelWords && y > repeatRowStart && y < repeatRowEnd) {
+      pixelWords.copyWithin(y * pixelWidth, repeatRowStart * pixelWidth, (repeatRowStart + 1) * pixelWidth)
+      continue
+    }
+    const constantBodyRow = hasConstantBody && y >= bodyStart && y < pixelHeight - bodyStart
+    const edgeY = Math.min(y + 0.5, pixelHeight - y - 0.5)
+    // 越过圆角、横向平移渐入和直边权重后，同一行的距离与法线均不再依赖 x。
+    // 多留一个像素覆盖法线差分的半像素邻域，短行仍逐点计算。
+    const repeatStart = Math.ceil(Math.max(pixelRadius + 1, maximumBand + 64, edgeY + maximumBand * 2 + 1) - 0.5)
+    const repeatEnd = pixelWidth - repeatStart
+    const fillStart = pixelWords ? (constantBodyRow ? bodyStart : repeatStart + 1) : -1
+    const fillEnd = constantBodyRow ? bodyEnd : repeatEnd
     for (let x = 0; x < pixelWidth; x += 1) {
-      if (constantBodyRow && x === bodyStart) {
-        pixelWords.fill(bodyWord, y * pixelWidth + bodyStart, y * pixelWidth + bodyEnd)
-        x = bodyEnd - 1
+      if (pixelWords && x === fillStart && fillEnd > x) {
+        pixelWords.fill(
+          constantBodyRow ? bodyWord : pixelWords[y * pixelWidth + repeatStart],
+          y * pixelWidth + x,
+          y * pixelWidth + fillEnd,
+        )
+        x = fillEnd - 1
         continue
       }
       const sampleX = x + 0.5
@@ -190,7 +210,6 @@ export function createGlassNavbarDisplacementField({
       const distanceInside = -signedDistance
       // 长直边允许更厚的透镜；向圆角与法线交汇轴渐缩，避免高曲率区产生聚焦尖点。
       const edgeX = Math.min(sampleX, pixelWidth - sampleX)
-      const edgeY = Math.min(sampleY, pixelHeight - sampleY)
       const straightWeight = smoothstep(Math.min(1, Math.abs(edgeX - edgeY) / (maximumBand * 2 || 1)))
       const cornerBand = Math.min(maximumBand, pixelRadius)
       // 矩形角点没有圆弧法线；固定带宽交给四条直边的轴向剖面处理，避免角点成为采样断点。
@@ -294,24 +313,59 @@ export function createGlassPanelBackdropField({ width, height, panels, optics }:
   const pixelWidth = normalizePixelSize(width)
   const pixelHeight = normalizePixelSize(height)
   const pixels = new Uint8ClampedArray(pixelWidth * pixelHeight * 4)
-  for (let offset = 0; offset < pixels.length; offset += 4) {
-    pixels[offset] = DISPLACEMENT_NEUTRAL_CHANNEL
-    pixels[offset + 1] = 255
-    pixels[offset + 2] = DISPLACEMENT_NEUTRAL_CHANNEL
-    pixels[offset + 3] = 255
-  }
+  const pixelWords = new Uint32Array(pixels.buffer)
+  // 从字节视图取得填充值，与目标视图共享平台字节序，不依赖大小端假设。
+  const neutralWord = new Uint32Array(
+    new Uint8ClampedArray([DISPLACEMENT_NEUTRAL_CHANNEL, 255, DISPLACEMENT_NEUTRAL_CHANNEL, 255]).buffer,
+  )[0]
+  pixelWords.fill(neutralWord)
   for (const panel of panels) {
     const field = createGlassNavbarDisplacementField({ ...panel, optics, surface: 'panel' })
     const left = Math.round(panel.x)
     const top = Math.round(panel.y)
     const radius = Math.max(0, Math.min(panel.radius, field.width / 2, field.height / 2))
-    for (let y = Math.max(0, -top); y < Math.min(field.height, pixelHeight - top); y += 1) {
-      for (let x = Math.max(0, -left); x < Math.min(field.width, pixelWidth - left); x += 1) {
-        if (roundedRectangleSignedDistance(x + 0.5, y + 0.5, field.width, field.height, radius) > 0) continue
-        const source = (y * field.width + x) * 4
-        const destination = ((top + y) * pixelWidth + left + x) * 4
-        pixels.set(field.pixels.subarray(source, source + 4), destination)
+    const sourceTop = Math.max(0, -top)
+    const sourceBottom = Math.min(field.height, pixelHeight - top)
+    const sourceLeft = Math.max(0, -left)
+    const sourceRight = Math.min(field.width, pixelWidth - left)
+    if (!(sourceTop < sourceBottom && sourceLeft < sourceRight)) continue
+    for (let y = sourceTop; y < sourceBottom; y += 1) {
+      let spanStart = 0
+      let spanEnd = field.width
+
+      // NaN 半径的 `signedDistance > 0` 判定为 false，因此该输入保持整行复制语义。
+      if (!Number.isNaN(radius)) {
+        // 圆角扫描线的行中点必在内部，左右半行各自单调，可二分连续区间的两端。
+        const isInside = (x: number) =>
+          roundedRectangleSignedDistance(x + 0.5, y + 0.5, field.width, field.height, radius) <= 0
+        let searchStart = 0
+        let searchEnd = field.width
+        while (searchStart < searchEnd) {
+          const middle = Math.floor((searchStart + searchEnd) / 2)
+          if (isInside(middle)) searchEnd = middle
+          else searchStart = middle + 1
+        }
+        spanStart = searchStart
+        spanEnd = spanStart
+
+        if (spanStart < field.width) {
+          searchEnd = field.width
+          while (searchStart < searchEnd) {
+            const middle = Math.floor((searchStart + searchEnd) / 2)
+            if (isInside(middle)) searchStart = middle + 1
+            else searchEnd = middle
+          }
+          spanEnd = searchStart
+        }
       }
+
+      const copyStart = Math.max(spanStart, sourceLeft)
+      const copyEnd = Math.min(spanEnd, sourceRight)
+      if (copyEnd <= copyStart) continue
+
+      const source = (y * field.width + copyStart) * 4
+      const destination = ((top + y) * pixelWidth + left + copyStart) * 4
+      pixels.set(field.pixels.subarray(source, source + (copyEnd - copyStart) * 4), destination)
     }
   }
   return { width: pixelWidth, height: pixelHeight, pixels }

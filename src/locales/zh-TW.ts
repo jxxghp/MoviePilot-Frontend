@@ -213,6 +213,7 @@ export default {
     glassNavbarStyle: '頂欄風格',
     glassNavbarStyleAdaptive: '自適應',
     glassNavbarStyleClear: '通透',
+    glassNavbarStyleHint: '通透保留更多背景細節，自適應更著重文字清晰。',
     glassQuality: '品質',
     glassQualityCss: '標準',
     glassQualityBalanced: '均衡',

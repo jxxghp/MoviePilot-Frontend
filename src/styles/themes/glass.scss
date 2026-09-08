@@ -417,6 +417,11 @@ html[data-theme='glass'] {
     opacity: 1;
   }
 
+  // 缓存海报重入只恢复内容；真实 load 提交前仍保持不可见和原有玻璃占位。
+  .media-card--poster-revisit .v-img__img {
+    transition: none;
+  }
+
   .v-toolbar {
     border-color: var(--glass-border);
     -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);
@@ -526,14 +531,11 @@ html[data-theme='glass'] {
     }
 
     .layout-wrapper[data-shell-mode='desktop'] > .glass-fixed-shell-backplate--main {
-      // 固定顶栏与侧栏共用同一 L 形稳定背板，扩散参数必须作用于真实承载层。
+      // 侧栏稳定背板的扩散参数作用于真实承载层，顶栏独立读取滚动正文。
       --glass-fixed-shell-backplate-filter: var(--glass-sidebar-backdrop-filter);
     }
 
     .layout-wrapper[data-shell-mode='desktop'].layout-fixed-shell-backplate-active {
-      --glass-navbar-scrolled-backdrop-filter: none;
-
-      .layout-navbar,
       .layout-vertical-nav::before {
         -webkit-backdrop-filter: none !important;
         backdrop-filter: none !important;
@@ -557,12 +559,9 @@ html[data-theme='glass'] {
     }
   }
 
-  // Chromium 磨砂 fixed 层直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
+  // Chromium 磨砂侧栏已有稳定壁纸背板，不再重复读取 document backdrop。
   &[data-glass-appearance='frosted'][data-glass-quality='css'] body[data-theme='glass'] {
-    .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before,
-    .layout-wrapper.layout-fixed-shell-backplate-active .layout-navbar,
-    .layout-wrapper.layout-fixed-shell-backplate-active.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
-      .layout-navbar {
+    .layout-wrapper.layout-fixed-shell-backplate-active .layout-vertical-nav::before {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
     }
@@ -682,6 +681,12 @@ html[data-theme='glass'] {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background: var(--glass-overlay-scrim);
+  }
+
+  // 弹窗实际呈现后才移除来源菜单的绘制，避免双重遮罩和异步加载期间无遮罩的亮帧。
+  // 仅约束头像菜单树，弹窗内新打开的选择菜单仍独立呈现；关闭状态由 VMenu 自身完成。
+  .v-overlay-container:has(> .v-dialog.v-overlay--active) > .user-profile-menu {
+    display: none;
   }
 
   .v-dialog--fullscreen {
@@ -1573,8 +1578,7 @@ html[data-glass-appearance='frosted']:is(
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready']
   body[data-theme='glass'] {
-  .layout-vertical-nav::before,
-  .layout-navbar {
+  .layout-vertical-nav::before {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }

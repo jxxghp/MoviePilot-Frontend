@@ -3,6 +3,12 @@ import { ref } from 'vue'
 
 const activeTouchMediaCardId = ref<number | null>(null)
 let mediaCardIdSeed = 0
+
+/** 为当前模块内的卡片分配稳定触摸交互身份。 */
+function nextMediaCardId() {
+  mediaCardIdSeed += 1
+  return mediaCardIdSeed
+}
 </script>
 
 <script lang="ts" setup>
@@ -28,21 +34,28 @@ import {
   setCachedMediaExistsStatus,
 } from '@/utils/mediaStatusCache'
 import { buildMusicDetailRoute, getMusicKey } from '@/utils/music'
+import {
+  forgetMediaPosterReveal,
+  rememberMediaPosterReveal,
+  wasMediaPosterRevealed,
+} from '@/utils/mediaPosterPresentationCache'
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
 
-// 国际化
-const { t } = useI18n()
-
 interface MediaCardMedia extends MediaInfo {
+  /** 已知总集数，用于订阅信息展示。 */
   total_episode?: number
+  /** 当前媒体来源提供的集数。 */
   episode_count?: number
 }
 
 // 输入参数
 const props = defineProps({
+  /** 展示、搜索与订阅共用的媒体信息。 */
   media: Object as PropType<MediaCardMedia>,
+  /** 可选卡片宽度，由布局容器决定时省略。 */
   width: String,
+  /** 可选卡片高度，由海报比例决定时省略。 */
   height: String,
 })
 
@@ -81,14 +94,15 @@ function resetPosterRevealState() {
 }
 
 /** 仅允许当前真实海报请求完成 renderer 排除提交。 */
-function completePosterReveal(revision: number, usesFallback: boolean) {
-  if (revision !== imageRequestRevision.value || usesFallback) return
+function completePosterReveal(revision: number, src: string) {
+  if (revision !== imageRequestRevision.value || !src || !isImageLoaded.value || imageLoadError.value) return
 
   if (posterRevealFallbackTimer !== null) {
     window.clearTimeout(posterRevealFallbackTimer)
     posterRevealFallbackTimer = null
   }
   hasCompletedPosterReveal.value = true
+  rememberMediaPosterReveal(src)
 }
 
 // 当前订阅状态
@@ -108,7 +122,7 @@ const subscribedSeasonsLoaded = ref(false)
 const subscribedSeasonsLoading = ref(false)
 
 // 来源角标字典
-const sourceIconDict: { [key: string]: any } = {
+const sourceIconDict: Record<string, string> = {
   themoviedb: getLogoUrl('tmdb'),
   douban: getLogoUrl('douban-black'),
   bangumi: getLogoUrl('bangumi'),
@@ -138,7 +152,7 @@ const selectedSites = ref<number[]>([])
 // 搜索菜单显示状态
 const searchMenuShow = ref(false)
 
-const mediaCardId = ++mediaCardIdSeed
+const mediaCardId = nextMediaCardId()
 
 // 粗指针设备使用点击展开详情，避免 iOS 返回后沿用 VHover 的触摸态。
 const isTouchLikePointer = ref(
@@ -456,9 +470,8 @@ const placeholderIcon = computed(() => {
   }
 })
 
-// 计算图片地址
-const getImgUrl: Ref<string> = computed(() => {
-  if (imageLoadError.value) return ''
+// 请求身份由真实地址决定；错误占位不能反过来触发同一地址的自动重试。
+const resolvedPosterUrl = computed(() => {
   if (props.media?.type === '音乐') {
     // 音乐封面优先使用 cover_url（ListenBrainz/MusicBrainz 统计接口返回），回退到 poster_path
     const musicCover = props.media?.cover_url || props.media?.poster_path
@@ -470,6 +483,8 @@ const getImgUrl: Ref<string> = computed(() => {
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
+const getImgUrl = computed(() => (imageLoadError.value ? '' : resolvedPosterUrl.value))
+
 const hasLoadedRealPoster = computed(
   () => Boolean(getImgUrl.value) && isImageLoaded.value && hasCompletedPosterReveal.value && !imageLoadError.value,
 )
@@ -479,11 +494,14 @@ const imageRequest = computed(() => {
   const revision = imageRequestRevision.value
   const src = getImgUrl.value
   const usesFallback = !src
+  // 每个请求固定重入策略，当前淡入登记缓存时不能反过来中断自身动画。
+  const revisit = wasMediaPosterRevealed(src)
 
   return {
     handleError: () => {
       if (revision !== imageRequestRevision.value || usesFallback) return
 
+      forgetMediaPosterReveal(src)
       resetPosterRevealState()
       isImageLoaded.value = false
       imageLoadError.value = true
@@ -495,8 +513,12 @@ const imageRequest = computed(() => {
       resetPosterRevealState()
       isImageLoaded.value = true
       if (!usesFallback) {
+        if (revisit) {
+          completePosterReveal(revision, src)
+          return
+        }
         posterRevealFallbackTimer = window.setTimeout(
-          () => completePosterReveal(revision, usesFallback),
+          () => completePosterReveal(revision, src),
           POSTER_REVEAL_FALLBACK_MS,
         )
       }
@@ -510,9 +532,10 @@ const imageRequest = computed(() => {
         return
       }
 
-      completePosterReveal(revision, usesFallback)
+      completePosterReveal(revision, src)
     },
     key: revision,
+    revisit,
     src,
   }
 })
@@ -543,7 +566,7 @@ watch(isSubscribed, subscribed => {
 })
 
 watch(
-  [() => props.media, () => props.media?.poster_path, () => props.media?.cover_url],
+  [() => props.media, resolvedPosterUrl],
   ([media], [previousMedia]) => {
     imageRequestRevision.value += 1
     resetPosterRevealState()
@@ -593,6 +616,7 @@ onBeforeUnmount(() => {
           :class="{
             'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
             'media-card--image-loaded': isImageLoaded,
+            'media-card--poster-revisit': imageRequest.revisit,
             'ring-1': isImageLoaded,
           }"
           @click.stop="handleMediaCardClick(hover.isHovering)"
@@ -605,6 +629,8 @@ onBeforeUnmount(() => {
             v-else
             aspect-ratio="2/3"
             :src="imageRequest.src"
+            :eager="imageRequest.revisit"
+            :transition="imageRequest.revisit ? false : 'fade-transition'"
             class="object-cover aspect-w-2 aspect-h-3"
             cover
             @load="imageRequest.handleLoad"
@@ -618,9 +644,9 @@ onBeforeUnmount(() => {
             </template>
           </VImg>
 
-          <!-- 详情 -->
+          <!-- 详情按实际可见状态挂载，虚拟列表重入不创建不可见的操作组件。 -->
           <VCardText
-            v-show="isMediaCardDetailVisible(hover.isHovering)"
+            v-if="isMediaCardDetailVisible(hover.isHovering)"
             class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
             style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
           >

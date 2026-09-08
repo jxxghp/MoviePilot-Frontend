@@ -4,15 +4,18 @@ import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
+import GlassMediaBackdrop from '@/components/theme/GlassMediaBackdrop.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const props = defineProps({
+  /** 发现源的分页接口路径。 */
   apipath: {
     type: String,
     required: true,
   },
+  /** 发现筛选参数；当前页码由列表生命周期补充。 */
   params: Object as PropType<Record<string, unknown>>,
 })
 
@@ -165,17 +168,13 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading
         </VBtn>
       </div>
     </template>
-    <ProgressiveCardGrid
-      v-if="dataList.length > 0"
-      :items="dataList"
-      :item-aspect-ratio="1.5"
-      :get-item-key="getMediaIdentity"
-      tabindex="0"
-    >
-      <template #default="{ item }">
-        <MediaCard :media="item" />
-      </template>
-    </ProgressiveCardGrid>
+    <GlassMediaBackdrop v-if="dataList.length > 0">
+      <ProgressiveCardGrid :items="dataList" :item-aspect-ratio="1.5" :get-item-key="getMediaIdentity" tabindex="0">
+        <template #default="{ item }">
+          <MediaCard :media="item" />
+        </template>
+      </ProgressiveCardGrid>
+    </GlassMediaBackdrop>
     <NoDataFound v-if="dataList.length === 0 && isRefreshed" error-code="404" :error-title="t('common.noData')" />
   </VInfiniteScroll>
 </template>

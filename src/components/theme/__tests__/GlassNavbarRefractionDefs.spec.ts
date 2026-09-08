@@ -21,6 +21,8 @@ describe('GlassNavbarRefractionDefs', () => {
   let sidebarWidth: number
   let radius: number
   let sidebar: HTMLElement | undefined
+  let focused: boolean
+  let visibility: DocumentVisibilityState
   let transparencyReduced: boolean
   let transparencyChange: ((event: MediaQueryListEvent) => void) | undefined
   let decodePending: Array<{ resolve: () => void; reject: (reason?: unknown) => void }>
@@ -38,6 +40,10 @@ describe('GlassNavbarRefractionDefs', () => {
     transparencyChange = undefined
     decodePending = []
     sidebar = undefined
+    focused = true
+    visibility = 'visible'
+    vi.spyOn(document, 'hasFocus').mockImplementation(() => focused)
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
     shell = document.createElement('div')
     shell.className =
       'layout-wrapper layout-horizontal-nav-active layout-navbar-floating-eligible layout-navbar-away-from-top'
@@ -174,6 +180,119 @@ describe('GlassNavbarRefractionDefs', () => {
       expect.objectContaining({ width: 1423, height: 64, radius: 16 }),
     )
     expectReadyForWidth(1423)
+  })
+
+  it('skips fallback maps only after the panel material has actually taken over', async () => {
+    shell.className = 'layout-wrapper'
+    shell.dataset.shellMode = 'desktop'
+    navbar.dataset.glassPanelRefraction = 'panel-navbar'
+    mountWithSidebar()
+    sidebar!.dataset.glassPanelRefraction = 'panel-sidebar'
+    await settle()
+
+    expect(createGlassNavbarDisplacementMap).not.toHaveBeenCalled()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(shell.dataset.glassSidebarRefractionReady).toBe('false')
+
+    // 所有权先于解码发布；只有就绪标记能够抑制备用透镜。
+    navbar.dataset.glassPanelOwner = 'panel-navbar'
+    sidebar!.dataset.glassPanelOwner = 'panel-sidebar'
+    delete navbar.dataset.glassPanelRefraction
+    delete sidebar!.dataset.glassPanelRefraction
+    await flushPromises()
+    await settle()
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
+  })
+
+  it('reuses decoded fallback maps when panel refraction is suspended', async () => {
+    shell.className = 'layout-wrapper'
+    shell.dataset.shellMode = 'desktop'
+    mountWithSidebar()
+    await settle()
+
+    navbar.dataset.glassPanelRefraction = 'panel-navbar'
+    sidebar!.dataset.glassPanelRefraction = 'panel-sidebar'
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(shell.dataset.glassSidebarRefractionReady).toBe('false')
+
+    delete navbar.dataset.glassPanelRefraction
+    delete sidebar!.dataset.glassPanelRefraction
+    await flushPromises()
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not activate a pending fallback after panel takeover', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await vi.advanceTimersByTimeAsync(65)
+    expect(decodePending).toHaveLength(1)
+
+    navbar.dataset.glassPanelRefraction = 'panel-navbar'
+    await flushPromises()
+    completePendingDecode()
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(wrapper.get('feImage').attributes('href')).toBe('neutral')
+  })
+
+  it.each(['blur', 'hidden'] as const)(
+    'does not prepare fallback maps when panel suspension follows %s',
+    async mode => {
+      navbar.dataset.glassPanelRefraction = 'panel-navbar'
+      wrapper = mount(GlassNavbarRefractionDefs)
+      await settle()
+      expect(createGlassNavbarDisplacementMap).not.toHaveBeenCalled()
+
+      if (mode === 'blur') {
+        focused = false
+        window.dispatchEvent(new Event('blur'))
+      } else {
+        visibility = 'hidden'
+        document.dispatchEvent(new Event('visibilitychange'))
+      }
+      delete navbar.dataset.glassPanelRefraction
+      await flushPromises()
+      await settle()
+      expect(createGlassNavbarDisplacementMap).not.toHaveBeenCalled()
+      expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+
+      focused = true
+      visibility = 'visible'
+      if (mode === 'blur') window.dispatchEvent(new Event('focus'))
+      else document.dispatchEvent(new Event('visibilitychange'))
+      await settle()
+      expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+      expectReadyForWidth(1423)
+    },
+  )
+
+  it('does not activate a pending decode while the document is hidden', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await vi.advanceTimersByTimeAsync(65)
+    expect(decodePending).toHaveLength(1)
+    visibility = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+    completePendingDecode()
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(wrapper.get('feImage').attributes('href')).toBe('neutral')
+  })
+
+  it('restores a decoded floating map immediately on focus without regenerating it', async () => {
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    focused = false
+    window.dispatchEvent(new Event('blur'))
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+
+    focused = true
+    window.dispatchEvent(new Event('focus'))
+    expectReadyForWidth(1423)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
   })
 
   it('keeps independent geometry caches when switching between horizontal and vertical navigation', async () => {

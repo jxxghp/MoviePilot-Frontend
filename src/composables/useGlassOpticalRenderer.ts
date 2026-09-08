@@ -30,6 +30,7 @@ import {
   getGlassOpticalMotionEnergy,
   getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
+  getGlassOpticalScissor,
   getGlassOpticalTransmissionStrength,
   getGlassScrollBufferSize,
   getGlassOpticalTranslationStrengthScale,
@@ -474,12 +475,23 @@ function getSurfacePresentationSpace(
   return selector === '.login-card' && document.querySelector('.login-root') ? 'scroll' : defaultSpace
 }
 
-/** 判断新增或移除的 DOM 子树是否会改变光学表面集合。 */
-export function containsGlassOpticalSurface(node: Node) {
-  if (!(node instanceof Element)) return false
-  if (node.matches(SURFACE_SELECTOR_QUERY) && isGlassOpticalElementEligible(node)) return true
+function matchesGlassOpticalSurface(element: Element, surfaceSpace: GlassPresentationSpace | 'all' = 'all') {
+  if (!element.matches(SURFACE_SELECTOR_QUERY) || !isGlassOpticalElementEligible(element)) return false
+  if (surfaceSpace === 'all') return true
 
-  return Array.from(node.querySelectorAll(SURFACE_SELECTOR_QUERY)).some(isGlassOpticalElementEligible)
+  return SURFACE_SELECTORS.some(
+    ({ selector, space }) => element.matches(selector) && getSurfacePresentationSpace(selector, space) === surfaceSpace,
+  )
+}
+
+/** 判断新增或移除的 DOM 子树是否会改变指定呈现空间的光学表面集合。 */
+export function containsGlassOpticalSurface(node: Node, surfaceSpace: GlassPresentationSpace | 'all' = 'all') {
+  if (!(node instanceof Element)) return false
+  if (matchesGlassOpticalSurface(node, surfaceSpace)) return true
+
+  return Array.from(node.querySelectorAll(SURFACE_SELECTOR_QUERY)).some(element =>
+    matchesGlassOpticalSurface(element, surfaceSpace),
+  )
 }
 
 /** 判断 DOM 子树是否包含会约束父表面动态输出的交互裁剪。 */
@@ -1964,7 +1976,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.renderer.setScissor(0, scissorY, presentationBufferWidth, scissorHeight)
       resources.renderer.clear()
     } else {
+      const scissor = getGlassOpticalScissor(
+        surfaceSlots.map(slot => slot.rect),
+        getCommittedPresentationSize(),
+        { width: presentationBufferWidth, height: presentationBufferHeight },
+      )
+      // 旧位置必须先完整清空；scissor 仅限制片元执行，不能把上一帧的轮廓留在裁剪框外。
       resources.renderer.setScissorTest(false)
+      resources.renderer.clear()
+      resources.renderer.setScissor(scissor.x, scissor.y, scissor.width, scissor.height)
+      resources.renderer.setScissorTest(true)
     }
     resources.renderer.render(resources.scene, resources.camera)
     renderedFrames.value += 1
@@ -2587,6 +2608,28 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       toValue(options.appearance),
       toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
     )
+  }
+
+  /** 同步材质读数；需要替换纹理时只能在有效加载成功后提交。 */
+  function syncAppearanceUniforms() {
+    if (!resources) return
+
+    const materialResponse = getMaterialResponse()
+    resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(toValue(options.appearance))
+    resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
+    resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
+    resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
+    resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
+    resources.uniforms.uTintDensity.value = materialResponse.tintDensity
+  }
+
+  /** 静态质量读数与动态资源的重置分离，允许被最终纹理事务一并提交。 */
+  function syncQualityUniforms() {
+    if (!resources) return
+
+    resources.uniforms.uMaxRefractionPixels.value = getMaxRefractionPixels()
+    resources.uniforms.uQuality.value = toValue(options.quality) === 'high' ? 1 : 0
+    resources.uniforms.uTrailCount.value = hasFluidCapability() ? getRenderProfile().trailCount : 0
   }
 
   function resizeRenderer() {
@@ -3319,7 +3362,49 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     else resizeRenderer()
   }
 
-  /** 只让会改变目标表面集合或圆角几何的 DOM 变更触发重扫。 */
+  /** fixed 过滤依赖已提交的 surface/clip 身份，避免 detached 节点丢失祖先关系后被误判为无关内容。 */
+  function elementTouchesManagedSurface(element: Element) {
+    return (
+      surfaceRegistry.some(
+        surface => surface.key === element || surface.key.contains(element) || element.contains(surface.key),
+      ) ||
+      interactionClipRegistry.some(
+        clip =>
+          clip.key === element ||
+          clip.key.contains(element) ||
+          element.contains(clip.key) ||
+          clip.owner === element ||
+          clip.owner.contains(element) ||
+          element.contains(clip.owner),
+      )
+    )
+  }
+
+  /** scroll 保留完整属性监听；fixed 只接受当前 surface/clip 边界或新 fixed surface。 */
+  function mutationTargetTouchesRenderer(target: Node) {
+    if (presentationSpace === 'scroll') return true
+    if (!(target instanceof Element)) return false
+
+    return elementTouchesManagedSurface(target) || containsGlassOpticalSurface(target, presentationSpace)
+  }
+
+  function containsRendererOpticalSurface(node: Node) {
+    return presentationSpace === 'scroll'
+      ? containsGlassOpticalSurface(node)
+      : containsGlassOpticalSurface(node, presentationSpace)
+  }
+
+  function containsRendererInteractionClip(node: Node) {
+    if (presentationSpace === 'scroll') return containsGlassInteractionClip(node)
+    if (!(node instanceof Element) || !containsGlassInteractionClip(node)) return false
+
+    return (
+      surfaceRegistry.some(surface => surface.key.contains(node)) ||
+      interactionClipRegistry.some(clip => clip.key === node || node.contains(clip.key))
+    )
+  }
+
+  /** 当前呈现空间的表面集合或交互裁剪发生变化时才启动稳定重扫。 */
   function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
     const removalRecords = mutations.flatMap(mutation => {
       if (mutation.type !== 'childList' || mutation.removedNodes.length === 0 || !(mutation.target instanceof Element))
@@ -3363,7 +3448,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     return mutations.some(mutation => {
-      if (mutation.type === 'attributes') return true
+      if (mutation.type === 'attributes') return mutationTargetTouchesRenderer(mutation.target)
 
       const removedManagedSurface = [...mutation.removedNodes].some(
         node =>
@@ -3374,6 +3459,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (removedManagedSurface) return true
 
       const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes]
+      const changedNodesTouchRenderer = changedNodes.some(
+        node => containsRendererOpticalSurface(node) || containsRendererInteractionClip(node),
+      )
 
       // 新增节点按提交后的祖先资格判断；排除子树内部的图片 DOM 变化不需要重扫。
       if (mutation.target instanceof Element && !isGlassOpticalElementEligible(mutation.target)) {
@@ -3385,7 +3473,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         return (belongsToManagedSurface || removedFromManagedSurface) && changedNodes.some(containsGlassInteractionClip)
       }
 
-      return changedNodes.some(node => containsGlassOpticalSurface(node) || containsGlassInteractionClip(node))
+      return changedNodesTouchRenderer
     })
   }
 
@@ -3419,7 +3507,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           mutation =>
             mutation.attributeName === 'data-glass-panel-owner' &&
             mutation.target instanceof Element &&
-            mutation.target.hasAttribute('data-glass-panel-owner'),
+            mutation.target.hasAttribute('data-glass-panel-owner') &&
+            mutationTargetTouchesRenderer(mutation.target),
         )
       ) {
         // 背景所有权交接无需等待几何稳定采样，避免同一帧出现两套静态材质。
@@ -3914,6 +4003,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     const timestamp = performance.now()
     beforeActivate?.()
+    // 并发配置刷新共用加载代次；获胜事务必须提交完整读数，不能依赖已过期请求的回调。
+    syncAppearanceUniforms()
+    syncQualityUniforms()
     activateLoadedTexture(
       prepared.texture,
       prepared.frostedTarget,
@@ -4269,16 +4361,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const applyAppearance = () => {
         if (!resources || toValue(options.appearance) !== appearance) return
 
-        const materialResponse = getGlassMaterialResponse(
-          appearance,
-          toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
-        )
-        resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(appearance)
-        resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
-        resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
-        resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
-        resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
-        resources.uniforms.uTintDensity.value = materialResponse.tintDensity
+        syncAppearanceUniforms()
       }
       const wallpaperUrl = toValue(options.wallpaperUrl)
       const quality = toValue(options.quality)
@@ -4327,9 +4410,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const applyQuality = () => {
         if (!resources || toValue(options.quality) !== quality) return
 
-        resources.uniforms.uMaxRefractionPixels.value = getMaxRefractionPixels()
-        resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
-        resources.uniforms.uTrailCount.value = hasFluidCapability() ? nextProfile.trailCount : 0
+        syncQualityUniforms()
         interactionAnimating = false
         cancelScheduledFrame()
         resetInteractionState()
