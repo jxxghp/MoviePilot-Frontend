@@ -334,6 +334,7 @@ watch(
       <template #item="{ element: rule, index }">
         <VCard
           class="classification-rule"
+          :class="{ 'classification-rule--expanded': expandedRuleId === rule.id }"
           variant="outlined"
           role="article"
           :aria-label="`规则 ${index + 1}：${rule.name || rule.id}`"
@@ -589,6 +590,8 @@ watch(
 
 .classification-rule-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 10px;
 }
 
@@ -747,6 +750,17 @@ watch(
   border-radius: 6px;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
+}
+
+@media (min-width: 960px) {
+  .classification-rule-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* 展开的条件编辑器保留整行空间，规则顺序仍按列表从左到右排列。 */
+  .classification-rule--expanded {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
