@@ -1600,3 +1600,100 @@ describe('ReorganizeDialog submission results', () => {
     expect(screen.getByRole('button', { name: '加入整理队列' })).toBeEnabled()
   })
 })
+
+describe('ReorganizeDialog artist collection mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    initializationRequestCount = 0
+    mocks.progressControllers.length = 0
+  })
+
+  it('splits first-level album folders and files under Singles into independent background requests', async () => {
+    const root = createFileItem({
+      name: '许嵩[2006-2022]录音室专辑合集',
+      path: '/downloads/许嵩[2006-2022]录音室专辑合集',
+      type: 'dir',
+    })
+    const albumA = createFileItem({ name: '2009-自定义', path: `${root.path}/2009-自定义`, type: 'dir' })
+    const albumB = createFileItem({ name: '2010-寻雾启示', path: `${root.path}/2010-寻雾启示`, type: 'dir' })
+    const singles = createFileItem({ name: '单曲', path: `${root.path}/单曲`, type: 'dir' })
+    const singleA = createFileItem({
+      extension: 'flac',
+      name: '有何不可.flac',
+      path: `${singles.path}/有何不可.flac`,
+    })
+    const singleB = createFileItem({ extension: 'mp3', name: '断桥残雪.mp3', path: `${singles.path}/断桥残雪.mp3` })
+    const payloads: Array<Record<string, unknown>> = []
+    const backgrounds: string[] = []
+
+    server.use(
+      http.post(new URL('storage/list', API_BASE_URL).href, async ({ request }) => {
+        const item = (await request.json()) as FileItem
+        return HttpResponse.json(apiEnvelope(item.path === root.path ? [albumA, singles, albumB] : [singleA, singleB]))
+      }),
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        payloads.push((await request.json()) as Record<string, unknown>)
+        backgrounds.push(new URL(request.url).searchParams.get('background') ?? '')
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({ items: [root] })
+    await selectOption('类型', 3)
+    await selectOption('音乐实体', 2)
+
+    expect(screen.getByText(/把当前目录作为合集容器/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('MusicBrainz ID')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(backgrounds).toEqual(['true', 'true', 'true', 'true'])
+    expect(payloads).toEqual([
+      expect.objectContaining({ fileitem: albumA, music_type: 'album', type_name: '音乐' }),
+      expect.objectContaining({ fileitem: singleA, music_type: 'recording', type_name: '音乐' }),
+      expect.objectContaining({ fileitem: singleB, music_type: 'recording', type_name: '音乐' }),
+      expect.objectContaining({ fileitem: albumB, music_type: 'album', type_name: '音乐' }),
+    ])
+    expect(JSON.stringify(payloads)).not.toContain('artist_collection')
+  })
+
+  it('keeps previewing later albums when one collection entry fails', async () => {
+    const root = createFileItem({ name: 'Artist Collection', path: '/downloads/Artist Collection', type: 'dir' })
+    const albumA = createFileItem({ name: 'Album A', path: `${root.path}/Album A`, type: 'dir' })
+    const albumB = createFileItem({ name: 'Album B', path: `${root.path}/Album B`, type: 'dir' })
+    const requestedAlbums: string[] = []
+
+    server.use(
+      http.post(new URL('storage/list', API_BASE_URL).href, () => HttpResponse.json(apiEnvelope([albumA, albumB]))),
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        const payload = (await request.json()) as { fileitem: FileItem }
+        requestedAlbums.push(payload.fileitem.name || '')
+        if (payload.fileitem.name === 'Album A') {
+          return HttpResponse.json({ detail: 'MusicBrainz busy' }, { status: 503 })
+        }
+        return HttpResponse.json(
+          previewResponse([
+            {
+              source: `${albumB.path}/01.flac`,
+              success: true,
+              target: '/library/Artist/Album B/01.flac',
+            },
+          ]),
+        )
+      }),
+    )
+
+    const user = userEvent.setup()
+    await renderDialog({ items: [root] })
+    await selectOption('类型', 3)
+    await selectOption('音乐实体', 2)
+    await user.click(screen.getByRole('button', { name: '预览' }))
+
+    await waitFor(() => expect(requestedAlbums).toEqual(['Album A', 'Album B']))
+    expect(await screen.findByText('Album A')).toBeInTheDocument()
+    expect(screen.getByText('Album B')).toBeInTheDocument()
+    expect(screen.getByText('成功 1')).toBeInTheDocument()
+    expect(screen.getByText('失败 1')).toBeInTheDocument()
+  })
+})

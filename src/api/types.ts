@@ -425,6 +425,8 @@ export interface DownloadHistory {
   media_source?: MediaDataSource
   // 数据源原生 ID
   media_id?: string
+  // 音乐实体类型：recording/album/artist
+  music_type?: MusicEntityType
   // 季 Sxx
   seasons?: string
   // 集 Exx
@@ -2263,7 +2265,7 @@ export interface TransferForm {
   // 数据源原生ID
   media_id?: string | null
   // 音乐实体类型
-  music_type?: Exclude<MusicEntityType, 'artist'> | null
+  music_type?: Exclude<MusicEntityType, 'artist'> | 'artist_collection' | null
   // MusicBrainz 发行地区优先级；未传时继承系统设置
   music_release_regions?: string[] | null
   // MusicBrainz 文字字形优先级；未传时继承系统设置
@@ -2301,7 +2303,9 @@ export interface TransferForm {
 }
 
 // 手动整理请求
-export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem' | 'logid'> {
+export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem' | 'logid' | 'music_type'> {
+  // 后端仅接收实际参与识别的单曲或专辑实体；艺术家合集由前端拆分后转换。
+  music_type?: Exclude<MusicEntityType, 'artist'> | null
   // 预览和执行均跳过已有成功整理记录，保留其目标文件与历史。
   skip_success?: boolean
   // 文件项
@@ -2397,6 +2401,10 @@ export interface ManualTransferPreviewItem {
   resource_team?: string
   // 自定义占位符
   customization?: string
+  // 艺术家合集模式下的一级目录分组，仅用于前端聚合展示。
+  collection_group?: string
+  // 艺术家合集中的实际整理实体。
+  collection_entity?: 'album' | 'recording'
 }
 
 // 手动整理预览数据

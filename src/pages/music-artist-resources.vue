@@ -19,6 +19,13 @@ interface DiscographyRow {
   resources: Context[]
 }
 
+interface ArtistCollectionResource {
+  key: string
+  context: Context
+  coverage: DiscographyRow[]
+  state: 'available' | 'downloading' | 'downloaded' | 'download_error'
+}
+
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -34,7 +41,9 @@ const mediaSource = computed<MediaDataSource | undefined>(() => {
 const sites = computed(() => route.query.sites?.toString() || '')
 
 const rows = ref<DiscographyRow[]>([])
+const collectionResources = ref<ArtistCollectionResource[]>([])
 const loadingCatalog = ref(false)
+const loadingCollections = ref(false)
 const matching = ref(false)
 const downloading = ref(false)
 const matchCompleted = ref(0)
@@ -43,6 +52,8 @@ const statusFilter = ref<'all' | 'available' | 'library' | 'exact' | 'candidate'
 
 const excludedSecondaryTypes = new Set(['Compilation', 'Live', 'Remix', 'Soundtrack', 'DJ-mix', 'Mixtape/Street'])
 const typeOrder: Record<string, number> = { Album: 0, EP: 1, Single: 2 }
+const collectionSignal =
+  /(?:合集|全集|全套|全专辑|全作品|录音室专辑|discograph(?:y|ies)|complete\s+(?:album|studio)|collection|anthology|box\s*set)/i
 
 const summary = computed(() => ({
   total: rows.value.length,
@@ -77,6 +88,37 @@ const visibleRows = computed(() => {
 
 function stableKey(media: MediaInfo) {
   return `${media.media_source || ''}:${media.media_id || ''}`
+}
+
+function normalizedText(value?: string | null) {
+  return (value || '').toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+}
+
+function collectionResourceKey(context: Context) {
+  const torrent = context.torrent_info
+  return `${torrent?.site || ''}:${torrent?.enclosure || torrent?.page_url || torrent?.title || ''}`
+}
+
+function isArtistCollectionResource(context: Context) {
+  const text = `${context.torrent_info?.title || ''} ${context.torrent_info?.description || ''}`
+  const artist = normalizedText(artistName.value)
+  return Boolean(artist && normalizedText(text).includes(artist) && collectionSignal.test(text))
+}
+
+function collectionCoverage(context: Context) {
+  const text = `${context.torrent_info?.title || ''} ${context.torrent_info?.description || ''}`
+  const ranges = [...text.matchAll(/(?:19|20)\d{2}\s*[-–—~至]\s*((?:19|20)\d{2})/g)]
+    .map(match => {
+      const startMatch = match[0].match(/(?:19|20)\d{2}/)
+      return startMatch ? [Number(startMatch[0]), Number(match[1])] : undefined
+    })
+    .filter((range): range is [number, number] => Boolean(range))
+  const normalized = normalizedText(text)
+  return rows.value.filter(row => {
+    const year = Number(row.media.year)
+    if (Number.isFinite(year) && ranges.some(([start, end]) => year >= start && year <= end)) return true
+    return Boolean(row.media.title && normalized.includes(normalizedText(row.media.title)))
+  })
 }
 
 function isOfficialDiscographyItem(media: MediaInfo) {
@@ -129,12 +171,43 @@ async function loadCatalog() {
       state: 'pending',
       resources: [],
     }))
-    await matchResources()
+    await Promise.all([matchResources(), loadCollectionResources()])
   } catch (error) {
     console.error(error)
     $toast.error(t('music.discographyLoadFailed'))
   } finally {
     loadingCatalog.value = false
+  }
+}
+
+async function loadCollectionResources() {
+  if (!artistName.value) return
+  loadingCollections.value = true
+  collectionResources.value = []
+  try {
+    const contexts =
+      (await api.get<Context[]>('search/title', {
+        params: { keyword: artistName.value, mtype: '音乐', page: 0, sites: sites.value },
+        feedback: 'silent',
+      })) || []
+    const unique = new Map<string, Context>()
+    contexts.filter(isArtistCollectionResource).forEach(context => unique.set(collectionResourceKey(context), context))
+    collectionResources.value = [...unique.values()]
+      .map(context => ({
+        key: collectionResourceKey(context),
+        context,
+        coverage: collectionCoverage(context),
+        state: 'available' as const,
+      }))
+      .sort((left, right) => {
+        const coverage = right.coverage.length - left.coverage.length
+        if (coverage) return coverage
+        return (right.context.torrent_info?.seeders || 0) - (left.context.torrent_info?.seeders || 0)
+      })
+  } catch (error) {
+    if (!isApiBusinessFailure(error)) console.error(error)
+  } finally {
+    loadingCollections.value = false
   }
 }
 
@@ -266,6 +339,41 @@ async function batchDownload() {
   $toast.success(t('music.batchDownloadResult', { success: succeeded, total: targets.length }))
 }
 
+async function downloadCollection(resource: ArtistCollectionResource) {
+  const torrent = resource.context.torrent_info
+  if (!torrent || resource.state === 'downloading') return
+  const confirmed = await confirm({
+    type: 'info',
+    title: t('music.downloadArtistCollection'),
+    content: t('music.downloadArtistCollectionConfirm', { title: torrent.title || artistName.value }),
+    confirmText: t('music.downloadArtistCollection'),
+  })
+  if (!confirmed) return
+  resource.state = 'downloading'
+  try {
+    await api.post(
+      'download/artist-collection',
+      {
+        artist_name: artistName.value,
+        artist_id: artistId.value,
+        media_source: mediaSource.value,
+        torrent_in: torrent,
+        downloader: null,
+        save_path: null,
+      },
+      { feedback: 'silent' },
+    )
+    resource.state = 'downloaded'
+    resource.coverage.forEach(row => {
+      row.selected = false
+    })
+    $toast.success(t('music.artistCollectionDownloadAdded'))
+  } catch (error) {
+    console.error(error)
+    resource.state = 'download_error'
+  }
+}
+
 watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { immediate: true })
 </script>
 
@@ -317,6 +425,53 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
     </VRow>
 
     <VProgressLinear v-if="matching" :model-value="matchProgress" height="6" rounded color="primary" class="mb-3" />
+
+    <VCard v-if="loadingCollections || collectionResources.length" class="mb-4">
+      <VCardTitle class="d-flex flex-wrap align-center ga-2">
+        <VIcon icon="mdi-folder-music-outline" />
+        {{ t('music.artistCollectionResources') }}
+        <VProgressCircular v-if="loadingCollections" indeterminate size="20" width="2" />
+      </VCardTitle>
+      <VCardSubtitle>{{ t('music.artistCollectionDescription') }}</VCardSubtitle>
+      <VCardText v-if="collectionResources.length" class="d-flex flex-column ga-3">
+        <VCard v-for="resource in collectionResources" :key="resource.key" variant="tonal">
+          <VCardText class="d-flex flex-wrap align-center ga-3">
+            <div class="flex-grow-1 collection-resource-copy">
+              <div class="font-weight-medium text-body-1">{{ resource.context.torrent_info?.title }}</div>
+              <div class="text-body-2 text-medium-emphasis mt-1">
+                {{ resource.context.torrent_info?.site_name || t('music.unknownSite') }}
+                <span v-if="resource.context.torrent_info?.seeders">
+                  · {{ t('music.seeders', { count: resource.context.torrent_info.seeders }) }}
+                </span>
+              </div>
+              <div class="d-flex flex-wrap ga-2 mt-2">
+                <VChip size="small" color="primary" variant="tonal">
+                  {{
+                    resource.coverage.length
+                      ? t('music.estimatedCoverage', { count: resource.coverage.length, total: rows.length })
+                      : t('music.coverageUnknown')
+                  }}
+                </VChip>
+                <VChip size="small" variant="tonal">Artist Collection</VChip>
+              </div>
+            </div>
+            <VBtn
+              color="primary"
+              prepend-icon="mdi-download"
+              :loading="resource.state === 'downloading'"
+              :disabled="resource.state === 'downloaded'"
+              @click="downloadCollection(resource)"
+            >
+              {{
+                resource.state === 'downloaded'
+                  ? t('music.resourceState.downloaded')
+                  : t('music.downloadArtistCollection')
+              }}
+            </VBtn>
+          </VCardText>
+        </VCard>
+      </VCardText>
+    </VCard>
 
     <VCard>
       <VCardText class="d-flex flex-wrap align-center ga-3">
@@ -411,6 +566,10 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
 .discography-row {
   min-height: 98px;
   padding-block: 0.75rem;
+}
+
+.collection-resource-copy {
+  min-width: 16rem;
 }
 
 @media (width <= 700px) {

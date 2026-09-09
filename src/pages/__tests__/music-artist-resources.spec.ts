@@ -54,6 +54,20 @@ const candidateAlbum = {
   release_date: '2003-01-01',
 }
 
+const collectionResource = {
+  meta_info: { type: '音乐', title: 'Artist' },
+  torrent_info: {
+    site: 14,
+    site_name: 'Music PT',
+    title: 'Artist [2001-2003] Complete Discography FLAC',
+    description: 'Complete studio album collection',
+    enclosure: 'https://example.com/collection.torrent',
+    category: '音乐',
+    seeders: 12,
+    size: 1024,
+  },
+}
+
 function exactResource(title: string) {
   return {
     match_status: 'exact',
@@ -75,6 +89,7 @@ describe('music artist discography resources', () => {
           config?.params?.album_type === 'album' ? [inLibraryAlbum, downloadableAlbum, candidateAlbum] : [],
         )
       }
+      if (path === 'search/title') return Promise.resolve([collectionResource])
       if (path === 'search/media/album-1') return Promise.resolve([exactResource('Already Here')])
       if (path === 'search/media/album-2') return Promise.resolve([exactResource('Need This')])
       if (path === 'search/media/album-3') {
@@ -125,6 +140,29 @@ describe('music artist discography resources', () => {
       'download/',
       expect.objectContaining({ media_in: expect.objectContaining({ media_id: 'album-1' }) }),
       expect.anything(),
+    )
+  })
+
+  it('offers one artist collection download and assigns the dedicated source category', async () => {
+    await renderWithProviders(MusicArtistResourcesPage, {
+      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+    })
+
+    expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
+    expect(screen.getByText('预计覆盖 3/3 个官方作品')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '下载大合集' }))
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'download/artist-collection',
+        expect.objectContaining({
+          artist_name: 'Artist',
+          artist_id: 'artist-1',
+          media_source: 'musicbrainz',
+          torrent_in: collectionResource.torrent_info,
+        }),
+        { feedback: 'silent' },
+      ),
     )
   })
 })

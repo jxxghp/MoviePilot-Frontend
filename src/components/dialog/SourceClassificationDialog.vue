@@ -43,7 +43,7 @@ const mode = ref<OrganizationMode>('recognize')
 const typeName = ref<MediaTypeName | undefined>(normalizeType(props.task.type))
 const mediaSource = ref<MediaDataSource | null>(props.task.media_source || null)
 const mediaId = ref(props.task.media_id || '')
-const musicType = ref<Exclude<MusicEntityType, 'artist'>>('album')
+const musicType = ref<MusicEntityType>(props.task.music_type === 'artist' ? 'artist' : 'album')
 const episodeGroup = ref('')
 const targetPath = ref('')
 const targetPathItems = ref<{ title: string; value: string }[]>([])
@@ -114,7 +114,8 @@ watch(mediaSource, (next, previous) => {
 })
 
 function selectMedia(item: { music_type?: MusicEntityType }) {
-  if (item.music_type === 'album' || item.music_type === 'recording') musicType.value = item.music_type
+  if (item.music_type === 'album' || item.music_type === 'recording' || item.music_type === 'artist')
+    musicType.value = item.music_type
   selectorVisible.value = false
 }
 
@@ -182,6 +183,7 @@ async function submit(execute = false) {
               :items="[
                 { title: '专辑', value: 'album' },
                 { title: '单曲', value: 'recording' },
+                { title: '艺术家合集', value: 'artist' },
               ]"
               label="音乐实体"
               :disabled="busy"

@@ -211,6 +211,15 @@ const previewLoaded = ref(false)
 // 预览数据
 const previewData = ref<ManualTransferPreviewData>()
 
+interface ArtistCollectionEntry {
+  item: FileItem
+  group: string
+  musicType: 'album' | 'recording'
+}
+
+// 艺术家合集只在前端负责拆分，后端仍接收稳定的 album / recording 实体。
+const artistCollectionEntries = ref<ArtistCollectionEntry[]>()
+
 // 手动整理历史查询状态
 const manualHistoryLoading = ref(false)
 const manualHistoryCount = ref(0)
@@ -319,6 +328,80 @@ const normalizedItems = computed(() => dedupeFileItems(props.items))
 const defaultMusicEntity = computed<'album' | 'recording'>(() =>
   normalizedItems.value.length > 0 && normalizedItems.value.every(item => item.type === 'dir') ? 'album' : 'recording',
 )
+
+const isArtistCollectionMode = computed(
+  () => transferForm.type_name === '音乐' && transferForm.music_type === 'artist_collection',
+)
+
+const audioExtensions = new Set([
+  'aac',
+  'aiff',
+  'alac',
+  'ape',
+  'dff',
+  'dsf',
+  'flac',
+  'm4a',
+  'mp3',
+  'ogg',
+  'opus',
+  'wav',
+  'wma',
+])
+
+function isAudioFile(item: FileItem) {
+  if (item.type !== 'file') return false
+  const extension = (item.extension || item.name?.split('.').pop() || '').toLowerCase().replace(/^\./, '')
+  return audioExtensions.has(extension)
+}
+
+function isSinglesDirectory(item: FileItem) {
+  const name = (item.name || getFileName(item.path)).trim().toLowerCase()
+  return /^(单曲|單曲|singles?|single[\s_-]*tracks?)$/.test(name)
+}
+
+async function listDirectoryItems(item: FileItem) {
+  return await api.post<FileItem[]>('storage/list?sort=name', item, { feedback: 'silent' })
+}
+
+async function listSingleFiles(directory: FileItem, depth = 0): Promise<FileItem[]> {
+  if (depth > 4) return []
+  const children = await listDirectoryItems(directory)
+  const directFiles = children.filter(isAudioFile)
+  const nestedFiles = await Promise.all(
+    children.filter(item => item.type === 'dir').map(item => listSingleFiles(item, depth + 1)),
+  )
+  return [...directFiles, ...nestedFiles.flat()]
+}
+
+/** 将艺术家合集根目录拆为专辑目录和独立单曲，避免整棵目录被逐文件识别。 */
+async function loadArtistCollectionEntries() {
+  if (artistCollectionEntries.value) return artistCollectionEntries.value
+  const root = normalizedItems.value.length === 1 ? normalizedItems.value[0] : undefined
+  if (!root || root.type !== 'dir') throw new Error(t('dialog.reorganize.artistCollectionRequiresDirectory'))
+
+  const children = await listDirectoryItems(root)
+  const entries: ArtistCollectionEntry[] = []
+  for (const child of children) {
+    if (child.type === 'dir' && isSinglesDirectory(child)) {
+      const singles = await listSingleFiles(child)
+      entries.push(
+        ...singles.map(item => ({
+          item,
+          group: child.name || t('dialog.reorganize.artistCollectionSingles'),
+          musicType: 'recording' as const,
+        })),
+      )
+    } else if (child.type === 'dir') {
+      entries.push({ item: child, group: child.name || getFileName(child.path), musicType: 'album' })
+    } else if (isAudioFile(child)) {
+      entries.push({ item: child, group: t('dialog.reorganize.artistCollectionSingles'), musicType: 'recording' })
+    }
+  }
+  if (!entries.length) throw new Error(t('dialog.reorganize.artistCollectionEmpty'))
+  artistCollectionEntries.value = entries
+  return entries
+}
 
 // 使用当前目录或文件名预填媒体搜索，保留艺术家和年份线索以区分同名专辑。
 const mediaSearchHint = computed(() => {
@@ -718,6 +801,18 @@ watch(
   },
 )
 
+watch(
+  () => transferForm.music_type,
+  musicType => {
+    artistCollectionEntries.value = undefined
+    if (musicType === 'artist_collection') {
+      transferForm.media_id = null
+      mediaSelectorDialog.value = false
+    }
+    resetPreviewState()
+  },
+)
+
 watch(customMusicReleasePreference, enabled => {
   if (enabled) {
     applyDefaultMusicReleasePreference()
@@ -804,6 +899,29 @@ const pagedPreviewRows = computed(() => {
       sameName: sourceName === targetName,
     }
   })
+})
+
+const artistCollectionPreviewGroups = computed(() => {
+  const groups = new Map<
+    string,
+    {
+      name: string
+      entity: 'album' | 'recording'
+      items: Array<ManualTransferPreviewItem & { sourceName: string; targetName: string }>
+    }
+  >()
+  filteredPreviewItems.value.forEach(item => {
+    const name = item.collection_group || t('dialog.reorganize.artistCollectionSingles')
+    const entity = item.collection_entity || 'album'
+    const group = groups.get(name) || { name, entity, items: [] }
+    group.items.push({
+      ...item,
+      sourceName: getFileName(item.source),
+      targetName: getFileName(item.target),
+    })
+    groups.set(name, group)
+  })
+  return [...groups.values()]
 })
 
 // 预览统计
@@ -904,6 +1022,13 @@ function getPreviewSeasonNumber(item: ManualTransferPreviewItem) {
 
 // 顶部媒体信息
 const previewMediaInfo = computed(() => {
+  if (isArtistCollectionMode.value) {
+    const root = normalizedItems.value[0]
+    return {
+      title: root?.name || getFileName(root?.path) || '-',
+      type: t('dialog.reorganize.artistCollection'),
+    }
+  }
   const titles = getUniqueValues(filteredPreviewItems.value.map(item => item.title))
   const types = getUniqueValues(filteredPreviewItems.value.map(item => item.type))
 
@@ -1190,6 +1315,7 @@ function createTransferPayload(options: {
   logid?: number
   logids?: number[]
   preview?: boolean
+  musicType?: 'album' | 'recording'
 }) {
   const sourceItem = options.item ?? (options.items?.length ? options.items[0] : ({} as FileItem))
   const normalizedMediaId = normalizeOptionalText(transferForm.media_id)
@@ -1205,6 +1331,8 @@ function createTransferPayload(options: {
     media_source: undefined,
     media_id: undefined,
     episode_group: normalizeEpisodeGroup(transferForm.episode_group),
+    music_type:
+      options.musicType ?? (transferForm.music_type === 'artist_collection' ? 'album' : transferForm.music_type),
   }
 
   if (normalizedMediaId) {
@@ -1227,6 +1355,20 @@ function createTransferPayload(options: {
   }
   if (options.preview) payload.preview = true
   return payload
+}
+
+function annotateCollectionPreview(
+  data: ManualTransferPreviewData,
+  entry: ArtistCollectionEntry,
+): ManualTransferPreviewData {
+  return {
+    ...data,
+    items: (data.items ?? []).map(item => ({
+      ...item,
+      collection_group: entry.group,
+      collection_entity: entry.musicType,
+    })),
+  }
 }
 
 // 请求整理接口
@@ -1432,6 +1574,41 @@ async function previewTransfer() {
   const mergedPreviewData = getDefaultPreviewData()
 
   try {
+    if (isArtistCollectionMode.value) {
+      const entries = await loadArtistCollectionEntries()
+      for (const [index, entry] of entries.entries()) {
+        progressText.value = t('dialog.reorganize.artistCollectionProgress', {
+          current: index + 1,
+          total: entries.length,
+          name: entry.group,
+        })
+        try {
+          const result = await requestManualTransfer<ManualTransferPreviewData>(
+            createTransferPayload({ item: entry.item, preview: true, musicType: entry.musicType }),
+          )
+          mergePreviewData(mergedPreviewData, annotateCollectionPreview(result, entry))
+        } catch (err: unknown) {
+          const errorMessage = getManualTransferErrorMessage(err, t('dialog.reorganize.previewRequestFailed'))
+          mergePreviewData(
+            mergedPreviewData,
+            annotateCollectionPreview(
+              createFailedPreviewData({
+                source: entry.item.path || entry.item.name,
+                type: entry.item.type,
+                title: entry.group,
+                message: errorMessage,
+              }),
+              entry,
+            ),
+          )
+        }
+      }
+      previewData.value = mergedPreviewData
+      previewLoaded.value = true
+      if (previewHasFailures(mergedPreviewData)) $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
+      return
+    }
+
     const tasks: Promise<void>[] = []
 
     if (normalizedItems.value.length) {
@@ -1533,10 +1710,10 @@ async function togglePreview() {
 }
 
 // 整理文件
-async function handleTransfer(item: FileItem, background: boolean = false) {
+async function handleTransfer(item: FileItem, background: boolean = false, musicType?: 'album' | 'recording') {
   try {
     const result = await requestManualTransfer<ManualTransferSubmissionData>(
-      createTransferPayload({ item }),
+      createTransferPayload({ item, musicType }),
       background,
     )
     collectSubmissionResults(result)
@@ -1644,6 +1821,29 @@ async function transfer(background: boolean = false) {
   let allSucceeded = true
 
   try {
+    if (isArtistCollectionMode.value) {
+      try {
+        const entries = await loadArtistCollectionEntries()
+        for (const [index, entry] of entries.entries()) {
+          if (!background)
+            startLoadingProgress(
+              entry.musicType === 'album' ? 'filetransfer' : CryptoJS.MD5(entry.item.path).toString(),
+            )
+          progressText.value = t('dialog.reorganize.artistCollectionProgress', {
+            current: index + 1,
+            total: entries.length,
+            name: entry.group,
+          })
+          allSucceeded = (await handleTransfer(entry.item, background, entry.musicType)) && allSucceeded
+        }
+        if (allSucceeded && !submissionResults.value.length) emit('done')
+      } catch (error: unknown) {
+        allSucceeded = false
+        $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.artistCollectionScanFailed')))
+      }
+      return
+    }
+
     // 文件整理
     if (normalizedItems.value.length) {
       if (shouldUseBatchFileItems(normalizedItems.value)) {
@@ -1860,13 +2060,17 @@ onUnmounted(() => {
                       :items="[
                         { title: t('music.entityRecording'), value: 'recording' },
                         { title: t('music.entityAlbum'), value: 'album' },
+                        { title: t('dialog.reorganize.artistCollection'), value: 'artist_collection' },
                       ]"
                       :hint="t('dialog.reorganize.musicEntityHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-music-box-multiple"
                     />
                   </VCol>
-                  <VCol v-if="transferForm.type_name !== ''" :cols="transferForm.type_name === '音乐' ? 6 : 12">
+                  <VCol
+                    v-if="transferForm.type_name !== '' && !isArtistCollectionMode"
+                    :cols="transferForm.type_name === '音乐' ? 6 : 12"
+                  >
                     <VTextField
                       v-model="transferForm.media_id"
                       :label="mediaIdLabel"
@@ -1880,6 +2084,16 @@ onUnmounted(() => {
                     />
                   </VCol>
                 </VRow>
+                <VAlert
+                  v-if="isArtistCollectionMode"
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  icon="mdi-account-music"
+                  class="mb-4"
+                >
+                  {{ t('dialog.reorganize.artistCollectionHint') }}
+                </VAlert>
                 <VRow v-if="transferForm.type_name === '音乐'">
                   <VCol cols="12">
                     <VSwitch
@@ -2171,17 +2385,23 @@ onUnmounted(() => {
                         <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaType') }}</span>
                         <span class="preview-overview-card__value">{{ previewMediaInfo.type }}</span>
                       </div>
-                      <div v-if="!previewIsMovie" class="preview-overview-card">
+                      <div v-if="!previewIsMovie && !isArtistCollectionMode" class="preview-overview-card">
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewSeasonLabel')
                         }}</span>
                         <span class="preview-overview-card__value">{{ previewSeasonText }}</span>
                       </div>
-                      <div v-if="!previewIsMovie" class="preview-overview-card">
+                      <div v-if="!previewIsMovie && !isArtistCollectionMode" class="preview-overview-card">
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewEpisodeCount')
                         }}</span>
                         <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
+                      </div>
+                      <div v-if="isArtistCollectionMode" class="preview-overview-card">
+                        <span class="preview-overview-card__label">{{
+                          t('dialog.reorganize.artistCollectionGroupCount')
+                        }}</span>
+                        <span class="preview-overview-card__value">{{ artistCollectionPreviewGroups.length }}</span>
                       </div>
                     </div>
                     <div v-if="previewRecognitionDetails.length" class="preview-custom-words">
@@ -2216,7 +2436,65 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <div class="reorganize-preview-list">
-                    <div v-if="pagedPreviewRows.length" class="preview-file-body">
+                    <VExpansionPanels
+                      v-if="isArtistCollectionMode && artistCollectionPreviewGroups.length"
+                      multiple
+                      variant="accordion"
+                      class="artist-collection-groups"
+                    >
+                      <VExpansionPanel
+                        v-for="group in artistCollectionPreviewGroups"
+                        :key="group.name"
+                        class="artist-collection-group"
+                      >
+                        <VExpansionPanelTitle>
+                          <div class="artist-collection-group__title">
+                            <VIcon :icon="group.entity === 'album' ? 'mdi-album' : 'mdi-music-note'" size="20" />
+                            <span>{{ group.name }}</span>
+                            <VChip size="x-small" variant="tonal">
+                              {{ t('dialog.reorganize.artistCollectionTrackCount', { count: group.items.length }) }}
+                            </VChip>
+                          </div>
+                        </VExpansionPanelTitle>
+                        <VExpansionPanelText>
+                          <div class="preview-file-body">
+                            <div
+                              v-for="(item, index) in group.items"
+                              :key="`${item.source}-${item.target}-${index}`"
+                              class="preview-file-row app-surface-shape"
+                              :class="{ 'preview-file-row--failed': item.success === false }"
+                            >
+                              <div class="preview-file-row__card preview-file-row__card--source">
+                                <span class="preview-file-row__label">{{
+                                  t('dialog.reorganize.previewBeforeColumn')
+                                }}</span>
+                                <span class="preview-file-row__name">{{ item.sourceName }}</span>
+                                <span class="preview-file-row__path">{{ item.source || '-' }}</span>
+                              </div>
+                              <div class="preview-file-row__arrow">
+                                <VIcon icon="mdi-arrow-right" size="18" />
+                              </div>
+                              <div class="preview-file-row__card preview-file-row__card--target">
+                                <span class="preview-file-row__label">{{
+                                  t('dialog.reorganize.previewAfterColumn')
+                                }}</span>
+                                <span class="preview-file-row__name">{{ item.targetName }}</span>
+                                <span class="preview-file-row__path">{{ item.target || '-' }}</span>
+                                <span
+                                  v-if="
+                                    (item.success === false || item.overwrite_skipped) && getPreviewFailureHint(item)
+                                  "
+                                  class="preview-file-row__message"
+                                >
+                                  {{ getPreviewFailureHint(item) }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </VExpansionPanelText>
+                      </VExpansionPanel>
+                    </VExpansionPanels>
+                    <div v-else-if="pagedPreviewRows.length" class="preview-file-body">
                       <div
                         v-for="(item, index) in pagedPreviewRows"
                         :key="`${item.source}-${item.target}-${index}`"
@@ -2248,7 +2526,10 @@ onUnmounted(() => {
                       {{ t('dialog.reorganize.noPreviewData') }}
                     </div>
                   </div>
-                  <div v-if="previewTotalPages > 1" class="reorganize-preview-pane__pagination">
+                  <div
+                    v-if="!isArtistCollectionMode && previewTotalPages > 1"
+                    class="reorganize-preview-pane__pagination"
+                  >
                     <VBtn
                       size="x-small"
                       icon="mdi-chevron-left"
@@ -2281,7 +2562,15 @@ onUnmounted(() => {
         @close="mediaSelectorDialog = false"
         @select="handleMediaSelected"
         :type="mediaSource"
-        :music-types="transferForm.type_name === '音乐' ? [transferForm.music_type || defaultMusicEntity] : undefined"
+        :music-types="
+          transferForm.type_name === '音乐'
+            ? [
+                transferForm.music_type === 'artist_collection'
+                  ? 'album'
+                  : transferForm.music_type || defaultMusicEntity,
+              ]
+            : undefined
+        "
         :initial-keyword="transferForm.type_name === '音乐' ? mediaSearchHint : undefined"
       />
     </VDialog>
@@ -2299,6 +2588,22 @@ onUnmounted(() => {
 
 .reorganize-dialog-card__body {
   min-block-size: 0;
+}
+
+.artist-collection-groups {
+  gap: 0.65rem;
+}
+
+.artist-collection-group {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.75rem !important;
+}
+
+.artist-collection-group__title {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .reorganize-dialog-card--split {
