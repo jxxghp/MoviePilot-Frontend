@@ -43,6 +43,19 @@ const { openMusicSiteSearch } = useMusicSiteSearch(sites => {
   }
 })
 
+const { openMusicSiteSearch: openDiscographyResources } = useMusicSiteSearch(sites => {
+  if (!artist.value?.name || !artist.value.media_id || !props.mediaSource) return undefined
+  return {
+    path: '/music/artist/resources',
+    query: {
+      artist: artist.value.name,
+      artist_id: artist.value.media_id,
+      media_source: props.mediaSource,
+      sites: sites.join(','),
+    },
+  }
+})
+
 // 艺术家作品按 MusicBrainz 的 Release Group 主类型分区展示
 const albumSections = computed(() => [
   { type: 'album', title: t('music.albums') },
@@ -101,6 +114,15 @@ watch(() => [props.mediaSource, props.mediaId], loadArtistDetail, { immediate: t
     </template>
 
     <template #actions>
+      <VBtn
+        v-if="canSearch"
+        variant="elevated"
+        color="primary"
+        prepend-icon="mdi-album"
+        @click="openDiscographyResources"
+      >
+        {{ t('music.discographyResources') }}
+      </VBtn>
       <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="openMusicSiteSearch">
         {{ t('music.searchResources') }}
       </VBtn>

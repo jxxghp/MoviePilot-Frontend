@@ -615,6 +615,13 @@ export interface MediaInfo {
   bitrate?: number
 }
 
+// 音乐作品在媒体库中的存在状态
+export interface MusicLibraryStatus {
+  media_source: MediaDataSource
+  media_id: string
+  exists: boolean
+}
+
 // 音乐可浏览实体类型
 export type MusicEntityType = 'recording' | 'album' | 'artist'
 
