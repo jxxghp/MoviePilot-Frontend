@@ -32,7 +32,8 @@ $-popup-hosts: (
     --glass-v3-navigation-content-gap: 16px;
     --glass-v3-navigation-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     --glass-v3-navigation-filter: saturate(118%) brightness(var(--glass-transmission-brightness, 1));
-    --glass-popup-blur: 18px;
+    // 透明材质的 Dock、菜单与弹窗只做轻度扩散，保留背景层次并由底色保障阅读。
+    --glass-popup-blur: 6px;
     --glass-popup-surface: rgba(31, 34, 39, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.62) * 0.16), 0.32));
     --glass-popup-filter: blur(var(--glass-popup-blur)) saturate(135%);
     --glass-v3-card-background:
@@ -50,6 +51,7 @@ $-popup-hosts: (
 
     &[data-glass-appearance='tinted'] {
       --glass-v3-card-tint: clamp(0.025, calc(var(--glass-tint-density, 0.65) * 0.13), 0.15);
+      --glass-popup-blur: 18px;
       --glass-popup-surface: color-mix(
         in srgb,
         rgba(31, 34, 39, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.72) * 0.16), 0.32)) 90%,
@@ -62,7 +64,7 @@ $-popup-hosts: (
       --glass-v3-fill: clamp(0.08, calc(0.065 + var(--glass-surface-density, 0.86) * 0.11), 0.21);
       --glass-v3-sheen: clamp(0.08, calc(0.07 + var(--glass-reflection, 0.35) * 0.22), 0.24);
       --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
-      // 弹层只比清透变体稍厚，避免与模态遮罩累加成看不见背景的灰板。
+      // 磨砂弹层保留独立扩散强度，避免与模态遮罩累加成看不见背景的灰板。
       --glass-popup-blur: 24px;
       --glass-popup-surface: rgba(
         31,

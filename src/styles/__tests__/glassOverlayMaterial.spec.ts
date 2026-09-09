@@ -46,6 +46,7 @@ describe('glass overlay material styles', () => {
     const popupEnd = styles.indexOf('  // 两种顶栏风格', popupStart)
     const popup = styles.slice(popupStart, popupEnd)
 
+    expect(styles).toContain('--glass-popup-blur: 6px')
     expect(styles).toContain('--glass-popup-blur: 18px')
     expect(styles).toContain('--glass-popup-blur: 24px')
     expect(popup).toContain('--glass-overlay-blur: var(--glass-popup-blur)')
