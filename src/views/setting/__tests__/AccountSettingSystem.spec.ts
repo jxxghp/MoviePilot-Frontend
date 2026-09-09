@@ -1079,8 +1079,6 @@ describe('AccountSettingSystem', () => {
     await fireEvent.update(dialog.getByLabelText('AcoustID API Key'), 'acoustid-key')
     await fireEvent.update(dialog.getByLabelText('TheAudioDB API Key'), 'audiodb-key')
     await fireEvent.update(dialog.getByLabelText('LRCLIB 服务地址'), 'https://lyrics.example')
-    await fireEvent.update(dialog.getByLabelText('Musixmatch API Key'), 'musixmatch-key')
-    await fireEvent.update(dialog.getByLabelText('Musixmatch API 地址'), 'https://musixmatch.example/ws/1.1')
     await fireEvent.update(dialog.getByLabelText('歌词批次查询预算'), '90')
     await fireEvent.update(dialog.getByLabelText('歌词来源最大重试等待'), '3')
     await fireEvent.update(dialog.getByLabelText('TMDB 图片服务地址'), 'image.tmdb.org')
@@ -1120,8 +1118,6 @@ describe('AccountSettingSystem', () => {
         MUSIC_METADATA_TO_SIMPLIFIED: false,
         MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
         MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
-        MUSIXMATCH_API_KEY: 'musixmatch-key',
-        MUSIXMATCH_BASE_URL: 'https://musixmatch.example/ws/1.1',
         RECOGNIZE_PLUGIN_FIRST: true,
         SCRAP_FOLLOW_TMDB: false,
         TMDB_API_DOMAIN: 'api.tmdb.org',

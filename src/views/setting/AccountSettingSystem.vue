@@ -126,8 +126,6 @@ const SystemSettings = ref<any>({
     ACOUSTID_API_KEY: null,
     THEAUDIODB_API_KEY: '123',
     LRCLIB_BASE_URL: 'https://lrclib.net',
-    MUSIXMATCH_API_KEY: null,
-    MUSIXMATCH_BASE_URL: 'https://api.musixmatch.com/ws/1.1',
     LYRICS_BATCH_TIMEOUT: 120,
     LYRICS_PROVIDER_RETRY_MAX_WAIT: 5,
     MUSIC_METADATA_TO_SIMPLIFIED: true,
@@ -2431,25 +2429,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       :hint="t('setting.system.lrclibBaseUrlHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-music-note-plus"
-                    />
-                  </VCol>
-                  <VCol cols="12" md="6">
-                    <VTextField
-                      v-model="SystemSettings.Advanced.MUSIXMATCH_BASE_URL"
-                      :label="t('setting.system.musixmatchBaseUrl')"
-                      :hint="t('setting.system.musixmatchBaseUrlHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-api"
-                    />
-                  </VCol>
-                  <VCol cols="12" md="6">
-                    <VTextField
-                      v-model="SystemSettings.Advanced.MUSIXMATCH_API_KEY"
-                      :label="t('setting.system.musixmatchApiKey')"
-                      :hint="t('setting.system.musixmatchApiKeyHint')"
-                      persistent-hint
-                      type="password"
-                      prepend-inner-icon="mdi-key-variant"
                     />
                   </VCol>
                   <VCol cols="12" md="6">

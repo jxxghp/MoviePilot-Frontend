@@ -2787,11 +2787,6 @@ export default {
       theAudioDbApiKeyHint: 'Used for music metadata and plain-lyrics fallback; 123 is the public V1 key',
       lrclibBaseUrl: 'LRCLIB Service URL',
       lrclibBaseUrlHint: 'Use the official service or a self-hosted LRCLIB-compatible instance',
-      musixmatchApiKey: 'Musixmatch API Key',
-      musixmatchApiKeyHint:
-        'Optional; uses only the licensed official API. Ensure your plan permits storing and displaying lyrics',
-      musixmatchBaseUrl: 'Musixmatch API URL',
-      musixmatchBaseUrlHint: 'Root URL of the official API or an authorized proxy',
       lyricsBatchTimeout: 'Lyrics Batch Budget',
       lyricsBatchTimeoutHint:
         'Maximum time for all online lyrics requests in one music scrape; 0 uses local lyrics only',
