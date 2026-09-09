@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   progressStart: vi.fn(),
   progressStop: vi.fn(),
   toastError: vi.fn(),
+  toastSuccess: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -35,10 +36,15 @@ vi.mock('@/api', () => ({
   }),
   isApiBusinessFailure: (error: unknown) =>
     Boolean(error && typeof error === 'object' && (error as { businessFailure?: unknown }).businessFailure === true),
+  getApiBusinessErrorMessage: (error: unknown) => {
+    if (!error || typeof error !== 'object') return undefined
+    const payload = (error as { payload?: { message?: unknown } }).payload
+    return typeof payload?.message === 'string' ? payload.message : undefined
+  },
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: mocks.toastError }),
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
 }))
 
 vi.mock('vuetify', async importOriginal => {
@@ -515,6 +521,25 @@ describe('TransferHistoryView', () => {
 
     expect(await screen.findByText('桌面结果')).toBeInTheDocument()
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
+  })
+
+  it('lets users close a downloader cleanup failure after manually clearing the downloader task', async () => {
+    const item = createHistory(7, '已入库媒体', {
+      cleanup_error: '删除下载任务失败',
+      cleanup_status: 'failed',
+      failure_stage: 'downloader_cleanup',
+      status: true,
+    })
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([item]))
+    })
+
+    await renderHistory('/history')
+    await fireEvent.click(await screen.findByRole('button', { name: '标记下载器已清理' }))
+
+    expect(mocks.apiPost).toHaveBeenCalledWith('history/transfer/7/cleanup-resolved')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('已确认下载器任务人工清理完成')
   })
 
   it('sends status as an explicit query while preserving the title search', async () => {
@@ -1531,6 +1556,26 @@ describe('TransferHistoryView', () => {
     expect(mocks.apiPost).toHaveBeenCalledWith('history/transfer/7/ai-redo')
     expect(mocks.progressStart).toHaveBeenCalledOnce()
     expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+  })
+
+  it('shows the durable retry rejection reason instead of a generic AI error', async () => {
+    const item = createHistory(8, '租约阻塞记录')
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([item]))
+    })
+    mocks.apiPost.mockResolvedValueOnce({
+      data: null,
+      message: '这条整理任务正在被其他进程处理，请等待结束后再试',
+      success: false,
+    })
+
+    await renderHistory()
+    await fireEvent.click(await screen.findByRole('button', { name: '智能助手整理' }))
+    await flushPromises()
+
+    expect(mocks.toastError).toHaveBeenCalledWith('这条整理任务正在被其他进程处理，请等待结束后再试')
+    expect(mocks.progressStart).not.toHaveBeenCalled()
   })
 
   it('does not start a single AI redo progress boundary when its POST resolves after unmount', async () => {

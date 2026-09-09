@@ -246,6 +246,50 @@ describe('TransferQueueDialog', () => {
     )
   })
 
+  it('keeps retry-wait tasks visible until the durable retry reaches a terminal result', async () => {
+    const review = { ...createManualReview('/downloads/retrying.mkv'), state: 'retry_wait' as const }
+    mocks.apiGet.mockResolvedValue([])
+    mocks.apiManualReviewGet.mockImplementation(
+      (_url: string, config: { params: { state: 'manual_review' | 'retry_wait' } }) =>
+        Promise.resolve({
+          items: config.params.state === 'retry_wait' ? [review] : [],
+          total: config.params.state === 'retry_wait' ? 1 : 0,
+          page: 1,
+          page_size: 100,
+        }),
+    )
+
+    await renderDialog()
+
+    expect(await screen.findByText('后台重试中')).toBeInTheDocument()
+    expect(screen.getByText('已确认未完成，任务已交还后台重试；可在整理历史查看最终结果。')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument()
+    expect(mocks.apiManualReviewGet).toHaveBeenCalledWith('transfer/tasks/manual-reviews', {
+      params: {
+        state: 'retry_wait',
+        page: 1,
+        page_size: 100,
+      },
+    })
+  })
+
+  it('shows partial manual-review load failures while preserving the successful state page', async () => {
+    const review = { ...createManualReview('/downloads/partial-retry.mkv'), state: 'retry_wait' as const }
+    mocks.apiGet.mockResolvedValue([])
+    mocks.apiManualReviewGet.mockImplementation(
+      (_url: string, config: { params: { state: 'manual_review' | 'retry_wait' } }) =>
+        config.params.state === 'manual_review'
+          ? Promise.reject(new Error('manual-review unavailable'))
+          : Promise.resolve({ items: [review], total: 1, page: 1, page_size: 100 }),
+    )
+
+    await renderDialog()
+
+    expect(await screen.findByText('后台重试中')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('待人工复核任务加载失败')
+    expect(screen.getByRole('button', { name: '重新加载' })).toBeInTheDocument()
+  })
+
   it('keeps media with different real identities in separate tabs even when title_year matches', async () => {
     const user = userEvent.setup()
     mocks.apiGet.mockResolvedValue([

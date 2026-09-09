@@ -30,7 +30,7 @@ import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
 
 // 国际化
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { useProgressSSE } = useBackground()
 
 // 显示器宽度
@@ -242,6 +242,22 @@ function dedupeFileItems(fileItems?: FileItem[]) {
 // 生成预览项稳定键，避免合并多次预览结果时重复展示。
 function getPreviewItemKey(item: ManualTransferPreviewItem) {
   return [item.source ?? '', item.target ?? '', item.success === false ? 'failed' : 'success'].join('|')
+}
+
+// 将预览失败项拼成阶段、原因和下一步动作，避免用户只能看到一条泛化错误。
+function getPreviewFailureHint(item: ManualTransferPreviewItem) {
+  const lines: string[] = []
+  if (item.failure_stage) {
+    const stageKey = `transferHistory.failureStages.${item.failure_stage}`
+    const stage = te(stageKey) ? t(stageKey) : item.failure_stage
+    lines.push(t('transferHistory.failureStage', { stage }))
+  }
+  if (item.message) lines.push(item.message)
+  if (item.recovery_action) {
+    lines.push(t('transferHistory.recoveryAction', { action: item.recovery_action }))
+  }
+  if (item.overwrite_skipped) lines.push(t('dialog.reorganize.overwriteSkippedHint'))
+  return lines.join('\n')
 }
 
 const normalizedItems = computed(() => dedupeFileItems(props.items))
@@ -2091,8 +2107,11 @@ onUnmounted(() => {
                           <span class="preview-file-row__label">{{ t('dialog.reorganize.previewAfterColumn') }}</span>
                           <span class="preview-file-row__name">{{ item.targetName }}</span>
                           <span class="preview-file-row__path">{{ item.target || '-' }}</span>
-                          <span v-if="item.success === false && item.message" class="preview-file-row__message">
-                            {{ item.message }}
+                          <span
+                            v-if="(item.success === false || item.overwrite_skipped) && getPreviewFailureHint(item)"
+                            class="preview-file-row__message"
+                          >
+                            {{ getPreviewFailureHint(item) }}
                           </span>
                         </div>
                       </div>

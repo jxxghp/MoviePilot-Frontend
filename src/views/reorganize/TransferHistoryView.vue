@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { debounce } from 'lodash-es'
 import { useToast } from 'vue-toastification'
-import api, { isApiBusinessFailure } from '@/api'
+import api, { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api'
 import { listStorageOptions } from '@/api/storage'
 import type {
   StorageOption,
@@ -32,7 +32,7 @@ const TransferHistoryDeleteDialog = defineAsyncComponent(
 )
 
 // i18n
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 // 全局设置
 const globalSettingsStore = useGlobalSettingsStore()
@@ -1241,6 +1241,11 @@ function startAiRedoProgressBatch(historyIds: number[], progressKey: string) {
   aiRedoProgressSSE.value.start()
 }
 
+// 提交重整被租约、任务状态或人工复核拦截时，优先展示后端给出的可执行原因。
+function notifyAiRedoSubmitFailure(error: unknown) {
+  $toast.error(getApiBusinessErrorMessage(error) || t('transferHistory.aiRedoFailed'))
+}
+
 // 触发AI整理
 async function triggerAiRedo(item: TransferHistory) {
   if (!aiAgentEnabled.value) {
@@ -1268,7 +1273,7 @@ async function triggerAiRedo(item: TransferHistory) {
   } catch (error) {
     console.error(error)
     if (!componentUnmounted) {
-      $toast.error(t('transferHistory.aiRedoFailed'))
+      notifyAiRedoSubmitFailure(error)
     }
   } finally {
     if (!progressStarted) {
@@ -1316,7 +1321,7 @@ async function triggerBatchAiRedo() {
   } catch (error) {
     console.error(error)
     if (!componentUnmounted) {
-      $toast.error(t('transferHistory.aiRedoFailed'))
+      notifyAiRedoSubmitFailure(error)
     }
   } finally {
     if (!progressStarted) {
@@ -1325,9 +1330,23 @@ async function triggerBatchAiRedo() {
   }
 }
 
+// 确认用户已在下载器中人工完成任务清理，并刷新历史中的独立清理状态。
+async function resolveDownloaderCleanup(item: TransferHistory) {
+  try {
+    await api.post(`history/transfer/${item.id}/cleanup-resolved`, undefined, {
+      feedback: 'silent',
+    })
+    $toast.success(t('transferHistory.cleanupResolved'))
+    await refreshDataAfterOperation()
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('transferHistory.cleanupResolveFailed'))
+  }
+}
+
 // 计算下拉菜单
 function getDropdownItems(item: TransferHistory) {
-  return [
+  const items = [
     {
       title: isAiRedoing(item.id) ? t('transferHistory.actions.aiRedoPending') : t('transferHistory.actions.aiRedo'),
       value: 0,
@@ -1353,7 +1372,7 @@ function getDropdownItems(item: TransferHistory) {
     },
     {
       title: t('transferHistory.actions.delete'),
-      value: 2,
+      value: 3,
       props: {
         prependIcon: 'mdi-trash-can-outline',
         color: 'error',
@@ -1363,6 +1382,20 @@ function getDropdownItems(item: TransferHistory) {
       },
     },
   ]
+  if (item.cleanup_status === 'failed') {
+    items.splice(2, 0, {
+      title: t('transferHistory.actions.cleanupResolved'),
+      value: 2,
+      props: {
+        prependIcon: 'mdi-check-circle-outline',
+        disabled: false,
+        click: () => {
+          resolveDownloaderCleanup(item)
+        },
+      },
+    })
+  }
+  return items
 }
 
 // 生成历史记录页地址，确保刷新入口和分页入口使用一致的查询参数。
@@ -1539,12 +1572,40 @@ function getHistoryStorageName(storage?: string) {
 
 // 获取移动端卡片状态对应的主题色。
 function getHistoryStatusColor(item: TransferHistory) {
+  if (item.cleanup_status === 'failed' || item.auto_paused) return 'warning'
   return item.status ? 'success' : 'error'
 }
 
 // 获取移动端卡片状态文本。
 function getHistoryStatusText(item: TransferHistory) {
+  if (item.cleanup_status === 'failed') return t('transferHistory.status.cleanupFailed')
+  if (item.auto_paused) return t('transferHistory.status.paused')
   return item.status ? t('transferHistory.status.success') : t('transferHistory.status.failed')
+}
+
+// 将后端失败阶段转换为当前语言的短标签。
+function getFailureStageLabel(stage?: string) {
+  if (!stage) return t('transferHistory.failureStages.unknown')
+  const key = `transferHistory.failureStages.${stage}`
+  return te(key) ? t(key) : stage
+}
+
+// 组合历史记录的阶段、原因、动作和暂停状态，供桌面 Tooltip 与移动端正文复用。
+function getHistoryFailureHint(item: TransferHistory) {
+  const lines: string[] = []
+  const configuredMaxRetries = Number(globalSettingsStore.globalSettings.TRANSFER_MAX_FAILED_RETRIES)
+  const maxRetries = Number.isFinite(configuredMaxRetries) && configuredMaxRetries > 0 ? configuredMaxRetries : 3
+  if (item.failure_stage) lines.push(t('transferHistory.failureStage', { stage: getFailureStageLabel(item.failure_stage) }))
+  if (item.errmsg) lines.push(item.errmsg)
+  if (item.recovery_action) lines.push(t('transferHistory.recoveryAction', { action: item.recovery_action }))
+  if (item.retry_count && item.retry_count > 0) {
+    lines.push(t('transferHistory.retryStatus', { count: item.retry_count, max: maxRetries }))
+  }
+  if (item.auto_paused) lines.push(t('transferHistory.autoPausedHint'))
+  if (item.cleanup_status === 'failed') {
+    lines.push(item.cleanup_error || t('transferHistory.cleanupFailedHint'))
+  }
+  return lines.join('\n')
 }
 
 // 将历史记录时间压缩成移动端卡片展示文本。
@@ -2139,12 +2200,30 @@ onUnmounted(() => {
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <VChip v-if="item?.status" color="success" size="small"> {{ t('transferHistory.status.success') }} </VChip>
-        <VTooltip v-else :text="item?.errmsg">
-          <template #activator="{ props }">
-            <VChip v-bind="props" color="error" size="small"> {{ t('transferHistory.status.failed') }} </VChip>
-          </template>
-        </VTooltip>
+        <div class="d-flex flex-wrap ga-1">
+          <VTooltip v-if="item?.cleanup_status === 'failed'" :text="getHistoryFailureHint(item)">
+            <template #activator="{ props }">
+              <VChip v-bind="props" color="warning" size="small">
+                {{ t('transferHistory.status.cleanupFailed') }}
+              </VChip>
+            </template>
+          </VTooltip>
+          <VTooltip v-else-if="item?.auto_paused" :text="getHistoryFailureHint(item)">
+            <template #activator="{ props }">
+              <VChip v-bind="props" color="warning" size="small">
+                {{ t('transferHistory.status.paused') }}
+              </VChip>
+            </template>
+          </VTooltip>
+          <VChip v-else-if="item?.status" color="success" size="small">
+            {{ t('transferHistory.status.success') }}
+          </VChip>
+          <VTooltip v-else :text="getHistoryFailureHint(item)">
+            <template #activator="{ props }">
+              <VChip v-bind="props" color="error" size="small"> {{ t('transferHistory.status.failed') }} </VChip>
+            </template>
+          </VTooltip>
+        </div>
       </template>
       <template #item.size="{ item }">
         <small>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</small>
@@ -2246,12 +2325,22 @@ onUnmounted(() => {
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <VChip v-if="item?.status" color="success" size="small"> {{ t('transferHistory.status.success') }} </VChip>
-        <VTooltip v-else :text="item?.errmsg">
-          <template #activator="{ props }">
-            <VChip v-bind="props" color="error" size="small"> {{ t('transferHistory.status.failed') }} </VChip>
-          </template>
-        </VTooltip>
+        <div class="d-flex flex-wrap ga-1">
+          <VChip v-if="item?.cleanup_status === 'failed'" color="warning" size="small">
+            {{ t('transferHistory.status.cleanupFailed') }}
+          </VChip>
+          <VChip v-else-if="item?.auto_paused" color="warning" size="small">
+            {{ t('transferHistory.status.paused') }}
+          </VChip>
+          <VChip v-else-if="item?.status" color="success" size="small">
+            {{ t('transferHistory.status.success') }}
+          </VChip>
+          <VTooltip v-else :text="getHistoryFailureHint(item)">
+            <template #activator="{ props }">
+              <VChip v-bind="props" color="error" size="small"> {{ t('transferHistory.status.failed') }} </VChip>
+            </template>
+          </VTooltip>
+        </div>
       </template>
       <template #item.size="{ item }">
         <small>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</small>
@@ -2532,9 +2621,12 @@ onUnmounted(() => {
               </div>
             </button>
 
-            <div v-if="!item?.status && item?.errmsg" class="transfer-history-mobile-record__error">
+            <div
+              v-if="(!item?.status || item?.auto_paused || item?.cleanup_status === 'failed') && getHistoryFailureHint(item)"
+              class="transfer-history-mobile-record__error"
+            >
               <VIcon icon="mdi-alert-circle" size="18" />
-              {{ item.errmsg }}
+              {{ getHistoryFailureHint(item) }}
             </div>
           </article>
         </template>

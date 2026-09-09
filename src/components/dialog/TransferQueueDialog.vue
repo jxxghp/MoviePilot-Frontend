@@ -262,19 +262,33 @@ async function get_manual_reviews() {
   const requestId = ++nextManualReviewRequestId
 
   try {
-    const result = (await api.get<TransferManualReviewPage>('transfer/tasks/manual-reviews', {
-      params: {
-        state: 'manual_review',
-        page: 1,
-        page_size: 100,
-      },
-    })) as TransferManualReviewPage
+    const results = await Promise.allSettled(
+      (['manual_review', 'retry_wait'] as const).map(state =>
+        api.get<TransferManualReviewPage>('transfer/tasks/manual-reviews', {
+          params: {
+            state,
+            page: 1,
+            page_size: 100,
+          },
+        }),
+      ),
+    )
     if (!isMounted || requestId < latestCommittedManualReviewRequestId) return
 
     latestCommittedManualReviewRequestId = requestId
-    manualReviewLoadFailed.value = false
-    manualReviews.value = Array.isArray(result?.items) ? result.items : []
-    manualReviewTotal.value = typeof result?.total === 'number' ? result.total : manualReviews.value.length
+    const pages = results.map(result => (result.status === 'fulfilled' ? result.value : null))
+    const manualPage = pages[0]
+    const retryPage = pages[1]
+    const items = pages.flatMap(page => (Array.isArray(page?.items) ? page.items : []))
+    const uniqueItems = new Map<string, TransferManualReviewTask>()
+    items.forEach(item => uniqueItems.set(item.task_id, item))
+    manualReviews.value = Array.from(uniqueItems.values())
+    manualReviewTotal.value =
+      (typeof manualPage?.total === 'number' ? manualPage.total : 0) +
+      (typeof retryPage?.total === 'number' ? retryPage.total : 0)
+    // 任一状态页失败都向用户保留重试入口；已成功返回的另一页仍照常展示，
+    // 避免“人工复核可见但后台重试被静默漏掉”的半成功假象。
+    manualReviewLoadFailed.value = results.some(result => result.status === 'rejected')
   } catch (error) {
     if (!isMounted || requestId < latestCommittedManualReviewRequestId) return
 
@@ -525,8 +539,12 @@ onUnmounted(() => {
                 <div v-if="review.step.error" class="manual-review-item__error">
                   {{ review.step.error }}
                 </div>
+                <div v-if="review.state === 'retry_wait'" class="manual-review-item__retry-hint">
+                  {{ t('dialog.transferQueue.manualReviewRetryWaitHint') }}
+                </div>
               </div>
               <VBtn
+                v-if="review.state === 'manual_review'"
                 class="manual-review-item__action"
                 color="warning"
                 variant="tonal"
@@ -535,6 +553,9 @@ onUnmounted(() => {
               >
                 {{ t('dialog.transferQueue.manualReviewDetails') }}
               </VBtn>
+              <VChip v-else color="info" size="small" variant="tonal">
+                {{ t('dialog.transferQueue.manualReviewRetryWait') }}
+              </VChip>
             </article>
           </div>
         </section>
@@ -780,7 +801,8 @@ onUnmounted(() => {
 
 .manual-review-item__path,
 .manual-review-item__meta,
-.manual-review-item__error {
+.manual-review-item__error,
+.manual-review-item__retry-hint {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -801,6 +823,12 @@ onUnmounted(() => {
 
 .manual-review-item__error {
   color: rgb(var(--v-theme-error));
+  font-size: 0.78rem;
+  margin-block-start: 0.35rem;
+}
+
+.manual-review-item__retry-hint {
+  color: rgb(var(--v-theme-info));
   font-size: 0.78rem;
   margin-block-start: 0.35rem;
 }
