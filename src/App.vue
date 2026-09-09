@@ -3,7 +3,7 @@ import { usePreferredReducedMotion } from '@vueuse/core'
 import { useTheme } from 'vuetify'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
 import api from '@/api'
-import { useAuthStore, useGlobalSettingsStore } from '@/stores'
+import { useAuthStore, useGlobalSettingsStore, useUserStore } from '@/stores'
 import { getBrowserLocale, setI18nLanguage } from './plugins/i18n'
 import { SupportedLocale } from '@/types/i18n'
 import { checkAndEmitUnreadMessages } from '@/utils/badge'
@@ -32,6 +32,7 @@ import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
 import { useServerConnectionProbe } from '@/composables/useServerConnectionProbe'
+import { useWebPushNotifications } from '@/composables/useWebPushNotifications'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { loadMediaSources } from '@/composables/useMediaSources'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
@@ -155,7 +156,11 @@ setI18nLanguage(localeValue as SupportedLocale)
 
 // 检查是否登录
 const authStore = useAuthStore()
+const userStore = useUserStore()
 const isLogin = computed(() => authStore.token)
+useWebPushNotifications(() =>
+  authStore.token && userStore.superUser ? `${userStore.userID}:${authStore.token}` : null,
+)
 const route = useRoute()
 const router = useRouter()
 const { initializePWA } = usePWA()

@@ -8,7 +8,7 @@ import api, { createPluginInstanceApi, pluginApi } from '@/api'
 import router from '@/router'
 import LoginMfaStep from '@/components/auth/LoginMfaStep.vue'
 import OpticalLogoLab from '@/components/misc/OpticalLogoLab.vue'
-import { bufferToBase64Url, base64UrlToUint8Array, urlBase64ToUint8Array } from '@/@core/utils/navigator'
+import { bufferToBase64Url, base64UrlToUint8Array } from '@/@core/utils/navigator'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { getNavMenus } from '@/router/i18n-menu'
@@ -185,10 +185,7 @@ const selectedAuthProvider = ref<LoginAuthProvider | null>(null)
 // 登录插件也使用实例作用域客户端；系统内置登录请求仍使用全局插件客户端。
 const selectedPluginApi = computed(() => {
   const pluginId = selectedAuthProvider.value?.plugin_id || ''
-  return createPluginInstanceApi(
-    pluginId,
-    selectedAuthProvider.value?.remote?.source_plugin_id,
-  )
+  return createPluginInstanceApi(pluginId, selectedAuthProvider.value?.remote?.source_plugin_id)
 })
 const RemoteAuthView = shallowRef<Component | null>(null)
 const pluginAuthDialog = ref(false)
@@ -612,38 +609,8 @@ async function switchLanguage(locale: SupportedLocale) {
   langMenu.value = false
 }
 
-// 订阅推送通知
-async function subscribeForPushNotifications() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-
-  try {
-    const registration = await navigator.serviceWorker.ready
-    let subscription = await registration.pushManager.getSubscription()
-
-    if (!subscription) {
-      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return
-
-      const convertedVapidKey = urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY)
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey,
-      })
-    }
-
-    if (subscription) {
-      await api.post('/message/webpush/subscribe', subscription)
-    }
-  } catch (error) {
-    console.warn('WebPush subscription failed:', error)
-  }
-}
-
-// 登录后处理
-async function afterLogin(
-  superuser: boolean,
-  userPayload: userState,
-  filteredMenus: ReturnType<typeof filterMenusByPermission>,
-) {
+/** 登录完成后恢复目标路由；应用级初始化由 App 统一处理。 */
+async function afterLogin(filteredMenus: ReturnType<typeof filterMenusByPermission>) {
   const originalPath = authStore.originalPath
   authStore.setOriginalPath(null)
 
@@ -654,9 +621,6 @@ async function afterLogin(
     // 跳转到第一个有权限的菜单
     await router.push(filteredMenus[0].to)
   }
-
-  // 订阅推送通知
-  if (superuser) void subscribeForPushNotifications()
 }
 
 // 处理登录成功
@@ -686,7 +650,7 @@ async function handleLoginSuccess(response: PassKeyFinishResponse) {
   authStore.login(authPayLoad)
   userStore.loginUser(userPayload)
 
-  await afterLogin(userPayload.superUser, userPayload, filteredMenus)
+  await afterLogin(filteredMenus)
 }
 
 async function requestPasswordLogin(signal: AbortSignal): Promise<PassKeyFinishResponse> {

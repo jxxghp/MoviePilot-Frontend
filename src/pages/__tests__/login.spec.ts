@@ -643,22 +643,12 @@ describe('login page orchestration', () => {
     expect(mocks.pluginApi.post).not.toHaveBeenCalled()
   })
 
-  it('does not wait for WebPush subscription before completing an administrator login', async () => {
-    const webPushRequest = deferred<never>()
-    const subscription = { endpoint: 'https://push.invalid/synthetic' }
+  it('completes administrator login without owning the application WebPush lifecycle', async () => {
     vi.stubGlobal('PushManager', class PushManagerStub {})
     vi.stubGlobal('navigator', {
       serviceWorker: {
-        ready: Promise.resolve({
-          pushManager: {
-            getSubscription: vi.fn().mockResolvedValue(subscription),
-          },
-        }),
+        ready: deferred<never>().promise,
       },
-    })
-    mocks.api.post.mockImplementation((url: string) => {
-      if (url === '/message/webpush/subscribe') return webPushRequest.promise
-      return Promise.resolve(null)
     })
     mocks.pluginApi.post.mockResolvedValue(loginResponse({ super_user: true }))
     const { container } = await renderLogin()
@@ -667,7 +657,7 @@ describe('login page orchestration', () => {
 
     await waitFor(() => expect(mocks.router.push).toHaveBeenCalledWith('/home'))
     expect(useAuthStore().token).toBe('synthetic-token')
-    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith('/message/webpush/subscribe', subscription))
+    expect(mocks.api.post).not.toHaveBeenCalledWith('/message/webpush/subscribe', expect.anything())
   })
 
   it('converts Passkey options and credential buffers for the authentication endpoints', async () => {
