@@ -447,7 +447,7 @@ onMounted(() => {
           </VCol>
         </VRow>
         <VRow v-show="showAdvancedOptions" class="px-5">
-          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+          <VCol cols="12" md="6">
             <VSelect
               v-model="mediaType"
               :items="mediaTypeItems"
@@ -457,7 +457,7 @@ onMounted(() => {
               density="comfortable"
             />
           </VCol>
-          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+          <VCol cols="12" md="6">
             <VSelect
               v-model="mediaSource"
               :items="mediaSourceItems"
@@ -467,7 +467,7 @@ onMounted(() => {
               density="comfortable"
             />
           </VCol>
-          <VCol v-if="isMusicSelection" cols="12" md="3">
+          <VCol v-if="isMusicSelection" cols="12" md="6">
             <VSelect
               v-model="musicType"
               :items="musicEntityOptions"
@@ -477,7 +477,7 @@ onMounted(() => {
               density="comfortable"
             />
           </VCol>
-          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+          <VCol cols="12" :md="isMusicSelection ? 6 : 12">
             <VTextField
               v-model="mediaId"
               :disabled="mediaType === ''"
@@ -487,8 +487,6 @@ onMounted(() => {
                 (value: any) => isValidMediaSourceId(value, mediaSource) || t('dialog.reorganize.mediaIdInvalid'),
               ]"
               append-inner-icon="mdi-magnify"
-              :hint="t('dialog.reorganize.mediaIdHint')"
-              persistent-hint
               prepend-inner-icon="mdi-identifier"
               variant="underlined"
               density="comfortable"
