@@ -108,6 +108,15 @@ const router = createRouter({
           },
         },
         {
+          path: '/music/artist/resources',
+          component: () => import('../pages/music-artist-resources.vue'),
+          meta: {
+            requiresAuth: true,
+            permission: 'search',
+            feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
+          },
+        },
+        {
           path: '/subscribe/movie',
           component: () => import('../pages/subscribe.vue'),
           meta: {
