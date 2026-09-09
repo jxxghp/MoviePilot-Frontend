@@ -495,6 +495,16 @@ export default {
     discographyDescription:
       'Browse site availability by official release. Releases already in your library are not selected by default.',
     discographyLoadFailed: 'Failed to load artist discography',
+    artistCollectionResources: 'Artist collection resources',
+    artistCollectionDescription:
+      'Searches artist-wide collection torrents. One resource can cover multiple official releases and is stored under Artist Collection.',
+    downloadArtistCollection: 'Download collection',
+    downloadArtistCollectionConfirm: 'Download "{title}" with the default downloader?',
+    artistCollectionDownloadAdded: 'Artist collection added to downloads',
+    estimatedCoverage: 'Estimated coverage: {count}/{total} official releases',
+    coverageUnknown: 'Open the resource details to verify coverage',
+    unknownSite: 'Unknown site',
+    seeders: '{count} seeders',
     officialWorks: 'Official releases',
     statusInLibrary: 'In library',
     notInLibrary: 'Not in library',
