@@ -150,16 +150,19 @@ const TextFieldStub = defineComponent({
 const SwitchStub = defineComponent({
   name: 'NativeSwitchStub',
   props: {
+    disabled: Boolean,
     label: String,
     modelValue: { type: Boolean, default: false },
   },
   emits: ['update:modelValue'],
+  /** 保留开关的可访问名称、禁用状态和用户输入语义。 */
   setup(props, { emit }) {
     return () =>
       h('label', [
         h('input', {
           'aria-label': props.label,
           'checked': props.modelValue,
+          'disabled': props.disabled,
           'onChange': (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).checked),
           'type': 'checkbox',
         }),
@@ -268,6 +271,7 @@ function apiEnvelope<T>(data: T | null, success = true, message = ''): ApiRespon
 function publicSettingHandlers({
   directories = [],
   episodeRules = [],
+  historyCount = 0,
   onTargetPathRequest,
   storages = [],
   targetPathMatch = {},
@@ -275,6 +279,7 @@ function publicSettingHandlers({
 }: {
   directories?: TransferDirectoryConf[]
   episodeRules?: unknown[]
+  historyCount?: number
   onTargetPathRequest?: (payload: ManualTransferTargetPathRequest) => void
   storages?: StorageConf[]
   targetPathMatch?: ManualTransferTargetPathData
@@ -295,7 +300,7 @@ function publicSettingHandlers({
     }),
     http.post(new URL('transfer/manual/history', API_BASE_URL).href, () => {
       initializationRequestCount += 1
-      return HttpResponse.json(apiEnvelope({ history_count: 0, reorganize: false }))
+      return HttpResponse.json(apiEnvelope({ history_count: historyCount, reorganize: historyCount > 0 }))
     }),
     http.post(new URL('transfer/manual/target-path', API_BASE_URL).href, async ({ request }) => {
       onTargetPathRequest?.((await request.json()) as ManualTransferTargetPathRequest)
@@ -311,6 +316,7 @@ function publicSettingHandlers({
 async function renderDialog({
   directories = [],
   episodeRules = [],
+  historyCount = 0,
   items,
   logids,
   onClose = vi.fn(),
@@ -324,6 +330,7 @@ async function renderDialog({
 }: {
   directories?: TransferDirectoryConf[]
   episodeRules?: unknown[]
+  historyCount?: number
   items?: FileItem[]
   logids?: number[]
   onClose?: ReturnType<typeof vi.fn>
@@ -340,6 +347,7 @@ async function renderDialog({
     ...publicSettingHandlers({
       directories,
       episodeRules,
+      historyCount,
       onTargetPathRequest,
       storages,
       targetPathMatch,
@@ -513,6 +521,165 @@ describe('ReorganizeDialog submission safety', () => {
   })
 })
 
+describe('ReorganizeDialog successful history selection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    initializationRequestCount = 0
+    mocks.progressControllers.length = 0
+  })
+
+  it('keeps reorganizing successful records as the default when duplicates are detected', async () => {
+    const payloads: unknown[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        payloads.push(await request.json())
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({
+      historyCount: 903,
+      items: [createFileItem({ name: 'Series', path: '/downloads/Series', type: 'dir' })],
+    })
+
+    expect(await screen.findByRole('checkbox', { name: '跳过已成功整理记录' })).not.toBeChecked()
+    expect(screen.getByText(/检测到 903 条成功整理记录.*清理旧目标和历史记录/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重新整理' }))
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(payloads).toEqual([expect.objectContaining({ reorganize: true, skip_success: false })])
+  })
+
+  it.each([
+    {
+      scenario: 'a directory in the foreground',
+      background: false,
+      items: [createFileItem({ name: 'Series', path: '/downloads/Series', type: 'dir' })],
+    },
+    {
+      scenario: 'a single file in the background',
+      background: true,
+      items: [createFileItem()],
+    },
+    {
+      scenario: 'multiple files in the foreground',
+      background: false,
+      items: [createFileItem(), createFileItem({ name: 'Other.mkv', path: '/downloads/Other.mkv' })],
+    },
+    {
+      scenario: 'multiple files in the background',
+      background: true,
+      items: [createFileItem(), createFileItem({ name: 'Other.mkv', path: '/downloads/Other.mkv' })],
+    },
+  ])('skips successful records when submitting $scenario', async ({ background, items }) => {
+    const response = createDeferred<ApiResponse<null>>()
+    const payloads: unknown[] = []
+    const backgrounds: string[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        payloads.push(await request.json())
+        backgrounds.push(new URL(request.url).searchParams.get('background') ?? '')
+        return HttpResponse.json(await response.promise)
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({ historyCount: 2, items })
+    const skipSwitch = await screen.findByRole('checkbox', { name: '跳过已成功整理记录' })
+
+    await user.click(skipSwitch)
+
+    expect(skipSwitch).toBeChecked()
+    expect(screen.queryByRole('button', { name: '重新整理' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeInTheDocument()
+    expect(screen.getByText(/检测到 2 条成功整理记录.*跳过.*保留其目标文件和历史记录/)).toBeInTheDocument()
+    expect(screen.queryByText(/重新整理会清理旧目标和历史记录/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: background ? '加入整理队列' : '立即整理' }))
+
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(skipSwitch).toBeDisabled()
+    expect(backgrounds).toEqual([String(background)])
+    expect(payloads).toEqual([
+      expect.objectContaining({
+        ...(items[0].type === 'dir' ? { fileitem: items[0] } : { fileitems: items }),
+        reorganize: false,
+        skip_success: true,
+      }),
+    ])
+    response.resolve(apiEnvelope(null))
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+  })
+
+  it('clears old previews and sends the current selection when skipping is enabled or cancelled', async () => {
+    const pendingPreview = createDeferred<ReturnType<typeof previewResponse>>()
+    const payloads: unknown[] = []
+    const originalPreview = previewResponse([
+      { source: '/downloads/Movie.mkv', success: true, target: '/library/Original.mkv' },
+    ])
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        payloads.push(await request.json())
+        return HttpResponse.json(payloads.length === 2 ? await pendingPreview.promise : originalPreview)
+      }),
+    )
+    const user = userEvent.setup()
+    const { container } = await renderDialog({ historyCount: 1 })
+    const skipSwitch = await screen.findByRole('checkbox', { name: '跳过已成功整理记录' })
+    const previewButton = screen.getByRole('button', { name: '预览' })
+
+    await user.click(previewButton)
+    expect(await screen.findByText('总数 1')).toBeInTheDocument()
+    expect(screen.getByText('/library/Original.mkv')).toBeVisible()
+    await user.click(skipSwitch)
+
+    expect(container.querySelector('.reorganize-preview-pane')).not.toBeVisible()
+    expect(screen.queryByText('总数 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('/library/Original.mkv')).not.toBeInTheDocument()
+    expect(previewButton).not.toHaveClass('reorganize-action-btn--active')
+    await user.click(previewButton)
+
+    await waitFor(() => expect(payloads).toHaveLength(2))
+    expect(skipSwitch).toBeDisabled()
+    pendingPreview.resolve(previewResponse([]))
+    expect(await screen.findByText('总数 0')).toBeInTheDocument()
+    expect(skipSwitch).toBeEnabled()
+    await user.click(skipSwitch)
+
+    expect(skipSwitch).not.toBeChecked()
+    expect(screen.getByText(/检测到 1 条成功整理记录.*清理旧目标和历史记录/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新整理' })).toBeInTheDocument()
+    expect(container.querySelector('.reorganize-preview-pane')).not.toBeVisible()
+    expect(screen.queryByText('总数 0')).not.toBeInTheDocument()
+    await user.click(previewButton)
+
+    expect(await screen.findByText('总数 1')).toBeInTheDocument()
+    expect(payloads).toEqual([
+      expect.objectContaining({ preview: true, reorganize: true, skip_success: false }),
+      expect.objectContaining({ preview: true, reorganize: false, skip_success: true }),
+      expect.objectContaining({ preview: true, reorganize: true, skip_success: false }),
+    ])
+  })
+
+  it('keeps the selected skip option locked after the batch has been accepted', async () => {
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
+        HttpResponse.json(apiEnvelope({ items: [{ source: '/downloads/Movie.mkv', state: 'accepted' }] })),
+      ),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({ historyCount: 1 })
+    const skipSwitch = await screen.findByRole('checkbox', { name: '跳过已成功整理记录' })
+
+    await user.click(skipSwitch)
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    expect(await screen.findByText('已接收 · 等待后台处理')).toBeInTheDocument()
+    expect(skipSwitch).toBeChecked()
+    expect(skipSwitch).toBeDisabled()
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeDisabled()
+    expect(onDone).not.toHaveBeenCalled()
+  })
+})
+
 describe('ReorganizeDialog payloads and lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -528,6 +695,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
 
     expect(screen.getByLabelText<HTMLSelectElement>('类型')).toHaveDisplayValue('自动')
     expect(screen.getByLabelText<HTMLSelectElement>('数据源')).toHaveDisplayValue('自动')
+    expect(screen.queryByRole('checkbox', { name: '跳过已成功整理记录' })).not.toBeInTheDocument()
   })
 
   it('resets the data source to auto and hides the media id input after switching media type', async () => {
@@ -583,6 +751,8 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
       expect.objectContaining({
         episode_group: null,
         fileitems: [first, second],
+        reorganize: false,
+        skip_success: false,
         target_path: null,
         target_storage: null,
         transfer_type: null,
@@ -669,6 +839,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     const { onDone } = await renderDialog({ logids: [41, 42] })
 
     expect(screen.getByRole('button', { name: '重新整理' })).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: '跳过已成功整理记录' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '加入整理队列' }))
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
@@ -677,6 +848,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
         from_history: false,
         logids: [41, 42],
         reorganize: true,
+        skip_success: false,
         target_path: null,
         target_storage: null,
       }),
@@ -1191,6 +1363,7 @@ describe('ReorganizeDialog preview', () => {
     const user = userEvent.setup()
     await renderDialog({ logids: [41, 42] })
 
+    expect(screen.queryByRole('checkbox', { name: '跳过已成功整理记录' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '预览' }))
 
     expect(await screen.findByText('七里香 (2004)')).toBeInTheDocument()
@@ -1200,6 +1373,7 @@ describe('ReorganizeDialog preview', () => {
         logids: [41, 42],
         preview: true,
         reorganize: true,
+        skip_success: false,
       }),
     ])
   })

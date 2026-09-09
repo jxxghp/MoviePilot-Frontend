@@ -87,6 +87,7 @@ const musicReleaseScriptItems = computed(() => [
   { title: t('dialog.reorganize.musicScriptKorean'), value: 'Kore' },
 ])
 
+/** 将后台音乐偏好解析为最多三个选项，空配置使用默认顺序。 */
 function parsePreferenceSetting(value: unknown, fallback: string[]) {
   const parsed = String(value ?? '')
     .split(',')
@@ -97,6 +98,7 @@ function parsePreferenceSetting(value: unknown, fallback: string[]) {
 
 const customMusicReleasePreference = ref(false)
 
+/** 将后台地区与文字偏好带入本次手动整理。 */
 function applyDefaultMusicReleasePreference() {
   transferForm.music_release_regions = parsePreferenceSetting(globalSettings.MUSIC_RELEASE_REGION_PRIORITY, [
     'CN',
@@ -212,6 +214,8 @@ const previewData = ref<ManualTransferPreviewData>()
 // 手动整理历史查询状态
 const manualHistoryLoading = ref(false)
 const manualHistoryCount = ref(0)
+// 仅对本次手动整理生效，默认保留已有的重新整理行为。
+const skipSuccessfulRecords = ref(false)
 
 // 自动目的路径匹配状态
 const targetPathMatchLoading = ref(false)
@@ -480,8 +484,16 @@ const transferForm = reactive<TransferForm>({
   reorganize: Boolean(props.logids?.length),
 })
 
-// 历史记录入口和文件浏览器命中的成功历史都属于重新整理。
-const isReorganize = computed(() => Boolean(props.logids?.length || transferForm.reorganize))
+// 跳过成功记录时，按钮和请求都采用普通整理语义。
+const isReorganize = computed(() =>
+  Boolean(props.logids?.length || (transferForm.reorganize && !skipSuccessfulRecords.value)),
+)
+
+// 切换成功记录处理方式后丢弃旧预览，避免与实际提交范围不一致。
+watch(skipSuccessfulRecords, () => {
+  previewVisible.value = false
+  resetPreviewState()
+})
 
 // 当前是否保留后端自动匹配目的路径的语义。
 const isAutomaticTargetPath = computed(() => !normalizeTargetPath(transferForm.target_path))
@@ -1160,6 +1172,7 @@ function isFileLikeItem(item: FileItem) {
   return /\.[^.]+$/.test(basename)
 }
 
+/** 文件集合统一批量提交，目录则保留各自的展开范围。 */
 function shouldUseBatchFileItems(items: FileItem[]) {
   return items.length > 0 && items.every(isFileLikeItem)
 }
@@ -1170,7 +1183,7 @@ function getBatchItemsLabel(items: FileItem[]) {
   return t('dialog.reorganize.multipleItemsTitle', { count: items.length })
 }
 
-// 构造整理请求
+// 预览、立即整理和加入队列共用请求参数，保证成功记录处理方式一致。
 function createTransferPayload(options: {
   item?: FileItem
   items?: FileItem[]
@@ -1182,6 +1195,8 @@ function createTransferPayload(options: {
   const normalizedMediaId = normalizeOptionalText(transferForm.media_id)
   const payload: ManualTransferPayload = {
     ...transferForm,
+    reorganize: isReorganize.value,
+    skip_success: skipSuccessfulRecords.value,
     fileitem: sourceItem,
     logid: options.logid ?? 0,
     target_storage: normalizeOptionalText(transferForm.target_storage),
@@ -1706,13 +1721,26 @@ onUnmounted(() => {
               <VForm @submit.prevent="() => {}">
                 <VAlert
                   v-if="manualHistoryCount > 0"
-                  type="warning"
+                  :type="skipSuccessfulRecords ? 'info' : 'warning'"
                   variant="tonal"
                   density="compact"
                   icon="mdi-history"
                   class="mb-4"
                 >
-                  {{ t('dialog.reorganize.historyFound', { count: manualHistoryCount }) }}
+                  {{
+                    t(skipSuccessfulRecords ? 'dialog.reorganize.historySkipped' : 'dialog.reorganize.historyFound', {
+                      count: manualHistoryCount,
+                    })
+                  }}
+                  <VSwitch
+                    v-model="skipSuccessfulRecords"
+                    :label="t('dialog.reorganize.skipSuccessfulRecords')"
+                    :disabled="previewLoading || transferSubmitting || hasAcceptedSubmission"
+                    color="primary"
+                    density="compact"
+                    hide-details
+                    class="mt-2"
+                  />
                 </VAlert>
                 <VRow>
                   <VCol cols="12" md="6">

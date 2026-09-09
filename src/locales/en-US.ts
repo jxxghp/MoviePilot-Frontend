@@ -4254,6 +4254,9 @@ export default {
       reorganizeAgain: 'Reorganize',
       historyFound:
         '{count} successful organization record(s) found. Reorganizing removes the old target and history; move mode keeps the current source file.',
+      historySkipped:
+        '{count} successful organization record(s) found. These records will be skipped, keeping their target files and history. Only the remaining files will be organized.',
+      skipSuccessfulRecords: 'Skip successfully organized records',
       auto: 'Auto',
       processing: 'Processing ...',
       successMessage: 'File {name} has been added to the organization queue!',

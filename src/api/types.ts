@@ -2302,6 +2302,8 @@ export interface TransferForm {
 
 // 手动整理请求
 export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem' | 'logid'> {
+  // 预览和执行均跳过已有成功整理记录，保留其目标文件与历史。
+  skip_success?: boolean
   // 文件项
   fileitem?: FileItem
   // 多选文件批量请求

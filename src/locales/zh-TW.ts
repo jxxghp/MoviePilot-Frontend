@@ -4115,6 +4115,8 @@ export default {
       reorganizeNow: '立即整理',
       reorganizeAgain: '重新整理',
       historyFound: '偵測到 {count} 筆成功整理記錄。重新整理會清理舊目標和歷史記錄；移動模式會保留目前來源檔案。',
+      historySkipped: '偵測到 {count} 筆成功整理記錄。將跳過這些記錄，保留其目標檔案和歷史記錄，僅整理其餘檔案。',
+      skipSuccessfulRecords: '跳過已成功整理記錄',
       auto: '自動',
       processing: '正在處理 ...',
       successMessage: '文件 {name} 已加入整理隊列！',
