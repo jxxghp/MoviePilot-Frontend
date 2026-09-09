@@ -12,7 +12,7 @@ import type {
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
@@ -62,6 +62,7 @@ let syncingRouteQuery = false
 let fetchDataRequestSeed = 0
 let mobileFetchDataRequestSeed = 0
 let componentUnmounted = false
+let historyViewActive = true
 
 // 组合式输入法状态
 const isComposing = ref(false)
@@ -481,14 +482,14 @@ const debouncedReloadMobileSearchPage = debounce(() => {
 
 // 切换页签
 watch([() => currentPage.value, () => itemsPerPage.value], () => {
-  if (syncingRouteQuery || !isDesktop.value) return
+  if (!historyViewActive || syncingRouteQuery || !isDesktop.value) return
 
   debouncedReloadPage()
 })
 
 // 搜索监听
 watch([() => search.value, () => isComposing.value], () => {
-  if (syncingRouteQuery || isComposing.value) return
+  if (!historyViewActive || syncingRouteQuery || isComposing.value) return
 
   if (isMobile.value) {
     debouncedReloadMobileSearchPage()
@@ -502,7 +503,7 @@ watch([() => search.value, () => isComposing.value], () => {
 watch(
   () => statusFilter.value,
   () => {
-    if (syncingRouteQuery) return
+    if (!historyViewActive || syncingRouteQuery) return
     if (isMobile.value) {
       void reloadMobileSearchPage()
       return
@@ -515,7 +516,7 @@ watch(
 watch(
   () => group.value,
   () => {
-    if (syncingRouteQuery || !isDesktop.value) return
+    if (!historyViewActive || syncingRouteQuery || !isDesktop.value) return
 
     void reloadPage()
   },
@@ -525,7 +526,7 @@ watch(
 watch(
   () => route.query,
   () => {
-    if (route.path !== '/history') return
+    if (!historyViewActive || route.path !== '/history') return
     if (isDesktop.value) {
       void refreshDataFromRouteQuery()
     } else {
@@ -538,7 +539,7 @@ watch(
 
 // 响应桌面与移动端断点切换，进入对应布局后刷新对应数据源。
 watch(isDesktop, desktop => {
-  if (route.path !== '/history') return
+  if (!historyViewActive || route.path !== '/history') return
   if (desktop) {
     void refreshDataFromRouteQuery()
   } else {
@@ -659,6 +660,7 @@ function hasMusicAlbumGroup(items: TransferHistoryDisplayItem[]) {
 
 // 获取历史记录数据，keep-alive 重新进入时可静默刷新，避免表格出现重新加载感。
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
+  if (!historyViewActive) return
   const requestSeed = ++fetchDataRequestSeed
   const shouldShowLoading = !options.silent
   if (shouldShowLoading) {
@@ -674,7 +676,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
       },
     })
-    if (requestSeed !== fetchDataRequestSeed) return
+    if (!historyViewActive || requestSeed !== fetchDataRequestSeed) return
 
     const list = Array.isArray(result.list) ? result.list : []
 
@@ -691,7 +693,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     totalItems.value = ensureNumber(result.total, 0)
     updateSearchHintList(list)
 
-    if (isDesktop.value && route.query.grouped === undefined && hasMusicAlbumGroup(displayList)) {
+    if (historyViewActive && isDesktop.value && route.query.grouped === undefined && hasMusicAlbumGroup(displayList)) {
       group.value = true
     }
 
@@ -943,7 +945,9 @@ async function syncStateFromRouteQuery() {
 
 // 根据地址栏中的查询参数刷新历史列表。
 async function refreshDataFromRouteQuery(options: { silent?: boolean } = {}) {
+  if (!historyViewActive) return
   await syncStateFromRouteQuery()
+  if (!historyViewActive) return
   await fetchData(currentPage.value, itemsPerPage.value, options)
 }
 
@@ -1389,13 +1393,13 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
 
 // 重载页面，先更新路由，再由路由监听统一拉取列表数据。
 async function reloadPage(resetPage = false) {
-  if (route.path !== '/history') return
+  if (!historyViewActive || route.path !== '/history') return
   await router.push(createHistoryUrl(resetPage))
 }
 
 // 移动端搜索同样以 URL 为持久事实源，刷新和断点切换后可恢复同一查询。
 async function reloadMobileSearchPage() {
-  if (route.path !== '/history') return
+  if (!historyViewActive || route.path !== '/history') return
   await router.push(createHistoryUrl(true))
 }
 
@@ -1842,6 +1846,7 @@ onMounted(() => {
 })
 
 onActivated(() => {
+  historyViewActive = true
   if (!hasActivatedOnce.value) {
     hasActivatedOnce.value = true
     return
@@ -1854,20 +1859,33 @@ onActivated(() => {
   }
 })
 
-// 页面由 KeepAlive 缓存时不会卸载；离开后必须停止路由回写并作废在途请求。
-onDeactivated(() => {
+// 路由离开先于 KeepAlive 失活；必须在离开守卫阶段关闭回写窗口，避免在途请求抢回历史页。
+function deactivateHistoryView() {
+  historyViewActive = false
   fetchDataRequestSeed++
   mobileFetchDataRequestSeed++
   debouncedReloadPage.cancel()
   debouncedReloadSearchPage.cancel()
   debouncedReloadMobileSearchPage.cancel()
+  loading.value = false
+  mobileLoading.value = false
+}
+
+// 组件测试和独立复用时可能不在 RouterView 记录内；仅由正式 history 路由注册离开守卫。
+if (route.matched.some(record => record.path === '/history')) {
+  onBeforeRouteLeave(() => {
+    deactivateHistoryView()
+  })
+}
+
+// 页面由 KeepAlive 缓存时不会卸载；失活钩子负责兜底非路由驱动的缓存切换。
+onDeactivated(() => {
+  deactivateHistoryView()
 })
 
 onUnmounted(() => {
   componentUnmounted = true
-  debouncedReloadPage.cancel()
-  debouncedReloadSearchPage.cancel()
-  debouncedReloadMobileSearchPage.cancel()
+  deactivateHistoryView()
   stopAiRedoProgress()
   closeProgressDialog()
   aiRedoProgressDialogController?.close()

@@ -7,7 +7,8 @@ import TransferHistoryView from '@/views/reorganize/TransferHistoryView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
-import { computed, defineComponent, h, nextTick, ref, unref, type PropType } from 'vue'
+import { computed, defineComponent, h, KeepAlive, nextTick, ref, unref, type PropType } from 'vue'
+import { RouterView } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const transferHistorySource = readFileSync(resolve(cwd(), 'src/views/reorganize/TransferHistoryView.vue'), 'utf8')
@@ -404,6 +405,54 @@ async function renderHistory(initialRoute = '/history') {
         superUser: true,
       },
     },
+  })
+}
+
+async function renderHistoryRoute(initialRoute = '/history', downloadingBeforeEnter?: () => Promise<void>) {
+  const RouterHost = defineComponent({
+    name: 'HistoryRouterHost',
+    setup: () => () =>
+      h(RouterView, null, {
+        default: ({ Component }: { Component: object }) =>
+          h(KeepAlive, null, { default: () => (Component ? h(Component) : null) }),
+      }),
+  })
+  const DownloadingRoute = defineComponent({
+    name: 'DownloadingTestRoute',
+    setup: () => () => h('div', '下载管理'),
+  })
+
+  return renderWithProviders(RouterHost, {
+    global: {
+      stubs: {
+        ProgressiveCardGrid: ProgressiveGridStub,
+        VCombobox: SearchStub,
+        VDataTableVirtual: HistoryTableStub,
+        VImg: ImageStub,
+        VInfiniteScroll: InfiniteScrollStub,
+        IconBtn: IconButtonStub,
+        VList: PassthroughStub,
+        VListItem: ListItemStub,
+        VListItemTitle: ListItemTitleStub,
+        VMenu: PassthroughStub,
+        VPageContentTitle: true,
+        VPagination: EmptyStub,
+        VSelect: EmptyStub,
+      },
+    },
+    initialRoute,
+    initialState: {
+      globalSettings: { data: { AI_AGENT_ENABLE: true, GLOBAL_IMAGE_CACHE: false } },
+      user: { permissions: ['manage'], superUser: true },
+    },
+    routes: [
+      { path: '/history', component: TransferHistoryView, meta: { keepAlive: true } },
+      {
+        path: '/downloading',
+        component: DownloadingRoute,
+        ...(downloadingBeforeEnter ? { beforeEnter: downloadingBeforeEnter } : {}),
+      },
+    ],
   })
 }
 
@@ -935,6 +984,42 @@ describe('TransferHistoryView', () => {
     const { router } = await renderHistory('/history?itemsPerPage=50&currentPage=1&grouped=true')
     await flushPromises()
     await router.push('/downloading')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/downloading')
+  })
+
+  it('invalidates a history request as soon as route navigation starts', async () => {
+    const historyRequest = createDeferred<ReturnType<typeof historyResponse>>()
+    const navigationEntered = createDeferred<void>()
+    const finishNavigation = createDeferred<void>()
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return historyRequest.promise
+    })
+
+    const { router } = await renderHistoryRoute('/history', async () => {
+      navigationEntered.resolve()
+      await finishNavigation.promise
+    })
+    const navigation = router.push('/downloading')
+    await navigationEntered.promise
+
+    historyRequest.resolve(
+      historyResponse([
+        createHistory(1, 'Hotel California', {
+          dest: '/media/Eagles/Hotel California (1976)/01 - Hotel California.dsf',
+          type: '音乐',
+        }),
+        createHistory(2, 'New Kid in Town', {
+          dest: '/media/Eagles/Hotel California (1976)/02 - New Kid in Town.dsf',
+          type: '音乐',
+        }),
+      ]),
+    )
+    await flushPromises()
+    finishNavigation.resolve()
+    await navigation
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/downloading')
