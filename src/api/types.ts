@@ -425,6 +425,8 @@ export interface DownloadHistory {
   media_source?: MediaDataSource
   // 数据源原生 ID
   media_id?: string
+  // 音乐实体类型：recording/album/artist
+  music_type?: MusicEntityType
   // 季 Sxx
   seasons?: string
   // 集 Exx
