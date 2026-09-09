@@ -8,6 +8,11 @@ import {
   supportsGlassNavbarLiveRefraction,
 } from '@/utils/glassNavbarRefraction'
 import { getGlassMaterialResponse } from '@/utils/glassOptics'
+import { syncGlassPanelShadow, withInstantGlassShadow } from '@/utils/glassPanelShadow'
+
+// 与仪表盘统一材质的直接卡片及单层包装选择器保持一致，业务卡片继续持有自己的投影。
+const DASHBOARD_SHADOW_SELECTOR =
+  '.dashboard-grid-content-measure > .v-card, .dashboard-grid-content-measure > :first-child > .v-card'
 
 /** 内容面和顶栏使用真实背景，磨砂侧栏复用稳定背板。 */
 type SurfaceKind = 'card' | 'navbar' | 'sidebar' | 'backplate'
@@ -45,6 +50,10 @@ interface SurfaceBinding {
   previousMarker: string | null
   /** 背景所有权在解码前发布，避免质量切换时短暂叠加 WebGL 静态背景。 */
   previousOwner: string | null
+  /** 外投影与 backdrop 分开绘制；随表面失效、离屏或卸载一并释放。 */
+  shadowLayer: HTMLElement | null
+  /** 只跟踪影响投影准入的行内变换，材质自身写入不触发重复准备。 */
+  shadowInlineTransform: string
 }
 
 const definitions = shallowRef<FilterDefinition[]>([])
@@ -94,18 +103,41 @@ function setStyle(binding: SurfaceBinding, property: string, value: string) {
       applied: value,
     })
   }
-  style.setProperty(property, value, 'important')
+  const apply = () => style.setProperty(property, value, 'important')
+  if (property === 'box-shadow' && style.getPropertyValue(property) !== value)
+    withInstantGlassShadow(binding.element, apply)
+  else apply()
   // CSSOM 可能规范化数值与空白；用浏览器实际保存值判断后续写入所有权。
   binding.styles.get(property)!.applied = style.getPropertyValue(property)
 }
 
-function release(binding: SurfaceBinding) {
-  for (const [property, record] of binding.styles) {
-    if (binding.element.style.getPropertyValue(property) !== record.applied) continue
-    if (record.previous) binding.element.style.setProperty(property, record.previous, record.priority)
-    else binding.element.style.removeProperty(property)
+/** 只回收仍由当前表面持有的声明，保留其他组件后续写入。 */
+function releaseStyle(binding: SurfaceBinding, property: string) {
+  const record = binding.styles.get(property)
+  if (!record) return
+  if (binding.element.style.getPropertyValue(property) === record.applied) {
+    const apply = () => {
+      if (record.previous) binding.element.style.setProperty(property, record.previous, record.priority)
+      else binding.element.style.removeProperty(property)
+    }
+    if (property === 'box-shadow') withInstantGlassShadow(binding.element, apply)
+    else apply()
   }
-  binding.styles.clear()
+  binding.styles.delete(property)
+}
+
+function release(binding: SurfaceBinding, preserveShadow = false) {
+  // 几何更新不重建仍然对齐的投影，使圆角过渡与卡片保持同一时间线。
+  const retained =
+    preserveShadow && binding.shadowLayer && binding.element.matches(DASHBOARD_SHADOW_SELECTOR)
+      ? syncGlassPanelShadow(binding.element, binding.shadowLayer)
+      : null
+  if (!retained) binding.shadowLayer?.remove()
+  binding.shadowLayer = retained
+  for (const property of binding.styles.keys()) {
+    if (retained && property === 'box-shadow') continue
+    releaseStyle(binding, property)
+  }
   if (binding.element.dataset.glassPanelRefraction === binding.id) {
     if (binding.previousMarker === null) binding.element.removeAttribute('data-glass-panel-refraction')
     else binding.element.setAttribute('data-glass-panel-refraction', binding.previousMarker)
@@ -267,6 +299,8 @@ function reconcileBindings() {
       styles: new Map(),
       previousMarker: element.getAttribute('data-glass-panel-refraction'),
       previousOwner: element.getAttribute('data-glass-panel-owner'),
+      shadowLayer: null,
+      shadowInlineTransform: element.style.transform,
     }
     surfaces.set(element, binding)
     changed = true
@@ -290,6 +324,14 @@ function bindFilter(binding: SurfaceBinding) {
   else if (binding.kind === 'card') {
     setStyle(binding, 'backdrop-filter', filter)
     setStyle(binding, '-webkit-backdrop-filter', filter)
+    if (binding.element.matches(DASHBOARD_SHADOW_SELECTOR))
+      binding.shadowLayer = syncGlassPanelShadow(binding.element, binding.shadowLayer)
+    else {
+      binding.shadowLayer?.remove()
+      binding.shadowLayer = null
+    }
+    if (binding.shadowLayer) setStyle(binding, 'box-shadow', 'var(--glass-v3-surface-edge)')
+    else releaseStyle(binding, 'box-shadow')
   } else setStyle(binding, '--glass-panel-filter', filter)
   binding.element.dataset.glassPanelRefraction = binding.id
 }
@@ -346,7 +388,7 @@ async function syncSurfaces() {
       continue
     }
     const key = JSON.stringify(geometry)
-    if (key !== binding.key) release(binding)
+    if (key !== binding.key) release(binding, true)
     // 同屏表面并行解码，避免每张图各等一次浏览器解码周期后才让整页接管材质。
     pending.push(
       decodedMap(geometry, key)
@@ -398,6 +440,40 @@ function scheduleSync() {
   })
 }
 
+/** 圆角不触发 ResizeObserver；过渡结束后重新核对静态滤镜和投影的几何。 */
+function handleSurfaceTransition(event: TransitionEvent) {
+  if (
+    !(event.target instanceof HTMLElement) ||
+    !event.target.matches(DASHBOARD_SHADOW_SELECTOR) ||
+    !surfaces.has(event.target)
+  )
+    return
+  if (event.propertyName === 'transform') {
+    if (getComputedStyle(event.target).transform === 'none') scheduleSync()
+  } else if (event.propertyName.endsWith('radius')) scheduleSync()
+}
+
+/** 材质自身的 style 写入不重新准备；业务变换或投影覆写则立即解除不再有效的分层。 */
+function handleSurfaceAttribute(record: MutationRecord) {
+  if (record.target === shell || record.target === document.documentElement) return true
+  if (!(record.target instanceof HTMLElement)) return false
+  const binding = surfaces.get(record.target)
+  if (binding?.kind !== 'card' || !binding.element.matches(DASHBOARD_SHADOW_SELECTOR)) return false
+  const transformChanged = record.target.style.transform !== binding.shadowInlineTransform
+  binding.shadowInlineTransform = record.target.style.transform
+  const shadowOverridden =
+    binding.shadowLayer &&
+    record.target.style.getPropertyValue('box-shadow') !== binding.styles.get('box-shadow')?.applied
+  const transformed =
+    (record.attributeName === 'class' || transformChanged) && getComputedStyle(record.target).transform !== 'none'
+  if (shadowOverridden || transformed) {
+    binding.shadowLayer?.remove()
+    binding.shadowLayer = null
+    releaseStyle(binding, 'box-shadow')
+  }
+  return !transformed && (record.attributeName === 'class' || transformChanged)
+}
+
 watch(
   settings,
   () => {
@@ -412,26 +488,30 @@ onMounted(() => {
   reducedTransparency = window.matchMedia('(prefers-reduced-transparency: reduce)')
   reducedTransparency.addEventListener('change', scheduleSync)
   observer = new MutationObserver(records => {
-    if (
-      records.some(record => {
-        if (svg.value?.contains(record.target)) return false
-        if (record.type === 'attributes') return record.target === shell || record.target === document.documentElement
-        return [...record.addedNodes, ...record.removedNodes].some(
+    let needsSync = false
+    // 每条属性记录都需检查所有权，不能因前面的变更已要求同步而跳过后续卡片。
+    for (const record of records) {
+      if (svg.value?.contains(record.target)) continue
+      if (record.type === 'attributes') {
+        if (handleSurfaceAttribute(record)) needsSync = true
+      } else if (
+        [...record.addedNodes, ...record.removedNodes].some(
           node =>
             node instanceof HTMLElement &&
             (node.matches('.v-card, .glass-fixed-shell-backplate__layer') ||
               node.querySelector('.v-card, .glass-fixed-shell-backplate__layer')),
         )
-      })
-    )
-      scheduleSync()
+      )
+        needsSync = true
+    }
+    if (needsSync) scheduleSync()
   })
   if (shell)
     observer.observe(shell, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'data-shell-mode'],
+      attributeFilter: ['class', 'style', 'data-shell-mode'],
     })
   observer.observe(document.documentElement, {
     attributes: true,
@@ -444,7 +524,7 @@ onMounted(() => {
       for (const binding of surfaces.values()) {
         const geometry = readGeometry(binding)
         if (!geometry || JSON.stringify(geometry) !== binding.key) {
-          release(binding)
+          release(binding, geometry !== null)
           changed = true
         }
       }
@@ -470,6 +550,8 @@ onMounted(() => {
     )
   }
   window.addEventListener('resize', scheduleSync, { passive: true })
+  shell?.addEventListener('transitionend', handleSurfaceTransition)
+  shell?.addEventListener('transitioncancel', handleSurfaceTransition)
   window.addEventListener('focus', scheduleSync)
   window.addEventListener('blur', suspend)
   document.addEventListener('visibilitychange', scheduleSync)
@@ -484,6 +566,8 @@ onBeforeUnmount(() => {
   intersectionObserver?.disconnect()
   reducedTransparency?.removeEventListener('change', scheduleSync)
   window.removeEventListener('resize', scheduleSync)
+  shell?.removeEventListener('transitionend', handleSurfaceTransition)
+  shell?.removeEventListener('transitioncancel', handleSurfaceTransition)
   window.removeEventListener('focus', scheduleSync)
   window.removeEventListener('blur', suspend)
   document.removeEventListener('visibilitychange', scheduleSync)
