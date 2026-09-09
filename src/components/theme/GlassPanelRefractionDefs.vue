@@ -35,6 +35,19 @@ interface CachedDisplacementMap {
   image: string | null
 }
 
+interface SurfaceStyleOwnership {
+  /** 接管前的声明，用于恢复业务样式。 */
+  previous: string
+  /** 接管前的优先级，恢复时不提升业务声明权重。 */
+  priority: string
+  /** 最近一次请求值，与 CSSOM 正规化后的结果分别保存。 */
+  requested: string
+  /** 浏览器实际保留的声明，不支持的属性可能为空。 */
+  applied: string
+  /** 浏览器实际保留的优先级，外部修改优先级也必须重新核对。 */
+  appliedPriority: string
+}
+
 interface SurfaceBinding {
   /** 表面拥有者；前景内容不进入滤镜输入。 */
   element: HTMLElement
@@ -45,7 +58,7 @@ interface SurfaceBinding {
   /** 用于检测真实几何改变的缓存键。 */
   key: string
   /** 只恢复本组件仍拥有的内联声明，避免覆盖其他运行态写入。 */
-  styles: Map<string, { previous: string; priority: string; applied: string }>
+  styles: Map<string, SurfaceStyleOwnership>
   /** 原有表面标记，解除接管时恢复。 */
   previousMarker: string | null
   /** 背景所有权在解码前发布，避免质量切换时短暂叠加 WebGL 静态背景。 */
@@ -96,19 +109,29 @@ let disposed = false
 
 function setStyle(binding: SurfaceBinding, property: string, value: string) {
   const style = binding.element.style
-  if (!binding.styles.has(property)) {
+  const currentValue = style.getPropertyValue(property)
+  const currentPriority = style.getPropertyPriority(property)
+  const record = binding.styles.get(property)
+  // 相同输入和实际声明都未变时无需重写；不能仅按上次请求值跳过业务覆写。
+  if (record?.requested === value && record.applied === currentValue && record.appliedPriority === currentPriority)
+    return
+  if (!record) {
     binding.styles.set(property, {
-      previous: style.getPropertyValue(property),
-      priority: style.getPropertyPriority(property),
-      applied: value,
+      previous: currentValue,
+      priority: currentPriority,
+      requested: value,
+      applied: currentValue,
+      appliedPriority: currentPriority,
     })
   }
   const apply = () => style.setProperty(property, value, 'important')
-  if (property === 'box-shadow' && style.getPropertyValue(property) !== value)
-    withInstantGlassShadow(binding.element, apply)
+  if (property === 'box-shadow' && currentValue !== value) withInstantGlassShadow(binding.element, apply)
   else apply()
   // CSSOM 可能规范化数值与空白；用浏览器实际保存值判断后续写入所有权。
-  binding.styles.get(property)!.applied = style.getPropertyValue(property)
+  const applied = binding.styles.get(property)!
+  applied.requested = value
+  applied.applied = style.getPropertyValue(property)
+  applied.appliedPriority = style.getPropertyPriority(property)
 }
 
 /** 只回收仍由当前表面持有的声明，保留其他组件后续写入。 */
@@ -333,7 +356,8 @@ function bindFilter(binding: SurfaceBinding) {
     if (binding.shadowLayer) setStyle(binding, 'box-shadow', 'var(--glass-v3-surface-edge)')
     else releaseStyle(binding, 'box-shadow')
   } else setStyle(binding, '--glass-panel-filter', filter)
-  binding.element.dataset.glassPanelRefraction = binding.id
+  if (binding.element.dataset.glassPanelRefraction !== binding.id)
+    binding.element.dataset.glassPanelRefraction = binding.id
 }
 
 /** 暖返回在首次绘制前恢复已解码材质，不等待同批新卡片或下一帧的冷准备。 */

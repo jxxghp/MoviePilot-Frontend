@@ -1279,6 +1279,112 @@ describe('GlassPanelRefractionDefs', () => {
     expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
   })
 
+  it('does not rewrite ready card and navigation material for same-geometry syncs', async () => {
+    resetFixture(false)
+    effectiveSettings.value.glassAppearance = 'frosted'
+    document.documentElement.dataset.glassAppearance = 'frosted'
+    const second = document.createElement('div')
+    second.className = 'v-card'
+    second.dataset.card = 'second'
+    card.parentElement!.append(second)
+    installPassingShadowGeometry()
+    mountPanel()
+    await settle()
+
+    const navbar = shell.querySelector('.layout-navbar') as HTMLElement
+    const backplate = shell.querySelector('.glass-fixed-shell-backplate__layer') as HTMLElement
+    const cardFilter = card.style.getPropertyValue('backdrop-filter')
+    const secondFilter = second.style.getPropertyValue('backdrop-filter')
+    const cardShadow = card.style.getPropertyValue('box-shadow')
+    const secondShadow = second.style.getPropertyValue('box-shadow')
+    const navbarFilter = navbar.style.getPropertyValue('--glass-panel-filter')
+    const backplateFilter = backplate.style.getPropertyValue('filter')
+    const surfaces = [card, second, navbar, backplate]
+    const markers = surfaces.map(element => element.dataset.glassPanelRefraction)
+    expect(cardFilter).toContain('url(')
+    expect(secondFilter).toContain('url(')
+    expect(navbarFilter).toContain('url(')
+    expect(backplateFilter).toContain('url(')
+    expect(markers.every(Boolean)).toBe(true)
+
+    const cardSetter = vi.spyOn(card.style, 'setProperty')
+    const secondSetter = vi.spyOn(second.style, 'setProperty')
+    const navbarSetter = vi.spyOn(navbar.style, 'setProperty')
+    const backplateSetter = vi.spyOn(backplate.style, 'setProperty')
+    const markerRecords: MutationRecord[] = []
+    const markerObserver = new MutationObserver(records => markerRecords.push(...records))
+    for (const element of surfaces)
+      markerObserver.observe(element, { attributes: true, attributeFilter: ['data-glass-panel-refraction'] })
+
+    for (let index = 0; index < 5; index += 1) {
+      if (index % 2 === 0) resize?.([], {} as ResizeObserver)
+      else shell.setAttribute('data-shell-mode', 'desktop')
+      await flushPromises()
+      await settle()
+    }
+    markerObserver.disconnect()
+
+    expect(cardSetter.mock.calls.filter(([property]) => property === 'backdrop-filter')).toHaveLength(0)
+    expect(cardSetter.mock.calls.filter(([property]) => property === '-webkit-backdrop-filter')).toHaveLength(0)
+    expect(cardSetter.mock.calls.filter(([property]) => property === 'box-shadow')).toHaveLength(0)
+    expect(secondSetter.mock.calls.filter(([property]) => property === 'backdrop-filter')).toHaveLength(0)
+    expect(secondSetter.mock.calls.filter(([property]) => property === '-webkit-backdrop-filter')).toHaveLength(0)
+    expect(secondSetter.mock.calls.filter(([property]) => property === 'box-shadow')).toHaveLength(0)
+    expect(navbarSetter.mock.calls.filter(([property]) => property === '--glass-panel-filter')).toHaveLength(0)
+    expect(backplateSetter.mock.calls.filter(([property]) => property === 'filter')).toHaveLength(0)
+    expect(markerRecords).toHaveLength(0)
+    expect(card.style.getPropertyValue('backdrop-filter')).toBe(cardFilter)
+    expect(card.style.getPropertyValue('-webkit-backdrop-filter')).toBe(cardFilter)
+    expect(card.style.getPropertyValue('box-shadow')).toBe(cardShadow)
+    expect(second.style.getPropertyValue('backdrop-filter')).toBe(secondFilter)
+    expect(second.style.getPropertyValue('-webkit-backdrop-filter')).toBe(secondFilter)
+    expect(second.style.getPropertyValue('box-shadow')).toBe(secondShadow)
+    expect(navbar.style.getPropertyValue('--glass-panel-filter')).toBe(navbarFilter)
+    expect(backplate.style.getPropertyValue('filter')).toBe(backplateFilter)
+    expect(surfaces.map(element => element.dataset.glassPanelRefraction)).toEqual(markers)
+  })
+
+  it('prepares a new card without replacing the existing card filter reference', async () => {
+    mountPanel()
+    await settle()
+    const originalFilter = card.style.getPropertyValue('backdrop-filter')
+    const originalMarker = card.dataset.glassPanelRefraction
+    const originalId = originalMarker!
+    const parent = card.parentElement!
+    const second = document.createElement('div')
+    second.className = 'v-card'
+    second.dataset.card = 'second'
+    parent.append(second)
+
+    await settle()
+
+    expect(shell.querySelector('[data-card="eligible"]')).toBe(card)
+    expect(card.style.getPropertyValue('backdrop-filter')).toBe(originalFilter)
+    expect(card.dataset.glassPanelRefraction).toBe(originalMarker)
+    expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(second.dataset.glassPanelRefraction).toBeTruthy()
+    expect(wrapper?.findAll('filter').map(filter => filter.attributes('id'))).toContain(originalId)
+  })
+
+  it('reclaims material after an external value override or priority removal', async () => {
+    mountPanel()
+    await settle()
+
+    const cardFilter = card.style.getPropertyValue('backdrop-filter')
+    const marker = card.dataset.glassPanelRefraction
+    card.style.setProperty('backdrop-filter', 'blur(2px)', 'important')
+    card.style.setProperty('-webkit-backdrop-filter', cardFilter)
+
+    resize?.([], {} as ResizeObserver)
+    await settle()
+
+    expect(card.style.getPropertyValue('backdrop-filter')).toBe(cardFilter)
+    expect(card.style.getPropertyPriority('backdrop-filter')).toBe('important')
+    expect(card.style.getPropertyValue('-webkit-backdrop-filter')).toBe(cardFilter)
+    expect(card.style.getPropertyPriority('-webkit-backdrop-filter')).toBe('important')
+    expect(card.dataset.glassPanelRefraction).toBe(marker)
+  })
+
   it.each(['balanced', 'high'] as const)(
     'keeps %s frosted navbar live while the sidebar samples its backplate',
     async quality => {
