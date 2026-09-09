@@ -69,6 +69,13 @@ interface SurfaceBinding {
   shadowInlineTransform: string
 }
 
+interface PreparedSurface {
+  /** 已完成几何准备、等待同批呈现的表面。 */
+  binding: SurfaceBinding
+  /** 已解码且对应当前几何的滤镜定义。 */
+  definition: FilterDefinition
+}
+
 const definitions = shallowRef<FilterDefinition[]>([])
 const svg = ref<SVGSVGElement | null>(null)
 const settings = useEffectiveGlassSettings()
@@ -244,8 +251,7 @@ function collectSurfaces() {
   return result
 }
 
-function readGeometry(binding: SurfaceBinding) {
-  const bounds = binding.element.getBoundingClientRect()
+function readGeometry(binding: SurfaceBinding, bounds = binding.element.getBoundingClientRect()) {
   const width = Math.round(bounds.width)
   const height = Math.round(bounds.height)
   // 极长滚动容器保留原生材质，不为少量边缘分配整张文档位移图。
@@ -360,11 +366,24 @@ function bindFilter(binding: SurfaceBinding) {
     binding.element.dataset.glassPanelRefraction = binding.id
 }
 
+/** 局部就绪时保留其他表面的 defs；全部完成后才回收不再需要的定义。 */
+async function presentSurfaces(active: PreparedSurface[], currentRevision: number, merge: boolean) {
+  if (currentRevision !== revision || !canEnhance()) return
+  if (merge) {
+    const available = new Map(definitions.value.map(definition => [definition.id, definition]))
+    for (const { definition } of active) available.set(definition.id, definition)
+    definitions.value = [...available.values()]
+  } else definitions.value = active.map(surface => surface.definition)
+  await nextTick()
+  if (currentRevision !== revision || !canEnhance()) return
+  for (const { binding } of active) bindFilter(binding)
+}
+
 /** 暖返回在首次绘制前恢复已解码材质，不等待同批新卡片或下一帧的冷准备。 */
 async function restoreCachedSurfaces() {
   if (!imageCache.size) return
   const currentRevision = revision
-  const restored: Array<{ binding: SurfaceBinding; definition: FilterDefinition }> = []
+  const restored: PreparedSurface[] = []
   for (const binding of surfaces.values()) {
     if (binding.element.dataset.glassPanelRefraction === binding.id) continue
     if (binding.kind === 'card' && intersectionObserver && !nearbyCards.has(binding.element)) continue
@@ -377,12 +396,7 @@ async function restoreCachedSurfaces() {
     restored.push({ binding, definition: { id: binding.id, width: geometry.width, height: geometry.height, image } })
   }
   if (!restored.length) return
-  const available = new Map(definitions.value.map(definition => [definition.id, definition]))
-  for (const { definition } of restored) available.set(definition.id, definition)
-  definitions.value = [...available.values()]
-  await nextTick()
-  if (currentRevision !== revision || !canEnhance()) return
-  for (const { binding } of restored) bindFilter(binding)
+  await presentSurfaces(restored, currentRevision, true)
 }
 
 async function syncSurfaces() {
@@ -400,13 +414,15 @@ async function syncSurfaces() {
     geometryAnchors.add(element)
     resizeObserver?.observe(element)
   }
-  const pending: Array<Promise<{ binding: SurfaceBinding; definition: FilterDefinition } | null>> = []
+  const pending: Array<Promise<PreparedSurface | null>> = []
+  const visiblePending: Array<Promise<PreparedSurface | null>> = []
   for (const binding of surfaces.values()) {
     if (binding.kind === 'card' && intersectionObserver && !nearbyCards.has(binding.element)) {
       release(binding)
       continue
     }
-    const geometry = readGeometry(binding)
+    const bounds = binding.element.getBoundingClientRect()
+    const geometry = readGeometry(binding, bounds)
     if (!geometry) {
       release(binding)
       continue
@@ -414,26 +430,31 @@ async function syncSurfaces() {
     const key = JSON.stringify(geometry)
     if (key !== binding.key) release(binding, true)
     // 同屏表面并行解码，避免每张图各等一次浏览器解码周期后才让整页接管材质。
-    pending.push(
-      decodedMap(geometry, key)
-        .then(image => {
-          if (currentRevision !== revision || !canEnhance()) return null
-          binding.key = key
-          return { binding, definition: { id: binding.id, width: geometry.width, height: geometry.height, image } }
-        })
-        .catch(() => {
-          if (currentRevision === revision) release(binding)
-          return null
-        }),
+    const prepared = decodedMap(geometry, key)
+      .then(image => {
+        if (currentRevision !== revision || !canEnhance()) return null
+        binding.key = key
+        return { binding, definition: { id: binding.id, width: geometry.width, height: geometry.height, image } }
+      })
+      .catch(() => {
+        if (currentRevision === revision) release(binding)
+        return null
+      })
+    pending.push(prepared)
+    if (
+      binding.kind !== 'card' ||
+      (bounds.bottom > 0 && bounds.top < window.innerHeight && bounds.right > 0 && bounds.left < window.innerWidth)
     )
+      visiblePending.push(prepared)
+  }
+  // 屏内表面同批接管；256px 预热区继续并行解码，但不能拖住已完成的首屏材质。
+  if (visiblePending.length > 0 && visiblePending.length < pending.length) {
+    const visible = (await Promise.all(visiblePending)).filter(surface => surface !== null)
+    await presentSurfaces(visible, currentRevision, true)
   }
   const active = (await Promise.all(pending)).filter(surface => surface !== null)
   // 过期失败也不能清空新一轮 defs，否则已经绑定的新表面会引用不存在的滤镜。
-  if (currentRevision !== revision || !canEnhance()) return
-  definitions.value = active.map(surface => surface.definition)
-  await nextTick()
-  if (currentRevision !== revision || !canEnhance()) return
-  for (const { binding } of active) bindFilter(binding)
+  await presentSurfaces(active, currentRevision, false)
 }
 
 function scheduleSync() {

@@ -985,6 +985,115 @@ describe('GlassPanelRefractionDefs', () => {
     expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
   })
 
+  function addPrewarmCard() {
+    const second = document.createElement('div')
+    second.className = 'v-card'
+    second.dataset.card = 'second'
+    card.parentElement!.append(second)
+    const bounds = second.getBoundingClientRect()
+    vi.spyOn(second, 'getBoundingClientRect').mockImplementation(() => ({
+      ...bounds,
+      y: window.innerHeight + 32,
+      top: window.innerHeight + 32,
+      bottom: window.innerHeight + 32 + bounds.height,
+    }))
+    return second
+  }
+
+  it('does not delay visible surfaces while a prewarm surface is still decoding', async () => {
+    const second = addPrewarmCard()
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(2)
+
+    decodePending.shift()!.resolve()
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expectNoPanelFilter(second)
+    expect(wrapper?.findAll('filter')).toHaveLength(1)
+
+    completePendingDecode()
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(wrapper?.findAll('filter')).toHaveLength(2)
+  })
+
+  it.each(['blur', 'hidden', 'css', 'detach'] as const)(
+    'does not complete a pending prewarm batch after partial presentation and %s',
+    async exit => {
+      const second = addPrewarmCard()
+      mountPanel()
+      await vi.advanceTimersByTimeAsync(16)
+      decodePending.shift()!.resolve()
+      await flushPromises()
+      expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+      expectNoPanelFilter(second)
+
+      if (exit === 'blur') {
+        focused = false
+        window.dispatchEvent(new Event('blur'))
+      } else if (exit === 'hidden') {
+        visibility = 'hidden'
+        document.dispatchEvent(new Event('visibilitychange'))
+      } else if (exit === 'css') effectiveSettings.value.glassQuality = 'css'
+      else {
+        card.remove()
+        second.remove()
+      }
+      await flushPromises()
+      completePendingDecode()
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(16)
+      expectNoPanelFilter(card)
+      expectNoPanelFilter(second)
+      expect(wrapper?.findAll('filter').some(filter => filter.attributes('width') === '600')).toBe(false)
+    },
+  )
+
+  it('keeps a partially presented batch from replacing a newer geometry', async () => {
+    const second = addPrewarmCard()
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(16)
+    decodePending.shift()!.resolve()
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+
+    panelWidth = 640
+    resize?.([], {} as ResizeObserver)
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(2)
+    decodePending.shift()!.resolve()
+    await flushPromises()
+    expectNoPanelFilter(card)
+    completePendingDecode()
+    await flushPromises()
+    const id = card.dataset.glassPanelRefraction
+    expect(id).toBeTruthy()
+    expect(wrapper?.find(`filter[id="${id}"]`).attributes('width')).toBe('640')
+    expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
+  })
+
+  it('keeps visible surfaces in one presentation batch when their decodes finish apart', async () => {
+    const second = document.createElement('div')
+    second.className = 'v-card'
+    second.dataset.card = 'second'
+    card.parentElement!.append(second)
+    mountPanel()
+    await vi.advanceTimersByTimeAsync(16)
+    expect(decodePending).toHaveLength(2)
+
+    decodePending.shift()!.resolve()
+    await flushPromises()
+    expectNoPanelFilter(card)
+    expectNoPanelFilter(second)
+
+    completePendingDecode()
+    await flushPromises()
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    expect(second.style.getPropertyValue('backdrop-filter')).toContain('url(')
+  })
+
   it('enhances site and plugin routes without requiring a dashboard', async () => {
     shell.querySelector('.dashboard-grid')!.className = 'layout-page-content'
     shell.querySelector('.dashboard-grid-content-measure')!.className = 'plugin-grid'
