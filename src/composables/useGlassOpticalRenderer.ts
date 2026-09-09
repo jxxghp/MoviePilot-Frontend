@@ -1346,6 +1346,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let contextEventCanvas: HTMLCanvasElement | null = null
   let contextRecoveryCanvas: HTMLCanvasElement | null = null
   let resizeObserver: ResizeObserver | null = null
+  // 与原生观察器同步持有目标身份，保留已有节点的首次通知与尺寸基准。
+  const observedResizeTargets = new Set<HTMLElement>()
   let surfaceMutationObserver: MutationObserver | null = null
   let observedSurfaces: HTMLElement[] = []
   let surfaceRegistry: GlassOpticalSurfaceDescriptor[] = []
@@ -1548,14 +1550,26 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
   }
 
-  /** scroll 呈现层必须跟随页面异步撑高，即使页面内没有可发现的光学表面。 */
-  function observeResizeTargets(reset = true) {
-    if (reset) resizeObserver?.disconnect()
+  /** 只增删目标，避免在尺寸回调中重注册祖先节点而产生同帧循环通知。 */
+  function observeResizeTargets() {
+    if (!resizeObserver) return
+
+    const nextTargets = new Set(observedSurfaces)
     if (presentationSpace === 'scroll') {
       const presentationRoot = options.canvas.value?.parentElement
-      if (presentationRoot) resizeObserver?.observe(presentationRoot)
+      // 根节点独立于卡片列表，空页面仍需响应异步撑高。
+      if (presentationRoot) nextTargets.add(presentationRoot)
     }
-    for (const element of observedSurfaces) resizeObserver?.observe(element)
+    for (const element of observedResizeTargets) {
+      if (nextTargets.has(element)) continue
+      resizeObserver.unobserve(element)
+      observedResizeTargets.delete(element)
+    }
+    for (const element of nextTargets) {
+      if (observedResizeTargets.has(element)) continue
+      resizeObserver.observe(element)
+      observedResizeTargets.add(element)
+    }
   }
 
   function cancelScheduledFrame() {
@@ -2249,14 +2263,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     else refreshInteractionClipGeometry()
     updateVisibleSurfaceUniforms(timestamp)
 
-    const observedSurfacesChanged =
-      nextObservedSurfaces.length !== observedSurfaces.length ||
-      nextObservedSurfaces.some((element, index) => element !== observedSurfaces[index])
-
-    if (observedSurfacesChanged) {
-      observedSurfaces = nextObservedSurfaces
-      observeResizeTargets()
-    }
+    // 空页面和恢复后的根容器也可能换绑，观察目标不能只依赖卡片成员变化。
+    observedSurfaces = nextObservedSurfaces
+    observeResizeTargets()
     if (scheduleRender) scheduleFrame()
   }
 
@@ -3481,7 +3490,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function setupObservers() {
     resizeObserver = new ResizeObserver(handleSurfaceResize)
-    observeResizeTargets(false)
+    observeResizeTargets()
     const observedMutationRoots = new Set<Node>()
 
     function observeMutationRoot(root: Node | null, subtree: boolean) {
@@ -3633,6 +3642,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     removeEvents()
     resizeObserver?.disconnect()
     resizeObserver = null
+    observedResizeTargets.clear()
     surfaceMutationObserver?.disconnect()
     surfaceMutationObserver = null
     observedSurfaces = []
