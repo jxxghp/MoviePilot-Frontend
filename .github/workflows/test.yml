@@ -11,12 +11,34 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  reuse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      reused: ${{ steps.check.outputs.reuse }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Test CI reuse decision
+        run: node --test .github/scripts/reuse.test.mjs
+
+      - name: Check completed PR validation
+        id: check
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { reuse } = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/reuse.mjs`);
+            await reuse({ github, context, core });
+
   format:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -44,6 +66,8 @@ jobs:
         run: yarn format:check --base "$BASE_SHA" --head "$HEAD_SHA"
 
   lint:
+    needs: reuse
+    if: needs.reuse.outputs.reused != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -63,10 +87,31 @@ jobs:
       - name: Lint
         run: yarn lint
 
+  typecheck:
+    needs: reuse
+    if: needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+
       - name: Typecheck
         run: yarn typecheck
 
   typecheck-and-tests:
+    needs: reuse
+    if: needs.reuse.outputs.reused != 'true'
     runs-on: ubuntu-latest
     name: Unit tests (${{ matrix.shard }})
     timeout-minutes: 20
@@ -92,3 +137,18 @@ jobs:
 
       - name: Unit tests
         run: yarn test:run --shard=${{ matrix.shard }} --silent=passed-only
+
+  proof:
+    name: CI proof (${{ github.sha }})
+    needs: [format, lint, typecheck, typecheck-and-tests]
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.format.result == 'success' &&
+      needs.lint.result == 'success' &&
+      needs.typecheck.result == 'success' &&
+      needs.typecheck-and-tests.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record complete PR validation
+        run: echo 'All PR gates passed for the tested merge commit.'

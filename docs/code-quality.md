@@ -87,13 +87,15 @@ yarn build
 
 第二阶段在 Pull Request workflow 中增加独立的全仓 `yarn lint` job：
 
-1. `lint` job 集中执行 ESLint 与 typecheck，单元测试使用独立的两分片 job，使静态检查与测试关键路径并行；本地默认并行执行两个 Vitest shard，并与 CI 共用 `yarn test:run` 入口。
+1. `lint` 与 `typecheck` job 分别执行 ESLint 和类型检查，单元测试使用独立的两分片 job，使三类门禁并行；本地默认并行执行两个 Vitest shard，并与 CI 共用 `yarn test:run` 入口。
 2. 初始阶段作为普通 check 运行，不立即配置 required check。
 3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint` / `yarn typecheck`，不执行自动修复或更新 baseline。
 4. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。
 5. 连续多个 PR 稳定通过后，再由维护者决定是否设为 required。
 
 ESLint CI 必须检查全仓受管源码，而不是只检查 PR 变更文件。已有问题通过规则选择或受控基线管理，保证新问题不能借由“只检查改动行”绕过项目约束。
+
+PR 运行全部门禁并记录实际测试的合并提交。合并 push 仅在最新成功的 PR 检查与最终代码树、目标分支基线都匹配时复用结果；直接 push、手动触发或无法确认时继续全量检查。复用规则和首次上线行为见[命令与 CI](testing.md#命令与-ci)。
 
 ## Prettier 演进：改到即格式化
 

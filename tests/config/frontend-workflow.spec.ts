@@ -13,6 +13,7 @@ describe('前端测试 workflow', () => {
     const workflow = readFileSync(workflowPath, 'utf8')
     const formatJob = workflow.match(/\n {2}format:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
     const lintJob = workflow.match(/\n {2}lint:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
+    const typecheckJob = workflow.match(/\n {2}typecheck:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
     const testJob = workflow.match(/\n {2}typecheck-and-tests:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
 
     expect(workflow).toContain('permissions:\n  contents: read')
@@ -30,7 +31,10 @@ describe('前端测试 workflow', () => {
     expect(formatJob).not.toContain('--write')
     expect(lintJob).toBeDefined()
     expect(lintJob).toContain('run: yarn lint')
-    expect(lintJob).toContain('run: yarn typecheck')
+    expect(lintJob).not.toContain('run: yarn typecheck')
+    expect(typecheckJob).toBeDefined()
+    expect(typecheckJob).toContain('run: yarn typecheck')
+    expect(typecheckJob).not.toContain('run: yarn lint')
     expect(testJob).toBeDefined()
     expect(testJob).toContain('shard:')
     expect(testJob).toContain('- 1/2')
@@ -39,6 +43,36 @@ describe('前端测试 workflow', () => {
     expect(testJob).not.toContain('run: yarn typecheck')
     expect(testJob).not.toContain('test:coverage')
     expect(workflow).not.toContain('\n  unit-tests:\n')
+  })
+
+  it('全量门禁仅依据已验证的 PR 复用结果跳过，且全部 PR 门禁成功才记录证明', () => {
+    const workflow = readFileSync(workflowPath, 'utf8')
+    const reuseJob = workflow.match(/\n {2}reuse:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
+    const proofJob = workflow.match(/\n {2}proof:\n(?<job>[\s\S]*?)(?=\n {2}[\w-]+:\n|$)/)?.groups?.job
+
+    expect(workflow).toContain('workflow_dispatch:')
+    expect(workflow).toContain('  actions: read')
+    expect(workflow).toContain('  pull-requests: read')
+    expect(reuseJob).toContain('reused: ${{ steps.check.outputs.reuse }}')
+    expect(reuseJob).toContain('run: node --test .github/scripts/reuse.test.mjs')
+    expect(reuseJob).toContain('uses: actions/github-script@v9')
+    expect(reuseJob).toContain('/.github/scripts/reuse.mjs')
+    expect(reuseJob).toContain('await reuse({ github, context, core })')
+    for (const name of ['lint', 'typecheck', 'typecheck-and-tests']) {
+      const job = workflow.match(new RegExp(`\\n {2}${name}:\\n(?<job>[\\s\\S]*?)(?=\\n {2}[\\w-]+:\\n|$)`))?.groups
+        ?.job
+
+      expect(job).toContain('needs: reuse')
+      expect(job).toContain("if: needs.reuse.outputs.reused != 'true'")
+    }
+    expect(proofJob).toContain('name: CI proof (${{ github.sha }})')
+    expect(proofJob).toContain('needs: [format, lint, typecheck, typecheck-and-tests]')
+    expect(proofJob).toContain("github.event_name == 'pull_request'")
+    for (const name of ['format', 'lint', 'typecheck', 'typecheck-and-tests']) {
+      expect(proofJob).toContain(`needs.${name}.result == 'success'`)
+    }
+    expect(proofJob).not.toContain('always()')
+    expect(proofJob).not.toContain('continue-on-error')
   })
 
   it('文档使用当前测试 job 名称和触发范围', () => {
@@ -50,8 +84,11 @@ describe('前端测试 workflow', () => {
     expect(testingGuide).toContain('传入测试文件或名称过滤条件时自动使用单进程')
     expect(testingGuide).toContain('推送到 `v3`')
     expect(testingGuide).toContain('只在 Pull Request 事件运行')
-    expect(codeQualityGuide).toContain('`lint` job 集中执行 ESLint 与 typecheck')
+    expect(codeQualityGuide).toContain('`lint` 与 `typecheck` job 分别执行 ESLint 和类型检查')
     expect(codeQualityGuide).toContain('本地默认并行执行两个 Vitest shard')
+    expect(testingGuide).toContain('代码树完全相同')
+    expect(testingGuide).toContain('直接 push、手动触发')
+    expect(testingGuide).toContain('CI proof')
     expect(testingGuide).not.toContain('`unit-tests`')
     expect(codeQualityGuide).not.toContain('`unit-tests`')
   })
