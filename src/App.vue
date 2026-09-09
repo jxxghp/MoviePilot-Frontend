@@ -285,16 +285,12 @@ const previousOpticalBackgroundImage = computed(() => {
   return getPreparedOpticalBackgroundImage(backgroundImages.value[previousIndex] ?? '')
 })
 const shouldRenderGlassOpticalLayer = computed(
-  () =>
-    isGlassTheme.value &&
-    opticalQuality.value !== 'css' &&
-    isInitialRouteReady.value &&
-    Boolean(activeBackgroundImage.value),
+  () => isGlassTheme.value && opticalQuality.value !== 'css' && Boolean(activeBackgroundImage.value),
 )
 const loadGlassOpticalLayer = () => import('@/components/theme/GlassOpticalLayer.vue')
 const GlassOpticalLayer = defineAsyncComponent(loadGlassOpticalLayer)
 
-// 玻璃光学组件与 Three 模块并行预载；实际挂载仍等待路由和壁纸，非玻璃或 CSS 档位不请求光学模块。
+// 组件与 Three 并行预载；壁纸就绪即可准备资源，实际呈现仍等待首路由，CSS 档不请求光学模块。
 watch(
   () => isGlassTheme.value && opticalQuality.value !== 'css',
   enabled => {
@@ -1120,6 +1116,7 @@ onUnmounted(() => {
     >
       <GlassOpticalLayer
         v-if="shouldRenderGlassOpticalLayer"
+        :presentation-ready="isInitialRouteReady"
         :appearance="effectiveGlassSettings.glassAppearance"
         :deformation-strength="opticalDeformationStrength"
         :dynamics-mode="effectiveGlassSettings.glassDynamicsMode"
