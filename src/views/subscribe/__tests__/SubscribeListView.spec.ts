@@ -393,6 +393,51 @@ describe('SubscribeListView loading and filtering', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('正在停止这次搜索')
   })
 
+  it('keeps batch failures folded behind the search details action', async () => {
+    await renderList({
+      batchResponse: [
+        executionBatch({
+          error: '测试站点连接失败',
+          phase: 'failed',
+          state: 'failed',
+          updated_at: new Date().toISOString(),
+        }),
+      ],
+      listResponse: [movie(1, 'Own movie')],
+    })
+    expect(await screen.findByText('搜索失败')).toBeInTheDocument()
+    expect(screen.queryByText('测试站点连接失败')).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
+    expect(await screen.findByText('查看失败详情')).toBeInTheDocument()
+    expect(screen.getByText('测试站点连接失败')).not.toBeVisible()
+    expect(screen.queryByRole('button', { name: '重新搜索' })).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])('does not carry an opened batch dialog to another batch (gap: %s)', async withGap => {
+    vi.useFakeTimers()
+    const firstBatch = executionBatch({ batch_id: 'batch-a' })
+    const nextBatch = executionBatch({ batch_id: 'batch-b', phase: 'waiting_site_budget' })
+    const batches = withGap ? [[firstBatch], [], [nextBatch]] : [[firstBatch], [nextBatch]]
+    const { unmount } = await renderList({
+      batchResponse: sequenceResponse(batches),
+      listResponse: [movie(1, 'Own movie')],
+    })
+    await flushAsync()
+    await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushAsync()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    if (withGap) {
+      await vi.advanceTimersByTimeAsync(3000)
+      await flushAsync()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: '搜索详情' })).toHaveTextContent('稍后继续')
+    unmount()
+  })
+
   it('keeps a successful subscription list visible when the batch endpoint fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const listRequested = vi.fn()

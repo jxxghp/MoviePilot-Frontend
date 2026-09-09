@@ -14,6 +14,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from '@/utils/music'
+import SubscribeExecutionDialog from '@/components/dialog/SubscribeExecutionDialog.vue'
 
 const TERMINAL_EXECUTION_VISIBLE_MS: Record<string, number> = {
   completed: 5_000,
@@ -80,6 +81,8 @@ const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDiff
 // 用户主动搜索的状态承担短暂反馈，后台自动检查不覆盖卡片长期进度。
 const visibleExecutionStatus = ref<Subscribe['execution_status'] | null>(null)
 let executionStatusTimer: ReturnType<typeof setTimeout> | undefined
+const executionDetailsOpen = ref(false)
+const searchSubmitting = ref(false)
 
 // 清理上一条终态的恢复计时器，避免卡片复用后由旧任务覆盖新状态。
 function clearExecutionStatusTimer() {
@@ -130,7 +133,7 @@ const executionStateDisplay = computed(() => {
     matching: { color: 'info', icon: 'mdi-filter-search-outline' },
     searching: { color: 'primary', icon: 'mdi-magnify-scan' },
     waiting_subscription: { color: 'warning', icon: 'mdi-timer-sync-outline' },
-    waiting_site_budget: { color: 'warning', icon: 'mdi-timer-sand' },
+    waiting_site_budget: { color: 'info', icon: 'mdi-timer-sand' },
     preparing: { color: 'primary', icon: 'mdi-package-variant-closed' },
     submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
     skipped: { color: 'secondary', icon: 'mdi-skip-next-circle-outline' },
@@ -146,12 +149,18 @@ const executionStateDisplay = computed(() => {
   return {
     ...display,
     label: t(`subscribe.execution.state.${displayState}`),
-    // 兼容旧后端残留的等待原因：恢复搜索后不再把旧提示带入 tooltip。
-    error: ['matching', 'searching', 'preparing', 'submitting', 'running'].includes(displayState)
-      ? undefined
-      : execution.error,
   }
 })
+
+// 批量选择和排序模式保留整卡原有操作，不让执行详情抢占点击。
+const canOpenExecutionDetails = computed(() => !!executionStateDisplay.value && !props.batchMode && !props.sortable)
+
+/** 从鼠标、触屏或键盘打开执行详情，阻止同时触发订阅编辑。 */
+function openExecutionDetails(event: Event) {
+  if (!canOpenExecutionDetails.value) return
+  event.stopPropagation()
+  executionDetailsOpen.value = true
+}
 
 // 判断后端数字/布尔开关是否启用
 function isEnabledFlag(value: any) {
@@ -331,10 +340,11 @@ async function removeSubscribe() {
   }
 }
 
-// 搜索订阅
+// 复用单订阅搜索入口；提交期间防止重复点击，成功后关闭详情并刷新状态。
 async function searchSubscribe() {
+  if (!props.media?.id || searchSubmitting.value) return
+  searchSubmitting.value = true
   try {
-    if (!props.media?.id) return
     const submission = await searchSubscription(props.media.id)
     const messageKey =
       submission?.queued_count === 0 && submission?.ongoing_count
@@ -345,10 +355,13 @@ async function searchSubscribe() {
     } else {
       $toast.success(t(messageKey, { name: props.media?.name }))
     }
+    executionDetailsOpen.value = false
     emit('save')
   } catch (e) {
     $toast.error(t('subscribe.requestFailed'))
     console.log(e)
+  } finally {
+    searchSubmitting.value = false
   }
 }
 
@@ -545,6 +558,14 @@ watch(
   () => props.media?.execution_status,
   execution => syncVisibleExecutionStatus(execution),
   { immediate: true },
+)
+
+// 卡片复用或换任务时关闭旧详情；同一任务的阶段更新仍实时呈现。
+watch(
+  [() => props.media?.id, () => props.media?.execution_status?.task_id, () => props.media?.execution_status?.batch_id],
+  () => {
+    executionDetailsOpen.value = false
+  },
 )
 
 onBeforeUnmount(() => clearExecutionStatusTimer())
@@ -762,30 +783,26 @@ function handleCardClick() {
                 <div class="subscribe-card-mobile-body">
                   <div class="subscribe-card-mobile-footer">
                     <div class="subscribe-card-mobile-meta">
-                      <VTooltip
-                        :text="executionStateDisplay?.error"
-                        :disabled="!executionStateDisplay?.error"
-                        location="top"
+                      <component
+                        :is="canOpenExecutionDetails ? 'button' : 'div'"
+                        :type="canOpenExecutionDetails ? 'button' : undefined"
+                        class="subscribe-card-mobile-state text-start"
+                        :style="{ color: `rgb(var(--v-theme-${compactStateDisplay.color}))` }"
+                        :title="compactStateDisplay.label"
+                        :aria-label="
+                          canOpenExecutionDetails ? t('subscribe.execution.details') : compactStateDisplay.label
+                        "
+                        @click="openExecutionDetails"
                       >
-                        <template #activator="{ props: tooltipProps }">
-                          <div
-                            v-bind="tooltipProps"
-                            class="subscribe-card-mobile-state"
-                            :style="{ color: `rgb(var(--v-theme-${compactStateDisplay.color}))` }"
-                            :title="executionStateDisplay?.error || compactStateDisplay.label"
-                            :aria-label="compactStateDisplay.label"
-                          >
-                            <VIcon
-                              :icon="compactStateDisplay.icon"
-                              :data-subscribe-state-icon="compactStateDisplay.icon"
-                              size="16"
-                            />
-                            <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
-                              {{ compactStateText }}
-                            </span>
-                          </div>
-                        </template>
-                      </VTooltip>
+                        <VIcon
+                          :icon="compactStateDisplay.icon"
+                          :data-subscribe-state-icon="compactStateDisplay.icon"
+                          size="16"
+                        />
+                        <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
+                          {{ compactStateText }}
+                        </span>
+                      </component>
 
                       <IconBtn v-if="!props.sortable" class="subscribe-card-mobile-menu" size="small" @click.stop>
                         <VIcon icon="mdi-dots-horizontal" size="18" />
@@ -904,28 +921,21 @@ function handleCardClick() {
                   </div>
                 </VCardText>
                 <!-- 右下角元数据：暂停 / 待定时替换"x 天前"为状态文案 -->
-                <VTooltip
+                <component
+                  :is="canOpenExecutionDetails ? 'button' : 'div'"
                   v-if="rightBottomStateDisplay"
-                  :text="executionStateDisplay?.error"
-                  :disabled="!executionStateDisplay?.error"
-                  location="top"
+                  :type="canOpenExecutionDetails ? 'button' : undefined"
+                  class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
+                  :style="
+                    executionStateDisplay ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` } : undefined
+                  "
+                  :title="rightBottomStateDisplay.label"
+                  :aria-label="canOpenExecutionDetails ? t('subscribe.execution.details') : undefined"
+                  @click="openExecutionDetails"
                 >
-                  <template #activator="{ props: tooltipProps }">
-                    <VCardText
-                      v-bind="tooltipProps"
-                      class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-                      :style="
-                        executionStateDisplay
-                          ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` }
-                          : undefined
-                      "
-                      :title="executionStateDisplay?.error || rightBottomStateDisplay.label"
-                    >
-                      <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
-                      {{ rightBottomStateDisplay.label }}
-                    </VCardText>
-                  </template>
-                </VTooltip>
+                  <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
+                  {{ rightBottomStateDisplay.label }}
+                </component>
                 <VCardText
                   v-else-if="lastUpdateText"
                   class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
@@ -961,6 +971,15 @@ function handleCardClick() {
         </div>
       </template>
     </VHover>
+    <SubscribeExecutionDialog
+      v-if="executionDetailsOpen && props.media?.execution_status"
+      :execution="props.media.execution_status"
+      :name="props.media.name"
+      can-retry
+      :retrying="searchSubmitting"
+      @close="executionDetailsOpen = false"
+      @retry="searchSubscribe"
+    />
   </div>
 </template>
 <style lang="scss" scoped>

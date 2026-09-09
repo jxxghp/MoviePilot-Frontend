@@ -4,6 +4,7 @@ import api from '@/api'
 import type { Subscribe, SubscriptionBatchStatus, SubscribeDeletionResult } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
+import SubscribeExecutionDialog from '@/components/dialog/SubscribeExecutionDialog.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
@@ -89,6 +90,7 @@ const dataList = ref<Subscribe[]>([])
 
 // 最近批次用于展示聚合进度；订阅级状态仍由卡片各自渲染。
 const executionBatches = ref<SubscriptionBatchStatus[]>([])
+const executionDetailsOpen = ref(false)
 let executionPollTimer: ReturnType<typeof setTimeout> | undefined
 let isUnmounted = false
 
@@ -126,6 +128,7 @@ function isRecentTerminalExecutionBatch(batch: SubscriptionBatchStatus) {
   return !Number.isFinite(updatedAt) || Date.now() - updatedAt < visibleMs
 }
 
+// 判断批次是否仍有可继续的工作，终态不被残留阶段重新激活。
 function isActiveExecutionBatch(batch: SubscriptionBatchStatus) {
   return (
     !terminalExecutionStates.has(batch.state) &&
@@ -138,13 +141,21 @@ const visibleExecutionBatch = computed(() => {
   return requestedBatches.find(isActiveExecutionBatch) || requestedBatches.find(isRecentTerminalExecutionBatch) || null
 })
 
+// 详情只属于用户打开的批次；批次消失或切换后，后续任务不能继承打开状态。
+watch(
+  () => visibleExecutionBatch.value?.batch_id,
+  () => {
+    executionDetailsOpen.value = false
+  },
+)
+
 const visibleExecutionBatchAppearance = computed(() => {
   const batch = visibleExecutionBatch.value
   if (!batch) {
     return { color: 'info', icon: 'mdi-progress-clock' }
   }
   if (isActiveExecutionBatch(batch)) {
-    if (['waiting_subscription', 'waiting_site_budget'].includes(batch.phase)) {
+    if (batch.phase === 'waiting_subscription') {
       return { color: 'warning', icon: 'mdi-timer-sand' }
     }
     return { color: 'info', icon: 'mdi-progress-clock' }
@@ -492,6 +503,7 @@ async function fetchSubscriptions(context: KeepAliveRefreshContext = {}) {
   }
 }
 
+// 记录影响进度展示的字段，批次发生变化时才刷新完整列表。
 function executionBatchSignature(batches: SubscriptionBatchStatus[]) {
   return JSON.stringify(
     batches.map(batch => [
@@ -562,6 +574,7 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
   scheduleExecutionPoll()
 }
 
+// 清理待触发轮询，防止页面隐藏或重新安排时出现重复请求。
 function clearExecutionPoll() {
   if (executionPollTimer) {
     clearTimeout(executionPollTimer)
@@ -607,6 +620,7 @@ function scheduleExecutionPoll() {
   }, 2500)
 }
 
+// 页面重新可见时即时读取最新进度，后台保持静默。
 function handleExecutionVisibilityChange() {
   if (document.hidden) {
     clearExecutionPoll()
@@ -620,6 +634,7 @@ function isCancelledRequest(error: unknown) {
   return !!error && typeof error === 'object' && 'code' in error && error.code === 'ERR_CANCELED'
 }
 
+// 只停止横幅所代表的完整批次，保留现有后端取消边界。
 async function cancelExecutionBatch() {
   const batch = visibleExecutionBatch.value
   if (!batch?.can_cancel) return
@@ -910,9 +925,14 @@ defineExpose({
       <VIcon :icon="visibleExecutionBatchAppearance.icon" size="20" />
       <div class="min-w-0 flex-grow-1">
         <div class="d-flex min-w-0 align-center justify-space-between gap-2 text-body-2 font-weight-medium">
-          <span class="text-truncate">
+          <button
+            type="button"
+            class="text-truncate text-start"
+            :aria-label="t('subscribe.execution.details')"
+            @click="executionDetailsOpen = true"
+          >
             {{ t(`subscribe.execution.state.${visibleExecutionBatchState}`) }}
-          </span>
+          </button>
           <span class="flex-shrink-0">
             {{
               t('subscribe.execution.batchProgress', {
@@ -930,8 +950,8 @@ defineExpose({
           height="3"
           class="mt-2"
         />
-        <div v-if="visibleExecutionBatch.error" class="text-caption mt-1 text-truncate">
-          {{ visibleExecutionBatch.error }}
+        <div v-if="visibleExecutionBatchState === 'waiting_site_budget'" class="text-caption mt-1">
+          {{ t('subscribe.execution.autoResume') }}
         </div>
       </div>
       <IconBtn
@@ -952,6 +972,12 @@ defineExpose({
       </IconBtn>
     </div>
   </VAlert>
+
+  <SubscribeExecutionDialog
+    v-if="executionDetailsOpen && visibleExecutionBatch"
+    :execution="visibleExecutionBatch"
+    @close="executionDetailsOpen = false"
+  />
 
   <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 mx-2 py-0 app-surface-static">
     <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">

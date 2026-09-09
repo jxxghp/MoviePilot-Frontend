@@ -353,26 +353,67 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-paused')
   })
 
-  it.each([375, 480, 1024])('shows governed execution state and safe failure detail at %ipx', async width => {
-    setViewport(width)
-    await renderCard({
-      execution_status: {
-        batch_id: 'batch-1',
-        can_cancel: true,
-        current_site_id: 9,
-        error: '站点暂时忙，系统会自动继续搜索',
-        phase: 'waiting_site_budget',
-        state: 'running',
-        updated_at: '2026-09-01T01:00:00+00:00',
-      },
-    })
+  it.each([375, 480, 1024])(
+    'opens quiet waiting details without triggering subscription editing at %ipx',
+    async width => {
+      setViewport(width)
+      await renderCard({
+        execution_status: {
+          batch_id: 'batch-1',
+          can_cancel: true,
+          current_site_id: 9,
+          error: '站点暂时忙，系统会自动继续搜索',
+          phase: 'waiting_site_budget',
+          state: 'running',
+          updated_at: '2026-09-01T01:00:00+00:00',
+        },
+      })
 
-    expect(screen.getByText('等待站点')).toBeInTheDocument()
-    const status = screen.getByTitle('站点暂时忙，系统会自动继续搜索')
-    expect(status).toBeInTheDocument()
-    await fireEvent.mouseEnter(status)
-    await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('站点暂时忙，系统会自动继续搜索'))
-  })
+      expect(screen.getByText('稍后继续')).toBeInTheDocument()
+      expect(screen.queryByTitle('站点暂时忙，系统会自动继续搜索')).not.toBeInTheDocument()
+      await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
+      expect(await screen.findByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByText('站点暂时繁忙，系统会自动继续搜索，无需重复操作。')).toBeVisible()
+      expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+      expect(screen.queryByText('站点暂时忙，系统会自动继续搜索')).not.toBeInTheDocument()
+    },
+  )
+
+  it.each(['subscription', 'task', 'batch'] as const)(
+    'keeps live details for the same task, then closes when the %s identity changes',
+    async changedIdentity => {
+      const execution = {
+        batch_id: 'batch-a',
+        can_cancel: true,
+        phase: 'waiting_site_budget',
+        source: 'manual',
+        state: 'running',
+        task_id: 'task-a',
+        updated_at: new Date().toISOString(),
+      }
+      const { media, rerender } = await renderCard({ execution_status: execution })
+      await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
+      expect(await screen.findByRole('dialog')).toHaveTextContent('稍后继续')
+
+      const resumed = { ...execution, phase: 'searching' }
+      await rerender({ media: { ...media, execution_status: resumed } })
+      expect(screen.getByRole('dialog')).toHaveTextContent('搜索中')
+
+      await rerender({
+        media: {
+          ...media,
+          id: changedIdentity === 'subscription' ? media.id + 1 : media.id,
+          execution_status: {
+            ...resumed,
+            batch_id: changedIdentity === 'batch' ? 'batch-b' : resumed.batch_id,
+            task_id: changedIdentity === 'task' ? 'task-b' : resumed.task_id,
+          },
+        },
+      })
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(screen.getByRole('button', { name: '搜索详情' })).toBeInTheDocument()
+    },
+  )
 
   it.each([375, 1024])('clears old waiting detail when search resumes at %ipx', async width => {
     setViewport(width)
@@ -464,13 +505,38 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.getByText('6 / 10')).toBeInTheDocument()
   })
 
-  it.each([480, 1024])('keeps automatic background search off the primary card state at %ipx', async width => {
+  it('retries only the failed subscription from its details', async () => {
+    const requested = vi.fn()
+    server.use(searchSubscribeByIdHandler(2501, { success: true }, 200, requested))
+    await renderCard({
+      execution_status: {
+        can_cancel: false,
+        error: '测试站点连接失败',
+        phase: 'failed',
+        source: 'manual',
+        state: 'failed',
+        updated_at: new Date().toISOString(),
+      },
+    })
+    await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '重新搜索' }))
+    await waitFor(() => expect(requested).toHaveBeenCalledOnce())
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('卡片测试媒体 已安排搜索，很快开始')
+  })
+
+  it.each([
+    [480, 'new'],
+    [1024, 'new'],
+    [480, 'fallback'],
+    [1024, 'fallback'],
+  ] as const)('keeps automatic background search off the primary card state at %ipx (%s)', async (width, source) => {
     setViewport(width)
     const { media } = await renderCard({
       execution_status: {
         can_cancel: true,
         phase: 'scheduled',
-        source: 'new',
+        source,
         state: 'scheduled',
         updated_at: new Date().toISOString(),
       },
