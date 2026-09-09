@@ -10,6 +10,7 @@ import type {
   TransferHistoryDeleteStepStatus,
 } from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
+import TransferRecoveryDialog from '@/components/dialog/TransferRecoveryDialog.vue'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -422,6 +423,7 @@ function openRedoDialog() {
     },
     {
       done: transferDone,
+      close: transferDone,
     },
     { closeOn: ['close', 'done'] },
   )
@@ -1330,20 +1332,6 @@ async function triggerBatchAiRedo() {
   }
 }
 
-// 确认用户已在下载器中人工完成任务清理，并刷新历史中的独立清理状态。
-async function resolveDownloaderCleanup(item: TransferHistory) {
-  try {
-    await api.post(`history/transfer/${item.id}/cleanup-resolved`, undefined, {
-      feedback: 'silent',
-    })
-    $toast.success(t('transferHistory.cleanupResolved'))
-    await refreshDataAfterOperation()
-  } catch (error) {
-    console.error(error)
-    $toast.error(t('transferHistory.cleanupResolveFailed'))
-  }
-}
-
 // 计算下拉菜单
 function getDropdownItems(item: TransferHistory) {
   const items = [
@@ -1388,9 +1376,9 @@ function getDropdownItems(item: TransferHistory) {
       value: 2,
       props: {
         prependIcon: 'mdi-check-circle-outline',
-        disabled: false,
+        disabled: !canManage.value,
         click: () => {
-          resolveDownloaderCleanup(item)
+          openRecoveryDialog(item)
         },
       },
     })
@@ -1570,16 +1558,36 @@ function getHistoryStorageName(storage?: string) {
   return storageDict.value[storage] || fallbackNames[storage] || storage
 }
 
-// 获取移动端卡片状态对应的主题色。
+// 桌面和移动端都通过状态入口查看原因与恢复动作。
+function openRecoveryDialog(item: TransferHistory) {
+  openSharedDialog(
+    TransferRecoveryDialog,
+    { history: item, canManage: canManage.value },
+    {
+      updated: transferDone,
+      redo: () => {
+        redoIds.value = [item.id]
+        redoTargetStorage.value = item.dest_storage
+        openRedoDialog()
+      },
+      queue: openTransferQueueDialog,
+    },
+    { closeOn: ['close', 'redo', 'queue'] },
+  )
+}
+
+// 桌面和移动端共用状态颜色，区分暂停、覆盖跳过和下载器清理告警。
 function getHistoryStatusColor(item: TransferHistory) {
-  if (item.cleanup_status === 'failed' || item.auto_paused) return 'warning'
+  if (item.cleanup_status === 'failed' || (!item.status && (item.auto_paused || item.failure_stage === 'overwrite')))
+    return 'warning'
   return item.status ? 'success' : 'error'
 }
 
-// 获取移动端卡片状态文本。
+// 桌面和移动端共用状态文本，成功记录只保留独立的下载器清理告警。
 function getHistoryStatusText(item: TransferHistory) {
   if (item.cleanup_status === 'failed') return t('transferHistory.status.cleanupFailed')
-  if (item.auto_paused) return t('transferHistory.status.paused')
+  if (!item.status && item.failure_stage === 'overwrite') return t('transferRecovery.skipped')
+  if (!item.status && item.auto_paused) return t('transferHistory.status.paused')
   return item.status ? t('transferHistory.status.success') : t('transferHistory.status.failed')
 }
 
@@ -1595,7 +1603,8 @@ function getHistoryFailureHint(item: TransferHistory) {
   const lines: string[] = []
   const configuredMaxRetries = Number(globalSettingsStore.globalSettings.TRANSFER_MAX_FAILED_RETRIES)
   const maxRetries = Number.isFinite(configuredMaxRetries) && configuredMaxRetries > 0 ? configuredMaxRetries : 3
-  if (item.failure_stage) lines.push(t('transferHistory.failureStage', { stage: getFailureStageLabel(item.failure_stage) }))
+  if (item.failure_stage)
+    lines.push(t('transferHistory.failureStage', { stage: getFailureStageLabel(item.failure_stage) }))
   if (item.errmsg) lines.push(item.errmsg)
   if (item.recovery_action) lines.push(t('transferHistory.recoveryAction', { action: item.recovery_action }))
   if (item.retry_count && item.retry_count > 0) {
@@ -2200,30 +2209,20 @@ onUnmounted(() => {
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <div class="d-flex flex-wrap ga-1">
-          <VTooltip v-if="item?.cleanup_status === 'failed'" :text="getHistoryFailureHint(item)">
-            <template #activator="{ props }">
-              <VChip v-bind="props" color="warning" size="small">
-                {{ t('transferHistory.status.cleanupFailed') }}
-              </VChip>
-            </template>
-          </VTooltip>
-          <VTooltip v-else-if="item?.auto_paused" :text="getHistoryFailureHint(item)">
-            <template #activator="{ props }">
-              <VChip v-bind="props" color="warning" size="small">
-                {{ t('transferHistory.status.paused') }}
-              </VChip>
-            </template>
-          </VTooltip>
-          <VChip v-else-if="item?.status" color="success" size="small">
-            {{ t('transferHistory.status.success') }}
-          </VChip>
-          <VTooltip v-else :text="getHistoryFailureHint(item)">
-            <template #activator="{ props }">
-              <VChip v-bind="props" color="error" size="small"> {{ t('transferHistory.status.failed') }} </VChip>
-            </template>
-          </VTooltip>
-        </div>
+        <VTooltip :text="getHistoryFailureHint(item)" :disabled="!getHistoryFailureHint(item)">
+          <template #activator="{ props }">
+            <VChip
+              v-bind="props"
+              tag="button"
+              type="button"
+              :color="getHistoryStatusColor(item)"
+              size="small"
+              @click.stop="openRecoveryDialog(item)"
+            >
+              {{ getHistoryStatusText(item) }}
+            </VChip>
+          </template>
+        </VTooltip>
       </template>
       <template #item.size="{ item }">
         <small>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</small>
@@ -2325,22 +2324,20 @@ onUnmounted(() => {
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <div class="d-flex flex-wrap ga-1">
-          <VChip v-if="item?.cleanup_status === 'failed'" color="warning" size="small">
-            {{ t('transferHistory.status.cleanupFailed') }}
-          </VChip>
-          <VChip v-else-if="item?.auto_paused" color="warning" size="small">
-            {{ t('transferHistory.status.paused') }}
-          </VChip>
-          <VChip v-else-if="item?.status" color="success" size="small">
-            {{ t('transferHistory.status.success') }}
-          </VChip>
-          <VTooltip v-else :text="getHistoryFailureHint(item)">
-            <template #activator="{ props }">
-              <VChip v-bind="props" color="error" size="small"> {{ t('transferHistory.status.failed') }} </VChip>
-            </template>
-          </VTooltip>
-        </div>
+        <VTooltip :text="getHistoryFailureHint(item)" :disabled="!getHistoryFailureHint(item)">
+          <template #activator="{ props }">
+            <VChip
+              v-bind="props"
+              tag="button"
+              type="button"
+              :color="getHistoryStatusColor(item)"
+              size="small"
+              @click.stop="openRecoveryDialog(item)"
+            >
+              {{ getHistoryStatusText(item) }}
+            </VChip>
+          </template>
+        </VTooltip>
       </template>
       <template #item.size="{ item }">
         <small>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</small>
@@ -2551,6 +2548,9 @@ onUnmounted(() => {
 
               <VChip
                 class="transfer-history-mobile-record__status"
+                tag="button"
+                type="button"
+                @click.stop="openRecoveryDialog(item)"
                 variant="tonal"
                 :color="getHistoryStatusColor(item)"
                 size="small"
@@ -2622,7 +2622,9 @@ onUnmounted(() => {
             </button>
 
             <div
-              v-if="(!item?.status || item?.auto_paused || item?.cleanup_status === 'failed') && getHistoryFailureHint(item)"
+              v-if="
+                (!item?.status || item?.auto_paused || item?.cleanup_status === 'failed') && getHistoryFailureHint(item)
+              "
               class="transfer-history-mobile-record__error"
             >
               <VIcon icon="mdi-alert-circle" size="18" />

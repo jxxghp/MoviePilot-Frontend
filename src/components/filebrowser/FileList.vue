@@ -586,6 +586,7 @@ function openTransferDialog() {
     },
     {
       done: transferDone,
+      close: transferDone,
     },
     { closeOn: ['close', 'done'] },
   )

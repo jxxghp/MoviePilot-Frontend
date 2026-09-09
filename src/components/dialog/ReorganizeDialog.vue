@@ -3,7 +3,7 @@ import CryptoJS from 'crypto-js'
 import { useToast } from 'vue-toastification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
-import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
+import { ApiRequestError, getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
 import { transferTypeOptions } from '@/api/constants'
 import { listStorageOptions, listTransferDirectories } from '@/api/storage'
 import {
@@ -12,6 +12,8 @@ import {
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
+  ManualTransferSubmissionData,
+  ManualTransferSubmissionItem,
   ManualTransferTargetPathData,
   ManualTransferTargetPathRequest,
   MediaDataSource,
@@ -21,6 +23,7 @@ import {
   TransferForm,
 } from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
@@ -153,6 +156,52 @@ const previewLoading = ref(false)
 
 // 预览面板显隐
 const previewVisible = ref(false)
+// 实际提交结果独立于预览，保留部分成功和后台接收状态供逐项核对。
+const submissionResults = ref<ManualTransferSubmissionItem[]>([])
+const submissionResultsElement = ref<HTMLElement>()
+// 需要跟进后台任务或人工复核时再加载队列弹窗。
+const SubmissionQueueDialog = defineAsyncComponent(() => import('./TransferQueueDialog.vue'))
+const hasAcceptedSubmission = computed(() =>
+  submissionResults.value.some(item =>
+    ['accepted', 'completed', 'retry_wait', 'manual_review'].includes(getSubmissionState(item)),
+  ),
+)
+
+// 从提交结果直接进入后台队列，保留当前批次明细供返回后核对。
+function openSubmissionQueue() {
+  openSharedDialog(SubmissionQueueDialog, {}, {}, { closeOn: ['close'] })
+}
+
+// 旧响应未提供状态时，只把成功请求展示为已接收，避免误报完成。
+function getSubmissionState(item: ManualTransferSubmissionItem) {
+  return item.state || (item.overwrite_skipped ? 'skipped' : item.success ? 'accepted' : 'failed')
+}
+
+// 结果颜色区分已完成、后台处理、覆盖跳过和实际失败。
+function getSubmissionColor(item: ManualTransferSubmissionItem) {
+  const state = getSubmissionState(item)
+  if (state === 'completed') return 'success'
+  if (state === 'accepted' || state === 'retry_wait') return 'info'
+  return state === 'skipped' || state === 'manual_review' ? 'warning' : 'error'
+}
+
+// 新后端阶段可先以原文展示，避免缺少翻译时泄露翻译键。
+function getSubmissionStage(stage: string) {
+  const key = `transferHistory.failureStages.${stage}`
+  return te(key) ? t(key) : stage
+}
+
+// 兼容旧后端的空 data，新后端则保留所有逐项结果。
+function collectSubmissionResults(data?: ManualTransferSubmissionData | null) {
+  if (Array.isArray(data?.items)) submissionResults.value.push(...data.items)
+}
+
+// 业务失败也可能包含已成功提交的项，不能仅用总错误覆盖整个批次。
+function collectSubmissionFailure(error: unknown) {
+  if (!(error instanceof ApiRequestError)) return
+  const payload = error.payload as { data?: ManualTransferSubmissionData } | undefined
+  collectSubmissionResults(payload?.data)
+}
 
 // 是否已加载预览
 const previewLoaded = ref(false)
@@ -1471,10 +1520,15 @@ async function togglePreview() {
 // 整理文件
 async function handleTransfer(item: FileItem, background: boolean = false) {
   try {
-    await requestManualTransfer<null>(createTransferPayload({ item }), background)
-    if (background) $toast.success(t('dialog.reorganize.successMessage', { name: item.name }))
+    const result = await requestManualTransfer<ManualTransferSubmissionData>(
+      createTransferPayload({ item }),
+      background,
+    )
+    collectSubmissionResults(result)
+    if (background && !result?.items?.length) $toast.success(t('dialog.reorganize.successMessage', { name: item.name }))
     return true
   } catch (error: unknown) {
+    collectSubmissionFailure(error)
     console.log(error)
     $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     return false
@@ -1484,10 +1538,16 @@ async function handleTransfer(item: FileItem, background: boolean = false) {
 // 批量整理文件并按后台模式决定是否提示入队成功。
 async function handleTransferBatch(items: FileItem[], background: boolean = false) {
   try {
-    await requestManualTransfer<null>(createTransferPayload({ items }), background)
-    if (background) $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
+    const result = await requestManualTransfer<ManualTransferSubmissionData>(
+      createTransferPayload({ items }),
+      background,
+    )
+    collectSubmissionResults(result)
+    if (background && !result?.items?.length)
+      $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
     return true
   } catch (error: unknown) {
+    collectSubmissionFailure(error)
     console.log(error)
     $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     return false
@@ -1497,8 +1557,12 @@ async function handleTransferBatch(items: FileItem[], background: boolean = fals
 // 将选中的整理历史作为同一个媒体批次提交。
 async function handleTransferLogs(logids: number[], background: boolean = false) {
   try {
-    await requestManualTransfer<null>(createTransferPayload({ logids }), background)
-    if (background) {
+    const result = await requestManualTransfer<ManualTransferSubmissionData>(
+      createTransferPayload({ logids }),
+      background,
+    )
+    collectSubmissionResults(result)
+    if (background && !result?.items?.length) {
       $toast.success(
         t('dialog.reorganize.successMessage', {
           name: t('dialog.reorganize.multipleItemsTitle', { count: logids.length }),
@@ -1507,6 +1571,7 @@ async function handleTransferLogs(logids: number[], background: boolean = false)
     }
     return true
   } catch (error: unknown) {
+    collectSubmissionFailure(error)
     console.log(error)
     $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     return false
@@ -1551,8 +1616,14 @@ function stopLoadingProgress() {
 
 // 整理文件
 async function transfer(background: boolean = false) {
-  if ((!props.logids?.length && !normalizedItems.value.length) || transferSubmitting.value) return
+  if (
+    (!props.logids?.length && !normalizedItems.value.length) ||
+    transferSubmitting.value ||
+    hasAcceptedSubmission.value
+  )
+    return
 
+  submissionResults.value = []
   transferSubmitting.value = true
   progressDialog.value = true
   let allSucceeded = true
@@ -1588,11 +1659,13 @@ async function transfer(background: boolean = false) {
       allSucceeded = (await handleTransferLogs(props.logids, background)) && allSucceeded
     }
 
-    if (allSucceeded) emit('done')
+    if (allSucceeded && !submissionResults.value.length) emit('done')
   } finally {
     if (!background) stopLoadingProgress()
     progressDialog.value = false
     transferSubmitting.value = false
+    await nextTick()
+    submissionResultsElement.value?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
   }
 }
 
@@ -1963,6 +2036,33 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
               </VForm>
+              <section
+                v-if="submissionResults.length"
+                ref="submissionResultsElement"
+                class="submission-results"
+                aria-live="polite"
+              >
+                <h3>{{ t('transferRecovery.batchTitle') }}</h3>
+                <VAlert type="info" variant="tonal">{{ t('transferRecovery.batchHint') }}</VAlert>
+                <VBtn variant="tonal" class="justify-self-start" @click="openSubmissionQueue">
+                  {{ t('transferRecovery.queue') }}
+                </VBtn>
+                <div v-for="(item, index) in submissionResults" :key="index" class="submission-results__item">
+                  <VChip :color="getSubmissionColor(item)" size="small">
+                    {{ t(`transferRecovery.states.${getSubmissionState(item)}`) }}
+                  </VChip>
+                  <div>{{ t('transferRecovery.source') }} {{ item.source || '-' }}</div>
+                  <div>
+                    {{ t('transferRecovery.target') }}
+                    {{ item.target || item.target_dir || t('transferRecovery.targetUnknown') }}
+                  </div>
+                  <div v-if="item.failure_stage">
+                    {{ t('transferRecovery.stage') }} {{ getSubmissionStage(item.failure_stage) }}
+                  </div>
+                  <div v-if="item.message">{{ item.message }}</div>
+                  <div v-if="item.recovery_action">{{ t('transferRecovery.next') }} {{ item.recovery_action }}</div>
+                </div>
+              </section>
             </div>
             <VCardActions class="app-dialog-actions reorganize-form-pane__actions">
               <VBtn
@@ -1983,7 +2083,7 @@ onUnmounted(() => {
                 prepend-icon="mdi-plus"
                 class="reorganize-action-btn reorganize-action-btn--queue"
                 :loading="transferSubmitting"
-                :disabled="transferSubmitting"
+                :disabled="transferSubmitting || hasAcceptedSubmission"
               >
                 {{ t('dialog.reorganize.addToQueue') }}
               </VBtn>
@@ -1995,7 +2095,7 @@ onUnmounted(() => {
                 :prepend-icon="isReorganize ? 'mdi-refresh' : 'mdi-arrow-right-bold'"
                 class="reorganize-action-btn reorganize-action-btn--primary"
                 :loading="manualHistoryLoading || transferSubmitting"
-                :disabled="transferSubmitting"
+                :disabled="transferSubmitting || hasAcceptedSubmission"
               >
                 {{ isReorganize ? t('dialog.reorganize.reorganizeAgain') : t('dialog.reorganize.reorganizeNow') }}
               </VBtn>
@@ -2236,6 +2336,25 @@ onUnmounted(() => {
 
 .reorganize-form-pane__actions {
   margin-block-start: auto;
+}
+
+.submission-results {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 1rem;
+  min-inline-size: 0;
+  margin-block-start: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.submission-results__item {
+  display: grid;
+  justify-items: start;
+  gap: 0.375rem;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding-block-start: 1rem;
+  min-inline-size: 0;
+  white-space: pre-wrap;
 }
 
 .reorganize-action-btn--active {

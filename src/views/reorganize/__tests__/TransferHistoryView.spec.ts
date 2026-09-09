@@ -160,6 +160,7 @@ const HistoryTableStub = defineComponent({
             },
             [
               item.image ? (slots['item.title']?.({ item }) ?? h('span', item.title)) : h('span', item.title),
+              slots['item.status']?.({ item }),
               slots['item.actions']?.({ item }),
             ],
           ),
@@ -331,6 +332,7 @@ const ListItemTitleStub = defineComponent({
   },
 })
 
+/** 构造可供桌面表格和移动卡片共同消费的整理历史。 */
 function createHistory(id: number, title: string, overrides: Partial<TransferHistory> = {}): TransferHistory {
   return {
     id,
@@ -379,7 +381,8 @@ function createDeferred<T>() {
   return { promise, reject, resolve }
 }
 
-async function renderHistory(initialRoute = '/history') {
+/** 用指定路由和管理权限渲染历史列表的真实交互入口。 */
+async function renderHistory(initialRoute = '/history', canManage = true) {
   return renderWithProviders(TransferHistoryView, {
     global: {
       stubs: {
@@ -407,8 +410,8 @@ async function renderHistory(initialRoute = '/history') {
         },
       },
       user: {
-        permissions: ['manage'],
-        superUser: true,
+        permissions: canManage ? ['manage'] : [],
+        superUser: canManage,
       },
     },
   })
@@ -479,6 +482,7 @@ function runDynamicAction(titleKey: string) {
   return item.action()
 }
 
+/** 读取共享弹窗边界的参数和事件，以验证页面后续刷新与导航。 */
 function getDialogCall(index = 0) {
   const [component, props, events, options] = mocks.openSharedDialog.mock.calls[index] as [
     { __name?: string; name?: string },
@@ -523,7 +527,7 @@ describe('TransferHistoryView', () => {
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
   })
 
-  it('lets users close a downloader cleanup failure after manually clearing the downloader task', async () => {
+  it('opens the confirmation dialog before marking downloader cleanup as resolved', async () => {
     const item = createHistory(7, '已入库媒体', {
       cleanup_error: '删除下载任务失败',
       cleanup_status: 'failed',
@@ -538,8 +542,69 @@ describe('TransferHistoryView', () => {
     await renderHistory('/history')
     await fireEvent.click(await screen.findByRole('button', { name: '标记下载器已清理' }))
 
-    expect(mocks.apiPost).toHaveBeenCalledWith('history/transfer/7/cleanup-resolved')
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('已确认下载器任务人工清理完成')
+    const dialog = getDialogCall()
+    expect(dialog.component.__name || dialog.component.name).toContain('TransferRecoveryDialog')
+    expect(dialog.props).toEqual({ history: expect.objectContaining(item), canManage: true })
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { desktop: true, grouped: false },
+    { desktop: true, grouped: true },
+    { desktop: false, grouped: false },
+  ])(
+    'opens paused recovery and refreshes after resolving on $desktop desktop, grouped=$grouped',
+    async ({ desktop, grouped }) => {
+      mocks.desktop = desktop
+      const item = createHistory(17, '暂停媒体', {
+        status: false,
+        auto_paused: true,
+        transfer_task_id: 'task-17',
+        failure_stage: 'destination_access',
+        errmsg: '目标目录不可写',
+        recovery_action: '检查目录权限后重试',
+        retry_count: 3,
+      })
+      let historyCalls = 0
+      mocks.apiGet.mockImplementation((path: string) => {
+        if (path === 'storage/options') return Promise.resolve(storageResponse())
+        historyCalls += 1
+        return Promise.resolve(historyResponse([item]))
+      })
+      const { container } = await renderHistory(`/history?grouped=${grouped}`)
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+
+      await fireEvent.click(await screen.findByRole('button', { name: '自动暂停' }))
+      const dialog = getDialogCall()
+      expect(dialog.component.__name || dialog.component.name).toContain('TransferRecoveryDialog')
+      expect(dialog.props).toEqual({ history: expect.objectContaining(item), canManage: true })
+      expect(dialog.options).toEqual({ closeOn: ['close', 'redo', 'queue'] })
+      if (!desktop) {
+        expect(container.querySelector('.transfer-history-mobile-record')).not.toHaveClass(
+          'transfer-history-mobile-record--selected',
+        )
+        expect(screen.getByText(/目标目录不可写/)).toHaveTextContent('检查目录权限后重试')
+      }
+      await dialog.events.updated()
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await waitFor(() => expect(historyCalls).toBe(2))
+
+      await dialog.events.redo()
+      expect(getDialogCall(1).props).toMatchObject({ logids: [17], target_storage: 'library' })
+      await dialog.events.queue()
+      expect(getDialogCall(2).component.__name || getDialogCall(2).component.name).toContain('TransferQueueDialog')
+    },
+  )
+
+  it('opens read-only recovery for users without management permission', async () => {
+    const item = createHistory(18, '只读失败', { status: false, failure_stage: 'overwrite' })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    await renderHistory('/history', false)
+    await fireEvent.click(await screen.findByRole('button', { name: '覆盖跳过' }))
+    expect(getDialogCall().props).toMatchObject({ canManage: false, history: { id: 18 } })
+    expect(mocks.apiPost).not.toHaveBeenCalled()
   })
 
   it('sends status as an explicit query while preserving the title search', async () => {

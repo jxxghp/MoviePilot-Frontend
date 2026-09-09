@@ -30,6 +30,11 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   toastWarning: vi.fn(),
+  openSharedDialog: vi.fn(),
+}))
+
+vi.mock('@/composables/useSharedDialog', () => ({
+  openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
 }))
 
 vi.mock('@/composables/useBackground', () => ({
@@ -231,6 +236,7 @@ const MediaIdSelectorStub = defineComponent({
   },
 })
 
+/** 构造可由界面提交的源文件。 */
 function createFileItem(overrides: Partial<FileItem> = {}): FileItem {
   return {
     name: 'Movie.mkv',
@@ -241,6 +247,7 @@ function createFileItem(overrides: Partial<FileItem> = {}): FileItem {
   }
 }
 
+/** 控制网络响应时机以验证重复点击保护。 */
 function createDeferred<T>() {
   let reject!: (reason?: unknown) => void
   let resolve!: (value: T) => void
@@ -252,10 +259,12 @@ function createDeferred<T>() {
 }
 
 /** 构造后端网络层使用的严格三段式响应。 */
+/** 显式构造普通 API 响应信封。 */
 function apiEnvelope<T>(data: T | null, success = true, message = ''): ApiResponse<T> {
   return { data, message, success }
 }
 
+/** 隔离初始化需要的公共配置请求。 */
 function publicSettingHandlers({
   directories = [],
   episodeRules = [],
@@ -298,6 +307,7 @@ function publicSettingHandlers({
   ]
 }
 
+/** 挂载整理弹窗并等待初始化请求完成。 */
 async function renderDialog({
   directories = [],
   episodeRules = [],
@@ -379,6 +389,7 @@ async function renderDialog({
   return { ...result, onClose, onDone }
 }
 
+/** 生成与实际执行响应独立的预览夹具。 */
 function previewResponse(
   items: Array<{
     message?: string
@@ -405,6 +416,7 @@ function previewResponse(
   }
 }
 
+/** 通过可访问标签选择表单选项。 */
 async function selectOption(label: string, index: number) {
   await fireEvent.change(screen.getByLabelText(label), { target: { value: String(index) } })
 }
@@ -1298,5 +1310,119 @@ describe('ReorganizeDialog preview', () => {
     expect(await screen.findByText('1 / 2')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '预览' }))
     expect(screen.getByRole('button', { name: '预览' })).not.toHaveClass('reorganize-action-btn--active')
+  })
+})
+
+describe('ReorganizeDialog submission results', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    initializationRequestCount = 0
+    mocks.progressControllers.length = 0
+  })
+
+  it('retains per-item execution results when only part of a batch succeeds', async () => {
+    initializationRequestCount = 0
+    const user = userEvent.setup()
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
+        HttpResponse.json(
+          apiEnvelope(
+            {
+              items: [
+                { source: '/downloads/first.mkv', success: true, state: 'accepted' },
+                {
+                  source: '/downloads/second.mkv',
+                  success: false,
+                  state: 'failed',
+                  failure_stage: 'destination_access',
+                  message: '目标目录不可写',
+                  recovery_action: '检查权限后重试',
+                },
+              ],
+            },
+            false,
+            '批次未全部成功',
+          ),
+        ),
+      ),
+    )
+    const onDone = vi.fn()
+    await renderDialog({ logids: [11, 12], onDone })
+    await user.click(screen.getByRole('button', { name: '重新整理' }))
+    expect(await screen.findByText('本次提交结果')).toBeInTheDocument()
+    expect(screen.getByText('已接收 · 等待后台处理')).toBeInTheDocument()
+    expect(screen.getByText(/\/downloads\/second.mkv/)).toBeInTheDocument()
+    expect(screen.getByText('目标目录不可写')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新整理' })).toBeDisabled()
+    expect(onDone).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['accepted', '已接收 · 等待后台处理'],
+    ['retry_wait', '后台重试中'],
+    ['manual_review', '等待人工复核'],
+    ['completed', '已完成'],
+  ])('keeps %s visible and prevents resubmitting the same request', async (state, label) => {
+    let requestCount = 0
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () => {
+        requestCount += 1
+        return HttpResponse.json(apiEnvelope({ items: [{ source: '/downloads/movie.mkv', state }] }))
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+    expect(await screen.findByText(label)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '加入整理队列' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '立即整理' }))
+    expect(requestCount).toBe(1)
+    expect(onDone).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '查看整理队列' }))
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(expect.any(Object), {}, {}, { closeOn: ['close'] })
+  })
+
+  it.each([
+    ['failed', '失败'],
+    ['skipped', '已跳过'],
+  ])('allows another attempt after all items were %s', async (state, label) => {
+    let requestCount = 0
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () => {
+        requestCount += 1
+        return HttpResponse.json(
+          apiEnvelope(
+            { items: [{ source: '/downloads/movie.mkv', state, failure_stage: 'new_stage' }] },
+            false,
+            '未完成',
+          ),
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '立即整理' }))
+    expect(await screen.findByText(label)).toBeInTheDocument()
+    expect(screen.getByText(/new_stage/)).not.toHaveTextContent('transferHistory.failureStages')
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '立即整理' }))
+    await waitFor(() => expect(requestCount).toBe(2))
+    expect(screen.getAllByText(label)).toHaveLength(1)
+  })
+
+  it('does not announce queue acceptance when the backend only skipped existing history', async () => {
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
+        HttpResponse.json(apiEnvelope({ items: [{ state: 'skipped', message: '此文件已有成功整理记录' }] })),
+      ),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+    expect(await screen.findByText('已跳过')).toBeInTheDocument()
+    expect(screen.getByText('此文件已有成功整理记录')).toBeInTheDocument()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '加入整理队列' })).toBeEnabled()
   })
 })

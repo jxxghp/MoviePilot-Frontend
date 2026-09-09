@@ -21,6 +21,7 @@ const toast = useToast()
 const display = useDisplay()
 
 const reason = ref('')
+const submitError = ref('')
 const submittingDecision = ref<TransferManualReviewDecision | null>(null)
 
 // 复核接口要求 applied 携带目标事实证据；没有目标对象时只能安全地选择重试。
@@ -62,6 +63,7 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
     return
   }
 
+  submitError.value = ''
   submittingDecision.value = decision
   const payload: {
     operation_id: string
@@ -85,7 +87,8 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
     emit('resolved', decision)
   } catch (error) {
     console.error('提交整理人工复核失败:', error)
-    toast.error(t('dialog.transferQueue.manualReviewSubmitFailed'))
+    submitError.value = error instanceof Error ? error.message : t('dialog.transferQueue.manualReviewSubmitFailed')
+    toast.error(submitError.value)
   } finally {
     submittingDecision.value = null
   }
@@ -161,6 +164,11 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
             </VExpansionPanelText>
           </VExpansionPanel>
         </VExpansionPanels>
+
+        <VAlert v-if="submitError" type="error" variant="tonal" class="manual-review-dialog__notice">
+          {{ submitError }}
+          <div>{{ t('transferRecovery.reviewFailureHint') }}</div>
+        </VAlert>
 
         <VTextarea
           v-model="reason"

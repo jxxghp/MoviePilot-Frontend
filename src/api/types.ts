@@ -354,6 +354,8 @@ export interface TransferHistory {
   download_hash?: string
   // 状态 1-成功，0-失败
   status: boolean
+  // 与历史关联的持久整理任务，用于显式解除失效绑定。
+  transfer_task_id?: string
   // 失败原因
   errmsg?: string
   // 失败阶段
@@ -2402,6 +2404,25 @@ export interface ManualTransferPreviewData {
   // 预览结果
   items: ManualTransferPreviewItem[]
   // 额外消息
+  message?: string
+}
+
+// 实际提交的单项结果；后台接收与重试不表示媒体已经入库。
+export interface ManualTransferSubmissionItem {
+  source?: string
+  target?: string
+  target_dir?: string
+  success?: boolean
+  state?: 'accepted' | 'completed' | 'failed' | 'retry_wait' | 'manual_review' | 'skipped'
+  message?: string
+  failure_stage?: string
+  recovery_action?: string
+  overwrite_skipped?: boolean
+}
+
+// 实际提交响应与预览分开，业务失败响应也可携带部分成功结果。
+export interface ManualTransferSubmissionData {
+  items: ManualTransferSubmissionItem[]
   message?: string
 }
 

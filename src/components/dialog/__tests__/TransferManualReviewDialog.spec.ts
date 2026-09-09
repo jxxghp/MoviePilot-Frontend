@@ -33,6 +33,7 @@ vi.mock('vue-toastification', () => ({
   }),
 }))
 
+/** 构造带冻结目标意图的待复核任务。 */
 function createManualReview(evidence?: Record<string, unknown>): TransferManualReviewTask {
   return {
     task_id: 'manual-review-task-1',
@@ -54,6 +55,7 @@ function createManualReview(evidence?: Record<string, unknown>): TransferManualR
   }
 }
 
+/** 隔离弹窗容器，验证用户复核操作及请求。 */
 async function renderDialog(review = createManualReview()) {
   return renderWithProviders(TransferManualReviewDialog, {
     props: { review },
@@ -138,5 +140,15 @@ describe('TransferManualReviewDialog', () => {
       },
       { feedback: 'silent' },
     )
+  })
+  it('preserves backend rejection and review notes so the user can recover', async () => {
+    const user = userEvent.setup()
+    mocks.apiPost.mockRejectedValueOnce(new Error('任务状态已变化，请刷新队列'))
+    const { emitted } = await renderDialog()
+    await user.type(screen.getByLabelText('复核说明'), '目标不存在')
+    await user.click(screen.getByRole('button', { name: '确认未完成，重新整理' }))
+    expect(await screen.findByText('任务状态已变化，请刷新队列')).toBeInTheDocument()
+    expect(screen.getByLabelText('复核说明')).toHaveValue('目标不存在')
+    expect(emitted('resolved')).toBeUndefined()
   })
 })
