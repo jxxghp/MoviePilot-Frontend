@@ -310,7 +310,8 @@ watch(
       <VCardText class="download-task-settings-dialog__content">
         <VForm ref="formRef" @submit.prevent="saveSettings">
           <section class="download-task-settings-dialog__section">
-            <div class="download-task-settings-dialog__section-title">
+            <div class="d-flex align-center text-subtitle-1 font-weight-medium mb-3">
+              <VIcon icon="mdi-speedometer" class="me-2" />
               {{ t('downloading.settings.speedAndSeeding') }}
             </div>
             <VRow>
@@ -363,7 +364,8 @@ watch(
           </section>
 
           <section class="download-task-settings-dialog__section">
-            <div class="download-task-settings-dialog__section-title">
+            <div class="d-flex align-center text-subtitle-1 font-weight-medium mb-3">
+              <VIcon icon="mdi-folder-move-outline" class="me-2" />
               {{ t('downloading.settings.locationAndCategory') }}
             </div>
             <VRow>
@@ -448,7 +450,8 @@ watch(
           </section>
 
           <section class="download-task-settings-dialog__section">
-            <div class="download-task-settings-dialog__section-title">
+            <div class="d-flex align-center text-subtitle-1 font-weight-medium mb-3">
+              <VIcon icon="mdi-tag-multiple-outline" class="me-2" />
               {{ t('downloading.settings.tagsAndTrackers') }}
             </div>
             <VRow>
@@ -526,13 +529,6 @@ watch(
 
 .download-task-settings-dialog__section + .download-task-settings-dialog__section {
   margin-block-start: 0.5rem;
-}
-
-.download-task-settings-dialog__section-title {
-  margin-block-end: 0.75rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-size: 0.875rem;
-  font-weight: 650;
 }
 
 .download-task-settings-dialog__results {

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
+import VDialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
 
 const props = defineProps<{ history: TransferHistory; canManage: boolean }>()
 const emit = defineEmits<{ close: []; updated: []; redo: []; queue: [] }>()
 const { t, te } = useI18n()
+const display = useDisplay()
 const confirmed = ref(false)
 const busy = ref(false)
 const errorMessage = ref('')
@@ -45,10 +48,18 @@ async function resolve() {
 </script>
 
 <template>
-  <VDialog scrollable max-width="42rem">
-    <VCard :title="t('transferRecovery.title')">
+  <VDialog scrollable max-width="42rem" :fullscreen="!display.mdAndUp.value">
+    <VCard>
+      <VCardItem class="pe-16">
+        <template #prepend>
+          <VIcon icon="mdi-history" />
+        </template>
+        <VCardTitle class="transfer-recovery-title">{{ t('transferRecovery.title') }}</VCardTitle>
+      </VCardItem>
+      <VDialogCloseBtn :disabled="busy" @click="emit('close')" />
+      <VDivider />
       <VCardText class="transfer-recovery-content">
-        <div>{{ history.title || `#${history.id}` }}</div>
+        <div class="text-subtitle-1 font-weight-medium">{{ history.title || `#${history.id}` }}</div>
         <div>
           <strong>{{ t('transferRecovery.source') }}</strong> {{ history.src || '-' }}
         </div>
@@ -78,7 +89,15 @@ async function resolve() {
               hide-details
               :label="t(cleanupFailed ? 'transferRecovery.cleanupConfirm' : 'transferRecovery.detachConfirm')"
             />
-            <VBtn :disabled="!confirmed || busy" :loading="busy" variant="tonal" @click="resolve">
+            <VBtn
+              class="align-self-start"
+              :disabled="!confirmed || busy"
+              :loading="busy"
+              color="warning"
+              variant="tonal"
+              :prepend-icon="cleanupFailed ? 'mdi-check' : 'mdi-link-off'"
+              @click="resolve"
+            >
               {{ t(cleanupFailed ? 'transferRecovery.resolveCleanup' : 'transferRecovery.detach') }}
             </VBtn>
           </template>
@@ -88,19 +107,34 @@ async function resolve() {
         }}</VAlert>
         <VAlert v-if="errorMessage" type="error" variant="tonal">{{ errorMessage }}</VAlert>
       </VCardText>
-      <VCardActions class="transfer-recovery-actions">
-        <VBtn :disabled="busy" @click="emit('close')">{{ t('common.close') }}</VBtn>
+      <VDivider v-if="canManage" />
+      <VCardActions v-if="canManage" class="app-dialog-actions">
+        <VBtn :disabled="busy" variant="tonal" prepend-icon="mdi-format-list-checks" @click="emit('queue')">
+          {{ t('transferRecovery.queue') }}
+        </VBtn>
         <VSpacer />
-        <VBtn v-if="canManage" :disabled="busy" @click="emit('queue')">{{ t('transferRecovery.queue') }}</VBtn>
-        <VBtn v-if="canManage && !cleanupFailed" :disabled="busy" color="primary" @click="emit('redo')">{{
-          t('transferHistory.actions.redo')
-        }}</VBtn>
+        <VBtn
+          v-if="!cleanupFailed"
+          :disabled="busy"
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-refresh"
+          class="px-5"
+          @click="emit('redo')"
+        >
+          {{ t('transferHistory.actions.redo') }}
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
 </template>
 
 <style scoped>
+.transfer-recovery-title {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .transfer-recovery-content {
   display: flex;
   flex-direction: column;
@@ -110,9 +144,6 @@ async function resolve() {
   white-space: pre-wrap;
 }
 .transfer-recovery-content > * {
-  flex-shrink: 0;
-}
-.transfer-recovery-actions {
-  flex-wrap: wrap;
+  flex: 0 0 auto;
 }
 </style>
