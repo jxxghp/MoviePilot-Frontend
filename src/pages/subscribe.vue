@@ -252,7 +252,7 @@ const searchActivator = computed(() => '[data-menu-activator="share-filter-btn"]
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
-const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value && subType !== '音乐')
+const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value)
 const showSubscribeHistoryAction = computed(() => activeTab.value === 'mysub' && canAdmin.value)
 const showShareStatisticsAction = computed(() => activeTab.value === 'share' && canSubscribe.value)
 const showSubscriptionMaintenanceAction = computed(() => activeTab.value === 'mysub' && canSubscribe.value)
@@ -262,6 +262,7 @@ const subscribeRoutePath = computed(() => {
   return '/subscribe/tv'
 })
 
+/** 按当前媒体类型打开默认订阅规则，统一桌面和 PWA 的配置入口。 */
 function openDefaultRuleDialog() {
   openSharedDialog(
     SubscribeEditDialog,

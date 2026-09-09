@@ -281,18 +281,21 @@ describe('SubscribeEditDialog', () => {
         ),
         saveDefaultSubscribeConfigHandler(type, { success: true }, 200, saved),
       )
-      useDialogOptions()
+      useDialogOptions({ sites: [createSubscribeSite({ id: 812, name: '默认订阅站点' })] })
       const user = userEvent.setup()
       const { events } = await renderDialog({ default: true, type })
       await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
       await waitFor(() => expect(screen.getByLabelText('订阅时编辑更多规则')).not.toBeChecked())
 
       await user.click(screen.getByLabelText('订阅时编辑更多规则'))
+      await user.click(screen.getByLabelText('订阅站点'))
+      await user.click(await screen.findByText('默认订阅站点'))
+      await user.keyboard('{Escape}')
 
       await fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
       await waitFor(() => expect(saved).toHaveBeenCalledOnce())
-      expect(saved.mock.calls[0][0]).toMatchObject({ show_edit_dialog: true, type })
+      expect(saved.mock.calls[0][0]).toMatchObject({ show_edit_dialog: true, sites: [812], type })
       expect(events.save).toHaveBeenCalledOnce()
       expect(mocks.toastSuccess).toHaveBeenCalledWith(`${type}订阅默认规则保存成功`)
     },

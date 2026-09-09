@@ -396,60 +396,69 @@ describe('subscribe page', () => {
     expect(unref(getDynamicButtonConfig().icon)).toBe('mdi-clipboard-edit-outline')
   })
 
-  it('exposes administrator history and default-rule actions on desktop and PWA', async () => {
-    const { unmount } = await renderSubscribe({ superUser: true })
+  it.each(['电影', '电视剧', '音乐'] as const)(
+    'exposes administrator %s history and default-rule actions on desktop and PWA',
+    async subType => {
+      const { unmount } = await renderSubscribe({ subType, superUser: true })
 
-    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(3))
-    const [maintenanceButton, historyButton, defaultRuleButton] =
-      document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
+      await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(3))
+      const [maintenanceButton, historyButton, defaultRuleButton] =
+        document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
 
+      expect(maintenanceButton.closest('[aria-label="订阅维护"]')).not.toBeNull()
+
+      await fireEvent.click(historyButton)
+      expect(getListOutput('last list command')).toHaveTextContent('open-history')
+      await fireEvent.click(defaultRuleButton)
+      expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+        expect.any(Object),
+        { default: true, type: subType },
+        {},
+        { closeOn: ['close', 'save'] },
+      )
+      unmount()
+
+      mocks.openSharedDialog.mockClear()
+      await renderSubscribe({ appMode: true, subType, superUser: true })
+      const dynamicButton = getDynamicButtonConfig()
+      expect(unref(dynamicButton.show)).toBe(true)
+      expect(unref(dynamicButton.icon)).toBe('mdi-history')
+      expect(unref(dynamicButton.menuItems)?.map(item => item.titleKey)).toEqual([
+        'dialog.subscribeHistory.title',
+        'dialog.subscribeEdit.titleDefault',
+        'subscribe.maintenance.searchAll',
+        'subscribe.maintenance.refresh',
+        'subscribe.maintenance.refreshMetadata',
+      ])
+      unref(dynamicButton.menuItems)
+        ?.find(item => item.titleKey === 'dialog.subscribeEdit.titleDefault')
+        ?.action()
+      expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+        expect.any(Object),
+        { default: true, type: subType },
+        {},
+        { closeOn: ['close', 'save'] },
+      )
+    },
+  )
+
+  it('does not expose music default rules to regular subscribers on desktop or PWA', async () => {
+    const { unmount } = await renderSubscribe({ subType: '音乐' })
+
+    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(1))
+    const [maintenanceButton] = document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
     expect(maintenanceButton.closest('[aria-label="订阅维护"]')).not.toBeNull()
-
-    await fireEvent.click(historyButton)
-    expect(getListOutput('last list command')).toHaveTextContent('open-history')
-    await fireEvent.click(defaultRuleButton)
-    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
-      expect.any(Object),
-      { default: true, type: '电影' },
-      {},
-      { closeOn: ['close', 'save'] },
-    )
-    unmount()
-
-    await renderSubscribe({ appMode: true, superUser: true })
-    const dynamicButton = getDynamicButtonConfig()
-    expect(unref(dynamicButton.show)).toBe(true)
-    expect(unref(dynamicButton.icon)).toBe('mdi-history')
-    expect(unref(dynamicButton.menuItems)?.map(item => item.titleKey)).toEqual([
-      'dialog.subscribeHistory.title',
-      'dialog.subscribeEdit.titleDefault',
-      'subscribe.maintenance.searchAll',
-      'subscribe.maintenance.refresh',
-      'subscribe.maintenance.refreshMetadata',
-    ])
-  })
-
-  it('exposes only subscription history for music on desktop and PWA', async () => {
-    const { unmount } = await renderSubscribe({ subType: '音乐', superUser: true })
-
-    await waitFor(() => expect(document.querySelectorAll('.compact-fab button')).toHaveLength(2))
-    const [maintenanceButton, historyButton] = document.querySelectorAll<HTMLButtonElement>('.compact-fab button')
-    expect(maintenanceButton.closest('[aria-label="订阅维护"]')).not.toBeNull()
-    await fireEvent.click(historyButton)
-    expect(getListOutput('last list command')).toHaveTextContent('open-history')
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
     unmount()
 
-    await renderSubscribe({ appMode: true, subType: '音乐', superUser: true })
+    await renderSubscribe({ appMode: true, subType: '音乐' })
     const dynamicButton = getDynamicButtonConfig()
     expect(unref(dynamicButton.show)).toBe(true)
-    expect(unref(dynamicButton.icon)).toBe('mdi-history')
-    expect(unref(dynamicButton.menuItems)?.map(item => item.titleKey)).toEqual([
-      'dialog.subscribeHistory.title',
-      'subscribe.maintenance.searchAll',
-      'subscribe.maintenance.refresh',
-      'subscribe.maintenance.refreshMetadata',
-    ])
+    expect(unref(dynamicButton.icon)).toBe('mdi-magnify-scan')
+    expect(unref(dynamicButton.menuItems)).toBeUndefined()
+    dynamicButton.onClick?.()
+    await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
   })
 
   it('confirms and starts an all-subscription search for a regular subscriber', async () => {
