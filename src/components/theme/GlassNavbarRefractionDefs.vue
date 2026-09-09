@@ -26,7 +26,7 @@ interface NavigationSurfaceState {
   element: HTMLElement | null
   /** 避免相同失败输入反复解码的键。 */
   failedGeometry: string
-  /** 必须全部结束后才允许激活最终几何的过渡属性。 */
+  /** 当前几何过渡；只有可连续映射的 inset 允许沿用同一位移图。 */
   geometryTransitions: Set<string>
   /** 输入改变时解除失败重试抑制的上一份几何键。 */
   lastObservedGeometry: string
@@ -63,6 +63,8 @@ const DEFAULT_SIDEBAR_GEOMETRY = {
   width: 260,
 }
 const MAP_RESIZE_SETTLE_MS = 60
+// 960px 桌面视口两侧各内收 16px 时宽比约 1.0345；更大缩放使用精确几何准备。
+const MAX_CONTINUOUS_WIDTH_RATIO = 1.035
 const OBSERVED_SIZE_STYLE_PROPERTIES = [
   '--shell-floating-navbar-radius',
   '--shell-floating-navbar-inset',
@@ -138,7 +140,32 @@ function getSurfaceState(surface: NavigationSurface) {
   return surfaceStates[surface]
 }
 
-/** 只有桌面清透/色调导航进入 SVG 位移增强；磨砂固定层沿用稳定背板或原生 CSS。 */
+function isFloatingNavbar(surface: NavigationSurface) {
+  const shell = getSurfaceState(surface).shell
+  return (
+    surface === 'navbar' &&
+    shell?.dataset.shellMode === 'desktop' &&
+    shell.classList.contains('layout-horizontal-nav-active') &&
+    shell.classList.contains('layout-navbar-floating-eligible')
+  )
+}
+
+/** 主题几何使用 px/rem；无法解析的扩展声明交还精确尺寸的原有准备路径。 */
+function readPixelLength(value: string) {
+  const match = /^(\d+(?:\.\d+)?)(px|rem)?$/u.exec(value.trim())
+  if (!match || (!match[2] && Number(match[1]) !== 0)) return null
+  const number = Number(match[1])
+  const pixels =
+    match[2] === 'rem' ? number * Number.parseFloat(getComputedStyle(document.documentElement).fontSize) : number
+  return Number.isFinite(pixels) ? pixels : null
+}
+
+function setReady(state: NavigationSurfaceState, ready: boolean) {
+  const value = String(ready)
+  if (state.shell?.getAttribute(state.readyAttribute) !== value) state.shell?.setAttribute(state.readyAttribute, value)
+}
+
+/** 清透/色调导航允许准备 SVG；水平回顶时仅预热，实际呈现仍由浮动 CSS 资格决定。 */
 function isRefractionActive(surface: NavigationSurface) {
   const { theme, glassAppearance, glassQuality } = document.documentElement.dataset
   const state = getSurfaceState(surface)
@@ -165,6 +192,7 @@ function isRefractionActive(surface: NavigationSurface) {
       (shell.dataset.shellMode === 'desktop' &&
         !shell.classList.contains('layout-horizontal-nav-active') &&
         !shell.classList.contains('layout-window-controls-overlay-shell')) ||
+      isFloatingNavbar(surface) ||
       (shell.classList.contains('layout-navbar-floating-eligible') &&
         shell.classList.contains('layout-navbar-away-from-top'))
     )
@@ -183,7 +211,7 @@ function invalidateDisplacementMap(surface: NavigationSurface) {
   const state = getSurfaceState(surface)
   state.mapRevision += 1
   state.pendingGeometry = ''
-  state.shell?.setAttribute(state.readyAttribute, 'false')
+  setReady(state, false)
 }
 
 function getInlineStyleValue(styleText: string | null, property: string) {
@@ -208,7 +236,7 @@ function handleStateMutations(records: MutationRecord[]) {
   if (records.some(hasObservedSizeStyleChange)) scheduleDisplacementMapSync()
 }
 
-/** 读取真实表面边界；圆角使用计算后的 CSS 像素，矩形侧栏明确传入 0。 */
+/** 分开读取位移图源几何与显示宽度；窄幅内收复用终点图，其余表面保持精确几何。 */
 function readDisplacementGeometry(surface: NavigationSurface) {
   const state = getSurfaceState(surface)
   if (!state.element) return null
@@ -219,7 +247,26 @@ function readDisplacementGeometry(surface: NavigationSurface) {
   const height = Math.max(1, Math.round(bounds.height))
   const width = Math.max(1, Math.round(bounds.width))
 
-  const radius = Number.isFinite(borderRadius) ? borderRadius : state.defaultGeometry.radius
+  let sourceWidth = width
+  let radius = Number.isFinite(borderRadius) ? borderRadius : state.defaultGeometry.radius
+  let continuous = false
+  if (isFloatingNavbar(surface)) {
+    const inset = readPixelLength(styles.getPropertyValue('--shell-floating-navbar-inset'))
+    const targetRadius = readPixelLength(styles.getPropertyValue('--shell-floating-navbar-radius'))
+    const viewportWidth = document.documentElement.clientWidth
+    const targetWidth = inset === null ? 0 : Math.round(viewportWidth - inset * 2)
+    // 最终图只作小幅横向拉伸；高度和位移幅度不缩放，终点使用原始精确位移图。
+    continuous =
+      targetRadius !== null &&
+      targetWidth > 0 &&
+      viewportWidth / targetWidth <= MAX_CONTINUOUS_WIDTH_RATIO &&
+      bounds.width >= targetWidth - 0.5 &&
+      bounds.width <= viewportWidth + 0.5
+    if (continuous) {
+      sourceWidth = targetWidth
+      radius = targetRadius!
+    } else if (!state.shell?.classList.contains('layout-navbar-away-from-top')) return null
+  }
   const optics =
     surface === 'sidebar'
       ? getGlassSidebarOpticalResponse({
@@ -230,18 +277,29 @@ function readDisplacementGeometry(surface: NavigationSurface) {
   return {
     height,
     radius,
-    width,
+    width: sourceWidth,
+    renderWidth: continuous ? bounds.width : width,
+    continuous,
     optics,
-    key: `${width}:${height}:${radius}:${optics.horizontalRatio}:${optics.verticalRatio}:${optics.translationPx}`,
+    key: `${sourceWidth}:${height}:${radius}:${optics.horizontalRatio}:${optics.verticalRatio}:${optics.translationPx}`,
   }
+}
+
+function hasBlockingGeometryTransition(
+  state: NavigationSurfaceState,
+  geometry: NonNullable<ReturnType<typeof readDisplacementGeometry>>,
+) {
+  return [...state.geometryTransitions].some(
+    property => !geometry.continuous || !/^(inset(?:-.+)?|top|left|right)$/u.test(property),
+  )
 }
 
 /** map 与 feImage 尺寸同批更新；解码失败或过期结果继续使用 CSS 材质。 */
 async function syncDisplacementMap(surface: NavigationSurface) {
   const state = getSurfaceState(surface)
-  if (!isRefractionActive(surface) || state.geometryTransitions.size > 0) return
+  if (!isRefractionActive(surface)) return
   const geometry = readDisplacementGeometry(surface)
-  if (!geometry || state.pendingGeometry === geometry.key) return
+  if (!geometry || hasBlockingGeometryTransition(state, geometry) || state.pendingGeometry === geometry.key) return
   const { height, radius, width, optics, key: geometryKey } = geometry
   const revision = ++state.mapRevision
   state.pendingGeometry = geometryKey
@@ -267,12 +325,21 @@ async function syncDisplacementMap(surface: NavigationSurface) {
       state.cachedMap = map
       state.failedGeometry = ''
     }
-    state.mapSize.height = height
-    state.mapSize.width = width
+    const currentGeometry = readDisplacementGeometry(surface)
+    if (
+      !currentGeometry ||
+      currentGeometry.key !== geometryKey ||
+      hasBlockingGeometryTransition(state, currentGeometry)
+    ) {
+      scheduleDisplacementMapSync()
+      return
+    }
+    state.mapSize.height = currentGeometry.height
+    state.mapSize.width = currentGeometry.renderWidth
     state.mapUrl.value = state.cachedMap
     await nextTick()
     if (revision === state.mapRevision && isRefractionActive(surface)) {
-      state.shell?.setAttribute(state.readyAttribute, 'true')
+      setReady(state, true)
     }
   } catch {
     // 位移是增强能力；图片解码失败不阻断导航和原生玻璃表面。
@@ -295,25 +362,39 @@ function scheduleDisplacementMapSync() {
   resizeTimer = null
 
   let shouldSync = false
+  let syncImmediately = false
   for (const surface of SURFACE_KEYS) {
     const state = getSurfaceState(surface)
-    if (!isRefractionActive(surface) || state.geometryTransitions.size > 0) {
+    if (!isRefractionActive(surface)) {
       if (state.element) invalidateDisplacementMap(surface)
       continue
     }
 
     const geometry = readDisplacementGeometry(surface)
-    if (!geometry || geometry.key === state.pendingGeometry) continue
+    if (!geometry) continue
+    if (hasBlockingGeometryTransition(state, geometry)) {
+      invalidateDisplacementMap(surface)
+      continue
+    }
+    // ResizeObserver 在绘制前同步采样面的尺寸，不生成或解码中间帧 PNG。
+    state.mapSize.width = geometry.renderWidth
+    state.mapSize.height = geometry.height
+    if (geometry.key === state.pendingGeometry) continue
     if (geometry.key === state.cachedGeometry && state.mapUrl.value === state.cachedMap) {
       // 取消草稿可能命中旧缓存，同时还有另一参数的解码；先使该异步结果失效。
       if (state.pendingGeometry) invalidateDisplacementMap(surface)
-      state.shell?.setAttribute(state.readyAttribute, 'true')
+      setReady(state, true)
       continue
     }
     invalidateDisplacementMap(surface)
     shouldSync = true
+    syncImmediately ||= geometry.continuous && (!state.cachedGeometry || state.geometryTransitions.size > 0)
   }
   if (!shouldSync) return
+  if (syncImmediately) {
+    syncDisplacementMaps()
+    return
+  }
 
   resizeTimer = setTimeout(() => {
     resizeTimer = null
@@ -330,7 +411,9 @@ function handleGeometryTransition(surface: NavigationSurface, event: TransitionE
     return
   if (event.type === 'transitionrun') {
     state.geometryTransitions.add(event.propertyName)
-    invalidateDisplacementMap(surface)
+    const geometry = readDisplacementGeometry(surface)
+    if (!geometry || hasBlockingGeometryTransition(state, geometry)) invalidateDisplacementMap(surface)
+    else scheduleDisplacementMapSync()
   } else {
     state.geometryTransitions.delete(event.propertyName)
     // transitionend/cancel 已给出稳定尺寸，无需再附加 resize 防抖等待。

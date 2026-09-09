@@ -153,6 +153,201 @@ describe('GlassNavbarRefractionDefs', () => {
     wrapper = mount(GlassNavbarRefractionDefs)
   }
 
+  function configureContinuousFloating(viewport = 1455, inset = '1rem', targetRadius = '16px') {
+    shell.dataset.shellMode = 'desktop'
+    const viewportSize = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(viewport)
+    vi.mocked(window.getComputedStyle).mockImplementation(
+      element =>
+        ({
+          borderStartStartRadius: element.classList.contains('layout-vertical-nav') ? '0px' : `${radius}px`,
+          fontSize: '16px',
+          getPropertyValue: (property: string) =>
+            property === '--shell-floating-navbar-inset'
+              ? inset
+              : property === '--shell-floating-navbar-radius'
+                ? targetRadius
+                : '',
+        }) as unknown as CSSStyleDeclaration,
+    )
+    return viewportSize
+  }
+
+  it('prepares the exact floating map while the horizontal navbar is still at the top', async () => {
+    configureContinuousFloating(1455, '1rem', '24px')
+    shell.classList.remove('layout-navbar-away-from-top')
+    width = 1455
+    radius = 0
+    wrapper = mount(GlassNavbarRefractionDefs)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 1423, height: 64, radius: 24 }),
+    )
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    completePendingDecode()
+    await flushPromises()
+    expectReadyForWidth(1455)
+    expect(shell.classList.contains('layout-navbar-away-from-top')).toBe(false)
+  })
+
+  it('keeps the decoded map throughout inset motion without regenerating intermediate PNGs', async () => {
+    configureContinuousFloating()
+    shell.classList.remove('layout-navbar-away-from-top')
+    width = 1455
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    const image = wrapper.get('feImage').attributes('href')
+    shell.classList.add('layout-navbar-away-from-top')
+    await flushPromises()
+    for (const property of ['top', 'left', 'right']) dispatchTransition('transitionrun', property)
+    for (const nextWidth of [1453.25, 1441.125, 1430.75, 1423]) {
+      width = nextWidth
+      resize?.([], {} as ResizeObserver)
+      await flushPromises()
+      expectReadyForWidth(nextWidth)
+      expect(wrapper.get('feImage').attributes('href')).toBe(image)
+    }
+    for (const property of ['left', 'right', 'top']) dispatchTransition('transitionend', property)
+    await flushPromises()
+    expectReadyForWidth(1423)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+
+    dispatchTransition('transitionrun', 'left')
+    width = 1455
+    shell.classList.remove('layout-navbar-away-from-top')
+    dispatchTransition('transitioncancel', 'left')
+    await flushPromises()
+    expectReadyForWidth(1455)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+  })
+
+  it('binds a cold decode to the latest animated width without discarding the final geometry map', async () => {
+    configureContinuousFloating()
+    width = 1455
+    wrapper = mount(GlassNavbarRefractionDefs)
+    dispatchTransition('transitionrun', 'left')
+    width = 1440.5
+    resize?.([], {} as ResizeObserver)
+    await flushPromises()
+    expect(decodePending).toHaveLength(1)
+    completePendingDecode()
+    await flushPromises()
+    expectReadyForWidth(1440.5)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['blur', 'hidden'] as const)(
+    'suspends continuous refraction on %s and resumes the cached map at the current width',
+    async mode => {
+      configureContinuousFloating()
+      shell.classList.remove('layout-navbar-away-from-top')
+      width = 1455
+      wrapper = mount(GlassNavbarRefractionDefs)
+      await settle()
+      shell.classList.add('layout-navbar-away-from-top')
+      dispatchTransition('transitionrun', 'left')
+      width = 1440.5
+      resize?.([], {} as ResizeObserver)
+      await flushPromises()
+      expectReadyForWidth(1440.5)
+
+      if (mode === 'blur') {
+        focused = false
+        window.dispatchEvent(new Event('blur'))
+      } else {
+        visibility = 'hidden'
+        document.dispatchEvent(new Event('visibilitychange'))
+      }
+      width = 1423
+      resize?.([], {} as ResizeObserver)
+      await flushPromises()
+      expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+      expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+
+      focused = true
+      visibility = 'visible'
+      if (mode === 'blur') window.dispatchEvent(new Event('focus'))
+      else document.dispatchEvent(new Event('visibilitychange'))
+      await flushPromises()
+      expectReadyForWidth(1423)
+      dispatchTransition('transitionend', 'left')
+      await flushPromises()
+      expectReadyForWidth(1423)
+      expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('rejects an outdated optical draft during continuous motion after the cached settings are restored', async () => {
+    configureContinuousFloating()
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    dispatchTransition('transitionrun', 'left')
+    effectiveSettings.value = { glassDeformationStrength: 80, glassTranslationStrength: 80 }
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    expect(decodePending).toHaveLength(1)
+
+    width = 1440.5
+    resize?.([], {} as ResizeObserver)
+    effectiveSettings.value = { glassDeformationStrength: 48, glassTranslationStrength: 48 }
+    await flushPromises()
+    expectReadyForWidth(1440.5)
+    completePendingDecode()
+    await flushPromises()
+    expectReadyForWidth(1440.5)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+  })
+
+  it('invalidates the authored map for a real viewport resize', async () => {
+    const viewportSize = configureContinuousFloating()
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    viewportSize.mockReturnValue(1280)
+    width = 1248
+    resize?.([], {} as ResizeObserver)
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    await settle()
+    expect(createGlassNavbarDisplacementMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 1248, height: 64, radius: 16 }),
+    )
+    expectReadyForWidth(1248)
+  })
+
+  it('rejects a completed decode when the viewport changed before its resize notification', async () => {
+    const viewportSize = configureContinuousFloating()
+    wrapper = mount(GlassNavbarRefractionDefs)
+    viewportSize.mockReturnValue(1280)
+    width = 1248
+    completePendingDecode()
+    await flushPromises()
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    await settle()
+    expectReadyForWidth(1248)
+    expect(createGlassNavbarDisplacementMap).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['calc(1rem + 2px)', '10vw', '64px'])(
+    'does not prewarm an unqualified floating geometry with inset %s',
+    async inset => {
+      configureContinuousFloating(960, inset)
+      width = 960
+      shell.classList.remove('layout-navbar-away-from-top')
+      wrapper = mount(GlassNavbarRefractionDefs)
+      await settle()
+      expect(createGlassNavbarDisplacementMap).not.toHaveBeenCalled()
+      expect(shell.dataset.glassNavbarRefractionReady).not.toBe('true')
+    },
+  )
+
+  it('still waits for a height transition instead of stretching a different surface shape', async () => {
+    configureContinuousFloating()
+    wrapper = mount(GlassNavbarRefractionDefs)
+    await settle()
+    dispatchTransition('transitionrun', 'height')
+    resize?.([], {} as ResizeObserver)
+    expect(shell.dataset.glassNavbarRefractionReady).toBe('false')
+    dispatchTransition('transitionend', 'height')
+    await flushPromises()
+    expectReadyForWidth(1423)
+  })
+
   it('enables a readable rectangular lens on the fixed desktop navbar', async () => {
     shell.className = 'layout-wrapper'
     shell.dataset.shellMode = 'desktop'

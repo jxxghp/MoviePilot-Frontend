@@ -124,6 +124,97 @@ describe('createGlassNavbarDisplacementField', () => {
     return [...field.pixels.slice(offset, offset + 4)]
   }
 
+  type DisplacementField = ReturnType<typeof createGlassNavbarDisplacementField>
+  type DisplacementPoint = [number, number]
+  type DisplacementPointReader = (x: number, y: number) => DisplacementPoint
+
+  function bilinearChannel(field: DisplacementField, x: number, y: number, channel: number) {
+    const clampedX = Math.max(0, Math.min(field.width - 1, x))
+    const clampedY = Math.max(0, Math.min(field.height - 1, y))
+    const x0 = Math.floor(clampedX)
+    const y0 = Math.floor(clampedY)
+    const x1 = Math.min(field.width - 1, x0 + 1)
+    const y1 = Math.min(field.height - 1, y0 + 1)
+    const progressX = clampedX - x0
+    const progressY = clampedY - y0
+    const top = pixelAt(field, x0, y0)[channel] * (1 - progressX) + pixelAt(field, x1, y0)[channel] * progressX
+    const bottom = pixelAt(field, x0, y1)[channel] * (1 - progressX) + pixelAt(field, x1, y1)[channel] * progressX
+
+    return top * (1 - progressY) + bottom * progressY
+  }
+
+  function directDisplacementPoint(field: DisplacementField, x: number, y: number, scale: number): DisplacementPoint {
+    const pixel = pixelAt(field, x, y)
+
+    return [x + 0.5 + scale * (pixel[0] / 255 - 0.5), y + 0.5 + scale * (pixel[2] / 255 - 0.5)]
+  }
+
+  /** 模拟 feImage preserveAspectRatio=none 在目标 CSS 尺寸中的双线性取样。 */
+  function scaledDisplacementPoint(
+    field: DisplacementField,
+    targetWidth: number,
+    targetHeight: number,
+    x: number,
+    y: number,
+    scale: number,
+  ): DisplacementPoint {
+    const mapX = (x + 0.5) * (field.width / targetWidth) - 0.5
+    const mapY = (y + 0.5) * (field.height / targetHeight) - 0.5
+
+    return [
+      x + 0.5 + scale * (bilinearChannel(field, mapX, mapY, 0) / 255 - 0.5),
+      y + 0.5 + scale * (bilinearChannel(field, mapX, mapY, 2) / 255 - 0.5),
+    ]
+  }
+
+  function displacementSamplingMetrics(width: number, height: number, readPoint: DisplacementPointReader) {
+    let minimumDeterminant = Number.POSITIVE_INFINITY
+    let minimumX = Number.POSITIVE_INFINITY
+    let minimumY = Number.POSITIVE_INFINITY
+    let maximumX = Number.NEGATIVE_INFINITY
+    let maximumY = Number.NEGATIVE_INFINITY
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const point = readPoint(x, y)
+        minimumX = Math.min(minimumX, point[0])
+        minimumY = Math.min(minimumY, point[1])
+        maximumX = Math.max(maximumX, point[0])
+        maximumY = Math.max(maximumY, point[1])
+        if (x === width - 1 || y === height - 1) continue
+
+        const nextX = readPoint(x + 1, y)
+        const nextY = readPoint(x, y + 1)
+        const determinant =
+          (nextX[0] - point[0]) * (nextY[1] - point[1]) - (nextY[0] - point[0]) * (nextX[1] - point[1])
+        minimumDeterminant = Math.min(minimumDeterminant, determinant)
+      }
+    }
+
+    return { maximumX, maximumY, minimumDeterminant, minimumX, minimumY }
+  }
+
+  function maximumPointDifference(
+    width: number,
+    height: number,
+    first: DisplacementPointReader,
+    second: DisplacementPointReader,
+  ) {
+    let maximumDifference = 0
+
+    for (let y = 0; y < height; y += 1)
+      for (let x = 0; x < width; x += 1) {
+        const firstPoint = first(x, y)
+        const secondPoint = second(x, y)
+        maximumDifference = Math.max(
+          maximumDifference,
+          Math.hypot(firstPoint[0] - secondPoint[0], firstPoint[1] - secondPoint[1]),
+        )
+      }
+
+    return maximumDifference
+  }
+
   it('keeps both contour boundary and interior neutral while bending only the narrow rim', () => {
     const field = createGlassNavbarDisplacementField({
       height: 41,
@@ -283,35 +374,67 @@ describe('createGlassNavbarDisplacementField', () => {
                 ? getGlassSidebarOpticalResponse({ deformation, translation })
                 : getGlassNavbarOpticalResponse({ deformation, translation }),
           })
-          const source = (x: number, y: number) => {
-            const pixel = pixelAt(field, x, y)
-            return [x + 0.5 + scale * (pixel[0] / 255 - 0.5), y + 0.5 + scale * (pixel[2] / 255 - 0.5)]
-          }
-          let minimumDeterminant = Number.POSITIVE_INFINITY
-          let minimumX = Number.POSITIVE_INFINITY
-          let minimumY = Number.POSITIVE_INFINITY
-          let maximumX = 0
-          let maximumY = 0
-          for (let y = 0; y < field.height; y += 1) {
-            for (let x = 0; x < field.width; x += 1) {
-              const point = source(x, y)
-              minimumX = Math.min(minimumX, point[0])
-              minimumY = Math.min(minimumY, point[1])
-              maximumX = Math.max(maximumX, point[0])
-              maximumY = Math.max(maximumY, point[1])
-              if (x === field.width - 1 || y === field.height - 1) continue
-              const nextX = source(x + 1, y)
-              const nextY = source(x, y + 1)
-              const determinant =
-                (nextX[0] - point[0]) * (nextY[1] - point[1]) - (nextY[0] - point[0]) * (nextX[1] - point[1])
-              minimumDeterminant = Math.min(minimumDeterminant, determinant)
+          const metrics = displacementSamplingMetrics(field.width, field.height, (x, y) =>
+            directDisplacementPoint(field, x, y, scale),
+          )
+          expect(metrics.minimumDeterminant).toBeGreaterThan(0.05)
+          expect(metrics.minimumX).toBeGreaterThanOrEqual(0)
+          expect(metrics.minimumY).toBeGreaterThanOrEqual(0)
+          expect(metrics.maximumX).toBeLessThanOrEqual(field.width)
+          expect(metrics.maximumY).toBeLessThanOrEqual(field.height)
+        }
+  })
+
+  it.each([
+    { finalWidth: 1423, currentWidth: 1455 },
+    { finalWidth: 928, currentWidth: 960 },
+  ])(
+    'keeps bilinearly scaled navbar sampling bounded from $finalWidth to $currentWidth',
+    ({ finalWidth, currentWidth }) => {
+      for (const radius of [8, 24])
+        for (const deformation of [0, 48, 100])
+          for (const translation of [0, 48, 100]) {
+            const field = createGlassNavbarDisplacementField({
+              width: finalWidth,
+              height: 64,
+              radius,
+              optics: getGlassNavbarOpticalResponse({ deformation, translation }),
+            })
+
+            for (const scale of [-22, -34]) {
+              const metrics = displacementSamplingMetrics(currentWidth, field.height, (x, y) =>
+                scaledDisplacementPoint(field, currentWidth, field.height, x, y, scale),
+              )
+              expect(metrics.minimumDeterminant).toBeGreaterThan(0.05)
+              expect(metrics.minimumX).toBeGreaterThanOrEqual(0)
+              expect(metrics.minimumY).toBeGreaterThanOrEqual(0)
+              expect(metrics.maximumX).toBeLessThanOrEqual(currentWidth)
+              expect(metrics.maximumY).toBeLessThanOrEqual(field.height)
             }
           }
-          expect(minimumDeterminant).toBeGreaterThan(0.05)
-          expect(minimumX).toBeGreaterThanOrEqual(0)
-          expect(minimumY).toBeGreaterThanOrEqual(0)
-          expect(maximumX).toBeLessThanOrEqual(field.width)
-          expect(maximumY).toBeLessThanOrEqual(field.height)
+    },
+  )
+
+  it.each([1423, 928])('keeps the final %s pixel endpoint exactly equivalent', finalWidth => {
+    for (const radius of [8, 24])
+      for (const deformation of [0, 48, 100])
+        for (const translation of [0, 48, 100]) {
+          const field = createGlassNavbarDisplacementField({
+            width: finalWidth,
+            height: 64,
+            radius,
+            optics: getGlassNavbarOpticalResponse({ deformation, translation }),
+          })
+
+          for (const scale of [-22, -34]) {
+            const maximumDifference = maximumPointDifference(
+              finalWidth,
+              field.height,
+              (x, y) => scaledDisplacementPoint(field, finalWidth, field.height, x, y, scale),
+              (x, y) => directDisplacementPoint(field, x, y, scale),
+            )
+            expect(maximumDifference).toBeCloseTo(0, 12)
+          }
         }
   })
 
