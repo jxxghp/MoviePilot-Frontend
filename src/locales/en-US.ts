@@ -2787,6 +2787,8 @@ export default {
       theAudioDbApiKeyHint: 'Used for music metadata and plain-lyrics fallback; 123 is the public V1 key',
       lrclibBaseUrl: 'LRCLIB Service URL',
       lrclibBaseUrlHint: 'Use the official service or a self-hosted LRCLIB-compatible instance',
+      amllBaseUrl: 'AMLL TTML Service URL',
+      amllBaseUrlHint: 'Use the AMLL TTML lyrics API or a compatible self-hosted instance; no API key is required',
       lyricsBatchTimeout: 'Lyrics Batch Budget',
       lyricsBatchTimeoutHint:
         'Maximum time for all online lyrics requests in one music scrape; 0 uses local lyrics only',

@@ -449,7 +449,8 @@ describe('AccountSettingSystem', () => {
     mockLoadedSettings()
   })
 
-  it('loads and saves the AcoustID key from advanced media settings', async () => {
+  it('loads and saves music provider settings from advanced media settings', async () => {
+    systemEnv.AMLL_BASE_URL = 'https://loaded-amll.example'
     await renderSettings()
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('system/env'))
 
@@ -460,12 +461,18 @@ describe('AccountSettingSystem', () => {
     const input = await dialog.findByLabelText('AcoustID API Key')
     expect(input).toHaveValue('b1auxfOzAg')
     await fireEvent.update(input, 'custom-acoustid-key')
+    const amllInput = await dialog.findByLabelText('AMLL TTML 服务地址')
+    expect(amllInput).toHaveValue('https://loaded-amll.example')
+    await fireEvent.update(amllInput, 'https://custom-amll.example')
     await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
 
     await waitFor(() => {
       expect(mocks.apiPost).toHaveBeenCalledWith(
         'system/env',
-        expect.objectContaining({ ACOUSTID_API_KEY: 'custom-acoustid-key' }),
+        expect.objectContaining({
+          ACOUSTID_API_KEY: 'custom-acoustid-key',
+          AMLL_BASE_URL: 'https://custom-amll.example',
+        }),
       )
     })
   })
@@ -1074,11 +1081,13 @@ describe('AccountSettingSystem', () => {
     expect(dialog.getByLabelText('音乐媒体信息转简体中文')).toBeChecked()
     expect(dialog.getByLabelText('音乐发行地区优先级')).toHaveValue(['CN', 'TW', 'HK'])
     expect(dialog.getByLabelText('音乐文字字形优先级')).toHaveValue(['Hans', 'Hant', 'Latn'])
+    expect(dialog.getByLabelText('AMLL TTML 服务地址')).toHaveValue('https://api.amll.dev')
     await fireEvent.update(dialog.getByLabelText('TMDB API服务地址'), 'api.tmdb.org')
     await fireEvent.update(dialog.getByLabelText('TMDB API Key'), 'tmdb-key')
     await fireEvent.update(dialog.getByLabelText('AcoustID API Key'), 'acoustid-key')
     await fireEvent.update(dialog.getByLabelText('TheAudioDB API Key'), 'audiodb-key')
     await fireEvent.update(dialog.getByLabelText('LRCLIB 服务地址'), 'https://lyrics.example')
+    await fireEvent.update(dialog.getByLabelText('AMLL TTML 服务地址'), 'https://amll.example')
     await fireEvent.update(dialog.getByLabelText('歌词批次查询预算'), '90')
     await fireEvent.update(dialog.getByLabelText('歌词来源最大重试等待'), '3')
     await fireEvent.update(dialog.getByLabelText('TMDB 图片服务地址'), 'image.tmdb.org')
@@ -1107,6 +1116,7 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/env')?.[1]).toEqual(
       expect.objectContaining({
         ACOUSTID_API_KEY: 'acoustid-key',
+        AMLL_BASE_URL: 'https://amll.example',
         FANART_ENABLE: true,
         FANART_LANG: 'zh,ja',
         MEDIA_RECOGNIZE_SHARE: false,

@@ -126,6 +126,7 @@ const SystemSettings = ref<any>({
     ACOUSTID_API_KEY: null,
     THEAUDIODB_API_KEY: '123',
     LRCLIB_BASE_URL: 'https://lrclib.net',
+    AMLL_BASE_URL: 'https://api.amll.dev',
     LYRICS_BATCH_TIMEOUT: 120,
     LYRICS_PROVIDER_RETRY_MAX_WAIT: 5,
     MUSIC_METADATA_TO_SIMPLIFIED: true,
@@ -2427,6 +2428,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       v-model="SystemSettings.Advanced.LRCLIB_BASE_URL"
                       :label="t('setting.system.lrclibBaseUrl')"
                       :hint="t('setting.system.lrclibBaseUrlHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-music-note-plus"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.AMLL_BASE_URL"
+                      :label="t('setting.system.amllBaseUrl')"
+                      :hint="t('setting.system.amllBaseUrlHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-music-note-plus"
                     />

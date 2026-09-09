@@ -2740,6 +2740,8 @@ export default {
       theAudioDbApiKeyHint: '用于音乐元数据和纯文本歌词兜底，默认 123 为官方公开 V1 Key',
       lrclibBaseUrl: 'LRCLIB 服务地址',
       lrclibBaseUrlHint: '可填写官方地址或兼容 LRCLIB API 的自建实例',
+      amllBaseUrl: 'AMLL TTML 服务地址',
+      amllBaseUrlHint: '可填写 AMLL TTML 歌词 API 地址或兼容的自建实例，无需 API Key',
       lyricsBatchTimeout: '歌词批次查询预算',
       lyricsBatchTimeoutHint: '单次音乐刮削用于所有在线歌词请求的最长时间，0 表示仅使用本地歌词',
       lyricsRetryMaxWait: '歌词来源最大重试等待',

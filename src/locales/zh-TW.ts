@@ -2701,6 +2701,8 @@ export default {
       theAudioDbApiKeyHint: '用於音樂媒體資訊和純文字歌詞備援，預設 123 為官方公開 V1 Key',
       lrclibBaseUrl: 'LRCLIB 服務位址',
       lrclibBaseUrlHint: '可填寫官方位址或相容 LRCLIB API 的自建執行個體',
+      amllBaseUrl: 'AMLL TTML 服務位址',
+      amllBaseUrlHint: '可填寫 AMLL TTML 歌詞 API 位址或相容的自建執行個體，無需 API Key',
       lyricsBatchTimeout: '歌詞批次查詢預算',
       lyricsBatchTimeoutHint: '單次音樂刮削用於所有線上歌詞請求的最長時間，0 表示僅使用本機歌詞',
       lyricsRetryMaxWait: '歌詞來源最大重試等待',
