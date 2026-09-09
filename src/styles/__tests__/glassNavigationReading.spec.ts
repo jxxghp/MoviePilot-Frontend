@@ -43,7 +43,22 @@ describe('glass navigation reading material', () => {
       logger: { warn: () => undefined, debug: () => undefined },
     })
     const readingRules: Record<string, string[]> = {}
+    let popupNavbarSelector = ''
     postcss.parse(compiled.css).walkRules(rule => {
+      rule.walkDecls('--glass-navbar-live-filter', declaration => {
+        if (declaration.value !== 'var(--glass-popup-filter)') return
+
+        popupNavbarSelector = rule.selector
+        expect(rule.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              prop: 'background',
+              value: 'var(--glass-sheen), var(--glass-popup-surface)',
+              important: true,
+            }),
+          ]),
+        )
+      })
       rule.walkDecls('--glass-navbar-reading-filter', declaration => {
         const selector = rule.selector.replace(/["']/gu, '').replace(/\s+/gu, ' ')
         const selectors = (readingRules[declaration.value] ??= [])
@@ -69,6 +84,7 @@ describe('glass navigation reading material', () => {
     expect(readingRules['blur(2px) brightness(92%)'][0]).not.toContain('[data-glass-navbar-style=clear]')
     expect(readingRules['blur(3px) brightness(92%)'][0]).toContain(':not([data-shell-mode=desktop])')
     expect(readingRules['blur(6px) brightness(92%)'][0]).toContain('[data-glass-navbar-style=adaptive]')
+    expect(popupNavbarSelector).not.toBe('')
 
     // 用编译后的选择器覆盖 Shell 状态与主题组合，防止移动端例外绕过共同阅读规则。
     const fixture = document.implementation.createHTMLDocument()
@@ -101,6 +117,11 @@ describe('glass navigation reading material', () => {
                   : `blur(${style === 'clear' ? clearBlur : 6}px) brightness(92%)`
 
               expect(matches.at(-1)?.[0], `${appearance}/${quality}/${style}/${mode}/${state}`).toBe(expected)
+              // 移动自适应直接消费弹层滤镜；覆盖页顶和重现状态，不影响通透、桌面或独立磨砂。
+              expect(
+                navbar.matches(popupNavbarSelector),
+                `popup material: ${appearance}/${quality}/${style}/${mode}/${state}`,
+              ).toBe(appearance !== 'frosted' && style === 'adaptive' && mode !== 'desktop')
             }
           }
         }

@@ -594,6 +594,19 @@ $-popup-hosts: (
     }
   }
 
+  // 移动自适应导航与弹层共用完整阅读材质，收起和重现时不切换采样或叠加导航亮度修正。
+  html[data-theme='glass']:where([data-glass-navbar-style='adaptive']):is(
+      [data-glass-appearance='clear'],
+      [data-glass-appearance='tinted']
+    )
+    body[data-theme='glass']
+    .layout-wrapper:is([data-shell-mode='app'], [data-shell-mode='drawer'])
+    .layout-navbar {
+    --glass-navbar-live-filter: var(--glass-popup-filter);
+
+    background: var(--glass-sheen), var(--glass-popup-surface) !important;
+  }
+
   // Frosted 顶栏只由一个表面采样；桌面读取滚动正文，移动端保留其稳定背板合同。
   html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass'] {
     .layout-wrapper[data-shell-mode].layout-navbar-fixed .layout-navbar {
@@ -659,7 +672,7 @@ $-popup-hosts: (
 
   @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
     html[data-theme='glass'][data-glass-appearance] body[data-theme='glass'] {
-      .layout-wrapper .layout-navbar,
+      .layout-wrapper[data-shell-mode] .layout-navbar,
       .layout-wrapper .layout-navbar::before,
       .footer-nav-card {
         background: rgb(31, 34, 39) !important;
