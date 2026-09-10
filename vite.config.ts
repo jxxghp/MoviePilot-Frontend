@@ -313,7 +313,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     },
     setupFiles: ['./tests/setup.ts'],
     testTimeout: 60_000,
-    maxWorkers: 2,
+    // GitHub runner 在多 worker 收尾时可能触发 Vitest onTaskUpdate RPC 超时。
+    maxWorkers: 1,
     minWorkers: 1,
     unstubGlobals: true,
     coverage: {
