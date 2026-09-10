@@ -124,10 +124,21 @@ describe('createGlassNavbarDisplacementField', () => {
     return [...field.pixels.slice(offset, offset + 4)]
   }
 
+  /** 直接读取单个像素通道，避免高密度采样为每个点创建临时数组。 */
+  function channelAt(
+    field: ReturnType<typeof createGlassNavbarDisplacementField>,
+    x: number,
+    y: number,
+    channel: number,
+  ) {
+    return field.pixels[(y * field.width + x) * 4 + channel]
+  }
+
   type DisplacementField = ReturnType<typeof createGlassNavbarDisplacementField>
   type DisplacementPoint = [number, number]
   type DisplacementPointReader = (x: number, y: number) => DisplacementPoint
 
+  /** 双线性读取位移通道，保持与浏览器缩放采样一致。 */
   function bilinearChannel(field: DisplacementField, x: number, y: number, channel: number) {
     const clampedX = Math.max(0, Math.min(field.width - 1, x))
     const clampedY = Math.max(0, Math.min(field.height - 1, y))
@@ -137,16 +148,18 @@ describe('createGlassNavbarDisplacementField', () => {
     const y1 = Math.min(field.height - 1, y0 + 1)
     const progressX = clampedX - x0
     const progressY = clampedY - y0
-    const top = pixelAt(field, x0, y0)[channel] * (1 - progressX) + pixelAt(field, x1, y0)[channel] * progressX
-    const bottom = pixelAt(field, x0, y1)[channel] * (1 - progressX) + pixelAt(field, x1, y1)[channel] * progressX
+    const top = channelAt(field, x0, y0, channel) * (1 - progressX) + channelAt(field, x1, y0, channel) * progressX
+    const bottom = channelAt(field, x0, y1, channel) * (1 - progressX) + channelAt(field, x1, y1, channel) * progressX
 
     return top * (1 - progressY) + bottom * progressY
   }
 
+  /** 读取原始位移图中的目标采样坐标。 */
   function directDisplacementPoint(field: DisplacementField, x: number, y: number, scale: number): DisplacementPoint {
-    const pixel = pixelAt(field, x, y)
-
-    return [x + 0.5 + scale * (pixel[0] / 255 - 0.5), y + 0.5 + scale * (pixel[2] / 255 - 0.5)]
+    return [
+      x + 0.5 + scale * (channelAt(field, x, y, 0) / 255 - 0.5),
+      y + 0.5 + scale * (channelAt(field, x, y, 2) / 255 - 0.5),
+    ]
   }
 
   /** 模拟 feImage preserveAspectRatio=none 在目标 CSS 尺寸中的双线性取样。 */
