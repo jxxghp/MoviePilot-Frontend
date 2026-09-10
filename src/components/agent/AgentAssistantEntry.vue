@@ -817,7 +817,7 @@ function updateFabPointerFromPoint(point: FabPointerPoint) {
   const normalizedX = clampNumber((point.clientX - centerX) / Math.max(96, viewport.width * 0.26), -1, 1)
   const normalizedY = clampNumber((point.clientY - centerY) / Math.max(72, viewport.height * 0.22), -1, 1)
 
-  fabPointerStyle.value = {
+  const nextStyle = {
     '--agent-assistant-body-x': `${(normalizedX * 0.42).toFixed(2)}px`,
     '--agent-assistant-body-y': `${(normalizedY * 0.18).toFixed(2)}px`,
     '--agent-assistant-eye-x': `${(normalizedX * 5).toFixed(2)}px`,
@@ -828,6 +828,14 @@ function updateFabPointerFromPoint(point: FabPointerPoint) {
     '--agent-assistant-pointer-y': `${(normalizedY * 3.4).toFixed(2)}px`,
     '--agent-assistant-robot-tilt': `${(normalizedX * 2.4).toFixed(2)}deg`,
   }
+  // 远处指针达到方向上限后，重复样式没有可见变化，避免再次向 DOM 提交相同变量。
+  if (
+    Object.entries(nextStyle).every(([key, value]) => fabPointerStyle.value[key as keyof typeof nextStyle] === value)
+  ) {
+    return
+  }
+
+  fabPointerStyle.value = nextStyle
 }
 
 // 使用 requestAnimationFrame 合并高频指针事件，降低全局跟随的渲染开销。

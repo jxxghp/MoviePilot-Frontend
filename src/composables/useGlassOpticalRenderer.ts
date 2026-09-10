@@ -116,7 +116,8 @@ export function prepareGlassWebGLContext(canvas: HTMLCanvasElement) {
   const context = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
-    depth: true,
+    // 所有光学 pass 都是二维覆盖，不使用深度测试，避免分配和清空默认深度缓冲。
+    depth: false,
     failIfMajorPerformanceCaveat: false,
     powerPreference: 'high-performance',
     premultipliedAlpha: true,
@@ -775,6 +776,9 @@ vec3 sampleWallpaper(vec2 uv) {
 }
 
 vec3 sampleChromatic(vec2 uv, float separation) {
+  // 无色散时三个通道采样同一坐标，复用完整颜色，避免重复执行壁纸曝光映射。
+  if (separation == 0.0) return sampleWallpaper(uv);
+
   return vec3(
     sampleWallpaper(uv + vec2(separation, 0.0)).r,
     sampleWallpaper(uv).g,
@@ -965,7 +969,8 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
     ? sampleWallpaper(sourceUv)
     : sampleChromatic(sourceUv, separation);
   float detailSeparation = separation * mix(1.45, 2.35, uQuality);
-  vec3 detailed = usesPrefilteredFrost > 0.5
+  // 静态轮廓由原生材质持有时 edge 为零，两级色散采样完全相同。
+  vec3 detailed = usesPrefilteredFrost > 0.5 || separation == 0.0
     ? refracted
     : sampleChromatic(sourceUv, detailSeparation);
   refracted = mix(refracted, detailed, mix(0.06, 0.16, uQuality) * (1.0 - frosted));
@@ -1313,6 +1318,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let lastSurfaceGeometrySignature = ''
   let lastInteractionAt = 0
   let lastInteractionFrameAt = 0
+  let lastDynamicFrameAt = Number.NEGATIVE_INFINITY
   let lastPointerAt = 0
   let lastTrailAt = Number.NEGATIVE_INFINITY
   let lastPointerX = window.innerWidth * 0.5
@@ -1999,7 +2005,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.renderer.setScissor(scissor.x, scissor.y, scissor.width, scissor.height)
       resources.renderer.setScissorTest(true)
     }
-    resources.renderer.render(resources.scene, resources.camera)
+    // 主输出已按呈现空间清屏；只在本次 draw 关闭自动清屏，离屏 pass 继续使用原策略。
+    const { renderer, scene, camera } = resources
+    const autoClear = renderer.autoClear
+    renderer.autoClear = false
+    try {
+      renderer.render(scene, camera)
+    } finally {
+      renderer.autoClear = autoClear
+    }
     renderedFrames.value += 1
   }
 
@@ -2855,6 +2869,19 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       return
     }
 
+    // Balanced 将动态模拟与合成限制在 60Hz；输入继续采集，High 保留显示器原生刷新节奏。
+    const minimumInterval = toValue(options.quality) === 'balanced' ? 1000 / 60 : 0
+    const frameElapsed = timestamp - lastDynamicFrameAt
+    if (frameElapsed < minimumInterval - 0.5) {
+      animationFrame = requestAnimationFrame(renderInteractionFrame)
+      return
+    }
+    // 保留刷新相位，避免 75/90/144Hz 下每次丢弃余量而退化到更低帧率；长间隔不补绘历史帧。
+    lastDynamicFrameAt =
+      minimumInterval > 0 && Number.isFinite(lastDynamicFrameAt)
+        ? lastDynamicFrameAt + Math.max(1, Math.floor((frameElapsed + 0.5) / minimumInterval)) * minimumInterval
+        : timestamp
+
     if (hasRippleCapability()) {
       writeSurfaceUniforms(timestamp)
       const keepAnimating = advanceRipple(timestamp)
@@ -2919,6 +2946,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     cancelScheduledFrame()
     interactionAnimating = true
     lastInteractionFrameAt = 0
+    lastDynamicFrameAt = Number.NEGATIVE_INFINITY
     animationFrame = requestAnimationFrame(renderInteractionFrame)
   }
 
@@ -3291,6 +3319,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (scrollWallpaperSamplingSuppressed) finishNativeScrollPresentation(timestamp, !hasRippleCapability())
       else renderFrame(timestamp, !hasRippleCapability())
       if (keepRippleAnimating) {
+        // 恢复帧已经推进水漾，后续动态从该帧计时，避免下一次 RAF 再立即推进。
+        lastDynamicFrameAt = timestamp
         interactionAnimating = true
         animationFrame = requestAnimationFrame(renderInteractionFrame)
       }
@@ -4180,6 +4210,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const renderer = new three.WebGLRenderer({
         alpha: true,
         antialias: false,
+        depth: false,
+        stencil: false,
         canvas,
         ...(context ? { context } : {}),
         powerPreference: 'high-performance',
