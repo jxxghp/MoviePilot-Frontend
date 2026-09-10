@@ -1600,6 +1600,8 @@ function getFailureStageLabel(stage?: string) {
 
 // 组合历史记录的阶段、原因、动作和暂停状态，供桌面 Tooltip 与移动端正文复用。
 function getHistoryFailureHint(item: TransferHistory) {
+  if (item.status && item.cleanup_status !== 'failed') return ''
+
   const lines: string[] = []
   const configuredMaxRetries = Number(globalSettingsStore.globalSettings.TRANSFER_MAX_FAILED_RETRIES)
   const maxRetries = Number.isFinite(configuredMaxRetries) && configuredMaxRetries > 0 ? configuredMaxRetries : 3

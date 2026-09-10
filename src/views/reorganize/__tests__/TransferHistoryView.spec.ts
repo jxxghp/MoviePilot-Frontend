@@ -272,6 +272,28 @@ const PassthroughStub = defineComponent({
   },
 })
 
+const TooltipStub = defineComponent({
+  name: 'VTooltip',
+  props: {
+    disabled: Boolean,
+    text: {
+      type: String,
+      default: '',
+    },
+  },
+  setup(props, { slots }) {
+    return () =>
+      h(
+        'div',
+        {
+          'data-history-tooltip': props.disabled ? 'disabled' : 'enabled',
+          'data-tooltip-text': props.text,
+        },
+        slots.activator?.({ props: {} }),
+      )
+  },
+})
+
 const IconButtonStub = defineComponent({
   name: 'IconBtn',
   inheritAttrs: false,
@@ -392,6 +414,7 @@ async function renderHistory(initialRoute = '/history', canManage = true) {
         VImg: ImageStub,
         VInfiniteScroll: InfiniteScrollStub,
         IconBtn: IconButtonStub,
+        VTooltip: TooltipStub,
         VList: PassthroughStub,
         VListItem: ListItemStub,
         VListItemTitle: ListItemTitleStub,
@@ -440,6 +463,7 @@ async function renderHistoryRoute(initialRoute = '/history', downloadingBeforeEn
         VImg: ImageStub,
         VInfiniteScroll: InfiniteScrollStub,
         IconBtn: IconButtonStub,
+        VTooltip: TooltipStub,
         VList: PassthroughStub,
         VListItem: ListItemStub,
         VListItemTitle: ListItemTitleStub,
@@ -546,6 +570,25 @@ describe('TransferHistoryView', () => {
     expect(dialog.component.__name || dialog.component.name).toContain('TransferRecoveryDialog')
     expect(dialog.props).toEqual({ history: expect.objectContaining(item), canManage: true })
     expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('does not expose failure feedback for a successful history record', async () => {
+    const item = createHistory(8, '正常成功记录')
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([item]))
+    })
+
+    const { container } = await renderHistory('/history')
+    const row = await waitFor(() => {
+      const element = container.querySelector('[data-history-id="8"]')
+      if (!element) throw new Error('历史记录尚未渲染')
+      return element
+    })
+    const tooltip = row.querySelector('[data-history-tooltip]')
+
+    expect(tooltip).toHaveAttribute('data-history-tooltip', 'disabled')
+    expect(tooltip).toHaveAttribute('data-tooltip-text', '')
   })
 
   it.each([
