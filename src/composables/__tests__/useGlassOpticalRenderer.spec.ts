@@ -308,7 +308,7 @@ describe('glass optical surface discovery', () => {
     expect(getContext).toHaveBeenCalledWith('webgl2', {
       alpha: true,
       antialias: false,
-      depth: true,
+      depth: false,
       failIfMajorPerformanceCaveat: false,
       powerPreference: 'high-performance',
       premultipliedAlpha: true,

@@ -116,7 +116,8 @@ export function prepareGlassWebGLContext(canvas: HTMLCanvasElement) {
   const context = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
-    depth: true,
+    // 所有光学 pass 都是二维覆盖，不使用深度测试，避免分配和清空默认深度缓冲。
+    depth: false,
     failIfMajorPerformanceCaveat: false,
     powerPreference: 'high-performance',
     premultipliedAlpha: true,
@@ -4201,6 +4202,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const renderer = new three.WebGLRenderer({
         alpha: true,
         antialias: false,
+        depth: false,
+        stencil: false,
         canvas,
         ...(context ? { context } : {}),
         powerPreference: 'high-performance',
