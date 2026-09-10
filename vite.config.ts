@@ -313,8 +313,9 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     },
     setupFiles: ['./tests/setup.ts'],
     testTimeout: 60_000,
-    // GitHub runner 在多 worker 收尾时可能触发 Vitest onTaskUpdate RPC 超时。
-    maxWorkers: 1,
+    // forks 在重型 spec 文件上比 threads 更快，避免 Vitest worker RPC 超时。
+    pool: 'forks',
+    maxWorkers: 2,
     minWorkers: 1,
     unstubGlobals: true,
     coverage: {

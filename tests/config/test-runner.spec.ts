@@ -26,16 +26,18 @@ describe('前端测试统一入口', () => {
     expect(packageJson.scripts['test:run']).toBe('node scripts/run-tests.mjs')
   })
 
-  it('全量测试默认拆成两个并行 shard', () => {
-    expect(planTestRuns([])).toEqual([['--shard=1/2'], ['--shard=2/2']])
+  it('全量测试默认拆成四个并行 shard', () => {
+    expect(planTestRuns([])).toEqual([['--shard=1/4'], ['--shard=2/4'], ['--shard=3/4'], ['--shard=4/4']])
     expect(planTestRuns(['--silent=passed-only'])).toEqual([
-      ['--silent=passed-only', '--shard=1/2'],
-      ['--silent=passed-only', '--shard=2/2'],
+      ['--silent=passed-only', '--shard=1/4'],
+      ['--silent=passed-only', '--shard=2/4'],
+      ['--silent=passed-only', '--shard=3/4'],
+      ['--silent=passed-only', '--shard=4/4'],
     ])
   })
 
   it('显式 shard、串行模式和聚焦过滤只启动一个 Vitest 进程', () => {
-    expect(planTestRuns(['--shard=2/2', '--silent=passed-only'])).toEqual([['--shard=2/2', '--silent=passed-only']])
+    expect(planTestRuns(['--shard=2/4', '--silent=passed-only'])).toEqual([['--shard=2/4', '--silent=passed-only']])
     expect(planTestRuns(['--serial', '--silent=passed-only'])).toEqual([['--silent=passed-only']])
     expect(planTestRuns(['tests/config/frontend-workflow.spec.ts'])).toEqual([
       ['tests/config/frontend-workflow.spec.ts'],

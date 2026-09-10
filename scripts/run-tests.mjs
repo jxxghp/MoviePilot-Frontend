@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
-const defaultShards = ['1/2', '2/2']
+const defaultShards = ['1/4', '2/4', '3/4', '4/4']
 const serialFlag = '--serial'
 const vitestCliPath = fileURLToPath(import.meta.resolve('vitest/vitest.mjs'))
 
