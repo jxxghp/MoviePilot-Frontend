@@ -194,7 +194,7 @@ const rowMetrics = computed(() => {
 
 const totalHeight = computed(() => rowMetrics.value.totalHeight)
 
-const calculatedViewportRange = computed<VirtualRange>(() => {
+const calculatedViewportRange = computed<VirtualRange>(previous => {
   if (shouldRenderOverlayFully.value) {
     const rowCount = Math.max(1, Math.ceil(props.items.length / columnCount.value))
 
@@ -222,12 +222,25 @@ const calculatedViewportRange = computed<VirtualRange>(() => {
   const firstVisibleRow = findFirstRowAtOrAfterOffset(offsets, heights, top)
   const lastVisibleRow = findLastRowAtOrBeforeOffset(offsets, rowCount, bottom)
 
-  return {
+  const nextRange = {
     endIndex: Math.min(props.items.length, (lastVisibleRow + 1) * columnCount.value),
     endRow: lastVisibleRow,
     startIndex: firstVisibleRow * columnCount.value,
     startRow: firstVisibleRow,
   }
+
+  // 行内滚动不改变挂载窗口，复用范围以避免整批 slot 更新和渐进任务重排。
+  if (
+    previous &&
+    previous.startIndex === nextRange.startIndex &&
+    previous.endIndex === nextRange.endIndex &&
+    previous.startRow === nextRange.startRow &&
+    previous.endRow === nextRange.endRow
+  ) {
+    return previous
+  }
+
+  return nextRange
 })
 
 const calculatedVisibleRange = computed<VirtualRange>(() => {
@@ -251,7 +264,7 @@ const calculatedVisibleRange = computed<VirtualRange>(() => {
 const visibleRange = computed(() => frozenVisibleRange.value ?? calculatedVisibleRange.value)
 
 // 视口首批内容同步提交，额外 overscan 分帧挂载；完整列表高度仍由 spacer 立即占位。
-const renderedVisibleRange = computed<VirtualRange>(() => {
+const renderedVisibleRange = computed<VirtualRange>(previous => {
   const range = visibleRange.value
 
   if (shouldRenderOverlayFully.value || frozenVisibleRange.value || range.endIndex <= range.startIndex) {
@@ -275,13 +288,26 @@ const renderedVisibleRange = computed<VirtualRange>(() => {
   const startRow = Math.max(range.startRow, Math.floor(stagedStartIndex / columnCount.value))
   const endRow = Math.min(range.endRow, Math.max(range.startRow, Math.ceil(stagedEndIndex / columnCount.value) - 1))
 
-  return {
+  const nextRange = {
     ...range,
     endIndex: Math.min(range.endIndex, (endRow + 1) * columnCount.value),
     endRow,
     startIndex: startRow * columnCount.value,
     startRow,
   }
+
+  // 跨可见行或等待 overscan 提交时，实际窗口可能不变；高度与业务内容仍独立响应更新。
+  if (
+    previous &&
+    previous.startIndex === nextRange.startIndex &&
+    previous.endIndex === nextRange.endIndex &&
+    previous.startRow === nextRange.startRow &&
+    previous.endRow === nextRange.endRow
+  ) {
+    return previous
+  }
+
+  return nextRange
 })
 
 const visibleCells = computed<VirtualCell[]>(() => {

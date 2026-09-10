@@ -150,6 +150,9 @@ describe('GlassOpticalLayer', () => {
       },
     })
 
+    expect(wrapper.props('presentationReady')).toBe(true)
+    expect(rendererResults.every(renderer => renderer.state.value === 'ready')).toBe(true)
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'ready')
     const canvases = wrapper.findAll('canvas')
     expect(canvases).toHaveLength(2)
     expect(canvases.map(canvas => canvas.attributes('data-presentation-space'))).toEqual(['fixed', 'scroll'])
@@ -203,6 +206,85 @@ describe('GlassOpticalLayer', () => {
     expect(rendererCalls.every(options => (options.dynamicsMode as { value: string }).value === 'ripple')).toBe(true)
     expect(document.documentElement.dataset.glassDynamicsEffectiveMode).toBe('ripple')
     expect(setRendererState).toHaveBeenCalledWith(expect.any(Object), 'loading')
+    wrapper.unmount()
+  })
+
+  it('keeps the global renderer loading until presentation is ready without rebuilding contexts', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    setRendererState.mockClear()
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'fluid',
+        flowStrength: 50,
+        presentationReady: false,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+
+    expect(rendererResults).toHaveLength(2)
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+    expect(rendererResults.every(renderer => renderer.state.value === 'ready')).toBe(true)
+    const rendererCallCount = rendererCalls.length
+    const retryCalls = rendererResults.map(renderer => renderer.retryAfterFailure)
+
+    await wrapper.setProps({ presentationReady: true })
+    await nextTick()
+
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'ready')
+    expect(rendererCalls).toHaveLength(rendererCallCount)
+    expect(rendererResults).toHaveLength(2)
+    expect(retryCalls.map(retry => retry.mock.calls.length)).toEqual([0, 0])
+    wrapper.unmount()
+  })
+
+  it('publishes a later renderer fallback while presentation remains gated', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    setRendererState.mockClear()
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'clear',
+        deformationStrength: 50,
+        dynamicsMode: 'fluid',
+        flowStrength: 50,
+        presentationReady: false,
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper.jpg',
+      },
+    })
+    const [, scrollRenderer] = rendererResults
+
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+    scrollRenderer.state.value = 'loading'
+    await nextTick()
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'loading')
+
+    scrollRenderer.state.value = 'fallback'
+    await nextTick()
+
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
     wrapper.unmount()
   })
 

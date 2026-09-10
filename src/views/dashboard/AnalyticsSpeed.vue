@@ -165,6 +165,7 @@ const { loading } = useDataRefresh(
 .card-list {
   --v-card-list-gap: 0.15rem;
 
+  border-radius: 0 !important;
   flex: 1 1 auto;
   min-block-size: 0;
   overflow: auto;

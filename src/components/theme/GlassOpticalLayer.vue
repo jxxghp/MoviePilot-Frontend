@@ -16,44 +16,49 @@ import {
   type GlassRendererState,
 } from '@/composables/useGlassOpticalRenderer'
 
-const props = defineProps<{
-  /** 当前玻璃材质，用于选择透明、色调或磨砂的光学参数。 */
-  appearance: ThemeCustomizerGlassAppearance
-  /** 用户选择的局部非均匀形变强度。 */
-  deformationStrength: number
-  /** 用户选择的轨迹、尾波与惯性强度。 */
-  flowStrength: number
-  /** 用户保存的动态效果模式；能力降级不会回写该选择。 */
-  dynamicsMode: ThemeCustomizerGlassDynamicsMode
-  /** 当前光学质量；标准档不会挂载该组件。 */
-  quality: Exclude<ThemeCustomizerGlassQuality, 'css'>
-  /** 用户选择的亮边、镜面高光与焦散强度。 */
-  reflectionStrength: number
-  /** 用户选择的真实壁纸可见度。 */
-  transparencyStrength: number
-  /** 玻璃内部壁纸采样的透射亮度；不会改变外层壁纸的曝光合同。 */
-  transmissionStrength: number
-  /** 用户选择的共享壁纸采样平移强度。 */
-  translationStrength: number
-  /** 路由变化标识，用于在页面内容稳定后重新发现高价值表面。 */
-  routeKey: string
-  /** 由用户主色派生的大面积玻璃材料色，用于同步色调材质的光学高光。 */
-  tintColor: string
-  /** 外层壁纸交叉淡化的时长，shader 使用同一时钟混合双纹理。 */
-  transitionDuration: number
-  /** 外层壁纸交叉淡化的 performance timeline 起点。 */
-  transitionStartedAt: number
-  /** 与 CSS 背景保持一致的活动壁纸。 */
-  wallpaperUrl: string
-  /** 切换期保留的上一张壁纸；空值表示当前没有交叉淡化。 */
-  previousWallpaperUrl: string
-  /** 下一张同源壁纸；两个 context 均完成上传后才允许外层提交切换。 */
-  pendingWallpaperUrl?: string
-  /** 单调递增的壁纸准备事务版本；相同 URL 的旧回执不得完成新事务。 */
-  pendingWallpaperRevision?: number
-  /** 父层已完成可见图片预载，允许两个 context 在同一绘制帧提交该 revision。 */
-  activateWallpaperRevision?: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** 当前玻璃材质，用于选择透明、色调或磨砂的光学参数。 */
+    appearance: ThemeCustomizerGlassAppearance
+    /** 用户选择的局部非均匀形变强度。 */
+    deformationStrength: number
+    /** 用户选择的轨迹、尾波与惯性强度。 */
+    flowStrength: number
+    /** 用户保存的动态效果模式；能力降级不会回写该选择。 */
+    dynamicsMode: ThemeCustomizerGlassDynamicsMode
+    /** 当前光学质量；标准档不会挂载该组件。 */
+    quality: Exclude<ThemeCustomizerGlassQuality, 'css'>
+    /** 用户选择的亮边、镜面高光与焦散强度。 */
+    reflectionStrength: number
+    /** 用户选择的真实壁纸可见度。 */
+    transparencyStrength: number
+    /** 玻璃内部壁纸采样的透射亮度；不会改变外层壁纸的曝光合同。 */
+    transmissionStrength: number
+    /** 用户选择的共享壁纸采样平移强度。 */
+    translationStrength: number
+    /** 路由变化标识，用于在页面内容稳定后重新发现高价值表面。 */
+    routeKey: string
+    /** 首路由就绪后才呈现光学材质；false 只阻止接管，不阻止资源预热，未传时直接呈现。 */
+    presentationReady?: boolean
+    /** 由用户主色派生的大面积玻璃材料色，用于同步色调材质的光学高光。 */
+    tintColor: string
+    /** 外层壁纸交叉淡化的时长，shader 使用同一时钟混合双纹理。 */
+    transitionDuration: number
+    /** 外层壁纸交叉淡化的 performance timeline 起点。 */
+    transitionStartedAt: number
+    /** 与 CSS 背景保持一致的活动壁纸。 */
+    wallpaperUrl: string
+    /** 切换期保留的上一张壁纸；空值表示当前没有交叉淡化。 */
+    previousWallpaperUrl: string
+    /** 下一张同源壁纸；两个 context 均完成上传后才允许外层提交切换。 */
+    pendingWallpaperUrl?: string
+    /** 单调递增的壁纸准备事务版本；相同 URL 的旧回执不得完成新事务。 */
+    pendingWallpaperRevision?: number
+    /** 父层已完成可见图片预载，允许两个 context 在同一绘制帧提交该 revision。 */
+    activateWallpaperRevision?: number
+  }>(),
+  { presentationReady: true },
+)
 
 const timingWindow = window as typeof window & {
   __glassPerformanceProbeEnabled?: boolean
@@ -166,7 +171,7 @@ watch(
 
 const rendererState = ref<GlassRendererState>('loading')
 
-/** 两个呈现 context 作为同一材质能力接管 CSS，避免部分就绪时出现混合材质。 */
+/** 两个 context 和首路由均就绪后才接管 CSS；加载/失败保持原生材质，资源可提前准备。 */
 watchEffect(() => {
   const states = [fixedRenderer.state.value, scrollRenderer.state.value]
   const allReady = states.every(value => value === 'ready')
@@ -184,7 +189,7 @@ watchEffect(() => {
     ? 'loading'
     : compositeFailureLatched.value
       ? 'fallback'
-      : allReady
+      : allReady && props.presentationReady !== false
         ? 'ready'
         : 'loading'
 

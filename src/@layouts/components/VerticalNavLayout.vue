@@ -14,8 +14,11 @@ import { usePWA } from '@/composables/usePWA'
 import { useShellScrollState } from '@/composables/useShellScrollState'
 import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
 import { supportsGlassNavbarLiveRefraction } from '@/utils/glassNavbarRefraction'
-
-const FLOATING_NAVBAR_INSET_PX = 16
+import {
+  FLOATING_NAVBAR_INSET_PX,
+  getHorizontalNavbarGeometry,
+  getHorizontalNavbarProgress,
+} from '@/utils/horizontalNavbarMotion'
 
 export default defineComponent({
   setup(props, { slots }) {
@@ -38,10 +41,13 @@ export default defineComponent({
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
     const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
     const isFloatingNavbarEligible = computed(() => isHorizontalLayout.value && !isWindowControlsOverlayMode.value)
+    const navbarRef = ref<HTMLElement | null>(null)
+    const pageContentRef = ref<HTMLElement | null>(null)
     const floatingNavbarScale = ref(1)
     const floatingNavbarContentScale = computed(() => 1 / floatingNavbarScale.value)
+    const navbarGeometry = ref(getHorizontalNavbarGeometry(0, 0))
 
-    // 顶栏的布局宽度保持不变；缩进比例仅随视口变化，滚动动画可完全留在合成层。
+    // 视口或布局变化时测量终点；滚动期间只更新进度，不重复读取页面宽度。
     const updateFloatingNavbarScale = () => {
       const viewportWidth = document.documentElement.clientWidth
 
@@ -49,7 +55,12 @@ export default defineComponent({
         viewportWidth > FLOATING_NAVBAR_INSET_PX * 2
           ? (viewportWidth - FLOATING_NAVBAR_INSET_PX * 2) / viewportWidth
           : 1
+
+      const contentWidth = pageContentRef.value?.getBoundingClientRect().width ?? viewportWidth
+      navbarGeometry.value = getHorizontalNavbarGeometry(viewportWidth, contentWidth)
     }
+
+    watch(isFloatingNavbarEligible, updateFloatingNavbarScale, { flush: 'post' })
 
     // ℹ️ This is alternative to below two commented watcher
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
@@ -64,6 +75,18 @@ export default defineComponent({
     let dialogObserver: MutationObserver | null = null
     const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
     const isGlassFloatingAway = ref(false)
+    const navbarExpandProgress = computed(() =>
+      shellTheme.value === 'glass' && isFloatingNavbarEligible.value
+        ? getHorizontalNavbarProgress(shellScroll.scrollY.value, navbarGeometry.value.scrollDistance)
+        : 0,
+    )
+
+    // 复用壳层的帧合并与锁滚动状态；只写顶栏，避免整页 slot 重渲染和壳层属性触发卡片重扫。
+    watch(
+      [navbarRef, navbarExpandProgress],
+      ([element, progress]) => element?.style.setProperty('--shell-navbar-scroll-progress', String(progress)),
+      { flush: 'post' },
+    )
 
     // 桌面内容进入导航下方即启用阅读保护，不等待移动 App 的 64px 收起阈值。
     watch(
@@ -140,6 +163,7 @@ export default defineComponent({
         'header',
         {
           class: ['layout-navbar navbar-blur'],
+          ref: navbarRef,
           'data-shell-navbar-state': shellScroll.state.value,
           inert: appMode.value && shellScroll.state.value === 'compact' ? '' : undefined,
         },
@@ -162,7 +186,7 @@ export default defineComponent({
 
       const main = h(
         'main',
-        { class: 'layout-page-content' },
+        { class: 'layout-page-content', ref: pageContentRef },
         h('section', { class: 'page-content-container' }, slots.default?.()),
       )
 
@@ -236,6 +260,8 @@ export default defineComponent({
             '--layout-footer-dock-height': `${footerDockHeight.value ?? 0}px`,
             '--shell-floating-navbar-scale-x': floatingNavbarScale.value,
             '--shell-floating-navbar-content-scale-x': floatingNavbarContentScale.value,
+            '--shell-navbar-content-top-gutter': `${navbarGeometry.value.topGutter}px`,
+            '--shell-navbar-content-floating-gutter': `${navbarGeometry.value.floatingGutter}px`,
           },
         },
         [

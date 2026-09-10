@@ -1714,14 +1714,14 @@ html[data-theme='glass'] body[data-theme='glass'] .native-login-field:focus-with
   }
 }
 
-// 浮动顶栏使用同一布局坐标系，只插值真实 inset，避免切换 transform 采样空间。
+// 浮动顶栏使用同一布局坐标系，以滚动进度改变真实 inset，避免切换 transform 采样空间。
 html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
   body[data-theme='glass']
   .layout-wrapper.layout-navbar-floating-eligible
   .layout-navbar {
   inline-size: auto !important;
-  inset-block-start: 0 !important;
-  inset-inline: 0 !important;
+  inset-block-start: var(--shell-navbar-motion-inset, 0px) !important;
+  inset-inline: var(--shell-navbar-motion-inset, 0px) !important;
   transform: none !important;
   transition:
     background-color var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing),
@@ -1733,12 +1733,81 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
     inset-inline-start var(--shell-floating-navbar-motion-duration) var(--shell-floating-navbar-motion-easing) !important;
 
   .navbar-content-container {
+    // 外壳已使用真实内缩，内容不再叠加基础布局的反向缩放。
+    transform: none !important;
+  }
+}
+
+// 水平导航沿滚动进度从内容区居中展开至两端；只改变留白，不缩放控件。
+html[data-theme='glass']
+  body[data-theme='glass']
+  .layout-wrapper.layout-nav-type-vertical.layout-horizontal-nav-active.layout-navbar-floating-eligible {
+  .layout-navbar {
+    --shell-navbar-motion-progress: var(--shell-navbar-scroll-progress, 0);
+    --shell-navbar-expand-progress: var(--shell-navbar-motion-progress);
+    --shell-navbar-motion-inset: calc(var(--shell-floating-navbar-inset) * var(--shell-navbar-motion-progress));
+    --shell-navbar-motion-scale-x: calc(
+      1 + (var(--shell-floating-navbar-scale-x) - 1) * var(--shell-navbar-motion-progress)
+    );
+    // 磨砂内容经过反向缩放后仍覆盖视口，不扣除外壳的几何内缩。
+    --shell-navbar-content-inset-compensation: 0px;
+  }
+
+  .layout-navbar,
+  .layout-navbar .navbar-content-container {
+    // 几何完全跟随滚动；材质过渡仍保留，但不再叠加第二套几何时间动画。
+    transition-property: background-color, border-color, box-shadow, opacity !important;
+  }
+
+  .layout-navbar .navbar-content-container {
     position: relative;
     z-index: 1;
-    // 外壳内收时，导航内容仍占满视口，让水平导航的左右操作组保持贴近各自边缘。
-    inline-size: 100vw;
-    inset-inline-start: 50%;
-    transform: translateX(-50%) !important;
+    inline-size: 100%;
+    margin-inline: 0;
+    max-inline-size: none;
+    padding-inline: calc(
+      1.5rem + var(--shell-navbar-content-top-gutter, 0px) * (1 - var(--shell-navbar-expand-progress)) +
+        var(--shell-navbar-content-floating-gutter, 16px) *
+        var(--shell-navbar-expand-progress) - var(--shell-navbar-content-inset-compensation)
+    ) !important;
+  }
+}
+
+html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
+  body[data-theme='glass']
+  .layout-wrapper.layout-horizontal-nav-active.layout-navbar-floating-eligible
+  .layout-navbar {
+  // 留白按视口坐标计算；透明材质的真实内缩必须同步扣除，避免中间帧横移偏离轨迹。
+  --shell-navbar-content-inset-compensation: var(--shell-navbar-motion-inset);
+}
+
+html[data-theme='glass'][data-glass-appearance='frosted']
+  body[data-theme='glass']
+  .layout-wrapper.layout-horizontal-nav-active.layout-navbar-floating-eligible
+  .layout-navbar {
+  transform: translate3d(0, var(--shell-navbar-motion-inset), 0) scaleX(var(--shell-navbar-motion-scale-x)) !important;
+
+  .navbar-content-container {
+    // 与外壳使用同一瞬时比例，控件在整个过程中保持原始尺寸。
+    transform: scaleX(calc(1 / var(--shell-navbar-motion-scale-x))) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='glass']
+    body[data-theme='glass']
+    .layout-wrapper.layout-horizontal-nav-active.layout-navbar-floating-eligible
+    .layout-navbar {
+    --shell-navbar-motion-progress: 0 !important;
+    // 减少动态效果时保留居中，避免宽屏上的长距离横移。
+    --shell-navbar-expand-progress: 0 !important;
+  }
+
+  html[data-theme='glass']
+    body[data-theme='glass']
+    .layout-wrapper.layout-horizontal-nav-active.layout-navbar-floating-eligible.layout-navbar-away-from-top
+    .layout-navbar {
+    --shell-navbar-motion-progress: 1 !important;
   }
 }
 
@@ -1793,8 +1862,8 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   backdrop-filter: var(--glass-navbar-live-filter) !important;
   background: var(--glass-navbar-sheen), var(--glass-navbar-scrim) !important;
   box-shadow: var(--glass-navbar-shadow) !important;
-  inset-block-start: var(--shell-floating-navbar-inset) !important;
-  inset-inline: var(--shell-floating-navbar-inset) !important;
+  inset-block-start: var(--shell-navbar-motion-inset, var(--shell-floating-navbar-inset)) !important;
+  inset-inline: var(--shell-navbar-motion-inset, var(--shell-floating-navbar-inset)) !important;
 }
 
 // 只有已确认的 Chromium SVG 能力才替换基础 CSS 滤镜；未就绪时保持同族材质与真实几何。

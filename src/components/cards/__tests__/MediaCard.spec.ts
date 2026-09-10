@@ -15,7 +15,7 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
-import { defineComponent, h, reactive, ref } from 'vue'
+import { defineComponent, h, reactive, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -112,7 +112,7 @@ interface ControlledImageRequest {
   /** 当前 VImg 实例发起的图片地址。 */
   src: string
   /** VImg 自身的图片呈现过渡，不等同卡片的 CSS 淡入。 */
-  transition: boolean | string | undefined
+  transition: boolean | string | { css: boolean } | undefined
 }
 
 /** 创建可保留旧实例回调的图片替身，用于验证媒体复用时的迟到事件隔离。 */
@@ -120,7 +120,11 @@ function createControlledImageStub(requests: ControlledImageRequest[]) {
   return defineComponent({
     name: 'VImg',
     emits: ['error', 'load'],
-    props: { src: String, eager: Boolean, transition: [Boolean, String] },
+    props: {
+      src: String,
+      eager: Boolean,
+      transition: [Boolean, String, Object] as PropType<ControlledImageRequest['transition']>,
+    },
     setup(props, { emit, slots }) {
       const src = props.src ?? ''
       const imageElement = ref<HTMLImageElement | null>(null)
@@ -850,7 +854,7 @@ describe('MediaCard', () => {
 
     const second = await renderWithProviders(MediaCard, options)
     const request = requests.at(-1)!
-    expect(request).toMatchObject({ eager: true, transition: false })
+    expect(request).toMatchObject({ eager: true, transition: { css: false } })
     expect(getCard(second.container)).toHaveClass('media-card--poster-revisit')
     expect(getCard(second.container)).not.toHaveClass('media-card--image-loaded')
     expect(getCard(second.container)).not.toHaveAttribute('data-glass-optical-mode')
@@ -877,6 +881,76 @@ describe('MediaCard', () => {
     const second = await renderWithProviders(MediaCard, options)
     expect(requests.at(-1)).toMatchObject({ eager: false, transition: 'fade-transition' })
     expect(getCard(second.container)).not.toHaveClass('media-card--poster-revisit')
+  })
+
+  it('does not run CSS transition layout hooks when a revealed poster and its source badge re-enter', async () => {
+    const media = createMediaInfo({ poster_path: '/original/revisit-transition.jpg', tmdb_id: 9564 })
+    const requests: ControlledImageRequest[] = []
+    const first = await renderWithProviders(MediaCard, {
+      props: { media },
+      global: { stubs: { VImg: createControlledImageStub(requests) } },
+    })
+    requests[0].load()
+    requests[0].reveal()
+    await waitFor(() => expect(getCard(first.container)).toHaveAttribute('data-glass-optical-mode', 'excluded'))
+    first.unmount()
+
+    // 使用真实 VImg 和 Vue Transition，不能只断言传入的 transition 参数。
+    const second = await renderWithProviders(MediaCard, {
+      props: { media },
+      global: { stubs: { transition: false } },
+    })
+    const image = second.container.querySelector<HTMLImageElement>('.v-img__img')!
+    expect(image).not.toBeNull()
+    expect(image).toHaveStyle({ display: 'none' })
+    expect(second.container.querySelector('.v-img__placeholder')).not.toBeNull()
+    expect(getCard(second.container)).not.toHaveAttribute('data-glass-optical-mode')
+
+    const forcedLayout = vi.spyOn(document.body, 'offsetHeight', 'get')
+    await fireEvent.load(image)
+    expect(forcedLayout).not.toHaveBeenCalled()
+    expect(image).not.toHaveStyle({ display: 'none' })
+    expect(second.container.querySelector('.v-img__placeholder')).toBeNull()
+    expect(second.container.querySelector('[class*="-enter-"], [class*="-leave-"]')).toBeNull()
+    expect(getCard(second.container)).toHaveAttribute('data-glass-optical-mode', 'excluded')
+
+    const badgeObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(
+        ([element]) => second.container.contains(element) && element.closest('.v-avatar'),
+      ),
+    )
+    expect(badgeObserver).toBeDefined()
+    badgeObserver!.trigger()
+    await waitFor(() => expect(second.container.querySelector('.v-avatar .v-img__img')).not.toBeNull())
+    const badge = second.container.querySelector<HTMLImageElement>('.v-avatar .v-img__img')!
+    await fireEvent.load(badge)
+    expect(badge).not.toHaveStyle({ display: 'none' })
+    expect(second.container.querySelector('[class*="-enter-"], [class*="-leave-"]')).toBeNull()
+    expect(forcedLayout).not.toHaveBeenCalled()
+  })
+
+  it('keeps the source badge fade on the first poster presentation', async () => {
+    const { container } = await renderWithProviders(MediaCard, {
+      props: { media: createMediaInfo({ poster_path: '/original/first-badge.jpg', tmdb_id: 9565 }) },
+      global: { stubs: { transition: false } },
+    })
+    const imageObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(([element]) => element.classList.contains('v-img')),
+    )
+    expect(imageObserver).toBeDefined()
+    imageObserver!.trigger()
+    await waitFor(() => expect(container.querySelector('.v-img__img')).not.toBeNull())
+    await fireEvent.load(container.querySelector<HTMLImageElement>('.v-img__img')!)
+
+    const badgeObserver = intersectionObservers.find(observer =>
+      observer.observe.mock.calls.some(([element]) => container.contains(element) && element.closest('.v-avatar')),
+    )
+    expect(badgeObserver).toBeDefined()
+    badgeObserver!.trigger()
+    await waitFor(() => expect(container.querySelector('.v-avatar .v-img__img')).not.toBeNull())
+    const badge = container.querySelector<HTMLImageElement>('.v-avatar .v-img__img')!
+    await fireEvent.load(badge)
+    expect(badge).toHaveClass('fade-transition-enter-from', 'fade-transition-enter-active')
   })
 
   it('uses the real VImg lazy lifecycle only for the first presentation', async () => {

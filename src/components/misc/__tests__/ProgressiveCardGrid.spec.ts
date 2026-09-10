@@ -1,6 +1,6 @@
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { render, waitFor } from '@testing-library/vue'
-import { nextTick } from 'vue'
+import { h, nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 describe('ProgressiveCardGrid scroll target lifecycle', () => {
@@ -160,6 +160,150 @@ describe('ProgressiveCardGrid scroll target lifecycle', () => {
 describe('ProgressiveCardGrid mount scheduling', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('does not rerender settled cells while scrolling inside the same row range', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    let scrollOffset = 0
+    const getBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callbacks.set(++frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(80)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('progressive-card-grid__track')
+        ? new DOMRect(0, -scrollOffset, 400, 2500)
+        : getBoundingClientRect.call(this)
+    })
+    const items = Array.from({ length: 100 }, (_, id) => ({ id, title: `item-${id}` }))
+    const slot = vi.fn(({ item }: { item: { id: number; title: string } }) => h('div', item.title))
+    const { container, rerender } = render(ProgressiveCardGrid, {
+      props: {
+        columns: 4,
+        estimatedItemHeight: 100,
+        gap: 0,
+        initialCount: 4,
+        batchSize: 4,
+        items,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: { default: slot },
+    })
+    const flushFrame = async () => {
+      for (const id of [...callbacks.keys()]) {
+        const callback = callbacks.get(id)
+        if (!callback) continue
+        callbacks.delete(id)
+        callback(performance.now())
+        await nextTick()
+      }
+    }
+    for (let frame = 0; frame < 10 && callbacks.size; frame++) await flushFrame()
+    expect(callbacks.size).toBe(0)
+    const nodes = [...container.querySelectorAll('[data-progressive-grid-index]')]
+    expect(nodes.length).toBe(20)
+    slot.mockClear()
+
+    for (const offset of [1, 5, 10, 15, 19]) {
+      scrollOffset = offset
+      window.dispatchEvent(new Event('scroll'))
+      await flushFrame()
+      const currentNodes = [...container.querySelectorAll('[data-progressive-grid-index]')]
+      expect(currentNodes).toHaveLength(nodes.length)
+      expect(currentNodes.every((node, index) => node === nodes[index])).toBe(true)
+    }
+
+    expect(slot).not.toHaveBeenCalled()
+
+    scrollOffset = 21
+    window.dispatchEvent(new Event('scroll'))
+    await flushFrame()
+    // 新的 overscan 行尚未提交时，已挂载范围不变，无需重新执行现有 slot。
+    expect(slot).not.toHaveBeenCalled()
+    for (let frame = 0; frame < 10 && callbacks.size; frame++) await flushFrame()
+    expect(slot).toHaveBeenCalled()
+    expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(24)
+
+    scrollOffset = 1
+    window.dispatchEvent(new Event('scroll'))
+    await flushFrame()
+    expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(20)
+    expect(container.querySelector('[data-progressive-grid-index="0"]')).toBe(nodes[0])
+
+    // 范围复用只约束窗口边界，同 key 的业务对象更新仍需传递到 slot。
+    await rerender({ items: items.map(item => ({ ...item, title: `updated-${item.id}` })) })
+    expect(container.querySelector('[data-progressive-grid-index="0"]')).toBe(nodes[0])
+    expect(nodes[0]).toHaveTextContent('updated-0')
+
+    // 可见行边界未变时，高度变化仍须更新列表的完整占位。
+    await rerender({ estimatedItemHeight: 120 })
+    expect(container.querySelectorAll('[data-progressive-grid-index]')).toHaveLength(20)
+    expect(container.querySelector('.progressive-card-grid__spacer')).toHaveStyle({ blockSize: '2400px' })
+  })
+
+  it('keeps settled slots stable across visible rows covered by the same mounted range', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    let scrollOffset = 0
+    const getBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callbacks.set(++frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(80)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('progressive-card-grid__track')
+        ? new DOMRect(0, -scrollOffset, 400, 500)
+        : getBoundingClientRect.call(this)
+    })
+    const items = Array.from({ length: 20 }, (_, id) => ({ id, title: `item-${id}` }))
+    const slot = vi.fn(({ item }: { item: { id: number; title: string } }) => h('div', item.title))
+    const { container, rerender } = render(ProgressiveCardGrid, {
+      props: {
+        columns: 4,
+        estimatedItemHeight: 100,
+        gap: 0,
+        initialCount: 4,
+        batchSize: 4,
+        items,
+        getItemKey: (item: { id: number }) => item.id,
+      },
+      slots: { default: slot },
+    })
+    const settleFrames = async () => {
+      for (let frame = 0; frame < 10 && callbacks.size; frame++) {
+        for (const id of [...callbacks.keys()]) {
+          const callback = callbacks.get(id)
+          if (!callback) continue
+          callbacks.delete(id)
+          callback(performance.now())
+          await nextTick()
+        }
+      }
+      expect(callbacks.size).toBe(0)
+    }
+    await settleFrames()
+    const nodes = [...container.querySelectorAll('[data-progressive-grid-index]')]
+    expect(nodes).toHaveLength(20)
+    slot.mockClear()
+
+    for (const offset of [21, 101, 201, 101, 0]) {
+      scrollOffset = offset
+      window.dispatchEvent(new Event('scroll'))
+      await settleFrames()
+      const currentNodes = [...container.querySelectorAll('[data-progressive-grid-index]')]
+      expect(currentNodes).toHaveLength(nodes.length)
+      expect(currentNodes.every((node, index) => node === nodes[index])).toBe(true)
+    }
+    expect(slot).not.toHaveBeenCalled()
+
+    await rerender({ items: items.map(item => ({ ...item, title: `updated-${item.id}` })) })
+    expect(nodes[0]).toHaveTextContent('updated-0')
+    expect(container.querySelector('[data-progressive-grid-index="0"]')).toBe(nodes[0])
   })
 
   it('uses the mounted track width before the first layout frame can observe a single-column spacer', async () => {
