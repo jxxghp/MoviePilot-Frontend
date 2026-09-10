@@ -1370,6 +1370,47 @@ describe('GlassPanelRefractionDefs', () => {
     expect(wrapper?.findAll('filter')).toHaveLength(1)
   })
 
+  it.each(['clear', 'tinted', 'frosted'] as const)(
+    'leaves horizontal navigation resize ownership outside card preparation for %s',
+    async appearance => {
+      effectiveSettings.value.glassAppearance = appearance
+      mountPanel()
+      await settle()
+
+      expect(observe).toHaveBeenCalledWith(card)
+      expect(observe).not.toHaveBeenCalledWith(shell.querySelector('.layout-navbar'))
+      expect(observe).not.toHaveBeenCalledWith(shell.querySelector('.layout-vertical-nav'))
+      expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+    },
+  )
+
+  it('releases navigation geometry observers when the sidebar layout becomes horizontal', async () => {
+    resetFixture(false)
+    effectiveSettings.value.glassAppearance = 'frosted'
+    mountPanel()
+    await settle()
+    const navbar = shell.querySelector('.layout-navbar')
+    const sidebar = shell.querySelector('.layout-vertical-nav')
+    expect(observe).toHaveBeenCalledWith(navbar)
+    expect(observe).toHaveBeenCalledWith(sidebar)
+
+    observe.mockClear()
+    shell.classList.add('layout-horizontal-nav-active')
+    await flushPromises()
+    await settle()
+    expect(unobserve).toHaveBeenCalledWith(navbar)
+    expect(unobserve).toHaveBeenCalledWith(sidebar)
+    expect(observe).not.toHaveBeenCalledWith(navbar)
+    expect(observe).not.toHaveBeenCalledWith(sidebar)
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
+
+    shell.classList.remove('layout-horizontal-nav-active')
+    await flushPromises()
+    await settle()
+    expect(observe).toHaveBeenCalledWith(navbar)
+    expect(observe).toHaveBeenCalledWith(sidebar)
+  })
+
   it('rebuilds the card map when observed geometry changes', async () => {
     mountPanel()
     await settle()

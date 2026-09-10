@@ -341,6 +341,19 @@ function reconcileBindings() {
       intersectionObserver?.observe(element)
     }
   }
+  // 只有磨砂背板依赖侧栏内部轮廓；水平顶栏由独立折射组件持有，内缩不能触发卡片重扫。
+  const sidebarAnchor = [...surfaces.values()].some(binding => binding.kind === 'backplate')
+    ? shell?.querySelector<HTMLElement>('.layout-vertical-nav')
+    : null
+  for (const element of geometryAnchors) {
+    if (element === sidebarAnchor) continue
+    geometryAnchors.delete(element)
+    if (!surfaces.has(element)) resizeObserver?.unobserve(element)
+  }
+  if (sidebarAnchor && !geometryAnchors.has(sidebarAnchor)) {
+    geometryAnchors.add(sidebarAnchor)
+    resizeObserver?.observe(sidebarAnchor)
+  }
   // 解码完成与路由 DOM 移动可能发生在同一帧，旧批次不能再次绑定已退出的页面。
   if (changed) revision += 1
 }
@@ -408,12 +421,6 @@ async function syncSurfaces() {
   reconcileBindings()
   const currentRevision = ++revision
   for (const binding of surfaces.values()) resizeObserver?.observe(binding.element)
-  // 稳定背板自身不随侧栏展开改变尺寸，仍需观察其内部导航轮廓。
-  for (const element of shell?.querySelectorAll<HTMLElement>('.layout-navbar, .layout-vertical-nav') ?? []) {
-    if (geometryAnchors.has(element)) continue
-    geometryAnchors.add(element)
-    resizeObserver?.observe(element)
-  }
   const pending: Array<Promise<PreparedSurface | null>> = []
   const visiblePending: Array<Promise<PreparedSurface | null>> = []
   for (const binding of surfaces.values()) {
