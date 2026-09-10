@@ -107,7 +107,7 @@ describe('glass horizontal navbar alignment', () => {
       expect.arrayContaining([
         expect.objectContaining({ prop: 'display', value: 'grid' }),
         expect.objectContaining({ prop: 'grid-template-columns', value: 'auto minmax(0, 1fr) auto' }),
-        expect.objectContaining({ prop: 'margin-inline', value: 'auto' }),
+        expect.objectContaining({ prop: 'margin-inline', value: '0' }),
       ]),
     )
     expect(Object.fromEntries(declarations)).toMatchObject({
