@@ -40,7 +40,7 @@ yarn format            # 格式化当前分支、暂存区、工作区和未跟�
 yarn format:check      # 检查相同变更文件，不修改文件
 yarn format:all:check  # 只读测量全仓格式收敛情况
 yarn typecheck
-yarn test:run       # 本地默认并行执行两个 Vitest shard
+yarn test:run       # 本地默认并行执行四个 Vitest shard
 yarn test:run --serial
 yarn test:coverage
 yarn build
@@ -87,7 +87,7 @@ yarn build
 
 第二阶段在 Pull Request workflow 中增加独立的全仓 `yarn lint` job：
 
-1. `lint` 与 `typecheck` job 分别执行 ESLint 和类型检查，单元测试使用独立的两分片 job，使三类门禁并行；本地默认并行执行两个 Vitest shard，并与 CI 共用 `yarn test:run` 入口。
+1. `lint` 与 `typecheck` job 分别执行 ESLint 和类型检查，单元测试使用独立的四分片 job，使三类门禁并行；本地默认并行执行四个 Vitest shard，并与 CI 共用 `yarn test:run` 入口。
 2. 初始阶段作为普通 check 运行，不立即配置 required check。
 3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint` / `yarn typecheck`，不执行自动修复或更新 baseline。
 4. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。

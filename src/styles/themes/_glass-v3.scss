@@ -11,6 +11,7 @@ $-popup-hosts: (
   '.agent-assistant-command-menu',
   '.agent-assistant-pending-files',
   '.agent-assistant-input',
+  '.compact-fab .v-btn',
   '.v-snackbar__wrapper',
   '.Vue-Toastification__toast',
   '.system-update-prompt',
@@ -33,7 +34,7 @@ $-popup-hosts: (
     --glass-v3-navigation-content-gap: 16px;
     --glass-v3-navigation-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     --glass-v3-navigation-filter: saturate(118%) brightness(var(--glass-transmission-brightness, 1));
-    // 透明材质的 Dock、菜单与弹窗只做轻度扩散，保留背景层次并由底色保障阅读。
+    // 自适应界面材质为导航、菜单、弹窗和 FAB 提供统一的阅读保护。
     --glass-popup-blur: 6px;
     --glass-popup-surface: rgba(31, 34, 39, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.62) * 0.16), 0.32));
     --glass-popup-filter: blur(var(--glass-popup-blur)) saturate(135%);
@@ -72,6 +73,25 @@ $-popup-hosts: (
         34,
         39,
         clamp(0.24, calc(0.18 + var(--glass-surface-density, 0.86) * 0.14), 0.36)
+      );
+    }
+
+    // 通透风格减少临时表面和悬浮导航的吸收与扩散；所有消费者通过 popup token 实时同步。
+    &[data-glass-ui-style='clear']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted']) {
+      --glass-popup-blur: 0px;
+      --glass-popup-surface: rgba(
+        31,
+        34,
+        39,
+        clamp(0.12, calc(0.08 + var(--glass-surface-density, 0.62) * 0.12), 0.24)
+      );
+    }
+
+    &[data-glass-ui-style='clear'][data-glass-appearance='tinted'] {
+      --glass-popup-surface: color-mix(
+        in srgb,
+        rgba(31, 34, 39, clamp(0.12, calc(0.08 + var(--glass-surface-density, 0.72) * 0.12), 0.24)) 92%,
+        rgba(var(--glass-material-accent-rgb), 0.12)
       );
     }
 
@@ -458,14 +478,14 @@ $-popup-hosts: (
     }
   }
 
-  // 两种顶栏风格共用透镜和材料参数；阅读扩散只属于导航，不传播到内容卡片或侧栏。
+  // 两种界面风格共用材质入口，顶栏、Dock、弹层和 FAB 只消费共享 token。
   html[data-theme='glass'] body[data-theme='glass'] {
     .layout-wrapper[data-shell-mode] .layout-navbar {
       --glass-navbar-reading-filter: saturate(100%);
       --glass-navbar-live-filter: var(--glass-navbar-reading-filter) var(--glass-v3-navigation-filter);
     }
 
-    // Dock 必须隔开任意滚动内容；其阅读保护不随顶栏风格关闭。
+    // Dock 与弹层、FAB 共用当前界面风格的阅读材质。
     .footer-nav-card {
       --glass-navigation-reading-filter: var(--glass-popup-filter);
 
@@ -571,7 +591,7 @@ $-popup-hosts: (
     --glass-navbar-reading-filter: blur(3px) brightness(92%);
   }
 
-  html[data-theme='glass'][data-glass-navbar-style='adaptive']:is(
+  html[data-theme='glass'][data-glass-ui-style='adaptive']:is(
       [data-glass-appearance='clear'],
       [data-glass-appearance='tinted']
     )
@@ -595,7 +615,7 @@ $-popup-hosts: (
   }
 
   // 移动自适应导航与弹层共用完整阅读材质，收起和重现时不切换采样或叠加导航亮度修正。
-  html[data-theme='glass']:where([data-glass-navbar-style='adaptive']):is(
+  html[data-theme='glass']:where([data-glass-ui-style='adaptive']):is(
       [data-glass-appearance='clear'],
       [data-glass-appearance='tinted']
     )

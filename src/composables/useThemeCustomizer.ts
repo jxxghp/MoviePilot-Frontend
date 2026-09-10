@@ -72,8 +72,8 @@ export const themeCustomizerShadowLevels = [
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
 export type ThemeCustomizerGlassAppearance = 'clear' | 'frosted' | 'tinted'
-/** 玻璃顶栏风格：clear 在内容覆盖时轻度扩散；adaptive 提供更强的阅读保护。 */
-export type ThemeCustomizerGlassNavbarStyle = 'adaptive' | 'clear'
+/** 玻璃界面风格：clear 保留更多背景细节；adaptive 在顶栏、底部悬浮导航、弹出菜单、弹出窗口和 FAB 上提供更强的阅读保护。 */
+export type ThemeCustomizerGlassUIStyle = 'adaptive' | 'clear'
 /** 玻璃动态效果的持久化选择；关闭模式仍保留用户配置的动态参数。 */
 export type ThemeCustomizerGlassDynamicsMode = 'fluid' | 'ripple' | 'off'
 export type ThemeCustomizerGlassQuality = 'balanced' | 'css' | 'high'
@@ -85,8 +85,8 @@ export type ThemeCustomizerTheme = 'auto' | 'dark' | 'glass' | 'light' | 'purple
 export interface ThemeCustomizerSettings {
   /** 玻璃主题的材质语义，与渲染质量保持独立。 */
   glassAppearance: ThemeCustomizerGlassAppearance
-  /** 玻璃主题顶栏的呈现风格，与材质、质量和动态参数保持独立。 */
-  glassNavbarStyle: ThemeCustomizerGlassNavbarStyle
+  /** 玻璃界面风格，同时应用到顶栏、底部悬浮导航栏、弹出菜单、弹出窗口和 FAB 悬浮按钮。 */
+  glassUIStyle: ThemeCustomizerGlassUIStyle
   /** 玻璃动态效果模式，与六参数预设矩阵保持独立。 */
   glassDynamicsMode: ThemeCustomizerGlassDynamicsMode
   /** 局部非均匀折射与内容弯曲强度，范围 0 到 100。 */
@@ -127,12 +127,12 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validGlassAppearances: ThemeCustomizerGlassAppearance[] = ['clear', 'tinted', 'frosted']
-const validGlassNavbarStyles: ThemeCustomizerGlassNavbarStyle[] = ['adaptive', 'clear']
+const validGlassUIStyles: ThemeCustomizerGlassUIStyle[] = ['adaptive', 'clear']
 const validGlassDynamicsModes: ThemeCustomizerGlassDynamicsMode[] = ['fluid', 'ripple', 'off']
 const validGlassPresets: GlassOpticalPreset[] = ['natural', 'glide', 'liquid']
 const validGlassQualities: ThemeCustomizerGlassQuality[] = ['css', 'balanced', 'high']
 const defaultGlassQuality: ThemeCustomizerGlassQuality = 'balanced'
-const defaultGlassNavbarStyle: ThemeCustomizerGlassNavbarStyle = 'clear'
+const defaultGlassUIStyle: ThemeCustomizerGlassUIStyle = 'adaptive'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
 const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
@@ -150,7 +150,7 @@ let themeApplyVersion = 0
 type DefaultGlassCustomizerSettings = Pick<
   ThemeCustomizerSettings,
   | 'glassAppearance'
-  | 'glassNavbarStyle'
+  | 'glassUIStyle'
   | 'glassDeformationStrength'
   | 'glassDynamicsMode'
   | 'glassFlowStrength'
@@ -190,7 +190,7 @@ export function getDefaultGlassCustomizerSettings(
 
   return {
     glassAppearance: 'clear',
-    glassNavbarStyle: defaultGlassNavbarStyle,
+    glassUIStyle: defaultGlassUIStyle,
     glassDeformationStrength: glassParameters.deformation,
     glassDynamicsMode: 'ripple',
     glassFlowStrength: glassParameters.flow,
@@ -299,9 +299,9 @@ function normalizeThemeCustomizerSettings(
     glassAppearance: validGlassAppearances.includes(settings.glassAppearance as ThemeCustomizerGlassAppearance)
       ? (settings.glassAppearance as ThemeCustomizerGlassAppearance)
       : fallback.glassAppearance,
-    glassNavbarStyle: validGlassNavbarStyles.includes(settings.glassNavbarStyle as ThemeCustomizerGlassNavbarStyle)
-      ? (settings.glassNavbarStyle as ThemeCustomizerGlassNavbarStyle)
-      : fallback.glassNavbarStyle,
+    glassUIStyle: validGlassUIStyles.includes(settings.glassUIStyle as ThemeCustomizerGlassUIStyle)
+      ? (settings.glassUIStyle as ThemeCustomizerGlassUIStyle)
+      : fallback.glassUIStyle,
     glassDeformationStrength: normalizeMigratedGlassStrength(
       settings.glassDeformationStrength,
       settings.glassMotionStrength,
@@ -390,7 +390,7 @@ const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings()
 type ThemeCustomizerGlassSettings = Pick<
   ThemeCustomizerSettings,
   | 'glassAppearance'
-  | 'glassNavbarStyle'
+  | 'glassUIStyle'
   | 'glassDeformationStrength'
   | 'glassDynamicsMode'
   | 'glassFlowStrength'
@@ -405,7 +405,7 @@ type ThemeCustomizerGlassSettings = Pick<
 const glassPreviewState = ref<ThemeCustomizerGlassSettings | null>(null)
 const effectiveGlassSettings = computed(() => ({
   glassAppearance: glassPreviewState.value?.glassAppearance ?? settingsState.value.glassAppearance,
-  glassNavbarStyle: glassPreviewState.value?.glassNavbarStyle ?? settingsState.value.glassNavbarStyle,
+  glassUIStyle: glassPreviewState.value?.glassUIStyle ?? settingsState.value.glassUIStyle,
   glassDeformationStrength:
     glassPreviewState.value?.glassDeformationStrength ?? settingsState.value.glassDeformationStrength,
   glassDynamicsMode: glassPreviewState.value?.glassDynamicsMode ?? settingsState.value.glassDynamicsMode,
@@ -480,7 +480,7 @@ export function applyThemeCustomizerRootSettings(
   settings: Pick<
     ThemeCustomizerSettings,
     | 'glassAppearance'
-    | 'glassNavbarStyle'
+    | 'glassUIStyle'
     | 'glassQuality'
     | 'glassReflectionStrength'
     | 'glassTransmissionStrength'
@@ -513,7 +513,7 @@ export function applyThemeCustomizerRootSettings(
   }
 
   document.documentElement.setAttribute('data-glass-appearance', settings.glassAppearance)
-  document.documentElement.setAttribute('data-glass-navbar-style', settings.glassNavbarStyle)
+  document.documentElement.setAttribute('data-glass-ui-style', settings.glassUIStyle)
   document.documentElement.setAttribute('data-glass-quality', settings.glassQuality)
   document.documentElement.style.setProperty(
     '--glass-reflection',
@@ -534,7 +534,7 @@ export function applyThemeCustomizerRootSettings(
   document.documentElement.setAttribute('data-theme-shadow', settings.shadow)
   document.documentElement.setAttribute('data-theme-skin', settings.skin)
   document.body.setAttribute('data-glass-appearance', settings.glassAppearance)
-  document.body.setAttribute('data-glass-navbar-style', settings.glassNavbarStyle)
+  document.body.setAttribute('data-glass-ui-style', settings.glassUIStyle)
   document.body.setAttribute('data-glass-quality', settings.glassQuality)
   document.body.style.setProperty(
     '--glass-reflection',
@@ -626,7 +626,7 @@ export function previewGlassSettings(patch: Partial<ThemeCustomizerGlassSettings
 
   glassPreviewState.value = {
     glassAppearance: previewSettings.glassAppearance,
-    glassNavbarStyle: previewSettings.glassNavbarStyle,
+    glassUIStyle: previewSettings.glassUIStyle,
     glassDeformationStrength: previewSettings.glassDeformationStrength,
     glassDynamicsMode: previewSettings.glassDynamicsMode,
     glassFlowStrength: previewSettings.glassFlowStrength,
@@ -682,7 +682,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
 
   return (
     settings.glassAppearance === defaults.glassAppearance &&
-    settings.glassNavbarStyle === defaults.glassNavbarStyle &&
+    settings.glassUIStyle === defaults.glassUIStyle &&
     settings.glassDeformationStrength === defaults.glassDeformationStrength &&
     settings.glassDynamicsMode === defaults.glassDynamicsMode &&
     settings.glassFlowStrength === defaults.glassFlowStrength &&
@@ -797,9 +797,9 @@ export function useThemeCustomizer() {
     })
   }
 
-  /** 更新玻璃主题顶栏风格，不改写材质、质量或六个具体参数。 */
-  function setGlassNavbarStyle(glassNavbarStyle: ThemeCustomizerGlassNavbarStyle) {
-    return updateSettings({ glassNavbarStyle })
+  /** 更新玻璃界面风格，不改写材质、质量或六个具体参数。 */
+  function setGlassUIStyle(glassUIStyle: ThemeCustomizerGlassUIStyle) {
+    return updateSettings({ glassUIStyle })
   }
 
   /** 更新玻璃局部非均匀形变强度。 */
@@ -950,7 +950,7 @@ export function useThemeCustomizer() {
     isCustomized: computed(() => !isDefaultThemeCustomizerSettings(settings.value)),
     resetSettings,
     setGlassAppearance,
-    setGlassNavbarStyle,
+    setGlassUIStyle,
     setGlassDeformationStrength,
     setGlassDynamicsMode,
     setGlassFlowStrength,

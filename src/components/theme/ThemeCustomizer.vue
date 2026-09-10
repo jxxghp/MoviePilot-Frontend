@@ -142,7 +142,7 @@ const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
     settings.value.glassAppearance !== defaultAppModeGlassSettings.glassAppearance ||
-    settings.value.glassNavbarStyle !== defaultAppModeGlassSettings.glassNavbarStyle ||
+    settings.value.glassUIStyle !== defaultAppModeGlassSettings.glassUIStyle ||
     settings.value.glassDeformationStrength !== defaultAppModeGlassSettings.glassDeformationStrength ||
     settings.value.glassDynamicsMode !== defaultAppModeGlassSettings.glassDynamicsMode ||
     settings.value.glassFlowStrength !== defaultAppModeGlassSettings.glassFlowStrength ||

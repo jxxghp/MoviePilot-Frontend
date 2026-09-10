@@ -43,7 +43,7 @@ describe('glass overlay material styles', () => {
   it('diffuses transient overlay backgrounds independently from clear page surfaces', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const popupStart = styles.indexOf('// 所有临时表面采用同族阅读材质')
-    const popupEnd = styles.indexOf('  // 两种顶栏风格', popupStart)
+    const popupEnd = styles.indexOf('  // 两种界面风格', popupStart)
     const popup = styles.slice(popupStart, popupEnd)
 
     expect(styles).toContain('--glass-popup-blur: 6px')
@@ -61,6 +61,7 @@ describe('glass overlay material styles', () => {
       '.theme-customizer-panel-host',
       '.plugin-quick-access',
       '.agent-assistant-panel',
+      '.compact-fab .v-btn',
       '.v-snackbar__wrapper',
     ]) {
       expect(styles).toContain(`'${host}'`)
@@ -69,6 +70,31 @@ describe('glass overlay material styles', () => {
     expect(popup).not.toContain('.v-menu > .v-overlay__scrim')
     expect(styles).toContain('--glass-overlay-backdrop-filter: none !important')
     expect(styles).not.toContain('linear-gradient(rgba(var(--glass-v3-ink), 0.4)')
+  })
+
+  it('switches the shared Dock, menu, dialog, and FAB material with the live interface style attribute', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+    const clearStyleStart = styles.indexOf("&[data-glass-ui-style='clear']:is(")
+    const clearStyleEnd = styles.indexOf(
+      "    &[data-glass-ui-style='clear'][data-glass-appearance='tinted']",
+      clearStyleStart,
+    )
+    const clearStyle = styles.slice(clearStyleStart, clearStyleEnd)
+
+    expect(clearStyleStart).toBeGreaterThanOrEqual(0)
+    expect(clearStyle).toContain("[data-glass-appearance='clear']")
+    expect(clearStyle).toContain("[data-glass-appearance='tinted']")
+    expect(clearStyle).toContain('--glass-popup-blur: 0px')
+    expect(clearStyle).toContain('--glass-popup-surface: rgba(')
+    expect(styles).toMatch(
+      /\[data-glass-ui-style='clear'\]\[data-glass-appearance='tinted'\][\s\S]*?rgba\(var\(--glass-material-accent-rgb\), 0\.12\)/u,
+    )
+    expect(styles).toContain("'.v-overlay__content'")
+    expect(styles).toContain("'.compact-fab .v-btn'")
+    expect(styles).toMatch(/\.footer-nav-card\s*\{[\s\S]*?var\(--glass-popup-filter\)/u)
+    expect(styles).toMatch(
+      /:is\(#\{\$-popup-hosts\}\)\s*\{[\s\S]*?--glass-overlay-surface: var\(--glass-popup-surface\)/u,
+    )
   })
 
   it('reserves space below detached desktop navigation and follows the compact theme radius', () => {
