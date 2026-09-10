@@ -775,6 +775,9 @@ vec3 sampleWallpaper(vec2 uv) {
 }
 
 vec3 sampleChromatic(vec2 uv, float separation) {
+  // 无色散时三个通道采样同一坐标，复用完整颜色，避免重复执行壁纸曝光映射。
+  if (separation == 0.0) return sampleWallpaper(uv);
+
   return vec3(
     sampleWallpaper(uv + vec2(separation, 0.0)).r,
     sampleWallpaper(uv).g,
@@ -965,7 +968,8 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
     ? sampleWallpaper(sourceUv)
     : sampleChromatic(sourceUv, separation);
   float detailSeparation = separation * mix(1.45, 2.35, uQuality);
-  vec3 detailed = usesPrefilteredFrost > 0.5
+  // 静态轮廓由原生材质持有时 edge 为零，两级色散采样完全相同。
+  vec3 detailed = usesPrefilteredFrost > 0.5 || separation == 0.0
     ? refracted
     : sampleChromatic(sourceUv, detailSeparation);
   refracted = mix(refracted, detailed, mix(0.06, 0.16, uQuality) * (1.0 - frosted));
