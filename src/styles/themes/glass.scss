@@ -1735,8 +1735,8 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   .navbar-content-container {
     position: relative;
     z-index: 1;
-    // 外壳内收时，导航内容仍按视口中心对齐，避免控件位置跟随采样面的宽度变化。
-    inline-size: min(100vw, variables.$layout-boxed-content-width);
+    // 外壳内收时，导航内容仍占满视口，让水平导航的左右操作组保持贴近各自边缘。
+    inline-size: 100vw;
     inset-inline-start: 50%;
     transform: translateX(-50%) !important;
   }

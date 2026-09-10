@@ -561,8 +561,8 @@ export default defineComponent({
       column-gap: 0.75rem;
       grid-template-columns: auto minmax(0, 1fr) auto;
       inline-size: 100%;
-      margin-inline: auto;
-      max-inline-size: variables.$layout-boxed-content-width;
+      margin-inline: 0;
+      max-inline-size: none;
       padding-inline: 1.5rem;
     }
 
