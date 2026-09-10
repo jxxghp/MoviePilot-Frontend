@@ -471,8 +471,8 @@ export default {
   },
   music: {
     title: '音乐搜索',
-    searchFromGlobal: '在顶部全局搜索中输入歌曲、专辑或艺术家进入音乐搜索',
-    searchDescription: '歌曲、专辑或艺术家',
+    searchFromGlobal: '在顶部全局搜索中输入歌曲或专辑进入音乐搜索',
+    searchDescription: '歌曲或专辑',
     noResults: '没有找到匹配的音乐',
     searchResources: '搜索资源',
     discographyResources: '作品资源',
@@ -1614,7 +1614,7 @@ export default {
     refreshSearch: '重新搜索',
   },
   browse: {
-    actor: '演员',
+    actor: '演员/艺术家',
   },
   appcenter: {
     others: '其他',
@@ -3665,7 +3665,7 @@ export default {
       selectSites: '选择站点',
       collections: '系列合集',
       collectionSearch: '相关的系列作品',
-      actorSearch: '相关的演员、导演等',
+      actorSearch: '相关的演员、导演或艺术家',
       historySearch: '相关的历史记录',
       subscribeShareSearch: '相关的订阅分享',
       siteResources: '站点资源',
@@ -3675,7 +3675,7 @@ export default {
       relatedResources: '相关资源',
       relatedMusicResources: '相关音乐资源',
       relatedSubtitles: '相关字幕',
-      searchTip: '可搜索电影、电视剧、演员、资源等',
+      searchTip: '可搜索电影、电视剧、演员、艺术家、资源等',
       emptySearchHint: '输入关键字开始搜索',
       escClose: '关闭',
       openSearch: '打开搜索',

@@ -151,12 +151,12 @@ describe('SearchBarDialog media source selection', () => {
     const mediaItem = getSearchItem('电影、电视剧')
     const musicItem = getSearchItem('音乐')
     const collectionItem = getSearchItem('系列合集')
-    const personItem = getSearchItem('演员')
+    const personItem = getSearchItem('演员/艺术家')
 
     const mediaGroup = within(mediaItem).getByRole('group', { name: '电影、电视剧搜索数据源' })
     const musicGroup = within(musicItem).getByRole('group', { name: '音乐搜索数据源' })
     const collectionGroup = within(collectionItem).getByRole('group', { name: '系列合集搜索数据源' })
-    const personGroup = within(personItem).getByRole('group', { name: '演员搜索数据源' })
+    const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
 
     expect(within(mediaGroup).getAllByRole('button')).toHaveLength(4)
     expect(within(musicGroup).getAllByRole('button')).toHaveLength(3)
@@ -249,7 +249,7 @@ describe('SearchBarDialog media source selection', () => {
     await user.type(input, '晴天')
 
     expect(getSearchItem('音乐').querySelector('[data-icon="mdi-music-note-outline"]')).not.toBeNull()
-    expect(getSearchItem('音乐')).toHaveTextContent('歌曲、专辑或艺术家')
+    expect(getSearchItem('音乐')).toHaveTextContent('歌曲或专辑')
     expect(getSearchItem('音乐')).not.toHaveTextContent('搜索音乐元数据，并进入站点资源搜索、下载和订阅流程')
   })
 
@@ -306,17 +306,17 @@ describe('SearchBarDialog media source selection', () => {
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
     await user.type(input, '刘德华')
-    const personItem = getSearchItem('演员')
+    const personItem = getSearchItem('演员/艺术家')
 
-    const personGroup = within(personItem).getByRole('group', { name: '演员搜索数据源' })
-    // 追加选择豆瓣并取消默认的 TheMovieDb，仅保留豆瓣来源。
-    await user.click(within(personGroup).getByRole('button', { name: '使用 豆瓣 搜索' }))
+    const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
+    // 追加选择 MusicBrainz 并取消默认的 TheMovieDb，仅保留 MusicBrainz 来源。
+    await user.click(within(personGroup).getByRole('button', { name: '使用 MusicBrainz 搜索' }))
     await user.click(within(personGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' }))
     await user.click(personItem)
 
     await waitFor(() => {
       expect(router.currentRoute.value.query).toEqual({
-        media_source: 'douban',
+        media_source: 'musicbrainz',
         title: '刘德华',
         type: 'person',
       })

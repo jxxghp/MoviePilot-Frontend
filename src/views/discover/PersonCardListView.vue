@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { Person } from '@/api/types'
+import type { MusicArtistInfo, PersonSearchResult } from '@/api/types'
+import MusicArtistCard from '@/components/cards/MusicArtistCard.vue'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
@@ -33,10 +34,23 @@ const isRefreshed = ref(false)
 const loadFailed = ref(false)
 
 // 使用 shallowRef 避免长列表中的深层代理开销
-const dataList = shallowRef<Person[]>([])
+const dataList = shallowRef<PersonSearchResult[]>([])
 
-function appendData(items: Person[]) {
+function appendData(items: PersonSearchResult[]) {
   dataList.value = dataList.value.concat(items)
+}
+
+/** 判断统一人物搜索结果是否为音乐艺术家。 */
+function isMusicArtist(item: PersonSearchResult): item is MusicArtistInfo {
+  return 'music_type' in item && item.music_type === 'artist'
+}
+
+/** 为影视人物和音乐艺术家生成跨来源稳定键，避免分页追加时互相覆盖。 */
+function getPersonSearchItemKey(item: PersonSearchResult) {
+  if (isMusicArtist(item)) {
+    return `music-artist:${item.media_source || ''}:${item.media_id || item.name || ''}`
+  }
+  return `person:${item.source || ''}:${item.id ?? item.name ?? ''}`
 }
 
 async function loadPageData() {
@@ -44,7 +58,7 @@ async function loadPageData() {
   return api.get(props.apipath!, {
     params,
     ...(Array.isArray(params.media_source) ? { paramsSerializer: { indexes: null } } : {}),
-  }) as Promise<Person[]>
+  }) as Promise<PersonSearchResult[]>
 }
 
 // 拼装参数
@@ -148,11 +162,12 @@ async function fetchData({ done }: { done: any }) {
       v-if="dataList.length > 0"
       :items="dataList"
       :item-aspect-ratio="1.5"
-      :get-item-key="item => item.id"
+      :get-item-key="getPersonSearchItemKey"
       tabindex="0"
     >
       <template #default="{ item }">
-        <PersonCard :person="item" />
+        <MusicArtistCard v-if="isMusicArtist(item)" :artist="item" />
+        <PersonCard v-else :person="item" />
       </template>
     </ProgressiveCardGrid>
     <NoDataFound

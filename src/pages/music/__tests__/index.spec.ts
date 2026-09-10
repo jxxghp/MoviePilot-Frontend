@@ -1,5 +1,5 @@
 import MusicPage from '@/pages/music/index.vue'
-import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -206,7 +206,7 @@ describe('music page', () => {
 
   it('keeps a long title-side label constrained without hiding its full value', async () => {
     const longVersion = 'Taiwanese singer-songwriter and multi-instrumentalist with a very long biography label'
-    mockSearchAndSubscribeState(false, { ...artistResult, version: longVersion })
+    mockSearchAndSubscribeState(false, { ...musicResult, version: longVersion })
 
     const { container } = await renderMusicPage()
 
@@ -296,30 +296,18 @@ describe('music page', () => {
     expect(router.currentRoute.value.query).toMatchObject({ media_id: artistId })
   })
 
-  it('renders album and artist search entities with entity-correct actions and routes', async () => {
+  it('filters artist entities out of the music search result page', async () => {
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'media/search') return Promise.resolve([musicResult, albumResult, artistResult])
       if (path.startsWith('subscribe/media/')) return Promise.reject({ response: { status: 404 } })
       return Promise.resolve([])
     })
-    const { router } = await renderMusicPage()
 
-    const artistEntity = await screen.findByText('艺术家')
-    const artistCard = artistEntity.closest('.music-card')
-    expect(artistCard).not.toBeNull()
-    expect(within(artistCard as HTMLElement).queryByRole('button', { name: '订阅' })).not.toBeInTheDocument()
-    expect(within(artistCard as HTMLElement).queryByRole('button', { name: '搜索资源' })).not.toBeInTheDocument()
+    await renderMusicPage()
 
-    await fireEvent.click(screen.getByText('七里香'))
-    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/album'))
-    expect(router.currentRoute.value.query).toMatchObject({ media_id: secondAlbumId })
-
-    await router.push('/music?query=晴天')
-    const restoredArtistEntity = await screen.findByText('艺术家')
-    const restoredArtistCard = restoredArtistEntity.closest('.music-card')
-    await fireEvent.click(within(restoredArtistCard as HTMLElement).getByText('周杰伦'))
-    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/artist'))
-    expect(router.currentRoute.value.query).toMatchObject({ media_id: artistId })
+    expect(await screen.findByText('七里香')).toBeInTheDocument()
+    expect(screen.getByText('晴天')).toBeInTheDocument()
+    expect(screen.queryByText('艺术家')).not.toBeInTheDocument()
   })
 
   it('selects a music-capable site before routing the resource search', async () => {

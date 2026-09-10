@@ -116,7 +116,7 @@ interface MediaSearchAction {
   description: string
 }
 
-// 三类搜索的媒体数据源可多选，为空数组时由后端按“基础设置-媒体搜索数据源”全局配置执行。
+// 各类搜索的媒体数据源可多选，为空数组时由后端按“基础设置-媒体搜索数据源”全局配置执行。
 const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource[]>>({
   media: [],
   music: ['musicbrainz'],
@@ -228,7 +228,7 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
     media: [themoviedb, douban, bangumi, anilist, ...customMediaSearchSources.value],
     music: [musicbrainz, theaudiodb, doubanmusic, ...customMusicSearchSources.value],
     collection: [themoviedb],
-    person: [themoviedb, douban],
+    person: [themoviedb, musicbrainz],
   }
 })
 

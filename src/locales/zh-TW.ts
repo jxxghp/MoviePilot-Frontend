@@ -469,8 +469,8 @@ export default {
   },
   music: {
     title: '音樂搜尋',
-    searchFromGlobal: '在頂部全域搜尋中輸入歌曲、專輯或藝術家進入音樂搜尋',
-    searchDescription: '歌曲、專輯或藝術家',
+    searchFromGlobal: '在頂部全域搜尋中輸入歌曲或專輯進入音樂搜尋',
+    searchDescription: '歌曲或專輯',
     noResults: '沒有找到符合的音樂',
     searchResources: '搜尋資源',
     discographyResources: '作品資源',
@@ -1574,7 +1574,7 @@ export default {
     refreshSearch: '重新搜尋',
   },
   browse: {
-    actor: '演員',
+    actor: '演員/藝術家',
   },
   appcenter: {
     others: '其他',
@@ -3626,7 +3626,7 @@ export default {
       selectSites: '選擇站點',
       collections: '系列合集',
       collectionSearch: '相關的系列作品',
-      actorSearch: '相關的演員、導演等',
+      actorSearch: '相關的演員、導演或藝術家',
       historySearch: '相關的歷史記錄',
       subscribeShareSearch: '相關的訂閱分享',
       siteResources: '站點資源',
@@ -3636,7 +3636,7 @@ export default {
       relatedResources: '相關資源',
       relatedMusicResources: '相關音樂資源',
       relatedSubtitles: '相關字幕',
-      searchTip: '可搜索電影、電視劇、演員、資源等',
+      searchTip: '可搜索電影、電視劇、演員、藝術家、資源等',
       emptySearchHint: '輸入關鍵字開始搜索',
       escClose: '關閉',
       openSearch: '打開搜索',

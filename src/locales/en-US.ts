@@ -487,8 +487,8 @@ export default {
   },
   music: {
     title: 'Music Search',
-    searchFromGlobal: 'Use the global search at the top to look up a song, album or artist',
-    searchDescription: 'Songs, albums or artists',
+    searchFromGlobal: 'Use the global search at the top to look up a song or album',
+    searchDescription: 'Songs or albums',
     noResults: 'No matching music found',
     searchResources: 'Search Resources',
     discographyResources: 'Discography Resources',
@@ -1635,7 +1635,7 @@ export default {
     refreshSearch: 'Re-search',
   },
   browse: {
-    actor: 'Actor',
+    actor: 'Actor/Artist',
   },
   appcenter: {
     others: 'Others',
@@ -3748,7 +3748,7 @@ export default {
       selectSites: 'Select Sites',
       collections: 'Collections',
       collectionSearch: 'Related series works',
-      actorSearch: 'Related actors, directors, etc.',
+      actorSearch: 'Related actors, directors, or artists',
       historySearch: 'Related history records',
       subscribeShareSearch: 'Related subscription shares',
       siteResources: 'Site Resources',
@@ -3758,7 +3758,7 @@ export default {
       relatedResources: 'Related Resources',
       relatedMusicResources: 'Related Music Resources',
       relatedSubtitles: 'Related Subtitles',
-      searchTip: 'You can search for movies, TV shows, actors, resources, etc.',
+      searchTip: 'You can search for movies, TV shows, actors, artists, resources, etc.',
       emptySearchHint: 'Enter keywords to search',
       escClose: 'Close',
       openSearch: 'Open search',

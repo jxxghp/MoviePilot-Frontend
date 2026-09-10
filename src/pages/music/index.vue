@@ -34,11 +34,13 @@ async function searchMusic() {
       count: 30,
     }
     if (mediaSources.value.length > 0) params.media_source = mediaSources.value
-    results.value =
-      (await api.get('media/search', {
+    const searchResults =
+      (await api.get<MediaInfo[]>('media/search', {
         params,
         paramsSerializer: { indexes: null },
       })) || []
+    // 艺术家已经归入演员/艺术家搜索，音乐结果页只展示专辑和单曲。
+    results.value = searchResults.filter(item => item.music_type !== 'artist')
   } catch (error) {
     console.error(error)
     results.value = []

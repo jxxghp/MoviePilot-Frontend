@@ -1,4 +1,4 @@
-import type { Person } from '@/api/types'
+import type { MusicArtistInfo, Person, PersonSearchResult } from '@/api/types'
 import PersonCardListView from '@/views/discover/PersonCardListView.vue'
 import { screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -57,7 +57,7 @@ const ProgressiveCardGridStub = defineComponent({
   name: 'ProgressiveCardGrid',
   props: {
     items: {
-      type: Array as PropType<Person[]>,
+      type: Array as PropType<PersonSearchResult[]>,
       required: true,
     },
   },
@@ -83,6 +83,19 @@ const PersonCardStub = defineComponent({
   },
 })
 
+const MusicArtistCardStub = defineComponent({
+  name: 'MusicArtistCard',
+  props: {
+    artist: {
+      type: Object as PropType<MusicArtistInfo>,
+      required: true,
+    },
+  },
+  setup(props) {
+    return () => h('article', { 'data-card': 'music-artist' }, props.artist.name)
+  },
+})
+
 const LoadingBannerStub = defineComponent({
   name: 'LoadingBanner',
   template: '<div role="status">正在加载人物列表</div>',
@@ -95,6 +108,7 @@ async function renderList(params?: Record<string, unknown>) {
       stubs: {
         LoadingBanner: LoadingBannerStub,
         NoDataFound: true,
+        MusicArtistCard: MusicArtistCardStub,
         PersonCard: PersonCardStub,
         ProgressiveCardGrid: ProgressiveCardGridStub,
         VInfiniteScroll: InfiniteScrollStub,
@@ -137,6 +151,23 @@ describe('PersonCardListView', () => {
     expect(await screen.findByText('多来源人物')).toBeInTheDocument()
     expect(requests[0].searchParams.getAll('media_source')).toEqual(['themoviedb', 'douban'])
     expect(requests[0].searchParams.has('media_source[]')).toBe(false)
+  })
+
+  it('renders MusicBrainz artists with the music artist card in the unified list', async () => {
+    const artist = {
+      media_id: 'artist-1',
+      media_source: 'musicbrainz',
+      music_type: 'artist',
+      name: '统一艺术家',
+      type: '音乐',
+    } satisfies MusicArtistInfo
+    server.use(http.get(LIST_URL, () => apiJson([artist])))
+
+    await renderList()
+
+    expect(await screen.findByText('统一艺术家')).toBeInTheDocument()
+    expect(screen.getByText('统一艺术家')).toHaveAttribute('data-card', 'music-artist')
+    expect(screen.queryByLabelText('人物无限列表状态')).toHaveTextContent('idle')
   })
 
   it('shows an inline retry and retries the same page after a request failure', async () => {

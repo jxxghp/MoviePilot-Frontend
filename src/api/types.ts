@@ -914,6 +914,9 @@ export interface Person {
   relation?: string
 }
 
+/** 全局演员/艺术家搜索返回的影视人物或音乐艺术家。 */
+export type PersonSearchResult = Person | MusicArtistInfo
+
 // 站点
 export interface Site {
   // ID
