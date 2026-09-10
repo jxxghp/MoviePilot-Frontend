@@ -5703,7 +5703,12 @@ describe('glass optical surface discovery', () => {
     },
   )
 
-  it.each(['balanced', 'high'] as const)('budgets %s dynamic rendering on a 120Hz display', async quality => {
+  it.each([
+    ['balanced', 'ripple'],
+    ['balanced', 'fluid'],
+    ['high', 'ripple'],
+    ['high', 'fluid'],
+  ] as const)('budgets %s %s rendering on a 120Hz display', async (quality, dynamicsMode) => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
     const three = await import('three')
@@ -5728,7 +5733,7 @@ describe('glass optical surface discovery', () => {
         active: ref(true),
         appearance: ref('clear'),
         canvas: ref(document.createElement('canvas')),
-        dynamicsMode: ref('ripple'),
+        dynamicsMode: ref(dynamicsMode),
         quality: ref(quality),
         routeKey: ref('/dashboard'),
         surfaceSpace: 'scroll',
