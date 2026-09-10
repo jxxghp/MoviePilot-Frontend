@@ -313,6 +313,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     },
     setupFiles: ['./tests/setup.ts'],
     testTimeout: 60_000,
+    maxWorkers: 2,
+    minWorkers: 1,
     unstubGlobals: true,
     coverage: {
       include: [
