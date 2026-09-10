@@ -1317,6 +1317,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let lastSurfaceGeometrySignature = ''
   let lastInteractionAt = 0
   let lastInteractionFrameAt = 0
+  let lastDynamicFrameAt = Number.NEGATIVE_INFINITY
   let lastPointerAt = 0
   let lastTrailAt = Number.NEGATIVE_INFINITY
   let lastPointerX = window.innerWidth * 0.5
@@ -2859,6 +2860,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       return
     }
 
+    // Balanced 将动态模拟与合成限制在 60Hz；输入继续采集，High 保留显示器原生刷新节奏。
+    const minimumInterval = toValue(options.quality) === 'balanced' ? 1000 / 60 : 0
+    if (timestamp - lastDynamicFrameAt < minimumInterval - 0.5) {
+      animationFrame = requestAnimationFrame(renderInteractionFrame)
+      return
+    }
+    lastDynamicFrameAt = timestamp
+
     if (hasRippleCapability()) {
       writeSurfaceUniforms(timestamp)
       const keepAnimating = advanceRipple(timestamp)
@@ -2923,6 +2932,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     cancelScheduledFrame()
     interactionAnimating = true
     lastInteractionFrameAt = 0
+    lastDynamicFrameAt = Number.NEGATIVE_INFINITY
     animationFrame = requestAnimationFrame(renderInteractionFrame)
   }
 
