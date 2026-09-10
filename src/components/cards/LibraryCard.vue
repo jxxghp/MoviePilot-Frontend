@@ -213,33 +213,33 @@ onMounted(async () => {
           }"
           @click="goPlay"
         >
-        <template #image>
-          <canvas ref="canvasRef" width="640" height="360" class="w-full h-full hidden" />
-          <VImg
-            :src="imgUrl"
-            aspect-ratio="2/3"
-            class="library-card-image"
-            :class="{ 'library-card-image--loaded': imageLoaded }"
-            cover
-            @load="imageLoadHandler"
-            @error="imageErrorHandler"
-          >
-            <template #placeholder>
-              <div class="library-card-placeholder">
-                <VSkeletonLoader class="library-card-skeleton" />
-              </div>
-            </template>
-            <template #default>
-              <div class="library-card-shade" aria-hidden="true" />
-              <div v-if="showCountCorner" class="library-card-count-corner">
-                <span>{{ countLabel }}</span>
-              </div>
-              <div class="library-card-label">
-                <span>{{ props.media?.name }}</span>
-              </div>
-            </template>
-          </VImg>
-        </template>
+          <template #image>
+            <canvas ref="canvasRef" width="640" height="360" class="w-full h-full hidden" />
+            <VImg
+              :src="imgUrl"
+              aspect-ratio="2/3"
+              class="library-card-image"
+              :class="{ 'library-card-image--loaded': imageLoaded }"
+              cover
+              @load="imageLoadHandler"
+              @error="imageErrorHandler"
+            >
+              <template #placeholder>
+                <div class="library-card-placeholder">
+                  <VSkeletonLoader class="library-card-skeleton" />
+                </div>
+              </template>
+              <template #default>
+                <div class="library-card-shade" aria-hidden="true" />
+                <div v-if="showCountCorner" class="library-card-count-corner">
+                  <span>{{ countLabel }}</span>
+                </div>
+                <div class="library-card-label">
+                  <span>{{ props.media?.name }}</span>
+                </div>
+              </template>
+            </VImg>
+          </template>
         </VCard>
       </div>
     </template>
@@ -310,7 +310,7 @@ onMounted(async () => {
   background: rgba(8, 13, 22, 72%);
   block-size: 100%;
   clip-path: polygon(100% 0, 100% 100%, 0 0);
-  content: "";
+  content: '';
   inset-block-start: 0;
   inset-inline-end: 0;
   inline-size: 100%;
@@ -321,7 +321,7 @@ onMounted(async () => {
   background: rgba(var(--v-theme-primary), 62%);
   block-size: 100%;
   clip-path: polygon(100% 0, 100% 100%, 0 0);
-  content: "";
+  content: '';
   inset-block-start: 0;
   inset-inline-end: 0;
   inline-size: 100%;

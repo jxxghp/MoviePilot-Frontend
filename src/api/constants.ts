@@ -38,15 +38,21 @@ export const storageAttributes = [
   },
 ]
 
-export const storageIconDict = storageAttributes.reduce((dict, item) => {
-  dict[item.type] = item.icon
-  return dict
-}, {} as Record<string, string>)
+export const storageIconDict = storageAttributes.reduce(
+  (dict, item) => {
+    dict[item.type] = item.icon
+    return dict
+  },
+  {} as Record<string, string>,
+)
 
-export const storageRemoteDict = storageAttributes.reduce((dict, item) => {
-  dict[item.type] = item.remote
-  return dict
-}, {} as Record<string, boolean>)
+export const storageRemoteDict = storageAttributes.reduce(
+  (dict, item) => {
+    dict[item.type] = item.remote
+    return dict
+  },
+  {} as Record<string, boolean>,
+)
 
 export const downloaderOptions = [
   {
@@ -63,10 +69,13 @@ export const downloaderOptions = [
   },
 ]
 
-export const downloaderDict = downloaderOptions.reduce((dict, item) => {
-  dict[item.value] = item.title
-  return dict
-}, {} as Record<string, string>)
+export const downloaderDict = downloaderOptions.reduce(
+  (dict, item) => {
+    dict[item.value] = item.title
+    return dict
+  },
+  {} as Record<string, string>,
+)
 
 export const mediaServerOptions = [
   {
@@ -95,10 +104,13 @@ export const mediaServerOptions = [
   },
 ]
 
-export const mediaServerDict = mediaServerOptions.reduce((dict, item) => {
-  dict[item.value] = item.title
-  return dict
-}, {} as Record<string, string>)
+export const mediaServerDict = mediaServerOptions.reduce(
+  (dict, item) => {
+    dict[item.value] = item.title
+    return dict
+  },
+  {} as Record<string, string>,
+)
 
 export const innerFilterRules = [
   { title: i18n.global.t('filterRules.specSub'), value: ' SPECSUB ' },
@@ -256,10 +268,13 @@ export const mediaTypeOptions = [
 ]
 
 // 媒体类型字典
-export const mediaTypeDict = mediaTypeOptions.reduce((dict, item) => {
-  dict[item.value] = item.title
-  return dict
-}, {} as Record<string, string>)
+export const mediaTypeDict = mediaTypeOptions.reduce(
+  (dict, item) => {
+    dict[item.value] = item.title
+    return dict
+  },
+  {} as Record<string, string>,
+)
 
 // 通知开关选项
 export const notificationSwitchOptions = [
@@ -302,10 +317,13 @@ export const notificationSwitchOptions = [
 ]
 
 // 通知开关字典
-export const notificationSwitchDict = notificationSwitchOptions.reduce((dict, item) => {
-  dict[item.value] = item.title
-  return dict
-}, {} as Record<string, string>)
+export const notificationSwitchDict = notificationSwitchOptions.reduce(
+  (dict, item) => {
+    dict[item.value] = item.title
+    return dict
+  },
+  {} as Record<string, string>,
+)
 
 // 操作步骤选项
 export const actionStepOptions = [
@@ -372,7 +390,10 @@ export const actionStepOptions = [
 ]
 
 // 操作步骤字典
-export const actionStepDict = actionStepOptions.reduce((dict, item) => {
-  dict[item.value] = item.title
-  return dict
-}, {} as Record<string, string>)
+export const actionStepDict = actionStepOptions.reduce(
+  (dict, item) => {
+    dict[item.value] = item.title
+    return dict
+  },
+  {} as Record<string, string>,
+)

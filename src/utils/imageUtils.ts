@@ -106,10 +106,8 @@ export function getDisplayImageUrl(url: string, useCache = false): string {
   const encodedUrl = encodeURIComponent(url)
   if (isBangumiImageUrl(url))
     return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodedUrl}${useCache ? '&cache=true' : ''}`
-  if (useCache)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodedUrl}`
-  if (url.includes('doubanio.com'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodedUrl}`
+  if (useCache) return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodedUrl}`
+  if (url.includes('doubanio.com')) return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodedUrl}`
   return url
 }
 
