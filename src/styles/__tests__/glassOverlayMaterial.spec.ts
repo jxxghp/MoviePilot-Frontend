@@ -587,8 +587,12 @@ describe('glass overlay material styles', () => {
     expect(baseMaterialRule).toContain('background: var(--glass-navbar-sheen), var(--glass-navbar-scrim) !important')
     expect(baseMaterialRule).toContain('box-shadow: var(--glass-navbar-shadow) !important')
     expect(baseMaterialRule).toContain('border: 0 !important')
-    expect(baseMaterialRule).toContain('inset-block-start: var(--shell-floating-navbar-inset) !important')
-    expect(baseMaterialRule).toContain('inset-inline: var(--shell-floating-navbar-inset) !important')
+    expect(baseMaterialRule).toContain(
+      'inset-block-start: var(--shell-navbar-motion-inset, var(--shell-floating-navbar-inset)) !important',
+    )
+    expect(baseMaterialRule).toContain(
+      'inset-inline: var(--shell-navbar-motion-inset, var(--shell-floating-navbar-inset)) !important',
+    )
     expect(baseMaterialRule).not.toContain('data-glass-navbar-refraction-ready')
     expect(baseMaterialRule).not.toContain('&::before')
     expect(baseMaterialRule).not.toContain('&::after')

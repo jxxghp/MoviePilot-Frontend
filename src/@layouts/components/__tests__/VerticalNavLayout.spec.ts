@@ -15,19 +15,21 @@ const mocks = vi.hoisted(() => ({
   mdAndDown: false,
   navbarRefractionSupported: false,
   scrollY: 0,
+  scrollRevision: undefined as { value: number } | undefined,
   revision: undefined as { value: number } | undefined,
   state: 'expanded' as 'expanded' | 'compact' | 'revealed',
 }))
 
 vi.mock('@/composables/useShellScrollState', async () => {
-  const { computed } = await import('vue')
+  const { computed, ref } = await import('vue')
+  mocks.scrollRevision ??= ref(0)
 
   return {
     useShellScrollState: () => ({
       direction: computed(() => mocks.direction),
       state: computed(() => mocks.state),
       scrollY: computed(() => {
-        void mocks.revision!.value
+        void mocks.scrollRevision!.value
         return mocks.scrollY
       }),
     }),
@@ -147,6 +149,13 @@ function mountLayout() {
 
 async function refreshShell() {
   mocks.revision!.value += 1
+  mocks.scrollRevision!.value += 1
+  await nextTick()
+}
+
+async function refreshScroll() {
+  // 只使滚动依赖失效，不能用布局断点的刷新模拟滚动，否则无法检测额外 slot 重渲染。
+  mocks.scrollRevision!.value += 1
   await nextTick()
 }
 
@@ -483,5 +492,87 @@ describe('VerticalNavLayout shell states', () => {
     expect(wcoRoot.classes()).toContain('layout-horizontal-nav-active')
     expect(wcoRoot.classes()).not.toContain('layout-navbar-floating-eligible')
     expect(wcoRoot.attributes('data-shell-navbar-attachment')).toBe('connected')
+  })
+
+  it.each([
+    [1920, 224],
+    [2560, 544],
+    [3440, 560],
+    [1280, 200],
+  ])('tracks reversible horizontal expansion at viewport %ipx without rerendering slots', async (width, distance) => {
+    const navbarSlot = vi.fn(() => h('button', 'navbar'))
+    const wrapper = mount(VerticalNavLayout, { slots: { navbar: navbarSlot } })
+    const viewport = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(width)
+    const content = wrapper.get('.layout-page-content').element
+    const geometry = vi.spyOn(content, 'getBoundingClientRect').mockReturnValue({
+      width: Math.min(width, 1440),
+    } as DOMRect)
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout: 'horizontal' } }),
+    )
+    await nextTick()
+    const navbar = wrapper.get('.layout-navbar').element as HTMLElement
+    const progress = () => Number(navbar.style.getPropertyValue('--shell-navbar-scroll-progress'))
+    expect(progress()).toBe(0)
+
+    mocks.scrollY = distance / 2
+    await refreshScroll()
+    expect(progress()).toBeCloseTo(0.5)
+    navbarSlot.mockClear()
+    mocks.scrollY = distance * 0.75
+    await refreshScroll()
+    expect(progress()).toBeCloseTo(0.84375)
+    expect(navbarSlot).not.toHaveBeenCalled()
+
+    mocks.scrollY = distance * 2
+    await refreshScroll()
+    expect(progress()).toBe(1)
+    mocks.scrollY = distance / 4
+    await refreshScroll()
+    expect(progress()).toBeCloseTo(0.15625)
+    mocks.scrollY = 0
+    await refreshScroll()
+    expect(progress()).toBe(0)
+
+    geometry.mockRestore()
+    viewport.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('resets expansion outside eligible glass desktop horizontal layouts', async () => {
+    const wrapper = mountLayout()
+    const navbar = wrapper.get('.layout-navbar').element as HTMLElement
+    const progress = () => Number(navbar.style.getPropertyValue('--shell-navbar-scroll-progress'))
+    mocks.scrollY = 1000
+    for (const layout of ['vertical', 'collapsed']) {
+      window.dispatchEvent(
+        new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout } }),
+      )
+      await refreshShell()
+      expect(progress()).toBe(0)
+    }
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout: 'horizontal' } }),
+    )
+    await refreshShell()
+    expect(progress()).toBe(1)
+    mocks.isWindowControlsOverlayMode = true
+    await refreshShell()
+    expect(progress()).toBe(0)
+    mocks.isWindowControlsOverlayMode = false
+    mocks.mdAndDown = true
+    await refreshShell()
+    expect(progress()).toBe(0)
+    mocks.mdAndDown = false
+    mocks.appMode = true
+    await refreshShell()
+    expect(progress()).toBe(0)
+    mocks.appMode = false
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'transparent', layout: 'horizontal' } }),
+    )
+    await refreshShell()
+    expect(progress()).toBe(0)
+    wrapper.unmount()
   })
 })
