@@ -223,6 +223,128 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('accepts a steering message while the primary Agent stream is still running', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        streamCalls += 1
+        if (streamCalls === 1) return primaryStream.response
+
+        return createAgentStreamResponse(
+          [
+            legacySseFrame({ type: 'start', session_id: 'web-agent:steering' }),
+            legacySseFrame({
+              type: 'steering',
+              status: 'queued',
+              message_id: 'steering-1',
+              content: '补充检查下载目录',
+            }),
+            legacySseFrame({ type: 'done' }),
+          ],
+          { 'X-MoviePilot-Agent-Control': 'steering' },
+        )
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('开始检查下载任务')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.find('.agent-assistant-stop').exists()).toBe(true)
+    expect(wrapper.find('textarea').attributes('disabled')).toBeUndefined()
+
+    await wrapper.find('textarea').setValue('补充检查下载目录')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(streamCalls).toBe(2)
+    const steeringCall = fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/message/agent/stream'))[1]
+    expect(JSON.parse(String(steeringCall?.[1]?.body || '{}'))).toMatchObject({
+      text: '补充检查下载目录',
+      session_id: expect.any(String),
+    })
+    expect(wrapper.text()).toContain('agentAssistant.steeringQueued')
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-1',
+        content: '补充检查下载目录',
+        display_message: {
+          role: 'user',
+          content: '补充检查下载目录',
+          attachments: [],
+        },
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain('agentAssistant.steeringApplied')
+
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-stop').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('deduplicates an applied steering event that arrives before its ACK', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith('/message/agent/stream') || init?.method !== 'POST') {
+        return createAgentResponse([])
+      }
+
+      streamCalls += 1
+      if (streamCalls === 1) return primaryStream.response
+
+      return createAgentStreamResponse(
+        [
+          legacySseFrame({ type: 'steering', status: 'queued', message_id: 'steering-early' }),
+          legacySseFrame({ type: 'done' }),
+        ],
+        { 'X-MoviePilot-Agent-Control': 'steering' },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('开始检查下载任务')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-early',
+        content: '补充检查下载目录',
+      }),
+    )
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('补充检查下载目录')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const steeringMessages = wrapper
+      .findAll('.agent-assistant-message--user')
+      .filter(message => message.text().includes('补充检查下载目录'))
+    expect(steeringMessages).toHaveLength(1)
+    expect(wrapper.text()).toContain('agentAssistant.steeringApplied')
+
+    primaryStream.close()
+    await flushPromises()
+    wrapper.unmount()
+  })
+
   it('toggles the desktop assistant between the side panel and fullscreen modes', async () => {
     displayState.mdAndDown.value = false
     vi.stubGlobal(

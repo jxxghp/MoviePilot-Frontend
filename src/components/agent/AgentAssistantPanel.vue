@@ -100,6 +100,7 @@ interface AgentChatMessage {
   attachments: AgentMessageAttachment[]
   choices: AgentChoiceCard[]
   choice_selection?: AgentChoiceSelection
+  steeringStatus?: 'queued' | 'applied'
 }
 
 interface AgentSessionHistoryItem {
@@ -116,15 +117,17 @@ interface AgentSessionHistoryItem {
 }
 
 interface AgentStreamEvent {
-  type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'message_update' | 'done' | 'error'
+  type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'message_update' | 'steering' | 'done' | 'error'
   attachment?: AgentMessageAttachment
   choice?: Omit<AgentChoiceCard, 'status'>
   content?: string
   message?: string
+  display_message?: Partial<AgentChatMessage> & { id?: string }
   message_i18n?: string
   message_id?: string
   target_message?: Partial<AgentChatMessage> & { id?: string }
   session_id?: string
+  status?: 'queued' | 'applied'
 }
 
 const AGENT_STREAM_EVENT_TYPES = new Set<AgentStreamEvent['type']>([
@@ -134,6 +137,7 @@ const AGENT_STREAM_EVENT_TYPES = new Set<AgentStreamEvent['type']>([
   'attachment',
   'choice',
   'message_update',
+  'steering',
   'done',
   'error',
 ])
@@ -170,6 +174,7 @@ interface AgentStreamMessageOptions {
   choiceSelection?: AgentChoiceSelection
   originalMessageId?: string
   originalChatId?: string
+  steering?: boolean
 }
 
 interface AgentPendingStreamRecovery {
@@ -248,6 +253,7 @@ const protectedDeliveries = ref<string[]>([])
 const historySessions = ref<AgentSessionHistoryItem[]>([])
 const sessionId = ref('')
 const sending = ref(false)
+const runnerActive = ref(false)
 const isComposing = ref(false)
 const streamError = ref('')
 const historyMenuOpen = ref(false)
@@ -285,13 +291,21 @@ let streamRecoveryAbortRequested = false
 let streamRecoveryTimer: number | null = null
 let activeStreamStartedAt = 0
 let protectedDeliveryGeneration = 0
+let pendingSteeringDraft: AgentChatMessage | null = null
+const pendingSteeringMessages = new Map<string, AgentChatMessage>()
+const acknowledgedSteeringMessages = new Set<string>()
+const steeringAbortControllers = new Set<AbortController>()
+let sendingRequestId = 0
 
-// 汇总实时请求与后台恢复状态，保证恢复期间仍展示处理中并锁定会话操作。
-const isBusy = computed(() => sending.value || Boolean(pendingStreamRecovery.value))
+// 汇总正在运行的 Agent 与后台恢复状态；提交输入单独由 sending 控制。
+const isBusy = computed(() => runnerActive.value || Boolean(pendingStreamRecovery.value))
 const canSend = computed(
-  () => (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !isBusy.value && !recording.value,
+  () =>
+    (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) &&
+    !sending.value &&
+    !recording.value,
 )
-const canRecord = computed(() => !isBusy.value && !recording.value)
+const canRecord = computed(() => !isBusy.value && !sending.value && !recording.value)
 // 获取当前输入对应的斜杠命令查询词。
 const slashCommandQuery = computed(() => {
   const text = inputText.value.trimStart()
@@ -314,13 +328,17 @@ const filteredSlashCommands = computed(() => {
 const showSlashCommandMenu = computed(
   () =>
     inputText.value.trimStart().startsWith('/') &&
-    !isBusy.value &&
+    !sending.value &&
     !recording.value &&
     (filteredSlashCommands.value.length > 0 || slashCommandsLoading.value),
 )
 // 根据智能体处理状态切换输入框背景提示。
 const inputPlaceholder = computed(() =>
-  isBusy.value ? t('agentAssistant.processingPlaceholder') : t('agentAssistant.placeholder'),
+  sending.value
+    ? t('agentAssistant.processingPlaceholder')
+    : isBusy.value
+      ? t('agentAssistant.steeringPlaceholder')
+      : t('agentAssistant.placeholder'),
 )
 const recordingTimeText = computed(() => {
   const seconds = Math.max(0, recordingDuration.value)
@@ -623,6 +641,10 @@ function normalizeStoredMessages(value: unknown) {
       tools,
       segments: normalizeMessageSegments(message.segments, content, tools),
       choice_selection: normalizeChoiceSelection(message.choice_selection || message.choiceSelection),
+      steeringStatus:
+        message.steeringStatus === 'queued' || message.steeringStatus === 'applied'
+          ? message.steeringStatus
+          : undefined,
     } as AgentChatMessage
   })
 
@@ -1282,6 +1304,7 @@ function addMessage(
   status: AgentMessageStatus = 'idle',
   attachments: AgentMessageAttachment[] = [],
   choiceSelection?: AgentChoiceSelection,
+  steeringStatus?: 'queued' | 'applied',
 ) {
   const message: AgentChatMessage = {
     id: createId(role),
@@ -1294,6 +1317,7 @@ function addMessage(
     tools: [],
     segments: role === 'assistant' && content ? [{ type: 'text', content }] : [],
     choice_selection: choiceSelection,
+    steeringStatus,
   }
   messages.value.push(message)
   const reactiveMessage = messages.value[messages.value.length - 1]
@@ -1301,6 +1325,17 @@ function addMessage(
   persistState()
   scrollToBottom()
   return reactiveMessage
+}
+
+// 清理尚未与服务端 applied 事件对齐的补充消息本地状态。
+function clearSteeringDraftState() {
+  if (pendingSteeringDraft) {
+    messages.value = messages.value.filter(message => message !== pendingSteeringDraft)
+    pendingSteeringDraft = null
+    refreshMessageList()
+  }
+  pendingSteeringMessages.clear()
+  acknowledgedSteeringMessages.clear()
 }
 
 // 清理后端工具提示前缀。
@@ -1434,8 +1469,72 @@ function applyMessageUpdate(event: AgentStreamEvent) {
   return true
 }
 
+// 将运行中补充消息的排队或应用状态更新到本地用户消息。
+function applySteeringEvent(event: AgentStreamEvent) {
+  const messageId = String(event.message_id || '')
+  if (!messageId) return
+
+  let message = pendingSteeringMessages.get(messageId)
+  if (!message && event.status === 'queued' && pendingSteeringDraft) {
+    message = pendingSteeringDraft
+    pendingSteeringDraft = null
+    pendingSteeringMessages.set(messageId, message)
+  }
+  if (!message && event.status === 'applied') {
+    const displayMessage = event.display_message
+    const content =
+      typeof displayMessage?.content === 'string' ? displayMessage.content : String(event.content || '')
+    const attachments = Array.isArray(displayMessage?.attachments) ? displayMessage.attachments : []
+    message = addMessage('user', content, 'done', attachments, undefined, 'applied')
+    pendingSteeringMessages.set(messageId, message)
+  }
+  if (!message) return
+
+  if (event.status === 'applied') {
+    message.steeringStatus = 'applied'
+    const displayMessage = event.display_message
+    if (typeof displayMessage?.content === 'string') message.content = displayMessage.content
+    if (Array.isArray(displayMessage?.attachments)) message.attachments = displayMessage.attachments
+    // ACK 先于应用事件返回时，用户消息暂时位于当前助手气泡之后；应用时
+    // 把它移到仍在输出的助手之前，保持对话顺序与服务端展示快照一致。
+    const messageIndex = messages.value.indexOf(message)
+    const assistantIndex = messages.value.findLastIndex(
+      item => item.role === 'assistant' && item.status === 'streaming',
+    )
+    if (messageIndex >= 0 && assistantIndex >= 0 && messageIndex > assistantIndex) {
+      messages.value.splice(messageIndex, 1)
+      messages.value.splice(assistantIndex, 0, message)
+    }
+    if (acknowledgedSteeringMessages.has(messageId)) {
+      pendingSteeringMessages.delete(messageId)
+      acknowledgedSteeringMessages.delete(messageId)
+    }
+  } else if (event.status === 'queued') {
+    // 应用事件可能先于 ACK 抵达；已应用的状态不能被迟到 ACK 降级。
+    if (message.steeringStatus !== 'applied') message.steeringStatus = 'queued'
+    if (pendingSteeringDraft && pendingSteeringDraft !== message) {
+      messages.value = messages.value.filter(item => item !== pendingSteeringDraft)
+    }
+    pendingSteeringDraft = null
+    acknowledgedSteeringMessages.add(messageId)
+    if (message.steeringStatus === 'applied') {
+      pendingSteeringMessages.delete(messageId)
+      acknowledgedSteeringMessages.delete(messageId)
+    }
+  }
+
+  refreshMessageList()
+  persistState()
+}
+
 // 将单个 SSE 事件应用到正在流式输出的助手消息。
-function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage) {
+function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage | null) {
+  if (event.type === 'steering') {
+    applySteeringEvent(event)
+    return
+  }
+  if (!assistantMessage) return
+
   switch (event.type) {
     case 'delta':
       appendAssistantTextSegment(assistantMessage, event.content || '')
@@ -1528,7 +1627,14 @@ function schedulePendingStreamDeltaFlush() {
   })
 }
 
-function queueStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage) {
+function queueStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage | null) {
+  if (event.type === 'steering') {
+    flushPendingStreamDelta()
+    applyStreamEvent(event, assistantMessage)
+    return
+  }
+  if (!assistantMessage) return
+
   if (event.type !== 'delta') {
     flushPendingStreamDelta()
     applyStreamEvent(event, assistantMessage)
@@ -1587,7 +1693,7 @@ function consumeProtectedTransportFrame(data: string, streamGeneration: number) 
 // 读取并应用智能助手 SSE 响应流。
 async function readAgentStream(
   response: Response,
-  assistantMessage: AgentChatMessage,
+  assistantMessage: AgentChatMessage | null,
   streamGeneration: number,
 ): Promise<AgentStreamReadResult> {
   if (!response.body) {
@@ -1749,7 +1855,7 @@ function handleFileSelection(event: Event) {
 
 // 将剪贴板中的截图或复制图片加入待发送附件。
 function handleInputPaste(event: ClipboardEvent) {
-  if (isBusy.value || recording.value) return
+  if (sending.value || recording.value) return
   const images = Array.from(event.clipboardData?.items || [])
     .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
     .map(item => item.getAsFile())
@@ -1847,18 +1953,28 @@ async function streamAgentMessage(
 ) {
   const content = text.trim()
   const streamOptions = typeof options === 'boolean' ? { echoUser: options } : options
-  const { echoUser = true, displayText, choiceSelection, originalMessageId, originalChatId } = streamOptions
+  const { echoUser = true, displayText, choiceSelection, originalMessageId, originalChatId, steering = false } =
+    streamOptions
   const displayContent = (displayText ?? content).trim()
   if (!content && !images.length && !files.length && !audioRefs.length) return
 
-  abortController = new AbortController()
-  userAbortRequested = false
-  streamRecoveryAbortRequested = false
+  const requestAbortController = new AbortController()
+  if (!steering) abortController = requestAbortController
+  else steeringAbortControllers.add(requestAbortController)
+  if (!steering) {
+    userAbortRequested = false
+    streamRecoveryAbortRequested = false
+  }
   const streamStartedAt = Date.now()
   const streamProtectedDeliveryGeneration = protectedDeliveryGeneration
-  activeStreamStartedAt = streamStartedAt
+  let ownsRunner = !steering
+  if (ownsRunner) {
+    runnerActive.value = true
+    activeStreamStartedAt = streamStartedAt
+  }
   let shouldFollowBottomAfterStream = true
-  let shouldSaveClientSnapshot = true
+  let shouldSaveClientSnapshot = ownsRunner
+  let steeringResponse = false
   let assistantMessage: AgentChatMessage | null = null
 
   try {
@@ -1881,19 +1997,46 @@ async function streamAgentMessage(
         echo_user: echoUser,
       }),
       credentials: 'include',
-      signal: abortController.signal,
+      signal: requestAbortController.signal,
     })
 
     const isSecretConfirmation = response.headers.get('X-MoviePilot-Agent-Control') === 'secret-confirmation'
-    if (!isSecretConfirmation && echoUser) {
-      addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
+    steeringResponse = response.headers.get('X-MoviePilot-Agent-Control') === 'steering'
+    if (steeringResponse) {
+      ownsRunner = false
+      shouldSaveClientSnapshot = false
+      if (!isSecretConfirmation && echoUser) {
+        pendingSteeringDraft = addMessage(
+          'user',
+          displayContent || content,
+          'done',
+          userAttachments,
+          choiceSelection,
+          'queued',
+        )
+      }
+    } else {
+      ownsRunner = true
+      shouldSaveClientSnapshot = true
+      // 请求已经交给后端，释放输入框；长流由 runnerActive 独立表示。
+      sending.value = false
+      if (steering && !abortController) abortController = requestAbortController
+      if (!activeStreamStartedAt) activeStreamStartedAt = streamStartedAt
+      runnerActive.value = true
+      if (!isSecretConfirmation && echoUser) {
+        addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
+      }
+      assistantMessage = addMessage('assistant', '', 'streaming')
     }
-    assistantMessage = addMessage('assistant', '', 'streaming')
     if (!response.ok) {
       throw new Error(await resolveAgentResponseErrorMessage(response))
     }
 
     const streamResult = await readAgentStream(response, assistantMessage, streamProtectedDeliveryGeneration)
+    if (!ownsRunner && steeringResponse) {
+      pendingSteeringDraft = null
+      return
+    }
     shouldFollowBottomAfterStream = isMessageScrollerNearBottom()
     if (!streamResult.receivedTerminalEvent) {
       shouldSaveClientSnapshot = false
@@ -1906,13 +2049,13 @@ async function streamAgentMessage(
 
     pendingStreamRecovery.value = null
     clearStreamRecoveryTimer()
-    if (isEmptyAssistantMessage(assistantMessage)) {
+    if (assistantMessage && isEmptyAssistantMessage(assistantMessage)) {
       const emptyAssistantMessageId = assistantMessage.id
       messages.value = messages.value.filter(message => message.id !== emptyAssistantMessageId)
       refreshMessageList()
       return
     }
-    if (assistantMessage.status === 'streaming') {
+    if (assistantMessage?.status === 'streaming') {
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
       refreshMessageList()
@@ -1921,6 +2064,10 @@ async function streamAgentMessage(
     if (error?.name === 'AbortError' && streamRecoveryAbortRequested) return
 
     if (error?.name === 'AbortError' && userAbortRequested) {
+      if (!ownsRunner) {
+        clearSteeringDraftState()
+        return
+      }
       if (!assistantMessage) return
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
@@ -1929,6 +2076,10 @@ async function streamAgentMessage(
     }
 
     if (isRecoverableStreamDisconnect(error)) {
+      if (!ownsRunner) {
+        clearSteeringDraftState()
+        return
+      }
       shouldSaveClientSnapshot = false
       invalidateProtectedDeliveries()
       beginStreamRecovery(sessionId.value, streamStartedAt)
@@ -1940,17 +2091,33 @@ async function streamAgentMessage(
       return
     }
 
+    if (!assistantMessage && steeringResponse) {
+      clearSteeringDraftState()
+      streamError.value = error?.message || t('agentAssistant.error')
+      return
+    }
+    if (!assistantMessage && steering) {
+      clearSteeringDraftState()
+      streamError.value = error?.message || t('agentAssistant.error')
+      return
+    }
     assistantMessage ||= addMessage('assistant', '', 'streaming')
     assistantMessage.status = 'error'
     replaceAssistantTextSegments(assistantMessage, error?.message || t('agentAssistant.error'))
     markToolsDone(assistantMessage)
     refreshMessageList()
   } finally {
-    abortController = null
-    activeStreamStartedAt = 0
-    userAbortRequested = false
-    streamRecoveryAbortRequested = false
-    clearStreamPersistTimer()
+    if (abortController === requestAbortController) abortController = null
+    steeringAbortControllers.delete(requestAbortController)
+    if (ownsRunner) {
+      activeStreamStartedAt = 0
+      runnerActive.value = false
+    }
+    if (ownsRunner) {
+      userAbortRequested = false
+      streamRecoveryAbortRequested = false
+    }
+    if (ownsRunner) clearStreamPersistTimer()
     persistState()
     if (shouldSaveClientSnapshot) {
       try {
@@ -1969,22 +2136,27 @@ async function sendMessage() {
   const rawText = inputText.value
   const text = rawText.trim()
   const attachments = [...pendingAttachments.value]
-  if ((!text && !attachments.length) || isBusy.value) return
+  if ((!text && !attachments.length) || sending.value || recording.value) return
+  const steering = isBusy.value
 
   streamError.value = ''
   inputText.value = ''
   clearPendingAttachments()
   syncInputHeight()
   sending.value = true
+  const requestId = ++sendingRequestId
 
   try {
     const prepared = await prepareAgentAttachments(attachments)
-    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments)
+    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments, {
+      steering,
+    })
   } catch (error: any) {
     // 附件准备失败同样落到对话消息里，底部提示条只保留给没有消息承载的本地错误。
-    addMessage('assistant', error?.message || t('agentAssistant.uploadFailed'), 'error')
+    if (steering) streamError.value = error?.message || t('agentAssistant.uploadFailed')
+    else addMessage('assistant', error?.message || t('agentAssistant.uploadFailed'), 'error')
   } finally {
-    sending.value = false
+    if (sendingRequestId === requestId) sending.value = false
   }
 }
 
@@ -2190,6 +2362,8 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
 // 中止当前流式回复。
 function stopGeneration() {
   userAbortRequested = true
+  runnerActive.value = false
+  clearSteeringDraftState()
   pendingStreamRecovery.value = null
   clearStreamRecoveryTimer()
   const assistantMessage = [...messages.value]
@@ -2215,6 +2389,7 @@ function stopGeneration() {
       })
   }
   abortController?.abort()
+  steeringAbortControllers.forEach(controller => controller.abort())
 }
 
 // 开始新的空白会话。
@@ -2335,7 +2510,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 // 页面进入后台时保存流式占位，恢复可见时尝试拉取 WebAgent 后台完成后的会话快照。
 function handleVisibilityChange() {
   if (document.visibilityState === 'hidden') {
-    if (sending.value && activeStreamStartedAt && sessionId.value) {
+    if (runnerActive.value && activeStreamStartedAt && sessionId.value) {
       beginStreamRecovery(sessionId.value, activeStreamStartedAt)
     } else if (pendingStreamRecovery.value) {
       clearStreamPersistTimer()
@@ -2577,6 +2752,17 @@ onScopeDispose(() => {
             <div class="agent-assistant-message__meta">
               <VIcon :icon="message.role === 'user' ? 'mdi-account-circle-outline' : 'lucide:bot'" size="16" />
               <span>{{ message.role === 'user' ? currentUserName : t('agentAssistant.assistant') }}</span>
+              <span
+                v-if="message.steeringStatus"
+                class="agent-assistant-message__steering-status"
+                :class="`is-${message.steeringStatus}`"
+              >
+                {{
+                  message.steeringStatus === 'applied'
+                    ? t('agentAssistant.steeringApplied')
+                    : t('agentAssistant.steeringQueued')
+                }}
+              </span>
             </div>
 
             <div
@@ -2757,7 +2943,7 @@ onScopeDispose(() => {
             <IconBtn
               class="agent-assistant-surface-btn"
               size="x-small"
-              :disabled="isBusy"
+              :disabled="sending"
               :title="t('agentAssistant.removeAttachment')"
               :aria-label="t('agentAssistant.removeAttachment')"
               @click="removePendingAttachment(attachment.id)"
@@ -2791,12 +2977,12 @@ onScopeDispose(() => {
             type="file"
             multiple
             name="attachments"
-            :disabled="isBusy"
+            :disabled="sending || recording"
             @change="handleFileSelection"
           />
           <IconBtn
             class="agent-assistant-attach agent-assistant-surface-btn"
-            :disabled="isBusy || recording"
+            :disabled="sending || recording"
             :title="t('agentAssistant.attachFile')"
             :aria-label="t('agentAssistant.attachFile')"
             :aria-controls="fileInputId"
@@ -2811,7 +2997,7 @@ onScopeDispose(() => {
             class="agent-assistant-textarea"
             name="message"
             rows="1"
-            :disabled="isBusy || recording"
+            :disabled="sending || recording"
             :placeholder="inputPlaceholder"
             @input="handleInputChange"
             @keydown="handleInputKeydown"
@@ -2838,13 +3024,22 @@ onScopeDispose(() => {
             <VIcon :icon="recording ? 'mdi-stop-circle-outline' : 'mdi-microphone-outline'" />
           </IconBtn>
           <IconBtn
-            class="agent-assistant-send agent-assistant-surface-btn"
-            :disabled="!isBusy && !canSend"
-            :title="isBusy ? t('agentAssistant.stop') : t('common.send')"
-            :aria-label="isBusy ? t('agentAssistant.stop') : t('common.send')"
-            @click="isBusy ? stopGeneration() : sendMessage()"
+            v-if="isBusy"
+            class="agent-assistant-stop agent-assistant-surface-btn"
+            :title="t('agentAssistant.stop')"
+            :aria-label="t('agentAssistant.stop')"
+            @click="stopGeneration"
           >
-            <VIcon :icon="isBusy ? 'mdi-stop' : 'mdi-send'" />
+            <VIcon icon="mdi-stop" />
+          </IconBtn>
+          <IconBtn
+            class="agent-assistant-send agent-assistant-surface-btn"
+            :disabled="!canSend"
+            :title="t('common.send')"
+            :aria-label="t('common.send')"
+            @click="sendMessage"
+          >
+            <VIcon icon="mdi-send" />
           </IconBtn>
         </div>
       </footer>
@@ -3326,6 +3521,20 @@ onScopeDispose(() => {
   margin-block-end: 0.35rem;
 }
 
+.agent-assistant-message__steering-status {
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  padding-block: 0.12rem;
+  padding-inline: 0.38rem;
+}
+
+.agent-assistant-message__steering-status.is-applied {
+  background: rgba(var(--v-theme-success), 0.12);
+  color: rgb(var(--v-theme-success));
+}
+
 .agent-assistant-message__bubble {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: var(--app-surface-radius);
@@ -3631,7 +3840,7 @@ onScopeDispose(() => {
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
   column-gap: 0.25rem;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   min-block-size: 3.25rem;
   padding-inline: 0.35rem;
   pointer-events: auto;
@@ -3686,6 +3895,11 @@ onScopeDispose(() => {
 
 .agent-assistant-send {
   align-self: center;
+}
+
+.agent-assistant-stop {
+  align-self: center;
+  color: rgb(var(--v-theme-error));
 }
 
 .agent-assistant-attachments {
