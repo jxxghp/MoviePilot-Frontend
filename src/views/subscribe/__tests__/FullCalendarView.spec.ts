@@ -387,6 +387,9 @@ describe('FullCalendarView', () => {
   })
 
   it('resets a stale mobile title filter after keep-alive refresh replaces the data', async () => {
+    // 事件日期是固定值，不冻结时间的话会随真实日期推移滑出 30 天回溯窗口
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-10T12:00:00+08:00'))
     setViewport(480)
     const first = movieSubscribe(3601, '第一轮电影')
     const second = movieSubscribe(3602, '第二轮电影')
@@ -407,6 +410,9 @@ describe('FullCalendarView', () => {
   })
 
   it('recovers from a failed list request when the kept-alive view is activated again', async () => {
+    // 同上：固定的 release_date 需要配套固定的“今天”
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-12T12:00:00+08:00'))
     setViewport(480)
     const recovered = movieSubscribe(3701, '恢复后的电影')
     const onListRequest = vi.fn()
