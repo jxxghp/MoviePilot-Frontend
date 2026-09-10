@@ -3583,7 +3583,7 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('clears an expired ripple field before the first resumed frame', async () => {
+  it.each([180, 1000])('resumes ripple at %sms without duplicate steps or expired pixels', async resumeAt => {
     const three = await import('three')
     let visibilityState: DocumentVisibilityState = 'visible'
     let now = 0
@@ -3650,9 +3650,30 @@ describe('glass optical surface discovery', () => {
     document.dispatchEvent(new Event('visibilitychange'))
     expect(callbacks.size).toBe(0)
 
-    now = 1000
+    render.mockClear()
+    now = resumeAt
     visibilityState = 'visible'
     document.dispatchEvent(new Event('visibilitychange'))
+    if (resumeAt === 180) {
+      await vi.waitFor(() => expect(render).toHaveBeenCalled())
+      expect(uniforms.uHasRippleTexture.value).toBe(1)
+      render.mockClear()
+      const nextFrames = [...callbacks.values()]
+      callbacks.clear()
+      now = resumeAt + 1000 / 120
+      const dynamicFrame = nextFrames.find(callback => callback.name === 'renderInteractionFrame')
+      expect(dynamicFrame).toBeDefined()
+      dynamicFrame!(now)
+      expect(render).not.toHaveBeenCalled()
+      const dueFrames = [...callbacks.values()]
+      callbacks.clear()
+      now = resumeAt + 1000 / 60
+      dueFrames.forEach(callback => callback(now))
+      expect(render).toHaveBeenCalled()
+      scope.stop()
+      surface.remove()
+      return
+    }
     await vi.waitFor(() => expect(uniforms.uHasRippleTexture.value).toBe(0))
     expect(uniforms.uRippleTexture.value).toBeNull()
     for (let pass = 0; pass < 8 && callbacks.size > 0; pass += 1) {
@@ -5703,58 +5724,79 @@ describe('glass optical surface discovery', () => {
     },
   )
 
-  it.each([
-    ['balanced', 'ripple'],
-    ['balanced', 'fluid'],
-    ['high', 'ripple'],
-    ['high', 'fluid'],
-  ] as const)('budgets %s %s rendering on a 120Hz display', async (quality, dynamicsMode) => {
-    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
-    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
-    const three = await import('three')
-    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
-    const callbacks = new Map<number, FrameRequestCallback>()
-    let frameId = 0
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
-      callbacks.set(++frameId, callback)
+  it.each(
+    (
+      [
+        ['balanced', 'ripple'],
+        ['balanced', 'fluid'],
+        ['high', 'ripple'],
+        ['high', 'fluid'],
+      ] as const
+    ).flatMap(([quality, dynamicsMode]) =>
+      [60, 75, 90, 120, 144].map(refreshRate => ({ quality, dynamicsMode, refreshRate })),
+    ),
+  )(
+    'budgets $quality $dynamicsMode rendering on a $refreshRate Hz display',
+    async ({ quality, dynamicsMode, refreshRate }) => {
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+      vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+      const three = await import('three')
+      const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+      const callbacks = new Map<number, FrameRequestCallback>()
+      let frameId = 0
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+        callbacks.set(++frameId, callback)
 
-      return frameId
-    })
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
-    const tick = (time: number) => {
-      const pending = [...callbacks.values()]
-      callbacks.clear()
-      pending.forEach(callback => callback(time))
-    }
-    appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
-    const scope = effectScope()
-    const renderer = scope.run(() =>
-      useGlassOpticalRenderer({
-        active: ref(true),
-        appearance: ref('clear'),
-        canvas: ref(document.createElement('canvas')),
-        dynamicsMode: ref(dynamicsMode),
-        quality: ref(quality),
-        routeKey: ref('/dashboard'),
-        surfaceSpace: 'scroll',
-        tintColor: ref('#8D51F9'),
-        wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
-      }),
-    )
-    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
-    const start = performance.now() + 100
-    for (let pass = 0; pass < 4; pass += 1) tick(start + pass * 16)
-    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
-    tick(start + 100)
-    render.mockClear()
-    tick(start + 100 + 1000 / 120)
-    if (quality === 'balanced') expect(render).not.toHaveBeenCalled()
-    else expect(render).toHaveBeenCalled()
-    render.mockClear()
-    tick(start + 100 + 1000 / 60)
-    expect(render).toHaveBeenCalled()
-    scope.stop()
-  })
+        return frameId
+      })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+      const tick = (time: number) => {
+        const pending = [...callbacks.values()]
+        callbacks.clear()
+        pending.forEach(callback => callback(time))
+      }
+      appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+      const scope = effectScope()
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          dynamicsMode: ref(dynamicsMode),
+          quality: ref(quality),
+          routeKey: ref('/dashboard'),
+          surfaceSpace: 'scroll',
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+        }),
+      )
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+      const start = performance.now() + 100
+      for (let pass = 0; pass < 4; pass += 1) tick(start + pass * 16)
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+      tick(start + 100)
+      render.mockClear()
+      tick(start + 100 + 1000 / 120)
+      if (quality === 'balanced') expect(render).not.toHaveBeenCalled()
+      else expect(render).toHaveBeenCalled()
+      render.mockClear()
+      tick(start + 100 + 1000 / 60)
+      expect(render).toHaveBeenCalled()
+      let renderedTicks = 0
+      for (let frame = 1; frame <= refreshRate; frame += 1) {
+        const timestamp = start + 100 + 1000 / 60 + (frame * 1000) / refreshRate
+        const pointer = new MouseEvent('pointermove', { clientX: 160 + (frame % 20), clientY: 180 })
+        Object.defineProperty(pointer, 'timeStamp', { value: timestamp })
+        window.dispatchEvent(pointer)
+        render.mockClear()
+        tick(timestamp)
+        if (render.mock.calls.length > 0) renderedTicks += 1
+      }
+      expect(renderedTicks).toBeGreaterThanOrEqual(quality === 'balanced' ? 59 : refreshRate)
+      expect(renderedTicks).toBeLessThanOrEqual(quality === 'balanced' ? 61 : refreshRate)
+      scope.stop()
+    },
+  )
 
   it('clears ripple state before native scroll presentation takes ownership', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)

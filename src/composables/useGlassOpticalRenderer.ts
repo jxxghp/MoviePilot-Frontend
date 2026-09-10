@@ -2862,11 +2862,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     // Balanced 将动态模拟与合成限制在 60Hz；输入继续采集，High 保留显示器原生刷新节奏。
     const minimumInterval = toValue(options.quality) === 'balanced' ? 1000 / 60 : 0
-    if (timestamp - lastDynamicFrameAt < minimumInterval - 0.5) {
+    const frameElapsed = timestamp - lastDynamicFrameAt
+    if (frameElapsed < minimumInterval - 0.5) {
       animationFrame = requestAnimationFrame(renderInteractionFrame)
       return
     }
-    lastDynamicFrameAt = timestamp
+    // 保留刷新相位，避免 75/90/144Hz 下每次丢弃余量而退化到更低帧率；长间隔不补绘历史帧。
+    lastDynamicFrameAt =
+      minimumInterval > 0 && Number.isFinite(lastDynamicFrameAt)
+        ? lastDynamicFrameAt + Math.max(1, Math.floor((frameElapsed + 0.5) / minimumInterval)) * minimumInterval
+        : timestamp
 
     if (hasRippleCapability()) {
       writeSurfaceUniforms(timestamp)
@@ -3305,6 +3310,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (scrollWallpaperSamplingSuppressed) finishNativeScrollPresentation(timestamp, !hasRippleCapability())
       else renderFrame(timestamp, !hasRippleCapability())
       if (keepRippleAnimating) {
+        // 恢复帧已经推进水漾，后续动态从该帧计时，避免下一次 RAF 再立即推进。
+        lastDynamicFrameAt = timestamp
         interactionAnimating = true
         animationFrame = requestAnimationFrame(renderInteractionFrame)
       }
