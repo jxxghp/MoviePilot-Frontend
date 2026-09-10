@@ -2005,7 +2005,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.renderer.setScissor(scissor.x, scissor.y, scissor.width, scissor.height)
       resources.renderer.setScissorTest(true)
     }
-    resources.renderer.render(resources.scene, resources.camera)
+    // 主输出已按呈现空间清屏；只在本次 draw 关闭自动清屏，离屏 pass 继续使用原策略。
+    const { renderer, scene, camera } = resources
+    const autoClear = renderer.autoClear
+    renderer.autoClear = false
+    try {
+      renderer.render(scene, camera)
+    } finally {
+      renderer.autoClear = autoClear
+    }
     renderedFrames.value += 1
   }
 

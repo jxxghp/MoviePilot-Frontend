@@ -12,7 +12,7 @@ import {
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
-import type { Object3D, ShaderMaterial, Vector2, WebGLRenderTarget } from 'three'
+import type { Object3D, ShaderMaterial, Vector2, WebGLRenderer, WebGLRenderTarget } from 'three'
 
 const wallpaperToneMocks = vi.hoisted(() => ({
   load: vi.fn(),
@@ -43,6 +43,8 @@ vi.mock('three', async importOriginal => {
       setCrossOrigin() {}
     },
     WebGLRenderer: class {
+      autoClear = true
+
       compileAsync() {
         return Promise.resolve()
       }
@@ -589,9 +591,10 @@ describe('glass optical surface discovery', () => {
     expect(collectGlassOpticalRects(1200, 800, 'clear')).toEqual([])
   })
 
-  it('clears the full fixed framebuffer before shading the current bounded surfaces', async () => {
+  it.each(['fixed', 'scroll'] as const)('clears the %s output once and preserves offscreen auto-clear', async space => {
     const three = await import('three')
     const commands: Array<{ kind: string; value?: unknown }> = []
+    const owners: WebGLRenderer[] = []
     vi.spyOn(three.WebGLRenderer.prototype, 'setScissorTest').mockImplementation(value => {
       commands.push({ kind: 'scissor-test', value })
     })
@@ -601,10 +604,18 @@ describe('glass optical surface discovery', () => {
     vi.spyOn(three.WebGLRenderer.prototype, 'clear').mockImplementation(() => {
       commands.push({ kind: 'clear' })
     })
-    vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(scene => {
+    vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(function (this: WebGLRenderer, scene) {
+      owners.push(this)
+      // 模拟 Three 的默认自动清屏，避免只统计业务显式 clear 而漏掉二次清除。
+      if (this.autoClear) this.clear()
       if (getGlassMainSceneMaterial(scene)) commands.push({ kind: 'render' })
     })
-    appendOpticalSurface('layout-navbar', { x: 16, y: 16, width: 1100, height: 64 })
+    appendOpticalSurface(space === 'fixed' ? 'layout-navbar' : 'app-hover-lift-card', {
+      x: 16,
+      y: 16,
+      width: 1100,
+      height: 64,
+    })
     const scope = effectScope()
     try {
       const renderer = scope.run(() =>
@@ -615,7 +626,7 @@ describe('glass optical surface discovery', () => {
           quality: ref('high'),
           dynamicsMode: ref('off'),
           routeKey: ref('/recommend'),
-          surfaceSpace: 'fixed',
+          surfaceSpace: space,
           tintColor: ref('#8D51F9'),
           wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
         }),
@@ -624,13 +635,18 @@ describe('glass optical surface discovery', () => {
       await vi.waitFor(() => expect(commands.some(command => command.kind === 'render')).toBe(true))
       for (const [index, command] of commands.entries()) {
         if (command.kind !== 'render') continue
-        expect(commands.slice(index - 4, index)).toEqual([
-          { kind: 'scissor-test', value: false },
-          { kind: 'clear' },
-          { kind: 'scissor', value: expect.any(Array) },
-          { kind: 'scissor-test', value: true },
-        ])
+        const expected =
+          space === 'fixed'
+            ? [
+                { kind: 'scissor-test', value: false },
+                { kind: 'clear' },
+                { kind: 'scissor', value: expect.any(Array) },
+                { kind: 'scissor-test', value: true },
+              ]
+            : [{ kind: 'scissor-test', value: true }, { kind: 'scissor', value: expect.any(Array) }, { kind: 'clear' }]
+        expect(commands.slice(index - expected.length, index)).toEqual(expected)
       }
+      expect(owners.every(owner => owner.autoClear)).toBe(true)
     } finally {
       scope.stop()
     }
