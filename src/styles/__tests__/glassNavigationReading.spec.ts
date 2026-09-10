@@ -81,9 +81,9 @@ describe('glass navigation reading material', () => {
       'blur(6px) brightness(92%)',
     ])
     for (const selectors of Object.values(readingRules)) expect(selectors).toHaveLength(1)
-    expect(readingRules['blur(2px) brightness(92%)'][0]).not.toContain('[data-glass-navbar-style=clear]')
+    expect(readingRules['blur(2px) brightness(92%)'][0]).not.toContain('[data-glass-ui-style=clear]')
     expect(readingRules['blur(3px) brightness(92%)'][0]).toContain(':not([data-shell-mode=desktop])')
-    expect(readingRules['blur(6px) brightness(92%)'][0]).toContain('[data-glass-navbar-style=adaptive]')
+    expect(readingRules['blur(6px) brightness(92%)'][0]).toContain('[data-glass-ui-style=adaptive]')
     expect(popupNavbarSelector).not.toBe('')
 
     // 用编译后的选择器覆盖 Shell 状态与主题组合，防止移动端例外绕过共同阅读规则。
@@ -102,7 +102,7 @@ describe('glass navigation reading material', () => {
       for (const quality of ['css', 'balanced', 'high']) {
         fixture.documentElement.dataset.glassQuality = quality
         for (const style of ['clear', 'adaptive']) {
-          fixture.documentElement.dataset.glassNavbarStyle = style
+          fixture.documentElement.setAttribute('data-glass-ui-style', style)
           for (const mode of ['desktop', 'app', 'drawer']) {
             shell.dataset.shellMode = mode
             const clearBlur = mode === 'desktop' ? 2 : 3
@@ -144,8 +144,10 @@ describe('glass navigation reading material', () => {
     expect(frosted).toContain('--glass-native-surface-backdrop-filter')
   })
 
-  it('keeps Dock reading protection independent of the navbar style and avoids nested glass buttons', () => {
+  it('shares the interface style material with the Dock while avoiding nested glass buttons', () => {
     expect(surfaces).not.toMatch(/\[data-shell-mode='app'\] \.layout-navbar,\s*\.footer-nav-card\s*\{/u)
+    expect(surfaces).toContain("&[data-glass-ui-style='clear']:is(")
+    expect(surfaces).toContain('--glass-popup-blur: 0px')
     expect(surfaces).toContain('background: var(--glass-sheen), var(--glass-popup-surface) !important')
     expect(surfaces).toContain('.footer-nav-card.dynamic-btn-card')
     expect(surfaces).toContain('.footer-nav-card .footer-nav-btn')
@@ -156,7 +158,7 @@ describe('glass navigation reading material', () => {
   it('separates overlapping frosted navigation without a second diffusion pass', () => {
     expect(surfaces).toContain('--glass-navbar-frosted-separation: 0')
     expect(surfaces).toContain('--glass-navbar-frosted-separation: 0.08')
-    expect(surfaces).not.toContain("[data-glass-appearance='frosted']:not([data-glass-navbar-style='clear'])")
+    expect(surfaces).not.toContain("[data-glass-appearance='frosted']:not([data-glass-ui-style='clear'])")
     expect(surfaces).toContain('var(--glass-v3-card-background) !important')
     const backplate = readFileSync(resolve('src/components/theme/GlassFixedShellBackplate.vue'), 'utf8')
     const style = parseComponent(backplate).descriptor.styles[0]

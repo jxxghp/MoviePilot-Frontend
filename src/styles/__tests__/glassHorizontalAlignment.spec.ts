@@ -134,7 +134,7 @@ describe('glass horizontal navbar alignment', () => {
     const { fixture, shell, content } = createNavbarFixture()
     const appearances = ['clear', 'tinted', 'frosted'] as const
     const qualities = ['css', 'balanced', 'high'] as const
-    const navbarStyles = ['clear', 'adaptive'] as const
+    const uiStyles = ['clear', 'adaptive'] as const
 
     for (const appearance of appearances) {
       fixture.documentElement.dataset.theme = 'glass'
@@ -146,15 +146,13 @@ describe('glass horizontal navbar alignment', () => {
         fixture.documentElement.dataset.glassQuality = quality
         fixture.body.dataset.glassQuality = quality
 
-        for (const navbarStyle of navbarStyles) {
-          fixture.documentElement.dataset.glassNavbarStyle = navbarStyle
-          fixture.body.dataset.glassNavbarStyle = navbarStyle
+        for (const uiStyle of uiStyles) {
+          fixture.documentElement.setAttribute('data-glass-ui-style', uiStyle)
+          fixture.body.setAttribute('data-glass-ui-style', uiStyle)
 
           for (const away of [false, true]) {
             shell.classList.toggle('layout-navbar-away-from-top', away)
-            expect(content.matches(alignmentRule.selector), `${appearance}/${quality}/${navbarStyle}/${away}`).toBe(
-              true,
-            )
+            expect(content.matches(alignmentRule.selector), `${appearance}/${quality}/${uiStyle}/${away}`).toBe(true)
           }
         }
       }

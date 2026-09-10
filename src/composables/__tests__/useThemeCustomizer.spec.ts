@@ -48,7 +48,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(settings.theme).toBe('glass')
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassNavbarStyle).toBe('clear')
+    expect(settings.glassUIStyle).toBe('adaptive')
     expect(settings.glassDeformationStrength).toBe(48)
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassFlowStrength).toBe(48)
@@ -87,16 +87,16 @@ describe('useThemeCustomizer glass settings', () => {
     wrapper.unmount()
   })
 
-  it('treats navbar style as an independent setting and default criterion', async () => {
+  it('treats interface style as an independent setting and default criterion', async () => {
     const { customizer, wrapper } = mountThemeCustomizer()
 
-    await customizer.setGlassNavbarStyle('adaptive')
+    await customizer.setGlassUIStyle('clear')
 
-    expect(customizer.settings.value.glassNavbarStyle).toBe('adaptive')
-    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe('adaptive')
+    expect(customizer.settings.value.glassUIStyle).toBe('clear')
+    expect(readThemeCustomizerSettings().glassUIStyle).toBe('clear')
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(false)
 
-    await customizer.setGlassNavbarStyle('clear')
+    await customizer.setGlassUIStyle('adaptive')
 
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
     wrapper.unmount()
@@ -105,7 +105,7 @@ describe('useThemeCustomizer glass settings', () => {
   it('derives app-mode glass reset values from the standard-quality matrix', () => {
     expect(getDefaultGlassCustomizerSettings('css')).toEqual({
       glassAppearance: 'clear',
-      glassNavbarStyle: 'clear',
+      glassUIStyle: 'adaptive',
       glassDeformationStrength: 48,
       glassDynamicsMode: 'ripple',
       glassFlowStrength: 48,
@@ -131,10 +131,16 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings().glassAppearance).toBe(glassAppearance)
   })
 
-  it.each(['adaptive', 'clear'] as const)('preserves the %s navbar style contract', glassNavbarStyle => {
-    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassNavbarStyle }))
+  it.each(['adaptive', 'clear'] as const)('preserves the %s interface style contract', glassUIStyle => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassUIStyle }))
 
-    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe(glassNavbarStyle)
+    expect(readThemeCustomizerSettings().glassUIStyle).toBe(glassUIStyle)
+  })
+
+  it('ignores the retired navbar style field and uses the adaptive default', () => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassNavbarStyle: 'clear' }))
+
+    expect(readThemeCustomizerSettings().glassUIStyle).toBe('adaptive')
   })
 
   it.each(['fluid', 'ripple', 'off'] as const)('preserves the %s dynamics mode contract', glassDynamicsMode => {
@@ -148,7 +154,7 @@ describe('useThemeCustomizer glass settings', () => {
       THEME_CUSTOMIZER_STORAGE_KEY,
       JSON.stringify({
         glassAppearance: 'opaque',
-        glassNavbarStyle: 'opaque',
+        glassUIStyle: 'opaque',
         glassDynamicsMode: 'elastic',
         glassPreset: 'elastic',
         glassQuality: 'ultra',
@@ -158,7 +164,7 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassNavbarStyle).toBe('clear')
+    expect(settings.glassUIStyle).toBe('adaptive')
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
@@ -223,15 +229,15 @@ describe('useThemeCustomizer glass settings', () => {
     applyThemeCustomizerRootSettings({
       ...settings,
       glassAppearance: 'tinted',
-      glassNavbarStyle: 'clear',
+      glassUIStyle: 'clear',
       glassQuality: 'high',
     })
 
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
-    expect(document.documentElement.dataset.glassNavbarStyle).toBe('clear')
+    expect(document.documentElement.getAttribute('data-glass-ui-style')).toBe('clear')
     expect(document.documentElement.dataset.glassQuality).toBe('high')
     expect(document.body.dataset.glassAppearance).toBe('tinted')
-    expect(document.body.dataset.glassNavbarStyle).toBe('clear')
+    expect(document.body.getAttribute('data-glass-ui-style')).toBe('clear')
     expect(document.body.dataset.glassQuality).toBe('high')
     expect(document.documentElement.style.getPropertyValue('--glass-reflection')).toBe('0.42')
     expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.42')
@@ -298,37 +304,37 @@ describe('useThemeCustomizer glass settings', () => {
     expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(storedBeforePreview)
   })
 
-  it('previews, cancels, and commits navbar style independently', () => {
-    persistPartialThemeCustomizerSettings({ glassNavbarStyle: 'adaptive' })
+  it('previews, cancels, and commits interface style independently', () => {
+    persistPartialThemeCustomizerSettings({ glassUIStyle: 'adaptive' })
     previewGlassSettings({
       glassAppearance: 'frosted',
-      glassNavbarStyle: 'clear',
+      glassUIStyle: 'clear',
       glassDynamicsMode: 'off',
       glassQuality: 'high',
     })
 
-    expect(document.documentElement.dataset.glassNavbarStyle).toBe('clear')
+    expect(document.documentElement.getAttribute('data-glass-ui-style')).toBe('clear')
     expect(useEffectiveGlassSettings().value).toMatchObject({
       glassAppearance: 'frosted',
-      glassNavbarStyle: 'clear',
+      glassUIStyle: 'clear',
       glassDynamicsMode: 'off',
       glassQuality: 'high',
     })
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassAppearance: 'clear',
-      glassNavbarStyle: 'adaptive',
+      glassUIStyle: 'adaptive',
       glassQuality: 'balanced',
     })
 
     cancelGlassPreview()
-    expect(document.documentElement.dataset.glassNavbarStyle).toBe('adaptive')
-    expect(useEffectiveGlassSettings().value.glassNavbarStyle).toBe('adaptive')
+    expect(document.documentElement.getAttribute('data-glass-ui-style')).toBe('adaptive')
+    expect(useEffectiveGlassSettings().value.glassUIStyle).toBe('adaptive')
 
-    previewGlassSettings({ glassNavbarStyle: 'clear' })
+    previewGlassSettings({ glassUIStyle: 'clear' })
     commitGlassPreview()
 
-    expect(readThemeCustomizerSettings().glassNavbarStyle).toBe('clear')
-    expect(document.body.dataset.glassNavbarStyle).toBe('clear')
+    expect(readThemeCustomizerSettings().glassUIStyle).toBe('clear')
+    expect(document.body.getAttribute('data-glass-ui-style')).toBe('clear')
   })
 
   it('commits the latest glass preview as one persisted state', () => {
