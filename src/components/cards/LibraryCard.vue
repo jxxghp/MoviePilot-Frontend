@@ -77,6 +77,7 @@ function getDefaultImage() {
   else if (props.media?.server_type === 'jellyfin') return jellyfin
   else if (props.media?.server_type === 'trimemedia') return getLogoUrl('trimemedia')
   else if (props.media?.server_type === 'ugreen') return getLogoUrl('ugreen')
+  else if (props.media?.server_type === 'mediavault') return getLogoUrl('mediavault')
   else return plex
 }
 

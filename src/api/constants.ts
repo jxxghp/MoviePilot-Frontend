@@ -102,6 +102,10 @@ export const mediaServerOptions = [
     value: 'ugreen',
     title: i18n.global.t('setting.system.ugreen'),
   },
+  {
+    value: 'mediavault',
+    title: i18n.global.t('setting.system.mediaVault'),
+  },
 ]
 
 export const mediaServerDict = mediaServerOptions.reduce(

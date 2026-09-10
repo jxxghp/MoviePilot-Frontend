@@ -13,6 +13,7 @@ import jellyfinLogo from '@/assets/images/logos/jellyfin.png'
 import plexLogo from '@/assets/images/logos/plex.png'
 import trimemediaLogo from '@/assets/images/logos/trimemedia.png'
 import ugreenLogo from '@/assets/images/logos/ugreen.png'
+import mediavaultLogo from '@/assets/images/logos/mediavault.png'
 import wechatLogo from '@/assets/images/logos/wechat.png'
 import feishuLogo from '@/assets/images/logos/feishu.png'
 import clawbotLogo from '@/assets/images/logos/clawbot.png'
@@ -47,6 +48,7 @@ const logoMap: Record<string, string> = {
   plex: plexLogo,
   trimemedia: trimemediaLogo,
   ugreen: ugreenLogo,
+  mediavault: mediavaultLogo,
   wechat: wechatLogo,
   feishu: feishuLogo,
   wechatclawbot: clawbotLogo,

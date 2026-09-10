@@ -86,6 +86,8 @@ const getIcon = computed(() => {
       return getLogoUrl('ugreen')
     case 'plex':
       return getLogoUrl('plex')
+    case 'mediavault':
+      return getLogoUrl('mediavault')
     default:
       return getLogoUrl('mediaserver')
   }
