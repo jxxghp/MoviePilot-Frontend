@@ -526,12 +526,12 @@
       "count": 1
     }
   },
-  "src/pages/__tests__/subscribe.spec.ts": {
+  "src/pages/subscribe/__tests__/index.spec.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
-  "src/pages/credits.vue": {
+  "src/pages/discover/credits.vue": {
     "prefer-const": {
       "count": 1
     }

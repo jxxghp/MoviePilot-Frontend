@@ -1,4 +1,4 @@
-import MusicAlbumPage from '@/pages/music-album.vue'
+import MusicAlbumPage from '@/pages/music/album.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent } from 'vue'

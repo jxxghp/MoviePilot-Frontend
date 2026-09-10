@@ -1,4 +1,4 @@
-import BrowsePage from '@/pages/browse.vue'
+import BrowsePage from '@/pages/discover/browse.vue'
 import { screen } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, h, type PropType } from 'vue'

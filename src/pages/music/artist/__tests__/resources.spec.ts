@@ -1,4 +1,4 @@
-import MusicArtistResourcesPage from '@/pages/music-artist-resources.vue'
+import MusicArtistResourcesPage from '@/pages/music/artist/resources.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

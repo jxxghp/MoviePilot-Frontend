@@ -1,4 +1,4 @@
-import MusicDetailPage from '@/pages/music-detail.vue'
+import MusicDetailPage from '@/pages/music/detail.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

@@ -1,4 +1,4 @@
-import PluginAppPage from '@/pages/plugin-app.vue'
+import PluginAppPage from '@/pages/plugin/app.vue'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent, h, inject, nextTick, reactive } from 'vue'

@@ -1,4 +1,4 @@
-import DownloadingPage from '@/pages/downloading.vue'
+import DownloadingPage from '@/pages/reorganize/downloading.vue'
 import { fireEvent, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { computed, defineComponent, h, unref, type ComputedRef } from 'vue'

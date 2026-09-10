@@ -334,14 +334,14 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         'src/pages/login.vue',
         'src/pages/setup.vue',
         'src/pages/appcenter.vue',
-        'src/pages/recommend.vue',
-        'src/pages/discover.vue',
-        'src/pages/browse.vue',
-        'src/pages/media.vue',
+        'src/pages/discover/recommend.vue',
+        'src/pages/discover/index.vue',
+        'src/pages/discover/browse.vue',
+        'src/pages/discover/media.vue',
         'src/pages/resource.vue',
         'src/pages/site.vue',
-        'src/pages/subscribe.vue',
-        'src/pages/plugin-app.vue',
+        'src/pages/subscribe/index.vue',
+        'src/pages/plugin/app.vue',
         'src/views/dashboard/MediaRecommend.vue',
         'src/views/dashboard/AnalyticsNetwork.vue',
         'src/views/dashboard/AnalyticsScheduler.vue',
@@ -930,7 +930,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 80,
           statements: 80,
         },
-        'src/pages/recommend.vue': {
+        'src/pages/discover/recommend.vue': {
           branches: 75,
           functions: 80,
           lines: 80,
@@ -942,7 +942,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 80,
           statements: 80,
         },
-        'src/pages/media.vue': {
+        'src/pages/discover/media.vue': {
           branches: 75,
           functions: 80,
           lines: 80,
@@ -954,7 +954,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 80,
           statements: 80,
         },
-        'src/pages/subscribe.vue': {
+        'src/pages/subscribe/index.vue': {
           branches: 75,
           functions: 80,
           lines: 80,
@@ -1056,7 +1056,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 100,
           statements: 100,
         },
-        'src/pages/plugin-app.vue': {
+        'src/pages/plugin/app.vue': {
           branches: 80,
           functions: 85,
           lines: 85,
@@ -1080,7 +1080,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 80,
           statements: 80,
         },
-        'src/pages/discover.vue': {
+        'src/pages/discover/index.vue': {
           branches: 85,
           functions: 90,
           lines: 90,
@@ -1098,7 +1098,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           lines: 90,
           statements: 90,
         },
-        'src/pages/browse.vue': {
+        'src/pages/discover/browse.vue': {
           branches: 75,
           functions: 80,
           lines: 80,

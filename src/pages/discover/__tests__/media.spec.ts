@@ -1,4 +1,4 @@
-import MediaPage from '@/pages/media.vue'
+import MediaPage from '@/pages/discover/media.vue'
 import { screen } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, h } from 'vue'

@@ -48,7 +48,7 @@ const router = createRouter({
         },
         {
           path: '/recommend',
-          component: () => import('../pages/recommend.vue'),
+          component: () => import('../pages/discover/recommend.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -58,7 +58,7 @@ const router = createRouter({
         },
         {
           path: '/discover',
-          component: () => import('../pages/discover.vue'),
+          component: () => import('../pages/discover/index.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -78,7 +78,7 @@ const router = createRouter({
         },
         {
           path: '/music',
-          component: () => import('../pages/music.vue'),
+          component: () => import('../pages/music/index.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -88,28 +88,28 @@ const router = createRouter({
         },
         {
           path: '/music/detail',
-          component: () => import('../pages/music-detail.vue'),
+          component: () => import('../pages/music/detail.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
           path: '/music/album',
-          component: () => import('../pages/music-album.vue'),
+          component: () => import('../pages/music/album.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
           path: '/music/artist',
-          component: () => import('../pages/music-artist.vue'),
+          component: () => import('../pages/music/artist/index.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
           path: '/music/artist/resources',
-          component: () => import('../pages/music-artist-resources.vue'),
+          component: () => import('../pages/music/artist/resources.vue'),
           meta: {
             requiresAuth: true,
             permission: 'search',
@@ -118,7 +118,7 @@ const router = createRouter({
         },
         {
           path: '/subscribe/movie',
-          component: () => import('../pages/subscribe.vue'),
+          component: () => import('../pages/subscribe/index.vue'),
           meta: {
             keepAlive: true,
             keepAliveKey: 'subscribe-movie',
@@ -130,7 +130,7 @@ const router = createRouter({
         },
         {
           path: '/subscribe/tv',
-          component: () => import('../pages/subscribe.vue'),
+          component: () => import('../pages/subscribe/index.vue'),
           meta: {
             keepAlive: true,
             keepAliveKey: 'subscribe-tv',
@@ -142,7 +142,7 @@ const router = createRouter({
         },
         {
           path: '/subscribe/music',
-          component: () => import('../pages/subscribe.vue'),
+          component: () => import('../pages/subscribe/index.vue'),
           meta: {
             keepAlive: true,
             keepAliveKey: 'subscribe-music',
@@ -154,7 +154,7 @@ const router = createRouter({
         },
         {
           path: '/subscribe-share',
-          component: () => import('../pages/subscribe-share.vue'),
+          component: () => import('../pages/subscribe/share.vue'),
           meta: {
             requiresAuth: true,
             permission: 'subscribe',
@@ -173,7 +173,7 @@ const router = createRouter({
         },
         {
           path: '/calendar',
-          component: () => import('../pages/calendar.vue'),
+          component: () => import('../pages/subscribe/calendar.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -183,7 +183,7 @@ const router = createRouter({
         },
         {
           path: '/downloading',
-          component: () => import('../pages/downloading.vue'),
+          component: () => import('../pages/reorganize/downloading.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -193,7 +193,7 @@ const router = createRouter({
         },
         {
           path: '/history',
-          component: () => import('../pages/history.vue'),
+          component: () => import('../pages/reorganize/history.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -214,7 +214,7 @@ const router = createRouter({
         },
         {
           path: '/user',
-          component: () => import('../pages/user.vue'),
+          component: () => import('../pages/user/index.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -223,7 +223,7 @@ const router = createRouter({
         },
         {
           path: '/profile',
-          component: () => import('../pages/profile.vue'),
+          component: () => import('../pages/user/profile.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -231,7 +231,7 @@ const router = createRouter({
         },
         {
           path: '/plugins',
-          component: () => import('../pages/plugin.vue'),
+          component: () => import('../pages/plugin/index.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,
@@ -241,7 +241,7 @@ const router = createRouter({
         {
           path: '/plugin-app/:pluginId/:navKey?',
           name: 'plugin-app',
-          component: () => import('../pages/plugin-app.vue'),
+          component: () => import('../pages/plugin/app.vue'),
           meta: {
             requiresAuth: true,
           },
@@ -257,7 +257,7 @@ const router = createRouter({
         },
         {
           path: '/browse/:paths+',
-          component: () => import('../pages/browse.vue'),
+          component: () => import('../pages/discover/browse.vue'),
           props: true,
           meta: {
             keepAlive: true,
@@ -269,7 +269,7 @@ const router = createRouter({
         },
         {
           path: '/credits/:paths+',
-          component: () => import('../pages/credits.vue'),
+          component: () => import('../pages/discover/credits.vue'),
           props: true,
           meta: {
             requiresAuth: true,
@@ -277,7 +277,7 @@ const router = createRouter({
         },
         {
           path: '/person',
-          component: () => import('../pages/person.vue'),
+          component: () => import('../pages/discover/person.vue'),
           props: true,
           meta: {
             requiresAuth: true,
@@ -285,7 +285,7 @@ const router = createRouter({
         },
         {
           path: '/media',
-          component: () => import('../pages/media.vue'),
+          component: () => import('../pages/discover/media.vue'),
           meta: {
             requiresAuth: true,
             permission: 'discovery',
@@ -294,7 +294,7 @@ const router = createRouter({
         },
         {
           path: '/filemanager',
-          component: () => import('../pages/filemanager.vue'),
+          component: () => import('../pages/reorganize/filemanager.vue'),
           meta: {
             keepAlive: true,
             requiresAuth: true,

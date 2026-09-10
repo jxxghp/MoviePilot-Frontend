@@ -1,4 +1,4 @@
-import DiscoverPage from '@/pages/discover.vue'
+import DiscoverPage from '@/pages/discover/index.vue'
 import type { DiscoverSource } from '@/api/types'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, waitFor } from '@testing-library/vue'

@@ -15,8 +15,12 @@ MoviePilot-Frontend 使用 Vitest 运行单元测试和组件测试，使用 jsd
 ```text
 src/
 ├── pages/
-│   ├── recommend.vue
-│   └── __tests__/recommend.spec.ts
+│   ├── discover/
+│   │   ├── index.vue
+│   │   └── __tests__/index.spec.ts
+│   └── music/
+│       ├── index.vue
+│       └── __tests__/index.spec.ts
 ├── stores/
 │   ├── auth.ts
 │   └── __tests__/auth.spec.ts

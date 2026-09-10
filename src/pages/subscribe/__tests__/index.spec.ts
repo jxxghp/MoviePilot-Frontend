@@ -1,4 +1,4 @@
-import SubscribePage from '@/pages/subscribe.vue'
+import SubscribePage from '@/pages/subscribe/index.vue'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'

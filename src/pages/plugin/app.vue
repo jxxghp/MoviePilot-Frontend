@@ -59,9 +59,7 @@ watch(
 )
 
 // 路由只携带实例 ID，源身份由联邦发现结果补齐。
-const scopedPluginApi = computed(() =>
-  createPluginInstanceApi(pluginId.value, pluginSourceId.value),
-)
+const scopedPluginApi = computed(() => createPluginInstanceApi(pluginId.value, pluginSourceId.value))
 </script>
 
 <template>

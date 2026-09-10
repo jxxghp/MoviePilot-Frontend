@@ -1,4 +1,4 @@
-import RecommendPage from '@/pages/recommend.vue'
+import RecommendPage from '@/pages/discover/recommend.vue'
 import type { RecommendSource } from '@/api/types'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
