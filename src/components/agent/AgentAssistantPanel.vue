@@ -299,7 +299,8 @@ let streamRecoveryAbortRequested = false
 let streamRecoveryTimer: number | null = null
 let activeStreamStartedAt = 0
 let protectedDeliveryGeneration = 0
-let pendingSteeringDraft: AgentChatMessage | null = null
+// 保留尚未收到稳定 steering ID 的本地草稿；Set 维持用户提交顺序，避免并发 ACK 覆盖单一引用。
+const pendingSteeringDrafts = new Set<AgentChatMessage>()
 const pendingSteeringMessages = new Map<string, AgentChatMessage>()
 const acknowledgedSteeringMessages = new Set<string>()
 const steeringContinuationMessages = new Map<string, AgentChatMessage>()
@@ -791,8 +792,14 @@ function restorePendingSteeringMessages() {
   pendingSteeringMessages.clear()
   acknowledgedSteeringMessages.clear()
   steeringContinuationMessages.clear()
+  pendingSteeringDrafts.clear()
   messages.value.forEach(message => {
-    if (message.role !== 'user' || !message.steeringMessageId) return
+    if (message.role !== 'user' || !message.steeringStatus) return
+
+    if (message.steeringStatus === 'queued' && !message.steeringMessageId) {
+      pendingSteeringDrafts.add(message)
+    }
+    if (!message.steeringMessageId) return
 
     pendingSteeringMessages.set(message.steeringMessageId, message)
     if (message.steeringStatus === 'queued') acknowledgedSteeringMessages.add(message.steeringMessageId)
@@ -1453,12 +1460,57 @@ function createChatMessage(
   }
 }
 
+// 查找当前仍在接收事件的助手段；消息列表可能已经包含多个 steering continuation。
+function findActiveAssistantMessage() {
+  return (
+    [...messages.value].reverse().find(message => message.role === 'assistant' && message.status === 'streaming') ||
+    [...messages.value].reverse().find(message => message.role === 'assistant') ||
+    null
+  )
+}
+
+// 计算排队补充消息在当前助手段之后的稳定插入点，保留同一边界上的提交顺序。
+function getSteeringInsertionIndex(assistantMessage: AgentChatMessage | null) {
+  if (!assistantMessage) return messages.value.length
+
+  const assistantIndex = messages.value.indexOf(assistantMessage)
+  if (assistantIndex < 0) return messages.value.length
+
+  let insertionIndex = assistantIndex + 1
+  while (
+    messages.value[insertionIndex]?.role === 'user' &&
+    messages.value[insertionIndex]?.steeringStatus === 'queued'
+  ) {
+    insertionIndex += 1
+  }
+  return insertionIndex
+}
+
+// 立即把 queued 草稿放到当前助手边界之后，避免 ACK 阶段先出现在消息列表末尾。
+function insertSteeringMessageAtBoundary(
+  content: string,
+  attachments: AgentMessageAttachment[],
+  choiceSelection?: AgentChoiceSelection,
+  status: 'queued' | 'applied' = 'queued',
+) {
+  const draft = createChatMessage('user', content, 'done', attachments, choiceSelection, status)
+  const insertionIndex = getSteeringInsertionIndex(findActiveAssistantMessage())
+  messages.value.splice(insertionIndex, 0, draft)
+  const reactiveDraft = messages.value[insertionIndex]
+  if (status === 'queued') pendingSteeringDrafts.add(reactiveDraft)
+
+  persistState()
+  scrollToBottom()
+  return reactiveDraft
+}
+
 // 清理尚未与服务端 applied 事件对齐的补充消息本地状态。
 function clearSteeringDraftState(options: { preserveDraft?: boolean } = {}) {
   const { preserveDraft = false } = options
-  if (pendingSteeringDraft && !preserveDraft) {
-    messages.value = messages.value.filter(message => message !== pendingSteeringDraft)
-    pendingSteeringDraft = null
+  if (!preserveDraft && pendingSteeringDrafts.size) {
+    const drafts = new Set(pendingSteeringDrafts)
+    messages.value = messages.value.filter(message => !drafts.has(message))
+    pendingSteeringDrafts.clear()
     refreshMessageList()
   }
   // 已收到 queued ACK 的消息已经是用户可见记录，保留索引以接住迟到的 applied 事件。
@@ -1664,26 +1716,27 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
         item.content === eventContent,
     )
   }
-  if (!message && event.status === 'queued' && pendingSteeringDraft) {
-    message = pendingSteeringDraft
-    pendingSteeringDraft = null
-    pendingSteeringMessages.set(messageId, message)
-  }
-  if (!message && event.status === 'applied' && pendingSteeringDraft) {
-    message = pendingSteeringDraft
-    pendingSteeringDraft = null
-    pendingSteeringMessages.set(messageId, message)
+  if (!message) {
+    // ACK 与主流 applied 可能交错；按提交顺序接住尚未绑定稳定 ID 的草稿。
+    const matchingDraft = [...pendingSteeringDrafts].find(draft => !eventContent || draft.content === eventContent)
+    if (matchingDraft) {
+      message = matchingDraft
+      pendingSteeringDrafts.delete(matchingDraft)
+      pendingSteeringMessages.set(messageId, message)
+    }
   }
   if (!message) {
     const content = eventContent
     const attachments = Array.isArray(displayMessage?.attachments) ? displayMessage.attachments : []
     const status = event.status === 'queued' ? 'queued' : 'applied'
-    message = addMessage('user', content, 'done', attachments, undefined, status, messageId)
+    message = insertSteeringMessageAtBoundary(content, attachments, undefined, status)
+    message.steeringMessageId = messageId
     pendingSteeringMessages.set(messageId, message)
   }
   if (!message) return assistantMessage
 
   if (event.status === 'applied') {
+    pendingSteeringDrafts.delete(message)
     message.steeringStatus = 'applied'
     message.steeringMessageId = messageId
     const displayMessage = event.display_message
@@ -1730,10 +1783,16 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
     message.steeringMessageId = messageId
     // 应用事件可能先于 ACK 抵达；已应用的状态不能被迟到 ACK 降级。
     if (message.steeringStatus !== 'applied') message.steeringStatus = 'queued'
-    if (pendingSteeringDraft && pendingSteeringDraft !== message) {
-      messages.value = messages.value.filter(item => item !== pendingSteeringDraft)
+    if (message.steeringStatus === 'applied') {
+      // applied 先到时，用户请求随后才创建的本地草稿是同一条消息的重复占位。
+      const duplicateDraft = [...pendingSteeringDrafts].find(draft => !eventContent || draft.content === eventContent)
+      if (duplicateDraft) {
+        messages.value = messages.value.filter(item => item !== duplicateDraft)
+        pendingSteeringDrafts.delete(duplicateDraft)
+      }
+    } else {
+      pendingSteeringDrafts.delete(message)
     }
-    pendingSteeringDraft = null
     acknowledgedSteeringMessages.add(messageId)
     if (message.steeringStatus === 'applied') {
       pendingSteeringMessages.delete(messageId)
@@ -2225,14 +2284,7 @@ async function streamAgentMessage(
       ownsRunner = false
       shouldSaveClientSnapshot = false
       if (!isSecretConfirmation && echoUser) {
-        pendingSteeringDraft = addMessage(
-          'user',
-          displayContent || content,
-          'done',
-          userAttachments,
-          choiceSelection,
-          'queued',
-        )
+        insertSteeringMessageAtBoundary(displayContent || content, userAttachments, choiceSelection)
       }
     } else {
       ownsRunner = true
@@ -2254,7 +2306,6 @@ async function streamAgentMessage(
     const streamResult = await readAgentStream(response, assistantMessage, streamProtectedDeliveryGeneration)
     assistantMessage = streamResult.assistantMessage
     if (!ownsRunner && steeringResponse) {
-      pendingSteeringDraft = null
       return
     }
     shouldFollowBottomAfterStream = isMessageScrollerNearBottom()
@@ -2620,6 +2671,7 @@ function startNewSession() {
   stopGeneration()
   sessionId.value = createSessionId()
   messages.value = []
+  pendingSteeringDrafts.clear()
   pendingSteeringMessages.clear()
   acknowledgedSteeringMessages.clear()
   steeringContinuationMessages.clear()

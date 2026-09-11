@@ -718,6 +718,84 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('keeps multiple disconnected steering drafts in boundary order', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith('/message/agent/stream') || init?.method !== 'POST') {
+        return createAgentResponse([])
+      }
+
+      streamCalls += 1
+      if (streamCalls === 1) return primaryStream.response
+
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.error(new TypeError('Failed to fetch'))
+        },
+      })
+      return new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'X-MoviePilot-Agent-Control': 'steering' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('开始长任务')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('第一条补充')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    await wrapper.find('textarea').setValue('第二条补充')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    const queuedMessages = wrapper
+      .findAll('.agent-assistant-message--user')
+      .filter(message => message.text().includes('补充'))
+    expect(queuedMessages).toHaveLength(2)
+    expect(queuedMessages[0].text()).toContain('第一条补充')
+    expect(queuedMessages[1].text()).toContain('第二条补充')
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-disconnected-1',
+      }),
+    )
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-disconnected-2',
+      }),
+    )
+    await flushPromises()
+
+    const renderedMessages = wrapper.findAll('.agent-assistant-message').map(message => ({
+      role: message.classes().includes('agent-assistant-message--user') ? 'user' : 'assistant',
+      text: message.text(),
+    }))
+    expect(renderedMessages.map(message => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ])
+    expect(renderedMessages[2].text).toContain('第一条补充')
+    expect(renderedMessages[4].text).toContain('第二条补充')
+
+    primaryStream.close()
+    await flushPromises()
+    wrapper.unmount()
+  })
+
   it('deduplicates an applied steering event that arrives before its ACK', async () => {
     const primaryStream = createControllableAgentStream()
     let streamCalls = 0
