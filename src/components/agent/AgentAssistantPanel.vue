@@ -1791,6 +1791,8 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
     if (Array.isArray(displayMessage?.attachments)) message.attachments = displayMessage.attachments
     const continuation = steeringContinuationMessages.get(messageId)
     if (continuation) {
+      pendingSteeringMessages.delete(messageId)
+      acknowledgedSteeringMessages.delete(messageId)
       refreshMessageList()
       persistState()
       return continuation
