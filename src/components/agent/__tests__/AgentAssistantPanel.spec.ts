@@ -270,6 +270,17 @@ describe('AgentAssistantPanel stream recovery', () => {
       session_id: expect.any(String),
     })
     expect(wrapper.text()).toContain('agentAssistant.steeringQueued')
+    const queuedMessage = wrapper
+      .findAll('.agent-assistant-message--user')
+      .find(message => message.text().includes('补充检查下载目录'))
+    expect(queuedMessage).toBeDefined()
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
+      expect.objectContaining({
+        content: '补充检查下载目录',
+        steeringMessageId: 'steering-1',
+        steeringStatus: 'queued',
+      }),
+    )
 
     primaryStream.emit(
       legacySseFrame({
@@ -286,11 +297,173 @@ describe('AgentAssistantPanel stream recovery', () => {
     )
     await flushPromises()
     expect(wrapper.text()).toContain('agentAssistant.steeringApplied')
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
+      expect.objectContaining({ content: '补充检查下载目录', steeringStatus: 'applied' }),
+    )
 
     primaryStream.emit(legacySseFrame({ type: 'done' }))
     primaryStream.close()
     await flushPromises()
     expect(wrapper.find('.agent-assistant-stop').exists()).toBe(false)
+    const displaySaveCall = fetchMock.mock.calls.find(([input]) => String(input).includes('/display'))
+    expect(JSON.parse(String(displaySaveCall?.[1]?.body || '{}')).messages).toContainEqual(
+      expect.objectContaining({ steering_message_id: 'steering-1' }),
+    )
+    wrapper.unmount()
+  })
+
+  it('keeps a queued steering message when recovery replaces the view with a server snapshot', async () => {
+    let visibilityState: DocumentVisibilityState = 'visible'
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState)
+    const primaryStream = createControllableAgentStream()
+    const serverSessionId = 'web-agent:recovery-steering'
+    let streamCalls = 0
+    const startedAt = Date.now()
+    const serverSession: MockServerSession = {
+      session_id: serverSessionId,
+      client_session_id: 'web-recovery-steering',
+      updated_at: new Date(startedAt + 2000).toISOString(),
+      is_processing: false,
+      // 模拟后台快照在 steering 已排队但尚未回写展示消息时返回。
+      messages: [
+        {
+          id: 'user-primary',
+          role: 'user',
+          content: '开始长任务',
+          createdAt: startedAt - 100,
+          status: 'done',
+          attachments: [],
+          choices: [],
+          tools: [],
+        },
+        {
+          id: 'assistant-recovered',
+          role: 'assistant',
+          content: '后台任务已完成',
+          createdAt: startedAt + 2000,
+          status: 'done',
+          attachments: [],
+          choices: [],
+          tools: [],
+        },
+      ],
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/message/agent/stream') && init?.method === 'POST') {
+        streamCalls += 1
+        if (streamCalls === 1) return primaryStream.response
+
+        return createAgentStreamResponse(
+          [
+            legacySseFrame({
+              type: 'steering',
+              status: 'queued',
+              message_id: 'steering-recovery',
+              content: '补充要求',
+            }),
+            legacySseFrame({ type: 'done' }),
+          ],
+          { 'X-MoviePilot-Agent-Control': 'steering' },
+        )
+      }
+      if (url.includes(`/sessions/${encodeURIComponent(serverSessionId)}`)) return createAgentResponse(serverSession)
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('开始长任务')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(legacySseFrame({ type: 'start', session_id: serverSessionId }))
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('补充要求')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('补充要求')
+
+    visibilityState = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    visibilityState = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        String(input).includes(`/sessions/${encodeURIComponent(serverSessionId)}`),
+      ),
+    ).not.toHaveLength(0)
+    expect(wrapper.text()).toContain('补充要求')
+    expect(
+      wrapper.findAll('.agent-assistant-message--user').filter(message => message.text().includes('补充要求')),
+    ).toHaveLength(1)
+
+    primaryStream.close()
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('keeps an accepted steering draft when its short ACK stream disconnects', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith('/message/agent/stream') || init?.method !== 'POST') {
+        return createAgentResponse([])
+      }
+
+      streamCalls += 1
+      if (streamCalls === 1) return primaryStream.response
+
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.error(new TypeError('Failed to fetch'))
+        },
+      })
+      return new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'X-MoviePilot-Agent-Control': 'steering' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('开始检查下载任务')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    await wrapper.find('textarea').setValue('即使 ACK 断开也保留')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('即使 ACK 断开也保留')
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
+      expect.objectContaining({ content: '即使 ACK 断开也保留', steeringStatus: 'queued' }),
+    )
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-disconnected',
+        content: '即使 ACK 断开也保留',
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain('agentAssistant.steeringApplied')
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
+      expect.objectContaining({
+        content: '即使 ACK 断开也保留',
+        steeringMessageId: 'steering-disconnected',
+        steeringStatus: 'applied',
+      }),
+    )
+
+    primaryStream.close()
+    await flushPromises()
     wrapper.unmount()
   })
 
@@ -642,7 +815,10 @@ describe('AgentAssistantPanel stream recovery', () => {
   })
 
   it('adds a pasted clipboard image to the pending attachments', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => createAgentResponse([])))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
     const createObjectURL = vi.fn(() => 'blob:pasted-image')
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })

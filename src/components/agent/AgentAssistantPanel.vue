@@ -101,6 +101,7 @@ interface AgentChatMessage {
   choices: AgentChoiceCard[]
   choice_selection?: AgentChoiceSelection
   steeringStatus?: 'queued' | 'applied'
+  steeringMessageId?: string
 }
 
 interface AgentSessionHistoryItem {
@@ -301,9 +302,7 @@ let sendingRequestId = 0
 const isBusy = computed(() => runnerActive.value || Boolean(pendingStreamRecovery.value))
 const canSend = computed(
   () =>
-    (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) &&
-    !sending.value &&
-    !recording.value,
+    (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
 )
 const canRecord = computed(() => !isBusy.value && !sending.value && !recording.value)
 // 获取当前输入对应的斜杠命令查询词。
@@ -645,10 +644,19 @@ function normalizeStoredMessages(value: unknown) {
         message.steeringStatus === 'queued' || message.steeringStatus === 'applied'
           ? message.steeringStatus
           : undefined,
+      steeringMessageId: stringifyChoiceField(message.steeringMessageId || message.steering_message_id) || undefined,
     } as AgentChatMessage
   })
 
   return normalizeChoiceSelectionMessages(normalizedMessages)
+}
+
+// 将本地 camelCase 消息字段转换为后端展示接口使用的 snake_case 字段。
+function serializeMessagesForServer(value: AgentChatMessage[]) {
+  return normalizeStoredMessages(value).map(message => {
+    const { steeringMessageId, ...rest } = message
+    return steeringMessageId ? { ...rest, steering_message_id: steeringMessageId } : rest
+  })
 }
 
 // 解析服务端时间字符串，失败时回退到当前时间。
@@ -747,6 +755,18 @@ function restoreHistorySessions() {
   } catch (error) {
     historySessions.value = []
   }
+}
+
+// 从本地消息恢复 steering 索引，保证刷新或断流后仍能接住迟到的应用事件。
+function restorePendingSteeringMessages() {
+  pendingSteeringMessages.clear()
+  acknowledgedSteeringMessages.clear()
+  messages.value.forEach(message => {
+    if (message.role !== 'user' || !message.steeringMessageId) return
+
+    pendingSteeringMessages.set(message.steeringMessageId, message)
+    if (message.steeringStatus === 'queued') acknowledgedSteeringMessages.add(message.steeringMessageId)
+  })
 }
 
 // 加载第一页服务端历史会话。
@@ -919,6 +939,40 @@ function failStreamRecovery() {
   persistState()
 }
 
+// 合并服务端恢复快照与尚未写入服务端的本地 steering 消息，避免恢复过程丢失用户输入。
+function mergeServerMessagesWithLocalSteering(serverMessages: AgentChatMessage[]) {
+  const localSteeringMessages = messages.value.filter(
+    message => message.role === 'user' && Boolean(message.steeringStatus),
+  )
+  if (!localSteeringMessages.length) return serverMessages
+
+  const mergedMessages = [...serverMessages]
+  localSteeringMessages.forEach(localMessage => {
+    const localSteeringId = localMessage.steeringMessageId
+    const serverIndex = mergedMessages.findIndex(
+      message => (localSteeringId && message.steeringMessageId === localSteeringId) || message.id === localMessage.id,
+    )
+    if (serverIndex >= 0) {
+      const serverMessage = mergedMessages[serverIndex]
+      serverMessage.steeringMessageId ||= localSteeringId
+      // 能进入服务端完成快照的 steering 已经被 Agent 消费，恢复时收口为 applied。
+      serverMessage.steeringStatus ||= 'applied'
+      if (!serverMessage.content && localMessage.content) serverMessage.content = localMessage.content
+      if (!serverMessage.attachments.length && localMessage.attachments.length) {
+        serverMessage.attachments = localMessage.attachments
+      }
+      return
+    }
+
+    // 服务端仍在处理时只保存了原助手快照；用户补充消息应位于当前助手消息之前。
+    const assistantIndex = mergedMessages.findLastIndex(message => message.role === 'assistant')
+    if (assistantIndex >= 0) mergedMessages.splice(assistantIndex, 0, localMessage)
+    else mergedMessages.push(localMessage)
+  })
+
+  return mergedMessages
+}
+
 // 从服务端拉取当前会话展示快照，用于移动端后台断开 SSE 后恢复最终结果。
 async function restoreCurrentSessionFromServer(targetSessionId: string, startedAt: number) {
   const session = await loadServerHistorySession(targetSessionId)
@@ -936,11 +990,12 @@ async function restoreCurrentSessionFromServer(targetSessionId: string, startedA
     message.status = 'done'
     markToolsDone(message)
   })
-  messages.value = restoredMessages
+  messages.value = mergeServerMessagesWithLocalSteering(restoredMessages)
+  restorePendingSteeringMessages()
   sessionId.value = session.sessionId
   pendingStreamRecovery.value = null
   clearStreamRecoveryTimer()
-  persistState({ syncHistory: false })
+  persistState()
   scrollToBottom()
   if (abortController) {
     streamRecoveryAbortRequested = true
@@ -1021,16 +1076,21 @@ function restoreState() {
         sessionId.value = createSessionId()
       }
 
+      restorePendingSteeringMessages()
+
       return
     }
 
     const state = JSON.parse(raw)
     sessionId.value = state.sessionId || createSessionId()
     messages.value = normalizeStoredMessages(state.messages)
+    restorePendingSteeringMessages()
     restorePendingStreamRecovery(state.streamRecovery)
     upsertCurrentSessionHistory()
   } catch (error) {
     sessionId.value = createSessionId()
+    messages.value = []
+    restorePendingSteeringMessages()
     pendingStreamRecovery.value = null
   }
 }
@@ -1127,7 +1187,7 @@ async function saveCurrentSessionToServer() {
     `message/agent/sessions/${encodeURIComponent(sessionId.value)}/display`,
     {
       title: buildSessionHistoryTitle(messages.value),
-      messages: normalizeStoredMessages(messages.value),
+      messages: serializeMessagesForServer(messages.value),
     },
     { feedback: 'silent' },
   )
@@ -1305,6 +1365,7 @@ function addMessage(
   attachments: AgentMessageAttachment[] = [],
   choiceSelection?: AgentChoiceSelection,
   steeringStatus?: 'queued' | 'applied',
+  steeringMessageId?: string,
 ) {
   const message: AgentChatMessage = {
     id: createId(role),
@@ -1318,6 +1379,7 @@ function addMessage(
     segments: role === 'assistant' && content ? [{ type: 'text', content }] : [],
     choice_selection: choiceSelection,
     steeringStatus,
+    steeringMessageId,
   }
   messages.value.push(message)
   const reactiveMessage = messages.value[messages.value.length - 1]
@@ -1328,14 +1390,19 @@ function addMessage(
 }
 
 // 清理尚未与服务端 applied 事件对齐的补充消息本地状态。
-function clearSteeringDraftState() {
-  if (pendingSteeringDraft) {
+function clearSteeringDraftState(options: { preserveDraft?: boolean } = {}) {
+  const { preserveDraft = false } = options
+  if (pendingSteeringDraft && !preserveDraft) {
     messages.value = messages.value.filter(message => message !== pendingSteeringDraft)
     pendingSteeringDraft = null
     refreshMessageList()
   }
-  pendingSteeringMessages.clear()
-  acknowledgedSteeringMessages.clear()
+  // 已收到 queued ACK 的消息已经是用户可见记录，保留索引以接住迟到的 applied 事件。
+  for (const [messageId, message] of pendingSteeringMessages) {
+    if (messages.value.includes(message)) continue
+    pendingSteeringMessages.delete(messageId)
+    acknowledgedSteeringMessages.delete(messageId)
+  }
 }
 
 // 清理后端工具提示前缀。
@@ -1474,24 +1541,45 @@ function applySteeringEvent(event: AgentStreamEvent) {
   const messageId = String(event.message_id || '')
   if (!messageId) return
 
+  const displayMessage = event.display_message
+  const eventContent =
+    typeof displayMessage?.content === 'string' ? displayMessage.content : String(event.content || '')
   let message = pendingSteeringMessages.get(messageId)
+  if (!message) {
+    message = messages.value.find(item => item.steeringMessageId === messageId)
+  }
+  if (!message) {
+    // ACK 断流后页面刷新可能只留下没有稳定 ID 的 queued 气泡，按原文接住迟到事件。
+    message = messages.value.find(
+      item =>
+        item.role === 'user' &&
+        item.steeringStatus === 'queued' &&
+        !item.steeringMessageId &&
+        item.content === eventContent,
+    )
+  }
   if (!message && event.status === 'queued' && pendingSteeringDraft) {
     message = pendingSteeringDraft
     pendingSteeringDraft = null
     pendingSteeringMessages.set(messageId, message)
   }
-  if (!message && event.status === 'applied') {
-    const displayMessage = event.display_message
-    const content =
-      typeof displayMessage?.content === 'string' ? displayMessage.content : String(event.content || '')
+  if (!message && event.status === 'applied' && pendingSteeringDraft) {
+    message = pendingSteeringDraft
+    pendingSteeringDraft = null
+    pendingSteeringMessages.set(messageId, message)
+  }
+  if (!message) {
+    const content = eventContent
     const attachments = Array.isArray(displayMessage?.attachments) ? displayMessage.attachments : []
-    message = addMessage('user', content, 'done', attachments, undefined, 'applied')
+    const status = event.status === 'queued' ? 'queued' : 'applied'
+    message = addMessage('user', content, 'done', attachments, undefined, status, messageId)
     pendingSteeringMessages.set(messageId, message)
   }
   if (!message) return
 
   if (event.status === 'applied') {
     message.steeringStatus = 'applied'
+    message.steeringMessageId = messageId
     const displayMessage = event.display_message
     if (typeof displayMessage?.content === 'string') message.content = displayMessage.content
     if (Array.isArray(displayMessage?.attachments)) message.attachments = displayMessage.attachments
@@ -1510,6 +1598,7 @@ function applySteeringEvent(event: AgentStreamEvent) {
       acknowledgedSteeringMessages.delete(messageId)
     }
   } else if (event.status === 'queued') {
+    message.steeringMessageId = messageId
     // 应用事件可能先于 ACK 抵达；已应用的状态不能被迟到 ACK 降级。
     if (message.steeringStatus !== 'applied') message.steeringStatus = 'queued'
     if (pendingSteeringDraft && pendingSteeringDraft !== message) {
@@ -1953,8 +2042,14 @@ async function streamAgentMessage(
 ) {
   const content = text.trim()
   const streamOptions = typeof options === 'boolean' ? { echoUser: options } : options
-  const { echoUser = true, displayText, choiceSelection, originalMessageId, originalChatId, steering = false } =
-    streamOptions
+  const {
+    echoUser = true,
+    displayText,
+    choiceSelection,
+    originalMessageId,
+    originalChatId,
+    steering = false,
+  } = streamOptions
   const displayContent = (displayText ?? content).trim()
   if (!content && !images.length && !files.length && !audioRefs.length) return
 
@@ -2077,7 +2172,9 @@ async function streamAgentMessage(
 
     if (isRecoverableStreamDisconnect(error)) {
       if (!ownsRunner) {
-        clearSteeringDraftState()
+        // 响应头已经确认服务端接受了 steering；即使 ACK frame 断流，也要保留用户气泡，
+        // 等主流稍后送达 applied 事件完成稳定 ID 绑定。
+        clearSteeringDraftState({ preserveDraft: true })
         return
       }
       shouldSaveClientSnapshot = false
@@ -2398,6 +2495,8 @@ function startNewSession() {
   stopGeneration()
   sessionId.value = createSessionId()
   messages.value = []
+  pendingSteeringMessages.clear()
+  acknowledgedSteeringMessages.clear()
   streamError.value = ''
   historyMenuOpen.value = false
   clearPendingAttachments()
@@ -2420,6 +2519,7 @@ async function loadHistorySession(targetSessionId: string) {
     }
     sessionId.value = historySession.sessionId
     messages.value = normalizeStoredMessages(historySession.messages)
+    restorePendingSteeringMessages()
     streamError.value = ''
     historyMenuOpen.value = false
     clearPendingAttachments()
