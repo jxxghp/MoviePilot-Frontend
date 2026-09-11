@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api', () => ({
+  isApiBusinessFailure: (error: unknown) => Boolean((error as { business?: boolean })?.business),
   default: {
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
@@ -104,7 +105,13 @@ describe('music artist discography resources', () => {
       })),
     }
     mocks.apiGet.mockImplementation((path: string, config?: { params?: { album_type?: string } }) => {
-      if (path === 'music/artist/artist-1') return Promise.resolve({ aliases: ['Artist'] })
+      if (path === 'music/artist/artist-1') {
+        return Promise.resolve({
+          name: 'Artist',
+          aliases: ['Artist'],
+          image_url: 'https://images.example.com/artist.jpg',
+        })
+      }
       if (path.includes('/albums')) {
         return Promise.resolve(
           config?.params?.album_type === 'album' ? [inLibraryAlbum, downloadableAlbum, candidateAlbum] : [],
@@ -140,6 +147,7 @@ describe('music artist discography resources', () => {
     })
 
     expect(await screen.findByText('Already Here')).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'Artist' })).toBeInTheDocument()
     expect(await screen.findByText('Need This')).toBeInTheDocument()
     expect(await screen.findByText('Needs Review')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByText('已入库').length).toBeGreaterThan(0))
@@ -171,6 +179,40 @@ describe('music artist discography resources', () => {
         supplements: [expect.objectContaining({ media: expect.objectContaining({ media_id: 'album-1' }) })],
       }),
       expect.anything(),
+    )
+  })
+
+  it('keeps successful collection searches when another artist alias has no resources', async () => {
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: { album_type?: string; keyword?: string } }) => {
+      if (path === 'music/artist/artist-1') {
+        return Promise.resolve({ name: 'Artist', aliases: ['Missing Alias'] })
+      }
+      if (path.includes('/albums')) {
+        return Promise.resolve(config?.params?.album_type === 'album' ? [downloadableAlbum] : [])
+      }
+      if (path === 'search/title') {
+        if (config?.params?.keyword === 'Missing Alias') return Promise.reject({ business: true })
+        return Promise.resolve([collectionResource])
+      }
+      if (path === 'search/media/album-2') return Promise.resolve([exactResource('Need This')])
+      return Promise.resolve([])
+    })
+    mocks.apiPost.mockImplementation((path: string) => {
+      if (path === 'music/library/status') {
+        return Promise.resolve([{ media_source: 'musicbrainz', media_id: 'album-2', exists: false }])
+      }
+      if (path === 'music/artist-collection/probe') return Promise.resolve(mocks.probeCoverage)
+      return Promise.resolve(null)
+    })
+
+    await renderWithProviders(MusicArtistResourcesPage, {
+      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+    })
+
+    expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledWith(
+      'search/title',
+      expect.objectContaining({ params: expect.objectContaining({ keyword: 'Artist discography' }) }),
     )
   })
 

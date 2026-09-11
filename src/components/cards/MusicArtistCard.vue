@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import api, { isApiBusinessFailure } from '@/api'
 import type { MusicArtistInfo } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
@@ -12,15 +13,50 @@ const props = defineProps({
   width: String,
 })
 
+const artistImageRequests = new Map<string, Promise<string>>()
+
 // 艺术家图片加载失败后回退到占位图标
 const imageLoadError = ref(false)
+const resolvedImageUrl = ref('')
 
-const rawImageUrl = computed(() => props.artist?.image_url || props.artist?.poster_path || '')
+const rawImageUrl = computed(() => props.artist?.image_url || props.artist?.poster_path || resolvedImageUrl.value)
 const imageUrl = computed(() =>
   getDisplayImageUrl(rawImageUrl.value, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
 )
 const showImage = computed(() => Boolean(imageUrl.value) && !imageLoadError.value)
 const subtitle = computed(() => getMusicArtistSubtitle(props.artist))
+
+/** 搜索摘要通常不含图片；按稳定艺人身份懒加载一次详情。 */
+async function resolveMissingArtistImage() {
+  imageLoadError.value = false
+  resolvedImageUrl.value = ''
+  const artist = props.artist
+  if (artist?.image_url || artist?.poster_path || !artist?.media_source || !artist.media_id) return
+
+  const key = `${artist.media_source}:${artist.media_id}`
+  let request = artistImageRequests.get(key)
+  if (!request) {
+    request = api
+      .get<MusicArtistInfo>(`music/artist/${encodeURIComponent(artist.media_id)}`, {
+        params: { media_source: artist.media_source },
+        feedback: 'silent',
+      })
+      .then(detail => detail?.image_url || detail?.poster_path || '')
+      .catch(error => {
+        if (!isApiBusinessFailure(error)) console.error(error)
+        return ''
+      })
+    artistImageRequests.set(key, request)
+  }
+  const image = await request
+  if (`${props.artist?.media_source}:${props.artist?.media_id}` === key) resolvedImageUrl.value = image
+}
+
+watch(
+  () => [props.artist?.media_source, props.artist?.media_id, props.artist?.image_url, props.artist?.poster_path],
+  resolveMissingArtistImage,
+  { immediate: true },
+)
 
 /** 打开艺术家详情页。 */
 function goArtistDetail() {

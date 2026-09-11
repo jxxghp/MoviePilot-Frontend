@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useToast } from 'vue-toastification'
 import api, { isApiBusinessFailure } from '@/api'
-import type { Context, MediaDataSource, MediaInfo, MusicLibraryStatus } from '@/api/types'
+import type { Context, MediaDataSource, MediaInfo, MusicArtistInfo, MusicLibraryStatus } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { isMediaDataSource } from '@/utils/mediaId'
 import { requiresMusicConfirmation } from '@/utils/music'
 
@@ -56,6 +58,7 @@ const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
 const $toast = useToast()
+const globalSettingsStore = useGlobalSettingsStore()
 
 const artistId = computed(() => route.query.artist_id?.toString().trim() || '')
 const artistName = computed(() => route.query.artist?.toString().trim() || '')
@@ -68,7 +71,9 @@ const sites = computed(() => route.query.sites?.toString() || '')
 const rows = ref<DiscographyRow[]>([])
 const collectionResources = ref<ArtistCollectionResource[]>([])
 const selectedCollectionKey = ref<string | null>(null)
+const artistInfo = ref<MusicArtistInfo>()
 const artistAliases = ref<string[]>([])
+const artistImageLoadError = ref(false)
 const loadingCatalog = ref(false)
 const loadingCollections = ref(false)
 const matching = ref(false)
@@ -81,7 +86,13 @@ const statusFilter = ref<'all' | 'available' | 'library' | 'exact' | 'candidate'
 const excludedSecondaryTypes = new Set(['Compilation', 'Live', 'Remix', 'Soundtrack', 'DJ-mix', 'Mixtape/Street'])
 const typeOrder: Record<string, number> = { Album: 0, EP: 1, Single: 2 }
 const collectionSignal =
-  /(?:合集|全集|全套|全专辑|全作品|录音室专辑|discograph(?:y|ies)|complete\s+(?:album|studio)|collection|anthology|box\s*set)/i
+  /(?:大合集|合集|全集|全套|全碟|全收[录錄]|全[专專]辑|全作品|作品集|[历歷]年[专專]辑|[录錄]音室[专專]辑|无损合集|無損合集|discograph(?:y|ies)|complete\s+(?:album|studio)|collection|anthology|box\s*set)/i
+
+const artistImageUrl = computed(() => {
+  const rawUrl = artistInfo.value?.image_url || artistInfo.value?.poster_path || ''
+  return getDisplayImageUrl(rawUrl, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
+})
+const showArtistImage = computed(() => Boolean(artistImageUrl.value) && !artistImageLoadError.value)
 
 const summary = computed(() => ({
   total: rows.value.length,
@@ -131,6 +142,15 @@ function collectionResourceKey(context: Context) {
   return `${torrent?.site || ''}:${torrent?.enclosure || torrent?.page_url || torrent?.title || ''}`
 }
 
+function isUsefulArtistAlias(name: string) {
+  const trimmed = name.trim()
+  const normalized = normalizedText(trimmed)
+  if (normalized === normalizedText(artistName.value)) return true
+  // MusicBrainz 可能包含 Jay 这类过宽昵称，既会污染合集筛选，也会浪费一次全站搜索。
+  if (/^[a-z]+$/i.test(trimmed) && normalized.length < 5) return false
+  return normalized.length >= 2
+}
+
 function isArtistCollectionResource(context: Context) {
   const text = `${context.torrent_info?.title || ''} ${context.torrent_info?.description || ''}`
   const normalized = normalizedText(text)
@@ -139,6 +159,13 @@ function isArtistCollectionResource(context: Context) {
 
 function isOfficialDiscographyItem(media: MediaInfo) {
   return !media.secondary_types?.some(type => excludedSecondaryTypes.has(type))
+}
+
+function collectionSearchTerms() {
+  const aliases = artistAliases.value.filter(isUsefulArtistAlias)
+  const primary = artistName.value || aliases[0] || ''
+  const directed = /\p{Script=Han}/u.test(primary) ? `${primary} 合集` : `${primary} discography`
+  return [...new Set([primary, ...aliases.slice(0, 2), directed].map(name => name.trim()).filter(Boolean))].slice(0, 4)
 }
 
 async function fetchAllByType(albumType: 'album' | 'ep' | 'single') {
@@ -170,17 +197,22 @@ async function loadCatalog() {
   if (!artistId.value || !mediaSource.value) return
   loadingCatalog.value = true
   rows.value = []
+  artistInfo.value = undefined
+  artistImageLoadError.value = false
   try {
     const [artist, groups] = await Promise.all([
-      api.get<MediaInfo>(`music/artist/${artistId.value}`, {
+      api.get<MusicArtistInfo>(`music/artist/${artistId.value}`, {
         params: { media_source: mediaSource.value },
         feedback: 'silent',
       }),
       Promise.all([fetchAllByType('album'), fetchAllByType('ep'), fetchAllByType('single')]),
     ])
+    artistInfo.value = artist
     artistAliases.value = [
-      ...new Set([artistName.value, ...((artist as MediaInfo & { aliases?: string[] })?.aliases || [])]),
+      ...new Set([artistName.value, artist?.name || '', artist?.sort_name || '', ...(artist?.aliases || [])]),
     ]
+      .map(name => name.trim())
+      .filter(isUsefulArtistAlias)
     const unique = new Map<string, MediaInfo>()
     groups
       .flat()
@@ -212,15 +244,19 @@ async function loadCollectionResources() {
   loadingCollections.value = true
   collectionResources.value = []
   try {
-    const batches = await Promise.all(
-      artistAliases.value.slice(0, 3).map(name =>
+    const batches = await Promise.allSettled(
+      collectionSearchTerms().map(name =>
         api.get<Context[]>('search/title', {
           params: { keyword: name, mtype: '音乐', page: 0, sites: sites.value },
           feedback: 'silent',
         }),
       ),
     )
-    const contexts = batches.flatMap(items => items || [])
+    const contexts = batches.flatMap(result => {
+      if (result.status === 'fulfilled') return result.value || []
+      if (!isApiBusinessFailure(result.reason)) console.error(result.reason)
+      return []
+    })
     const unique = new Map<string, Context>()
     contexts.filter(isArtistCollectionResource).forEach(context => unique.set(collectionResourceKey(context), context))
     const candidates: ArtistCollectionResource[] = [...unique.values()].slice(0, 8).map(context => ({
@@ -444,12 +480,24 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
 <template>
   <div class="discography-page">
     <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-5">
-      <div>
-        <VBtn variant="text" prepend-icon="mdi-arrow-left" class="px-0 mb-1" @click="router.back()">
-          {{ t('common.back') }}
-        </VBtn>
-        <h1 class="text-h4 font-weight-bold">{{ artistName }} · {{ t('music.discographyResources') }}</h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">{{ t('music.discographyDescription') }}</p>
+      <div class="d-flex align-center ga-3">
+        <VAvatar size="76" color="surface-variant" class="artist-avatar">
+          <VImg
+            v-if="showArtistImage"
+            :src="artistImageUrl"
+            :alt="artistName"
+            cover
+            @error="artistImageLoadError = true"
+          />
+          <VIcon v-else icon="mdi-account-music" size="38" color="medium-emphasis" />
+        </VAvatar>
+        <div>
+          <VBtn variant="text" prepend-icon="mdi-arrow-left" class="px-0 mb-1" @click="router.back()">
+            {{ t('common.back') }}
+          </VBtn>
+          <h1 class="text-h4 font-weight-bold">{{ artistName }} · {{ t('music.discographyResources') }}</h1>
+          <p class="text-body-2 text-medium-emphasis mt-1">{{ t('music.discographyDescription') }}</p>
+        </div>
       </div>
       <div class="d-flex flex-wrap ga-2">
         <VSelect
@@ -651,6 +699,10 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
 
 .summary-card {
   min-height: 88px;
+}
+
+.artist-avatar {
+  flex: 0 0 auto;
 }
 .discography-row {
   min-height: 98px;

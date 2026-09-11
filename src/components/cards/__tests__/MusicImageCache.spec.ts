@@ -3,8 +3,16 @@ import MusicArtistCard from '@/components/cards/MusicArtistCard.vue'
 import MusicCard from '@/components/cards/MusicCard.vue'
 import MusicDetailLayout from '@/views/discover/MusicDetailLayout.vue'
 import { renderWithProviders } from '@tests/support/render'
+import { screen, waitFor } from '@testing-library/vue'
 import { defineComponent, h } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({ apiGet: vi.fn() }))
+
+vi.mock('@/api', () => ({
+  isApiBusinessFailure: () => false,
+  default: { get: (...args: unknown[]) => mocks.apiGet(...args) },
+}))
 
 const ImageStub = defineComponent({
   name: 'VImg',
@@ -39,6 +47,8 @@ function expectCachedImages(container: Element, source: string) {
 }
 
 describe('music image cache integration', () => {
+  beforeEach(() => mocks.apiGet.mockReset())
+
   it('caches recording and album covers in the dedicated music card', async () => {
     const cover = 'https://coverartarchive.org/release-group/album-1/front-500'
     const music = {
@@ -77,6 +87,32 @@ describe('music image cache integration', () => {
     })
 
     expectCachedImages(container, portrait)
+  })
+
+  it('loads an artist detail portrait when a search result only contains an identity', async () => {
+    const portrait = 'https://images.example.com/artists/artist-detail.jpg'
+    mocks.apiGet.mockResolvedValue({ image_url: portrait })
+    const artist = {
+      media_id: 'artist-detail',
+      music_type: 'artist',
+      name: '详情图片艺术家',
+      media_source: 'musicbrainz',
+      type: '音乐',
+    } as MusicArtistInfo
+
+    await renderWithProviders(MusicArtistCard, {
+      global: { stubs: { VImg: ImageStub } },
+      initialState: cachedImageState,
+      props: { artist },
+    })
+
+    await waitFor(() =>
+      expect(screen.getByRole('img')).toHaveAttribute('src', expect.stringContaining('artist-detail.jpg')),
+    )
+    expect(mocks.apiGet).toHaveBeenCalledWith('music/artist/artist-detail', {
+      params: { media_source: 'musicbrainz' },
+      feedback: 'silent',
+    })
   })
 
   it('caches both background and foreground images in the shared music detail layout', async () => {
