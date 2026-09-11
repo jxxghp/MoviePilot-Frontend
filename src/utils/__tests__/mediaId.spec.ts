@@ -5,9 +5,23 @@ import {
   setMediaSourceCatalog,
   supportsMediaSourceType,
 } from '@/utils/mediaId'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+const defaultMediaSources = [
+  { name: 'MusicBrainz', media_source: 'musicbrainz', media_types: ['音乐'] },
+  { name: 'TheAudioDB', media_source: 'theaudiodb', media_types: ['音乐'] },
+  { name: '豆瓣音乐', media_source: 'doubanmusic', media_types: ['音乐'] },
+]
 
 describe('media source identity utils', () => {
+  beforeEach(() => {
+    setMediaSourceCatalog(defaultMediaSources)
+  })
+
+  afterEach(() => {
+    setMediaSourceCatalog([])
+  })
+
   it.each(['musicbrainz', 'theaudiodb', 'doubanmusic'] as const)('recognizes %s as a music source', source => {
     expect(isMusicMediaSource(source)).toBe(true)
   })
