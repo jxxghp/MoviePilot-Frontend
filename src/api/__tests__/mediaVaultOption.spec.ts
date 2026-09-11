@@ -1,21 +1,44 @@
-import { mediaServerDict, mediaServerOptions } from '@/api/constants'
+import { loadModuleCatalog, useModuleCatalog } from '@/composables/useModuleCatalog'
 import { getLogoUrl } from '@/utils/imageUtils'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  apiGet: vi.fn(),
+}))
+
+vi.mock('@/api', () => ({
+  default: createDataApiMock({
+    get: (...args: unknown[]) => mocks.apiGet(...args),
+  }),
+}))
 
 describe('MediaVault 媒体服务器接入', () => {
-  it('出现在媒体服务器类型选项里', () => {
-    const values = mediaServerOptions.map(option => option.value)
-
-    expect(values).toContain('mediavault')
-    // 排在既有类型之后，避免打乱用户已经熟悉的顺序
-    expect(values.indexOf('mediavault')).toBe(values.length - 1)
+  beforeEach(() => {
+    mocks.apiGet.mockReset()
+    mocks.apiGet.mockResolvedValue({
+      modules: [
+        {
+          id: 'MediaVaultModule',
+          name: 'MediaVault',
+          name_i18n: 'MediaVault',
+          type: 'mediaserver',
+          subtype: 'MediaVault',
+          option_value: 'mediavault',
+          enabled: true,
+          active: true,
+        },
+      ],
+    })
   })
 
-  it('类型名称有对应文案，不回退成键名', () => {
-    const title = mediaServerDict.mediavault
+  it('从后端模块目录构造媒体服务器类型选项', async () => {
+    await loadModuleCatalog(true)
+    const { moduleOptions } = useModuleCatalog()
 
-    expect(title).toBeTruthy()
-    expect(title).not.toContain('setting.system')
+    expect(moduleOptions('mediaserver').value).toEqual([
+      { moduleId: 'MediaVaultModule', title: 'MediaVault', value: 'mediavault' },
+    ])
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/module-catalog')
   })
 
   it('有自己的图标，不落到通用媒体服务器图标', () => {

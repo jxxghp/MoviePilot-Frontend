@@ -3,9 +3,9 @@ import type { MediaDataSource, MediaSourceInfo } from '@/api/types'
 
 const MUSICBRAINZ_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const IMDB_ID_PATTERN = /^tt\d+$/i
-export const MUSIC_MEDIA_SOURCES = ['musicbrainz', 'theaudiodb', 'doubanmusic'] as const
 const MEDIA_SOURCE_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
 const mediaSourceCatalog = ref<MediaSourceInfo[]>([])
+const mediaSourceCatalogLoaded = ref(false)
 
 const MUSIC_MEDIA_TYPES = new Set(['音乐', 'music'])
 const VIDEO_MEDIA_TYPES = new Set(['电影', '电视剧', 'movie', 'tv'])
@@ -20,11 +20,22 @@ export function setMediaSourceCatalog(sources: MediaSourceInfo[]) {
     catalog.push({ ...source, media_source: value })
     return catalog
   }, [])
+  mediaSourceCatalogLoaded.value = true
+}
+
+/** 标记来源目录请求暂不可用，保留上一次成功快照供导航继续使用。 */
+export function markMediaSourceCatalogUnavailable() {
+  mediaSourceCatalogLoaded.value = false
 }
 
 /** 返回当前已加载的来源目录，供来源选择器构造选项。 */
 export function getMediaSourceCatalog() {
   return mediaSourceCatalog
+}
+
+/** 判断媒体来源目录是否已经收到后端成功响应。 */
+export function isMediaSourceCatalogLoaded() {
+  return mediaSourceCatalogLoaded
 }
 
 /** 判断注册来源是否声明了指定的影视或音乐能力。 */
@@ -61,9 +72,8 @@ export function parseMediaDataSources(value: unknown): MediaDataSource[] {
 export function isMusicMediaSource(source?: MediaDataSource): boolean {
   const normalized = source?.toString().trim().toLowerCase()
   if (!normalized) return false
-  return (
-    MUSIC_MEDIA_SOURCES.includes(normalized as (typeof MUSIC_MEDIA_SOURCES)[number]) ||
-    mediaSourceCatalog.value.some(item => item.media_source === normalized && supportsMediaSourceType(item, 'music'))
+  return mediaSourceCatalog.value.some(
+    item => item.media_source === normalized && supportsMediaSourceType(item, 'music'),
   )
 }
 

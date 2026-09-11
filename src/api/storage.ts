@@ -1,5 +1,5 @@
 import api from '@/api'
-import type { DownloadDirectory, StorageOption, TransferDirectoryConf } from '@/api/types'
+import type { DownloadDirectory, StorageCatalogOption, StorageOption, TransferDirectoryConf } from '@/api/types'
 
 /** 目录查询支持的用途筛选。 */
 export type TransferDirectoryType = 'all' | 'download' | 'library'
@@ -23,6 +23,12 @@ export async function listDownloadDirectories(): Promise<DownloadDirectory[]> {
 /** 查询不包含连接配置和凭据的存储选项。 */
 export async function listStorageOptions(): Promise<StorageOption[]> {
   const result = await api.get<StorageOption[]>('storage/options', { feedback: 'silent' })
+  return Array.isArray(result) ? result : []
+}
+
+/** 查询所有可新增存储类型及其展示元数据。 */
+export async function listStorageCatalogOptions(): Promise<StorageCatalogOption[]> {
+  const result = await api.get<StorageCatalogOption[]>('storage/catalog', { feedback: 'silent' })
   return Array.isArray(result) ? result : []
 }
 

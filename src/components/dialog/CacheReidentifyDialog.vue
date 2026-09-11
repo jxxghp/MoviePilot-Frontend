@@ -43,23 +43,11 @@ const mediaId = ref<string>()
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>(props.musicType)
 const isMusicSelection = computed(() => isMusicMediaSource(mediaSource.value))
 const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
-const customMediaSourceItems = getMediaSourceItems('media')
-const customMusicSourceItems = getMediaSourceItems('music')
 const musicEntityItems = computed(() => [
   { title: t('setting.cache.musicType.recording'), value: 'recording' },
   { title: t('setting.cache.musicType.album'), value: 'album' },
 ])
-const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
-  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
-  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
-  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
-  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
-  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
-  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
-  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
-  ...customMediaSourceItems.value,
-  ...customMusicSourceItems.value,
-])
+const mediaSourceItems = getMediaSourceItems()
 
 const mediaIdLabel = computed(() => {
   const labels: Record<string, string> = {

@@ -4,10 +4,12 @@ import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import { screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { describe, expect, it, vi } from 'vitest'
 
 // 渲染手动刮削弹窗并收集业务事件。
 async function renderDialog(recognizeSource = 'themoviedb', items?: FileItem[]) {
+  seedMediaSourceCatalog()
   const events = {
     close: vi.fn(),
     scrape: vi.fn<(options: ManualScrapeOptions) => void>(),

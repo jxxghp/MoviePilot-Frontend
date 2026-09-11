@@ -4,10 +4,11 @@ import api from '@/api'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
 import { useI18n } from 'vue-i18n'
-import { notificationSwitchDict } from '@/api/constants'
+import { filterAvailableServiceOptions, notificationSwitchDict } from '@/api/constants'
 import { useTheme } from 'vuetify'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useModuleCatalog } from '@/composables/useModuleCatalog'
 
 // 国际化
 const { t } = useI18n()
@@ -77,6 +78,15 @@ const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dar
 
 // 所有消息渠道
 const notifications = ref<NotificationConf[]>([])
+
+const { moduleOptions, loadModuleCatalog } = useModuleCatalog()
+const notificationModuleOptions = moduleOptions('notification')
+
+// 通知类型全部关闭时从新增菜单移除，已存在的卡片仍保留开关以便恢复。
+const availableNotificationOptions = computed(() => [
+  ...filterAvailableServiceOptions(notificationModuleOptions.value, notifications.value),
+  { value: 'custom', title: t('setting.system.custom') },
+])
 
 type NotificationConfigInput = Partial<NotificationConf> & {
   id?: unknown
@@ -444,6 +454,7 @@ function getNotificationSwitchText(type: string | undefined) {
 
 async function loadPageData() {
   await Promise.all([
+    loadModuleCatalog(),
     loadNotificationSetting(),
     loadNotificationSwitchs(),
     loadNotificationTime(),
@@ -506,41 +517,12 @@ useSilentSettingRefresh(loadPageData, {
                 <VIcon icon="mdi-plus" />
                 <VMenu :activator="'parent'" :close-on-content-click="true">
                   <VList>
-                    <VListItem @click="addNotification('wechat')">
-                      <VListItemTitle>{{ t('setting.notification.wechat') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('wechatclawbot')">
-                      <VListItemTitle>{{ t('setting.notification.wechatClawBot') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('feishu')">
-                      <VListItemTitle>{{ t('setting.notification.feishu') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('telegram')">
-                      <VListItemTitle>{{ t('setting.notification.telegram') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('slack')">
-                      <VListItemTitle>{{ t('setting.notification.slack') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('discord')">
-                      <VListItemTitle>Discord</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('dingtalk')">
-                      <VListItemTitle>{{ t('setting.notification.dingTalk') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('synologychat')">
-                      <VListItemTitle>{{ t('setting.notification.synologyChat') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('qqbot')">
-                      <VListItemTitle>{{ t('setting.notification.qq') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('vocechat')">
-                      <VListItemTitle>{{ t('setting.notification.voceChat') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('webpush')">
-                      <VListItemTitle>{{ t('setting.notification.webPush') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('custom')">
-                      <VListItemTitle>{{ t('setting.system.custom') }}</VListItemTitle>
+                    <VListItem
+                      v-for="item in availableNotificationOptions"
+                      :key="item.value"
+                      @click="addNotification(item.value)"
+                    >
+                      <VListItemTitle>{{ item.title }}</VListItemTitle>
                     </VListItem>
                   </VList>
                 </VMenu>

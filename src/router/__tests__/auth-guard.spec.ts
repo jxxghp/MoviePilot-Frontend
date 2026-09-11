@@ -2,6 +2,8 @@ import '@/router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { createPinia, setActivePinia } from 'pinia'
+import { mediaSourcesHandler } from '@tests/support/msw/handlers/catalog'
+import { server } from '@tests/support/msw/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 interface RouteLike {
@@ -69,6 +71,7 @@ async function runGuard(to: RouteLike) {
 
 describe('authentication route guard', () => {
   beforeEach(() => {
+    server.use(mediaSourcesHandler())
     setActivePinia(createPinia())
     routerMocks.next.mockReset()
     routerMocks.getInitializationState.mockReset()

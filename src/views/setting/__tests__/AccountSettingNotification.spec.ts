@@ -91,8 +91,34 @@ const templateFixture = {
   subscribeComplete: '{}',
 }
 
+const notificationModuleCatalog = [
+  ['DingTalkModule', '钉钉', 'dingtalk'],
+  ['DiscordModule', 'Discord', 'discord'],
+  ['FeishuModule', '飞书', 'feishu'],
+  ['QQBotModule', 'QQ', 'qqbot'],
+  ['SlackModule', 'Slack', 'slack'],
+  ['SynologyChatModule', 'Synology Chat', 'synologychat'],
+  ['TelegramModule', 'Telegram', 'telegram'],
+  ['VoceChatModule', 'VoceChat', 'vocechat'],
+  ['WebPushModule', 'WebPush', 'webpush'],
+  ['WechatModule', '企业微信', 'wechat'],
+  ['WechatClawBotModule', '微信 ClawBot', 'wechatclawbot'],
+].map(([id, name, optionValue]) => ({
+  id,
+  name,
+  name_i18n: name,
+  type: 'notification',
+  subtype: name,
+  option_value: optionValue,
+  enabled: true,
+  active: false,
+}))
+
 function mockLoadedSettings(channels: typeof notificationsFixture | null = notificationsFixture) {
   mocks.apiGet.mockImplementation((endpoint: string) => {
+    if (endpoint === 'system/module-catalog') {
+      return { success: true, data: { modules: notificationModuleCatalog } }
+    }
     if (endpoint === 'system/setting/Notifications') {
       return { success: true, data: { value: structuredClone(channels) } }
     }
@@ -247,6 +273,9 @@ describe('AccountSettingNotification', () => {
 
   it('keeps the current channels and disables saving when loading fails', async () => {
     mocks.apiGet.mockImplementation((endpoint: string) => {
+      if (endpoint === 'system/module-catalog') {
+        return { success: true, data: { modules: notificationModuleCatalog } }
+      }
       if (endpoint === 'system/setting/Notifications') throw new Error('notifications unavailable')
       if (endpoint === 'system/setting/NotificationSwitchs') {
         return { success: true, data: { value: [{ type: '资源下载', action: 'user' }] } }

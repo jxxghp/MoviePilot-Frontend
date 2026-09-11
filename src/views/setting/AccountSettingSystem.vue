@@ -11,11 +11,13 @@ import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
 import TransferHistoryMaintenancePanel from '@/components/system/TransferHistoryMaintenancePanel.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
-import { downloaderOptions, mediaServerOptions } from '@/api/constants'
+import { filterAvailableServiceOptions } from '@/api/constants'
 import { useDisplay, useTheme } from 'vuetify'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { loadMediaSources } from '@/composables/useMediaSources'
+import { useModuleCatalog } from '@/composables/useModuleCatalog'
 
 const display = useDisplay()
 const theme = useTheme()
@@ -88,6 +90,8 @@ const SystemSettings = ref<any>({
   },
   // 高级系统设置
   Advanced: {
+    // 无其它配置项的内置模块开关
+    MODULE_ENABLE: {},
     // 全局
     AUXILIARY_AUTH_ENABLE: false,
     GLOBAL_IMAGE_CACHE: false,
@@ -251,11 +255,38 @@ const legacyMediaServerSyncInterval = ref<number | null>(null)
 // 下载器
 const downloaders = ref<DownloaderConf[]>([])
 
+const { moduleOptions, loadModuleCatalog, refreshModuleCatalog } = useModuleCatalog()
+const downloaderCatalogOptions = moduleOptions('downloader')
+const mediaServerCatalogOptions = moduleOptions('mediaserver')
+
+// 已有服务全部关闭时隐藏新增菜单中的同类型，保留配置卡片上的开关作为重新启用入口。
+const availableDownloaderOptions = computed(() =>
+  filterAvailableServiceOptions(downloaderCatalogOptions.value, downloaders.value),
+)
+const availableMediaServerOptions = computed(() =>
+  filterAvailableServiceOptions(mediaServerCatalogOptions.value, mediaServers.value),
+)
+
 // 提示框
 const $toast = useToast()
 
 // 高级设置对话框
 const advancedDialog = ref(false)
+
+interface ModuleSettingInfo {
+  id: string
+  name: string
+  name_i18n?: string
+  name_key?: string
+  description_i18n?: string
+  description_key?: string
+  enabled: boolean
+}
+
+const moduleSettings = ref<ModuleSettingInfo[]>([])
+const moduleSettingsLoaded = ref(false)
+const savingModuleIds = ref(new Set<string>())
+let moduleToggleRequest: Promise<void> = Promise.resolve()
 
 const savingBasic = ref(false)
 const testingLlm = ref(false)
@@ -762,6 +793,7 @@ async function saveDownloaderSetting() {
     $toast.success(t('setting.system.downloaderSaveSuccess'))
 
     await loadDownloaderSetting()
+    await refreshModuleCatalog()
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.system.downloaderSaveFailed'))
@@ -801,6 +833,7 @@ async function saveMediaServerSetting() {
     $toast.success(t('setting.system.mediaServerSaveSuccess'))
 
     await loadMediaServerSetting()
+    await refreshModuleCatalog()
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.system.mediaServerSaveFailed'))
@@ -832,6 +865,42 @@ async function loadSystemSettings() {
     console.log(error)
   }
   await loadAgentMcpServers()
+}
+
+/** 加载后端声明的可手动开关模块，前端不维护模块名称或清单副本。 */
+async function loadModuleSettings() {
+  try {
+    const result = await api.get<{ modules?: ModuleSettingInfo[] }>('system/module-settings')
+    moduleSettings.value = Array.isArray(result.modules) ? result.modules : []
+    moduleSettingsLoaded.value = true
+  } catch (error) {
+    moduleSettingsLoaded.value = false
+    console.log(error)
+  }
+}
+
+/** 判断模块设置是否开启；目录尚未返回时保持默认开启，避免设置页闪烁关闭相关项。 */
+function isModuleEnabled(moduleId: string): boolean {
+  return moduleSettings.value.find(item => item.id === moduleId)?.enabled ?? true
+}
+
+/** 保存单个模块开关并刷新来源目录，使关闭状态立即影响运行时和页面入口。 */
+function handleModuleToggle(item: ModuleSettingInfo, enabled: boolean) {
+  moduleToggleRequest = moduleToggleRequest.then(async () => {
+    savingModuleIds.value = new Set(savingModuleIds.value).add(item.id)
+    const moduleEnable = Object.fromEntries(moduleSettings.value.map(module => [module.id, module.enabled]))
+    const saved = await saveSystemSetting({ MODULE_ENABLE: moduleEnable })
+    if (!saved) {
+      if (item.enabled === enabled) item.enabled = !enabled
+      $toast.error(t('setting.system.saveFailed', { message: t('common.apiRequestFailed') }))
+    } else {
+      SystemSettings.value.Advanced.MODULE_ENABLE = moduleEnable
+      await Promise.all([refreshModuleCatalog(), loadMediaSources(true)])
+    }
+    const nextSavingModuleIds = new Set(savingModuleIds.value)
+    nextSavingModuleIds.delete(item.id)
+    savingModuleIds.value = nextSavingModuleIds
+  })
 }
 
 async function loadAgentMcpServers() {
@@ -929,10 +998,19 @@ async function saveAdvancedSettings() {
   if (rustAccelRequired.value) SystemSettings.value.Advanced.RUST_ACCEL = true
   else if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
   cleanEmptyFields(SystemSettings.value.Advanced, ['LOG_FILE_FORMAT'])
+  if (moduleSettingsLoaded.value) {
+    SystemSettings.value.Advanced.MODULE_ENABLE = Object.fromEntries(
+      moduleSettings.value.map(item => [item.id, item.enabled]),
+    )
+  }
 
   // 同时保存高级设置和刮削开关设置
   const advancedResult = await saveSystemSetting(SystemSettings.value.Advanced)
   const scrapingResult = await saveScrapingSwitchs()
+
+  if (advancedResult) {
+    await Promise.all([refreshModuleCatalog(), loadMediaSources(true)])
+  }
 
   if (!advancedResult) {
     $toast.error(t('setting.system.saveFailed', { message: t('common.apiRequestFailed') }))
@@ -1197,7 +1275,14 @@ async function saveScrapingSwitchs() {
 
 // 加载数据
 async function loadPageData() {
-  await Promise.all([loadDownloaderSetting(), loadMediaServerSetting(), loadSystemSettings(), loadScrapingSwitchs()])
+  await Promise.all([
+    loadModuleCatalog(),
+    loadDownloaderSetting(),
+    loadMediaServerSetting(),
+    loadSystemSettings(),
+    loadScrapingSwitchs(),
+    loadModuleSettings(),
+  ])
 }
 
 onMounted(loadPageData)
@@ -1979,7 +2064,11 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 <VIcon icon="mdi-plus" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
-                    <VListItem v-for="item in downloaderOptions" :key="item.value" @click="addDownloader(item.value)">
+                    <VListItem
+                      v-for="item in availableDownloaderOptions"
+                      :key="item.value"
+                      @click="addDownloader(item.value)"
+                    >
                       <VListItemTitle>{{ item.title }}</VListItemTitle>
                     </VListItem>
                     <VListItem @click="addDownloader('custom')">
@@ -2030,7 +2119,11 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 <VIcon icon="mdi-plus" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
-                    <VListItem v-for="item in mediaServerOptions" :key="item.value" @click="addMediaServer(item.value)">
+                    <VListItem
+                      v-for="item in availableMediaServerOptions"
+                      :key="item.value"
+                      @click="addMediaServer(item.value)"
+                    >
                       <VListItemTitle>{{ item.title }}</VListItemTitle>
                     </VListItem>
                     <VListItem @click="addMediaServer('custom')">
@@ -2188,6 +2281,35 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           </VWindowItem>
           <VWindowItem value="media">
             <div>
+              <section class="media-settings-section" aria-labelledby="media-settings-modules">
+                <div class="mb-5">
+                  <h3 id="media-settings-modules" class="text-subtitle-1 font-weight-medium d-flex align-center mb-1">
+                    <VIcon icon="mdi-puzzle-outline" size="20" class="me-2" aria-hidden="true" />
+                    {{ t('setting.system.mediaGroups.modules.title') }}
+                  </h3>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    {{ t('setting.system.mediaGroups.modules.description') }}
+                  </p>
+                </div>
+                <VAlert v-if="!moduleSettingsLoaded" type="warning" variant="tonal" class="mb-4">
+                  {{ t('setting.system.modulesLoadFailed') }}
+                </VAlert>
+                <VRow v-else>
+                  <VCol v-for="item in moduleSettings" :key="item.id" cols="12" md="6">
+                    <VSwitch
+                      v-model="item.enabled"
+                      :label="item.name_i18n || item.name"
+                      :loading="savingModuleIds.has(item.id)"
+                      :disabled="savingModuleIds.has(item.id)"
+                      @update:model-value="handleModuleToggle(item, Boolean($event))"
+                    />
+                    <div v-if="item.description_i18n" class="text-caption text-medium-emphasis mt-n2">
+                      {{ item.description_i18n }}
+                    </div>
+                  </VCol>
+                </VRow>
+              </section>
+
               <section class="media-settings-section" aria-labelledby="media-settings-recognition">
                 <div class="mb-5">
                   <h3
@@ -2248,7 +2370,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   </p>
                 </div>
                 <VRow>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheMovieDbModule')" cols="12" md="6">
                     <VCombobox
                       v-model="SystemSettings.Advanced.TMDB_API_DOMAIN"
                       :label="t('setting.system.tmdbApiDomain')"
@@ -2260,7 +2382,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-api"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheMovieDbModule')" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Advanced.TMDB_API_KEY"
                       :label="t('setting.system.tmdbApiKey')"
@@ -2271,7 +2393,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-key-variant"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheMovieDbModule')" cols="12" md="6">
                     <VCombobox
                       v-model="SystemSettings.Advanced.TMDB_IMAGE_DOMAIN"
                       :label="t('setting.system.tmdbImageDomain')"
@@ -2283,7 +2405,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-image"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheMovieDbModule')" cols="12" md="6">
                     <VSelect
                       v-model="SystemSettings.Advanced.TMDB_LOCALE"
                       :label="t('setting.system.tmdbLocale')"
@@ -2294,7 +2416,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-translate"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheMovieDbModule')" cols="12" md="6">
                     <VSwitch
                       v-model="SystemSettings.Advanced.SCRAP_FOLLOW_TMDB"
                       :label="t('setting.system.scrapFollowTmdb')"
@@ -2302,7 +2424,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheMovieDbModule')" cols="12" md="6">
                     <VSwitch
                       v-model="SystemSettings.Advanced.TMDB_SCRAP_ORIGINAL_IMAGE"
                       :label="t('setting.system.scrapOriginalImage')"
@@ -2356,7 +2478,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-music-box-multiple-outline"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('TheAudioDbModule')" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Advanced.THEAUDIODB_API_KEY"
                       :label="t('setting.system.theAudioDbApiKey')"
@@ -2365,7 +2487,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-key-variant"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('MusicBrainzModule')" cols="12" md="6">
                     <VSelect
                       v-model="musicReleaseRegionSelection"
                       :items="musicReleaseRegionItems"
@@ -2378,7 +2500,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-earth"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('MusicBrainzModule')" cols="12" md="6">
                     <VSelect
                       v-model="musicReleaseScriptSelection"
                       :items="musicReleaseScriptItems"
@@ -2391,7 +2513,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-translate"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('MusicBrainzModule')" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Advanced.MUSIC_COVER_PROXY"
                       :label="t('setting.system.musicCoverProxy')"
@@ -2401,7 +2523,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-music"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('MusicBrainzModule')" cols="12" md="6">
                     <VSwitch
                       v-model="SystemSettings.Advanced.MUSIC_METADATA_TO_SIMPLIFIED"
                       :label="t('setting.system.musicMetadataToSimplified')"
@@ -2423,7 +2545,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   </p>
                 </div>
                 <VRow>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('LrclibModule')" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Advanced.LRCLIB_BASE_URL"
                       :label="t('setting.system.lrclibBaseUrl')"
@@ -2432,7 +2554,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-music-note-plus"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol v-if="isModuleEnabled('AmllModule')" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Advanced.AMLL_BASE_URL"
                       :label="t('setting.system.amllBaseUrl')"

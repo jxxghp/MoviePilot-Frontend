@@ -3,6 +3,7 @@ import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -73,6 +74,7 @@ function getSearchItem(title: string): HTMLElement {
 describe('SearchBarDialog media source selection', () => {
   beforeEach(() => {
     localStorage.clear()
+    seedMediaSourceCatalog()
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'system/setting/public/IndexerSites') return Promise.resolve({ value: [11, 99] })
       if (path === 'site/') {
@@ -158,7 +160,7 @@ describe('SearchBarDialog media source selection', () => {
     const collectionGroup = within(collectionItem).getByRole('group', { name: '系列合集搜索数据源' })
     const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
 
-    expect(within(mediaGroup).getAllByRole('button')).toHaveLength(4)
+    expect(within(mediaGroup).getAllByRole('button')).toHaveLength(6)
     expect(within(musicGroup).getAllByRole('button')).toHaveLength(3)
     expect(within(musicGroup).getByRole('button', { name: '使用 MusicBrainz 搜索' })).toHaveClass(
       'media-source-button--active',
@@ -169,8 +171,8 @@ describe('SearchBarDialog media source selection', () => {
     expect(within(musicGroup).getByRole('button', { name: '使用 豆瓣音乐 搜索' })).not.toHaveClass(
       'media-source-button--active',
     )
-    expect(within(collectionGroup).getAllByRole('button')).toHaveLength(1)
-    expect(within(personGroup).getAllByRole('button')).toHaveLength(2)
+    expect(within(collectionGroup).getAllByRole('button')).toHaveLength(6)
+    expect(within(personGroup).getAllByRole('button')).toHaveLength(9)
     expect(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toHaveClass(
       'media-source-button--active',
     )

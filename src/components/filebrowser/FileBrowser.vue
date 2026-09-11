@@ -3,10 +3,10 @@ import FileList from './FileList.vue'
 import FileToolbar from './FileToolbar.vue'
 import FileNavigator from './FileNavigator.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
-import { storageIconDict } from '@/api/constants'
 import type { DataApiClient } from '@/api'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
+import { useStorageOptions } from '@/composables/useStorageOptions'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
@@ -45,6 +45,7 @@ const emit = defineEmits(['pathchanged'])
 const route = useRoute()
 const { appMode } = usePWA()
 const userStore = useUserStore()
+const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
 const canManage = computed(() =>
   hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'manage'),
 )
@@ -186,9 +187,11 @@ const storagesArray = computed(() => {
   return props.storages?.map(item => ({
     title: item.name,
     value: item.type,
-    icon: storageIconDict[item.type] ?? 'mdi-server-network-outline',
+    icon: storageCatalog.value.find(option => option.type === item.type)?.icon ?? 'mdi-server-network-outline',
   }))
 })
+
+void loadStorageCatalog()
 
 // 方法
 function loadingChanged(isLoading: number) {

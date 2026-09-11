@@ -11,6 +11,7 @@ import {
   type DiscoverTabConfigItem,
 } from '@tests/support/msw/handlers/discover'
 import { server } from '@tests/support/msw/server'
+import { mediaSourcesHandler } from '@tests/support/msw/handlers/catalog'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, ref, unref, type ComputedRef, type Ref } from 'vue'
@@ -180,6 +181,7 @@ async function reactivateDiscover() {
 
 describe('discover page', () => {
   beforeEach(() => {
+    server.use(mediaSourcesHandler())
     mocks.controllers.length = 0
     server.use(discoverOrderConfigHandler(null))
     mocks.openSharedDialog.mockImplementation(() => {

@@ -16,6 +16,7 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { useToast } from 'vue-toastification'
+import { loadMediaSources } from '@/composables/useMediaSources'
 
 const DiscoverTabOrderDialog = defineAsyncComponent(() => import('@/components/dialog/DiscoverTabOrderDialog.vue'))
 
@@ -102,7 +103,7 @@ function closeTabSettingsDialog(controller = orderDialogController) {
 
 // 构造内置发现标签，扩展来源刷新时以此为稳定基线。
 function createBuiltInDiscoverTabs() {
-  const tabs = getDiscoverTabs(t)
+  const tabs = getDiscoverTabs()
   return tabs.map(tab => {
     return {
       name: tab.title,
@@ -275,6 +276,7 @@ useDynamicButton({
 })
 
 async function initializeDiscover() {
+  await loadMediaSources()
   discoverTabs.value = createBuiltInDiscoverTabs()
   try {
     await loadOrderConfig()

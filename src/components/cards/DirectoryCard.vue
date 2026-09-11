@@ -5,7 +5,7 @@ import { manageStorage } from '@/api/manage'
 import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { storageRemoteDict } from '@/api/constants'
+import { useStorageOptions } from '@/composables/useStorageOptions'
 
 const DEFAULT_DIRECTORY_ACCENT_RGB = '141, 81, 249'
 const STORAGE_ACCENT_COLOR_MAP = {
@@ -20,6 +20,8 @@ const STORAGE_ACCENT_COLOR_MAP = {
 
 // 国际化
 const { t } = useI18n()
+const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
+void loadStorageCatalog()
 const downloadAccentRgb = ref(DEFAULT_DIRECTORY_ACCENT_RGB)
 const libraryAccentRgb = ref(DEFAULT_DIRECTORY_ACCENT_RGB)
 
@@ -56,7 +58,11 @@ const typeItems = computed(() => [
 // 计算资源存储字典（整理方式为下载器时不能为远程存储）
 const resourceStorageOptions = computed(() => {
   return props.storages
-    .filter(item => !storageRemoteDict[item.type] || props.directory.monitor_type !== 'downloader')
+    .filter(
+      item =>
+        !storageCatalog.value.find(option => option.type === item.type)?.remote ||
+        props.directory.monitor_type !== 'downloader',
+    )
     .map(item => ({
       title: item.name,
       value: item.type,

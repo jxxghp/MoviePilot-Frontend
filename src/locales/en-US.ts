@@ -2719,6 +2719,7 @@ export default {
       aiAgentMcpSaveFailed: 'Failed to save MCP configuration',
       advancedSettings: 'Advanced Settings',
       advancedSettingsDesc: 'System advanced settings, only need to be adjusted in special cases',
+      modulesLoadFailed: 'Failed to load module list. Refresh and try again.',
       downloaders: 'Downloaders',
       downloadersDesc: 'Only the default downloader will be used by default.',
       aiAgentRetryTransfer: 'AI Takeover on Transfer Failure',
@@ -3082,6 +3083,11 @@ export default {
         'Check site resource updates in the background and apply the downloaded package before restarting',
       // Scraping Switch Settings
       mediaGroups: {
+        modules: {
+          title: 'Media modules',
+          description:
+            'Enable media identification, discovery, lyrics, and artwork modules as needed; core modules stay enabled.',
+        },
         recognition: {
           title: 'General recognition',
           description: 'Configure recognition priority, caching, and shared recognition results.',

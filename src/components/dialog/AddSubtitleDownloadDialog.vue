@@ -61,29 +61,7 @@ const hasValidMediaIdentity = computed(
   () => Boolean(normalizedMediaId.value) && isValidMediaSourceId(normalizedMediaId.value, mediaSource.value),
 )
 const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
-const customMediaSourceItems = getMediaSourceItems('media')
-
-const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => {
-  const labels: Partial<Record<MediaDataSource, string>> = {
-    themoviedb: t('setting.cache.recognitionSource.themoviedb'),
-    douban: t('setting.cache.recognitionSource.douban'),
-    bangumi: t('setting.cache.recognitionSource.bangumi'),
-    anilist: t('setting.cache.recognitionSource.anilist'),
-    imdb: 'IMDb',
-    tvdb: 'TVDB',
-    musicbrainz: 'MusicBrainz',
-    theaudiodb: 'TheAudioDB',
-    doubanmusic: t('setting.cache.recognitionSource.doubanmusic'),
-    bilibili: 'Bilibili',
-    mangguodiscover: 'Mango TV',
-    migu: 'Migu Video',
-    tencentvideodiscover: 'Tencent Video',
-  }
-  return [
-    ...Object.values(MediaSource).map(value => ({ title: labels[value] ?? value, value })),
-    ...customMediaSourceItems.value,
-  ]
-})
+const mediaSourceItems = getMediaSourceItems('media')
 
 // 当前数据源对应的原生ID标签。
 const mediaIdLabel = computed(() => {

@@ -4,6 +4,7 @@ import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type PropType } from 'vue'
@@ -228,6 +229,7 @@ async function renderDialog({
 describe('AddSubtitleDownloadDialog directories', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    seedMediaSourceCatalog()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
@@ -256,6 +258,7 @@ describe('AddSubtitleDownloadDialog directories', () => {
 describe('AddSubtitleDownloadDialog submissions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    seedMediaSourceCatalog()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })

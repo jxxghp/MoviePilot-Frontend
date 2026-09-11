@@ -2,6 +2,7 @@
 import api, { getApiBusinessErrorMessage } from '@/api'
 import type { DownloadHistory, MediaDataSource, MusicEntityType } from '@/api/types'
 import MediaIdSelector from '@/components/misc/MediaIdSelector.vue'
+import { useMediaSources } from '@/composables/useMediaSources'
 import { useToast } from 'vue-toastification'
 
 type MediaTypeName = '电影' | '电视剧' | '音乐'
@@ -77,23 +78,16 @@ const typeItems = [
   { title: '音乐', value: '音乐' },
 ]
 
+const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
+const mediaSourceItems = getMediaSourceItems('media')
+const musicSourceItems = getMediaSourceItems('music')
+
 const sourceItems = computed(() => {
   const automatic = [{ title: '自动', value: null }]
   if (typeName.value === '音乐') {
-    return [
-      ...automatic,
-      { title: 'MusicBrainz', value: 'musicbrainz' },
-      { title: 'TheAudioDB', value: 'theaudiodb' },
-      { title: '豆瓣音乐', value: 'doubanmusic' },
-    ]
+    return [...automatic, ...musicSourceItems.value]
   }
-  return [
-    ...automatic,
-    { title: 'TheMovieDb', value: 'themoviedb' },
-    { title: '豆瓣', value: 'douban' },
-    { title: 'Bangumi', value: 'bangumi' },
-    { title: 'AniList', value: 'anilist' },
-  ]
+  return [...automatic, ...mediaSourceItems.value]
 })
 
 function invalidatePlan() {

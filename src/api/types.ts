@@ -24,6 +24,21 @@ export interface MediaSourceInfo {
   media_types: string[]
 }
 
+/** 后端注册的宿主模块及其可选服务类型目录项。 */
+export interface ModuleCatalogInfo {
+  id: string
+  name: string
+  name_i18n: string
+  name_key: string
+  description_i18n: string
+  description_key: string
+  type: string
+  subtype: string
+  option_value?: string | null
+  enabled: boolean
+  active: boolean
+}
+
 /** 订阅跨搜索与下载链路的当前业务状态。 */
 export interface SubscriptionExecutionStatus {
   state: string
@@ -2061,6 +2076,15 @@ export interface StorageOption {
   name: string
   // 类型 local/alipan/u115/rclone
   type: string
+}
+
+/** 后端返回的可新增存储类型目录项。 */
+export interface StorageCatalogOption {
+  type: string
+  name: string
+  name_i18n: string
+  icon: string
+  remote: boolean
 }
 
 // 媒体服务器配置

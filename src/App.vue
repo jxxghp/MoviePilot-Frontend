@@ -35,6 +35,8 @@ import { useServerConnectionProbe } from '@/composables/useServerConnectionProbe
 import { useWebPushNotifications } from '@/composables/useWebPushNotifications'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { loadMediaSources } from '@/composables/useMediaSources'
+import { loadModuleCatalog } from '@/composables/useModuleCatalog'
+import { loadStorageCatalog } from '@/composables/useStorageOptions'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import { useGlassWallpaperTransaction } from '@/composables/useGlassWallpaperTransaction'
 import {
@@ -825,7 +827,7 @@ async function initializeAuthenticatedState() {
     globalLoadingStateManager.setLoadingState('global-settings', true)
     await globalSettingsStore.initialize()
     await globalSettingsStore.loadUserSettings()
-    await loadMediaSources()
+    await Promise.all([loadMediaSources(), loadModuleCatalog(), loadStorageCatalog()])
   } finally {
     globalLoadingStateManager.setLoadingState('global-settings', false)
   }

@@ -119,16 +119,16 @@ interface MediaSearchAction {
 // 各类搜索的媒体数据源可多选，为空数组时由后端按“基础设置-媒体搜索数据源”全局配置执行。
 const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource[]>>({
   media: [],
-  music: ['musicbrainz'],
+  music: [],
   collection: [],
   person: [],
 })
 
 const { mediaSourceItems } = useMediaSources()
-const customMediaSources = mediaSourceItems('media')
-const customMusicSources = mediaSourceItems('music')
+const mediaSources = mediaSourceItems('media')
+const musicSources = mediaSourceItems('music')
 /** 将来源目录项转换为搜索来源选项，保持展示名与请求值分离。 */
-const customSearchSourceOptions = (sources: typeof customMediaSources) =>
+const searchSourceOptions = (sources: typeof mediaSources) =>
   computed<MediaSearchSourceOption[]>(() =>
     sources.value.map(source => ({
       label: source.title,
@@ -136,8 +136,8 @@ const customSearchSourceOptions = (sources: typeof customMediaSources) =>
       value: source.value,
     })),
   )
-const customMediaSearchSources = customSearchSourceOptions(customMediaSources)
-const customMusicSearchSources = customSearchSourceOptions(customMusicSources)
+const mediaSearchSources = searchSourceOptions(mediaSources)
+const musicSearchSources = searchSourceOptions(musicSources)
 
 // 全局“媒体搜索数据源”配置（SEARCH_SOURCE），用于搜索框默认勾选，保证基础设置生效。
 const configuredMediaSearchSources = computed((): MediaSearchSource[] => {
@@ -156,16 +156,17 @@ let isInitializingSources = false
 
 /**
  * 依据全局媒体搜索数据源配置初始化各类搜索的来源勾选；
- * 配置项不包含该类型可用来源时回退到 TheMovieDB，保证至少一个来源被选中。
+ * 配置项不包含该类型可用来源时回退到该类型目录的首个来源。
  */
 function initializeMediaSearchSources() {
   isInitializingSources = true
   try {
-    ;(['media', 'collection', 'person'] as const).forEach(searchType => {
+    ;(['media', 'music', 'collection', 'person'] as const).forEach(searchType => {
       const configured = configuredMediaSearchSources.value.filter(source =>
         mediaSearchSourceOptions.value[searchType].some(option => option.value === source),
       )
-      selectedMediaSearchSources[searchType] = configured.length > 0 ? configured : ['themoviedb']
+      const firstOption = mediaSearchSourceOptions.value[searchType][0]?.value
+      selectedMediaSearchSources[searchType] = configured.length > 0 || !firstOption ? configured : [firstOption]
     })
   } finally {
     isInitializingSources = false
@@ -188,47 +189,13 @@ watch(
 
 // 按后端实际能力限定每类搜索可选的数据源。
 const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSourceOption[]>>(() => {
-  const themoviedb = {
-    label: 'TMDB',
-    name: t('discoverTabs.themoviedb'),
-    value: 'themoviedb' as const,
-  }
-  const douban = {
-    label: t('discoverTabs.douban'),
-    name: t('discoverTabs.douban'),
-    value: 'douban' as const,
-  }
-  const bangumi = {
-    label: 'Bangumi',
-    name: t('discoverTabs.bangumi'),
-    value: 'bangumi' as const,
-  }
-  const anilist = {
-    label: 'AniList',
-    name: t('discoverTabs.anilist'),
-    value: 'anilist' as const,
-  }
-  const musicbrainz = {
-    label: 'MusicBrainz',
-    name: 'MusicBrainz',
-    value: 'musicbrainz' as const,
-  }
-  const theaudiodb = {
-    label: 'TheAudioDB',
-    name: 'TheAudioDB',
-    value: 'theaudiodb' as const,
-  }
-  const doubanmusic = {
-    label: t('setting.cache.recognitionSource.doubanmusic'),
-    name: t('setting.cache.recognitionSource.doubanmusic'),
-    value: 'doubanmusic' as const,
-  }
-
   return {
-    media: [themoviedb, douban, bangumi, anilist, ...customMediaSearchSources.value],
-    music: [musicbrainz, theaudiodb, doubanmusic, ...customMusicSearchSources.value],
-    collection: [themoviedb],
-    person: [themoviedb, musicbrainz],
+    media: mediaSearchSources.value,
+    music: musicSearchSources.value,
+    collection: mediaSearchSources.value,
+    person: [...mediaSearchSources.value, ...musicSearchSources.value].filter(
+      (source, index, sources) => sources.findIndex(item => item.value === source.value) === index,
+    ),
   }
 })
 

@@ -1,10 +1,49 @@
 import type { RecommendSource } from '@/api/types'
+import type { MediaSourceInfo } from '@/api/types'
 
 export interface RecommendViewSource {
   apipath: string
   linkurl: string
   title: string
   type: string
+}
+
+const RECOMMEND_SOURCE_REQUIREMENTS: Record<string, { mediaSource?: string; moduleId?: string }> = {
+  'recommend/tmdb_': { mediaSource: 'themoviedb' },
+  'recommend/douban_': { mediaSource: 'douban' },
+  'recommend/bangumi_': { mediaSource: 'bangumi' },
+  'anilist/': { mediaSource: 'anilist' },
+  'recommend/music_weekly': { moduleId: 'ListenBrainzModule' },
+  'recommend/music_douban': { mediaSource: 'doubanmusic' },
+}
+
+/** 判断当前后端来源和宿主模块是否仍有可展示的内置推荐入口。 */
+export function hasAvailableRecommendSources(
+  mediaSources?: readonly MediaSourceInfo[],
+  activeModuleIds?: ReadonlySet<string>,
+): boolean {
+  const availableSources = mediaSources ? new Set(mediaSources.map(source => source.media_source)) : null
+  return Object.values(RECOMMEND_SOURCE_REQUIREMENTS).some(requirement => {
+    if (requirement.mediaSource) return !availableSources || availableSources.has(requirement.mediaSource)
+    return !activeModuleIds || activeModuleIds.has(requirement.moduleId as string)
+  })
+}
+
+/** 根据后端媒体来源和模块目录移除已关闭的内置推荐榜单。 */
+export function filterAvailableRecommendSources(
+  sources: RecommendViewSource[],
+  mediaSources?: readonly MediaSourceInfo[],
+  activeModuleIds?: ReadonlySet<string>,
+): RecommendViewSource[] {
+  const availableSources = mediaSources ? new Set(mediaSources.map(source => source.media_source)) : null
+  return sources.filter(source => {
+    const requirement = Object.entries(RECOMMEND_SOURCE_REQUIREMENTS).find(([prefix]) =>
+      source.apipath.startsWith(prefix),
+    )?.[1]
+    if (!requirement) return true
+    if (requirement.mediaSource) return !availableSources || availableSources.has(requirement.mediaSource)
+    return !activeModuleIds || activeModuleIds.has(requirement.moduleId as string)
+  })
 }
 
 type Translate = (key: string) => string

@@ -11,6 +11,7 @@ import {
   saveRecommendConfigHandler,
 } from '@tests/support/msw/handlers/recommend'
 import { server } from '@tests/support/msw/server'
+import { mediaSourcesHandler, moduleCatalogHandler } from '@tests/support/msw/handlers/catalog'
 import { http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, nextTick, ref, type Ref } from 'vue'
@@ -118,6 +119,7 @@ function dynamicRecommendSources(getSources: () => RecommendSource[], onRequest 
 
 describe('recommend page', () => {
   beforeEach(() => {
+    server.use(mediaSourcesHandler(), moduleCatalogHandler())
     mocks.openSharedDialog.mockReturnValue({
       close: mocks.closeDialog,
       id: 1,

@@ -13,9 +13,13 @@ import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import {
   createBuiltInRecommendSources,
+  filterAvailableRecommendSources,
   mergeExtraRecommendSources,
   type RecommendViewSource,
 } from '@/utils/recommendSources'
+import { loadMediaSources } from '@/composables/useMediaSources'
+import { getMediaSourceCatalog, isMediaSourceCatalogLoaded } from '@/utils/mediaId'
+import { getModuleCatalog, isModuleCatalogLoaded, loadModuleCatalog } from '@/composables/useModuleCatalog'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
@@ -70,8 +74,10 @@ function openRecommendSettings() {
   )
 }
 
-const builtInRecommendSources = createBuiltInRecommendSources(t)
-const viewList = reactive<RecommendViewSource[]>([...builtInRecommendSources])
+const builtInRecommendSources = ref<RecommendViewSource[]>([])
+const viewList = reactive<RecommendViewSource[]>([])
+const mediaSourceCatalog = getMediaSourceCatalog()
+const moduleCatalog = getModuleCatalog()
 const newlyAddedBuiltInPaths = new Set([
   'anilist/trending',
   'anilist/popular-this-season',
@@ -106,6 +112,7 @@ function initializeColors() {
 // 额外的数据源
 const extraRecommendSources = ref<RecommendSource[]>([])
 let extraSourcesRequest: Promise<void> | null = null
+let initializationRequest: Promise<void> | null = null
 
 /** 只接受以标题为键、布尔值为开关的推荐配置。 */
 function normalizeEnableConfig(value: unknown): Record<string, boolean> | null {
@@ -117,13 +124,39 @@ function normalizeEnableConfig(value: unknown): Record<string, boolean> | null {
   return Object.fromEntries(entries)
 }
 
-/** 为旧版推荐配置补入新增内置榜单，同时保留用户已经明确保存的开关值。 */
-function enableMissingBuiltInSources() {
-  builtInRecommendSources.forEach(source => {
-    if (newlyAddedBuiltInPaths.has(source.apipath) && !(source.title in enableConfig.value)) {
+/** 为推荐配置补入内置榜单，同时保留用户已经明确保存的开关值。 */
+function enableMissingBuiltInSources(useDefaults = false) {
+  builtInRecommendSources.value.forEach(source => {
+    if ((useDefaults || newlyAddedBuiltInPaths.has(source.apipath)) && !(source.title in enableConfig.value)) {
       enableConfig.value[source.title] = true
     }
   })
+}
+
+/** 按当前后端模块快照重建可见的内置推荐榜单。 */
+function refreshBuiltInRecommendSources() {
+  const candidates = createBuiltInRecommendSources(t)
+  const activeModuleIds = isModuleCatalogLoaded()
+    ? new Set(
+        getModuleCatalog()
+          .value.filter(item => item.active)
+          .map(item => item.id),
+      )
+    : undefined
+  builtInRecommendSources.value = filterAvailableRecommendSources(
+    candidates,
+    isMediaSourceCatalogLoaded().value ? getMediaSourceCatalog().value : undefined,
+    activeModuleIds,
+  )
+}
+
+/** 按最新媒体来源、模块状态和已加载扩展源重建推荐列表。 */
+function rebuildRecommendViewList() {
+  refreshBuiltInRecommendSources()
+  const nextViewList = [...builtInRecommendSources.value]
+  mergeExtraRecommendSources(nextViewList, extraRecommendSources.value)
+  viewList.splice(0, viewList.length, ...nextViewList)
+  initializeColors()
 }
 
 /** 刷新扩展推荐源；并发生命周期入口共享请求，成功响应按当前服务端快照替换列表。 */
@@ -131,11 +164,10 @@ function loadExtraRecommendSources() {
   if (extraSourcesRequest) return extraSourcesRequest
 
   extraSourcesRequest = (async () => {
+    if (initializationRequest) await initializationRequest
     try {
       extraRecommendSources.value = await api.get('recommend/source')
-      const nextViewList = [...builtInRecommendSources]
-      mergeExtraRecommendSources(nextViewList, extraRecommendSources.value)
-      viewList.splice(0, viewList.length, ...nextViewList)
+      rebuildRecommendViewList()
     } catch (error) {
       console.log(error)
     }
@@ -154,7 +186,7 @@ async function loadConfig() {
       const localConfig = normalizeEnableConfig(JSON.parse(localEnable))
       if (localConfig) {
         enableConfig.value = localConfig
-        return
+        return true
       }
     } catch {
       // 损坏的本地值按未配置处理，继续尝试服务端配置。
@@ -168,10 +200,13 @@ async function loadConfig() {
     if (remoteConfig) {
       enableConfig.value = remoteConfig
       localStorage.setItem('MP_RECOMMEND', JSON.stringify(remoteConfig))
+      return true
     }
   } catch (error) {
     console.error(error)
   }
+
+  return false
 }
 
 // 设置项目
@@ -217,9 +252,20 @@ const isReady = ref(false)
 let timer: ReturnType<typeof setTimeout>
 
 onBeforeMount(async () => {
-  await loadConfig()
-  enableMissingBuiltInSources()
-  initializeColors()
+  initializationRequest = (async () => {
+    await loadMediaSources()
+    await loadModuleCatalog()
+    rebuildRecommendViewList()
+    const hasConfig = await loadConfig()
+    enableMissingBuiltInSources(!hasConfig)
+    initializeColors()
+  })()
+  await initializationRequest
+})
+
+watch([mediaSourceCatalog, moduleCatalog], () => {
+  if (!isMediaSourceCatalogLoaded().value && !isModuleCatalogLoaded().value) return
+  rebuildRecommendViewList()
 })
 
 onMounted(async () => {
@@ -242,6 +288,7 @@ onUnmounted(() => {
 })
 
 onActivated(async () => {
+  if (initializationRequest) await initializationRequest
   await loadExtraRecommendSources()
 })
 </script>

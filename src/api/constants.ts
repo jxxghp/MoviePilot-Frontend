@@ -1,124 +1,20 @@
 import i18n from '@/plugins/i18n'
 
-export const storageAttributes = [
-  {
-    type: 'local',
-    icon: 'mdi-folder-multiple-outline',
-    remote: false,
-  },
-  {
-    type: 'alipan',
-    icon: 'mdi-cloud-outline',
-    remote: true,
-  },
-  {
-    type: 'u115',
-    icon: 'mdi-cloud-outline',
-    remote: true,
-  },
-  {
-    type: 'rclone',
-    icon: 'mdi-server-network-outline',
-    remote: true,
-  },
-  {
-    type: 'alist',
-    icon: 'mdi-server-network-outline',
-    remote: true,
-  },
-  {
-    type: 'alistgo',
-    icon: 'mdi-server-network-outline',
-    remote: true,
-  },
-  {
-    type: 'smb',
-    icon: 'mdi-folder-network-outline',
-    remote: true,
-  },
-]
+type ServiceOptionConfig = {
+  type?: string
+  enabled?: boolean
+}
 
-export const storageIconDict = storageAttributes.reduce(
-  (dict, item) => {
-    dict[item.type] = item.icon
-    return dict
-  },
-  {} as Record<string, string>,
-)
-
-export const storageRemoteDict = storageAttributes.reduce(
-  (dict, item) => {
-    dict[item.type] = item.remote
-    return dict
-  },
-  {} as Record<string, boolean>,
-)
-
-export const downloaderOptions = [
-  {
-    value: 'qbittorrent',
-    title: i18n.global.t('setting.system.qbittorrent'),
-  },
-  {
-    value: 'transmission',
-    title: i18n.global.t('setting.system.transmission'),
-  },
-  {
-    value: 'rtorrent',
-    title: i18n.global.t('setting.system.rtorrent'),
-  },
-]
-
-export const downloaderDict = downloaderOptions.reduce(
-  (dict, item) => {
-    dict[item.value] = item.title
-    return dict
-  },
-  {} as Record<string, string>,
-)
-
-export const mediaServerOptions = [
-  {
-    value: 'emby',
-    title: i18n.global.t('setting.system.emby'),
-  },
-  {
-    value: 'zspace',
-    title: i18n.global.t('setting.system.zspace'),
-  },
-  {
-    value: 'jellyfin',
-    title: i18n.global.t('setting.system.jellyfin'),
-  },
-  {
-    value: 'plex',
-    title: i18n.global.t('setting.system.plex'),
-  },
-  {
-    value: 'trimemedia',
-    title: i18n.global.t('setting.system.trimeMedia'),
-  },
-  {
-    value: 'ugreen',
-    title: i18n.global.t('setting.system.ugreen'),
-  },
-  {
-    value: 'navidrome',
-    title: i18n.global.t('setting.system.navidrome'),
-  },
-  {
-    value: 'mediavault',
-    title: i18n.global.t('setting.system.mediaVault'),
-  },
-]
-
-export const mediaServerDict = mediaServerOptions.reduce(
-  (dict, item) => {
-    dict[item.value] = item.title
-    return dict
-  },
-  {} as Record<string, string>,
-)
+/** 过滤已配置且全部关闭的服务类型，保留尚未配置的类型供用户新增。 */
+export function filterAvailableServiceOptions<T extends { value: string }>(
+  options: readonly T[],
+  configs: readonly ServiceOptionConfig[],
+): T[] {
+  return options.filter(option => {
+    const configured = configs.filter(config => config.type === option.value)
+    return configured.length === 0 || configured.some(config => config.enabled)
+  })
+}
 
 export const innerFilterRules = [
   { title: i18n.global.t('filterRules.specSub'), value: ' SPECSUB ' },

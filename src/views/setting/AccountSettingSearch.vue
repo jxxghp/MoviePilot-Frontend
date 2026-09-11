@@ -21,8 +21,7 @@ const props = defineProps({
 // 提示框
 const $toast = useToast()
 const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
-const customMediaSourceItems = getMediaSourceItems('media')
-const customMusicSourceItems = getMediaSourceItems('music')
+const mediaSourceItems = getMediaSourceItems()
 
 // 所有站点
 const allSites = ref<Site[]>([])
@@ -41,38 +40,7 @@ const SystemSettings = ref<any>({
 })
 
 // 媒体信息数据源字典
-const mediaSourcesDict = computed(() => [
-  {
-    title: 'TheMovieDb',
-    value: 'themoviedb',
-  },
-  {
-    title: '豆瓣',
-    value: 'douban',
-  },
-  {
-    title: 'Bangumi',
-    value: 'bangumi',
-  },
-  {
-    title: 'AniList',
-    value: 'anilist',
-  },
-  {
-    title: 'MusicBrainz',
-    value: 'musicbrainz',
-  },
-  {
-    title: 'TheAudioDB',
-    value: 'theaudiodb',
-  },
-  {
-    title: '豆瓣音乐',
-    value: 'doubanmusic',
-  },
-  ...customMediaSourceItems.value,
-  ...customMusicSourceItems.value,
-])
+const mediaSourcesDict = computed(() => mediaSourceItems.value)
 
 // 当前选中的媒体信息数据源
 const selectedMediaSource = ref<string[]>([])

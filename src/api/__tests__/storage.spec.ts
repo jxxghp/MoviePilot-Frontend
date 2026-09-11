@@ -1,4 +1,9 @@
-import { listDownloadDirectories, listStorageOptions, listTransferDirectories } from '@/api/storage'
+import {
+  listDownloadDirectories,
+  listStorageCatalogOptions,
+  listStorageOptions,
+  listTransferDirectories,
+} from '@/api/storage'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -27,6 +32,12 @@ describe('storage API adapters', () => {
     await expect(listStorageOptions()).resolves.toEqual([])
 
     expect(mocks.apiGet).toHaveBeenCalledWith('storage/options')
+  })
+
+  it('queries the backend storage type catalog', async () => {
+    await expect(listStorageCatalogOptions()).resolves.toEqual([])
+
+    expect(mocks.apiGet).toHaveBeenCalledWith('storage/catalog')
   })
 
   it('normalizes malformed nullable collection responses to empty lists', async () => {

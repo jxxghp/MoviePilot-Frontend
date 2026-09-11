@@ -3,10 +3,12 @@ import CacheReidentifyDialog from '@/components/dialog/CacheReidentifyDialog.vue
 import { screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { describe, expect, it, vi } from 'vitest'
 
 // 渲染缓存重识别弹窗并收集提交事件。
 async function renderDialog() {
+  seedMediaSourceCatalog()
   const confirm = vi.fn()
   const result = await renderWithProviders(CacheReidentifyDialog, {
     global: {

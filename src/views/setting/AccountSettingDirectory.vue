@@ -10,13 +10,16 @@ import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 import StorageCard from '@/components/cards/StorageCard.vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
-import { storageAttributes } from '@/api/constants'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { configureAceEditorPadding } from '@/utils/aceEditor'
 import { useMediaClassification } from '@/composables/useMediaClassification'
+import { useMediaSources } from '@/composables/useMediaSources'
+import { useStorageOptions } from '@/composables/useStorageOptions'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
+const { mediaSourceItems: getMediaSourceItems, loadMediaSources } = useMediaSources()
+const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
 
 const props = defineProps({
   active: {
@@ -56,23 +59,15 @@ const directorySaveError = ref<string | null>(null)
 const $toast = useToast()
 
 // 数据源
-const sourceItems = computed(() => [
-  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
-  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
-  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
-  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
-  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
-  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
-  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
-])
+const sourceItems = getMediaSourceItems()
 
 // 存储选项（排除已添加的）
 const storageOptions = computed(() => {
   const existingTypes = storages.value.map(storage => storage.type)
-  return storageAttributes
+  return storageCatalog.value
     .filter(item => !existingTypes.includes(item.type))
     .map(item => ({
-      title: t(`storage.${item.type}`),
+      title: item.name_i18n || item.name,
       value: item.type,
     }))
 })
@@ -337,6 +332,8 @@ async function loadPageData() {
   await Promise.all([
     loadDirectories(),
     loadStorages(),
+    loadMediaSources(),
+    loadStorageCatalog(),
     loadMediaCategories(),
     loadSystemSettings(),
     loadMountedLocalDiskDeleteEmptyDirs(),

@@ -11,6 +11,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { HttpResponse, http } from 'msw'
 import { defineComponent, h, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -343,6 +344,7 @@ async function renderDialog({
   targetStorage?: string
 } = {}) {
   const resolvedItems = items ?? (logids?.length ? [] : [createFileItem()])
+  seedMediaSourceCatalog()
   server.use(
     ...publicSettingHandlers({
       directories,
@@ -719,7 +721,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     await renderDialog()
 
     // 先手动选择音乐源（触发类型联动为音乐）
-    await selectOption('数据源', 5)
+    await selectOption('数据源', 7)
     await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>('类型')).toHaveDisplayValue('音乐'))
 
     // 切回电影后，音乐源不应残留

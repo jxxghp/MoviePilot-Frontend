@@ -3,6 +3,10 @@ import { configureNProgress } from '@/api/nprogress'
 import { useAuthStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { setNavigatingState as setRequestNavigatingState } from '@/utils/requestOptimizer'
 import { getInitializationState } from '@/utils/initialization'
+import { loadMediaSources } from '@/composables/useMediaSources'
+import { getMediaSourceCatalog, isMediaSourceCatalogLoaded, supportsMediaSourceType } from '@/utils/mediaId'
+import { getModuleCatalog, isModuleCatalogLoaded } from '@/composables/useModuleCatalog'
+import { hasAvailableRecommendSources } from '@/utils/recommendSources'
 import {
   buildPluginPermissionFeatureKey,
   buildUserPermissionContext,
@@ -338,6 +342,34 @@ const router = createRouter({
   ],
 })
 
+/** 判断路由是否依赖媒体来源目录。 */
+function isMediaSourceRoute(path: string): boolean {
+  return ['/recommend', '/discover', '/browse', '/credits', '/person', '/media'].some(
+    prefix => path === prefix || path.startsWith(`${prefix}/`),
+  )
+}
+
+/** 在媒体模块被全部关闭后阻止直接访问已失效的发现入口。 */
+function isMediaSourceRouteAvailable(path: string): boolean {
+  if (!isMediaSourceCatalogLoaded().value) return true
+
+  const catalog = getMediaSourceCatalog().value
+  if (path === '/recommend' || path.startsWith('/recommend/') || path.startsWith('/browse/recommend/')) {
+    const activeModuleIds = isModuleCatalogLoaded().value
+      ? new Set(
+          getModuleCatalog()
+            .value.filter(module => module.active)
+            .map(module => module.id),
+        )
+      : undefined
+    return hasAvailableRecommendSources(catalog, activeModuleIds)
+  }
+  if (path === '/discover' || path.startsWith('/discover/')) {
+    return catalog.some(source => supportsMediaSourceType(source, 'media'))
+  }
+  return catalog.length > 0
+}
+
 /** 解析普通页面或插件页面声明的权限约束，供导航守卫统一校验。 */
 async function getRoutePermission(to: any): Promise<PermissionProtectedItem> {
   if (to.meta.permission) {
@@ -406,6 +438,14 @@ router.beforeEach(async (to: any, from: any, next: any) => {
     setRequestNavigatingState(false)
     next('/login')
   } else if (to.meta.requiresAuth) {
+    if (isMediaSourceRoute(to.path)) {
+      await loadMediaSources()
+      if (!isMediaSourceRouteAvailable(to.path)) {
+        setRequestNavigatingState(false)
+        next('/apps')
+        return
+      }
+    }
     const routePermission = await getRoutePermission(to)
     if (!routePermission.permission && !routePermission.feature) {
       next()

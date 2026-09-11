@@ -7,15 +7,17 @@ import type { DownloaderConf, DownloaderInfo } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { mergeProps } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { downloaderDict } from '@/api/constants'
 import { useBackground } from '@/composables/useBackground'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useCardAccentColor } from '@/composables/useCardAccentColor'
+import { useModuleCatalog } from '@/composables/useModuleCatalog'
 
 const DownloaderInfoDialog = defineAsyncComponent(() => import('@/components/dialog/DownloaderInfoDialog.vue'))
 
 // 获取i18n实例
 const { t } = useI18n()
+const { isRegisteredModuleOption, loadModuleCatalog } = useModuleCatalog()
+void loadModuleCatalog()
 const { useConditionalDataRefresh } = useBackground()
 const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor()
 
@@ -49,6 +51,7 @@ const download_rate = ref(0)
 
 // 下载器是否应该刷新数据的计算属性
 const shouldRefresh = computed(() => props.allowRefresh && props.downloader.enabled)
+const isRegisteredDownloader = computed(() => isRegisteredModuleOption('downloader', props.downloader.type))
 
 /** 调用 API 查询下载器实时速率数据。 */
 async function loadDownloaderInfo() {
@@ -149,14 +152,11 @@ onUnmounted(() => {
             />
             <span class="app-card-summary__title text-h6">{{ downloader.name }}</span>
           </div>
-          <div
-            v-if="downloaderDict[downloader.type] && props.downloader.enabled"
-            class="app-card-summary__meta text-sm"
-          >
+          <div v-if="isRegisteredDownloader && props.downloader.enabled" class="app-card-summary__meta text-sm">
             <span class="app-card-summary__meta-item">{{ `↑ ${formatFileSize(upload_rate, 1)}/s` }}</span>
             <span class="app-card-summary__meta-item">{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
           </div>
-          <div v-else-if="!downloaderDict[downloader.type]" class="app-card-summary__subtitle text-sm">
+          <div v-else-if="!isRegisteredDownloader" class="app-card-summary__subtitle text-sm">
             {{ t('setting.system.custom') }}
           </div>
         </div>

@@ -1,10 +1,25 @@
 import type { NavMenu, NavMenuTabItem } from '@/@layouts/types'
 import type { Composer } from 'vue-i18n'
 import { PERMISSION_FEATURE } from '@/utils/permission'
+import { getMediaSourceCatalog, isMediaSourceCatalogLoaded, supportsMediaSourceType } from '@/utils/mediaId'
+import { getModuleCatalog, isModuleCatalogLoaded } from '@/composables/useModuleCatalog'
+import { hasAvailableRecommendSources } from '@/utils/recommendSources'
 
 /** 构建当前语言与全局模式对应的主导航菜单。 */
 export function getNavMenus(t: Composer['t']): NavMenu[] {
-  return [
+  const sourceCatalog = getMediaSourceCatalog()
+  const sourceCatalogLoaded = isMediaSourceCatalogLoaded().value
+  const hasVideoSource = sourceCatalog.value.some(source => supportsMediaSourceType(source, 'media'))
+  const moduleCatalogLoaded = isModuleCatalogLoaded().value
+  const activeModuleIds = moduleCatalogLoaded
+    ? new Set(
+        getModuleCatalog()
+          .value.filter(module => module.active)
+          .map(module => module.id),
+      )
+    : undefined
+  const hasRecommendSource = hasAvailableRecommendSources(sourceCatalog.value, activeModuleIds)
+  const menus: NavMenu[] = [
     {
       title: t('navItems.dashboard'),
       icon: 'mdi-home-outline',
@@ -25,30 +40,38 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       permission: 'search',
       feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
     },
-    {
-      title: t('navItems.recommend'),
-      icon: 'mdi-star-outline',
-      iconColor: 'primary',
-      to: '/recommend',
-      header: t('menu.discovery'),
-      admin: false,
-      footer: true,
-      permission: 'discovery',
-      feature: PERMISSION_FEATURE.DISCOVERY_RECOMMEND,
-      tabs: getRecommendTabs(t),
-    },
-    {
-      title: t('navItems.explore'),
-      icon: 'mdi-apple-safari',
-      iconColor: 'info',
-      to: '/discover',
-      header: t('menu.discovery'),
-      admin: false,
-      footer: true,
-      permission: 'discovery',
-      feature: PERMISSION_FEATURE.DISCOVERY_EXPLORE,
-      tabs: getDiscoverTabs(t),
-    },
+    ...(sourceCatalogLoaded && !hasRecommendSource
+      ? []
+      : [
+          {
+            title: t('navItems.recommend'),
+            icon: 'mdi-star-outline',
+            iconColor: 'primary',
+            to: '/recommend',
+            header: t('menu.discovery'),
+            admin: false,
+            footer: true,
+            permission: 'discovery',
+            feature: PERMISSION_FEATURE.DISCOVERY_RECOMMEND,
+            tabs: getRecommendTabs(t),
+          } as NavMenu,
+        ]),
+    ...(sourceCatalogLoaded && !hasVideoSource
+      ? []
+      : [
+          {
+            title: t('navItems.explore'),
+            icon: 'mdi-apple-safari',
+            iconColor: 'info',
+            to: '/discover',
+            header: t('menu.discovery'),
+            admin: false,
+            footer: true,
+            permission: 'discovery',
+            feature: PERMISSION_FEATURE.DISCOVERY_EXPLORE,
+            tabs: getDiscoverTabs(),
+          } as NavMenu,
+        ]),
     {
       title: t('navItems.movie'),
       full_title: t('navItems.movieSubscribe'),
@@ -182,6 +205,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       tabs: getSettingTabs(t),
     } as NavMenu,
   ]
+  return menus
 }
 
 /** 返回推荐页可用的分类标签。 */
@@ -309,34 +333,27 @@ export function getPluginTabs(t: Composer['t']): NavMenuTabItem[] {
 }
 
 /** 返回发现页的媒体来源标签。 */
-export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
-  return [
-    {
-      title: t('discoverTabs.themoviedb'),
-      tab: 'themoviedb',
-      icon: 'mdi-movie-search-outline',
-    },
-    {
-      title: t('discoverTabs.douban'),
-      tab: 'douban',
-      icon: 'mdi-book-open-page-variant-outline',
-    },
-    {
-      title: t('discoverTabs.bangumi'),
-      tab: 'bangumi',
-      icon: 'mdi-calendar-star-outline',
-    },
-    {
-      title: t('discoverTabs.anilist'),
-      tab: 'anilist',
-      icon: 'mdi-alpha-a-circle-outline',
-    },
-    {
-      title: t('discoverTabs.music'),
-      tab: 'musicbrainz',
-      icon: 'mdi-music-note-outline',
-    },
-  ]
+export function getDiscoverTabs(): NavMenuTabItem[] {
+  const sourceCatalog = getMediaSourceCatalog()
+  if (!isMediaSourceCatalogLoaded().value) return []
+
+  // 只有这五类来源有宿主内置探索视图；名称和是否启用仍来自后端来源目录。
+  const discoverViewSources = new Set(['themoviedb', 'douban', 'bangumi', 'anilist', 'musicbrainz'])
+  const iconBySource: Record<string, string> = {
+    themoviedb: 'mdi-movie-search-outline',
+    douban: 'mdi-book-open-page-variant-outline',
+    bangumi: 'mdi-calendar-star-outline',
+    anilist: 'mdi-alpha-a-circle-outline',
+    musicbrainz: 'mdi-music-note-outline',
+  }
+
+  return sourceCatalog.value
+    .filter(source => discoverViewSources.has(source.media_source))
+    .map(source => ({
+      title: source.name,
+      tab: source.media_source,
+      icon: iconBySource[source.media_source] ?? 'mdi-database-search-outline',
+    }))
 }
 
 /** 返回工作流页的业务标签。 */

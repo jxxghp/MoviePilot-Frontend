@@ -2636,6 +2636,7 @@ export default {
       aiAgentMcpSaveFailed: 'MCP 配置保存失敗',
       advancedSettings: '高級設置',
       advancedSettingsDesc: '系統進階設置，特殊情況下才需要調整',
+      modulesLoadFailed: '模組列表載入失敗，請重新整理後重試。',
       downloaders: '下載器',
       downloadersDesc: '只有默認下載器才會被默認使用。',
       aiAgentRetryTransfer: '檔案整理失敗智能接管',
@@ -2975,6 +2976,10 @@ export default {
       autoUpdateResourceHint: '在背景檢查站點資源包，確認後於重新啟動前套用完整資源包',
       // 刮削開關設定
       mediaGroups: {
+        modules: {
+          title: '媒體模組',
+          description: '按需啟用媒體識別、探索、歌詞和藝術圖模組；核心模組始終啟用。',
+        },
         recognition: {
           title: '通用識別',
           description: '設定媒體識別優先順序、快取與識別結果共享。',

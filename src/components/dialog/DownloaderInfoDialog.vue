@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import type { DownloaderConf } from '@/api/types'
-import { storageAttributes } from '@/api/constants'
 import { cloneDeep } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { useStorageOptions } from '@/composables/useStorageOptions'
 
 // 显示器宽度
 const display = useDisplay()
 
 // 获取i18n实例
 const { t } = useI18n()
+const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
+void loadStorageCatalog()
 
 // 定义输入
 const props = defineProps({
@@ -68,8 +70,8 @@ const pathMappingRows = ref<PathMappingRow[]>([])
 
 // 路径前缀选项
 const prefixOptions = computed(() => {
-  return storageAttributes.map(item => ({
-    title: t(`storage.${item.type}`),
+  return storageCatalog.value.map(item => ({
+    title: item.name_i18n || item.name,
     value: item.type,
   }))
 })
@@ -77,7 +79,7 @@ const prefixOptions = computed(() => {
 /** 获取路径所属的存储类型。 */
 function getStorageType(path: string) {
   if (!path) return 'local'
-  const storage = storageAttributes.find(s => s.type !== 'local' && path.startsWith(`${s.type}:`))
+  const storage = storageCatalog.value.find(s => s.type !== 'local' && path.startsWith(`${s.type}:`))
   return storage?.type || 'local'
 }
 

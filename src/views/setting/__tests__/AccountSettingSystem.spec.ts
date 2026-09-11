@@ -244,6 +244,75 @@ const BASIC_SETTING_KEYS = [
 function mockLoadedSettings() {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/env') return { success: true, data: systemEnv }
+    if (endpoint === 'system/module-settings') {
+      return {
+        success: true,
+        data: {
+          modules: [
+            {
+              id: 'BackendDeclaredModule',
+              name: 'backend-module',
+              name_i18n: '后端动态模块',
+              description_i18n: '测试模块说明',
+              description_key: 'system.modules.BackendDeclaredModule.description',
+              enabled: true,
+            },
+          ],
+        },
+      }
+    }
+    if (endpoint === 'system/module-catalog') {
+      return {
+        success: true,
+        data: {
+          modules: [
+            {
+              id: 'QbittorrentModule',
+              name: 'Qbittorrent',
+              name_i18n: 'Qbittorrent',
+              type: 'downloader',
+              subtype: 'Qbittorrent',
+              option_value: 'qbittorrent',
+              enabled: true,
+              active: true,
+            },
+            {
+              id: 'TransmissionModule',
+              name: 'Transmission',
+              name_i18n: 'Transmission',
+              type: 'downloader',
+              subtype: 'Transmission',
+              option_value: 'transmission',
+              enabled: true,
+              active: true,
+            },
+            {
+              id: 'EmbyModule',
+              name: 'Emby',
+              name_i18n: 'Emby',
+              type: 'mediaserver',
+              subtype: 'Emby',
+              option_value: 'emby',
+              enabled: true,
+              active: true,
+            },
+            {
+              id: 'PlexModule',
+              name: 'Plex',
+              name_i18n: 'Plex',
+              type: 'mediaserver',
+              subtype: 'Plex',
+              option_value: 'plex',
+              enabled: true,
+              active: true,
+            },
+          ],
+        },
+      }
+    }
+    if (endpoint === 'media/source') {
+      return { success: true, data: [] }
+    }
     if (endpoint === 'system/database/backups') return { success: true, data: [] }
     if (endpoint === 'message/agent/mcp/servers') return { success: true, data: { servers: [] } }
     if (endpoint === 'system/setting/Downloaders')
@@ -1011,6 +1080,24 @@ describe('AccountSettingSystem', () => {
       }),
     )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('高级设置保存成功')
+  })
+
+  it('renders module switches from the backend catalog and saves their states', async () => {
+    await renderSettings()
+    const dialog = await openAdvancedTab('媒体')
+
+    const moduleSwitch = dialog.getByLabelText('后端动态模块')
+    expect(moduleSwitch).toBeChecked()
+    await fireEvent.click(moduleSwitch)
+    expect(moduleSwitch).not.toBeChecked()
+
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({
+        MODULE_ENABLE: { BackendDeclaredModule: false },
+      }),
+    )
   })
 
   it.each([

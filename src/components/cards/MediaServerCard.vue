@@ -3,14 +3,16 @@ import api from '@/api'
 import type { MediaServerConf, MediaStatistic } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
-import { mediaServerDict } from '@/api/constants'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useCardAccentColor } from '@/composables/useCardAccentColor'
+import { useModuleCatalog } from '@/composables/useModuleCatalog'
 
 const MediaServerInfoDialog = defineAsyncComponent(() => import('@/components/dialog/MediaServerInfoDialog.vue'))
 
 // 获取i18n实例
 const { t } = useI18n()
+const { isRegisteredModuleOption, loadModuleCatalog } = useModuleCatalog()
+void loadModuleCatalog()
 const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor('#56CA00')
 
 // 定义输入
@@ -34,6 +36,7 @@ const props = defineProps({
 
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'done', 'change'])
+const isRegisteredMediaServer = computed(() => isRegisteredModuleOption('mediaserver', props.mediaserver.type))
 
 // 媒体统计数据
 const infoItems = ref([
@@ -149,7 +152,7 @@ onMounted(() => {
       <div class="app-card-summary__content">
         <div class="app-card-summary__title text-h6">{{ mediaserver.name }}</div>
         <div
-          v-if="mediaServerDict[mediaserver.type] && mediaserver.enabled"
+          v-if="isRegisteredMediaServer && mediaserver.enabled"
           class="grid min-h-6 grid-cols-3 gap-2 text-sm text-medium-emphasis"
         >
           <span v-for="item in infoItems" :key="item.title" class="flex min-w-0 items-center">
@@ -157,7 +160,7 @@ onMounted(() => {
             <span class="truncate">{{ item.amount }}</span>
           </span>
         </div>
-        <div v-else-if="!mediaServerDict[mediaserver.type]" class="app-card-summary__subtitle text-sm">
+        <div v-else-if="!isRegisteredMediaServer" class="app-card-summary__subtitle text-sm">
           {{ t('setting.system.custom') }}
         </div>
       </div>

@@ -13,6 +13,8 @@ import AgentAssistantWidget from '@/components/agent/AgentAssistantWidget.vue'
 import ThemeCustomizer from '@/components/theme/ThemeCustomizer.vue'
 import { useGlobalSettingsStore, usePluginRuntimeStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { getNavMenus } from '@/router/i18n-menu'
+import { getMediaSourceCatalog } from '@/utils/mediaId'
+import { getModuleCatalog } from '@/composables/useModuleCatalog'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
@@ -54,6 +56,8 @@ const userStore = useUserStore()
 const pluginRuntimeStore = usePluginRuntimeStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 const globalSettingsStore = useGlobalSettingsStore()
+const mediaSourceCatalog = getMediaSourceCatalog()
+const moduleCatalog = getModuleCatalog()
 
 // 获取用户权限信息
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
@@ -479,6 +483,18 @@ let sidebarMenusMounted = false
 watch([() => pluginSidebarNavStore.items, userPermissions], () => {
   if (sidebarMenusMounted) rebuildSidebarMenus()
 })
+
+watch(mediaSourceCatalog, () => {
+  if (sidebarMenusMounted) rebuildSidebarMenus()
+})
+
+watch(
+  moduleCatalog,
+  () => {
+    if (sidebarMenusMounted) rebuildSidebarMenus()
+  },
+  { deep: true },
+)
 
 watch(
   () => pluginRuntimeStore.reconciliation,

@@ -26,20 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const { mediaSourceItems: getMediaSourceItems } = useMediaSources()
-const customMediaSourceItems = getMediaSourceItems('media')
-const customMusicSourceItems = getMediaSourceItems('music')
-
-const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
-  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
-  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
-  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
-  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
-  { title: t('setting.cache.recognitionSource.musicbrainz'), value: 'musicbrainz' },
-  { title: t('setting.cache.recognitionSource.theaudiodb'), value: 'theaudiodb' },
-  { title: t('setting.cache.recognitionSource.doubanmusic'), value: 'doubanmusic' },
-  ...customMediaSourceItems.value,
-  ...customMusicSourceItems.value,
-])
+const mediaSourceItems = getMediaSourceItems()
 
 const globalSettingsStore = useGlobalSettingsStore()
 const mediaType = ref('')
