@@ -554,6 +554,108 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('routes late tool events to the assistant segment that produced them', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        streamCalls += 1
+        if (streamCalls === 1) return primaryStream.response
+
+        return createAgentStreamResponse(
+          [
+            legacySseFrame({
+              type: 'steering',
+              status: 'queued',
+              message_id: 'steering-late-tool',
+              content: '补充：继续执行',
+            }),
+            legacySseFrame({ type: 'done' }),
+          ],
+          { 'X-MoviePilot-Agent-Control': 'steering' },
+        )
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('执行工具链')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'start',
+        session_id: 'web-agent:late-tool',
+        assistant_message_id: 'assistant-before-late-tool',
+      }),
+    )
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-before-late',
+        assistant_message_id: 'assistant-before-late-tool',
+        message: '边界前工具',
+      }),
+    )
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('补充：继续执行')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-late-tool',
+        assistant_message_id: 'assistant-before-late-tool',
+        continuation_message_id: 'assistant-after-late-tool',
+        content: '补充：继续执行',
+      }),
+    )
+    // 这条事件在边界之后才到达，但仍属于边界前的助手段。
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-late-before',
+        assistant_message_id: 'assistant-before-late-tool',
+        message: '迟到的边界前工具',
+      }),
+    )
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-after-late',
+        assistant_message_id: 'assistant-after-late-tool',
+        message: '边界后工具',
+      }),
+    )
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'done',
+        assistant_message_id: 'assistant-after-late-tool',
+      }),
+    )
+    primaryStream.close()
+    await flushPromises()
+
+    const renderedMessages = wrapper.findAll('.agent-assistant-message').map(message => ({
+      role: message.classes().includes('agent-assistant-message--user') ? 'user' : 'assistant',
+      text: message.text(),
+    }))
+    expect(renderedMessages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(renderedMessages[1].text).toContain('边界前工具')
+    expect(renderedMessages[1].text).toContain('迟到的边界前工具')
+    expect(renderedMessages[1].text).not.toContain('边界后工具')
+    expect(renderedMessages[2].text).toContain('补充：继续执行')
+    expect(renderedMessages[3].text).toContain('边界后工具')
+    wrapper.unmount()
+  })
+
   it('keeps queued steering at the end until the backend applies it between tool calls', async () => {
     const primaryStream = createControllableAgentStream()
     let streamCalls = 0

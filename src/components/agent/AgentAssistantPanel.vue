@@ -1781,6 +1781,19 @@ function resolveSteeringBoundaryAssistant(
   return resolveAssistantContinuation(assistantMessage) || assistantMessage
 }
 
+// 按事件携带的助手段身份路由主流事件；迟到事件不能被当前 continuation 吞并。
+function resolveStreamEventAssistant(event: AgentStreamEvent, assistantMessage: AgentChatMessage | null) {
+  const eventAssistantId = String(event.assistant_message_id || '')
+  if (eventAssistantId) {
+    const eventAssistant = messages.value.find(
+      message => message.role === 'assistant' && message.id === eventAssistantId,
+    )
+    if (eventAssistant) return eventAssistant
+  }
+
+  return resolveAssistantContinuation(assistantMessage) || assistantMessage
+}
+
 // 将运行中补充消息的排队或应用状态更新到本地用户消息，并在应用点切分时间线。
 function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage | null) {
   const messageId = String(event.message_id || '')
@@ -1885,7 +1898,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
   if (event.type === 'steering') {
     return applySteeringEvent(event, resolveAssistantContinuation(assistantMessage) || assistantMessage)
   }
-  const routedAssistantMessage = resolveAssistantContinuation(assistantMessage)
+  const routedAssistantMessage = resolveStreamEventAssistant(event, assistantMessage)
   if (!routedAssistantMessage) return null
 
   switch (event.type) {
@@ -1998,10 +2011,10 @@ function queueStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
 
   if (event.type !== 'delta') {
     flushPendingStreamDelta()
-    return applyStreamEvent(event, resolveAssistantContinuation(assistantMessage) || assistantMessage)
+    return applyStreamEvent(event, assistantMessage)
   }
 
-  const routedAssistantMessage = resolveAssistantContinuation(assistantMessage)
+  const routedAssistantMessage = resolveStreamEventAssistant(event, assistantMessage)
   if (!routedAssistantMessage) return null
   if (pendingStreamDeltaMessage && pendingStreamDeltaMessage !== routedAssistantMessage) flushPendingStreamDelta()
   pendingStreamDeltaMessage = routedAssistantMessage
