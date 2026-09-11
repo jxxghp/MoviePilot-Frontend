@@ -3149,7 +3149,7 @@ onScopeDispose(() => {
                 <div v-else class="agent-assistant-tool">
                   <VIcon
                     :icon="
-                      segment.tool.status === 'running' && message.status === 'streaming'
+                      segment.tool.status === 'running'
                         ? 'line-md:loading-twotone-loop'
                         : segment.tool.status === 'error'
                           ? 'mdi-alert-circle-outline'
