@@ -211,7 +211,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     ensureBaseUrl(resetBaseUrl)
     options.apiKey.value = ''
     if (options.maxContextTokens) {
-      options.maxContextTokens.value = 64
+      options.maxContextTokens.value = 128
     }
     if (options.apiProtocol) {
       options.apiProtocol.value = 'auto'

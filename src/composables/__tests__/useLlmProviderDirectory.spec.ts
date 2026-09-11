@@ -199,7 +199,7 @@ describe('useLlmProviderDirectory', () => {
     expect(state.apiKey.value).toBe('')
     expect(state.apiProtocol.value).toBe('auto')
     expect(state.model.value).toBe('')
-    expect(state.maxContextTokens.value).toBe(64)
+    expect(state.maxContextTokens.value).toBe(128)
     expect(state.authConnected.value).toBe(true)
     expect(state.directory.models.value).toEqual([])
   })
