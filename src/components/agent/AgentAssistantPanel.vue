@@ -1715,8 +1715,12 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
     if (currentAssistantIndex < 0) return assistantMessage
     assistantMessage.status = 'done'
     messages.value.splice(currentAssistantIndex + 1, 0, message)
-    const nextAssistant = createChatMessage('assistant', '', 'streaming')
-    messages.value.splice(currentAssistantIndex + 2, 0, nextAssistant)
+    const continuationMessage = createChatMessage('assistant', '', 'streaming')
+    messages.value.splice(currentAssistantIndex + 2, 0, continuationMessage)
+    // 从响应式数组重新取出 continuation；直接保存刚插入的原对象会让后续工具
+    // 状态变更无法触发 Vue 更新，表现为工具已执行但界面仍停在空的思考气泡。
+    const nextAssistant = messages.value[currentAssistantIndex + 2]
+    if (!nextAssistant) return assistantMessage
     steeringContinuationMessages.set(messageId, nextAssistant)
     if (acknowledgedSteeringMessages.has(messageId)) {
       pendingSteeringMessages.delete(messageId)
