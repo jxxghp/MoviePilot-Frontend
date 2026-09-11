@@ -312,6 +312,148 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('keeps structured tool lifecycle states independent while a stream is active', async () => {
+    const primaryStream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return primaryStream.response
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('检查媒体状态')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '正在检查：' }))
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-search',
+        tool_name: 'search',
+        message: '搜索媒体',
+      }),
+    )
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-download',
+        tool_name: 'download',
+        message: '检查下载器',
+      }),
+    )
+    primaryStream.emit(legacySseFrame({ type: 'tool', status: 'done', tool_id: 'tool-search' }))
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+
+    const activeSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const activeAssistant = activeSnapshot.messages.find((message: { role: string }) => message.role === 'assistant')
+    expect(activeAssistant.tools).toEqual([
+      expect.objectContaining({ id: 'tool-search', status: 'done' }),
+      expect.objectContaining({ id: 'tool-download', status: 'running' }),
+    ])
+    expect(wrapper.findAll('.agent-assistant-tool')).toHaveLength(2)
+    expect(wrapper.text()).toContain('搜索媒体')
+    expect(wrapper.text()).toContain('检查下载器')
+
+    primaryStream.emit(legacySseFrame({ type: 'tool', status: 'done', tool_id: 'tool-download' }))
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
+
+    const finishedSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const finishedAssistant = finishedSnapshot.messages.find(
+      (message: { role: string }) => message.role === 'assistant',
+    )
+    expect(finishedAssistant.tools).toEqual([
+      expect.objectContaining({ id: 'tool-search', status: 'done' }),
+      expect.objectContaining({ id: 'tool-download', status: 'done' }),
+    ])
+    wrapper.unmount()
+  })
+
+  it('renders an accepted steering message between the assistant segments that surround it', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        streamCalls += 1
+        if (streamCalls === 1) return primaryStream.response
+
+        return createAgentStreamResponse(
+          [
+            legacySseFrame({
+              type: 'steering',
+              status: 'queued',
+              message_id: 'steering-boundary',
+              content: '补充：优先检查下载器',
+            }),
+            legacySseFrame({ type: 'done' }),
+          ],
+          { 'X-MoviePilot-Agent-Control': 'steering' },
+        )
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('开始检查媒体')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '前置输出' }))
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-boundary',
+        tool_name: 'search',
+        message: '查找媒体信息',
+      }),
+    )
+    primaryStream.emit(legacySseFrame({ type: 'tool', status: 'done', tool_id: 'tool-boundary' }))
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('补充：优先检查下载器')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-boundary',
+        content: '补充：优先检查下载器',
+        display_message: {
+          role: 'user',
+          content: '补充：优先检查下载器',
+          attachments: [],
+        },
+      }),
+    )
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '后续输出' }))
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
+
+    const renderedMessages = wrapper.findAll('.agent-assistant-message').map(message => ({
+      role: message.classes().includes('agent-assistant-message--user') ? 'user' : 'assistant',
+      text: message.text(),
+    }))
+    expect(renderedMessages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(renderedMessages[1].text).toContain('前置输出')
+    expect(renderedMessages[1].text).toContain('查找媒体信息')
+    expect(renderedMessages[2].text).toContain('补充：优先检查下载器')
+    expect(renderedMessages[3].text).toContain('后续输出')
+    wrapper.unmount()
+  })
+
   it('keeps a queued steering message when recovery replaces the view with a server snapshot', async () => {
     let visibilityState: DocumentVisibilityState = 'visible'
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState)
@@ -399,9 +541,18 @@ describe('AgentAssistantPanel stream recovery', () => {
       ),
     ).not.toHaveLength(0)
     expect(wrapper.text()).toContain('补充要求')
+    const recoveredMessages = wrapper.findAll('.agent-assistant-message')
+    const recoveredSteeringIndex = recoveredMessages.findIndex(message => message.text().includes('补充要求'))
+    const recoveredAssistantIndex = recoveredMessages.findIndex(
+      message =>
+        message.classes().includes('agent-assistant-message--assistant') && message.text().includes('后台任务已完成'),
+    )
     expect(
-      wrapper.findAll('.agent-assistant-message--user').filter(message => message.text().includes('补充要求')),
+      recoveredMessages.filter(
+        message => message.classes().includes('agent-assistant-message--user') && message.text().includes('补充要求'),
+      ),
     ).toHaveLength(1)
+    expect(recoveredSteeringIndex).toBeGreaterThan(recoveredAssistantIndex)
 
     primaryStream.close()
     await flushPromises()
