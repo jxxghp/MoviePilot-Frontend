@@ -151,6 +151,25 @@ describe('LoggingView', () => {
     expect(container.textContent).not.toContain('\u001B[31m')
   })
 
+  it('把 Agent 消息的工具调用续行保留在同一条日志记录中', async () => {
+    const { container, handler } = await mountReady()
+
+    await emitAndFlush(handler, '【INFO】 2026-08-19 10:00:00,000 callback - Agent消息: 已读取')
+    await emitAndFlush(handler, '...')
+    await emitAndFlush(handler, '⚙️ => 调用 MoviePilot API：site.list，主要参数：{"query":{"page":1,"count":50}}')
+    await emitAndFlush(handler, '【INFO】 2026-08-19 10:00:01,000 callback - 下一条消息')
+
+    const records = container.querySelectorAll('.logging-record')
+    expect(records).toHaveLength(2)
+    expect(recordBodies(container)[0]).toContain(
+      '10:00:00,000 Agent消息: 已读取\n...\n⚙️ => 调用 MoviePilot API：site.list，主要参数：{"query":{"page":1,"count":50}}',
+    )
+    expect([...records[0].querySelectorAll('.logging-record-level')].map(node => node.textContent?.trim())).toEqual([
+      'INFO:',
+    ])
+    expect(container.textContent).not.toContain('LOG:')
+  })
+
   it('按秒级时间、级别和相邻间隔分组，并在边界变化时拆分记录', async () => {
     const { container, handler } = await mountReady()
 

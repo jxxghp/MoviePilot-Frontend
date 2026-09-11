@@ -340,13 +340,58 @@ function parseInlineLevelLog(raw: string): ParsedLog | null {
   }
 }
 
+/** 规范化 SSE 日志行，供解析和续行合并共用。 */
+function normalizeRawLogLine(log: string): string {
+  return stripAnsi(log).replace(/\r/g, '').trimEnd()
+}
+
+/** 解析可能作为日志记录起始行的结构化内容。 */
+function parseRawLog(raw: string): ParsedLog | null {
+  return (
+    parsePythonStyleLog(raw) ?? parseBracketStyleLog(raw) ?? parseTimestampFirstLog(raw) ?? parseInlineLevelLog(raw)
+  )
+}
+
 /** 将单行原始日志解析为展示条目。 */
 function parseLogLine(log: string): LogEntry {
-  const raw = stripAnsi(log).replace(/\r/g, '').trimEnd()
-  const parsed =
-    parsePythonStyleLog(raw) ?? parseBracketStyleLog(raw) ?? parseTimestampFirstLog(raw) ?? parseInlineLevelLog(raw)
+  const raw = normalizeRawLogLine(log)
+  return createLogEntry(raw, parseRawLog(raw))
+}
 
-  return createLogEntry(raw, parsed)
+/** 判断日志条目是否为需要合并续行的 Agent 消息。 */
+function isAgentMessageEntry(item: LogEntry): boolean {
+  return item.structured && /Agent消息\s*[:：]/.test(item.message)
+}
+
+/** 将 Agent 消息的物理续行追加到原日志条目。 */
+function appendAgentMessageContinuation(item: LogEntry, continuation: string): void {
+  item.raw += `\n${continuation}`
+  item.message += `\n${continuation}`
+}
+
+/** 解析缓冲的 SSE 内容，并保留 Agent 多行消息的记录边界。 */
+function parseBufferedLogs(logs: string[]): { entries: LogEntry[]; changed: boolean } {
+  const entries: LogEntry[] = []
+  let changed = false
+  let lastEntry = parsedLogs.value.at(-1)
+
+  for (const log of logs.flatMap(item => item.split(/\r?\n/))) {
+    const raw = normalizeRawLogLine(log)
+    if (!raw) continue
+
+    const parsed = parseRawLog(raw)
+    if (lastEntry && isAgentMessageEntry(lastEntry) && !parsed) {
+      appendAgentMessageContinuation(lastEntry, raw)
+      changed = true
+      continue
+    }
+
+    const entry = parseLogLine(raw)
+    entries.push(entry)
+    lastEntry = entry
+  }
+
+  return { entries, changed }
 }
 
 /** 判断日志条目是否符合当前级别和关键字筛选。 */
@@ -426,20 +471,19 @@ function flushBuffer() {
     return
   }
 
-  const incomingLogs = buffer
-    .flatMap(item => item.split(/\r?\n/))
-    .filter(item => item.length > 0)
-    .map(parseLogLine)
+  const { entries: incomingLogs, changed } = parseBufferedLogs(buffer)
 
   buffer.length = 0
 
-  if (incomingLogs.length === 0) {
+  if (incomingLogs.length === 0 && !changed) {
     return
   }
 
   const shouldFollow = isNearBottom()
 
-  parsedLogs.value = [...parsedLogs.value, ...incomingLogs].slice(-MAX_LOG_LINES)
+  if (incomingLogs.length) {
+    parsedLogs.value = [...parsedLogs.value, ...incomingLogs].slice(-MAX_LOG_LINES)
+  }
 
   followTail.value = shouldFollow
 
@@ -448,7 +492,7 @@ function flushBuffer() {
     return
   }
 
-  pendingLogCount.value += incomingLogs.length
+  pendingLogCount.value += incomingLogs.length || 1
 }
 
 /** 安排一次延迟缓冲区刷新。 */
