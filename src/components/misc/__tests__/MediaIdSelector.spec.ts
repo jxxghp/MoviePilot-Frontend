@@ -1,6 +1,7 @@
 import MediaIdSelector from '@/components/misc/MediaIdSelector.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ vi.mock('@/api', () => ({
 describe('MediaIdSelector layout', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset()
+    seedMediaSourceCatalog()
   })
 
   it('keeps the search field visible while results scroll independently', async () => {

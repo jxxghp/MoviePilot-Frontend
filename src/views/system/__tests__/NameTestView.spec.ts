@@ -2,6 +2,7 @@ import NameTestView from '@/views/system/NameTestView.vue'
 import { screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
+import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -77,6 +78,7 @@ describe('NameTestView media identity', () => {
     vi.clearAllMocks()
     localStorage.clear()
     mocks.routerPush.mockResolvedValue(undefined)
+    seedMediaSourceCatalog()
   })
 
   it.each([
