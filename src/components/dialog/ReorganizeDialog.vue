@@ -26,6 +26,7 @@ import { useBackground } from '@/composables/useBackground'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import ProgressDialog from './ProgressDialog.vue'
+import SourceClassificationDialog from './SourceClassificationDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
@@ -110,6 +111,10 @@ function getDefaultMediaSource(): MediaDataSource {
 
 // 定义事件
 const emit = defineEmits(['done', 'close'])
+const operationMode = ref<'transfer' | 'source'>('transfer')
+const sourceFile = computed(() =>
+  props.items?.length === 1 && props.items[0].storage === 'local' ? props.items[0] : undefined,
+)
 
 // 生成1到100季的下拉框选项
 const seasonItems = ref(
@@ -1903,8 +1908,19 @@ onUnmounted(() => {
         <VCardSubtitle>{{ dialogSubtitle }}</VCardSubtitle>
       </VCardItem>
       <VDialogCloseBtn @click="emit('close')" />
+      <VBtnToggle v-if="sourceFile" v-model="operationMode" mandatory divided color="primary" class="mx-6 my-3">
+        <VBtn value="transfer">手动整理（媒体库）</VBtn>
+        <VBtn value="source">资源规范化命名（源目录）</VBtn>
+      </VBtnToggle>
       <VDivider />
-      <VCardText class="pa-0 reorganize-dialog-card__body">
+      <SourceClassificationDialog
+        v-if="operationMode === 'source' && sourceFile"
+        :source-file="sourceFile"
+        embedded
+        @done="emit('done')"
+        @close="emit('close')"
+      />
+      <VCardText v-else class="pa-0 reorganize-dialog-card__body">
         <div class="reorganize-main-row" :class="{ 'reorganize-main-row--preview-visible': previewVisible }">
           <div class="reorganize-form-pane">
             <div class="reorganize-form-pane__content pa-6">

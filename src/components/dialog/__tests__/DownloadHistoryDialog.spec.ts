@@ -270,7 +270,7 @@ describe('DownloadHistoryDialog', () => {
 
     await renderDialog()
 
-    await user.click(await screen.findByText('识别与资源归类'))
+    await user.click(await screen.findByText('资源规范化命名'))
 
     expect(screen.getByRole('button', { name: '识别并预览' })).toBeInTheDocument()
     expect(screen.getAllByText('待重新分类')).not.toHaveLength(0)

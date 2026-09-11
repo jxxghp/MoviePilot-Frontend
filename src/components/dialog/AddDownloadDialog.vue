@@ -112,6 +112,7 @@ const selectedDirectory = ref<string | null>(null)
 
 // 下载器
 const downloaders = ref<Array<Pick<DownloaderConf, 'name' | 'type'>>>([])
+const normalizeSource = ref<boolean | null>(null)
 
 // 所有目录设置
 const directories = ref<DownloadDirectory[]>([])
@@ -272,6 +273,7 @@ async function addDownload() {
   try {
     const payload: {
       downloader: string | null
+      normalize_source?: boolean
       media_id?: string
       media_in?: MediaInfo
       media_source?: MediaDataSource
@@ -282,6 +284,7 @@ async function addDownload() {
     } = {
       torrent_in: props.torrent,
       downloader: selectedDownloader.value,
+      ...(normalizeSource.value === null ? {} : { normalize_source: normalizeSource.value }),
       save_path: selectedDirectory.value,
     }
 
@@ -419,6 +422,19 @@ onMounted(() => {
           </VCol>
         </VRow>
         <VRow class="px-5 mt-2">
+          <VCol cols="12">
+            <VSelect
+              v-model="normalizeSource"
+              label="资源规范化命名（qB）"
+              :items="[
+                { title: '跟随资源目录设置', value: null },
+                { title: '本次开启', value: true },
+                { title: '本次关闭', value: false },
+              ]"
+              hint="通过 MusicBrainz 识别音乐，修改源任务最外层名称并同步 qB；开启资源按类别分类时同时归档至类别/艺人。内部文件和标签不变。"
+              persistent-hint
+            />
+          </VCol>
           <VCol cols="12">
             <VBtn
               variant="text"

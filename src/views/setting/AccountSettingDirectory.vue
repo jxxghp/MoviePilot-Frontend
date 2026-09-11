@@ -433,6 +433,7 @@ useSilentSettingRefresh(loadPageData, {
             <template #item="{ element }">
               <DirectoryCard
                 :directory="element"
+                @update:source-normalization="element.source_normalization = $event"
                 :categories="mediaCategories"
                 :storages="storages"
                 @update:modelValue="

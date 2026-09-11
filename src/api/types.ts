@@ -2131,6 +2131,7 @@ export interface TransferDirectoryConf {
   download_type_folder?: boolean
   // 下载类别子目录
   download_category_folder?: boolean
+  source_normalization?: boolean
   // 监控方式 downloader/monitor，None为不监控
   monitor_type?: string
   // 监控模式 fast/compatibility

@@ -174,7 +174,7 @@ function getSeasonEpisode(item: DownloadHistory) {
                         <VList>
                           <VListItem v-if="item.download_hash" @click="classifyTask = item">
                             <template #prepend><VIcon icon="mdi-folder-move-outline" /></template>
-                            <VListItemTitle>识别与资源归类</VListItemTitle>
+                            <VListItemTitle>资源规范化命名</VListItemTitle>
                           </VListItem>
                           <VListItem base-color="error" @click="deleteHistory(item)">
                             <template #prepend>
