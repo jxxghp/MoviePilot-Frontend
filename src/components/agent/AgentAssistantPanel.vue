@@ -1723,6 +1723,8 @@ function splitAssistantAtSteeringBoundary(
 
   const existingContinuation = assistantContinuationMessages.get(currentAssistant.id)
   if (existingContinuation && messages.value.includes(existingContinuation)) return existingContinuation
+  // steering ACK 可能先于下一帧文本增量抵达；先冲刷边界前的增量，避免它被路由到续答段。
+  if (pendingStreamDeltaMessage === currentAssistant) flushPendingStreamDelta()
 
   let assistantIndex = messages.value.indexOf(currentAssistant)
   const steeringIndex = messages.value.indexOf(steeringMessage)

@@ -595,6 +595,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     )
     primaryStream.emit(legacySseFrame({ type: 'tool', status: 'done', tool_id: 'tool-before-queued' }))
     await flushPromises()
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '排队前文本' }))
 
     await wrapper.find('textarea').setValue('补充：在下一个工具前处理')
     await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
@@ -617,6 +618,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     }))
     expect(renderedMessages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
     expect(renderedMessages[1].text).toContain('排队前工具')
+    expect(renderedMessages[1].text).toContain('排队前文本')
     expect(renderedMessages[2].text).toContain('补充：在下一个工具前处理')
     expect(renderedMessages[3].text).toContain('排队后工具')
 
