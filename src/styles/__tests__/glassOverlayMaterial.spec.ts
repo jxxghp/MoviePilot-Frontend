@@ -49,7 +49,14 @@ describe('glass overlay material styles', () => {
     expect(styles).toContain('--glass-popup-blur: 6px')
     expect(styles).toContain('--glass-popup-blur: 18px')
     expect(styles).toContain('--glass-popup-blur: 24px')
+    expect(styles).toContain('--glass-dialog-blur: 18px')
+    expect(styles).toContain('--glass-dialog-blur: 24px')
+    expect(styles).toContain('--glass-dialog-blur: 0px')
+    expect(styles).toContain('--glass-dialog-filter: blur(var(--glass-dialog-blur)) saturate(135%)')
     expect(popup).toContain('--glass-overlay-blur: var(--glass-popup-blur)')
+    expect(popup).toMatch(
+      /\.v-dialog > \.v-overlay__content\s*\{[\s\S]*?--glass-overlay-blur: var\(--glass-dialog-blur\);[\s\S]*?--glass-overlay-backdrop-filter: var\(--glass-dialog-filter\);/u,
+    )
     expect(popup).toContain('--glass-surface-backdrop-filter: none')
     expect(popup).toContain('--glass-native-surface-backdrop-filter: none')
     expect(popup).toContain('--app-grouped-list-backdrop-filter: none')
@@ -72,7 +79,7 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toContain('linear-gradient(rgba(var(--glass-v3-ink), 0.4)')
   })
 
-  it('switches the shared Dock, menu, dialog, and FAB material with the live interface style attribute', () => {
+  it('switches the shared Dock, menu, and FAB material with the live interface style attribute', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const clearStyleStart = styles.indexOf("&[data-glass-ui-style='clear']:is(")
     const clearStyleEnd = styles.indexOf(

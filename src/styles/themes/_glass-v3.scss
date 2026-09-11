@@ -34,10 +34,12 @@ $-popup-hosts: (
     --glass-v3-navigation-content-gap: 16px;
     --glass-v3-navigation-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     --glass-v3-navigation-filter: saturate(118%) brightness(var(--glass-transmission-brightness, 1));
-    // 自适应界面材质为导航、菜单、弹窗和 FAB 提供统一的阅读保护。
+    // 自适应界面材质为导航、菜单和 FAB 提供共享阅读保护；弹窗使用更强的独立扩散。
     --glass-popup-blur: 6px;
     --glass-popup-surface: rgba(31, 34, 39, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.62) * 0.16), 0.32));
     --glass-popup-filter: blur(var(--glass-popup-blur)) saturate(135%);
+    --glass-dialog-blur: 18px;
+    --glass-dialog-filter: blur(var(--glass-dialog-blur)) saturate(135%);
     --glass-v3-card-background:
       linear-gradient(128deg, rgba(255, 255, 255, var(--glass-v3-sheen)), transparent 38%),
       linear-gradient(
@@ -68,6 +70,7 @@ $-popup-hosts: (
       --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
       // 磨砂弹层保留独立扩散强度，避免与模态遮罩累加成看不见背景的灰板。
       --glass-popup-blur: 24px;
+      --glass-dialog-blur: 24px;
       --glass-popup-surface: rgba(
         31,
         34,
@@ -76,9 +79,10 @@ $-popup-hosts: (
       );
     }
 
-    // 通透风格减少临时表面和悬浮导航的吸收与扩散；所有消费者通过 popup token 实时同步。
+    // 通透风格减少临时表面和悬浮导航的吸收与扩散；显式选择通透时弹窗也保持无模糊。
     &[data-glass-ui-style='clear']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted']) {
       --glass-popup-blur: 0px;
+      --glass-dialog-blur: 0px;
       --glass-popup-surface: rgba(
         31,
         34,
@@ -443,6 +447,12 @@ $-popup-hosts: (
       --v-high-emphasis-opacity: 1;
     }
 
+    // 对话框需要比菜单更强的背景扩散，避免自适应透明材质下内容与壁纸互相穿透。
+    .v-dialog > .v-overlay__content {
+      --glass-overlay-blur: var(--glass-dialog-blur);
+      --glass-overlay-backdrop-filter: var(--glass-dialog-filter);
+    }
+
     // Vuetify 子表面会重新声明主题强调度，阅读层需在实际文字所在的主题边界保持对比。
     :is(#{$-popup-hosts}) .v-theme--glass {
       --v-medium-emphasis-opacity: 0.9;
@@ -478,14 +488,14 @@ $-popup-hosts: (
     }
   }
 
-  // 两种界面风格共用材质入口，顶栏、Dock、弹层和 FAB 只消费共享 token。
+  // 两种界面风格共用材质入口，顶栏、Dock、菜单和 FAB 只消费共享 popup token。
   html[data-theme='glass'] body[data-theme='glass'] {
     .layout-wrapper[data-shell-mode] .layout-navbar {
       --glass-navbar-reading-filter: saturate(100%);
       --glass-navbar-live-filter: var(--glass-navbar-reading-filter) var(--glass-v3-navigation-filter);
     }
 
-    // Dock 与弹层、FAB 共用当前界面风格的阅读材质。
+    // Dock、菜单与 FAB 共用当前界面风格的 popup 阅读材质。
     .footer-nav-card {
       --glass-navigation-reading-filter: var(--glass-popup-filter);
 
@@ -614,7 +624,7 @@ $-popup-hosts: (
     }
   }
 
-  // 移动自适应导航与弹层共用完整阅读材质，收起和重现时不切换采样或叠加导航亮度修正。
+  // 移动自适应导航使用完整 popup 阅读材质，收起和重现时不切换采样或叠加导航亮度修正。
   html[data-theme='glass']:where([data-glass-ui-style='adaptive']):is(
       [data-glass-appearance='clear'],
       [data-glass-appearance='tinted']
