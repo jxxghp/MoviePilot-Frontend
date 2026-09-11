@@ -1699,8 +1699,8 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
       return assistantMessage
     }
 
-    const assistantIndex = messages.value.indexOf(assistantMessage)
     const messageIndex = messages.value.indexOf(message)
+    const assistantIndex = messages.value.indexOf(assistantMessage)
     if (assistantIndex < 0) return assistantMessage
     if (messageIndex >= 0 && messageIndex < assistantIndex) {
       const existingContinuation = messages.value[messageIndex + 1]
@@ -1710,10 +1710,13 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
       }
     }
     if (messageIndex >= 0) messages.value.splice(messageIndex, 1)
+    // 删除已存在的本地占位后重新读取索引；占位位于助手之前时，原索引会向左偏移。
+    const currentAssistantIndex = messages.value.indexOf(assistantMessage)
+    if (currentAssistantIndex < 0) return assistantMessage
     assistantMessage.status = 'done'
-    messages.value.splice(assistantIndex + 1, 0, message)
+    messages.value.splice(currentAssistantIndex + 1, 0, message)
     const nextAssistant = createChatMessage('assistant', '', 'streaming')
-    messages.value.splice(assistantIndex + 2, 0, nextAssistant)
+    messages.value.splice(currentAssistantIndex + 2, 0, nextAssistant)
     steeringContinuationMessages.set(messageId, nextAssistant)
     if (acknowledgedSteeringMessages.has(messageId)) {
       pendingSteeringMessages.delete(messageId)
