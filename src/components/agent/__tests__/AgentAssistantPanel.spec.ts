@@ -554,6 +554,77 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('keeps a queued steering message before tool events that arrive after the local insert', async () => {
+    const primaryStream = createControllableAgentStream()
+    let streamCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        streamCalls += 1
+        if (streamCalls === 1) return primaryStream.response
+
+        return createAgentStreamResponse(
+          [
+            legacySseFrame({
+              type: 'steering',
+              status: 'queued',
+              message_id: 'steering-queued-boundary',
+              content: '补充：在下一个工具前处理',
+            }),
+            legacySseFrame({ type: 'done' }),
+          ],
+          { 'X-MoviePilot-Agent-Control': 'steering' },
+        )
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('执行连续工具')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-before-queued',
+        tool_name: 'search',
+        message: '排队前工具',
+      }),
+    )
+    primaryStream.emit(legacySseFrame({ type: 'tool', status: 'done', tool_id: 'tool-before-queued' }))
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('补充：在下一个工具前处理')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-after-queued',
+        tool_name: 'download',
+        message: '排队后工具',
+      }),
+    )
+    await flushPromises()
+
+    const renderedMessages = wrapper.findAll('.agent-assistant-message').map(message => ({
+      role: message.classes().includes('agent-assistant-message--user') ? 'user' : 'assistant',
+      text: message.text(),
+    }))
+    expect(renderedMessages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(renderedMessages[1].text).toContain('排队前工具')
+    expect(renderedMessages[2].text).toContain('补充：在下一个工具前处理')
+    expect(renderedMessages[3].text).toContain('排队后工具')
+
+    primaryStream.close()
+    await flushPromises()
+    wrapper.unmount()
+  })
+
   it('keeps a queued steering message when recovery replaces the view with a server snapshot', async () => {
     let visibilityState: DocumentVisibilityState = 'visible'
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState)
