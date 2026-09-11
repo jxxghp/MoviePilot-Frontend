@@ -586,6 +586,14 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
     primaryStream.emit(
       legacySseFrame({
+        type: 'start',
+        session_id: 'web-agent:stable-steering-boundary',
+        assistant_message_id: 'assistant-stable-boundary',
+      }),
+    )
+    await flushPromises()
+    primaryStream.emit(
+      legacySseFrame({
         type: 'tool',
         status: 'running',
         tool_id: 'tool-before-queued',
@@ -629,6 +637,8 @@ describe('AgentAssistantPanel stream recovery', () => {
         status: 'applied',
         message_id: 'steering-queued-boundary',
         content: '补充：在下一个工具前处理',
+        assistant_message_id: 'assistant-stable-boundary',
+        continuation_message_id: 'assistant-stable-continuation',
         display_message: {
           role: 'user',
           content: '补充：在下一个工具前处理',
@@ -655,6 +665,12 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(renderedMessages[1].text).toContain('排队后工具')
     expect(renderedMessages[2].text).toContain('补充：在下一个工具前处理')
     expect(renderedMessages[3].text).toContain('消费补充消息后的工具')
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'assistant-stable-boundary', status: 'done' }),
+        expect.objectContaining({ id: 'assistant-stable-continuation', status: 'streaming' }),
+      ]),
+    )
 
     primaryStream.close()
     await flushPromises()

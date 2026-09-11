@@ -103,6 +103,7 @@ interface AgentChatMessage {
   choice_selection?: AgentChoiceSelection
   steeringStatus?: 'queued' | 'applied'
   steeringMessageId?: string
+  steeringAnchorAssistantId?: string
 }
 
 interface AgentSessionHistoryItem {
@@ -677,6 +678,8 @@ function normalizeStoredMessages(value: unknown) {
           ? message.steeringStatus
           : undefined,
       steeringMessageId: stringifyChoiceField(message.steeringMessageId || message.steering_message_id) || undefined,
+      steeringAnchorAssistantId:
+        stringifyChoiceField(message.steeringAnchorAssistantId || message.steering_anchor_assistant_id) || undefined,
     } as AgentChatMessage
   })
 
@@ -686,8 +689,12 @@ function normalizeStoredMessages(value: unknown) {
 // 将本地 camelCase 消息字段转换为后端展示接口使用的 snake_case 字段。
 function serializeMessagesForServer(value: AgentChatMessage[]) {
   return normalizeStoredMessages(value).map(message => {
-    const { steeringMessageId, ...rest } = message
-    return steeringMessageId ? { ...rest, steering_message_id: steeringMessageId } : rest
+    const { steeringMessageId, steeringAnchorAssistantId, ...rest } = message
+    return {
+      ...rest,
+      ...(steeringMessageId ? { steering_message_id: steeringMessageId } : {}),
+      ...(steeringAnchorAssistantId ? { steering_anchor_assistant_id: steeringAnchorAssistantId } : {}),
+    }
   })
 }
 
@@ -1510,9 +1517,11 @@ function insertSteeringMessageAtBoundary(
   status: 'queued' | 'applied' = 'queued',
 ) {
   const draft = createChatMessage('user', content, 'done', attachments, choiceSelection, status)
-  const insertionIndex = getSteeringInsertionIndex(findActiveAssistantMessage())
+  const anchorAssistant = findActiveAssistantMessage()
+  const insertionIndex = getSteeringInsertionIndex(anchorAssistant)
   messages.value.splice(insertionIndex, 0, draft)
   const reactiveDraft = messages.value[insertionIndex]
+  if (anchorAssistant) reactiveDraft.steeringAnchorAssistantId = anchorAssistant.id
   if (status === 'queued') pendingSteeringDrafts.add(reactiveDraft)
 
   persistState()
@@ -1714,8 +1723,11 @@ function applyToolLifecycleEvent(event: AgentStreamEvent, message: AgentChatMess
 function splitAssistantAtSteeringBoundary(
   steeringMessage: AgentChatMessage,
   assistantMessage: AgentChatMessage | null,
+  boundaryAssistant: AgentChatMessage | null = null,
+  continuationMessageId?: string,
 ) {
   const currentAssistant =
+    (boundaryAssistant && messages.value.includes(boundaryAssistant) ? boundaryAssistant : null) ||
     resolveAssistantContinuation(assistantMessage) ||
     [...messages.value].reverse().find(message => message.role === 'assistant' && message.status === 'streaming') ||
     null
@@ -1736,11 +1748,37 @@ function splitAssistantAtSteeringBoundary(
   currentAssistant.status = 'done'
   messages.value.splice(assistantIndex + 1, 0, steeringMessage)
   const continuationMessage = createChatMessage('assistant', '', 'streaming')
+  if (continuationMessageId) continuationMessage.id = continuationMessageId
   messages.value.splice(assistantIndex + 2, 0, continuationMessage)
   const reactiveContinuation = messages.value[assistantIndex + 2]
   if (!reactiveContinuation) return null
   assistantContinuationMessages.set(currentAssistant.id, reactiveContinuation)
   return reactiveContinuation
+}
+
+// 按服务端稳定助手段 ID 或排队时记录的锚点解析 steering 的真实边界。
+function resolveSteeringBoundaryAssistant(
+  event: AgentStreamEvent,
+  steeringMessage: AgentChatMessage,
+  assistantMessage: AgentChatMessage | null,
+) {
+  const serverAssistantId = String(event.assistant_message_id || '')
+  if (serverAssistantId) {
+    const serverAssistant = messages.value.find(
+      message => message.role === 'assistant' && message.id === serverAssistantId,
+    )
+    if (serverAssistant) return resolveAssistantContinuation(serverAssistant)
+  }
+
+  const anchorAssistantId = steeringMessage.steeringAnchorAssistantId
+  if (anchorAssistantId) {
+    const anchorAssistant = messages.value.find(
+      message => message.role === 'assistant' && message.id === anchorAssistantId,
+    )
+    if (anchorAssistant) return resolveAssistantContinuation(anchorAssistant)
+  }
+
+  return resolveAssistantContinuation(assistantMessage) || assistantMessage
 }
 
 // 将运行中补充消息的排队或应用状态更新到本地用户消息，并在应用点切分时间线。
@@ -1802,7 +1840,13 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
 
     // applied 事件本身就是后端真实的模型边界；无论本地排队气泡当前位于何处，
     // 都在此处重新定位并切分助手段。ACK 流没有助手引用时由 helper 回退到当前流段。
-    const nextAssistant = splitAssistantAtSteeringBoundary(message, assistantMessage)
+    const boundaryAssistant = resolveSteeringBoundaryAssistant(event, message, assistantMessage)
+    const nextAssistant = splitAssistantAtSteeringBoundary(
+      message,
+      assistantMessage,
+      boundaryAssistant,
+      String(event.continuation_message_id || '') || undefined,
+    )
     if (nextAssistant) {
       steeringContinuationMessages.set(messageId, nextAssistant)
     }
@@ -1890,6 +1934,17 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       if (event.session_id) {
         sessionId.value = event.session_id
         if (pendingStreamRecovery.value) pendingStreamRecovery.value.sessionId = event.session_id
+      }
+      if (event.assistant_message_id && routedAssistantMessage) {
+        const previousAssistantId = routedAssistantMessage.id
+        routedAssistantMessage.id = event.assistant_message_id
+        messages.value.forEach(message => {
+          if (message.steeringAnchorAssistantId === previousAssistantId) {
+            message.steeringAnchorAssistantId = event.assistant_message_id
+          }
+        })
+        refreshMessageList()
+        persistState()
       }
       break
     default:
