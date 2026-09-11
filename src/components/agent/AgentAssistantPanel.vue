@@ -1710,7 +1710,7 @@ function applyToolLifecycleEvent(event: AgentStreamEvent, message: AgentChatMess
   if (existing) existing.status = status
 }
 
-// 在 steering 被确认排队的事件边界切分助手消息，让之后到达的工具事件落到续答卡片。
+// 在 steering 被后端实际消费的事件边界切分助手消息，让之后到达的工具事件落到续答卡片。
 function splitAssistantAtSteeringBoundary(
   steeringMessage: AgentChatMessage,
   assistantMessage: AgentChatMessage | null,
@@ -1723,7 +1723,7 @@ function splitAssistantAtSteeringBoundary(
 
   const existingContinuation = assistantContinuationMessages.get(currentAssistant.id)
   if (existingContinuation && messages.value.includes(existingContinuation)) return existingContinuation
-  // steering ACK 可能先于下一帧文本增量抵达；先冲刷边界前的增量，避免它被路由到续答段。
+  // 边界事件可能先于下一帧文本增量抵达；先冲刷边界前的增量，避免它被路由到续答段。
   if (pendingStreamDeltaMessage === currentAssistant) flushPendingStreamDelta()
 
   let assistantIndex = messages.value.indexOf(currentAssistant)
@@ -1800,37 +1800,13 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
       return continuation
     }
 
-    // 短 ACK 只负责显示已排队状态，没有主流助手对象，等待主流应用事件再切分。
-    if (!assistantMessage || !messages.value.includes(assistantMessage)) {
-      refreshMessageList()
-      persistState()
-      return assistantMessage
+    // applied 事件本身就是后端真实的模型边界；无论本地排队气泡当前位于何处，
+    // 都在此处重新定位并切分助手段。ACK 流没有助手引用时由 helper 回退到当前流段。
+    const nextAssistant = splitAssistantAtSteeringBoundary(message, assistantMessage)
+    if (nextAssistant) {
+      steeringContinuationMessages.set(messageId, nextAssistant)
     }
-
-    const messageIndex = messages.value.indexOf(message)
-    const assistantIndex = messages.value.indexOf(assistantMessage)
-    if (assistantIndex < 0) return assistantMessage
-    if (messageIndex >= 0 && messageIndex < assistantIndex) {
-      const existingContinuation = messages.value[messageIndex + 1]
-      if (existingContinuation?.role === 'assistant' && existingContinuation.status === 'streaming') {
-        steeringContinuationMessages.set(messageId, existingContinuation)
-        return existingContinuation
-      }
-    }
-    if (messageIndex >= 0) messages.value.splice(messageIndex, 1)
-    // 删除已存在的本地占位后重新读取索引；占位位于助手之前时，原索引会向左偏移。
-    const currentAssistantIndex = messages.value.indexOf(assistantMessage)
-    if (currentAssistantIndex < 0) return assistantMessage
-    assistantMessage.status = 'done'
-    messages.value.splice(currentAssistantIndex + 1, 0, message)
-    const continuationMessage = createChatMessage('assistant', '', 'streaming')
-    messages.value.splice(currentAssistantIndex + 2, 0, continuationMessage)
-    // 从响应式数组重新取出 continuation；直接保存刚插入的原对象会让后续工具
-    // 状态变更无法触发 Vue 更新，表现为工具已执行但界面仍停在空的思考气泡。
-    const nextAssistant = messages.value[currentAssistantIndex + 2]
-    if (!nextAssistant) return assistantMessage
-    steeringContinuationMessages.set(messageId, nextAssistant)
-    if (acknowledgedSteeringMessages.has(messageId)) {
+    if (nextAssistant && acknowledgedSteeringMessages.has(messageId)) {
       pendingSteeringMessages.delete(messageId)
       acknowledgedSteeringMessages.delete(messageId)
     }
@@ -1852,9 +1828,6 @@ function applySteeringEvent(event: AgentStreamEvent, assistantMessage: AgentChat
     if (message.steeringStatus === 'applied') {
       pendingSteeringMessages.delete(messageId)
       acknowledgedSteeringMessages.delete(messageId)
-    } else {
-      const continuation = splitAssistantAtSteeringBoundary(message, assistantMessage)
-      if (continuation) steeringContinuationMessages.set(messageId, continuation)
     }
   }
 

@@ -554,7 +554,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
-  it('keeps a queued steering message before tool events that arrive after the local insert', async () => {
+  it('keeps queued steering at the end until the backend applies it between tool calls', async () => {
     const primaryStream = createControllableAgentStream()
     let streamCalls = 0
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -612,15 +612,49 @@ describe('AgentAssistantPanel stream recovery', () => {
     )
     await flushPromises()
 
+    const queuedMessages = wrapper.findAll('.agent-assistant-message').map(message => ({
+      role: message.classes().includes('agent-assistant-message--user') ? 'user' : 'assistant',
+      text: message.text(),
+    }))
+    expect(queuedMessages.map(message => message.role)).toEqual(['user', 'assistant', 'user'])
+    expect(queuedMessages[1].text).toContain('排队前工具')
+    expect(queuedMessages[1].text).toContain('排队前文本')
+    // queued ACK 尚未代表模型已经消费消息；这期间产生的工具事件仍属于当前助手段。
+    expect(queuedMessages[1].text).toContain('排队后工具')
+    expect(queuedMessages[2].text).toContain('补充：在下一个工具前处理')
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-queued-boundary',
+        content: '补充：在下一个工具前处理',
+        display_message: {
+          role: 'user',
+          content: '补充：在下一个工具前处理',
+          attachments: [],
+        },
+      }),
+    )
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-after-applied',
+        tool_name: 'refresh',
+        message: '消费补充消息后的工具',
+      }),
+    )
+    await flushPromises()
+
     const renderedMessages = wrapper.findAll('.agent-assistant-message').map(message => ({
       role: message.classes().includes('agent-assistant-message--user') ? 'user' : 'assistant',
       text: message.text(),
     }))
     expect(renderedMessages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
-    expect(renderedMessages[1].text).toContain('排队前工具')
-    expect(renderedMessages[1].text).toContain('排队前文本')
+    expect(renderedMessages[1].text).toContain('排队后工具')
     expect(renderedMessages[2].text).toContain('补充：在下一个工具前处理')
-    expect(renderedMessages[3].text).toContain('排队后工具')
+    expect(renderedMessages[3].text).toContain('消费补充消息后的工具')
 
     primaryStream.close()
     await flushPromises()
