@@ -3,10 +3,19 @@ import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, h, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
+const apiGet = vi.hoisted(() => vi.fn().mockResolvedValue({ modules: [] }))
+
 vi.mock('@/api', () => ({
   default: {
-    get: vi.fn(),
+    get: apiGet,
   },
+}))
+
+vi.mock('@/composables/useModuleCatalog', () => ({
+  useModuleCatalog: () => ({
+    isRegisteredModuleOption: () => true,
+    loadModuleCatalog: () => Promise.resolve(),
+  }),
 }))
 
 vi.mock('@/composables/useBackground', () => ({
