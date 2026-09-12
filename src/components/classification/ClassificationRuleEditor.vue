@@ -46,11 +46,14 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:rules': [rules: ClassificationRule[]]
 }>()
+const { t } = useI18n()
 
 // 拖拽能力仅在规则编辑器出现时加载，避免增加其他设置页的首屏体积。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const draftRules = ref<ClassificationRule[]>([])
 const expandedRuleId = ref<string | null>(null)
+const ruleIdDrafts = ref<Record<number, string>>({})
+const ruleIdErrors = ref<Record<number, string>>({})
 
 /** 按条件联合类型递归复制，避免 Vue 响应式代理进入 structuredClone。 */
 function cloneCondition(node: ClassificationConditionNode): ClassificationConditionNode {
@@ -116,7 +119,7 @@ function categoryItems(rule: ClassificationRule) {
   return props.categories
     .filter(category => selectedMediaTypes.size === 0 || selectedMediaTypes.has(category.media_type))
     .map(category => ({
-      title: `${formatClassificationCategoryOptionTitle(category, { includeMediaType: rule.media_types.length !== 1 })}${category.enabled ? '' : '（已停用）'}`,
+      title: `${formatClassificationCategoryOptionTitle(category, { includeMediaType: rule.media_types.length !== 1 })}${category.enabled ? '' : `（${t('setting.classification.rule.disabledCategory')}）`}`,
       value: category.id,
       props: { disabled: !category.enabled },
     }))
@@ -133,11 +136,70 @@ function isCategoryCompatible(categoryId: string | null | undefined, mediaTypes:
 function updateRule(index: number, patch: Partial<ClassificationRule>) {
   const current = draftRules.value[index]
   if (!current) return
+  if (patch.id !== undefined) {
+    const id = String(patch.id).trim()
+    if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(id)) return
+    if (draftRules.value.some((rule, ruleIndex) => ruleIndex !== index && rule.id === id)) return
+  }
   const nextRules = draftRules.value.map((rule, ruleIndex) =>
     ruleIndex === index ? cloneRule({ ...current, ...patch }) : cloneRule(rule),
   )
   commitRules(nextRules)
   if (patch.id !== undefined && expandedRuleId.value === current.id) expandedRuleId.value = patch.id
+}
+
+/** 返回规则编号输入框的本地值，允许用户先清空再输入新编号。 */
+function ruleIdValue(index: number, rule: ClassificationRule): string {
+  return ruleIdDrafts.value[index] ?? rule.id
+}
+
+/** 返回规则编号校验错误，并把错误绑定到对应的输入框。 */
+function ruleIdError(index: number): string | undefined {
+  return ruleIdErrors.value[index]
+}
+
+/** 校验并提交规则稳定编号，避免静默丢弃用户输入。 */
+function updateRuleId(index: number, rawValue: unknown): void {
+  const value = String(rawValue ?? '').trim()
+  ruleIdDrafts.value[index] = value
+  if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(value)) {
+    ruleIdErrors.value[index] = t('setting.classification.rule.invalidId')
+    return
+  }
+  if (draftRules.value.some((rule, ruleIndex) => ruleIndex !== index && rule.id === value)) {
+    ruleIdErrors.value[index] = t('setting.classification.rule.duplicateId', { id: value })
+    return
+  }
+  delete ruleIdErrors.value[index]
+  updateRule(index, { id: value })
+}
+
+/** 按新媒体类型修复条件树中的不兼容字段，避免留下无法编辑的失效条件。 */
+function normalizeConditionForMediaTypes(
+  node: ClassificationConditionNode,
+  mediaTypes: ClassificationMediaType[],
+): ClassificationConditionNode {
+  if ('field' in node) {
+    const definition = props.fields.find(field => field.id === node.field)
+    if (
+      definition &&
+      (mediaTypes.length === 0 || mediaTypes.every(mediaType => definition.media_types.includes(mediaType)))
+    ) {
+      return cloneCondition(node)
+    }
+    return createClassificationTypeCondition(mediaTypes)
+  }
+  if (node.all !== undefined && node.all !== null) {
+    return { all: node.all.map(child => normalizeConditionForMediaTypes(child, mediaTypes)) }
+  }
+  if (node.any !== undefined && node.any !== null) {
+    return { any: node.any.map(child => normalizeConditionForMediaTypes(child, mediaTypes)) }
+  }
+  return {
+    not: node.not
+      ? normalizeConditionForMediaTypes(node.not, mediaTypes)
+      : createClassificationTypeCondition(mediaTypes),
+  }
 }
 
 /** 新增一条具备稳定默认值的分类规则。 */
@@ -148,7 +210,7 @@ function addRule() {
   const defaultCategory = props.categories.find(category => category.enabled && category.media_type === mediaTypes[0])
   const rule: ClassificationRule = {
     id: uniqueId(`rule-${sequence}`),
-    name: uniqueName(`新规则 ${sequence}`),
+    name: uniqueName(t('setting.classification.rule.newName', { sequence })),
     kind: 'category',
     enabled: true,
     priority: draftRules.value.length,
@@ -171,16 +233,22 @@ function copyRule(index: number) {
   if (!source) return
   const copied = cloneRule(source)
   copied.id = uniqueId(`${source.id}-copy`)
-  copied.name = uniqueName(`${source.name} 副本`)
+  copied.name = uniqueName(t('setting.classification.rule.copyName', { name: source.name }))
   commitRules([...draftRules.value.slice(0, index + 1), copied, ...draftRules.value.slice(index + 1)])
   expandedRuleId.value = copied.id
 }
 
 /** 删除指定位置的规则。 */
 function deleteRule(index: number) {
-  const deletedId = draftRules.value[index]?.id
+  const deletedRule = draftRules.value[index]
+  if (!deletedRule) return
+  if (!window.confirm(t('setting.classification.rule.deleteConfirm', { name: deletedRule.name || deletedRule.id })))
+    return
+  const deletedId = deletedRule.id
   commitRules(draftRules.value.filter((_, ruleIndex) => ruleIndex !== index))
   if (expandedRuleId.value === deletedId) expandedRuleId.value = null
+  delete ruleIdDrafts.value[index]
+  delete ruleIdErrors.value[index]
 }
 
 /** 将规则移动到目标位置，并保护首尾边界。 */
@@ -214,6 +282,7 @@ function updateMediaTypes(index: number, value: ClassificationMediaType[] | null
   const mediaTypes = value ?? []
   updateRule(index, {
     media_types: [...mediaTypes],
+    when: normalizeConditionForMediaTypes(rule.when, mediaTypes),
     target: {
       ...rule.target,
       category_id: isCategoryCompatible(rule.target.category_id, mediaTypes) ? rule.target.category_id : null,
@@ -258,7 +327,7 @@ function conditionCount(node: ClassificationConditionNode): number {
 
 /** 将媒体类型压缩为可扫描的规则摘要。 */
 function mediaTypeSummary(rule: ClassificationRule): string {
-  return rule.media_types.length ? rule.media_types.join('、') : '全部媒体'
+  return rule.media_types.length ? rule.media_types.join('、') : t('setting.classification.rule.allMediaTypes')
 }
 
 /** 将来源限制压缩为可扫描的规则摘要。 */
@@ -267,14 +336,17 @@ function sourceSummary(rule: ClassificationRule): string {
     ? rule.sources
         .map(source => props.sourceOptions.find(option => option.value === source)?.title ?? source)
         .join('、')
-    : '全部来源'
+    : t('setting.classification.rule.allSources')
 }
 
 /** 返回规则输出的人类可读摘要，不暴露稳定 ID 作为首要信息。 */
 function targetSummary(rule: ClassificationRule): string {
-  if (rule.kind === 'label') return rule.target.labels.length ? `标签 ${rule.target.labels.join('、')}` : '未设置标签'
+  if (rule.kind === 'label')
+    return rule.target.labels.length
+      ? t('setting.classification.rule.labelsSummary', { labels: rule.target.labels.join('、') })
+      : t('setting.classification.rule.unsetLabels')
   const category = props.categories.find(item => item.id === rule.target.category_id)
-  return category ? formatClassificationCategoryOptionTitle(category) : '未设置分类'
+  return category ? formatClassificationCategoryOptionTitle(category) : t('setting.classification.rule.unsetCategory')
 }
 
 const sourceItems = computed(() => {
@@ -299,16 +371,22 @@ watch(
   () => props.rules,
   rules => {
     draftRules.value = normalizePriorities(rules)
+    ruleIdDrafts.value = {}
+    ruleIdErrors.value = {}
   },
   { deep: true, immediate: true },
 )
 </script>
 
 <template>
-  <section class="classification-rule-editor" aria-label="分类规则编辑器">
+  <section class="classification-rule-editor" :aria-label="t('setting.classification.rule.editorAria')">
     <header class="classification-rule-toolbar">
       <div class="classification-rule-count">
-        <strong>{{ props.advanced ? '有序规则' : '匹配规则' }}</strong>
+        <strong>{{
+          props.advanced
+            ? t('setting.classification.rule.orderedRules')
+            : t('setting.classification.rule.matchingRules')
+        }}</strong>
         <span>{{ draftRules.length }} / {{ maxRules }}</span>
       </div>
       <VBtn
@@ -316,18 +394,22 @@ watch(
         variant="tonal"
         prepend-icon="mdi-plus"
         :disabled="hasReachedLimit"
-        aria-label="新增分类规则"
+        :aria-label="t('setting.classification.rule.add')"
         @click="addRule"
       >
-        新增规则
+        {{ t('setting.classification.rule.add') }}
         <VTooltip activator="parent" location="top">
-          {{ hasReachedLimit ? `最多允许 ${maxRules} 条规则` : '新增分类规则' }}
+          {{
+            hasReachedLimit
+              ? t('setting.classification.rule.limitReached', { count: maxRules })
+              : t('setting.classification.rule.add')
+          }}
         </VTooltip>
       </VBtn>
     </header>
 
     <VAlert v-if="!props.advanced" type="info" variant="tonal" density="compact">
-      基础模式仅需设置媒体类型和目标分类；条件组合、数据来源及标签等选项可在“高级设置”中调整。
+      {{ t('setting.classification.rule.simpleModeHint') }}
     </VAlert>
 
     <Draggable
@@ -343,7 +425,7 @@ watch(
           :class="{ 'classification-rule--expanded': expandedRuleId === rule.id }"
           variant="outlined"
           role="article"
-          :aria-label="`规则 ${index + 1}：${rule.name || rule.id}`"
+          :aria-label="t('setting.classification.rule.itemAria', { index: index + 1, name: rule.name || rule.id })"
         >
           <div class="classification-rule-head">
             <VBtn
@@ -352,10 +434,10 @@ watch(
               icon
               variant="text"
               color="secondary"
-              :aria-label="`拖拽排序规则 ${rule.name || rule.id}`"
+              :aria-label="t('setting.classification.rule.dragAria', { name: rule.name || rule.id })"
             >
               <VIcon icon="mdi-drag-vertical" size="20" />
-              <VTooltip activator="parent" location="top">拖拽排序</VTooltip>
+              <VTooltip activator="parent" location="top">{{ t('setting.classification.rule.drag') }}</VTooltip>
             </VBtn>
 
             <button
@@ -367,12 +449,12 @@ watch(
             >
               <span class="classification-rule-title">
                 <strong>{{ rule.name || rule.id }}</strong>
-                <span>优先级 {{ rule.priority }}</span>
+                <span>{{ t('setting.classification.rule.priority', { priority: rule.priority + 1 }) }}</span>
               </span>
               <span class="classification-rule-meta">
                 <span>{{ mediaTypeSummary(rule) }}</span>
                 <span>{{ sourceSummary(rule) }}</span>
-                <span>{{ conditionCount(rule.when) }} 个条件</span>
+                <span>{{ t('setting.classification.rule.conditionCount', { count: conditionCount(rule.when) }) }}</span>
                 <span>{{ targetSummary(rule) }}</span>
               </span>
             </button>
@@ -384,7 +466,7 @@ watch(
               density="compact"
               hide-details
               inset
-              :aria-label="`启用规则 ${rule.name || rule.id}`"
+              :aria-label="t('setting.classification.rule.enableAria', { name: rule.name || rule.id })"
               @update:model-value="value => updateRule(index, { enabled: Boolean(value) })"
             />
 
@@ -394,31 +476,31 @@ watch(
                   v-bind="menuProps"
                   icon="mdi-dots-vertical"
                   variant="text"
-                  :aria-label="`规则操作 ${rule.name || rule.id}`"
+                  :aria-label="t('setting.classification.rule.actionsAria', { name: rule.name || rule.id })"
                 />
               </template>
               <VList density="compact" min-width="180">
                 <VListItem
                   prepend-icon="mdi-arrow-up"
-                  :title="`上移规则 ${rule.name || rule.id}`"
+                  :title="t('setting.classification.rule.moveUp', { name: rule.name || rule.id })"
                   :disabled="index === 0"
                   @click="moveRule(index, index - 1)"
                 />
                 <VListItem
                   prepend-icon="mdi-arrow-down"
-                  :title="`下移规则 ${rule.name || rule.id}`"
+                  :title="t('setting.classification.rule.moveDown', { name: rule.name || rule.id })"
                   :disabled="index === draftRules.length - 1"
                   @click="moveRule(index, index + 1)"
                 />
                 <VListItem
                   prepend-icon="mdi-content-copy"
-                  :title="`复制规则 ${rule.name || rule.id}`"
+                  :title="t('setting.classification.rule.copy', { name: rule.name || rule.id })"
                   :disabled="hasReachedLimit"
                   @click="copyRule(index)"
                 />
                 <VListItem
                   prepend-icon="mdi-delete-outline"
-                  :title="`删除规则 ${rule.name || rule.id}`"
+                  :title="t('setting.classification.rule.delete', { name: rule.name || rule.id })"
                   base-color="error"
                   @click="deleteRule(index)"
                 />
@@ -428,7 +510,14 @@ watch(
             <IconBtn
               :icon="expandedRuleId === rule.id ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               variant="text"
-              :aria-label="`${expandedRuleId === rule.id ? '收起' : '编辑'}规则 ${rule.name || rule.id}`"
+              :aria-label="
+                t(
+                  expandedRuleId === rule.id
+                    ? 'setting.classification.rule.collapse'
+                    : 'setting.classification.rule.edit',
+                  { name: rule.name || rule.id },
+                )
+              "
               @click="toggleRule(rule.id)"
             />
           </div>
@@ -441,20 +530,21 @@ watch(
             <div class="classification-rule-grid classification-rule-grid--identity">
               <VTextField
                 :model-value="rule.name"
-                label="规则名称"
+                :label="t('setting.classification.rule.name')"
                 density="compact"
                 hide-details="auto"
-                :aria-label="`规则名称 ${index + 1}`"
+                :aria-label="t('setting.classification.rule.nameAria', { index: index + 1 })"
                 @update:model-value="value => updateRule(index, { name: value })"
               />
               <VTextField
                 v-if="props.advanced"
-                :model-value="rule.id"
-                label="规则编号"
+                :model-value="ruleIdValue(index, rule)"
+                :error-messages="ruleIdError(index)"
+                :label="t('setting.classification.rule.id')"
                 density="compact"
                 hide-details="auto"
-                :aria-label="`规则编号 ${index + 1}`"
-                @update:model-value="value => updateRule(index, { id: value })"
+                :aria-label="t('setting.classification.rule.idAria', { index: index + 1 })"
+                @update:model-value="value => updateRuleId(index, value)"
               />
               <VBtnToggle
                 v-if="props.advanced"
@@ -464,11 +554,11 @@ watch(
                 density="compact"
                 variant="outlined"
                 class="classification-rule-kind"
-                :aria-label="`规则类型 ${rule.name || rule.id}`"
+                :aria-label="t('setting.classification.rule.kindAria', { name: rule.name || rule.id })"
                 @update:model-value="value => updateKind(index, value)"
               >
-                <VBtn value="category">分类</VBtn>
-                <VBtn value="label">标签</VBtn>
+                <VBtn value="category">{{ t('setting.classification.rule.categoryKind') }}</VBtn>
+                <VBtn value="label">{{ t('setting.classification.rule.labelKind') }}</VBtn>
               </VBtnToggle>
             </div>
 
@@ -476,7 +566,7 @@ watch(
               <VSelect
                 :model-value="rule.media_types"
                 :items="MEDIA_TYPES"
-                label="媒体类型"
+                :label="t('setting.classification.rule.mediaTypes')"
                 multiple
                 chips
                 closable-chips
@@ -484,29 +574,29 @@ watch(
                 density="compact"
                 hide-details="auto"
                 :menu-props="classificationRuleMenuProps"
-                :aria-label="`媒体类型 ${rule.name || rule.id}`"
+                :aria-label="t('setting.classification.rule.mediaTypesAria', { name: rule.name || rule.id })"
                 @update:model-value="value => updateMediaTypes(index, value)"
               />
               <VSelect
                 v-if="props.advanced"
                 :model-value="rule.sources"
                 :items="sourceItems"
-                label="数据来源"
+                :label="t('setting.classification.rule.sources')"
                 multiple
                 chips
                 closable-chips
                 clearable
                 density="compact"
                 hide-details="auto"
-                hint="留空表示全部来源"
+                :hint="t('setting.classification.rule.sourcesHint')"
                 :menu-props="classificationRuleMenuProps"
-                :aria-label="`数据来源 ${rule.name || rule.id}`"
+                :aria-label="t('setting.classification.rule.sourcesAria', { name: rule.name || rule.id })"
                 @update:model-value="value => updateSources(index, value)"
               />
             </div>
 
             <div class="classification-rule-condition">
-              <div class="classification-rule-section-title">匹配条件</div>
+              <div class="classification-rule-section-title">{{ t('setting.classification.rule.conditions') }}</div>
               <ClassificationConditionBuilder
                 :model-value="rule.when"
                 :fields="fields"
@@ -520,24 +610,24 @@ watch(
             </div>
 
             <div class="classification-rule-target">
-              <div class="classification-rule-section-title">命中后执行</div>
+              <div class="classification-rule-section-title">{{ t('setting.classification.rule.action') }}</div>
               <div class="classification-rule-grid">
                 <VSelect
                   v-if="rule.kind === 'category'"
                   :model-value="rule.target.category_id"
                   :items="categoryItems(rule)"
-                  label="归入分类"
+                  :label="t('setting.classification.rule.categoryTarget')"
                   clearable
                   density="compact"
                   hide-details="auto"
-                  no-data-text="当前媒体类型没有可用分类"
+                  :no-data-text="t('setting.classification.rule.noCategoryOptions')"
                   :menu-props="classificationRuleMenuProps"
-                  :aria-label="`分类目标 ${rule.name || rule.id}`"
+                  :aria-label="t('setting.classification.rule.categoryTargetAria', { name: rule.name || rule.id })"
                   @update:model-value="value => updateTarget(index, { category_id: value })"
                 />
                 <VCombobox
                   :model-value="rule.target.labels"
-                  label="输出标签"
+                  :label="t('setting.classification.rule.labels')"
                   multiple
                   chips
                   closable-chips
@@ -546,7 +636,7 @@ watch(
                   hide-details="auto"
                   :menu-props="classificationRuleMenuProps"
                   :class="{ 'classification-rule-labels--wide': rule.kind === 'label' }"
-                  :aria-label="`标签输出 ${rule.name || rule.id}`"
+                  :aria-label="t('setting.classification.rule.labelsAria', { name: rule.name || rule.id })"
                   @update:model-value="value => updateTarget(index, { labels: value })"
                 />
               </div>
@@ -558,7 +648,7 @@ watch(
 
     <div v-if="draftRules.length === 0" class="classification-rule-empty">
       <VIcon icon="mdi-filter-plus-outline" size="30" />
-      <span>暂无分类规则</span>
+      <span>{{ t('setting.classification.rule.empty') }}</span>
     </div>
   </section>
 </template>

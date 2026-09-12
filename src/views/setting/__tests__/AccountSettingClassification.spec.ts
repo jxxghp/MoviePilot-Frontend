@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   apiErrorMessage: vi.fn(),
   analyzeImpact: vi.fn(),
   initialize: vi.fn(),
+  loadDefaultPolicy: vi.fn(),
   loadHistory: vi.fn(),
   preview: vi.fn(),
   publishDraft: vi.fn(),
@@ -159,13 +160,16 @@ vi.mock('@/components/classification/ClassificationPolicyControlPanel.vue', asyn
   }
 })
 
-function createPolicy(): ClassificationPolicy {
+/** 构造设置页测试用策略，并允许单独标记默认策略的 revision 与分类名称。 */
+function createPolicy(revision = 7, categoryName = '电影'): ClassificationPolicy {
   return {
     schema_version: 2,
-    revision: 7,
+    revision,
     mode: 'first_match',
     enrichment_mode: 'primary_only',
-    categories: [{ id: 'movie.base', media_type: '电影', name: '电影', path: ['电影'], enabled: true, labels: [] }],
+    categories: [
+      { id: 'movie.base', media_type: '电影', name: categoryName, path: [categoryName], enabled: true, labels: [] },
+    ],
     rules: [
       {
         id: 'rule.movie',
@@ -245,6 +249,7 @@ describe('AccountSettingClassification', () => {
     mocks.apiErrorMessage.mockReset().mockReturnValue(undefined)
     mocks.analyzeImpact.mockReset()
     mocks.initialize.mockReset().mockResolvedValue(undefined)
+    mocks.loadDefaultPolicy.mockReset().mockResolvedValue(createPolicy(1, '内置默认'))
     mocks.loadHistory.mockReset().mockResolvedValue(undefined)
     mocks.preview.mockReset().mockResolvedValue(undefined)
     mocks.publishDraft.mockReset().mockResolvedValue(createPolicy())
@@ -315,6 +320,7 @@ describe('AccountSettingClassification', () => {
       impactResult,
       isDirty: computed(() => JSON.stringify(draftPolicy.value) !== JSON.stringify(activePolicy.value)),
       loadingHistory: ref(false),
+      loadingDefaultPolicy: ref(false),
       loadingFields: ref(false),
       loadingPolicy: ref(false),
       previewResult: ref(null),
@@ -325,6 +331,7 @@ describe('AccountSettingClassification', () => {
       validating: ref(false),
       analyzeImpact: mocks.analyzeImpact,
       initialize: mocks.initialize,
+      loadDefaultPolicy: mocks.loadDefaultPolicy,
       loadHistory: mocks.loadHistory,
       preview: mocks.preview,
       publishDraft: mocks.publishDraft,
@@ -374,6 +381,20 @@ describe('AccountSettingClassification', () => {
     expect(
       screen.getByRole('button', { name: '知道了' }).closest('.classification-help-dialog__actions'),
     ).not.toBeNull()
+  })
+
+  it('loads built-in defaults into the draft without publishing immediately', async () => {
+    const user = userEvent.setup()
+    const defaultPolicy = createPolicy(1, '内置默认')
+    mocks.loadDefaultPolicy.mockImplementation(async () => defaultPolicy)
+    await renderWithProviders(AccountSettingClassification)
+    await screen.findByRole('region', { name: 'category-editor' })
+
+    await user.click(screen.getByRole('button', { name: '恢复内置默认规则' }))
+
+    expect(mocks.loadDefaultPolicy).toHaveBeenCalledOnce()
+    expect(mocks.publishDraft).not.toHaveBeenCalled()
+    expect(mocks.toastInfo).toHaveBeenCalledWith('已恢复内置默认分类规则，请校验后发布')
   })
 
   it('replaces category, fallback, and rule slices without losing the rest of the draft', async () => {

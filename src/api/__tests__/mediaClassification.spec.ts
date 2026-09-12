@@ -6,6 +6,7 @@ import {
   analyzeClassificationImpact,
   getClassificationFields,
   getClassificationHistory,
+  getDefaultClassificationPolicy,
   getClassificationPolicy,
   getClassificationRevisionConflict,
   getClassificationValidationFailure,
@@ -87,11 +88,13 @@ describe('media classification API', () => {
     mocks.get.mockResolvedValue({ ok: true })
 
     await getClassificationPolicy()
+    await getDefaultClassificationPolicy()
     await getClassificationFields()
     await getClassificationHistory()
 
     expect(mocks.get.mock.calls).toEqual([
       ['media/classification/policy', { feedback: 'silent' }],
+      ['media/classification/policy', { params: { template: 'default' }, feedback: 'silent' }],
       ['media/classification/fields', { feedback: 'silent' }],
       ['media/classification/history', { feedback: 'silent' }],
     ])

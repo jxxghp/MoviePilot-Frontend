@@ -35,6 +35,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: 'update:modelValue', value: ClassificationConditionNode): void
 }>()
+const { t } = useI18n()
 
 type ConditionNodeKind = 'condition' | 'all' | 'any' | 'not'
 type ValueControlKind = 'none' | 'range' | 'list' | 'boolean' | 'number' | 'select' | 'text'
@@ -57,40 +58,40 @@ const LIST_VALUE_OPERATORS = new Set<ClassificationOperator>([
   'contains_none',
 ])
 
-const NODE_KIND_ITEMS: ReadonlyArray<{ title: string; value: ConditionNodeKind }> = [
-  { title: '条件', value: 'condition' },
-  { title: '全部', value: 'all' },
-  { title: '任一', value: 'any' },
-  { title: '排除', value: 'not' },
-]
+const NODE_KIND_ITEMS = computed<ReadonlyArray<{ title: string; value: ConditionNodeKind }>>(() => [
+  { title: t('setting.classification.condition.nodeKinds.condition'), value: 'condition' },
+  { title: t('setting.classification.condition.nodeKinds.all'), value: 'all' },
+  { title: t('setting.classification.condition.nodeKinds.any'), value: 'any' },
+  { title: t('setting.classification.condition.nodeKinds.not'), value: 'not' },
+])
 
-const NODE_KIND_HINTS: Record<ConditionNodeKind, string> = {
-  condition: '单个条件只判断一个字段。选择“全部”或“任一”后，可以添加同级条件。',
-  all: '全部满足：所有条件都满足时，规则才会命中。',
-  any: '任一满足：只要有一个条件满足，规则就会命中。',
-  not: '排除：括号内条件满足时，规则不会命中。',
+const NODE_KIND_HINT_KEYS: Record<ConditionNodeKind, string> = {
+  condition: 'setting.classification.condition.nodeHints.condition',
+  all: 'setting.classification.condition.nodeHints.all',
+  any: 'setting.classification.condition.nodeHints.any',
+  not: 'setting.classification.condition.nodeHints.not',
 }
 
-const OPERATOR_LABELS: Record<ClassificationOperator, string> = {
-  equals: '等于',
-  not_equals: '不等于',
-  in: '属于',
-  not_in: '不属于',
-  contains: '包含',
-  starts_with: '开头为',
-  ends_with: '结尾为',
-  gt: '大于',
-  gte: '大于等于',
-  lt: '小于',
-  lte: '小于等于',
-  between: '介于',
-  contains_any: '包含任一',
-  contains_all: '包含全部',
-  contains_none: '不包含任一',
-  is_true: '为真',
-  is_false: '为假',
-  exists: '存在',
-  not_exists: '不存在',
+const OPERATOR_LABEL_KEYS: Record<ClassificationOperator, string> = {
+  equals: 'setting.classification.condition.operators.equals',
+  not_equals: 'setting.classification.condition.operators.not_equals',
+  in: 'setting.classification.condition.operators.in',
+  not_in: 'setting.classification.condition.operators.not_in',
+  contains: 'setting.classification.condition.operators.contains',
+  starts_with: 'setting.classification.condition.operators.starts_with',
+  ends_with: 'setting.classification.condition.operators.ends_with',
+  gt: 'setting.classification.condition.operators.gt',
+  gte: 'setting.classification.condition.operators.gte',
+  lt: 'setting.classification.condition.operators.lt',
+  lte: 'setting.classification.condition.operators.lte',
+  between: 'setting.classification.condition.operators.between',
+  contains_any: 'setting.classification.condition.operators.contains_any',
+  contains_all: 'setting.classification.condition.operators.contains_all',
+  contains_none: 'setting.classification.condition.operators.contains_none',
+  is_true: 'setting.classification.condition.operators.is_true',
+  is_false: 'setting.classification.condition.operators.is_false',
+  exists: 'setting.classification.condition.operators.exists',
+  not_exists: 'setting.classification.condition.operators.not_exists',
 }
 
 const classificationMenuProps = {
@@ -133,7 +134,15 @@ function supportsSelectedMediaTypes(field: ClassificationFieldDefinition): boole
 }
 
 const availableFields = computed(() => props.fields.filter(supportsSelectedMediaTypes))
-const selectableFields = computed(() => availableFields.value.filter(field => field.selectable !== false))
+/** 所选来源均不提供该字段时禁止新建条件，但保留已有条件以便用户迁移。 */
+function isUnavailableForSelectedSources(field: ClassificationFieldDefinition): boolean {
+  if (!props.sources.length) return false
+  return props.sources.every(source => (field.source_support[source] ?? 'unavailable') === 'unavailable')
+}
+
+const selectableFields = computed(() =>
+  availableFields.value.filter(field => field.selectable !== false && !isUnavailableForSelectedSources(field)),
+)
 
 /** 将标准字段排在扩展字段之前，避免迁移字段遮住常用的风格、年份和国家字段。 */
 function fieldOrder(field: ClassificationFieldDefinition): number {
@@ -150,19 +159,21 @@ const fieldItems = computed(() =>
     .map(field => ({
       title:
         field.selectable === false
-          ? `${field.label.replace('（旧规则）', '')}（兼容字段）`
+          ? t('setting.classification.condition.compatibilityField', {
+              label: field.label.replace(/（旧规则）|\(legacy rule\)|\(compatibility field\)/g, ''),
+            })
           : field.group
             ? `${field.group} · ${field.label}`
             : field.label,
       value: field.id,
-      props: { disabled: field.selectable === false },
+      props: { disabled: field.selectable === false || isUnavailableForSelectedSources(field) },
     })),
 )
 
 const nodeKind = computed(() => getNodeKind(props.modelValue))
 const groupChildren = computed(() => getGroupChildren(props.modelValue))
 const canUseGroup = computed(() => props.depth < props.maxDepth)
-const nodeKindHint = computed(() => NODE_KIND_HINTS[nodeKind.value])
+const nodeKindHint = computed(() => t(NODE_KIND_HINT_KEYS[nodeKind.value]))
 const canAddChild = computed(
   () =>
     nodeKind.value !== 'condition' &&
@@ -186,7 +197,7 @@ const replacementDefinition = computed(() => {
 
 const operatorItems = computed(() =>
   (selectedDefinition.value?.operators ?? []).map(operator => ({
-    title: OPERATOR_LABELS[operator],
+    title: t(OPERATOR_LABEL_KEYS[operator]),
     value: operator,
   })),
 )
@@ -239,10 +250,10 @@ const valueHint = computed(() => {
   if (NO_VALUE_OPERATORS.has(selectedCondition.value?.operator as ClassificationOperator)) return ''
   if (optionItems.value.length)
     return selectedDefinition.value?.allow_custom_values
-      ? '搜索名称或代码选择；列表外的来源原值也可输入，按回车确认。'
-      : '搜索名称或代码，可直接选择条件值。'
+      ? t('setting.classification.condition.valueSearchCustom')
+      : t('setting.classification.condition.valueSearch')
   return ['string', 'string_list'].includes(selectedDefinition.value?.value_type ?? '')
-    ? '此字段没有固定字典，请按媒体预览中的原值填写；多个值逐个输入并按回车确认。'
+    ? t('setting.classification.condition.valueFreeform')
     : ''
 })
 
@@ -252,12 +263,24 @@ const sourceSupportHints = computed<SourceSupportHint[]>(() => {
 
   const hints: SourceSupportHint[] = []
   for (const source of new Set(props.sources)) {
-    const support = definition.source_support[source]
+    const support = definition.source_support[source] ?? 'unavailable'
     if (support === 'partial') {
-      hints.push({ source, support, label: '部分支持', color: 'warning', icon: 'mdi-alert-outline' })
+      hints.push({
+        source,
+        support,
+        label: t('setting.classification.condition.supportPartial'),
+        color: 'warning',
+        icon: 'mdi-alert-outline',
+      })
     }
     if (support === 'unavailable') {
-      hints.push({ source, support, label: '不可用', color: 'error', icon: 'mdi-database-off-outline' })
+      hints.push({
+        source,
+        support,
+        label: t('setting.classification.condition.supportUnavailable'),
+        color: 'error',
+        icon: 'mdi-database-off-outline',
+      })
     }
   }
   return hints
@@ -265,12 +288,12 @@ const sourceSupportHints = computed<SourceSupportHint[]>(() => {
 
 /** 把规则来源限制解释成用户可理解的匹配范围。 */
 const sourceScopeNote = computed(() => {
-  if (props.sources.length === 0) return '未限制数据来源：该规则适用于全部来源。'
+  if (props.sources.length === 0) return t('setting.classification.condition.sourceScopeAll')
   const names = [...new Set(props.sources)].map(source => {
     const option = props.sourceOptions.find(item => item.value === source)
     return option?.title ?? source
   })
-  return `已选择数据来源：${names.join('、')}。多个来源表示任一来源即可命中，系统不会合并不同来源的媒体信息；字段值以当前媒体的实际来源为准。`
+  return t('setting.classification.condition.sourceScopeSelected', { sources: names.join('、') })
 })
 
 const valueControlKind = computed<ValueControlKind>(() => {
@@ -481,7 +504,7 @@ function removeChild(index: number): void {
   <section
     class="classification-condition-builder"
     :data-depth="props.depth"
-    :aria-label="`条件节点，第 ${props.depth + 1} 层`"
+    :aria-label="t('setting.classification.condition.nodeAria', { depth: props.depth + 1 })"
   >
     <div v-if="props.advanced" class="classification-condition-builder__toolbar">
       <VBtnToggle
@@ -491,7 +514,7 @@ function removeChild(index: number): void {
         variant="outlined"
         density="compact"
         class="classification-condition-builder__kind-toggle"
-        aria-label="条件节点类型"
+        :aria-label="t('setting.classification.condition.nodeKindAria')"
         @update:model-value="updateNodeKind"
       >
         <VBtn
@@ -506,12 +529,12 @@ function removeChild(index: number): void {
       </VBtnToggle>
 
       <VChip v-if="!canUseGroup" size="small" variant="tonal" color="warning" data-testid="depth-limit">
-        已达最大组深度
+        {{ t('setting.classification.condition.maxDepth') }}
       </VChip>
     </div>
 
     <p v-else-if="nodeKind !== 'condition'" class="classification-condition-builder__node-hint">
-      当前规则包含多个条件；条件组合方式可在“高级设置”中调整。
+      {{ t('setting.classification.condition.simpleGroupHint') }}
     </p>
 
     <p v-if="props.advanced" class="classification-condition-builder__node-hint" data-testid="node-kind-hint">
@@ -520,16 +543,16 @@ function removeChild(index: number): void {
 
     <template v-if="nodeKind === 'condition'">
       <VAlert v-if="availableFields.length === 0" type="warning" variant="tonal" density="compact" class="mt-3">
-        当前媒体类型没有共同可用的条件字段
+        {{ t('setting.classification.condition.noAvailableFields') }}
       </VAlert>
 
       <div v-else class="classification-condition-builder__leaf">
         <VAutocomplete
           :model-value="selectedCondition?.field"
           :items="fieldItems"
-          label="字段"
-          placeholder="搜索风格、年份、国家或字段名称"
-          aria-label="条件字段"
+          :label="t('setting.classification.condition.field')"
+          :placeholder="t('setting.classification.condition.fieldPlaceholder')"
+          :aria-label="t('setting.classification.condition.fieldAria')"
           variant="outlined"
           density="compact"
           hide-details="auto"
@@ -542,8 +565,8 @@ function removeChild(index: number): void {
         <VSelect
           :model-value="selectedCondition?.operator"
           :items="operatorItems"
-          label="操作符"
-          aria-label="条件操作符"
+          :label="t('setting.classification.condition.operator')"
+          :aria-label="t('setting.classification.condition.operatorAria')"
           variant="outlined"
           density="compact"
           hide-details="auto"
@@ -560,7 +583,7 @@ function removeChild(index: number): void {
             color="secondary"
             data-testid="no-value"
           >
-            此操作符无需值
+            {{ t('setting.classification.condition.noValue') }}
           </VChip>
 
           <div v-else-if="valueControlKind === 'range'" class="classification-condition-builder__range">
@@ -568,7 +591,7 @@ function removeChild(index: number): void {
               :model-value="rangeValue[0]"
               type="number"
               :step="numericStep"
-              label="起始值"
+              :label="t('setting.classification.condition.rangeStart')"
               variant="outlined"
               density="compact"
               hide-details="auto"
@@ -579,7 +602,7 @@ function removeChild(index: number): void {
               :model-value="rangeValue[1]"
               type="number"
               :step="numericStep"
-              label="结束值"
+              :label="t('setting.classification.condition.rangeEnd')"
               variant="outlined"
               density="compact"
               hide-details="auto"
@@ -594,9 +617,9 @@ function removeChild(index: number): void {
               :model-value="catalogListSelection"
               :items="optionItems"
               return-object
-              placeholder="搜索或输入条件值"
-              label="条件值"
-              aria-label="条件值列表"
+              :placeholder="t('setting.classification.condition.valuePlaceholder')"
+              :label="t('setting.classification.condition.value')"
+              :aria-label="t('setting.classification.condition.listAria')"
               multiple
               chips
               closable-chips
@@ -612,9 +635,9 @@ function removeChild(index: number): void {
               :model-value="comboboxListModel"
               :items="optionItems"
               return-object
-              placeholder="搜索或输入条件值"
-              label="条件值"
-              aria-label="条件值列表"
+              :placeholder="t('setting.classification.condition.valuePlaceholder')"
+              :label="t('setting.classification.condition.value')"
+              :aria-label="t('setting.classification.condition.listAria')"
               multiple
               chips
               closable-chips
@@ -634,12 +657,12 @@ function removeChild(index: number): void {
             color="primary"
             variant="outlined"
             density="compact"
-            aria-label="布尔条件值"
+            :aria-label="t('setting.classification.condition.booleanAria')"
             data-testid="boolean-value-input"
             @update:model-value="updateScalarValue"
           >
-            <VBtn :value="true" size="small">是</VBtn>
-            <VBtn :value="false" size="small">否</VBtn>
+            <VBtn :value="true" size="small">{{ t('setting.classification.condition.yes') }}</VBtn>
+            <VBtn :value="false" size="small">{{ t('setting.classification.condition.no') }}</VBtn>
           </VBtnToggle>
 
           <VTextField
@@ -647,7 +670,7 @@ function removeChild(index: number): void {
             :model-value="scalarValue"
             type="number"
             :step="numericStep"
-            label="条件值"
+            :label="t('setting.classification.condition.value')"
             variant="outlined"
             density="compact"
             hide-details="auto"
@@ -661,9 +684,9 @@ function removeChild(index: number): void {
               :model-value="catalogScalarSelection"
               :items="optionItems"
               return-object
-              placeholder="搜索或输入条件值"
-              label="条件值"
-              aria-label="条件值"
+              :placeholder="t('setting.classification.condition.valuePlaceholder')"
+              :label="t('setting.classification.condition.value')"
+              :aria-label="t('setting.classification.condition.value')"
               variant="outlined"
               density="compact"
               hide-details="auto"
@@ -676,9 +699,9 @@ function removeChild(index: number): void {
               :model-value="comboboxScalarModel"
               :items="optionItems"
               return-object
-              placeholder="搜索或输入条件值"
-              label="条件值"
-              aria-label="条件值"
+              :placeholder="t('setting.classification.condition.valuePlaceholder')"
+              :label="t('setting.classification.condition.value')"
+              :aria-label="t('setting.classification.condition.value')"
               variant="outlined"
               density="compact"
               hide-details="auto"
@@ -691,7 +714,7 @@ function removeChild(index: number): void {
           <VTextField
             v-else
             :model-value="scalarValue"
-            label="条件值"
+            :label="t('setting.classification.condition.value')"
             variant="outlined"
             density="compact"
             hide-details="auto"
@@ -731,10 +754,10 @@ function removeChild(index: number): void {
       >
         <VIcon icon="mdi-history" size="16" />
         <span>
-          这条条件从旧分类配置迁移而来，继续按原来的方式匹配，不需要重新配置。
-          <template v-if="replacementDefinition"
-            >新增条件请选“{{ replacementDefinition.label }}”；更换字段可能改变匹配结果，请先预览。</template
-          >
+          {{ t('setting.classification.condition.retiredHint') }}
+          <template v-if="replacementDefinition">
+            {{ t('setting.classification.condition.retiredReplacement', { label: replacementDefinition.label }) }}
+          </template>
         </span>
       </p>
 
@@ -742,7 +765,7 @@ function removeChild(index: number): void {
         v-if="sourceSupportHints.length > 0"
         class="classification-condition-builder__source-hints"
         role="status"
-        aria-label="数据源字段支持提示"
+        :aria-label="t('setting.classification.condition.sourceSupportAria')"
         data-testid="source-support-hints"
       >
         <VChip
@@ -776,7 +799,7 @@ function removeChild(index: number): void {
           v-if="props.advanced && nodeKind !== 'not' && groupChildren.length > 1"
           class="classification-condition-builder__child-action"
         >
-          <VTooltip text="删除子条件" location="top">
+          <VTooltip :text="t('setting.classification.condition.deleteChild')" location="top">
             <template #activator="{ props: tooltipProps }">
               <VBtn
                 v-bind="tooltipProps"
@@ -784,7 +807,7 @@ function removeChild(index: number): void {
                 variant="text"
                 color="error"
                 size="small"
-                :aria-label="`删除子条件 ${index + 1}`"
+                :aria-label="t('setting.classification.condition.deleteChildAria', { index: index + 1 })"
                 @click="removeChild(index)"
               />
             </template>
@@ -793,7 +816,14 @@ function removeChild(index: number): void {
       </div>
 
       <div v-if="props.advanced" class="classification-condition-builder__group-actions">
-        <VTooltip :text="canAddChild ? '添加同级条件' : '没有可用字段，或排除已经有条件'" location="top">
+        <VTooltip
+          :text="
+            canAddChild
+              ? t('setting.classification.condition.addChildAvailable')
+              : t('setting.classification.condition.addChildDisabled')
+          "
+          location="top"
+        >
           <template #activator="{ props: tooltipProps }">
             <VBtn
               v-bind="tooltipProps"
@@ -801,11 +831,11 @@ function removeChild(index: number): void {
               variant="tonal"
               color="primary"
               size="small"
-              aria-label="添加条件"
+              :aria-label="t('setting.classification.condition.addChildAria')"
               :disabled="!canAddChild"
               @click="addChild"
             >
-              添加条件
+              {{ t('setting.classification.condition.addChild') }}
             </VBtn>
           </template>
         </VTooltip>

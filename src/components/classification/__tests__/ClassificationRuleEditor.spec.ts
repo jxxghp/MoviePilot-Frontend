@@ -149,6 +149,10 @@ async function selectOption(label: string, option: string) {
 describe('ClassificationRuleEditor', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    )
   })
 
   it('新增、复制和删除规则，并为副本生成独立稳定 ID', async () => {

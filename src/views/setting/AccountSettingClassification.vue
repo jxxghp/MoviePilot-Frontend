@@ -96,6 +96,7 @@ const {
   history,
   impactResult,
   isDirty,
+  loadingDefaultPolicy,
   loadingHistory,
   loadingFields,
   loadingPolicy,
@@ -107,11 +108,13 @@ const {
   validating,
   analyzeImpact,
   initialize,
+  loadDefaultPolicy,
   loadHistory,
   preview,
   publishDraft,
   refreshPolicy,
   resetDraft,
+  replaceDraft,
   rollback,
   validateDraft,
 } = useMediaClassification()
@@ -296,25 +299,29 @@ async function loadDirectoryReferences(): Promise<void> {
 /** 使用不可变数组替换分类草稿，避免子组件原地污染活动策略。 */
 function updateCategories(categories: ClassificationCategory[]): void {
   if (!draftPolicy.value) return
-  draftPolicy.value = { ...draftPolicy.value, categories }
+  if (typeof replaceDraft === 'function') replaceDraft({ ...draftPolicy.value, categories })
+  else draftPolicy.value = { ...draftPolicy.value, categories }
 }
 
 /** 更新三个媒体类型的稳定兜底分类 ID。 */
 function updateFallbacks(fallbacks: Partial<Record<ClassificationMediaType, string>>): void {
   if (!draftPolicy.value) return
-  draftPolicy.value = { ...draftPolicy.value, fallbacks }
+  if (typeof replaceDraft === 'function') replaceDraft({ ...draftPolicy.value, fallbacks })
+  else draftPolicy.value = { ...draftPolicy.value, fallbacks }
 }
 
 /** 切换分类前的缺失事实补充策略，空值不会覆盖当前草稿。 */
 function updateEnrichmentMode(mode: ClassificationEnrichmentMode | null): void {
   if (!draftPolicy.value || !mode) return
-  draftPolicy.value = { ...draftPolicy.value, enrichment_mode: mode }
+  if (typeof replaceDraft === 'function') replaceDraft({ ...draftPolicy.value, enrichment_mode: mode })
+  else draftPolicy.value = { ...draftPolicy.value, enrichment_mode: mode }
 }
 
 /** 使用规则编辑器返回的优先级顺序替换草稿规则。 */
 function updateRules(rules: ClassificationRule[]): void {
   if (!draftPolicy.value) return
-  draftPolicy.value = { ...draftPolicy.value, rules }
+  if (typeof replaceDraft === 'function') replaceDraft({ ...draftPolicy.value, rules })
+  else draftPolicy.value = { ...draftPolicy.value, rules }
 }
 
 /** 通过服务端真实字段目录校验当前草稿，并保留结构化问题供页面展示。 */
@@ -348,7 +355,7 @@ async function previewFacts(request: ClassificationPreviewRequestEvent): Promise
     await preview(request.input, { policy: request.policyMode === 'active' ? null : undefined })
   } catch (error) {
     console.error(error)
-    toast.error(t('setting.classification.previewFailed'))
+    toast.error(getApiErrorMessage(error) || t('setting.classification.previewFailed'))
   }
 }
 
@@ -371,22 +378,29 @@ async function analyzeCurrentDraft(options: ClassificationImpactRequestEvent = l
   } catch (error) {
     console.error(error)
     analyzedDraftSnapshot.value = null
-    toast.error(t('setting.classification.impactFailed'))
+    toast.error(getApiErrorMessage(error) || t('setting.classification.impactFailed'))
   }
 }
 
 /** 发布已经通过当前校验、影响分析和人工审阅门禁的草稿。 */
 async function publishCurrentDraft(): Promise<void> {
   if (!validationIsCurrent.value || !impactIsCurrent.value) return
+  let policy: ClassificationPolicy
   try {
-    const policy = await publishDraft()
+    policy = await publishDraft()
     validatedDraftSnapshot.value = null
     analyzedDraftSnapshot.value = null
-    await loadHistory()
     toast.success(t('setting.classification.publishSucceeded', { revision: policy.revision }))
   } catch (error) {
     console.error(error)
-    toast.error(t('setting.classification.publishFailed'))
+    toast.error(getApiErrorMessage(error) || t('setting.classification.publishFailed'))
+    return
+  }
+  try {
+    await loadHistory()
+  } catch (error) {
+    console.error(error)
+    toast.warning(getApiErrorMessage(error) || t('setting.classification.historyFailed'))
   }
 }
 
@@ -401,7 +415,7 @@ async function reloadRemotePolicy(): Promise<void> {
     toast.info(t('setting.classification.remoteReloaded'))
   } catch (error) {
     console.error(error)
-    toast.error(t('setting.classification.remoteReloadFailed'))
+    toast.error(getApiErrorMessage(error) || t('setting.classification.remoteReloadFailed'))
   }
 }
 
@@ -413,6 +427,21 @@ async function keepDraftAndReanalyze(): Promise<void> {
     await analyzeCurrentDraft(lastImpactOptions.value)
   } catch (error) {
     console.error(error)
+    toast.error(getApiErrorMessage(error) || t('setting.classification.impactFailed'))
+  }
+}
+
+/** 将内置默认策略加载到当前草稿，保留校验与发布门禁。 */
+async function restoreBuiltInDefaults(): Promise<void> {
+  if (isDirty.value && !window.confirm(t('setting.classification.restoreDefaultsConfirm'))) return
+  try {
+    await loadDefaultPolicy()
+    validatedDraftSnapshot.value = null
+    analyzedDraftSnapshot.value = null
+    toast.info(t('setting.classification.defaultsLoaded'))
+  } catch (error) {
+    console.error(error)
+    toast.error(getApiErrorMessage(error) || t('setting.classification.defaultsLoadFailed'))
   }
 }
 
@@ -428,11 +457,11 @@ async function loadPolicyHistory(): Promise<void> {
 
 /** 将历史内容通过 CAS 发布为新 revision，并刷新历史列表。 */
 async function rollbackPolicy(revision: number): Promise<void> {
+  let result: Awaited<ReturnType<typeof rollback>>
   try {
-    const result = await rollback(revision)
+    result = await rollback(revision)
     validatedDraftSnapshot.value = null
     analyzedDraftSnapshot.value = null
-    await loadHistory()
     toast.success(
       t('setting.classification.rollbackSucceeded', {
         source: result.restored_from_revision,
@@ -441,7 +470,14 @@ async function rollbackPolicy(revision: number): Promise<void> {
     )
   } catch (error) {
     console.error(error)
-    toast.error(t('setting.classification.rollbackFailed'))
+    toast.error(getApiErrorMessage(error) || t('setting.classification.rollbackFailed'))
+    return
+  }
+  try {
+    await loadHistory()
+  } catch (error) {
+    console.error(error)
+    toast.warning(getApiErrorMessage(error) || t('setting.classification.historyFailed'))
   }
 }
 
@@ -451,6 +487,12 @@ function discardDraft(): void {
   validatedDraftSnapshot.value = null
   analyzedDraftSnapshot.value = null
   toast.info(t('setting.classification.draftReset'))
+}
+
+/** 关闭设置前保护未发布草稿，避免用户误丢编辑。 */
+function requestClose(): void {
+  if (isDirty.value && !window.confirm(t('setting.classification.closeConfirm'))) return
+  emit('close')
 }
 
 watch(
@@ -505,6 +547,16 @@ watch(analysisTab, tab => {
                 : t('setting.classification.showAdvancedSettings')
             }}
           </VBtn>
+          <VBtn
+            variant="text"
+            prepend-icon="mdi-backup-restore"
+            :loading="loadingDefaultPolicy"
+            :disabled="loadingDefaultPolicy || publishing || rollingBack"
+            :aria-label="t('setting.classification.restoreDefaults')"
+            @click="restoreBuiltInDefaults"
+          >
+            {{ t('setting.classification.restoreDefaults') }}
+          </VBtn>
           <VBtn icon variant="text" :aria-label="t('setting.classification.helpButton')" @click="helpDialog = true">
             <VIcon icon="mdi-help-circle-outline" />
             <VTooltip activator="parent" location="bottom">
@@ -516,7 +568,7 @@ watch(analysisTab, tab => {
             icon="mdi-close"
             variant="text"
             :aria-label="t('common.close')"
-            @click="emit('close')"
+            @click="requestClose"
           />
         </div>
       </template>
@@ -657,6 +709,8 @@ watch(analysisTab, tab => {
                 :referenced-category-ids="referencedCategoryIds"
                 :directory-references="directoryCategoryReferences"
                 :max-depth="fieldCatalog.limits.max_category_depth"
+                :max-segment-length="fieldCatalog.limits.max_category_segment_length"
+                :max-path-length="fieldCatalog.limits.max_category_path_length"
                 :advanced="showAdvanced"
                 @update:categories="updateCategories"
                 @update:fallbacks="updateFallbacks"
@@ -699,7 +753,7 @@ watch(analysisTab, tab => {
                   @request-preview="previewFacts"
                 />
                 <VAlert
-                  v-if="impactResultSnapshot"
+                  v-if="impactResultSnapshot && impactIsCurrent"
                   class="classification-settings__simple-impact"
                   type="success"
                   variant="tonal"
@@ -712,6 +766,15 @@ watch(analysisTab, tab => {
                       degraded: impactResultSnapshot.degraded_count,
                     })
                   }}
+                </VAlert>
+                <VAlert
+                  v-else-if="impactResultSnapshot"
+                  class="classification-settings__simple-impact"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                >
+                  {{ t('setting.classification.control.impactExpired') }}
                 </VAlert>
                 <div class="classification-settings__simple-review-actions">
                   <VBtn
@@ -771,6 +834,7 @@ watch(analysisTab, tab => {
                       :categories="draftPolicy.categories"
                       :sources="mediaSourceCatalog"
                       :analysis="impactResultSnapshot"
+                      :current="impactIsCurrent"
                       :loading="analyzingImpact"
                       :disabled="publishing || rollingBack"
                       @analyze="analyzeCurrentDraft"

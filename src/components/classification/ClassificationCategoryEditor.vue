@@ -9,6 +9,8 @@ interface ClassificationCategoryEditorProps {
   referencedCategoryIds?: string[]
   directoryReferences?: Array<{ categoryId: string; directoryNames: string[] }>
   maxDepth?: number
+  maxSegmentLength?: number
+  maxPathLength?: number
   advanced?: boolean
 }
 
@@ -32,6 +34,8 @@ const props = withDefaults(defineProps<ClassificationCategoryEditorProps>(), {
   referencedCategoryIds: () => [],
   directoryReferences: () => [],
   maxDepth: 4,
+  maxSegmentLength: 64,
+  maxPathLength: 240,
   advanced: true,
 })
 
@@ -88,6 +92,15 @@ function parseCategoryPath(pathText: string): ParsedCategoryPath {
       path: [],
       error: t('setting.classification.category.pathTooDeep', { count: effectiveMaxDepth.value }),
     }
+  }
+  if (path.some(segment => segment.length > props.maxSegmentLength)) {
+    return {
+      path: [],
+      error: t('setting.classification.category.pathSegmentTooLong', { count: props.maxSegmentLength }),
+    }
+  }
+  if (path.join('/').length > props.maxPathLength) {
+    return { path: [], error: t('setting.classification.category.pathTooLong', { count: props.maxPathLength }) }
   }
   return { path, error: null }
 }
@@ -151,7 +164,15 @@ function fallbackItemTitle(category: ClassificationCategory): string {
 
 /** 返回指定媒体类型可选的稳定分类 ID 列表。 */
 function fallbackItems(mediaType: ClassificationMediaType): ClassificationCategory[] {
-  return props.categories.filter(category => category.media_type === mediaType)
+  const currentId = props.fallbacks[mediaType]
+  return props.categories.filter(
+    category => category.media_type === mediaType && (category.enabled || category.id === currentId),
+  )
+}
+
+/** 禁止把已停用分类再次选为兜底，同时保留现有停用值以便用户看见并清理。 */
+function fallbackItemProps(category: ClassificationCategory): { disabled: boolean } {
+  return { disabled: !category.enabled }
 }
 
 /** 为简单模式的新分类生成不暴露给用户的稳定编号。 */
@@ -251,6 +272,17 @@ function saveDraft(): void {
     validationMessage.value = parsedPath.error
     return
   }
+  const normalizedPath = parsedPath.path.map(segment => segment.trim().toLocaleLowerCase()).join('/')
+  const duplicatePath = props.categories.some(
+    category =>
+      category.id !== currentDraft.originalId &&
+      category.media_type === currentDraft.mediaType &&
+      category.path.map(segment => segment.trim().toLocaleLowerCase()).join('/') === normalizedPath,
+  )
+  if (duplicatePath) {
+    validationMessage.value = t('setting.classification.category.duplicatePath')
+    return
+  }
 
   const nextCategory: ClassificationCategory = {
     id,
@@ -285,6 +317,7 @@ function removeCategory(category: ClassificationCategory): void {
     statusMessage.value = hint
     return
   }
+  if (!window.confirm(t('setting.classification.category.deleteConfirm', { name: category.name }))) return
 
   emit('update:categories', cloneCategories(props.categories.filter(item => item.id !== category.id)))
   if (draft.value?.originalId === category.id) draft.value = null
@@ -482,9 +515,9 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
         <div class="classification-category-summary">
           <div class="classification-category-title-line">
             <strong>{{ classificationCategoryDisplayName(category) }}</strong>
-            <VChip v-if="fallbacks[category.media_type] === category.id" size="small" color="primary" variant="tonal"
-              >默认分类</VChip
-            >
+            <VChip v-if="fallbacks[category.media_type] === category.id" size="small" color="primary" variant="tonal">{{
+              t('setting.classification.category.fallbackBadge')
+            }}</VChip>
             <VChip size="small" :color="category.enabled ? 'success' : undefined" variant="tonal">
               {{
                 category.enabled
@@ -494,7 +527,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             </VChip>
           </div>
           <p v-if="classificationCategoryDisplayName(category) !== category.name" class="classification-category-id">
-            该分类为旧版迁移时创建的备用目录，仅在被规则、默认分类或目录设置引用时使用。
+            {{ t('setting.classification.category.legacyHint') }}
           </p>
           <ol
             class="classification-category-path"
@@ -581,6 +614,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
           :menu-props="comboboxMenuProps(t('setting.classification.category.fallbackFor', { mediaType: item.label }))"
           :items="fallbackItems(item.label)"
           :item-title="fallbackItemTitle"
+          :item-props="fallbackItemProps"
           item-value="id"
           clearable
           hide-details="auto"
