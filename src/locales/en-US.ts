@@ -4565,6 +4565,8 @@ export default {
     filterPlaceholder: 'Filter (supports * ? wildcards)',
   },
   person: {
+    actor: 'Actor',
+    artist: 'Artist',
     alias: 'Also Known As:',
     credits: 'Credits',
     biography: 'Biography',

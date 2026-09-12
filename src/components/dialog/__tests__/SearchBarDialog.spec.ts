@@ -171,8 +171,18 @@ describe('SearchBarDialog media source selection', () => {
     expect(within(musicGroup).getByRole('button', { name: '使用 豆瓣音乐 搜索' })).not.toHaveClass(
       'media-source-button--active',
     )
-    expect(within(collectionGroup).getAllByRole('button')).toHaveLength(6)
-    expect(within(personGroup).getAllByRole('button')).toHaveLength(9)
+    expect(within(collectionGroup).getAllByRole('button')).toHaveLength(1)
+    expect(within(collectionGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toBeInTheDocument()
+    expect(within(personGroup).getAllByRole('button')).toHaveLength(3)
+    expect(within(personGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(personGroup).getByRole('button', { name: '使用 MusicBrainz 搜索' })).not.toHaveClass(
+      'media-source-button--active',
+    )
+    expect(within(personGroup).getByRole('button', { name: '使用 豆瓣 搜索' })).not.toHaveClass(
+      'media-source-button--active',
+    )
     expect(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toHaveClass(
       'media-source-button--active',
     )
@@ -219,6 +229,28 @@ describe('SearchBarDialog media source selection', () => {
       expect(router.currentRoute.value.query).toEqual({
         query: 'Coldplay',
         media_source: 'theaudiodb',
+      })
+    })
+  })
+
+  it('passes the selected Douban source to the person search endpoint', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderSearchBar()
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, '周星驰')
+    const personItem = getSearchItem('演员/艺术家')
+    const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
+    await user.click(within(personGroup).getByRole('button', { name: '使用 豆瓣 搜索' }))
+    await user.click(within(personGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' }))
+    await user.click(personItem)
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/browse/media/search')
+      expect(router.currentRoute.value.query).toEqual({
+        media_source: 'douban',
+        title: '周星驰',
+        type: 'person',
       })
     })
   })

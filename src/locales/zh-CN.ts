@@ -4461,6 +4461,8 @@ export default {
     filterPlaceholder: '搜索（支持 * ? 通配符）',
   },
   person: {
+    actor: '演员',
+    artist: '艺术家',
     alias: '别名：',
     credits: '参演作品',
     biography: '个人简介',

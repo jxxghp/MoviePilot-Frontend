@@ -4,6 +4,9 @@ import type { Person } from '@/api/types'
 import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const personProps = defineProps({
   person: Object as PropType<Person>,
@@ -102,6 +105,7 @@ function goPersonDetail() {
                   <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
                 </VAvatar>
               </div>
+              <div class="person-card-kind text-caption text-medium-emphasis">{{ t('person.actor') }}</div>
               <div class="w-full truncate text-center font-bold">
                 {{ getPersonName() }}
               </div>

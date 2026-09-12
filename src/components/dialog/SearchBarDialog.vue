@@ -189,12 +189,14 @@ watch(
 
 // 按后端实际能力限定每类搜索可选的数据源。
 const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSourceOption[]>>(() => {
+  const personSources = new Set<MediaDataSource>(['themoviedb', 'douban', 'musicbrainz'])
   return {
     media: mediaSearchSources.value,
     music: musicSearchSources.value,
-    collection: mediaSearchSources.value,
+    collection: mediaSearchSources.value.filter(source => source.value === 'themoviedb'),
     person: [...mediaSearchSources.value, ...musicSearchSources.value].filter(
-      (source, index, sources) => sources.findIndex(item => item.value === source.value) === index,
+      (source, index, sources) =>
+        personSources.has(source.value) && sources.findIndex(item => item.value === source.value) === index,
     ),
   }
 })
@@ -1196,6 +1198,7 @@ onMounted(() => {
 
 .media-source-button--active {
   background: var(--app-grouped-list-active-background) !important;
+  border-radius: var(--app-control-radius) !important;
   color: rgb(var(--v-theme-primary)) !important;
 }
 

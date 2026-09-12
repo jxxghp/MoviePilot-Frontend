@@ -4417,6 +4417,8 @@ export default {
     filterPlaceholder: '搜尋（支援 * ? 萬用字元）',
   },
   person: {
+    actor: '演員',
+    artist: '藝術家',
     alias: '別名：',
     credits: '參演作品',
     biography: '個人簡介',

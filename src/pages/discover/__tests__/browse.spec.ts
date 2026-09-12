@@ -112,6 +112,24 @@ describe('browse page', () => {
     })
   })
 
+  it('prefixes unified media search titles with the selected search type', async () => {
+    await renderBrowse(['media', 'search'], {
+      title: '流浪地球',
+      type: 'media',
+    })
+
+    expect(screen.getByRole('heading', { name: '电影、电视剧: 流浪地球' })).toBeInTheDocument()
+  })
+
+  it('prefixes collection search titles with the selected search type', async () => {
+    await renderBrowse(['media', 'search'], {
+      title: '指环王',
+      type: 'collection',
+    })
+
+    expect(screen.getByRole('heading', { name: '系列合集: 指环王' })).toBeInTheDocument()
+  })
+
   it('drops an invalid media source only from unified media search', async () => {
     await renderBrowse(['media', 'search'], {
       media_source: 'invalid:source',
