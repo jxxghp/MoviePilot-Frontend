@@ -1142,6 +1142,42 @@ describe('PluginCardListView market filtering and pagination', () => {
     expect(screen.queryByText('market:市场插件 39')).not.toBeInTheDocument()
   })
 
+  it('closes the inactive tab filter menu when switching tabs', async () => {
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => [createPlugin({ id: 'Market', plugin_name: '市场插件' })],
+    })
+    await waitForRequestsToFinish()
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    const marketFilterButton = getHeaderConfig().appendButtons.find(
+      button => button.dataAttr === 'market-filter-btn',
+    )
+    const installedFilterButton = getHeaderConfig().appendButtons.find(
+      button => button.dataAttr === 'installed-filter-btn',
+    )
+    if (!marketFilterButton?.action || !installedFilterButton?.action) {
+      throw new Error('未注册插件过滤操作')
+    }
+
+    marketFilterButton.action()
+    await nextTick()
+    expect(screen.getByText('插件名称')).toBeInTheDocument()
+
+    getHeaderConfig().modelValue.value = 'installed'
+    await nextTick()
+    expect(screen.queryByText('插件名称')).not.toBeInTheDocument()
+
+    installedFilterButton.action()
+    await nextTick()
+    expect(screen.getByText('运行中')).toBeInTheDocument()
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    expect(screen.queryByText('运行中')).not.toBeInTheDocument()
+  })
+
   it('restores each tab window scroll position after switching tabs', async () => {
     const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     let currentScrollTop = 0

@@ -1633,6 +1633,11 @@ useKeepAliveRefresh(refreshActiveTabData)
 watch(activeTab, (newTab, oldTab) => {
   if (!oldTab || newTab === oldTab || (newTab !== 'installed' && newTab !== 'market')) return
 
+  // 筛选菜单通过 Teleport 挂在页面外层，切换标签不会随内容窗自动关闭。
+  // 这里只关闭另一个标签的浮层，保留已选筛选条件供用户切回后继续使用。
+  if (newTab === 'installed') filterMarketPluginDialog.value = false
+  if (newTab === 'market') filterInstalledPluginDialog.value = false
+
   if (oldTab === 'installed' || oldTab === 'market') {
     tabScrollPositions[oldTab] = window.scrollY
   }
@@ -2352,7 +2357,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
     <VWindow v-model="activeTab" class="disable-tab-transition px-2" :touch="false">
       <!-- 我的插件 -->
       <VWindowItem value="installed">
-        <div>
+        <div :key="`installed-${activeTab}`" v-show="activeTab === 'installed'">
           <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
           <LoadingBanner v-if="!isRefreshed && !installedLoadError" class="mt-12" />
           <NoDataFound
@@ -2537,7 +2542,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
       </VWindowItem>
       <!-- 插件市场 -->
       <VWindowItem value="market">
-        <div>
+        <div :key="`market-${activeTab}`" v-show="activeTab === 'market'">
           <LoadingBanner
             v-if="
               (!isAppMarketLoaded && !marketLoadError) || (isMarketRefreshing && displayUninstalledList.length === 0)

@@ -4803,6 +4803,9 @@ export default {
     sourceChangeRestartRequired:
       'The repository for {name} was changed. Restart MoviePilot to finish applying dependency updates.',
     sourceConflictHint: 'Multiple plugins share this ID. Choose a repository.',
+    sourceLocalAndOnlineHint: 'Local and online sources are available. Choose an installation source.',
+    sourceMultipleOnlineHint: 'Official and third-party repositories are available. Choose an installation source.',
+    sourceMultipleThirdPartyHint: 'Multiple third-party repositories are available. Choose an installation source.',
     sourceThirdPartyHint: 'This plugin comes from a third-party repository. Confirm before installing.',
     sourceSelectionRequired: 'Selection required',
     sourceConfirmationRequired: 'Confirmation required',

@@ -57,11 +57,20 @@ const visible = computed({
 const resolvedPlugin = computed(() => pluginDetail.value ?? props.plugin)
 
 const resolvedHistory = computed(() => {
-  const history = { ...(resolvedPlugin.value?.history || {}) }
+  const declaredHistory = resolvedPlugin.value?.history || {}
+  const history: Record<string, string> = {}
+
+  // Release 接口已经按发布时间返回版本；先采用该顺序，再补充索引中独有的历史条目。
   releaseItems.value.forEach(item => {
     const key = normalizeHistoryVersion(item.version)
-    if (!(key in history)) history[key] = item.body || ''
+    history[key] = declaredHistory[key] || item.body || ''
   })
+  Object.entries(declaredHistory)
+    .filter(([version]) => !(version in history))
+    .sort(([left], [right]) => compareVersions(right, left))
+    .forEach(([version, body]) => {
+      history[version] = body
+    })
   return history
 })
 
@@ -156,20 +165,26 @@ function normalizeHistoryVersion(version: string) {
   return version.startsWith('v') ? version : `v${version}`
 }
 
+function versionParts(value: string) {
+  return value
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .map(part => Number.parseInt(part, 10) || 0)
+}
+
+function compareVersions(left: string, right: string) {
+  const leftParts = versionParts(left)
+  const rightParts = versionParts(right)
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0)
+    if (difference !== 0) return difference
+  }
+  return 0
+}
+
 function isVersionHigher(candidate?: string | null, current?: string | null) {
   if (!candidate || !current) return false
-  const parse = (value: string) =>
-    value
-      .replace(/^v/i, '')
-      .split(/[.-]/)
-      .map(part => Number.parseInt(part, 10) || 0)
-  const left = parse(candidate)
-  const right = parse(current)
-  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-    const difference = (left[index] || 0) - (right[index] || 0)
-    if (difference !== 0) return difference > 0
-  }
-  return false
+  return compareVersions(candidate, current) > 0
 }
 
 function isVersionAtLeast(candidate?: string | null, current?: string | null) {
