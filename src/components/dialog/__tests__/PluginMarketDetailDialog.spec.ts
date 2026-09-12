@@ -163,7 +163,7 @@ describe('PluginMarketDetailDialog', () => {
     })
     const { emitted } = await renderDialog({ ...basePlugin, installed: false })
 
-    expect(await screen.findByText('检测到多个同名插件，请选择仓库。')).toBeInTheDocument()
+    expect(await screen.findByText('检测到官方和第三方仓库，请选择安装来源。')).toBeInTheDocument()
     expect(screen.getByText('需选择')).toBeInTheDocument()
     expect(screen.queryByText('该插件存在多个在线来源，请确认来源后安装。')).not.toBeInTheDocument()
     const installButton = screen.getByRole('button', { name: '安装到本地' })
@@ -183,6 +183,38 @@ describe('PluginMarketDetailDialog', () => {
     })
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toHaveLength(1)
+  })
+
+  it('keeps long local repository paths secondary in the source choice', async () => {
+    const localPath = '/Users/example/Projects/MoviePilot/MoviePilot-Plugins'
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          identity: null,
+          selection_status: 'incomplete',
+          selection_reason: '该插件存在本地和在线来源，请确认来源后安装。',
+          candidates: [
+            {
+              source_type: 'local',
+              source_key: null,
+              repo_url: `local://DemoPlugin?path=${encodeURIComponent(localPath)}&version=v3`,
+              package_generation: 'v3',
+              plugin_version: '1.1.0',
+            },
+            defaultSourceOptions.candidates[0],
+          ],
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+
+    await renderDialog({ ...basePlugin, installed: false })
+
+    expect(await screen.findByText('检测到本地和在线来源，请选择安装来源。')).toBeInTheDocument()
+    expect(screen.getAllByText('…/MoviePilot/MoviePilot-Plugins')).toHaveLength(2)
+    expect(screen.getByRole('radio', { name: '…/MoviePilot/MoviePilot-Plugins' })).toHaveAttribute('title', localPath)
   })
 
   it('reinstalls an unbound market plugin after explicitly confirming its repository', async () => {
@@ -383,25 +415,15 @@ describe('PluginMarketDetailDialog', () => {
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
     expect(await screen.findByText('当前插件尚未绑定，请选择仓库。')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
-    await fireEvent.click(screen.getByRole('button', { name: '绑定' }))
-    await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
-    await fireEvent.click(screen.getByRole('button', { name: '确认绑定' }))
+    expect(screen.getByRole('button', { name: '更新' })).not.toBeDisabled()
+    await fireEvent.click(screen.getByRole('button', { name: '更新' }))
 
-    expect(mocks.confirm).toHaveBeenCalledWith(
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'plugin/source/DemoPlugin/install',
       expect.objectContaining({
-        icon: 'mdi-shield-check-outline',
-        title: '确认绑定仓库',
-        confirmText: '确认绑定',
+        repo_url: 'https://github.com/example/plugins',
       }),
     )
-    expect(emitted().sourceTransition).toContainEqual([
-      {
-        action: 'bind',
-        repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
-      },
-    ])
-    expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin/install', expect.anything())
     expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin', expect.anything())
     expect(emitted()['update:modelValue']).toContainEqual([false])
   })
@@ -694,6 +716,7 @@ describe('PluginMarketDetailDialog', () => {
       params: {
         force: true,
         release_version: undefined,
+        repo_url: 'https://github.com/example/plugins',
       },
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')

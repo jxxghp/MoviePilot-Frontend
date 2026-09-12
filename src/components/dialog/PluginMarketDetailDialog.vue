@@ -2,6 +2,7 @@
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
 import {
+  changePluginSource,
   getPluginSourceOptions,
   installPluginFromSource,
   requiresExplicitPluginSourceInstall,
@@ -102,12 +103,38 @@ const onlineSourceCandidates = computed(() =>
     // 官方仓库是默认可信来源，在所有选源入口中始终置顶。
     .sort((left, right) => Number(right.source_type === 'official') - Number(left.source_type === 'official')),
 )
+const localSourceCandidates = computed(() => {
+  const candidates = (sourceOptions.value?.candidates || []).filter(
+    (candidate): candidate is PluginSourceCandidate & { repo_url: string } =>
+      candidate.source_type === 'local' && Boolean(candidate.repo_url),
+  )
+  if (candidates.length > 0) return candidates
+
+  const repoUrl = props.plugin?.repo_url
+  if (props.plugin?.is_local && repoUrl?.startsWith('local://')) {
+    const generationMatch = repoUrl.match(/[?&](?:version|package_version)=(v[123])/i)
+    const packageGeneration = (generationMatch?.[1]?.toLowerCase() || 'v3') as 'v1' | 'v2' | 'v3'
+    return [
+      {
+        source_type: 'local' as const,
+        source_key: null,
+        repo_url: repoUrl,
+        package_generation: packageGeneration,
+        plugin_version: props.plugin.plugin_version || null,
+      } satisfies PluginSourceCandidate & { repo_url: string },
+    ]
+  }
+  return []
+})
+const installSourceCandidates = computed(() => [...localSourceCandidates.value, ...onlineSourceCandidates.value])
 const sourceNeedsSelection = computed(() =>
-  sourceOptions.value ? requiresExplicitPluginSourceInstall(sourceOptions.value, isInstalled.value) : false,
+  sourceOptions.value
+    ? (!isInstalled.value && installSourceCandidates.value.length > 1) ||
+      requiresExplicitPluginSourceInstall(sourceOptions.value, isInstalled.value)
+    : false,
 )
-const sourceHasConflict = computed(() => sourceOptions.value?.selection_status === 'conflict')
 const selectedInstallSource = computed(() =>
-  onlineSourceCandidates.value.find(candidate => candidate.source_key === selectedInstallSourceKey.value),
+  installSourceCandidates.value.find(candidate => candidateSelectionKey(candidate) === selectedInstallSourceKey.value),
 )
 const selectedChangeSource = computed(() =>
   sourceActionCandidates.value.find(candidate => candidate.source_key === selectedChangeSourceKey.value),
@@ -138,8 +165,36 @@ const sourceUnavailable = computed(() => {
   return unavailable
 })
 const sourceSectionVisible = computed(
-  () => isInstalled.value || sourceNeedsSelection.value || sourceUnavailable.value || Boolean(sourceError.value),
+  () =>
+    isInstalled.value ||
+    (sourceOptions.value && !sourceOptions.value.identity && localSourceCandidates.value.length > 0) ||
+    localSourceCandidates.value.length > 0 ||
+    sourceNeedsSelection.value ||
+    sourceUnavailable.value ||
+    Boolean(sourceError.value),
 )
+const sourceHintText = computed(() => {
+  if (isInstalled.value) {
+    return sourceNeedsInitialBinding.value ? t('plugin.sourceBindingHint') : t('plugin.sourceInstalledHint')
+  }
+
+  if (sourceNeedsSelection.value) {
+    const hasLocal = localSourceCandidates.value.length > 0
+    const hasOfficial = onlineSourceCandidates.value.some(candidate => candidate.source_type === 'official')
+    const thirdPartyCount = onlineSourceCandidates.value.filter(
+      candidate => candidate.source_type === 'third_party',
+    ).length
+    if (hasLocal && onlineSourceCandidates.value.length > 0) return t('plugin.sourceLocalAndOnlineHint')
+    if (hasOfficial && thirdPartyCount > 0) return t('plugin.sourceMultipleOnlineHint')
+    if (!hasOfficial && thirdPartyCount > 1) return t('plugin.sourceMultipleThirdPartyHint')
+    if (sourceNeedsReinstallBinding.value) return t('plugin.sourceBindingHint')
+    if (thirdPartyCount === 1) return t('plugin.sourceThirdPartyHint')
+    return t('plugin.sourceConflictHint')
+  }
+
+  if (sourceNeedsReinstallBinding.value) return t('plugin.sourceBindingHint')
+  return t('plugin.sourceThirdPartyHint')
+})
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
@@ -162,10 +217,30 @@ function sourceKeyLabel(sourceKey?: string | null) {
   return sourceKey.startsWith('github:') ? sourceKey.slice('github:'.length) : sourceKey
 }
 
-/** 返回候选来源的简短名称，本地候选不展示路径。 */
+/** 返回候选来源的简短名称，本地候选展示配置的仓库路径。 */
 function sourceCandidateLabel(candidate: PluginSourceCandidate) {
-  if (candidate.source_type === 'local') return t('plugin.local')
+  if (candidate.source_type === 'local') {
+    const path = localSourcePath(candidate)
+    const parts = path.split('/').filter(Boolean)
+    return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : path || t('plugin.local')
+  }
   return sourceKeyLabel(candidate.source_key)
+}
+
+/** 从内部本地来源地址中提取可展示路径。 */
+function localSourcePath(candidate: PluginSourceCandidate) {
+  const repoUrl = candidate.repo_url || ''
+  const path = repoUrl.replace(/^local:\/\/[^?]+\?path=/, '').split('&version=')[0]
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return path
+  }
+}
+
+/** 为本地候选生成可回传的选择键；在线候选继续使用稳定来源键。 */
+function candidateSelectionKey(candidate: PluginSourceCandidate) {
+  return candidate.source_key || candidate.repo_url || ''
 }
 
 /** 返回当前可信更新来源；本地载荷与在线身份分开展示。 */
@@ -194,18 +269,32 @@ async function loadPluginSourceOptions(force = false) {
     const options = await getPluginSourceOptions(props.plugin.id, force)
     sourceOptions.value = options
 
-    const installCandidates = onlineSourceCandidates.value
+    const installCandidates = installSourceCandidates.value
     const installSelectionStillExists = installCandidates.some(
-      candidate => candidate.source_key === selectedInstallSourceKey.value,
+      candidate => candidateSelectionKey(candidate) === selectedInstallSourceKey.value,
     )
     if (!installSelectionStillExists) {
+      const localCandidate = localSourceCandidates.value[0]
       const officialCandidate = installCandidates.find(candidate => candidate.source_type === 'official')
       const selectedCandidate = installCandidates.length === 1 ? installCandidates[0] : undefined
-      selectedInstallSourceKey.value =
-        !isInstalled.value && options.selection_status === 'conflict'
-          ? officialCandidate?.source_key || ''
-          : !isInstalled.value && selectedCandidate?.source_type === 'third_party'
-            ? selectedCandidate.source_key
+      const preferredCandidate =
+        options.selection_status === 'conflict'
+          ? officialCandidate
+          : !isInstalled.value
+            ? localCandidate ||
+              installCandidates.find(candidate => candidate.repo_url === props.plugin?.repo_url) ||
+              selectedCandidate
+            : installCandidates.find(candidate => candidate.repo_url === props.plugin?.repo_url) ||
+              localCandidate ||
+              selectedCandidate
+      selectedInstallSourceKey.value = preferredCandidate
+        ? candidateSelectionKey(preferredCandidate)
+        : options.selection_status === 'conflict'
+          ? officialCandidate
+            ? candidateSelectionKey(officialCandidate)
+            : ''
+          : selectedCandidate && selectedCandidate.source_type === 'third_party'
+            ? candidateSelectionKey(selectedCandidate)
             : ''
     }
 
@@ -318,20 +407,48 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     return
   }
 
-  if (sourceNeedsInitialBinding.value) {
-    $toast.error(sourceOptions.value?.selection_reason || t('plugin.sourceBindingHint'))
-    return
-  }
-
   const explicitSource = sourceNeedsSelection.value ? selectedInstallSource.value : undefined
   if (sourceNeedsSelection.value && !explicitSource?.repo_url) {
     $toast.error(t('plugin.selectSourceRequired'))
     return
   }
 
-  const selectedRepoUrl = explicitSource?.repo_url || repoUrl
+  const selectedCandidate =
+    explicitSource ||
+    installSourceCandidates.value.find(candidate => candidate.repo_url === (repoUrl || props.plugin?.repo_url))
+  const selectedRepoUrl = selectedCandidate?.repo_url || repoUrl
+  const requiresOnlineBinding =
+    isInstalled.value &&
+    !hasTrustedOnlineSource.value &&
+    selectedCandidate?.source_type !== 'local' &&
+    Boolean(selectedRepoUrl)
+  const requiresSourceChange =
+    Boolean(selectedCandidate) &&
+    selectedCandidate?.source_type !== 'local' &&
+    hasTrustedOnlineSource.value &&
+    selectedCandidate?.source_key !== sourceOptions.value?.identity?.trusted_source_key
 
-  if (explicitSource?.source_type === 'third_party') {
+  if (requiresSourceChange && sourceOptions.value?.identity && selectedCandidate) {
+    const confirmed = await createConfirm({
+      type: 'warn',
+      icon: 'mdi-source-branch',
+      title: t('plugin.confirmSourceChangeTitle'),
+      content: [
+        t('plugin.confirmSourceChange', {
+          name: props.plugin?.plugin_name,
+          current: trustedSourceLabel(),
+          target: sourceCandidateLabel(selectedCandidate),
+        }),
+        selectedCandidate.source_type === 'third_party' ? t('plugin.thirdPartySourceRisk') : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      confirmText: t('plugin.confirmSourceChangeAction'),
+    })
+    if (!confirmed) return
+  }
+
+  if (explicitSource?.source_type === 'third_party' && !requiresSourceChange) {
     const confirmed = await createConfirm({
       type: 'warn',
       icon: 'mdi-shield-alert-outline',
@@ -369,9 +486,19 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     )
 
     let outcome: PluginInstallOutcome | null
-    if (!isInstalled.value && explicitSource?.repo_url) {
+    if (requiresSourceChange && selectedRepoUrl && sourceOptions.value?.identity?.revision !== undefined) {
+      outcome = await changePluginSource(props.plugin.id, {
+        repo_url: selectedRepoUrl,
+        expected_revision: sourceOptions.value.identity.revision,
+        release_version: releaseVersion,
+      })
+    } else if (
+      (!isInstalled.value || requiresOnlineBinding) &&
+      selectedRepoUrl &&
+      selectedCandidate?.source_type !== 'local'
+    ) {
       outcome = await installPluginFromSource(props.plugin.id, {
-        repo_url: explicitSource.repo_url,
+        repo_url: selectedRepoUrl,
         release_version: releaseVersion,
         force: Boolean(props.plugin?.has_update || releaseVersion),
       })
@@ -548,7 +675,7 @@ onUnmounted(() => {
                 <VChip v-if="sourceNeedsSelection" size="x-small" color="warning" variant="tonal">
                   {{
                     t(
-                      sourceHasConflict || onlineSourceCandidates.length > 1
+                      installSourceCandidates.length > 1
                         ? 'plugin.sourceSelectionRequired'
                         : 'plugin.sourceConfirmationRequired',
                     )
@@ -556,15 +683,7 @@ onUnmounted(() => {
                 </VChip>
               </h3>
               <p class="plugin-market-detail-source__hint">
-                {{
-                  sourceNeedsInitialBinding || sourceNeedsReinstallBinding
-                    ? t('plugin.sourceBindingHint')
-                    : isInstalled
-                      ? t('plugin.sourceInstalledHint')
-                      : sourceHasConflict
-                        ? t('plugin.sourceConflictHint')
-                        : t('plugin.sourceThirdPartyHint')
-                }}
+                {{ sourceHintText }}
               </p>
             </div>
             <VProgressCircular v-if="sourceLoading" indeterminate size="20" width="2" />
@@ -575,7 +694,7 @@ onUnmounted(() => {
           </p>
 
           <template v-if="sourceOptions">
-            <dl v-if="isInstalled && sourceOptions.identity" class="plugin-market-detail-source__identity">
+            <dl v-if="sourceOptions.identity" class="plugin-market-detail-source__identity">
               <div>
                 <dt>{{ t('plugin.trustedUpdateSource') }}</dt>
                 <dd
@@ -595,10 +714,12 @@ onUnmounted(() => {
                     >
                       {{ t('plugin.sourceOfficial') }}
                     </VChip>
-                    {{ trustedSourceLabel() }}
+                    <span class="plugin-market-detail-source__identity-name">
+                      {{ trustedSourceLabel() }}
+                    </span>
                   </span>
                   <VBtn
-                    v-if="sourceActionCandidates.length > 0 && !showSourceChoices"
+                    v-if="isInstalled && sourceActionCandidates.length > 0 && !showSourceChoices"
                     class="plugin-market-detail-source__identity-action"
                     icon
                     size="x-small"
@@ -613,9 +734,27 @@ onUnmounted(() => {
                   </VBtn>
                 </dd>
               </div>
-              <div v-if="sourceOptions.identity.payload_source_type === 'local'">
+              <div v-if="isInstalled && sourceOptions.identity.payload_source_type === 'local'">
                 <dt>{{ t('plugin.currentPayloadSource') }}</dt>
                 <dd>{{ payloadSourceLabel() }}</dd>
+              </div>
+              <div v-if="localSourceCandidates.length > 0">
+                <dt>{{ t('plugin.local') }}</dt>
+                <dd class="plugin-market-detail-source__local-path" :title="localSourceCandidates[0].repo_url || ''">
+                  {{ sourceCandidateLabel(localSourceCandidates[0]) }}
+                </dd>
+              </div>
+            </dl>
+
+            <dl
+              v-if="!sourceOptions.identity && localSourceCandidates.length > 0"
+              class="plugin-market-detail-source__identity"
+            >
+              <div>
+                <dt>{{ t('plugin.local') }}</dt>
+                <dd class="plugin-market-detail-source__local-path" :title="localSourceCandidates[0].repo_url || ''">
+                  {{ sourceCandidateLabel(localSourceCandidates[0]) }}
+                </dd>
               </div>
             </dl>
 
@@ -630,10 +769,11 @@ onUnmounted(() => {
               hide-details
             >
               <VRadio
-                v-for="candidate in onlineSourceCandidates"
-                :key="candidate.source_key"
-                :value="candidate.source_key"
+                v-for="candidate in installSourceCandidates"
+                :key="candidateSelectionKey(candidate)"
+                :value="candidateSelectionKey(candidate)"
                 :label="sourceCandidateLabel(candidate)"
+                :title="candidate.source_type === 'local' ? localSourcePath(candidate) : undefined"
               >
                 <template #label>
                   <span class="plugin-market-detail-source__choice-label">
@@ -647,11 +787,19 @@ onUnmounted(() => {
                       >
                         {{ t('plugin.sourceOfficial') }}
                       </VChip>
+                      <VChip
+                        v-else-if="candidate.source_type === 'local'"
+                        size="x-small"
+                        color="success"
+                        variant="tonal"
+                      >
+                        {{ t('plugin.local') }}
+                      </VChip>
                       <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                     </span>
-                    <span class="plugin-market-detail-source__choice-meta"
-                      >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}</span
-                    >
+                    <span class="plugin-market-detail-source__choice-meta">
+                      v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}
+                    </span>
                   </span>
                 </template>
               </VRadio>
@@ -729,12 +877,7 @@ onUnmounted(() => {
               v-else-if="props.plugin?.has_update"
               color="primary"
               prepend-icon="mdi-arrow-up-circle-outline"
-              :disabled="
-                props.plugin?.system_version_compatible === false ||
-                sourceLoading ||
-                sourceUnavailable ||
-                sourceNeedsInitialBinding
-              "
+              :disabled="props.plugin?.system_version_compatible === false || sourceLoading || sourceUnavailable"
               :loading="sourceLoading"
               @click="installPlugin()"
             >
@@ -850,11 +993,19 @@ onUnmounted(() => {
 
 .plugin-market-detail-source__identity dd {
   min-width: 0;
+  max-inline-size: 72%;
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   overflow-wrap: anywhere;
   text-align: end;
+}
+
+.plugin-market-detail-source__local-path {
+  max-block-size: 2.8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
 }
 
 .plugin-market-detail-source__identity-content {
@@ -879,13 +1030,32 @@ onUnmounted(() => {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 0.375rem;
 }
 
+.plugin-market-detail-source__identity-value {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.plugin-market-detail-source__identity-value :deep(.v-chip),
+.plugin-market-detail-source__choice-title :deep(.v-chip) {
+  flex: 0 0 auto;
+}
+
+.plugin-market-detail-source__identity-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plugin-market-detail-source__choice-title {
   justify-content: flex-start;
+  min-width: 0;
 }
 
 .plugin-market-detail-source__choices :deep(.v-selection-control),
@@ -893,16 +1063,30 @@ onUnmounted(() => {
   min-height: 2.75rem;
 }
 
+.plugin-market-detail-source__choices :deep(.v-label),
+.plugin-market-detail-source__change :deep(.v-label) {
+  min-width: 0;
+}
+
 .plugin-market-detail-source__choice-label {
   display: flex;
+  inline-size: 100%;
   min-width: 0;
+  overflow: hidden;
   flex-direction: column;
   gap: 0.125rem;
   padding-block: 0.25rem;
 }
 
 .plugin-market-detail-source__choice-label strong {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plugin-market-detail-source__choice-meta {

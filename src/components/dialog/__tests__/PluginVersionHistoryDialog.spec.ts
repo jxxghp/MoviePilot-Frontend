@@ -110,6 +110,9 @@ describe('PluginVersionHistoryDialog', () => {
     expect(screen.getByText('最新')).toBeInTheDocument()
     expect(screen.getByText('当前')).toBeInTheDocument()
     expect(screen.getByText('invalid-date')).toBeInTheDocument()
+    expect(
+      Array.from(document.querySelectorAll('.version-history__version')).map(element => element.textContent),
+    ).toEqual(['v2.0.0', 'v1.0.0', 'v0.9.0'])
     expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'plugin/history/DemoPlugin', {
       params: { force: true },
     })

@@ -100,7 +100,7 @@ const runtimePending = computed(
 )
 const runtimeUnavailable = computed(
   () =>
-    ['blocked_by_policy', 'load_failed'].includes(runtimeStatus.value || '') ||
+    ['sync_failed', 'blocked_by_policy', 'load_failed'].includes(runtimeStatus.value || '') ||
     (!props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || '')),
 )
 const runtimeActionsBlocked = computed(
@@ -113,6 +113,7 @@ const runtimePendingStatusKeys: Partial<Record<NonNullable<Plugin['runtime_statu
   ready: 'plugin.runtimeLoading',
 }
 const runtimeUnavailableStatusKeys: Partial<Record<NonNullable<Plugin['runtime_status']>, string>> = {
+  sync_failed: 'plugin.syncFailed',
   source_missing: 'plugin.sourceMissing',
   dependency_pending: 'plugin.dependencyPending',
   ready: 'plugin.runtimeReady',
@@ -831,6 +832,15 @@ watch(
                   size="22"
                 />
                 <span>{{ runtimeStatusText }}</span>
+                <VBtn
+                  v-if="runtimeStatus === 'sync_failed'"
+                  size="x-small"
+                  variant="text"
+                  color="warning"
+                  @click.stop="showPluginAbout(true)"
+                >
+                  {{ t('common.retry') }}
+                </VBtn>
               </div>
             </div>
             <VCardText

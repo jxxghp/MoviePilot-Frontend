@@ -902,6 +902,8 @@ async function installPlugin(
   }
 
   let useExplicitSource = false
+  let useSourceChange = false
+  let sourceChangeRevision: number | undefined
   try {
     const sourceOptions = inspectedSourceOptions || (await getPluginSourceOptions(pluginId))
     const sourceRequiresExplicitInstall =
@@ -915,16 +917,25 @@ async function installPlugin(
     }
     if (repoUrl) {
       // 上层确认的仓库必须属于同一来源快照，避免用户选择在安装事务中被静默丢弃。
-      const selectedCandidate = sourceOptions.candidates.find(
-        candidate => candidate.repo_url === repoUrl && candidate.source_type !== 'local',
-      )
+      const selectedCandidate = sourceOptions.candidates.find(candidate => candidate.repo_url === repoUrl)
       if (!selectedCandidate) {
         releaseInstallReservation()
         $toast.error(t('plugin.selectSourceRequired'))
         openPluginMarketDetail(item)
         return
       }
-      useExplicitSource = true
+      // 本地候选通过普通安装入口传递 local://；只有在线候选需要显式
+      // 来源准入，避免把本地路径误当成在线绑定请求。
+      useExplicitSource = selectedCandidate.source_type !== 'local'
+      const boundSourceKey = sourceOptions.identity?.trusted_source_key
+      if (
+        selectedCandidate.source_type !== 'local' &&
+        Boolean(boundSourceKey) &&
+        selectedCandidate.source_key !== boundSourceKey
+      ) {
+        useSourceChange = true
+        sourceChangeRevision = sourceOptions.identity?.revision
+      }
     } else if (['unavailable', 'incomplete'].includes(sourceOptions.selection_status)) {
       releaseInstallReservation()
       $toast.error(sourceOptions.selection_reason || t('plugin.sourceUnavailable'))
@@ -942,6 +953,7 @@ async function installPlugin(
   const previousPlugin = previousIndex >= 0 ? dataList.value[previousIndex] : undefined
   sortMode.value = false
   currentFolder.value = ''
+  filterMarketPluginDialog.value = false
   installedFilter.value = null
   hasUpdateFilter.value = false
   enabledFilter.value = false
@@ -961,7 +973,13 @@ async function installPlugin(
 
   try {
     let outcome: PluginInstallOutcome | null
-    if (useExplicitSource && repoUrl) {
+    if (useSourceChange && repoUrl && sourceChangeRevision !== undefined) {
+      outcome = await changePluginSource(pluginId, {
+        repo_url: repoUrl,
+        expected_revision: sourceChangeRevision,
+        release_version: releaseVersion,
+      })
+    } else if (useExplicitSource && repoUrl) {
       outcome = await installPluginFromSource(pluginId, {
         repo_url: repoUrl,
         release_version: releaseVersion,
@@ -972,6 +990,7 @@ async function installPlugin(
         params: {
           release_version: releaseVersion,
           force: item?.has_update || Boolean(releaseVersion),
+          ...(repoUrl ? { repo_url: repoUrl } : {}),
         },
         feedback: 'silent',
       })
@@ -984,6 +1003,13 @@ async function installPlugin(
     if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
     await pluginSidebarNavStore.ensureSidebarNav(true)
+    // 安装期间可能有市场刷新或共享弹窗回调重新写入标签状态，成功后再次收口，
+    // 确保用户看到的是刚安装的插件，而不是市场中的其它本地候选。
+    activeTab.value = 'installed'
+    currentFolder.value = ''
+    installedFilter.value = null
+    hasUpdateFilter.value = false
+    enabledFilter.value = false
     await nextTick()
     if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
   } catch (error) {
@@ -1171,7 +1197,10 @@ async function reconcileInstalledRuntime(): Promise<void> {
 }
 
 function isPluginRuntimeSettling(pluginId: string) {
-  return pluginRuntimeSummary.value?.ready === false || installingPluginIds.value.has(pluginId)
+  if (installingPluginIds.value.has(pluginId)) return true
+  if (pluginRuntimeSummary.value?.ready !== false) return false
+  const plugin = dataList.value.find(item => item.id === pluginId)
+  return ['source_missing', 'dependency_pending', 'ready'].includes(plugin?.runtime_status || '')
 }
 
 /** 响应全局入口的目标插件参数，并复用卡片既有的详情打开契约。 */
@@ -1498,6 +1527,14 @@ watch([marketList, filterForm, activeSort, PluginStatistics, PluginRatings], () 
 
 // 新安装了插件
 async function pluginInstalled() {
+  // 市场卡片和详情弹窗都可能通过 install 事件回调到这里；无论入口如何，
+  // 安装成功后都必须收口到“我的插件”，避免市场列表中的其它本地候选被误认为已安装。
+  activeTab.value = 'installed'
+  currentFolder.value = ''
+  filterMarketPluginDialog.value = false
+  installedFilter.value = null
+  hasUpdateFilter.value = false
+  enabledFilter.value = false
   pluginDialogClose()
   await refreshData()
   await pluginSidebarNavStore.ensureSidebarNav(true)
@@ -1593,6 +1630,11 @@ useKeepAliveRefresh(refreshActiveTabData)
 
 watch(activeTab, (newTab, oldTab) => {
   if (!oldTab || newTab === oldTab || (newTab !== 'installed' && newTab !== 'market')) return
+
+  // 筛选菜单通过 Teleport 挂在页面外层，切换标签不会随内容窗自动关闭。
+  // 这里只关闭另一个标签的浮层，保留已选筛选条件供用户切回后继续使用。
+  if (newTab === 'installed') filterMarketPluginDialog.value = false
+  if (newTab === 'market') filterInstalledPluginDialog.value = false
 
   if (oldTab === 'installed' || oldTab === 'market') {
     tabScrollPositions[oldTab] = window.scrollY
@@ -2313,7 +2355,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
     <VWindow v-model="activeTab" class="disable-tab-transition px-2" :touch="false">
       <!-- 我的插件 -->
       <VWindowItem value="installed">
-        <div>
+        <div :key="`installed-${activeTab}`" v-show="activeTab === 'installed'">
           <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
           <LoadingBanner v-if="!isRefreshed && !installedLoadError" class="mt-12" />
           <NoDataFound
@@ -2498,7 +2540,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
       </VWindowItem>
       <!-- 插件市场 -->
       <VWindowItem value="market">
-        <div>
+        <div :key="`market-${activeTab}`" v-show="activeTab === 'market'">
           <LoadingBanner
             v-if="
               (!isAppMarketLoaded && !marketLoadError) || (isMarketRefreshing && displayUninstalledList.length === 0)

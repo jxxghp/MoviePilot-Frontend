@@ -57,17 +57,41 @@ const visible = computed({
 const resolvedPlugin = computed(() => pluginDetail.value ?? props.plugin)
 
 const resolvedHistory = computed(() => {
-  const history = { ...(resolvedPlugin.value?.history || {}) }
+  const declaredHistory = resolvedPlugin.value?.history || {}
+  const history: Record<string, string> = {}
+
+  // Release 接口已经按发布时间返回版本；先采用该顺序，再补充索引中独有的历史条目。
   releaseItems.value.forEach(item => {
     const key = normalizeHistoryVersion(item.version)
-    if (!(key in history)) history[key] = item.body || ''
+    history[key] = declaredHistory[key] || item.body || ''
   })
+  Object.entries(declaredHistory)
+    .filter(([version]) => !(version in history))
+    .sort(([left], [right]) => compareVersions(right, left))
+    .forEach(([version, body]) => {
+      history[version] = body
+    })
   return history
 })
 
 const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)
 
 const releaseItems = computed(() => releaseDetail.value?.items || [])
+const localUpdateCandidate = computed(() => {
+  const currentVersion = releaseDetail.value?.current_version || resolvedPlugin.value?.plugin_version
+  const latestOnlineVersion = releaseDetail.value?.latest_version
+  const candidate = releaseSourceOptions.value?.candidates.find(item => item.source_type === 'local' && item.repo_url)
+  const payloadIsOnline = releaseSourceOptions.value?.identity?.payload_source_type !== 'local'
+  if (
+    !candidate?.repo_url ||
+    !payloadIsOnline ||
+    !isVersionAtLeast(candidate.plugin_version, currentVersion) ||
+    (latestOnlineVersion && !isVersionAtLeast(candidate.plugin_version, latestOnlineVersion))
+  ) {
+    return null
+  }
+  return candidate
+})
 
 type ReleaseSourceAction = 'bind' | 'change' | 'unavailable'
 
@@ -108,16 +132,29 @@ const releaseSourceMessage = computed(() => {
 })
 
 const latestActionText = computed(() =>
-  releaseSourceAction.value === 'bind'
-    ? t('plugin.bindSource')
-    : releaseSourceAction.value === 'change'
-      ? t('plugin.changeSource')
-      : props.actionMode === 'install'
-        ? t('plugin.installReleaseVersion')
-        : t('plugin.updateToLatest'),
+  localUpdateCandidate.value
+    ? t('plugin.updateToLocal')
+    : releaseSourceAction.value === 'bind'
+      ? t('plugin.bindSource')
+      : releaseSourceAction.value === 'change'
+        ? t('plugin.changeSource')
+        : props.actionMode === 'install'
+          ? t('plugin.installReleaseVersion')
+          : t('plugin.updateToLatest'),
 )
 
-const shouldShowUpdatePanel = computed(() => props.showUpdateAction)
+const hasNewerRelease = computed(() => {
+  const latest = releaseItems.value.find(item => item.is_latest)
+  return Boolean(latest && !latest.is_current)
+})
+const shouldShowUpdatePanel = computed(
+  () =>
+    props.showUpdateAction &&
+    (Boolean(localUpdateCandidate.value) ||
+      Boolean(releaseSourceAction.value) ||
+      !releaseDetail.value ||
+      hasNewerRelease.value),
+)
 
 const releaseByHistoryVersion = computed(() => {
   const releaseMap = new Map<string, PluginReleaseVersion>()
@@ -129,6 +166,32 @@ const releaseByHistoryVersion = computed(() => {
 
 function normalizeHistoryVersion(version: string) {
   return version.startsWith('v') ? version : `v${version}`
+}
+
+function versionParts(value: string) {
+  return value
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .map(part => Number.parseInt(part, 10) || 0)
+}
+
+function compareVersions(left: string, right: string) {
+  const leftParts = versionParts(left)
+  const rightParts = versionParts(right)
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0)
+    if (difference !== 0) return difference
+  }
+  return 0
+}
+
+function isVersionHigher(candidate?: string | null, current?: string | null) {
+  if (!candidate || !current) return false
+  return compareVersions(candidate, current) > 0
+}
+
+function isVersionAtLeast(candidate?: string | null, current?: string | null) {
+  return candidate === current || isVersionHigher(candidate, current)
 }
 
 function formatReleaseDate(value?: string) {
@@ -255,6 +318,10 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
 function handleUpdate(releaseItem?: PluginReleaseVersion) {
   if (releaseSourceAction.value) {
     if (releaseSourceAction.value !== 'unavailable') emit('sourceAction')
+    return
+  }
+  if (localUpdateCandidate.value && (!releaseItem || releaseItem.is_latest)) {
+    emit('update', undefined, localUpdateCandidate.value.repo_url || undefined)
     return
   }
   emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, releaseRepoUrl.value || undefined)

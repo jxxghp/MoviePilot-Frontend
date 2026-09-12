@@ -931,6 +931,8 @@ describe('PluginCardListView loading and request ownership', () => {
       installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
       marketStatus: 500,
     })
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
 
     expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument()
     await waitForRequestsToFinish()
@@ -1042,6 +1044,8 @@ describe('PluginCardListView market filtering and pagination', () => {
       market: () => market,
       statistic: () => Object.fromEntries(market.map((plugin, index) => [plugin.id, 100 - index])),
     })
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
 
     await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20))
     expect(document.querySelector('[data-testid^="market-"]')).toHaveTextContent('market:Zulu')
@@ -1115,6 +1119,8 @@ describe('PluginCardListView market filtering and pagination', () => {
       },
     })
 
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
     await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20))
     await fireEvent.click(screen.getByRole('button', { name: 'load-more-market' }))
     await waitFor(() => expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(40))
@@ -1134,6 +1140,40 @@ describe('PluginCardListView market filtering and pagination', () => {
     await waitForRequestsToFinish()
     expect(document.querySelectorAll('[data-testid^="market-"]')).toHaveLength(20)
     expect(screen.queryByText('market:市场插件 39')).not.toBeInTheDocument()
+  })
+
+  it('closes the inactive tab filter menu when switching tabs', async () => {
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_name: '已安装插件' })],
+      market: () => [createPlugin({ id: 'Market', plugin_name: '市场插件' })],
+    })
+    await waitForRequestsToFinish()
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    const marketFilterButton = getHeaderConfig().appendButtons.find(button => button.dataAttr === 'market-filter-btn')
+    const installedFilterButton = getHeaderConfig().appendButtons.find(
+      button => button.dataAttr === 'installed-filter-btn',
+    )
+    if (!marketFilterButton?.action || !installedFilterButton?.action) {
+      throw new Error('未注册插件过滤操作')
+    }
+
+    marketFilterButton.action()
+    await nextTick()
+    expect(screen.getByText('插件名称')).toBeInTheDocument()
+
+    getHeaderConfig().modelValue.value = 'installed'
+    await nextTick()
+    expect(screen.queryByText('插件名称')).not.toBeInTheDocument()
+
+    installedFilterButton.action()
+    await nextTick()
+    expect(screen.getByText('运行中')).toBeInTheDocument()
+
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+    expect(screen.queryByText('运行中')).not.toBeInTheDocument()
   })
 
   it('restores each tab window scroll position after switching tabs', async () => {
@@ -1535,6 +1575,48 @@ describe('PluginCardListView search installation', () => {
     expect(sourceOptionRequests).toBe(0)
     expect(installRequests).toBe(1)
     expect(getHeaderConfig().modelValue.value).toBe('installed')
+    await waitForRequestsToFinish()
+  })
+
+  it('keeps a local repository selection on the ordinary install endpoint', async () => {
+    let installUrl: URL | undefined
+    const localRepoUrl = 'local://ArchiveManager?path=%2Ftmp%2Fplugins&version=v3'
+    const target = createPlugin({
+      id: 'ArchiveManager',
+      plugin_name: '压缩归档',
+      is_local: true,
+      repo_url: localRepoUrl,
+    })
+    const sourceOptions: PluginSourceOptions = {
+      plugin_id: 'ArchiveManager',
+      inventory_complete: true,
+      selection_status: 'selected',
+      selection_reason: '',
+      identity: null,
+      candidates: [
+        {
+          source_type: 'local',
+          source_key: null,
+          repo_url: localRepoUrl,
+          package_generation: 'v3',
+          plugin_version: '0.1.1',
+        },
+      ],
+    }
+    await renderList({ market: () => [target] })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('ArchiveManager'), ({ request }) => {
+        installUrl = new URL(request.url)
+        return apiJson(null)
+      }),
+    )
+
+    getDynamicButtonConfig().onClick()
+    await getDialogEvents()['open-plugin'](target)
+    await getDialogProps().installHandler?.(undefined, localRepoUrl, sourceOptions)
+
+    await waitFor(() => expect(installUrl?.searchParams.get('repo_url')).toBe(localRepoUrl))
     await waitForRequestsToFinish()
   })
 
