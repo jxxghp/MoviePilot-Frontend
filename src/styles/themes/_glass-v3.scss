@@ -443,15 +443,18 @@ $-popup-hosts: (
       border-radius: 0 !important;
     }
 
-    .file-browser-view .file-list.v-card {
+    .file-browser-view .file-list.v-card,
+    .file-browser-view .file-list.v-card.rounded-lg {
       border-end-end-radius: var(--app-surface-radius) !important;
     }
 
-    .file-browser-view:not(:has(.file-navigator)) .file-list.v-card {
+    .file-browser-view:not(:has(.file-navigator)) .file-list.v-card,
+    .file-browser-view:not(:has(.file-navigator)) .file-list.v-card.rounded-lg {
       border-end-start-radius: var(--app-surface-radius) !important;
     }
 
-    .file-browser-view .file-navigator.v-card {
+    .file-browser-view .file-navigator.v-card,
+    .file-browser-view .file-navigator.v-card.rounded-lg {
       border-end-start-radius: var(--app-surface-radius) !important;
     }
 

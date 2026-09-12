@@ -488,13 +488,13 @@ describe('glass overlay material styles', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
 
     expect(styles).toMatch(
-      /\.file-browser-view \.file-list\.v-card\s*\{[\s\S]*?border-end-end-radius:\s*var\(--app-surface-radius\) !important;/u,
+      /\.file-browser-view \.file-list\.v-card,\s*\.file-browser-view \.file-list\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-end-radius:\s*var\(--app-surface-radius\) !important;/u,
     )
     expect(styles).toMatch(
-      /\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
+      /\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card,\s*\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
     )
     expect(styles).toMatch(
-      /\.file-browser-view \.file-navigator\.v-card\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
+      /\.file-browser-view \.file-navigator\.v-card,\s*\.file-browser-view \.file-navigator\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
     )
   })
 
