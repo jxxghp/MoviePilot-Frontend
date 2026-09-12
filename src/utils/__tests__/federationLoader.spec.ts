@@ -1,4 +1,5 @@
 import {
+  getRemoteModuleInfo,
   injectRemoteModule,
   loadRemoteAppPageComponent,
   loadRemoteComponent,
@@ -71,6 +72,21 @@ describe('federationLoader', () => {
     expect(mocks.unwrapDefault).toHaveBeenCalledWith(remoteModule)
     expect(mocks.apiGet).not.toHaveBeenCalled()
     expect(mocks.setRemote).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the registered remote key when page navigation discovers a newer module', async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        id: 'navigated',
+        url: '/plugins/navigated/2.0.0/remoteEntry.js',
+        version: '2.0.0',
+        remote_key: 'navigated#2.0.0',
+      },
+    ])
+
+    await expect(getRemoteModuleInfo('navigated')).resolves.toMatchObject({ version: '2.0.0' })
+
+    expect(mocks.setRemote).toHaveBeenCalledWith('navigated#2.0.0', expect.anything())
   })
 
   it('single-flights discovery and registration for concurrent loads of the same unknown remote', async () => {
@@ -232,6 +248,98 @@ describe('federationLoader', () => {
 
     await expect(loadRemoteComponents()).resolves.toBeUndefined()
     expect(console.error).toHaveBeenCalledWith('加载远程组件失败:', expect.any(Error))
+  })
+
+  it('moves an upgraded plugin to its new versioned remote key without reusing the old slot', async () => {
+    configureRuntimeRegistry()
+
+    injectRemoteModule({
+      id: 'upgradable',
+      url: '/plugins/upgradable/1.0.0/remoteEntry.js',
+      version: '1.0.0',
+      remote_key: 'upgradable#1.0.0',
+    })
+    await expect(loadRemoteComponent('upgradable', 'Config')).resolves.toBe('upgradable#1.0.0 page')
+
+    // 不刷新页面就地升级：换 URL 的同时必须换 remote 名，否则联邦运行时仍交出旧模块图
+    injectRemoteModule({
+      id: 'upgradable',
+      url: '/plugins/upgradable/2.0.0/remoteEntry.js',
+      version: '2.0.0',
+      remote_key: 'upgradable#2.0.0',
+    })
+    await expect(loadRemoteComponent('upgradable', 'Config')).resolves.toBe('upgradable#2.0.0 page')
+
+    expect(mocks.setRemote.mock.calls.map(call => call[0])).toEqual(['upgradable#1.0.0', 'upgradable#2.0.0'])
+    expect(mocks.getRemote.mock.calls.map(call => call[0])).toEqual(['upgradable#1.0.0', 'upgradable#2.0.0'])
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['omits the remote key', 'unversioned', undefined],
+    ['sends a blank remote key', 'blank-key', '   '],
+  ])('falls back to the plugin instance key when the backend %s', async (_name, id, remoteKey) => {
+    configureRuntimeRegistry()
+
+    injectRemoteModule({ id, url: `/plugins/${id}/remoteEntry.js`, remote_key: remoteKey })
+
+    expect(mocks.setRemote).toHaveBeenCalledWith(id, expect.anything())
+    await expect(loadRemoteComponent(id, 'Config')).resolves.toBe(`${id} page`)
+    expect(mocks.getRemote).toHaveBeenCalledWith(id, './Config')
+  })
+
+  it('resolves a plugin instance key to the versioned remote key discovered for it', async () => {
+    configureRuntimeRegistry()
+    mocks.apiGet.mockResolvedValue([
+      {
+        id: 'discovered',
+        url: '/plugins/discovered/3.1.0/remoteEntry.js',
+        version: '3.1.0',
+        remote_key: 'discovered#3.1.0',
+      },
+    ])
+
+    await expect(loadRemoteComponent('discovered', 'Dashboard')).resolves.toBe('discovered#3.1.0 page')
+    // 首次按插件实例键试探失败，发现后改按版本化 remote 名重试
+    expect(mocks.getRemote.mock.calls.map(call => call[0])).toEqual(['discovered', 'discovered#3.1.0'])
+    expect(mocks.setRemote).toHaveBeenCalledWith('discovered#3.1.0', expect.anything())
+
+    // 对照已经建立，后续加载不再重新发现，也不再碰插件实例键
+    mocks.getRemote.mockClear()
+    await expect(loadRemoteComponent('discovered', 'Page')).resolves.toBe('discovered#3.1.0 page')
+    expect(mocks.getRemote.mock.calls.map(call => call[0])).toEqual(['discovered#3.1.0'])
+    expect(mocks.apiGet).toHaveBeenCalledTimes(1)
+  })
+
+  it('registers every discovered remote under its own versioned key', async () => {
+    mocks.apiGet.mockResolvedValueOnce([
+      { id: 'alpha', url: '/plugins/alpha/1.0.0/remoteEntry.js', version: '1.0.0', remote_key: 'alpha#1.0.0' },
+      { id: 'beta', url: '/plugins/beta/remoteEntry.js' },
+    ])
+
+    await loadRemoteComponents()
+
+    expect(mocks.setRemote.mock.calls.map(call => call[0])).toEqual(['alpha#1.0.0', 'beta'])
+  })
+
+  it('loads explicit remote metadata under its versioned remote key', async () => {
+    const component = { name: 'AuthPage' }
+    mocks.getRemote.mockResolvedValue({ default: component })
+
+    await expect(
+      loadRemoteComponentFromModule(
+        {
+          id: 'authprovider',
+          url: 'https://cdn.example/authprovider/1.4.2/remoteEntry.js',
+          version: '1.4.2',
+          remote_key: 'authprovider#1.4.2',
+        },
+        'Login',
+      ),
+    ).resolves.toBe(component)
+
+    expect(mocks.setRemote).toHaveBeenCalledWith('authprovider#1.4.2', expect.anything())
+    expect(mocks.getRemote).toHaveBeenCalledWith('authprovider#1.4.2', './Login')
   })
 
   it('uses AppPage then Page for the main navigation entry', async () => {

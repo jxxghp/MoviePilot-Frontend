@@ -1382,6 +1382,146 @@ export interface PluginReleaseVersionsResponse {
   items: PluginReleaseVersion[]
 }
 
+/** 插件某个已装版本的落盘信息。 */
+export interface PluginInstalledVersionInfo {
+  // 版本号
+  version: string
+  // 版本源码目录名
+  directory: string
+  // 安装时间，ISO 格式
+  installed_at?: string | null
+  // 版本来源，如 market、local、migrated
+  source?: string | null
+  // 是否为版本元信息登记的当前版本
+  is_current: boolean
+}
+
+/**
+ * 一个已卸载、其设置仍留存可被恢复的分身实例。
+ *
+ * 在册的分身不在此列：它们的配置正在被使用，拿来「恢复」没有意义，摆进选择器
+ * 只会让用户误以为能把一个活着的实例再创建一遍。
+ */
+export interface PluginRestorableInstance {
+  // 分身实例 ID
+  instance_id: string
+  // 该实例相对源插件 ID 的后缀
+  suffix: string
+  // 卸载前登记的展示名称
+  plugin_name?: string | null
+  // 卸载前锚定的版本；为空表示跟随当前版本
+  pinned_version?: string | null
+  // 是否留有业务参数
+  has_config: boolean
+  // 是否留有业务数据
+  has_data: boolean
+}
+
+/** 单个实例的版本绑定与运行状态。 */
+export interface PluginInstanceVersionBinding {
+  // 实例 ID
+  instance_id: string
+  // 该实例的展示名称，取运行态注册名，取不到时回落到实例登记的名称
+  plugin_name?: string | null
+  // 锚定的插件版本；为空表示跟随插件当前版本
+  pinned_version?: string | null
+  // 该实例当前实际运行的插件版本；未运行时为空
+  running_version?: string | null
+  // 该实例当前是否运行中
+  running: boolean
+  // 是否为源插件本体自身，而非共享源码的分身
+  is_host: boolean
+  // 该实例是否为本插件的默认调用目标
+  is_default_target: boolean
+  // 该实例是否应当被实例化并启动；与 running 不同，后者说的是此刻在不在跑
+  is_enabled: boolean
+}
+
+/** 插件已装版本总览与各实例的版本绑定。 */
+export interface PluginVersionOverview {
+  // 插件 ID
+  plugin_id: string
+  // 版本元信息登记的当前版本
+  current_version?: string | null
+  // 已装版本列表，按版本号升序排列
+  installed_versions: PluginInstalledVersionInfo[]
+  // 引用该插件源码的各实例版本绑定
+  instances: PluginInstanceVersionBinding[]
+}
+
+/** 启用或停用一个实例的请求参数。 */
+export interface PluginInstanceEnabledRequest {
+  // 目标启用状态；置假即停用，配置与锚定版本原样留存
+  enabled: boolean
+}
+
+/**
+ * 彻底清理一个实例时选定的删除范围。
+ *
+ * 各项默认为假：清理不可逆，漏选一项只是少删了东西，多选一项则可能毁掉用户
+ * 特意保留的数据，因而由调用方逐项明确给出。
+ */
+export interface PluginInstancePurgeRequest {
+  // 是否删除该实例的业务参数
+  config: boolean
+  // 是否删除该实例在插件数据表中的行
+  plugin_data: boolean
+  // 是否销毁该实例的自有数据库
+  own_database: boolean
+  // 是否删除该实例在插件数据目录下的整个目录；选中时自有数据库必然一并销毁
+  data_directory: boolean
+}
+
+/** 彻底清理的执行结果。 */
+export interface PluginInstancePurgeOutcome {
+  // 实际清掉的范围标识
+  purged: string[]
+  // 实例行是否随之删除；分身会删，本体保留——它还承载着该插件应当装载
+  instance_removed: boolean
+}
+
+/** 设置实例版本绑定的请求参数。 */
+export interface PluginInstanceVersionUpdateRequest {
+  // 锚定的插件版本，必须是已安装版本；为空表示改为跟随当前版本
+  pinned_version?: string | null
+}
+
+/** 插件已装版本目录回收结果。 */
+export interface PluginVersionRecycleOutcome {
+  // 本次已删除的版本号列表
+  removed: string[]
+  // 版本号到保留理由的映射
+  kept: Record<string, string>
+}
+
+/** 单个实例的日志等级设置与生效结果。 */
+export interface PluginInstanceLogLevel {
+  // 实例 ID
+  instance_id: string
+  // 该实例设置的日志等级覆盖，为空表示未设置或已过期
+  configured_level?: string | null
+  // 日志等级覆盖的失效时间，为空表示不过期
+  expires_at?: string | null
+  // 按过期回落判定后实际生效的日志等级
+  effective_level: string
+}
+
+/** 插件全部实例（含本体）的日志等级设置总览。 */
+export interface PluginInstanceLogLevelOverview {
+  // 插件 ID
+  plugin_id: string
+  // 该插件全部实例的日志等级设置，首项固定是本体自身
+  instances: PluginInstanceLogLevel[]
+}
+
+/** 设置实例日志等级覆盖的请求参数。 */
+export interface PluginInstanceLogLevelUpdateRequest {
+  // 目标日志等级，如 DEBUG、INFO、WARNING、ERROR、CRITICAL
+  level: string
+  // 覆盖失效时间，为空表示不过期
+  expires_at?: string | null
+}
+
 // 插件侧栏全页导航项（与后端 PluginSidebarNavItem 对齐）
 export interface PluginSidebarNavItem {
   plugin_id: string
