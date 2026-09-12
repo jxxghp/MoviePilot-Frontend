@@ -8,12 +8,30 @@ const federationController = new AbortController()
 // 同一 remote 的首次加载共享发现与注册，避免并发写入同一个运行时槽位。
 const remoteRegistrationFlights = new Map<string, Promise<boolean>>()
 
+// 插件实例 ID 与按版本隔离的联邦 remote 名之间的映射。
+// 调用方仍以实例 ID 访问页面，运行时则必须使用版本化名称，避免复用旧模块图。
+const remoteKeysByModuleId = new Map<string, string>()
+
 // 定义远程模块接口
 export interface RemoteModule {
   id: string
   url: string
   name?: string
   source_plugin_id?: string
+  /** 插件版本号，后端未声明版本时缺省。 */
+  version?: string
+  /** 按版本区分的联邦 remote 名，后端未声明时回退到实例 ID。 */
+  remote_key?: string
+}
+
+/** 解析远程模块在联邦运行时中使用的名称。 */
+function resolveRemoteKey(module: RemoteModule): string {
+  return module.remote_key?.trim() || module.id
+}
+
+/** 解析插件实例当前已经注册的联邦 remote 名。 */
+function resolveRegisteredRemoteKey(id: string): string {
+  return remoteKeysByModuleId.get(id) ?? id
 }
 
 /**
@@ -32,12 +50,17 @@ async function fetchSingleRemoteModule(id: string): Promise<RemoteModule | null>
 
 /** 获取远程模块身份信息，供全页宿主构造实例作用域 API。 */
 export async function getRemoteModuleInfo(id: string): Promise<RemoteModule | null> {
-  return fetchSingleRemoteModule(id)
+  const moduleInfo = await fetchSingleRemoteModule(id)
+  // 页面导航可能发生在插件就地升级之后；仅读取列表会留下旧 remote 槽位，
+  // 因此每次按实例获取元数据都同步更新实例到版本化 remote 的映射。
+  if (moduleInfo) injectRemoteModule(moduleInfo)
+  return moduleInfo
 }
 
 /** 发现并注册尚不可用的远程模块，同一 remote 同时只执行一次。 */
 async function discoverAndRegisterRemote(id: string): Promise<boolean> {
-  const activeFlight = remoteRegistrationFlights.get(id)
+  const flightKey = resolveRegisteredRemoteKey(id)
+  const activeFlight = remoteRegistrationFlights.get(flightKey)
   if (activeFlight) return activeFlight
 
   const flight = (async () => {
@@ -49,12 +72,12 @@ async function discoverAndRegisterRemote(id: string): Promise<boolean> {
     return true
   })()
 
-  remoteRegistrationFlights.set(id, flight)
+  remoteRegistrationFlights.set(flightKey, flight)
   try {
     return await flight
   } finally {
-    if (remoteRegistrationFlights.get(id) === flight) {
-      remoteRegistrationFlights.delete(id)
+    if (remoteRegistrationFlights.get(flightKey) === flight) {
+      remoteRegistrationFlights.delete(flightKey)
     }
   }
 }
@@ -118,14 +141,14 @@ export async function loadRemoteAppPageComponent(id: string, navKey: string = 'm
  */
 export async function loadRemoteComponent(id: string, componentName: string = 'Page') {
   try {
-    const module = await getFederationRemote(id, `./${componentName}`)
+    const module = await getFederationRemote(resolveRegisteredRemoteKey(id), `./${componentName}`)
     return unwrapFederationDefault(module)
   } catch {
     // 组件未注册，尝试重新注册
     try {
       if (await discoverAndRegisterRemote(id)) {
-        // 重新尝试加载组件
-        const module = await getFederationRemote(id, `./${componentName}`)
+        // 注册期间可能换到了新版本的槽位，重试前重新解析 remote 名。
+        const module = await getFederationRemote(resolveRegisteredRemoteKey(id), `./${componentName}`)
         return unwrapFederationDefault(module)
       } else {
         console.error(`无法找到远程模块信息: ${id}`)
@@ -145,7 +168,7 @@ export async function loadRemoteComponent(id: string, componentName: string = 'P
  */
 export async function loadRemoteComponentFromModule(remoteModule: RemoteModule, componentName: string = 'Page') {
   injectRemoteModule(remoteModule)
-  const module = await getFederationRemote(remoteModule.id, `./${componentName}`)
+  const module = await getFederationRemote(resolveRemoteKey(remoteModule), `./${componentName}`)
   return unwrapFederationDefault(module)
 }
 
@@ -171,7 +194,10 @@ async function fetchRemoteModules(): Promise<RemoteModule[]> {
  */
 export function injectRemoteModule(module: RemoteModule): void {
   const remoteEntryUrl = resolveFederationRemoteUrl(module.url, import.meta.env.VITE_API_BASE_URL, document.baseURI)
-  setFederationRemote(module.id, {
+  const remoteKey = resolveRemoteKey(module)
+  // 先记录实例到 remote 的映射，后续通过实例 ID 加载时才能命中新版本槽位。
+  remoteKeysByModuleId.set(module.id, remoteKey)
+  setFederationRemote(remoteKey, {
     url: () => Promise.resolve(remoteEntryUrl),
     format: 'esm',
     from: 'vite',

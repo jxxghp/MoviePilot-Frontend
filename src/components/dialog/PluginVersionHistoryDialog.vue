@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
-import { getPluginSourceOptions } from '@/api/pluginSource'
+import { fetchPluginReleaseVersions, isOnlinePluginRepoUrl, resolveTrustedReleaseRepoUrl } from '@/api/pluginRelease'
 import type { Plugin, PluginReleaseVersion, PluginReleaseVersionsResponse, PluginSourceOptions } from '@/api/types'
 import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { useI18n } from 'vue-i18n'
@@ -149,25 +149,15 @@ function shouldShowReleaseButton(item?: PluginReleaseVersion) {
   return !(item.is_latest && shouldShowUpdatePanel.value && props.actionMode === 'update')
 }
 
-function isOnlineRepoUrl(repoUrl?: string | null): repoUrl is string {
-  return Boolean(repoUrl && !repoUrl.startsWith('local://'))
-}
-
 /** 已安装插件的 Release 只读取可信在线来源，本地载荷路径不进入网络请求。 */
 async function resolveReleaseRepoUrl(plugin: Plugin): Promise<string | null> {
   if (props.actionMode === 'install') {
-    return isOnlineRepoUrl(plugin.repo_url) ? plugin.repo_url : null
+    return isOnlinePluginRepoUrl(plugin.repo_url) ? plugin.repo_url : null
   }
 
-  const options = await getPluginSourceOptions(plugin.id)
+  const { repoUrl, options } = await resolveTrustedReleaseRepoUrl(plugin.id)
   releaseSourceOptions.value = options
-  const trustedSourceKey = options.identity?.trusted_source_key
-  if (!trustedSourceKey) return null
-
-  const candidate = options.candidates.find(
-    item => item.source_type !== 'local' && item.source_key === trustedSourceKey && isOnlineRepoUrl(item.repo_url),
-  )
-  return candidate?.repo_url || null
+  return repoUrl
 }
 
 async function loadPluginHistory() {
@@ -236,12 +226,7 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
       releaseDetail.value = null
       return
     }
-    releaseDetail.value = await api.get(`plugin/releases/${plugin.id}`, {
-      params: {
-        repo_url: repoUrl,
-        force,
-      },
-    })
+    releaseDetail.value = await fetchPluginReleaseVersions(plugin.id, repoUrl, force)
   } catch (error) {
     releaseDetail.value = null
     releaseError.value = t('plugin.releaseVersionsLoadFailed')

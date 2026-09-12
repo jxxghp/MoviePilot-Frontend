@@ -4,6 +4,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import type { Plugin, PluginRating, PluginSourceTransition } from '@/api/types'
+import { usePluginCloneCreation, type PluginCloneSubmission } from '@/composables/usePluginCloneCreation'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -13,10 +14,12 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useGlobalSettingsStore, usePluginRuntimeStore } from '@/stores'
 import { reloadPluginRuntime } from '@/api/pluginCapabilities'
+import { loadRemoteComponents } from '@/utils/federationLoader'
 
 // 插件日志面板只有点击“查看日志”时才需要，延后加载可减轻插件列表首屏。
 const PluginConfigDialog = defineAsyncComponent(() => import('../dialog/PluginConfigDialog.vue'))
 const PluginCapabilitiesDialog = defineAsyncComponent(() => import('../dialog/PluginCapabilitiesDialog.vue'))
+const PluginInstanceUninstallDialog = defineAsyncComponent(() => import('../dialog/PluginInstanceUninstallDialog.vue'))
 const PluginDataSummaryDialog = defineAsyncComponent(() => import('../dialog/PluginDataSummaryDialog.vue'))
 const PluginDataDialog = defineAsyncComponent(() => import('../dialog/PluginDataDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('../dialog/ProgressDialog.vue'))
@@ -157,6 +160,9 @@ const pluginSidebarNavStore = usePluginSidebarNavStore()
 // 确认框
 const createConfirm = useConfirm()
 
+// 分身创建流程，与「版本与实例」共用
+const { createClone } = usePluginCloneCreation()
+
 // 本身是否可见
 const isVisible = ref(true)
 
@@ -227,34 +233,19 @@ async function openSourceAction() {
   await showPluginAbout()
 }
 
-// 调用API卸载插件
-async function uninstallPlugin() {
-  const isConfirmed = await createConfirm({
-    title: t('common.confirm'),
-    content: t('plugin.confirmUninstall', { name: props.plugin?.plugin_name }),
-  })
+// 卸载弹窗的开合；卸载默认保留配置与数据，并允许勾选一并清除的范围
+const uninstallDialogVisible = ref(false)
 
-  if (!isConfirmed) return
+/** 打开卸载弹窗，由它承载「保留什么、清除什么」的说明与勾选。 */
+function uninstallPlugin() {
+  uninstallDialogVisible.value = true
+}
 
-  showPluginProgress(t('plugin.uninstalling', { name: props.plugin?.plugin_name }))
-  try {
-    await api.delete(`plugin/${props.plugin?.id}`, { feedback: 'silent' })
-    $toast.success(t('plugin.uninstallSuccess', { name: props.plugin?.plugin_name }))
-
-    emit('remove')
-    // 生命周期成功后刷新动态导航。
-    void pluginSidebarNavStore.ensureSidebarNav(true)
-  } catch (error) {
-    $toast.error(
-      t('plugin.uninstallFailed', {
-        name: props.plugin?.plugin_name,
-        message: getApiBusinessErrorMessage(error) || t('common.serverConnectionFailed'),
-      }),
-    )
-    console.error(error)
-  } finally {
-    closePluginProgress()
-  }
+/** 卸载完成后把插件从列表摘掉并刷新动态导航。 */
+function onPluginUninstalled() {
+  uninstallDialogVisible.value = false
+  emit('remove')
+  void pluginSidebarNavStore.ensureSidebarNav(true)
 }
 
 // 显示插件数据
@@ -564,9 +555,15 @@ function showVersionManage() {
   versionManageDialogController = openSharedDialog(
     PluginInstanceVersionDialog,
     { plugin: props.plugin },
-    { save: configDone },
+    { save: versionManageDone },
     { closeOn: ['close', 'update:modelValue'] },
   )
+}
+
+/** 版本绑定可能改变联邦入口地址，保存后同步版本化 remote 注册。 */
+function versionManageDone() {
+  emit('save')
+  void loadRemoteComponents()
 }
 
 /** 显示插件分身共享弹窗。 */
@@ -581,25 +578,15 @@ function showPluginClone() {
 }
 
 // 执行插件分身
-async function executePluginClone(cloneForm: { suffix: string; name: string; description: string; icon: string }) {
-  if (!cloneForm.suffix.trim()) {
-    $toast.error(t('plugin.suffixRequired'))
-    return
-  }
-
+async function executePluginClone(cloneForm: PluginCloneSubmission) {
   try {
     showPluginProgress(t('plugin.cloning', { name: props.plugin?.plugin_name }))
 
-    await api.post(
-      `plugin/clone/${props.plugin?.id}`,
-      {
-        suffix: cloneForm.suffix.trim(),
-        name: cloneForm.name.trim(),
-        description: cloneForm.description.trim(),
-        icon: cloneForm.icon.trim(),
-      },
-      { feedback: 'silent' },
-    )
+    const outcome = await createClone(props.plugin?.id ?? '', cloneForm)
+    if (!outcome.success) {
+      $toast.error(outcome.message)
+      return
+    }
 
     $toast.success(t('plugin.cloneSuccess', { name: cloneForm.name }))
     cloneDialogController?.close()
@@ -607,10 +594,6 @@ async function executePluginClone(cloneForm: { suffix: string; name: string; des
     emit('remove')
     // 生命周期成功后刷新动态导航。
     void pluginSidebarNavStore.ensureSidebarNav(true)
-  } catch (error) {
-    const message = getApiBusinessErrorMessage(error)
-    $toast.error(message ? t('plugin.cloneFailed', { message }) : t('plugin.cloneFailedGeneral'))
-    console.error(error)
   } finally {
     closePluginProgress()
   }
@@ -815,7 +798,7 @@ watch(
                     dot
                     inline
                     :color="runtimeStatusDotColor"
-                    :aria-label="props.plugin?.state ? t('plugin.running') : t('plugin.disable')"
+                    :aria-label="props.plugin?.state ? t('plugin.running') : t('plugin.notRunning')"
                   />
                   {{ props.plugin?.plugin_name }}
                   <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
@@ -997,6 +980,15 @@ watch(
         </div>
       </template>
     </VHover>
+
+    <PluginInstanceUninstallDialog
+      v-if="uninstallDialogVisible"
+      v-model="uninstallDialogVisible"
+      :instance-id="props.plugin?.id || ''"
+      :instance-name="props.plugin?.plugin_name || props.plugin?.id || ''"
+      :is-host="!props.plugin?.is_instance"
+      @uninstalled="onPluginUninstalled"
+    />
   </div>
 </template>
 

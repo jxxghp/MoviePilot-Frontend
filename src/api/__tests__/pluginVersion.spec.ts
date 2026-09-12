@@ -50,13 +50,11 @@ describe('plugin version API adapters', () => {
 
   it('设置实例版本绑定时按插件与实例 ID 拼接路径并透传请求体', async () => {
     await setPluginInstanceVersion('DemoPlugin', 'DemoPluginwork', {
-      follow_current_version: false,
-      plugin_version: '1.2.0',
+      pinned_version: '1.2.0',
     })
 
     expect(mocks.apiPut).toHaveBeenCalledWith('plugin/versions/DemoPlugin/DemoPluginwork', {
-      follow_current_version: false,
-      plugin_version: '1.2.0',
+      pinned_version: '1.2.0',
     })
   })
 
@@ -103,8 +101,7 @@ describe('plugin version API adapters', () => {
     })
 
     const error = await setPluginInstanceVersion('DemoPlugin', 'Missing', {
-      follow_current_version: true,
-      plugin_version: null,
+      pinned_version: null,
     }).catch(reason => reason)
 
     expect(error).toBeInstanceOf(ApiRequestError)

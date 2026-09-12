@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   toastWarning: vi.fn(),
+  loadRemoteComponents: vi.fn(),
+  installFromSource: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -48,6 +50,15 @@ vi.mock('@/@core/utils/image', () => ({
 
 vi.mock('vue-toastification', () => ({
   useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess, warning: mocks.toastWarning }),
+}))
+
+vi.mock('@/utils/federationLoader', () => ({
+  loadRemoteComponents: mocks.loadRemoteComponents,
+}))
+
+vi.mock('@/api/pluginSource', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/api/pluginSource')>()),
+  installPluginFromSource: (...args: unknown[]) => mocks.installFromSource(...args),
 }))
 
 const plugin: Plugin = {
@@ -79,6 +90,7 @@ describe('PluginCard lifecycle actions', () => {
     mocks.apiDelete.mockReset()
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
+    mocks.installFromSource.mockReset().mockResolvedValue(null)
     mocks.confirm.mockReset().mockResolvedValue(true)
     mocks.dialogCloses.length = 0
     mocks.openSharedDialog.mockReset().mockImplementation(() => {
@@ -94,55 +106,37 @@ describe('PluginCard lifecycle actions', () => {
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.toastWarning.mockReset()
+    mocks.loadRemoteComponents.mockReset().mockResolvedValue(undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
-  it('refreshes plugin sidebar navigation after uninstall succeeds', async () => {
-    mocks.apiDelete.mockResolvedValue({ success: true })
-    const { container, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
-    const sidebarStore = usePluginSidebarNavStore(pinia)
-    vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
-
-    const menuButton = container.querySelector<HTMLButtonElement>('.v-card .v-btn')
-    expect(menuButton).not.toBeNull()
-    await fireEvent.click(menuButton!)
-    await fireEvent.click(await screen.findByText('卸载'))
-
-    await waitFor(() => expect(mocks.apiDelete).toHaveBeenCalledWith('plugin/DemoPlugin'))
-    await waitFor(() => expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true))
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 卸载成功！')
-    expect(mocks.dialogCloses[0]).toHaveBeenCalled()
-  })
-
-  it('honors uninstall cancellation and preserves the card on business failure', async () => {
-    mocks.confirm.mockResolvedValueOnce(false)
-    const cancelled = await renderWithProviders(PluginCard, { props: { plugin } })
-    await fireEvent.click(cancelled.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
-    await fireEvent.click(await screen.findByText('卸载'))
-    expect(mocks.apiDelete).not.toHaveBeenCalled()
-    cancelled.unmount()
-
-    mocks.confirm.mockResolvedValueOnce(true)
-    mocks.apiDelete.mockResolvedValueOnce({ success: false, message: '仍有任务运行' })
-    const failed = await renderWithProviders(PluginCard, { props: { plugin } })
-    await fireEvent.click(failed.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
-    await fireEvent.click(await screen.findByText('卸载'))
-
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('插件 演示插件 卸载失败：仍有任务运行'))
-    expect(failed.emitted()).not.toHaveProperty('remove')
-    expect(failed.container.querySelector('.plugin-card-hover-area')).not.toBeNull()
-  })
-
-  it('reports uninstall HTTP failures and always closes progress', async () => {
-    mocks.apiDelete.mockRejectedValue(new Error('network unavailable'))
-    const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
+  it('hands uninstall over to the dialog instead of deleting on a one-line confirm', async () => {
+    // 卸载默认保留配置与业务数据，还允许勾选一并清除的范围——这两件事一行确认
+    // 文案承载不了，之前那句「配置与业务数据将一并删除，且无法恢复」更是说反了。
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
 
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('卸载'))
 
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('卸载失败')))
-    expect(mocks.dialogCloses[0]).toHaveBeenCalled()
+    expect(mocks.apiDelete).not.toHaveBeenCalled()
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('uninstall-submit')).toBeInTheDocument())
+  })
+
+  it('drops the card only after the dialog reports the uninstall done', async () => {
+    const { container, emitted, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const sidebarStore = usePluginSidebarNavStore(pinia)
+    vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('卸载'))
+    // 弹窗还开着时不得先把卡片摘掉
     expect(emitted()).not.toHaveProperty('remove')
+
+    await fireEvent.click(await screen.findByTestId('uninstall-submit'))
+
+    await waitFor(() => expect(emitted()).toHaveProperty('remove'))
+    expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
   })
 
   it('resets plugin data only after confirmation and refreshes navigation on success', async () => {
@@ -375,7 +369,7 @@ describe('PluginCard lifecycle actions', () => {
   })
 
   it('creates a clone with trimmed form values and refreshes navigation', async () => {
-    mocks.apiPost.mockResolvedValue({ success: true })
+    mocks.apiPost.mockResolvedValue({ instance_id: 'DemoPlugin2' })
     const { container, emitted, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
     const sidebarStore = usePluginSidebarNavStore(pinia)
     vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
@@ -383,20 +377,22 @@ describe('PluginCard lifecycle actions', () => {
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
     const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
+      clone: (form: Record<string, unknown>) => Promise<void>
     }
     await cloneEvents.clone({
-      suffix: ' Test ',
       name: '演示分身',
       description: ' 独立配置 ',
       icon: ' https://example.com/icon.png ',
     })
 
+    // 后缀交给服务端分配：它只用于区分实例，用户对它无感
     expect(mocks.apiPost).toHaveBeenCalledWith('plugin/clone/DemoPlugin', {
-      suffix: 'Test',
+      suffix: null,
       name: '演示分身',
       description: '独立配置',
       icon: 'https://example.com/icon.png',
+      pinned_version: null,
+      restore_previous: true,
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件分身 演示分身 创建成功！')
     expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
@@ -405,17 +401,75 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.dialogCloses[1]).toHaveBeenCalled()
   })
 
-  it('rejects an empty clone suffix before calling the API', async () => {
+  it('installs the pinned version before creating a clone anchored to it', async () => {
+    const sidebarStore = usePluginSidebarNavStore()
+    vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
+    mocks.apiPost.mockResolvedValueOnce({ success: true })
     const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
     const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
+      clone: (form: Record<string, unknown>) => Promise<void>
     }
-    await cloneEvents.clone({ suffix: ' ', name: '', description: '', icon: '' })
 
-    expect(mocks.toastError).toHaveBeenCalledWith('分身后缀不能为空')
+    await cloneEvents.clone({
+      suffix: 'Old',
+      name: '锚定分身',
+      description: '',
+      icon: '',
+      pinned_version: '0.9.0',
+      install: { repo_url: 'https://github.com/demo/repo', release_version: '0.9.0' },
+    })
+
+    expect(mocks.installFromSource).toHaveBeenCalledWith('DemoPlugin', {
+      repo_url: 'https://github.com/demo/repo',
+      release_version: '0.9.0',
+    })
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'plugin/clone/DemoPlugin',
+      expect.objectContaining({ pinned_version: '0.9.0' }),
+    )
+  })
+
+  it('aborts clone creation when the pinned version fails to install', async () => {
+    // 版本目录没落盘就建分身，只会建出一个启动必失败的实例
+    mocks.installFromSource.mockRejectedValueOnce(new Error('下载超时'))
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('分身'))
+    const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
+      clone: (form: Record<string, unknown>) => Promise<void>
+    }
+
+    await cloneEvents.clone({
+      suffix: 'Old',
+      name: '',
+      description: '',
+      icon: '',
+      pinned_version: '0.9.0',
+      install: { repo_url: 'https://github.com/demo/repo', release_version: '0.9.0' },
+    })
+
     expect(mocks.apiPost).not.toHaveBeenCalled()
+    expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('0.9.0'))
+  })
+
+  it('treats a response without an instance id as a failure', async () => {
+    // 后缀由服务端分配之后，实例 ID 只能由它回传；算不出也猜不得，缺了就不能
+    // 报成功——后续要拿它去打开配置、刷新列表。
+    mocks.apiPost.mockResolvedValue({})
+    const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('分身'))
+    const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
+      clone: (form: Record<string, unknown>) => Promise<void>
+    }
+
+    await cloneEvents.clone({ name: '演示分身', description: '', icon: '' })
+
+    expect(mocks.toastError).toHaveBeenCalled()
+    expect(emitted()).not.toHaveProperty('remove')
   })
 
   it('keeps clone dialog open after business and HTTP failures', async () => {
@@ -641,6 +695,7 @@ describe('PluginCard lifecycle actions', () => {
     versionManageEvents.save()
 
     expect(emitted().save).toHaveLength(1)
+    expect(mocks.loadRemoteComponents).toHaveBeenCalledOnce()
   })
 
   it('opens plugin detail from an external action exactly once', async () => {
