@@ -47,11 +47,11 @@ describe('glass overlay material styles', () => {
     const popup = styles.slice(popupStart, popupEnd)
 
     expect(styles).toContain('--glass-popup-blur: 8px')
-    expect(styles).toContain('--glass-popup-blur: 18px')
     expect(styles).toContain('--glass-popup-blur: 24px')
-    expect(styles).toContain('--glass-dialog-blur: 18px')
+    expect(styles).not.toContain('--glass-popup-blur: 18px')
+    expect(styles).toContain('--glass-dialog-blur: 16px')
     expect(styles).toContain('--glass-dialog-blur: 24px')
-    expect(styles).toContain('--glass-dialog-blur: 12px')
+    expect(styles).not.toContain('--glass-dialog-blur: 18px')
     expect(styles).toContain('--glass-dialog-filter: blur(var(--glass-dialog-blur)) saturate(135%)')
     expect(popup).toContain('--glass-overlay-blur: var(--glass-popup-blur)')
     expect(popup).toMatch(
@@ -91,11 +91,12 @@ describe('glass overlay material styles', () => {
     expect(clearStyleStart).toBeGreaterThanOrEqual(0)
     expect(clearStyle).toContain("[data-glass-appearance='clear']")
     expect(clearStyle).toContain("[data-glass-appearance='tinted']")
-    expect(clearStyle).toContain('--glass-popup-blur: 6px')
-    expect(clearStyle).toContain('--glass-dialog-blur: 12px')
-    expect(styles).toMatch(
-      /\[data-glass-ui-style='clear'\]\[data-glass-appearance='tinted'\][\s\S]*?--glass-popup-blur: 12px/u,
-    )
+    expect(clearStyle).toContain('--glass-popup-blur: 4px')
+    expect(clearStyle).toContain('--glass-dialog-blur: 8px')
+    const tintedStart = styles.indexOf("    &[data-glass-appearance='tinted'] {")
+    const frostedStart = styles.indexOf("    &[data-glass-appearance='frosted'] {", tintedStart)
+    const tintedStyle = styles.slice(tintedStart, frostedStart)
+    expect(tintedStyle).not.toContain('--glass-popup-blur:')
     expect(clearStyle).toContain('--glass-popup-surface: rgba(')
     expect(styles).toMatch(
       /\[data-glass-ui-style='clear'\]\[data-glass-appearance='tinted'\][\s\S]*?rgba\(var\(--glass-material-accent-rgb\), 0\.12\)/u,

@@ -145,8 +145,8 @@ describe('glass navigation reading material', () => {
   it('shares the interface style material with the Dock while avoiding nested glass buttons', () => {
     expect(surfaces).not.toMatch(/\[data-shell-mode='app'\] \.layout-navbar,\s*\.footer-nav-card\s*\{/u)
     expect(surfaces).toContain("&[data-glass-ui-style='clear']:is(")
-    expect(surfaces).toContain('--glass-popup-blur: 6px')
-    expect(surfaces).toContain('--glass-popup-blur: 12px')
+    expect(surfaces).toContain('--glass-popup-blur: 4px')
+    expect(surfaces).not.toContain('--glass-popup-blur: 12px')
     expect(surfaces).toContain('background: var(--glass-sheen), var(--glass-popup-surface) !important')
     expect(surfaces).toContain('.footer-nav-card.dynamic-btn-card')
     expect(surfaces).toContain('.footer-nav-card .footer-nav-btn')
