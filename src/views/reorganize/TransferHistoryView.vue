@@ -729,9 +729,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         page,
         count,
         title: search.value ?? '',
-        ...(typeof route.query.download_hash === 'string'
-          ? { download_hash: route.query.download_hash }
-          : {}),
+        ...(typeof route.query.download_hash === 'string' ? { download_hash: route.query.download_hash } : {}),
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
       },
     })
@@ -757,10 +755,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         }),
       )
       const expandedIds = new Set(expandedBatches.flat().map(item => item.id))
-      list = [
-        ...list.filter(item => !item.transfer_batch_id && !expandedIds.has(item.id)),
-        ...expandedBatches.flat(),
-      ]
+      list = [...list.filter(item => !item.transfer_batch_id && !expandedIds.has(item.id)), ...expandedBatches.flat()]
     }
 
     isRefreshed.value = true
@@ -2217,15 +2212,11 @@ onUnmounted(() => {
                 >
                   {{ t('transferHistory.status.failed') }} {{ getHistoryGroupSummary(item.items)?.failedCount }}
                 </VChip>
-                <VChip
-                  v-if="getHistoryGroupSummary(item.items)?.batchId"
-                  size="x-small"
-                  color="info"
-                  variant="tonal"
-                >
+                <VChip v-if="getHistoryGroupSummary(item.items)?.batchId" size="x-small" color="info" variant="tonal">
                   {{ t('transferHistory.batchTotal', { count: getHistoryGroupSummary(item.items)?.totalCount || 0 }) }}
                   <template v-if="getHistoryGroupSummary(item.items)?.pendingCount">
-                    · {{ t('transferHistory.batchPending', { count: getHistoryGroupSummary(item.items)?.pendingCount }) }}
+                    ·
+                    {{ t('transferHistory.batchPending', { count: getHistoryGroupSummary(item.items)?.pendingCount }) }}
                   </template>
                 </VChip>
                 <VBtn
