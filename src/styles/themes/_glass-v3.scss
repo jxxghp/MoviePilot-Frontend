@@ -435,6 +435,19 @@ $-popup-hosts: (
 
   // 所有临时表面采用同族阅读材质，Vuetify 容器只传递 token，由真正的表面执行一次采样。
   html[data-theme='glass'] body[data-theme='glass'] {
+    .file-list,
+    .file-navigator {
+      border-radius: 0 !important;
+    }
+
+    .file-browser-toolbar {
+      border-radius: var(--app-surface-radius) var(--app-surface-radius) 0 0 !important;
+    }
+
+    .agent-assistant-fab__bubbles {
+      background: transparent !important;
+    }
+
     :is(#{$-popup-hosts}) {
       --glass-overlay-surface: var(--glass-popup-surface);
       --glass-overlay-blur: var(--glass-popup-blur);
