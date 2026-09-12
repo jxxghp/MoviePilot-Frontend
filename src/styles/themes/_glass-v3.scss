@@ -79,10 +79,11 @@ $-popup-hosts: (
       );
     }
 
-    // 通透风格减少临时表面和悬浮导航的吸收与扩散；显式选择通透时弹窗也保持无模糊。
+    // 通透风格保留弱扩散，避免透明和色调材质下的文字直接叠在复杂背景上。
     &[data-glass-ui-style='clear']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted']) {
-      --glass-popup-blur: 0px;
-      --glass-dialog-blur: 0px;
+      --glass-popup-blur: 4px;
+      // 弹窗使用独立 token，保留比菜单更强、但比自适应更弱的阅读扩散。
+      --glass-dialog-blur: 12px;
       --glass-popup-surface: rgba(
         31,
         34,
@@ -584,23 +585,7 @@ $-popup-hosts: (
     }
   }
 
-  // 各端按内容覆盖状态保护阅读；停滚或 App 顶栏重新出现时仍保留扩散，回到页顶才撤销。
-  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
-    body[data-theme='glass']
-    .layout-wrapper[data-shell-mode].layout-navbar-away-from-top
-    .layout-navbar {
-    // 阅读修正不重复提升饱和度；亮度在材质原有透光响应上只额外衰减一次。
-    --glass-navbar-reading-filter: blur(2px) brightness(92%);
-  }
-
-  // 窄屏标签与背景更密集，App 和抽屉布局的通透导航保留更强的阅读扩散。
-  html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
-    body[data-theme='glass']
-    .layout-wrapper[data-shell-mode]:not([data-shell-mode='desktop']).layout-navbar-away-from-top
-    .layout-navbar {
-    --glass-navbar-reading-filter: blur(3px) brightness(92%);
-  }
-
+  // 自适应导航只在覆盖内容时提升阅读保护，通透导航始终复用较弱的 popup blur。
   html[data-theme='glass'][data-glass-ui-style='adaptive']:is(
       [data-glass-appearance='clear'],
       [data-glass-appearance='tinted']
@@ -609,6 +594,16 @@ $-popup-hosts: (
     .layout-wrapper[data-shell-mode].layout-navbar-away-from-top
     .layout-navbar {
     --glass-navbar-reading-filter: blur(6px) brightness(92%);
+  }
+
+  html[data-theme='glass'][data-glass-ui-style='clear']:is(
+      [data-glass-appearance='clear'],
+      [data-glass-appearance='tinted']
+    )
+    body[data-theme='glass']
+    .layout-wrapper[data-shell-mode]
+    .layout-navbar {
+    --glass-navbar-reading-filter: blur(var(--glass-popup-blur));
   }
 
   html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted'])
