@@ -4516,6 +4516,7 @@ export default {
       loadFailed: '下载历史加载失败',
       deleteFailed: '下载历史删除失败',
       classifySource: '资源目录按类别分类',
+      transferBatch: '查看整理批次',
     },
     siteUserData: {
       title: '站点用户数据',
@@ -5047,6 +5048,10 @@ export default {
     aiRedoDisabled: '请先在系统设置中启用 AI 智能助手',
     aiRedoQueued: '已提交智能助手整理任务：{title}',
     aiRedoFailed: '提交智能助手整理任务失败',
+    batchTotal: '{count} 项',
+    batchPending: '待整理 {count}',
+    continueBatch: '继续整理',
+    rescrapeBatch: '重新整理并刮削',
     actions: {
       aiRedo: '智能助手整理',
       aiRedoPending: '智能助手整理中...',

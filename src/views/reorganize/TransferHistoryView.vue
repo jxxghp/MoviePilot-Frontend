@@ -4,6 +4,7 @@ import { useToast } from 'vue-toastification'
 import api, { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api'
 import { listStorageOptions } from '@/api/storage'
 import type {
+  FileItem,
   StorageOption,
   TransferHistory,
   TransferHistoryDeleteResult,
@@ -93,6 +94,7 @@ const selected = ref<TransferHistory[]>([])
 interface TransferHistoryDisplayItem extends TransferHistory {
   history_group_album_path: string
   history_group_is_music_album: boolean
+  history_group_is_transfer_batch: boolean
   history_group_key: string
   history_group_label: string
   history_group_storage?: string
@@ -114,6 +116,9 @@ interface TransferHistoryGroupSummary {
   storage?: string
   successCount: number
   trackCount: number
+  batchId?: string
+  pendingCount: number
+  totalCount: number
 }
 
 // 当前删除尝试已完成的文件步骤，页面刷新后由后端“已不存在”状态重新确认。
@@ -569,6 +574,20 @@ function getHistoryPathName(path: string) {
 
 // 音乐按目标专辑目录分组，旧记录或失败记录则回退到源目录；其它媒体保持原有的标题分组。
 function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem {
+  if (item.transfer_batch_id && (item.transfer_batch_total || 0) > 1) {
+    const root = normalizeHistoryPath(item.transfer_batch_root || item.src)
+    return {
+      ...item,
+      history_group_album_path: root,
+      history_group_is_music_album: item.type === '音乐',
+      history_group_is_transfer_batch: true,
+      history_group_key: `batch:${item.transfer_batch_id}`,
+      history_group_label: item.transfer_batch_title || getHistoryPathName(root) || t('common.unknown'),
+      history_group_storage: item.src_storage,
+      history_group_track_key: JSON.stringify([item.src_storage || '', normalizeHistoryPath(item.src)]),
+      history_group_uses_destination: false,
+    }
+  }
   if (item.type === '音乐') {
     const candidates = item.status
       ? ([
@@ -586,6 +605,7 @@ function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem
         ...item,
         history_group_album_path: albumPath,
         history_group_is_music_album: true,
+        history_group_is_transfer_batch: false,
         history_group_key: `music:${JSON.stringify([storage || '', albumPath])}`,
         history_group_label: getHistoryPathName(albumPath),
         history_group_storage: storage,
@@ -600,6 +620,7 @@ function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem
     ...item,
     history_group_album_path: '',
     history_group_is_music_album: false,
+    history_group_is_transfer_batch: false,
     history_group_key: `title:${JSON.stringify(item.title ?? null)}`,
     history_group_label: title,
     history_group_track_key: `history:${item.id}`,
@@ -611,7 +632,7 @@ function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem
 function addHistoryGroupSummaries(items: TransferHistoryDisplayItem[]) {
   const groups = new Map<string, TransferHistoryDisplayItem[]>()
   for (const item of items) {
-    if (!item.history_group_is_music_album) continue
+    if (!item.history_group_is_music_album && !item.history_group_is_transfer_batch) continue
     const groupItems = groups.get(item.history_group_key) || []
     groupItems.push(item)
     groups.set(item.history_group_key, groupItems)
@@ -640,6 +661,9 @@ function addHistoryGroupSummaries(items: TransferHistoryDisplayItem[]) {
       storage: firstItem.history_group_storage,
       successCount: groupItems.filter(item => item.status).length,
       trackCount: groupItems.length,
+      batchId: firstItem.transfer_batch_id,
+      pendingCount: Math.max((firstItem.transfer_batch_total || groupItems.length) - groupItems.length, 0),
+      totalCount: Math.max(firstItem.transfer_batch_total || 0, groupItems.length),
     }
     for (const item of groupItems) item.history_group_summary = summary
   }
@@ -647,10 +671,40 @@ function addHistoryGroupSummaries(items: TransferHistoryDisplayItem[]) {
   return items
 }
 
+// 批次父项始终从源根目录重新扫描，并跳过已经成功的历史，避免再次复制已入库文件。
+function continueHistoryBatch(items: readonly TransferHistoryGroupItem[]) {
+  const summary = getHistoryGroupSummary(items)
+  if (!summary?.batchId || !summary.albumPath || !summary.storage) return
+  const source: FileItem = {
+    storage: summary.storage,
+    type: 'dir',
+    name: summary.label,
+    basename: summary.label,
+    path: summary.albumPath,
+  }
+  openSharedDialog(
+    ReorganizeDialog,
+    {
+      items: [source],
+      continueBatch: true,
+      transferBatchId: summary.batchId,
+      transferBatchTitle: summary.label,
+      transferBatchRoot: summary.albumPath,
+      transferBatchTotal: summary.totalCount,
+    },
+    {
+      done: transferDone,
+      close: transferDone,
+    },
+    { closeOn: ['close', 'done'] },
+  )
+}
+
 // 当前页出现同一专辑的多首音乐时，首次访问自动切换到可展开的分组视图。
 function hasMusicAlbumGroup(items: TransferHistoryDisplayItem[]) {
   const tracksByAlbum = new Map<string, Set<string>>()
   for (const item of items) {
+    if (item.history_group_is_transfer_batch) return true
     if (!item.history_group_is_music_album) continue
     const tracks = tracksByAlbum.get(item.history_group_key) || new Set<string>()
     tracks.add(item.history_group_track_key)
@@ -675,12 +729,39 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         page,
         count,
         title: search.value ?? '',
+        ...(typeof route.query.download_hash === 'string'
+          ? { download_hash: route.query.download_hash }
+          : {}),
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
       },
     })
     if (!historyViewActive || requestSeed !== fetchDataRequestSeed) return
 
-    const list = Array.isArray(result.list) ? result.list : []
+    let list = Array.isArray(result.list) ? result.list : []
+    const batchIds = [...new Set(list.map(item => item.transfer_batch_id).filter((id): id is string => Boolean(id)))]
+    if (batchIds.length) {
+      const expandedBatches = await Promise.all(
+        batchIds.map(async batchId => {
+          try {
+            const batch = await api.get<{ list?: TransferHistory[] }>('history/transfer', {
+              params: {
+                batch_id: batchId,
+                ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
+              },
+            })
+            return Array.isArray(batch.list) ? batch.list : []
+          } catch (error) {
+            console.error(error)
+            return list.filter(item => item.transfer_batch_id === batchId)
+          }
+        }),
+      )
+      const expandedIds = new Set(expandedBatches.flat().map(item => item.id))
+      list = [
+        ...list.filter(item => !item.transfer_batch_id && !expandedIds.has(item.id)),
+        ...expandedBatches.flat(),
+      ]
+    }
 
     isRefreshed.value = true
     const displayList = addHistoryGroupSummaries(list.map(toHistoryDisplayItem))
@@ -1404,6 +1485,9 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
   }
   if (group.value || groupPreferenceExplicit.value) {
     query.grouped = String(group.value)
+  }
+  if (typeof route.query.download_hash === 'string' && route.query.download_hash) {
+    query.download_hash = route.query.download_hash
   }
 
   return {
@@ -2133,6 +2217,33 @@ onUnmounted(() => {
                 >
                   {{ t('transferHistory.status.failed') }} {{ getHistoryGroupSummary(item.items)?.failedCount }}
                 </VChip>
+                <VChip
+                  v-if="getHistoryGroupSummary(item.items)?.batchId"
+                  size="x-small"
+                  color="info"
+                  variant="tonal"
+                >
+                  {{ t('transferHistory.batchTotal', { count: getHistoryGroupSummary(item.items)?.totalCount || 0 }) }}
+                  <template v-if="getHistoryGroupSummary(item.items)?.pendingCount">
+                    · {{ t('transferHistory.batchPending', { count: getHistoryGroupSummary(item.items)?.pendingCount }) }}
+                  </template>
+                </VChip>
+                <VBtn
+                  v-if="getHistoryGroupSummary(item.items)?.batchId && canManage"
+                  size="small"
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-folder-sync-outline"
+                  @click.stop="continueHistoryBatch(item.items)"
+                >
+                  {{
+                    t(
+                      getHistoryGroupSummary(item.items)?.pendingCount
+                        ? 'transferHistory.continueBatch'
+                        : 'transferHistory.rescrapeBatch',
+                    )
+                  }}
+                </VBtn>
               </div>
             </div>
           </td>

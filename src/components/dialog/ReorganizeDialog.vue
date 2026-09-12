@@ -46,6 +46,11 @@ const props = defineProps({
   items: Array<FileItem>,
   target_storage: String,
   target_path: String,
+  continueBatch: Boolean,
+  transferBatchId: String,
+  transferBatchTitle: String,
+  transferBatchRoot: String,
+  transferBatchTotal: Number,
 })
 
 // 全局设置
@@ -219,7 +224,7 @@ const artistCollectionEntries = ref<ArtistCollectionEntry[]>()
 const manualHistoryLoading = ref(false)
 const manualHistoryCount = ref(0)
 // 仅对本次手动整理生效，默认保留已有的重新整理行为。
-const skipSuccessfulRecords = ref(false)
+const skipSuccessfulRecords = ref(Boolean(props.continueBatch))
 
 // 自动目的路径匹配状态
 const targetPathMatchLoading = ref(false)
@@ -554,7 +559,7 @@ const transferForm = reactive<TransferForm>({
   music_release_scripts: null,
   transfer_type: null,
   min_filesize: 0,
-  scrape: initialTargetPath ? false : null,
+  scrape: props.continueBatch ? true : initialTargetPath ? false : null,
   from_history: false,
   library_type_folder: null,
   library_category_folder: null,
@@ -662,7 +667,7 @@ function resetAutomaticTargetConfig() {
   transferForm.target_storage = null
   transferForm.target_path = null
   transferForm.transfer_type = null
-  transferForm.scrape = null
+  transferForm.scrape = props.continueBatch ? true : null
   transferForm.library_type_folder = null
   transferForm.library_category_folder = null
 }
@@ -714,7 +719,7 @@ function applyTargetPathMatch() {
   transferForm.target_path = targetPath
   transferForm.target_storage = normalizeOptionalText(match.target_storage) || 'local'
   transferForm.transfer_type = normalizeOptionalText(match.transfer_type)
-  transferForm.scrape = match.scrape ?? false
+  transferForm.scrape = props.continueBatch ? true : (match.scrape ?? false)
   transferForm.library_type_folder = match.library_type_folder ?? false
   transferForm.library_category_folder = match.library_category_folder ?? false
 }
@@ -728,13 +733,13 @@ watch(
       if (directory) {
         transferForm.target_storage = directory.library_storage ?? 'local'
         transferForm.transfer_type = transferForm.transfer_type || directory.transfer_type
-        transferForm.scrape = directory.scraping ?? false
+        transferForm.scrape = props.continueBatch ? true : (directory.scraping ?? false)
         transferForm.library_category_folder = directory.library_category_folder ?? false
         transferForm.library_type_folder = directory.library_type_folder ?? false
       } else {
         transferForm.target_storage = transferForm.target_storage || 'local'
         transferForm.transfer_type = transferForm.transfer_type || 'copy'
-        transferForm.scrape = false
+        transferForm.scrape = props.continueBatch ? true : false
         transferForm.library_category_folder = false
         transferForm.library_type_folder = false
       }
@@ -1328,6 +1333,10 @@ function createTransferPayload(options: {
     episode_group: normalizeEpisodeGroup(transferForm.episode_group),
     music_type:
       options.musicType ?? (transferForm.music_type === 'artist_collection' ? 'album' : transferForm.music_type),
+    transfer_batch_id: props.transferBatchId,
+    transfer_batch_title: props.transferBatchTitle,
+    transfer_batch_root: props.transferBatchRoot,
+    transfer_batch_total: props.transferBatchTotal,
   }
 
   if (normalizedMediaId) {

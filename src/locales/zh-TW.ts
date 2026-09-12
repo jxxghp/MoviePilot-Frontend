@@ -4472,6 +4472,7 @@ export default {
       noDataHint: '已添加的下載任務會顯示在這裡',
       loadFailed: '下載歷史載入失敗',
       deleteFailed: '下載歷史刪除失敗',
+      transferBatch: '查看整理批次',
     },
     siteUserData: {
       title: '站點用戶數據',
@@ -4970,6 +4971,10 @@ export default {
     aiRedoDisabled: '請先在系統設置中啟用 AI 智能助手',
     aiRedoQueued: '已提交智能助手整理任務：{title}',
     aiRedoFailed: '提交智能助手整理任務失敗',
+    batchTotal: '{count} 項',
+    batchPending: '待整理 {count}',
+    continueBatch: '繼續整理',
+    rescrapeBatch: '重新整理並刮削',
     actions: {
       aiRedo: '智能助手整理',
       aiRedoPending: '智能助手整理中...',

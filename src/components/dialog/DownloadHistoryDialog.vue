@@ -9,6 +9,7 @@ import noImage from '@images/no-image.jpeg'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
+import { useRouter } from 'vue-router'
 
 const emit = defineEmits(['close'])
 
@@ -16,6 +17,7 @@ const { t } = useI18n()
 const display = useDisplay()
 const globalSettingsStore = useGlobalSettingsStore()
 const $toast = useToast()
+const router = useRouter()
 
 const historyList = ref<DownloadHistory[]>([])
 const currentPage = ref(1)
@@ -83,6 +85,19 @@ function getHistoryTitle(item: DownloadHistory) {
 /** 合并下载历史的季号和集号。 */
 function getSeasonEpisode(item: DownloadHistory) {
   return `${item.seasons || ''}${item.episodes || ''}`
+}
+
+/** 下载历史只负责跳转到同一整理批次，续整逻辑统一由媒体整理页承担。 */
+function openTransferBatch(item: DownloadHistory) {
+  if (!item.download_hash) return
+  emit('close')
+  void router.push({
+    path: '/history',
+    query: {
+      download_hash: item.download_hash,
+      grouped: 'true',
+    },
+  })
 }
 </script>
 
@@ -175,6 +190,10 @@ function getSeasonEpisode(item: DownloadHistory) {
                           <VListItem v-if="item.download_hash" @click="classifyTask = item">
                             <template #prepend><VIcon icon="mdi-folder-move-outline" /></template>
                             <VListItemTitle>资源规范化命名</VListItemTitle>
+                          </VListItem>
+                          <VListItem v-if="item.download_hash" @click="openTransferBatch(item)">
+                            <template #prepend><VIcon icon="mdi-folder-sync-outline" /></template>
+                            <VListItemTitle>{{ t('dialog.downloadHistory.transferBatch') }}</VListItemTitle>
                           </VListItem>
                           <VListItem base-color="error" @click="deleteHistory(item)">
                             <template #prepend>

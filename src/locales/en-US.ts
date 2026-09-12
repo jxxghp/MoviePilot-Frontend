@@ -4628,6 +4628,7 @@ export default {
       loadFailed: 'Failed to load download history',
       deleteFailed: 'Failed to delete download history',
       classifySource: 'Classify resource directory',
+      transferBatch: 'View organization batch',
     },
     siteUserData: {
       title: 'Site User Data',
@@ -5170,6 +5171,10 @@ export default {
     aiRedoDisabled: 'Please enable the AI assistant in system settings first',
     aiRedoQueued: 'Assistant organize task submitted: {title}',
     aiRedoFailed: 'Failed to submit assistant organize task',
+    batchTotal: '{count} items',
+    batchPending: '{count} pending',
+    continueBatch: 'Continue organizing',
+    rescrapeBatch: 'Reorganize and scrape',
     actions: {
       aiRedo: 'Assistant Organize',
       aiRedoPending: 'Assistant Organizing...',

@@ -276,6 +276,27 @@ describe('DownloadHistoryDialog', () => {
     expect(screen.getAllByText('待重新分类')).not.toHaveLength(0)
   })
 
+  it('opens the shared media-organization batch filtered by download hash', async () => {
+    const item = createHistory({
+      download_hash: 'batch-download-hash',
+      title: '合集下载历史',
+    })
+    server.use(downloadHistoryHandler([item]))
+    const user = userEvent.setup()
+
+    const { router, close } = await renderDialog()
+
+    await user.click(await screen.findByText('查看整理批次'))
+
+    expect(close).toHaveBeenCalledOnce()
+    await waitFor(() =>
+      expect(router.currentRoute.value).toMatchObject({
+        path: '/history',
+        query: { download_hash: 'batch-download-hash', grouped: 'true' },
+      }),
+    )
+  })
+
   it('offers a retry after the first load fails', async () => {
     const item = createHistory({ title: '重试成功历史' })
     let requestCount = 0

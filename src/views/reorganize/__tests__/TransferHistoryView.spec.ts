@@ -135,7 +135,11 @@ const HistoryTableStub = defineComponent({
       }
 
       const groupHeaders = [...groups].flatMap(([value, items]) => {
-        if (!(items[0] as TransferHistory & { history_group_is_music_album?: boolean }).history_group_is_music_album) {
+        const groupItem = items[0] as TransferHistory & {
+          history_group_is_music_album?: boolean
+          history_group_is_transfer_batch?: boolean
+        }
+        if (!groupItem.history_group_is_music_album && !groupItem.history_group_is_transfer_batch) {
           return []
         }
         return (
@@ -730,6 +734,62 @@ describe('TransferHistoryView', () => {
     expect(screen.getByRole('img', { name: 'Hotel California (1976)' })).toHaveAttribute(
       'src',
       'https://example.com/hotel-california.jpg',
+    )
+  })
+
+  it('expands a persisted transfer batch and continues the missing files from its source root', async () => {
+    const first = createHistory(31, '曲目一', {
+      src: '/downloads/林俊杰合集/Album A/01.flac',
+      src_storage: 'downloads',
+      type: '音乐',
+      transfer_batch_id: 'batch-artist-1',
+      transfer_batch_root: '/downloads/林俊杰合集',
+      transfer_batch_title: '林俊杰合集',
+      transfer_batch_total: 3,
+    })
+    const second = createHistory(32, '曲目二', {
+      src: '/downloads/林俊杰合集/Album A/02.flac',
+      src_storage: 'downloads',
+      type: '音乐',
+      transfer_batch_id: 'batch-artist-1',
+      transfer_batch_root: '/downloads/林俊杰合集',
+      transfer_batch_title: '林俊杰合集',
+      transfer_batch_total: 3,
+    })
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (config?.params?.batch_id === 'batch-artist-1') return Promise.resolve(historyResponse([first, second]))
+      return Promise.resolve(historyResponse([first]))
+    })
+    mocks.openSharedDialog.mockReturnValue({ close: vi.fn() })
+
+    const { router } = await renderHistory('/history')
+
+    expect(await screen.findByText('林俊杰合集')).toBeInTheDocument()
+    expect(document.body).toHaveTextContent('3 项')
+    expect(document.body).toHaveTextContent('待整理 1')
+    await waitFor(() => expect(router.currentRoute.value.query.grouped).toBe('true'))
+
+    await fireEvent.click(screen.getByRole('button', { name: '继续整理' }))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        continueBatch: true,
+        transferBatchId: 'batch-artist-1',
+        transferBatchTitle: '林俊杰合集',
+        transferBatchRoot: '/downloads/林俊杰合集',
+        transferBatchTotal: 3,
+        items: [
+          expect.objectContaining({
+            path: '/downloads/林俊杰合集',
+            storage: 'downloads',
+            type: 'dir',
+          }),
+        ],
+      }),
+      expect.anything(),
+      expect.anything(),
     )
   })
 
