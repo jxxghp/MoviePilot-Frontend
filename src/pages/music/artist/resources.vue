@@ -53,6 +53,8 @@ interface ArtistCollectionResource {
   state: 'probing' | 'available' | 'probe_error' | 'downloaded' | 'download_error'
 }
 
+type ResourceMode = 'collection' | 'completion'
+
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -67,10 +69,16 @@ const mediaSource = computed<MediaDataSource | undefined>(() => {
   return isMediaDataSource(value) ? value : undefined
 })
 const sites = computed(() => route.query.sites?.toString() || '')
+const resourceMode = computed<ResourceMode>(() =>
+  route.query.mode?.toString() === 'completion' ? 'completion' : 'collection',
+)
+const isCollectionMode = computed(() => resourceMode.value === 'collection')
+const isCompletionMode = computed(() => resourceMode.value === 'completion')
 
 const rows = ref<DiscographyRow[]>([])
 const collectionResources = ref<ArtistCollectionResource[]>([])
 const selectedCollectionKey = ref<string | null>(null)
+const expandedCollectionKeys = ref<string[]>([])
 const artistInfo = ref<MusicArtistInfo>()
 const artistAliases = ref<string[]>([])
 const artistImageLoadError = ref(false)
@@ -81,7 +89,7 @@ const downloading = ref(false)
 const normalizeSource = ref<boolean | null>(null)
 const matchCompleted = ref(0)
 const sortDescending = ref(false)
-const statusFilter = ref<'all' | 'available' | 'library' | 'exact' | 'candidate' | 'unmatched'>('all')
+const statusFilter = ref<'all' | 'available' | 'exact' | 'candidate' | 'unmatched'>('all')
 
 const excludedSecondaryTypes = new Set(['Compilation', 'Live', 'Remix', 'Soundtrack', 'DJ-mix', 'Mixtape/Street'])
 const typeOrder: Record<string, number> = { Album: 0, EP: 1, Single: 2 }
@@ -102,19 +110,42 @@ const summary = computed(() => ({
   unmatched: rows.value.filter(item => item.state === 'unmatched' || item.state === 'error').length,
 }))
 
+const summaryCards = computed(() =>
+  isCollectionMode.value
+    ? [
+        { label: t('music.officialWorks'), value: summary.value.total, color: 'secondary' },
+        { label: t('music.statusInLibrary'), value: summary.value.library, color: 'success' },
+        { label: t('music.artistCollectionResources'), value: collectionResources.value.length, color: 'primary' },
+        {
+          label: t('music.selectedCollectionCoverage'),
+          value: selectedCollection.value?.coverage.confirmed_count || 0,
+          color: 'info',
+        },
+      ]
+    : [
+        { label: t('music.officialWorks'), value: summary.value.total, color: 'secondary' },
+        { label: t('music.statusInLibrary'), value: summary.value.library, color: 'success' },
+        { label: t('music.resourceState.exact'), value: summary.value.exact, color: 'primary' },
+        { label: t('music.resourceState.unmatched'), value: summary.value.unmatched, color: 'error' },
+      ],
+)
+
 const selectedRows = computed(() => rows.value.filter(item => item.selected && item.state === 'exact' && !item.exists))
 const selectedCollection = computed(() =>
   collectionResources.value.find(item => item.key === selectedCollectionKey.value),
 )
-const selectedResourceCount = computed(() => selectedRows.value.length + (selectedCollection.value ? 1 : 0))
+const selectedResourceCount = computed(() =>
+  isCollectionMode.value ? (selectedCollection.value ? 1 : 0) : selectedRows.value.length,
+)
 const matchProgress = computed(() =>
   rows.value.length ? Math.round((matchCompleted.value / rows.value.length) * 100) : 0,
 )
 
 const visibleRows = computed(() => {
   const filtered = rows.value.filter(item => {
+    // 补全模式只处理媒体库中缺失的作品；已入库数量仅保留在摘要中。
+    if (item.exists) return false
     if (statusFilter.value === 'available') return !item.exists
-    if (statusFilter.value === 'library') return item.exists
     if (statusFilter.value === 'exact') return item.state === 'exact' || item.state === 'downloaded'
     if (statusFilter.value === 'candidate') return item.state === 'candidate'
     if (statusFilter.value === 'unmatched') return item.state === 'unmatched' || item.state === 'error'
@@ -128,6 +159,34 @@ const visibleRows = computed(() => {
     return (typeOrder[left.media.album_type || ''] ?? 9) - (typeOrder[right.media.album_type || ''] ?? 9)
   })
 })
+
+const pageTitle = computed(() =>
+  isCollectionMode.value ? t('music.artistCollectionMode') : t('music.artistCompletionMode'),
+)
+const pageDescription = computed(() =>
+  isCollectionMode.value ? t('music.artistCollectionModeDescription') : t('music.artistCompletionModeDescription'),
+)
+
+function collectionCoveredWorks(resource: ArtistCollectionResource) {
+  const mediaById = new Map(rows.value.map(row => [row.media.media_id || '', row.media]))
+  return resource.coverage.works
+    .filter(item => item.state !== 'missing')
+    .flatMap(item => {
+      const media = mediaById.get(item.media_id)
+      return media ? [{ coverage: item, media }] : []
+    })
+    .sort((left, right) => {
+      const leftDate = left.media.release_date || `${left.media.year || '9999'}`
+      const rightDate = right.media.release_date || `${right.media.year || '9999'}`
+      return leftDate.localeCompare(rightDate)
+    })
+}
+
+function toggleCollectionDetails(key: string) {
+  expandedCollectionKeys.value = expandedCollectionKeys.value.includes(key)
+    ? expandedCollectionKeys.value.filter(item => item !== key)
+    : [...expandedCollectionKeys.value, key]
+}
 
 function stableKey(media: MediaInfo) {
   return `${media.media_source || ''}:${media.media_id || ''}`
@@ -228,9 +287,8 @@ async function loadCatalog() {
       state: 'pending',
       resources: [],
     }))
-    await loadCollectionResources()
-    applySelectedCollectionCoverage()
-    await matchResources()
+    if (isCollectionMode.value) await loadCollectionResources()
+    else await matchResources()
   } catch (error) {
     console.error(error)
     $toast.error(t('music.discographyLoadFailed'))
@@ -307,20 +365,6 @@ async function loadCollectionResources() {
   }
 }
 
-function applySelectedCollectionCoverage() {
-  const coverage = new Map(selectedCollection.value?.coverage.works.map(item => [item.media_id, item.state]) || [])
-  rows.value.forEach(row => {
-    if (row.exists) return
-    if (coverage.get(row.media.media_id || '') === 'confirmed') {
-      row.state = 'collection_confirmed'
-      row.selected = false
-      row.resources = []
-    } else if (row.state === 'collection_confirmed') {
-      row.state = 'pending'
-    }
-  })
-}
-
 async function matchRow(row: DiscographyRow) {
   row.state = 'searching'
   try {
@@ -361,11 +405,11 @@ async function matchResources() {
   matching.value = true
   matchCompleted.value = 0
   rows.value.forEach(row => {
-    if (!row.exists && row.state !== 'collection_confirmed') row.state = 'pending'
+    if (!row.exists) row.state = 'pending'
     row.resources = []
     row.selected = false
   })
-  const queue = rows.value.filter(row => !row.exists && row.state !== 'collection_confirmed')
+  const queue = rows.value.filter(row => !row.exists)
   matchCompleted.value = rows.value.length - queue.length
   const worker = async () => {
     while (queue.length) {
@@ -419,17 +463,16 @@ function selectAllDownloadable() {
 }
 
 async function submitAcquisition() {
-  const targets = [...selectedRows.value]
-  const collection = selectedCollection.value
+  const targets = isCompletionMode.value ? [...selectedRows.value] : []
+  const collection = isCollectionMode.value ? selectedCollection.value : undefined
   if (!targets.length && !collection) return
   const confirmed = await confirm({
     type: 'info',
-    title: t('music.batchDownload'),
-    content: t('music.artistAcquisitionConfirm', {
-      collection: collection ? 1 : 0,
-      count: targets.length,
-    }),
-    confirmText: t('music.batchDownload'),
+    title: isCollectionMode.value ? t('music.downloadArtistCollection') : t('music.downloadMissingWorks'),
+    content: isCollectionMode.value
+      ? t('music.downloadArtistCollectionConfirm', { title: collection?.context.torrent_info?.title })
+      : t('music.downloadMissingWorksConfirm', { count: targets.length }),
+    confirmText: isCollectionMode.value ? t('music.downloadArtistCollection') : t('music.downloadMissingWorks'),
   })
   if (!confirmed) return
   downloading.value = true
@@ -460,7 +503,11 @@ async function submitAcquisition() {
       row.state = 'downloaded'
       row.selected = false
     })
-    $toast.success(t('music.artistAcquisitionAdded', { id: task.job_id }))
+    $toast.success(
+      t(isCollectionMode.value ? 'music.artistCollectionTaskAdded' : 'music.artistCompletionTaskAdded', {
+        id: task.job_id,
+      }),
+    )
   } catch (error) {
     console.error(error)
     $toast.error(t('music.artistAcquisitionFailed'))
@@ -469,12 +516,7 @@ async function submitAcquisition() {
   }
 }
 
-watch(selectedCollectionKey, () => {
-  applySelectedCollectionCoverage()
-  void matchResources()
-})
-
-watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { immediate: true })
+watch(() => [artistId.value, mediaSource.value, sites.value, resourceMode.value], loadCatalog, { immediate: true })
 </script>
 
 <template>
@@ -495,8 +537,8 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
           <VBtn variant="text" prepend-icon="mdi-arrow-left" class="px-0 mb-1" @click="router.back()">
             {{ t('common.back') }}
           </VBtn>
-          <h1 class="text-h4 font-weight-bold">{{ artistName }} · {{ t('music.discographyResources') }}</h1>
-          <p class="text-body-2 text-medium-emphasis mt-1">{{ t('music.discographyDescription') }}</p>
+          <h1 class="text-h4 font-weight-bold">{{ artistName }} · {{ pageTitle }}</h1>
+          <p class="text-body-2 text-medium-emphasis mt-1">{{ pageDescription }}</p>
         </div>
       </div>
       <div class="d-flex flex-wrap ga-2">
@@ -511,7 +553,12 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
           min-width="230"
           hide-details
         />
-        <VBtn variant="tonal" prepend-icon="mdi-checkbox-multiple-marked-outline" @click="selectAllDownloadable">
+        <VBtn
+          v-if="isCompletionMode"
+          variant="tonal"
+          prepend-icon="mdi-checkbox-multiple-marked-outline"
+          @click="selectAllDownloadable"
+        >
           {{ t('music.selectDownloadable') }}
         </VBtn>
         <VBtn
@@ -521,23 +568,14 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
           :loading="downloading"
           @click="submitAcquisition"
         >
-          {{ t('music.createArtistAcquisition') }} ({{ selectedResourceCount }})
+          {{ isCollectionMode ? t('music.downloadSelectedCollection') : t('music.downloadMissingWorks') }}
+          ({{ selectedResourceCount }})
         </VBtn>
       </div>
     </div>
 
     <VRow class="mb-3">
-      <VCol
-        v-for="item in [
-          { label: t('music.officialWorks'), value: summary.total, color: 'secondary' },
-          { label: t('music.statusInLibrary'), value: summary.library, color: 'success' },
-          { label: t('music.resourceState.exact'), value: summary.exact, color: 'primary' },
-          { label: t('music.resourceState.unmatched'), value: summary.unmatched, color: 'error' },
-        ]"
-        :key="item.label"
-        cols="6"
-        md="3"
-      >
+      <VCol v-for="item in summaryCards" :key="item.label" cols="6" md="3">
         <VCard variant="tonal" :color="item.color" class="summary-card">
           <VCardText
             ><div class="text-caption">{{ item.label }}</div>
@@ -547,15 +585,28 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
       </VCol>
     </VRow>
 
-    <VProgressLinear v-if="matching" :model-value="matchProgress" height="6" rounded color="primary" class="mb-3" />
+    <VProgressLinear
+      v-if="isCompletionMode && matching"
+      :model-value="matchProgress"
+      height="6"
+      rounded
+      color="primary"
+      class="mb-3"
+    />
 
-    <VCard v-if="loadingCollections || collectionResources.length" class="mb-4">
+    <VCard v-if="isCollectionMode" class="mb-4">
       <VCardTitle class="d-flex flex-wrap align-center ga-2">
         <VIcon icon="mdi-folder-music-outline" />
         {{ t('music.artistCollectionResources') }}
         <VProgressCircular v-if="loadingCollections" indeterminate size="20" width="2" />
       </VCardTitle>
       <VCardSubtitle>{{ t('music.artistCollectionDescription') }}</VCardSubtitle>
+      <LoadingBanner v-if="loadingCollections && !collectionResources.length" class="my-8" />
+      <NoDataFound
+        v-else-if="!collectionResources.length"
+        :error-title="t('music.noArtistCollections')"
+        :error-description="t('music.noArtistCollectionsDescription')"
+      />
       <VCardText v-if="collectionResources.length" class="d-flex flex-column ga-3">
         <VCard v-for="resource in collectionResources" :key="resource.key" variant="tonal">
           <VCardText class="d-flex flex-wrap align-center ga-3">
@@ -606,18 +657,68 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
               }}
             </VBtn>
           </VCardText>
+          <VCardActions v-if="resource.state === 'available'" class="px-4 pt-0">
+            <VBtn
+              variant="text"
+              :append-icon="expandedCollectionKeys.includes(resource.key) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+              @click="toggleCollectionDetails(resource.key)"
+            >
+              {{
+                t('music.viewCollectionWorks', {
+                  count: collectionCoveredWorks(resource).length,
+                })
+              }}
+            </VBtn>
+          </VCardActions>
+          <VExpandTransition>
+            <div v-if="expandedCollectionKeys.includes(resource.key)">
+              <VDivider />
+              <VList v-if="collectionCoveredWorks(resource).length" density="compact" lines="two">
+                <VListItem
+                  v-for="item in collectionCoveredWorks(resource)"
+                  :key="item.media.media_id"
+                  :title="item.media.title"
+                  :subtitle="`${item.media.album_type || t('music.album')} · ${item.media.release_date || item.media.year || t('music.unknownReleaseDate')}`"
+                >
+                  <template #prepend>
+                    <VAvatar rounded="lg" size="44" color="surface-variant">
+                      <VImg
+                        v-if="item.media.cover_url || item.media.poster_path"
+                        :src="item.media.cover_url || item.media.poster_path"
+                        cover
+                      />
+                      <VIcon v-else icon="mdi-album" />
+                    </VAvatar>
+                  </template>
+                  <template #append>
+                    <VChip
+                      size="small"
+                      :color="item.coverage.state === 'confirmed' ? 'success' : 'warning'"
+                      variant="tonal"
+                    >
+                      {{
+                        item.coverage.state === 'confirmed' ? t('music.coverageConfirmed') : t('music.coverageProbable')
+                      }}
+                    </VChip>
+                  </template>
+                </VListItem>
+              </VList>
+              <VCardText v-else class="text-medium-emphasis">
+                {{ t('music.collectionWorksUnknown') }}
+              </VCardText>
+            </div>
+          </VExpandTransition>
         </VCard>
       </VCardText>
     </VCard>
 
-    <VCard>
+    <VCard v-if="isCompletionMode">
       <VCardText class="d-flex flex-wrap align-center ga-3">
         <VSelect
           v-model="statusFilter"
           :items="[
             { title: t('common.all'), value: 'all' },
             { title: t('music.notInLibrary'), value: 'available' },
-            { title: t('music.statusInLibrary'), value: 'library' },
             { title: t('music.resourceState.exact'), value: 'exact' },
             { title: t('music.resourceState.candidate'), value: 'candidate' },
             { title: t('music.resourceState.unmatched'), value: 'unmatched' },

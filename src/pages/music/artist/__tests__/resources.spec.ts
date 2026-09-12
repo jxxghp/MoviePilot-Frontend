@@ -141,33 +141,33 @@ describe('music artist discography resources', () => {
     })
   })
 
-  it('marks existing releases and only preselects exact missing releases', async () => {
+  it('completion mode lists missing releases and only preselects exact matches', async () => {
     await renderWithProviders(MusicArtistResourcesPage, {
-      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=completion',
     })
 
-    expect(await screen.findByText('Already Here')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /补全缺失作品/ })).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: 'Artist' })).toBeInTheDocument()
     expect(await screen.findByText('Need This')).toBeInTheDocument()
     expect(await screen.findByText('Needs Review')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByText('已入库').length).toBeGreaterThan(0))
 
-    const existingCheckbox = screen.getByRole('checkbox', { name: '选择专辑 Already Here' })
     const downloadableCheckbox = screen.getByRole('checkbox', { name: '选择专辑 Need This' })
     const candidateCheckbox = screen.getByRole('checkbox', { name: '选择专辑 Needs Review' })
     await waitFor(() => expect(downloadableCheckbox).toBeChecked())
-    expect(existingCheckbox).toBeDisabled()
-    expect(existingCheckbox).not.toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: '选择专辑 Already Here' })).not.toBeInTheDocument()
     expect(downloadableCheckbox).toBeChecked()
     expect(candidateCheckbox).toBeDisabled()
     expect(candidateCheckbox).not.toBeChecked()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('search/title', expect.anything())
 
-    await fireEvent.click(screen.getByRole('button', { name: /创建完整作品任务 \(2\)/ }))
+    await fireEvent.click(screen.getByRole('button', { name: /下载缺失作品 \(1\)/ }))
     await waitFor(() =>
       expect(mocks.apiPost).toHaveBeenCalledWith(
         'music/artist-acquisition',
         expect.objectContaining({
-          collection: expect.objectContaining({ torrent: collectionResource.torrent_info }),
+          collection: null,
           supplements: [expect.objectContaining({ media: expect.objectContaining({ media_id: 'album-2' }) })],
         }),
         { feedback: 'silent' },
@@ -206,7 +206,8 @@ describe('music artist discography resources', () => {
     })
 
     await renderWithProviders(MusicArtistResourcesPage, {
-      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=collection',
     })
 
     expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
@@ -230,13 +231,18 @@ describe('music artist discography resources', () => {
       })),
     }
     await renderWithProviders(MusicArtistResourcesPage, {
-      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=collection',
     })
 
     expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
     expect(await screen.findByText('已确认覆盖 3/3 个官方作品')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('button', { name: /创建完整作品任务 \(1\)/ }))
+    await fireEvent.click(screen.getByRole('button', { name: '查看包含作品（3）' }))
+    expect(await screen.findByText('Need This')).toBeInTheDocument()
+    expect(screen.getAllByText('确认包含')).toHaveLength(3)
+
+    await fireEvent.click(screen.getByRole('button', { name: /下载选中大合集 \(1\)/ }))
     await waitFor(() =>
       expect(mocks.apiPost).toHaveBeenCalledWith(
         'music/artist-acquisition',

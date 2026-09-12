@@ -120,10 +120,10 @@ describe('music artist page', () => {
     expect(router.currentRoute.value.query).toMatchObject({ keyword: 'Queen', sites: '14', type: '音乐' })
   })
 
-  it('opens the official discography resource matrix after selecting sites', async () => {
+  it('opens artist collections after selecting sites', async () => {
     const { router } = await renderArtistPage()
 
-    await fireEvent.click(await screen.findByRole('button', { name: '作品资源' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '下载艺术家大合集' }))
 
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
     const [, , dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
@@ -139,6 +139,23 @@ describe('music artist page', () => {
       artist_id: 'artist-1',
       media_source: 'musicbrainz',
       sites: '14',
+      mode: 'collection',
     })
+  })
+
+  it('opens missing-release completion as a separate mode', async () => {
+    const { router } = await renderArtistPage()
+
+    await fireEvent.click(await screen.findByRole('button', { name: '补全缺失作品' }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const [, , dialogEvents] = mocks.openSharedDialog.mock.calls[0] as [
+      unknown,
+      unknown,
+      { search: (sites: number[]) => void },
+    ]
+    dialogEvents.search([14])
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/music/artist/resources'))
+    expect(router.currentRoute.value.query).toMatchObject({ mode: 'completion', sites: '14' })
   })
 })

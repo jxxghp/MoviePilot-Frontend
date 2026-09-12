@@ -43,7 +43,7 @@ const { openMusicSiteSearch } = useMusicSiteSearch(sites => {
   }
 })
 
-const { openMusicSiteSearch: openDiscographyResources } = useMusicSiteSearch(sites => {
+function artistResourceRoute(sites: number[], mode: 'collection' | 'completion') {
   if (!artist.value?.name || !artist.value.media_id || !props.mediaSource) return undefined
   return {
     path: '/music/artist/resources',
@@ -52,9 +52,17 @@ const { openMusicSiteSearch: openDiscographyResources } = useMusicSiteSearch(sit
       artist_id: artist.value.media_id,
       media_source: props.mediaSource,
       sites: sites.join(','),
+      mode,
     },
   }
-})
+}
+
+const { openMusicSiteSearch: openArtistCollections } = useMusicSiteSearch(sites =>
+  artistResourceRoute(sites, 'collection'),
+)
+const { openMusicSiteSearch: openArtistCompletion } = useMusicSiteSearch(sites =>
+  artistResourceRoute(sites, 'completion'),
+)
 
 // 艺术家作品按 MusicBrainz 的 Release Group 主类型分区展示
 const albumSections = computed(() => [
@@ -118,10 +126,19 @@ watch(() => [props.mediaSource, props.mediaId], loadArtistDetail, { immediate: t
         v-if="canSearch"
         variant="elevated"
         color="primary"
-        prepend-icon="mdi-album"
-        @click="openDiscographyResources"
+        prepend-icon="mdi-folder-music-outline"
+        @click="openArtistCollections"
       >
-        {{ t('music.discographyResources') }}
+        {{ t('music.artistCollectionMode') }}
+      </VBtn>
+      <VBtn
+        v-if="canSearch"
+        variant="tonal"
+        color="primary"
+        prepend-icon="mdi-playlist-plus"
+        @click="openArtistCompletion"
+      >
+        {{ t('music.artistCompletionMode') }}
       </VBtn>
       <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="openMusicSiteSearch">
         {{ t('music.searchResources') }}
