@@ -663,4 +663,17 @@ describe('PluginCard lifecycle actions', () => {
     })
     expect(screen.getByText('插件加载失败，请查看日志')).toBeInTheDocument()
   })
+
+  it('shows a retry action for startup synchronization failures', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, runtime_status: 'sync_failed' },
+        runtimeSettling: false,
+      },
+    })
+
+    expect(screen.getByText('插件同步失败，请重试')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+  })
 })

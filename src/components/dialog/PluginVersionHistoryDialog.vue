@@ -68,6 +68,21 @@ const resolvedHistory = computed(() => {
 const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)
 
 const releaseItems = computed(() => releaseDetail.value?.items || [])
+const localUpdateCandidate = computed(() => {
+  const currentVersion = releaseDetail.value?.current_version || resolvedPlugin.value?.plugin_version
+  const latestOnlineVersion = releaseDetail.value?.latest_version
+  const candidate = releaseSourceOptions.value?.candidates.find(item => item.source_type === 'local' && item.repo_url)
+  const payloadIsOnline = releaseSourceOptions.value?.identity?.payload_source_type !== 'local'
+  if (
+    !candidate?.repo_url ||
+    !payloadIsOnline ||
+    !isVersionAtLeast(candidate.plugin_version, currentVersion) ||
+    (latestOnlineVersion && !isVersionAtLeast(candidate.plugin_version, latestOnlineVersion))
+  ) {
+    return null
+  }
+  return candidate
+})
 
 type ReleaseSourceAction = 'bind' | 'change' | 'unavailable'
 
@@ -108,7 +123,9 @@ const releaseSourceMessage = computed(() => {
 })
 
 const latestActionText = computed(() =>
-  releaseSourceAction.value === 'bind'
+  localUpdateCandidate.value
+    ? t('plugin.updateToLocal')
+    : releaseSourceAction.value === 'bind'
     ? t('plugin.bindSource')
     : releaseSourceAction.value === 'change'
       ? t('plugin.changeSource')
@@ -117,7 +134,15 @@ const latestActionText = computed(() =>
         : t('plugin.updateToLatest'),
 )
 
-const shouldShowUpdatePanel = computed(() => props.showUpdateAction)
+const hasNewerRelease = computed(() => {
+  const latest = releaseItems.value.find(item => item.is_latest)
+  return Boolean(latest && !latest.is_current)
+})
+const shouldShowUpdatePanel = computed(
+  () =>
+    props.showUpdateAction &&
+    (Boolean(localUpdateCandidate.value) || Boolean(releaseSourceAction.value) || !releaseDetail.value || hasNewerRelease.value),
+)
 
 const releaseByHistoryVersion = computed(() => {
   const releaseMap = new Map<string, PluginReleaseVersion>()
@@ -129,6 +154,26 @@ const releaseByHistoryVersion = computed(() => {
 
 function normalizeHistoryVersion(version: string) {
   return version.startsWith('v') ? version : `v${version}`
+}
+
+function isVersionHigher(candidate?: string | null, current?: string | null) {
+  if (!candidate || !current) return false
+  const parse = (value: string) =>
+    value
+      .replace(/^v/i, '')
+      .split(/[.-]/)
+      .map(part => Number.parseInt(part, 10) || 0)
+  const left = parse(candidate)
+  const right = parse(current)
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const difference = (left[index] || 0) - (right[index] || 0)
+    if (difference !== 0) return difference > 0
+  }
+  return false
+}
+
+function isVersionAtLeast(candidate?: string | null, current?: string | null) {
+  return candidate === current || isVersionHigher(candidate, current)
 }
 
 function formatReleaseDate(value?: string) {
@@ -255,6 +300,10 @@ async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPl
 function handleUpdate(releaseItem?: PluginReleaseVersion) {
   if (releaseSourceAction.value) {
     if (releaseSourceAction.value !== 'unavailable') emit('sourceAction')
+    return
+  }
+  if (localUpdateCandidate.value && (!releaseItem || releaseItem.is_latest)) {
+    emit('update', undefined, localUpdateCandidate.value.repo_url || undefined)
     return
   }
   emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, releaseRepoUrl.value || undefined)

@@ -383,25 +383,15 @@ describe('PluginMarketDetailDialog', () => {
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: true })
 
     expect(await screen.findByText('当前插件尚未绑定，请选择仓库。')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
-    await fireEvent.click(screen.getByRole('button', { name: '绑定' }))
-    await fireEvent.click(screen.getByText('jxxghp/moviepilot-plugins'))
-    await fireEvent.click(screen.getByRole('button', { name: '确认绑定' }))
+    expect(screen.getByRole('button', { name: '更新' })).not.toBeDisabled()
+    await fireEvent.click(screen.getByRole('button', { name: '更新' }))
 
-    expect(mocks.confirm).toHaveBeenCalledWith(
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'plugin/source/DemoPlugin/install',
       expect.objectContaining({
-        icon: 'mdi-shield-check-outline',
-        title: '确认绑定仓库',
-        confirmText: '确认绑定',
+        repo_url: 'https://github.com/example/plugins',
       }),
     )
-    expect(emitted().sourceTransition).toContainEqual([
-      {
-        action: 'bind',
-        repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
-      },
-    ])
-    expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin/install', expect.anything())
     expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin', expect.anything())
     expect(emitted()['update:modelValue']).toContainEqual([false])
   })
@@ -694,6 +684,7 @@ describe('PluginMarketDetailDialog', () => {
       params: {
         force: true,
         release_version: undefined,
+        repo_url: 'https://github.com/example/plugins',
       },
     })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('插件 演示插件 更新成功！')
