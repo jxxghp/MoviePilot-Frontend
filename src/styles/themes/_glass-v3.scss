@@ -435,12 +435,12 @@ $-popup-hosts: (
 
   // 所有临时表面采用同族阅读材质，Vuetify 容器只传递 token，由真正的表面执行一次采样。
   html[data-theme='glass'] body[data-theme='glass'] {
-    .file-list,
-    .file-navigator {
+    .file-browser-view .file-list.v-card,
+    .file-browser-view .file-navigator.v-card {
       border-radius: 0 !important;
     }
 
-    .file-browser-toolbar {
+    .file-browser-view .file-browser-toolbar.v-toolbar {
       border-radius: var(--app-surface-radius) var(--app-surface-radius) 0 0 !important;
     }
 
