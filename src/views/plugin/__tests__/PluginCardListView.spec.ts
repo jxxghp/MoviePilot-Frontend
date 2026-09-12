@@ -1151,9 +1151,7 @@ describe('PluginCardListView market filtering and pagination', () => {
 
     getHeaderConfig().modelValue.value = 'market'
     await nextTick()
-    const marketFilterButton = getHeaderConfig().appendButtons.find(
-      button => button.dataAttr === 'market-filter-btn',
-    )
+    const marketFilterButton = getHeaderConfig().appendButtons.find(button => button.dataAttr === 'market-filter-btn')
     const installedFilterButton = getHeaderConfig().appendButtons.find(
       button => button.dataAttr === 'installed-filter-btn',
     )

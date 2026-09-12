@@ -135,12 +135,12 @@ const latestActionText = computed(() =>
   localUpdateCandidate.value
     ? t('plugin.updateToLocal')
     : releaseSourceAction.value === 'bind'
-    ? t('plugin.bindSource')
-    : releaseSourceAction.value === 'change'
-      ? t('plugin.changeSource')
-      : props.actionMode === 'install'
-        ? t('plugin.installReleaseVersion')
-        : t('plugin.updateToLatest'),
+      ? t('plugin.bindSource')
+      : releaseSourceAction.value === 'change'
+        ? t('plugin.changeSource')
+        : props.actionMode === 'install'
+          ? t('plugin.installReleaseVersion')
+          : t('plugin.updateToLatest'),
 )
 
 const hasNewerRelease = computed(() => {
@@ -150,7 +150,10 @@ const hasNewerRelease = computed(() => {
 const shouldShowUpdatePanel = computed(
   () =>
     props.showUpdateAction &&
-    (Boolean(localUpdateCandidate.value) || Boolean(releaseSourceAction.value) || !releaseDetail.value || hasNewerRelease.value),
+    (Boolean(localUpdateCandidate.value) ||
+      Boolean(releaseSourceAction.value) ||
+      !releaseDetail.value ||
+      hasNewerRelease.value),
 )
 
 const releaseByHistoryVersion = computed(() => {

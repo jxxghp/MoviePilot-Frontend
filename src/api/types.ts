@@ -1170,7 +1170,8 @@ export interface Plugin {
   // 运行状态
   state?: boolean
   // 插件源码、依赖和运行时加载状态
-  runtime_status?: 'sync_failed' | 'source_missing' | 'dependency_pending' | 'ready' | 'active' | 'blocked_by_policy' | 'load_failed'
+  runtime_status?:
+    'sync_failed' | 'source_missing' | 'dependency_pending' | 'ready' | 'active' | 'blocked_by_policy' | 'load_failed'
   // 是否有详情页面
   has_page?: boolean
   // 是否有新版本

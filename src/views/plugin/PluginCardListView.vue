@@ -917,9 +917,7 @@ async function installPlugin(
     }
     if (repoUrl) {
       // 上层确认的仓库必须属于同一来源快照，避免用户选择在安装事务中被静默丢弃。
-      const selectedCandidate = sourceOptions.candidates.find(
-        candidate => candidate.repo_url === repoUrl,
-      )
+      const selectedCandidate = sourceOptions.candidates.find(candidate => candidate.repo_url === repoUrl)
       if (!selectedCandidate) {
         releaseInstallReservation()
         $toast.error(t('plugin.selectSourceRequired'))
