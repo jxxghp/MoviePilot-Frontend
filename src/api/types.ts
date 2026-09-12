@@ -1396,8 +1396,6 @@ export interface PluginInstalledVersionInfo {
   is_current: boolean
 }
 
-/** 单个实例的版本绑定与运行状态。 */
-/** 同后缀重建分身时可被恢复的残留状态。 */
 /**
  * 一个已卸载、其设置仍留存可被恢复的分身实例。
  *
@@ -1419,6 +1417,7 @@ export interface PluginRestorableInstance {
   has_data: boolean
 }
 
+/** 单个实例的版本绑定与运行状态。 */
 export interface PluginInstanceVersionBinding {
   // 实例 ID
   instance_id: string
