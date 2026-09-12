@@ -259,13 +259,25 @@ async function loadCatalog() {
   artistInfo.value = undefined
   artistImageLoadError.value = false
   try {
-    const [artist, groups] = await Promise.all([
+    const [artistResult, ...groupResults] = await Promise.allSettled([
       api.get<MusicArtistInfo>(`music/artist/${artistId.value}`, {
         params: { media_source: mediaSource.value },
         feedback: 'silent',
       }),
-      Promise.all([fetchAllByType('album'), fetchAllByType('ep'), fetchAllByType('single')]),
+      fetchAllByType('album'),
+      fetchAllByType('ep'),
+      fetchAllByType('single'),
     ])
+    if (artistResult.status === 'rejected') throw artistResult.reason
+    const artist = artistResult.value
+    const groups = groupResults.flatMap(result => {
+      if (result.status === 'fulfilled') return result.value
+      if (!isApiBusinessFailure(result.reason)) console.error(result.reason)
+      return []
+    })
+    if (groupResults.every(result => result.status === 'rejected')) {
+      throw groupResults[0]?.status === 'rejected' ? groupResults[0].reason : new Error('Failed to load artist works')
+    }
     artistInfo.value = artist
     artistAliases.value = [
       ...new Set([artistName.value, artist?.name || '', artist?.sort_name || '', ...(artist?.aliases || [])]),
@@ -273,12 +285,14 @@ async function loadCatalog() {
       .map(name => name.trim())
       .filter(isUsefulArtistAlias)
     const unique = new Map<string, MediaInfo>()
-    groups
-      .flat()
-      .filter(isOfficialDiscographyItem)
-      .forEach(media => unique.set(stableKey(media), media))
+    groups.filter(isOfficialDiscographyItem).forEach(media => unique.set(stableKey(media), media))
     const mediaItems = [...unique.values()].filter(media => media.media_source && media.media_id)
-    const statusMap = await loadLibraryStatus(mediaItems)
+    let statusMap = new Map<string, boolean>()
+    try {
+      statusMap = await loadLibraryStatus(mediaItems)
+    } catch (error) {
+      if (!isApiBusinessFailure(error)) console.error(error)
+    }
     rows.value = mediaItems.map(media => ({
       key: stableKey(media),
       media,

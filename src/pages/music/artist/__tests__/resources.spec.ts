@@ -217,6 +217,42 @@ describe('music artist discography resources', () => {
     )
   })
 
+  it('keeps loaded works and collections when one release type request fails', async () => {
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: { album_type?: string } }) => {
+      if (path === 'music/artist/artist-1') {
+        return Promise.resolve({ name: 'Artist', aliases: ['Artist'] })
+      }
+      if (path.includes('/albums')) {
+        if (config?.params?.album_type === 'single') return Promise.reject(new Error('single request interrupted'))
+        return Promise.resolve(config?.params?.album_type === 'album' ? [downloadableAlbum] : [])
+      }
+      if (path === 'search/title') return Promise.resolve([collectionResource])
+      return Promise.resolve([])
+    })
+    mocks.apiPost.mockImplementation((path: string) => {
+      if (path === 'music/library/status') {
+        return Promise.resolve([{ media_source: 'musicbrainz', media_id: 'album-2', exists: false }])
+      }
+      if (path === 'music/artist-collection/probe') return Promise.resolve(mocks.probeCoverage)
+      return Promise.resolve(null)
+    })
+
+    await renderWithProviders(MusicArtistResourcesPage, {
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=collection',
+    })
+
+    expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'music/library/status',
+        { items: [expect.objectContaining({ media_id: 'album-2' })] },
+        { feedback: 'silent' },
+      ),
+    )
+    expect(mocks.apiPost).toHaveBeenCalledWith('music/artist-collection/probe', expect.anything(), expect.anything())
+  })
+
   it('selects the best confirmed collection and submits one aggregate task', async () => {
     mocks.probeCoverage = {
       folder_name: 'Artist Discography',

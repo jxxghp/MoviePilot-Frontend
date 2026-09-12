@@ -7,20 +7,6 @@ import zhCN from '@/locales/zh-CN'
 import zhTW from '@/locales/zh-TW'
 import enUS from '@/locales/en-US'
 
-// 创建 i18n 实例
-const i18n = createI18n({
-  legacy: false, // 使用组合式API
-  locale: getBrowserLocale() || 'zh-CN', // 默认语言
-  fallbackLocale: 'zh-CN', // 回退语言
-  messages: {
-    'zh-CN': zhCN,
-    'zh-TW': zhTW,
-    'en-US': enUS,
-  },
-  silentTranslationWarn: true,
-  silentFallbackWarn: true,
-})
-
 /**
  * 获取浏览器语言设置
  */
@@ -41,6 +27,20 @@ export function getBrowserLocale(): SupportedLocale | null {
 
   return (locale as SupportedLocale) || 'zh-CN'
 }
+
+// 创建 i18n 实例
+const i18n = createI18n({
+  legacy: false, // 使用组合式API
+  locale: getBrowserLocale() || 'zh-CN', // 默认语言
+  fallbackLocale: 'zh-CN', // 回退语言
+  messages: {
+    'zh-CN': zhCN,
+    'zh-TW': zhTW,
+    'en-US': enUS,
+  },
+  silentTranslationWarn: true,
+  silentFallbackWarn: true,
+})
 
 /**
  * 设置i18n语言环境
