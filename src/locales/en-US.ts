@@ -2069,18 +2069,19 @@ export default {
   setting: {
     classification: {
       title: 'Media Auto Classification',
-      description: 'Put matching media into the right folder. Follow these three steps to set it up.',
+      description:
+        'Automatically place media that meets the configured conditions into the corresponding folders. Complete the following three steps.',
       workspaceCategories: '1. Set up folders',
       workspaceRules: '2. Set up rules',
       workspaceReview: '3. Test and save',
-      quickGuideEyebrow: 'How it works',
-      quickGuideTitle: 'Match media → Put it in a folder',
-      quickGuideHint: 'Choose the folders first, describe what belongs in each one, then test and save.',
+      quickGuideEyebrow: 'Setup flow',
+      quickGuideTitle: 'Automatic classification setup',
+      quickGuideHint: 'Configure the destination folders, define the matching rules, then preview the result and save.',
       quickGuideAria: 'Automatic classification setup steps',
       quickGuideSteps: {
-        categories: { title: 'Set up folders', hint: 'Where media goes' },
-        rules: { title: 'Set up rules', hint: 'What belongs there' },
-        review: { title: 'Test and save', hint: 'Confirm before applying' },
+        categories: { title: 'Set up folders', hint: 'Configure destination folders' },
+        rules: { title: 'Set up rules', hint: 'Define matching conditions' },
+        review: { title: 'Test and save', hint: 'Verify the result and apply' },
       },
       showAdvancedSettings: 'Advanced settings',
       hideAdvancedSettings: 'Hide advanced settings',
@@ -2098,9 +2099,9 @@ export default {
       enrichmentTitle: 'Classification Information Sources',
       enrichmentSimpleTitle: 'Extra information (optional)',
       enrichmentSimpleHint:
-        'Usually you can leave this alone. Extra sources are only checked when a rule needs missing details.',
+        'No adjustment is normally required. Additional sources are queried only when a rule requires information not provided by the primary source.',
       enrichmentSimpleNote:
-        'Default setting: fill missing details only when needed, without changing the media’s primary source.',
+        'Default setting: fill missing information only when necessary, without changing the media’s primary source.',
       enrichmentHint:
         'Ask registered sources only when a rule needs missing media details. Additional information never overwrites the primary source or changes the matched media.',
       enrichmentModeLabel: 'Fill missing information',
@@ -2116,13 +2117,14 @@ export default {
         iqiyi: 'iQIYI',
       },
       analysisTitle: 'Check, Preview, and Publish',
-      analysisHint: 'Review category matches, estimate changes, and check version history before publishing.',
-      simpleReviewTitle: 'Test one item, then save',
-      simpleReviewHint: 'Search for one media item and confirm its result. When the check passes, choose “Apply”.',
+      analysisHint: 'Review category matches, estimate changes, and confirm version history before publishing.',
+      simpleReviewTitle: 'Verify the result and save',
+      simpleReviewHint:
+        'Search for and select one media item, then confirm its classification result. After validation passes, choose “Apply”.',
       simpleReviewCheck: 'Check current rules',
       simpleReviewApply: 'Confirm and apply',
       simpleReviewImpact:
-        'Checked {sample} recent records: {changed} classifications will change; {degraded} may be degraded.',
+        'Checked {sample} recent records: {changed} classifications will change; {degraded} results may be degraded.',
       previewTab: 'Result Preview',
       impactTab: 'Impact Analysis',
       publishTab: 'Publish & History',
@@ -2140,7 +2142,7 @@ export default {
         'Complete directory reference protection cannot be shown. The server will still reject invalid validation or publish requests.',
       helpButton: 'View automatic classification help',
       helpTitle: 'Automatic Classification Guide',
-      helpDescription: 'Follow these steps to configure, check, and publish the rules.',
+      helpDescription: 'Complete the configuration, validation, and publication steps in order.',
       helpClose: 'Got it',
       help: {
         sections: {
@@ -2173,7 +2175,7 @@ export default {
       category: {
         title: 'Storage Folders',
         description:
-          'Set where media should go. Matching rules use these folders, and unmatched media uses the default folder. Paths support up to {count} levels.',
+          'Configure the media classification folders. Matching rules use these folders, while unmatched media uses the default folder. Paths support up to {count} levels.',
         add: 'Add {mediaType} category',
         mediaTypeSegments: 'Category media type',
         editTitle: 'Edit Category',
@@ -2201,7 +2203,8 @@ export default {
         edit: 'Edit category "{name}"',
         empty: 'No {mediaType} categories',
         fallbackTitle: 'Default Categories When Nothing Matches',
-        fallbackHint: 'Choose the category to use for each media type when no rule matches.',
+        fallbackHint:
+          'When none of the classification rules matches, media is assigned to the selected category. This list is shared with the “Assign to category” rule target.',
         fallbackFor: 'Default {mediaType} category',
         pathRequired: 'Category path is required',
         pathEmptySegment: 'Category path cannot contain an empty level',
@@ -2229,14 +2232,14 @@ export default {
       preview: {
         title: 'Category Result Preview and Match Details',
         description:
-          'Search for and select a media item to see where the current rules place it. Previewing does not change the published rules.',
+          'Search for and select a media item to view its classification result. Previewing does not change the published rules.',
         run: 'Preview Category Result',
         modeLabel: 'Rules to use',
         draftPolicy: 'Rules being edited',
         activePolicy: 'Published rules',
         factsTitle: 'Media Details',
         searchDescription:
-          'Nothing needs to be entered by hand. Search, select a media item, and preview it using the information returned by the search.',
+          'Fields do not need to be entered manually. Search for and select a media item to preview its result.',
         keyword: 'Search media',
         keywordPlaceholder: 'Enter a movie, TV show, album, or artist name',
         search: 'Search',
@@ -2264,7 +2267,7 @@ export default {
         noEditableFields: 'This media type has no editable fields.',
         resultTitle: 'Preview Result',
         loading: 'Previewing the category result',
-        emptyResult: 'Select a media item and preview it to inspect the match details.',
+        emptyResult: 'Select a media item and run the preview to view the match details.',
         status: 'Status',
         policyRevision: 'Rules Version',
         recommended: 'Rule Recommendation',
@@ -2355,7 +2358,7 @@ export default {
       impact: {
         title: 'Impact Analysis',
         description:
-          'Read the complete media details for recent download and organization records, then compare the current and pending rules.',
+          'Read complete media details for recent download and organization records, then compare the classification results of the current and pending rules.',
         sampleSource: 'Sample source: {label}',
         sampleLimit: 'Maximum Samples',
         exampleLimit: 'Change Example Limit',
@@ -2390,7 +2393,8 @@ export default {
         candidate: 'Candidate Policy',
         emptyExamples: 'No classification change examples were found in the recent records.',
         warningsTitle: 'Things to Note',
-        emptyAnalysis: 'No impact analysis has been generated. Select Analyze to compare recent records.',
+        emptyAnalysis:
+          'No impact analysis has been generated. Run “Analyze” to view the comparison for recent records.',
         uncategorized: 'Uncategorized',
         noCategoryPath: 'No Category Path',
         none: 'None',
@@ -2448,7 +2452,7 @@ export default {
       control: {
         title: 'Version Publishing and History',
         description:
-          'Publishing and rollback use the current version. If the server has changed, the local draft is kept instead of being overwritten.',
+          'Publishing and rollback are based on the current version. If another operation updates the server, the local draft is preserved and not overwritten.',
         versionLabel: 'Version {revision}',
         policyStatusAria: 'Current policy status',
         unpublishedChanges: 'Unpublished Changes',

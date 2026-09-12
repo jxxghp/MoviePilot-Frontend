@@ -486,11 +486,11 @@ describe('AccountSettingClassification', () => {
     await renderWithProviders(AccountSettingClassification)
     await screen.findByRole('region', { name: 'category-editor' })
 
-    expect(screen.getByRole('region', { name: '满足条件 → 放入目录' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '自动分类设置流程' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '高级设置' })).toHaveAttribute('aria-pressed', 'false')
 
     await openWorkspace('3. 测试并保存')
-    expect(screen.getByRole('region', { name: '先试一条，再保存' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '验证分类结果并保存' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'policy-control-panel' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '高级设置' }))

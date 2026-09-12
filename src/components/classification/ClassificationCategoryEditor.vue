@@ -494,7 +494,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             </VChip>
           </div>
           <p v-if="classificationCategoryDisplayName(category) !== category.name" class="classification-category-id">
-            旧版迁移时额外创建的备用目录；只有被规则、默认分类或目录设置选中时才会使用。
+            该分类为旧版迁移时创建的备用目录，仅在被规则、默认分类或目录设置引用时使用。
           </p>
           <ol
             class="classification-category-path"

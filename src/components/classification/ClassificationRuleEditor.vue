@@ -327,7 +327,7 @@ watch(
     </header>
 
     <VAlert v-if="!props.advanced" type="info" variant="tonal" density="compact">
-      只需要设置“什么媒体”和“放到哪个分类”。多个条件、数据来源和标签等选项可在“高级设置”中调整。
+      基础模式仅需设置媒体类型和目标分类；条件组合、数据来源及标签等选项可在“高级设置”中调整。
     </VAlert>
 
     <Draggable

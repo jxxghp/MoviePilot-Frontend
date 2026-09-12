@@ -265,12 +265,12 @@ const sourceSupportHints = computed<SourceSupportHint[]>(() => {
 
 /** 把规则来源限制解释成用户可理解的匹配范围。 */
 const sourceScopeNote = computed(() => {
-  if (props.sources.length === 0) return '未限定数据来源：这条规则适用于所有来源。'
+  if (props.sources.length === 0) return '未限制数据来源：该规则适用于全部来源。'
   const names = [...new Set(props.sources)].map(source => {
     const option = props.sourceOptions.find(item => item.value === source)
     return option?.title ?? source
   })
-  return `已选数据来源：${names.join('、')}。多个来源表示任意一个来源，不会合并多条媒体信息；字段按当前媒体的实际来源读取。`
+  return `已选择数据来源：${names.join('、')}。多个来源表示任一来源即可命中，系统不会合并不同来源的媒体信息；字段值以当前媒体的实际来源为准。`
 })
 
 const valueControlKind = computed<ValueControlKind>(() => {
@@ -511,7 +511,7 @@ function removeChild(index: number): void {
     </div>
 
     <p v-else-if="nodeKind !== 'condition'" class="classification-condition-builder__node-hint">
-      已设置多个条件；打开高级设置可调整“全部满足 / 任一满足 / 排除”的组合方式。
+      当前规则包含多个条件；条件组合方式可在“高级设置”中调整。
     </p>
 
     <p v-if="props.advanced" class="classification-condition-builder__node-hint" data-testid="node-kind-hint">

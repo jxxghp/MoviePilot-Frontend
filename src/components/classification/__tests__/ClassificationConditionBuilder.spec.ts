@@ -464,7 +464,7 @@ describe('ClassificationConditionBuilder', () => {
     expect(hints).toHaveTextContent('TheMovieDB：部分支持')
     expect(hints).toHaveTextContent('豆瓣：不可用')
     expect(hints).not.toHaveTextContent('musicbrainz')
-    expect(screen.getByTestId('source-scope-note')).toHaveTextContent('多个来源表示任意一个来源')
+    expect(screen.getByTestId('source-scope-note')).toHaveTextContent('多个来源表示任一来源即可命中')
 
     await result.rerender({
       ...defaultProps,

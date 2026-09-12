@@ -1190,15 +1190,52 @@ watch(analysisTab, tab => {
   }
 
   .classification-settings :deep(.v-card-item) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
     padding: 14px 12px 10px;
   }
 
+  .classification-settings :deep(.v-card-item__prepend) {
+    grid-column: 1;
+    grid-row: 1;
+    margin-inline-end: 0;
+  }
+
+  .classification-settings :deep(.v-card-item__content) {
+    grid-column: 2;
+    grid-row: 1;
+    min-inline-size: 0;
+  }
+
+  .classification-settings :deep(.v-card-subtitle) {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
   .classification-settings :deep(.v-card-item__append) {
-    align-self: flex-start;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-self: center;
+    inline-size: 100%;
+    padding-block-start: 0;
+  }
+
+  .classification-settings__header-actions {
+    inline-size: 100%;
+    justify-content: flex-end;
+    gap: 0.25rem;
   }
 
   .classification-settings__status {
-    max-inline-size: 8rem;
+    max-inline-size: none;
+    margin-inline-end: auto;
+  }
+
+  .classification-settings__header-actions :deep(.v-btn) {
+    flex: 0 0 auto;
   }
 
   .classification-settings__workspace {
@@ -1265,15 +1302,27 @@ watch(analysisTab, tab => {
 
   .classification-settings__workspace-tabs :deep(.v-tab),
   .classification-settings__analysis-tabs :deep(.v-tab) {
-    flex-direction: column;
+    grid-template-areas: 'prepend' 'content';
+    grid-template-columns: auto;
+    grid-template-rows: max-content max-content;
+    justify-items: center;
+    align-content: center;
     gap: 2px;
     min-block-size: 54px;
     line-height: 1.15;
   }
 
+  .classification-settings__workspace-tabs :deep(.v-tab .v-btn__content),
+  .classification-settings__analysis-tabs :deep(.v-tab .v-btn__content) {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.1;
+  }
+
   .classification-settings__workspace-tabs :deep(.v-btn__prepend),
   .classification-settings__analysis-tabs :deep(.v-btn__prepend) {
     margin-inline-end: 0;
+    margin-block-end: 2px;
   }
 }
 </style>
