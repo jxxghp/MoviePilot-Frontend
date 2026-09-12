@@ -217,7 +217,7 @@ const overwriteModeItems = computed(() => [
 ])
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'changed', 'update:modelValue'])
+const emit = defineEmits(['close', 'changed', 'update:modelValue', 'update:sourceNormalization'])
 
 // 按钮点击
 function onClose() {
@@ -481,6 +481,15 @@ watch(
               :label="t('directory.sortByCategory')"
               mobile-control-width="65%"
             ></VSwitch>
+          </VCol>
+          <VCol cols="12">
+            <VSwitch
+              :model-value="props.directory.source_normalization"
+              @update:model-value="emit('update:sourceNormalization', Boolean($event))"
+              label="资源规范化命名（源目录 / qB）"
+              hint="MP 新下载后通过 qB 修改最外层名称；配合上方按类别分类归档至类别/艺人。与下方媒体库智能重命名独立。"
+              persistent-hint
+            />
           </VCol>
         </VRow>
         <VDivider v-if="$props.directory.monitor_type" class="my-3 bg-primary" />

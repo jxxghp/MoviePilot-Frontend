@@ -7,9 +7,18 @@ const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   confirm: vi.fn(),
+  probeCoverage: {
+    folder_name: 'Artist Discography',
+    file_count: 3,
+    confirmed_count: 0,
+    probable_count: 0,
+    missing_count: 3,
+    works: [] as Array<{ media_id: string; state: 'confirmed' | 'probable' | 'missing'; evidence: string }>,
+  },
 }))
 
 vi.mock('@/api', () => ({
+  isApiBusinessFailure: (error: unknown) => Boolean((error as { business?: boolean })?.business),
   default: {
     get: (...args: unknown[]) => mocks.apiGet(...args),
     post: (...args: unknown[]) => mocks.apiPost(...args),
@@ -83,7 +92,26 @@ describe('music artist discography resources', () => {
     mocks.apiPost.mockReset()
     mocks.confirm.mockReset()
     mocks.confirm.mockResolvedValue(true)
+    mocks.probeCoverage = {
+      folder_name: 'Artist Discography',
+      file_count: 3,
+      confirmed_count: 0,
+      probable_count: 0,
+      missing_count: 3,
+      works: [inLibraryAlbum, downloadableAlbum, candidateAlbum].map(item => ({
+        media_id: item.media_id,
+        state: 'missing' as const,
+        evidence: '',
+      })),
+    }
     mocks.apiGet.mockImplementation((path: string, config?: { params?: { album_type?: string } }) => {
+      if (path === 'music/artist/artist-1') {
+        return Promise.resolve({
+          name: 'Artist',
+          aliases: ['Artist'],
+          image_url: 'https://images.example.com/artist.jpg',
+        })
+      }
       if (path.includes('/albums')) {
         return Promise.resolve(
           config?.params?.album_type === 'album' ? [inLibraryAlbum, downloadableAlbum, candidateAlbum] : [],
@@ -105,61 +133,161 @@ describe('music artist discography resources', () => {
           { media_source: 'musicbrainz', media_id: 'album-3', exists: false },
         ])
       }
+      if (path === 'music/artist-collection/probe') return Promise.resolve(mocks.probeCoverage)
+      if (path === 'music/artist-acquisition') {
+        return Promise.resolve({ job_id: 'job-1', state: 'submitted', failed_count: 0 })
+      }
       return Promise.resolve(null)
     })
   })
 
-  it('marks existing releases and only preselects exact missing releases', async () => {
+  it('completion mode lists missing releases and only preselects exact matches', async () => {
     await renderWithProviders(MusicArtistResourcesPage, {
-      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=completion',
     })
 
-    expect(await screen.findByText('Already Here')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /补全缺失作品/ })).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'Artist' })).toBeInTheDocument()
     expect(await screen.findByText('Need This')).toBeInTheDocument()
     expect(await screen.findByText('Needs Review')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByText('已入库').length).toBeGreaterThan(0))
 
-    const existingCheckbox = screen.getByRole('checkbox', { name: '选择专辑 Already Here' })
     const downloadableCheckbox = screen.getByRole('checkbox', { name: '选择专辑 Need This' })
     const candidateCheckbox = screen.getByRole('checkbox', { name: '选择专辑 Needs Review' })
-    expect(existingCheckbox).toBeDisabled()
-    expect(existingCheckbox).not.toBeChecked()
+    await waitFor(() => expect(downloadableCheckbox).toBeChecked())
+    expect(screen.queryByRole('checkbox', { name: '选择专辑 Already Here' })).not.toBeInTheDocument()
     expect(downloadableCheckbox).toBeChecked()
     expect(candidateCheckbox).toBeDisabled()
     expect(candidateCheckbox).not.toBeChecked()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('search/title', expect.anything())
 
-    await fireEvent.click(screen.getByRole('button', { name: /\u6279\u91cf\u4e0b\u8f7d \(1\)/ }))
+    await fireEvent.click(screen.getByRole('button', { name: /下载缺失作品 \(1\)/ }))
     await waitFor(() =>
       expect(mocks.apiPost).toHaveBeenCalledWith(
-        'download/',
-        expect.objectContaining({ media_in: expect.objectContaining({ media_id: 'album-2' }) }),
+        'music/artist-acquisition',
+        expect.objectContaining({
+          collection: null,
+          supplements: [expect.objectContaining({ media: expect.objectContaining({ media_id: 'album-2' }) })],
+        }),
         { feedback: 'silent' },
       ),
     )
     expect(mocks.apiPost).not.toHaveBeenCalledWith(
-      'download/',
-      expect.objectContaining({ media_in: expect.objectContaining({ media_id: 'album-1' }) }),
+      'music/artist-acquisition',
+      expect.objectContaining({
+        supplements: [expect.objectContaining({ media: expect.objectContaining({ media_id: 'album-1' }) })],
+      }),
       expect.anything(),
     )
   })
 
-  it('offers one artist collection download and assigns the dedicated source category', async () => {
+  it('keeps successful collection searches when another artist alias has no resources', async () => {
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: { album_type?: string; keyword?: string } }) => {
+      if (path === 'music/artist/artist-1') {
+        return Promise.resolve({ name: 'Artist', aliases: ['Missing Alias'] })
+      }
+      if (path.includes('/albums')) {
+        return Promise.resolve(config?.params?.album_type === 'album' ? [downloadableAlbum] : [])
+      }
+      if (path === 'search/title') {
+        if (config?.params?.keyword === 'Missing Alias') return Promise.reject({ business: true })
+        return Promise.resolve([collectionResource])
+      }
+      if (path === 'search/media/album-2') return Promise.resolve([exactResource('Need This')])
+      return Promise.resolve([])
+    })
+    mocks.apiPost.mockImplementation((path: string) => {
+      if (path === 'music/library/status') {
+        return Promise.resolve([{ media_source: 'musicbrainz', media_id: 'album-2', exists: false }])
+      }
+      if (path === 'music/artist-collection/probe') return Promise.resolve(mocks.probeCoverage)
+      return Promise.resolve(null)
+    })
+
     await renderWithProviders(MusicArtistResourcesPage, {
-      initialRoute: '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14',
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=collection',
     })
 
     expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
-    expect(screen.getByText('预计覆盖 3/3 个官方作品')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledWith(
+      'search/title',
+      expect.objectContaining({ params: expect.objectContaining({ keyword: 'Artist discography' }) }),
+    )
+  })
 
-    await fireEvent.click(screen.getByRole('button', { name: '下载大合集' }))
+  it('keeps loaded works and collections when one release type request fails', async () => {
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: { album_type?: string } }) => {
+      if (path === 'music/artist/artist-1') {
+        return Promise.resolve({ name: 'Artist', aliases: ['Artist'] })
+      }
+      if (path.includes('/albums')) {
+        if (config?.params?.album_type === 'single') return Promise.reject(new Error('single request interrupted'))
+        return Promise.resolve(config?.params?.album_type === 'album' ? [downloadableAlbum] : [])
+      }
+      if (path === 'search/title') return Promise.resolve([collectionResource])
+      return Promise.resolve([])
+    })
+    mocks.apiPost.mockImplementation((path: string) => {
+      if (path === 'music/library/status') {
+        return Promise.resolve([{ media_source: 'musicbrainz', media_id: 'album-2', exists: false }])
+      }
+      if (path === 'music/artist-collection/probe') return Promise.resolve(mocks.probeCoverage)
+      return Promise.resolve(null)
+    })
+
+    await renderWithProviders(MusicArtistResourcesPage, {
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=collection',
+    })
+
+    expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
     await waitFor(() =>
       expect(mocks.apiPost).toHaveBeenCalledWith(
-        'download/artist-collection',
+        'music/library/status',
+        { items: [expect.objectContaining({ media_id: 'album-2' })] },
+        { feedback: 'silent' },
+      ),
+    )
+    expect(mocks.apiPost).toHaveBeenCalledWith('music/artist-collection/probe', expect.anything(), expect.anything())
+  })
+
+  it('selects the best confirmed collection and submits one aggregate task', async () => {
+    mocks.probeCoverage = {
+      folder_name: 'Artist Discography',
+      file_count: 30,
+      confirmed_count: 3,
+      probable_count: 0,
+      missing_count: 0,
+      works: [inLibraryAlbum, downloadableAlbum, candidateAlbum].map(item => ({
+        media_id: item.media_id,
+        state: 'confirmed' as const,
+        evidence: `Artist/${item.title} (${item.year})/01.flac`,
+      })),
+    }
+    await renderWithProviders(MusicArtistResourcesPage, {
+      initialRoute:
+        '/music/artist/resources?artist=Artist&artist_id=artist-1&media_source=musicbrainz&sites=14&mode=collection',
+    })
+
+    expect(await screen.findByText('Artist [2001-2003] Complete Discography FLAC')).toBeInTheDocument()
+    expect(await screen.findByText('已确认覆盖 3/3 个官方作品')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '查看包含作品（3）' }))
+    expect(await screen.findByText('Need This')).toBeInTheDocument()
+    expect(screen.getAllByText('确认包含')).toHaveLength(3)
+
+    await fireEvent.click(screen.getByRole('button', { name: /下载选中大合集 \(1\)/ }))
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'music/artist-acquisition',
         expect.objectContaining({
           artist_name: 'Artist',
           artist_id: 'artist-1',
-          media_source: 'musicbrainz',
-          torrent_in: collectionResource.torrent_info,
+          artist_source: 'musicbrainz',
+          collection: expect.objectContaining({ torrent: collectionResource.torrent_info }),
+          supplements: [],
         }),
         { feedback: 'silent' },
       ),

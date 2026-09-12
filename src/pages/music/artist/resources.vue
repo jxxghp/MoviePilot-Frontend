@@ -1,14 +1,41 @@
 <script setup lang="ts">
 import { useToast } from 'vue-toastification'
 import api, { isApiBusinessFailure } from '@/api'
-import type { Context, MediaDataSource, MediaInfo, MusicLibraryStatus } from '@/api/types'
+import type { Context, MediaDataSource, MediaInfo, MusicArtistInfo, MusicLibraryStatus } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { isMediaDataSource } from '@/utils/mediaId'
 import { requiresMusicConfirmation } from '@/utils/music'
 
 type MatchState =
-  'pending' | 'searching' | 'exact' | 'candidate' | 'unmatched' | 'error' | 'downloaded' | 'download_error'
+  | 'pending'
+  | 'searching'
+  | 'collection_confirmed'
+  | 'exact'
+  | 'candidate'
+  | 'unmatched'
+  | 'error'
+  | 'downloaded'
+  | 'download_error'
+
+type CoverageState = 'confirmed' | 'probable' | 'missing'
+
+interface WorkCoverage {
+  media_id: string
+  state: CoverageState
+  evidence: string
+}
+
+interface CollectionCoverage {
+  folder_name: string
+  file_count: number
+  confirmed_count: number
+  probable_count: number
+  missing_count: number
+  works: WorkCoverage[]
+}
 
 interface DiscographyRow {
   key: string
@@ -22,15 +49,18 @@ interface DiscographyRow {
 interface ArtistCollectionResource {
   key: string
   context: Context
-  coverage: DiscographyRow[]
-  state: 'available' | 'downloading' | 'downloaded' | 'download_error'
+  coverage: CollectionCoverage
+  state: 'probing' | 'available' | 'probe_error' | 'downloaded' | 'download_error'
 }
+
+type ResourceMode = 'collection' | 'completion'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
 const $toast = useToast()
+const globalSettingsStore = useGlobalSettingsStore()
 
 const artistId = computed(() => route.query.artist_id?.toString().trim() || '')
 const artistName = computed(() => route.query.artist?.toString().trim() || '')
@@ -39,21 +69,38 @@ const mediaSource = computed<MediaDataSource | undefined>(() => {
   return isMediaDataSource(value) ? value : undefined
 })
 const sites = computed(() => route.query.sites?.toString() || '')
+const resourceMode = computed<ResourceMode>(() =>
+  route.query.mode?.toString() === 'completion' ? 'completion' : 'collection',
+)
+const isCollectionMode = computed(() => resourceMode.value === 'collection')
+const isCompletionMode = computed(() => resourceMode.value === 'completion')
 
 const rows = ref<DiscographyRow[]>([])
 const collectionResources = ref<ArtistCollectionResource[]>([])
+const selectedCollectionKey = ref<string | null>(null)
+const expandedCollectionKeys = ref<string[]>([])
+const artistInfo = ref<MusicArtistInfo>()
+const artistAliases = ref<string[]>([])
+const artistImageLoadError = ref(false)
 const loadingCatalog = ref(false)
 const loadingCollections = ref(false)
 const matching = ref(false)
 const downloading = ref(false)
+const normalizeSource = ref<boolean | null>(null)
 const matchCompleted = ref(0)
 const sortDescending = ref(false)
-const statusFilter = ref<'all' | 'available' | 'library' | 'exact' | 'candidate' | 'unmatched'>('all')
+const statusFilter = ref<'all' | 'available' | 'exact' | 'candidate' | 'unmatched'>('all')
 
 const excludedSecondaryTypes = new Set(['Compilation', 'Live', 'Remix', 'Soundtrack', 'DJ-mix', 'Mixtape/Street'])
 const typeOrder: Record<string, number> = { Album: 0, EP: 1, Single: 2 }
 const collectionSignal =
-  /(?:合集|全集|全套|全专辑|全作品|录音室专辑|discograph(?:y|ies)|complete\s+(?:album|studio)|collection|anthology|box\s*set)/i
+  /(?:大合集|合集|全集|全套|全碟|全收[录錄]|全[专專]辑|全作品|作品集|[历歷]年[专專]辑|[录錄]音室[专專]辑|无损合集|無損合集|discograph(?:y|ies)|complete\s+(?:album|studio)|collection|anthology|box\s*set)/i
+
+const artistImageUrl = computed(() => {
+  const rawUrl = artistInfo.value?.image_url || artistInfo.value?.poster_path || ''
+  return getDisplayImageUrl(rawUrl, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
+})
+const showArtistImage = computed(() => Boolean(artistImageUrl.value) && !artistImageLoadError.value)
 
 const summary = computed(() => ({
   total: rows.value.length,
@@ -63,15 +110,42 @@ const summary = computed(() => ({
   unmatched: rows.value.filter(item => item.state === 'unmatched' || item.state === 'error').length,
 }))
 
+const summaryCards = computed(() =>
+  isCollectionMode.value
+    ? [
+        { label: t('music.officialWorks'), value: summary.value.total, color: 'secondary' },
+        { label: t('music.statusInLibrary'), value: summary.value.library, color: 'success' },
+        { label: t('music.artistCollectionResources'), value: collectionResources.value.length, color: 'primary' },
+        {
+          label: t('music.selectedCollectionCoverage'),
+          value: selectedCollection.value?.coverage.confirmed_count || 0,
+          color: 'info',
+        },
+      ]
+    : [
+        { label: t('music.officialWorks'), value: summary.value.total, color: 'secondary' },
+        { label: t('music.statusInLibrary'), value: summary.value.library, color: 'success' },
+        { label: t('music.resourceState.exact'), value: summary.value.exact, color: 'primary' },
+        { label: t('music.resourceState.unmatched'), value: summary.value.unmatched, color: 'error' },
+      ],
+)
+
 const selectedRows = computed(() => rows.value.filter(item => item.selected && item.state === 'exact' && !item.exists))
+const selectedCollection = computed(() =>
+  collectionResources.value.find(item => item.key === selectedCollectionKey.value),
+)
+const selectedResourceCount = computed(() =>
+  isCollectionMode.value ? (selectedCollection.value ? 1 : 0) : selectedRows.value.length,
+)
 const matchProgress = computed(() =>
   rows.value.length ? Math.round((matchCompleted.value / rows.value.length) * 100) : 0,
 )
 
 const visibleRows = computed(() => {
   const filtered = rows.value.filter(item => {
+    // 补全模式只处理媒体库中缺失的作品；已入库数量仅保留在摘要中。
+    if (item.exists) return false
     if (statusFilter.value === 'available') return !item.exists
-    if (statusFilter.value === 'library') return item.exists
     if (statusFilter.value === 'exact') return item.state === 'exact' || item.state === 'downloaded'
     if (statusFilter.value === 'candidate') return item.state === 'candidate'
     if (statusFilter.value === 'unmatched') return item.state === 'unmatched' || item.state === 'error'
@@ -86,6 +160,34 @@ const visibleRows = computed(() => {
   })
 })
 
+const pageTitle = computed(() =>
+  isCollectionMode.value ? t('music.artistCollectionMode') : t('music.artistCompletionMode'),
+)
+const pageDescription = computed(() =>
+  isCollectionMode.value ? t('music.artistCollectionModeDescription') : t('music.artistCompletionModeDescription'),
+)
+
+function collectionCoveredWorks(resource: ArtistCollectionResource) {
+  const mediaById = new Map(rows.value.map(row => [row.media.media_id || '', row.media]))
+  return resource.coverage.works
+    .filter(item => item.state !== 'missing')
+    .flatMap(item => {
+      const media = mediaById.get(item.media_id)
+      return media ? [{ coverage: item, media }] : []
+    })
+    .sort((left, right) => {
+      const leftDate = left.media.release_date || `${left.media.year || '9999'}`
+      const rightDate = right.media.release_date || `${right.media.year || '9999'}`
+      return leftDate.localeCompare(rightDate)
+    })
+}
+
+function toggleCollectionDetails(key: string) {
+  expandedCollectionKeys.value = expandedCollectionKeys.value.includes(key)
+    ? expandedCollectionKeys.value.filter(item => item !== key)
+    : [...expandedCollectionKeys.value, key]
+}
+
 function stableKey(media: MediaInfo) {
   return `${media.media_source || ''}:${media.media_id || ''}`
 }
@@ -99,30 +201,30 @@ function collectionResourceKey(context: Context) {
   return `${torrent?.site || ''}:${torrent?.enclosure || torrent?.page_url || torrent?.title || ''}`
 }
 
-function isArtistCollectionResource(context: Context) {
-  const text = `${context.torrent_info?.title || ''} ${context.torrent_info?.description || ''}`
-  const artist = normalizedText(artistName.value)
-  return Boolean(artist && normalizedText(text).includes(artist) && collectionSignal.test(text))
+function isUsefulArtistAlias(name: string) {
+  const trimmed = name.trim()
+  const normalized = normalizedText(trimmed)
+  if (normalized === normalizedText(artistName.value)) return true
+  // MusicBrainz 可能包含 Jay 这类过宽昵称，既会污染合集筛选，也会浪费一次全站搜索。
+  if (/^[a-z]+$/i.test(trimmed) && normalized.length < 5) return false
+  return normalized.length >= 2
 }
 
-function collectionCoverage(context: Context) {
+function isArtistCollectionResource(context: Context) {
   const text = `${context.torrent_info?.title || ''} ${context.torrent_info?.description || ''}`
-  const ranges = [...text.matchAll(/(?:19|20)\d{2}\s*[-–—~至]\s*((?:19|20)\d{2})/g)]
-    .map(match => {
-      const startMatch = match[0].match(/(?:19|20)\d{2}/)
-      return startMatch ? [Number(startMatch[0]), Number(match[1])] : undefined
-    })
-    .filter((range): range is [number, number] => Boolean(range))
   const normalized = normalizedText(text)
-  return rows.value.filter(row => {
-    const year = Number(row.media.year)
-    if (Number.isFinite(year) && ranges.some(([start, end]) => year >= start && year <= end)) return true
-    return Boolean(row.media.title && normalized.includes(normalizedText(row.media.title)))
-  })
+  return collectionSignal.test(text) && artistAliases.value.some(name => normalized.includes(normalizedText(name)))
 }
 
 function isOfficialDiscographyItem(media: MediaInfo) {
   return !media.secondary_types?.some(type => excludedSecondaryTypes.has(type))
+}
+
+function collectionSearchTerms() {
+  const aliases = artistAliases.value.filter(isUsefulArtistAlias)
+  const primary = artistName.value || aliases[0] || ''
+  const directed = /\p{Script=Han}/u.test(primary) ? `${primary} 合集` : `${primary} discography`
+  return [...new Set([primary, ...aliases.slice(0, 2), directed].map(name => name.trim()).filter(Boolean))].slice(0, 4)
 }
 
 async function fetchAllByType(albumType: 'album' | 'ep' | 'single') {
@@ -154,15 +256,43 @@ async function loadCatalog() {
   if (!artistId.value || !mediaSource.value) return
   loadingCatalog.value = true
   rows.value = []
+  artistInfo.value = undefined
+  artistImageLoadError.value = false
   try {
-    const groups = await Promise.all([fetchAllByType('album'), fetchAllByType('ep'), fetchAllByType('single')])
+    const [artistResult, ...groupResults] = await Promise.allSettled([
+      api.get<MusicArtistInfo>(`music/artist/${artistId.value}`, {
+        params: { media_source: mediaSource.value },
+        feedback: 'silent',
+      }),
+      fetchAllByType('album'),
+      fetchAllByType('ep'),
+      fetchAllByType('single'),
+    ])
+    if (artistResult.status === 'rejected') throw artistResult.reason
+    const artist = artistResult.value
+    const groups = groupResults.flatMap(result => {
+      if (result.status === 'fulfilled') return result.value
+      if (!isApiBusinessFailure(result.reason)) console.error(result.reason)
+      return []
+    })
+    if (groupResults.every(result => result.status === 'rejected')) {
+      throw groupResults[0]?.status === 'rejected' ? groupResults[0].reason : new Error('Failed to load artist works')
+    }
+    artistInfo.value = artist
+    artistAliases.value = [
+      ...new Set([artistName.value, artist?.name || '', artist?.sort_name || '', ...(artist?.aliases || [])]),
+    ]
+      .map(name => name.trim())
+      .filter(isUsefulArtistAlias)
     const unique = new Map<string, MediaInfo>()
-    groups
-      .flat()
-      .filter(isOfficialDiscographyItem)
-      .forEach(media => unique.set(stableKey(media), media))
+    groups.filter(isOfficialDiscographyItem).forEach(media => unique.set(stableKey(media), media))
     const mediaItems = [...unique.values()].filter(media => media.media_source && media.media_id)
-    const statusMap = await loadLibraryStatus(mediaItems)
+    let statusMap = new Map<string, boolean>()
+    try {
+      statusMap = await loadLibraryStatus(mediaItems)
+    } catch (error) {
+      if (!isApiBusinessFailure(error)) console.error(error)
+    }
     rows.value = mediaItems.map(media => ({
       key: stableKey(media),
       media,
@@ -171,7 +301,8 @@ async function loadCatalog() {
       state: 'pending',
       resources: [],
     }))
-    await Promise.all([matchResources(), loadCollectionResources()])
+    if (isCollectionMode.value) await loadCollectionResources()
+    else await matchResources()
   } catch (error) {
     console.error(error)
     $toast.error(t('music.discographyLoadFailed'))
@@ -185,25 +316,62 @@ async function loadCollectionResources() {
   loadingCollections.value = true
   collectionResources.value = []
   try {
-    const contexts =
-      (await api.get<Context[]>('search/title', {
-        params: { keyword: artistName.value, mtype: '音乐', page: 0, sites: sites.value },
-        feedback: 'silent',
-      })) || []
+    const batches = await Promise.allSettled(
+      collectionSearchTerms().map(name =>
+        api.get<Context[]>('search/title', {
+          params: { keyword: name, mtype: '音乐', page: 0, sites: sites.value },
+          feedback: 'silent',
+        }),
+      ),
+    )
+    const contexts = batches.flatMap(result => {
+      if (result.status === 'fulfilled') return result.value || []
+      if (!isApiBusinessFailure(result.reason)) console.error(result.reason)
+      return []
+    })
     const unique = new Map<string, Context>()
     contexts.filter(isArtistCollectionResource).forEach(context => unique.set(collectionResourceKey(context), context))
-    collectionResources.value = [...unique.values()]
-      .map(context => ({
-        key: collectionResourceKey(context),
-        context,
-        coverage: collectionCoverage(context),
-        state: 'available' as const,
-      }))
-      .sort((left, right) => {
-        const coverage = right.coverage.length - left.coverage.length
-        if (coverage) return coverage
-        return (right.context.torrent_info?.seeders || 0) - (left.context.torrent_info?.seeders || 0)
-      })
+    const candidates: ArtistCollectionResource[] = [...unique.values()].slice(0, 8).map(context => ({
+      key: collectionResourceKey(context),
+      context,
+      coverage: {
+        folder_name: '',
+        file_count: 0,
+        confirmed_count: 0,
+        probable_count: 0,
+        missing_count: rows.value.length,
+        works: [],
+      },
+      state: 'probing' as const,
+    }))
+    collectionResources.value = candidates
+    const queue = [...candidates]
+    const worker = async () => {
+      while (queue.length) {
+        const candidate = queue.shift()
+        if (!candidate?.context.torrent_info) continue
+        try {
+          candidate.coverage = await api.post<CollectionCoverage>(
+            'music/artist-collection/probe',
+            { torrent: candidate.context.torrent_info, works: rows.value.map(row => row.media) },
+            { feedback: 'silent' },
+          )
+          candidate.state = 'available'
+        } catch (error) {
+          if (!isApiBusinessFailure(error)) console.error(error)
+          candidate.state = 'probe_error'
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(2, queue.length) }, worker))
+    collectionResources.value = [...candidates].sort((left, right) => {
+      const coverage = right.coverage.confirmed_count - left.coverage.confirmed_count
+      if (coverage) return coverage
+      const probable = right.coverage.probable_count - left.coverage.probable_count
+      if (probable) return probable
+      return (right.context.torrent_info?.seeders || 0) - (left.context.torrent_info?.seeders || 0)
+    })
+    selectedCollectionKey.value = collectionResources.value.find(item => item.state === 'available')?.key || null
   } catch (error) {
     if (!isApiBusinessFailure(error)) console.error(error)
   } finally {
@@ -251,11 +419,12 @@ async function matchResources() {
   matching.value = true
   matchCompleted.value = 0
   rows.value.forEach(row => {
-    row.state = 'pending'
+    if (!row.exists) row.state = 'pending'
     row.resources = []
     row.selected = false
   })
-  const queue = [...rows.value]
+  const queue = rows.value.filter(row => !row.exists)
+  matchCompleted.value = rows.value.length - queue.length
   const worker = async () => {
     while (queue.length) {
       const row = queue.shift()
@@ -271,11 +440,13 @@ async function matchResources() {
 
 function statusLabel(row: DiscographyRow) {
   if (row.exists) return t('music.statusInLibrary')
+  if (row.state === 'collection_confirmed') return t('music.coveredByCollection')
   return t(`music.resourceState.${row.state}`)
 }
 
 function statusColor(row: DiscographyRow) {
   if (row.exists) return 'success'
+  if (row.state === 'collection_confirmed') return 'info'
   if (row.state === 'exact' || row.state === 'downloaded') return 'primary'
   if (row.state === 'candidate') return 'warning'
   if (row.state === 'unmatched' || row.state === 'error' || row.state === 'download_error') return 'error'
@@ -305,116 +476,120 @@ function selectAllDownloadable() {
   })
 }
 
-async function batchDownload() {
-  const targets = [...selectedRows.value]
-  if (!targets.length) return
+async function submitAcquisition() {
+  const targets = isCompletionMode.value ? [...selectedRows.value] : []
+  const collection = isCollectionMode.value ? selectedCollection.value : undefined
+  if (!targets.length && !collection) return
   const confirmed = await confirm({
     type: 'info',
-    title: t('music.batchDownload'),
-    content: t('music.batchDownloadConfirm', { count: targets.length }),
-    confirmText: t('music.batchDownload'),
+    title: isCollectionMode.value ? t('music.downloadArtistCollection') : t('music.downloadMissingWorks'),
+    content: isCollectionMode.value
+      ? t('music.downloadArtistCollectionConfirm', { title: collection?.context.torrent_info?.title })
+      : t('music.downloadMissingWorksConfirm', { count: targets.length }),
+    confirmText: isCollectionMode.value ? t('music.downloadArtistCollection') : t('music.downloadMissingWorks'),
   })
   if (!confirmed) return
   downloading.value = true
-  let succeeded = 0
-  for (const row of targets) {
-    const context = row.resources.find(item => item.match_status !== 'candidate' && !requiresMusicConfirmation(item))
-    if (!context) continue
-    try {
-      await api.post(
-        'download/',
-        { media_in: row.media, torrent_in: context.torrent_info, downloader: null, save_path: null },
-        { feedback: 'silent' },
-      )
-      row.state = 'downloaded'
-      row.selected = false
-      succeeded += 1
-    } catch (error) {
-      console.error(error)
-      row.state = 'download_error'
-      row.selected = false
-    }
-  }
-  downloading.value = false
-  $toast.success(t('music.batchDownloadResult', { success: succeeded, total: targets.length }))
-}
-
-async function downloadCollection(resource: ArtistCollectionResource) {
-  const torrent = resource.context.torrent_info
-  if (!torrent || resource.state === 'downloading') return
-  const confirmed = await confirm({
-    type: 'info',
-    title: t('music.downloadArtistCollection'),
-    content: t('music.downloadArtistCollectionConfirm', { title: torrent.title || artistName.value }),
-    confirmText: t('music.downloadArtistCollection'),
-  })
-  if (!confirmed) return
-  resource.state = 'downloading'
   try {
-    await api.post(
-      'download/artist-collection',
+    const supplements = targets.flatMap(row => {
+      const context = row.resources.find(item => item.match_status !== 'candidate' && !requiresMusicConfirmation(item))
+      return context?.torrent_info ? [{ media: row.media, torrent: context.torrent_info }] : []
+    })
+    const task = await api.post<{ job_id: string; failed_count: number }>(
+      'music/artist-acquisition',
       {
-        artist_name: artistName.value,
+        artist_source: mediaSource.value,
         artist_id: artistId.value,
-        media_source: mediaSource.value,
-        torrent_in: torrent,
+        artist_name: artistName.value,
+        works: rows.value.map(row => row.media),
+        collection: collection?.context.torrent_info
+          ? { torrent: collection.context.torrent_info, coverage: collection.coverage.works }
+          : null,
+        supplements,
+        ...(normalizeSource.value === null ? {} : { normalize_source: normalizeSource.value }),
         downloader: null,
         save_path: null,
       },
       { feedback: 'silent' },
     )
-    resource.state = 'downloaded'
-    resource.coverage.forEach(row => {
+    if (collection) collection.state = 'downloaded'
+    targets.forEach(row => {
+      row.state = 'downloaded'
       row.selected = false
     })
-    $toast.success(t('music.artistCollectionDownloadAdded'))
+    $toast.success(
+      t(isCollectionMode.value ? 'music.artistCollectionTaskAdded' : 'music.artistCompletionTaskAdded', {
+        id: task.job_id,
+      }),
+    )
   } catch (error) {
     console.error(error)
-    resource.state = 'download_error'
+    $toast.error(t('music.artistAcquisitionFailed'))
+  } finally {
+    downloading.value = false
   }
 }
 
-watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { immediate: true })
+watch(() => [artistId.value, mediaSource.value, sites.value, resourceMode.value], loadCatalog, { immediate: true })
 </script>
 
 <template>
   <div class="discography-page">
     <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-5">
-      <div>
-        <VBtn variant="text" prepend-icon="mdi-arrow-left" class="px-0 mb-1" @click="router.back()">
-          {{ t('common.back') }}
-        </VBtn>
-        <h1 class="text-h4 font-weight-bold">{{ artistName }} · {{ t('music.discographyResources') }}</h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">{{ t('music.discographyDescription') }}</p>
+      <div class="d-flex align-center ga-3">
+        <VAvatar size="76" color="surface-variant" class="artist-avatar">
+          <VImg
+            v-if="showArtistImage"
+            :src="artistImageUrl"
+            :alt="artistName"
+            cover
+            @error="artistImageLoadError = true"
+          />
+          <VIcon v-else icon="mdi-account-music" size="38" color="medium-emphasis" />
+        </VAvatar>
+        <div>
+          <VBtn variant="text" prepend-icon="mdi-arrow-left" class="px-0 mb-1" @click="router.back()">
+            {{ t('common.back') }}
+          </VBtn>
+          <h1 class="text-h4 font-weight-bold">{{ artistName }} · {{ pageTitle }}</h1>
+          <p class="text-body-2 text-medium-emphasis mt-1">{{ pageDescription }}</p>
+        </div>
       </div>
       <div class="d-flex flex-wrap ga-2">
-        <VBtn variant="tonal" prepend-icon="mdi-checkbox-multiple-marked-outline" @click="selectAllDownloadable">
+        <VSelect
+          v-model="normalizeSource"
+          label="资源规范化命名（qB）"
+          :items="[
+            { title: '跟随资源目录设置', value: null },
+            { title: '本次开启', value: true },
+            { title: '本次关闭', value: false },
+          ]"
+          min-width="230"
+          hide-details
+        />
+        <VBtn
+          v-if="isCompletionMode"
+          variant="tonal"
+          prepend-icon="mdi-checkbox-multiple-marked-outline"
+          @click="selectAllDownloadable"
+        >
           {{ t('music.selectDownloadable') }}
         </VBtn>
         <VBtn
           color="primary"
           prepend-icon="mdi-download-multiple"
-          :disabled="!selectedRows.length"
+          :disabled="!selectedResourceCount"
           :loading="downloading"
-          @click="batchDownload"
+          @click="submitAcquisition"
         >
-          {{ t('music.batchDownload') }} ({{ selectedRows.length }})
+          {{ isCollectionMode ? t('music.downloadSelectedCollection') : t('music.downloadMissingWorks') }}
+          ({{ selectedResourceCount }})
         </VBtn>
       </div>
     </div>
 
     <VRow class="mb-3">
-      <VCol
-        v-for="item in [
-          { label: t('music.officialWorks'), value: summary.total, color: 'secondary' },
-          { label: t('music.statusInLibrary'), value: summary.library, color: 'success' },
-          { label: t('music.resourceState.exact'), value: summary.exact, color: 'primary' },
-          { label: t('music.resourceState.unmatched'), value: summary.unmatched, color: 'error' },
-        ]"
-        :key="item.label"
-        cols="6"
-        md="3"
-      >
+      <VCol v-for="item in summaryCards" :key="item.label" cols="6" md="3">
         <VCard variant="tonal" :color="item.color" class="summary-card">
           <VCardText
             ><div class="text-caption">{{ item.label }}</div>
@@ -424,18 +599,38 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
       </VCol>
     </VRow>
 
-    <VProgressLinear v-if="matching" :model-value="matchProgress" height="6" rounded color="primary" class="mb-3" />
+    <VProgressLinear
+      v-if="isCompletionMode && matching"
+      :model-value="matchProgress"
+      height="6"
+      rounded
+      color="primary"
+      class="mb-3"
+    />
 
-    <VCard v-if="loadingCollections || collectionResources.length" class="mb-4">
+    <VCard v-if="isCollectionMode" class="mb-4">
       <VCardTitle class="d-flex flex-wrap align-center ga-2">
         <VIcon icon="mdi-folder-music-outline" />
         {{ t('music.artistCollectionResources') }}
         <VProgressCircular v-if="loadingCollections" indeterminate size="20" width="2" />
       </VCardTitle>
       <VCardSubtitle>{{ t('music.artistCollectionDescription') }}</VCardSubtitle>
+      <LoadingBanner v-if="loadingCollections && !collectionResources.length" class="my-8" />
+      <NoDataFound
+        v-else-if="!collectionResources.length"
+        :error-title="t('music.noArtistCollections')"
+        :error-description="t('music.noArtistCollectionsDescription')"
+      />
       <VCardText v-if="collectionResources.length" class="d-flex flex-column ga-3">
         <VCard v-for="resource in collectionResources" :key="resource.key" variant="tonal">
           <VCardText class="d-flex flex-wrap align-center ga-3">
+            <VRadio
+              :model-value="selectedCollectionKey"
+              :value="resource.key"
+              :disabled="resource.state !== 'available' || matching"
+              :aria-label="t('music.selectArtistCollection', { title: resource.context.torrent_info?.title })"
+              @update:model-value="selectedCollectionKey = $event as string"
+            />
             <div class="flex-grow-1 collection-resource-copy">
               <div class="font-weight-medium text-body-1">{{ resource.context.torrent_info?.title }}</div>
               <div class="text-body-2 text-medium-emphasis mt-1">
@@ -447,40 +642,97 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
               <div class="d-flex flex-wrap ga-2 mt-2">
                 <VChip size="small" color="primary" variant="tonal">
                   {{
-                    resource.coverage.length
-                      ? t('music.estimatedCoverage', { count: resource.coverage.length, total: rows.length })
-                      : t('music.coverageUnknown')
+                    resource.state === 'probing'
+                      ? t('music.probingCollection')
+                      : resource.coverage.confirmed_count
+                        ? t('music.confirmedCoverage', {
+                            count: resource.coverage.confirmed_count,
+                            total: rows.length,
+                          })
+                        : t('music.coverageUnknown')
                   }}
+                </VChip>
+                <VChip v-if="resource.coverage.probable_count" size="small" color="warning" variant="tonal">
+                  {{ t('music.probableCoverage', { count: resource.coverage.probable_count }) }}
                 </VChip>
                 <VChip size="small" variant="tonal">Artist Collection</VChip>
               </div>
             </div>
             <VBtn
-              color="primary"
-              prepend-icon="mdi-download"
-              :loading="resource.state === 'downloading'"
-              :disabled="resource.state === 'downloaded'"
-              @click="downloadCollection(resource)"
+              :color="selectedCollectionKey === resource.key ? 'primary' : undefined"
+              :variant="selectedCollectionKey === resource.key ? 'tonal' : 'text'"
+              :disabled="resource.state !== 'available' || matching"
+              @click="selectedCollectionKey = selectedCollectionKey === resource.key ? null : resource.key"
             >
               {{
-                resource.state === 'downloaded'
-                  ? t('music.resourceState.downloaded')
-                  : t('music.downloadArtistCollection')
+                selectedCollectionKey === resource.key
+                  ? t('music.collectionSelected')
+                  : t('music.useAsCollectionBaseline')
               }}
             </VBtn>
           </VCardText>
+          <VCardActions v-if="resource.state === 'available'" class="px-4 pt-0">
+            <VBtn
+              variant="text"
+              :append-icon="expandedCollectionKeys.includes(resource.key) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+              @click="toggleCollectionDetails(resource.key)"
+            >
+              {{
+                t('music.viewCollectionWorks', {
+                  count: collectionCoveredWorks(resource).length,
+                })
+              }}
+            </VBtn>
+          </VCardActions>
+          <VExpandTransition>
+            <div v-if="expandedCollectionKeys.includes(resource.key)">
+              <VDivider />
+              <VList v-if="collectionCoveredWorks(resource).length" density="compact" lines="two">
+                <VListItem
+                  v-for="item in collectionCoveredWorks(resource)"
+                  :key="item.media.media_id"
+                  :title="item.media.title"
+                  :subtitle="`${item.media.album_type || t('music.album')} · ${item.media.release_date || item.media.year || t('music.unknownReleaseDate')}`"
+                >
+                  <template #prepend>
+                    <VAvatar rounded="lg" size="44" color="surface-variant">
+                      <VImg
+                        v-if="item.media.cover_url || item.media.poster_path"
+                        :src="item.media.cover_url || item.media.poster_path"
+                        cover
+                      />
+                      <VIcon v-else icon="mdi-album" />
+                    </VAvatar>
+                  </template>
+                  <template #append>
+                    <VChip
+                      size="small"
+                      :color="item.coverage.state === 'confirmed' ? 'success' : 'warning'"
+                      variant="tonal"
+                    >
+                      {{
+                        item.coverage.state === 'confirmed' ? t('music.coverageConfirmed') : t('music.coverageProbable')
+                      }}
+                    </VChip>
+                  </template>
+                </VListItem>
+              </VList>
+              <VCardText v-else class="text-medium-emphasis">
+                {{ t('music.collectionWorksUnknown') }}
+              </VCardText>
+            </div>
+          </VExpandTransition>
         </VCard>
       </VCardText>
     </VCard>
 
-    <VCard>
+    <VCard v-if="isCompletionMode">
       <VCardText class="d-flex flex-wrap align-center ga-3">
         <VSelect
           v-model="statusFilter"
           :items="[
             { title: t('common.all'), value: 'all' },
             { title: t('music.notInLibrary'), value: 'available' },
-            { title: t('music.statusInLibrary'), value: 'library' },
             { title: t('music.resourceState.exact'), value: 'exact' },
             { title: t('music.resourceState.candidate'), value: 'candidate' },
             { title: t('music.resourceState.unmatched'), value: 'unmatched' },
@@ -562,6 +814,10 @@ watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { imm
 
 .summary-card {
   min-height: 88px;
+}
+
+.artist-avatar {
+  flex: 0 0 auto;
 }
 .discography-row {
   min-height: 98px;

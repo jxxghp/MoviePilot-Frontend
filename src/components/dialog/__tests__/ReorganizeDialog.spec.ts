@@ -328,6 +328,11 @@ async function renderDialog({
   targetPathMatch = {},
   targetPathStatus = 200,
   targetStorage,
+  continueBatch = false,
+  transferBatchId,
+  transferBatchTitle,
+  transferBatchRoot,
+  transferBatchTotal,
 }: {
   directories?: TransferDirectoryConf[]
   episodeRules?: unknown[]
@@ -342,6 +347,11 @@ async function renderDialog({
   targetPathMatch?: ManualTransferTargetPathData
   targetPathStatus?: number
   targetStorage?: string
+  continueBatch?: boolean
+  transferBatchId?: string
+  transferBatchTitle?: string
+  transferBatchRoot?: string
+  transferBatchTotal?: number
 } = {}) {
   const resolvedItems = items ?? (logids?.length ? [] : [createFileItem()])
   seedMediaSourceCatalog()
@@ -386,6 +396,11 @@ async function renderDialog({
       onDone,
       target_path: targetPath,
       target_storage: targetStorage,
+      continueBatch,
+      transferBatchId,
+      transferBatchTitle,
+      transferBatchRoot,
+      transferBatchTotal,
     },
   })
 
@@ -609,6 +624,44 @@ describe('ReorganizeDialog successful history selection', () => {
     ])
     response.resolve(apiEnvelope(null))
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+  })
+
+  it('preserves the original batch identity when continuing unfinished files', async () => {
+    const payloads: unknown[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        payloads.push(await request.json())
+        return HttpResponse.json(apiEnvelope({ items: [] }))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({
+      continueBatch: true,
+      items: [
+        createFileItem({
+          type: 'dir',
+          name: '林俊杰合集',
+          path: '/downloads/林俊杰合集',
+        }),
+      ],
+      transferBatchId: 'batch-artist-1',
+      transferBatchTitle: '林俊杰合集',
+      transferBatchRoot: '/downloads/林俊杰合集',
+      transferBatchTotal: 24,
+    })
+
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(payloads).toHaveLength(1))
+    expect(payloads[0]).toEqual(
+      expect.objectContaining({
+        skip_success: true,
+        transfer_batch_id: 'batch-artist-1',
+        transfer_batch_title: '林俊杰合集',
+        transfer_batch_root: '/downloads/林俊杰合集',
+        transfer_batch_total: 24,
+      }),
+    )
   })
 
   it('clears old previews and sends the current selection when skipping is enabled or cancelled', async () => {

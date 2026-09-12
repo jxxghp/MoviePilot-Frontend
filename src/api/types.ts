@@ -337,6 +337,11 @@ export interface WorkflowShare {
 export interface TransferHistory {
   // ID
   id: number
+  // 同一次目录整理的稳定批次信息
+  transfer_batch_id?: string
+  transfer_batch_title?: string
+  transfer_batch_root?: string
+  transfer_batch_total?: number
   // 源存储
   src_storage?: string
   // 目标存储
@@ -2132,6 +2137,7 @@ export interface TransferDirectoryConf {
   download_type_folder?: boolean
   // 下载类别子目录
   download_category_folder?: boolean
+  source_normalization?: boolean
   // 监控方式 downloader/monitor，None为不监控
   monitor_type?: string
   // 监控模式 fast/compatibility
@@ -2344,6 +2350,11 @@ export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem' | '
   logid?: number
   // 多选整理历史批量请求
   logids?: number[]
+  // 继续整理时沿用原批次，避免剩余项目被拆成新的历史分组
+  transfer_batch_id?: string
+  transfer_batch_title?: string
+  transfer_batch_root?: string
+  transfer_batch_total?: number
 }
 
 // 手动整理目的路径匹配请求
