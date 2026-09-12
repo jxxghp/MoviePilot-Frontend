@@ -2,6 +2,7 @@ import type {
   ClassificationFieldDefinition,
   ClassificationImpactAnalysis,
   ClassificationPolicy,
+  ClassificationValidationResult,
 } from '@/api/mediaClassificationTypes'
 import AccountSettingClassification from '@/views/setting/AccountSettingClassification.vue'
 import userEvent from '@testing-library/user-event'
@@ -263,7 +264,7 @@ describe('AccountSettingClassification', () => {
 
     const draftPolicy = ref(createPolicy())
     const activePolicy = ref(createPolicy())
-    const validationResult = ref<{ valid: boolean; issues: never[] } | null>(null)
+    const validationResult = ref<ClassificationValidationResult | null>(null)
     const impactResult = ref<ClassificationImpactAnalysis | null>(null)
     mocks.validateDraft.mockImplementation(async () => {
       const result = { valid: true, issues: [] as never[] }
@@ -490,6 +491,47 @@ describe('AccountSettingClassification', () => {
     await user.click(screen.getByRole('button', { name: '校验草稿' }))
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('请求参数不正确'))
+  })
+
+  it('hides non-blocking validation warnings while retaining blocking errors', async () => {
+    const user = userEvent.setup()
+    const validation: ClassificationValidationResult = {
+      valid: true,
+      issues: [
+        {
+          severity: 'warning',
+          code: 'partial_field_support',
+          message: '字段 media.genre_keys 在部分来源可用',
+          path: ['rules', 0, 'when'],
+        },
+      ],
+    }
+    mocks.validateDraft.mockResolvedValueOnce(validation)
+    await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('2. 设置规则')
+    await screen.findByRole('region', { name: 'rule-editor' })
+
+    await user.click(screen.getByRole('button', { name: '校验草稿' }))
+    await waitFor(() => expect(mocks.validateDraft).toHaveBeenCalledTimes(1))
+    const state = mocks.useMediaClassification.mock.results[0].value
+    state.validationResult.value = validation
+    await nextTick()
+    expect(screen.queryByText('字段 media.genre_keys 在部分来源可用')).not.toBeInTheDocument()
+
+    state.validationResult.value = {
+      valid: false,
+      issues: [
+        ...validation.issues,
+        {
+          severity: 'error',
+          code: 'invalid_category_path',
+          message: '分类目录无效',
+          path: ['categories', 0, 'path'],
+        },
+      ],
+    }
+    await waitFor(() => expect(screen.getByText('分类目录无效')).toBeInTheDocument())
+    expect(screen.queryByText('字段 media.genre_keys 在部分来源可用')).not.toBeInTheDocument()
   })
 
   it('只显示目录、规则和测试保存三个工作区标签', async () => {

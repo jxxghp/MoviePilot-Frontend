@@ -129,6 +129,11 @@ const validationIsCurrent = computed(
     isEqual(draftPolicy.value, validatedDraftSnapshot.value),
 )
 
+/** 只展示会阻止发布的校验错误，忽略不影响功能的兼容性提示。 */
+const validationErrors = computed(
+  () => validationResult.value?.issues.filter(issue => issue.severity === 'error') ?? [],
+)
+
 /** 影响分析是否仍对应当前草稿和当前活动 revision。 */
 const impactIsCurrent = computed(
   () =>
@@ -872,14 +877,14 @@ watch(analysisTab, tab => {
         </VWindow>
       </VCardText>
 
-      <VCardText v-if="validationResult?.issues.length" class="pt-0">
+      <VCardText v-if="validationErrors.length" class="pt-0">
         <VAlert
-          :type="validationResult.valid ? 'warning' : 'error'"
+          type="error"
           variant="tonal"
-          :title="t('setting.classification.validationIssues', { count: validationResult.issues.length })"
+          :title="t('setting.classification.validationIssues', { count: validationErrors.length })"
         >
           <ul class="classification-settings__issues">
-            <li v-for="(issue, index) in validationResult.issues" :key="`${issue.code}-${index}`">
+            <li v-for="(issue, index) in validationErrors" :key="`${issue.code}-${index}`">
               <strong>{{ issue.code }}</strong>
               <span>{{ issue.message }}</span>
             </li>

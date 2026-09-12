@@ -481,6 +481,9 @@ watch(
 
 <style scoped>
 .classification-policy-control {
+  /* The light theme does not define a reliable variant foreground token. */
+  --classification-secondary-text: rgba(var(--v-theme-on-surface), 0.68);
+
   display: grid;
   gap: 20px;
   inline-size: 100%;
@@ -507,7 +510,7 @@ watch(
 .classification-policy-control__section-header p,
 .classification-policy-control__impact p {
   margin: 4px 0 0;
-  color: rgb(var(--v-theme-on-surface-variant));
+  color: var(--classification-secondary-text);
   font-size: 0.875rem;
 }
 
@@ -548,7 +551,7 @@ watch(
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 8px;
   align-items: center;
-  color: rgb(var(--v-theme-on-surface-variant));
+  color: var(--classification-secondary-text);
   font-size: 0.875rem;
 }
 
@@ -580,7 +583,7 @@ watch(
 .classification-policy-control__history-counts,
 .classification-policy-control__history-title time,
 .classification-policy-control__history-title > span {
-  color: rgb(var(--v-theme-on-surface-variant));
+  color: var(--classification-secondary-text);
   font-size: 0.75rem;
 }
 
@@ -662,7 +665,7 @@ watch(
   justify-content: center;
   gap: 10px;
   min-block-size: 88px;
-  color: rgb(var(--v-theme-on-surface-variant));
+  color: var(--classification-secondary-text);
   text-align: center;
 }
 
