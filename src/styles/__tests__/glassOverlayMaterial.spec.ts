@@ -484,6 +484,20 @@ describe('glass overlay material styles', () => {
     )
   })
 
+  it('keeps the file browser lower outer corners inside the glass surface', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+
+    expect(styles).toMatch(
+      /\.file-browser-view \.file-list\.v-card\s*\{[\s\S]*?border-end-end-radius:\s*var\(--app-surface-radius\) !important;/u,
+    )
+    expect(styles).toMatch(
+      /\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
+    )
+    expect(styles).toMatch(
+      /\.file-browser-view \.file-navigator\.v-card\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
+    )
+  })
+
   it('uses the shared hover-card contract instead of a Dashboard-specific shadow rule', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 

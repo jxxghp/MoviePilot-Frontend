@@ -435,11 +435,24 @@ $-popup-hosts: (
 
   // 所有临时表面采用同族阅读材质，Vuetify 容器只传递 token，由真正的表面执行一次采样。
   html[data-theme='glass'] body[data-theme='glass'] {
+    // 地址栏与内容卡拼成一张工作表面；内容卡保留下方外侧圆角，避免父层裁掉两侧边框。
     .file-browser-view .file-list.v-card.rounded-lg,
     .file-browser-view .file-navigator.v-card.rounded-lg,
     .file-browser-view .file-list.v-card,
     .file-browser-view .file-navigator.v-card {
       border-radius: 0 !important;
+    }
+
+    .file-browser-view .file-list.v-card {
+      border-end-end-radius: var(--app-surface-radius) !important;
+    }
+
+    .file-browser-view:not(:has(.file-navigator)) .file-list.v-card {
+      border-end-start-radius: var(--app-surface-radius) !important;
+    }
+
+    .file-browser-view .file-navigator.v-card {
+      border-end-start-radius: var(--app-surface-radius) !important;
     }
 
     .file-browser-view .file-browser-toolbar.v-toolbar {
