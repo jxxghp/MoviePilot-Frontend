@@ -473,7 +473,8 @@ describe('subscribe page', () => {
 
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
     await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索已安排！')
+    expect(mocks.searchAllSubscriptions).toHaveBeenCalledWith('电影')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('当前媒体类型订阅搜索已安排！')
   })
 
   it('does not start an all-subscription search after confirmation cancellation', async () => {
@@ -486,18 +487,23 @@ describe('subscribe page', () => {
     expect(mocks.searchAllSubscriptions).not.toHaveBeenCalled()
   })
 
-  it('runs administrator maintenance commands from the existing dynamic menu', async () => {
-    await renderSubscribe({ appMode: true, superUser: true })
-    const items = unref(getDynamicButtonConfig().menuItems) ?? []
+  it.each(['电影', '电视剧', '音乐'] as const)(
+    'limits maintenance commands to the current media type: %s',
+    async subType => {
+      await renderSubscribe({ appMode: true, superUser: true, subType })
+      const items = unref(getDynamicButtonConfig().menuItems) ?? []
 
-    items.find(item => item.titleKey === 'subscribe.maintenance.refresh')?.action()
-    items.find(item => item.titleKey === 'subscribe.maintenance.refreshMetadata')?.action()
+      items.find(item => item.titleKey === 'subscribe.maintenance.refresh')?.action()
+      items.find(item => item.titleKey === 'subscribe.maintenance.refreshMetadata')?.action()
 
-    await waitFor(() => expect(mocks.refreshSubscriptions).toHaveBeenCalledOnce())
-    await waitFor(() => expect(mocks.refreshSubscriptionMetadata).toHaveBeenCalledOnce())
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅刷新任务已启动！')
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅元数据更新任务已启动！')
-  })
+      await waitFor(() => expect(mocks.refreshSubscriptions).toHaveBeenCalledOnce())
+      await waitFor(() => expect(mocks.refreshSubscriptionMetadata).toHaveBeenCalledOnce())
+      expect(mocks.refreshSubscriptions).toHaveBeenCalledWith(subType)
+      expect(mocks.refreshSubscriptionMetadata).toHaveBeenCalledWith(subType)
+      expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅刷新任务已启动！')
+      expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅元数据更新任务已启动！')
+    },
+  )
 
   it('blocks duplicate all-subscription search submissions while the first request is pending', async () => {
     let resolveSearch: ((value: null) => void) | undefined
@@ -515,8 +521,9 @@ describe('subscribe page', () => {
 
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
     await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
+    expect(mocks.searchAllSubscriptions).toHaveBeenCalledWith('电影')
     resolveSearch?.(null)
-    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('全部订阅搜索已安排！'))
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('当前媒体类型订阅搜索已安排！'))
   })
 
   it('reports how many searches were scheduled and already running', async () => {
@@ -533,7 +540,7 @@ describe('subscribe page', () => {
     getDynamicButtonConfig().onClick?.()
 
     await waitFor(() => expect(mocks.searchAllSubscriptions).toHaveBeenCalledOnce())
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('已安排 3 个订阅搜索，另有 2 个正在处理中')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('已安排 3 个当前媒体类型订阅搜索，另有 2 个正在处理中')
   })
 
   it.each([

@@ -45,6 +45,16 @@ describe('subscription API', () => {
     expect(mocks.apiPost).toHaveBeenNthCalledWith(5, 'subscribe/check')
   })
 
+  it('passes an optional media type as the command query parameter', async () => {
+    await searchAllSubscriptions('电视剧')
+    await refreshSubscriptions('电视剧')
+    await refreshSubscriptionMetadata('电视剧')
+
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'subscribe/search', undefined, { params: { type: '电视剧' } })
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(2, 'subscribe/refresh', undefined, { params: { type: '电视剧' } })
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(3, 'subscribe/check', undefined, { params: { type: '电视剧' } })
+  })
+
   it('uses the structured follow endpoint for reads and mutations', async () => {
     await expect(listFollowedSubscribers()).resolves.toEqual(['followed-user'])
     await followSubscriber('new-user')

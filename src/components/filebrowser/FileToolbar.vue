@@ -158,7 +158,7 @@ defineExpose({
 </script>
 
 <template>
-  <VToolbar flat dense class="file-browser-toolbar rounded-t-lg border-b overflow-hidden" data-glass-optical-surface>
+  <VToolbar flat dense class="file-browser-toolbar border-b overflow-hidden" data-glass-optical-surface>
     <VToolbarItems class="overflow-hidden">
       <VMenu v-if="storages?.length || 0 > 1" offset-y>
         <template #activator="{ props }">

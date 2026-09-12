@@ -46,12 +46,12 @@ describe('glass overlay material styles', () => {
     const popupEnd = styles.indexOf('  // 两种界面风格', popupStart)
     const popup = styles.slice(popupStart, popupEnd)
 
-    expect(styles).toContain('--glass-popup-blur: 6px')
-    expect(styles).toContain('--glass-popup-blur: 18px')
+    expect(styles).toContain('--glass-popup-blur: 8px')
     expect(styles).toContain('--glass-popup-blur: 24px')
-    expect(styles).toContain('--glass-dialog-blur: 18px')
+    expect(styles).not.toContain('--glass-popup-blur: 18px')
+    expect(styles).toContain('--glass-dialog-blur: 16px')
     expect(styles).toContain('--glass-dialog-blur: 24px')
-    expect(styles).toContain('--glass-dialog-blur: 0px')
+    expect(styles).not.toContain('--glass-dialog-blur: 18px')
     expect(styles).toContain('--glass-dialog-filter: blur(var(--glass-dialog-blur)) saturate(135%)')
     expect(popup).toContain('--glass-overlay-blur: var(--glass-popup-blur)')
     expect(popup).toMatch(
@@ -79,7 +79,7 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toContain('linear-gradient(rgba(var(--glass-v3-ink), 0.4)')
   })
 
-  it('switches the shared Dock, menu, and FAB material with the live interface style attribute', () => {
+  it('switches the shared Dock, menu, dialog, and FAB material with the live interface style attribute', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const clearStyleStart = styles.indexOf("&[data-glass-ui-style='clear']:is(")
     const clearStyleEnd = styles.indexOf(
@@ -91,7 +91,12 @@ describe('glass overlay material styles', () => {
     expect(clearStyleStart).toBeGreaterThanOrEqual(0)
     expect(clearStyle).toContain("[data-glass-appearance='clear']")
     expect(clearStyle).toContain("[data-glass-appearance='tinted']")
-    expect(clearStyle).toContain('--glass-popup-blur: 0px')
+    expect(clearStyle).toContain('--glass-popup-blur: 4px')
+    expect(clearStyle).toContain('--glass-dialog-blur: 8px')
+    const tintedStart = styles.indexOf("    &[data-glass-appearance='tinted'] {")
+    const frostedStart = styles.indexOf("    &[data-glass-appearance='frosted'] {", tintedStart)
+    const tintedStyle = styles.slice(tintedStart, frostedStart)
+    expect(tintedStyle).not.toContain('--glass-popup-blur:')
     expect(clearStyle).toContain('--glass-popup-surface: rgba(')
     expect(styles).toMatch(
       /\[data-glass-ui-style='clear'\]\[data-glass-appearance='tinted'\][\s\S]*?rgba\(var\(--glass-material-accent-rgb\), 0\.12\)/u,
@@ -476,6 +481,20 @@ describe('glass overlay material styles', () => {
     expect(rule).toContain('box-shadow: var(--glass-shadow-raised) !important')
     expect(styles).toMatch(
       /\.compact-fab \.v-btn:hover\s*\{\s*background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
+    )
+  })
+
+  it('keeps the file browser lower outer corners inside the glass surface', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
+
+    expect(styles).toMatch(
+      /\.file-browser-view \.file-list\.v-card,\s*\.file-browser-view \.file-list\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-end-radius:\s*var\(--app-surface-radius\) !important;/u,
+    )
+    expect(styles).toMatch(
+      /\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card,\s*\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
+    )
+    expect(styles).toMatch(
+      /\.file-browser-view \.file-navigator\.v-card,\s*\.file-browser-view \.file-navigator\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
     )
   })
 

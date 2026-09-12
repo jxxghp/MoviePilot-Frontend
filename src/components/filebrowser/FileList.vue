@@ -839,7 +839,6 @@ onUnmounted(() => {
           :placeholder="t('file.filterPlaceholder')"
           :prepend-inner-icon="filter.includes('*') || filter.includes('?') ? 'mdi-asterisk' : 'mdi-filter-outline'"
           class="mx-2"
-          rounded
         />
         <VSpacer v-if="isFile" />
         <IconBtn v-if="!isFile && !selectMode" @click="ignoreCase = !ignoreCase">

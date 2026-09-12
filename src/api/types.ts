@@ -1170,7 +1170,8 @@ export interface Plugin {
   // 运行状态
   state?: boolean
   // 插件源码、依赖和运行时加载状态
-  runtime_status?: 'source_missing' | 'dependency_pending' | 'ready' | 'active' | 'blocked_by_policy' | 'load_failed'
+  runtime_status?:
+    'sync_failed' | 'source_missing' | 'dependency_pending' | 'ready' | 'active' | 'blocked_by_policy' | 'load_failed'
   // 是否有详情页面
   has_page?: boolean
   // 是否有新版本
@@ -1258,11 +1259,11 @@ export interface PluginSourceIdentity {
 
 /** 一个可供管理员识别的脱敏插件来源候选。 */
 export interface PluginSourceCandidate {
-  // 来源类型；本地候选不公开路径
+  // 来源类型
   source_type: PluginSourceCandidateType
   // 规范化在线来源键；本地候选为空
   source_key?: string | null
-  // 可明确选择的在线仓库地址；本地候选为空
+  // 可明确选择的在线仓库地址或本地仓库标识
   repo_url?: string | null
   // 当前运行时会采用的插件包代际
   package_generation: 'v1' | 'v2' | 'v3'

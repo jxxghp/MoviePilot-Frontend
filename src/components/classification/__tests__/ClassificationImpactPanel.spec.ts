@@ -106,7 +106,7 @@ describe('ClassificationImpactPanel', () => {
 
     expect(screen.getByRole('region', { name: '影响分析' })).toHaveAttribute('aria-busy', 'false')
     expect(
-      screen.getByText('读取近期下载和整理记录对应的完整媒体信息，比较当前规则与待发布规则的结果。'),
+      screen.getByText('读取近期下载与整理记录对应的完整媒体信息，并比较当前规则与待发布规则的分类结果。'),
     ).toBeInTheDocument()
     expect(screen.getByText(/最多比较 200 条近期记录/)).toBeInTheDocument()
     expect(screen.getByRole('spinbutton', { name: '最大样本数' })).toHaveValue(100)

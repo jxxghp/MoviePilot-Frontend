@@ -10,11 +10,10 @@ const styles = readFileSync(resolve('src/styles/themes/glass.scss'), 'utf8')
 const surfaces = readFileSync(resolve('src/styles/themes/_glass-v3.scss'), 'utf8')
 
 describe('glass navigation reading material', () => {
-  it('keeps resting navigation clear and applies stronger reading diffusion to adaptive overlap', () => {
+  it('keeps adaptive resting navigation clear and gives clear style a weaker shared diffusion', () => {
     expect(surfaces).toContain('--glass-navbar-reading-filter: saturate(100%)')
-    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(2px) brightness(92%)')
-    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(3px) brightness(92%)')
-    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(6px) brightness(92%)')
+    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(var(--glass-popup-blur))')
+    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(var(--glass-popup-blur)) brightness(92%)')
     expect(surfaces).toContain(
       'backdrop-filter: var(--glass-navbar-reading-filter, saturate(100%)) var(--glass-panel-filter)',
     )
@@ -76,14 +75,12 @@ describe('glass navigation reading material', () => {
 
     expect(Object.keys(readingRules)).toEqual([
       'saturate(100%)',
-      'blur(2px) brightness(92%)',
-      'blur(3px) brightness(92%)',
-      'blur(6px) brightness(92%)',
+      'blur(var(--glass-popup-blur)) brightness(92%)',
+      'blur(var(--glass-popup-blur))',
     ])
     for (const selectors of Object.values(readingRules)) expect(selectors).toHaveLength(1)
-    expect(readingRules['blur(2px) brightness(92%)'][0]).not.toContain('[data-glass-ui-style=clear]')
-    expect(readingRules['blur(3px) brightness(92%)'][0]).toContain(':not([data-shell-mode=desktop])')
-    expect(readingRules['blur(6px) brightness(92%)'][0]).toContain('[data-glass-ui-style=adaptive]')
+    expect(readingRules['blur(var(--glass-popup-blur)) brightness(92%)'][0]).toContain('[data-glass-ui-style=adaptive]')
+    expect(readingRules['blur(var(--glass-popup-blur))'][0]).toContain('[data-glass-ui-style=clear]')
     expect(popupNavbarSelector).not.toBe('')
 
     // 用编译后的选择器覆盖 Shell 状态与主题组合，防止移动端例外绕过共同阅读规则。
@@ -105,16 +102,17 @@ describe('glass navigation reading material', () => {
           fixture.documentElement.setAttribute('data-glass-ui-style', style)
           for (const mode of ['desktop', 'app', 'drawer']) {
             shell.dataset.shellMode = mode
-            const clearBlur = mode === 'desktop' ? 2 : 3
             for (const state of ['expanded', 'compact', 'revealed']) {
               shell.classList.toggle('layout-navbar-away-from-top', state !== 'expanded')
               const matches = Object.entries(readingRules).filter(([, selectors]) =>
                 selectors.some(selector => navbar.matches(selector)),
               )
               const expected =
-                appearance === 'frosted' || state === 'expanded'
+                appearance === 'frosted' || (style === 'adaptive' && state === 'expanded')
                   ? 'saturate(100%)'
-                  : `blur(${style === 'clear' ? clearBlur : 6}px) brightness(92%)`
+                  : style === 'clear'
+                    ? 'blur(var(--glass-popup-blur))'
+                    : 'blur(var(--glass-popup-blur)) brightness(92%)'
 
               expect(matches.at(-1)?.[0], `${appearance}/${quality}/${style}/${mode}/${state}`).toBe(expected)
               // 移动自适应直接消费弹层滤镜；覆盖页顶和重现状态，不影响通透、桌面或独立磨砂。
@@ -147,7 +145,8 @@ describe('glass navigation reading material', () => {
   it('shares the interface style material with the Dock while avoiding nested glass buttons', () => {
     expect(surfaces).not.toMatch(/\[data-shell-mode='app'\] \.layout-navbar,\s*\.footer-nav-card\s*\{/u)
     expect(surfaces).toContain("&[data-glass-ui-style='clear']:is(")
-    expect(surfaces).toContain('--glass-popup-blur: 0px')
+    expect(surfaces).toContain('--glass-popup-blur: 4px')
+    expect(surfaces).not.toContain('--glass-popup-blur: 12px')
     expect(surfaces).toContain('background: var(--glass-sheen), var(--glass-popup-surface) !important')
     expect(surfaces).toContain('.footer-nav-card.dynamic-btn-card')
     expect(surfaces).toContain('.footer-nav-card .footer-nav-btn')

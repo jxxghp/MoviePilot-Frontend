@@ -16,6 +16,7 @@ import { clearMediaClassificationFieldCatalogCache, useMediaClassification } fro
 
 const mocks = vi.hoisted(() => ({
   analyzeImpact: vi.fn(),
+  getDefaultPolicy: vi.fn(),
   getFields: vi.fn(),
   getHistory: vi.fn(),
   getPolicy: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('@/api/mediaClassification', async importOriginal => ({
   analyzeClassificationImpact: (...args: unknown[]) => mocks.analyzeImpact(...args),
   getClassificationFields: (...args: unknown[]) => mocks.getFields(...args),
   getClassificationHistory: (...args: unknown[]) => mocks.getHistory(...args),
+  getDefaultClassificationPolicy: (...args: unknown[]) => mocks.getDefaultPolicy(...args),
   getClassificationPolicy: (...args: unknown[]) => mocks.getPolicy(...args),
   previewClassificationPolicy: (...args: unknown[]) => mocks.preview(...args),
   publishClassificationPolicy: (...args: unknown[]) => mocks.publish(...args),
@@ -152,6 +154,94 @@ describe('useMediaClassification', () => {
     expect(classification.draftPolicy.value).toEqual(classification.activePolicy.value)
     expect(classification.draftPolicy.value).not.toBe(classification.activePolicy.value)
     expect(classification.isDirty.value).toBe(false)
+  })
+
+  it('加载内置默认策略只替换草稿并清空旧分析结果', async () => {
+    const active = createPolicy(4, '当前策略')
+    const defaults = createPolicy(1, '内置默认')
+    mocks.getPolicy.mockResolvedValue(active)
+    mocks.getDefaultPolicy.mockResolvedValue(defaults)
+    mocks.validate.mockResolvedValue({ valid: true, issues: [] })
+    const classification = useMediaClassification()
+
+    await classification.refreshPolicy()
+    await classification.validateDraft()
+    classification.draftPolicy.value!.categories[0].name = '临时编辑'
+    await classification.loadDefaultPolicy()
+
+    expect(mocks.getDefaultPolicy).toHaveBeenCalledOnce()
+    expect(classification.activePolicy.value?.categories[0].name).toBe('当前策略')
+    expect(classification.draftPolicy.value?.categories[0].name).toBe('内置默认')
+    expect(classification.validationResult.value).toBeNull()
+    expect(classification.previewResult.value).toBeNull()
+    expect(classification.impactResult.value).toBeNull()
+    expect(classification.isDirty.value).toBe(true)
+  })
+
+  it('草稿或活动策略替换后忽略旧的预览和影响分析响应', async () => {
+    const active = createPolicy(4, '当前策略')
+    const facts = createFacts()
+    const evaluation: ClassificationEvaluation = {
+      facts,
+      result: { recommended: null, effective: null, labels: [], policy_revision: 4, state: 'complete' },
+      trace: [],
+      warnings: [],
+    }
+    const impact: ClassificationImpactAnalysis = {
+      estimated: true,
+      sampled_at: '2026-09-02T00:00:00Z',
+      sample_source: 'request',
+      baseline_revision: 4,
+      candidate_revision: 5,
+      requested_limit: 1,
+      scanned_count: 1,
+      skipped_count: 0,
+      unresolved_count: 0,
+      truncated: false,
+      sample_count: 1,
+      changed_count: 0,
+      unchanged_count: 1,
+      category_changed_count: 0,
+      path_only_changed_count: 0,
+      rule_changed_only_count: 0,
+      became_fallback_count: 0,
+      partial_count: 0,
+      degraded_count: 0,
+      previous_categories: {},
+      candidate_categories: {},
+      groups: [],
+      changes: [],
+      warnings: [],
+    }
+    mocks.getPolicy.mockResolvedValue(active)
+    const classification = useMediaClassification()
+    await classification.refreshPolicy()
+
+    let resolvePreview!: (result: ClassificationEvaluation) => void
+    mocks.preview.mockImplementationOnce(
+      () =>
+        new Promise<ClassificationEvaluation>(resolve => {
+          resolvePreview = resolve
+        }),
+    )
+    const previewPromise = classification.preview({ kind: 'facts', facts })
+    classification.replaceDraft(createPolicy(5, '新草稿'))
+    resolvePreview(evaluation)
+    await previewPromise
+    expect(classification.previewResult.value).toBeNull()
+
+    let resolveImpact!: (result: ClassificationImpactAnalysis) => void
+    mocks.analyzeImpact.mockImplementationOnce(
+      () =>
+        new Promise<ClassificationImpactAnalysis>(resolve => {
+          resolveImpact = resolve
+        }),
+    )
+    const impactPromise = classification.analyzeImpact({ samples: [facts] })
+    classification.replaceDraft(createPolicy(6, '另一个草稿'))
+    resolveImpact(impact)
+    await impactPromise
+    expect(classification.impactResult.value).toBeNull()
   })
 
   it('跨 composable 实例缓存字段目录，并支持强制刷新', async () => {

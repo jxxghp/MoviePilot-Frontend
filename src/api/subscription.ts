@@ -11,19 +11,28 @@ export function resetSubscription(subscriptionId: number): Promise<null> {
   return api.post<null>(`subscribe/reset/${subscriptionId}`, undefined, { feedback: 'silent' })
 }
 
-/** 立即搜索当前用户可访问的全部订阅。 */
-export function searchAllSubscriptions(): Promise<SubscriptionSearchSubmission> {
-  return api.post<SubscriptionSearchSubmission>('subscribe/search', undefined, { feedback: 'silent' })
+/** 立即搜索当前用户可访问的订阅，可选按媒体类型限定范围。 */
+export function searchAllSubscriptions(type?: string): Promise<SubscriptionSearchSubmission> {
+  return api.post<SubscriptionSearchSubmission>('subscribe/search', undefined, {
+    feedback: 'silent',
+    ...(type ? { params: { type } } : {}),
+  })
 }
 
-/** 启动全局订阅刷新任务。 */
-export function refreshSubscriptions(): Promise<null> {
-  return api.post<null>('subscribe/refresh', undefined, { feedback: 'silent' })
+/** 启动订阅刷新任务，可选按媒体类型限定范围。 */
+export function refreshSubscriptions(type?: string): Promise<null> {
+  return api.post<null>('subscribe/refresh', undefined, {
+    feedback: 'silent',
+    ...(type ? { params: { type } } : {}),
+  })
 }
 
-/** 启动全局订阅元数据更新任务。 */
-export function refreshSubscriptionMetadata(): Promise<null> {
-  return api.post<null>('subscribe/check', undefined, { feedback: 'silent' })
+/** 启动订阅元数据更新任务，可选按媒体类型限定范围。 */
+export function refreshSubscriptionMetadata(type?: string): Promise<null> {
+  return api.post<null>('subscribe/check', undefined, {
+    feedback: 'silent',
+    ...(type ? { params: { type } } : {}),
+  })
 }
 
 /** 查询当前用户已关注的订阅分享用户。 */

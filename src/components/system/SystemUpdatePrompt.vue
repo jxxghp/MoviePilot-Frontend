@@ -337,14 +337,20 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
       :style="promptStyle"
     >
       <div v-for="(item, index) in visibleItems" :key="item.type" class="system-update-prompt__section">
+        <div class="system-update-prompt__accent" :class="`system-update-prompt__accent--${item.type}`" />
         <VCardItem>
           <template #prepend>
             <VAvatar :color="item.type === 'resources' ? 'info' : 'primary'" variant="tonal" size="38">
               <VIcon :icon="item.type === 'resources' ? 'mdi-database-cog-outline' : 'mdi-update'" size="22" />
             </VAvatar>
           </template>
-          <VCardTitle class="system-update-prompt__title">{{ titleFor(item) }}</VCardTitle>
-          <VCardSubtitle v-for="line in versionLines(item)" :key="line">{{ line }}</VCardSubtitle>
+          <div class="system-update-prompt__heading">
+            <VCardTitle class="system-update-prompt__title">{{ titleFor(item) }}</VCardTitle>
+            <span class="system-update-prompt__badge">{{ item.type === 'resources' ? 'RESOURCE' : 'SYSTEM' }}</span>
+          </div>
+          <div v-if="versionLines(item).length" class="system-update-prompt__versions">
+            <span v-for="line in versionLines(item)" :key="line">{{ line }}</span>
+          </div>
           <template v-if="item.state === 'available'" #append>
             <VMenu location="bottom end">
               <template #activator="{ props: menuProps }">
@@ -429,7 +435,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   --system-update-prompt-bottom-gap: 20px;
 
   position: fixed;
-  z-index: 2400;
+  z-index: 2600;
   right: max(20px, env(safe-area-inset-right));
   bottom: calc(var(--system-update-footer-height) + var(--system-update-prompt-bottom-gap));
   width: min(400px, calc(100vw - 32px));
@@ -451,6 +457,66 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   border: var(--app-overlay-border);
   border-radius: var(--app-overlay-radius) !important;
   box-shadow: var(--app-overlay-shadow);
+  background: color-mix(in srgb, rgb(var(--v-theme-surface)) 92%, rgb(var(--v-theme-primary)) 8%);
+  backdrop-filter: blur(18px);
+}
+
+.system-update-prompt__section {
+  position: relative;
+  overflow: hidden;
+}
+
+.system-update-prompt__accent {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--v-theme-primary), 0.42) 32%,
+    rgba(var(--v-theme-primary), 0.9) 50%,
+    transparent
+  );
+  opacity: 0.9;
+}
+
+.system-update-prompt__accent--resources {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--v-theme-primary), 0.42) 32%,
+    rgba(var(--v-theme-primary), 0.9) 50%,
+    transparent
+  );
+}
+
+.system-update-prompt__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.system-update-prompt__badge {
+  padding: 3px 7px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.28);
+  border-radius: 999px;
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.system-update-prompt__versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.system-update-prompt__versions span {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(var(--v-theme-on-surface), 0.07);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  font-size: 0.74rem;
 }
 
 .system-update-prompt__title {
@@ -464,6 +530,34 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 
 .system-update-prompt :deep(.v-card-text) {
   overflow-wrap: anywhere;
+}
+
+.system-update-prompt :deep(.v-card-actions) {
+  gap: 8px;
+  padding-inline: 20px !important;
+}
+
+.system-update-prompt :deep(.v-card-actions .v-btn) {
+  min-width: 88px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.system-update-prompt :deep(.v-card-actions .v-btn:first-of-type) {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  color: rgba(var(--v-theme-on-surface), 0.72);
+}
+
+.system-update-prompt :deep(.v-card-actions .v-btn:last-child) {
+  min-width: 108px;
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.72), rgb(var(--v-theme-primary)));
+  color: #fff !important;
+  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.24);
+}
+
+.system-update-prompt :deep(.v-card-actions .v-btn:last-child .v-btn__content) {
+  color: #fff !important;
 }
 
 .system-update-prompt-enter-active,

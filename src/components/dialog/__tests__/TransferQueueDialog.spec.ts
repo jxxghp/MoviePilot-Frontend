@@ -334,6 +334,21 @@ describe('TransferQueueDialog', () => {
     expect(transferQueueSource).not.toContain('border-radius: var(--app-control-radius)')
   })
 
+  it('keeps visible spacing between manual review and overall progress sections', () => {
+    const manualReviewStyles = transferQueueSource.slice(
+      transferQueueSource.indexOf('.manual-review-section {'),
+      transferQueueSource.indexOf('.manual-review-section__header {'),
+    )
+    const responsiveStyles = transferQueueSource.slice(
+      transferQueueSource.indexOf('@media (width <= 959.98px)'),
+      transferQueueSource.indexOf('@media (width <= 600px)'),
+    )
+
+    expect(manualReviewStyles).toContain('margin-block-end: 1.5rem;')
+    expect(responsiveStyles).toContain('.manual-review-section {')
+    expect(responsiveStyles).toContain('margin-block-end: 1rem;')
+  })
+
   it('uses canonical built-in identities before falling back to the title', async () => {
     const builtIn = createQueueItem({
       id: 7301,

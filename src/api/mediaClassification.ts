@@ -24,6 +24,14 @@ export function getClassificationPolicy(): Promise<ClassificationPolicy> {
   return api.get(`${CLASSIFICATION_API_BASE}/policy`, { feedback: 'silent' })
 }
 
+/** 读取服务端内置默认分类策略模板，不修改当前活动策略。 */
+export function getDefaultClassificationPolicy(): Promise<ClassificationPolicy> {
+  return api.get(`${CLASSIFICATION_API_BASE}/policy`, {
+    params: { template: 'default' },
+    feedback: 'silent',
+  })
+}
+
 /** 以 CAS revision 校验并发布完整分类策略。 */
 export function publishClassificationPolicy(
   request: ClassificationPolicyPublishRequest,

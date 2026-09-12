@@ -229,6 +229,7 @@ function stateColor(state: ClassificationEvaluation['result']['state']): string 
 /** 将内部字段编号翻译成用户能理解的字段名称。 */
 function fieldLabel(field: string): string {
   const labels: Record<string, string> = {
+    'identity.media_source': t('setting.classification.preview.fieldLabels.identitySource'),
     'media.type': t('setting.classification.preview.fieldLabels.mediaType'),
     'media.title': t('setting.classification.preview.fieldLabels.title'),
     'media.year': t('setting.classification.preview.fieldLabels.year'),
@@ -236,42 +237,50 @@ function fieldLabel(field: string): string {
     'media.countries': t('setting.classification.preview.fieldLabels.countries'),
     'media.genre_keys': t('setting.classification.preview.fieldLabels.genres'),
     'media.genre_names': t('setting.classification.preview.fieldLabels.genreNames'),
+    'media.adult': t('setting.classification.preview.fieldLabels.adult'),
+    'media.runtime': t('setting.classification.preview.fieldLabels.runtime'),
     'media.content_rating': t('setting.classification.preview.fieldLabels.contentRating'),
+    'media.companies': t('setting.classification.preview.fieldLabels.companies'),
+    'media.networks': t('setting.classification.preview.fieldLabels.networks'),
     'music.entity_type': t('setting.classification.preview.fieldLabels.musicType'),
     'music.album_type': t('setting.classification.preview.fieldLabels.albumType'),
+    'music.secondary_types': t('setting.classification.preview.fieldLabels.secondaryTypes'),
     'music.genres': t('setting.classification.preview.fieldLabels.musicGenres'),
     'music.tags': t('setting.classification.preview.fieldLabels.tags'),
     'music.artists': t('setting.classification.preview.fieldLabels.artists'),
+    'music.artist_country': t('setting.classification.preview.fieldLabels.artistCountry'),
+    'music.release_status': t('setting.classification.preview.fieldLabels.releaseStatus'),
   }
   if (labels[field]) return labels[field]
   if (field.startsWith('extensions.')) return t('setting.classification.preview.fieldLabels.sourceExtension')
   return field
 }
 
-/** 将英文操作符翻译为普通中文。 */
+/** 将英文操作符转换为当前界面的本地化文案。 */
 function operatorLabel(operator: string): string {
-  const labels: Record<string, string> = {
-    equals: '等于',
-    not_equals: '不等于',
-    in: '属于',
-    not_in: '不属于',
-    contains: '包含',
-    starts_with: '开头是',
-    ends_with: '结尾是',
-    gt: '大于',
-    gte: '大于等于',
-    lt: '小于',
-    lte: '小于等于',
-    between: '介于',
-    contains_any: '包含任一项',
-    contains_all: '包含全部',
-    contains_none: '不包含这些项',
-    is_true: '是',
-    is_false: '否',
-    exists: '有内容',
-    not_exists: '没有内容',
+  const labelKeys: Record<string, string> = {
+    equals: 'equals',
+    not_equals: 'not_equals',
+    in: 'in',
+    not_in: 'not_in',
+    contains: 'contains',
+    starts_with: 'starts_with',
+    ends_with: 'ends_with',
+    gt: 'gt',
+    gte: 'gte',
+    lt: 'lt',
+    lte: 'lte',
+    between: 'between',
+    contains_any: 'contains_any',
+    contains_all: 'contains_all',
+    contains_none: 'contains_none',
+    is_true: 'is_true',
+    is_false: 'is_false',
+    exists: 'exists',
+    not_exists: 'not_exists',
   }
-  return labels[operator] ?? operator
+  const key = labelKeys[operator]
+  return key ? t(`setting.classification.condition.operators.${key}`) : operator
 }
 
 /** 将期望值和实际值稳定格式化，明确区分缺失和 null。 */

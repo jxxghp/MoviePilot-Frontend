@@ -9,6 +9,9 @@ interface ClassificationCategoryEditorProps {
   referencedCategoryIds?: string[]
   directoryReferences?: Array<{ categoryId: string; directoryNames: string[] }>
   maxDepth?: number
+  maxSegmentLength?: number
+  maxPathLength?: number
+  advanced?: boolean
 }
 
 /** 分类表单在新增和编辑期间使用的本地草稿。 */
@@ -31,6 +34,9 @@ const props = withDefaults(defineProps<ClassificationCategoryEditorProps>(), {
   referencedCategoryIds: () => [],
   directoryReferences: () => [],
   maxDepth: 4,
+  maxSegmentLength: 64,
+  maxPathLength: 240,
+  advanced: true,
 })
 
 const emit = defineEmits<{
@@ -86,6 +92,15 @@ function parseCategoryPath(pathText: string): ParsedCategoryPath {
       path: [],
       error: t('setting.classification.category.pathTooDeep', { count: effectiveMaxDepth.value }),
     }
+  }
+  if (path.some(segment => segment.length > props.maxSegmentLength)) {
+    return {
+      path: [],
+      error: t('setting.classification.category.pathSegmentTooLong', { count: props.maxSegmentLength }),
+    }
+  }
+  if (path.join('/').length > props.maxPathLength) {
+    return { path: [], error: t('setting.classification.category.pathTooLong', { count: props.maxPathLength }) }
   }
   return { path, error: null }
 }
@@ -149,7 +164,32 @@ function fallbackItemTitle(category: ClassificationCategory): string {
 
 /** 返回指定媒体类型可选的稳定分类 ID 列表。 */
 function fallbackItems(mediaType: ClassificationMediaType): ClassificationCategory[] {
-  return props.categories.filter(category => category.media_type === mediaType)
+  const currentId = props.fallbacks[mediaType]
+  return props.categories.filter(
+    category => category.media_type === mediaType && (category.enabled || category.id === currentId),
+  )
+}
+
+/** 禁止把已停用分类再次选为兜底，同时保留现有停用值以便用户看见并清理。 */
+function fallbackItemProps(category: ClassificationCategory): { disabled: boolean } {
+  return { disabled: !category.enabled }
+}
+
+/** 为简单模式的新分类生成不暴露给用户的稳定编号。 */
+function nextGeneratedCategoryId(mediaType: ClassificationMediaType): string {
+  const prefix: Record<ClassificationMediaType, string> = {
+    电影: 'movie',
+    电视剧: 'tv',
+    音乐: 'music',
+  }
+  const usedIds = new Set(props.categories.map(category => category.id))
+  let sequence = 1
+  let id = `${prefix[mediaType]}.category-${sequence}`
+  while (usedIds.has(id)) {
+    sequence += 1
+    id = `${prefix[mediaType]}.category-${sequence}`
+  }
+  return id
 }
 
 /** 将业务标签和有界浮层参数传给分类选择器。 */
@@ -204,14 +244,10 @@ function saveDraft(): void {
   const currentDraft = draft.value
   if (!currentDraft) return
 
-  const id = currentDraft.originalId ?? currentDraft.id.trim()
+  const id = currentDraft.originalId ?? (currentDraft.id.trim() || nextGeneratedCategoryId(currentDraft.mediaType))
   const name = currentDraft.name.trim()
   if (!name) {
     validationMessage.value = t('setting.classification.category.nameRequired')
-    return
-  }
-  if (!id) {
-    validationMessage.value = t('setting.classification.category.idRequired')
     return
   }
   if (props.categories.some(category => category.id === id && category.id !== currentDraft.originalId)) {
@@ -234,6 +270,17 @@ function saveDraft(): void {
   const parsedPath = parseCategoryPath(currentDraft.pathText)
   if (parsedPath.error) {
     validationMessage.value = parsedPath.error
+    return
+  }
+  const normalizedPath = parsedPath.path.map(segment => segment.trim().toLocaleLowerCase()).join('/')
+  const duplicatePath = props.categories.some(
+    category =>
+      category.id !== currentDraft.originalId &&
+      category.media_type === currentDraft.mediaType &&
+      category.path.map(segment => segment.trim().toLocaleLowerCase()).join('/') === normalizedPath,
+  )
+  if (duplicatePath) {
+    validationMessage.value = t('setting.classification.category.duplicatePath')
     return
   }
 
@@ -270,6 +317,7 @@ function removeCategory(category: ClassificationCategory): void {
     statusMessage.value = hint
     return
   }
+  if (!window.confirm(t('setting.classification.category.deleteConfirm', { name: category.name }))) return
 
   emit('update:categories', cloneCategories(props.categories.filter(item => item.id !== category.id)))
   if (draft.value?.originalId === category.id) draft.value = null
@@ -387,6 +435,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             required
           />
           <VTextField
+            v-if="props.advanced"
             v-model="draft.id"
             :label="t('setting.classification.category.stableId')"
             :hint="
@@ -417,6 +466,10 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             :disabled="draftReferenceReasons.length > 0"
           />
         </div>
+
+        <p v-if="!props.advanced" class="classification-category-form-note">
+          {{ t('setting.classification.category.autoIdHint') }}
+        </p>
 
         <VSwitch
           v-model="draft.enabled"
@@ -462,9 +515,9 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
         <div class="classification-category-summary">
           <div class="classification-category-title-line">
             <strong>{{ classificationCategoryDisplayName(category) }}</strong>
-            <VChip v-if="fallbacks[category.media_type] === category.id" size="small" color="primary" variant="tonal"
-              >默认分类</VChip
-            >
+            <VChip v-if="fallbacks[category.media_type] === category.id" size="small" color="primary" variant="tonal">{{
+              t('setting.classification.category.fallbackBadge')
+            }}</VChip>
             <VChip size="small" :color="category.enabled ? 'success' : undefined" variant="tonal">
               {{
                 category.enabled
@@ -474,7 +527,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             </VChip>
           </div>
           <p v-if="classificationCategoryDisplayName(category) !== category.name" class="classification-category-id">
-            旧版迁移时额外创建的备用目录；只有被规则、默认分类或目录设置选中时才会使用。
+            {{ t('setting.classification.category.legacyHint') }}
           </p>
           <ol
             class="classification-category-path"
@@ -561,6 +614,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
           :menu-props="comboboxMenuProps(t('setting.classification.category.fallbackFor', { mediaType: item.label }))"
           :items="fallbackItems(item.label)"
           :item-title="fallbackItemTitle"
+          :item-props="fallbackItemProps"
           item-value="id"
           clearable
           hide-details="auto"
@@ -658,6 +712,13 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 
 .classification-category-form-grid > :deep(.v-input .v-field) {
   min-block-size: var(--v-input-control-height, 56px);
+}
+
+.classification-category-form-note {
+  margin: -4px 0 0;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
 .classification-category-error {

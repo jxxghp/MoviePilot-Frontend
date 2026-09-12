@@ -295,7 +295,7 @@ async function runSubscriptionMaintenance(action: SubscriptionMaintenanceAction)
         content: t('subscribe.maintenance.searchAllConfirm'),
       })
       if (!confirmed) return
-      const submission = await searchAllSubscriptions()
+      const submission = await searchAllSubscriptions(subType)
       if (!submission) {
         $toast.success(t('subscribe.maintenance.searchAllStarted'))
       } else if (!submission.target_count) {
@@ -313,10 +313,10 @@ async function runSubscriptionMaintenance(action: SubscriptionMaintenanceAction)
         $toast.success(t('subscribe.maintenance.searchAllScheduled', { count: submission.queued_count }))
       }
     } else if (action === 'refresh') {
-      await refreshSubscriptions()
+      await refreshSubscriptions(subType)
       $toast.success(t('subscribe.maintenance.refreshStarted'))
     } else {
-      await refreshSubscriptionMetadata()
+      await refreshSubscriptionMetadata(subType)
       $toast.success(t('subscribe.maintenance.metadataRefreshStarted'))
     }
     subscriptionMaintenanceMenu.value = false

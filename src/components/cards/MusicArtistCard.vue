@@ -4,9 +4,11 @@ import type { MusicArtistInfo } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { buildMusicArtistRoute, getMusicArtistSubtitle } from '@/utils/music'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const globalSettingsStore = useGlobalSettingsStore()
+const { t } = useI18n()
 
 const props = defineProps({
   artist: Object as PropType<MusicArtistInfo>,
@@ -84,6 +86,7 @@ function goArtistDetail() {
                     <VIcon v-else icon="mdi-account-music" size="48" color="medium-emphasis" />
                   </VAvatar>
                 </div>
+                <div class="music-artist-card-kind text-caption text-medium-emphasis">{{ t('person.artist') }}</div>
                 <div class="w-full truncate text-center font-bold">{{ props.artist?.name }}</div>
                 <div class="overflow-hidden whitespace-normal text-center text-sm text-ellipsis line-clamp-2">
                   {{ subtitle }}

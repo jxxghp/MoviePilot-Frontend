@@ -13,6 +13,7 @@ interface ClassificationImpactPanelProps {
   categories?: readonly ClassificationCategory[]
   sources?: readonly MediaSourceInfo[]
   analysis: ClassificationImpactAnalysis | null
+  current?: boolean
   loading: boolean
   disabled: boolean
 }
@@ -30,7 +31,7 @@ interface ClassificationImpactMetric {
   value: string | number
 }
 
-const props = defineProps<ClassificationImpactPanelProps>()
+const props = withDefaults(defineProps<ClassificationImpactPanelProps>(), { current: true })
 
 const emit = defineEmits<{
   analyze: [options: ClassificationImpactAnalyzeOptions]
@@ -262,6 +263,10 @@ function changedFieldLabel(field: string): string {
         }}
       </VChip>
     </header>
+
+    <VAlert v-if="analysis && !current" type="warning" variant="tonal" density="compact">
+      {{ t('setting.classification.control.impactExpired') }}
+    </VAlert>
 
     <form
       class="classification-impact-controls"

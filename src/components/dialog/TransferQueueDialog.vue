@@ -724,6 +724,7 @@ onUnmounted(() => {
 .manual-review-section {
   flex: 0 0 auto;
   border: 1px solid rgba(var(--v-theme-warning), 0.24);
+  margin-block-end: 1.5rem;
   padding: 1.1rem 1.25rem;
 }
 
@@ -1138,6 +1139,7 @@ onUnmounted(() => {
   }
 
   .manual-review-section {
+    margin-block-end: 1rem;
     padding: 1rem;
   }
 

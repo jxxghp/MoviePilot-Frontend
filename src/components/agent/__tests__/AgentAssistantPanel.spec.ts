@@ -2356,6 +2356,62 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('renders non-verbose tool count updates before later assistant text arrives', async () => {
+    const primaryStream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return primaryStream.response
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = shallowMount(AgentAssistantPanel, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          AgentMarkdownContent: agentMarkdownContentStub,
+          IconBtn: { template: '<button><slot /></button>' },
+          PerfectScrollbar: { template: '<div><slot /></div>' },
+          VIcon: true,
+        },
+      },
+    })
+    await wrapper.find('textarea').setValue('实时查看工具状态')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    primaryStream.emit(legacySseFrame({ type: 'start', session_id: 'web-agent:live-tool-summary' }))
+    primaryStream.emit(legacySseFrame({ type: 'tool', message: '（执行了 1 次搜索）' }))
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+
+    expect(wrapper.findAll('.agent-assistant-tool')).toHaveLength(1)
+    expect(wrapper.find('.agent-assistant-tool').text()).toContain('执行了 1 次搜索')
+
+    primaryStream.emit(legacySseFrame({ type: 'tool', message: '（执行了 1 次搜索）' }))
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+
+    // 第二次统计仍在同一个助手消息中实时合并，后续正文尚未到达。
+    expect(wrapper.findAll('.agent-assistant-tool')).toHaveLength(1)
+    expect(wrapper.find('.agent-assistant-tool').text()).toContain('执行了 2 次搜索')
+    const activeSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const activeAssistant = activeSnapshot.messages.find((message: { role: string }) => message.role === 'assistant')
+    expect(activeAssistant.content).toBe('')
+
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '搜索完成。' }))
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
+
+    expect(wrapper.find('.agent-assistant-tool').text()).toContain('执行了 2 次搜索')
+    expect(wrapper.text()).toContain('搜索完成。')
+    wrapper.unmount()
+  })
+
   it('coalesces consecutive text deltas into one UI update before a terminal event', async () => {
     const streamEvents = [
       { type: 'start', session_id: 'web-agent:coalesced' },

@@ -27,6 +27,7 @@ async function renderEditor(
     categories?: ClassificationCategory[]
     fallbacks?: Partial<Record<ClassificationMediaType, string>>
     maxDepth?: number
+    advanced?: boolean
     referencedCategoryIds?: string[]
     directoryReferences?: Array<{ categoryId: string; directoryNames: string[] }>
   } = {},
@@ -40,6 +41,7 @@ async function renderEditor(
       categories: overrides.categories ?? categories,
       fallbacks: overrides.fallbacks ?? {},
       maxDepth: overrides.maxDepth,
+      advanced: overrides.advanced,
       referencedCategoryIds: overrides.referencedCategoryIds,
       directoryReferences: overrides.directoryReferences,
       'onUpdate:categories': events.updateCategories,
@@ -121,6 +123,26 @@ describe('ClassificationCategoryEditor', () => {
       enabled: false,
       labels: [],
     })
+  })
+
+  it('简单模式只要求名称和路径，并自动生成内部分类编号', async () => {
+    const user = userEvent.setup()
+    const { events } = await renderEditor({ advanced: false })
+
+    await user.click(screen.getByRole('button', { name: '新增电影分类' }))
+    expect(screen.queryByRole('textbox', { name: /分类编号/ })).not.toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: /分类名称/ }), '动画电影')
+    await user.type(screen.getByRole('textbox', { name: /分类路径/ }), '电影/动画')
+    await user.click(screen.getByRole('button', { name: '保存分类' }))
+
+    expect(events.updateCategories).toHaveBeenCalledOnce()
+    expect(events.updateCategories.mock.calls[0][0]).toContainEqual(
+      expect.objectContaining({
+        id: 'movie.category-1',
+        name: '动画电影',
+        path: ['电影', '动画'],
+      }),
+    )
   })
 
   it('阻止删除规则或 fallback 引用的分类并给出可访问原因', async () => {

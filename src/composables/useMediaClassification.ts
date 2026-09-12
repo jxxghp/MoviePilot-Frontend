@@ -4,6 +4,7 @@ import {
   analyzeClassificationImpact,
   getClassificationFields,
   getClassificationHistory,
+  getDefaultClassificationPolicy,
   getClassificationPolicy,
   getClassificationRevisionConflict,
   getClassificationValidationFailure,
@@ -87,6 +88,7 @@ export function useMediaClassification() {
   const lastError = ref<unknown>(null)
 
   const loadingPolicy = ref(false)
+  const loadingDefaultPolicy = ref(false)
   const loadingFields = ref(false)
   const loadingHistory = ref(false)
   const validating = ref(false)
@@ -94,6 +96,7 @@ export function useMediaClassification() {
   const analyzingImpact = ref(false)
   const publishing = ref(false)
   const rollingBack = ref(false)
+  let draftEpoch = 0
 
   const activeRevision = computed(() => activePolicyState.value?.revision ?? 0)
   const isDirty = computed(() => {
@@ -127,7 +130,10 @@ export function useMediaClassification() {
   function applyActivePolicy(policy: ClassificationPolicy, preserveDirtyDraft: boolean): void {
     const normalizedPolicy = normalizeClassificationPolicy(policy)
     activePolicyState.value = cloneDeep(normalizedPolicy)
-    if (!preserveDirtyDraft || !draftPolicy.value) draftPolicy.value = cloneDeep(normalizedPolicy)
+    draftEpoch += 1
+    if (!preserveDirtyDraft || !draftPolicy.value) {
+      draftPolicy.value = cloneDeep(normalizedPolicy)
+    }
   }
 
   /** 刷新活动策略；响应到达时若草稿已脏则只更新活动快照。 */
@@ -145,6 +151,22 @@ export function useMediaClassification() {
       throw error
     } finally {
       loadingPolicy.value = false
+    }
+  }
+
+  /** 读取服务端内置默认模板并替换草稿，不发布也不改变活动策略。 */
+  async function loadDefaultPolicy(): Promise<ClassificationPolicy> {
+    loadingDefaultPolicy.value = true
+    lastError.value = null
+    try {
+      const policy = await getDefaultClassificationPolicy()
+      replaceDraft(policy)
+      return normalizeClassificationPolicy(policy)
+    } catch (error) {
+      captureError(error)
+      throw error
+    } finally {
+      loadingDefaultPolicy.value = false
     }
   }
 
@@ -185,9 +207,10 @@ export function useMediaClassification() {
     validating.value = true
     lastError.value = null
     validationState.value = null
+    const requestEpoch = draftEpoch
     try {
       const result = await validateClassificationPolicy({ policy: normalizeClassificationPolicy(policy) })
-      validationState.value = cloneDeep(result)
+      if (requestEpoch === draftEpoch) validationState.value = cloneDeep(result)
       return cloneDeep(result)
     } catch (error) {
       captureError(error)
@@ -205,13 +228,14 @@ export function useMediaClassification() {
     previewing.value = true
     lastError.value = null
     previewState.value = null
+    const requestEpoch = draftEpoch
     try {
       const selectedPolicy = options.policy === null ? null : (options.policy ?? requireDraft())
       const result = await previewClassificationPolicy({
         input: cloneDeep(input),
         ...(selectedPolicy ? { policy: normalizeClassificationPolicy(selectedPolicy) } : {}),
       })
-      previewState.value = cloneDeep(result)
+      if (requestEpoch === draftEpoch) previewState.value = cloneDeep(result)
       return cloneDeep(result)
     } catch (error) {
       captureError(error)
@@ -227,6 +251,7 @@ export function useMediaClassification() {
     lastError.value = null
     impactState.value = null
     conflictState.value = null
+    const requestEpoch = draftEpoch
     try {
       const active = requireActive()
       const policy = options.policy ?? requireDraft()
@@ -237,7 +262,7 @@ export function useMediaClassification() {
         ...(options.exampleLimit === undefined ? {} : { example_limit: options.exampleLimit }),
         ...(options.samples === undefined ? {} : { samples: cloneDeep(options.samples) }),
       })
-      impactState.value = cloneDeep(result)
+      if (requestEpoch === draftEpoch) impactState.value = cloneDeep(result)
       return cloneDeep(result)
     } catch (error) {
       captureError(error)
@@ -300,6 +325,7 @@ export function useMediaClassification() {
   /** 用指定策略替换可编辑草稿，不修改活动快照。 */
   function replaceDraft(policy: ClassificationPolicy): void {
     draftPolicy.value = normalizeClassificationPolicy(policy)
+    draftEpoch += 1
     validationState.value = null
     previewState.value = null
     impactState.value = null
@@ -330,6 +356,7 @@ export function useMediaClassification() {
     activeRevision,
     isDirty,
     loadingPolicy: readonly(loadingPolicy),
+    loadingDefaultPolicy: readonly(loadingDefaultPolicy),
     loadingFields: readonly(loadingFields),
     loadingHistory: readonly(loadingHistory),
     validating: readonly(validating),
@@ -339,6 +366,7 @@ export function useMediaClassification() {
     rollingBack: readonly(rollingBack),
     initialize,
     refreshPolicy,
+    loadDefaultPolicy,
     loadFields,
     loadHistory,
     validateDraft,
