@@ -46,7 +46,7 @@ describe('glass overlay material styles', () => {
     const popupEnd = styles.indexOf('  // 两种界面风格', popupStart)
     const popup = styles.slice(popupStart, popupEnd)
 
-    expect(styles).toContain('--glass-popup-blur: 6px')
+    expect(styles).toContain('--glass-popup-blur: 8px')
     expect(styles).toContain('--glass-popup-blur: 18px')
     expect(styles).toContain('--glass-popup-blur: 24px')
     expect(styles).toContain('--glass-dialog-blur: 18px')
@@ -91,8 +91,11 @@ describe('glass overlay material styles', () => {
     expect(clearStyleStart).toBeGreaterThanOrEqual(0)
     expect(clearStyle).toContain("[data-glass-appearance='clear']")
     expect(clearStyle).toContain("[data-glass-appearance='tinted']")
-    expect(clearStyle).toContain('--glass-popup-blur: 4px')
+    expect(clearStyle).toContain('--glass-popup-blur: 6px')
     expect(clearStyle).toContain('--glass-dialog-blur: 12px')
+    expect(styles).toMatch(
+      /\[data-glass-ui-style='clear'\]\[data-glass-appearance='tinted'\][\s\S]*?--glass-popup-blur: 12px/u,
+    )
     expect(clearStyle).toContain('--glass-popup-surface: rgba(')
     expect(styles).toMatch(
       /\[data-glass-ui-style='clear'\]\[data-glass-appearance='tinted'\][\s\S]*?rgba\(var\(--glass-material-accent-rgb\), 0\.12\)/u,

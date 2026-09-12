@@ -13,7 +13,7 @@ describe('glass navigation reading material', () => {
   it('keeps adaptive resting navigation clear and gives clear style a weaker shared diffusion', () => {
     expect(surfaces).toContain('--glass-navbar-reading-filter: saturate(100%)')
     expect(surfaces).toContain('--glass-navbar-reading-filter: blur(var(--glass-popup-blur))')
-    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(6px) brightness(92%)')
+    expect(surfaces).toContain('--glass-navbar-reading-filter: blur(var(--glass-popup-blur)) brightness(92%)')
     expect(surfaces).toContain(
       'backdrop-filter: var(--glass-navbar-reading-filter, saturate(100%)) var(--glass-panel-filter)',
     )
@@ -75,11 +75,11 @@ describe('glass navigation reading material', () => {
 
     expect(Object.keys(readingRules)).toEqual([
       'saturate(100%)',
-      'blur(6px) brightness(92%)',
+      'blur(var(--glass-popup-blur)) brightness(92%)',
       'blur(var(--glass-popup-blur))',
     ])
     for (const selectors of Object.values(readingRules)) expect(selectors).toHaveLength(1)
-    expect(readingRules['blur(6px) brightness(92%)'][0]).toContain('[data-glass-ui-style=adaptive]')
+    expect(readingRules['blur(var(--glass-popup-blur)) brightness(92%)'][0]).toContain('[data-glass-ui-style=adaptive]')
     expect(readingRules['blur(var(--glass-popup-blur))'][0]).toContain('[data-glass-ui-style=clear]')
     expect(popupNavbarSelector).not.toBe('')
 
@@ -112,7 +112,7 @@ describe('glass navigation reading material', () => {
                   ? 'saturate(100%)'
                   : style === 'clear'
                     ? 'blur(var(--glass-popup-blur))'
-                    : 'blur(6px) brightness(92%)'
+                    : 'blur(var(--glass-popup-blur)) brightness(92%)'
 
               expect(matches.at(-1)?.[0], `${appearance}/${quality}/${style}/${mode}/${state}`).toBe(expected)
               // 移动自适应直接消费弹层滤镜；覆盖页顶和重现状态，不影响通透、桌面或独立磨砂。
@@ -145,7 +145,8 @@ describe('glass navigation reading material', () => {
   it('shares the interface style material with the Dock while avoiding nested glass buttons', () => {
     expect(surfaces).not.toMatch(/\[data-shell-mode='app'\] \.layout-navbar,\s*\.footer-nav-card\s*\{/u)
     expect(surfaces).toContain("&[data-glass-ui-style='clear']:is(")
-    expect(surfaces).toContain('--glass-popup-blur: 4px')
+    expect(surfaces).toContain('--glass-popup-blur: 6px')
+    expect(surfaces).toContain('--glass-popup-blur: 12px')
     expect(surfaces).toContain('background: var(--glass-sheen), var(--glass-popup-surface) !important')
     expect(surfaces).toContain('.footer-nav-card.dynamic-btn-card')
     expect(surfaces).toContain('.footer-nav-card .footer-nav-btn')
