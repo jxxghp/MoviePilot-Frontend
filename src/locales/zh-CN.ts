@@ -2047,10 +2047,21 @@ export default {
   setting: {
     classification: {
       title: '媒体自动分类',
-      description: '按分类名称和媒体信息，为电影、电视剧和音乐设置统一的自动分类规则。',
-      workspaceCategories: '分类树',
-      workspaceRules: '规则',
-      workspaceReview: '验证发布',
+      description: '满足条件的媒体，自动放入对应目录。按下面 3 步完成设置即可。',
+      workspaceCategories: '1. 设置目录',
+      workspaceRules: '2. 设置规则',
+      workspaceReview: '3. 测试并保存',
+      quickGuideEyebrow: '怎么用',
+      quickGuideTitle: '满足条件 → 放入目录',
+      quickGuideHint: '先设置要存放的目录，再设置匹配条件，最后试一条媒体并保存。',
+      quickGuideAria: '自动分类设置步骤',
+      quickGuideSteps: {
+        categories: { title: '设置目录', hint: '媒体要放在哪里' },
+        rules: { title: '设置规则', hint: '什么媒体放进去' },
+        review: { title: '测试并保存', hint: '确认结果再应用' },
+      },
+      showAdvancedSettings: '高级设置',
+      hideAdvancedSettings: '收起高级设置',
       revision: '当前版本 {revision}',
       unsaved: '有未保存修改',
       loading: '正在加载分类策略和字段目录...',
@@ -2063,6 +2074,9 @@ export default {
       validationIssues: '{count} 个校验问题',
       draftReset: '已恢复当前活动策略',
       enrichmentTitle: '分类信息来源',
+      enrichmentSimpleTitle: '补充信息（可选）',
+      enrichmentSimpleHint: '一般不需要调整。只有规则需要而主要数据源没有提供信息时，系统才会尝试补充。',
+      enrichmentSimpleNote: '当前使用默认设置：只在需要时补充缺失信息，不会改变媒体的主要来源。',
       enrichmentHint:
         '只有规则需要的媒体信息缺失时，才会向已登记的数据源补充；补充结果不会覆盖主要来源的信息，也不会把媒体识别成另一条记录。',
       enrichmentModeLabel: '是否补充缺少的信息',
@@ -2079,6 +2093,11 @@ export default {
       },
       analysisTitle: '检查、预览与发布',
       analysisHint: '发布前查看分类匹配结果、变更影响并确认历史版本。',
+      simpleReviewTitle: '先试一条，再保存',
+      simpleReviewHint: '搜索一条媒体确认分类结果；检查通过后，点击“确认并应用”。',
+      simpleReviewCheck: '检查当前规则',
+      simpleReviewApply: '确认并应用',
+      simpleReviewImpact: '已检查 {sample} 条近期记录：{changed} 条分类会变化，{degraded} 条可能降级。',
       previewTab: '结果预览',
       impactTab: '影响分析',
       publishTab: '发布与历史',
@@ -2100,11 +2119,11 @@ export default {
       help: {
         sections: {
           categories: {
-            title: '1. 建立分类',
-            body: '先在“分类树”中为电影、电视剧和音乐建立分类。每个分类都要填写名称和分类路径，保存后就能在规则和默认分类中使用。',
+            title: '1. 设置目录',
+            body: '先为电影、电视剧和音乐设置要存放的目录。每个目录填写名称和路径，保存后就能在规则和默认目录中使用。',
           },
           rules: {
-            title: '2. 编写规则',
+            title: '2. 设置规则',
             body: '在“规则”中从上到下设置条件。国家、语言和风格可搜索名称选择，系统自动保存对应代码；“来源风格”的候选随数据源变化，没有固定字典的字段按媒体预览中的原值填写。带“兼容字段”的条件来自旧配置，保留原来的匹配方式。系统先检查规则限定的媒体类型和数据来源，再读取这条媒体记录实际提供的信息。选择多个来源表示任意一个来源都可以命中，系统不会把多个来源的信息拼在一起；第一条符合条件的规则生效，都不符合时使用媒体类型默认分类。',
           },
           preview: {
@@ -2126,8 +2145,9 @@ export default {
         },
       },
       category: {
-        title: '分类树',
-        description: '分类是规则命中或未命中后归入的目录。名称便于识别，路径决定目录层级，最多 {count} 级。',
+        title: '存放目录',
+        description:
+          '这里设置媒体最终要放到哪些目录。规则命中后会放入对应目录，未命中时使用默认目录，路径最多 {count} 级。',
         add: '新增{mediaType}分类',
         mediaTypeSegments: '分类媒体类型',
         editTitle: '编辑分类',
@@ -2136,6 +2156,7 @@ export default {
         save: '保存分类',
         name: '分类名称',
         stableId: '分类编号',
+        autoIdHint: '内部编号由系统自动生成，你只需要填写名称和目录路径。',
         existingIdHint: '分类编号创建后不能修改，规则、默认分类、目录设置和历史版本会用它识别这个分类',
         newIdHint: '创建后，规则、默认分类、目录设置和历史版本会使用这个编号',
         path: '分类路径',

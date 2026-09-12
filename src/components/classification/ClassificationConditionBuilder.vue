@@ -22,11 +22,13 @@ const props = withDefaults(
     sourceOptions?: readonly ClassificationSourceOption[]
     depth?: number
     maxDepth?: number
+    advanced?: boolean
   }>(),
   {
     depth: 0,
     maxDepth: 3,
     sourceOptions: () => [],
+    advanced: true,
   },
 )
 
@@ -481,7 +483,7 @@ function removeChild(index: number): void {
     :data-depth="props.depth"
     :aria-label="`条件节点，第 ${props.depth + 1} 层`"
   >
-    <div class="classification-condition-builder__toolbar">
+    <div v-if="props.advanced" class="classification-condition-builder__toolbar">
       <VBtnToggle
         :model-value="nodeKind"
         mandatory
@@ -508,7 +510,11 @@ function removeChild(index: number): void {
       </VChip>
     </div>
 
-    <p class="classification-condition-builder__node-hint" data-testid="node-kind-hint">
+    <p v-else-if="nodeKind !== 'condition'" class="classification-condition-builder__node-hint">
+      已设置多个条件；打开高级设置可调整“全部满足 / 任一满足 / 排除”的组合方式。
+    </p>
+
+    <p v-if="props.advanced" class="classification-condition-builder__node-hint" data-testid="node-kind-hint">
       {{ nodeKindHint }}
     </p>
 
@@ -696,17 +702,25 @@ function removeChild(index: number): void {
       </div>
 
       <p
-        v-if="selectedDefinition?.description"
+        v-if="props.advanced && selectedDefinition?.description"
         class="classification-condition-builder__node-hint"
         data-testid="field-description"
       >
         {{ selectedDefinition.description }}
       </p>
-      <p v-if="valueHint" class="classification-condition-builder__node-hint" data-testid="value-hint">
+      <p
+        v-if="props.advanced && valueHint"
+        class="classification-condition-builder__node-hint"
+        data-testid="value-hint"
+      >
         {{ valueHint }}
       </p>
 
-      <p class="classification-condition-builder__source-scope-note" data-testid="source-scope-note">
+      <p
+        v-if="props.advanced"
+        class="classification-condition-builder__source-scope-note"
+        data-testid="source-scope-note"
+      >
         {{ sourceScopeNote }}
       </p>
 
@@ -752,13 +766,14 @@ function removeChild(index: number): void {
           :media-types="props.mediaTypes"
           :sources="props.sources"
           :source-options="props.sourceOptions"
+          :advanced="props.advanced"
           :depth="props.depth + 1"
           :max-depth="props.maxDepth"
           @update:model-value="updateChild(index, $event)"
         />
 
         <div
-          v-if="nodeKind !== 'not' && groupChildren.length > 1"
+          v-if="props.advanced && nodeKind !== 'not' && groupChildren.length > 1"
           class="classification-condition-builder__child-action"
         >
           <VTooltip text="删除子条件" location="top">
@@ -777,7 +792,7 @@ function removeChild(index: number): void {
         </div>
       </div>
 
-      <div class="classification-condition-builder__group-actions">
+      <div v-if="props.advanced" class="classification-condition-builder__group-actions">
         <VTooltip :text="canAddChild ? '添加同级条件' : '没有可用字段，或排除已经有条件'" location="top">
           <template #activator="{ props: tooltipProps }">
             <VBtn

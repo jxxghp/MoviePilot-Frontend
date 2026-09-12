@@ -336,9 +336,15 @@ describe('AccountSettingClassification', () => {
   })
 
   /** 切换一级工作区，模拟移动端按需展示大型编辑面板。 */
-  async function openWorkspace(name: '分类树' | '规则' | '验证发布'): Promise<void> {
+  async function openWorkspace(name: '1. 设置目录' | '2. 设置规则' | '3. 测试并保存'): Promise<void> {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('tab', { name }))
+  }
+
+  /** 打开高级设置，覆盖版本历史和复杂条件的兼容路径。 */
+  async function enableAdvancedSettings(): Promise<void> {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '高级设置' }))
   }
 
   it('loads only when the settings tab becomes active', async () => {
@@ -361,7 +367,7 @@ describe('AccountSettingClassification', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('自动分类使用说明')
-    expect(dialog).toHaveTextContent('建立分类')
+    expect(dialog).toHaveTextContent('设置目录')
     expect(dialog).toHaveTextContent('预览分类结果')
     expect(dialog).toHaveTextContent('查看影响范围')
     expect(dialog).toHaveTextContent('查看历史和回退')
@@ -377,7 +383,7 @@ describe('AccountSettingClassification', () => {
 
     await user.click(screen.getByRole('button', { name: 'replace-categories' }))
     await user.click(screen.getByRole('button', { name: 'replace-fallbacks' }))
-    await openWorkspace('规则')
+    await openWorkspace('2. 设置规则')
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
     const state = mocks.useMediaClassification.mock.results[0].value
@@ -391,7 +397,7 @@ describe('AccountSettingClassification', () => {
 
   it('hides migrated TMDB fields but keeps a field visible while an old rule still references it', async () => {
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('规则')
+    await openWorkspace('2. 设置规则')
 
     expect(screen.getByLabelText('editor-field-ids')).toHaveTextContent('media.type,media.genre_keys')
     expect(screen.getByLabelText('editor-field-ids')).not.toHaveTextContent('extensions.themoviedb.genre_ids')
@@ -416,6 +422,7 @@ describe('AccountSettingClassification', () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
     await screen.findByRole('region', { name: 'category-editor' })
+    await enableAdvancedSettings()
 
     const state = mocks.useMediaClassification.mock.results[0].value
     expect(document.querySelector('.classification-settings__binary-toggle')).toHaveClass(
@@ -439,7 +446,7 @@ describe('AccountSettingClassification', () => {
   it('validates the draft and exposes discard as a separate action', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('规则')
+    await openWorkspace('2. 设置规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
@@ -457,27 +464,44 @@ describe('AccountSettingClassification', () => {
     mocks.validateDraft.mockRejectedValueOnce(new Error('validation rejected'))
     mocks.apiErrorMessage.mockReturnValueOnce('请求参数不正确')
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('验证发布')
+    await openWorkspace('3. 测试并保存')
 
     await user.click(screen.getByRole('button', { name: '校验草稿' }))
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('请求参数不正确'))
   })
 
-  it('只显示分类树、规则和验证发布三个工作区标签', async () => {
+  it('只显示目录、规则和测试保存三个工作区标签', async () => {
     await renderWithProviders(AccountSettingClassification)
     await screen.findByRole('region', { name: 'category-editor' })
 
-    expect(screen.getByRole('tab', { name: '分类树' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '规则' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '验证发布' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '1. 设置目录' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '2. 设置规则' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '3. 测试并保存' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: '来源' })).not.toBeInTheDocument()
+  })
+
+  it('默认使用三步简单模式，并将校验和历史收进高级设置', async () => {
+    const user = userEvent.setup()
+    await renderWithProviders(AccountSettingClassification)
+    await screen.findByRole('region', { name: 'category-editor' })
+
+    expect(screen.getByRole('region', { name: '满足条件 → 放入目录' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '高级设置' })).toHaveAttribute('aria-pressed', 'false')
+
+    await openWorkspace('3. 测试并保存')
+    expect(screen.getByRole('region', { name: '先试一条，再保存' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'policy-control-panel' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '高级设置' }))
+    expect(screen.getByRole('button', { name: '收起高级设置' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('maps fact preview modes and bounded impact options to the composable', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('验证发布')
+    await enableAdvancedSettings()
+    await openWorkspace('3. 测试并保存')
     await screen.findByRole('region', { name: 'preview-panel' })
 
     await user.click(screen.getByRole('button', { name: 'request-active-preview' }))
@@ -506,10 +530,11 @@ describe('AccountSettingClassification', () => {
   it('keeps validation and impact stale when the draft changes while requests are in flight', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('规则')
+    await enableAdvancedSettings()
+    await openWorkspace('2. 设置规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
-    await openWorkspace('验证发布')
+    await openWorkspace('3. 测试并保存')
     await user.click(screen.getByRole('tab', { name: '发布与历史' }))
     await screen.findByRole('region', { name: 'policy-control-panel' })
 
@@ -558,11 +583,12 @@ describe('AccountSettingClassification', () => {
   it('requires current validation and impact snapshots before publishing, then sequences conflict recovery and rollback', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('规则')
+    await enableAdvancedSettings()
+    await openWorkspace('2. 设置规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
-    await openWorkspace('验证发布')
+    await openWorkspace('3. 测试并保存')
     await user.click(screen.getByRole('tab', { name: '发布与历史' }))
     await screen.findByRole('region', { name: 'policy-control-panel' })
     await waitFor(() => expect(mocks.loadHistory).toHaveBeenCalledTimes(1))

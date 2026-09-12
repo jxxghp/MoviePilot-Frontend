@@ -41,6 +41,7 @@ vi.mock('@/components/classification/ClassificationConditionBuilder.vue', async 
         mediaTypes: { type: Array, required: true },
         sources: { type: Array, required: true },
         maxDepth: { type: Number, required: true },
+        advanced: { type: Boolean, default: true },
       },
       emits: ['update:modelValue'],
       setup(props) {
@@ -52,6 +53,7 @@ vi.mock('@/components/classification/ClassificationConditionBuilder.vue', async 
               maxDepth: props.maxDepth,
               mediaTypes: props.mediaTypes,
               sources: props.sources,
+              advanced: props.advanced,
             }),
           )
       },
@@ -101,7 +103,7 @@ function createRule(overrides: Partial<ClassificationRule> = {}): Classification
 }
 
 /** 渲染规则编辑器并返回最近一次提交的规则数组。 */
-async function renderEditor(rules: ClassificationRule[], options: { maxRules?: number } = {}) {
+async function renderEditor(rules: ClassificationRule[], options: { maxRules?: number; advanced?: boolean } = {}) {
   const result = await renderWithProviders(ClassificationRuleEditor, {
     props: {
       rules,
@@ -281,6 +283,19 @@ describe('ClassificationRuleEditor', () => {
     await user.click(labelInput)
     await user.type(labelInput, '演唱会{Enter}')
     expect(editor.latestRules()[0]?.target.labels).toEqual(['演唱会'])
+  })
+
+  it('简单模式隐藏内部编号、规则类型和数据来源，只保留主要匹配流程', async () => {
+    await renderEditor(
+      [createRule({ when: { field: 'media.genre_names', operator: 'contains_any', value: ['动画'] } })],
+      { advanced: false },
+    )
+
+    expect(screen.queryByLabelText('规则编号 1')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('规则类型 电影规则')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('数据来源 电影规则')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('条件构建器状态')).toHaveTextContent('"advanced":false')
+    expect(screen.getByLabelText('分类目标 电影规则')).toBeInTheDocument()
   })
 
   it('达到 maxRules 后禁用新增和复制且不产生额外规则', async () => {

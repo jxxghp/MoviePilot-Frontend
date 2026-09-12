@@ -2069,10 +2069,21 @@ export default {
   setting: {
     classification: {
       title: 'Media Auto Classification',
-      description: 'Set shared automatic rules for movies, TV shows, and music using category names and media details.',
-      workspaceCategories: 'Categories',
-      workspaceRules: 'Rules',
-      workspaceReview: 'Review',
+      description: 'Put matching media into the right folder. Follow these three steps to set it up.',
+      workspaceCategories: '1. Set up folders',
+      workspaceRules: '2. Set up rules',
+      workspaceReview: '3. Test and save',
+      quickGuideEyebrow: 'How it works',
+      quickGuideTitle: 'Match media → Put it in a folder',
+      quickGuideHint: 'Choose the folders first, describe what belongs in each one, then test and save.',
+      quickGuideAria: 'Automatic classification setup steps',
+      quickGuideSteps: {
+        categories: { title: 'Set up folders', hint: 'Where media goes' },
+        rules: { title: 'Set up rules', hint: 'What belongs there' },
+        review: { title: 'Test and save', hint: 'Confirm before applying' },
+      },
+      showAdvancedSettings: 'Advanced settings',
+      hideAdvancedSettings: 'Hide advanced settings',
       revision: 'Current version {revision}',
       unsaved: 'Unsaved changes',
       loading: 'Loading the classification policy and field catalog...',
@@ -2085,6 +2096,11 @@ export default {
       validationIssues: '{count} validation issues',
       draftReset: 'Restored the active policy',
       enrichmentTitle: 'Classification Information Sources',
+      enrichmentSimpleTitle: 'Extra information (optional)',
+      enrichmentSimpleHint:
+        'Usually you can leave this alone. Extra sources are only checked when a rule needs missing details.',
+      enrichmentSimpleNote:
+        'Default setting: fill missing details only when needed, without changing the media’s primary source.',
       enrichmentHint:
         'Ask registered sources only when a rule needs missing media details. Additional information never overwrites the primary source or changes the matched media.',
       enrichmentModeLabel: 'Fill missing information',
@@ -2101,6 +2117,12 @@ export default {
       },
       analysisTitle: 'Check, Preview, and Publish',
       analysisHint: 'Review category matches, estimate changes, and check version history before publishing.',
+      simpleReviewTitle: 'Test one item, then save',
+      simpleReviewHint: 'Search for one media item and confirm its result. When the check passes, choose “Apply”.',
+      simpleReviewCheck: 'Check current rules',
+      simpleReviewApply: 'Confirm and apply',
+      simpleReviewImpact:
+        'Checked {sample} recent records: {changed} classifications will change; {degraded} may be degraded.',
       previewTab: 'Result Preview',
       impactTab: 'Impact Analysis',
       publishTab: 'Publish & History',
@@ -2123,11 +2145,11 @@ export default {
       help: {
         sections: {
           categories: {
-            title: '1. Create categories',
-            body: 'Start in Category Tree and create categories for movies, TV shows, and music. Give each category a name and path so it can be used by rules and default categories.',
+            title: '1. Set up folders',
+            body: 'Start by setting the folders for movies, TV shows, and music. Give each folder a name and path so rules and defaults can use it.',
           },
           rules: {
-            title: '2. Write rules',
+            title: '2. Set up rules',
             body: 'Set conditions from top to bottom under Rules. The system first checks the media types and data sources allowed by the rule, then reads details from the actual media record. Selecting multiple sources means any one of them may match; information from different sources is never merged. The first matching rule wins, and the media-type default category is used when none matches.',
           },
           preview: {
@@ -2149,9 +2171,9 @@ export default {
         },
       },
       category: {
-        title: 'Category Tree',
+        title: 'Storage Folders',
         description:
-          'Paths support up to {count} levels. Rules and directory settings are saved with the category number.',
+          'Set where media should go. Matching rules use these folders, and unmatched media uses the default folder. Paths support up to {count} levels.',
         add: 'Add {mediaType} category',
         mediaTypeSegments: 'Category media type',
         editTitle: 'Edit Category',
@@ -2160,6 +2182,7 @@ export default {
         save: 'Save category',
         name: 'Category Name',
         stableId: 'Category Number',
+        autoIdHint: 'The internal number is generated automatically. You only need a name and folder path.',
         existingIdHint:
           'The category number cannot be changed after creation because rules, defaults, directory settings, and history use it to identify this category',
         newIdHint: 'Rules, defaults, directory settings, and history will use this number after creation',

@@ -33,11 +33,13 @@ const props = withDefaults(
     sourceOptions?: readonly ClassificationSourceOption[]
     maxRules?: number
     maxConditionDepth?: number
+    advanced?: boolean
   }>(),
   {
     sourceOptions: () => [],
     maxRules: DEFAULT_MAX_RULES,
     maxConditionDepth: DEFAULT_MAX_CONDITION_DEPTH,
+    advanced: true,
   },
 )
 
@@ -306,7 +308,7 @@ watch(
   <section class="classification-rule-editor" aria-label="分类规则编辑器">
     <header class="classification-rule-toolbar">
       <div class="classification-rule-count">
-        <strong>有序规则</strong>
+        <strong>{{ props.advanced ? '有序规则' : '匹配规则' }}</strong>
         <span>{{ draftRules.length }} / {{ maxRules }}</span>
       </div>
       <VBtn
@@ -323,6 +325,10 @@ watch(
         </VTooltip>
       </VBtn>
     </header>
+
+    <VAlert v-if="!props.advanced" type="info" variant="tonal" density="compact">
+      只需要设置“什么媒体”和“放到哪个分类”。多个条件、数据来源和标签等选项可在“高级设置”中调整。
+    </VAlert>
 
     <Draggable
       v-model="orderedRules"
@@ -442,6 +448,7 @@ watch(
                 @update:model-value="value => updateRule(index, { name: value })"
               />
               <VTextField
+                v-if="props.advanced"
                 :model-value="rule.id"
                 label="规则编号"
                 density="compact"
@@ -450,6 +457,7 @@ watch(
                 @update:model-value="value => updateRule(index, { id: value })"
               />
               <VBtnToggle
+                v-if="props.advanced"
                 :model-value="rule.kind"
                 mandatory
                 divided
@@ -480,6 +488,7 @@ watch(
                 @update:model-value="value => updateMediaTypes(index, value)"
               />
               <VSelect
+                v-if="props.advanced"
                 :model-value="rule.sources"
                 :items="sourceItems"
                 label="数据来源"
@@ -504,6 +513,7 @@ watch(
                 :media-types="rule.media_types"
                 :sources="rule.sources"
                 :source-options="sourceOptions"
+                :advanced="props.advanced"
                 :max-depth="maxConditionDepth"
                 @update:model-value="value => updateCondition(index, value)"
               />

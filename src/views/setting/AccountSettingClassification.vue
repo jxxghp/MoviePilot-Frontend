@@ -60,7 +60,13 @@ const directoryReferencesUnavailable = ref(false)
 const directories = ref<TransferDirectoryConf[]>([])
 const workspaceTab = ref<'categories' | 'rules' | 'review'>('categories')
 const analysisTab = ref<'preview' | 'impact' | 'publish'>('preview')
+const showAdvanced = ref(false)
 const helpDialog = ref(false)
+const quickGuideSteps = [
+  { value: 'categories', number: 1, key: 'categories' },
+  { value: 'rules', number: 2, key: 'rules' },
+  { value: 'review', number: 3, key: 'review' },
+] as const
 const validatedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const analyzedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const lastImpactOptions = ref<ClassificationImpactRequestEvent>({ sampleLimit: 100, exampleLimit: 20 })
@@ -128,6 +134,11 @@ const impactIsCurrent = computed(
     !!draftPolicy.value &&
     !!analyzedDraftSnapshot.value &&
     isEqual(draftPolicy.value, analyzedDraftSnapshot.value),
+)
+
+/** 简单模式下，检查结果已对应当前草稿且可以让用户确认保存。 */
+const simpleReviewReady = computed(
+  () => validationIsCurrent.value && impactIsCurrent.value && isDirty.value && !conflict.value,
 )
 
 /** 汇总规则引用；全局兜底由分类树按媒体类型单独判断。 */
@@ -324,6 +335,13 @@ async function validateCurrentDraft(): Promise<void> {
   }
 }
 
+/** 按用户可理解的顺序完成服务端校验和近期影响分析。 */
+async function checkSimpleDraft(): Promise<void> {
+  await validateCurrentDraft()
+  if (!validationIsCurrent.value) return
+  await analyzeCurrentDraft()
+}
+
 /** 使用草稿或活动策略执行所选媒体的分类预览，并保留完整匹配说明。 */
 async function previewFacts(request: ClassificationPreviewRequestEvent): Promise<void> {
   try {
@@ -470,6 +488,23 @@ watch(analysisTab, tab => {
               {{ t('setting.classification.unsaved') }}
             </VChip>
           </div>
+          <VBtn
+            variant="text"
+            prepend-icon="mdi-tune-variant"
+            :aria-pressed="showAdvanced"
+            :aria-label="
+              showAdvanced
+                ? t('setting.classification.hideAdvancedSettings')
+                : t('setting.classification.showAdvancedSettings')
+            "
+            @click="showAdvanced = !showAdvanced"
+          >
+            {{
+              showAdvanced
+                ? t('setting.classification.hideAdvancedSettings')
+                : t('setting.classification.showAdvancedSettings')
+            }}
+          </VBtn>
           <VBtn icon variant="text" :aria-label="t('setting.classification.helpButton')" @click="helpDialog = true">
             <VIcon icon="mdi-help-circle-outline" />
             <VTooltip activator="parent" location="bottom">
@@ -508,6 +543,34 @@ watch(analysisTab, tab => {
 
     <template v-else>
       <VCardText class="classification-settings__workspace">
+        <section class="classification-settings__quick-guide" aria-labelledby="classification-quick-guide-title">
+          <div class="classification-settings__quick-guide-copy">
+            <span class="classification-settings__eyebrow">{{ t('setting.classification.quickGuideEyebrow') }}</span>
+            <h2 id="classification-quick-guide-title">{{ t('setting.classification.quickGuideTitle') }}</h2>
+            <p>{{ t('setting.classification.quickGuideHint') }}</p>
+          </div>
+          <nav
+            class="classification-settings__quick-guide-steps"
+            :aria-label="t('setting.classification.quickGuideAria')"
+          >
+            <button
+              v-for="step in quickGuideSteps"
+              :key="step.value"
+              type="button"
+              class="classification-settings__quick-guide-step"
+              :class="{ 'classification-settings__quick-guide-step--active': workspaceTab === step.value }"
+              :aria-current="workspaceTab === step.value ? 'step' : undefined"
+              @click="workspaceTab = step.value"
+            >
+              <span class="classification-settings__quick-guide-number">{{ step.number }}</span>
+              <span>
+                <strong>{{ t(`setting.classification.quickGuideSteps.${step.key}.title`) }}</strong>
+                <small>{{ t(`setting.classification.quickGuideSteps.${step.key}.hint`) }}</small>
+              </span>
+            </button>
+          </nav>
+        </section>
+
         <VAlert
           v-if="directoryReferencesUnavailable"
           type="warning"
@@ -543,11 +606,23 @@ watch(analysisTab, tab => {
               <section class="classification-settings__enrichment" aria-labelledby="classification-enrichment-title">
                 <div class="classification-settings__section-heading">
                   <div>
-                    <h3 id="classification-enrichment-title">{{ t('setting.classification.enrichmentTitle') }}</h3>
-                    <p>{{ t('setting.classification.enrichmentHint') }}</p>
+                    <h3 id="classification-enrichment-title">
+                      {{
+                        showAdvanced
+                          ? t('setting.classification.enrichmentTitle')
+                          : t('setting.classification.enrichmentSimpleTitle')
+                      }}
+                    </h3>
+                    <p>
+                      {{
+                        showAdvanced
+                          ? t('setting.classification.enrichmentHint')
+                          : t('setting.classification.enrichmentSimpleHint')
+                      }}
+                    </p>
                   </div>
                 </div>
-                <div class="classification-settings__enrichment-control">
+                <div v-if="showAdvanced" class="classification-settings__enrichment-control">
                   <span id="classification-enrichment-mode-label">{{
                     t('setting.classification.enrichmentModeLabel')
                   }}</span>
@@ -565,6 +640,15 @@ watch(analysisTab, tab => {
                     <VBtn value="enrich_missing">{{ t('setting.classification.enrichmentMissing') }}</VBtn>
                   </VBtnToggle>
                 </div>
+                <VAlert
+                  v-else
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  class="classification-settings__simple-note"
+                >
+                  {{ t('setting.classification.enrichmentSimpleNote') }}
+                </VAlert>
               </section>
 
               <ClassificationCategoryEditor
@@ -573,6 +657,7 @@ watch(analysisTab, tab => {
                 :referenced-category-ids="referencedCategoryIds"
                 :directory-references="directoryCategoryReferences"
                 :max-depth="fieldCatalog.limits.max_category_depth"
+                :advanced="showAdvanced"
                 @update:categories="updateCategories"
                 @update:fallbacks="updateFallbacks"
               />
@@ -588,6 +673,7 @@ watch(analysisTab, tab => {
                 :source-options="classificationSourceOptions"
                 :max-rules="fieldCatalog.limits.max_rules"
                 :max-condition-depth="fieldCatalog.limits.max_condition_depth"
+                :advanced="showAdvanced"
                 @update:rules="updateRules"
               />
             </section>
@@ -598,71 +684,125 @@ watch(analysisTab, tab => {
               class="classification-settings__panel classification-settings__analysis"
               aria-labelledby="classification-analysis-title"
             >
-              <div class="classification-settings__section-heading">
-                <div>
-                  <h3 id="classification-analysis-title">{{ t('setting.classification.analysisTitle') }}</h3>
-                  <p>{{ t('setting.classification.analysisHint') }}</p>
+              <template v-if="!showAdvanced">
+                <div class="classification-settings__section-heading">
+                  <div>
+                    <h3 id="classification-analysis-title">{{ t('setting.classification.simpleReviewTitle') }}</h3>
+                    <p>{{ t('setting.classification.simpleReviewHint') }}</p>
+                  </div>
                 </div>
-              </div>
+                <ClassificationPreviewPanel
+                  :categories="draftPolicy.categories"
+                  :sources="mediaSourceCatalog"
+                  :result="previewResultSnapshot"
+                  :loading="previewing"
+                  @request-preview="previewFacts"
+                />
+                <VAlert
+                  v-if="impactResultSnapshot"
+                  class="classification-settings__simple-impact"
+                  type="success"
+                  variant="tonal"
+                  density="compact"
+                >
+                  {{
+                    t('setting.classification.simpleReviewImpact', {
+                      sample: impactResultSnapshot.sample_count,
+                      changed: impactResultSnapshot.changed_count,
+                      degraded: impactResultSnapshot.degraded_count,
+                    })
+                  }}
+                </VAlert>
+                <div class="classification-settings__simple-review-actions">
+                  <VBtn
+                    color="primary"
+                    variant="tonal"
+                    prepend-icon="mdi-check-circle-outline"
+                    :loading="validating || analyzingImpact"
+                    :disabled="!isDirty || publishing || rollingBack"
+                    @click="checkSimpleDraft"
+                  >
+                    {{ t('setting.classification.simpleReviewCheck') }}
+                  </VBtn>
+                  <VBtn
+                    color="primary"
+                    prepend-icon="mdi-content-save-check-outline"
+                    :loading="publishing"
+                    :disabled="!simpleReviewReady || validating || analyzingImpact || rollingBack"
+                    @click="publishCurrentDraft"
+                  >
+                    {{ t('setting.classification.simpleReviewApply') }}
+                  </VBtn>
+                </div>
+              </template>
 
-              <VTabs v-model="analysisTab" class="classification-settings__analysis-tabs" color="primary" grow>
-                <VTab value="preview" prepend-icon="mdi-play-box-outline">
-                  {{ t('setting.classification.previewTab') }}
-                </VTab>
-                <VTab value="impact" prepend-icon="mdi-chart-box-outline">
-                  {{ t('setting.classification.impactTab') }}
-                </VTab>
-                <VTab value="publish" prepend-icon="mdi-source-branch-sync">
-                  {{ t('setting.classification.publishTab') }}
-                </VTab>
-              </VTabs>
+              <template v-else>
+                <div class="classification-settings__section-heading">
+                  <div>
+                    <h3 id="classification-analysis-title">{{ t('setting.classification.analysisTitle') }}</h3>
+                    <p>{{ t('setting.classification.analysisHint') }}</p>
+                  </div>
+                </div>
 
-              <VWindow v-model="analysisTab" class="classification-settings__analysis-window" :touch="false">
-                <VWindowItem value="preview">
-                  <ClassificationPreviewPanel
-                    :categories="draftPolicy.categories"
-                    :sources="mediaSourceCatalog"
-                    :result="previewResultSnapshot"
-                    :loading="previewing"
-                    @request-preview="previewFacts"
-                  />
-                </VWindowItem>
-                <VWindowItem value="impact">
-                  <ClassificationImpactPanel
-                    :categories="draftPolicy.categories"
-                    :sources="mediaSourceCatalog"
-                    :analysis="impactResultSnapshot"
-                    :loading="analyzingImpact"
-                    :disabled="publishing || rollingBack"
-                    @analyze="analyzeCurrentDraft"
-                  />
-                </VWindowItem>
-                <VWindowItem value="publish">
-                  <ClassificationPolicyControlPanel
-                    :active-revision="activeRevision"
-                    :is-dirty="isDirty"
-                    :validation-result="validationResultSnapshot"
-                    :validation-is-current="validationIsCurrent"
-                    :impact-result="impactResultSnapshot"
-                    :impact-is-current="impactIsCurrent"
-                    :conflict="conflict"
-                    :history="historySnapshot"
-                    :validating="validating"
-                    :publishing="publishing"
-                    :refreshing="loadingPolicy"
-                    :loading-history="loadingHistory"
-                    :rolling-back="rollingBack"
-                    :analyzing-impact="analyzingImpact"
-                    @validate="validateCurrentDraft"
-                    @analyze="analyzeCurrentDraft()"
-                    @publish="publishCurrentDraft"
-                    @refresh="reloadRemotePolicy"
-                    @keep-draft="keepDraftAndReanalyze"
-                    @load-history="loadPolicyHistory"
-                    @rollback="rollbackPolicy"
-                  />
-                </VWindowItem>
-              </VWindow>
+                <VTabs v-model="analysisTab" class="classification-settings__analysis-tabs" color="primary" grow>
+                  <VTab value="preview" prepend-icon="mdi-play-box-outline">
+                    {{ t('setting.classification.previewTab') }}
+                  </VTab>
+                  <VTab value="impact" prepend-icon="mdi-chart-box-outline">
+                    {{ t('setting.classification.impactTab') }}
+                  </VTab>
+                  <VTab value="publish" prepend-icon="mdi-source-branch-sync">
+                    {{ t('setting.classification.publishTab') }}
+                  </VTab>
+                </VTabs>
+
+                <VWindow v-model="analysisTab" class="classification-settings__analysis-window" :touch="false">
+                  <VWindowItem value="preview">
+                    <ClassificationPreviewPanel
+                      :categories="draftPolicy.categories"
+                      :sources="mediaSourceCatalog"
+                      :result="previewResultSnapshot"
+                      :loading="previewing"
+                      @request-preview="previewFacts"
+                    />
+                  </VWindowItem>
+                  <VWindowItem value="impact">
+                    <ClassificationImpactPanel
+                      :categories="draftPolicy.categories"
+                      :sources="mediaSourceCatalog"
+                      :analysis="impactResultSnapshot"
+                      :loading="analyzingImpact"
+                      :disabled="publishing || rollingBack"
+                      @analyze="analyzeCurrentDraft"
+                    />
+                  </VWindowItem>
+                  <VWindowItem value="publish">
+                    <ClassificationPolicyControlPanel
+                      :active-revision="activeRevision"
+                      :is-dirty="isDirty"
+                      :validation-result="validationResultSnapshot"
+                      :validation-is-current="validationIsCurrent"
+                      :impact-result="impactResultSnapshot"
+                      :impact-is-current="impactIsCurrent"
+                      :conflict="conflict"
+                      :history="historySnapshot"
+                      :validating="validating"
+                      :publishing="publishing"
+                      :refreshing="loadingPolicy"
+                      :loading-history="loadingHistory"
+                      :rolling-back="rollingBack"
+                      :analyzing-impact="analyzingImpact"
+                      @validate="validateCurrentDraft"
+                      @analyze="analyzeCurrentDraft()"
+                      @publish="publishCurrentDraft"
+                      @refresh="reloadRemotePolicy"
+                      @keep-draft="keepDraftAndReanalyze"
+                      @load-history="loadPolicyHistory"
+                      @rollback="rollbackPolicy"
+                    />
+                  </VWindowItem>
+                </VWindow>
+              </template>
             </section>
           </VWindowItem>
         </VWindow>
@@ -743,6 +883,101 @@ watch(analysisTab, tab => {
 
 .classification-settings__workspace {
   padding: 1rem 1.25rem 1.25rem;
+}
+
+.classification-settings__quick-guide {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.6fr);
+  gap: 1rem;
+  align-items: center;
+  margin-block-end: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(var(--v-theme-primary), 0.22);
+  border-radius: 10px;
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.classification-settings__quick-guide-copy h2,
+.classification-settings__quick-guide-copy p {
+  margin: 0;
+}
+
+.classification-settings__quick-guide-copy h2 {
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+.classification-settings__quick-guide-copy p {
+  margin-block-start: 0.35rem;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.classification-settings__eyebrow {
+  display: block;
+  margin-block-end: 0.2rem;
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.classification-settings__quick-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.classification-settings__quick-guide-step {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.5);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.classification-settings__quick-guide-step:hover,
+.classification-settings__quick-guide-step--active {
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  background: rgba(var(--v-theme-primary), 0.12);
+}
+
+.classification-settings__quick-guide-number {
+  display: inline-flex;
+  flex: 0 0 auto;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(var(--v-theme-primary), 0.18);
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.classification-settings__quick-guide-step strong,
+.classification-settings__quick-guide-step small {
+  display: block;
+}
+
+.classification-settings__quick-guide-step strong {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.classification-settings__quick-guide-step small {
+  margin-block-start: 0.15rem;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 .classification-settings__workspace-tabs,
@@ -830,6 +1065,19 @@ watch(analysisTab, tab => {
 
 .classification-settings__analysis-window {
   margin-block-start: 0.75rem;
+}
+
+.classification-settings__simple-note,
+.classification-settings__simple-impact {
+  margin-block-start: 0.75rem;
+}
+
+.classification-settings__simple-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
 }
 
 .classification-settings__analysis-window :deep(.v-window-item) {
@@ -957,6 +1205,15 @@ watch(analysisTab, tab => {
     padding: 10px 10px calc(6rem + env(safe-area-inset-bottom));
   }
 
+  .classification-settings__quick-guide {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.85rem;
+  }
+
+  .classification-settings__quick-guide-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .classification-settings__workspace-tabs :deep(.v-tab),
   .classification-settings__analysis-tabs :deep(.v-tab) {
     min-block-size: 42px;
@@ -989,6 +1246,14 @@ watch(analysisTab, tab => {
 
   .classification-settings__actions :deep(.v-spacer) {
     display: none;
+  }
+
+  .classification-settings__simple-review-actions {
+    flex-direction: column-reverse;
+  }
+
+  .classification-settings__simple-review-actions :deep(.v-btn) {
+    inline-size: 100%;
   }
 }
 

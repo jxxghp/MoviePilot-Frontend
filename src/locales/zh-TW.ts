@@ -2008,10 +2008,21 @@ export default {
   setting: {
     classification: {
       title: '媒體自動分類',
-      description: '按分類名稱和媒體資訊，為電影、電視劇和音樂設定統一的自動分類規則。',
-      workspaceCategories: '分類樹',
-      workspaceRules: '規則',
-      workspaceReview: '驗證發佈',
+      description: '符合條件的媒體會自動放入對應目錄，照下面 3 步完成設定即可。',
+      workspaceCategories: '1. 設定目錄',
+      workspaceRules: '2. 設定規則',
+      workspaceReview: '3. 測試並儲存',
+      quickGuideEyebrow: '怎麼使用',
+      quickGuideTitle: '符合條件 → 放入目錄',
+      quickGuideHint: '先設定存放目錄，再設定匹配條件，最後試一筆媒體並儲存。',
+      quickGuideAria: '自動分類設定步驟',
+      quickGuideSteps: {
+        categories: { title: '設定目錄', hint: '媒體要放在哪裡' },
+        rules: { title: '設定規則', hint: '什麼媒體放進去' },
+        review: { title: '測試並儲存', hint: '確認結果後套用' },
+      },
+      showAdvancedSettings: '進階設定',
+      hideAdvancedSettings: '收起進階設定',
       revision: '目前版本 {revision}',
       unsaved: '有未儲存修改',
       loading: '正在載入分類策略和欄位目錄...',
@@ -2024,6 +2035,9 @@ export default {
       validationIssues: '{count} 個校驗問題',
       draftReset: '已恢復目前活動策略',
       enrichmentTitle: '分類資訊來源',
+      enrichmentSimpleTitle: '補充資訊（可選）',
+      enrichmentSimpleHint: '通常不需要調整，只有規則需要而主要資料源沒有提供資訊時，系統才會嘗試補充。',
+      enrichmentSimpleNote: '目前使用預設設定：只在需要時補充缺少資訊，不會改變媒體的主要資料源。',
       enrichmentHint:
         '只有規則需要的媒體資訊缺失時，才會向已登記的資料源補充；補充結果不會覆蓋主要來源的資訊，也不會把媒體識別成另一筆記錄。',
       enrichmentModeLabel: '是否補充缺少的資訊',
@@ -2040,6 +2054,11 @@ export default {
       },
       analysisTitle: '檢查、預覽與發佈',
       analysisHint: '發佈前查看分類命中結果、變更影響並確認歷史版本。',
+      simpleReviewTitle: '先試一筆，再儲存',
+      simpleReviewHint: '搜尋一筆媒體確認分類結果，檢查通過後點擊「確認並套用」。',
+      simpleReviewCheck: '檢查目前規則',
+      simpleReviewApply: '確認並套用',
+      simpleReviewImpact: '已檢查 {sample} 筆近期記錄：{changed} 筆分類會變更，{degraded} 筆可能降級。',
       previewTab: '結果預覽',
       impactTab: '影響分析',
       publishTab: '發佈與歷史',
@@ -2061,11 +2080,11 @@ export default {
       help: {
         sections: {
           categories: {
-            title: '1. 建立分類',
-            body: '先在「分類樹」中為電影、電視劇和音樂建立分類。每個分類都要填寫名稱和分類路徑，儲存後就能在規則和預設分類中使用。',
+            title: '1. 設定目錄',
+            body: '先為電影、電視劇和音樂設定存放目錄。每個目錄填寫名稱和路徑，儲存後就能在規則和預設目錄中使用。',
           },
           rules: {
-            title: '2. 編寫規則',
+            title: '2. 設定規則',
             body: '在「規則」中由上到下設定條件。系統先檢查規則限定的媒體類型和資料源，再讀取這筆媒體記錄實際提供的資訊。選擇多個資料源表示任一資料源都可以命中，系統不會把多個來源的資訊拼在一起；第一條符合條件的規則生效，都不符合時使用媒體類型預設分類。',
           },
           preview: {
@@ -2087,8 +2106,9 @@ export default {
         },
       },
       category: {
-        title: '分類樹',
-        description: '分類路徑最多 {count} 級，規則和目錄設定會跟隨分類編號儲存。',
+        title: '存放目錄',
+        description:
+          '這裡設定媒體最後要放到哪些目錄。規則命中後會放入對應目錄，未命中時使用預設目錄，路徑最多 {count} 級。',
         add: '新增{mediaType}分類',
         mediaTypeSegments: '分類媒體類型',
         editTitle: '編輯分類',
@@ -2097,6 +2117,7 @@ export default {
         save: '儲存分類',
         name: '分類名稱',
         stableId: '分類編號',
+        autoIdHint: '內部編號由系統自動產生，你只需要填寫名稱和目錄路徑。',
         existingIdHint: '分類編號建立後不能修改，規則、預設分類、目錄設定和歷史版本會用它識別這個分類',
         newIdHint: '建立後，規則、預設分類、目錄設定和歷史版本會使用這個編號',
         path: '分類路徑',
