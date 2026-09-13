@@ -1,57 +1,56 @@
 <script setup lang="ts">
+import type { PropType } from 'vue'
 import api from '@/api'
-import type { Site, TorrentInfo, SiteCategory } from '@/api/types'
-import { formatFileSize } from '@core/utils/formatters'
-import { useDisplay, useTheme } from 'vuetify'
-import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
+import type { Site, SiteCategory, TorrentInfo } from '@/api/types'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { formatFileSize } from '@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
+import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
+
+type ResourceSort = 'latest' | 'largest' | 'mostSeeders' | 'mostPeers'
+
+const RESOURCE_PAGE_SIZE = 100
+const RESOURCE_LOAD_AHEAD = 480
 
 // 国际化
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 // 响应式断点
 const display = useDisplay()
-
-// 当前主题
-const theme = useTheme()
 
 // 输入参数
 const props = defineProps({
   site: Object as PropType<Site>,
 })
 
-// 关键字
-const keyword = ref<string>()
-
-// 选择分类
-const selectCategory = ref<number[]>([])
-
-// 全部分类
-const siteCategoryList = ref<SiteCategory[]>()
-
 // 注册事件
 const emit = defineEmits(['close'])
 
-// 数据列表
+// 查询条件
+const keyword = ref<string>()
+const selectCategory = ref<number[]>([])
+
+// 站点分类
+const siteCategoryList = ref<SiteCategory[]>([])
+
+// 资源分页数据
 const resourceDataList = ref<TorrentInfo[]>([])
-
-// 每页条数
-const resourceItemsPerPage = ref(25)
-
-// 当前页
-const resourcePage = ref(1)
-
-// 加载状态
+const resourcePage = ref(-1)
+const resourceHasMore = ref(true)
 const resourceLoading = ref(false)
-
+const resourceLoadingMore = ref(false)
 const resourceError = ref(false)
+const resourceLoadMoreError = ref(false)
 
-// 只有最后发起的搜索可以更新资源数据、请求状态和移动端搜索面板。
+// 只有最后一次搜索可以更新列表与加载状态，避免旧请求覆盖新条件。
 let resourceRequestId = 0
 
-// 移动端搜索栏是否展开
-const mobileSearchExpanded = ref(false)
+// 资源滚动容器
+const resourceScrollRef = ref<HTMLElement>()
+
+// 排序
+const resourceSort = ref<ResourceSort>('latest')
 
 // 种子元数据
 const torrent = ref<TorrentInfo>()
@@ -60,174 +59,223 @@ const torrent = ref<TorrentInfo>()
 const addDownloadDialog = ref(false)
 
 // 分类选项
-const categoryOptions = computed(() => {
-  return siteCategoryList.value?.map(item => {
-    return { title: item.desc, value: item.id }
-  })
-})
+const categoryOptions = computed(() =>
+  siteCategoryList.value.map(item => ({
+    title: item.desc,
+    value: item.id,
+  })),
+)
 
-// 站点是否配置了资源分类
-const hasSiteCategory = computed(() => (siteCategoryList.value?.length ?? 0) > 0)
-
-// 总条数
-const resourceTotalItems = computed(() => resourceDataList.value.length)
-
-// 资源浏览表头
-const resourceHeaders = computed(() => [
-  { title: t('dialog.siteResource.titleColumn'), key: 'title', sortable: false },
-  { title: t('dialog.siteResource.timeColumn'), key: 'pubdate', sortable: true },
-  { title: t('dialog.siteResource.sizeColumn'), key: 'size', sortable: true },
-  { title: t('dialog.siteResource.seedersColumn'), key: 'seeders', sortable: true },
-  { title: t('dialog.siteResource.peersColumn'), key: 'peers', sortable: true },
-  { title: '', key: 'actions', sortable: false },
+// 排序选项
+const resourceSortOptions = computed(() => [
+  { title: t('dialog.siteResource.latest'), value: 'latest' as const },
+  { title: t('dialog.siteResource.largest'), value: 'largest' as const },
+  { title: t('dialog.siteResource.mostSeeders'), value: 'mostSeeders' as const },
+  { title: t('dialog.siteResource.mostPeers'), value: 'mostPeers' as const },
 ])
 
-// 输入框标签
-const keywordFieldLabel = computed(() => {
-  return keyword.value ? '' : t('dialog.siteResource.searchKeyword')
-})
+// 站点是否配置了资源分类
+const hasSiteCategory = computed(() => siteCategoryList.value.length > 0)
 
-const categoryFieldLabel = computed(() => {
-  return selectCategory.value.length > 0 ? '' : t('dialog.siteResource.resourceCategory')
-})
-
-// 结果统计文案
-const resultSummaryText = computed(() => {
-  if (locale.value.startsWith('zh')) {
-    return `共 ${resourceTotalItems.value} 条结果`
-  }
-
-  return `${resourceTotalItems.value} results`
-})
+// 已加载资源数量
+const resourceTotalItems = computed(() => resourceDataList.value.length)
 
 // 是否小屏幕
 const isMobileLayout = computed(() => display.smAndDown.value)
 
-// 是否透明主题
-const isTransparentTheme = computed(() => theme.name.value === 'transparent')
+// 移动端上滑后收起筛选区域，保留搜索图标以便快速恢复。
+const isMobileSearchCollapsed = ref(false)
 
-// 移动端分页数据
-const mobileResourceList = computed(() => resourceDataList.value)
+// 记录资源滚动位置，用于识别移动端内容是否正在向上移动。
+let lastResourceScrollTop = 0
 
-// 获取资源项唯一标识
-function getResourceItemKey(item: TorrentInfo, index: number) {
-  return item.page_url || item.enclosure || `${item.title}-${item.pubdate || ''}-${index}`
+// 结果统计文案
+const resultSummaryText = computed(() => t('dialog.siteResource.resourceCount', { count: resourceTotalItems.value }))
+
+// 排序后的资源列表
+const sortedResourceList = computed(() => {
+  const resources = [...resourceDataList.value]
+
+  if (resourceSort.value === 'largest') {
+    return resources.sort((left, right) => right.size - left.size)
+  }
+
+  if (resourceSort.value === 'mostSeeders') {
+    return resources.sort((left, right) => right.seeders - left.seeders)
+  }
+
+  if (resourceSort.value === 'mostPeers') {
+    return resources.sort((left, right) => right.peers - left.peers)
+  }
+
+  // 后端第一页已经按最新发布返回；保留分页顺序，避免跨页追加时重新排列资源。
+  return resources
+})
+
+// 渐进网格的估算高度，桌面端为横向资源卡，移动端为纵向资源卡。
+const estimatedResourceItemHeight = computed(() => (isMobileLayout.value ? 280 : 166))
+
+// 获取资源去重标识，兼容站点没有返回链接的情况。
+function getResourceIdentity(item: TorrentInfo): string {
+  return item.page_url || item.enclosure || `${item.title ?? ''}|${item.pubdate ?? ''}|${item.size}|${item.seeders}`
 }
 
-// 打开种子详情页面
-function openTorrentDetail(page_url: string) {
-  if (!page_url) return
-  window.open(page_url, '_blank')
+// 获取渐进网格使用的稳定键。
+function getResourceItemKey(item: TorrentInfo, index: number): string {
+  return getResourceIdentity(item) || `${item.title ?? ''}-${item.pubdate ?? ''}-${index}`
 }
 
-// 下载种子文件
-async function downloadTorrentFile(enclosure: string) {
+// 打开种子详情页面。
+function openTorrentDetail(pageUrl: string): void {
+  if (!pageUrl) return
+  window.open(pageUrl, '_blank')
+}
+
+// 打开种子文件下载地址。
+function downloadTorrentFile(enclosure: string): void {
   if (!enclosure) return
   window.open(enclosure, '_blank')
 }
 
-// 促销Chip类
-function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
-  if (downloadVolume === 0) return 'text-white bg-lime-500'
-  if (downloadVolume < 1) return 'text-white bg-green-500'
-  if (uploadVolume !== 1) return 'text-white bg-sky-500'
-
-  return 'text-white bg-gray-500'
+// 根据促销因子返回 Vuetify 主题色，避免绑定具体主题的 CSS 类。
+function getVolumeFactorColor(downloadVolume: number, uploadVolume: number): string {
+  if (downloadVolume < 1) return 'success'
+  if (uploadVolume > 1) return 'info'
+  return 'secondary'
 }
 
-// 添加下载
-async function addDownload(_torrent: TorrentInfo) {
-  torrent.value = _torrent
+// 打开添加下载对话框。
+function addDownload(resource: TorrentInfo): void {
+  torrent.value = resource
   addDownloadDialog.value = true
 }
 
-// 添加下载成功
-function addDownloadSuccess() {
+// 添加下载完成后关闭子对话框。
+function addDownloadSuccess(): void {
   addDownloadDialog.value = false
 }
 
-// 添加下载失败
-function addDownloadError() {
+// 添加下载失败后关闭子对话框。
+function addDownloadError(): void {
   addDownloadDialog.value = false
 }
 
-// 调用API，查询站点资源
-async function getResourceList() {
+// 将新一页资源追加到列表并按稳定标识去重。
+function appendResourcePage(resources: TorrentInfo[]): void {
+  const existingKeys = new Set(resourceDataList.value.map(getResourceIdentity))
+  const newResources = resources.filter(resource => {
+    const key = getResourceIdentity(resource)
+    if (existingKeys.has(key)) return false
+    existingKeys.add(key)
+    return true
+  })
+
+  resourceDataList.value = [...resourceDataList.value, ...newResources]
+}
+
+// 请求指定页资源；请求编号失效时丢弃响应，防止旧搜索污染当前列表。
+async function requestResourcePage(page: number, requestId: number): Promise<TorrentInfo[] | undefined> {
+  const resources = await api.get<TorrentInfo[], TorrentInfo[]>(`site/resource/${props.site?.id}`, {
+    params: {
+      keyword: keyword.value,
+      cat: selectCategory.value.join(','),
+      page,
+    },
+  })
+
+  if (requestId !== resourceRequestId) return undefined
+  return Array.isArray(resources) ? resources : []
+}
+
+// 重新查询第一页，保留旧结果直到新请求成功，避免搜索时内容突然空白。
+async function getResourceList(): Promise<void> {
   const requestId = ++resourceRequestId
   resourceLoading.value = true
   resourceError.value = false
-  resourcePage.value = 1
+  resourceLoadMoreError.value = false
+  resourcePage.value = -1
+  resourceHasMore.value = true
 
   try {
-    const resources: TorrentInfo[] = await api.get(`site/resource/${props.site?.id}`, {
-      params: {
-        keyword: keyword.value,
-        cat: selectCategory.value?.join(','),
-      },
-    })
+    const resources = await requestResourcePage(0, requestId)
+    if (!resources) return
 
-    if (requestId === resourceRequestId) {
-      resourceDataList.value = resources
-    }
+    resourceDataList.value = []
+    appendResourcePage(resources)
+    resourcePage.value = 0
+    resourceHasMore.value = resources.length >= RESOURCE_PAGE_SIZE
   } catch (error) {
-    if (requestId === resourceRequestId) {
-      console.error(error)
-      resourceError.value = true
-    }
+    if (requestId !== resourceRequestId) return
+    console.error(error)
+    resourceError.value = true
   } finally {
-    if (requestId === resourceRequestId) {
-      resourceLoading.value = false
-
-      if (isMobileLayout.value) {
-        mobileSearchExpanded.value = false
-      }
-    }
+    if (requestId === resourceRequestId) resourceLoading.value = false
   }
 }
 
-// 加载站点分类
-async function getSiteCategoryList() {
+// 滚动接近底部时加载下一页，桌面和移动端共用同一条渐进加载链路。
+async function loadMoreResources(): Promise<void> {
+  if (resourceLoading.value || resourceLoadingMore.value || !resourceHasMore.value || resourcePage.value < 0) return
+
+  const requestId = resourceRequestId
+  const nextPage = resourcePage.value + 1
+  resourceLoadingMore.value = true
+  resourceLoadMoreError.value = false
+
   try {
-    siteCategoryList.value = await api.get(`site/category/${props.site?.id}`)
+    const resources = await requestResourcePage(nextPage, requestId)
+    if (!resources) return
+
+    appendResourcePage(resources)
+    resourcePage.value = nextPage
+    resourceHasMore.value = resources.length >= RESOURCE_PAGE_SIZE
+  } catch (error) {
+    if (requestId !== resourceRequestId) return
+    console.error(error)
+    resourceLoadMoreError.value = true
+  } finally {
+    if (requestId === resourceRequestId) resourceLoadingMore.value = false
+  }
+}
+
+// 处理弹窗内部滚动，提前预取下一页以保持连续浏览。
+function handleResourceScroll(event: Event): void {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target) return
+
+  if (isMobileLayout.value) {
+    const scrollDelta = target.scrollTop - lastResourceScrollTop
+    if (scrollDelta > 4 && target.scrollTop > 24) {
+      isMobileSearchCollapsed.value = true
+    } else if (target.scrollTop <= 8) {
+      isMobileSearchCollapsed.value = false
+    }
+  }
+  lastResourceScrollTop = target.scrollTop
+
+  if (target.scrollHeight - target.scrollTop - target.clientHeight <= RESOURCE_LOAD_AHEAD) {
+    void loadMoreResources()
+  }
+}
+
+// 点击搜索图标恢复移动端筛选区域。
+function restoreMobileSearch(): void {
+  isMobileSearchCollapsed.value = false
+}
+
+// 加载站点分类；分类失败不阻断资源浏览。
+async function getSiteCategoryList(): Promise<void> {
+  try {
+    siteCategoryList.value = (await api.get<SiteCategory[], SiteCategory[]>(`site/category/${props.site?.id}`)) ?? []
   } catch (error) {
     console.error(error)
   }
 }
 
-watch([resourceItemsPerPage, resourceTotalItems, () => display.mdAndUp.value], () => {
-  if (display.mdAndUp.value) {
-    const maxPage = Math.max(1, Math.ceil(resourceTotalItems.value / resourceItemsPerPage.value))
-    if (resourcePage.value > maxPage) {
-      resourcePage.value = maxPage
-    }
-
-    return
-  }
-})
-
-watch(
-  () => display.mdAndUp.value,
-  isDesktop => {
-    if (isDesktop) {
-      mobileSearchExpanded.value = false
-    }
-  },
-)
-
-// 切换移动端搜索栏
-function toggleMobileSearch() {
-  mobileSearchExpanded.value = !mobileSearchExpanded.value
-}
-
-// 关闭移动端搜索栏
-function closeMobileSearch() {
-  mobileSearchExpanded.value = false
-}
-
-// 装载时查询站点分类和资源
+// 装载时同时初始化分类和第一页资源。
 onMounted(() => {
-  getSiteCategoryList()
-  getResourceList()
+  void getSiteCategoryList()
+  void getResourceList()
 })
 </script>
 
@@ -235,157 +283,109 @@ onMounted(() => {
   <VDialog scrollable :fullscreen="display.smAndDown.value" max-width="92rem" transition="dialog-bottom-transition">
     <VCard class="site-resource-dialog">
       <div>
-        <VToolbar color="primary" density="comfortable">
-          <VToolbarTitle>{{ t('dialog.siteResource.browseTitle', { name: props.site?.name }) }}</VToolbarTitle>
-          <VSpacer />
-          <VToolbarItems>
-            <VBtn icon @click="emit('close')" class="me-3">
-              <VIcon size="large" color="white" icon="ri-close-line" />
-            </VBtn>
-          </VToolbarItems>
-        </VToolbar>
+        <VCardItem class="site-resource-dialog__header py-2">
+          <template #prepend>
+            <VIcon icon="mdi-file-search-outline" class="me-2" />
+          </template>
+          <VCardTitle>{{ t('dialog.siteResource.title') }}</VCardTitle>
+          <VCardSubtitle>{{ props.site?.name }}</VCardSubtitle>
+        </VCardItem>
+        <VDialogCloseBtn @click="emit('close')" />
       </div>
 
-      <div class="pa-3 pb-2">
-        <template v-if="!isMobileLayout">
-          <VSheet class="site-resource-filter-panel">
-            <div class="site-resource-filter-panel__inner">
-              <VRow class="site-resource-filter-row">
-                <VCol cols="12" md="5">
-                  <VTextField
-                    v-model="keyword"
-                    class="site-resource-filter-input"
-                    size="small"
-                    density="compact"
-                    variant="solo-filled"
-                    flat
-                    :label="keywordFieldLabel"
-                    clearable
-                    prepend-inner-icon="mdi-magnify"
-                    hide-details
-                    @keyup.enter="getResourceList"
-                  />
-                </VCol>
-                <VCol cols="12" md="5">
-                  <VSelect
-                    v-model="selectCategory"
-                    :items="categoryOptions"
-                    class="site-resource-filter-input"
-                    size="small"
-                    density="compact"
-                    variant="solo-filled"
-                    flat
-                    chips
-                    :label="categoryFieldLabel"
-                    multiple
-                    clearable
-                    prepend-inner-icon="mdi-folder"
-                    hide-details
-                    :disabled="!hasSiteCategory"
-                    :hint="hasSiteCategory ? '' : t('dialog.siteResource.noCategory')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="2" class="d-flex align-center">
-                  <VBtn
-                    color="primary"
-                    variant="flat"
-                    block
-                    size="default"
-                    rounded="lg"
-                    prepend-icon="mdi-magnify"
-                    class="site-resource-search-btn"
-                    @click="getResourceList"
-                  >
-                    {{ t('dialog.siteResource.search') }}
-                  </VBtn>
-                </VCol>
-              </VRow>
-            </div>
-          </VSheet>
-        </template>
+      <div
+        class="site-resource-controls px-3 pt-3 pb-2"
+        :class="{ 'site-resource-controls--collapsed': isMobileSearchCollapsed && isMobileLayout }"
+      >
+        <VSheet v-if="!isMobileSearchCollapsed || !isMobileLayout" class="site-resource-filter-panel" elevation="0">
+          <VRow class="site-resource-filter-row">
+            <VCol cols="12" md="5" class="site-resource-filter-cell">
+              <VTextField
+                v-model="keyword"
+                class="site-resource-filter-input"
+                density="compact"
+                variant="outlined"
+                :label="t('dialog.siteResource.searchKeyword')"
+                :aria-label="t('dialog.siteResource.searchKeyword')"
+                clearable
+                prepend-inner-icon="mdi-magnify"
+                hide-details
+                @keyup.enter="getResourceList"
+              />
+            </VCol>
+            <VCol cols="12" md="5" class="site-resource-filter-cell">
+              <VSelect
+                v-model="selectCategory"
+                :items="categoryOptions"
+                class="site-resource-filter-input site-resource-category-input"
+                density="compact"
+                variant="outlined"
+                :label="t('dialog.siteResource.resourceCategory')"
+                :aria-label="t('dialog.siteResource.resourceCategory')"
+                multiple
+                chips
+                clearable
+                prepend-inner-icon="mdi-folder-outline"
+                hide-details
+                :disabled="!hasSiteCategory"
+              />
+            </VCol>
+            <VCol cols="12" md="2" class="site-resource-filter-cell site-resource-filter-cell--action">
+              <VBtn
+                color="primary"
+                variant="flat"
+                block
+                size="default"
+                rounded="lg"
+                prepend-icon="mdi-magnify"
+                class="site-resource-search-btn"
+                @click="getResourceList"
+              >
+                {{ t('dialog.siteResource.search') }}
+              </VBtn>
+            </VCol>
+          </VRow>
+        </VSheet>
 
-        <template v-else>
-          <div class="site-resource-mobile-search">
-            <VBtn
-              icon
-              variant="text"
-              color="primary"
-              class="site-resource-mobile-search__toggle"
-              @click="toggleMobileSearch"
-            >
-              <VIcon icon="mdi-magnify" />
-            </VBtn>
-            <div v-if="resourceTotalItems > 0" class="text-body-2 text-medium-emphasis">
-              {{ resultSummaryText }}
-            </div>
+        <div
+          class="site-resource-summary mt-3"
+          :class="{ 'site-resource-summary--collapsed': isMobileSearchCollapsed && isMobileLayout }"
+        >
+          <VBtn
+            v-if="isMobileSearchCollapsed && isMobileLayout"
+            icon
+            variant="text"
+            size="small"
+            class="site-resource-filter-toggle"
+            :aria-label="t('dialog.siteResource.search')"
+            @click="restoreMobileSearch"
+          >
+            <VIcon icon="mdi-magnify" />
+          </VBtn>
+          <div class="site-resource-summary__count text-body-2 font-weight-medium">
+            {{ resultSummaryText }}
           </div>
-
-          <VExpandTransition>
-            <div v-if="mobileSearchExpanded" class="mt-2">
-              <VSheet class="site-resource-filter-panel">
-                <div class="site-resource-filter-panel__inner">
-                  <VRow class="site-resource-filter-row">
-                    <VCol cols="12">
-                      <VTextField
-                        v-model="keyword"
-                        class="site-resource-filter-input"
-                        size="small"
-                        density="compact"
-                        variant="solo-filled"
-                        flat
-                        :label="keywordFieldLabel"
-                        clearable
-                        prepend-inner-icon="mdi-magnify"
-                        hide-details
-                        autofocus
-                        @keyup.enter="getResourceList"
-                      />
-                    </VCol>
-                    <VCol cols="12">
-                      <VSelect
-                        v-model="selectCategory"
-                        :items="categoryOptions"
-                        class="site-resource-filter-input"
-                        size="small"
-                        density="compact"
-                        variant="solo-filled"
-                        flat
-                        chips
-                        :label="categoryFieldLabel"
-                        multiple
-                        clearable
-                        prepend-inner-icon="mdi-folder"
-                        hide-details
-                        :disabled="!hasSiteCategory"
-                        :hint="hasSiteCategory ? '' : t('dialog.siteResource.noCategory')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol cols="12" class="d-flex gap-2">
-                      <VBtn
-                        color="primary"
-                        variant="flat"
-                        block
-                        rounded="lg"
-                        class="site-resource-search-btn"
-                        @click="getResourceList"
-                      >
-                        {{ t('dialog.siteResource.search') }}
-                      </VBtn>
-                      <VBtn variant="text" rounded="lg" @click="closeMobileSearch">
-                        {{ t('common.cancel') }}
-                      </VBtn>
-                    </VCol>
-                  </VRow>
-                </div>
-              </VSheet>
-            </div>
-          </VExpandTransition>
-        </template>
+          <VSelect
+            v-model="resourceSort"
+            :items="resourceSortOptions"
+            class="site-resource-sort"
+            density="compact"
+            variant="plain"
+            :aria-label="t('dialog.siteResource.sort')"
+            prepend-inner-icon="mdi-sort-ascending"
+            hide-details
+          />
+        </div>
       </div>
 
       <VCardText class="site-resource-content px-0 py-0 my-0">
+        <VProgressLinear
+          v-if="resourceLoading && resourceDataList.length > 0"
+          color="primary"
+          indeterminate
+          height="2"
+        />
+
         <VAlert
           v-if="resourceError && !resourceLoading"
           type="error"
@@ -400,273 +400,157 @@ onMounted(() => {
           </template>
         </VAlert>
 
-        <VDataTable
-          v-if="display.mdAndUp.value && (!resourceError || resourceDataList.length > 0)"
-          v-model:page="resourcePage"
-          v-model:items-per-page="resourceItemsPerPage"
-          :headers="resourceHeaders"
-          :items="resourceDataList"
-          :items-length="resourceTotalItems"
-          :loading="resourceLoading"
-          density="compact"
-          item-value="title"
-          return-object
-          fixed-header
-          hover
-          :items-per-page-text="t('dialog.siteResource.itemsPerPage')"
-          :loading-text="t('dialog.siteResource.loading')"
-          :items-per-page-options="[10, 25, 50, 100]"
-          height="100%"
-          class="h-full site-resource-table"
+        <div
+          v-if="resourceLoading && resourceDataList.length === 0 && !resourceError"
+          data-testid="resource-loading-state"
+          class="site-resource-state px-4 py-8"
         >
-          <template #item.title="{ item }">
-            <button type="button" class="site-resource-title-btn text-start" @click.stop="addDownload(item)">
-              <div class="text-high-emphasis pt-1 font-weight-medium">
-                {{ item.title }}
-              </div>
-              <div v-if="item.description" class="text-sm my-1 text-medium-emphasis">
-                {{ item.description }}
-              </div>
-              <div class="mt-2">
-                <VChip v-if="item.hit_and_run" variant="elevated" size="small" class="me-1 mb-1 text-white bg-black">
-                  H&amp;R
-                </VChip>
-                <VChip v-if="item.freedate_diff" variant="elevated" color="secondary" size="small" class="me-1 mb-1">
-                  {{ item.freedate_diff }}
-                </VChip>
-                <VChip
-                  v-for="(label, index) in item.labels"
-                  :key="index"
-                  variant="elevated"
-                  size="small"
-                  color="primary"
-                  class="me-1 mb-1"
-                >
-                  {{ label }}
-                </VChip>
-                <VChip
-                  v-if="item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1"
-                  :class="getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)"
-                  variant="elevated"
-                  size="small"
-                  class="me-1 mb-1"
-                >
-                  {{ item.volume_factor }}
-                </VChip>
-              </div>
-            </button>
-          </template>
+          <VProgressCircular color="primary" indeterminate size="32" width="3" />
+          <div class="mt-3 text-body-2 text-medium-emphasis">{{ t('dialog.siteResource.loading') }}</div>
+        </div>
 
-          <template #item.pubdate="{ item }">
-            <div>{{ item.date_elapsed }}</div>
-            <div class="text-sm text-medium-emphasis">
-              {{ item.pubdate }}
-            </div>
-          </template>
-
-          <template #item.size="{ item }">
-            <div class="text-nowrap whitespace-nowrap">
-              {{ formatFileSize(item.size) }}
-            </div>
-          </template>
-
-          <template #item.seeders="{ item }">
-            <div>{{ item.seeders }}</div>
-          </template>
-
-          <template #item.peers="{ item }">
-            <div>{{ item.peers }}</div>
-          </template>
-
-          <template #item.actions="{ item }">
-            <div class="me-n3">
-              <IconBtn>
-                <VIcon icon="mdi-dots-vertical" />
-                <VMenu activator="parent" close-on-content-click>
-                  <VList>
-                    <VListItem @click="openTorrentDetail(item.page_url || '')">
-                      <template #prepend>
-                        <VIcon icon="mdi-information" />
-                      </template>
-                      <VListItemTitle>{{ t('dialog.siteResource.viewDetails') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem v-if="item.enclosure?.startsWith('http')" @click="downloadTorrentFile(item.enclosure)">
-                      <template #prepend>
-                        <VIcon icon="mdi-download" />
-                      </template>
-                      <VListItemTitle>{{ t('dialog.siteResource.downloadTorrent') }}</VListItemTitle>
-                    </VListItem>
-                  </VList>
-                </VMenu>
-              </IconBtn>
-            </div>
-          </template>
-
-          <template #no-data>{{ t('dialog.siteResource.noData') }}</template>
-        </VDataTable>
-
-        <div v-else class="site-resource-mobile">
-          <div v-if="resourceLoading" class="px-4 py-6">
-            <VProgressLinear color="primary" indeterminate rounded />
-            <div class="text-center text-body-2 text-medium-emphasis mt-3">
-              {{ t('dialog.siteResource.loading') }}
-            </div>
-          </div>
-
-          <div v-else-if="mobileResourceList.length > 0" class="site-resource-mobile__list px-3 pb-4">
+        <div
+          v-else-if="resourceDataList.length > 0"
+          ref="resourceScrollRef"
+          data-testid="resource-scroll"
+          class="site-resource-scroll"
+          @scroll.passive="handleResourceScroll"
+        >
+          <div class="site-resource-list px-3 pb-4">
             <ProgressiveCardGrid
-              :items="mobileResourceList"
+              :items="sortedResourceList"
               :columns="1"
               :gap="12"
-              :estimated-item-height="220"
-              :overscan-rows="5"
+              :estimated-item-height="estimatedResourceItemHeight"
+              :overscan-rows="6"
               virtualize-in-overlay
               :get-item-key="getResourceItemKey"
             >
               <template #default="{ item }">
-                <VCard
-                  class="site-resource-card"
-                  :class="{ 'site-resource-card--transparent': isTransparentTheme }"
-                  variant="flat"
-                >
-                  <VCardText class="pa-3">
-                    <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
-                      <div class="site-resource-card__title text-body-1 font-weight-medium text-high-emphasis">
-                        {{ item.title }}
-                      </div>
-                      <div
-                        v-if="item.description"
-                        class="site-resource-card__description mt-1 text-body-2 text-medium-emphasis"
-                      >
-                        {{ item.description }}
-                      </div>
-                    </button>
-
-                    <div class="site-resource-card__chips mt-2">
-                      <VChip
-                        v-if="item.hit_and_run"
-                        variant="elevated"
-                        size="small"
-                        class="me-1 mb-1 text-white bg-black"
-                      >
-                        H&amp;R
-                      </VChip>
-                      <VChip
-                        v-if="item.freedate_diff"
-                        variant="elevated"
-                        color="secondary"
-                        size="small"
-                        class="me-1 mb-1"
-                      >
-                        {{ item.freedate_diff }}
-                      </VChip>
-                      <VChip
-                        v-for="(label, chipIndex) in item.labels"
-                        :key="chipIndex"
-                        variant="elevated"
-                        size="small"
-                        color="primary"
-                        class="me-1 mb-1"
-                      >
-                        {{ label }}
-                      </VChip>
-                      <VChip
-                        v-if="item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1"
-                        :class="getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)"
-                        variant="elevated"
-                        size="small"
-                        class="me-1 mb-1"
-                      >
-                        {{ item.volume_factor }}
-                      </VChip>
-                    </div>
-
-                    <!-- 移动端在操作区前展示关键资源指标，方便点击前快速判断。 -->
-                    <div class="site-resource-card__summary mt-3">
-                      <div class="site-resource-card__stat">
-                        <VIcon icon="mdi-clock-outline" size="15" />
-                        <span>{{ item.date_elapsed || item.pubdate || '-' }}</span>
-                      </div>
-                      <div class="site-resource-card__stat">
-                        <VIcon icon="mdi-harddisk" size="15" />
-                        <span>{{ formatFileSize(item.size) }}</span>
-                      </div>
-                      <div class="site-resource-card__stat site-resource-card__stat--success">
-                        <VIcon icon="mdi-arrow-up" size="15" />
-                        <span>{{ item.seeders ?? '-' }}</span>
-                      </div>
-                      <div class="site-resource-card__stat site-resource-card__stat--warning">
-                        <VIcon icon="mdi-arrow-down" size="15" />
-                        <span>{{ item.peers ?? '-' }}</span>
-                      </div>
-                    </div>
-
-                    <!-- 下载保留文本，其它低频操作改为图标按钮并保持同一行。 -->
-                    <div class="site-resource-card__actions mt-2">
-                      <VBtn
-                        color="primary"
-                        variant="flat"
-                        class="site-resource-card__download-btn"
-                        prepend-icon="mdi-download"
-                        @click="addDownload(item)"
-                      >
-                        {{ t('actionStep.addDownload') }}
-                      </VBtn>
-                      <VTooltip :text="t('common.viewDetails')" location="top">
-                        <template #activator="{ props: tooltipProps }">
-                          <VBtn
-                            v-bind="tooltipProps"
-                            icon
-                            variant="tonal"
-                            color="primary"
-                            class="site-resource-card__icon-btn"
-                            :aria-label="t('common.viewDetails')"
-                            @click="openTorrentDetail(item.page_url || '')"
+                <VCard class="site-resource-item" variant="flat" @click="addDownload(item)">
+                  <VCardText class="site-resource-item__body pa-3">
+                    <div class="site-resource-item__layout">
+                      <div class="site-resource-item__main">
+                        <VBtn
+                          class="site-resource-title-btn"
+                          variant="text"
+                          block
+                          :ripple="false"
+                          @click.stop="addDownload(item)"
+                        >
+                          <div class="site-resource-item__title text-body-1 font-weight-medium">
+                            {{ item.title || '-' }}
+                          </div>
+                          <div
+                            v-if="item.description"
+                            class="site-resource-item__description mt-1 text-body-2 text-medium-emphasis"
                           >
-                            <VIcon icon="mdi-open-in-new" />
-                          </VBtn>
-                        </template>
-                      </VTooltip>
-                      <VTooltip
-                        v-if="item.enclosure?.startsWith('http')"
-                        :text="t('dialog.siteResource.downloadTorrent')"
-                        location="top"
-                      >
-                        <template #activator="{ props: tooltipProps }">
-                          <VBtn
-                            v-bind="tooltipProps"
-                            icon
+                            {{ item.description }}
+                          </div>
+                        </VBtn>
+
+                        <div class="site-resource-item__chips mt-2" :aria-label="t('dialog.siteResource.tags')">
+                          <VChip
+                            v-if="
+                              item.volume_factor && (item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1)
+                            "
+                            :color="getVolumeFactorColor(item.downloadvolumefactor, item.uploadvolumefactor)"
                             variant="tonal"
-                            color="primary"
-                            class="site-resource-card__icon-btn"
-                            :aria-label="t('dialog.siteResource.downloadTorrent')"
-                            @click="downloadTorrentFile(item.enclosure)"
+                            size="small"
                           >
-                            <VIcon icon="mdi-file-download-outline" />
-                          </VBtn>
-                        </template>
-                      </VTooltip>
-                      <VBtn
-                        v-else
-                        icon
-                        variant="tonal"
-                        color="primary"
-                        disabled
-                        class="site-resource-card__icon-btn"
-                        :aria-label="t('dialog.siteResource.downloadTorrent')"
-                      >
-                        <VIcon icon="mdi-file-download-outline" />
-                      </VBtn>
+                            {{ item.volume_factor }}
+                          </VChip>
+                          <VChip v-if="item.hit_and_run" color="error" variant="tonal" size="small"> H&amp;R </VChip>
+                          <VChip v-if="item.freedate_diff" color="secondary" variant="tonal" size="small">
+                            {{ item.freedate_diff }}
+                          </VChip>
+                          <VChip v-if="item.category" color="primary" variant="tonal" size="small">
+                            {{ item.category }}
+                          </VChip>
+                          <VChip v-for="label in item.labels" :key="label" color="info" variant="tonal" size="small">
+                            {{ label }}
+                          </VChip>
+                        </div>
+                      </div>
+
+                      <div class="site-resource-more-menu" @click.stop>
+                        <VMenu location="bottom end" :close-on-content-click="true">
+                          <template #activator="{ props: menuProps }">
+                            <VBtn
+                              v-bind="menuProps"
+                              icon
+                              variant="text"
+                              size="small"
+                              class="site-resource-more-btn"
+                              :aria-label="t('dialog.siteResource.more')"
+                            >
+                              <VIcon icon="mdi-dots-vertical" />
+                            </VBtn>
+                          </template>
+                          <VList density="compact" class="site-resource-menu">
+                            <VListItem :disabled="!item.page_url" @click="openTorrentDetail(item.page_url || '')">
+                              <template #prepend>
+                                <VIcon icon="mdi-open-in-new" />
+                              </template>
+                              <VListItemTitle>{{ t('dialog.siteResource.viewDetails') }}</VListItemTitle>
+                            </VListItem>
+                            <VListItem
+                              v-if="item.enclosure?.startsWith('http')"
+                              @click="downloadTorrentFile(item.enclosure)"
+                            >
+                              <template #prepend>
+                                <VIcon icon="mdi-download-outline" />
+                              </template>
+                              <VListItemTitle>{{ t('dialog.siteResource.downloadTorrent') }}</VListItemTitle>
+                            </VListItem>
+                          </VList>
+                        </VMenu>
+                      </div>
+
+                      <div class="site-resource-item__metrics">
+                        <div class="site-resource-metric site-resource-metric--time">
+                          <VIcon icon="mdi-clock-outline" size="18" />
+                          <span class="site-resource-metric__copy">
+                            <span class="site-resource-metric__value">{{ item.date_elapsed || '-' }}</span>
+                            <span v-if="item.pubdate" class="site-resource-metric__caption">{{ item.pubdate }}</span>
+                          </span>
+                        </div>
+                        <div class="site-resource-metric">
+                          <VIcon icon="mdi-harddisk" size="18" />
+                          <span class="site-resource-metric__value">{{ formatFileSize(item.size) }}</span>
+                        </div>
+                        <div class="site-resource-metric site-resource-metric--success">
+                          <VIcon icon="mdi-account-group-outline" size="18" />
+                          <span class="site-resource-metric__value">{{ item.seeders }}</span>
+                        </div>
+                        <div class="site-resource-metric site-resource-metric--info">
+                          <VIcon icon="mdi-download-outline" size="18" />
+                          <span class="site-resource-metric__value">{{ item.peers }}</span>
+                        </div>
+                      </div>
                     </div>
                   </VCardText>
                 </VCard>
               </template>
             </ProgressiveCardGrid>
-          </div>
 
-          <div v-else-if="!resourceError" class="px-4 py-10 text-center text-medium-emphasis">
-            {{ t('dialog.siteResource.noData') }}
+            <div v-if="resourceLoadingMore" data-testid="resource-load-more" class="site-resource-load-state">
+              <VProgressLinear color="primary" indeterminate rounded />
+              <span class="text-body-2 text-medium-emphasis">{{ t('dialog.siteResource.loading') }}</span>
+            </div>
+            <div v-else-if="resourceLoadMoreError" class="site-resource-load-state">
+              <VBtn color="primary" variant="text" size="small" @click="loadMoreResources">
+                {{ t('common.retry') }}
+              </VBtn>
+            </div>
+            <div v-else-if="!resourceHasMore" class="site-resource-load-state text-body-2 text-medium-emphasis">
+              {{ t('dialog.siteResource.noMore') }}
+            </div>
           </div>
+        </div>
+
+        <div v-else-if="!resourceError" class="site-resource-state px-4 py-10 text-body-2 text-medium-emphasis">
+          {{ t('dialog.siteResource.noData') }}
         </div>
       </VCardText>
     </VCard>
@@ -689,209 +573,333 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.site-resource-filter-row {
-  align-items: center;
+.site-resource-controls {
+  flex: 0 0 auto;
+}
+
+.site-resource-dialog__header {
+  flex: 0 0 auto;
+}
+
+.site-resource-dialog__header :deep(.v-card-item__content) {
+  min-inline-size: 0;
+}
+
+.site-resource-dialog__header :deep(.v-card-title),
+.site-resource-dialog__header :deep(.v-card-subtitle) {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .site-resource-filter-panel {
-  background:
-    radial-gradient(circle at top left, rgba(var(--v-theme-primary), 0.06), transparent 40%),
-    linear-gradient(180deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.93));
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-grouped-list-radius);
+  background: var(--app-grouped-list-background);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  box-shadow: var(--app-surface-shadow);
 }
 
-.site-resource-filter-panel__inner {
-  padding-block: 0.75rem;
-  padding-inline: 0.85rem;
+.site-resource-filter-row {
+  align-items: stretch;
+  margin: 0;
+}
+
+.site-resource-filter-row > .site-resource-filter-cell {
+  padding: 0.55rem;
 }
 
 .site-resource-filter-input :deep(.v-field) {
-  border-radius: var(--app-field-radius);
-  background: rgba(var(--v-theme-surface), 0.92);
-  box-shadow: inset 0 0 0 1px rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.8));
+  border-radius: var(--app-control-radius);
 }
 
 .site-resource-filter-input :deep(.v-field__prepend-inner) {
-  color: rgba(var(--v-theme-primary), 0.85);
+  color: rgb(var(--v-theme-primary));
+}
+
+.site-resource-filter-input :deep(.app-responsive-input__meta) {
+  padding-inline: 0.65rem;
+}
+
+.site-resource-filter-cell--action {
+  display: flex;
+  align-items: center;
 }
 
 .site-resource-search-btn {
-  box-shadow: 0 8px 18px rgba(var(--v-theme-primary), 0.18);
-  letter-spacing: 0.02em;
-  min-block-size: 40px;
+  min-block-size: 2.5rem;
 }
 
-.site-resource-result-chip {
-  font-weight: 600;
-}
-
-.site-resource-mobile-search {
+.site-resource-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  min-block-size: 2.5rem;
 }
 
-.site-resource-mobile-search__toggle {
+.site-resource-summary__count {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-resource-sort {
   flex: 0 0 auto;
+  inline-size: max-content;
+  min-inline-size: 0;
+  border-radius: var(--app-control-radius);
 }
 
-.site-resource-title-btn {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  inline-size: 100%;
+.site-resource-sort :deep(.v-field),
+.site-resource-sort :deep(.v-field__input) {
+  inline-size: max-content;
+  min-inline-size: 0;
+}
+
+.site-resource-sort :deep(.v-select__selection) {
+  white-space: nowrap;
+}
+
+.site-resource-sort :deep(.v-select__menu-icon),
+.site-resource-sort :deep(.v-field__append-inner) {
+  display: none !important;
+}
+
+.site-resource-sort :deep(.v-field__prepend-inner) {
+  color: rgb(var(--v-theme-primary));
 }
 
 .site-resource-content {
+  display: flex;
   overflow: hidden;
   flex: 1 1 auto;
-  min-block-size: 0;
-}
-
-.site-resource-table {
-  block-size: 100%;
-}
-
-.site-resource-table :deep(.v-data-table) {
-  display: flex;
   flex-direction: column;
-  block-size: 100%;
-}
-
-.site-resource-table :deep(.v-data-table__wrapper) {
-  flex: 1 1 auto;
   min-block-size: 0;
 }
 
-.site-resource-table :deep(.v-table__wrapper) {
-  flex: 1 1 auto;
-  min-block-size: 0;
-}
-
-.site-resource-table :deep(.v-data-table-footer) {
-  flex: 0 0 auto;
-}
-
-.site-resource-mobile {
-  block-size: 100%;
+.site-resource-scroll {
+  overflow-x: hidden;
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
-.site-resource-mobile__list {
+.site-resource-list {
   min-block-size: 100%;
 }
 
-.v-table th {
-  white-space: nowrap;
+.site-resource-item {
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-grouped-list-radius);
+  background: var(--app-grouped-list-background);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  box-shadow: var(--app-surface-shadow);
+  transition:
+    background-color var(--mp-motion-duration-page) var(--mp-motion-ease-standard),
+    box-shadow var(--mp-motion-duration-page) var(--mp-motion-ease-standard);
+  cursor: pointer;
 }
 
-.site-resource-card {
-  --site-resource-card-bg:
-    linear-gradient(180deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.94)),
-    radial-gradient(circle at top right, rgba(var(--v-theme-primary), 0.08), transparent 34%);
-
-  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.9));
-  background: var(--site-resource-card-bg);
+.site-resource-item:hover {
+  background: var(--app-grouped-list-hover-background);
+  box-shadow: var(--app-surface-hover-shadow);
 }
 
-.site-resource-card--transparent {
-  --site-resource-card-bg: rgba(var(--v-theme-surface), var(--transparent-opacity));
-
-  backdrop-filter: blur(var(--transparent-blur));
-}
-
-.site-resource-card__summary {
+.site-resource-item__layout {
   display: grid;
-  align-items: center;
-  gap: 0.35rem;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(2.5rem, 0.62fr) minmax(2.5rem, 0.62fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
 }
 
-.site-resource-card__stat {
-  display: inline-flex;
+.site-resource-item__main {
   overflow: hidden;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: rgba(var(--v-theme-on-surface), 0.05);
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  font-size: 0.74rem;
-  font-weight: 600;
-  gap: 0.22rem;
-  line-height: 1;
-  min-block-size: 1.65rem;
   min-inline-size: 0;
-  padding-inline: 0.4rem;
 }
 
-.site-resource-card__stat span {
+.site-resource-title-btn {
+  block-size: auto;
+  justify-content: flex-start;
+  min-block-size: auto;
+  padding: 0;
+  color: rgb(var(--v-theme-on-surface));
+  text-align: start;
+}
+
+.site-resource-title-btn :deep(.v-btn__content) {
+  display: block;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  inline-size: 100%;
+  min-block-size: 0;
+  text-align: start;
+  white-space: normal;
 }
 
-.site-resource-card__stat--success {
-  color: rgb(var(--v-theme-success));
-}
-
-.site-resource-card__stat--warning {
-  color: rgb(var(--v-theme-warning));
-}
-
-.site-resource-card__title {
+.site-resource-item__title,
+.site-resource-item__description {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.site-resource-item__title {
+  max-block-size: 2.76em;
   line-height: 1.38;
 }
 
-.site-resource-card__description {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+.site-resource-item__description {
+  max-block-size: 2.7em;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   line-height: 1.35;
 }
 
-.site-resource-card__chips {
+.site-resource-item__chips {
+  display: flex;
   overflow: hidden;
-  max-block-size: 4.75rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-block-size: 4rem;
 }
 
-.site-resource-card__actions {
-  display: grid;
-  align-items: center;
-  gap: 0.45rem;
-  grid-template-columns: minmax(0, 1fr) 2.5rem 2.5rem;
+.site-resource-item__chips :deep(.v-chip) {
+  max-inline-size: 100%;
 }
 
-.site-resource-card__download-btn {
-  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.17);
-  min-block-size: 2.5rem;
-  min-inline-size: 0;
-}
-
-.site-resource-card__download-btn :deep(.v-btn__content) {
+.site-resource-item__chips :deep(.v-chip__content) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.site-resource-card__icon-btn {
-  block-size: 2.5rem;
-  inline-size: 2.5rem;
-  min-inline-size: 2.5rem;
+.site-resource-more-btn {
+  color: rgb(var(--v-theme-on-surface));
 }
 
-.site-resource-card__icon-btn :deep(.v-btn__content) {
-  font-size: 1.05rem;
+.site-resource-more-menu {
+  min-inline-size: 0;
+}
+
+.site-resource-menu {
+  min-inline-size: 12rem;
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-grouped-list-radius);
+  background: var(--app-grouped-list-background);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  box-shadow: var(--app-surface-shadow);
+}
+
+.site-resource-item__metrics {
+  display: grid;
+  align-items: stretch;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-column: 1 / -1;
+  margin-block-start: 0.75rem;
+  border-block-start: 1px solid var(--app-grouped-list-separator-color);
+}
+
+.site-resource-metric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-inline-size: 0;
+  padding: 0.45rem 0.55rem 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.site-resource-metric + .site-resource-metric {
+  border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+}
+
+.site-resource-metric--success {
+  color: rgb(var(--v-theme-success));
+}
+
+.site-resource-metric--info {
+  color: rgb(var(--v-theme-info));
+}
+
+.site-resource-metric__copy {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  min-inline-size: 0;
+  line-height: 1.25;
+}
+
+.site-resource-metric__value,
+.site-resource-metric__caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-resource-metric__value {
+  color: currentcolor;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.site-resource-metric__caption {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
+}
+
+.site-resource-load-state,
+.site-resource-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.site-resource-load-state {
+  gap: 0.45rem;
+  padding: 0.9rem 0 0.25rem;
 }
 
 @media (width >= 960px) {
   .site-resource-dialog {
     block-size: min(88vh, 960px);
+  }
+
+  .site-resource-item__metrics {
+    align-self: stretch;
+    grid-column: 3;
+    margin-block-start: 0;
+    border-block-start: 0;
+    border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+  }
+
+  .site-resource-item__layout {
+    grid-template-columns: minmax(0, 1fr) auto minmax(26rem, auto);
+    gap: 1rem;
+  }
+
+  .site-resource-item__main {
+    grid-column: 1;
+  }
+
+  .site-resource-more-menu {
+    grid-column: 2;
+    align-self: start;
+  }
+
+  .site-resource-more-btn {
+    align-self: start;
+  }
+
+  .site-resource-metric {
+    padding: 0 0.9rem;
+  }
+
+  .site-resource-metric + .site-resource-metric {
+    border-inline-start: 1px solid var(--app-grouped-list-separator-color);
   }
 }
 
@@ -900,23 +908,116 @@ onMounted(() => {
     border-radius: 0;
   }
 
-  .site-resource-filter-panel__inner {
-    padding-block: 0.7rem;
-    padding-inline: 0.75rem;
+  .site-resource-filter-row > .site-resource-filter-cell {
+    padding: 0;
   }
 
-  .site-resource-mobile-search {
+  .site-resource-filter-row > .site-resource-filter-cell + .site-resource-filter-cell {
+    padding-block-start: 0.55rem;
+  }
+
+  .site-resource-filter-cell--action {
+    padding-block-start: 0.15rem;
+  }
+
+  .site-resource-filter-input,
+  .site-resource-sort {
+    grid-template-rows: 44px !important;
+    min-block-size: 0 !important;
+    padding-block: 0.25rem !important;
+  }
+
+  .site-resource-filter-input {
+    --app-responsive-input-control-width: 60%;
+  }
+
+  .site-resource-category-input {
+    align-items: start;
+    grid-template-rows: auto !important;
+  }
+
+  .site-resource-category-input :deep(.app-responsive-input__control) {
+    align-items: stretch;
+  }
+
+  .site-resource-category-input :deep(.v-field),
+  .site-resource-category-input :deep(.v-field__field),
+  .site-resource-category-input :deep(.v-field__input) {
+    block-size: auto;
+    min-block-size: 2.75rem;
+  }
+
+  .site-resource-search-btn {
     min-block-size: 2.5rem;
+  }
+
+  .site-resource-summary {
+    margin-block-start: 0.65rem !important;
+  }
+
+  .site-resource-sort {
+    min-block-size: 0;
+  }
+
+  .site-resource-item__metrics {
+    margin-inline: -0.75rem;
+    padding-inline: 0.25rem;
+  }
+
+  .site-resource-metric {
+    padding-inline: 0.35rem;
   }
 }
 
 @media (width <= 420px) {
-  .site-resource-card__summary {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(2.3rem, 0.55fr) minmax(2.3rem, 0.55fr);
+  .site-resource-controls {
+    padding-inline: 0.5rem !important;
   }
 
-  .site-resource-card__stat {
-    padding-inline: 0.3rem;
+  .site-resource-controls--collapsed {
+    padding-block: 0.35rem !important;
+  }
+
+  .site-resource-summary {
+    gap: 0.5rem;
+  }
+
+  .site-resource-summary--collapsed {
+    justify-content: flex-start;
+    margin-block-start: 0 !important;
+  }
+
+  .site-resource-filter-toggle {
+    flex: 0 0 auto;
+  }
+
+  .site-resource-summary--collapsed .site-resource-sort {
+    margin-inline-start: auto;
+  }
+
+  .site-resource-sort {
+    min-inline-size: 0;
+  }
+
+  .site-resource-list {
+    padding-inline: 0.5rem !important;
+  }
+
+  .site-resource-item__metrics {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.95fr) minmax(2.4rem, 0.55fr) minmax(2.4rem, 0.55fr);
+  }
+
+  .site-resource-metric {
+    gap: 0.2rem;
+    padding-inline: 0.25rem;
+  }
+
+  .site-resource-metric__value {
+    font-size: 0.74rem;
+  }
+
+  .site-resource-metric__caption {
+    font-size: 0.66rem;
   }
 }
 </style>

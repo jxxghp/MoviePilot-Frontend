@@ -2,7 +2,7 @@ import type { TorrentInfo } from '@/api/types'
 import SiteResourceDialog from '@/components/dialog/SiteResourceDialog.vue'
 import i18n from '@/plugins/i18n'
 import { getActiveRequestsCount } from '@/utils/requestOptimizer'
-import { screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { createSite, createSiteCategory, createTorrentInfo } from '@tests/support/factories/site'
 import { siteApiUrls, siteCategoriesHandler, siteResourcesHandler } from '@tests/support/msw/handlers/site'
@@ -34,6 +34,14 @@ const DialogStub = defineComponent({
   template: '<div role="dialog"><slot /></div>',
 })
 
+const DialogCloseButtonStub = defineComponent({
+  name: 'VDialogCloseBtn',
+  setup:
+    (_, { attrs }) =>
+    () =>
+      h('button', { ...attrs, 'aria-label': '关闭', type: 'button' }),
+})
+
 const ProgressiveCardGridStub = defineComponent({
   name: 'ProgressiveCardGrid',
   props: {
@@ -50,27 +58,6 @@ const ProgressiveCardGridStub = defineComponent({
           h('article', { 'data-resource-key': props.getItemKey(item, index) }, slots.default?.({ item })),
         ),
       )
-  },
-})
-
-const DataTableStub = defineComponent({
-  name: 'VDataTable',
-  props: {
-    items: { type: Array as PropType<TorrentInfo[]>, required: true },
-    itemsPerPage: { type: Number, required: true },
-    loading: Boolean,
-    page: { type: Number, required: true },
-  },
-  emits: ['update:itemsPerPage', 'update:page'],
-  setup(props, { emit, slots }) {
-    return () =>
-      h('section', { 'data-loading': String(props.loading), 'data-testid': 'resource-table' }, [
-        h('span', { 'data-testid': 'resource-page' }, String(props.page)),
-        h('button', { onClick: () => emit('update:page', 4), type: 'button' }, 'page-4'),
-        h('button', { onClick: () => emit('update:itemsPerPage', 100), type: 'button' }, 'per-page-100'),
-        ...props.items.flatMap(item => slots['item.title']?.({ item }) ?? []),
-        props.items.length === 0 ? slots['no-data']?.({}) : null,
-      ])
   },
 })
 
@@ -97,6 +84,7 @@ async function renderDialog(
     global: {
       stubs: {
         AddDownloadDialog: AddDownloadDialogStub,
+        VDialogCloseBtn: DialogCloseButtonStub,
         ProgressiveCardGrid: ProgressiveCardGridStub,
         VDialog: DialogStub,
         ...stubs,
@@ -144,12 +132,9 @@ describe('SiteResourceDialog', () => {
 
     const { container } = await renderDialog()
     await waitFor(() => expect(oldRequested).toHaveBeenCalledOnce())
-    await user.click(container.querySelector('.site-resource-mobile-search__toggle') as HTMLElement)
-    const keywordFields = screen.getAllByLabelText('搜索关键字')
-    const keyword = keywordFields[keywordFields.length - 1]
+    const keyword = screen.getByLabelText('搜索关键字')
     await user.type(keyword, 'new')
-    const searchButtons = screen.getAllByRole('button', { name: /搜索/ })
-    await user.click(searchButtons[searchButtons.length - 1])
+    await user.click(screen.getByRole('button', { name: /^搜索$/ }))
     await waitFor(() => expect(latestRequested).toHaveBeenCalledOnce())
     await waitFor(() => expect(getActiveRequestsCount()).toBe(2))
 
@@ -166,7 +151,7 @@ describe('SiteResourceDialog', () => {
 
     expect(screen.queryByText('旧条件结果')).not.toBeInTheDocument()
     expect(screen.queryByText('加载中...')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('搜索关键字')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('搜索关键字')).toHaveValue('new')
     expect(screen.queryByText('资源加载失败，请重试')).not.toBeInTheDocument()
   })
 
@@ -197,7 +182,7 @@ describe('SiteResourceDialog', () => {
     setViewport(width)
     server.use(siteCategoriesHandler(501, []), siteResourcesHandler(501, [], 500))
 
-    await renderDialog(undefined, { VDataTable: DataTableStub })
+    await renderDialog()
 
     expect(await screen.findByText('资源加载失败，请重试')).toBeInTheDocument()
     expect(screen.queryByText('没有数据')).not.toBeInTheDocument()
@@ -218,7 +203,7 @@ describe('SiteResourceDialog', () => {
     await renderDialog()
     expect(await screen.findByText('已有资源')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /搜索/ }))
+    await user.click(screen.getByRole('button', { name: /^搜索$/ }))
 
     expect(await screen.findByText('资源加载失败，请重试')).toBeInTheDocument()
     expect(screen.getByText('已有资源')).toBeInTheDocument()
@@ -261,7 +246,7 @@ describe('SiteResourceDialog', () => {
     await user.click(screen.getByLabelText('资源分类'))
     await user.click(await screen.findByRole('option', { name: '电影' }))
     await user.click(await screen.findByRole('option', { name: '剧集' }))
-    await user.click(screen.getByRole('button', { name: /搜索/ }))
+    await user.click(screen.getByRole('button', { name: /^搜索$/ }))
 
     await waitFor(() => expect(requests).toHaveLength(2))
     expect(requests[1].searchParams.get('keyword')).toBe('2160p')
@@ -291,14 +276,14 @@ describe('SiteResourceDialog', () => {
     )
     const user = userEvent.setup()
 
-    await renderDialog(undefined, { VDataTable: DataTableStub })
-    await waitFor(() => expect(screen.getByTestId('resource-table')).toHaveAttribute('data-loading', 'false'))
-    await user.click(screen.getByRole('button', { name: /搜索/ }))
-    await waitFor(() => expect(screen.getByTestId('resource-table')).toHaveAttribute('data-loading', 'true'))
+    await renderDialog()
+    await screen.findByText('没有数据')
+    await user.click(screen.getByRole('button', { name: /^搜索$/ }))
+    await waitFor(() => expect(screen.getByTestId('resource-loading-state')).toBeInTheDocument())
     nextResponse.resolve([createTorrentInfo({ title: '重复搜索结果' })])
 
     expect(await screen.findByText('重复搜索结果')).toBeInTheDocument()
-    expect(screen.getByTestId('resource-table')).toHaveAttribute('data-loading', 'false')
+    expect(screen.queryByTestId('resource-loading-state')).not.toBeInTheDocument()
   })
 
   it('renders resource metadata and every promotion style branch', async () => {
@@ -329,9 +314,9 @@ describe('SiteResourceDialog', () => {
     expect(screen.getByText('H&R')).toBeInTheDocument()
     expect(screen.getByText('剩余 1 天')).toBeInTheDocument()
     expect(screen.getByText('原盘')).toBeInTheDocument()
-    expect(screen.getByText('FREE').closest('.v-chip')).toHaveClass('bg-lime-500')
-    expect(screen.getByText('50%').closest('.v-chip')).toHaveClass('bg-green-500')
-    expect(screen.getByText('2X').closest('.v-chip')).toHaveClass('bg-sky-500')
+    expect(screen.getByText('FREE').closest('.v-chip')).toHaveClass('text-success')
+    expect(screen.getByText('50%').closest('.v-chip')).toHaveClass('text-success')
+    expect(screen.getByText('2X').closest('.v-chip')).toHaveClass('text-info')
     expect(screen.queryByText('1x')).not.toBeInTheDocument()
   })
 
@@ -339,8 +324,15 @@ describe('SiteResourceDialog', () => {
     server.use(siteCategoriesHandler(501, []), siteResourcesHandler(501, [createTorrentInfo({ title: '待下载资源' })]))
     const user = userEvent.setup()
 
-    await renderDialog()
+    const { container } = await renderDialog()
     const title = await screen.findByRole('button', { name: /待下载资源/ })
+    const card = container.querySelector('.site-resource-item')
+    expect(card).not.toBeNull()
+
+    await user.click(card as HTMLElement)
+    expect(screen.getByTestId('add-download-dialog')).toHaveTextContent('待下载资源')
+    await user.click(screen.getByRole('button', { name: 'close-download' }))
+    expect(screen.queryByTestId('add-download-dialog')).not.toBeInTheDocument()
 
     await user.click(title)
     expect(screen.getByTestId('add-download-dialog')).toHaveTextContent('待下载资源')
@@ -356,23 +348,36 @@ describe('SiteResourceDialog', () => {
     expect(screen.queryByTestId('add-download-dialog')).not.toBeInTheDocument()
   })
 
-  it('corrects an out-of-range desktop page after the page size changes', async () => {
+  it('loads the next resource page when the desktop list reaches the scroll threshold', async () => {
+    const requests: URL[] = []
+    const firstPage = Array.from({ length: 100 }, (_, index) =>
+      createTorrentInfo({
+        title: `分页资源 ${index + 1}`,
+        pubdate: `2026-07-${String((index % 9) + 1).padStart(2, '0')}`,
+      }),
+    )
     server.use(
       siteCategoriesHandler(501, []),
-      siteResourcesHandler(
-        501,
-        Array.from({ length: 30 }, (_, index) => createTorrentInfo({ title: `分页资源 ${index + 1}` })),
-      ),
+      http.get(siteApiUrls.resources(501), ({ request }) => {
+        const url = new URL(request.url)
+        requests.push(url)
+        return apiJson(url.searchParams.get('page') === '1' ? [createTorrentInfo({ title: '下一页资源' })] : firstPage)
+      }),
     )
-    const user = userEvent.setup()
 
-    await renderDialog(undefined, { VDataTable: DataTableStub })
-    await screen.findByText('分页资源 1')
-    await user.click(screen.getByRole('button', { name: 'page-4' }))
-    expect(screen.getByTestId('resource-page')).toHaveTextContent('4')
-    await user.click(screen.getByRole('button', { name: 'per-page-100' }))
+    const { container } = await renderDialog()
+    await screen.findByText('分页资源 100')
+    const scroll = container.querySelector('.site-resource-scroll') as HTMLElement
+    Object.defineProperties(scroll, {
+      clientHeight: { configurable: true, value: 600 },
+      scrollHeight: { configurable: true, value: 1200 },
+      scrollTop: { configurable: true, value: 700, writable: true },
+    })
+    await fireEvent.scroll(scroll)
 
-    await waitFor(() => expect(screen.getByTestId('resource-page')).toHaveTextContent('1'))
+    await waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[1].searchParams.get('page')).toBe('1')
+    expect(await screen.findByText('下一页资源')).toBeInTheDocument()
   })
 
   it('uses stable mobile keys and guards detail and torrent external links', async () => {
@@ -407,43 +412,72 @@ describe('SiteResourceDialog', () => {
     expect(Array.from(cards, card => card.getAttribute('data-resource-key'))).toEqual([
       'https://tracker.example.com/details/one',
       'magnet:?xt=urn:btih:test',
-      '回退键资源-2026-07-19-2',
+      '回退键资源|2026-07-19|1073741824|12',
     ])
 
     await user.click(screen.getByRole('button', { name: /详情资源/ }))
     await user.click(screen.getByRole('button', { name: 'close-download' }))
-    await user.click(screen.getAllByRole('button', { name: '添加下载' })[0])
+    await user.click(screen.getByRole('button', { name: /无外链资源/ }))
     await user.click(screen.getByRole('button', { name: 'close-download' }))
 
-    const detailButtons = screen.getAllByLabelText('查看详情')
-    await user.click(detailButtons[0])
-    await user.click(detailButtons[1])
-    await user.click(screen.getAllByLabelText('下载种子文件')[0])
+    const moreButtons = screen.getAllByRole('button', { name: '更多操作' })
+    await user.click(moreButtons[0])
+    await user.click(screen.getAllByText('查看详情').at(-1) as HTMLElement)
+    await user.click(moreButtons[1])
+    expect(screen.getAllByText('查看详情').at(-1)?.closest('.v-list-item')).toHaveClass('v-list-item--disabled')
+    await user.click(moreButtons[0])
+    await user.click(screen.getAllByText('下载种子文件').at(-1) as HTMLElement)
     expect(open).toHaveBeenNthCalledWith(1, 'https://tracker.example.com/details/one', '_blank')
     expect(open).toHaveBeenNthCalledWith(2, 'https://tracker.example.com/download/one', '_blank')
     expect(open).toHaveBeenCalledTimes(2)
-    expect(screen.getAllByLabelText('下载种子文件')[1]).toBeDisabled()
+    expect(screen.getAllByRole('button', { name: '更多操作' })).toHaveLength(3)
   })
 
-  it('expands and closes mobile search without retaining it after a desktop switch', async () => {
+  it('keeps the filter controls and two-line card content usable on mobile', async () => {
     setViewport(390)
-    server.use(siteCategoriesHandler(501, []), siteResourcesHandler(501, []))
+    server.use(
+      siteCategoriesHandler(501, [createSiteCategory({ desc: '电影', id: 11 })]),
+      siteResourcesHandler(501, [
+        createTorrentInfo({
+          description: '移动端过长的资源描述用于验证最多两行截断行为',
+          title: '移动端过长标题用于验证最多两行截断行为 1080p BluRay x265',
+        }),
+      ]),
+    )
+
+    const { container } = await renderDialog()
+    expect(await screen.findByText(/移动端过长标题/)).toBeInTheDocument()
+    expect(screen.getByLabelText('搜索关键字')).toBeInTheDocument()
+    expect(screen.getByLabelText('资源分类')).toBeInTheDocument()
+    expect(screen.getByLabelText('排序')).toBeInTheDocument()
+    expect(container.querySelector('.site-resource-scroll')).not.toBeNull()
+    expect(container.querySelector('.site-resource-item__title')).not.toBeNull()
+    expect(container.querySelector('.site-resource-item__description')).not.toBeNull()
+  })
+
+  it('collapses mobile search controls while scrolling upward and restores them from the icon', async () => {
+    setViewport(390)
+    server.use(
+      siteCategoriesHandler(501, []),
+      siteResourcesHandler(501, [createTorrentInfo({ title: '可收起搜索资源' })]),
+    )
     const user = userEvent.setup()
 
     const { container } = await renderDialog()
-    await screen.findByText('没有数据')
-    const toggle = container.querySelector('.site-resource-mobile-search__toggle')
-    expect(toggle).not.toBeNull()
-    await user.click(toggle as HTMLElement)
-    await user.type(screen.getByLabelText('搜索关键字'), 'mobile')
-    await user.click(screen.getByRole('button', { name: '取消' }))
-    expect(screen.queryByLabelText('搜索关键字')).not.toBeInTheDocument()
+    await screen.findByText('可收起搜索资源')
+    const scroll = container.querySelector('.site-resource-scroll') as HTMLElement
+    Object.defineProperties(scroll, {
+      clientHeight: { configurable: true, value: 600 },
+      scrollHeight: { configurable: true, value: 1400 },
+      scrollTop: { configurable: true, value: 120, writable: true },
+    })
 
-    await user.click(toggle as HTMLElement)
-    setViewport(1280)
-    await waitFor(() => expect(container.querySelector('.site-resource-mobile-search')).toBeNull())
-    setViewport(390)
-    await waitFor(() => expect(screen.queryByLabelText('搜索关键字')).not.toBeInTheDocument())
+    await fireEvent.scroll(scroll)
+    expect(screen.queryByLabelText('搜索关键字')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '搜索' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '搜索' }))
+    expect(screen.getByLabelText('搜索关键字')).toBeInTheDocument()
   })
 
   it('emits close and formats the mobile result summary in English', async () => {
@@ -454,14 +488,14 @@ describe('SiteResourceDialog', () => {
     )
     const user = userEvent.setup()
 
-    const { close, container } = await renderDialog()
+    const { close } = await renderDialog()
     await screen.findByText('Language resource')
     i18n.global.locale.value = 'en-US'
-    expect(await screen.findByText('1 results')).toBeInTheDocument()
+    expect(await screen.findByText('1 resources')).toBeInTheDocument()
 
-    const closeButton = container.querySelector('.v-toolbar-items .v-btn')
+    const closeButton = screen.getByRole('button', { name: '关闭' })
     expect(closeButton).not.toBeNull()
-    await user.click(closeButton as HTMLElement)
+    await user.click(closeButton)
     expect(close).toHaveBeenCalledOnce()
   })
 })
