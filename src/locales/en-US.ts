@@ -4917,12 +4917,20 @@ export default {
     cloneFeature: 'Plugin Clone Feature',
     cloneDescription:
       'Create an independent copy of the plugin with separate configuration and data, suitable for multi-account, testing environments, etc.',
-    suffix: 'Clone Suffix',
-    suffixPlaceholder: 'e.g.: Test, Backup, Site1',
-    suffixHint: 'Unique identifier to distinguish clones, only letters and numbers allowed',
-    suffixRequired: 'Clone suffix cannot be empty',
+    suffix: 'Clone Suffix (optional)',
+    suffixAutoPlaceholder: 'Leave empty to auto-assign, or customize, e.g.: Test, Backup',
+    suffixHint: 'Unique identifier to distinguish clones, letters and numbers only, up to 20 characters',
     suffixFormatError: 'Only letters and numbers allowed',
     suffixLengthError: 'Length cannot exceed 20 characters',
+    suffixAutoHint: 'Submitting with an empty suffix asks the server to auto-assign an unused one.',
+    suffixAutoNumbering:
+      'Numbering starts at 2 (the host counts as the first). Installed plugins, disabled clones and plugin package directories left on disk all take a number, so numbers may skip.',
+    suffixAutoNeverRestores:
+      'Auto-assignment never picks a number from the list below: unless you restore one explicitly, you will not inherit anyone else’s configuration.',
+    suffixServerAuthority:
+      'These checks are only instant feedback; whether a suffix is usable is decided by the server, e.g. the number may already be taken.',
+    suffixMatchesRestorable:
+      'A disabled clone "{name}" already exists under this suffix: submitting restores it instead of creating a new one.',
     cloneName: 'Clone Name',
     cloneNamePlaceholder: 'e.g.: Auto Backup Test Version',
     cloneNameHint: 'Display name for the clone plugin (optional)',
@@ -4939,9 +4947,34 @@ export default {
     cloneIconHint: 'Custom icon for the clone plugin (optional)',
     cloneNotice:
       'Clone plugins are disabled by default after creation and need to be manually configured and enabled. The clone suffix cannot be modified once set.',
+    cloneRestoreTitle: 'Restore Plugin Clone',
+    cloneRestorableTitle: 'Restorable disabled clones',
+    cloneRestorableOnlyDisabled:
+      'Only disabled clones are listed here; an enabled clone is already using its configuration, so restoring it is meaningless.',
+    cloneRestorableSameEndpoint:
+      'Restoring and creating share one entry point: click a row to fill its suffix into the field above, and submitting restores that row.',
+    cloneRestorableEmpty: 'This plugin has no disabled clones, so only creating a new one is possible right now.',
+    cloneRestorableLoadFailed:
+      'Failed to load the restorable clone list: you can still create one, but whether the suffix you type has leftover configuration cannot be determined.',
+    cloneRestorableHasConfig: 'Has configuration',
+    cloneRestorableNoConfig: 'No configuration left',
+    cloneRestorePrevious: 'Reuse the configuration kept from before it was disabled',
+    cloneRestorePreviousOn: 'The parameters it had before being disabled come back untouched.',
+    cloneRestorePreviousOff: 'Discard the leftover configuration and rebuild an empty one from the plugin template.',
+    cloneDisplayBlankCreate: 'Leaving name, description and icon empty keeps them empty.',
+    cloneDisplayBlankRestore:
+      'Leaving name, description and icon empty reuses what this clone had registered before it was disabled; anything you fill in overrides it.',
+    cloneOfCloneNotice: 'This is a clone, and a clone cannot be cloned again. Create it on the source plugin {id}.',
+    cloneOfCloneNoticeGeneral:
+      'This is a clone, and a clone cannot be cloned again. Create it on its source plugin instead.',
     createClone: 'Create Clone',
+    restoreClone: 'Restore Clone',
     cloning: 'Creating clone for {name}...',
+    cloneRestoring: 'Restoring clone {name}...',
     cloneSuccess: 'Plugin clone {name} created successfully!',
+    cloneRestoreSuccess: 'Clone {name} restored; the configuration it had before being disabled is back in use',
+    cloneRestoreRebuildSuccess:
+      'Clone {name} restored; the leftover configuration was discarded and rebuilt from the plugin template',
     cloneFailed: 'Plugin clone creation failed: {message}',
     cloneFailedGeneral: 'Plugin clone creation failed',
     logTitle: 'Plugin Logging',

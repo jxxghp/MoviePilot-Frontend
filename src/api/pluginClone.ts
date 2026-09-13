@@ -8,6 +8,17 @@ export const CLONE_SUFFIX_PATTERN = /^[A-Za-z0-9]+$/
 /** 服务端接受的分身后缀最大长度。 */
 export const CLONE_SUFFIX_MAX_LENGTH = 20
 
+/**
+ * 一次分身提交：请求体，外加「这次走的是恢复还是新建」。
+ *
+ * 创建与恢复共用同一个端点，回执里区分不出走的是哪一条，这一位只能由发起提交的
+ * 界面判定后随请求一起带下去。
+ */
+export interface PluginCloneSubmission {
+  request: PluginCloneRequest
+  restoring: boolean
+}
+
 /** 一条落到具体字段上的服务端校验结论。 */
 export interface PluginCloneFieldIssue {
   // 字段名，取自 pydantic loc 的最后一段，例如 suffix

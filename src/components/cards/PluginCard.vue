@@ -10,6 +10,7 @@ import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { createPluginClone, type PluginCloneSubmission } from '@/api/pluginClone'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useGlobalSettingsStore, usePluginRuntimeStore } from '@/stores'
 import { reloadPluginRuntime } from '@/api/pluginCapabilities'
@@ -576,28 +577,35 @@ function showPluginClone() {
   )
 }
 
-// 执行插件分身
-async function executePluginClone(cloneForm: { suffix: string; name: string; description: string; icon: string }) {
-  if (!cloneForm.suffix.trim()) {
-    $toast.error(t('plugin.suffixRequired'))
+/**
+ * 播报分身创建或恢复的结果。
+ *
+ * 展示名留空时回落到实例 ID：自动分配后缀时前端算不出这个 ID，它只能来自回执。
+ * 恢复还要区分沿用旧参数还是按模板重建——用户刚做的正是这个取舍。
+ */
+function announceCloneSuccess(submission: PluginCloneSubmission, instanceId: string) {
+  const name = submission.request.name || instanceId
+  if (!submission.restoring) {
+    $toast.success(t('plugin.cloneSuccess', { name }))
     return
   }
+  const messageKey =
+    submission.request.restore_previous === false ? 'plugin.cloneRestoreRebuildSuccess' : 'plugin.cloneRestoreSuccess'
+  $toast.success(t(messageKey, { name }))
+}
+
+/** 创建或恢复一个插件分身，两者共用同一个端点，由后缀决定走哪条路。 */
+async function executePluginClone(submission: PluginCloneSubmission) {
+  const pluginId = props.plugin?.id
+  if (!pluginId) return
 
   try {
-    showPluginProgress(t('plugin.cloning', { name: props.plugin?.plugin_name }))
+    const progressKey = submission.restoring ? 'plugin.cloneRestoring' : 'plugin.cloning'
+    showPluginProgress(t(progressKey, { name: props.plugin?.plugin_name }))
 
-    await api.post(
-      `plugin/clone/${props.plugin?.id}`,
-      {
-        suffix: cloneForm.suffix.trim(),
-        name: cloneForm.name.trim(),
-        description: cloneForm.description.trim(),
-        icon: cloneForm.icon.trim(),
-      },
-      { feedback: 'silent' },
-    )
+    const outcome = await createPluginClone(pluginId, submission.request)
 
-    $toast.success(t('plugin.cloneSuccess', { name: cloneForm.name }))
+    announceCloneSuccess(submission, outcome.instance_id)
     cloneDialogController?.close()
     cloneDialogController = null
     emit('remove')
