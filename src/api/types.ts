@@ -1419,6 +1419,53 @@ export interface PluginInstanceEnabledRequest {
   enabled: boolean
 }
 
+/**
+ * 创建或恢复一个插件分身的请求参数。
+ *
+ * 创建与恢复共用同一个端点：填上某个已停用分身的后缀，提交的就是恢复那一行。
+ */
+export interface PluginCloneRequest {
+  // 分身后缀；不传、为空或纯空白时由服务端自动分配一个未被占用的号
+  suffix?: string | null
+  // 分身展示名称；恢复场景留空表示沿用停用前登记的那份，新建场景留空即为空
+  name?: string
+  // 分身描述；留空的两种语义与 name 相同
+  description?: string
+  // 分身图标；留空的两种语义与 name 相同
+  icon?: string
+  // 该后缀名下有已停用的分身时，是否沿用它留存的业务参数；置假即丢弃旧配置按模板重建
+  restore_previous?: boolean
+}
+
+/**
+ * 创建或恢复插件分身的回执。
+ *
+ * 不填后缀时前端算不出服务端分配到的号，实例 ID 只能从这里取。
+ */
+export interface PluginCloneOutcome {
+  // 新建或恢复出的实例 ID
+  instance_id: string
+}
+
+/**
+ * 一个已停用、其设置仍留存可被恢复的分身实例。
+ *
+ * 启用中的分身不在此列：它们的配置正被使用，拿来「恢复」没有意义，摆进清单
+ * 只会让人以为能把一个活着的实例再创建一遍。
+ */
+export interface PluginRestorableInstance {
+  // 分身实例 ID
+  instance_id: string
+  // 该实例相对源插件 ID 的后缀，直接回填创建表单即可触发恢复
+  suffix: string
+  // 停用前登记的展示名称
+  plugin_name?: string | null
+  // 停用前登记的描述
+  plugin_desc?: string | null
+  // 是否留有业务参数
+  has_config: boolean
+}
+
 // 插件侧栏全页导航项（与后端 PluginSidebarNavItem 对齐）
 export interface PluginSidebarNavItem {
   plugin_id: string
