@@ -540,6 +540,19 @@ describe('PluginCard lifecycle actions', () => {
     )
   })
 
+  it('opens the instance management dialog from the menu with the card plugin', async () => {
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+    await openAdvancedActions(container)
+    await fireEvent.click(await screen.findByText('实例管理'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.any(Object),
+      { plugin },
+      {},
+      { closeOn: ['close', 'update:modelValue'] },
+    )
+  })
+
   it('reloads an installed plugin and refreshes runtime, list and dynamic navigation facts', async () => {
     mocks.reloadPluginRuntime.mockResolvedValueOnce(undefined)
     const { container, emitted, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })

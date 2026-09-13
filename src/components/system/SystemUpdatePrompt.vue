@@ -491,10 +491,13 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 .system-update-prompt__heading {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .system-update-prompt__badge {
+  flex: 0 0 auto;
   padding: 3px 7px;
   border: 1px solid rgba(var(--v-theme-primary), 0.28);
   border-radius: 999px;
@@ -502,6 +505,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .system-update-prompt__versions {
@@ -520,8 +524,10 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 }
 
 .system-update-prompt__title {
+  flex: 1 1 auto;
   font-size: 1rem;
   line-height: 1.35;
+  min-width: 0;
 }
 
 .system-update-prompt--avoid-agent {
@@ -530,6 +536,10 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 
 .system-update-prompt :deep(.v-card-text) {
   overflow-wrap: anywhere;
+}
+
+.system-update-prompt :deep(.v-card-item__content) {
+  min-width: 0;
 }
 
 .system-update-prompt :deep(.v-card-actions) {

@@ -1215,6 +1215,8 @@ export interface Plugin {
   is_instance?: boolean
   // 实例实现模式
   instance_mode?: 'virtual'
+  // 该实例是否为所属插件的默认调用目标
+  is_default_target?: boolean
 }
 
 /** 插件市场为已安装插件选择的当前更新候选。 */
@@ -1386,6 +1388,40 @@ export interface PluginReleaseVersionsResponse {
   current_version?: string | null
   // 可安装版本列表
   items: PluginReleaseVersion[]
+}
+
+/** 单个插件实例的日志等级设置与生效结果。 */
+export interface PluginInstanceLogLevel {
+  // 实例 ID
+  instance_id: string
+  // 该实例设置的日志等级覆盖，为空表示未设置或已过期
+  configured_level?: string | null
+  // 日志等级覆盖的失效时间，为空表示不过期
+  expires_at?: string | null
+  // 按过期回落判定后实际生效的日志等级
+  effective_level: string
+}
+
+/** 插件全部实例（含本体）的日志等级设置总览。 */
+export interface PluginInstanceLogLevelOverview {
+  // 插件 ID
+  plugin_id: string
+  // 该插件全部实例的日志等级设置，首项固定是本体自身
+  instances: PluginInstanceLogLevel[]
+}
+
+/** 设置插件实例日志等级覆盖的请求参数。 */
+export interface PluginInstanceLogLevelUpdateRequest {
+  // 目标日志等级，取值为 DEBUG、INFO、WARNING、ERROR、CRITICAL
+  level: string
+  // 覆盖失效时间，为空表示不过期
+  expires_at?: string | null
+}
+
+/** 启用或停用一个插件实例的请求参数。 */
+export interface PluginInstanceEnabledRequest {
+  // 目标启用状态；置假即停用，配置与展示信息原样留存
+  enabled: boolean
 }
 
 // 插件侧栏全页导航项（与后端 PluginSidebarNavItem 对齐）

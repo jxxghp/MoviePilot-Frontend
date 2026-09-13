@@ -24,6 +24,7 @@ const PluginCloneDialog = defineAsyncComponent(() => import('../dialog/PluginClo
 const PluginLogDialog = defineAsyncComponent(() => import('../dialog/PluginLogDialog.vue'))
 const PluginMarketDetailDialog = defineAsyncComponent(() => import('../dialog/PluginMarketDetailDialog.vue'))
 const PluginVersionHistoryDialog = defineAsyncComponent(() => import('../dialog/PluginVersionHistoryDialog.vue'))
+const PluginInstanceManageDialog = defineAsyncComponent(() => import('../dialog/PluginInstanceManageDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -273,6 +274,16 @@ function showPluginCapabilities() {
 /** 显示当前插件不包含持久化原值的数据诊断摘要。 */
 function showPluginDataSummary() {
   openSharedDialog(PluginDataSummaryDialog, { plugin: props.plugin }, {}, { closeOn: ['close', 'update:modelValue'] })
+}
+
+/** 显示本插件各实例（本体与分身）的默认调用目标、启停与日志等级。 */
+function showPluginInstanceManage() {
+  openSharedDialog(
+    PluginInstanceManageDialog,
+    { plugin: props.plugin },
+    {},
+    { closeOn: ['close', 'update:modelValue'] },
+  )
 }
 
 /** 重新加载当前插件并刷新插件页相关运行事实。 */
@@ -721,6 +732,12 @@ const advancedDropdownItems = [
     value: 13,
     prependIcon: 'mdi-database-eye-outline',
     click: showPluginDataSummary,
+  },
+  {
+    title: t('plugin.instanceManage'),
+    value: 14,
+    prependIcon: 'mdi-tune-variant',
+    click: showPluginInstanceManage,
   },
   {
     title: t('plugin.reload'),
