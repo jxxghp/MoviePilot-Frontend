@@ -793,6 +793,65 @@ describe('TransferHistoryView', () => {
     )
   })
 
+  it('restores a legacy artist collection batch without a category folder from its qB hash', async () => {
+    const first = createHistory(41, '江南', {
+      category: 'Album',
+      download_hash: 'legacy-jj-hash',
+      dest: '/media/Album/林俊杰/第二天堂 (2004)/06.flac',
+      src: '/downloads/林俊杰[2003-2021]录音室专辑合集/2004-第二天堂/06.flac',
+      src_storage: 'downloads',
+      type: '音乐',
+    })
+    const second = createHistory(42, '曹操', {
+      category: 'Album',
+      download_hash: 'legacy-jj-hash',
+      dest: '/media/Album/林俊杰/曹操 (2006)/02.flac',
+      src: '/downloads/林俊杰[2003-2021]录音室专辑合集/2006-曹操/02.flac',
+      src_storage: 'downloads',
+      type: '音乐',
+    })
+    mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+      if (path === 'system/setting/public/Storages') return Promise.resolve(storageResponse())
+      if (config?.params?.download_hash === 'legacy-jj-hash') {
+        return Promise.resolve(historyResponse([first, second]))
+      }
+      return Promise.resolve(historyResponse([first]))
+    })
+    mocks.openSharedDialog.mockReturnValue({ close: vi.fn() })
+
+    const { router } = await renderHistory('/history')
+
+    expect(await screen.findByText('林俊杰 · Artist Collection')).toBeInTheDocument()
+    expect(document.body).toHaveTextContent('2 项')
+    await waitFor(() => expect(router.currentRoute.value.query.grouped).toBe('true'))
+    expect(mocks.apiGet).toHaveBeenCalledWith(
+      'history/transfer',
+      expect.objectContaining({ params: expect.objectContaining({ download_hash: 'legacy-jj-hash' }) }),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: '重新整理并刮削' }))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        continueBatch: true,
+        transferBatchTitle: '林俊杰 · Artist Collection',
+        transferBatchRoot: '/downloads/林俊杰[2003-2021]录音室专辑合集',
+        transferBatchTotal: 2,
+        items: [
+          expect.objectContaining({
+            path: '/downloads/林俊杰[2003-2021]录音室专辑合集',
+            storage: 'downloads',
+            type: 'dir',
+          }),
+        ],
+      }),
+      expect.anything(),
+      expect.anything(),
+    )
+    expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).not.toHaveProperty('transferBatchId')
+  })
+
   it('groups failed music records by their source album directory and source storage', async () => {
     const tracks = [
       createHistory(1, 'Track 1', {

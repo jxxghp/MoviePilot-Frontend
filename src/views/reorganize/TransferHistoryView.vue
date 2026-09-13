@@ -117,6 +117,7 @@ interface TransferHistoryGroupSummary {
   successCount: number
   trackCount: number
   batchId?: string
+  isTransferBatch: boolean
   pendingCount: number
   totalCount: number
 }
@@ -572,6 +573,35 @@ function getHistoryPathName(path: string) {
   return path.split('/').filter(Boolean).at(-1) || path
 }
 
+// 旧版整理历史没有批次 ID，但 qB 下载哈希和艺术家合集源根目录仍可稳定还原批次。
+function getLegacyArtistCollectionRoot(item: TransferHistory) {
+  if (item.type !== '音乐' || item.transfer_batch_id || !item.download_hash) return ''
+  const source = normalizeHistoryPath(item.src)
+  const segments = source.split('/').filter(Boolean)
+  const categoryIndex = segments.findIndex(segment => segment.trim().toLowerCase() === 'artist collection')
+  let rootIndex = categoryIndex >= 0 && categoryIndex + 1 < segments.length ? categoryIndex + 1 : -1
+  if (rootIndex < 0) {
+    rootIndex = segments.findIndex(segment =>
+      /(?:artist\s*collection|discography|complete\s+(?:album|music)|all\s+albums|collection\s+pack|专辑合集|音乐合集|录音室合集|合集|全集|全碟)/i.test(
+        segment,
+      ),
+    )
+  }
+  if (rootIndex < 0) return ''
+  const root = segments.slice(0, rootIndex + 1).join('/')
+  return source.startsWith('/') ? `/${root}` : root
+}
+
+function getArtistCollectionName(item: TransferHistory, root: string) {
+  const destination = normalizeHistoryPath(item.dest)
+  const segments = destination.split('/').filter(Boolean)
+  const categoryIndex = segments.findIndex(segment =>
+    ['album', 'single', 'ep', 'artist collection'].includes(segment.trim().toLowerCase()),
+  )
+  const artist = categoryIndex >= 0 ? segments[categoryIndex + 1] : ''
+  return artist ? `${artist} · Artist Collection` : getHistoryPathName(root)
+}
+
 // 音乐按目标专辑目录分组，旧记录或失败记录则回退到源目录；其它媒体保持原有的标题分组。
 function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem {
   if (item.transfer_batch_id && (item.transfer_batch_total || 0) > 1) {
@@ -583,6 +613,24 @@ function toHistoryDisplayItem(item: TransferHistory): TransferHistoryDisplayItem
       history_group_is_transfer_batch: true,
       history_group_key: `batch:${item.transfer_batch_id}`,
       history_group_label: item.transfer_batch_title || getHistoryPathName(root) || t('common.unknown'),
+      history_group_storage: item.src_storage,
+      history_group_track_key: JSON.stringify([item.src_storage || '', normalizeHistoryPath(item.src)]),
+      history_group_uses_destination: false,
+    }
+  }
+  const legacyArtistCollectionRoot = getLegacyArtistCollectionRoot(item)
+  if (legacyArtistCollectionRoot) {
+    return {
+      ...item,
+      history_group_album_path: legacyArtistCollectionRoot,
+      history_group_is_music_album: true,
+      history_group_is_transfer_batch: true,
+      history_group_key: `legacy-batch:${JSON.stringify([
+        item.download_hash,
+        item.src_storage || '',
+        legacyArtistCollectionRoot,
+      ])}`,
+      history_group_label: getArtistCollectionName(item, legacyArtistCollectionRoot),
       history_group_storage: item.src_storage,
       history_group_track_key: JSON.stringify([item.src_storage || '', normalizeHistoryPath(item.src)]),
       history_group_uses_destination: false,
@@ -662,6 +710,7 @@ function addHistoryGroupSummaries(items: TransferHistoryDisplayItem[]) {
       successCount: groupItems.filter(item => item.status).length,
       trackCount: groupItems.length,
       batchId: firstItem.transfer_batch_id,
+      isTransferBatch: firstItem.history_group_is_transfer_batch,
       pendingCount: Math.max((firstItem.transfer_batch_total || groupItems.length) - groupItems.length, 0),
       totalCount: Math.max(firstItem.transfer_batch_total || 0, groupItems.length),
     }
@@ -674,7 +723,7 @@ function addHistoryGroupSummaries(items: TransferHistoryDisplayItem[]) {
 // 批次父项始终从源根目录重新扫描，并跳过已经成功的历史，避免再次复制已入库文件。
 function continueHistoryBatch(items: readonly TransferHistoryGroupItem[]) {
   const summary = getHistoryGroupSummary(items)
-  if (!summary?.batchId || !summary.albumPath || !summary.storage) return
+  if (!summary?.isTransferBatch || !summary.albumPath || !summary.storage) return
   const source: FileItem = {
     storage: summary.storage,
     type: 'dir',
@@ -687,7 +736,7 @@ function continueHistoryBatch(items: readonly TransferHistoryGroupItem[]) {
     {
       items: [source],
       continueBatch: true,
-      transferBatchId: summary.batchId,
+      ...(summary.batchId ? { transferBatchId: summary.batchId } : {}),
       transferBatchTitle: summary.label,
       transferBatchRoot: summary.albumPath,
       transferBatchTotal: summary.totalCount,
@@ -756,6 +805,38 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
       )
       const expandedIds = new Set(expandedBatches.flat().map(item => item.id))
       list = [...list.filter(item => !item.transfer_batch_id && !expandedIds.has(item.id)), ...expandedBatches.flat()]
+    }
+
+    const legacyDownloadHashes = [
+      ...new Set(
+        list
+          .filter(item => Boolean(getLegacyArtistCollectionRoot(item)))
+          .map(item => item.download_hash)
+          .filter((hash): hash is string => Boolean(hash)),
+      ),
+    ]
+    if (legacyDownloadHashes.length) {
+      const expandedLegacyBatches = await Promise.all(
+        legacyDownloadHashes.map(async downloadHash => {
+          try {
+            const batch = await api.get<{ list?: TransferHistory[] }>('history/transfer', {
+              params: {
+                download_hash: downloadHash,
+                ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
+              },
+            })
+            return Array.isArray(batch.list) ? batch.list : []
+          } catch (error) {
+            console.error(error)
+            return list.filter(item => item.download_hash === downloadHash)
+          }
+        }),
+      )
+      const expandedHashes = new Set(legacyDownloadHashes)
+      list = [
+        ...list.filter(item => !item.download_hash || !expandedHashes.has(item.download_hash)),
+        ...expandedLegacyBatches.flat(),
+      ]
     }
 
     isRefreshed.value = true
@@ -2212,7 +2293,12 @@ onUnmounted(() => {
                 >
                   {{ t('transferHistory.status.failed') }} {{ getHistoryGroupSummary(item.items)?.failedCount }}
                 </VChip>
-                <VChip v-if="getHistoryGroupSummary(item.items)?.batchId" size="x-small" color="info" variant="tonal">
+                <VChip
+                  v-if="getHistoryGroupSummary(item.items)?.isTransferBatch"
+                  size="x-small"
+                  color="info"
+                  variant="tonal"
+                >
                   {{ t('transferHistory.batchTotal', { count: getHistoryGroupSummary(item.items)?.totalCount || 0 }) }}
                   <template v-if="getHistoryGroupSummary(item.items)?.pendingCount">
                     ·
@@ -2220,7 +2306,7 @@ onUnmounted(() => {
                   </template>
                 </VChip>
                 <VBtn
-                  v-if="getHistoryGroupSummary(item.items)?.batchId && canManage"
+                  v-if="getHistoryGroupSummary(item.items)?.isTransferBatch && canManage"
                   size="small"
                   color="primary"
                   variant="tonal"
