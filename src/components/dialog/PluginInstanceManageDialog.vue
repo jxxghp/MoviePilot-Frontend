@@ -86,7 +86,10 @@ const displayRows = computed<InstanceRow[]>(() => [
 ])
 
 // 默认调用目标的候选只有在册实例，停用掉的那些后端根本不接受置位
-const hasClones = computed(() => rows.value.some(row => !row.isHost))
+// 用 displayRows 而不是 rows：本次会话内停用过的行已经被 disabledRows 覆盖标成
+// isEnabled=false，不用等后端下一次刷新完成才认账，避免刷新未完成前的窗口期里
+// 把刚停用的行仍当活跃分身计入
+const hasClones = computed(() => displayRows.value.some(row => !row.isHost && row.isEnabled))
 const hasDefaultTarget = computed(() => rows.value.some(row => row.isDefaultTarget))
 // 已有分身却没有默认调用目标时必须明说：这种状态下未指定实例的调用会直接失败
 const missingDefaultTarget = computed(() => hasClones.value && !hasDefaultTarget.value && !overlayFailed.value)
@@ -102,10 +105,14 @@ function isCurrentInstance(row: InstanceRow): boolean {
  *
  * 只有停用后仍「有分身」时，未点名实例的调用才会因为没有默认目标而直接失败；
  * 只有本体、没有分身时调用直接落到本体，不受此约束。停用的行本身要从「停用后
- * 剩余」里排除，已经停用的行不在 rows（在册清单）里，本体不算分身。
+ * 剩余」里排除，本体不算分身——这两条排除都够不着本次会话里已经被停用的另一
+ * 个分身：它还没等到后端下一轮刷新，仍会留在 rows 里。displayRows 已经把这类
+ * 行按 disabledRows 覆盖标成 isEnabled=false，改用它才认得出「已经不算在册」。
  */
 function hasOtherClonesAfterDisabling(row: InstanceRow): boolean {
-  return rows.value.some(other => !other.isHost && !isSameInstance(other.instanceId, row.instanceId))
+  return displayRows.value.some(
+    other => !other.isHost && other.isEnabled && !isSameInstance(other.instanceId, row.instanceId),
+  )
 }
 
 /** 把 ISO 时间转换为 datetime-local 输入框可直接使用的本地时间字符串。 */
