@@ -47,7 +47,7 @@ const SystemSettings = ref<any>({
     DB_TYPE: 'sqlite',
     APP_DOMAIN: null,
     API_TOKEN: null,
-    WALLPAPER: 'tmdb',
+    WALLPAPER: '',
     WALLPAPER_ROTATION_INTERVAL: 15,
     WALLPAPER_IMAGE_URL: null,
     GITHUB_TOKEN: null,

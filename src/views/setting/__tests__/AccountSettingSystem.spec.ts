@@ -552,13 +552,13 @@ describe('AccountSettingSystem', () => {
     expect(await screen.findByLabelText('访问域名')).toHaveValue('https://moviepilot.example')
     expect(screen.getByLabelText('API令牌')).toHaveValue('1234567890abcdef')
     const wallpaperSelect = screen.getByLabelText('背景壁纸')
-    expect(wallpaperSelect).toHaveValue('tmdb')
+    expect(wallpaperSelect).toHaveValue('')
     expect(
       within(wallpaperSelect)
         .getAllByRole('option')
         .map(option => option.textContent),
     ).toEqual(['TMDB电影海报', 'Bing每日壁纸', '媒体服务器', '静态图片', '自定义', '无壁纸'])
-    expect(screen.getByLabelText('壁纸轮换时间')).toHaveValue('15')
+    expect(screen.queryByLabelText('壁纸轮换时间')).not.toBeInTheDocument()
 
     const refreshOptions = mocks.useSilentSettingRefresh.mock.calls[0]?.[1]
     expect(refreshOptions.active.value).toBe(true)
@@ -586,7 +586,7 @@ describe('AccountSettingSystem', () => {
         DB_TYPE: 'sqlite',
         GITHUB_TOKEN: null,
         LLM_TEMPERATURE: 0.3,
-        WALLPAPER: 'tmdb',
+        WALLPAPER: '',
         WALLPAPER_IMAGE_URL: null,
         WALLPAPER_ROTATION_INTERVAL: 15,
       }),
