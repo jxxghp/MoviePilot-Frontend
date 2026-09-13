@@ -5,7 +5,7 @@ import api, { getApiBusinessErrorMessage } from '@/api'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
-import { getInitializationState, markInitialized } from '@/utils/initialization'
+import { getInitializationStatus, markInitialized } from '@/utils/initialization'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
 import router from '@/router'
 
@@ -30,6 +30,7 @@ const checking = ref(true)
 const errorMessage = ref('')
 const apiKeyCopied = ref(false)
 const formRef = ref<HTMLFormElement | null>(null)
+const configuredUsername = ref<string | null>(null)
 
 const form = ref<InitializationPayload>({
   username: '',
@@ -40,6 +41,7 @@ const form = ref<InitializationPayload>({
 
 const currentTheme = computed(() => theme.global.name.value)
 const themeClass = computed(() => 'initialize-page--' + currentTheme.value)
+const usernameLocked = computed(() => Boolean(configuredUsername.value))
 
 /** 使用浏览器密码学随机源生成一次性 API Key，避免把凭据交给第三方服务。 */
 function generateApiKey(): string {
@@ -76,11 +78,13 @@ function getErrorMessage(error: unknown): string {
 /** 进入表单前再次确认实例仍未初始化；服务不可达时交给独立状态页持续检测。 */
 async function checkInitializationStatus() {
   try {
-    const initialized = await getInitializationState(true)
-    if (initialized) {
+    const status = await getInitializationStatus(true)
+    if (status.initialized) {
       await router.replace('/login')
       return
     }
+    configuredUsername.value = status.configuredUsername
+    form.value.username = status.configuredUsername || ''
     checking.value = false
   } catch {
     await router.replace('/service-status')
@@ -198,6 +202,9 @@ onMounted(() => {
               variant="outlined"
               density="comfortable"
               :disabled="checking || loading"
+              :readonly="usernameLocked"
+              :hint="usernameLocked ? t('initialization.usernameLockedHint') : undefined"
+              :persistent-hint="usernameLocked"
               required
               maxlength="50"
             />
