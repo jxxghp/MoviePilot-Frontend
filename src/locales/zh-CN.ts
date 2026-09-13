@@ -4855,6 +4855,9 @@ export default {
     cloneRestoreRebuildSuccess: '分身 {name} 已恢复，旧配置已丢弃，已按插件模板重建',
     cloneFailed: '插件分身创建失败：{message}',
     cloneFailedGeneral: '插件分身创建失败',
+    cloneValidationRejected: '服务端未接受这次提交：{message}',
+    clonePartialWarning:
+      '分身 {id} 已经创建出来了，但补挂定时任务或路由失败。不要重复创建（会撞「已存在」）：请检查这个分身的配置，然后重载插件。',
     logTitle: '插件日志',
     quickAccess: '快速访问',
     tapToOpen: '点击返回主界面',

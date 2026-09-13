@@ -4977,6 +4977,9 @@ export default {
       'Clone {name} restored; the leftover configuration was discarded and rebuilt from the plugin template',
     cloneFailed: 'Plugin clone creation failed: {message}',
     cloneFailedGeneral: 'Plugin clone creation failed',
+    cloneValidationRejected: 'The server rejected this submission: {message}',
+    clonePartialWarning:
+      'Clone {id} was created, but attaching its scheduled jobs or routes failed. Do not create it again (that would hit "already exists"): check this clone\u2019s configuration, then reload the plugin.',
     logTitle: 'Plugin Logging',
     quickAccess: 'Quick Access',
     noPluginsWithPage: 'No plugins with detail pages available',

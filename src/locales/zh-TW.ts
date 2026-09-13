@@ -4778,6 +4778,9 @@ export default {
     cloneRestoreRebuildSuccess: '分身 {name} 已恢復，舊配置已丟棄，已按插件模板重建',
     cloneFailed: '插件分身創建失敗：{message}',
     cloneFailedGeneral: '插件分身創建失敗',
+    cloneValidationRejected: '服務端未接受這次提交：{message}',
+    clonePartialWarning:
+      '分身 {id} 已經創建出來了，但補掛定時任務或路由失敗。不要重複創建（會撞「已存在」）：請檢查這個分身的配置，然後重載插件。',
     logTitle: '插件日誌',
     quickAccess: '快速訪問',
     noPluginsWithPage: '暫無可展示的插件',
