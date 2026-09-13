@@ -48,9 +48,7 @@ const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
 // 数据页沿用源插件组件，同时把其动态 API 限定到当前实例。
-const scopedPluginApi = computed(() =>
-  createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id),
-)
+const scopedPluginApi = computed(() => createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id))
 
 // 是否刷新
 const isRefreshed = ref(false)
@@ -65,11 +63,25 @@ const isLoading = ref(false)
 type PluginRenderMode = 'vue' | 'vuetify'
 const renderMode = ref<PluginRenderMode>('vuetify')
 
+// 数据页默认沿用原有宽度；联邦页面可按内容密度覆盖。
+const dialogMaxWidth = ref('80rem')
+
+interface PluginDataLayout {
+  /** 联邦数据页期望的最大宽度，使用合法 CSS 尺寸。 */
+  maxWidth?: string
+}
+
 // 插件数据页面配置项
 const pluginPageItems = ref<RenderProps[]>([])
 
 function isPluginRenderMode(value: unknown): value is PluginRenderMode {
   return value === 'vue' || value === 'vuetify'
+}
+
+// 联邦数据页可声明更适合自身布局的宿主弹窗宽度。
+function handleVueComponentLayout(layout?: PluginDataLayout | null) {
+  const maxWidth = typeof layout?.maxWidth === 'string' ? layout.maxWidth.trim() : ''
+  dialogMaxWidth.value = maxWidth || '80rem'
 }
 
 // Vue 模式：动态加载的组件
@@ -154,7 +166,7 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VDialog scrollable max-width="80rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
     <!-- Vuetify 渲染模式 -->
     <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name}`">
       <VDialogCloseBtn @click="emit('close')" />
@@ -194,6 +206,7 @@ onMounted(() => {
           :native-subscribe="nativeSubscribe"
           :show_switch="show_switch"
           @action="handleAction"
+          @layout="handleVueComponentLayout"
           @switch="emit('switch')"
           @close="emit('close')"
         />
