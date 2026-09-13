@@ -10,6 +10,13 @@ import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import {
+  createPluginClone,
+  getPluginCloneFieldIssues,
+  getPluginClonePartialOutcome,
+  type PluginCloneFieldIssue,
+  type PluginCloneSubmission,
+} from '@/api/pluginClone'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useGlobalSettingsStore, usePluginRuntimeStore } from '@/stores'
 import { reloadPluginRuntime } from '@/api/pluginCapabilities'
@@ -576,37 +583,96 @@ function showPluginClone() {
   )
 }
 
-// 执行插件分身
-async function executePluginClone(cloneForm: { suffix: string; name: string; description: string; icon: string }) {
-  if (!cloneForm.suffix.trim()) {
-    $toast.error(t('plugin.suffixRequired'))
+/**
+ * 播报分身创建或恢复的结果。
+ *
+ * 展示名留空时回落到实例 ID：自动分配后缀时前端算不出这个 ID，它只能来自回执。
+ * 恢复还要区分沿用旧参数还是按模板重建——用户刚做的正是这个取舍。
+ */
+function announceCloneSuccess(submission: PluginCloneSubmission, instanceId: string) {
+  const name = submission.request.name || instanceId
+  if (!submission.restoring) {
+    $toast.success(t('plugin.cloneSuccess', { name }))
+    return
+  }
+  const messageKey =
+    submission.request.restore_previous === false ? 'plugin.cloneRestoreRebuildSuccess' : 'plugin.cloneRestoreSuccess'
+  $toast.success(t(messageKey, { name }))
+}
+
+/** 刷新插件列表与动态导航，让新出现的实例立刻可见。 */
+function refreshAfterClone() {
+  emit('remove')
+  // 生命周期成功后刷新动态导航。
+  void pluginSidebarNavStore.ensureSidebarNav(true)
+}
+
+/**
+ * 把服务端的字段级校验结论回填到弹窗上。
+ *
+ * 这类失败只说明输入不合规，弹窗要留着让用户就地改；结论落到具体输入框上才看得懂
+ * 是哪一项出的问题。
+ */
+function reportCloneFieldIssues(issues: PluginCloneFieldIssue[]) {
+  const fieldErrors: Record<string, string[]> = {}
+  issues.forEach(issue => {
+    const key = issue.field || 'form'
+    fieldErrors[key] = [...(fieldErrors[key] ?? []), issue.message]
+  })
+  cloneDialogController?.updateProps({ fieldErrors })
+  $toast.error(t('plugin.cloneValidationRejected', { message: issues.map(issue => issue.message).join('；') }))
+}
+
+/**
+ * 播报「分身已建成、只是补挂失败」。
+ *
+ * 这条路上实例是真的存在的，提示重试创建只会撞上「已存在」；该做的是去检查它的
+ * 配置再重载插件。既然它已经在册，列表与导航也必须刷新到能看见它。
+ */
+function reportClonePartialOutcome(instanceId: string) {
+  $toast.warning(t('plugin.clonePartialWarning', { id: instanceId }))
+  cloneDialogController?.close()
+  cloneDialogController = null
+  refreshAfterClone()
+}
+
+/** 按失败的性质分流：输入不合规、分身已建成但补挂失败、以及其余失败。 */
+function reportCloneFailure(error: unknown) {
+  console.error(error)
+
+  const issues = getPluginCloneFieldIssues(error)
+  if (issues.length > 0) {
+    reportCloneFieldIssues(issues)
     return
   }
 
+  const partial = getPluginClonePartialOutcome(error)
+  if (partial) {
+    reportClonePartialOutcome(partial.instance_id)
+    return
+  }
+
+  const message = getApiBusinessErrorMessage(error)
+  $toast.error(message ? t('plugin.cloneFailed', { message }) : t('plugin.cloneFailedGeneral'))
+}
+
+/** 创建或恢复一个插件分身，两者共用同一个端点，由后缀决定走哪条路。 */
+async function executePluginClone(submission: PluginCloneSubmission) {
+  const pluginId = props.plugin?.id
+  if (!pluginId) return
+
   try {
-    showPluginProgress(t('plugin.cloning', { name: props.plugin?.plugin_name }))
+    const progressKey = submission.restoring ? 'plugin.cloneRestoring' : 'plugin.cloning'
+    showPluginProgress(t(progressKey, { name: props.plugin?.plugin_name }))
 
-    await api.post(
-      `plugin/clone/${props.plugin?.id}`,
-      {
-        suffix: cloneForm.suffix.trim(),
-        name: cloneForm.name.trim(),
-        description: cloneForm.description.trim(),
-        icon: cloneForm.icon.trim(),
-      },
-      { feedback: 'silent' },
-    )
+    const outcome = await createPluginClone(pluginId, submission.request)
 
-    $toast.success(t('plugin.cloneSuccess', { name: cloneForm.name }))
+    announceCloneSuccess(submission, outcome.instance_id)
     cloneDialogController?.close()
     cloneDialogController = null
-    emit('remove')
-    // 生命周期成功后刷新动态导航。
-    void pluginSidebarNavStore.ensureSidebarNav(true)
+    refreshAfterClone()
   } catch (error) {
-    const message = getApiBusinessErrorMessage(error)
-    $toast.error(message ? t('plugin.cloneFailed', { message }) : t('plugin.cloneFailedGeneral'))
-    console.error(error)
+    reportCloneFailure(error)
   } finally {
     closePluginProgress()
   }

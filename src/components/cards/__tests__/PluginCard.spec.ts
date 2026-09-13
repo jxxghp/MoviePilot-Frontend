@@ -1,3 +1,4 @@
+import { ApiRequestError } from '@/api/client'
 import type { Plugin } from '@/api/types'
 import PluginCard from '@/components/cards/PluginCard.vue'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
@@ -5,6 +6,7 @@ import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { normalizePluginAccentColor } from '@/utils/glassColor'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
   confirm: vi.fn(),
   dialogCloses: [] as Array<ReturnType<typeof vi.fn>>,
+  dialogUpdates: [] as Array<ReturnType<typeof vi.fn>>,
   openSharedDialog: vi.fn(),
   reloadPluginRuntime: vi.fn(),
   toastError: vi.fn(),
@@ -67,6 +70,27 @@ const ImageStub = defineComponent({
     '<button data-testid="plugin-image" @click="$emit(\'load\')" @contextmenu.prevent="$emit(\'error\')"><img /></button>',
 })
 
+/** 构造一个带 HTTP 状态与原始载荷的请求错误。 */
+function createHttpError(status: number, payload: unknown): ApiRequestError {
+  const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig
+  const response: AxiosResponse = {
+    config,
+    data: payload,
+    headers: new AxiosHeaders(),
+    status,
+    statusText: String(status),
+  }
+  return new ApiRequestError('Request failed', { payload, response })
+}
+
+/** 触发分身弹窗的提交事件；载荷是请求体加上「这次是恢复还是新建」。 */
+async function submitClone(submission: { request: Record<string, unknown>; restoring: boolean }) {
+  const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
+    clone: (value: typeof submission) => Promise<void>
+  }
+  await cloneEvents.clone(submission)
+}
+
 /** 展开插件卡片一级菜单及其中的高级操作二级菜单。 */
 async function openAdvancedActions(container: Element) {
   await fireEvent.click(container.querySelector<HTMLButtonElement>('.plugin-card__menu')!)
@@ -81,13 +105,16 @@ describe('PluginCard lifecycle actions', () => {
     mocks.apiPost.mockReset()
     mocks.confirm.mockReset().mockResolvedValue(true)
     mocks.dialogCloses.length = 0
+    mocks.dialogUpdates.length = 0
     mocks.openSharedDialog.mockReset().mockImplementation(() => {
       const close = vi.fn()
+      const updateProps = vi.fn()
       mocks.dialogCloses.push(close)
+      mocks.dialogUpdates.push(updateProps)
       return {
         close,
         id: mocks.dialogCloses.length,
-        updateProps: vi.fn(),
+        updateProps,
       }
     })
     mocks.reloadPluginRuntime.mockReset()
@@ -374,60 +401,68 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
   })
 
-  it('creates a clone with trimmed form values and refreshes navigation', async () => {
-    mocks.apiPost.mockResolvedValue({ success: true })
+  it('creates a clone and names the result by the instance id returned in the receipt', async () => {
+    // 不填后缀时前端算不出服务端分配到的号，展示名只能回落到回执里的实例 ID
+    mocks.apiPost.mockResolvedValue({ success: true, message: '', data: { instance_id: 'DemoPlugin2' } })
     const { container, emitted, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
     const sidebarStore = usePluginSidebarNavStore(pinia)
     vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
 
     await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
-    const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
-    }
-    await cloneEvents.clone({
-      suffix: ' Test ',
-      name: '演示分身',
-      description: ' 独立配置 ',
-      icon: ' https://example.com/icon.png ',
+    await submitClone({
+      request: { suffix: null, name: '', description: '', icon: '', restore_previous: true },
+      restoring: false,
     })
 
     expect(mocks.apiPost).toHaveBeenCalledWith('plugin/clone/DemoPlugin', {
-      suffix: 'Test',
-      name: '演示分身',
-      description: '独立配置',
-      icon: 'https://example.com/icon.png',
+      suffix: null,
+      name: '',
+      description: '',
+      icon: '',
+      restore_previous: true,
     })
-    expect(mocks.toastSuccess).toHaveBeenCalledWith('插件分身 演示分身 创建成功！')
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('插件分身 DemoPlugin2 创建成功！')
     expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
     expect(emitted().remove).toHaveLength(1)
     expect(mocks.dialogCloses[0]).toHaveBeenCalled()
     expect(mocks.dialogCloses[1]).toHaveBeenCalled()
   })
 
-  it('rejects an empty clone suffix before calling the API', async () => {
-    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
-    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+  it('tells reusing the kept configuration apart from rebuilding it when restoring', async () => {
+    mocks.apiPost.mockResolvedValue({ success: true, message: '', data: { instance_id: 'DemoPlugin2' } })
+    const reused = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(reused.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
-    const cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
-    }
-    await cloneEvents.clone({ suffix: ' ', name: '', description: '', icon: '' })
+    await submitClone({
+      request: { suffix: '2', name: '工作分身', description: '', icon: '', restore_previous: true },
+      restoring: true,
+    })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('分身 工作分身 已恢复，停用前的配置继续可用')
+    reused.unmount()
 
-    expect(mocks.toastError).toHaveBeenCalledWith('分身后缀不能为空')
-    expect(mocks.apiPost).not.toHaveBeenCalled()
+    mocks.openSharedDialog.mockClear()
+    mocks.dialogCloses.length = 0
+    const rebuilt = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(rebuilt.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('分身'))
+    await submitClone({
+      request: { suffix: '2', name: '工作分身', description: '', icon: '', restore_previous: false },
+      restoring: true,
+    })
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('分身 工作分身 已恢复，旧配置已丢弃，已按插件模板重建')
   })
 
   it('keeps clone dialog open after business and HTTP failures', async () => {
-    mocks.apiPost.mockResolvedValueOnce({ success: false, message: '后缀已存在' })
+    mocks.apiPost.mockResolvedValueOnce({ success: false, message: '后缀已存在', data: null })
     const businessFailed = await renderWithProviders(PluginCard, { props: { plugin } })
     await fireEvent.click(businessFailed.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
-    let cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (form: { suffix: string; name: string; description: string; icon: string }) => Promise<void>
+    const submission = {
+      request: { suffix: 'Test', name: '测试', description: '', icon: '', restore_previous: true },
+      restoring: false,
     }
-    const form = { suffix: 'Test', name: '测试', description: '', icon: '' }
-    await cloneEvents.clone(form)
+    await submitClone(submission)
     expect(mocks.toastError).toHaveBeenCalledWith('插件分身创建失败：后缀已存在')
     expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()
     businessFailed.unmount()
@@ -438,13 +473,64 @@ describe('PluginCard lifecycle actions', () => {
     const httpFailed = await renderWithProviders(PluginCard, { props: { plugin } })
     await fireEvent.click(httpFailed.container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
     await fireEvent.click(await screen.findByText('分身'))
-    cloneEvents = mocks.openSharedDialog.mock.calls[0][2] as {
-      clone: (value: typeof form) => Promise<void>
-    }
-    await cloneEvents.clone(form)
+    await submitClone(submission)
     expect(mocks.toastError).toHaveBeenCalledWith('插件分身创建失败')
     expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()
     expect(httpFailed.emitted()).not.toHaveProperty('remove')
+  })
+
+  it('paints 422 field level results onto the clone dialog instead of closing it', async () => {
+    mocks.apiPost.mockRejectedValueOnce(
+      createHttpError(422, {
+        detail: [
+          { loc: ['body', 'suffix'], msg: '后缀只能包含英文字母和数字', type: 'string_pattern_mismatch' },
+          // 服务端可以把结论落在任意字段上，分组必须按字段走而不是只认后缀
+          { loc: ['body', 'name'], msg: '名称过长', type: 'string_too_long' },
+        ],
+      }),
+    )
+    const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('分身'))
+    await submitClone({
+      request: { suffix: '工作', name: '', description: '', icon: '', restore_previous: true },
+      restoring: false,
+    })
+
+    expect(mocks.dialogUpdates[0]).toHaveBeenCalledWith({
+      fieldErrors: { suffix: ['后缀只能包含英文字母和数字'], name: ['名称过长'] },
+    })
+    expect(mocks.toastError).toHaveBeenCalledWith('服务端未接受这次提交：后缀只能包含英文字母和数字；名称过长')
+    expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()
+    expect(emitted()).not.toHaveProperty('remove')
+  })
+
+  it('does not ask to retry when the clone exists but attaching its jobs failed', async () => {
+    // success 为假但 data.instance_id 有值：分身真的建出来了，重试创建只会撞「已存在」
+    mocks.apiPost.mockResolvedValueOnce({
+      success: false,
+      message: '分身已创建，但注册定时任务失败',
+      data: { instance_id: 'DemoPlugin2' },
+    })
+    const { container, emitted, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const sidebarStore = usePluginSidebarNavStore(pinia)
+    vi.mocked(sidebarStore.ensureSidebarNav).mockResolvedValue(undefined)
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('分身'))
+    await submitClone({
+      request: { suffix: null, name: '', description: '', icon: '', restore_previous: true },
+      restoring: false,
+    })
+
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      '分身 DemoPlugin2 已经创建出来了，但补挂定时任务或路由失败。不要重复创建（会撞「已存在」）：请检查这个分身的配置，然后重载插件。',
+    )
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    // 分身已在册，列表与导航必须刷新到能看见它，用户才有得可查
+    expect(emitted().remove).toHaveLength(1)
+    expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
+    expect(mocks.dialogCloses[0]).toHaveBeenCalled()
   })
 
   it('opens data and config surfaces with reciprocal switch contracts', async () => {
