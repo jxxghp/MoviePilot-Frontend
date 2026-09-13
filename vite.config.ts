@@ -280,6 +280,17 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         changeOrigin: true,
         secure: false,
         cookieDomainRewrite: 'localhost',
+        configure(proxy) {
+          proxy.on('proxyReq', (proxyReq, _req, res) => {
+            // 图片响应到达前客户端就可能断开，必须在上游请求阶段绑定清理。
+            const cancelUpstream = () => {
+              if (!res.writableFinished) proxyReq.destroy()
+            }
+
+            res.once('close', cancelUpstream)
+            if (res.destroyed) cancelUpstream()
+          })
+        },
       },
     },
   },
