@@ -97,6 +97,17 @@ function isCurrentInstance(row: InstanceRow): boolean {
   return Boolean(currentId) && isSameInstance(row.instanceId, currentId)
 }
 
+/**
+ * 判断停用某一行分身之后，插件是否仍然「有分身」。
+ *
+ * 只有停用后仍「有分身」时，未点名实例的调用才会因为没有默认目标而直接失败；
+ * 只有本体、没有分身时调用直接落到本体，不受此约束。停用的行本身要从「停用后
+ * 剩余」里排除，已经停用的行不在 rows（在册清单）里，本体不算分身。
+ */
+function hasOtherClonesAfterDisabling(row: InstanceRow): boolean {
+  return rows.value.some(other => !other.isHost && !isSameInstance(other.instanceId, row.instanceId))
+}
+
 /** 把 ISO 时间转换为 datetime-local 输入框可直接使用的本地时间字符串。 */
 function toDatetimeLocalValue(iso?: string | null): string {
   if (!iso) return ''
@@ -464,7 +475,7 @@ watch(targetPluginId, () => {
                 <div class="text-body-2 text-medium-emphasis">{{ t('plugin.instanceDisableClearsPlacements') }}</div>
                 <div class="text-body-2 text-medium-emphasis">{{ t('plugin.instanceDisableLeavesList') }}</div>
                 <VAlert
-                  v-if="row.isDefaultTarget"
+                  v-if="row.isDefaultTarget && hasOtherClonesAfterDisabling(row)"
                   type="warning"
                   variant="tonal"
                   density="compact"

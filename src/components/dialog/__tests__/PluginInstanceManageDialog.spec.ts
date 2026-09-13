@@ -201,6 +201,43 @@ describe('PluginInstanceManageDialog', () => {
     expect(screen.getByText('业务参数与展示信息仍在，启用即恢复')).toBeInTheDocument()
   })
 
+  it('停用的分身是唯一分身时，即使它是默认调用目标也不警告调用会失败', async () => {
+    // 停用后只剩本体，调用直接落到本体，不受「未点名实例的调用会失败」约束
+    mocks.getInstalledPlugins.mockResolvedValue([
+      installedPlugins[0],
+      { ...installedPlugins[1], is_default_target: true },
+    ])
+    await renderDialog()
+
+    await fireEvent.click(await screen.findByTestId('instance-disable-DemoPluginwork'))
+
+    expect(screen.queryByText('它是当前的默认调用目标，停用后没有点名实例的调用会失败，直到重新指定。')).toBeNull()
+  })
+
+  it('停用的分身是默认调用目标、但还有其他在册分身时，警告调用会失败', async () => {
+    const multiCloneOverview: PluginInstanceLogLevelOverview = {
+      plugin_id: 'DemoPlugin',
+      instances: [
+        overview.instances[0],
+        overview.instances[1],
+        { instance_id: 'DemoPluginwork2', configured_level: null, expires_at: null, effective_level: 'INFO' },
+      ],
+    }
+    mocks.getPluginInstanceLogLevels.mockResolvedValue(multiCloneOverview)
+    mocks.getInstalledPlugins.mockResolvedValue([
+      installedPlugins[0],
+      { ...installedPlugins[1], is_default_target: true },
+      { id: 'DemoPluginwork2', plugin_name: '备用分身', is_instance: true, source_plugin_id: 'DemoPlugin' },
+    ])
+    await renderDialog()
+
+    await fireEvent.click(await screen.findByTestId('instance-disable-DemoPluginwork'))
+
+    expect(
+      screen.getByText('它是当前的默认调用目标，停用后没有点名实例的调用会失败，直到重新指定。'),
+    ).toBeInTheDocument()
+  })
+
   it('刚停用的实例可以当场再启用', async () => {
     await renderDialog()
     await fireEvent.click(await screen.findByTestId('instance-disable-DemoPluginwork'))
