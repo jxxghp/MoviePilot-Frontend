@@ -3486,6 +3486,7 @@ onScopeDispose(() => {
   position: relative;
   display: grid;
   block-size: 100vh;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 0;
 
@@ -3947,7 +3948,10 @@ onScopeDispose(() => {
 .agent-assistant-segments {
   display: grid;
   gap: 0.5rem;
+  /* 长工具参数和 Markdown 表格不能以内容最小宽度撑开整列消息。 */
+  grid-template-columns: minmax(0, 1fr);
   inline-size: min(100%, 34rem);
+  min-inline-size: 0;
 }
 
 .agent-assistant-segments .agent-assistant-message__bubble {
@@ -3964,13 +3968,21 @@ onScopeDispose(() => {
   column-gap: 0.45rem;
   font-size: 0.8rem;
   line-height: 1.35;
+  min-inline-size: 0;
   padding-block: 0.45rem;
   padding-inline: 0.6rem;
+}
+
+.agent-assistant-tool span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .agent-assistant-choices {
   display: grid;
   gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr);
   inline-size: min(100%, 34rem);
   margin-block-start: 0.5rem;
 }
@@ -3978,6 +3990,7 @@ onScopeDispose(() => {
 .agent-assistant-choice {
   display: grid;
   gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .agent-assistant-choice__bubble {
@@ -3987,6 +4000,7 @@ onScopeDispose(() => {
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
   background: var(--agent-assistant-assistant-bg);
   gap: 0.65rem;
+  grid-template-columns: minmax(0, 1fr);
   padding-block: 0.75rem;
   padding-inline: 0.8rem;
 }
@@ -4051,11 +4065,13 @@ onScopeDispose(() => {
   border-radius: var(--app-control-radius) !important;
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
   background: rgba(var(--v-theme-surface), 0.9) !important;
+  block-size: auto;
   box-shadow: none !important;
   color: rgb(var(--v-theme-primary)) !important;
   max-inline-size: 100%;
   min-block-size: 2.7rem;
-  min-inline-size: max-content;
+  min-inline-size: 0;
+  padding-block: 0.5rem;
 }
 
 .agent-assistant-choice__button:disabled {
@@ -4063,10 +4079,9 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-choice__button :deep(.v-btn__content) {
-  overflow: hidden;
   min-inline-size: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .agent-assistant-typing {
@@ -4363,6 +4378,7 @@ onScopeDispose(() => {
 }
 
 .markdown-body {
+  min-inline-size: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
 
