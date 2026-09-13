@@ -4754,6 +4754,8 @@ export default {
     cloneIconHint: '自定義分身插件的圖標（可選）',
     cloneNotice: '分身插件創建後默認為禁用狀態，需要手動配置啟用。分身後綴一旦確定無法修改。',
     cloneRestoreTitle: '恢復插件分身',
+    cloneRestoreNotice:
+      '恢復出來的分身同樣默認為禁用狀態，需要手動啟用。它用的還是原來那個實例 ID，是同一個分身，不是新建的一個。',
     cloneRestorableTitle: '可恢復的已停用分身',
     cloneRestorableOnlyDisabled: '這裡只列已停用的分身；啟用中的分身配置正被使用，恢復它沒有意義。',
     cloneRestorableSameEndpoint: '恢復和新建是同一個入口：點一行即把它的後綴填進上面的輸入框，提交就是恢復那一行。',

@@ -4948,6 +4948,8 @@ export default {
     cloneNotice:
       'Clone plugins are disabled by default after creation and need to be manually configured and enabled. The clone suffix cannot be modified once set.',
     cloneRestoreTitle: 'Restore Plugin Clone',
+    cloneRestoreNotice:
+      'A restored clone is also disabled by default and needs to be enabled manually. It keeps its original instance ID — this is the same clone, not a new one.',
     cloneRestorableTitle: 'Restorable disabled clones',
     cloneRestorableOnlyDisabled:
       'Only disabled clones are listed here; an enabled clone is already using its configuration, so restoring it is meaningless.',

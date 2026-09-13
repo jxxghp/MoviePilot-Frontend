@@ -48,6 +48,9 @@ const visible = computed({
   },
 })
 
+// 表单上真实存在的输入框，服务端结论落在这几个字段上才画得回去
+const FORM_FIELDS = ['suffix', 'name', 'description', 'icon']
+
 // 插件分身表单
 const cloneForm = ref({
   suffix: '',
@@ -112,6 +115,23 @@ const suffixErrors = computed(() => {
 
 const submitDisabled = computed(() => isCloneOfClone.value || suffixErrors.value.length > 0)
 
+/** 取某个输入框对应的服务端校验结论。 */
+function serverErrorsFor(field: string): string[] {
+  return serverFieldErrors.value[field] ?? []
+}
+
+/**
+ * 对不上任何输入框的服务端校验结论。
+ *
+ * 服务端可以把结论落在任意字段上，甚至落在整个请求体上。落不到输入框的那些若不
+ * 单独列出来就等于被悄悄丢掉，用户只会看到提交失败却找不到哪里不对。
+ */
+const unmappedServerErrors = computed(() =>
+  Object.entries(serverFieldErrors.value)
+    .filter(([field]) => !FORM_FIELDS.includes(field))
+    .flatMap(([, messages]) => messages),
+)
+
 /** 初始化插件分身表单。 */
 function initializeCloneForm() {
   cloneForm.value = {
@@ -146,20 +166,18 @@ async function loadRestorable() {
   }
 }
 
-/**
- * 选中一条可恢复分身，即把它的后缀填进输入框。
- *
- * 展示信息一并清空：留空才表示沿用这个分身停用前登记的那份，而表单里此刻放的是
- * 新建用的默认名称与描述，照原样提交会把用户当初配好的展示信息盖掉。
- */
+/** 选中一条可恢复分身，即把它的后缀填进输入框。 */
 function selectRestorable(item: PluginRestorableInstance) {
-  cloneForm.value = { suffix: item.suffix, name: '', description: '', icon: '' }
+  cloneForm.value = { ...cloneForm.value, suffix: item.suffix }
   serverFieldErrors.value = {}
 }
 
-/** 编辑后缀后，服务端针对旧后缀给出的校验结论即刻作废。 */
-function onSuffixInput() {
-  if (serverFieldErrors.value.suffix?.length) serverFieldErrors.value = {}
+/** 编辑某个字段后，服务端针对它的旧结论即刻作废；别的字段的结论仍然成立。 */
+function onFieldInput(field: string) {
+  if (!serverFieldErrors.value[field]?.length) return
+  const remaining = { ...serverFieldErrors.value }
+  delete remaining[field]
+  serverFieldErrors.value = remaining
 }
 
 /** 提交插件分身表单。 */
@@ -180,6 +198,23 @@ function submitClone() {
   }
   emit('clone', submission)
 }
+
+/**
+ * 后缀命中可恢复分身的那一刻，清空名称、描述与图标。
+ *
+ * 留空才表示沿用这个分身停用前登记的那份，而表单里此刻放的是新建用的默认值，照原样
+ * 提交会把用户当初配好的展示信息盖掉。点选清单行与手填出同一个后缀都会走到这里，
+ * 两条路因而等效。
+ *
+ * 只在「命中的是哪一行」变化时清一次，而不是每次输入都清：命中之后用户主动填写的
+ * 覆盖值必须留住，否则他继续敲后缀就会把刚填的名字冲掉。
+ */
+watch(
+  () => matchedRestorable.value?.instance_id,
+  instanceId => {
+    if (instanceId) cloneForm.value = { ...cloneForm.value, name: '', description: '', icon: '' }
+  },
+)
 
 watch(
   () => props.fieldErrors,
@@ -232,7 +267,7 @@ onMounted(() => {
                 :error-messages="suffixErrors"
                 persistent-hint
                 prepend-inner-icon="mdi-tag"
-                @update:model-value="onSuffixInput"
+                @update:model-value="onFieldInput('suffix')"
               />
             </VCol>
 
@@ -340,7 +375,9 @@ onMounted(() => {
                 v-model="cloneForm.name"
                 :label="t('plugin.cloneName')"
                 :placeholder="t('plugin.cloneNamePlaceholder')"
+                :error-messages="serverErrorsFor('name')"
                 prepend-inner-icon="mdi-rename-box"
+                @update:model-value="onFieldInput('name')"
               />
             </VCol>
 
@@ -349,7 +386,9 @@ onMounted(() => {
                 v-model="cloneForm.description"
                 :label="t('plugin.cloneDescriptionLabel')"
                 :placeholder="t('plugin.cloneDescriptionPlaceholder')"
+                :error-messages="serverErrorsFor('description')"
                 prepend-inner-icon="mdi-text"
+                @update:model-value="onFieldInput('description')"
               />
             </VCol>
 
@@ -358,7 +397,9 @@ onMounted(() => {
                 v-model="cloneForm.icon"
                 :label="t('plugin.cloneIcon')"
                 :placeholder="t('plugin.cloneIconPlaceholder')"
+                :error-messages="serverErrorsFor('icon')"
                 prepend-inner-icon="mdi-image"
+                @update:model-value="onFieldInput('icon')"
               />
             </VCol>
 
@@ -369,11 +410,24 @@ onMounted(() => {
               </div>
             </VCol>
 
+            <VCol v-if="unmappedServerErrors.length > 0" cols="12">
+              <!-- 落不到任何输入框的服务端结论，单独列出来才不会被悄悄丢掉 -->
+              <VAlert type="error" variant="tonal" density="compact" data-testid="clone-form-errors">
+                <div v-for="message in unmappedServerErrors" :key="message" class="text-body-2">{{ message }}</div>
+              </VAlert>
+            </VCol>
+
             <VCol cols="12">
-              <VAlert type="warning" variant="tonal" density="compact" icon="mdi-alert-circle-outline">
+              <VAlert
+                type="warning"
+                variant="tonal"
+                density="compact"
+                icon="mdi-alert-circle-outline"
+                data-testid="clone-notice"
+              >
                 <div class="text-body-2">
                   <strong>{{ t('common.notice') }}</strong
-                  >：{{ t('plugin.cloneNotice') }}
+                  >：{{ isRestoring ? t('plugin.cloneRestoreNotice') : t('plugin.cloneNotice') }}
                 </div>
               </VAlert>
             </VCol>

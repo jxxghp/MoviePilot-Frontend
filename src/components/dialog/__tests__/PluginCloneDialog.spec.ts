@@ -216,6 +216,72 @@ describe('PluginCloneDialog', () => {
     expect(emitted().clone).toBeUndefined()
   })
 
+  it('手填的后缀命中恢复项时同样清空展示信息，此后用户填写的值不再被冲掉', async () => {
+    // 点清单行与手填同一个后缀必须等效：否则新建用的默认名称会被当成用户意图送出去，
+    // 把这个分身停用前登记的展示信息盖掉
+    const { emitted } = await renderDialog()
+    await screen.findByText('工作分身')
+
+    await fillSuffix('2')
+
+    expect(screen.getByLabelText('分身名称')).toHaveValue('')
+    expect(screen.getByLabelText('分身描述')).toHaveValue('')
+    expect(screen.getByLabelText('图标URL')).toHaveValue('')
+
+    // 命中之后用户主动填写的覆盖值要留住，不能因为他继续敲后缀就被反复清掉
+    await fireEvent.update(screen.getByLabelText('分身名称'), '我改过的名字')
+    await fillSuffix('2')
+
+    expect(screen.getByLabelText('分身名称')).toHaveValue('我改过的名字')
+
+    await fireEvent.click(screen.getByRole('button', { name: '恢复分身' }))
+
+    expect(lastSubmission(emitted()).request).toMatchObject({ suffix: '2', name: '我改过的名字' })
+  })
+
+  it('恢复模式下底部提示换成恢复文案，不再讲创建流程', async () => {
+    await renderDialog()
+    await fireEvent.click(await screen.findByTestId('clone-restorable-DemoPlugin2'))
+
+    expect(screen.getByTestId('clone-notice')).toHaveTextContent(
+      '恢复出来的分身同样默认为禁用状态，需要手动启用。它用的还是原来那个实例 ID，是同一个分身，不是新建的一个。',
+    )
+    expect(screen.getByTestId('clone-notice')).not.toHaveTextContent('分身后缀一旦确定无法修改')
+  })
+
+  it('服务端把校验结论落在非后缀字段上时，同样画到对应的输入框', async () => {
+    const { rerender } = await renderDialog()
+
+    await rerender({
+      modelValue: true,
+      plugin,
+      fieldErrors: { name: ['名称过长'], description: ['描述含有非法字符'], icon: ['图标地址不合法'] },
+    })
+
+    expect(await screen.findByText('名称过长')).toBeInTheDocument()
+    expect(screen.getByText('描述含有非法字符')).toBeInTheDocument()
+    expect(screen.getByText('图标地址不合法')).toBeInTheDocument()
+  })
+
+  it('对不上任何输入框的校验结论单独列出，不被悄悄丢掉', async () => {
+    const { rerender } = await renderDialog()
+
+    await rerender({ modelValue: true, plugin, fieldErrors: { form: ['请求体不合法'] } })
+
+    expect(await screen.findByTestId('clone-form-errors')).toHaveTextContent('请求体不合法')
+  })
+
+  it('改动某个字段只作废它自己的旧结论，别的字段仍标着红', async () => {
+    const { rerender } = await renderDialog()
+    await rerender({ modelValue: true, plugin, fieldErrors: { suffix: ['该后缀已被占用'], name: ['名称过长'] } })
+    await screen.findByText('该后缀已被占用')
+
+    await fillSuffix('Work2')
+
+    await waitFor(() => expect(screen.queryByText('该后缀已被占用')).toBeNull())
+    expect(screen.getByText('名称过长')).toBeInTheDocument()
+  })
+
   it('通过 modelValue 契约关闭', async () => {
     const { emitted } = await renderDialog()
 

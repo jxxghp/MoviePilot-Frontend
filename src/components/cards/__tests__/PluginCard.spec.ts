@@ -482,7 +482,11 @@ describe('PluginCard lifecycle actions', () => {
   it('paints 422 field level results onto the clone dialog instead of closing it', async () => {
     mocks.apiPost.mockRejectedValueOnce(
       createHttpError(422, {
-        detail: [{ loc: ['body', 'suffix'], msg: '后缀只能包含英文字母和数字', type: 'string_pattern_mismatch' }],
+        detail: [
+          { loc: ['body', 'suffix'], msg: '后缀只能包含英文字母和数字', type: 'string_pattern_mismatch' },
+          // 服务端可以把结论落在任意字段上，分组必须按字段走而不是只认后缀
+          { loc: ['body', 'name'], msg: '名称过长', type: 'string_too_long' },
+        ],
       }),
     )
     const { container, emitted } = await renderWithProviders(PluginCard, { props: { plugin } })
@@ -493,8 +497,10 @@ describe('PluginCard lifecycle actions', () => {
       restoring: false,
     })
 
-    expect(mocks.dialogUpdates[0]).toHaveBeenCalledWith({ fieldErrors: { suffix: ['后缀只能包含英文字母和数字'] } })
-    expect(mocks.toastError).toHaveBeenCalledWith('服务端未接受这次提交：后缀只能包含英文字母和数字')
+    expect(mocks.dialogUpdates[0]).toHaveBeenCalledWith({
+      fieldErrors: { suffix: ['后缀只能包含英文字母和数字'], name: ['名称过长'] },
+    })
+    expect(mocks.toastError).toHaveBeenCalledWith('服务端未接受这次提交：后缀只能包含英文字母和数字；名称过长')
     expect(mocks.dialogCloses[0]).not.toHaveBeenCalled()
     expect(emitted()).not.toHaveProperty('remove')
   })
