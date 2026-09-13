@@ -181,6 +181,7 @@ async function requestResourcePage(page: number, requestId: number): Promise<Tor
       cat: selectCategory.value.join(','),
       page,
     },
+    feedback: 'silent',
   })
 
   if (requestId !== resourceRequestId) return undefined
@@ -266,7 +267,8 @@ function restoreMobileSearch(): void {
 // 加载站点分类；分类失败不阻断资源浏览。
 async function getSiteCategoryList(): Promise<void> {
   try {
-    siteCategoryList.value = (await api.get<SiteCategory[], SiteCategory[]>(`site/category/${props.site?.id}`)) ?? []
+    siteCategoryList.value =
+      (await api.get<SiteCategory[], SiteCategory[]>(`site/category/${props.site?.id}`, { feedback: 'silent' })) ?? []
   } catch (error) {
     console.error(error)
   }

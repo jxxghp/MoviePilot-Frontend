@@ -13,6 +13,15 @@ import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, type Component, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mocks = vi.hoisted(() => ({
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+}))
+
+vi.mock('vue-toastification', () => ({
+  useToast: () => ({ error: mocks.toastError, success: mocks.toastSuccess }),
+}))
+
 const AddDownloadDialogStub = defineComponent({
   name: 'AddDownloadDialog',
   props: {
@@ -99,6 +108,8 @@ describe('SiteResourceDialog', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mocks.toastError.mockClear()
+    mocks.toastSuccess.mockClear()
     setViewport(1280)
   })
 
@@ -253,13 +264,14 @@ describe('SiteResourceDialog', () => {
     expect(requests[1].searchParams.get('cat')).toBe('11,22')
   })
 
-  it('distinguishes a valid empty resource list from a category request failure', async () => {
+  it('silences optional category failures while keeping the resource list usable', async () => {
     server.use(siteCategoriesHandler(501, [], 500), siteResourcesHandler(501, []))
 
     await renderDialog()
 
     expect(await screen.findByText('没有数据')).toBeInTheDocument()
     expect(screen.queryByText('资源加载失败，请重试')).not.toBeInTheDocument()
+    expect(mocks.toastError).not.toHaveBeenCalled()
     await waitFor(() => expect(console.error).toHaveBeenCalledOnce())
   })
 
