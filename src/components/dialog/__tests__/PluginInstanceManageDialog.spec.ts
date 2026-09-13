@@ -238,6 +238,39 @@ describe('PluginInstanceManageDialog', () => {
     ).toBeInTheDocument()
   })
 
+  it('本次会话内先停用一个分身，再停用作为默认调用目标的另一个分身时，前者不计入剩余分身', async () => {
+    // 还原真实时序：确认停用后，disabledRows 立刻把这一行标成已停用，但
+    // getPluginInstanceLogLevels/getInstalledPlugins 的回执刻意不更新——不管是
+    // 后端还没反映过来，还是这两个接口本就不会摘掉刚停用的实例，剩余分身的判断
+    // 都不能靠它们兜底，必须认本地的 isEnabled 覆盖
+    const multiCloneOverview: PluginInstanceLogLevelOverview = {
+      plugin_id: 'DemoPlugin',
+      instances: [
+        overview.instances[0],
+        overview.instances[1],
+        { instance_id: 'DemoPluginwork2', configured_level: null, expires_at: null, effective_level: 'INFO' },
+      ],
+    }
+    mocks.getPluginInstanceLogLevels.mockResolvedValue(multiCloneOverview)
+    mocks.getInstalledPlugins.mockResolvedValue([
+      installedPlugins[0],
+      { ...installedPlugins[1], is_default_target: true },
+      { id: 'DemoPluginwork2', plugin_name: '备用分身', is_instance: true, source_plugin_id: 'DemoPlugin' },
+    ])
+    await renderDialog()
+
+    // 先停用非默认目标的那个分身，两个接口的回执全程保持不变
+    await fireEvent.click(await screen.findByTestId('instance-disable-DemoPluginwork2'))
+    await fireEvent.click(screen.getByTestId('instance-disable-confirm-DemoPluginwork2'))
+    await waitFor(() => expect(mocks.setPluginInstanceEnabled).toHaveBeenCalledWith('DemoPluginwork2', false))
+    await screen.findByTestId('instance-enable-DemoPluginwork2')
+
+    // 再停用作为默认调用目标的分身：停用后在册的只剩本体，不该再警告调用会失败
+    await fireEvent.click(screen.getByTestId('instance-disable-DemoPluginwork'))
+
+    expect(screen.queryByText('它是当前的默认调用目标，停用后没有点名实例的调用会失败，直到重新指定。')).toBeNull()
+  })
+
   it('刚停用的实例可以当场再启用', async () => {
     await renderDialog()
     await fireEvent.click(await screen.findByTestId('instance-disable-DemoPluginwork'))
