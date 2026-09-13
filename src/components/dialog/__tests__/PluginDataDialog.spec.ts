@@ -56,10 +56,13 @@ const plugin: Plugin = {
 
 const DialogStub = defineComponent({
   name: 'VDialog',
+  props: {
+    maxWidth: String,
+  },
   setup:
-    (_, { slots }) =>
+    (props, { slots }) =>
     () =>
-      h('section', { role: 'dialog' }, slots.default?.()),
+      h('section', { 'data-max-width': props.maxWidth, role: 'dialog' }, slots.default?.()),
 })
 
 const LoadingBannerStub = defineComponent({
@@ -122,7 +125,7 @@ function createRemotePage(captures: RemoteCapture[]): Component {
       nativeSubscribe: Function,
       show_switch: Boolean,
     },
-    emits: ['action', 'close', 'switch'],
+    emits: ['action', 'close', 'layout', 'switch'],
     setup(props, { emit }) {
       captures.push({
         api: props.api,
@@ -136,6 +139,7 @@ function createRemotePage(captures: RemoteCapture[]): Component {
       return () =>
         h('section', { 'data-testid': 'remote-page' }, [
           h('button', { onClick: () => emit('action'), type: 'button' }, '刷新远程页面'),
+          h('button', { onClick: () => emit('layout', { maxWidth: '68rem' }), type: 'button' }, '调整布局'),
           h('button', { onClick: () => emit('switch'), type: 'button' }, '切换配置'),
           h('button', { onClick: () => emit('close'), type: 'button' }, '关闭远程页面'),
         ])
@@ -222,7 +226,10 @@ describe('PluginDataDialog', () => {
     expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
     expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
 
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '80rem')
     await fireEvent.click(screen.getByRole('button', { name: '刷新远程页面' }))
+    await fireEvent.click(screen.getByRole('button', { name: '调整布局' }))
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '68rem')
     await fireEvent.click(screen.getByRole('button', { name: '切换配置' }))
     await fireEvent.click(screen.getByRole('button', { name: '关闭远程页面' }))
 
