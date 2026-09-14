@@ -289,6 +289,17 @@ function tv(id: number, name: string, overrides: Partial<Subscribe> = {}) {
   return createSubscribe({ id, name, type: '电视剧', username: 'tester', ...overrides })
 }
 
+function album(id: number, name: string, overrides: Partial<Subscribe> = {}) {
+  return createSubscribe({
+    id,
+    name,
+    music_type: 'album',
+    type: '音乐',
+    username: 'tester',
+    ...overrides,
+  })
+}
+
 function executionBatch(overrides: Partial<SubscriptionBatchStatus> = {}): SubscriptionBatchStatus {
   return {
     batch_id: 'batch-1',
@@ -940,6 +951,21 @@ describe('SubscribeListView loading and filtering', () => {
       tv(16, 'Not started', { completed_episode: 0, lack_episode: 10, total_episode: 10 }),
     ]
     await renderList({ listResponse: subscriptions, statusFilter, type: '电视剧' })
+
+    expect(await screen.findByText(expectedName)).toBeInTheDocument()
+    expect(displayedNames()).toEqual([expectedName])
+  })
+
+  it.each([
+    ['completed', 'Completed', { completed_tracks: 11, total_tracks: 11 }],
+    ['subscribing', 'Subscribing', { completed_tracks: 3, total_tracks: 11 }],
+    ['not_started', 'Not started', { completed_tracks: 0, total_tracks: 11 }],
+  ])('derives the %s status for an album from accumulated tracks', async (statusFilter, expectedName, progress) => {
+    await renderList({
+      listResponse: [album(21, expectedName, progress)],
+      statusFilter,
+      type: '音乐',
+    })
 
     expect(await screen.findByText(expectedName)).toBeInTheDocument()
     expect(displayedNames()).toEqual([expectedName])

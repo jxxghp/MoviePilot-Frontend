@@ -172,6 +172,18 @@ function isTvSubscribe(media?: Subscribe) {
   return media?.type === '电视剧' || media?.type === 'tv' || !!media?.season || !!media?.total_episode
 }
 
+// 专辑订阅使用独立曲目进度；没有总曲目数的旧数据继续展示实体元数据。
+const isMusicAlbumSubscribe = computed(() => {
+  const total = props.media?.total_tracks || 0
+  return props.media?.type === '音乐' && props.media?.music_type === 'album' && total > 0
+})
+
+// 电视剧和专辑共用卡片进度展示，但两者的完成事实分别由后端派生。
+const hasSubscribeProgress = computed(() => {
+  const totalEpisode = props.media?.total_episode || 0
+  return totalEpisode > 0 || isMusicAlbumSubscribe.value
+})
+
 // 已下载集数：total_episode - lack_episode
 const downloadedEpisode = computed(() => {
   const total = props.media?.total_episode || 0
@@ -230,11 +242,28 @@ const completedEpisode = computed(() => {
   return Math.min(Math.max(props.media?.completed_episode ?? 0, 0), total)
 })
 
+// 已累计下载曲目数：由后端按独立音轨事实去重后返回，前端只负责显示边界内的值。
+const completedTracks = computed(() => {
+  const total = props.media?.total_tracks || 0
+  return Math.min(Math.max(props.media?.completed_tracks ?? 0, 0), total)
+})
+
+const subscribeProgressTotal = computed(() => {
+  if (isMusicAlbumSubscribe.value) return props.media?.total_tracks || 0
+  return props.media?.total_episode || 0
+})
+
+const subscribeProgressDownloaded = computed(() => {
+  if (isMusicAlbumSubscribe.value) return completedTracks.value
+  return isBestVersion.value ? completedEpisode.value : downloadedEpisode.value
+})
+
 // 卡片主文案：已下载集数 / 总集数
 const subscribeProgressText = computed(() => {
-  const total = props.media?.total_episode || 0
+  const total = subscribeProgressTotal.value
   if (!total) return ''
-  return `${downloadedEpisode.value} / ${total}`
+  const downloaded = isMusicAlbumSubscribe.value ? completedTracks.value : downloadedEpisode.value
+  return `${downloaded} / ${total}`
 })
 
 // 音乐订阅始终展示实体类型；旧数据缺少 music_type 时按既有单曲语义兼容。
@@ -283,8 +312,15 @@ const compactStateText = computed(
 // - 普通订阅：「已下载 X · 共 Y 集」
 // - 洗版订阅：「已下载 X · 已洗版 N · 共 Y 集」
 const subscribeProgressTooltip = computed(() => {
-  const total = props.media?.total_episode || 0
+  const total = subscribeProgressTotal.value
   if (!total) return ''
+
+  if (isMusicAlbumSubscribe.value) {
+    return t('subscribe.musicSubscribeProgressTooltip', {
+      downloaded: completedTracks.value,
+      total,
+    })
+  }
 
   if (isBestVersion.value) {
     return t('subscribe.bestVersionEpisodeProgressTooltip', {
@@ -315,10 +351,9 @@ function posterErrorHandler() {
 
 // 进度条 model 段百分比：洗版订阅表示"已洗版"占比（亮段），普通订阅表示"已下载"占比
 function getPercentage() {
-  const total = props.media?.total_episode || 0
+  const total = subscribeProgressTotal.value
   if (!total) return 0
-  const value = isBestVersion.value ? completedEpisode.value : downloadedEpisode.value
-  return Math.round((value / total) * 100)
+  return Math.round((subscribeProgressDownloaded.value / total) * 100)
 }
 
 // 洗版进度条的 buffer 段百分比：表示"已下载"占比，仅在洗版场景被模板调用
@@ -825,7 +860,7 @@ function handleCardClick() {
                       </IconBtn>
                     </div>
 
-                    <div v-if="props.media?.total_episode" class="subscribe-card-mobile-progress">
+                    <div v-if="hasSubscribeProgress" class="subscribe-card-mobile-progress">
                       <VProgressLinear
                         :model-value="getPercentage()"
                         :bg-color="compactStateDisplay.color"
@@ -869,28 +904,28 @@ function handleCardClick() {
                 >
                   <div class="flex min-w-0 max-w-full align-center">
                     <VIcon
-                      v-if="props.media?.total_episode && props.sortable"
+                      v-if="hasSubscribeProgress && props.sortable"
                       icon="mdi-progress-download"
                       size="small"
                       color="white"
                       class="me-1"
                     />
                     <IconBtn
-                      v-else-if="props.media?.total_episode"
+                      v-else-if="hasSubscribeProgress"
                       size="small"
                       v-bind="props"
                       icon="mdi-progress-download"
                       color="white"
                     />
-                    <!-- 守卫改用 total_episode：电视剧订阅可能不带 season 字段（旧数据或自定义来源），仍应展示集数进度 -->
-                    <div v-if="props.media?.total_episode" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
+                    <!-- 电视剧按集数、专辑按曲目数展示持续进度；无总数的旧专辑仍走实体元数据。 -->
+                    <div v-if="hasSubscribeProgress" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
                       {{ subscribeProgressText }}
                       <VTooltip v-if="subscribeProgressTooltip" activator="parent" location="top">
                         {{ subscribeProgressTooltip }}
                       </VTooltip>
                     </div>
                     <div
-                      v-else-if="musicSubscribeMeta"
+                      v-if="musicSubscribeMeta"
                       class="flex flex-shrink-0 align-center text-subtitle-2 me-2 text-white"
                     >
                       <VIcon :icon="musicSubscribeMeta.icon" size="small" class="me-1" />

@@ -261,9 +261,18 @@ function getSubscribeStatus(subscribe: Subscribe) {
     return 'paused' // 暂停
   }
 
-  // 电影、单曲和整专都是原子下载目标；整专曲目总数由订阅卡片单独展示，不映射成分集进度。
-  if (subscribe.type === '电影' || subscribe.type === '音乐') {
+  // 电影和单曲仍是原子下载目标；旧专辑没有总曲目数时保留原有兼容状态。
+  if (subscribe.type === '电影' || (subscribe.type === '音乐' && subscribe.music_type !== 'album')) {
     return 'all'
+  }
+
+  // 专辑按后端累计的去重曲目数筛选列表状态，只有达到总曲目数才算完成。
+  if (subscribe.type === '音乐' && subscribe.music_type === 'album') {
+    const totalTracks = subscribe.total_tracks || 0
+    if (totalTracks <= 0) return 'all'
+    const completedTracks = Math.min(Math.max(subscribe.completed_tracks ?? 0, 0), totalTracks)
+    if (completedTracks >= totalTracks) return 'completed'
+    return completedTracks > 0 ? 'subscribing' : 'not_started'
   }
 
   // 电视剧根据集数情况判断：completed_episode 由后端按订阅类型派生

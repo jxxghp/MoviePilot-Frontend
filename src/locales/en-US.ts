@@ -1442,6 +1442,7 @@ export default {
     bestVersionWholeShort: 'Full',
     bestVersionEpisodeProgressTooltip: 'Upgraded {completed} · Downloaded {downloaded} · Total {total}',
     subscribeProgressTooltip: 'Downloaded {downloaded} · Total {total}',
+    musicSubscribeProgressTooltip: 'Downloaded {downloaded} · Total {total} tracks',
     completed: 'Completed',
     subscribing: 'Subscribing',
     notStarted: 'Not Started',

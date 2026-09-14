@@ -135,6 +135,8 @@ export interface Subscribe {
   music_type?: MusicEntityType
   // 专辑总曲目数
   total_tracks?: number
+  // 专辑已累计下载曲目数
+  completed_tracks?: number
   // 季号
   season?: number
   // 海报

@@ -183,9 +183,10 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('img')).toBeNull()
   })
 
-  it.each([480, 1024])('shows whole-album track count without fake episode progress at %ipx', async width => {
+  it.each([480, 1024])('shows accumulated whole-album progress at %ipx', async width => {
     setViewport(width)
     await renderCard({
+      completed_tracks: 3,
       music_type: 'album',
       name: '叶惠美',
       total_episode: undefined,
@@ -193,9 +194,9 @@ describe('SubscribeCard display and progress', () => {
       type: '音乐',
     })
 
-    expect(screen.getByText('专辑 · 11 首')).toBeInTheDocument()
-    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
-    expect(screen.queryByText(/^\d{1,4} \/ \d{1,4}$/)).not.toBeInTheDocument()
+    expect(screen.getByText('3 / 11')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '27')
+    if (width === 1024) expect(screen.getByText('专辑 · 11 首')).toBeInTheDocument()
   })
 
   it('shows the current music quality on a music subscription card', async () => {

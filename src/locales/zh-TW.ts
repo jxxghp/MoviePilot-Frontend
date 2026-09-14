@@ -1421,6 +1421,7 @@ export default {
     bestVersionWholeShort: '全集',
     bestVersionEpisodeProgressTooltip: '已洗版 {completed} · 已下載 {downloaded} · 共 {total} 集',
     subscribeProgressTooltip: '已下載 {downloaded} · 共 {total} 集',
+    musicSubscribeProgressTooltip: '已下載 {downloaded} · 共 {total} 首',
     completed: '訂閱完成',
     subscribing: '訂閱中',
     notStarted: '未開始',
