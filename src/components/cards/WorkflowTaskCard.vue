@@ -6,6 +6,7 @@ import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { formatDateDifference } from '@/@core/utils/formatters'
+import { getWorkflowGradient } from '@/@core/utils/workflowGradient'
 
 const WorkflowActionsDialog = defineAsyncComponent(() => import('@/components/dialog/WorkflowActionsDialog.vue'))
 const WorkflowAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/WorkflowAddEditDialog.vue'))
@@ -190,6 +191,17 @@ const resolveStatusVariant = (status: string | undefined) => {
 
 const statusVariant = computed(() => resolveStatusVariant(props.workflow.state))
 
+// 复用分享卡片的稳定随机渐变，保证同一个工作流在不同卡片位置保持一致的识别色。
+const gradientStyle = computed(() => {
+  const { startRgb, endRgb, backgroundImage } = getWorkflowGradient(props.workflow.id)
+
+  return {
+    '--workflow-card-gradient-start-rgb': startRgb,
+    '--workflow-card-gradient-end-rgb': endRgb,
+    backgroundImage,
+  }
+})
+
 const triggerDisplay = computed(() => {
   if (props.workflow.trigger_type === 'event') {
     return {
@@ -240,6 +252,13 @@ const finishedActionCount = computed(() => {
   const count = Number.isFinite(runtimeCount) && runtimeCount >= 0 ? Math.trunc(runtimeCount) : fallbackCount
 
   return Math.min(Math.max(count, 0), totalActionCount.value)
+})
+
+// 卡片中部展示已完成动作数与总动作数，避免空白区域只剩状态按钮。
+const actionCountText = computed(() => {
+  return totalActionCount.value > 0
+    ? `${finishedActionCount.value}/${totalActionCount.value}`
+    : t('workflow.task.info.noActions')
 })
 
 // 全局执行进度（%）：优先使用后端下发的整体进度，缺失时按已完成动作数兜底计算
@@ -321,6 +340,7 @@ const executionStatus = computed(() => {
       <div v-bind="hover.props" class="workflow-task-card-hover-area h-full">
         <VCard
           class="workflow-task-card app-hover-lift-card mx-auto h-full"
+          :style="gradientStyle"
           @click="handleFlow(workflow)"
           :ripple="false"
           :loading="loading"
@@ -417,7 +437,13 @@ const executionStatus = computed(() => {
 
           <VCardText class="workflow-task-card__body">
             <div class="workflow-task-card__status-row">
-              <VChip :color="statusVariant.color" :prepend-icon="statusVariant.icon" size="small" variant="tonal">
+              <VChip
+                class="workflow-task-card__status-chip"
+                :color="statusVariant.color"
+                :prepend-icon="statusVariant.icon"
+                size="small"
+                variant="tonal"
+              >
                 {{ statusVariant.text }}
               </VChip>
 
@@ -445,6 +471,23 @@ const executionStatus = computed(() => {
               >
                 {{ t('common.pause') }}
               </VBtn>
+            </div>
+
+            <div class="workflow-task-card__metrics">
+              <div class="workflow-task-card__metric">
+                <VIcon icon="mdi-vector-polyline" size="small" />
+                <div class="workflow-task-card__metric-copy">
+                  <span class="workflow-task-card__metric-label">{{ t('workflow.task.info.actionCount') }}</span>
+                  <strong class="workflow-task-card__metric-value">{{ actionCountText }}</strong>
+                </div>
+              </div>
+              <div class="workflow-task-card__metric">
+                <VIcon icon="mdi-progress-check" size="small" />
+                <div class="workflow-task-card__metric-copy">
+                  <span class="workflow-task-card__metric-label">{{ t('workflow.task.info.progress') }}</span>
+                  <strong class="workflow-task-card__metric-value">{{ globalProgressPercent }}%</strong>
+                </div>
+              </div>
             </div>
 
             <div
@@ -482,19 +525,28 @@ const executionStatus = computed(() => {
 .workflow-task-card {
   --workflow-status-rgb: var(--v-theme-info);
   --workflow-status-on-rgb: var(--v-theme-on-info);
-  --workflow-card-header-content-rgb: var(--workflow-status-on-rgb);
-  --workflow-card-header-background: linear-gradient(
-    118deg,
-    color-mix(in srgb, rgb(var(--workflow-status-rgb)) 88%, rgb(var(--v-theme-on-surface)) 12%) 0%,
-    rgb(var(--workflow-status-rgb)) 52%,
-    color-mix(in srgb, rgb(var(--workflow-status-rgb)) 78%, rgb(var(--v-theme-surface)) 22%) 100%
-  );
+  --workflow-progress-rgb: var(--v-theme-primary);
+  --workflow-card-gradient-start-rgb: 74, 85, 104;
+  --workflow-card-gradient-end-rgb: 45, 55, 72;
+  --workflow-card-header-content-rgb: 255, 255, 255;
+  --workflow-card-header-background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 38%),
+    linear-gradient(
+      135deg,
+      rgb(var(--workflow-card-gradient-start-rgb)) 0%,
+      rgb(var(--workflow-card-gradient-end-rgb)) 100%
+    );
   --workflow-card-header-shadow: none;
+  /* 标题栏渐变覆盖整张卡片，避免主体的默认 surface 切出第二层底色。 */
+  --workflow-card-background: var(--workflow-card-header-background);
+  /* Glass V3 的全局卡片规则通过该 token 绘制背景，这里保留工作流自身的整卡材质。 */
+  --glass-v3-card-background: var(--workflow-card-background);
 
   display: flex;
   min-block-size: 176px;
   flex-direction: column;
   overflow: hidden;
+  background: var(--workflow-card-background) !important;
 }
 
 .workflow-task-card--status-primary {
@@ -529,9 +581,9 @@ const executionStatus = computed(() => {
 
 .workflow-task-card__header {
   flex: 0 0 auto;
-  padding: 6px 10px !important;
-  background: var(--workflow-card-header-background);
-  box-shadow: var(--workflow-card-header-shadow);
+  padding: 9px 16px 8px !important;
+  background: transparent;
+  box-shadow: none;
 }
 
 .workflow-task-card__trigger-icon {
@@ -575,8 +627,10 @@ const executionStatus = computed(() => {
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 12px 12px !important;
+  gap: 10px;
+  padding: 14px 16px 14px !important;
+  background: transparent;
+  color: rgba(var(--workflow-card-header-content-rgb), 0.88);
 }
 
 .workflow-task-card__status-row {
@@ -587,19 +641,78 @@ const executionStatus = computed(() => {
   gap: 10px;
 }
 
+.workflow-task-card__status-chip {
+  color: rgb(var(--workflow-card-header-content-rgb)) !important;
+}
+
+.workflow-task-card__status-chip :deep(.v-chip__underlay) {
+  background-color: rgb(var(--workflow-status-rgb)) !important;
+  opacity: 0.24;
+}
+
+.workflow-task-card__metrics {
+  display: grid;
+  min-inline-size: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-block: 4px;
+}
+
+.workflow-task-card__metric {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.workflow-task-card__metric + .workflow-task-card__metric {
+  padding-inline-start: 0;
+}
+
+.workflow-task-card__metric > .v-icon {
+  flex: 0 0 auto;
+  color: rgb(var(--workflow-progress-rgb));
+}
+
+.workflow-task-card__metric-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.workflow-task-card__metric-label {
+  overflow: hidden;
+  color: rgba(var(--workflow-card-header-content-rgb), 0.65);
+  font-size: 0.68rem;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-task-card__metric-value {
+  overflow: hidden;
+  color: rgb(var(--workflow-card-header-content-rgb));
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workflow-task-card__progress {
   flex: 0 0 auto;
   block-size: 5px;
   inline-size: 100%;
   overflow: hidden;
-  background: rgba(var(--v-theme-on-surface), 0.1);
+  background: rgba(var(--workflow-progress-rgb), 0.18);
 }
 
 .workflow-task-card__progress-fill {
   display: block;
   block-size: 100%;
   border-radius: var(--app-control-radius);
-  background: rgb(var(--workflow-status-rgb));
+  background: rgb(var(--workflow-progress-rgb));
   transition: inline-size 0.3s ease;
 }
 
@@ -609,6 +722,10 @@ const executionStatus = computed(() => {
   align-items: center;
   gap: 7px;
   margin-block-start: auto;
+}
+
+.workflow-task-card__execution-status.text-medium-emphasis {
+  color: rgba(var(--workflow-card-header-content-rgb), 0.78) !important;
 }
 
 .workflow-task-card__execution-status .v-icon {
@@ -629,11 +746,12 @@ const executionStatus = computed(() => {
 
   .workflow-task-card__header,
   .workflow-task-card__body {
-    padding-inline: 10px !important;
+    padding-inline: 14px !important;
   }
 
   .workflow-task-card__body {
-    gap: 7px;
+    gap: 8px;
+    padding-inline: 14px !important;
   }
 }
 </style>

@@ -139,6 +139,19 @@ describe('WorkflowTaskCard redesign', () => {
     expect(screen.getByRole('progressbar', { name: '扫描和刮削' })).toHaveAttribute('aria-valuenow', '66')
   })
 
+  it('shows compact action and progress metrics in the card body', async () => {
+    const { container } = await renderCard({
+      execution_state: { runtime: { finished_actions: 2, progress: 66 } },
+      state: 'R',
+    })
+
+    expect(container.querySelector('.workflow-task-card__metrics')).toBeInTheDocument()
+    expect(screen.getByText('动作数')).toBeInTheDocument()
+    expect(screen.getByText('2/3')).toBeInTheDocument()
+    expect(screen.getByText('进度')).toBeInTheDocument()
+    expect(screen.getByText('66%')).toBeInTheDocument()
+  })
+
   it('falls back to legacy current-action counts and clamps the progress', async () => {
     const { container } = await renderCard({ current_action: ',scan,,scrape,scan,unknown,', state: 'P' })
 
@@ -400,17 +413,39 @@ describe('WorkflowTaskCard redesign', () => {
     expect(source).toContain('var(--v-theme-success)')
     expect(source).toContain('var(--v-theme-warning)')
     expect(source).toContain('var(--v-theme-error)')
-    expect(source).toContain('var(--v-theme-on-surface)')
+    expect(source).toContain('--workflow-card-header-content-rgb: 255, 255, 255')
+    expect(source).toContain('--workflow-progress-rgb: var(--v-theme-primary)')
+    expect(source).toContain('--workflow-card-gradient-start-rgb')
+    expect(source).toContain('--workflow-card-gradient-end-rgb')
+    expect(source).toContain(':style="gradientStyle"')
     expect(source).toContain('var(--app-control-radius)')
     expect(source).toContain('linear-gradient(')
     expect(source).toContain('var(--workflow-card-header-background)')
+    expect(source).toContain('--workflow-card-background: var(--workflow-card-header-background)')
+    expect(source).toContain('background: var(--workflow-card-background) !important')
+    expect(source).toContain('background: transparent')
+    expect(source).toContain('color: rgba(var(--workflow-card-header-content-rgb), 0.88)')
+    expect(source).toContain('workflow-task-card__status-chip')
+    expect(source).toContain(':deep(.v-chip__underlay)')
+    expect(source).toContain('background-color: rgb(var(--workflow-status-rgb)) !important')
+    expect(source).toContain('workflow-task-card__metrics')
+    expect(source).toContain('actionCountText')
+    expect(source).toContain('--workflow-card-header-content-rgb: 255, 255, 255')
+    expect(source).toContain('background: rgba(var(--workflow-progress-rgb), 0.18)')
+    expect(source).toContain('background: rgb(var(--workflow-progress-rgb))')
+    expect(source).not.toContain('border-block: 1px solid rgba(var(--workflow-card-header-content-rgb), 0.14)')
+    expect(source).not.toContain('border-inline-start: 1px solid rgba(var(--workflow-card-header-content-rgb), 0.14)')
+    expect(source).toMatch(/\.workflow-task-card__header\s*\{[\s\S]*?background: transparent;/u)
+    expect(source).toMatch(/\.workflow-task-card__header\s*\{[\s\S]*?box-shadow: none;/u)
     expect(source).not.toContain('--workflow-card-header-border')
     expect(source).not.toMatch(/#[\da-f]{3,8}\b/i)
 
     expect(transparentTheme).toContain('.workflow-task-card')
+    expect(transparentTheme).toContain('var(--workflow-card-gradient-start-rgb)')
     expect(transparentTheme).toContain('var(--transparent-opacity-heavy)')
     expect(transparentTheme).not.toContain('--workflow-card-header-border')
     expect(glassTheme).toContain('var(--glass-sheen)')
+    expect(glassTheme).toContain('var(--workflow-card-gradient-start-rgb)')
     expect(glassTheme).toContain("&[data-glass-appearance='frosted'] .workflow-task-card")
     expect(glassTheme).toContain("&[data-glass-appearance='tinted'] .workflow-task-card")
     expect(glassTheme).not.toContain('--workflow-card-header-border')

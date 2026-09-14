@@ -215,7 +215,8 @@ describe('glass overlay material styles', () => {
     expect(wallpaperTintRule).not.toContain('var(--v-theme-primary)')
     expect(loginRule).toMatch(/\.login-card__surface[\s\S]*?var\(--glass-material-accent-rgb\)/)
     expect(loginRule).toMatch(/\.native-login-field[\s\S]*?var\(--v-theme-primary\)/)
-    expect(workflowRule).toContain('var(--workflow-status-rgb)')
+    expect(workflowRule).toContain('var(--workflow-card-gradient-start-rgb)')
+    expect(workflowRule).toContain('var(--workflow-card-gradient-end-rgb)')
     expect(workflowRule).toContain('var(--v-theme-primary)')
   })
 

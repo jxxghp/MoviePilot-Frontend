@@ -1075,16 +1075,16 @@ html[data-theme='glass'] {
     backdrop-filter: var(--glass-surface-backdrop-filter);
   }
 
-  // 工作流标题栏复用卡片的背景采样，只叠加状态色、吸收层与玻璃高光。
+  // 工作流卡片复用分享卡的随机色相，以玻璃吸收层和镜面高光控制材质强度。
   .workflow-task-card {
-    --workflow-card-header-content-rgb: var(--v-theme-on-surface);
+    --workflow-card-header-content-rgb: 255, 255, 255;
     --workflow-card-header-background:
       var(--glass-sheen),
       linear-gradient(
-        118deg,
-        rgba(var(--workflow-status-rgb), calc(0.16 + var(--glass-tint-density, 0.65) * 0.34)) 0%,
-        rgba(var(--workflow-status-rgb), calc(0.09 + var(--glass-tint-density, 0.65) * 0.22)) 58%,
-        rgba(var(--workflow-status-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.1)) 100%
+        135deg,
+        rgba(var(--workflow-card-gradient-start-rgb), calc(0.16 + var(--glass-tint-density, 0.65) * 0.34)) 0%,
+        rgba(var(--workflow-card-gradient-end-rgb), calc(0.09 + var(--glass-tint-density, 0.65) * 0.22)) 58%,
+        rgba(var(--workflow-card-gradient-end-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.1)) 100%
       ),
       linear-gradient(
         rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.62) * 0.08)),
@@ -1178,10 +1178,10 @@ html[data-theme='glass'] {
     --workflow-card-header-background:
       var(--glass-sheen),
       linear-gradient(
-        118deg,
-        rgba(var(--workflow-status-rgb), calc(0.1 + var(--glass-tint-density, 0.65) * 0.2)) 0%,
-        rgba(var(--workflow-status-rgb), calc(0.05 + var(--glass-tint-density, 0.65) * 0.13)) 58%,
-        rgba(var(--workflow-status-rgb), calc(0.02 + var(--glass-tint-density, 0.65) * 0.06)) 100%
+        135deg,
+        rgba(var(--workflow-card-gradient-start-rgb), calc(0.1 + var(--glass-tint-density, 0.65) * 0.2)) 0%,
+        rgba(var(--workflow-card-gradient-end-rgb), calc(0.05 + var(--glass-tint-density, 0.65) * 0.13)) 58%,
+        rgba(var(--workflow-card-gradient-end-rgb), calc(0.02 + var(--glass-tint-density, 0.65) * 0.06)) 100%
       ),
       linear-gradient(
         rgba(var(--v-theme-background), calc(0.04 + var(--glass-surface-density, 0.86) * 0.04)),
@@ -1222,20 +1222,20 @@ html[data-theme='glass'] {
     --workflow-card-header-background:
       var(--glass-sheen),
       linear-gradient(
-        118deg,
+        135deg,
         color-mix(
             in srgb,
-            rgba(var(--workflow-status-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 74%,
+            rgba(var(--workflow-card-gradient-start-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 74%,
             rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33))
           )
           0%,
         color-mix(
             in srgb,
-            rgba(var(--workflow-status-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 74%,
+            rgba(var(--workflow-card-gradient-end-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 74%,
             rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2))
           )
           58%,
-        rgba(var(--workflow-status-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
+        rgba(var(--workflow-card-gradient-end-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
       ),
       linear-gradient(
         rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.72) * 0.08)),

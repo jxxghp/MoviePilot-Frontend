@@ -52,16 +52,16 @@ html[data-theme='transparent'] {
     }
   }
 
-  // 工作流标题栏只叠加半透明状态染色，底层模糊仍由卡片统一承担。
+  // 工作流卡片复用分享卡的随机色相，只降低不透明度让透明主题的底层材质透出来。
   .workflow-task-card {
-    --workflow-card-header-content-rgb: var(--v-theme-on-surface);
+    --workflow-card-header-content-rgb: 255, 255, 255;
     --workflow-card-header-background:
       linear-gradient(145deg, rgba(var(--v-theme-on-surface), 0.12), transparent 36%),
       linear-gradient(
-        118deg,
-        rgba(var(--workflow-status-rgb), var(--transparent-opacity-heavy)) 0%,
-        rgba(var(--workflow-status-rgb), var(--transparent-opacity)) 56%,
-        rgba(var(--workflow-status-rgb), var(--transparent-opacity-light)) 100%
+        135deg,
+        rgba(var(--workflow-card-gradient-start-rgb), var(--transparent-opacity-heavy)) 0%,
+        rgba(var(--workflow-card-gradient-end-rgb), var(--transparent-opacity)) 56%,
+        rgba(var(--workflow-card-gradient-end-rgb), var(--transparent-opacity-light)) 100%
       ),
       linear-gradient(
         rgba(var(--v-theme-surface), var(--transparent-opacity-light)),
