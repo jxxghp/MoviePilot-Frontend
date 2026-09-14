@@ -433,13 +433,7 @@ onMounted(() => {
                   <VCardText class="site-resource-item__body pa-3">
                     <div class="site-resource-item__layout">
                       <div class="site-resource-item__main">
-                        <VBtn
-                          class="site-resource-title-btn"
-                          variant="text"
-                          block
-                          :ripple="false"
-                          @click.stop="addDownload(item)"
-                        >
+                        <div class="site-resource-title-content">
                           <div class="site-resource-item__title text-body-1 font-weight-medium">
                             {{ item.title || '-' }}
                           </div>
@@ -449,7 +443,7 @@ onMounted(() => {
                           >
                             {{ item.description }}
                           </div>
-                        </VBtn>
+                        </div>
 
                         <div class="site-resource-item__chips mt-2" :aria-label="t('dialog.siteResource.tags')">
                           <VChip
@@ -721,24 +715,6 @@ onMounted(() => {
 .site-resource-item__main {
   overflow: hidden;
   min-inline-size: 0;
-}
-
-.site-resource-title-btn {
-  block-size: auto;
-  justify-content: flex-start;
-  min-block-size: auto;
-  padding: 0;
-  color: rgb(var(--v-theme-on-surface));
-  text-align: start;
-}
-
-.site-resource-title-btn :deep(.v-btn__content) {
-  display: block;
-  overflow: hidden;
-  inline-size: 100%;
-  min-block-size: 0;
-  text-align: start;
-  white-space: normal;
 }
 
 .site-resource-item__title,

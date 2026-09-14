@@ -337,7 +337,8 @@ describe('SiteResourceDialog', () => {
     const user = userEvent.setup()
 
     const { container } = await renderDialog()
-    const title = await screen.findByRole('button', { name: /待下载资源/ })
+    const title = await screen.findByText('待下载资源')
+    expect(title.closest('button')).toBeNull()
     const card = container.querySelector('.site-resource-item')
     expect(card).not.toBeNull()
 
@@ -427,9 +428,9 @@ describe('SiteResourceDialog', () => {
       '回退键资源|2026-07-19|1073741824|12',
     ])
 
-    await user.click(screen.getByRole('button', { name: /详情资源/ }))
+    await user.click(screen.getByText('详情资源'))
     await user.click(screen.getByRole('button', { name: 'close-download' }))
-    await user.click(screen.getByRole('button', { name: /无外链资源/ }))
+    await user.click(screen.getByText('无外链资源'))
     await user.click(screen.getByRole('button', { name: 'close-download' }))
 
     const moreButtons = screen.getAllByRole('button', { name: '更多操作' })
