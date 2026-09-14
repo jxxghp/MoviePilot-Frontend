@@ -900,6 +900,13 @@ export default {
       username: '登錄用戶名',
       usernameHint: '只有對應的用戶登錄後才會推送消息',
       usernameRequired: '用戶名不能為空',
+      enable: '開啟瀏覽器通知',
+      enableHint: '點擊後允許目前瀏覽器發送 WebPush 通知，iOS 需要在使用者點擊時完成授權。',
+      permissionGranted: '瀏覽器通知已開啟',
+      permissionDenied: '瀏覽器通知權限已拒絕',
+      permissionDeniedHint: '通知權限已拒絕，請在瀏覽器設定中允許後再試。',
+      permissionRequestFailed: '開啟瀏覽器通知失敗，請稍後重試。',
+      unsupported: '目前瀏覽器不支援 WebPush 通知。',
     },
     qqbot: {
       name: 'QQ',

@@ -6,11 +6,27 @@ import { cloneDeep } from 'lodash-es'
 import QRCode from 'qrcode'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { WEB_PUSH_PERMISSION_REQUEST_KEY, type WebPushPermissionRequester } from '@/composables/useWebPushNotifications'
 
 // 显示器宽度
 const display = useDisplay()
 
 const { t } = useI18n()
+
+const requestWebPushPermission = inject<WebPushPermissionRequester | null>(WEB_PUSH_PERMISSION_REQUEST_KEY, null)
+const webPushPermission = ref<NotificationPermission | null>(
+  typeof Notification === 'undefined' ? null : Notification.permission,
+)
+const webPushPermissionLoading = ref(false)
+const webPushSupported = computed(
+  () =>
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    typeof Notification !== 'undefined' &&
+    typeof Notification.requestPermission === 'function',
+)
 
 // 定义输入
 const props = defineProps({
@@ -223,6 +239,30 @@ function openNotificationInfoDialog() {
       autoGenerateQrcode: true,
       autoRefreshExpired: true,
     })
+  }
+}
+
+/** 通过设置页按钮发起浏览器授权，满足 iOS 对用户激活上下文的要求。 */
+async function enableWebPushNotifications() {
+  if (webPushPermissionLoading.value || !webPushSupported.value || !requestWebPushPermission) return
+
+  webPushPermissionLoading.value = true
+  try {
+    const permission = await requestWebPushPermission()
+    if (permission) webPushPermission.value = permission
+
+    if (permission === 'granted') {
+      $toast.success(t('notification.webpush.permissionGranted'))
+    } else if (permission === 'denied') {
+      $toast.error(t('notification.webpush.permissionDenied'))
+    } else {
+      $toast.error(t('notification.webpush.permissionRequestFailed'))
+    }
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('notification.webpush.permissionRequestFailed'))
+  } finally {
+    webPushPermissionLoading.value = false
   }
 }
 
@@ -1172,6 +1212,31 @@ onMounted(() => {
                 persistent-hint
                 prepend-inner-icon="mdi-account"
               />
+            </VCol>
+            <VCol cols="12">
+              <VAlert v-if="webPushPermission === 'granted'" type="success" variant="tonal">
+                {{ t('notification.webpush.permissionGranted') }}
+              </VAlert>
+              <VAlert v-else-if="!webPushSupported" type="warning" variant="tonal">
+                {{ t('notification.webpush.unsupported') }}
+              </VAlert>
+              <VAlert v-else-if="webPushPermission === 'denied'" type="warning" variant="tonal">
+                {{ t('notification.webpush.permissionDeniedHint') }}
+              </VAlert>
+              <div v-else class="d-flex flex-wrap align-center gap-3">
+                <VBtn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-bell-ring-outline"
+                  :loading="webPushPermissionLoading"
+                  @click.stop="enableWebPushNotifications"
+                >
+                  {{ t('notification.webpush.enable') }}
+                </VBtn>
+                <span class="text-body-2 text-medium-emphasis">
+                  {{ t('notification.webpush.enableHint') }}
+                </span>
+              </div>
             </VCol>
           </VRow>
           <VRow v-else>

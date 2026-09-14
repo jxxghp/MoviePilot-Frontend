@@ -31,7 +31,7 @@ describe('useWebPushNotifications', () => {
   /** 在独立作用域启动真实订阅生命周期，模拟 App 恢复管理员登录态。 */
   function start(value: string | null = 'admin:token') {
     session.value = value
-    scope.run(() => useWebPushNotifications(session))
+    return scope.run(() => useWebPushNotifications(session))!
   }
 
   beforeEach(() => {
@@ -96,6 +96,30 @@ describe('useWebPushNotifications', () => {
     })
     expect(Notification.requestPermission).not.toHaveBeenCalled()
     expect(mocks.post).toHaveBeenCalledTimes(1)
+  })
+
+  it('用户点击授权后立即创建并登记新订阅', async () => {
+    registration.pushManager.getSubscription.mockResolvedValue(null)
+    const notification = {
+      permission: 'default' as NotificationPermission,
+      requestPermission: vi.fn(),
+    }
+    notification.requestPermission.mockImplementation(async () => {
+      notification.permission = 'granted'
+      return notification.permission
+    })
+    vi.stubGlobal('Notification', notification)
+    const lifecycle = start()
+    await flushPromises()
+
+    await expect(lifecycle.requestPermissionAndSync()).resolves.toBe('granted')
+
+    expect(notification.requestPermission).toHaveBeenCalledOnce()
+    expect(registration.pushManager.subscribe).toHaveBeenCalledWith({
+      userVisibleOnly: true,
+      applicationServerKey: new Uint8Array([1, 2, 3]),
+    })
+    expect(mocks.post).toHaveBeenCalledWith('/message/webpush/subscribe', payload, expect.any(Object))
   })
 
   it.each(['default', 'denied'])('权限为 %s 时不创建新订阅', async permission => {

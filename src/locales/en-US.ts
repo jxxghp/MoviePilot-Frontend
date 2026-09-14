@@ -922,6 +922,14 @@ export default {
       username: 'Login Username',
       usernameHint: 'Only push messages to the corresponding logged-in user',
       usernameRequired: 'Username cannot be empty',
+      enable: 'Enable Browser Notifications',
+      enableHint:
+        'Click to allow this browser to send WebPush notifications. On iOS, permission must be requested from a user action.',
+      permissionGranted: 'Browser notifications are enabled',
+      permissionDenied: 'Browser notification permission was denied',
+      permissionDeniedHint: 'Notification permission was denied. Allow it in the browser settings and try again.',
+      permissionRequestFailed: 'Failed to enable browser notifications. Please try again later.',
+      unsupported: 'This browser does not support WebPush notifications.',
     },
     qqbot: {
       name: 'QQ',

@@ -902,6 +902,13 @@ export default {
       username: '登录用户名',
       usernameHint: '只有对应的用户登录后才会推送消息',
       usernameRequired: '用户名不能为空',
+      enable: '开启浏览器通知',
+      enableHint: '点击后允许当前浏览器发送 WebPush 通知，iOS 需要在用户点击时完成授权。',
+      permissionGranted: '浏览器通知已开启',
+      permissionDenied: '浏览器通知权限已拒绝',
+      permissionDeniedHint: '通知权限已拒绝，请在浏览器设置中允许后再试。',
+      permissionRequestFailed: '开启浏览器通知失败，请稍后重试。',
+      unsupported: '当前浏览器不支持 WebPush 通知。',
     },
     qqbot: {
       name: 'QQ',

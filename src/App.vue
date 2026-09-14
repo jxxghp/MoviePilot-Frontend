@@ -32,7 +32,7 @@ import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
 import { useServerConnectionProbe } from '@/composables/useServerConnectionProbe'
-import { useWebPushNotifications } from '@/composables/useWebPushNotifications'
+import { useWebPushNotifications, WEB_PUSH_PERMISSION_REQUEST_KEY } from '@/composables/useWebPushNotifications'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { loadMediaSources } from '@/composables/useMediaSources'
 import { loadModuleCatalog } from '@/composables/useModuleCatalog'
@@ -160,9 +160,10 @@ setI18nLanguage(localeValue as SupportedLocale)
 const authStore = useAuthStore()
 const userStore = useUserStore()
 const isLogin = computed(() => authStore.token)
-useWebPushNotifications(() =>
+const { requestPermissionAndSync } = useWebPushNotifications(() =>
   authStore.token && userStore.superUser ? `${userStore.userID}:${authStore.token}` : null,
 )
+provide(WEB_PUSH_PERMISSION_REQUEST_KEY, requestPermissionAndSync)
 const route = useRoute()
 const router = useRouter()
 const { initializePWA } = usePWA()
