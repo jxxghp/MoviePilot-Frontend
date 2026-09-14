@@ -1171,6 +1171,9 @@ describe('AccountSettingSystem', () => {
     expect(dialog.getByLabelText('AMLL TTML 服务地址')).toHaveValue('https://api.amll.dev')
     await fireEvent.update(dialog.getByLabelText('TMDB API服务地址'), 'api.tmdb.org')
     await fireEvent.update(dialog.getByLabelText('TMDB API Key'), 'tmdb-key')
+    await fireEvent.click(dialog.getByLabelText('Bangumi代理'))
+    await fireEvent.update(dialog.getByLabelText('Bangumi 数据代理地址'), 'https://bangumi-api.example/base')
+    await fireEvent.update(dialog.getByLabelText('Bangumi 图片代理地址'), 'https://bangumi-image.example/?url=')
     await fireEvent.update(dialog.getByLabelText('AcoustID API Key'), 'acoustid-key')
     await fireEvent.update(dialog.getByLabelText('TheAudioDB API Key'), 'audiodb-key')
     await fireEvent.update(dialog.getByLabelText('LRCLIB 服务地址'), 'https://lyrics.example')
@@ -1204,6 +1207,9 @@ describe('AccountSettingSystem', () => {
       expect.objectContaining({
         ACOUSTID_API_KEY: 'acoustid-key',
         AMLL_BASE_URL: 'https://amll.example',
+        BANGUMI_PROXY_ENABLE: true,
+        BANGUMI_API_DOMAIN: 'https://bangumi-api.example/base',
+        BANGUMI_IMAGE_DOMAIN: 'https://bangumi-image.example/?url=',
         FANART_ENABLE: true,
         FANART_LANG: 'zh,ja',
         MEDIA_RECOGNIZE_SHARE: false,

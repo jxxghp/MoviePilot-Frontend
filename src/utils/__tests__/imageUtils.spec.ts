@@ -1,12 +1,39 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl, getLogoUrl, getProxyImageUrl, hasLogo } from '@/utils/imageUtils'
-import { describe, expect, it } from 'vitest'
 
 describe('image URL helpers', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
   it('keeps ordinary remote images direct until global caching is enabled', () => {
     const image = 'https://images.example.com/album cover.jpg'
 
     expect(getDisplayImageUrl(image, false)).toBe(image)
     expect(getDisplayImageUrl(image, true)).toContain(`system/cache/image?url=${encodeURIComponent(image)}`)
+  })
+
+  it('proxies Bangumi images through the backend when the setting is enabled', () => {
+    const image = 'https://lain.bgm.tv/pic/cover.jpg?size=large'
+    useGlobalSettingsStore().setData({
+      BANGUMI_PROXY_ENABLE: true,
+      BANGUMI_IMAGE_DOMAIN: 'https://image-proxy.example/?url=',
+    })
+
+    const rewrittenImage = `https://image-proxy.example/?url=${encodeURIComponent(image)}`
+    expect(getDisplayImageUrl(image)).toContain(`system/img/1?imgurl=${encodeURIComponent(rewrittenImage)}`)
+  })
+
+  it('keeps Bangumi images direct when the proxy setting is disabled', () => {
+    const image = 'https://img.bangumi.tv/pic/cover.jpg'
+    useGlobalSettingsStore().setData({
+      BANGUMI_PROXY_ENABLE: false,
+      BANGUMI_IMAGE_DOMAIN: 'https://image-proxy.example/',
+    })
+
+    expect(getDisplayImageUrl(image)).toBe(image)
   })
 
   it('passes cache and cookie controls through the mandatory image proxy', () => {

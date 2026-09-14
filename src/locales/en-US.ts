@@ -2969,6 +2969,11 @@ export default {
       tmdbApiDomainPlaceholder: 'api.themoviedb.org',
       tmdbApiDomainHint: 'Customize TheMovieDb API domain or proxy address',
       tmdbApiDomainRequired: 'Please enter TMDB API domain',
+      bangumiProxyEnable: 'Bangumi Proxy',
+      bangumiProxyEnableHint: 'Use the proxy address for Bangumi data and the backend image proxy endpoint for images',
+      bangumiApiDomain: 'Bangumi Data Proxy Address',
+      bangumiApiDomainPlaceholder: 'https://bangumi-proxy.example',
+      bangumiApiDomainHint: 'Bangumi API proxy Base URL; leave blank for the official address',
       tmdbApiKey: 'TMDB API Key',
       tmdbApiKeyPlaceholder: 'Please enter TMDB API Key',
       tmdbApiKeyHint: 'Set TheMovieDb API Key',
@@ -3015,6 +3020,10 @@ export default {
       tmdbImageDomainPlaceholder: 'image.tmdb.org',
       tmdbImageDomainHint: 'Customize TheMovieDb image service domain or proxy address',
       tmdbImageDomainRequired: 'Please enter image service domain',
+      bangumiImageDomain: 'Bangumi Image Proxy Address',
+      bangumiImageDomainPlaceholder: 'https://proxy.example/ or https://proxy.example/?url=',
+      bangumiImageDomainHint:
+        'Leave blank to use the original image address; trailing / replaces the host, ? uses a query parameter, otherwise the URL is appended as a path',
       musicCoverProxy: 'Music Cover Proxy Address',
       musicCoverProxyPlaceholder: 'https://your-proxy.example.com',
       musicCoverProxyHint:

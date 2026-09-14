@@ -3,6 +3,8 @@
  * 用于在生产环境中正确引用静态资源
  */
 
+import { getActivePinia } from 'pinia'
+
 // 导入所有 logo 图标
 import qbittorrentLogo from '@/assets/images/logos/qbittorrent.png'
 import transmissionLogo from '@/assets/images/logos/transmission.png'
@@ -37,6 +39,7 @@ import siteLogo from '@/assets/images/logos/site.webp'
 import bangumiLogo from '@/assets/images/logos/bangumi.png'
 import doubanBlackLogo from '@/assets/images/logos/douban-black.png'
 import qqLogo from '@/assets/images/logos/qq.png'
+import { useGlobalSettingsStore } from '@/stores'
 
 // 图标映射表
 const logoMap: Record<string, string> = {
@@ -75,6 +78,16 @@ const logoMap: Record<string, string> = {
   qq: qqLogo,
 }
 
+const BANGUMI_IMAGE_HOSTS = new Set(['bgm.tv', 'bangumi.tv', 'bangumi.lol'])
+const BANGUMI_IMAGE_HOST_SUFFIXES = ['.bgm.tv', '.bangumi.tv', '.bangumi.lol']
+
+type BangumiImageProxyMode = 'query' | 'host' | 'path'
+
+interface BangumiImageProxyBase {
+  url: string
+  mode: BangumiImageProxyMode
+}
+
 /**
  * 获取图标 URL
  * @param logoName 图标名称
@@ -92,11 +105,78 @@ export function getLogoUrl(logoName: string): string {
 export function isBangumiImageUrl(url: string): boolean {
   if (!url) return false
   try {
-    const hostname = new URL(url).hostname.toLowerCase()
-    return hostname === 'lain.bgm.tv' || hostname.endsWith('.lain.bgm.tv')
+    const hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, '')
+    return BANGUMI_IMAGE_HOSTS.has(hostname) || BANGUMI_IMAGE_HOST_SUFFIXES.some(suffix => hostname.endsWith(suffix))
   } catch {
-    return url.includes('lain.bgm.tv')
+    return false
   }
+}
+
+/**
+ * 读取 Bangumi 图片代理配置。
+ * @returns 当前全局设置中的 Bangumi 图片代理配置
+ */
+function getBangumiImageProxySettings(): { enabled: boolean; baseUrl: string } {
+  const pinia = getActivePinia()
+  if (!pinia) return { enabled: false, baseUrl: '' }
+
+  const settings = useGlobalSettingsStore(pinia).globalSettings
+  return {
+    enabled: settings.BANGUMI_PROXY_ENABLE === true,
+    baseUrl: String(settings.BANGUMI_IMAGE_DOMAIN || '').trim(),
+  }
+}
+
+/**
+ * 归一化 Bangumi 图片代理地址，并根据写法确定拼接模式。
+ * @param baseUrl 图片代理 Base URL
+ * @returns 可用的代理地址与拼接模式，无效地址返回 null
+ */
+function normalizeBangumiImageProxyBaseUrl(baseUrl: string): BangumiImageProxyBase | null {
+  const rawUrl = baseUrl.trim()
+  if (!rawUrl) return null
+
+  const candidate = rawUrl.includes('://') ? rawUrl : `https://${rawUrl}`
+  let parsed: URL
+  try {
+    parsed = new URL(candidate)
+  } catch {
+    return null
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || parsed.hash) {
+    return null
+  }
+
+  if (parsed.search) return { url: candidate, mode: 'query' }
+  let normalizedUrl = candidate
+  while (normalizedUrl.endsWith('/')) normalizedUrl = normalizedUrl.slice(0, -1)
+  return {
+    url: normalizedUrl,
+    mode: rawUrl.endsWith('/') ? 'host' : 'path',
+  }
+}
+
+/**
+ * 将 Bangumi 原始图片地址转换为配置的图片代理地址。
+ * @param imageUrl Bangumi 原始图片地址
+ * @param baseUrl 图片代理 Base URL
+ * @returns 图片代理地址；配置无效或地址不匹配时返回原地址
+ */
+function buildBangumiImageProxyUrl(imageUrl: string, baseUrl: string): string {
+  if (!isBangumiImageUrl(imageUrl)) return imageUrl
+  const proxyBase = normalizeBangumiImageProxyBaseUrl(baseUrl)
+  if (!proxyBase) return imageUrl
+
+  const sourceUrl = new URL(imageUrl)
+  const proxyUrl = new URL(proxyBase.url)
+  if (proxyBase.mode === 'query') {
+    return `${proxyBase.url}${encodeURIComponent(imageUrl)}`
+  }
+  if (proxyBase.mode === 'host') {
+    if (sourceUrl.hostname.toLowerCase() === proxyUrl.hostname.toLowerCase()) return imageUrl
+    return `${proxyBase.url}${sourceUrl.pathname}${sourceUrl.search}`
+  }
+  return `${proxyBase.url}/${imageUrl}`
 }
 
 /** 后端图片代理参数。 */
@@ -130,7 +210,11 @@ export function getProxyImageUrl(url: string, options: ImageProxyOptions = {}): 
 export function getDisplayImageUrl(url: string, useCache = false): string {
   if (!url || !/^https?:\/\//i.test(url)) return url
   const encodedUrl = encodeURIComponent(url)
-  if (isBangumiImageUrl(url)) return getProxyImageUrl(url, { proxy: true, useCache })
+  const bangumiSettings = getBangumiImageProxySettings()
+  if (isBangumiImageUrl(url) && bangumiSettings.enabled) {
+    const proxiedUrl = buildBangumiImageProxyUrl(url, bangumiSettings.baseUrl)
+    return getProxyImageUrl(proxiedUrl, { proxy: true, useCache })
+  }
   if (useCache) return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodedUrl}`
   if (url.includes('doubanio.com')) return getProxyImageUrl(url)
   return url

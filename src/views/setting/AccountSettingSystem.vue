@@ -127,6 +127,9 @@ const SystemSettings = ref<any>({
     MEDIA_RECOGNIZE_SHARE: true,
     TMDB_API_DOMAIN: null,
     TMDB_API_KEY: null,
+    BANGUMI_PROXY_ENABLE: false,
+    BANGUMI_API_DOMAIN: null,
+    BANGUMI_IMAGE_DOMAIN: null,
     ACOUSTID_API_KEY: null,
     THEAUDIODB_API_KEY: '123',
     LRCLIB_BASE_URL: 'https://lrclib.net',
@@ -1009,6 +1012,11 @@ async function saveAdvancedSettings() {
   const scrapingResult = await saveScrapingSwitchs()
 
   if (advancedResult) {
+    globalSettingsStore.setData({
+      ...globalSettingsStore.getData,
+      BANGUMI_PROXY_ENABLE: SystemSettings.value.Advanced.BANGUMI_PROXY_ENABLE,
+      BANGUMI_IMAGE_DOMAIN: SystemSettings.value.Advanced.BANGUMI_IMAGE_DOMAIN,
+    })
     await Promise.all([refreshModuleCatalog(), loadMediaSources(true)])
   }
 
@@ -2402,6 +2410,36 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       :placeholder="t('setting.system.tmdbImageDomainPlaceholder')"
                       :items="['image.tmdb.org']"
                       :rules="[(v: string) => !!v || t('setting.system.tmdbImageDomainRequired')]"
+                      prepend-inner-icon="mdi-image"
+                    />
+                  </VCol>
+                  <VCol v-if="isModuleEnabled('BangumiModule')" cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.BANGUMI_PROXY_ENABLE"
+                      :label="t('setting.system.bangumiProxyEnable')"
+                      :hint="t('setting.system.bangumiProxyEnableHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol v-if="isModuleEnabled('BangumiModule')" cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.BANGUMI_API_DOMAIN"
+                      :label="t('setting.system.bangumiApiDomain')"
+                      :hint="t('setting.system.bangumiApiDomainHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.bangumiApiDomainPlaceholder')"
+                      :disabled="!SystemSettings.Advanced.BANGUMI_PROXY_ENABLE"
+                      prepend-inner-icon="mdi-api"
+                    />
+                  </VCol>
+                  <VCol v-if="isModuleEnabled('BangumiModule')" cols="12" md="6">
+                    <VTextField
+                      v-model="SystemSettings.Advanced.BANGUMI_IMAGE_DOMAIN"
+                      :label="t('setting.system.bangumiImageDomain')"
+                      :hint="t('setting.system.bangumiImageDomainHint')"
+                      persistent-hint
+                      :placeholder="t('setting.system.bangumiImageDomainPlaceholder')"
+                      :disabled="!SystemSettings.Advanced.BANGUMI_PROXY_ENABLE"
                       prepend-inner-icon="mdi-image"
                     />
                   </VCol>
