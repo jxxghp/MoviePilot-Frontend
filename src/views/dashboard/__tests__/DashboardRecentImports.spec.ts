@@ -60,7 +60,7 @@ describe('dashboard recent imports', () => {
     mocks.formatDateDifference.mockClear()
   })
 
-  it('loads five successful records once on an ordinary mount', async () => {
+  it('loads ten successful records once on an ordinary mount', async () => {
     mocks.apiGet.mockResolvedValue({
       data: {
         list: [{ id: 1, title: '异步入库记录' }],
@@ -73,8 +73,22 @@ describe('dashboard recent imports', () => {
     expect(container.querySelector('[data-layout-size-source]')).toContainElement(renderedItem)
     expect(mocks.apiGet).toHaveBeenCalledOnce()
     expect(mocks.apiGet).toHaveBeenCalledWith('history/transfer', {
-      params: { page: 1, count: 5, status: true },
+      params: { page: 1, count: 10, status: true },
     })
+  })
+
+  it('limits rendering to ten records when the response contains more items', async () => {
+    mocks.apiGet.mockResolvedValue({
+      data: {
+        list: Array.from({ length: 11 }, (_, index) => ({ id: index + 1, title: `整理记录 ${index + 1}` })),
+      },
+    })
+
+    const { container } = await renderRecentImports()
+
+    await screen.findByText('整理记录 10')
+    expect(container.querySelectorAll('.recent-import-item')).toHaveLength(10)
+    expect(screen.queryByText('整理记录 11')).not.toBeInTheDocument()
   })
 
   it.each([

@@ -9,6 +9,9 @@ import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 const { t } = useI18n()
 
+// 仪表板最多展示十条记录，超出部分通过列表滚动查看。
+const RECENT_IMPORT_LIMIT = 10
+
 // 最近成功整理入库的记录。
 const recentImports = ref<TransferHistory[]>([])
 
@@ -16,9 +19,9 @@ const recentImports = ref<TransferHistory[]>([])
 async function loadRecentImports() {
   try {
     const response = await api.get<{ list?: TransferHistory[] }>('history/transfer', {
-      params: { page: 1, count: 5, status: true },
+      params: { page: 1, count: RECENT_IMPORT_LIMIT, status: true },
     })
-    recentImports.value = response.list ?? []
+    recentImports.value = (response.list ?? []).slice(0, RECENT_IMPORT_LIMIT)
   } catch (error) {
     console.error(error)
   }
@@ -47,7 +50,7 @@ onMounted(refreshRecentImports)
 </script>
 
 <template>
-  <VCard class="dashboard-list-card dashboard-grid-fill">
+  <VCard class="dashboard-list-card dashboard-work-card dashboard-grid-fill">
     <VCardItem class="dashboard-card-heading">
       <VCardTitle>{{ t('dashboard.recentImports') }}</VCardTitle>
       <template #append>
@@ -56,7 +59,7 @@ onMounted(refreshRecentImports)
     </VCardItem>
 
     <VCardText class="recent-import-list">
-      <!-- 非空列表使用自然内容高度，避免外层填充布局隐藏异步增长。 -->
+      <!-- 非空列表作为自然内容尺寸源；超过卡片可用高度时由列表容器滚动。 -->
       <div v-if="recentImports.length > 0" data-layout-size-source>
         <div v-for="item in recentImports" :key="item.id" class="recent-import-item">
           <VImg :src="getPosterUrl(item)" :alt="item.title" class="recent-import-poster" cover />
@@ -86,6 +89,7 @@ onMounted(refreshRecentImports)
   display: flex;
   flex-direction: column;
   block-size: 100%;
+  max-block-size: 350px;
   min-block-size: 350px;
 }
 
@@ -95,10 +99,13 @@ onMounted(refreshRecentImports)
 
 .recent-import-list {
   display: flex;
+  overflow: hidden auto;
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  overscroll-behavior: contain;
   padding-block-start: 0.25rem;
+  scrollbar-width: none;
 }
 
 .recent-import-item {
@@ -160,5 +167,11 @@ onMounted(refreshRecentImports)
   justify-content: center;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+@supports not (scrollbar-width: none) {
+  .recent-import-list::-webkit-scrollbar {
+    display: none;
+  }
 }
 </style>
