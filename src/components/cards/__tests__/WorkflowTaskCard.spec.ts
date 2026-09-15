@@ -431,6 +431,7 @@ describe('WorkflowTaskCard redesign', () => {
     expect(source).toContain('workflow-task-card__metrics')
     expect(source).toContain('actionCountText')
     expect(source).toContain('--workflow-card-header-content-rgb: 255, 255, 255')
+    expect(source).toContain('block-size: 3px')
     expect(source).toContain('background: rgba(var(--workflow-progress-rgb), 0.18)')
     expect(source).toContain('background: rgb(var(--workflow-progress-rgb))')
     expect(source).not.toContain('border-block: 1px solid rgba(var(--workflow-card-header-content-rgb), 0.14)')

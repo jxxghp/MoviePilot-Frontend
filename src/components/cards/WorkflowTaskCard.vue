@@ -702,7 +702,7 @@ const executionStatus = computed(() => {
 
 .workflow-task-card__progress {
   flex: 0 0 auto;
-  block-size: 5px;
+  block-size: 3px;
   inline-size: 100%;
   overflow: hidden;
   background: rgba(var(--workflow-progress-rgb), 0.18);

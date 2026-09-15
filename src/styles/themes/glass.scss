@@ -1119,15 +1119,18 @@ html[data-theme='glass'] {
       rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
       rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
     );
-
-    background-color: var(--glass-surface) !important;
-    background-image:
+    // Glass V3 用更高优先级的整卡 background 覆盖普通卡片样式，这里把分享卡的色相接入同一材质 token。
+    --workflow-share-glass-background:
       var(--glass-sheen), var(--workflow-share-glass-scrim),
       linear-gradient(
         135deg,
         rgba(var(--workflow-share-gradient-start-rgb, 74, 85, 104), var(--workflow-share-glass-start-opacity)) 0%,
         rgba(var(--workflow-share-gradient-end-rgb, 45, 55, 72), var(--workflow-share-glass-end-opacity)) 100%
-      ) !important;
+      );
+    --glass-v3-card-background: var(--workflow-share-glass-background), var(--glass-surface);
+
+    background-color: var(--glass-surface) !important;
+    background-image: var(--workflow-share-glass-background) !important;
   }
 
   // 插件卡片头部改为染色玻璃：图标主色只作为透光色相，压暗遮罩换成玻璃吸收与高光。

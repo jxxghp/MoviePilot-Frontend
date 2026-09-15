@@ -287,12 +287,13 @@ describe('glass overlay material styles', () => {
     const ruleEnd = styles.indexOf('\n  }', ruleStart)
     const workflowShareCardRule = styles.slice(ruleStart, ruleEnd)
     const expectedLayers = [
-      'background-image:',
+      '--workflow-share-glass-background:',
       'var(--glass-sheen),',
       'var(--workflow-share-glass-scrim),',
       'var(--workflow-share-gradient-start-rgb,',
       'var(--workflow-share-gradient-end-rgb,',
-      ') !important;',
+      '--glass-v3-card-background: var(--workflow-share-glass-background), var(--glass-surface);',
+      'background-image: var(--workflow-share-glass-background) !important;',
     ]
 
     expect(ruleStart).toBeGreaterThanOrEqual(0)
