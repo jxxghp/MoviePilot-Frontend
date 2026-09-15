@@ -258,6 +258,41 @@ describe('PluginMarketDetailDialog', () => {
     expect(emitted().install).toHaveLength(1)
   })
 
+  it('allows reinstalling from an available source when the historical binding disappeared', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options') {
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          selection_status: 'incomplete',
+          selection_reason: '已绑定仓库中暂无可用插件包',
+          identity: {
+            ...defaultSourceOptions.identity!,
+            trusted_source_key: 'github:removed/plugins',
+            payload_source_key: 'github:removed/plugins',
+          },
+        } satisfies PluginSourceOptions)
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { emitted } = await renderDialog({ ...basePlugin, installed: false })
+
+    expect(await screen.findByText('当前插件尚未绑定，请选择仓库。')).toBeInTheDocument()
+    const installButton = screen.getByRole('button', { name: '安装到本地' })
+    expect(installButton).toBeEnabled()
+
+    await fireEvent.click(installButton)
+
+    await waitFor(() => {
+      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin', {
+        repo_url: 'https://github.com/example/plugins',
+        expected_revision: 3,
+        release_version: undefined,
+      })
+    })
+    expect(emitted().install).toHaveLength(1)
+  })
+
   it('keeps an unbound market plugin unavailable when no online repository is known', async () => {
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)

@@ -1,4 +1,9 @@
-import { changePluginSource, getPluginSourceOptions, installPluginFromSource } from '@/api/pluginSource'
+import {
+  changePluginSource,
+  getPluginSourceOptions,
+  installPluginFromSource,
+  requiresExplicitPluginSourceInstall,
+} from '@/api/pluginSource'
 import { ApiRequestError } from '@/api/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,6 +18,64 @@ vi.mock('@/api', () => ({
     post: (...args: unknown[]) => mocks.apiPost(...args),
   }),
 }))
+
+describe('plugin source selection rules', () => {
+  const candidate = {
+    source_type: 'third_party' as const,
+    source_key: 'github:example/plugins',
+    repo_url: 'https://github.com/example/plugins',
+    package_generation: 'v3' as const,
+    plugin_version: '2.0.0',
+  }
+
+  it('allows choosing another online source when the historical binding is no longer available', () => {
+    expect(
+      requiresExplicitPluginSourceInstall(
+        {
+          plugin_id: 'DemoPlugin',
+          inventory_complete: true,
+          selection_status: 'incomplete',
+          selection_reason: '已绑定仓库不可用',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'third_party',
+            trusted_source_key: 'github:removed/plugins',
+            binding_basis: 'explicit_install',
+            payload_source_type: 'third_party',
+            payload_source_key: 'github:removed/plugins',
+            revision: 3,
+          },
+          candidates: [candidate],
+        },
+        false,
+      ),
+    ).toBe(true)
+  })
+
+  it('does not force source selection when the bound online source remains available', () => {
+    expect(
+      requiresExplicitPluginSourceInstall(
+        {
+          plugin_id: 'DemoPlugin',
+          inventory_complete: true,
+          selection_status: 'incomplete',
+          selection_reason: '来源目录仍在刷新',
+          identity: {
+            plugin_id: 'DemoPlugin',
+            trusted_source_type: 'third_party',
+            trusted_source_key: candidate.source_key,
+            binding_basis: 'explicit_install',
+            payload_source_type: 'third_party',
+            payload_source_key: candidate.source_key,
+            revision: 3,
+          },
+          candidates: [candidate],
+        },
+        false,
+      ),
+    ).toBe(false)
+  })
+})
 
 describe('plugin source API adapters', () => {
   beforeEach(() => {
