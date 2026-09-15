@@ -20,6 +20,17 @@ interface PublicKeyCredentialDescriptorJSON {
   transports?: AuthenticatorTransport[]
 }
 
+type PasskeyCreationOptionsJSON = Omit<
+  PublicKeyCredentialCreationOptions,
+  'challenge' | 'user' | 'excludeCredentials'
+> & {
+  challenge: string
+  user: Omit<PublicKeyCredentialUserEntity, 'id'> & { id: string }
+  excludeCredentials?: PublicKeyCredentialDescriptorJSON[]
+}
+
+type PasskeyOptionsPayload = PasskeyCreationOptionsJSON | string
+
 const props = defineProps<Props>()
 
 const emit = defineEmits(['update:modelValue', 'update:passkeyList', 'verifyPassword'])
@@ -62,6 +73,17 @@ function invalidatePasskeyRegistration() {
 // 格式化日期
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString(locale.value)
+}
+
+/**
+ * 将 Passkey 启动选项归一化为 WebAuthn 可消费的对象。
+ *
+ * V3 后端直接返回结构化对象，旧版本曾返回 JSON 字符串；保留两种形态
+ * 可避免前后端分批升级时把对象隐式转成 "[object Object]" 后再次解析。
+ */
+function parsePasskeyOptions(options: PasskeyOptionsPayload): PasskeyCreationOptionsJSON {
+  if (typeof options === 'string') return JSON.parse(options) as PasskeyCreationOptionsJSON
+  return options
 }
 
 // 获取PassKey列表
@@ -108,7 +130,7 @@ async function registerPassKey() {
   passkeyRegistering.value = true
   try {
     // 1. 开始注册
-    const startResult = await api.post<{ options: string; transaction_token: string }>(
+    const startResult = await api.post<{ options: PasskeyOptionsPayload; transaction_token: string }>(
       'mfa/passkey/register/start',
       {
         name: registrationName,
@@ -122,7 +144,7 @@ async function registerPassKey() {
     if (generation !== passkeyRegistrationGeneration || !props.modelValue) return
 
     const { options, transaction_token: transactionToken } = startResult
-    const publicKeyOptions = JSON.parse(options)
+    const publicKeyOptions = parsePasskeyOptions(options)
 
     // 2. 调用WebAuthn API
     const credential = (await navigator.credentials.create({

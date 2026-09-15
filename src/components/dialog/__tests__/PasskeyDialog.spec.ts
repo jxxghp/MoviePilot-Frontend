@@ -65,6 +65,16 @@ function startResponse(token: string) {
   }
 }
 
+function structuredStartResponse(token: string) {
+  return {
+    data: {
+      options: { challenge: 'AQID', user: { id: 'BAUG', name: 'alice' } },
+      transaction_token: token,
+    },
+    success: true,
+  }
+}
+
 async function renderDialog() {
   return renderWithProviders(PasskeyDialog, {
     props: { modelValue: true },
@@ -150,6 +160,29 @@ describe('PasskeyDialog', () => {
       expect.objectContaining({ signal: expect.anything() }),
     )
     expect(await screen.findByText('Laptop')).toBeInTheDocument()
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('通行密钥注册成功')
+  })
+
+  it('accepts structured WebAuthn options returned by the V3 API', async () => {
+    mocks.apiPost
+      .mockResolvedValueOnce(structuredStartResponse('tx-structured'))
+      .mockResolvedValueOnce({ success: true })
+    mocks.credentialCreate.mockResolvedValue(registrationCredential('credential-structured'))
+    await renderDialog()
+    await screen.findByText('您还没有注册任何通行密钥')
+
+    await fireEvent.update(screen.getByLabelText('通行密钥名称'), 'Laptop')
+    await fireEvent.click(screen.getByRole('button', { name: '注册通行密钥' }))
+
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledTimes(2))
+    expect(mocks.credentialCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicKey: expect.objectContaining({
+          challenge: expect.any(Uint8Array),
+          user: expect.objectContaining({ id: expect.any(Uint8Array) }),
+        }),
+      }),
+    )
     expect(mocks.toastSuccess).toHaveBeenCalledWith('通行密钥注册成功')
   })
 
