@@ -28,7 +28,14 @@ export function requiresExplicitPluginSourceInstall(options: PluginSourceOptions
   const hasTrustedOnlineSource = Boolean(
     identity && identity.trusted_source_type !== 'unknown' && identity.trusted_source_key,
   )
-  if (options.selection_status === 'incomplete' && !hasTrustedOnlineSource) return true
+  if (options.selection_status === 'incomplete') {
+    const trustedSourceIsAvailable = Boolean(
+      identity?.trusted_source_key &&
+      onlineCandidates.some(candidate => candidate.source_key === identity.trusted_source_key),
+    )
+    // 历史绑定仓库失效时，仍需让管理员从当前可用候选中重新选择来源。
+    if (!hasTrustedOnlineSource || !trustedSourceIsAvailable) return true
+  }
 
   return (
     options.selection_status === 'selected' &&
