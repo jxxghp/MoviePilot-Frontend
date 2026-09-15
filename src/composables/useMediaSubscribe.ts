@@ -385,18 +385,21 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
-  // 检查当前媒体指定季是否已订阅。
+  // 检查当前媒体指定季是否已订阅，并携带影视元数据供跨来源回退。
   async function checkSubscribe(season: number | null = null) {
     const identity = getMediaId()
     if (!identity) return false
+    const media = currentMedia()
     try {
       const result: Subscribe = await api.get(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
         feedback: 'silent',
         params: {
           media_source: identity.source,
           season,
-          title: currentMedia()?.title,
-          music_type: getMusicSubscribeType(currentMedia()),
+          title: media?.title,
+          year: media?.year,
+          mtype: media?.type,
+          music_type: getMusicSubscribeType(media),
         },
       })
 
@@ -408,18 +411,21 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
-  // 查询当前媒体指定季的订阅记录。
+  // 查询当前媒体指定季的订阅记录，并携带影视元数据供跨来源回退。
   async function querySubscribe(season: number | null = null) {
     const identity = getMediaId()
     if (!identity) return null
+    const media = currentMedia()
     try {
       const result: Subscribe = await api.get(`subscribe/media/${encodeURIComponent(identity.mediaId)}`, {
         feedback: 'silent',
         params: {
           media_source: identity.source,
           season,
-          title: currentMedia()?.title,
-          music_type: getMusicSubscribeType(currentMedia()),
+          title: media?.title,
+          year: media?.year,
+          mtype: media?.type,
+          music_type: getMusicSubscribeType(media),
         },
       })
 

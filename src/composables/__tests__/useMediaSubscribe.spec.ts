@@ -577,6 +577,8 @@ describe('useMediaSubscribe entry flows', () => {
       expect(queried).toHaveBeenCalledOnce()
       expect((queried.mock.calls[0][0] as URL).searchParams.get('media_source')).toBe(mediaSource)
       expect((queried.mock.calls[0][0] as URL).searchParams.get('season')).toBe('2')
+      expect((queried.mock.calls[0][0] as URL).searchParams.get('mtype')).toBe('电视剧')
+      expect((queried.mock.calls[0][0] as URL).searchParams.get('year')).toBe(media.year?.toString())
     },
   )
 
@@ -637,6 +639,8 @@ describe('useMediaSubscribe entry flows', () => {
     await waitFor(() => expect(screen.getByTestId('check-result')).toHaveTextContent('subscribed'))
     expect((queried.mock.calls[0][0] as URL).searchParams.get('music_type')).toBe('album')
     expect((queried.mock.calls[0][0] as URL).searchParams.get('media_source')).toBe('musicbrainz')
+    expect((queried.mock.calls[0][0] as URL).searchParams.get('mtype')).toBe('音乐')
+    expect((queried.mock.calls[0][0] as URL).searchParams.get('year')).toBe(media.year?.toString())
 
     await fireEvent.click(screen.getByRole('button', { name: 'remove' }))
     await waitFor(() => expect(deleted).toHaveBeenCalledOnce())
