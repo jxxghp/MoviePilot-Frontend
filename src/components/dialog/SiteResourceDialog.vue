@@ -855,7 +855,8 @@ onMounted(() => {
   }
 
   .site-resource-item__layout {
-    grid-template-columns: minmax(0, 1fr) auto minmax(26rem, auto);
+    // 统计区按卡片宽度统一占比，避免各行内容长度改变竖向分隔线位置。
+    grid-template-columns: minmax(0, 1fr) auto minmax(26rem, 46%);
     gap: 1rem;
   }
 
