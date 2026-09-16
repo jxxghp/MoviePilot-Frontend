@@ -2296,7 +2296,11 @@ onUnmounted(() => {
                 </div>
               </section>
             </div>
-            <VCardActions class="app-dialog-actions reorganize-form-pane__actions">
+            <!-- 桌面端展开预览时，操作区留在左侧表单面板内。 -->
+            <VCardActions
+              v-if="previewVisible && display.mdAndUp.value"
+              class="app-dialog-actions reorganize-form-pane__actions"
+            >
               <VBtn
                 color="info"
                 variant="tonal"
@@ -2542,6 +2546,46 @@ onUnmounted(() => {
           </div>
         </div>
       </VCardText>
+      <!-- 其他状态将操作区放在滚动内容外，保证小屏和未展开预览时始终可见。 -->
+      <template v-if="!previewVisible || !display.mdAndUp.value">
+        <VDivider />
+        <VCardActions class="app-dialog-actions reorganize-dialog-card__actions">
+          <VBtn
+            color="info"
+            variant="tonal"
+            @click="togglePreview"
+            :prepend-icon="previewToggleIcon"
+            class="reorganize-action-btn reorganize-action-btn--preview"
+            :class="{ 'reorganize-action-btn--active': previewVisible }"
+            :loading="previewLoading"
+          >
+            {{ t('dialog.reorganize.previewResult') }}
+          </VBtn>
+          <VBtn
+            color="success"
+            variant="tonal"
+            @click="transfer(true)"
+            prepend-icon="mdi-plus"
+            class="reorganize-action-btn reorganize-action-btn--queue"
+            :loading="transferSubmitting"
+            :disabled="transferSubmitting || hasAcceptedSubmission"
+          >
+            {{ t('dialog.reorganize.addToQueue') }}
+          </VBtn>
+          <VSpacer />
+          <VBtn
+            color="primary"
+            variant="flat"
+            @click="transfer(false)"
+            :prepend-icon="isReorganize ? 'mdi-refresh' : 'mdi-arrow-right-bold'"
+            class="reorganize-action-btn reorganize-action-btn--primary"
+            :loading="manualHistoryLoading || transferSubmitting"
+            :disabled="transferSubmitting || hasAcceptedSubmission"
+          >
+            {{ isReorganize ? t('dialog.reorganize.reorganizeAgain') : t('dialog.reorganize.reorganizeNow') }}
+          </VBtn>
+        </VCardActions>
+      </template>
     </VCard>
     <!-- 手动整理进度框 -->
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
@@ -3039,9 +3083,22 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
+  // 小屏预览改为自然高度纵向排列，避免被桌面端的面板溢出边界截断。
+  .reorganize-main-row--preview-visible,
+  .reorganize-main-row--preview-visible .reorganize-form-pane,
+  .reorganize-main-row--preview-visible .reorganize-preview-pane {
+    block-size: auto;
+    overflow: visible;
+  }
+
   .reorganize-main-row--preview-visible .reorganize-form-pane {
     border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-inline-end: none;
+  }
+
+  .reorganize-main-row--preview-visible .reorganize-preview-pane__body,
+  .reorganize-main-row--preview-visible .reorganize-preview-pane__scroll {
+    overflow: visible;
   }
 
   .reorganize-action-btn {
@@ -3069,7 +3126,8 @@ onUnmounted(() => {
     inline-size: 100%;
   }
 
-  .reorganize-form-pane__actions {
+  .reorganize-form-pane__actions,
+  .reorganize-dialog-card__actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3092,7 +3150,8 @@ onUnmounted(() => {
 }
 
 @media (width <= 420px) {
-  .reorganize-form-pane__actions {
+  .reorganize-form-pane__actions,
+  .reorganize-dialog-card__actions {
     gap: 0.5rem;
   }
 

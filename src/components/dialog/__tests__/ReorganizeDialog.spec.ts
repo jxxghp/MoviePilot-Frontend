@@ -1279,6 +1279,48 @@ describe('ReorganizeDialog preview', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
+  /** 验证小屏操作区脱离内容滚动容器，且预览面板按表单后顺序展示。 */
+  it('keeps mobile actions fixed outside the scrollable form and stacks preview below it', async () => {
+    const originalInnerWidth = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 })
+    window.dispatchEvent(new Event('resize'))
+
+    try {
+      server.use(
+        http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
+          HttpResponse.json(
+            previewResponse([
+              {
+                source: '/downloads/Movie.mkv',
+                success: true,
+                target: '/library/Movie.mkv',
+              },
+            ]),
+          ),
+        ),
+      )
+      const user = userEvent.setup()
+      const { container } = await renderDialog()
+
+      expect(container.querySelector('.reorganize-form-pane__actions')).not.toBeInTheDocument()
+      const actions = container.querySelector('.reorganize-dialog-card__actions')
+      expect(actions).toBeInTheDocument()
+      expect(actions?.closest('.reorganize-dialog-card__body')).toBeNull()
+
+      await user.click(screen.getByRole('button', { name: '预览' }))
+
+      const mainRow = container.querySelector('.reorganize-main-row')
+      expect(mainRow?.children[0]).toHaveClass('reorganize-form-pane')
+      expect(mainRow?.children[1]).toHaveClass('reorganize-preview-pane')
+      expect(container.querySelector('.reorganize-form-pane__actions')).not.toBeInTheDocument()
+      expect(container.querySelector('.reorganize-dialog-card__actions')).toBeInTheDocument()
+      expect(await screen.findByText('/library/Movie.mkv')).toBeInTheDocument()
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth })
+      window.dispatchEvent(new Event('resize'))
+    }
+  })
+
   it('keeps partial preview failures as successful response data', async () => {
     const payloads: unknown[] = []
     server.use(
