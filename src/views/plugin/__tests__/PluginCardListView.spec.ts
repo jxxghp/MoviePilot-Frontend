@@ -2467,4 +2467,28 @@ describe('PluginCardListView folders and persistence', () => {
     getHeaderButton('mdi-arrow-left').action?.()
     expect(await screen.findByText('folder:Tools')).toBeInTheDocument()
   })
+
+  it('matches plugin install statistics case-insensitively', async () => {
+    await renderList({
+      installed: () => [
+        createPlugin({ id: 'IqiyiDiscover', installed: true, plugin_name: '爱奇艺探索' }),
+      ],
+      statistic: () => ({ IQiyiDiscover: 714 }),
+    })
+    await waitForRequestsToFinish()
+
+    expect(screen.getByLabelText('statistic-IqiyiDiscover')).toHaveTextContent('714')
+  })
+
+  it('merges statistics keys that differ only by case and keeps the larger value', async () => {
+    await renderList({
+      installed: () => [
+        createPlugin({ id: 'IqiyiDiscover', installed: true, plugin_name: '爱奇艺探索' }),
+      ],
+      statistic: () => ({ IQiyiDiscover: 714, IqiyiDiscover: 3 }),
+    })
+    await waitForRequestsToFinish()
+
+    expect(screen.getByLabelText('statistic-IqiyiDiscover')).toHaveTextContent('714')
+  })
 })
