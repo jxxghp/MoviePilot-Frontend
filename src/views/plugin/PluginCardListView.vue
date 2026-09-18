@@ -236,21 +236,15 @@ const PluginAppDialog = ref(false)
 const PluginStatistics = ref<{ [key: string]: number }>({})
 
 /**
- * 归一化插件安装统计键名。
+ * 按插件 ID 大小写不敏感地读取安装统计。
  *
  * 中心端按 plugin_id 字符串精确聚合，插件 ID 历史上发生过大小写变更时
  * 会留下互不匹配的旧键，导致市场页安装次数显示为 0。
- * 这里统一转为小写，同键冲突时取较大值，避免丢失历史统计。
  */
-function normalizePluginStatistics(raw: { [key: string]: number } | undefined): {
-  [key: string]: number
-} {
-  const normalized: { [key: string]: number } = {}
-  for (const [key, value] of Object.entries(raw ?? {})) {
-    const lower = key.toLowerCase()
-    normalized[lower] = Math.max(normalized[lower] ?? 0, value)
-  }
-  return normalized
+function lookupPluginStatistic(pluginId: string | undefined): number {
+  const target = (pluginId || '0').toLowerCase()
+  const key = Object.keys(PluginStatistics.value).find(candidate => candidate.toLowerCase() === target)
+  return key ? (PluginStatistics.value[key] ?? 0) : 0
 }
 
 // 插件评分
@@ -1105,7 +1099,7 @@ function openPluginMarketDetail(item: Plugin) {
     PluginMarketDetailDialog,
     {
       plugin: item,
-      count: PluginStatistics.value[(item.id || '0').toLowerCase()],
+      count: lookupPluginStatistic(item.id),
       installHandler: (releaseVersion?: string, repoUrl?: string, sourceOptions?: PluginSourceOptions) =>
         installPlugin(item, releaseVersion, repoUrl, sourceOptions),
     },
@@ -1399,7 +1393,7 @@ async function getPluginMarketMetrics(
   ])
 
   if (commit && statistics !== undefined && ratings !== undefined) {
-    PluginStatistics.value = normalizePluginStatistics(statistics)
+    PluginStatistics.value = statistics
     PluginRatings.value = ratings
     mergeRatingsIntoPlugins([...dataList.value, ...uninstalledList.value, ...marketList.value], ratings, true)
   }
@@ -1516,10 +1510,7 @@ watch([marketList, filterForm, activeSort, PluginStatistics, PluginRatings], () 
   const sortKey = activeSort.value || 'count'
   if (sortKey === 'count') {
     sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
-      return (
-        (PluginStatistics.value[(b.id || '0').toLowerCase()] ?? 0) -
-        (PluginStatistics.value[(a.id || '0').toLowerCase()] ?? 0)
-      )
+      return lookupPluginStatistic(b.id) - lookupPluginStatistic(a.id)
     })
   } else if (sortKey === 'average_rating') {
     sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
@@ -2601,7 +2592,7 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
               <template #default="{ item }">
                 <PluginAppCard
                   :plugin="item"
-                  :count="PluginStatistics[(item.id || '0').toLowerCase()]"
+                  :count="lookupPluginStatistic(item.id)"
                   :install-handler="
                     (releaseVersion, repoUrl, sourceOptions) =>
                       installPlugin(item, releaseVersion, repoUrl, sourceOptions)
