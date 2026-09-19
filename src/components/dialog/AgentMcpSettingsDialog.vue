@@ -215,6 +215,7 @@ watch(
   value => {
     if (value) resetLocalServers()
   },
+  { immediate: true },
 )
 
 watch(
