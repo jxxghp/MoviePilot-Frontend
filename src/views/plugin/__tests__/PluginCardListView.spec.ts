@@ -148,6 +148,17 @@ const ProgressiveCardGridStub = defineComponent({
   },
 })
 
+/**
+ * 模拟真实子组件按插件 ID 大小写不敏感读取安装统计的行为。
+ *
+ * 父组件传入的 pluginStatistics 保留中心端原始键名，子组件负责匹配。
+ */
+function resolveStatistic(statistics: Record<string, number>, pluginId: string): number | undefined {
+  const target = pluginId.toLowerCase()
+  const key = Object.keys(statistics).find(candidate => candidate.toLowerCase() === target)
+  return key ? statistics[key] : undefined
+}
+
 const PluginMixedSortCardStub = defineComponent({
   name: 'PluginMixedSortCard',
   props: {
@@ -207,7 +218,7 @@ const PluginMixedSortCardStub = defineComponent({
         type === 'plugin' ? h('output', { 'aria-label': `installing-${id}` }, String(props.installing)) : null,
         type === 'plugin' ? h('output', { 'aria-label': `updating-${id}` }, String(props.updating)) : null,
         type === 'plugin'
-          ? h('output', { 'aria-label': `statistic-${id}` }, String(props.pluginStatistics[id] ?? ''))
+          ? h('output', { 'aria-label': `statistic-${id}` }, String(resolveStatistic(props.pluginStatistics, id) ?? ''))
           : null,
         type === 'plugin'
           ? h('output', { 'aria-label': `installed-rating-${id}` }, String(data?.average_rating ?? ''))
