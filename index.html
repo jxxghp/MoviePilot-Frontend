@@ -357,6 +357,11 @@
         background-color: var(--initial-loader-bg, #0e1116);
       }
 
+      /* 原生启动图由系统控制退出；网页保留同色交接层，直到 Vue 首屏就绪。 */
+      html[data-native-launch-screen='true'] #loading-bg .loading-shell {
+        visibility: hidden;
+      }
+
       .loading-shell {
         box-sizing: border-box;
         position: relative;
@@ -543,7 +548,7 @@
         }
       }
 
-      // 安装态由系统提供原生启动屏，普通浏览器则继续使用网页动态加载层。
+      // 安装态由系统提供原生启动屏，网页仅保留同色交接层等待首屏就绪；普通浏览器继续使用动态加载层。
       function hasActiveNativeLaunchScreen() {
         try {
           return (
@@ -561,10 +566,6 @@
 
       const hasNativeLaunchScreen = hasActiveNativeLaunchScreen()
       document.documentElement.dataset.nativeLaunchScreen = String(hasNativeLaunchScreen)
-      if (hasNativeLaunchScreen) {
-        document.documentElement.removeAttribute('data-launch-loading')
-        document.documentElement.style.removeProperty('overflow')
-      }
 
       // 根据当前主题提前确定启动屏色彩，避免 iOS PWA 从原生启动图切到网页时露出默认白底。
       const launchThemePalettes = {
@@ -1051,11 +1052,6 @@
       <!-- 超时提示 - 默认隐藏 -->
       <div id="loading-timeout"></div>
     </div>
-    <script>
-      if (document.documentElement.dataset.nativeLaunchScreen === 'true') {
-        document.getElementById('loading-bg')?.remove()
-      }
-    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

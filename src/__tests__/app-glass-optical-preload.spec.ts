@@ -36,4 +36,23 @@ describe('App 玻璃光学模块预载', () => {
     expect(appSource).toContain("removeEl('#loading-bg')")
     expect(appSource).toContain('}, LAUNCH_EXIT_DURATION_MS)')
   })
+
+  it('启动屏退场前等待首路由、基础数据和首张壁纸完成', () => {
+    const readinessStart = appSource.indexOf('async function waitForInitialContentReady()')
+    const readinessEnd = appSource.indexOf('// 延迟初始化登录态数据', readinessStart)
+    const readinessSource = appSource.slice(readinessStart, readinessEnd)
+    const launchStart = appSource.indexOf('async function removeLoadingWithStateCheck()')
+    const launchEnd = appSource.indexOf('// 加载背景图片', launchStart)
+    const launchSource = appSource.slice(launchStart, launchEnd)
+
+    expect(readinessStart).toBeGreaterThanOrEqual(0)
+    expect(readinessEnd).toBeGreaterThan(readinessStart)
+    expect(readinessSource).toContain('initialRouteReadyPromise')
+    expect(readinessSource).toContain('initializeAuthenticatedState()')
+    expect(readinessSource).toContain('initialBackgroundLoadPromise')
+    expect(readinessSource).toContain('await nextTick()')
+    expect(readinessSource).toContain('window.requestAnimationFrame')
+    expect(launchSource).toContain('await waitForInitialContentReady()')
+    expect(launchSource).not.toContain('void initializeAuthenticatedState()')
+  })
 })
