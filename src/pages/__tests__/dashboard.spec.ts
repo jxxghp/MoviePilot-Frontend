@@ -1,6 +1,7 @@
 import DashboardPage from '@/pages/dashboard.vue'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
+import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { KeepAlive, defineComponent, h, ref, toRaw } from 'vue'
@@ -348,6 +349,51 @@ describe('dashboard page initial layout', () => {
     })
 
     await waitFor(() => expect(mocks.grid.load).toHaveBeenCalled())
+  })
+
+  it('keeps the launch screen until the initial dashboard grid is rendered', async () => {
+    const remoteOrder = deferred<unknown>()
+    const remoteProfile = deferred<unknown>()
+    const launchBackground = document.createElement('div')
+    launchBackground.id = 'loading-bg'
+    document.body.appendChild(launchBackground)
+    document.documentElement.dataset.launchLoading = 'true'
+    globalLoadingStateManager.reset()
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({ enabled: enabledOnlySystemInfo, items: { systemInfo: { x: 8, y: 0, w: 4, h: 6 } } }),
+    )
+    localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify([{ id: 'systemInfo', key: '' }]))
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return remoteOrder.promise
+      if (url === '/user/config/DashboardGridLayout') return remoteProfile.promise
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    try {
+      const view = await renderDashboard()
+
+      expect(globalLoadingStateManager.getLoadingStates()['dashboard-initial-content']).toBe(true)
+
+      remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
+      remoteProfile.resolve({
+        data: {
+          value: {
+            enabled: enabledOnlySystemInfo,
+            items: { systemInfo: { x: 8, y: 0, w: 4, h: 6 } },
+          },
+        },
+      })
+
+      await waitFor(() => expect(globalLoadingStateManager.getLoadingStates()['dashboard-initial-content']).toBe(false))
+      expect(screen.getByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'systemInfo')
+      view.unmount()
+    } finally {
+      launchBackground.remove()
+      document.documentElement.removeAttribute('data-launch-loading')
+      globalLoadingStateManager.reset()
+    }
   })
 
   it('reloads plugin dashboard metadata when the active runtime generation changes', async () => {

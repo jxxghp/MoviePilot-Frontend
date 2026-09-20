@@ -357,11 +357,6 @@
         background-color: var(--initial-loader-bg, #0e1116);
       }
 
-      /* 原生启动图由系统控制退出；网页保留同色交接层，直到 Vue 首屏就绪。 */
-      html[data-native-launch-screen='true'] #loading-bg .loading-shell {
-        visibility: hidden;
-      }
-
       .loading-shell {
         box-sizing: border-box;
         position: relative;
@@ -548,7 +543,7 @@
         }
       }
 
-      // 安装态由系统提供原生启动屏，网页仅保留同色交接层等待首屏就绪；普通浏览器继续使用动态加载层。
+      // 安装态由系统提供原生启动屏，网页不再创建额外加载层；普通浏览器继续使用动态加载层。
       function hasActiveNativeLaunchScreen() {
         try {
           return (
@@ -1053,6 +1048,19 @@
       <div id="loading-timeout"></div>
     </div>
     <div id="app"></div>
+    <script>
+      // 原生启动屏由系统负责，避免网页 Loading 层与原生画面产生第二次视觉切换。
+      function removeNativeLoadingLayer() {
+        if (document.documentElement.dataset.nativeLaunchScreen !== 'true') return
+
+        document.getElementById('loading-bg')?.remove()
+        document.documentElement.removeAttribute('data-launch-loading')
+        document.documentElement.style.removeProperty('overflow')
+        document.body.style.removeProperty('overflow')
+      }
+
+      removeNativeLoadingLayer()
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -57,7 +57,7 @@ describe('PWA 启动屏资源', () => {
     expect(indexHtml).not.toContain('name="x5-orientation"')
   })
 
-  it('原生启动图退场后保留同色交接层，普通浏览器继续使用网页动态加载层', () => {
+  it('原生启动图不叠加网页接力层，普通浏览器继续使用网页动态加载层', () => {
     const detectionStart = indexHtml.indexOf('function hasActiveNativeLaunchScreen()')
     const detectionEnd = indexHtml.indexOf('const launchThemePalettes', detectionStart)
     const detectionSource = indexHtml.slice(detectionStart, detectionEnd)
@@ -71,11 +71,12 @@ describe('PWA 启动屏资源', () => {
     expect(detectionSource).toContain('window.navigator.standalone === true')
     expect(detectionSource).toContain("document.referrer.startsWith('android-app://')")
     expect(indexHtml).toContain('dataset.nativeLaunchScreen')
-    expect(indexHtml).toContain("html[data-native-launch-screen='true'] #loading-bg .loading-shell")
-    expect(indexHtml).toContain('visibility: hidden;')
-    expect(indexHtml).not.toContain("document.documentElement.removeAttribute('data-launch-loading')")
+    expect(indexHtml).toContain('function removeNativeLoadingLayer()')
+    expect(indexHtml).toContain("if (document.documentElement.dataset.nativeLaunchScreen !== 'true') return")
+    expect(indexHtml).toContain("document.getElementById('loading-bg')?.remove()")
+    expect(indexHtml).toContain("document.documentElement.removeAttribute('data-launch-loading')")
+    expect(indexHtml).not.toContain("html[data-native-launch-screen='true'] #loading-bg")
     expect(indexHtml).toContain("if (document.documentElement.dataset.nativeLaunchScreen === 'true') return")
-    expect(indexHtml).not.toContain("document.getElementById('loading-bg')?.remove()")
     expect(indexHtml).toContain(
       '<body style="margin: 0; overscroll-behavior: none; -webkit-overflow-scrolling: touch">',
     )

@@ -50,6 +50,7 @@ describe('App 玻璃光学模块预载', () => {
     expect(readinessSource).toContain('initialRouteReadyPromise')
     expect(readinessSource).toContain('initializeAuthenticatedState()')
     expect(readinessSource).toContain('initialBackgroundLoadPromise')
+    expect(readinessSource).toContain('globalLoadingStateManager.waitForAllComplete()')
     expect(readinessSource).toContain('await nextTick()')
     expect(readinessSource).toContain('window.requestAnimationFrame')
     expect(launchSource).toContain('await waitForInitialContentReady()')

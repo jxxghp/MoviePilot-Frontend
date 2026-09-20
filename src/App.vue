@@ -849,6 +849,8 @@ async function waitForInitialContentReady() {
   await initializeAuthenticatedState().catch(error => {
     console.warn('[Launch] Authenticated state initialization failed', error)
   })
+  // 路由页面可能还有自己的异步首屏任务；等这些任务释放启动门后再交接给真实页面。
+  await globalLoadingStateManager.waitForAllComplete()
   await nextTick()
   await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
 }

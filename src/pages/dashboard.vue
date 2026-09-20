@@ -12,6 +12,7 @@ import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginRuntimeStore, useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { useDisplay, useTheme } from 'vuetify'
 import { onBeforeRouteLeave } from 'vue-router'
 
@@ -54,6 +55,7 @@ const DASHBOARD_ENABLE_CONFIG_KEY = 'Dashboard'
 const DASHBOARD_ORDER_CONFIG_KEY = 'DashboardOrder'
 const DASHBOARD_GRID_LAYOUT_CONFIG_KEY = 'DashboardGridLayout'
 const DASHBOARD_GRID_LAYOUT_CONFIG_KEY_PREFIX = 'DashboardGridLayout'
+const DASHBOARD_INITIAL_CONTENT_LOADING_KEY = 'dashboard-initial-content'
 
 type DashboardEnableConfig = Record<string, boolean>
 type DashboardOrderConfig = { id: string; key: string }[]
@@ -168,6 +170,10 @@ let isDashboardPageActive = true
 let dashboardRevealFrame: number | null = null
 let isDashboardRevealPending = false
 let dashboardProfileSaveQueue = Promise.resolve()
+const isInitialLaunchContentLoading =
+  typeof document !== 'undefined' &&
+  (document.documentElement.dataset.launchLoading === 'true' || Boolean(document.getElementById('loading-bg')))
+let isDashboardLaunchGateActive = false
 // 档位切换必须等目标配置就绪后一次性重建，避免响应式列变化与 Vue 深度监听交叉改写节点。
 let isSwitchingDashboardLayoutProfile = false
 // 应用档位配置后的首次同步必须恢复缺失覆盖项的默认位置，不能沿用上一份配置的节点坐标。
@@ -353,6 +359,22 @@ const dashboardGridItems = computed<DashboardGridItem[]>(() =>
     }),
 )
 
+// 标记仪表板首屏仍在准备中，让 App 在页面实际可见前继续保留启动层。
+function beginDashboardLaunchGate() {
+  if (!isInitialLaunchContentLoading || isDashboardLaunchGateActive) return
+
+  isDashboardLaunchGateActive = true
+  globalLoadingStateManager.setLoadingState(DASHBOARD_INITIAL_CONTENT_LOADING_KEY, true)
+}
+
+// 在仪表板配置、GridStack 和所有首屏组件完成一轮渲染后释放启动层。
+function completeDashboardLaunchGate() {
+  if (!isDashboardLaunchGateActive) return
+
+  isDashboardLaunchGateActive = false
+  globalLoadingStateManager.setLoadingState(DASHBOARD_INITIAL_CONTENT_LOADING_KEY, false)
+}
+
 // 获取当前可渲染仪表板项目 ID 列表。
 function getDashboardGridItemIds() {
   return dashboardGridItems.value.map(item => item.id)
@@ -405,6 +427,7 @@ function scheduleDashboardReveal() {
     dashboardRevealFrame = window.requestAnimationFrame(() => {
       dashboardRevealFrame = null
       notifyDashboardContentResize()
+      completeDashboardLaunchGate()
     })
   })
 }
@@ -1885,6 +1908,7 @@ watch(
 )
 
 hydrateDashboardConfigFromLocal()
+beginDashboardLaunchGate()
 
 onBeforeMount(async () => {
   await loadDashboardConfig()
@@ -1933,6 +1957,7 @@ onDeactivated(() => {
 })
 
 onBeforeUnmount(() => {
+  completeDashboardLaunchGate()
   Object.keys(refreshTimers.value).forEach(clearPluginDashboardTimer)
   dashboardGridContentMutationObserver?.disconnect()
   dashboardGridContentMutationObserver = null
