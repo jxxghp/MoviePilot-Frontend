@@ -14,11 +14,13 @@ import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import {
   applyStoredThemeCustomizerAppearance,
+  restoreThemeCustomizerSettingsFromServer,
   themeCustomizerPrimaryColors,
   useEffectiveGlassSettings,
 } from '@/composables/useThemeCustomizer'
 import {
   applyStoredTransparencySettings,
+  restoreTransparencySettingsFromServer,
   TRANSPARENCY_SETTINGS_CHANGED_EVENT,
   type TransparencyGlassQuality,
   type TransparencySettings,
@@ -835,6 +837,14 @@ async function initializeAuthenticatedState() {
     globalLoadingStateManager.setLoadingState('global-settings', true)
     await globalSettingsStore.initialize()
     await globalSettingsStore.loadUserSettings()
+    // 清理站点数据后本地外观设置会丢失，这里用服务端副本恢复用户选择；
+    // 本地已有设置时该调用直接返回，不会覆盖当前会话外观。
+    await Promise.all([
+      restoreThemeCustomizerSettingsFromServer(vuetifyTheme),
+      restoreTransparencySettingsFromServer(),
+    ]).catch(error => {
+      console.warn('[Theme] 从服务端恢复外观设置失败', error)
+    })
     await Promise.all([loadMediaSources(), loadModuleCatalog(), loadStorageCatalog()])
   } finally {
     globalLoadingStateManager.setLoadingState('global-settings', false)
