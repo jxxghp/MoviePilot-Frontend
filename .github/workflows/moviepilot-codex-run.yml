@@ -1,4 +1,4 @@
-# Trusted run for jxxghp/MoviePilot-Frontend. The control ref is immutable.
+# Trusted run for jxxghp/MoviePilot-Frontend. The protected control ref follows main.
 name: MoviePilot Frontend Codex trusted run
 
 on:
