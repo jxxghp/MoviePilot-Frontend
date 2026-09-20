@@ -79,19 +79,24 @@ describe('SystemUpdatePrompt', () => {
     mocks.footerDockHeight!.value = null
   })
 
-  it.each(['available', 'ready'] as const)(
-    'hides cached %s reminders when automatic checks are disabled',
-    async state => {
-      mocks.updateStatus!.value = { ...availableStatus, state, auto_update: false }
-      await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-      expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument()
+  it('hides available reminders when automatic checks are disabled', async () => {
+    mocks.updateStatus!.value = { ...availableStatus, auto_update: false }
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+    expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument()
+  })
 
-      mocks.updateStatus!.value = { ...availableStatus, state, auto_update: true }
-      await waitFor(() => expect(document.querySelector('.system-update-prompt')).toBeInTheDocument())
-      mocks.updateStatus!.value = { ...availableStatus, state, auto_update: false }
-      await waitFor(() => expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument())
-    },
-  )
+  it('keeps a prepared update visible when automatic checks are disabled', async () => {
+    mocks.updateStatus!.value = {
+      ...availableStatus,
+      state: 'ready',
+      auto_update: false,
+      can_update: false,
+      can_install: true,
+    }
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+    expect(await screen.findByText('systemUpdate.applicationReadyTitle')).toBeInTheDocument()
+  })
 
   it('keeps manually started download progress visible with automatic checks disabled', async () => {
     mocks.updateStatus!.value = { ...availableStatus, state: 'downloading', auto_update: false, progress: 25 }
@@ -185,8 +190,62 @@ describe('SystemUpdatePrompt', () => {
 
     await waitFor(() => expect(screen.queryByText('systemUpdate.applicationAvailableTitle')).not.toBeInTheDocument())
     const saved = JSON.parse(localStorage.getItem('moviepilot.system-update-reminders') || '{}')
-    expect(saved.application.version).toBe('v3.1.0')
-    expect(saved.application.snoozedUntil).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000)
+    expect(saved.application.available.version).toBe('v3.1.0')
+    expect(saved.application.available.snoozedUntil).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000)
+  })
+
+  it('does not carry an available snooze into the prepared phase', async () => {
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+    await fireEvent.click(await screen.findByRole('button', { name: /systemUpdate.later/ }))
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot.system-update-reminders') || '{}').application.available,
+    ).toEqual(expect.objectContaining({ version: 'v3.1.0' }))
+
+    mocks.updateStatus!.value = {
+      ...availableStatus,
+      state: 'ready',
+      auto_update: false,
+      can_update: false,
+      can_install: true,
+    }
+    expect(await screen.findByText('systemUpdate.applicationReadyTitle')).toBeInTheDocument()
+
+    await fireEvent.click(await screen.findByRole('button', { name: /systemUpdate.restartLater/ }))
+    const saved = JSON.parse(localStorage.getItem('moviepilot.system-update-reminders') || '{}')
+    expect(saved.application.available).toEqual(expect.objectContaining({ version: 'v3.1.0' }))
+    expect(saved.application.ready).toEqual(expect.objectContaining({ version: 'v3.1.0' }))
+  })
+
+  it('does not carry a prepared snooze back into the available phase', async () => {
+    mocks.updateStatus!.value = {
+      ...availableStatus,
+      state: 'ready',
+      auto_update: false,
+      can_update: false,
+      can_install: true,
+    }
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+    await fireEvent.click(await screen.findByRole('button', { name: /systemUpdate.restartLater/ }))
+    mocks.updateStatus!.value = { ...availableStatus, auto_update: true }
+
+    expect(await screen.findByText('systemUpdate.applicationAvailableTitle')).toBeInTheDocument()
+  })
+
+  it('clears the available snooze when a download is started from the avatar menu', async () => {
+    localStorage.setItem(
+      'moviepilot.system-update-reminders',
+      JSON.stringify({ application: { available: { version: 'v3.1.0', snoozedUntil: Date.now() + 60_000 } } }),
+    )
+    mocks.post.mockResolvedValue({ ...availableStatus, state: 'downloading', progress: 25 })
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+    window.dispatchEvent(new CustomEvent('moviepilot:system-update-menu', { detail: { target: 'application' } }))
+
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('system/update/download', { target: 'application' }))
+    const saved = JSON.parse(localStorage.getItem('moviepilot.system-update-reminders') || '{}')
+    expect(saved.application?.available).toBeUndefined()
   })
 
   it('ignores only the selected version', async () => {

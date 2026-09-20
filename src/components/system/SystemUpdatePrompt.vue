@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { SystemUpdateItemStatus, SystemUpdateStatus, SystemUpdateType } from '@/api/types'
+import type { SystemUpdateItemStatus, SystemUpdateState, SystemUpdateStatus, SystemUpdateType } from '@/api/types'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
@@ -27,13 +27,21 @@ let reminderTimer: ReturnType<typeof setTimeout> | null = null
 const REMINDER_STORAGE_KEY = 'moviepilot.system-update-reminders'
 const SNOOZE_DURATION = 24 * 60 * 60 * 1000
 
+type ReminderPhase = 'available' | 'ready'
+
 interface UpdateReminder {
   version: string
   snoozedUntil?: number
-  ignored?: boolean
 }
 
-type ReminderStore = Partial<Record<SystemUpdateType, UpdateReminder>>
+/** 浏览器本地分别记录下载和重启阶段；忽略版本仍跨阶段生效。 */
+interface UpdateReminderBucket {
+  available?: UpdateReminder
+  ready?: UpdateReminder
+  ignored?: UpdateReminder
+}
+
+type ReminderStore = Partial<Record<SystemUpdateType, UpdateReminderBucket>>
 
 const reminders = ref<ReminderStore>(readReminders())
 const reminderClock = ref(Date.now())
@@ -70,9 +78,9 @@ const updateItems = computed<SystemUpdateItemStatus[]>(() => {
 
 const visibleItems = computed(() =>
   updateItems.value.filter(item => {
-    // 关闭自动检查后隐藏版本提醒，手动发起的下载、安装和失败反馈仍可见。
+    // 关闭自动检查后隐藏未下载版本提醒，已准备完成和手动下载进度仍可见。
     const enabled = item.type === 'resources' ? status.value?.auto_update_resource : status.value?.auto_update
-    if (['available', 'ready'].includes(item.state) && enabled !== true) return false
+    if (item.state === 'available' && enabled !== true) return false
     if (!['available', 'downloading', 'ready', 'installing', 'failed'].includes(item.state)) return false
     return !['available', 'ready'].includes(item.state) || !isCurrentVersionSuppressed(item)
   }),
@@ -82,15 +90,40 @@ const visible = computed(() => props.enabled && visibleItems.value.length > 0)
 
 function readReminders(): ReminderStore {
   try {
-    const saved = JSON.parse(localStorage.getItem(REMINDER_STORAGE_KEY) || 'null')
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      if (typeof saved.version === 'string') return { application: saved }
-      return saved
+    const saved: unknown = JSON.parse(localStorage.getItem(REMINDER_STORAGE_KEY) || 'null')
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {}
+
+    const result: ReminderStore = {}
+    for (const [type, value] of Object.entries(saved)) {
+      if (type !== 'application' && type !== 'resources') continue
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+
+      const record = value as Record<string, unknown>
+      const bucket: UpdateReminderBucket = {}
+      for (const phase of ['available', 'ready'] as const) {
+        const reminder = parseReminder(record[phase])
+        if (reminder) bucket[phase] = reminder
+      }
+      const ignored = parseReminder(record.ignored)
+      if (ignored) bucket.ignored = ignored
+      if (bucket.available || bucket.ready || bucket.ignored) result[type] = bucket
     }
+
+    return result
   } catch {
     return {}
   }
-  return {}
+}
+
+function parseReminder(value: unknown): UpdateReminder | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  if (typeof record.version !== 'string') return undefined
+
+  return {
+    version: record.version,
+    ...(typeof record.snoozedUntil === 'number' ? { snoozedUntil: record.snoozedUntil } : {}),
+  }
 }
 
 function saveReminders(value: ReminderStore) {
@@ -105,14 +138,17 @@ function itemVersion(item: SystemUpdateItemStatus): string {
 }
 
 function itemReminder(item: SystemUpdateItemStatus): UpdateReminder | undefined {
-  return reminders.value[item.type]
+  const phase = reminderPhase(item.state)
+  return phase ? reminders.value[item.type]?.[phase] : undefined
 }
 
 function isCurrentVersionSuppressed(item: SystemUpdateItemStatus): boolean {
+  const bucket = reminders.value[item.type]
   const reminder = itemReminder(item)
   const version = itemVersion(item)
-  if (!version || reminder?.version !== version) return false
-  if (reminder.ignored) return true
+  if (!version) return false
+  if (bucket?.ignored?.version === version) return true
+  if (reminder?.version !== version) return false
   return (reminder.snoozedUntil || 0) > reminderClock.value
 }
 
@@ -124,7 +160,10 @@ function clearReminderTimer() {
 /** 到期时主动恢复提示，页面无需刷新。 */
 function scheduleReminderExpiry() {
   clearReminderTimer()
-  const expiresAt = Math.max(...Object.values(reminders.value).map(reminder => reminder?.snoozedUntil || 0), 0)
+  const expiresAt = Object.values(reminders.value).reduce(
+    (latest, bucket) => Math.max(latest, bucket?.available?.snoozedUntil || 0, bucket?.ready?.snoozedUntil || 0),
+    0,
+  )
   if (expiresAt <= Date.now()) return
   reminderTimer = setTimeout(() => {
     reminderClock.value = Date.now()
@@ -150,6 +189,7 @@ async function startDownload(item: SystemUpdateItemStatus) {
   try {
     const nextStatus = await api.post<SystemUpdateStatus>('system/update/download', { target: item.type })
     setStatus(nextStatus)
+    clearAvailableReminder(item)
   } catch (error) {
     console.error('[SystemUpdate] 启动下载失败', error)
     toast.error(t('systemUpdate.downloadFailed'))
@@ -159,20 +199,42 @@ async function startDownload(item: SystemUpdateItemStatus) {
   }
 }
 
+function reminderPhase(state: SystemUpdateState): ReminderPhase | null {
+  return state === 'available' || state === 'ready' ? state : null
+}
+
+function clearAvailableReminder(item: SystemUpdateItemStatus) {
+  const version = itemVersion(item)
+  const bucket = reminders.value[item.type]
+  if (!version || bucket?.available?.version !== version) return
+
+  const nextBucket = { ...bucket }
+  delete nextBucket.available
+  saveReminders({ ...reminders.value, [item.type]: nextBucket })
+}
+
 function postpone(item: SystemUpdateItemStatus) {
   const version = itemVersion(item)
-  if (!version) return
+  const phase = reminderPhase(item.state)
+  if (!version || !phase) return
   reminderClock.value = Date.now()
+  const bucket = reminders.value[item.type] || {}
   saveReminders({
     ...reminders.value,
-    [item.type]: { version, snoozedUntil: Date.now() + SNOOZE_DURATION },
+    [item.type]: {
+      ...bucket,
+      [phase]: { version, snoozedUntil: Date.now() + SNOOZE_DURATION },
+    },
   })
 }
 
 function ignoreVersion(item: SystemUpdateItemStatus) {
   const version = itemVersion(item)
   if (!version) return
-  saveReminders({ ...reminders.value, [item.type]: { version, ignored: true } })
+  saveReminders({
+    ...reminders.value,
+    [item.type]: { ...reminders.value[item.type], ignored: { version } },
+  })
 }
 
 function replaceItem(item: SystemUpdateItemStatus) {
