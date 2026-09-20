@@ -574,6 +574,10 @@ onScopeDispose(cancelGlassPreview)
             </p>
           </div>
         </section>
+
+        <p class="glass-settings-dialog__hint glass-settings-dialog__sync-hint">
+          {{ t('theme.appearanceSyncHint') }}
+        </p>
       </VCardText>
 
       <VDivider />
@@ -623,6 +627,10 @@ onScopeDispose(cancelGlassPreview)
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
   line-height: 1.45;
+}
+
+.glass-settings-dialog__sync-hint {
+  margin-block-start: 20px;
 }
 
 .glass-settings-dialog__group-label {
