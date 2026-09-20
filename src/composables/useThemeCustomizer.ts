@@ -22,7 +22,11 @@ import {
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { themeManager } from '@/utils/themeManager'
 import { syncThemeFavicon } from '@/utils/themePalette'
-import { readRemoteUserConfig, THEME_CUSTOMIZER_REMOTE_KEY, writeRemoteUserConfig } from '@/utils/themeSettingsPersistence'
+import {
+  readRemoteUserConfig,
+  THEME_CUSTOMIZER_REMOTE_KEY,
+  writeRemoteUserConfig,
+} from '@/utils/themeSettingsPersistence'
 
 export const THEME_CUSTOMIZER_STORAGE_KEY = 'moviepilot-theme-customizer'
 export const THEME_CUSTOMIZER_CHANGE_EVENT = 'moviepilot-theme-customizer-change'
