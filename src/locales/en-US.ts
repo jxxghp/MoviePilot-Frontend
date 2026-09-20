@@ -280,6 +280,8 @@ export default {
     transparencyMedium: 'Medium Transparency',
     transparencyHigh: 'High Transparency',
     customCssSaveSuccess: 'Custom CSS saved successfully, please refresh the page to take effect!',
+    appearanceRestoreFailed: 'Failed to restore appearance settings from the server, local settings are used',
+    appearanceSyncHint: 'Appearance settings are synced to your account and restored after clearing browser data.',
     customCssSaveFailed: 'Failed to save custom CSS to server',
     deviceNotSupport: 'Current device does not support monitoring system theme changes',
     customizer: {

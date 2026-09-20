@@ -7,6 +7,7 @@ import {
   persistPartialThemeCustomizerSettings,
   previewGlassSettings,
   readThemeCustomizerSettings,
+  restoreThemeCustomizerSettingsFromServer,
   THEME_CUSTOMIZER_STORAGE_KEY,
   useThemeCustomizer,
   useEffectiveGlassSettings,
@@ -15,7 +16,19 @@ import vuetify from '@/plugins/vuetify'
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const persistenceMocks = vi.hoisted(() => ({
+  readRemoteUserConfig: vi.fn(),
+  writeRemoteUserConfig: vi.fn(),
+}))
+
+vi.mock('@/utils/themeSettingsPersistence', () => ({
+  readRemoteUserConfig: persistenceMocks.readRemoteUserConfig,
+  writeRemoteUserConfig: persistenceMocks.writeRemoteUserConfig,
+  THEME_CUSTOMIZER_REMOTE_KEY: 'ThemeCustomizerSettings',
+  TRANSPARENCY_REMOTE_KEY: 'TransparencySettings',
+}))
 
 describe('useThemeCustomizer glass settings', () => {
   function mountThemeCustomizer() {
@@ -39,6 +52,9 @@ describe('useThemeCustomizer glass settings', () => {
   beforeEach(() => {
     cancelGlassPreview()
     localStorage.clear()
+    persistenceMocks.readRemoteUserConfig.mockReset()
+    persistenceMocks.writeRemoteUserConfig.mockReset()
+    persistenceMocks.writeRemoteUserConfig.mockResolvedValue(true)
     persistPartialThemeCustomizerSettings({ glassAppearance: 'clear', glassQuality: 'css' })
     localStorage.clear()
   })
@@ -610,6 +626,39 @@ describe('useThemeCustomizer glass settings', () => {
     await setGlassQuality('css')
     expect(readThemeCustomizerSettings().glassTransparencyStrength).toBe(19)
     wrapper.unmount()
+  })
+
+  it('mirrors every persisted change to the server user config', () => {
+    persistPartialThemeCustomizerSettings({ glassQuality: 'high' })
+
+    expect(persistenceMocks.writeRemoteUserConfig).toHaveBeenLastCalledWith(
+      'ThemeCustomizerSettings',
+      expect.objectContaining({ glassQuality: 'high' }),
+    )
+  })
+
+  it('restores the server copy only when local storage has no settings', async () => {
+    persistenceMocks.readRemoteUserConfig.mockResolvedValue({
+      glassAppearance: 'tinted',
+      glassDynamicsMode: 'off',
+      glassQuality: 'css',
+      theme: 'dark',
+    })
+
+    const restored = await restoreThemeCustomizerSettingsFromServer(vuetify.theme)
+
+    expect(restored).toMatchObject({ glassAppearance: 'tinted', glassDynamicsMode: 'off', glassQuality: 'css' })
+    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'tinted', glassQuality: 'css' })
+    expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).not.toBeNull()
+  })
+
+  it('keeps the local settings when they already exist', async () => {
+    persistPartialThemeCustomizerSettings({ glassAppearance: 'frosted', glassQuality: 'high' })
+    persistenceMocks.readRemoteUserConfig.mockResolvedValue({ glassAppearance: 'tinted', glassQuality: 'css' })
+
+    await expect(restoreThemeCustomizerSettingsFromServer(vuetify.theme)).resolves.toBeNull()
+    expect(persistenceMocks.readRemoteUserConfig).not.toHaveBeenCalled()
+    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'frosted', glassQuality: 'high' })
   })
 
   it('keeps overrides independent for two presets of the same material and quality', async () => {
