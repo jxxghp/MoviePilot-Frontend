@@ -4,10 +4,23 @@ import {
   commitTransparencyPreview,
   previewTransparencySettings,
   readTransparencySettings,
+  restoreTransparencySettingsFromServer,
   useTransparencySettings,
   type TransparencySettings,
 } from '@/composables/useTransparencySettings'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const persistenceMocks = vi.hoisted(() => ({
+  readRemoteUserConfig: vi.fn(),
+  writeRemoteUserConfig: vi.fn(),
+}))
+
+vi.mock('@/utils/themeSettingsPersistence', () => ({
+  readRemoteUserConfig: persistenceMocks.readRemoteUserConfig,
+  writeRemoteUserConfig: persistenceMocks.writeRemoteUserConfig,
+  THEME_CUSTOMIZER_REMOTE_KEY: 'ThemeCustomizerSettings',
+  TRANSPARENCY_REMOTE_KEY: 'TransparencySettings',
+}))
 
 const storedSettings: TransparencySettings = {
   backgroundBlur: 16,
@@ -22,6 +35,9 @@ describe('useTransparencySettings preview transaction', () => {
   beforeEach(() => {
     cancelTransparencyPreview()
     localStorage.clear()
+    persistenceMocks.readRemoteUserConfig.mockReset()
+    persistenceMocks.writeRemoteUserConfig.mockReset()
+    persistenceMocks.writeRemoteUserConfig.mockResolvedValue(true)
     applyTransparencySettings(storedSettings)
   })
 
@@ -65,6 +81,32 @@ describe('useTransparencySettings preview transaction', () => {
     expect(document.documentElement.style.getPropertyValue('--transparent-background-blur')).toBe('16px')
     expect(document.documentElement.classList.contains('transparent-glass-lightweight')).toBe(true)
     expect(readTransparencySettings()).toEqual(storedSettings)
+  })
+
+  it('mirrors the persisted settings to the server user config', () => {
+    applyTransparencySettings({ ...storedSettings, opacity: 0.8 })
+
+    expect(persistenceMocks.writeRemoteUserConfig).toHaveBeenLastCalledWith(
+      'TransparencySettings',
+      expect.objectContaining({ opacity: 0.8 }),
+    )
+  })
+
+  it('restores the server copy only when local storage has no settings', async () => {
+    localStorage.clear()
+    persistenceMocks.readRemoteUserConfig.mockResolvedValue({ ...storedSettings, opacity: 0.8 })
+
+    const restored = await restoreTransparencySettingsFromServer()
+
+    expect(restored).toMatchObject({ opacity: 0.8 })
+    expect(readTransparencySettings()).toMatchObject({ opacity: 0.8 })
+  })
+
+  it('keeps the local settings when they already exist', async () => {
+    persistenceMocks.readRemoteUserConfig.mockResolvedValue({ ...storedSettings, opacity: 0.8 })
+
+    await expect(restoreTransparencySettingsFromServer()).resolves.toBeNull()
+    expect(persistenceMocks.readRemoteUserConfig).not.toHaveBeenCalled()
   })
 
   it('keeps reset as a preview until the dialog saves it', () => {
