@@ -198,6 +198,7 @@ onScopeDispose(cancelTransparencySettings)
             </VBtnGroup>
           </div>
         </div>
+        <p class="text-caption text-medium-emphasis mt-4 mb-0">{{ t('theme.appearanceSyncHint') }}</p>
       </VCardText>
       <VDivider />
       <VCardText class="text-center">
