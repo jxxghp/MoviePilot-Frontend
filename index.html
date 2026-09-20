@@ -543,6 +543,29 @@
         }
       }
 
+      // 安装态由系统提供原生启动屏，普通浏览器则继续使用网页动态加载层。
+      function hasActiveNativeLaunchScreen() {
+        try {
+          return (
+            window.matchMedia('(display-mode: standalone)').matches ||
+            window.matchMedia('(display-mode: fullscreen)').matches ||
+            window.matchMedia('(display-mode: minimal-ui)').matches ||
+            window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+            window.navigator.standalone === true ||
+            document.referrer.startsWith('android-app://')
+          )
+        } catch (e) {
+          return window.navigator.standalone === true
+        }
+      }
+
+      const hasNativeLaunchScreen = hasActiveNativeLaunchScreen()
+      document.documentElement.dataset.nativeLaunchScreen = String(hasNativeLaunchScreen)
+      if (hasNativeLaunchScreen) {
+        document.documentElement.removeAttribute('data-launch-loading')
+        document.documentElement.style.removeProperty('overflow')
+      }
+
       // 根据当前主题提前确定启动屏色彩，避免 iOS PWA 从原生启动图切到网页时露出默认白底。
       const launchThemePalettes = {
         light: {
@@ -739,6 +762,9 @@
       }
 
       function withLoadingLogo(callback) {
+        // 原生启动屏场景不创建网页 Logo 监听，避免动态层已移除后留下观察器。
+        if (document.documentElement.dataset.nativeLaunchScreen === 'true') return
+
         const loadingLogo = document.querySelector('.loading-logo img')
         if (loadingLogo) {
           callback(loadingLogo)
@@ -1005,7 +1031,7 @@
     </script>
   </head>
 
-  <body style="margin: 0; overflow: hidden; overscroll-behavior: none; -webkit-overflow-scrolling: touch">
+  <body style="margin: 0; overscroll-behavior: none; -webkit-overflow-scrolling: touch">
     <div id="loading-bg" role="status" aria-label="正在加载 MoviePilot" aria-live="polite">
       <div class="loading-shell">
         <div class="loading-main">
@@ -1025,6 +1051,11 @@
       <!-- 超时提示 - 默认隐藏 -->
       <div id="loading-timeout"></div>
     </div>
+    <script>
+      if (document.documentElement.dataset.nativeLaunchScreen === 'true') {
+        document.getElementById('loading-bg')?.remove()
+      }
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
