@@ -264,6 +264,8 @@ export default {
     transparencyMedium: '中等透明度',
     transparencyHigh: '高透明度',
     customCssSaveSuccess: '自定義CSS保存成功，請刷新頁面生效！',
+    appearanceRestoreFailed: '從服務端恢復外觀設定失敗，已使用本地設定',
+    appearanceSyncHint: '外觀設定會同步到目前帳號，清理瀏覽器快取後仍可恢復。',
     customCssSaveFailed: '保存自定義CSS到服務端失敗',
     deviceNotSupport: '當前設備不支持監聽系統主題變化',
     customizer: {
