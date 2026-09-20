@@ -22,6 +22,11 @@ import {
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { themeManager } from '@/utils/themeManager'
 import { syncThemeFavicon } from '@/utils/themePalette'
+import {
+  readRemoteUserConfig,
+  THEME_CUSTOMIZER_REMOTE_KEY,
+  writeRemoteUserConfig,
+} from '@/utils/themeSettingsPersistence'
 
 export const THEME_CUSTOMIZER_STORAGE_KEY = 'moviepilot-theme-customizer'
 export const THEME_CUSTOMIZER_CHANGE_EVENT = 'moviepilot-theme-customizer-change'
@@ -435,6 +440,18 @@ function persistThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify(settings))
 }
 
+/**
+ * 将完整主题定制设置镜像到服务端用户配置。
+ *
+ * 本地存储仍是首屏唯一读取来源，服务端副本只用于清理缓存后的恢复，
+ * 因此这里不等待写入结果，也不因为写入失败回滚当前外观。
+ */
+function syncThemeCustomizerSettingsToServer(settings: ThemeCustomizerSettings) {
+  if (!isBrowser()) return
+
+  void writeRemoteUserConfig(THEME_CUSTOMIZER_REMOTE_KEY, settings)
+}
+
 /** 广播主题定制设置变更，供布局与菜单同步响应。 */
 function dispatchThemeCustomizerChange(settings: ThemeCustomizerSettings) {
   if (!isBrowser()) return
@@ -599,6 +616,39 @@ export function applyStoredThemeCustomizerAppearance(themeApi: VuetifyThemeApi) 
   return settings
 }
 
+/**
+ * 在本地存储缺少主题定制设置时，用服务端副本恢复用户选择的外观。
+ *
+ * 只在本地完全没有记录时回填，避免服务端旧值覆盖当前浏览器里更新的设置。
+ * 返回恢复后的设置；没有可恢复内容时返回 null。
+ */
+export async function restoreThemeCustomizerSettingsFromServer(
+  themeApi: VuetifyThemeApi,
+): Promise<ThemeCustomizerSettings | null> {
+  if (!isBrowser()) return null
+
+  if (localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)) return null
+
+  const remoteSettings = await readRemoteUserConfig<NormalizableThemeCustomizerSettings>(
+    THEME_CUSTOMIZER_REMOTE_KEY,
+  )
+  if (!remoteSettings || typeof remoteSettings !== 'object') return null
+
+  const restored = normalizeThemeCustomizerSettings(remoteSettings)
+  settingsState.value = restored
+  persistThemeCustomizerSettings(restored)
+  applyPrimaryColorToVuetify(restored.primaryColor, themeApi)
+  applyThemeCustomizerRootSettings(restored)
+
+  if (restored.theme !== themeApi.global.name.value) {
+    await applyThemePreference(restored.theme, themeApi)
+  }
+
+  dispatchThemeCustomizerChange(restored)
+
+  return restored
+}
+
 /** 持久化部分主题定制设置并同步当前页面外观。 */
 export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustomizerSettings>) {
   const nextSettings = normalizeThemeCustomizerSettings({
@@ -609,6 +659,7 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
   glassPreviewState.value = null
   settingsState.value = nextSettings
   persistThemeCustomizerSettings(nextSettings)
+  syncThemeCustomizerSettingsToServer(nextSettings)
   applyPrimaryColorToVuetify(nextSettings.primaryColor, vuetify.theme)
   applyThemeCustomizerRootSettings(nextSettings)
   dispatchThemeCustomizerChange(nextSettings)
@@ -719,6 +770,7 @@ export function useThemeCustomizer() {
     glassPreviewState.value = null
     settings.value = nextSettings
     persistThemeCustomizerSettings(nextSettings)
+    syncThemeCustomizerSettingsToServer(nextSettings)
     applyPrimaryColorToVuetify(nextSettings.primaryColor, themeApi)
     applyThemeCustomizerRootSettings(nextSettings)
 
