@@ -1,9 +1,5 @@
 import { computed, ref } from 'vue'
-import {
-  readRemoteUserConfig,
-  TRANSPARENCY_REMOTE_KEY,
-  writeRemoteUserConfig,
-} from '@/utils/themeSettingsPersistence'
+import { readRemoteUserConfig, TRANSPARENCY_REMOTE_KEY, writeRemoteUserConfig } from '@/utils/themeSettingsPersistence'
 
 export type TransparencyGlassQuality = 'lightweight' | 'realtime'
 
