@@ -654,6 +654,7 @@ html[data-theme='glass'] {
   .agent-assistant-shell {
     --agent-assistant-panel-bg: var(--glass-overlay-surface);
     --agent-assistant-panel-blur: var(--glass-overlay-blur);
+    --agent-assistant-composer-filter: var(--glass-popup-filter);
     --agent-assistant-assistant-bg: var(--glass-surface);
   }
 

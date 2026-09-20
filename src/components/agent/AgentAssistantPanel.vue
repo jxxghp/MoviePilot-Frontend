@@ -3494,6 +3494,8 @@ onScopeDispose(() => {
   --agent-assistant-assistant-border: rgba(var(--v-theme-on-surface), 0.08);
   --agent-assistant-panel-bg: rgba(var(--v-theme-surface), 0.94);
   --agent-assistant-panel-blur: 10px;
+  // 输入相关的临时表面在玻璃主题下复用弹出菜单滤镜，普通主题回退到面板模糊度。
+  --agent-assistant-composer-filter: blur(var(--agent-assistant-panel-blur));
 }
 
 @supports (block-size: 100dvh) {
@@ -4128,7 +4130,8 @@ onScopeDispose(() => {
   padding: 0.55rem;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: var(--app-surface-radius);
-  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  -webkit-backdrop-filter: var(--agent-assistant-composer-filter);
+  backdrop-filter: var(--agent-assistant-composer-filter);
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
   gap: 0.45rem;
@@ -4179,7 +4182,8 @@ onScopeDispose(() => {
   padding: 0.35rem;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: var(--app-overlay-radius);
-  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  -webkit-backdrop-filter: var(--agent-assistant-composer-filter);
+  backdrop-filter: var(--agent-assistant-composer-filter);
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
   gap: 0.25rem;
@@ -4237,7 +4241,8 @@ onScopeDispose(() => {
   align-items: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: var(--app-field-radius);
-  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  -webkit-backdrop-filter: var(--agent-assistant-composer-filter);
+  backdrop-filter: var(--agent-assistant-composer-filter);
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
   column-gap: 0.25rem;

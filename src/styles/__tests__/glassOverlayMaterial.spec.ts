@@ -109,6 +109,29 @@ describe('glass overlay material styles', () => {
     )
   })
 
+  // WebAgent 输入表面必须跟随玻璃弹出菜单的完整滤镜，而不是回退到面板的固定模糊度。
+  it('keeps WebAgent composer surfaces aligned with the glass popup filter', () => {
+    const component = readFileSync(resolve(cwd(), 'src/components/agent/AgentAssistantPanel.vue'), 'utf8')
+    const glassStyles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(glassStyles).toContain('--agent-assistant-composer-filter: var(--glass-popup-filter)')
+    expect(component).toContain('--agent-assistant-composer-filter: blur(var(--agent-assistant-panel-blur));')
+
+    for (const surface of [
+      '.agent-assistant-pending-files',
+      '.agent-assistant-command-menu',
+      '.agent-assistant-input',
+    ]) {
+      const start = component.lastIndexOf(surface)
+      const end = component.indexOf('\n}', start)
+      const block = component.slice(start, end)
+
+      expect(start).toBeGreaterThanOrEqual(0)
+      expect(block).toContain('-webkit-backdrop-filter: var(--agent-assistant-composer-filter)')
+      expect(block).toContain('backdrop-filter: var(--agent-assistant-composer-filter)')
+    }
+  })
+
   it('reserves space below detached desktop navigation and follows the compact theme radius', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
 
