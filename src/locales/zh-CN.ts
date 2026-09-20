@@ -266,6 +266,8 @@ export default {
     transparencyMedium: '中等透明度',
     transparencyHigh: '高透明度',
     customCssSaveSuccess: '自定义CSS保存成功，请刷新页面生效！',
+    appearanceRestoreFailed: '从服务端恢复外观设置失败，已使用本地设置',
+    appearanceSyncHint: '外观设置会同步到当前账号，清理浏览器缓存后仍可恢复。',
     customCssSaveFailed: '保存自定义CSS到服务端失败',
     deviceNotSupport: '当前设备不支持监听系统主题变化',
     customizer: {
