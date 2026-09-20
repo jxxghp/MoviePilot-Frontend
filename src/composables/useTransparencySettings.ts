@@ -1,4 +1,9 @@
 import { computed, ref } from 'vue'
+import {
+  readRemoteUserConfig,
+  TRANSPARENCY_REMOTE_KEY,
+  writeRemoteUserConfig,
+} from '@/utils/themeSettingsPersistence'
 
 export type TransparencyGlassQuality = 'lightweight' | 'realtime'
 
@@ -99,11 +104,38 @@ function persistTransparencySettings(settings: TransparencySettings) {
   return normalized
 }
 
+/**
+ * 将透明主题设置镜像到服务端用户配置。
+ *
+ * 本地存储仍是首屏唯一读取来源，服务端副本只用于清理缓存后的恢复，
+ * 因此这里不等待写入结果，也不因为写入失败回滚当前外观。
+ */
+function syncTransparencySettingsToServer(settings: TransparencySettings) {
+  void writeRemoteUserConfig(TRANSPARENCY_REMOTE_KEY, settings)
+}
+
 /** 应用透明主题设置并写入本地存储。 */
 export function applyTransparencySettings(settings: TransparencySettings) {
   const normalized = persistTransparencySettings(settings)
 
+  syncTransparencySettingsToServer(normalized)
+
   return applyTransparencyAppearance(normalized)
+}
+
+/**
+ * 在本地存储缺少透明主题设置时，用服务端副本恢复用户选择。
+ *
+ * 只在本地完全没有记录时回填，避免服务端旧值覆盖当前浏览器里更新的设置。
+ * 返回恢复后的设置；没有可恢复内容时返回 null。
+ */
+export async function restoreTransparencySettingsFromServer(): Promise<TransparencySettings | null> {
+  if (localStorage.getItem('transparency-opacity')) return null
+
+  const remoteSettings = await readRemoteUserConfig<TransparencySettings>(TRANSPARENCY_REMOTE_KEY)
+  if (!remoteSettings || typeof remoteSettings !== 'object') return null
+
+  return applyTransparencySettings(remoteSettings)
 }
 
 /** 按本地存储中的最新值应用透明主题设置。 */
