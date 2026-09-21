@@ -4,6 +4,7 @@ import {
   corsSafeCachePlugin,
   jsonOnlyCachePlugin,
   selectCorsSafeCachedResponse,
+  shouldCacheStaticResource,
   shouldCacheJsonResponse,
 } from '../serviceWorkerCache'
 
@@ -104,5 +105,29 @@ describe('Service Worker API cache JSON boundary', () => {
         response,
       }),
     ).resolves.toBeNull()
+  })
+})
+
+describe('Service Worker static resource routing', () => {
+  it.each([
+    ['script', true],
+    ['style', true],
+    ['worker', true],
+  ] as const)('caches ordinary %s resources', (destination, expected) => {
+    expect(
+      shouldCacheStaticResource(
+        { destination },
+        new URL('https://moviepilot.example/assets/app.js'),
+      ),
+    ).toBe(expected)
+  })
+
+  it('bypasses the application SWR cache for plugin federation files', () => {
+    expect(
+      shouldCacheStaticResource(
+        { destination: 'script' },
+        new URL('https://moviepilot.example/api/v1/plugin/file/demo/dist/assets/remoteEntry.js?v=1.2.3'),
+      ),
+    ).toBe(false)
   })
 })

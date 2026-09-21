@@ -4,7 +4,7 @@ import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategi
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import * as navigationPreload from 'workbox-navigation-preload'
-import { corsSafeCachePlugin, jsonOnlyCachePlugin } from '@/utils/serviceWorkerCache'
+import { corsSafeCachePlugin, jsonOnlyCachePlugin, shouldCacheStaticResource } from '@/utils/serviceWorkerCache'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
@@ -81,7 +81,7 @@ registerRoute(
 
 // 静态资源 (JS, CSS, HTML) - 优先缓存
 registerRoute(
-  ({ request }) => ['style', 'script', 'worker'].includes(request.destination),
+  ({ request, url }) => shouldCacheStaticResource(request, url),
   new StaleWhileRevalidate({
     cacheName: `static-resources-${CACHE_VERSION}`,
     plugins: [
