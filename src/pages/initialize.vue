@@ -7,6 +7,9 @@ import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { getInitializationStatus, markInitialized } from '@/utils/initialization'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
+import GithubTokenAuthDialog from '@/components/github/GithubTokenAuthDialog.vue'
+import GithubTokenSetupCard from '@/components/github/GithubTokenSetupCard.vue'
+import { useGithubTokenAuth } from '@/composables/useGithubTokenAuth'
 import router from '@/router'
 
 interface InitializationPayload {
@@ -31,6 +34,9 @@ const errorMessage = ref('')
 const apiKeyCopied = ref(false)
 const formRef = ref<HTMLFormElement | null>(null)
 const configuredUsername = ref<string | null>(null)
+const githubAuthDialogVisible = ref(false)
+const githubManualToken = ref('')
+const githubAuth = useGithubTokenAuth('initialization')
 
 const form = ref<InitializationPayload>({
   username: '',
@@ -75,6 +81,43 @@ function getErrorMessage(error: unknown): string {
   return getApiBusinessErrorMessage(error) || t('initialization.saveFailed')
 }
 
+/** 从初始化页启动与设置页完全一致的 GitHub Device Flow。 */
+async function startGithubAuthorization() {
+  githubAuthDialogVisible.value = true
+  const started = await githubAuth.startAuth()
+  if (started) {
+    githubAuth.openAuthPage()
+    void githubAuth.pollAuth()
+  }
+}
+
+/** 关闭初始化页 GitHub 授权弹窗时停止设备码轮询。 */
+function cancelGithubAuthorization() {
+  githubAuth.cancelAuth()
+  githubAuthDialogVisible.value = false
+}
+
+/** 保存初始化阶段可选的手动 GitHub PAT。 */
+async function saveGithubManualToken() {
+  const token = githubManualToken.value.trim()
+  if (!token) return
+  const saved = await githubAuth.saveManualToken(token)
+  if (saved) {
+    githubManualToken.value = ''
+    $toast.success(t('githubToken.saved'))
+  }
+}
+
+/** 初始化阶段清除已有部署 Token，并同步授权卡片状态。 */
+async function disconnectGithubToken() {
+  if (await githubAuth.disconnect()) $toast.success(t('githubToken.disconnected'))
+}
+
+/** 初始化页进入时读取已有部署 Token 的脱敏状态。 */
+async function loadGithubTokenStatus() {
+  await githubAuth.refreshStatus()
+}
+
 /** 进入表单前再次确认实例仍未初始化；服务不可达时交给独立状态页持续检测。 */
 async function checkInitializationStatus() {
   try {
@@ -86,6 +129,7 @@ async function checkInitializationStatus() {
     configuredUsername.value = status.configuredUsername
     form.value.username = status.configuredUsername || ''
     checking.value = false
+    await loadGithubTokenStatus()
   } catch {
     await router.replace('/service-status')
   }
@@ -297,6 +341,24 @@ onMounted(() => {
               </div>
             </div>
 
+            <div class="initialize-section-label initialize-section-label--github">
+              <span class="initialize-section-label__number">03</span>
+              <span>{{ t('githubToken.initializationSection') }}</span>
+            </div>
+
+            <GithubTokenSetupCard
+              mode="initialization"
+              :status="githubAuth.status.value"
+              :error="githubAuth.error.value"
+              :manual-token="githubManualToken"
+              :saving-manual="githubAuth.loading.value"
+              :disabled="checking || loading"
+              @update:manual-token="githubManualToken = $event"
+              @authorize="startGithubAuthorization"
+              @disconnect="disconnectGithubToken"
+              @save-manual="saveGithubManualToken"
+            />
+
             <VBtn
               block
               size="large"
@@ -318,6 +380,18 @@ onMounted(() => {
       </VCard>
       <p class="initialize-copyright">MoviePilot · {{ new Date().getFullYear() }}</p>
     </section>
+    <GithubTokenAuthDialog
+      v-model="githubAuthDialogVisible"
+      :session="githubAuth.session.value"
+      :status="githubAuth.status.value"
+      :loading="githubAuth.loading.value"
+      :polling="githubAuth.polling.value"
+      :error="githubAuth.error.value"
+      :popup-blocked="githubAuth.popupBlocked.value"
+      @open="githubAuth.openAuthPage"
+      @poll="githubAuth.pollAuth"
+      @cancel="cancelGithubAuthorization"
+    />
   </main>
 </template>
 

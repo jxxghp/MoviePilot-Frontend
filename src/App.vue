@@ -11,6 +11,7 @@ import { preloadImage } from './@core/utils/image'
 import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
+import GithubTokenPrompt from '@/components/github/GithubTokenPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import {
   applyStoredThemeCustomizerAppearance,
@@ -1178,6 +1179,8 @@ onUnmounted(() => {
       <SharedDialogHost />
       <!-- PWA安装提示 -->
       <PWAInstallPrompt />
+      <!-- GitHub Token 一次性设置提示 -->
+      <GithubTokenPrompt />
     </VApp>
   </div>
 </template>

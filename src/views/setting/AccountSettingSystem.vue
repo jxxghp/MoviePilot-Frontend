@@ -18,6 +18,10 @@ import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { loadMediaSources } from '@/composables/useMediaSources'
 import { useModuleCatalog } from '@/composables/useModuleCatalog'
+import { useGithubTokenAuth } from '@/composables/useGithubTokenAuth'
+import GithubTokenAuthDialog from '@/components/github/GithubTokenAuthDialog.vue'
+import GithubTokenSetupCard from '@/components/github/GithubTokenSetupCard.vue'
+import CollapsibleSettingCard from '@/components/system/CollapsibleSettingCard.vue'
 
 const display = useDisplay()
 const theme = useTheme()
@@ -298,6 +302,10 @@ const rustAccelRequired = ref(false)
 const agentMcpDialog = ref(false)
 const agentMcpServers = ref<AgentMcpServer[]>([])
 const loadingAgentMcpServers = ref(false)
+const githubAuthDialogVisible = ref(false)
+const githubManualToken = ref('')
+const savingGithubManualToken = ref(false)
+const githubAuth = useGithubTokenAuth('settings')
 
 // 智能助手配置项较多，默认收起以降低基础设置页的视觉占用。
 const aiAgentSettingsCollapsed = ref(true)
@@ -578,6 +586,19 @@ const currentLlmSnapshot = computed(() => buildLlmSnapshot())
 const currentLlmSnapshotKey = computed(() => buildLlmSnapshotKey(currentLlmSnapshot.value))
 const llmProviderAuthMethods = computed(() => selectedLlmProvider.value?.oauth_methods || [])
 const llmProviderAuthLabel = computed(() => selectedLlmProvider.value?.auth_status?.label || '')
+const aiAgentStatus = computed(() =>
+  SystemSettings.value.Basic.AI_AGENT_ENABLE
+    ? {
+        color: 'success',
+        icon: 'mdi-check-circle-outline',
+        label: t('setting.system.aiAgentStatusEnabled'),
+      }
+    : {
+        color: 'secondary',
+        icon: 'mdi-power-sleep',
+        label: t('setting.system.aiAgentStatusDisabled'),
+      },
+)
 const selectedLlmModelInfo = computed(() => {
   if (!selectedLlmModel.value?.context_tokens_k) return ''
   return t('setting.system.llmModelResolvedHint', {
@@ -870,6 +891,40 @@ async function loadSystemSettings() {
   await loadAgentMcpServers()
 }
 
+/** 从设置页启动统一的 GitHub Device Flow，并尽量自动打开验证页面。 */
+async function startGithubAuthorization() {
+  githubAuthDialogVisible.value = true
+  const started = await githubAuth.startAuth()
+  if (started) {
+    githubAuth.openAuthPage()
+    void githubAuth.pollAuth()
+  }
+}
+
+/** 关闭 GitHub 授权弹窗时停止前端轮询。 */
+function cancelGithubAuthorization() {
+  githubAuth.cancelAuth()
+  githubAuthDialogVisible.value = false
+}
+
+/** 保存手动 PAT，并让后端清理旧 OAuth 刷新元数据。 */
+async function saveGithubManualToken() {
+  const token = githubManualToken.value.trim()
+  if (!token) return
+  savingGithubManualToken.value = true
+  const saved = await githubAuth.saveManualToken(token)
+  savingGithubManualToken.value = false
+  if (saved) {
+    githubManualToken.value = ''
+    $toast.success(t('githubToken.saved'))
+  }
+}
+
+/** 清除当前 GitHub Token，保留页面状态与后端一致。 */
+async function disconnectGithubToken() {
+  if (await githubAuth.disconnect()) $toast.success(t('githubToken.disconnected'))
+}
+
 /** 加载后端声明的可手动开关模块，前端不维护模块名称或清单副本。 */
 async function loadModuleSettings() {
   try {
@@ -939,7 +994,10 @@ async function saveBasicSettings() {
   try {
     const llmTemperature = Number(SystemSettings.value.Basic.LLM_TEMPERATURE ?? 0.3)
     SystemSettings.value.Basic.LLM_TEMPERATURE = Number.isFinite(llmTemperature) ? llmTemperature : 0.3
-    if (await saveSystemSetting(SystemSettings.value.Basic)) {
+    const basicSettings = { ...SystemSettings.value.Basic }
+    // Token 已由专用接口托管，基础设置保存不能把脱敏占位值写回服务端。
+    delete basicSettings.GITHUB_TOKEN
+    if (await saveSystemSetting(basicSettings)) {
       // 更新全局设置store，使Web Agent图标实时生效
       globalSettingsStore.setData({ ...globalSettingsStore.getData, ...SystemSettings.value.Basic })
       $toast.success(t('setting.system.basicSaveSuccess'))
@@ -1288,6 +1346,7 @@ async function loadPageData() {
     loadDownloaderSetting(),
     loadMediaServerSetting(),
     loadSystemSettings(),
+    githubAuth.refreshStatus(),
     loadScrapingSwitchs(),
     loadModuleSettings(),
   ])
@@ -1420,591 +1479,567 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   ]"
                 />
               </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="SystemSettings.Basic.GITHUB_TOKEN"
-                  :label="t('setting.system.githubToken')"
-                  :placeholder="t('setting.system.githubTokenFormat')"
-                  :hint="t('setting.system.githubTokenHint')"
-                  persistent-hint
-                  prepend-inner-icon="mdi-github"
-                >
-                </VTextField>
+              <VCol cols="12">
+                <GithubTokenSetupCard
+                  mode="settings"
+                  :status="githubAuth.status.value"
+                  :error="githubAuth.error.value"
+                  :manual-token="githubManualToken"
+                  :saving-manual="savingGithubManualToken"
+                  :disabled="savingBasic"
+                  @update:manual-token="githubManualToken = $event"
+                  @authorize="startGithubAuthorization"
+                  @disconnect="disconnectGithubToken"
+                  @save-manual="saveGithubManualToken"
+                />
               </VCol>
             </VRow>
-            <VCard
-              variant="outlined"
-              :class="['mt-6', isTransparentTheme ? 'ai-agent-settings-card-transparent' : 'ai-agent-settings-card']"
+            <CollapsibleSettingCard
+              v-model:collapsed="aiAgentSettingsCollapsed"
+              class="mt-6"
+              :transparent="isTransparentTheme"
+              :title="t('setting.system.aiAgentSectionTitle')"
+              :subtitle="t('setting.system.aiAgentSectionDesc')"
+              icon="mdi-robot-outline"
             >
-              <VCardItem class="pb-3">
-                <template #prepend>
-                  <VAvatar color="primary" variant="tonal" size="40">
-                    <VIcon icon="mdi-robot-outline" />
-                  </VAvatar>
-                </template>
-                <VCardTitle class="text-subtitle-1">
-                  {{ t('setting.system.aiAgentSectionTitle') }}
-                </VCardTitle>
-                <VCardSubtitle>
-                  {{ t('setting.system.aiAgentSectionDesc') }}
-                </VCardSubtitle>
-                <template #append>
-                  <VTooltip location="top">
-                    <template #activator="{ props }">
-                      <VBtn
-                        v-bind="props"
-                        :icon="aiAgentSettingsCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'"
-                        variant="text"
-                        color="primary"
-                        size="small"
-                        :aria-label="aiAgentSettingsCollapsed ? t('setting.about.expand') : t('setting.about.collapse')"
-                        @click="aiAgentSettingsCollapsed = !aiAgentSettingsCollapsed"
-                      />
+              <template #status>
+                <VChip size="small" :color="aiAgentStatus.color" variant="tonal" :prepend-icon="aiAgentStatus.icon">
+                  {{ aiAgentStatus.label }}
+                </VChip>
+              </template>
+
+              <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AI_AGENT_ENABLE"
+                    :label="t('setting.system.aiAgentEnable')"
+                    :hint="t('setting.system.aiAgentEnableHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AI_AGENT_GLOBAL"
+                    :label="t('setting.system.aiAgentGlobal')"
+                    :hint="t('setting.system.aiAgentGlobalHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AI_AGENT_VERBOSE"
+                    :label="t('setting.system.aiAgentVerbose')"
+                    :hint="t('setting.system.aiAgentVerboseHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AI_AGENT_HIDE_ENTRY"
+                    :label="t('setting.system.aiAgentHideEntry')"
+                    :hint="t('setting.system.aiAgentHideEntryHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VAutocomplete
+                    v-model="SystemSettings.Basic.LLM_PROVIDER"
+                    :label="t('setting.system.llmProvider')"
+                    :hint="t('setting.system.llmProviderHint')"
+                    persistent-hint
+                    :items="llmProviderItems"
+                    :loading="loadingLlmProviders"
+                    prepend-inner-icon="mdi-robot"
+                    @update:model-value="handleLlmProviderChanged"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showLlmApiProtocolField" cols="12" md="6">
+                  <VSelect
+                    v-model="SystemSettings.Basic.LLM_API_PROTOCOL"
+                    :label="t('setting.system.llmApiProtocol')"
+                    :hint="t('setting.system.llmApiProtocolHint')"
+                    persistent-hint
+                    :items="apiProtocolItems"
+                    prepend-inner-icon="mdi-swap-horizontal"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                  <VCombobox
+                    :model-value="SystemSettings.Basic.LLM_BASE_URL || null"
+                    @update:model-value="
+                      (value: any) => {
+                        if (typeof value === 'object' && value !== null) {
+                          setBaseUrlPreset(value.id, value.value)
+                        } else {
+                          setBaseUrlPreset('', value || '')
+                        }
+                      }
+                    "
+                    :label="t('setting.system.llmBaseUrl')"
+                    :hint="t('setting.system.llmBaseUrlHint')"
+                    :placeholder="selectedLlmProvider?.default_base_url || t('setting.system.llmBaseUrlPlaceholder')"
+                    :items="llmBaseUrlPresetItems"
+                    item-title="title"
+                    item-value="value"
+                    persistent-hint
+                    persistent-placeholder
+                    prepend-inner-icon="mdi-link"
+                  >
+                    <template #item="{ props, item }">
+                      <VListItem v-bind="props" :subtitle="item.raw.subtitle" />
                     </template>
-                    <span>{{
-                      aiAgentSettingsCollapsed ? t('setting.about.expand') : t('setting.about.collapse')
-                    }}</span>
-                  </VTooltip>
-                </template>
-              </VCardItem>
-              <VExpandTransition>
-                <VCardText v-show="!aiAgentSettingsCollapsed" class="pt-2">
-                  <VRow>
-                    <VCol cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AI_AGENT_ENABLE"
-                        :label="t('setting.system.aiAgentEnable')"
-                        :hint="t('setting.system.aiAgentEnableHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AI_AGENT_GLOBAL"
-                        :label="t('setting.system.aiAgentGlobal')"
-                        :hint="t('setting.system.aiAgentGlobalHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AI_AGENT_VERBOSE"
-                        :label="t('setting.system.aiAgentVerbose')"
-                        :hint="t('setting.system.aiAgentVerboseHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AI_AGENT_HIDE_ENTRY"
-                        :label="t('setting.system.aiAgentHideEntry')"
-                        :hint="t('setting.system.aiAgentHideEntryHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VAutocomplete
-                        v-model="SystemSettings.Basic.LLM_PROVIDER"
-                        :label="t('setting.system.llmProvider')"
-                        :hint="t('setting.system.llmProviderHint')"
-                        persistent-hint
-                        :items="llmProviderItems"
-                        :loading="loadingLlmProviders"
-                        prepend-inner-icon="mdi-robot"
-                        @update:model-value="handleLlmProviderChanged"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showLlmApiProtocolField" cols="12" md="6">
-                      <VSelect
-                        v-model="SystemSettings.Basic.LLM_API_PROTOCOL"
-                        :label="t('setting.system.llmApiProtocol')"
-                        :hint="t('setting.system.llmApiProtocolHint')"
-                        persistent-hint
-                        :items="apiProtocolItems"
-                        prepend-inner-icon="mdi-swap-horizontal"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
-                      <VCombobox
-                        :model-value="SystemSettings.Basic.LLM_BASE_URL || null"
-                        @update:model-value="
-                          (value: any) => {
-                            if (typeof value === 'object' && value !== null) {
-                              setBaseUrlPreset(value.id, value.value)
-                            } else {
-                              setBaseUrlPreset('', value || '')
-                            }
-                          }
-                        "
-                        :label="t('setting.system.llmBaseUrl')"
-                        :hint="t('setting.system.llmBaseUrlHint')"
-                        :placeholder="
-                          selectedLlmProvider?.default_base_url || t('setting.system.llmBaseUrlPlaceholder')
-                        "
-                        :items="llmBaseUrlPresetItems"
-                        item-title="title"
-                        item-value="value"
-                        persistent-hint
-                        persistent-placeholder
-                        prepend-inner-icon="mdi-link"
-                      >
-                        <template #item="{ props, item }">
-                          <VListItem v-bind="props" :subtitle="item.raw.subtitle" />
-                        </template>
-                      </VCombobox>
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showApiKeyField" cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.LLM_API_KEY"
-                        :label="selectedLlmProvider?.api_key_label || t('setting.system.llmApiKey')"
-                        :hint="selectedLlmProvider?.api_key_hint || t('setting.system.llmApiKeyHint')"
-                        :placeholder="t('setting.system.llmApiKeyPlaceholder')"
-                        persistent-hint
-                        persistent-placeholder
-                        type="password"
-                        prepend-inner-icon="mdi-key-variant"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0" cols="12">
-                      <VAlert type="info" variant="tonal">
-                        <div class="d-flex flex-column flex-md-row justify-space-between ga-3">
-                          <div>
-                            <div class="text-subtitle-2">{{ t('setting.system.llmProviderAuth') }}</div>
-                            <div class="text-body-2">
-                              {{ selectedLlmProvider?.description || t('setting.system.llmProviderAuthHint') }}
-                            </div>
-                            <div v-if="providerConnected" class="text-body-2 mt-2">
-                              {{
-                                t('setting.system.llmProviderConnectedAs', {
-                                  label: llmProviderAuthLabel || selectedLlmProvider?.name,
-                                })
-                              }}
-                            </div>
-                          </div>
-
-                          <div class="d-flex flex-wrap ga-2">
-                            <VBtn
-                              v-for="method in llmProviderAuthMethods"
-                              :key="method.id"
-                              color="primary"
-                              variant="tonal"
-                              prepend-icon="mdi-account-arrow-right-outline"
-                              @click="startProviderAuth(method.id)"
-                            >
-                              {{ method.label }}
-                            </VBtn>
-
-                            <VBtn
-                              v-if="providerConnected"
-                              color="error"
-                              variant="text"
-                              prepend-icon="mdi-link-off"
-                              @click="disconnectProviderAuth"
-                            >
-                              {{ t('setting.system.llmProviderDisconnect') }}
-                            </VBtn>
-                          </div>
-                        </div>
-                      </VAlert>
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  </VCombobox>
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showApiKeyField" cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Basic.LLM_API_KEY"
+                    :label="selectedLlmProvider?.api_key_label || t('setting.system.llmApiKey')"
+                    :hint="selectedLlmProvider?.api_key_hint || t('setting.system.llmApiKeyHint')"
+                    :placeholder="t('setting.system.llmApiKeyPlaceholder')"
+                    persistent-hint
+                    persistent-placeholder
+                    type="password"
+                    prepend-inner-icon="mdi-key-variant"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0" cols="12">
+                  <VAlert type="info" variant="tonal">
+                    <div class="d-flex flex-column flex-md-row justify-space-between ga-3">
                       <div>
-                        <VCombobox
-                          :model-value="SystemSettings.Basic.LLM_MODEL || null"
-                          @update:model-value="
-                            (val: any) => {
-                              SystemSettings.Basic.LLM_MODEL = typeof val === 'object' && val !== null ? val.id : val
-                              handleLlmModelChanged()
-                            }
-                          "
-                          :label="t('setting.system.llmModel')"
-                          :hint="t('setting.system.llmModelHint')"
-                          :placeholder="t('setting.system.llmModelPlaceholder')"
-                          persistent-hint
-                          persistent-placeholder
-                          :items="llmModels"
-                          item-title="name"
-                          item-value="id"
-                          :loading="loadingModels"
-                          prepend-inner-icon="mdi-brain"
-                        >
-                          <template #append-inner>
-                            <VBtn
-                              variant="text"
-                              icon="mdi-refresh"
-                              size="small"
-                              @click="refreshLlmModels(true)"
-                              :disabled="!canRefreshModels"
-                            />
-                          </template>
-                        </VCombobox>
-
-                        <VAlert v-if="selectedLlmModelInfo" type="info" variant="tonal" density="compact" class="mt-2">
-                          {{ selectedLlmModelInfo }}
-                        </VAlert>
-
-                        <div class="d-flex justify-end mt-2">
-                          <VBtn
-                            color="info"
-                            variant="tonal"
-                            density="comfortable"
-                            prepend-icon="mdi-connection"
-                            :disabled="!canTestLlm"
-                            :loading="testingLlm"
-                            class="llm-test-trigger"
-                            @click="testLlmConnection"
-                          >
-                            {{ t('setting.system.llmTestAction') }}
-                          </VBtn>
+                        <div class="text-subtitle-2">{{ t('setting.system.llmProviderAuth') }}</div>
+                        <div class="text-body-2">
+                          {{ selectedLlmProvider?.description || t('setting.system.llmProviderAuthHint') }}
+                        </div>
+                        <div v-if="providerConnected" class="text-body-2 mt-2">
+                          {{
+                            t('setting.system.llmProviderConnectedAs', {
+                              label: llmProviderAuthLabel || selectedLlmProvider?.name,
+                            })
+                          }}
                         </div>
                       </div>
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSelect
-                        v-model="SystemSettings.Basic.LLM_WEB_SEARCH_MODE"
-                        :label="t('setting.system.llmWebSearchMode')"
-                        :hint="webSearchModeHint"
-                        persistent-hint
-                        :items="webSearchModeItems"
-                        prepend-inner-icon="mdi-web"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VTextField
-                        v-model.number="SystemSettings.Basic.LLM_MAX_CONTEXT_TOKENS"
-                        :label="t('setting.system.llmMaxContextTokens')"
-                        :hint="t('setting.system.llmMaxContextTokensHint')"
-                        persistent-hint
-                        type="number"
-                        prepend-inner-icon="mdi-counter"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VTextField
-                        v-model.number="SystemSettings.Basic.LLM_TEMPERATURE"
-                        :label="t('setting.system.llmTemperature')"
-                        :hint="t('setting.system.llmTemperatureHint')"
-                        persistent-hint
-                        type="number"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        prepend-inner-icon="mdi-thermometer"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.LLM_USER_AGENT"
-                        :label="t('setting.system.llmUserAgent')"
-                        :hint="t('setting.system.llmUserAgentHint')"
-                        :placeholder="t('setting.system.llmUserAgentPlaceholder')"
-                        persistent-hint
-                        persistent-placeholder
-                        prepend-inner-icon="mdi-card-account-details-outline"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSelect
-                        v-model="SystemSettings.Basic.LLM_THINKING_LEVEL"
-                        :label="t('setting.system.llmThinking')"
-                        :hint="t('setting.system.llmThinkingHint')"
-                        :items="thinkingLevelItems"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSelect
-                        v-model="SystemSettings.Basic.AI_AGENT_JOB_INTERVAL"
-                        :label="t('setting.system.aiAgentJobInterval')"
-                        :hint="t('setting.system.aiAgentJobIntervalHint')"
-                        persistent-hint
-                        :items="[
-                          { title: t('setting.system.aiAgentJobIntervalDisabled'), value: 0 },
-                          { title: t('setting.system.aiAgentJobInterval1h'), value: 1 },
-                          { title: t('setting.system.aiAgentJobInterval3h'), value: 3 },
-                          { title: t('setting.system.aiAgentJobInterval6h'), value: 6 },
-                          { title: t('setting.system.aiAgentJobInterval12h'), value: 12 },
-                          { title: t('setting.system.aiAgentJobInterval24h'), value: 24 },
-                          { title: t('setting.system.aiAgentJobInterval1w'), value: 168 },
-                          { title: t('setting.system.aiAgentJobInterval1M'), value: 720 },
-                        ]"
-                        prepend-inner-icon="mdi-timer-outline"
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
-                      <VAlert type="info" variant="tonal" class="agent-mcp-summary">
-                        <div class="agent-mcp-summary__content">
-                          <div>
-                            <div class="text-subtitle-2">{{ t('setting.system.aiAgentMcpTitle') }}</div>
-                            <div class="text-body-2">
-                              {{
-                                t('setting.system.aiAgentMcpSummary', {
-                                  enabled: agentMcpEnabledCount,
-                                  total: agentMcpServers.length,
-                                })
-                              }}
-                            </div>
-                            <div v-if="agentMcpServers.length" class="agent-mcp-summary__chips mt-2">
-                              <VChip
-                                v-for="server in agentMcpServerPreview"
-                                :key="server.id"
-                                size="small"
-                                variant="tonal"
-                                :color="server.enabled ? 'success' : 'default'"
-                              >
-                                {{ server.name }}
-                              </VChip>
-                              <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal">
-                                +{{ agentMcpServers.length - 3 }}
-                              </VChip>
-                            </div>
-                          </div>
-                          <VBtn
-                            color="primary"
-                            variant="tonal"
-                            prepend-icon="mdi-server-network"
-                            :loading="loadingAgentMcpServers"
-                            @click="agentMcpDialog = true"
-                          >
-                            {{ t('setting.system.aiAgentMcpSettings') }}
-                          </VBtn>
+
+                      <div class="d-flex flex-wrap ga-2">
+                        <VBtn
+                          v-for="method in llmProviderAuthMethods"
+                          :key="method.id"
+                          color="primary"
+                          variant="tonal"
+                          prepend-icon="mdi-account-arrow-right-outline"
+                          @click="startProviderAuth(method.id)"
+                        >
+                          {{ method.label }}
+                        </VBtn>
+
+                        <VBtn
+                          v-if="providerConnected"
+                          color="error"
+                          variant="text"
+                          prepend-icon="mdi-link-off"
+                          @click="disconnectProviderAuth"
+                        >
+                          {{ t('setting.system.llmProviderDisconnect') }}
+                        </VBtn>
+                      </div>
+                    </div>
+                  </VAlert>
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <div>
+                    <VCombobox
+                      :model-value="SystemSettings.Basic.LLM_MODEL || null"
+                      @update:model-value="
+                        (val: any) => {
+                          SystemSettings.Basic.LLM_MODEL = typeof val === 'object' && val !== null ? val.id : val
+                          handleLlmModelChanged()
+                        }
+                      "
+                      :label="t('setting.system.llmModel')"
+                      :hint="t('setting.system.llmModelHint')"
+                      :placeholder="t('setting.system.llmModelPlaceholder')"
+                      persistent-hint
+                      persistent-placeholder
+                      :items="llmModels"
+                      item-title="name"
+                      item-value="id"
+                      :loading="loadingModels"
+                      prepend-inner-icon="mdi-brain"
+                    >
+                      <template #append-inner>
+                        <VBtn
+                          variant="text"
+                          icon="mdi-refresh"
+                          size="small"
+                          @click="refreshLlmModels(true)"
+                          :disabled="!canRefreshModels"
+                        />
+                      </template>
+                    </VCombobox>
+
+                    <VAlert v-if="selectedLlmModelInfo" type="info" variant="tonal" density="compact" class="mt-2">
+                      {{ selectedLlmModelInfo }}
+                    </VAlert>
+
+                    <div class="d-flex justify-end mt-2">
+                      <VBtn
+                        color="info"
+                        variant="tonal"
+                        density="comfortable"
+                        prepend-icon="mdi-connection"
+                        :disabled="!canTestLlm"
+                        :loading="testingLlm"
+                        class="llm-test-trigger"
+                        @click="testLlmConnection"
+                      >
+                        {{ t('setting.system.llmTestAction') }}
+                      </VBtn>
+                    </div>
+                  </div>
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSelect
+                    v-model="SystemSettings.Basic.LLM_WEB_SEARCH_MODE"
+                    :label="t('setting.system.llmWebSearchMode')"
+                    :hint="webSearchModeHint"
+                    persistent-hint
+                    :items="webSearchModeItems"
+                    prepend-inner-icon="mdi-web"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Basic.LLM_MAX_CONTEXT_TOKENS"
+                    :label="t('setting.system.llmMaxContextTokens')"
+                    :hint="t('setting.system.llmMaxContextTokensHint')"
+                    persistent-hint
+                    type="number"
+                    prepend-inner-icon="mdi-counter"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Basic.LLM_TEMPERATURE"
+                    :label="t('setting.system.llmTemperature')"
+                    :hint="t('setting.system.llmTemperatureHint')"
+                    persistent-hint
+                    type="number"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    prepend-inner-icon="mdi-thermometer"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Basic.LLM_USER_AGENT"
+                    :label="t('setting.system.llmUserAgent')"
+                    :hint="t('setting.system.llmUserAgentHint')"
+                    :placeholder="t('setting.system.llmUserAgentPlaceholder')"
+                    persistent-hint
+                    persistent-placeholder
+                    prepend-inner-icon="mdi-card-account-details-outline"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSelect
+                    v-model="SystemSettings.Basic.LLM_THINKING_LEVEL"
+                    :label="t('setting.system.llmThinking')"
+                    :hint="t('setting.system.llmThinkingHint')"
+                    :items="thinkingLevelItems"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSelect
+                    v-model="SystemSettings.Basic.AI_AGENT_JOB_INTERVAL"
+                    :label="t('setting.system.aiAgentJobInterval')"
+                    :hint="t('setting.system.aiAgentJobIntervalHint')"
+                    persistent-hint
+                    :items="[
+                      { title: t('setting.system.aiAgentJobIntervalDisabled'), value: 0 },
+                      { title: t('setting.system.aiAgentJobInterval1h'), value: 1 },
+                      { title: t('setting.system.aiAgentJobInterval3h'), value: 3 },
+                      { title: t('setting.system.aiAgentJobInterval6h'), value: 6 },
+                      { title: t('setting.system.aiAgentJobInterval12h'), value: 12 },
+                      { title: t('setting.system.aiAgentJobInterval24h'), value: 24 },
+                      { title: t('setting.system.aiAgentJobInterval1w'), value: 168 },
+                      { title: t('setting.system.aiAgentJobInterval1M'), value: 720 },
+                    ]"
+                    prepend-inner-icon="mdi-timer-outline"
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                  <VAlert type="info" variant="tonal" class="agent-mcp-summary">
+                    <div class="agent-mcp-summary__content">
+                      <div>
+                        <div class="text-subtitle-2">{{ t('setting.system.aiAgentMcpTitle') }}</div>
+                        <div class="text-body-2">
+                          {{
+                            t('setting.system.aiAgentMcpSummary', {
+                              enabled: agentMcpEnabledCount,
+                              total: agentMcpServers.length,
+                            })
+                          }}
                         </div>
-                      </VAlert>
-                    </VCol>
-                  </VRow>
-                  <VRow>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.LLM_USE_PROXY"
-                        :label="t('setting.system.llmUseProxy')"
-                        :hint="t('setting.system.llmUseProxyHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
-                        :label="t('setting.system.llmSupportImageInput')"
-                        :hint="t('setting.system.llmSupportImageInputHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                  </VRow>
-                  <VRow>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
-                        :label="t('setting.system.llmSupportAudioInput')"
-                        :hint="t('setting.system.llmSupportAudioInputHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                        :label="t('setting.system.llmSupportAudioOutput')"
-                        :hint="t('setting.system.llmSupportAudioOutputHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VSelect
-                        v-model="SystemSettings.Basic.AUDIO_INPUT_PROVIDER"
-                        :label="t('setting.system.audioInputProvider')"
-                        :hint="t('setting.system.audioInputProviderHint')"
-                        :items="audioProviderItems"
-                        persistent-hint
-                        prepend-inner-icon="mdi-microphone-message"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_INPUT_MODEL"
-                        :label="t('setting.system.audioInputModel')"
-                        :hint="t('setting.system.audioInputModelHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-waveform"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_INPUT_API_KEY"
-                        :label="t('setting.system.audioInputApiKey')"
-                        :hint="t('setting.system.audioInputApiKeyHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-key-variant"
-                        type="password"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_INPUT_BASE_URL"
-                        :label="t('setting.system.audioInputBaseUrl')"
-                        :hint="t('setting.system.audioInputBaseUrlHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-link-variant"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_INPUT_LANGUAGE"
-                        :label="t('setting.system.audioInputLanguage')"
-                        :hint="t('setting.system.audioInputLanguageHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-translate"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VSelect
-                        v-model="SystemSettings.Basic.AUDIO_OUTPUT_PROVIDER"
-                        :label="t('setting.system.audioOutputProvider')"
-                        :hint="t('setting.system.audioOutputProviderHint')"
-                        :items="audioProviderItems"
-                        persistent-hint
-                        prepend-inner-icon="mdi-account-voice"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_OUTPUT_MODEL"
-                        :label="t('setting.system.audioOutputModel')"
-                        :hint="t('setting.system.audioOutputModelHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-waveform"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_OUTPUT_API_KEY"
-                        :label="t('setting.system.audioOutputApiKey')"
-                        :hint="t('setting.system.audioOutputApiKeyHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-key-variant"
-                        type="password"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_OUTPUT_BASE_URL"
-                        :label="t('setting.system.audioOutputBaseUrl')"
-                        :hint="t('setting.system.audioOutputBaseUrlHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-link-variant"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model="SystemSettings.Basic.AUDIO_OUTPUT_VOICE"
-                        :label="t('setting.system.audioOutputVoice')"
-                        :hint="t('setting.system.audioOutputVoiceHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-account-voice"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
-                      cols="12"
-                    >
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AUDIO_OUTPUT_INCLUDE_TEXT"
-                        :label="t('setting.system.audioOutputIncludeText')"
-                        :hint="t('setting.system.audioOutputIncludeTextHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                  </VRow>
-                  <VRow>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AI_AGENT_RETRY_TRANSFER"
-                        :label="t('setting.system.aiAgentRetryTransfer')"
-                        :hint="t('setting.system.aiAgentRetryTransferHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                  </VRow>
-                  <VRow>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
-                      <VSwitch
-                        v-model="SystemSettings.Basic.AI_RECOMMEND_ENABLED"
-                        :label="t('setting.system.aiRecommendEnabled')"
-                        :hint="t('setting.system.aiRecommendEnabledHint')"
-                        persistent-hint
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextarea
-                        v-model="SystemSettings.Basic.AI_RECOMMEND_USER_PREFERENCE"
-                        :label="t('setting.system.aiRecommendUserPreference')"
-                        :hint="t('setting.system.aiRecommendUserPreferenceHint')"
-                        persistent-hint
-                        rows="1"
-                        auto-grow
-                        prepend-inner-icon="mdi-account-heart"
-                      />
-                    </VCol>
-                    <VCol
-                      v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED"
-                      cols="12"
-                      md="6"
-                    >
-                      <VTextField
-                        v-model.number="SystemSettings.Basic.AI_RECOMMEND_MAX_ITEMS"
-                        :label="t('setting.system.aiRecommendMaxItems')"
-                        :hint="t('setting.system.aiRecommendMaxItemsHint')"
-                        persistent-hint
-                        type="number"
-                        prepend-inner-icon="mdi-format-list-numbered"
-                      />
-                    </VCol>
-                  </VRow>
-                </VCardText>
-              </VExpandTransition>
-            </VCard>
+                        <div v-if="agentMcpServers.length" class="agent-mcp-summary__chips mt-2">
+                          <VChip
+                            v-for="server in agentMcpServerPreview"
+                            :key="server.id"
+                            size="small"
+                            variant="tonal"
+                            :color="server.enabled ? 'success' : 'default'"
+                          >
+                            {{ server.name }}
+                          </VChip>
+                          <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal">
+                            +{{ agentMcpServers.length - 3 }}
+                          </VChip>
+                        </div>
+                      </div>
+                      <VBtn
+                        color="primary"
+                        variant="tonal"
+                        prepend-icon="mdi-server-network"
+                        :loading="loadingAgentMcpServers"
+                        @click="agentMcpDialog = true"
+                      >
+                        {{ t('setting.system.aiAgentMcpSettings') }}
+                      </VBtn>
+                    </div>
+                  </VAlert>
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.LLM_USE_PROXY"
+                    :label="t('setting.system.llmUseProxy')"
+                    :hint="t('setting.system.llmUseProxyHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
+                    :label="t('setting.system.llmSupportImageInput')"
+                    :hint="t('setting.system.llmSupportImageInputHint')"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+                    :label="t('setting.system.llmSupportAudioInput')"
+                    :hint="t('setting.system.llmSupportAudioInputHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                    :label="t('setting.system.llmSupportAudioOutput')"
+                    :hint="t('setting.system.llmSupportAudioOutputHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VSelect
+                    v-model="SystemSettings.Basic.AUDIO_INPUT_PROVIDER"
+                    :label="t('setting.system.audioInputProvider')"
+                    :hint="t('setting.system.audioInputProviderHint')"
+                    :items="audioProviderItems"
+                    persistent-hint
+                    prepend-inner-icon="mdi-microphone-message"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_INPUT_MODEL"
+                    :label="t('setting.system.audioInputModel')"
+                    :hint="t('setting.system.audioInputModelHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-waveform"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_INPUT_API_KEY"
+                    :label="t('setting.system.audioInputApiKey')"
+                    :hint="t('setting.system.audioInputApiKeyHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-key-variant"
+                    type="password"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_INPUT_BASE_URL"
+                    :label="t('setting.system.audioInputBaseUrl')"
+                    :hint="t('setting.system.audioInputBaseUrlHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-link-variant"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_INPUT_LANGUAGE"
+                    :label="t('setting.system.audioInputLanguage')"
+                    :hint="t('setting.system.audioInputLanguageHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-translate"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VSelect
+                    v-model="SystemSettings.Basic.AUDIO_OUTPUT_PROVIDER"
+                    :label="t('setting.system.audioOutputProvider')"
+                    :hint="t('setting.system.audioOutputProviderHint')"
+                    :items="audioProviderItems"
+                    persistent-hint
+                    prepend-inner-icon="mdi-account-voice"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_OUTPUT_MODEL"
+                    :label="t('setting.system.audioOutputModel')"
+                    :hint="t('setting.system.audioOutputModelHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-waveform"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_OUTPUT_API_KEY"
+                    :label="t('setting.system.audioOutputApiKey')"
+                    :hint="t('setting.system.audioOutputApiKeyHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-key-variant"
+                    type="password"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_OUTPUT_BASE_URL"
+                    :label="t('setting.system.audioOutputBaseUrl')"
+                    :hint="t('setting.system.audioOutputBaseUrlHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-link-variant"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="SystemSettings.Basic.AUDIO_OUTPUT_VOICE"
+                    :label="t('setting.system.audioOutputVoice')"
+                    :hint="t('setting.system.audioOutputVoiceHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-account-voice"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+                  cols="12"
+                >
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AUDIO_OUTPUT_INCLUDE_TEXT"
+                    :label="t('setting.system.audioOutputIncludeText')"
+                    :hint="t('setting.system.audioOutputIncludeTextHint')"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AI_AGENT_RETRY_TRANSFER"
+                    :label="t('setting.system.aiAgentRetryTransfer')"
+                    :hint="t('setting.system.aiAgentRetryTransferHint')"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                  <VSwitch
+                    v-model="SystemSettings.Basic.AI_RECOMMEND_ENABLED"
+                    :label="t('setting.system.aiRecommendEnabled')"
+                    :hint="t('setting.system.aiRecommendEnabledHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextarea
+                    v-model="SystemSettings.Basic.AI_RECOMMEND_USER_PREFERENCE"
+                    :label="t('setting.system.aiRecommendUserPreference')"
+                    :hint="t('setting.system.aiRecommendUserPreferenceHint')"
+                    persistent-hint
+                    rows="1"
+                    auto-grow
+                    prepend-inner-icon="mdi-account-heart"
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED"
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model.number="SystemSettings.Basic.AI_RECOMMEND_MAX_ITEMS"
+                    :label="t('setting.system.aiRecommendMaxItems')"
+                    :hint="t('setting.system.aiRecommendMaxItemsHint')"
+                    persistent-hint
+                    type="number"
+                    prepend-inner-icon="mdi-format-list-numbered"
+                  />
+                </VCol>
+              </VRow>
+            </CollapsibleSettingCard>
           </VForm>
         </VCardText>
         <VCardText>
@@ -3274,6 +3309,18 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
       </VCardActions>
     </VCard>
   </VDialog>
+  <GithubTokenAuthDialog
+    v-model="githubAuthDialogVisible"
+    :session="githubAuth.session.value"
+    :status="githubAuth.status.value"
+    :loading="githubAuth.loading.value"
+    :polling="githubAuth.polling.value"
+    :error="githubAuth.error.value"
+    :popup-blocked="githubAuth.popupBlocked.value"
+    @open="githubAuth.openAuthPage"
+    @poll="githubAuth.pollAuth"
+    @cancel="cancelGithubAuthorization"
+  />
 </template>
 
 <style scoped>
@@ -3281,16 +3328,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
   margin-block-start: 1.75rem;
   padding-block-start: 1.5rem;
   border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-.ai-agent-settings-card {
-  border-color: rgba(var(--v-theme-primary), 0.15);
-  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
-}
-
-.ai-agent-settings-card-transparent {
-  border-color: rgba(var(--v-theme-primary), 0);
-  background-color: rgba(var(--v-theme-surface), 0) !important;
 }
 
 .setting-actions {

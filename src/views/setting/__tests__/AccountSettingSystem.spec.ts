@@ -1,5 +1,6 @@
 import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
 import type { LlmModel, LlmProvider, LlmProviderAuthSession } from '@/composables/useLlmProviderDirectory'
+import type { GithubTokenStatus } from '@/composables/useGithubTokenAuth'
 import { useGlobalSettingsStore } from '@/stores'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -10,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  getApiBusinessErrorMessage: vi.fn(),
   openSharedDialog: vi.fn(),
   toastError: vi.fn(),
   toastInfo: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock('@/api', () => ({
     get: mocks.apiGet,
     post: mocks.apiPost,
   }),
+  getApiBusinessErrorMessage: mocks.getApiBusinessErrorMessage,
 }))
 
 vi.mock('vue-toastification', () => ({
@@ -180,6 +183,7 @@ function createDialogController() {
 }
 
 let systemEnv: Record<string, unknown>
+let githubStatus: GithubTokenStatus
 
 const downloadersFixture = [
   { name: '下载器1', type: 'qbittorrent', default: false, enabled: true, config: { host: 'qb.example' } },
@@ -220,7 +224,6 @@ const BASIC_SETTING_KEYS = [
   'AUDIO_OUTPUT_VOICE',
   'CUSTOMIZE_WALLPAPER_API_URL',
   'DB_TYPE',
-  'GITHUB_TOKEN',
   'LLM_API_KEY',
   'LLM_API_PROTOCOL',
   'LLM_BASE_URL',
@@ -244,6 +247,12 @@ const BASIC_SETTING_KEYS = [
 function mockLoadedSettings() {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/env') return { success: true, data: systemEnv }
+    if (endpoint === 'github/auth/status') {
+      return {
+        success: true,
+        data: structuredClone(githubStatus),
+      }
+    }
     if (endpoint === 'system/module-settings') {
       return {
         success: true,
@@ -487,7 +496,7 @@ function findPost(path: string) {
 }
 
 async function expandLlmSettings() {
-  await fireEvent.click(screen.getByRole('button', { name: '展开' }))
+  await fireEvent.click(screen.getByRole('button', { name: '智能助手配置' }))
   return screen.findByRole('button', { name: '测试调用' })
 }
 
@@ -508,6 +517,15 @@ describe('AccountSettingSystem', () => {
       API_TOKEN: '1234567890abcdef',
       DB_TYPE: 'sqlite',
       RUST_ACCEL_AVAILABLE: false,
+    }
+    githubStatus = {
+      configured: false,
+      valid: null,
+      source: null,
+      login: null,
+      masked_token: null,
+      expires_at: null,
+      needs_reauthorization: false,
     }
     downloadersSetting = structuredClone(downloadersFixture)
     mediaServersSetting = structuredClone(mediaServersFixture)
@@ -566,6 +584,33 @@ describe('AccountSettingSystem', () => {
     expect(refreshOptions.active.value).toBe(false)
   })
 
+  it('keeps GitHub and AI sections collapsed while exposing their current status', async () => {
+    await renderSettings()
+
+    expect(screen.getByRole('button', { name: 'GitHub Token' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('button', { name: '智能助手配置' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText('未连接')).toBeInTheDocument()
+    expect(screen.getByText('未启用')).toBeInTheDocument()
+  })
+
+  it('hides manual GitHub Token input after a successful connection', async () => {
+    githubStatus = {
+      configured: true,
+      valid: true,
+      source: 'oauth',
+      login: 'octocat',
+      masked_token: 'gho_****abcd',
+      expires_at: null,
+      needs_reauthorization: false,
+    }
+    await renderSettings()
+
+    expect(screen.getByText('已连接')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'GitHub Token' }))
+    expect(screen.getByText('octocat')).toBeInTheDocument()
+    expect(screen.queryByLabelText('GitHub PAT')).not.toBeInTheDocument()
+  })
+
   it('saves the current basic payload and updates the global settings store', async () => {
     const { pinia } = await renderSettings()
     await screen.findByDisplayValue('https://moviepilot.example')
@@ -584,7 +629,6 @@ describe('AccountSettingSystem', () => {
         API_TOKEN: '1234567890abcdef',
         AUDIO_OUTPUT_MODEL: 'gpt-4o-mini-tts',
         DB_TYPE: 'sqlite',
-        GITHUB_TOKEN: null,
         LLM_TEMPERATURE: 0.3,
         WALLPAPER: '',
         WALLPAPER_IMAGE_URL: null,
@@ -813,10 +857,19 @@ describe('AccountSettingSystem', () => {
     expect(closeAuthDialog).toHaveBeenCalledOnce()
   })
 
+  it('saves a manually entered GitHub PAT through the dedicated endpoint', async () => {
+    await renderSettings()
+    await screen.findByDisplayValue('https://moviepilot.example')
+    await fireEvent.click(screen.getByRole('button', { name: 'GitHub Token' }))
+    await fireEvent.update(screen.getByLabelText('GitHub PAT'), 'github-token')
+    await fireEvent.click(screen.getByRole('button', { name: '保存 Token' }))
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('github/auth/manual', { token: 'github-token' }))
+    expect(findPost('github/auth/manual')?.[1]).toEqual({ token: 'github-token' })
+  })
+
   it('round-trips the user-editable application and wallpaper settings', async () => {
     await renderSettings()
     await screen.findByDisplayValue('https://moviepilot.example')
-    await fireEvent.update(screen.getByLabelText('Github Token'), 'github-token')
     await selectOption('背景壁纸', '自定义')
     await fireEvent.update(screen.getByLabelText('自定义壁纸API地址'), 'https://wallpaper.example/api')
 
@@ -825,7 +878,6 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/env')?.[1]).toEqual(
       expect.objectContaining({
         CUSTOMIZE_WALLPAPER_API_URL: 'https://wallpaper.example/api',
-        GITHUB_TOKEN: 'github-token',
         WALLPAPER: 'customize',
       }),
     )
