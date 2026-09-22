@@ -4662,7 +4662,7 @@ export default {
     runtimeReady: '插件等待加载',
     blockedByPolicy: '未通过用户认证，请查看日志',
     runtimeLoadFailed: '插件加载失败，请查看日志',
-    incompatibleRuntimeStatus: '插件不支持当前运行时（v3t）',
+    incompatibleRuntimeStatus: '插件声明不支持当前运行环境，请查看日志',
     installFailed: '插件 {name} 安装失败：{message}',
     name: '名称',
     hasNewVersion: '有新版本',

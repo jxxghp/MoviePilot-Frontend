@@ -1897,6 +1897,85 @@ describe('PluginCardListView search installation', () => {
     await waitForRequestsToFinish()
   })
 
+  it('blocks an installed update when the market entry reports a runtime incompatibility', async () => {
+    let installRequests = 0
+    await renderList({
+      installed: () => [
+        createPlugin({
+          id: 'RuntimeBlockedPlugin',
+          installed: true,
+          plugin_name: '运行时不兼容插件',
+          plugin_version: '1.0.0',
+        }),
+      ],
+      market: () => [
+        createPlugin({
+          has_update: true,
+          id: 'RuntimeBlockedPlugin',
+          installed: true,
+          plugin_name: '运行时不兼容插件',
+          plugin_version: '2.0.0',
+          runtime_compatible: false,
+          runtime_message: '插件声明不支持 free-threaded 运行时（v3t）',
+        }),
+      ],
+    })
+    await waitFor(() => expect(screen.getByLabelText('update-RuntimeBlockedPlugin')).toHaveTextContent('true'))
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('RuntimeBlockedPlugin'), () => {
+        installRequests += 1
+        return apiJson({})
+      }),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-RuntimeBlockedPlugin' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('插件声明不支持 free-threaded 运行时（v3t）'))
+    expect(installRequests).toBe(0)
+    await waitForRequestsToFinish()
+  })
+
+  it('keeps the installed runtime verdict when the market entry omits the runtime fields', async () => {
+    let installRequests = 0
+    await renderList({
+      installed: () => [
+        createPlugin({
+          id: 'RuntimeKnownPlugin',
+          installed: true,
+          plugin_name: '已知不兼容插件',
+          plugin_version: '1.0.0',
+          runtime_compatible: false,
+        }),
+      ],
+      market: () => [
+        createPlugin({
+          has_update: true,
+          id: 'RuntimeKnownPlugin',
+          installed: true,
+          plugin_name: '已知不兼容插件',
+          plugin_version: '2.0.0',
+        }),
+      ],
+    })
+    await waitFor(() => expect(screen.getByLabelText('update-RuntimeKnownPlugin')).toHaveTextContent('true'))
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('RuntimeKnownPlugin'), () => {
+        installRequests += 1
+        return apiJson({})
+      }),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-RuntimeKnownPlugin' }))
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith('插件声明不支持 free-threaded 运行时（v3t），无法安装'),
+    )
+    expect(installRequests).toBe(0)
+    await waitForRequestsToFinish()
+  })
+
   it('deduplicates concurrent installation requests for the same plugin', async () => {
     const installGate = createDeferred<void>()
     let installRequests = 0
