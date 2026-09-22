@@ -420,7 +420,6 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
   })
 
-
   it('creates a clone and names the result by the instance id returned in the receipt', async () => {
     // 不填后缀时前端算不出服务端分配到的号，展示名只能回落到回执里的实例 ID
     mocks.apiPost.mockResolvedValue({ success: true, message: '', data: { instance_id: 'DemoPlugin2' } })

@@ -111,9 +111,7 @@ const runtimePending = computed(
 )
 const runtimeUnavailable = computed(
   () =>
-    ['sync_failed', 'blocked_by_policy', 'load_failed', 'incompatible_runtime'].includes(
-      runtimeStatus.value || '',
-    ) ||
+    ['sync_failed', 'blocked_by_policy', 'load_failed', 'incompatible_runtime'].includes(runtimeStatus.value || '') ||
     (!props.runtimeSettling && ['source_missing', 'dependency_pending', 'ready'].includes(runtimeStatus.value || '')),
 )
 const runtimeActionsBlocked = computed(
@@ -920,11 +918,7 @@ watch(
                 aria-live="polite"
               >
                 <VProgressCircular v-if="props.installing || runtimePending" indeterminate size="22" width="2" />
-                <VIcon
-                  v-else
-                  :icon="runtimeStatusIcon"
-                  size="22"
-                />
+                <VIcon v-else :icon="runtimeStatusIcon" size="22" />
                 <span>{{ runtimeStatusText }}</span>
                 <VBtn
                   v-if="runtimeStatus === 'sync_failed'"
