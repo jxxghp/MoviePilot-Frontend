@@ -4617,7 +4617,7 @@ export default {
     runtimeReady: '插件等待載入',
     blockedByPolicy: '未通過用戶認證，請查看日誌',
     runtimeLoadFailed: '插件載入失敗，請查看日誌',
-    incompatibleRuntimeStatus: '插件聲明不支援目前執行環境，請查看日誌',
+    incompatibleRuntimeStatus: '插件不支援目前執行環境（v3t）',
     installFailed: '插件 {name} 安装失败：{message}',
     name: '名稱',
     hasNewVersion: '有新版本',

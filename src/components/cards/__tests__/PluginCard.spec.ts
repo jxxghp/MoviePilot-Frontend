@@ -790,7 +790,7 @@ describe('PluginCard lifecycle actions', () => {
         runtimeSettling: false,
       },
     })
-    expect(screen.getByText('插件声明不支持当前运行环境，请查看日志')).toBeInTheDocument()
+    expect(screen.getByText('插件不支持当前运行时（v3t）')).toBeInTheDocument()
   })
 
   it('shows a retry action for startup synchronization failures', async () => {

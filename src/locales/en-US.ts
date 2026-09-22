@@ -4773,7 +4773,7 @@ export default {
     runtimeReady: 'Plugin is waiting to load',
     blockedByPolicy: 'User authentication failed. Check the logs.',
     runtimeLoadFailed: 'Plugin failed to load. Check the logs.',
-    incompatibleRuntimeStatus: 'Plugin declares no support for the current runtime. Check the logs.',
+    incompatibleRuntimeStatus: 'Plugin does not support the current runtime (v3t).',
     installFailed: 'Plugin {name} installation failed: {message}',
     name: 'Name',
     hasNewVersion: 'Has New Version',
