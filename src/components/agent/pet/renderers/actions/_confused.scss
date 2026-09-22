@@ -2,25 +2,26 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-confused .agent-assistant-fab__antenna {
-  animation: agent-fab-action-confused-antenna 3.4s ease-in-out both;
+  animation: agent-fab-action-confused-antenna var(--agent-pet-action-duration, 3.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-confused .agent-assistant-fab__head {
-  animation: agent-fab-action-confused-head 3.4s ease-in-out both;
+  animation: agent-fab-action-confused-head var(--agent-pet-action-duration, 3.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-confused .agent-assistant-fab__eye {
   animation:
     agent-fab-blink 4.8s ease-in-out infinite,
+    // 该表情循环四次，合计与 3.4 秒动作时长保持一致。
     agent-fab-action-confused-eye 0.85s ease-in-out 4;
 }
 
 .agent-assistant-fab.is-action-confused .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-confused-arm-left 3.4s ease-in-out both;
+  animation: agent-fab-action-confused-arm-left var(--agent-pet-action-duration, 3.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-confused .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-confused-arm-right 3.4s ease-in-out both;
+  animation: agent-fab-action-confused-arm-right var(--agent-pet-action-duration, 3.4s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-confused-antenna {

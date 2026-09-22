@@ -2,35 +2,35 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__bot {
-  animation: agent-fab-action-faint-bot 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-bot var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna {
-  animation: agent-fab-action-faint-antenna 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-antenna var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__head {
-  animation: agent-fab-action-faint-head 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-head var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__body {
-  animation: agent-fab-action-faint-body 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-body var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-faint-arm-left 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-arm-left var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-faint-arm-right 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-arm-right var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-faint-leg-left 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-leg-left var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-faint-leg-right 4.8s ease-in-out both;
+  animation: agent-fab-action-faint-leg-right var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-faint-bot {

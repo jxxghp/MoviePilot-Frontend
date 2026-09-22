@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getAgentPetActionDuration } from '../agentPetActions'
 import type { AgentPetActionName, AgentPetIntent } from '../types'
 
 const props = withDefaults(
@@ -18,6 +19,9 @@ const props = withDefaults(
 <template>
   <span
     class="agent-assistant-fab__bot"
+    :style="
+      props.action ? { '--agent-pet-action-duration': getAgentPetActionDuration(props.action) + 'ms' } : undefined
+    "
     :data-agent-pet-action="props.action || undefined"
     :data-agent-pet-intent="props.intent"
     :data-agent-pet-thinking="props.thinking ? 'true' : undefined"

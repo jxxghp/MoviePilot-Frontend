@@ -2,33 +2,33 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__bot {
-  animation: agent-fab-action-sit-bot 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-bot var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__head {
-  animation: agent-fab-action-sit-head 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-head var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__body {
-  animation: agent-fab-action-sit-body 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-body var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-sit-arm-left 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-arm-left var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-sit-arm-right 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-arm-right var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__leg--left {
   z-index: 5;
-  animation: agent-fab-action-sit-leg-left 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-leg-left var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__leg--right {
   z-index: 5;
-  animation: agent-fab-action-sit-leg-right 4.2s ease-in-out both;
+  animation: agent-fab-action-sit-leg-right var(--agent-pet-action-duration, 4.2s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-sit-bot {

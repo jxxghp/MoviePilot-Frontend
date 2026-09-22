@@ -2,24 +2,24 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-charge .agent-assistant-fab__bot {
-  animation: agent-fab-action-charge-bot 4.8s ease-in-out both;
+  animation: agent-fab-action-charge-bot var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-charge .agent-assistant-fab__antenna {
-  animation: agent-fab-action-charge-antenna 4.8s ease-in-out both;
+  animation: agent-fab-action-charge-antenna var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-charge .agent-assistant-fab__face {
-  animation: agent-fab-action-charge-face 4.8s ease-in-out both;
+  animation: agent-fab-action-charge-face var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-charge .agent-assistant-fab__core {
-  animation: agent-fab-action-charge-core 4.8s ease-in-out both;
+  animation: agent-fab-action-charge-core var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-charge .agent-assistant-fab__arm--left,
 .agent-assistant-fab.is-action-charge .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-charge-arm 4.8s ease-in-out both;
+  animation: agent-fab-action-charge-arm var(--agent-pet-action-duration, 4.8s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-charge-bot {

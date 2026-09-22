@@ -2,35 +2,35 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__bot {
-  animation: agent-fab-action-disassemble-bot 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-bot var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__antenna {
-  animation: agent-fab-action-disassemble-antenna 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-antenna var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__head {
-  animation: agent-fab-action-disassemble-head 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-head var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__body {
-  animation: agent-fab-action-disassemble-body 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-body var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-disassemble-arm-left 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-arm-left var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-disassemble-arm-right 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-arm-right var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-disassemble-leg-left 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-leg-left var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-disassemble-leg-right 6.2s ease-in-out both;
+  animation: agent-fab-action-disassemble-leg-right var(--agent-pet-action-duration, 6.2s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-disassemble-bot {

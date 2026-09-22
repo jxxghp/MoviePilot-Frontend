@@ -2,21 +2,21 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__bot {
-  animation: agent-fab-action-wave-bot 2.3s ease-in-out both;
+  animation: agent-fab-action-wave-bot var(--agent-pet-action-duration, 2.3s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__head {
-  animation: agent-fab-action-wave-head 2.3s ease-in-out both;
+  animation: agent-fab-action-wave-head var(--agent-pet-action-duration, 2.3s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--left {
   z-index: 6;
-  animation: agent-fab-action-wave-arm-left 2.3s ease-in-out both;
+  animation: agent-fab-action-wave-arm-left var(--agent-pet-action-duration, 2.3s) ease-in-out both;
   transform-origin: top center;
 }
 
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-wave-arm-right 2.3s ease-in-out both;
+  animation: agent-fab-action-wave-arm-right var(--agent-pet-action-duration, 2.3s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-wave-bot {
@@ -50,27 +50,27 @@
   }
 
   16% {
-    transform: translate(-0.08rem, -0.06rem) rotate(64deg);
+    transform: rotate(64deg);
   }
 
   30% {
-    transform: translate(-0.26rem, -0.28rem) rotate(132deg);
+    transform: rotate(132deg);
   }
 
   44% {
-    transform: translate(-0.18rem, -0.2rem) rotate(92deg);
+    transform: rotate(92deg);
   }
 
   58% {
-    transform: translate(-0.26rem, -0.28rem) rotate(132deg);
+    transform: rotate(132deg);
   }
 
   72% {
-    transform: translate(-0.1rem, -0.08rem) rotate(64deg);
+    transform: rotate(64deg);
   }
 
   88% {
-    transform: translate(-0.02rem, -0.02rem) rotate(28deg);
+    transform: rotate(28deg);
   }
 }
 

@@ -2,37 +2,37 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__bot {
-  animation: agent-fab-action-stretch-bot 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-bot var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__antenna {
-  animation: agent-fab-action-stretch-antenna 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-antenna var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__head {
-  animation: agent-fab-action-stretch-head 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-head var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__body {
-  animation: agent-fab-action-stretch-body 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-body var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__arm--left {
   z-index: 6;
-  animation: agent-fab-action-stretch-arm-left 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-arm-left var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__arm--right {
   z-index: 6;
-  animation: agent-fab-action-stretch-arm-right 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-arm-right var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-stretch-leg-left 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-leg-left var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-stretch .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-stretch-leg-right 4.4s ease-in-out both;
+  animation: agent-fab-action-stretch-leg-right var(--agent-pet-action-duration, 4.4s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-stretch-bot {
@@ -105,7 +105,7 @@
 
   44%,
   70% {
-    transform: translate(-0.24rem, -0.7rem) rotate(168deg);
+    transform: rotate(168deg);
   }
 }
 
@@ -117,7 +117,7 @@
 
   44%,
   70% {
-    transform: translate(0.24rem, -0.7rem) rotate(-168deg);
+    transform: rotate(-168deg);
   }
 }
 

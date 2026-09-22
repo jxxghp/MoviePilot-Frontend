@@ -1,31 +1,17 @@
 import type { AgentPetActionDefinition, AgentPetActionName } from './types'
 
-export const AGENT_PET_RANDOM_ACTION_MIN_DELAY = 8000
-export const AGENT_PET_RANDOM_ACTION_MAX_DELAY = 18000
+export const AGENT_PET_RANDOM_ACTION_MIN_DELAY = 12000
+export const AGENT_PET_RANDOM_ACTION_MAX_DELAY = 24000
 
-export const AGENT_PET_RANDOM_ACTIONS = [
-  'wave',
-  'sit',
-  'eye-roll',
-  'faint',
-  'disassemble',
-  'happy-jump',
-  'sleep',
-  'stretch',
-  'peek',
-  'scan',
-  'charge',
-  'spin-cheer',
-  'shy',
-  'confused',
-] as const
+// 空闲只播放轻量陪伴动作；庆祝、故障和思考表演保留给主动触发，避免误传任务状态。
+export const AGENT_PET_RANDOM_ACTIONS = ['wave', 'sit', 'stretch', 'peek', 'sleep', 'shy'] as const
 
 export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinition> = {
   wave: {
     name: 'wave',
     intent: 'reaction',
     clip: 'agent-fab-action-wave',
-    duration: 2450,
+    duration: 2300,
     priority: 1,
     interruptible: true,
   },
@@ -65,7 +51,7 @@ export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinit
     name: 'happy-jump',
     intent: 'success',
     clip: 'agent-fab-action-happy-jump',
-    duration: 5200,
+    duration: 2600,
     priority: 1,
     interruptible: true,
   },

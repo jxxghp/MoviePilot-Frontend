@@ -2,19 +2,19 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-scan .agent-assistant-fab__head {
-  animation: agent-fab-action-scan-head 3.2s ease-in-out both;
+  animation: agent-fab-action-scan-head var(--agent-pet-action-duration, 3.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-scan .agent-assistant-fab__face {
-  animation: agent-fab-action-scan-face 3.2s ease-in-out both;
+  animation: agent-fab-action-scan-face var(--agent-pet-action-duration, 3.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-scan .agent-assistant-fab__eye {
-  animation: agent-fab-action-scan-eye 3.2s ease-in-out both;
+  animation: agent-fab-action-scan-eye var(--agent-pet-action-duration, 3.2s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-scan .agent-assistant-fab__core {
-  animation: agent-fab-action-scan-core 3.2s ease-in-out both;
+  animation: agent-fab-action-scan-core var(--agent-pet-action-duration, 3.2s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-scan-head {

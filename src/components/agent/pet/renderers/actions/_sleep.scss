@@ -2,35 +2,35 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__bot {
-  animation: agent-fab-action-sleep-bot 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-bot var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__antenna {
-  animation: agent-fab-action-sleep-antenna 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-antenna var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__head {
-  animation: agent-fab-action-sleep-head 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-head var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__eye {
-  animation: agent-fab-action-sleep-eye 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-eye var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__body {
-  animation: agent-fab-action-sleep-body 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-body var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-sleep-arm-left 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-arm-left var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-sleep-arm-right 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-arm-right var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-sleep .agent-assistant-fab__leg {
-  animation: agent-fab-action-sleep-leg 5.8s ease-in-out both;
+  animation: agent-fab-action-sleep-leg var(--agent-pet-action-duration, 5.8s) ease-in-out both;
 }
 
 @keyframes agent-fab-action-sleep-bot {
