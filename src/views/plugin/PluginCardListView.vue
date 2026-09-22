@@ -35,6 +35,7 @@ import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginRuntimeStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
+import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
@@ -908,8 +909,10 @@ async function installPlugin(
     return
   }
 
-  if (!releaseVersion && item?.system_version_compatible === false) {
-    $toast.error(item.system_version_message || t('plugin.incompatibleSystemVersion'))
+  // 安装/更新前的统一兜底判据：运行时不兼容优先于主程序版本不兼容，与卡片和弹窗保持一致
+  const installBlock = resolvePluginInstallBlock(item)
+  if (!releaseVersion && installBlock) {
+    $toast.error(installBlock.message || t(installBlock.fallbackKey))
     return
   }
 
@@ -1260,6 +1263,10 @@ function mergeMarketMetadataIntoInstalled() {
     plugin.system_version = marketPlugin.system_version
     plugin.system_version_compatible = marketPlugin.system_version_compatible
     plugin.system_version_message = marketPlugin.system_version_message
+    // 运行时兼容性由市场条目携带；已安装快照缺少该判据时更新按钮无法禁用，因此一并投影。
+    // 服务端未返回这两个字段时保留已安装快照的原值，避免把未知误写成"兼容"。
+    if (marketPlugin.runtime_compatible !== undefined) plugin.runtime_compatible = marketPlugin.runtime_compatible
+    if (marketPlugin.runtime_message !== undefined) plugin.runtime_message = marketPlugin.runtime_message
   })
 }
 

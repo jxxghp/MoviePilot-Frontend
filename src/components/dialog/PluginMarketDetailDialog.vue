@@ -22,6 +22,7 @@ import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useConfirm } from '@/composables/useConfirm'
+import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 const PluginVersionHistoryDialog = defineAsyncComponent(
@@ -74,6 +75,12 @@ const visible = computed({
 })
 
 const isInstalled = computed(() => Boolean(props.plugin?.installed))
+
+// 兼容性判据挡住安装时既禁用按钮也给出原因，避免用户点了没反应
+const installBlock = computed(() => resolvePluginInstallBlock(props.plugin))
+const installBlockMessage = computed(() =>
+  installBlock.value ? installBlock.value.message || t(installBlock.value.fallbackKey) : '',
+)
 
 const rating = ref<PluginRating>({
   plugin_id: props.plugin?.id,
@@ -384,8 +391,8 @@ function visitPluginPage() {
 
 /** 安装插件并通知父级刷新市场列表。 */
 async function installPlugin(releaseVersion?: string, repoUrl?: string) {
-  if (!releaseVersion && props.plugin?.system_version_compatible === false) {
-    $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
+  if (!releaseVersion && installBlock.value) {
+    $toast.error(installBlockMessage.value)
     return
   }
 
@@ -658,13 +665,9 @@ onUnmounted(() => {
           </div>
         </dl>
 
-        <p
-          v-if="props.plugin?.system_version_compatible === false"
-          class="plugin-market-detail__compatibility"
-          role="alert"
-        >
+        <p v-if="installBlock" class="plugin-market-detail__compatibility" role="alert">
           <VIcon icon="mdi-lock-outline" size="16" />
-          <span>{{ props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion') }}</span>
+          <span>{{ installBlockMessage }}</span>
         </p>
 
         <section v-if="sourceSectionVisible" class="plugin-market-detail-source" aria-labelledby="plugin-source-title">
@@ -864,7 +867,7 @@ onUnmounted(() => {
               prepend-icon="mdi-download"
               :loading="sourceLoading"
               :disabled="
-                props.plugin?.system_version_compatible === false ||
+                Boolean(installBlock) ||
                 sourceLoading ||
                 sourceUnavailable ||
                 (sourceNeedsSelection && !selectedInstallSource)
@@ -877,7 +880,7 @@ onUnmounted(() => {
               v-else-if="props.plugin?.has_update"
               color="primary"
               prepend-icon="mdi-arrow-up-circle-outline"
-              :disabled="props.plugin?.system_version_compatible === false || sourceLoading || sourceUnavailable"
+              :disabled="Boolean(installBlock) || sourceLoading || sourceUnavailable"
               :loading="sourceLoading"
               @click="installPlugin()"
             >

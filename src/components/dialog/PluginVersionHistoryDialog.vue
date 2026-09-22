@@ -4,6 +4,7 @@ import { fetchPluginReleaseVersions, isOnlinePluginRepoUrl, resolveTrustedReleas
 import type { Plugin, PluginReleaseVersion, PluginReleaseVersionsResponse, PluginSourceOptions } from '@/api/types'
 import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { useI18n } from 'vue-i18n'
+import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 
 // 多语言
 const { t, locale } = useI18n()
@@ -55,6 +56,11 @@ const visible = computed({
 })
 
 const resolvedPlugin = computed(() => pluginDetail.value ?? props.plugin)
+// 兼容性判据挡住安装最新版时禁用按钮并说明原因；历史版本仍可安装
+const installBlock = computed(() => resolvePluginInstallBlock(resolvedPlugin.value))
+const installBlockMessage = computed(() =>
+  installBlock.value ? installBlock.value.message || t(installBlock.value.fallbackKey) : '',
+)
 
 const resolvedHistory = computed(() => {
   const declaredHistory = resolvedPlugin.value?.history || {}
@@ -397,7 +403,7 @@ watch(
               :disabled="
                 releaseItemByHistoryVersion(version)?.is_current ||
                 releaseSourceAction === 'unavailable' ||
-                (releaseItemByHistoryVersion(version)?.is_latest && resolvedPlugin?.system_version_compatible === false)
+                (releaseItemByHistoryVersion(version)?.is_latest && Boolean(installBlock))
               "
               @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
             >
@@ -411,18 +417,14 @@ watch(
       <template v-if="shouldShowUpdatePanel">
         <VDivider />
         <VCardItem>
-          <p
-            v-if="resolvedPlugin?.system_version_compatible === false"
-            class="plugin-version-history-dialog__compatibility"
-            role="alert"
-          >
+          <p v-if="installBlock" class="plugin-version-history-dialog__compatibility" role="alert">
             <VIcon icon="mdi-lock-outline" size="16" />
-            <span>{{ resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion') }}</span>
+            <span>{{ installBlockMessage }}</span>
           </p>
           <VBtn
             @click="handleUpdate()"
             block
-            :disabled="resolvedPlugin?.system_version_compatible === false || releaseSourceAction === 'unavailable'"
+            :disabled="Boolean(installBlock) || releaseSourceAction === 'unavailable'"
           >
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
