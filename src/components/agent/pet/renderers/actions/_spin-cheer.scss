@@ -2,43 +2,39 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__bot {
-  animation: agent-fab-action-spin-cheer-bot var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-bot 3.6s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__antenna {
-  animation: agent-fab-action-spin-cheer-antenna var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-antenna 3.6s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__head {
-  animation: agent-fab-action-spin-cheer-head var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-head 3.6s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__eye {
-  animation: agent-fab-action-spin-cheer-eye var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-eye 3.6s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__smile {
-  animation: agent-fab-action-spin-cheer-smile var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-smile 3.6s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__arm--left {
   z-index: 6;
-  animation: agent-fab-action-spin-cheer-arm-left var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-arm-left 3.6s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__arm--right {
   z-index: 6;
-  animation: agent-fab-action-spin-cheer-arm-right var(--agent-pet-action-duration, 3.6s) ease-in-out both;
+  animation: agent-fab-action-spin-cheer-arm-right 3.6s ease-in-out both;
 }
 
 @keyframes agent-fab-action-spin-cheer-bot {
-  0% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-
-  /* 终点保留完整一圈，防止从 356 度反向倒转回零度。 */
+  0%,
   100% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) + 360deg));
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
   }
 
   18% {
@@ -117,7 +113,7 @@
 
   20%,
   80% {
-    transform: rotate(148deg);
+    transform: translate(-0.28rem, -0.44rem) rotate(148deg);
   }
 }
 
@@ -129,6 +125,6 @@
 
   20%,
   80% {
-    transform: rotate(-148deg);
+    transform: translate(0.28rem, -0.44rem) rotate(-148deg);
   }
 }

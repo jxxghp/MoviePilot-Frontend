@@ -2,25 +2,25 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-shy .agent-assistant-fab__bot {
-  animation: agent-fab-action-shy-bot var(--agent-pet-action-duration, 3s) ease-in-out both;
+  animation: agent-fab-action-shy-bot 3s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-shy .agent-assistant-fab__head {
-  animation: agent-fab-action-shy-head var(--agent-pet-action-duration, 3s) ease-in-out both;
+  animation: agent-fab-action-shy-head 3s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-shy .agent-assistant-fab__eye {
-  animation: agent-fab-action-shy-eye var(--agent-pet-action-duration, 3s) ease-in-out both;
+  animation: agent-fab-action-shy-eye 3s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-shy .agent-assistant-fab__arm--left {
   z-index: 6;
-  animation: agent-fab-action-shy-arm-left var(--agent-pet-action-duration, 3s) ease-in-out both;
+  animation: agent-fab-action-shy-arm-left 3s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-shy .agent-assistant-fab__arm--right {
   z-index: 6;
-  animation: agent-fab-action-shy-arm-right var(--agent-pet-action-duration, 3s) ease-in-out both;
+  animation: agent-fab-action-shy-arm-right 3s ease-in-out both;
 }
 
 @keyframes agent-fab-action-shy-bot {
@@ -71,7 +71,7 @@
 
   24%,
   78% {
-    transform: rotate(118deg);
+    transform: translate(0.02rem, -0.16rem) rotate(118deg);
   }
 }
 
@@ -83,6 +83,6 @@
 
   24%,
   78% {
-    transform: rotate(-118deg);
+    transform: translate(-0.02rem, -0.16rem) rotate(-118deg);
   }
 }

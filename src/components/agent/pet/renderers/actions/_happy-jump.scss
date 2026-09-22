@@ -2,75 +2,78 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__bot {
-  animation: agent-fab-action-happy-jump-bot var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-bot 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__antenna {
-  animation: agent-fab-action-happy-jump-antenna var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-antenna 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__head {
-  animation: agent-fab-action-happy-jump-head var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-head 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__eye {
-  animation: agent-fab-action-happy-jump-eye var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-eye 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__smile {
-  animation: agent-fab-action-happy-jump-smile var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-smile 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__body {
-  animation: agent-fab-action-happy-jump-body var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-body 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__arm--left {
   z-index: 6;
-  animation: agent-fab-action-happy-jump-arm-left var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-arm-left 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__arm--right {
   z-index: 6;
-  animation: agent-fab-action-happy-jump-arm-right var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-arm-right 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-happy-jump-leg-left var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-leg-left 5.2s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-happy-jump-leg-right var(--agent-pet-action-duration, 2.6s) ease-in-out both;
+  animation: agent-fab-action-happy-jump-leg-right 5.2s ease-in-out both;
 }
 
 @keyframes agent-fab-action-happy-jump-bot {
+  /* 三段蓄力、起跳、落地，让开心连跳比单纯上下移动更像真人动作。 */
   0%,
   100% {
     transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
   }
-  12%,
-  52% {
-    transform: translateY(0.12rem) scale(var(--agent-assistant-bot-scale)) scale(1.03, 0.96)
-      rotate(var(--agent-assistant-robot-tilt));
-    animation-timing-function: cubic-bezier(0.16, 0.7, 0.3, 1);
+
+  9%,
+  37%,
+  65% {
+    transform: translateY(0.22rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 3deg));
   }
-  28% {
-    transform: translateY(-0.72rem) scale(var(--agent-assistant-bot-scale))
-      rotate(calc(var(--agent-assistant-robot-tilt) + 3deg));
-    animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.4);
+
+  20%,
+  48%,
+  76% {
+    transform: translateY(-0.76rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 4deg));
   }
-  44%,
-  78% {
-    transform: translateY(0.06rem) scale(var(--agent-assistant-bot-scale)) scale(1.04, 0.94)
-      rotate(var(--agent-assistant-robot-tilt));
-  }
-  64% {
-    transform: translateY(-0.42rem) scale(var(--agent-assistant-bot-scale))
+
+  29%,
+  57%,
+  85% {
+    transform: translateY(0.1rem) scale(var(--agent-assistant-bot-scale))
       rotate(calc(var(--agent-assistant-robot-tilt) - 2deg));
-    animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.4);
   }
-  88% {
-    transform: scale(var(--agent-assistant-bot-scale)) scale(0.99, 1.02) rotate(var(--agent-assistant-robot-tilt));
+
+  92% {
+    transform: translateY(-0.1rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 1deg));
   }
 }
 
@@ -80,18 +83,21 @@
     transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
   }
 
-  12%,
-  52% {
+  9%,
+  37%,
+  65% {
     transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.1rem)) rotate(34deg);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.2rem)) rotate(-18deg);
   }
 
-  44%,
-  78% {
+  29%,
+  57%,
+  85% {
     transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.04rem)) rotate(38deg);
   }
 }
@@ -102,18 +108,21 @@
     transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
   }
 
-  12%,
-  52% {
+  9%,
+  37%,
+  65% {
     transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.1rem)) rotate(-4deg);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.16rem)) rotate(7deg);
   }
 
-  44%,
-  78% {
+  29%,
+  57%,
+  85% {
     transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.04rem)) rotate(-5deg);
   }
 
@@ -130,15 +139,17 @@
     transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y)) scale(1, 1);
   }
 
-  12%,
-  52%,
-  88% {
+  8%,
+  36%,
+  64%,
+  92% {
     border-block-end-width: 0.18rem;
     transform: translate(0, -0.06rem) scale(1.08, 0.72);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     border-block-end-width: 0.19rem;
     transform: translate(0, -0.12rem) scale(1.16, 0.58);
   }
@@ -156,13 +167,15 @@
     opacity: 1;
   }
 
-  12%,
-  52% {
+  9%,
+  37%,
+  65% {
     transform: translateX(-50%) translateY(0.02rem) scale(0.92, 0.82);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     transform: translateX(-50%) translateY(-0.04rem) scale(1.22, 1.08);
   }
 }
@@ -173,20 +186,23 @@
     transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
   }
 
-  12%,
-  52% {
+  9%,
+  37%,
+  65% {
     transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.18rem)) scaleY(0.84)
       rotate(-2deg);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) - 0.1rem)) scaleY(1.08)
       rotate(4deg);
   }
 
-  44%,
-  78% {
+  29%,
+  57%,
+  85% {
     transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.08rem)) scaleY(0.94)
       rotate(-3deg);
   }
@@ -198,19 +214,22 @@
     transform: rotate(17deg);
   }
 
-  12%,
-  52% {
-    transform: rotate(54deg);
+  9%,
+  37%,
+  65% {
+    transform: translate(-0.08rem, 0.06rem) rotate(54deg);
   }
 
-  28%,
-  64% {
-    transform: rotate(152deg);
+  20%,
+  48%,
+  76% {
+    transform: translate(-0.24rem, -0.38rem) rotate(152deg);
   }
 
-  44%,
-  78% {
-    transform: rotate(96deg);
+  29%,
+  57%,
+  85% {
+    transform: translate(-0.1rem, -0.02rem) rotate(96deg);
   }
 }
 
@@ -220,19 +239,22 @@
     transform: rotate(-17deg);
   }
 
-  12%,
-  52% {
-    transform: rotate(-54deg);
+  9%,
+  37%,
+  65% {
+    transform: translate(0.08rem, 0.06rem) rotate(-54deg);
   }
 
-  28%,
-  64% {
-    transform: rotate(-152deg);
+  20%,
+  48%,
+  76% {
+    transform: translate(0.24rem, -0.38rem) rotate(-152deg);
   }
 
-  44%,
-  78% {
-    transform: rotate(-96deg);
+  29%,
+  57%,
+  85% {
+    transform: translate(0.1rem, -0.02rem) rotate(-96deg);
   }
 }
 
@@ -242,19 +264,22 @@
     transform: rotate(0deg);
   }
 
-  12%,
-  52% {
-    transform: translate(0.08rem, -0.22rem) rotate(28deg);
+  9%,
+  37%,
+  65% {
+    transform: translate(0.08rem, -0.22rem) rotate(82deg);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     transform: translate(-0.18rem, 0.08rem) rotate(-32deg);
   }
 
-  44%,
-  78% {
-    transform: translate(0.12rem, -0.08rem) rotate(18deg);
+  29%,
+  57%,
+  85% {
+    transform: translate(0.12rem, -0.08rem) rotate(44deg);
   }
 }
 
@@ -264,18 +289,21 @@
     transform: rotate(0deg);
   }
 
-  12%,
-  52% {
-    transform: translate(-0.08rem, -0.22rem) rotate(-28deg);
+  9%,
+  37%,
+  65% {
+    transform: translate(-0.08rem, -0.22rem) rotate(-82deg);
   }
 
-  28%,
-  64% {
+  20%,
+  48%,
+  76% {
     transform: translate(0.18rem, 0.08rem) rotate(32deg);
   }
 
-  44%,
-  78% {
-    transform: translate(-0.12rem, -0.08rem) rotate(-18deg);
+  29%,
+  57%,
+  85% {
+    transform: translate(-0.12rem, -0.08rem) rotate(-44deg);
   }
 }

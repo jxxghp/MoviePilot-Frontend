@@ -2,13 +2,12 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head {
-  animation: agent-fab-action-eye-roll-head var(--agent-pet-action-duration, 1.9s) ease-in-out both;
+  animation: agent-fab-action-eye-roll-head 1.9s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__eye {
   animation:
     agent-fab-blink 4.8s ease-in-out infinite,
-    // 该表情循环两次，合计与 1.9 秒动作时长保持一致。
     agent-fab-action-eye-roll 0.95s ease-in-out 2;
 }
 

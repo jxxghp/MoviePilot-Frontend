@@ -2,28 +2,28 @@
 /* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab.is-action-peek .agent-assistant-fab__bot {
-  animation: agent-fab-action-peek-bot var(--agent-pet-action-duration, 2.8s) ease-in-out both;
+  animation: agent-fab-action-peek-bot 2.8s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-peek .agent-assistant-fab__antenna {
-  animation: agent-fab-action-peek-antenna var(--agent-pet-action-duration, 2.8s) ease-in-out both;
+  animation: agent-fab-action-peek-antenna 2.8s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-peek .agent-assistant-fab__head {
-  animation: agent-fab-action-peek-head var(--agent-pet-action-duration, 2.8s) ease-in-out both;
+  animation: agent-fab-action-peek-head 2.8s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-peek .agent-assistant-fab__eye {
-  animation: agent-fab-action-peek-eye var(--agent-pet-action-duration, 2.8s) ease-in-out both;
+  animation: agent-fab-action-peek-eye 2.8s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-peek .agent-assistant-fab__arm--left {
   z-index: 6;
-  animation: agent-fab-action-peek-arm-left var(--agent-pet-action-duration, 2.8s) ease-in-out both;
+  animation: agent-fab-action-peek-arm-left 2.8s ease-in-out both;
 }
 
 .agent-assistant-fab.is-action-peek .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-peek-arm-right var(--agent-pet-action-duration, 2.8s) ease-in-out both;
+  animation: agent-fab-action-peek-arm-right 2.8s ease-in-out both;
 }
 
 @keyframes agent-fab-action-peek-bot {
@@ -89,7 +89,7 @@
 
   26%,
   78% {
-    transform: rotate(116deg);
+    transform: translate(-0.24rem, -0.12rem) rotate(116deg);
   }
 }
 
@@ -101,6 +101,6 @@
 
   26%,
   78% {
-    transform: rotate(-34deg);
+    transform: translate(0.04rem, 0.06rem) rotate(-34deg);
   }
 }
