@@ -318,6 +318,7 @@ const PluginAppCardStub = defineComponent({
   name: 'PluginAppCard',
   props: {
     plugin: { type: Object as PropType<Plugin>, required: true },
+    count: { type: Number, default: undefined },
     installHandler: Function as PropType<() => unknown>,
   },
   emits: ['install'],
@@ -325,6 +326,7 @@ const PluginAppCardStub = defineComponent({
     return () =>
       h('article', { 'data-testid': `market-${props.plugin.id}` }, [
         h('span', `market:${props.plugin.plugin_name}`),
+        h('output', { 'aria-label': `market-count-${props.plugin.id}` }, String(props.count ?? '')),
         h('output', { 'aria-label': `rating-${props.plugin.id}` }, String(props.plugin.average_rating ?? '')),
         h(
           'button',
@@ -2497,5 +2499,53 @@ describe('PluginCardListView folders and persistence', () => {
     await waitForRequestsToFinish()
 
     expect(screen.getByLabelText('statistic-IqiyiDiscover')).toHaveTextContent('714')
+  })
+
+  it('matches market install statistics case-insensitively', async () => {
+    await renderList({
+      market: () => [createPlugin({ id: 'IqiyiDiscover', plugin_name: '爱奇艺探索' })],
+      statistic: () => ({ IQiyiDiscover: 714 }),
+    })
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    await waitFor(() => expect(screen.getByLabelText('market-count-IqiyiDiscover')).toHaveTextContent('714'))
+    await waitForRequestsToFinish()
+  })
+
+  it('keeps the first statistics key when market statistics keys differ only by case', async () => {
+    await renderList({
+      market: () => [createPlugin({ id: 'IqiyiDiscover', plugin_name: '爱奇艺探索' })],
+      statistic: () => ({ IQiyiDiscover: 714, IqiyiDiscover: 3 }),
+    })
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    await waitFor(() => expect(screen.getByLabelText('market-count-IqiyiDiscover')).toHaveTextContent('714'))
+    await waitForRequestsToFinish()
+  })
+
+  it('orders the market list by the case-insensitive install statistic', async () => {
+    await renderList({
+      market: () => [
+        createPlugin({ id: 'Alpha', plugin_name: '低安装量插件' }),
+        createPlugin({ id: 'Beta', plugin_name: '高安装量插件' }),
+        createPlugin({ id: 'Gamma', plugin_name: '中安装量插件' }),
+      ],
+      statistic: () => ({ ALPHA: 5, beta: 90, Gamma: 40 }),
+    })
+    getHeaderConfig().modelValue.value = 'market'
+    await nextTick()
+
+    await waitFor(() => {
+      const labels = [...document.querySelectorAll('[data-testid^="market-"]')].map(node => node.textContent)
+      expect(labels).toEqual([
+        expect.stringContaining('market:高安装量插件'),
+        expect.stringContaining('market:中安装量插件'),
+        expect.stringContaining('market:低安装量插件'),
+      ])
+    })
+    expect(screen.getByLabelText('market-count-Beta')).toHaveTextContent('90')
+    await waitForRequestsToFinish()
   })
 })
