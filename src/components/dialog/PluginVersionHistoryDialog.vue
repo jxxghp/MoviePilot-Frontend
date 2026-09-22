@@ -66,18 +66,17 @@ const resolvedHistory = computed(() => {
   const declaredHistory = resolvedPlugin.value?.history || {}
   const history: Record<string, string> = {}
 
-  // Release 接口已经按发布时间返回版本；先采用该顺序，再补充索引中独有的历史条目。
+  // Release 与 history 可能来自不同数据源；合并后统一按版本号降序，不能依赖接口返回或对象插入顺序。
   releaseItems.value.forEach(item => {
     const key = normalizeHistoryVersion(item.version)
     history[key] = declaredHistory[key] || item.body || ''
   })
   Object.entries(declaredHistory)
     .filter(([version]) => !(version in history))
-    .sort(([left], [right]) => compareVersions(right, left))
     .forEach(([version, body]) => {
       history[version] = body
     })
-  return history
+  return Object.fromEntries(Object.entries(history).sort(([left], [right]) => compareVersions(right, left)))
 })
 
 const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)

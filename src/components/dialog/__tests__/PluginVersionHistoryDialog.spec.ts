@@ -136,6 +136,48 @@ describe('PluginVersionHistoryDialog', () => {
     ])
   })
 
+  it('sorts merged Release and history entries by version instead of source order', async () => {
+    const unorderedReleases: PluginReleaseVersionsResponse = {
+      release_supported: true,
+      latest_version: '3.3.10',
+      current_version: '3.3.7',
+      items: [
+        { version: '3.3.9', tag_name: 'v3.3.9', body: '3.3.9 Release' },
+        { version: '3.3.10', tag_name: 'v3.3.10', body: '3.3.10 Release', is_latest: true },
+        { version: '3.3.8', tag_name: 'v3.3.8', body: '3.3.8 Release' },
+      ],
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({
+          ...installedPlugin,
+          plugin_version: '3.3.7',
+          history: {
+            'v3.3.9': '3.3.9 history',
+            'v3.3.10': '3.3.10 history',
+            'v3.3.8': '3.3.8 history',
+            'v3.3.7': '3.3.7 history',
+            'v3.3.6': '3.3.6 history',
+          },
+        })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(unorderedReleases)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('v3.3.10')).toBeInTheDocument()
+    expect(
+      Array.from(document.querySelectorAll('.version-history__version')).map(element => element.textContent),
+    ).toEqual(['v3.3.10', 'v3.3.9', 'v3.3.8', 'v3.3.7', 'v3.3.6'])
+  })
+
   it('shows the version requirement and disables the latest update when the host is incompatible', async () => {
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'plugin/history/DemoPlugin') {
