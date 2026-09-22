@@ -1173,7 +1173,14 @@ export interface Plugin {
   state?: boolean
   // 插件源码、依赖和运行时加载状态
   runtime_status?:
-    'sync_failed' | 'source_missing' | 'dependency_pending' | 'ready' | 'active' | 'blocked_by_policy' | 'load_failed'
+    | 'sync_failed'
+    | 'source_missing'
+    | 'dependency_pending'
+    | 'ready'
+    | 'active'
+    | 'blocked_by_policy'
+    | 'load_failed'
+    | 'incompatible_runtime'
   // 是否有详情页面
   has_page?: boolean
   // 是否有新版本
@@ -1188,6 +1195,10 @@ export interface Plugin {
   system_version_message?: string
   // 主系统版本限定范围
   system_version?: string
+  // 插件声明与当前解释器运行时是否兼容；free-threaded（v3t）下显式声明不支持时为 false
+  runtime_compatible?: boolean
+  // 运行时不兼容的用户可读原因
+  runtime_message?: string
   // 是否声明支持通过 GitHub Release 资产安装
   release?: boolean
   // 是否本地插件

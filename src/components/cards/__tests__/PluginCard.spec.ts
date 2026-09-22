@@ -401,6 +401,26 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
   })
 
+  it('blocks an update on a runtime the plugin declares unsupported', async () => {
+    // v3t 上不兼容的原因要如实说明，不能被报成主程序版本问题
+    const updatablePlugin = {
+      ...plugin,
+      has_update: true,
+      runtime_compatible: false,
+      runtime_message: '插件声明不支持 free-threaded 运行时（v3t）',
+    }
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin: updatablePlugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('更新'))
+    const versionEvents = mocks.openSharedDialog.mock.calls[0][2] as { update: () => Promise<void> }
+    await versionEvents.update()
+
+    expect(mocks.toastError).toHaveBeenCalledWith('插件声明不支持 free-threaded 运行时（v3t）')
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
+  })
+
+
   it('creates a clone and names the result by the instance id returned in the receipt', async () => {
     // 不填后缀时前端算不出服务端分配到的号，展示名只能回落到回执里的实例 ID
     mocks.apiPost.mockResolvedValue({ success: true, message: '', data: { instance_id: 'DemoPlugin2' } })
@@ -761,6 +781,17 @@ describe('PluginCard lifecycle actions', () => {
       },
     })
     expect(screen.getByText('插件加载失败，请查看日志')).toBeInTheDocument()
+  })
+
+  it('explains an incompatible runtime instead of leaving a silent card', async () => {
+    // 已安装插件在 v3t 上被跳过加载时，卡片必须说明不支持，而不是既不运行也不解释
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, runtime_status: 'incompatible_runtime' },
+        runtimeSettling: false,
+      },
+    })
+    expect(screen.getByText('插件不支持当前运行时（v3t）')).toBeInTheDocument()
   })
 
   it('shows a retry action for startup synchronization failures', async () => {

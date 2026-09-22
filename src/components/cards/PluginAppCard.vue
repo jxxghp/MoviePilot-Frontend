@@ -11,6 +11,7 @@ import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useConfirm } from '@/composables/useConfirm'
+import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 
 const PluginMarketDetailDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketDetailDialog.vue'))
@@ -133,8 +134,9 @@ function showUpdateHistory() {
 
 /** 从插件市场版本历史安装指定 Release；最新版本走普通安装路径以保留主程序兼容校验。 */
 async function installPlugin(releaseVersion?: string, repoUrl?: string) {
-  if (!releaseVersion && props.plugin?.system_version_compatible === false) {
-    $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
+  const installBlock = resolvePluginInstallBlock(props.plugin)
+  if (!releaseVersion && installBlock) {
+    $toast.error(installBlock.message || t(installBlock.fallbackKey))
     return
   }
 
