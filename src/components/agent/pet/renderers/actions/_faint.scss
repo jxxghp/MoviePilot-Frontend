@@ -52,12 +52,12 @@
 @keyframes agent-fab-action-faint-antenna {
   0%,
   100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+    transform: rotate(22deg);
   }
 
   34%,
   86% {
-    transform: translate(0.08rem, 0.02rem) rotate(-18deg);
+    transform: rotate(-18deg);
   }
 }
 

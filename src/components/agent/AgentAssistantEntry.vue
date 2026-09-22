@@ -820,8 +820,8 @@ function updateFabPointerFromPoint(point: FabPointerPoint) {
   const nextStyle = {
     '--agent-assistant-body-x': `${(normalizedX * 0.42).toFixed(2)}px`,
     '--agent-assistant-body-y': `${(normalizedY * 0.18).toFixed(2)}px`,
-    '--agent-assistant-eye-x': `${(normalizedX * 5).toFixed(2)}px`,
-    '--agent-assistant-eye-y': `${(normalizedY * 3.4).toFixed(2)}px`,
+    '--agent-assistant-eye-x': `${(normalizedX * 3.2).toFixed(2)}px`,
+    '--agent-assistant-eye-y': `${(normalizedY * 1.8).toFixed(2)}px`,
     '--agent-assistant-head-x': `${(normalizedX * 0.85).toFixed(2)}px`,
     '--agent-assistant-head-y': `${(normalizedY * 0.42).toFixed(2)}px`,
     '--agent-assistant-pointer-x': `${(normalizedX * 5).toFixed(2)}px`,
@@ -1523,6 +1523,7 @@ defineExpose({
       'is-dragging': fabDragging,
       'is-pressed': fabPressed,
       'is-thinking': props.thinking,
+      'is-motion-paused': !props.motionActive,
       'is-bubble-visible': hasFabBubbles,
       'is-bubble-positioned': fabBubblePositioned,
       [`is-action-${fabRandomAction}`]: fabRandomAction,

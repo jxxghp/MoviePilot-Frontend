@@ -1,0 +1,59 @@
+// 呼吸只带动上半身；双脚留在原处，避免空闲时像悬浮或不断弹跳。
+.agent-assistant-fab:not(.is-docked, .is-dragging, .is-pressed, .is-motion-paused, [class*='is-action-']) {
+  .agent-assistant-fab__head {
+    animation: agent-pet-idle-head 5.8s ease-in-out infinite;
+  }
+
+  .agent-assistant-fab__body {
+    animation: agent-pet-idle-breath 5.8s ease-in-out infinite;
+  }
+
+  .agent-assistant-fab__eye {
+    animation: agent-pet-idle-blink 7.6s ease-in-out infinite;
+  }
+}
+
+// 页面失活时同时停住 CSS 的微动作，遵守入口原有的装饰动画生命周期。
+.agent-assistant-fab.is-motion-paused * {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
+@keyframes agent-pet-idle-head {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  42% {
+    translate: 0 -0.045rem;
+  }
+}
+
+@keyframes agent-pet-idle-breath {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+
+  38% {
+    scale: 1.018 1.035;
+  }
+}
+
+@keyframes agent-pet-idle-blink {
+  0%,
+  32%,
+  39%,
+  76%,
+  83%,
+  100% {
+    scale: 1 1;
+  }
+
+  // 合眼稍快、睁眼稍慢，眼睛始终留在脸上，不用透明度制造闪烁。
+  34%,
+  78% {
+    scale: 1 0.12;
+  }
+}

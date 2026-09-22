@@ -17,10 +17,6 @@
   animation: agent-fab-action-spin-cheer-eye 3.6s ease-in-out both;
 }
 
-.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__smile {
-  animation: agent-fab-action-spin-cheer-smile 3.6s ease-in-out both;
-}
-
 .agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__arm--left {
   z-index: 6;
   animation: agent-fab-action-spin-cheer-arm-left 3.6s ease-in-out both;
@@ -56,12 +52,12 @@
 @keyframes agent-fab-action-spin-cheer-antenna {
   0%,
   100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+    transform: rotate(22deg);
   }
 
   22%,
   78% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.18rem)) rotate(-28deg);
+    transform: rotate(-28deg);
   }
 }
 
@@ -88,20 +84,6 @@
   80% {
     border-block-end-width: 0.19rem;
     transform: translate(0, -0.12rem) scale(1.18, 0.58);
-  }
-}
-
-@keyframes agent-fab-action-spin-cheer-smile {
-  0%,
-  100% {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.72);
-  }
-
-  16%,
-  84% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-0.03rem) scale(1.24, 1.08);
   }
 }
 

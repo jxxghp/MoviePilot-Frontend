@@ -57,20 +57,20 @@
 @keyframes agent-fab-action-disassemble-antenna {
   0%,
   100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+    transform: rotate(22deg);
   }
 
   16% {
-    transform: translate(0.02rem, -0.14rem) rotate(44deg);
+    transform: rotate(44deg);
   }
 
   32%,
   70% {
-    transform: translate(0.96rem, 3.42rem) rotate(268deg);
+    transform: rotate(268deg);
   }
 
   84% {
-    transform: translate(-0.05rem, -0.08rem) rotate(8deg);
+    transform: rotate(8deg);
   }
 }
 

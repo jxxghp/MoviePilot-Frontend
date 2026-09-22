@@ -46,14 +46,13 @@
 @keyframes agent-fab-action-charge-antenna {
   0%,
   100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+    transform: rotate(22deg);
   }
 
   30%,
   54%,
   78% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.16rem)) rotate(-20deg)
-      scale(1.12);
+    transform: rotate(-20deg);
   }
 }
 

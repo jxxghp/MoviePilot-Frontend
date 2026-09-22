@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AgentPetActionName, AgentPetIntent } from '../types'
+import { getAgentPetActionDuration } from '../agentPetActions'
 
 const props = withDefaults(
   defineProps<{
@@ -21,14 +22,17 @@ const props = withDefaults(
     :data-agent-pet-action="props.action || undefined"
     :data-agent-pet-intent="props.intent"
     :data-agent-pet-thinking="props.thinking ? 'true' : undefined"
+    :style="
+      props.action ? { '--agent-pet-action-duration': `${getAgentPetActionDuration(props.action)}ms` } : undefined
+    "
     aria-hidden="true"
   >
-    <span class="agent-assistant-fab__antenna" />
     <span class="agent-assistant-fab__head">
+      <!-- 天线固定在头壳上，点头和侧倾时保持连接。 -->
+      <span class="agent-assistant-fab__antenna" />
       <span class="agent-assistant-fab__face">
         <span class="agent-assistant-fab__eye agent-assistant-fab__eye--left" />
         <span class="agent-assistant-fab__eye agent-assistant-fab__eye--right" />
-        <span class="agent-assistant-fab__smile" />
       </span>
     </span>
     <span class="agent-assistant-fab__body">

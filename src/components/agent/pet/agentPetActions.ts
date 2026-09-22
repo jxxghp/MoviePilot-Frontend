@@ -1,31 +1,20 @@
 import type { AgentPetActionDefinition, AgentPetActionName } from './types'
 
-export const AGENT_PET_RANDOM_ACTION_MIN_DELAY = 8000
-export const AGENT_PET_RANDOM_ACTION_MAX_DELAY = 18000
+export const AGENT_PET_RANDOM_ACTION_MIN_DELAY = 12000
+export const AGENT_PET_RANDOM_ACTION_MAX_DELAY = 24000
 
-export const AGENT_PET_RANDOM_ACTIONS = [
-  'wave',
-  'sit',
-  'eye-roll',
-  'faint',
-  'disassemble',
-  'happy-jump',
-  'sleep',
-  'stretch',
-  'peek',
-  'scan',
-  'charge',
-  'spin-cheer',
-  'shy',
-  'confused',
-] as const
+// 日常只播放温和的人类小动作；夸张的机器人特技仍可由 playAction 显式触发。
+export const AGENT_PET_RANDOM_ACTIONS = ['wave', 'sit', 'sleep', 'stretch', 'peek', 'shy', 'confused'] as const
+
+// 打盹和舒展更常见，避免刚睡醒的小助手频繁热情招手。
+const RANDOM_ACTION_WEIGHTS: Partial<Record<AgentPetActionName, number>> = { sleep: 3, stretch: 2, sit: 2 }
 
 export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinition> = {
   wave: {
     name: 'wave',
     intent: 'reaction',
     clip: 'agent-fab-action-wave',
-    duration: 2450,
+    duration: 2800,
     priority: 1,
     interruptible: true,
   },
@@ -65,7 +54,7 @@ export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinit
     name: 'happy-jump',
     intent: 'success',
     clip: 'agent-fab-action-happy-jump',
-    duration: 5200,
+    duration: 2600,
     priority: 1,
     interruptible: true,
   },
@@ -73,7 +62,7 @@ export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinit
     name: 'sleep',
     intent: 'sleeping',
     clip: 'agent-fab-action-sleep',
-    duration: 5800,
+    duration: 6800,
     priority: 1,
     interruptible: true,
   },
@@ -81,7 +70,7 @@ export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinit
     name: 'stretch',
     intent: 'idle',
     clip: 'agent-fab-action-stretch',
-    duration: 4400,
+    duration: 5200,
     priority: 1,
     interruptible: true,
   },
@@ -148,9 +137,11 @@ export function getAgentPetRandomActionDelay() {
   )
 }
 
-/** 从动作池中选择一个不同于上一次的趣味动作。 */
+/** 按安静动作优先的权重抽取，且不会连续重复同一个动作。 */
 export function pickAgentPetRandomAction(lastAction: AgentPetActionName | null): AgentPetActionName {
-  const candidates = AGENT_PET_RANDOM_ACTIONS.filter(action => action !== lastAction)
+  const candidates = AGENT_PET_RANDOM_ACTIONS.filter(action => action !== lastAction).flatMap(action =>
+    Array<AgentPetActionName>(RANDOM_ACTION_WEIGHTS[action] ?? 1).fill(action),
+  )
 
   return candidates[Math.floor(Math.random() * candidates.length)] || AGENT_PET_RANDOM_ACTIONS[0]
 }
