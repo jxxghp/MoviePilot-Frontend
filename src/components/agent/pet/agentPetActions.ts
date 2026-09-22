@@ -10,6 +10,22 @@ export const AGENT_PET_RANDOM_ACTIONS = ['wave', 'sit', 'sleep', 'stretch', 'pee
 const RANDOM_ACTION_WEIGHTS: Partial<Record<AgentPetActionName, number>> = { sleep: 3, stretch: 2, sit: 2 }
 
 export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinition> = {
+  nod: {
+    name: 'nod',
+    intent: 'reaction',
+    clip: 'agent-fab-action-nod',
+    duration: 1500,
+    priority: 1,
+    interruptible: true,
+  },
+  wake: {
+    name: 'wake',
+    intent: 'reaction',
+    clip: 'agent-fab-action-wake',
+    duration: 1800,
+    priority: 1,
+    interruptible: true,
+  },
   wave: {
     name: 'wave',
     intent: 'reaction',

@@ -1,0 +1,55 @@
+// 回应只动头和眼睛，短促点头后回稳，不改变困倦的基础表情。
+.agent-assistant-fab.is-action-nod .agent-assistant-fab__head {
+  animation: agent-fab-action-nod var(--agent-pet-action-duration) ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-wake .agent-assistant-fab__head {
+  animation: agent-fab-action-wake var(--agent-pet-action-duration) ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-wake .agent-assistant-fab__eye {
+  animation: agent-fab-action-wake-eye var(--agent-pet-action-duration) ease-in-out both;
+}
+
+@keyframes agent-fab-action-nod {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y));
+  }
+  35% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.09rem)) rotate(4deg);
+  }
+  66% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.025rem)) rotate(-1deg);
+  }
+}
+
+@keyframes agent-fab-action-wake {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y));
+  }
+  18% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.05rem)) rotate(3deg);
+  }
+  43% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.05rem)) rotate(-4deg);
+  }
+  75% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(1deg);
+  }
+}
+
+@keyframes agent-fab-action-wake-eye {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  16% {
+    scale: 1 0.2;
+  }
+  42%,
+  62% {
+    scale: 1 1.3;
+  }
+}

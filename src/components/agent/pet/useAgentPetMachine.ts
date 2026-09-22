@@ -1,9 +1,5 @@
 import { onScopeDispose, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
-import {
-  getAgentPetActionDuration,
-  getAgentPetRandomActionDelay,
-  pickAgentPetRandomAction,
-} from './agentPetActions'
+import { getAgentPetActionDuration, getAgentPetRandomActionDelay, pickAgentPetRandomAction } from './agentPetActions'
 import type { AgentPetActionName } from './types'
 
 interface AgentPetMachineOptions {
@@ -16,6 +12,13 @@ interface AgentPetMachineOptions {
   scheduleAutoDock: () => void
 }
 
+/** 区分装饰、状态反馈和主动手势，避免低优先级动作打断用户互动。 */
+export interface AgentPetPlaybackOptions {
+  priority?: number
+  allowWhilePressed?: boolean
+  allowWhileThinking?: boolean
+}
+
 /** 管理桌面宠物的空闲动作队列，避免入口组件直接维护动画计时器。 */
 export function useAgentPetMachine(options: AgentPetMachineOptions) {
   const currentAction = ref<AgentPetActionName | null>(null)
@@ -23,6 +26,7 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
   let lastAction: AgentPetActionName | null = null
   let randomActionTimer: number | null = null
   let actionEndTimer: number | null = null
+  let playback: AgentPetPlaybackOptions = {}
 
   /** 判断当前交互状态是否适合播放空闲趣味动作。 */
   function canRunRandomAction() {
@@ -56,12 +60,14 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
     clearRandomActionTimer()
     clearActionEndTimer()
     currentAction.value = null
+    playback = {}
   }
 
   /** 完成当前动作后恢复空闲态，并按贴边规则决定是否自动收起。 */
   function finishRandomAction() {
     clearActionEndTimer()
     currentAction.value = null
+    playback = {}
 
     if (!options.docked.value && options.shouldAutoDock()) {
       options.scheduleAutoDock()
@@ -72,11 +78,23 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
   }
 
   /** 立即播放指定动作，供通知、交互或外部 renderer 编排主动触发。 */
-  function playAction(action: AgentPetActionName) {
+  function playAction(action: AgentPetActionName, request: AgentPetPlaybackOptions = {}) {
+    if (
+      !toValue(options.active) ||
+      options.docked.value ||
+      options.dragging.value ||
+      (options.pressed.value && !request.allowWhilePressed) ||
+      (toValue(options.thinking) && !request.allowWhileThinking) ||
+      (currentAction.value && (playback.priority ?? 1) > (request.priority ?? 1))
+    )
+      return false
+
     clearRandomActionTimer()
     clearActionEndTimer()
+    playback = request
     currentAction.value = action
     actionEndTimer = window.setTimeout(finishRandomAction, getAgentPetActionDuration(action))
+    return true
   }
 
   /** 播放一个随机趣味动作，由 renderer 根据动作名呈现具体动画。 */
@@ -86,7 +104,7 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
     const action = pickAgentPetRandomAction(lastAction)
 
     lastAction = action
-    playAction(action)
+    playAction(action, { priority: 0 })
   }
 
   /** 安排下一次随机动作，只在宠物可见且空闲时生效。 */
@@ -102,6 +120,16 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
 
   /** 根据入口交互状态同步随机动作队列。 */
   function syncSchedule() {
+    if (
+      currentAction.value &&
+      toValue(options.active) &&
+      !options.docked.value &&
+      !options.dragging.value &&
+      (!options.pressed.value || playback.allowWhilePressed) &&
+      (!toValue(options.thinking) || playback.allowWhileThinking)
+    )
+      return
+
     if (canRunRandomAction()) {
       if (!currentAction.value && randomActionTimer === null && actionEndTimer === null) scheduleRandomAction()
       return
@@ -113,6 +141,7 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
   watch(
     [() => toValue(options.active), () => toValue(options.thinking), options.docked, options.dragging, options.pressed],
     syncSchedule,
+    { flush: 'sync' },
   )
 
   onScopeDispose(clearAction)

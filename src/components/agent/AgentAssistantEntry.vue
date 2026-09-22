@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import AgentPetStage from './pet/AgentPetStage.vue'
 import type { AgentPetActionName, AgentPetIntent } from './pet/types'
 import { useAgentPetMachine } from './pet/useAgentPetMachine'
+import { useAgentPetInteractions } from './pet/useAgentPetInteractions'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 
 interface AgentAssistantEntryBubble {
@@ -228,6 +229,12 @@ const {
   scheduleAutoDock: scheduleFabAutoDock,
   shouldAutoDock: shouldFabAutoDock,
   thinking: () => props.thinking,
+})
+
+const petInteractions = useAgentPetInteractions({
+  enabled: () => props.active && props.motionActive && !props.thinking && !fabDocked.value,
+  currentAction: () => fabRandomAction.value,
+  play: playAgentPetAction,
 })
 
 // 生成气泡唯一 ID，避免通知、toast 和预览气泡在堆叠中冲突。
@@ -897,6 +904,9 @@ function scheduleFabAutoDock() {
   if (
     !props.active ||
     !props.motionActive ||
+    props.thinking ||
+    fabPressed.value ||
+    fabDragging.value ||
     fabDocked.value ||
     hasKeepOpenFabBubbles.value ||
     fabRandomAction.value ||
@@ -906,7 +916,16 @@ function scheduleFabAutoDock() {
 
   fabIdleTimer = window.setTimeout(() => {
     fabIdleTimer = null
-    if (!props.active || !props.motionActive || fabDocked.value || hasKeepOpenFabBubbles.value || !shouldFabAutoDock())
+    if (
+      !props.active ||
+      !props.motionActive ||
+      props.thinking ||
+      fabPressed.value ||
+      fabDragging.value ||
+      fabDocked.value ||
+      hasKeepOpenFabBubbles.value ||
+      !shouldFabAutoDock()
+    )
       return
 
     if (fabRandomAction.value) {
@@ -1039,6 +1058,18 @@ function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose
   if (!hadBubbles) fabBubblePositioned.value = false
   fabBubbles.value = [bubble, ...existingBubbles].slice(0, FAB_MAX_BUBBLES)
   setFabDocked(false)
+  // 只在新气泡到达时回应；同一回复的流式更新不重复重启动作。
+  if (bubble.kind === 'assistant') {
+    playAgentPetAction('nod', { allowWhileThinking: true })
+  } else {
+    petInteractions.react(
+      bubble.variant === 'success'
+        ? 'happy-jump'
+        : bubble.variant === 'error' || bubble.variant === 'warning'
+          ? 'confused'
+          : 'peek',
+    )
+  }
   nextTick(() => {
     syncFabBubbleResizeObserver()
     syncFabBubblePosition()
@@ -1207,6 +1238,8 @@ function setFabDocked(docked: boolean) {
 
 // 清理拖拽状态和触摸移动拦截。
 function clearFabDragState() {
+  petInteractions.cancel()
+  clearFabRandomAction()
   fabDragState = null
   fabDragging.value = false
   fabPressed.value = false
@@ -1285,6 +1318,7 @@ function isPressedDragPointer(event: PointerEvent) {
 
 // 处理入口触发区按下事件并初始化拖拽状态。
 function handleFabTriggerPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || event.isPrimary === false) return
   guardFabPointerEvent(event)
   if (fabSuppressNextClick) {
     fabSuppressNextClick = false
@@ -1304,6 +1338,7 @@ function handleFabTriggerPointerDown(event: PointerEvent) {
     startY: dragStartPosition.y,
     moved: false,
   }
+  petInteractions.begin(event.clientX, event.clientY)
   try {
     ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
   } catch {
@@ -1315,6 +1350,8 @@ function handleFabTriggerPointerDown(event: PointerEvent) {
 function handleFabTriggerPointerMove(event: PointerEvent) {
   guardFabPointerEvent(event, { preventTouchDefault: true })
   updateFabPointer(event)
+  if (fabDragState && fabDragState.pointerId !== event.pointerId) return
+  petInteractions.move(event.clientX, event.clientY, event.pointerType)
   if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
   if (!isPressedDragPointer(event)) {
     releaseFabPointerCapture(event)
@@ -1349,6 +1386,7 @@ function handleFabTriggerPointerMove(event: PointerEvent) {
 
 // 处理入口拖拽释放并决定是否贴边收起。
 function handleFabTriggerPointerUp(event: PointerEvent) {
+  if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
   guardFabPointerEvent(event)
   fabPressed.value = false
   const dragState = fabDragState
@@ -1365,8 +1403,10 @@ function handleFabTriggerPointerUp(event: PointerEvent) {
   fabDragState = null
   teardownFabTouchMoveGuard()
   releaseFabPointerCapture(event)
+  const consumed = petInteractions.end()
 
   if (!wasDragging) {
+    if (consumed) suppressNextFabClick()
     scheduleFabAutoDock()
     return
   }
@@ -1420,6 +1460,7 @@ function handleFabTriggerClick(event: MouseEvent) {
 
   if (fabDocked.value) {
     setFabDocked(false)
+    petInteractions.react('wake', 0)
     return
   }
 
@@ -1429,13 +1470,30 @@ function handleFabTriggerClick(event: MouseEvent) {
 
 // 处理指针离开入口时的自动贴边排队。
 function handleFabPointerLeave() {
+  petInteractions.leave()
   if (!fabDocked.value && shouldFabAutoDock()) scheduleFabAutoDock()
 }
 
 // 处理指针进入入口时暂停自动贴边。
-function handleFabPointerEnter() {
+function handleFabPointerEnter(event: PointerEvent) {
   pauseFabAutoDock()
+  petInteractions.enter(event.pointerType)
 }
+
+// 扫描表示正在处理；完成后点头回应，不把取消或失败误画成成功庆祝。
+watch(
+  () => props.thinking,
+  thinking => {
+    if (!props.active || !props.motionActive) return
+    if (thinking) {
+      setFabDocked(false)
+      playAgentPetAction('scan', { allowWhileThinking: true })
+    } else if (!fabPressed.value && !fabDragging.value) {
+      clearFabRandomAction()
+      petInteractions.react('nod', 0)
+    }
+  },
+)
 
 onMounted(() => {
   nextTick(resetFabPosition)
@@ -1456,6 +1514,9 @@ watch(
     setAgentAssistantBubbleEntryActive(active)
 
     if (active) {
+      setFabDocked(false)
+      if (props.thinking) playAgentPetAction('scan', { allowWhileThinking: true })
+      else petInteractions.react('wake', 0)
       if (shouldFabAutoDock()) scheduleFabAutoDock()
       nextTick(() => {
         syncFabBubbleResizeObserver()
@@ -1465,6 +1526,7 @@ watch(
     }
 
     clearBubbles()
+    cancelFabDrag()
     clearFabIdleTimer()
     clearFabRandomAction()
     resetFabPointer()
@@ -1481,6 +1543,7 @@ watch(
 
     clearFabIdleTimer()
     resetFabPointer()
+    cancelFabDrag()
   },
 )
 
@@ -1572,12 +1635,13 @@ defineExpose({
       class="agent-assistant-fab__trigger"
       type="button"
       :aria-label="t('agentAssistant.title')"
-      :title="t('agentAssistant.title')"
+      :title="t('agentAssistant.petInteractionHint')"
       @pointerdown="handleFabTriggerPointerDown"
       @pointermove="handleFabTriggerPointerMove"
       @pointerup="handleFabTriggerPointerUp"
       @pointercancel="handleFabTriggerPointerCancel"
       @lostpointercapture="handleFabTriggerLostPointerCapture"
+      @contextmenu.prevent
       @click="handleFabTriggerClick"
     >
       <AgentPetStage :action="fabRandomAction" :intent="agentPetIntent" :thinking="props.thinking" />
@@ -1646,6 +1710,7 @@ defineExpose({
   pointer-events: auto;
   text-align: start;
   touch-action: none;
+  -webkit-touch-callout: none;
 }
 
 .agent-assistant-fab.is-dragging .agent-assistant-fab__trigger {

@@ -13,6 +13,8 @@ export type AgentPetActionName =
   | 'spin-cheer'
   | 'shy'
   | 'confused'
+  | 'nod'
+  | 'wake'
 
 export type AgentPetIntent =
   | 'idle'
