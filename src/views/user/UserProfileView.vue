@@ -517,6 +517,24 @@ watch(
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
+                    v-model="accountInfo.settings.qq_userid"
+                    density="comfortable"
+                    clearable
+                    :label="t('profile.qqUserId')"
+                    prepend-inner-icon="mdi-identifier"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="accountInfo.settings.qq_openid"
+                    density="comfortable"
+                    clearable
+                    :label="t('profile.qqOpenId')"
+                    prepend-inner-icon="mdi-account-key-outline"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
                     v-model="accountInfo.settings.feishu_openid"
                     density="comfortable"
                     clearable

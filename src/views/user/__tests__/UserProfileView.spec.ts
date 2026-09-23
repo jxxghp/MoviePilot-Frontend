@@ -183,6 +183,8 @@ describe('UserProfileView', () => {
     const identities: Array<[string, string]> = [
       ['企业微信用户', 'wechat-user'],
       ['微信 ClawBot 用户', 'clawbot-user'],
+      ['QQ 用户 ID', 'qq-user-id'],
+      ['QQ 用户 OpenID', 'qq-user-openid'],
       ['飞书用户', 'feishu-user'],
       ['Telegram用户', 'telegram-user'],
       ['Slack用户', 'slack-user'],
@@ -203,6 +205,8 @@ describe('UserProfileView', () => {
         discord_userid: 'discord-user',
         douban_userid: 'douban-user',
         feishu_openid: 'feishu-user',
+        qq_openid: 'qq-user-openid',
+        qq_userid: 'qq-user-id',
         slack_userid: 'slack-user',
         synologychat_userid: 'synology-user',
         telegram_userid: 'telegram-user',

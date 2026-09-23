@@ -5112,6 +5112,8 @@ export default {
     accountBinding: 'Account Binding',
     wechatUser: 'WeChat Work User',
     wechatClawBotUser: 'WeChat ClawBot User',
+    qqUserId: 'QQ User ID',
+    qqOpenId: 'QQ User OpenID',
     feishuUser: 'Feishu User',
     telegramUser: 'Telegram User',
     slackUser: 'Slack User',

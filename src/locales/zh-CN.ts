@@ -4979,6 +4979,8 @@ export default {
     accountBinding: '账号绑定',
     wechatUser: '企业微信用户',
     wechatClawBotUser: '微信 ClawBot 用户',
+    qqUserId: 'QQ 用户 ID',
+    qqOpenId: 'QQ 用户 OpenID',
     feishuUser: '飞书用户',
     telegramUser: 'Telegram用户',
     slackUser: 'Slack用户',
