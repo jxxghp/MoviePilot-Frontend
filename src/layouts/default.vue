@@ -1,11 +1,9 @@
 <script lang="ts" setup>
 import DefaultLayout from './default/components/DefaultLayout.vue'
 import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
-import { useRouteEnterMotion } from '@/composables/useRouteEnterMotion'
 
 const route = useRoute()
 const pagePresentationMotion = usePagePresentationMotion()
-const routeEnterMotion = useRouteEnterMotion()
 
 // keep-alive 缓存按页面身份命中，避免 query 变化导致同一页面反复新建实例。
 const routeCacheKey = computed(() => {
@@ -17,24 +15,19 @@ const routeCacheKey = computed(() => {
   return route.path
 })
 
-// 页面过渡按实际页面身份触发；keep-alive 页面避免 query 变化时反复入场。
+// 页面身份按缓存键同步给材质层；keep-alive 页面避免 query 变化时重复提交。
 const routeTransitionKey = computed(() => (route.meta.keepAlive ? routeCacheKey.value : route.fullPath))
-const pageRouteRef = ref<HTMLElement | null>(null)
 
-// 默认布局只编排路由事务；普通页面与玻璃材质分别由各自 driver 执行动画。
-function playPageEnterMotion() {
-  routeEnterMotion.cancel()
-  if (pagePresentationMotion.start(routeTransitionKey.value, pageRouteRef.value)) return
-
-  routeEnterMotion.start(pageRouteRef.value)
+/** 即时提交路由呈现状态，材质层随后按新页面几何自行更新。 */
+function syncPagePresentation() {
+  pagePresentationMotion.start(routeTransitionKey.value)
 }
 
-watch(routeTransitionKey, playPageEnterMotion, { flush: 'post' })
+watch(routeTransitionKey, syncPagePresentation, { flush: 'post' })
 
-onMounted(playPageEnterMotion)
+onMounted(syncPagePresentation)
 
 onBeforeUnmount(() => {
-  routeEnterMotion.cancel()
   pagePresentationMotion.cancel()
 })
 </script>
@@ -42,7 +35,7 @@ onBeforeUnmount(() => {
 <template>
   <DefaultLayout>
     <router-view v-slot="{ Component }">
-      <div ref="pageRouteRef" class="mp-page-route">
+      <div class="mp-page-route">
         <keep-alive :max="24">
           <component :is="Component" v-if="route.meta.keepAlive" :key="routeCacheKey" />
         </keep-alive>

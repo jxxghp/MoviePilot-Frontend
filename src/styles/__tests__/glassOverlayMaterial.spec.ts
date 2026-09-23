@@ -606,16 +606,6 @@ describe('glass overlay material styles', () => {
     }
   })
 
-  it('keeps every glass route on the same backdrop root while preserving its short movement', () => {
-    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
-    const rule = styles.match(/&\[data-page-presentation-motion='active'\]\s+\.mp-page-route\s*\{([^}]+)\}/)?.[1]
-    expect(rule).toBeDefined()
-    expect(rule).toContain('opacity: 1;')
-    expect(rule).toContain('filter: none;')
-    expect(rule).toContain('transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);')
-    expect(rule).toContain('will-change: transform;')
-  })
-
   it('keeps floating clear and tinted navbars on CSS material until Chromium SVG is ready', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const baseMaterialStart = styles.lastIndexOf('// 基础材质由单一真实表面承载')

@@ -370,15 +370,6 @@ html[data-theme='glass'] {
     z-index: 1;
   }
 
-  // 整页 opacity 与 will-change: opacity 会创建 backdrop root，动画期间不能截断子卡片的背景采样。
-  &[data-page-presentation-motion='active'] .mp-page-route {
-    filter: none;
-    opacity: 1;
-    transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);
-    transform-origin: center top;
-    will-change: transform;
-  }
-
   :where(
     .app-surface:not(.no-blur),
     .v-card:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
