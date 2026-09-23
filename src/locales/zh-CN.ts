@@ -412,9 +412,9 @@ export default {
     reauthorize: '重新授权',
     disconnect: '解除授权',
     needsReauthorization: '当前授权已失效、即将过期或缺少 Agent 提交 Issue/PR 所需权限，请重新授权。',
-    manualTitle: '手动填写 Token',
+    manualTitle: '手动填写或更换 Token',
     manualHint:
-      'PAT 只保存在服务端；请确保有目标仓库所需的 Issue、Fork、分支推送和 PR 权限；修改工作流文件还需 workflow 权限。',
+      '保存手动 PAT 会替换当前 GitHub Token。PAT 只保存在服务端；请确保有目标仓库所需的 Issue、Fork、分支推送和 PR 权限；修改工作流文件还需 workflow 权限。',
     manualLabel: 'GitHub PAT',
     manualPlaceholder: 'ghp_**** 或 github_pat_****',
     saveManual: '保存 Token',

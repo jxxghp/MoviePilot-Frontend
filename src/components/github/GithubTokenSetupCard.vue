@@ -70,10 +70,6 @@ const connectionStatus = computed(() => {
     label: t('githubToken.statusNotConfigured'),
   }
 })
-
-const showManualToken = computed(
-  () => !props.status?.configured || props.status.valid === false || props.status.needs_reauthorization,
-)
 </script>
 
 <template>
@@ -132,37 +128,35 @@ const showManualToken = computed(
       </VBtn>
     </div>
 
-    <template v-if="showManualToken">
-      <VDivider class="my-5" />
+    <VDivider class="my-5" />
 
-      <div class="text-subtitle-2 mb-2">{{ t('githubToken.manualTitle') }}</div>
-      <div class="text-body-2 opacity-70 mb-3">{{ t('githubToken.manualHint') }}</div>
-      <div class="d-flex align-start ga-2">
-        <VTextField
-          v-model="manualTokenModel"
-          class="flex-grow-1"
-          density="comfortable"
-          variant="outlined"
-          type="password"
-          autocomplete="new-password"
-          hide-details
-          :label="t('githubToken.manualLabel')"
-          :placeholder="t('githubToken.manualPlaceholder')"
-          prepend-inner-icon="mdi-key-outline"
-          :disabled="props.disabled || props.savingManual"
-        />
-        <VBtn
-          type="button"
-          color="secondary"
-          variant="tonal"
-          class="mt-1"
-          :loading="props.savingManual"
-          :disabled="props.disabled || !props.manualToken.trim()"
-          @click="saveManualToken"
-        >
-          {{ t('githubToken.saveManual') }}
-        </VBtn>
-      </div>
-    </template>
+    <div class="text-subtitle-2 mb-2">{{ t('githubToken.manualTitle') }}</div>
+    <div class="text-body-2 opacity-70 mb-3">{{ t('githubToken.manualHint') }}</div>
+    <div class="d-flex align-start ga-2">
+      <VTextField
+        v-model="manualTokenModel"
+        class="flex-grow-1"
+        density="comfortable"
+        variant="outlined"
+        type="password"
+        autocomplete="new-password"
+        hide-details
+        :label="t('githubToken.manualLabel')"
+        :placeholder="t('githubToken.manualPlaceholder')"
+        prepend-inner-icon="mdi-key-outline"
+        :disabled="props.disabled || props.savingManual"
+      />
+      <VBtn
+        type="button"
+        color="secondary"
+        variant="tonal"
+        class="mt-1"
+        :loading="props.savingManual"
+        :disabled="props.disabled || !props.manualToken.trim()"
+        @click="saveManualToken"
+      >
+        {{ t('githubToken.saveManual') }}
+      </VBtn>
+    </div>
   </CollapsibleSettingCard>
 </template>

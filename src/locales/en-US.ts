@@ -429,9 +429,9 @@ export default {
     disconnect: 'Disconnect',
     needsReauthorization:
       'Authorization is invalid, expiring, or missing permissions required by Agent Issue/PR skills. Please authorize again.',
-    manualTitle: 'Enter a Token Manually',
+    manualTitle: 'Enter or Replace a Token Manually',
     manualHint:
-      'The PAT stays on the server. Ensure it can create Issues and PRs, create forks, and push branches; workflow file changes also require workflow permission.',
+      'Saving a manual PAT replaces the current GitHub token. The PAT stays on the server. Ensure it can create Issues and PRs, create forks, and push branches; workflow file changes also require workflow permission.',
     manualLabel: 'GitHub PAT',
     manualPlaceholder: 'ghp_**** or github_pat_****',
     saveManual: 'Save Token',
