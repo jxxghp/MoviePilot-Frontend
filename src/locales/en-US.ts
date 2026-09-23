@@ -4863,7 +4863,8 @@ export default {
     sourceBindingRequired: 'Repository confirmation required',
     sourceBindingRequiredHint: 'This plugin has no bound repository; open About to confirm',
     gilFallbackBadge: 'GIL fallback (v3t)',
-    gilFallbackBadgeHint: 'Loading this plugin made the free-threaded runtime (v3t) fall back to GIL mode, losing multi-threaded parallelism. Disable it and restart to recover, or switch back to the standard V3 image.',
+    gilFallbackBadgeHint:
+      'Loading this plugin made the free-threaded runtime (v3t) fall back to GIL mode, losing multi-threaded parallelism. Disable it and restart to recover, or switch back to the standard V3 image.',
     restartRequiredBadge: 'Restart to apply',
     restartRequiredBadgeHint: 'The plugin remains available and will fully apply after MoviePilot restarts.',
     installRestartRequired: '{name} was installed. Restart MoviePilot to finish applying dependency updates.',
