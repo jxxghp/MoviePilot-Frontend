@@ -70,11 +70,11 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassFlowStrength).toBe(48)
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toEqual({})
-    expect(settings.glassQuality).toBe('balanced')
+    expect(settings.glassQuality).toBe('css')
     expect(settings.glassReflectionStrength).toBe(42)
-    expect(settings.glassTransmissionStrength).toBe(65)
+    expect(settings.glassTransmissionStrength).toBe(67)
     expect(settings.glassTranslationStrength).toBe(48)
-    expect(settings.glassTransparencyStrength).toBe(50)
+    expect(settings.glassTransparencyStrength).toBe(52)
   })
 
   it('recognizes matrix-derived reset settings as the default state', async () => {
@@ -87,7 +87,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(customizer.isCustomized.value).toBe(true)
 
     await customizer.resetSettings()
-    expect(customizer.settings.value).toMatchObject(getDefaultGlassCustomizerSettings('balanced'))
+    expect(customizer.settings.value).toMatchObject(getDefaultGlassCustomizerSettings('css'))
     expect(customizer.settings.value.theme).toBe('glass')
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
     expect(customizer.isCustomized.value).toBe(false)
@@ -183,8 +183,8 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassUIStyle).toBe('adaptive')
     expect(settings.glassDynamicsMode).toBe('ripple')
     expect(settings.glassPreset).toBe('natural')
-    expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
-    expect(settings.glassQuality).toBe('balanced')
+    expect(settings.glassPresetOverrides).toHaveProperty('clear:css:natural')
+    expect(settings.glassQuality).toBe('css')
   })
 
   it('rounds and clamps persisted optical strength values', () => {
@@ -227,13 +227,13 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassPreset: 'natural',
       glassPresetOverrides: {
-        'clear:balanced:natural': {
+        'clear:css:natural': {
           deformation: 48,
           flow: 48,
           reflection: 42,
           transmission: 50,
           translation: 48,
-          transparency: 50,
+          transparency: 52,
         },
       },
     })
@@ -244,6 +244,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     applyThemeCustomizerRootSettings({
       ...settings,
+      ...getDefaultGlassCustomizerSettings('balanced'),
       glassAppearance: 'tinted',
       glassUIStyle: 'clear',
       glassQuality: 'high',
@@ -339,7 +340,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassAppearance: 'clear',
       glassUIStyle: 'adaptive',
-      glassQuality: 'balanced',
+      glassQuality: 'css',
     })
 
     cancelGlassPreview()
@@ -410,7 +411,7 @@ describe('useThemeCustomizer glass settings', () => {
     previewGlassSettings({ glassAppearance: 'frosted' })
 
     expect(document.documentElement.dataset.glassAppearance).toBe('frosted')
-    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'clear', glassQuality: 'balanced' })
+    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'clear', glassQuality: 'css' })
 
     commitGlassPreview()
 
@@ -557,12 +558,7 @@ describe('useThemeCustomizer glass settings', () => {
   })
 
   it('restores each combination override after material and quality changes', async () => {
-    persistPartialThemeCustomizerSettings({
-      glassAppearance: 'clear',
-      glassPreset: 'natural',
-      glassPresetOverrides: {},
-      glassQuality: 'balanced',
-    })
+    persistPartialThemeCustomizerSettings(getDefaultGlassCustomizerSettings('balanced'))
     const { customizer, wrapper } = mountThemeCustomizer()
     const { setGlassAppearance, setGlassDeformationStrength, setGlassQuality, setGlassTransparencyStrength } =
       customizer
