@@ -593,7 +593,7 @@ describe('AccountSettingSystem', () => {
     expect(screen.getByText('未启用')).toBeInTheDocument()
   })
 
-  it('hides manual GitHub Token input after a successful connection', async () => {
+  it('keeps manual GitHub Token input available after a successful connection', async () => {
     githubStatus = {
       configured: true,
       valid: true,
@@ -608,7 +608,7 @@ describe('AccountSettingSystem', () => {
     expect(screen.getByText('已连接')).toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: 'GitHub Token' }))
     expect(screen.getByText('octocat')).toBeInTheDocument()
-    expect(screen.queryByLabelText('GitHub PAT')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('GitHub PAT')).toBeInTheDocument()
   })
 
   it('saves the current basic payload and updates the global settings store', async () => {
