@@ -415,8 +415,10 @@ export default {
     title: 'GitHub Token',
     initializationTitle: 'Set GitHub Token (Optional)',
     initializationSection: 'GitHub API access',
-    description: 'Increase the GitHub API rate limit so plugins, resources, and updates work more reliably.',
-    notConfigured: 'No GitHub Token is configured. Use GitHub authorization or enter a PAT manually.',
+    description:
+      'Used by Agent Issue/PR skills. Device Flow requests public/private repository read/write and workflow update access; the Token stays on the server.',
+    notConfigured:
+      'No GitHub Token is configured. Authorize GitHub or enter a PAT so Agent skills can submit Issues and PRs.',
     connected: 'GitHub connected',
     statusChecking: 'Checking',
     statusNotConfigured: 'Not connected',
@@ -425,16 +427,19 @@ export default {
     connect: 'Authorize with GitHub',
     reauthorize: 'Reauthorize',
     disconnect: 'Disconnect',
-    needsReauthorization: 'The GitHub Token is invalid or is about to expire. Please authorize again.',
+    needsReauthorization:
+      'Authorization is invalid, expiring, or missing permissions required by Agent Issue/PR skills. Please authorize again.',
     manualTitle: 'Enter a Token Manually',
-    manualHint: 'If one-click authorization is unavailable, paste a GitHub PAT. The Token stays on the server.',
+    manualHint:
+      'The PAT stays on the server. Ensure it can create Issues and PRs, create forks, and push branches; workflow file changes also require workflow permission.',
     manualLabel: 'GitHub PAT',
     manualPlaceholder: 'ghp_**** or github_pat_****',
     saveManual: 'Save Token',
     saved: 'GitHub Token saved',
     disconnected: 'GitHub Token cleared',
     authTitle: 'Authorize GitHub',
-    authSubtitle: 'Confirm authorization on GitHub and MoviePilot will finish setup automatically.',
+    authSubtitle:
+      'GitHub will show the requested permissions. After approval, MoviePilot stores the authorization server-side for Agent Issue and PR submissions.',
     authInstructions: 'Open the GitHub verification page, sign in, and enter this user code:',
     userCode: 'User code',
     copyUserCode: 'Copy user code',
@@ -448,7 +453,8 @@ export default {
     authPreparing: 'Preparing GitHub authorization…',
     authorized: 'GitHub authorization complete',
     promptTitle: 'Set up a GitHub Token',
-    promptDescription: 'Increase the GitHub API rate limit for more reliable plugin and resource access.',
+    promptDescription:
+      'Agent skills can use the server-side Token for Issues and PRs, and GitHub API requests get a higher rate limit.',
     promptAction: 'Open settings',
     dismissPrompt: 'Dismiss permanently',
   },
@@ -2775,7 +2781,7 @@ export default {
       githubToken: 'Github Token',
       githubTokenFormat: 'ghp_**** or github_pat_****',
       githubTokenHint:
-        'Used to increase the rate limit threshold when plugins access Github API，it is recommended to configure, otherwise plugins may not work properly',
+        'Used for GitHub API access and Agent Issue/PR submissions; the Token must have permission for the target repository.',
       ocrHost: 'OCR Server',
       ocrHostHint: 'Used for site check-in, updating site cookies and other captcha recognition',
       aiAgent: 'Enable AI Assistant',
