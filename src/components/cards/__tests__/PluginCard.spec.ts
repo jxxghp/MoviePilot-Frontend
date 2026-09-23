@@ -247,6 +247,39 @@ describe('PluginCard lifecycle actions', () => {
     expect(container.querySelector('.plugin-card__runtime-state')).toBeNull()
   })
 
+  it('attributes a free-threaded GIL fallback to the plugin ahead of the restart badge', async () => {
+    const { container, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.summary = {
+      failed_count: 0,
+      generation: 3,
+      pending_count: 0,
+      ready: true,
+      restart_required_plugin_ids: ['DemoPlugin'],
+      gil_enabled_plugin_ids: ['DemoPlugin'],
+    }
+
+    expect(await screen.findByText('GIL 回退（v3t）')).toBeInTheDocument()
+    expect(screen.queryByText('重启后生效')).toBeNull()
+    expect(container.querySelector('.plugin-card')).not.toHaveClass('plugin-card--runtime-blocked')
+  })
+
+  it('does not mark other plugins when a different plugin caused the GIL fallback', async () => {
+    const { pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
+    const runtimeStore = usePluginRuntimeStore(pinia)
+    runtimeStore.summary = {
+      failed_count: 0,
+      generation: 3,
+      pending_count: 0,
+      ready: true,
+      restart_required_plugin_ids: [],
+      gil_enabled_plugin_ids: ['OtherPlugin'],
+    }
+    await Promise.resolve()
+
+    expect(screen.queryByText('GIL 回退（v3t）')).toBeNull()
+  })
+
   it('shows the same card-level busy state for updates without opening a progress dialog', async () => {
     const updatablePlugin = { ...plugin, has_update: true }
     const { container } = await renderWithProviders(PluginCard, {
