@@ -80,9 +80,17 @@ const sourceBindingRequired = computed(() => props.plugin?.source_binding_status
 const restartRequired = computed(() =>
   Boolean(props.plugin?.id && pluginRuntimeStore.summary?.restart_required_plugin_ids.includes(props.plugin.id)),
 )
+// 该插件的加载使 free-threaded 运行时回退到 GIL；进程级事实，重启后由后端重新观察
+const gilFallback = computed(() =>
+  Boolean(props.plugin?.id && pluginRuntimeStore.summary?.gil_enabled_plugin_ids?.includes(props.plugin.id)),
+)
 const hasCardStatus = computed(
   () =>
-    sourceBindingRequired.value || restartRequired.value || Boolean(props.plugin?.has_update) || hasCardRating.value,
+    sourceBindingRequired.value ||
+    gilFallback.value ||
+    restartRequired.value ||
+    Boolean(props.plugin?.has_update) ||
+    hasCardRating.value,
 )
 const updateCandidate = computed(() => props.plugin?.update_candidate)
 const hasAlternativeUpdate = computed(() =>
@@ -1027,6 +1035,15 @@ watch(
               <VIcon icon="mdi-shield-alert-outline" size="12" />
               {{ t('plugin.sourceBindingRequired') }}
               <VTooltip activator="parent" location="top">{{ t('plugin.sourceBindingRequiredHint') }}</VTooltip>
+            </div>
+            <div
+              v-else-if="gilFallback"
+              class="plugin-card__status plugin-card__status--restart"
+              :aria-label="t('plugin.gilFallbackBadge')"
+            >
+              <VIcon icon="mdi-speedometer-slow" size="13" />
+              {{ t('plugin.gilFallbackBadge') }}
+              <VTooltip activator="parent" location="top">{{ t('plugin.gilFallbackBadgeHint') }}</VTooltip>
             </div>
             <div
               v-else-if="restartRequired"

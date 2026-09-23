@@ -338,7 +338,7 @@ export default {
     onlineMessage: 'Network connection restored',
     freeThreadedExperimentalHint: 'Experimental free-threaded runtime',
     freeThreadedGilFallbackWarning:
-      'The free-threaded runtime has fallen back to GIL mode. Check backend logs for native extension compatibility warnings.',
+      'The free-threaded runtime has fallen back to GIL mode. Check plugins marked "GIL fallback" on the plugin page or backend logs for native extension compatibility warnings.',
   },
   pwa: {
     installApp: 'Install MoviePilot App',
@@ -4862,6 +4862,8 @@ export default {
     sourceInstalledHint: 'Plugins are updated only from the bound repository.',
     sourceBindingRequired: 'Repository confirmation required',
     sourceBindingRequiredHint: 'This plugin has no bound repository; open About to confirm',
+    gilFallbackBadge: 'GIL fallback (v3t)',
+    gilFallbackBadgeHint: 'Loading this plugin made the free-threaded runtime (v3t) fall back to GIL mode, losing multi-threaded parallelism. Disable it and restart to recover, or switch back to the standard V3 image.',
     restartRequiredBadge: 'Restart to apply',
     restartRequiredBadgeHint: 'The plugin remains available and will fully apply after MoviePilot restarts.',
     installRestartRequired: '{name} was installed. Restart MoviePilot to finish applying dependency updates.',

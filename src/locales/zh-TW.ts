@@ -321,7 +321,7 @@ export default {
     online: '應用在線',
     onlineMessage: '網絡連接已恢復',
     freeThreadedExperimentalHint: '實驗性 free-threaded 運行環境',
-    freeThreadedGilFallbackWarning: 'free-threaded 運行環境已退化為 GIL 模式，請檢查後端日誌中的原生擴展兼容警告',
+    freeThreadedGilFallbackWarning: 'free-threaded 運行環境已退化為 GIL 模式，請在插件頁查看標記為「GIL 回退」的插件或檢查後端日誌中的原生擴展兼容警告',
   },
   pwa: {
     installApp: '安裝 MoviePilot 應用',
@@ -4706,6 +4706,8 @@ export default {
     sourceInstalledHint: '插件只會從已綁定倉庫更新。',
     sourceBindingRequired: '需確認倉庫',
     sourceBindingRequiredHint: '此插件尚未綁定倉庫，請在「關於」中確認',
+    gilFallbackBadge: 'GIL 回退（v3t）',
+    gilFallbackBadgeHint: '載入此插件後 free-threaded 運行環境（v3t）已回退到 GIL 模式，失去多執行緒並行；停用此插件並重啟可恢復，或切回標準 V3 映像',
     restartRequiredBadge: '重啟後生效',
     restartRequiredBadgeHint: '目前插件仍可使用，重啟 MoviePilot 後完整生效',
     installRestartRequired: '插件 {name} 已安裝，重啟 MoviePilot 後完成依賴更新',

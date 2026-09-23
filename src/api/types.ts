@@ -1350,6 +1350,8 @@ export interface PluginRuntimeSummary {
   failed_count: number
   // 重启后才能完整激活新原生依赖的物理插件 ID
   restart_required_plugin_ids: string[]
+  // 当前进程内加载时导致 free-threaded 运行时回退到 GIL 的插件 ID；旧后端不返回该字段
+  gil_enabled_plugin_ids?: string[]
 }
 
 /** 插件安装、更新或换仓后的运行态结果。 */
