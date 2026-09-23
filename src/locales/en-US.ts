@@ -1029,8 +1029,6 @@ export default {
     },
   },
   agentAssistant: {
-    petInteractionHint:
-      'Click to chat; hover to greet, stroke back and forth for a shy reaction; hold to charge, release to spin; drag to move, shake to get dizzy, shake more to fall apart and reassemble',
     title: 'AI Assistant',
     assistant: 'Assistant',
     ready: 'Ready',

@@ -148,10 +148,10 @@ describe('AgentAssistantEntry pet interactions', () => {
   }
 
   /** 用原生鼠标事件保留 detail，验证手势后的浏览器合成点击会被拦截。 */
-  async function click(wrapper: ReturnType<typeof createEntry>) {
+  async function click(wrapper: ReturnType<typeof createEntry>, detail = 1) {
     wrapper
       .find('.agent-assistant-fab__trigger')
-      .element.dispatchEvent(new MouseEvent('click', { detail: 1, bubbles: true }))
+      .element.dispatchEvent(new MouseEvent('click', { detail, bubbles: true }))
     await nextTick()
   }
 
@@ -214,6 +214,38 @@ describe('AgentAssistantEntry pet interactions', () => {
     await pointer(wrapper, 'pointercancel')
     await vi.advanceTimersByTimeAsync(1000)
     expect(action(wrapper)).toBeNull()
+  })
+
+  it('blocks delayed and zero-detail clicks after dragging until a new deliberate activation', async () => {
+    const wrapper = createEntry()
+    await nextTick()
+    const trigger = wrapper.find('.agent-assistant-fab__trigger')
+    expect(trigger.attributes('title')).toBeUndefined()
+    await pointer(wrapper, 'pointerdown')
+    await pointer(wrapper, 'pointermove', 360)
+    await pointer(wrapper, 'pointerup', 360)
+    await vi.advanceTimersByTimeAsync(800)
+    await click(wrapper)
+    await click(wrapper, 0)
+    expect(wrapper.emitted('open')).toBeUndefined()
+    await pointer(wrapper, 'pointerdown', 360)
+    await pointer(wrapper, 'pointerup', 360)
+    await click(wrapper)
+    expect(wrapper.emitted('open')).toHaveLength(1)
+  })
+
+  it('blocks clicks after capture is lost but still allows explicit keyboard activation', async () => {
+    const wrapper = createEntry()
+    await nextTick()
+    await pointer(wrapper, 'pointerdown')
+    await pointer(wrapper, 'pointermove', 360)
+    await pointer(wrapper, 'lostpointercapture', 360)
+    const trigger = wrapper.find('.agent-assistant-fab__trigger')
+    await click(wrapper, 0)
+    expect(wrapper.emitted('open')).toBeUndefined()
+    await trigger.trigger('keydown', { key: 'Enter' })
+    await click(wrapper, 0)
+    expect(wrapper.emitted('open')).toHaveLength(1)
   })
 
   it('responds to stroking and repeated teasing, with no click required', async () => {

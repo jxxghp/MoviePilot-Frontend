@@ -71,7 +71,6 @@ const FAB_BUBBLE_ARROW_MARGIN = 28
 const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
 const FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY = 260
 const FAB_RIGHT_EDGE_RESIZE_FOLLOW_DISTANCE = 128
-const FAB_DRAG_SUPPRESS_CLICK_DELAY = 450
 
 type FabBubblePlacement = 'bottom' | 'left' | 'right' | 'top'
 
@@ -189,7 +188,6 @@ const fabDragging = ref(false)
 let fabIdleTimer: number | null = null
 let fabDragState: FabDragState | null = null
 let fabSuppressNextClick = false
-let fabSuppressNextClickTimer: number | null = null
 let fabPointerFrame = 0
 let fabPendingPointerPoint: FabPointerPoint | null = null
 let fabBubblePositionFrame = 0
@@ -880,22 +878,14 @@ function clearFabIdleTimer() {
   fabIdleTimer = null
 }
 
-// 清理拖拽后抑制点击的恢复计时器。
-function clearFabSuppressNextClickTimer() {
-  if (fabSuppressNextClickTimer === null) return
-
-  window.clearTimeout(fabSuppressNextClickTimer)
-  fabSuppressNextClickTimer = null
-}
-
-// 拖拽结束后短暂抑制下一次点击，避免误打开面板。
+// 手势结束后持续拦截合成点击，直到下一次独立按下，兼容延迟和 detail=0 的点击。
 function suppressNextFabClick() {
   fabSuppressNextClick = true
-  clearFabSuppressNextClickTimer()
-  fabSuppressNextClickTimer = window.setTimeout(() => {
-    fabSuppressNextClick = false
-    fabSuppressNextClickTimer = null
-  }, FAB_DRAG_SUPPRESS_CLICK_DELAY)
+}
+
+// 键盘激活是独立操作，不沿用上一次拖拽的点击拦截状态。
+function handleFabTriggerKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ' ') fabSuppressNextClick = false
 }
 
 // 在入口靠近右侧边缘且空闲时安排自动贴边收起。
@@ -1258,6 +1248,7 @@ function releaseFabPointerCapture(event: PointerEvent) {
 // 取消当前拖拽并根据位置恢复自动贴边策略。
 function cancelFabDrag() {
   const wasDragging = fabDragging.value
+  if (fabDragState) suppressNextFabClick()
 
   clearFabDragState()
   if (!wasDragging) {
@@ -1322,7 +1313,6 @@ function handleFabTriggerPointerDown(event: PointerEvent) {
   guardFabPointerEvent(event)
   if (fabSuppressNextClick) {
     fabSuppressNextClick = false
-    clearFabSuppressNextClickTimer()
   }
   fabPressed.value = true
   pauseFabAutoDock()
@@ -1449,14 +1439,9 @@ function handleWindowFabPointerEnd(event: PointerEvent) {
 // 处理入口点击，贴边时先展开，否则打开助手面板。
 function handleFabTriggerClick(event: MouseEvent) {
   event.stopPropagation()
-  if (fabSuppressNextClick && event.detail !== 0) {
-    fabSuppressNextClick = false
-    clearFabSuppressNextClickTimer()
-    return
-  }
+  if (fabSuppressNextClick) return
 
   fabSuppressNextClick = false
-  clearFabSuppressNextClickTimer()
 
   if (fabDocked.value) {
     setFabDocked(false)
@@ -1548,7 +1533,6 @@ watch(
 )
 
 onScopeDispose(clearFabIdleTimer)
-onScopeDispose(clearFabSuppressNextClickTimer)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(teardownFabBubblePositioning)
 onScopeDispose(clearFabBubbleUndockPositionTimer)
@@ -1635,12 +1619,12 @@ defineExpose({
       class="agent-assistant-fab__trigger"
       type="button"
       :aria-label="t('agentAssistant.title')"
-      :title="t('agentAssistant.petInteractionHint')"
       @pointerdown="handleFabTriggerPointerDown"
       @pointermove="handleFabTriggerPointerMove"
       @pointerup="handleFabTriggerPointerUp"
       @pointercancel="handleFabTriggerPointerCancel"
       @lostpointercapture="handleFabTriggerLostPointerCapture"
+      @keydown="handleFabTriggerKeyDown"
       @contextmenu.prevent
       @click="handleFabTriggerClick"
     >

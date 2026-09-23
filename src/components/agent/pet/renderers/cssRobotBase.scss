@@ -56,13 +56,13 @@
   z-index: 4;
   display: block;
   border: 2px solid var(--agent-assistant-robot-outline);
-  border-radius: 42% 42% 36% 36% / 42% 42% 38% 38%;
+  border-radius: 0.7rem 0.7rem 0.62rem 0.62rem;
   background: linear-gradient(
     145deg,
     var(--agent-assistant-robot-shell-start) 0%,
     var(--agent-assistant-robot-shell-end) 100%
   );
-  block-size: 2.2rem;
+  block-size: 2.08rem;
   box-shadow:
     inset 0 -0.2rem 0 var(--agent-assistant-robot-shade),
     inset 0.15rem 0.14rem 0 rgba(255, 255, 255, 24%);
@@ -81,7 +81,7 @@
   display: block;
   overflow: hidden;
   border: 2px solid var(--agent-assistant-robot-outline-soft);
-  border-radius: 38% 38% 34% 34%;
+  border-radius: 0.46rem 0.46rem 0.4rem 0.4rem;
   background: linear-gradient(
     180deg,
     var(--agent-assistant-robot-face-start) 0%,

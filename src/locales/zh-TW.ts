@@ -1006,8 +1006,6 @@ export default {
     },
   },
   agentAssistant: {
-    petInteractionHint:
-      '點擊聊天；停留招手，來回撫摸會害羞；按住蓄力後放開轉圈；拖曳可搬家，來回搖晃會暈倒，多搖幾下會散架再復原',
     title: '智能助手',
     assistant: '助手',
     ready: '隨時待命',
