@@ -31,6 +31,13 @@ import notificationLogo from '@/assets/images/logos/notification.png'
 import chromeLogo from '@/assets/images/logos/chrome.png'
 import doubanLogo from '@/assets/images/logos/douban.png'
 import githubLogo from '@/assets/images/logos/github.png'
+import acoustidLogo from '@/assets/images/logos/acoustid.png'
+import anilistLogo from '@/assets/images/logos/anilist.png'
+import imdbLogo from '@/assets/images/logos/imdb.png'
+import listenBrainzLogo from '@/assets/images/logos/listenbrainz.png'
+import musicBrainzLogo from '@/assets/images/logos/musicbrainz.png'
+import theAudioDbLogo from '@/assets/images/logos/theaudiodb.png'
+import traceMoeLogo from '@/assets/images/logos/tracemoe.png'
 import tmdbLogo from '@/assets/images/logos/tmdb.png'
 import fanartLogo from '@/assets/images/logos/fanart.webp'
 import pythonLogo from '@/assets/images/logos/python.png'
@@ -68,6 +75,13 @@ const logoMap: Record<string, string> = {
   chrome: chromeLogo,
   douban: doubanLogo,
   github: githubLogo,
+  acoustid: acoustidLogo,
+  anilist: anilistLogo,
+  imdb: imdbLogo,
+  listenbrainz: listenBrainzLogo,
+  musicbrainz: musicBrainzLogo,
+  theaudiodb: theAudioDbLogo,
+  tracemoe: traceMoeLogo,
   tmdb: tmdbLogo,
   fanart: fanartLogo,
   python: pythonLogo,
