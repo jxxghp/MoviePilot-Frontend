@@ -77,7 +77,7 @@ describe('NotificationChannelInfoDialog', () => {
       },
     })
 
-    await fireEvent.click(await screen.findByRole('button', { name: '重新登记浏览器通知' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '重新登记通知' }))
     await waitFor(() => expect(requestPermission).toHaveBeenCalledOnce())
   })
 })

@@ -1216,8 +1216,8 @@ onMounted(() => {
               <VAlert v-if="!webPushSupported" type="warning" variant="tonal">
                 {{ t('notification.webpush.unsupported') }}
               </VAlert>
-              <div v-else-if="webPushPermission === 'granted'" class="d-flex flex-wrap align-center gap-3">
-                <VAlert type="success" variant="tonal">
+              <div v-else-if="webPushPermission === 'granted'" class="d-flex flex-column align-start gap-3">
+                <VAlert type="success" variant="tonal" class="w-100">
                   {{ t('notification.webpush.permissionAllowed') }}
                 </VAlert>
                 <VBtn

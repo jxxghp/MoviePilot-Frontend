@@ -974,8 +974,8 @@ export default {
       enable: 'Enable Browser Notifications',
       enableHint:
         'Click to allow this browser to send WebPush notifications. On iOS, permission must be requested from a user action.',
-      retry: 'Register Browser Notifications Again',
-      permissionAllowed: 'Browser notifications are allowed. You can register the WebPush subscription again.',
+      retry: 'Register Notifications Again',
+      permissionAllowed: 'Browser notification permission granted',
       permissionGranted: 'Browser notifications are enabled',
       permissionDenied: 'Browser notification permission was denied',
       permissionDeniedHint: 'Notification permission was denied. Allow it in the browser settings and try again.',
