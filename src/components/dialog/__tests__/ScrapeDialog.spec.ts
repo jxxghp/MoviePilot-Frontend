@@ -45,6 +45,10 @@ describe('ScrapeDialog', () => {
     const user = userEvent.setup()
     const { events } = await renderDialog('douban')
 
+    expect(screen.getByLabelText('类型').closest('.v-col-md-6')).not.toBeNull()
+    expect(screen.getByLabelText('数据源').closest('.v-col-md-6')).not.toBeNull()
+    expect(screen.getByLabelText('豆瓣编号').closest('.v-col-md-12')).not.toBeNull()
+
     await user.click(screen.getByRole('button', { name: '确认' }))
 
     expect(events.scrape).toHaveBeenCalledWith({
@@ -86,6 +90,8 @@ describe('ScrapeDialog', () => {
     await user.click(await screen.findByRole('option', { name: '电视剧' }))
     await user.type(screen.getByLabelText('TheMovieDb编号'), '1399')
     await waitFor(() => expect(groupRequests).toHaveBeenCalledOnce())
+    expect(screen.getByLabelText('TheMovieDb编号').closest('.v-col-md-6')).not.toBeNull()
+    expect(screen.getByLabelText('剧集组').closest('.v-col-md-6')).not.toBeNull()
     await user.click(screen.getByLabelText('剧集组'))
     await user.click(await screen.findByRole('option', { name: /播出顺序/ }))
     await user.click(screen.getByRole('button', { name: '确认' }))

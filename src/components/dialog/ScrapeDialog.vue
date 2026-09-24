@@ -52,6 +52,8 @@ const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicM
 const canSelectEpisodeGroup = computed(
   () => mediaType.value === '电视剧' && mediaSource.value === 'themoviedb',
 )
+// 四个可见输入项时每行放置两个字段。
+const hasFourInputFields = computed(() => isMusicSelection.value || canSelectEpisodeGroup.value)
 const episodeGroup = ref<string | null>(null)
 const episodeGroups = ref<ScrapeEpisodeGroup[]>([])
 const episodeGroupLoading = ref(false)
@@ -237,7 +239,7 @@ watch(mediaType, type => {
       <VDivider />
       <VCardText class="pt-6">
         <VRow>
-          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+          <VCol cols="12" md="6">
             <VSelect
               v-model="mediaType"
               :label="t('dialog.reorganize.mediaType')"
@@ -252,7 +254,7 @@ watch(mediaType, type => {
               prepend-inner-icon="mdi-movie-open"
             />
           </VCol>
-          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+          <VCol cols="12" md="6">
             <VSelect
               v-model="mediaSource"
               :items="mediaSourceItems"
@@ -262,7 +264,7 @@ watch(mediaType, type => {
               prepend-inner-icon="mdi-database-search"
             />
           </VCol>
-          <VCol v-if="isMusicSelection" cols="12" md="3">
+          <VCol v-if="isMusicSelection" cols="12" md="6">
             <VSelect
               v-model="musicType"
               :label="t('dialog.reorganize.musicEntity')"
@@ -273,7 +275,7 @@ watch(mediaType, type => {
               prepend-inner-icon="mdi-music-box-multiple"
             />
           </VCol>
-          <VCol cols="12" :md="isMusicSelection ? 3 : 4">
+          <VCol cols="12" :md="hasFourInputFields ? 6 : 12">
             <VTextField
               v-model="mediaId"
               :disabled="mediaType === ''"
@@ -287,9 +289,7 @@ watch(mediaType, type => {
               @click:append-inner="mediaSelectorDialog = true"
             />
           </VCol>
-        </VRow>
-        <VRow v-if="canSelectEpisodeGroup">
-          <VCol cols="12" md="6">
+          <VCol v-if="canSelectEpisodeGroup" cols="12" md="6">
             <VSelect
               v-model="episodeGroup"
               :items="episodeGroupOptions"
