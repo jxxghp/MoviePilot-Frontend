@@ -129,11 +129,11 @@ onBeforeUnmount(() => {
       <VListItem>
         <template #prepend>
           <VAvatar
+            v-if="target.image"
             :image="target.image"
-            :color="target.image ? undefined : 'primary'"
-            :variant="target.image ? undefined : 'tonal'"
-          >
-            <VIcon v-if="!target.image" icon="mdi-web" />
+          />
+          <VAvatar v-else color="primary" variant="tonal">
+            <VIcon icon="mdi-web" />
           </VAvatar>
         </template>
         <VListItemTitle>
