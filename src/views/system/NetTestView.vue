@@ -18,12 +18,14 @@ interface TargetItem {
   id: string
   icon: string
   name: string
+  address: string
 }
 
 interface Address {
   id: string
   image: string
   name: string
+  address: string
   status: keyof Status
   time: string
   message: string
@@ -55,6 +57,7 @@ async function loadTargets() {
     id: item.id,
     image: resolveTargetImage(item.icon),
     name: item.name,
+    address: item.address,
     status: 'Normal',
     time: '',
     message: t('netTest.notTested'),
@@ -118,7 +121,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <VList lines="two" rounded>
+  <VList lines="three" rounded>
     <template v-for="(target, index) of targets" :key="target.id">
       <VListItem>
         <template #prepend>
@@ -128,11 +131,14 @@ onBeforeUnmount(() => {
           {{ target.name }}
         </VListItemTitle>
         <VListItemSubtitle class="mt-1 me-2">
-          <VBadge dot location="start center" offset-x="2" :color="resolveStatusColor[target.status]" class="me-3">
-            <span class="ms-4">{{ target.message }}</span>
-          </VBadge>
+          <div class="text-caption text-truncate text-disabled">{{ target.address }}</div>
+          <div class="d-flex align-center mt-1">
+            <VBadge dot location="start center" offset-x="2" :color="resolveStatusColor[target.status]" class="me-3">
+              <span class="ms-4">{{ target.message }}</span>
+            </VBadge>
 
-          <span v-if="target.time" class="text-xs text-wrap text-disabled"> {{ target.time }} ms </span>
+            <span v-if="target.time" class="text-xs text-wrap text-disabled"> {{ target.time }} ms </span>
+          </div>
         </VListItemSubtitle>
         <template #append>
           <VBtn size="small" icon="mdi-connection" :disabled="target.btndisable" @click="netTest(index)" />
