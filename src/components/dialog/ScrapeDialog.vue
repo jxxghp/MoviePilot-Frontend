@@ -308,17 +308,17 @@ watch(mediaType, type => {
           </VCol>
         </VRow>
       </VCardText>
-      <VCardActions class="app-dialog-actions">
-        <VSpacer />
+      <VCardActions class="app-dialog-actions justify-center">
         <VBtn
           color="primary"
           variant="flat"
           prepend-icon="mdi-auto-fix"
           class="px-5"
+          style="width: 50%; flex: 0 0 50%"
           :disabled="!canSubmit"
           @click="submitScrape"
         >
-          {{ t('common.confirm') }}
+          {{ t('file.startScrape') }}
         </VBtn>
       </VCardActions>
     </VCard>
