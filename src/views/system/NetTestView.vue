@@ -32,8 +32,10 @@ interface Address {
   btndisable: boolean
 }
 
+/** 解析目标的本地品牌图标；通用站点和未知图标交由主题色网页图标兜底。 */
 function resolveTargetImage(icon: string) {
   if (icon === 'tvdb') return tvdb
+  if (icon === 'site') return ''
   return getLogoUrl(icon)
 }
 
@@ -49,6 +51,7 @@ const resolveStatusColor: Status = {
 const abortControllers = new Set<AbortController>()
 const isUnmounting = ref(false)
 
+/** 从后端加载网络测试目录并初始化列表状态。 */
 async function loadTargets() {
   // 测试项由后端下发，前端只负责展示，避免再把可测试目标和校验规则留在客户端。
   const result = await api.get<TargetItem[]>('system/nettest/targets')
@@ -65,7 +68,7 @@ async function loadTargets() {
   }))
 }
 
-// 调用API测试网络连接
+/** 请求后端测试指定目标并更新对应列表状态。 */
 async function netTest(index: number) {
   const target = targets.value[index]
   if (!target) return
@@ -125,7 +128,13 @@ onBeforeUnmount(() => {
     <template v-for="(target, index) of targets" :key="target.id">
       <VListItem>
         <template #prepend>
-          <VAvatar :image="target.image" />
+          <VAvatar
+            :image="target.image"
+            :color="target.image ? undefined : 'primary'"
+            :variant="target.image ? undefined : 'tonal'"
+          >
+            <VIcon v-if="!target.image" icon="mdi-web" />
+          </VAvatar>
         </template>
         <VListItemTitle>
           {{ target.name }}
