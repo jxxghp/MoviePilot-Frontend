@@ -145,11 +145,11 @@ describe('glass overlay material styles', () => {
     expect(styles).not.toContain('border-radius: 16px')
   })
 
-  it('keeps plugin logo tinting on the material formulas and displays complete logos', () => {
+  it('keeps plugin logo tinting on the material formulas and uses market avatar handling', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
 
     expect(styles).not.toMatch(/--plugin-card-banner-(?:tint|scrim)\s*:/u)
-    expect(styles).toMatch(/\.plugin-card__plugin-icon \.v-img__img\s*\{\s*object-fit:\s*contain;/u)
+    expect(styles).not.toContain('.layout-page-content .plugin-card__plugin-icon')
   })
 
   it('flattens nested shortcut dialog surfaces while keeping the outer overlay contour', () => {
