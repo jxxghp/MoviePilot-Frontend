@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import { getLogoUrl } from '@/utils/imageUtils'
+import moviePilotLogo from '@images/logo.png'
 import tvdb from '@images/logos/thetvdb.jpeg'
 import { useI18n } from 'vue-i18n'
 
@@ -32,8 +33,15 @@ interface Address {
   btndisable: boolean
 }
 
-/** 解析目标的本地品牌图标；通用站点和未知图标交由主题色网页图标兜底。 */
-function resolveTargetImage(icon: string) {
+/** 根据目标网址和图标标识解析本地品牌图标；MoviePilot 自有域名统一显示主 Logo。 */
+function resolveTargetImage(icon: string, address: string) {
+  try {
+    const hostname = new URL(address).hostname.toLowerCase()
+    if (hostname === 'movie-pilot.org' || hostname.endsWith('.movie-pilot.org')) return moviePilotLogo
+  } catch {
+    // 无法解析目标地址时继续根据图标标识回退。
+  }
+
   if (icon === 'tvdb') return tvdb
   if (icon === 'site') return ''
   return getLogoUrl(icon)
@@ -58,7 +66,7 @@ async function loadTargets() {
 
   targets.value = result.map(item => ({
     id: item.id,
-    image: resolveTargetImage(item.icon),
+    image: resolveTargetImage(item.icon, item.address),
     name: item.name,
     address: item.address,
     status: 'Normal',
