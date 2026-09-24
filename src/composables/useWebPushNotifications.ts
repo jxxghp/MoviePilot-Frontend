@@ -10,9 +10,15 @@ export type WebPushPermissionRequester = () => Promise<NotificationPermission | 
 export const WEB_PUSH_PERMISSION_REQUEST_KEY: InjectionKey<WebPushPermissionRequester> =
   Symbol('web-push-permission-request')
 
+/** 订阅失败后重新读取系统权限，浏览器弹窗可能已在异步期间将其改为拒绝。 */
+function currentNotificationPermission(): NotificationPermission {
+  return Notification.permission
+}
+
 /** 在管理员会话内恢复浏览器订阅，补齐后端重启后丢失的内存登记。 */
 export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>) {
   let pending: AbortController | null = null
+  let activeRegistration: ServiceWorkerRegistration | null = null
   let disposed = false
 
   /** 复用浏览器已有订阅；仅在已授权时创建订阅，不在后台弹出权限请求。 */
@@ -27,6 +33,8 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
     try {
       // ready 在没有活动 worker 时可能永不完成；安装完成后由 controllerchange 或定时检查补登记。
       const registration = await navigator.serviceWorker.getRegistration()
+      if (controller.signal.aborted || currentSession !== toValue(session)) return false
+      activeRegistration = registration?.active ? registration : null
       if (!registration?.active) return false
       let subscription = await registration.pushManager.getSubscription()
       if (controller.signal.aborted || currentSession !== toValue(session)) return false
@@ -55,7 +63,7 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
     }
   }
 
-  /** 由用户点击触发浏览器授权，并在授权成功后立即创建和登记订阅。 */
+  /** 由用户点击直接发起订阅，避免 iOS 在异步查询或权限弹窗后丢失用户激活。 */
   async function requestPermissionAndSync(): Promise<NotificationPermission | null> {
     const currentSession = toValue(session)
     if (
@@ -63,29 +71,38 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
       !currentSession ||
       !('serviceWorker' in navigator) ||
       !('PushManager' in window) ||
-      typeof Notification === 'undefined' ||
-      typeof Notification.requestPermission !== 'function'
+      typeof Notification === 'undefined'
     ) {
       return null
     }
 
     if (Notification.permission === 'denied') return 'denied'
+    if (!activeRegistration?.active) return null
 
-    let permission: NotificationPermission
-    try {
-      // 该调用必须紧跟用户操作，不能移到定时器或页面生命周期回调中。
-      permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
-    } catch (error) {
-      console.warn('WebPush permission request failed:', error)
-      return null
-    }
-    if (permission !== 'granted') return permission
-    if (disposed || currentSession !== toValue(session)) return null
-
-    // 用户授权时可能正好有一次静默同步在进行，取消它并用新权限重新同步。
+    // subscribe 必须在首次 await 之前调用；浏览器会在此调用中请求通知权限。
     pending?.abort()
-    pending = null
-    return (await syncSubscription()) ? permission : null
+    const controller = new AbortController()
+    pending = controller
+    try {
+      const subscription = await activeRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY),
+      })
+      if (controller.signal.aborted || currentSession !== toValue(session)) return null
+
+      await api.post('/message/webpush/subscribe', subscription.toJSON(), {
+        feedback: 'silent',
+        skipNavigationCancellation: true,
+        signal: controller.signal,
+        timeout: 10_000,
+      })
+      return 'granted'
+    } catch (error) {
+      if (!controller.signal.aborted) console.warn('WebPush permission request failed:', error)
+      return currentNotificationPermission() === 'denied' ? 'denied' : null
+    } finally {
+      if (pending === controller) pending = null
+    }
   }
 
   /** 页面恢复可见时重新登记，覆盖移动端挂起和离线期间的后端升级。 */

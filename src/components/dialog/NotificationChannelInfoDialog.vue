@@ -24,8 +24,7 @@ const webPushSupported = computed(
     typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&
     'PushManager' in window &&
-    typeof Notification !== 'undefined' &&
-    typeof Notification.requestPermission === 'function',
+    typeof Notification !== 'undefined',
 )
 
 // 定义输入
@@ -242,7 +241,7 @@ function openNotificationInfoDialog() {
   }
 }
 
-/** 通过设置页按钮发起浏览器授权，满足 iOS 对用户激活上下文的要求。 */
+/** 通过设置页按钮发起订阅，满足 iOS 对用户激活上下文的要求。 */
 async function enableWebPushNotifications() {
   if (webPushPermissionLoading.value || !webPushSupported.value || !requestWebPushPermission) return
 
@@ -1214,12 +1213,23 @@ onMounted(() => {
               />
             </VCol>
             <VCol cols="12">
-              <VAlert v-if="webPushPermission === 'granted'" type="success" variant="tonal">
-                {{ t('notification.webpush.permissionGranted') }}
-              </VAlert>
-              <VAlert v-else-if="!webPushSupported" type="warning" variant="tonal">
+              <VAlert v-if="!webPushSupported" type="warning" variant="tonal">
                 {{ t('notification.webpush.unsupported') }}
               </VAlert>
+              <div v-else-if="webPushPermission === 'granted'" class="d-flex flex-wrap align-center gap-3">
+                <VAlert type="success" variant="tonal">
+                  {{ t('notification.webpush.permissionAllowed') }}
+                </VAlert>
+                <VBtn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-bell-ring-outline"
+                  :loading="webPushPermissionLoading"
+                  @click.stop="enableWebPushNotifications"
+                >
+                  {{ t('notification.webpush.retry') }}
+                </VBtn>
+              </div>
               <VAlert v-else-if="webPushPermission === 'denied'" type="warning" variant="tonal">
                 {{ t('notification.webpush.permissionDeniedHint') }}
               </VAlert>

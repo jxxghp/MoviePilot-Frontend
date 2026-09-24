@@ -950,6 +950,8 @@ export default {
       usernameRequired: '用户名不能为空',
       enable: '开启浏览器通知',
       enableHint: '点击后允许当前浏览器发送 WebPush 通知，iOS 需要在用户点击时完成授权。',
+      retry: '重新登记浏览器通知',
+      permissionAllowed: '浏览器已允许通知，可重新登记 WebPush 订阅。',
       permissionGranted: '浏览器通知已开启',
       permissionDenied: '浏览器通知权限已拒绝',
       permissionDeniedHint: '通知权限已拒绝，请在浏览器设置中允许后再试。',

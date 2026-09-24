@@ -58,4 +58,26 @@ describe('NotificationChannelInfoDialog', () => {
     await waitFor(() => expect(requestPermission).toHaveBeenCalledOnce())
     expect(mocks.toastSuccess).toHaveBeenCalledWith('浏览器通知已开启')
   })
+
+  it('通知权限已允许时仍可点击重新登记订阅', async () => {
+    vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+    const requestPermission = vi.fn<WebPushPermissionRequester>().mockResolvedValue('granted')
+
+    await renderWithProviders(NotificationChannelInfoDialog, {
+      props: {
+        modelValue: true,
+        notification: webPushNotification,
+        notifications: [webPushNotification],
+      },
+      global: {
+        provide: {
+          [WEB_PUSH_PERMISSION_REQUEST_KEY]: requestPermission,
+        },
+        stubs: { VDialogCloseBtn: true },
+      },
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '重新登记浏览器通知' }))
+    await waitFor(() => expect(requestPermission).toHaveBeenCalledOnce())
+  })
 })

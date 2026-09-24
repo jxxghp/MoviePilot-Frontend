@@ -98,28 +98,74 @@ describe('useWebPushNotifications', () => {
     expect(mocks.post).toHaveBeenCalledTimes(1)
   })
 
-  it('用户点击授权后立即创建并登记新订阅', async () => {
+  it('用户点击时同步发起订阅，再异步登记到后端', async () => {
     registration.pushManager.getSubscription.mockResolvedValue(null)
-    const notification = {
-      permission: 'default' as NotificationPermission,
-      requestPermission: vi.fn(),
-    }
-    notification.requestPermission.mockImplementation(async () => {
-      notification.permission = 'granted'
-      return notification.permission
-    })
-    vi.stubGlobal('Notification', notification)
+    vi.stubGlobal('Notification', { permission: 'default', requestPermission: vi.fn() })
     const lifecycle = start()
     await flushPromises()
 
-    await expect(lifecycle.requestPermissionAndSync()).resolves.toBe('granted')
+    const result = lifecycle.requestPermissionAndSync()
+    expect(registration.pushManager.subscribe).toHaveBeenCalledOnce()
+    expect(Notification.requestPermission).not.toHaveBeenCalled()
+    await expect(result).resolves.toBe('granted')
 
-    expect(notification.requestPermission).toHaveBeenCalledOnce()
     expect(registration.pushManager.subscribe).toHaveBeenCalledWith({
       userVisibleOnly: true,
       applicationServerKey: new Uint8Array([1, 2, 3]),
     })
     expect(mocks.post).toHaveBeenCalledWith('/message/webpush/subscribe', payload, expect.any(Object))
+  })
+
+  it('已有通知权限但静默订阅失败时仍可由点击重试', async () => {
+    registration.pushManager.getSubscription.mockResolvedValue(null)
+    registration.pushManager.subscribe.mockRejectedValueOnce(new Error('user gesture required'))
+    const lifecycle = start()
+    await flushPromises()
+    expect(mocks.post).not.toHaveBeenCalled()
+
+    const result = lifecycle.requestPermissionAndSync()
+    expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(2)
+    await expect(result).resolves.toBe('granted')
+    expect(mocks.post).toHaveBeenCalledTimes(1)
+  })
+
+  it('未激活的 Worker 不尝试订阅，激活后点击可直接订阅', async () => {
+    vi.stubGlobal('Notification', { permission: 'default', requestPermission: vi.fn() })
+    registration.active = null
+    const lifecycle = start()
+    await flushPromises()
+    await expect(lifecycle.requestPermissionAndSync()).resolves.toBeNull()
+    expect(registration.pushManager.subscribe).not.toHaveBeenCalled()
+
+    registration.active = {}
+    worker.dispatchEvent(new Event('controllerchange'))
+    await flushPromises()
+    const result = lifecycle.requestPermissionAndSync()
+    expect(registration.pushManager.subscribe).toHaveBeenCalledOnce()
+    await expect(result).resolves.toBe('granted')
+  })
+
+  it('用户拒绝通知权限时不尝试订阅', async () => {
+    vi.stubGlobal('Notification', { permission: 'denied', requestPermission: vi.fn() })
+    const lifecycle = start()
+    await flushPromises()
+    await expect(lifecycle.requestPermissionAndSync()).resolves.toBe('denied')
+    expect(registration.pushManager.subscribe).not.toHaveBeenCalled()
+  })
+
+  it('订阅弹窗被拒绝后回报新的权限状态', async () => {
+    const notification = { permission: 'default', requestPermission: vi.fn() }
+    vi.stubGlobal('Notification', notification)
+    registration.pushManager.getSubscription.mockResolvedValue(null)
+    registration.pushManager.subscribe.mockImplementation(() => {
+      notification.permission = 'denied'
+      return Promise.reject(new DOMException('Permission denied', 'NotAllowedError'))
+    })
+    const lifecycle = start()
+    await flushPromises()
+
+    await expect(lifecycle.requestPermissionAndSync()).resolves.toBe('denied')
+    expect(mocks.post).not.toHaveBeenCalled()
   })
 
   it.each(['default', 'denied'])('权限为 %s 时不创建新订阅', async permission => {
