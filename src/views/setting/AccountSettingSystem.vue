@@ -988,7 +988,7 @@ async function saveSystemSetting(value: Record<string, unknown>) {
   return false
 }
 
-// 保存基础设置
+/** 保存基础设置时先排入反馈，再传播可能触发应用外壳更新的全局状态。 */
 async function saveBasicSettings() {
   savingBasic.value = true
   try {
@@ -998,9 +998,9 @@ async function saveBasicSettings() {
     // Token 已由专用接口托管，基础设置保存不能把脱敏占位值写回服务端。
     delete basicSettings.GITHUB_TOKEN
     if (await saveSystemSetting(basicSettings)) {
+      $toast.success(t('setting.system.basicSaveSuccess'))
       // 更新全局设置store，使Web Agent图标实时生效
       globalSettingsStore.setData({ ...globalSettingsStore.getData, ...SystemSettings.value.Basic })
-      $toast.success(t('setting.system.basicSaveSuccess'))
     } else {
       $toast.error(t('setting.system.saveFailed', { message: t('common.apiRequestFailed') }))
     }

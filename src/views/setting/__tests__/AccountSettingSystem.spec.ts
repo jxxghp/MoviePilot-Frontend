@@ -611,10 +611,13 @@ describe('AccountSettingSystem', () => {
     expect(screen.getByLabelText('GitHub PAT')).toBeInTheDocument()
   })
 
-  it('saves the current basic payload and updates the global settings store', async () => {
+  it('saves basic settings and queues success before updating the global settings store', async () => {
     const { pinia } = await renderSettings()
+    const globalSettings = useGlobalSettingsStore(pinia)
+    const setGlobalSettings = vi.spyOn(globalSettings, 'setData')
     await screen.findByDisplayValue('https://moviepilot.example')
     await fireEvent.update(screen.getByLabelText('访问域名'), 'https://new.example')
+    mocks.toastSuccess.mockClear()
 
     await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
 
@@ -635,10 +638,9 @@ describe('AccountSettingSystem', () => {
         WALLPAPER_ROTATION_INTERVAL: 15,
       }),
     )
-    expect(useGlobalSettingsStore(pinia).getData).toEqual(
-      expect.objectContaining({ APP_DOMAIN: 'https://new.example' }),
-    )
+    expect(globalSettings.getData).toEqual(expect.objectContaining({ APP_DOMAIN: 'https://new.example' }))
     expect(mocks.toastSuccess).toHaveBeenCalledWith('基础设置保存成功')
+    expect(mocks.toastSuccess.mock.invocationCallOrder[0]).toBeLessThan(setGlobalSettings.mock.invocationCallOrder[0])
   })
 
   it('recovers after business and HTTP failures while preserving the edited value', async () => {
