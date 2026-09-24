@@ -109,6 +109,8 @@ export interface ManualScrapeOptions {
   media_id?: string
   // 媒体类型
   type_name?: string
+  // TMDB 电视剧剧集组
+  episode_group?: string
   // 音乐实体类型
   music_type?: MusicEntityType
 }

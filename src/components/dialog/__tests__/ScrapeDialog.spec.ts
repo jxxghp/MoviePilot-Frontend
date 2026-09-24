@@ -1,10 +1,12 @@
 import ScrapeDialog from '@/components/dialog/ScrapeDialog.vue'
 import type { FileItem, ManualScrapeOptions } from '@/api/types'
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
-import { screen } from '@testing-library/vue'
+import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
+import { mediaEpisodeGroupsHandler } from '@tests/support/msw/handlers/media'
+import { server } from '@tests/support/msw/server'
 import { describe, expect, it, vi } from 'vitest'
 
 // 渲染手动刮削弹窗并收集业务事件。
@@ -67,6 +69,32 @@ describe('ScrapeDialog', () => {
       media_source: 'douban',
       media_id: '1295644',
       type_name: '电影',
+    })
+  })
+
+  it('loads TMDB episode groups for TV and submits the selected group', async () => {
+    const groupRequests = vi.fn()
+    server.use(
+      mediaEpisodeGroupsHandler(1399, [
+        { episode_count: 12, group_count: 1, id: 'group-1', name: '播出顺序' },
+      ], 200, groupRequests),
+    )
+    const user = userEvent.setup()
+    const { events } = await renderDialog()
+
+    await user.click(screen.getByLabelText('类型'))
+    await user.click(await screen.findByRole('option', { name: '电视剧' }))
+    await user.type(screen.getByLabelText('TheMovieDb编号'), '1399')
+    await waitFor(() => expect(groupRequests).toHaveBeenCalledOnce())
+    await user.click(screen.getByLabelText('剧集组'))
+    await user.click(await screen.findByRole('option', { name: /播出顺序/ }))
+    await user.click(screen.getByRole('button', { name: '确认' }))
+
+    expect(events.scrape).toHaveBeenCalledWith({
+      media_source: 'themoviedb',
+      media_id: '1399',
+      type_name: '电视剧',
+      episode_group: 'group-1',
     })
   })
 

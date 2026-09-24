@@ -1,10 +1,24 @@
 <script lang="ts" setup>
+import api from '@/api'
 import type { FileItem, ManualScrapeOptions, MediaDataSource, MediaInfo, MusicEntityType } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
+
+interface ScrapeEpisodeGroup {
+  id: string
+  name: string
+  group_count: number
+  episode_count: number
+}
+
+interface EpisodeGroupOption {
+  title: string
+  subtitle: string
+  value: string | null
+}
 
 const { t } = useI18n()
 
@@ -35,6 +49,82 @@ const mediaId = ref<string | null>(null)
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>('recording')
 const mediaSelectorDialog = ref(false)
 const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
+const canSelectEpisodeGroup = computed(
+  () => mediaType.value === '电视剧' && mediaSource.value === 'themoviedb',
+)
+const episodeGroup = ref<string | null>(null)
+const episodeGroups = ref<ScrapeEpisodeGroup[]>([])
+const episodeGroupLoading = ref(false)
+let episodeGroupQueryTimer: ReturnType<typeof setTimeout> | undefined
+let episodeGroupRequestId = 0
+
+// 剧集组选项与手动整理保持相同的名称、季数和集数信息。
+const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => [
+  {
+    title: t('dialog.reorganize.defaultEpisodeGroup'),
+    subtitle: t('dialog.reorganize.defaultEpisodeGroupHint'),
+    value: null,
+  },
+  ...episodeGroups.value.map(group => ({
+    title: group.name,
+    subtitle: `${t('dialog.reorganize.seasonCount', { count: group.group_count })} • ${t(
+      'dialog.reorganize.episodeCount',
+      { count: group.episode_count },
+    )}`,
+    value: group.id,
+  })),
+])
+
+// 为剧集组菜单保留手动整理界面中的副标题布局。
+function episodeGroupItemProps(item: EpisodeGroupOption) {
+  return {
+    title: item.title,
+    subtitle: item.subtitle,
+  }
+}
+
+// 查询 TMDB 电视剧的全部剧集组，并丢弃已经过期的响应。
+async function getEpisodeGroups(tmdbId: number) {
+  const requestId = ++episodeGroupRequestId
+  episodeGroupLoading.value = true
+  try {
+    const groups = await api.get<ScrapeEpisodeGroup[]>(`media/groups/${tmdbId}`)
+    if (requestId === episodeGroupRequestId) episodeGroups.value = groups
+  } catch (error) {
+    console.error('查询手动刮削剧集组失败:', error)
+    if (requestId === episodeGroupRequestId) episodeGroups.value = []
+  } finally {
+    if (requestId === episodeGroupRequestId) episodeGroupLoading.value = false
+  }
+}
+
+// 媒体身份变化时清空旧选择，并按手动整理的节奏延迟查询 TMDB 剧集组。
+watch([mediaId, mediaType, mediaSource], ([id, type, source]) => {
+  episodeGroup.value = null
+  episodeGroups.value = []
+  episodeGroupLoading.value = false
+  episodeGroupRequestId += 1
+  if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
+
+  const normalizedTmdbId = Number(id)
+  if (
+    type !== '电视剧' ||
+    source !== 'themoviedb' ||
+    !Number.isInteger(normalizedTmdbId) ||
+    normalizedTmdbId <= 0
+  ) {
+    return
+  }
+
+  episodeGroupQueryTimer = setTimeout(() => {
+    void getEpisodeGroups(normalizedTmdbId)
+  }, 400)
+})
+
+onBeforeUnmount(() => {
+  if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
+  episodeGroupRequestId += 1
+})
 
 const mediaSearchHint = computed(() => {
   if (props.items.length !== 1) return ''
@@ -115,6 +205,7 @@ function submitScrape() {
     media_id: normalizedMediaId || undefined,
     type_name: mediaType.value || undefined,
   }
+  if (episodeGroup.value) options.episode_group = episodeGroup.value
   if (isMusicSelection.value) options.music_type = musicType.value
   emit('scrape', options)
 }
@@ -194,6 +285,25 @@ watch(mediaType, type => {
               persistent-hint
               prepend-inner-icon="mdi-identifier"
               @click:append-inner="mediaSelectorDialog = true"
+            />
+          </VCol>
+        </VRow>
+        <VRow v-if="canSelectEpisodeGroup">
+          <VCol cols="12" md="6">
+            <VSelect
+              v-model="episodeGroup"
+              :items="episodeGroupOptions"
+              item-title="title"
+              item-value="value"
+              :item-props="episodeGroupItemProps"
+              :loading="episodeGroupLoading"
+              :disabled="!mediaId"
+              clearable
+              :label="t('dialog.reorganize.episodeGroup')"
+              :placeholder="t('dialog.reorganize.episodeGroupPlaceholder')"
+              :hint="t('dialog.reorganize.episodeGroupHint')"
+              persistent-hint
+              prepend-inner-icon="mdi-view-list"
             />
           </VCol>
         </VRow>
