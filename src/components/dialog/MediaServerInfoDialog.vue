@@ -82,6 +82,12 @@ function initializeMediaServerInfo() {
       mediaServerInfo.value.config.verify_ssl = true
     }
   }
+  if (mediaServerInfo.value.type === 'plex') {
+    mediaServerInfo.value.config = mediaServerInfo.value.config || {}
+    if (mediaServerInfo.value.config.timeout === undefined || mediaServerInfo.value.config.timeout === null) {
+      mediaServerInfo.value.config.timeout = 30
+    }
+  }
   if (!props.mediaserver.sync_libraries) {
     mediaServerInfo.value.sync_libraries = ['all']
   }
@@ -731,6 +737,20 @@ onMounted(() => {
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-key"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model.number="mediaServerInfo.config.timeout"
+                type="number"
+                min="1"
+                step="1"
+                :label="t('mediaserver.plexTimeout')"
+                :hint="t('mediaserver.plexTimeoutHint')"
+                persistent-hint
+                active
+                suffix="s"
+                prepend-inner-icon="mdi-timer-outline"
               />
             </VCol>
             <VCol cols="12" md="6">

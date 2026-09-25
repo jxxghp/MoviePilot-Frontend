@@ -5300,6 +5300,8 @@ export default {
     jellyfinApiKeyHint: 'Jellyfin设置->高级->API密钥中生成的密钥',
     plexToken: 'X-Plex-Token',
     plexTokenHint: '浏览器F12->网络，从Plex请求URL中获取的X-Plex-Token',
+    plexTimeout: 'Plex 请求超时（秒）',
+    plexTimeoutHint: '单次 Plex 请求的最长等待时间，默认 30 秒；大型媒体库可适当调高',
     username: '用户名',
     usernameHint: '登录用户名',
     password: '密码',

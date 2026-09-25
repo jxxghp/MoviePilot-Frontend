@@ -5441,6 +5441,8 @@ export default {
     jellyfinApiKeyHint: 'API key generated in Jellyfin Settings -> Advanced -> API Keys',
     plexToken: 'X-Plex-Token',
     plexTokenHint: 'X-Plex-Token obtained from Plex request URL in browser F12 -> Network',
+    plexTimeout: 'Plex Request Timeout (seconds)',
+    plexTimeoutHint: 'Maximum wait for one Plex request; defaults to 30 seconds. Increase it for large libraries.',
     username: 'Username',
     usernameHint: 'Login username',
     password: 'Password',

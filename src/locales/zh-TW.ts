@@ -5228,6 +5228,8 @@ export default {
     usernameRequired: '用戶名不能為空',
     passwordRequired: '密碼不能為空',
     plexTokenHint: '瀏覽器F12->網絡，從Plex請求URL中獲取的X-Plex-Token',
+    plexTimeout: 'Plex 請求逾時（秒）',
+    plexTimeoutHint: '單次 Plex 請求的最長等待時間，預設 30 秒；大型媒體庫可適度調高',
     username: '用戶名',
     usernameHint: '登錄用戶名',
     password: '密碼',
