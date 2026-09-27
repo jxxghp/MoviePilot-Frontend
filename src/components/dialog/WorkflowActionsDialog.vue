@@ -162,6 +162,7 @@ function areWorkflowEdgeEndpointsReady(workflowEdges: Edge[]) {
 // 将缓存的流程边写入 Vue Flow；写入时统一经过现有连接合法性校验。
 function restorePendingWorkflowEdges() {
   if (!pendingWorkflowEdges) return
+  if (pendingWorkflowEdges.length && !areWorkflowEdgeEndpointsReady(pendingWorkflowEdges)) return
 
   const workflowEdges = pendingWorkflowEdges
   pendingWorkflowEdges = null
@@ -171,6 +172,9 @@ function restorePendingWorkflowEdges() {
 onNodesInitialized(() => {
   restorePendingWorkflowEdges()
 })
+
+// 节点尺寸可能先于异步动作组件的端口就绪，端口变化后继续尝试恢复连线。
+watch(nodes, restorePendingWorkflowEdges, { deep: true, flush: 'post' })
 
 // 通过 Vue Flow 的 setter 导入节点，并在节点端口就绪后恢复连线。
 function setWorkflowGraph(actions: NonNullable<Workflow['actions']> = [], flows: NonNullable<Workflow['flows']> = []) {
@@ -416,6 +420,10 @@ function handleComponentClick(action: any) {
 
 // 调用API 编辑任务
 async function updateWorkflow() {
+  if (pendingWorkflowEdges?.length) {
+    $toast.info(t('common.pleaseWait'))
+    return
+  }
   // 更新节点和流程
   normalizeWorkflowNodes()
   normalizeWorkflowEdges()

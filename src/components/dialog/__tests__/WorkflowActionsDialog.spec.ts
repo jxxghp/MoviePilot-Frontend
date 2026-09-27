@@ -377,6 +377,33 @@ describe('WorkflowActionsDialog data contract', () => {
     )
   })
 
+  it('keeps persisted edges pending when initialization fires before action handles exist', async () => {
+    const { container } = await renderDialog(createWorkflow(), vi.fn(), false)
+
+    mocks.nodesInitializedHandlers.forEach(handler => handler())
+    expect(mocks.setEdges).not.toHaveBeenCalled()
+
+    await clickToolbarButton(container, 3)
+    expect(mocks.apiPut).not.toHaveBeenCalled()
+
+    mocks.flowNodes!.value = mocks.flowNodes!.value.map(node => ({
+      ...node,
+      dimensions: { width: 240, height: 120 },
+      handleBounds: mocks.nodeHandleBounds[String(node.id)],
+    }))
+
+    await waitFor(() =>
+      expect(mocks.setEdges).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 'flow-1', source: 'source', target: 'target' }),
+      ]),
+    )
+    await clickToolbarButton(container, 3)
+    await waitFor(() => expect(mocks.apiPut).toHaveBeenCalledTimes(1))
+    expect(mocks.apiPut.mock.calls[0][1].flows).toEqual([
+      expect.objectContaining({ id: 'flow-1', source: 'source', target: 'target' }),
+    ])
+  })
+
   it('accepts only known output-to-input connections and rejects invalid endpoints', async () => {
     const { container } = await renderDialog()
     await waitFor(() => expect(mocks.isValidConnection).toBeTypeOf('function'))
@@ -767,6 +794,7 @@ describe('WorkflowActionsDialog data contract', () => {
         createNode('source', 'SourceAction', {
           data: { settings: { enabled: true, tags: ['original'] } },
         }),
+        createNode('target', 'TargetAction'),
       ],
       flows: [{ id: 'flow-1', source: 'source', target: 'target', data: { branch_policy: 'parallel' } }],
       execution_config: { max_workers: 2, nested: { enabled: true } },
@@ -796,6 +824,7 @@ describe('WorkflowActionsDialog data contract', () => {
         createNode('source', 'SourceAction', {
           data: { settings: { enabled: true, tags: ['original'] } },
         }),
+        createNode('target', 'TargetAction'),
       ],
       flows: [{ id: 'flow-1', source: 'source', target: 'target', data: { branch_policy: 'parallel' } }],
       execution_config: { max_workers: 2, nested: { enabled: true } },
