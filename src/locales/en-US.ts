@@ -415,8 +415,7 @@ export default {
     title: 'GitHub Token',
     initializationTitle: 'Set GitHub Token (Optional)',
     initializationSection: 'GitHub API access',
-    description:
-      'Used by Agent Issue/PR skills. Device Flow requests public/private repository read/write and workflow update access; the Token stays on the server.',
+    description: 'Increase the GitHub API rate limit so plugins, resources, and updates work more reliably.',
     notConfigured:
       'No GitHub Token is configured. Authorize GitHub or enter a PAT so Agent skills can submit Issues and PRs.',
     connected: 'GitHub connected',
@@ -453,8 +452,7 @@ export default {
     authPreparing: 'Preparing GitHub authorization…',
     authorized: 'GitHub authorization complete',
     promptTitle: 'Set up a GitHub Token',
-    promptDescription:
-      'Agent skills can use the server-side Token for Issues and PRs, and GitHub API requests get a higher rate limit.',
+    promptDescription: 'Increase the GitHub API rate limit for more reliable plugin and resource access.',
     promptAction: 'Open settings',
     dismissPrompt: 'Dismiss permanently',
   },
@@ -2783,7 +2781,7 @@ export default {
       githubToken: 'Github Token',
       githubTokenFormat: 'ghp_**** or github_pat_****',
       githubTokenHint:
-        'Used for GitHub API access and Agent Issue/PR submissions; the Token must have permission for the target repository.',
+        'Used to increase the rate limit threshold when plugins access Github API，it is recommended to configure, otherwise plugins may not work properly',
       ocrHost: 'OCR Server',
       ocrHostHint: 'Used for site check-in, updating site cookies and other captcha recognition',
       aiAgent: 'Enable AI Assistant',
