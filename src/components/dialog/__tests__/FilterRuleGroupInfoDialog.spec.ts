@@ -13,6 +13,30 @@ vi.mock('@/composables/useSharedDialog', () => ({
 }))
 
 describe('FilterRuleGroupInfoDialog', () => {
+  it('saves loaded rules with consistent separators and custom IDs', async () => {
+    const user = userEvent.setup()
+    const { emitted } = await renderWithProviders(FilterRuleGroupInfoDialog, {
+      props: {
+        modelValue: true,
+        group: {
+          name: '前置过滤',
+          rule_string: '!720P & !BLU &RULE1> 4K & HDR',
+          media_type: '',
+          category: '',
+        },
+        groups: [],
+        categories: {},
+        custom_rules: [{ id: 'RULE1', name: '自定义规则' }],
+      },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    expect(emitted().change?.[0]?.[0]).toMatchObject({
+      rule_string: '!720P & !BLU & RULE1 > 4K & HDR',
+    })
+  })
+
   it('offers music as a rule group media type', async () => {
     const user = userEvent.setup()
     await renderWithProviders(FilterRuleGroupInfoDialog, {
