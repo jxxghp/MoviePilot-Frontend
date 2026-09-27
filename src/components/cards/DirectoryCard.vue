@@ -314,6 +314,10 @@ function onMediaCategoryChanged(value: string | null): void {
   // eslint-disable-next-line vue/no-mutating-props
   props.directory.media_category_id = nextCategoryId
   props.directory.media_category = ''
+  if (nextCategoryId) {
+    props.directory.download_category_folder = false
+    props.directory.library_category_folder = false
+  }
 }
 
 // 旧路径只按同媒体类型的完整规范路径唯一精确匹配，不进行名称、末级或模糊推断。
@@ -352,17 +356,13 @@ watch(
   { immediate: true },
 )
 
-// 媒体类别和类型变更非空时，将按类型分类和按类别分类置为false
+// 媒体类型变更时清除旧类型目录开关；旧分类路径自动关联 ID 不应改动目录布局。
 watch(
-  [() => props.directory.media_type, () => props.directory.media_category_id],
-  ([newMediaType, newMediaCategoryId], [oldMediaType, oldMediaCategoryId]) => {
+  () => props.directory.media_type,
+  (newMediaType, oldMediaType) => {
     if (newMediaType && newMediaType !== oldMediaType) {
       props.directory.download_type_folder = false
       props.directory.library_type_folder = false
-    }
-    if (newMediaCategoryId && newMediaCategoryId !== oldMediaCategoryId) {
-      props.directory.download_category_folder = false
-      props.directory.library_category_folder = false
     }
   },
 )
@@ -475,7 +475,7 @@ watch(
               mobile-control-width="65%"
             ></VSwitch>
           </VCol>
-          <VCol cols="6" v-if="!props.directory.media_category || props.directory.media_category === ''">
+          <VCol cols="6" v-if="!props.directory.media_category_id && !props.directory.media_category">
             <VSwitch
               v-model="props.directory.download_category_folder"
               :label="t('directory.sortByCategory')"
@@ -549,7 +549,7 @@ watch(
               mobile-control-width="65%"
             ></VSwitch>
           </VCol>
-          <VCol cols="6" v-if="!props.directory.media_category || props.directory.media_category === ''">
+          <VCol cols="6">
             <VSwitch
               v-model="props.directory.library_category_folder"
               :label="t('directory.sortByCategory')"

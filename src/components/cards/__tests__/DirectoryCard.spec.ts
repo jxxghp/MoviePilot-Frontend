@@ -91,6 +91,45 @@ describe('DirectoryCard classification reference', () => {
     )
   })
 
+  it('preserves a legacy fixed-category library layout when binding its stable id', async () => {
+    const directory = await renderExpandedDirectory({
+      media_type: '电视剧',
+      media_category: '电视剧/动画',
+      monitor_type: 'monitor',
+      library_category_folder: true,
+    })
+
+    await waitFor(() => expect(directory.media_category_id).toBe('tv.animation'))
+    const libraryCategorySwitch = screen.getByRole('checkbox', { name: '按类别分类' })
+    expect(directory.library_category_folder).toBe(true)
+    expect(libraryCategorySwitch).toBeChecked()
+
+    await userEvent.setup().click(libraryCategorySwitch)
+    expect(directory.library_category_folder).toBe(false)
+
+    await userEvent.setup().click(libraryCategorySwitch)
+    expect(directory.library_category_folder).toBe(true)
+  })
+
+  it('resets category folder choices when the user selects a new fixed category', async () => {
+    const user = userEvent.setup()
+    const directory = await renderExpandedDirectory({
+      monitor_type: 'monitor',
+      download_category_folder: true,
+      library_category_folder: true,
+    })
+
+    await user.click(within(screen.getByTestId('directory-category-select')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: '动画 · 路径：电影/动画' }))
+
+    await waitFor(() => {
+      expect(directory.media_category_id).toBe('movie.animation')
+      expect(directory.download_category_folder).toBe(false)
+      expect(directory.library_category_folder).toBe(false)
+    })
+    expect(screen.getAllByRole('checkbox', { name: '按类别分类' }).at(-1)).not.toBeChecked()
+  })
+
   it('keeps ambiguous or non-exact legacy paths readable and exposes diagnostics', async () => {
     const duplicatePathCategories = [
       ...categories,
