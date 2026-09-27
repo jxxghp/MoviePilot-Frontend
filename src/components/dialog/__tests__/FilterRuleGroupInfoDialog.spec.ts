@@ -32,9 +32,9 @@ describe('FilterRuleGroupInfoDialog', () => {
     })
 
     await user.click(screen.getByRole('button', { name: '保存' }))
-    expect(emitted().change?.[0]?.[0]).toMatchObject({
-      rule_string: '!720P & !BLU & RULE1 > 4K & HDR',
-    })
+    expect(emitted().change).toEqual([
+      [expect.objectContaining({ rule_string: '!720P & !BLU & RULE1 > 4K & HDR' }), '前置过滤'],
+    ])
   })
 
   it('offers music as a rule group media type', async () => {
