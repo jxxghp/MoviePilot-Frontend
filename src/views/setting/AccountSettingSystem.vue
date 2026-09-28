@@ -255,6 +255,7 @@ const isRequest = ref(true)
 
 // 选中的媒体服务器
 const mediaServers = ref<MediaServerConf[]>([])
+const savingMediaServerSetting = ref(false)
 
 // 旧版全局媒体服务器同步间隔，仅用于未单独设置时的默认值提示
 const legacyMediaServerSyncInterval = ref<number | null>(null)
@@ -850,8 +851,11 @@ async function loadMediaServerSetting() {
   }
 }
 
-// 调用API保存媒体服务器设置
+/** 保存媒体服务器设置，并阻止请求处理中重复提交。 */
 async function saveMediaServerSetting() {
+  if (savingMediaServerSetting.value) return
+
+  savingMediaServerSetting.value = true
   try {
     await api.post('system/setting/MediaServers', mediaServers.value, { feedback: 'silent' })
     $toast.success(t('setting.system.mediaServerSaveSuccess'))
@@ -861,6 +865,8 @@ async function saveMediaServerSetting() {
   } catch (error) {
     console.log(error)
     $toast.error(t('setting.system.mediaServerSaveFailed'))
+  } finally {
+    savingMediaServerSetting.value = false
   }
 }
 
@@ -2155,7 +2161,13 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn type="submit" @click="saveMediaServerSetting" prepend-icon="mdi-content-save">
+              <VBtn
+                type="submit"
+                @click="saveMediaServerSetting"
+                :loading="savingMediaServerSetting"
+                :disabled="savingMediaServerSetting"
+                prepend-icon="mdi-content-save"
+              >
                 {{ t('common.save') }}
               </VBtn>
               <VBtn color="success" variant="tonal">

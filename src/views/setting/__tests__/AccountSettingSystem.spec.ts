@@ -1085,6 +1085,26 @@ describe('AccountSettingSystem', () => {
     expect(screen.queryByText('服务器3-edited / plex / 12')).not.toBeInTheDocument()
   })
 
+  it('prevents duplicate media server saves while the request is pending', async () => {
+    const pendingPost = createDeferred<{ success: boolean }>()
+    mocks.apiPost.mockReturnValue(pendingPost.promise)
+    await renderSettings()
+
+    const saveButton = getSettingsCard('媒体服务器').getByRole('button', { name: '保存' })
+    await fireEvent.click(saveButton)
+
+    await waitFor(() => expect(findPost('system/setting/MediaServers')).toBeDefined())
+    expect(saveButton).toBeDisabled()
+    expect(saveButton).toHaveAttribute('aria-busy', 'true')
+
+    await fireEvent.click(saveButton)
+    expect(mocks.apiPost.mock.calls.filter(call => call[0] === 'system/setting/MediaServers')).toHaveLength(1)
+
+    pendingPost.resolve({ success: true })
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('媒体服务器设置保存成功'))
+    await waitFor(() => expect(saveButton).toBeEnabled())
+  })
+
   it('round-trips representative advanced tabs and normalizes scraping and empty log values', async () => {
     systemEnv = {
       ...systemEnv,
