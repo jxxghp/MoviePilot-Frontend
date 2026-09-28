@@ -891,6 +891,8 @@ export default {
       chatId: 'Chat ID',
       chatIdHint: 'Chat ID of user, group or channel that receives notifications',
       chatIdRequired: 'Chat ID cannot be empty',
+      topicId: 'Topic ID',
+      topicIdHint: 'Optional topic for notifications in this group; leave empty for the default topic',
       users: 'User Whitelist',
       usersHint: 'User IDs that can use Telegram bot, separated by commas. Leave empty to allow all users',
       admins: 'Admin Whitelist',

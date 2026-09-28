@@ -868,6 +868,8 @@ export default {
       chatId: 'Chat ID',
       chatIdHint: '接受消息通知的用戶、群組或頻道Chat ID',
       chatIdRequired: 'Chat ID不能為空',
+      topicId: '話題 ID',
+      topicIdHint: '可選，向該群組的指定話題傳送通知；留空傳送到預設話題',
       users: '用戶白名單',
       usersHint: '可使用Telegram機器人的用戶ID清單，多個用戶用,分隔，不填寫則所有用戶都能使用',
       admins: '管理員白名單',

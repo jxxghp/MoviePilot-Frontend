@@ -879,6 +879,15 @@ onMounted(() => {
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
+                v-model="notificationInfo.config.TELEGRAM_TOPIC_ID"
+                :label="t('notification.telegram.topicId')"
+                :hint="t('notification.telegram.topicIdHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-forum"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
                 v-model="notificationInfo.config.TELEGRAM_USERS"
                 :label="t('notification.telegram.users')"
                 :placeholder="t('notification.telegram.usersPlaceholder')"

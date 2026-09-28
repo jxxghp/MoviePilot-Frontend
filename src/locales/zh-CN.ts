@@ -870,6 +870,8 @@ export default {
       chatId: 'Chat ID',
       chatIdHint: '接受消息通知的用户、群组或频道Chat ID',
       chatIdRequired: 'Chat ID不能为空',
+      topicId: '话题 ID',
+      topicIdHint: '可选，向该群组的指定话题发送通知；留空发送到默认话题',
       users: '用户白名单',
       usersHint: '可使用Telegram机器人的用户ID清单，多个用户用,分隔，不填写则所有用户都能使用',
       admins: '管理员白名单',
