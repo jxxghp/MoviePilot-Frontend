@@ -4332,6 +4332,8 @@ export default {
       currentFileProgress: 'Current File Progress',
       processingStatus: 'Processing',
       manualReviewTitle: 'Manual Review Required',
+      manualReviewExpand: 'Expand manual reviews',
+      manualReviewCollapse: 'Collapse manual reviews',
       manualReviewCount: '{count} pending',
       manualReviewHint: 'The transfer result is uncertain. Confirm whether the file was uploaded before continuing.',
       manualReviewSource: 'Source File',
@@ -4340,9 +4342,9 @@ export default {
       manualReviewOperation: 'Transfer Step',
       manualReviewDetails: 'View Details',
       manualReviewEvidence: 'Execution Evidence',
-      manualReviewReasonLabel: 'Review Notes',
-      manualReviewReasonPlaceholder: 'Explain why you confirmed that the file was not uploaded or completed.',
-      manualReviewReasonRequired: 'Please enter review notes',
+      manualReviewReasonLabel: 'Review Notes (optional)',
+      manualReviewReasonPlaceholder:
+        'Optionally explain how you confirmed that the file was not uploaded or completed.',
       manualReviewNotApplied: 'Not completed, retry transfer',
       manualReviewApplied: 'Completed, continue next step',
       manualReviewAppliedUnavailable:

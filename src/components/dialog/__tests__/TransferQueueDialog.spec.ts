@@ -47,6 +47,7 @@ vi.mock('vue-toastification', () => ({
   useToast: () => ({ error: mocks.toastError }),
 }))
 
+/** 构造整理任务所需的最小识别信息。 */
 function createMetaInfo(): MetaInfo {
   return {
     apply_words: [],
@@ -74,6 +75,7 @@ function createMetaInfo(): MetaInfo {
   }
 }
 
+/** 构造带有独立媒体标识和文件状态的队列分组。 */
 function createQueueItem({
   id,
   path,
@@ -116,10 +118,12 @@ function createQueueItem({
   }
 }
 
+/** 构造单个媒体的整理队列。 */
 function createQueue(title: string, path: string, state = 'running'): TransferQueue[] {
   return [createQueueItem({ id: path.length, path, state, title })]
 }
 
+/** 构造需要人工判定的整理任务及执行证据。 */
 function createManualReview(path = '/downloads/needs-review.mkv'): TransferManualReviewTask {
   return {
     task_id: 'manual-review-task-1',
@@ -147,6 +151,7 @@ function createManualReview(path = '/downloads/needs-review.mkv'): TransferManua
   }
 }
 
+/** 控制异步请求完成顺序，验证轮询竞态。 */
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>(done => {
@@ -155,6 +160,7 @@ function createDeferred<T>() {
   return { promise, resolve }
 }
 
+/** 使用真实 UI 插件渲染弹窗，并隔离传送和关闭按钮。 */
 async function renderDialog() {
   return renderWithProviders(TransferQueueDialog, {
     global: {
@@ -225,6 +231,7 @@ describe('TransferQueueDialog', () => {
     await renderDialog()
 
     expect(await screen.findByText('待人工复核')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '展开待人工复核' }))
     expect(screen.getByText('needs-review.mkv')).toBeInTheDocument()
     expect(screen.getByText('/downloads/needs-review.mkv')).toBeInTheDocument()
     expect(screen.getByText('上传 smb 失败')).toBeInTheDocument()
@@ -246,6 +253,51 @@ describe('TransferQueueDialog', () => {
     )
   })
 
+  it('keeps review details collapsed through polling and allows keyboard toggling without changing tasks', async () => {
+    vi.useFakeTimers()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    mocks.apiGet.mockResolvedValue(createQueue('正在整理', '/downloads/active.mkv'))
+    const review = createManualReview()
+    let reviews = [review]
+    mocks.apiManualReviewGet.mockImplementation((_url: string, config: { params: { state: string } }) =>
+      Promise.resolve({
+        items: config.params.state === 'manual_review' ? reviews : [],
+        total: config.params.state === 'manual_review' ? reviews.length : 0,
+        page: 1,
+        page_size: 100,
+      }),
+    )
+
+    await renderDialog()
+    await flushPromises()
+
+    const toggle = screen.getByRole('button', { name: '展开待人工复核' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText('needs-review.mkv')).not.toBeVisible()
+    expect(screen.getByText('整体进度')).toBeVisible()
+    expect(screen.getByText('正在整理.mkv')).toBeVisible()
+
+    toggle.focus()
+    await user.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: '查看详情' })).toBeVisible()
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(screen.getByRole('button', { name: '收起待人工复核' }))
+    reviews = [review, { ...createManualReview('/downloads/new-review.mkv'), task_id: 'new-review' }]
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText('2 条待处理')).toBeVisible()
+    expect(screen.getByText('new-review.mkv')).not.toBeVisible()
+    expect(screen.getByText('正在整理.mkv')).toBeVisible()
+    expect(mocks.apiDelete).not.toHaveBeenCalled()
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+
+    await user.click(toggle)
+    expect(screen.getByText('new-review.mkv')).toBeVisible()
+  })
+
   it('keeps retry-wait tasks visible until the durable retry reaches a terminal result', async () => {
     const review = { ...createManualReview('/downloads/retrying.mkv'), state: 'retry_wait' as const }
     mocks.apiGet.mockResolvedValue([])
@@ -261,7 +313,8 @@ describe('TransferQueueDialog', () => {
 
     await renderDialog()
 
-    expect(await screen.findByText('后台重试中')).toBeInTheDocument()
+    await userEvent.setup().click(await screen.findByRole('button', { name: '展开待人工复核' }))
+    expect(screen.getByText('后台重试中')).toBeVisible()
     expect(screen.getByText('已确认未完成，任务已交还后台重试；可在整理历史查看最终结果。')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument()
     expect(mocks.apiManualReviewGet).toHaveBeenCalledWith('transfer/tasks/manual-reviews', {
@@ -285,7 +338,8 @@ describe('TransferQueueDialog', () => {
 
     await renderDialog()
 
-    expect(await screen.findByText('后台重试中')).toBeInTheDocument()
+    await userEvent.setup().click(await screen.findByRole('button', { name: '展开待人工复核' }))
+    expect(screen.getByText('后台重试中')).toBeVisible()
     expect(screen.getByRole('alert')).toHaveTextContent('待人工复核任务加载失败')
     expect(screen.getByRole('button', { name: '重新加载' })).toBeInTheDocument()
   })

@@ -82,14 +82,18 @@ describe('TransferManualReviewDialog', () => {
     expect(transferManualReviewSource).not.toMatch(/\.manual-review-dialog__evidence\s*\{[^}]*border:/s)
   })
 
-  it('requires review notes before submitting a decision', async () => {
+  it('allows retry without review notes and still requires evidence for applied', async () => {
     const user = userEvent.setup()
 
     await renderDialog()
     await user.click(screen.getByRole('button', { name: '确认未完成，重新整理' }))
 
-    expect(mocks.apiPost).not.toHaveBeenCalled()
-    expect(mocks.toastError).toHaveBeenCalledWith('请填写复核说明')
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'transfer/tasks/manual-review-task-1/manual-review',
+      { operation_id: 'manual-review-operation-1', decision: 'not_applied', reason: '' },
+      { feedback: 'silent' },
+    )
+    expect(mocks.toastError).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '确认已完成，继续后续步骤' })).toBeDisabled()
   })
 
@@ -97,7 +101,7 @@ describe('TransferManualReviewDialog', () => {
     const user = userEvent.setup()
     const { emitted } = await renderDialog()
 
-    await user.type(screen.getByLabelText('复核说明'), '确认目标目录中没有完整文件')
+    await user.type(screen.getByLabelText('复核说明（选填）'), '确认目标目录中没有完整文件')
     await user.click(screen.getByRole('button', { name: '确认未完成，重新整理' }))
     await flushPromises()
 
@@ -126,7 +130,7 @@ describe('TransferManualReviewDialog', () => {
     const appliedButton = screen.getByRole('button', { name: '确认已完成，继续后续步骤' })
     expect(appliedButton).toBeEnabled()
 
-    await user.type(screen.getByLabelText('复核说明'), '确认目标文件已完整上传')
+    await user.type(screen.getByLabelText('复核说明（选填）'), '   ')
     await user.click(appliedButton)
     await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledOnce())
 
@@ -135,7 +139,7 @@ describe('TransferManualReviewDialog', () => {
       {
         operation_id: 'manual-review-operation-1',
         decision: 'applied',
-        reason: '确认目标文件已完整上传',
+        reason: '',
         result_payload: evidence,
       },
       { feedback: 'silent' },
@@ -145,10 +149,10 @@ describe('TransferManualReviewDialog', () => {
     const user = userEvent.setup()
     mocks.apiPost.mockRejectedValueOnce(new Error('任务状态已变化，请刷新队列'))
     const { emitted } = await renderDialog()
-    await user.type(screen.getByLabelText('复核说明'), '目标不存在')
+    await user.type(screen.getByLabelText('复核说明（选填）'), '目标不存在')
     await user.click(screen.getByRole('button', { name: '确认未完成，重新整理' }))
     expect(await screen.findByText('任务状态已变化，请刷新队列')).toBeInTheDocument()
-    expect(screen.getByLabelText('复核说明')).toHaveValue('目标不存在')
+    expect(screen.getByLabelText('复核说明（选填）')).toHaveValue('目标不存在')
     expect(emitted('resolved')).toBeUndefined()
   })
 })

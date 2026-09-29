@@ -51,13 +51,10 @@ const evidenceSummary = computed(() => {
 
 const isSubmitting = computed(() => submittingDecision.value !== null)
 
-// 向服务端提交人工判定，并让队列弹窗在成功后重新拉取 durable 状态。
+// 复核说明选填；提交人工判定后，让队列弹窗重新拉取 durable 状态。
 async function resolveManualReview(decision: TransferManualReviewDecision) {
   const trimmedReason = reason.value.trim()
-  if (!trimmedReason || submittingDecision.value) {
-    if (!trimmedReason) toast.error(t('dialog.transferQueue.manualReviewReasonRequired'))
-    return
-  }
+  if (submittingDecision.value) return
   if (decision === 'applied' && !canMarkApplied.value) {
     toast.error(t('dialog.transferQueue.manualReviewAppliedUnavailable'))
     return

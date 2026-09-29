@@ -56,6 +56,8 @@ const queueLoadFailed = ref(false)
 const manualReviews = ref<TransferManualReviewTask[]>([])
 const manualReviewTotal = ref(0)
 const manualReviewLoadFailed = ref(false)
+// 默认收起复核明细，为活动整理进度保留空间；轮询只更新数据，不重置用户的展开选择。
+const manualReviewExpanded = ref(false)
 
 // 文件进度映射
 const fileProgressMap = ref<Map<string, { enable: boolean; value: number }>>(new Map())
@@ -517,17 +519,34 @@ onUnmounted(() => {
                 <h2 id="transfer-manual-review-title" class="manual-review-section__title">
                   {{ t('dialog.transferQueue.manualReviewTitle') }}
                 </h2>
-                <p class="manual-review-section__hint">
+                <p v-if="manualReviewExpanded" class="manual-review-section__hint">
                   {{ t('dialog.transferQueue.manualReviewHint') }}
                 </p>
               </div>
             </div>
-            <VChip color="warning" size="small" variant="tonal">
-              {{ t('dialog.transferQueue.manualReviewCount', { count: manualReviewTotal }) }}
-            </VChip>
+            <div class="manual-review-section__actions">
+              <VChip color="warning" size="small" variant="tonal">
+                {{ t('dialog.transferQueue.manualReviewCount', { count: manualReviewTotal }) }}
+              </VChip>
+              <VBtn
+                :icon="manualReviewExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                :aria-label="
+                  t(
+                    manualReviewExpanded
+                      ? 'dialog.transferQueue.manualReviewCollapse'
+                      : 'dialog.transferQueue.manualReviewExpand',
+                  )
+                "
+                :aria-expanded="manualReviewExpanded"
+                aria-controls="transfer-manual-review-list"
+                variant="text"
+                size="small"
+                @click="manualReviewExpanded = !manualReviewExpanded"
+              />
+            </div>
           </header>
 
-          <div class="manual-review-list">
+          <div v-show="manualReviewExpanded" id="transfer-manual-review-list" class="manual-review-list">
             <article v-for="review in manualReviews" :key="review.task_id" class="manual-review-item">
               <VIcon class="manual-review-item__icon" icon="mdi-alert-circle-outline" color="warning" size="22" />
               <div class="manual-review-item__content">
@@ -730,9 +749,16 @@ onUnmounted(() => {
 
 .manual-review-section__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.manual-review-section__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .manual-review-section__heading {
@@ -1287,8 +1313,7 @@ onUnmounted(() => {
 
 @media (width <= 600px) {
   .manual-review-section__header {
-    align-items: flex-start;
-    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .manual-review-item {
