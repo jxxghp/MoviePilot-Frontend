@@ -93,7 +93,7 @@
       "count": 1
     },
     "vue/no-mutating-props": {
-      "count": 27
+      "count": 26
     }
   },
   "src/components/cards/FilterRuleCard.vue": {

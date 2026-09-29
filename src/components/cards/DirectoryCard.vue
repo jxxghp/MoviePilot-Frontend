@@ -5,7 +5,6 @@ import { manageStorage } from '@/api/manage'
 import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useStorageOptions } from '@/composables/useStorageOptions'
 
 const DEFAULT_DIRECTORY_ACCENT_RGB = '141, 81, 249'
 const STORAGE_ACCENT_COLOR_MAP = {
@@ -20,8 +19,6 @@ const STORAGE_ACCENT_COLOR_MAP = {
 
 // 国际化
 const { t } = useI18n()
-const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
-void loadStorageCatalog()
 const downloadAccentRgb = ref(DEFAULT_DIRECTORY_ACCENT_RGB)
 const libraryAccentRgb = ref(DEFAULT_DIRECTORY_ACCENT_RGB)
 
@@ -55,22 +52,8 @@ const typeItems = computed(() => [
   { title: t('mediaType.music'), value: '音乐' },
 ])
 
-// 计算资源存储字典（整理方式为下载器时不能为远程存储）
-const resourceStorageOptions = computed(() => {
-  return props.storages
-    .filter(
-      item =>
-        !storageCatalog.value.find(option => option.type === item.type)?.remote ||
-        props.directory.monitor_type !== 'downloader',
-    )
-    .map(item => ({
-      title: item.name,
-      value: item.type,
-    }))
-})
-
-// 存储字典
-const libraryStorageOptions = computed(() => {
+// 监控方式不决定存储位置，两端路径均可从已配置存储中选择。
+const storageOptions = computed(() => {
   return props.storages.map(item => ({
     title: item.name,
     value: item.type,
@@ -140,7 +123,7 @@ const MonitorModeItems = computed(() => [
 // 整理方式下拉字典
 const transferTypeItems = ref<{ title: string; value: string }[]>([])
 
-// 调用API查询支持的整理方式
+/** 查询目录两端共同支持的整理方式，并同步当前选择。 */
 async function loadTransferTypeItems() {
   // 参数不全时不查询
   if (!props.directory.library_storage || !props.directory.storage) return
@@ -219,7 +202,7 @@ const overwriteModeItems = computed(() => [
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'changed', 'update:modelValue'])
 
-// 按钮点击
+/** 通知父页面移除当前目录卡片。 */
 function onClose() {
   emit('close')
 }
@@ -366,16 +349,6 @@ watch(
     }
   },
 )
-
-// 监听monitor_type变化，如果为downloader则设置为本地
-watch(
-  () => props.directory.monitor_type,
-  newMonitorType => {
-    if (newMonitorType === 'downloader') {
-      props.directory.storage = 'local'
-    }
-  },
-)
 </script>
 
 <template>
@@ -454,7 +427,7 @@ watch(
             <VAutocomplete
               v-model="props.directory.storage"
               variant="underlined"
-              :items="resourceStorageOptions"
+              :items="storageOptions"
               :label="t('directory.resourceStorage')"
               mobile-control-width="65%"
             />
@@ -509,7 +482,7 @@ watch(
             <VAutocomplete
               v-model="props.directory.library_storage"
               variant="underlined"
-              :items="libraryStorageOptions"
+              :items="storageOptions"
               :label="t('directory.libraryStorage')"
               mobile-control-width="65%"
             />

@@ -181,6 +181,7 @@ const classificationPolicyFixture = {
   field_aliases: {},
 }
 
+/** 模拟目录、存储和整理选项的加载及保存后的规范化回读。 */
 function mockLoadedSettings(
   options: {
     mountedDisk?: boolean | null
@@ -254,18 +255,21 @@ function mockLoadedSettings(
   return () => directoryReadCount
 }
 
+/** 使用轻量子组件渲染目录设定页，保留页面保存契约。 */
 async function renderDirectorySettings() {
   return renderWithProviders(AccountSettingDirectory, {
     global: { stubs: { VAceEditor: AceEditorStub, VDialog: DialogStub } },
   })
 }
 
+/** 按标题定位设定分区，避免误操作相邻分区的保存按钮。 */
 function getCard(title: string) {
   const card = screen.getByText(title).closest('.v-card')
   expect(card).not.toBeNull()
   return within(card as HTMLElement)
 }
 
+/** 获取电影、音乐和电视剧的重命名模板编辑器。 */
 function getRenameEditors() {
   return screen.getAllByRole('textbox').filter(element => element.tagName === 'TEXTAREA')
 }
@@ -360,6 +364,33 @@ describe('AccountSettingDirectory', () => {
 
     expect(mocks.apiPost).not.toHaveBeenCalledWith('system/setting/Directories', expect.anything())
     expect(mocks.toastError).toHaveBeenCalledWith('存在重复目录名称！无法保存，请修改！')
+  })
+
+  it('preserves remote downloader directory storage and paths through save and reload', async () => {
+    const user = userEvent.setup()
+    const directory: TransferDirectoryConf = {
+      ...directoriesFixture[0],
+      storage: 'custom1',
+      monitor_type: 'downloader',
+      download_path: '/remote/downloads/',
+      library_storage: 'local',
+    }
+    const directoryReads = mockLoadedSettings({ directories: [directory], reloadedDirectories: [directory] })
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(getCard('目录').getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(directoryReads()).toBe(2))
+    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/Directories', [
+      expect.objectContaining({
+        storage: 'custom1',
+        monitor_type: 'downloader',
+        download_path: '/remote/downloads/',
+        library_storage: 'local',
+      }),
+    ])
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('目录设置保存成功')
   })
 
   it('blocks invalid stable category ids before saving', async () => {

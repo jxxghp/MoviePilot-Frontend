@@ -1,14 +1,30 @@
 import type { ClassificationCategory } from '@/api/mediaClassification'
-import type { TransferDirectoryConf } from '@/api/types'
+import type { FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
+import { manageStorage } from '@/api/manage'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
+import PathField from '@/components/field/PathField.vue'
 import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
+import { apiJson } from '@tests/support/msw/response'
+import { server } from '@tests/support/msw/server'
+import { http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/api/manage', () => ({
   manageStorage: vi.fn(),
 }))
+
+vi.mock('@/api/storage', () => ({
+  listStorageCatalogOptions: async () => [
+    { type: 'local', remote: false },
+    { type: 'smb', remote: true },
+    { type: 'alist', remote: true },
+    { type: 'custom1', remote: true },
+  ],
+}))
+
+const API_BASE_URL = 'http://localhost/api/v1/'
 
 const categories: ClassificationCategory[] = [
   { id: 'movie.base', media_type: '电影', name: '电影', path: ['电影'], enabled: true, labels: [] },
@@ -16,6 +32,13 @@ const categories: ClassificationCategory[] = [
   { id: 'movie.disabled', media_type: '电影', name: '停用', path: ['电影', '停用'], enabled: false, labels: [] },
   { id: 'tv.animation', media_type: '电视剧', name: '动画', path: ['电视剧', '动画'], enabled: true, labels: [] },
   { id: 'music.live', media_type: '音乐', name: '现场', path: ['音乐', '现场'], enabled: true, labels: [] },
+]
+
+const storages: StorageConf[] = [
+  { name: '本地', type: 'local', config: {} },
+  { name: 'SMB', type: 'smb', config: {} },
+  { name: 'Alist', type: 'alist', config: {} },
+  { name: '自定义远端', type: 'custom1', config: {} },
 ]
 
 /** 创建可观察组件原地更新结果的目录配置。 */
@@ -37,18 +60,91 @@ function createDirectory(overrides: Partial<TransferDirectoryConf> = {}): Transf
 async function renderExpandedDirectory(
   overrides: Partial<TransferDirectoryConf> = {},
   availableCategories: ClassificationCategory[] = categories,
+  availableStorages: StorageConf[] = [storages[0]],
 ) {
   const directory = createDirectory(overrides)
   await renderWithProviders(DirectoryCard, {
     props: {
       directory,
       categories: availableCategories,
-      storages: [{ name: '本地', type: 'local', config: {} }],
+      storages: availableStorages,
     },
+    global: { components: { VPathField: PathField } },
   })
   await userEvent.setup().click(screen.getByTestId('directory-card-toggle'))
   return directory
 }
+
+describe('DirectoryCard download storage', () => {
+  it.each(['downloader', 'monitor', 'manual', ''])('lists every configured storage in %s mode', async monitorType => {
+    const user = userEvent.setup()
+    await renderExpandedDirectory({ monitor_type: monitorType }, categories, storages)
+
+    await user.click(screen.getByRole('textbox', { name: '资源存储' }))
+
+    for (const storage of storages) {
+      expect(await screen.findByRole('option', { name: storage.name })).toBeInTheDocument()
+    }
+    await user.click(screen.getByRole('option', { name: 'SMB' }))
+    expect(screen.getByRole('textbox', { name: '资源存储' })).toHaveValue('SMB')
+  })
+
+  it('preserves the remote storage and path when switching to downloader monitoring', async () => {
+    const user = userEvent.setup()
+    const directory = await renderExpandedDirectory(
+      { storage: 'custom1', download_path: '/remote/downloads/', monitor_type: 'monitor' },
+      categories,
+      storages,
+    )
+
+    await user.click(screen.getByLabelText('自动整理'))
+    await user.click(await screen.findByRole('option', { name: '下载器监控' }))
+
+    await waitFor(() => expect(directory.monitor_type).toBe('downloader'))
+    expect(directory.storage).toBe('custom1')
+    expect(directory.download_path).toBe('/remote/downloads/')
+    expect(screen.getByRole('textbox', { name: '资源存储' }).closest('.v-autocomplete')).toHaveTextContent('自定义远端')
+    expect(screen.getByRole('textbox', { name: '资源目录' })).toHaveValue('/remote/downloads/')
+  })
+
+  it('browses and selects paths using the newly selected remote storage', async () => {
+    const user = userEvent.setup()
+    const requests: FileItem[] = []
+    server.use(
+      http.post(new URL('storage/list', API_BASE_URL).href, async ({ request }) => {
+        const item = (await request.json()) as FileItem
+        requests.push(item)
+        return apiJson(
+          item.path === '/'
+            ? [
+                { storage: item.storage, type: 'dir', name: '远端下载', path: '/downloads/', children: [] },
+                { storage: item.storage, type: 'file', name: 'video.mkv', path: '/video.mkv' },
+              ]
+            : [],
+        )
+      }),
+    )
+    const directory = await renderExpandedDirectory(
+      { monitor_type: 'downloader', download_path: '/', library_storage: 'local' },
+      categories,
+      storages,
+    )
+
+    await user.click(screen.getByRole('textbox', { name: '资源存储' }))
+    await user.click(await screen.findByRole('option', { name: 'SMB' }))
+    await waitFor(() => expect(directory.storage).toBe('smb'))
+    expect(manageStorage).toHaveBeenCalledWith('smb', 'support_transtype')
+
+    await user.click(screen.getByRole('textbox', { name: '资源目录' }))
+    await user.click(await screen.findByText('远端下载'))
+
+    await waitFor(() => expect(directory.download_path).toBe('/downloads/'))
+    expect(requests).toEqual(expect.arrayContaining([expect.objectContaining({ storage: 'smb', path: '/' })]))
+    expect(requests.every(item => item.storage === 'smb')).toBe(true)
+    expect(screen.queryByText('video.mkv')).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '资源目录' })).toHaveValue('/downloads/')
+  })
+})
 
 describe('DirectoryCard classification reference', () => {
   it('only lists enabled categories for the selected media type', async () => {
