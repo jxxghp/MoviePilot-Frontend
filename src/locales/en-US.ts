@@ -4132,6 +4132,14 @@ export default {
       serverUrl: 'AList server address',
     },
     smbConfig: {
+      multiShare: 'Mount multiple shares',
+      shares: 'Share names',
+      sharesHint: 'One share per line, such as video and downloads; all use this server and account',
+      sharesRequired: 'Enter at least one share name',
+      sharesInvalid: 'Enter share names without slashes, colons or ..',
+      sharesDuplicate: 'Share names must be unique (case insensitive)',
+      namespaceHint:
+        'Paths include the share name, such as /downloads/Movies and /video/Movies. Update directory settings and downloader path mappings after changing modes. Cross-share operations support server-side copy and copy-then-delete moves, but not hard links.',
       title: 'SMB Network Share Configuration',
       host: 'SMB Server Address',
       hostHint: 'IP address or hostname of the SMB server',

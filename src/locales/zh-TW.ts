@@ -3990,6 +3990,14 @@ export default {
       serverUrl: 'AList服務地址',
     },
     smbConfig: {
+      multiShare: '同時掛載多個共享',
+      shares: '共享名稱清單',
+      sharesHint: '每行一個共享名稱，例如 video 和 downloads；共用目前伺服器及帳號',
+      sharesRequired: '請至少填寫一個共享名稱',
+      sharesInvalid: '請填寫共享名稱，不可包含斜線、冒號或 ..',
+      sharesDuplicate: '共享名稱不可重複（不分大小寫）',
+      namespaceHint:
+        '啟用後，儲存路徑包含共享名稱，例如 /downloads/電影 和 /video/電影。切換模式後，請同步更新目錄設定及下載器路徑映射。跨共享支援伺服器端複製及複製後刪除式移動，不支援硬連結。',
       title: 'SMB網路共享配置',
       host: 'SMB伺服器地址',
       hostHint: 'SMB伺服器的IP地址或主機名',

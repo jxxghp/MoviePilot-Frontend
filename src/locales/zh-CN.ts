@@ -4029,6 +4029,14 @@ export default {
       serverUrl: 'AList服务地址',
     },
     smbConfig: {
+      multiShare: '同时挂载多个共享',
+      shares: '共享名称列表',
+      sharesHint: '每行一个共享名称，例如 video 和 downloads；共用当前服务器及账号',
+      sharesRequired: '请至少填写一个共享名称',
+      sharesInvalid: '请填写共享名称，不能包含斜杠、冒号或 ..',
+      sharesDuplicate: '共享名称不能重复（不区分大小写）',
+      namespaceHint:
+        '启用后，存储路径包含共享名称，例如 /downloads/电影 和 /video/电影。切换模式后，请同步更新目录配置和下载器路径映射。跨共享支持服务端复制及复制后删除式移动，不支持硬链接。',
       title: 'SMB网络共享配置',
       host: 'SMB服务器地址',
       hostHint: 'SMB服务器的IP地址或主机名',
