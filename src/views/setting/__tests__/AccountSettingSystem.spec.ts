@@ -1547,6 +1547,7 @@ describe('AccountSettingSystem', () => {
     await fireEvent.update(dialog.getByLabelText('文件复制停滞超时（秒）'), '180')
     for (const label of [
       '插件热加载',
+      '开放 API 文档',
       '按媒体聚合整理失败通知',
       '本地文件操作隔离',
       '编码探测性能模式',
@@ -1565,6 +1566,7 @@ describe('AccountSettingSystem', () => {
         FS_PROXY_STALL_TIMEOUT: 180,
         FS_PROXY_TIMEOUT: 45,
         MONITOR_NETWORK_FAST_MODE: true,
+        API_DOCS_ENABLE: true,
         PLUGIN_AUTO_RELOAD: true,
         PLUGIN_LOCAL_REPO_PATHS: '/plugins/local',
         RUST_ACCEL: true,

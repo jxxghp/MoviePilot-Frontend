@@ -3098,6 +3098,9 @@ export default {
       transferHistoryClearFailed: '整理歷史清空失敗，請稍後重試',
       pluginAutoReload: '插件熱加載',
       pluginAutoReloadHint: '修改插件文件後自動重新加載，開發插件時使用',
+      apiDocsEnable: '開放 API 文檔',
+      apiDocsEnableHint:
+        '開放 /docs、/redoc 與 /api/v1/openapi.json，文檔首次生成後常駐約 20–30MB 記憶體，修改後立即生效',
       pluginLocalRepoPaths: '本地插件倉庫路徑',
       pluginLocalRepoPathsHint: '本地插件倉庫目錄，多個目錄用英文逗號分隔，支持相對路徑和絕對路徑',
       encodingDetectionPerformanceMode: '編碼探測性能模式',

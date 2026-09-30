@@ -168,6 +168,7 @@ const SystemSettings = ref<any>({
     LOG_FILE_FORMAT: '【%(levelname)s】%(asctime)s - %(message)s',
     // 实验室
     PLUGIN_AUTO_RELOAD: false,
+    API_DOCS_ENABLE: false,
     PLUGIN_LOCAL_REPO_PATHS: '',
     RUST_ACCEL: false,
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
@@ -3271,6 +3272,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"
                     :label="t('setting.system.pluginAutoReload')"
                     :hint="t('setting.system.pluginAutoReloadHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.API_DOCS_ENABLE"
+                    :label="t('setting.system.apiDocsEnable')"
+                    :hint="t('setting.system.apiDocsEnableHint')"
                     persistent-hint
                   />
                 </VCol>
