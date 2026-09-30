@@ -145,6 +145,14 @@ export function useVersionChecker() {
       return
     }
 
+    // DEV 部署或服务端回退时，浏览器可能已经运行更新的前端，不能提示降级清缓存。
+    const numericVersion = /^v?\d+(?:[.-]\d+)*$/i
+    if (numericVersion.test(currentVersion.value) && numericVersion.test(latestVersion)) {
+      const cached = currentVersion.value.replace(/^v/i, '')
+      const deployed = latestVersion.replace(/^v/i, '')
+      if (cached.localeCompare(deployed, 'en', { numeric: true }) >= 0) return
+    }
+
     console.log(`[VersionChecker] 检测到版本不一致: ${currentVersion.value} -> ${latestVersion}`)
 
     // 尝试触发 Service Worker 更新检查
