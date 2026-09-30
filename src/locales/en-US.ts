@@ -3211,6 +3211,9 @@ export default {
       transferHistoryClearFailed: 'Failed to clear transfer history. Please try again',
       pluginAutoReload: 'Plugin Hot Reload',
       pluginAutoReloadHint: 'Automatically reload after modifying plugin files, used when developing plugins',
+      apiDocsEnable: 'Open API Docs',
+      apiDocsEnableHint:
+        'Expose /docs, /redoc and /api/v1/openapi.json. The docs stay in memory (about 20–30 MB) after they are first generated. Takes effect immediately',
       pluginLocalRepoPaths: 'Local Plugin Repository Paths',
       pluginLocalRepoPathsHint:
         'Local plugin repository directories. Separate multiple directories with commas. Relative and absolute paths are supported.',
