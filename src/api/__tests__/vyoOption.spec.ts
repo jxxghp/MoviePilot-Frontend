@@ -12,17 +12,17 @@ vi.mock('@/api', () => ({
   }),
 }))
 
-describe('MediaVault 媒体服务器接入', () => {
+describe('Vyo 媒体服务器接入', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset()
     mocks.apiGet.mockResolvedValue({
       modules: [
         {
-          id: 'MediaVaultModule',
-          name: 'MediaVault',
-          name_i18n: 'MediaVault',
+          id: 'VyoModule',
+          name: 'Vyo',
+          name_i18n: 'Vyo',
           type: 'mediaserver',
-          subtype: 'MediaVault',
+          subtype: 'Vyo',
           option_value: 'mediavault',
           enabled: true,
           active: true,
@@ -36,7 +36,7 @@ describe('MediaVault 媒体服务器接入', () => {
     const { moduleOptions } = useModuleCatalog()
 
     expect(moduleOptions('mediaserver').value).toEqual([
-      { moduleId: 'MediaVaultModule', title: 'MediaVault', value: 'mediavault' },
+      { moduleId: 'VyoModule', title: 'Vyo', value: 'mediavault' },
     ])
     expect(mocks.apiGet).toHaveBeenCalledWith('system/module-catalog')
   })
