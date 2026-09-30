@@ -35,9 +35,7 @@ describe('Vyo 媒体服务器接入', () => {
     await loadModuleCatalog(true)
     const { moduleOptions } = useModuleCatalog()
 
-    expect(moduleOptions('mediaserver').value).toEqual([
-      { moduleId: 'VyoModule', title: 'Vyo', value: 'mediavault' },
-    ])
+    expect(moduleOptions('mediaserver').value).toEqual([{ moduleId: 'VyoModule', title: 'Vyo', value: 'mediavault' }])
     expect(mocks.apiGet).toHaveBeenCalledWith('system/module-catalog')
   })
 
