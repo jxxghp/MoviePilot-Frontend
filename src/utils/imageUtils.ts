@@ -14,7 +14,7 @@ import zspaceLogo from '@/assets/images/logos/zspace.webp'
 import jellyfinLogo from '@/assets/images/logos/jellyfin.png'
 import plexLogo from '@/assets/images/logos/plex.png'
 import trimemediaLogo from '@/assets/images/logos/trimemedia.png'
-import mediavaultLogo from '@/assets/images/logos/mediavault.png'
+import vyoLogo from '@/assets/images/logos/vyo.png'
 import ugreenLogo from '@/assets/images/logos/ugreen.png'
 import wechatLogo from '@/assets/images/logos/wechat.png'
 import feishuLogo from '@/assets/images/logos/feishu.png'
@@ -58,7 +58,7 @@ const logoMap: Record<string, string> = {
   jellyfin: jellyfinLogo,
   plex: plexLogo,
   trimemedia: trimemediaLogo,
-  mediavault: mediavaultLogo,
+  mediavault: vyoLogo,
   ugreen: ugreenLogo,
   wechat: wechatLogo,
   feishu: feishuLogo,

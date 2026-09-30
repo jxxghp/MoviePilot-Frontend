@@ -801,7 +801,7 @@ onMounted(() => {
                 v-model="mediaServerInfo.config.host"
                 :label="t('mediaserver.host')"
                 :placeholder="t('mediaserver.hostPlaceholder')"
-                :hint="t('mediaserver.mediaVaultHostHint')"
+                :hint="t('mediaserver.vyoHostHint')"
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-server"
@@ -822,7 +822,7 @@ onMounted(() => {
               <VTextField
                 v-model="mediaServerInfo.config.apikey"
                 :label="t('mediaserver.apiKey')"
-                :hint="t('mediaserver.mediaVaultApiKeyHint')"
+                :hint="t('mediaserver.vyoApiKeyHint')"
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-key"
