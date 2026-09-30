@@ -1158,6 +1158,17 @@ describe('TransferHistoryView', () => {
     expect(router.currentRoute.value.path).toBe('/downloading')
   })
 
+  it('shows the mobile empty state inside the list only after a successful empty response', async () => {
+    mocks.desktop = false
+    await renderHistory()
+
+    expect(screen.queryByText(i18n.global.t('transferHistory.noData'))).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+
+    const emptyState = await screen.findByText(i18n.global.t('transferHistory.noData'))
+    expect(screen.getByLabelText('整理历史无限列表')).toContainElement(emptyState)
+  })
+
   it('loads mobile pages with deduplication and reports empty when the last page is exhausted', async () => {
     mocks.desktop = false
     const firstPage = Array.from({ length: 25 }, (_, index) => createHistory(index + 1, `记录 ${index + 1}`))
@@ -1182,6 +1193,7 @@ describe('TransferHistoryView', () => {
     expect(await screen.findByText('追加 4')).toBeInTheDocument()
     expect(document.querySelectorAll('[data-mobile-key="25"]')).toHaveLength(1)
     expect(screen.getByRole('status', { name: '整理历史无限列表状态' })).toHaveTextContent('empty')
+    expect(screen.queryByText(i18n.global.t('transferHistory.noData'))).not.toBeInTheDocument()
   })
 
   it('keeps the mobile infinite list retryable after a request error', async () => {
@@ -1198,6 +1210,7 @@ describe('TransferHistoryView', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
     await waitFor(() => expect(screen.getByRole('status', { name: '整理历史无限列表状态' })).toHaveTextContent('error'))
+    expect(screen.queryByText(i18n.global.t('transferHistory.noData'))).not.toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(await screen.findByText('重试结果')).toBeInTheDocument()
   })

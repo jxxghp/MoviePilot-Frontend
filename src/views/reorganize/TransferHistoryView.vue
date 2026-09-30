@@ -2484,7 +2484,12 @@ onUnmounted(() => {
           <VProgressCircular indeterminate color="primary" size="26" width="3" />
         </div>
       </template>
-      <template #empty />
+      <template #empty>
+        <div v-if="mobileDataList.length === 0" class="transfer-history-mobile-empty">
+          <VIcon icon="mdi-history" size="32" />
+          <span>{{ t('transferHistory.noData') }}</span>
+        </div>
+      </template>
       <template #error="{ props: retryProps }">
         <div class="transfer-history-mobile-state d-flex flex-column ga-2" role="alert">
           <span class="text-body-2 text-medium-emphasis">{{ t('common.serverConnectionFailed') }}</span>
@@ -2636,11 +2641,6 @@ onUnmounted(() => {
         </template>
       </ProgressiveCardGrid>
     </VInfiniteScroll>
-
-    <div v-if="mobileDataList.length === 0 && isRefreshed && !mobileLoading" class="transfer-history-mobile-empty">
-      <VIcon icon="mdi-history" size="32" />
-      <span>{{ t('transferHistory.noData') }}</span>
-    </div>
   </section>
 
   <!-- 非 app 模式下的 FAB 按钮 -->
@@ -2978,7 +2978,6 @@ onUnmounted(() => {
 
 .transfer-history-mobile-scroll {
   overflow: visible !important;
-  min-block-size: 22rem;
 }
 
 .transfer-history-mobile-scroll :deep(.v-infinite-scroll__container),
@@ -3006,7 +3005,9 @@ onUnmounted(() => {
 .transfer-history-mobile-empty {
   flex-direction: column;
   gap: 0.75rem;
-  min-block-size: 18rem;
+  /* 空状态与列表共用空间，随移动端动态视口缩放，避免固定高度叠加。 */
+  min-block-size: clamp(6rem, 30vh, 18rem);
+  min-block-size: clamp(6rem, 30dvh, 18rem);
 }
 
 .transfer-history-mobile-record {
