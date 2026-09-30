@@ -31,6 +31,12 @@ import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
+import MusicTransferPreview from './music-transfer/Preview.vue'
+import MusicTransferCorrectionDialog from './music-transfer/CorrectionDialog.vue'
+import { useMusicTransferCorrection, type MusicAlbumSelection, type MusicPreviewGroup } from './music-transfer/state'
+
+// 主整理弹窗继续接收调用方的 v-model，纠正弹窗不共享可见状态。
+defineOptions({ inheritAttrs: false })
 
 // 国际化
 const { t, te } = useI18n()
@@ -200,6 +206,21 @@ const previewLoaded = ref(false)
 
 // 预览数据
 const previewData = ref<ManualTransferPreviewData>()
+const musicCorrection = useMusicTransferCorrection(previewData)
+const musicPreviewInvalidated = ref(false)
+const musicCorrectionGroup = ref<MusicPreviewGroup>()
+const hasMusicPreview = computed(() => previewData.value?.items.some(item => item.music) ?? false)
+const musicTransferBlocked = computed(() =>
+  Boolean(
+    musicPreviewInvalidated.value ||
+    musicCorrection.busy.value ||
+    musicCorrectionGroup.value ||
+    previewLoading.value ||
+    (musicCorrection.hasCorrections.value &&
+      (!musicCorrection.scopeComplete.value || previewHasFailures(previewData.value))),
+  ),
+)
+let previewGeneration = 0
 
 interface ArtistCollectionEntry {
   item: FileItem
@@ -293,7 +314,12 @@ function dedupeFileItems(fileItems?: FileItem[]) {
 
 // 生成预览项稳定键，避免合并多次预览结果时重复展示。
 function getPreviewItemKey(item: ManualTransferPreviewItem) {
-  return [item.source ?? '', item.target ?? '', item.success === false ? 'failed' : 'success'].join('|')
+  return [
+    item.source_storage ?? item.source_item?.storage ?? '',
+    item.source ?? '',
+    item.target ?? '',
+    item.success === false ? 'failed' : 'success',
+  ].join('|')
 }
 
 // 将预览失败项拼成阶段、原因和下一步动作，避免用户只能看到一条泛化错误。
@@ -1484,6 +1510,10 @@ function getDefaultPreviewData(): ManualTransferPreviewData {
 
 // 重置预览数据和分页状态。
 function resetPreviewState() {
+  previewGeneration += 1
+  musicCorrection.reset()
+  musicCorrectionGroup.value = undefined
+  previewLoading.value = false
   previewData.value = undefined
   previewLoaded.value = false
   previewPage.value = 1
@@ -1558,8 +1588,9 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
 async function previewTransfer() {
   if (!props.logids?.length && !normalizedItems.value.length) return
 
-  previewLoading.value = true
   resetPreviewState()
+  const generation = previewGeneration
+  previewLoading.value = true
 
   const mergedPreviewData = getDefaultPreviewData()
 
@@ -1593,7 +1624,9 @@ async function previewTransfer() {
           )
         }
       }
+      if (generation !== previewGeneration) return
       previewData.value = mergedPreviewData
+      musicPreviewInvalidated.value = false
       previewLoaded.value = true
       if (previewHasFailures(mergedPreviewData)) $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
       return
@@ -1670,20 +1703,72 @@ async function previewTransfer() {
     }
 
     await Promise.all(tasks)
+    if (generation !== previewGeneration) return
 
     previewData.value = mergedPreviewData
+    musicPreviewInvalidated.value = false
     previewLoaded.value = true
 
     if (previewHasFailures(mergedPreviewData)) {
       $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
     }
   } catch (error: unknown) {
+    if (generation !== previewGeneration) return
     previewVisible.value = false
     resetPreviewState()
     $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.previewRequestFailed')))
   } finally {
-    previewLoading.value = false
+    if (generation === previewGeneration) previewLoading.value = false
   }
+}
+
+/** 全局选项变化后要求重新预览，不能继续使用旧范围或旧发行。 */
+watch(
+  () => JSON.stringify([transferForm, mediaSource.value, props.items, props.logids, skipSuccessfulRecords.value]),
+  () => {
+    if (musicCorrection.hasCorrections.value || musicCorrection.busy.value) musicPreviewInvalidated.value = true
+    resetPreviewState()
+  },
+  { flush: 'sync' },
+)
+
+/** 仅用本组已经预览的实际源文件核验用户选择，不展开父目录。 */
+async function correctMusicAlbum(selection: MusicAlbumSelection) {
+  const group = musicCorrectionGroup.value
+  if (!group) return
+  try {
+    const accepted = await musicCorrection.correct(group, selection, (items, selected) =>
+      requestManualTransfer<ManualTransferPreviewData>({
+        ...createTransferPayload({ items, preview: true, musicType: 'album' }),
+        ...selected,
+        type_name: '音乐',
+        from_history: false,
+      }),
+    )
+    if (accepted) musicCorrectionGroup.value = undefined
+  } catch (error) {
+    $toast.error(getApiBusinessErrorMessage(error) || t('dialog.reorganize.musicPreview.correctionFailed'))
+  }
+}
+
+/** 纠正过的预览按冻结范围逐组提交，保留正常执行回执及后台队列语义。 */
+async function transferCorrectedMusic(background: boolean) {
+  const payloads = musicCorrection.executionPayloads(items => createTransferPayload({ items }))
+  if (!payloads) return false
+  let succeeded = true
+  if (!background) startLoadingProgress('filetransfer')
+  for (const payload of payloads) {
+    try {
+      const result = await requestManualTransfer<ManualTransferSubmissionData>(payload, background)
+      collectSubmissionResults(result)
+    } catch (error) {
+      succeeded = false
+      collectSubmissionFailure(error)
+      $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
+    }
+  }
+  if (succeeded && !submissionResults.value.length) emit('done')
+  return true
 }
 
 // 切换预览面板，首次展开时拉取最新预览结果。
@@ -1696,6 +1781,7 @@ async function togglePreview() {
   }
 
   previewVisible.value = true
+  if (musicCorrection.hasCorrections.value && previewLoaded.value) return
   await previewTransfer()
 }
 
@@ -1801,6 +1887,7 @@ async function transfer(background: boolean = false) {
   if (
     (!props.logids?.length && !normalizedItems.value.length) ||
     transferSubmitting.value ||
+    musicTransferBlocked.value ||
     hasAcceptedSubmission.value
   )
     return
@@ -1811,6 +1898,7 @@ async function transfer(background: boolean = false) {
   let allSucceeded = true
 
   try {
+    if (await transferCorrectedMusic(background)) return
     if (isArtistCollectionMode.value) {
       try {
         const entries = await loadArtistCollectionEntries()
@@ -1882,13 +1970,24 @@ onMounted(async () => {
 
 onUnmounted(() => {
   targetPathMatchRequestId += 1
+  previewGeneration += 1
+  musicCorrection.reset()
   stopLoadingProgress()
   if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
 })
 </script>
 
 <template>
+  <MusicTransferCorrectionDialog
+    v-if="musicCorrectionGroup"
+    :key="musicCorrectionGroup.id"
+    :group="musicCorrectionGroup"
+    :busy="musicCorrection.busy.value"
+    @close="musicCorrectionGroup = undefined"
+    @apply="correctMusicAlbum"
+  />
   <VDialog
+    v-bind="$attrs"
     :scrollable="!previewVisible || !display.mdAndUp.value"
     :max-width="dialogMaxWidth"
     :fullscreen="!display.mdAndUp.value"
@@ -1909,6 +2008,9 @@ onUnmounted(() => {
           <div class="reorganize-form-pane">
             <div class="reorganize-form-pane__content pa-6">
               <VForm @submit.prevent="() => {}">
+                <VAlert v-if="musicPreviewInvalidated" type="warning" variant="tonal" density="compact" class="mb-4">
+                  {{ t('dialog.reorganize.musicPreview.invalidated') }}
+                </VAlert>
                 <VAlert
                   v-if="manualHistoryCount > 0"
                   :type="skipSuccessfulRecords ? 'info' : 'warning'"
@@ -2319,7 +2421,7 @@ onUnmounted(() => {
                 prepend-icon="mdi-plus"
                 class="reorganize-action-btn reorganize-action-btn--queue"
                 :loading="transferSubmitting"
-                :disabled="transferSubmitting || hasAcceptedSubmission"
+                :disabled="transferSubmitting || hasAcceptedSubmission || musicTransferBlocked"
               >
                 {{ t('dialog.reorganize.addToQueue') }}
               </VBtn>
@@ -2331,7 +2433,7 @@ onUnmounted(() => {
                 :prepend-icon="isReorganize ? 'mdi-refresh' : 'mdi-arrow-right-bold'"
                 class="reorganize-action-btn reorganize-action-btn--primary"
                 :loading="manualHistoryLoading || transferSubmitting"
-                :disabled="transferSubmitting || hasAcceptedSubmission"
+                :disabled="transferSubmitting || hasAcceptedSubmission || musicTransferBlocked"
               >
                 {{ isReorganize ? t('dialog.reorganize.reorganizeAgain') : t('dialog.reorganize.reorganizeNow') }}
               </VBtn>
@@ -2379,13 +2481,19 @@ onUnmounted(() => {
                         <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaType') }}</span>
                         <span class="preview-overview-card__value">{{ previewMediaInfo.type }}</span>
                       </div>
-                      <div v-if="!previewIsMovie && !isArtistCollectionMode" class="preview-overview-card">
+                      <div
+                        v-if="!previewIsMovie && !isArtistCollectionMode && !hasMusicPreview"
+                        class="preview-overview-card"
+                      >
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewSeasonLabel')
                         }}</span>
                         <span class="preview-overview-card__value">{{ previewSeasonText }}</span>
                       </div>
-                      <div v-if="!previewIsMovie && !isArtistCollectionMode" class="preview-overview-card">
+                      <div
+                        v-if="!previewIsMovie && !isArtistCollectionMode && !hasMusicPreview"
+                        class="preview-overview-card"
+                      >
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewEpisodeCount')
                         }}</span>
@@ -2430,8 +2538,16 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <div class="reorganize-preview-list">
+                    <MusicTransferPreview
+                      v-if="hasMusicPreview"
+                      :groups="musicCorrection.groups.value"
+                      :disabled="transferSubmitting || hasAcceptedSubmission || musicCorrection.busy.value"
+                      :scope-complete="musicCorrection.scopeComplete.value"
+                      :corrected="musicCorrection.hasCorrections.value"
+                      @correct="musicCorrectionGroup = $event"
+                    />
                     <VExpansionPanels
-                      v-if="isArtistCollectionMode && artistCollectionPreviewGroups.length"
+                      v-else-if="isArtistCollectionMode && artistCollectionPreviewGroups.length"
                       multiple
                       variant="accordion"
                       class="artist-collection-groups"
@@ -2521,7 +2637,7 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <div
-                    v-if="!isArtistCollectionMode && previewTotalPages > 1"
+                    v-if="!hasMusicPreview && !isArtistCollectionMode && previewTotalPages > 1"
                     class="reorganize-preview-pane__pagination"
                   >
                     <VBtn
@@ -2568,7 +2684,7 @@ onUnmounted(() => {
             prepend-icon="mdi-plus"
             class="reorganize-action-btn reorganize-action-btn--queue"
             :loading="transferSubmitting"
-            :disabled="transferSubmitting || hasAcceptedSubmission"
+            :disabled="transferSubmitting || hasAcceptedSubmission || musicTransferBlocked"
           >
             {{ t('dialog.reorganize.addToQueue') }}
           </VBtn>
@@ -2580,7 +2696,7 @@ onUnmounted(() => {
             :prepend-icon="isReorganize ? 'mdi-refresh' : 'mdi-arrow-right-bold'"
             class="reorganize-action-btn reorganize-action-btn--primary"
             :loading="manualHistoryLoading || transferSubmitting"
-            :disabled="transferSubmitting || hasAcceptedSubmission"
+            :disabled="transferSubmitting || hasAcceptedSubmission || musicTransferBlocked"
           >
             {{ isReorganize ? t('dialog.reorganize.reorganizeAgain') : t('dialog.reorganize.reorganizeNow') }}
           </VBtn>

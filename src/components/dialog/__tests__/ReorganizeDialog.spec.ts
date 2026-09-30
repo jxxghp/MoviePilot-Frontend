@@ -1,6 +1,9 @@
 import type {
   ApiResponse,
   FileItem,
+  ManualTransferPayload,
+  ManualTransferPreviewItem,
+  MusicAlbumInfo,
   ManualTransferTargetPathData,
   ManualTransferTargetPathRequest,
   StorageConf,
@@ -400,17 +403,7 @@ async function renderDialog({
 }
 
 /** 生成与实际执行响应独立的预览夹具。 */
-function previewResponse(
-  items: Array<{
-    message?: string
-    source: string
-    success: boolean
-    target: string
-    title?: string
-    type?: string
-  }>,
-  message = '',
-) {
+function previewResponse(items: ManualTransferPreviewItem[], message = '') {
   return {
     data: {
       items,
@@ -1739,5 +1732,298 @@ describe('ReorganizeDialog artist collection mode', () => {
     expect(screen.getByText('Album B')).toBeInTheDocument()
     expect(screen.getByText('成功 1')).toBeInTheDocument()
     expect(screen.getByText('失败 1')).toBeInTheDocument()
+  })
+})
+
+/** 构造共享种子目录中具有独立发行范围的音频与配套文件。 */
+function musicRow(
+  group: string,
+  filename: string,
+  overrides: Partial<ManualTransferPreviewItem> = {},
+): ManualTransferPreviewItem {
+  const path = `/downloads/Collection/${filename}`
+  return {
+    source: path,
+    source_storage: 'local',
+    source_item: createFileItem({ path, name: filename }),
+    target: `/library/${group}/${filename}`,
+    success: true,
+    type: '音乐',
+    music: {
+      status: 'local_tags',
+      online_confirmed: false,
+      music_type: 'album',
+      media_source: 'musicbrainz',
+      media_id: '11111111-1111-4111-8111-111111111111',
+      album: group,
+      title: filename,
+      artists: ['Artist'],
+      field_sources: { title: 'tag', album: 'tag' },
+      candidates: [],
+      read_status: 'tags',
+      file_role: 'audio',
+      group_id: group,
+      group_directory: '/downloads/Collection',
+    },
+    ...overrides,
+  }
+}
+
+const MUSIC_GROUP_ID = '11111111-1111-4111-8111-111111111111'
+const MUSIC_RELEASE_A = '22222222-2222-4222-8222-222222222222'
+const MUSIC_RELEASE_B = '33333333-3333-4333-8333-333333333333'
+
+/** 返回两个具体发行以及当前发行的曲目表，详情仍使用发行组ID。 */
+function musicAlbum(release = MUSIC_RELEASE_A): MusicAlbumInfo {
+  return {
+    media_source: 'musicbrainz',
+    media_id: MUSIC_GROUP_ID,
+    music_type: 'album',
+    title: 'Album A',
+    artist: 'Artist',
+    musicbrainz_release_group_id: MUSIC_GROUP_ID,
+    musicbrainz_release_id: release,
+    tracks: [
+      {
+        title: release === MUSIC_RELEASE_A ? 'Original track' : 'Bonus track',
+        track_number: 1,
+        disc_number: 1,
+        episode_run_time: [],
+        origin_country: [],
+      },
+    ],
+    releases: [
+      {
+        media_id: MUSIC_RELEASE_A,
+        title: 'Original edition',
+        date: '2001',
+        country: 'GB',
+        formats: ['CD'],
+        track_count: 1,
+      },
+      {
+        media_id: MUSIC_RELEASE_B,
+        title: 'Deluxe edition',
+        date: '2020',
+        country: 'JP',
+        formats: ['CD'],
+        track_count: 1,
+      },
+    ],
+  }
+}
+
+describe('ReorganizeDialog music correction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    initializationRequestCount = 0
+    mocks.progressControllers.length = 0
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it.each(['立即整理', '加入整理队列'])('reuses the verified edition and exact preview files for %s', async action => {
+    const audio = musicRow('Album A', 'image.flac')
+    const cue = musicRow('Album A', 'album.cue')
+    cue.music = { ...cue.music!, file_role: 'companion', read_status: 'companion' }
+    const other = musicRow('Album B', 'other.flac')
+    const rows = [audio, cue, other]
+    const requests: Array<{ payload: ManualTransferPayload; background: string | null }> = []
+    const releases: Array<string | null> = []
+    server.use(
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, ({ request }) => {
+        const release = new URL(request.url).searchParams.get('musicbrainz_release_id')
+        releases.push(release)
+        return HttpResponse.json(apiEnvelope(musicAlbum(release ?? MUSIC_RELEASE_A)))
+      }),
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        const payload = (await request.json()) as ManualTransferPayload
+        requests.push({ payload, background: new URL(request.url).searchParams.get('background') })
+        if (!payload.preview) return HttpResponse.json(apiEnvelope(null))
+        return HttpResponse.json(
+          previewResponse(
+            payload.musicbrainz_release_id
+              ? rows.slice(0, 2).map(item => ({
+                  ...item,
+                  music: { ...item.music!, status: 'manual', musicbrainz_release_id: payload.musicbrainz_release_id },
+                }))
+              : rows,
+          ),
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({ items: [createFileItem({ path: '/downloads/Collection', type: 'dir' })] })
+    await selectOption('类型', 3)
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    expect(screen.getByRole('button', { name: action })).toBeDisabled()
+    expect(await screen.findByText('Original track')).toBeInTheDocument()
+    await selectOption('具体发行版本', 1)
+    expect(await screen.findByText('Bonus track')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '应用并重新预览' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '应用并重新预览' })).not.toBeInTheDocument())
+    expect(requests[1].payload).toMatchObject({
+      preview: true,
+      fileitems: [audio.source_item, cue.source_item],
+      media_source: 'musicbrainz',
+      media_id: MUSIC_GROUP_ID,
+      musicbrainz_release_id: MUSIC_RELEASE_B,
+      music_type: 'album',
+      type_name: '音乐',
+      from_history: false,
+    })
+    expect(requests[1].payload.fileitem).toBeUndefined()
+    // 折叠再展开不能丢失人工确认的发行或重新递归原目录。
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    expect(requests).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: action }))
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(releases).toEqual([null, MUSIC_RELEASE_B])
+    const execution = requests.filter(item => !item.payload.preview)
+    expect(execution).toHaveLength(2)
+    expect(execution[0].payload).toMatchObject({
+      fileitems: [audio.source_item, cue.source_item],
+      media_id: MUSIC_GROUP_ID,
+      musicbrainz_release_id: MUSIC_RELEASE_B,
+    })
+    expect(execution[1].payload.fileitems).toEqual([other.source_item])
+    expect(execution[1].payload.musicbrainz_release_id).toBeUndefined()
+    expect(execution.every(item => !item.payload.fileitem && !item.payload.logids)).toBe(true)
+    expect(execution.map(item => item.background)).toEqual(
+      action === '加入整理队列' ? ['true', 'true'] : ['false', 'false'],
+    )
+  })
+
+  it('cannot apply previous tracks after a different release fails to load', async () => {
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
+        HttpResponse.json(previewResponse([musicRow('Album A', '01.flac')])),
+      ),
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, ({ request }) =>
+        new URL(request.url).searchParams.has('musicbrainz_release_id')
+          ? HttpResponse.json({ detail: 'edition unavailable' }, { status: 404 })
+          : HttpResponse.json(apiEnvelope(musicAlbum())),
+      ),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    await screen.findByText('Original track')
+    await selectOption('具体发行版本', 1)
+    expect(await screen.findByText('无法读取所选专辑或发行版的曲目，请核对选择后重试。')).toBeInTheDocument()
+    expect(screen.queryByText('Original track')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '应用并重新预览' })).toBeDisabled()
+  })
+
+  it('rejects a correction that expands its file range', async () => {
+    let previewCount = 0
+    const row = musicRow('Album A', '01.flac')
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () => {
+        previewCount += 1
+        return HttpResponse.json(previewResponse(previewCount === 1 ? [row] : [row, musicRow('Album A', 'new.flac')]))
+      }),
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, () =>
+        HttpResponse.json(apiEnvelope(musicAlbum())),
+      ),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    await screen.findByText('Original track')
+    await user.click(screen.getByRole('button', { name: '应用并重新预览' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringContaining('返回的文件范围已改变')))
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeDisabled()
+    await user.click(screen.getAllByRole('button', { name: '取消' }).at(-1)!)
+    expect(screen.queryByText('/downloads/Collection/new.flac')).not.toBeInTheDocument()
+  })
+
+  it('ignores an in-flight correction when the source selection changes', async () => {
+    const pending = createDeferred<ReturnType<typeof previewResponse>>()
+    let previewCount = 0
+    const row = musicRow('Album A', '01.flac')
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async () => {
+        previewCount += 1
+        return HttpResponse.json(previewCount === 1 ? previewResponse([row]) : await pending.promise)
+      }),
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, () =>
+        HttpResponse.json(apiEnvelope(musicAlbum())),
+      ),
+    )
+    const user = userEvent.setup()
+    const result = await renderDialog()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    await screen.findByText('Original track')
+    await user.click(screen.getByRole('button', { name: '应用并重新预览' }))
+    await waitFor(() => expect(previewCount).toBe(2))
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeDisabled()
+    await result.rerender({ items: [createFileItem({ path: '/downloads/Another' })] })
+    pending.resolve(previewResponse([{ ...row, target: '/library/stale-target' }]))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '应用并重新预览' })).not.toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: '纠正专辑：Album A' })).not.toBeInTheDocument()
+    expect(screen.queryByText('/library/stale-target')).not.toBeInTheDocument()
+    expect(screen.getByText('专辑纠正已失效。选项或源文件已改变，请重新预览并核对专辑后再整理。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeDisabled()
+  })
+
+  it('shows unverified metadata honestly and disables correction for legacy file ranges', async () => {
+    const row = musicRow('Album A', '01.flac', { source_item: undefined })
+    row.music = { ...row.music!, status: 'matched', online_confirmed: false }
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () => HttpResponse.json(previewResponse([row]))),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    expect(await screen.findByRole('button', { name: '纠正专辑：Album A' })).toBeDisabled()
+    expect(screen.getAllByText('已有媒体信息')).toHaveLength(2)
+    expect(screen.queryByText('在线匹配', { exact: true })).not.toBeInTheDocument()
+    expect(screen.getByText(row.source!)).toBeInTheDocument()
+  })
+})
+
+// 单独验证已保存选择后的全局参数失效，覆盖当前请求与后续执行之间的边界。
+describe('ReorganizeDialog saved music choices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    initializationRequestCount = 0
+    mocks.progressControllers.length = 0
+  })
+
+  it('requires a fresh preview after changing options and never reuses the old selected release', async () => {
+    const row = musicRow('Album A', '01.flac')
+    const requests: ManualTransferPayload[] = []
+    server.use(
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, () =>
+        HttpResponse.json(apiEnvelope(musicAlbum())),
+      ),
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        requests.push((await request.json()) as ManualTransferPayload)
+        return HttpResponse.json(previewResponse([row]))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    await screen.findByText('Original track')
+    await user.click(screen.getByRole('button', { name: '应用并重新预览' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '应用并重新预览' })).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeEnabled()
+    await user.click(screen.getByRole('checkbox', { name: '刮削元数据' }))
+    expect(screen.getByRole('button', { name: '立即整理' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '加入整理队列' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '立即整理' })).toBeEnabled())
+    expect(requests).toHaveLength(3)
+    expect(requests[2].musicbrainz_release_id).toBeUndefined()
   })
 })

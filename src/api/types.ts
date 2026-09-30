@@ -688,6 +688,9 @@ export interface MusicRelease {
 
 // 音乐专辑详情
 export interface MusicAlbumInfo {
+  // 当前曲目表所属具体发行与发行组，不能作为录音ID使用
+  musicbrainz_release_id?: string | null
+  musicbrainz_release_group_id?: string | null
   // 类型，固定为音乐
   type?: string
   // 实体类型，固定为 album
@@ -2394,6 +2397,8 @@ export interface TransferForm {
   media_id?: string | null
   // 音乐实体类型
   music_type?: Exclude<MusicEntityType, 'artist'> | 'artist_collection' | null
+  // 具体 Release ID；media_id 仍使用 Release Group ID
+  musicbrainz_release_id?: string | null
   // MusicBrainz 发行地区优先级；未传时继承系统设置
   music_release_regions?: string[] | null
   // MusicBrainz 文字字形优先级；未传时继承系统设置
@@ -2492,8 +2497,63 @@ export interface ManualTransferPreviewSummary {
   failed: number
 }
 
-// 手动整理预览项
+/** 音乐候选摘要；发行、发行组和录音身份不能互换。 */
+export interface MusicTransferCandidate {
+  media_source?: MediaDataSource | null
+  media_id?: string | null
+  music_type?: string | null
+  release_id?: string | null
+  album_id?: string | null
+  title?: string | null
+  artist?: string | null
+  year?: string | null
+}
+
+/** 后端识别证据，与文件是否成功整理分别展示。 */
+export interface MusicTransferPreview {
+  status:
+    | 'local_tags'
+    | 'local_cue'
+    | 'matched'
+    | 'manual'
+    | 'metadata'
+    | 'not_found'
+    | 'ambiguous'
+    | 'conflict'
+    | 'service_error'
+    | 'budget_exhausted'
+    | 'unsupported'
+  online_confirmed: boolean
+  music_type?: string | null
+  media_source?: MediaDataSource | null
+  media_id?: string | null
+  title?: string | null
+  album?: string | null
+  artists: string[]
+  album_artist?: string | null
+  year?: number | null
+  musicbrainz_release_id?: string | null
+  musicbrainz_release_group_id?: string | null
+  disc_number?: number | null
+  track_number?: number | null
+  total_discs?: number | null
+  total_tracks?: number | null
+  layout?: string | null
+  field_sources: Record<string, string>
+  candidates: MusicTransferCandidate[]
+  read_status: 'tags' | 'stream_only' | 'unreadable' | 'name_only' | 'companion' | 'unknown'
+  file_role: 'audio' | 'companion'
+  group_id?: string | null
+  group_directory?: string | null
+  group_size?: number | null
+}
+
+/** 手动整理预览项，兼容未返回音乐投影的旧服务。 */
 export interface ManualTransferPreviewItem {
+  // 预览实际扫描到的源文件，纠正仅使用这些文件，不重新展开目录
+  source_storage?: string | null
+  source_item?: FileItem | null
+  music?: MusicTransferPreview | null
   // 原始路径
   source?: string
   // 目标路径
