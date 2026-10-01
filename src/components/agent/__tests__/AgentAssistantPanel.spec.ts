@@ -223,6 +223,44 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('renders thinking as an ordered standalone row after existing assistant content', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => createAgentResponse([])))
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state',
+      JSON.stringify({
+        sessionId: 'web-agent:thinking-row',
+        messages: [
+          {
+            id: 'assistant-thinking-row',
+            role: 'assistant',
+            content: '前一段回复',
+            createdAt: Date.now(),
+            status: 'streaming',
+            tools: [],
+            segments: [{ type: 'text', content: '前一段回复' }],
+            attachments: [],
+            choices: [],
+            thinking: true,
+            thinking_started_at: Date.now(),
+            thinking_elapsed_ms: 0,
+          },
+        ],
+      }),
+    )
+
+    const wrapper = mountPanel()
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+
+    const segments = wrapper.get('.agent-assistant-segments')
+    const children = [...segments.element.children]
+    expect(children[0].className).toContain('agent-assistant-message__bubble')
+    expect(children[1].className).toContain('agent-assistant-thinking')
+    expect(segments.get('.agent-assistant-thinking').text()).toContain('agentAssistant.thinking')
+
+    wrapper.unmount()
+  })
+
   it('accepts a steering message while the primary Agent stream is still running', async () => {
     const primaryStream = createControllableAgentStream()
     let streamCalls = 0
