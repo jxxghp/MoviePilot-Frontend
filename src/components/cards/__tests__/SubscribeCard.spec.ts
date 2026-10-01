@@ -137,7 +137,7 @@ describe('SubscribeCard display and progress', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
-  it('tints the desktop card with the poster tone and lays out subscriber and footer', async () => {
+  it('tints the desktop card with the poster tone and lays out title and footer', async () => {
     mocks.loadPosterTone.mockResolvedValue({ hue: 200, saturation: 40 })
     const { container, media } = await renderCard({ state: 'R', total_episode: 10, lack_episode: 2 })
     const card = container.querySelector<HTMLElement>('.subscribe-card') as HTMLElement
@@ -145,9 +145,9 @@ describe('SubscribeCard display and progress', () => {
     expect(mocks.loadPosterTone).toHaveBeenCalledWith(media.poster)
     expect(card).toHaveClass('subscribe-card-window')
     await waitFor(() => expect(card.style.getPropertyValue('--subscribe-card-tone')).toBe('hsl(200 40% 16%)'))
-    // 订阅人在标题下方，有订阅人时标题限一行
-    expect(container.querySelector('.subscribe-card-subscriber')).toHaveTextContent(media.username)
-    expect(screen.getByText(/卡片测试媒体/)).toHaveClass('line-clamp-1')
+    // 卡片不展示订阅人，标题固定最多两行
+    expect(screen.queryByText(media.username)).not.toBeInTheDocument()
+    expect(screen.getByText(/卡片测试媒体/)).toHaveClass('line-clamp-2')
     // 进度与更新时间在同一底部信息行
     const footer = container.querySelector('.subscribe-card-footer') as HTMLElement
     expect(footer).toHaveTextContent('8 / 10')
@@ -160,7 +160,6 @@ describe('SubscribeCard display and progress', () => {
 
     await waitFor(() => expect(mocks.loadPosterTone).toHaveBeenCalled())
     expect(card.style.getPropertyValue('--subscribe-card-tone')).toBe('')
-    expect(container.querySelector('.subscribe-card-subscriber')).toBeNull()
     expect(screen.getByText(/卡片测试媒体/)).toHaveClass('line-clamp-2')
   })
 
@@ -169,7 +168,7 @@ describe('SubscribeCard display and progress', () => {
 
     expect(screen.getByText(media.name)).toBeInTheDocument()
     expect(screen.getByText('2025')).toBeInTheDocument()
-    expect(screen.getByText(media.username)).toHaveAttribute('title', media.username)
+    expect(screen.queryByText(media.username)).not.toBeInTheDocument()
     const image = container.querySelector<HTMLImageElement>('img')
     expect(image).not.toBeNull()
     expect((image as HTMLImageElement).src).toContain('system/cache/image?url=')

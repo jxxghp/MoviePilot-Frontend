@@ -813,19 +813,8 @@ function handleCardClick() {
                   </VImg>
                   <div class="subscribe-card-mobile-image-scrim subscribe-card-background"></div>
 
-                  <div v-if="props.media?.username || lastUpdateText" class="subscribe-card-mobile-image-meta">
-                    <div
-                      v-if="props.media?.username"
-                      class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__user"
-                      :title="props.media?.username"
-                    >
-                      <VIcon icon="mdi-account" size="14" />
-                      <span>{{ props.media?.username }}</span>
-                    </div>
-                    <div
-                      v-if="lastUpdateText"
-                      class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__updated"
-                    >
+                  <div v-if="lastUpdateText" class="subscribe-card-mobile-image-meta">
+                    <div class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__updated">
                       <VIcon icon="mdi-download" size="14" />
                       <span>{{ lastUpdateText }}</span>
                     </div>
@@ -920,18 +909,9 @@ function handleCardClick() {
                   </div>
                   <div class="subscribe-card-meta flex flex-1 flex-col justify-center min-w-0 pl-2 xl:pl-4">
                     <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
-                    <!-- 有订阅人时标题限一行，给下方订阅人留位置，避免长标题折行后压到底部信息行 -->
-                    <div
-                      class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden"
-                      :class="props.media?.username ? 'line-clamp-1' : 'line-clamp-2'"
-                    >
+                    <div class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden line-clamp-2">
                       {{ props.media?.name }}
                       {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
-                    </div>
-                    <!-- 订阅人挂在标题下方、不参与垂直居中，有无订阅人时年份和标题位置一致 -->
-                    <div v-if="props.media?.username" class="subscribe-card-subscriber">
-                      <VIcon icon="mdi-account" size="14" class="flex-shrink-0" />
-                      <span class="min-w-0 truncate" :title="props.media?.username">{{ props.media?.username }}</span>
                     </div>
                   </div>
                 </VCardText>
@@ -1093,17 +1073,6 @@ function handleCardClick() {
   color: rgba(255, 255, 255, 0.9);
   line-height: 1.2;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
-}
-
-.subscribe-card-mobile-image-meta__user {
-  flex: 1 1 auto;
-}
-
-.subscribe-card-mobile-image-meta__user span {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .subscribe-card-mobile-image-meta__updated {
@@ -1296,26 +1265,6 @@ function handleCardClick() {
 /* 标题区和底部信息可能叠在背景画面上，用轻阴影保持白字可读。 */
 .subscribe-card-desktop-text {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 50%);
-}
-
-.subscribe-card-meta {
-  position: relative;
-}
-
-/* 订阅人：标题下方一行小字，绝对定位不参与垂直居中，超长时省略。 */
-.subscribe-card-subscriber {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  color: rgba(255, 255, 255, 76%);
-  font-size: 0.75rem;
-  gap: 0.2rem;
-  inset-block-start: 100%;
-  inset-inline: 0;
-  line-height: 1.4;
-  margin-block-start: 2px;
-  min-inline-size: 0;
-  padding-inline-start: 1px;
 }
 
 .subscribe-card-footer-meta {
