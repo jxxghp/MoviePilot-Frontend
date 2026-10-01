@@ -104,6 +104,9 @@ interface AgentChatMessage {
   steeringStatus?: 'queued' | 'applied'
   steeringMessageId?: string
   steeringAnchorAssistantId?: string
+  thinking?: boolean
+  thinkingStartedAt?: number
+  thinkingElapsedMs?: number
 }
 
 interface AgentSessionHistoryItem {
@@ -120,7 +123,8 @@ interface AgentSessionHistoryItem {
 }
 
 interface AgentStreamEvent {
-  type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'message_update' | 'steering' | 'done' | 'error'
+  type:
+    'start' | 'delta' | 'tool' | 'thinking' | 'attachment' | 'choice' | 'message_update' | 'steering' | 'done' | 'error'
   attachment?: AgentMessageAttachment
   choice?: Omit<AgentChoiceCard, 'status'>
   content?: string
@@ -136,12 +140,15 @@ interface AgentStreamEvent {
   target_message?: Partial<AgentChatMessage> & { id?: string }
   session_id?: string
   status?: 'queued' | 'applied' | 'running' | 'done' | 'error'
+  started_at?: number
+  elapsed_ms?: number
 }
 
 const AGENT_STREAM_EVENT_TYPES = new Set<AgentStreamEvent['type']>([
   'start',
   'delta',
   'tool',
+  'thinking',
   'attachment',
   'choice',
   'message_update',
@@ -259,6 +266,7 @@ const inputText = ref('')
 const messages = ref<AgentChatMessage[]>([])
 // 受保护内容只驻留当前组件内存，不进入消息历史或本地持久化。
 const protectedDeliveries = ref<string[]>([])
+const thinkingClock = ref(Date.now())
 const historySessions = ref<AgentSessionHistoryItem[]>([])
 const sessionId = ref('')
 const sending = ref(false)
@@ -286,6 +294,7 @@ let abortController: AbortController | null = null
 let mediaRecorder: MediaRecorder | null = null
 let mediaRecorderStream: MediaStream | null = null
 let recordingTimer: number | null = null
+let thinkingTimer: number | null = null
 let recordingChunks: BlobPart[] = []
 let messageScrollFrame: number | null = null
 let pendingMessageScrollToBottom = false
@@ -312,6 +321,20 @@ let sendingRequestId = 0
 
 // 汇总正在运行的 Agent 与后台恢复状态；提交输入单独由 sending 控制。
 const isBusy = computed(() => runnerActive.value || Boolean(pendingStreamRecovery.value))
+const activeThinkingMessage = computed(() =>
+  [...messages.value].reverse().find(message => message.role === 'assistant' && message.thinking),
+)
+function formatThinkingDuration(message?: AgentChatMessage) {
+  if (!message) return '0s'
+  const elapsed = Math.max(
+    0,
+    (message.thinkingElapsedMs || 0) +
+      (message.thinking ? thinkingClock.value - (message.thinkingStartedAt || thinkingClock.value) : 0),
+  )
+  const totalSeconds = Math.floor(elapsed / 1000)
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  return `${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s`
+}
 const canSend = computed(
   () =>
     (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
@@ -680,6 +703,9 @@ function normalizeStoredMessages(value: unknown) {
       steeringMessageId: stringifyChoiceField(message.steeringMessageId || message.steering_message_id) || undefined,
       steeringAnchorAssistantId:
         stringifyChoiceField(message.steeringAnchorAssistantId || message.steering_anchor_assistant_id) || undefined,
+      thinking: message.thinking === true,
+      thinkingStartedAt: Number(message.thinkingStartedAt || message.thinking_started_at) || undefined,
+      thinkingElapsedMs: Number(message.thinkingElapsedMs || message.thinking_elapsed_ms) || 0,
     } as AgentChatMessage
   })
 
@@ -1467,6 +1493,8 @@ function createChatMessage(
     choice_selection: choiceSelection,
     steeringStatus,
     steeringMessageId,
+    thinking: false,
+    thinkingElapsedMs: 0,
   }
 }
 
@@ -1909,6 +1937,16 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
     case 'tool':
       applyToolLifecycleEvent(event, routedAssistantMessage)
       break
+    case 'thinking':
+      routedAssistantMessage.thinking = event.status === 'running'
+      if (routedAssistantMessage.thinking) {
+        routedAssistantMessage.thinkingStartedAt = Number(event.started_at) || Date.now()
+        routedAssistantMessage.thinkingElapsedMs = 0
+      } else if (event.elapsed_ms !== undefined) {
+        routedAssistantMessage.thinkingElapsedMs =
+          Number(event.elapsed_ms) || routedAssistantMessage.thinkingElapsedMs || 0
+      }
+      break
     case 'attachment':
       if (event.attachment?.url) {
         routedAssistantMessage.attachments.push(event.attachment)
@@ -1926,6 +1964,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       applyMessageUpdate(event)
       break
     case 'done':
+      routedAssistantMessage.thinking = false
       if (routedAssistantMessage.status !== 'error') {
         routedAssistantMessage.status = 'done'
       }
@@ -2945,6 +2984,9 @@ watch(isOpen, open => {
 watch(isBusy, value => emit('thinking-change', value), { immediate: true })
 
 onMounted(() => {
+  thinkingTimer = window.setInterval(() => {
+    if (activeThinkingMessage.value) thinkingClock.value = Date.now()
+  }, 1000)
   restoreHistorySessions()
   restoreState()
   loadServerHistorySessions()
@@ -2956,6 +2998,9 @@ onMounted(() => {
 })
 
 onScopeDispose(clearAgentAssistantOpenState)
+onScopeDispose(() => {
+  if (thinkingTimer !== null) window.clearInterval(thinkingTimer)
+})
 onScopeDispose(clearPendingAttachments)
 onScopeDispose(cancelVoiceRecording)
 onScopeDispose(clearMessageScrollFrame)
@@ -3004,7 +3049,13 @@ onScopeDispose(() => {
           <div>
             <div class="text-subtitle-1 font-weight-semibold">{{ t('agentAssistant.title') }}</div>
             <div class="agent-assistant-status">
-              {{ isBusy ? t('agentAssistant.thinking') : t('agentAssistant.ready') }}
+              {{
+                activeThinkingMessage
+                  ? `${t('agentAssistant.thinking')} · ${formatThinkingDuration(activeThinkingMessage)}`
+                  : isBusy
+                    ? t('agentAssistant.thinking')
+                    : t('agentAssistant.ready')
+              }}
             </div>
           </div>
         </div>
@@ -3147,6 +3198,11 @@ onScopeDispose(() => {
                     : t('agentAssistant.steeringQueued')
                 }}
               </span>
+            </div>
+
+            <div v-if="message.role === 'assistant' && message.thinking" class="agent-assistant-thinking" role="status">
+              <VIcon icon="line-md:loading-twotone-loop" size="16" />
+              <span>{{ t('agentAssistant.thinking') }} · {{ formatThinkingDuration(message) }}</span>
             </div>
 
             <div
@@ -3973,6 +4029,14 @@ onScopeDispose(() => {
   min-inline-size: 0;
   padding-block: 0.45rem;
   padding-inline: 0.6rem;
+}
+
+.agent-assistant-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.8rem;
 }
 
 .agent-assistant-tool span {
