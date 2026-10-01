@@ -3251,7 +3251,7 @@ onScopeDispose(() => {
             >
               <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
                 <div v-if="segment.type === 'thinking'" class="agent-assistant-thinking" role="status">
-                  <VIcon icon="line-md:loading-twotone-loop" size="16" />
+                  <VIcon class="agent-assistant-thinking__icon" icon="line-md:loading-twotone-loop" size="16" />
                   <span>{{ t('agentAssistant.thinking') }} · {{ formatThinkingDuration(message) }}</span>
                 </div>
                 <AgentMarkdownContent
@@ -4078,18 +4078,17 @@ onScopeDispose(() => {
 .agent-assistant-thinking {
   display: flex;
   align-items: center;
-  box-sizing: border-box;
   gap: 0.45rem;
-  inline-size: 100%;
-  margin-block: 0.15rem;
-  min-block-size: 2.25rem;
-  padding-block: 0.45rem;
-  padding-inline: 0.65rem;
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
-  border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-primary), 0.07);
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.8rem;
+  margin-block: 0.1rem;
+  min-inline-size: 0;
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.agent-assistant-thinking__icon {
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  flex: 0 0 auto;
 }
 
 .agent-assistant-tool span {
