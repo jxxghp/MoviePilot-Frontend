@@ -128,7 +128,7 @@ describe('AnalyticsScheduler', () => {
     const queue = [] satisfies DashboardTransferQueue[]
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'dashboard/schedule') return schedules
-      if (url === 'transfer/queue') return queue
+      if (url === 'transfer/queue/page') return queue
       throw new Error(`Unexpected GET ${url}`)
     })
     const wrapper = mountScheduler()
@@ -138,7 +138,9 @@ describe('AnalyticsScheduler', () => {
 
     expect(mocks.apiGet).toHaveBeenCalledTimes(2)
     expect(mocks.apiGet).toHaveBeenNthCalledWith(1, 'dashboard/schedule')
-    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'transfer/queue')
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(2, 'transfer/queue/page', {
+      params: { page: 1, count: 20 },
+    })
     expect(mocks.scheduleSource?.value).toEqual(schedules)
     expect(wrapper.text()).toContain('CookieCloud')
   })
@@ -176,7 +178,7 @@ describe('AnalyticsScheduler', () => {
           },
         ] satisfies ScheduleInfo[]
       }
-      if (url === 'transfer/queue') return []
+      if (url === 'transfer/queue/page') return []
       throw new Error(`Unexpected GET ${url}`)
     })
     const wrapper = mountScheduler()
@@ -211,7 +213,7 @@ describe('AnalyticsScheduler', () => {
     let queue = [runningTransfer, completedTransfer]
     mocks.apiGet.mockImplementation((url: string) => {
       if (url === 'dashboard/schedule') return []
-      if (url === 'transfer/queue') return queue
+      if (url === 'transfer/queue/page') return queue
       throw new Error(`Unexpected GET ${url}`)
     })
     const wrapper = mountScheduler()
@@ -252,7 +254,7 @@ describe('AnalyticsScheduler', () => {
           },
         ] satisfies ScheduleInfo[]
       }
-      if (refresh === 1 && url === 'transfer/queue') return []
+      if (refresh === 1 && url === 'transfer/queue/page') return []
       throw new Error('remote unavailable')
     })
     const wrapper = mountScheduler()

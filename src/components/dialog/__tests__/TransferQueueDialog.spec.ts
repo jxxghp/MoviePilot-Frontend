@@ -604,38 +604,45 @@ describe('TransferQueueDialog', () => {
     expect(mocks.progressControllers[0].stop).toHaveBeenCalledOnce()
   })
 
-  it('keeps the latest queue snapshot when an earlier polling response resolves later', async () => {
+  it('does not overlap queue snapshots while a slow response is pending', async () => {
     vi.useFakeTimers()
-    const older = createDeferred<TransferQueue[]>()
-    const newer = createDeferred<TransferQueue[]>()
-    mocks.apiGet.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise)
+    const slow = createDeferred<TransferQueue[]>()
+    const next = createDeferred<TransferQueue[]>()
+    mocks.apiGet.mockReturnValueOnce(slow.promise).mockReturnValueOnce(next.promise)
 
     await renderDialog()
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
+
+    slow.resolve(createQueue('慢响应快照', '/downloads/slow.mkv'))
+    await flushPromises()
+    expect(screen.getAllByText('慢响应快照 (2026)')).toHaveLength(2)
+
     await vi.advanceTimersByTimeAsync(3000)
     expect(mocks.apiGet).toHaveBeenCalledTimes(2)
 
-    newer.resolve(createQueue('较新快照', '/downloads/newer.mkv'))
+    next.resolve(createQueue('下一次快照', '/downloads/next.mkv'))
     await flushPromises()
-    await vi.waitFor(() => expect(screen.getAllByText('较新快照 (2026)')).toHaveLength(2))
-
-    older.resolve(createQueue('较旧快照', '/downloads/older.mkv'))
-    await flushPromises()
-    await vi.waitFor(() => expect(screen.queryAllByText('较旧快照 (2026)')).toHaveLength(0))
-    expect(screen.getAllByText('较新快照 (2026)')).toHaveLength(2)
+    expect(screen.queryAllByText('慢响应快照 (2026)')).toHaveLength(0)
+    expect(screen.getAllByText('下一次快照 (2026)')).toHaveLength(2)
   })
 
-  it('commits an older response while the next slow poll is still pending', async () => {
+  it('keeps the current queue visible while the next serial poll is pending', async () => {
     vi.useFakeTimers()
     const first = createDeferred<TransferQueue[]>()
     const second = createDeferred<TransferQueue[]>()
     mocks.apiGet.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
 
     await renderDialog()
-    await vi.advanceTimersByTimeAsync(3000)
-    expect(mocks.apiGet).toHaveBeenCalledTimes(2)
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
 
     first.resolve(createQueue('首个可用快照', '/downloads/first-available.mkv'))
     await flushPromises()
+    expect(screen.getAllByText('首个可用快照 (2026)')).toHaveLength(2)
+
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(mocks.apiGet).toHaveBeenCalledTimes(2)
     expect(screen.getAllByText('首个可用快照 (2026)')).toHaveLength(2)
 
     second.resolve(createQueue('后续快照', '/downloads/follow-up.mkv'))
