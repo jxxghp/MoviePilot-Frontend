@@ -13,6 +13,7 @@ import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { loadPosterTone, type PosterTone } from '@/utils/posterTone'
 import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from '@/utils/music'
 import SubscribeExecutionDialog from '@/components/dialog/SubscribeExecutionDialog.vue'
 
@@ -647,6 +648,28 @@ const posterUrl = computed(() => {
 // 缺失封面时展示媒体占位背景（图标 + 底色），对齐音乐媒体卡片
 const showPlaceholder = computed(() => !backdropUrl.value)
 
+// 桌面卡片左侧纯色底取自竖版海报主色；读不到海报像素时保持 null，由样式回退到中性深色。
+const posterTone = ref<PosterTone | null>(null)
+
+// 只在桌面布局采样，移动端不使用该底色；切换海报后丢弃过期结果，避免复用卡片时串色。
+watch(
+  () => (display.smAndUp.value ? posterUrl.value : ''),
+  async url => {
+    posterTone.value = null
+    if (!url) return
+    const tone = await loadPosterTone(url)
+    if (posterUrl.value === url) posterTone.value = tone
+  },
+  { immediate: true },
+)
+
+// 明度固定压到深色区间，保证卡片上的白字在任何海报色相下都可读。
+const desktopToneStyle = computed(() =>
+  posterTone.value
+    ? { '--subscribe-card-tone': `hsl(${posterTone.value.hue} ${posterTone.value.saturation}% 16%)` }
+    : undefined,
+)
+
 // 占位背景出现时同步标记图片已加载，让卡片正文与徽标正常渲染
 watch(
   showPlaceholder,
@@ -702,8 +725,10 @@ function handleCardClick() {
                 'subscribe-card-paused': subscribeState === 'S',
                 'subscribe-card-pending-tint': subscribeState === 'P',
                 'subscribe-card-best-version-tint': display.xs.value && hasBestVersion && subscribeState === 'R',
+                'subscribe-card-window': display.smAndUp.value,
                 'cursor-move': props.sortable,
               }"
+              :style="display.smAndUp.value ? desktopToneStyle : undefined"
               min-height="150"
               @click="handleCardClick"
               :ripple="display.smAndUp.value && !props.batchMode && !props.sortable"
@@ -740,24 +765,28 @@ function handleCardClick() {
                   <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
                   <div class="absolute inset-0 outline-none subscribe-card-background"></div>
                 </div>
+                <!-- 海报色底板放在图片层而不是卡片背景上，主题对卡片背景的覆盖不会影响它 -->
+                <div v-if="!showPlaceholder" class="subscribe-card-window-base"></div>
+                <!-- 背景图只占右侧画窗，从左侧海报色暗影中浮现，不与竖版海报重叠 -->
                 <VImg
-                  v-else
+                  v-if="!showPlaceholder"
+                  class="subscribe-card-backdrop"
                   :src="backdropUrl || posterUrl"
-                  aspect-ratio="3/2"
                   cover
                   @load="imageLoadHandler"
                   @error="backdropErrorHandler"
-                  position="top"
+                  position="center top"
                 >
                   <template #placeholder>
                     <div class="w-full h-full">
-                      <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+                      <VSkeletonLoader class="h-full" />
                     </div>
                   </template>
                   <template #default>
-                    <div class="absolute inset-0 outline-none subscribe-card-background"></div>
+                    <div class="subscribe-card-backdrop-shade"></div>
                   </template>
                 </VImg>
+                <div v-if="!showPlaceholder" class="subscribe-card-window-scrim"></div>
               </template>
 
               <template v-if="display.xs.value">
@@ -875,9 +904,9 @@ function handleCardClick() {
               </template>
 
               <div v-else>
-                <VCardText class="flex flex-1 items-center pt-3 pb-9">
+                <VCardText class="subscribe-card-desktop-text flex flex-1 items-center pt-3 pb-9">
                   <div
-                    class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
+                    class="subscribe-card-poster h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
                     v-if="imageLoaded && posterUrl"
                     :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                   >
@@ -889,20 +918,28 @@ function handleCardClick() {
                       </template>
                     </VImg>
                   </div>
-                  <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
+                  <div class="subscribe-card-meta flex flex-1 flex-col justify-center min-w-0 pl-2 xl:pl-4">
                     <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
+                    <!-- 有订阅人时标题限一行，给下方订阅人留位置，避免长标题折行后压到底部信息行 -->
                     <div
-                      class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden line-clamp-2 ..."
+                      class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden"
+                      :class="props.media?.username ? 'line-clamp-1' : 'line-clamp-2'"
                     >
                       {{ props.media?.name }}
                       {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
                     </div>
+                    <!-- 订阅人挂在标题下方、不参与垂直居中，有无订阅人时年份和标题位置一致 -->
+                    <div v-if="props.media?.username" class="subscribe-card-subscriber">
+                      <VIcon icon="mdi-account" size="14" class="flex-shrink-0" />
+                      <span class="min-w-0 truncate" :title="props.media?.username">{{ props.media?.username }}</span>
+                    </div>
                   </div>
                 </VCardText>
+                <!-- 底部单行：左侧进度或音乐规格，右侧执行状态、暂停/待定或更新时间 -->
                 <VCardText
-                  class="absolute inset-x-0 bottom-2 z-10 flex min-w-0 justify-space-between align-center flex-wrap px-3"
+                  class="subscribe-card-desktop-text subscribe-card-footer absolute inset-x-0 bottom-1 z-10 flex min-w-0 align-center px-3 py-2"
                 >
-                  <div class="flex min-w-0 max-w-full align-center">
+                  <div class="flex flex-1 min-w-0 align-center">
                     <VIcon
                       v-if="hasSubscribeProgress && props.sortable"
                       icon="mdi-progress-download"
@@ -924,59 +961,41 @@ function handleCardClick() {
                         {{ subscribeProgressTooltip }}
                       </VTooltip>
                     </div>
+                    <!-- 音乐规格可能很长，与右侧状态同行时截断，完整内容放在 title 中 -->
                     <div
                       v-if="musicSubscribeMeta"
-                      class="flex flex-shrink-0 align-center text-subtitle-2 me-2 text-white"
+                      class="flex min-w-0 align-center text-subtitle-2 me-2 text-white"
+                      :title="musicSubscribeMeta.text"
                     >
-                      <VIcon :icon="musicSubscribeMeta.icon" size="small" class="me-1" />
-                      {{ musicSubscribeMeta.text }}
+                      <VIcon :icon="musicSubscribeMeta.icon" size="small" class="flex-shrink-0 me-1" />
+                      <span class="min-w-0 truncate">{{ musicSubscribeMeta.text }}</span>
                     </div>
-                    <VIcon
-                      v-if="props.media?.username && props.sortable"
-                      icon="mdi-account"
-                      size="small"
-                      color="white"
-                      class="flex-shrink-0 me-1"
-                    />
-                    <IconBtn
-                      v-else-if="props.media?.username"
-                      icon="mdi-account"
-                      size="small"
-                      color="white"
-                      class="flex-shrink-0"
-                    />
-                    <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
-                    <span
-                      v-if="props.media?.username"
-                      class="min-w-0 truncate text-subtitle-2 text-white"
-                      :title="props.media?.username"
-                    >
-                      {{ props.media?.username }}
-                    </span>
                   </div>
-                </VCardText>
-                <!-- 右下角元数据：暂停 / 待定时替换"x 天前"为状态文案 -->
-                <component
-                  :is="canOpenExecutionDetails ? 'button' : 'div'"
-                  v-if="rightBottomStateDisplay"
-                  :type="canOpenExecutionDetails ? 'button' : undefined"
-                  class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-                  :style="
-                    executionStateDisplay ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` } : undefined
-                  "
-                  :title="rightBottomStateDisplay.label"
-                  :aria-label="canOpenExecutionDetails ? t('subscribe.execution.details') : undefined"
-                  @click="openExecutionDetails"
-                >
-                  <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
-                  {{ rightBottomStateDisplay.label }}
-                </component>
-                <VCardText
-                  v-else-if="lastUpdateText"
-                  class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-                >
-                  <VIcon icon="mdi-download" class="me-1" />
-                  {{ lastUpdateText }}
+                  <!-- 右侧元数据：执行中 / 暂停 / 待定时替换"x 天前"为状态文案 -->
+                  <component
+                    :is="canOpenExecutionDetails ? 'button' : 'div'"
+                    v-if="rightBottomStateDisplay"
+                    :type="canOpenExecutionDetails ? 'button' : undefined"
+                    class="subscribe-card-footer-meta d-flex flex-shrink-0 align-center text-xs"
+                    :style="
+                      executionStateDisplay
+                        ? { color: `rgb(var(--v-theme-${executionStateDisplay.color}))` }
+                        : undefined
+                    "
+                    :title="rightBottomStateDisplay.label"
+                    :aria-label="canOpenExecutionDetails ? t('subscribe.execution.details') : undefined"
+                    @click="openExecutionDetails"
+                  >
+                    <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
+                    {{ rightBottomStateDisplay.label }}
+                  </component>
+                  <div
+                    v-else-if="lastUpdateText"
+                    class="subscribe-card-footer-meta d-flex flex-shrink-0 align-center text-xs"
+                  >
+                    <VIcon icon="mdi-download" class="me-1" />
+                    {{ lastUpdateText }}
+                  </div>
                 </VCardText>
                 <div class="w-full absolute bottom-0">
                   <!--
@@ -1200,6 +1219,109 @@ function handleCardClick() {
 
 .subscribe-card-background {
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
+}
+
+/**
+ * 桌面卡片「右侧画窗」：左侧是取自竖版海报主色的纯色底，放海报和文字；
+ * 背景图只占右侧，先被同色调暗影压暗再浮现，海报与背景不叠在一起，各自清晰。
+ * 卡片文字始终为白色，所以底色在亮色主题下也保持深色。
+ */
+.subscribe-card-window {
+  --subscribe-card-tone-fallback: #1d2026;
+}
+
+/* 底板铺满整张卡片，位于图片层最底部；玻璃等主题会以 !important 覆盖卡片背景，所以不画在卡片本身上。 */
+.subscribe-card-window-base {
+  position: absolute;
+  background-color: var(--subscribe-card-tone, var(--subscribe-card-tone-fallback, #1d2026));
+  inset: 0;
+}
+
+/* 画窗从卡片约 18% 处开始；透明度只负责最左一小段以消除硬边，主要过渡交给下方的同色调暗影。 */
+.subscribe-card-backdrop {
+  position: absolute;
+  block-size: 100%;
+  inset-block: 0;
+  inset-inline: 18% 0;
+  mask-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0%) 0%,
+    rgba(0, 0, 0, 10%) 5%,
+    rgba(0, 0, 0, 32%) 10%,
+    rgba(0, 0, 0, 60%) 15%,
+    rgba(0, 0, 0, 84%) 20%,
+    rgba(0, 0, 0, 96%) 25%,
+    #000 30%
+  );
+}
+
+/* 同色调暗影按缓动曲线从左向右退开：主体落在过渡带时只是偏暗，不会变成半透明。 */
+.subscribe-card-backdrop-shade {
+  --shade: var(--subscribe-card-tone, var(--subscribe-card-tone-fallback, #1d2026));
+
+  position: absolute;
+  background: linear-gradient(
+    90deg,
+    var(--shade) 0%,
+    color-mix(in srgb, var(--shade) 97%, transparent) 8%,
+    color-mix(in srgb, var(--shade) 90%, transparent) 16%,
+    color-mix(in srgb, var(--shade) 78%, transparent) 24%,
+    color-mix(in srgb, var(--shade) 62%, transparent) 32%,
+    color-mix(in srgb, var(--shade) 45%, transparent) 40%,
+    color-mix(in srgb, var(--shade) 28%, transparent) 48%,
+    color-mix(in srgb, var(--shade) 14%, transparent) 56%,
+    color-mix(in srgb, var(--shade) 5%, transparent) 64%,
+    transparent 72%
+  );
+  inset: 0;
+}
+
+/* 底部信息行与右上角菜单的压暗层，覆盖整张卡片，保证亮色画面上的文字和图标可读。 */
+.subscribe-card-window-scrim {
+  position: absolute;
+  background:
+    radial-gradient(70px 56px at 100% 0%, rgba(0, 0, 0, 50%) 0%, transparent 100%),
+    linear-gradient(0deg, rgba(0, 0, 0, 60%) 0%, rgba(0, 0, 0, 35%) 40%, transparent 70%);
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 竖版海报是识别订阅的主体，用投影和细描边把它从底色中托出来。 */
+.subscribe-card-poster {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 14%),
+    0 6px 14px rgba(0, 0, 0, 45%);
+}
+
+/* 标题区和底部信息可能叠在背景画面上，用轻阴影保持白字可读。 */
+.subscribe-card-desktop-text {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 50%);
+}
+
+.subscribe-card-meta {
+  position: relative;
+}
+
+/* 订阅人：标题下方一行小字，绝对定位不参与垂直居中，超长时省略。 */
+.subscribe-card-subscriber {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 76%);
+  font-size: 0.75rem;
+  gap: 0.2rem;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  line-height: 1.4;
+  margin-block-start: 2px;
+  min-inline-size: 0;
+  padding-inline-start: 1px;
+}
+
+.subscribe-card-footer-meta {
+  color: rgba(255, 255, 255, 76%);
+  padding-inline-start: 0.5rem;
+  white-space: nowrap;
 }
 
 /* 缺失封面时的媒体占位背景（图标 + 底色），对齐音乐媒体卡片 */
