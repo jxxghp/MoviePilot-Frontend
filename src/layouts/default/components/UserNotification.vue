@@ -43,8 +43,8 @@ const notificationClearOptions = computed(() => [
   {
     scope: 'system' as const,
     title: t('notification.clearSystemMessages'),
-    icon: 'mdi-alert-circle-outline',
-    color: 'error',
+    icon: 'mdi-information-outline',
+    color: 'info',
     count: notificationClearCounts.value.system,
   },
   {
@@ -406,24 +406,32 @@ function markAllAsRead() {
   void clearUnreadMessages()
 }
 
-/** 根据通知分类和业务类型选择列表图标。 */
+/**
+ * 根据严重级别、通知分类和业务类型选择列表图标。
+ * 警示样式只由后端显式的 error/warning 级别触发；system 只是来源通道，完成类提示不应显示为错误。
+ */
 function getNotificationIcon(item: SystemNotification) {
+  if (item.level === 'error') return 'mdi-alert-circle-outline'
+  if (item.level === 'warning') return 'mdi-alert-outline'
   if (getNotificationKind(item) === 'plugin') return 'mdi-puzzle-outline'
   if (item.mtype === '资源下载') return 'mdi-download'
   if (item.mtype === '整理入库') return 'mdi-folder-check-outline'
   if (item.mtype === '订阅') return 'mdi-rss'
   if (item.mtype === '智能体') return 'lucide:bot'
-  return getNotificationKind(item) === 'system' ? 'mdi-alert-circle-outline' : 'mdi-bell-outline'
+  if (item.level === 'success') return 'mdi-check-circle-outline'
+  return getNotificationKind(item) === 'system' ? 'mdi-information-outline' : 'mdi-bell-outline'
 }
 
-/** 根据通知分类和业务类型选择图标颜色。 */
+/** 根据严重级别、通知分类和业务类型选择图标颜色，优先级与 getNotificationIcon 保持一致。 */
 function getNotificationColor(item: SystemNotification) {
-  if (getNotificationKind(item) === 'system') return 'error'
+  if (item.level === 'error') return 'error'
+  if (item.level === 'warning') return 'warning'
   if (getNotificationKind(item) === 'plugin') return 'warning'
   if (item.mtype === '资源下载') return 'info'
   if (item.mtype === '整理入库') return 'success'
   if (item.mtype === '订阅') return 'primary'
-  return 'secondary'
+  if (item.level === 'success') return 'success'
+  return getNotificationKind(item) === 'system' ? 'info' : 'secondary'
 }
 
 /** 判断通知是否有真实媒体图，决定是否使用媒体缩略图样式。 */
