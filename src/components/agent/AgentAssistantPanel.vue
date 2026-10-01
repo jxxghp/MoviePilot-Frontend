@@ -3251,7 +3251,11 @@ onScopeDispose(() => {
             >
               <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
                 <div v-if="segment.type === 'thinking'" class="agent-assistant-thinking" role="status">
-                  <VIcon class="agent-assistant-thinking__icon" icon="line-md:loading-twotone-loop" size="16" />
+                  <span class="agent-assistant-thinking__dots" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
                   <span>{{ t('agentAssistant.thinking') }} · {{ formatThinkingDuration(message) }}</span>
                 </div>
                 <AgentMarkdownContent
@@ -4086,9 +4090,28 @@ onScopeDispose(() => {
   line-height: 1.35;
 }
 
-.agent-assistant-thinking__icon {
-  color: rgba(var(--v-theme-on-surface), 0.56);
+.agent-assistant-thinking__dots {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
+  gap: 0.18rem;
+  block-size: 1rem;
+}
+
+.agent-assistant-thinking__dots span {
+  border-radius: 999px;
+  animation: agent-typing 1s infinite ease-in-out;
+  background: rgba(var(--v-theme-on-surface), 0.56);
+  block-size: 0.3rem;
+  inline-size: 0.3rem;
+}
+
+.agent-assistant-thinking__dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.agent-assistant-thinking__dots span:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 .agent-assistant-tool span {
@@ -4677,7 +4700,8 @@ onScopeDispose(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .agent-assistant-mini-bot__eye,
-  .agent-assistant-typing span {
+  .agent-assistant-typing span,
+  .agent-assistant-thinking__dots span {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

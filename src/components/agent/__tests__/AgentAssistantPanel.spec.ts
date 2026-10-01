@@ -256,7 +256,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     const children = [...segments.element.children]
     expect(children[0].className).toContain('agent-assistant-message__bubble')
     expect(children[1].className).toContain('agent-assistant-thinking')
-    expect(segments.find('.agent-assistant-thinking__icon').exists()).toBe(true)
+    expect(segments.findAll('.agent-assistant-thinking__dots span')).toHaveLength(3)
     expect(segments.get('.agent-assistant-thinking').text()).toContain('agentAssistant.thinking')
 
     wrapper.unmount()
