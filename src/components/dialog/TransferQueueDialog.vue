@@ -13,6 +13,7 @@ import type {
   TransferManualReviewPage,
   TransferManualReviewTask,
   TransferQueue,
+  TransferQueuePage,
 } from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -31,6 +32,9 @@ interface MediaTaskGroup {
   total: number
   completed: number
 }
+
+const TRANSFER_QUEUE_PAGE_SIZE = 100
+const MAX_FILE_PROGRESS_STREAMS = 12
 
 // 多语言支持
 const { t } = useI18n()
@@ -69,7 +73,7 @@ const progressActive = ref(false)
 const activeTab = ref('')
 
 // 定时器引用
-const queueTimer = ref<NodeJS.Timeout | null>(null)
+const queueTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 // 文件进度SSE连接映射
 const fileProgressSSEMap = ref<Map<string, FileProgressSSE>>(new Map())
@@ -79,6 +83,7 @@ let nextQueueRequestId = 0
 let latestCommittedQueueRequestId = 0
 let nextManualReviewRequestId = 0
 let latestCommittedManualReviewRequestId = 0
+let queueRefreshInFlight = false
 
 // 异步操作完成后只有仍挂载的弹窗可以继续刷新队列或提示错误。
 let isMounted = false
@@ -237,7 +242,13 @@ async function get_transfer_queue() {
   const requestId = ++nextQueueRequestId
 
   try {
-    const queue = (await api.get('transfer/queue')) as TransferQueue[]
+    const response = await api.get<TransferQueuePage | TransferQueue[]>('transfer/queue/page', {
+      params: {
+        page: 1,
+        count: TRANSFER_QUEUE_PAGE_SIZE,
+      },
+    })
+    const queue = Array.isArray(response) ? response : response.items
     if (!isMounted || requestId < latestCommittedQueueRequestId) return
 
     latestCommittedQueueRequestId = requestId
@@ -307,8 +318,7 @@ function openManualReview(review: TransferManualReviewTask) {
     { review },
     {
       resolved: () => {
-        void get_manual_reviews()
-        void get_transfer_queue()
+        void refreshQueue()
       },
     },
     { closeOn: ['close', 'resolved'] },
@@ -321,7 +331,7 @@ async function remove_queue_task(fileitem: FileItem) {
     await api.delete('transfer/queue', { data: fileitem })
     if (!isMounted) return
 
-    void get_transfer_queue()
+    void refreshQueue()
   } catch (error) {
     if (!isMounted) return
 
@@ -376,31 +386,28 @@ function stopAllFileProgress() {
 }
 
 // 监听队列变化，自动管理文件进度SSE
-watch(
-  dataList,
-  newDataList => {
-    const currentRunningFiles = new Set<string>()
-    newDataList.forEach(item => {
-      item.tasks.forEach(task => {
-        if (task.state === 'running') currentRunningFiles.add(task.fileitem.path)
-      })
+watch(dataList, newDataList => {
+  const currentRunningFiles = new Set<string>()
+  newDataList.forEach(item => {
+    item.tasks.forEach(task => {
+      if (task.state === 'running') currentRunningFiles.add(task.fileitem.path)
     })
+  })
 
-    const currentSSEFiles = new Set(fileProgressSSEMap.value.keys())
-    currentSSEFiles.forEach(filePath => {
-      if (!currentRunningFiles.has(filePath)) {
-        fileProgressSSEMap.value.get(filePath)?.stop()
-        fileProgressSSEMap.value.delete(filePath)
-        fileProgressMap.value.delete(filePath)
-      }
-    })
+  const currentSSEFiles = new Set(fileProgressSSEMap.value.keys())
+  currentSSEFiles.forEach(filePath => {
+    if (!currentRunningFiles.has(filePath)) {
+      fileProgressSSEMap.value.get(filePath)?.stop()
+      fileProgressSSEMap.value.delete(filePath)
+      fileProgressMap.value.delete(filePath)
+    }
+  })
 
-    currentRunningFiles.forEach(filePath => {
-      if (!fileProgressSSEMap.value.has(filePath)) startFileProgress(filePath)
-    })
-  },
-  { deep: true },
-)
+  currentRunningFiles.forEach(filePath => {
+    if (fileProgressSSEMap.value.size >= MAX_FILE_PROGRESS_STREAMS) return
+    if (!fileProgressSSEMap.value.has(filePath)) startFileProgress(filePath)
+  })
+})
 
 // 使用SSE监听加载进度。
 function startLoadingProgress() {
@@ -414,21 +421,37 @@ function stopLoadingProgress() {
 }
 
 // 启动定时获取队列。
-function startQueueTimer() {
-  if (queueTimer.value) clearInterval(queueTimer.value)
+function scheduleQueueRefresh() {
+  if (!isMounted) return
 
-  void get_transfer_queue()
-  void get_manual_reviews()
-  queueTimer.value = setInterval(() => {
-    void get_transfer_queue()
-    void get_manual_reviews()
+  if (queueTimer.value) clearTimeout(queueTimer.value)
+  queueTimer.value = setTimeout(() => {
+    queueTimer.value = null
+    void refreshQueue()
   }, 3000)
+}
+
+async function refreshQueue() {
+  if (!isMounted || queueRefreshInFlight) return
+
+  queueRefreshInFlight = true
+  try {
+    await Promise.all([get_transfer_queue(), get_manual_reviews()])
+  } finally {
+    queueRefreshInFlight = false
+    scheduleQueueRefresh()
+  }
+}
+
+function startQueueTimer() {
+  stopQueueTimer()
+  void refreshQueue()
 }
 
 // 停止定时获取队列。
 function stopQueueTimer() {
   if (queueTimer.value) {
-    clearInterval(queueTimer.value)
+    clearTimeout(queueTimer.value)
     queueTimer.value = null
   }
 }
@@ -480,7 +503,7 @@ onUnmounted(() => {
         <div class="transfer-queue-empty__headline">
           {{ t('common.serverConnectionFailed') }}
         </div>
-        <VBtn color="primary" variant="tonal" @click="get_transfer_queue">
+        <VBtn color="primary" variant="tonal" @click="refreshQueue">
           {{ t('common.retry') }}
         </VBtn>
       </VCardText>
@@ -502,7 +525,7 @@ onUnmounted(() => {
         <section v-if="queueLoadFailed" class="manual-review-load-error app-surface-shape" role="alert">
           <VIcon icon="mdi-alert-outline" color="error" size="22" />
           <span class="manual-review-load-error__message">{{ t('common.serverConnectionFailed') }}</span>
-          <VBtn color="primary" variant="tonal" size="small" @click="get_transfer_queue">
+          <VBtn color="primary" variant="tonal" size="small" @click="refreshQueue">
             {{ t('common.retry') }}
           </VBtn>
         </section>

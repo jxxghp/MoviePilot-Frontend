@@ -2629,18 +2629,35 @@ export interface ManualTransferSubmissionData {
 // 整理队列
 export interface TransferQueue {
   // 媒体信息
-  media: MediaInfo
+  media: Pick<
+    MediaInfo,
+    | 'media_source'
+    | 'media_id'
+    | 'title'
+    | 'title_year'
+    | 'year'
+    | 'poster_path'
+    | 'episode_run_time'
+    | 'origin_country'
+  >
   // 季
   season?: number
   // 任务列表
   tasks: {
     // 文件项
-    fileitem: FileItem
-    // 元数据
-    meta: MetaInfo
+    fileitem: Pick<FileItem, 'path' | 'storage' | 'type' | 'name' | 'size'>
+    // 兼容旧的完整队列响应；轻量快照不返回识别元数据。
+    meta?: MetaInfo
     // 状态
     state: string
   }[]
+}
+
+export interface TransferQueuePage {
+  items: TransferQueue[]
+  total: number
+  page: number
+  count: number
 }
 
 // 人工复核允许管理员判定 durable 整理步骤的外部执行结果。

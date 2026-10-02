@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { ScheduleInfo, TransferQueue } from '@/api/types'
+import type { ScheduleInfo, TransferQueue, TransferQueuePage } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import {
@@ -92,9 +92,17 @@ async function loadSchedulerList() {
     return
   }
   try {
-    const [schedulers, queue] = await Promise.all([api.get('dashboard/schedule'), api.get('transfer/queue')])
+    const [schedulers, queue] = await Promise.all([
+      api.get('dashboard/schedule'),
+      api.get<TransferQueuePage | TransferQueue[]>('transfer/queue/page', {
+        params: {
+          page: 1,
+          count: 20,
+        },
+      }),
+    ])
     schedulerList.value = schedulers as unknown as ScheduleInfo[]
-    transferQueue.value = queue as unknown as TransferQueue[]
+    transferQueue.value = Array.isArray(queue) ? queue : queue.items
   } catch (e) {
     console.log(e)
   }
