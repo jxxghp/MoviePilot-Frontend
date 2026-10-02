@@ -354,7 +354,7 @@ describe('AccountSettingClassification', () => {
   /** 打开高级设置，覆盖版本历史和复杂条件的兼容路径。 */
   async function enableAdvancedSettings(): Promise<void> {
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: '高级设置' }))
+    await user.click(screen.getByRole('button', { name: '高级' }))
   }
 
   it('loads only when the settings tab becomes active', async () => {
@@ -394,7 +394,7 @@ describe('AccountSettingClassification', () => {
     await enableAdvancedSettings()
     await screen.findByRole('region', { name: 'category-editor' })
 
-    await user.click(screen.getByRole('button', { name: '恢复内置默认规则' }))
+    await user.click(screen.getByRole('button', { name: '恢复默认' }))
 
     expect(mocks.loadDefaultPolicy).toHaveBeenCalledOnce()
     expect(mocks.publishDraft).not.toHaveBeenCalled()
@@ -561,14 +561,14 @@ describe('AccountSettingClassification', () => {
     expect(screen.queryByRole('region', { name: '自动分类设置流程' })).not.toBeInTheDocument()
     expect(screen.queryByText('当前版本 8')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '校验草稿' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '高级设置' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: '高级' })).toHaveAttribute('aria-pressed', 'false')
 
     await openWorkspace('测试与保存')
     expect(screen.getByRole('region', { name: 'preview-panel' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'policy-control-panel' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '高级设置' }))
-    expect(screen.getByRole('button', { name: '收起高级设置' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: '高级' }))
+    expect(screen.getByRole('button', { name: '收起高级' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it.each([
