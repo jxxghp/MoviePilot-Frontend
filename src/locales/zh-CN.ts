@@ -5013,7 +5013,6 @@ export default {
       '分身 {id} 已经创建出来了，但补挂定时任务或路由失败。不要重复创建（会撞「已存在」）：请检查这个分身的配置，然后重载插件。',
     logTitle: '插件日志',
     quickAccess: '插件面板',
-    quickAccessHint: '打开已安装插件的面板',
     quickAccessSearchPlaceholder: '搜索插件面板',
     favorites: '常用插件',
     favoritesHint: '点击“管理”，用星标固定常用插件',

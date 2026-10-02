@@ -523,7 +523,7 @@ onMounted(async () => {
           <SearchBar v-if="showHorizontalThemeNav" />
           <!-- 👉 Plugin panel launcher -->
           <IconBtn
-            v-if="appMode && canAdmin"
+            v-if="canAdmin"
             class="plugin-launcher-btn ms-2"
             :title="t('plugin.quickAccess')"
             :aria-label="t('plugin.quickAccess')"

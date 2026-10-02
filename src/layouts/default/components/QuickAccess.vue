@@ -243,18 +243,20 @@ watch(
       <div class="header">
         <div class="header-copy">
           <div class="header-title">{{ t('plugin.quickAccess') }}</div>
-          <div class="header-subtitle">{{ t('plugin.quickAccessHint') }}</div>
         </div>
         <div class="header-actions">
           <VBtn
             v-if="pluginsWithPage.length > 0"
             class="edit-btn"
+            icon
             variant="text"
             size="small"
+            :aria-label="t(isEditingFavorites ? 'plugin.doneEditingFavorites' : 'plugin.editFavorites')"
+            :title="t(isEditingFavorites ? 'plugin.doneEditingFavorites' : 'plugin.editFavorites')"
             :aria-pressed="isEditingFavorites"
             @click="isEditingFavorites = !isEditingFavorites"
           >
-            {{ t(isEditingFavorites ? 'plugin.doneEditingFavorites' : 'plugin.editFavorites') }}
+            <VIcon :icon="isEditingFavorites ? 'mdi-check' : 'mdi-tune-variant'" />
           </VBtn>
           <VBtn icon variant="text" class="close-btn" :aria-label="t('common.close')" @click="handleClose">
             <VIcon icon="mdi-close" />
@@ -501,15 +503,6 @@ watch(
   line-height: 1.25;
 }
 
-.header-subtitle {
-  overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 12px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .header-actions {
   display: flex;
   flex: 0 0 auto;
@@ -736,10 +729,6 @@ watch(
   .plugin-icon {
     block-size: 52px;
     inline-size: 52px;
-  }
-
-  .header-subtitle {
-    max-inline-size: 13rem;
   }
 }
 

@@ -5144,7 +5144,6 @@ export default {
       'Clone {id} was created, but attaching its scheduled jobs or routes failed. Do not create it again (that would hit "already exists"): check this clone\u2019s configuration, then reload the plugin.',
     logTitle: 'Plugin Logging',
     quickAccess: 'Plugin Panels',
-    quickAccessHint: 'Open an installed plugin panel',
     quickAccessSearchPlaceholder: 'Search plugin panels',
     favorites: 'Pinned Plugins',
     favoritesHint: 'Select Manage, then use the star to pin plugins',

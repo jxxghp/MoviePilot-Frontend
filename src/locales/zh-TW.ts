@@ -4936,7 +4936,6 @@ export default {
       '分身 {id} 已經創建出來了，但補掛定時任務或路由失敗。不要重複創建（會撞「已存在」）：請檢查這個分身的配置，然後重載插件。',
     logTitle: '插件日誌',
     quickAccess: '插件面板',
-    quickAccessHint: '打開已安裝插件的面板',
     quickAccessSearchPlaceholder: '搜尋插件面板',
     favorites: '常用插件',
     favoritesHint: '點擊「管理」，用星標固定常用插件',
