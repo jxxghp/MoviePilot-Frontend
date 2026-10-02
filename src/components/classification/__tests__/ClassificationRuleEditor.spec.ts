@@ -162,7 +162,13 @@ describe('ClassificationRuleEditor', () => {
     await user.click(screen.getByRole('button', { name: '新增分类规则' }))
     expect(editor.latestRules()).toEqual([
       expect.objectContaining({ id: 'rule-movie', priority: 0 }),
-      expect.objectContaining({ id: 'rule-2', name: '新规则 2', priority: 1 }),
+      expect.objectContaining({
+        id: 'rule-2',
+        name: '新规则 2',
+        priority: 1,
+        enabled: false,
+        target: { category_id: null, labels: [] },
+      }),
     ])
 
     await runRuleAction('电影规则', '复制')

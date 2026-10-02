@@ -292,6 +292,19 @@ function latestModel(result: Awaited<ReturnType<typeof renderBuilder>>): Classif
 }
 
 describe('ClassificationConditionBuilder', () => {
+  it('基础模式可以组合、切换和删除条件，并保留原条件', async () => {
+    const initial: ClassificationConditionNode = { field: 'media.year', operator: 'gte', value: 2020 }
+    const result = await renderBuilder(initial, { advanced: false })
+    await fireEvent.click(screen.getByRole('button', { name: '添加条件' }))
+    expect((latestModel(result) as { all: ClassificationConditionNode[] }).all[0]).toEqual(initial)
+    await result.rerender({ ...defaultProps, modelValue: latestModel(result), advanced: false })
+    await fireEvent.click(screen.getByRole('button', { name: '满足任一' }))
+    expect((latestModel(result) as { any: ClassificationConditionNode[] }).any).toHaveLength(2)
+    await result.rerender({ ...defaultProps, modelValue: latestModel(result), advanced: false })
+    await fireEvent.click(screen.getAllByRole('button', { name: /删除子条件/ })[1])
+    expect(latestModel(result)).toEqual({ any: [initial] })
+  })
+
   it('按媒体类型过滤动态字段，并只展示字段目录声明的操作符', async () => {
     const result = await renderBuilder({ field: 'media.year', operator: 'gte', value: 2000 })
 

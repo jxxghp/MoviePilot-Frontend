@@ -97,6 +97,14 @@ export function useMediaClassification() {
   const publishing = ref(false)
   const rollingBack = ref(false)
   let draftEpoch = 0
+  let previewEpoch = 0
+
+  /** 使旧预览及仍在途的请求失效，避免换媒体后回填上一条结果。 */
+  function clearPreview(): void {
+    previewEpoch += 1
+    previewState.value = null
+    previewing.value = false
+  }
 
   const activeRevision = computed(() => activePolicyState.value?.revision ?? 0)
   const isDirty = computed(() => {
@@ -131,6 +139,7 @@ export function useMediaClassification() {
     const normalizedPolicy = normalizeClassificationPolicy(policy)
     activePolicyState.value = cloneDeep(normalizedPolicy)
     draftEpoch += 1
+    clearPreview()
     if (!preserveDirtyDraft || !draftPolicy.value) {
       draftPolicy.value = cloneDeep(normalizedPolicy)
     }
@@ -224,7 +233,8 @@ export function useMediaClassification() {
   async function preview(
     input: ClassificationPreviewInput,
     options: ClassificationPreviewOptions = {},
-  ): Promise<ClassificationEvaluation> {
+  ): Promise<ClassificationEvaluation | null> {
+    const requestPreviewEpoch = ++previewEpoch
     previewing.value = true
     lastError.value = null
     previewState.value = null
@@ -235,13 +245,14 @@ export function useMediaClassification() {
         input: cloneDeep(input),
         ...(selectedPolicy ? { policy: normalizeClassificationPolicy(selectedPolicy) } : {}),
       })
-      if (requestEpoch === draftEpoch) previewState.value = cloneDeep(result)
+      if (requestEpoch === draftEpoch && requestPreviewEpoch === previewEpoch) previewState.value = cloneDeep(result)
       return cloneDeep(result)
     } catch (error) {
+      if (requestEpoch !== draftEpoch || requestPreviewEpoch !== previewEpoch) return null
       captureError(error)
       throw error
     } finally {
-      previewing.value = false
+      if (requestPreviewEpoch === previewEpoch) previewing.value = false
     }
   }
 
@@ -327,7 +338,7 @@ export function useMediaClassification() {
     draftPolicy.value = normalizeClassificationPolicy(policy)
     draftEpoch += 1
     validationState.value = null
-    previewState.value = null
+    clearPreview()
     impactState.value = null
     conflictState.value = null
   }
@@ -371,6 +382,7 @@ export function useMediaClassification() {
     loadHistory,
     validateDraft,
     preview,
+    clearPreview,
     analyzeImpact,
     publishDraft,
     rollback,

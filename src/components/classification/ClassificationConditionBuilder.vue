@@ -492,6 +492,13 @@ function addChild(): void {
   else if (nodeKind.value === 'any') updateNode({ any: [...groupChildren.value, child] })
 }
 
+/** 基础模式直接把单个条件扩为同时满足组，已有条件保持原义。 */
+function addSimpleCondition(): void {
+  if (!canUseGroup.value) return
+  const child = createDefaultCondition()
+  if (child) updateNode({ all: [props.modelValue, child] })
+}
+
 /** 删除 all/any 组中的子节点，并至少保留一个可编辑条件。 */
 function removeChild(index: number): void {
   if (!['all', 'any'].includes(nodeKind.value) || groupChildren.value.length <= 1) return
@@ -533,9 +540,19 @@ function removeChild(index: number): void {
       </VChip>
     </div>
 
-    <p v-else-if="nodeKind !== 'condition'" class="classification-condition-builder__node-hint">
-      {{ t('setting.classification.condition.simpleGroupHint') }}
-    </p>
+    <VBtnToggle
+      v-else-if="nodeKind === 'all' || nodeKind === 'any'"
+      :model-value="nodeKind"
+      mandatory
+      density="compact"
+      variant="tonal"
+      :aria-label="t('setting.classification.condition.nodeKindAria')"
+      @update:model-value="updateNodeKind"
+    >
+      <VBtn value="all">{{ t('setting.classification.condition.simpleAll') }}</VBtn>
+      <VBtn value="any">{{ t('setting.classification.condition.simpleAny') }}</VBtn>
+    </VBtnToggle>
+    <p v-else-if="nodeKind === 'not'" class="classification-condition-builder__node-hint">{{ nodeKindHint }}</p>
 
     <p v-if="props.advanced" class="classification-condition-builder__node-hint" data-testid="node-kind-hint">
       {{ nodeKindHint }}
@@ -762,7 +779,7 @@ function removeChild(index: number): void {
       </p>
 
       <div
-        v-if="sourceSupportHints.length > 0"
+        v-if="props.advanced && sourceSupportHints.length > 0"
         class="classification-condition-builder__source-hints"
         role="status"
         :aria-label="t('setting.classification.condition.sourceSupportAria')"
@@ -779,6 +796,15 @@ function removeChild(index: number): void {
           {{ props.sourceOptions.find(item => item.value === hint.source)?.title ?? hint.source }}：{{ hint.label }}
         </VChip>
       </div>
+      <VBtn
+        v-if="!props.advanced && props.depth === 0 && canUseGroup"
+        prepend-icon="mdi-plus"
+        variant="text"
+        size="small"
+        @click="addSimpleCondition"
+      >
+        {{ t('setting.classification.condition.addChildAria') }}
+      </VBtn>
     </template>
 
     <div v-else class="classification-condition-builder__group">
@@ -796,7 +822,7 @@ function removeChild(index: number): void {
         />
 
         <div
-          v-if="props.advanced && nodeKind !== 'not' && groupChildren.length > 1"
+          v-if="nodeKind !== 'not' && groupChildren.length > 1"
           class="classification-condition-builder__child-action"
         >
           <VTooltip :text="t('setting.classification.condition.deleteChild')" location="top">
@@ -815,7 +841,7 @@ function removeChild(index: number): void {
         </div>
       </div>
 
-      <div v-if="props.advanced" class="classification-condition-builder__group-actions">
+      <div v-if="props.advanced || nodeKind !== 'not'" class="classification-condition-builder__group-actions">
         <VTooltip
           :text="
             canAddChild

@@ -8,6 +8,7 @@ import type {
   ClassificationFactValue,
   ClassificationMediaType,
   ClassificationPreviewInput,
+  ClassificationRule,
   ClassificationSelection,
 } from '@/api/mediaClassificationTypes'
 import { formatClassificationCategoryOptionTitle } from '@/utils/mediaClassification'
@@ -23,6 +24,10 @@ interface ClassificationPreviewPanelProps {
   sources?: readonly MediaSourceInfo[]
   result: ClassificationEvaluation | null
   loading: boolean
+  advanced?: boolean
+  rules?: readonly ClassificationRule[]
+  activeRules?: readonly ClassificationRule[]
+  activeCategories?: readonly ClassificationCategory[]
 }
 
 /** 向父层提交所选媒体和策略版本。 */
@@ -31,10 +36,12 @@ interface ClassificationPreviewEvent {
   policyMode: ClassificationPreviewPolicyMode
 }
 
-const props = defineProps<ClassificationPreviewPanelProps>()
+const props = withDefaults(defineProps<ClassificationPreviewPanelProps>(), { advanced: true })
 
 const emit = defineEmits<{
   'request-preview': [request: ClassificationPreviewEvent]
+  'invalidate-preview': []
+  'edit-rule': [ruleId: string]
 }>()
 
 const { t } = useI18n()
@@ -51,11 +58,32 @@ const keyword = ref('')
 const searchResults = ref<MediaInfo[]>([])
 const selectedMedia = shallowRef<MediaInfo | null>(null)
 const searching = ref(false)
+const loadingDetails = ref(false)
+let searchEpoch = 0
+let selectionEpoch = 0
 const searchMessage = ref('')
 const validationMessage = ref('')
 const validationErrorId = `classification-preview-error-${useId()}`
 
-const categoryMap = computed(() => new Map(props.categories.map(category => [category.id, category])))
+const categoryMap = computed(
+  () =>
+    new Map(
+      (previewMode.value === 'active' ? (props.activeCategories ?? props.categories) : props.categories).map(
+        category => [category.id, category],
+      ),
+    ),
+)
+const previewRules = computed(() => (previewMode.value === 'active' ? (props.activeRules ?? []) : (props.rules ?? [])))
+
+/** 输入变化后通知父层清除结果，并令尚未返回的详情失效。 */
+function invalidateSelection(): void {
+  selectionEpoch += 1
+  loadingDetails.value = false
+  selectedMedia.value = null
+  emit('invalidate-preview')
+}
+
+watch(previewMode, () => emit('invalidate-preview'))
 
 /** 判断来源是否声明了当前预览媒体类型；未声明时按兼容来源处理。 */
 function sourceSupportsMediaType(source: MediaSourceInfo): boolean {
@@ -88,7 +116,9 @@ function mediaTitle(media: MediaInfo): string {
 
 /** 返回搜索结果卡片中的简短说明。 */
 function mediaSummary(media: MediaInfo): string {
-  const details = [media.type, media.year, media.artist || media.album].filter(Boolean)
+  const details = [media.type, media.year, sourceDisplayName(media.media_source), media.artist || media.album].filter(
+    Boolean,
+  )
   return details.join(' · ')
 }
 
@@ -99,6 +129,8 @@ function listText(values: string[] | undefined): string {
 
 /** 以统一参数搜索当前媒体类型的候选媒体。 */
 async function searchMedia(): Promise<void> {
+  const requestEpoch = ++searchEpoch
+  invalidateSelection()
   const query = keyword.value.trim()
   if (!query) {
     searchResults.value = []
@@ -124,21 +156,26 @@ async function searchMedia(): Promise<void> {
       paramsSerializer: { indexes: null },
       feedback: 'silent',
     })
+    if (requestEpoch !== searchEpoch) return
     searchResults.value = (Array.isArray(result) ? result : []).filter(
       media => media.type === mediaType.value && !!media.media_source && !!media.media_id,
     )
     if (!searchResults.value.length) searchMessage.value = t('setting.classification.preview.noSearchResults')
   } catch (error) {
+    if (requestEpoch !== searchEpoch) return
     console.error(error)
     searchResults.value = []
     searchMessage.value = t('setting.classification.preview.searchFailed')
   } finally {
-    searching.value = false
+    if (requestEpoch === searchEpoch) searching.value = false
   }
 }
 
 /** 切换媒体类型时清除旧搜索结果，避免把不同类型的数据误用于预览。 */
 function changeMediaType(value: ClassificationMediaType): void {
+  searchEpoch += 1
+  searching.value = false
+  invalidateSelection()
   mediaType.value = value
   keyword.value = ''
   searchResults.value = []
@@ -147,16 +184,45 @@ function changeMediaType(value: ClassificationMediaType): void {
   validationMessage.value = ''
 }
 
-/** 记住用户从搜索结果中选中的完整媒体对象。 */
-function selectMedia(media: MediaInfo): void {
-  selectedMedia.value = media
+/** 按来源和身份读取详情；摘要或过期详情不能用于分类测试。 */
+async function selectMedia(media: MediaInfo): Promise<void> {
+  invalidateSelection()
+  const requestEpoch = selectionEpoch
+  loadingDetails.value = true
   validationMessage.value = ''
   searchMessage.value = ''
+  try {
+    const detail = await api.get<MediaInfo>(`media/${encodeURIComponent(media.media_id || '')}`, {
+      params: {
+        media_source: media.media_source,
+        type_name: media.type,
+        ...(media.music_type ? { music_type: media.music_type } : {}),
+      },
+      feedback: 'silent',
+    })
+    if (requestEpoch !== selectionEpoch) return
+    if (
+      !detail ||
+      detail.media_source !== media.media_source ||
+      String(detail.media_id) !== String(media.media_id) ||
+      detail.type !== media.type ||
+      (media.music_type && detail.music_type !== media.music_type)
+    ) {
+      throw new Error('分类预览详情与选择的媒体身份不一致')
+    }
+    selectedMedia.value = detail
+  } catch (error) {
+    if (requestEpoch !== selectionEpoch) return
+    console.error(error)
+    validationMessage.value = t('setting.classification.preview.detailFailed')
+  } finally {
+    if (requestEpoch === selectionEpoch) loadingDetails.value = false
+  }
 }
 
 /** 清除已选媒体，要求用户重新搜索并选择。 */
 function clearSelection(): void {
-  selectedMedia.value = null
+  invalidateSelection()
   validationMessage.value = ''
 }
 
@@ -201,11 +267,22 @@ function selectionSourceLabel(source: string | null | undefined): string {
   return source ? (labels[source] ?? source) : t('setting.classification.preview.missing')
 }
 
-/** 将内部规则编号转换为“已命中”或“未使用”，避免把系统编号当成用户信息。 */
+/** 按真实规则身份显示名称，兜底不伪装成规则命中。 */
 function ruleLabel(ruleId: string | null | undefined): string {
-  return ruleId
-    ? t('setting.classification.preview.selectionSource.automatic')
-    : t('setting.classification.preview.none')
+  return (
+    previewRules.value.find(rule => rule.id === ruleId)?.name ||
+    t(
+      ruleId
+        ? 'setting.classification.preview.selectionSource.automatic'
+        : 'setting.classification.preview.selectionSource.fallback',
+    )
+  )
+}
+
+/** 轨迹使用编辑列表中的真实位置，跳过规则不导致重新编号。 */
+function rulePosition(ruleId: string): number | undefined {
+  const index = previewRules.value.findIndex(rule => rule.id === ruleId)
+  return index >= 0 ? index + 1 : undefined
 }
 
 /** 将求值状态转换为界面可读文本。 */
@@ -303,21 +380,11 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
     <header class="classification-preview__header">
       <div>
         <h2 id="classification-preview-title">{{ t('setting.classification.preview.title') }}</h2>
-        <p>{{ t('setting.classification.preview.description') }}</p>
+        <p v-if="advanced">{{ t('setting.classification.preview.description') }}</p>
       </div>
-      <VBtn
-        color="primary"
-        prepend-icon="mdi-play-outline"
-        :loading="loading"
-        :disabled="loading || !selectedMedia"
-        :aria-label="t('setting.classification.preview.run')"
-        @click="requestPreview"
-      >
-        {{ t('setting.classification.preview.run') }}
-      </VBtn>
     </header>
 
-    <div class="classification-preview__mode">
+    <div v-if="advanced" class="classification-preview__mode">
       <span id="classification-preview-mode-label">{{ t('setting.classification.preview.modeLabel') }}</span>
       <VBtnToggle
         v-model="previewMode"
@@ -334,10 +401,10 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 
     <section
       class="classification-preview__facts"
-      aria-labelledby="classification-preview-facts-title"
+      :aria-labelledby="advanced ? 'classification-preview-facts-title' : undefined"
       :aria-describedby="validationMessage ? validationErrorId : undefined"
     >
-      <div class="classification-preview__section-heading">
+      <div v-if="advanced" class="classification-preview__section-heading">
         <div>
           <h3 id="classification-preview-facts-title">{{ t('setting.classification.preview.factsTitle') }}</h3>
           <p>{{ t('setting.classification.preview.searchDescription') }}</p>
@@ -390,17 +457,18 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
         {{ searchMessage }}
       </VAlert>
 
+      <p v-if="loadingDetails" role="status">{{ t('setting.classification.preview.loadingDetails') }}</p>
+
       <VList
-        v-if="searchResults.length"
+        v-if="searchResults.length && !selectedMedia"
         class="classification-preview__search-results"
         lines="two"
         :aria-label="t('setting.classification.preview.searchResults')"
       >
         <VListItem
           v-for="media in searchResults"
-          :key="`${media.media_source}:${media.media_id}`"
+          :key="`${media.media_source}:${media.media_id}:${media.music_type || ''}`"
           :value="media.media_id"
-          :active="selectedMedia?.media_id === media.media_id && selectedMedia?.media_source === media.media_source"
           color="primary"
           @click="selectMedia(media)"
         >
@@ -423,18 +491,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
           <VListItemTitle>{{ mediaTitle(media) }}</VListItemTitle>
           <VListItemSubtitle>{{ mediaSummary(media) }}</VListItemSubtitle>
           <template #append>
-            <VIcon
-              :icon="
-                selectedMedia?.media_id === media.media_id && selectedMedia?.media_source === media.media_source
-                  ? 'mdi-check-circle'
-                  : 'mdi-chevron-right'
-              "
-              :color="
-                selectedMedia?.media_id === media.media_id && selectedMedia?.media_source === media.media_source
-                  ? 'primary'
-                  : undefined
-              "
-            />
+            <VIcon icon="mdi-chevron-right" />
           </template>
         </VListItem>
       </VList>
@@ -442,7 +499,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
       <article v-if="selectedMedia" class="classification-preview__selected" aria-labelledby="selected-media-title">
         <div class="classification-preview__selected-heading">
           <div>
-            <span class="classification-preview__eyebrow">{{ t('setting.classification.preview.selectedTitle') }}</span>
+            <span class="classification-preview__eyebrow">{{ mediaSummary(selectedMedia) }}</span>
             <h4 id="selected-media-title">{{ mediaTitle(selectedMedia) }}</h4>
           </div>
           <VBtn
@@ -453,7 +510,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             @click="clearSelection"
           />
         </div>
-        <div class="classification-preview__selected-main">
+        <div v-if="advanced" class="classification-preview__selected-main">
           <VImg
             :src="selectedMedia.cover_url || selectedMedia.poster_path"
             width="72"
@@ -501,6 +558,18 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
         </div>
       </article>
 
+      <VBtn
+        class="classification-preview__run"
+        color="primary"
+        prepend-icon="mdi-play-outline"
+        :loading="loading || loadingDetails"
+        :disabled="loading || loadingDetails || !selectedMedia"
+        :aria-label="t('setting.classification.preview.run')"
+        @click="requestPreview"
+      >
+        {{ t('setting.classification.preview.run') }}
+      </VBtn>
+
       <VAlert
         v-if="validationMessage"
         :id="validationErrorId"
@@ -514,12 +583,13 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
     </section>
 
     <section
+      v-if="advanced || result || loading"
       class="classification-preview__result"
-      aria-labelledby="classification-preview-result-title"
+      :aria-labelledby="advanced || loading ? 'classification-preview-result-title' : undefined"
       aria-live="polite"
       :aria-busy="loading"
     >
-      <div class="classification-preview__result-heading">
+      <div v-if="advanced || loading" class="classification-preview__result-heading">
         <h3 id="classification-preview-result-title">{{ t('setting.classification.preview.resultTitle') }}</h3>
         <VProgressCircular
           v-if="loading"
@@ -535,7 +605,8 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
       </p>
 
       <template v-if="result">
-        <div class="classification-preview__summary">
+        <p v-if="advanced" class="classification-preview__result-media">{{ result.facts.media.title }}</p>
+        <div v-if="advanced" class="classification-preview__summary">
           <div>
             <span>{{ t('setting.classification.preview.status') }}</span>
             <VChip :color="stateColor(result.result.state)" variant="tonal" size="small">
@@ -550,20 +621,38 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 
         <div class="classification-preview__selections">
           <section aria-labelledby="classification-preview-recommended-title">
-            <h4 id="classification-preview-recommended-title">{{ t('setting.classification.preview.recommended') }}</h4>
+            <h4 id="classification-preview-recommended-title">
+              {{
+                t(
+                  advanced
+                    ? 'setting.classification.preview.recommended'
+                    : 'setting.classification.preview.simpleCategory',
+                )
+              }}
+            </h4>
             <strong>{{ selectionTitle(result.result.recommended) }}</strong>
             <dl v-if="result.result.recommended">
               <div>
                 <dt>{{ t('setting.classification.preview.rule') }}</dt>
-                <dd>{{ ruleLabel(result.result.recommended.rule_id) }}</dd>
+                <dd>
+                  <button
+                    v-if="result.result.recommended.rule_id && previewMode === 'draft'"
+                    class="classification-preview__rule-link"
+                    type="button"
+                    @click="emit('edit-rule', result.result.recommended.rule_id)"
+                  >
+                    {{ ruleLabel(result.result.recommended.rule_id) }}
+                  </button>
+                  <span v-else>{{ ruleLabel(result.result.recommended.rule_id) }}</span>
+                </dd>
               </div>
-              <div>
+              <div v-if="advanced">
                 <dt>{{ t('setting.classification.preview.source') }}</dt>
                 <dd>{{ selectionSourceLabel(result.result.recommended.source) }}</dd>
               </div>
             </dl>
           </section>
-          <section aria-labelledby="classification-preview-effective-title">
+          <section v-if="advanced" aria-labelledby="classification-preview-effective-title">
             <h4 id="classification-preview-effective-title">{{ t('setting.classification.preview.effective') }}</h4>
             <strong>{{ selectionTitle(result.result.effective) }}</strong>
             <dl v-if="result.result.effective">
@@ -579,7 +668,11 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
           </section>
         </div>
 
-        <section class="classification-preview__labels" aria-labelledby="classification-preview-labels-title">
+        <section
+          v-if="advanced || result.result.labels.length"
+          class="classification-preview__labels"
+          aria-labelledby="classification-preview-labels-title"
+        >
           <h4 id="classification-preview-labels-title">{{ t('setting.classification.preview.labels') }}</h4>
           <div v-if="result.result.labels.length" class="classification-preview__chips">
             <VChip v-for="label in result.result.labels" :key="label" size="small" variant="tonal">
@@ -589,8 +682,11 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
           <span v-else>{{ t('setting.classification.preview.none') }}</span>
         </section>
 
+        <VAlert v-if="!advanced && result.result.state === 'partial'" type="warning" variant="tonal" density="compact">
+          {{ t('setting.classification.preview.incomplete') }}
+        </VAlert>
         <section
-          v-if="result.warnings.length"
+          v-if="advanced && result.warnings.length"
           class="classification-preview__warnings"
           aria-labelledby="classification-preview-warnings-title"
         >
@@ -610,19 +706,29 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
           </VAlert>
         </section>
 
-        <section class="classification-preview__trace" aria-labelledby="classification-preview-trace-title">
+        <section
+          v-if="advanced"
+          class="classification-preview__trace"
+          aria-labelledby="classification-preview-trace-title"
+        >
           <h4 id="classification-preview-trace-title">{{ t('setting.classification.preview.trace') }}</h4>
           <p v-if="!result.trace.length" class="classification-preview__empty">
             {{ t('setting.classification.preview.noRules') }}
           </p>
           <details
-            v-for="(rule, ruleIndex) in result.trace"
+            v-for="rule in result.trace"
             :key="rule.rule_id"
             class="classification-preview__rule"
             :open="rule.matched"
           >
             <summary>
-              <span>{{ t('setting.classification.preview.ruleNumber', { number: ruleIndex + 1 }) }}</span>
+              <span
+                >{{ ruleLabel(rule.rule_id)
+                }}<template v-if="rulePosition(rule.rule_id)">
+                  ·
+                  {{ t('setting.classification.preview.ruleNumber', { number: rulePosition(rule.rule_id) }) }}</template
+                ></span
+              >
               <VChip :color="rule.matched ? 'success' : 'default'" size="x-small" variant="tonal">
                 {{
                   t(
@@ -635,7 +741,9 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
             </summary>
             <div v-if="rule.conditions.length" class="classification-preview__trace-table">
               <VTable density="compact">
-                <table :aria-label="t('setting.classification.preview.traceTableAria', { rule: ruleIndex + 1 })">
+                <table
+                  :aria-label="t('setting.classification.preview.traceTableAria', { rule: rulePosition(rule.rule_id) })"
+                >
                   <thead>
                     <tr>
                       <th scope="col">{{ t('setting.classification.preview.columns.result') }}</th>
@@ -692,6 +800,17 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 </template>
 
 <style scoped>
+.classification-preview__rule-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.classification-preview__result-media {
+  margin-block: 0.5rem;
+  font-weight: 600;
+}
+
 .classification-preview {
   display: grid;
   gap: 1.25rem;
@@ -906,7 +1025,7 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
 
 .classification-preview__selections dl > div {
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
+  grid-template-columns: 5rem minmax(0, 1fr);
   gap: 0.5rem;
 }
 
@@ -916,7 +1035,12 @@ function factSourceLabel(source: ClassificationFactSource | null | undefined): s
   overflow-wrap: anywhere;
 }
 
+.classification-preview__run {
+  justify-self: start;
+}
+
 .classification-preview__selections dt {
+  white-space: nowrap;
   color: rgb(var(--v-theme-on-surface-variant));
 }
 
