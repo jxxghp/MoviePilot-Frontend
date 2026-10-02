@@ -2,6 +2,8 @@ import type { Plugin } from '@/api/types'
 
 const RECENT_PLUGINS_KEY = 'moviepilot_recent_plugins'
 const MAX_RECENT_PLUGINS = 3
+const PINNED_PLUGINS_KEY = 'moviepilot_pinned_plugins'
+const MAX_PINNED_PLUGINS = 6
 
 interface RecentPlugin {
   id: string
@@ -38,6 +40,7 @@ function recentPluginToPlugin(recentPlugin: RecentPlugin): Plugin {
   } as Plugin
 }
 
+/** 管理插件面板中的最近访问记录与用户固定的常用插件。 */
 export function useRecentPlugins() {
   // 获取最近访问的插件
   function getRecentPlugins(): Plugin[] {
@@ -104,10 +107,50 @@ export function useRecentPlugins() {
     }
   }
 
+  /** 读取用户固定的插件 ID，并清理历史版本可能写入的非法值。 */
+  function getPinnedPluginIds(): string[] {
+    try {
+      const stored = localStorage.getItem(PINNED_PLUGINS_KEY)
+      if (!stored) return []
+
+      const pinnedPluginIds: unknown = JSON.parse(stored)
+      if (!Array.isArray(pinnedPluginIds)) return []
+
+      return [...new Set(pinnedPluginIds)]
+        .filter((pluginId): pluginId is string => typeof pluginId === 'string' && pluginId.length > 0)
+        .slice(0, MAX_PINNED_PLUGINS)
+    } catch (error) {
+      console.error(error)
+      return []
+    }
+  }
+
+  /** 切换插件的固定状态，并返回更新后的固定顺序。 */
+  function togglePinnedPlugin(pluginId: string): string[] {
+    const pinnedPluginIds = getPinnedPluginIds()
+    if (!pluginId) return pinnedPluginIds
+
+    const existingIndex = pinnedPluginIds.indexOf(pluginId)
+    const nextPinnedPluginIds =
+      existingIndex >= 0
+        ? pinnedPluginIds.filter(id => id !== pluginId)
+        : [pluginId, ...pinnedPluginIds].slice(0, MAX_PINNED_PLUGINS)
+
+    try {
+      localStorage.setItem(PINNED_PLUGINS_KEY, JSON.stringify(nextPinnedPluginIds))
+    } catch (error) {
+      console.error(error)
+    }
+
+    return nextPinnedPluginIds
+  }
+
   return {
     getRecentPlugins,
     addRecentPlugin,
     clearRecentPlugins,
     removeRecentPlugin,
+    getPinnedPluginIds,
+    togglePinnedPlugin,
   }
 }
