@@ -386,31 +386,28 @@ function stopAllFileProgress() {
 }
 
 // 监听队列变化，自动管理文件进度SSE
-watch(
-  dataList,
-  newDataList => {
-    const currentRunningFiles = new Set<string>()
-    newDataList.forEach(item => {
-      item.tasks.forEach(task => {
-        if (task.state === 'running') currentRunningFiles.add(task.fileitem.path)
-      })
+watch(dataList, newDataList => {
+  const currentRunningFiles = new Set<string>()
+  newDataList.forEach(item => {
+    item.tasks.forEach(task => {
+      if (task.state === 'running') currentRunningFiles.add(task.fileitem.path)
     })
+  })
 
-    const currentSSEFiles = new Set(fileProgressSSEMap.value.keys())
-    currentSSEFiles.forEach(filePath => {
-      if (!currentRunningFiles.has(filePath)) {
-        fileProgressSSEMap.value.get(filePath)?.stop()
-        fileProgressSSEMap.value.delete(filePath)
-        fileProgressMap.value.delete(filePath)
-      }
-    })
+  const currentSSEFiles = new Set(fileProgressSSEMap.value.keys())
+  currentSSEFiles.forEach(filePath => {
+    if (!currentRunningFiles.has(filePath)) {
+      fileProgressSSEMap.value.get(filePath)?.stop()
+      fileProgressSSEMap.value.delete(filePath)
+      fileProgressMap.value.delete(filePath)
+    }
+  })
 
-    currentRunningFiles.forEach(filePath => {
-      if (fileProgressSSEMap.value.size >= MAX_FILE_PROGRESS_STREAMS) return
-      if (!fileProgressSSEMap.value.has(filePath)) startFileProgress(filePath)
-    })
-  },
-)
+  currentRunningFiles.forEach(filePath => {
+    if (fileProgressSSEMap.value.size >= MAX_FILE_PROGRESS_STREAMS) return
+    if (!fileProgressSSEMap.value.has(filePath)) startFileProgress(filePath)
+  })
+})
 
 // 使用SSE监听加载进度。
 function startLoadingProgress() {
