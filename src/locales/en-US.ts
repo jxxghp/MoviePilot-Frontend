@@ -2144,7 +2144,6 @@ export default {
       },
       showAdvancedSettings: 'Advanced',
       hideAdvancedSettings: 'Hide advanced',
-      revision: 'Current version {revision}',
       unsaved: 'Unsaved changes',
       closeConfirm: 'There are unsaved classification policy changes. Close anyway?',
       loading: 'Loading the classification policy and field catalog...',

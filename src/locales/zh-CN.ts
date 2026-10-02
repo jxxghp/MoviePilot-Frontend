@@ -2120,7 +2120,6 @@ export default {
       },
       showAdvancedSettings: '高级',
       hideAdvancedSettings: '收起高级',
-      revision: '当前版本 {revision}',
       unsaved: '有未保存修改',
       closeConfirm: '当前有未保存的分类策略修改，确定关闭吗？',
       loading: '正在加载分类策略和字段目录...',

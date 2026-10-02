@@ -565,9 +565,6 @@ watch(analysisTab, tab => {
       <template #append>
         <div class="classification-settings__header-actions">
           <div class="classification-settings__status">
-            <VChip v-if="showAdvanced" size="small" variant="tonal" prepend-icon="mdi-source-branch">
-              {{ t('setting.classification.revision', { revision: activeRevision }) }}
-            </VChip>
             <VChip v-if="isDirty" size="small" color="warning" variant="tonal">
               {{ t('setting.classification.unsaved') }}
             </VChip>

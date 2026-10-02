@@ -2081,7 +2081,6 @@ export default {
       },
       showAdvancedSettings: '進階',
       hideAdvancedSettings: '收起進階',
-      revision: '目前版本 {revision}',
       unsaved: '有未儲存修改',
       closeConfirm: '目前有未儲存的分類策略修改，確定要關閉嗎？',
       loading: '正在載入分類策略和欄位目錄...',

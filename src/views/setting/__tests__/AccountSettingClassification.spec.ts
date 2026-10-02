@@ -568,6 +568,7 @@ describe('AccountSettingClassification', () => {
     expect(screen.queryByRole('region', { name: 'policy-control-panel' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '高级' }))
+    expect(screen.queryByText('当前版本 8')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '收起高级' })).toHaveAttribute('aria-pressed', 'true')
   })
 
