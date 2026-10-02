@@ -1,4 +1,4 @@
-import type { MetaInfo, TransferManualReviewTask, TransferQueue } from '@/api/types'
+import type { MetaInfo, TransferManualReviewTask, TransferQueue, TransferQueuePage } from '@/api/types'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import { screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
@@ -215,6 +215,24 @@ describe('TransferQueueDialog', () => {
     await vi.advanceTimersByTimeAsync(3000)
 
     expect(mocks.apiGet).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders the bounded queue page response used by the backend projection endpoint', async () => {
+    const queue = createQueue('受限快照', '/downloads/bounded.mkv')
+    const page = {
+      items: queue,
+      total: 1,
+      page: 1,
+      count: 100,
+    } satisfies TransferQueuePage
+    mocks.apiGet.mockResolvedValue(page)
+
+    await renderDialog()
+
+    expect(await screen.findAllByText('受限快照 (2026)')).toHaveLength(2)
+    expect(mocks.apiGet).toHaveBeenCalledWith('transfer/queue/page', {
+      params: { page: 1, count: 100 },
+    })
   })
 
   it('shows manual-review tasks in the queue and opens their detail dialog', async () => {
