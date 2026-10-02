@@ -18,6 +18,14 @@ $-popup-hosts: (
   '.layout-vertical-nav.overlay-nav'
 );
 
+// 非 Vuetify 卡片的业务表面也复用内容材质，避免移动端退回只有底色的旧玻璃样式。
+$-custom-content-surfaces: (
+  '.file-browser-view',
+  '.transfer-history-mobile-record',
+  '.mobile-calendar-filter-card',
+  '.mobile-calendar-event-card'
+);
+
 // V3 表面按信息角色统一材料；只改变承载层，不改变图表、业务数据与交互命中区。
 @mixin surfaces {
   html[data-theme='glass'] {
@@ -106,6 +114,7 @@ $-popup-hosts: (
       }
 
       .v-card,
+      :is(#{$-custom-content-surfaces}),
       .layout-navbar,
       .layout-vertical-nav::before {
         // 在表面上解析反光强度，卡片 hover 的局部参数不能被根节点预先求值。
@@ -120,6 +129,7 @@ $-popup-hosts: (
       .layout-page-content
         .v-card:not(
           .v-card .v-card,
+          .file-browser-view .v-card,
           .no-blur,
           .media-card,
           .playing-card,
@@ -130,6 +140,7 @@ $-popup-hosts: (
           .bg-error
         ),
       .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card),
+      .layout-page-content :is(#{$-custom-content-surfaces}),
       .dashboard-grid-content-measure > .v-card,
       .dashboard-grid-content-measure > :first-child > .v-card {
         border-radius: var(--app-theme-surface-radius, 20px) !important;
@@ -137,9 +148,17 @@ $-popup-hosts: (
         box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-shadow) !important;
       }
 
+      // 自定义表面由外层执行一次原生采样，静态页面和 renderer 就绪后都保留相同的材质。
+      .layout-page-content :is(#{$-custom-content-surfaces}) {
+        border: 1px solid var(--glass-border);
+        backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+        -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+      }
+
       .layout-page-content
         .v-card:not(
           .v-card .v-card,
+          .file-browser-view .v-card,
           .no-blur,
           .media-card,
           .playing-card,
@@ -307,6 +326,7 @@ $-popup-hosts: (
       .layout-page-content
         .v-card:not(
           .v-card .v-card,
+          .file-browser-view .v-card,
           .no-blur,
           .media-card,
           .playing-card,
@@ -404,7 +424,8 @@ $-popup-hosts: (
       --glass-control-icon-color: rgba(242, 245, 250, 90%);
     }
 
-    .v-card {
+    .v-card,
+    :is(#{$-custom-content-surfaces}) {
       --glass-v3-surface-edge: inset 0 1px 0 var(--glass-highlight);
     }
 
@@ -422,7 +443,18 @@ $-popup-hosts: (
 
   // 所有临时表面采用同族阅读材质，Vuetify 容器只传递 token，由真正的表面执行一次采样。
   html[data-theme='glass'] body[data-theme='glass'] {
-    // 地址栏与内容卡拼成一张工作表面；内容卡保留下方外侧圆角，避免父层裁掉两侧边框。
+    // 外层统一绘制渐变、边框和阴影；内部区域保持透明，避免地址栏、目录树和列表各自起一层高光。
+    .file-browser-view :is(.file-browser-toolbar.v-toolbar, .file-list.v-card, .file-navigator.v-card) {
+      --glass-native-surface-backdrop-filter: none;
+
+      border-width: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+
+    // 内部区域保留外侧圆角，滚动内容与整个面板共用同一裁剪边界。
     .file-browser-view .file-list.v-card.rounded-lg,
     .file-browser-view .file-navigator.v-card.rounded-lg,
     .file-browser-view .file-list.v-card,
@@ -447,6 +479,7 @@ $-popup-hosts: (
 
     .file-browser-view .file-browser-toolbar.v-toolbar {
       border-radius: var(--app-surface-radius) var(--app-surface-radius) 0 0 !important;
+      border-block-end: 1px solid var(--glass-border) !important;
     }
 
     .agent-assistant-fab__bubbles {
@@ -754,6 +787,7 @@ $-popup-hosts: (
       .footer-nav-card,
       .layout-wrapper[data-shell-mode='desktop'] .layout-vertical-nav::before,
       .layout-page-content :is(.site-card, .plugin-card, .downloading-card, .subscribe-card),
+      .layout-page-content :is(#{$-custom-content-surfaces}),
       .dashboard-grid-content-measure > .v-card,
       .dashboard-grid-content-measure > :first-child > .v-card {
         background: rgb(31, 34, 39) !important;

@@ -34,6 +34,7 @@ const props = withDefaults(
     maxRules?: number
     maxConditionDepth?: number
     advanced?: boolean
+    focusRuleId?: string | null
   }>(),
   {
     sourceOptions: () => [],
@@ -54,6 +55,23 @@ const draftRules = ref<ClassificationRule[]>([])
 const expandedRuleId = ref<string | null>(null)
 const ruleIdDrafts = ref<Record<number, string>>({})
 const ruleIdErrors = ref<Record<number, string>>({})
+const filterText = ref('')
+const filterMediaType = ref<ClassificationMediaType | ''>('')
+const isFiltering = computed(() => Boolean((filterText.value || '').trim() || filterMediaType.value))
+const visibleRuleIds = computed(
+  () =>
+    new Set(
+      draftRules.value
+        .filter(
+          rule =>
+            (!filterMediaType.value || rule.media_types.includes(filterMediaType.value)) &&
+            `${rule.name} ${conditionSummary(rule.when)} ${targetSummary(rule)}`
+              .toLocaleLowerCase()
+              .includes((filterText.value || '').trim().toLocaleLowerCase()),
+        )
+        .map(rule => rule.id),
+    ),
+)
 
 /** 按条件联合类型递归复制，避免 Vue 响应式代理进入 structuredClone。 */
 function cloneCondition(node: ClassificationConditionNode): ClassificationConditionNode {
@@ -202,27 +220,28 @@ function normalizeConditionForMediaTypes(
   }
 }
 
-/** 新增一条具备稳定默认值的分类规则。 */
+/** 新规则先停用且不代选目标，避免默认条件接管所有电影。 */
 function addRule() {
   if (draftRules.value.length >= props.maxRules) return
   const sequence = nextRuleNumber()
   const mediaTypes: ClassificationMediaType[] = ['电影']
-  const defaultCategory = props.categories.find(category => category.enabled && category.media_type === mediaTypes[0])
   const rule: ClassificationRule = {
     id: uniqueId(`rule-${sequence}`),
     name: uniqueName(t('setting.classification.rule.newName', { sequence })),
     kind: 'category',
-    enabled: true,
+    enabled: false,
     priority: draftRules.value.length,
     media_types: mediaTypes,
     sources: [],
     when: createClassificationTypeCondition(mediaTypes),
     target: {
-      category_id: defaultCategory?.id ?? null,
+      category_id: null,
       labels: [],
     },
   }
   commitRules([...draftRules.value, rule])
+  filterText.value = ''
+  filterMediaType.value = ''
   expandedRuleId.value = rule.id
 }
 
@@ -317,12 +336,28 @@ function toggleRule(ruleId: string): void {
   expandedRuleId.value = expandedRuleId.value === ruleId ? null : ruleId
 }
 
-/** 递归统计叶子条件数量，供折叠摘要快速判断规则复杂度。 */
-function conditionCount(node: ClassificationConditionNode): number {
-  if ('field' in node) return 1
-  if (node.all) return node.all.reduce((count, child) => count + conditionCount(child), 0)
-  if (node.any) return node.any.reduce((count, child) => count + conditionCount(child), 0)
-  return node.not ? conditionCount(node.not) : 0
+/** 将条件翻译成可扫描的名称和值，保留组合关系。 */
+function conditionSummary(node: ClassificationConditionNode): string {
+  if ('field' in node) {
+    const field = props.fields.find(item => item.id === node.field)
+    const options = [...(field?.options ?? []), ...Object.values(field?.source_options ?? {}).flat()]
+    const values = (Array.isArray(node.value) ? node.value : [node.value])
+      .filter(value => value !== null && value !== undefined)
+      .map(value => options.find(option => option.value === value)?.label ?? String(value))
+      .join('、')
+    return `${field?.label ?? t('setting.classification.rule.unknownField')} ${t(`setting.classification.condition.operators.${node.operator}`)} ${values}`.trim()
+  }
+  if (node.not) return `${t('setting.classification.condition.nodeKinds.not')} (${conditionSummary(node.not)})`
+  const children = node.all ?? node.any ?? []
+  const joiner = t(node.all ? 'setting.classification.rule.and' : 'setting.classification.rule.or')
+  return children
+    .map(child => ('field' in child ? conditionSummary(child) : `(${conditionSummary(child)})`))
+    .join(` ${joiner} `)
+}
+
+/** 仅限制媒体类型的启用规则会接管该类型剩余项目，需要明确提示。 */
+function isBroadRule(rule: ClassificationRule): boolean {
+  return rule.enabled && rule.kind === 'category' && 'field' in rule.when && rule.when.field === 'media.type'
 }
 
 /** 将媒体类型压缩为可扫描的规则摘要。 */
@@ -376,6 +411,20 @@ watch(
   },
   { deep: true, immediate: true },
 )
+
+watch(
+  () => props.focusRuleId,
+  async ruleId => {
+    if (!ruleId) return
+    filterText.value = ''
+    filterMediaType.value = ''
+    expandedRuleId.value = ruleId
+    await nextTick()
+    document
+      .getElementById(`classification-rule-body-${ruleId}`)
+      ?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  },
+)
 </script>
 
 <template>
@@ -387,7 +436,9 @@ watch(
             ? t('setting.classification.rule.orderedRules')
             : t('setting.classification.rule.matchingRules')
         }}</strong>
-        <span>{{ draftRules.length }} / {{ maxRules }}</span>
+        <span
+          >{{ draftRules.length }}<template v-if="advanced"> / {{ maxRules }}</template></span
+        >
       </div>
       <VBtn
         color="primary"
@@ -408,19 +459,43 @@ watch(
       </VBtn>
     </header>
 
-    <VAlert v-if="!props.advanced" type="info" variant="tonal" density="compact">
-      {{ t('setting.classification.rule.simpleModeHint') }}
-    </VAlert>
+    <p class="classification-rule-order-hint">{{ t('setting.classification.rule.orderHint') }}</p>
+    <div class="classification-rule-filters">
+      <VTextField
+        v-model="filterText"
+        :label="t('setting.classification.rule.search')"
+        prepend-inner-icon="mdi-magnify"
+        clearable
+        density="compact"
+        hide-details
+        @click:clear="filterText = ''"
+      />
+      <VSelect
+        v-model="filterMediaType"
+        :items="[
+          { title: t('setting.classification.rule.allMediaTypes'), value: '' },
+          ...MEDIA_TYPES.map(value => ({ title: value, value })),
+        ]"
+        :label="t('setting.classification.rule.mediaTypes')"
+        density="compact"
+        hide-details
+      />
+    </div>
+    <p v-if="!visibleRuleIds.size && draftRules.length" role="status">
+      {{ t('setting.classification.rule.noMatches') }}
+    </p>
 
     <Draggable
       v-model="orderedRules"
       item-key="id"
       handle=".classification-rule-drag"
+      :disabled="isFiltering"
       tag="div"
       :component-data="{ class: 'classification-rule-list' }"
     >
       <template #item="{ element: rule, index }">
         <VCard
+          v-show="visibleRuleIds.has(rule.id)"
           class="classification-rule"
           :class="{ 'classification-rule--expanded': expandedRuleId === rule.id }"
           variant="outlined"
@@ -434,6 +509,7 @@ watch(
               icon
               variant="text"
               color="secondary"
+              :disabled="isFiltering"
               :aria-label="t('setting.classification.rule.dragAria', { name: rule.name || rule.id })"
             >
               <VIcon icon="mdi-drag-vertical" size="20" />
@@ -453,8 +529,8 @@ watch(
               </span>
               <span class="classification-rule-meta">
                 <span>{{ mediaTypeSummary(rule) }}</span>
-                <span>{{ sourceSummary(rule) }}</span>
-                <span>{{ t('setting.classification.rule.conditionCount', { count: conditionCount(rule.when) }) }}</span>
+                <span v-if="advanced">{{ sourceSummary(rule) }}</span>
+                <span class="classification-rule-condition-summary">{{ conditionSummary(rule.when) }}</span>
                 <span>{{ targetSummary(rule) }}</span>
               </span>
             </button>
@@ -483,13 +559,13 @@ watch(
                 <VListItem
                   prepend-icon="mdi-arrow-up"
                   :title="t('setting.classification.rule.moveUp', { name: rule.name || rule.id })"
-                  :disabled="index === 0"
+                  :disabled="isFiltering || index === 0"
                   @click="moveRule(index, index - 1)"
                 />
                 <VListItem
                   prepend-icon="mdi-arrow-down"
                   :title="t('setting.classification.rule.moveDown', { name: rule.name || rule.id })"
-                  :disabled="index === draftRules.length - 1"
+                  :disabled="isFiltering || index === draftRules.length - 1"
                   @click="moveRule(index, index + 1)"
                 />
                 <VListItem
@@ -527,6 +603,16 @@ watch(
             :id="`classification-rule-body-${rule.id}`"
             class="classification-rule-body"
           >
+            <VAlert
+              v-if="!rule.enabled && !rule.target.category_id && rule.kind === 'category'"
+              type="info"
+              variant="tonal"
+              density="compact"
+              >{{ t('setting.classification.rule.newRuleHint') }}</VAlert
+            >
+            <VAlert v-if="isBroadRule(rule)" type="warning" variant="tonal" density="compact">{{
+              t('setting.classification.rule.broadHint')
+            }}</VAlert>
             <div class="classification-rule-grid classification-rule-grid--identity">
               <VTextField
                 :model-value="rule.name"
@@ -626,6 +712,7 @@ watch(
                   @update:model-value="value => updateTarget(index, { category_id: value })"
                 />
                 <VCombobox
+                  v-if="advanced || rule.kind === 'label'"
                   :model-value="rule.target.labels"
                   :label="t('setting.classification.rule.labels')"
                   multiple
@@ -654,6 +741,24 @@ watch(
 </template>
 
 <style scoped>
+.classification-rule-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 0.45fr);
+  gap: 0.75rem;
+}
+
+.classification-rule-order-hint {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.75);
+  font-size: 0.8125rem;
+}
+
+.classification-rule-condition-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .classification-rule-editor {
   --glass-button-surface-hover: rgba(var(--v-theme-primary), 0.12);
 
@@ -769,7 +874,7 @@ watch(
 
 .classification-rule-title > span {
   flex: 0 0 auto;
-  color: rgb(var(--v-theme-primary));
+  color: rgba(var(--v-theme-on-surface), 0.8);
   font-size: 0.75rem;
 }
 
@@ -866,6 +971,10 @@ watch(
 }
 
 @media (max-width: 760px) {
+  .classification-rule-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .classification-rule-toolbar {
     align-items: stretch;
     flex-direction: column;

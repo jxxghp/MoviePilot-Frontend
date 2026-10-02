@@ -29,10 +29,8 @@ import {
   type UserPermissionFeatureKey,
   type UserPermissionKey,
 } from '@/utils/permission'
-import { usePullDownGesture } from '@/composables/usePullDownGesture'
 import { usePWA } from '@/composables/usePWA'
 import OfflinePage from './OfflinePage.vue'
-import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
@@ -110,9 +108,6 @@ const mainContentPaddingTop = computed(() => {
 
 // 插件快速访问相关状态
 const showPluginQuickAccess = ref(false)
-
-// 离线状态管理
-const { isOffline } = useGlobalOfflineStatus()
 
 // 动态标签页相关
 // 定义动态标签页类型
@@ -243,47 +238,6 @@ onUnmounted(() => {
   if (typeof window !== 'undefined') {
     delete (window as DynamicHeaderTabWindow).__VUE_INJECT_DYNAMIC_HEADER_TAB__
   }
-})
-
-/** 判断当前页面状态是否允许使用主界面下拉快捷入口手势。 */
-const canUsePullGesture = () => {
-  // 检查是否在dashboard页面
-  const isDashboard = route.path === '/dashboard' || route.path === '/'
-  // 检查是否是管理员
-  const isAdmin = canAdmin.value
-  // 检查插件快速访问面板是否已显示
-  const quickAccessOpen = showPluginQuickAccess.value
-  // 检查是否离线
-  const offline = isOffline.value
-
-  return isDashboard && isAdmin && !quickAccessOpen && !offline
-}
-
-// 使用下拉手势 composable
-const {
-  pullDistance,
-  contentTransform,
-  contentTransition,
-  showPullIndicator,
-  indicatorRotation,
-  indicatorOpacity,
-  indicatorTransform,
-  config: PULL_CONFIG,
-} = usePullDownGesture({
-  enabled: true,
-  config: {
-    START_THRESHOLD: 28,
-    SHOW_INDICATOR: 80,
-    TRIGGER_THRESHOLD: 140,
-    MAX_PULL_DISTANCE: 220,
-    PULL_RESISTANCE: 0.7,
-    CONTENT_FOLLOW_RATIO: 0.35,
-    TOLERANCE: 96,
-  },
-  canUsePullGesture,
-  onTrigger: () => {
-    showPluginQuickAccess.value = true
-  },
 })
 
 /** 根据菜单分组标题获取当前用户可见的菜单项。 */
@@ -429,6 +383,13 @@ function handleClosePluginQuickAccess() {
   showPluginQuickAccess.value = false
 }
 
+/** 从移动端顶栏打开插件面板，替代容易误触的首页全局下拉手势。 */
+function handleOpenPluginQuickAccess() {
+  if (!appMode.value || !canAdmin.value) return
+
+  showPluginQuickAccess.value = true
+}
+
 /** 点击插件入口后关闭插件快速访问面板。 */
 function handlePluginClick() {
   showPluginQuickAccess.value = false
@@ -531,31 +492,6 @@ onMounted(async () => {
   <!-- 👉 Offline Page -->
   <OfflinePage />
 
-  <!-- 👉 Pull Down Indicator -->
-  <div
-    v-if="appMode && showPullIndicator"
-    class="app-pull-indicator"
-    :style="{
-      '--app-pull-indicator-navbar-extra-height': navbarExtraHeight,
-      opacity: indicatorOpacity,
-      transform: indicatorTransform,
-    }"
-  >
-    <div
-      class="app-pull-indicator__icon"
-      :style="{
-        transform: `scale(${
-          1 + Math.min((pullDistance - PULL_CONFIG.SHOW_INDICATOR) / PULL_CONFIG.MAX_PULL_DISTANCE, 0.5) * 0.3
-        }) rotate(${indicatorRotation}deg)`,
-      }"
-    >
-      <VIcon
-        icon="mdi-gesture-swipe-down"
-        size="24"
-        :color="pullDistance >= PULL_CONFIG.TRIGGER_THRESHOLD ? 'success' : 'primary'"
-      />
-    </div>
-  </div>
   <VerticalNavLayout :style="{ '--navbar-tab-height': navbarExtraHeight }">
     <!-- 👉 Navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
@@ -585,6 +521,16 @@ onMounted(async () => {
         >
           <!-- 👉 Horizontal Search Bar -->
           <SearchBar v-if="showHorizontalThemeNav" />
+          <!-- 👉 Plugin panel launcher -->
+          <IconBtn
+            v-if="canAdmin"
+            class="plugin-launcher-btn ms-2"
+            :title="t('plugin.quickAccess')"
+            :aria-label="t('plugin.quickAccess')"
+            @click="handleOpenPluginQuickAccess"
+          >
+            <VIcon icon="mdi-puzzle-outline" />
+          </IconBtn>
           <!-- 👉 Shortcuts -->
           <ShortcutBar v-if="canAdmin" />
           <!-- 👉 Notification -->
@@ -757,15 +703,7 @@ onMounted(async () => {
       </div>
     </template>
 
-    <!-- 👉 下拉跟随动画 -->
-    <div
-      class="main-content-wrapper"
-      :style="{
-        transform: contentTransform,
-        transition: contentTransition,
-        paddingTop: mainContentPaddingTop,
-      }"
-    >
+    <div class="main-content-wrapper" :style="{ paddingTop: mainContentPaddingTop }">
       <slot />
     </div>
 
@@ -779,7 +717,6 @@ onMounted(async () => {
   <QuickAccess
     v-if="appMode"
     :visible="showPluginQuickAccess"
-    :pull-distance="pullDistance"
     @close="handleClosePluginQuickAccess"
     @plugin-click="handlePluginClick"
   />

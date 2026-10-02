@@ -2116,8 +2116,10 @@ export interface Message {
 
 // 系统通知
 export interface SystemNotification extends Message {
-  // 通知类型 user/system/plugin/notification
+  // 通知类型 user/system/plugin/notification，只表示来源通道，不表示严重程度
   type?: string
+  // 严重级别 info/success/warning/error，由后端实时通知显式标记；缺省按普通通知展示
+  level?: 'info' | 'success' | 'warning' | 'error' | null
   // 通知时间
   date?: string
   // 是否已读

@@ -256,8 +256,64 @@ describe('AgentAssistantPanel stream recovery', () => {
     const children = [...segments.element.children]
     expect(children[0].className).toContain('agent-assistant-message__bubble')
     expect(children[1].className).toContain('agent-assistant-thinking')
+    expect(segments.findAll('.agent-assistant-thinking__dots span')).toHaveLength(3)
     expect(segments.get('.agent-assistant-thinking').text()).toContain('agentAssistant.thinking')
 
+    wrapper.unmount()
+  })
+
+  it('ends the thinking row and freezes its duration when generation is stopped', async () => {
+    const primaryStream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return primaryStream.response
+      }
+
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('停止思考计时')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '已开始处理' }))
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'thinking',
+        status: 'running',
+        started_at: Date.now(),
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-thinking').exists()).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-thinking').text()).toContain('2s')
+
+    await wrapper.find('.agent-assistant-stop').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.agent-assistant-thinking').exists()).toBe(false)
+    const stoppedSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const stoppedAssistant = stoppedSnapshot.messages.find((message: { role: string }) => message.role === 'assistant')
+    expect(stoppedAssistant).toMatchObject({ status: 'done', thinking: false })
+    const stoppedElapsedMs = stoppedAssistant.thinkingElapsedMs
+
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-thinking').exists()).toBe(false)
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages.find(
+        (message: { role: string }) => message.role === 'assistant',
+      ).thinkingElapsedMs,
+    ).toBe(stoppedElapsedMs)
+
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
     wrapper.unmount()
   })
 

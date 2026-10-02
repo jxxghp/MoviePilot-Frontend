@@ -690,8 +690,10 @@ function normalizeStoredMessages(value: unknown) {
     const message = rawMessage && typeof rawMessage === 'object' ? (rawMessage as Record<string, unknown>) : {}
     const role = message.role === 'assistant' ? 'assistant' : 'user'
     const content = typeof message.content === 'string' ? message.content : stringifyChoiceField(message.content)
+    const status = normalizeMessageStatus(message.status)
     const tools = normalizeToolCalls(message.tools)
-    const thinking = message.thinking === true
+    // 已结束的消息不能恢复成 thinking，避免旧的中止快照在重新打开面板后继续计时。
+    const thinking = message.thinking === true && status === 'streaming'
     const segments = normalizeMessageSegments(message.segments, content, tools).filter(
       segment => segment.type !== 'thinking' || thinking,
     )
@@ -705,7 +707,7 @@ function normalizeStoredMessages(value: unknown) {
       role,
       content,
       createdAt: Number(message.createdAt) || Number(message.created_at) || Date.now(),
-      status: normalizeMessageStatus(message.status),
+      status,
       attachments: Array.isArray(message.attachments) ? message.attachments : [],
       choices: Array.isArray(message.choices)
         ? (message.choices.map(normalizeChoiceCard).filter(Boolean) as AgentChoiceCard[])
@@ -1021,6 +1023,7 @@ function failStreamRecovery() {
     .find(message => message.role === 'assistant' && message.status === 'streaming')
   if (assistantMessage) {
     assistantMessage.status = 'error'
+    removeThinkingSegments(assistantMessage)
     if (!assistantMessage.content) appendAssistantTextSegment(assistantMessage, t('agentAssistant.recoveryFailed'))
     markToolsDone(assistantMessage)
     refreshMessageList()
@@ -1092,6 +1095,7 @@ async function restoreCurrentSessionFromServer(targetSessionId: string, startedA
     if (message.status !== 'streaming') return
 
     message.status = 'done'
+    removeThinkingSegments(message)
     markToolsDone(message)
   })
   messages.value = mergeServerMessagesWithLocalSteering(restoredMessages)
@@ -1675,8 +1679,13 @@ function applyThinkingLifecycleEvent(event: AgentStreamEvent, message: AgentChat
   message.segments = message.segments.filter(segment => segment.type !== 'thinking')
 }
 
-// 清理未收到思考结束事件的异常或终态消息，避免隐藏片段留下空白布局。
+// 结束思考生命周期并冻结已用时，避免中止或异常终态继续驱动计时器。
 function removeThinkingSegments(message: AgentChatMessage) {
+  if (message.thinking) {
+    const startedAt = message.thinkingStartedAt || Date.now()
+    const runningElapsed = Math.max(0, Date.now() - startedAt)
+    message.thinkingElapsedMs = Math.max(message.thinkingElapsedMs || 0, runningElapsed)
+  }
   message.thinking = false
   message.segments = message.segments.filter(segment => segment.type !== 'thinking')
 }
@@ -1749,13 +1758,17 @@ function applyMessageUpdate(event: AgentStreamEvent) {
   message.attachments = Array.isArray(target?.attachments) ? target.attachments : []
   message.tools = normalizeToolCalls(target?.tools)
   message.segments = normalizeMessageSegments(target?.segments, message.content, message.tools)
-  if (message.thinking && !message.segments.some(segment => segment.type === 'thinking')) {
-    message.segments.push({ type: 'thinking' })
-  }
   message.choices = Array.isArray(target?.choices)
     ? (target.choices.map(normalizeChoiceCard).filter(Boolean) as AgentChoiceCard[])
     : []
   message.status = normalizeMessageStatus(target?.status || 'done')
+  if (message.status === 'streaming' && message.thinking) {
+    if (!message.segments.some(segment => segment.type === 'thinking')) {
+      message.segments.push({ type: 'thinking' })
+    }
+  } else {
+    removeThinkingSegments(message)
+  }
   refreshMessageList()
   persistState()
   return true
@@ -2516,6 +2529,7 @@ async function streamAgentMessage(
       return
     }
     if (assistantMessage?.status === 'streaming') {
+      removeThinkingSegments(assistantMessage)
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
       refreshMessageList()
@@ -2530,6 +2544,7 @@ async function streamAgentMessage(
       }
       if (!assistantMessage) return
       assistantMessage.status = 'done'
+      removeThinkingSegments(assistantMessage)
       markToolsDone(assistantMessage)
       refreshMessageList()
       return
@@ -2565,6 +2580,7 @@ async function streamAgentMessage(
     }
     assistantMessage ||= addMessage('assistant', '', 'streaming')
     assistantMessage.status = 'error'
+    removeThinkingSegments(assistantMessage)
     replaceAssistantTextSegments(assistantMessage, error?.message || t('agentAssistant.error'))
     markToolsDone(assistantMessage)
     refreshMessageList()
@@ -2832,6 +2848,7 @@ function stopGeneration() {
     .reverse()
     .find(message => message.role === 'assistant' && message.status === 'streaming')
   if (assistantMessage) {
+    removeThinkingSegments(assistantMessage)
     if (isEmptyAssistantMessage(assistantMessage)) {
       messages.value = messages.value.filter(message => message.id !== assistantMessage.id)
     } else {
@@ -3251,7 +3268,11 @@ onScopeDispose(() => {
             >
               <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
                 <div v-if="segment.type === 'thinking'" class="agent-assistant-thinking" role="status">
-                  <VIcon icon="line-md:loading-twotone-loop" size="16" />
+                  <span class="agent-assistant-thinking__dots" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
                   <span>{{ t('agentAssistant.thinking') }} · {{ formatThinkingDuration(message) }}</span>
                 </div>
                 <AgentMarkdownContent
@@ -4078,18 +4099,37 @@ onScopeDispose(() => {
 .agent-assistant-thinking {
   display: flex;
   align-items: center;
-  box-sizing: border-box;
   gap: 0.45rem;
-  inline-size: 100%;
-  margin-block: 0.15rem;
-  min-block-size: 2.25rem;
-  padding-block: 0.45rem;
-  padding-inline: 0.65rem;
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
-  border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-primary), 0.07);
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.8rem;
+  margin-block: 0.1rem;
+  min-inline-size: 0;
+  padding-inline-start: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.agent-assistant-thinking__dots {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.18rem;
+  block-size: 1rem;
+}
+
+.agent-assistant-thinking__dots span {
+  border-radius: 999px;
+  animation: agent-typing 1s infinite ease-in-out;
+  background: rgba(var(--v-theme-on-surface), 0.56);
+  block-size: 0.3rem;
+  inline-size: 0.3rem;
+}
+
+.agent-assistant-thinking__dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.agent-assistant-thinking__dots span:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 .agent-assistant-tool span {
@@ -4678,7 +4718,8 @@ onScopeDispose(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .agent-assistant-mini-bot__eye,
-  .agent-assistant-typing span {
+  .agent-assistant-typing span,
+  .agent-assistant-thinking__dots span {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

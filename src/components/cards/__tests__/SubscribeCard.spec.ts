@@ -18,6 +18,7 @@ import { createI18n } from 'vue-i18n'
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
+  loadPosterTone: vi.fn(),
   openSharedDialog: vi.fn(),
   routerPush: vi.fn(),
   toastError: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('@/composables/useConfirm', () => ({
 
 vi.mock('@/composables/useSharedDialog', () => ({
   openSharedDialog: (...args: unknown[]) => mocks.openSharedDialog(...args),
+}))
+
+vi.mock('@/utils/posterTone', () => ({
+  loadPosterTone: (...args: unknown[]) => mocks.loadPosterTone(...args),
 }))
 
 vi.mock('@/router', () => ({
@@ -127,8 +132,35 @@ describe('SubscribeCard display and progress', () => {
     setViewport(1024)
     observeElementsImmediately()
     mocks.confirm.mockResolvedValue(true)
+    mocks.loadPosterTone.mockResolvedValue(null)
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('tints the desktop card with the poster tone and lays out title and footer', async () => {
+    mocks.loadPosterTone.mockResolvedValue({ hue: 200, saturation: 40 })
+    const { container, media } = await renderCard({ state: 'R', total_episode: 10, lack_episode: 2 })
+    const card = container.querySelector<HTMLElement>('.subscribe-card') as HTMLElement
+
+    expect(mocks.loadPosterTone).toHaveBeenCalledWith(media.poster)
+    expect(card).toHaveClass('subscribe-card-window')
+    await waitFor(() => expect(card.style.getPropertyValue('--subscribe-card-tone')).toBe('hsl(200 40% 16%)'))
+    // 卡片不展示订阅人，标题固定最多两行
+    expect(screen.queryByText(media.username)).not.toBeInTheDocument()
+    expect(screen.getByText(/卡片测试媒体/)).toHaveClass('line-clamp-2')
+    // 进度与更新时间在同一底部信息行
+    const footer = container.querySelector('.subscribe-card-footer') as HTMLElement
+    expect(footer).toHaveTextContent('8 / 10')
+    expect(footer).toHaveTextContent(formatDateDifference(media.last_update))
+  })
+
+  it('falls back to the neutral desktop base when the poster tone is unreadable', async () => {
+    const { container } = await renderCard({ username: '' })
+    const card = container.querySelector<HTMLElement>('.subscribe-card') as HTMLElement
+
+    await waitFor(() => expect(mocks.loadPosterTone).toHaveBeenCalled())
+    expect(card.style.getPropertyValue('--subscribe-card-tone')).toBe('')
+    expect(screen.getByText(/卡片测试媒体/)).toHaveClass('line-clamp-2')
   })
 
   it('renders stable movie metadata and omits episode progress without a total', async () => {
@@ -136,7 +168,7 @@ describe('SubscribeCard display and progress', () => {
 
     expect(screen.getByText(media.name)).toBeInTheDocument()
     expect(screen.getByText('2025')).toBeInTheDocument()
-    expect(screen.getByText(media.username)).toHaveAttribute('title', media.username)
+    expect(screen.queryByText(media.username)).not.toBeInTheDocument()
     const image = container.querySelector<HTMLImageElement>('img')
     expect(image).not.toBeNull()
     expect((image as HTMLImageElement).src).toContain('system/cache/image?url=')

@@ -92,25 +92,6 @@ vi.mock('@/router/i18n-menu', () => ({
   getNavMenus: () => [{ header: 'menu.start', title: 'Built-in dashboard', to: '/dashboard' }],
   pluginSidebarSectionToHeaderKey: (section: string) => `menu.${section}`,
 }))
-vi.mock('@/composables/useOfflineStatus', () => ({
-  useGlobalOfflineStatus: () => ({ isOffline: { value: false } }),
-}))
-vi.mock('@/composables/usePullDownGesture', () => ({
-  usePullDownGesture: () => ({
-    config: {
-      MAX_PULL_DISTANCE: 220,
-      SHOW_INDICATOR: 80,
-      TRIGGER_THRESHOLD: 140,
-    },
-    contentTransform: { value: '' },
-    contentTransition: { value: '' },
-    indicatorOpacity: { value: 0 },
-    indicatorRotation: { value: 0 },
-    indicatorTransform: { value: '' },
-    pullDistance: { value: 0 },
-    showPullIndicator: { value: false },
-  }),
-}))
 vi.mock('@/composables/usePWA', () => ({ usePWA: () => ({ appMode: { value: false } }) }))
 vi.mock('vue-i18n', async importOriginal => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),

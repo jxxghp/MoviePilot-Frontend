@@ -56,6 +56,8 @@ export function emitAgentAssistantNotificationBubble(notification: SystemNotific
     kind: 'notification',
     title: notification.title,
     text: notification.text,
+    // 只有后端显式标记的严重级别才改变气泡样式，普通通知保持默认外观
+    variant: notification.level || undefined,
     type: notification.type,
     mtype: notification.mtype,
     source: notification.source,
@@ -96,6 +98,7 @@ export function onAgentAssistantNotificationBubble(
   callback: (payload: AgentAssistantNotificationBubblePayload) => void,
 ) {
   return onAgentAssistantBubble(payload => {
-    if ((payload.kind || 'notification') === 'notification') callback(payload as AgentAssistantNotificationBubblePayload)
+    if ((payload.kind || 'notification') === 'notification')
+      callback(payload as AgentAssistantNotificationBubblePayload)
   })
 }

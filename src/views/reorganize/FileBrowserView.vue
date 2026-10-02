@@ -203,7 +203,7 @@ onMounted(loadDownloadDirectories)
 </script>
 
 <template>
-  <div class="file-browser-view app-surface-static">
+  <div class="file-browser-view app-surface-static" data-glass-optical-surface>
     <FileBrowser
       v-if="operItem"
       :storages="storages"

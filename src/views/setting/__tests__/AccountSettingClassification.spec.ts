@@ -277,6 +277,8 @@ describe('AccountSettingClassification', () => {
       return result
     })
     mocks.useMediaClassification.mockReturnValue({
+      activePolicy,
+      clearPreview: vi.fn(),
       activeRevision: computed(() => activePolicy.value.revision),
       analyzingImpact: ref(false),
       conflict: ref(null),
@@ -344,7 +346,7 @@ describe('AccountSettingClassification', () => {
   })
 
   /** 切换一级工作区，模拟移动端按需展示大型编辑面板。 */
-  async function openWorkspace(name: '1. 设置目录' | '2. 设置规则' | '3. 测试并保存'): Promise<void> {
+  async function openWorkspace(name: '分类目录' | '分类规则' | '测试与保存'): Promise<void> {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('tab', { name }))
   }
@@ -352,7 +354,7 @@ describe('AccountSettingClassification', () => {
   /** 打开高级设置，覆盖版本历史和复杂条件的兼容路径。 */
   async function enableAdvancedSettings(): Promise<void> {
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: '高级设置' }))
+    await user.click(screen.getByRole('button', { name: '高级' }))
   }
 
   it('loads only when the settings tab becomes active', async () => {
@@ -389,9 +391,10 @@ describe('AccountSettingClassification', () => {
     const defaultPolicy = createPolicy(1, '内置默认')
     mocks.loadDefaultPolicy.mockImplementation(async () => defaultPolicy)
     await renderWithProviders(AccountSettingClassification)
+    await enableAdvancedSettings()
     await screen.findByRole('region', { name: 'category-editor' })
 
-    await user.click(screen.getByRole('button', { name: '恢复内置默认规则' }))
+    await user.click(screen.getByRole('button', { name: '恢复默认' }))
 
     expect(mocks.loadDefaultPolicy).toHaveBeenCalledOnce()
     expect(mocks.publishDraft).not.toHaveBeenCalled()
@@ -405,7 +408,7 @@ describe('AccountSettingClassification', () => {
 
     await user.click(screen.getByRole('button', { name: 'replace-categories' }))
     await user.click(screen.getByRole('button', { name: 'replace-fallbacks' }))
-    await openWorkspace('2. 设置规则')
+    await openWorkspace('分类规则')
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
     const state = mocks.useMediaClassification.mock.results[0].value
@@ -419,7 +422,7 @@ describe('AccountSettingClassification', () => {
 
   it('hides migrated TMDB fields but keeps a field visible while an old rule still references it', async () => {
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('2. 设置规则')
+    await openWorkspace('分类规则')
 
     expect(screen.getByLabelText('editor-field-ids')).toHaveTextContent('media.type,media.genre_keys')
     expect(screen.getByLabelText('editor-field-ids')).not.toHaveTextContent('extensions.themoviedb.genre_ids')
@@ -468,7 +471,8 @@ describe('AccountSettingClassification', () => {
   it('validates the draft and exposes discard as a separate action', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('2. 设置规则')
+    await enableAdvancedSettings()
+    await openWorkspace('分类规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
@@ -486,15 +490,15 @@ describe('AccountSettingClassification', () => {
     mocks.validateDraft.mockRejectedValueOnce(new Error('validation rejected'))
     mocks.apiErrorMessage.mockReturnValueOnce('请求参数不正确')
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('3. 测试并保存')
+    await enableAdvancedSettings()
+    await openWorkspace('测试与保存')
 
     await user.click(screen.getByRole('button', { name: '校验草稿' }))
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('请求参数不正确'))
   })
 
-  it('hides non-blocking validation warnings while retaining blocking errors', async () => {
-    const user = userEvent.setup()
+  it('基础模式保留规则风险提示，只收起来源兼容细节', async () => {
     const validation: ClassificationValidationResult = {
       valid: true,
       issues: [
@@ -508,11 +512,9 @@ describe('AccountSettingClassification', () => {
     }
     mocks.validateDraft.mockResolvedValueOnce(validation)
     await renderWithProviders(AccountSettingClassification)
-    await openWorkspace('2. 设置规则')
+    await openWorkspace('分类规则')
     await screen.findByRole('region', { name: 'rule-editor' })
 
-    await user.click(screen.getByRole('button', { name: '校验草稿' }))
-    await waitFor(() => expect(mocks.validateDraft).toHaveBeenCalledTimes(1))
     const state = mocks.useMediaClassification.mock.results[0].value
     state.validationResult.value = validation
     await nextTick()
@@ -523,6 +525,12 @@ describe('AccountSettingClassification', () => {
       issues: [
         ...validation.issues,
         {
+          severity: 'warning',
+          code: 'overlapping_category_rules',
+          message: '两条规则的匹配范围重叠',
+          path: ['rules', 0],
+        },
+        {
           severity: 'error',
           code: 'invalid_category_path',
           message: '分类目录无效',
@@ -531,6 +539,7 @@ describe('AccountSettingClassification', () => {
       ],
     }
     await waitFor(() => expect(screen.getByText('分类目录无效')).toBeInTheDocument())
+    expect(screen.getByText('两条规则的匹配范围重叠')).toBeInTheDocument()
     expect(screen.queryByText('字段 media.genre_keys 在部分来源可用')).not.toBeInTheDocument()
   })
 
@@ -538,9 +547,9 @@ describe('AccountSettingClassification', () => {
     await renderWithProviders(AccountSettingClassification)
     await screen.findByRole('region', { name: 'category-editor' })
 
-    expect(screen.getByRole('tab', { name: '1. 设置目录' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '2. 设置规则' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '3. 测试并保存' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '分类目录' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '分类规则' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '测试与保存' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: '来源' })).not.toBeInTheDocument()
   })
 
@@ -549,22 +558,57 @@ describe('AccountSettingClassification', () => {
     await renderWithProviders(AccountSettingClassification)
     await screen.findByRole('region', { name: 'category-editor' })
 
-    expect(screen.getByRole('region', { name: '自动分类设置流程' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '高级设置' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('region', { name: '自动分类设置流程' })).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 8')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '校验草稿' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '高级' })).toHaveAttribute('aria-pressed', 'false')
 
-    await openWorkspace('3. 测试并保存')
-    expect(screen.getByRole('region', { name: '验证分类结果并保存' })).toBeInTheDocument()
+    await openWorkspace('测试与保存')
+    expect(screen.getByRole('region', { name: 'preview-panel' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'policy-control-panel' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '高级设置' }))
-    expect(screen.getByRole('button', { name: '收起高级设置' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: '高级' }))
+    expect(screen.queryByText('当前版本 8')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '收起高级' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it.each([
+    { sample_count: 0, partial_count: 0, unresolved_count: 0, message: /没有可比较的近期记录/ },
+    { sample_count: 10, partial_count: 2, unresolved_count: 1, message: /3 条记录无法可靠判断/ },
+  ])('基础模式明确说明不完整的影响判断 $sample_count', async ({ message, ...counts }) => {
+    const user = userEvent.setup()
+    await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('测试与保存')
+    const state = mocks.useMediaClassification.mock.results[0].value
+    state.draftPolicy.value.rules[0].name = '修改后的电影规则'
+    await nextTick()
+    mocks.analyzeImpact.mockImplementationOnce(async () => {
+      const result = { ...createImpact(), ...counts }
+      state.impactResult.value = result
+      return result
+    })
+    await user.click(screen.getByRole('button', { name: '检查当前规则' }))
+    expect(await screen.findByText(message)).toBeInTheDocument()
+  })
+
+  it('基础模式可以直接处理并发修改冲突', async () => {
+    await renderWithProviders(AccountSettingClassification)
+    await openWorkspace('测试与保存')
+    const state = mocks.useMediaClassification.mock.results[0].value
+    state.conflict.value = { expected_revision: 7, current_revision: 8 }
+    expect(await screen.findByText(/规则已在别处更新/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '保留草稿并重新分析' }))
+    await waitFor(() => expect(mocks.analyzeImpact).toHaveBeenCalledOnce())
+    expect(mocks.refreshPolicy).toHaveBeenCalledOnce()
+    expect(mocks.resetDraft).not.toHaveBeenCalled()
+    expect(mocks.validateDraft).toHaveBeenCalledOnce()
   })
 
   it('maps fact preview modes and bounded impact options to the composable', async () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
     await enableAdvancedSettings()
-    await openWorkspace('3. 测试并保存')
+    await openWorkspace('测试与保存')
     await screen.findByRole('region', { name: 'preview-panel' })
 
     await user.click(screen.getByRole('button', { name: 'request-active-preview' }))
@@ -594,10 +638,10 @@ describe('AccountSettingClassification', () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
     await enableAdvancedSettings()
-    await openWorkspace('2. 设置规则')
+    await openWorkspace('分类规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
-    await openWorkspace('3. 测试并保存')
+    await openWorkspace('测试与保存')
     await user.click(screen.getByRole('tab', { name: '发布与历史' }))
     await screen.findByRole('region', { name: 'policy-control-panel' })
 
@@ -647,11 +691,11 @@ describe('AccountSettingClassification', () => {
     const user = userEvent.setup()
     await renderWithProviders(AccountSettingClassification)
     await enableAdvancedSettings()
-    await openWorkspace('2. 设置规则')
+    await openWorkspace('分类规则')
     await screen.findByRole('region', { name: 'rule-editor' })
     await user.click(screen.getByRole('button', { name: 'replace-rules' }))
 
-    await openWorkspace('3. 测试并保存')
+    await openWorkspace('测试与保存')
     await user.click(screen.getByRole('tab', { name: '发布与历史' }))
     await screen.findByRole('region', { name: 'policy-control-panel' })
     await waitFor(() => expect(mocks.loadHistory).toHaveBeenCalledTimes(1))

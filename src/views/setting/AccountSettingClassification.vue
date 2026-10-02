@@ -62,11 +62,7 @@ const workspaceTab = ref<'categories' | 'rules' | 'review'>('categories')
 const analysisTab = ref<'preview' | 'impact' | 'publish'>('preview')
 const showAdvanced = ref(false)
 const helpDialog = ref(false)
-const quickGuideSteps = [
-  { value: 'categories', number: 1, key: 'categories' },
-  { value: 'rules', number: 2, key: 'rules' },
-  { value: 'review', number: 3, key: 'review' },
-] as const
+const focusedRuleId = ref<string | null>(null)
 const validatedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const analyzedDraftSnapshot = ref<ClassificationPolicy | null>(null)
 const lastImpactOptions = ref<ClassificationImpactRequestEvent>({ sampleLimit: 100, exampleLimit: 20 })
@@ -88,6 +84,7 @@ const builtinSourceLabelKeys: Record<string, string> = {
 }
 
 const {
+  activePolicy,
   activeRevision,
   analyzingImpact,
   conflict,
@@ -111,6 +108,7 @@ const {
   loadDefaultPolicy,
   loadHistory,
   preview,
+  clearPreview,
   publishDraft,
   refreshPolicy,
   resetDraft,
@@ -129,10 +127,44 @@ const validationIsCurrent = computed(
     isEqual(draftPolicy.value, validatedDraftSnapshot.value),
 )
 
-/** 只展示会阻止发布的校验错误，忽略不影响功能的兼容性提示。 */
+/** 基础界面保留错误和规则风险，来源兼容详情只在高级模式显示。 */
 const validationErrors = computed(
-  () => validationResult.value?.issues.filter(issue => issue.severity === 'error') ?? [],
+  () =>
+    validationResult.value?.issues.filter(
+      issue => showAdvanced.value || issue.severity === 'error' || issue.code !== 'partial_field_support',
+    ) ?? [],
 )
+const impactNeedsAttention = computed(() =>
+  Boolean(
+    impactResult.value &&
+    (!impactResult.value.sample_count || impactResult.value.partial_count || impactResult.value.unresolved_count),
+  ),
+)
+const simpleImpactMessage = computed(() => {
+  const result = impactResult.value
+  if (!result?.sample_count) return t('setting.classification.simpleReviewNoSamples')
+  if (impactNeedsAttention.value)
+    return t('setting.classification.simpleReviewIncomplete', {
+      count: result.partial_count + result.unresolved_count,
+      changed: result.changed_count,
+    })
+  return t('setting.classification.simpleReviewImpact', { changed: result.changed_count })
+})
+
+/** 从校验位置找到规则，让用户直接回到需要修改的位置。 */
+function issueRule(issue: { readonly path: readonly (string | number)[] }): ClassificationRule | undefined {
+  return issue.path[0] === 'rules' && typeof issue.path[1] === 'number'
+    ? draftPolicy.value?.rules[issue.path[1]]
+    : undefined
+}
+
+/** 切换到规则并重新触发定位，同一条规则也可以再次跳转。 */
+async function editRule(ruleId: string): Promise<void> {
+  focusedRuleId.value = null
+  workspaceTab.value = 'rules'
+  await nextTick()
+  focusedRuleId.value = ruleId
+}
 
 /** 影响分析是否仍对应当前草稿和当前活动 revision。 */
 const impactIsCurrent = computed(
@@ -254,6 +286,10 @@ function mutableApiSnapshot<T>(value: unknown): T {
 }
 
 /** 将深层只读预览响应复制为展示组件无法回写服务状态的隔离快照。 */
+const activePolicySnapshot = computed<ClassificationPolicy | null>(() =>
+  activePolicy.value ? mutableApiSnapshot<ClassificationPolicy>(activePolicy.value) : null,
+)
+
 const previewResultSnapshot = computed<ClassificationEvaluation | null>(() =>
   previewResult.value ? mutableApiSnapshot<ClassificationEvaluation>(previewResult.value) : null,
 )
@@ -429,7 +465,8 @@ async function keepDraftAndReanalyze(): Promise<void> {
   try {
     await refreshPolicy()
     validatedDraftSnapshot.value = null
-    await analyzeCurrentDraft(lastImpactOptions.value)
+    await validateCurrentDraft()
+    if (validationIsCurrent.value) await analyzeCurrentDraft(lastImpactOptions.value)
   } catch (error) {
     console.error(error)
     toast.error(getApiErrorMessage(error) || t('setting.classification.impactFailed'))
@@ -524,13 +561,10 @@ watch(analysisTab, tab => {
         </VAvatar>
       </template>
       <VCardTitle>{{ t('setting.classification.title') }}</VCardTitle>
-      <VCardSubtitle>{{ t('setting.classification.description') }}</VCardSubtitle>
+      <VCardSubtitle v-if="showAdvanced">{{ t('setting.classification.description') }}</VCardSubtitle>
       <template #append>
         <div class="classification-settings__header-actions">
           <div class="classification-settings__status">
-            <VChip size="small" variant="tonal" prepend-icon="mdi-source-branch">
-              {{ t('setting.classification.revision', { revision: activeRevision }) }}
-            </VChip>
             <VChip v-if="isDirty" size="small" color="warning" variant="tonal">
               {{ t('setting.classification.unsaved') }}
             </VChip>
@@ -553,6 +587,7 @@ watch(analysisTab, tab => {
             }}
           </VBtn>
           <VBtn
+            v-if="showAdvanced"
             variant="text"
             prepend-icon="mdi-backup-restore"
             :loading="loadingDefaultPolicy"
@@ -600,34 +635,6 @@ watch(analysisTab, tab => {
 
     <template v-else>
       <VCardText class="classification-settings__workspace">
-        <section class="classification-settings__quick-guide" aria-labelledby="classification-quick-guide-title">
-          <div class="classification-settings__quick-guide-copy">
-            <span class="classification-settings__eyebrow">{{ t('setting.classification.quickGuideEyebrow') }}</span>
-            <h2 id="classification-quick-guide-title">{{ t('setting.classification.quickGuideTitle') }}</h2>
-            <p>{{ t('setting.classification.quickGuideHint') }}</p>
-          </div>
-          <nav
-            class="classification-settings__quick-guide-steps"
-            :aria-label="t('setting.classification.quickGuideAria')"
-          >
-            <button
-              v-for="step in quickGuideSteps"
-              :key="step.value"
-              type="button"
-              class="classification-settings__quick-guide-step"
-              :class="{ 'classification-settings__quick-guide-step--active': workspaceTab === step.value }"
-              :aria-current="workspaceTab === step.value ? 'step' : undefined"
-              @click="workspaceTab = step.value"
-            >
-              <span class="classification-settings__quick-guide-number">{{ step.number }}</span>
-              <span>
-                <strong>{{ t(`setting.classification.quickGuideSteps.${step.key}.title`) }}</strong>
-                <small>{{ t(`setting.classification.quickGuideSteps.${step.key}.hint`) }}</small>
-              </span>
-            </button>
-          </nav>
-        </section>
-
         <VAlert
           v-if="directoryReferencesUnavailable"
           type="warning"
@@ -660,7 +667,11 @@ watch(analysisTab, tab => {
         <VWindow v-model="workspaceTab" class="classification-settings__workspace-window" :touch="false">
           <VWindowItem value="categories">
             <section class="classification-settings__panel">
-              <section class="classification-settings__enrichment" aria-labelledby="classification-enrichment-title">
+              <section
+                v-if="showAdvanced"
+                class="classification-settings__enrichment"
+                aria-labelledby="classification-enrichment-title"
+              >
                 <div class="classification-settings__section-heading">
                   <div>
                     <h3 id="classification-enrichment-title">
@@ -697,15 +708,6 @@ watch(analysisTab, tab => {
                     <VBtn value="enrich_missing">{{ t('setting.classification.enrichmentMissing') }}</VBtn>
                   </VBtnToggle>
                 </div>
-                <VAlert
-                  v-else
-                  type="info"
-                  variant="tonal"
-                  density="compact"
-                  class="classification-settings__simple-note"
-                >
-                  {{ t('setting.classification.enrichmentSimpleNote') }}
-                </VAlert>
               </section>
 
               <ClassificationCategoryEditor
@@ -733,6 +735,7 @@ watch(analysisTab, tab => {
                 :max-rules="fieldCatalog.limits.max_rules"
                 :max-condition-depth="fieldCatalog.limits.max_condition_depth"
                 :advanced="showAdvanced"
+                :focus-rule-id="focusedRuleId"
                 @update:rules="updateRules"
               />
             </section>
@@ -741,36 +744,28 @@ watch(analysisTab, tab => {
           <VWindowItem value="review">
             <section
               class="classification-settings__panel classification-settings__analysis"
-              aria-labelledby="classification-analysis-title"
+              :aria-labelledby="showAdvanced ? 'classification-analysis-title' : undefined"
             >
               <template v-if="!showAdvanced">
-                <div class="classification-settings__section-heading">
-                  <div>
-                    <h3 id="classification-analysis-title">{{ t('setting.classification.simpleReviewTitle') }}</h3>
-                    <p>{{ t('setting.classification.simpleReviewHint') }}</p>
-                  </div>
-                </div>
                 <ClassificationPreviewPanel
                   :categories="draftPolicy.categories"
+                  :rules="draftPolicy.rules"
+                  :advanced="false"
                   :sources="mediaSourceCatalog"
                   :result="previewResultSnapshot"
                   :loading="previewing"
                   @request-preview="previewFacts"
+                  @invalidate-preview="clearPreview"
+                  @edit-rule="editRule"
                 />
                 <VAlert
                   v-if="impactResultSnapshot && impactIsCurrent"
                   class="classification-settings__simple-impact"
-                  type="success"
+                  :type="impactNeedsAttention ? 'warning' : 'info'"
                   variant="tonal"
                   density="compact"
                 >
-                  {{
-                    t('setting.classification.simpleReviewImpact', {
-                      sample: impactResultSnapshot.sample_count,
-                      changed: impactResultSnapshot.changed_count,
-                      degraded: impactResultSnapshot.degraded_count,
-                    })
-                  }}
+                  {{ simpleImpactMessage }}
                 </VAlert>
                 <VAlert
                   v-else-if="impactResultSnapshot"
@@ -780,6 +775,17 @@ watch(analysisTab, tab => {
                   density="compact"
                 >
                   {{ t('setting.classification.control.impactExpired') }}
+                </VAlert>
+                <VAlert v-if="conflict" type="warning" variant="tonal" density="compact" class="mt-3">
+                  {{ t('setting.classification.simpleConflict') }}
+                  <div class="classification-settings__conflict-actions">
+                    <VBtn variant="text" :loading="loadingPolicy" @click="reloadRemotePolicy">{{
+                      t('setting.classification.control.reloadRemote')
+                    }}</VBtn>
+                    <VBtn variant="text" :loading="validating || analyzingImpact" @click="keepDraftAndReanalyze">{{
+                      t('setting.classification.control.keepDraft')
+                    }}</VBtn>
+                  </div>
                 </VAlert>
                 <div class="classification-settings__simple-review-actions">
                   <VBtn
@@ -828,10 +834,15 @@ watch(analysisTab, tab => {
                   <VWindowItem value="preview">
                     <ClassificationPreviewPanel
                       :categories="draftPolicy.categories"
+                      :rules="draftPolicy.rules"
+                      :active-rules="activePolicySnapshot?.rules"
+                      :active-categories="activePolicySnapshot?.categories"
                       :sources="mediaSourceCatalog"
                       :result="previewResultSnapshot"
                       :loading="previewing"
                       @request-preview="previewFacts"
+                      @invalidate-preview="clearPreview"
+                      @edit-rule="editRule"
                     />
                   </VWindowItem>
                   <VWindowItem value="impact">
@@ -879,26 +890,34 @@ watch(analysisTab, tab => {
 
       <VCardText v-if="validationErrors.length" class="pt-0">
         <VAlert
-          type="error"
+          :type="validationResult?.valid ? 'warning' : 'error'"
           variant="tonal"
           :title="t('setting.classification.validationIssues', { count: validationErrors.length })"
         >
           <ul class="classification-settings__issues">
             <li v-for="(issue, index) in validationErrors" :key="`${issue.code}-${index}`">
-              <strong>{{ issue.code }}</strong>
+              <button
+                v-if="issueRule(issue)"
+                class="classification-settings__issue-link"
+                type="button"
+                @click="editRule(issueRule(issue)!.id)"
+              >
+                {{ issueRule(issue)!.name }}
+              </button>
               <span>{{ issue.message }}</span>
             </li>
           </ul>
         </VAlert>
       </VCardText>
 
-      <VDivider />
-      <VCardActions class="classification-settings__actions">
+      <VDivider v-if="showAdvanced || isDirty" />
+      <VCardActions v-if="showAdvanced || isDirty" class="classification-settings__actions">
         <VBtn variant="text" prepend-icon="mdi-undo-variant" :disabled="!isDirty || validating" @click="discardDraft">
           {{ t('setting.classification.discardDraft') }}
         </VBtn>
         <VSpacer />
         <VBtn
+          v-if="showAdvanced"
           color="primary"
           variant="tonal"
           prepend-icon="mdi-check-decagram-outline"
@@ -907,6 +926,9 @@ watch(analysisTab, tab => {
         >
           {{ t('setting.classification.validateDraft') }}
         </VBtn>
+        <VBtn v-else-if="workspaceTab !== 'review'" color="primary" @click="workspaceTab = 'review'">{{
+          t('setting.classification.workspaceReview')
+        }}</VBtn>
       </VCardActions>
     </template>
   </VCard>
@@ -952,101 +974,6 @@ watch(analysisTab, tab => {
 
 .classification-settings__workspace {
   padding: 1rem 1.25rem 1.25rem;
-}
-
-.classification-settings__quick-guide {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.6fr);
-  gap: 1rem;
-  align-items: center;
-  margin-block-end: 1rem;
-  padding: 1rem;
-  border: 1px solid rgba(var(--v-theme-primary), 0.22);
-  border-radius: 10px;
-  background: rgba(var(--v-theme-primary), 0.06);
-}
-
-.classification-settings__quick-guide-copy h2,
-.classification-settings__quick-guide-copy p {
-  margin: 0;
-}
-
-.classification-settings__quick-guide-copy h2 {
-  font-size: 1.05rem;
-  line-height: 1.4;
-}
-
-.classification-settings__quick-guide-copy p {
-  margin-block-start: 0.35rem;
-  color: rgba(var(--v-theme-on-surface), 0.68);
-  font-size: 0.8125rem;
-  line-height: 1.55;
-}
-
-.classification-settings__eyebrow {
-  display: block;
-  margin-block-end: 0.2rem;
-  color: rgb(var(--v-theme-primary));
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.classification-settings__quick-guide-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.classification-settings__quick-guide-step {
-  display: flex;
-  min-inline-size: 0;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.65rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 0.5);
-  color: inherit;
-  text-align: start;
-  cursor: pointer;
-}
-
-.classification-settings__quick-guide-step:hover,
-.classification-settings__quick-guide-step--active {
-  border-color: rgba(var(--v-theme-primary), 0.5);
-  background: rgba(var(--v-theme-primary), 0.12);
-}
-
-.classification-settings__quick-guide-number {
-  display: inline-flex;
-  flex: 0 0 auto;
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(var(--v-theme-primary), 0.18);
-  color: rgb(var(--v-theme-primary));
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-.classification-settings__quick-guide-step strong,
-.classification-settings__quick-guide-step small {
-  display: block;
-}
-
-.classification-settings__quick-guide-step strong {
-  font-size: 0.8125rem;
-  line-height: 1.35;
-}
-
-.classification-settings__quick-guide-step small {
-  margin-block-start: 0.15rem;
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.7rem;
-  line-height: 1.35;
 }
 
 .classification-settings__workspace-tabs,
@@ -1175,6 +1102,25 @@ watch(analysisTab, tab => {
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 0.8125rem;
   margin-block-start: 0.25rem;
+}
+
+.classification-settings__issue-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.classification-settings__conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.classification-settings :deep(.v-btn--variant-tonal),
+.classification-settings :deep(.v-btn--active),
+.classification-settings :deep(.v-btn--variant-text:not(.text-error)),
+.classification-settings :deep(.v-tab--selected) {
+  color: rgb(var(--v-theme-on-surface)) !important;
 }
 
 .classification-settings__issues {
@@ -1308,16 +1254,7 @@ watch(analysisTab, tab => {
   }
 
   .classification-settings__workspace {
-    padding: 10px 10px calc(6rem + env(safe-area-inset-bottom));
-  }
-
-  .classification-settings__quick-guide {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 0.85rem;
-  }
-
-  .classification-settings__quick-guide-steps {
-    grid-template-columns: minmax(0, 1fr);
+    padding: 10px 10px max(12px, env(safe-area-inset-bottom));
   }
 
   .classification-settings__workspace-tabs :deep(.v-tab),
@@ -1346,8 +1283,8 @@ watch(analysisTab, tab => {
   }
 
   .classification-settings__actions {
-    align-items: stretch;
-    flex-direction: column-reverse;
+    align-items: center;
+    flex-direction: row;
   }
 
   .classification-settings__actions :deep(.v-spacer) {
@@ -1355,43 +1292,18 @@ watch(analysisTab, tab => {
   }
 
   .classification-settings__simple-review-actions {
-    flex-direction: column-reverse;
+    flex-direction: row;
   }
 
   .classification-settings__simple-review-actions :deep(.v-btn) {
-    inline-size: 100%;
+    flex: 1;
+    min-inline-size: 0;
   }
 }
 
 @media (max-width: 420px) {
-  .classification-settings__workspace-tabs,
-  .classification-settings__analysis-tabs {
-    --classification-tabs-height: 54px;
-  }
-
-  .classification-settings__workspace-tabs :deep(.v-tab),
-  .classification-settings__analysis-tabs :deep(.v-tab) {
-    grid-template-areas: 'prepend' 'content';
-    grid-template-columns: auto;
-    grid-template-rows: max-content max-content;
-    justify-items: center;
-    align-content: center;
-    gap: 2px;
-    min-block-size: 54px;
-    line-height: 1.15;
-  }
-
-  .classification-settings__workspace-tabs :deep(.v-tab .v-btn__content),
-  .classification-settings__analysis-tabs :deep(.v-tab .v-btn__content) {
-    white-space: normal;
-    text-align: center;
-    line-height: 1.1;
-  }
-
-  .classification-settings__workspace-tabs :deep(.v-btn__prepend),
-  .classification-settings__analysis-tabs :deep(.v-btn__prepend) {
-    margin-inline-end: 0;
-    margin-block-end: 2px;
+  .classification-settings__workspace-tabs :deep(.v-btn__prepend) {
+    display: none;
   }
 }
 </style>

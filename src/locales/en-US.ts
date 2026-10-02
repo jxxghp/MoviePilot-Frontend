@@ -2129,11 +2129,10 @@ export default {
   setting: {
     classification: {
       title: 'Media Auto Classification',
-      description:
-        'Automatically place media that meets the configured conditions into the corresponding folders. Complete the following three steps.',
-      workspaceCategories: '1. Set up folders',
-      workspaceRules: '2. Set up rules',
-      workspaceReview: '3. Test and save',
+      description: 'Sort media into categories using matching rules.',
+      workspaceCategories: 'Categories',
+      workspaceRules: 'Rules',
+      workspaceReview: 'Test & save',
       quickGuideEyebrow: 'Setup flow',
       quickGuideTitle: 'Automatic classification setup',
       quickGuideHint: 'Configure the destination folders, define the matching rules, then preview the result and save.',
@@ -2143,9 +2142,8 @@ export default {
         rules: { title: 'Set up rules', hint: 'Define matching conditions' },
         review: { title: 'Test and save', hint: 'Verify the result and apply' },
       },
-      showAdvancedSettings: 'Advanced settings',
-      hideAdvancedSettings: 'Hide advanced settings',
-      revision: 'Current version {revision}',
+      showAdvancedSettings: 'Advanced',
+      hideAdvancedSettings: 'Hide advanced',
       unsaved: 'Unsaved changes',
       closeConfirm: 'There are unsaved classification policy changes. Close anyway?',
       loading: 'Loading the classification policy and field catalog...',
@@ -2157,7 +2155,7 @@ export default {
       validationRequestFailed: 'Draft validation request failed',
       validationIssues: '{count} validation issues',
       draftReset: 'Restored the active policy',
-      restoreDefaults: 'Restore built-in defaults',
+      restoreDefaults: 'Restore defaults',
       restoreDefaultsConfirm:
         'This replaces the current draft with the built-in classification rules and discards unpublished edits. Continue?',
       defaultsLoaded: 'Built-in classification rules restored. Validate before publishing.',
@@ -2184,13 +2182,16 @@ export default {
       },
       analysisTitle: 'Check, Preview, and Publish',
       analysisHint: 'Review category matches, estimate changes, and confirm version history before publishing.',
+      simpleReviewNoSamples: 'No recent records are available to compare. Test a media item before saving.',
+      simpleReviewIncomplete: 'Found {changed} category changes; {count} records could not be evaluated reliably.',
+      simpleConflict: 'These rules were updated elsewhere. Reload them or keep your changes and check again.',
       simpleReviewTitle: 'Verify the result and save',
       simpleReviewHint:
-        'Search for and select one media item, then confirm its classification result. After validation passes, choose “Apply”.',
+        'Search for and select one media item, then confirm its classification result. After validation passes, choose “Save”.',
       simpleReviewCheck: 'Check current rules',
-      simpleReviewApply: 'Confirm and apply',
+      simpleReviewApply: 'Save',
       simpleReviewImpact:
-        'Checked {sample} recent records: {changed} classifications will change; {degraded} results may be degraded.',
+        '{changed} recent items would change category. Saving updates rules without moving existing files.',
       previewTab: 'Result Preview',
       impactTab: 'Impact Analysis',
       publishTab: 'Publish & History',
@@ -2218,11 +2219,11 @@ export default {
           },
           rules: {
             title: '2. Set up rules',
-            body: 'Set conditions from top to bottom under Rules. The system first checks the media types and data sources allowed by the rule, then reads details from the actual media record. Selecting multiple sources means any one of them may match; information from different sources is never merged. The first matching rule wins, and the media-type default category is used when none matches.',
+            body: 'Set conditions from top to bottom under Rules. The system first checks the media types and data sources allowed by the rule, then reads details from the actual media record. Selecting multiple sources means any one of them may match; Advanced settings control whether missing metadata is enriched. The first matching rule wins, and the media-type default category is used when none matches.',
           },
           preview: {
             title: '3. Preview a result',
-            body: 'Under Result Preview, search for a keyword and select a media item. The preview uses the title, year, genres, countries, and music details from the selected result; nothing needs to be entered by hand.',
+            body: 'Under Test and Save, select a media item. The system loads its full details and classifies it using the rules you are editing.',
           },
           impact: {
             title: '4. Review the impact',
@@ -2239,9 +2240,8 @@ export default {
         },
       },
       category: {
-        title: 'Storage Folders',
-        description:
-          'Configure the media classification folders. Matching rules use these folders, while unmatched media uses the default folder. Paths support up to {count} levels.',
+        title: 'Categories',
+        description: 'Set category names and relative paths.',
         add: 'Add {mediaType} category',
         mediaTypeSegments: 'Category media type',
         editTitle: 'Edit Category',
@@ -2303,6 +2303,14 @@ export default {
         fallbackClearedStatus: 'Cleared the default {mediaType} category',
       },
       rule: {
+        search: 'Search rules or categories',
+        orderHint: 'Rules run from top to bottom. The first match determines the category.',
+        and: 'and',
+        or: 'or',
+        unknownField: 'Compatibility field',
+        noMatches: 'No matching rules',
+        newRuleHint: 'Set the conditions and target category before enabling this rule.',
+        broadHint: 'This rule matches all remaining items of the selected media type.',
         editorAria: 'Classification rule editor',
         orderedRules: 'Ordered rules',
         matchingRules: 'Matching rules',
@@ -2357,6 +2365,8 @@ export default {
         copyName: '{name} copy',
       },
       condition: {
+        simpleAll: 'Match all',
+        simpleAny: 'Match any',
         nodeKinds: { condition: 'Condition', all: 'All', any: 'Any', not: 'Exclude' },
         nodeHints: {
           condition: 'A condition checks one field. Choose All or Any to add sibling conditions.',
@@ -2426,6 +2436,11 @@ export default {
         addChildAria: 'Add condition',
       },
       preview: {
+        detailFailed: 'Could not load complete media information. Select it again or retry later.',
+        loadingDetails: 'Loading media information…',
+        simpleCategory: 'Category',
+        incomplete:
+          'Some classification information is missing, so this result may be inaccurate. Open advanced settings for details or metadata enrichment.',
         title: 'Category Result Preview and Match Details',
         description:
           'Search for and select a media item to view its classification result. Previewing does not change the published rules.',
@@ -5128,7 +5143,14 @@ export default {
     clonePartialWarning:
       'Clone {id} was created, but attaching its scheduled jobs or routes failed. Do not create it again (that would hit "already exists"): check this clone\u2019s configuration, then reload the plugin.',
     logTitle: 'Plugin Logging',
-    quickAccess: 'Quick Access',
+    quickAccess: 'Plugin Panels',
+    quickAccessSearchPlaceholder: 'Search plugin panels',
+    favorites: 'Pinned Plugins',
+    favoritesHint: 'Select Manage, then use the star to pin plugins',
+    editFavorites: 'Manage',
+    doneEditingFavorites: 'Done',
+    pinPlugin: 'Pin {name}',
+    unpinPlugin: 'Unpin {name}',
     noPluginsWithPage: 'No plugins with detail pages available',
     recentlyUsed: 'Recently Used',
     allPlugins: 'All Plugins',

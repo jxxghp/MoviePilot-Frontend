@@ -467,10 +467,6 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
           />
         </div>
 
-        <p v-if="!props.advanced" class="classification-category-form-note">
-          {{ t('setting.classification.category.autoIdHint') }}
-        </p>
-
         <VSwitch
           v-model="draft.enabled"
           :label="t('setting.classification.category.enabled')"
@@ -518,7 +514,12 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             <VChip v-if="fallbacks[category.media_type] === category.id" size="small" color="primary" variant="tonal">{{
               t('setting.classification.category.fallbackBadge')
             }}</VChip>
-            <VChip size="small" :color="category.enabled ? 'success' : undefined" variant="tonal">
+            <VChip
+              v-if="props.advanced || !category.enabled"
+              size="small"
+              :color="category.enabled ? 'success' : undefined"
+              variant="tonal"
+            >
               {{
                 category.enabled
                   ? t('setting.classification.category.enabledState')
@@ -543,7 +544,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
           </ol>
 
           <p
-            v-if="isCategoryProtected(category.id)"
+            v-if="props.advanced && isCategoryProtected(category.id)"
             :id="`classification-delete-protection-${category.id}`"
             class="classification-category-protection"
             role="note"
@@ -577,7 +578,9 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
               :disabled="isCategoryProtected(category.id)"
               :aria-label="deletionHint(category)"
               :aria-describedby="
-                isCategoryProtected(category.id) ? `classification-delete-protection-${category.id}` : undefined
+                props.advanced && isCategoryProtected(category.id)
+                  ? `classification-delete-protection-${category.id}`
+                  : undefined
               "
               @click="removeCategory(category)"
             >
@@ -606,7 +609,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
       </div>
       <div class="classification-fallback-grid">
         <VSelect
-          v-for="item in mediaTypes"
+          v-for="item in mediaTypes.filter(item => props.advanced || item.label === activeMediaType)"
           :key="item.label"
           :model-value="fallbacks[item.label] ?? null"
           :label="t('setting.classification.category.fallbackFor', { mediaType: item.label })"

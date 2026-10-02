@@ -29,7 +29,7 @@ describe('glass overlay material styles', () => {
   it('protects clear reading controls without blurring or changing the floating material', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const readingStart = styles.indexOf('// 固定导航的输入区需要隔开底下滚过的文字')
-    const readingEnd = styles.indexOf('    .v-card {', readingStart)
+    const readingEnd = styles.indexOf('\n    }', readingStart)
     const reading = styles.slice(readingStart, readingEnd)
 
     expect(reading).toContain('.layout-horizontal-nav-active')

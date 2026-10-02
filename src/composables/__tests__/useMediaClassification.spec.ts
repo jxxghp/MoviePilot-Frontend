@@ -39,6 +39,7 @@ vi.mock('@/api/mediaClassification', async importOriginal => ({
   validateClassificationPolicy: (...args: unknown[]) => mocks.validate(...args),
 }))
 
+/** 构造指定版本和分类名称的完整策略。 */
 function createPolicy(revision = 1, name = '电影'): ClassificationPolicy {
   return {
     schema_version: 2,
@@ -65,6 +66,7 @@ function createPolicy(revision = 1, name = '电影'): ClassificationPolicy {
   }
 }
 
+/** 构造带稳定身份的标准电影事实。 */
 function createFacts(): ClassificationFacts {
   return {
     identity: { media_source: 'themoviedb', media_id: '1' },
@@ -74,6 +76,7 @@ function createFacts(): ClassificationFacts {
   }
 }
 
+/** 构造供缓存和强制刷新测试使用的字段目录。 */
 function createFieldCatalog(label = '媒体类型'): ClassificationFieldCatalog {
   return {
     fields: [
@@ -229,6 +232,33 @@ describe('useMediaClassification', () => {
     resolvePreview(evaluation)
     await previewPromise
     expect(classification.previewResult.value).toBeNull()
+
+    const pending: ((result: ClassificationEvaluation) => void)[] = []
+    mocks.preview.mockImplementation(() => new Promise<ClassificationEvaluation>(resolve => pending.push(resolve)))
+    const older = classification.preview({ kind: 'facts', facts })
+    const newer = classification.preview({ kind: 'facts', facts })
+    pending[0](evaluation)
+    await older
+    expect(classification.previewResult.value).toBeNull()
+    expect(classification.previewing.value).toBe(true)
+    classification.clearPreview()
+    pending[1](evaluation)
+    await newer
+    expect(classification.previewResult.value).toBeNull()
+    expect(classification.previewing.value).toBe(false)
+
+    let rejectPreview!: (error: Error) => void
+    mocks.preview.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectPreview = reject
+        }),
+    )
+    const obsoleteFailure = classification.preview({ kind: 'facts', facts })
+    classification.clearPreview()
+    rejectPreview(new Error('旧媒体读取失败'))
+    await expect(obsoleteFailure).resolves.toBeNull()
+    expect(classification.lastError.value).toBeNull()
 
     let resolveImpact!: (result: ClassificationImpactAnalysis) => void
     mocks.analyzeImpact.mockImplementationOnce(
