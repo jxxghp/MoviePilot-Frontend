@@ -506,20 +506,12 @@
     "@typescript-eslint/no-unused-vars": {
       "count": 2
     },
-    "no-useless-assignment": {
-      "count": 1
-    },
     "sonarjs/no-ignored-exceptions": {
-      "count": 2
+      "count": 1
     }
   },
   "src/layouts/default/components/UserNotification.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/pages/subscribe/__tests__/index.spec.ts": {
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -537,6 +529,11 @@
     },
     "sonarjs/no-duplicated-branches": {
       "count": 2
+    }
+  },
+  "src/pages/subscribe/__tests__/index.spec.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
     }
   },
   "src/plugins/i18n.ts": {
