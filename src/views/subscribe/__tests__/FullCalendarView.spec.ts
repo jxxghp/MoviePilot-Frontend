@@ -151,6 +151,14 @@ function sequenceSubscribeList(responses: Array<{ body: Subscribe[]; status?: nu
 describe('FullCalendarView', () => {
   beforeEach(() => {
     setViewport(1280)
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/files/:id', () =>
+        apiJson({
+          subscribe: null,
+          episodes: {},
+        }),
+      ),
+    )
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -240,6 +248,79 @@ describe('FullCalendarView', () => {
     expect(partialCard).toHaveClass('calendar-event-card--partial')
     expect(completeCard).toHaveClass('calendar-event-card--complete')
     expect(washCard).toHaveClass('calendar-event-card--partial')
+  })
+
+  it('uses media-library episode details when subscription facts lag behind aggregate progress', async () => {
+    const lagging = tvSubscribe(3251, '手动入库剧集', {
+      lack_episode: 33,
+      note: Array.from({ length: 25 }, (_, index) => index + 71),
+      total_episode: 129,
+    })
+    const filesRequest = vi.fn()
+    let resolveFiles: (() => void) | undefined
+    const filesReady = new Promise<void>(resolve => {
+      resolveFiles = resolve
+    })
+    server.use(
+      subscribeListHandler([lagging]),
+      tmdbSeasonEpisodesHandler(3251, 1, [
+        createTmdbEpisode({ air_date: '2026-07-23', episode_number: 96, name: '第九十六集' }),
+      ]),
+      http.get(subscribeApiUrls.filesById(lagging.id as number), async () => {
+        filesRequest()
+        await filesReady
+        return apiJson({
+          subscribe: lagging,
+          episodes: {
+            96: {
+              library: [{ file_path: '/media/手动入库剧集/S01E96.mkv', storage: 'local' }],
+            },
+          },
+        })
+      }),
+    )
+
+    await renderCalendar()
+
+    await screen.findByText('手动入库剧集')
+    await waitFor(() => expect(filesRequest).toHaveBeenCalledOnce())
+    expect(screen.getByText('未入库 (96/129)')).toBeInTheDocument()
+    resolveFiles?.()
+    await waitFor(() => expect(screen.getByText('已入库 (96/129)')).toBeInTheDocument())
+    const card = screen.getByText('手动入库剧集').closest('.calendar-event-card')
+    expect(card).toHaveClass('calendar-event-card--complete')
+  })
+
+  it('limits background media-library detail requests', async () => {
+    const subscriptions = [
+      tvSubscribe(3261, '后台补查一', { lack_episode: 1, note: [1] }),
+      tvSubscribe(3262, '后台补查二', { lack_episode: 1, note: [1] }),
+      tvSubscribe(3263, '后台补查三', { lack_episode: 1, note: [1] }),
+    ]
+    let activeRequests = 0
+    let maxActiveRequests = 0
+    let requestCount = 0
+    server.use(
+      subscribeListHandler(subscriptions),
+      ...subscriptions.map(subscribe =>
+        tmdbSeasonEpisodesHandler(Number(subscribe.media_id), 1, [
+          createTmdbEpisode({ air_date: '2026-07-24', episode_number: 2 }),
+        ]),
+      ),
+      http.get('http://localhost/api/v1/subscribe/files/:id', async () => {
+        requestCount += 1
+        activeRequests += 1
+        maxActiveRequests = Math.max(maxActiveRequests, activeRequests)
+        await new Promise(resolve => setTimeout(resolve, 10))
+        activeRequests -= 1
+        return apiJson({ subscribe: null, episodes: {} })
+      }),
+    )
+
+    await renderCalendar()
+
+    await waitFor(() => expect(requestCount).toBe(subscriptions.length))
+    expect(maxActiveRequests).toBe(2)
   })
 
   it('keeps successful events when another detail request fails and drops invalid dates', async () => {

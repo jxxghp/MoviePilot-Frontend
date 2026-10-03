@@ -5,7 +5,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import FullCalendar from '@fullcalendar/vue3'
 import type { Ref } from 'vue'
-import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
+import type { MediaInfo, Subscribe, SubscrbieInfo, TmdbEpisode } from '@/api/types'
 import api from '@/api'
 import { formatDateDifference, formatEp, formatSeasonEpisode, parseDate } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
@@ -45,6 +45,7 @@ type CalendarLibraryState = 'none' | 'partial' | 'complete'
 // 订阅日历事件信息。
 interface CalendarEventInfo {
   id?: string
+  subscribeId?: number
   title: string
   episodeTitle?: string
   episodeTitles?: string[]
@@ -144,6 +145,11 @@ const mobileSelectedFilterValue = ref(ALL_MOBILE_FILTER_VALUE)
 
 // 移动端默认隐藏已经过期的日历项。
 const mobileHideExpired = ref(true)
+
+// 后台补查的并发上限，避免媒体服务器请求占满订阅日历加载通道。
+const CALENDAR_LIBRARY_DETAIL_CONCURRENCY = 2
+let calendarLoadGeneration = 0
+const calendarLibraryDetailRequests = new Map<number, Promise<number[]>>()
 
 // 媒体类型筛选取值。
 type MediaTypeFilterValue = 'all' | 'movie' | 'tv'
@@ -401,6 +407,49 @@ function getLibraryEpisodeNumbers(subscribe: Subscribe) {
   return normalizeEpisodeNumbers(subscribe.note)
 }
 
+// 判断订阅列表中的集号明细是否可能落后于聚合入库数。
+function shouldLoadCalendarLibraryDetails(
+  subscribe: Subscribe,
+  libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe),
+) {
+  return (
+    subscribe.type === '电视剧' &&
+    !isEnabledFlag(subscribe.best_version) &&
+    Boolean(subscribe.id) &&
+    getLibraryEpisodeCount(subscribe) > libraryEpisodeNumbers.length
+  )
+}
+
+// 订阅明细落后于媒体库聚合进度时，补充媒体库实际存在的集号。
+async function getCalendarLibraryEpisodeNumbers(subscribe: Subscribe) {
+  const libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe)
+
+  if (!shouldLoadCalendarLibraryDetails(subscribe, libraryEpisodeNumbers)) return libraryEpisodeNumbers
+
+  const pendingRequest = calendarLibraryDetailRequests.get(subscribe.id)
+  if (pendingRequest) return pendingRequest
+
+  const request = api
+    .get<SubscrbieInfo>(`subscribe/files/${subscribe.id}`, { feedback: 'silent' })
+    .then(details => {
+      const mediaLibraryEpisodeNumbers = Object.entries(details.episodes || {})
+        .filter(([, episode]) => (episode.library || []).length > 0)
+        .map(([episode]) => Number(episode))
+
+      return [...new Set(normalizeEpisodeNumbers([...libraryEpisodeNumbers, ...mediaLibraryEpisodeNumbers]))].sort(
+        (first, second) => first - second,
+      )
+    })
+    .catch(() => {
+      // 详情接口失败时沿用订阅列表中的事实，避免阻塞整个日历加载。
+      return libraryEpisodeNumbers
+    })
+    .finally(() => calendarLibraryDetailRequests.delete(subscribe.id))
+
+  calendarLibraryDetailRequests.set(subscribe.id, request)
+  return request
+}
+
 // 根据集号和入库信息计算当前日历项入库状态。
 function getLibraryState(
   episodeNumbers: number[],
@@ -432,6 +481,7 @@ function buildCalendarEventInfo(
 
   return {
     title: subscribe.name || '',
+    subscribeId: subscribe.id,
     allDay: false,
     posterPath: subscribe.poster,
     mediaType: subscribe.type || '',
@@ -677,8 +727,47 @@ async function eventsHander(subscribe: Subscribe) {
   }
 }
 
+// 后台补查疑似过期的媒体库集号，并在每批结果到达后更新日历状态。
+async function enrichCalendarLibraryEpisodes(subscribes: Subscribe[], generation: number) {
+  const candidates = subscribes.filter(subscribe => shouldLoadCalendarLibraryDetails(subscribe))
+  if (!candidates.length) return
+
+  let nextIndex = 0
+  const worker = async () => {
+    while (nextIndex < candidates.length) {
+      const subscribe = candidates[nextIndex]
+      nextIndex += 1
+      const libraryEpisodeNumbers = await getCalendarLibraryEpisodeNumbers(subscribe)
+      if (generation !== calendarLoadGeneration) return
+
+      let changed = false
+      rawCalendarEvents.value.forEach(event => {
+        if (event.subscribeId !== subscribe.id) return
+        const previous = event.libraryEpisodeNumbers
+        if (
+          previous.length === libraryEpisodeNumbers.length &&
+          previous.every((episode, index) => episode === libraryEpisodeNumbers[index])
+        ) {
+          return
+        }
+
+        event.libraryEpisodeNumbers = libraryEpisodeNumbers
+        event.libraryState = getLibraryState(event.episodeNumbers, event.libraryEpisode, libraryEpisodeNumbers)
+        changed = true
+      })
+
+      if (changed) renderVisibleCalendarEvents()
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(CALENDAR_LIBRARY_DETAIL_CONCURRENCY, candidates.length) }, () => worker()),
+  )
+}
+
 // 调用API查询所有订阅
 async function getSubscribes() {
+  const generation = ++calendarLoadGeneration
   if (!isLoaded.value && display.mdAndUp.value) openProgressDialog()
   loading.value = true
   try {
@@ -689,6 +778,7 @@ async function getSubscribes() {
     rawCalendarEvents.value = normalizeCalendarEventOrder(succEvents.flat().filter(event => event.start))
     renderVisibleCalendarEvents()
     isLoaded.value = true
+    void enrichCalendarLibraryEpisodes(subscribes, generation)
   } catch (error) {
     console.error(error)
   } finally {
