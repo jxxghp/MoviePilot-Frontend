@@ -383,9 +383,9 @@ function handleClosePluginQuickAccess() {
   showPluginQuickAccess.value = false
 }
 
-/** 从移动端顶栏打开插件面板，替代容易误触的首页全局下拉手势。 */
+/** 从顶栏打开插件面板，替代容易误触的首页全局下拉手势。 */
 function handleOpenPluginQuickAccess() {
-  if (!appMode.value || !canAdmin.value) return
+  if (!canAdmin.value) return
 
   showPluginQuickAccess.value = true
 }
@@ -715,7 +715,6 @@ onMounted(async () => {
 
   <!-- 👉 Plugin Quick Access -->
   <QuickAccess
-    v-if="appMode"
     :visible="showPluginQuickAccess"
     @close="handleClosePluginQuickAccess"
     @plugin-click="handlePluginClick"

@@ -30,12 +30,21 @@ const mocks = vi.hoisted(() => ({
     props: ['item'],
     template: '<span data-testid="vertical-nav-link">{{ item.title }}</span>',
   },
+  iconButton: {
+    emits: ['click'],
+    inheritAttrs: false,
+    template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+  },
+  quickAccess: {
+    props: { visible: Boolean },
+    template: '<div data-testid="quick-access" :data-visible="visible ? \'true\' : \'false\'" />',
+  },
   runtimeStore: undefined as RuntimeStoreMock | undefined,
   sidebarStore: undefined as SidebarStoreMock | undefined,
   startPluginRuntime: vi.fn(),
   stopPluginRuntime: vi.fn(),
   userStore: undefined as UserStoreMock | undefined,
-  verticalNavLayout: { template: '<div><slot name="vertical-nav-content" /></div>' },
+  verticalNavLayout: { template: '<div><slot name="navbar" /><slot name="vertical-nav-content" /></div>' },
 }))
 
 vi.mock('@layouts/components/VerticalNavLayout.vue', () => ({ default: mocks.verticalNavLayout }))
@@ -48,7 +57,7 @@ vi.mock('@/components/theme/ThemeCustomizer.vue', () => ({ default: mocks.emptyC
 vi.mock('@/layouts/default/components/Footer.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/HeaderTab.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/OfflinePage.vue', () => ({ default: mocks.emptyComponent }))
-vi.mock('@/layouts/default/components/QuickAccess.vue', () => ({ default: mocks.emptyComponent }))
+vi.mock('@/layouts/default/components/QuickAccess.vue', () => ({ default: mocks.quickAccess }))
 vi.mock('@/layouts/default/components/SearchBar.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/ShortcutBar.vue', () => ({ default: mocks.emptyComponent }))
 vi.mock('@/layouts/default/components/UserNotification.vue', () => ({ default: mocks.emptyComponent }))
@@ -187,6 +196,32 @@ describe('DefaultLayout', () => {
     await flushPromises()
 
     expect(mocks.startPluginRuntime).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('opens plugin quick access from the desktop navbar', async () => {
+    mocks.userStore!.superUser = true
+    const wrapper = shallowMount(DefaultLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          IconBtn: mocks.iconButton as Component,
+          QuickAccess: mocks.quickAccess,
+          RouterLink: mocks.emptyComponent as Component,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
+        },
+      },
+    })
+    await flushPromises()
+
+    const launcher = wrapper.find('.plugin-launcher-btn')
+    expect(launcher.exists()).toBe(true)
+    expect(wrapper.get('[data-testid="quick-access"]').attributes('data-visible')).toBe('false')
+
+    await launcher.trigger('click')
+
+    expect(wrapper.get('[data-testid="quick-access"]').attributes('data-visible')).toBe('true')
     wrapper.unmount()
   })
 
