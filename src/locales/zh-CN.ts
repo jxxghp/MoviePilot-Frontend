@@ -2813,7 +2813,7 @@ export default {
       llmWebSearchModeAuto: '自动（服务端优先）',
       llmWebSearchModeDisabled: '关闭联网搜索',
       llmTemperature: '温度参数',
-      llmTemperatureHint: '控制回复随机性，数值越低越稳定，越高越发散；后端默认 0.3，通常建议 0-2',
+      llmTemperatureHint: '控制回复随机性；留空使用模型默认值，填写 0 表示显式使用温度 0，通常建议 0-2',
       llmProviderAuth: '提供商授权',
       llmProviderAuthHint: '支持账号登录授权的提供商，可以直接在这里完成登录并复用授权状态。',
       llmProviderConnectedAs: '当前已连接：{label}',

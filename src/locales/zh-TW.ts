@@ -2774,7 +2774,7 @@ export default {
       llmWebSearchModeAuto: '自動（服務端優先）',
       llmWebSearchModeDisabled: '關閉聯網搜尋',
       llmTemperature: '溫度參數',
-      llmTemperatureHint: '控制回覆隨機性，數值越低越穩定，越高越發散；後端預設 0.3，通常建議 0-2',
+      llmTemperatureHint: '控制回覆隨機性；留空使用模型預設值，填寫 0 表示明確使用溫度 0，通常建議 0-2',
       llmProviderAuth: '提供商授權',
       llmProviderAuthHint: '支援帳號登入授權的提供商，可以直接在這裡完成登入並重用授權狀態。',
       llmProviderConnectedAs: '目前已連接：{label}',
