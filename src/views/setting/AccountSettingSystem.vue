@@ -75,7 +75,7 @@ const SystemSettings = ref<any>({
     LLM_BASE_URL_PRESET: null,
     LLM_MAX_CONTEXT_TOKENS: 128,
     LLM_USER_AGENT: null,
-    LLM_TEMPERATURE: 0.3,
+    LLM_TEMPERATURE: null as number | null,
     AUDIO_INPUT_PROVIDER: 'openai',
     AUDIO_INPUT_API_KEY: null,
     AUDIO_INPUT_BASE_URL: null,
@@ -324,7 +324,7 @@ type LlmSettingsSnapshot = {
   LLM_USE_PROXY: boolean
   LLM_BASE_URL_PRESET: string
   LLM_USER_AGENT: string
-  LLM_TEMPERATURE: number
+  LLM_TEMPERATURE: number | null
 }
 
 type AgentMcpTransport = 'stdio' | 'sse' | 'http' | 'streamable_http'
@@ -499,6 +499,13 @@ function closeProviderAuthDialog() {
   authDialogController = null
 }
 
+/** 留空使用模型默认温度，显式填写的 0 仍保留。 */
+function normalizeLlmTemperature(value: unknown): number | null {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null
+  const temperature = Number(value)
+  return Number.isFinite(temperature) ? temperature : null
+}
+
 function buildLlmSnapshot(): LlmSettingsSnapshot {
   return {
     AI_AGENT_ENABLE: Boolean(SystemSettings.value.Basic.AI_AGENT_ENABLE),
@@ -512,7 +519,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_USE_PROXY: Boolean(SystemSettings.value.Basic.LLM_USE_PROXY),
     LLM_BASE_URL_PRESET: String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
     LLM_USER_AGENT: String(SystemSettings.value.Basic.LLM_USER_AGENT ?? ''),
-    LLM_TEMPERATURE: Number(SystemSettings.value.Basic.LLM_TEMPERATURE ?? 0.3),
+    LLM_TEMPERATURE: normalizeLlmTemperature(SystemSettings.value.Basic.LLM_TEMPERATURE),
   }
 }
 
@@ -533,7 +540,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     use_proxy: snapshot.LLM_USE_PROXY,
     base_url_preset: snapshot.LLM_BASE_URL_PRESET.trim(),
     user_agent: snapshot.LLM_USER_AGENT.trim(),
-    temperature: Number.isFinite(snapshot.LLM_TEMPERATURE) ? snapshot.LLM_TEMPERATURE : 0.3,
+    temperature: snapshot.LLM_TEMPERATURE,
   }
 }
 
@@ -999,8 +1006,7 @@ async function saveSystemSetting(value: Record<string, unknown>) {
 async function saveBasicSettings() {
   savingBasic.value = true
   try {
-    const llmTemperature = Number(SystemSettings.value.Basic.LLM_TEMPERATURE ?? 0.3)
-    SystemSettings.value.Basic.LLM_TEMPERATURE = Number.isFinite(llmTemperature) ? llmTemperature : 0.3
+    SystemSettings.value.Basic.LLM_TEMPERATURE = normalizeLlmTemperature(SystemSettings.value.Basic.LLM_TEMPERATURE)
     const basicSettings = { ...SystemSettings.value.Basic }
     // Token 已由专用接口托管，基础设置保存不能把脱敏占位值写回服务端。
     delete basicSettings.GITHUB_TOKEN

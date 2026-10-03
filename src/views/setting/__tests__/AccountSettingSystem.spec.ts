@@ -632,7 +632,7 @@ describe('AccountSettingSystem', () => {
         API_TOKEN: '1234567890abcdef',
         AUDIO_OUTPUT_MODEL: 'gpt-4o-mini-tts',
         DB_TYPE: 'sqlite',
-        LLM_TEMPERATURE: 0.3,
+        LLM_TEMPERATURE: null,
         WALLPAPER: '',
         WALLPAPER_IMAGE_URL: null,
         WALLPAPER_ROTATION_INTERVAL: 15,
@@ -702,6 +702,40 @@ describe('AccountSettingSystem', () => {
 
     await fireEvent.click(testLlm)
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('LLM 调用测试成功'))
+  })
+
+  it.each([
+    ['', null],
+    ['0', 0],
+    ['1', 1],
+  ])('preserves temperature %j through testing, saving, and reloading', async (input, expected) => {
+    enableLlmSettings()
+    const view = await renderSettings()
+    const testLlm = await expandLlmSettings()
+    await fireEvent.update(screen.getByLabelText('温度参数'), input)
+    mocks.apiPost.mockClear()
+
+    await fireEvent.click(testLlm)
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'llm/manage',
+        expect.objectContaining({ params: expect.objectContaining({ temperature: expected }) }),
+        expect.any(Object),
+      ),
+    )
+
+    await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ LLM_TEMPERATURE: expected })),
+    )
+
+    view.unmount()
+    systemEnv = { ...systemEnv, LLM_TEMPERATURE: expected }
+    await renderSettings()
+    await expandLlmSettings()
+    expect((screen.getByLabelText('温度参数') as HTMLInputElement).value).toBe(
+      expected === null ? '' : String(expected),
+    )
   })
 
   it('aborts stale LLM tests and ignores both late success and late failure', async () => {

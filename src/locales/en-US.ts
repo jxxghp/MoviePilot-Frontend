@@ -2866,7 +2866,7 @@ export default {
       llmWebSearchModeDisabled: 'Disable web search',
       llmTemperature: 'Temperature',
       llmTemperatureHint:
-        'Controls response randomness. Lower values are steadier and higher values are more varied. Backend default is 0.3; 0-2 is usually recommended.',
+        'Controls response randomness. Leave blank to use the model default. Entering 0 explicitly sets temperature to 0. The usual range is 0-2.',
       llmProviderAuth: 'Provider Authorization',
       llmProviderAuthHint:
         'Providers that support account authorization can complete sign-in here and reuse the saved auth state.',
