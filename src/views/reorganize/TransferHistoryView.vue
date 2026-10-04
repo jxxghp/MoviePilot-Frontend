@@ -324,10 +324,22 @@ const loading = ref(false)
 // 总条数
 const totalItems = ref(0)
 
-// 是否要分组
-const group = ref<boolean>(route.query.grouped === 'true')
+const HISTORY_GROUPING_KEY = 'transferHistory.grouped'
+
+// 是否要分组；地址栏优先，其次恢复用户上次手动选择。
+const group = ref(false)
 // 区分默认平铺与用户显式选择平铺，避免搜索/翻页提前关闭后续专辑自动分组。
-const groupPreferenceExplicit = ref(route.query.grouped !== undefined)
+const groupPreferenceExplicit = ref(false)
+restoreHistoryGroupingPreference()
+
+/** 恢复分组偏好，未保存选择时继续允许按音乐专辑自动分组。 */
+function restoreHistoryGroupingPreference() {
+  const saved = localStorage.getItem(HISTORY_GROUPING_KEY)
+  const preference =
+    route.query.grouped !== undefined ? route.query.grouped : saved === 'true' || saved === 'false' ? saved : undefined
+  group.value = preference === 'true'
+  groupPreferenceExplicit.value = preference !== undefined
+}
 
 // 分组条件
 const groupBy = ref<Array<{ key: string }>>([
@@ -556,6 +568,7 @@ function normalizeHistoryPath(path?: string) {
   return normalized
 }
 
+/** 提取有效父目录，缺少目录的记录不参与专辑路径分组。 */
 function getHistoryParentPath(path?: string) {
   const normalized = normalizeHistoryPath(path)
   const separator = normalized.lastIndexOf('/')
@@ -695,7 +708,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     totalItems.value = ensureNumber(result.total, 0)
     updateSearchHintList(list)
 
-    if (historyViewActive && isDesktop.value && route.query.grouped === undefined && hasMusicAlbumGroup(displayList)) {
+    if (historyViewActive && isDesktop.value && !groupPreferenceExplicit.value && hasMusicAlbumGroup(displayList)) {
       group.value = true
     }
 
@@ -715,10 +728,12 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
 
 const completedDeleteStatuses: TransferHistoryDeleteStepStatus[] = ['deleted', 'already_missing']
 
+/** 删除成功与文件已不存在都视为完成，重试时无需再次操作。 */
 function isCompletedDeleteStatus(status: TransferHistoryDeleteStepStatus) {
   return completedDeleteStatuses.includes(status)
 }
 
+/** 校验删除响应中的各步骤状态，避免将不完整响应视为成功。 */
 function parseDeleteResult(value: unknown): TransferHistoryDeleteResult | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
   const record = value as Record<string, unknown>
@@ -746,6 +761,7 @@ function parseDeleteResult(value: unknown): TransferHistoryDeleteResult | undefi
   }
 }
 
+/** 保留部分删除的完成进度，历史记录移除后释放重试状态。 */
 function rememberDeleteResult(item: TransferHistory, result: TransferHistoryDeleteResult) {
   if (result.history === 'deleted' || result.history === 'not_found') {
     completedDeleteSteps.delete(item.id)
@@ -758,6 +774,7 @@ function rememberDeleteResult(item: TransferHistory, result: TransferHistoryDele
   })
 }
 
+/** 重试只提交用户选择且尚未完成的文件删除步骤。 */
 function getDeleteFlags(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean) {
   const completed = completedDeleteSteps.get(item.id)
   return {
@@ -766,6 +783,7 @@ function getDeleteFlags(item: TransferHistory, deleteSrc: boolean, deleteDest: b
   }
 }
 
+/** 按完成与失败分类生成删除步骤摘要，略过未请求的步骤。 */
 function formatDeleteStepSummary(result: TransferHistoryDeleteResult) {
   const completed: string[] = []
   const failed: string[] = []
@@ -781,6 +799,7 @@ function formatDeleteStepSummary(result: TransferHistoryDeleteResult) {
   return { completed: completed.join(', '), failed: failed.join(', ') }
 }
 
+/** 从业务失败响应中恢复部分删除结果，用于提示与重试。 */
 function getDeleteResultFromError(error: unknown): TransferHistoryDeleteResult | undefined {
   if (!isApiBusinessFailure(error)) return undefined
   const payload = error.payload
@@ -788,6 +807,7 @@ function getDeleteResultFromError(error: unknown): TransferHistoryDeleteResult |
   return parseDeleteResult((payload as Record<string, unknown>).data)
 }
 
+/** 根据调用方反馈策略展示部分失败及已完成的删除步骤。 */
 function notifyDeleteResult(result: TransferHistoryDeleteResult, notifyError: boolean) {
   if (!notifyError) return
   const summary = formatDeleteStepSummary(result)
@@ -837,8 +857,7 @@ function syncMobileSearchFromRouteQuery() {
   try {
     search.value = getRouteQueryString(route.query.search)
     statusFilter.value = getRouteStatusFilter(route.query.status)
-    group.value = route.query.grouped === 'true'
-    groupPreferenceExplicit.value = route.query.grouped !== undefined
+    restoreHistoryGroupingPreference()
   } finally {
     void nextTick(() => {
       syncingRouteQuery = false
@@ -937,8 +956,7 @@ async function syncStateFromRouteQuery() {
     statusFilter.value = getRouteStatusFilter(route.query.status)
     itemsPerPage.value = ensurePageSize(route.query.itemsPerPage, 50)
     currentPage.value = Math.max(1, ensureNumber(route.query.currentPage, 1))
-    group.value = route.query.grouped === 'true'
-    groupPreferenceExplicit.value = route.query.grouped !== undefined
+    restoreHistoryGroupingPreference()
   } finally {
     await nextTick()
     syncingRouteQuery = false
@@ -1428,6 +1446,7 @@ async function reloadMobileSearchPage() {
 function toggleHistoryGrouping() {
   groupPreferenceExplicit.value = true
   group.value = !group.value
+  localStorage.setItem(HISTORY_GROUPING_KEY, String(group.value))
 }
 
 // 确保值为number类型
@@ -1496,6 +1515,7 @@ function getHistoryCategory(item: TransferHistory) {
   return item.category
 }
 
+/** 从 Windows 或 POSIX 文件路径中提取用于类别识别的扩展名。 */
 function getFileExtension(path?: string) {
   const filename = path?.split(/[\\/]/).at(-1) || ''
   const dot = filename.lastIndexOf('.')
@@ -1758,6 +1778,7 @@ function getHistoryGroupSummary(items: readonly TransferHistoryGroupItem[]) {
   return items[0]?.value?.history_group_summary
 }
 
+/** 复用专辑摘要选定的封面记录及统一图片代理规则。 */
 function getHistoryGroupPosterUrl(items: readonly TransferHistoryGroupItem[]) {
   const coverItem = getHistoryGroupSummary(items)?.coverItem
   return coverItem ? getHistoryPosterUrl(coverItem) : ''
@@ -2247,7 +2268,7 @@ onUnmounted(() => {
                 <template #prepend>
                   <VIcon :icon="menu.props.prependIcon" />
                 </template>
-                <VListItemTitle v-text="menu.title" />
+                <VListItemTitle>{{ menu.title }}</VListItemTitle>
               </VListItem>
             </VList>
           </VMenu>
@@ -2362,7 +2383,7 @@ onUnmounted(() => {
                 <template #prepend>
                   <VIcon :icon="menu.props.prependIcon" />
                 </template>
-                <VListItemTitle v-text="menu.title" />
+                <VListItemTitle>{{ menu.title }}</VListItemTitle>
               </VListItem>
             </VList>
           </VMenu>
@@ -2589,7 +2610,7 @@ onUnmounted(() => {
                       <template #prepend>
                         <VIcon :icon="menu.props.prependIcon" />
                       </template>
-                      <VListItemTitle v-text="menu.title" />
+                      <VListItemTitle>{{ menu.title }}</VListItemTitle>
                     </VListItem>
                   </VList>
                 </VMenu>

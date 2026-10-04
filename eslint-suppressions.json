@@ -683,11 +683,6 @@
       "count": 1
     }
   },
-  "src/views/reorganize/TransferHistoryView.vue": {
-    "vue/no-v-text-v-html-on-component": {
-      "count": 3
-    }
-  },
   "src/views/setting/AccountSettingDirectory.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2

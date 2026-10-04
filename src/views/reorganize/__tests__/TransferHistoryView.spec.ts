@@ -148,7 +148,7 @@ const HistoryTableStub = defineComponent({
         )
       })
 
-      return h('section', { 'aria-label': '整理历史桌面列表' }, [
+      return h('section', { 'aria-label': '整理历史桌面列表', 'data-grouped': Boolean(groupKey) }, [
         h('output', { 'aria-label': '整理历史排序结果' }, JSON.stringify(sortResults)),
         ...groupHeaders,
         ...props.items.map(item =>
@@ -370,10 +370,12 @@ function createHistory(id: number, title: string, overrides: Partial<TransferHis
   } as TransferHistory
 }
 
+/** 构造历史查询的响应 envelope，支持分页总量与当前列表独立设置。 */
 function historyResponse(list: TransferHistory[], total = list.length) {
   return { data: { list, total }, success: true }
 }
 
+/** 构造各文件删除步骤的响应，用于验证部分失败与重试行为。 */
 function deleteResultResponse(
   overrides: Partial<{ history: 'deleted' | 'retained' | 'not_found'; source: string; destination: string }> = {},
 ) {
@@ -389,10 +391,12 @@ function deleteResultResponse(
   }
 }
 
+/** 默认不配置额外存储，避免无关存储选项影响历史页测试。 */
 function storageResponse() {
   return []
 }
 
+/** 显式控制请求完成顺序，验证路由切换与异步响应的竞争。 */
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
@@ -440,6 +444,7 @@ async function renderHistory(initialRoute = '/history', canManage = true) {
   })
 }
 
+/** 通过真实路由和 KeepAlive 验证离开历史页、再次进入时的状态恢复。 */
 async function renderHistoryRoute(initialRoute = '/history', downloadingBeforeEnter?: () => Promise<void>) {
   const RouterHost = defineComponent({
     name: 'HistoryRouterHost',
@@ -489,6 +494,7 @@ async function renderHistoryRoute(initialRoute = '/history', downloadingBeforeEn
   })
 }
 
+/** 读取动态操作菜单的公开配置，支持响应式与普通数组。 */
 function getDynamicMenuItems() {
   const menuItems = mocks.dynamicButtonConfig?.menuItems
   return unref(menuItems) as
@@ -500,6 +506,7 @@ function getDynamicMenuItems() {
     | undefined
 }
 
+/** 通过已注册的动态菜单操作触发对应用户交互。 */
 function runDynamicAction(titleKey: string) {
   const item = getDynamicMenuItems()?.find(menu => menu.titleKey === titleKey)
   if (!item) throw new Error(`未注册动态按钮操作: ${titleKey}`)
@@ -549,6 +556,59 @@ describe('TransferHistoryView', () => {
 
     expect(await screen.findByText('桌面结果')).toBeInTheDocument()
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
+  })
+
+  it('remembers manual grouping when returning from another route without query parameters', async () => {
+    const { container, router } = await renderHistoryRoute()
+    await flushPromises()
+
+    await fireEvent.click(container.querySelector('.v-btn-group button')!)
+    await waitFor(() => expect(router.currentRoute.value.query.grouped).toBe('true'))
+    expect(localStorage.getItem('transferHistory.grouped')).toBe('true')
+
+    await router.push('/downloading')
+    await router.push('/history')
+    await flushPromises()
+
+    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', 'true')
+  })
+
+  it('remembers a manual flat view after remounting even when the page contains a music album', async () => {
+    const tracks = [
+      createHistory(1, '第一首', { dest: '/media/Album/01.flac', type: '音乐' }),
+      createHistory(2, '第二首', { dest: '/media/Album/02.flac', type: '音乐' }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(tracks)),
+    )
+    const first = await renderHistory('/history?grouped=true')
+    await flushPromises()
+    await fireEvent.click(first.container.querySelector('.v-btn-group button')!)
+    await waitFor(() => expect(first.router.currentRoute.value.query.grouped).toBe('false'))
+    expect(localStorage.getItem('transferHistory.grouped')).toBe('false')
+    first.unmount()
+
+    const second = await renderHistory()
+    await flushPromises()
+
+    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', 'false')
+    expect(second.router.currentRoute.value.query.grouped).toBeUndefined()
+  })
+
+  it.each(['true', 'false'])('restores saved grouping %s and lets an explicit URL override it', async saved => {
+    localStorage.setItem('transferHistory.grouped', saved)
+    const { router } = await renderHistory()
+    await flushPromises()
+    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', saved)
+
+    await router.push(`/history?grouped=${saved === 'true' ? 'false' : 'true'}`)
+    await flushPromises()
+    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', String(saved !== 'true'))
+    expect(localStorage.getItem('transferHistory.grouped')).toBe(saved)
+
+    await router.push('/history')
+    await flushPromises()
+    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', saved)
   })
 
   it('opens the confirmation dialog before marking downloader cleanup as resolved', async () => {
@@ -663,7 +723,8 @@ describe('TransferHistoryView', () => {
     await waitFor(() => expect(requests).toEqual([{ count: 50, page: 1, status: false, title: '失败' }]))
   })
 
-  it('automatically groups multiple music tracks by their organized album directory', async () => {
+  it.each([null, 'invalid'])('automatically groups music albums with no valid saved preference (%s)', async saved => {
+    if (saved !== null) localStorage.setItem('transferHistory.grouped', saved)
     const tracks = [
       createHistory(1, '女骑士', {
         dest: '/media/徐良/情话 (2013)/01 - 女骑士.flac',
@@ -684,6 +745,7 @@ describe('TransferHistoryView', () => {
     const { container, router } = await renderHistory('/history')
 
     await waitFor(() => expect(router.currentRoute.value.query.grouped).toBe('true'))
+    expect(localStorage.getItem('transferHistory.grouped')).toBe(saved)
     const rows = [...container.querySelectorAll<HTMLElement>('[data-history-group-key]')]
     expect(rows).toHaveLength(2)
     expect(rows[0]?.dataset.historyGroupKey).toBe(rows[1]?.dataset.historyGroupKey)
@@ -1344,20 +1406,25 @@ describe('TransferHistoryView', () => {
     expect(screen.queryByText('移动旧结果')).not.toBeInTheDocument()
   })
 
-  it('persists mobile search in the URL before resetting the infinite list', async () => {
-    vi.useFakeTimers()
-    mocks.desktop = false
-    const { router } = await renderHistory('/history?search=old&grouped=false')
-    await flushPromises()
+  it.each(['/history?search=old&grouped=false', '/history?search=old'])(
+    'preserves the desktop grouping preference while persisting mobile search from %s',
+    async initialRoute => {
+      vi.useFakeTimers()
+      mocks.desktop = false
+      localStorage.setItem('transferHistory.grouped', 'false')
+      const { router } = await renderHistory(initialRoute)
+      await flushPromises()
 
-    await fireEvent.update(screen.getByLabelText('搜索（支持 * ? 通配符）'), 'new')
-    await vi.advanceTimersByTimeAsync(600)
+      await fireEvent.update(screen.getByLabelText('搜索（支持 * ? 通配符）'), 'new')
+      await vi.advanceTimersByTimeAsync(600)
 
-    expect(router.currentRoute.value).toMatchObject({
-      path: '/history',
-      query: { currentPage: '1', grouped: 'false', itemsPerPage: '50', search: 'new' },
-    })
-  })
+      expect(router.currentRoute.value).toMatchObject({
+        path: '/history',
+        query: { currentPage: '1', grouped: 'false', itemsPerPage: '50', search: 'new' },
+      })
+      expect(localStorage.getItem('transferHistory.grouped')).toBe('false')
+    },
+  )
 
   it('summarizes batch deletion failures, retains failed selections, and never renders undefined progress text', async () => {
     const histories = [createHistory(1, '成功项'), createHistory(2, '业务失败项'), createHistory(3, '异常失败项')]
