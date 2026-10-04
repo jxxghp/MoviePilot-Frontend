@@ -70,6 +70,7 @@ describe('glass overlay material styles', () => {
       '.agent-assistant-panel',
       '.compact-fab .v-btn',
       '.v-snackbar__wrapper',
+      '.pwa-install-banner',
     ]) {
       expect(styles).toContain(`'${host}'`)
     }
@@ -485,11 +486,18 @@ describe('glass overlay material styles', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toMatch(
-      /:where\(\.Vue-Toastification__toast, \.agent-assistant-fab__bubble, \.system-update-prompt\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-overlay-backdrop-filter\)\s*!important;[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
+      /:where\(\.Vue-Toastification__toast, \.agent-assistant-fab__bubble, \.pwa-install-banner, \.system-update-prompt\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-overlay-backdrop-filter\)\s*!important;[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
     )
     expect(styles).toMatch(
       /\.agent-assistant-fab__bubbles::before\s*\{[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
     )
+  })
+
+  it('keeps the PWA install description on the theme emphasis color', () => {
+    const component = readFileSync(resolve(cwd(), 'src/components/pwa/PWAInstallPrompt.vue'), 'utf8')
+
+    expect(component).toContain('class="text-sm text-medium-emphasis"')
+    expect(component).not.toContain('class="text-sm opacity-70"')
   })
 
   it('reuses the popup menu material for compact FAB buttons', () => {

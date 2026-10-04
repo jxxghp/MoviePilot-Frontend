@@ -119,7 +119,7 @@ const instructions = computed(() => {
           <VIcon icon="mdi-cellphone-link" size="24" class="me-3" />
           <div class="flex-grow-1">
             <div class="font-weight-medium">{{ t('pwa.installApp') }}</div>
-            <div class="text-sm opacity-70">{{ t('pwa.installDescription') }}</div>
+            <div class="text-sm text-medium-emphasis">{{ t('pwa.installDescription') }}</div>
           </div>
           <VBtn color="primary" size="small" variant="flat" @click="handleInstall">
             {{ t('pwa.install') }}
