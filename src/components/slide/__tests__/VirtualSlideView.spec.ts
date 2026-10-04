@@ -2,7 +2,7 @@ import VirtualSlideView from '@/components/slide/VirtualSlideView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, nextTick, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('vuetify', async importOriginal => {
   const actual = await importOriginal<typeof import('vuetify')>()
@@ -14,12 +14,15 @@ vi.mock('vuetify', async importOriginal => {
 
 let resizeCallbacks: ResizeObserverCallback[] = []
 let resizeObservers: ResizeObserverMock[] = []
+let originalRootFontSize = ''
 
+/** 保留布局变化回调，供测试模拟字体缩放引发的容器尺寸变化。 */
 class ResizeObserverMock implements ResizeObserver {
   readonly disconnect = vi.fn()
   readonly observe = vi.fn()
   readonly unobserve = vi.fn()
 
+  /** 记录观察实例及其回调，避免依赖 jsdom 不支持的真实布局。 */
   constructor(callback: ResizeObserverCallback) {
     resizeCallbacks.push(callback)
     resizeObservers.push(this)
@@ -28,6 +31,7 @@ class ResizeObserverMock implements ResizeObserver {
 
 const items = Array.from({ length: 20 }, (_, index) => ({ id: index, label: `项目 ${index}` }))
 
+/** 挂载带固定数据的轨道，并允许覆盖尺寸契约。 */
 async function renderSlide(overrides: Record<string, unknown> = {}) {
   return renderWithProviders(VirtualSlideView, {
     props: {
@@ -47,6 +51,7 @@ async function renderSlide(overrides: Record<string, unknown> = {}) {
   })
 }
 
+/** 为 jsdom 提供浏览器实际测量得到的滚动区域尺寸。 */
 function configureScroller(container: Element, clientWidth = 220, scrollWidth = 2190) {
   const scroller = container.querySelector<HTMLElement>('.slider-content')
   expect(scroller).not.toBeNull()
@@ -59,6 +64,7 @@ function configureScroller(container: Element, clientWidth = 220, scrollWidth = 
 
 describe('VirtualSlideView', () => {
   beforeEach(() => {
+    originalRootFontSize = document.documentElement.style.fontSize
     resizeCallbacks = []
     resizeObservers = []
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
@@ -69,6 +75,10 @@ describe('VirtualSlideView', () => {
         return 1
       }),
     )
+  })
+
+  afterEach(() => {
+    document.documentElement.style.fontSize = originalRootFontSize
   })
 
   it('renders loading and empty slots without virtual content', async () => {
@@ -99,6 +109,45 @@ describe('VirtualSlideView', () => {
     expect(screen.getByText('项目 7')).toHaveAttribute('data-index', '7')
     expect(container.querySelectorAll('.virtual-spacer')).toHaveLength(2)
     expect(container.querySelector('.nav-button-left')).toBeVisible()
+  })
+
+  it('uses the scaled poster width for default slots, spacers and page navigation', async () => {
+    document.documentElement.style.fontSize = '20px'
+    const { container } = await renderSlide({ itemWidth: undefined })
+    const scroller = configureScroller(container, 380, 3790)
+    const scrollTo = vi.fn()
+    scroller.scrollTo = scrollTo
+    resizeCallbacks[0]?.([], resizeObservers[0])
+
+    await waitFor(() => expect(container.querySelectorAll('.virtual-slide-item')).toHaveLength(3))
+    expect(container.querySelector('.virtual-slide-item')).toHaveStyle({ width: '180px' })
+    expect(container.querySelector('.virtual-track')).toHaveStyle({ width: '3790px' })
+
+    await fireEvent.click(container.querySelector('.nav-button-right') as HTMLElement)
+    expect(scrollTo).toHaveBeenCalledWith({ behavior: 'smooth', left: 380, top: 0 })
+
+    scroller.scrollLeft = 950
+    await fireEvent.scroll(scroller)
+    expect(screen.getByText('项目 4')).toHaveAttribute('data-index', '4')
+    expect(screen.getByText('项目 7')).toHaveAttribute('data-index', '7')
+    expect(container.querySelector('.virtual-spacer')).toHaveStyle({ width: '760px' })
+  })
+
+  it('remeasures rem widths after a font change and preserves explicit pixel widths', async () => {
+    document.documentElement.style.fontSize = '16px'
+    const { container, rerender } = await renderSlide({ itemWidth: undefined })
+    configureScroller(container, 440)
+    resizeCallbacks[0]?.([], resizeObservers[0])
+    await waitFor(() => expect(container.querySelector('.virtual-slide-item')).toHaveStyle({ width: '144px' }))
+
+    document.documentElement.style.fontSize = '24px'
+    resizeCallbacks[0]?.([], resizeObservers[0])
+    await waitFor(() => expect(container.querySelector('.virtual-slide-item')).toHaveStyle({ width: '216px' }))
+    expect(container.querySelector('.virtual-track')).toHaveStyle({ width: '4510px' })
+
+    await rerender({ itemWidth: 100, itemGap: 20 })
+    await waitFor(() => expect(container.querySelector('.virtual-slide-item')).toHaveStyle({ width: '100px' }))
+    expect(container.querySelector('.virtual-track')).toHaveStyle({ width: '2380px' })
   })
 
   it('scrolls one viewport smoothly and updates navigation state', async () => {
@@ -132,6 +181,7 @@ describe('VirtualSlideView', () => {
   it('restores the saved offset after KeepAlive activation and releases resources on unmount', async () => {
     const Harness = defineComponent({
       components: { VirtualSlideView },
+      /** 提供可停用及激活的轨道以验证 KeepAlive 滚动位置恢复。 */
       setup() {
         const active = ref(true)
         return { active, items }

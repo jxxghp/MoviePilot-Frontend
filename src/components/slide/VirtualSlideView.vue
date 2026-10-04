@@ -5,6 +5,7 @@ import { useDisplay } from 'vuetify'
 const props = withDefaults(
   defineProps<{
     items: any[]
+    /** 显式指定像素宽度；默认与海报卡片的 9rem 保持一致。 */
     itemWidth?: number
     itemGap?: number
     overscanItems?: number
@@ -12,7 +13,7 @@ const props = withDefaults(
     loading?: boolean
   }>(),
   {
-    itemWidth: 144,
+    itemWidth: undefined,
     itemGap: 16,
     overscanItems: 4,
     getItemKey: undefined,
@@ -30,12 +31,14 @@ const slideScrollLeft = ref(0)
 const isScrolling = ref(false)
 const startIndex = ref(0)
 const endIndex = ref(0)
+const rootFontSize = ref(16)
 
 let resizeObserver: ResizeObserver | null = null
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
 const scrollTimeoutDuration = 1500
-const itemStep = computed(() => props.itemWidth + props.itemGap)
+const resolvedItemWidth = computed(() => props.itemWidth ?? rootFontSize.value * 9)
+const itemStep = computed(() => resolvedItemWidth.value + props.itemGap)
 const visibleItems = computed(() => props.items.slice(startIndex.value, endIndex.value))
 
 const leadingSpaceWidth = computed(() => startIndex.value * itemStep.value)
@@ -45,7 +48,9 @@ const visibleItemsWidth = computed(() => {
     return 0
   }
 
-  return visibleItems.value.length * props.itemWidth + Math.max(visibleItems.value.length - 1, 0) * props.itemGap
+  return (
+    visibleItems.value.length * resolvedItemWidth.value + Math.max(visibleItems.value.length - 1, 0) * props.itemGap
+  )
 })
 
 const totalContentWidth = computed(() => {
@@ -53,7 +58,7 @@ const totalContentWidth = computed(() => {
     return 0
   }
 
-  return props.items.length * props.itemWidth + Math.max(props.items.length - 1, 0) * props.itemGap
+  return props.items.length * resolvedItemWidth.value + Math.max(props.items.length - 1, 0) * props.itemGap
 })
 
 const trailingSpaceWidth = computed(() => {
@@ -149,6 +154,9 @@ function updateDisabledState() {
  * 同步虚拟列表布局与导航状态。
  */
 function syncLayoutState() {
+  // 浏览器字体设置会改变 rem，虚拟占位和滚动步长必须跟随真实卡片尺寸。
+  const fontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize)
+  rootFontSize.value = Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 16
   updateVisibleRange()
   updateDisabledState()
 }
@@ -223,7 +231,7 @@ onActivated(() => {
 })
 
 watch(
-  () => props.items.length,
+  () => [props.items.length, props.itemWidth, props.itemGap],
   () => {
     nextTick(syncLayoutState)
   },
@@ -262,7 +270,7 @@ watch(
                   class="virtual-slide-item"
                   :style="{
                     marginInlineEnd: index === visibleItems.length - 1 ? '0px' : `${itemGap}px`,
-                    width: `${itemWidth}px`,
+                    width: `${resolvedItemWidth}px`,
                   }"
                 >
                   <slot name="item" :item="item" :index="startIndex + index" />
