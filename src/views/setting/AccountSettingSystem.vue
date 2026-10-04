@@ -59,6 +59,7 @@ const SystemSettings = ref<any>({
     AI_AGENT_ENABLE: false,
     AI_AGENT_GLOBAL: false,
     AI_AGENT_HIDE_ENTRY: false,
+    AI_AGENT_OUTPUT_LANGUAGE: 'zh-CN',
     AI_AGENT_VERBOSE: false,
     AI_AGENT_JOB_INTERVAL: 24,
     LLM_PROVIDER: 'deepseek',
@@ -670,6 +671,14 @@ const webSearchModeHint = computed(() =>
     ? t('setting.system.llmWebSearchModeBuiltinSupportedHint')
     : t('setting.system.llmWebSearchModeHint'),
 )
+
+const agentOutputLanguageItems = computed(() => [
+  { title: t('setting.system.aiAgentLanguageZhCN'), value: 'zh-CN' },
+  { title: t('setting.system.aiAgentLanguageZhTW'), value: 'zh-TW' },
+  { title: t('setting.system.aiAgentLanguageEn'), value: 'en-US' },
+  { title: t('setting.system.aiAgentLanguageJa'), value: 'ja-JP' },
+  { title: t('setting.system.aiAgentLanguageKo'), value: 'ko-KR' },
+])
 
 const activeTab = ref('system')
 
@@ -1552,6 +1561,16 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :label="t('setting.system.aiAgentHideEntry')"
                     :hint="t('setting.system.aiAgentHideEntryHint')"
                     persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VSelect
+                    v-model="SystemSettings.Basic.AI_AGENT_OUTPUT_LANGUAGE"
+                    :label="t('setting.system.aiAgentOutputLanguage')"
+                    :hint="t('setting.system.aiAgentOutputLanguageHint')"
+                    :items="agentOutputLanguageItems"
+                    persistent-hint
+                    prepend-inner-icon="mdi-translate"
                   />
                 </VCol>
                 <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">

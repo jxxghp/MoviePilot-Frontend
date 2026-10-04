@@ -204,6 +204,7 @@ const BASIC_SETTING_KEYS = [
   'AI_AGENT_GLOBAL',
   'AI_AGENT_HIDE_ENTRY',
   'AI_AGENT_JOB_INTERVAL',
+  'AI_AGENT_OUTPUT_LANGUAGE',
   'AI_AGENT_RETRY_TRANSFER',
   'AI_AGENT_VERBOSE',
   'AI_RECOMMEND_ENABLED',
@@ -1019,6 +1020,7 @@ describe('AccountSettingSystem', () => {
     for (const label of ['全局智能助手', '啰嗦模式', '隐藏全局入口']) {
       await fireEvent.click(screen.getByLabelText(label))
     }
+    await selectOption('助手输出语言', 'English')
     await selectOption('定时唤醒', '6小时')
     for (const label of ['支持音频输入', '支持音频输出', '文件整理失败智能接管', '搜索结果智能推荐']) {
       await fireEvent.click(screen.getByLabelText(label))
@@ -1044,6 +1046,7 @@ describe('AccountSettingSystem', () => {
         AI_AGENT_GLOBAL: true,
         AI_AGENT_HIDE_ENTRY: true,
         AI_AGENT_JOB_INTERVAL: 6,
+        AI_AGENT_OUTPUT_LANGUAGE: 'en-US',
         AI_AGENT_RETRY_TRANSFER: true,
         AI_AGENT_VERBOSE: true,
         AI_RECOMMEND_ENABLED: true,

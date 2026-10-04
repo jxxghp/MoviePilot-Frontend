@@ -2925,6 +2925,14 @@ export default {
       aiAgentHideEntry: 'Hide Global Entry',
       aiAgentHideEntryHint:
         'Only hide the floating AI assistant entry in the bottom-right corner. Message channels and background assistant features are not affected.',
+      aiAgentOutputLanguage: 'Assistant Output Language',
+      aiAgentOutputLanguageHint:
+        'Force the AI assistant to reply in the selected language. Simplified Chinese is used by default.',
+      aiAgentLanguageZhCN: 'Simplified Chinese',
+      aiAgentLanguageZhTW: 'Traditional Chinese',
+      aiAgentLanguageEn: 'English',
+      aiAgentLanguageJa: 'Japanese',
+      aiAgentLanguageKo: 'Korean',
       aiAgentJobIntervalDisabled: 'Disabled',
       aiAgentJobInterval1h: '1 Hour',
       aiAgentJobInterval3h: '3 Hours',
