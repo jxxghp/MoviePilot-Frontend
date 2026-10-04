@@ -674,8 +674,9 @@ watch(
 .pin-btn {
   position: absolute;
   z-index: 1;
+  // 将编辑控件固定在左上角，避免遮住插件图标右上角的运行状态徽标。
   inset-block-start: 3px;
-  inset-inline-end: 2px;
+  inset-inline-start: 2px;
   border: 1px solid rgba(var(--v-theme-surface), 0.72);
 }
 
