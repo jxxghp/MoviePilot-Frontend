@@ -142,6 +142,7 @@ const SystemSettings = ref<any>({
     LYRICS_BATCH_TIMEOUT: 120,
     LYRICS_PROVIDER_RETRY_MAX_WAIT: 5,
     MUSIC_METADATA_TO_SIMPLIFIED: true,
+    MUSIC_CUE_ENABLE: true,
     MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
     MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
     TMDB_IMAGE_DOMAIN: null,
@@ -2639,6 +2640,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       v-model="SystemSettings.Advanced.MUSIC_METADATA_TO_SIMPLIFIED"
                       :label="t('setting.system.musicMetadataToSimplified')"
                       :hint="t('setting.system.musicMetadataToSimplifiedHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.MUSIC_CUE_ENABLE"
+                      :label="t('setting.system.musicCueEnable')"
+                      :hint="t('setting.system.musicCueEnableHint')"
                       persistent-hint
                     />
                   </VCol>

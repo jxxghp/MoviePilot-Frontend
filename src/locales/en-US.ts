@@ -3071,6 +3071,9 @@ export default {
       lyricsRetryMaxWaitHint: 'Cool down a provider when Retry-After exceeds this limit instead of blocking the album',
       secondUnit: 'sec',
       musicMetadataToSimplified: 'Convert Music Metadata to Simplified Chinese',
+      musicCueEnable: 'Music CUE recognition',
+      musicCueEnableHint:
+        'Disable for albums already split into tracks with invalid CUE files to organize using audio tags and filenames. Keep enabled for single-file albums.',
       musicMetadataToSimplifiedHint:
         'Force recognized music titles, artists, albums, categories, and other metadata to Simplified Chinese',
       musicReleaseRegionPriority: 'Music Release Region Priority',

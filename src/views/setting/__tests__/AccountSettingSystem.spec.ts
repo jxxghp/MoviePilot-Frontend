@@ -447,6 +447,7 @@ const SelectFieldStub = defineComponent({
 const CronFieldStub = createModelFieldStub('VCronFieldStub')
 const PathFieldStub = createModelFieldStub('VPathFieldStub')
 
+/** 用实际系统设置组件验证加载、编辑和保存。 */
 async function renderSettings(props: { active?: boolean } = {}) {
   return renderWithProviders(AccountSettingSystem, {
     props,
@@ -458,24 +459,28 @@ async function renderSettings(props: { active?: boolean } = {}) {
   })
 }
 
+/** 限定基础设置卡片，避免与高级设置中的控件重名。 */
 function getBasicCard() {
   const card = screen.getByText('基础设置').closest('.v-card')
   expect(card).not.toBeNull()
   return within(card as HTMLElement)
 }
 
+/** 按标题限定当前要操作的设置卡片。 */
 function getSettingsCard(title: string) {
   const card = screen.getByText(title, { selector: '.v-card-title' }).closest('.v-card')
   expect(card).not.toBeNull()
   return within(card as HTMLElement)
 }
 
+/** 从正式入口打开高级设置页签。 */
 async function openAdvancedTab(tab: string) {
   await fireEvent.click(screen.getByRole('button', { name: /高级设置/ }))
   await fireEvent.click(await screen.findByRole('tab', { name: tab }))
   return within(screen.getByRole('dialog'))
 }
 
+/** 兼容原生下拉替身与 Vuetify 菜单的选项操作。 */
 async function selectOption(label: string, option: string) {
   const user = userEvent.setup()
   const control = screen.getByLabelText(label)
@@ -1272,11 +1277,25 @@ describe('AccountSettingSystem', () => {
     )
   })
 
+  it('loads a disabled CUE setting and allows enabling it without online music modules', async () => {
+    systemEnv.MUSIC_CUE_ENABLE = false
+    systemEnv.MODULE_ENABLE = { MusicBrainzModule: false, TheAudioDbModule: false }
+    await renderSettings()
+    const dialog = await openAdvancedTab('媒体')
+    const cueSwitch = dialog.getByLabelText('音乐 CUE 识别')
+    expect(cueSwitch).not.toBeChecked()
+    await fireEvent.click(cueSwitch)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ MUSIC_CUE_ENABLE: true }))
+  })
+
   it('round-trips advanced media metadata, recognition, and Fanart settings', async () => {
     const user = userEvent.setup()
     await renderSettings()
     const dialog = await openAdvancedTab('媒体')
     expect(dialog.getByLabelText('音乐媒体信息转简体中文')).toBeChecked()
+    expect(dialog.getByLabelText('音乐 CUE 识别')).toBeChecked()
     expect(dialog.getByLabelText('音乐发行地区优先级')).toHaveValue(['CN', 'TW', 'HK'])
     expect(dialog.getByLabelText('音乐文字字形优先级')).toHaveValue(['Hans', 'Hant', 'Latn'])
     expect(dialog.getByLabelText('AMLL TTML 服务地址')).toHaveValue('https://api.amll.dev')
@@ -1299,6 +1318,7 @@ describe('AccountSettingSystem', () => {
       '跟随TMDB识别整理',
       'TMDB 刮削原语种图片',
       '音乐媒体信息转简体中文',
+      '音乐 CUE 识别',
       '优先使用插件识别',
       '共享使用媒体识别数据',
       'Fanart图片数据源',
@@ -1330,6 +1350,7 @@ describe('AccountSettingSystem', () => {
         LYRICS_PROVIDER_RETRY_MAX_WAIT: 3,
         MUSIC_COVER_PROXY: 'https://music.example',
         MUSIC_METADATA_TO_SIMPLIFIED: false,
+        MUSIC_CUE_ENABLE: false,
         MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
         MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
         RECOGNIZE_PLUGIN_FIRST: true,

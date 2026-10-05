@@ -2969,6 +2969,8 @@ export default {
       lyricsRetryMaxWaitHint: 'Retry-After 超過該秒數時進入來源冷卻，避免阻塞整張專輯',
       secondUnit: '秒',
       musicMetadataToSimplified: '音樂媒體資訊轉簡體中文',
+      musicCueEnable: '音樂 CUE 識別',
+      musicCueEnableHint: '已分軌專輯附帶錯誤 CUE 時可關閉，改用音訊標籤和檔名整理；整軌專輯請保持開啟',
       musicMetadataToSimplifiedHint: '將識別結果中的曲名、藝術家、專輯和分類等音樂資訊強制轉換為簡體中文',
       musicReleaseRegionPriority: '音樂發行地區優先級',
       musicReleaseRegionPriorityHint: 'MusicBrainz 版本結構同樣準確時，按順序優先選擇發行地區，最多 3 項',
