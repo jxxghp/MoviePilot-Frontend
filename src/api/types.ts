@@ -208,7 +208,7 @@ export interface Subscribe {
   // 洗版时已下载剧集的优先级状态
   episode_priority?: Record<string, number>
   // 保存目录
-  save_path?: string
+  save_path?: string | null
   // 时间
   date: string
   // 编辑框设置项

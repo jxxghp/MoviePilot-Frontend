@@ -31,3 +31,15 @@ export function buildDownloadDirectoryOptions(
     value: path,
   }))
 }
+
+/** VCombobox 选中选项时回传整个对象、自由输入时回传字符串，统一归一为可提交的路径字符串。 */
+export function toDownloadDirectoryValue(value: string | DownloadDirectoryOption | null | undefined): string | null {
+  if (value == null) return null
+  return typeof value === 'string' ? value : value.value
+}
+
+/** VCombobox 自定义过滤：按「别名 (路径)」标签匹配，而不是只按作为 title 的路径匹配。 */
+export function filterDownloadDirectoryOption(_value: string, query: string, item?: { raw?: unknown }): boolean {
+  const label = (item?.raw as Partial<DownloadDirectoryOption> | undefined)?.title ?? ''
+  return label.toLowerCase().includes(query.trim().toLowerCase())
+}

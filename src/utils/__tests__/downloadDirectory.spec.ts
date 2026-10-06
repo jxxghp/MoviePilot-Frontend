@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { DownloadDirectory } from '@/api/types'
-import { buildDownloadDirectoryOptions } from '@/utils/downloadDirectory'
+import {
+  buildDownloadDirectoryOptions,
+  filterDownloadDirectoryOption,
+  toDownloadDirectoryValue,
+} from '@/utils/downloadDirectory'
 
 function directory(overrides: Partial<DownloadDirectory>): DownloadDirectory {
   return { storage: 'local', priority: 0, ...overrides }
@@ -83,5 +87,39 @@ describe('buildDownloadDirectoryOptions', () => {
         'download_path',
       ),
     ).toEqual([{ title: '订阅目录 (/subs)', value: '/subs' }])
+  })
+})
+
+describe('toDownloadDirectoryValue', () => {
+  it('passes free-typed strings through unchanged', () => {
+    expect(toDownloadDirectoryValue('/a/b')).toBe('/a/b')
+    expect(toDownloadDirectoryValue('')).toBe('')
+  })
+
+  it('unwraps a selected option to its path value', () => {
+    expect(toDownloadDirectoryValue({ title: '电影 (/a/b)', value: '/a/b' })).toBe('/a/b')
+  })
+
+  it('maps null and undefined to null', () => {
+    expect(toDownloadDirectoryValue(null)).toBeNull()
+    expect(toDownloadDirectoryValue(undefined)).toBeNull()
+  })
+})
+
+describe('filterDownloadDirectoryOption', () => {
+  const item = { raw: { title: '可心影视库 (/Movies/Kexin)', value: '/Movies/Kexin' } }
+
+  it('matches by alias fragment and by path fragment', () => {
+    expect(filterDownloadDirectoryOption('/Movies/Kexin', '可心', item)).toBe(true)
+    expect(filterDownloadDirectoryOption('/Movies/Kexin', '/movies', item)).toBe(true)
+  })
+
+  it('is case-insensitive', () => {
+    expect(filterDownloadDirectoryOption('/Movies/Kexin', 'KEXIN', item)).toBe(true)
+  })
+
+  it('rejects non-matching queries and missing items', () => {
+    expect(filterDownloadDirectoryOption('/Movies/Kexin', '不存在', item)).toBe(false)
+    expect(filterDownloadDirectoryOption('/Movies/Kexin', '可心')).toBe(false)
   })
 })

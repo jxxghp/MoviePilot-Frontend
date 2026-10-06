@@ -19,6 +19,12 @@ import {
   audioSampleRateOptions,
 } from '@/api/constants'
 import { useUserStore } from '@/stores'
+import {
+  buildDownloadDirectoryOptions,
+  filterDownloadDirectoryOption,
+  toDownloadDirectoryValue,
+} from '@/utils/downloadDirectory'
+import type { DownloadDirectoryOption } from '@/utils/downloadDirectory'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { formatSeason } from '@/@core/utils/formatters'
 
@@ -340,12 +346,15 @@ async function loadDownloadDirectories() {
   }
 }
 
-// 保存目录下拉框
-const targetDirectories = computed(() => {
-  const paths = downloadDirectories.value
-    .map(item => item.download_path?.trim())
-    .filter((path): path is string => Boolean(path))
-  return [...new Set(paths)]
+// 保存目录下拉项：Vuetify 的 title 固定为路径，别名标签只在列表项插槽里展示，避免输入框被标签污染
+const targetDirectories = computed(() => buildDownloadDirectoryOptions(downloadDirectories.value, 'download_path'))
+
+// 保存路径下拉选中选项时回传整个对象，归一为路径写回表单；自由输入和追加子路径保持原样；清空时写回 null，更新接口才能真正覆盖旧值
+const savePathModel = computed({
+  get: () => subscribeForm.value.save_path,
+  set: (value: string | DownloadDirectoryOption | null) => {
+    subscribeForm.value.save_path = toDownloadDirectoryValue(value)
+  },
 })
 
 // 仅电视剧订阅支持全集洗版，电影保持原有洗版逻辑
@@ -578,13 +587,20 @@ onMounted(() => {
                   </VCol>
                   <VCol cols="12" md="6">
                     <VCombobox
-                      v-model="subscribeForm.save_path"
+                      v-model="savePathModel"
                       :items="targetDirectories"
+                      item-title="value"
+                      item-value="value"
+                      :custom-filter="filterDownloadDirectoryOption"
                       :label="t('dialog.subscribeEdit.savePath')"
                       :hint="t('dialog.subscribeEdit.savePathHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-folder"
-                    />
+                    >
+                      <template #item="{ props: itemProps, item }">
+                        <VListItem v-bind="itemProps" role="option" :title="item.raw.title" />
+                      </template>
+                    </VCombobox>
                   </VCol>
                 </VRow>
                 <VRow>
