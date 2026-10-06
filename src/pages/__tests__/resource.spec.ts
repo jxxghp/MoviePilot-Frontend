@@ -1,4 +1,4 @@
-import type { Context, SubtitleInfo } from '@/api/types'
+import type { Context, SearchSourcePage, SubtitleInfo } from '@/api/types'
 import ResourcePage from '@/pages/resource.vue'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   dynamicButtonOptions: undefined as unknown as { onClick: () => void },
   keepAliveRefresh: undefined as unknown as () => Promise<void>,
   toastError: vi.fn(),
+  toastWarning: vi.fn(),
   useDynamicButton: vi.fn(),
 }))
 
@@ -49,6 +50,7 @@ vi.mock('@/composables/usePWA', async () => {
 vi.mock('vue-toastification', () => ({
   useToast: () => ({
     error: mocks.toastError,
+    warning: mocks.toastWarning,
   }),
 }))
 
@@ -148,7 +150,8 @@ const TorrentCardStub = defineComponent({
   props: {
     torrent: { type: Object, required: true },
   },
-  template: '<article data-testid="torrent-card">{{ torrent.torrent_info.title }}</article>',
+  template:
+    '<article data-testid="torrent-card" :data-alternatives="(torrent.more || []).map(item => item.torrent_info.title).join(\',\')">{{ torrent.torrent_info.title }}</article>',
 })
 
 const TorrentItemStub = defineComponent({
@@ -225,12 +228,13 @@ const PassThroughStub = defineComponent({
 
 const RefreshButtonStub = defineComponent({
   props: {
+    ariaLabel: { type: String, default: '重新搜索' },
     disabled: Boolean,
     loading: Boolean,
   },
   emits: ['click'],
   template:
-    '<button type="button" aria-label="重新搜索" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
+    '<button type="button" :aria-label="ariaLabel" :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>',
 })
 
 const pageStubs = {
@@ -367,6 +371,22 @@ function finishStream(source: EventSourceFake, items: Array<Context | SubtitleIn
     value: 100,
   })
   source.message({ type: 'done' })
+  source.fail()
+}
+
+// 后端决定是否允许继续；页号由前端推进，摘要供后端比较下一次返回的原始页。
+function finishPage(source: EventSourceFake, items: Context[], page = 0, canContinue = true) {
+  const sources: SearchSourcePage[] = [
+    {
+      source: 'opaque-source-a',
+      site_name: 'Site A',
+      page,
+      can_continue: canContinue,
+      error: null,
+    },
+  ]
+  source.message({ type: 'replace', items, sources, total_items: items.length, value: 100 })
+  source.message({ type: 'done', sources })
   source.fail()
 }
 
@@ -527,9 +547,201 @@ describe('resource page search flow', () => {
     mocks.apiPost.mockResolvedValue({ success: true, data: { status: 'disabled' } })
   })
 
+  it('keeps pagination available after filtering returns zero rows and advances only on a click', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '分页零条', result_type: 'torrent' } })
+    const first = await latestEventSource()
+    finishPage(first, [])
+    const buttons = await screen.findAllByRole('button', { name: '继续加载' })
+    await mocks.keepAliveRefresh()
+    expect(EventSourceFake.instances).toHaveLength(1)
+    await fireEvent.click(buttons.at(-1)!)
+    await fireEvent.click(buttons[0])
+    const next = await latestEventSource(2)
+    expect(new URL(next.url).pathname).toBe('/api/v1/search/title/stream')
+    expect(new URL(next.url).searchParams.get('page')).toBe('1')
+    expect(new URL(next.url).searchParams.get('source')).toBe('opaque-source-a')
+    expect(new URL(next.url).searchParams.has('prev_signature')).toBe(false)
+    expect(new URL(next.url).searchParams.has('source_keyword')).toBe(false)
+    finishPage(next, [createTorrent({ title: '旧集资源' })], 1)
+    expect(await screen.findByText('旧集资源')).toBeInTheDocument()
+    await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+    const last = await latestEventSource(3)
+    expect(new URL(last.url).searchParams.get('page')).toBe('2')
+    expect(new URL(last.url).searchParams.has('prev_signature')).toBe(false)
+    finishPage(last, [], 2, false)
+    await waitFor(() => expect(screen.queryByRole('button', { name: '继续加载' })).not.toBeInTheDocument())
+  })
+
+  it.each(['site', 'connection'])('retries the same page after a %s failure', async failure => {
+    await renderResource({ path: '/resource', query: { keyword: '失败续搜', result_type: 'torrent' } })
+    finishPage(await latestEventSource(), [createTorrent({ title: '已显示资源' })])
+    await fireEvent.click((await screen.findAllByRole('button', { name: '继续加载' }))[0])
+    const failed = await latestEventSource(2)
+    if (failure === 'site') {
+      const sources = [{ source: 'opaque-source-a', page: 1, can_continue: true, error: 'timeout' }]
+      failed.message({ type: 'replace', items: [], sources, total_items: 0, value: 100 })
+      failed.message({ type: 'done', sources })
+    }
+    failed.fail()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '继续加载' })[0]).toBeEnabled())
+    expect(screen.getByText('已显示资源')).toBeInTheDocument()
+    await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+    const retried = await latestEventSource(3)
+    expect(new URL(retried.url).searchParams.get('page')).toBe('1')
+    expect(new URL(retried.url).searchParams.has('prev_signature')).toBe(false)
+    finishPage(retried, [], 1, false)
+    await waitFor(() => expect(screen.queryByRole('button', { name: '继续加载' })).not.toBeInTheDocument())
+    expect(screen.getByText('已显示资源')).toBeInTheDocument()
+  })
+
+  it('ignores a late continuation after a new search starts', async () => {
+    const rendered = await renderResource({ path: '/resource', query: { keyword: '旧搜索', result_type: 'torrent' } })
+    const first = await latestEventSource()
+    finishPage(first, [createTorrent({ title: '原资源' })])
+    await fireEvent.click((await screen.findAllByRole('button', { name: '继续加载' }))[0])
+    const continuation = await latestEventSource(2)
+    const late = continuation.onmessage
+    await rendered.router.push({ path: '/resource', query: { keyword: '新搜索', result_type: 'torrent' } })
+    const fresh = await latestEventSource(3)
+    finishStream(fresh, [createTorrent({ title: '新结果' })])
+    late?.(
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          type: 'replace',
+          items: [createTorrent({ title: '旧翻页结果' })],
+        }),
+      }),
+    )
+    await flushAsyncWork()
+    expect(await screen.findByText('新结果')).toBeInTheDocument()
+    expect(screen.queryByText('旧翻页结果')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '继续加载' })).not.toBeInTheDocument()
+  })
+
+  it.each(['card', 'row'])('appends the next page in %s view without reordering or scrolling', async view => {
+    localStorage.setItem('MPTorrentsViewType', view)
+    await renderResource({ path: '/resource', query: { keyword: '追加搜索', result_type: 'torrent' } })
+    const oldFirst = createTorrent({ name: '第一组', title: '原资源一' })
+    const oldSecond = createTorrent({ name: '第二组', title: '原资源二' })
+    oldFirst.torrent_info.pri_order = 2
+    oldSecond.torrent_info.pri_order = 1
+    oldSecond.torrent_info.size = 2
+    const first = await latestEventSource()
+    finishPage(first, [oldFirst, oldSecond])
+    await screen.findByText('原资源一')
+    const testId = view === 'card' ? 'torrent-card' : 'torrent-row'
+    const titles = () => screen.getAllByTestId(testId).map(item => item.textContent)
+    expect(titles()).toEqual(['原资源一', '原资源二'])
+    const [header, footer] = screen.getAllByRole('button', { name: '继续加载' })
+    expect(screen.getByRole('button', { name: '重新搜索' }).nextElementSibling).toBe(header)
+    expect(
+      screen.getAllByTestId(testId).at(-1)!.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {})
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    try {
+      await fireEvent.click(header)
+      expect(footer).toBeDisabled()
+      expect(header).toBeDisabled()
+      await fireEvent.click(footer)
+      const next = await latestEventSource(2)
+      expect(EventSourceFake.instances).toHaveLength(2)
+      expect(new URL(next.url).searchParams.get('page')).toBe('1')
+      const newer = createTorrent({ name: '第三组', title: '追加资源' })
+      newer.torrent_info.pri_order = 3
+      newer.torrent_info.size = 3
+      // 接口只返回本页，新资源即使排序更靠前，也先追加到已有展示结果后。
+      finishPage(next, [newer], 1)
+      await waitFor(() => expect(titles()).toEqual(['原资源一', '原资源二', '追加资源']))
+      expect(
+        screen.getAllByTestId(testId).at(-1)!.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+      expect(scrollBy).not.toHaveBeenCalled()
+      expect(scrollTo).not.toHaveBeenCalled()
+      await fireEvent.click(screen.getByRole('button', { name: '按体积排序' }))
+      await waitFor(() => expect(titles()).toEqual(['追加资源', '原资源二', '原资源一']))
+      await fireEvent.click(footer)
+      expect(new URL((await latestEventSource(3)).url).searchParams.get('page')).toBe('2')
+    } finally {
+      scrollBy.mockRestore()
+      scrollTo.mockRestore()
+    }
+  })
+
+  it('keeps every repeated record within the original card grouping', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '原有分组', result_type: 'torrent' } })
+    const original = createTorrent({ title: '原版本' })
+    const first = await latestEventSource()
+    finishPage(first, [original])
+    await screen.findByText('原版本')
+    await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+    const next = await latestEventSource(2)
+    finishPage(
+      next,
+      [createTorrent({ title: '新版本' }), original, createTorrent({ name: '其他组', title: '新资源' })],
+      1,
+    )
+    await waitFor(() => expect(screen.getAllByTestId('torrent-card')).toHaveLength(2))
+    expect(screen.getAllByTestId('torrent-card').map(item => item.textContent)).toEqual(['原版本', '新资源'])
+    expect(screen.getAllByTestId('torrent-card')[0]).toHaveAttribute('data-alternatives', '新版本,原版本')
+  })
+
+  it.each(['detail URL', 'native torrent ID'])(
+    'does not merge next-page records sharing the same %s',
+    async identity => {
+      localStorage.setItem('MPTorrentsViewType', 'row')
+      await renderResource({ path: '/resource', query: { keyword: '保留重复资源', result_type: 'torrent' } })
+      const original = createTorrent({ title: '第一页记录' })
+      const repeated = createTorrent({
+        title: '下一页记录',
+        ...(identity === 'detail URL' ? { pageUrl: original.torrent_info.page_url } : {}),
+      })
+      if (identity === 'native torrent ID') {
+        Object.assign(original.torrent_info, { site: 1, torrent_id: 'same-id' })
+        Object.assign(repeated.torrent_info, { site: 1, torrent_id: 'same-id' })
+      }
+      finishPage(await latestEventSource(), [original])
+      await screen.findByText('第一页记录')
+      await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+      finishPage(await latestEventSource(2), [repeated, repeated], 1)
+      await waitFor(() =>
+        expect(screen.getAllByTestId('torrent-row').map(item => item.textContent)).toEqual([
+          '第一页记录',
+          '下一页记录',
+          '下一页记录',
+        ]),
+      )
+    },
+  )
+
+  it('preserves the selected site filter when the next page arrives', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '保留筛选', result_type: 'torrent' } })
+    const first = await latestEventSource()
+    finishPage(first, [createTorrent({ title: '原资源' })])
+    await screen.findByText('原资源')
+    await fireEvent.click(screen.getByRole('button', { name: '筛选 Site A' }))
+    await waitFor(() => expect(screen.getByTestId('torrent-filter-bar')).toHaveAttribute('data-sites', 'Site A'))
+    const before = screen.getByTestId('torrent-filter-bar').getAttribute('data-sites')
+    await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+    const next = await latestEventSource(2)
+    finishPage(
+      next,
+      [
+        createTorrent({ title: '下一页资源' }),
+        createTorrent({ name: '另一站媒体', title: 'Site B 资源', site: 'Site B' }),
+      ],
+      1,
+    )
+    await flushAsyncWork()
+    expect(screen.getByTestId('torrent-filter-bar')).toHaveAttribute('data-sites', before || '')
+    expect(screen.getByTestId('torrent-card')).toHaveAttribute('data-alternatives', '下一页资源')
+    expect(screen.queryByText('Site B 资源')).not.toBeInTheDocument()
+  })
+
   it.each(searchRouteCases)(
     'projects route input into the $apiEndpoint stream and exact fallback request',
     async ({ apiEndpoint, apiParams, displayTitle, expectedPath, query, result, streamParams }) => {
+      const paged = query.result_type !== 'subtitle' && query.type !== '音乐'
       mocks.apiGet.mockResolvedValueOnce({ data: [result], success: true })
       const rendered = await renderResource({ path: '/resource', query })
       const source = await latestEventSource()
@@ -538,19 +750,16 @@ describe('resource page search flow', () => {
       expect(streamUrl.pathname).toBe(expectedPath)
       expect(Object.fromEntries(streamUrl.searchParams)).toEqual({
         ...streamParams,
+        ...(paged ? { manual_paging: 'true', page: '0' } : {}),
         _ts: expect.any(String),
         locale: 'zh-CN',
       })
 
       source.fail()
 
+      // SSE 断流后回退到原普通请求，参数与分页前一致，不提供续页。
       await waitFor(() =>
-        expect(mocks.apiGet).toHaveBeenCalledWith(apiEndpoint, {
-          params: {
-            ...apiParams,
-            _ts: expect.any(String),
-          },
-        }),
+        expect(mocks.apiGet).toHaveBeenCalledWith(apiEndpoint, { params: { ...apiParams, _ts: expect.any(String) } }),
       )
       expect(await screen.findByText(displayTitle)).toBeInTheDocument()
       if (query.result_type === 'subtitle') {
@@ -898,6 +1107,31 @@ describe('resource page search flow', () => {
 
     expect(await screen.findByTestId('resource-empty-state')).toHaveTextContent('找到 5 个资源，但均不符合过滤规则')
   })
+
+  it.each([false, true])(
+    'clears completed SSE pagination when the initial search falls back to HTTP (batched=%s)',
+    async batched => {
+      mocks.apiGet.mockResolvedValueOnce({ success: true, data: [createTorrent({ title: 'HTTP 回退资源' })] })
+      await renderResource({ path: '/resource', query: { keyword: '首页断流回退', result_type: 'torrent' } })
+      const first = await latestEventSource()
+      const items = Array.from({ length: batched ? 49 : 1 }, (_, index) =>
+        createTorrent({ title: `SSE 资源-${index}` }),
+      )
+      const sources = [{ source: 'opaque-source-a', site_name: 'Site A', page: 0, can_continue: true }]
+      const result = { sources, total_items: items.length, value: 100 }
+      if (batched) {
+        const batch = { ...result, replace_batch: true, batch_count: 2 }
+        first.message({ ...batch, type: 'replace', batch_index: 0, items: items.slice(0, 48) })
+        first.message({ ...batch, type: 'append', batch_index: 1, items: items.slice(48) })
+      } else {
+        first.message({ ...result, type: 'replace', items })
+      }
+      first.fail()
+      expect(await screen.findByText('HTTP 回退资源')).toBeInTheDocument()
+      expect(screen.queryByText('SSE 资源-0')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.queryAllByRole('button', { name: '继续加载' })).toHaveLength(0))
+    },
+  )
 
   it('restores the default empty-state message when the fallback request succeeds without results', async () => {
     mocks.apiGet.mockResolvedValueOnce({ data: [], success: true })
@@ -1345,6 +1579,117 @@ describe('resource page search flow', () => {
       sites: '2',
     })
     expect(screen.queryByText('过期结果')).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])('retries an interrupted result batch with can_continue=%s', async canContinue => {
+    localStorage.setItem('MPTorrentsViewType', 'row')
+    await renderResource({ path: '/resource', query: { keyword: '分块断线续页', result_type: 'torrent' } })
+    finishPage(await latestEventSource(), [createTorrent({ title: '首页资源' })])
+    await fireEvent.click((await screen.findAllByRole('button', { name: '继续加载' }))[0])
+    const next = await latestEventSource(2)
+    const items = Array.from({ length: 49 }, (_, index) => createTorrent({ title: `续页资源-${index}` }))
+    const sources = [{ source: 'opaque-source-a', site_name: 'Site A', page: 1, can_continue: canContinue }]
+    const batch = { replace_batch: true, batch_count: 2, sources, total_items: items.length, value: 100 }
+    next.message({ ...batch, type: 'replace', batch_index: 0, items: items.slice(0, 48) })
+    next.fail()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '继续加载' })[0]).toBeEnabled())
+    expect(screen.getAllByTestId('torrent-row').map(row => row.textContent)).toEqual(['首页资源'])
+    await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+    const retry = await latestEventSource(3)
+    expect(new URL(retry.url).searchParams.get('page')).toBe('1')
+    expect(new URL(retry.url).searchParams.has('prev_signature')).toBe(false)
+    retry.message({ ...batch, type: 'replace', batch_index: 0, items: items.slice(0, 48) })
+    retry.message({ ...batch, type: 'append', batch_index: 1, items: items.slice(48) })
+    retry.message({ type: 'done', sources })
+    retry.fail()
+    await waitFor(() => expect(screen.getAllByTestId('torrent-row')).toHaveLength(50))
+    if (canContinue) {
+      expect(screen.getAllByRole('button', { name: '继续加载' })[0]).toBeEnabled()
+    } else {
+      expect(screen.queryByRole('button', { name: '继续加载' })).not.toBeInTheDocument()
+    }
+  })
+
+  it.each([false, true])(
+    'does not append a completed page twice after disconnecting before done (batched=%s)',
+    async batched => {
+      localStorage.setItem('MPTorrentsViewType', 'row')
+      await renderResource({ path: '/resource', query: { keyword: '断线续页', result_type: 'torrent' } })
+      finishPage(await latestEventSource(), [createTorrent({ title: '首页资源' })])
+      await fireEvent.click((await screen.findAllByRole('button', { name: '继续加载' }))[0])
+      const next = await latestEventSource(2)
+      const items = Array.from({ length: batched ? 49 : 1 }, (_, index) =>
+        createTorrent({ title: `续页资源-${index}` }),
+      )
+      const sources = [{ source: 'opaque-source-a', site_name: 'Site A', page: 1, can_continue: true }]
+      const result = { sources, total_items: items.length, value: 100 }
+      if (batched) {
+        const batch = { ...result, replace_batch: true, batch_count: 2 }
+        next.message({ ...batch, type: 'replace', batch_index: 0, items: items.slice(0, 48) })
+        next.message({ ...batch, type: 'append', batch_index: 1, items: items.slice(48) })
+      } else {
+        next.message({ ...result, type: 'replace', items })
+      }
+      next.fail()
+      await waitFor(() => expect(screen.getAllByRole('button', { name: '继续加载' })[0]).toBeEnabled())
+      expect(screen.getAllByTestId('torrent-row')).toHaveLength(items.length + 1)
+      await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+      const following = await latestEventSource(3)
+      expect(new URL(following.url).searchParams.get('page')).toBe('2')
+      expect(new URL(following.url).searchParams.has('prev_signature')).toBe(false)
+      finishPage(following, [], 2, false)
+      await waitFor(() => expect(screen.getAllByTestId('torrent-row')).toHaveLength(items.length + 1))
+    },
+  )
+
+  it('keeps every first-page resource when AI results arrive during a continuation', async () => {
+    let statusChecks = 0
+    mocks.apiPost.mockImplementation((_endpoint: string, body: Record<string, unknown>) => {
+      if (body.check_only) {
+        statusChecks += 1
+        return Promise.resolve(
+          statusChecks === 1
+            ? { data: { status: 'idle' }, success: true }
+            : { data: { results: [0], status: 'completed' }, success: true },
+        )
+      }
+      return Promise.resolve({ success: true })
+    })
+    await renderResource({ path: '/resource', query: { keyword: 'AI 续页', result_type: 'torrent' } }, true)
+    finishPage(await latestEventSource(), [
+      createTorrent({ title: '推荐资源' }),
+      createTorrent({ name: '未推荐媒体', title: '未推荐资源' }),
+    ])
+    const aiButton = (await screen.findAllByRole('button', { name: /智能推荐/ }))[0]
+    await waitFor(() => expect(aiButton).not.toBeDisabled())
+    await fireEvent.click(screen.getAllByRole('button', { name: '继续加载' })[0])
+    const next = await latestEventSource(2)
+    await fireEvent.click(aiButton)
+    await waitFor(() => expect(screen.queryByText('未推荐资源')).not.toBeInTheDocument())
+    finishPage(next, [createTorrent({ name: '续页媒体', title: '续页资源' })], 1)
+    await flushAsyncWork()
+    await fireEvent.click(screen.getAllByRole('button', { name: /智能推荐/ })[0])
+    expect(await screen.findByText('未推荐资源')).toBeInTheDocument()
+    expect(screen.getByText('续页资源')).toBeInTheDocument()
+  })
+
+  it('does not ask AI to recommend everything when the filter matches only continuation pages', async () => {
+    mocks.apiPost.mockResolvedValue({ success: true, data: { status: 'idle' } })
+    await renderResource({ path: '/resource', query: { keyword: 'AI 筛选', result_type: 'torrent' } }, true)
+    finishPage(await latestEventSource(), [createTorrent({ name: '首页媒体', title: '首页 B 站', site: 'Site B' })])
+    await fireEvent.click((await screen.findAllByRole('button', { name: '继续加载' }))[0])
+    finishPage(await latestEventSource(2), [createTorrent({ title: '续页 A 站' })], 1)
+    await screen.findByText('续页 A 站')
+    await fireEvent.click(screen.getByRole('button', { name: '筛选 Site A' }))
+    const aiButton = screen.getAllByRole('button', { name: /智能推荐/ })[0]
+    await waitFor(() => expect(aiButton).not.toBeDisabled())
+    await fireEvent.click(aiButton)
+    await waitFor(() => expect(mocks.toastWarning).toHaveBeenCalled())
+    expect(
+      mocks.apiPost.mock.calls.some(
+        ([endpoint, body]) => endpoint === 'search/recommend' && !(body as Record<string, unknown>).check_only,
+      ),
+    ).toBe(false)
   })
 
   it('submits every grouped match to AI and restores filters after returning to original results', async () => {

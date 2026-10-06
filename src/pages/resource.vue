@@ -2,7 +2,7 @@
 import type { LocationQuery } from 'vue-router'
 import ResourceSearchEmptyState from '@/components/states/ResourceSearchEmptyState.vue'
 import api from '@/api'
-import type { Context, MediaDataSource, SubtitleInfo } from '@/api/types'
+import type { Context, MediaDataSource, SearchSourcePage, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
 import SubtitleCard from '@/components/cards/SubtitleCard.vue'
@@ -12,6 +12,7 @@ import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
+import { useSearchPagination, type SearchSourceProgress } from '@/composables/useSearchPagination'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
@@ -454,6 +455,23 @@ const streamReplaceBatchCollector = new SearchReplaceBatchCollector<Context>()
 const subtitleReplaceBatchCollector = new SearchReplaceBatchCollector<SubtitleInfo>()
 let streamFlushTimer: ReturnType<typeof setTimeout> | null = null
 let streamFinalResultApplied = false
+const clientPagination = useSearchPagination()
+const searchPagination = clientPagination.state
+const loadingNextPage = ref(false)
+
+// 首次搜索结果条数；续页追加在其后，AI 推荐的索引只对应这部分。
+let firstPageResultCount: number | null = null
+function firstSearchResultCount() {
+  return firstPageResultCount ?? originalDataList.value.length
+}
+
+// 续页请求中的来源；该请求的 error 事件要记到这个来源上，下次点击重试原页。
+let continuingSource: SearchSourceProgress | null = null
+
+// 整页结果应用后才推进页号；分块未收齐时保留原页号，断线后可重试。
+function updateSearchPagination(event: Record<string, unknown>) {
+  if (Array.isArray(event.sources)) clientPagination.applyPages(event.sources as SearchSourcePage[])
+}
 let pendingProgressText: string | null = null
 let pendingProgressValue: number | null = null
 let pendingStreamTotalCount: number | null = null
@@ -473,14 +491,14 @@ watch([() => torrentFilter.sortField.value, () => torrentFilter.sortType.value],
   localStorage.setItem(torrentSortTypeStorageKey, type)
 })
 
-// 应用筛选
-function applyFilter() {
+// 续页只保留已有展示顺序；筛选和原有卡片分组仍处理全部记录。
+function applyFilter(append: boolean = false) {
   if (isSubtitleSearch.value) return
 
   if (viewType.value === 'row') {
-    filteredRowDataList.value = torrentFilter.filterRowData(rawDataList.value)
+    filteredRowDataList.value = torrentFilter.filterRowData(rawDataList.value, append)
   } else {
-    filteredCardDataList.value = torrentFilter.filterCardData(rawDataList.value)
+    filteredCardDataList.value = torrentFilter.filterCardData(rawDataList.value, append)
   }
 }
 
@@ -690,12 +708,19 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
     setSearchParam(url.searchParams, '_ts', requestToken)
   }
   setSearchParam(url.searchParams, 'locale', getCurrentLocale())
+  if (params.result_type !== 'subtitle' && params.type !== '音乐') {
+    url.searchParams.set('manual_paging', 'true')
+    url.searchParams.set('page', '0')
+  }
 
   return url.toString()
 }
 
 // 重置搜索结果
 function resetSearchResults() {
+  clientPagination.reset()
+  firstPageResultCount = null
+  loadingNextPage.value = false
   clearStreamPreviewState(true)
   // 新搜索开始时先回到未完成态，避免上一轮空态在 SSE 返回前抢先显示。
   isRefreshed.value = false
@@ -743,7 +768,7 @@ function updateSearchProgress(eventData: { [key: string]: any }, flushNow: boole
 }
 
 // 设置流式搜索结果
-function setStreamResults(items: Context[]) {
+function setStreamResults(items: Context[], append: boolean = false) {
   clearStreamPreviewState()
   rawDataList.value = items
   rawSubtitleDataList.value = []
@@ -752,7 +777,7 @@ function setStreamResults(items: Context[]) {
     streamTotalCount.value = items.length
   }
   isRefreshed.value = true
-  applyFilter()
+  applyFilter(append)
 }
 
 // 设置字幕搜索结果
@@ -809,7 +834,16 @@ function applyFilteredEmptyResultMessage(resultCount: number) {
 function applyFinalStreamResults(items: Context[]) {
   streamFinalResultApplied = true
   flushBufferedStreamState()
-  setStreamResults(items)
+  if (loadingNextPage.value) {
+    // 续页接在完整原始结果之后；续页期间切到了智能推荐时只更新原始结果，不改当前显示。
+    items = [...originalDataList.value, ...items]
+    if (showingAiResults.value) {
+      clearStreamPreviewState()
+      originalDataList.value = items
+      return
+    }
+  }
+  setStreamResults(items, loadingNextPage.value)
   // 候选全部被过滤规则淘汰时给出友好提示
   applyFilteredEmptyResultMessage(items.length)
 }
@@ -821,14 +855,14 @@ function applyFinalSubtitleStreamResults(items: SubtitleInfo[]) {
   setSubtitleStreamResults(items)
 }
 
-// 获取磁力链接的key
+// 组件键包含展示位置，重复记录也能分别渲染。
 function getTorrentItemKey(item: Context, index: number) {
-  return (
+  const key =
     item.torrent_info?.page_url ||
     item.torrent_info?.enclosure ||
     `${item.torrent_info?.site_name || ''}-${item.torrent_info?.title || ''}-${item.torrent_info?.description || ''}` ||
     `torrent-${index}`
-  )
+  return `${key}-${index}`
 }
 
 // 获取字幕结果的key
@@ -848,6 +882,10 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
   if (eventData.type === 'error') {
     updateSearchProgress(eventData, true)
     errorDescription.value = eventData.message_i18n || eventData.message || t('resource.noResourceFound')
+    if (loadingNextPage.value) {
+      if (continuingSource) clientPagination.failSource(continuingSource, errorDescription.value)
+      toast.error(errorDescription.value)
+    }
     return
   }
 
@@ -860,7 +898,10 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
       updateStreamCandidateCount(eventData)
       const completedItems = streamReplaceBatchCollector.append(eventData)
       updateSearchProgress(eventData, completedItems !== null)
-      if (completedItems) applyFinalStreamResults(completedItems)
+      if (completedItems) {
+        applyFinalStreamResults(completedItems)
+        updateSearchPagination(eventData)
+      }
     }
     return
   }
@@ -890,6 +931,7 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
   } else if (eventData.type === 'replace') {
     updateSearchProgress(eventData, true)
     applyFinalStreamResults(items)
+    updateSearchPagination(eventData)
   } else if (eventData.type === 'done' && items.length > 0 && !streamFinalResultApplied) {
     updateSearchProgress(eventData, true)
     applyFinalStreamResults(items)
@@ -907,6 +949,8 @@ async function searchByRequest(params: SearchParams, requestToken: string | unde
   const items = await requestSearchResults(params, requestToken)
   if (requestId !== activeSearchRequestId) return false
 
+  // 普通请求接管结果后没有续页信息，不能沿用断流前的 SSE 分页状态。
+  clientPagination.reset()
   errorDescription.value = t('resource.noResourceFound')
   streamTotalCount.value = items.length
   if (params.result_type === 'subtitle') {
@@ -972,15 +1016,50 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
   return result || []
 }
 
+// 每次点击快照各来源的指定页，失败原页重试，迟到响应由既有请求身份隔离。
+async function loadNextPage() {
+  if (loadingNextPage.value || progressActive.value || !searchPagination.value.can_continue) return
+  const requestId = activeSearchRequestId
+  const requests = [...clientPagination.requests.value]
+  loadingNextPage.value = true
+  if (firstPageResultCount === null) firstPageResultCount = originalDataList.value.length
+  // TODO: AI 推荐只基于首次搜索结果，续页不清空、不重新触发推荐；续页结果纳入推荐留待后续处理。
+  if (showingAiResults.value) await switchToOriginalResults()
+  try {
+    for (const source of requests) {
+      if (requestId !== activeSearchRequestId) return
+      streamFinalResultApplied = false
+      streamReplaceBatchCollector.reset()
+      const params = { ...activeSearchParams.value }
+      const url = new URL(buildSearchStreamUrl(params))
+      url.searchParams.set('page', String(source.nextPage))
+      url.searchParams.set('source', source.source)
+      continuingSource = source
+      try {
+        await searchByStream(params, undefined, url.toString())
+      } catch (error) {
+        if (requestId !== activeSearchRequestId) return
+        const message = error instanceof Error ? error.message : t('common.error')
+        clientPagination.failSource(source, message)
+        toast.error(message)
+      } finally {
+        continuingSource = null
+      }
+    }
+  } finally {
+    if (requestId === activeSearchRequestId) loadingNextPage.value = false
+  }
+}
+
 // 按流搜索
-function searchByStream(params: SearchParams, requestToken?: string) {
+function searchByStream(params: SearchParams, requestToken?: string, continuationUrl?: string) {
   // 新搜索必须显式结束上一轮 Promise；EventSource.close() 本身不会触发 error。
   cancelActiveSearchStream?.()
 
   return new Promise<void>((resolve, reject) => {
     let settled = false
     let receivedDone = false
-    const source = new EventSource(buildSearchStreamUrl(params, requestToken))
+    const source = new EventSource(continuationUrl || buildSearchStreamUrl(params, requestToken))
     searchEventSource = source
 
     const settleSearchStream = (callback: () => void) => {
@@ -1230,24 +1309,30 @@ async function startAiRecommend(force: boolean = false) {
   console.log('启动智能推荐', force ? '(强制)' : '')
 
   // 首次或强制时，先发送一个启动任务的请求
-  await sendInitialRequest(force)
+  if (!(await sendInitialRequest(force))) return
 
   // 然后开始 check_only 轮询
   startAiRecommendPolling()
 }
 
-// 发送初始请求以启动智能推荐任务
-async function sendInitialRequest(force: boolean = false) {
+// 发送初始请求以启动智能推荐任务；筛选结果都不在推荐范围内时不启动，返回 false
+async function sendInitialRequest(force: boolean = false): Promise<boolean> {
   try {
     const requestBody: any = {}
 
     // 检查是否有筛选条件
     const hasFilters = torrentFilter.hasActiveFilters()
     if (hasFilters) {
-      const indices = torrentFilter.getFilteredIndices()
-      if (indices && indices.length > 0) {
-        requestBody.filtered_indices = indices
+      // TODO: AI 推荐只覆盖首次搜索结果（后端缓存的第一页），续页追加的资源未纳入推荐，
+      // 因此只发送首次结果范围内的筛选索引；续页结果如何参与推荐留待后续处理。
+      const indices = torrentFilter.getFilteredIndices().filter(index => index < firstSearchResultCount())
+      if (!indices.length) {
+        // 空索引会被后端当作“不筛选”，因此不能发送。
+        toast.warning(t('resource.aiRecommendFilterOutOfScope'))
+        isRecommending.value = false
+        return false
       }
+      requestBody.filtered_indices = indices
     }
 
     // 如果是强制模式，添加 force 标志
@@ -1261,6 +1346,7 @@ async function sendInitialRequest(force: boolean = false) {
     console.error('发送初始请求失败:', error)
     isRecommending.value = false
   }
+  return true
 }
 
 // 开始轮询智能推荐（使用 check_only 模式）
@@ -1489,6 +1575,7 @@ onMounted(async () => {
 })
 
 useKeepAliveRefresh(async () => {
+  if (searchPagination.value.sources.length || loadingNextPage.value) return
   if (progressActive.value || isRefreshing.value || isRecommending.value || showingAiResults.value) return
   if (hasLoadedEmptySearchResult()) return
 
@@ -1606,6 +1693,21 @@ onUnmounted(() => {
           </VTooltip>
         </IconBtn>
 
+        <IconBtn
+          v-if="searchPagination.can_continue"
+          variant="text"
+          color="gray"
+          :aria-label="t('resource.loadNextPage')"
+          :loading="loadingNextPage"
+          :disabled="progressActive || isRefreshing || loadingNextPage"
+          @click="loadNextPage"
+        >
+          <VIcon icon="mdi-page-next-outline" />
+          <VTooltip activator="parent" location="top">
+            {{ t('resource.loadNextPage') }}
+          </VTooltip>
+        </IconBtn>
+
         <!-- AI操作按钮组 -->
         <div
           v-if="!isSubtitleSearch && aiRecommendEnabled && originalDataList.length > 0"
@@ -1643,6 +1745,21 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <VAlert
+      v-if="searchPagination.sources?.some(source => source.error)"
+      type="warning"
+      variant="tonal"
+      density="compact"
+      class="my-3"
+    >
+      {{
+        searchPagination.sources
+          .filter(source => source.error)
+          .map(source => (source.site_name ? `${source.site_name}: ${source.error}` : source.error))
+          .join('；')
+      }}
+    </VAlert>
 
     <!-- 搜索结果 -->
     <div v-if="isRefreshed && hasData" class="search-results-container">
@@ -1845,6 +1962,17 @@ onUnmounted(() => {
 
     <!-- 初始加载状态 -->
     <LoadingBanner v-else-if="!isRefreshed && !isSearchLoading" />
+
+    <div v-if="searchPagination.can_continue" class="d-flex justify-center my-4">
+      <VBtn
+        :loading="loadingNextPage"
+        :disabled="progressActive || isRefreshing || loadingNextPage"
+        prepend-icon="mdi-page-next-outline"
+        @click="loadNextPage"
+      >
+        {{ t('resource.loadNextPage') }}
+      </VBtn>
+    </div>
 
     <Teleport to="body" v-if="route.path === '/resource'">
       <div v-if="isRefreshed && !appMode && canSearch" class="compact-fab-stack">

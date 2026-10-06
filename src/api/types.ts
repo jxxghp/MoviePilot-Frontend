@@ -1530,6 +1530,19 @@ export interface DashboardItem {
   source_plugin_id?: string
 }
 
+/** 单页搜索的来源结果；前端持有页号，续页原样回传 source 和上一成功页摘要。 */
+export interface SearchSourcePage {
+  // 不透明的来源标识，前端不解析
+  source: string
+  site_name?: string | null
+  // 本次请求的页号（从 0 开始）
+  page: number
+  // 是否允许继续请求（成功后翻页、失败后重试），不保证下一页有资源
+  can_continue: boolean
+  // 本页请求失败的原因
+  error?: string | null
+}
+
 // 种子信息
 export interface TorrentInfo {
   // 站点ID

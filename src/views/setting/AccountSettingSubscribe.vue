@@ -24,6 +24,13 @@ const allSites = ref<Site[]>([])
 
 // 选中订阅站点
 const selectedRssSites = ref<number[]>([])
+type SubscribeSearchStrategy = 'smart' | 'full' | 'single_page'
+const subscribeSearchStrategy = ref<SubscribeSearchStrategy>('smart')
+const subscribeSearchStrategyItems = computed(() => [
+  { title: t('setting.subscribe.searchStrategies.smart'), value: 'smart' },
+  { title: t('setting.subscribe.searchStrategies.full'), value: 'full' },
+  { title: t('setting.subscribe.searchStrategies.single_page'), value: 'single_page' },
+])
 
 // 选中的订阅规则组
 const selectedFilterRuleGroup = ref<string[]>([])
@@ -157,6 +164,9 @@ async function querySubscribeRules() {
     // 查询洗版规则组
     const result2 = await api.get<{ value?: string[] }>('system/setting/BestVersionFilterRuleGroups')
     selectedBestVersionRuleGroup.value = result2.value ?? []
+    const strategy = await api.get<{ value?: SubscribeSearchStrategy | null }>('system/setting/SubscribeSearchStrategy')
+    subscribeSearchStrategy.value =
+      strategy.value === 'full' || strategy.value === 'single_page' ? strategy.value : 'smart'
   } catch (error) {
     console.log(error)
   }
@@ -171,6 +181,7 @@ async function saveSubscribeSetting() {
       feedback: 'silent',
     })
 
+    await api.post('system/setting/SubscribeSearchStrategy', subscribeSearchStrategy.value, { feedback: 'silent' })
     const result3 = await saveSystemSetting(SystemSettings.value.Basic)
 
     if (result3) {
@@ -260,6 +271,15 @@ useSilentSettingRefresh(loadPageData, {
               </VCol>
             </VRow>
             <VRow>
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="subscribeSearchStrategy"
+                  :items="subscribeSearchStrategyItems"
+                  :label="t('setting.subscribe.searchStrategy')"
+                  :hint="t('setting.subscribe.searchStrategyHint')"
+                  persistent-hint
+                />
+              </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="SystemSettings.Basic.SUBSCRIBE_SEARCH"
