@@ -212,8 +212,18 @@ export function useTorrentFilter() {
     sortSeasonOptions()
   }
 
-  // 筛选列表视图数据（不分组）
-  function filterRowData(items: Context[] | undefined): Context[] {
+  // 续页按原始数组位置保留展示顺序，不比较或合并资源身份。
+  function keepDisplayOrder<T>(data: T[], indices: Map<T, number[]>, previous: number[]): T[] {
+    const order = new Map(previous.map((index, position) => [index, position]))
+    return data.sort(
+      (a, b) =>
+        (order.get(indices.get(a)?.[0] ?? -1) ?? order.size) - (order.get(indices.get(b)?.[0] ?? -1) ?? order.size),
+    )
+  }
+
+  // 筛选列表视图数据（不分组）；续页追加时保留已展示记录的位置。
+  function filterRowData(items: Context[] | undefined, append: boolean = false): Context[] {
+    const previous = filteredIndices.value
     // 重置状态
     filteredIndices.value = []
 
@@ -228,13 +238,14 @@ export function useTorrentFilter() {
 
     // 筛选数据
     let filteredData: Context[] = []
+    const indicesMap = new Map<Context, number[]>()
 
     items.forEach((data, index) => {
       if (!isRenderableContext(data)) return
 
       if (matchesAllFilters(data)) {
         filteredData.push(data)
-        filteredIndices.value.push(index)
+        indicesMap.set(data, [index])
       }
     })
 
@@ -242,12 +253,15 @@ export function useTorrentFilter() {
 
     // 排序
     filteredData = sortData(filteredData)
+    if (append) filteredData = keepDisplayOrder(filteredData, indicesMap, previous)
+    filteredIndices.value = filteredData.flatMap(item => indicesMap.get(item) ?? [])
 
     return filteredData
   }
 
-  // 筛选卡片视图数据（分组）
-  function filterCardData(items: Context[] | undefined): SearchTorrent[] {
+  // 筛选卡片视图数据（分组）；续页只保持展示顺序，沿用原有分组。
+  function filterCardData(items: Context[] | undefined, append: boolean = false): SearchTorrent[] {
+    const previous = filteredIndices.value
     // 重置状态
     filteredIndices.value = []
 
@@ -310,6 +324,7 @@ export function useTorrentFilter() {
 
     // 排序数据
     const sortedData = sortCardData(filteredData)
+    if (append) keepDisplayOrder(sortedData, groupIndicesMap, previous)
 
     // 索引顺序跟随排序后的卡片分组，同时保留组内的原始资源顺序。
     filteredIndices.value = sortedData.flatMap(item => groupIndicesMap.get(item) ?? [])

@@ -54,6 +54,7 @@ function mockLoadedSettings() {
         },
       }
     }
+    if (endpoint === 'system/setting/SubscribeSearchStrategy') return { success: true, data: { value: null } }
     throw new Error(`Unexpected GET ${endpoint}`)
   })
 }
@@ -87,6 +88,11 @@ describe('AccountSettingSubscribe', () => {
     expect(screen.queryByText('RSS Disabled')).not.toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: '订阅定时搜索' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: '检查文件系统资源' })).toBeChecked()
+    expect(screen.getByLabelText('补全搜索策略')).toHaveValue('smart')
+    expect(screen.getByText('智能搜索（默认）')).toBeInTheDocument()
+    expect(
+      screen.getByText('用于补找缺失资源，日常追更按订阅模式运行；全量搜索耗时较长，单页可能漏集。'),
+    ).toBeInTheDocument()
     expect(screen.getByLabelText('订阅模式')).toBeInTheDocument()
     expect(screen.getByLabelText('订阅搜索时间间隔')).toBeInTheDocument()
 
@@ -116,7 +122,8 @@ describe('AccountSettingSubscribe', () => {
     await waitFor(() => {
       expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'system/setting/SubscribeFilterRuleGroups', ['HDR', 'Remux'])
       expect(mocks.apiPost).toHaveBeenNthCalledWith(2, 'system/setting/BestVersionFilterRuleGroups', ['Remux'])
-      expect(mocks.apiPost).toHaveBeenNthCalledWith(3, 'system/env', {
+      expect(mocks.apiPost).toHaveBeenNthCalledWith(3, 'system/setting/SubscribeSearchStrategy', 'smart')
+      expect(mocks.apiPost).toHaveBeenNthCalledWith(4, 'system/env', {
         SUBSCRIBE_MODE: 'spider',
         SUBSCRIBE_SEARCH: false,
         SUBSCRIBE_SEARCH_INTERVAL: 72,
@@ -127,8 +134,36 @@ describe('AccountSettingSubscribe', () => {
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('订阅基础设置保存成功'))
   })
 
+  it.each([
+    ['全量搜索（耗时较长）', 'full'],
+    ['仅搜索第一页', 'single_page'],
+  ])('saves %s without replacing the single fixed explanation', async (label, value) => {
+    const user = userEvent.setup()
+    await renderSettings()
+    await screen.findByText('RSS Alpha')
+    const hint = screen.getByText('用于补找缺失资源，日常追更按订阅模式运行；全量搜索耗时较长，单页可能漏集。')
+    await user.click(screen.getByLabelText('补全搜索策略'))
+    await user.click(await screen.findByRole('option', { name: label }))
+    expect(screen.getByLabelText('补全搜索策略')).toHaveValue(value)
+    expect(screen.getByText(hint.textContent!)).toBe(hint)
+    expect(hint.closest('.v-messages')?.children).toHaveLength(1)
+    await user.click(getCard('基础设置').getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/SubscribeSearchStrategy', value))
+  })
+
+  it.each(['full', 'single_page'])('loads the stored %s strategy', async value => {
+    const loaded = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((endpoint: string) =>
+      endpoint === 'system/setting/SubscribeSearchStrategy' ? { success: true, data: { value } } : loaded(endpoint),
+    )
+    await renderSettings()
+    await screen.findByText('RSS Alpha')
+    await waitFor(() => expect(screen.getByLabelText('补全搜索策略')).toHaveValue(value))
+  })
+
   it('reports environment business and HTTP failures from the combined settings save', async () => {
     mocks.apiPost
+      .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: false })
@@ -137,7 +172,7 @@ describe('AccountSettingSubscribe', () => {
 
     await fireEvent.click(save)
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('订阅基础设置保存失败！'))
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(3, 'system/env', expect.objectContaining({ SUBSCRIBE_MODE: 'auto' }))
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(4, 'system/env', expect.objectContaining({ SUBSCRIBE_MODE: 'auto' }))
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
 
     mocks.apiPost.mockReset()

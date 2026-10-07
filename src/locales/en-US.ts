@@ -1685,6 +1685,7 @@ export default {
     searching: 'Searching, please wait...',
     noData: 'No Data',
     noResourceFound: 'No resources found',
+    loadNextPage: 'Continue loading',
     filteredNoResults: 'Found {count} resource(s), but none match the filter rules',
     emptySearchHint: 'Search again, or adjust the keyword and site scope before retrying.',
     emptyStartHint: 'Return home to start a new search.',
@@ -1695,6 +1696,8 @@ export default {
     aiRecommend: 'AI Recommendation',
     reRecommend: 'Regenerate Recommendation',
     aiRecommendError: 'AI Recommendation Failed',
+    aiRecommendFilterOutOfScope:
+      'The filtered results all come from loaded additional pages; AI recommendation currently covers only the first search results.',
     refreshSearch: 'Re-search',
   },
   browse: {
@@ -3750,7 +3753,8 @@ export default {
       subscribeSites: 'Subscribe Sites',
       subscribeSitesDesc: 'Only selected sites will be used in subscriptions.',
       mode: 'Subscription Mode',
-      modeHint: 'Auto: automatically crawl site homepage, Site RSS: subscribe via site RSS link',
+      modeHint:
+        'Choose how subscriptions find the latest resources each day. Auto: automatically crawl site homepage, Site RSS: subscribe via site RSS link',
       rssInterval: 'Site RSS Interval',
       rssIntervalHint: 'Set the site RSS running cycle, effective when subscription mode is `Site RSS`',
       filterRuleGroup: 'Subscription Priority Rule Group',
@@ -3764,6 +3768,14 @@ export default {
       searchIntervalHint:
         'Set the time interval for subscription search, only effective when subscription scheduled search is enabled',
       checkLocalMedia: 'Check File System Resources',
+      searchStrategy: 'Catch-up search strategy',
+      searchStrategyHint:
+        'Find missing resources; daily updates follow Subscription mode. Full search takes longer; one page may miss episodes.',
+      searchStrategies: {
+        smart: 'Smart search (default)',
+        full: 'Full search (takes longer)',
+        single_page: 'First page only',
+      },
       checkLocalMediaHint:
         'Scan the storage directory for existing resource files to avoid duplicate downloads; regardless of whether it is enabled, the media server will be checked',
       modes: {

@@ -1662,6 +1662,7 @@ export default {
     searching: '正在搜索，请稍候...',
     noData: '没有数据',
     noResourceFound: '未搜索到任何资源',
+    loadNextPage: '继续加载',
     filteredNoResults: '找到 {count} 个资源，但均不符合过滤规则',
     emptySearchHint: '可以重新搜索，或调整关键词和站点范围后再试。',
     emptyStartHint: '返回首页后可通过搜索入口发起新的搜索。',
@@ -1672,6 +1673,7 @@ export default {
     aiRecommend: '智能推荐',
     reRecommend: '重新生成推荐',
     aiRecommendError: '智能推荐失败',
+    aiRecommendFilterOutOfScope: '当前筛选结果都来自继续加载的页面，智能推荐目前只覆盖首次搜索结果',
     refreshSearch: '重新搜索',
   },
   browse: {
@@ -3652,7 +3654,7 @@ export default {
       subscribeSites: '订阅站点',
       subscribeSitesDesc: '只有选中的站点才会在订阅中使用。',
       mode: '订阅模式',
-      modeHint: '自动：自动爬取站点首页，站点RSS：通过站点RSS链接订阅',
+      modeHint: '设置订阅日常获取最新资源的方式。自动：自动爬取站点首页，站点RSS：通过站点RSS链接订阅',
       rssInterval: '站点RSS周期',
       rssIntervalHint: '设置站点RSS运行周期，在订阅模式为`站点RSS`时生效',
       filterRuleGroup: '订阅优先级规则组',
@@ -3664,6 +3666,13 @@ export default {
       searchInterval: '订阅搜索时间间隔',
       searchIntervalHint: '设置订阅搜索的时间间隔，仅在开启订阅定时搜索时生效',
       checkLocalMedia: '检查文件系统资源',
+      searchStrategy: '补全搜索策略',
+      searchStrategyHint: '用于补找缺失资源，日常追更按订阅模式运行；全量搜索耗时较长，单页可能漏集。',
+      searchStrategies: {
+        smart: '智能搜索（默认）',
+        full: '全量搜索（耗时较长）',
+        single_page: '仅搜索第一页',
+      },
       checkLocalMediaHint: '扫描存储目录中是否已存在相应资源文件，以避免重复下载；不管是否开启都会检查媒体服务器',
       modes: {
         auto: '自动',

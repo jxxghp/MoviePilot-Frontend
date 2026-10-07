@@ -1622,6 +1622,7 @@ export default {
     searching: '正在搜索，請稍候...',
     noData: '沒有數據',
     noResourceFound: '未搜索到任何資源',
+    loadNextPage: '繼續載入',
     filteredNoResults: '找到 {count} 個資源，但均不符合過濾規則',
     emptySearchHint: '可以重新搜尋，或調整關鍵詞和站點範圍後再試。',
     emptyStartHint: '返回首頁後可通過搜索入口發起新的搜索。',
@@ -1632,6 +1633,7 @@ export default {
     aiRecommend: '智能推薦',
     reRecommend: '重新生成推薦',
     aiRecommendError: '智能推薦失敗',
+    aiRecommendFilterOutOfScope: '目前篩選結果都來自繼續載入的頁面，智能推薦目前只涵蓋首次搜尋結果',
     refreshSearch: '重新搜尋',
   },
   browse: {
@@ -3613,7 +3615,7 @@ export default {
       subscribeSites: '訂閱站點',
       subscribeSitesDesc: '只有選中的站點才會在訂閱中使用。',
       mode: '訂閱模式',
-      modeHint: '自動：自動爬取站點首頁，站點RSS：通過站點RSS鏈接訂閱',
+      modeHint: '設定訂閱日常取得最新資源的方式。自動：自動爬取站點首頁，站點RSS：通過站點RSS鏈接訂閱',
       rssInterval: '站點RSS週期',
       rssIntervalHint: '設置站點RSS運行週期，在訂閱模式為`站點RSS`時生效',
       filterRuleGroup: '訂閱優先級規則組',
@@ -3625,6 +3627,13 @@ export default {
       searchInterval: '訂閱搜索時間間隔',
       searchIntervalHint: '設置訂閱搜索的時間間隔，僅在開啟訂閱定時搜索時生效',
       checkLocalMedia: '檢查文件系統資源',
+      searchStrategy: '補全搜尋策略',
+      searchStrategyHint: '用於補找缺失資源，日常追更依訂閱模式執行；完整搜尋耗時較長，單頁可能漏集。',
+      searchStrategies: {
+        smart: '智慧搜尋（預設）',
+        full: '完整搜尋（耗時較長）',
+        single_page: '僅搜尋第一頁',
+      },
       checkLocalMediaHint: '掃描存儲目錄中是否已存在相應資源文件，以避免重複下載；不管是否開啟都會檢查媒體伺服器',
       modes: {
         auto: '自動',
