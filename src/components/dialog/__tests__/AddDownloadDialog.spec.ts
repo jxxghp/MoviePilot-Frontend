@@ -288,12 +288,14 @@ describe('AddDownloadDialog directories', () => {
         }),
         createDirectory({ download_path: '/downloads/remote', name: '重复目录', storage: 'rclone' }),
         createDirectory({ download_path: undefined, name: '无下载路径', save_path: undefined }),
+        createDirectory({ download_path: '/downloads/plain', name: '', save_path: '/downloads/plain' }),
       ],
       downloaders: [{ name: '下载器 A', type: 'qbittorrent' }],
     })
 
-    expect(await screen.findByRole('option', { name: '/downloads/local' })).toBeInTheDocument()
-    expect(screen.getAllByRole('option', { name: 'rclone:/downloads/remote' })).toHaveLength(1)
+    expect(await screen.findByRole('option', { name: '下载目录 (/downloads/local)' })).toBeInTheDocument()
+    expect(screen.getAllByRole('option', { name: '远程目录 / 重复目录 (rclone:/downloads/remote)' })).toHaveLength(1)
+    expect(screen.getByRole('option', { name: '/downloads/plain' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: '下载器 A' })).toBeInTheDocument()
     expect(screen.getByLabelText('保存目录（自动）')).toHaveValue('')
     expect(screen.getByLabelText('下载器（默认）')).toHaveValue('')
@@ -353,7 +355,7 @@ describe('AddDownloadDialog submissions', () => {
     })
 
     await screen.findByRole('option', { name: '下载器 A' })
-    await screen.findByRole('option', { name: 'rclone:/downloads/remote' })
+    await screen.findByRole('option', { name: '下载目录 (rclone:/downloads/remote)' })
     await user.selectOptions(screen.getByLabelText('下载器（默认）'), '下载器 A')
     await user.selectOptions(screen.getByLabelText('保存目录（自动）'), 'rclone:/downloads/remote')
     await user.click(screen.getByRole('button', { name: '显示高级选项' }))

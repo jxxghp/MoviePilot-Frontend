@@ -249,8 +249,8 @@ describe('AddSubtitleDownloadDialog directories', () => {
       ],
     })
 
-    expect(await screen.findByRole('option', { name: '/subtitles/local' })).toBeInTheDocument()
-    expect(screen.getAllByRole('option', { name: 's3:/subtitles/remote' })).toHaveLength(1)
+    expect(await screen.findByRole('option', { name: '字幕目录 (/subtitles/local)' })).toBeInTheDocument()
+    expect(screen.getAllByRole('option', { name: '远程目录 / 重复目录 (s3:/subtitles/remote)' })).toHaveLength(1)
     expect(screen.getByLabelText('保存目录（自动）')).toHaveValue('')
   })
 })
@@ -324,7 +324,7 @@ describe('AddSubtitleDownloadDialog submissions', () => {
       subtitle,
     })
 
-    await screen.findByRole('option', { name: 's3:/subtitles/remote' })
+    await screen.findByRole('option', { name: '字幕目录 (s3:/subtitles/remote)' })
     await user.selectOptions(screen.getByLabelText('保存目录（自动）'), 's3:/subtitles/remote')
     await user.click(screen.getByRole('button', { name: '查询媒体编号' }))
     await user.click(screen.getByRole('button', { name: '选择媒体编号' }))

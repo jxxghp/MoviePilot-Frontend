@@ -8,6 +8,12 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import { useGlobalSettingsStore } from '@/stores'
+import {
+  buildDownloadDirectoryOptions,
+  filterDownloadDirectoryOption,
+  toDownloadDirectoryValue,
+} from '@/utils/downloadDirectory'
+import type { DownloadDirectoryOption } from '@/utils/downloadDirectory'
 import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
 
@@ -99,12 +105,15 @@ async function loadDirectories() {
   }
 }
 
-// 获取保存目录
-const targetDirectories = computed(() => {
-  const downloadDirectories = directories.value
-    .map(item => item.save_path?.trim())
-    .filter((item): item is string => item !== undefined)
-  return [...new Set(downloadDirectories)]
+// 保存目录下拉项：Vuetify 的 title 固定为路径，别名标签只在列表项插槽里展示，避免输入框被标签污染
+const targetDirectories = computed(() => buildDownloadDirectoryOptions(directories.value))
+
+// VCombobox 选中选项时回传整个对象，这里归一为路径字符串；自由输入和追加子路径保持原样
+const selectedDirectoryModel = computed({
+  get: () => selectedDirectory.value,
+  set: (value: string | DownloadDirectoryOption | null) => {
+    selectedDirectory.value = toDownloadDirectoryValue(value)
+  },
 })
 
 // 下载字幕
@@ -211,14 +220,21 @@ onMounted(() => {
         <VRow class="px-5">
           <VCol cols="12">
             <VCombobox
-              v-model="selectedDirectory"
+              v-model="selectedDirectoryModel"
               :items="targetDirectories"
+              item-title="value"
+              item-value="value"
+              :custom-filter="filterDownloadDirectoryOption"
               :label="t('dialog.addSubtitleDownload.saveDirectory')"
               :placeholder="t('dialog.addSubtitleDownload.autoPlaceholder')"
               variant="underlined"
               density="comfortable"
               prepend-inner-icon="mdi-folder"
-            />
+            >
+              <template #item="{ props: itemProps, item }">
+                <VListItem v-bind="itemProps" role="option" :title="item.raw.title" />
+              </template>
+            </VCombobox>
           </VCol>
         </VRow>
         <VRow class="px-5 mt-2">

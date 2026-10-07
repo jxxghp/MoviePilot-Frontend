@@ -239,7 +239,7 @@ describe('SubscribeEditDialog', () => {
     await user.keyboard('{Escape}')
 
     await user.click(screen.getByLabelText('保存路径'))
-    expect(await screen.findAllByText('/downloads')).toHaveLength(1)
+    expect(await screen.findAllByText('目录一 / 目录二 (/downloads)')).toHaveLength(1)
     expect(screen.queryByText('undefined')).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
 
@@ -384,7 +384,7 @@ describe('SubscribeEditDialog', () => {
     await chooseOption('订阅站点', '完整站点')
     await user.keyboard('{Escape}')
     await chooseOption('下载器', '完整下载器')
-    await chooseOption('保存路径', '/完整目录')
+    await chooseOption('保存路径', '测试目录 (/完整目录)')
     await user.click(screen.getByLabelText('全集洗版'))
     await user.click(screen.getByLabelText('使用 ImdbID 搜索'))
 
@@ -426,6 +426,150 @@ describe('SubscribeEditDialog', () => {
       total_episode: '24',
     })
     expect(events.save).toHaveBeenCalledWith(expect.objectContaining({ season: 2 }))
+  })
+
+  it('appends a typed sub-path to the selected directory value', async () => {
+    const record = createSubscribe({
+      id: 810,
+      name: '子路径测试剧',
+      season: 1,
+      media_id: '8100',
+      media_source: 'themoviedb',
+      type: '电视剧',
+    })
+    const updated = vi.fn()
+    server.use(subscribeDetailsHandler(810, record), updateSubscribeHandler({ success: true }, 200, updated))
+    useDialogOptions({
+      directories: [createSubscribeDirectory({ download_path: '/完整目录' })],
+      tmdbId: 8100,
+    })
+    const user = userEvent.setup()
+    await renderDialog({ subid: 810 })
+    await screen.findByText('子路径测试剧 S01')
+
+    await user.click(screen.getByLabelText('保存路径'))
+    await user.click(await screen.findByText('测试目录 (/完整目录)', {}, { timeout: 2_000 }))
+    expect(screen.getByLabelText('保存路径')).toHaveValue('/完整目录')
+    await user.type(screen.getByLabelText('保存路径'), '/sub')
+    await user.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+    expect(updated.mock.calls[0][0]).toMatchObject({ save_path: '/完整目录/sub' })
+  })
+
+  it('clears the save path by sending an explicit null', async () => {
+    const record = createSubscribe({
+      id: 811,
+      name: '清空路径测试剧',
+      save_path: '/old',
+      season: 1,
+      media_id: '8110',
+      media_source: 'themoviedb',
+      type: '电视剧',
+    })
+    const updated = vi.fn()
+    server.use(subscribeDetailsHandler(811, record), updateSubscribeHandler({ success: true }, 200, updated))
+    useDialogOptions({
+      directories: [createSubscribeDirectory({ download_path: '/完整目录' })],
+      tmdbId: 8110,
+    })
+    const user = userEvent.setup()
+    await renderDialog({ subid: 811 })
+    await screen.findByText('清空路径测试剧 S01')
+
+    await user.clear(screen.getByLabelText('保存路径'))
+    await user.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+    expect(updated.mock.calls[0][0]).toMatchObject({ save_path: null })
+  })
+
+  it('keeps the raw path in the field when re-selecting the current directory', async () => {
+    const record = createSubscribe({
+      id: 812,
+      name: '重选路径测试剧',
+      save_path: '/完整目录',
+      season: 1,
+      media_id: '8120',
+      media_source: 'themoviedb',
+      type: '电视剧',
+    })
+    const updated = vi.fn()
+    server.use(subscribeDetailsHandler(812, record), updateSubscribeHandler({ success: true }, 200, updated))
+    useDialogOptions({
+      directories: [createSubscribeDirectory({ download_path: '/完整目录' })],
+      tmdbId: 8120,
+    })
+    const user = userEvent.setup()
+    await renderDialog({ subid: 812 })
+    await screen.findByText('重选路径测试剧 S01')
+
+    const field = screen.getByLabelText('保存路径')
+    expect(field).toHaveValue('/完整目录')
+    await user.click(field)
+    expect(await screen.findByRole('option', { name: '测试目录 (/完整目录)' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    // 重新选择已选中的选项，输入框不能被别名标签替换
+    await user.click(field)
+    await user.click(await screen.findByText('测试目录 (/完整目录)', {}, { timeout: 2_000 }))
+    expect(field).toHaveValue('/完整目录')
+    await user.type(field, '/sub')
+
+    await user.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+    expect(updated.mock.calls[0][0]).toMatchObject({ save_path: '/完整目录/sub' })
+  })
+
+  it('round-trips a stored alias string verbatim', async () => {
+    const record = createSubscribe({
+      id: 813,
+      name: '别名回写测试剧',
+      save_path: '可心影视库',
+      season: 1,
+      media_id: '8130',
+      media_source: 'themoviedb',
+      type: '电视剧',
+    })
+    const updated = vi.fn()
+    server.use(subscribeDetailsHandler(813, record), updateSubscribeHandler({ success: true }, 200, updated))
+    useDialogOptions({
+      directories: [createSubscribeDirectory({ download_path: '/完整目录' })],
+      tmdbId: 8130,
+    })
+    const user = userEvent.setup()
+    await renderDialog({ subid: 813 })
+    await screen.findByText('别名回写测试剧 S01')
+
+    expect(screen.getByLabelText('保存路径')).toHaveValue('可心影视库')
+
+    await user.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+    expect(updated.mock.calls[0][0]).toMatchObject({ save_path: '可心影视库' })
+  })
+
+  it('filters directory options by alias fragment', async () => {
+    const record = createSubscribe({
+      id: 811,
+      name: '别名过滤测试剧',
+      season: 1,
+      media_id: '8110',
+      media_source: 'themoviedb',
+      type: '电视剧',
+    })
+    server.use(subscribeDetailsHandler(811, record))
+    useDialogOptions({
+      directories: [createSubscribeDirectory({ download_path: '/完整目录' })],
+      tmdbId: 8110,
+    })
+    const user = userEvent.setup()
+    await renderDialog({ subid: 811 })
+    await screen.findByText('别名过滤测试剧 S01')
+
+    await user.clear(screen.getByLabelText('保存路径'))
+    await user.type(screen.getByLabelText('保存路径'), '测试')
+    expect(await screen.findByRole('option', { name: '测试目录 (/完整目录)' })).toBeInTheDocument()
   })
 
   it.each([
