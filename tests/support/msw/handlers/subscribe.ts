@@ -80,6 +80,27 @@ function mutationResponse(response: SubscribeMutationResponse, status: number) {
   return apiJson(response.data ?? null, { status })
 }
 
+/**
+ * 订阅来源目录：账号列表与已安装插件列表，订阅页出现多个来源时才会请求。
+ * onRequest 收到请求的接口名，便于断言是否按需加载。
+ */
+export function subscribeSourceDirectoryHandlers(
+  users: Array<{ name: string; nickname?: string; avatar?: string }> = [],
+  plugins: Array<{ id: string; plugin_name: string }> = [],
+  onRequest: (endpoint: 'users' | 'plugins', url: URL) => void = () => {},
+) {
+  return [
+    http.get(new URL('user/', API_BASE_URL).href, ({ request }) => {
+      onRequest('users', new URL(request.url))
+      return dataResponse(users, 200)
+    }),
+    http.get(new URL('plugin/', API_BASE_URL).href, ({ request }) => {
+      onRequest('plugins', new URL(request.url))
+      return dataResponse(plugins, 200)
+    }),
+  ]
+}
+
 export function subscribeListHandler(
   response: JsonBodyType | ((url: URL) => JsonBodyType | Promise<JsonBodyType>) = [],
   status = 200,

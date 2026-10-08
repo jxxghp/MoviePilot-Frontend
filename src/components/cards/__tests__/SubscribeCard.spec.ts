@@ -15,6 +15,7 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createI18n } from 'vue-i18n'
+import type { SubscribeSource } from '@/utils/subscribeSource'
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -77,7 +78,7 @@ function observeElementsImmediately() {
 
 async function renderCard(
   mediaOverrides: Partial<Subscribe> = {},
-  props: Partial<{ batchMode: boolean; selected: boolean; sortable: boolean }> = {},
+  props: Partial<{ batchMode: boolean; selected: boolean; sortable: boolean; source: SubscribeSource | null }> = {},
   globalImageCache = false,
 ) {
   const media = createSubscribe({
@@ -135,6 +136,117 @@ describe('SubscribeCard display and progress', () => {
     mocks.loadPosterTone.mockResolvedValue(null)
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('hangs the source badge on the desktop poster corner with the name in the tooltip', async () => {
+    const source: SubscribeSource = {
+      kind: 'user',
+      name: 'mom',
+      label: '妈妈',
+      initial: '妈',
+      color: 'hsl(10 52% 48%)',
+    }
+    const { container } = await renderCard({ year: '2025' }, { source })
+    await fireEvent.load(container.querySelector<HTMLImageElement>('img') as HTMLImageElement)
+
+    const frame = await waitFor(() => {
+      const element = container.querySelector('.subscribe-card-poster-frame')
+      expect(element).not.toBeNull()
+      return element as HTMLElement
+    })
+    const badge = frame.querySelector('.subscribe-card-poster-source') as HTMLElement
+    expect(badge).toHaveAttribute('aria-label', '订阅人：mom')
+    expect(badge.querySelector('.subscribe-source-mark__dot')).toHaveTextContent('妈')
+    // 徽标只画图形，名字不进入卡片文字，悬停时用提示展示
+    expect(badge).not.toHaveTextContent('妈妈')
+    await fireEvent.mouseEnter(badge)
+    expect(await screen.findByText('订阅人：mom')).toBeInTheDocument()
+    expect(screen.getByText(/卡片测试媒体/)).toHaveClass('line-clamp-2')
+  })
+
+  it('shows the plugin logo and falls back when a badge image breaks', async () => {
+    const { container, rerender, media } = await renderCard(
+      {},
+      { source: { kind: 'plugin', name: '订阅助手增强', label: '订阅助手增强', initial: '订', color: 'red' } },
+    )
+    await fireEvent.load(container.querySelector<HTMLImageElement>('img') as HTMLImageElement)
+    const plugin = await waitFor(() => {
+      const element = container.querySelector('[data-source-kind="plugin"]')
+      expect(element).not.toBeNull()
+      return element as HTMLElement
+    })
+    expect(plugin).toHaveAttribute('aria-label', '来自插件：订阅助手增强')
+    // 插件没有 Logo 时用拼图图标
+    expect(plugin.querySelector('.subscribe-source-mark__plugin')).not.toBeNull()
+
+    await rerender({
+      media,
+      source: {
+        kind: 'plugin',
+        name: '订阅助手增强',
+        label: '订阅助手增强',
+        image: './plugin_icon/assistant.png',
+        initial: '订',
+        color: 'red',
+      },
+    })
+    const logo = container.querySelector('.subscribe-source-mark__image') as HTMLImageElement
+    expect(logo).toHaveAttribute('src', './plugin_icon/assistant.png')
+    await fireEvent.error(logo)
+    expect(container.querySelector('.subscribe-source-mark__plugin')).not.toBeNull()
+
+    await rerender({
+      media,
+      source: {
+        kind: 'user',
+        name: 'kid',
+        label: 'kid',
+        image: 'https://images.example.com/a.png',
+        initial: 'K',
+        color: 'red',
+      },
+    })
+    const avatar = container.querySelector('.subscribe-source-mark__image') as HTMLImageElement
+    expect(avatar).not.toBeNull()
+    await fireEvent.error(avatar)
+    expect(container.querySelector('.subscribe-source-mark__image')).toBeNull()
+    expect(container.querySelector('.subscribe-source-mark__dot')).toHaveTextContent('K')
+  })
+
+  it('places only the mobile source badge in the top-left corner opposite the update time', async () => {
+    setViewport(480)
+    const { container, media } = await renderCard(
+      {},
+      { source: { kind: 'other', name: 'Seerr', label: 'Seerr', initial: 'S', color: 'red' } },
+    )
+
+    const meta = container.querySelector('.subscribe-card-mobile-image-meta') as HTMLElement
+    const [first, last] = Array.from(meta.children)
+    // 手机卡只保留头像徽标，不显示名字
+    expect(first).toHaveClass('subscribe-card-mobile-image-meta__source')
+    expect(first).toHaveAttribute('aria-label', '订阅人：Seerr')
+    expect(first).not.toHaveTextContent('Seerr')
+    expect(last).toHaveClass('subscribe-card-mobile-image-meta__updated')
+    expect(last).toHaveTextContent(formatDateDifference(media.last_update))
+  })
+
+  it('omits the source when the list passes none', async () => {
+    const { container } = await renderCard({ year: '2025' })
+    await fireEvent.load(container.querySelector<HTMLImageElement>('img') as HTMLImageElement)
+
+    await waitFor(() => expect(container.querySelector('.subscribe-card-poster')).not.toBeNull())
+    expect(container.querySelector('.subscribe-source-mark')).toBeNull()
+  })
+
+  it('does not show the source before the desktop poster appears', async () => {
+    const { container } = await renderCard(
+      { year: '2025' },
+      { source: { kind: 'other', name: 'Seerr', label: 'Seerr', initial: 'S', color: 'red' } },
+    )
+
+    // 海报还没出现时不把来源临时挪到别处，避免加载过程中一闪而过
+    expect(container.querySelector('.subscribe-card-poster')).toBeNull()
+    expect(container.querySelector('.subscribe-source-mark')).toBeNull()
   })
 
   it('keeps the desktop poster when the list refresh passes an identical subscription', async () => {

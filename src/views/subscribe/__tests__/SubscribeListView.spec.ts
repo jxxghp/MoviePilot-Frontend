@@ -1,4 +1,5 @@
 import type { Subscribe, SubscriptionBatchStatus } from '@/api/types'
+import type { SubscribeSource } from '@/utils/subscribeSource'
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createSubscribe } from '@tests/support/factories/subscribe'
@@ -10,6 +11,7 @@ import {
   subscribeListHandler,
   subscriptionExecutionBatchesHandler,
   subscribeOrderConfigHandler,
+  subscribeSourceDirectoryHandlers,
   updateSubscribeStatusHandler,
   type SubscribeMediaType,
 } from '@tests/support/msw/handlers/subscribe'
@@ -50,6 +52,7 @@ const SubscribeCardStub = defineComponent({
     media: { type: Object as PropType<Subscribe>, required: true },
     selected: Boolean,
     sortable: Boolean,
+    source: { type: Object as PropType<SubscribeSource | null>, default: null },
   },
   emits: ['remove', 'save', 'select'],
   setup(props, { emit }) {
@@ -61,6 +64,7 @@ const SubscribeCardStub = defineComponent({
           'data-page-open': String(Boolean(props.media.page_open)),
           'data-selected': String(props.selected),
           'data-sortable': String(props.sortable),
+          'data-source': props.source ? `${props.source.kind}:${props.source.label}` : '',
           'data-testid': `subscribe-card-${props.media.id}`,
         },
         [
@@ -238,6 +242,9 @@ interface RenderListOptions {
   superUser?: boolean
   type?: SubscribeMediaType
   userName?: string
+  sourceUsers?: Parameters<typeof subscribeSourceDirectoryHandlers>[0]
+  sourcePlugins?: Parameters<typeof subscribeSourceDirectoryHandlers>[1]
+  onSourceDirectoryRequest?: Parameters<typeof subscribeSourceDirectoryHandlers>[2]
 }
 
 async function renderList(options: RenderListOptions = {}) {
@@ -250,6 +257,7 @@ async function renderList(options: RenderListOptions = {}) {
       options.batchStatus ?? 200,
       options.onBatchRequest,
     ),
+    ...subscribeSourceDirectoryHandlers(options.sourceUsers, options.sourcePlugins, options.onSourceDirectoryRequest),
   )
 
   return renderWithProviders(SubscribeListHost, {
@@ -925,6 +933,45 @@ describe('SubscribeListView loading and filtering', () => {
     expect(await screen.findByText('Own movie')).toBeInTheDocument()
     expect(screen.getByText('Other movie')).toBeInTheDocument()
     expect(screen.queryByText('Other TV')).not.toBeInTheDocument()
+  })
+
+  it('marks subscription sources only when more than one source is visible', async () => {
+    const requests: string[] = []
+    await renderList({
+      listResponse: [
+        movie(1, 'Own movie', { username: 'tester' }),
+        movie(2, 'Family movie', { username: 'mom' }),
+        movie(3, 'Plugin movie', { username: '订阅助手增强' }),
+        movie(4, 'Seerr movie', { username: 'Seerr' }),
+        movie(5, 'Unknown movie', { username: '' }),
+      ],
+      superUser: true,
+      sourceUsers: [{ name: 'tester' }, { name: 'mom', nickname: '妈妈' }],
+      sourcePlugins: [{ id: 'SubscribeAssistantEnhanced', plugin_name: '订阅助手增强' }],
+      onSourceDirectoryRequest: endpoint => requests.push(endpoint),
+    })
+
+    // 账号使用昵称，插件名对上已安装插件，其余名字作为外部来源，空名字不标
+    await waitFor(() => expect(card(2)).toHaveAttribute('data-source', 'user:妈妈'))
+    expect(card(1)).toHaveAttribute('data-source', 'user:tester')
+    expect(card(3)).toHaveAttribute('data-source', 'plugin:订阅助手增强')
+    expect(card(4)).toHaveAttribute('data-source', 'other:Seerr')
+    expect(card(5)).toHaveAttribute('data-source', '')
+    expect(requests.sort()).toEqual(['plugins', 'users'])
+  })
+
+  it('does not mark sources or load the directory when only one source is visible', async () => {
+    const requests: string[] = []
+    await renderList({
+      listResponse: [movie(1, 'Own movie'), movie(2, 'Other movie', { username: 'other' })],
+      onSourceDirectoryRequest: endpoint => requests.push(endpoint),
+    })
+
+    // 普通用户只能看到自己的订阅，只有一个来源，不展示标识也不请求管理员接口
+    expect(await screen.findByText('Own movie')).toBeInTheDocument()
+    await flushAsync()
+    expect(card(1)).toHaveAttribute('data-source', '')
+    expect(requests).toEqual([])
   })
 
   it('normalizes keyword filtering', async () => {
