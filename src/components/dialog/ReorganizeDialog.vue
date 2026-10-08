@@ -2039,8 +2039,9 @@ onUnmounted(() => {
                     :disabled="previewLoading || transferSubmitting || hasAcceptedSubmission"
                     color="primary"
                     density="compact"
+                    :mobile-layout="false"
                     hide-details
-                    class="mt-2"
+                    class="history-records-switch mt-2"
                   />
                 </VAlert>
                 <VRow>
@@ -2117,8 +2118,8 @@ onUnmounted(() => {
                         <VBtn
                           v-if="targetPathMatch?.target_path && !targetPathMatchLoading"
                           color="info"
-                          variant="text"
-                          size="small"
+                          variant="flat"
+                          class="target-path-match__apply"
                           prepend-icon="mdi-check"
                           @click="applyTargetPathMatch"
                         >
@@ -2866,6 +2867,21 @@ onUnmounted(() => {
 
 .target-path-match {
   border-radius: var(--app-control-radius);
+}
+
+// 提示内容会裁切溢出，给关闭状态的滑块和焦点效果预留左右空间。
+.history-records-switch {
+  padding-inline: 0.5rem;
+}
+
+.history-records-switch :deep(.v-label) {
+  white-space: normal;
+}
+
+.target-path-match__apply {
+  flex-shrink: 0;
+  min-block-size: 2.75rem;
+  padding-inline: 1rem;
 }
 
 .target-path-match__content,
