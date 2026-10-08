@@ -607,14 +607,13 @@ watch(
 onBeforeUnmount(() => clearExecutionStatusTimer())
 
 // 切换订阅记录时重新尝试加载图片，避免复用卡片组件后沿用旧的失败状态。
-watch(
-  () => [props.media?.id, props.media?.backdrop, props.media?.poster],
-  () => {
-    imageLoaded.value = false
-    backdropLoadError.value = false
-    posterLoadError.value = false
-  },
-)
+// 必须逐项比较：列表刷新会传入内容相同的新对象，此时图片地址不变、不会再触发 load，
+// 若误重置 imageLoaded，竖版海报会一直隐藏。
+watch([() => props.media?.id, () => props.media?.backdrop, () => props.media?.poster], () => {
+  imageLoaded.value = false
+  backdropLoadError.value = false
+  posterLoadError.value = false
+})
 
 // 媒体占位图标：电影/电视剧/音乐各自使用对应图标，缺失封面时统一渲染图标 + 底色占位
 const placeholderIcon = computed(() => {
