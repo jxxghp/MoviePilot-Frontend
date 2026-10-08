@@ -3010,6 +3010,9 @@ export default {
       lyricsRetryMaxWaitHint: 'Retry-After 超过该秒数时进入来源冷却，避免阻塞整张专辑',
       secondUnit: '秒',
       musicMetadataToSimplified: '音乐媒体信息转简体中文',
+      musicLyricsToSimplified: '歌词正文转简体中文',
+      musicLyricsToSimplifiedHint:
+        '写入 LRC/TXT 时转换正文，保留时间轴、LRC 标签和来源 Lyricsfile；已有歌词需选择“总是刮削”重新刮削',
       musicCueEnable: '音乐 CUE 识别',
       musicCueEnableHint: '已分轨专辑附带错误 CUE 时可关闭，改用音频标签和文件名整理；整轨专辑请保持开启',
       musicMetadataToSimplifiedHint: '将识别结果中的曲名、艺术家、专辑和分类等音乐信息强制转换为简体中文',

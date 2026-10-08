@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('colorthief', () => ({
+  /** 提供不依赖真实图片的测试颜色。 */
   default: class ColorThief {
     /** 返回稳定测试色，避免设置页子组件加载原生图像依赖。 */
     getColor() {
@@ -1296,6 +1297,7 @@ describe('AccountSettingSystem', () => {
     const dialog = await openAdvancedTab('媒体')
     expect(dialog.getByLabelText('音乐媒体信息转简体中文')).toBeChecked()
     expect(dialog.getByLabelText('音乐 CUE 识别')).toBeChecked()
+    expect(dialog.getByLabelText('歌词正文转简体中文')).not.toBeChecked()
     expect(dialog.getByLabelText('音乐发行地区优先级')).toHaveValue(['CN', 'TW', 'HK'])
     expect(dialog.getByLabelText('音乐文字字形优先级')).toHaveValue(['Hans', 'Hant', 'Latn'])
     expect(dialog.getByLabelText('AMLL TTML 服务地址')).toHaveValue('https://api.amll.dev')
@@ -1318,6 +1320,7 @@ describe('AccountSettingSystem', () => {
       '跟随TMDB识别整理',
       'TMDB 刮削原语种图片',
       '音乐媒体信息转简体中文',
+      '歌词正文转简体中文',
       '音乐 CUE 识别',
       '优先使用插件识别',
       '共享使用媒体识别数据',
@@ -1350,6 +1353,7 @@ describe('AccountSettingSystem', () => {
         LYRICS_PROVIDER_RETRY_MAX_WAIT: 3,
         MUSIC_COVER_PROXY: 'https://music.example',
         MUSIC_METADATA_TO_SIMPLIFIED: false,
+        MUSIC_LYRICS_TO_SIMPLIFIED: true,
         MUSIC_CUE_ENABLE: false,
         MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
         MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
@@ -1364,6 +1368,25 @@ describe('AccountSettingSystem', () => {
       }),
     )
   })
+
+  it.each([false, true])(
+    'loads lyrics simplification %s and saves it independently of music modules',
+    async enabled => {
+      systemEnv.MUSIC_LYRICS_TO_SIMPLIFIED = enabled
+      systemEnv.MUSIC_METADATA_TO_SIMPLIFIED = true
+      systemEnv.MODULE_ENABLE = { MusicBrainzModule: false, LrclibModule: false, AmllModule: false }
+      await renderSettings()
+      const dialog = await openAdvancedTab('媒体')
+      const lyricsSwitch = dialog.getByLabelText('歌词正文转简体中文')
+      expect((lyricsSwitch as HTMLInputElement).checked).toBe(enabled)
+      await fireEvent.click(lyricsSwitch)
+      await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(findPost('system/env')?.[1]).toEqual(
+        expect.objectContaining({ MUSIC_LYRICS_TO_SIMPLIFIED: !enabled, MUSIC_METADATA_TO_SIMPLIFIED: true }),
+      )
+    },
+  )
 
   it('round-trips advanced network fields and extends both image access lists', async () => {
     const user = userEvent.setup()
