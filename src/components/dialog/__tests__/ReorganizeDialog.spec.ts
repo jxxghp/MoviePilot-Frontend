@@ -318,6 +318,7 @@ function publicSettingHandlers({
 
 /** 挂载整理弹窗并等待初始化请求完成。 */
 async function renderDialog({
+  cueEnabled = true,
   directories = [],
   episodeRules = [],
   historyCount = 0,
@@ -332,6 +333,7 @@ async function renderDialog({
   targetPathStatus = 200,
   targetStorage,
 }: {
+  cueEnabled?: boolean
   directories?: TransferDirectoryConf[]
   episodeRules?: unknown[]
   historyCount?: number
@@ -378,6 +380,7 @@ async function renderDialog({
       globalSettings: {
         data: {
           RECOGNIZE_SOURCE: 'themoviedb',
+          MUSIC_CUE_ENABLE: cueEnabled,
         },
       },
     },
@@ -1164,6 +1167,46 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
       }),
     )
   })
+
+  it.each([
+    { cueEnabled: true, background: true },
+    { cueEnabled: false, background: true },
+    { cueEnabled: true, background: false },
+    { cueEnabled: false, background: false },
+  ])(
+    'uses one-task CUE selection for preview and execution ($cueEnabled, $background)',
+    async ({ cueEnabled, background }) => {
+      const bodies: ManualTransferPayload[] = []
+      server.use(
+        http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+          const body = (await request.json()) as ManualTransferPayload
+          bodies.push(body)
+          return HttpResponse.json(body.preview ? previewResponse([]) : apiEnvelope(null))
+        }),
+      )
+      const user = userEvent.setup()
+      await renderDialog({
+        cueEnabled,
+        items: [createFileItem({ name: '专辑', path: '/downloads/专辑', type: 'dir' })],
+      })
+      const cueSwitch = screen.getByRole('checkbox', { name: '本次识别 CUE' })
+      expect((cueSwitch as HTMLInputElement).checked).toBe(cueEnabled)
+      await user.click(cueSwitch)
+      await user.click(screen.getByRole('button', { name: '预览' }))
+      await waitFor(() => expect(bodies).toHaveLength(1))
+      expect(bodies[0]).toEqual(expect.objectContaining({ preview: true, music_cue_enable: !cueEnabled }))
+      await waitFor(() => expect(screen.getByText('整理结果预览')).toBeInTheDocument())
+      await user.click(cueSwitch)
+      await waitFor(() => expect(screen.getByText('整理结果预览')).not.toBeVisible())
+      await user.click(screen.getByRole('button', { name: '预览' }))
+      await waitFor(() => expect(bodies).toHaveLength(2))
+      await user.click(screen.getByRole('button', { name: background ? '加入整理队列' : '立即整理' }))
+      await waitFor(() => expect(bodies).toHaveLength(3))
+      expect(bodies[1]).toEqual(expect.objectContaining({ preview: true, music_cue_enable: cueEnabled }))
+      expect(bodies[2]).toEqual(expect.objectContaining({ music_cue_enable: cueEnabled }))
+      expect(bodies[2].preview).not.toBe(true)
+    },
+  )
 
   it('inherits music release preferences by default and can override them for one request', async () => {
     const bodies: Array<Record<string, unknown>> = []

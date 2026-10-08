@@ -2418,6 +2418,8 @@ export interface TransferForm {
   music_release_regions?: string[] | null
   // MusicBrainz 文字字形优先级；未传时继承系统设置
   music_release_scripts?: string[] | null
+  // 本次是否识别 CUE；未传时继承系统设置
+  music_cue_enable?: boolean | null
   // 季号
   season?: number
   // 类型

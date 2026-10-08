@@ -4350,6 +4350,8 @@ export default {
       artistCollectionScanFailed: '艺术家合集扫描失败',
       musicEntityHint: '选择专辑目录时默认按专辑整理，单个音频文件默认按单曲整理',
       musicReleasePreferenceOverride: '本次覆盖发行偏好',
+      musicCueEnable: '本次识别 CUE',
+      musicCueEnableHint: '默认采用系统设置，仅影响本次预览和整理。已分轨专辑附带错误 CUE 时可关闭；整轨专辑请保持开启',
       musicReleasePreferenceOverrideHint: '关闭时继承系统设置；开启后仅影响本次手动整理',
       musicReleaseRegions: '发行地区顺序',
       musicReleaseRegionsHint: '结构匹配优先于地区，最多选择 3 项',

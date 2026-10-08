@@ -4462,6 +4462,9 @@ export default {
       artistCollectionScanFailed: 'Failed to scan the artist collection',
       musicEntityHint: 'Album folders default to Album; individual audio files default to Recording.',
       musicReleasePreferenceOverride: 'Override release preference',
+      musicCueEnable: 'Recognize CUE for this task',
+      musicCueEnableHint:
+        'Defaults to system settings and applies to this preview and task only. Turn off for split tracks with an invalid CUE; keep on for single-file albums',
       musicReleasePreferenceOverrideHint: 'Off inherits system settings; on applies only to this manual organization',
       musicReleaseRegions: 'Release region order',
       musicReleaseRegionsHint: 'Structural matching stays authoritative; choose up to 3 regions',

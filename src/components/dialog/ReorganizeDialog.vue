@@ -573,6 +573,7 @@ const transferForm = reactive<TransferForm>({
   music_type: null,
   music_release_regions: null,
   music_release_scripts: null,
+  music_cue_enable: globalSettings.MUSIC_CUE_ENABLE !== false,
   transfer_type: null,
   min_filesize: 0,
   scrape: initialTargetPath ? false : null,
@@ -837,6 +838,14 @@ watch(customMusicReleasePreference, enabled => {
   transferForm.music_release_regions = null
   transferForm.music_release_scripts = null
 })
+
+// 切换 CUE 策略后收起旧预览，下一次展开会按新策略重新识别。
+watch(
+  () => transferForm.music_cue_enable,
+  () => {
+    previewVisible.value = false
+  },
+)
 
 // 切换数据源时清空上一来源的原生ID，避免把同一数字误传给新来源。
 watch(
@@ -1324,7 +1333,7 @@ function getBatchItemsLabel(items: FileItem[]) {
   return t('dialog.reorganize.multipleItemsTitle', { count: items.length })
 }
 
-// 预览、立即整理和加入队列共用请求参数，保证成功记录处理方式一致。
+/** 预览、立即整理和队列共用参数，固定本次 CUE 策略及成功记录处理范围。 */
 function createTransferPayload(options: {
   item?: FileItem
   items?: FileItem[]
@@ -2186,6 +2195,17 @@ onUnmounted(() => {
                 >
                   {{ t('dialog.reorganize.artistCollectionHint') }}
                 </VAlert>
+                <VRow v-if="!transferForm.type_name || transferForm.type_name === '音乐'">
+                  <VCol cols="12">
+                    <VSwitch
+                      v-model="transferForm.music_cue_enable"
+                      :label="t('dialog.reorganize.musicCueEnable')"
+                      :hint="t('dialog.reorganize.musicCueEnableHint')"
+                      persistent-hint
+                      :disabled="transferSubmitting || hasAcceptedSubmission"
+                    />
+                  </VCol>
+                </VRow>
                 <VRow v-if="transferForm.type_name === '音乐'">
                   <VCol cols="12">
                     <VSwitch
