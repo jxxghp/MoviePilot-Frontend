@@ -1502,6 +1502,8 @@ export default {
     bestVersionEpisodeProgressTooltip: 'Upgraded {completed} · Downloaded {downloaded} · Total {total}',
     subscribeProgressTooltip: 'Downloaded {downloaded} · Total {total}',
     musicSubscribeProgressTooltip: 'Downloaded {downloaded} · Total {total} tracks',
+    sourceSubscriber: 'Subscribed by {name}',
+    sourceFromPlugin: 'From plugin {name}',
     completed: 'Completed',
     subscribing: 'Subscribing',
     notStarted: 'Not Started',

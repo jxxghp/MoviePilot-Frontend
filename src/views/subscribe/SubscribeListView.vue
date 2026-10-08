@@ -1,18 +1,27 @@
 <script lang="ts" setup>
 import draggable from 'vuedraggable'
 import api from '@/api'
-import type { Subscribe, SubscriptionBatchStatus, SubscribeDeletionResult } from '@/api/types'
+import type { Plugin, Subscribe, SubscriptionBatchStatus, SubscribeDeletionResult, User } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeExecutionDialog from '@/components/dialog/SubscribeExecutionDialog.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
-import { useUserStore } from '@/stores'
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
+import { getProxyImageUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
+import {
+  collectSubscribeSourceNames,
+  emptySubscribeSourceDirectory,
+  resolveSubscribeSource,
+  shouldShowSubscribeSource,
+  type SubscribeSource,
+  type SubscribeSourceDirectory,
+} from '@/utils/subscribeSource'
 
 const SubscribeHistoryDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeHistoryDialog.vue'))
 const ACTIVE_CARD_REFRESH_INTERVAL_MS = 15_000
@@ -25,6 +34,9 @@ const display = useDisplay()
 
 // 用户 Store
 const userStore = useUserStore()
+
+// 全局设置：插件 Logo 是否走后端图片缓存
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 提示框
 const $toast = useToast()
@@ -198,6 +210,77 @@ const orderConfig = ref<{ id: number }[]>([])
 // 显示的订阅列表
 const displayList = ref<Subscribe[]>([])
 
+// 当前用户有权看到的订阅：普通用户只看自己的订阅，管理员看全部
+const permittedSubscribes = computed(() =>
+  superUser ? dataList.value : dataList.value.filter(data => data.username === userName),
+)
+
+// 来源判断基于有权看到的全部订阅而不是筛选结果，避免搜索或切换状态筛选时标识忽隐忽现
+const subscribeSourceNames = computed(() => collectSubscribeSourceNames(permittedSubscribes.value))
+const showSubscribeSource = computed(() => shouldShowSubscribeSource(subscribeSourceNames.value))
+
+// 识别账号与插件来源的目录；只有确实需要展示来源时才加载一次，失败时退回首字圆点
+const subscribeSourceDirectory = shallowRef<SubscribeSourceDirectory>(emptySubscribeSourceDirectory())
+let subscribeSourceDirectoryRequested = false
+
+// 来源名 -> 卡片展示信息；只有一个来源时为空表，卡片不展示来源
+const subscribeSources = computed(() => {
+  const sources = new Map<string, SubscribeSource>()
+  if (!showSubscribeSource.value) return sources
+  for (const name of subscribeSourceNames.value) {
+    const source = resolveSubscribeSource(name, subscribeSourceDirectory.value, userName)
+    if (source) sources.set(name, source)
+  }
+  return sources
+})
+
+/** 取单条订阅的来源展示信息。 */
+function getSubscribeSource(subscribe: Subscribe) {
+  return subscribeSources.value.get(subscribe.username?.trim() ?? '') ?? null
+}
+
+/** 插件 Logo 地址，与插件卡片一致：网络图片经后端代理，本地图标走插件图标目录。 */
+function getPluginLogoUrl(plugin: Plugin) {
+  if (!plugin.plugin_icon) return undefined
+  if (plugin.plugin_icon.startsWith('http')) {
+    return getProxyImageUrl(plugin.plugin_icon, {
+      proxy: true,
+      useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+    })
+  }
+  return `./plugin_icon/${plugin.plugin_icon}`
+}
+
+/** 读取账号昵称头像和已安装插件名与 Logo；两个接口都只对管理员开放，普通用户不会出现多个来源。 */
+async function loadSubscribeSourceDirectory() {
+  if (subscribeSourceDirectoryRequested || !superUser) return
+  subscribeSourceDirectoryRequested = true
+  const [users, plugins] = await Promise.allSettled([
+    api.get<User[]>('user/', { feedback: 'silent' }),
+    api.get<Plugin[]>('plugin/', { params: { state: 'installed' }, feedback: 'silent' }),
+  ])
+  const directory = emptySubscribeSourceDirectory()
+  if (users.status === 'fulfilled') {
+    for (const user of users.value ?? []) {
+      directory.users.set(user.name, { nickname: user.nickname, avatar: user.avatar })
+    }
+  }
+  if (plugins.status === 'fulfilled') {
+    for (const plugin of plugins.value ?? []) {
+      if (plugin.plugin_name) directory.plugins.set(plugin.plugin_name, getPluginLogoUrl(plugin))
+    }
+  }
+  subscribeSourceDirectory.value = directory
+}
+
+watch(
+  showSubscribeSource,
+  show => {
+    if (show) void loadSubscribeSourceDirectory()
+  },
+  { immediate: true },
+)
+
 // 批量管理相关状态
 const isBatchMode = ref(false)
 const selectedSubscribes = ref<number[]>([])
@@ -356,12 +439,8 @@ function syncDefaultSortBy() {
 watch(
   [dataList, normalizedKeyword, () => props.statusFilter, orderConfig, effectiveSortBy],
   () => {
-    const nextDisplayList = dataList.value.filter(data => {
+    const nextDisplayList = permittedSubscribes.value.filter(data => {
       if (data.type !== props.type) {
-        return false
-      }
-
-      if (!superUser && data.username !== userName) {
         return false
       }
 
@@ -1009,6 +1088,7 @@ defineExpose({
       <SubscribeCard
         :key="element.id"
         :media="element"
+        :source="getSubscribeSource(element)"
         :batch-mode="isBatchMode"
         :selected="selectedSubscribesSet.has(element.id)"
         :sortable="true"
@@ -1032,6 +1112,7 @@ defineExpose({
       <SubscribeCard
         :key="item.id"
         :media="item"
+        :source="getSubscribeSource(item)"
         :batch-mode="isBatchMode"
         :selected="selectedSubscribesSet.has(item.id)"
         :sortable="false"

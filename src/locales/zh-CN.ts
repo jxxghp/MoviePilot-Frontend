@@ -1480,6 +1480,8 @@ export default {
     bestVersionEpisodeProgressTooltip: '已洗版 {completed} · 已下载 {downloaded} · 共 {total} 集',
     subscribeProgressTooltip: '已下载 {downloaded} · 共 {total} 集',
     musicSubscribeProgressTooltip: '已下载 {downloaded} · 共 {total} 首',
+    sourceSubscriber: '订阅人：{name}',
+    sourceFromPlugin: '来自插件：{name}',
     completed: '订阅完成',
     subscribing: '订阅中',
     notStarted: '未开始',
