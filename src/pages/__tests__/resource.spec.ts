@@ -572,6 +572,32 @@ describe('resource page search flow', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: '继续加载' })).not.toBeInTheDocument())
   })
 
+  it.each([false, true])('shows each site failure once across keyword sources (batched=%s)', async batched => {
+    await renderResource({ path: '/resource', query: { keyword: '失败提示', result_type: 'torrent' } })
+    const first = await latestEventSource()
+    const error = '站点请求或页面解析失败（返回登录或权限提示页）'
+    const sources: SearchSourcePage[] = ['title', 'english-title', 'alias'].map(source => ({
+      source,
+      site_name: '1PTBA',
+      page: 0,
+      can_continue: true,
+      error,
+    }))
+    sources.push({ source: 'b', site_name: 'Other Site', page: 0, can_continue: true, error: 'timeout' })
+    const result = { sources, total_items: 0, value: 100 }
+    first.message({
+      type: 'replace',
+      items: [],
+      ...result,
+      ...(batched ? { replace_batch: true, batch_index: 0, batch_count: 1, batch_done: true } : {}),
+    })
+    first.message({ type: 'done', ...result })
+    first.fail()
+
+    expect(await screen.findByText(`1PTBA: ${error}；Other Site: timeout`)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '继续加载' })[0]).toBeEnabled()
+  })
+
   it.each(['site', 'connection'])('retries the same page after a %s failure', async failure => {
     await renderResource({ path: '/resource', query: { keyword: '失败续搜', result_type: 'torrent' } })
     finishPage(await latestEventSource(), [createTorrent({ title: '已显示资源' })])

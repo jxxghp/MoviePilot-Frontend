@@ -457,6 +457,7 @@ let streamFlushTimer: ReturnType<typeof setTimeout> | null = null
 let streamFinalResultApplied = false
 const clientPagination = useSearchPagination()
 const searchPagination = clientPagination.state
+const searchErrorMessages = clientPagination.errorMessages
 const loadingNextPage = ref(false)
 
 // 首次搜索结果条数；续页追加在其后，AI 推荐的索引只对应这部分。
@@ -1746,19 +1747,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <VAlert
-      v-if="searchPagination.sources?.some(source => source.error)"
-      type="warning"
-      variant="tonal"
-      density="compact"
-      class="my-3"
-    >
-      {{
-        searchPagination.sources
-          .filter(source => source.error)
-          .map(source => (source.site_name ? `${source.site_name}: ${source.error}` : source.error))
-          .join('；')
-      }}
+    <VAlert v-if="searchErrorMessages.length" type="warning" variant="tonal" density="compact" class="my-3">
+      {{ searchErrorMessages.join('；') }}
     </VAlert>
 
     <!-- 搜索结果 -->
