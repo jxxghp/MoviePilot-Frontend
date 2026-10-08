@@ -137,6 +137,20 @@ describe('SubscribeCard display and progress', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
+  it('keeps the desktop poster when the list refresh passes an identical subscription', async () => {
+    const { container, media, rerender } = await renderCard({ state: 'R', total_episode: 10, lack_episode: 2 })
+    await fireEvent.load(container.querySelector<HTMLImageElement>('img') as HTMLImageElement)
+    await waitFor(() => expect(container.querySelector('.subscribe-card-poster')).not.toBeNull())
+
+    // 列表刷新会换成新对象，图片地址不变时不会再触发 load，海报必须保持显示
+    await rerender({ media: { ...media } })
+    expect(container.querySelector('.subscribe-card-poster')).not.toBeNull()
+
+    // 图片地址真正变化时仍重新等待加载
+    await rerender({ media: { ...media, poster: 'https://images.example.com/poster-new.jpg' } })
+    expect(container.querySelector('.subscribe-card-poster')).toBeNull()
+  })
+
   it('tints the desktop card with the poster tone and lays out title and footer', async () => {
     mocks.loadPosterTone.mockResolvedValue({ hue: 200, saturation: 40 })
     const { container, media } = await renderCard({ state: 'R', total_episode: 10, lack_episode: 2 })
