@@ -4748,6 +4748,7 @@ export default {
   },
   file: {
     details: '文件详情',
+    folderDetails: '文件夹详情',
     fileActions: '文件操作',
     path: '路径',
     currentDirectoryFilter: '筛选当前目录（支持 * ? 通配符）',

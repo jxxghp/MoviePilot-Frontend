@@ -4873,6 +4873,7 @@ export default {
   },
   file: {
     details: 'File Details',
+    folderDetails: 'Folder Details',
     fileActions: 'File Actions',
     path: 'Path',
     currentDirectoryFilter: 'Filter this folder (* ? wildcards)',

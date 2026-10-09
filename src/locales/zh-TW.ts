@@ -4704,6 +4704,7 @@ export default {
   },
   file: {
     details: '文件詳情',
+    folderDetails: '資料夾詳情',
     fileActions: '文件操作',
     path: '路徑',
     currentDirectoryFilter: '篩選目前目錄（支援 * ? 萬用字元）',

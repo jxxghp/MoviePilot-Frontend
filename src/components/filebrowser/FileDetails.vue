@@ -29,7 +29,7 @@ function formatTime(timestamp?: number) {
 <template>
   <section class="file-details">
     <header class="file-details__header">
-      <h2>{{ t('file.details') }}</h2>
+      <h2>{{ t(item.type === 'dir' ? 'file.folderDetails' : 'file.details') }}</h2>
       <IconBtn :aria-label="t('common.close')" @click="emit('close')"><VIcon icon="mdi-close" /></IconBtn>
     </header>
     <div class="file-details__scroll">
@@ -47,12 +47,16 @@ function formatTime(timestamp?: number) {
         </div>
       </div>
       <dl class="file-details__metadata">
-        <dt>{{ t('file.size') }}</dt>
-        <dd>
-          {{
-            typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0 ? formatBytes(item.size) : ''
-          }}
-        </dd>
+        <template v-if="item.type === 'file'">
+          <dt>{{ t('file.size') }}</dt>
+          <dd>
+            {{
+              typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0
+                ? formatBytes(item.size)
+                : ''
+            }}
+          </dd>
+        </template>
         <dt>{{ t('file.modifyTime') }}</dt>
         <dd>{{ formatTime(item.modify_time) }}</dd>
         <dt>{{ t('file.path') }}</dt>
