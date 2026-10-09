@@ -2953,6 +2953,42 @@ onUnmounted(() => {
   border-color: rgba(var(--v-theme-primary), 0.55);
   background: rgba(var(--v-theme-primary), 0.12);
 }
+// 虚拟表格只承载滚动；玻璃材质由可见卡片采样，避免外层与深色底叠加。
+html[data-theme='glass'] .transfer-history-desktop-page {
+  .transfer-history-desktop-virtual.v-table {
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .transfer-history-desktop-record,
+  .transfer-history-desktop-group-summary,
+  .transfer-history-album-summary {
+    border-color: var(--glass-border);
+    background: var(--glass-v3-card-background);
+    box-shadow: var(--glass-dashboard-shadow);
+    backdrop-filter: var(--glass-native-surface-backdrop-filter);
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter);
+  }
+
+  .transfer-history-desktop-record:hover {
+    border-color: var(--glass-border-hover);
+  }
+
+  // 保留选择状态的主色提示，同时透出同一套玻璃材料。
+  .transfer-history-desktop-record--selected,
+  .transfer-history-desktop-record--selected:hover {
+    border-color: rgba(var(--v-theme-primary), 0.55);
+    background:
+      linear-gradient(rgba(var(--v-theme-primary), 0.12), rgba(var(--v-theme-primary), 0.12)),
+      var(--glass-v3-card-background);
+  }
+
+  .transfer-history-desktop-virtual > .v-table__wrapper > table > tbody > tr:hover > td {
+    background: transparent;
+  }
+}
 .transfer-history-desktop-record .v-selection-control {
   min-block-size: 36px;
 }
