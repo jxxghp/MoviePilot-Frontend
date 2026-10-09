@@ -183,10 +183,13 @@ function formatTime(timestamp?: number) {
 }
 .file-details--actions .file-details__actions :deep(.v-btn) {
   border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  // Vuetify 按钮默认圆角会把行分隔线裁成弧形。
+  border-radius: 0 !important;
   min-block-size: 3.25rem;
 }
 .file-details--actions .file-details__delete {
   border-block-end: 0 !important;
+  border-radius: 0 !important;
 }
 @media (width < 960px) {
   .file-details--actions .file-details__header {
