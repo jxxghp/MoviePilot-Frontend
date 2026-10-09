@@ -2396,13 +2396,14 @@ onUnmounted(() => {
                 @update:model-value="checked => toggleHistorySelection(item, checked)"
               />
               <div class="transfer-history-desktop-media-cell">
-                <div class="transfer-history-desktop-poster-frame">
+                <div class="transfer-history-desktop-poster-frame rounded-md">
                   <VImg
                     v-if="getHistoryPosterUrl(item)"
                     :src="getHistoryPosterUrl(item)"
                     :alt="item.title"
                     cover
                     class="transfer-history-desktop-poster"
+                    rounded="md"
                   >
                     <template #error
                       ><div class="transfer-history-desktop-poster-placeholder">
@@ -2639,13 +2640,14 @@ onUnmounted(() => {
             @click="handleMobileRecordClick(item)"
           >
             <header class="transfer-history-mobile-record__header">
-              <div class="transfer-history-mobile-record__poster-wrapper">
+              <div class="transfer-history-mobile-record__poster-wrapper rounded-md">
                 <VImg
                   v-if="getHistoryPosterUrl(item)"
                   class="transfer-history-mobile-record__poster"
                   :src="getHistoryPosterUrl(item)"
                   :alt="item.title"
                   cover
+                  rounded="md"
                 >
                   <template #placeholder>
                     <div class="transfer-history-mobile-record__poster-skeleton">
@@ -3262,7 +3264,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-desktop-poster-frame {
   overflow: hidden;
   flex: 0 0 42px;
-  border-radius: var(--app-control-radius);
   aspect-ratio: 2 / 3;
   background: rgba(var(--v-theme-on-surface), 0.08);
   block-size: 63px;
@@ -3403,7 +3404,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-mobile-record__poster-wrapper {
   position: relative;
   overflow: hidden;
-  border-radius: var(--app-control-radius);
   background: var(--transfer-history-mobile-muted-bg);
   block-size: 5.25rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 18%);
@@ -3412,7 +3412,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-record__poster {
-  border-radius: var(--app-control-radius);
   block-size: 100%;
   inline-size: 100%;
 }

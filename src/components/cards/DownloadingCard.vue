@@ -350,15 +350,15 @@ async function deleteDownload() {
 
 .downloading-card {
   display: grid;
-  min-block-size: 12rem;
+  min-block-size: 8.5rem;
   color: rgb(var(--v-theme-on-surface));
-  grid-template-columns: 8rem minmax(0, 1fr);
+  grid-template-columns: 5.667rem minmax(0, 1fr);
 }
 
 .downloading-card__poster {
   position: relative;
   overflow: hidden;
-  min-block-size: 12rem;
+  min-block-size: 8.5rem;
   background: rgba(var(--v-theme-on-surface), 0.06);
 }
 
@@ -379,8 +379,8 @@ async function deleteDownload() {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.7rem;
-  padding: 1rem !important;
+  gap: 0.55rem;
+  padding: 0.75rem !important;
 }
 
 .downloading-card__meta {
@@ -426,7 +426,7 @@ async function deleteDownload() {
   display: -webkit-box;
   overflow: hidden;
   color: rgb(var(--v-theme-on-surface));
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0;
   -webkit-box-orient: vertical;
@@ -514,7 +514,7 @@ async function deleteDownload() {
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  margin-block-start: auto;
+  // 让操作区跟随可见内容排列，避免无进度卡片在中部产生大片空隙。
   gap: 0.5rem;
 }
 
@@ -581,21 +581,16 @@ async function deleteDownload() {
 
 @container (width <= 25rem) {
   .downloading-card {
-    min-block-size: 11rem;
-    grid-template-columns: 7.333rem minmax(0, 1fr);
+    min-block-size: 8.5rem;
+    grid-template-columns: 5.667rem minmax(0, 1fr);
   }
 
   .downloading-card__poster {
-    min-block-size: 11rem;
-  }
-
-  .downloading-card__body {
-    gap: 0.55rem;
-    padding: 0.75rem !important;
+    min-block-size: 8.5rem;
   }
 
   .downloading-card__title {
-    font-size: 0.92rem;
+    font-size: 1rem;
   }
 
   .downloading-card__torrent-title {
@@ -617,10 +612,6 @@ async function deleteDownload() {
 }
 
 @container (width <= 21rem) {
-  .downloading-card__body {
-    padding-inline: 0.75rem !important;
-  }
-
   .downloading-card__actions :deep(.v-btn) {
     block-size: 2.25rem;
     inline-size: 2.25rem;

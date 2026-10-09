@@ -497,7 +497,8 @@ onUnmounted(cleanupDrag)
   justify-content: center;
   background-color: transparent;
   cursor: col-resize;
-  inline-size: 1px;
+  flex: 0 0 1rem;
+  inline-size: 1rem;
   transition: background-color 0.2s ease;
   user-select: none;
 }
