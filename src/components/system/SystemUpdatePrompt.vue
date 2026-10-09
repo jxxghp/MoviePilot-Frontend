@@ -29,6 +29,7 @@ const SNOOZE_DURATION = 24 * 60 * 60 * 1000
 
 type ReminderPhase = 'available' | 'ready'
 
+/** 记录提醒对应的目标版本及可选的稍后提醒期限。 */
 interface UpdateReminder {
   version: string
   snoozedUntil?: number
@@ -82,12 +83,14 @@ const visibleItems = computed(() =>
     const enabled = item.type === 'resources' ? status.value?.auto_update_resource : status.value?.auto_update
     if (item.state === 'available' && enabled !== true) return false
     if (!['available', 'downloading', 'ready', 'installing', 'failed'].includes(item.state)) return false
-    return !['available', 'ready'].includes(item.state) || !isCurrentVersionSuppressed(item)
+    // 忽略版本跨下载、安装和失败阶段生效，避免后台旧状态重新弹出提示。
+    return !isCurrentVersionSuppressed(item)
   }),
 )
 
 const visible = computed(() => props.enabled && visibleItems.value.length > 0)
 
+/** 恢复当前浏览器保存的两类更新提醒，并丢弃无效记录。 */
 function readReminders(): ReminderStore {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(REMINDER_STORAGE_KEY) || 'null')
@@ -115,6 +118,7 @@ function readReminders(): ReminderStore {
   }
 }
 
+/** 校验本地提醒数据，兼容没有稍后提醒期限的忽略记录。 */
 function parseReminder(value: unknown): UpdateReminder | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
   const record = value as Record<string, unknown>
@@ -126,22 +130,26 @@ function parseReminder(value: unknown): UpdateReminder | undefined {
   }
 }
 
+/** 同步页面和本地提醒记录，并重新安排稍后提醒的到期时间。 */
 function saveReminders(value: ReminderStore) {
   reminders.value = value
   localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(value))
   scheduleReminderExpiry()
 }
 
+/** 用主程序版本或完整资源目标组合标识一次更新。 */
 function itemVersion(item: SystemUpdateItemStatus): string {
   if (item.type === 'application') return item.version || ''
   return [item.version, item.auth_version, item.indexer_version].filter(Boolean).join('|')
 }
 
+/** 仅在下载前和待重启阶段读取对应的稍后提醒。 */
 function itemReminder(item: SystemUpdateItemStatus): UpdateReminder | undefined {
   const phase = reminderPhase(item.state)
   return phase ? reminders.value[item.type]?.[phase] : undefined
 }
 
+/** 判定目标版本是否被永久忽略，或当前阶段是否仍在稍后提醒期限内。 */
 function isCurrentVersionSuppressed(item: SystemUpdateItemStatus): boolean {
   const bucket = reminders.value[item.type]
   const reminder = itemReminder(item)
@@ -152,6 +160,7 @@ function isCurrentVersionSuppressed(item: SystemUpdateItemStatus): boolean {
   return (reminder.snoozedUntil || 0) > reminderClock.value
 }
 
+/** 取消旧的提醒到期任务，避免组件销毁后继续更新状态。 */
 function clearReminderTimer() {
   if (reminderTimer) clearTimeout(reminderTimer)
   reminderTimer = null
@@ -177,11 +186,13 @@ function formatBytes(value: number) {
   return `${megabytes >= 100 ? megabytes.toFixed(0) : megabytes.toFixed(1)} MB`
 }
 
+/** 取消旧的服务恢复轮询，确保同一时刻只等待一次重启。 */
 function clearRestartTimer() {
   if (restartTimer) clearTimeout(restartTimer)
   restartTimer = null
 }
 
+/** 启动指定更新的后台下载，并清除该版本的下载前稍后提醒。 */
 async function startDownload(item: SystemUpdateItemStatus) {
   if (actionPending.value) return
   actionPending.value = true
@@ -199,10 +210,12 @@ async function startDownload(item: SystemUpdateItemStatus) {
   }
 }
 
+/** 映射允许稍后提醒的阶段，其余阶段只支持忽略版本。 */
 function reminderPhase(state: SystemUpdateState): ReminderPhase | null {
   return state === 'available' || state === 'ready' ? state : null
 }
 
+/** 手动开始下载后仅移除当前版本的下载前稍后提醒。 */
 function clearAvailableReminder(item: SystemUpdateItemStatus) {
   const version = itemVersion(item)
   const bucket = reminders.value[item.type]
@@ -213,6 +226,7 @@ function clearAvailableReminder(item: SystemUpdateItemStatus) {
   saveReminders({ ...reminders.value, [item.type]: nextBucket })
 }
 
+/** 将当前阶段的提醒推迟一天，保留其他阶段和版本忽略记录。 */
 function postpone(item: SystemUpdateItemStatus) {
   const version = itemVersion(item)
   const phase = reminderPhase(item.state)
@@ -228,6 +242,7 @@ function postpone(item: SystemUpdateItemStatus) {
   })
 }
 
+/** 在当前浏览器隐藏该目标版本的所有提示阶段，保留后台更新任务。 */
 function ignoreVersion(item: SystemUpdateItemStatus) {
   const version = itemVersion(item)
   if (!version) return
@@ -237,6 +252,7 @@ function ignoreVersion(item: SystemUpdateItemStatus) {
   })
 }
 
+/** 更新单类状态快照，同时兼容没有明细列表的旧后端响应。 */
 function replaceItem(item: SystemUpdateItemStatus) {
   if (!status.value?.updates?.length) {
     status.value = { ...status.value!, state: item.state }
@@ -248,6 +264,7 @@ function replaceItem(item: SystemUpdateItemStatus) {
   }
 }
 
+/** 经管理员确认后申请安装，并等待服务恢复以加载新前端。 */
 async function confirmInstall(item: SystemUpdateItemStatus) {
   if (actionPending.value) return
   const confirmed = await createConfirm({
@@ -277,6 +294,7 @@ async function confirmInstall(item: SystemUpdateItemStatus) {
   }
 }
 
+/** 将头像菜单动作接入相同的下载和重启确认流程。 */
 async function handleMenuUpdate(event: Event) {
   const target = (event as CustomEvent<{ target?: SystemUpdateType }>).detail?.target
   if (!target) return
@@ -325,12 +343,14 @@ function pollServiceRecovery(attempt = 0) {
   )
 }
 
+/** 根据更新类型和准备阶段选择提示框标题。 */
 function titleFor(item: SystemUpdateItemStatus): string {
   if (item.type === 'resources')
     return item.state === 'ready' ? t('systemUpdate.resourcesReadyTitle') : t('systemUpdate.resourcesAvailableTitle')
   return item.state === 'ready' ? t('systemUpdate.applicationReadyTitle') : t('systemUpdate.applicationAvailableTitle')
 }
 
+/** 说明当前更新类型在下载前或安装前的操作效果。 */
 function descriptionFor(item: SystemUpdateItemStatus): string {
   if (item.type === 'resources')
     return item.state === 'ready'
@@ -341,6 +361,7 @@ function descriptionFor(item: SystemUpdateItemStatus): string {
     : t('systemUpdate.applicationAvailableDescription')
 }
 
+/** 分别展示主程序、配套前端及认证和索引资源的目标版本。 */
 function versionLines(item: SystemUpdateItemStatus): string[] {
   if (item.type === 'application') {
     return item.version
@@ -413,22 +434,6 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
           <div v-if="versionLines(item).length" class="system-update-prompt__versions">
             <span v-for="line in versionLines(item)" :key="line">{{ line }}</span>
           </div>
-          <template v-if="item.state === 'available'" #append>
-            <VMenu location="bottom end">
-              <template #activator="{ props: menuProps }">
-                <IconBtn v-bind="menuProps" :title="t('systemUpdate.moreActions')" size="small">
-                  <VIcon icon="mdi-dots-vertical" />
-                </IconBtn>
-              </template>
-              <VList density="compact">
-                <VListItem
-                  :title="t('systemUpdate.ignoreVersion')"
-                  prepend-icon="mdi-bell-off-outline"
-                  @click="ignoreVersion(item)"
-                />
-              </VList>
-            </VMenu>
-          </template>
         </VCardItem>
 
         <VCardText v-if="item.state === 'available'" class="pt-1">{{ descriptionFor(item) }}</VCardText>
@@ -460,30 +465,46 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
           item.error || t('systemUpdate.downloadFailed')
         }}</VCardText>
 
-        <VCardActions v-if="item.state === 'available'" class="px-4 pb-4 pt-0">
-          <VSpacer />
-          <VBtn variant="text" @click="postpone(item)">{{ t('systemUpdate.later') }}</VBtn>
-          <VBtn color="primary" :loading="actionPending && pendingTarget === item.type" @click="startDownload(item)">
-            <VIcon icon="mdi-download" start />
-            {{ t('systemUpdate.updateNow') }}
+        <VCardActions class="px-4 pb-4 pt-0">
+          <VBtn v-if="itemVersion(item)" variant="text" @click="ignoreVersion(item)">
+            {{ t('systemUpdate.ignoreVersion') }}
           </VBtn>
-        </VCardActions>
-
-        <VCardActions v-else-if="item.state === 'ready'" class="px-4 pb-4 pt-0">
-          <VSpacer />
-          <VBtn variant="text" @click="postpone(item)">{{ t('systemUpdate.restartLater') }}</VBtn>
-          <VBtn color="primary" :loading="actionPending && pendingTarget === item.type" @click="confirmInstall(item)">
-            <VIcon icon="mdi-restart" start />
-            {{ t('systemUpdate.restartNow') }}
-          </VBtn>
-        </VCardActions>
-
-        <VCardActions v-else-if="item.state === 'failed'" class="px-4 pb-4 pt-0">
-          <VSpacer />
-          <VBtn color="primary" :loading="actionPending && pendingTarget === item.type" @click="startDownload(item)">
-            <VIcon icon="mdi-refresh" start />
-            {{ t('common.retry') }}
-          </VBtn>
+          <div v-if="['available', 'ready', 'failed'].includes(item.state)" class="system-update-prompt__commands">
+            <template v-if="item.state === 'available'">
+              <VBtn variant="text" @click="postpone(item)">{{ t('systemUpdate.later') }}</VBtn>
+              <VBtn
+                class="system-update-prompt__primary"
+                color="primary"
+                :loading="actionPending && pendingTarget === item.type"
+                @click="startDownload(item)"
+              >
+                <VIcon icon="mdi-download" start />
+                {{ t('systemUpdate.updateNow') }}
+              </VBtn>
+            </template>
+            <template v-else-if="item.state === 'ready'">
+              <VBtn variant="text" @click="postpone(item)">{{ t('systemUpdate.restartLater') }}</VBtn>
+              <VBtn
+                class="system-update-prompt__primary"
+                color="primary"
+                :loading="actionPending && pendingTarget === item.type"
+                @click="confirmInstall(item)"
+              >
+                <VIcon icon="mdi-restart" start />
+                {{ t('systemUpdate.restartNow') }}
+              </VBtn>
+            </template>
+            <VBtn
+              v-else
+              class="system-update-prompt__primary"
+              color="primary"
+              :loading="actionPending && pendingTarget === item.type"
+              @click="startDownload(item)"
+            >
+              <VIcon icon="mdi-refresh" start />
+              {{ t('common.retry') }}
+            </VBtn>
+          </div>
         </VCardActions>
         <VDivider v-if="index < visibleItems.length - 1" />
       </div>
@@ -605,6 +626,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 }
 
 .system-update-prompt :deep(.v-card-actions) {
+  flex-wrap: wrap;
   gap: 8px;
   padding-inline: 20px !important;
 }
@@ -616,19 +638,27 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   letter-spacing: 0;
 }
 
-.system-update-prompt :deep(.v-card-actions .v-btn:first-of-type) {
+.system-update-prompt__commands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+.system-update-prompt :deep(.v-card-actions .v-btn:not(.system-update-prompt__primary)) {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
   color: rgba(var(--v-theme-on-surface), 0.72);
 }
 
-.system-update-prompt :deep(.v-card-actions .v-btn:last-child) {
+.system-update-prompt :deep(.v-card-actions .system-update-prompt__primary) {
   min-width: 108px;
   background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.72), rgb(var(--v-theme-primary)));
   color: #fff !important;
   box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.24);
 }
 
-.system-update-prompt :deep(.v-card-actions .v-btn:last-child .v-btn__content) {
+.system-update-prompt :deep(.v-card-actions .system-update-prompt__primary .v-btn__content) {
   color: #fff !important;
 }
 

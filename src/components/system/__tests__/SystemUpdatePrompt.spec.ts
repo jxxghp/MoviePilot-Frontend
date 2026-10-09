@@ -1,8 +1,9 @@
 import SystemUpdatePrompt from '@/components/system/SystemUpdatePrompt.vue'
-import type { SystemUpdateStatus } from '@/api/types'
+import type { SystemUpdateItemStatus, SystemUpdateState, SystemUpdateStatus } from '@/api/types'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -67,6 +68,18 @@ const availableStatus: SystemUpdateStatus = {
   total_bytes: 0,
   progress: 0,
   can_update: true,
+  can_install: false,
+}
+
+const resourceUpdate: SystemUpdateItemStatus = {
+  type: 'resources',
+  state: 'installing',
+  current_indexer_version: '3.0.12',
+  indexer_version: '3.0.13',
+  downloaded_bytes: 0,
+  total_bytes: 0,
+  progress: 100,
+  can_update: false,
   can_install: false,
 }
 
@@ -250,8 +263,7 @@ describe('SystemUpdatePrompt', () => {
 
   it('ignores only the selected version', async () => {
     const view = await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    await fireEvent.click(await screen.findByRole('button', { name: /systemUpdate.moreActions/ }))
-    await fireEvent.click(await screen.findByText('systemUpdate.ignoreVersion'))
+    await fireEvent.click(await screen.findByRole('button', { name: 'systemUpdate.ignoreVersion' }))
     await waitFor(() => expect(screen.queryByText('systemUpdate.applicationAvailableTitle')).not.toBeInTheDocument())
 
     view.unmount()
@@ -259,6 +271,54 @@ describe('SystemUpdatePrompt', () => {
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
 
     expect(await screen.findByText('systemUpdate.applicationAvailableTitle')).toBeInTheDocument()
+  })
+
+  it.each<SystemUpdateState>(['available', 'downloading', 'ready', 'installing', 'failed'])(
+    'keeps an ignored version hidden after reload and subsequent %s snapshots',
+    async state => {
+      mocks.updateStatus!.value = { ...availableStatus, state }
+      const view = await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+      await fireEvent.click(await screen.findByRole('button', { name: 'systemUpdate.ignoreVersion' }))
+      await waitFor(() => expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument())
+      expect(mocks.post).not.toHaveBeenCalled()
+
+      view.unmount()
+      await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+      for (const nextState of ['available', 'downloading', 'ready', 'installing', 'failed'] as const) {
+        mocks.updateStatus!.value = { ...availableStatus, state: nextState }
+        await nextTick()
+        await waitFor(() => expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument())
+      }
+    },
+  )
+
+  it('ignores a stuck resource install without suppressing application updates or later resource versions', async () => {
+    mocks.updateStatus!.value = { ...availableStatus, updates: [resourceUpdate] }
+    const view = await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+    expect(screen.getByText('systemUpdate.installing')).toBeInTheDocument()
+    await fireEvent.click(await screen.findByRole('button', { name: 'systemUpdate.ignoreVersion' }))
+    await waitFor(() => expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument())
+    expect(mocks.post).not.toHaveBeenCalled()
+
+    view.unmount()
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+    expect(document.querySelector('.system-update-prompt')).not.toBeInTheDocument()
+
+    mocks.updateStatus!.value = {
+      ...availableStatus,
+      updates: [resourceUpdate, { ...availableStatus, type: 'application' }],
+    }
+    expect(await screen.findByText('systemUpdate.applicationAvailableTitle')).toBeInTheDocument()
+    expect(screen.queryByText('systemUpdate.resourcesAvailableTitle')).not.toBeInTheDocument()
+
+    mocks.updateStatus!.value = {
+      ...availableStatus,
+      updates: [{ ...resourceUpdate, indexer_version: '3.0.14' }],
+    }
+    expect(await screen.findByText('systemUpdate.resourcesAvailableTitle')).toBeInTheDocument()
+    expect(screen.getByText('systemUpdate.indexerResourceLabel: 3.0.12 → 3.0.14')).toBeInTheDocument()
   })
 
   it('renders application and resource updates as separate upgrade types', async () => {
