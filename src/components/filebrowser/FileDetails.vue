@@ -5,7 +5,7 @@ import { formatBytes } from '@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
 
-const props = defineProps<{ item: FileItem; imageUrl?: string; actionsOnly?: boolean; loading?: boolean }>()
+const props = defineProps<{ item: FileItem; imageUrl?: string; loading?: boolean }>()
 const emit = defineEmits<{ close: []; action: [action: FileAction, item: FileItem] }>()
 const { t } = useI18n()
 const actions: { key: FileAction; icon: string }[] = [
@@ -17,10 +17,7 @@ const actions: { key: FileAction; icon: string }[] = [
   { key: 'delete', icon: 'mdi-delete-outline' },
 ]
 const visibleActions = computed(() =>
-  actions.filter(
-    action =>
-      (action.key !== 'download' || props.item.type === 'file') && (props.actionsOnly || action.key !== 'reorganize'),
-  ),
+  actions.filter(action => (action.key !== 'download' || props.item.type === 'file') && action.key !== 'reorganize'),
 )
 
 /** 从后端时间戳生成与列表一致的本地化修改时间。 */
@@ -30,43 +27,26 @@ function formatTime(timestamp?: number) {
 </script>
 
 <template>
-  <section class="file-details" :class="{ 'file-details--actions': actionsOnly }">
-    <VDivider v-if="actionsOnly" class="file-details__handle" />
+  <section class="file-details">
     <header class="file-details__header">
-      <h2>{{ t(actionsOnly ? 'file.fileActions' : 'file.details') }}</h2>
+      <h2>{{ t('file.details') }}</h2>
       <IconBtn :aria-label="t('common.close')" @click="emit('close')"><VIcon icon="mdi-close" /></IconBtn>
     </header>
     <div class="file-details__scroll">
       <VProgressLinear v-if="loading" indeterminate color="primary" :aria-label="t('common.loading')" />
       <VImg
-        v-if="!actionsOnly && (imageUrl || item.thumbnail)"
+        v-if="imageUrl || item.thumbnail"
         :src="imageUrl || item.thumbnail"
         class="file-details__preview"
         :aspect-ratio="imageUrl ? 16 / 9 : 2.1"
         :cover="!imageUrl"
       />
       <div class="file-details__identity">
-        <VIcon
-          v-if="actionsOnly"
-          :icon="
-            item.type === 'dir'
-              ? 'mdi-folder-outline'
-              : /\.(mkv|mp4|avi|mov|m2ts)$/i.test(item.name)
-                ? 'mdi-file-video-outline'
-                : 'mdi-file-outline'
-          "
-          color="primary"
-        />
         <div>
           <h3>{{ item.name }}</h3>
-          <span
-            v-if="actionsOnly && typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0"
-            class="text-medium-emphasis"
-            >{{ formatBytes(item.size) }}</span
-          >
         </div>
       </div>
-      <dl v-if="!actionsOnly" class="file-details__metadata">
+      <dl class="file-details__metadata">
         <dt>{{ t('file.size') }}</dt>
         <dd>
           {{
@@ -79,7 +59,6 @@ function formatTime(timestamp?: number) {
         <dd :title="item.path">{{ item.type === 'file' ? item.path?.replace(/[^/]+$/, '') : item.path }}</dd>
       </dl>
       <VBtn
-        v-if="!actionsOnly"
         color="primary"
         variant="flat"
         block
@@ -92,7 +71,7 @@ function formatTime(timestamp?: number) {
         <VBtn
           v-for="action in visibleActions"
           :key="action.key"
-          variant="text"
+          :variant="action.key === 'delete' ? 'outlined' : 'text'"
           :prepend-icon="action.icon"
           :color="action.key === 'delete' ? 'error' : action.key === 'reorganize' ? 'primary' : 'on-surface'"
           :class="{ 'file-details__delete': action.key === 'delete' }"
@@ -178,36 +157,6 @@ function formatTime(timestamp?: number) {
   letter-spacing: 0;
 }
 .file-details__delete {
-  border-block-start: 1px solid var(--app-grouped-list-separator-color);
   margin-block-start: 0.75rem;
-}
-.file-details--actions .file-details__actions :deep(.v-btn) {
-  border-block-end: 1px solid var(--app-grouped-list-separator-color);
-  // Vuetify 按钮默认圆角会把行分隔线裁成弧形。
-  border-radius: 0 !important;
-  min-block-size: 3.25rem;
-}
-.file-details--actions .file-details__delete {
-  border-block-end: 0 !important;
-  border-radius: 0 !important;
-}
-@media (width < 960px) {
-  .file-details--actions .file-details__header {
-    padding-block: 0.25rem;
-  }
-  .file-details--actions .file-details__identity {
-    margin-block: 0.25rem 0.75rem;
-  }
-  .file-details--actions .file-details__identity h3 {
-    font-size: 1rem;
-  }
-  .file-details__handle {
-    flex: 0 0 auto;
-    align-self: center;
-    inline-size: 2.75rem;
-    border-block-start-width: 4px;
-    border-radius: var(--app-control-radius);
-    margin-block-start: 0.5rem;
-  }
 }
 </style>

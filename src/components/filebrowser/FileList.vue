@@ -110,10 +110,8 @@ const newName = ref('')
 // 处理目录内所有文件
 const renameAll = ref(false)
 
-// 详情与移动操作面板只保存文件身份，目录数据不因预览而替换。
+// 详情面板只保存文件身份，目录数据不因预览而替换。
 const inspectedItem = ref<FileItem>()
-const actionItem = ref<FileItem>()
-const mobileActionsOpen = ref(false)
 const inspectorLoading = ref(false)
 let inspectorRequestSeed = 0
 const detailItem = computed(() => (isFile.value ? items.value[0] || inProps.item : inspectedItem.value))
@@ -502,15 +500,18 @@ function closeInspector() {
   revokeCurrentImgLink()
 }
 
-/** 移动端使用底部面板，桌面端菜单保持稳定可见。 */
+/** 移动端操作入口复用详情面板；目录直接展示自身信息，避免将子项作为目录详情。 */
 function openActions(item: FileItem) {
-  actionItem.value = normalizeItem(item)
-  mobileActionsOpen.value = true
+  if (item.type === 'file') void inspectItem(item)
+  else {
+    closeInspector()
+    inspectedItem.value = normalizeItem(item)
+  }
 }
 
-/** 单项入口共用原业务方法，操作面板先关闭，确认与失败反馈继续由原流程负责。 */
+/** 单项入口共用原业务方法，移动详情先关闭，确认与失败反馈继续由原流程负责。 */
 function runAction(action: FileAction, item: FileItem) {
-  mobileActionsOpen.value = false
+  if (display.smAndDown.value) closeInspector()
   const target = normalizeItem(item)
   if (action === 'recognize') void recognize(target.path || '')
   else if (action === 'scrape') showScrape(target)
@@ -689,7 +690,6 @@ watch(
   async () => {
     // 切换目录使旧详情请求失效，防止将旧文件显示在新目录。
     closeInspector()
-    mobileActionsOpen.value = false
     // 清空列表
     items.value = []
     selected.value = []
@@ -1099,22 +1099,6 @@ onUnmounted(() => {
         "
       />
     </div>
-    <VDialog
-      v-model="mobileActionsOpen"
-      class="file-action-sheet"
-      content-class="file-browser-sheet"
-      max-width="600"
-      scrollable
-    >
-      <VCard class="file-browser-sheet__surface"
-        ><FileDetails
-          v-if="actionItem"
-          :item="actionItem"
-          actions-only
-          @action="runAction"
-          @close="mobileActionsOpen = false"
-      /></VCard>
-    </VDialog>
     <VDialog
       :model-value="Boolean(detailItem && display.smAndDown.value && !isFile)"
       class="file-preview-sheet"
