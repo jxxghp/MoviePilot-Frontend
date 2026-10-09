@@ -5206,6 +5206,17 @@ export default {
     },
   },
   transferHistory: {
+    desktop: {
+      summary: '共 {count} 条记录 · {pages} 页',
+      title: '媒体整理历史',
+      sort: '本页排序',
+      defaultOrder: '默认顺序',
+      selectPage: '全选本页',
+      selectRecord: '选择 {title}',
+      recordActions: '{title} 的操作',
+      pageRecords: '本页 {count} 条',
+      pageTracks: '本页 {count} 首',
+    },
     title: '转移历史',
     searchPlaceholder: '搜索（支持 * ? 通配符）',
     titleColumn: '标题',

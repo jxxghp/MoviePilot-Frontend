@@ -5355,6 +5355,17 @@ export default {
     },
   },
   transferHistory: {
+    desktop: {
+      summary: '{count} records · {pages} pages',
+      title: 'Media Organization History',
+      sort: 'Sort current page',
+      defaultOrder: 'Default order',
+      selectPage: 'Select this page',
+      selectRecord: 'Select {title}',
+      recordActions: 'Actions for {title}',
+      pageRecords: '{count} records on this page',
+      pageTracks: '{count} tracks on this page',
+    },
     title: 'Transfer History',
     searchPlaceholder: 'Search (supports * ? wildcards)',
     titleColumn: 'Title',

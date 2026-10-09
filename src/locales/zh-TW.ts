@@ -5129,6 +5129,17 @@ export default {
     },
   },
   transferHistory: {
+    desktop: {
+      summary: '共 {count} 筆記錄 · {pages} 頁',
+      title: '媒體整理歷史',
+      sort: '本頁排序',
+      defaultOrder: '預設順序',
+      selectPage: '全選本頁',
+      selectRecord: '選擇 {title}',
+      recordActions: '{title} 的操作',
+      pageRecords: '本頁 {count} 筆',
+      pageTracks: '本頁 {count} 首',
+    },
     title: '轉移歷史',
     searchPlaceholder: '搜索（支援 * ? 萬用字元）',
     titleColumn: '標題',

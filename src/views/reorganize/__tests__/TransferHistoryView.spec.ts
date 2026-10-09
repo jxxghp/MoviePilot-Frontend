@@ -63,7 +63,7 @@ vi.mock('@/composables/usePWA', () => ({
 }))
 
 vi.mock('@/composables/useAvailableHeight', () => ({
-  useAvailableHeight: () => ({ availableHeight: ref(600) }),
+  useAvailableHeight: () => ({ availableHeight: ref(600), viewportHeight: ref(900) }),
 }))
 
 vi.mock('@/composables/useBackground', () => ({
@@ -88,6 +88,7 @@ vi.mock('@/composables/useDynamicButton', () => ({
   },
 }))
 
+/** 桌面列表替身仅提供槽位与选择协议，真实排序和分组另有集成用例。 */
 const HistoryTableStub = defineComponent({
   name: 'VDataTableVirtual',
   props: {
@@ -114,6 +115,7 @@ const HistoryTableStub = defineComponent({
     },
   },
   emits: ['update:modelValue'],
+  /** 透传原始记录与槽位，让业务操作使用真实页面方法。 */
   setup(props, { emit, slots }) {
     return () => {
       const sortResults =
@@ -158,11 +160,7 @@ const HistoryTableStub = defineComponent({
               'data-history-group-key': (item as TransferHistory & { history_group_key?: string }).history_group_key,
               'data-history-id': item.id,
             },
-            [
-              item.image ? (slots['item.title']?.({ item }) ?? h('span', item.title)) : h('span', item.title),
-              slots['item.status']?.({ item }),
-              slots['item.actions']?.({ item }),
-            ],
+            [slots.item?.({ item, columns: props.headers, itemRef: () => {} }) ?? h('span', item.title)],
           ),
         ),
         h(
@@ -262,6 +260,28 @@ const SearchStub = defineComponent({
         value: props.modelValue ?? '',
         onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
       })
+  },
+})
+
+/** 用原生选择器测试字段切换，保持 Vuetify 的值与事件协议。 */
+const SelectStub = defineComponent({
+  name: 'VSelect',
+  props: ['modelValue', 'items'],
+  emits: ['update:modelValue'],
+  /** 渲染所有选项并把用户选择回传给真实页面逻辑。 */
+  setup(props, { attrs, emit }) {
+    return () =>
+      h(
+        'select',
+        {
+          ...attrs,
+          value: props.modelValue,
+          onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
+        },
+        (props.items || []).map((item: { title: string; value: string | number }) =>
+          h('option', { value: item.value }, item.title),
+        ),
+      )
   },
 })
 
@@ -408,16 +428,17 @@ function createDeferred<T>() {
 }
 
 /** 用指定路由和管理权限渲染历史列表的真实交互入口。 */
-async function renderHistory(initialRoute = '/history', canManage = true) {
+async function renderHistory(initialRoute = '/history', canManage = true, realVirtualTable = false) {
   return renderWithProviders(TransferHistoryView, {
     global: {
       stubs: {
         ProgressiveCardGrid: ProgressiveGridStub,
         VCombobox: SearchStub,
-        VDataTableVirtual: HistoryTableStub,
+        VDataTableVirtual: realVirtualTable ? false : HistoryTableStub,
         VImg: ImageStub,
         VInfiniteScroll: InfiniteScrollStub,
         IconBtn: IconButtonStub,
+        VFab: IconButtonStub,
         VTooltip: TooltipStub,
         VList: PassthroughStub,
         VListItem: ListItemStub,
@@ -425,7 +446,7 @@ async function renderHistory(initialRoute = '/history', canManage = true) {
         VMenu: PassthroughStub,
         VPageContentTitle: true,
         VPagination: EmptyStub,
-        VSelect: EmptyStub,
+        VSelect: SelectStub,
       },
     },
     initialRoute,
@@ -468,6 +489,7 @@ async function renderHistoryRoute(initialRoute = '/history', downloadingBeforeEn
         VImg: ImageStub,
         VInfiniteScroll: InfiniteScrollStub,
         IconBtn: IconButtonStub,
+        VFab: IconButtonStub,
         VTooltip: TooltipStub,
         VList: PassthroughStub,
         VListItem: ListItemStub,
@@ -475,7 +497,7 @@ async function renderHistoryRoute(initialRoute = '/history', downloadingBeforeEn
         VMenu: PassthroughStub,
         VPageContentTitle: true,
         VPagination: EmptyStub,
-        VSelect: EmptyStub,
+        VSelect: SelectStub,
       },
     },
     initialRoute,
@@ -559,10 +581,10 @@ describe('TransferHistoryView', () => {
   })
 
   it('remembers manual grouping when returning from another route without query parameters', async () => {
-    const { container, router } = await renderHistoryRoute()
+    const { router } = await renderHistoryRoute()
     await flushPromises()
 
-    await fireEvent.click(container.querySelector('.v-btn-group button')!)
+    await fireEvent.click(screen.getByRole('button', { name: '分组模式' }))
     await waitFor(() => expect(router.currentRoute.value.query.grouped).toBe('true'))
     expect(localStorage.getItem('transferHistory.grouped')).toBe('true')
 
@@ -570,7 +592,7 @@ describe('TransferHistoryView', () => {
     await router.push('/history')
     await flushPromises()
 
-    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', 'true')
+    expect(screen.getByLabelText('媒体整理历史')).toHaveAttribute('data-grouped', 'true')
   })
 
   it('remembers a manual flat view after remounting even when the page contains a music album', async () => {
@@ -583,7 +605,7 @@ describe('TransferHistoryView', () => {
     )
     const first = await renderHistory('/history?grouped=true')
     await flushPromises()
-    await fireEvent.click(first.container.querySelector('.v-btn-group button')!)
+    await fireEvent.click(screen.getByRole('button', { name: '列表模式' }))
     await waitFor(() => expect(first.router.currentRoute.value.query.grouped).toBe('false'))
     expect(localStorage.getItem('transferHistory.grouped')).toBe('false')
     first.unmount()
@@ -591,7 +613,7 @@ describe('TransferHistoryView', () => {
     const second = await renderHistory()
     await flushPromises()
 
-    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', 'false')
+    expect(screen.getByLabelText('媒体整理历史')).toHaveAttribute('data-grouped', 'false')
     expect(second.router.currentRoute.value.query.grouped).toBeUndefined()
   })
 
@@ -599,16 +621,16 @@ describe('TransferHistoryView', () => {
     localStorage.setItem('transferHistory.grouped', saved)
     const { router } = await renderHistory()
     await flushPromises()
-    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', saved)
+    expect(screen.getByLabelText('媒体整理历史')).toHaveAttribute('data-grouped', saved)
 
     await router.push(`/history?grouped=${saved === 'true' ? 'false' : 'true'}`)
     await flushPromises()
-    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', String(saved !== 'true'))
+    expect(screen.getByLabelText('媒体整理历史')).toHaveAttribute('data-grouped', String(saved !== 'true'))
     expect(localStorage.getItem('transferHistory.grouped')).toBe(saved)
 
     await router.push('/history')
     await flushPromises()
-    expect(screen.getByLabelText('整理历史桌面列表')).toHaveAttribute('data-grouped', saved)
+    expect(screen.getByLabelText('媒体整理历史')).toHaveAttribute('data-grouped', saved)
   })
 
   it('opens the confirmation dialog before marking downloader cleanup as resolved', async () => {
@@ -645,7 +667,7 @@ describe('TransferHistoryView', () => {
       if (!element) throw new Error('历史记录尚未渲染')
       return element
     })
-    const tooltip = row.querySelector('[data-history-tooltip]')
+    const tooltip = row.querySelector('.transfer-history-desktop-record__status [data-history-tooltip]')
 
     expect(tooltip).toHaveAttribute('data-history-tooltip', 'disabled')
     expect(tooltip).toHaveAttribute('data-tooltip-text', '')
@@ -787,7 +809,11 @@ describe('TransferHistoryView', () => {
     expect(screen.getAllByText('Album / Compilation')).toHaveLength(3)
     expect(screen.getByText('/media/Eagles/Hotel California (1976)')).toBeInTheDocument()
     expect(screen.getByText('2.00 KB')).toBeInTheDocument()
-    expect(screen.getByText('01-02 00:36')).toBeInTheDocument()
+    expect(
+      screen
+        .getAllByTitle('2000-01-02 00:36:15')
+        .some(element => element.classList.contains('transfer-history-album-summary__fact')),
+    ).toBe(true)
     expect(screen.getByText('成功 2')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Hotel California (1976)' })).toHaveAttribute(
       'src',
@@ -979,47 +1005,6 @@ describe('TransferHistoryView', () => {
     expect(router.currentRoute.value.query.grouped).toBe('false')
   })
 
-  it('joins the desktop status filter to search and moves the mobile filter into the titlebar menu', () => {
-    const mobileTitlebarSource = transferHistorySource.slice(
-      transferHistorySource.indexOf('<div class="transfer-history-mobile-titlebar__actions">'),
-      transferHistorySource.indexOf('class="transfer-history-mobile-search"'),
-    )
-
-    expect(transferHistorySource).toContain('class="transfer-history-desktop-filter-group"')
-    expect(transferHistorySource).toContain('class="text-disabled transfer-history-desktop-search"')
-    expect(transferHistorySource).toContain('class="transfer-history-desktop-status"')
-    expect(transferHistorySource).toContain('transfer-history-desktop-filter-group:focus-within')
-    expect(transferHistorySource).toContain('border-inline-start: 1px solid')
-    expect(transferHistorySource).not.toContain(':label="t(\'transferHistory.statusFilter.label\')"')
-    expect(transferHistorySource).toContain('data-menu-activator="history-status-filter-btn"')
-    expect(transferHistorySource).not.toContain('class="transfer-history-mobile-status"')
-    expect(mobileTitlebarSource.match(/<IconBtn/g)).toHaveLength(2)
-    expect(mobileTitlebarSource).toContain('<VIcon icon="mdi-filter-multiple-outline" />')
-    expect(mobileTitlebarSource).toContain('<VIcon icon="mdi-checkbox-multiple-marked-outline" />')
-    expect(mobileTitlebarSource).not.toContain('settings-icon-button')
-  })
-
-  it('keeps native outlined alignment and icon insets inside the shared desktop border', () => {
-    const desktopFilterSource = transferHistorySource.slice(
-      transferHistorySource.indexOf('class="transfer-history-desktop-filter-group"'),
-      transferHistorySource.indexOf('<VCol cols="4" md="4"'),
-    )
-
-    expect(desktopFilterSource.match(/variant="outlined"/g)).toHaveLength(2)
-    expect(desktopFilterSource).not.toContain('variant="plain"')
-    expect(transferHistorySource).toContain('.transfer-history-desktop-filter-group .v-input .v-field {')
-    expect(transferHistorySource).toMatch(
-      /\.transfer-history-desktop-filter-group \.v-input \{[^}]*grid-template-rows: 1fr;/,
-    )
-    expect(transferHistorySource).toContain(
-      '.transfer-history-desktop-filter-group .v-field__outline,\n.transfer-history-desktop-filter-group .v-field__overlay {\n  display: none;',
-    )
-    expect(transferHistorySource).not.toContain('.transfer-history-desktop-filter-group :deep(')
-    expect(transferHistorySource).toContain(
-      '.transfer-history-desktop-filter-group .v-field__field {\n  align-items: center;',
-    )
-  })
-
   it('selects a mobile status from the titlebar dropdown and refreshes with the explicit status query', async () => {
     mocks.desktop = false
     const requests: Array<Record<string, unknown>> = []
@@ -1109,11 +1094,11 @@ describe('TransferHistoryView', () => {
     expect(image).toHaveAttribute('src', expect.stringContaining('system/img/0?imgurl=%2Fposter.jpg'))
     expect(transferHistorySource).toContain('gap: 10px;')
     expect(transferHistorySource).toContain('padding-block: 6px;')
-    expect(transferHistorySource).toContain('flex: 0 0 36px;')
-    expect(transferHistorySource).toContain('inline-size: 36px;')
-    expect(transferHistorySource).toContain('block-size: 54px;')
-    expect(transferHistorySource).toContain('max-inline-size: 36px;')
-    expect(transferHistorySource).toContain('max-block-size: 54px;')
+    expect(transferHistorySource).toContain('flex: 0 0 42px;')
+    expect(transferHistorySource).toContain('inline-size: 42px;')
+    expect(transferHistorySource).toContain('block-size: 63px;')
+    expect(transferHistorySource).toContain('max-inline-size: 42px;')
+    expect(transferHistorySource).toContain('max-block-size: 63px;')
     expect(transferHistorySource).toContain('overflow: hidden;')
     expect(transferHistorySource).toContain('aspect-ratio: 2 / 3;')
     expect(transferHistorySource).toContain(
@@ -1143,9 +1128,138 @@ describe('TransferHistoryView', () => {
 
     await renderHistory()
 
-    expect(await screen.findAllByText('同名剧集')).toHaveLength(2)
+    expect(await screen.findByText('同名剧集 S01E02')).toBeInTheDocument()
+    expect(screen.getByText('同名剧集 S02E01')).toBeInTheDocument()
     const sortResults = JSON.parse(screen.getByRole('status', { name: '整理历史排序结果' }).textContent || '{}')
     expect(sortResults).toEqual({ size: -100, title: -1 })
+  })
+
+  it('keeps the desktop queue in the original FAB and outside the titlebar', async () => {
+    mocks.appMode = false
+    const first = await renderHistory()
+    await fireEvent.click(await screen.findByRole('button', { name: '转移队列' }))
+    expect(getDialogCall().component.__name || getDialogCall().component.name).toContain('TransferQueueDialog')
+    expect(document.querySelector('.compact-fab-stack--history')).toBeInTheDocument()
+    expect(document.querySelector('.transfer-history-desktop-toolbar [aria-label="转移队列"]')).not.toBeInTheDocument()
+    expect(document.querySelector<HTMLElement>('.compact-fab-stack--history')?.style.insetBlockEnd).not.toBe('')
+    first.unmount()
+    await renderHistory('/history', false)
+    expect(screen.queryByRole('button', { name: '转移队列' })).not.toBeInTheDocument()
+  })
+
+  it('keeps desktop record, page, and group selection in sync with batch actions', async () => {
+    const histories = [createHistory(1, '多选一'), createHistory(2, '多选二')]
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=false')
+    await screen.findByText('多选一')
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 多选一' }))
+    expect(screen.getByText('已选择 1/2 项')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '全选本页' })).toHaveAttribute('aria-checked', 'mixed')
+    expect(container.querySelectorAll('.transfer-history-desktop-record--selected')).toHaveLength(1)
+    await fireEvent.click(screen.getByRole('checkbox', { name: '全选本页' }))
+    expect(screen.getByText('已选择 2/2 项')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '批量删除' }))
+    expect(getDialogCall().props).toMatchObject({ title: '确认删除 2 条记录 ?' })
+    await fireEvent.click(screen.getByRole('button', { name: '取消全选' }))
+    expect(screen.getByText('共 2 条记录 · 1 页')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '批量选择' })).not.toBeInTheDocument()
+  })
+
+  it('uses real virtual-table grouping to select collapsed records and retain them after expansion', async () => {
+    const histories = [
+      createHistory(1, '测试分组', { type: '电视剧', seasons: 'S01', episodes: 'E01' }),
+      createHistory(2, '测试分组', { type: '电视剧', seasons: 'S01', episodes: 'E02' }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=true', true, true)
+    await screen.findByText('本页 2 条')
+    expect(container.querySelectorAll('.transfer-history-desktop-record')).toHaveLength(0)
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 测试分组' }))
+    expect(screen.getByText('已选择 2/2 项')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '展开' }))
+    await waitFor(() =>
+      expect(container.querySelectorAll('.transfer-history-desktop-record--selected')).toHaveLength(2),
+    )
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 测试分组 S01E01' }))
+    expect(screen.getByRole('checkbox', { name: '选择 测试分组' })).toHaveAttribute('aria-checked', 'mixed')
+    await fireEvent.click(screen.getByRole('button', { name: '收起' }))
+    expect(screen.getByText('已选择 1/2 项')).toBeInTheDocument()
+  })
+
+  it('sorts real virtual cards by source size and direction without fetching another page', async () => {
+    const histories = [
+      createHistory(1, '大文件', { src_fileitem: { size: 200 } as TransferHistory['src_fileitem'] }),
+      createHistory(2, '小文件', { src_fileitem: { size: 100 } as TransferHistory['src_fileitem'] }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=false', true, true)
+    await screen.findByText('大文件')
+    // 从可见业务身份读取顺序，验证真实虚拟列表排序。
+    const getOrder = () =>
+      [...container.querySelectorAll<HTMLElement>('.transfer-history-desktop-record-row')].map(
+        row => row.dataset.historyId,
+      )
+    const requests = mocks.apiGet.mock.calls.length
+    await fireEvent.click(screen.getByRole('button', { name: '大小' }))
+    await waitFor(() => expect(getOrder()).toEqual(['2', '1']))
+    await fireEvent.click(screen.getByRole('button', { name: '降序' }))
+    await waitFor(() => expect(getOrder()).toEqual(['1', '2']))
+    expect(mocks.apiGet.mock.calls).toHaveLength(requests)
+  })
+
+  it('shows desktop relative time with the full timestamp available on hover', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-09T10:05:24'))
+    try {
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(
+          path === 'storage/options'
+            ? storageResponse()
+            : historyResponse([createHistory(1, '时间记录', { date: '2026-10-09 10:00:24' })]),
+        ),
+      )
+      const { container, unmount } = await renderHistory('/history?grouped=false')
+      await screen.findByText('时间记录')
+      expect(container.querySelector('time')).toHaveTextContent('5分钟前')
+      expect(container.querySelector('time')).toHaveAttribute('title', '2026-10-09 10:00:24')
+      unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('renders full path tooltips and keeps status clicks independent from desktop selection', async () => {
+    const item = createHistory(1, '失败记录', {
+      src: '/downloads/很长的目录/文件.mkv',
+      dest: '/library/文件.mkv',
+      src_storage: 'smb',
+      dest_storage: 'local',
+      status: false,
+      errmsg: '目标不可写',
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    const { container } = await renderHistory('/history?grouped=false')
+    await screen.findByText('失败记录')
+    expect(container.querySelector('[title="/downloads/很长的目录/文件.mkv"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-tooltip-text="/downloads/很长的目录/文件.mkv"]')).toHaveAttribute(
+      'data-history-tooltip',
+      'enabled',
+    )
+    expect(container.querySelector('.transfer-history-desktop-record__filename')).toHaveTextContent('文件.mkv')
+    expect(screen.getByText('SMB')).toBeInTheDocument()
+    expect(screen.getByText('本地')).toBeInTheDocument()
+    await fireEvent.click(screen.getAllByRole('button', { name: '失败' }).at(-1)!)
+    expect(getDialogCall().component.__name || getDialogCall().component.name).toContain('TransferRecoveryDialog')
+    expect(screen.getByText('共 1 条记录 · 1 页')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '批量选择' })).not.toBeInTheDocument()
   })
 
   it('persists desktop search through the same route-backed reload contract', async () => {
@@ -1320,8 +1434,9 @@ describe('TransferHistoryView', () => {
   })
 
   it('uses the storage-name fallback for both grouped and ungrouped desktop paths', () => {
-    expect(transferHistorySource.match(/getHistoryStorageName\(item\?\.src_storage\)/g)).toHaveLength(3)
-    expect(transferHistorySource.match(/getHistoryStorageName\(item\?\.dest_storage\)/g)).toHaveLength(3)
+    expect(transferHistorySource).toContain('getHistoryStorageName(path.storage)')
+    expect(transferHistorySource.match(/getHistoryStorageName\(item\?\.src_storage\)/g)).toHaveLength(1)
+    expect(transferHistorySource.match(/getHistoryStorageName\(item\?\.dest_storage\)/g)).toHaveLength(1)
     expect(transferHistorySource).not.toContain("storageDict[item?.src_storage || '']")
     expect(transferHistorySource).not.toContain("storageDict[item?.dest_storage || '']")
   })
