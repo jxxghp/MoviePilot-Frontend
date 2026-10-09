@@ -589,7 +589,17 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
       <VDivider />
 
       <div class="notification-list-container">
+        <div
+          v-if="loading && notificationList.length === 0"
+          class="notification-initial-loading"
+          role="status"
+          aria-live="polite"
+        >
+          <VProgressCircular indeterminate color="primary" size="28" width="3" />
+          <span class="text-caption text-medium-emphasis">{{ t('common.loading') }}</span>
+        </div>
         <VInfiniteScroll
+          v-else
           mode="intersect"
           side="end"
           :items="notificationList"
@@ -597,8 +607,9 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
           @load="loadNotifications"
         >
           <template #loading>
-            <div class="py-3 text-center text-caption text-medium-emphasis">
-              {{ t('message.loadMore') }}
+            <div class="d-flex align-center justify-center ga-2 py-3 text-caption text-medium-emphasis" role="status">
+              <VProgressCircular indeterminate color="primary" size="20" width="2" />
+              {{ notificationList.length === 0 ? t('common.loading') : t('message.loadMore') }}
             </div>
           </template>
           <template #empty>
@@ -712,6 +723,15 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
 .notification-list-scroll {
   max-block-size: min(560px, 62vh);
   min-block-size: 160px;
+}
+
+.notification-initial-loading {
+  display: flex;
+  min-block-size: 160px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .notification-virtual-item {
