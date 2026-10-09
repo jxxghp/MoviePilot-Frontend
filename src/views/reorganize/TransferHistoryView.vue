@@ -2881,12 +2881,31 @@ onUnmounted(() => {
 .transfer-history-desktop-search .v-field__prepend-inner {
   color: rgba(var(--v-theme-on-surface), 0.45);
 }
+// 自定义桌面卡片复用全局表面与阴影 token；主题只替换材质，不改变布局。
+.transfer-history-desktop-page {
+  --history-desktop-surface: var(--app-grouped-list-background);
+  --history-desktop-border: var(--app-surface-border);
+  --history-desktop-backdrop-filter: var(--app-grouped-list-backdrop-filter);
+}
+.transfer-history-desktop-selection,
+.transfer-history-desktop-record,
+.transfer-history-desktop-group-summary,
+.transfer-history-desktop-page .transfer-history-album-summary {
+  border: var(--history-desktop-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--history-desktop-surface);
+  box-shadow: var(--app-card-rest-shadow);
+  backdrop-filter: var(--history-desktop-backdrop-filter);
+  -webkit-backdrop-filter: var(--history-desktop-backdrop-filter);
+}
+.transfer-history-desktop-record:hover,
+.transfer-history-desktop-group-summary:hover,
+.transfer-history-desktop-page .transfer-history-album-summary:hover {
+  box-shadow: var(--app-card-hover-shadow);
+}
 .transfer-history-desktop-selection {
   flex-wrap: wrap;
   padding: 8px 16px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--app-card-radius, 12px);
-  background: rgba(var(--v-theme-surface), 0.72);
   min-block-size: 58px;
 }
 .transfer-history-desktop-selection > .v-input {
@@ -2935,12 +2954,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.09);
-  border-radius: var(--app-card-radius, 12px);
-  background: rgba(var(--v-theme-surface), 0.8);
   transition:
     background-color 160ms ease,
-    border-color 160ms ease;
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 // 子项卡片缩进一级，保留右侧对齐和虚拟列表原有的测高方式。
 .transfer-history-desktop-record--child {
@@ -2950,26 +2967,21 @@ onUnmounted(() => {
   border-color: rgba(var(--v-theme-primary), 0.35);
 }
 .transfer-history-desktop-record--selected {
-  border-color: rgba(var(--v-theme-primary), 0.55);
-  background: rgba(var(--v-theme-primary), 0.12);
+  border: 1px solid rgba(var(--v-theme-primary), 0.55);
+  background:
+    linear-gradient(var(--app-grouped-list-active-background), var(--app-grouped-list-active-background)),
+    var(--history-desktop-surface);
 }
 // 虚拟表格只承载滚动；玻璃材质由可见卡片采样，避免外层与深色底叠加。
 html[data-theme='glass'] .transfer-history-desktop-page {
+  --history-desktop-surface: var(--glass-v3-card-background);
+  --history-desktop-border: 1px solid var(--glass-border);
+  --history-desktop-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   .transfer-history-desktop-virtual.v-table {
     background: transparent !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-  }
-
-  .transfer-history-desktop-record,
-  .transfer-history-desktop-group-summary,
-  .transfer-history-album-summary {
-    border-color: var(--glass-border);
-    background: var(--glass-v3-card-background);
-    box-shadow: var(--glass-dashboard-shadow);
-    backdrop-filter: var(--glass-native-surface-backdrop-filter);
-    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   }
 
   .transfer-history-desktop-record:hover {
@@ -2981,8 +2993,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   .transfer-history-desktop-record--selected:hover {
     border-color: rgba(var(--v-theme-primary), 0.55);
     background:
-      linear-gradient(rgba(var(--v-theme-primary), 0.12), rgba(var(--v-theme-primary), 0.12)),
-      var(--glass-v3-card-background);
+      linear-gradient(var(--app-grouped-list-active-background), var(--app-grouped-list-active-background)),
+      var(--history-desktop-surface);
   }
 
   .transfer-history-desktop-virtual > .v-table__wrapper > table > tbody > tr:hover > td {
@@ -3097,12 +3109,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-desktop-group-identity small {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
-.transfer-history-desktop-group-summary,
-.transfer-history-desktop-page .transfer-history-album-summary {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: var(--app-card-radius, 12px);
-  background: rgba(var(--v-theme-on-surface), 0.055);
-}
 .transfer-history-desktop-pagination {
   flex-wrap: wrap;
   padding-block: 0;
@@ -3147,10 +3153,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   transition: background-color 160ms ease;
 }
 
-.transfer-history-album-summary:hover {
-  background: rgba(var(--v-theme-primary), 0.045);
-}
-
 // 所有桌面分组共享固定控制列，避免专辑与影视分组的左侧位置不同。
 .transfer-history-desktop-group-controls {
   display: grid;
@@ -3172,9 +3174,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   block-size: 46px;
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 8px;
+  border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-on-surface), 0.07);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
 }
 
 .transfer-history-album-summary__cover .v-img,
@@ -3273,7 +3274,7 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-desktop-poster-frame {
   overflow: hidden;
   flex: 0 0 42px;
-  border-radius: 4px;
+  border-radius: var(--app-control-radius);
   aspect-ratio: 2 / 3;
   background: rgba(var(--v-theme-on-surface), 0.08);
   block-size: 63px;
