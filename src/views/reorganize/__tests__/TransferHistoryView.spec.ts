@@ -1190,6 +1190,42 @@ describe('TransferHistoryView', () => {
     expect(screen.getByText('已选择 1/2 项')).toBeInTheDocument()
   })
 
+  it.each(['电视剧', '音乐'])('toggles the entire %s group row without toggling on selection', async type => {
+    const histories = [1, 2].map(id =>
+      createHistory(id, '测试分组', {
+        type,
+        seasons: type === '电视剧' ? 'S01' : undefined,
+        episodes: type === '电视剧' ? `E0${id}` : undefined,
+        dest: `/media/Artist/测试分组/${id}.flac`,
+      }),
+    )
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=true', true, true)
+    const row = await waitFor(() => {
+      const cell = container.querySelector('.transfer-history-desktop-group-row > td')
+      expect(cell).not.toBeNull()
+      return cell!
+    })
+    // 读取真实虚拟列表，确认整行切换和控制区点击不会相互干扰。
+    const getCards = () => container.querySelectorAll('.transfer-history-desktop-record')
+    expect(getCards()).toHaveLength(0)
+    await fireEvent.click(row.querySelector('strong')!)
+    await waitFor(() => expect(getCards()).toHaveLength(2))
+    await fireEvent.click(row)
+    await waitFor(() => expect(getCards()).toHaveLength(0))
+    await fireEvent.click(row.querySelector('input[type="checkbox"]')!)
+    expect(screen.getByText('已选择 2/2 项')).toBeInTheDocument()
+    expect(getCards()).toHaveLength(0)
+    await fireEvent.click(screen.getByRole('button', { name: '展开' }))
+    await waitFor(() => expect(getCards()).toHaveLength(2))
+    await fireEvent.click(row.querySelector('input[type="checkbox"]')!)
+    expect(getCards()).toHaveLength(2)
+    await fireEvent.click(screen.getByRole('button', { name: '收起' }))
+    await waitFor(() => expect(getCards()).toHaveLength(0))
+  })
+
   it('sorts real virtual cards by source size and direction without fetching another page', async () => {
     const histories = [
       createHistory(1, '大文件', { src_fileitem: { size: 200 } as TransferHistory['src_fileitem'] }),
@@ -1234,7 +1270,7 @@ describe('TransferHistoryView', () => {
     }
   })
 
-  it('renders full path tooltips and keeps status clicks independent from desktop selection', async () => {
+  it('renders full paths with a transfer arrow and keeps status clicks independent from desktop selection', async () => {
     const item = createHistory(1, '失败记录', {
       src: '/downloads/很长的目录/文件.mkv',
       dest: '/library/文件.mkv',
@@ -1249,11 +1285,10 @@ describe('TransferHistoryView', () => {
     const { container } = await renderHistory('/history?grouped=false')
     await screen.findByText('失败记录')
     expect(container.querySelector('[title="/downloads/很长的目录/文件.mkv"]')).toBeInTheDocument()
-    expect(container.querySelector('[data-tooltip-text="/downloads/很长的目录/文件.mkv"]')).toHaveAttribute(
-      'data-history-tooltip',
-      'enabled',
-    )
-    expect(container.querySelector('.transfer-history-desktop-record__filename')).toHaveTextContent('文件.mkv')
+    expect(
+      [...container.querySelectorAll('.transfer-history-desktop-record__path-text')].map(path => path.textContent),
+    ).toEqual([item.src, item.dest])
+    expect(container.querySelector('.transfer-history-desktop-record__path-arrow')).toBeInTheDocument()
     expect(screen.getByText('SMB')).toBeInTheDocument()
     expect(screen.getByText('本地')).toBeInTheDocument()
     await fireEvent.click(screen.getAllByRole('button', { name: '失败' }).at(-1)!)

@@ -265,12 +265,6 @@ function toggleDesktopSortOrder() {
   if (current) desktopSortBy.value = [{ ...current, order: current.order === 'asc' ? 'desc' : 'asc' }]
 }
 
-/** 按完整路径拆分目录与文件名，让省略发生在目录且保留识别文件的末尾。 */
-function getDesktopPathParts(path?: string) {
-  const separator = Math.max(path?.lastIndexOf('/') ?? -1, path?.lastIndexOf('\\') ?? -1)
-  return { directory: path?.slice(0, separator + 1) || '', filename: path?.slice(separator + 1) || '' }
-}
-
 // 本页选择基于业务 ID，虚拟节点回收和分组折叠不会丢失选中状态。
 const desktopSelectedCount = computed(() => dataList.value.filter(item => selectedIdSet.value.has(item.id)).length)
 const desktopAllSelected = computed(
@@ -2129,10 +2123,10 @@ onUnmounted(() => {
           </template>
           <VCard min-width="200"
             ><VList class="px-2">
-              <VListItem :active="!group" @click="setDesktopGrouping(false)"
+              <VListItem :active="!group" prepend-icon="mdi-format-list-bulleted" @click="setDesktopGrouping(false)"
                 ><VListItemTitle>{{ t('transferHistory.listMode') }}</VListItemTitle></VListItem
               >
-              <VListItem :active="group" @click="setDesktopGrouping(true)"
+              <VListItem :active="group" prepend-icon="mdi-format-list-group" @click="setDesktopGrouping(true)"
                 ><VListItemTitle>{{ t('transferHistory.groupMode') }}</VListItemTitle></VListItem
               >
             </VList></VCard
@@ -2224,9 +2218,10 @@ onUnmounted(() => {
           class="transfer-history-album-group-row transfer-history-desktop-group-row"
           :class="{ 'transfer-history-album-group-row--open': isGroupOpen(item) }"
         >
-          <td :colspan="columns.length">
+          <td :colspan="columns.length" @click="toggleGroup(item)">
             <div class="transfer-history-album-summary">
-              <div class="transfer-history-desktop-group-controls">
+              <!-- 控制区自行处理展开与多选，阻止整行再次切换。 -->
+              <div class="transfer-history-desktop-group-controls" @click.stop>
                 <VBtn
                   :aria-label="isGroupOpen(item) ? t('setting.about.collapse') : t('setting.about.expand')"
                   :icon="isGroupOpen(item) ? '$expand' : '$next'"
@@ -2328,9 +2323,10 @@ onUnmounted(() => {
           </td>
         </tr>
         <tr v-else class="transfer-history-desktop-group-row">
-          <td :colspan="columns.length">
+          <td :colspan="columns.length" @click="toggleGroup(item)">
             <div class="transfer-history-desktop-group-summary">
-              <div class="transfer-history-desktop-group-controls">
+              <!-- 控制区自行处理展开与多选，阻止整行再次切换。 -->
+              <div class="transfer-history-desktop-group-controls" @click.stop>
                 <VBtn
                   :aria-label="isGroupOpen(item) ? t('setting.about.collapse') : t('setting.about.expand')"
                   :icon="isGroupOpen(item) ? '$expand' : '$next'"
@@ -2419,36 +2415,25 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="transfer-history-desktop-record__paths">
-                <VTooltip
+                <template
                   v-for="path in [
-                    { storage: item.src_storage, value: item.src },
-                    { storage: item.dest_storage, value: item.dest },
+                    { key: 'source', storage: item.src_storage, value: item.src },
+                    { key: 'destination', storage: item.dest_storage, value: item.dest },
                   ]"
-                  :key="path.value"
-                  :text="path.value || ''"
-                  :disabled="!path.value"
-                  location="top"
-                  :open-delay="250"
-                  max-width="640"
-                  content-class="transfer-history-desktop-path-tooltip"
+                  :key="path.key"
                 >
-                  <template #activator="{ props }">
-                    <div
-                      v-bind="props"
-                      v-show="path.value"
-                      class="transfer-history-desktop-record__path"
-                      :title="path.value"
-                    >
-                      <VChip variant="tonal" size="x-small" label>{{ getHistoryStorageName(path.storage) }}</VChip>
-                      <span class="transfer-history-desktop-record__directory">{{
-                        getDesktopPathParts(path.value).directory
-                      }}</span>
-                      <span class="transfer-history-desktop-record__filename">{{
-                        getDesktopPathParts(path.value).filename
-                      }}</span>
-                    </div>
-                  </template>
-                </VTooltip>
+                  <div v-if="path.value" class="transfer-history-desktop-record__path" :title="path.value">
+                    <VChip variant="tonal" size="x-small" label>{{ getHistoryStorageName(path.storage) }}</VChip>
+                    <span class="transfer-history-desktop-record__path-text">{{ path.value }}</span>
+                  </div>
+                  <div
+                    v-if="path.key === 'source' && item.src && item.dest"
+                    class="transfer-history-desktop-record__path-arrow"
+                    aria-hidden="true"
+                  >
+                    <VIcon icon="mdi-arrow-down" size="18" />
+                  </div>
+                </template>
               </div>
               <div class="transfer-history-desktop-record__facts">
                 <div class="transfer-history-desktop-record__status">
@@ -2921,10 +2906,6 @@ onUnmounted(() => {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.85rem;
 }
-.transfer-history-desktop-path-tooltip {
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
 .transfer-history-desktop-selection__count {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.85rem;
@@ -3030,34 +3011,32 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-desktop-record__paths {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 .transfer-history-desktop-record__path {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
   min-inline-size: 0;
   font-size: 0.9rem;
 }
 .transfer-history-desktop-record__path .v-chip {
-  flex-shrink: 0;
-  margin-inline-end: 8px;
-  max-inline-size: 7rem;
+  max-inline-size: 100%;
+  justify-self: start;
 }
-.transfer-history-desktop-record__directory {
-  flex: 0 1 auto;
+// 完整路径按容器宽度换行；虚拟列表测量实际行高，不截断内容。
+.transfer-history-desktop-record__path-text {
   min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.5;
+}
+.transfer-history-desktop-record__path-arrow {
+  display: flex;
+  justify-content: center;
+  inline-size: 5rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.transfer-history-desktop-record__filename {
-  flex: 0 0 auto;
-  max-inline-size: 70%;
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .transfer-history-desktop-record__status {
   display: flex;
@@ -3082,6 +3061,9 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   white-space: nowrap;
 }
 
+.transfer-history-desktop-group-row > td {
+  cursor: pointer;
+}
 .transfer-history-desktop-group-summary {
   display: grid;
   grid-template-columns: 80px 46px minmax(0, 1fr) auto;
@@ -3237,9 +3219,9 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-album-summary__path > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .transfer-history-album-summary__facts {
