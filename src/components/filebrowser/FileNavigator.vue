@@ -1,24 +1,17 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 import type { FileItem } from '@/api/types'
-import { useDisplay } from 'vuetify'
 import type { AxiosRequestConfig } from 'axios'
 import type { DataApiClient } from '@/api'
 import { useI18n } from 'vue-i18n'
-import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
 // 国际化
 const { t } = useI18n()
-
-const display = useDisplay()
 
 type TreeRow =
   | { type: 'root'; key: string; level: number }
   | { type: 'loading'; key: string; path: string; level: number }
   | { type: 'directory'; key: string; dir: FileItem; level: number }
-
-// 计算列表可用高度
-const { availableHeight } = useAvailableHeight(58, 300)
 
 // 输入参数
 const props = defineProps({
@@ -54,12 +47,12 @@ const expandedFolders = ref<string[]>([])
 // 是否正在加载
 const loading = ref<{ [key: string]: boolean }>({})
 
-// 点击目录
+/** 点击目录。 */
 function handleFolderClick(item: FileItem) {
   emit('navigate', item)
 }
 
-// 切换文件夹展开状态
+/** 切换文件夹展开状态。 */
 async function toggleFolder(path: string) {
   const index = expandedFolders.value.indexOf(path)
   if (index >= 0) {
@@ -75,12 +68,12 @@ async function toggleFolder(path: string) {
   }
 }
 
-// 判断文件夹是否展开
+/** 判断文件夹是否展开。 */
 function isFolderExpanded(path: string) {
   return expandedFolders.value.includes(path)
 }
 
-// 渲染文件夹图标
+/** 渲染文件夹图标。 */
 function renderFolderIcon(isExpanded: boolean) {
   if (isExpanded) {
     return 'mdi-folder-open'
@@ -88,7 +81,7 @@ function renderFolderIcon(isExpanded: boolean) {
   return 'mdi-folder'
 }
 
-// 加载子目录
+/** 加载子目录。 */
 async function loadSubdirectories(path: string) {
   // 如果已经在加载中或已有缓存，跳过
   if (loading.value[path] || treeCache.value[path]) return
@@ -130,7 +123,7 @@ async function loadSubdirectories(path: string) {
   }
 }
 
-// 初始加载根目录
+/** 初始加载根目录。 */
 async function loadRootDirectories() {
   await loadSubdirectories('/')
 }
@@ -185,11 +178,6 @@ watch(
   },
   { immediate: true },
 )
-
-// 是否为移动端
-const isMobile = computed(() => {
-  return display.smAndDown.value
-})
 
 // 可用的根目录列表
 const rootDirectories = computed(() => {
@@ -250,7 +238,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <VCard class="file-navigator" v-if="!isMobile" :height="`${availableHeight}px`">
+  <nav class="file-navigator" :aria-label="t('file.directoryTree')">
     <VVirtualScroll :items="visibleTreeRows" :item-height="32" class="tree-container">
       <template #default="{ item }">
         <div
@@ -304,7 +292,7 @@ onMounted(async () => {
             <VIcon
               size="small"
               :icon="renderFolderIcon(isFolderExpanded(item.dir.path || ''))"
-              :color="currentPath === item.dir.path ? 'primary' : 'amber-darken-1'"
+              :color="currentPath === item.dir.path ? 'primary' : undefined"
               class="me-1"
             />
             <span class="folder-name">
@@ -314,7 +302,7 @@ onMounted(async () => {
         </div>
       </template>
     </VVirtualScroll>
-  </VCard>
+  </nav>
 </template>
 
 <style lang="scss" scoped>
@@ -323,10 +311,17 @@ onMounted(async () => {
   overflow: hidden;
   flex-direction: column;
   flex-shrink: 0;
-  border-radius: 0 !important;
+  min-block-size: 0;
   block-size: 100%;
-  box-shadow: none !important;
+
   inline-size: 240px;
+  max-inline-size: 100%;
+}
+
+// 移动端弹层自己定义尺寸，不依赖其它组件样式的加载顺序。
+.file-navigator.file-navigator--sheet {
+  inline-size: 100%;
+  block-size: min(65dvh, 32rem);
 }
 
 .navigator-header {
@@ -356,11 +351,13 @@ onMounted(async () => {
   transition: background-color 0.2s ease;
 
   &:hover {
-    background-color: rgba(var(--v-theme-primary), 0.05);
+    border-radius: var(--app-control-radius);
+    background-color: var(--app-grouped-list-hover-background);
   }
 
   &.active {
-    background-color: rgba(var(--v-theme-primary), 0.08);
+    border-radius: var(--app-control-radius);
+    background-color: var(--app-grouped-list-active-background);
   }
 }
 

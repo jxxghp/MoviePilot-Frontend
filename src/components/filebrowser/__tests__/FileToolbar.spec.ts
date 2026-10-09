@@ -3,10 +3,12 @@ import type { DataApiClient } from '@/api'
 import type { EndPoints, FileItem } from '@/api/types'
 import i18n from '@/plugins/i18n'
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  desktop: true,
+  resize: [] as Array<() => void>,
   close: vi.fn(),
   openSharedDialog: vi.fn(),
   updateProps: vi.fn(),
@@ -20,9 +22,16 @@ vi.mock('vuetify', async importOriginal => {
   const actual = await importOriginal<typeof import('vuetify')>()
   return {
     ...actual,
-    useDisplay: () => ({ mdAndUp: { value: true } }),
+    useDisplay: () => ({ mdAndUp: ref(mocks.desktop) }),
   }
 })
+
+vi.mock('@vueuse/core', async importOriginal => ({
+  ...(await importOriginal<typeof import('@vueuse/core')>()),
+  useResizeObserver: (_target: unknown, callback: () => void) => {
+    mocks.resize.push(callback)
+  },
+}))
 
 const IconBtnStub = defineComponent({
   name: 'IconBtn',
@@ -104,6 +113,8 @@ function openDialogAndCreate(wrapper: ReturnType<typeof mountToolbar>, name = 'n
 describe('FileToolbar mkdir', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.desktop = true
+    mocks.resize = []
     mocks.openSharedDialog.mockReturnValue({
       close: mocks.close,
       id: 1,
@@ -147,7 +158,7 @@ describe('FileToolbar mkdir', () => {
       data: { name: 'downloads', path: '/downloads/', storage: 'local', type: 'dir' },
       feedback: 'silent',
       method: 'post',
-      url: '/storage/mkdir?name=Season 01',
+      url: '/storage/mkdir?name=Season%2001',
     })
     expect(wrapper.emitted('loading')).toEqual([[true], [false]])
     expect(wrapper.emitted('foldercreated')).toEqual([[]])
@@ -168,6 +179,8 @@ describe('FileToolbar mkdir', () => {
 describe('FileToolbar navigation and sorting', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.desktop = true
+    mocks.resize = []
     mocks.openSharedDialog.mockReturnValue({
       close: mocks.close,
       id: 1,
@@ -175,20 +188,50 @@ describe('FileToolbar navigation and sorting', () => {
     })
   })
 
-  it('emits the opposite sort mode from the first toolbar action', async () => {
-    const wrapper = mountToolbar(vi.fn())
-
-    await wrapper.findAll('.icon-btn')[0].trigger('click')
-
-    expect(wrapper.emitted('sortchanged')).toEqual([['time']])
+  it('keeps every desktop breadcrumb until the full path exceeds available width', async () => {
+    const stack: FileItem[] = ['/', 'downloads', 'movies', 'current'].map((name, index) => ({
+      name,
+      path: '/'.repeat(index + 1),
+      storage: 'local',
+      type: 'dir',
+    }))
+    const wrapper = mountToolbar(vi.fn(), 'name', stack[3], stack)
+    expect(wrapper.findAll('.file-browser-toolbar__segment').map(entry => entry.text())).toEqual([
+      'downloads',
+      'movies',
+      'current',
+    ])
+    Object.defineProperty(wrapper.get('.file-browser-toolbar__path').element, 'clientWidth', {
+      value: 200,
+      configurable: true,
+    })
+    Object.defineProperty(wrapper.get('.file-browser-toolbar__measure').element, 'scrollWidth', {
+      value: 300,
+      configurable: true,
+    })
+    mocks.resize.forEach(callback => callback())
+    await flushPromises()
+    expect(wrapper.findAll('.file-browser-toolbar__segment').map(entry => entry.text())).toEqual(['current'])
+    Object.defineProperty(wrapper.get('.file-browser-toolbar__path').element, 'clientWidth', {
+      value: 400,
+      configurable: true,
+    })
+    mocks.resize.forEach(callback => callback())
+    await flushPromises()
+    expect(wrapper.findAll('.file-browser-toolbar__segment')).toHaveLength(3)
   })
 
-  it('switches time sorting back to name sorting', async () => {
-    const wrapper = mountToolbar(vi.fn(), 'time')
-
-    await wrapper.findAll('.icon-btn')[0].trigger('click')
-
-    expect(wrapper.emitted('sortchanged')).toEqual([['name']])
+  it('shows only the last mobile breadcrumb and retains ancestors in the menu', () => {
+    mocks.desktop = false
+    const stack: FileItem[] = ['/', 'downloads', 'movies'].map((name, index) => ({
+      name,
+      path: '/'.repeat(index + 1),
+      storage: 'local',
+      type: 'dir',
+    }))
+    const wrapper = mountToolbar(vi.fn(), 'name', stack[2], stack)
+    expect(wrapper.findAll('.file-browser-toolbar__segment').map(entry => entry.text())).toEqual(['movies'])
+    expect(wrapper.findAll('.storage-item')).toHaveLength(5)
   })
 
   it('emits only a changed storage selection', async () => {
@@ -203,17 +246,17 @@ describe('FileToolbar navigation and sorting', () => {
   it('navigates to the parent breadcrumb from the up action', async () => {
     const wrapper = mountToolbar(vi.fn())
 
-    await wrapper.findAll('.icon-btn')[1].trigger('click')
+    await wrapper.findAll('.icon-btn')[0].trigger('click')
 
     expect(wrapper.emitted('pathchanged')).toEqual([[{ name: '/', path: '/', storage: 'local', type: 'dir' }]])
   })
 
   it('navigates directly through root and path breadcrumb actions', async () => {
     const wrapper = mountToolbar(vi.fn())
-    const navigationButtons = wrapper.findAll('.toolbar-button')
+    const navigationButtons = wrapper.findAll('.file-browser-toolbar__segment')
 
-    await navigationButtons[1].trigger('click')
-    await navigationButtons[2].trigger('click')
+    await wrapper.findAll('.storage-item')[2].trigger('click')
+    await navigationButtons[0].trigger('click')
 
     expect(wrapper.emitted('pathchanged')).toEqual([
       [{ name: '/', path: '/', storage: 'local', type: 'dir' }],
@@ -225,8 +268,8 @@ describe('FileToolbar navigation and sorting', () => {
     const root = { name: '/', path: '/', storage: 'local', type: 'dir' }
     const wrapper = mountToolbar(vi.fn(), 'name', root, [root])
 
-    expect(wrapper.findAll('.icon-btn')).toHaveLength(2)
-    await wrapper.findAll('.toolbar-button')[1].trigger('click')
+    expect(wrapper.findAll('.icon-btn')).toHaveLength(1)
+    await wrapper.findAll('.storage-item')[2].trigger('click')
 
     expect(wrapper.emitted('pathchanged')).toEqual([[root]])
   })

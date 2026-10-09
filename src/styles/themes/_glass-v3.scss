@@ -444,43 +444,16 @@ $-custom-content-surfaces: (
 
   // 所有临时表面采用同族阅读材质，Vuetify 容器只传递 token，由真正的表面执行一次采样。
   html[data-theme='glass'] body[data-theme='glass'] {
-    // 外层统一绘制渐变、边框和阴影；内部区域保持透明，避免地址栏、目录树和列表各自起一层高光。
-    .file-browser-view :is(.file-browser-toolbar.v-toolbar, .file-list.v-card, .file-navigator.v-card) {
+    // 文件工作区只在外层执行材质采样，列表、目录与详情共用裁剪和阅读表面。
+    .file-browser-view :is(.file-browser-toolbar, .file-list, .file-navigator, .file-details, .file-row) {
       --glass-native-surface-backdrop-filter: none;
-
-      border-width: 0 !important;
-      background: transparent !important;
       box-shadow: none !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
 
-    // 内部区域保留外侧圆角，滚动内容与整个面板共用同一裁剪边界。
-    .file-browser-view .file-list.v-card.rounded-lg,
-    .file-browser-view .file-navigator.v-card.rounded-lg,
-    .file-browser-view .file-list.v-card,
-    .file-browser-view .file-navigator.v-card {
-      border-radius: 0 !important;
-    }
-
-    .file-browser-view .file-list.v-card,
-    .file-browser-view .file-list.v-card.rounded-lg {
-      border-end-end-radius: var(--app-surface-radius) !important;
-    }
-
-    .file-browser-view:not(:has(.file-navigator)) .file-list.v-card,
-    .file-browser-view:not(:has(.file-navigator)) .file-list.v-card.rounded-lg {
-      border-end-start-radius: var(--app-surface-radius) !important;
-    }
-
-    .file-browser-view .file-navigator.v-card,
-    .file-browser-view .file-navigator.v-card.rounded-lg {
-      border-end-start-radius: var(--app-surface-radius) !important;
-    }
-
-    .file-browser-view .file-browser-toolbar.v-toolbar {
-      border-radius: var(--app-surface-radius) var(--app-surface-radius) 0 0 !important;
-      border-block-end: 1px solid var(--glass-border) !important;
+    .file-browser-view :is(.file-list, .file-navigator, .file-details) {
+      background: transparent !important;
     }
 
     .agent-assistant-fab__bubbles {

@@ -80,11 +80,11 @@ describe('FileNavigator directory tree', () => {
     mocks.isMobile.value = false
   })
 
-  it('does not render the directory tree on a mobile viewport', () => {
+  it('renders the reusable directory tree inside a mobile navigation sheet', () => {
     mocks.isMobile.value = true
     const wrapper = mountNavigator()
 
-    expect(wrapper.find('.file-navigator').exists()).toBe(false)
+    expect(wrapper.find('.file-navigator').exists()).toBe(true)
   })
 
   it('renders only directories from the current file list', () => {

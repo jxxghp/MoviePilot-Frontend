@@ -64,6 +64,10 @@ html.quick-access-scroll-locked body {
 
 // 全局外观 token：圆角和阴影复用 Vuetify 的 rounded / elevation 分级。
 html {
+  --app-scrollbar-size: 4px;
+  --app-scrollbar-thumb: rgba(var(--v-theme-on-surface), 0.24);
+  --app-scrollbar-thumb-hover: rgba(var(--v-theme-on-surface), 0.4);
+  --app-scrollbar-track: transparent;
   --app-vuetify-rounded-0: #{map.get(vuetify-settings.$rounded, 0)};
   --app-vuetify-rounded-sm: #{map.get(vuetify-settings.$rounded, 'sm')};
   --app-vuetify-rounded: #{map.get(vuetify-settings.$rounded, null)};
@@ -99,6 +103,8 @@ html {
   --app-overlay-shadow: var(--app-elevation-0);
   --app-surface-shadow: var(--app-elevation-0);
   --app-surface-hover-shadow: var(--app-elevation-0);
+  --app-search-input-background: rgba(var(--v-theme-surface-variant), 0.04);
+  --app-search-input-radius: var(--app-vuetify-rounded-pill);
   --app-grouped-list-background: rgb(var(--v-theme-surface));
   --app-grouped-list-backdrop-filter: none;
   --app-grouped-list-border: var(--app-surface-border);
@@ -1404,25 +1410,40 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
   }
 }
 
-// 原生滚动条沿用浏览器的几何与显隐行为，只统一窄宽度和主题色。
+// Firefox 使用标准细滚动条；WebKit/Blink 使用明确的宽度，避免 Safari 的系统 thin 仍显粗。
 @supports (scrollbar-width: thin) {
   * {
-    scrollbar-color: rgba(var(--v-theme-perfect-scrollbar-thumb), 60%) transparent;
+    scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
     scrollbar-width: thin;
   }
 }
 
-// 旧版 WebKit 不支持标准滚动条属性，仅保留基础几何与主题色。
-@supports not (scrollbar-width: thin) {
-  ::-webkit-scrollbar {
-    block-size: 4px;
-    inline-size: 4px;
+// 标准属性非 auto 时会覆盖 WebKit 伪元素，需按能力切换，不能只给旧 Safari 设置几何。
+// 使用低优先级通配选择器，让组件已有的 scrollbar-width: none 继续生效。
+@supports selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-color: auto;
+    scrollbar-width: auto;
   }
+}
 
-  ::-webkit-scrollbar-thumb {
-    border-radius: 2px;
-    background: rgb(var(--v-theme-perfect-scrollbar-thumb));
-  }
+::-webkit-scrollbar {
+  width: var(--app-scrollbar-size);
+  height: var(--app-scrollbar-size);
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: var(--app-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: var(--app-vuetify-rounded-pill);
+  background: var(--app-scrollbar-thumb);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover);
 }
 
 // 组件样式

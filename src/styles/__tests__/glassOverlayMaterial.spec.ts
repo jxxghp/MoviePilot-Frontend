@@ -517,18 +517,16 @@ describe('glass overlay material styles', () => {
     )
   })
 
-  it('keeps the file browser lower outer corners inside the glass surface', () => {
+  it('lets the file workspace own glass sampling and clipping for its inner regions', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
-
-    expect(styles).toMatch(
-      /\.file-browser-view \.file-list\.v-card,\s*\.file-browser-view \.file-list\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-end-radius:\s*var\(--app-surface-radius\) !important;/u,
+    const start = styles.indexOf(
+      '.file-browser-view :is(.file-browser-toolbar, .file-list, .file-navigator, .file-details, .file-row)',
     )
-    expect(styles).toMatch(
-      /\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card,\s*\.file-browser-view:not\(:has\(\.file-navigator\)\) \.file-list\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
-    )
-    expect(styles).toMatch(
-      /\.file-browser-view \.file-navigator\.v-card,\s*\.file-browser-view \.file-navigator\.v-card\.rounded-lg\s*\{[\s\S]*?border-end-start-radius:\s*var\(--app-surface-radius\) !important;/u,
-    )
+    const rule = styles.slice(start, styles.indexOf('}', start))
+    expect(rule).toContain('--glass-native-surface-backdrop-filter: none')
+    expect(rule).toContain('backdrop-filter: none !important')
+    const browser = readFileSync(resolve(cwd(), 'src/components/filebrowser/FileBrowser.vue'), 'utf8')
+    expect(browser).toContain('overflow: hidden')
   })
 
   it('uses the shared hover-card contract instead of a Dashboard-specific shadow rule', () => {

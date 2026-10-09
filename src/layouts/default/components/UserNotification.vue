@@ -707,7 +707,6 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
 .notification-list-container {
   overflow: hidden;
   max-block-size: min(560px, 62vh);
-  scrollbar-width: thin;
 }
 
 .notification-list-scroll {

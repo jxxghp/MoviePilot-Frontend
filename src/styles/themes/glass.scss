@@ -586,7 +586,7 @@ html[data-theme='glass'] {
     box-shadow: none !important;
   }
 
-  :where(.search-desktop-activator, .search-header) .search-input-wrapper {
+  :where(.search-desktop-activator, .search-header, .file-list__toolbar) .search-input-wrapper {
     border: 1px solid var(--glass-control-prominent-border) !important;
     -webkit-backdrop-filter: var(--glass-control-prominent-backdrop-filter);
     backdrop-filter: var(--glass-control-prominent-backdrop-filter);
@@ -594,20 +594,20 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-control-prominent-shadow);
   }
 
-  :where(.search-desktop-activator, .search-header) .search-input-wrapper:focus-within {
+  :where(.search-desktop-activator, .search-header, .file-list__toolbar) .search-input-wrapper:focus-within {
     border-color: rgba(var(--v-theme-primary), 70%) !important;
     box-shadow: var(--glass-control-prominent-focus-shadow);
   }
 
-  :where(.search-desktop-activator, .search-header) .search-input-icon {
+  :where(.search-desktop-activator, .search-header, .file-list__toolbar) .search-input-icon {
     color: var(--glass-control-icon-color) !important;
   }
 
-  :where(.search-desktop-activator, .search-header) .search-native-input::placeholder {
+  :where(.search-desktop-activator, .search-header, .file-list__toolbar) .search-native-input::placeholder {
     color: var(--glass-control-placeholder-color);
   }
 
-  :where(.search-desktop-activator, .search-header) .search-shortcut-badge {
+  :where(.search-desktop-activator, .search-header, .file-list__toolbar) .search-shortcut-badge {
     border: 1px solid var(--glass-control-shortcut-border);
     background: var(--glass-control-shortcut-background);
     color: var(--glass-control-shortcut-color);

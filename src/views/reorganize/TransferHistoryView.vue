@@ -19,6 +19,7 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackground } from '@/composables/useBackground'
@@ -375,6 +376,8 @@ const progressValue = ref(0)
 
 // 是否已刷新
 const isRefreshed = ref(false)
+// 只有成功加载后的空列表显示 404，避免加载或请求失败时闪现空状态。
+const desktopEmpty = computed(() => isRefreshed.value && !loading.value && dataList.value.length === 0)
 
 // 是否已完成首次激活
 const hasActivatedOnce = ref(false)
@@ -879,7 +882,7 @@ function syncMobileSearchFromRouteQuery() {
   }
 }
 
-// 移动端触底加载历史记录，并将新页追加到虚拟列表数据源。
+/** 移动端触底加载历史记录，并将新页追加到虚拟列表数据源。 */
 async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'error') => void }) {
   if (mobileLoading.value) {
     done('ok')
@@ -2190,12 +2193,13 @@ onUnmounted(() => {
       </VBtn>
     </div>
 
-    <div v-else class="transfer-history-desktop-summary">
+    <div v-else-if="!desktopEmpty" class="transfer-history-desktop-summary">
       {{ t('transferHistory.desktop.summary', { count: totalItems, pages: totalPage }) }}
     </div>
 
     <!-- 仅替换桌面呈现；保留 Vuetify 的虚拟测高、排序、分组和分页数据契约。 -->
     <VDataTableVirtual
+      v-if="!desktopEmpty"
       v-model="selected"
       v-model:sort-by="desktopSortBy"
       :group-by="group ? groupBy : []"
@@ -2483,11 +2487,10 @@ onUnmounted(() => {
           </td>
         </tr>
       </template>
-      <template #no-data
-        ><div class="transfer-history-desktop-empty">{{ t('transferHistory.noData') }}</div></template
-      >
+      <template #no-data />
     </VDataTableVirtual>
-    <footer ref="desktopPaginationRef" class="transfer-history-desktop-pagination">
+    <NoDataFound v-else class="transfer-history-desktop-empty" :error-title="t('transferHistory.noData')" />
+    <footer v-if="!desktopEmpty" ref="desktopPaginationRef" class="transfer-history-desktop-pagination">
       <VSelect
         v-model="itemsPerPage"
         :items="pageRange"
@@ -2601,10 +2604,11 @@ onUnmounted(() => {
         </div>
       </template>
       <template #empty>
-        <div v-if="mobileDataList.length === 0" class="transfer-history-mobile-empty">
-          <VIcon icon="mdi-history" size="32" />
-          <span>{{ t('transferHistory.noData') }}</span>
-        </div>
+        <NoDataFound
+          v-if="mobileDataList.length === 0"
+          class="transfer-history-mobile-empty"
+          :error-title="t('transferHistory.noData')"
+        />
       </template>
       <template #error="{ props: retryProps }">
         <div class="transfer-history-mobile-state d-flex flex-column ga-2" role="alert">
@@ -3114,8 +3118,10 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .transfer-history-desktop-empty {
-  padding: 48px;
-  text-align: center;
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  padding-block-start: 0;
 }
 
 @media (max-width: 1100px) {
@@ -3351,8 +3357,7 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   padding-block: 0.75rem;
 }
 
-.transfer-history-mobile-state,
-.transfer-history-mobile-empty {
+.transfer-history-mobile-state {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3364,11 +3369,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-empty {
-  flex-direction: column;
-  gap: 0.75rem;
-  /* 空状态与列表共用空间，随移动端动态视口缩放，避免固定高度叠加。 */
-  min-block-size: clamp(6rem, 30vh, 18rem);
-  min-block-size: clamp(6rem, 30dvh, 18rem);
+  min-block-size: 18rem;
+  padding-block-start: 1.5rem;
 }
 
 .transfer-history-mobile-record {

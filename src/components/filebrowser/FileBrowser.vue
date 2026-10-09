@@ -1,5 +1,8 @@
 <script lang="ts" setup>
 import FileList from './FileList.vue'
+import PageContentTitle from '@/@core/components/PageContentTitle.vue'
+import { useFileBrowserHeight } from '@/composables/useFileBrowserHeight'
+import { useDisplay } from 'vuetify'
 import FileToolbar from './FileToolbar.vue'
 import FileNavigator from './FileNavigator.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
@@ -49,6 +52,10 @@ const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
 const canManage = computed(() =>
   hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'manage'),
 )
+const workspaceRef = ref<HTMLElement | null>(null)
+const { height: workspaceHeight } = useFileBrowserHeight(workspaceRef)
+const display = useDisplay()
+const mobileTreeOpen = ref(false)
 const toolbarRef = ref<InstanceType<typeof FileToolbar> | null>(null)
 
 const fileIcons = {
@@ -94,13 +101,13 @@ const fileIcons = {
   ico: 'mdi-file-image-box',
   svg: 'mdi-file-image-box',
   // 视频
-  mp4: 'mdi-filmstrip',
-  mkv: 'mdi-filmstrip',
-  avi: 'mdi-filmstrip',
-  wmv: 'mdi-filmstrip',
-  mov: 'mdi-filmstrip',
-  flv: 'mdi-filmstrip',
-  rmvb: 'mdi-filmstrip',
+  mp4: 'mdi-file-video-outline',
+  mkv: 'mdi-file-video-outline',
+  avi: 'mdi-file-video-outline',
+  wmv: 'mdi-file-video-outline',
+  mov: 'mdi-file-video-outline',
+  flv: 'mdi-file-video-outline',
+  rmvb: 'mdi-file-video-outline',
   // 文档
   txt: 'mdi-file-document-outline',
   env: 'mdi-file-cog-outline',
@@ -140,6 +147,7 @@ const fileIcons = {
   other: 'mdi-file-outline',
 }
 
+/** 从页面入口打开路径工具栏的新建目录对话框。 */
 function openNewFolderDialog() {
   toolbarRef.value?.openNewFolderDialog()
 }
@@ -193,42 +201,48 @@ const storagesArray = computed(() => {
 
 void loadStorageCatalog()
 
-// 方法
+/** 方法。 */
 function loadingChanged(isLoading: number) {
   if (isLoading) loading.value++
   else if (loading.value > 0) loading.value--
 }
 
-// 存储切换
+/** 存储切换。 */
 async function storageChanged(storage: string) {
   emit('pathchanged', { storage: storage, path: '/', fileid: 'root' })
 }
 
-// 路径变化
+/** 路径变化。 */
 function pathChanged(item: FileItem) {
   emit('pathchanged', item)
 }
 
-// 排序变化
+/** 排序变化。 */
 function sortChanged(s: string) {
   sort.value = s
   refreshPending.value = true
 }
 
-// 切换目录树
+/** 切换目录树。 */
 function switchDirTree(state: boolean) {
-  showDirTree.value = state
+  if (display.smAndDown.value) mobileTreeOpen.value = state
+  else showDirTree.value = state
 }
 
 // 文件列表
+/** 从移动目录面板导航后关闭面板，后续列表加载由原路径流程负责。 */
+function navigateMobileTree(item: FileItem) {
+  pathChanged(item)
+  mobileTreeOpen.value = false
+}
 const fileListItems = ref<FileItem[]>([])
 
-// 文件列表数据更新
+/** 文件列表数据更新。 */
 function fileListUpdated(items: FileItem[]) {
   fileListItems.value = items
 }
 
-// 阻止选择事件
+/** 阻止选择事件。 */
 function preventSelect(event: Event) {
   event.preventDefault()
   return false
@@ -249,7 +263,7 @@ function setDocumentDragStyles(active: boolean) {
   style.MozUserSelect = value
 }
 
-// 拖动分隔条相关方法
+/** 拖动分隔条相关方法。 */
 function startDrag(event: MouseEvent) {
   event.preventDefault() // 阻止默认行为
   event.stopPropagation() // 阻止事件冒泡
@@ -300,25 +314,64 @@ onUnmounted(cleanupDrag)
 </script>
 
 <template>
-  <div class="mx-auto overflow-hidden" :loading="loading > 0">
-    <div v-if="item">
+  <div
+    ref="workspaceRef"
+    class="file-workspace"
+    :style="{ height: workspaceHeight !== undefined ? `${workspaceHeight}px` : undefined }"
+    :aria-busy="loading > 0"
+  >
+    <header class="file-workspace__header d-flex justify-space-between align-center mb-1">
+      <PageContentTitle :title="$t('navItems.fileManager')" class="my-0" style="margin-block: 0" />
+      <div class="d-flex align-center gap-1">
+        <VMenu v-if="item.type !== 'file'" location="bottom end">
+          <template #activator="{ props: menuProps }">
+            <IconBtn v-bind="menuProps" variant="text" :aria-label="$t('file.sort')">
+              <VIcon :icon="sort === 'time' ? 'mdi-sort-clock-ascending-outline' : 'mdi-sort-alphabetical-ascending'" />
+            </IconBtn>
+          </template>
+          <VList>
+            <VListItem
+              :title="$t('file.sortByName')"
+              prepend-icon="mdi-sort-alphabetical-ascending"
+              :active="sort !== 'time'"
+              @click="sortChanged('name')"
+            />
+            <VListItem
+              :title="$t('file.sortByTime')"
+              prepend-icon="mdi-sort-clock-ascending-outline"
+              :active="sort === 'time'"
+              @click="sortChanged('time')"
+            />
+          </VList>
+        </VMenu>
+        <IconBtn
+          variant="text"
+          :aria-label="$t('common.refresh')"
+          :disabled="loading > 0"
+          @click="refreshPending = true"
+        >
+          <VIcon icon="mdi-refresh" />
+        </IconBtn>
+      </div>
+    </header>
+    <div v-if="item" class="file-workspace__inner file-browser-view app-surface-static" data-glass-optical-surface>
       <FileToolbar
         ref="toolbarRef"
-        :sort="sort"
         :item="item"
         :itemstack="itemstack"
         :storages="storagesArray"
         :endpoints="endpoints"
         :axios="axios"
+        :show-tree-menu="display.smAndDown.value"
+        @tree="mobileTreeOpen = true"
         :show-new-folder-button="!showFloatingNewFolderAction"
         @storagechanged="storageChanged"
         @pathchanged="pathChanged"
         @foldercreated="refreshPending = true"
-        @sortchanged="sortChanged"
       />
-      <div class="flex">
+      <div class="file-workspace__body">
         <FileNavigator
-          v-if="showDirTree"
+          v-if="showDirTree && display.mdAndUp.value"
           :storage="item.storage"
           :currentPath="item.path"
           :items="fileListItems"
@@ -328,7 +381,12 @@ onUnmounted(cleanupDrag)
           @navigate="pathChanged"
         />
         <!-- 拖动分隔条 -->
-        <div v-if="showDirTree" class="divider" :class="{ 'divider-dragging': isDragging }" @mousedown="startDrag">
+        <div
+          v-if="showDirTree && display.mdAndUp.value"
+          class="divider"
+          :class="{ 'divider-dragging': isDragging }"
+          @mousedown="startDrag"
+        >
           <div class="divider-line"></div>
           <VIcon class="divider-icon" size="small">mdi-drag-vertical</VIcon>
         </div>
@@ -339,9 +397,9 @@ onUnmounted(cleanupDrag)
           :axios="axios"
           :refreshpending="refreshPending"
           :sort="sort"
-          :showTree="showDirTree"
+          :showTree="display.mdAndUp.value ? showDirTree : mobileTreeOpen"
           :active="active"
-          :style="{ flex: 1 }"
+          class="file-workspace__list"
           @pathchanged="pathChanged"
           @loading="loadingChanged"
           @refreshed="refreshPending = false"
@@ -353,6 +411,29 @@ onUnmounted(cleanupDrag)
     </div>
   </div>
 
+  <VDialog
+    v-model="mobileTreeOpen"
+    class="file-navigation-sheet"
+    content-class="file-browser-sheet"
+    max-width="600"
+    scrollable
+  >
+    <VCard class="file-browser-sheet__surface">
+      <VCardTitle class="d-flex align-center justify-space-between"
+        >{{ $t('file.directoryTree') }}
+        <IconBtn :aria-label="$t('common.close')" @click="mobileTreeOpen = false"><VIcon icon="mdi-close" /></IconBtn>
+      </VCardTitle>
+      <FileNavigator
+        class="file-navigator--sheet"
+        :storage="item.storage"
+        :current-path="item.path"
+        :items="fileListItems"
+        :endpoints="endpoints"
+        :axios="axios"
+        @navigate="navigateMobileTree"
+      />
+    </VCard>
+  </VDialog>
   <Teleport to="body" v-if="!appMode && showFloatingNewFolderAction">
     <div class="compact-fab-stack">
       <VFab
@@ -367,6 +448,48 @@ onUnmounted(cleanupDrag)
 </template>
 
 <style scoped>
+.file-workspace {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+}
+.file-workspace__inner {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+  padding: 0.75rem 1.25rem 1.25rem;
+}
+.file-workspace__header {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+.file-workspace__header > :first-child {
+  min-inline-size: 0;
+}
+.file-workspace__header > :last-child {
+  flex-shrink: 0;
+}
+.file-workspace__body {
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+.file-workspace__list {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+@media (width < 960px) {
+  .file-workspace__inner {
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+}
+
 .divider {
   position: relative;
   display: flex;

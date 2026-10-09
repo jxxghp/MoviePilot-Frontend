@@ -1068,8 +1068,8 @@ onMounted(() => {
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  border-radius: var(--app-vuetify-rounded-pill);
-  background-color: rgba(var(--v-theme-surface-variant), 0.04);
+  border-radius: var(--app-search-input-radius);
+  background-color: var(--app-search-input-background);
   block-size: 48px;
   padding-inline: 14px 6px;
   transition:

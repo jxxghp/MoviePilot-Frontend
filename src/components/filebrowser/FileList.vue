@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import dayjs from 'dayjs'
 import type { AxiosRequestConfig } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -8,12 +9,24 @@ import type { Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/ty
 import api from '@/api'
 import type { DataApiClient } from '@/api'
 import { useDisplay } from 'vuetify'
+import { useResizeObserver } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
-import { usePWA } from '@/composables/usePWA'
-import { useAvailableHeight } from '@/composables/useAvailableHeight'
+import FileDetails from './FileDetails.vue'
+import type { FileAction } from './types'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+
+// 原生滚动条宽度随系统变化，表头与可滚动列表使用同一内容宽度。
+const tableRef = ref<HTMLElement | null>(null)
+const scrollbarWidth = ref(0)
+/** 测量列表的原生滚动条占位，使表头与列表项的右边缘对齐。 */
+function measureScrollbar() {
+  const list = tableRef.value?.querySelector<HTMLElement>('.file-list-container')
+  scrollbarWidth.value = list ? list.offsetWidth - list.clientWidth : 0
+}
+useResizeObserver(tableRef, measureScrollbar)
+onUpdated(measureScrollbar)
 
 const FileRenameDialog = defineAsyncComponent(() => import('../dialog/FileRenameDialog.vue'))
 const MediaInfoDialog = defineAsyncComponent(() => import('../dialog/MediaInfoDialog.vue'))
@@ -27,11 +40,6 @@ const { useProgressSSE } = useBackground()
 
 // 显示器宽度
 const display = useDisplay()
-
-const { appMode } = usePWA()
-
-// 计算列表可用高度
-const { availableHeight: listAvailableHeight } = useAvailableHeight(100, 300)
 
 // 输入参数
 const inProps = defineProps({
@@ -102,18 +110,26 @@ const newName = ref('')
 // 处理目录内所有文件
 const renameAll = ref(false)
 
+// 详情与移动操作面板只保存文件身份，目录数据不因预览而替换。
+const inspectedItem = ref<FileItem>()
+const actionItem = ref<FileItem>()
+const mobileActionsOpen = ref(false)
+const inspectorLoading = ref(false)
+let inspectorRequestSeed = 0
+const detailItem = computed(() => (isFile.value ? items.value[0] || inProps.item : inspectedItem.value))
+
 // 当前操作项
 const currentItem = ref<FileItem>()
 
 // 选中的项目
 const selected = ref<FileItem[]>([])
 
-// 生成文件项稳定键，用于去重和状态同步。
+/** 生成文件项稳定键，用于去重和状态同步。 */
 function getFileItemKey(item?: FileItem) {
   return [item?.storage ?? inProps.item.storage ?? '', item?.type ?? '', item?.path ?? ''].join('|')
 }
 
-// 按存储、类型和路径去重文件项。
+/** 按存储、类型和路径去重文件项。 */
 function dedupeFileItems(fileItems: FileItem[]) {
   const uniqueItems = new Map<string, FileItem>()
   fileItems.forEach(item => {
@@ -123,7 +139,7 @@ function dedupeFileItems(fileItems: FileItem[]) {
   return Array.from(uniqueItems.values())
 }
 
-// 列表刷新后将选中项同步为最新文件对象。
+/** 列表刷新后将选中项同步为最新文件对象。 */
 function syncSelectedItems(nextItems: FileItem[] = items.value) {
   if (!selected.value.length) return
 
@@ -135,12 +151,12 @@ function syncSelectedItems(nextItems: FileItem[] = items.value) {
 
 const selectedKeys = computed(() => new Set(selected.value.map(item => getFileItemKey(item))))
 
-// 判断文件项当前是否已选中。
+/** 判断文件项当前是否已选中。 */
 function isSelected(item: FileItem) {
   return selectedKeys.value.has(getFileItemKey(item))
 }
 
-// 更新单个文件项的选中状态。
+/** 更新单个文件项的选中状态。 */
 function setItemSelected(item: FileItem, checked: boolean) {
   const itemKey = getFileItemKey(item)
 
@@ -160,13 +176,13 @@ const nameTestResult = ref<Context>()
 let renameDialogController: ReturnType<typeof openSharedDialog> | null = null
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 
-// 打开共享进度弹窗并记录控制器，方便 SSE 更新文本和进度值。
+/** 打开共享进度弹窗并记录控制器，方便 SSE 更新文本和进度值。 */
 function openProgressDialog(text = progressText.value, value = progressValue.value) {
   progressDialogController?.close()
   progressDialogController = openSharedDialog(ProgressDialog, { text, value }, {}, { closeOn: false })
 }
 
-// 关闭当前共享进度弹窗。
+/** 关闭当前共享进度弹窗。 */
 function closeProgressDialog() {
   progressDialogController?.close()
   progressDialogController = null
@@ -178,7 +194,7 @@ const dropdownItems = ref<{ [key: string]: any }[]>([])
 // 进度是否激活
 const progressActive = ref(false)
 
-// 将 glob 模式转换为正则表达式
+/** 将 glob 模式转换为正则表达式。 */
 function globToRegex(pattern: string, flags: string = ''): RegExp {
   const regexStr = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
@@ -232,7 +248,7 @@ let imageRequestSeed = 0
 let listLoadingRequestSeed = 0
 let listRequestSeed = 0
 
-// 释放当前图片预览使用的临时对象地址。
+/** 释放当前图片预览使用的临时对象地址。 */
 function revokeCurrentImgLink() {
   if (!currentImgLink.value) return
 
@@ -240,25 +256,19 @@ function revokeCurrentImgLink() {
   currentImgLink.value = ''
 }
 
-// 是否为图片文件
-const isImage = computed(() => {
-  const ext = inProps.item.path?.split('.').pop()?.toLowerCase()
-  return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext ?? '')
-})
-
-// 调整选择模式
+/** 调整选择模式。 */
 function changeSelectMode() {
   selectMode.value = !selectMode.value
   if (!selectMode.value) selected.value = []
 }
 
-// 退出多选模式
+/** 退出多选模式。 */
 function exitSelectMode() {
   selectMode.value = false
   selected.value = []
 }
 
-// 调API加载文件夹内的内容
+/** 调API加载文件夹内的内容。 */
 async function list_files(context: KeepAliveRefreshContext = {}) {
   const requestSeed = ++listRequestSeed
   const silentRefresh = Boolean(context.silent && items.value.length > 0)
@@ -285,6 +295,10 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
 
     items.value = data
     syncSelectedItems(data)
+    if (inspectedItem.value) {
+      const updated = data.find(item => getFileItemKey(item) === getFileItemKey(inspectedItem.value))
+      inspectedItem.value = updated ? { ...inspectedItem.value, ...updated } : undefined
+    }
 
     // 通知父组件文件列表更新
     emit('items-updated', items.value)
@@ -298,7 +312,7 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
   }
 }
 
-// 请求删除文件项，由单项或批量操作分别决定反馈和刷新策略。
+/** 请求删除文件项，由单项或批量操作分别决定反馈和刷新策略。 */
 async function requestDeleteItem(item: FileItem) {
   const config: AxiosRequestConfig<FileItem> = {
     url: inProps.endpoints?.delete.url,
@@ -309,7 +323,7 @@ async function requestDeleteItem(item: FileItem) {
   return inProps.axios.request<null>(config)
 }
 
-// 删除项目
+/** 删除项目。 */
 async function deleteItem(item: FileItem, confirm: boolean = true) {
   if (confirm) {
     const confirmed = await createConfirm({
@@ -340,7 +354,7 @@ async function deleteItem(item: FileItem, confirm: boolean = true) {
   }
 }
 
-// 批量删除
+/** 批量删除。 */
 async function batchDelete() {
   if (!selected.value.length) return
 
@@ -392,22 +406,22 @@ async function batchDelete() {
   }
 }
 
-// 切换路径
+/** 切换路径。 */
 function changePath(item: FileItem) {
-  item.path = inProps.item.path + item.name + (item.type === 'dir' ? '/' : '')
-  emit('pathchanged', item)
+  emit('pathchanged', normalizeItem(item))
 }
 
-// 点击列表项
+/** 点击列表项。 */
 function listItemClick(item: FileItem) {
   if (selectMode.value) {
     setItemSelected(item, !isSelected(item))
     return false
   }
-  changePath(item)
+  if (item.type === 'dir') changePath(item)
+  else inspectItem(item)
 }
 
-// 新窗口中下载文件
+/** 新窗口中下载文件。 */
 async function download(item: FileItem) {
   const url = inProps.endpoints?.download.url
   // 下载文件
@@ -428,7 +442,7 @@ async function download(item: FileItem) {
   }
 }
 
-// 获取图片地址
+/** 获取图片地址。 */
 async function getImgLink(item: FileItem) {
   const requestSeed = ++imageRequestSeed
   const url = inProps.endpoints?.image.url
@@ -448,28 +462,84 @@ async function getImgLink(item: FileItem) {
   }
 }
 
-// 如果当前是图片且是文件，则获取图片地址
-watch(
-  () => inProps.item,
-  async () => {
-    imageRequestSeed += 1
-    revokeCurrentImgLink()
-    if (isImage.value && isFile.value) {
-      await getImgLink(inProps.item)
-    }
-  },
-  { immediate: true },
-)
+/** 路径使用后端返回值；兼容仅返回名称的存储，不修改列表对象。 */
+function normalizeItem(item: FileItem): FileItem {
+  return {
+    ...item,
+    path:
+      item.path && (item.path !== inProps.item.path || inProps.item.type === 'file')
+        ? item.path
+        : (inProps.item.path || '/') + item.name + (item.type === 'dir' ? '/' : ''),
+  }
+}
 
-// 显示重命名弹窗
+/** 预览保留目录列表与滚动位置，详情请求以身份和代次隔离迟到响应。 */
+async function inspectItem(item: FileItem) {
+  const normalized = normalizeItem(item)
+  const seed = ++inspectorRequestSeed
+  inspectedItem.value = normalized
+  inspectorLoading.value = true
+  try {
+    const data = await inProps.axios.request<FileItem[]>({
+      url: inProps.endpoints?.list.url.replace(/{sort}/g, inProps.sort || 'name'),
+      method: inProps.endpoints?.list.method || 'post',
+      data: normalized,
+    })
+    if (seed === inspectorRequestSeed && data?.[0]) inspectedItem.value = { ...normalized, ...data[0] }
+  } catch (error) {
+    console.error(error)
+  } finally {
+    if (seed === inspectorRequestSeed) inspectorLoading.value = false
+  }
+}
+
+/** 关闭预览后取消响应提交并释放临时图片，目录浏览状态保持不变。 */
+function closeInspector() {
+  inspectorRequestSeed += 1
+  inspectorLoading.value = false
+  inspectedItem.value = undefined
+  imageRequestSeed += 1
+  revokeCurrentImgLink()
+}
+
+/** 移动端使用底部面板，桌面端菜单保持稳定可见。 */
+function openActions(item: FileItem) {
+  actionItem.value = normalizeItem(item)
+  mobileActionsOpen.value = true
+}
+
+/** 单项入口共用原业务方法，操作面板先关闭，确认与失败反馈继续由原流程负责。 */
+function runAction(action: FileAction, item: FileItem) {
+  mobileActionsOpen.value = false
+  const target = normalizeItem(item)
+  if (action === 'recognize') void recognize(target.path || '')
+  else if (action === 'scrape') showScrape(target)
+  else if (action === 'rename') showRenmae(target)
+  else if (action === 'reorganize') showTransfer(target)
+  else if (action === 'download') void download(target)
+  else void deleteItem(target)
+}
+
+/** 全选仅针对当前筛选结果；隐藏的已选项保留，取消全选不误清除其它选择。 */
+function toggleSelectAll() {
+  const allSelected = displayItems.value.length > 0 && displayItems.value.every(isSelected)
+  displayItems.value.forEach(item => setItemSelected(item, !allSelected))
+}
+
+/** 列表时间列优先保持固定宽度，移动端仅展示本地日期。 */
+function formatDate(timestamp?: number) {
+  return timestamp ? dayjs(timestamp * 1000).format('YYYY-MM-DD') : '—'
+}
+
+/** 显示重命名弹窗。 */
 function showRenmae(item: FileItem) {
-  currentItem.value = item
+  currentItem.value = normalizeItem(item)
   newName.value = item.name
   renameAll.value = false
   openRenameDialog()
 }
 
-// 打开共享重命名弹窗，并双向同步当前文件名和递归选项。
+/** 打开共享重命名弹窗，并双向同步当前文件名和递归选项。 */
 function openRenameDialog() {
   renameDialogController = openSharedDialog(
     FileRenameDialog,
@@ -495,14 +565,14 @@ function openRenameDialog() {
   )
 }
 
-// 调用API获取新名称
+/** 调用API获取新名称。 */
 async function get_recommend_name() {
   renameLoading.value = true
   renameDialogController?.updateProps({ loading: true })
   try {
     const result = await api.get<{ name: string }>('transfer/name', {
       params: {
-        path: `${inProps.item.path}${currentItem.value?.name}`,
+        path: currentItem.value?.path,
         filetype: currentItem.value?.type ?? 'file',
       },
     })
@@ -514,7 +584,7 @@ async function get_recommend_name() {
   renameDialogController?.updateProps({ loading: false, name: newName.value })
 }
 
-// 仅在后端确认成功后关闭编辑弹窗并通知刷新；失败时保留输入以便重试。
+/** 仅在后端确认成功后关闭编辑弹窗并通知刷新；失败时保留输入以便重试。 */
 async function rename() {
   emit('loading', true)
   const recursive = renameAll.value
@@ -558,25 +628,25 @@ async function rename() {
   }
 }
 
-// 显示整理对话框
+/** 显示整理对话框。 */
 function showTransfer(item: FileItem) {
   transferItems.value = [item]
   openTransferDialog()
 }
 
-// 显示批量整理对话框
+/** 显示批量整理对话框。 */
 function showBatchTransfer() {
   transferItems.value = dedupeFileItems(selected.value)
   openTransferDialog()
 }
 
-// 整理完成
+/** 整理完成。 */
 function transferDone() {
   exitSelectMode()
   list_files()
 }
 
-// 打开共享文件整理弹窗，整理完成后刷新当前目录。
+/** 打开共享文件整理弹窗，整理完成后刷新当前目录。 */
 function openTransferDialog() {
   openSharedDialog(
     ReorganizeDialog,
@@ -592,12 +662,12 @@ function openTransferDialog() {
   )
 }
 
-// 将文件修改时间（timestape）转换为本地时间
+/** 将文件修改时间（timestape）转换为本地时间。 */
 function formatTime(timestape: number) {
-  return new Date(timestape * 1000).toLocaleString()
+  return dayjs(timestape * 1000).format('YYYY-MM-DD HH:mm')
 }
 
-// 切换文件树显示
+/** 切换文件树显示。 */
 function switchFileTree(state: boolean) {
   emit('switch-tree', state)
 }
@@ -617,6 +687,9 @@ watch(
 watch(
   () => inProps.item,
   async () => {
+    // 切换目录使旧详情请求失效，防止将旧文件显示在新目录。
+    closeInspector()
+    mobileActionsOpen.value = false
     // 清空列表
     items.value = []
     selected.value = []
@@ -680,7 +753,7 @@ watch(
   { immediate: true },
 )
 
-// 调用API识别
+/** 调用API识别。 */
 async function recognize(path: string) {
   try {
     // 显示进度条
@@ -704,7 +777,7 @@ async function recognize(path: string) {
   }
 }
 
-// 调用 API 按请求级媒体条件刮削单个文件项。
+/** 调用 API 按请求级媒体条件刮削单个文件项。 */
 async function scrape(item: FileItem, options: ManualScrapeOptions, silent = false) {
   try {
     progressText.value = t('file.scraping', { path: item.path })
@@ -723,7 +796,7 @@ async function scrape(item: FileItem, options: ManualScrapeOptions, silent = fal
   }
 }
 
-// 按同一媒体条件依次刮削选中的文件项。
+/** 按同一媒体条件依次刮削选中的文件项。 */
 async function scrapeItems(itemsToScrape: FileItem[], options: ManualScrapeOptions) {
   const normalizedItems = dedupeFileItems(itemsToScrape)
   if (!normalizedItems.length) return
@@ -753,17 +826,17 @@ async function scrapeItems(itemsToScrape: FileItem[], options: ManualScrapeOptio
   }
 }
 
-// 打开单项手动刮削弹窗。
+/** 打开单项手动刮削弹窗。 */
 function showScrape(item: FileItem) {
   openScrapeDialog([item])
 }
 
-// 打开批量手动刮削弹窗。
+/** 打开批量手动刮削弹窗。 */
 function showBatchScrape() {
   openScrapeDialog(dedupeFileItems(selected.value))
 }
 
-// 打开手动刮削弹窗，并将确认结果交给文件列表执行。
+/** 打开手动刮削弹窗，并将确认结果交给文件列表执行。 */
 function openScrapeDialog(itemsToScrape: FileItem[]) {
   if (!itemsToScrape.length) return
   openSharedDialog(
@@ -776,7 +849,7 @@ function openScrapeDialog(itemsToScrape: FileItem[]) {
   )
 }
 
-// 进度SSE消息处理函数
+/** 进度SSE消息处理函数。 */
 function handleProgressMessage(event: MessageEvent) {
   const progress = JSON.parse(event.data)
   if (progress) {
@@ -794,24 +867,35 @@ const progressSSE = useProgressSSE(
   progressActive,
 )
 
-// 使用SSE监听加载进度
+/** 使用SSE监听加载进度。 */
 function startLoadingProgress() {
   progressText.value = t('common.pleaseWait')
   progressActive.value = true
   progressSSE.start()
 }
 
-// 停止监听加载进度
+/** 停止监听加载进度。 */
 function stopLoadingProgress() {
   progressActive.value = false
   progressSSE.stop()
 }
+
+watch(
+  () => detailItem.value,
+  async item => {
+    imageRequestSeed += 1
+    revokeCurrentImgLink()
+    if (item?.type === 'file' && /\.(png|jpe?g|gif|bmp|webp)$/i.test(item.path || '')) await getImgLink(item)
+  },
+  { immediate: true },
+)
 
 useKeepAliveRefresh(list_files, {
   active: computed(() => inProps.active),
 })
 
 onUnmounted(() => {
+  inspectorRequestSeed += 1
   imageRequestSeed += 1
   listLoadingRequestSeed = ++listRequestSeed
   revokeCurrentImgLink()
@@ -822,170 +906,510 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
-    <VCard class="d-flex flex-column w-full h-full file-list">
-      <div v-if="!loading" class="flex">
-        <IconBtn v-if="display.mdAndUp.value">
-          <VIcon v-if="showTree" icon="mdi-file-tree" @click="switchFileTree(false)" />
-          <VIcon v-else icon="mdi-file-tree-outline" @click="switchFileTree(true)" />
-        </IconBtn>
-        <VTextField
-          v-if="!isFile"
+  <div class="file-list">
+    <div class="file-list__toolbar">
+      <VBtn
+        variant="outlined"
+        color="on-surface"
+        class="file-list__tree"
+        :aria-label="t('file.directoryTree')"
+        :aria-pressed="showTree"
+        @click="switchFileTree(!showTree)"
+      >
+        <VIcon icon="mdi-file-tree-outline" /><span>{{ t('file.directoryTree') }}</span>
+      </VBtn>
+      <div v-if="!isFile" class="file-list__filter file-list__search search-input-wrapper">
+        <VIcon icon="mdi-magnify" size="18" class="search-input-icon" />
+        <input
+          class="search-native-input"
           v-model="filter"
-          hide-details
-          flat
-          density="compact"
-          variant="plain"
-          :placeholder="t('file.filterPlaceholder')"
-          :prepend-inner-icon="filter.includes('*') || filter.includes('?') ? 'mdi-asterisk' : 'mdi-filter-outline'"
-          class="mx-2"
+          :placeholder="t('file.currentDirectoryFilter')"
+          :aria-label="t('file.currentDirectoryFilter')"
+          type="search"
         />
-        <VSpacer v-if="isFile" />
-        <IconBtn v-if="!isFile && !selectMode" @click="ignoreCase = !ignoreCase">
-          <VIcon :color="ignoreCase ? 'primary' : 'error'" icon="mdi-format-letter-case" />
-        </IconBtn>
-        <IconBtn v-if="isFile" @click="recognize(inProps.item.path || '')">
-          <VIcon color="primary"> mdi-text-recognition </VIcon>
-        </IconBtn>
-        <IconBtn v-if="isFile && items.length > 0" @click="download(items[0])">
-          <VIcon color="primary"> mdi-download </VIcon>
-        </IconBtn>
-        <IconBtn v-if="!isFile && !selectMode" @click="list_files">
-          <VIcon color="primary"> mdi-refresh </VIcon>
-        </IconBtn>
-        <!-- 批量操作按钮 -->
-        <span v-if="selected.length > 0">
-          <IconBtn @click.stop="showBatchScrape">
-            <VIcon color="primary" icon="mdi-auto-fix" />
-          </IconBtn>
-          <IconBtn @click.stop="showBatchTransfer">
-            <VIcon color="primary" icon="mdi-folder-arrow-right" />
-          </IconBtn>
-          <IconBtn @click.stop="batchDelete">
-            <VIcon icon="mdi-delete-outline" color="error" />
-          </IconBtn>
-        </span>
-        <IconBtn v-if="!isFile" @click="changeSelectMode">
-          <VIcon color="primary" :icon="selectMode ? 'mdi-selection-remove' : 'mdi-select'" />
-        </IconBtn>
       </div>
-      <LoadingBanner v-if="loading" />
-      <!-- 文件详情 -->
-      <VCardText v-else-if="isFile && !isImage && items.length > 0" class="text-center break-all">
-        <div v-if="items[0]?.thumbnail" class="flex justify-center">
-          <VImg max-width="15rem" cover :src="items[0]?.thumbnail" class="rounded border">
-            <template #placeholder>
-              <VSkeletonLoader class="object-cover w-full h-full" />
-            </template>
-          </VImg>
+      <div v-else class="file-list__filter" />
+      <IconBtn
+        v-if="!isFile"
+        variant="outlined"
+        :aria-label="t('file.ignoreCase')"
+        :aria-pressed="ignoreCase"
+        @click="ignoreCase = !ignoreCase"
+        ><VIcon icon="mdi-format-letter-case" :color="ignoreCase ? 'primary' : undefined"
+      /></IconBtn>
+      <VBtn
+        v-if="!isFile"
+        variant="outlined"
+        color="on-surface"
+        :aria-pressed="selectMode"
+        :aria-label="t('file.select')"
+        @click="changeSelectMode"
+        ><VIcon :icon="selectMode ? 'mdi-selection-remove' : 'mdi-select'" /><span class="file-list__select-label">{{
+          t(selectMode ? 'file.finishSelection' : 'file.select')
+        }}</span></VBtn
+      >
+    </div>
+    <div v-if="selectMode" class="file-list__selection">
+      <VBtn variant="text" @click="toggleSelectAll">{{ t('file.selectAll') }}</VBtn>
+      <span>{{ t('file.selectedItems', { count: selected.length }) }}</span>
+      <div class="file-list__batch">
+        <IconBtn :disabled="!selected.length" :aria-label="t('file.scrape')" @click="showBatchScrape"
+          ><VIcon icon="mdi-auto-fix"
+        /></IconBtn>
+        <IconBtn :disabled="!selected.length" :aria-label="t('file.reorganize')" @click="showBatchTransfer"
+          ><VIcon icon="mdi-folder-arrow-right"
+        /></IconBtn>
+        <IconBtn :disabled="!selected.length" :aria-label="t('common.delete')" @click="batchDelete"
+          ><VIcon icon="mdi-delete-outline" color="error"
+        /></IconBtn>
+      </div>
+    </div>
+    <div
+      class="file-list__content"
+      :class="{ 'file-list__content--detail': detailItem && display.mdAndUp.value, 'file-list__content--file': isFile }"
+    >
+      <div
+        v-if="!isFile"
+        ref="tableRef"
+        class="file-list__table"
+        :style="{ '--file-scrollbar-width': `${scrollbarWidth}px` }"
+      >
+        <div class="file-list__columns">
+          <span>{{ t('file.fileName') }}</span
+          ><span>{{ t('file.size') }}</span
+          ><span>{{ t('file.modifyTime') }}</span
+          ><span />
         </div>
-        <div class="text-xl text-high-emphasis mt-3">{{ items[0]?.name }}</div>
-        <p class="mt-2" v-if="items[0]?.size && items[0].modify_time">
-          {{ t('file.size') }}：{{ formatBytes(items[0]?.size || 0) }}<br />
-          {{ t('file.modifyTime') }}：{{ formatTime(items[0]?.modify_time || 0) }}
-        </p>
-      </VCardText>
-      <!-- 图片 -->
-      <VCardText v-else-if="isFile && isImage && items.length > 0" class="grow d-flex justify-center align-center">
-        <VImg :src="currentImgLink" max-width="100%" max-height="100%" />
-      </VCardText>
-      <!-- 目录和文件列表 -->
-      <VCardText v-else-if="dirs.length || files.length" class="p-0 flex-grow-1 overflow-hidden">
-        <VList
-          class="text-high-emphasis file-list-container"
-          :style="{ height: `${listAvailableHeight}px`, maxHeight: `${listAvailableHeight}px` }"
+        <LoadingBanner v-if="loading" />
+        <VVirtualScroll
+          v-else-if="displayItems.length"
+          :items="displayItems"
+          :item-height="display.mdAndUp.value ? 58 : 52"
+          class="file-list-container"
+          role="list"
+          :aria-label="t('navItems.fileManager')"
         >
-          <VVirtualScroll :items="displayItems" style="block-size: 100%">
-            <template #default="{ item }">
-              <VHover>
-                <template #default="hover">
-                  <VListItem v-bind="hover.props" class="px-3 pe-1" @click="listItemClick(item)">
-                    <template #prepend>
-                      <VListItemAction v-if="selectMode">
-                        <VCheckbox
-                          :model-value="isSelected(item)"
-                          @update:model-value="setItemSelected(item, !!$event)"
-                          @click.stop
-                        />
-                      </VListItemAction>
-                      <template v-else>
-                        <VIcon
-                          v-if="inProps.icons && item.extension"
-                          :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
-                        />
-                        <VIcon v-else-if="item.type == 'dir'" icon="mdi-folder" />
-                        <VIcon v-else icon="mdi-file-outline" />
-                      </template>
-                    </template>
-                    <VListItemTitle v-text="item.name" />
-                    <VListItemSubtitle v-if="item.size">
-                      {{ formatBytes(item.size) }}
-                    </VListItemSubtitle>
-                    <template #append>
-                      <IconBtn v-if="display.smAndDown.value && !selectMode">
-                        <VIcon icon="mdi-dots-vertical" />
-                        <VMenu activator="parent" close-on-content-click>
-                          <VList>
-                            <template v-for="(menu, i) in dropdownItems" :key="i">
-                              <VListItem
-                                v-if="menu.show"
-                                :base-color="menu.props.color"
-                                @click="menu.props.click(item)"
-                              >
-                                <template #prepend>
-                                  <VIcon :icon="menu.props.prependIcon" />
-                                </template>
-                                <VListItemTitle v-text="menu.title" />
-                              </VListItem>
-                            </template>
-                          </VList>
-                        </VMenu>
-                      </IconBtn>
-                      <span v-if="hover.isHovering && display.mdAndUp.value && !selectMode" class="flex">
-                        <IconBtn @click.stop="recognize(item.path)">
-                          <VIcon icon="mdi-text-recognition" />
-                        </IconBtn>
-                        <IconBtn @click.stop="showScrape(item)">
-                          <VIcon icon="mdi-auto-fix" />
-                        </IconBtn>
-                        <IconBtn @click.stop="showRenmae(item)">
-                          <VIcon icon="mdi-rename" />
-                        </IconBtn>
-                        <IconBtn @click.stop="showTransfer(item)">
-                          <VIcon icon="mdi-folder-arrow-right" />
-                        </IconBtn>
-                        <IconBtn @click.stop="deleteItem(item)">
-                          <VIcon icon="mdi-delete-outline" color="error" />
-                        </IconBtn>
-                      </span>
-                    </template>
-                  </VListItem>
-                </template>
-              </VHover>
-            </template>
-          </VVirtualScroll>
-        </VList>
-      </VCardText>
-      <VCardText v-else-if="filter" class="grow d-flex justify-center align-center grey--text py-5">
-        {{ t('file.noFiles') }}
-      </VCardText>
-      <VCardText v-else-if="!loading" class="grow d-flex justify-center align-center grey--text py-5">
-        {{ t('file.emptyDirectory') }}
-      </VCardText>
-    </VCard>
+          <template #default="{ item }">
+            <VListItem
+              class="file-row"
+              :class="{
+                'file-row--active': isSelected(item) || getFileItemKey(inspectedItem) === getFileItemKey(item),
+              }"
+              role="listitem"
+              tabindex="0"
+              @click="listItemClick(item)"
+              @keydown.enter.prevent="listItemClick(item)"
+              @keydown.space.prevent="listItemClick(item)"
+            >
+              <div class="file-row__name">
+                <VCheckbox
+                  v-if="selectMode"
+                  :model-value="isSelected(item)"
+                  :aria-label="item.name"
+                  hide-details
+                  density="compact"
+                  @update:model-value="setItemSelected(item, !!$event)"
+                  @click.stop
+                />
+                <VIcon
+                  v-else
+                  :icon="
+                    item.type === 'dir'
+                      ? 'mdi-folder'
+                      : icons?.[item.extension?.toLowerCase() || ''] || 'mdi-file-outline'
+                  "
+                  :color="item.type === 'dir' ? 'primary' : undefined"
+                  size="24"
+                />
+                <span :title="item.name">{{ item.name }}</span>
+              </div>
+              <span class="file-row__size">{{
+                typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0
+                  ? formatBytes(item.size)
+                  : ''
+              }}</span>
+              <span class="file-row__time" :title="item.modify_time ? formatTime(item.modify_time) : undefined">{{
+                display.mdAndUp.value && item.modify_time ? formatTime(item.modify_time) : formatDate(item.modify_time)
+              }}</span>
+              <template #append>
+                <IconBtn
+                  v-if="display.smAndDown.value && !selectMode"
+                  :aria-label="t('file.actionsFor', { name: item.name })"
+                  @click.stop="openActions(item)"
+                  ><VIcon icon="mdi-dots-horizontal"
+                /></IconBtn>
+                <VMenu v-else-if="!selectMode">
+                  <template #activator="{ props }"
+                    ><IconBtn v-bind="props" :aria-label="t('file.actionsFor', { name: item.name })" @click.stop
+                      ><VIcon icon="mdi-dots-horizontal" /></IconBtn
+                  ></template>
+                  <VList
+                    ><VListItem
+                      v-for="menu in dropdownItems"
+                      :key="menu.value"
+                      :title="menu.title"
+                      :prepend-icon="menu.props.prependIcon"
+                      :base-color="menu.props.color"
+                      @click="
+                        runAction(
+                          menu.value === 1
+                            ? 'recognize'
+                            : menu.value === 2
+                              ? 'scrape'
+                              : menu.value === 3
+                                ? 'rename'
+                                : menu.value === 4
+                                  ? 'reorganize'
+                                  : 'delete',
+                          item,
+                        )
+                      " />
+                    <VListItem
+                      v-if="item.type === 'file'"
+                      :title="t('file.download')"
+                      prepend-icon="mdi-download"
+                      @click="runAction('download', item)"
+                  /></VList>
+                </VMenu>
+              </template>
+            </VListItem>
+          </template>
+        </VVirtualScroll>
+        <div v-else class="file-list__empty">
+          <VIcon icon="mdi-folder-open-outline" size="40" />
+          <p>{{ t(filter ? 'file.noFiles' : 'file.emptyDirectory') }}</p>
+        </div>
+      </div>
+      <FileDetails
+        v-if="detailItem && (display.mdAndUp.value || isFile)"
+        class="file-list__inspector"
+        :item="detailItem"
+        :image-url="currentImgLink"
+        :loading="inspectorLoading"
+        @action="runAction"
+        @close="
+          isFile
+            ? emit('pathchanged', {
+                ...inProps.item,
+                type: 'dir',
+                path: (inProps.item.path || '').replace(/[^/]+$/, ''),
+                name: '',
+              })
+            : closeInspector()
+        "
+      />
+    </div>
+    <VDialog
+      v-model="mobileActionsOpen"
+      class="file-action-sheet"
+      content-class="file-browser-sheet"
+      max-width="600"
+      scrollable
+    >
+      <VCard class="file-browser-sheet__surface"
+        ><FileDetails
+          v-if="actionItem"
+          :item="actionItem"
+          actions-only
+          @action="runAction"
+          @close="mobileActionsOpen = false"
+      /></VCard>
+    </VDialog>
+    <VDialog
+      :model-value="Boolean(detailItem && display.smAndDown.value && !isFile)"
+      class="file-preview-sheet"
+      content-class="file-browser-sheet"
+      max-width="600"
+      scrollable
+      @update:model-value="!$event && closeInspector()"
+    >
+      <VCard class="file-browser-sheet__surface"
+        ><FileDetails
+          v-if="detailItem"
+          :item="detailItem"
+          :image-url="currentImgLink"
+          :loading="inspectorLoading"
+          @action="runAction"
+          @close="closeInspector"
+      /></VCard>
+    </VDialog>
   </div>
 </template>
-
-<style scoped>
+<style scoped lang="scss">
 .file-list {
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-.file-list-container {
-  overflow: hidden auto;
-  border-radius: 0 !important;
+  container-type: inline-size;
+  container-name: file-list;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
   block-size: 100%;
-  max-block-size: 100%;
+}
+.file-list__toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block-end: 0.625rem;
+}
+.file-list__toolbar :deep(.v-btn) {
+  min-block-size: 2rem;
+  block-size: 2rem;
+  border-color: var(--app-grouped-list-separator-color);
+  border-radius: var(--app-control-radius);
+  letter-spacing: 0;
+}
+.file-list__tree {
+  gap: 0.5rem;
+}
+.file-list__filter {
+  flex: 1;
+  min-inline-size: 0;
+}
+.file-list__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  block-size: 2rem;
+  padding-inline: 0.75rem;
+  border-radius: var(--app-search-input-radius);
+  background: var(--app-search-input-background);
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+.file-list__search input {
+  flex: 1;
+  min-inline-size: 0;
+  inline-size: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.87);
+  font-size: 0.8125rem;
+}
+.file-list__search input::placeholder {
+  color: rgba(var(--v-theme-on-surface), 0.38);
+}
+.file-list__search:focus-within {
+  box-shadow: inset 0 0 0 1px rgb(var(--v-theme-primary)) !important;
+}
+.file-list__selection {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  padding-block: 0.25rem;
+}
+.file-list__batch {
+  margin-inline-start: auto;
+  display: flex;
+}
+.file-list__content {
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+.file-list__table {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.file-list__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 10rem 2.75rem;
+  // Safari 的 flex-basis 不会建立确定的网格块高度，需显式约束行尺寸。
+  block-size: 2rem;
+  min-block-size: 2rem;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: center;
+  align-content: center;
+  flex: 0 0 2rem;
+  margin-inline-end: var(--file-scrollbar-width, 0px);
+  padding-inline: 1rem 0.25rem;
+  gap: 1rem;
+  font-size: 0.875rem;
+  background: rgba(var(--v-theme-on-surface), var(--v-hover-opacity));
+  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+}
+.file-list-container {
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border-radius: 0;
+}
+.file-row {
+  min-block-size: 3.625rem;
+  padding-inline: 1rem 0.25rem;
+  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  border-radius: 0;
+  display: grid;
+  align-items: center;
+  cursor: pointer;
+}
+.file-row :deep(.v-list-item__content) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 10rem;
+  align-items: center;
+  gap: 1rem;
+}
+.file-row :deep(.v-list-item__append) {
+  inline-size: 2.75rem;
+  margin-inline-start: 1rem;
+  justify-content: center;
+}
+.file-row:hover,
+.file-row:focus-visible,
+.file-row--active {
+  border-radius: var(--app-control-radius);
+}
+.file-row--active {
+  background: var(--app-grouped-list-active-background);
+}
+.file-row__name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.file-row__name > span {
+  font-size: 0.875rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.file-row__name :deep(.v-input) {
+  flex: 0 0 auto;
+}
+.file-row__size,
+.file-row__time {
+  font-size: 0.875rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.file-list__inspector {
+  flex: 0 0 32%;
+  min-inline-size: 16rem;
+  border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+}
+.file-list__content--file .file-list__inspector {
+  flex: 1;
+  max-inline-size: 48rem;
+  margin-inline: auto;
+  border-inline-start: 0;
+}
+.file-list__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+@container file-list (width < 900px) {
+  .file-list__content--detail .file-row :deep(.v-list-item__content) {
+    grid-template-columns: minmax(0, 1fr) 5rem;
+  }
+  .file-list__content--detail .file-list__columns {
+    grid-template-columns: minmax(0, 1fr) 5rem 2.75rem;
+  }
+  .file-list__content--detail .file-row__time,
+  .file-list__content--detail .file-list__columns > span:nth-child(3) {
+    display: none;
+  }
+}
+@media (width < 960px) {
+  .file-list__toolbar {
+    flex-wrap: nowrap;
+    gap: 0.375rem;
+    padding-block-end: 0.5rem;
+  }
+  .file-list__filter {
+    flex: 1;
+  }
+  .file-list__toolbar :deep(.v-btn) {
+    min-inline-size: 2rem;
+    inline-size: 2rem;
+    padding-inline: 0;
+  }
+  .file-list__tree,
+  .file-list__select-label {
+    display: none;
+  }
+  .file-list__columns {
+    grid-template-columns: minmax(0, 1fr) 3.75rem 5rem 2rem;
+    padding-inline: 0.5rem 0;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+  }
+  .file-row {
+    min-block-size: 3.25rem;
+    padding-inline: 0.5rem 0;
+  }
+  .file-row :deep(.v-list-item__content) {
+    grid-template-columns: minmax(0, 1fr) 3.75rem 5rem;
+    gap: 0.375rem;
+  }
+  .file-row :deep(.v-list-item__append) {
+    inline-size: 2rem;
+    margin-inline-start: 0.375rem;
+  }
+  .file-row__name {
+    gap: 0.375rem;
+  }
+  .file-row__name > span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+  .file-row__name :deep(.v-icon) {
+    font-size: 1.25rem;
+  }
+  .file-row__size,
+  .file-row__time {
+    font-size: 0.6875rem;
+  }
+  .file-row :deep(.v-list-item__append .v-btn) {
+    inline-size: 2rem;
+  }
+}
+@media (width < 360px) {
+  .file-list__columns {
+    grid-template-columns: minmax(0, 1fr) 3.75rem 2rem;
+  }
+  .file-row :deep(.v-list-item__content) {
+    grid-template-columns: minmax(0, 1fr) 3.75rem;
+  }
+  .file-row__time,
+  .file-list__columns > span:nth-child(3) {
+    display: none;
+  }
+}
+</style>
+<style lang="scss">
+.file-browser-sheet.v-overlay__content {
+  align-self: flex-end;
+  margin: 0 !important;
+  inline-size: 100% !important;
+  max-block-size: calc(100dvh - env(safe-area-inset-top, 0px) - 1rem) !important;
+}
+.file-browser-sheet__surface {
+  overflow: hidden;
+  min-block-size: 0;
+  max-block-size: inherit;
+  border-end-start-radius: var(--app-vuetify-rounded-0) !important;
+  border-end-end-radius: var(--app-vuetify-rounded-0) !important;
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+}
+.file-browser-sheet .file-details {
+  max-block-size: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1rem);
 }
 </style>

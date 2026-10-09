@@ -581,6 +581,11 @@ describe('TransferHistoryView', () => {
   })
 
   it('remembers manual grouping when returning from another route without query parameters', async () => {
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === 'storage/options' ? storageResponse() : historyResponse([createHistory(1, '分组偏好记录')]),
+      ),
+    )
     const { router } = await renderHistoryRoute()
     await flushPromises()
 
@@ -618,6 +623,11 @@ describe('TransferHistoryView', () => {
   })
 
   it.each(['true', 'false'])('restores saved grouping %s and lets an explicit URL override it', async saved => {
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === 'storage/options' ? storageResponse() : historyResponse([createHistory(1, '分组偏好记录')]),
+      ),
+    )
     localStorage.setItem('transferHistory.grouped', saved)
     const { router } = await renderHistory()
     await flushPromises()
@@ -1369,6 +1379,29 @@ describe('TransferHistoryView', () => {
     expect(router.currentRoute.value.path).toBe('/downloading')
   })
 
+  it('shows the shared 404 empty state after an empty desktop response and hides zero-count pagination', async () => {
+    const pending = createDeferred<ReturnType<typeof historyResponse>>()
+    mocks.apiGet.mockImplementation((path: string) =>
+      path === 'history/transfer' ? pending.promise : Promise.resolve(storageResponse()),
+    )
+    await renderHistory()
+    expect(screen.queryByRole('img', { name: '404' })).not.toBeInTheDocument()
+    pending.resolve(historyResponse([]))
+    await screen.findByRole('img', { name: '404' })
+    expect(screen.getByText(i18n.global.t('transferHistory.noData'))).toBeInTheDocument()
+    expect(screen.queryByLabelText('整理历史桌面列表')).not.toBeInTheDocument()
+    expect(document.querySelector('.transfer-history-desktop-pagination')).toBeNull()
+  })
+
+  it('does not show the 404 empty state when the initial desktop request fails', async () => {
+    mocks.apiGet.mockImplementation((path: string) =>
+      path === 'history/transfer' ? Promise.reject(new Error('unavailable')) : Promise.resolve(storageResponse()),
+    )
+    await renderHistory()
+    await flushPromises()
+    expect(screen.queryByRole('img', { name: '404' })).not.toBeInTheDocument()
+  })
+
   it('shows the mobile empty state inside the list only after a successful empty response', async () => {
     mocks.desktop = false
     await renderHistory()
@@ -1378,6 +1411,7 @@ describe('TransferHistoryView', () => {
 
     const emptyState = await screen.findByText(i18n.global.t('transferHistory.noData'))
     expect(screen.getByLabelText('整理历史无限列表')).toContainElement(emptyState)
+    expect(screen.getByRole('img', { name: '404' })).toBeInTheDocument()
   })
 
   it('loads mobile pages with deduplication and reports empty when the last page is exhausted', async () => {

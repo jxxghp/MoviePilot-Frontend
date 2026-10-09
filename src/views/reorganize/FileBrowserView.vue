@@ -41,7 +41,7 @@ const operItem = ref<FileItem | undefined>(undefined)
 // fileid的堆栈
 const itemstack = ref<FileItem[]>([])
 
-// 计算公共路径
+/** 将下载目录归并到共同入口，兼容 Windows 路径分隔符。 */
 function findCommonPath(paths: string[]): string {
   let commonPath
   if (!paths || paths.length === 0) {
@@ -77,6 +77,7 @@ function findCommonPath(paths: string[]): string {
 
 const STORAGE_KEY = 'fileBrowserView.activeStorage'
 
+/** 文件浏览器初始存储与路径入口。 */
 interface BrowserInitialParams {
   storage: string
   path: string
@@ -130,7 +131,7 @@ function determineBrowserInitialParams(downloadDirectories: DownloadDirectory[])
   }
 }
 
-// 查询下载目录
+/** 加载可用存储和初始下载目录，并建立导航路径栈。 */
 async function loadDownloadDirectories() {
   try {
     // fetch available storages
@@ -170,7 +171,7 @@ async function loadDownloadDirectories() {
   }
 }
 
-// 目录变化
+/** 切换当前路径并同步存储偏好及面包屑路径栈。 */
 function pathChanged(item: FileItem) {
   // save storage to localStorage
   if (item.storage !== operItem.value?.storage) {
@@ -203,7 +204,7 @@ onMounted(loadDownloadDirectories)
 </script>
 
 <template>
-  <div class="file-browser-view app-surface-static" data-glass-optical-surface>
+  <div class="file-browser-page">
     <FileBrowser
       v-if="operItem"
       :storages="storages"
@@ -218,7 +219,7 @@ onMounted(loadDownloadDirectories)
 </template>
 
 <style lang="scss" scoped>
-.file-browser-view {
+.file-browser-page {
   position: relative;
   overflow: hidden;
   block-size: 100%;

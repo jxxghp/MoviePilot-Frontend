@@ -3262,10 +3262,7 @@ onScopeDispose(() => {
               </span>
             </div>
 
-            <div
-              v-if="message.role === 'assistant' && message.segments.length"
-              class="agent-assistant-segments"
-            >
+            <div v-if="message.role === 'assistant' && message.segments.length" class="agent-assistant-segments">
               <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
                 <div v-if="segment.type === 'thinking'" class="agent-assistant-thinking" role="status">
                   <span class="agent-assistant-thinking__dots" aria-hidden="true">
@@ -4296,7 +4293,6 @@ onScopeDispose(() => {
   max-block-size: 8rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
 }
 
 .agent-assistant-pending-file {
@@ -4348,7 +4344,6 @@ onScopeDispose(() => {
   max-block-size: 15rem;
   overflow-y: auto;
   pointer-events: auto;
-  scrollbar-width: thin;
 }
 
 .agent-assistant-command {

@@ -86,7 +86,9 @@ const VirtualScrollStub = defineComponent({
 })
 
 const ListItemStub = defineComponent({
-  template: '<div role="button" class="test-list-item"><slot name="prepend" /><slot /><slot name="append" /></div>',
+  props: ['title', 'prependIcon'],
+  template:
+    '<div role="button" class="test-list-item" @click.stop><button v-if="prependIcon" type="button"><span :data-icon="prependIcon" /></button>{{ title }}<slot name="prepend" /><slot /><slot name="append" /></div>',
 })
 
 const TextFieldStub = defineComponent({
@@ -104,6 +106,12 @@ const ImageStub = defineComponent({
 const stubs = {
   IconBtn: IconBtnStub,
   LoadingBanner: true,
+  VBtn: defineComponent({
+    props: ['prependIcon'],
+    template:
+      '<button type="button"><span v-if="prependIcon" class="test-icon" :data-icon="prependIcon">{{ prependIcon }}</span><slot /></button>',
+  }),
+  VMenu: defineComponent({ template: '<div><slot name="activator" :props="{}" /><slot /></div>' }),
   VCheckbox: true,
   VHover: HoverStub,
   VIcon: IconStub,
@@ -210,9 +218,40 @@ describe('FileList list state', () => {
       method: 'post',
       url: '/storage/list/name',
     })
-    const renderedNames = Array.from(document.querySelectorAll('.test-list-item')).map(item => item.textContent)
+    const renderedNames = Array.from(document.querySelectorAll('.file-row')).map(item => item.textContent)
     expect(renderedNames[0]).toContain('z-directory')
     expect(renderedNames[1]).toContain('a-file.mkv')
+  })
+
+  it('opens details in place, preserves directory rows and ignores a stale file preview response', async () => {
+    const first = createItem({ name: 'first.mkv', path: '/media/first.mkv' })
+    const second = createItem({ name: 'second.mkv', path: '/media/second.mkv' })
+    const late = deferred<FileItem[]>()
+    const current = deferred<FileItem[]>()
+    const { axios, emitted } = await renderList(config => {
+      const item = config.data as FileItem
+      if (item.path === first.path) return late.promise
+      if (item.path === second.path) return current.promise
+      return Promise.resolve([first, second])
+    })
+    await screen.findByText('first.mkv')
+    expect(document.querySelector('.file-list__inspector')).toBeNull()
+    await fireEvent.click(screen.getByText('first.mkv').closest('.file-row')!)
+    await fireEvent.click(screen.getByText('second.mkv').closest('.file-row')!)
+    current.resolve([{ ...second, size: 2048 }])
+    await screen.findByRole('heading', { name: 'second.mkv' })
+    late.resolve([{ ...first, name: 'stale-preview.mkv' }])
+    await nextTick()
+    await nextTick()
+    expect(screen.queryByText('stale-preview.mkv')).toBeNull()
+    expect(document.querySelectorAll('.file-row')).toHaveLength(2)
+    expect(emitted().pathchanged).toBeUndefined()
+    expect(getRequestConfig(axios, 1).data).toMatchObject({ path: '/media/first.mkv' })
+    await fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('heading', { name: 'second.mkv' })).toBeNull()
+    expect(document.querySelector('.file-list__inspector')).toBeNull()
+    expect(document.querySelector('.file-list__content--detail')).toBeNull()
+    expect(document.querySelectorAll('.file-row')).toHaveLength(2)
   })
 
   it('opens recognized music details when audio metadata uses title instead of name', async () => {
@@ -243,6 +282,23 @@ describe('FileList list state', () => {
     })
   })
 
+  it('leaves missing and invalid sizes empty while preserving zero-byte files', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue([
+        createItem({ name: 'folder', type: 'dir', size: undefined }),
+        createItem({ name: 'invalid', size: Number.NaN }),
+        createItem({ name: 'zero', size: 0 }),
+      ])
+    await renderList(request)
+    await screen.findByText('folder')
+    const sizeOf = (name: string) =>
+      screen.getByText(name).closest('.file-row')?.querySelector('.file-row__size')?.textContent?.trim()
+    expect(sizeOf('folder')).toBe('')
+    expect(sizeOf('invalid')).toBe('')
+    expect(sizeOf('zero')).toBe('0 bytes')
+  })
+
   it('filters by substring, wildcard and case sensitivity', async () => {
     await renderList(() =>
       Promise.resolve([
@@ -251,7 +307,7 @@ describe('FileList list state', () => {
         createItem({ name: 'notes.txt' }),
       ]),
     )
-    const filter = await screen.findByPlaceholderText(/搜索/)
+    const filter = await screen.findByPlaceholderText(/筛选当前目录/)
 
     await fireEvent.update(filter, 'alpha')
     expect(screen.getByText('Alpha.MKV')).toBeInTheDocument()
@@ -315,12 +371,12 @@ describe('FileList list state', () => {
       .mockReturnValueOnce(initial)
       .mockReturnValueOnce(olderRefresh.promise)
       .mockReturnValueOnce(newerRefresh.promise)
-    await renderList(request)
+    const { rerender } = await renderList(request)
     await screen.findByText('initial.mkv')
 
-    const refresh = getSlotIconButton('mdi-refresh')
-    await fireEvent.click(refresh)
-    await fireEvent.click(refresh)
+    await rerender({ refreshpending: true })
+    await rerender({ refreshpending: false })
+    await rerender({ refreshpending: true })
     expect(request).toHaveBeenCalledTimes(3)
 
     newerRefresh.resolve([createItem({ name: 'newer-refresh.mkv' })])
@@ -339,13 +395,13 @@ describe('FileList list state', () => {
       .mockResolvedValueOnce([createItem({ name: 'initial.mkv' })])
       .mockReturnValueOnce(olderRefresh.promise)
       .mockReturnValueOnce(newerRefresh.promise)
-    const { emitted } = await renderList(request)
+    const { emitted, rerender } = await renderList(request)
     await screen.findByText('initial.mkv')
     const loadingEventCount = emitted().loading?.length ?? 0
 
-    const refresh = getSlotIconButton('mdi-refresh')
-    await fireEvent.click(refresh)
-    await fireEvent.click(refresh)
+    await rerender({ refreshpending: true })
+    await rerender({ refreshpending: false })
+    await rerender({ refreshpending: true })
     olderRefresh.resolve([createItem({ name: 'stale.mkv' })])
     await waitFor(() => expect(document.querySelector('loading-banner-stub')).not.toBeNull())
     newerRefresh.resolve([createItem({ name: 'newest.mkv' })])
@@ -375,7 +431,7 @@ describe('FileList list state', () => {
     const { emitted, rerender } = await renderList(request)
     await screen.findByText('shows')
 
-    await fireEvent.click(screen.getByText('shows').closest('[role="button"]') as Element)
+    await fireEvent.click(screen.getByText('shows').closest('.file-row') as Element)
     const pathChangedEvents = emitted().pathchanged as Array<[FileItem]> | undefined
     expect(pathChangedEvents?.at(-1)?.[0]).toMatchObject({
       name: 'shows',
@@ -397,7 +453,7 @@ describe('FileList list state', () => {
     await screen.findByText('selected.mkv')
 
     await fireEvent.click(getIconButton('mdi-select'))
-    await fireEvent.click(screen.getByText('selected.mkv').closest('[role="button"]') as Element)
+    await fireEvent.click(screen.getByText('selected.mkv').closest('.file-row') as Element)
     await mocks.keepAliveRefresh?.({ silent: true })
     await fireEvent.click(getIconButton('mdi-folder-arrow-right'))
 
@@ -484,8 +540,8 @@ describe('FileList destructive operations', () => {
     const loadingEventCount = emitted().loading?.length ?? 0
 
     await fireEvent.click(getIconButton('mdi-select'))
-    await fireEvent.click(screen.getByText('first.mkv').closest('[role="button"]') as Element)
-    await fireEvent.click(screen.getByText('failed.mkv').closest('[role="button"]') as Element)
+    await fireEvent.click(screen.getByText('first.mkv').closest('.file-row') as Element)
+    await fireEvent.click(screen.getByText('failed.mkv').closest('.file-row') as Element)
     await fireEvent.click(getIconButton('mdi-delete-outline'))
 
     await waitFor(() => expect(listCount).toBe(2))
@@ -513,7 +569,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     await renderList(() => Promise.resolve([album, first, second]))
     await screen.findByText('first.mkv')
 
-    const firstRow = screen.getByText('first.mkv').closest('[role="button"]') as Element
+    const firstRow = screen.getByText('first.mkv').closest('.file-row') as Element
     await fireEvent.click(firstRow.querySelector('[data-icon="mdi-auto-fix"]')?.closest('button') as Element)
     expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({ items: [first] })
 
@@ -523,7 +579,7 @@ describe('FileList dialogs, download and lifecycle', () => {
       target_storage: 'local',
     })
 
-    const albumRow = screen.getByText('叶惠美').closest('[role="button"]') as Element
+    const albumRow = screen.getByText('叶惠美').closest('.file-row') as Element
     await fireEvent.click(albumRow.querySelector('[data-icon="mdi-folder-arrow-right"]')?.closest('button') as Element)
     expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({
       items: [album],
@@ -532,7 +588,7 @@ describe('FileList dialogs, download and lifecycle', () => {
 
     await fireEvent.click(getIconButton('mdi-select'))
     await fireEvent.click(firstRow)
-    await fireEvent.click(screen.getByText('second.mkv').closest('[role="button"]') as Element)
+    await fireEvent.click(screen.getByText('second.mkv').closest('.file-row') as Element)
     await fireEvent.click(getIconButton('mdi-auto-fix'))
     expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({ items: [first, second] })
   })
@@ -546,8 +602,8 @@ describe('FileList dialogs, download and lifecycle', () => {
     await screen.findByText('first.mkv')
 
     await fireEvent.click(getIconButton('mdi-select'))
-    await fireEvent.click(screen.getByText('first.mkv').closest('[role="button"]') as Element)
-    await fireEvent.click(screen.getByText('second.mkv').closest('[role="button"]') as Element)
+    await fireEvent.click(screen.getByText('first.mkv').closest('.file-row') as Element)
+    await fireEvent.click(screen.getByText('second.mkv').closest('.file-row') as Element)
     await fireEvent.click(getIconButton('mdi-auto-fix'))
     const scrapeEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2] as Record<
       string,
@@ -683,7 +739,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     const { unmount } = await renderList(request)
     await screen.findByText('rename.mkv')
 
-    const row = screen.getByText('rename.mkv').closest('[role="button"]') as Element
+    const row = screen.getByText('rename.mkv').closest('.file-row') as Element
     await fireEvent.click(row.querySelector('[data-icon="mdi-rename"]')?.closest('button') as Element)
     const renameEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2] as Record<string, (value?: unknown) => void>
     renameEvents['update:name']?.('renamed.mkv')
@@ -716,7 +772,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     const { emitted } = await renderList(request)
     await screen.findByText('rename.mkv')
 
-    const row = screen.getByText('rename.mkv').closest('[role="button"]') as Element
+    const row = screen.getByText('rename.mkv').closest('.file-row') as Element
     await fireEvent.click(row.querySelector('[data-icon="mdi-rename"]')?.closest('button') as Element)
     const renameEvents = mocks.openSharedDialog.mock.calls[0]?.[2] as Record<string, (value?: unknown) => void>
     renameEvents['update:name']?.('renamed.mkv')
@@ -743,7 +799,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     const { emitted } = await renderList(request)
     await screen.findByText('rename.mkv')
 
-    const row = screen.getByText('rename.mkv').closest('[role="button"]') as Element
+    const row = screen.getByText('rename.mkv').closest('.file-row') as Element
     await fireEvent.click(row.querySelector('[data-icon="mdi-rename"]')?.closest('button') as Element)
     const renameEvents = mocks.openSharedDialog.mock.calls[0]?.[2] as Record<string, (value?: unknown) => void>
     renameEvents['update:name']?.('renamed.mkv')

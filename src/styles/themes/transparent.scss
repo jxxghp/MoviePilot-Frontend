@@ -244,6 +244,7 @@ html[data-theme='transparent'] {
   }
 
   // 搜索框
+  .file-list__toolbar .search-input-wrapper,
   .search-desktop-activator .search-input-wrapper,
   .v-theme--transparent .search-desktop-activator .search-input-wrapper {
     background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));

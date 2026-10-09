@@ -1,3 +1,4 @@
+import i18n from '@/plugins/i18n'
 import FileBrowser from '@/components/filebrowser/FileBrowser.vue'
 import type { DataApiClient } from '@/api'
 import type { EndPoints } from '@/api/types'
@@ -12,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   openNewFolderDialog: vi.fn(),
 }))
 
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
+  useDisplay: () => ({ mdAndUp: ref(true), smAndDown: ref(false) }),
+}))
 vi.mock('@/composables/usePWA', () => ({
   usePWA: () => ({ appMode: ref(false) }),
 }))
@@ -39,13 +44,12 @@ vi.mock('vue-router', async importOriginal => {
 
 const FileToolbarStub = defineComponent({
   name: 'FileToolbar',
-  props: ['showNewFolderButton', 'sort'],
-  emits: ['foldercreated', 'pathchanged', 'sortchanged', 'storagechanged'],
+  props: ['showNewFolderButton'],
+  emits: ['foldercreated', 'pathchanged', 'storagechanged'],
   setup(_props, { emit, expose }) {
     expose({ openNewFolderDialog: mocks.openNewFolderDialog })
     return () =>
       h('div', [
-        h('button', { class: 'emit-sort', onClick: () => emit('sortchanged', 'time') }),
         h('button', { class: 'emit-storage', onClick: () => emit('storagechanged', 'rclone') }),
         h('button', {
           class: 'emit-path',
@@ -104,6 +108,11 @@ const browserStubs = {
   FileNavigator: FileNavigatorStub,
   FileToolbar: FileToolbarStub,
   Teleport: true,
+  IconBtn: defineComponent({ template: '<button type="button"><slot /></button>' }),
+  VMenu: defineComponent({ template: '<div><slot name="activator" :props="{}" /><slot /></div>' }),
+  VList: defineComponent({ template: '<div><slot /></div>' }),
+  VListItem: defineComponent({ props: ['title', 'active'], template: '<button type="button">{{ title }}</button>' }),
+  VDialog: defineComponent({ props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }),
   VFab: true,
   VIcon: true,
 }
@@ -112,7 +121,7 @@ function mountBrowser() {
   return mount(FileBrowser, {
     props: createBrowserProps(),
     global: {
-      plugins: [createTestingPinia({ createSpy: vi.fn })],
+      plugins: [i18n, createTestingPinia({ createSpy: vi.fn })],
       stubs: browserStubs,
     },
   })
@@ -160,7 +169,7 @@ describe('FileBrowser drag lifecycle', () => {
     })
     const wrapper = mount(Host, {
       global: {
-        plugins: [createTestingPinia({ createSpy: vi.fn })],
+        plugins: [i18n, createTestingPinia({ createSpy: vi.fn })],
         stubs: browserStubs,
       },
     })
@@ -215,6 +224,18 @@ describe('FileBrowser state and child contracts', () => {
     mocks.openNewFolderDialog.mockReset()
   })
 
+  it('keeps the shared page title and sort/refresh actions outside the glass material', async () => {
+    const wrapper = mountBrowser()
+    const header = wrapper.get('.file-workspace__header')
+    const title = header.get('[data-testid="page-header"]')
+    expect(title.text()).toBe(i18n.global.t('navItems.fileManager'))
+    expect(title.element.closest('[data-glass-optical-surface]')).toBeNull()
+    expect(wrapper.get('[data-glass-optical-surface]').find('.file-workspace__header').exists()).toBe(false)
+    expect(header.find(`[aria-label="${i18n.global.t('file.sort')}"]`).exists()).toBe(true)
+    await header.get(`[aria-label="${i18n.global.t('common.refresh')}"]`).trigger('click')
+    expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(true)
+  })
+
   it('restores sorting and directory tree preferences from localStorage', () => {
     localStorage.setItem('fileBrowser.sort', 'time')
     localStorage.setItem('fileBrowser.showDirTree', 'true')
@@ -222,7 +243,6 @@ describe('FileBrowser state and child contracts', () => {
 
     const wrapper = mountBrowser()
 
-    expect(wrapper.getComponent(FileToolbarStub).props('sort')).toBe('time')
     expect(wrapper.getComponent(FileListStub).props('sort')).toBe('time')
     expect(wrapper.getComponent(FileListStub).props('showTree')).toBe(true)
     expect(wrapper.getComponent(FileNavigatorStub).attributes('style')).toContain('width: 360px')
@@ -231,7 +251,11 @@ describe('FileBrowser state and child contracts', () => {
   it('persists sort and tree changes and requests a refresh after sorting', async () => {
     const wrapper = mountBrowser()
 
-    await wrapper.get('.emit-sort').trigger('click')
+    await wrapper
+      .get('.file-workspace__header')
+      .findAll('button')
+      .find(button => button.text() === i18n.global.t('file.sortByTime'))!
+      .trigger('click')
     await wrapper.get('.emit-tree').trigger('click')
     await nextTick()
 
@@ -257,7 +281,7 @@ describe('FileBrowser state and child contracts', () => {
     const wrapper = mountBrowser()
 
     await wrapper.get('.emit-loading').trigger('click')
-    expect(wrapper.get('.mx-auto').attributes('loading')).toBe('true')
+    expect(wrapper.get('.file-workspace').attributes('aria-busy')).toBe('true')
 
     await wrapper.get('.emit-folder').trigger('click')
     expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(true)
