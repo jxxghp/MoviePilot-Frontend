@@ -30,6 +30,7 @@ import {
   type UserPermissionKey,
 } from '@/utils/permission'
 import { usePWA } from '@/composables/usePWA'
+import { useCompactFabStackTouch } from '@/composables/useCompactFabStackTouch'
 import OfflinePage from './OfflinePage.vue'
 import {
   readThemeCustomizerSettings,
@@ -43,6 +44,8 @@ import SystemUpdatePrompt from '@/components/system/SystemUpdatePrompt.vue'
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
+// 触屏下右下角操作栈先展开再执行，与桌面悬停展开保持一致。
+useCompactFabStackTouch()
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
