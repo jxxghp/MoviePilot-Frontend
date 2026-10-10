@@ -8,6 +8,7 @@ import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  appMode: false,
   dynamicButton: vi.fn(),
   hasPermission: vi.fn(),
   openNewFolderDialog: vi.fn(),
@@ -18,7 +19,7 @@ vi.mock('vuetify', async importOriginal => ({
   useDisplay: () => ({ mdAndUp: ref(true), smAndDown: ref(false) }),
 }))
 vi.mock('@/composables/usePWA', () => ({
-  usePWA: () => ({ appMode: ref(false) }),
+  usePWA: () => ({ appMode: ref(mocks.appMode) }),
 }))
 
 vi.mock('@/composables/useDynamicButton', () => ({
@@ -331,6 +332,22 @@ describe('FileBrowser state and child contracts', () => {
 
     expect(wrapper.getComponent(FileToolbarStub).props('showNewFolderButton')).toBe(false)
     expect(wrapper.findComponent({ name: 'VFab' }).exists()).toBe(true)
+  })
+
+  it('reserves list space for the corner new-folder button only outside app mode', () => {
+    mocks.hasPermission.mockReturnValue(true)
+    const clearance = () =>
+      (mountBrowser().get('.file-workspace').element as HTMLElement).style.getPropertyValue('--file-list-fab-clearance')
+
+    expect(clearance()).toBe('var(--app-fab-clearance)')
+
+    // App 模式下新建按钮位于底部 Dock，文件列表高度已避让，不再额外预留。
+    mocks.appMode = true
+    try {
+      expect(clearance()).toBe('0px')
+    } finally {
+      mocks.appMode = false
+    }
   })
 
   it('connects the dynamic new-folder action to the toolbar controller', () => {

@@ -1518,6 +1518,9 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
   display: inline-flex;
   overflow: visible;
   margin: 0 !important;
+  // 操作栈整体已按底部安全区上移；这里取消全局 .v-fab__container 的安全区内边距，
+  // 否则 iOS 主屏 Web App 中每个按钮下方都会多出约 34px，按钮间距被拉大。
+  padding-block-end: 0;
 }
 
 .compact-fab .v-btn {

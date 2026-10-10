@@ -3415,9 +3415,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-page {
-  // 移动端悬浮按钮位于分页条上方，列表末尾同样预留按钮高度。
-  padding-block-end: var(--app-fab-clearance);
-
   --transfer-history-mobile-surface-opacity: 0.92;
   --transfer-history-mobile-search-bg: rgba(var(--v-theme-on-surface), 0.045);
   --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
@@ -3428,7 +3425,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   flex-direction: column;
   gap: 1rem;
   min-block-size: 100%;
-  padding-block: 0.25rem 1.25rem;
+  // 列表末尾预留悬浮按钮高度：本页按钮距底 4.5rem，比默认位置高 3.5rem，扣除外层布局 1.5rem 内边距后补 2rem。
+  padding-block: 0.25rem calc(var(--app-fab-clearance) + 2rem);
   padding-inline: 0.35rem;
 }
 
