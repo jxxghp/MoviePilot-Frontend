@@ -120,6 +120,9 @@ export async function fetchAgentPetDeclarations(): Promise<AgentPetDeclaration[]
  * 由 AgentAssistantWidget 在 Agent 入口挂载时 start、卸载时 stop；插件运行态代际变化时重新读取声明，
  * 插件不需要轮询。设置页写入选择后状态即时更新，挂载中的形象随之切换，无需刷新。
  */
+/** 无本地缓存时等待声明与选择接口的最长时间（毫秒）。 */
+export const AGENT_PET_RESOLVE_WAIT = 3000
+
 export const useAgentPetStore = defineStore('agentPet', () => {
   const globalSettingsStore = useGlobalSettingsStore()
   const pluginRuntimeStore = usePluginRuntimeStore()
@@ -133,6 +136,13 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   const ready = ref(false)
   /** 本地缓存的上次生效形象，只在接口返回前用于提前加载，避免刷新后先闪内置机器人。 */
   const cachedPet = shallowRef<AgentPetDeclaration | null>(null)
+  /** 本地是否有任何缓存（含明确的内置机器人）；没有缓存时在接口返回前无从得知该显示什么。 */
+  const hasCache = ref(false)
+  /** 无缓存时等待接口的上限；超过后先显示内置机器人，避免接口挂起时入口一直空白。 */
+  const resolveWaitExpired = ref(false)
+  let resolveWaitTimer: ReturnType<typeof setTimeout> | undefined
+  /** 入口挂载后、接口返回前且没有本地缓存，此时既不能显示机器人也不能加载形象，入口应保持空白。 */
+  const resolving = computed(() => active.value && !ready.value && !hasCache.value && !resolveWaitExpired.value)
   /** 缓存所属用户，退出登录后由 auth store 清除。 */
   let cacheUser = ''
   /** 本会话加载或运行失败的形象，不再重试直到切换选择或刷新声明。 */
@@ -244,6 +254,14 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     active.value = true
     cacheUser = userStore.userName
     const cached = readAgentPetCache(cacheUser)
+    hasCache.value = cached !== null
+    resolveWaitExpired.value = false
+    clearTimeout(resolveWaitTimer)
+    if (!hasCache.value) {
+      resolveWaitTimer = setTimeout(() => {
+        resolveWaitExpired.value = true
+      }, AGENT_PET_RESOLVE_WAIT)
+    }
     cachedPet.value = cached && 'pet' in cached ? (normalizeAgentPetDeclarations([cached.pet])[0] ?? null) : null
     scope = effectScope(true)
     scope.run(() => {
@@ -267,6 +285,7 @@ export const useAgentPetStore = defineStore('agentPet', () => {
       })
     })
     await Promise.all([refreshDeclarations(), loadUserSelection()])
+    clearTimeout(resolveWaitTimer)
     if (active.value) ready.value = true
   }
 
@@ -280,6 +299,9 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     failedIds.value = new Set()
     ready.value = false
     cachedPet.value = null
+    hasCache.value = false
+    clearTimeout(resolveWaitTimer)
+    resolveWaitExpired.value = false
     cacheUser = ''
     warnedKeys.clear()
   }
@@ -293,6 +315,7 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     ready,
     refreshDeclarations,
     resolution,
+    resolving,
     setUserSelection,
     start,
     stop,

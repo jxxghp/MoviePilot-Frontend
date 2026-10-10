@@ -55,8 +55,11 @@ const stageBubbles = computed(() => (stagePet.value?.bubbles === 'self' ? 'self'
 /** 内置入口是否挂载：bubbles=self 的 stage 形象完全接管角色与气泡，宿主只推事件。 */
 const showEntry = computed(() => !stageActive.value || stageBubbles.value === 'host')
 const entryAnchored = computed(() => stageActive.value && stageBubbles.value === 'host')
-/** stage 形象加载期间入口保持空白但可用，避免刷新后先闪内置机器人。 */
-const entryConcealed = computed(() => Boolean(stagePet.value) && !stageActive.value)
+/**
+ * 以下情况入口保持空白但可用，避免先闪内置机器人再换成形象：
+ * stage 形象加载期间，以及首次登录或换了浏览器、本地没有缓存且接口尚未返回时。
+ */
+const entryConcealed = computed(() => petStore.resolving || (Boolean(stagePet.value) && !stageActive.value))
 const bubbleAnchor = shallowRef<AgentHostRect | null>(null)
 const petInteracting = ref(false)
 
