@@ -4,6 +4,7 @@ import api from '@/api'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 import { readAgentPetCache, writeAgentPetCache } from '@/utils/agentPetCache'
 import { preloadAgentPetComponent } from '@/utils/agentPetLoader'
 import type { AgentPetDeclaration, AgentPetSelection } from '@/types/agentHost'
@@ -111,7 +112,8 @@ export function resolveAgentPet(
 
 /** 读取全部可用形象声明。 */
 export async function fetchAgentPetDeclarations(): Promise<AgentPetDeclaration[]> {
-  const response = await api.get<unknown>('plugin/agent_pets', { feedback: 'silent' })
+  // 路由切换会统一中断页面请求；形象属于应用外壳，读取不能因此被中断。
+  const response = await api.get<unknown>('plugin/agent_pets', { feedback: 'silent', skipNavigationCancellation: true })
   return normalizeAgentPetDeclarations(response)
 }
 
@@ -132,15 +134,31 @@ function getAssetVersion(url: string | null | undefined) {
 }
 
 /**
- * 判断形象声明是否真正更新过：消失后再出现，或预览图、头像的版本参数变化。
+ * 判断形象声明是否真正更新过：消失后再出现，或插件版本变化。
+ * 两边都有 `plugin_version` 时比较版本；缺少版本时退回比较预览图、头像地址里的版本参数。
  * 只有这些情况才允许本会话里加载失败过的形象重新尝试。
  */
 export function hasAgentPetDeclarationChanged(previous: AgentPetDeclaration | undefined, next: AgentPetDeclaration) {
   if (!previous) return true
+  if (previous.plugin_version && next.plugin_version) return previous.plugin_version !== next.plugin_version
   return (
     getAssetVersion(previous.preview_url) !== getAssetVersion(next.preview_url) ||
     getAssetVersion(previous.avatar_url) !== getAssetVersion(next.avatar_url)
   )
+}
+
+/**
+ * 登录后的布局一建立就按本地缓存提前注册并预加载上次的形象，不等 Agent 入口挂载。
+ *
+ * 只在已登录（有 token 和用户名）且缓存记的是插件形象时生效，未登录页面不会调用。
+ * 这只是加速提示，入口挂载后的 store 仍以服务端结果为准；预加载失败由挂载后的形象组件处理。
+ */
+export function primeAgentPetFromCache() {
+  const userStore = useUserStore()
+  if (!useAuthStore().token || !userStore.userName) return
+  const cached = readAgentPetCache(userStore.userName)
+  if (!cached || !('pet' in cached)) return
+  preloadAgentPetComponent(normalizeAgentPetDeclarations([cached.pet])[0] ?? null)
 }
 
 /**
@@ -180,8 +198,12 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   let declarationGeneration = 0
   /** 最近一次开始读取声明的时间，用于节流切回页面时的补读。 */
   let lastDeclarationRefreshAt = 0
-  /** 本次启动后是否成功读取过声明；读取失败时声明被清空，再次出现的形象视为重新出现。 */
-  let declarationsLoaded = false
+  /** 本次启动后是否成功读取过声明。 */
+  const declarationsLoaded = ref(false)
+  /** 本次启动后是否成功读取过用户选择。 */
+  const selectionLoaded = ref(false)
+  let selectionGeneration = 0
+  let confirming: Promise<void> | null = null
   const warnedKeys = new Set<string>()
 
   const resolution = computed(() =>
@@ -221,32 +243,68 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     console.warn(`[agent-pet] ${message}`, detail ?? '')
   }
 
-  async function refreshDeclarations() {
+  /**
+   * 读取声明。失败或被中断时保留上一份声明，不把一次读取失败当成“插件都没了”。
+   * @returns 本次是否真正读到了服务端结果
+   */
+  async function refreshDeclarations(): Promise<boolean> {
     const generation = ++declarationGeneration
     lastDeclarationRefreshAt = Date.now()
     try {
       const items = await fetchAgentPetDeclarations()
-      if (generation !== declarationGeneration) return
+      if (generation !== declarationGeneration) return false
       // 首次读取没有可比较的旧声明，接口返回前（例如用缓存预加载时）记下的失败保持有效。
-      if (declarationsLoaded) clearFailuresForChangedDeclarations(declarations.value, items)
-      declarationsLoaded = true
+      if (declarationsLoaded.value) clearFailuresForChangedDeclarations(declarations.value, items)
+      declarationsLoaded.value = true
       declarations.value = items
+      return true
     } catch (error) {
-      if (generation !== declarationGeneration) return
-      declarations.value = []
-      warnOnce('declarations', '读取形象声明失败，使用内置机器人', error)
+      if (generation === declarationGeneration) warnOnce('declarations', '读取形象声明失败，保留上一份声明', error)
+      return false
     }
   }
 
-  async function loadUserSelection() {
+  /**
+   * 读取用户选择。失败或被中断时保留上一份选择，不把读取失败当成“用户改用内置机器人”。
+   * @returns 本次是否真正读到了服务端结果
+   */
+  async function loadUserSelection(): Promise<boolean> {
+    const generation = ++selectionGeneration
     try {
       const response = await api.get<{ value?: unknown }>(`user/config/${AGENT_PET_USER_CONFIG_KEY}`, {
         feedback: 'silent',
+        skipNavigationCancellation: true,
       })
+      if (generation !== selectionGeneration) return false
       userSelection.value = normalizeAgentPetSelection(response?.value)
+      selectionLoaded.value = true
+      return true
     } catch (error) {
-      userSelection.value = null
-      warnOnce('selection', '读取用户形象选择失败，跟随系统默认', error)
+      if (generation === selectionGeneration) warnOnce('selection', '读取用户形象选择失败，保留上一份选择', error)
+      return false
+    }
+  }
+
+  /**
+   * 向服务端确认声明与选择。只有两者都至少成功读取过一次才算确认（ready），之后才写刷新缓存；
+   * 确认前沿用缓存的形象，没有缓存时显示内置机器人，并在切回页面或下一个插件代次时重试。
+   */
+  async function confirmFromServer() {
+    if (confirming) return confirming
+    confirming = (async () => {
+      const tasks: Promise<boolean>[] = []
+      if (!declarationsLoaded.value) tasks.push(refreshDeclarations())
+      if (!selectionLoaded.value) tasks.push(loadUserSelection())
+      await Promise.all(tasks)
+      if (active.value && declarationsLoaded.value && selectionLoaded.value) {
+        clearTimeout(resolveWaitTimer)
+        ready.value = true
+      }
+    })()
+    try {
+      await confirming
+    } finally {
+      confirming = null
     }
   }
 
@@ -254,6 +312,9 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   async function setUserSelection(selection: AgentPetSelection) {
     const normalized = normalizeAgentPetSelection(selection)
     await api.post(`user/config/${AGENT_PET_USER_CONFIG_KEY}`, normalized, { feedback: 'silent' })
+    // 用户刚明确保存的选择即服务端结果，旧的选择读取请求作废。
+    selectionGeneration++
+    selectionLoaded.value = true
     if (normalized && normalized !== AGENT_PET_BUILTIN) {
       const id = getAgentPetId(normalized)
       clearFailure(id)
@@ -264,6 +325,7 @@ export const useAgentPetStore = defineStore('agentPet', () => {
       }
     }
     userSelection.value = normalized
+    if (active.value && !ready.value) void confirmFromServer()
   }
 
   /** 记录形象加载或运行失败，生效形象随之回退内置机器人。 */
@@ -286,10 +348,18 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     })
   }
 
-  /** 非管理员会话切回页面时补读声明，节流避免频繁切换窗口时重复请求。 */
+  /**
+   * 切回页面时的补读：尚未确认的会话（任何用户）重试确认；已确认的非管理员会话补读声明，
+   * 后者 30 秒内最多一次。管理员会话已随插件运行态代际刷新。
+   */
   function handlePageReturn() {
-    if (!active.value || userStore.superUser) return
+    if (!active.value) return
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    if (!ready.value) {
+      void confirmFromServer()
+      return
+    }
+    if (userStore.superUser) return
     if (Date.now() - lastDeclarationRefreshAt < AGENT_PET_FOCUS_REFRESH_INTERVAL) return
     void refreshDeclarations()
   }
@@ -328,8 +398,9 @@ export const useAgentPetStore = defineStore('agentPet', () => {
         () => pluginRuntimeStore.reconciliation,
         (value, previous) => {
           if (value === previous || value <= 0) return
-          // 插件启停或升级后重新读取声明；失败记录只在对应声明真正更新时清除。
-          void refreshDeclarations()
+          // 尚未确认时借新代次重试确认；已确认时插件启停或升级后重新读取声明，失败记录只在对应声明真正更新时清除。
+          if (!ready.value) void confirmFromServer()
+          else void refreshDeclarations()
         },
       )
       watch(resolution, value => {
@@ -342,9 +413,7 @@ export const useAgentPetStore = defineStore('agentPet', () => {
       document.addEventListener('visibilitychange', handlePageReturn)
       window.addEventListener('focus', handlePageReturn)
     }
-    await Promise.all([refreshDeclarations(), loadUserSelection()])
-    clearTimeout(resolveWaitTimer)
-    if (active.value) ready.value = true
+    await confirmFromServer()
   }
 
   function stop() {
@@ -356,7 +425,10 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     scope?.stop()
     scope = null
     declarationGeneration++
-    declarationsLoaded = false
+    selectionGeneration++
+    declarationsLoaded.value = false
+    selectionLoaded.value = false
+    confirming = null
     lastDeclarationRefreshAt = 0
     declarations.value = []
     userSelection.value = null
