@@ -239,6 +239,30 @@ describe('useAgentPetStore refresh cache', () => {
     await vi.waitFor(() => expect(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')).toEqual({ id: 'builtin' }))
   })
 
+  it('reports resolving without any cache until the server answers so the entry stays blank', async () => {
+    const release = deferBackend()
+    const store = useAgentPetStore()
+
+    const starting = store.start()
+    expect(store.resolving).toBe(true)
+
+    release([createPet()], { plugin_id: 'PetPlugin', key: 'girl' })
+    await starting
+    expect(store.resolving).toBe(false)
+    expect(store.effectivePet?.key).toBe('girl')
+  })
+
+  it('does not report resolving when the cache already says builtin', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'builtin' }))
+    deferBackend()
+    const store = useAgentPetStore()
+
+    void store.start()
+
+    expect(store.resolving).toBe(false)
+    expect(store.effectivePet).toBeNull()
+  })
+
   it('shows the builtin robot immediately when the server says builtin', async () => {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
     mockBackendFor([createPet()], 'builtin')

@@ -4,6 +4,7 @@ import { defineComponent, h, nextTick, ref, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantWidget from '@/components/agent/AgentAssistantWidget.vue'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
+import { AGENT_PET_RESOLVE_WAIT } from '@/stores/agentPet'
 import type { AgentHostEvent, AgentPetContext, AgentPetDeclaration, MoviePilotAgentHost } from '@/types/agentHost'
 import { agentHost } from '@/utils/agentHost'
 
@@ -319,15 +320,19 @@ describe('AgentAssistantWidget agent host', () => {
     vi.useRealTimers()
   })
 
-  it('shows the builtin robot right away when there is no cache', async () => {
+  it('keeps the entry blank without a cache until the server answers, and shows the robot if it never does', async () => {
+    vi.useFakeTimers()
     mocks.apiGet.mockImplementation(() => new Promise(() => {}))
     localStorage.clear()
 
     const wrapper = mountWidget()
     await flushPromises()
+    expect(wrapper.findComponent(entryStub).props('concealed')).toBe(true)
 
+    await vi.advanceTimersByTimeAsync(AGENT_PET_RESOLVE_WAIT)
     expect(wrapper.findComponent(entryStub).props('concealed')).toBe(false)
     expect(document.body.querySelector('[data-agent-pet-stage]')).toBeNull()
+    vi.useRealTimers()
     wrapper.unmount()
   })
 })
