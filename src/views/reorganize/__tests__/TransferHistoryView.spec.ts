@@ -1280,7 +1280,7 @@ describe('TransferHistoryView', () => {
     }
   })
 
-  it('renders full paths with a transfer arrow and keeps status clicks independent from desktop selection', async () => {
+  it('renders full paths linked from source to destination and keeps status clicks independent from desktop selection', async () => {
     const item = createHistory(1, '失败记录', {
       src: '/downloads/很长的目录/文件.mkv',
       dest: '/library/文件.mkv',
@@ -1298,7 +1298,14 @@ describe('TransferHistoryView', () => {
     expect(
       [...container.querySelectorAll('.transfer-history-desktop-record__path-text')].map(path => path.textContent),
     ).toEqual([item.src, item.dest])
-    expect(container.querySelector('.transfer-history-desktop-record__path-arrow')).toBeInTheDocument()
+    // 来源行连线指向目标行，文件名作为路径末段单独强调。
+    expect(container.querySelector('.transfer-history-path--source.transfer-history-path--linked')).toBeInTheDocument()
+    expect(container.querySelector('.transfer-history-path--destination')).toBeInTheDocument()
+    expect(
+      [
+        ...container.querySelectorAll('.transfer-history-desktop-record__path-text .transfer-history-path-filename'),
+      ].map(filename => filename.textContent),
+    ).toEqual(['文件.mkv', '文件.mkv'])
     expect(screen.getByText('SMB')).toBeInTheDocument()
     expect(screen.getByText('本地')).toBeInTheDocument()
     await fireEvent.click(screen.getAllByRole('button', { name: '失败' }).at(-1)!)

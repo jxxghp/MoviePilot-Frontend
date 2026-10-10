@@ -1581,6 +1581,19 @@ const audioExtensions = new Set([
   '.sfalc',
 ])
 
+/**
+ * 按路径分隔符切分为目录段与文件名，分隔符保留在所属目录段末尾。
+ * 桌面端逐段换行以避免在目录名中间断开，移动端折叠态据此优先省略目录、保留文件名。
+ */
+function getHistoryPathParts(path?: string) {
+  const segments = path?.split(/(?<=[/\\])/).filter(Boolean) ?? []
+  return {
+    directories: segments.slice(0, -1),
+    directory: segments.slice(0, -1).join(''),
+    filename: segments.at(-1) ?? '',
+  }
+}
+
 // 获取存储展示名称，配置缺失时回退到原始存储标识。
 function getHistoryStorageName(storage?: string) {
   if (!storage) return t('common.unknown')
@@ -2419,6 +2432,7 @@ onUnmounted(() => {
                   <small>{{ getHistorySubtitle(item) || item.type }}</small>
                 </div>
               </div>
+              <!-- 来源与目标共用三列网格：节点、存储名、路径，两行的存储名列宽一致。 -->
               <div class="transfer-history-desktop-record__paths">
                 <template
                   v-for="path in [
@@ -2427,16 +2441,27 @@ onUnmounted(() => {
                   ]"
                   :key="path.key"
                 >
-                  <div v-if="path.value" class="transfer-history-desktop-record__path" :title="path.value">
-                    <VChip variant="tonal" size="x-small" label>{{ getHistoryStorageName(path.storage) }}</VChip>
-                    <span class="transfer-history-desktop-record__path-text">{{ path.value }}</span>
-                  </div>
                   <div
-                    v-if="path.key === 'source' && item.src && item.dest"
-                    class="transfer-history-desktop-record__path-arrow"
-                    aria-hidden="true"
+                    v-if="path.value"
+                    class="transfer-history-desktop-record__path"
+                    :class="[
+                      `transfer-history-path--${path.key}`,
+                      { 'transfer-history-path--linked': path.key === 'source' && item.dest },
+                    ]"
+                    :title="path.value"
                   >
-                    <VIcon icon="mdi-arrow-down" size="18" />
+                    <span class="transfer-history-path-node" aria-hidden="true" />
+                    <span class="transfer-history-path-storage">{{ getHistoryStorageName(path.storage) }}</span>
+                    <span class="transfer-history-desktop-record__path-text"
+                      ><span
+                        v-for="(segment, index) in getHistoryPathParts(path.value).directories"
+                        :key="index"
+                        class="transfer-history-desktop-record__path-segment"
+                        >{{ segment }}</span
+                      ><span class="transfer-history-desktop-record__path-segment transfer-history-path-filename">{{
+                        getHistoryPathParts(path.value).filename
+                      }}</span></span
+                    >
                   </div>
                 </template>
               </div>
@@ -2733,20 +2758,32 @@ onUnmounted(() => {
               :class="{ 'transfer-history-mobile-record__paths--expanded': isMobilePathExpanded(item) }"
               @click.stop="handleMobilePathClick(item)"
             >
-              <div class="transfer-history-mobile-record__path-row">
-                <span class="transfer-history-mobile-record__storage">
-                  {{ getHistoryStorageName(item?.src_storage) }}
-                </span>
-                <p>{{ item?.src || t('common.unknown') }}</p>
+              <div
+                class="transfer-history-mobile-record__path-row transfer-history-path--source"
+                :class="{ 'transfer-history-path--linked': item?.dest }"
+              >
+                <span class="transfer-history-path-node" aria-hidden="true" />
+                <span class="transfer-history-path-storage">{{ getHistoryStorageName(item?.src_storage) }}</span>
+                <p v-if="item?.src">
+                  <span class="transfer-history-mobile-record__directory">{{
+                    getHistoryPathParts(item.src).directory
+                  }}</span
+                  ><span class="transfer-history-path-filename">{{ getHistoryPathParts(item.src).filename }}</span>
+                </p>
+                <p v-else>{{ t('common.unknown') }}</p>
               </div>
-              <div v-if="item?.dest" class="transfer-history-mobile-record__path-arrow">
-                <VIcon icon="mdi-arrow-down" size="18" />
-              </div>
-              <div v-if="item?.dest" class="transfer-history-mobile-record__path-row">
-                <span class="transfer-history-mobile-record__storage">
-                  {{ getHistoryStorageName(item?.dest_storage) }}
-                </span>
-                <p>{{ item.dest }}</p>
+              <div
+                v-if="item?.dest"
+                class="transfer-history-mobile-record__path-row transfer-history-path--destination"
+              >
+                <span class="transfer-history-path-node" aria-hidden="true" />
+                <span class="transfer-history-path-storage">{{ getHistoryStorageName(item?.dest_storage) }}</span>
+                <p>
+                  <span class="transfer-history-mobile-record__directory">{{
+                    getHistoryPathParts(item.dest).directory
+                  }}</span
+                  ><span class="transfer-history-path-filename">{{ getHistoryPathParts(item.dest).filename }}</span>
+                </p>
               </div>
             </button>
 
@@ -2937,7 +2974,8 @@ onUnmounted(() => {
 }
 .transfer-history-desktop-record {
   display: grid;
-  grid-template-columns: 36px minmax(12rem, 17rem) minmax(0, 1fr) minmax(16rem, 20rem);
+  // 状态与元信息内容较短，收窄右列把宽度让给路径，减少长路径折行。
+  grid-template-columns: 36px minmax(11rem, 15rem) minmax(0, 1fr) minmax(12rem, 14rem);
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
@@ -3015,34 +3053,81 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .transfer-history-desktop-record__paths {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.transfer-history-desktop-record__path {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-  min-inline-size: 0;
+  grid-template-columns: 0.75rem max-content minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: var(--transfer-history-path-gap);
+  align-content: center;
+
+  // 节点与首行文字中线对齐：行高 1.5 × 0.9rem 的一半减去节点半径。
+  --transfer-history-node-offset: calc(0.675rem - 4.5px);
+  --transfer-history-path-gap: 10px;
+}
+// 行本身不建盒，三列直接参与外层网格，来源与目标的存储名列自动对齐。
+.transfer-history-desktop-record__path {
+  display: contents;
   font-size: 0.9rem;
 }
-.transfer-history-desktop-record__path .v-chip {
-  max-inline-size: 100%;
-  justify-self: start;
+// 节点列拉伸到整行高度：::before 画节点圆点，::after 画连到下一行节点的细线，长度随来源路径行数变化。
+.transfer-history-path-node {
+  position: relative;
+  align-self: stretch;
+  justify-self: center;
+  inline-size: 9px;
+}
+.transfer-history-path-node::before {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  border-radius: 50%;
+  block-size: 9px;
+  content: '';
+  inline-size: 9px;
+  inset-block-start: var(--transfer-history-node-offset);
+  inset-inline-start: 0;
+}
+.transfer-history-path--destination .transfer-history-path-node::before {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgb(var(--v-theme-primary));
+}
+// 来源节点向下延伸到目标节点，表达整理方向，替代独立的箭头行。
+.transfer-history-path--linked .transfer-history-path-node::after {
+  position: absolute;
+  background: rgba(var(--v-theme-on-surface), 0.2);
+  content: '';
+  inline-size: 1px;
+  inset-block: calc(var(--transfer-history-node-offset) + 12px)
+    calc(3px - var(--transfer-history-path-gap) - var(--transfer-history-node-offset));
+  inset-inline-start: 4px;
+}
+.transfer-history-path-storage {
+  align-self: start;
+  padding-block: 0.1rem;
+  padding-inline: 0.4rem;
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin-block-start: 0.1rem;
+  white-space: nowrap;
 }
 // 完整路径按容器宽度换行；虚拟列表测量实际行高，不截断内容。
 .transfer-history-desktop-record__path-text {
   min-inline-size: 0;
-  overflow-wrap: anywhere;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   white-space: normal;
   line-height: 1.5;
 }
-.transfer-history-desktop-record__path-arrow {
-  display: flex;
-  justify-content: center;
-  inline-size: 5rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+// 每个目录段整体换行，只有单段超过整行宽度时才在段内断开。
+.transfer-history-desktop-record__path-segment {
+  display: inline-block;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+.transfer-history-path-filename {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-weight: 500;
 }
 .transfer-history-desktop-record__status {
   display: flex;
@@ -3297,7 +3382,6 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   --transfer-history-mobile-search-bg: rgba(var(--v-theme-on-surface), 0.045);
   --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
   --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.1);
-  --transfer-history-mobile-storage-width: 4.85rem;
   --transfer-history-mobile-surface-blur: none;
 
   display: flex;
@@ -3534,61 +3618,61 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   color: inherit;
   cursor: pointer;
-  gap: 0.45rem;
-  grid-template-columns: 1fr;
+  column-gap: 0.625rem;
+  grid-template-columns: 0.75rem max-content minmax(0, 1fr);
   inline-size: 100%;
+  row-gap: var(--transfer-history-path-gap);
   padding-block: 0.85rem 0.95rem;
   padding-inline: 1rem;
   text-align: start;
 }
 
+// 与桌面端共用节点时间线：行不建盒，节点、存储名、路径三列直接参与外层网格。
 .transfer-history-mobile-record__path-row {
-  display: grid;
-  align-items: center;
-  gap: 0.75rem;
-  grid-template-columns: var(--transfer-history-mobile-storage-width) minmax(0, 1fr);
+  display: contents;
 }
 
-.transfer-history-mobile-record__path-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  inline-size: var(--transfer-history-mobile-storage-width);
-  padding-inline-start: 0.5rem;
-}
-
-.transfer-history-mobile-record__storage {
-  display: inline-flex;
-  overflow: hidden;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: var(--transfer-history-mobile-muted-bg);
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.75rem;
-  line-height: 1.4;
-  max-inline-size: 100%;
-  min-block-size: 1.55rem;
-  padding-block: 0.125rem;
-  padding-inline: 0.425rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.transfer-history-mobile-record__paths {
+  // 行高 1.45 × 0.875rem 的一半减去节点半径。
+  --transfer-history-node-offset: calc(0.634rem - 4.5px);
+  --transfer-history-path-gap: 0.5rem;
 }
 
 .transfer-history-mobile-record__path-row p {
+  display: flex;
   overflow: hidden;
   margin: 0;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   line-height: 1.45;
-  overflow-wrap: anywhere;
-  text-overflow: ellipsis;
+  min-inline-size: 0;
   white-space: nowrap;
 }
 
+// 折叠态优先压缩目录，文件名只有在整行都放不下时才省略。
+.transfer-history-mobile-record__path-row p > span {
+  overflow: hidden;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+}
+
+.transfer-history-mobile-record__directory {
+  flex: 0 999 auto;
+  min-inline-size: 1.5em !important;
+}
+
+.transfer-history-mobile-record__path-row p > .transfer-history-path-filename {
+  flex: 0 1 auto;
+}
+
 .transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__path-row p {
+  display: block;
+  overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__path-row p > span {
+  overflow: visible;
 }
 
 .transfer-history-mobile-record__error {

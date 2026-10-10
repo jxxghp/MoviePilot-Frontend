@@ -1611,6 +1611,10 @@ export default {
     noTask: '沒有任務',
     noTaskDescription: '正在下載的任務將會顯示在這裡。',
     confirmDelete: '確認從下載器刪除任務「{name}」及對應下載檔案嗎？',
+    stateDownloading: '下載中',
+    statePaused: '已暫停',
+    resume: '繼續',
+    remainingTime: '剩餘 {time}',
   },
   resource: {
     searchResults: '資源搜索結果',

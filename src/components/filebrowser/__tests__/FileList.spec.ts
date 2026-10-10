@@ -19,6 +19,13 @@ const mocks = vi.hoisted(() => ({
   progressStop: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  // 默认桌面断点；窄屏用例在渲染前切换。
+  narrowScreen: false,
+}))
+
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
+  useDisplay: () => ({ mdAndUp: { value: !mocks.narrowScreen }, smAndDown: { value: mocks.narrowScreen } }),
 }))
 
 vi.mock('@/api', () => ({
@@ -297,6 +304,26 @@ describe('FileList list state', () => {
     expect(sizeOf('folder')).toBe('')
     expect(sizeOf('invalid')).toBe('')
     expect(sizeOf('zero')).toBe('0 bytes')
+  })
+
+  it('moves size and date under the file name on narrow screens and omits folder sizes', async () => {
+    mocks.narrowScreen = true
+    try {
+      const request = vi
+        .fn()
+        .mockResolvedValue([
+          createItem({ name: 'folder', type: 'dir', size: 4096 }),
+          createItem({ name: 'movie.mkv', size: 1024 }),
+        ])
+      await renderList(request)
+      await screen.findByText('folder')
+      const metaOf = (name: string) =>
+        screen.getByText(name).closest('.file-row')?.querySelector('.file-row__meta')?.textContent?.trim()
+      expect(metaOf('folder')).not.toContain('KB')
+      expect(metaOf('movie.mkv')).toMatch(/^1 KB · /)
+    } finally {
+      mocks.narrowScreen = false
+    }
   })
 
   it('filters by substring, wildcard and case sensitivity', async () => {

@@ -205,7 +205,8 @@ defineExpose({
       <div ref="pathMeasureRef" class="file-browser-toolbar__measure" aria-hidden="true" inert>
         <template v-for="entry in itemstack.slice(1)" :key="entry.path">
           <VIcon icon="mdi-chevron-right" size="18" />
-          <VBtn variant="text" color="default">{{ entry.name }}</VBtn>
+          <!-- 测量副本与可见路径保持同样的原始大小写，宽度计算才一致。 -->
+          <VBtn variant="text" color="default" class="text-none">{{ entry.name }}</VBtn>
         </template>
       </div>
       <VMenu v-if="visiblePathCount">
@@ -225,7 +226,7 @@ defineExpose({
         <VBtn
           variant="text"
           color="default"
-          class="file-browser-toolbar__segment"
+          class="file-browser-toolbar__segment text-none"
           :title="entry.name"
           @click="changePath(entry)"
           >{{ entry.name }}</VBtn
