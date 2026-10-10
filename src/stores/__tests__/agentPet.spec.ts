@@ -445,3 +445,182 @@ describe('useAgentPetStore refresh and failure rules', () => {
     expect(declarationCalls()).toBe(1)
   })
 })
+
+describe('useAgentPetStore server confirmation', () => {
+  const CACHE_KEY = 'agentAssistant.lastPet.alice'
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    mocks.globalSettings = {}
+    mocks.apiGet.mockReset()
+    mocks.apiPost.mockReset()
+    mocks.preload.mockReset()
+    localStorage.clear()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { useUserStore } = await import('@/stores/user')
+    useUserStore().setUserName('alice')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  /** 按路径给出结果；值为 Error 时该请求失败。 */
+  function serve(routes: { pets: AgentPetDeclaration[] | Error; selection: unknown }) {
+    mocks.apiGet.mockImplementation(async (path: string) => {
+      if (path === 'plugin/agent_pets') {
+        if (routes.pets instanceof Error) throw routes.pets
+        return routes.pets
+      }
+      if (path === 'user/config/AgentPet') {
+        if (routes.selection instanceof Error) throw routes.selection
+        return { value: routes.selection }
+      }
+      return null
+    })
+  }
+
+  function cancelled() {
+    const error = new Error('canceled')
+    error.name = 'CanceledError'
+    return error
+  }
+
+  function readCache() {
+    return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null')
+  }
+
+  it('exempts both reads from navigation cancellation', async () => {
+    serve({ pets: [createPet()], selection: null })
+    await useAgentPetStore().start()
+
+    for (const [, config] of mocks.apiGet.mock.calls) {
+      expect(config).toMatchObject({ skipNavigationCancellation: true })
+    }
+  })
+
+  it('keeps the cached pet and does not touch the cache when both reads are interrupted, then retries on page return', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    serve({ pets: cancelled(), selection: cancelled() })
+    const store = useAgentPetStore()
+
+    await store.start()
+    expect(store.ready).toBe(false)
+    expect(store.effectivePet?.key).toBe('girl')
+    expect(readCache().id).toBe('PetPlugin:girl')
+
+    serve({ pets: [createPet()], selection: 'builtin' })
+    window.dispatchEvent(new Event('focus'))
+    await vi.waitFor(() => expect(store.ready).toBe(true))
+    expect(store.effectivePet).toBeNull()
+    await vi.waitFor(() => expect(readCache()).toEqual({ id: 'builtin' }))
+  })
+
+  it('shows the builtin robot without writing a cache when a network failure hits the first start without a cache', async () => {
+    serve({ pets: new Error('Network Error'), selection: new Error('Network Error') })
+    const store = useAgentPetStore()
+
+    await store.start()
+
+    expect(store.ready).toBe(false)
+    expect(store.effectivePet).toBeNull()
+    expect(localStorage.getItem(CACHE_KEY)).toBeNull()
+
+    // 下一个插件代次时重试。
+    serve({ pets: [createPet()], selection: { plugin_id: 'PetPlugin', key: 'girl' } })
+    usePluginRuntimeStore().reconciliation++
+    await vi.waitFor(() => expect(store.effectivePet?.key).toBe('girl'))
+    await vi.waitFor(() => expect(readCache().id).toBe('PetPlugin:girl'))
+  })
+
+  it('treats a partial success as unconfirmed and only retries the read that failed', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    serve({ pets: [createPet(), createPet({ key: 'cat', name: '小猫' })], selection: new Error('Network Error') })
+    const store = useAgentPetStore()
+
+    await store.start()
+    expect(store.ready).toBe(false)
+    expect(store.declarations).toHaveLength(2)
+    expect(store.effectivePet?.key).toBe('girl')
+    expect(readCache().id).toBe('PetPlugin:girl')
+
+    mocks.apiGet.mockClear()
+    serve({ pets: [createPet()], selection: { plugin_id: 'PetPlugin', key: 'cat' } })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.waitFor(() => expect(store.ready).toBe(true))
+    expect(mocks.apiGet.mock.calls.map(([path]) => path)).toEqual(['user/config/AgentPet'])
+    expect(store.effectivePet?.key).toBe('cat')
+  })
+
+  it('keeps the previous declarations and selection when a later refresh fails', async () => {
+    serve({ pets: [createPet()], selection: { plugin_id: 'PetPlugin', key: 'girl' } })
+    const store = useAgentPetStore()
+    await store.start()
+    expect(store.effectivePet?.key).toBe('girl')
+
+    serve({ pets: cancelled(), selection: cancelled() })
+    usePluginRuntimeStore().reconciliation++
+    await vi.waitFor(() => expect(mocks.apiGet).toHaveBeenCalledTimes(3))
+    await Promise.resolve()
+
+    expect(store.declarations).toHaveLength(1)
+    expect(store.effectivePet?.key).toBe('girl')
+    expect(readCache().id).toBe('PetPlugin:girl')
+  })
+
+  it('compares plugin_version to decide whether a failed pet may retry', async () => {
+    serve({
+      pets: [createPet({ plugin_version: '1.0.0', preview_url: '/p.png?v=1' })],
+      selection: { plugin_id: 'PetPlugin', key: 'girl' },
+    })
+    const store = useAgentPetStore()
+    const runtime = usePluginRuntimeStore()
+    await store.start()
+    store.markFailed(store.effectivePet!, '加载失败')
+
+    // 版本不变时，即使图片地址变了也不重试。
+    serve({
+      pets: [createPet({ plugin_version: '1.0.0', preview_url: '/p.png?v=2' })],
+      selection: { plugin_id: 'PetPlugin', key: 'girl' },
+    })
+    runtime.reconciliation++
+    await vi.waitFor(() => expect(store.declarations[0]?.preview_url).toContain('v=2'))
+    expect(store.effectivePet).toBeNull()
+
+    serve({
+      pets: [createPet({ plugin_version: '1.1.0', preview_url: '/p.png?v=2' })],
+      selection: { plugin_id: 'PetPlugin', key: 'girl' },
+    })
+    runtime.reconciliation++
+    await vi.waitFor(() => expect(store.effectivePet?.key).toBe('girl'))
+  })
+})
+
+describe('primeAgentPetFromCache', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    mocks.preload.mockReset()
+    localStorage.clear()
+  })
+
+  it('preloads the cached plugin pet only for a signed-in user', async () => {
+    const { primeAgentPetFromCache } = await import('@/stores/agentPet')
+    const { useUserStore } = await import('@/stores/user')
+    const { useAuthStore } = await import('@/stores/auth')
+    useUserStore().setUserName('alice')
+    localStorage.setItem('agentAssistant.lastPet.alice', JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+
+    primeAgentPetFromCache()
+    expect(mocks.preload).not.toHaveBeenCalled()
+
+    useAuthStore().setToken('token')
+    primeAgentPetFromCache()
+    expect(mocks.preload).toHaveBeenCalledWith(expect.objectContaining({ plugin_id: 'PetPlugin', key: 'girl' }))
+
+    mocks.preload.mockClear()
+    localStorage.setItem('agentAssistant.lastPet.alice', JSON.stringify({ id: 'builtin' }))
+    primeAgentPetFromCache()
+    expect(mocks.preload).not.toHaveBeenCalled()
+  })
+})

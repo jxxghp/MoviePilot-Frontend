@@ -834,6 +834,12 @@ function stopBackgroundLoading() {
 async function initializeAuthenticatedState() {
   if (!isLogin.value) return
 
+  // 登录态已确定时就按本地缓存提前注册并加载上次的助手形象，与下面的设置请求并行，
+  // 不必等布局和 Agent 入口挂载。按需导入，未登录页面不加载这部分代码。
+  import('@/stores/agentPet')
+    .then(({ primeAgentPetFromCache }) => primeAgentPetFromCache())
+    .catch(error => console.warn('[agent-pet] 提前加载形象失败', error))
+
   try {
     globalLoadingStateManager.setLoadingState('global-settings', true)
     await globalSettingsStore.initialize()
