@@ -141,6 +141,18 @@ describe('useAgentPetStore', () => {
     expect(warn).toHaveBeenCalledTimes(1)
   })
 
+  it('re-reads declarations when the user selects a pet enabled after the entry mounted', async () => {
+    mockBackend([], null)
+    mocks.apiPost.mockResolvedValue(undefined)
+    const store = useAgentPetStore()
+    await store.start()
+
+    mockBackend([createPet()], null)
+    await store.setUserSelection({ plugin_id: 'PetPlugin', key: 'girl' })
+
+    expect(store.effectivePet?.key).toBe('girl')
+  })
+
   it('re-reads declarations when the plugin runtime reconciles', async () => {
     mockBackend([], { plugin_id: 'PetPlugin', key: 'girl' })
     vi.spyOn(console, 'warn').mockImplementation(() => {})

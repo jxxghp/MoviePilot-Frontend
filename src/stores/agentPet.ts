@@ -185,8 +185,16 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   async function setUserSelection(selection: AgentPetSelection) {
     const normalized = normalizeAgentPetSelection(selection)
     await api.post(`user/config/${AGENT_PET_USER_CONFIG_KEY}`, normalized, { feedback: 'silent' })
+    if (normalized && normalized !== AGENT_PET_BUILTIN) {
+      const id = getAgentPetId(normalized)
+      clearFailure(id)
+      // 声明只在入口挂载和插件代际变化时读取；设置页列出的新启用形象可能尚未进入本地声明，先补读再切换。
+      if (!declarations.value.some(item => getAgentPetId(item) === id)) {
+        warnedKeys.delete(`unavailable:${id}`)
+        await refreshDeclarations()
+      }
+    }
     userSelection.value = normalized
-    if (normalized && normalized !== AGENT_PET_BUILTIN) clearFailure(getAgentPetId(normalized))
   }
 
   /** 记录形象加载或运行失败，生效形象随之回退内置机器人。 */
