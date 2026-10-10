@@ -224,6 +224,9 @@ const fabBubblesVisible = computed(() => hasFabBubbles.value && (!props.anchored
 const bubbleEntryActive = computed(() => props.active && (!props.anchored || Boolean(props.anchorRect)))
 // 内置机器人的随机动作、指针跟随和贴边只在非锚定模式运行。
 const petMotionActive = computed(() => props.active && props.motionActive && !props.anchored)
+// 传给 renderer 形象的 motionActive 额外计入贴边收起：收起时只露出半张脸，形象应保持静止。
+// 内置机器人收起时仍保留眼神跟随，因此不改动 petMotionActive 本身。
+const rendererMotionActive = computed(() => petMotionActive.value && !fabDocked.value)
 const hasKeepOpenFabBubbles = computed(() => fabBubbles.value.some(item => item.keepOpen))
 const fabBubbleClassList = computed(() => [
   `agent-assistant-fab__bubbles--${fabBubblePlacement.value}`,
@@ -1600,15 +1603,19 @@ watch(
 
 watch(bubbleEntryActive, active => setAgentAssistantBubbleEntryActive(active))
 
-// 插件上报的锚点变化后合并到下一帧重新定位气泡。
+// 锚点从无到有时气泡重新入场；角色移动带来的后续变化只合并到下一帧重新定位，避免气泡每帧淡出重来。
 watch(
   () => props.anchorRect,
-  () => {
-    fabBubblePositioned.value = false
-    nextTick(() => {
-      syncFabBubbleResizeObserver()
-      scheduleFabBubblePositionUpdate()
-    })
+  (rect, previous) => {
+    if (rect && !previous) {
+      fabBubblePositioned.value = false
+      nextTick(() => {
+        syncFabBubbleResizeObserver()
+        scheduleFabBubblePositionUpdate()
+      })
+      return
+    }
+    scheduleFabBubblePositionUpdate()
   },
 )
 
@@ -1748,7 +1755,7 @@ defineExpose({
         :intent="agentPetIntent"
         :thinking="props.thinking"
         :pet="props.pet"
-        :motion-active="petMotionActive"
+        :motion-active="rendererMotionActive"
         :concealed="props.concealed"
       />
     </button>
@@ -2097,6 +2104,11 @@ defineExpose({
   opacity: 1;
   pointer-events: auto;
   transform: translate3d(var(--agent-assistant-bubbles-x), var(--agent-assistant-bubbles-y), 0) scale(1);
+}
+
+.agent-assistant-fab.is-anchored .agent-assistant-fab__bubbles {
+  // 锚定模式下气泡紧跟正在移动的角色，只保留淡入淡出，不对位移做过渡。
+  transition: opacity 0.2s ease;
 }
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__bubbles {

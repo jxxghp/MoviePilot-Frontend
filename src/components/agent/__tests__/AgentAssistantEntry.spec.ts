@@ -96,6 +96,71 @@ describe('AgentAssistantEntry lifecycle motion', () => {
     wrapper.unmount()
   })
 
+  it('keeps anchored bubbles positioned while the character moves and only re-enters when the anchor reappears', async () => {
+    const wrapper = shallowMount(AgentAssistantEntry, {
+      global: { stubs: { AgentPetStage: true, VIcon: true } },
+      props: {
+        active: true,
+        motionActive: true,
+        anchored: true,
+        anchorRect: { x: 300, y: 400, width: 80, height: 120 },
+      },
+    })
+    await nextTick()
+    ;(wrapper.vm as unknown as { showBubble: (input: { text: string }) => void }).showBubble({ text: '下载完成' })
+    await nextTick()
+    animationFrameCallbacks.forEach(callback => callback(0))
+    animationFrameCallbacks.clear()
+    await nextTick()
+    expect(wrapper.classes()).toContain('is-bubble-positioned')
+
+    // 角色移动：锚点持续变化，气泡保持已定位状态，不会每帧淡出重来。
+    for (const x of [310, 320, 330]) {
+      await wrapper.setProps({ anchorRect: { x, y: 400, width: 80, height: 120 } })
+      expect(wrapper.classes()).toContain('is-bubble-positioned')
+    }
+    expect(animationFrameCallbacks.size).toBeGreaterThan(0)
+
+    // 锚点消失后再出现时重新入场。
+    await wrapper.setProps({ anchorRect: null })
+    await wrapper.setProps({ anchorRect: { x: 100, y: 200, width: 80, height: 120 } })
+    expect(wrapper.classes()).not.toContain('is-bubble-positioned')
+
+    wrapper.unmount()
+  })
+
+  it('stops renderer pet motion while the entry is docked', async () => {
+    const wrapper = shallowMount(AgentAssistantEntry, {
+      global: { stubs: { VIcon: true } },
+      props: {
+        active: true,
+        motionActive: true,
+        pet: {
+          plugin_id: 'PetPlugin',
+          source_plugin_id: 'PetPlugin',
+          plugin_name: '桌宠',
+          key: 'sprite',
+          name: '小猫',
+          mode: 'renderer',
+          component: 'AgentPet',
+          api_version: 1,
+        },
+      },
+    })
+    await nextTick()
+    const stage = () => wrapper.findComponent({ name: 'AgentPetStage' })
+    expect(stage().props('motionActive')).toBe(true)
+
+    ;(wrapper.vm as unknown as { setDocked: (docked: boolean) => void }).setDocked(true)
+    await nextTick()
+    expect(stage().props('motionActive')).toBe(false)
+
+    ;(wrapper.vm as unknown as { setDocked: (docked: boolean) => void }).setDocked(false)
+    await nextTick()
+    expect(stage().props('motionActive')).toBe(true)
+    wrapper.unmount()
+  })
+
   it('updates an existing assistant preview without recreating its resize observer', async () => {
     const observe = vi.fn()
     const disconnect = vi.fn()
