@@ -153,7 +153,7 @@ describe('AgentAssistantWidget layering', () => {
 describe('AgentAssistantWidget agent host', () => {
   const entryStub = defineComponent({
     name: 'AgentAssistantEntry',
-    props: { anchored: Boolean, anchorRect: Object, pet: Object, active: Boolean },
+    props: { anchored: Boolean, anchorRect: Object, pet: Object, active: Boolean, concealed: Boolean },
     setup(_props, { expose }) {
       expose({ clearBubbles: vi.fn(), showAssistantReplyPreview: vi.fn() })
       return () => h('div', { 'data-agent-assistant-entry': '' })
@@ -282,6 +282,50 @@ describe('AgentAssistantWidget agent host', () => {
     await vi.waitFor(() => expect(wrapper.findComponent(entryStub).props('pet')).not.toBeNull())
 
     expect(wrapper.findComponent(entryStub).props('anchored')).toBe(false)
+    expect(document.body.querySelector('[data-agent-pet-stage]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('keeps the entry blank while a cached stage pet loads after refresh and falls back on timeout', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { useUserStore } = await import('@/stores/user')
+    useUserStore().setUserName('alice')
+    localStorage.setItem('agentAssistant.lastPet.alice', JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    // 接口和联邦组件都挂起，模拟刷新后网络尚未返回。
+    mocks.apiGet.mockImplementation(() => new Promise(() => {}))
+    mocks.loadRemoteComponent.mockImplementation(() => new Promise(() => {}))
+
+    const wrapper = mountWidget()
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+
+    const entry = wrapper.findComponent(entryStub)
+    expect(entry.exists()).toBe(true)
+    expect(entry.props('concealed')).toBe(true)
+    expect(document.body.querySelector('[data-agent-pet-stage]')).not.toBeNull()
+    expect(mocks.loadRemoteComponent).toHaveBeenCalledWith('PetPlugin', 'AgentPet')
+
+    await vi.advanceTimersByTimeAsync(8000)
+    await flushPromises()
+
+    expect(wrapper.findComponent(entryStub).props('concealed')).toBe(false)
+    expect(document.body.querySelector('[data-agent-pet-stage]')).toBeNull()
+    expect(JSON.parse(localStorage.getItem('agentAssistant.lastPet.alice') || '{}')).toEqual({ id: 'builtin' })
+
+    wrapper.unmount()
+    localStorage.clear()
+    vi.useRealTimers()
+  })
+
+  it('shows the builtin robot right away when there is no cache', async () => {
+    mocks.apiGet.mockImplementation(() => new Promise(() => {}))
+    localStorage.clear()
+
+    const wrapper = mountWidget()
+    await flushPromises()
+
+    expect(wrapper.findComponent(entryStub).props('concealed')).toBe(false)
     expect(document.body.querySelector('[data-agent-pet-stage]')).toBeNull()
     wrapper.unmount()
   })

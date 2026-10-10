@@ -15,6 +15,8 @@ const props = withDefaults(
     /** renderer 模式的插件形象；为空或加载完成前使用内置机器人。 */
     pet?: AgentPetDeclaration | null
     motionActive?: boolean
+    /** 不渲染任何角色画面（stage 形象加载期间），入口热区和功能保持不变。 */
+    concealed?: boolean
   }>(),
   {
     action: null,
@@ -23,24 +25,20 @@ const props = withDefaults(
     thinking: false,
     pet: null,
     motionActive: true,
+    concealed: false,
   },
 )
 
-const rendererPet = computed(() => (props.pet?.mode === 'renderer' ? props.pet : null))
-const remoteReadyId = ref('')
+const rendererPet = computed(() => (props.pet?.mode === 'renderer' && !props.concealed ? props.pet : null))
 const rendererPetId = computed(() =>
   rendererPet.value ? `${rendererPet.value.plugin_id}:${rendererPet.value.key}` : '',
 )
-// 插件组件加载完成前继续显示内置机器人，避免入口出现空白。
-const showBuiltinRenderer = computed(() => !rendererPet.value || remoteReadyId.value !== rendererPetId.value)
-
-watch(rendererPetId, () => {
-  remoteReadyId.value = ''
-})
+// 选中插件形象时加载期间保持空白，不先闪内置机器人；加载失败由 store 回退后才显示机器人。
+const showBuiltinRenderer = computed(() => !props.concealed && !props.pet)
 </script>
 
 <template>
-  <span v-if="rendererPet" v-show="!showBuiltinRenderer" class="agent-pet-renderer" data-agent-pet-renderer="remote">
+  <span v-if="rendererPet" class="agent-pet-renderer" data-agent-pet-renderer="remote">
     <AgentPetRemote
       :key="rendererPetId"
       :pet="rendererPet"
@@ -48,7 +46,6 @@ watch(rendererPetId, () => {
       :intent="props.intent"
       :thinking="props.thinking"
       :motion-active="props.motionActive"
-      @ready="remoteReadyId = rendererPetId"
     />
   </span>
   <CssRobotRenderer

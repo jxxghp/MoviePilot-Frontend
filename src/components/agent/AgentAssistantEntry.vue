@@ -50,6 +50,8 @@ const props = withDefaults(
     anchored?: boolean
     /** 锚定模式下插件上报的角色视口矩形，null 时隐藏宿主气泡。 */
     anchorRect?: AgentHostRect | null
+    /** stage 形象加载期间不画内置机器人，触发器仍可点击和拖拽。 */
+    concealed?: boolean
   }>(),
   {
     active: true,
@@ -58,6 +60,7 @@ const props = withDefaults(
     pet: null,
     anchored: false,
     anchorRect: null,
+    concealed: false,
   },
 )
 
@@ -1746,6 +1749,7 @@ defineExpose({
         :thinking="props.thinking"
         :pet="props.pet"
         :motion-active="petMotionActive"
+        :concealed="props.concealed"
       />
     </button>
   </div>

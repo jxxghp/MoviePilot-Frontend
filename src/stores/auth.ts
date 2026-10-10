@@ -1,3 +1,4 @@
+import { clearAgentPetCache } from '@/utils/agentPetCache'
 import { defineStore } from 'pinia'
 import type { authState } from '@/stores/types'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
@@ -35,7 +36,9 @@ export const useAuthStore = defineStore('auth', {
       this.clearToken()
       this.setOriginalPath(null)
       // 身份和权限属于登录会话；退出后不得被同一浏览器中的下一个账号继承。
-      useUserStore().reset()
+      const userStore = useUserStore()
+      clearAgentPetCache(userStore.userName)
+      userStore.reset()
       clearCachedMediaSubscribeStatuses()
       usePluginSidebarNavStore().reset()
     },

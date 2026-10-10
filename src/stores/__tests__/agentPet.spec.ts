@@ -175,3 +175,124 @@ describe('useAgentPetStore', () => {
     expect(store.effectivePet).toBeNull()
   })
 })
+
+describe('useAgentPetStore refresh cache', () => {
+  const CACHE_KEY = 'agentAssistant.lastPet.alice'
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    mocks.globalSettings = {}
+    mocks.apiGet.mockReset()
+    mocks.apiPost.mockReset()
+    localStorage.clear()
+    const { useUserStore } = await import('@/stores/user')
+    useUserStore().setUserName('alice')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  /** 让接口挂起，直到测试手动放行，用来观察接口返回前的状态。 */
+  function deferBackend() {
+    let release!: (pets: AgentPetDeclaration[], selection: unknown) => void
+    const gate = new Promise<{ pets: AgentPetDeclaration[]; selection: unknown }>(resolve => {
+      release = (pets, selection) => resolve({ pets, selection })
+    })
+    mocks.apiGet.mockImplementation(async (path: string) => {
+      const { pets, selection } = await gate
+      if (path === 'plugin/agent_pets') return pets
+      if (path === 'user/config/AgentPet') return { value: selection }
+      return null
+    })
+    return release
+  }
+
+  it('uses the cached plugin pet before the server answers so the builtin robot never shows', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    const release = deferBackend()
+    const store = useAgentPetStore()
+
+    const starting = store.start()
+    expect(store.ready).toBe(false)
+    expect(store.effectivePet?.key).toBe('girl')
+
+    release([createPet()], { plugin_id: 'PetPlugin', key: 'girl' })
+    await starting
+    expect(store.effectivePet?.key).toBe('girl')
+  })
+
+  it('switches to the server result when it differs from the cache and records it', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    const release = deferBackend()
+    const store = useAgentPetStore()
+
+    const starting = store.start()
+    release([createPet(), createPet({ key: 'sprite', mode: 'renderer' })], { plugin_id: 'PetPlugin', key: 'sprite' })
+    await starting
+    expect(store.effectivePet?.key).toBe('sprite')
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}').id).toBe('PetPlugin:sprite'))
+
+    await store.setUserSelection('builtin')
+    expect(store.effectivePet).toBeNull()
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')).toEqual({ id: 'builtin' }))
+  })
+
+  it('shows the builtin robot immediately when the server says builtin', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    mockBackendFor([createPet()], 'builtin')
+    const store = useAgentPetStore()
+
+    await store.start()
+    expect(store.effectivePet).toBeNull()
+  })
+
+  it('falls back and caches builtin when the cached pet fails to load before the server answers', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    deferBackend()
+    const store = useAgentPetStore()
+    void store.start()
+
+    store.markFailed(store.effectivePet!, '加载超时')
+
+    expect(store.effectivePet).toBeNull()
+    expect(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')).toEqual({ id: 'builtin' })
+  })
+
+  it('degrades to the builtin robot when the cache is missing, corrupt or storage is unavailable', async () => {
+    deferBackend()
+    localStorage.setItem(CACHE_KEY, '{broken')
+    const store = useAgentPetStore()
+    void store.start()
+    expect(store.effectivePet).toBeNull()
+    store.stop()
+
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied')
+    })
+    void store.start()
+    expect(store.effectivePet).toBeNull()
+    store.stop()
+  })
+
+  it('clears the cache of the signed-out user on logout', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'builtin' }))
+    localStorage.setItem('agentAssistant.lastPet.bob', JSON.stringify({ id: 'builtin' }))
+    const { useAuthStore } = await import('@/stores/auth')
+
+    useAuthStore().logout()
+
+    expect(localStorage.getItem(CACHE_KEY)).toBeNull()
+    expect(localStorage.getItem('agentAssistant.lastPet.bob')).not.toBeNull()
+  })
+
+  function mockBackendFor(pets: AgentPetDeclaration[], selection: unknown) {
+    mocks.apiGet.mockImplementation(async (path: string) => {
+      if (path === 'plugin/agent_pets') return pets
+      if (path === 'user/config/AgentPet') return { value: selection }
+      return null
+    })
+  }
+})

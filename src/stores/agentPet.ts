@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
-import { computed, effectScope, ref, watch, type EffectScope } from 'vue'
+import { computed, effectScope, ref, shallowRef, watch, type EffectScope } from 'vue'
 import api from '@/api'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
+import { useUserStore } from '@/stores/user'
+import { readAgentPetCache, writeAgentPetCache } from '@/utils/agentPetCache'
 import type { AgentPetDeclaration, AgentPetSelection } from '@/types/agentHost'
 import { resolveFederationRemoteUrl } from '@/utils/federationUrl'
 
@@ -121,13 +123,18 @@ export async function fetchAgentPetDeclarations(): Promise<AgentPetDeclaration[]
 export const useAgentPetStore = defineStore('agentPet', () => {
   const globalSettingsStore = useGlobalSettingsStore()
   const pluginRuntimeStore = usePluginRuntimeStore()
+  const userStore = useUserStore()
 
   /** 可用形象声明。 */
   const declarations = ref<AgentPetDeclaration[]>([])
   /** 当前用户的选择。 */
   const userSelection = ref<AgentPetSelection>(null)
-  /** 声明与用户选择是否都已读取过一次；未就绪时使用内置机器人。 */
+  /** 声明与用户选择是否都已读取过一次；未就绪时使用本地缓存的上次形象，没有缓存则用内置机器人。 */
   const ready = ref(false)
+  /** 本地缓存的上次生效形象，只在接口返回前用于提前加载，避免刷新后先闪内置机器人。 */
+  const cachedPet = shallowRef<AgentPetDeclaration | null>(null)
+  /** 缓存所属用户，退出登录后由 auth store 清除。 */
+  let cacheUser = ''
   /** 本会话加载或运行失败的形象，不再重试直到切换选择或刷新声明。 */
   const failedIds = ref<Set<string>>(new Set())
   const active = ref(false)
@@ -147,8 +154,12 @@ export const useAgentPetStore = defineStore('agentPet', () => {
       : { pet: null },
   )
 
-  /** 当前生效形象，null 为内置机器人。 */
-  const effectivePet = computed(() => resolution.value.pet)
+  /** 当前生效形象，null 为内置机器人；接口返回前沿用缓存，返回后一律以服务端结果为准。 */
+  const effectivePet = computed(() => {
+    if (ready.value) return resolution.value.pet
+    const cached = cachedPet.value
+    return cached && !failedIds.value.has(getAgentPetId(cached)) ? cached : null
+  })
 
   /** 每个回退原因只告警一次，不弹 toast。 */
   function warnOnce(key: string, message: string, detail?: unknown) {
@@ -202,6 +213,8 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   function markFailed(pet: AgentPetDeclaration, reason: string, detail?: unknown) {
     const id = getAgentPetId(pet)
     warnOnce(`failed:${id}`, `形象 ${id} ${reason}，回退内置机器人`, detail)
+    // 下次刷新直接显示内置机器人，不再先等一个已知加载失败的形象。
+    writeAgentPetCache(cacheUser, null)
     if (failedIds.value.has(id)) return
     failedIds.value = new Set([...failedIds.value, id])
   }
@@ -217,8 +230,15 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   async function start() {
     if (active.value) return
     active.value = true
+    cacheUser = userStore.userName
+    const cached = readAgentPetCache(cacheUser)
+    cachedPet.value = cached && 'pet' in cached ? (normalizeAgentPetDeclarations([cached.pet])[0] ?? null) : null
     scope = effectScope(true)
     scope.run(() => {
+      // 服务端结果就绪后记住实际生效的形象，供下次刷新提前加载。
+      watch([ready, effectivePet], ([isReady, pet]) => {
+        if (isReady) writeAgentPetCache(cacheUser, pet)
+      })
       watch(
         () => pluginRuntimeStore.reconciliation,
         (value, previous) => {
@@ -247,6 +267,8 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     userSelection.value = null
     failedIds.value = new Set()
     ready.value = false
+    cachedPet.value = null
+    cacheUser = ''
     warnedKeys.clear()
   }
 
