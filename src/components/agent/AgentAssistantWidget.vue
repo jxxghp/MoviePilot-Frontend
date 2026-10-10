@@ -48,13 +48,15 @@ const effectivePet = computed(() => petStore.effectivePet)
 const effectivePetId = computed(() => (effectivePet.value ? getAgentPetId(effectivePet.value) : ''))
 const stagePet = computed(() => (effectivePet.value?.mode === 'stage' ? effectivePet.value : null))
 const rendererPet = computed(() => (effectivePet.value?.mode === 'renderer' ? effectivePet.value : null))
-/** stage 形象加载完成的标识；加载完成前继续显示内置入口，避免页面上没有入口。 */
+/** stage 形象加载完成的标识；加载完成前保留不画角色的内置入口，点击开面板等功能不受影响。 */
 const stageReadyId = ref('')
 const stageActive = computed(() => Boolean(stagePet.value) && stageReadyId.value === effectivePetId.value)
 const stageBubbles = computed(() => (stagePet.value?.bubbles === 'self' ? 'self' : 'host'))
 /** 内置入口是否挂载：bubbles=self 的 stage 形象完全接管角色与气泡，宿主只推事件。 */
 const showEntry = computed(() => !stageActive.value || stageBubbles.value === 'host')
 const entryAnchored = computed(() => stageActive.value && stageBubbles.value === 'host')
+/** stage 形象加载期间入口保持空白但可用，避免刷新后先闪内置机器人。 */
+const entryConcealed = computed(() => Boolean(stagePet.value) && !stageActive.value)
 const bubbleAnchor = shallowRef<AgentHostRect | null>(null)
 const petInteracting = ref(false)
 
@@ -254,6 +256,7 @@ onScopeDispose(() => {
         :thinking="thinking"
         :pet="rendererPet"
         :anchored="entryAnchored"
+        :concealed="entryConcealed"
         :anchor-rect="entryAnchored ? bubbleAnchor : null"
         @open="openPanel"
       />
