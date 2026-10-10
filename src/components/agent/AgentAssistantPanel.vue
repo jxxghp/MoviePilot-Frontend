@@ -11,6 +11,9 @@ import type { AgentStreamPhaseEvent } from '@/utils/agentHostPhase'
 import type { AgentPetDeclaration } from '@/types/agentHost'
 import AgentPetAvatar from './pet/AgentPetAvatar.vue'
 
+// 形象选择视图按需加载，只在用户点开“更换形象”时才读取形象声明。
+const AgentPetPicker = defineAsyncComponent(() => import('./AgentPetPicker.vue'))
+
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
 type AgentAttachmentKind = 'audio' | 'file' | 'image'
@@ -292,6 +295,8 @@ const runnerActive = ref(false)
 const isComposing = ref(false)
 const streamError = ref('')
 const historyMenuOpen = ref(false)
+/** 面板内的“更换形象”视图是否打开；打开时替换消息区和输入区，关闭后回到原对话。 */
+const petPickerOpen = ref(false)
 const messageListRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -2894,6 +2899,7 @@ function stopGeneration() {
 
 // 开始新的空白会话。
 function startNewSession() {
+  petPickerOpen.value = false
   invalidateProtectedDeliveries()
   stopGeneration()
   sessionId.value = createSessionId()
@@ -2913,6 +2919,7 @@ function startNewSession() {
 // 从历史列表恢复指定会话，同时把它设为当前本地会话。
 async function loadHistorySession(targetSessionId: string) {
   if (isBusy.value) return
+  petPickerOpen.value = false
 
   let historySession = historySessions.value.find(item => item.sessionId === targetSessionId)
   if (!historySession) return
@@ -3010,7 +3017,19 @@ function clearAgentAssistantOpenState() {
 
 // 处理全局快捷键。
 function handleGlobalKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && isOpen.value) closeDrawer()
+  if (event.key !== 'Escape' || !isOpen.value) return
+  // 形象选择视图打开时 Esc 先回到对话，再按一次才关闭面板。
+  if (petPickerOpen.value) {
+    petPickerOpen.value = false
+    return
+  }
+  closeDrawer()
+}
+
+/** 切换面板内的形象选择视图。 */
+function togglePetPicker() {
+  historyMenuOpen.value = false
+  petPickerOpen.value = !petPickerOpen.value
 }
 
 // 页面进入后台时保存流式占位，恢复可见时尝试拉取 WebAgent 后台完成后的会话快照。
@@ -3035,6 +3054,7 @@ function handlePageShow() {
 
 /** 只把草稿填入输入框并聚焦，绝不自动发送；供宿主 `agent.open({ draft })` 使用。 */
 function setDraft(draft: string) {
+  petPickerOpen.value = false
   inputText.value = draft
   syncInputHeight()
   nextTick(() => inputRef.value?.focus())
@@ -3068,6 +3088,7 @@ watch(isOpen, open => {
     return
   }
 
+  petPickerOpen.value = false
   invalidateProtectedDeliveries()
 })
 
@@ -3140,8 +3161,8 @@ onScopeDispose(() => {
               </span>
             </AgentPetAvatar>
           </div>
-          <div>
-            <div class="text-subtitle-1 font-weight-semibold">{{ assistantTitle }}</div>
+          <div class="agent-assistant-title__text">
+            <div class="text-subtitle-1 font-weight-semibold text-truncate">{{ assistantTitle }}</div>
             <div class="agent-assistant-status">
               {{
                 activeThinkingMessage
@@ -3234,6 +3255,16 @@ onScopeDispose(() => {
             </VCard>
           </VMenu>
           <IconBtn
+            class="agent-assistant-pet-toggle"
+            :title="t('agentAssistant.pet.change')"
+            :aria-label="t('agentAssistant.pet.change')"
+            :aria-pressed="petPickerOpen"
+            :color="petPickerOpen ? 'primary' : undefined"
+            @click="togglePetPicker"
+          >
+            <VIcon icon="mdi-account-convert-outline" />
+          </IconBtn>
+          <IconBtn
             :disabled="isBusy"
             :title="t('agentAssistant.newChat')"
             :aria-label="t('agentAssistant.newChat')"
@@ -3257,7 +3288,10 @@ onScopeDispose(() => {
         </div>
       </header>
 
+      <AgentPetPicker v-if="petPickerOpen" class="agent-assistant-pet-picker" @back="petPickerOpen = false" />
+
       <main
+        v-show="!petPickerOpen"
         ref="messageListRef"
         class="agent-assistant-messages"
         :class="{ 'agent-assistant-messages--has-content': hasConversationContent }"
@@ -3460,7 +3494,7 @@ onScopeDispose(() => {
         </div>
       </main>
 
-      <footer class="agent-assistant-composer">
+      <footer v-show="!petPickerOpen" class="agent-assistant-composer">
         <VAlert v-if="streamError" type="error" variant="tonal" density="compact" class="mb-3">
           {{ streamError }}
         </VAlert>
@@ -3672,6 +3706,11 @@ onScopeDispose(() => {
   display: flex;
   align-items: center;
   column-gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+// 插件形象名称可能较长，头部按钮增多后标题截断而不是把按钮挤出面板。
+.agent-assistant-title__text {
   min-inline-size: 0;
 }
 

@@ -1039,7 +1039,7 @@ export default {
   agentAssistant: {
     pet: {
       title: 'Assistant Avatar',
-      subtitle: 'Choose how the AI assistant looks. Avatars come from enabled plugins and apply immediately.',
+      subtitle: 'Avatars come from enabled plugins and apply immediately.',
       followDefault: 'Follow System Default',
       followDefaultDesc: 'Current default: {name}',
       followDefaultHint: 'Changes automatically when an admin updates the default',
@@ -1051,7 +1051,8 @@ export default {
       unavailable: 'Unavailable',
       empty: 'No plugin provides an assistant avatar yet',
       loadFailed: 'Failed to load assistant avatars',
-      saveSuccess: 'Assistant avatar switched',
+      back: 'Back to chat',
+      change: 'Change avatar',
       saveFailed: 'Failed to save assistant avatar: {message}',
     },
     title: 'AI Assistant',
