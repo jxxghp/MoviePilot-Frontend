@@ -27,6 +27,7 @@ import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { getNameTail } from '@/components/filebrowser/tailEllipsis'
 import { formatMusicAudioSpecs } from '@/utils/music'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
@@ -1587,10 +1588,15 @@ const audioExtensions = new Set([
  */
 function getHistoryPathParts(path?: string) {
   const segments = path?.split(/(?<=[/\\])/).filter(Boolean) ?? []
+  const filename = segments.at(-1) ?? ''
+  const filenameTail = getNameTail(filename)
   return {
     directories: segments.slice(0, -1),
     directory: segments.slice(0, -1).join(''),
-    filename: segments.at(-1) ?? '',
+    filename,
+    // 手机端折叠态省略文件名主体时固定保留的扩展名尾部，见 getNameTail。
+    filenameHead: filename.slice(0, filename.length - filenameTail.length),
+    filenameTail,
   }
 }
 
@@ -2768,7 +2774,14 @@ onUnmounted(() => {
                   <span class="transfer-history-mobile-record__directory">{{
                     getHistoryPathParts(item.src).directory
                   }}</span
-                  ><span class="transfer-history-path-filename">{{ getHistoryPathParts(item.src).filename }}</span>
+                  ><span class="transfer-history-path-filename"
+                    ><span class="transfer-history-mobile-record__name-head">{{
+                      getHistoryPathParts(item.src).filenameHead
+                    }}</span
+                    ><span class="transfer-history-mobile-record__name-tail">{{
+                      getHistoryPathParts(item.src).filenameTail
+                    }}</span></span
+                  >
                 </p>
                 <p v-else>{{ t('common.unknown') }}</p>
               </div>
@@ -2782,7 +2795,14 @@ onUnmounted(() => {
                   <span class="transfer-history-mobile-record__directory">{{
                     getHistoryPathParts(item.dest).directory
                   }}</span
-                  ><span class="transfer-history-path-filename">{{ getHistoryPathParts(item.dest).filename }}</span>
+                  ><span class="transfer-history-path-filename"
+                    ><span class="transfer-history-mobile-record__name-head">{{
+                      getHistoryPathParts(item.dest).filenameHead
+                    }}</span
+                    ><span class="transfer-history-mobile-record__name-tail">{{
+                      getHistoryPathParts(item.dest).filenameTail
+                    }}</span></span
+                  >
                 </p>
               </div>
             </button>
@@ -2922,14 +2942,14 @@ onUnmounted(() => {
   border: var(--history-desktop-border);
   border-radius: var(--app-surface-radius);
   background: var(--history-desktop-surface);
-  box-shadow: var(--app-card-rest-shadow);
+  box-shadow: var(--history-desktop-shadow, var(--app-card-rest-shadow));
   backdrop-filter: var(--history-desktop-backdrop-filter);
   -webkit-backdrop-filter: var(--history-desktop-backdrop-filter);
 }
 .transfer-history-desktop-record:hover,
 .transfer-history-desktop-group-summary:hover,
 .transfer-history-desktop-page .transfer-history-album-summary:hover {
-  box-shadow: var(--app-card-hover-shadow);
+  box-shadow: var(--history-desktop-shadow-hover, var(--app-card-hover-shadow));
 }
 .transfer-history-desktop-selection {
   flex-wrap: wrap;
@@ -2962,6 +2982,10 @@ onUnmounted(() => {
 }
 .transfer-history-desktop-virtual > .v-table__wrapper {
   padding-inline: 1px;
+  // 队列悬浮按钮压在列表右下角，末尾留白让最后一条记录能滚到按钮上方。
+  padding-block-end: var(--app-fab-clearance);
+  // 滚动裁切边与卡片同圆角，滚出视口的卡片不再被直角切断；圆角裁切不影响子级玻璃采样。
+  border-radius: var(--app-surface-radius);
 }
 .transfer-history-desktop-virtual table {
   table-layout: fixed;
@@ -2975,7 +2999,7 @@ onUnmounted(() => {
 .transfer-history-desktop-record {
   display: grid;
   // 状态与元信息内容较短，收窄右列把宽度让给路径，减少长路径折行。
-  grid-template-columns: 36px minmax(11rem, 15rem) minmax(0, 1fr) minmax(12rem, 14rem);
+  grid-template-columns: 36px minmax(9.5rem, 12.5rem) minmax(0, 1fr) minmax(12rem, 14rem);
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
@@ -3002,6 +3026,9 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   --history-desktop-surface: var(--glass-v3-card-background);
   --history-desktop-border: 1px solid var(--glass-border);
   --history-desktop-backdrop-filter: var(--glass-native-surface-backdrop-filter);
+  // 密集列表行只保留玻璃边缘高光，外投影会渗进卡片间距，叠成一层发灰的列表背景。
+  --history-desktop-shadow: var(--glass-dashboard-shadow);
+  --history-desktop-shadow-hover: var(--glass-dashboard-shadow-hover);
   .transfer-history-desktop-virtual.v-table {
     background: transparent !important;
     box-shadow: none !important;
@@ -3047,7 +3074,14 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   white-space: nowrap;
 }
 .transfer-history-desktop-record__identity strong {
+  display: -webkit-box;
+  // 标题列收窄后允许两行，剧集编号不被省略。
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 1.05rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .transfer-history-desktop-record__identity small {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
@@ -3120,10 +3154,13 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   line-height: 1.5;
 }
 // 每个目录段整体换行，只有单段超过整行宽度时才在段内断开。
+// 中文之间不作为断点，避免中英混排的文件名在中文处提前断开（如“修仙 / 传.A.Record…”）；
+// 段内优先在连字符等自然断点换行，整段都放不下时才强制断开。
 .transfer-history-desktop-record__path-segment {
   display: inline-block;
   max-inline-size: 100%;
   overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 .transfer-history-path-filename {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
@@ -3378,6 +3415,9 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-page {
+  // 移动端悬浮按钮位于分页条上方，列表末尾同样预留按钮高度。
+  padding-block-end: var(--app-fab-clearance);
+
   --transfer-history-mobile-surface-opacity: 0.92;
   --transfer-history-mobile-search-bg: rgba(var(--v-theme-on-surface), 0.045);
   --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
@@ -3662,7 +3702,19 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-record__path-row p > .transfer-history-path-filename {
+  display: flex;
   flex: 0 1 auto;
+}
+
+// 文件名本身也放不下时只省略主体，扩展名尾部始终可见。
+.transfer-history-mobile-record__name-head {
+  overflow: hidden;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+}
+
+.transfer-history-mobile-record__name-tail {
+  flex: none;
 }
 
 .transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__path-row p {
@@ -3671,8 +3723,16 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   white-space: normal;
 }
 
-.transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__path-row p > span {
+.transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__path-row p > span,
+.transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__name-head {
   overflow: visible;
+}
+
+.transfer-history-mobile-record__paths--expanded
+  .transfer-history-mobile-record__path-row
+  p
+  > .transfer-history-path-filename {
+  display: inline;
 }
 
 .transfer-history-mobile-record__error {

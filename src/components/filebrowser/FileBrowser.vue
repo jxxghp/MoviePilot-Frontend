@@ -5,6 +5,7 @@ import { useFileBrowserHeight } from '@/composables/useFileBrowserHeight'
 import { useDisplay } from 'vuetify'
 import FileToolbar from './FileToolbar.vue'
 import FileNavigator from './FileNavigator.vue'
+import type { FileSortKey, FileSortOrder } from './types'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
 import type { DataApiClient } from '@/api'
 import { useDynamicButton } from '@/composables/useDynamicButton'
@@ -14,7 +15,9 @@ import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // LocalStorage keys
+// 排序列沿用原有键名（历史值 name / time 直接兼容），方向为新增键。
 const SORT_KEY = 'fileBrowser.sort'
+const SORT_ORDER_KEY = 'fileBrowser.sortOrder'
 const SHOW_TREE_KEY = 'fileBrowser.showDirTree'
 const NAV_WIDTH_KEY = 'fileBrowser.navigatorWidth'
 
@@ -154,11 +157,14 @@ function openNewFolderDialog() {
 
 const showFloatingNewFolderAction = computed(() => route.path === '/filemanager' && canManage.value)
 
+// 悬浮新建按钮显示时，文件列表末尾预留按钮高度。
+const floatingNewFolderVisible = computed(() => appMode.value && showFloatingNewFolderAction.value)
+
 useDynamicButton({
   icon: 'mdi-folder-plus-outline',
   onClick: openNewFolderDialog,
   permission: 'manage',
-  show: computed(() => appMode.value && showFloatingNewFolderAction.value),
+  show: floatingNewFolderVisible,
 })
 
 // 加载次数
@@ -166,8 +172,24 @@ const loading = ref(0)
 
 // 刷新
 const refreshPending = ref(false)
+/** 读取持久化的排序列；未知值回退为名称。 */
+function readSortKey(): FileSortKey {
+  const stored = localStorage.getItem(SORT_KEY)
+  return stored === 'size' || stored === 'time' ? stored : 'name'
+}
+
+/** 读取持久化的排序方向；旧版本只有“名称升序 / 时间降序”，未存方向时按列默认方向恢复。 */
+function readSortOrder(key: FileSortKey): FileSortOrder {
+  const stored = localStorage.getItem(SORT_ORDER_KEY)
+  if (stored === 'asc' || stored === 'desc') return stored
+  return key === 'name' ? 'asc' : 'desc'
+}
+
 // 排序 - 从localStorage恢复
-const sort = ref(localStorage.getItem(SORT_KEY) || 'name')
+const sortKey = ref<FileSortKey>(readSortKey())
+const sortOrder = ref<FileSortOrder>(readSortOrder(sortKey.value))
+// 后端只支持名称与时间两种拉取顺序；列表展示顺序由 FileList 在前端按 sortKey/sortOrder 排列。
+const sort = computed(() => (sortKey.value === 'time' ? 'time' : 'name'))
 
 // 是否显示目录树 - 从localStorage恢复
 const showDirTree = ref(localStorage.getItem(SHOW_TREE_KEY) === 'true')
@@ -178,8 +200,9 @@ const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragStartWidth = ref(0)
 
-watch(sort, val => {
-  localStorage.setItem(SORT_KEY, val)
+watch([sortKey, sortOrder], ([key, order]) => {
+  localStorage.setItem(SORT_KEY, key)
+  localStorage.setItem(SORT_ORDER_KEY, order)
 })
 
 watch(showDirTree, val => {
@@ -217,10 +240,10 @@ function pathChanged(item: FileItem) {
   emit('pathchanged', item)
 }
 
-/** 排序变化。 */
-function sortChanged(s: string) {
-  sort.value = s
-  refreshPending.value = true
+/** 排序变化只调整已加载列表的展示顺序，不重新请求目录。 */
+function sortChanged({ key, order }: { key: FileSortKey; order: FileSortOrder }) {
+  sortKey.value = key
+  sortOrder.value = order
 }
 
 /** 切换目录树。 */
@@ -317,33 +340,15 @@ onUnmounted(cleanupDrag)
   <div
     ref="workspaceRef"
     class="file-workspace"
-    :style="{ height: workspaceHeight !== undefined ? `${workspaceHeight}px` : undefined }"
+    :style="{
+      height: workspaceHeight !== undefined ? `${workspaceHeight}px` : undefined,
+      '--file-list-fab-clearance': floatingNewFolderVisible ? 'var(--app-fab-clearance)' : '0px',
+    }"
     :aria-busy="loading > 0"
   >
     <header class="file-workspace__header d-flex justify-space-between align-center mb-1">
       <PageContentTitle :title="$t('navItems.fileManager')" class="my-0" style="margin-block: 0" />
       <div class="d-flex align-center gap-1">
-        <VMenu v-if="item.type !== 'file'" location="bottom end">
-          <template #activator="{ props: menuProps }">
-            <IconBtn v-bind="menuProps" variant="text" :aria-label="$t('file.sort')">
-              <VIcon :icon="sort === 'time' ? 'mdi-sort-clock-ascending-outline' : 'mdi-sort-alphabetical-ascending'" />
-            </IconBtn>
-          </template>
-          <VList>
-            <VListItem
-              :title="$t('file.sortByName')"
-              prepend-icon="mdi-sort-alphabetical-ascending"
-              :active="sort !== 'time'"
-              @click="sortChanged('name')"
-            />
-            <VListItem
-              :title="$t('file.sortByTime')"
-              prepend-icon="mdi-sort-clock-ascending-outline"
-              :active="sort === 'time'"
-              @click="sortChanged('time')"
-            />
-          </VList>
-        </VMenu>
         <IconBtn
           variant="text"
           :aria-label="$t('common.refresh')"
@@ -397,6 +402,8 @@ onUnmounted(cleanupDrag)
           :axios="axios"
           :refreshpending="refreshPending"
           :sort="sort"
+          :sort-key="sortKey"
+          :sort-order="sortOrder"
           :showTree="display.mdAndUp.value ? showDirTree : mobileTreeOpen"
           :active="active"
           class="file-workspace__list"
@@ -406,6 +413,7 @@ onUnmounted(cleanupDrag)
           @renamed="refreshPending = true"
           @items-updated="fileListUpdated"
           @switch-tree="switchDirTree"
+          @sort-change="sortChanged"
         />
       </div>
     </div>

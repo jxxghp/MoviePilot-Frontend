@@ -381,8 +381,9 @@ function createHistory(id: number, title: string, overrides: Partial<TransferHis
     title,
     type: '电影',
     status: true,
-    src: `/downloads/${title}.mkv`,
-    dest: `/media/${title}.mkv`,
+    // 路径使用发布名风格，文件名主体不会与标题文本完全相同。
+    src: `/downloads/${title}.2024.1080p.WEB-DL.mkv`,
+    dest: `/media/${title} (2024)/${title} (2024).mkv`,
     src_storage: 'downloads',
     dest_storage: 'library',
     mode: 'link',
@@ -1419,6 +1420,28 @@ describe('TransferHistoryView', () => {
     const emptyState = await screen.findByText(i18n.global.t('transferHistory.noData'))
     expect(screen.getByLabelText('整理历史无限列表')).toContainElement(emptyState)
     expect(screen.getByRole('img', { name: '404' })).toBeInTheDocument()
+  })
+
+  it('keeps the file extension as a fixed tail in collapsed mobile paths', async () => {
+    mocks.desktop = false
+    const item = createHistory(1, '移动路径', {
+      src: '/downloads/Show.S01/Show.S01E01.2160p.WEB-DL.DDP5.1-GROUP.mkv',
+      dest: '/media/Show/Season 1/Show.S01E01.chs&eng.ass',
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    const { container } = await renderHistory()
+    await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    await screen.findByText('移动路径')
+
+    const filenameParts = (selector: string) =>
+      [...container.querySelectorAll(selector)].map(element => element.textContent)
+    expect(filenameParts('.transfer-history-mobile-record__name-head')).toEqual([
+      'Show.S01E01.2160p.WEB-DL',
+      'Show.S01E01',
+    ])
+    expect(filenameParts('.transfer-history-mobile-record__name-tail')).toEqual(['.DDP5.1-GROUP.mkv', '.chs&eng.ass'])
   })
 
   it('loads mobile pages with deduplication and reports empty when the last page is exhausted', async () => {

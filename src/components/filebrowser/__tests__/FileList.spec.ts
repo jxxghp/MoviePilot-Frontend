@@ -1,6 +1,8 @@
 import type { EndPoints, FileItem } from '@/api/types'
 import type { DataApiClient } from '@/api'
 import FileList from '@/components/filebrowser/FileList.vue'
+import type { FileSortKey, FileSortOrder } from '@/components/filebrowser/types'
+import i18n from '@/plugins/i18n'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import type { AxiosRequestConfig } from 'axios'
@@ -185,6 +187,8 @@ async function renderList(
     item?: FileItem
     refreshpending?: boolean
     sort?: string
+    sortKey?: FileSortKey
+    sortOrder?: FileSortOrder
   } = {},
 ) {
   const axios = Object.assign(vi.fn(), { request: vi.fn(request) }) as unknown as DataApiClient
@@ -197,6 +201,8 @@ async function renderList(
       item: options.item ?? createItem({ name: 'media', path: '/media/', type: 'dir' }),
       refreshpending: options.refreshpending ?? false,
       sort: options.sort ?? 'name',
+      sortKey: options.sortKey ?? 'name',
+      sortOrder: options.sortOrder ?? 'asc',
     },
   })
   return { ...result, axios }
@@ -324,6 +330,57 @@ describe('FileList list state', () => {
     } finally {
       mocks.narrowScreen = false
     }
+  })
+
+  it('orders loaded rows by the active column and keeps directories first', async () => {
+    const items = [
+      createItem({ name: 'episode 10.mkv', size: 300, modify_time: 30 }),
+      createItem({ name: 'Season 2', type: 'dir', modify_time: 5 }),
+      createItem({ name: 'episode 2.mkv', size: 100, modify_time: 10 }),
+      createItem({ name: 'episode 3.mkv', size: 100, modify_time: 20 }),
+      createItem({ name: 'Season 10', type: 'dir', modify_time: 50 }),
+    ]
+    const { rerender } = await renderList(() => Promise.resolve(items))
+    await screen.findByText('Season 2')
+    const names = () =>
+      Array.from(document.querySelectorAll('.file-row__filename')).map(item => item.textContent?.trim())
+
+    // 名称按自然顺序排列，目录始终在文件之前。
+    expect(names()).toEqual(['Season 2', 'Season 10', 'episode 2.mkv', 'episode 3.mkv', 'episode 10.mkv'])
+
+    // 大小相同的文件按名称升序作为次序。
+    await rerender({ sortKey: 'size', sortOrder: 'desc' })
+    expect(names()).toEqual(['Season 2', 'Season 10', 'episode 10.mkv', 'episode 2.mkv', 'episode 3.mkv'])
+
+    await rerender({ sortKey: 'time', sortOrder: 'desc' })
+    expect(names()).toEqual(['Season 10', 'Season 2', 'episode 10.mkv', 'episode 3.mkv', 'episode 2.mkv'])
+  })
+
+  it('sorts from the column headers, toggling the active column and using each column default otherwise', async () => {
+    const { emitted, rerender } = await renderList(() => Promise.resolve([createItem({ name: 'a.mkv' })]))
+    await screen.findByText('a.mkv')
+    const header = (title: string) => screen.getByRole('button', { name: title })
+
+    expect(header(i18n.global.t('file.fileName')).closest('[role="columnheader"]')).toHaveAttribute(
+      'aria-sort',
+      'ascending',
+    )
+    await fireEvent.click(header(i18n.global.t('file.fileName')))
+    await fireEvent.click(header(i18n.global.t('file.size')))
+    await fireEvent.click(header(i18n.global.t('file.modifyTime')))
+    expect(emitted()['sort-change']).toEqual([
+      [{ key: 'name', order: 'desc' }],
+      [{ key: 'size', order: 'desc' }],
+      [{ key: 'time', order: 'desc' }],
+    ])
+
+    await rerender({ sortKey: 'size', sortOrder: 'desc' })
+    expect(header(i18n.global.t('file.size')).closest('[role="columnheader"]')).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    )
+    await fireEvent.click(header(i18n.global.t('file.size')))
+    expect(emitted()['sort-change'].at(-1)).toEqual([{ key: 'size', order: 'asc' }])
   })
 
   it('filters by substring, wildcard and case sensitivity', async () => {

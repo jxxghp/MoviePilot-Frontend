@@ -75,8 +75,8 @@ const FileNavigatorStub = defineComponent({
 
 const FileListStub = defineComponent({
   name: 'FileList',
-  props: ['refreshpending', 'sort', 'showTree'],
-  emits: ['items-updated', 'loading', 'pathchanged', 'refreshed', 'switch-tree', 'filedeleted'],
+  props: ['refreshpending', 'sort', 'sortKey', 'sortOrder', 'showTree'],
+  emits: ['items-updated', 'loading', 'pathchanged', 'refreshed', 'switch-tree', 'filedeleted', 'sort-change'],
   template:
     '<div><button class="emit-loading" @click="$emit(`loading`, 1)" /><button class="emit-tree" @click="$emit(`switch-tree`, true)" /><button class="emit-filedeleted" @click="$emit(`filedeleted`)" /></div>',
 })
@@ -224,44 +224,59 @@ describe('FileBrowser state and child contracts', () => {
     mocks.openNewFolderDialog.mockReset()
   })
 
-  it('keeps the shared page title and sort/refresh actions outside the glass material', async () => {
+  it('keeps the shared page title and refresh action outside the glass material, leaving sorting to the list headers', async () => {
     const wrapper = mountBrowser()
     const header = wrapper.get('.file-workspace__header')
     const title = header.get('[data-testid="page-header"]')
     expect(title.text()).toBe(i18n.global.t('navItems.fileManager'))
     expect(title.element.closest('[data-glass-optical-surface]')).toBeNull()
     expect(wrapper.get('[data-glass-optical-surface]').find('.file-workspace__header').exists()).toBe(false)
-    expect(header.find(`[aria-label="${i18n.global.t('file.sort')}"]`).exists()).toBe(true)
+    expect(header.find(`[aria-label="${i18n.global.t('file.sort')}"]`).exists()).toBe(false)
     await header.get(`[aria-label="${i18n.global.t('common.refresh')}"]`).trigger('click')
     expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(true)
   })
 
   it('restores sorting and directory tree preferences from localStorage', () => {
-    localStorage.setItem('fileBrowser.sort', 'time')
+    localStorage.setItem('fileBrowser.sort', 'size')
+    localStorage.setItem('fileBrowser.sortOrder', 'asc')
     localStorage.setItem('fileBrowser.showDirTree', 'true')
     localStorage.setItem('fileBrowser.navigatorWidth', '360')
 
     const wrapper = mountBrowser()
+    const list = wrapper.getComponent(FileListStub)
 
-    expect(wrapper.getComponent(FileListStub).props('sort')).toBe('time')
-    expect(wrapper.getComponent(FileListStub).props('showTree')).toBe(true)
+    expect(list.props('sortKey')).toBe('size')
+    expect(list.props('sortOrder')).toBe('asc')
+    // 后端只认识名称与时间，按大小排序时以名称拉取。
+    expect(list.props('sort')).toBe('name')
+    expect(list.props('showTree')).toBe(true)
     expect(wrapper.getComponent(FileNavigatorStub).attributes('style')).toContain('width: 360px')
   })
 
-  it('persists sort and tree changes and requests a refresh after sorting', async () => {
-    const wrapper = mountBrowser()
+  it('migrates a stored sort without direction to the previous name-ascending and time-descending orders', () => {
+    localStorage.setItem('fileBrowser.sort', 'time')
+    expect(mountBrowser().getComponent(FileListStub).props()).toMatchObject({
+      sort: 'time',
+      sortKey: 'time',
+      sortOrder: 'desc',
+    })
 
-    await wrapper
-      .get('.file-workspace__header')
-      .findAll('button')
-      .find(button => button.text() === i18n.global.t('file.sortByTime'))!
-      .trigger('click')
+    localStorage.clear()
+    expect(mountBrowser().getComponent(FileListStub).props()).toMatchObject({ sortKey: 'name', sortOrder: 'asc' })
+  })
+
+  it('persists header sort and tree changes without refetching the directory', async () => {
+    const wrapper = mountBrowser()
+    const list = wrapper.getComponent(FileListStub)
+
+    list.vm.$emit('sort-change', { key: 'time', order: 'asc' })
     await wrapper.get('.emit-tree').trigger('click')
     await nextTick()
 
     expect(localStorage.getItem('fileBrowser.sort')).toBe('time')
+    expect(localStorage.getItem('fileBrowser.sortOrder')).toBe('asc')
     expect(localStorage.getItem('fileBrowser.showDirTree')).toBe('true')
-    expect(wrapper.getComponent(FileListStub).props('refreshpending')).toBe(true)
+    expect(list.props()).toMatchObject({ sortKey: 'time', sortOrder: 'asc', refreshpending: false })
     expect(wrapper.findComponent(FileNavigatorStub).exists()).toBe(true)
   })
 
