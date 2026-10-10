@@ -157,6 +157,8 @@ describe('AgentAssistantEntry pet interactions', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    // 拖动会持久化入口位置，每个用例从默认位置开始。
+    localStorage.removeItem('agentAssistant.fabAnchor')
   })
   afterEach(() => {
     entries.splice(0).forEach(wrapper => wrapper.unmount())
@@ -292,5 +294,80 @@ describe('AgentAssistantEntry pet interactions', () => {
     expect(action(wrapper)).toBeNull()
     await wrapper.setProps({ active: true })
     expect(action(wrapper)).toBe('wake')
+  })
+})
+
+describe('AgentAssistantEntry position memory', () => {
+  const STORAGE_KEY = 'agentAssistant.fabAnchor'
+
+  /** 只隔离渲染器和图标，位置计算走真实入口逻辑。 */
+  async function mountEntry() {
+    const wrapper = shallowMount(AgentAssistantEntry, {
+      global: { stubs: { AgentPetStage: true, VIcon: true } },
+      props: { active: true, motionActive: true },
+    })
+    await nextTick()
+    await nextTick()
+    return wrapper
+  }
+
+  /** 读取入口当前渲染坐标。 */
+  function position(wrapper: Awaited<ReturnType<typeof mountEntry>>) {
+    const style = (wrapper.element as HTMLElement).style
+    return [style.getPropertyValue('--agent-assistant-fab-x'), style.getPropertyValue('--agent-assistant-fab-y')]
+  }
+
+  /** 按住入口拖动一段距离后松开。 */
+  async function drag(wrapper: Awaited<ReturnType<typeof mountEntry>>, deltaX: number, deltaY: number) {
+    const trigger = wrapper.find('.agent-assistant-fab__trigger')
+    const event = (clientX: number, clientY: number, buttons: number) => ({
+      button: 0,
+      buttons,
+      clientX,
+      clientY,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+    })
+    await trigger.trigger('pointerdown', event(600, 400, 1))
+    await trigger.trigger('pointermove', event(600 + deltaX, 400 + deltaY, 1))
+    await trigger.trigger('pointerup', event(600 + deltaX, 400 + deltaY, 0))
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    localStorage.removeItem(STORAGE_KEY)
+  })
+  afterEach(() => {
+    localStorage.removeItem(STORAGE_KEY)
+    vi.useRealTimers()
+  })
+
+  it('restores the dragged position after the entry is mounted again', async () => {
+    const first = await mountEntry()
+    const defaultPosition = position(first)
+    await drag(first, -400, -200)
+    const draggedPosition = position(first)
+    first.unmount()
+
+    expect(draggedPosition).not.toEqual(defaultPosition)
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')).toMatchObject({ mode: 'free' })
+
+    const second = await mountEntry()
+    expect(position(second)).toEqual(draggedPosition)
+    second.unmount()
+  })
+
+  it('falls back to the default position when the stored anchor is invalid', async () => {
+    const reference = await mountEntry()
+    const defaultPosition = position(reference)
+    reference.unmount()
+
+    for (const stored of ['not-json', JSON.stringify({ mode: 'free', xRatio: 3, yRatio: 0.5 })]) {
+      localStorage.setItem(STORAGE_KEY, stored)
+      const wrapper = await mountEntry()
+      expect(position(wrapper)).toEqual(defaultPosition)
+      wrapper.unmount()
+    }
   })
 })
