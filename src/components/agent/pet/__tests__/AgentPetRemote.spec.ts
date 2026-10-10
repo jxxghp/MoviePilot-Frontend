@@ -3,6 +3,7 @@ import { defineComponent, h, onMounted, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentHostEvent, AgentPetContext, AgentPetDeclaration, MoviePilotAgentHost } from '@/types/agentHost'
 import { agentHost } from '@/utils/agentHost'
+import { resetAgentPetComponentLoads } from '@/utils/agentPetLoader'
 import AgentPetRemote from '../AgentPetRemote.vue'
 import AgentPetStage from '../AgentPetStage.vue'
 
@@ -14,7 +15,8 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/utils/federationLoader', () => ({
-  loadRemoteComponent: (...args: unknown[]) => mocks.loadRemoteComponent(...args),
+  ensureRemoteRegistered: async () => true,
+  loadRegisteredRemoteComponent: (...args: unknown[]) => mocks.loadRemoteComponent(...args),
 }))
 
 vi.mock('@/api', () => ({
@@ -77,6 +79,7 @@ function createFakePet() {
 describe('AgentPetRemote', () => {
   beforeEach(() => {
     mocks.loadRemoteComponent.mockReset()
+    resetAgentPetComponentLoads()
     mocks.markFailed.mockReset()
     mocks.api.get.mockReset()
     mocks.api.post.mockReset()
@@ -196,6 +199,7 @@ describe('AgentPetRemote', () => {
 describe('AgentPetStage renderer branch', () => {
   beforeEach(() => {
     mocks.loadRemoteComponent.mockReset()
+    resetAgentPetComponentLoads()
   })
 
   it('stays blank instead of flashing the builtin robot while the renderer pet loads, then passes host props', async () => {

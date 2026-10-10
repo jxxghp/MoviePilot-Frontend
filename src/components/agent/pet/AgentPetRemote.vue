@@ -5,11 +5,8 @@ import api from '@/api'
 import { AGENT_HOST_INJECTION_KEY, useScopedAgentHost } from '@/composables/useAgentHost'
 import { useAgentPetStore } from '@/stores/agentPet'
 import type { AgentHostRect, AgentPetContext, AgentPetDeclaration } from '@/types/agentHost'
-import { loadRemoteComponent } from '@/utils/federationLoader'
+import { AgentPetLoadTimeoutError, loadAgentPetComponent } from '@/utils/agentPetLoader'
 import type { AgentPetActionName, AgentPetIntent } from './types'
-
-/** 联邦形象组件加载超时，超时后回退内置机器人。 */
-const AGENT_PET_LOAD_TIMEOUT = 8000
 
 /** 形象私有持久数据的序列化上限（字节）。 */
 const AGENT_PET_STATE_MAX_BYTES = 16 * 1024
@@ -104,30 +101,20 @@ const petContext: AgentPetContext = {
 
 let loadGeneration = 0
 
-/** 在超时内加载联邦形象组件，失败或超时记录到 store 以回退内置机器人。 */
+/** 加载联邦形象组件（可能复用 store 已开始的预加载），失败或超时记录到 store 以回退内置机器人。 */
 async function loadPetComponent(pet: AgentPetDeclaration) {
   const generation = ++loadGeneration
   remoteComponent.value = null
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
   try {
-    const timeout = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('timeout')), AGENT_PET_LOAD_TIMEOUT)
-    })
-    const component = (await Promise.race([
-      loadRemoteComponent(pet.plugin_id, pet.component || 'AgentPet'),
-      timeout,
-    ])) as Component
+    const component = await loadAgentPetComponent(pet)
     if (generation !== loadGeneration) return
-    if (!component) throw new Error('empty component')
     remoteComponent.value = markRaw(component)
     await nextTick()
     if (generation === loadGeneration) emit('ready')
   } catch (error) {
     if (generation !== loadGeneration) return
-    const reason = error instanceof Error && error.message === 'timeout' ? '加载超时' : '加载失败'
+    const reason = error instanceof AgentPetLoadTimeoutError ? '加载超时' : '加载失败'
     petStore.markFailed(pet, reason, error)
-  } finally {
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 }
 
