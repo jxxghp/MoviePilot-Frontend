@@ -2,6 +2,7 @@ import { shallowMount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantEntry from '@/components/agent/AgentAssistantEntry.vue'
+import { canUseAgentAssistantBubble } from '@/utils/agentAssistantBubble'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -65,6 +66,32 @@ describe('AgentAssistantEntry lifecycle motion', () => {
     expect(cancelAnimationFrame).toHaveBeenCalledWith(pointerFrameId)
     expect(animationFrameCallbacks.has(pointerFrameId)).toBe(false)
     expect(vi.getTimerCount()).toBe(0)
+
+    wrapper.unmount()
+  })
+
+  it('only draws host bubbles beside the reported anchor in anchored stage mode', async () => {
+    const wrapper = shallowMount(AgentAssistantEntry, {
+      global: { stubs: { AgentPetStage: true, VIcon: true } },
+      props: { active: true, motionActive: true, anchored: true, anchorRect: null },
+    })
+    await nextTick()
+
+    expect(wrapper.find('.agent-assistant-fab__trigger').exists()).toBe(false)
+    expect(wrapper.classes()).toContain('is-anchored')
+    // 未上报锚点时不接管 toast，避免提示被吞掉。
+    expect(canUseAgentAssistantBubble()).toBe(false)
+
+    ;(wrapper.vm as unknown as { showBubble: (input: { text: string }) => void }).showBubble({ text: '下载完成' })
+    await nextTick()
+    expect(wrapper.find('.agent-assistant-fab__bubbles').exists()).toBe(false)
+
+    await wrapper.setProps({ anchorRect: { x: 300, y: 400, width: 80, height: 120 } })
+    await nextTick()
+    expect(wrapper.find('.agent-assistant-fab__bubbles').text()).toContain('下载完成')
+    expect(canUseAgentAssistantBubble()).toBe(true)
+    // 锚定模式不安排自动贴边或随机动作。
+    expect(wrapper.classes()).not.toContain('is-docked')
 
     wrapper.unmount()
   })

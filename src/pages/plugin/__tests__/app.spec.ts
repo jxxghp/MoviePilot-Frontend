@@ -3,6 +3,8 @@ import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent, h, inject, nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { agentHost } from '@/utils/agentHost'
+import type { AgentHostEvent, MoviePilotAgentHost } from '@/types/agentHost'
 
 const mocks = vi.hoisted(() => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -133,6 +135,30 @@ describe('plugin-app page', () => {
 
     expect(remoteAction).toBeInTheDocument()
     expect(mocks.loadRemoteAppPageComponent).toHaveBeenCalledWith('alpha', 'settings')
+  })
+
+  it('lets a settings page emit live preview events that the running pet receives on the shared bus', async () => {
+    const settingsPage = defineComponent({
+      name: 'PetSettingsRemotePage',
+      props: { pluginId: String },
+      setup() {
+        const agent = inject<MoviePilotAgentHost>('moviepilot:agent')
+        return () => h('button', { onClick: () => agent?.emit('pet.config', { scale: 1.5 }) }, 'apply')
+      },
+    })
+    mocks.loadRemoteAppPageComponent.mockResolvedValue(settingsPage)
+    // 形象组件收到的 agent 视图与宿主注入对象来自同一核心，这里模拟另一插件实例的形象。
+    const petAgent = agentHost.createScoped(() => 'OtherPetPlugin')
+    const received: AgentHostEvent[] = []
+    const stop = petAgent.on('pet.config', payload => received.push(payload))
+
+    await renderWithProviders(PluginAppPage)
+    await fireEvent.click(await screen.findByRole('button', { name: 'apply' }))
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toMatchObject({ name: 'pet.config', source: 'alpha', data: { scale: 1.5 } })
+    stop()
+    petAgent.dispose()
   })
 
   it('uses main when the optional nav key is absent', async () => {

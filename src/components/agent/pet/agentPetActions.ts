@@ -153,11 +153,27 @@ export function getAgentPetRandomActionDelay() {
   )
 }
 
-/** 按安静动作优先的权重抽取，且不会连续重复同一个动作。 */
-export function pickAgentPetRandomAction(lastAction: AgentPetActionName | null): AgentPetActionName {
-  const candidates = AGENT_PET_RANDOM_ACTIONS.filter(action => action !== lastAction).flatMap(action =>
-    Array<AgentPetActionName>(RANDOM_ACTION_WEIGHTS[action] ?? 1).fill(action),
-  )
+/**
+ * 计算随机动作池：未声明时使用宿主日常动作全集；renderer 形象声明了 `random_actions` 时
+ * 只保留其中宿主认识的动作名，显式声明空列表表示不播放随机动作。
+ */
+export function resolveAgentPetRandomPool(allowed?: readonly string[] | null): readonly AgentPetActionName[] {
+  if (!Array.isArray(allowed)) return AGENT_PET_RANDOM_ACTIONS
 
-  return candidates[Math.floor(Math.random() * candidates.length)] || AGENT_PET_RANDOM_ACTIONS[0]
+  return allowed.filter(
+    (action, index): action is AgentPetActionName =>
+      Object.prototype.hasOwnProperty.call(AGENT_PET_ACTIONS, action) && allowed.indexOf(action) === index,
+  )
+}
+
+/** 按安静动作优先的权重抽取，且不会连续重复同一个动作。 */
+export function pickAgentPetRandomAction(
+  lastAction: AgentPetActionName | null,
+  pool: readonly AgentPetActionName[] = AGENT_PET_RANDOM_ACTIONS,
+): AgentPetActionName {
+  const candidates = pool
+    .filter(action => action !== lastAction)
+    .flatMap(action => Array<AgentPetActionName>(RANDOM_ACTION_WEIGHTS[action] ?? 1).fill(action))
+
+  return candidates[Math.floor(Math.random() * candidates.length)] || pool[0] || AGENT_PET_RANDOM_ACTIONS[0]
 }

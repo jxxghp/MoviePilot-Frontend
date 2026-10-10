@@ -224,7 +224,10 @@ describe('AgentAssistantPanel stream recovery', () => {
   })
 
   it('renders thinking as an ordered standalone row after existing assistant content', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => createAgentResponse([])))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
     localStorage.setItem(
       'moviepilot-agent-assistant-state',
       JSON.stringify({
@@ -2545,6 +2548,76 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(wrapper.find('.agent-assistant-message--assistant .agent-assistant-message__bubble').text()).toBe(
       Array.from({ length: 100 }, (_item, index) => String(index % 10)).join(''),
     )
+
+    wrapper.unmount()
+  })
+})
+
+describe('AgentAssistantPanel agent host bridge', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('fills the draft into the input without sending a message', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () =>
+      createAgentResponse([]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await flushPromises()
+    fetchMock.mockClear()
+
+    ;(wrapper.vm as unknown as { setDraft: (draft: string) => void }).setDraft('帮我看看下载任务')
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('帮我看看下载任务')
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/message/agent/stream'))).toBe(false)
+    expect(wrapper.findAll('.agent-assistant-message--user')).toHaveLength(0)
+
+    wrapper.unmount()
+  })
+
+  it('reports tool, choice and terminal stream phases for the host', async () => {
+    const primaryStream = createControllableAgentStream()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return primaryStream.response
+        return createAgentResponse([])
+      }),
+    )
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('检查媒体状态')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    primaryStream.emit(
+      legacySseFrame({
+        type: 'tool',
+        status: 'running',
+        tool_id: 'tool-1',
+        tool_name: 'search_media',
+        message: '搜索',
+      }),
+    )
+    primaryStream.emit(legacySseFrame({ type: 'tool', status: 'done', tool_id: 'tool-1' }))
+    primaryStream.emit(legacySseFrame({ type: 'choice', choice: { id: 'choice-1', prompt: '选择', buttons: [] } }))
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
+
+    expect(wrapper.emitted('stream-phase')?.map(([event]) => event)).toEqual([
+      { type: 'tool', id: 'tool-1', name: 'search_media', status: 'running' },
+      { type: 'tool', id: 'tool-1', name: null, status: 'done' },
+      { type: 'choice' },
+      { type: 'done' },
+    ])
 
     wrapper.unmount()
   })

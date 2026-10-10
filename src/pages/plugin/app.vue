@@ -4,6 +4,7 @@ import { createPluginInstanceApi } from '@/api'
 import { getRemoteModuleInfo, loadRemoteAppPageComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { provideScopedAgentHost } from '@/composables/useAgentHost'
 import { useConfirm } from '@/composables/useConfirm'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
@@ -31,6 +32,9 @@ provide('moviepilot:confirm', createConfirm)
 // 向侧栏全页联邦组件导出主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
+
+// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
+provideScopedAgentHost(pluginId)
 
 watch(
   [pluginId, navKey],
