@@ -50,6 +50,13 @@ const sourcePluginId = computed(() => props.pet.source_plugin_id || props.pet.pl
 const scopedAgent = useScopedAgentHost(pluginId)
 provide(AGENT_HOST_INJECTION_KEY, scopedAgent)
 
+// renderer 的 motionActive 与 stage 的 motionAllowed 一致，同样遵循系统“减少动态效果”。
+const reducedMotion = ref(scopedAgent.getState().reducedMotion)
+scopedAgent.subscribe(state => {
+  reducedMotion.value = state.reducedMotion
+})
+const rendererMotionActive = computed(() => props.motionActive && !reducedMotion.value)
+
 const scopedPluginApi = computed(() => createPluginInstanceApi(pluginId.value, sourcePluginId.value))
 
 /** 规整插件上报的矩形，非法值视为隐藏锚点。 */
@@ -165,6 +172,6 @@ onBeforeUnmount(() => {
     :action="props.action"
     :intent="props.intent"
     :thinking="props.thinking"
-    :motion-active="props.motionActive"
+    :motion-active="rendererMotionActive"
   />
 </template>

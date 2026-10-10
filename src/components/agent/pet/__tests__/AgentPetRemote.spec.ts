@@ -198,7 +198,7 @@ describe('AgentPetStage renderer branch', () => {
     mocks.loadRemoteComponent.mockReset()
   })
 
-  it('keeps the builtin robot until the renderer pet is ready, then passes host action props', async () => {
+  it('stays blank instead of flashing the builtin robot while the renderer pet loads, then passes host props', async () => {
     const { component, received } = createFakePet()
     let resolveLoad!: (value: unknown) => void
     mocks.loadRemoteComponent.mockReturnValue(new Promise(resolve => (resolveLoad = resolve)))
@@ -212,7 +212,7 @@ describe('AgentPetStage renderer branch', () => {
       },
     })
     await flushPromises()
-    expect(wrapper.find('.agent-assistant-fab__bot').exists()).toBe(true)
+    expect(wrapper.find('.agent-assistant-fab__bot').exists()).toBe(false)
 
     resolveLoad(component)
     await flushPromises()
@@ -226,11 +226,33 @@ describe('AgentPetStage renderer branch', () => {
     wrapper.unmount()
   })
 
-  it('renders only the builtin robot for stage pets', () => {
-    const wrapper = mount(AgentPetStage, { props: { pet: createPet() } })
-
+  it('renders the builtin robot without a pet and nothing while concealed', async () => {
+    const wrapper = mount(AgentPetStage, { props: { pet: null } })
     expect(wrapper.find('.agent-assistant-fab__bot').exists()).toBe(true)
+
+    await wrapper.setProps({ concealed: true })
+    expect(wrapper.find('.agent-assistant-fab__bot').exists()).toBe(false)
     expect(mocks.loadRemoteComponent).not.toHaveBeenCalled()
     wrapper.unmount()
+  })
+
+  it('turns renderer motionActive off when the system asks for reduced motion', async () => {
+    const { component, received } = createFakePet()
+    mocks.loadRemoteComponent.mockResolvedValue(component)
+    agentHost.setState({ reducedMotion: false })
+
+    const wrapper = mount(AgentPetStage, {
+      props: { pet: createPet({ mode: 'renderer', bubbles: null }), motionActive: true },
+    })
+    await flushPromises()
+    await flushPromises()
+    expect(received.props?.motionActive).toBe(true)
+
+    agentHost.setState({ reducedMotion: true })
+    await flushPromises()
+    expect(received.props?.motionActive).toBe(false)
+
+    wrapper.unmount()
+    agentHost.resetState()
   })
 })
