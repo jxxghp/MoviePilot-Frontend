@@ -97,7 +97,8 @@ const options = computed<AgentPetOption[]>(() => {
     items.push({
       id: getAgentPetId(pet),
       title: pet.name,
-      description: pet.plugin_name,
+      // 副标题优先用形象自己的一句话说明，没有时再显示提供它的插件名。
+      description: pet.description || pet.plugin_name,
       selection: { plugin_id: pet.plugin_id, key: pet.key },
       previewUrl: getPetPreviewUrl(pet),
       icon: 'mdi-puzzle-outline',
