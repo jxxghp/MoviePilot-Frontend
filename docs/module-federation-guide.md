@@ -61,6 +61,8 @@ export default defineConfig({
         './Dashboard': './src/components/Dashboard.vue',
         './AppPage': './src/components/AppPage.vue',
         './AppPageSettings': './src/components/AppPageSettings.vue',
+        // 可选：Agent 助手形象，见 5.11
+        './AgentPet': './src/components/AgentPet.vue',
       },
       shared: {
         vue: {
@@ -323,15 +325,16 @@ const emit = defineEmits(['action'])
 
 登录后的联邦组件宿主会向插件开放以下能力：
 
-| 能力             | Page | Config | Dashboard | AppPage | 调用方式                                                         |
-| ---------------- | ---- | ------ | --------- | ------- | ---------------------------------------------------------------- |
-| 认证 API         | ✓    | ✓      | ✓         | ✓       | `api` prop                                                       |
-| 当前实例 ID      | ✓    | ✓      | ✓         | ✓       | `pluginId` prop                                                  |
-| 共享源码 ID      | ✓    | ✓      | ✓         | ✓       | `sourcePluginId` prop；普通插件为空                              |
-| 原生订阅交互     | ✓    | ✓      | ✓         | ✓       | `nativeSubscribe` prop 或 `inject('moviepilot:nativeSubscribe')` |
-| 主应用统一 Toast | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:toast')`                                     |
-| 主应用公共弹窗   | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:dialog')`                                    |
-| 主应用确认弹窗   | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:confirm')`                                   |
+| 能力             | Page | Config | Dashboard | AppPage | AgentPet | 调用方式                                                          |
+| ---------------- | ---- | ------ | --------- | ------- | -------- | ----------------------------------------------------------------- |
+| 认证 API         | ✓    | ✓      | ✓         | ✓       | ✓        | `api` prop                                                        |
+| 当前实例 ID      | ✓    | ✓      | ✓         | ✓       | ✓        | `pluginId` prop                                                   |
+| 共享源码 ID      | ✓    | ✓      | ✓         | ✓       | ✓        | `sourcePluginId` prop；普通插件为空                               |
+| 原生订阅交互     | ✓    | ✓      | ✓         | ✓       |          | `nativeSubscribe` prop 或 `inject('moviepilot:nativeSubscribe')`  |
+| 主应用统一 Toast | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:toast')`                                      |
+| 主应用公共弹窗   | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:dialog')`                                     |
+| 主应用确认弹窗   | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:confirm')`                                    |
+| Agent 宿主能力   | ✓    | ✓      | ✓         | ✓       | ✓        | `inject('moviepilot:agent')`；AgentPet 另有 `agent` prop，见 5.11 |
 
 `nativeSubscribe`、Toast、公共弹窗和确认弹窗都由主应用宿主提供。插件不应复制主程序订阅弹窗、创建另一套 Toast 容器或自行挂载全局弹窗。插件在旧版主程序或能力不存在的环境中运行时，应保留空值判断和必要的页面内 fallback。
 
@@ -553,6 +556,222 @@ exposes: {
   // ...
 }
 ```
+
+### 5.11 Agent 助手形象（AgentPet）
+
+插件可以替换页面右下角智能助手的形象。主应用保留 Agent 面板、会话、模型、工具调用、权限、挂载生命周期和回退，插件只负责角色本身，不能接管面板或会话。
+
+#### 两种模式
+
+| 模式               | 插件负责                                                     | 主应用负责                                                      |
+| ------------------ | ------------------------------------------------------------ | --------------------------------------------------------------- |
+| `renderer`（默认） | 在入口热区内画出角色，按宿主动作名和意图播放动画             | 入口位置、拖拽、贴边、随机动作调度、点击开面板、原生气泡        |
+| `stage`            | 整个角色：外观、动作集合、位置、拖拽、物理、贴边、点击开面板 | 提供覆盖全视口的图层；`bubbles=host` 时在插件上报的锚点旁画气泡 |
+
+stage 图层固定覆盖整个视口，层级与内置入口相同，高于 Vuetify 弹窗和遮罩，角色可以在整个视口自由走动、跟随鼠标、走到弹窗上方。图层自身 `pointer-events: none`，任何空白处的点击都会穿透到下方页面，弹窗打开时也一样；插件只在自己的角色元素上设置 `pointer-events: auto`。
+
+#### 后端声明
+
+插件需为 Vue 渲染模式，并实现 `get_agent_pets`，返回形象列表：
+
+| 字段             | 必填 | 说明                                                                                  |
+| ---------------- | ---- | ------------------------------------------------------------------------------------- |
+| `key`            | 是   | 插件内唯一，`[a-z0-9_-]{1,32}`                                                        |
+| `name`           | 是   | 展示名                                                                                |
+| `description`    | 否   | 一句话说明                                                                            |
+| `mode`           | 否   | `stage` 或 `renderer`，默认 `renderer`                                                |
+| `component`      | 否   | 联邦暴露名，默认 `AgentPet`，即 `./AgentPet`                                          |
+| `api_version`    | 否   | 契约版本，默认 1；主应用不认识的版本会被忽略                                          |
+| `preview`        | 否   | 预览图，相对插件联邦 dist 目录的路径，或 `http(s)://`、`data:` URL                    |
+| `bubbles`        | 否   | 仅 stage：`host`（插件上报锚点，主应用画原生气泡，默认）或 `self`（插件自己画）       |
+| `random_actions` | 否   | 仅 renderer：主应用随机动作只从这里挑（主应用动作名子集），缺省用全集，空列表表示不播 |
+
+```python
+def get_agent_pets(self) -> List[Dict[str, Any]]:
+    return [{"key": "girl", "name": "看板娘", "mode": "stage", "preview": "assets/preview.png"}]
+```
+
+一个插件可以只声明一项形象，在插件内部自己管理多个角色的切换（例如在配置页选择角色，再通过下文的自定义事件通知形象实时切换），不必把每个角色都声明成独立形象。
+
+用户在“个人信息”页的“助手形象”中选择形象，管理员可在系统设置的智能助手区域设置“默认助手形象”。选择即时生效，无需刷新。
+
+#### 形象组件 props
+
+```ts
+{
+  agent: MoviePilotAgentHost // 已按当前实例绑定
+  pet: AgentPetContext
+  api: object // 与其他联邦组件相同的实例作用域 api
+  pluginId: string
+  sourcePluginId: string
+  // 以下仅 renderer 模式
+  action: string | null // 主应用动作名，不认识的按 intent 处理
+  intent: string // idle / thinking / speaking / notify / success / warning / error / dragging / docked / sleeping / reaction
+  thinking: boolean
+  motionActive: boolean
+}
+
+interface AgentPetContext {
+  mode: 'stage' | 'renderer'
+  key: string
+  /** stage 且 bubbles=host 时上报角色在视口中的矩形，主应用把原生气泡画在旁边；null 隐藏气泡。 */
+  setBubbleAnchor(rect: { x: number; y: number; width: number; height: number } | null): void
+  /** stage 模式声明当前是否正在拖拽，拖拽期间主应用不弹回复预览气泡。 */
+  setInteracting(value: boolean): void
+  /** 每用户每形象的小块持久数据，序列化后不超过 16KB，超出时 set 会 reject。 */
+  storage: { get<T = unknown>(): Promise<T | null>; set(value: unknown): Promise<void> }
+}
+```
+
+renderer 模式的动作名有 `wave`、`sit`、`eye-roll`、`faint`、`disassemble`、`happy-jump`、`sleep`、`stretch`、`peek`、`scan`、`charge`、`spin-cheer`、`shy`、`confused`、`nod`、`wake`。
+
+#### 宿主能力 `moviepilot:agent`
+
+所有联邦宿主（Page、Config、Dashboard、AppPage）都以 `inject('moviepilot:agent')` 提供同一个 Agent 宿主核心的实例视图，形象组件以 `agent` prop 收到同样的视图。它们共用一条事件总线，同插件和跨插件的自定义事件都能送达。Agent 未启用或入口被隐藏时 `available` 为 `false`，`open` 为空操作。
+
+```ts
+interface MoviePilotAgentHost {
+  version: 1
+  getState(): AgentHostState
+  /** 立即以当前快照回调一次，之后每次变化回调。返回取消函数。 */
+  subscribe(listener: (state: AgentHostState) => void): () => void
+  /** 打开原生面板，重复调用保持打开。draft 只填入输入框，绝不发送。 */
+  open(options?: { draft?: string }): void
+  close(): void
+  /** 订阅事件，返回取消函数。 */
+  on(event: string, handler: (payload: AgentHostEvent) => void): () => void
+  /** 广播自定义事件。名称不得以 `agent.` 开头，主应用自动附 source=pluginId。 */
+  emit(name: string, data?: Record<string, unknown>): void
+}
+
+interface AgentHostState {
+  available: boolean
+  panelOpen: boolean
+  thinking: boolean
+  phase: 'idle' | 'thinking' | 'tool' | 'awaiting' | 'done' | 'error'
+  toolName: string | null
+  pageVisible: boolean
+  motionAllowed: boolean // 页面活动、隐藏标签页与系统减少动态效果合并后的结论
+  reducedMotion: boolean
+  theme: 'light' | 'dark'
+  isMobile: boolean
+  viewport: {
+    width: number
+    height: number
+    keyboardInset: number
+    safeArea: { top: number; right: number; bottom: number; left: number }
+  }
+  panelRect: { x: number; y: number; width: number; height: number } | null
+}
+
+interface AgentHostEvent {
+  name: string
+  source: string // 'host' 或发出事件的 pluginId
+  data: Record<string, unknown>
+  at: number
+}
+```
+
+主应用事件（全部以 `agent.` 开头，插件不能发出）：
+
+| 事件                                          | data                                                           |
+| --------------------------------------------- | -------------------------------------------------------------- |
+| `agent.panel.open` / `agent.panel.close`      | 空                                                             |
+| `agent.thinking.start` / `agent.thinking.end` | 空                                                             |
+| `agent.tool.start` / `agent.tool.end`         | `{ name }`，工具名可能为 `null`                                |
+| `agent.awaiting`                              | 空，Agent 等待用户选择或确认                                   |
+| `agent.done` / `agent.error`                  | `{ message? }`                                                 |
+| `agent.preview`                               | `{ text }`，面板关闭时的回复预览，约 125ms 节流                |
+| `agent.bubble`                                | `{ id, kind, variant, title?, text }`，主应用通知和 toast 气泡 |
+
+`phase` 由面板的流事件归纳：开始处理为 `thinking`，工具执行中为 `tool`，出现选择卡片为 `awaiting`（本轮结束后保持），正常结束为 `done`，出错为 `error`。断流恢复和后台完成的会话从快照恢复，不会补发中间的工具事件。
+
+#### 回退与生命周期
+
+- 形象不存在、插件停用、契约版本不认识、联邦加载失败或超过 8 秒、组件运行时抛错时，主应用回退内置机器人并 `console.warn` 一次，不弹提示。
+- 每个页面会话只挂一个形象实例。退出登录、关闭 Agent、切换形象时卸载形象组件，主应用同时清空该实例的订阅；插件在 `onBeforeUnmount` 中清理自己的计时器和 DOM 监听。
+- 插件启停或升级后主应用会重新读取声明，插件不需要轮询。
+- renderer 形象加载完成前继续显示内置机器人；stage 形象加载完成前保留内置入口。
+
+#### stage 最小示例
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+
+const props = defineProps<{ agent: any; pet: any; pluginId: string }>()
+const position = ref({ x: window.innerWidth - 120, y: window.innerHeight - 160 })
+const thinking = ref(false)
+const scale = ref(1)
+const stops: Array<() => void> = []
+
+function reportAnchor() {
+  props.pet.setBubbleAnchor({
+    x: position.value.x,
+    y: position.value.y,
+    width: 96 * scale.value,
+    height: 128 * scale.value,
+  })
+}
+
+onMounted(async () => {
+  const saved = await props.pet.storage.get<{ x: number; y: number }>()
+  if (saved) position.value = saved
+  reportAnchor()
+  stops.push(props.agent.subscribe((state: any) => (thinking.value = state.thinking)))
+  stops.push(
+    props.agent.on('agent.done', () => {
+      /* 播放庆祝动作 */
+    }),
+  )
+  stops.push(
+    props.agent.on('pet.config', (event: any) => {
+      if (event.source === props.pluginId) scale.value = Number(event.data.scale) || 1
+      reportAnchor()
+    }),
+  )
+})
+
+onBeforeUnmount(() => stops.forEach(stop => stop()))
+</script>
+
+<template>
+  <button
+    class="my-pet"
+    :class="{ 'is-thinking': thinking }"
+    :style="{ left: `${position.x}px`, top: `${position.y}px`, transform: `scale(${scale})` }"
+    @click="agent.open()"
+  />
+</template>
+
+<style scoped>
+.my-pet {
+  position: fixed;
+  pointer-events: auto; /* 图层本身不接收点击，角色元素需要显式打开 */
+  inline-size: 96px;
+  block-size: 128px;
+}
+</style>
+```
+
+#### 设置页实时预览
+
+插件自己的 Page、Config 或 AppPage 修改角色大小、移动速度或切换角色时，用同一条总线通知正在运行的形象，不必等保存或刷新：
+
+```vue
+<script setup lang="ts">
+import { inject } from 'vue'
+
+const agent = inject<any>('moviepilot:agent', null)
+
+function previewScale(scale: number) {
+  // source 由主应用自动填为当前插件实例 ID，形象可据此只响应自己插件的事件。
+  agent?.emit('pet.config', { scale })
+}
+</script>
+```
+
+形象组件中 `agent.on('pet.config', handler)` 即可收到（见上方 stage 示例）。保存配置仍走插件自己的 API，事件只负责实时预览。
 
 ## 6. 构建和部署
 
