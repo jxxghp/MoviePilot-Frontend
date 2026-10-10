@@ -31,6 +31,7 @@ vi.mock('@/stores/global', () => ({
 
 vi.mock('@/utils/federationLoader', () => ({
   ensureRemoteRegistered: async () => true,
+  registerRemoteModule: () => {},
   loadRegisteredRemoteComponent: (...args: unknown[]) => mocks.loadRemoteComponent(...args),
 }))
 

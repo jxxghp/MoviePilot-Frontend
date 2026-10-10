@@ -1,9 +1,12 @@
 import type { Component } from 'vue'
 import type { AgentPetDeclaration } from '@/types/agentHost'
-import { ensureRemoteRegistered, loadRegisteredRemoteComponent } from '@/utils/federationLoader'
+import { ensureRemoteRegistered, loadRegisteredRemoteComponent, registerRemoteModule } from '@/utils/federationLoader'
 
 /** remoteEntry 与形象组件模块本身的加载上限（毫秒），不含 remote 发现与注册。 */
 export const AGENT_PET_LOAD_TIMEOUT = 8000
+
+/** 声明没有 `remote_url` 时回退到发现接口，这一步单独设上限（毫秒），超时按加载失败处理。 */
+export const AGENT_PET_DISCOVER_TIMEOUT = 5000
 
 /** 加载超时的错误标记，调用方据此区分“超时”与“加载失败”。 */
 export class AgentPetLoadTimeoutError extends Error {
@@ -20,20 +23,37 @@ function getFlightKey(pet: AgentPetDeclaration) {
   return `${pet.plugin_id}\u0000${pet.component || 'AgentPet'}`
 }
 
-/** 在限定时间内等待加载，超时后以 {@link AgentPetLoadTimeoutError} 拒绝。 */
-function withLoadTimeout<T>(promise: Promise<T>): Promise<T> {
+/** 在限定时间内等待，超时后以 createError 生成的错误拒绝。 */
+function withTimeout<T>(promise: Promise<T>, ms: number, createError: () => Error): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new AgentPetLoadTimeoutError()), AGENT_PET_LOAD_TIMEOUT)
+    timeoutId = setTimeout(() => reject(createError()), ms)
   })
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId))
 }
 
 /**
+ * 让形象所属插件的 remote 可用：声明带 `remote_url` 时直接注册，不发请求；
+ * 否则回退到发现接口，最多等 {@link AGENT_PET_DISCOVER_TIMEOUT}，避免接口卡住时入口一直空白。
+ */
+async function ensurePetRemote(pet: AgentPetDeclaration): Promise<void> {
+  if (pet.remote_url) {
+    registerRemoteModule({ id: pet.plugin_id, url: pet.remote_url, source_plugin_id: pet.source_plugin_id })
+    return
+  }
+  const found = await withTimeout(
+    ensureRemoteRegistered(pet.plugin_id),
+    AGENT_PET_DISCOVER_TIMEOUT,
+    () => new Error(`发现插件 ${pet.plugin_id} 的联邦入口超时`),
+  )
+  if (!found) throw new Error(`未找到插件 ${pet.plugin_id} 的联邦入口`)
+}
+
+/**
  * 加载形象的联邦组件。
  *
- * 先立即发现并注册该插件的 remote（不经过一次必然失败的加载），注册完成后才开始 8 秒计时，
- * 计时只覆盖 remoteEntry 与组件模块的加载。失败的加载不缓存，之后可以重试。
+ * 先让该插件的 remote 可用（有 `remote_url` 直接注册，否则限时发现，不经过一次必然失败的加载），
+ * 之后才开始 8 秒计时，计时只覆盖 remoteEntry 与组件模块的加载。失败的加载不缓存，之后可以重试。
  */
 export function loadAgentPetComponent(pet: AgentPetDeclaration): Promise<Component> {
   const key = getFlightKey(pet)
@@ -41,9 +61,11 @@ export function loadAgentPetComponent(pet: AgentPetDeclaration): Promise<Compone
   if (existing) return existing
 
   const flight = (async () => {
-    if (!(await ensureRemoteRegistered(pet.plugin_id))) throw new Error(`未找到插件 ${pet.plugin_id} 的联邦入口`)
-    const component = (await withLoadTimeout(
+    await ensurePetRemote(pet)
+    const component = (await withTimeout(
       loadRegisteredRemoteComponent(pet.plugin_id, pet.component || 'AgentPet'),
+      AGENT_PET_LOAD_TIMEOUT,
+      () => new AgentPetLoadTimeoutError(),
     )) as Component | null
     if (!component) throw new Error('empty component')
     return component

@@ -116,6 +116,10 @@ export interface AgentPetDeclaration {
   preview_url?: string | null
   /** 可直接访问的方形头像 URL，面板头部、空状态和消息头像优先使用。 */
   avatar_url?: string | null
+  /** 插件联邦入口地址，规则与 `plugin/remotes` 的 url 一致；有值时宿主直接注册，不再单独发现。 */
+  remote_url?: string | null
+  /** 插件版本，用于判断声明是否随插件升级真正更新，可能为空。 */
+  plugin_version?: string | null
   /** stage 模式的气泡归属。 */
   bubbles?: AgentPetBubbles | null
   /** renderer 模式下宿主随机动作的可选池。 */
