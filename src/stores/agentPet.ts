@@ -154,6 +154,18 @@ export const useAgentPetStore = defineStore('agentPet', () => {
       : { pet: null },
   )
 
+  /** 按服务端声明与选择应生效的形象，不计本会话的加载失败；只用于写刷新缓存。 */
+  const intendedPet = computed(() =>
+    ready.value
+      ? resolveAgentPet(
+          declarations.value,
+          userSelection.value,
+          globalSettingsStore.get(AGENT_PET_SYSTEM_SETTING_KEY),
+          new Set<string>(),
+        ).pet
+      : null,
+  )
+
   /** 当前生效形象，null 为内置机器人；接口返回前沿用缓存，返回后一律以服务端结果为准。 */
   const effectivePet = computed(() => {
     if (ready.value) return resolution.value.pet
@@ -213,8 +225,8 @@ export const useAgentPetStore = defineStore('agentPet', () => {
   function markFailed(pet: AgentPetDeclaration, reason: string, detail?: unknown) {
     const id = getAgentPetId(pet)
     warnOnce(`failed:${id}`, `形象 ${id} ${reason}，回退内置机器人`, detail)
-    // 下次刷新直接显示内置机器人，不再先等一个已知加载失败的形象。
-    writeAgentPetCache(cacheUser, null)
+    // 缓存记录的是用户想要的形象而不是本次加载结果：一次超时多半是服务刚启动或网络抖动，
+    // 若改写成内置机器人，下次刷新又会先闪机器人再切回形象。
     if (failedIds.value.has(id)) return
     failedIds.value = new Set([...failedIds.value, id])
   }
@@ -235,8 +247,8 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     cachedPet.value = cached && 'pet' in cached ? (normalizeAgentPetDeclarations([cached.pet])[0] ?? null) : null
     scope = effectScope(true)
     scope.run(() => {
-      // 服务端结果就绪后记住实际生效的形象，供下次刷新提前加载。
-      watch([ready, effectivePet], ([isReady, pet]) => {
+      // 服务端结果就绪后记住用户想要的形象（不计本会话的加载失败），供下次刷新提前加载。
+      watch([ready, intendedPet], ([isReady, pet]) => {
         if (isReady) writeAgentPetCache(cacheUser, pet)
       })
       watch(

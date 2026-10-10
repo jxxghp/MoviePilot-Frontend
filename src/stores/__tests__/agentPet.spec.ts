@@ -248,17 +248,20 @@ describe('useAgentPetStore refresh cache', () => {
     expect(store.effectivePet).toBeNull()
   })
 
-  it('falls back and caches builtin when the cached pet fails to load before the server answers', async () => {
+  it('falls back on a load failure but keeps caching the chosen pet so the next refresh does not flash the robot', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     localStorage.setItem(CACHE_KEY, JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
-    deferBackend()
+    const release = deferBackend()
     const store = useAgentPetStore()
-    void store.start()
+    const starting = store.start()
 
     store.markFailed(store.effectivePet!, '加载超时')
-
     expect(store.effectivePet).toBeNull()
-    expect(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')).toEqual({ id: 'builtin' })
+
+    release([createPet()], { plugin_id: 'PetPlugin', key: 'girl' })
+    await starting
+    expect(store.effectivePet).toBeNull()
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}').id).toBe('PetPlugin:girl'))
   })
 
   it('degrades to the builtin robot when the cache is missing, corrupt or storage is unavailable', async () => {
