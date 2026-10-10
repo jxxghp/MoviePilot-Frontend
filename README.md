@@ -40,6 +40,13 @@ yarn dev
 yarn build
 ```
 
+### 发布记录
+
+GitHub Actions 发布时自动生成原始 changelog 列表，保留提交标题、链接及真实 GitHub `@作者`，
+仅过滤 Merge 和自动发布快照，不分类、不总结，不生成其它章节。
+同版本重打包原位更新 Release 和 `dist.zip`。用户功能说明由后端 Release 维护。
+生成器为 `scripts/release_notes.py`，离线契约用例为 `scripts/test_release_notes.py`。
+
 ### 单元测试
 
 ```sh
