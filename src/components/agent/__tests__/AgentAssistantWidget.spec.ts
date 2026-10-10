@@ -311,7 +311,8 @@ describe('AgentAssistantWidget agent host', () => {
 
     expect(wrapper.findComponent(entryStub).props('concealed')).toBe(false)
     expect(document.body.querySelector('[data-agent-pet-stage]')).toBeNull()
-    expect(JSON.parse(localStorage.getItem('agentAssistant.lastPet.alice') || '{}')).toEqual({ id: 'builtin' })
+    // 一次加载失败不改写刷新缓存，下次刷新仍先尝试用户选定的形象。
+    expect(JSON.parse(localStorage.getItem('agentAssistant.lastPet.alice') || '{}').id).toBe('PetPlugin:girl')
 
     wrapper.unmount()
     localStorage.clear()
