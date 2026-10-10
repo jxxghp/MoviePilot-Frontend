@@ -22,6 +22,8 @@ import { useGithubTokenAuth } from '@/composables/useGithubTokenAuth'
 import GithubTokenAuthDialog from '@/components/github/GithubTokenAuthDialog.vue'
 import GithubTokenSetupCard from '@/components/github/GithubTokenSetupCard.vue'
 import CollapsibleSettingCard from '@/components/system/CollapsibleSettingCard.vue'
+import { fetchAgentPetDeclarations, getAgentPetId } from '@/stores/agentPet'
+import type { AgentPetDeclaration } from '@/types/agentHost'
 
 const display = useDisplay()
 const theme = useTheme()
@@ -59,6 +61,8 @@ const SystemSettings = ref<any>({
     AI_AGENT_ENABLE: false,
     AI_AGENT_GLOBAL: false,
     AI_AGENT_HIDE_ENTRY: false,
+    // 默认助手形象，`<plugin_id>:<key>`，空为内置机器人
+    AI_AGENT_PET: '',
     AI_AGENT_OUTPUT_LANGUAGE: 'zh-CN',
     AI_AGENT_VERBOSE: false,
     AI_AGENT_JOB_INTERVAL: 24,
@@ -1363,6 +1367,54 @@ async function saveScrapingSwitchs() {
   }
 }
 
+// 插件提供的助手形象声明，供“默认助手形象”选择
+const agentPetDeclarations = ref<AgentPetDeclaration[]>([])
+
+/** 读取可选助手形象；失败时只保留内置机器人和当前值。 */
+async function loadAgentPetDeclarations() {
+  try {
+    agentPetDeclarations.value = await fetchAgentPetDeclarations()
+  } catch (error) {
+    console.log(error)
+    agentPetDeclarations.value = []
+  }
+}
+
+/** 默认助手形象选项：内置机器人、全部可用形象，以及已保存但当前不可用的值。 */
+const agentPetItems = computed(() => {
+  const items: Array<{
+    title: string
+    value: string
+    subtitle?: string
+    prependAvatar?: string
+    prependIcon?: string
+  }> = [{ title: t('agentAssistant.pet.builtin'), value: '', prependIcon: 'mdi-robot-happy-outline' }]
+  agentPetDeclarations.value.forEach(pet => {
+    items.push({
+      title: pet.name,
+      value: getAgentPetId(pet),
+      subtitle: `${pet.plugin_name} · ${t(pet.mode === 'stage' ? 'agentAssistant.pet.modeStage' : 'agentAssistant.pet.modeRenderer')}`,
+      prependAvatar: pet.preview_url || undefined,
+      prependIcon: pet.preview_url ? undefined : 'mdi-puzzle-outline',
+    })
+  })
+  const current = SystemSettings.value.Basic.AI_AGENT_PET
+  if (current && !items.some(item => item.value === current)) {
+    items.push({
+      title: current,
+      value: current,
+      subtitle: t('agentAssistant.pet.unavailable'),
+      prependIcon: 'mdi-alert-outline',
+    })
+  }
+  return items
+})
+
+/** 把选项字段映射为列表项 props，展示插件名、模式和预览图。 */
+function agentPetItemProps(item: { subtitle?: string; prependAvatar?: string; prependIcon?: string }) {
+  return { subtitle: item.subtitle, prependAvatar: item.prependAvatar, prependIcon: item.prependIcon }
+}
+
 // 加载数据
 async function loadPageData() {
   await Promise.all([
@@ -1373,6 +1425,7 @@ async function loadPageData() {
     githubAuth.refreshStatus(),
     loadScrapingSwitchs(),
     loadModuleSettings(),
+    loadAgentPetDeclarations(),
   ])
 }
 
@@ -1563,6 +1616,22 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :label="t('setting.system.aiAgentHideEntry')"
                     :hint="t('setting.system.aiAgentHideEntryHint')"
                     persistent-hint
+                  />
+                </VCol>
+                <VCol
+                  v-if="SystemSettings.Basic.AI_AGENT_ENABLE && !SystemSettings.Basic.AI_AGENT_HIDE_ENTRY"
+                  cols="12"
+                  md="6"
+                >
+                  <VSelect
+                    :model-value="SystemSettings.Basic.AI_AGENT_PET || ''"
+                    :label="t('setting.system.aiAgentPet')"
+                    :hint="t('setting.system.aiAgentPetHint')"
+                    :items="agentPetItems"
+                    :item-props="agentPetItemProps"
+                    persistent-hint
+                    prepend-inner-icon="mdi-robot-happy-outline"
+                    @update:model-value="SystemSettings.Basic.AI_AGENT_PET = $event || ''"
                   />
                 </VCol>
                 <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">

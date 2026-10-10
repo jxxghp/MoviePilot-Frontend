@@ -1037,6 +1037,21 @@ export default {
     },
   },
   agentAssistant: {
+    pet: {
+      title: 'Assistant Avatar',
+      subtitle: 'Choose how the AI assistant looks. Avatars come from enabled plugins and apply immediately.',
+      followDefault: 'Follow System Default',
+      followDefaultDesc: 'Current default: {name}',
+      builtin: 'Built-in Robot',
+      builtinDesc: 'The assistant avatar that ships with MoviePilot',
+      modeStage: 'Full-screen character',
+      modeRenderer: 'Entry skin',
+      unavailable: 'Unavailable',
+      empty: 'No plugin provides an assistant avatar yet',
+      loadFailed: 'Failed to load assistant avatars',
+      saveSuccess: 'Assistant avatar switched',
+      saveFailed: 'Failed to save assistant avatar: {message}',
+    },
     title: 'AI Assistant',
     assistant: 'Assistant',
     ready: 'Ready',
@@ -2934,6 +2949,8 @@ export default {
       aiAgentHideEntry: 'Hide Global Entry',
       aiAgentHideEntryHint:
         'Only hide the floating AI assistant entry in the bottom-right corner. Message channels and background assistant features are not affected.',
+      aiAgentPet: 'Default Assistant Avatar',
+      aiAgentPetHint: 'Avatar used when a user has not chosen one. Plugins can provide avatars.',
       aiAgentOutputLanguage: 'Assistant Output Language',
       aiAgentOutputLanguageHint:
         'Force the AI assistant to reply in the selected language. Simplified Chinese is used by default.',
