@@ -178,11 +178,12 @@ const virtualScrollStub = defineComponent({
   },
 })
 
-function mountPanel() {
+function mountPanel(props: Record<string, unknown> = {}) {
   return shallowMount(AgentAssistantPanel, {
-    props: { modelValue: true },
+    props: { modelValue: true, ...props },
     global: {
       stubs: {
+        AgentPetAvatar: false,
         AgentMarkdownContent: agentMarkdownContentStub,
         IconBtn: { template: '<button><slot /></button>' },
         PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2580,6 +2581,92 @@ describe('AgentAssistantPanel agent host bridge', () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/message/agent/stream'))).toBe(false)
     expect(wrapper.findAll('.agent-assistant-message--user')).toHaveLength(0)
 
+    wrapper.unmount()
+  })
+
+  it('shows the active pet avatar and name in the header, empty state and assistant messages', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state',
+      JSON.stringify({
+        sessionId: 'web-agent:pet-avatar',
+        messages: [
+          {
+            id: 'assistant-pet',
+            role: 'assistant',
+            content: '你好',
+            createdAt: Date.now(),
+            status: 'done',
+            tools: [],
+            segments: [{ type: 'text', content: '你好' }],
+            attachments: [],
+            choices: [],
+          },
+        ],
+      }),
+    )
+    const pet = {
+      plugin_id: 'PetPlugin',
+      source_plugin_id: 'PetPlugin',
+      plugin_name: '桌宠',
+      key: 'girl',
+      name: '小映',
+      mode: 'stage',
+      component: 'AgentPet',
+      api_version: 1,
+      preview_url: '/preview.png',
+      avatar_url: '/avatar.png',
+    }
+    const wrapper = mountPanel({ pet })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-panel').attributes('aria-label')).toBe('小映')
+    expect(wrapper.get('.agent-assistant-title').text()).toContain('小映')
+    expect(wrapper.find('.agent-assistant-title__mark img').attributes('src')).toBe('/avatar.png')
+    expect(wrapper.find('.agent-assistant-title__mark .agent-assistant-mini-bot').exists()).toBe(false)
+    const meta = wrapper.get('.agent-assistant-message--assistant .agent-assistant-message__meta')
+    expect(meta.text()).toContain('小映')
+    expect(meta.find('img').attributes('src')).toBe('/avatar.png')
+
+    // 头像图全部加载失败时退回内置机器人图标。
+    await wrapper.get('.agent-assistant-title__mark img').trigger('error')
+    await wrapper.get('.agent-assistant-title__mark img').trigger('error')
+    expect(wrapper.find('.agent-assistant-title__mark .agent-assistant-mini-bot').exists()).toBe(true)
+
+    // 切回内置机器人时保持原名称与图标。
+    await wrapper.setProps({ pet: null })
+    expect(wrapper.get('.agent-assistant-title').text()).toContain('agentAssistant.title')
+    expect(wrapper.get('.agent-assistant-message--assistant .agent-assistant-message__meta').text()).toContain(
+      'agentAssistant.assistant',
+    )
+    wrapper.unmount()
+  })
+
+  it('shows the pet avatar in the empty state instead of the sparkles mark', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    const wrapper = mountPanel({
+      pet: {
+        plugin_id: 'PetPlugin',
+        source_plugin_id: 'PetPlugin',
+        plugin_name: '桌宠',
+        key: 'girl',
+        name: '小映',
+        mode: 'renderer',
+        component: 'AgentPet',
+        api_version: 1,
+        preview_url: '/preview.png',
+        avatar_url: null,
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.get('.agent-assistant-empty__mark img').attributes('src')).toBe('/preview.png')
     wrapper.unmount()
   })
 

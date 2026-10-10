@@ -583,6 +583,7 @@ stage 图层固定覆盖整个视口，层级与内置入口相同，高于 Vuet
 | `component`      | 否   | 联邦暴露名，默认 `AgentPet`，即 `./AgentPet`                                          |
 | `api_version`    | 否   | 契约版本，默认 1；主应用不认识的版本会被忽略                                          |
 | `preview`        | 否   | 预览图，相对插件联邦 dist 目录的路径，或 `http(s)://`、`data:` URL                    |
+| `avatar`         | 否   | 方形头像，路径规则同 `preview`；Agent 面板头部、空状态和消息头像使用，缺省退到预览图  |
 | `bubbles`        | 否   | 仅 stage：`host`（插件上报锚点，主应用画原生气泡，默认）或 `self`（插件自己画）       |
 | `random_actions` | 否   | 仅 renderer：主应用随机动作只从这里挑（主应用动作名子集），缺省用全集，空列表表示不播 |
 

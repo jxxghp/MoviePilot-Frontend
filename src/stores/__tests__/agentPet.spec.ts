@@ -70,13 +70,19 @@ describe('agent pet resolution', () => {
   it('ignores unknown contract versions and resolves relative preview paths like remote entries', () => {
     const pets = normalizeAgentPetDeclarations([
       createPet({ api_version: 2 }),
-      createPet({ key: 'ok', component: './AgentPet', preview_url: '/plugin/file/petplugin/dist/assets/a.png?v=1' }),
+      createPet({
+        key: 'ok',
+        component: './AgentPet',
+        preview_url: '/plugin/file/petplugin/dist/assets/a.png?v=1',
+        avatar_url: 'plugin/file/petplugin/dist/assets/avatar.png',
+      }),
       { plugin_id: 'broken' },
     ])
 
     expect(pets).toHaveLength(1)
     expect(pets[0].component).toBe('AgentPet')
     expect(pets[0].preview_url).toMatch(/\/api\/v1\/plugin\/file\/petplugin\/dist\/assets\/a\.png\?v=1$/)
+    expect(pets[0].avatar_url).toMatch(/\/api\/v1\/plugin\/file\/petplugin\/dist\/assets\/avatar\.png$/)
     expect(resolveAgentPetPreviewUrl('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA')
     expect(resolveAgentPetPreviewUrl('https://cdn.example/a.png')).toBe('https://cdn.example/a.png')
   })

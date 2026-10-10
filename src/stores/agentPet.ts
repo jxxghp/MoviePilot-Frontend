@@ -24,7 +24,7 @@ export function getAgentPetId(pet: { plugin_id: string; key: string }) {
 }
 
 /**
- * 把后端返回的预览图地址解析为可访问 URL。
+ * 把后端返回的预览图或头像地址解析为可访问 URL。
  * 插件文件路径与 remoteEntry 遵循同一部署路径规则；http(s) 与 data: URL 原样使用。
  */
 export function resolveAgentPetPreviewUrl(value: unknown): string | null {
@@ -59,6 +59,7 @@ export function normalizeAgentPetDeclarations(value: unknown): AgentPetDeclarati
       // 后端给出裸暴露名，兼容误带 `./` 前缀的写法。
       component: (pet.component || 'AgentPet').replace(/^\.\//, ''),
       preview_url: resolveAgentPetPreviewUrl(pet.preview_url),
+      avatar_url: resolveAgentPetPreviewUrl(pet.avatar_url),
     }))
 }
 

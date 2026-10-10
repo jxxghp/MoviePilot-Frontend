@@ -8,6 +8,8 @@ import { getCurrentLocale } from '@/plugins/i18n'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 import AgentMarkdownContent from './AgentMarkdownContent.vue'
 import type { AgentStreamPhaseEvent } from '@/utils/agentHostPhase'
+import type { AgentPetDeclaration } from '@/types/agentHost'
+import AgentPetAvatar from './pet/AgentPetAvatar.vue'
 
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
@@ -246,12 +248,19 @@ const props = withDefaults(
     modelValue?: boolean
     /** 是否允许面板的装饰性动效，不影响消息流、thinking 或输入反馈。 */
     motionActive?: boolean
+    /** 当前生效的插件形象；为空时面板保持内置机器人头像和“智能助手”名称。 */
+    pet?: AgentPetDeclaration | null
   }>(),
   {
     modelValue: false,
     motionActive: true,
+    pet: null,
   },
 )
+
+/** 面板标题、无障碍名称和消息署名：插件形象用其名称，内置机器人保持原文案。 */
+const assistantTitle = computed(() => props.pet?.name || t('agentAssistant.title'))
+const assistantSpeakerName = computed(() => props.pet?.name || t('agentAssistant.assistant'))
 
 const emit = defineEmits<{
   'assistant-preview': [value: string]
@@ -3111,26 +3120,28 @@ onScopeDispose(() => {
     }"
     :style="drawerStyle"
     role="dialog"
-    :aria-label="t('agentAssistant.title')"
+    :aria-label="assistantTitle"
     @focusin.stop
   >
     <div class="agent-assistant-shell">
       <header class="agent-assistant-header">
         <div class="agent-assistant-title">
           <div class="agent-assistant-title__mark">
-            <span class="agent-assistant-mini-bot" aria-hidden="true">
-              <span class="agent-assistant-mini-bot__antenna" />
-              <span class="agent-assistant-mini-bot__head">
-                <span class="agent-assistant-mini-bot__face">
-                  <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--left" />
-                  <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--right" />
+            <AgentPetAvatar :pet="props.pet" size="1.85rem">
+              <span class="agent-assistant-mini-bot" aria-hidden="true">
+                <span class="agent-assistant-mini-bot__antenna" />
+                <span class="agent-assistant-mini-bot__head">
+                  <span class="agent-assistant-mini-bot__face">
+                    <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--left" />
+                    <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--right" />
+                  </span>
                 </span>
+                <span class="agent-assistant-mini-bot__body" />
               </span>
-              <span class="agent-assistant-mini-bot__body" />
-            </span>
+            </AgentPetAvatar>
           </div>
           <div>
-            <div class="text-subtitle-1 font-weight-semibold">{{ t('agentAssistant.title') }}</div>
+            <div class="text-subtitle-1 font-weight-semibold">{{ assistantTitle }}</div>
             <div class="agent-assistant-status">
               {{
                 activeThinkingMessage
@@ -3255,7 +3266,9 @@ onScopeDispose(() => {
         <div class="agent-assistant-messages__content">
           <div v-if="!hasConversationContent" class="agent-assistant-empty">
             <div class="agent-assistant-empty__mark">
-              <VIcon icon="lucide:sparkles" size="28" />
+              <AgentPetAvatar :pet="props.pet" size="3.5rem">
+                <VIcon icon="lucide:sparkles" size="28" />
+              </AgentPetAvatar>
             </div>
             <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
             <div class="agent-assistant-empty__subtitle">{{ t('agentAssistant.emptySubtitle') }}</div>
@@ -3268,8 +3281,11 @@ onScopeDispose(() => {
             :class="`agent-assistant-message--${message.role}`"
           >
             <div class="agent-assistant-message__meta">
-              <VIcon :icon="message.role === 'user' ? 'mdi-account-circle-outline' : 'lucide:bot'" size="16" />
-              <span>{{ message.role === 'user' ? currentUserName : t('agentAssistant.assistant') }}</span>
+              <VIcon v-if="message.role === 'user'" icon="mdi-account-circle-outline" size="16" />
+              <AgentPetAvatar v-else :pet="props.pet" size="1rem">
+                <VIcon icon="lucide:bot" size="16" />
+              </AgentPetAvatar>
+              <span>{{ message.role === 'user' ? currentUserName : assistantSpeakerName }}</span>
               <span
                 v-if="message.steeringStatus"
                 class="agent-assistant-message__steering-status"
