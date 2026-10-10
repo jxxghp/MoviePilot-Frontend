@@ -1,15 +1,20 @@
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentPetDeclaration } from '@/types/agentHost'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  preload: vi.fn(),
   globalSettings: {} as Record<string, unknown>,
 }))
 
 vi.mock('@/api', () => ({
   default: { get: mocks.apiGet, post: mocks.apiPost },
+}))
+
+vi.mock('@/utils/agentPetLoader', () => ({
+  preloadAgentPetComponent: (...args: unknown[]) => mocks.preload(...args),
 }))
 
 vi.mock('@/stores/global', () => ({
@@ -24,6 +29,11 @@ const {
   useAgentPetStore,
 } = await import('@/stores/agentPet')
 const { usePluginRuntimeStore } = await import('@/stores/pluginRuntime')
+
+// 每个用例结束后停止当前 store，移除它注册的页面可见性与焦点监听，避免影响后续用例的计数。
+afterEach(() => {
+  if (getActivePinia()) useAgentPetStore().stop()
+})
 
 function createPet(overrides: Partial<AgentPetDeclaration> = {}): AgentPetDeclaration {
   return {
@@ -322,4 +332,116 @@ describe('useAgentPetStore refresh cache', () => {
       return null
     })
   }
+})
+
+describe('useAgentPetStore refresh and failure rules', () => {
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    mocks.globalSettings = {}
+    mocks.apiGet.mockReset()
+    mocks.apiPost.mockReset()
+    mocks.preload.mockReset()
+    localStorage.clear()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  function serve(pets: AgentPetDeclaration[], selection: unknown = { plugin_id: 'PetPlugin', key: 'girl' }) {
+    mocks.apiGet.mockImplementation(async (path: string) => {
+      if (path === 'plugin/agent_pets') return pets
+      if (path === 'user/config/AgentPet') return { value: selection }
+      return null
+    })
+  }
+
+  function declarationCalls() {
+    return mocks.apiGet.mock.calls.filter(([path]) => path === 'plugin/agent_pets').length
+  }
+
+  it('starts loading the cached pet component as soon as the store starts', async () => {
+    const { useUserStore } = await import('@/stores/user')
+    useUserStore().setUserName('alice')
+    localStorage.setItem('agentAssistant.lastPet.alice', JSON.stringify({ id: 'PetPlugin:girl', pet: createPet() }))
+    mocks.apiGet.mockImplementation(() => new Promise(() => {}))
+
+    void useAgentPetStore().start()
+
+    expect(mocks.preload).toHaveBeenCalledWith(expect.objectContaining({ plugin_id: 'PetPlugin', key: 'girl' }))
+  })
+
+  it('keeps a failure across reconciliations until that pet declaration really changes', async () => {
+    serve([createPet({ preview_url: 'https://cdn.example/p.png?v=1.0.0' })])
+    const store = useAgentPetStore()
+    const runtime = usePluginRuntimeStore()
+    await store.start()
+    store.markFailed(store.effectivePet!, '加载失败')
+    expect(store.effectivePet).toBeNull()
+
+    // 其他插件引起的代际变化，本形象声明未变，失败记录保留。
+    runtime.reconciliation++
+    await vi.waitFor(() => expect(declarationCalls()).toBe(2))
+    await Promise.resolve()
+    expect(store.effectivePet).toBeNull()
+
+    // 插件升级后预览图版本参数变化，允许重新尝试。
+    serve([createPet({ preview_url: 'https://cdn.example/p.png?v=1.1.0' })])
+    runtime.reconciliation++
+    await vi.waitFor(() => expect(store.effectivePet?.key).toBe('girl'))
+  })
+
+  it('retries a failed pet after its declaration disappears and comes back', async () => {
+    serve([createPet()])
+    const store = useAgentPetStore()
+    const runtime = usePluginRuntimeStore()
+    await store.start()
+    store.markFailed(store.effectivePet!, '加载失败')
+
+    serve([])
+    runtime.reconciliation++
+    await vi.waitFor(() => expect(store.declarations).toHaveLength(0))
+
+    serve([createPet()])
+    runtime.reconciliation++
+    await vi.waitFor(() => expect(store.effectivePet?.key).toBe('girl'))
+  })
+
+  it('re-reads declarations for non-admin users when the page becomes visible or focused, at most every 30 seconds', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    serve([createPet()])
+    const store = useAgentPetStore()
+    await store.start()
+    expect(declarationCalls()).toBe(1)
+
+    window.dispatchEvent(new Event('focus'))
+    expect(declarationCalls()).toBe(1)
+
+    vi.advanceTimersByTime(30_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(declarationCalls()).toBe(2)
+    window.dispatchEvent(new Event('focus'))
+    expect(declarationCalls()).toBe(2)
+
+    store.stop()
+    vi.advanceTimersByTime(30_000)
+    window.dispatchEvent(new Event('focus'))
+    expect(declarationCalls()).toBe(2)
+  })
+
+  it('leaves admin sessions to the plugin runtime reconciliation', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    const { useUserStore } = await import('@/stores/user')
+    useUserStore().superUser = true
+    serve([createPet()])
+    const store = useAgentPetStore()
+    await store.start()
+
+    vi.advanceTimersByTime(30_000)
+    window.dispatchEvent(new Event('focus'))
+    expect(declarationCalls()).toBe(1)
+  })
 })
