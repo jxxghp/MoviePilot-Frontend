@@ -77,7 +77,7 @@ describe('DownloadingCard display and pause state', () => {
     expect(screen.getByText(/测试媒体/)).toBeInTheDocument()
     expect(screen.getByText(/S01 E02/)).toBeInTheDocument()
     expect(screen.getByText('下载任务标题')).toBeInTheDocument()
-    expect(screen.getByText(/1 小时/)).toBeInTheDocument()
+    expect(screen.getByText('剩余 1 小时')).toBeInTheDocument()
     expect(container.querySelector('.v-card-text .v-progress-linear')).toBeInTheDocument()
     expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--active')
   })
@@ -95,7 +95,10 @@ describe('DownloadingCard display and pause state', () => {
 
     expect(screen.getByText(/未识别任务/)).toBeInTheDocument()
     expect(screen.getByText(/S03E04/)).toBeInTheDocument()
-    expect(container.querySelector('.v-card-text .v-progress-linear')).not.toBeInTheDocument()
+    // 0% 任务同样展示进度与状态，避免刚添加或等待元数据的任务看不出状态。
+    expect(container.querySelector('.v-card-text .v-progress-linear')).toBeInTheDocument()
+    expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('已暂停')
+    expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('0%')
   })
 
   it('normalizes media types, progress bounds, speeds and missing metadata', async () => {
@@ -112,7 +115,8 @@ describe('DownloadingCard display and pause state', () => {
 
     expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('电影')
     expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('100%')
-    expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('--')
+    // 下载器未给出剩余时间时不再展示 “--” 占位。
+    expect(container.querySelector('.downloading-card__progress-remaining')).not.toBeInTheDocument()
     expect(container.querySelector('.downloading-card__speeds')).toHaveTextContent('3 MiB/s')
     expect(container.querySelector('.downloading-card__speeds')).toHaveTextContent('0 B/s')
     expect(container.querySelector('.downloading-card__meta')).toHaveTextContent('0.00 B')
@@ -132,7 +136,7 @@ describe('DownloadingCard display and pause state', () => {
         info: downloading({ media: { title: `${type}标题`, type }, progress: -1 }),
       })
       expect(container.querySelector('.downloading-card__meta')).toHaveTextContent(label)
-      expect(container.querySelector('.downloading-card__progress')).not.toBeInTheDocument()
+      expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('0%')
     }
 
     await rerender({
@@ -167,7 +171,7 @@ describe('DownloadingCard display and pause state', () => {
     const { container, rerender } = await renderCard()
 
     expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--active')
-    expect(screen.getByRole('progressbar', { name: '下载' })).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: '下载中' })).toBeInTheDocument()
 
     await rerender({
       downloaderName: 'qb-main',
@@ -175,7 +179,29 @@ describe('DownloadingCard display and pause state', () => {
     })
 
     expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--paused')
-    expect(screen.getByRole('progressbar', { name: '暂停' })).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: '已暂停' })).toBeInTheDocument()
+    expect(actionButtons(container).toggleButton).toHaveAccessibleName('继续')
+  })
+
+  it('never reports an unfinished task as complete and hides remaining time while paused', async () => {
+    const { container, rerender } = await renderCard(downloading({ progress: 99.6 }))
+
+    expect(container.querySelector('.downloading-card__progress')).toHaveTextContent('99%')
+
+    await rerender({ downloaderName: 'qb-main', info: downloading({ progress: 50, state: 'stopped' }) })
+    expect(container.querySelector('.downloading-card__progress-remaining')).not.toBeInTheDocument()
+  })
+
+  it('shows the torrent name only when it differs from the displayed title', async () => {
+    const { container, rerender } = await renderCard(
+      downloading({ media: {}, name: '', title: 'Release.2026.1080p.mkv' }),
+    )
+
+    expect(container.querySelector('.downloading-card__title')).toHaveTextContent('Release.2026.1080p.mkv')
+    expect(container.querySelector('.downloading-card__torrent-title')).not.toBeInTheDocument()
+
+    await rerender({ downloaderName: 'qb-main', info: downloading() })
+    expect(container.querySelector('.downloading-card__torrent-title')).toHaveTextContent('下载任务标题')
   })
 
   it('keeps torrent size visible while resolving explicit site names and tracker hostnames', async () => {
@@ -208,18 +234,21 @@ describe('DownloadingCard display and pause state', () => {
     expect(container).not.toHaveTextContent('secret')
   })
 
-  it('only renders a centered cover image when a poster is available', async () => {
+  it('keeps the poster column with a media type placeholder when no poster is available', async () => {
     const { container, rerender } = await renderCard()
 
     expect(container.querySelector('.downloading-card__image')).toBeInTheDocument()
+    expect(container.querySelector('.downloading-card__poster-placeholder')).not.toBeInTheDocument()
 
     await rerender({
       downloaderName: 'qb-main',
       info: downloading({ media: { backdrop: 'https://images.example.com/backdrop.jpg' } }),
     })
 
-    expect(container.querySelector('.downloading-card')).toHaveClass('downloading-card--no-image')
     expect(container.querySelector('.downloading-card__image')).not.toBeInTheDocument()
+    expect(
+      container.querySelector('.downloading-card__poster .downloading-card__poster-placeholder'),
+    ).toBeInTheDocument()
   })
 
   it('uses the global backend cache for recognized poster images', async () => {
@@ -261,7 +290,7 @@ describe('DownloadingCard display and pause state', () => {
     })
 
     await fireEvent.click(screen.getByRole('button', { name: '图片加载失败' }))
-    await waitFor(() => expect(container.querySelector('.downloading-card')).toHaveClass('downloading-card--no-image'))
+    await waitFor(() => expect(container.querySelector('.downloading-card__poster-placeholder')).toBeInTheDocument())
 
     await rerender({
       downloaderName: 'qb-main',

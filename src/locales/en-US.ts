@@ -1637,6 +1637,10 @@ export default {
     noTask: 'No Task',
     noTaskDescription: 'Downloading tasks will be displayed here.',
     confirmDelete: 'Delete task "{name}" and its associated download files from the downloader?',
+    stateDownloading: 'Downloading',
+    statePaused: 'Paused',
+    resume: 'Resume',
+    remainingTime: '{time} left',
     settings: {
       title: 'Advanced Settings',
       speedAndSeeding: 'Speed and Seeding',

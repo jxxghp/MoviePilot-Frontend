@@ -1615,6 +1615,10 @@ export default {
     noTask: '没有任务',
     noTaskDescription: '正在下载的任务将会显示在这里。',
     confirmDelete: '确认从下载器删除任务“{name}”及对应下载文件吗？',
+    stateDownloading: '下载中',
+    statePaused: '已暂停',
+    resume: '继续',
+    remainingTime: '剩余 {time}',
     settings: {
       title: '高级设置',
       speedAndSeeding: '速度与做种',

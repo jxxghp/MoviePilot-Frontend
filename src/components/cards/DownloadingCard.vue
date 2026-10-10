@@ -47,6 +47,8 @@ const posterUrl = computed(() =>
 const hasPosterImage = computed(() => Boolean(posterUrl.value && !imageLoadError.value))
 
 const mediaTitle = computed(() => media.value.title || props.info?.name || props.info?.title || t('common.unknown'))
+// 未识别任务的主标题会回退到种子名，此时不再重复展示同一行种子名。
+const showTorrentTitle = computed(() => Boolean(props.info?.title) && props.info?.title !== mediaTitle.value)
 
 const episodeText = computed(() => {
   const recognizedEpisode = [media.value.season, media.value.episode].filter(Boolean).join(' ')
@@ -81,9 +83,9 @@ const progressValue = computed(() => {
   return Math.min(Math.max(progress, 0), 100)
 })
 
-const progressText = computed(() => `${Math.round(progressValue.value)}%`)
+// 向下取整，避免 99.5% 以上的未完成任务提前显示为 100%。
+const progressText = computed(() => `${Math.floor(progressValue.value)}%`)
 const sizeText = computed(() => formatFileSize(props.info?.size || 0))
-const remainingTimeText = computed(() => props.info?.left_time?.trim() || '--')
 
 /** 从 Tracker 地址中仅提取可展示的主机名，避免暴露路径、查询参数或 passkey。 */
 function getTrackerHostname(tracker?: string) {
@@ -114,6 +116,17 @@ const hasUploadSpeed = computed(() => Number.parseFloat(props.info?.upspeed || '
 
 // 下载状态跟随轮询数据变化，操作成功时也会立即响应。
 const isDownloading = ref(props.info?.state === 'downloading')
+
+/** 剩余时间只对下载中的任务有意义；下载器未给出时不展示占位符。 */
+const remainingTimeText = computed(() => {
+  const leftTime = props.info?.left_time?.trim()
+  if (!isDownloading.value || !leftTime || leftTime === '--') return ''
+  return t('downloading.remainingTime', { time: leftTime })
+})
+const stateText = computed(() =>
+  isDownloading.value ? t('downloading.stateDownloading') : t('downloading.statePaused'),
+)
+const toggleActionText = computed(() => (isDownloading.value ? t('common.pause') : t('downloading.resume')))
 
 watch(
   () => props.info?.state,
@@ -184,13 +197,11 @@ async function deleteDownload() {
           class="downloading-card-shell app-hover-lift-card h-full"
           :class="{ 'app-hover-lift-card--hovering': hover.isHovering }"
         >
-          <VCard
-            :key="props.info?.hash"
-            class="downloading-card h-full overflow-hidden"
-            :class="{ 'downloading-card--no-image': !hasPosterImage }"
-          >
-            <div v-if="hasPosterImage" class="downloading-card__poster">
+          <VCard :key="props.info?.hash" class="downloading-card h-full overflow-hidden">
+            <!-- 海报缺失或加载失败时保留同尺寸占位，网格内卡片保持同一种版式。 -->
+            <div class="downloading-card__poster">
               <VImg
+                v-if="hasPosterImage"
                 :src="posterUrl"
                 class="downloading-card__image"
                 cover
@@ -201,6 +212,9 @@ async function deleteDownload() {
                   <VSkeletonLoader class="downloading-card__image-loader h-full" />
                 </template>
               </VImg>
+              <div v-else class="downloading-card__poster-placeholder" aria-hidden="true">
+                <VIcon :icon="mediaTypeIcon" size="28" />
+              </div>
               <div class="downloading-card__poster-edge" />
             </div>
 
@@ -210,8 +224,8 @@ async function deleteDownload() {
                   <span>{{ mediaTitle }}</span>
                   <span v-if="titleMetaText" class="downloading-card__title-meta">{{ titleMetaText }}</span>
                 </div>
-                <div class="downloading-card__torrent-title" :title="props.info?.title">
-                  {{ props.info?.title || t('common.unknown') }}
+                <div v-if="showTorrentTitle" class="downloading-card__torrent-title" :title="props.info?.title">
+                  {{ props.info?.title }}
                 </div>
               </div>
 
@@ -231,7 +245,6 @@ async function deleteDownload() {
               </div>
 
               <div
-                v-if="progressValue > 0"
                 class="downloading-card__progress"
                 :class="isDownloading ? 'downloading-card__progress--active' : 'downloading-card__progress--paused'"
               >
@@ -239,9 +252,9 @@ async function deleteDownload() {
                   <div class="downloading-card__progress-copy">
                     <span class="downloading-card__progress-state">
                       <VIcon :icon="isDownloading ? 'mdi-download' : 'mdi-pause'" size="14" />
-                      {{ isDownloading ? t('common.download') : t('common.pause') }}
+                      {{ stateText }}
                     </span>
-                    <span class="downloading-card__progress-remaining">
+                    <span v-if="remainingTimeText" class="downloading-card__progress-remaining">
                       <span aria-hidden="true" class="downloading-card__progress-separator">·</span>
                       {{ remainingTimeText }}
                     </span>
@@ -249,7 +262,7 @@ async function deleteDownload() {
                   <strong>{{ progressText }}</strong>
                 </div>
                 <VProgressLinear
-                  :aria-label="isDownloading ? t('common.download') : t('common.pause')"
+                  :aria-label="stateText"
                   :model-value="progressValue"
                   :color="isDownloading ? 'info' : 'warning'"
                   bg-color="surface-variant"
@@ -278,7 +291,7 @@ async function deleteDownload() {
 
                 <VCardActions class="downloading-card__actions pa-0">
                   <VBtn
-                    :aria-label="isDownloading ? t('common.pause') : t('common.download')"
+                    :aria-label="toggleActionText"
                     :disabled="pendingAction === 'delete'"
                     icon
                     :loading="pendingAction === 'toggle'"
@@ -289,7 +302,7 @@ async function deleteDownload() {
                   >
                     <VIcon :icon="isDownloading ? 'mdi-pause' : 'mdi-play'" />
                     <VTooltip activator="parent" location="top">
-                      {{ isDownloading ? t('common.pause') : t('common.download') }}
+                      {{ toggleActionText }}
                     </VTooltip>
                   </VBtn>
                   <VBtn
@@ -366,6 +379,16 @@ async function deleteDownload() {
 .downloading-card__image-loader {
   block-size: 100%;
   inline-size: 100%;
+}
+
+// 占位底色取自主题主色，在各套主题下与卡片保持同一色调，不呈现为“图片加载失败”的灰块。
+.downloading-card__poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-primary), 0.04));
+  block-size: 100%;
+  color: rgba(var(--v-theme-primary), 0.7);
 }
 
 .downloading-card__poster-edge {
@@ -522,7 +545,7 @@ async function deleteDownload() {
   display: flex;
   min-inline-size: 0;
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   column-gap: 0.8rem;
   row-gap: 0.15rem;
@@ -579,16 +602,15 @@ async function deleteDownload() {
   opacity: 1;
 }
 
+// 窄卡片放不下单行上下行速率，固定为上下两行，避免同一网格内有的折行有的不折。
+@container (width <= 26rem) {
+  .downloading-card__speeds {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 @container (width <= 25rem) {
-  .downloading-card {
-    min-block-size: 8.5rem;
-    grid-template-columns: 5.667rem minmax(0, 1fr);
-  }
-
-  .downloading-card__poster {
-    min-block-size: 8.5rem;
-  }
-
   .downloading-card__title {
     font-size: 1rem;
   }
@@ -616,10 +638,5 @@ async function deleteDownload() {
     block-size: 2.25rem;
     inline-size: 2.25rem;
   }
-}
-
-.downloading-card.downloading-card--no-image {
-  min-block-size: 0;
-  grid-template-columns: minmax(0, 1fr);
 }
 </style>

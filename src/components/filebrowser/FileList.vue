@@ -984,7 +984,7 @@ onUnmounted(() => {
         <VVirtualScroll
           v-else-if="displayItems.length"
           :items="displayItems"
-          :item-height="display.mdAndUp.value ? 58 : 52"
+          :item-height="display.mdAndUp.value ? 58 : 64"
           class="file-list-container"
           role="list"
           :aria-label="t('navItems.fileManager')"
@@ -1021,7 +1021,23 @@ onUnmounted(() => {
                   :color="item.type === 'dir' ? 'primary' : undefined"
                   size="24"
                 />
-                <span :title="item.name">{{ item.name }}</span>
+                <!-- 移动端把大小与时间收进文件名下方，文件名可占满整行宽度。 -->
+                <div class="file-row__label">
+                  <span :title="item.name">{{ item.name }}</span>
+                  <small v-if="display.smAndDown.value" class="file-row__meta">{{
+                    [
+                      typeof item.size === 'number' &&
+                      Number.isFinite(item.size) &&
+                      item.size >= 0 &&
+                      item.type !== 'dir'
+                        ? formatBytes(item.size)
+                        : '',
+                      formatDate(item.modify_time),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  }}</small>
+                </div>
               </div>
               <span class="file-row__size">{{
                 typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0
@@ -1261,7 +1277,12 @@ onUnmounted(() => {
   gap: 0.75rem;
   min-inline-size: 0;
 }
-.file-row__name > span {
+.file-row__label {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.file-row__label > span {
   font-size: 0.875rem;
   overflow: hidden;
   white-space: nowrap;
@@ -1324,18 +1345,25 @@ onUnmounted(() => {
   .file-list__select-label {
     display: none;
   }
+  // 窄屏只保留文件名列，大小与时间由 .file-row__meta 在文件名下方展示。
   .file-list__columns {
-    grid-template-columns: minmax(0, 1fr) 3.75rem 5rem 2rem;
+    grid-template-columns: minmax(0, 1fr) 2rem;
     padding-inline: 0.5rem 0;
     gap: 0.375rem;
     font-size: 0.75rem;
   }
+  .file-list__columns > span:nth-child(2),
+  .file-list__columns > span:nth-child(3),
+  .file-row__size,
+  .file-row__time {
+    display: none;
+  }
   .file-row {
-    min-block-size: 3.25rem;
+    min-block-size: 4rem;
     padding-inline: 0.5rem 0;
   }
   .file-row :deep(.v-list-item__content) {
-    grid-template-columns: minmax(0, 1fr) 3.75rem 5rem;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.375rem;
   }
   .file-row :deep(.v-list-item__append) {
@@ -1343,9 +1371,9 @@ onUnmounted(() => {
     margin-inline-start: 0.375rem;
   }
   .file-row__name {
-    gap: 0.375rem;
+    gap: 0.625rem;
   }
-  .file-row__name > span {
+  .file-row__label > span {
     white-space: normal;
     overflow-wrap: anywhere;
     display: -webkit-box;
@@ -1357,24 +1385,15 @@ onUnmounted(() => {
   .file-row__name :deep(.v-icon) {
     font-size: 1.25rem;
   }
-  .file-row__size,
-  .file-row__time {
+  .file-row__meta {
+    margin-block-start: 0.125rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
     font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
   }
   .file-row :deep(.v-list-item__append .v-btn) {
     inline-size: 2rem;
-  }
-}
-@media (width < 360px) {
-  .file-list__columns {
-    grid-template-columns: minmax(0, 1fr) 3.75rem 2rem;
-  }
-  .file-row :deep(.v-list-item__content) {
-    grid-template-columns: minmax(0, 1fr) 3.75rem;
-  }
-  .file-row__time,
-  .file-list__columns > span:nth-child(3) {
-    display: none;
   }
 }
 </style>
