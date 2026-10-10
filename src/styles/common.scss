@@ -96,8 +96,11 @@ html {
   --app-card-rest-shadow: var(--app-elevation-0);
   --app-card-hover-shadow: var(--app-elevation-0);
   --app-fab-shadow: var(--app-elevation-0);
-  // 右下角悬浮按钮占用的底部空间（按钮 3.5rem + 外边距）；列表在末尾预留该高度，最后一行可滚到按钮上方。
-  --app-fab-clearance: 5.5rem;
+  // 右下角悬浮操作栈静止时可见的按钮数，由下方 .compact-fab-stack 规则按页面实际按钮数改写。
+  --app-fab-count: 1;
+  // 悬浮操作栈占用的底部空间：外边距 1rem + 每个按钮 3rem 及间距 0.75rem + 与内容的间隔，单按钮为 5.5rem。
+  // 列表在末尾预留该高度，最后一行可滚到按钮上方。
+  --app-fab-clearance: calc(1.75rem + var(--app-fab-count) * 3.75rem);
   --app-fab-shadow-strong: var(--app-elevation-0);
   --app-fab-shadow-hover: var(--app-elevation-0);
   --app-fab-shadow-strong-hover: var(--app-elevation-0);
@@ -1503,6 +1506,22 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
 
 .compact-fab-stack--history {
   inset-block-end: max(4.5rem, calc(env(safe-area-inset-bottom) + 4.5rem));
+}
+
+// 触屏或窄屏没有悬停展开，多个按钮始终竖排可见，底部预留高度随按钮数增加；
+// 桌面鼠标环境多按钮静止时折叠为一个，保持单按钮的预留高度。
+@media not ((hover: hover) and (pointer: fine) and (width > 768px)) {
+  @for $count from 2 through 8 {
+    html:has(.compact-fab-stack > :nth-child(#{$count}):last-child) {
+      --app-fab-count: #{$count};
+    }
+  }
+}
+
+// 整页滚动的页面在内容末尾预留悬浮操作栈高度。
+// 自带内部滚动容器的页面（如文件管理、媒体整理）给操作栈加 --contained，由各自列表预留，避免压缩固定高度布局。
+html:has(.compact-fab-stack:not(.compact-fab-stack--contained)) .layout-page-content {
+  padding-block-end: max(1.5rem, var(--app-fab-clearance));
 }
 
 .compact-fab.v-fab {

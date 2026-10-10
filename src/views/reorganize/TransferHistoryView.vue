@@ -2826,7 +2826,7 @@ onUnmounted(() => {
   <Teleport to="body" v-if="!appMode && route.path === '/history'">
     <div
       v-if="isRefreshed && canManage"
-      class="compact-fab-stack compact-fab-stack--history"
+      class="compact-fab-stack compact-fab-stack--history compact-fab-stack--contained"
       :class="{ 'compact-fab-stack--history-desktop': isDesktop }"
       :style="isDesktop ? { insetBlockEnd: `${desktopFabBottom}px` } : undefined"
     >

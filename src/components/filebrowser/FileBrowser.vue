@@ -157,15 +157,15 @@ function openNewFolderDialog() {
 
 const showFloatingNewFolderAction = computed(() => route.path === '/filemanager' && canManage.value)
 
-// 悬浮新建按钮显示时，文件列表末尾预留按钮高度。
-const floatingNewFolderVisible = computed(() => appMode.value && showFloatingNewFolderAction.value)
-
 useDynamicButton({
   icon: 'mdi-folder-plus-outline',
   onClick: openNewFolderDialog,
   permission: 'manage',
-  show: floatingNewFolderVisible,
+  show: computed(() => appMode.value && showFloatingNewFolderAction.value),
 })
+
+// 非 App 模式下新建按钮悬浮在右下角，文件列表末尾预留其高度；App 模式按钮位于底部 Dock，高度计算已避让。
+const floatingNewFolderVisible = computed(() => !appMode.value && showFloatingNewFolderAction.value)
 
 // 加载次数
 const loading = ref(0)
@@ -443,7 +443,7 @@ onUnmounted(cleanupDrag)
     </VCard>
   </VDialog>
   <Teleport to="body" v-if="!appMode && showFloatingNewFolderAction">
-    <div class="compact-fab-stack">
+    <div class="compact-fab-stack compact-fab-stack--contained">
       <VFab
         icon="mdi-folder-plus-outline"
         color="primary"
