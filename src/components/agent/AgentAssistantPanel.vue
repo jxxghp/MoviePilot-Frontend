@@ -3052,10 +3052,14 @@ function handlePageShow() {
   if (document.visibilityState === 'visible') scheduleStreamRecovery(0)
 }
 
-/** 只把草稿填入输入框并聚焦，绝不自动发送；供宿主 `agent.open({ draft })` 使用。 */
+/**
+ * 把草稿填入输入框并聚焦，绝不自动发送；供宿主 `agent.open({ draft })` 使用。
+ * 输入框已有内容时不覆盖用户正在写的文字，草稿以空行分隔追加在后面。
+ */
 function setDraft(draft: string) {
   petPickerOpen.value = false
-  inputText.value = draft
+  const current = inputText.value.trimEnd()
+  inputText.value = current ? `${current}\n\n${draft}` : draft
   syncInputHeight()
   nextTick(() => inputRef.value?.focus())
 }

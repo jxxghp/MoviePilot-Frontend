@@ -21,9 +21,13 @@ const candidates = computed(() =>
 const failedCount = ref(0)
 const currentUrl = computed(() => candidates.value[failedCount.value] || '')
 
-watch(candidates, () => {
-  failedCount.value = 0
-})
+// 只在候选地址真正变化时重试；形象声明对象被重新读取但地址相同时，保留已失败的结论。
+watch(
+  () => candidates.value.join('\n'),
+  () => {
+    failedCount.value = 0
+  },
+)
 
 function handleError() {
   failedCount.value += 1

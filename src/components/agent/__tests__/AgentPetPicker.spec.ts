@@ -111,4 +111,16 @@ describe('AgentPetPicker', () => {
     await fireEvent.click(screen.getByRole('button', { name: '返回对话' }))
     expect(emitted().back).toHaveLength(1)
   })
+
+  it('uses the pet description as the subtitle and falls back to the plugin name', async () => {
+    mockBackend([
+      createPet({ description: '会在页面底部散步' }),
+      createPet({ key: 'cat', name: '小猫', description: null }),
+    ])
+
+    await renderWithProviders(AgentPetPicker, { initialState: { globalSettings: { data: {} } }, stubActions: false })
+
+    expect(within(await findOption('小映')).getByText('会在页面底部散步')).toBeInTheDocument()
+    expect(within(await findOption('小猫')).getByText('桌宠')).toBeInTheDocument()
+  })
 })

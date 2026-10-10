@@ -59,4 +59,16 @@ describe('AgentPetAvatar', () => {
     await wrapper.setProps({ pet: createPet({ key: 'other', avatar_url: '/other.png' }) })
     expect(wrapper.get('img').attributes('src')).toBe('/other.png')
   })
+
+  it('does not retry failed images when the pet is re-read with the same addresses', async () => {
+    const wrapper = mountAvatar(createPet())
+    await wrapper.get('img').trigger('error')
+    await wrapper.get('img').trigger('error')
+    expect(wrapper.find('.builtin-mark').exists()).toBe(true)
+
+    // 声明重新读取得到新对象，但地址不变。
+    await wrapper.setProps({ pet: createPet() })
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.find('.builtin-mark').exists()).toBe(true)
+  })
 })
