@@ -1766,15 +1766,15 @@ defineExpose({
   opacity: 1;
 }
 
-// 贴边收起时机器人继续向右滑出，只在屏幕边缘露出一条机身，避免压住列表最右侧的操作按钮；
-// 悬停或键盘聚焦时滑回原来的探头位置。触屏保留稍宽的露出部分，保证可以点按展开。
+// 贴边收起时机器人继续向右滑出，只露出半张脸（一只眼睛），避免压住列表最右侧的操作按钮；
+// 桌面与触屏机器人尺寸不同，位移量各自调整到相同的露出效果。悬停或键盘聚焦时滑回原来的探头位置。
 .agent-assistant-fab.is-docked:not(.is-dragging) .agent-assistant-fab__trigger {
   transform: translateX(0.5rem);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .agent-assistant-fab.is-docked:not(.is-dragging) .agent-assistant-fab__trigger {
-    transform: translateX(1.5rem);
+    transform: translateX(1rem);
   }
 
   .agent-assistant-fab.is-docked:not(.is-dragging) .agent-assistant-fab__trigger:hover {
