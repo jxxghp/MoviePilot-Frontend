@@ -1,6 +1,7 @@
 import {
   ensureRemoteRegistered,
   injectRemoteModule,
+  registerRemoteModule,
   loadRegisteredRemoteComponent,
   loadRemoteAppPageComponent,
   loadRemoteComponent,
@@ -205,9 +206,10 @@ describe('federationLoader', () => {
   })
 
   it('initializes every discovered remote and tolerates empty or failed discovery', async () => {
+    // 加载器按 remote 记住已注册的入口，这里用未在其他用例出现过的 ID，避免受前面用例的注册影响。
     mocks.apiGet.mockResolvedValueOnce([
-      { id: 'alpha', url: '/plugins/alpha/remoteEntry.js' },
-      { id: 'beta', url: '/plugins/beta/remoteEntry.js' },
+      { id: 'gamma', url: '/plugins/gamma/remoteEntry.js' },
+      { id: 'delta', url: '/plugins/delta/remoteEntry.js' },
     ])
     await loadRemoteComponents()
     expect(mocks.setRemote).toHaveBeenCalledTimes(2)
@@ -313,5 +315,26 @@ describe('federationLoader', () => {
 
     await expect(ensureRemoteRegistered('pet-missing')).resolves.toBe(false)
     expect(mocks.getRemote).not.toHaveBeenCalled()
+  })
+
+  it('registers a remote from a known entry url without discovery and skips repeats of the same url', async () => {
+    configureRuntimeRegistry()
+
+    registerRemoteModule({ id: 'known-pet', url: '/plugins/known-pet/remoteEntry.js' })
+    await expect(ensureRemoteRegistered('known-pet')).resolves.toBe(true)
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+    expect(mocks.setRemote).toHaveBeenCalledTimes(1)
+
+    // 空闲时的全量初始化遇到同一地址不再重复注册，地址变化时才更新。
+    mocks.apiGet.mockResolvedValueOnce([
+      { id: 'known-pet', url: '/plugins/known-pet/remoteEntry.js' },
+      { id: 'other-plugin', url: '/plugins/other/remoteEntry.js' },
+    ])
+    await loadRemoteComponents()
+    expect(mocks.setRemote).toHaveBeenCalledTimes(2)
+    expect(mocks.setRemote.mock.calls.at(-1)?.[0]).toBe('other-plugin')
+
+    registerRemoteModule({ id: 'known-pet', url: '/plugins/known-pet/remoteEntry.js?v=2' })
+    expect(mocks.setRemote).toHaveBeenCalledTimes(3)
   })
 })

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/utils/federationLoader', () => ({
   ensureRemoteRegistered: async () => true,
+  registerRemoteModule: () => {},
   loadRegisteredRemoteComponent: (...args: unknown[]) => mocks.loadRemoteComponent(...args),
 }))
 
