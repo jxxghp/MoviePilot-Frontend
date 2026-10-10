@@ -7,6 +7,7 @@ import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 import { AGENT_PET_RESOLVE_WAIT } from '@/stores/agentPet'
 import type { AgentHostEvent, AgentPetContext, AgentPetDeclaration, MoviePilotAgentHost } from '@/types/agentHost'
 import { agentHost } from '@/utils/agentHost'
+import { resetAgentPetComponentLoads } from '@/utils/agentPetLoader'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
@@ -29,7 +30,8 @@ vi.mock('@/stores/global', () => ({
 }))
 
 vi.mock('@/utils/federationLoader', () => ({
-  loadRemoteComponent: (...args: unknown[]) => mocks.loadRemoteComponent(...args),
+  ensureRemoteRegistered: async () => true,
+  loadRegisteredRemoteComponent: (...args: unknown[]) => mocks.loadRemoteComponent(...args),
 }))
 
 function createPet(overrides: Partial<AgentPetDeclaration> = {}): AgentPetDeclaration {
@@ -63,6 +65,7 @@ beforeEach(() => {
   mocks.apiGet.mockReset()
   mocks.apiPost.mockReset()
   mocks.loadRemoteComponent.mockReset()
+  resetAgentPetComponentLoads()
   mockPetBackend([], null)
 })
 

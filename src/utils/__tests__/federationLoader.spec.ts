@@ -1,5 +1,7 @@
 import {
+  ensureRemoteRegistered,
   injectRemoteModule,
+  loadRegisteredRemoteComponent,
   loadRemoteAppPageComponent,
   loadRemoteComponent,
   loadRemoteComponentFromModule,
@@ -287,5 +289,29 @@ describe('federationLoader', () => {
 
     await expect(loadRemoteAppPageComponent('demo', 'main')).rejects.toThrow('./Page failed')
     expect(mocks.getRemote.mock.calls.map(call => call[1])).toEqual(['./AppPage', './AppPage', './Page', './Page'])
+  })
+
+  it('discovers and registers an unknown remote up front so it loads without a failing first attempt', async () => {
+    configureRuntimeRegistry()
+    mocks.apiGet.mockResolvedValue([{ id: 'pet-remote', url: '/plugins/pet/remoteEntry.js' }])
+
+    await expect(ensureRemoteRegistered('pet-remote')).resolves.toBe(true)
+    await expect(loadRegisteredRemoteComponent('pet-remote', 'AgentPet')).resolves.toBe('pet-remote page')
+
+    // 只加载一次，且发生在注册之后，没有经过“加载失败再发现”的分支。
+    expect(mocks.getRemote).toHaveBeenCalledTimes(1)
+    expect(mocks.getRemote).toHaveBeenCalledWith('pet-remote', './AgentPet')
+    expect(mocks.setRemote.mock.invocationCallOrder[0]).toBeLessThan(mocks.getRemote.mock.invocationCallOrder[0])
+
+    // 已登记的 remote 不再重复发现。
+    await expect(ensureRemoteRegistered('pet-remote')).resolves.toBe(true)
+    expect(mocks.apiGet).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports an unknown remote that discovery cannot find', async () => {
+    mocks.apiGet.mockResolvedValue([])
+
+    await expect(ensureRemoteRegistered('pet-missing')).resolves.toBe(false)
+    expect(mocks.getRemote).not.toHaveBeenCalled()
   })
 })

@@ -8,6 +8,9 @@ const federationController = new AbortController()
 // 同一 remote 的首次加载共享发现与注册，避免并发写入同一个运行时槽位。
 const remoteRegistrationFlights = new Map<string, Promise<boolean>>()
 
+// 已写入联邦运行时的 remote；未登记的 remote 先发现再加载，不靠一次必然失败的加载触发发现。
+const registeredRemoteIds = new Set<string>()
+
 // 定义远程模块接口
 export interface RemoteModule {
   id: string
@@ -112,6 +115,24 @@ export async function loadRemoteAppPageComponent(id: string, navKey: string = 'm
 }
 
 /**
+ * 确保 remote 已写入联邦运行时，未登记时立即发现并注册，同一 remote 并发调用共享一次请求。
+ * @returns remote 是否可用
+ */
+export async function ensureRemoteRegistered(id: string): Promise<boolean> {
+  if (registeredRemoteIds.has(id)) return true
+  return discoverAndRegisterRemote(id)
+}
+
+/**
+ * 从已注册的 remote 加载组件，不做发现与回退；调用方先用 {@link ensureRemoteRegistered} 确认 remote 可用。
+ * 只包含 remoteEntry 与组件模块本身的加载时间，供调用方单独计时。
+ */
+export async function loadRegisteredRemoteComponent(id: string, componentName: string) {
+  const module = await getFederationRemote(id, `./${componentName}`)
+  return unwrapFederationDefault(module)
+}
+
+/**
  * 加载远程组件
  * @param id 远程模块ID
  * @param componentName 组件名称 (如 'Page')
@@ -176,6 +197,7 @@ export function injectRemoteModule(module: RemoteModule): void {
     format: 'esm',
     from: 'vite',
   })
+  registeredRemoteIds.add(module.id)
   console.log('已注入远程模块:', module)
 }
 
