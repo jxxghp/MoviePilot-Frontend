@@ -5,6 +5,7 @@ import { useGlobalSettingsStore } from '@/stores/global'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { useUserStore } from '@/stores/user'
 import { readAgentPetCache, writeAgentPetCache } from '@/utils/agentPetCache'
+import { preloadAgentPetComponent } from '@/utils/agentPetLoader'
 import type { AgentPetDeclaration, AgentPetSelection } from '@/types/agentHost'
 import { resolveFederationRemoteUrl } from '@/utils/federationUrl'
 
@@ -114,15 +115,41 @@ export async function fetchAgentPetDeclarations(): Promise<AgentPetDeclaration[]
   return normalizeAgentPetDeclarations(response)
 }
 
-/**
- * 维护当前登录会话的 Agent 形象声明、用户选择和生效形象。
- *
- * 由 AgentAssistantWidget 在 Agent 入口挂载时 start、卸载时 stop；插件运行态代际变化时重新读取声明，
- * 插件不需要轮询。设置页写入选择后状态即时更新，挂载中的形象随之切换，无需刷新。
- */
 /** 无本地缓存时等待声明与选择接口的最长时间（毫秒）。 */
 export const AGENT_PET_RESOLVE_WAIT = 3000
 
+/** 非管理员会话在切回页面时重新读取声明的最短间隔（毫秒）。 */
+export const AGENT_PET_FOCUS_REFRESH_INTERVAL = 30_000
+
+/** 从资源地址中取出版本参数 `v`，没有时用完整地址代替，用于判断插件素材是否随版本更新。 */
+function getAssetVersion(url: string | null | undefined) {
+  if (!url) return ''
+  try {
+    return new URL(url, 'http://localhost').searchParams.get('v') ?? url
+  } catch {
+    return url
+  }
+}
+
+/**
+ * 判断形象声明是否真正更新过：消失后再出现，或预览图、头像的版本参数变化。
+ * 只有这些情况才允许本会话里加载失败过的形象重新尝试。
+ */
+export function hasAgentPetDeclarationChanged(previous: AgentPetDeclaration | undefined, next: AgentPetDeclaration) {
+  if (!previous) return true
+  return (
+    getAssetVersion(previous.preview_url) !== getAssetVersion(next.preview_url) ||
+    getAssetVersion(previous.avatar_url) !== getAssetVersion(next.avatar_url)
+  )
+}
+
+/**
+ * 维护当前登录会话的 Agent 形象声明、用户选择和生效形象。
+ *
+ * 由 AgentAssistantWidget 在 Agent 入口挂载时 start、卸载时 stop。管理员会话随插件运行态代际变化重新读取声明；
+ * 其他用户无权访问运行态接口，在页面重新可见或窗口获得焦点时重新读取（30 秒内最多一次），不做定时轮询。
+ * 设置页写入选择后状态即时更新，挂载中的形象随之切换，无需刷新。
+ */
 export const useAgentPetStore = defineStore('agentPet', () => {
   const globalSettingsStore = useGlobalSettingsStore()
   const pluginRuntimeStore = usePluginRuntimeStore()
@@ -151,6 +178,10 @@ export const useAgentPetStore = defineStore('agentPet', () => {
 
   let scope: EffectScope | null = null
   let declarationGeneration = 0
+  /** 最近一次开始读取声明的时间，用于节流切回页面时的补读。 */
+  let lastDeclarationRefreshAt = 0
+  /** 本次启动后是否成功读取过声明；读取失败时声明被清空，再次出现的形象视为重新出现。 */
+  let declarationsLoaded = false
   const warnedKeys = new Set<string>()
 
   const resolution = computed(() =>
@@ -192,9 +223,13 @@ export const useAgentPetStore = defineStore('agentPet', () => {
 
   async function refreshDeclarations() {
     const generation = ++declarationGeneration
+    lastDeclarationRefreshAt = Date.now()
     try {
       const items = await fetchAgentPetDeclarations()
       if (generation !== declarationGeneration) return
+      // 首次读取没有可比较的旧声明，接口返回前（例如用缓存预加载时）记下的失败保持有效。
+      if (declarationsLoaded) clearFailuresForChangedDeclarations(declarations.value, items)
+      declarationsLoaded = true
       declarations.value = items
     } catch (error) {
       if (generation !== declarationGeneration) return
@@ -241,6 +276,24 @@ export const useAgentPetStore = defineStore('agentPet', () => {
     failedIds.value = new Set([...failedIds.value, id])
   }
 
+  /** 只有声明真正更新过的形象才清除失败记录，其余失败形象本会话内继续回退。 */
+  function clearFailuresForChangedDeclarations(previous: AgentPetDeclaration[], next: AgentPetDeclaration[]) {
+    if (!failedIds.value.size) return
+    const previousById = new Map(previous.map(pet => [getAgentPetId(pet), pet]))
+    next.forEach(pet => {
+      const id = getAgentPetId(pet)
+      if (failedIds.value.has(id) && hasAgentPetDeclarationChanged(previousById.get(id), pet)) clearFailure(id)
+    })
+  }
+
+  /** 非管理员会话切回页面时补读声明，节流避免频繁切换窗口时重复请求。 */
+  function handlePageReturn() {
+    if (!active.value || userStore.superUser) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    if (Date.now() - lastDeclarationRefreshAt < AGENT_PET_FOCUS_REFRESH_INTERVAL) return
+    void refreshDeclarations()
+  }
+
   function clearFailure(id: string) {
     if (!failedIds.value.has(id)) return
     const next = new Set(failedIds.value)
@@ -269,12 +322,13 @@ export const useAgentPetStore = defineStore('agentPet', () => {
       watch([ready, intendedPet], ([isReady, pet]) => {
         if (isReady) writeAgentPetCache(cacheUser, pet)
       })
+      // 一知道生效形象就开始发现 remote 并加载组件，不等形象组件挂载。
+      watch(effectivePet, pet => preloadAgentPetComponent(pet), { immediate: true })
       watch(
         () => pluginRuntimeStore.reconciliation,
         (value, previous) => {
           if (value === previous || value <= 0) return
-          // 插件启停或升级后重新读取声明，并允许之前失败的形象重新尝试加载。
-          failedIds.value = new Set()
+          // 插件启停或升级后重新读取声明；失败记录只在对应声明真正更新时清除。
           void refreshDeclarations()
         },
       )
@@ -284,16 +338,26 @@ export const useAgentPetStore = defineStore('agentPet', () => {
         }
       })
     })
+    if (typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', handlePageReturn)
+      window.addEventListener('focus', handlePageReturn)
+    }
     await Promise.all([refreshDeclarations(), loadUserSelection()])
     clearTimeout(resolveWaitTimer)
     if (active.value) ready.value = true
   }
 
   function stop() {
+    if (active.value && typeof window !== 'undefined') {
+      document.removeEventListener('visibilitychange', handlePageReturn)
+      window.removeEventListener('focus', handlePageReturn)
+    }
     active.value = false
     scope?.stop()
     scope = null
     declarationGeneration++
+    declarationsLoaded = false
+    lastDeclarationRefreshAt = 0
     declarations.value = []
     userSelection.value = null
     failedIds.value = new Set()
