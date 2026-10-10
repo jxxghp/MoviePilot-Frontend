@@ -96,6 +96,8 @@ html {
   --app-card-rest-shadow: var(--app-elevation-0);
   --app-card-hover-shadow: var(--app-elevation-0);
   --app-fab-shadow: var(--app-elevation-0);
+  // 右下角悬浮按钮占用的底部空间（按钮 3.5rem + 外边距）；列表在末尾预留该高度，最后一行可滚到按钮上方。
+  --app-fab-clearance: 5.5rem;
   --app-fab-shadow-strong: var(--app-elevation-0);
   --app-fab-shadow-hover: var(--app-elevation-0);
   --app-fab-shadow-strong-hover: var(--app-elevation-0);

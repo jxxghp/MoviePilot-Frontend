@@ -234,21 +234,19 @@ describe('DownloadingCard display and pause state', () => {
     expect(container).not.toHaveTextContent('secret')
   })
 
-  it('keeps the poster column with a media type placeholder when no poster is available', async () => {
+  it('drops the poster column entirely when no poster is available', async () => {
     const { container, rerender } = await renderCard()
 
     expect(container.querySelector('.downloading-card__image')).toBeInTheDocument()
-    expect(container.querySelector('.downloading-card__poster-placeholder')).not.toBeInTheDocument()
+    expect(container.querySelector('.downloading-card--no-image')).not.toBeInTheDocument()
 
     await rerender({
       downloaderName: 'qb-main',
       info: downloading({ media: { backdrop: 'https://images.example.com/backdrop.jpg' } }),
     })
 
-    expect(container.querySelector('.downloading-card__image')).not.toBeInTheDocument()
-    expect(
-      container.querySelector('.downloading-card__poster .downloading-card__poster-placeholder'),
-    ).toBeInTheDocument()
+    expect(container.querySelector('.downloading-card__poster')).not.toBeInTheDocument()
+    expect(container.querySelector('.downloading-card--no-image')).toBeInTheDocument()
   })
 
   it('uses the global backend cache for recognized poster images', async () => {
@@ -290,7 +288,7 @@ describe('DownloadingCard display and pause state', () => {
     })
 
     await fireEvent.click(screen.getByRole('button', { name: '图片加载失败' }))
-    await waitFor(() => expect(container.querySelector('.downloading-card__poster-placeholder')).toBeInTheDocument())
+    await waitFor(() => expect(container.querySelector('.downloading-card--no-image')).toBeInTheDocument())
 
     await rerender({
       downloaderName: 'qb-main',
