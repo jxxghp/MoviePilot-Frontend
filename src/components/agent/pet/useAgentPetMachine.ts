@@ -1,5 +1,10 @@
 import { onScopeDispose, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
-import { getAgentPetActionDuration, getAgentPetRandomActionDelay, pickAgentPetRandomAction } from './agentPetActions'
+import {
+  getAgentPetActionDuration,
+  getAgentPetRandomActionDelay,
+  pickAgentPetRandomAction,
+  resolveAgentPetRandomPool,
+} from './agentPetActions'
 import type { AgentPetActionName } from './types'
 
 interface AgentPetMachineOptions {
@@ -10,6 +15,8 @@ interface AgentPetMachineOptions {
   pressed: Ref<boolean>
   shouldAutoDock: () => boolean
   scheduleAutoDock: () => void
+  /** renderer 形象声明的随机动作池，缺省使用宿主全集。 */
+  randomActions?: MaybeRefOrGetter<readonly string[] | null | undefined>
 }
 
 /** 区分装饰、状态反馈和主动手势，避免低优先级动作打断用户互动。 */
@@ -28,9 +35,15 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
   let actionEndTimer: number | null = null
   let playback: AgentPetPlaybackOptions = {}
 
+  /** 读取当前生效的随机动作池。 */
+  function getRandomPool() {
+    return resolveAgentPetRandomPool(toValue(options.randomActions))
+  }
+
   /** 判断当前交互状态是否适合播放空闲趣味动作。 */
   function canRunRandomAction() {
     return (
+      getRandomPool().length > 0 &&
       toValue(options.active) &&
       !options.docked.value &&
       !options.dragging.value &&
@@ -101,7 +114,7 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
   function runRandomAction() {
     if (!canRunRandomAction()) return
 
-    const action = pickAgentPetRandomAction(lastAction)
+    const action = pickAgentPetRandomAction(lastAction, getRandomPool())
 
     lastAction = action
     playAction(action, { priority: 0 })
@@ -139,7 +152,14 @@ export function useAgentPetMachine(options: AgentPetMachineOptions) {
   }
 
   watch(
-    [() => toValue(options.active), () => toValue(options.thinking), options.docked, options.dragging, options.pressed],
+    [
+      () => toValue(options.active),
+      () => toValue(options.thinking),
+      options.docked,
+      options.dragging,
+      options.pressed,
+      () => getRandomPool().join(','),
+    ],
     syncSchedule,
     { flush: 'sync' },
   )

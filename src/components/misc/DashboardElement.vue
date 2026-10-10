@@ -7,6 +7,7 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { provideScopedAgentHost } from '@/composables/useAgentHost'
 import { useConfirm } from '@/composables/useConfirm'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import RemoteComponentError from './RemoteComponentError.vue'
@@ -27,6 +28,9 @@ provide('moviepilot:confirm', createConfirm)
 // 向仪表板联邦组件导出主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
+
+// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
+provideScopedAgentHost(() => props.config?.id)
 
 const DashboardSkeleton = {
   // 创建无需模板编译的仪表板加载骨架。

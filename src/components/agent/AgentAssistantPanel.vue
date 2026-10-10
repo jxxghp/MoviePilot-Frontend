@@ -7,6 +7,7 @@ import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 import AgentMarkdownContent from './AgentMarkdownContent.vue'
+import type { AgentStreamPhaseEvent } from '@/utils/agentHostPhase'
 
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
@@ -254,6 +255,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'assistant-preview': [value: string]
+  /** 面板流事件中与会话阶段相关的部分，供宿主归纳 phase 并广播 `agent.*` 事件。 */
+  'stream-phase': [event: AgentStreamPhaseEvent]
   'thinking-change': [value: boolean]
   'update:modelValue': [value: boolean]
 }>()
@@ -837,7 +840,7 @@ function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
 function restoreHistorySessions() {
   try {
     historySessions.value = normalizeHistorySessions(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]'))
-  } catch (error) {
+  } catch {
     historySessions.value = []
   }
 }
@@ -879,7 +882,7 @@ async function loadServerHistorySessions() {
     historySessions.value = dedupeHistorySessions(sessions)
     historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
     persistHistorySessions()
-  } catch (error) {
+  } catch {
     restoreHistorySessions()
     historyHasMore.value = false
   } finally {
@@ -914,7 +917,7 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
     historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
     persistHistorySessions()
     options?.done?.(sessions.length ? 'ok' : 'empty')
-  } catch (error) {
+  } catch {
     options?.done?.('error')
   } finally {
     historyLoadingMore.value = false
@@ -1130,7 +1133,7 @@ function scheduleStreamRecovery(delay = 1200) {
         scheduleStreamRecovery(Math.min(8000, 1200 + recovery.attempts * 900))
         return
       }
-    } catch (error) {
+    } catch {
       // 会话快照可能还未写入，继续按退避间隔等待。
     }
 
@@ -1195,7 +1198,7 @@ function restoreState() {
     restorePendingSteeringMessages()
     restorePendingStreamRecovery(state.streamRecovery)
     upsertCurrentSessionHistory()
-  } catch (error) {
+  } catch {
     sessionId.value = createSessionId()
     messages.value = []
     restorePendingSteeringMessages()
@@ -1210,13 +1213,13 @@ function persistHistorySessions() {
 
   try {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(sessions))
-  } catch (error) {
+  } catch {
     const retainedCount = Math.max(1, Math.ceil(sessions.length / 2))
     historySessions.value = sessions.slice(0, retainedCount)
 
     try {
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historySessions.value))
-    } catch (retryError) {
+    } catch {
       // 浏览器本地空间不足时放弃本次历史写入，不影响当前对话继续使用。
     }
   }
@@ -1314,7 +1317,7 @@ function persistState(options: { syncHistory?: boolean } = {}) {
         streamRecovery: pendingStreamRecovery.value,
       }),
     )
-  } catch (error) {
+  } catch {
     // 浏览器本地空间不足时保留内存态，避免发送过程被持久化异常打断。
   }
 
@@ -2000,6 +2003,12 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       break
     case 'tool':
       applyToolLifecycleEvent(event, routedAssistantMessage)
+      emit('stream-phase', {
+        type: 'tool',
+        id: String(event.tool_id || event.tool_call_id || ''),
+        name: event.tool_name || null,
+        status: event.status === 'error' ? 'error' : event.status === 'done' ? 'done' : 'running',
+      })
       break
     case 'thinking':
       applyThinkingLifecycleEvent(event, routedAssistantMessage)
@@ -2015,6 +2024,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
           ...event.choice,
           status: 'pending',
         })
+        emit('stream-phase', { type: 'choice' })
       }
       break
     case 'message_update':
@@ -2026,6 +2036,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
         routedAssistantMessage.status = 'done'
       }
       markToolsDone(routedAssistantMessage)
+      emit('stream-phase', { type: 'done' })
       break
     case 'error':
       routedAssistantMessage.status = 'error'
@@ -2039,6 +2050,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       }
       emit('assistant-preview', routedAssistantMessage.content)
       markToolsDone(routedAssistantMessage)
+      emit('stream-phase', { type: 'error', message: event.message_i18n || event.message || undefined })
       break
     case 'start':
       if (event.session_id) {
@@ -2601,7 +2613,7 @@ async function streamAgentMessage(
       try {
         await saveCurrentSessionToServer()
         await loadServerHistorySessions()
-      } catch (error) {
+      } catch {
         // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
       }
     }
@@ -2923,7 +2935,7 @@ async function deleteHistorySession(targetSessionId: string) {
     await api.delete<null>(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
       feedback: 'silent',
     })
-  } catch (error) {
+  } catch {
     // 删除接口失败时仍允许清理本地兜底历史，避免坏记录一直挡在列表里。
   } finally {
     historySessions.value = historySessions.value.filter(item => item.sessionId !== targetSessionId)
@@ -3012,6 +3024,13 @@ function handlePageShow() {
   if (document.visibilityState === 'visible') scheduleStreamRecovery(0)
 }
 
+/** 只把草稿填入输入框并聚焦，绝不自动发送；供宿主 `agent.open({ draft })` 使用。 */
+function setDraft(draft: string) {
+  inputText.value = draft
+  syncInputHeight()
+  nextTick(() => inputRef.value?.focus())
+}
+
 // 处理输入框回车发送。
 function handleInputKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey || isComposing.value || event.isComposing || event.keyCode === 229) return
@@ -3058,6 +3077,8 @@ onMounted(() => {
   window.addEventListener('pageshow', handlePageShow)
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
+
+defineExpose({ setDraft })
 
 onScopeDispose(clearAgentAssistantOpenState)
 onScopeDispose(() => {

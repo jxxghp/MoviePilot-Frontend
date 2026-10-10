@@ -9,6 +9,7 @@ import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { provideScopedAgentHost } from '@/composables/useAgentHost'
 import { useConfirm } from '@/composables/useConfirm'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
@@ -60,12 +61,13 @@ provide('moviepilot:confirm', createConfirm)
 const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
+// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
+provideScopedAgentHost(() => props.plugin?.id)
+
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 
 // 联邦插件可继续使用源插件硬编码路径，宿主会把它映射到当前实例。
-const scopedPluginApi = computed(() =>
-  createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id),
-)
+const scopedPluginApi = computed(() => createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id))
 
 // 是否刷新
 const isRefreshed = ref(false)

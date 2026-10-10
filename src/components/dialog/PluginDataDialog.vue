@@ -7,6 +7,7 @@ import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
+import { provideScopedAgentHost } from '@/composables/useAgentHost'
 import { useConfirm } from '@/composables/useConfirm'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
@@ -46,6 +47,9 @@ provide('moviepilot:confirm', createConfirm)
 // 向联邦插件同时提供 prop 与 inject 形式的主程序原生订阅入口。
 const nativeSubscribe = usePluginNativeSubscribe()
 provide('moviepilot:nativeSubscribe', nativeSubscribe)
+
+// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
+provideScopedAgentHost(() => props.plugin?.id)
 
 // 数据页沿用源插件组件，同时把其动态 API 限定到当前实例。
 const scopedPluginApi = computed(() => createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id))
