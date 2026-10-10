@@ -1014,7 +1014,7 @@ export default {
   agentAssistant: {
     pet: {
       title: '助手形象',
-      subtitle: '選擇頁面右下角智能助手的外觀，形象由已啟用的插件提供，選擇後立即生效',
+      subtitle: '形象由已啟用的插件提供，選擇後立即生效',
       followDefault: '跟隨系統預設',
       followDefaultDesc: '目前預設：{name}',
       followDefaultHint: '管理員更換預設形象後會自動跟隨',
@@ -1026,7 +1026,8 @@ export default {
       unavailable: '不可用',
       empty: '暫無插件提供助手形象',
       loadFailed: '讀取助手形象失敗',
-      saveSuccess: '助手形象已切換',
+      back: '返回對話',
+      change: '更換形象',
       saveFailed: '助手形象儲存失敗：{message}',
     },
     title: '智能助手',

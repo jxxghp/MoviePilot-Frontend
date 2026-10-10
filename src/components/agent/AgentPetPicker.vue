@@ -34,6 +34,11 @@ interface AgentPetOption {
 
 const FOLLOW_DEFAULT_ID = 'default'
 
+const emit = defineEmits<{
+  /** 返回对话视图。 */
+  back: []
+}>()
+
 const { t } = useI18n()
 const $toast = useToast()
 const globalSettingsStore = useGlobalSettingsStore()
@@ -129,14 +134,14 @@ async function loadData() {
   }
 }
 
-/** 选择后立即保存；Agent 入口挂载中时通过 store 即时切换形象。 */
+/** 选择后立即保存，并通过 store 即时切换正在显示的形象。 */
 async function selectOption(option: AgentPetOption) {
   if (savingId.value || option.id === selectedId.value) return
   savingId.value = option.id
   try {
     await petStore.setUserSelection(option.selection)
+    // 选中态即反馈，面板内不再额外弹成功提示。
     selection.value = option.selection
-    $toast.success(t('agentAssistant.pet.saveSuccess'))
   } catch (error) {
     $toast.error(
       t('agentAssistant.pet.saveFailed', { message: getApiErrorMessage(error) || t('common.apiRequestFailed') }),
@@ -159,8 +164,18 @@ onMounted(loadData)
 </script>
 
 <template>
-  <VCard :title="t('agentAssistant.pet.title')" :subtitle="t('agentAssistant.pet.subtitle')">
-    <VCardText>
+  <!-- Agent 面板内的形象选择视图，替换消息区显示，返回后回到原对话。 -->
+  <section class="agent-pet-picker" :aria-label="t('agentAssistant.pet.title')">
+    <div class="agent-pet-picker__toolbar">
+      <IconBtn :title="t('agentAssistant.pet.back')" :aria-label="t('agentAssistant.pet.back')" @click="emit('back')">
+        <VIcon icon="mdi-arrow-left" />
+      </IconBtn>
+      <div class="agent-pet-picker__heading">
+        <div class="agent-pet-picker__title">{{ t('agentAssistant.pet.title') }}</div>
+        <div class="agent-pet-picker__subtitle">{{ t('agentAssistant.pet.subtitle') }}</div>
+      </div>
+    </div>
+    <div class="agent-pet-picker__body">
       <div v-if="loading" class="agent-pet-options">
         <VSkeletonLoader v-for="index in 3" :key="index" type="image, list-item-two-line" />
       </div>
@@ -191,8 +206,8 @@ onMounted(loadData)
             <VIcon v-if="option.id === selectedId" class="agent-pet-option__check" icon="mdi-check-circle" size="22" />
           </div>
           <div class="agent-pet-option__body">
-            <div class="agent-pet-option__title text-body-1 font-weight-medium">{{ option.title }}</div>
-            <div class="agent-pet-option__desc text-body-2 text-medium-emphasis">{{ option.description }}</div>
+            <div class="agent-pet-option__title text-body-2 font-weight-medium">{{ option.title }}</div>
+            <div class="agent-pet-option__desc text-caption text-medium-emphasis">{{ option.description }}</div>
             <div v-if="option.hint" class="agent-pet-option__hint text-caption text-medium-emphasis mt-1">
               {{ option.hint }}
             </div>
@@ -202,18 +217,66 @@ onMounted(loadData)
           </div>
         </VCard>
       </div>
-      <p v-if="!loading && !declarations.length" class="text-body-2 text-medium-emphasis mt-4 mb-0">
+      <p v-if="!loading && !declarations.length" class="agent-pet-picker__empty">
         {{ t('agentAssistant.pet.empty') }}
       </p>
-    </VCardText>
-  </VCard>
+    </div>
+  </section>
 </template>
 
 <style lang="scss" scoped>
+.agent-pet-picker {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.agent-pet-picker__toolbar {
+  display: flex;
+  align-items: center;
+  column-gap: 0.5rem;
+  padding-block: 0.75rem;
+  padding-inline: 0.5rem 1rem;
+}
+
+.agent-pet-picker__heading {
+  min-inline-size: 0;
+}
+
+.agent-pet-picker__title {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.agent-pet-picker__subtitle {
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.agent-pet-picker__body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: 0.25rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-inline: 1rem;
+}
+
+.agent-pet-picker__empty {
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.85rem;
+  margin-block: 1rem 0;
+}
+
+// 面板宽度通常只放得下两列，最小宽度按内置机器人预览留足空间。
 .agent-pet-options {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
 }
 
 .agent-pet-option {
@@ -260,7 +323,7 @@ onMounted(loadData)
 }
 
 .agent-pet-option__body {
-  padding: 0.75rem 0.875rem 0.875rem;
+  padding: 0.625rem 0.75rem 0.75rem;
 }
 
 .agent-pet-option__title,

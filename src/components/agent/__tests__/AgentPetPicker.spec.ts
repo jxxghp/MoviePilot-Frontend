@@ -1,12 +1,13 @@
-import UserAgentPetCard from '@/views/user/UserAgentPetCard.vue'
+import AgentPetPicker from '@/components/agent/AgentPetPicker.vue'
 import { renderWithProviders } from '@tests/support/render'
-import { screen, within } from '@testing-library/vue'
+import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentPetDeclaration } from '@/types/agentHost'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  toast: { error: vi.fn(), success: vi.fn() },
 }))
 
 vi.mock('@/api', () => ({
@@ -15,7 +16,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('vue-toastification', () => ({
-  useToast: () => ({ error: vi.fn(), success: vi.fn() }),
+  useToast: () => mocks.toast,
 }))
 
 function createPet(overrides: Partial<AgentPetDeclaration> = {}): AgentPetDeclaration {
@@ -52,7 +53,7 @@ async function findOption(title: string) {
   return option
 }
 
-describe('UserAgentPetCard', () => {
+describe('AgentPetPicker', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
@@ -61,7 +62,7 @@ describe('UserAgentPetCard', () => {
   it('renders the real builtin robot for the builtin option and for a builtin system default', async () => {
     mockBackend([createPet()])
 
-    await renderWithProviders(UserAgentPetCard, { initialState: { globalSettings: { data: {} } }, stubActions: false })
+    await renderWithProviders(AgentPetPicker, { initialState: { globalSettings: { data: {} } }, stubActions: false })
 
     const followDefault = await findOption('跟随系统默认')
     const builtin = await findOption('内置机器人')
@@ -76,7 +77,7 @@ describe('UserAgentPetCard', () => {
   it('previews the plugin avatar that the system default actually resolves to', async () => {
     mockBackend([createPet()])
 
-    await renderWithProviders(UserAgentPetCard, {
+    await renderWithProviders(AgentPetPicker, {
       initialState: { globalSettings: { data: { AI_AGENT_PET: 'PetPlugin:girl' } } },
       stubActions: false,
     })
@@ -85,5 +86,29 @@ describe('UserAgentPetCard', () => {
     expect(within(followDefault).getByText('当前默认：小映')).toBeInTheDocument()
     expect(followDefault.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/preview.png')
     expect(followDefault.querySelector('.agent-assistant-fab__bot')).toBeNull()
+  })
+
+  it('saves the selection immediately without a toast and returns to the chat on back', async () => {
+    mockBackend([createPet()])
+    mocks.apiPost.mockResolvedValue(undefined)
+
+    const { emitted } = await renderWithProviders(AgentPetPicker, {
+      initialState: { globalSettings: { data: {} } },
+      stubActions: false,
+    })
+
+    await fireEvent.click(await findOption('小映'))
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'user/config/AgentPet',
+        { plugin_id: 'PetPlugin', key: 'girl' },
+        { feedback: 'silent' },
+      ),
+    )
+    await waitFor(async () => expect((await findOption('小映')).getAttribute('aria-checked')).toBe('true'))
+    expect(mocks.toast.success).not.toHaveBeenCalled()
+
+    await fireEvent.click(screen.getByRole('button', { name: '返回对话' }))
+    expect(emitted().back).toHaveLength(1)
   })
 })

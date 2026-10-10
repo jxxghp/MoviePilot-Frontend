@@ -6,8 +6,7 @@ import { getApiErrorMessage } from '@/api/client'
 import type { User, PassKey } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
-import { useGlobalSettingsStore, useUserStore } from '@/stores'
-import UserAgentPetCard from './UserAgentPetCard.vue'
+import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
@@ -17,12 +16,6 @@ const VerifyPasswordDialog = defineAsyncComponent(() => import('@/components/dia
 
 // 国际化
 const { t } = useI18n()
-
-const globalSettingsStore = useGlobalSettingsStore()
-// 助手形象属于 Agent 入口的个人外观设置，只在入口实际展示时提供选择。
-const showAgentPetSetting = computed(
-  () => globalSettingsStore.get('AI_AGENT_ENABLE') === true && globalSettingsStore.get('AI_AGENT_HIDE_ENTRY') !== true,
-)
 
 // 显示器宽度
 const display = useDisplay()
@@ -616,9 +609,6 @@ watch(
             </VForm>
           </VCardText>
         </VCard>
-      </VCol>
-      <VCol v-if="showAgentPetSetting" cols="12">
-        <UserAgentPetCard />
       </VCol>
     </VRow>
   </div>

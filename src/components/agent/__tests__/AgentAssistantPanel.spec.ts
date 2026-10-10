@@ -2670,6 +2670,40 @@ describe('AgentAssistantPanel agent host bridge', () => {
     wrapper.unmount()
   })
 
+  it('opens the avatar picker inside the panel and returns to the conversation', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    const wrapper = mountPanel()
+    await flushPromises()
+    const toggle = wrapper.get('.agent-assistant-pet-toggle')
+
+    expect(toggle.attributes('aria-label')).toBe('agentAssistant.pet.change')
+    expect(toggle.attributes('title')).toBe('agentAssistant.pet.change')
+    expect(wrapper.find('.agent-assistant-pet-picker').exists()).toBe(false)
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-pressed')).toBe('true')
+    expect(wrapper.find('.agent-assistant-pet-picker').exists()).toBe(true)
+    expect((wrapper.get('.agent-assistant-messages').element as HTMLElement).style.display).toBe('none')
+    expect((wrapper.get('.agent-assistant-composer').element as HTMLElement).style.display).toBe('none')
+
+    // Esc 先回到对话，不直接关闭面板。
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-pet-picker').exists()).toBe(false)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+
+    await toggle.trigger('click')
+    ;(wrapper.vm as unknown as { setDraft: (draft: string) => void }).setDraft('草稿')
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-pet-picker').exists()).toBe(false)
+    expect((wrapper.get('.agent-assistant-messages').element as HTMLElement).style.display).toBe('')
+
+    wrapper.unmount()
+  })
+
   it('reports tool, choice and terminal stream phases for the host', async () => {
     const primaryStream = createControllableAgentStream()
     vi.stubGlobal(
