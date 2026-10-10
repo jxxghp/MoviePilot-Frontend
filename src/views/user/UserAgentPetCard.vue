@@ -13,6 +13,7 @@ import {
   useAgentPetStore,
 } from '@/stores/agentPet'
 import type { AgentPetDeclaration, AgentPetSelection } from '@/types/agentHost'
+import AgentPetRobotPreview from '@/components/agent/pet/AgentPetRobotPreview.vue'
 
 /** 选项卡片：跟随默认、内置机器人或某个插件形象。 */
 interface AgentPetOption {
@@ -22,8 +23,12 @@ interface AgentPetOption {
   description: string
   /** 写入 user config 的值。 */
   selection: AgentPetSelection
+  /** 补充说明，用来区分“跟随默认会变化”和“内置机器人固定不变”。 */
+  hint?: string
   icon?: string
   previewUrl?: string | null
+  /** 预览区渲染真实的内置 CSS 机器人。 */
+  builtinPreview?: boolean
   modeLabel?: string
 }
 
@@ -47,12 +52,20 @@ const selectedId = computed(() => {
   return FOLLOW_DEFAULT_ID
 })
 
-/** 管理员默认形象的展示名。 */
-const defaultPetName = computed(() => {
+/** 管理员默认实际对应的形象；未设置或当前不可用时为 null，即内置机器人。 */
+const defaultPet = computed(() => {
   const value = globalSettingsStore.get(AGENT_PET_SYSTEM_SETTING_KEY)
-  if (typeof value !== 'string' || !value) return t('agentAssistant.pet.builtin')
-  return declarations.value.find(pet => getAgentPetId(pet) === value)?.name || t('agentAssistant.pet.builtin')
+  if (typeof value !== 'string' || !value) return null
+  return declarations.value.find(pet => getAgentPetId(pet) === value) || null
 })
+
+/** 管理员默认形象的展示名。 */
+const defaultPetName = computed(() => defaultPet.value?.name || t('agentAssistant.pet.builtin'))
+
+/** 卡片预览图优先用整身预览图，没有时退到头像。 */
+function getPetPreviewUrl(pet: AgentPetDeclaration | null) {
+  return pet?.preview_url || pet?.avatar_url || null
+}
 
 const options = computed<AgentPetOption[]>(() => {
   const items: AgentPetOption[] = [
@@ -60,15 +73,19 @@ const options = computed<AgentPetOption[]>(() => {
       id: FOLLOW_DEFAULT_ID,
       title: t('agentAssistant.pet.followDefault'),
       description: t('agentAssistant.pet.followDefaultDesc', { name: defaultPetName.value }),
+      hint: t('agentAssistant.pet.followDefaultHint'),
       selection: null,
-      icon: 'mdi-cog-sync-outline',
+      icon: 'mdi-puzzle-outline',
+      previewUrl: getPetPreviewUrl(defaultPet.value),
+      builtinPreview: !defaultPet.value,
     },
     {
       id: AGENT_PET_BUILTIN,
       title: t('agentAssistant.pet.builtin'),
       description: t('agentAssistant.pet.builtinDesc'),
+      hint: t('agentAssistant.pet.builtinHint'),
       selection: AGENT_PET_BUILTIN,
-      icon: 'mdi-robot-happy-outline',
+      builtinPreview: true,
     },
   ]
   declarations.value.forEach(pet => {
@@ -77,7 +94,7 @@ const options = computed<AgentPetOption[]>(() => {
       title: pet.name,
       description: pet.plugin_name,
       selection: { plugin_id: pet.plugin_id, key: pet.key },
-      previewUrl: pet.preview_url,
+      previewUrl: getPetPreviewUrl(pet),
       icon: 'mdi-puzzle-outline',
       modeLabel: t(pet.mode === 'stage' ? 'agentAssistant.pet.modeStage' : 'agentAssistant.pet.modeRenderer'),
     })
@@ -129,8 +146,13 @@ async function selectOption(option: AgentPetOption) {
   }
 }
 
-function handlePreviewError(id: string) {
-  failedPreviewIds.value = new Set([...failedPreviewIds.value, id])
+/** 预览图失败按“选项 + 地址”记录，默认形象切换后新地址仍会重新尝试。 */
+function getPreviewKey(option: AgentPetOption) {
+  return `${option.id}\u0000${option.previewUrl || ''}`
+}
+
+function handlePreviewError(option: AgentPetOption) {
+  failedPreviewIds.value = new Set([...failedPreviewIds.value, getPreviewKey(option)])
 }
 
 onMounted(loadData)
@@ -158,18 +180,22 @@ onMounted(loadData)
         >
           <div class="agent-pet-option__preview">
             <img
-              v-if="option.previewUrl && !failedPreviewIds.has(option.id)"
+              v-if="option.previewUrl && !failedPreviewIds.has(getPreviewKey(option))"
               :src="option.previewUrl"
               :alt="option.title"
               loading="lazy"
-              @error="handlePreviewError(option.id)"
+              @error="handlePreviewError(option)"
             />
+            <AgentPetRobotPreview v-else-if="option.builtinPreview" class="agent-pet-option__robot" />
             <VIcon v-else :icon="option.icon" size="40" />
             <VIcon v-if="option.id === selectedId" class="agent-pet-option__check" icon="mdi-check-circle" size="22" />
           </div>
           <div class="agent-pet-option__body">
             <div class="agent-pet-option__title text-body-1 font-weight-medium">{{ option.title }}</div>
             <div class="agent-pet-option__desc text-body-2 text-medium-emphasis">{{ option.description }}</div>
+            <div v-if="option.hint" class="agent-pet-option__hint text-caption text-medium-emphasis mt-1">
+              {{ option.hint }}
+            </div>
             <VChip v-if="option.modeLabel" class="mt-2" size="x-small" variant="tonal" label>
               {{ option.modeLabel }}
             </VChip>
@@ -220,6 +246,10 @@ onMounted(loadData)
 .agent-pet-option.is-selected .agent-pet-option__preview {
   background: rgba(var(--v-theme-primary), 0.08);
   color: rgb(var(--v-theme-primary));
+}
+
+.agent-pet-option__robot {
+  pointer-events: none;
 }
 
 .agent-pet-option__check {
