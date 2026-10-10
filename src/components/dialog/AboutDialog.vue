@@ -736,6 +736,15 @@ onBeforeUnmount(() => {
   padding-inline-start: 1.5rem;
 }
 
+/* 恢复被 Tailwind Preflight 清除的 Markdown 列表标记。 */
+.markdown-body :deep(ul) {
+  list-style-type: disc;
+}
+
+.markdown-body :deep(ol) {
+  list-style-type: decimal;
+}
+
 .markdown-body :deep(li) {
   margin-block: 0.25rem;
 }

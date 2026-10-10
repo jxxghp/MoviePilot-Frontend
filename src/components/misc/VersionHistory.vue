@@ -30,6 +30,7 @@ const props = defineProps({
   hasAction: Function as PropType<(version: string) => boolean>,
 })
 
+/** 按调用方的版本条件决定是否展示操作按钮。 */
 function shouldRenderAction(version: string) {
   return props.hasAction?.(version) ?? true
 }
@@ -82,7 +83,7 @@ function shouldRenderAction(version: string) {
 .version-history__top {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "main";
+  grid-template-areas: 'main';
   gap: 0;
   align-items: center;
   margin-block-end: 0.5rem;
@@ -90,7 +91,7 @@ function shouldRenderAction(version: string) {
 
 .version-history__top--with-action {
   grid-template-columns: minmax(0, 1fr) max-content;
-  grid-template-areas: "main action";
+  grid-template-areas: 'main action';
   gap: 1rem;
 }
 
@@ -144,6 +145,15 @@ function shouldRenderAction(version: string) {
 .markdown-body :deep(ol) {
   padding-inline-start: 1.5rem;
   margin-block: 0.5rem;
+}
+
+/* 恢复被 Tailwind Preflight 清除的 Markdown 列表标记。 */
+.markdown-body :deep(ul) {
+  list-style-type: disc;
+}
+
+.markdown-body :deep(ol) {
+  list-style-type: decimal;
 }
 
 .markdown-body :deep(li) {
@@ -211,6 +221,5 @@ function shouldRenderAction(version: string) {
   .version-history__version {
     font-size: 1.125rem;
   }
-
 }
 </style>
