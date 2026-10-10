@@ -19,8 +19,9 @@ export class AgentPetLoadTimeoutError extends Error {
 // 同一形象组件只加载一次：store 在得知生效形象时就开始预加载，形象组件挂载后复用同一次加载。
 const loadFlights = new Map<string, Promise<Component>>()
 
+// 入口地址带插件版本，升级后地址变化即重新加载，避免形象仍用旧组件而配置页已是新版本。
 function getFlightKey(pet: AgentPetDeclaration) {
-  return `${pet.plugin_id}\u0000${pet.component || 'AgentPet'}`
+  return `${pet.plugin_id}\u0000${pet.component || 'AgentPet'}\u0000${pet.remote_url || ''}`
 }
 
 /** 在限定时间内等待，超时后以 createError 生成的错误拒绝。 */

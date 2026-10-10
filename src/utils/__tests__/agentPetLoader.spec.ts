@@ -113,4 +113,20 @@ describe('loadAgentPetComponent', () => {
     await expect(first).resolves.toBe(component)
     expect(mocks.loadRegisteredRemoteComponent).toHaveBeenCalledTimes(1)
   })
+
+  it('reloads the component when remote_url changes after a plugin upgrade and reuses it otherwise', async () => {
+    const oldComponent = { name: 'PetV1' }
+    const newComponent = { name: 'PetV2' }
+    mocks.loadRegisteredRemoteComponent.mockResolvedValueOnce(oldComponent).mockResolvedValueOnce(newComponent)
+    const v1 = createPet({ remote_url: '/plugin/file/petplugin/dist/assets/remoteEntry.js?v=1.0.0' })
+    const v2 = createPet({ remote_url: '/plugin/file/petplugin/dist/assets/remoteEntry.js?v=1.1.0' })
+
+    await expect(loadAgentPetComponent(v1)).resolves.toBe(oldComponent)
+    await expect(loadAgentPetComponent({ ...v1 })).resolves.toBe(oldComponent)
+    expect(mocks.loadRegisteredRemoteComponent).toHaveBeenCalledTimes(1)
+
+    await expect(loadAgentPetComponent(v2)).resolves.toBe(newComponent)
+    expect(mocks.loadRegisteredRemoteComponent).toHaveBeenCalledTimes(2)
+    expect(mocks.registerRemoteModule).toHaveBeenLastCalledWith(expect.objectContaining({ url: v2.remote_url }))
+  })
 })
