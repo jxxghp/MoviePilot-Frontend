@@ -71,6 +71,8 @@ const FAB_BUBBLE_ARROW_MARGIN = 28
 const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
 const FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY = 260
 const FAB_RIGHT_EDGE_RESIZE_FOLLOW_DISTANCE = 128
+// 用户拖动后的入口锚点（右侧贴边或自由比例坐标），刷新后按它恢复位置。
+const FAB_ANCHOR_STORAGE_KEY = 'agentAssistant.fabAnchor'
 
 type FabBubblePlacement = 'bottom' | 'left' | 'right' | 'top'
 
@@ -398,6 +400,43 @@ function updateFabAnchorFromPosition(position = getCurrentFabPosition(), options
     mode: 'free',
     xRatio: ratio.x,
     yRatio: ratio.y,
+  }
+}
+
+// 判断比例值是否落在 0 到 1 之间。
+function isUnitRatio(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+}
+
+// 读取持久化的入口锚点；本地存储不可用或数据损坏时返回 null，按默认位置处理。
+function readPersistedFabAnchor(): FabPositionAnchor | null {
+  try {
+    const anchor = JSON.parse(
+      localStorage.getItem(FAB_ANCHOR_STORAGE_KEY) || 'null',
+    ) as Partial<FabPositionAnchor> | null
+    if (anchor?.mode === 'right' && isUnitRatio(anchor.yRatio)) {
+      const { rightOffset } = anchor as { rightOffset?: unknown }
+      if (typeof rightOffset === 'number' && Number.isFinite(rightOffset) && rightOffset >= 0) {
+        return { mode: 'right', rightOffset, yRatio: anchor.yRatio }
+      }
+    }
+    if (anchor?.mode === 'free') {
+      const { xRatio } = anchor as { xRatio?: unknown }
+      if (isUnitRatio(xRatio) && isUnitRatio(anchor.yRatio)) return { mode: 'free', xRatio, yRatio: anchor.yRatio }
+    }
+  } catch {
+    // 本地存储被禁用或内容不是 JSON 时回退到默认位置。
+  }
+  return null
+}
+
+// 拖动结束后保存当前锚点，只记录用户主动选择的位置。
+function persistFabAnchor() {
+  if (!fabPositionAnchor) return
+  try {
+    localStorage.setItem(FAB_ANCHOR_STORAGE_KEY, JSON.stringify(fabPositionAnchor))
+  } catch {
+    // 本地存储不可用时只影响刷新后的位置恢复。
   }
 }
 
@@ -770,10 +809,16 @@ function teardownFabBubblePositioning() {
   clearFabBubbleUndockPositionTimer()
 }
 
-// 重置入口到默认位置并同步锚点和气泡位置。
+// 恢复入口位置：优先使用用户拖动后保存的锚点，否则回到默认位置，并同步气泡和自动贴边。
 function resetFabPosition() {
-  fabPosition.value = getDefaultFabPosition()
-  updateFabAnchorFromPosition(fabPosition.value)
+  const persistedAnchor = readPersistedFabAnchor()
+  if (persistedAnchor) {
+    fabPositionAnchor = persistedAnchor
+    fabPosition.value = getFabPositionFromAnchor(persistedAnchor)
+  } else {
+    fabPosition.value = getDefaultFabPosition()
+    updateFabAnchorFromPosition(fabPosition.value)
+  }
   scheduleFabBubblePositionUpdate()
   if (shouldFabAutoDock()) scheduleFabAutoDock()
 }
@@ -1402,6 +1447,7 @@ function handleFabTriggerPointerUp(event: PointerEvent) {
   }
 
   suppressNextFabClick()
+  persistFabAnchor()
   if (shouldFabAutoDock()) {
     scheduleFabAutoDock()
   } else {
@@ -1694,6 +1740,7 @@ defineExpose({
   pointer-events: auto;
   text-align: start;
   touch-action: none;
+  transition: transform 0.24s ease;
   -webkit-touch-callout: none;
 }
 
@@ -1717,6 +1764,26 @@ defineExpose({
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__trigger::after {
   opacity: 1;
+}
+
+// 贴边收起时机器人继续向右滑出，只在屏幕边缘露出一条机身，避免压住列表最右侧的操作按钮；
+// 悬停或键盘聚焦时滑回原来的探头位置。触屏保留稍宽的露出部分，保证可以点按展开。
+.agent-assistant-fab.is-docked:not(.is-dragging) .agent-assistant-fab__trigger {
+  transform: translateX(0.5rem);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .agent-assistant-fab.is-docked:not(.is-dragging) .agent-assistant-fab__trigger {
+    transform: translateX(1.5rem);
+  }
+
+  .agent-assistant-fab.is-docked:not(.is-dragging) .agent-assistant-fab__trigger:hover {
+    transform: none;
+  }
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__trigger:focus-visible {
+  transform: none;
 }
 
 .agent-assistant-fab__bubbles {
