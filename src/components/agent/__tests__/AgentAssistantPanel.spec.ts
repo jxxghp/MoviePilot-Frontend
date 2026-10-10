@@ -2720,6 +2720,28 @@ describe('AgentAssistantPanel agent host bridge', () => {
     wrapper.unmount()
   })
 
+  it('does not stack the same draft again when the input already ends with it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    const wrapper = mountPanel()
+    await flushPromises()
+    const setDraft = (wrapper.vm as unknown as { setDraft: (draft: string) => void }).setDraft
+
+    setDraft('插件草稿')
+    setDraft('插件草稿')
+    await flushPromises()
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('插件草稿')
+
+    await wrapper.get('textarea').setValue('我的问题')
+    setDraft('插件草稿')
+    setDraft('插件草稿')
+    await flushPromises()
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('我的问题\n\n插件草稿')
+    wrapper.unmount()
+  })
+
   it('reports tool, choice and terminal stream phases for the host', async () => {
     const primaryStream = createControllableAgentStream()
     vi.stubGlobal(
