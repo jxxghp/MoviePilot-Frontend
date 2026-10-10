@@ -3059,7 +3059,9 @@ function handlePageShow() {
 function setDraft(draft: string) {
   petPickerOpen.value = false
   const current = inputText.value.trimEnd()
-  inputText.value = current ? `${current}\n\n${draft}` : draft
+  // 同一插件重复调用时输入框末尾已经是这段草稿，不再叠加。
+  if (current && current.endsWith(draft.trimEnd())) inputText.value = current
+  else inputText.value = current ? `${current}\n\n${draft}` : draft
   syncInputHeight()
   nextTick(() => inputRef.value?.focus())
 }
