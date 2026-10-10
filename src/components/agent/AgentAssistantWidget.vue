@@ -260,6 +260,7 @@ onScopeDispose(() => {
       <AgentAssistantPanel
         ref="panelRef"
         v-model="panelOpen"
+        :pet="effectivePet"
         :motion-active="allowsDecorativeMotion"
         @assistant-preview="handleAssistantPreview"
         @thinking-change="handleThinkingChange"

@@ -114,6 +114,8 @@ export interface AgentPetDeclaration {
   api_version: number
   /** 可直接访问的预览图 URL。 */
   preview_url?: string | null
+  /** 可直接访问的方形头像 URL，面板头部、空状态和消息头像优先使用。 */
+  avatar_url?: string | null
   /** stage 模式的气泡归属。 */
   bubbles?: AgentPetBubbles | null
   /** renderer 模式下宿主随机动作的可选池。 */

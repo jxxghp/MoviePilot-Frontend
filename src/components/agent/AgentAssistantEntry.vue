@@ -1730,7 +1730,7 @@ defineExpose({
       v-if="!props.anchored"
       class="agent-assistant-fab__trigger"
       type="button"
-      :aria-label="t('agentAssistant.title')"
+      :aria-label="props.pet?.name || t('agentAssistant.title')"
       @pointerdown="handleFabTriggerPointerDown"
       @pointermove="handleFabTriggerPointerMove"
       @pointerup="handleFabTriggerPointerUp"
