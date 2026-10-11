@@ -49,7 +49,7 @@ function downloadLogs() {
   window.open(`${logUrl}/download`, '_blank', 'noopener')
 }
 
-/** 用独立窗口查看服务器返回的脱敏日志文本。 */
+/** 用独立窗口查看服务器返回的原始日志文本。 */
 function openLogWindow() {
   window.open(`${logUrl}?length=-1`, '_blank', 'noopener')
 }

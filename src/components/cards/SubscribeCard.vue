@@ -517,14 +517,6 @@ function viewSubscribeLogs() {
 
 const dropdownItems = computed(() => [
   {
-    title: t('subscribe.viewLogs'),
-    value: 9,
-    props: {
-      prependIcon: 'mdi-text-box-search-outline',
-      click: viewSubscribeLogs,
-    },
-  },
-  {
     title: t('common.edit'),
     value: 1,
     props: {
@@ -567,6 +559,14 @@ const dropdownItems = computed(() => [
       color: 'success',
     },
     show: props.media?.type === '电视剧',
+  },
+  {
+    title: t('subscribe.viewLogs'),
+    value: 9,
+    props: {
+      prependIcon: 'mdi-text-box-search-outline',
+      click: viewSubscribeLogs,
+    },
   },
   {
     title: t('subscribe.mediaDetail'),
