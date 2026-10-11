@@ -149,13 +149,15 @@ const normalizeWorkflowNodes = () => {
 // 等待节点端口初始化后恢复的流程边，避免 Vue Flow 在端口为空时将其判定为非法连接。
 let pendingWorkflowEdges: Edge[] | null = null
 
-// 判断当前边的两端是否已经具备可供连接校验使用的 Handle 信息。
+// 占位节点也有非空端口；只有实际端口通过连接校验后，才可交给 Vue Flow 恢复。
 function areWorkflowEdgeEndpointsReady(workflowEdges: Edge[]) {
   return workflowEdges.every(edge => {
     const sourceNode = nodes.value.find(node => node.id === String(edge.source))
     const targetNode = nodes.value.find(node => node.id === String(edge.target))
 
-    return Boolean(sourceNode?.handleBounds?.source?.length && targetNode?.handleBounds?.target?.length)
+    return Boolean(
+      sourceNode?.handleBounds?.source?.length && targetNode?.handleBounds?.target?.length && isValidConnection(edge),
+    )
   })
 }
 

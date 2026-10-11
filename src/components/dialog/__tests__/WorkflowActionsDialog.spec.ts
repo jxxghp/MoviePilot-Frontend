@@ -404,6 +404,37 @@ describe('WorkflowActionsDialog data contract', () => {
     ])
   })
 
+  it.each([{}, { sourceHandle: 'out', targetHandle: 'in' }])(
+    'keeps edges pending while placeholder nodes have unnamed handles (%j)',
+    async handles => {
+      const workflow = createWorkflow({
+        flows: [{ id: 'flow-1', source: 'source', target: 'target', type: 'animation', ...handles }],
+      })
+      const { container } = await renderDialog(workflow, vi.fn(), false)
+
+      // 动作懒加载前，Vue Flow 默认节点的输入和输出端口均没有 ID。
+      mocks.flowNodes!.value = mocks.flowNodes!.value.map(node => ({
+        ...node,
+        dimensions: { width: 240, height: 120 },
+        handleBounds: { source: [{ id: null }], target: [{ id: null }] },
+      }))
+      mocks.nodesInitializedHandlers.forEach(handler => handler())
+      await nextTick()
+
+      expect(mocks.isValidConnection?.(workflow.flows[0])).toBe(false)
+      expect(mocks.setEdges).not.toHaveBeenCalled()
+      await clickToolbarButton(container, 3)
+      expect(mocks.apiPut).not.toHaveBeenCalled()
+
+      await initializeFlowNodes()
+      expect(mocks.setEdges).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 'flow-1', source: 'source', target: 'target' }),
+      ])
+      await clickToolbarButton(container, 3)
+      expect(mocks.apiPut.mock.calls[0][1].flows).toHaveLength(1)
+    },
+  )
+
   it('accepts only known output-to-input connections and rejects invalid endpoints', async () => {
     const { container } = await renderDialog()
     await waitFor(() => expect(mocks.isValidConnection).toBeTypeOf('function'))
