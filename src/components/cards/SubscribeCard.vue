@@ -29,6 +29,7 @@ const BACKGROUND_EXECUTION_SOURCES = new Set(['new', 'fallback'])
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
+const SubscribeLogDialog = defineAsyncComponent(() => import('../dialog/SubscribeLogDialog.vue'))
 const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/SubscribeShareDialog.vue'))
 
 // 显示器宽度
@@ -507,7 +508,22 @@ async function viewSubscribeFiles() {
 }
 
 // 弹出菜单
+/** 打开当前订阅日志；共享弹窗关闭后自动释放实时连接。 */
+function viewSubscribeLogs() {
+  if (!props.media?.id) return
+  executionDetailsOpen.value = false
+  openSharedDialog(SubscribeLogDialog, { subscription: props.media }, {}, { closeOn: ['close'] })
+}
+
 const dropdownItems = computed(() => [
+  {
+    title: t('subscribe.viewLogs'),
+    value: 9,
+    props: {
+      prependIcon: 'mdi-text-box-search-outline',
+      click: viewSubscribeLogs,
+    },
+  },
   {
     title: t('common.edit'),
     value: 1,
@@ -1036,9 +1052,11 @@ function handleCardClick() {
       :execution="props.media.execution_status"
       :name="props.media.name"
       can-retry
+      can-view-logs
       :retrying="searchSubmitting"
       @close="executionDetailsOpen = false"
       @retry="searchSubscribe"
+      @logs="viewSubscribeLogs"
     />
   </div>
 </template>

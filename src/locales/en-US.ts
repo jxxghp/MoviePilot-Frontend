@@ -1529,6 +1529,10 @@ export default {
     paused: 'Paused',
     cardStatePaused: 'Paused',
     cardStatePending: 'Pending',
+    viewLogs: 'View logs',
+    logTitle: 'Subscription logs',
+    logEmpty: 'No execution logs yet. Logs will appear after the next search or RSS match.',
+    logState: 'Current status',
     execution: {
       details: 'Search details',
       autoResume: 'Sites are temporarily busy. Search will continue automatically; no action is needed.',
@@ -2025,6 +2029,7 @@ export default {
     wrapLines: 'Wrap lines',
     pauseStream: 'Pause stream',
     resumeStream: 'Resume stream',
+    connectionFailed: 'Log connection failed. Check that the service is updated and access is allowed, then reopen.',
     waitingForLogs: 'Waiting for logs...',
     paused: 'Paused',
     connected: 'Live',

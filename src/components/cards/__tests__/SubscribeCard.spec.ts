@@ -720,6 +720,14 @@ describe('SubscribeCard interaction boundaries', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
+  it.each([1024, 390])('opens only the selected subscription logs from the menu at %s px', async width => {
+    setViewport(width)
+    const { container, media } = await renderCard()
+    await chooseMenuItem(container, '查看日志')
+    expect(getDialogCall().props).toEqual({ subscription: media })
+    expect(getDialogCall().options).toEqual({ closeOn: ['close'] })
+  })
+
   it('routes normal, batch, selected, and sortable card clicks without overlap', async () => {
     const { container, emitted, media, rerender } = await renderCard()
     const card = container.querySelector('.subscribe-card') as HTMLElement

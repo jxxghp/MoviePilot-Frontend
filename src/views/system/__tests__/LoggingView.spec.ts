@@ -5,6 +5,8 @@ import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  addStatusListener: vi.fn(),
+  removeStatusListener: vi.fn(),
   addMessageListener: vi.fn(),
   removeMessageListener: vi.fn(),
   useSSE: vi.fn(),
@@ -20,6 +22,8 @@ vi.mock('@/composables/useBackground', async () => {
         return {
           isConnected: ref(false),
           manager: {
+            addStatusListener: mocks.addStatusListener,
+            removeStatusListener: mocks.removeStatusListener,
             addMessageListener: mocks.addMessageListener,
             removeMessageListener: mocks.removeMessageListener,
           },
@@ -71,6 +75,8 @@ describe('LoggingView', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    mocks.addStatusListener.mockReset()
+    mocks.removeStatusListener.mockReset()
     mocks.addMessageListener.mockReset()
     mocks.removeMessageListener.mockReset()
     mocks.useSSE.mockReset()
@@ -97,6 +103,20 @@ describe('LoggingView', () => {
 
     expect(screen.getByText('等待日志输出...')).toBeInTheDocument()
     expect(document.querySelectorAll('.logging-record-line')).toHaveLength(0)
+  })
+
+  it('连接失败时显示错误，恢复后重新展示正常空流', async () => {
+    const { unmount } = await renderLogging()
+    await advanceTimers(200)
+    const listener = mocks.addStatusListener.mock.calls.at(-1)?.[1] as (status: string) => void
+    listener('error')
+    await nextTick()
+    expect(screen.getByRole('alert')).toHaveTextContent('日志连接失败')
+    listener('open')
+    await nextTick()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    unmount()
+    expect(mocks.removeStatusListener).toHaveBeenCalledWith('logging-moviepilot.log:failure')
   })
 
   it('把编码后的日志文件名、listener identity 和后台恢复参数交给 SSE 边界', async () => {
@@ -316,5 +336,26 @@ describe('LoggingView', () => {
 
     expect(clearTimeoutSpy).toHaveBeenCalled()
     expect(vi.getTimerCount()).toBeLessThan(pendingTimers)
+  })
+})
+
+describe('Subscription log source', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+  it('uses the subscription endpoint and its empty message without falling back to administrator logs', async () => {
+    mocks.useSSE.mockClear()
+    const { unmount } = await renderWithProviders(LoggingView, {
+      props: { streamUrl: '/api/v1/subscribe/17/logs', emptyText: '暂无订阅执行日志' },
+      global: { stubs: { LoadingBanner: true } },
+    })
+    expect(mocks.useSSE).toHaveBeenCalledWith(
+      '/api/v1/subscribe/17/logs',
+      expect.any(Function),
+      'logging-/api/v1/subscribe/17/logs',
+      expect.any(Object),
+    )
+    await vi.advanceTimersByTimeAsync(200)
+    expect(screen.getByText('暂无订阅执行日志')).toBeInTheDocument()
+    unmount()
   })
 })

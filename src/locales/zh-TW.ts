@@ -1505,6 +1505,10 @@ export default {
     paused: '暫停',
     cardStatePaused: '已暫停',
     cardStatePending: '待定中',
+    viewLogs: '查看日誌',
+    logTitle: '訂閱日誌',
+    logEmpty: '暫無執行日誌，下次搜尋或 RSS 比對後開始記錄。',
+    logState: '目前狀態',
     execution: {
       details: '搜尋詳情',
       autoResume: '站點暫時繁忙，系統會自動繼續搜尋，無需重複操作。',
@@ -1962,6 +1966,7 @@ export default {
     wrapLines: '自動換行',
     pauseStream: '暫停日誌流',
     resumeStream: '恢復日誌流',
+    connectionFailed: '日誌連線失敗，請確認服務已更新且有存取權限，然後重新開啟。',
     waitingForLogs: '等待日誌輸出...',
     paused: '已暫停',
     connected: '實時更新中',

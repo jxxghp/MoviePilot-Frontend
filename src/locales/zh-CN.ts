@@ -1507,6 +1507,10 @@ export default {
     paused: '暂停',
     cardStatePaused: '已暂停',
     cardStatePending: '待定中',
+    viewLogs: '查看日志',
+    logTitle: '订阅日志',
+    logEmpty: '暂无执行日志，下一次搜索或 RSS 匹配后开始记录。',
+    logState: '当前状态',
     execution: {
       details: '搜索详情',
       autoResume: '站点暂时繁忙，系统会自动继续搜索，无需重复操作。',
@@ -2001,6 +2005,7 @@ export default {
     wrapLines: '自动换行',
     pauseStream: '暂停日志流',
     resumeStream: '恢复日志流',
+    connectionFailed: '日志连接失败，请确认服务已更新且有访问权限，然后重新打开。',
     waitingForLogs: '等待日志输出...',
     paused: '已暂停',
     connected: '实时更新中',

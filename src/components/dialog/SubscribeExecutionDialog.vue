@@ -10,12 +10,14 @@ import { useI18n } from 'vue-i18n'
 const props = defineProps<{
   execution: Pick<SubscriptionExecutionStatus, 'state' | 'phase' | 'error' | 'next_run_at'>
   name?: string
+  canViewLogs?: boolean
   canRetry?: boolean
   retrying?: boolean
 }>()
 const emit = defineEmits<{
   close: []
   retry: []
+  logs: []
 }>()
 const { t, locale } = useI18n()
 const userStore = useUserStore()
@@ -84,6 +86,7 @@ function openSiteManager() {
         <VBtn v-if="failed && canManageSites" variant="text" @click="openSiteManager">
           {{ t('subscribe.execution.checkSites') }}
         </VBtn>
+        <VBtn v-if="canViewLogs" variant="text" @click="emit('logs')">{{ t('subscribe.viewLogs') }}</VBtn>
         <VSpacer />
         <VBtn variant="text" @click="emit('close')">{{ t('common.close') }}</VBtn>
       </VCardActions>

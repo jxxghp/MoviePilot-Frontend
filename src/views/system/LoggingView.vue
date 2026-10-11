@@ -40,7 +40,9 @@ type ParsedLog = {
 }
 
 const props = defineProps<{
-  logfile: string
+  logfile?: string
+  streamUrl?: string
+  emptyText?: string
 }>()
 
 const { t } = useI18n()
@@ -65,13 +67,14 @@ const isStreamPaused = ref(false)
 const searchQuery = ref<string | null>('')
 const selectedLevel = ref('ALL')
 const pendingLogCount = ref(0)
+const streamFailed = ref(false)
 
 let timeoutId: number | null = null
 let mountTimerId: number | null = null
 let logSequence = 0
 const buffer: string[] = []
 
-const listenerId = `logging-${props.logfile}`
+const listenerId = `logging-${props.streamUrl ?? props.logfile}`
 
 const logColorMap: Record<string, string> = {
   TRACE: 'secondary',
@@ -518,7 +521,8 @@ function handleSSEMessage(event: MessageEvent) {
 }
 
 const { manager, isConnected } = useSSE(
-  `${import.meta.env.VITE_API_BASE_URL}system/logging?logfile=${encodeURIComponent(props.logfile ?? 'moviepilot.log')}`,
+  props.streamUrl ??
+    `${import.meta.env.VITE_API_BASE_URL}system/logging?logfile=${encodeURIComponent(props.logfile ?? 'moviepilot.log')}`,
   handleSSEMessage,
   listenerId,
   {
@@ -528,6 +532,13 @@ const { manager, isConnected } = useSSE(
     connectDelay: 300,
   },
 )
+
+// 将失败与正常空流区分，避免接口未部署或无权访问时显示等待日志。
+const failureListenerId = `${listenerId}:failure`
+manager.addStatusListener(failureListenerId, status => {
+  streamFailed.value = status === 'error'
+})
+onUnmounted(() => manager.removeStatusListener(failureListenerId))
 
 /** 暂停实时日志流。 */
 function pauseStream() {
@@ -688,10 +699,15 @@ onUnmounted(() => {
         <LoadingBanner :text="t('logging.initializing') + ' ...'" />
       </div>
 
+      <div v-else-if="streamFailed && !isStreamPaused" class="logging-empty" role="alert">
+        <VIcon icon="mdi-alert-circle-outline" size="20" />
+        <span>{{ t('logging.connectionFailed') }}</span>
+      </div>
+
       <div v-else-if="filteredGroups.length === 0" class="logging-empty">
         <VIcon :icon="parsedLogs.length === 0 ? 'mdi-console-line' : 'mdi-filter-remove-outline'" size="20" />
         <span>
-          {{ parsedLogs.length === 0 ? t('logging.waitingForLogs') : t('common.noMatchingData') }}
+          {{ parsedLogs.length === 0 ? props.emptyText || t('logging.waitingForLogs') : t('common.noMatchingData') }}
         </span>
       </div>
 
