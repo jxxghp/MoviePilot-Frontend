@@ -270,13 +270,14 @@ async function querySystemUptime() {
   }
 }
 
-// 查询所有Release
+/** 只展示主程序正式版本，避免独立工具 Release 混入历史及最新版本判断。 */
 async function queryAllRelease() {
   try {
-    allRelease.value = (await api.get<any[] | null>('system/versions')) ?? []
+    const releases = (await api.get<any[] | null>('system/versions')) ?? []
+    allRelease.value = releases.filter(release => /^v\d+\.\d+\.\d+(?:-\d+)?$/.test(release?.tag_name ?? ''))
 
     // 最新版本
-    if (allRelease.value.length > 0) latestRelease.value = allRelease.value[0].tag_name
+    latestRelease.value = allRelease.value[0]?.tag_name ?? ''
   } catch (error) {
     console.log(error)
   }
