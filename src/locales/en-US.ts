@@ -111,12 +111,10 @@ export default {
     resourcesDownloadTitle: 'Download the site resource package?',
     resourcesDownloadDescription:
       'The complete authentication and index resource package will download in the background.',
-    applicationRestartTitle: 'Restart to install the application update?',
-    applicationRestartDescription:
-      'The application and its matching frontend resources will be switched before the new process starts.',
-    resourcesRestartTitle: 'Restart to install the site resources?',
-    resourcesRestartDescription:
-      'The downloaded complete resource package will be applied before startup; the application will not restart again afterward.',
+    applicationRestartTitle: 'Restart and update?',
+    applicationRestartDescription: 'Restart to install the downloaded application and frontend updates.',
+    resourcesRestartTitle: 'Update site resources?',
+    resourcesRestartDescription: 'Restart to install the downloaded site resources.',
     menuUpdateTo: 'Update to {version}',
     menuRestartTo: 'Restart to apply {version}',
     availableTitle: 'A new MoviePilot version is available',

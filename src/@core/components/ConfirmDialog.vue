@@ -65,16 +65,17 @@ function handleCancel() {
   <VDialog :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)" :max-width="width">
     <VCard>
       <VCardItem>
-        <div class="app-confirm-dialog-heading">
-          <VAvatar :color="currentType.color" variant="tonal" size="32" class="flex-shrink-0">
-            <VIcon size="22" :icon="icon || currentType.icon" />
+        <div class="d-flex align-center justify-start mt-3">
+          <VAvatar :color="currentType.color" variant="text" size="x-large">
+            <VIcon size="x-large" :icon="icon || currentType.icon" />
           </VAvatar>
-          <p class="app-confirm-dialog-title font-weight-bold text-high-emphasis">{{ title }}</p>
-          <VDialogCloseBtn inner-class="app-confirm-dialog-close" size="small" @click="handleCancel" />
+          <div class="app-confirm-dialog-text mx-3">
+            <p class="app-confirm-dialog-title font-weight-bold text-xl text-high-emphasis">{{ title }}</p>
+            <p class="app-confirm-dialog-content">{{ content }}</p>
+          </div>
         </div>
-        <p class="app-confirm-dialog-content">{{ content }}</p>
       </VCardItem>
-      <VCardActions class="app-confirm-dialog-actions justify-end px-4 pb-4">
+      <VCardActions class="app-confirm-dialog-actions mx-auto">
         <VBtn variant="tonal" color="secondary" class="px-5" @click="handleCancel">
           {{ cancelText }}
         </VBtn>
@@ -82,43 +83,34 @@ function handleCancel() {
           {{ confirmText }}
         </VBtn>
       </VCardActions>
+      <VDialogCloseBtn
+        inner-class="app-confirm-dialog-close absolute right-3 top-3 z-10"
+        size="small"
+        @click="handleCancel"
+      />
     </VCard>
   </VDialog>
 </template>
 
 <style scoped>
-/* 用紧凑的标题栏保留文字宽度，关闭按钮参与布局以避免遮挡长标题。 */
-.app-confirm-dialog-heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.app-confirm-dialog-title {
+.app-confirm-dialog-text {
   flex: 1 1 0;
   min-width: 0;
-  margin-block: 0;
-  padding-block: 3px;
-  font-size: 18px;
-  line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+/* 保留原来的图标与正文布局，只为右上角关闭按钮预留标题空间。 */
+.app-confirm-dialog-title {
+  padding-inline-end: 24px;
 }
 
 .app-confirm-dialog-close {
-  position: static;
-  flex: 0 0 auto;
   width: 28px;
   min-width: 28px;
   height: 28px;
-  margin-inline-start: -6px;
 }
 
 .app-confirm-dialog-content {
-  margin-top: 16px;
-  margin-bottom: 0;
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  line-height: 1.6;
-  overflow-wrap: anywhere;
   white-space: pre-line;
 }
 </style>
