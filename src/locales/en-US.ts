@@ -30,8 +30,6 @@ export default {
     'loadMore': 'Load more',
     'loadFailed': 'Could not load activity. Please retry.',
     'empty': 'No activity in this range yet',
-    'emptyHint': 'Activity is recorded after upgrading. Earlier runtime logs are available from Runtime logs.',
-    'recordingHint': 'Business events are recorded after upgrading',
     'refreshSummary': '{sites} sources · {discovered} shared candidates · {related} related · {submitted} submitted',
     'searchSummary':
       '{requested} / {sites} sites requested · {discovered} found · {qualified} eligible · {submitted} submitted',

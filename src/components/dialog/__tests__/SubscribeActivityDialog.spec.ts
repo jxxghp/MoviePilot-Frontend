@@ -155,6 +155,8 @@ describe('SubscribeActivityDialog', () => {
     fail = false
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(await screen.findByText('当前范围内还没有订阅活动')).toBeInTheDocument()
+    expect(screen.queryByText(/升级后开始记录|早期运行日志/)).not.toBeInTheDocument()
+    expect(document.querySelector('.activity-footer')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /运行日志/ })).toBeDisabled()
     await fireEvent.click(screen.getByRole('button', { name: '全部时间' }))
     await waitFor(() => expect(requests.at(-1)?.searchParams.has('days')).toBe(false))

@@ -30,8 +30,6 @@ export default {
     'loadMore': '載入更多',
     'loadFailed': '活動載入失敗，請重試',
     'empty': '當前範圍內還沒有訂閱活動',
-    'emptyHint': '活動從升級後開始記錄，早期執行日誌可通過執行日誌入口查看。',
-    'recordingHint': '業務事件自升級後開始記錄',
     'refreshSummary':
       '刷新 {sites} 個來源 · {discovered} 項共享候選 · 本訂閱相關 {related} 項 · 提交下載 {submitted} 項',
     'searchSummary':

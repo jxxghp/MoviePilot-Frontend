@@ -30,8 +30,6 @@ export default {
     'loadMore': '加载更多',
     'loadFailed': '活动加载失败，请重试',
     'empty': '当前范围内还没有订阅活动',
-    'emptyHint': '活动从升级后开始记录，早期运行日志可通过运行日志入口查看。',
-    'recordingHint': '业务事件自升级后开始记录',
     'refreshSummary':
       '刷新 {sites} 个来源 · {discovered} 项共享候选 · 本订阅相关 {related} 项 · 提交下载 {submitted} 项',
     'searchSummary':

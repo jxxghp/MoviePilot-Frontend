@@ -460,8 +460,7 @@ onBeforeUnmount(() => {
           <VBtn variant="tonal" @click="loadEvents()">{{ t('common.retry') }}</VBtn>
         </div>
         <div v-else-if="!events.length" class="activity-empty">
-          <VIcon icon="mdi-history" size="40" /><strong>{{ t('subscriptionActivity.empty') }}</strong
-          ><span>{{ t('subscriptionActivity.emptyHint') }}</span>
+          <VIcon icon="mdi-history" size="40" /><strong>{{ t('subscriptionActivity.empty') }}</strong>
           <VBtn v-if="days || kind" variant="text" @click="clearFilters">{{ t('subscriptionActivity.allTime') }}</VBtn>
         </div>
         <section v-for="group in groups" :key="group.date" class="activity-day">
@@ -741,7 +740,6 @@ onBeforeUnmount(() => {
           {{ t('subscriptionActivity.loadFailed') }}
         </p>
       </div>
-      <footer class="activity-footer">{{ t('subscriptionActivity.recordingHint') }}</footer>
       <SubscribeLogDialog v-if="runtimeLogs" :subscription="subscription" @close="runtimeLogs = false" />
     </VCard>
   </VDialog>
@@ -1187,13 +1185,6 @@ onBeforeUnmount(() => {
   text-align: center;
   padding-block: 12px;
 }
-.activity-footer {
-  flex: 0 0 auto;
-  padding: 3px 28px 6px;
-  text-align: end;
-  font-size: 13px;
-  color: rgba(var(--v-theme-on-surface), 0.6);
-}
 @media (max-width: 1200px) {
   .activity-row {
     gap: 14px;
@@ -1218,6 +1209,10 @@ onBeforeUnmount(() => {
     max-block-size: 100%;
     inline-size: 100%;
   }
+  /* 安全区由头部和滚动区分别承担，覆盖全局全屏卡片将顶部空间合并到底部的样式。 */
+  .subscription-activity-dialog :deep(.v-overlay__content > .subscription-activity) {
+    padding-block-end: 0;
+  }
   .activity-disclosures {
     flex-direction: column;
     gap: 10px;
@@ -1231,7 +1226,8 @@ onBeforeUnmount(() => {
   }
   .activity-header {
     gap: 15px;
-    padding: 18px 16px 12px;
+    padding: calc(18px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 12px
+      calc(16px + env(safe-area-inset-left, 0px));
     flex-wrap: wrap;
     position: relative;
   }
@@ -1263,8 +1259,8 @@ onBeforeUnmount(() => {
   }
   .activity-top-actions .v-btn:last-child {
     position: absolute;
-    inset-block-start: 6px;
-    inset-inline-end: 6px;
+    inset-block-start: calc(6px + env(safe-area-inset-top, 0px));
+    inset-inline-end: calc(6px + env(safe-area-inset-right, 0px));
   }
   .activity-top-actions .v-btn:first-child {
     font-size: 14px;
@@ -1279,7 +1275,8 @@ onBeforeUnmount(() => {
     font-size: 14px;
   }
   .activity-scroll {
-    padding: 12px 10px 0;
+    padding: 12px calc(10px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px))
+      calc(10px + env(safe-area-inset-left, 0px));
   }
   .activity-row {
     padding: 12px;
@@ -1386,10 +1383,6 @@ onBeforeUnmount(() => {
   .activity-table td,
   .activity-table th {
     padding: 7px 10px;
-  }
-  .activity-footer {
-    padding: 5px 14px 10px;
-    font-size: 12px;
   }
   .activity-event--compact .activity-action {
     flex-basis: 140px;
