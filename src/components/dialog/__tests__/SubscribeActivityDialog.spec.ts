@@ -199,8 +199,9 @@ it('loads details only on expansion and retries a detail failure without losing 
   await fireEvent.click(screen.getByRole('button', { name: '重试' }))
   expect(await screen.findByText('分辨率 720p 不符合 2160p 条件')).toBeInTheDocument()
   expect(calls).toBe(2)
-  await fireEvent.click(screen.getByRole('button', { name: /10:15 刷新匹配/ }))
-  await fireEvent.click(screen.getByRole('button', { name: /10:15 刷新匹配/ }))
+  // 行时间使用浏览器本地时区；行为选择器不依赖开发机与 CI 的时差。
+  await fireEvent.click(screen.getByRole('button', { name: /刷新匹配/ }))
+  await fireEvent.click(screen.getByRole('button', { name: /刷新匹配/ }))
   expect(calls).toBe(2)
 })
 
@@ -227,7 +228,7 @@ it('explains a queued search and refreshes its terminal state without collapsing
   expect(await screen.findByText('已安排搜索')).toBeInTheDocument()
   expect(screen.getByText('搜索请求已安排，系统会按顺序处理')).toBeInTheDocument()
   expect(screen.queryByText(/已请求 0 \/ 0/)).not.toBeInTheDocument()
-  await fireEvent.click(screen.getByRole('button', { name: /10:15 订阅搜索/ }))
+  await fireEvent.click(screen.getByRole('button', { name: /订阅搜索/ }))
   expect(await screen.findByText('搜索已安排，等待开始处理')).toBeInTheDocument()
   completed = true
   const interval = intervals.mock.calls.find(([, delay]) => delay === 15_000)?.[0]
