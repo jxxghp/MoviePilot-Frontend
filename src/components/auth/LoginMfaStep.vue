@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import type { MfaMethod } from '@/types/auth'
 
+/** 密码验证后的 OTP 输入与提交状态。 */
 interface Props {
   /** 当前验证步骤的错误信息。 */
   errorMessage: string
@@ -23,6 +24,14 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const hasOtp = computed(() => props.methods.includes('otp'))
+
+/** 先同步验证码，再在输入或粘贴完整六位数字时提交当前验证步骤。 */
+function updateOtpPassword(event: Event) {
+  if (props.otpLoading) return
+  const value = (event.target as HTMLInputElement).value
+  emit('update:otpPassword', value)
+  if (/^[0-9]{6}$/.test(value)) emit('otp')
+}
 </script>
 
 <template>
@@ -58,7 +67,7 @@ const hasOtp = computed(() => props.methods.includes('otp'))
           :aria-label="t('login.otpCode')"
           autofocus
           :disabled="props.otpLoading"
-          @input="emit('update:otpPassword', ($event.target as HTMLInputElement).value)"
+          @input="updateOtpPassword"
         />
       </div>
       <VBtn

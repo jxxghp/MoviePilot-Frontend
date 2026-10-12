@@ -384,36 +384,54 @@ describe('login page orchestration', () => {
     expect(screen.queryByTestId('mfa-otp-form')).not.toBeInTheDocument()
   })
 
-  it('submits the original password with the OTP and completes login', async () => {
+  it('automatically submits the original password with the complete OTP and completes login', async () => {
     mocks.pluginApi.post.mockRejectedValueOnce(mfaRequired()).mockResolvedValueOnce(loginResponse())
     const { container } = await renderLogin()
     await submitPassword(container)
     const otpInput = await screen.findByRole('textbox', { name: '验证码' })
 
     await fireEvent.update(otpInput, '123456')
-    await fireEvent.submit(screen.getByTestId('mfa-otp-form'))
 
     await waitFor(() => expect(useAuthStore().token).toBe('synthetic-token'))
+    expect(mocks.pluginApi.post).toHaveBeenCalledTimes(2)
     const formData = mocks.pluginApi.post.mock.calls[1][1] as FormData
     expect(formData.get('username')).toBe('alice')
     expect(formData.get('password')).toBe('secret')
     expect(formData.get('otp_password')).toBe('123456')
   })
 
+  it('does not submit twice while automatic OTP verification is pending', async () => {
+    const request = deferred<ReturnType<typeof loginResponse>>()
+    mocks.pluginApi.post.mockRejectedValueOnce(mfaRequired()).mockReturnValueOnce(request.promise)
+    const { container } = await renderLogin()
+    await submitPassword(container)
+
+    await fireEvent.update(await screen.findByRole('textbox', { name: '验证码' }), '012345')
+    await fireEvent.submit(screen.getByTestId('mfa-otp-form'))
+
+    expect(mocks.pluginApi.post).toHaveBeenCalledTimes(2)
+    expect((mocks.pluginApi.post.mock.calls[1][1] as FormData).get('otp_password')).toBe('012345')
+    request.resolve(loginResponse())
+    await waitFor(() => expect(useAuthStore().token).toBe('synthetic-token'))
+  })
+
   it('keeps the OTP step retryable and clears an invalid code', async () => {
     mocks.pluginApi.post
       .mockRejectedValueOnce(mfaRequired())
       .mockRejectedValueOnce({ response: { data: {}, status: 401 } })
+      .mockResolvedValueOnce(loginResponse())
     const { container } = await renderLogin()
     await submitPassword(container)
     const otpInput = await screen.findByRole('textbox', { name: '验证码' })
 
     await fireEvent.update(otpInput, '654321')
-    await fireEvent.submit(screen.getByTestId('mfa-otp-form'))
 
     expect(await screen.findByText('验证失败，请检查验证码后重试')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: '验证码' })).toHaveValue('')
     expect(screen.getByTestId('mfa-otp-form')).toBeInTheDocument()
+    await fireEvent.update(otpInput, '123456')
+    await waitFor(() => expect(useAuthStore().token).toBe('synthetic-token'))
+    expect(mocks.pluginApi.post).toHaveBeenCalledTimes(3)
   })
 
   it('keeps the OTP step retryable after a network failure', async () => {
@@ -422,7 +440,6 @@ describe('login page orchestration', () => {
     await submitPassword(container)
 
     await fireEvent.update(await screen.findByRole('textbox', { name: '验证码' }), '654321')
-    await fireEvent.submit(screen.getByTestId('mfa-otp-form'))
 
     expect(await screen.findByText('登录失败，请检查网络连接！')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: '验证码' })).toHaveValue('')

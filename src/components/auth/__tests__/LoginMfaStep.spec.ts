@@ -13,6 +13,7 @@ const buttonStub = {
   template: '<button :type="type" :disabled="loading || disabled" @click="$emit(\'click\')"><slot /></button>',
 }
 
+/** 挂载可控制输入值与请求状态的二次验证步骤。 */
 function mountStep(
   methods: Array<'otp'>,
   props: Partial<{ errorMessage: string; otpLoading: boolean; otpPassword: string }> = {},
@@ -49,15 +50,41 @@ describe('LoginMfaStep', () => {
     expect(wrapper.find('[data-testid="mfa-otp-form"]').exists()).toBe(false)
   })
 
-  it('emits the OTP value and submits the current verification step', async () => {
+  it('automatically submits after the sixth digit and emits the value first', async () => {
     const wrapper = mountStep(['otp'])
     const input = wrapper.get('input[name="otp"]')
 
+    await input.setValue('12345')
+    expect(wrapper.emitted('otp')).toBeUndefined()
     await input.setValue('123456')
-    await wrapper.setProps({ otpPassword: '123456' })
-    await wrapper.get('[data-testid="mfa-otp-form"]').trigger('submit')
 
-    expect(wrapper.emitted('update:otpPassword')).toEqual([['123456']])
+    expect(wrapper.emitted('update:otpPassword')).toEqual([['12345'], ['123456']])
+    expect(wrapper.emitted('otp')).toHaveLength(1)
+  })
+
+  it('automatically submits a pasted code including a leading zero', async () => {
+    const wrapper = mountStep(['otp'])
+    await wrapper.get('input[name="otp"]').setValue('012345')
+    expect(wrapper.emitted('update:otpPassword')).toEqual([['012345']])
+    expect(wrapper.emitted('otp')).toHaveLength(1)
+  })
+
+  it.each(['', '12345', '12345a', '1234567', '１２３４５６'])('does not automatically submit %j', async value => {
+    const wrapper = mountStep(['otp'])
+    await wrapper.get('input[name="otp"]').setValue(value)
+    expect(wrapper.emitted('otp')).toBeUndefined()
+  })
+
+  it('ignores input events while verification is pending', async () => {
+    const wrapper = mountStep(['otp'], { otpLoading: true })
+    await wrapper.get('input[name="otp"]').setValue('123456')
+    expect(wrapper.emitted('update:otpPassword')).toBeUndefined()
+    expect(wrapper.emitted('otp')).toBeUndefined()
+  })
+
+  it('retains explicit form submission', async () => {
+    const wrapper = mountStep(['otp'], { otpPassword: '123456' })
+    await wrapper.get('[data-testid="mfa-otp-form"]').trigger('submit')
     expect(wrapper.emitted('otp')).toHaveLength(1)
   })
 
