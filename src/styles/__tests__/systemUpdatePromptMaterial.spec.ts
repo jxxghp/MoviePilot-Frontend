@@ -2,8 +2,18 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cwd } from 'node:process'
 import { describe, expect, it } from 'vitest'
+import { VDialog } from 'vuetify/components'
 
 describe('system update prompt material styles', () => {
+  it('keeps update reminders below the confirmation dialog and its scrim', () => {
+    const component = readFileSync(resolve(cwd(), 'src/components/system/SystemUpdatePrompt.vue'), 'utf8')
+    const promptLayer = Number(component.match(/z-index:\s*(\d+)/)?.[1])
+    const dialogLayer = VDialog.props.zIndex.default
+
+    expect(promptLayer).toBeGreaterThan(0)
+    expect(promptLayer).toBeLessThan(Number(dialogLayer))
+  })
+
   it('keeps the fixed prompt on shared overlay geometry tokens', () => {
     const component = readFileSync(resolve(cwd(), 'src/components/system/SystemUpdatePrompt.vue'), 'utf8')
 

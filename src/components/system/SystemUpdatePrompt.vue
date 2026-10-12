@@ -518,7 +518,8 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   --system-update-prompt-bottom-gap: 20px;
 
   position: fixed;
-  z-index: 2600;
+  /* 更新提醒属于页面浮层，必须低于 Vuetify 确认对话框及其遮罩（2400）。 */
+  z-index: 2000;
   right: max(20px, env(safe-area-inset-right));
   bottom: calc(var(--system-update-footer-height) + var(--system-update-prompt-bottom-gap));
   width: min(400px, calc(100vw - 32px));

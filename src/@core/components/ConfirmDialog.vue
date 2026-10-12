@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+/** 通用确认对话框的内容和动作配置。 */
 interface Props {
   modelValue: boolean
   type?: 'info' | 'warn' | 'error'
@@ -47,13 +48,13 @@ const typeConfig = {
 // 获取当前类型的配置
 const currentType = computed(() => typeConfig[props.type])
 
-// 确认按钮点击
+/** 确认操作并关闭当前对话框。 */
 function handleConfirm() {
   emit('confirm')
   emit('update:modelValue', false)
 }
 
-// 取消按钮点击
+/** 将取消和关闭按钮统一结算为否定结果。 */
 function handleCancel() {
   emit('cancel')
   emit('update:modelValue', false)
@@ -68,8 +69,11 @@ function handleCancel() {
           <VAvatar :color="currentType.color" variant="text" size="x-large">
             <VIcon size="x-large" :icon="icon || currentType.icon" />
           </VAvatar>
-          <div class="mx-3">
-            <p class="font-weight-bold text-xl text-high-emphasis">{{ title }}</p>
+          <div class="app-confirm-dialog-text ms-3">
+            <div class="app-confirm-dialog-heading">
+              <p class="app-confirm-dialog-title font-weight-bold text-xl text-high-emphasis">{{ title }}</p>
+              <VDialogCloseBtn inner-class="app-confirm-dialog-close" @click="handleCancel" />
+            </div>
             <p class="app-confirm-dialog-content">{{ content }}</p>
           </div>
         </div>
@@ -82,12 +86,34 @@ function handleCancel() {
           {{ confirmText }}
         </VBtn>
       </VCardActions>
-      <VDialogCloseBtn @click="handleCancel" />
     </VCard>
   </VDialog>
 </template>
 
 <style scoped>
+.app-confirm-dialog-text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 关闭按钮参与标题行布局，长标题换行时不会进入按钮的点击区域。 */
+.app-confirm-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.app-confirm-dialog-title {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.app-confirm-dialog-close {
+  position: static;
+  flex: 0 0 auto;
+}
+
 .app-confirm-dialog-content {
   white-space: pre-line;
 }
