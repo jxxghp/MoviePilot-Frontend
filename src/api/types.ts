@@ -2979,3 +2979,47 @@ export interface ApiResponse<T = unknown> {
   message: string
   data: T | null
 }
+
+/** 单个订阅轮次的安全资源摘要，不包含下载链接或站点凭据。 */
+export interface SubscriptionActivityResource {
+  title: string
+  site: string
+  decision: string
+  reason?: string | null
+}
+
+/** 单个订阅业务活动及该轮执行时冻结的结构化详情。 */
+export interface SubscriptionActivityEvent {
+  event_id: string
+  kind: string
+  source: string
+  status: string
+  started_at: string
+  finished_at?: string | null
+  counts: Record<string, number>
+  details_loaded?: boolean
+  details: {
+    rules?: Record<string, unknown>
+    changes?: { field: string; before: unknown; after: unknown }[]
+    resources?: SubscriptionActivityResource[]
+    resources_omitted?: number
+    sites?: { id: number; name: string; candidates: number; status: string }[]
+    reason?: string
+    retry_at?: string
+    candidate_scope?: string
+    phase?: string
+    attempts?: {
+      started_at: string
+      finished_at: string
+      status: string
+      counts: Record<string, number>
+      rules: Record<string, unknown>
+    }[]
+  }
+}
+
+/** 采用固定行游标分页的订阅活动响应。 */
+export interface SubscriptionActivityPage {
+  items: SubscriptionActivityEvent[]
+  next_cursor: string | null
+}

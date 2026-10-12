@@ -29,7 +29,7 @@ const BACKGROUND_EXECUTION_SOURCES = new Set(['new', 'fallback'])
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
-const SubscribeLogDialog = defineAsyncComponent(() => import('../dialog/SubscribeLogDialog.vue'))
+const SubscribeActivityDialog = defineAsyncComponent(() => import('../dialog/SubscribeActivityDialog.vue'))
 const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/SubscribeShareDialog.vue'))
 
 // 显示器宽度
@@ -508,11 +508,11 @@ async function viewSubscribeFiles() {
 }
 
 // 弹出菜单
-/** 打开当前订阅日志；共享弹窗关闭后自动释放实时连接。 */
+/** 打开当前订阅业务活动；运行日志通过活动弹窗的辅助入口查看。 */
 function viewSubscribeLogs() {
   if (!props.media?.id) return
   executionDetailsOpen.value = false
-  openSharedDialog(SubscribeLogDialog, { subscription: props.media }, {}, { closeOn: ['close'] })
+  openSharedDialog(SubscribeActivityDialog, { subscription: props.media }, {}, { closeOn: ['close'] })
 }
 
 const dropdownItems = computed(() => [
@@ -561,7 +561,7 @@ const dropdownItems = computed(() => [
     show: props.media?.type === '电视剧',
   },
   {
-    title: t('subscribe.viewLogs'),
+    title: t('subscriptionActivity.title'),
     value: 9,
     props: {
       prependIcon: 'mdi-text-box-search-outline',

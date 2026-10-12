@@ -1,5 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+const SubscribeActivityDialog = defineAsyncComponent(() => import('./SubscribeActivityDialog.vue'))
 import { Subscribe } from '@/api/types'
 import { formatDateDifference } from '@core/utils/formatters'
 import { useDisplay } from 'vuetify'
@@ -119,8 +121,19 @@ async function deleteHistory(item: Subscribe) {
   }
 }
 
+/** 从完成历史读取原订阅的业务活动，历史 ID 不会被解释为活动订阅 ID。 */
+function viewActivity(item: Subscribe) {
+  openSharedDialog(SubscribeActivityDialog, { subscription: item, history: true }, {}, { closeOn: ['close'] })
+}
+
 // 弹出菜单
 const dropdownItems = ref([
+  {
+    title: t('subscriptionActivity.title'),
+    value: 3,
+    color: '',
+    props: { prependIcon: 'mdi-history', click: viewActivity },
+  },
   {
     title: t('dialog.subscribeHistory.resubscribe'),
     value: 1,

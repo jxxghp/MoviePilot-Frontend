@@ -720,11 +720,11 @@ describe('SubscribeCard interaction boundaries', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
-  it.each([1024, 390])('opens only the selected subscription logs from the menu at %s px', async width => {
+  it.each([1024, 390])('opens only the selected subscription activity from the menu at %s px', async width => {
     setViewport(width)
     const { container, media } = await renderCard()
     await openMenu(container)
-    const logEntry = await screen.findByText('查看日志')
+    const logEntry = await screen.findByText('订阅活动')
     const detailEntry = screen.getByText('媒体详情')
     const logItem = logEntry.closest('.v-list-item')
     expect(logItem?.nextElementSibling).toContainElement(detailEntry)
