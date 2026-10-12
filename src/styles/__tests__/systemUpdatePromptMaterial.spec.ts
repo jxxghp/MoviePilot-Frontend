@@ -30,7 +30,7 @@ describe('system update prompt material styles', () => {
   it('reuses the glass overlay material for the update prompt', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const overlayRule = styles.match(
-      /:where\(\.Vue-Toastification__toast, \.agent-assistant-fab__bubble, \.pwa-install-banner, \.system-update-prompt\)\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u,
+      /:where\(\s*\.Vue-Toastification__toast,\s*\.agent-assistant-fab__bubble,\s*\.pwa-install-banner,\s*\.system-update-prompt,\s*\.github-token-prompt\s*\)\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u,
     )?.groups?.declarations
 
     expect(overlayRule).toBeDefined()

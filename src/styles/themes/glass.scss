@@ -440,8 +440,14 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-shadow-raised) !important;
   }
 
-  // Toast、PWA 安装提示和助手气泡属于临时浮层，直接复用菜单材质 token，避免磨砂档出现不同的底色与模糊强度。
-  :where(.Vue-Toastification__toast, .agent-assistant-fab__bubble, .pwa-install-banner, .system-update-prompt) {
+  // 临时提示共用菜单阅读材质，确保 Token 提示与升级提示都能隔离背后的页面文字。
+  :where(
+    .Vue-Toastification__toast,
+    .agent-assistant-fab__bubble,
+    .pwa-install-banner,
+    .system-update-prompt,
+    .github-token-prompt
+  ) {
     border-color: var(--glass-border-raised) !important;
     -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
     backdrop-filter: var(--glass-overlay-backdrop-filter) !important;

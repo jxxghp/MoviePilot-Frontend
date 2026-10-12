@@ -71,6 +71,7 @@ describe('glass overlay material styles', () => {
       '.compact-fab .v-btn',
       '.v-snackbar__wrapper',
       '.pwa-install-banner',
+      '.github-token-prompt',
     ]) {
       expect(styles).toContain(`'${host}'`)
     }
@@ -486,7 +487,7 @@ describe('glass overlay material styles', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
     expect(styles).toMatch(
-      /:where\(\.Vue-Toastification__toast, \.agent-assistant-fab__bubble, \.pwa-install-banner, \.system-update-prompt\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-overlay-backdrop-filter\)\s*!important;[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
+      /:where\(\s*\.Vue-Toastification__toast,\s*\.agent-assistant-fab__bubble,\s*\.pwa-install-banner,\s*\.system-update-prompt,\s*\.github-token-prompt\s*\)\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-overlay-backdrop-filter\)\s*!important;[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
     )
     expect(styles).toMatch(
       /\.agent-assistant-fab__bubbles::before\s*\{[\s\S]*?background-color:\s*var\(--glass-overlay-surface\)\s*!important;/,
