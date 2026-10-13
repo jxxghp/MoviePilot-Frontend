@@ -2927,6 +2927,7 @@ export type SystemUpdateState = 'idle' | 'available' | 'downloading' | 'ready' |
 
 /** 后台更新支持的两类升级目标。 */
 export type SystemUpdateType = 'application' | 'resources'
+export type SystemUpdateTarget = SystemUpdateType | 'all'
 
 /** 单类升级的后台状态。 */
 export interface SystemUpdateItemStatus {
@@ -2953,6 +2954,8 @@ export interface SystemUpdateItemStatus {
 
 /** 后端主程序与站点资源后台更新状态机快照。 */
 export interface SystemUpdateStatus {
+  /** 新后端支持合并下载与一次重启安装，旧后端继续使用单类入口。 */
+  supports_batch_update?: boolean
   /** 当前自动检查开关；由后端实时返回，避免旧缓存继续触发提醒。 */
   auto_update?: boolean
   /** 站点资源单独控制自动检查和提醒。 */

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { SystemUpdateItemStatus, SystemUpdateState, SystemUpdateStatus, SystemUpdateType } from '@/api/types'
+import type {
+  SystemUpdateItemStatus,
+  SystemUpdateState,
+  SystemUpdateStatus,
+  SystemUpdateTarget,
+  SystemUpdateType,
+} from '@/api/types'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
 import { useSystemRestartStatus } from '@/composables/useSystemRestart'
@@ -16,11 +22,11 @@ const props = defineProps<{
 const { t } = useI18n()
 const { createConfirm } = useConfirm()
 const { startSystemRestart, finishSystemRestart } = useSystemRestartStatus()
-const { status, setStatus, startPolling, stopPolling } = useSystemUpdateStatus()
+const { status, setStatus, checkStatus, startPolling, stopPolling } = useSystemUpdateStatus()
 const { footerDockHeight } = useFooterDockHeight()
 const toast = useToast()
 const actionPending = ref(false)
-const pendingTarget = ref<SystemUpdateType | null>(null)
+const pendingTarget = ref<SystemUpdateTarget | null>(null)
 let restartTimer: ReturnType<typeof setTimeout> | null = null
 let reminderTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -89,6 +95,14 @@ const visibleItems = computed(() =>
 )
 
 const visible = computed(() => props.enabled && visibleItems.value.length > 0)
+const updateBusy = computed(() => updateItems.value.some(item => ['downloading', 'installing'].includes(item.state)))
+const batchItems = computed(() => updateItems.value.filter(item => item.state !== 'idle'))
+const batchReady = computed(
+  () =>
+    batchItems.value.length > 0 &&
+    batchItems.value.every(item => item.state === 'ready') &&
+    !updateItems.value.some(item => item.state === 'idle' && item.error),
+)
 
 /** 恢复当前浏览器保存的两类更新提醒，并丢弃无效记录。 */
 function readReminders(): ReminderStore {
@@ -193,14 +207,14 @@ function clearRestartTimer() {
 }
 
 /** 启动指定更新的后台下载，并清除该版本的下载前稍后提醒。 */
-async function startDownload(item: SystemUpdateItemStatus) {
-  if (actionPending.value) return
+async function startDownload(item: SystemUpdateItemStatus, target: SystemUpdateTarget = item.type) {
+  if (actionPending.value || updateBusy.value) return
   actionPending.value = true
-  pendingTarget.value = item.type
+  pendingTarget.value = target
   try {
-    const nextStatus = await api.post<SystemUpdateStatus>('system/update/download', { target: item.type })
+    const nextStatus = await api.post<SystemUpdateStatus>('system/update/download', { target })
     setStatus(nextStatus)
-    clearAvailableReminder(item)
+    for (const current of target === 'all' ? updateItems.value : [item]) clearAvailableReminder(current)
   } catch (error) {
     console.error('[SystemUpdate] 启动下载失败', error)
     toast.error(t('systemUpdate.downloadFailed'))
@@ -208,6 +222,31 @@ async function startDownload(item: SystemUpdateItemStatus) {
     actionPending.value = false
     pendingTarget.value = null
   }
+}
+
+/** 重新检查最高稳定版本，让旧下载目标可以被更高版本替换。 */
+async function refreshUpdates() {
+  if (actionPending.value || updateBusy.value) return
+  actionPending.value = true
+  try {
+    await checkStatus()
+  } catch (error) {
+    console.error('[SystemUpdate] 检查最新版本失败', error)
+    toast.error(t('systemUpdate.checkFailed'))
+  } finally {
+    actionPending.value = false
+  }
+}
+
+/** 明确确认全部下载，避免逐类操作后出现两次重启。 */
+async function downloadAll() {
+  if (actionPending.value || updateBusy.value || !batchItems.value.length) return
+  const confirmed = await createConfirm({
+    type: 'warn',
+    title: t('systemUpdate.downloadAll'),
+    content: t('systemUpdate.downloadAllDescription'),
+  })
+  if (confirmed) await startDownload(batchItems.value[0], 'all')
 }
 
 /** 映射允许稍后提醒的阶段，其余阶段只支持忽略版本。 */
@@ -265,25 +304,33 @@ function replaceItem(item: SystemUpdateItemStatus) {
 }
 
 /** 经管理员确认后申请安装，并等待服务恢复以加载新前端。 */
-async function confirmInstall(item: SystemUpdateItemStatus) {
-  if (actionPending.value) return
+async function confirmInstall(item: SystemUpdateItemStatus, target: SystemUpdateTarget = item.type) {
+  if (actionPending.value || updateBusy.value) return
   const confirmed = await createConfirm({
     type: 'warn',
-    title: t(item.type === 'resources' ? 'systemUpdate.resourcesRestartTitle' : 'systemUpdate.applicationRestartTitle'),
+    title: t(
+      target === 'all'
+        ? 'systemUpdate.installAll'
+        : item.type === 'resources'
+          ? 'systemUpdate.resourcesRestartTitle'
+          : 'systemUpdate.applicationRestartTitle',
+    ),
     content: t(
-      item.type === 'resources'
-        ? 'systemUpdate.resourcesRestartDescription'
-        : 'systemUpdate.applicationRestartDescription',
+      target === 'all'
+        ? 'systemUpdate.installAllDescription'
+        : item.type === 'resources'
+          ? 'systemUpdate.resourcesRestartDescription'
+          : 'systemUpdate.applicationRestartDescription',
     ),
   })
   if (!confirmed) return
 
   actionPending.value = true
-  pendingTarget.value = item.type
+  pendingTarget.value = target
   startSystemRestart()
   try {
-    await api.post<null>('system/update/install', { target: item.type })
-    replaceItem({ ...item, state: 'installing' })
+    await api.post<null>('system/update/install', { target })
+    for (const current of target === 'all' ? batchItems.value : [item]) replaceItem({ ...current, state: 'installing' })
     pollServiceRecovery()
   } catch (error) {
     console.error('[SystemUpdate] 启动安装失败', error)
@@ -294,12 +341,22 @@ async function confirmInstall(item: SystemUpdateItemStatus) {
   }
 }
 
+/** 两类更新都已就绪时，用一个安装请求和一次恢复轮询完成升级。 */
+async function installAll() {
+  if (batchReady.value) await confirmInstall(batchItems.value[0], 'all')
+}
+
 /** 将头像菜单动作接入相同的下载和重启确认流程。 */
 async function handleMenuUpdate(event: Event) {
   const target = (event as CustomEvent<{ target?: SystemUpdateType }>).detail?.target
   if (!target) return
   const item = updateItems.value.find(current => current.type === target)
   if (!item || !['available', 'ready'].includes(item.state)) return
+  if (target === 'application' && status.value?.supports_batch_update) {
+    if (batchReady.value) await installAll()
+    else await downloadAll()
+    return
+  }
   if (item.state === 'ready') {
     await confirmInstall(item)
     return
@@ -419,6 +476,23 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
       :class="{ 'system-update-prompt--avoid-agent': props.avoidAgentAssistant }"
       :style="promptStyle"
     >
+      <div v-if="status?.supports_batch_update" class="system-update-prompt__batch px-4 py-3">
+        <div class="text-body-2 mb-2">{{ t('systemUpdate.batchDescription') }}</div>
+        <div class="d-flex flex-wrap ga-2">
+          <VBtn variant="text" :disabled="actionPending || updateBusy" @click="refreshUpdates">
+            {{ t('systemUpdate.checkLatest') }}
+          </VBtn>
+          <VBtn
+            color="primary"
+            :disabled="actionPending || updateBusy"
+            :loading="actionPending && pendingTarget === 'all'"
+            @click="batchReady ? installAll() : downloadAll()"
+          >
+            {{ t(batchReady ? 'systemUpdate.installAll' : 'systemUpdate.downloadAll') }}
+          </VBtn>
+        </div>
+      </div>
+      <VDivider v-if="status?.supports_batch_update" />
       <div v-for="(item, index) in visibleItems" :key="item.type" class="system-update-prompt__section">
         <div class="system-update-prompt__accent" :class="`system-update-prompt__accent--${item.type}`" />
         <VCardItem>
@@ -475,6 +549,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
               <VBtn
                 class="system-update-prompt__primary"
                 color="primary"
+                :disabled="actionPending || updateBusy"
                 :loading="actionPending && pendingTarget === item.type"
                 @click="startDownload(item)"
               >
@@ -487,6 +562,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
               <VBtn
                 class="system-update-prompt__primary"
                 color="primary"
+                :disabled="actionPending || updateBusy"
                 :loading="actionPending && pendingTarget === item.type"
                 @click="confirmInstall(item)"
               >
@@ -498,6 +574,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
               v-else
               class="system-update-prompt__primary"
               color="primary"
+              :disabled="actionPending || updateBusy"
               :loading="actionPending && pendingTarget === item.type"
               @click="startDownload(item)"
             >
