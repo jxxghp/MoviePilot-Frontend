@@ -3442,6 +3442,9 @@ export default {
       transferMaxFailedRetries: 'Transfer Retries on Failure',
       transferMaxFailedRetriesHint:
         'Maximum automatic retries after a failed transfer, so a transient network or recognition glitch cannot permanently skip a file. Once exhausted, transfer it manually or delete the transfer history. Range 1-10; the counter resets on a successful transfer or when the record is deleted. Takes effect immediately after saving.',
+      transferSuccessNotificationAggregation: 'Aggregate Transfer Success Notifications by Batch',
+      transferSuccessNotificationAggregationHint:
+        'Combine movie, TV and music success notifications when the batch finishes. Disable to keep the original notification behavior.',
       transferFailureNotificationAggregation: 'Aggregate Transfer Failure Notifications by Media',
       transferFailureNotificationAggregationHint:
         'Combine transfer failures for the same media and season within a short window, including the failure count, reason summary, and a batch-processing link. Disable to send one notification per file.',
