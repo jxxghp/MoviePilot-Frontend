@@ -3359,6 +3359,9 @@ export default {
       transferMaxFailedRetries: '整理失败重试次数',
       transferMaxFailedRetriesHint:
         '自动整理失败后允许重试的最大次数，避免一次网络或识别抖动让文件永久漏整理；次数用尽后需手动整理或删除整理记录。取值 1-10，整理成功或删除记录时计数清零，保存后即时生效',
+      transferSuccessNotificationAggregation: '按批次聚合整理成功通知',
+      transferSuccessNotificationAggregationHint:
+        '整批任务完成后合并发送电影、电视剧和音乐的成功通知；关闭时保留原有通知方式。',
       transferFailureNotificationAggregation: '按媒体聚合整理失败通知',
       transferFailureNotificationAggregationHint:
         '开启后，同一媒体同一季在短时间内产生的整理失败会合并发送，并展示失败数量、原因统计和批量处理入口；关闭时逐条发送',

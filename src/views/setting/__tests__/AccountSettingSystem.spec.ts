@@ -1619,6 +1619,7 @@ describe('AccountSettingSystem', () => {
     Object.assign(systemEnv, {
       RUST_ACCEL_AVAILABLE: true,
       TRANSFER_FAILURE_NOTIFICATION_AGGREGATION: true,
+      TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION: true,
     })
     await renderSettings()
     const dialog = await openAdvancedTab('实验室')
@@ -1631,6 +1632,7 @@ describe('AccountSettingSystem', () => {
       '插件热加载',
       '开放 API 文档',
       '按媒体聚合整理失败通知',
+      '按批次聚合整理成功通知',
       '本地文件操作隔离',
       '编码探测性能模式',
       'Rust 加速',
@@ -1653,6 +1655,7 @@ describe('AccountSettingSystem', () => {
         PLUGIN_LOCAL_REPO_PATHS: '/plugins/local',
         RUST_ACCEL: true,
         TRANSFER_FAILURE_NOTIFICATION_AGGREGATION: false,
+        TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION: false,
         TRANSFER_MAX_FAILED_RETRIES: 6,
         TRANSFER_THREADS: 4,
       }),
