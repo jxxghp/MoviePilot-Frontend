@@ -227,12 +227,8 @@ export default {
     exit: 'Exit',
   },
   systemUpdate: {
-    batchDescription: 'Prepare the application, matching frontend and site resources together, then restart once.',
-    checkLatest: 'Check latest version',
-    downloadAll: 'Download all',
     downloadAllDescription:
       'Check and download the latest application, matching frontend and site resources before confirming a restart.',
-    installAll: 'Install with one restart',
     installAllDescription:
       'Install all downloaded application, matching frontend and site resource updates with one restart.',
     applicationAvailableTitle: 'MoviePilot application update available',

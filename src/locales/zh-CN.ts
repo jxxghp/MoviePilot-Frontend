@@ -224,11 +224,7 @@ export default {
     exit: '退出',
   },
   systemUpdate: {
-    batchDescription: '主程序、配套前端和站点资源可一起准备，一次重启完成更新。',
-    checkLatest: '检查最新版本',
-    downloadAll: '全部下载',
     downloadAllDescription: '检查并下载最新主程序、配套前端和站点资源，全部校验完成后再确认重启。',
-    installAll: '一次重启安装',
     installAllDescription: '安装全部已下载的主程序、配套前端和站点资源，系统只重启一次。',
     applicationAvailableTitle: '发现 MoviePilot 主程序更新',
     applicationAvailableDescription: '主程序更新将在后台下载，包含后端版本对应的前端资源，下载完成前不会影响当前任务。',

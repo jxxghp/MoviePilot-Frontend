@@ -106,11 +106,36 @@ describe('SystemUpdatePrompt', () => {
     }
   }
 
-  it('prepares all updates with one request after confirmation', async () => {
+  it('uses one existing upgrade button to prepare all updates without a duplicate toolbar', async () => {
     mocks.updateStatus!.value = batchStatus('available', 'available')
     mocks.post.mockResolvedValue(batchStatus('downloading', 'downloading'))
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.downloadAll' }))
+    expect(document.querySelector('.system-update-prompt__batch')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'systemUpdate.updateNow' })).toHaveLength(1)
+    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.updateNow' }))
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/download', { target: 'all' }))
+    expect(mocks.startRestart).not.toHaveBeenCalled()
+  })
+
+  it('uses one existing restart button to install both prepared updates', async () => {
+    mocks.updateStatus!.value = batchStatus('ready', 'ready')
+    mocks.post.mockResolvedValue(null)
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+    expect(screen.getAllByRole('button', { name: 'systemUpdate.restartNow' })).toHaveLength(1)
+    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.restartNow' }))
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/install', { target: 'all' }))
+    expect(mocks.startRestart).toHaveBeenCalledOnce()
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'systemUpdate.installAllDescription' }),
+    )
+    expect(mocks.updateStatus!.value?.updates?.map(item => item.state)).toEqual(['installing', 'installing'])
+  })
+
+  it.each(['application', 'resources'])('uses the combined flow from the %s avatar menu entry', async target => {
+    mocks.updateStatus!.value = batchStatus('available', 'available')
+    mocks.post.mockResolvedValue(batchStatus('downloading', 'downloading'))
+    await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+    window.dispatchEvent(new CustomEvent('moviepilot:system-update-menu', { detail: { target } }))
     await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/download', { target: 'all' }))
     expect(mocks.confirm).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'systemUpdate.downloadAllDescription' }),
@@ -118,44 +143,60 @@ describe('SystemUpdatePrompt', () => {
     expect(mocks.startRestart).not.toHaveBeenCalled()
   })
 
-  it('installs both prepared updates with one restart request', async () => {
-    mocks.updateStatus!.value = batchStatus('ready', 'ready')
-    mocks.post.mockResolvedValue(null)
+  it('blocks early installation while another update is downloading', async () => {
+    mocks.updateStatus!.value = batchStatus('ready', 'downloading')
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.installAll' }))
-    await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/install', { target: 'all' }))
-    expect(mocks.startRestart).toHaveBeenCalledOnce()
-    expect(mocks.updateStatus!.value?.updates?.map(item => item.state)).toEqual(['installing', 'installing'])
+    expect(screen.getByRole('button', { name: 'systemUpdate.downloading' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'systemUpdate.restartNow' })).not.toBeInTheDocument()
   })
 
-  it('uses the combined update flow from the main avatar menu', async () => {
-    mocks.updateStatus!.value = batchStatus('available', 'available')
-    mocks.post.mockResolvedValue(batchStatus('downloading', 'downloading'))
+  it('downloads the remaining available update before offering a restart', async () => {
+    mocks.updateStatus!.value = batchStatus('ready', 'available')
+    mocks.post.mockResolvedValue(batchStatus('ready', 'downloading'))
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    window.dispatchEvent(new CustomEvent('moviepilot:system-update-menu', { detail: { target: 'application' } }))
+    expect(screen.queryByRole('button', { name: 'systemUpdate.restartNow' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.updateNow' }))
     await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/download', { target: 'all' }))
     expect(mocks.startRestart).not.toHaveBeenCalled()
   })
 
-  it('blocks early installation while the other update is downloading', async () => {
-    mocks.updateStatus!.value = batchStatus('ready', 'downloading')
+  it('refreshes an older prepared version through the restart action and downloads the new target', async () => {
+    mocks.updateStatus!.value = batchStatus('ready', 'ready')
+    mocks.check.mockImplementationOnce(async () => {
+      mocks.updateStatus!.value = batchStatus('available', 'ready')
+      return mocks.updateStatus!.value
+    })
+    mocks.post.mockResolvedValue(batchStatus('downloading', 'ready'))
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    expect(screen.getByRole('button', { name: 'systemUpdate.downloadAll' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'systemUpdate.restartNow' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'systemUpdate.installAll' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.restartNow' }))
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/download', { target: 'all' }))
+    expect(mocks.check).toHaveBeenCalledOnce()
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    expect(mocks.startRestart).not.toHaveBeenCalled()
   })
 
-  it('refreshes an older prepared target through the explicit latest-version action', async () => {
-    mocks.updateStatus!.value = batchStatus('ready', 'ready')
+  it('keeps one resource-only card and a resource-specific restart confirmation', async () => {
+    mocks.updateStatus!.value = batchStatus('idle', 'ready')
+    mocks.post.mockResolvedValue(null)
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.checkLatest' }))
-    await waitFor(() => expect(mocks.check).toHaveBeenCalledOnce())
-    expect(mocks.post).not.toHaveBeenCalled()
+    expect(document.querySelectorAll('.system-update-prompt__section')).toHaveLength(1)
+    expect(document.querySelector('.system-update-prompt__batch')).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.restartNow' }))
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/install', { target: 'all' }))
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'systemUpdate.resourcesRestartDescription' }),
+    )
+    expect(mocks.startRestart).toHaveBeenCalledOnce()
   })
 
   it('keeps the existing single-target actions for an older backend', async () => {
+    mocks.post.mockResolvedValue({ ...availableStatus, state: 'downloading' })
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    expect(screen.queryByRole('button', { name: 'systemUpdate.downloadAll' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'systemUpdate.updateNow' }))
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/download', { target: 'application' }),
+    )
+    expect(mocks.check).not.toHaveBeenCalled()
   })
 
   it('hides available reminders when automatic checks are disabled', async () => {

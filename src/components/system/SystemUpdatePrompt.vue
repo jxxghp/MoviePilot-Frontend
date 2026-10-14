@@ -224,29 +224,44 @@ async function startDownload(item: SystemUpdateItemStatus, target: SystemUpdateT
   }
 }
 
-/** 重新检查最高稳定版本，让旧下载目标可以被更高版本替换。 */
-async function refreshUpdates() {
-  if (actionPending.value || updateBusy.value) return
-  actionPending.value = true
-  try {
-    await checkStatus()
-  } catch (error) {
-    console.error('[SystemUpdate] 检查最新版本失败', error)
-    toast.error(t('systemUpdate.checkFailed'))
-  } finally {
-    actionPending.value = false
-  }
+/** 合并更新只保留一个操作入口，状态取决于全部更新是否就绪。 */
+function actionState(item: SystemUpdateItemStatus): SystemUpdateState {
+  if (!status.value?.supports_batch_update) return item.state
+  if (updateItems.value.some(current => current.state === 'installing')) return 'installing'
+  if (updateBusy.value) return 'downloading'
+  if (batchReady.value) return 'ready'
+  return updateItems.value.some(current => current.state === 'failed' || current.error) ? 'failed' : 'available'
 }
 
-/** 明确确认全部下载，避免逐类操作后出现两次重启。 */
-async function downloadAll() {
-  if (actionPending.value || updateBusy.value || !batchItems.value.length) return
-  const confirmed = await createConfirm({
-    type: 'warn',
-    title: t('systemUpdate.downloadAll'),
-    content: t('systemUpdate.downloadAllDescription'),
-  })
-  if (confirmed) await startDownload(batchItems.value[0], 'all')
+/** 将原有按钮映射到当前整体阶段，避免部分包就绪时提示提前重启。 */
+function actionLabel(item: SystemUpdateItemStatus): string {
+  const state = actionState(item)
+  if (state === 'ready') return 'systemUpdate.restartNow'
+  if (state === 'failed') return 'common.retry'
+  if (state === 'downloading') return 'systemUpdate.downloading'
+  if (state === 'installing') return 'systemUpdate.installing'
+  return 'systemUpdate.updateNow'
+}
+
+/** 沿用升级和重启按钮；新宿主依次准备全部更新，旧宿主保持单类操作。 */
+async function runUpdate(item: SystemUpdateItemStatus) {
+  if (actionPending.value || updateBusy.value) return
+  const target = status.value?.supports_batch_update ? 'all' : item.type
+  if (target === 'all' && batchReady.value) {
+    actionPending.value = true
+    try {
+      // 重启前刷新旧待安装目标，移除额外检查按钮后仍可直接更新到更高版本。
+      await checkStatus()
+    } catch (error) {
+      console.error('[SystemUpdate] 检查最新版本失败', error)
+      toast.error(t('systemUpdate.checkFailed'))
+      return
+    } finally {
+      actionPending.value = false
+    }
+  }
+  if (actionState(item) === 'ready') await confirmInstall(item, target)
+  else await startDownload(item, target)
 }
 
 /** 映射允许稍后提醒的阶段，其余阶段只支持忽略版本。 */
@@ -309,14 +324,14 @@ async function confirmInstall(item: SystemUpdateItemStatus, target: SystemUpdate
   const confirmed = await createConfirm({
     type: 'warn',
     title: t(
-      target === 'all'
-        ? 'systemUpdate.installAll'
+      target === 'all' && batchItems.value.length > 1
+        ? 'systemUpdate.restartTitle'
         : item.type === 'resources'
           ? 'systemUpdate.resourcesRestartTitle'
           : 'systemUpdate.applicationRestartTitle',
     ),
     content: t(
-      target === 'all'
+      target === 'all' && batchItems.value.length > 1
         ? 'systemUpdate.installAllDescription'
         : item.type === 'resources'
           ? 'systemUpdate.resourcesRestartDescription'
@@ -341,24 +356,14 @@ async function confirmInstall(item: SystemUpdateItemStatus, target: SystemUpdate
   }
 }
 
-/** 两类更新都已就绪时，用一个安装请求和一次恢复轮询完成升级。 */
-async function installAll() {
-  if (batchReady.value) await confirmInstall(batchItems.value[0], 'all')
-}
-
-/** 将头像菜单动作接入相同的下载和重启确认流程。 */
+/** 头像菜单与卡片复用同一升级流程，任何入口都等待全部已发现更新就绪。 */
 async function handleMenuUpdate(event: Event) {
+  if (actionPending.value || updateBusy.value) return
   const target = (event as CustomEvent<{ target?: SystemUpdateType }>).detail?.target
-  if (!target) return
   const item = updateItems.value.find(current => current.type === target)
   if (!item || !['available', 'ready'].includes(item.state)) return
-  if (target === 'application' && status.value?.supports_batch_update) {
-    if (batchReady.value) await installAll()
-    else await downloadAll()
-    return
-  }
-  if (item.state === 'ready') {
-    await confirmInstall(item)
+  if (actionState(item) === 'ready') {
+    await runUpdate(item)
     return
   }
   const confirmed = await createConfirm({
@@ -367,12 +372,14 @@ async function handleMenuUpdate(event: Event) {
       item.type === 'resources' ? 'systemUpdate.resourcesDownloadTitle' : 'systemUpdate.applicationDownloadTitle',
     ),
     content: t(
-      item.type === 'resources'
-        ? 'systemUpdate.resourcesDownloadDescription'
-        : 'systemUpdate.applicationDownloadDescription',
+      status.value?.supports_batch_update && batchItems.value.length > 1
+        ? 'systemUpdate.downloadAllDescription'
+        : item.type === 'resources'
+          ? 'systemUpdate.resourcesDownloadDescription'
+          : 'systemUpdate.applicationDownloadDescription',
     ),
   })
-  if (confirmed) await startDownload(item)
+  if (confirmed) await runUpdate(item)
 }
 
 /** 服务重启后强制刷新，确保浏览器加载与新后端配套的前端资源。 */
@@ -476,23 +483,6 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
       :class="{ 'system-update-prompt--avoid-agent': props.avoidAgentAssistant }"
       :style="promptStyle"
     >
-      <div v-if="status?.supports_batch_update" class="system-update-prompt__batch px-4 py-3">
-        <div class="text-body-2 mb-2">{{ t('systemUpdate.batchDescription') }}</div>
-        <div class="d-flex flex-wrap ga-2">
-          <VBtn variant="text" :disabled="actionPending || updateBusy" @click="refreshUpdates">
-            {{ t('systemUpdate.checkLatest') }}
-          </VBtn>
-          <VBtn
-            color="primary"
-            :disabled="actionPending || updateBusy"
-            :loading="actionPending && pendingTarget === 'all'"
-            @click="batchReady ? installAll() : downloadAll()"
-          >
-            {{ t(batchReady ? 'systemUpdate.installAll' : 'systemUpdate.downloadAll') }}
-          </VBtn>
-        </div>
-      </div>
-      <VDivider v-if="status?.supports_batch_update" />
       <div v-for="(item, index) in visibleItems" :key="item.type" class="system-update-prompt__section">
         <div class="system-update-prompt__accent" :class="`system-update-prompt__accent--${item.type}`" />
         <VCardItem>
@@ -543,43 +533,33 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
           <VBtn v-if="itemVersion(item)" variant="text" @click="ignoreVersion(item)">
             {{ t('systemUpdate.ignoreVersion') }}
           </VBtn>
-          <div v-if="['available', 'ready', 'failed'].includes(item.state)" class="system-update-prompt__commands">
-            <template v-if="item.state === 'available'">
-              <VBtn variant="text" @click="postpone(item)">{{ t('systemUpdate.later') }}</VBtn>
-              <VBtn
-                class="system-update-prompt__primary"
-                color="primary"
-                :disabled="actionPending || updateBusy"
-                :loading="actionPending && pendingTarget === item.type"
-                @click="startDownload(item)"
-              >
-                <VIcon icon="mdi-download" start />
-                {{ t('systemUpdate.updateNow') }}
-              </VBtn>
-            </template>
-            <template v-else-if="item.state === 'ready'">
-              <VBtn variant="text" @click="postpone(item)">{{ t('systemUpdate.restartLater') }}</VBtn>
-              <VBtn
-                class="system-update-prompt__primary"
-                color="primary"
-                :disabled="actionPending || updateBusy"
-                :loading="actionPending && pendingTarget === item.type"
-                @click="confirmInstall(item)"
-              >
-                <VIcon icon="mdi-restart" start />
-                {{ t('systemUpdate.restartNow') }}
-              </VBtn>
-            </template>
+          <div class="system-update-prompt__commands">
+            <VBtn v-if="['available', 'ready'].includes(item.state)" variant="text" @click="postpone(item)">
+              {{ t(item.state === 'ready' ? 'systemUpdate.restartLater' : 'systemUpdate.later') }}
+            </VBtn>
             <VBtn
-              v-else
+              v-if="
+                status?.supports_batch_update
+                  ? index === visibleItems.length - 1
+                  : ['available', 'ready', 'failed'].includes(item.state)
+              "
               class="system-update-prompt__primary"
               color="primary"
               :disabled="actionPending || updateBusy"
-              :loading="actionPending && pendingTarget === item.type"
-              @click="startDownload(item)"
+              :loading="actionPending && (pendingTarget === 'all' || pendingTarget === item.type)"
+              @click="runUpdate(item)"
             >
-              <VIcon icon="mdi-refresh" start />
-              {{ t('common.retry') }}
+              <VIcon
+                :icon="
+                  actionState(item) === 'ready'
+                    ? 'mdi-restart'
+                    : actionState(item) === 'failed'
+                      ? 'mdi-refresh'
+                      : 'mdi-download'
+                "
+                start
+              />
+              {{ t(actionLabel(item)) }}
             </VBtn>
           </div>
         </VCardActions>
