@@ -256,7 +256,7 @@ export default {
     updateNow: '升級',
     later: '稍後',
     moreActions: '更多更新選項',
-    ignoreVersion: '忽略此版本',
+    ignoreVersion: '忽略',
     restartNow: '立即重新啟動',
     restartLater: '稍後重新啟動',
     restartTitle: '確認重新啟動安裝更新？',

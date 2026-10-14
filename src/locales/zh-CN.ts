@@ -256,7 +256,7 @@ export default {
     updateNow: '升级',
     later: '稍后',
     moreActions: '更多更新选项',
-    ignoreVersion: '忽略此版本',
+    ignoreVersion: '忽略',
     restartNow: '立即重启',
     restartLater: '稍后重启',
     restartTitle: '确认重启安装更新？',

@@ -266,7 +266,7 @@ export default {
     updateNow: 'Update',
     later: 'Later',
     moreActions: 'More update options',
-    ignoreVersion: 'Ignore this version',
+    ignoreVersion: 'Ignore',
     restartNow: 'Restart now',
     restartLater: 'Restart later',
     restartTitle: 'Restart to install the update?',

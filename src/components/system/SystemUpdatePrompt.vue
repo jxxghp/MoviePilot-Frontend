@@ -530,7 +530,12 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
         }}</VCardText>
 
         <VCardActions class="px-4 pb-4 pt-0">
-          <VBtn v-if="itemVersion(item)" variant="text" @click="ignoreVersion(item)">
+          <VBtn
+            v-if="itemVersion(item)"
+            class="system-update-prompt__ignore"
+            variant="text"
+            @click="ignoreVersion(item)"
+          >
             {{ t('systemUpdate.ignoreVersion') }}
           </VBtn>
           <div class="system-update-prompt__commands">
@@ -696,6 +701,11 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   letter-spacing: 0;
 }
 
+/* 短标签不沿用其他操作的最小宽度，给小屏重启按钮留出空间。 */
+.system-update-prompt :deep(.v-card-actions .system-update-prompt__ignore) {
+  min-width: 52px;
+}
+
 .system-update-prompt__commands {
   display: flex;
   flex-wrap: wrap;
@@ -738,6 +748,16 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
     --system-update-prompt-bottom-gap: 16px;
 
     right: 16px;
+  }
+
+  /* 320px 屏幕下也为三个操作保留一行，仍允许较长译文自然换行。 */
+  .system-update-prompt :deep(.v-card-actions) {
+    gap: 6px;
+    padding-inline: 12px !important;
+  }
+
+  .system-update-prompt__commands {
+    gap: 6px;
   }
 
   .system-update-prompt--avoid-agent {
