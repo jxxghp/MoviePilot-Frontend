@@ -3142,6 +3142,8 @@ export default {
       musicLyricsToSimplifiedHint:
         '寫入 LRC/TXT 時轉換正文，保留時間軸、LRC 標籤和來源 Lyricsfile；已有歌詞需選擇「總是刮削」重新刮削',
       musicCueEnable: '音樂 CUE 識別',
+      musicLocalCoverEnable: '音樂本地封面',
+      musicLocalCoverEnableHint: '整理時攜帶同目錄封面圖片，線上封面不可用時用於內嵌回退；關閉後仍可使用線上封面',
       musicCueEnableHint: '已分軌專輯附帶錯誤 CUE 時可關閉，改用音訊標籤和檔名整理；整軌專輯請保持開啟',
       musicMetadataToSimplifiedHint: '將識別結果中的曲名、藝術家、專輯和分類等音樂資訊強制轉換為簡體中文',
       musicReleaseRegionPriority: '音樂發行地區優先級',

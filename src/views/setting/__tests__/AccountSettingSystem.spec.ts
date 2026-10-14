@@ -1292,6 +1292,21 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ MUSIC_CUE_ENABLE: true }))
   })
 
+  it.each([undefined, true, false])('loads and saves local music covers with initial value %s', async initial => {
+    if (initial !== undefined) systemEnv.MUSIC_LOCAL_COVER_ENABLE = initial
+    systemEnv.MODULE_ENABLE = { MusicBrainzModule: false, TheAudioDbModule: false }
+    await renderSettings()
+    const dialog = await openAdvancedTab('媒体')
+    const coverSwitch = dialog.getByLabelText('音乐本地封面')
+    const enabled = initial ?? true
+    expect(coverSwitch).toHaveProperty('checked', enabled)
+    expect(coverSwitch.closest('section')).toHaveAccessibleName('音乐元数据')
+    await fireEvent.click(coverSwitch)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ MUSIC_LOCAL_COVER_ENABLE: !enabled }))
+  })
+
   it('round-trips advanced media metadata, recognition, and Fanart settings', async () => {
     const user = userEvent.setup()
     await renderSettings()

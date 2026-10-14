@@ -148,6 +148,7 @@ const SystemSettings = ref<any>({
     MUSIC_METADATA_TO_SIMPLIFIED: true,
     MUSIC_LYRICS_TO_SIMPLIFIED: false,
     MUSIC_CUE_ENABLE: true,
+    MUSIC_LOCAL_COVER_ENABLE: true,
     MUSIC_RELEASE_REGION_PRIORITY: 'CN,TW,HK',
     MUSIC_RELEASE_SCRIPT_PRIORITY: 'Hans,Hant,Latn',
     TMDB_IMAGE_DOMAIN: null,
@@ -2711,6 +2712,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       v-model="SystemSettings.Advanced.MUSIC_METADATA_TO_SIMPLIFIED"
                       :label="t('setting.system.musicMetadataToSimplified')"
                       :hint="t('setting.system.musicMetadataToSimplifiedHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="SystemSettings.Advanced.MUSIC_LOCAL_COVER_ENABLE"
+                      :label="t('setting.system.musicLocalCoverEnable')"
+                      :hint="t('setting.system.musicLocalCoverEnableHint')"
                       persistent-hint
                     />
                   </VCol>

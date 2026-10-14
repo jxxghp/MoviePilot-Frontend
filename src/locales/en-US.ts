@@ -3247,6 +3247,9 @@ export default {
       musicLyricsToSimplifiedHint:
         'Convert LRC/TXT text while preserving timestamps, LRC tags, and source Lyricsfile. Re-scrape existing lyrics with Always Scrape.',
       musicCueEnable: 'Music CUE recognition',
+      musicLocalCoverEnable: 'Local Music Covers',
+      musicLocalCoverEnableHint:
+        'Organize cover images alongside audio and embed them when online covers are unavailable. Online covers remain available when disabled.',
       musicCueEnableHint:
         'Disable for albums already split into tracks with invalid CUE files to organize using audio tags and filenames. Keep enabled for single-file albums.',
       musicMetadataToSimplifiedHint:
