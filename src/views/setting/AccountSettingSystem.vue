@@ -108,6 +108,8 @@ const SystemSettings = ref<any>({
     PLUGIN_STATISTIC_SHARE: true,
     USAGE_STATISTIC_SHARE: true,
     WORKFLOW_STATISTIC_SHARE: true,
+    // 社区勋章：关闭后不展示勋章，也不为此访问官方服务器与 Wiki
+    COMMUNITY_MEDALS_ENABLE: true,
     BIG_MEMORY_MODE: false,
     DB_WAL_ENABLE: false,
     AUTO_UPDATE_RESOURCE: true,
@@ -1104,6 +1106,8 @@ async function saveAdvancedSettings() {
       ...globalSettingsStore.getData,
       BANGUMI_PROXY_ENABLE: SystemSettings.value.Advanced.BANGUMI_PROXY_ENABLE,
       BANGUMI_IMAGE_DOMAIN: SystemSettings.value.Advanced.BANGUMI_IMAGE_DOMAIN,
+      // 头像菜单的社区勋章入口读这个开关，保存后立即生效，不必重新登录
+      COMMUNITY_MEDALS_ENABLED: Boolean(SystemSettings.value.Advanced.COMMUNITY_MEDALS_ENABLE),
     })
     await Promise.all([refreshModuleCatalog(), loadMediaSources(true)])
   }
@@ -2387,6 +2391,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     v-model="SystemSettings.Advanced.WORKFLOW_STATISTIC_SHARE"
                     :label="t('setting.system.workflowStatisticShare')"
                     :hint="t('setting.system.workflowStatisticShareHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.COMMUNITY_MEDALS_ENABLE"
+                    :label="t('setting.system.communityMedalsEnable')"
+                    :hint="t('setting.system.communityMedalsEnableHint')"
                     persistent-hint
                   />
                 </VCol>

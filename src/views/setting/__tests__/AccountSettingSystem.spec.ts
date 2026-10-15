@@ -1242,7 +1242,7 @@ describe('AccountSettingSystem', () => {
   })
 
   it('round-trips all advanced system switches with independent boolean update settings', async () => {
-    await renderSettings()
+    const { pinia } = await renderSettings()
     const dialog = await openAdvancedTab('系统')
     for (const label of [
       '用户辅助认证',
@@ -1251,6 +1251,7 @@ describe('AccountSettingSystem', () => {
       '上报插件安装数据',
       '上报安装版本统计',
       '分享工作流数据',
+      '社区勋章',
       '大内存模式',
       '数据库WAL模式',
       '自动检查版本更新',
@@ -1275,8 +1276,11 @@ describe('AccountSettingSystem', () => {
         SUBSCRIBE_STATISTIC_SHARE: false,
         USAGE_STATISTIC_SHARE: false,
         WORKFLOW_STATISTIC_SHARE: false,
+        COMMUNITY_MEDALS_ENABLE: false,
       }),
     )
+    // 社区勋章开关保存后立即同步到全局设置，头像菜单不必重新登录即可隐藏入口。
+    expect(useGlobalSettingsStore(pinia).globalSettings.COMMUNITY_MEDALS_ENABLED).toBe(false)
   })
 
   it('loads a disabled CUE setting and allows enabling it without online music modules', async () => {
