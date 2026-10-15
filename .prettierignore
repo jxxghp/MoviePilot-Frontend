@@ -7,3 +7,5 @@ auto-imports.d.ts
 components.d.ts
 eslint-suppressions.json
 /vite.config.*.timestamp-*.mjs
+# 勋章外轮廓由 design/community-medals/build_maps.py 生成。
+/src/assets/images/community/medals/*.outline.json
