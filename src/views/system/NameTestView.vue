@@ -115,10 +115,16 @@ const savingCustomWords = ref(false)
 
 const metaInfo = computed(() => nameTestResult.value?.meta_info)
 const mediaInfo = computed(() => nameTestResult.value?.media_info)
-// 音乐识别的元信息没有 name 字段，依靠 title 判断识别是否成功
+// 音乐识别结果按曲目、艺术家和专辑展示，且元信息没有 name 字段
 const isMusicResult = computed(() => mediaInfo.value?.type === '音乐' || metaInfo.value?.type === '音乐')
-const isRecognized = computed(() => Boolean(metaInfo.value?.name || (isMusicResult.value && metaInfo.value?.title)))
-const resultTitle = computed(() => mediaInfo.value?.title || metaInfo.value?.name || t('nameTest.unrecognized'))
+// 识别成功以匹配到媒体信息为准；识别失败时同样返回解析元数据，但不代表识别成功
+const isRecognized = computed(() => Boolean(mediaInfo.value))
+// 识别失败时保持失败标题，解析出的名称只在解析链路中展示
+const resultTitle = computed(() =>
+  isRecognized.value
+    ? mediaInfo.value?.title || metaInfo.value?.name || t('nameTest.unrecognized')
+    : t('nameTest.unrecognized'),
+)
 const resultSubtitle = computed(() => {
   const parts = [mediaInfo.value?.year || metaInfo.value?.year]
   if (isMusicResult.value) {

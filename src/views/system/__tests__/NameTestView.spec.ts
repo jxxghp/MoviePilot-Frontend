@@ -1,5 +1,5 @@
 import NameTestView from '@/views/system/NameTestView.vue'
-import { screen } from '@testing-library/vue'
+import { fireEvent, screen } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
@@ -340,5 +340,49 @@ describe('NameTestView media identity', () => {
 
     expect(await screen.findAllByText('仅辅助身份')).not.toHaveLength(0)
     expect(screen.queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument()
+  })
+
+  it('shows applied custom words and the processed title when recognition fails', async () => {
+    const appliedWords = ['(\\d{1,2})[Vv]\\d{1} => \\1', '令和妖神斑小姐\\[Reiwa no Dara-san\\] => 令和妖神斑小姐']
+    mocks.apiGet.mockResolvedValueOnce({
+      media_info: null,
+      meta_info: {
+        apply_words: appliedWords,
+        name: '令和妖神斑小姐',
+        org_string: '[爱恋&漫猫字幕组]令和妖神斑小姐[13][1080p][MP4][GB][简中]',
+        season_episode: 'S01 E13',
+        type: '电视剧',
+        year: '2026',
+      },
+      torrent_info: null,
+    })
+
+    await renderWithProviders(NameTestView, {
+      initialState: {
+        globalSettings: {
+          data: { RECOGNIZE_SOURCE: 'themoviedb' },
+        },
+      },
+    })
+    await fireEvent.update(
+      screen.getByLabelText('标题'),
+      '[爱恋&漫猫字幕组][7月新番][令和妖神斑小姐][Reiwa no Dara-san][13][1080p][MP4][GB][简中]',
+    )
+    await userEvent.setup().click(screen.getByRole('button', { name: '识别' }))
+
+    // 识别失败时保持失败状态，且不提供详情入口
+    const heroTitle = (await screen.findAllByText('未识别到媒体'))[0]
+    expect(heroTitle.closest('.result-hero')).toHaveClass('result-hero--failed')
+    expect(screen.queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument()
+
+    // 原始标题展示识别词处理后的字符串，而不是输入框中的原始标题
+    expect(screen.getByText('原始标题').closest('.pipeline-step')).toHaveTextContent(
+      '[爱恋&漫猫字幕组]令和妖神斑小姐[13][1080p][MP4][GB][简中]',
+    )
+
+    // 识别失败时已应用的自定义识别词仍正常展示
+    appliedWords.forEach(word => {
+      expect(screen.getByText(word)).toBeInTheDocument()
+    })
   })
 })
