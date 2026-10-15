@@ -26,8 +26,14 @@ import { useSystemRestartStatus } from '@/composables/useSystemRestart'
 import { useSystemUpdateStatus } from '@/composables/useSystemUpdateStatus'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import type { SystemUpdateItemStatus } from '@/api/types'
+import { useLocalStorage } from '@vueuse/core'
+import { COMMUNITY_AUTH_CHANGED_EVENT, useCommunityContribution } from '@/composables/useCommunityContribution'
+import { COMMUNITY_BADGE_IMAGES } from '@/utils/communityBadge'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
+const CommunityContributionDialog = defineAsyncComponent(
+  () => import('@/components/dialog/CommunityContributionDialog.vue'),
+)
 const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
 const GlassSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/GlassSettingsDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
@@ -53,6 +59,7 @@ const showUIModeMenu = ref(false)
 
 // 用户头像主菜单是否显示；打开布局级面板前需要主动关闭，避免菜单 overlay 残留。
 const showUserMenu = ref(false)
+const userAvatarRef = ref<{ $el: HTMLElement } | null>(null)
 
 // 主题菜单是否显示
 const showThemeMenu = ref(false)
@@ -249,6 +256,62 @@ const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const userName = computed(() => userStore.userName)
 const avatar = computed(() => userStore.avatar || avatar1)
 const userLevel = computed(() => userStore.level)
+const community = useCommunityContribution(
+  computed(() => superUser.value),
+  computed(() => String(userStore.userID)),
+)
+const showAvatarBadge = useLocalStorage(
+  computed(() => 'community-badge:' + userStore.userID + ':' + (community.profile.value?.user_id ?? 'none')),
+  false,
+)
+let communityDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+/** 先关闭头像菜单，再交由共享弹窗宿主管理贡献卡片与焦点。 */
+function showCommunityDialog() {
+  if (!community.eligible.value || !community.profile.value) return
+  showUserMenu.value = false
+  communityDialogController?.close()
+  communityDialogController = openSharedDialog(
+    CommunityContributionDialog,
+    {
+      profile: community.profile.value,
+      loading: community.loading.value,
+      failed: community.failed.value,
+      showAvatarBadge: showAvatarBadge.value,
+    },
+    {
+      refresh: () => void community.refresh(true),
+      'update:showAvatarBadge': (value: boolean) => {
+        showAvatarBadge.value = value
+      },
+      close: () => {
+        communityDialogController = null
+        void nextTick(() => userAvatarRef.value?.$el.focus())
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+/** 刷新后同步同一张卡片；身份被撤销时及时关闭旧账号荣誉。 */
+watch([community.profile, community.loading, community.failed, showAvatarBadge], () => {
+  if (!community.eligible.value) {
+    communityDialogController?.close()
+    communityDialogController = null
+    return
+  }
+  communityDialogController?.updateProps({
+    profile: community.profile.value,
+    loading: community.loading.value,
+    failed: community.failed.value,
+    showAvatarBadge: showAvatarBadge.value,
+  })
+})
+
+/** 打开头像菜单时按前端冷却间隔静默复核，不增加独立轮询。 */
+watch(showUserMenu, value => {
+  if (value) void community.refresh()
+})
 
 const systemUpdateItems = computed<SystemUpdateItemStatus[]>(() => {
   if (systemUpdateStatus.value?.updates?.length) return systemUpdateStatus.value.updates
@@ -557,6 +620,7 @@ const getThemeIcon = computed(() => {
 })
 
 onMounted(() => {
+  window.addEventListener(COMMUNITY_AUTH_CHANGED_EVENT, community.authChanged)
   if (canAdmin.value) getCustomCSS()
   window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerSettingsChange)
 
@@ -568,6 +632,8 @@ onMounted(() => {
 
 // 组件卸载时清理轮询
 onUnmounted(() => {
+  window.removeEventListener(COMMUNITY_AUTH_CHANGED_EVENT, community.authChanged)
+  communityDialogController?.close()
   // 清理重启轮询
   if (restartPollingId.value) {
     clearTimeout(restartPollingId.value)
@@ -583,7 +649,18 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <VBtn
+    v-if="community.eligible.value && showAvatarBadge && community.profile.value?.tier"
+    icon
+    variant="text"
+    size="small"
+    :aria-label="t('community.title')"
+    @click="showCommunityDialog"
+  >
+    <img :src="COMMUNITY_BADGE_IMAGES[community.profile.value.tier]" alt="" width="28" height="28" />
+  </VBtn>
   <VAvatar
+    ref="userAvatarRef"
     class="cursor-pointer ms-3 border"
     color="primary"
     variant="tonal"
@@ -592,6 +669,7 @@ onUnmounted(() => {
     aria-haspopup="menu"
     :aria-label="t('common.userMenu')"
     :aria-expanded="showUserMenu"
+    @contextmenu.prevent="showUserMenu = true"
     @keydown.enter.prevent="showUserMenu = true"
     @keydown.space.prevent="showUserMenu = true"
   >
@@ -809,6 +887,13 @@ onUnmounted(() => {
               <VIcon icon="mdi-help-circle-outline" />
             </template>
             <VListItemTitle>{{ t('user.helpDocs') }}</VListItemTitle>
+          </VListItem>
+
+          <VListItem v-if="community.eligible.value" link @click="showCommunityDialog" class="mb-1 rounded-lg" hover>
+            <template #prepend>
+              <VIcon icon="mdi-medal-outline" />
+            </template>
+            <VListItemTitle>{{ t('community.title') }}</VListItemTitle>
           </VListItem>
 
           <!-- 👉 About -->
