@@ -4,12 +4,23 @@ import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
+import { createSubscribe } from '@tests/support/factories/subscribe'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
+  navMenus: vi.fn(),
 }))
+
+vi.mock('@/router/i18n-menu', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/router/i18n-menu')>()
+  return {
+    ...actual,
+    getNavMenus: (...args: Parameters<typeof actual.getNavMenus>) =>
+      mocks.navMenus(...args) ?? actual.getNavMenus(...args),
+  }
+})
 
 vi.mock('@/api', () => ({
   default: createDataApiMock({
@@ -25,11 +36,14 @@ const IconStub = defineComponent({
   template: '<i :data-icon="icon" />',
 })
 
+/** 按用户权限和全局来源设置渲染真实搜索浮层。 */
 async function renderSearchBar(
   overrides: {
     managePermission?: boolean
     searchPermission?: boolean
     searchSource?: string
+    subscribePermission?: boolean
+    superUser?: boolean
   } = {},
 ) {
   return renderWithProviders(SearchBarDialog, {
@@ -45,9 +59,10 @@ async function renderSearchBar(
           discovery: true,
           manage: overrides.managePermission ?? false,
           search: overrides.searchPermission ?? false,
-          subscribe: false,
+          subscribe: overrides.subscribePermission ?? false,
         },
-        superUser: false,
+        userName: 'tester',
+        superUser: overrides.superUser ?? false,
       },
       // 全局设置走真实 action，便于断言“媒体搜索数据源”配置对搜索框默认勾选的影响。
       globalSettings: {
@@ -65,6 +80,7 @@ async function renderSearchBar(
   })
 }
 
+/** 定位包含指定标题的搜索结果条目。 */
 function getSearchItem(title: string): HTMLElement {
   const item = screen.getByText(title).closest('.v-list-item')
   if (!(item instanceof HTMLElement)) throw new Error(`Search item not found: ${title}`)
@@ -75,7 +91,9 @@ describe('SearchBarDialog media source selection', () => {
   beforeEach(() => {
     localStorage.clear()
     seedMediaSourceCatalog()
+    mocks.navMenus.mockReset()
     mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'plugin/') return Promise.resolve([])
       if (path === 'system/setting/public/IndexerSites') return Promise.resolve({ value: [11, 99] })
       if (path === 'site/') {
         return Promise.resolve([
@@ -91,6 +109,48 @@ describe('SearchBarDialog media source selection', () => {
       }
       throw new Error(`Unexpected GET ${path}`)
     })
+  })
+
+  it.each([false, true])('keeps search entries visible with untitled subscriptions (superUser=%s)', async superUser => {
+    const subscriptions = [
+      ...[null, undefined, ''].map(name => ({ ...createSubscribe(), name })),
+      createSubscribe({ name: 'Alpha visible' }),
+      createSubscribe({ name: 'Alpha private', username: 'other' }),
+      createSubscribe({ name: 'Unrelated' }),
+    ]
+    const defaultGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((path: string) =>
+      path === 'subscribe/' ? Promise.resolve(subscriptions) : defaultGet(path),
+    )
+    const user = userEvent.setup()
+    await renderSearchBar({ subscribePermission: true, searchPermission: true, managePermission: true, superUser })
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('subscribe/'))
+
+    await user.type(input, 'aLpHa')
+
+    expect(screen.getByText('Alpha visible')).toBeInTheDocument()
+    expect(Boolean(screen.queryByText('Alpha private'))).toBe(superUser)
+    expect(screen.queryByText('Unrelated')).not.toBeInTheDocument()
+    expect(getSearchItem('电影、电视剧')).toBeInTheDocument()
+    expect(getSearchItem('搜索订阅分享')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '选择站点' })).toHaveLength(3)
+  })
+
+  it('keeps other search entries visible when a menu title is absent', async () => {
+    mocks.navMenus.mockReturnValue([
+      { title: null, to: '/untitled' },
+      { to: '/untitled-too' },
+      { title: 'Alpha menu', to: '/alpha' },
+    ])
+    const user = userEvent.setup()
+    await renderSearchBar({ searchPermission: true, managePermission: true })
+    const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
+
+    await user.type(input, 'aLpHa')
+
+    expect(screen.getByText('Alpha menu')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '选择站点' })).toHaveLength(3)
   })
 
   it('defaults media searches to TheMovieDB when no global search source is configured', async () => {

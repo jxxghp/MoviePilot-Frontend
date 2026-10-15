@@ -300,7 +300,7 @@ function getMenus(): NavMenu[] {
   return menus
 }
 
-// 匹配的菜单列表
+/** 按权限和关键词匹配菜单，兼容暂无标题的入口。 */
 const matchedMenuItems = computed(() => {
   if (!searchWord.value) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
@@ -311,7 +311,7 @@ const matchedMenuItems = computed(() => {
     // 再根据搜索词过滤
     return filteredMenus.filter(
       item =>
-        item.title.toLowerCase().includes(lowerWord) ||
+        item.title?.toLowerCase().includes(lowerWord) ||
         (item.description && item.description.toLowerCase().includes(lowerWord)),
     )
   }
@@ -419,13 +419,15 @@ async function reloadSearchSites() {
   await queryAllSites()
 }
 
-// 匹配的订阅列表
+/** 匹配当前用户可见的订阅，跳过尚未补全标题的记录以免中断整个搜索列表渲染。 */
 const matchedSubscribeItems = computed(() => {
   if (!searchWord.value) return []
   if (!hasSubscribePermission.value) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   return SubscribeItems.value.filter((item: Subscribe) => {
-    return (item.name.toLowerCase().includes(lowerWord) && (userStore.superUser || userName === item.username)) || false
+    return (
+      (item.name?.toLowerCase().includes(lowerWord) && (userStore.superUser || userName === item.username)) || false
+    )
   })
 })
 
