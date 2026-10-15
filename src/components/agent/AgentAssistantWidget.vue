@@ -3,6 +3,7 @@ import AgentAssistantEntry from './AgentAssistantEntry.vue'
 import AgentAssistantPanel from './AgentAssistantPanel.vue'
 import { useAgentHostEnvironment } from './useAgentHostEnvironment'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
+import { agentPetSuspended } from '@/composables/useAgentPetSuspension'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 import { getAgentPetId, useAgentPetStore } from '@/stores/agentPet'
 import type { AgentHostOpenOptions, AgentHostRect } from '@/types/agentHost'
@@ -236,8 +237,10 @@ onScopeDispose(() => {
         stage 形象图层覆盖整个视口但不拦截任何点击，插件自己的元素按需打开 pointer-events；
         层级与入口相同，高于 Vuetify 弹窗和遮罩。focusin 不外泄，避免弹窗焦点陷阱抢回焦点。
       -->
+      <!-- 全屏浮层请求隐藏形象时只隐藏不卸载，插件状态保留，归还后原样出现。 -->
       <div
         v-if="stagePet"
+        v-show="!agentPetSuspended"
         class="agent-pet-stage-layer"
         :style="{ zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.entry }"
         data-agent-pet-stage
@@ -253,6 +256,7 @@ onScopeDispose(() => {
       </div>
       <AgentAssistantEntry
         v-if="showEntry"
+        v-show="!agentPetSuspended"
         ref="entryRef"
         :active="!panelOpen"
         :motion-active="allowsDecorativeMotion"

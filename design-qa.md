@@ -1,60 +1,29 @@
-# 社区贡献浮层设计验收
+# 社区勋章展台设计验收
 
-final result: passed
+final result: candidate（待新的独立评审）
 
-## 视觉目标与范围
+## 范围
 
-- 来源：/Users/jxxghp/MPProjects/output/community-badges/01-avatar-drawer.png
-- 来源尺寸：1488 × 1056；桌面 CSS 对照尺寸 1440 × 1024。
-- 实现：/Users/jxxghp/MPProjects/output/community-badges/implemented-glass-desktop.png
-- 实现截图实际像素 1436 × 1021，浏览器 CSS 视口 1440 × 1024；对照时两侧统一缩放至 1440 × 1024，未把这 4 × 3 像素的捕获差作为布局缺陷。
-- 状态：已验证、金档、跨领域贡献者，默认收起贡献记录与等级规则。
-- 全图对照：/Users/jxxghp/MPProjects/output/community-badges/comparison-full.png
-- 卡片区域对照：/Users/jxxghp/MPProjects/output/community-badges/comparison-card.png
+- 头像菜单的“社区勋章”打开居中全屏展台：背后的页面按主题背景色压暗并模糊，不画卡片与深色展台，勋章直接浮在中央，最大约 420px，脚下一团勋章自身颜色的柔光。下面是名称、一句说明、一行等级与称号或时间，再下面是带线描徽记与未读点的切换标签，以及佩戴、保存图片、详情三个动作和标准关闭按钮。
+- 七枚勋章，键按贡献类型命名：`code` 编剧、`plugin` 布景（阶梯，自动认定），`maintainer` 主创、`helper` 掌灯、`security` 守夜、`tester` 试映、`pioneer` 启幕（维护者授予）。每枚只刻一行时间，阶梯勋章“达成/认定 日期”，授予的勋章“日期 授予”，`years` 为预留字段不展示。
+- 详情是叠在展台上的次级面板，只讲当前这枚：规则、阶梯勋章的档位进度（四个节点、进度线与“距下一档还差多少”）、编剧的逐仓贡献与证据链接、布景安装量前 5 的插件与可展开的全部列表，以及数据来源与刷新。Wiki 社区荣誉页链接暂不显示，页面发布后加回。
+- 持有零枚时展台介绍七枚勋章与获得方式；未配置 GitHub Token 时引导配置；实例关闭勋章时入口隐藏。
+- 精绘：一个 WebGL 上下文贯穿展台打开期间，前后相邻的勋章在后台预先搭好，所有持有勋章的图在后台预解码，新勋章 250 毫秒内未就绪才显示加载圈。最高 3 倍像素比，贴图按屏幕实际像素生成，按外形包围框取景并留出偏转余量；背面刻字是单独一层，按屏幕分辨率直接画，统一一种字体，每行不小于 10 CSS 像素。主创外环按轮廓里的 `spin` 缓慢转动。
+- 头像旁佩戴的勋章放在圆形底座里，按不透明区域裁切并统一视觉分量。
 
-这是隔离的生产组件验证页，挂载真实 UserProfile、CommunityContributionDialog、共享弹窗宿主、主题管理器和全局样式，但 API 返回示例贡献数据。不证明运行中的 MoviePilot 已部署新后端，也不把示例账号视为真实贡献者。用户只选择图 1 的浮层，背景仪表板、图 2 个人资料页与图 3 首页组件不属于实现范围。
+## 验收方式
 
-## 对照结果
+本地实验室实例（前端 5173、后端 3001）用真实后端返回的七枚勋章，玻璃与浅色主题，1440 宽 2 倍与 390 宽 3 倍像素比；持有零枚的介绍页用隔离挂载页验证。
 
-- 字体与排版：沿用全局字体与 Vuetify 文字等级；标题、感谢语、身份、贡献摘要与动作层级明确。窄屏感谢语使用平衡换行，未出现末行孤立单字。
-- 间距与结构：桌面右侧浮层宽 440 CSS px，头部关闭按钮固定，正文内部滚动；头像菜单的社区贡献入口位于关于上方。320px 下卡片左右各 12px，宽 296px，无横向溢出。
-- 颜色与 Token：使用 v-theme 语义色、app-overlay-radius、app-overlay-shadow、app-overlay-border；玻璃浮层通过既有 VDialog 表面规则获得模糊材质，不另造颜色或固定阴影。实际检查 glass/light/dark/purple/transparent 五种主题；none/extra 圆角及 shadow 0/6 组合随全局变化。
-- 图像：铜/银/金/核心四张 ImageGen 静态 PNG，512 × 512，保留透明 Alpha；图中金属 Logo 造型允许作为可替换占位资产，与领域图标分开。资产不含背景或称号文字。
-- 文案：称号拆分为等级与领域，数字明确使用已采纳贡献口径，展开后分别列出合并 PR 与作者提交；规则说明包含阈值、仓库范围、排除项、数据延迟及核心称号不授予维护权限。
+## 结果
 
-## 已修正的发现
+- 1440 玻璃：展台、详情（编剧的进度与逐仓记录、布景的插件列表）、启幕正反面与头像旁佩戴。截图 redesign-glass-1440-code.png、redesign-glass-1440-code-details.png、redesign-glass-1440-plugin-details.png、redesign-glass-1440-pioneer.png、redesign-back-pioneer-1440.png、redesign-worn-badge.png。
+- 390 三倍像素比：浅色主题布景展台与展开全部插件的详情，玻璃主题主创（外环转动中）。文档宽度 390，无横向溢出，提示文字为“轻点”。截图 redesign-light-390-dpr3-plugin.png、redesign-light-390-dpr3-plugin-details.png、redesign-glass-390-dpr3-maintainer.png。
+- 持有零枚的介绍页：redesign-empty-glass-390.png。
+- 背面刻字在 2 倍屏上清晰，统一字体，制造者印记独占一行。宽扁的启幕在展台中四周留白，不被裁切。
 
-1. [P2] 初次桌面卡片仍在居中位置。通过浮层宿主 justify-content: flex-end 修正；修复后截图 implemented-glass-desktop.png 确认位于右侧。
-2. [P2] 初次 320px 卡片贴住右边缘。将移动内容层 margin-inline 改为两侧安全区与 12px 的较大值；修复后 implemented-glass-mobile.png 实测 x=12、right=308、width=296，无横向溢出。
-3. [P2] 窄屏感谢语最后一字孤立换行。增加 text-wrap: balance，修复后按两个语义行展示。
-4. [P2] 共享浮层关闭后焦点可能指向已隐藏菜单项。关闭事件在 nextTick 将焦点返回头像；浏览器确认 activeElement 的 aria-label 为用户菜单。
+## 未验证与后续
 
-## 交互验证
-
-- 右键头像打开菜单；社区贡献位于关于 MoviePilot 上方。
-- 打开卡片后原菜单关闭。
-- 展开贡献记录、逐仓 PR/提交 GitHub 链接地址检查、展开与收起等级规则。
-- 刷新贡献、头像旁勋章开关、开关启用后的独立入口、关闭后返回头像焦点。
-- 320px 展开规则后，底部刷新按钮可通过正文滚动触达，头部关闭按钮保留。
-- 浏览器控制台 error/warn 检查结果为空。
-- 不匹配隐藏入口、普通用户不继承系统 Token、迟到异步结果丢弃由组件与后端自动化测试覆盖。
-
-## 其他截图
-
-- implemented-light-desktop.png
-- implemented-dark-desktop.png
-- implemented-purple-desktop.png
-- implemented-transparent-desktop.png
-- implemented-glass-mobile.png
-
-以上均在 /Users/jxxghp/MPProjects/output/community-badges/。
-
-## 接受的差异与后续
-
-- 按用户反馈，将普通主题色称号标签改为铜/银/金/铂金等级铭牌，使用克制的高光和描边，文字混色及圆角仍由全局 Token 决定；移除可见的 GitHub 身份验证文案与重复验证图标。桌面玻璃/浅色、320px 大圆角组合已复验，无新增 P0/P1/P2。
-- 开关文案明确为“在顶部头像旁显示勋章”，默认关闭；它控制额外的小勋章入口，菜单入口仍仅由贡献匹配决定。
-
-- 用户明确先用静态图片，所以没有伪装的旋转、拖拽、暂停控件；正式模型/动画替换时再接入对应交互。
-- 用户明确遵循全局主题，所以背景、按钮、圆角、阴影与参考图的固定深蓝/固定发光效果有所不同。
-- 勋章展示区较原图紧凑，贡献指标与等级文案按实际接口口径替换；层级与完整动作保持一致。
-- [P3] 后续可按正式勋章资产的视觉重心微调舞台尺寸，当前不阻塞使用。
+- 未配置 GitHub Token 的状态只由组件测试覆盖，未在实验室实例上切换后端状态截图。
+- 暗色、紫色、透明主题未逐一截图，纱层与文字都取主题背景与前景色。
+- 页面右下的看板娘浮层会压在展台上（不在本次范围）。

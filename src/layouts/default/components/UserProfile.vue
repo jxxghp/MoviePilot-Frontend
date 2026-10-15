@@ -4,7 +4,7 @@ import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
 import api from '@/api'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { useAuthStore, useUserStore } from '@/stores'
+import { useAuthStore, useGlobalSettingsStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
@@ -28,12 +28,11 @@ import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import type { SystemUpdateItemStatus } from '@/api/types'
 import { useLocalStorage } from '@vueuse/core'
 import { COMMUNITY_AUTH_CHANGED_EVENT, useCommunityContribution } from '@/composables/useCommunityContribution'
-import { COMMUNITY_BADGE_IMAGES } from '@/utils/communityBadge'
+import CommunityMedalEntry from '@/layouts/default/components/CommunityMedalEntry.vue'
+import { isMedalKey, unseenMedalKeys } from '@/utils/communityMedals'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
-const CommunityContributionDialog = defineAsyncComponent(
-  () => import('@/components/dialog/CommunityContributionDialog.vue'),
-)
+const CommunityMedalDialog = defineAsyncComponent(() => import('@/components/dialog/CommunityMedalDialog.vue'))
 const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
 const GlassSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/GlassSettingsDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
@@ -256,36 +255,56 @@ const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const userName = computed(() => userStore.userName)
 const avatar = computed(() => userStore.avatar || avatar1)
 const userLevel = computed(() => userStore.level)
+// 社区勋章只对超级管理员开放，且受实例开关 COMMUNITY_MEDALS_ENABLED 控制；设置未加载时视为关闭。
+const globalSettingsStore = useGlobalSettingsStore()
 const community = useCommunityContribution(
-  computed(() => superUser.value),
+  computed(() => superUser.value && Boolean(globalSettingsStore.globalSettings.COMMUNITY_MEDALS_ENABLED)),
   computed(() => String(userStore.userID)),
 )
-const showAvatarBadge = useLocalStorage(
-  computed(() => 'community-badge:' + userStore.userID + ':' + (community.profile.value?.user_id ?? 'none')),
-  false,
+// 佩戴在顶栏的勋章键，空串为不佩戴；按 MoviePilot 用户与 GitHub 账号分开记在当前浏览器。
+const wornMedal = useLocalStorage(
+  computed(() => 'community-medal-worn:' + userStore.userID + ':' + (community.profile.value?.user_id ?? 'none')),
+  '',
+)
+// 只佩戴仍然持有的勋章；勋章被撤下后顶栏换回线框图标，记录保留以便恢复。
+const wornRecord = computed(() =>
+  isMedalKey(wornMedal.value) ? community.medals.value.find(item => item.key === wornMedal.value) : undefined,
+)
+const hasUnseenMedals = computed(
+  () =>
+    community.eligible.value && unseenMedalKeys(community.profile.value?.user_id, community.medals.value).length > 0,
 )
 let communityDialogController: ReturnType<typeof openSharedDialog> | null = null
+// 勋章墙当前展示的状态。未配置 Token 时在墙里完成授权，授权会触发身份重置与重新核验；
+// 这段等待期间墙上没有任何身份信息，保持打开，等新结果到来再更新。
+let shownCommunityState: string | null = null
 
-/** 先关闭头像菜单，再交由共享弹窗宿主管理贡献卡片与焦点。 */
-function showCommunityDialog() {
+/**
+ * 先关闭头像菜单，再交由共享弹窗宿主管理勋章墙与焦点。
+ * 从顶栏的佩戴勋章进入时传入它，没有未读勋章时停在这一枚。
+ */
+function showCommunityDialog(focusMedal = '') {
   if (!community.eligible.value || !community.profile.value) return
   showUserMenu.value = false
   communityDialogController?.close()
+  shownCommunityState = community.profile.value.state
   communityDialogController = openSharedDialog(
-    CommunityContributionDialog,
+    CommunityMedalDialog,
     {
       profile: community.profile.value,
       loading: community.loading.value,
       failed: community.failed.value,
-      showAvatarBadge: showAvatarBadge.value,
+      wornMedal: wornMedal.value,
+      focusMedal,
     },
     {
       refresh: () => void community.refresh(true),
-      'update:showAvatarBadge': (value: boolean) => {
-        showAvatarBadge.value = value
+      'update:wornMedal': (value: string) => {
+        wornMedal.value = value
       },
       close: () => {
         communityDialogController = null
+        shownCommunityState = null
         void nextTick(() => userAvatarRef.value?.$el.focus())
       },
     },
@@ -294,17 +313,21 @@ function showCommunityDialog() {
 }
 
 /** 刷新后同步同一张卡片；身份被撤销时及时关闭旧账号荣誉。 */
-watch([community.profile, community.loading, community.failed, showAvatarBadge], () => {
+watch([community.profile, community.loading, community.failed, wornMedal], () => {
+  const awaitingSetup = shownCommunityState === 'unconfigured' && !community.profile.value && community.loading.value
+  if (awaitingSetup) return
   if (!community.eligible.value) {
     communityDialogController?.close()
     communityDialogController = null
+    shownCommunityState = null
     return
   }
+  shownCommunityState = community.profile.value?.state ?? null
   communityDialogController?.updateProps({
     profile: community.profile.value,
     loading: community.loading.value,
     failed: community.failed.value,
-    showAvatarBadge: showAvatarBadge.value,
+    wornMedal: wornMedal.value,
   })
 })
 
@@ -649,16 +672,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VBtn
-    v-if="community.eligible.value && showAvatarBadge && community.profile.value?.tier"
-    icon
-    variant="text"
-    size="small"
-    :aria-label="t('community.title')"
-    @click="showCommunityDialog"
-  >
-    <img :src="COMMUNITY_BADGE_IMAGES[community.profile.value.tier]" alt="" width="28" height="28" />
-  </VBtn>
+  <!-- 顶栏常驻的勋章入口：功能可用时始终显示，佩戴时换成那枚勋章；头像菜单里的入口保留为次要入口。 -->
+  <CommunityMedalEntry
+    v-if="community.eligible.value"
+    :worn="wornRecord"
+    :unseen="hasUnseenMedals"
+    @open="showCommunityDialog"
+  />
   <VAvatar
     ref="userAvatarRef"
     class="cursor-pointer ms-3 border"
@@ -889,11 +909,14 @@ onUnmounted(() => {
             <VListItemTitle>{{ t('user.helpDocs') }}</VListItemTitle>
           </VListItem>
 
-          <VListItem v-if="community.eligible.value" link @click="showCommunityDialog" class="mb-1 rounded-lg" hover>
+          <VListItem v-if="community.eligible.value" link @click="showCommunityDialog()" class="mb-1 rounded-lg" hover>
             <template #prepend>
               <VIcon icon="mdi-medal-outline" />
             </template>
             <VListItemTitle>{{ t('community.title') }}</VListItemTitle>
+            <template v-if="hasUnseenMedals" #append>
+              <span class="user-profile__unseen" role="status" :aria-label="t('community.unseen')" />
+            </template>
           </VListItem>
 
           <!-- 👉 About -->
@@ -955,5 +978,14 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .v-list-item__prepend {
   min-inline-size: 24px !important;
+}
+
+// 有新勋章没看过时，头像菜单的勋章入口末尾标一个点；看过后由勋章墙记下并消失。
+.user-profile__unseen {
+  display: block;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-error));
 }
 </style>

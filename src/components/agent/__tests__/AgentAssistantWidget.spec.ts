@@ -7,6 +7,7 @@ import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 import { AGENT_PET_RESOLVE_WAIT } from '@/stores/agentPet'
 import type { AgentHostEvent, AgentPetContext, AgentPetDeclaration, MoviePilotAgentHost } from '@/types/agentHost'
 import { agentHost } from '@/utils/agentHost'
+import { suspendAgentPet } from '@/composables/useAgentPetSuspension'
 import { resetAgentPetComponentLoads } from '@/utils/agentPetLoader'
 
 const mocks = vi.hoisted(() => ({
@@ -250,6 +251,34 @@ describe('AgentAssistantWidget agent host', () => {
 
     wrapper.unmount()
     expect(document.body.querySelector('[data-agent-pet-stage]')).toBeNull()
+  })
+
+  it('hides the stage pet and the entry while a full-screen overlay suspends them, keeping them mounted', async () => {
+    mocks.loadRemoteComponent.mockResolvedValue(
+      defineComponent({ setup: () => () => h('div', { 'data-stage-pet': '' }) }),
+    )
+    mockPetBackend([createPet()], { plugin_id: 'PetPlugin', key: 'girl' })
+    const wrapper = mountWidget()
+    await vi.waitFor(() => expect(document.body.querySelector('[data-stage-pet]')).not.toBeNull())
+    await flushPromises()
+    const layer = () => document.body.querySelector<HTMLElement>('[data-agent-pet-stage]')!
+    const entry = () => document.body.querySelector<HTMLElement>('[data-agent-assistant-entry]')!
+
+    const releaseShowcase = suspendAgentPet()
+    const releaseOther = suspendAgentPet()
+    await nextTick()
+    expect(layer().style.display).toBe('none')
+    expect(entry().style.display).toBe('none')
+    // 形象组件仍挂载，归还后原样出现。
+    expect(document.body.querySelector('[data-stage-pet]')).not.toBeNull()
+    releaseShowcase()
+    await nextTick()
+    expect(layer().style.display).toBe('none')
+    releaseOther()
+    await nextTick()
+    expect(layer().style.display).toBe('')
+    expect(entry().style.display).toBe('')
+    wrapper.unmount()
   })
 
   it('removes the builtin entry for self-drawn stage bubbles and forwards bus bubbles as events', async () => {

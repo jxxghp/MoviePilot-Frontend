@@ -529,12 +529,20 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
     scrim
   >
     <template #activator="{ props }">
-      <VBadge v-if="hasUnreadMessageIndicator" dot color="error" :offset-x="5" :offset-y="5" v-bind="props">
+      <VBadge
+        v-if="hasUnreadMessageIndicator"
+        dot
+        color="error"
+        :offset-x="5"
+        :offset-y="5"
+        class="ms-2"
+        v-bind="props"
+      >
         <IconBtn>
           <VIcon icon="mdi-bell-outline" size="22" />
         </IconBtn>
       </VBadge>
-      <IconBtn v-else v-bind="props">
+      <IconBtn v-else class="ms-2" v-bind="props">
         <VIcon icon="mdi-bell-outline" size="22" />
       </IconBtn>
     </template>
