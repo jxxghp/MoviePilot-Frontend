@@ -6,6 +6,7 @@ import VDialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import MedalDetailSheet from '@/components/community/MedalDetailSheet.vue'
 import MedalEmblem from '@/components/community/MedalEmblem.vue'
 import MedalStage from '@/components/community/MedalStage.vue'
+import MedalTierNameplate from '@/components/community/MedalTierNameplate.vue'
 import GithubTokenAuthDialog from '@/components/github/GithubTokenAuthDialog.vue'
 import { useAgentPetSuspension } from '@/composables/useAgentPetSuspension'
 import { useGithubTokenAuth } from '@/composables/useGithubTokenAuth'
@@ -111,6 +112,7 @@ watch(
   { immediate: true },
 )
 
+/** 为当前账号生成与分享图一致的勋章背面刻字。 */
 const engravingOf = (record: CommunityMedalRecord) =>
   medalEngraving(record, { t, locale: locale.value, login: props.profile.login })
 const engraving = computed(() => (current.value ? engravingOf(current.value) : { title: '', lines: [] }))
@@ -161,10 +163,12 @@ function cancelGithubAuthorization() {
   githubAuthDialogVisible.value = false
 }
 
+/** 关闭展台并通知头像入口同步状态。 */
 function close() {
   visible.value = false
 }
 
+/** 切换当前勋章在头像旁的佩戴状态。 */
 function toggleWear() {
   if (!current.value) return
   emit('update:wornMedal', props.wornMedal === current.value.key ? '' : current.value.key)
@@ -243,7 +247,10 @@ async function save() {
           <div class="medal-showcase__caption">
             <h2 class="medal-showcase__name">{{ medalName(current.key, locale) }}</h2>
             <p class="medal-showcase__summary">{{ t('community.medals.' + current.key + '.summary') }}</p>
-            <p v-if="meta" class="medal-showcase__meta">{{ meta }}</p>
+            <div v-if="current.tier" class="medal-showcase__nameplate">
+              <MedalTierNameplate :tier="current.tier">{{ meta }}</MedalTierNameplate>
+            </div>
+            <p v-else-if="meta" class="medal-showcase__meta">{{ meta }}</p>
             <p class="medal-showcase__hint">{{ coarsePointer ? t('community.hintTouch') : t('community.hint') }}</p>
           </div>
 
@@ -471,6 +478,11 @@ async function save() {
     color: rgba(var(--v-theme-on-background), var(--v-medium-emphasis-opacity));
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  &__nameplate {
+    min-inline-size: 0;
+    padding-block: 1px;
   }
 
   &__hint {

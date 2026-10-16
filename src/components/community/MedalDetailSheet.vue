@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import VDialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import MedalEmblem from '@/components/community/MedalEmblem.vue'
 import MedalTierProgress from '@/components/community/MedalTierProgress.vue'
+import MedalTierNameplate from '@/components/community/MedalTierNameplate.vue'
 import {
   MEDAL_CATALOG,
   OFFICIAL_REPOSITORIES,
@@ -57,6 +58,7 @@ const visible = computed({
   set: value => emit('update:modelValue', value),
 })
 
+/** 按当前界面语言格式化贡献与安装数量。 */
 function format(value: number) {
   return value.toLocaleString(locale.value)
 }
@@ -80,7 +82,10 @@ function evidenceUrl(repository: string, kind: 'commits' | 'prs'): string | null
           <MedalEmblem :medal-key="record.key" :size="22" class="medal-detail-sheet__emblem" />
         </template>
         <VCardTitle>{{ medalName(record.key, locale) }}</VCardTitle>
-        <VCardSubtitle v-if="meta">{{ meta }}</VCardSubtitle>
+        <VCardSubtitle v-if="record.tier" class="medal-detail-sheet__nameplate">
+          <MedalTierNameplate :tier="record.tier" compact>{{ meta }}</MedalTierNameplate>
+        </VCardSubtitle>
+        <VCardSubtitle v-else-if="meta">{{ meta }}</VCardSubtitle>
         <VDialogCloseBtn @click="visible = false" />
       </VCardItem>
       <VDivider />
@@ -181,6 +186,12 @@ function evidenceUrl(repository: string, kind: 'commits' | 'prs'): string | null
 
 <style lang="scss">
 .medal-detail-sheet {
+  &__nameplate {
+    padding-block: 2px;
+    opacity: 1;
+    white-space: normal;
+  }
+
   &__emblem {
     color: rgb(var(--v-theme-primary));
   }
