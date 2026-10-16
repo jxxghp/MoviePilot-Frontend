@@ -2,6 +2,7 @@
 import { useToast } from 'vue-toastification'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
+import MediaCommentView from './MediaCommentView.vue'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import type {
@@ -1372,6 +1373,9 @@ onUnmounted(() => {
           :linkurl="`/browse/tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}?title=${t('media.similar')}`"
           :title="t('media.similar')"
         />
+      </div>
+      <div v-if="mediaDetail.douban_id">
+        <MediaCommentView :doubanid="mediaDetail.douban_id" :type="mediaProps.type" />
       </div>
     </div>
   </div>

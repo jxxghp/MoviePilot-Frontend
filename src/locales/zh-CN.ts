@@ -1693,6 +1693,9 @@ export default {
     castAndCrew: '演员阵容',
     recommendations: '推荐',
     similar: '类似',
+    comments: '短评',
+    reviews: '影评',
+    usefulCount: '{count} 有用',
     error: {
       title: '出错啦！',
       noMediaInfo: '未识别到媒体信息。',

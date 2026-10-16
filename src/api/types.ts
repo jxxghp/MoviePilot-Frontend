@@ -936,6 +936,82 @@ export interface Person {
   relation?: string
 }
 
+// 豆瓣评论作者
+export interface MediaCommentAuthor {
+  // 作者 ID
+  id?: string
+  // 作者昵称
+  name?: string
+  // 作者头像
+  avatar?: string
+  // 作者主页
+  url?: string
+}
+
+// 豆瓣短评
+export interface MediaComment {
+  // 短评 ID
+  id?: string
+  // 短评正文
+  comment?: string
+  // 五星制评分
+  rating?: number
+  // 有用数
+  vote_count?: number
+  // 发表时间
+  create_time?: string
+  // 作者信息
+  author?: MediaCommentAuthor
+  // 短评地址
+  url?: string
+}
+
+// 豆瓣影评
+export interface MediaReview {
+  // 影评 ID
+  id?: string
+  // 影评标题
+  title?: string
+  // 影评摘要
+  abstract?: string
+  // 五星制评分
+  rating?: number
+  // 有用数
+  useful_count?: number
+  // 回应数
+  comments_count?: number
+  // 发表时间
+  create_time?: string
+  // 作者信息
+  author?: MediaCommentAuthor
+  // 影评地址
+  url?: string
+}
+
+// 豆瓣短评分页结果
+export interface MediaCommentPage {
+  // 起始偏移
+  start?: number
+  // 本页条目数
+  count?: number
+  // 总条目数
+  total?: number
+  // 短评列表
+  items?: MediaComment[]
+}
+
+// 豆瓣影评分页结果
+export interface MediaReviewPage {
+  // 起始偏移
+  start?: number
+  // 本页条目数
+  count?: number
+  // 总条目数
+  total?: number
+  // 影评列表
+  items?: MediaReview[]
+}
+
 /** 全局演员/艺术家搜索返回的影视人物或音乐艺术家。 */
 export type PersonSearchResult = Person | MusicArtistInfo
 
