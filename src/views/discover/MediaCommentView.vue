@@ -64,7 +64,8 @@ async function fetchData() {
 }
 
 // 切换标签页时按需加载，避免同时请求两个接口
-function handleTabChange(tab: 'interests' | 'reviews') {
+function handleTabChange(value: unknown) {
+  const tab = value === 'reviews' ? 'reviews' : 'interests'
   activeTab.value = tab
   const loaded = tab === 'interests' ? interests.value.length : reviews.value.length
   if (loaded === 0) {

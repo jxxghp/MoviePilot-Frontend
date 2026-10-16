@@ -147,9 +147,7 @@ describe('MediaCommentView', () => {
   })
 
   it('keeps the page usable when the endpoint fails', async () => {
-    server.use(
-      http.get(INTERESTS_URL, () => HttpResponse.json({ detail: 'boom' }, { status: 500 })),
-    )
+    server.use(http.get(INTERESTS_URL, () => HttpResponse.json({ detail: 'boom' }, { status: 500 })))
 
     await renderComments()
     triggerIntersection()
