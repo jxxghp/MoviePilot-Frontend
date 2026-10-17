@@ -1690,6 +1690,9 @@ export default {
     castAndCrew: '演員陣容',
     recommendations: '推薦',
     similar: '類似',
+    comments: '短評',
+    reviews: '影評',
+    usefulCount: '{count} 有用',
     error: {
       title: '出錯啦！',
       noMediaInfo: '未識別到媒體信息。',
