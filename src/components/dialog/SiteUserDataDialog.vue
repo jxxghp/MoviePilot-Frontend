@@ -114,7 +114,9 @@ const historyChartOptions = computed(() => {
       intersect: false,
       theme: themeMode,
       x: {
-        formatter: (value: string) => formatChartDate(value),
+        // 分类轴会被 ApexCharts 转为数字坐标，使用数据点索引读取原始统计日期。
+        formatter: (_value: number, { dataPointIndex }: { dataPointIndex: number }) =>
+          formatChartDate(siteDatas.value[dataPointIndex]?.updated_day ?? ''),
       },
       y: {
         formatter: (value: number) => `${value.toLocaleString()} GB`,
