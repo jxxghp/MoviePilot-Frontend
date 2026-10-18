@@ -55,7 +55,21 @@ describe('CommunityMedalEntry', () => {
 
   it('功能不可用时顶栏不渲染入口，头像菜单入口仍保留', () => {
     const profile = readFileSync(resolve('src/layouts/default/components/UserProfile.vue'), 'utf8')
-    expect(profile).toMatch(/<CommunityMedalEntry\s+v-if="community\.eligible\.value"/)
+    expect(profile).toMatch(
+      /<CommunityMedalEntry\s+v-if="community\.eligible\.value \|\| community\.initialLoading\.value"/,
+    )
     expect(profile).toMatch(/<VListItem v-if="community\.eligible\.value" link @click="showCommunityDialog\(\)"/)
+  })
+
+  it('首次核验时显示不接收点击的安静占位，完成后恢复勋章按钮', async () => {
+    const { rerender, emitted } = await renderWithProviders(CommunityMedalEntry, { props: { loading: true } })
+    const placeholder = screen.getByRole('status', { name: '社区勋章 · 加载中' })
+    expect(placeholder).toHaveAttribute('aria-busy', 'true')
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    await fireEvent.click(placeholder)
+    expect(emitted().open).toBeUndefined()
+    await rerender({ loading: false, worn })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /编剧勋章/ })).toBeVisible()
   })
 })

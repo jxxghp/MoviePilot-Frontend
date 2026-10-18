@@ -1,11 +1,17 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
-import { defineComponent, ref } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@tests/support/render'
 import CommunityMedalDialog from '@/components/dialog/CommunityMedalDialog.vue'
-import { useCommunityContribution, type CommunityProfile } from '@/composables/useCommunityContribution'
+import {
+  COMMUNITY_AUTH_CHANGED_EVENT,
+  useCommunityContribution,
+  type CommunityProfile,
+} from '@/composables/useCommunityContribution'
+import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import UserProfile from '@/layouts/default/components/UserProfile.vue'
 import { markMedalSeen, unseenMedalKeys } from '@/utils/communityMedals'
+import { writeCommunityProfileCache } from '@/utils/communityProfileCache'
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), artMissing: false }))
 vi.mock('@/api', () => ({ default: { get: mocks.get, post: mocks.post } }))
@@ -210,6 +216,76 @@ describe('Community medal showcase', () => {
 })
 
 describe('Community medal entry', () => {
+  it('配置授权后后台核验期间保持展台打开，完成后自动展示新身份勋章', async () => {
+    let phase = 'unconfigured'
+    mocks.get.mockImplementation((url: string) => {
+      if (url !== 'github/community') return Promise.resolve({})
+      if (phase === 'unconfigured')
+        return Promise.resolve(profile({ state: 'unconfigured', login: null, user_id: null, medals: [] }))
+      if (phase === 'warming')
+        return Promise.resolve(
+          profile({ state: 'unavailable', login: null, user_id: null, medals: [], refreshing: true }),
+        )
+      return Promise.resolve(profile({ medals: [{ key: 'helper' }] }))
+    })
+    const Harness = defineComponent({ setup: () => () => h('div', [h(UserProfile), h(SharedDialogHost)]) })
+    await renderWithProviders(Harness, { initialState: adminState() })
+    await fireEvent.click(await screen.findByRole('button', { name: '社区勋章' }))
+    expect(await screen.findByText('配置 GitHub Token 后，即可查看你获得的社区勋章')).toBeVisible()
+    phase = 'warming'
+    window.dispatchEvent(new Event(COMMUNITY_AUTH_CHANGED_EVENT))
+    await waitFor(() =>
+      expect(mocks.get).toHaveBeenLastCalledWith(
+        'github/community',
+        expect.objectContaining({ params: { refresh: true } }),
+      ),
+    )
+    expect(screen.getByText('配置 GitHub Token 后，即可查看你获得的社区勋章')).toBeVisible()
+    phase = 'ready'
+    expect(await screen.findByRole('heading', { name: '掌灯' }, { timeout: 3000 })).toBeVisible()
+    expect(screen.queryByText('配置 GitHub Token 后，即可查看你获得的社区勋章')).not.toBeInTheDocument()
+  })
+
+  it('全局开关尚在后台预热时显示占位，并在查询确认开放后自动显示勋章', async () => {
+    vi.useFakeTimers()
+    let queried = false
+    mocks.get.mockImplementation((url: string) => {
+      if (url !== 'github/community') return Promise.resolve({})
+      if (queried) return Promise.resolve(profile())
+      queried = true
+      return Promise.resolve(profile({ state: 'unavailable', user_id: null, medals: [], refreshing: true }))
+    })
+    await renderWithProviders(UserProfile, {
+      initialState: {
+        ...adminState(false),
+        globalSettings: { data: { COMMUNITY_MEDALS_ENABLED: false, COMMUNITY_MEDALS_REFRESHING: true } },
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(screen.getByRole('status', { name: '社区勋章 · 加载中' })).toBeInTheDocument()
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(screen.getByRole('button', { name: /社区勋章/ })).toBeVisible()
+  })
+
+  it('慢请求返回前立即恢复缓存用户佩戴的勋章，复核不让顶栏闪回线框', async () => {
+    localStorage.setItem('community-medal-worn:1:42', 'helper')
+    writeCommunityProfileCache('1', profile({ checked_at: Math.floor(Date.now() / 1000) }))
+    let resolve!: (value: CommunityProfile) => void
+    mocks.get.mockImplementation((url: string) =>
+      url === 'github/community'
+        ? new Promise<CommunityProfile>(done => {
+            resolve = done
+          })
+        : Promise.resolve({}),
+    )
+    await renderWithProviders(UserProfile, { initialState: adminState() })
+    const worn = screen.getByRole('button', { name: /掌灯勋章/ })
+    expect(worn.querySelector('img')).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: /加载中/ })).not.toBeInTheDocument()
+    resolve(profile())
+    await waitFor(() => expect(screen.getByRole('button', { name: /掌灯勋章/ })).toBe(worn))
+  })
+
   it.each([
     ['held', profile().medals, true],
     ['none', [], false],

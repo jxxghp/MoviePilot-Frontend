@@ -16,6 +16,8 @@ const props = defineProps<{
   worn?: CommunityMedalRecord
   /** 是否有没看过的新勋章，只作用于线框图标。 */
   unseen?: boolean
+  /** 首次核验且没有快照时显示等尺寸占位，避免顶栏在请求返回后挪动。 */
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,8 +30,17 @@ const badge = computed(() => (props.worn ? (medalArt(props.worn.key, props.worn.
 </script>
 
 <template>
+  <span
+    v-if="props.loading"
+    class="community-medal-entry__placeholder ms-2"
+    role="status"
+    :aria-label="`${t('community.title')} · ${t('common.loading')}`"
+    aria-busy="true"
+  >
+    <VIcon icon="mdi-medal-outline" aria-hidden="true" />
+  </span>
   <IconBtn
-    v-if="props.worn"
+    v-else-if="props.worn"
     class="community-medal-entry community-medal-entry--worn ms-2"
     :title="t('community.wornLabel', { name: medalName(props.worn.key, locale) })"
     :aria-label="t('community.wornLabel', { name: medalName(props.worn.key, locale) })"
@@ -60,6 +71,16 @@ const badge = computed(() => (props.worn ? (medalArt(props.worn.key, props.worn.
 </template>
 
 <style lang="scss" scoped>
+.community-medal-entry__placeholder {
+  display: inline-flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  block-size: 40px;
+  inline-size: 40px;
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+}
+
 // 小图本身已按不透明区域裁切成正方形，这里只定显示尺寸，与邻居图标的 40px 按钮同一盒子。
 .community-medal-entry__badge {
   display: block;

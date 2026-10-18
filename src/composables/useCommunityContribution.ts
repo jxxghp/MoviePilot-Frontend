@@ -1,6 +1,13 @@
 import api from '@/api'
-import { computed, ref, shallowRef, watch, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import { knownMedals, type CommunityMedalRecord } from '@/utils/communityMedals'
+import {
+  clearCommunityProfileCache,
+  communityProfileCacheKey,
+  readCommunityProfileCache,
+  writeCommunityProfileCache,
+} from '@/utils/communityProfileCache'
+import { isAxiosError } from 'axios'
 
 /**
  * 实例接口 GET /api/v1/github/community 的响应，只对超级管理员开放。
@@ -24,9 +31,17 @@ export interface CommunityProfile {
   checked_at: number | null
   /** 名单拉取失败、正在展示同一 Token 上次结果时为 true */
   stale: boolean
+  /** 后端正在主动预热或刷新；前端短暂查询进度，不触发新的远端核验。 */
+  refreshing?: boolean
 }
 
 export const COMMUNITY_AUTH_CHANGED_EVENT = 'moviepilot:github-auth-changed'
+
+/** 授权成功、手动换 Token 或解绑时先撤销持久快照，再通知当前页面重新核验。 */
+export function notifyCommunityAuthChanged(): void {
+  clearCommunityProfileCache()
+  window.dispatchEvent(new Event(COMMUNITY_AUTH_CHANGED_EVENT))
+}
 
 /**
  * 管理勋章入口及账号隔离，丢弃注销、切换用户或换 Token 前发出的旧请求。
@@ -39,6 +54,8 @@ export function useCommunityContribution(enabled: Ref<boolean>, identity: Ref<st
   let revision = 0
   let lastAttempt = 0
   let pending: Promise<void> | null = null
+  let pollTimer: ReturnType<typeof setTimeout> | null = null
+  let pollStartedAt = 0
   /** 当前版本认识的勋章，按目录顺序。 */
   const medals = computed(() => (profile.value?.state === 'ready' ? knownMedals(profile.value.medals) : []))
   /** 实例开启了勋章但还没配置 GitHub Token：入口照常显示，勋章墙引导配置。 */
@@ -48,12 +65,19 @@ export function useCommunityContribution(enabled: Ref<boolean>, identity: Ref<st
    * disabled 与 unavailable 一律隐藏。没有勋章时未读点与头像旁佩戴自然不出现。
    */
   const eligible = computed(() => enabled.value && (profile.value?.state === 'ready' || unconfigured.value))
+  /** 首次无快照时保留与入口等大的位置；后台复核已有勋章时保持原样。 */
+  const initialLoading = computed(
+    () => enabled.value && loading.value && (!profile.value || profile.value.state === 'unavailable'),
+  )
 
   /** 静默探测可见性；显式刷新失败时保留同账号已验证的勋章并给出错误反馈。 */
-  async function refresh(force = false): Promise<void> {
+  async function refresh(force = false, followUp = false): Promise<void> {
     if (!enabled.value) return
     if (pending) return pending
-    if (!force && Date.now() - lastAttempt < 60_000) return
+    if (!force && !followUp && Date.now() - lastAttempt < 60_000) return
+    if (pollTimer !== null) clearTimeout(pollTimer)
+    pollTimer = null
+    if (!followUp) pollStartedAt = Date.now()
     lastAttempt = Date.now()
     const current = revision
     loading.value = true
@@ -64,15 +88,35 @@ export function useCommunityContribution(enabled: Ref<boolean>, identity: Ref<st
           params: { refresh: force },
           timeout: 50_000,
           feedback: 'silent',
+          // 勋章入口属于布局，切换页面不应中断其快照读取或后台进度查询。
+          skipNavigationCancellation: true,
         })
         if (current !== revision) return
-        profile.value = result
-        failed.value = result.state === 'unavailable'
-      } catch {
-        if (current === revision) failed.value = true
+        // 后端冷启动尚未核验完成时继续展示同用户快照；明确撤销或核验失败才清除。
+        if (!(result.state === 'unavailable' && result.refreshing && profile.value?.state === 'ready')) {
+          profile.value = result
+        }
+        failed.value = result.state === 'unavailable' && !result.refreshing
+        if (result.state === 'ready' && !result.refreshing) writeCommunityProfileCache(identity.value, result)
+        else if (!result.refreshing) clearCommunityProfileCache(identity.value)
+        if (result.refreshing && Date.now() - pollStartedAt < 50_000) {
+          pollTimer = setTimeout(() => {
+            pollTimer = null
+            void refresh(false, true)
+          }, 1500)
+        }
+      } catch (error) {
+        if (current !== revision) return
+        failed.value = true
+        if (isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) {
+          profile.value = null
+          clearCommunityProfileCache(identity.value)
+        } else if (profile.value) {
+          profile.value = { ...profile.value, stale: true }
+        }
       } finally {
         if (current === revision) {
-          loading.value = false
+          loading.value = pollTimer !== null
           pending = null
         }
       }
@@ -80,9 +124,11 @@ export function useCommunityContribution(enabled: Ref<boolean>, identity: Ref<st
     return pending
   }
 
-  /** 权限或身份变化时清理全部旧快照，再对当前管理员重新验证。 */
+  /** 撤销当前内存状态及在途请求；保留按用户隔离的快照，供同账号重新登录恢复。 */
   function reset() {
     revision++
+    if (pollTimer !== null) clearTimeout(pollTimer)
+    pollTimer = null
     profile.value = null
     failed.value = false
     loading.value = false
@@ -92,18 +138,35 @@ export function useCommunityContribution(enabled: Ref<boolean>, identity: Ref<st
 
   watch(
     [enabled, identity],
-    () => {
+    ([active, user]) => {
       reset()
+      if (active) profile.value = readCommunityProfileCache(user)
       void refresh()
     },
-    { immediate: true },
+    { immediate: true, flush: 'sync' },
   )
 
   /** Token 变更立即撤下旧账号入口，只有新验证结果才可恢复。 */
   function authChanged() {
+    clearCommunityProfileCache()
     reset()
     void refresh(true)
   }
 
-  return { profile, medals, unconfigured, eligible, loading, failed, refresh, reset, authChanged }
+  /** 其他标签页解绑或更换授权时同步撤销旧显示，只监听删除以免复核写入引发循环。 */
+  function storageChanged(event: StorageEvent) {
+    if (event.storageArea !== localStorage || event.newValue !== null) return
+    if (event.key === null || event.key === communityProfileCacheKey(identity.value)) {
+      reset()
+      void refresh(true)
+    }
+  }
+
+  window.addEventListener('storage', storageChanged)
+  onScopeDispose(() => {
+    window.removeEventListener('storage', storageChanged)
+    reset()
+  })
+
+  return { profile, medals, unconfigured, eligible, initialLoading, loading, failed, refresh, reset, authChanged }
 }

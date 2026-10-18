@@ -1,5 +1,5 @@
 import api, { getApiBusinessErrorMessage } from '@/api'
-import { COMMUNITY_AUTH_CHANGED_EVENT } from '@/composables/useCommunityContribution'
+import { notifyCommunityAuthChanged } from '@/composables/useCommunityContribution'
 
 /** GitHub 授权流程所处的页面上下文。 */
 export type GithubTokenAuthMode = 'settings' | 'initialization'
@@ -108,7 +108,7 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
       )
       if (result.status) status.value = result.status
       if (result.state === 'authorized') {
-        window.dispatchEvent(new Event(COMMUNITY_AUTH_CHANGED_EVENT))
+        notifyCommunityAuthChanged()
         clearPollTimer()
         session.value = null
       } else if (result.state === 'pending' || result.state === 'slow_down') {
@@ -141,7 +141,7 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
     loading.value = true
     try {
       status.value = await api.post<GithubTokenStatus>(`${endpoint.value}/manual`, { token }, { feedback: 'silent' })
-      window.dispatchEvent(new Event(COMMUNITY_AUTH_CHANGED_EVENT))
+      notifyCommunityAuthChanged()
       return true
     } catch (reason) {
       error.value = resolveErrorMessage(reason)
@@ -157,7 +157,7 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
     loading.value = true
     try {
       await api.delete(`${endpoint.value}/token`, { feedback: 'silent' })
-      window.dispatchEvent(new Event(COMMUNITY_AUTH_CHANGED_EVENT))
+      notifyCommunityAuthChanged()
       status.value = await refreshStatus()
       return true
     } catch (reason) {

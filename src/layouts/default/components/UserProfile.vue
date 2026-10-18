@@ -258,7 +258,14 @@ const userLevel = computed(() => userStore.level)
 // 社区勋章只对超级管理员开放，且受实例开关 COMMUNITY_MEDALS_ENABLED 控制；设置未加载时视为关闭。
 const globalSettingsStore = useGlobalSettingsStore()
 const community = useCommunityContribution(
-  computed(() => superUser.value && Boolean(globalSettingsStore.globalSettings.COMMUNITY_MEDALS_ENABLED)),
+  computed(
+    () =>
+      superUser.value &&
+      Boolean(
+        globalSettingsStore.globalSettings.COMMUNITY_MEDALS_ENABLED ||
+        globalSettingsStore.globalSettings.COMMUNITY_MEDALS_REFRESHING,
+      ),
+  ),
   computed(() => String(userStore.userID)),
 )
 // 佩戴在顶栏的勋章键，空串为不佩戴；按 MoviePilot 用户与 GitHub 账号分开记在当前浏览器。
@@ -314,8 +321,15 @@ function showCommunityDialog(focusMedal = '') {
 
 /** 刷新后同步同一张卡片；身份被撤销时及时关闭旧账号荣誉。 */
 watch([community.profile, community.loading, community.failed, wornMedal], () => {
-  const awaitingSetup = shownCommunityState === 'unconfigured' && !community.profile.value && community.loading.value
-  if (awaitingSetup) return
+  const awaitingSetup =
+    shownCommunityState === 'unconfigured' &&
+    community.loading.value &&
+    (!community.profile.value ||
+      (community.profile.value.state === 'unavailable' && community.profile.value.refreshing))
+  if (awaitingSetup) {
+    communityDialogController?.updateProps({ loading: true })
+    return
+  }
   if (!community.eligible.value) {
     communityDialogController?.close()
     communityDialogController = null
@@ -674,7 +688,8 @@ onUnmounted(() => {
 <template>
   <!-- 顶栏常驻的勋章入口：功能可用时始终显示，佩戴时换成那枚勋章；头像菜单里的入口保留为次要入口。 -->
   <CommunityMedalEntry
-    v-if="community.eligible.value"
+    v-if="community.eligible.value || community.initialLoading.value"
+    :loading="community.initialLoading.value"
     :worn="wornRecord"
     :unseen="hasUnseenMedals"
     @open="showCommunityDialog"
