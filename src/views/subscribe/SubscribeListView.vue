@@ -330,13 +330,8 @@ const scrollToIndex = computed(() => {
   return targetIndex >= 0 ? targetIndex : undefined
 })
 
-// 根据订阅数据判断订阅状态
+// 根据运行状态与进度判断订阅状态，洗版模式不覆盖暂停、待定和进度状态。
 function getSubscribeStatus(subscribe: Subscribe) {
-  // 洗版中
-  if (subscribe.best_version) {
-    return 'best_version'
-  }
-
   // 根据订阅状态判断
   if (subscribe.state === 'P') {
     return 'pending' // 待定
@@ -448,8 +443,13 @@ watch(
         return false
       }
 
-      if (props.statusFilter && props.statusFilter !== 'all' && getSubscribeStatus(data) !== props.statusFilter) {
-        return false
+      if (props.statusFilter && props.statusFilter !== 'all') {
+        // 洗版是独立模式，同一订阅也应能按暂停、待定或进度筛选到。
+        const matchesStatus =
+          props.statusFilter === 'best_version'
+            ? Boolean(data.best_version)
+            : getSubscribeStatus(data) === props.statusFilter
+        if (!matchesStatus) return false
       }
 
       return true

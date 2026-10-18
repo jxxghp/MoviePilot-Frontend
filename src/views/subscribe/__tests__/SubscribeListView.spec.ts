@@ -982,7 +982,6 @@ describe('SubscribeListView loading and filtering', () => {
   })
 
   it.each([
-    ['best_version', 'Best'],
     ['pending', 'Pending'],
     ['paused', 'Paused'],
     ['completed', 'Completed'],
@@ -990,7 +989,6 @@ describe('SubscribeListView loading and filtering', () => {
     ['not_started', 'Not started'],
   ])('derives the %s status defensively', async (statusFilter, expectedName) => {
     const subscriptions = [
-      tv(11, 'Best', { best_version: 1 }),
       tv(12, 'Pending', { state: 'P' }),
       tv(13, 'Paused', { state: 'S' }),
       tv(14, 'Completed', { completed_episode: 10, lack_episode: 0, total_episode: 10 }),
@@ -1001,6 +999,64 @@ describe('SubscribeListView loading and filtering', () => {
 
     expect(await screen.findByText(expectedName)).toBeInTheDocument()
     expect(displayedNames()).toEqual([expectedName])
+  })
+
+  it.each(['电影', '电视剧'] as const)(
+    'keeps best-version %s subscriptions visible under their pending and paused filters',
+    async type => {
+      const subscriptions = [
+        createSubscribe({ id: 31, name: 'Running', type }),
+        createSubscribe({ id: 32, name: 'Paused', state: 'S', type }),
+        createSubscribe({ id: 33, name: 'Pending', state: 'P', type }),
+        createSubscribe({ id: 34, name: 'Best running', best_version: 1, type }),
+        createSubscribe({ id: 35, name: 'Best paused', best_version: 1, state: 'S', type }),
+        createSubscribe({ id: 36, name: 'Best pending', best_version: 1, state: 'P', type }),
+        createSubscribe({ id: 37, name: 'Other user', best_version: 1, state: 'S', type, username: 'other' }),
+        createSubscribe({ id: 38, name: 'Other type', best_version: 1, state: 'S', type: '音乐' }),
+      ]
+      const { rerender } = await renderList({ listResponse: subscriptions, statusFilter: 'best_version', type })
+
+      await screen.findByText('Best running')
+      expect(displayedNames()).toEqual(['Best running', 'Best paused', 'Best pending'])
+
+      await rerender({ statusFilter: 'paused' })
+      expect(displayedNames()).toEqual(['Paused', 'Best paused'])
+
+      await rerender({ statusFilter: 'pending' })
+      expect(displayedNames()).toEqual(['Pending', 'Best pending'])
+
+      await rerender({ statusFilter: 'all' })
+      expect(displayedNames()).toEqual(['Running', 'Paused', 'Pending', 'Best running', 'Best paused', 'Best pending'])
+
+      await rerender({ keyword: 'Best', statusFilter: 'paused' })
+      expect(displayedNames()).toEqual(['Best paused'])
+    },
+  )
+
+  it.each([
+    ['completed', 'Best completed', { completed_episode: 10, lack_episode: 0, total_episode: 10 }],
+    ['subscribing', 'Best subscribing', { completed_episode: 6, lack_episode: 4, total_episode: 10 }],
+    ['not_started', 'Best not started', { completed_episode: 0, lack_episode: 10, total_episode: 10 }],
+  ] as const)('includes best-version TV progress in the %s filter', async (statusFilter, expectedName, progress) => {
+    await renderList({
+      listResponse: [
+        tv(41, expectedName, { ...progress, best_version: 1 }),
+        tv(42, `${expectedName} full`, { ...progress, best_version: 1, best_version_full: 1 }),
+        tv(43, 'Paused', { ...progress, best_version: 1, state: 'S' }),
+        tv(44, 'Pending', { ...progress, best_version: 1, state: 'P' }),
+        tv(45, 'Other progress', {
+          best_version: 1,
+          completed_episode: statusFilter === 'completed' ? 0 : 10,
+          lack_episode: statusFilter === 'completed' ? 10 : 0,
+          total_episode: 10,
+        }),
+      ],
+      statusFilter,
+      type: '电视剧',
+    })
+
+    await screen.findByText(expectedName)
+    expect(displayedNames()).toEqual([expectedName, `${expectedName} full`])
   })
 
   it.each([
