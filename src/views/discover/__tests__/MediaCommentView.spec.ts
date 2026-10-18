@@ -100,6 +100,50 @@ describe('MediaCommentView', () => {
     expect(screen.getByRole('button', { name: '加载更多' })).toBeTruthy()
   })
 
+  it('proxies douban avatars through the backend image endpoint', async () => {
+    server.use(
+      interestsResponse({
+        start: 0,
+        count: 2,
+        total: 2,
+        items: [
+          {
+            id: '1',
+            comment: '有头像',
+            author: { id: '1', name: '陀螺凡达可', avatar: 'https://img2.doubanio.com/icon/up1-2.jpg' },
+          },
+          {
+            id: '2',
+            comment: '无头像',
+            author: { id: '2', name: '阿北' },
+          },
+        ],
+      }),
+    )
+
+    await renderWithProviders(MediaCommentView, {
+      props: { doubanid: '20276229', type: '电影' },
+      // jsdom 不会触发 VImg 的懒加载观察，用简化桩暴露最终 src
+      global: {
+        stubs: {
+          VImg: { props: ['src'], template: '<img :src="src" />' },
+        },
+      },
+    })
+    triggerIntersection()
+    await waitFor(() => {
+      expect(screen.getByText('有头像')).toBeTruthy()
+    })
+    // 豆瓣头像域名直连会返回 418，必须经后端代理，否则头像区域留空
+    const avatarImg = document.querySelector('.comment-item img') as HTMLImageElement | null
+    expect(avatarImg).not.toBeNull()
+    const src = avatarImg?.getAttribute('src') ?? ''
+    expect(src).toContain('system/img/0?imgurl=')
+    expect(decodeURIComponent(src)).toContain('img2.doubanio.com/icon/up1-2.jpg')
+    // 无头像时回退到昵称首字，避免出现空白占位
+    expect(screen.getByText('阿')).toBeTruthy()
+  })
+
   it('switches to reviews and requests the reviews endpoint', async () => {
     const interestsRequested = vi.fn()
     const reviewsRequested = vi.fn()
@@ -142,6 +186,10 @@ describe('MediaCommentView', () => {
     })
     expect(screen.getByText('《无暇赴死》或许很好')).toBeTruthy()
     expect(screen.getByText('以下严重剧透注意。')).toBeTruthy()
+    // 摘要必须是普通块级节点：VListItemSubtitle 的 -webkit-line-clamp 会截断正文
+    const abstractNode = screen.getByText('以下严重剧透注意。')
+    expect(abstractNode.classList.contains('comment-text')).toBe(true)
+    expect(abstractNode.classList.contains('v-list-item-subtitle')).toBe(false)
     expect(screen.getByText('2166 有用')).toBeTruthy()
   })
 

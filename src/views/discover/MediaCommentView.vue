@@ -1,6 +1,14 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { MediaComment, MediaCommentPage, MediaReview, MediaReviewPage } from '@/api/types'
+import type {
+  MediaComment,
+  MediaCommentAuthor,
+  MediaCommentPage,
+  MediaReview,
+  MediaReviewPage,
+} from '@/api/types'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 // 输入参数
 const props = defineProps({
@@ -36,6 +44,35 @@ const PAGE_SIZE = 10
 
 // 容器引用
 const containerRef = ref<HTMLElement | null>(null)
+
+// 全局设置：用于读取图片缓存开关
+const globalSettingsStore = useGlobalSettingsStore()
+
+// 头像加载失败的原始地址；豆瓣 CDN 有防盗链，直连会返回 418，失败后回退到首字母
+const failedAvatarUrls = ref<Set<string>>(new Set())
+
+/**
+ * 计算作者头像的可显示地址。
+ * 豆瓣头像域名对非同源 Referer 返回 418，必须统一走后端图片代理，否则头像区域会留空。
+ * @param author 评论作者
+ * @returns 可用的图片地址；无头像或此前已加载失败时返回空字符串以回退到首字母
+ */
+function getAvatarSrc(author?: MediaCommentAuthor): string {
+  const rawAvatar = author?.avatar
+  if (!rawAvatar || failedAvatarUrls.value.has(rawAvatar)) return ''
+  return getDisplayImageUrl(rawAvatar, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
+}
+
+/**
+ * 记录加载失败的头像，触发模板回退到首字母展示。
+ * @param author 评论作者
+ */
+function handleAvatarError(author?: MediaCommentAuthor) {
+  const rawAvatar = author?.avatar
+  if (!rawAvatar) return
+  // 替换整个 Set 以触发响应式更新
+  failedAvatarUrls.value = new Set(failedAvatarUrls.value).add(rawAvatar)
+}
 
 // 拉取当前标签页数据；短评与影评共用分页协议，按已加载条数作为偏移
 async function fetchData() {
@@ -126,7 +163,12 @@ const { stop } = useIntersectionObserver(
           <VListItem v-for="item in interests" :key="item.id" class="comment-item">
             <template #prepend>
               <VAvatar size="32">
-                <VImg v-if="item.author?.avatar" :src="item.author.avatar" />
+                <VImg
+                  v-if="getAvatarSrc(item.author)"
+                  :src="getAvatarSrc(item.author)"
+                  cover
+                  @error="handleAvatarError(item.author)"
+                />
                 <span v-else>{{ item.author?.name?.charAt(0) ?? '?' }}</span>
               </VAvatar>
             </template>
@@ -155,7 +197,12 @@ const { stop } = useIntersectionObserver(
           <VListItem v-for="item in reviews" :key="item.id" class="comment-item">
             <template #prepend>
               <VAvatar size="32">
-                <VImg v-if="item.author?.avatar" :src="item.author.avatar" />
+                <VImg
+                  v-if="getAvatarSrc(item.author)"
+                  :src="getAvatarSrc(item.author)"
+                  cover
+                  @error="handleAvatarError(item.author)"
+                />
                 <span v-else>{{ item.author?.name?.charAt(0) ?? '?' }}</span>
               </VAvatar>
             </template>
@@ -171,7 +218,8 @@ const { stop } = useIntersectionObserver(
                 class="ms-2"
               />
             </VListItemTitle>
-            <VListItemSubtitle class="comment-text">{{ item.abstract }}</VListItemSubtitle>
+            <!-- 摘要用普通块级元素承载：VListItemSubtitle 是 -webkit-box 行数截断容器，会把正文压成一行 -->
+            <div class="comment-text">{{ item.abstract }}</div>
             <VListItemSubtitle class="comment-meta">
               <span v-if="item.author?.name">{{ item.author.name }}</span>
               <span v-if="item.create_time" class="ms-2">{{ item.create_time }}</span>
@@ -225,8 +273,11 @@ const { stop } = useIntersectionObserver(
 }
 
 .comment-text {
+  display: block;
   margin-block-start: 0.375rem;
-  white-space: normal;
+  /* pre-line 保留豆瓣正文里的段落换行，同时让长句正常折行 */
+  white-space: pre-line;
+  overflow: visible;
   overflow-wrap: anywhere;
   font-size: 0.875rem;
   line-height: 1.5;
