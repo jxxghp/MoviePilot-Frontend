@@ -142,7 +142,7 @@ const { stop } = useIntersectionObserver(
                 class="ms-2"
               />
             </VListItemTitle>
-            <VListItemSubtitle class="comment-text">{{ item.comment }}</VListItemSubtitle>
+            <div class="comment-text">{{ item.comment }}</div>
             <VListItemSubtitle class="comment-meta">
               <span v-if="item.create_time">{{ item.create_time }}</span>
               <span v-if="item.vote_count" class="ms-2">{{ $t('media.usefulCount', { count: item.vote_count }) }}</span>
@@ -220,11 +220,15 @@ const { stop } = useIntersectionObserver(
 
 .comment-author {
   font-size: 0.875rem;
-  opacity: 0.9;
+  font-weight: 600;
+  color: rgb(var(--v-theme-primary));
 }
 
 .comment-text {
+  margin-block-start: 0.375rem;
   white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
   line-height: 1.5;
   opacity: 1;
 }

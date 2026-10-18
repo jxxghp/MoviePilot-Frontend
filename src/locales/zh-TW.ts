@@ -267,6 +267,7 @@ export default {
     add: '添加',
     search: '搜索',
     loading: '加載中',
+    loadMore: '載入更多',
     success: '成功',
     error: '錯誤',
     exists: '已存在',

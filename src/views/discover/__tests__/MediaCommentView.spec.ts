@@ -13,27 +13,35 @@ const REVIEWS_URL = '*/api/v1/douban/reviews/20276229/*'
 
 let intersectionCallbacks: IntersectionObserverCallback[] = []
 
+/** 提供由用例控制进入视口时机的观察器。 */
 class IntersectionObserverMock implements IntersectionObserver {
   readonly root = null
   readonly rootMargin = '300px'
   readonly thresholds = [0]
 
+  /** 保存回调以模拟评论区域进入视口。 */
   constructor(callback: IntersectionObserverCallback) {
     intersectionCallbacks.push(callback)
   }
 
+  /** 测试结束后无需释放真实观察器。 */
   disconnect() {}
+  /** 测试使用显式回调触发观察。 */
   observe() {}
+  /** 返回没有待处理观察记录的状态。 */
   takeRecords(): IntersectionObserverEntry[] {
     return []
   }
+  /** 测试没有真实元素订阅需要移除。 */
   unobserve() {}
 }
 
+/** 创建返回指定短评分页的离线处理器。 */
 function interestsResponse(page: MediaCommentPage, status = 200) {
   return http.get(INTERESTS_URL, () => apiJson(page, { status }))
 }
 
+/** 触发评论区域的可见性变化。 */
 function triggerIntersection(isIntersecting = true) {
   const callback = intersectionCallbacks.at(-1)
   expect(callback).toBeTypeOf('function')
@@ -43,6 +51,7 @@ function triggerIntersection(isIntersecting = true) {
   )
 }
 
+/** 使用生产 UI 与翻译插件渲染电影评论。 */
 async function renderComments() {
   return renderWithProviders(MediaCommentView, {
     props: {
@@ -88,6 +97,7 @@ describe('MediaCommentView', () => {
     expect(screen.getByText(/还行\s+可是古巴的007女郎比女主好看啊/)).toBeTruthy()
     expect(screen.getByText('2021-10-29 12:00:00')).toBeTruthy()
     expect(screen.getByText('7652 有用')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '加载更多' })).toBeTruthy()
   })
 
   it('switches to reviews and requests the reviews endpoint', async () => {

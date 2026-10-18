@@ -272,6 +272,7 @@ export default {
     add: 'Add',
     search: 'Search',
     loading: 'Loading',
+    loadMore: 'Load more',
     success: 'Success',
     error: 'Error',
     exists: 'Exists',
