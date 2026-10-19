@@ -292,3 +292,77 @@ it('keeps expanded details during unchanged summary polling', async () => {
   unmount()
   intervals.mockRestore()
 })
+
+describe('subscription download source', () => {
+  it.each([1436, 375])('shows real submission types and counts at %dpx', async width => {
+    server.use(
+      http.get(activityUrl, () =>
+        apiJson({
+          items: [
+            refreshEvent({
+              status: 'completed',
+              counts: {
+                sites: 1,
+                related: 3,
+                submitted: 3,
+                initial_submitted: 1,
+                upgrade_submitted: 2,
+                full_upgrade_submitted: 1,
+              },
+              details: {
+                resources: [
+                  {
+                    title: 'Demo.S01E02',
+                    site: 'Site',
+                    decision: 'submitted',
+                    subscription_download: {
+                      subscription_id: 17,
+                      submission_type: 'initial',
+                      best_version_full: false,
+                      initial_episodes: [2],
+                      upgrade_episodes: [],
+                    },
+                  },
+                  {
+                    title: 'Demo.S01E01',
+                    site: 'Site',
+                    decision: 'submitted',
+                    subscription_download: {
+                      subscription_id: 17,
+                      submission_type: 'upgrade',
+                      best_version_full: false,
+                      initial_episodes: [],
+                      upgrade_episodes: [1],
+                    },
+                  },
+                  {
+                    title: 'Demo.S01',
+                    site: 'Site',
+                    decision: 'submitted',
+                    subscription_download: {
+                      subscription_id: 17,
+                      submission_type: 'upgrade',
+                      best_version_full: true,
+                      initial_episodes: [2],
+                      upgrade_episodes: [1],
+                    },
+                  },
+                  { title: 'Legacy', site: 'Site', decision: 'submitted' },
+                ],
+              },
+            }),
+          ],
+          next_cursor: null,
+        }),
+      ),
+    )
+    const { unmount } = await renderActivity(false, width)
+    await fireEvent.click(await screen.findByRole('button', { name: /刷新匹配/ }))
+    expect(await screen.findByText('首次订阅 1 项 · 洗版 2 项（其中全集洗版 1 项）')).toBeInTheDocument()
+    expect(screen.getByText('首次订阅')).toBeInTheDocument()
+    expect(screen.getByText('洗版升级')).toBeInTheDocument()
+    expect(screen.getByText('全集洗版')).toBeInTheDocument()
+    expect(screen.getByText('未记录')).toBeInTheDocument()
+    unmount()
+  })
+})

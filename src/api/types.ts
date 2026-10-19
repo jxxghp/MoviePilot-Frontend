@@ -65,6 +65,9 @@ export interface SubscriptionSearchSubmission {
 
 /** 订阅搜索批次的聚合进度与当前工作。 */
 export interface SubscriptionBatchStatus {
+  download_counts?: Record<string, number>
+  downloads?: (SubscriptionActivityResource & { subscription_id: number; task_id: string })[]
+  downloads_omitted?: number
   batch_id: string
   source: string
   state: string
@@ -3059,11 +3062,21 @@ export interface ApiResponse<T = unknown> {
   data: T | null
 }
 
-/** 单个订阅轮次的安全资源摘要，不包含下载链接或站点凭据。 */
+/** 订阅提交时冻结的下载目的、洗版模式和实际选集事实。 */
+export interface SubscriptionDownloadSource {
+  subscription_id: number
+  submission_type: 'initial' | 'upgrade'
+  best_version_full: boolean
+  initial_episodes: number[]
+  upgrade_episodes: number[]
+}
+
+/** 单个下载的安全活动摘要，只有成功提交时附带来源事实。 */
 export interface SubscriptionActivityResource {
   title: string
   site: string
   decision: string
+  subscription_download?: SubscriptionDownloadSource | null
   reason?: string | null
 }
 

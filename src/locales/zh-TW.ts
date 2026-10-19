@@ -120,6 +120,9 @@ export default {
     },
   },
   subscriptionActivity: {
+    submissionType: '提交類型',
+    downloadSummary: '首次訂閱 {initial} 項 · 洗版 {upgrade} 項（其中全集洗版 {full} 項）',
+    downloadType: { initial: '首次訂閱', upgrade: '洗版升級', fullUpgrade: '全集洗版', unknown: '未記錄' },
     queuedRules: '提交請求時的訂閱條件',
     runningSummary: '本輪正在處理，搜尋概要會隨結果更新',
     failedSites: '{count} 個站點請求未成功，詳情中保留各站點結果',

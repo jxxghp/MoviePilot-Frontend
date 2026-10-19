@@ -124,6 +124,14 @@ export default {
     },
   },
   subscriptionActivity: {
+    submissionType: 'Submission type',
+    downloadSummary: 'Initial downloads: {initial} · Upgrades: {upgrade} (full-season: {full})',
+    downloadType: {
+      initial: 'Initial subscription',
+      upgrade: 'Quality upgrade',
+      fullUpgrade: 'Full-season upgrade',
+      unknown: 'Not recorded',
+    },
     queuedRules: 'Subscription rules when the request was submitted',
     runningSummary: 'This run is in progress; the search summary will update with results',
     failedSites: '{count} site requests failed; per-site results are available in details',

@@ -75,3 +75,35 @@ describe('SubscribeExecutionDialog', () => {
     expect(screen.queryByText(/预计时间/)).not.toBeInTheDocument()
   })
 })
+
+it('shows batch download counts and bounded receipts', async () => {
+  await renderWithProviders(SubscribeExecutionDialog, {
+    props: {
+      execution: {
+        state: 'completed',
+        phase: 'completed',
+        download_counts: { initial_submitted: 1, upgrade_submitted: 1, full_upgrade_submitted: 1 },
+        downloads: [
+          {
+            title: 'Demo.S01',
+            site: 'Site',
+            decision: 'submitted',
+            subscription_id: 17,
+            task_id: 'task',
+            subscription_download: {
+              subscription_id: 17,
+              submission_type: 'upgrade',
+              best_version_full: true,
+              initial_episodes: [2],
+              upgrade_episodes: [1],
+            },
+          },
+        ],
+        downloads_omitted: 1,
+      },
+    },
+  })
+  expect(screen.getByText('首次订阅 1 项 · 洗版 1 项（其中全集洗版 1 项）')).toBeVisible()
+  expect(screen.getByText('全集洗版')).toBeVisible()
+  expect(screen.getByText('Demo.S01')).toBeVisible()
+})

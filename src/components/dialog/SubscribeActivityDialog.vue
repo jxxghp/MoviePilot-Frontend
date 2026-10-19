@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
+import { subscriptionDownloadKey } from '@/utils/subscriptionDownload'
 import type { Subscribe, SubscrbieInfo, SubscriptionActivityEvent, SubscriptionActivityPage } from '@/api/types'
 import { formatSeasonLabel } from '@/@core/utils/season'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
@@ -594,6 +595,15 @@ onBeforeUnmount(() => {
                     <VIcon v-if="index < 3" icon="mdi-chevron-right" class="activity-stage-arrow" />
                   </template>
                 </div>
+                <p v-if="event.counts.initial_submitted !== undefined" class="activity-explanation mt-3">
+                  {{
+                    t('subscriptionActivity.downloadSummary', {
+                      initial: event.counts.initial_submitted || 0,
+                      upgrade: event.counts.upgrade_submitted || 0,
+                      full: event.counts.full_upgrade_submitted || 0,
+                    })
+                  }}
+                </p>
                 <h4>{{ t('subscriptionActivity.resources', { count: event.counts.related || 0 }) }}</h4>
                 <div class="activity-table-scroll">
                   <table class="activity-table">
@@ -602,6 +612,7 @@ onBeforeUnmount(() => {
                         <th>{{ t('subscriptionActivity.resourceName') }}</th>
                         <th>{{ t('subscriptionActivity.resourceSite') }}</th>
                         <th>{{ t('subscriptionActivity.decision') }}</th>
+                        <th>{{ t('subscriptionActivity.submissionType') }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -622,9 +633,18 @@ onBeforeUnmount(() => {
                           />
                           {{ resource.reason || t(`subscriptionActivity.decisionLabel.${resource.decision}`) }}
                         </td>
+                        <td>
+                          {{
+                            resource.decision === 'submitted'
+                              ? t(
+                                  `subscriptionActivity.downloadType.${subscriptionDownloadKey(resource.subscription_download)}`,
+                                )
+                              : '—'
+                          }}
+                        </td>
                       </tr>
                       <tr v-if="!event.details.resources?.length">
-                        <td colspan="3" class="activity-muted">{{ t('subscriptionActivity.noRelatedResources') }}</td>
+                        <td colspan="4" class="activity-muted">{{ t('subscriptionActivity.noRelatedResources') }}</td>
                       </tr>
                     </tbody>
                   </table>

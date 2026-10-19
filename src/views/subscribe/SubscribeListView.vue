@@ -611,6 +611,9 @@ function executionBatchSignature(batches: SubscriptionBatchStatus[]) {
       batch.updated_at,
       batch.error,
       batch.can_cancel,
+      batch.download_counts,
+      batch.downloads,
+      batch.downloads_omitted,
     ]),
   )
 }
