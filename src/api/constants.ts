@@ -75,6 +75,7 @@ export const transferTypeOptions = [
   { title: i18n.global.t('transferType.move'), value: 'move' },
   { title: i18n.global.t('transferType.link'), value: 'link' },
   { title: i18n.global.t('transferType.softlink'), value: 'softlink' },
+  { title: i18n.global.t('transferType.reflink'), value: 'reflink' },
 ]
 
 export const qualityOptions = ref([

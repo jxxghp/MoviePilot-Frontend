@@ -2152,6 +2152,7 @@ export default {
     move: 'Move',
     link: 'Hard Link',
     softlink: 'Soft Link',
+    reflink: 'Reflink',
   },
   site: {
     noSites: 'No Sites',
@@ -5709,6 +5710,7 @@ export default {
       move: 'Move',
       link: 'Hard Link',
       softlink: 'Soft Link',
+      reflink: 'Reflink',
       rclone_copy: 'Rclone Copy',
       rclone_move: 'Rclone Move',
     },
