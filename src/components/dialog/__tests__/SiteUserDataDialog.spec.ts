@@ -46,6 +46,7 @@ const DialogCloseButtonStub = defineComponent({
       h('button', { ...attrs, 'aria-label': '关闭' }),
 })
 
+/** 创建可手动完成的请求以验证异步顺序。 */
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>(resolvePromise => {
@@ -55,6 +56,7 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+/** 通过真实 API 适配器加载站点用户数据弹窗。 */
 async function renderDialog(
   initialResult: { data: SiteUserData[]; message?: string; success: boolean } = { data: [], success: true },
   status = 200,
@@ -75,18 +77,21 @@ async function renderDialog(
   return { ...result, site }
 }
 
+/** 读取图表组件接收到的生产配置与数据。 */
 function getChart(type: string) {
   const chart = chartInputs.find(input => input.type === type)
   if (!chart) throw new Error(`Missing ${type} chart input`)
   return chart
 }
 
+/** 定位弹窗标题中的刷新操作。 */
 function getRefreshButton() {
   const button = document.querySelector<HTMLButtonElement>('.v-card-title button')
   if (!button) throw new Error('Missing refresh button')
   return button
 }
 
+/** 定位失败提示中的重试操作。 */
 function getRetryButton() {
   const button = Array.from(document.querySelectorAll<HTMLButtonElement>('.v-alert button')).find(element =>
     element.textContent?.includes('重试'),
@@ -203,6 +208,86 @@ describe('SiteUserDataDialog projections', () => {
     )
   })
 
+  it('keeps a single in-card scatter tooltip and reserves space beside the vertical axis', async () => {
+    await renderDialog({
+      data: [
+        createSiteUserData({
+          seeding_info: [
+            [2, 40 * 1024 ** 3],
+            [55, 1024 ** 3],
+          ],
+        }),
+      ],
+      success: true,
+    })
+    await screen.findByText('Elite')
+    for (const type of ['line', 'scatter']) {
+      expect(getChart(type).options.xaxis).toMatchObject({ tooltip: { enabled: false } })
+    }
+    expect(getChart('scatter').options.tooltip).toMatchObject({
+      fixed: { enabled: true, position: 'topRight', offsetX: -8, offsetY: 8 },
+    })
+    expect(getChart('scatter').options.grid).toMatchObject({ padding: { left: 16, right: 16, top: 8 } })
+  })
+
+  it.each([undefined, null])('shows missing latest values without invented deltas for %s', async missing => {
+    const latest = Object.assign(createSiteUserData({ updated_day: '2026-07-19' }), {
+      bonus: missing,
+      ratio: missing,
+      upload: missing,
+      download: missing,
+      seeding: missing,
+      seeding_size: missing,
+      user_level: missing,
+      join_at: missing,
+    })
+    await renderDialog({ data: [createSiteUserData(), latest], success: true })
+    await screen.findByText('用户名：site-user')
+    await waitFor(() => {
+      for (const value of document.querySelectorAll('.site-data-summary-card h5')) {
+        expect(value).toHaveTextContent(/^无$/)
+        expect(value.querySelector('span')).toBeNull()
+      }
+    })
+  })
+
+  it('preserves valid zeroes and displays site metadata and business errors as text', async () => {
+    const latest = createSiteUserData({
+      bonus: 0,
+      ratio: 0,
+      seeding: 0,
+      upload: 0,
+      download: 0,
+      seeding_size: 0,
+      message_unread: 0,
+      updated_time: '2026-07-19 12:34:56',
+      err_msg: '<b>站点登录失效</b>',
+    })
+    await renderDialog({ data: [latest], success: true })
+    await screen.findByText('<b>站点登录失效</b>')
+    const alert = document.querySelector('.site-data-error')
+    expect(alert).toHaveTextContent('<b>站点登录失效</b>')
+    expect(alert?.querySelector('b')).toBeNull()
+    expect(screen.getByText('用户名：site-user')).toBeInTheDocument()
+    expect(screen.getByText('更新时间：2026-07-19 12:34:56')).toBeInTheDocument()
+    expect(screen.getByText('未读消息：0')).toBeInTheDocument()
+    for (const value of document.querySelectorAll('.site-data-summary-card h5'))
+      expect(value).not.toHaveTextContent('无')
+    expect(screen.getAllByText('(+0)')).toHaveLength(3)
+    expect(screen.getAllByText('0.00 B')).toHaveLength(3)
+  })
+
+  it('does not calculate a change from an unknown baseline', async () => {
+    const older = Object.assign(createSiteUserData({ updated_day: '2026-07-17' }), { bonus: null, upload: null })
+    await renderDialog({
+      data: [older, createSiteUserData({ bonus: 33851545, upload: 1234.56 * 1024 ** 4 })],
+      success: true,
+    })
+    await screen.findByText('33,851,545')
+    expect(screen.queryByText('(+33,851,545)')).not.toBeInTheDocument()
+    expect(screen.queryByText('(+1,234.56 TB)')).not.toBeInTheDocument()
+  })
+
   it('uses the only record as both latest data and the baseline delta', async () => {
     const only = createSiteUserData({ bonus: 42, ratio: 0, seeding: 5, updated_day: '2026-07-18' })
     await renderDialog({ data: [only], success: true })
@@ -247,7 +332,7 @@ describe('SiteUserDataDialog projections', () => {
       { data: [], name: '上传量' },
       { data: [], name: '下载量' },
     ])
-    expect(screen.getByText('无')).toBeInTheDocument()
+    expect(screen.getAllByText('无')).toHaveLength(8)
     expect(getChart('scatter').series).toEqual([{ data: [], name: '体积' }])
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -405,7 +490,7 @@ describe('SiteUserDataDialog refresh and recovery', () => {
 
     await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
     await waitFor(() => expect(screen.queryByText(/加载站点数据失败/)).not.toBeInTheDocument())
-    expect(screen.getByText('无')).toBeInTheDocument()
+    expect(screen.getAllByText('无')).toHaveLength(8)
   })
 
   it('emits close without mutating loaded user data', async () => {

@@ -145,6 +145,7 @@ const historyChartOptions = computed(() => {
     dataLabels: { enabled: false },
     xaxis: {
       type: 'category',
+      tooltip: { enabled: false },
       categories: siteDatas.value.map(item => item.updated_day),
       labels: {
         show: true,
@@ -231,6 +232,8 @@ const seedingChartOptions = computed(() => {
       enabled: true,
       theme: themeMode,
       intersect: true,
+      // 固定在绘图区内，避免边缘散点的浮层向卡片外展开而被裁切。
+      fixed: { enabled: true, position: 'topRight', offsetX: -8, offsetY: 8 },
       x: {
         formatter: function (val: number) {
           return `${t('dialog.siteUserData.countTitle')}${val.toLocaleString()}`
@@ -245,7 +248,7 @@ const seedingChartOptions = computed(() => {
       strokeDashArray: 6,
       xaxis: { lines: { show: true } },
       yaxis: { lines: { show: true } },
-      padding: { top: -4, left: 4, right: 12, bottom: 4 },
+      padding: { top: 8, left: 16, right: 16, bottom: 4 },
     },
     colors: [currentTheme.value.primary],
     markers: {
@@ -257,6 +260,7 @@ const seedingChartOptions = computed(() => {
     dataLabels: { enabled: false },
     xaxis: {
       type: 'numeric',
+      tooltip: { enabled: false },
       labels: {
         show: true,
         formatter: function (val: number) {
@@ -301,16 +305,17 @@ const diffData = computed(() => {
   const first = siteDatas.value[siteDatas.value.length - 1]
   const second = siteDatas.value[siteDatas.value.length - 2]
   return {
-    bonus: (first.bonus ?? 0) - (second.bonus ?? 0),
-    ratio: (first.ratio ?? 0) - (second.ratio ?? 0),
-    upload: (first.upload ?? 0) - (second.upload ?? 0),
-    download: (first.download ?? 0) - (second.download ?? 0),
-    seeding: (first.seeding ?? 0) - (second.seeding ?? 0),
-    seeding_size: (first.seeding_size ?? 0) - (second.seeding_size ?? 0),
+    bonus: first.bonus == null || second.bonus == null ? undefined : first.bonus - second.bonus,
+    ratio: first.ratio == null || second.ratio == null ? undefined : first.ratio - second.ratio,
+    upload: first.upload == null || second.upload == null ? undefined : first.upload - second.upload,
+    download: first.download == null || second.download == null ? undefined : first.download - second.download,
+    seeding: first.seeding == null || second.seeding == null ? undefined : first.seeding - second.seeding,
+    seeding_size:
+      first.seeding_size == null || second.seeding_size == null ? undefined : first.seeding_size - second.seeding_size,
   }
 })
 
-// 格式化差值
+/** 格式化有值字段的增量，保留正负号。 */
 function getDiffString(diff: number | undefined, format: boolean = true) {
   if (diff === undefined) {
     return '0'
@@ -321,7 +326,7 @@ function getDiffString(diff: number | undefined, format: boolean = true) {
   return diff >= 0 ? `+${diff}` : diff
 }
 
-// 根据差值的正负，返回不同的样式
+/** 根据增量正负返回对应的语义颜色。 */
 function getDiffClass(diff: number | undefined) {
   if (diff === undefined) {
     return ''
@@ -332,7 +337,7 @@ function getDiffClass(diff: number | undefined) {
   return diff > 0 ? 'text-success' : 'text-error'
 }
 
-// 查询站点用户数据
+/** 加载当前站点历史，仅允许最近一次操作更新弹窗。 */
 async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', generation?: number) {
   const activeGeneration = generation ?? ++operationGeneration
 
@@ -358,7 +363,7 @@ async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', 
   return false
 }
 
-// 刷新站点数据
+/** 刷新站点后重新加载历史，并在失败时保留旧数据。 */
 async function refreshSiteData() {
   const generation = ++operationGeneration
   progressDialog.value = true
@@ -379,7 +384,7 @@ async function refreshSiteData() {
   }
 }
 
-// 重试最近失败的请求，刷新失败时继续保留当前数据。
+/** 重试最近失败的请求，刷新失败时继续保留当前数据。 */
 function retryFailedOperation() {
   if (failedOperation.value === 'refresh') {
     refreshSiteData()
@@ -422,13 +427,31 @@ onBeforeMount(() => {
             </VBtn>
           </div>
         </VAlert>
+        <VAlert v-if="siteData?.err_msg" type="warning" variant="tonal" class="mb-5 site-data-error">
+          {{ siteData.err_msg }}
+        </VAlert>
+        <div v-if="siteData" class="d-flex flex-wrap gap-x-5 gap-y-2 mb-4 text-body-2 site-data-details">
+          <span
+            >{{ t('dialog.siteUserData.username') }}：{{ siteData.username || t('dialog.siteUserData.noData') }}</span
+          >
+          <span
+            >{{ t('dialog.siteUserData.updateTime') }}：{{
+              siteData.updated_time || siteData.updated_day || t('dialog.siteUserData.noData')
+            }}</span
+          >
+          <span
+            >{{ t('dialog.siteUserData.msgCount') }}：{{
+              siteData.message_unread ?? t('dialog.siteUserData.noData')
+            }}</span
+          >
+        </div>
         <VRow class="match-height site-data-summary-grid">
           <!-- 用户信息 -->
           <VCol cols="12" sm="6" md="3">
             <VCard class="site-data-summary-card site-data-summary-card--primary">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.userLevel') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
                       {{ siteData?.user_level || t('dialog.siteUserData.noData') }}
@@ -446,11 +469,15 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--warning">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.bonus') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ siteData?.bonus?.toLocaleString() }}
-                      <span class="text-base font-weight-regular" :class="getDiffClass(diffData?.bonus)">
+                      {{ siteData?.bonus?.toLocaleString() ?? t('dialog.siteUserData.noData') }}
+                      <span
+                        v-if="diffData?.bonus != null"
+                        class="text-base font-weight-regular"
+                        :class="getDiffClass(diffData?.bonus)"
+                      >
                         ({{ getDiffString(diffData?.bonus) }})
                       </span>
                     </h5>
@@ -467,11 +494,15 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--info">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.ratio') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ siteData?.ratio }}
-                      <span class="text-base font-weight-regular" :class="getDiffClass(diffData?.ratio)">
+                      {{ siteData?.ratio ?? t('dialog.siteUserData.noData') }}
+                      <span
+                        v-if="diffData?.ratio != null"
+                        class="text-base font-weight-regular"
+                        :class="getDiffClass(diffData?.ratio)"
+                      >
                         ({{ getDiffString(diffData?.ratio) }})
                       </span>
                     </h5>
@@ -488,11 +519,15 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--success">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.uploadTotal') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ formatFileSize(siteData?.upload || 0) }}
-                      <span class="text-base font-weight-regular" :class="getDiffClass(diffData?.upload)">
+                      {{ siteData?.upload == null ? t('dialog.siteUserData.noData') : formatFileSize(siteData.upload) }}
+                      <span
+                        v-if="diffData?.upload != null"
+                        class="text-base font-weight-regular"
+                        :class="getDiffClass(diffData?.upload)"
+                      >
                         ({{ formatFileSize(diffData?.upload || 0, 2, true) }})
                       </span>
                     </h5>
@@ -509,11 +544,17 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--warning">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.downloadTotal') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ formatFileSize(siteData?.download || 0) }}
-                      <span class="text-base font-weight-regular" :class="getDiffClass(diffData?.download)">
+                      {{
+                        siteData?.download == null ? t('dialog.siteUserData.noData') : formatFileSize(siteData.download)
+                      }}
+                      <span
+                        v-if="diffData?.download != null"
+                        class="text-base font-weight-regular"
+                        :class="getDiffClass(diffData?.download)"
+                      >
                         ({{ formatFileSize(diffData?.download || 0, 2, true) }})
                       </span>
                     </h5>
@@ -530,11 +571,15 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--primary">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.seedingCount') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ siteData?.seeding?.toLocaleString() }}
-                      <span class="text-base font-weight-regular" :class="getDiffClass(diffData?.seeding)">
+                      {{ siteData?.seeding?.toLocaleString() ?? t('dialog.siteUserData.noData') }}
+                      <span
+                        v-if="diffData?.seeding != null"
+                        class="text-base font-weight-regular"
+                        :class="getDiffClass(diffData?.seeding)"
+                      >
                         ({{ getDiffString(diffData?.seeding) }})
                       </span>
                     </h5>
@@ -551,11 +596,19 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--info">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.seedingSize') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ formatFileSize(siteData?.seeding_size || 0) }}
-                      <span class="text-base font-weight-regular" :class="getDiffClass(diffData?.seeding_size)">
+                      {{
+                        siteData?.seeding_size == null
+                          ? t('dialog.siteUserData.noData')
+                          : formatFileSize(siteData.seeding_size)
+                      }}
+                      <span
+                        v-if="diffData?.seeding_size != null"
+                        class="text-base font-weight-regular"
+                        :class="getDiffClass(diffData?.seeding_size)"
+                      >
                         ({{ formatFileSize(diffData?.seeding_size || 0, 2, true) }})
                       </span>
                     </h5>
@@ -572,10 +625,10 @@ onBeforeMount(() => {
             <VCard class="site-data-summary-card site-data-summary-card--secondary">
               <VCardText class="d-flex align-center">
                 <div class="d-flex justify-space-between" style="inline-size: 100%">
-                  <div class="d-flex flex-column gap-y-1 overflow-hidden">
+                  <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.joinTime') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ siteData?.join_at?.split(' ')[0] }}
+                      {{ siteData?.join_at?.split(' ')[0] || t('dialog.siteUserData.noData') }}
                     </h5>
                   </div>
                   <VAvatar variant="tonal" size="42" rounded>
@@ -705,7 +758,19 @@ onBeforeMount(() => {
   letter-spacing: 0.01em;
 }
 
+.site-data-details,
+.site-data-error {
+  overflow-wrap: anywhere;
+}
+
+.site-data-summary-values {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
 .site-data-summary-card .text-h5 {
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   font-size: 1.05rem;
   font-weight: 700;
@@ -715,6 +780,9 @@ onBeforeMount(() => {
 
 .site-data-summary-card .text-h5 > .text-base {
   display: inline-flex;
+  flex: 0 0 auto;
+  max-inline-size: 100%;
+  white-space: normal;
   align-items: center;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 999px;
