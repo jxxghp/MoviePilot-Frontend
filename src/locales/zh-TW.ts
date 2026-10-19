@@ -2083,6 +2083,7 @@ export default {
     move: '移動',
     link: '硬連結',
     softlink: '軟連結',
+    reflink: '引用連結',
   },
   site: {
     noSites: '沒有站點',
@@ -5476,6 +5477,7 @@ export default {
       move: '移動',
       link: '硬鏈接',
       softlink: '軟鏈接',
+      reflink: '引用連結',
       rclone_copy: 'Rclone複製',
       rclone_move: 'Rclone移動',
     },

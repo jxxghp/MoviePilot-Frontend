@@ -2123,6 +2123,7 @@ export default {
     move: '移动',
     link: '硬链接',
     softlink: '软链接',
+    reflink: '引用链接',
   },
   site: {
     noSites: '没有站点',
@@ -5554,6 +5555,7 @@ export default {
       move: '移动',
       link: '硬链接',
       softlink: '软链接',
+      reflink: '引用链接',
       rclone_copy: 'Rclone复制',
       rclone_move: 'Rclone移动',
     },

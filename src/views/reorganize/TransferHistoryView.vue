@@ -475,6 +475,7 @@ const TransferDict: { [key: string]: string } = {
   move: t('transferHistory.transferMode.move'),
   link: t('transferHistory.transferMode.link'),
   softlink: t('transferHistory.transferMode.softlink'),
+  reflink: t('transferHistory.transferMode.reflink'),
   rclone_copy: t('transferHistory.transferMode.rclone_copy'),
   rclone_move: t('transferHistory.transferMode.rclone_move'),
 }
