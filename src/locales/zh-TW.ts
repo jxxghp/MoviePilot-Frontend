@@ -3453,6 +3453,9 @@ export default {
       transferFailureNotificationAggregation: '按媒體聚合整理失敗通知',
       transferFailureNotificationAggregationHint:
         '開啟後，同一媒體同一季在短時間內產生的整理失敗會合併發送，並顯示失敗數量、原因統計和批量處理入口；關閉時逐條發送',
+      transferCopyTryReflink: '複製優先寫時複製 (Reflink)',
+      transferCopyTryReflinkHint:
+        '同磁碟複製時優先嘗試引用連結（克隆），失敗自動回退。若明確檔案系統不支援寫時複製，關閉可減少探測邏輯提升效能。',
       fsProxyEnabled: '本機檔案操作隔離',
       fsProxyEnabledHint:
         '在獨立子行程中執行本機檔案的讀取、複製、移動與刪除。CloudDrive2 等 FUSE 掛載失去回應時，這類操作會永久卡住且無法中斷，進而拖死整理佇列與目錄監控；隔離後可在逾時後強制回收並轉為一般錯誤，由既有的重試機制接手。關閉後退回直接呼叫，行為與舊版一致',

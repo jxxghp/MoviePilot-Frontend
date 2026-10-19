@@ -1656,6 +1656,7 @@ describe('AccountSettingSystem', () => {
       '编码探测性能模式',
       'Rust 加速',
       '网络存储快速监控',
+      '复制优先写时复制 (Reflink)',
     ]) {
       await fireEvent.click(dialog.getByLabelText(label))
     }
@@ -1675,10 +1676,24 @@ describe('AccountSettingSystem', () => {
         RUST_ACCEL: true,
         TRANSFER_FAILURE_NOTIFICATION_AGGREGATION: false,
         TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION: false,
+        TRANSFER_COPY_TRY_REFLINK: false,
         TRANSFER_MAX_FAILED_RETRIES: 6,
         TRANSFER_THREADS: 4,
       }),
     )
+  })
+
+  it.each([true, false])('loads and saves copy try reflink switch (%s)', async copyTryReflink => {
+    systemEnv.TRANSFER_COPY_TRY_REFLINK = copyTryReflink
+    await renderSettings()
+    const dialog = await openAdvancedTab('实验室')
+    const reflinkSwitch = dialog.getByLabelText('复制优先写时复制 (Reflink)')
+    expect((reflinkSwitch as HTMLInputElement).checked).toBe(copyTryReflink)
+    await fireEvent.click(reflinkSwitch)
+    expect((reflinkSwitch as HTMLInputElement).checked).toBe(!copyTryReflink)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ TRANSFER_COPY_TRY_REFLINK: !copyTryReflink }))
   })
 
   it.each([{ RUST_ACCEL_AVAILABLE: true, RUST_ACCEL_ENABLED: false }, { RUST_ACCEL_ENABLED: true }])(
