@@ -503,7 +503,7 @@ async function selectOption(label: string, option: string) {
   await user.click(await screen.findByRole('option', { name: option }))
 }
 
-/** 按接口路径读取最近一次保存请求，验证持久化载荷。 */
+/** 按接口路径读取首个保存请求，验证持久化载荷。 */
 function findPost(path: string) {
   return mocks.apiPost.mock.calls.find(call => call[0] === path)
 }
