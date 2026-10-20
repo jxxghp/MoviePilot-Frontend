@@ -315,6 +315,14 @@ const diffData = computed(() => {
   }
 })
 
+/** 仅在分享率缺失且下载量为零时显示无穷，其余缺失值沿用空值提示。 */
+function formatRatio(ratio: number | null | undefined, download: number | null | undefined) {
+  if (ratio == null) {
+    return download === 0 ? '∞' : t('dialog.siteUserData.noData')
+  }
+  return ratio
+}
+
 /** 格式化有值字段的增量，保留正负号。 */
 function getDiffString(diff: number | undefined, format: boolean = true) {
   if (diff === undefined) {
@@ -497,7 +505,7 @@ onBeforeMount(() => {
                   <div class="d-flex flex-column gap-y-1 site-data-summary-values">
                     <span class="text-base">{{ t('dialog.siteUserData.ratio') }}</span>
                     <h5 class="text-h5 d-flex align-center gap-2 text-wrap">
-                      {{ siteData?.ratio ?? t('dialog.siteUserData.noData') }}
+                      {{ formatRatio(siteData?.ratio, siteData?.download) }}
                       <span
                         v-if="diffData?.ratio != null"
                         class="text-base font-weight-regular"

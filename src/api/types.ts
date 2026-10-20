@@ -1100,8 +1100,8 @@ export interface SiteUserData {
   upload?: number // 默认为 0
   // 下载量
   download?: number // 默认为 0
-  // 分享率
-  ratio?: number // 默认为 0
+  // 分享率，站点未提供有效比值时为 null
+  ratio?: number | null // 默认为 0
   // 做种数
   seeding?: number // 默认为 0
   // 下载数

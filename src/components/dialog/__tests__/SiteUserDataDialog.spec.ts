@@ -251,6 +251,23 @@ describe('SiteUserDataDialog projections', () => {
     })
   })
 
+  it.each([
+    [null, 0, '∞'],
+    [undefined, 0, '∞'],
+    [null, null, '无'],
+    [null, 123, '无'],
+    [0, 0, '0 (+0)'],
+    [1.23, 0, '1.23 (+1.23)'],
+  ] as const)('renders ratio %s with download %s as %s', async (ratio, download, expected) => {
+    const latest = Object.assign(createSiteUserData(), { ratio, download })
+    await renderDialog({ data: [latest], success: true })
+    await screen.findByText('用户名：site-user')
+
+    const value = document.querySelector('.site-data-summary-card--info h5')
+    expect(value?.textContent?.replace(/\s+/g, ' ').trim()).toBe(expected)
+    if (ratio == null) expect(value?.querySelector('span')).toBeNull()
+  })
+
   it('preserves valid zeroes and displays site metadata and business errors as text', async () => {
     const latest = createSiteUserData({
       bonus: 0,
