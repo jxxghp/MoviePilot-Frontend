@@ -1,12 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type {
-  MediaComment,
-  MediaCommentAuthor,
-  MediaCommentPage,
-  MediaReview,
-  MediaReviewPage,
-} from '@/api/types'
+import type { MediaComment, MediaCommentAuthor, MediaCommentPage, MediaReview, MediaReviewPage } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 
