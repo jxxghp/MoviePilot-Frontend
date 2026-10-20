@@ -3603,6 +3603,8 @@ export default {
       },
       scrapingSwitchSettings: '刮削开关设置',
       scrapingSwitchSettingsDesc: '控制各类媒体文件的刮削功能开关',
+      seasonImageToRoot: '季图片同时写入剧集根目录',
+      seasonImageToRootHint: '关闭后仅写入季目录，保留现有图片；仅缺失策略按每个目标文件独立判断',
       movie: '电影',
       tv: '电视剧',
       season: '季',

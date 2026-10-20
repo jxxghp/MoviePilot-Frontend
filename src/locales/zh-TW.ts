@@ -3563,6 +3563,8 @@ export default {
       },
       scrapingSwitchSettings: '刮削開關設定',
       scrapingSwitchSettingsDesc: '控制各類媒體檔案的刮削功能開關',
+      seasonImageToRoot: '季圖片同時寫入影集根目錄',
+      seasonImageToRootHint: '關閉後僅寫入季目錄，保留現有圖片；僅缺失策略按每個目標檔案獨立判斷',
       movie: '電影',
       tv: '電視劇',
       season: '季',

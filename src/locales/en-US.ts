@@ -3701,6 +3701,9 @@ export default {
       },
       scrapingSwitchSettings: 'Scraping Switch Settings',
       scrapingSwitchSettingsDesc: 'Control various media file scraping function switches',
+      seasonImageToRoot: 'Also save season images in the series root folder',
+      seasonImageToRootHint:
+        'When disabled, save only in season folders and keep existing images. Missing-only checks each target file independently.',
       movie: 'Movie',
       tv: 'TV Show',
       season: 'Season',

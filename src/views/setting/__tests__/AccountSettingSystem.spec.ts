@@ -1200,6 +1200,29 @@ describe('AccountSettingSystem', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('高级设置保存成功')
   })
 
+  // 通过可见开关验证旧配置默认值、显式状态和独立的环境配置保存边界。
+  it.each([undefined, false, true])('loads season image root setting %s and saves the toggled value', async enabled => {
+    if (enabled !== undefined) systemEnv.SCRAP_SEASON_IMAGE_TO_ROOT = enabled
+    scrapingSetting = { season_poster: 'missingOnly', season_banner: 'skip' }
+    await renderSettings()
+    const dialog = await openAdvancedTab('媒体')
+    await fireEvent.click(dialog.getByRole('button', { name: /刮削开关设置/ }))
+    const rootSwitch = await dialog.findByLabelText('季图片同时写入剧集根目录')
+
+    expect(rootSwitch).toHaveProperty('checked', enabled ?? true)
+    await fireEvent.click(rootSwitch)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({ SCRAP_SEASON_IMAGE_TO_ROOT: !(enabled ?? true) }),
+    )
+    expect(findPost('system/setting/ScrapingSwitchs')?.[1]).toEqual(
+      expect.objectContaining({ season_poster: 'missingOnly', season_banner: 'skip' }),
+    )
+    expect(findPost('system/setting/ScrapingSwitchs')?.[1]).not.toHaveProperty('SCRAP_SEASON_IMAGE_TO_ROOT')
+  })
+
   it('renders module switches from the backend catalog and saves their states', async () => {
     await renderSettings()
     const dialog = await openAdvancedTab('媒体')

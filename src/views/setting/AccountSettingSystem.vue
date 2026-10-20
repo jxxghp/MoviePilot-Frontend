@@ -158,6 +158,7 @@ const SystemSettings = ref<any>({
     TMDB_LOCALE: null,
     META_CACHE_EXPIRE: 0,
     SCRAP_FOLLOW_TMDB: true,
+    SCRAP_SEASON_IMAGE_TO_ROOT: true,
     FANART_ENABLE: false,
     FANART_LANG: 'zh,en',
     TMDB_SCRAP_ORIGINAL_IMAGE: null,
@@ -2858,6 +2859,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                             <VListSubheader class="text-lg">
                               {{ t(`setting.system.${section.section}`) }}
                             </VListSubheader>
+                          </VCol>
+                          <VCol v-if="section.section === 'season'" cols="12">
+                            <VSwitch
+                              v-model="SystemSettings.Advanced.SCRAP_SEASON_IMAGE_TO_ROOT"
+                              :label="t('setting.system.seasonImageToRoot')"
+                              :hint="t('setting.system.seasonImageToRootHint')"
+                              persistent-hint
+                            />
                           </VCol>
                           <VCol v-for="item in section.items" :key="item.key" cols="12" md="4">
                             <div class="d-flex align-center">
