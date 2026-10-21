@@ -1,12 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type {
-  MediaComment,
-  MediaCommentAuthor,
-  MediaCommentPage,
-  MediaReview,
-  MediaReviewPage,
-} from '@/api/types'
+import type { MediaComment, MediaCommentAuthor, MediaCommentPage, MediaReview, MediaReviewPage } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 
@@ -264,6 +258,14 @@ const { stop } = useIntersectionObserver(
 
 .comment-item {
   padding-inline: 0;
+  /* 头像与用户名同行，长评论时头像保持在顶部而不是垂直居中 */
+  align-items: flex-start;
+}
+
+.comment-item :deep(.v-list-item__prepend) {
+  align-self: flex-start;
+  /* 抵消 VListItem 默认的垂直居中内边距，让头像顶部与用户名首行对齐 */
+  padding-block: 0;
 }
 
 .comment-author {
