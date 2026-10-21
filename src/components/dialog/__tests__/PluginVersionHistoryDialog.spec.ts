@@ -136,6 +136,36 @@ describe('PluginVersionHistoryDialog', () => {
     ])
   })
 
+  it('keeps the latest update action when the installed version is already current', async () => {
+    const currentReleaseSnapshot: PluginReleaseVersionsResponse = {
+      ...releases,
+      latest_version: '1.0.0',
+      current_version: '1.0.0',
+      items: releases.items.map(item => ({
+        ...item,
+        is_latest: item.version === '1.0.0',
+        is_current: item.version === '1.0.0',
+      })),
+    }
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({ ...installedPlugin, history: { 'v1.0.0': '当前更新说明' } })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(currentReleaseSnapshot)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      showUpdateAction: true,
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByRole('button', { name: '更新到最新版本' })).toBeInTheDocument()
+  })
+
   it('sorts merged Release and history entries by version instead of source order', async () => {
     const unorderedReleases: PluginReleaseVersionsResponse = {
       release_supported: true,

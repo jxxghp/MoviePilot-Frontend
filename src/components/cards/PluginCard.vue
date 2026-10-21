@@ -230,12 +230,12 @@ function imageFailed() {
   resetAccentColor()
 }
 
-// 显示更新日志
-function showUpdateHistory(showUpdateAction: boolean = false) {
+/** 打开已安装插件的版本历史，并保留更新到当前最新版本的操作。 */
+function showUpdateHistory() {
   versionHistoryDialogController?.close()
   versionHistoryDialogController = openSharedDialog(
     PluginVersionHistoryDialog,
-    { plugin: props.plugin, showUpdateAction },
+    { plugin: props.plugin, showUpdateAction: true },
     { update: updatePlugin, sourceAction: openSourceAction },
     { closeOn: ['close', 'update:modelValue'] },
   )
@@ -535,7 +535,7 @@ function handleUpdateAction() {
     void showPluginAbout(true)
     return
   }
-  showUpdateHistory(true)
+  showUpdateHistory()
 }
 
 // 访问插件项目主页
@@ -777,7 +777,7 @@ const dropdownItems = ref([
     show: !props.plugin?.has_update,
     props: {
       prependIcon: 'mdi-update',
-      click: () => showUpdateHistory(false),
+      click: showUpdateHistory,
     },
   },
   {

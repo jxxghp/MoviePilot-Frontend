@@ -231,6 +231,19 @@ describe('PluginCard lifecycle actions', () => {
     expect(mocks.dialogCloses[0]).toHaveBeenCalled()
   })
 
+  it('keeps the latest update action when opening version history', async () => {
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('版本历史'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      plugin,
+      showUpdateAction: true,
+    })
+  })
+
   it('marks a plugin whose native dependency update requires a restart without blocking its actions', async () => {
     const { container, pinia } = await renderWithProviders(PluginCard, { props: { plugin } })
     const runtimeStore = usePluginRuntimeStore(pinia)

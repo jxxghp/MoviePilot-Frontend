@@ -148,18 +148,8 @@ const latestActionText = computed(() =>
           : t('plugin.updateToLatest'),
 )
 
-const hasNewerRelease = computed(() => {
-  const latest = releaseItems.value.find(item => item.is_latest)
-  return Boolean(latest && !latest.is_current)
-})
-const shouldShowUpdatePanel = computed(
-  () =>
-    props.showUpdateAction &&
-    (Boolean(localUpdateCandidate.value) ||
-      Boolean(releaseSourceAction.value) ||
-      !releaseDetail.value ||
-      hasNewerRelease.value),
-)
+// 调用方显式打开更新入口时始终保留底部操作，允许同步或重新安装当前最新版本。
+const shouldShowUpdatePanel = computed(() => props.showUpdateAction)
 
 const releaseByHistoryVersion = computed(() => {
   const releaseMap = new Map<string, PluginReleaseVersion>()

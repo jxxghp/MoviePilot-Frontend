@@ -551,7 +551,7 @@ function showUpdateHistory() {
     {
       plugin: props.plugin,
       actionMode: isInstalled.value ? 'update' : 'install',
-      showUpdateAction: isInstalled.value && Boolean(props.plugin?.has_update),
+      showUpdateAction: isInstalled.value,
     },
     {
       update: installPlugin,

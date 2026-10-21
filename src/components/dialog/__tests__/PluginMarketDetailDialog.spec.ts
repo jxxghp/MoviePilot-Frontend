@@ -854,13 +854,13 @@ describe('PluginMarketDetailDialog', () => {
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/rating/DemoPlugin')
   })
 
-  it('opens installed version history without an update action and closes through the model contract', async () => {
+  it('opens installed version history with an update action and closes through the model contract', async () => {
     const { emitted } = await renderDialog({ ...basePlugin, installed: true, has_update: false })
 
     await fireEvent.click(await screen.findByRole('button', { name: '版本历史' }))
     expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
       actionMode: 'update',
-      showUpdateAction: false,
+      showUpdateAction: true,
     })
 
     const closeButton = document.querySelector<HTMLButtonElement>('.absolute.right-3.top-3')
