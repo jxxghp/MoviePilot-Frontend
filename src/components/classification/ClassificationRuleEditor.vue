@@ -661,7 +661,7 @@ watch(
                 hide-details="auto"
                 :menu-props="classificationRuleMenuProps"
                 :aria-label="t('setting.classification.rule.mediaTypesAria', { name: rule.name || rule.id })"
-                @update:model-value="value => updateMediaTypes(index, value)"
+                @update:model-value="(value: ClassificationMediaType[] | null) => updateMediaTypes(index, value)"
               />
               <VSelect
                 v-if="props.advanced"
@@ -677,7 +677,7 @@ watch(
                 :hint="t('setting.classification.rule.sourcesHint')"
                 :menu-props="classificationRuleMenuProps"
                 :aria-label="t('setting.classification.rule.sourcesAria', { name: rule.name || rule.id })"
-                @update:model-value="value => updateSources(index, value)"
+                @update:model-value="(value: string[] | null) => updateSources(index, value)"
               />
             </div>
 
@@ -709,7 +709,9 @@ watch(
                   :no-data-text="t('setting.classification.rule.noCategoryOptions')"
                   :menu-props="classificationRuleMenuProps"
                   :aria-label="t('setting.classification.rule.categoryTargetAria', { name: rule.name || rule.id })"
-                  @update:model-value="value => updateTarget(index, { category_id: value })"
+                  @update:model-value="
+                    (value: ClassificationRule['target']['category_id']) => updateTarget(index, { category_id: value })
+                  "
                 />
                 <VCombobox
                   v-if="advanced || rule.kind === 'label'"
@@ -724,7 +726,9 @@ watch(
                   :menu-props="classificationRuleMenuProps"
                   :class="{ 'classification-rule-labels--wide': rule.kind === 'label' }"
                   :aria-label="t('setting.classification.rule.labelsAria', { name: rule.name || rule.id })"
-                  @update:model-value="value => updateTarget(index, { labels: value })"
+                  @update:model-value="
+                    (value: ClassificationRule['target']['labels']) => updateTarget(index, { labels: value })
+                  "
                 />
               </div>
             </div>
