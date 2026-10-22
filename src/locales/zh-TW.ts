@@ -4565,6 +4565,12 @@ export default {
       manualReviewAppliedUnavailable: '目前沒有可用於確認完成的目標文件證據，請選擇重新整理。',
       manualReviewAppliedWarning:
         '僅在確認目標文件完整可用時選擇此項；整理計劃可能繼續執行後續步驟，包括刪除來源文件。',
+      manualReviewCleanupHint: '目標文件已整理，此步驟等待確認來源文件是否已清理。',
+      manualReviewCleanupWarning:
+        '來源文件仍在時，請選擇重新校驗並清理，系統會沿用已完成的上傳並重新核驗文件，不會重複上傳。僅在已核驗目標完整且來源文件已刪除後，才可確認清理完成。',
+      manualReviewCleanupConfirm: '我已核驗目標文件完整，且來源文件已刪除',
+      manualReviewCleanupRetry: '來源文件仍在，重新校驗並清理',
+      manualReviewCleanupApplied: '確認來源文件已刪除，繼續',
       manualReviewSubmitted: '人工覆核已提交',
       manualReviewSubmitFailed: '人工覆核提交失敗，請刷新後重試',
       manualReviewLoadFailed: '待人工覆核任務載入失敗',

@@ -4729,6 +4729,12 @@ export default {
         'No target-file evidence is available to confirm completion. Choose retry instead.',
       manualReviewAppliedWarning:
         'Choose this only when the target file is complete and usable; later steps may continue, including deleting the source file.',
+      manualReviewCleanupHint: 'The target has been transferred. Confirm whether the source file has been removed.',
+      manualReviewCleanupWarning:
+        'If the source still exists, choose to recheck and clean up. The completed upload will be reused and the files verified again, without uploading again. Confirm cleanup only after verifying the target is complete and the source has been deleted.',
+      manualReviewCleanupConfirm: 'I verified the target is complete and the source has been deleted',
+      manualReviewCleanupRetry: 'Source present, recheck cleanup',
+      manualReviewCleanupApplied: 'Source deleted, continue',
       manualReviewSubmitted: 'Manual review submitted',
       manualReviewSubmitFailed: 'Manual review failed. Refresh and try again.',
       manualReviewLoadFailed: 'Failed to load manual-review tasks',

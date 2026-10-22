@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
@@ -23,12 +23,36 @@ const display = useDisplay()
 const reason = ref('')
 const submitError = ref('')
 const submittingDecision = ref<TransferManualReviewDecision | null>(null)
+const sourceCleanupConfirmed = ref(false)
 
-// 复核接口要求 applied 携带目标事实证据；没有目标对象时只能安全地选择重试。
-const canMarkApplied = computed(() => {
-  const evidence = props.review.step.evidence
-  return props.review.step.kind !== 'legacy_execution_review' && Boolean(evidence && evidence.item)
+// 跨存储移动的上传已完成，此处判定的是源文件删除，不能复用目标落地证据。
+const isMoveSourceCleanup = computed(() => props.review.step.kind === 'delete_move_source')
+const cleanupSourcePath = computed(() => {
+  const source = props.review.step.intent.source
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return ''
+  const path = (source as Record<string, unknown>).path
+  return typeof path === 'string' ? path : ''
 })
+
+// 人工确认只适用于当前步骤和复核版本，刷新任务后必须重新核验。
+watch(
+  () => [props.review.task_id, props.review.step.operation_id, props.review.review_revision],
+  () => {
+    sourceCleanupConfirmed.value = false
+  },
+)
+
+// 删除步骤必须由管理员确认已清理；其他步骤继续使用已有目标事实证据。
+const appliedResultPayload = computed<Record<string, unknown> | null>(() => {
+  if (isMoveSourceCleanup.value) {
+    return sourceCleanupConfirmed.value && cleanupSourcePath.value
+      ? { source_path: cleanupSourcePath.value, deleted: true }
+      : null
+  }
+  const evidence = props.review.step.evidence
+  return props.review.step.kind !== 'legacy_execution_review' && evidence?.item ? evidence : null
+})
+const canMarkApplied = computed(() => appliedResultPayload.value !== null)
 
 // 展示冻结意图中的目标位置，避免把整段任意 JSON 塞进主信息区。
 const targetPath = computed(() => {
@@ -72,8 +96,8 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
     decision,
     reason: trimmedReason,
   }
-  if (decision === 'applied' && props.review.step.evidence) {
-    payload.result_payload = props.review.step.evidence
+  if (decision === 'applied' && appliedResultPayload.value) {
+    payload.result_payload = appliedResultPayload.value
   }
 
   try {
@@ -104,7 +128,13 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
           {{ t('dialog.transferQueue.manualReviewTitle') }}
         </VCardTitle>
         <VCardSubtitle class="manual-review-dialog__subtitle">
-          {{ t('dialog.transferQueue.manualReviewHint') }}
+          {{
+            t(
+              isMoveSourceCleanup
+                ? 'dialog.transferQueue.manualReviewCleanupHint'
+                : 'dialog.transferQueue.manualReviewHint',
+            )
+          }}
         </VCardSubtitle>
       </VCardItem>
 
@@ -114,8 +144,11 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
         <section class="manual-review-dialog__summary app-surface-shape">
           <div class="manual-review-dialog__summary-row">
             <span class="manual-review-dialog__label">{{ t('dialog.transferQueue.manualReviewSource') }}</span>
-            <span class="manual-review-dialog__value manual-review-dialog__value--path" :title="review.source.path">
-              {{ review.source.path }}
+            <span
+              class="manual-review-dialog__value manual-review-dialog__value--path"
+              :title="isMoveSourceCleanup ? cleanupSourcePath : review.source.path"
+            >
+              {{ isMoveSourceCleanup ? cleanupSourcePath : review.source.path }}
             </span>
           </div>
           <div class="manual-review-dialog__summary-row">
@@ -141,7 +174,16 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
         </section>
 
         <VAlert
-          v-if="!canMarkApplied"
+          v-if="isMoveSourceCleanup"
+          class="manual-review-dialog__notice"
+          type="warning"
+          variant="tonal"
+          density="comfortable"
+        >
+          {{ t('dialog.transferQueue.manualReviewCleanupWarning') }}
+        </VAlert>
+        <VAlert
+          v-else-if="!canMarkApplied"
           class="manual-review-dialog__notice"
           type="warning"
           variant="tonal"
@@ -152,6 +194,14 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
         <VAlert v-else class="manual-review-dialog__notice" type="warning" variant="tonal" density="comfortable">
           {{ t('dialog.transferQueue.manualReviewAppliedWarning') }}
         </VAlert>
+
+        <VCheckbox
+          v-if="isMoveSourceCleanup"
+          v-model="sourceCleanupConfirmed"
+          :label="t('dialog.transferQueue.manualReviewCleanupConfirm')"
+          :disabled="isSubmitting || !cleanupSourcePath"
+          hide-details
+        />
 
         <VExpansionPanels v-if="evidenceSummary" variant="accordion" class="manual-review-dialog__evidence">
           <VExpansionPanel>
@@ -194,7 +244,13 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
           :disabled="isSubmitting"
           @click="resolveManualReview('not_applied')"
         >
-          {{ t('dialog.transferQueue.manualReviewNotApplied') }}
+          {{
+            t(
+              isMoveSourceCleanup
+                ? 'dialog.transferQueue.manualReviewCleanupRetry'
+                : 'dialog.transferQueue.manualReviewNotApplied',
+            )
+          }}
         </VBtn>
         <VBtn
           color="primary"
@@ -203,7 +259,13 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
           :disabled="isSubmitting || !canMarkApplied"
           @click="resolveManualReview('applied')"
         >
-          {{ t('dialog.transferQueue.manualReviewApplied') }}
+          {{
+            t(
+              isMoveSourceCleanup
+                ? 'dialog.transferQueue.manualReviewCleanupApplied'
+                : 'dialog.transferQueue.manualReviewApplied',
+            )
+          }}
         </VBtn>
       </VCardActions>
     </VCard>

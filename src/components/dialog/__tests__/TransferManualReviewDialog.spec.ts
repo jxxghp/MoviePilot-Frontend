@@ -55,6 +55,15 @@ function createManualReview(evidence?: Record<string, unknown>): TransferManualR
   }
 }
 
+/** 构造上传已成功、仅源文件清理冲突的任务，保留具体叶文件的冻结路径。 */
+function createCleanupReview(): TransferManualReviewTask {
+  const review = createManualReview({ identity_error: '文件的 size 已变化，禁止清理' })
+  review.source.path = '/downloads/needs-review'
+  review.step.kind = 'delete_move_source'
+  review.step.intent.source = { storage: 'local', path: '/downloads/needs-review/episode.mkv' }
+  return review
+}
+
 /** 隔离弹窗容器，验证用户复核操作及请求。 */
 async function renderDialog(review = createManualReview()) {
   return renderWithProviders(TransferManualReviewDialog, {
@@ -145,6 +154,95 @@ describe('TransferManualReviewDialog', () => {
       { feedback: 'silent' },
     )
   })
+
+  it('retries source cleanup without claiming deletion or repeating the upload', async () => {
+    const user = userEvent.setup()
+    const { emitted } = await renderDialog(createCleanupReview())
+
+    expect(screen.getByText('/downloads/needs-review/episode.mkv')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '确认源文件已删除，继续' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '源文件仍在，重新校验并清理' }))
+    await flushPromises()
+
+    expect(mocks.apiPost).toHaveBeenCalledExactlyOnceWith(
+      'transfer/tasks/manual-review-task-1/manual-review',
+      { operation_id: 'manual-review-operation-1', decision: 'not_applied', reason: '' },
+      { feedback: 'silent' },
+    )
+    expect(emitted('resolved')).toEqual([['not_applied']])
+  })
+
+  it('submits deletion evidence only after the user confirms target integrity and source removal', async () => {
+    const user = userEvent.setup()
+    const { emitted } = await renderDialog(createCleanupReview())
+    const appliedButton = screen.getByRole('button', { name: '确认源文件已删除，继续' })
+    expect(appliedButton).toBeDisabled()
+
+    await user.click(screen.getByRole('checkbox', { name: '我已核验目标文件完整，且源文件已删除' }))
+    expect(appliedButton).toBeEnabled()
+    await user.type(screen.getByLabelText('复核说明（选填）'), '已比对目标并手动清理源文件')
+    await user.click(appliedButton)
+    await flushPromises()
+
+    expect(mocks.apiPost).toHaveBeenCalledExactlyOnceWith(
+      'transfer/tasks/manual-review-task-1/manual-review',
+      {
+        operation_id: 'manual-review-operation-1',
+        decision: 'applied',
+        reason: '已比对目标并手动清理源文件',
+        result_payload: { source_path: '/downloads/needs-review/episode.mkv', deleted: true },
+      },
+      { feedback: 'silent' },
+    )
+    expect(emitted('resolved')).toEqual([['applied']])
+  })
+
+  it('does not treat target-item evidence as proof that the source was deleted', async () => {
+    const review = createCleanupReview()
+    review.step.evidence = { item: { path: '/media/episode.mkv' } }
+    await renderDialog(review)
+
+    expect(screen.getByRole('button', { name: '确认源文件已删除，继续' })).toBeDisabled()
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, null, 'source.mkv', {}, { path: 123 }, { path: '' }])(
+    'keeps cleanup completion disabled when the frozen source path is invalid: %s',
+    async source => {
+      const review = createCleanupReview()
+      review.step.intent.source = source
+      await renderDialog(review)
+
+      expect(screen.getByRole('checkbox', { name: '我已核验目标文件完整，且源文件已删除' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: '确认源文件已删除，继续' })).toBeDisabled()
+    },
+  )
+
+  it.each(['task', 'operation', 'revision'])('clears cleanup confirmation when the review %s changes', async change => {
+    const user = userEvent.setup()
+    const review = createCleanupReview()
+    const { rerender } = await renderDialog(review)
+    await user.click(screen.getByRole('checkbox', { name: '我已核验目标文件完整，且源文件已删除' }))
+    expect(screen.getByRole('button', { name: '确认源文件已删除，继续' })).toBeEnabled()
+
+    const next = createCleanupReview()
+    if (change === 'task') next.task_id = 'other-task'
+    if (change === 'operation') next.step.operation_id = 'other-operation'
+    if (change === 'revision') next.review_revision += 1
+    await rerender({ review: next })
+
+    expect(screen.getByRole('checkbox', { name: '我已核验目标文件完整，且源文件已删除' })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: '确认源文件已删除，继续' })).toBeDisabled()
+  })
+
+  it('does not enable legacy execution completion even when target evidence exists', async () => {
+    const review = createManualReview({ item: { path: '/media/episode.mkv' } })
+    review.step.kind = 'legacy_execution_review'
+    await renderDialog(review)
+
+    expect(screen.getByRole('button', { name: '确认已完成，继续后续步骤' })).toBeDisabled()
+  })
+
   it('preserves backend rejection and review notes so the user can recover', async () => {
     const user = userEvent.setup()
     mocks.apiPost.mockRejectedValueOnce(new Error('任务状态已变化，请刷新队列'))

@@ -4604,6 +4604,12 @@ export default {
       manualReviewApplied: '确认已完成，继续后续步骤',
       manualReviewAppliedUnavailable: '当前没有可用于确认完成的目标文件证据，请选择重新整理。',
       manualReviewAppliedWarning: '仅在确认目标文件完整可用时选择此项；整理计划可能继续执行后续步骤，包括删除源文件。',
+      manualReviewCleanupHint: '目标文件已整理，此步骤等待确认源文件是否已清理。',
+      manualReviewCleanupWarning:
+        '源文件仍在时，请选择重新校验并清理，系统会复用已完成的上传并重新核验文件，不会重复上传。仅在已核验目标完整且源文件已删除后，才可确认清理完成。',
+      manualReviewCleanupConfirm: '我已核验目标文件完整，且源文件已删除',
+      manualReviewCleanupRetry: '源文件仍在，重新校验并清理',
+      manualReviewCleanupApplied: '确认源文件已删除，继续',
       manualReviewSubmitted: '人工复核已提交',
       manualReviewSubmitFailed: '人工复核提交失败，请刷新后重试',
       manualReviewLoadFailed: '待人工复核任务加载失败',
