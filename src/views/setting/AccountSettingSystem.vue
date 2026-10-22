@@ -159,6 +159,8 @@ const SystemSettings = ref<any>({
     META_CACHE_EXPIRE: 0,
     SCRAP_FOLLOW_TMDB: true,
     SCRAP_SEASON_IMAGE_TO_ROOT: true,
+    SCRAP_IMAGE_ALIAS: true,
+    SCRAP_4K_BACKGROUND: true,
     FANART_ENABLE: false,
     FANART_LANG: 'zh,en',
     TMDB_SCRAP_ORIGINAL_IMAGE: null,
@@ -2854,6 +2856,25 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         </VTooltip>
                       </VExpansionPanelTitle>
                       <VExpansionPanelText>
+                        <VRow class="mb-2">
+                          <VCol cols="12" md="6">
+                            <VSwitch
+                              v-model="SystemSettings.Advanced.SCRAP_IMAGE_ALIAS"
+                              :label="t('setting.system.scrapImageAlias')"
+                              :hint="t('setting.system.scrapImageAliasHint')"
+                              persistent-hint
+                            />
+                          </VCol>
+                          <VCol cols="12" md="6">
+                            <VSwitch
+                              v-model="SystemSettings.Advanced.SCRAP_4K_BACKGROUND"
+                              :label="t('setting.system.scrap4kBackground')"
+                              :hint="t('setting.system.scrap4kBackgroundHint')"
+                              persistent-hint
+                              :disabled="!SystemSettings.Advanced.FANART_ENABLE"
+                            />
+                          </VCol>
+                        </VRow>
                         <VRow v-for="section in scrapingConfig" :key="section.section">
                           <VCol cols="12">
                             <VListSubheader class="text-lg">

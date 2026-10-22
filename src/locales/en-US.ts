@@ -3703,7 +3703,13 @@ export default {
       scrapingSwitchSettingsDesc: 'Control various media file scraping function switches',
       seasonImageToRoot: 'Also save season images in the series root folder',
       seasonImageToRootHint:
-        'When disabled, save only in season folders and keep existing images. Missing-only checks each target file independently.',
+        'When disabled, save only in season folders and keep existing images. Missing-only checks image types at each target location.',
+      scrapImageAlias: 'Save compatible image aliases',
+      scrapImageAliasHint:
+        'Also save aliases such as fanart and landscape for backgrounds and thumbnails. Disabling keeps source images and existing files.',
+      scrap4kBackground: 'Fetch Fanart 4K backgrounds',
+      scrap4kBackgroundHint:
+        'Save 4K backgrounds as media-server-compatible background images. Disabling does not affect standard backgrounds.',
       movie: 'Movie',
       tv: 'TV Show',
       season: 'Season',

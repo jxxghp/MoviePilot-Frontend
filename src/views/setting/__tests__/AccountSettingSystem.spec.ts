@@ -1229,6 +1229,41 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/setting/ScrapingSwitchs')?.[1]).not.toHaveProperty('SCRAP_SEASON_IMAGE_TO_ROOT')
   })
 
+  // 图片写入设置属于部署配置，不能混入按媒体类型存储的刮削策略。
+  it.each([
+    ['SCRAP_IMAGE_ALIAS', '写入图片兼容别名'],
+    ['SCRAP_4K_BACKGROUND', '获取 Fanart 4K 背景图'],
+  ])('loads and saves %s independently of scraping policies', async (key, label) => {
+    systemEnv.FANART_ENABLE = true
+    systemEnv[key] = false
+    scrapingSetting = { movie_backdrop: 'missingOnly', movie_thumb: 'skip' }
+    await renderSettings()
+    const dialog = await openAdvancedTab('媒体')
+    await fireEvent.click(dialog.getByRole('button', { name: /刮削开关设置/ }))
+    const imageSwitch = await dialog.findByLabelText(label)
+
+    expect(imageSwitch).not.toBeChecked()
+    await fireEvent.click(imageSwitch)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ [key]: true }))
+    expect(findPost('system/setting/ScrapingSwitchs')?.[1]).toEqual(
+      expect.objectContaining({ movie_backdrop: 'missingOnly', movie_thumb: 'skip' }),
+    )
+    expect(findPost('system/setting/ScrapingSwitchs')?.[1]).not.toHaveProperty(key)
+  })
+
+  it('keeps compatible defaults for new image settings on older backends', async () => {
+    systemEnv.FANART_ENABLE = true
+    await renderSettings()
+    const dialog = await openAdvancedTab('媒体')
+    await fireEvent.click(dialog.getByRole('button', { name: /刮削开关设置/ }))
+
+    expect(await dialog.findByLabelText('写入图片兼容别名')).toBeChecked()
+    expect(await dialog.findByLabelText('获取 Fanart 4K 背景图')).toBeChecked()
+  })
+
   it('renders module switches from the backend catalog and saves their states', async () => {
     await renderSettings()
     const dialog = await openAdvancedTab('媒体')
