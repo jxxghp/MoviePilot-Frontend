@@ -266,8 +266,8 @@ describe('TransferQueueDialog', () => {
     expect(mocks.openSharedDialog).toHaveBeenCalledWith(
       expect.anything(),
       { review },
-      { resolved: expect.any(Function) },
-      { closeOn: ['close', 'resolved'] },
+      { resolved: expect.any(Function), discarded: expect.any(Function) },
+      { closeOn: ['close', 'resolved', 'discarded'] },
     )
   })
 
