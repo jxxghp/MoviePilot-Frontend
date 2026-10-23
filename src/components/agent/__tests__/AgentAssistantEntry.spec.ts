@@ -1,8 +1,9 @@
 import { shallowMount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantEntry from '@/components/agent/AgentAssistantEntry.vue'
 import { canUseAgentAssistantBubble } from '@/utils/agentAssistantBubble'
+import { usePublishFooterDockGeometry } from '@/composables/useFooterDockGeometry'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -461,5 +462,132 @@ describe('AgentAssistantEntry position memory', () => {
       expect(position(wrapper)).toEqual(defaultPosition)
       wrapper.unmount()
     }
+  })
+})
+
+describe('AgentAssistantEntry host bubbles', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('moves anchored bubbles off the footer Dock so navigation stays tappable', async () => {
+    vi.stubGlobal('innerWidth', 390)
+    vi.stubGlobal('innerHeight', 844)
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback))
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    const runFrames = async () => {
+      await nextTick()
+      frames.splice(0).forEach(callback => callback(0))
+      await nextTick()
+    }
+    const showLine = async (wrapper: ReturnType<typeof shallowMount>) => {
+      ;(wrapper.vm as unknown as { showBubble: (input: { text: string }) => void }).showBubble({ text: '你好' })
+      await runFrames()
+      return wrapper.find('.agent-assistant-fab__bubbles').classes()
+    }
+    // 角色站在右下角：手机布局默认把气泡放在角色侧边，正好落在 Dock 高度上。
+    const props = {
+      active: true,
+      motionActive: false,
+      anchored: true,
+      anchorRect: { x: 300, y: 700, width: 80, height: 96 },
+    }
+    const stubs = { AgentPetStage: true, VIcon: true }
+
+    const withoutDock = shallowMount(AgentAssistantEntry, { global: { stubs }, props })
+    expect(await showLine(withoutDock)).toContain('agent-assistant-fab__bubbles--left')
+    withoutDock.unmount()
+
+    const dockRect = { x: 12, y: 772, width: 366, height: 66, left: 12, top: 772, right: 378, bottom: 838 }
+    const footer = shallowMount(
+      defineComponent({
+        setup() {
+          const container = ref<HTMLElement | null>(null)
+          const group = ref<HTMLElement | null>(null)
+          usePublishFooterDockGeometry(container, group)
+          return () =>
+            h('div', { ref: container }, [h('div', { ref: group }, [h('div', { 'data-footer-nav-role': 'primary' })])])
+        },
+      }),
+      { attachTo: document.body },
+    )
+    footer.findAll('div').forEach(item => {
+      item.element.getBoundingClientRect = () => ({ ...dockRect, toJSON: () => ({}) }) as DOMRect
+      item.element.getClientRects = () => [dockRect] as unknown as DOMRectList
+    })
+    window.dispatchEvent(new Event('resize'))
+    await runFrames()
+
+    const withDock = shallowMount(AgentAssistantEntry, { global: { stubs }, props })
+    expect(await showLine(withDock)).toContain('agent-assistant-fab__bubbles--top')
+    withDock.unmount()
+    footer.unmount()
+    vi.unstubAllGlobals()
+  })
+
+  describe('pet lines', () => {
+    type PetSayEntry = {
+      showPetSay: (text: string, duration: number) => { shown: boolean; reason?: string }
+      showBubble: (input: { text: string; kind?: 'notification' }) => void
+    }
+
+    function mountEntry(props: Record<string, unknown> = {}) {
+      return shallowMount(AgentAssistantEntry, {
+        global: { stubs: { AgentPetStage: true, VIcon: true } },
+        props: { active: true, motionActive: false, ...props },
+      })
+    }
+
+    it('shows one plain pet line at a time and closes it after its duration', async () => {
+      const wrapper = mountEntry()
+      const entry = wrapper.vm as unknown as PetSayEntry
+      await nextTick()
+
+      expect(entry.showPetSay('喵~ **你好**', 2000)).toEqual({ shown: true })
+      expect(entry.showPetSay('第二句', 2000)).toEqual({ shown: true })
+      await nextTick()
+      const bubbles = wrapper.findAll('.agent-assistant-fab__bubble')
+      expect(bubbles).toHaveLength(1)
+      expect(bubbles[0].classes()).toContain('agent-assistant-fab__bubble--pet')
+      expect(bubbles[0].text()).toContain('第二句')
+
+      vi.advanceTimersByTime(2000)
+      await nextTick()
+      expect(wrapper.find('.agent-assistant-fab__bubble').exists()).toBe(false)
+      wrapper.unmount()
+    })
+
+    it('gives way to system bubbles and is refused while they are visible', async () => {
+      const wrapper = mountEntry()
+      const entry = wrapper.vm as unknown as PetSayEntry
+      await nextTick()
+
+      entry.showPetSay('你好', 3500)
+      entry.showBubble({ text: '下载完成', kind: 'notification' })
+      await nextTick()
+      const texts = wrapper.findAll('.agent-assistant-fab__bubble').map(item => item.text())
+      expect(texts).toHaveLength(1)
+      expect(texts[0]).toContain('下载完成')
+
+      expect(entry.showPetSay('还在吗', 3500)).toEqual({ shown: false, reason: 'busy' })
+      wrapper.unmount()
+    })
+
+    it('refuses pet lines while a stage pet has not reported an anchor', async () => {
+      const wrapper = mountEntry({ anchored: true, anchorRect: null })
+      const entry = wrapper.vm as unknown as PetSayEntry
+      await nextTick()
+
+      expect(entry.showPetSay('你好', 3500)).toEqual({ shown: false, reason: 'hidden' })
+      await wrapper.setProps({ anchorRect: { x: 300, y: 400, width: 80, height: 120 } })
+      expect(entry.showPetSay('你好', 3500)).toEqual({ shown: true })
+      wrapper.unmount()
+    })
   })
 })

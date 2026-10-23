@@ -6,6 +6,7 @@ import { AGENT_HOST_INJECTION_KEY, useScopedAgentHost } from '@/composables/useA
 import { useAgentPetStore } from '@/stores/agentPet'
 import type { AgentHostRect, AgentPetContext, AgentPetDeclaration } from '@/types/agentHost'
 import { AgentPetLoadTimeoutError, loadAgentPetComponent } from '@/utils/agentPetLoader'
+import { AGENT_PET_SAY_INJECTION_KEY } from '@/utils/agentPetSay'
 import type { AgentPetActionName, AgentPetIntent } from './types'
 
 /** 形象私有持久数据的序列化上限（字节）。 */
@@ -54,6 +55,9 @@ scopedAgent.subscribe(state => {
 })
 const rendererMotionActive = computed(() => props.motionActive && !reducedMotion.value)
 
+// 不在 Widget 下（例如单独渲染的预览）时没有宿主气泡，台词一律 unavailable。
+const sayHandler = inject(AGENT_PET_SAY_INJECTION_KEY, null)
+
 const scopedPluginApi = computed(() => createPluginInstanceApi(pluginId.value, sourcePluginId.value))
 
 /** 规整插件上报的矩形，非法值视为隐藏锚点。 */
@@ -83,6 +87,10 @@ const petContext: AgentPetContext = {
   setInteracting(value) {
     if (props.pet.mode !== 'stage') return
     emit('interacting', Boolean(value))
+  },
+  say(text, options) {
+    if (props.pet.mode === 'stage' && props.pet.bubbles === 'self') return { shown: false, reason: 'unavailable' }
+    return sayHandler ? sayHandler(text, options) : { shown: false, reason: 'unavailable' }
   },
   storage: {
     async get<T = unknown>() {

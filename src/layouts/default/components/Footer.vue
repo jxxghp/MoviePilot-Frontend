@@ -17,6 +17,7 @@ import {
   type DynamicButtonUnregister,
 } from '@/composables/dynamicButtonRegistry'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
+import { usePublishFooterDockGeometry } from '@/composables/useFooterDockGeometry'
 
 const { register: registerSharedDynamicButton, unregister: unregisterSharedDynamicButton } = dynamicButtonRegistry
 
@@ -226,6 +227,11 @@ onUnmounted(() => clearTimeout(accessoryExitTimer))
 const shouldRenderFooterNav = computed(() => appMode.value && props.showNav)
 const shouldRevealFooterNav = computed(() => shouldRenderFooterNav.value && !isLaunchLoading.value)
 
+const dockContainerRef = ref<HTMLElement | null>(null)
+const dockGroupRef = ref<HTMLElement | null>(null)
+// Agent 形象插件需要避让 Dock，几何由 Footer 自己发布，外部不按样式类名查 DOM。
+usePublishFooterDockGeometry(dockContainerRef, dockGroupRef)
+
 const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
   'components.subscribeHistory.title': 'dialog.subscribeHistory.title',
   'components.subscribeEdit.titleDefault': 'dialog.subscribeEdit.titleDefault',
@@ -279,8 +285,8 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
 
 <template>
   <Teleport v-if="shouldRenderFooterNav" to="body">
-    <div v-show="shouldRevealFooterNav" class="footer-nav-container">
-      <div class="footer-nav-group">
+    <div v-show="shouldRevealFooterNav" ref="dockContainerRef" class="footer-nav-container">
+      <div ref="dockGroupRef" class="footer-nav-group">
         <VCard
           key="main-nav"
           data-footer-nav-role="primary"

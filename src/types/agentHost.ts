@@ -14,6 +14,17 @@ export interface AgentHostRect {
   height: number
 }
 
+/**
+ * App 底部导航 Dock 当前可见的区域。移动端自动启用、桌面端选择 App 界面模式时出现，
+ * 底部导航与桌面 App Dock 是同一组件。宿主只公布区域，移动、落脚和避让规则由插件决定。
+ */
+export interface AgentHostDock {
+  /** 全部可见卡片的外接矩形。 */
+  bounds: AgentHostRect
+  /** 每张可见卡片（主导航、页面附属按钮）的矩形，按从左到右排列；收起的卡片不出现。 */
+  items: AgentHostRect[]
+}
+
 /** 宿主归纳出的会话阶段。 */
 export type AgentHostPhase = 'idle' | 'thinking' | 'tool' | 'awaiting' | 'done' | 'error'
 
@@ -48,6 +59,8 @@ export interface AgentHostState {
   }
   /** 面板打开时占据的视口矩形，关闭时为 null。 */
   panelRect: AgentHostRect | null
+  /** 底部导航 Dock 的可见区域；未渲染、隐藏或被全屏面板盖住时为 null。尺寸或显隐变化时随快照更新。 */
+  dock: AgentHostDock | null
 }
 
 /** 宿主事件总线上传递的事件。 */
@@ -129,6 +142,26 @@ export interface AgentPetDeclaration {
 /** 用户保存在 `user/config/AgentPet` 的选择：具体形象、明确内置或 null 跟随默认。 */
 export type AgentPetSelection = { plugin_id: string; key: string } | 'builtin' | null
 
+/** `pet.say` 的选项。 */
+export interface AgentPetSayOptions {
+  /** 显示时长（毫秒），宿主限制在 1500 至 6000 之间，缺省 3500。 */
+  duration?: number
+}
+
+/**
+ * `pet.say` 未显示的原因。
+ * - `empty` 文字为空
+ * - `unavailable` 当前模式没有宿主气泡（stage 且 bubbles=self），或入口未挂载
+ * - `hidden` 面板打开、页面不可见、形象被隐藏或 stage 形象未上报锚点
+ * - `busy` 正在显示通知、toast 或助手回复预览，台词让位且不排队
+ * - `rate_limited` 距上一条不足 1.5 秒，或 60 秒内已显示 10 条
+ * - `duplicate` 10 秒内已显示过同一句
+ */
+export type AgentPetSayRejectReason = 'empty' | 'unavailable' | 'hidden' | 'busy' | 'rate_limited' | 'duplicate'
+
+/** `pet.say` 的结果，同步返回，不抛错。 */
+export type AgentPetSayResult = { shown: true } | { shown: false; reason: AgentPetSayRejectReason }
+
 /** 形象组件收到的上下文。 */
 export interface AgentPetContext {
   /** 当前模式。 */
@@ -139,6 +172,13 @@ export interface AgentPetContext {
   setBubbleAnchor(rect: AgentHostRect | null): void
   /** stage 模式的点击开面板之外，插件可声明当前是否在被拖拽，宿主据此不弹预览。 */
   setInteracting(value: boolean): void
+  /**
+   * 请宿主用原生气泡在角色旁显示一句短台词，适用于 renderer 模式和 stage+bubbles=host。
+   * 只显示纯文字（不解析 Markdown，超过 60 字截断），同一时间只有一条台词，新台词替换旧台词。
+   * 台词优先级最低：通知、toast、助手回复预览在场时不显示，它们到达时台词立即让位。
+   * 不发送会话消息、不打开面板、不触发宿主角色动作。
+   */
+  say(text: string, options?: AgentPetSayOptions): AgentPetSayResult
   /** 每用户每形象的小块持久数据，序列化后不超过 16KB。 */
   storage: {
     get<T = unknown>(): Promise<T | null>

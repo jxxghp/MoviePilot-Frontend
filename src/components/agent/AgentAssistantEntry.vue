@@ -13,7 +13,8 @@ import type { AgentPetActionName, AgentPetIntent } from './pet/types'
 import { useAgentPetMachine } from './pet/useAgentPetMachine'
 import { useAgentPetInteractions } from './pet/useAgentPetInteractions'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
-import type { AgentHostRect, AgentPetDeclaration } from '@/types/agentHost'
+import { footerDockGeometry } from '@/composables/useFooterDockGeometry'
+import type { AgentHostRect, AgentPetDeclaration, AgentPetSayResult } from '@/types/agentHost'
 
 interface AgentAssistantEntryBubble {
   id: string
@@ -77,6 +78,8 @@ const FAB_RIGHT_EDGE_DOCK_DISTANCE = 88
 const FAB_NOTIFICATION_BUBBLE_DURATION = 7000
 const FAB_TOAST_BUBBLE_DURATION = 4500
 const FAB_MAX_BUBBLES = 4
+/** 形象台词占用的固定气泡 ID，保证同一时间只有一条台词。 */
+const AGENT_PET_SAY_BUBBLE_ID = 'agent-pet-say'
 const FAB_DEFAULT_RIGHT_OFFSET = 18
 const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
 const FAB_MOBILE_VIEWPORT_WIDTH = 600
@@ -633,10 +636,15 @@ function getBubbleCandidatePenalty(
       : bubbleSize.height + bubbleGap
   const fitPenalty = Math.max(0, primaryRequired - primaryAvailable) * 8
   const alignmentPenalty = Math.abs(x - candidate.idealX) + Math.abs(y - candidate.idealY)
+  // 盖住底部导航 Dock 会挡住导航点击，按重叠高度计罚，权重与空间不足相同。
+  const dock = footerDockGeometry.value?.bounds
+  const dockOverlapX = dock ? Math.min(x + bubbleSize.width, dock.x + dock.width) - Math.max(x, dock.x) : 0
+  const dockOverlapY = dock ? Math.min(y + bubbleSize.height, dock.y + dock.height) - Math.max(y, dock.y) : 0
+  const dockPenalty = dockOverlapX > 0 && dockOverlapY > 0 ? dockOverlapY * 8 : 0
 
   return {
     ...candidate,
-    score: fitPenalty + alignmentPenalty + candidate.weight,
+    score: fitPenalty + alignmentPenalty + dockPenalty + candidate.weight,
     x,
     y,
   }
@@ -1121,14 +1129,17 @@ function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose
 
   const hadBubbles = hasFabBubbles.value
   const wasDocked = fabDocked.value
-  const existingBubbles = fabBubbles.value.filter(item => item.id !== bubble.id)
+  // 形象台词优先级最低：任何系统气泡到达时立即让位，台词不与系统气泡同屏。
+  const existingBubbles = fabBubbles.value.filter(
+    item => item.id !== bubble.id && (bubble.kind === 'pet' || item.kind !== 'pet'),
+  )
   if (!hadBubbles) fabBubblePositioned.value = false
   fabBubbles.value = [bubble, ...existingBubbles].slice(0, FAB_MAX_BUBBLES)
   setFabDocked(false)
-  // 只在新气泡到达时回应；同一回复的流式更新不重复重启动作。
+  // 只在新气泡到达时回应；同一回复的流式更新不重复重启动作。形象台词由插件自己表演，宿主不加动作。
   if (bubble.kind === 'assistant') {
     playAgentPetAction('nod', { allowWhileThinking: true })
-  } else {
+  } else if (bubble.kind !== 'pet') {
     petInteractions.react(
       bubble.variant === 'success'
         ? 'happy-jump'
@@ -1171,6 +1182,18 @@ function showBubble(input: AgentAssistantEntryBubbleInput) {
       duration: input.duration,
     },
   )
+}
+
+/**
+ * 展示形象通过 pet.say 提交的台词。文字与时长已由 Widget 规整，这里只判断入口当前能否显示：
+ * 入口不可见或锚点缺失时为 hidden，已有系统气泡时为 busy。台词占固定单槽，新台词替换旧台词。
+ */
+function showPetSay(text: string, duration: number): AgentPetSayResult {
+  if (!props.active || (props.anchored && !props.anchorRect)) return { shown: false, reason: 'hidden' }
+  if (fabBubbles.value.some(item => item.kind !== 'pet')) return { shown: false, reason: 'busy' }
+
+  upsertFabBubble({ id: AGENT_PET_SAY_BUBBLE_ID, kind: 'pet', variant: 'default', text }, { autoClose: true, duration })
+  return { shown: true }
 }
 
 // 展示助手回复预览气泡。
@@ -1603,6 +1626,9 @@ watch(
 
 watch(bubbleEntryActive, active => setAgentAssistantBubbleEntryActive(active))
 
+// Dock 显隐或伸缩后重新挑选气泡位置，避免停留在刚出现的导航上方。
+watch(footerDockGeometry, scheduleFabBubblePositionUpdate)
+
 // 锚点从无到有时气泡重新入场；角色移动带来的后续变化只合并到下一帧重新定位，避免气泡每帧淡出重来。
 watch(
   () => props.anchorRect,
@@ -1676,6 +1702,7 @@ defineExpose({
   showAssistantReplyPreview,
   showBubble,
   showNotificationBubble,
+  showPetSay,
   showToastBubble,
 })
 </script>

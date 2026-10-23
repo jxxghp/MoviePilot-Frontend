@@ -686,12 +686,34 @@ interface AgentPetContext {
   setBubbleAnchor(rect: { x: number; y: number; width: number; height: number } | null): void
   /** stage 模式声明当前是否正在拖拽，拖拽期间主应用不弹回复预览气泡，agent.preview 事件照常推送。 */
   setInteracting(value: boolean): void
+  /** 请主应用用原生气泡在角色旁显示一句短台词，同步返回是否显示。 */
+  say(text: string, options?: { duration?: number }): { shown: true } | { shown: false; reason: string }
   /** 每用户每形象的小块持久数据。 */
   storage: { get<T = unknown>(): Promise<T | null>; set(value: unknown): Promise<void> }
 }
 ```
 
 `setBubbleAnchor` 和 `setInteracting` 在 renderer 模式下为空操作。
+
+`pet.say` 适合互动后的短句回应，例如被点击、被拖起或落地时说一句话。插件负责文字和触发时机，主应用负责气泡外观、角色旁定位和关闭，不打开面板、不发送会话消息、不调用 AI，也不触发主应用的角色动作。renderer 模式和 stage 且 `bubbles: host` 时可用，`bubbles: self` 的形象请继续自己画气泡。
+
+- 台词按纯文本显示，不解析 Markdown，空白合并，超过 60 个字符截断并补省略号。
+- `duration` 为显示毫秒数，限制在 1500 至 6000 之间，缺省 3500。
+- 同一时间只有一条台词，新台词替换旧台词。两条之间至少间隔 1.5 秒，60 秒内最多显示 10 条，10 秒内重复的同一句不再显示。只有真正显示的台词计入频率。
+- 台词优先级最低。通知、toast、助手回复预览在场时不显示，也不排队。台词显示期间来了系统气泡，台词立即让位。
+
+未显示时 `reason` 说明原因，插件可以据此换一句或者放弃，不需要重试。
+
+| `reason`       | 含义                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| `empty`        | 文字为空                                                          |
+| `unavailable`  | 当前没有主应用气泡，例如 `bubbles: self` 或组件不在助手入口里     |
+| `hidden`       | 面板打开、页面不可见、形象被全屏浮层隐藏，或 stage 形象未上报锚点 |
+| `busy`         | 正在显示通知、toast 或回复预览                                    |
+| `rate_limited` | 超过间隔或每分钟条数限制                                          |
+| `duplicate`    | 10 秒内已显示过同一句                                             |
+
+旧版本主程序没有 `pet.say`，插件需要兼容时先判断 `typeof props.pet.say === 'function'`。
 
 `pet.storage` 保存在用户配置 `AgentPetState.<plugin_id>.<key>`，按用户和形象隔离。值按紧凑 JSON 的 UTF-8 字节计算，不能超过 16KB，超出时 `set` 会 reject，前端和后端都会校验。它适合保存位置、偏好这类小块状态，素材和大段数据请放在插件自己的数据或静态文件里。
 
@@ -734,6 +756,11 @@ interface AgentHostState {
     safeArea: { top: number; right: number; bottom: number; left: number }
   }
   panelRect: { x: number; y: number; width: number; height: number } | null
+  /** 底部导航 Dock 的可见区域，未显示时为 null。 */
+  dock: {
+    bounds: { x: number; y: number; width: number; height: number }
+    items: Array<{ x: number; y: number; width: number; height: number }>
+  } | null
 }
 
 interface AgentHostEvent {
@@ -743,6 +770,8 @@ interface AgentHostEvent {
   at: number
 }
 ```
+
+`dock` 是 App 界面模式下底部导航 Dock 的可见区域，手机上的底部导航和桌面端选择 App 界面模式后的 Dock 是同一个组件。`items` 是每张可见卡片（主导航和页面附属按钮）的矩形，从左到右排列，收起的附属按钮不出现。`bounds` 是它们的外接矩形。坐标相对视口，单位为 CSS 像素。Dock 未渲染、启动加载中、被全屏面板盖住时为 `null`。卡片尺寸、附属按钮伸缩、窗口缩放和显隐变化都会更新快照，通过 `subscribe` 收到即可。主应用只提供区域，行走、落脚和避让规则由插件决定。主应用自己的气泡在选位置时也会避开 Dock，角色站得离 Dock 越远，气泡越不会压到导航。旧版本主程序的快照里没有这个字段，读到 `undefined` 时按没有 Dock 处理，或继续使用原来的测量方式。
 
 `subscribe` 和 `on` 返回的取消函数可以直接调用。组件卸载时主应用也会清空该实例的全部订阅，插件仍应在 `onBeforeUnmount` 中清理自己的计时器和 DOM 监听。以 `agent.` 开头的名称或空名称调用 `emit` 会被忽略并在控制台警告。
 
