@@ -13,6 +13,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useStorageOptions } from '@/composables/useStorageOptions'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { useNativePageHeader } from '@/native/page'
 
 // LocalStorage keys
 // 排序列沿用原有键名（历史值 name / time 直接兼容），方向为新增键。
@@ -49,6 +50,7 @@ const props = defineProps({
 // 对外事件
 const emit = defineEmits(['pathchanged'])
 const route = useRoute()
+const { t } = useI18n()
 const { appMode } = usePWA()
 const userStore = useUserStore()
 const { catalog: storageCatalog, loadStorageCatalog } = useStorageOptions()
@@ -172,6 +174,23 @@ const loading = ref(0)
 
 // 刷新
 const refreshPending = ref(false)
+
+/** 页面与原生导航复用同一刷新入口，列表仍负责实际请求和完成状态。 */
+function refreshFiles() {
+  refreshPending.value = true
+}
+
+useNativePageHeader({
+  actions: computed(() => [
+    {
+      title: t('common.refresh'),
+      icon: 'mdi-refresh',
+      disabled: loading.value > 0,
+      action: refreshFiles,
+    },
+  ]),
+})
+
 /** 读取持久化的排序列；未知值回退为名称。 */
 function readSortKey(): FileSortKey {
   const stored = localStorage.getItem(SORT_KEY)
@@ -271,6 +290,7 @@ function preventSelect(event: Event) {
   return false
 }
 
+/** 补齐历史浏览器的选区样式，清理拖动时与标准属性一并恢复。 */
 interface DocumentDragStyle extends CSSStyleDeclaration {
   MozUserSelect: string
   webkitUserSelect: string
@@ -302,6 +322,7 @@ function startDrag(event: MouseEvent) {
   setDocumentDragStyles(true)
 }
 
+/** 拖动时将目录树宽度限制在可操作范围内，持久化由现有 watcher 负责。 */
 function handleDrag(event: MouseEvent) {
   if (!isDragging.value) return
 
@@ -317,6 +338,7 @@ function handleDrag(event: MouseEvent) {
   navigatorWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth))
 }
 
+/** 结束拖动后成对撤销全局监听与选区样式。 */
 function stopDrag() {
   isDragging.value = false
   document.removeEventListener('mousemove', handleDrag)
@@ -326,6 +348,7 @@ function stopDrag() {
   setDocumentDragStyles(false)
 }
 
+/** 缓存页面失活或卸载时，清理尚未完成的拖动。 */
 function cleanupDrag() {
   if (isDragging.value) {
     stopDrag()
@@ -346,15 +369,10 @@ onUnmounted(cleanupDrag)
     }"
     :aria-busy="loading > 0"
   >
-    <header class="file-workspace__header d-flex justify-space-between align-center mb-1">
+    <header class="file-workspace__header d-flex justify-space-between align-center mb-1" data-native-page-heading>
       <PageContentTitle :title="$t('navItems.fileManager')" class="my-0" style="margin-block: 0" />
       <div class="d-flex align-center gap-1">
-        <IconBtn
-          variant="text"
-          :aria-label="$t('common.refresh')"
-          :disabled="loading > 0"
-          @click="refreshPending = true"
-        >
+        <IconBtn variant="text" :aria-label="$t('common.refresh')" :disabled="loading > 0" @click="refreshFiles">
           <VIcon icon="mdi-refresh" />
         </IconBtn>
       </div>
