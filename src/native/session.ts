@@ -45,7 +45,10 @@ export class NativeChromeSession {
     if (this.phase !== 'web') return
     this.phase = 'waiting'
     this.options.target.addEventListener('moviepilot:native-message', this.listener)
-    this.post('web.ready', { majors: [1], capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1'] })
+    this.post('web.ready', {
+      majors: [1],
+      capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1', 'notifications.v1'],
+    })
     this.timer = setTimeout(() => {
       void this.fail()
     }, 3000)
@@ -173,6 +176,7 @@ export class NativeChromeSession {
         'navigation.selectRoot',
         'navigation.back',
         'navigation.open',
+        'notification.open',
         'headerTab.select',
         'action.invoke',
         'state.request',

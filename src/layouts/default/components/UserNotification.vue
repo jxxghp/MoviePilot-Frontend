@@ -26,6 +26,20 @@ const PAGE_SIZE = 20
 const NOTIFICATION_ITEM_HEIGHT = 136
 
 const appsMenu = ref(false)
+const route = useRoute()
+const router = useRouter()
+// 通知链接复用当前通知中心；消费参数后刷新页面不会再次弹出。
+watch(
+  () => route.query.shotcut,
+  value => {
+    if (value !== 'message') return
+    appsMenu.value = true
+    const query = { ...route.query }
+    delete query.shotcut
+    void router.replace({ query })
+  },
+  { immediate: true },
+)
 useNativeGlobalAction({
   id: 'notifications',
   title: () => t('notification.center'),

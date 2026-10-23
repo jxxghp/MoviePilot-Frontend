@@ -42,6 +42,7 @@ const notificationTypeNames: { [key: string]: string } = {
   discord: t('notification.discord.name'),
   dingtalk: t('notification.dingtalk.name'),
   webpush: t('notification.webpush.name'),
+  apppush: t('notification.apppush.name'),
   custom: t('setting.notification.custom'),
 }
 

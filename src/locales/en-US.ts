@@ -1237,6 +1237,13 @@ export default {
       adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
       adminsPlaceholder: 'User IDs list, separated by commas',
     },
+    apppush: {
+      name: 'Private App Push',
+      server: 'Private Server URL',
+      key: 'Instance relay key',
+      keyHint: 'Match a PUSH_RELAY_KEYS value on Server, at least 32 characters. Stored only on the backend.',
+      hint: 'Save and enable, then bind in the App under Connection and Display → Notifications. Free signing uses the Home Screen notification web app. APNs requires an eligible signing profile.',
+    },
     webpush: {
       name: 'WebPush',
       username: 'Login Username',

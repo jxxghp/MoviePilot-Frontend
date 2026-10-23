@@ -61,6 +61,8 @@ export interface NativeEnvelope {
 /** 由主文档开始时注入的最小 WebKit 传输门面。 */
 export interface NativeTransport {
   transportVersion: 1
+  /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
+  notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */
   postMessage(message: NativeEnvelope): void
   /** 只通知宿主显示登录框架，不携带令牌或用户输入。 */

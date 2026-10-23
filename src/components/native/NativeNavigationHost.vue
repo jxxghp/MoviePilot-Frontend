@@ -25,6 +25,7 @@ import { NativeHeaderTabs } from '@/native/header'
 import { nativePageHeaders } from '@/native/page'
 import type { DynamicHeaderTabButton } from '@/composables/useDynamicHeaderTab'
 import type { NativeAction, NativeEnvelope, NativeSnapshot } from '@/native/protocol'
+import { isNativeRoute } from '@/native/protocol'
 import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 import '@/native/native.scss'
 
@@ -264,6 +265,19 @@ function execute(message: NativeEnvelope) {
   if (message.type === 'navigation.selectRoot')
     return !overlayOpen.value && typeof payload.rootId === 'string' && history.selectRoot(payload.rootId)
   if (message.type === 'navigation.back') return history.back(document, window)
+  if (message.type === 'notification.open') {
+    if (!authenticated.value || overlayOpen.value || !isNativeRoute(payload.path)) return false
+    if (payload.path === '/?shotcut=message') {
+      const action = nativeGlobalActions.value.get('notifications')
+      if (!action || (action.visible !== undefined && !toValue(action.visible))) return false
+      action.invoke()
+    } else {
+      void router.push(payload.path).catch(() => {
+        /* 业务守卫保留目的页的权限判断，失败不重放通知动作。 */
+      })
+    }
+    return true
+  }
   if (message.type === 'navigation.open') {
     if (overlayOpen.value) return false
     const item = current.snapshot.moreMenu

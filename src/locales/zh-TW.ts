@@ -1202,6 +1202,13 @@ export default {
       adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
       adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
     },
+    apppush: {
+      name: 'App 私有推播',
+      server: '私有 Server 位址',
+      key: '實例中轉金鑰',
+      keyHint: '與 Server 的 PUSH_RELAY_KEYS 對應，至少 32 位；僅保存在後台。',
+      hint: '儲存並啟用後，在 App 的「連線與顯示 → 通知」中綁定。免費自簽使用主畫面通知網頁；支援 APNs 的簽章可啟用原生通知。',
+    },
     webpush: {
       name: 'WebPush',
       username: '登錄用戶名',

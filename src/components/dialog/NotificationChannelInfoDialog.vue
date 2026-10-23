@@ -1201,6 +1201,31 @@ onMounted(() => {
               />
             </VCol>
           </VRow>
+          <VRow v-else-if="notificationInfo.type == 'apppush'">
+            <VCol cols="12">
+              <VTextField v-model="notificationInfo.name" :label="t('notification.name')" />
+            </VCol>
+            <VCol cols="12">
+              <VTextField
+                v-model="notificationInfo.config.PUSH_SERVER_URL"
+                :label="t('notification.apppush.server')"
+                placeholder="https://push.example.com"
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextField
+                v-model="notificationInfo.config.PUSH_RELAY_KEY"
+                type="password"
+                autocomplete="new-password"
+                :label="t('notification.apppush.key')"
+                :hint="t('notification.apppush.keyHint')"
+                persistent-hint
+              />
+            </VCol>
+            <VCol cols="12"
+              ><VAlert type="info" variant="tonal">{{ t('notification.apppush.hint') }}</VAlert></VCol
+            >
+          </VRow>
           <VRow v-else-if="notificationInfo.type == 'webpush'">
             <VCol cols="12" md="6">
               <VTextField
