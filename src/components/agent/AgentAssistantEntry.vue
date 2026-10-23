@@ -1927,11 +1927,24 @@ defineExpose({
 }
 
 .agent-assistant-fab__bubble-stack {
+  // 滚动容器会按内边距框裁掉气泡自身的投影，只留 0.12rem 时投影被切成方形暗块。
+  // 内边距按主题卡片投影（下移 16px、模糊 40px）的可见范围留出空间，再用等量负外边距抵消，气泡位置和入口测量尺寸不变；
+  // 扩出的透明区域不接收点击，气泡本身仍可点。
+  --agent-assistant-bubble-shadow-room-block-start: 1.75rem;
+  --agent-assistant-bubble-shadow-room-inline: 2.75rem;
+  --agent-assistant-bubble-shadow-room-block-end: 3.75rem;
+
   display: grid;
   gap: 0.45rem;
+  margin-block: calc(-1 * var(--agent-assistant-bubble-shadow-room-block-start))
+    calc(-1 * var(--agent-assistant-bubble-shadow-room-block-end));
+  margin-inline: calc(-1 * var(--agent-assistant-bubble-shadow-room-inline));
   max-block-size: inherit;
   overflow-y: auto;
-  padding: 0.12rem;
+  padding-block: calc(0.12rem + var(--agent-assistant-bubble-shadow-room-block-start))
+    calc(0.12rem + var(--agent-assistant-bubble-shadow-room-block-end));
+  padding-inline: calc(0.12rem + var(--agent-assistant-bubble-shadow-room-inline));
+  pointer-events: none;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
