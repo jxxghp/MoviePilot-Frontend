@@ -320,8 +320,11 @@ function openManualReview(review: TransferManualReviewTask) {
       resolved: () => {
         void refreshQueue()
       },
+      discarded: () => {
+        void refreshQueue()
+      },
     },
-    { closeOn: ['close', 'resolved'] },
+    { closeOn: ['close', 'resolved', 'discarded'] },
   )
 }
 
