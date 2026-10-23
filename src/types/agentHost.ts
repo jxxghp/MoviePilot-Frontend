@@ -151,8 +151,8 @@ export interface AgentPetSayOptions {
 /**
  * `pet.say` 未显示的原因。
  * - `empty` 文字为空
- * - `unavailable` 当前模式没有宿主气泡（stage 且 bubbles=self），或入口未挂载
- * - `hidden` 面板打开、页面不可见、形象被隐藏或 stage 形象未上报锚点
+ * - `unavailable` 当前模式没有宿主气泡（stage 且 bubbles=self）、入口未挂载，或该形象已被切换或卸载
+ * - `hidden` 面板打开、页面不可见、形象被隐藏，或 stage 形象尚未就绪、未上报锚点
  * - `busy` 正在显示通知、toast 或助手回复预览，台词让位且不排队
  * - `rate_limited` 距上一条不足 1.5 秒，或 60 秒内已显示 10 条
  * - `duplicate` 10 秒内已显示过同一句
