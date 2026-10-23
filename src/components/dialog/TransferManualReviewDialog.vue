@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   resolved: [decision: TransferManualReviewDecision]
+  discarded: []
 }>()
 
 const { t } = useI18n()
@@ -24,6 +25,7 @@ const reason = ref('')
 const submitError = ref('')
 const submittingDecision = ref<TransferManualReviewDecision | null>(null)
 const sourceCleanupConfirmed = ref(false)
+const discardConfirmed = ref(false)
 
 // 跨存储移动的上传已完成，此处判定的是源文件删除，不能复用目标落地证据。
 const isMoveSourceCleanup = computed(() => props.review.step.kind === 'delete_move_source')
@@ -39,6 +41,7 @@ watch(
   () => [props.review.task_id, props.review.step.operation_id, props.review.review_revision],
   () => {
     sourceCleanupConfirmed.value = false
+    discardConfirmed.value = false
   },
 )
 
@@ -108,6 +111,27 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
     emit('resolved', decision)
   } catch (error) {
     console.error('提交整理人工复核失败:', error)
+    submitError.value = error instanceof Error ? error.message : t('dialog.transferQueue.manualReviewSubmitFailed')
+    toast.error(submitError.value)
+  } finally {
+    submittingDecision.value = null
+  }
+}
+
+// 显式放弃只释放 durable 整理任务，后端不会移动、删除或回滚任何文件。
+async function discardManualReview() {
+  if (submittingDecision.value || !discardConfirmed.value) return
+  submitError.value = ''
+  submittingDecision.value = 'not_applied'
+  try {
+    await api.post(`transfer/tasks/${encodeURIComponent(props.review.task_id)}/manual-review/discard`, {
+      operation_id: props.review.step.operation_id,
+      reason: reason.value.trim(),
+    }, { feedback: 'silent' })
+    toast.success('已放弃整理任务，未修改任何文件')
+    emit('discarded')
+  } catch (error) {
+    console.error('放弃整理人工复核失败:', error)
     submitError.value = error instanceof Error ? error.message : t('dialog.transferQueue.manualReviewSubmitFailed')
     toast.error(submitError.value)
   } finally {
@@ -203,6 +227,13 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
           hide-details
         />
 
+        <VCheckbox
+          v-model="discardConfirmed"
+          label="我确认仅放弃本次整理任务，保留源文件和目标文件不变"
+          :disabled="isSubmitting"
+          hide-details
+        />
+
         <VExpansionPanels v-if="evidenceSummary" variant="accordion" class="manual-review-dialog__evidence">
           <VExpansionPanel>
             <VExpansionPanelTitle>{{ t('dialog.transferQueue.manualReviewEvidence') }}</VExpansionPanelTitle>
@@ -237,6 +268,15 @@ async function resolveManualReview(decision: TransferManualReviewDecision) {
           {{ t('dialog.transferQueue.close') }}
         </VBtn>
         <VSpacer />
+        <VBtn
+          color="error"
+          variant="text"
+          :loading="isSubmitting && discardConfirmed"
+          :disabled="isSubmitting || !discardConfirmed"
+          @click="discardManualReview"
+        >
+          放弃任务
+        </VBtn>
         <VBtn
           color="warning"
           variant="tonal"
