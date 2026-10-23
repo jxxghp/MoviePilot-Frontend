@@ -276,6 +276,9 @@ describe('AgentPetStage renderer branch', () => {
     expect(pet.say('你好', { duration: 2000 })).toEqual({ shown: true })
     expect(say).toHaveBeenCalledWith('你好', { duration: 2000 })
     hosted.unmount()
+    // 卸载后插件仍持有的旧上下文失效，不再转给宿主。
+    expect(pet.say('还在吗')).toEqual({ shown: false, reason: 'unavailable' })
+    expect(say).toHaveBeenCalledTimes(1)
 
     const standalone = mount(AgentPetRemote, { props: { pet: createPet({ mode: 'renderer', bubbles: null }) } })
     await flushPromises()

@@ -73,6 +73,9 @@ function getStateConfigKey() {
   return `user/config/AgentPetState.${props.pet.plugin_id}.${props.pet.key}`
 }
 
+/** 组件已卸载；emit 在卸载后由 Vue 自动丢弃，say 走注入函数，需要自己判断。 */
+let unmounted = false
+
 const petContext: AgentPetContext = {
   get mode() {
     return props.pet.mode
@@ -89,6 +92,8 @@ const petContext: AgentPetContext = {
     emit('interacting', Boolean(value))
   },
   say(text, options) {
+    // 卸载或切换后旧上下文可能仍被插件的异步回调或计时器持有，必须失效，台词不能落到新形象旁边。
+    if (unmounted) return { shown: false, reason: 'unavailable' }
     if (props.pet.mode === 'stage' && props.pet.bubbles === 'self') return { shown: false, reason: 'unavailable' }
     return sayHandler ? sayHandler(text, options) : { shown: false, reason: 'unavailable' }
   },
@@ -141,6 +146,7 @@ onErrorCaptured(error => {
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
   loadGeneration++
   if (props.pet.mode === 'stage') emit('bubble-anchor', null)
 })

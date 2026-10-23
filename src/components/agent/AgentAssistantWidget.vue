@@ -179,6 +179,8 @@ const sayFromPet: AgentPetSayHandler = (value, options) => {
   if (!text) return { shown: false, reason: 'empty' }
   // bubbles=self 时内置入口不挂载，宿主没有气泡可用。
   if (!showEntry.value || !entryRef.value) return { shown: false, reason: 'unavailable' }
+  // stage 形象就绪前入口还未锚定到角色，此时显示的气泡不在角色旁，按未上报位置处理。
+  if (stagePet.value && !stageActive.value) return { shown: false, reason: 'hidden' }
   if (panelOpen.value || agentPetSuspended.value || !agentHost.getState().pageVisible)
     return { shown: false, reason: 'hidden' }
   const limited = petSayLimiter.check(text)
@@ -214,6 +216,8 @@ watch(effectivePetId, () => {
   bubbleAnchor.value = null
   petInteracting.value = false
   petSayLimiter.reset()
+  // 入口不随 renderer 形象切换重建，旧形象最后一句台词要随切换一起收起。
+  entryRef.value?.closePetSay()
 })
 
 // 底部 Dock 几何由 Footer 发布，这里只转进宿主快照，插件经 subscribe 收到变化。

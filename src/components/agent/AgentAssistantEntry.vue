@@ -1184,6 +1184,11 @@ function showBubble(input: AgentAssistantEntryBubbleInput) {
   )
 }
 
+/** 收起正在显示的形象台词，切换形象时由 Widget 调用。 */
+function closePetSay() {
+  closeBubble(AGENT_PET_SAY_BUBBLE_ID)
+}
+
 /**
  * 展示形象通过 pet.say 提交的台词。文字与时长已由 Widget 规整，这里只判断入口当前能否显示：
  * 入口不可见或锚点缺失时为 hidden，已有系统气泡时为 busy。台词占固定单槽，新台词替换旧台词。
@@ -1697,6 +1702,7 @@ onScopeDispose(() => {
 defineExpose({
   clearBubbles,
   closeBubble,
+  closePetSay,
   playPetAction,
   setDocked: setFabDocked,
   showAssistantReplyPreview,

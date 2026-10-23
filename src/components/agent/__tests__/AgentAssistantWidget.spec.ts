@@ -4,7 +4,7 @@ import { defineComponent, h, nextTick, ref, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantWidget from '@/components/agent/AgentAssistantWidget.vue'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
-import { AGENT_PET_RESOLVE_WAIT } from '@/stores/agentPet'
+import { AGENT_PET_RESOLVE_WAIT, useAgentPetStore } from '@/stores/agentPet'
 import type {
   AgentHostEvent,
   AgentPetContext,
@@ -164,11 +164,17 @@ describe('AgentAssistantWidget layering', () => {
 
 describe('AgentAssistantWidget agent host', () => {
   const entryShowPetSay = vi.fn((): AgentPetSayResult => ({ shown: true }))
+  const entryClosePetSay = vi.fn()
   const entryStub = defineComponent({
     name: 'AgentAssistantEntry',
     props: { anchored: Boolean, anchorRect: Object, pet: Object, active: Boolean, concealed: Boolean },
     setup(_props, { expose }) {
-      expose({ clearBubbles: vi.fn(), showAssistantReplyPreview: vi.fn(), showPetSay: entryShowPetSay })
+      expose({
+        clearBubbles: vi.fn(),
+        showAssistantReplyPreview: vi.fn(),
+        showPetSay: entryShowPetSay,
+        closePetSay: entryClosePetSay,
+      })
       return () => h('div', { 'data-agent-assistant-entry': '' })
     },
   })
@@ -317,7 +323,7 @@ describe('AgentAssistantWidget agent host', () => {
   })
 
   /** 挂载一个 stage 形象并取回它收到的 pet 上下文。 */
-  async function mountStagePet(overrides: Partial<AgentPetDeclaration> = {}) {
+  async function mountStagePet(overrides: Partial<AgentPetDeclaration> = {}, onSetup?: (pet: AgentPetContext) => void) {
     let petContext: AgentPetContext | undefined
     mocks.loadRemoteComponent.mockResolvedValue(
       defineComponent({
@@ -325,6 +331,7 @@ describe('AgentAssistantWidget agent host', () => {
         setup(props) {
           petContext = props.pet
           props.pet.setBubbleAnchor({ x: 100, y: 200, width: 64, height: 96 })
+          onSetup?.(props.pet)
           return () => h('div', { 'data-stage-pet': '' })
         },
       }),
@@ -385,6 +392,34 @@ describe('AgentAssistantWidget agent host', () => {
     wrapper.findComponent(panelStub).vm.$emit('update:modelValue', true)
     await nextTick()
     expect(pet.say('你好')).toEqual({ shown: false, reason: 'hidden' })
+    expect(entryShowPetSay).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('reports a stage pet line as hidden until the pet is ready and anchored', async () => {
+    entryShowPetSay.mockClear()
+    let early: AgentPetSayResult | undefined
+    const { wrapper, pet } = await mountStagePet({}, context => {
+      early = context.say('你好')
+    })
+    expect(early).toEqual({ shown: false, reason: 'hidden' })
+    expect(entryShowPetSay).not.toHaveBeenCalled()
+    expect(pet.say('你好')).toEqual({ shown: true })
+    wrapper.unmount()
+  })
+
+  it('invalidates the old pet context and clears its line when the user switches pets', async () => {
+    entryShowPetSay.mockClear()
+    entryClosePetSay.mockClear()
+    const { wrapper, pet } = await mountStagePet()
+    expect(pet.say('你好')).toEqual({ shown: true })
+
+    await useAgentPetStore().setUserSelection('builtin')
+    await flushPromises()
+    expect(entryClosePetSay).toHaveBeenCalled()
+    entryShowPetSay.mockClear()
+    // 插件遗留的计时器仍持有旧上下文，台词不能出现在内置机器人旁边。
+    expect(pet.say('还在吗')).toEqual({ shown: false, reason: 'unavailable' })
     expect(entryShowPetSay).not.toHaveBeenCalled()
     wrapper.unmount()
   })
