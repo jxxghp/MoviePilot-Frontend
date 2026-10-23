@@ -2864,7 +2864,8 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
 }
 
 // 中止当前流式回复。
-function stopGeneration() {
+function stopGeneration(options: { stopRemote?: boolean } = {}) {
+  const { stopRemote = true } = options
   userAbortRequested = true
   runnerActive.value = false
   clearSteeringDraftState()
@@ -2884,7 +2885,7 @@ function stopGeneration() {
     refreshMessageList()
   }
   persistState()
-  if (sessionId.value) {
+  if (stopRemote && sessionId.value) {
     api
       .post<unknown>(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/stop`, undefined, {
         feedback: 'silent',
@@ -2901,7 +2902,7 @@ function stopGeneration() {
 function startNewSession() {
   petPickerOpen.value = false
   invalidateProtectedDeliveries()
-  stopGeneration()
+  stopGeneration({ stopRemote: false })
   sessionId.value = createSessionId()
   messages.value = []
   pendingSteeringDrafts.clear()
@@ -2926,7 +2927,7 @@ async function loadHistorySession(targetSessionId: string) {
 
   try {
     invalidateProtectedDeliveries()
-    stopGeneration()
+    stopGeneration({ stopRemote: false })
     if (!historySession.messages.length) {
       historySession = await loadServerHistorySession(targetSessionId)
     }
