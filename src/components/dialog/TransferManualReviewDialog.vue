@@ -124,10 +124,14 @@ async function discardManualReview() {
   submitError.value = ''
   submittingDecision.value = 'not_applied'
   try {
-    await api.post(`transfer/tasks/${encodeURIComponent(props.review.task_id)}/manual-review/discard`, {
-      operation_id: props.review.step.operation_id,
-      reason: reason.value.trim(),
-    }, { feedback: 'silent' })
+    await api.post(
+      `transfer/tasks/${encodeURIComponent(props.review.task_id)}/manual-review/discard`,
+      {
+        operation_id: props.review.step.operation_id,
+        reason: reason.value.trim(),
+      },
+      { feedback: 'silent' },
+    )
     toast.success('已放弃整理任务，未修改任何文件')
     emit('discarded')
   } catch (error) {
