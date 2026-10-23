@@ -7,6 +7,7 @@ import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
+import { groupAppMenus } from '@/utils/appNavigation'
 
 // 国际化
 const { t } = useI18n()
@@ -31,26 +32,10 @@ const appSearchInput = ref<{ focus: () => void } | null>(null)
 function categorizeApps() {
   const allMenus = getNavMenus(t)
   const filteredMenus = filterMenusByPermission(allMenus, userPermissions.value)
-  let menus = filteredMenus.filter((item: NavMenu) => !item.footer)
-
-  if (pluginSidebarNavStore.items.length > 0) {
-    const pluginNavMenus = filterPluginSidebarNavEntries(pluginSidebarNavStore.items, t, userPermissions.value).map(
-      e => e.navMenu,
-    )
-    menus = [...menus, ...pluginNavMenus]
-  }
-
-  const groupedMenus: Record<string, NavMenu[]> = {}
-
-  menus.forEach(menu => {
-    const header = menu.header || t('appcenter.others')
-    if (!groupedMenus[header]) {
-      groupedMenus[header] = []
-    }
-    groupedMenus[header].push(menu)
-  })
-
-  appGroups.value = groupedMenus
+  const pluginMenus = filterPluginSidebarNavEntries(pluginSidebarNavStore.items, t, userPermissions.value).map(
+    entry => entry.navMenu,
+  )
+  appGroups.value = groupAppMenus(filteredMenus, pluginMenus, t('appcenter.others'))
   appGroupsReady.value = true
 }
 

@@ -9,6 +9,7 @@ describe('useDynamicHeaderTab', () => {
     const register = vi.fn()
     const unregister = vi.fn()
     const mountedRegistrationCount = vi.fn()
+    const activeTab = ref('movie')
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/recommend', component: { template: '<div />' } }],
@@ -18,7 +19,6 @@ describe('useDynamicHeaderTab', () => {
 
     const Page = defineComponent({
       setup() {
-        const activeTab = ref('movie')
         const { registerHeaderTab } = useDynamicHeaderTab()
         registerHeaderTab({
           enableStateRestore: false,
@@ -56,11 +56,18 @@ describe('useDynamicHeaderTab', () => {
     expect(register.mock.calls.at(-1)?.[0].routePath).toBe('/recommend')
 
     await wrapper.get('button').trigger('click')
-    expect(unregister).toHaveBeenCalledWith('/recommend')
+    const ownerId = register.mock.calls.at(-1)?.[0].ownerId
+    expect(ownerId).toEqual(expect.stringMatching(/^header:/))
+    expect(unregister).toHaveBeenCalledWith('/recommend', ownerId)
 
     const registrationsBeforeActivation = register.mock.calls.length
+    activeTab.value = 'tv'
+    await wrapper.vm.$nextTick()
+    expect(register.mock.calls).toHaveLength(registrationsBeforeActivation)
     await wrapper.get('button').trigger('click')
     expect(register.mock.calls.length).toBeGreaterThan(registrationsBeforeActivation)
+    expect(register.mock.calls.at(-1)?.[0].ownerId).toBe(ownerId)
+    expect(register.mock.calls.at(-1)?.[0].modelValue).toBe('tv')
 
     wrapper.unmount()
   })

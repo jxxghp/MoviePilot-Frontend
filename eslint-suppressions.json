@@ -444,9 +444,6 @@
     }
   },
   "src/composables/useDynamicHeaderTab.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
     "no-useless-assignment": {
       "count": 1
     },

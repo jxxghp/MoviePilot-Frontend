@@ -2,8 +2,10 @@ import type { ComputedRef, Ref } from 'vue'
 import { useTabStateRestore } from '@/composables/useStateRestore'
 import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
 
-// 动态标签页相关类型
+/** 页内标签附属按钮，回调只保留在当前页面。 */
 interface DynamicHeaderTabButton {
+  /** 原生与辅助功能可使用的操作文案；旧页面可省略。 */
+  title?: string
   icon: string
   color?: string | ComputedRef<string>
   variant?: 'flat' | 'text' | 'elevated' | 'tonal' | 'outlined' | 'plain'
@@ -17,6 +19,7 @@ interface DynamicHeaderTabButton {
   dataAttr?: string // 用于VMenu定位的data属性
 }
 
+/** 页内分类声明；网页与原生均使用相同权限条件。 */
 interface DynamicHeaderTabItem {
   title: string
   icon?: string
@@ -25,12 +28,23 @@ interface DynamicHeaderTabItem {
   feature?: UserPermissionFeatureKey
 }
 
+/** 由页面实例持有的当前标签注册，兼容旧模块省略 owner。 */
 interface DynamicHeaderTabConfig {
+  ownerId?: string
   items: DynamicHeaderTabItem[]
   modelValue: string
   appendButtons?: DynamicHeaderTabButton[]
   routePath?: string
   onUpdateModelValue?: (value: string) => void
+}
+
+declare global {
+  interface Window {
+    /** 与 inject 相同的跨模块注册，旧插件可省略 owner。 */
+    __VUE_INJECT_DYNAMIC_HEADER_TAB__?: (config: DynamicHeaderTabConfig) => void
+    /** 按路由和 owner 注销，防止旧实例清除新注册。 */
+    __VUE_UNINJECT_DYNAMIC_HEADER_TAB__?: (routePath?: string, ownerId?: string) => void
+  }
 }
 
 /** 提供页面动态头部标签的注册、状态恢复和注销能力。 */
@@ -39,7 +53,9 @@ export function useDynamicHeaderTab() {
 
   // 尝试从inject获取
   const registerDynamicHeaderTab = inject<(tab: DynamicHeaderTabConfig) => void>('registerDynamicHeaderTab')
-  const unregisterDynamicHeaderTab = inject<(routePath?: string) => void>('unregisterDynamicHeaderTab')
+  const unregisterDynamicHeaderTab =
+    inject<(routePath?: string, ownerId?: string) => void>('unregisterDynamicHeaderTab')
+  let ownedConfig: DynamicHeaderTabConfig | undefined
 
   /** 注册当前页面的动态头部标签配置。 */
   const registerHeaderTab = (config: {
@@ -62,6 +78,7 @@ export function useDynamicHeaderTab() {
     }
 
     const tabConfig: DynamicHeaderTabConfig = {
+      ownerId: `header:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}:${Math.random().toString(36).slice(2)}`}`,
       items: Array.isArray(config.items) ? config.items : config.items.value,
       modelValue: config.modelValue.value,
       appendButtons: config.appendButtons,
@@ -74,6 +91,15 @@ export function useDynamicHeaderTab() {
         }
       },
     }
+    ownedConfig = tabConfig
+    let componentActive = false
+
+    /** 仅激活且仍属于当前路径的页面能够替换注册，防止 KeepAlive 后台更新抢占导航。 */
+    const publish = () => {
+      if (!componentActive || tabConfig.routePath !== route.path) return
+      if (registerDynamicHeaderTab) registerDynamicHeaderTab(tabConfig)
+      else if (typeof window !== 'undefined') window.__VUE_INJECT_DYNAMIC_HEADER_TAB__?.(tabConfig)
+    }
 
     // 如果启用了PWA状态恢复，监听PWA状态变化并同步到modelValue
     // 但只在非激活状态下响应，避免干扰页面激活时的状态
@@ -83,9 +109,7 @@ export function useDynamicHeaderTab() {
           config.modelValue.value = newTab
           // 更新tabConfig并重新注册
           tabConfig.modelValue = newTab
-          if (registerDynamicHeaderTab) {
-            registerDynamicHeaderTab(tabConfig)
-          }
+          publish()
         }
       })
     }
@@ -98,15 +122,7 @@ export function useDynamicHeaderTab() {
         pwaTabState.activeTab.value = newValue
       }
       // 重新注册以更新值
-      if (registerDynamicHeaderTab) {
-        registerDynamicHeaderTab(tabConfig)
-      } else if (typeof window !== 'undefined') {
-        // 使用全局方法作为备用
-        const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
-        if (globalRegister) {
-          globalRegister(tabConfig)
-        }
-      }
+      publish()
     })
 
     // 如果items是computed或ref，也需要监听其变化
@@ -116,22 +132,15 @@ export function useDynamicHeaderTab() {
         newItems => {
           tabConfig.items = newItems
           // 重新注册以更新items
-          if (registerDynamicHeaderTab) {
-            registerDynamicHeaderTab(tabConfig)
-          } else if (typeof window !== 'undefined') {
-            // 使用全局方法作为备用
-            const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
-            if (globalRegister) {
-              globalRegister(tabConfig)
-            }
-          }
+          publish()
         },
         { deep: true },
       )
     }
 
-    // 注册函数
+    /** 激活时重新读取实际状态，并将这次注册绑定到当前路由。 */
     const doRegister = () => {
+      componentActive = true
       // 确保路由路径是最新的
       tabConfig.routePath = route.path
       // 确保items是最新的
@@ -139,21 +148,16 @@ export function useDynamicHeaderTab() {
       // 确保modelValue是最新的
       tabConfig.modelValue = config.modelValue.value
 
-      if (registerDynamicHeaderTab) {
-        registerDynamicHeaderTab(tabConfig)
-      } else if (typeof window !== 'undefined') {
-        // 使用全局方法作为备用
-        const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
-        if (globalRegister) {
-          globalRegister(tabConfig)
-        }
-      }
+      publish()
     }
 
-    // 取消注册函数
+    /** 离开时先停止响应式重注册，只按自己的 owner 释放当前注册。 */
     const doUnregister = () => {
+      componentActive = false
       if (unregisterDynamicHeaderTab) {
-        unregisterDynamicHeaderTab(tabConfig.routePath)
+        unregisterDynamicHeaderTab(tabConfig.routePath, tabConfig.ownerId)
+      } else if (typeof window !== 'undefined') {
+        window.__VUE_UNINJECT_DYNAMIC_HEADER_TAB__?.(tabConfig.routePath, tabConfig.ownerId)
       }
     }
 
@@ -189,7 +193,7 @@ export function useDynamicHeaderTab() {
   /** 取消当前页面注册的动态头部标签。 */
   const unregisterHeaderTab = () => {
     if (unregisterDynamicHeaderTab) {
-      unregisterDynamicHeaderTab()
+      if (ownedConfig) unregisterDynamicHeaderTab(ownedConfig.routePath, ownedConfig.ownerId)
     }
   }
 

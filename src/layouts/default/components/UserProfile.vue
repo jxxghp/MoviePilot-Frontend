@@ -30,6 +30,8 @@ import { useLocalStorage } from '@vueuse/core'
 import { COMMUNITY_AUTH_CHANGED_EVENT, useCommunityContribution } from '@/composables/useCommunityContribution'
 import CommunityMedalEntry from '@/layouts/default/components/CommunityMedalEntry.vue'
 import { isMedalKey, unseenMedalKeys } from '@/utils/communityMedals'
+import { useNativeGlobalAction } from '@/native/registry'
+import { nativeChromeActive } from '@/native/layout'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
 const CommunityMedalDialog = defineAsyncComponent(() => import('@/components/dialog/CommunityMedalDialog.vue'))
@@ -58,6 +60,15 @@ const showUIModeMenu = ref(false)
 
 // 用户头像主菜单是否显示；打开布局级面板前需要主动关闭，避免菜单 overlay 残留。
 const showUserMenu = ref(false)
+useNativeGlobalAction({
+  id: 'profile',
+  title: () => t('common.userMenu'),
+  icon: 'profile',
+  dataAttr: 'native-profile',
+  invoke: () => {
+    showUserMenu.value = true
+  },
+})
 const userAvatarRef = ref<{ $el: HTMLElement } | null>(null)
 
 // 主题菜单是否显示
@@ -712,7 +723,7 @@ onUnmounted(() => {
 
     <VMenu
       v-model="showUserMenu"
-      activator="parent"
+      :activator="nativeChromeActive ? '[data-menu-activator=native-profile]' : 'parent'"
       width="15rem"
       location="bottom end"
       offset="14px"

@@ -8,6 +8,8 @@ import { useBackground } from '@/composables/useBackground'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
+import { useNativeGlobalAction } from '@/native/registry'
+import { nativeChromeActive } from '@/native/layout'
 
 type NotificationDisplayItem =
   | { kind: 'section'; key: string; title: string; count: number }
@@ -24,6 +26,15 @@ const PAGE_SIZE = 20
 const NOTIFICATION_ITEM_HEIGHT = 136
 
 const appsMenu = ref(false)
+useNativeGlobalAction({
+  id: 'notifications',
+  title: () => t('notification.center'),
+  icon: 'notifications',
+  dataAttr: 'native-notifications',
+  invoke: () => {
+    appsMenu.value = true
+  },
+})
 const hasNewMessage = ref(false)
 const notificationList = ref<SystemNotification[]>([])
 const page = ref(1)
@@ -521,6 +532,7 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
 <template>
   <VMenu
     v-model="appsMenu"
+    :activator="nativeChromeActive ? '[data-menu-activator=native-notifications]' : undefined"
     width="420"
     max-width="calc(100vw - 24px)"
     transition="scale-transition"
@@ -528,7 +540,7 @@ watch(appsMenu, handleNotificationMenuVisibleChange)
     class="notification-menu"
     scrim
   >
-    <template #activator="{ props }">
+    <template v-if="!nativeChromeActive" #activator="{ props }">
       <VBadge
         v-if="hasUnreadMessageIndicator"
         dot

@@ -13,6 +13,7 @@ import { useGlassFixedShellBackplate } from '@/composables/useGlassFixedShellBac
 import { usePWA } from '@/composables/usePWA'
 import { useShellScrollState } from '@/composables/useShellScrollState'
 import { useFooterDockHeight } from '@/composables/useFooterDockHeight'
+import { nativeChromeActive } from '@/native/layout'
 import { supportsGlassNavbarLiveRefraction } from '@/utils/glassNavbarRefraction'
 import {
   FLOATING_NAVBAR_INSET_PX,
@@ -165,7 +166,8 @@ export default defineComponent({
           class: ['layout-navbar navbar-blur'],
           ref: navbarRef,
           'data-shell-navbar-state': shellScroll.state.value,
-          inert: appMode.value && shellScroll.state.value === 'compact' ? '' : undefined,
+          inert: nativeChromeActive.value || (appMode.value && shellScroll.state.value === 'compact') ? '' : undefined,
+          'aria-hidden': nativeChromeActive.value ? 'true' : undefined,
         },
         [
           h(

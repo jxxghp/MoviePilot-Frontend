@@ -1,4 +1,5 @@
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nativeChromeActive, nativeContentInsets } from '@/native/layout'
 
 /**
  * 观察通过 Teleport 挂载到 body 的 App 底部 Footer，并返回其实际占用高度。
@@ -57,5 +58,9 @@ export function useFooterDockHeight() {
     observedFooter = null
   })
 
-  return { footerDockHeight }
+  return {
+    footerDockHeight: computed(() =>
+      nativeChromeActive.value ? nativeContentInsets.value.bottom : footerDockHeight.value,
+    ),
+  }
 }

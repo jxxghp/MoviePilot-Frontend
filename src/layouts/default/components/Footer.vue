@@ -18,6 +18,8 @@ import {
 } from '@/composables/dynamicButtonRegistry'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { usePublishFooterDockGeometry } from '@/composables/useFooterDockGeometry'
+import { buildFooterMenus } from '@/utils/footerNavigation'
+import { nativeChromeActive } from '@/native/layout'
 
 const { register: registerSharedDynamicButton, unregister: unregisterSharedDynamicButton } = dynamicButtonRegistry
 
@@ -64,7 +66,7 @@ const navMenus = computed(() => {
   return filterMenusByPermission(allMenus, userPermissions.value)
 })
 
-// 根据当前路径获取匹配的菜单路径
+/** 根据当前路径获取网页 Dock 的已授权入口。 */
 function getMenuPathFromRoute(path: string): string {
   const matchedMenu = navMenus.value.find((menu: NavMenu) => menu.footer === true && path.startsWith(menu.to as string))
   return matchedMenu ? (matchedMenu.to as string) : '/apps'
@@ -74,44 +76,7 @@ function getMenuPathFromRoute(path: string): string {
 const currentMenu = ref<string>(getMenuPathFromRoute(route.path))
 
 // 过滤出底部菜单项
-const footerMenus = computed(() => {
-  // 获取所有有权限的菜单
-  const allAuthorizedMenus = navMenus.value
-
-  // 优先获取有 footer: true 属性的菜单
-  const footerMenusWithProperty = allAuthorizedMenus.filter((menu: NavMenu) => menu.footer === true)
-
-  // 设置期望的底部菜单数量（不包括"更多"按钮）
-  // 一般来说，底部导航栏显示 3-4 个主要功能比较合适
-  const expectedFooterMenuCount = 3
-
-  // 如果有 footer 属性的菜单已经足够，优先显示它们
-  if (footerMenusWithProperty.length >= expectedFooterMenuCount) {
-    return footerMenusWithProperty.slice(0, expectedFooterMenuCount)
-  }
-
-  // 如果不够，从没有 footer 属性或 footer 为 false 的菜单中补充
-  // 优先选择一些常用的功能菜单
-  const nonFooterMenus = allAuthorizedMenus.filter(
-    (menu: NavMenu) =>
-      menu.footer !== true &&
-      // 排除已经在 footerMenusWithProperty 中的菜单
-      !footerMenusWithProperty.some(footerMenu => footerMenu.to === menu.to),
-  )
-
-  // 计算还需要多少个菜单
-  const needCount = expectedFooterMenuCount - footerMenusWithProperty.length
-
-  // 合并菜单：优先显示有 footer 属性的，然后按菜单定义顺序添加其他菜单
-  let finalMenus = [...footerMenusWithProperty, ...nonFooterMenus.slice(0, needCount)]
-
-  // 确保至少有一个菜单显示，如果都没有权限，则显示第一个有权限的菜单
-  if (finalMenus.length === 0 && allAuthorizedMenus.length > 0) {
-    finalMenus = [allAuthorizedMenus[0]]
-  }
-
-  return finalMenus
-})
+const footerMenus = computed(() => buildFooterMenus(navMenus.value))
 
 // 监听路由变化来更新currentMenu
 watch(
@@ -224,7 +189,7 @@ watch(
 )
 onUnmounted(() => clearTimeout(accessoryExitTimer))
 
-const shouldRenderFooterNav = computed(() => appMode.value && props.showNav)
+const shouldRenderFooterNav = computed(() => appMode.value && props.showNav && !nativeChromeActive.value)
 const shouldRevealFooterNav = computed(() => shouldRenderFooterNav.value && !isLaunchLoading.value)
 
 const dockContainerRef = ref<HTMLElement | null>(null)
@@ -239,7 +204,7 @@ const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
   'components.pluginMarketSetting.title': 'dialog.pluginMarketSetting.title',
 }
 
-// 解析动态按钮菜单项标题，兼容旧版直接传入 i18n key 的写法。
+/** 解析动态按钮菜单项标题，兼容旧版直接传入 i18n key 的写法。 */
 function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   if (item.titleKey) {
     return t(item.titleKey, item.titleParams ?? {})
@@ -255,7 +220,7 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   return looksLikeI18nKey ? t(normalizedTitleKey, item.titleParams ?? {}) : item.title
 }
 
-// 处理页面注册的动态按钮主操作点击。
+/** 执行前复核当前路由与权限，再调用原页面操作。 */
 function handleDynamicButtonClick() {
   if (
     !showDynamicButton.value ||
@@ -268,7 +233,7 @@ function handleDynamicButtonClick() {
   dynamicButton.value.action()
 }
 
-// 处理页面注册的动态按钮菜单项点击。
+/** 执行前复核菜单项仍由当前页面持有且未被禁用。 */
 function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
   if (
     !showDynamicButton.value ||

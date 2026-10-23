@@ -1,5 +1,6 @@
 import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useDisplay } from 'vuetify'
+import { nativeChromeActive } from '@/native/layout'
 import {
   checkPWAStatus,
   getPWADisplayEnvironment,
@@ -58,6 +59,7 @@ function syncDisplayEnvironment() {
   }
 }
 
+/** 首个消费者持有系统显示环境监听。 */
 function retainDisplayEnvironmentObserver() {
   displayEnvironmentSubscribers += 1
   syncDisplayEnvironment()
@@ -67,6 +69,7 @@ function retainDisplayEnvironmentObserver() {
   displayEnvironmentMediaQueries.forEach(mediaQuery => mediaQuery.addEventListener('change', syncDisplayEnvironment))
 }
 
+/** 最后一个消费者卸载后解绑共享监听。 */
 function releaseDisplayEnvironmentObserver() {
   displayEnvironmentSubscribers = Math.max(0, displayEnvironmentSubscribers - 1)
   if (displayEnvironmentSubscribers > 0) return
@@ -87,13 +90,13 @@ function readUIMode(): UIMode {
 
 const uiMode = ref<UIMode>(readUIMode())
 
-// 设置UI模式
+/** 保存网页导航偏好；原生接管期间只临时覆盖，不改用户存储。 */
 function setUIMode(mode: UIMode) {
   uiMode.value = mode
   localStorage.setItem('ui-mode', mode)
 }
 
-// 全局初始化函数
+/** 共享一次 PWA 能力检测，失败也释放等待调用方。 */
 async function initializePWAGlobally() {
   if (initPromise) return initPromise
 
@@ -138,6 +141,7 @@ async function initializePWAGlobally() {
   return initPromise
 }
 
+/** 提供 PWA 能力与页面导航族；原生接管是独立的显式状态。 */
 export function usePWA() {
   if (typeof window !== 'undefined') syncDisplayEnvironment()
 
@@ -151,6 +155,7 @@ export function usePWA() {
   const autoAppNavigation = computed(() => isMobilePlatform() && display.mdAndDown.value)
 
   const appMode = computed(() => {
+    if (nativeChromeActive.value) return true
     if (uiMode.value === 'app') return true
     if (uiMode.value === 'desktop') return false
 

@@ -22,8 +22,10 @@ export class AppActivityLifecycle {
   private lastActivityAt = Date.now()
   private acquireCount = 0
   private started = false
+  private hostLifecycle?: 'active' | 'inactive' | 'background'
 
   private readonly handleActivity = () => {
+    if (this.hostLifecycle && this.hostLifecycle !== 'active') return
     if (document.visibilityState !== 'visible' || !document.hasFocus()) return
 
     this.lastActivityAt = Date.now()
@@ -32,6 +34,7 @@ export class AppActivityLifecycle {
   }
 
   private readonly handleBlur = () => {
+    if (this.hostLifecycle === 'background') return
     if (document.visibilityState === 'hidden') return
 
     this.clearIdleTimer()
@@ -40,6 +43,7 @@ export class AppActivityLifecycle {
   }
 
   private readonly handleFocus = () => {
+    if (this.hostLifecycle && this.hostLifecycle !== 'active') return
     if (document.visibilityState !== 'visible') return
 
     this.clearSuspendTimer()
@@ -49,6 +53,16 @@ export class AppActivityLifecycle {
   }
 
   private readonly handleVisibilityChange = () => {
+    if (this.hostLifecycle === 'background') {
+      this.clearTimers()
+      this.setState('suspended')
+      return
+    }
+    if (this.hostLifecycle === 'inactive') {
+      this.clearTimers()
+      this.setState('passive')
+      return
+    }
     if (document.visibilityState === 'hidden') {
       this.clearTimers()
       this.setState('suspended')
@@ -105,6 +119,13 @@ export class AppActivityLifecycle {
     this.handleActivity()
   }
 
+  /** 原生场景生命周期进入既有管理器；释放接管后恢复浏览器事件作为唯一来源。 */
+  setHostLifecycle(state: 'active' | 'inactive' | 'background' | undefined) {
+    this.hostLifecycle = state
+    this.handleVisibilityChange()
+  }
+
+  /** 首个使用者安装共享 DOM 监听。 */
   private start() {
     if (this.started) return
 
@@ -117,6 +138,7 @@ export class AppActivityLifecycle {
     this.handleVisibilityChange()
   }
 
+  /** 最后使用者解绑监听并取消所有计时器。 */
   private stop() {
     if (!this.started) return
 
@@ -128,6 +150,7 @@ export class AppActivityLifecycle {
     this.started = false
   }
 
+  /** 状态实际变化时才通知所有消费者。 */
   private setState(state: AppActivityState) {
     if (this.state === state) return
 
@@ -135,6 +158,7 @@ export class AppActivityLifecycle {
     this.listeners.forEach(listener => listener(state))
   }
 
+  /** 复用最近活动时间安排前台空闲检查。 */
   private scheduleIdle() {
     if (this.idleTimer !== null) return
 
@@ -155,6 +179,7 @@ export class AppActivityLifecycle {
     }, delay)
   }
 
+  /** 持续失焦后暂停昂贵渲染。 */
   private scheduleSuspend() {
     this.clearSuspendTimer()
     this.suspendTimer = window.setTimeout(() => {
@@ -163,6 +188,7 @@ export class AppActivityLifecycle {
     }, APP_ACTIVITY_SUSPEND_DELAY_MS)
   }
 
+  /** 取消前台空闲检查并释放计时器引用。 */
   private clearIdleTimer() {
     if (this.idleTimer === null) return
 
@@ -170,6 +196,7 @@ export class AppActivityLifecycle {
     this.idleTimer = null
   }
 
+  /** 取消延迟暂停检查并释放计时器引用。 */
   private clearSuspendTimer() {
     if (this.suspendTimer === null) return
 
@@ -177,6 +204,7 @@ export class AppActivityLifecycle {
     this.suspendTimer = null
   }
 
+  /** 在隐藏、卸载与系统生命周期切换时统一取消检查。 */
   private clearTimers() {
     this.clearIdleTimer()
     this.clearSuspendTimer()

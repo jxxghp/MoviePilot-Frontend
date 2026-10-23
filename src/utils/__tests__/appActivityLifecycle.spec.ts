@@ -95,4 +95,21 @@ describe('AppActivityLifecycle', () => {
     expect(removeWindowListener).toHaveBeenCalledWith('blur', expect.any(Function))
     expect(removeWindowListener).toHaveBeenCalledWith('focus', expect.any(Function))
   })
+
+  it('原生后台信号阻止浏览器焦点误唤醒，释放后恢复网页事件', () => {
+    lifecycle.setHostLifecycle('background')
+    expect(lifecycle.getState()).toBe('suspended')
+    window.dispatchEvent(new Event('focus'))
+    window.dispatchEvent(new Event('blur'))
+    document.dispatchEvent(new Event('pointerdown'))
+    expect(lifecycle.getState()).toBe('suspended')
+    lifecycle.setHostLifecycle('inactive')
+    expect(lifecycle.getState()).toBe('passive')
+    lifecycle.setHostLifecycle('active')
+    expect(lifecycle.getState()).toBe('active')
+    lifecycle.setHostLifecycle(undefined)
+    focused = false
+    window.dispatchEvent(new Event('blur'))
+    expect(lifecycle.getState()).toBe('passive')
+  })
 })

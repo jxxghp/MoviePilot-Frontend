@@ -13,6 +13,7 @@ import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundMan
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
 import GithubTokenPrompt from '@/components/github/GithubTokenPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
+import NativeNavigationHost from '@/components/native/NativeNavigationHost.vue'
 import {
   applyStoredThemeCustomizerAppearance,
   restoreThemeCustomizerSettingsFromServer,
@@ -72,6 +73,7 @@ import {
 } from '@/utils/glassWallpaperTone'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
+const nativeTransportAvailable = typeof window !== 'undefined' && window.MoviePilotNative?.transportVersion === 1
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
 const LAUNCH_MIN_VISIBLE_MS = 320
 const LAUNCH_MAX_WAIT_MS = 1200
@@ -1181,6 +1183,7 @@ onUnmounted(() => {
         @wallpaper-prepared="handleOpticalWallpaperPrepared"
       />
       <RouterView />
+      <NativeNavigationHost v-if="nativeTransportAvailable" />
       <!-- 全局共享弹窗入口，列表与卡片按需在这里挂载业务弹窗。 -->
       <SharedDialogHost />
       <!-- PWA安装提示 -->

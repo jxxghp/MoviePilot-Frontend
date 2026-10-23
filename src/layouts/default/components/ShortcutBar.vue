@@ -2,6 +2,8 @@
 import { getQueryValue } from '@/@core/utils'
 import { useShortcutTools } from '@/composables/useShortcutTools'
 import { useI18n } from 'vue-i18n'
+import { useNativeGlobalAction } from '@/native/registry'
+import { nativeChromeActive } from '@/native/layout'
 
 // 国际化
 const { t } = useI18n()
@@ -9,6 +11,15 @@ const { visibleShortcuts, openShortcutDialog: openShortcutTool } = useShortcutTo
 
 // App捷径
 const appsMenu = ref(false)
+useNativeGlobalAction({
+  id: 'shortcuts',
+  title: () => t('shortcut.title'),
+  icon: 'mdi-card-multiple-outline',
+  dataAttr: 'native-shortcuts',
+  invoke: () => {
+    appsMenu.value = true
+  },
+})
 
 // 菜单最大宽度
 const menuMaxWidth = ref(420)
@@ -33,6 +44,7 @@ onMounted(() => {
 <template>
   <VMenu
     v-model="appsMenu"
+    :activator="nativeChromeActive ? '[data-menu-activator=native-shortcuts]' : undefined"
     :max-width="menuMaxWidth"
     width="100%"
     max-height="560"
@@ -43,7 +55,7 @@ onMounted(() => {
     scrim
   >
     <!-- Menu Activator -->
-    <template #activator="{ props }">
+    <template v-if="!nativeChromeActive" #activator="{ props }">
       <IconBtn class="ms-2" v-bind="props">
         <VIcon icon="mdi-card-multiple-outline" />
       </IconBtn>

@@ -25,6 +25,8 @@ export interface DynamicButtonMenuItem {
 
 /** 当前路由对主 Dock 提供的单个附属按钮。 */
 export interface DynamicButton {
+  /** 可选操作文案，原生及辅助功能不依赖图标猜测业务含义。 */
+  title?: string
   /** 图标库标识。 */
   icon: string
   /** 没有菜单时执行的主操作。 */

@@ -26,8 +26,6 @@ import {
   filterMenusByPermission,
   hasItemPermission,
   hasPermission,
-  type UserPermissionFeatureKey,
-  type UserPermissionKey,
 } from '@/utils/permission'
 import { usePWA } from '@/composables/usePWA'
 import { useCompactFabStackTouch } from '@/composables/useCompactFabStackTouch'
@@ -40,6 +38,13 @@ import {
 } from '@/composables/useThemeCustomizer'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
 import SystemUpdatePrompt from '@/components/system/SystemUpdatePrompt.vue'
+import { nativeHeaderRegistration, useNativeGlobalAction } from '@/native/registry'
+import { nativeChromeActive } from '@/native/layout'
+import type {
+  DynamicHeaderTabConfig as DynamicHeaderTab,
+  DynamicHeaderTabButton,
+  DynamicHeaderTabItem,
+} from '@/composables/useDynamicHeaderTab'
 
 const display = useDisplay()
 // PWA模式检测
@@ -112,49 +117,19 @@ const mainContentPaddingTop = computed(() => {
 // 插件快速访问相关状态
 const showPluginQuickAccess = ref(false)
 
-// 动态标签页相关
-// 定义动态标签页类型
-interface DynamicHeaderTabButton {
-  icon: string
-  color?: string | ComputedRef<string>
-  variant?: 'flat' | 'text' | 'elevated' | 'tonal' | 'outlined' | 'plain'
-  size?: string
-  class?: string
-  action?: () => void
-  permission?: UserPermissionKey
-  feature?: UserPermissionFeatureKey
-  show?: boolean | ComputedRef<boolean>
-  loading?: boolean | ComputedRef<boolean>
-  dataAttr?: string
-}
-
-interface DynamicHeaderTabItem {
-  title: string
-  icon?: string
-  tab: string
-  permission?: UserPermissionKey
-  feature?: UserPermissionFeatureKey
-}
-
-interface DynamicHeaderTab {
-  items: DynamicHeaderTabItem[]
-  modelValue: string
-  appendButtons?: DynamicHeaderTabButton[]
-  routePath?: string // 用于标识哪个路由注册的
-  onUpdateModelValue?: (value: string) => void // 用于通知值更新
-}
-
+/** 兼容模块联邦既有的动态页签注册入口。 */
 type DynamicHeaderTabWindow = Window & {
   __VUE_INJECT_DYNAMIC_HEADER_TAB__?: (tab: DynamicHeaderTab) => void
 }
 
 // 提供动态标签页注册和获取的方法
-const dynamicHeaderTab = ref<DynamicHeaderTab | null>(null)
+const dynamicHeaderTab = nativeHeaderRegistration
 const openHorizontalNavGroup = ref<string | null>(null)
 const pendingHorizontalTab = ref<{ path: string; tab: string } | null>(null)
 
 /** 注册页面动态标签页，并在页面可用后应用待切换的水平导航标签。 */
 const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
+  if (tab.routePath && tab.routePath !== route.path) return
   // 保存注册标签页的路由路径
   tab.routePath = route.path
   // 强制更新，确保响应式系统能检测到变化
@@ -163,8 +138,9 @@ const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
 }
 
 /** 仅注销仍由指定路由持有的动态标签，避免相邻页面生命周期互相覆盖。 */
-const unregisterDynamicHeaderTab = (routePath?: string) => {
+const unregisterDynamicHeaderTab = (routePath?: string, ownerId?: string) => {
   if (routePath && dynamicHeaderTab.value?.routePath !== routePath) return
+  if (ownerId && dynamicHeaderTab.value?.ownerId !== ownerId) return
 
   dynamicHeaderTab.value = null
 }
@@ -186,6 +162,7 @@ const handleTabChange = (newValue: string) => {
 if (typeof window !== 'undefined') {
   // 确保在浏览器环境中
   ;(window as DynamicHeaderTabWindow).__VUE_INJECT_DYNAMIC_HEADER_TAB__ = registerDynamicHeaderTab
+  window.__VUE_UNINJECT_DYNAMIC_HEADER_TAB__ = unregisterDynamicHeaderTab
 }
 
 // 提供给其他组件使用
@@ -217,7 +194,9 @@ const visibleDynamicHeaderTabItems = computed(() => {
 const hasDynamicHeaderTab = computed(() => visibleDynamicHeaderTabItems.value.length > 0)
 
 // 水平布局下动态标签页会并入顶部导航三级菜单，不再额外显示标签页栏。
-const showDynamicHeaderTab = computed(() => hasDynamicHeaderTab.value && !showHorizontalThemeNav.value)
+const showDynamicHeaderTab = computed(
+  () => hasDynamicHeaderTab.value && !showHorizontalThemeNav.value && !nativeChromeActive.value,
+)
 
 const visibleDynamicHeaderButtons = computed(() => {
   if (!hasDynamicHeaderTab.value) return []
@@ -236,10 +215,15 @@ const visibleHorizontalHeaderButtons = computed(() => {
 
 // 在组件销毁时清理
 onUnmounted(() => {
-  dynamicHeaderTab.value = null
-  // 清理全局方法
-  if (typeof window !== 'undefined') {
+  // 旧布局迟到卸载时不能清掉新布局的注册和跨模块桥。
+  if (
+    typeof window !== 'undefined' &&
+    (window as DynamicHeaderTabWindow).__VUE_INJECT_DYNAMIC_HEADER_TAB__ === registerDynamicHeaderTab
+  ) {
+    dynamicHeaderTab.value = null
     delete (window as DynamicHeaderTabWindow).__VUE_INJECT_DYNAMIC_HEADER_TAB__
+    if (window.__VUE_UNINJECT_DYNAMIC_HEADER_TAB__ === unregisterDynamicHeaderTab)
+      delete window.__VUE_UNINJECT_DYNAMIC_HEADER_TAB__
   }
 })
 
@@ -251,6 +235,7 @@ const getMenuList = (header: string) => {
   return filteredMenus.filter((item: NavMenu) => item.header === header)
 }
 
+/** 将菜单标题与目标一起用于本地渲染标识。 */
 const getMenuIdentity = (item: NavMenu) => `${item.title}-${JSON.stringify(item.to ?? null)}`
 
 /** 返回浏览历史中的上一页。 */
@@ -392,6 +377,14 @@ function handleOpenPluginQuickAccess() {
 
   showPluginQuickAccess.value = true
 }
+
+useNativeGlobalAction({
+  id: 'plugins',
+  title: () => t('plugin.quickAccess'),
+  icon: 'mdi-puzzle-outline',
+  visible: canAdmin,
+  invoke: handleOpenPluginQuickAccess,
+})
 
 /** 点击插件入口后关闭插件快速访问面板。 */
 function handlePluginClick() {
