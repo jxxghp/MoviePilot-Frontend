@@ -435,7 +435,8 @@ useNativePageHeader({
           :close-on-content-click="false"
           location="bottom end"
         >
-          <template #activator="{ props }">
+          <!-- 原生模式只保留可访问的外部锚点；隐藏按钮的 aria-owns 会使 WebKit 连带隐藏菜单。 -->
+          <template v-if="!nativeChromeActive" #activator="{ props }">
             <IconBtn v-bind="props" :variant="filterOption === 'all' ? 'text' : 'tonal'" :color="currentFilter?.color">
               <VIcon :icon="currentFilter?.icon || 'mdi-filter'" />
             </IconBtn>
