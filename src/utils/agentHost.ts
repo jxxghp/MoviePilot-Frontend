@@ -39,6 +39,7 @@ function createDefaultState(): AgentHostState {
     isMobile: width > 0 && width <= 600,
     viewport: { width, height, keyboardInset: 0, safeArea: { top: 0, right: 0, bottom: 0, left: 0 } },
     panelRect: null,
+    dock: null,
   }
 }
 

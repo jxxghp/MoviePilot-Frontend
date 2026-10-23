@@ -4,7 +4,8 @@ const AGENT_ASSISTANT_BUBBLE_EVENT = 'agentAssistantBubble'
 let agentAssistantBubbleListenerCount = 0
 let agentAssistantBubbleEntryActive = false
 
-export type AgentAssistantBubbleKind = 'assistant' | 'custom' | 'notification' | 'toast'
+/** 气泡来源，pet 是形象通过 pet.say 提交的台词，优先级最低。 */
+export type AgentAssistantBubbleKind = 'assistant' | 'custom' | 'notification' | 'toast' | 'pet'
 export type AgentAssistantBubbleVariant = 'default' | 'info' | 'success' | 'warning' | 'error'
 
 export interface AgentAssistantBubblePayload {
