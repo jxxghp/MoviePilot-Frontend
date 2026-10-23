@@ -88,9 +88,10 @@ export class NativeLayoutAdapter {
       const anchor = this.document.createElement('span')
       anchor.dataset.menuActivator = attribute
       anchor.dataset.nativeMenuAnchor = ''
-      anchor.setAttribute('aria-hidden', 'true')
-      anchor.inert = true
-      anchor.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;'
+      // Vuetify 用 aria-owns 将弹层归属到锚点；隐藏或 inert 会让 WebKit 连带移除整份菜单。
+      // 空的展示节点本身不绘制内容、不参与顺序焦点，也不接收触控，但其菜单仍须可访问。
+      anchor.setAttribute('role', 'presentation')
+      anchor.style.cssText = 'position:fixed;pointer-events:none;width:1px;height:1px;'
       anchor.style.left = `${Math.max(0, this.viewport.innerWidth - 48 - insets.value.right)}px`
       anchor.style.top = `${insets.value.top}px`
       this.document.body.append(anchor)

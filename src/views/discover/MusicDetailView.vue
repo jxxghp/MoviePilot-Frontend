@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
+import { useNativePageHeader } from '@/native/page'
 import type { MediaDataSource, MediaInfo, MusicAlbumInfo } from '@/api/types'
 import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
 import MusicArtistSlideView from '@/views/discover/MusicArtistSlideView.vue'
@@ -140,6 +141,26 @@ function goArtist(artistId?: string, name?: string) {
 }
 
 watch(() => [props.mediaSource, props.mediaId], loadMusicDetail, { immediate: true })
+useNativePageHeader({
+  actions: computed(() => [
+    {
+      title: t('music.searchResources'),
+      icon: 'mdi-magnify',
+      permission: 'search',
+      show: Boolean(music.value),
+      action: openMusicSiteSearch,
+    },
+    {
+      title: isSubscribed.value ? t('music.unsubscribe') : t('music.subscribe'),
+      icon: isSubscribed.value ? 'mdi-heart' : 'mdi-heart-outline',
+      permission: 'subscribe',
+      show: Boolean(music.value),
+      action: () => {
+        void subscribeActions.handleSubscribe()
+      },
+    },
+  ]),
+})
 </script>
 
 <template>

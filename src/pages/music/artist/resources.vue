@@ -6,6 +6,7 @@ import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { isMediaDataSource } from '@/utils/mediaId'
 import { requiresMusicConfirmation } from '@/utils/music'
+import { useNativePageHeader } from '@/native/page'
 
 type MatchState =
   'pending' | 'searching' | 'exact' | 'candidate' | 'unmatched' | 'error' | 'downloaded' | 'download_error'
@@ -375,11 +376,30 @@ async function downloadCollection(resource: ArtistCollectionResource) {
 }
 
 watch(() => [artistId.value, mediaSource.value, sites.value], loadCatalog, { immediate: true })
+useNativePageHeader({
+  title: () => `${artistName.value} · ${t('music.discographyResources')}`,
+  actions: computed(() => [
+    {
+      title: t('music.selectDownloadable'),
+      icon: 'mdi-checkbox-multiple-marked-outline',
+      permission: 'search',
+      action: selectAllDownloadable,
+    },
+    {
+      title: `${t('music.batchDownload')} (${selectedRows.value.length})`,
+      icon: 'mdi-download-multiple',
+      permission: 'search',
+      disabled: !selectedRows.value.length,
+      loading: downloading.value,
+      action: batchDownload,
+    },
+  ]),
+})
 </script>
 
 <template>
   <div class="discography-page">
-    <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-5">
+    <div class="d-flex flex-wrap align-center justify-space-between ga-3 mb-5" data-native-page-heading>
       <div>
         <VBtn variant="text" prepend-icon="mdi-arrow-left" class="px-0 mb-1" @click="router.back()">
           {{ t('common.back') }}

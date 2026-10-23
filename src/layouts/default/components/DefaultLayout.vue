@@ -314,9 +314,19 @@ function resolveHeaderButtonLoading(button: DynamicHeaderTabButton) {
   return resolveMaybeRefValue(button.loading, false)
 }
 
+/** 网页与原生保持相同的禁用状态，避免导航模式切换后执行不可用操作。 */
+function resolveHeaderButtonDisabled(button: DynamicHeaderTabButton) {
+  return resolveMaybeRefValue(button.disabled, false)
+}
+
 /** 校验权限后执行动态头部按钮动作。 */
 function handleHeaderButtonClick(button: DynamicHeaderTabButton) {
-  if (!hasItemPermission(button, userPermissions.value)) return
+  if (
+    !hasItemPermission(button, userPermissions.value) ||
+    resolveHeaderButtonLoading(button) ||
+    resolveHeaderButtonDisabled(button)
+  )
+    return
 
   button.action?.()
 }
@@ -628,6 +638,7 @@ onMounted(async () => {
             :size="button.size || 'default'"
             :class="button.class || 'settings-icon-button'"
             :loading="resolveHeaderButtonLoading(button)"
+            :disabled="resolveHeaderButtonDisabled(button)"
             :data-menu-activator="button.dataAttr"
             @click="handleHeaderButtonClick(button)"
           />
@@ -690,6 +701,7 @@ onMounted(async () => {
                 :size="button.size || 'default'"
                 :class="button.class || 'settings-icon-button'"
                 :loading="resolveHeaderButtonLoading(button)"
+                :disabled="resolveHeaderButtonDisabled(button)"
                 :data-menu-activator="button.dataAttr"
                 @click="handleHeaderButtonClick(button)"
               />

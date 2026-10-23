@@ -9,6 +9,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import MarkdownIt from 'markdown-it'
 import mdLinkAttributes from 'markdown-it-link-attributes'
+import { useNativePageHeader } from '@/native/page'
 
 // 国际化
 const { t } = useI18n()
@@ -41,6 +42,7 @@ markdown.use(mdLinkAttributes, {
 
 // 媒体详情
 const personDetail = ref<Person>({} as Person)
+useNativePageHeader({ title: () => personDetail.value.name })
 
 // 是否已加载完成
 const isRefreshed = ref(false)
@@ -149,7 +151,7 @@ onBeforeMount(() => {
         <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
       </VAvatar>
       <div class="ms-3">
-        <h1 class="text-3xl lg:text-4xl text-center text-lg-left">
+        <h1 class="text-3xl lg:text-4xl text-center text-lg-left" data-native-page-title>
           {{ personDetail.name }}
         </h1>
         <div class="mt-1 mb-2 space-y-1 text-xs sm:text-sm lg:text-base text-center text-lg-left">

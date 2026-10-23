@@ -98,7 +98,7 @@ useDynamicButton({
 
 <template>
   <!-- 页面标题 -->
-  <div class="d-flex justify-space-between align-center mb-3">
+  <div class="d-flex justify-space-between align-center mb-3" data-native-page-heading>
     <VPageContentTitle :title="t('user.management')" />
   </div>
   <div class="card-list-container">

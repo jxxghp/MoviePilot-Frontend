@@ -191,7 +191,7 @@ describe('原生导航接管事务', () => {
   })
 
   it('当前注册无法形成快照时撤销接管且不执行命令，不遗留未处理的结果拒绝', async () => {
-    const { options } = harness()
+    const { options, messages } = harness()
     await activate()
     options.readState = () => {
       throw new Error('unsupported_header_registration')
@@ -199,5 +199,9 @@ describe('原生导航接管事务', () => {
     await send('action.invoke', {}, { requestId: 'broken-registration' })
     expect(options.execute).not.toHaveBeenCalled()
     expect(options.setActive).toHaveBeenLastCalledWith(false)
+    expect(messages.at(-1)?.type).toBe('chrome.failed')
+    expect(messages.at(-1)?.routeRevision).toBe(1)
+    await send('chrome.release')
+    expect(messages.at(-1)?.type).toBe('chrome.released')
   })
 })

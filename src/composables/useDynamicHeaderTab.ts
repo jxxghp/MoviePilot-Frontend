@@ -16,6 +16,7 @@ interface DynamicHeaderTabButton {
   feature?: UserPermissionFeatureKey
   show?: boolean | ComputedRef<boolean>
   loading?: boolean | ComputedRef<boolean>
+  disabled?: boolean | ComputedRef<boolean>
   dataAttr?: string // 用于VMenu定位的data属性
 }
 

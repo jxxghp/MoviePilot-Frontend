@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
+import { useNativePageHeader } from '@/native/page'
 import type { MediaDataSource, MusicArtistInfo } from '@/api/types'
 import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
 import MusicArtistSlideView from '@/views/discover/MusicArtistSlideView.vue'
@@ -97,6 +98,24 @@ function getAlbumsBrowseRoute(albumType: string, title: string) {
 }
 
 watch(() => [props.mediaSource, props.mediaId], loadArtistDetail, { immediate: true })
+useNativePageHeader({
+  actions: computed(() => [
+    {
+      title: t('music.discographyResources'),
+      icon: 'mdi-album',
+      permission: 'search',
+      show: Boolean(artist.value),
+      action: openDiscographyResources,
+    },
+    {
+      title: t('music.searchResources'),
+      icon: 'mdi-magnify',
+      permission: 'search',
+      show: Boolean(artist.value),
+      action: openMusicSiteSearch,
+    },
+  ]),
+})
 </script>
 
 <template>

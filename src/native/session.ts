@@ -27,6 +27,7 @@ export class NativeChromeSession {
   private phase: 'web' | 'waiting' | 'configured' | 'preparing' | 'active' | 'closed' = 'web'
   private sessionId?: string
   private stateRevision = 0
+  private routeRevision = 0
   private sequence = 0
   private timer?: ReturnType<typeof setTimeout>
   private runningCommands = 0
@@ -53,7 +54,8 @@ export class NativeChromeSession {
   /** 使用全量状态且单调递增展示修订，不序列化回调或认证信息。 */
   publish() {
     if (!['configured', 'preparing', 'active'].includes(this.phase)) return
-    const { snapshot } = this.options.readState()
+    const { routeRevision, snapshot } = this.options.readState()
+    this.routeRevision = routeRevision
     this.stateRevision += 1
     this.post('navigation.state', snapshot as unknown as Record<string, unknown>)
   }
@@ -230,7 +232,8 @@ export class NativeChromeSession {
     }
     if (this.sessionId) {
       message.sessionId = this.sessionId
-      message.routeRevision = this.options.readState().routeRevision
+      // 恢复通知也必须能在当前注册损坏时发送，元数据使用最后一次成功读取的路由代次。
+      message.routeRevision = this.routeRevision
       message.stateRevision = this.stateRevision
     }
     if (new TextEncoder().encode(JSON.stringify(message)).length > 65536) throw new Error('invalid_message')

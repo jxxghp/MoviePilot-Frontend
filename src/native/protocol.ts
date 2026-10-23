@@ -19,7 +19,13 @@ export interface NativeSnapshot {
   actions: NativeAction[]
   moreMenu?: NativeMenuSection[]
   presentation?: { overlayOpen: boolean }
-  chrome: { topVisible: boolean; bottomVisible: boolean; theme: 'system' | 'light' | 'dark'; content?: 'web' | 'menu' }
+  chrome: {
+    topVisible: boolean
+    bottomVisible: boolean
+    theme: 'system' | 'light' | 'dark'
+    content?: 'web' | 'menu'
+    accentColor?: string
+  }
 }
 
 /** 原生更多页只呈现已授权的入口；实际目的地仍由 Vue Router 和业务守卫处理。 */

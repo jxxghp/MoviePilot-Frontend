@@ -21,6 +21,9 @@ import { nativeGlobalActions, nativeHeaderRegistration } from '@/native/registry
 import { NativeChromeSession } from '@/native/session'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { NativeRouteHistory } from '@/native/history'
+import { NativeHeaderTabs } from '@/native/header'
+import { nativePageHeaders } from '@/native/page'
+import type { DynamicHeaderTabButton } from '@/composables/useDynamicHeaderTab'
 import type { NativeAction, NativeEnvelope, NativeSnapshot } from '@/native/protocol'
 import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 import '@/native/native.scss'
@@ -48,12 +51,13 @@ const roots = computed<NativeSnapshot['roots']>(() =>
             title: menu.title,
             icon: typeof menu.icon === 'string' ? menu.icon : 'apps',
           })),
-        { id: '/apps', path: '/apps', title: t('nav.more'), icon: 'apps' },
+        { id: '/apps', path: '/apps', title: t('nav.more'), icon: 'more' },
       ]
     : [],
 )
 const history = new NativeRouteHistory(router, () => roots.value)
 const layout = new NativeLayoutAdapter(document, window)
+const headerProjection = new NativeHeaderTabs()
 let bridge: NativeChromeSession | undefined
 let ownerSequence = 0
 const legacyOwners = new WeakMap<object, string>()
@@ -69,12 +73,25 @@ function ownerFor(object: object, explicit?: string | null) {
   return owner
 }
 
-/** 标题优先使用原菜单定义，详情等无目录页面保留已本地化的文档标题。 */
+/** 菜单页使用原目录标题；详情沿用业务路由携带的标题，不改变主入口名称。 */
 function pageTitle() {
   const menu = [...menus.value]
     .sort((a, b) => String(b.to).length - String(a.to).length)
     .find(item => typeof item.to === 'string' && (route.path === item.to || route.path.startsWith(`${item.to}/`)))
-  return menu?.full_title || menu?.title || (route.path === '/apps' ? t('nav.more') : document.title || 'MoviePilot')
+  if (menu?.to === route.path) return menu.full_title || menu.title
+  const pageHeader = [...nativePageHeaders.value.values()]
+    .filter(header => header.routePath === route.path)
+    .map(header => toValue(header.title))
+    .reverse()
+    .find(title => Boolean(title))
+  const detailTitle = typeof route.query.title === 'string' ? route.query.title : undefined
+  return (
+    pageHeader ||
+    detailTitle ||
+    menu?.full_title ||
+    menu?.title ||
+    (route.path === '/apps' ? t('nav.more') : document.title || 'MoviePilot')
+  )
 }
 
 /** 菜单标题与网页 Dock 使用相同旧键兼容，未声明文案时采用当前页的更多操作。 */
@@ -89,6 +106,18 @@ function menuTitle(item: { titleKey?: string; title?: string; titleParams?: Reco
   return key ? (item.titleKey || te(key) ? t(key, item.titleParams ?? {}) : key) : `${pageTitle()} · ${t('nav.more')}`
 }
 
+/** 旧注册的图标按钮补充可读操作名，避免原生菜单与 VoiceOver 出现多个同名更多按钮。 */
+function actionTitle(button: { title?: string; icon: string }) {
+  if (button.title) return button.title
+  const keys: Record<string, string> = {
+    'mdi-filter-multiple-outline': 'common.filter',
+    'mdi-sort-variant': 'file.sort',
+    'mdi-refresh': 'common.refresh',
+    'mdi-plus': 'common.add',
+  }
+  return keys[button.icon] ? t(keys[button.icon]) : `${pageTitle()} · ${t('nav.more')}`
+}
+
 /** 从当前注册和当前权限重新生成声明及 JS 回调表，旧对象不作为执行依据。 */
 const model = computed(() => {
   const revision = history.revision.value
@@ -96,37 +125,39 @@ const model = computed(() => {
   const callbacks = new Map<string, () => void>()
   const header = nativeHeaderRegistration.value
   let headerTabs: NativeSnapshot['headerTabs']
-  if (authenticated.value && header && header.routePath === route.path) {
-    const ownerId = ownerFor(header, header.ownerId)
-    const items = filterItemsByPermission(header.items, permissions.value)
-    if (items.length) {
-      if (!header.onUpdateModelValue || !items.some(item => item.tab === header.modelValue))
-        throw new Error('unsupported_header_registration')
-      headerTabs = {
-        ownerId,
-        selectedId: header.modelValue,
-        items: items.map(item => ({ id: item.tab, title: item.title })),
-      }
-    }
-    for (const [index, button] of (header.appendButtons ?? []).entries()) {
+  /** 共用标题栏与页内标题旁动作的权限、禁用和回调规则，执行时再次读取当前声明。 */
+  function appendHeaderActions(buttons: DynamicHeaderTabButton[], ownerId: string, source: string) {
+    for (const [index, button] of buttons.entries()) {
       if (toValue(button.show) === false || !hasItemPermission(button, permissions.value)) continue
       if (!button.action) throw new Error('unsupported_header_action')
-      const actionId = `r${revision}:header:${index}`
+      const actionId = `r${revision}:${source}:${index}`
       const loading = Boolean(toValue(button.loading))
       actions.push({
         actionId,
         ownerId,
-        title: button.title || `${pageTitle()} · ${t('nav.more')}`,
+        title: actionTitle(button),
         icon: button.icon,
         position: 'trailing',
-        enabled: !loading,
+        enabled: !loading && !toValue(button.disabled),
         loading,
         ...(button.dataAttr ? { dataAttr: button.dataAttr } : {}),
       })
       callbacks.set(actionId, button.action)
     }
   }
+  if (authenticated.value && header && header.routePath === route.path) {
+    const ownerId = ownerFor(header, header.ownerId)
+    const items = filterItemsByPermission(header.items, permissions.value)
+    if (items.length) {
+      if (!header.onUpdateModelValue) throw new Error('unsupported_header_registration')
+      headerTabs = headerProjection.project(ownerId, items, header.modelValue)
+    }
+    appendHeaderActions(header.appendButtons ?? [], ownerId, 'header')
+  }
   if (authenticated.value) {
+    for (const page of nativePageHeaders.value.values()) {
+      if (page.routePath === route.path) appendHeaderActions(toValue(page.actions) ?? [], page.ownerId, page.ownerId)
+    }
     for (const action of nativeGlobalActions.value.values()) {
       if (action.visible !== undefined && !toValue(action.visible)) continue
       const actionId = `r${revision}:global:${action.id}`
@@ -162,7 +193,7 @@ const model = computed(() => {
       actions.push({
         actionId,
         ownerId,
-        title: button.title || `${pageTitle()} · ${t('nav.more')}`,
+        title: actionTitle(button),
         icon: button.icon,
         position: 'accessory',
         enabled: true,
@@ -209,6 +240,9 @@ const model = computed(() => {
       topVisible: Boolean(route.meta.requiresAuth),
       bottomVisible: authenticated.value,
       theme: theme.global.current.value.dark ? 'dark' : 'light',
+      ...(/^#[0-9a-f]{6}$/i.test(theme.global.current.value.colors.primary)
+        ? { accentColor: theme.global.current.value.colors.primary }
+        : {}),
       content: route.path === '/apps' && authenticated.value ? 'menu' : 'web',
     },
   }
@@ -245,7 +279,9 @@ function execute(message: NativeEnvelope) {
     if (overlayOpen.value) return false
     const tabs = current.snapshot.headerTabs
     if (!tabs || payload.ownerId !== tabs.ownerId || !tabs.items.some(item => item.id === payload.tabId)) return false
-    nativeHeaderRegistration.value?.onUpdateModelValue?.(payload.tabId as string)
+    const value = headerProjection.resolve(tabs.ownerId, payload.tabId as string)
+    if (value === undefined) return false
+    nativeHeaderRegistration.value?.onUpdateModelValue?.(value)
     return true
   }
   if (message.type !== 'action.invoke' || typeof payload.actionId !== 'string') return false

@@ -29,6 +29,8 @@ import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { getNameTail } from '@/components/filebrowser/tailEllipsis'
 import { formatMusicAudioSpecs } from '@/utils/music'
+import { useNativePageHeader } from '@/native/page'
+import { nativeChromeActive } from '@/native/layout'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -1987,6 +1989,27 @@ useDynamicButton({
   show: computed(() => appMode.value),
 })
 
+useNativePageHeader({
+  actions: computed(() => [
+    {
+      title: t('transferHistory.statusFilter.label'),
+      icon: 'mdi-filter-multiple-outline',
+      dataAttr: 'history-status-filter-btn',
+      action: () => {
+        mobileStatusFilterMenu.value = true
+      },
+    },
+    {
+      title: mobileBatchMode.value
+        ? t('transferHistory.actions.exitBatchSelect')
+        : t('transferHistory.actions.batchSelect'),
+      icon: 'mdi-checkbox-multiple-marked-outline',
+      permission: 'manage',
+      action: toggleMobileBatchMode,
+    },
+  ]),
+})
+
 // 初始加载数据
 onMounted(() => {
   void loadStorages()
@@ -2543,7 +2566,7 @@ onUnmounted(() => {
   </section>
 
   <section v-else class="transfer-history-mobile-page">
-    <div class="transfer-history-mobile-titlebar">
+    <div v-if="!nativeChromeActive" class="transfer-history-mobile-titlebar">
       <VPageContentTitle
         :title="t('navItems.mediaOrganize')"
         class="transfer-history-mobile-title my-0"

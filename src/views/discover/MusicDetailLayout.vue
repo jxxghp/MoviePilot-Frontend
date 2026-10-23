@@ -2,6 +2,7 @@
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useTheme } from 'vuetify'
+import { useNativePageHeader } from '@/native/page'
 
 // 音乐详情体系（单曲、专辑、艺术家）共用的头部与背景布局
 const props = defineProps({
@@ -22,6 +23,7 @@ const props = defineProps({
 })
 
 const theme = useTheme()
+useNativePageHeader({ title: () => props.title })
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 透明与毛玻璃主题下背景图需要改用遮罩淡出，与影视详情页保持一致
@@ -68,7 +70,7 @@ watch(displayCover, () => {
           </VSheet>
         </div>
         <div class="music-title">
-          <h1>{{ props.title }}</h1>
+          <h1 data-native-page-title>{{ props.title }}</h1>
           <div class="music-subtitle">
             <slot name="subtitle" />
           </div>
@@ -79,7 +81,7 @@ watch(displayCover, () => {
             </template>
           </span>
         </div>
-        <div class="music-actions">
+        <div class="music-actions" data-native-page-actions>
           <slot name="actions" />
         </div>
       </div>

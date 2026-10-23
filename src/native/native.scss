@@ -2,6 +2,13 @@
 html[data-native-chrome='active'] {
   scroll-padding-block: var(--native-top) var(--native-bottom);
 
+  // 页面级标题与附属操作由系统顶栏承载；业务卡片、章节和弹窗标题不属于此选择器。
+  [data-native-page-title],
+  [data-native-page-heading],
+  [data-native-page-actions] {
+    display: none !important;
+  }
+
   .layout-navbar {
     visibility: hidden !important;
     pointer-events: none !important;
@@ -14,14 +21,23 @@ html[data-native-chrome='active'] {
     display: none !important;
   }
 
-  .layout-content-wrapper,
-  .layout-page-content {
+  .layout-content-wrapper {
     padding-inline-start: 0 !important;
   }
 
   .layout-page-content {
-    padding-block-start: var(--native-top) !important;
+    // 系统栏下面保留正文呼吸空间，不改变菜单锚点或全屏弹窗的安全区原点。
+    padding-block-start: calc(var(--native-top) + 12px) !important;
     padding-block-end: var(--native-bottom) !important;
+    // UIKit 上报的是物理左右边距；保留对称网页留白，避免缺口或系统侧栏遮挡正文。
+    padding-left: calc(var(--native-left) + 0.5rem) !important;
+    padding-right: calc(var(--native-right) + 0.5rem) !important;
+  }
+
+  .page-content-container > div:first-child {
+    // 旧网页的 viewport 宽度没有扣除系统侧栏，改为消费上层已经计算的可见宽度。
+    inline-size: 100% !important;
+    min-inline-size: 0;
   }
 
   .main-content-wrapper {
@@ -33,9 +49,9 @@ html[data-native-chrome='active'] {
     min-block-size: 0 !important;
   }
 
-  // HTML 弹层继续由原组件呈现，布局只消费一次原生安全区和导航遮挡。
+  // 弹层打开时原生底栏已隐藏；背景延伸至屏幕底部，交互内容单独避让 Home Indicator。
   .v-dialog {
-    inset-block: var(--native-top) var(--native-bottom) !important;
+    inset-block: var(--native-top) 0 !important;
     inset-inline: var(--native-left) var(--native-right) !important;
   }
 
@@ -54,6 +70,6 @@ html[data-native-chrome='active'] {
 
   .v-dialog--fullscreen > .v-overlay__content > .v-card,
   .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card {
-    padding-block-end: 0;
+    padding-block-end: var(--native-bottom);
   }
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useToast } from 'vue-toastification'
+import { useNativePageHeader } from '@/native/page'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import MediaCommentView from './MediaCommentView.vue'
@@ -804,6 +805,51 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', updateEpisodeGroupScrollState)
 })
+useNativePageHeader({
+  title: () => mediaDetail.value.title || mediaProps.title,
+  actions: computed(() => [
+    {
+      title: `${t('media.actions.searchResource')} · ${t('media.search.byTitle')}`,
+      icon: 'mdi-magnify',
+      permission: 'search',
+      show: hasMediaIdentity(),
+      action: () => {
+        void clickSearch('title')
+      },
+    },
+    {
+      title: `${t('media.actions.searchResource')} · ${t('media.search.byImdb')}`,
+      icon: 'mdi-magnify',
+      permission: 'search',
+      show: hasMediaIdentity(),
+      action: () => {
+        void clickSearch('imdbid')
+      },
+    },
+    {
+      title: t('media.actions.searchSubtitle'),
+      icon: 'mdi-subtitles-outline',
+      permission: 'search',
+      show: hasMediaIdentity(),
+      action: handleSubtitleSearch,
+    },
+    {
+      title: getSubscribeText.value,
+      icon: getSubscribeIcon.value,
+      permission: 'subscribe',
+      show: mediaDetail.value.type === '电影' || hasMediaIdentity(),
+      action: () => {
+        handleSubscribe()
+      },
+    },
+    {
+      title: t('media.actions.playOnline'),
+      icon: 'mdi-play',
+      show: Boolean(existsItemId.value),
+      action: handlePlay,
+    },
+  ]),
+})
 </script>
 
 <template>
@@ -847,7 +893,10 @@ onUnmounted(() => {
               </div>
             </span>
           </div>
-          <h1 class="d-flex flex-column flex-lg-row align-baseline justify-center justify-lg-start">
+          <h1
+            class="d-flex flex-column flex-lg-row align-baseline justify-center justify-lg-start"
+            data-native-page-title
+          >
             <div class="align-self-center align-self-lg-end">
               {{ mediaDetail.title }}
             </div>
@@ -865,7 +914,7 @@ onUnmounted(() => {
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
-        <div class="media-actions">
+        <div class="media-actions" data-native-page-actions>
           <VBtn v-if="hasMediaIdentity() && canSearch" variant="tonal" color="primary" class="media-action-button">
             <template #prepend>
               <VIcon icon="mdi-magnify" />

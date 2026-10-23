@@ -23,6 +23,7 @@ import { SearchReplaceBatchCollector, isSearchReplaceBatchEvent } from '@/utils/
 import { getCurrentLocale } from '@/plugins/i18n'
 import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { requiresMusicConfirmation } from '@/utils/music'
+import { useNativePageHeader } from '@/native/page'
 
 // 国际化
 const { t } = useI18n()
@@ -1596,6 +1597,51 @@ onUnmounted(() => {
   stopAiRecommendPolling()
   clearStreamPreviewState()
 })
+// 页面抬头的操作统一交给框架；可见性、加载和禁用状态沿用原搜索流程。
+useNativePageHeader({
+  actions: computed(() => [
+    {
+      title: t('resource.refreshSearch'),
+      icon: 'mdi-refresh',
+      show: showResultHeader.value,
+      loading: isRefreshing.value,
+      disabled: progressActive.value,
+      action: refreshSearch,
+    },
+    {
+      title: t('resource.loadNextPage'),
+      icon: 'mdi-page-next-outline',
+      show: showResultHeader.value && searchPagination.value.can_continue,
+      loading: loadingNextPage.value,
+      disabled: progressActive.value || isRefreshing.value,
+      action: loadNextPage,
+    },
+    {
+      title: t('resource.aiRecommend'),
+      icon: 'lucide:sparkles',
+      show:
+        showResultHeader.value &&
+        !isSubtitleSearch.value &&
+        aiRecommendEnabled.value &&
+        originalDataList.value.length > 0,
+      disabled: isRecommending.value || !aiStatusChecked.value,
+      action: toggleAiRecommend,
+    },
+    {
+      title: t('resource.reRecommend'),
+      icon: 'mdi-auto-fix',
+      show:
+        showResultHeader.value &&
+        !isSubtitleSearch.value &&
+        aiRecommendEnabled.value &&
+        originalDataList.value.length > 0 &&
+        (aiRecommended.value || isRecommending.value),
+      loading: isRecommending.value,
+      disabled: !aiStatusChecked.value,
+      action: reRecommend,
+    },
+  ]),
+})
 </script>
 
 <template>
@@ -1670,7 +1716,11 @@ onUnmounted(() => {
     </VFadeTransition>
 
     <!-- 结果抬头：保持和站点管理一致的页面标题结构，筛选控制交给下方工具条。 -->
-    <div v-if="showResultHeader" class="resource-page-header d-flex justify-space-between align-center mb-3">
+    <div
+      v-if="showResultHeader"
+      class="resource-page-header d-flex justify-space-between align-center mb-3"
+      data-native-page-heading
+    >
       <div class="resource-page-header__copy">
         <VPageContentTitle
           :title="isSubtitleSearch ? t('resource.subtitleSearchResults') : t('resource.searchResults')"
