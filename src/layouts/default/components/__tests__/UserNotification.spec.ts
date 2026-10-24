@@ -49,7 +49,9 @@ describe('UserNotification', () => {
 
     const entries = action.panel!()!.sections.flatMap(section => section.items)
     expect(entries.find(item => item.title === '有独立海报')?.image).toBe('https://images.example.com/poster.jpg')
-    expect(entries.find(item => item.title === '旧版图片消息')?.image).toBe('https://images.example.com/legacy-poster.jpg')
+    expect(entries.find(item => item.title === '旧版图片消息')?.image).toBe(
+      'https://images.example.com/legacy-poster.jpg',
+    )
   })
 
   it('普通网页通知继续展示原渠道图片', async () => {
