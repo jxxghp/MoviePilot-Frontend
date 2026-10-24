@@ -28,9 +28,11 @@ function formatTime(timestamp?: number) {
 
 <template>
   <section class="file-details">
-    <header class="file-details__header">
-      <h2>{{ t(item.type === 'dir' ? 'file.folderDetails' : 'file.details') }}</h2>
-      <IconBtn :aria-label="t('common.close')" @click="emit('close')"><VIcon icon="mdi-close" /></IconBtn>
+    <header class="file-details__header" data-native-dialog-header>
+      <h2 data-native-dialog-title>{{ t(item.type === 'dir' ? 'file.folderDetails' : 'file.details') }}</h2>
+      <IconBtn data-native-dialog-close :aria-label="t('common.close')" @click="emit('close')">
+        <VIcon icon="mdi-close" />
+      </IconBtn>
     </header>
     <div class="file-details__scroll">
       <VProgressLinear v-if="loading" indeterminate color="primary" :aria-label="t('common.loading')" />
