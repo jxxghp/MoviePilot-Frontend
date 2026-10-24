@@ -44,6 +44,10 @@ export interface NativePanel {
   sections: Array<{ id: string; title?: string; items: NativePanelItem[] }>
   loading?: boolean
   hasMore?: boolean
+  /** 连续列表只发送当前有界分片；会话内的旧行由原生保留。 */
+  feed?: { id: string; offset: number; revision: number; sectionIds: string[] }
+  /** 加载失败时停止自动请求，只保留显式重试。 */
+  loadError?: string
   emptyText?: string
 }
 
@@ -132,6 +136,8 @@ export interface NativeTransport {
   transportVersion: 1
   /** 可选原生快捷面板能力；旧容器仍使用原有 HTML 回调。 */
   panelsVersion?: 1
+  /** 连续列表的分片保留和触底加载；旧容器仍使用已有分页。 */
+  panelFeedsVersion?: 1
   /** 可选原生业务弹窗容器；未协商时完整保留网页弹窗。 */
   sheetsVersion?: 1
   /** 可选系统确认框，不支持时仍由原 HTML 弹窗结算。 */

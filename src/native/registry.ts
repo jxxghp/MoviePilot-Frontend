@@ -12,6 +12,8 @@ export interface NativePanelEntry extends Omit<NativePanelItem, 'children'> {
 /** 原生面板提供者复用组件状态，不单独请求另一套业务 API。 */
 export interface NativePanelSource extends Omit<NativePanel, 'sections'> {
   sections: Array<{ id: string; title?: string; items: NativePanelEntry[] }>
+  /** 只在连续列表中保留当前会话已经展示且仍有效的行回调，不重复发送正文。 */
+  retainedItems?: NativePanelEntry[]
   /** 打开时刷新现有组件的数据。 */
   onOpen?(): void | Promise<unknown>
   /** 输入只更新组件原有搜索词。 */

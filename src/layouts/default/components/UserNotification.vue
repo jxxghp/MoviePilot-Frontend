@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNativeGlobalAction, nativeRequestedPanel } from '@/native/registry'
 import { nativePanelId } from '@/native/panel'
+import type { NativePanelEntry, NativePanelSource } from '@/native/registry'
 import { nativeChromeActive } from '@/native/layout'
 
 type NotificationDisplayItem =
@@ -23,6 +24,8 @@ const $toast = useToast()
 const createConfirm = useConfirm()
 
 const PAGE_SIZE = 20
+// 最坏情况下同时包含长正文和四 KiB 图片地址，仍不放大原生桥接的单次消息预算。
+const NATIVE_FEED_BATCH_SIZE = 3
 // 虚拟滚动的默认通知项高度，展开后的实际高度由 VVirtualScroll 的 itemRef 动态测量。
 const NOTIFICATION_ITEM_HEIGHT = 136
 
@@ -61,6 +64,13 @@ const hasMore = ref(true)
 const notificationKeys = new Set<string>()
 const expandedNotificationKeys = ref(new Set<string>())
 const nativePageOffset = ref(0)
+const nativeLoadedCount = ref(PAGE_SIZE)
+const nativeFeedGeneration = ref(0)
+const nativeFeedRevision = ref(0)
+const nativeLoadError = ref(false)
+const nativePublishedKeys = ref(new Set<string>())
+/** 未协商连续列表时保留旧容器行为，普通网页不进入原生分片流程。 */
+const usesNativeFeed = () => window.MoviePilotNative?.panelFeedsVersion === 1
 
 const hasUnreadNotifications = computed(() => notificationList.value.some(item => item.read === false))
 const hasBadgeUnreadMessages = computed(() => appUnreadMessageCount.value > 0)
@@ -228,6 +238,7 @@ function resetNotifications() {
   page.value = 1
   hasMore.value = true
   hasNewMessage.value = false
+  resetNativeNotificationFeed()
 }
 
 /** 重新根据当前列表生成去重 key，避免分类清理后遗留已移除消息的去重状态。 */
@@ -279,6 +290,7 @@ function removeNotificationsByScope(scope: NotificationClearScope) {
   rebuildNotificationKeys()
   rebuildExpandedNotificationKeys()
   syncUnreadStateAfterListChange()
+  resetNativeNotificationFeed()
 }
 
 /** 获取不同清理范围的确认文案。 */
@@ -369,8 +381,10 @@ async function refreshNotificationsOnOpen() {
     notificationKeys.clear()
     notificationList.value = compactNotifications(notificationList.value)
     rebuildNotificationKeys()
+    nativeLoadError.value = false
     await fetchNotificationPage()
   } catch (error) {
+    nativeLoadError.value = true
     console.error('刷新通知失败:', error)
   } finally {
     loading.value = false
@@ -416,6 +430,7 @@ function handleMessage(event: MessageEvent) {
 
     if (mergeNotifications([notification], { prepend: true, read: false })) {
       hasNewMessage.value = true
+      if (usesNativeFeed()) publishNativeNotificationPage(0)
       emitAgentAssistantNotificationBubble(notification)
     }
   } catch (error) {
@@ -546,24 +561,114 @@ function handleNotificationMenuVisibleChange(open: boolean) {
 
 watch(appsMenu, handleNotificationMenuVisibleChange)
 
-/** 原生消息中心使用同一列表、SSE、已读和清理流程；历史按二十条翻页防止桥接超限。 */
-function notificationNativePanel() {
-  const rows = notificationList.value.slice(nativePageOffset.value, nativePageOffset.value + PAGE_SIZE)
+/** 清理或重新打开时撤销原生旧分片和旧回调，不让不同展示会话相互继承。 */
+function resetNativeNotificationFeed() {
+  nativeFeedGeneration.value += 1
+  nativeFeedRevision.value = 0
+  nativeLoadedCount.value = usesNativeFeed() ? NATIVE_FEED_BATCH_SIZE : PAGE_SIZE
+  nativePageOffset.value = 0
+  nativeLoadError.value = false
+  nativePublishedKeys.value = new Set()
+}
+
+/** 单次只传有界正文，已展示标识留在网页内以便向上回看和执行原有展开操作。 */
+function publishNativeNotificationPage(offset: number) {
+  nativePageOffset.value = offset
+  nativePublishedKeys.value = new Set([
+    ...nativePublishedKeys.value,
+    ...notificationList.value.slice(offset, offset + NATIVE_FEED_BATCH_SIZE).map(getNotificationKey),
+  ])
+}
+
+/** 继续使用原分页/去重流程；完成序号为原生提供明确应答，失败后等待用户重试。 */
+async function loadMoreNativeNotifications() {
+  if (loading.value || clearing.value) return
+  if (!usesNativeFeed()) {
+    if (nativePageOffset.value + PAGE_SIZE >= notificationList.value.length) await loadNotifications({ done: () => {} })
+    if (nativePageOffset.value + PAGE_SIZE < notificationList.value.length) nativePageOffset.value += PAGE_SIZE
+    return
+  }
+  try {
+    nativeLoadError.value = false
+    const offset = Math.min(nativeLoadedCount.value, notificationList.value.length)
+    if (offset >= notificationList.value.length)
+      await loadNotifications({
+        done: status => {
+          nativeLoadError.value = status === 'error'
+        },
+      })
+    if (!nativeLoadError.value && offset < notificationList.value.length) {
+      publishNativeNotificationPage(offset)
+      nativeLoadedCount.value = Math.min(offset + NATIVE_FEED_BATCH_SIZE, notificationList.value.length)
+    }
+  } finally {
+    nativeFeedRevision.value += 1
+  }
+}
+
+/** 旧行继续调用当前组件的已读/展开逻辑，并只补发该行所在的有界分片。 */
+function nativeNotificationEntry(item: SystemNotification): NativePanelEntry {
+  return {
+    id: nativePanelId('message', getNotificationKey(item)),
+    title: item.title || t('notification.center'),
+    subtitle: [
+      item.read === false ? '●' : '',
+      formatDateDifference(getNotificationTime(item)),
+      isNotificationExpanded(item) ? item.text : String(item.text || '').slice(0, 100),
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    icon: getNotificationIcon(item),
+    // 兼容旧通知 image，同时优先采用新后端的独立竖版海报。
+    image: item.poster || item.image || undefined,
+    keepOpen: true,
+    invoke: () => {
+      const index = notificationList.value.findIndex(
+        current => getNotificationKey(current) === getNotificationKey(item),
+      )
+      if (index < 0) return
+      toggleNotificationExpanded(notificationList.value[index])
+      if (usesNativeFeed())
+        publishNativeNotificationPage(Math.floor(index / NATIVE_FEED_BATCH_SIZE) * NATIVE_FEED_BATCH_SIZE)
+    },
+  }
+}
+
+/** 原生消息中心复用网页列表和业务流程；新容器按分片连续追加，旧容器保留已发布兼容行为。 */
+function notificationNativePanel(): NativePanelSource {
+  const feed = usesNativeFeed()
+  const rows = notificationList.value.slice(
+    nativePageOffset.value,
+    nativePageOffset.value + (feed ? NATIVE_FEED_BATCH_SIZE : PAGE_SIZE),
+  )
   return {
     title: t('notification.center'),
-    width: 'full' as const,
+    width: 'full',
     loading: loading.value || clearing.value,
-    hasMore: nativePageOffset.value + PAGE_SIZE < notificationList.value.length || hasMore.value,
+    hasMore:
+      (feed ? nativeLoadedCount.value : nativePageOffset.value + PAGE_SIZE) < notificationList.value.length ||
+      hasMore.value,
+    ...(feed
+      ? {
+          feed: {
+            id: `notifications-${nativeFeedGeneration.value}`,
+            offset: nativePageOffset.value,
+            revision: nativeFeedRevision.value,
+            sectionIds: ['system', 'media'],
+          },
+          retainedItems: notificationList.value
+            .filter(item => nativePublishedKeys.value.has(getNotificationKey(item)))
+            .map(nativeNotificationEntry),
+          ...(nativeLoadError.value ? { loadError: '加载失败，轻点重试' } : {}),
+        }
+      : {}),
     emptyText: t('notification.empty'),
-    onOpen: () => {
-      nativePageOffset.value = 0
-      return refreshNotificationsOnOpen()
+    onOpen: async () => {
+      resetNativeNotificationFeed()
+      await refreshNotificationsOnOpen()
+      if (feed) publishNativeNotificationPage(0)
     },
-    onLoadMore: async () => {
-      if (nativePageOffset.value + PAGE_SIZE >= notificationList.value.length)
-        await loadNotifications({ done: () => {} })
-      if (nativePageOffset.value + PAGE_SIZE < notificationList.value.length) nativePageOffset.value += PAGE_SIZE
-    },
+    onLoadMore: loadMoreNativeNotifications,
     sections: [
       {
         id: 'tools',
@@ -589,7 +694,7 @@ function notificationNativePanel() {
               invoke: () => clearNotifications(option.scope),
             })),
           },
-          ...(nativePageOffset.value
+          ...(!feed && nativePageOffset.value
             ? [
                 {
                   id: 'previous',
@@ -607,24 +712,7 @@ function notificationNativePanel() {
       ...(['system', 'media'] as const).map(kind => ({
         id: kind,
         title: t(kind === 'system' ? 'notification.systemMessages' : 'notification.mediaMessages'),
-        items: rows
-          .filter(item => getNotificationClearScope(item) === kind)
-          .map(item => ({
-            id: nativePanelId('message', getNotificationKey(item)),
-            title: item.title || t('notification.center'),
-            subtitle: [
-              item.read === false ? '●' : '',
-              formatDateDifference(getNotificationTime(item)),
-              isNotificationExpanded(item) ? item.text : String(item.text || '').slice(0, 100),
-            ]
-              .filter(Boolean)
-              .join(' · '),
-            icon: getNotificationIcon(item),
-            // 新后端优先使用独立竖版海报；已部署旧版本和历史通知沿用网页实际展示的 image 字段。
-            image: item.poster || item.image || undefined,
-            keepOpen: true,
-            invoke: () => toggleNotificationExpanded(item),
-          })),
+        items: rows.filter(item => getNotificationClearScope(item) === kind).map(nativeNotificationEntry),
       })),
     ],
   }

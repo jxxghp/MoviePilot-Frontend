@@ -151,7 +151,18 @@ const model = computed(() => {
       const loading = Boolean(toValue(button.loading))
       const panel = button.panel?.()
       const projection = panel
-        ? projectNativePanel(activePanel.value === actionId ? panel : { ...panel, sections: [] })
+        ? projectNativePanel(
+            activePanel.value === actionId
+              ? panel
+              : {
+                  ...panel,
+                  sections: [],
+                  feed: undefined,
+                  retainedItems: undefined,
+                  loadError: undefined,
+                  hasMore: false,
+                },
+          )
         : undefined
       if (projection) panels.set(actionId, projection)
       actions.push({
@@ -187,7 +198,18 @@ const model = computed(() => {
       const actionId = `r${revision}:global:${action.id}`
       const source = action.panel?.()
       const projection = source
-        ? projectNativePanel(activePanel.value === actionId ? source : { ...source, sections: [] })
+        ? projectNativePanel(
+            activePanel.value === actionId
+              ? source
+              : {
+                  ...source,
+                  sections: [],
+                  feed: undefined,
+                  retainedItems: undefined,
+                  loadError: undefined,
+                  hasMore: false,
+                },
+          )
         : undefined
       if (projection) panels.set(actionId, projection)
       actions.push({

@@ -3,6 +3,32 @@ import { dispatchNativePanel, nativePanelId, projectNativePanel } from '../panel
 import type { NativePanelSource } from '../registry'
 
 describe('原生面板声明与当前业务回调隔离', () => {
+  it('连续列表只保留当前会话已展示行的回调，禁用行和旧会话仍不能执行', () => {
+    const invoke = vi.fn(),
+      onLoadMore = vi.fn()
+    const source: NativePanelSource = {
+      title: '通知中心',
+      hasMore: true,
+      onLoadMore,
+      feed: { id: 'current', offset: 3, revision: 1, sectionIds: ['messages'] },
+      sections: [{ id: 'messages', items: [{ id: 'new', title: '当前分片' }] }],
+      retainedItems: [
+        { id: 'old', title: '已展示通知', invoke },
+        { id: 'disabled', title: '已禁用通知', enabled: false, invoke },
+      ],
+    }
+    const current = projectNativePanel(source)
+    expect(JSON.stringify(current.panel)).not.toContain('已展示通知')
+    expect(dispatchNativePanel(current, { panelEvent: 'select', itemId: 'old', value: 'current' })).toBe(true)
+    expect(dispatchNativePanel(current, { panelEvent: 'select', itemId: 'disabled', value: 'current' })).toBe(false)
+    expect(dispatchNativePanel(current, { panelEvent: 'select', itemId: 'old', value: 'expired' })).toBe(false)
+    expect(dispatchNativePanel(current, { panelEvent: 'more', value: 'expired' })).toBe(false)
+    expect(dispatchNativePanel(current, { panelEvent: 'more', value: 'current' })).toBe(true)
+    expect(invoke).toHaveBeenCalledOnce()
+    expect(onLoadMore).toHaveBeenCalledOnce()
+    expect(projectNativePanel({ ...source, feed: undefined }).callbacks.has('old')).toBe(false)
+  })
+
   it('通知长正文宽度通过显式声明传递，短菜单不自动拉满', () => {
     const source: NativePanelSource = { title: '通知中心', width: 'full', sections: [] }
     expect(projectNativePanel(source).panel.width).toBe('full')

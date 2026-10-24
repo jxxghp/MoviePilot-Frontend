@@ -34,7 +34,7 @@ function imageReference(value: string | undefined): string | undefined {
   }
 }
 
-/** 将本地声明转换为有界 JSON；只给仍在当前投影中的项目保留可执行回调。 */
+/** 转换为有界 JSON；连续列表的旧行回调仍须来自当前业务组件及本次展示会话。 */
 export function projectNativePanel(source: NativePanelSource) {
   const callbacks = new Map<string, NativePanelEntry>()
   let remaining = 96
@@ -98,7 +98,14 @@ export function projectNativePanel(source: NativePanelSource) {
     })),
     loading: source.loading === true,
     hasMore: source.hasMore === true,
+    ...(source.feed ? { feed: source.feed } : {}),
+    ...(text(source.loadError) ? { loadError: text(source.loadError) } : {}),
     ...(text(source.emptyText) ? { emptyText: text(source.emptyText) } : {}),
+  }
+  if (source.feed) {
+    for (const entry of source.retainedItems ?? []) {
+      if (/^[\x21-\x7e]{1,128}$/.test(entry.id) && !callbacks.has(entry.id)) callbacks.set(entry.id, entry)
+    }
   }
   return { panel, callbacks, source }
 }
@@ -114,6 +121,12 @@ export function dispatchNativePanel(
   current: ReturnType<typeof projectNativePanel>,
   payload: Record<string, unknown>,
 ): boolean {
+  if (
+    current.panel.feed &&
+    ['more', 'select'].includes(String(payload.panelEvent)) &&
+    payload.value !== current.panel.feed.id
+  )
+    return false
   switch (payload.panelEvent) {
     case 'open':
       void current.source.onOpen?.()
