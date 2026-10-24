@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import { useTabStateRestore } from '@/composables/useStateRestore'
 import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
+import type { NativePanelSource } from '@/native/registry'
 
 /** 页内标签附属按钮，回调只保留在当前页面。 */
 interface DynamicHeaderTabButton {
@@ -12,6 +13,8 @@ interface DynamicHeaderTabButton {
   size?: string
   class?: string
   action?: () => void
+  /** 原生容器可选列表声明；普通网页继续使用 action 对应的原有菜单。 */
+  panel?: () => NativePanelSource
   permission?: UserPermissionKey
   feature?: UserPermissionFeatureKey
   show?: boolean | ComputedRef<boolean>

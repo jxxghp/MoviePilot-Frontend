@@ -37,6 +37,8 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginRuntimeStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import type { NativePanelSource } from '@/native/registry'
+import { nativePanelId } from '@/native/panel'
 
 // 国际化
 const { t } = useI18n()
@@ -108,6 +110,34 @@ registerHeaderTab({
       ),
       class: 'settings-icon-button',
       dataAttr: 'installed-filter-btn',
+      panel: () => ({
+        title: t('common.filter'),
+        search: { text: installedFilter.value || '', placeholder: t('plugin.name') },
+        onQuery: value => {
+          installedFilter.value = value
+        },
+        sections: [
+          {
+            id: 'installed-filter',
+            items: [
+              {
+                id: 'running',
+                title: t('plugin.running'),
+                icon: 'mdi-play-circle',
+                selected: enabledFilter.value,
+                invoke: toggleEnabledInstalledFilter,
+              },
+              {
+                id: 'updates',
+                title: t('plugin.hasNewVersion'),
+                icon: 'mdi-arrow-up-circle',
+                selected: hasUpdateFilter.value,
+                invoke: toggleHasUpdateInstalledFilter,
+              },
+            ],
+          },
+        ],
+      }),
       permission: 'admin',
       action: () => {
         filterInstalledPluginDialog.value = true
@@ -131,6 +161,7 @@ registerHeaderTab({
       color: computed(() => (isFilterFormEmpty.value ? 'gray' : 'primary')),
       class: 'settings-icon-button',
       dataAttr: 'market-filter-btn',
+      panel: () => nativeMarketFilterPanel(),
       permission: 'admin',
       action: () => {
         filterMarketPluginDialog.value = true
@@ -334,7 +365,7 @@ function submitMarketNameFilter(event: KeyboardEvent) {
 }
 
 // 插件过滤条件
-const installedFilter = ref(null)
+const installedFilter = ref<string | null>(null)
 
 // 有新版本过滤条件
 const hasUpdateFilter = ref(false)
@@ -377,6 +408,53 @@ const authorFilterOptions = ref<string[]>([])
 const labelFilterOptions = ref<string[]>([])
 // 插件库过滤项
 const repoFilterOptions = ref<string[]>([])
+
+/** 系统筛选菜单只投影当前排序和多选条件，筛选结果继续由原有 watcher 计算。 */
+function nativeMarketFilterPanel(): NativePanelSource {
+  const filters = (['author', 'label', 'repo'] as const).map(key => {
+    const options =
+      key === 'author'
+        ? authorFilterOptions.value
+        : key === 'label'
+          ? labelFilterOptions.value
+          : repoFilterOptions.value
+    return {
+      id: key,
+      title: t(key === 'repo' ? 'plugin.repository' : `plugin.${key}`),
+      children: options.map(value => ({
+        id: nativePanelId(key, value),
+        title: value,
+        selected: filterForm[key].includes(value),
+        keepOpen: true,
+        invoke: () => {
+          filterForm[key] = filterForm[key].includes(value)
+            ? filterForm[key].filter(item => item !== value)
+            : [...filterForm[key], value]
+        },
+      })),
+    }
+  })
+  return {
+    title: t('common.filter'),
+    search: { text: filterForm.name, placeholder: t('plugin.name') },
+    onQuery: value => {
+      filterForm.name = value
+    },
+    sections: [
+      {
+        id: 'sort',
+        title: t('plugin.sortTitle'),
+        items: sortOptions.value.map(option => ({
+          id: option.value,
+          title: option.title,
+          selected: (activeSort.value || 'count') === option.value,
+          invoke: () => selectMarketSort(option.value),
+        })),
+      },
+      { id: 'filters', title: t('common.filter'), items: filters.filter(item => item.children.length) },
+    ],
+  }
+}
 
 // 插件文件夹配置
 const pluginFolders = ref<PluginFolderMap>({})

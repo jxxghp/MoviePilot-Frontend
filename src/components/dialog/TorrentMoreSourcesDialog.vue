@@ -57,7 +57,13 @@ function handleDetail(item: Context) {
       <VCardTitle class="py-3 d-flex align-center">
         <span>其他来源</span>
         <VSpacer />
-        <VBtn variant="text" size="small" icon="mdi-close" @click.stop="visible = false"></VBtn>
+        <VBtn
+          data-native-dialog-close
+          variant="text"
+          size="small"
+          icon="mdi-close"
+          @click.stop="visible = false"
+        ></VBtn>
       </VCardTitle>
 
       <VDivider />

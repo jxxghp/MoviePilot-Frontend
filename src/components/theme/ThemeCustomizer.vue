@@ -233,7 +233,7 @@ async function handleResetSettings() {
               <VIcon class="text-high-emphasis" icon="mdi-refresh" />
             </IconBtn>
           </VBadge>
-          <IconBtn :aria-label="t('common.close')" @click="emit('close')">
+          <IconBtn data-native-dialog-close :aria-label="t('common.close')" @click="emit('close')">
             <VIcon class="text-high-emphasis" icon="mdi-close" />
           </IconBtn>
         </div>

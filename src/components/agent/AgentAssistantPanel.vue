@@ -3289,7 +3289,12 @@ onScopeDispose(() => {
           >
             <VIcon :icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
           </IconBtn>
-          <IconBtn :title="t('common.close')" :aria-label="t('common.close')" @click="closeDrawer">
+          <IconBtn
+            data-native-dialog-close
+            :title="t('common.close')"
+            :aria-label="t('common.close')"
+            @click="closeDrawer"
+          >
             <VIcon icon="mdi-close" />
           </IconBtn>
         </div>

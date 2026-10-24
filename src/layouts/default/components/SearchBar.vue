@@ -22,7 +22,13 @@ function closeSearch() {
   searchOpen.value = false
 }
 
-useNativeGlobalAction({ id: 'search', title: () => t('common.search'), icon: 'search', invoke: openSearch })
+useNativeGlobalAction({
+  id: 'search',
+  title: () => t('common.search'),
+  icon: 'search',
+  invoke: openSearch,
+  panel: () => searchBar.value?.nativePanel(),
+})
 
 onMounted(() => {
   Mousetrap.bind(['command+k', 'ctrl+k'], openSearch)

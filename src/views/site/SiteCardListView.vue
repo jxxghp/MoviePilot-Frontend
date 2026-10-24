@@ -406,6 +406,21 @@ useNativePageHeader({
       title: t('common.filter'),
       icon: 'mdi-filter-multiple-outline',
       dataAttr: 'site-filter-btn',
+      panel: () => ({
+        title: t('common.filter'),
+        sections: [
+          {
+            id: 'site-filter',
+            items: filterOptions.value.map(option => ({
+              id: option.value,
+              title: option.label,
+              icon: option.icon,
+              selected: filterOption.value === option.value,
+              invoke: () => selectFilter(option.value),
+            })),
+          },
+        ],
+      }),
       action: () => {
         filterMenu.value = true
       },

@@ -57,7 +57,7 @@ function submitPassword() {
             @click:append-inner="passwordVisible = !passwordVisible"
           />
           <div class="d-flex justify-end gap-4 mt-4">
-            <VBtn variant="outlined" color="secondary" @click="visible = false">
+            <VBtn data-native-dialog-close variant="outlined" color="secondary" @click="visible = false">
               {{ t('common.cancel') }}
             </VBtn>
             <VBtn type="submit" color="primary">

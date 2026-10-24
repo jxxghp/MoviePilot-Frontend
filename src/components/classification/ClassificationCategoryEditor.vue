@@ -397,8 +397,8 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
         aria-labelledby="classification-category-form-title"
         :aria-describedby="validationMessage ? validationErrorId : undefined"
       >
-        <div class="classification-category-form-header">
-          <h3 id="classification-category-form-title">
+        <div class="classification-category-form-header" data-native-dialog-header>
+          <h3 id="classification-category-form-title" data-native-dialog-title>
             {{
               draft.originalId
                 ? t('setting.classification.category.editTitle')
@@ -406,7 +406,13 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
             }}
           </h3>
           <div class="classification-category-form-actions">
-            <VBtn icon variant="text" :aria-label="t('setting.classification.category.cancelEdit')" @click="cancelEdit">
+            <VBtn
+              data-native-dialog-close
+              icon
+              variant="text"
+              :aria-label="t('setting.classification.category.cancelEdit')"
+              @click="cancelEdit"
+            >
               <VIcon icon="mdi-close" />
               <VTooltip activator="parent" location="top">
                 {{ t('setting.classification.category.cancelEdit') }}

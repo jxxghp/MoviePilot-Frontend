@@ -513,19 +513,25 @@ const isMacOS = computed(() => {
       <!-- Toolbar -->
       <VToolbar color="primary" density="comfortable">
         <VToolbarItems>
-          <VBtn icon @click="emit('close')" class="ms-3">
+          <VBtn data-native-dialog-close icon @click="emit('close')" class="ms-3">
             <VIcon size="large" color="white" icon="mdi-close" />
           </VBtn>
         </VToolbarItems>
         <VToolbarTitle> {{ t('dialog.workflowActions.title') }} - {{ workflow?.name }} </VToolbarTitle>
         <VToolbarItems>
-          <VBtn icon variant="text" @click="importCodeDialog = true" class="ms-2">
+          <VBtn
+            icon
+            variant="text"
+            :aria-label="t('dialog.importCode.import')"
+            @click="importCodeDialog = true"
+            class="ms-2"
+          >
             <VIcon size="24" color="white" icon="mdi-import" />
           </VBtn>
-          <VBtn icon variant="text" @click="shareWorkflow" class="ms-2">
+          <VBtn icon variant="text" :aria-label="t('common.share')" @click="shareWorkflow" class="ms-2">
             <VIcon size="24" color="white" icon="mdi-share" />
           </VBtn>
-          <VBtn icon variant="text" @click="updateWorkflow" class="ms-2 me-3">
+          <VBtn icon variant="text" :aria-label="t('common.save')" @click="updateWorkflow" class="ms-2 me-3">
             <VIcon size="24" color="white" icon="mdi-content-save" />
           </VBtn>
         </VToolbarItems>

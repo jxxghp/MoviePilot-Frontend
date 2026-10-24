@@ -110,7 +110,7 @@ function openSiteManager() {
         </VBtn>
         <VBtn v-if="canViewLogs" variant="text" @click="emit('logs')">{{ t('subscribe.viewLogs') }}</VBtn>
         <VSpacer />
-        <VBtn variant="text" @click="emit('close')">{{ t('common.close') }}</VBtn>
+        <VBtn data-native-dialog-close variant="text" @click="emit('close')">{{ t('common.close') }}</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

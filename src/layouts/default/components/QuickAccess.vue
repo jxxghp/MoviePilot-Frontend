@@ -7,6 +7,8 @@ import { useRecentPlugins } from '@/composables/useRecentPlugins'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import PluginDataDialog from '@/components/dialog/PluginDataDialog.vue'
 import { getDominantColor } from '@/@core/utils/image'
+import { useNativeGlobalAction } from '@/native/registry'
+import { nativePanelId } from '@/native/panel'
 
 // 国际化
 const { t } = useI18n()
@@ -17,12 +19,14 @@ const { getRecentPlugins, addRecentPlugin, getPinnedPluginIds, togglePinnedPlugi
 // 输入参数
 const props = defineProps<{
   visible: boolean
+  nativeEnabled?: boolean
 }>()
 
 // 事件
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'plugin-click', plugin: Plugin): void
+  (e: 'open'): void
 }>()
 
 // 有详情页面的插件列表
@@ -86,12 +90,12 @@ const filteredRecentPlugins = computed(() =>
     .filter(matchesPlugin),
 )
 
-// 处理插件图标加载错误
+/** 处理插件图标加载错误 */
 function handleIconError(plugin: Plugin) {
   pluginIconLoadError.value[plugin.id] = true
 }
 
-// 处理插件图标加载完成
+/** 处理插件图标加载完成 */
 async function handleIconLoaded(src: string | undefined, plugin: Plugin) {
   if (!src) return
 
@@ -115,12 +119,12 @@ async function handleIconLoaded(src: string | undefined, plugin: Plugin) {
   }
 }
 
-// 获取插件背景颜色
+/** 获取插件背景颜色 */
 function getPluginBackgroundColor(plugin: Plugin): string {
   return pluginBackgroundColors.value[plugin.id] || '#28A9E1'
 }
 
-// 计算插件图标路径
+/** 计算插件图标路径 */
 function getPluginIcon(plugin: Plugin): string {
   if (!plugin.plugin_icon) return getLogoUrl('plugin')
   if (pluginIconLoadError.value[plugin.id]) return getLogoUrl('plugin')
@@ -135,7 +139,7 @@ function getPluginIcon(plugin: Plugin): string {
   return `./plugin_icon/${plugin.plugin_icon}`
 }
 
-// 判断插件是否匹配当前搜索关键词。
+/** 判断插件是否匹配当前搜索关键词。 */
 function matchesPlugin(plugin: Plugin): boolean {
   const keyword = normalizedSearchKeyword.value
   if (!keyword) return true
@@ -143,7 +147,7 @@ function matchesPlugin(plugin: Plugin): boolean {
   return [plugin.plugin_name, plugin.id].some(value => value?.toLocaleLowerCase().includes(keyword))
 }
 
-// 获取有详情页面的插件
+/** 获取有详情页面的插件 */
 async function fetchPluginsWithPage() {
   if (loading.value) return
 
@@ -166,25 +170,25 @@ async function fetchPluginsWithPage() {
   }
 }
 
-// 加载最近访问和常用插件
+/** 加载最近访问和常用插件 */
 function loadPluginAccessState() {
   recentPlugins.value = getRecentPlugins()
   pinnedPluginIds.value = getPinnedPluginIds()
 }
 
-// 切换插件固定状态
+/** 切换插件固定状态 */
 function togglePluginPin(plugin: Plugin) {
   if (!plugin.id) return
 
   pinnedPluginIds.value = togglePinnedPlugin(plugin.id)
 }
 
-// 判断插件是否已固定
+/** 判断插件是否已固定 */
 function isPinned(plugin: Plugin): boolean {
   return Boolean(plugin.id && pinnedPluginIds.value.includes(plugin.id))
 }
 
-// 打开插件面板
+/** 打开插件面板 */
 function handlePluginClick(plugin: Plugin) {
   addRecentPlugin(plugin)
   loadPluginAccessState()
@@ -202,7 +206,7 @@ function handlePluginClick(plugin: Plugin) {
   )
 }
 
-// 关闭面板并清理本次搜索状态。
+/** 关闭面板并清理本次搜索状态。 */
 function handleClose() {
   searchKeyword.value = ''
   isEditingFavorites.value = false
@@ -222,6 +226,65 @@ watch(
   },
   { immediate: true },
 )
+
+/** App 插件面板使用系统搜索、分组和固定操作，仍打开同一共享插件详情。 */
+useNativeGlobalAction({
+  id: 'plugins',
+  title: () => t('plugin.quickAccess'),
+  icon: 'mdi-puzzle-outline',
+  visible: () => props.nativeEnabled === true,
+  invoke: () => emit('open'),
+  panel: () => {
+    /** 插件子菜单同时提供打开和固定操作，复用原有最近访问记录。 */
+    const entry = (plugin: Plugin) => ({
+      id: nativePanelId('plugin', plugin.id),
+      title: plugin.plugin_name || plugin.id || '',
+      subtitle: plugin.plugin_desc,
+      icon: 'mdi-puzzle-outline',
+      children: [
+        {
+          id: nativePanelId('open', plugin.id),
+          title: t('common.viewDetails'),
+          icon: 'mdi-puzzle-outline',
+          invoke: () => handlePluginClick(plugin),
+        },
+        {
+          id: nativePanelId('pin', plugin.id),
+          title: t(isPinned(plugin) ? 'plugin.unpinPlugin' : 'plugin.pinPlugin', { name: plugin.plugin_name }),
+          selected: isPinned(plugin),
+          keepOpen: true,
+          invoke: () => togglePluginPin(plugin),
+        },
+      ],
+    })
+    const pinned = pinnedPlugins.value.filter(matchesPlugin)
+    const recent = filteredRecentPlugins.value
+    const used = new Set([...pinned, ...recent].map(plugin => plugin.id))
+    return {
+      title: t('plugin.quickAccess'),
+      loading: loading.value,
+      emptyText: t(searchKeyword.value ? 'plugin.noMatchingContent' : 'plugin.noPluginsWithPage'),
+      search: { text: searchKeyword.value, placeholder: t('common.search') },
+      onQuery: value => {
+        searchKeyword.value = value
+      },
+      onOpen: () => {
+        searchKeyword.value = ''
+        loadPluginAccessState()
+        return fetchPluginsWithPage()
+      },
+      sections: [
+        { id: 'pinned', title: t('plugin.favorites'), items: pinned.map(entry) },
+        { id: 'recent', title: t('plugin.recentlyUsed'), items: recent.map(entry) },
+        {
+          id: 'all',
+          title: t('plugin.allPlugins'),
+          items: filteredPlugins.value.filter(plugin => !used.has(plugin.id)).map(entry),
+        },
+      ],
+    }
+  },
+})
 </script>
 
 <template>

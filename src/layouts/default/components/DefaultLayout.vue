@@ -38,7 +38,7 @@ import {
 } from '@/composables/useThemeCustomizer'
 import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
 import SystemUpdatePrompt from '@/components/system/SystemUpdatePrompt.vue'
-import { nativeHeaderRegistration, useNativeGlobalAction } from '@/native/registry'
+import { nativeHeaderRegistration } from '@/native/registry'
 import { nativeChromeActive } from '@/native/layout'
 import type {
   DynamicHeaderTabConfig as DynamicHeaderTab,
@@ -388,14 +388,6 @@ function handleOpenPluginQuickAccess() {
   showPluginQuickAccess.value = true
 }
 
-useNativeGlobalAction({
-  id: 'plugins',
-  title: () => t('plugin.quickAccess'),
-  icon: 'mdi-puzzle-outline',
-  visible: canAdmin,
-  invoke: handleOpenPluginQuickAccess,
-})
-
 /** 点击插件入口后关闭插件快速访问面板。 */
 function handlePluginClick() {
   showPluginQuickAccess.value = false
@@ -724,6 +716,8 @@ onMounted(async () => {
   <!-- 👉 Plugin Quick Access -->
   <QuickAccess
     :visible="showPluginQuickAccess"
+    :native-enabled="canAdmin"
+    @open="handleOpenPluginQuickAccess"
     @close="handleClosePluginQuickAccess"
     @plugin-click="handlePluginClick"
   />

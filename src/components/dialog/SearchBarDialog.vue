@@ -10,6 +10,8 @@ import { useDisplay } from 'vuetify'
 import { VDialog, VMenu } from 'vuetify/components'
 import { buildUserPermissionContext, hasPermission, filterMenusByPermission } from '@/utils/permission'
 import { useMediaSources } from '@/composables/useMediaSources'
+import type { NativePanelEntry, NativePanelSource } from '@/native/registry'
+import { nativePanelId } from '@/native/panel'
 
 // 显示器宽度
 const display = useDisplay()
@@ -615,7 +617,134 @@ watch(dialog, async isOpen => {
   focusSearchInput()
 })
 
-defineExpose({ focusSearchInput })
+/** 让 App 使用系统搜索框；结果、来源选择、权限与跳转均复用本组件状态。 */
+function nativePanel(): NativePanelSource {
+  const keyword = searchWord.value?.trim() || ''
+  const actions: NativePanelEntry[] = []
+  if (keyword && hasDiscoveryPermission.value) {
+    for (const action of mediaSearchActions.value) {
+      actions.push({
+        id: `media-${action.type}`,
+        title: action.title,
+        icon: action.icon,
+        subtitle: `${t('common.search')} ${keyword}`,
+        children: [
+          {
+            id: `run-${action.type}`,
+            title: `${t('common.search')} ${keyword}`,
+            icon: 'search',
+            invoke: () => searchMedia(action.type),
+          },
+          ...mediaSearchSourceOptions.value[action.type].map(source => ({
+            id: `source-${action.type}-${source.value}`,
+            title: source.label,
+            selected: selectedMediaSearchSources[action.type].includes(source.value),
+            keepOpen: true,
+            invoke: () => {
+              const selected = selectedMediaSearchSources[action.type]
+              if (selected.includes(source.value)) {
+                if (selected.length > 1)
+                  selectedMediaSearchSources[action.type] = selected.filter(value => value !== source.value)
+              } else selectedMediaSearchSources[action.type] = [...selected, source.value]
+            },
+          })),
+        ],
+      })
+    }
+  }
+  if (keyword && hasSearchPermission.value) {
+    const resources = [
+      { type: 'torrent' as const, title: t('dialog.searchBar.relatedResources'), invoke: searchTorrent },
+      { type: 'music' as const, title: t('dialog.searchBar.relatedMusicResources'), invoke: searchMusicTorrent },
+      { type: 'subtitle' as const, title: t('dialog.searchBar.relatedSubtitles'), invoke: searchSubtitle },
+    ]
+    actions.push(
+      ...resources.map(item => ({
+        id: `resource-${item.type}`,
+        title: item.title,
+        icon: 'search',
+        children: [
+          { id: `run-resource-${item.type}`, title: `${t('common.search')} ${keyword}`, invoke: item.invoke },
+          {
+            id: `sites-${item.type}`,
+            title: t('dialog.searchBar.selectSites'),
+            icon: 'mdi-web',
+            invoke: () => openSiteDialog(item.type),
+          },
+        ],
+      })),
+    )
+  }
+  if (keyword && hasSubscribePermission.value)
+    actions.push({
+      id: 'shares',
+      title: t('subscribe.searchShares'),
+      icon: 'mdi-share-variant',
+      invoke: searchSubscribeShares,
+    })
+  if (keyword && hasManagePermission.value)
+    actions.push({ id: 'history', title: t('navItems.history'), icon: 'mdi-history', invoke: searchHistory })
+  return {
+    title: t('common.search'),
+    search: { text: keyword, placeholder: t('dialog.searchBar.searchPlaceholder') },
+    emptyText: t('dialog.searchBar.emptySearchHint'),
+    onQuery: value => {
+      searchWord.value = value
+    },
+    sections: [
+      { id: 'actions', items: actions },
+      {
+        id: 'menus',
+        title: t('dialog.searchBar.functions'),
+        items: matchedMenuItems.value.slice(0, 20).map(item => ({
+          id: nativePanelId('menu', item.to),
+          title: item.title || '',
+          subtitle: item.description,
+          icon: String(item.icon || 'apps'),
+          invoke: () => goPage(String(item.to)),
+        })),
+      },
+      {
+        id: 'subscriptions',
+        title: t('dialog.searchBar.subscriptions'),
+        items: matchedSubscribeItems.value.slice(0, 10).map(item => ({
+          id: nativePanelId('subscribe', item.id),
+          title: item.name || '',
+          icon: 'mdi-rss',
+          invoke: () => goSubscribe(item),
+        })),
+      },
+      {
+        id: 'plugins',
+        title: t('dialog.searchBar.plugins'),
+        items: matchedPluginItems.value.slice(0, 10).map(item => ({
+          id: nativePanelId('plugin', item.id),
+          title: item.plugin_name || item.id || '',
+          subtitle: item.plugin_desc,
+          icon: 'mdi-puzzle-outline',
+          invoke: () => showPlugin(item.id),
+        })),
+      },
+      {
+        id: 'recent',
+        title: t('dialog.searchBar.recentSearches'),
+        items: keyword
+          ? []
+          : recentSearches.value.slice(0, 5).map(item => ({
+              id: nativePanelId('recent', item),
+              title: item,
+              icon: 'mdi-history',
+              keepOpen: true,
+              invoke: () => {
+                searchWord.value = item
+              },
+            })),
+      },
+    ],
+  }
+}
+
+defineExpose({ focusSearchInput, nativePanel })
 
 onMounted(() => {
   // 搜索来源默认跟随全局媒体搜索数据源配置，保证基础设置生效

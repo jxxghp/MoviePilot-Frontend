@@ -17,14 +17,17 @@ import { dynamicButtonRegistry } from '@/composables/dynamicButtonRegistry'
 import { buildFooterMenus } from '@/utils/footerNavigation'
 import { groupAppMenus } from '@/utils/appNavigation'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
-import { nativeGlobalActions, nativeHeaderRegistration } from '@/native/registry'
+import { nativeGlobalActions, nativeHeaderRegistration, nativeRequestedPanel } from '@/native/registry'
+import { dispatchNativePanel, projectNativePanel } from '@/native/panel'
+import { readNativePresentation } from '@/native/presentation'
+import { NativeSheetAdapter } from '@/native/sheet'
 import { NativeChromeSession } from '@/native/session'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { NativeRouteHistory } from '@/native/history'
 import { NativeHeaderTabs } from '@/native/header'
 import { nativePageHeaders } from '@/native/page'
 import type { DynamicHeaderTabButton } from '@/composables/useDynamicHeaderTab'
-import type { NativeAction, NativeEnvelope, NativeSnapshot } from '@/native/protocol'
+import type { NativeAction, NativeEnvelope, NativeSheet, NativeSnapshot } from '@/native/protocol'
 import { isNativeRoute } from '@/native/protocol'
 import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 import '@/native/native.scss'
@@ -38,6 +41,9 @@ const user = useUserStore()
 const pluginMenus = usePluginSidebarNavStore()
 const routerReady = ref(false)
 const overlayOpen = ref(false)
+const fullscreenOverlay = ref(false)
+const activePanel = ref<string>()
+const sheet = ref<NativeSheet>()
 const permissions = computed(() => buildUserPermissionContext(user.superUser, user.permissions))
 const menus = computed(() => filterMenusByPermission(getNavMenus(t), permissions.value))
 const authenticated = computed(() => Boolean(auth.token) && user.userID >= 0 && Boolean(route.meta.requiresAuth))
@@ -58,6 +64,7 @@ const roots = computed<NativeSnapshot['roots']>(() =>
 )
 const history = new NativeRouteHistory(router, () => roots.value)
 const layout = new NativeLayoutAdapter(document, window)
+const sheetAdapter = new NativeSheetAdapter(document)
 const headerProjection = new NativeHeaderTabs()
 let bridge: NativeChromeSession | undefined
 let ownerSequence = 0
@@ -124,6 +131,7 @@ const model = computed(() => {
   const revision = history.revision.value
   const actions: NativeAction[] = []
   const callbacks = new Map<string, () => void>()
+  const panels = new Map<string, ReturnType<typeof projectNativePanel>>()
   const header = nativeHeaderRegistration.value
   let headerTabs: NativeSnapshot['headerTabs']
   /** 共用标题栏与页内标题旁动作的权限、禁用和回调规则，执行时再次读取当前声明。 */
@@ -133,6 +141,11 @@ const model = computed(() => {
       if (!button.action) throw new Error('unsupported_header_action')
       const actionId = `r${revision}:${source}:${index}`
       const loading = Boolean(toValue(button.loading))
+      const panel = button.panel?.()
+      const projection = panel
+        ? projectNativePanel(activePanel.value === actionId ? panel : { ...panel, sections: [] })
+        : undefined
+      if (projection) panels.set(actionId, projection)
       actions.push({
         actionId,
         ownerId,
@@ -141,6 +154,7 @@ const model = computed(() => {
         position: 'trailing',
         enabled: !loading && !toValue(button.disabled),
         loading,
+        ...(projection ? { panel: projection.panel } : {}),
         ...(button.dataAttr ? { dataAttr: button.dataAttr } : {}),
       })
       callbacks.set(actionId, button.action)
@@ -162,6 +176,11 @@ const model = computed(() => {
     for (const action of nativeGlobalActions.value.values()) {
       if (action.visible !== undefined && !toValue(action.visible)) continue
       const actionId = `r${revision}:global:${action.id}`
+      const source = action.panel?.()
+      const projection = source
+        ? projectNativePanel(activePanel.value === actionId ? source : { ...source, sections: [] })
+        : undefined
+      if (projection) panels.set(actionId, projection)
       actions.push({
         actionId,
         ownerId: ownerFor(action),
@@ -171,6 +190,7 @@ const model = computed(() => {
         enabled: true,
         loading: false,
         ...(action.dataAttr ? { dataAttr: action.dataAttr } : {}),
+        ...(projection ? { panel: projection.panel } : {}),
       })
       callbacks.set(actionId, action.invoke)
     }
@@ -235,12 +255,19 @@ const model = computed(() => {
     roots: roots.value,
     actions,
     moreMenu,
-    presentation: { overlayOpen: overlayOpen.value },
+    presentation: {
+      overlayOpen: overlayOpen.value,
+      fullscreen: fullscreenOverlay.value,
+      ...(sheet.value ? { sheet: sheet.value } : {}),
+      ...(nativeRequestedPanel.value ? { requestedPanel: nativeRequestedPanel.value } : {}),
+    },
     ...(headerTabs ? { headerTabs } : {}),
     chrome: {
       topVisible: Boolean(route.meta.requiresAuth),
       bottomVisible: authenticated.value,
       theme: theme.global.current.value.dark ? 'dark' : 'light',
+      backgroundColor: theme.global.current.value.colors.background,
+      surfaceColor: theme.global.current.value.colors.surface,
       ...(/^#[0-9a-f]{6}$/i.test(theme.global.current.value.colors.primary)
         ? { accentColor: theme.global.current.value.colors.primary }
         : {}),
@@ -255,13 +282,18 @@ const model = computed(() => {
     menuSequence > 128
   )
     throw new Error('unsupported_action_count')
-  return { routeRevision: revision, snapshot, callbacks }
+  return { routeRevision: revision, snapshot, callbacks, panels }
 })
 
 /** 分派时重新读取 model，复核 owner、路由、权限、loading 及可见性。 */
 function execute(message: NativeEnvelope) {
   const current = model.value
   const payload = message.payload
+  if (message.type.startsWith('presentation.')) {
+    if (window.MoviePilotNative?.sheetsVersion !== 1) return false
+    sheetAdapter.read(pageTitle())
+    return sheetAdapter.execute(message.type, payload)
+  }
   if (message.type === 'navigation.selectRoot')
     return !overlayOpen.value && typeof payload.rootId === 'string' && history.selectRoot(payload.rootId)
   if (message.type === 'navigation.back') return history.back(document, window)
@@ -270,7 +302,8 @@ function execute(message: NativeEnvelope) {
     if (payload.path === '/?shotcut=message') {
       const action = nativeGlobalActions.value.get('notifications')
       if (!action || (action.visible !== undefined && !toValue(action.visible))) return false
-      action.invoke()
+      if (action.panel && window.MoviePilotNative?.panelsVersion === 1) nativeRequestedPanel.value = action.id
+      else action.invoke()
     } else {
       void router.push(payload.path).catch(() => {
         /* 业务守卫保留目的页的权限判断，失败不重放通知动作。 */
@@ -306,7 +339,24 @@ function execute(message: NativeEnvelope) {
         item.menu?.some(child => child.actionId === payload.actionId && child.enabled)),
   )
   const callback = current.callbacks.get(payload.actionId)
-  if (!action || !action.enabled || action.loading || !callback) return false
+  if (!action || !action.enabled || action.loading) return false
+  if (payload.panelEvent !== undefined) {
+    const panel = current.panels.get(action.actionId)
+    if (!panel) return false
+    if (payload.panelEvent === 'close') {
+      if (activePanel.value === action.actionId) activePanel.value = undefined
+      return true
+    }
+    if (payload.panelEvent === 'open') {
+      activePanel.value = action.actionId
+      nativeRequestedPanel.value = undefined
+    } else if (activePanel.value !== action.actionId) return false
+    const accepted = dispatchNativePanel(model.value.panels.get(action.actionId)!, payload)
+    if (accepted && payload.panelEvent === 'select' && !panel.callbacks.get(String(payload.itemId))?.keepOpen)
+      activePanel.value = undefined
+    return accepted
+  }
+  if (!callback) return false
   if (action.dataAttr) layout.positionAnchor(action.dataAttr, payload.framePoints, payload.layoutRevision)
   callback()
   return true
@@ -326,17 +376,28 @@ const overlayObserver = new MutationObserver(records => {
     !records.some(
       record =>
         record.type === 'childList' ||
-        (record.target instanceof Element && record.target.classList.contains('v-overlay')),
+        (record.target instanceof Element &&
+          Boolean(record.target.closest('.v-overlay, .theme-customizer-panel-host, .agent-assistant-panel'))),
     )
   )
     return
   overlayScheduled = true
   queueMicrotask(() => {
     overlayScheduled = false
-    overlayOpen.value = Boolean(document.querySelector('.v-overlay--active.v-dialog, .v-overlay--active.v-menu'))
+    const presentation = readNativePresentation(document)
+    overlayOpen.value = presentation.overlayOpen
+    fullscreenOverlay.value = presentation.fullscreen
+    const nextSheet = window.MoviePilotNative?.sheetsVersion === 1 ? sheetAdapter.read(pageTitle()) : undefined
+    // 弹窗内动画或正文更新不重发相同的栏位声明，保留系统交互和键盘的稳定性。
+    if (JSON.stringify(nextSheet) !== JSON.stringify(sheet.value)) sheet.value = nextSheet
   })
 })
-overlayObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+overlayObserver.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: true,
+  attributeFilter: ['class', 'disabled', 'aria-label'],
+})
 watch(
   canStart,
   ready => {
@@ -350,7 +411,14 @@ watch(
       execute,
       setActive: async active => {
         layout.setActive(active)
-        if (!active) appActivityLifecycle.setHostLifecycle(undefined)
+        if (!active) {
+          sheetAdapter.reset()
+          appActivityLifecycle.setHostLifecycle(undefined)
+          activePanel.value = undefined
+          const requested = nativeRequestedPanel.value
+          nativeRequestedPanel.value = undefined
+          if (requested) nativeGlobalActions.value.get(requested)?.invoke()
+        }
         await nextTick()
         if (active)
           layout.syncAnchors(model.value.snapshot.actions.flatMap(action => (action.dataAttr ? [action.dataAttr] : [])))
@@ -379,9 +447,17 @@ watch(
   () => JSON.stringify([user.userID, user.superUser, user.permissions, roots.value.map(root => root.id)]),
   () => {
     history.reset()
+    activePanel.value = undefined
+    nativeRequestedPanel.value = undefined
     bridge?.identityChanged()
   },
   { flush: 'sync' },
+)
+watch(
+  () => history.revision.value,
+  () => {
+    activePanel.value = undefined
+  },
 )
 void router.isReady().then(() => {
   routerReady.value = true
@@ -391,6 +467,7 @@ onScopeDispose(() => {
   history.stop()
   void bridge?.stop()
   layout.setActive(false)
+  sheetAdapter.reset()
 })
 </script>
 

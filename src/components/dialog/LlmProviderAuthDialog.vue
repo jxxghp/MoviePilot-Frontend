@@ -76,7 +76,7 @@ function closeDialog() {
       </VCardText>
       <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" variant="flat" class="px-5" @click="closeDialog">
+        <VBtn data-native-dialog-close color="primary" variant="flat" class="px-5" @click="closeDialog">
           {{ t('common.close') }}
         </VBtn>
       </VCardActions>

@@ -9,6 +9,42 @@ export interface NativeAction {
   loading: boolean
   dataAttr?: string
   menu?: Array<{ actionId: string; title: string; icon: string; enabled: boolean }>
+  panel?: NativePanel
+}
+
+/** 系统面板只接收展示数据和稳定标识，业务回调留在网页内。 */
+export interface NativePanelItem {
+  id: string
+  title: string
+  subtitle?: string
+  icon?: string
+  /** 通知等现有内容的图片地址，仅用于展示，不能作为导航或业务命令。 */
+  image?: string
+  enabled?: boolean
+  selected?: boolean
+  destructive?: boolean
+  keepOpen?: boolean
+  children?: NativePanelItem[]
+}
+
+/** 快捷入口共用系统列表与搜索控件，分组内容来自现有业务组件。 */
+export interface NativePanel {
+  title: string
+  subtitle?: string
+  search?: { text: string; placeholder: string }
+  sections: Array<{ id: string; title?: string; items: NativePanelItem[] }>
+  loading?: boolean
+  hasMore?: boolean
+  emptyText?: string
+}
+
+/** 原生 Sheet 只搬运现有 WebView；标题栏命令限定到当前实际弹窗及其按钮。 */
+export interface NativeSheet {
+  id: string
+  title: string
+  fullscreen: boolean
+  canDismiss: boolean
+  actions: Array<{ id: string; title: string; enabled: boolean }>
 }
 
 /** 已经经过网页权限过滤和路由守卫的完整原生显示状态。 */
@@ -18,13 +54,15 @@ export interface NativeSnapshot {
   headerTabs?: { ownerId: string; selectedId: string; items: Array<{ id: string; title: string }> }
   actions: NativeAction[]
   moreMenu?: NativeMenuSection[]
-  presentation?: { overlayOpen: boolean }
+  presentation?: { overlayOpen: boolean; fullscreen?: boolean; requestedPanel?: string; sheet?: NativeSheet }
   chrome: {
     topVisible: boolean
     bottomVisible: boolean
     theme: 'system' | 'light' | 'dark'
     content?: 'web' | 'menu'
     accentColor?: string
+    backgroundColor?: string
+    surfaceColor?: string
   }
 }
 
@@ -61,6 +99,10 @@ export interface NativeEnvelope {
 /** 由主文档开始时注入的最小 WebKit 传输门面。 */
 export interface NativeTransport {
   transportVersion: 1
+  /** 可选原生快捷面板能力；旧容器仍使用原有 HTML 回调。 */
+  panelsVersion?: 1
+  /** 可选原生业务弹窗容器；未协商时完整保留网页弹窗。 */
+  sheetsVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
   notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */

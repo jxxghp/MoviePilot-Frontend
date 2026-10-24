@@ -602,6 +602,36 @@ registerHeaderTab({
       color: filterButtonColor,
       class: 'settings-icon-button',
       dataAttr: 'filter-btn',
+      panel: () => ({
+        title: t('common.filter'),
+        search: { text: subscribeFilter.value, placeholder: t('subscribe.name') },
+        onQuery: value => {
+          subscribeFilter.value = value
+        },
+        sections: [
+          {
+            id: 'status',
+            title: t('common.status'),
+            items: filterOptions.value.map(option => ({
+              id: `status-${option.value}`,
+              title: option.label,
+              icon: option.icon,
+              selected: (subscribeStatusFilter.value || 'all') === option.value,
+              invoke: () => selectFilter(option.value),
+            })),
+          },
+          {
+            id: 'sort',
+            title: t('subscribe.sortTitle'),
+            items: sortOptions.value.map(option => ({
+              id: `sort-${option.value}`,
+              title: option.label,
+              selected: currentSortBy.value === option.value,
+              invoke: () => selectSubscribeSort(option.value),
+            })),
+          },
+        ],
+      }),
       permission: 'subscribe',
       action: () => {
         filterSubscribeDialog.value = true
@@ -639,6 +669,14 @@ registerHeaderTab({
       color: computed(() => (shareKeywordInput.value ? 'primary' : 'gray')),
       class: 'settings-icon-button',
       dataAttr: 'share-filter-btn',
+      panel: () => ({
+        title: t('subscribe.keyword'),
+        search: { text: shareKeywordInput.value, placeholder: t('subscribe.keyword') },
+        onQuery: value => {
+          shareKeywordInput.value = value
+        },
+        sections: [],
+      }),
       permission: 'subscribe',
       action: () => {
         searchShareDialog.value = true

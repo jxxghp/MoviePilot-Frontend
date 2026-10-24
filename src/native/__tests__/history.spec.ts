@@ -76,7 +76,7 @@ describe('网页业务路由是导航事实来源', () => {
     const { router, history } = await harness()
     await router.push('/media/1')
     const overlay = document.createElement('div')
-    overlay.className = 'v-overlay--active'
+    overlay.className = 'v-overlay--active v-dialog'
     document.body.append(overlay)
     expect(history.back(document, window)).toBe(true)
     expect(router.currentRoute.value.path).toBe('/media/1')
@@ -88,5 +88,36 @@ describe('网页业务路由是导航事实来源', () => {
     expect(document.activeElement).not.toBe(input)
     expect(router.currentRoute.value.path).toBe('/media/1')
     input.remove()
+  })
+
+  it('更多每次都回到目录，不能恢复上一次打开的业务页面', async () => {
+    const { router, history } = await harness()
+    history.selectRoot('/apps')
+    await flushPromises()
+    await router.push('/plugins')
+    await router.push('/setting')
+    expect(history.navigation.canGoBack).toBe(true)
+    history.selectRoot('/apps')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/apps')
+    expect(history.navigation.canGoBack).toBe(false)
+    await router.push('/plugins')
+    history.selectRoot('/dashboard')
+    await flushPromises()
+    history.selectRoot('/apps')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/apps')
+  })
+
+  it('榜单里的工具提示不会吞掉原生返回', async () => {
+    const { router, history } = await harness()
+    await router.push('/browse/recommend/douban?title=豆瓣电影')
+    const tooltip = document.createElement('div')
+    tooltip.className = 'v-overlay--active v-tooltip'
+    document.body.append(tooltip)
+    expect(history.back(document, window)).toBe(true)
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/dashboard')
+    tooltip.remove()
   })
 })

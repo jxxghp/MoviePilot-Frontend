@@ -45,7 +45,13 @@ function close(): void {
         <VCardTitle>{{ t('setting.classification.helpTitle') }}</VCardTitle>
         <VCardSubtitle>{{ t('setting.classification.helpDescription') }}</VCardSubtitle>
         <template #append>
-          <VBtn icon="mdi-close" variant="text" :aria-label="t('common.close')" @click="close" />
+          <VBtn
+            data-native-dialog-close
+            icon="mdi-close"
+            variant="text"
+            :aria-label="t('common.close')"
+            @click="close"
+          />
         </template>
       </VCardItem>
 

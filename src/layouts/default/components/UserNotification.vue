@@ -8,7 +8,8 @@ import { useBackground } from '@/composables/useBackground'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
-import { useNativeGlobalAction } from '@/native/registry'
+import { useNativeGlobalAction, nativeRequestedPanel } from '@/native/registry'
+import { nativePanelId } from '@/native/panel'
 import { nativeChromeActive } from '@/native/layout'
 
 type NotificationDisplayItem =
@@ -33,7 +34,8 @@ watch(
   () => route.query.shotcut,
   value => {
     if (value !== 'message') return
-    appsMenu.value = true
+    if (window.MoviePilotNative?.panelsVersion === 1) nativeRequestedPanel.value = 'notifications'
+    else appsMenu.value = true
     const query = { ...route.query }
     delete query.shotcut
     void router.replace({ query })
@@ -45,6 +47,7 @@ useNativeGlobalAction({
   title: () => t('notification.center'),
   icon: 'notifications',
   dataAttr: 'native-notifications',
+  panel: () => notificationNativePanel(),
   invoke: () => {
     appsMenu.value = true
   },
@@ -57,6 +60,7 @@ const clearing = ref(false)
 const hasMore = ref(true)
 const notificationKeys = new Set<string>()
 const expandedNotificationKeys = ref(new Set<string>())
+const nativePageOffset = ref(0)
 
 const hasUnreadNotifications = computed(() => notificationList.value.some(item => item.read === false))
 const hasBadgeUnreadMessages = computed(() => appUnreadMessageCount.value > 0)
@@ -541,6 +545,88 @@ function handleNotificationMenuVisibleChange(open: boolean) {
 }
 
 watch(appsMenu, handleNotificationMenuVisibleChange)
+
+/** 原生消息中心使用同一列表、SSE、已读和清理流程；历史按二十条翻页防止桥接超限。 */
+function notificationNativePanel() {
+  const rows = notificationList.value.slice(nativePageOffset.value, nativePageOffset.value + PAGE_SIZE)
+  return {
+    title: t('notification.center'),
+    loading: loading.value || clearing.value,
+    hasMore: nativePageOffset.value + PAGE_SIZE < notificationList.value.length || hasMore.value,
+    emptyText: t('notification.empty'),
+    onOpen: () => {
+      nativePageOffset.value = 0
+      return refreshNotificationsOnOpen()
+    },
+    onLoadMore: async () => {
+      if (nativePageOffset.value + PAGE_SIZE >= notificationList.value.length)
+        await loadNotifications({ done: () => {} })
+      if (nativePageOffset.value + PAGE_SIZE < notificationList.value.length) nativePageOffset.value += PAGE_SIZE
+    },
+    sections: [
+      {
+        id: 'tools',
+        items: [
+          {
+            id: 'read',
+            title: t('notification.markRead'),
+            icon: 'mdi-check',
+            enabled: canMarkAllAsRead.value,
+            keepOpen: true,
+            invoke: markAllAsRead,
+          },
+          {
+            id: 'clear',
+            title: t('notification.clear'),
+            icon: 'mdi-trash-can-outline',
+            enabled: notificationList.value.length > 0 && !clearing.value,
+            children: notificationClearOptions.value.map(option => ({
+              id: `clear-${option.scope}`,
+              title: option.title,
+              destructive: true,
+              enabled: option.count > 0,
+              invoke: () => clearNotifications(option.scope),
+            })),
+          },
+          ...(nativePageOffset.value
+            ? [
+                {
+                  id: 'previous',
+                  title: t('common.previous'),
+                  icon: 'mdi-chevron-left',
+                  keepOpen: true,
+                  invoke: () => {
+                    nativePageOffset.value = Math.max(0, nativePageOffset.value - PAGE_SIZE)
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+      ...(['system', 'media'] as const).map(kind => ({
+        id: kind,
+        title: t(kind === 'system' ? 'notification.systemMessages' : 'notification.mediaMessages'),
+        items: rows
+          .filter(item => getNotificationClearScope(item) === kind)
+          .map(item => ({
+            id: nativePanelId('message', getNotificationKey(item)),
+            title: item.title || t('notification.center'),
+            subtitle: [
+              item.read === false ? '●' : '',
+              formatDateDifference(getNotificationTime(item)),
+              isNotificationExpanded(item) ? item.text : String(item.text || '').slice(0, 100),
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            icon: getNotificationIcon(item),
+            image: item.image || undefined,
+            keepOpen: true,
+            invoke: () => toggleNotificationExpanded(item),
+          })),
+      })),
+    ],
+  }
+}
 </script>
 
 <template>

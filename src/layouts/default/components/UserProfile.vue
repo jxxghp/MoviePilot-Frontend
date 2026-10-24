@@ -30,7 +30,7 @@ import { useLocalStorage } from '@vueuse/core'
 import { COMMUNITY_AUTH_CHANGED_EVENT, useCommunityContribution } from '@/composables/useCommunityContribution'
 import CommunityMedalEntry from '@/layouts/default/components/CommunityMedalEntry.vue'
 import { isMedalKey, unseenMedalKeys } from '@/utils/communityMedals'
-import { useNativeGlobalAction } from '@/native/registry'
+import { useNativeGlobalAction, type NativePanelEntry, type NativePanelSource } from '@/native/registry'
 import { nativeChromeActive } from '@/native/layout'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
@@ -65,6 +65,7 @@ useNativeGlobalAction({
   title: () => t('common.userMenu'),
   icon: 'profile',
   dataAttr: 'native-profile',
+  panel: () => nativeProfilePanel(),
   invoke: () => {
     showUserMenu.value = true
   },
@@ -99,7 +100,7 @@ let customCssDialogController: ReturnType<typeof openSharedDialog> | null = null
 // 确认框
 const { createConfirm } = useConfirm()
 
-// 执行注销操作
+/** 清理当前会话及重启状态，再使用原登录路由完成退出。 */
 function logout() {
   // 清理重启相关状态
   finishSystemRestart()
@@ -127,7 +128,7 @@ function closeRestartProgress() {
   progressDialogController = null
 }
 
-// 检测服务状态
+/** 检测服务状态 */
 async function checkServiceStatus(): Promise<boolean> {
   try {
     await api.get<null>('system/ping', { timeout: 3000, feedback: 'silent' })
@@ -138,7 +139,7 @@ async function checkServiceStatus(): Promise<boolean> {
   }
 }
 
-// 轮询检测服务恢复状态
+/** 轮询检测服务恢复状态 */
 async function pollServiceStatus() {
   // 如果已经有轮询在运行，先清除
   if (restartPollingId.value) {
@@ -188,7 +189,7 @@ async function pollServiceStatus() {
   poll()
 }
 
-// 执行重启操作
+/** 执行重启操作 */
 async function restart() {
   if (!canAdmin.value) return
 
@@ -215,7 +216,7 @@ async function restart() {
   }, 5000)
 }
 
-// 显示重启确认对话框
+/** 显示重启确认对话框 */
 async function showRestartDialog() {
   if (!canAdmin.value) return
 
@@ -423,7 +424,7 @@ const uiModes = computed(() => [
   },
 ])
 
-// 切换UI模式
+/** 更新网页导航偏好，原生容器继续由宿主控制系统导航。 */
 function changeUIMode(mode: UIMode) {
   setUIMode(mode)
   showUIModeMenu.value = false
@@ -497,7 +498,7 @@ const currentThemeSummary = computed(() => {
 // Ace 跟随 Vuetify 当前生效主题，避免 auto 模式或弹窗打开后切主题时颜色不同步。
 const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 
-// 更新主题
+/** 更新主题 */
 async function updateTheme() {
   const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
   const theme = currentThemeName.value === 'auto' ? autoTheme : currentThemeName.value
@@ -526,7 +527,7 @@ function handleThemeCustomizerSettingsChange(event: Event) {
   savedTheme.value = nextTheme
 }
 
-// 获取自定义 CSS
+/** 获取自定义 CSS */
 async function getCustomCSS() {
   if (!canAdmin.value) return
 
@@ -642,7 +643,7 @@ const locales = computed(() => {
   }))
 })
 
-// 切换语言
+/** 保存既有语言偏好并重新加载当前文档。 */
 async function changeLocale(locale: SupportedLocale) {
   showLanguageMenu.value = false
   try {
@@ -652,6 +653,149 @@ async function changeLocale(locale: SupportedLocale) {
     window.location.reload()
   } catch (error) {
     console.error(error)
+  }
+}
+
+/** 原生用户菜单只投影当前权限下的项目，设置弹窗仍由现有组件处理。 */
+function nativeProfilePanel(): NativePanelSource {
+  const account: NativePanelEntry[] = [
+    {
+      id: 'profile',
+      title: t('user.profile'),
+      icon: 'mdi-account-outline',
+      invoke: () => {
+        void router.push('/profile')
+      },
+    },
+  ]
+  if (canAdmin.value) {
+    account.push({
+      id: 'settings',
+      title: t('user.systemSettings'),
+      icon: 'mdi-cog-outline',
+      invoke: () => {
+        void router.push('/setting')
+      },
+    })
+    if (userLevel.value < 2)
+      account.push({
+        id: 'auth',
+        title: t('user.siteAuth'),
+        icon: 'mdi-lock-check-outline',
+        invoke: showSiteAuthDialog,
+      })
+  }
+  const themeItems: NativePanelEntry[] = [
+    { id: 'customizer', title: t('theme.customizer.title'), icon: 'mdi-tune', invoke: showThemeCustomizerDrawer },
+  ]
+  if (isTransparentTheme.value)
+    themeItems.push({
+      id: 'transparency',
+      title: t('theme.transparencyAdjust'),
+      icon: 'mdi-opacity',
+      invoke: showTransparencySettingsDialog,
+    })
+  else if (isGlassTheme.value)
+    themeItems.push({
+      id: 'glass',
+      title: t('theme.glassSettings'),
+      icon: 'mdi-blur-radial',
+      invoke: showGlassSettingsDialog,
+    })
+  if (canAdmin.value)
+    themeItems.push({ id: 'css', title: t('theme.custom'), icon: 'mdi-palette', invoke: showCustomCssDialog })
+  const information: NativePanelEntry[] = [
+    {
+      id: 'help',
+      title: t('user.helpDocs'),
+      icon: 'mdi-help-circle-outline',
+      invoke: () => {
+        window.open('https://movie-pilot.org', '_blank')
+      },
+    },
+  ]
+  if (community.eligible.value)
+    information.push({
+      id: 'medals',
+      title: t('community.title'),
+      icon: 'mdi-medal-outline',
+      invoke: () => showCommunityDialog(),
+    })
+  if (canAdmin.value) {
+    information.push({
+      id: 'about',
+      title: t('setting.about.title'),
+      icon: 'mdi-information-outline',
+      invoke: showAboutDialog,
+    })
+    information.push(
+      ...systemUpdateMenuItems.value.map(item => ({
+        id: `update-${item.type}`,
+        title: t(item.state === 'ready' ? 'systemUpdate.menuRestartTo' : 'systemUpdate.menuUpdateTo', {
+          version: systemUpdateMenuVersion(item),
+        }),
+        icon: 'mdi-update',
+        invoke: () => openSystemUpdate(item),
+      })),
+    )
+  }
+  return {
+    title: t('common.userMenu'),
+    subtitle: userName.value,
+    sections: [
+      { id: 'account', items: account },
+      // 主题仅有少量设置入口，直接展示在用户菜单内，避免再打开一个二级面板。
+      { id: 'theme', title: t('common.theme'), items: themeItems },
+      {
+        id: 'appearance',
+        items: [
+          {
+            id: 'ui',
+            title: t('common.uiMode'),
+            icon: getUIModeIcon.value,
+            subtitle: uiModes.value.find(mode => mode.name === uiMode.value)?.title,
+            children: uiModes.value.map(mode => ({
+              id: `ui-${mode.name}`,
+              title: mode.title,
+              icon: mode.icon,
+              selected: uiMode.value === mode.name,
+              keepOpen: true,
+              invoke: () => changeUIMode(mode.name as UIMode),
+            })),
+          },
+          {
+            id: 'language',
+            title: t('common.language'),
+            icon: 'mdi-translate',
+            subtitle: locales.value.find(locale => locale.value === currentLocale.value)?.title,
+            children: locales.value.map(locale => ({
+              id: `locale-${locale.value}`,
+              title: `${locale.flag} ${locale.title}`,
+              selected: currentLocale.value === locale.value,
+              invoke: () => changeLocale(locale.value),
+            })),
+          },
+        ],
+      },
+      { id: 'information', items: information },
+      {
+        id: 'session',
+        items: [
+          ...(canAdmin.value
+            ? [
+                {
+                  id: 'restart',
+                  title: t('user.restart'),
+                  icon: 'mdi-restart',
+                  destructive: true,
+                  invoke: showRestartDialog,
+                },
+              ]
+            : []),
+          { id: 'logout', title: t('app.logout'), icon: 'mdi-logout', destructive: true, invoke: logout },
+        ],
+      },
+    ],
   }
 }
 

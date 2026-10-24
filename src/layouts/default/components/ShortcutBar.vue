@@ -16,6 +16,21 @@ useNativeGlobalAction({
   title: () => t('shortcut.title'),
   icon: 'mdi-card-multiple-outline',
   dataAttr: 'native-shortcuts',
+  panel: () => ({
+    title: t('shortcut.title'),
+    sections: [
+      {
+        id: 'tools',
+        items: visibleShortcuts.value.map(item => ({
+          id: item.dialog,
+          title: item.title,
+          subtitle: item.subtitle,
+          icon: item.icon,
+          invoke: () => openShortcutDialog(item),
+        })),
+      },
+    ],
+  }),
   invoke: () => {
     appsMenu.value = true
   },

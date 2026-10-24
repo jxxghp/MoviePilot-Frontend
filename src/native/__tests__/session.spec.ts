@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
+import { isProxy, reactive } from 'vue'
 import { NativeChromeSession, type NativeSessionOptions } from '../session'
 import type { NativeEnvelope, NativeSnapshot } from '../protocol'
 
@@ -64,6 +65,24 @@ afterEach(async () => {
 })
 
 describe('原生导航接管事务', () => {
+  it('展示快照脱离 Vue 代理，传输后修改原状态不会改变已经交付的消息', async () => {
+    const source = reactive<NativeSnapshot>({
+      ...snapshot,
+      presentation: {
+        overlayOpen: true,
+        sheet: { id: 'sheet-1', title: '名称识别', fullscreen: false, canDismiss: true, actions: [] },
+      },
+    })
+    const { messages } = harness({ readState: () => ({ routeRevision: 1, snapshot: source }) })
+    await activate()
+    const delivered = messages.find(message => message.type === 'navigation.state')!
+    expect(isProxy(delivered.payload)).toBe(false)
+    const presentation = delivered.payload.presentation as NativeSnapshot['presentation']
+    expect(isProxy(presentation?.sheet)).toBe(false)
+    source.presentation!.sheet!.title = '后续弹窗'
+    expect(presentation?.sheet?.title).toBe('名称识别')
+  })
+
   it('先保留网页，只有完整配置与布局确认后才提交接管', async () => {
     const { options, messages } = harness()
     expect(messages[0].type).toBe('web.ready')

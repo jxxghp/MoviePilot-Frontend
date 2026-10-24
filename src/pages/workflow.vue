@@ -85,6 +85,14 @@ registerHeaderTab({
       color: computed(() => (shareKeywordInput.value ? 'primary' : 'gray')),
       class: 'settings-icon-button',
       dataAttr: 'share-filter-btn',
+      panel: () => ({
+        title: t('workflow.searchShares'),
+        search: { text: shareKeywordInput.value, placeholder: t('workflow.searchShares') },
+        onQuery: value => {
+          shareKeywordInput.value = value
+        },
+        sections: [],
+      }),
       permission: 'manage',
       show: computed(() => activeTab.value === 'share'),
       action: () => {

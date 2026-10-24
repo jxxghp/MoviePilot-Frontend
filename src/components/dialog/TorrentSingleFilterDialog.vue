@@ -56,7 +56,15 @@ function updateFilter(values: string[]) {
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" max-width="25rem" max-height="85vh" location="center" scrollable>
+  <VDialog
+    v-if="visible"
+    v-model="visible"
+    max-width="25rem"
+    max-height="85vh"
+    location="center"
+    scrollable
+    :aria-label="props.filterTitle"
+  >
     <VCard>
       <VCardTitle class="py-3 d-flex align-center">
         <VIcon :icon="getFilterIcon(props.filterKey)" class="me-2"></VIcon>

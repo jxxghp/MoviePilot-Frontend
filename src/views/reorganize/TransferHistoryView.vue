@@ -1995,6 +1995,21 @@ useNativePageHeader({
       title: t('transferHistory.statusFilter.label'),
       icon: 'mdi-filter-multiple-outline',
       dataAttr: 'history-status-filter-btn',
+      panel: () => ({
+        title: t('transferHistory.statusFilter.label'),
+        sections: [
+          {
+            id: 'history-status',
+            items: statusFilterItems.value.map(option => ({
+              id: option.value,
+              title: option.title,
+              icon: option.icon,
+              selected: statusFilter.value === option.value,
+              invoke: () => selectStatusFilter(option.value),
+            })),
+          },
+        ],
+      }),
       action: () => {
         mobileStatusFilterMenu.value = true
       },

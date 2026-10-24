@@ -49,9 +49,9 @@ html[data-native-chrome='active'] {
     min-block-size: 0 !important;
   }
 
-  // 弹层打开时原生底栏已隐藏；背景延伸至屏幕底部，交互内容单独避让 Home Indicator。
+  // 普通菜单/弹窗保留底栏，只有全屏弹窗延伸到 Home Indicator 区域。
   .v-dialog {
-    inset-block: var(--native-top) 0 !important;
+    inset-block: var(--native-top) var(--native-bottom) !important;
     inset-inline: var(--native-left) var(--native-right) !important;
   }
 
@@ -68,8 +68,139 @@ html[data-native-chrome='active'] {
     block-size: 100%;
   }
 
+  .v-dialog--fullscreen {
+    inset-block-end: 0 !important;
+  }
+
+  // 弹窗之外降低亮度并显著模糊，保留弹窗自身文字和控件的清晰度。
+  .v-dialog > .v-overlay__scrim,
+  .v-menu > .v-overlay__scrim {
+    background: rgba(var(--v-theme-background), 0.74) !important;
+    opacity: 1 !important;
+    backdrop-filter: blur(22px) saturate(0.75);
+    -webkit-backdrop-filter: blur(22px) saturate(0.75);
+  }
+
+  .medal-showcase .medal-showcase__close {
+    // 以已避开原生顶栏的弹窗为定位参考，避免再按整个屏幕偏移。
+    position: absolute;
+    inset-block-start: 12px;
+    inset-inline-end: 12px;
+  }
+
+  .theme-customizer-panel-host[role='dialog'] {
+    inset-block-start: var(--native-top) !important;
+    block-size: calc(100dvh - var(--native-top)) !important;
+    min-block-size: 0 !important;
+    inline-size: 100% !important;
+    padding-block-end: var(--native-bottom);
+  }
+
+  .theme-customizer-panel--dialog {
+    // 状态栏已计入原生顶边距，定制器内部不再重复添加安全区。
+    padding-block-start: 0;
+  }
+
   .v-dialog--fullscreen > .v-overlay__content > .v-card,
   .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card {
     padding-block-end: var(--native-bottom);
+  }
+}
+
+// 同一 WebView 进入系统 Sheet 后只显示当前 Vue 弹窗的内容；普通浏览器完全不匹配。
+html[data-native-chrome='active'][data-native-sheet] {
+  &,
+  body,
+  #app,
+  .v-application,
+  .v-application__wrap {
+    background: transparent !important;
+  }
+
+  #app {
+    visibility: hidden;
+  }
+
+  // 浮动助手入口不属于当前业务弹窗，不能盖在原生 Sheet 的内容或底部操作上。
+  .agent-assistant-fab,
+  .agent-pet-stage-layer {
+    display: none !important;
+  }
+
+  .v-overlay-container {
+    visibility: visible;
+  }
+
+  .v-dialog:not([data-native-sheet-current]),
+  .theme-customizer-panel-host:not([data-native-sheet-current]),
+  .agent-assistant-panel:not([data-native-sheet-current]) {
+    visibility: hidden !important;
+  }
+
+  [data-native-sheet-current] {
+    visibility: visible !important;
+    position: fixed !important;
+    inset: 0 !important;
+    inline-size: 100% !important;
+    block-size: 100% !important;
+    min-block-size: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    transition: none !important;
+
+    > .v-overlay__scrim,
+    [data-native-sheet-header],
+    [data-native-sheet-heading],
+    [data-native-dialog-close],
+    .medal-showcase__veil {
+      display: none !important;
+    }
+
+    > .v-overlay__content {
+      position: absolute !important;
+      inset: 0 !important;
+      inline-size: 100% !important;
+      block-size: 100% !important;
+      min-block-size: 0 !important;
+      max-inline-size: none !important;
+      max-block-size: none !important;
+      margin: 0 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+
+    > .v-overlay__content > .v-card,
+    > .v-overlay__content > .medal-showcase,
+    > .theme-customizer-panel,
+    > .agent-assistant-shell {
+      inline-size: 100% !important;
+      block-size: 100% !important;
+      min-block-size: 0 !important;
+      max-block-size: none !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      padding-block: 0 !important;
+    }
+
+    .agent-assistant-header {
+      justify-content: flex-end;
+      padding-block: 8px;
+      border: 0;
+    }
+
+    > .v-overlay__content > .v-card::before,
+    > .v-overlay__content > .v-card::after,
+    > .theme-customizer-panel::before,
+    > .theme-customizer-panel::after {
+      display: none !important;
+    }
+
+    > .theme-customizer-panel > .v-divider {
+      display: none;
+    }
   }
 }

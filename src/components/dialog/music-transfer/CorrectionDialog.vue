@@ -230,7 +230,7 @@ onUnmounted(() => {
         </template>
       </VCardText>
       <VCardActions class="flex-wrap">
-        <VBtn :disabled="busy" @click="emit('close')">{{ t('common.cancel') }}</VBtn>
+        <VBtn data-native-dialog-close :disabled="busy" @click="emit('close')">{{ t('common.cancel') }}</VBtn>
         <VSpacer />
         <VBtn color="primary" variant="flat" :disabled="!ready || loading || busy" :loading="busy" @click="apply">{{
           t(prefix + 'applyPreview')

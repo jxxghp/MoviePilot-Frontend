@@ -402,7 +402,7 @@ onBeforeUnmount(() => {
           <VIcon icon="mdi-movie-open-outline" size="40" />
         </div>
         <div class="activity-heading">
-          <h2>{{ t('subscriptionActivity.title') }}</h2>
+          <h2 data-native-dialog-title>{{ t('subscriptionActivity.title') }}</h2>
           <p class="activity-subtitle">{{ subtitle }}</p>
           <p class="activity-progress-label" v-if="libraryCount !== null">
             {{ t('subscriptionActivity.libraryProgress', { count: libraryCount, total: subscription.total_episode }) }}
@@ -429,7 +429,13 @@ onBeforeUnmount(() => {
               >{{ t('subscriptionActivity.runtimeLogs') }}</VBtn
             >
             <span class="activity-action-divider" />
-            <VBtn icon="mdi-close" variant="text" :aria-label="t('common.close')" @click="visible = false" />
+            <VBtn
+              data-native-dialog-close
+              icon="mdi-close"
+              variant="text"
+              :aria-label="t('common.close')"
+              @click="visible = false"
+            />
           </div>
           <div class="activity-filters">
             <VSelect

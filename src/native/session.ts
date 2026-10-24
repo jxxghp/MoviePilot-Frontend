@@ -179,6 +179,10 @@ export class NativeChromeSession {
         'notification.open',
         'headerTab.select',
         'action.invoke',
+        'presentation.attach',
+        'presentation.detach',
+        'presentation.dismiss',
+        'presentation.action',
         'state.request',
       ].includes(message.type)
     )
@@ -240,8 +244,10 @@ export class NativeChromeSession {
       message.routeRevision = this.routeRevision
       message.stateRevision = this.stateRevision
     }
-    if (new TextEncoder().encode(JSON.stringify(message)).length > 65536) throw new Error('invalid_message')
-    this.options.transport.postMessage(message)
+    const serialized = JSON.stringify(message)
+    if (new TextEncoder().encode(serialized).length > 65536) throw new Error('invalid_message')
+    // WK 消息只接收独立的标准 JSON 值，不能直接传 Vue Proxy 或后续仍会变化的响应式对象。
+    this.options.transport.postMessage(JSON.parse(serialized) as NativeEnvelope)
   }
 
   /** 只有仍可执行 JS 时才能恢复网页；宿主另行处理进程终止。 */

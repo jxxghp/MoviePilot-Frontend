@@ -111,7 +111,7 @@ function closeDialog() {
 
       <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn variant="text" @click="closeDialog">{{ t('common.cancel') }}</VBtn>
+        <VBtn data-native-dialog-close variant="text" @click="closeDialog">{{ t('common.cancel') }}</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

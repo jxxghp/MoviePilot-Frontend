@@ -248,7 +248,7 @@ async function submit(execute = false) {
         </VCard>
       </VCardText>
       <VCardActions>
-        <VBtn :disabled="busy" @click="emit('close')">关闭</VBtn>
+        <VBtn data-native-dialog-close :disabled="busy" @click="emit('close')">关闭</VBtn>
         <VSpacer />
         <VBtn :loading="busy" :disabled="busy || (mode === 'manual' && !targetPath.trim())" @click="submit(false)">
           识别并预览

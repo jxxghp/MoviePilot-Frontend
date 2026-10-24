@@ -411,6 +411,7 @@ onBeforeMount(() => {
   >
     <VCard class="subscribe-files-dialog no-blur">
       <VBtn
+        data-native-dialog-close
         class="subscribe-files-dialog__close"
         icon="mdi-close"
         variant="text"

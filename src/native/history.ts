@@ -1,6 +1,7 @@
 import { shallowRef } from 'vue'
 import type { Router } from 'vue-router'
 import { isNativeRoute, type NativeSnapshot } from './protocol'
+import { readNativePresentation } from './presentation'
 
 /** 每个入口的逻辑路径由网页 Router 完成钩子维护，原生不保存第二份业务栈。
  */
@@ -47,7 +48,8 @@ export class NativeRouteHistory {
   selectRoot(id: string) {
     const root = this.roots().find(item => item.id === id)
     if (!root || this.intent) return false
-    const target = this.trails.get(id)?.at(-1) ?? root.path
+    // “更多”是目录入口，每次点击都回到目录，其他 Tab 保留最近业务位置。
+    const target = root.path === '/apps' ? root.path : (this.trails.get(id)?.at(-1) ?? root.path)
     this.navigate(target, 'root', id)
     return true
   }
@@ -60,7 +62,7 @@ export class NativeRouteHistory {
       focused.blur()
       return true
     }
-    if (document.querySelector('.v-overlay--active')) {
+    if (readNativePresentation(document).overlayOpen) {
       targetWindow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }))
       return true
     }
@@ -131,7 +133,8 @@ export class NativeRouteHistory {
         else if (numericPosition === this.lastPosition && rootId === this.currentRoot && trail.length)
           trail = [...trail.slice(0, -1), route.fullPath]
         else if (trail.at(-1) !== route.fullPath) trail = [...trail, route.fullPath]
-      } else if (!trail.length) trail = [route.fullPath]
+      } else if (root?.path === '/apps' && route.fullPath === root.path) trail = [root.path]
+      else if (!trail.length) trail = [route.fullPath]
       this.trails.set(rootId, trail.slice(-128))
     }
     this.currentRoot = rootId
