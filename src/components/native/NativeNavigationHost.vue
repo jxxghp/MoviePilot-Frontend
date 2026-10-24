@@ -63,6 +63,10 @@ const roots = computed<NativeSnapshot['roots']>(() =>
     : [],
 )
 const history = new NativeRouteHistory(router, () => roots.value)
+// Vue 完成守卫和异步页面解析后、修改实际内容前保留离页画面，不改变任何业务历史。
+const removePreviewHook = router.beforeResolve(async (to, from) => {
+  if (to.fullPath !== from.fullPath) await bridge?.prepareNavigation()
+})
 const layout = new NativeLayoutAdapter(document, window)
 const sheetAdapter = new NativeSheetAdapter(document)
 const headerProjection = new NativeHeaderTabs()
@@ -289,7 +293,7 @@ const model = computed(() => {
 })
 
 /** 分派时重新读取 model，复核 owner、路由、权限、loading 及可见性。 */
-function execute(message: NativeEnvelope) {
+async function execute(message: NativeEnvelope) {
   const current = model.value
   const payload = message.payload
   if (message.type.startsWith('presentation.')) {
@@ -303,6 +307,11 @@ function execute(message: NativeEnvelope) {
   if (message.type === 'navigation.selectRoot')
     return !overlayOpen.value && typeof payload.rootId === 'string' && history.selectRoot(payload.rootId)
   if (message.type === 'navigation.back') return history.back(document, window)
+  if (message.type === 'navigation.waitForPaint') {
+    await nextTick()
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    return true
+  }
   if (message.type === 'notification.open') {
     if (!authenticated.value || overlayOpen.value || !isNativeRoute(payload.path)) return false
     if (payload.path === '/?shotcut=message') {
@@ -471,6 +480,7 @@ void router.isReady().then(() => {
 onScopeDispose(() => {
   overlayObserver.disconnect()
   history.stop()
+  removePreviewHook()
   void bridge?.stop()
   layout.setActive(false)
   sheetAdapter.setActive(false)

@@ -114,6 +114,8 @@ export interface NativeTransport {
   panelsVersion?: 1
   /** 可选原生业务弹窗容器；未协商时完整保留网页弹窗。 */
   sheetsVersion?: 1
+  /** 路由提交前可短暂等待原生保存离页预览；旧容器不等待。 */
+  navigationPreviewVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
   notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */

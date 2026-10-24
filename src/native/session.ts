@@ -33,6 +33,7 @@ export class NativeChromeSession {
   private runningCommands = 0
   private readonly results = new Map<string, Promise<{ accepted: boolean; error?: string }>>()
   private readonly completed = new Set<string>()
+  private readonly navigationPreviews = new Map<string, () => void>()
   private readonly listener = (event: Event) => {
     void this.receive((event as CustomEvent<unknown>).detail).catch(() => this.fail())
   }
@@ -63,8 +64,32 @@ export class NativeChromeSession {
     this.post('navigation.state', snapshot as unknown as Record<string, unknown>)
   }
 
+  /** 仅在已协商的容器中保留当前可见页面，超时放行导航而不重放路由或业务操作。 */
+  async prepareNavigation() {
+    if (this.phase !== 'active' || this.options.transport.navigationPreviewVersion !== 1) return
+    const id = `preview-${++this.sequence}`
+    await new Promise<void>(resolve => {
+      const timer = setTimeout(done, 150)
+      /** 确认、释放、身份变化和超时共享一次完成路径。 */
+      function done() {
+        clearTimeout(timer)
+        resolve()
+      }
+      this.navigationPreviews.set(id, done)
+      this.post('navigation.departing', { id })
+    })
+    this.navigationPreviews.delete(id)
+  }
+
+  /** 预览不属于业务写操作，任何会话变化都必须立即释放等待。 */
+  private clearNavigationPreviews() {
+    for (const done of this.navigationPreviews.values()) done()
+    this.navigationPreviews.clear()
+  }
+
   /** 卸载时撤销 DOM 模式及全部回调引用，不能把旧 owner 留给下一布局。 */
   async stop() {
+    this.clearNavigationPreviews()
     clearTimeout(this.timer)
     this.options.target.removeEventListener('moviepilot:native-message', this.listener)
     this.phase = 'closed'
@@ -76,6 +101,7 @@ export class NativeChromeSession {
 
   /** 当前认证或权限上下文变化时通知宿主清理旧命令，再发布新代次。 */
   identityChanged() {
+    this.clearNavigationPreviews()
     if (!this.sessionId) return
     this.results.clear()
     this.completed.clear()
@@ -122,7 +148,13 @@ export class NativeChromeSession {
       return
     }
     if (!this.sessionId || message.sessionId !== this.sessionId) return
+    if (message.type === 'navigation.previewed') {
+      if (this.phase === 'active' && typeof message.payload.id === 'string')
+        this.navigationPreviews.get(message.payload.id)?.()
+      return
+    }
     if (message.type === 'host.rekey') {
+      this.clearNavigationPreviews()
       if (this.phase !== 'active' || !isNativeIdentifier(message.payload.sessionId)) {
         await this.fail()
         return
@@ -135,6 +167,7 @@ export class NativeChromeSession {
       return
     }
     if (message.type === 'chrome.release') {
+      this.clearNavigationPreviews()
       this.phase = 'closed'
       clearTimeout(this.timer)
       await this.options.setActive(false)
@@ -176,6 +209,7 @@ export class NativeChromeSession {
         'navigation.selectRoot',
         'navigation.back',
         'navigation.open',
+        'navigation.waitForPaint',
         'notification.open',
         'headerTab.select',
         'action.invoke',
@@ -253,6 +287,7 @@ export class NativeChromeSession {
 
   /** 只有仍可执行 JS 时才能恢复网页；宿主另行处理进程终止。 */
   private async fail() {
+    this.clearNavigationPreviews()
     if (this.phase === 'closed') return
     this.phase = 'closed'
     clearTimeout(this.timer)

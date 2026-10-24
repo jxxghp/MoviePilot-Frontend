@@ -65,6 +65,52 @@ afterEach(async () => {
 })
 
 describe('原生导航接管事务', () => {
+  it('离页只等待支持预览的新容器，确认必须属于当前会话且不执行任何业务命令', async () => {
+    const legacy = harness()
+    await activate()
+    await legacy.session.prepareNavigation()
+    expect(legacy.messages.some(message => message.type === 'navigation.departing')).toBe(false)
+    await legacy.session.stop()
+    const messages: NativeEnvelope[] = []
+    const { session, options } = harness({
+      transport: { transportVersion: 1, navigationPreviewVersion: 1, postMessage: message => messages.push(message) },
+    })
+    await activate()
+    const done = vi.fn()
+    const pending = session.prepareNavigation().then(done)
+    const request = messages.find(message => message.type === 'navigation.departing')!
+    expect(request.routeRevision).toBe(1)
+    await send('navigation.previewed', request.payload, { sessionId: 'old-session' })
+    expect(done).not.toHaveBeenCalled()
+    await send('navigation.previewed', request.payload)
+    await pending
+    expect(done).toHaveBeenCalledOnce()
+    expect(options.execute).not.toHaveBeenCalled()
+    const changed = session.prepareNavigation()
+    session.identityChanged()
+    await changed
+  })
+
+  it('预览确认丢失时有界放行路由，停止会话也不遗留等待', async () => {
+    const { session } = harness({
+      transport: { transportVersion: 1, navigationPreviewVersion: 1, postMessage: vi.fn() },
+    })
+    await activate()
+    vi.useFakeTimers()
+    try {
+      const done = vi.fn()
+      const pending = session.prepareNavigation().then(done)
+      await vi.advanceTimersByTimeAsync(151)
+      await pending
+      expect(done).toHaveBeenCalledOnce()
+      const stopped = session.prepareNavigation()
+      await session.stop()
+      await stopped
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('展示快照脱离 Vue 代理，传输后修改原状态不会改变已经交付的消息', async () => {
     const source = reactive<NativeSnapshot>({
       ...snapshot,
