@@ -36,6 +36,8 @@ export interface NativePanel {
   title: string
   /** 仅原生容器使用网格和半屏系统 Sheet，缺省仍为锚定列表。 */
   layout?: 'grid'
+  /** 长正文面板可请求接近安全区全宽，短菜单仍按内容量测。 */
+  width?: 'full'
   subtitle?: string
   profile?: { name: string; detail?: string; image?: string }
   search?: { text: string; placeholder: string }

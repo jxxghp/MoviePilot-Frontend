@@ -551,6 +551,7 @@ function notificationNativePanel() {
   const rows = notificationList.value.slice(nativePageOffset.value, nativePageOffset.value + PAGE_SIZE)
   return {
     title: t('notification.center'),
+    width: 'full' as const,
     loading: loading.value || clearing.value,
     hasMore: nativePageOffset.value + PAGE_SIZE < notificationList.value.length || hasMore.value,
     emptyText: t('notification.empty'),

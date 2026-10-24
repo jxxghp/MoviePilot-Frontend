@@ -3,6 +3,12 @@ import { dispatchNativePanel, nativePanelId, projectNativePanel } from '../panel
 import type { NativePanelSource } from '../registry'
 
 describe('原生面板声明与当前业务回调隔离', () => {
+  it('通知长正文宽度通过显式声明传递，短菜单不自动拉满', () => {
+    const source: NativePanelSource = { title: '通知中心', width: 'full', sections: [] }
+    expect(projectNativePanel(source).panel.width).toBe('full')
+    expect(projectNativePanel({ ...source, width: undefined }).panel.width).toBeUndefined()
+  })
+
   it('网格保留插件实际图片及打开、固定回调，搜索移除后撤销旧项目', () => {
     const open = vi.fn()
     const pin = vi.fn()
