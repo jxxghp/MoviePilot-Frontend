@@ -78,11 +78,12 @@ interface PluginDataLayout {
 // 插件数据页面配置项
 const pluginPageItems = ref<RenderProps[]>([])
 
+/** 只接受宿主支持的两种页面模式，非法响应保留错误与重试入口。 */
 function isPluginRenderMode(value: unknown): value is PluginRenderMode {
   return value === 'vue' || value === 'vuetify'
 }
 
-// 联邦数据页可声明更适合自身布局的宿主弹窗宽度。
+/** 联邦数据页可声明更适合自身布局的宿主弹窗宽度。 */
 function handleVueComponentLayout(layout?: PluginDataLayout | null) {
   const maxWidth = typeof layout?.maxWidth === 'string' ? layout.maxWidth.trim() : ''
   dialogMaxWidth.value = maxWidth || '80rem'
@@ -115,7 +116,7 @@ const dynamicComponent = defineAsyncComponent({
   timeout: 20000,
 })
 
-// 调用API读取数据页面UI
+/** 读取当前插件实例的页面声明，加载状态和错误不替代业务内容。 */
 async function loadPluginUIData() {
   // 如果正在加载，则不重复加载
   if (isLoading.value) return
@@ -156,7 +157,7 @@ async function loadPluginUIData() {
   }
 }
 
-// 重新加载数据（可由 PageRender 或 Vue component 触发）
+/** 原页面动作只重新加载当前插件；已加载的联邦组件继续持有其自身状态。 */
 function handleAction() {
   // 避免在组件已加载的情况下重复调用loadPluginUIData
   if (renderMode.value === 'vue' && componentLoaded.value) {
@@ -170,7 +171,12 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
+  <VDialog
+    scrollable
+    :aria-label="props.plugin?.plugin_name"
+    :max-width="dialogMaxWidth"
+    :fullscreen="!display.mdAndUp.value"
+  >
     <!-- Vuetify 渲染模式 -->
     <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name}`">
       <VDialogCloseBtn @click="emit('close')" />
@@ -201,6 +207,8 @@ onMounted(() => {
     </VCard>
     <!-- Vue 渲染模式 -->
     <VCard v-else-if="renderMode === 'vue'">
+      <!-- 原生栏始终调用宿主的关闭事件，联邦内容加载或更换标题栏时也不能丢失关闭能力。 -->
+      <button hidden aria-hidden="true" type="button" data-native-dialog-close @click="emit('close')" />
       <VCardText class="pa-0">
         <component
           :is="dynamicComponent"

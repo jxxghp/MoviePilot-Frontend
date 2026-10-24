@@ -1,5 +1,6 @@
 import type { Plugin } from '@/api/types'
 import PluginDataDialog from '@/components/dialog/PluginDataDialog.vue'
+import { NativeSheetAdapter } from '@/native/sheet'
 import { renderWithProviders } from '@tests/support/render'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { defineComponent, h, inject, type Component, type PropType } from 'vue'
@@ -62,7 +63,11 @@ const DialogStub = defineComponent({
   setup:
     (props, { slots }) =>
     () =>
-      h('section', { 'data-max-width': props.maxWidth, role: 'dialog' }, slots.default?.()),
+      h(
+        'section',
+        { class: 'v-overlay--active v-dialog', 'data-max-width': props.maxWidth, role: 'dialog' },
+        slots.default?.(),
+      ),
 })
 
 const LoadingBannerStub = defineComponent({
@@ -75,7 +80,7 @@ const CloseButtonStub = defineComponent({
   setup:
     (_, { attrs }) =>
     () =>
-      h('button', { ...attrs, 'aria-label': '关闭', type: 'button' }),
+      h('button', { ...attrs, 'aria-label': '关闭', type: 'button', 'data-native-dialog-close': '' }),
 })
 
 const FabStub = defineComponent({
@@ -245,6 +250,25 @@ describe('PluginDataDialog', () => {
     await renderDialog()
 
     expect(await screen.findByText('无法加载组件，请稍后再试')).toBeInTheDocument()
+  })
+
+  it('preserves native title and host dismissal while the remote Page loads and replaces its content', async () => {
+    const remote = createDeferred<Component>()
+    mocks.apiGet.mockResolvedValue({ render_mode: 'vue' })
+    mocks.loadRemoteComponent.mockReturnValue(remote.promise)
+    const result = await renderDialog(false)
+    const sheets = new NativeSheetAdapter(document)
+
+    expect(await screen.findByTestId('remote-component-loading')).toBeInTheDocument()
+    const loading = sheets.read('仪表盘')
+    expect(loading).toMatchObject({ title: '演示插件', canDismiss: true })
+    expect(screen.queryByRole('button', { name: '关闭' })).not.toBeInTheDocument()
+    remote.resolve(createRemotePage([]))
+    expect(await screen.findByTestId('remote-page')).toBeInTheDocument()
+    const ready = sheets.read('仪表盘')
+    expect(ready).toMatchObject({ id: loading?.id, title: '演示插件', canDismiss: true })
+    expect(sheets.execute('presentation.dismiss', { id: ready?.id })).toBe(true)
+    expect(result.emitted().close).toHaveLength(1)
   })
 
   it('renders the precompiled loading state while the remote Page is pending', async () => {
