@@ -53,10 +53,10 @@ describe('CommunityMedalEntry', () => {
     expect(button.querySelector('.v-icon')).toBeInTheDocument()
   })
 
-  it('功能不可用时顶栏不渲染入口，头像菜单入口仍保留', () => {
+  it('没有勋章或功能不可用时顶栏不渲染入口，头像菜单入口仍保留', () => {
     const profile = readFileSync(resolve('src/layouts/default/components/UserProfile.vue'), 'utf8')
     expect(profile).toMatch(
-      /<CommunityMedalEntry\s+v-if="community\.eligible\.value \|\| community\.initialLoading\.value"/,
+      /<CommunityMedalEntry\s+v-if="community\.eligible\.value && community\.medals\.value\.length > 0"/,
     )
     expect(profile).toMatch(/<VListItem v-if="community\.eligible\.value" link @click="showCommunityDialog\(\)"/)
   })

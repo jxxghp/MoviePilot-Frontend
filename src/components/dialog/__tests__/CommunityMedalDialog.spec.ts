@@ -230,7 +230,8 @@ describe('Community medal entry', () => {
     })
     const Harness = defineComponent({ setup: () => () => h('div', [h(UserProfile), h(SharedDialogHost)]) })
     await renderWithProviders(Harness, { initialState: adminState() })
-    await fireEvent.click(await screen.findByRole('button', { name: '社区勋章' }))
+    await fireEvent.contextMenu(screen.getByRole('button', { name: '用户菜单' }))
+    await fireEvent.click(await screen.findByText('社区勋章'))
     expect(await screen.findByText('配置 GitHub Token 后，即可查看你获得的社区勋章')).toBeVisible()
     phase = 'warming'
     window.dispatchEvent(new Event(COMMUNITY_AUTH_CHANGED_EVENT))
@@ -246,7 +247,7 @@ describe('Community medal entry', () => {
     expect(screen.queryByText('配置 GitHub Token 后，即可查看你获得的社区勋章')).not.toBeInTheDocument()
   })
 
-  it('全局开关尚在后台预热时显示占位，并在查询确认开放后自动显示勋章', async () => {
+  it('后台预热时隐藏顶栏入口和占位，确认持有勋章后自动显示入口', async () => {
     vi.useFakeTimers()
     let queried = false
     mocks.get.mockImplementation((url: string) => {
@@ -262,7 +263,8 @@ describe('Community medal entry', () => {
       },
     })
     await vi.advanceTimersByTimeAsync(0)
-    expect(screen.getByRole('status', { name: '社区勋章 · 加载中' })).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: '社区勋章 · 加载中' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /社区勋章/ })).not.toBeInTheDocument()
     await vi.advanceTimersByTimeAsync(1500)
     expect(screen.getByRole('button', { name: /社区勋章/ })).toBeVisible()
   })
@@ -291,13 +293,14 @@ describe('Community medal entry', () => {
     ['none', [], false],
     ['unknown only', [{ key: 'future-medal', at: '2030' }], false],
   ] as const)(
-    'shows the menu entry for a verified account, with a dot only for unseen medals: %s',
+    'shows the navbar entry only for held medals and keeps the verified account menu entry: %s',
     async (_, medals, unseen) => {
       mocks.get.mockImplementation((url: string) =>
         Promise.resolve(url === 'github/community' ? profile({ medals: medals as CommunityProfile['medals'] }) : {}),
       )
       await renderWithProviders(UserProfile, { initialState: adminState() })
       await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('github/community', expect.anything()))
+      expect(document.querySelector('.community-medal-entry') !== null).toBe(unseen)
       await fireEvent.contextMenu(screen.getByRole('button', { name: '用户菜单' }))
       await screen.findByText('关于 MoviePilot')
       const entry = await screen.findByText('社区勋章')
@@ -350,7 +353,7 @@ describe('Community medal entry', () => {
     expect(screen.queryByRole('button', { name: /掌灯勋章/ })).not.toBeInTheDocument()
   })
 
-  it('shows the entry without an unseen dot or worn medal while the token is not configured', async () => {
+  it('keeps only the menu entry while the token is not configured', async () => {
     localStorage.setItem('community-medal-worn:1:none', 'helper')
     mocks.get.mockImplementation((url: string) =>
       Promise.resolve(
@@ -359,6 +362,7 @@ describe('Community medal entry', () => {
     )
     await renderWithProviders(UserProfile, { initialState: adminState() })
     await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('github/community', expect.anything()))
+    expect(document.querySelector('.community-medal-entry')).not.toBeInTheDocument()
     await fireEvent.contextMenu(screen.getByRole('button', { name: '用户菜单' }))
     expect(await screen.findByText('社区勋章')).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '新勋章' })).not.toBeInTheDocument()

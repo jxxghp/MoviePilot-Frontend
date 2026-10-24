@@ -284,7 +284,7 @@ const wornMedal = useLocalStorage(
   computed(() => 'community-medal-worn:' + userStore.userID + ':' + (community.profile.value?.user_id ?? 'none')),
   '',
 )
-// 只佩戴仍然持有的勋章；勋章被撤下后顶栏换回线框图标，记录保留以便恢复。
+// 只佩戴仍然持有的勋章；未持有时保留佩戴记录以便恢复。
 const wornRecord = computed(() =>
   isMedalKey(wornMedal.value) ? community.medals.value.find(item => item.key === wornMedal.value) : undefined,
 )
@@ -697,10 +697,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- 顶栏常驻的勋章入口：功能可用时始终显示，佩戴时换成那枚勋章；头像菜单里的入口保留为次要入口。 -->
+  <!-- 顶栏仅在持有勋章时显示入口；没有勋章或尚未核验时隐藏，头像菜单仍可打开勋章墙。 -->
   <CommunityMedalEntry
-    v-if="community.eligible.value || community.initialLoading.value"
-    :loading="community.initialLoading.value"
+    v-if="community.eligible.value && community.medals.value.length > 0"
     :worn="wornRecord"
     :unseen="hasUnseenMedals"
     @open="showCommunityDialog"
