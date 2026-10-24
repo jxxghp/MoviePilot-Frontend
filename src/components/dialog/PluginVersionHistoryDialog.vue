@@ -159,10 +159,12 @@ const releaseByHistoryVersion = computed(() => {
   return releaseMap
 })
 
+/** 历史与 Release 共用带 v 前缀的展示键。 */
 function normalizeHistoryVersion(version: string) {
   return version.startsWith('v') ? version : `v${version}`
 }
 
+/** 将版本拆成数值段，兼容插件旧的连字符版本。 */
 function versionParts(value: string) {
   return value
     .replace(/^v/i, '')
@@ -170,6 +172,7 @@ function versionParts(value: string) {
     .map(part => Number.parseInt(part, 10) || 0)
 }
 
+/** 按数值段比较，避免字典序把 3.10 排在 3.9 之前。 */
 function compareVersions(left: string, right: string) {
   const leftParts = versionParts(left)
   const rightParts = versionParts(right)
@@ -180,15 +183,18 @@ function compareVersions(left: string, right: string) {
   return 0
 }
 
+/** 缺失版本不能被视为可升级版本。 */
 function isVersionHigher(candidate?: string | null, current?: string | null) {
   if (!candidate || !current) return false
   return compareVersions(candidate, current) > 0
 }
 
+/** 本地载荷只有不低于现版本时才作为候选。 */
 function isVersionAtLeast(candidate?: string | null, current?: string | null) {
   return candidate === current || isVersionHigher(candidate, current)
 }
 
+/** 按当前语言展示日期，无法解析的旧值保留原样。 */
 function formatReleaseDate(value?: string) {
   if (!value) return ''
   const date = new Date(value)
@@ -196,10 +202,12 @@ function formatReleaseDate(value?: string) {
   return date.toLocaleDateString(locale.value)
 }
 
+/** 将历史行映射回已核验的 Release 元数据。 */
 function releaseItemByHistoryVersion(version: string) {
   return releaseByHistoryVersion.value.get(version)
 }
 
+/** 历史安装按钮遵循来源资格，避免重复显示页脚的最新版动作。 */
 function shouldShowReleaseButton(item?: PluginReleaseVersion) {
   if (!item || item.is_current) return false
   if (releaseSourceAction.value === 'unavailable') return false
@@ -218,6 +226,7 @@ async function resolveReleaseRepoUrl(plugin: Plugin): Promise<string | null> {
   return repoUrl
 }
 
+/** 打开时刷新原有历史和来源，市场未安装条目不查询已安装接口。 */
 async function loadPluginHistory() {
   if (!props.plugin?.id) {
     pluginDetail.value = null
@@ -260,6 +269,7 @@ async function loadPluginHistory() {
   }
 }
 
+/** 只从已核验的插件来源读取 Release，保持原安装来源边界。 */
 async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPlugin.value, force = false) {
   if (!plugin?.id || (props.actionMode === 'install' && !plugin.release)) {
     releaseDetail.value = null
@@ -320,7 +330,10 @@ watch(
 
 <template>
   <VDialog v-if="visible" v-model="visible" width="680" max-height="85vh" scrollable>
-    <VCard :title="t('plugin.updateHistoryTitle', { name: resolvedPlugin?.plugin_name })">
+    <VCard
+      class="plugin-version-history-dialog"
+      :title="t('plugin.updateHistoryTitle', { name: resolvedPlugin?.plugin_name })"
+    >
       <VDialogCloseBtn v-model="visible" />
       <VDivider />
       <VProgressLinear v-if="releaseLoading && !loading" indeterminate color="primary" height="2" />
@@ -404,8 +417,8 @@ watch(
         </VersionHistory>
       </template>
       <template v-if="shouldShowUpdatePanel">
-        <VDivider />
-        <VCardItem>
+        <VDivider class="plugin-version-history-dialog__footer-divider" />
+        <VCardItem class="plugin-version-history-dialog__footer">
           <p v-if="installBlock" class="plugin-version-history-dialog__compatibility" role="alert">
             <VIcon icon="mdi-lock-outline" size="16" />
             <span>{{ installBlockMessage }}</span>

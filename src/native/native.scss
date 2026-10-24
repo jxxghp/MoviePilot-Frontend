@@ -236,5 +236,29 @@ html[data-native-chrome='active'][data-native-sheet] {
     > .theme-customizer-panel > .v-divider {
       display: none;
     }
+
+    // 加载、短历史与长列表共用满高列布局；页脚不跟随内容高度上移。
+    .plugin-version-history-dialog {
+      display: flex !important;
+      flex-direction: column;
+      overflow: hidden;
+
+      > .v-divider,
+      > .plugin-version-history-dialog__footer {
+        flex: 0 0 auto;
+      }
+
+      > .plugin-version-history-dialog__loading,
+      > .version-history {
+        flex: 1 1 0;
+        min-block-size: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      > .plugin-version-history-dialog__footer-divider {
+        margin-block-start: auto;
+      }
+    }
   }
 }
