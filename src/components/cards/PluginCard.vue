@@ -968,7 +968,7 @@ watch(
                 </span>
               </div>
               <div v-if="!props.sortable" class="absolute bottom-0 right-0">
-                <IconBtn class="plugin-card__menu" @click.stop>
+                <IconBtn class="plugin-card__menu" :aria-label="t('nav.more')" @click.stop>
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
                     <VList>
