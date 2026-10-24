@@ -1186,8 +1186,8 @@ onUnmounted(() => {
       <NativeNavigationHost v-if="nativeTransportAvailable" />
       <!-- 全局共享弹窗入口，列表与卡片按需在这里挂载业务弹窗。 -->
       <SharedDialogHost />
-      <!-- PWA安装提示 -->
-      <PWAInstallPrompt />
+      <!-- 原生容器已安装为 App，无需再提示安装 PWA；桥接降级时也不展示。 -->
+      <PWAInstallPrompt v-if="!nativeTransportAvailable" />
       <!-- GitHub Token 一次性设置提示 -->
       <GithubTokenPrompt />
     </VApp>
