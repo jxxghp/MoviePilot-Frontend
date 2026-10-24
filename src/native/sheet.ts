@@ -9,6 +9,7 @@ export class NativeSheetAdapter {
   private close?: HTMLButtonElement
   private buttons = new Map<string, HTMLButtonElement>()
   private attached?: string
+  private prepared?: string
 
   /** 作用域限定当前文档；关闭文档或降级时必须调用 reset 恢复原页面。 */
   constructor(private document: Document) {}
@@ -30,6 +31,7 @@ export class NativeSheetAdapter {
     }
     let id = this.ids.get(root)
     if (!id) this.ids.set(root, (id = `sheet-${++this.sequence}`))
+    if (this.prepared && this.prepared !== id) this.clearPreparation()
     this.close = root.querySelector<HTMLButtonElement>('[data-native-dialog-close]') ?? undefined
     const header = root.querySelector<HTMLElement>(
       '[data-native-dialog-header], .v-card-item, .v-toolbar, .theme-customizer-header, .agent-assistant-header, :scope > .v-overlay__content > .v-card > .v-card-title',
@@ -70,6 +72,7 @@ export class NativeSheetAdapter {
         root.classList.contains('v-dialog--fullscreen') ||
         root.matches('.theme-customizer-panel-host, .agent-assistant-panel'),
       canDismiss: Boolean(this.close && !this.close.disabled),
+      backdropReady: this.prepared === id,
       actions,
     }
   }
@@ -83,6 +86,12 @@ export class NativeSheetAdapter {
     }
     const root = this.root
     if (!root?.isConnected || this.ids.get(root) !== payload.id) return false
+    if (type === 'presentation.prepare') {
+      if (this.attached) return false
+      this.prepared = payload.id as string
+      this.document.documentElement.setAttribute('data-native-sheet-preparing', '')
+      return true
+    }
     if (type === 'presentation.attach') {
       this.attached = payload.id as string
       this.mark(root)
@@ -107,6 +116,7 @@ export class NativeSheetAdapter {
 
   /** 标记只影响当前活动弹窗，菜单仍在同一文档中保留原有交互。 */
   private mark(root: HTMLElement) {
+    this.clearPreparation()
     for (const old of this.document.querySelectorAll('[data-native-sheet-current]'))
       if (old !== root) old.removeAttribute('data-native-sheet-current')
     root.setAttribute('data-native-sheet-current', '')
@@ -115,9 +125,16 @@ export class NativeSheetAdapter {
 
   /** 清除容器标记不关闭 Vue 弹窗，也不触发业务回调。 */
   private clearMarkers() {
+    this.clearPreparation()
     this.document.documentElement.removeAttribute('data-native-sheet')
     for (const root of this.document.querySelectorAll('[data-native-sheet-current]'))
       root.removeAttribute('data-native-sheet-current')
+  }
+
+  /** 原生已保留底页或准备取消时恢复弹窗展示，不改变任何业务输入与回调。 */
+  private clearPreparation() {
+    this.prepared = undefined
+    this.document.documentElement.removeAttribute('data-native-sheet-preparing')
   }
 
   /** Vuetify 层级优先，未声明层级时保持文档中的后开弹窗在上。 */

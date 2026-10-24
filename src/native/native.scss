@@ -107,6 +107,18 @@ html[data-native-chrome='active'] {
   }
 }
 
+// 仅在原生明确请求时短暂显示原底页，供单 WebView 搬入 Sheet 时保留上下文。
+html[data-native-chrome='active'][data-native-sheet-preparing] {
+  .v-overlay--active.v-dialog,
+  .theme-customizer-panel-host[role='dialog'],
+  .agent-assistant-panel.is-open[role='dialog'],
+  .agent-assistant-fab,
+  .agent-pet-stage-layer {
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
+
 // 同一 WebView 进入系统 Sheet 后只显示当前 Vue 弹窗的内容；普通浏览器完全不匹配。
 html[data-native-chrome='active'][data-native-sheet] {
   &,

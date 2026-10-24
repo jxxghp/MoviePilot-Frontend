@@ -15,9 +15,49 @@ function dialog(title: string, z = 2000) {
 afterEach(() => {
   document.body.innerHTML = ''
   document.documentElement.removeAttribute('data-native-sheet')
+  document.documentElement.removeAttribute('data-native-sheet-preparing')
 })
 
 describe('原生 Sheet 与原 Vue 内容交接', () => {
+  it('底页准备只响应当前原生请求，不触发业务按钮，接管或取消后立即清理', () => {
+    const root = dialog('名称识别')
+    const closed = vi.fn()
+    root.querySelector('[data-native-dialog-close]')!.addEventListener('click', closed)
+    const adapter = new NativeSheetAdapter(document)
+    const first = adapter.read('页面')!
+    expect(first.backdropReady).toBe(false)
+    expect(document.documentElement.hasAttribute('data-native-sheet-preparing')).toBe(false)
+    expect(adapter.execute('presentation.prepare', { id: 'stale' })).toBe(false)
+    expect(adapter.execute('presentation.prepare', { id: first.id })).toBe(true)
+    expect(adapter.read('页面')!.backdropReady).toBe(true)
+    expect(document.documentElement.hasAttribute('data-native-sheet-preparing')).toBe(true)
+    expect(root.querySelector('input')!.value).toBe('尚未保存')
+    expect(closed).not.toHaveBeenCalled()
+    adapter.execute('presentation.attach', { id: first.id })
+    expect(document.documentElement.hasAttribute('data-native-sheet-preparing')).toBe(false)
+    expect(adapter.execute('presentation.prepare', { id: first.id })).toBe(false)
+    adapter.reset()
+    adapter.execute('presentation.prepare', { id: first.id })
+    root.remove()
+    expect(adapter.read('页面')).toBeUndefined()
+    expect(document.documentElement.hasAttribute('data-native-sheet-preparing')).toBe(false)
+  })
+
+  it('准备期间更换弹窗撤销旧层准备，迟到请求不能隐藏新弹窗', () => {
+    dialog('父弹窗')
+    const adapter = new NativeSheetAdapter(document)
+    const first = adapter.read('页面')!
+    adapter.execute('presentation.prepare', { id: first.id })
+    dialog('子弹窗', 2100)
+    const next = adapter.read('页面')!
+    expect(next.backdropReady).toBe(false)
+    expect(document.documentElement.hasAttribute('data-native-sheet-preparing')).toBe(false)
+    expect(adapter.execute('presentation.prepare', { id: first.id })).toBe(false)
+    adapter.execute('presentation.prepare', { id: next.id })
+    adapter.reset()
+    expect(document.documentElement.hasAttribute('data-native-sheet-preparing')).toBe(false)
+  })
+
   it('工具栏和声明式自定义标题使用同一原生栏，原按钮仍是唯一动作来源', () => {
     const root = dialog('旧标题')
     root.innerHTML =

@@ -5,6 +5,8 @@ export interface NativeAction {
   title: string
   icon: string
   position: 'leading' | 'trailing' | 'accessory'
+  /** 区分跨页面入口和当前页面操作；旧容器可以忽略。 */
+  scope?: 'global' | 'page'
   enabled: boolean
   loading: boolean
   dataAttr?: string
@@ -44,6 +46,8 @@ export interface NativeSheet {
   title: string
   fullscreen: boolean
   canDismiss: boolean
+  /** 可选的底页准备握手；不提供时容器沿用直接接管流程。 */
+  backdropReady?: boolean
   actions: Array<{ id: string; title: string; enabled: boolean }>
 }
 

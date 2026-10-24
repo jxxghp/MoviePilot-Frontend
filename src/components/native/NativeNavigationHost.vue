@@ -152,6 +152,7 @@ const model = computed(() => {
         title: actionTitle(button),
         icon: button.icon,
         position: 'trailing',
+        scope: 'page',
         enabled: !loading && !toValue(button.disabled),
         loading,
         ...(projection ? { panel: projection.panel } : {}),
@@ -187,6 +188,7 @@ const model = computed(() => {
         title: toValue(action.title),
         icon: action.icon,
         position: 'trailing',
+        scope: 'global',
         enabled: true,
         loading: false,
         ...(action.dataAttr ? { dataAttr: action.dataAttr } : {}),
@@ -217,6 +219,7 @@ const model = computed(() => {
         title: actionTitle(button),
         icon: button.icon,
         position: 'accessory',
+        scope: 'page',
         enabled: true,
         loading: false,
         ...(menu.length ? { menu } : {}),
@@ -292,7 +295,10 @@ function execute(message: NativeEnvelope) {
   if (message.type.startsWith('presentation.')) {
     if (window.MoviePilotNative?.sheetsVersion !== 1) return false
     sheetAdapter.read(pageTitle())
-    return sheetAdapter.execute(message.type, payload)
+    const accepted = sheetAdapter.execute(message.type, payload)
+    // 明确发布准备状态；原生保留底页后才搬走唯一 WebView，不等待无关 DOM 变更。
+    if (accepted && message.type === 'presentation.prepare') sheet.value = sheetAdapter.read(pageTitle())
+    return accepted
   }
   if (message.type === 'navigation.selectRoot')
     return !overlayOpen.value && typeof payload.rootId === 'string' && history.selectRoot(payload.rootId)

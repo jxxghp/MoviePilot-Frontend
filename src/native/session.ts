@@ -179,6 +179,7 @@ export class NativeChromeSession {
         'notification.open',
         'headerTab.select',
         'action.invoke',
+        'presentation.prepare',
         'presentation.attach',
         'presentation.detach',
         'presentation.dismiss',
