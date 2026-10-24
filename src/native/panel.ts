@@ -59,6 +59,9 @@ export function projectNativePanel(source: NativePanelSource) {
         selected: entry.selected === true,
         destructive: entry.destructive === true,
         keepOpen: entry.keepOpen === true,
+        ...(depth > 0 && entry.primary === true && !entry.children?.length && entry.keepOpen !== true
+          ? { primary: true }
+          : {}),
       }
       budget -= new TextEncoder().encode(JSON.stringify(row)).length
       if (entry.children?.length && depth < 2) row.children = items(entry.children, depth + 1)

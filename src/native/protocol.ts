@@ -26,6 +26,8 @@ export interface NativePanelItem {
   selected?: boolean
   destructive?: boolean
   keepOpen?: boolean
+  /** 当前层级唯一的主要动作；新容器固定显示为原生按钮，旧容器仍可作为列表项执行。 */
+  primary?: boolean
   children?: NativePanelItem[]
 }
 

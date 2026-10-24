@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { createSubscribe } from '@tests/support/factories/subscribe'
-import { defineComponent } from 'vue'
+import { defineComponent, h, ref, type Component } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -45,8 +45,9 @@ async function renderSearchBar(
     subscribePermission?: boolean
     superUser?: boolean
   } = {},
+  component: Component = SearchBarDialog,
 ) {
-  return renderWithProviders(SearchBarDialog, {
+  return renderWithProviders(component, {
     props: {
       modelValue: true,
       showActivator: true,
@@ -110,6 +111,38 @@ describe('SearchBarDialog media source selection', () => {
       throw new Error(`Unexpected GET ${path}`)
     })
   })
+
+  it.each(['media', 'music', 'collection', 'person'] as const)(
+    '原生 %s 子菜单有明确搜索按钮，来源多选不执行搜索',
+    async type => {
+      const dialog = ref<InstanceType<typeof SearchBarDialog>>()
+      const host = defineComponent({
+        inheritAttrs: false,
+        setup: () => () => h(SearchBarDialog, { ref: dialog, modelValue: true, showActivator: true }),
+      })
+      const { router } = await renderSearchBar({}, host)
+      const panel = () => dialog.value!.nativePanel()
+      panel().onQuery?.('演示关键词')
+      const category = panel().sections[0].items.find(item => item.id === `media-${type}`)!
+      const search = category.children!.find(item => item.primary)!
+      expect(search.title).toBe('搜索')
+      expect(category.subtitle).toContain('演示关键词')
+      const source = category.children!.filter(item => item.id.startsWith(`source-${type}-`)).at(-1)!
+      await source.invoke?.()
+      expect(router.currentRoute.value.fullPath).toBe('/')
+      expect(
+        panel()
+          .sections[0].items.find(item => item.id === category.id)!
+          .children!.find(item => item.id === source.id)!.selected,
+      ).toBe(true)
+      await search.invoke?.()
+      await waitFor(() =>
+        expect(router.currentRoute.value.path).toBe(type === 'music' ? '/music' : '/browse/media/search'),
+      )
+      expect(router.currentRoute.value.query[type === 'music' ? 'query' : 'title']).toBe('演示关键词')
+      expect(router.currentRoute.value.query.media_source).toContain(source.id.slice(`source-${type}-`.length))
+    },
+  )
 
   it.each([false, true])('keeps search entries visible with untitled subscriptions (superUser=%s)', async superUser => {
     const subscriptions = [

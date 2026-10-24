@@ -3,6 +3,34 @@ import { dispatchNativePanel, nativePanelId, projectNativePanel } from '../panel
 import type { NativePanelSource } from '../registry'
 
 describe('原生面板声明与当前业务回调隔离', () => {
+  it('主要动作只投影为子菜单叶子按钮，执行仍复核最新权限和回调', () => {
+    const invoke = vi.fn()
+    const source: NativePanelSource = {
+      title: '搜索',
+      sections: [
+        {
+          id: 'actions',
+          items: [
+            {
+              id: 'media',
+              title: '电影、电视剧',
+              children: [
+                { id: 'run', title: '搜索', primary: true, invoke },
+                { id: 'source', title: 'TheMovieDb', keepOpen: true, primary: true, invoke },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const current = projectNativePanel(source)
+    expect(current.panel.sections[0].items[0].children?.map(row => row.primary)).toEqual([true, undefined])
+    expect(dispatchNativePanel(current, { panelEvent: 'select', itemId: 'run' })).toBe(true)
+    source.sections[0].items[0].children![0].enabled = false
+    expect(dispatchNativePanel(projectNativePanel(source), { panelEvent: 'select', itemId: 'run' })).toBe(false)
+    expect(invoke).toHaveBeenCalledOnce()
+  })
+
   it('账号摘要保留有界昵称、身份和缩略图，拒绝内联文档、凭据 URL 和超大头像', () => {
     const images = [
       'data:image/jpeg;base64,/9j/2Q==',

@@ -631,8 +631,9 @@ function nativePanel(): NativePanelSource {
         children: [
           {
             id: `run-${action.type}`,
-            title: `${t('common.search')} ${keyword}`,
+            title: t('common.search'),
             icon: 'search',
+            primary: true,
             invoke: () => searchMedia(action.type),
           },
           ...mediaSearchSourceOptions.value[action.type].map(source => ({
@@ -662,9 +663,16 @@ function nativePanel(): NativePanelSource {
       ...resources.map(item => ({
         id: `resource-${item.type}`,
         title: item.title,
+        subtitle: `${t('common.search')} ${keyword}`,
         icon: 'search',
         children: [
-          { id: `run-resource-${item.type}`, title: `${t('common.search')} ${keyword}`, invoke: item.invoke },
+          {
+            id: `run-resource-${item.type}`,
+            title: t('common.search'),
+            icon: 'search',
+            primary: true,
+            invoke: item.invoke,
+          },
           {
             id: `sites-${item.type}`,
             title: t('dialog.searchBar.selectSites'),
