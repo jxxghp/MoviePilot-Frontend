@@ -1,5 +1,6 @@
 import UserNotification from '../UserNotification.vue'
 import type { SystemNotification } from '@/api/types'
+import { nativeGlobalActions } from '@/native/registry'
 import { renderWithProviders } from '@tests/support/render'
 import { apiJson } from '@tests/support/msw/response'
 import { server } from '@tests/support/msw/server'
@@ -29,6 +30,50 @@ function deferNotifications() {
 }
 
 describe('UserNotification', () => {
+  it('原生通知只投影独立海报，旧消息不将背景图裁切成海报', async () => {
+    const pending = deferNotifications()
+    await renderWithProviders(UserNotification)
+    const action = nativeGlobalActions.value.get('notifications')!
+    const opened = action.panel!()!.onOpen!()
+    await waitFor(() => expect(pending.request).toHaveBeenCalledTimes(1))
+    pending.resolve([
+      {
+        id: 81,
+        title: '有独立海报',
+        image: 'https://images.example.com/backdrop.jpg',
+        poster: 'https://images.example.com/poster.jpg',
+      },
+      { id: 82, title: '旧背景图消息', image: 'https://images.example.com/legacy-backdrop.jpg', poster: null },
+    ])
+    await opened
+
+    const entries = action.panel!()!.sections.flatMap(section => section.items)
+    expect(entries.find(item => item.title === '有独立海报')?.image).toBe('https://images.example.com/poster.jpg')
+    expect(entries.find(item => item.title === '旧背景图消息')?.image).toBeUndefined()
+  })
+
+  it('普通网页通知继续展示原渠道图片', async () => {
+    const pending = deferNotifications()
+    const { container } = await renderWithProviders(UserNotification, {
+      global: { stubs: { VImg: { props: ['src'], template: '<img :src="src" />' } } },
+    })
+    await fireEvent.click(container.querySelector('button')!)
+    pending.resolve([
+      {
+        id: 83,
+        title: '网页媒体通知',
+        image: 'https://images.example.com/backdrop.jpg',
+        poster: 'https://images.example.com/poster.jpg',
+      },
+    ])
+    expect(await screen.findByText('网页媒体通知')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(document.querySelector('.notification-panel img')?.getAttribute('src')).toBe(
+        'https://images.example.com/backdrop.jpg',
+      )
+    })
+  })
+
   it.each([390, 1440])('在 %ipx 窗口首次打开时显示加载动画，响应后显示消息', async width => {
     vi.stubGlobal('innerWidth', width)
     const pending = deferNotifications()

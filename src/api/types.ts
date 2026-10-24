@@ -2194,6 +2194,8 @@ export interface Message {
   link?: string
   // 消息图片
   image?: string
+  // 独立媒体海报，旧通知为空；原生通知中心不回退到背景图
+  poster?: string | null
   // 消息时间
   date?: string
   // 登记时间

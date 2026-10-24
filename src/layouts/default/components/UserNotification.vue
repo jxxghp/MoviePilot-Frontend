@@ -619,7 +619,7 @@ function notificationNativePanel() {
               .filter(Boolean)
               .join(' · '),
             icon: getNotificationIcon(item),
-            image: item.image || undefined,
+            image: item.poster || undefined,
             keepOpen: true,
             invoke: () => toggleNotificationExpanded(item),
           })),
