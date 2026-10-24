@@ -2,7 +2,7 @@ import UserProfile from '../UserProfile.vue'
 import { renderWithProviders } from '@tests/support/render'
 import { nativeGlobalActions } from '@/native/registry'
 import { useUserStore } from '@/stores'
-import { computed } from 'vue'
+import { computed, toValue } from 'vue'
 import { waitFor } from '@testing-library/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -35,7 +35,9 @@ async function renderProfile(level = 1, superUser = true) {
 
 describe('原生用户菜单与网页状态同步', () => {
   it('已认证账号隐藏认证入口，勋章资格异步完成后立即出现在原顺序中', async () => {
-    const { entries } = await renderProfile(2)
+    const { entries, action } = await renderProfile(2)
+    expect(toValue(action.title)).toBe('用户')
+    expect(action.panel!()!.title).toBe('用户')
     await waitFor(() => expect(entries.value.some(item => item.id === 'medals')).toBe(true))
     expect(entries.value.map(item => item.id)).toEqual([
       'profile',
@@ -48,6 +50,10 @@ describe('原生用户菜单与网页状态同步', () => {
       'restart',
       'logout',
     ])
+    const preferences = action.panel!()!.sections.find(section => section.items.some(item => item.id === 'customizer'))!
+    expect(preferences.title).toBeUndefined()
+    expect(preferences.items.map(item => item.id)).toEqual(['customizer', 'language'])
+    expect(preferences.items[0].title).toBe('主题')
     expect(entries.value.some(item => item.id === 'auth')).toBe(false)
     expect(entries.value.some(item => ['css', 'ui', 'glass', 'transparency'].includes(item.id))).toBe(false)
   })

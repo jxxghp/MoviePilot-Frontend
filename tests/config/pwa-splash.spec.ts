@@ -44,7 +44,7 @@ describe('PWA 启动屏资源', () => {
   })
 
   it('保持启动层背景、可见回退和动效降级配置一致', () => {
-    expect(indexHtml.toLowerCase()).toContain('--initial-loader-bg: #000000')
+    expect(indexHtml.toLowerCase()).toContain('--initial-loader-bg: #0b1322')
     expect(indexHtml).toContain('prefers-reduced-motion: reduce')
     expect(indexHtml).toContain('inset: 0;')
     expect(indexHtml).toContain('inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 48px)')

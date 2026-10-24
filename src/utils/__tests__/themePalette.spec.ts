@@ -46,8 +46,8 @@ describe('glass appearance preference', () => {
       const expected = preference === 'auto' ? system : preference
       expect(getThemeColorScheme()).toBe(expected)
       expect(glass.dark).toBe(expected === 'dark')
-      expect(glass.colors.background).toBe(expected === 'dark' ? '#000000' : '#F2F2F7')
-      expect(glass.colors.surface).toBe(expected === 'dark' ? '#1C1C1E' : '#FFFFFF')
+      expect(glass.colors.background).toBe(expected === 'dark' ? '#0B1322' : '#F2F2F7')
+      expect(glass.colors.surface).toBe(expected === 'dark' ? '#182235' : '#FFFFFF')
       expect(glass.colors.primary).toBe('#00BCD4')
       expect(glass.colors['on-primary']).toBe('#000000')
       expect(chrome.background).toBe(glass.colors.background)

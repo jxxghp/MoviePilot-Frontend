@@ -6,11 +6,12 @@
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
-  --glass-material-rgb: 28, 28, 30;
-  --glass-popup-rgb: 44, 44, 46;
-  --glass-shell-rgb: 28, 28, 30;
-  --glass-frosted-rgb: 242, 242, 247;
-  --glass-wallpaper-shade-rgb: 0, 0, 0;
+  --glass-material-rgb: 11, 19, 34;
+  --glass-card-rgb: 23, 27, 32;
+  --glass-popup-rgb: 31, 34, 39;
+  --glass-shell-rgb: 23, 27, 32;
+  --glass-frosted-rgb: 243, 246, 249;
+  --glass-wallpaper-shade-rgb: 6, 10, 19;
   --glass-surface: rgba(var(--glass-material-rgb), calc(0.12 + var(--glass-surface-density, 0.62) * 0.2));
   --glass-surface-soft: rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.62) * 0.23));
   --glass-surface-raised: rgba(var(--glass-material-rgb), calc(0.07 + var(--glass-surface-density, 0.62) * 0.36));
@@ -1967,6 +1968,7 @@ html[data-theme='glass'][data-glass-appearance='tinted']
 /* 明暗仅更换材质色系，玻璃质量、光学参数及网页布局设置保持独立。*/
 html[data-theme='glass'][data-glass-color-scheme='light'] {
   --glass-material-rgb: 255, 255, 255;
+  --glass-card-rgb: 255, 255, 255;
   --glass-popup-rgb: 255, 255, 255;
   --glass-shell-rgb: 242, 242, 247;
   --glass-frosted-rgb: 255, 255, 255;

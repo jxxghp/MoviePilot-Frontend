@@ -35,7 +35,7 @@ export function getThemeColorScheme(preference: unknown = readThemePreference())
   return normalized === 'auto' ? (checkPrefersColorSchemeIsDark() ? 'dark' : 'light') : normalized
 }
 
-/** 玻璃主题的背景与语义色；系统变化时不修改用户的主题主色。 */
+/** 暗色沿用原玻璃色系，浅色使用独立语义色；系统变化时保留用户主色。 */
 export function getGlassThemePalette(colorScheme: ThemeColorScheme = getThemeColorScheme()) {
   const darkPalette = {
     dark: true,
@@ -50,31 +50,30 @@ export function getGlassThemePalette(colorScheme: ThemeColorScheme = getThemeCol
       'on-primary': '#FFFFFF',
       'on-success': '#07150F',
       'on-warning': '#171106',
-      // 对齐 iOS 暗色的基础、次级和三级背景；主题主色继续由用户选择。
-      'background': '#000000',
-      'on-background': '#F2F2F7',
-      'surface': '#1C1C1E',
-      'on-surface': '#F2F2F7',
-      'surface-variant': '#2C2C2E',
-      'on-surface-variant': 'rgba(242, 242, 247, 0.72)',
-      'grey-50': '#1C1C1E',
-      'grey-100': '#2C2C2E',
-      'grey-200': '#3A3A3C',
-      'grey-300': '#48484A',
-      'grey-400': '#636366',
-      'grey-500': '#8E8E93',
-      'grey-600': '#AEAEB2',
-      'grey-700': '#C7C7CC',
-      'grey-800': '#D1D1D6',
-      'grey-900': '#F2F2F7',
+      'background': '#0B1322',
+      'on-background': '#F2F5FA',
+      'surface': '#182235',
+      'on-surface': '#F2F5FA',
+      'surface-variant': '#202C42',
+      'on-surface-variant': 'rgba(242, 245, 250, 0.72)',
+      'grey-50': '#121D30',
+      'grey-100': '#18253A',
+      'grey-200': '#233149',
+      'grey-300': '#34435D',
+      'grey-400': '#8794A8',
+      'grey-500': '#A1ACBD',
+      'grey-600': '#BBC3D0',
+      'grey-700': '#CDD3DD',
+      'grey-800': '#E0E4EA',
+      'grey-900': '#F2F5FA',
       'perfect-scrollbar-thumb': 'rgba(255, 255, 255, 0.24)',
-      'skin-bordered-background': '#000000',
-      'skin-bordered-surface': '#1C1C1E',
-      'card-background': '#1C1C1E',
+      'skin-bordered-background': '#111B2B',
+      'skin-bordered-surface': '#182235',
+      'card-background': '#182235',
     },
     variables: {
       'code-color': '#F3DCA8',
-      'overlay-scrim-background': '#000000',
+      'overlay-scrim-background': '#030712',
       'overlay-scrim-opacity': 0.66,
       'hover-opacity': 0.08,
       'focus-opacity': 0.14,
@@ -85,12 +84,12 @@ export function getGlassThemePalette(colorScheme: ThemeColorScheme = getThemeCol
       'border-color': '#FFFFFF',
       'table-header-background': 'rgba(255, 255, 255, 0.06)',
       'custom-background': 'rgba(255, 255, 255, 0.06)',
-      'card-background': '#1C1C1E',
+      'card-background': '#182235',
 
       // Shadows
-      'shadow-key-umbra-opacity': 'rgba(0, 0, 0, 0.34)',
-      'shadow-key-penumbra-opacity': 'rgba(0, 0, 0, 0.24)',
-      'shadow-key-ambient-opacity': 'rgba(0, 0, 0, 0.16)',
+      'shadow-key-umbra-opacity': 'rgba(3, 7, 18, 0.34)',
+      'shadow-key-penumbra-opacity': 'rgba(3, 7, 18, 0.24)',
+      'shadow-key-ambient-opacity': 'rgba(3, 7, 18, 0.16)',
     },
   }
   if (colorScheme === 'dark') return darkPalette
@@ -130,6 +129,7 @@ export function getGlassThemePalette(colorScheme: ThemeColorScheme = getThemeCol
     },
     variables: {
       ...darkPalette.variables,
+      'overlay-scrim-background': '#000000',
       'border-color': '#3C3C43',
       'card-background': '#FFFFFF',
       'shadow-key-umbra-opacity': 'rgba(0, 0, 0, 0.1)',

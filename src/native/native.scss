@@ -126,6 +126,7 @@ html[data-native-chrome='active'][data-native-sheets='active']:not([data-native-
 // 仅在原生明确请求时短暂显示原底页，供单 WebView 搬入 Sheet 时保留上下文。
 html[data-native-chrome='active'][data-native-sheet-preparing] {
   .v-overlay--active.v-dialog,
+  .v-menu,
   .theme-customizer-panel-host[role='dialog'],
   .agent-assistant-panel.is-open[role='dialog'],
   .agent-assistant-fab,
@@ -145,18 +146,17 @@ html[data-native-chrome='active'][data-native-sheet] {
     background: transparent !important;
   }
 
-  #app {
-    visibility: hidden;
+  // visibility 不能稳定阻止 WebKit 独立合成的进度条与退出层；整支透明且保持原布局。
+  [data-native-sheet-background] {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: none !important;
   }
 
   // 浮动助手入口不属于当前业务弹窗，不能盖在原生 Sheet 的内容或底部操作上。
   .agent-assistant-fab,
   .agent-pet-stage-layer {
     display: none !important;
-  }
-
-  .v-overlay-container {
-    visibility: visible;
   }
 
   .v-dialog:not([data-native-sheet-current]),

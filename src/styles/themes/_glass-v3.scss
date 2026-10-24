@@ -31,7 +31,7 @@ $-custom-content-surfaces: (
 // V3 表面按信息角色统一材料；只改变承载层，不改变图表、业务数据与交互命中区。
 @mixin surfaces {
   html[data-theme='glass'] {
-    --glass-v3-ink: var(--glass-material-rgb);
+    --glass-v3-ink: var(--glass-card-rgb);
     --glass-v3-fill: clamp(0.12, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2), 0.32);
     --glass-v3-rim: clamp(0.12, calc(0.16 + var(--glass-reflection, 0.38) * 0.28), 0.4);
     --glass-v3-sheen: clamp(0.04, calc(0.035 + var(--glass-reflection, 0.38) * 0.18), 0.2);

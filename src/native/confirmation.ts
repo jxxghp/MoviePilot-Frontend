@@ -1,4 +1,5 @@
 import type { NativeConfirmation } from './protocol'
+import { closeNativeMenus } from './menu'
 
 /** 确认框只投影纯文字与当前按钮标识；Vue 组件继续拥有 Promise 和业务回调。 */
 export class NativeConfirmationAdapter {
@@ -6,6 +7,7 @@ export class NativeConfirmationAdapter {
   private ids = new WeakMap<Element, string>()
   private answered = new WeakSet<Element>()
   private active = false
+  private root?: HTMLElement
 
   /** 每个适配器只读取当前主文档，不能查找其他 frame 或实例。 */
   constructor(private document: Document) {}
@@ -14,12 +16,17 @@ export class NativeConfirmationAdapter {
   setActive(active: boolean) {
     this.active = active
     if (active) this.document.documentElement.setAttribute('data-native-confirmations', 'active')
-    else this.document.documentElement.removeAttribute('data-native-confirmations')
+    else {
+      this.document.documentElement.removeAttribute('data-native-confirmations')
+      this.root = undefined
+    }
   }
 
   /** 只读取最上层声明过的确认框，保留换行并限制桥接文字总量。 */
   read(): NativeConfirmation | undefined {
     const root = this.current()
+    if (root && root !== this.root) closeNativeMenus()
+    this.root = root
     if (!root) return
     const confirm = root.querySelector<HTMLButtonElement>('[data-native-confirm-accept]')
     const cancel = root.querySelector<HTMLButtonElement>('[data-native-confirm-cancel]')

@@ -1,4 +1,5 @@
 import type { NativeSheet } from './protocol'
+import { closeNativeMenus } from './menu'
 
 /** 投影真实 Vue 弹窗及标题栏，持有 DOM 引用而不复制内容、事件或认证状态。 */
 export class NativeSheetAdapter {
@@ -8,6 +9,7 @@ export class NativeSheetAdapter {
   private root?: HTMLElement
   private close?: HTMLButtonElement
   private buttons = new Map<string, HTMLButtonElement>()
+  private backgrounds = new Set<Element>()
   private attached?: string
   private prepared?: string
   private transition = 0
@@ -58,6 +60,7 @@ export class NativeSheetAdapter {
       )
       .sort((a, b) => this.zIndex(a) - this.zIndex(b))
       .at(-1)
+    if (root && root !== this.root) closeNativeMenus()
     this.root = root
     this.buttons.clear()
     this.close = undefined
@@ -159,6 +162,40 @@ export class NativeSheetAdapter {
       if (old !== root) old.removeAttribute('data-native-sheet-current')
     root.setAttribute('data-native-sheet-current', '')
     this.document.documentElement.setAttribute('data-native-sheet', '')
+    this.isolate(root)
+  }
+
+  /** 隔离整条背景绘制分支，避免 WebKit 合成层穿透；保留 DOM、滚动和当前内容所属菜单。 */
+  private isolate(root: HTMLElement) {
+    const visible = new Set<Element>([root])
+    const menus = Array.from(this.document.querySelectorAll<HTMLElement>('.v-menu.v-overlay--active[id]'))
+    for (const owner of visible) {
+      const owned = new Set(
+        Array.from(owner.querySelectorAll('[aria-owns], [aria-controls]')).flatMap(element =>
+          `${element.getAttribute('aria-owns') || ''} ${element.getAttribute('aria-controls') || ''}`.split(/\s+/),
+        ),
+      )
+      for (const menu of menus) if (owned.has(menu.id)) visible.add(menu)
+    }
+    const ancestors = new Set<Element>()
+    for (const content of visible)
+      for (let parent = content.parentElement; parent && parent !== this.document.body; parent = parent.parentElement)
+        ancestors.add(parent)
+    const backgrounds = new Set<Element>()
+    /** 只访问当前弹层路径，整个无关分支一次屏蔽，不逐项改动业务节点。 */
+    const visit = (parent: Element) => {
+      for (const child of parent.children) {
+        if (visible.has(child) || child.matches('script, style, link')) continue
+        if (ancestors.has(child)) visit(child)
+        else backgrounds.add(child)
+      }
+    }
+    visit(this.document.body)
+    for (const previous of this.backgrounds)
+      if (!backgrounds.has(previous)) previous.removeAttribute('data-native-sheet-background')
+    for (const background of backgrounds)
+      if (!this.backgrounds.has(background)) background.setAttribute('data-native-sheet-background', '')
+    this.backgrounds = backgrounds
   }
 
   /** 清除容器标记不关闭 Vue 弹窗，也不触发业务回调。 */
@@ -167,6 +204,8 @@ export class NativeSheetAdapter {
     this.document.documentElement.removeAttribute('data-native-sheet')
     for (const root of this.document.querySelectorAll('[data-native-sheet-current]'))
       root.removeAttribute('data-native-sheet-current')
+    for (const background of this.backgrounds) background.removeAttribute('data-native-sheet-background')
+    this.backgrounds.clear()
   }
 
   /** 原生已保留底页或准备取消时恢复弹窗展示，不改变任何业务输入与回调。 */

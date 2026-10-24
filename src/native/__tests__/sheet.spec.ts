@@ -158,6 +158,53 @@ describe('原生 Sheet 与原 Vue 内容交接', () => {
     expect(parent.hasAttribute('data-native-sheet-current')).toBe(true)
   })
 
+  it('隔离整个背景绘制分支，嵌套关闭时也隔离仍挂载的退出层，归还后不重建正文', () => {
+    const page = document.createElement('main')
+    page.innerHTML =
+      '<input value="原页面输入" /><div class="subscribe-card"><div class="v-progress-linear v-progress-linear--active"></div></div>'
+    document.body.append(page)
+    const parent = dialog('浏览')
+    const adapter = new NativeSheetAdapter(document)
+    const first = adapter.read('页面')!
+    expect(page.hasAttribute('data-native-sheet-background')).toBe(false)
+    adapter.execute('presentation.attach', { id: first.id })
+    expect(page.hasAttribute('data-native-sheet-background')).toBe(true)
+    expect(parent.closest('[data-native-sheet-background]')).toBeNull()
+    const child = dialog('确认下载', 2100)
+    const second = adapter.read('页面')!
+    adapter.execute('presentation.attach', { id: second.id })
+    expect(parent.hasAttribute('data-native-sheet-background')).toBe(true)
+    expect(child.closest('[data-native-sheet-background]')).toBeNull()
+    // Vue 关闭状态先更新，退出动画/异步卸载的 DOM 仍可能在文档中。
+    child.classList.remove('v-overlay--active')
+    expect(adapter.read('页面')!.id).toBe(first.id)
+    expect(child.hasAttribute('data-native-sheet-background')).toBe(true)
+    expect(parent.closest('[data-native-sheet-background]')).toBeNull()
+    adapter.execute('presentation.attach', { id: first.id })
+    adapter.execute('presentation.detach', { id: first.id })
+    expect(document.querySelector('[data-native-sheet-background]')).toBeNull()
+    expect(page.querySelector('input')!.value).toBe('原页面输入')
+    expect(page.querySelector('.v-progress-linear--active')).not.toBeNull()
+  })
+
+  it('自定义弹窗留在页面中时只隔离旁支，弹窗内原有 Teleport 菜单继续交互', () => {
+    document.body.innerHTML =
+      '<div id="app"><main><input value="页面状态" /></main><aside class="theme-customizer-panel-host" role="dialog" aria-label="主题"><button data-native-dialog-close>关闭</button><input value="主题状态" aria-owns="theme-options" /></aside></div><div class="v-overlay-container"><div id="theme-options" class="v-menu v-overlay--active"><button>选项</button></div><div class="v-dialog">退出中的旧内容</div></div>'
+    const adapter = new NativeSheetAdapter(document)
+    const first = adapter.read('页面')!
+    adapter.execute('presentation.attach', { id: first.id })
+    const current = document.querySelector('[data-native-sheet-current]')!
+    const menu = document.querySelector('.v-menu')!
+    expect(current.closest('[data-native-sheet-background]')).toBeNull()
+    expect(menu.closest('[data-native-sheet-background]')).toBeNull()
+    expect(document.querySelector('main')!.hasAttribute('data-native-sheet-background')).toBe(true)
+    expect(document.querySelector('.v-dialog')!.hasAttribute('data-native-sheet-background')).toBe(true)
+    adapter.setActive(false)
+    expect(document.querySelector('[data-native-sheet-background]')).toBeNull()
+    expect(current.querySelector('input')!.value).toBe('主题状态')
+    expect(document.querySelector('main input')!.getAttribute('value')).toBe('页面状态')
+  })
+
   it('按钮替换、禁用和不可关闭弹窗不会绕过当前业务状态', () => {
     const root = dialog('持久进度')
     const adapter = new NativeSheetAdapter(document)

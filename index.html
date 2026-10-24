@@ -6,7 +6,7 @@
     overflow: hidden;
     --safe-area-inset-bottom: env(safe-area-inset-bottom);
     --safe-area-inset-top: env(safe-area-inset-top);
-    --initial-loader-bg: #000000;
+    --initial-loader-bg: #0b1322;
     --initial-loader-color: #8d51f9;
     --initial-loader-height: 100svh;
     --initial-loader-width: 100vw;
@@ -797,7 +797,7 @@
         const themePreference = getSavedThemePreference()
         const resolvedLaunchTheme = 'glass'
         const colorScheme = getLaunchColorScheme(themePreference)
-        const loaderColor = colorScheme === 'dark' ? '#000000' : '#F2F2F7'
+        const loaderColor = colorScheme === 'dark' ? '#0B1322' : '#F2F2F7'
         const primaryColor = getLocalStorageValue('materio-initial-loader-color') || '#8D51F9'
 
         document.documentElement.setAttribute('data-glass-color-scheme', colorScheme)

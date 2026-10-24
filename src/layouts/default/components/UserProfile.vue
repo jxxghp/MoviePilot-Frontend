@@ -56,7 +56,7 @@ const showUIModeMenu = ref(false)
 const showUserMenu = ref(false)
 useNativeGlobalAction({
   id: 'profile',
-  title: () => t('common.userMenu'),
+  title: () => t('common.user'),
   icon: 'profile',
   dataAttr: 'native-profile',
   panel: () => nativeProfilePanel(),
@@ -612,7 +612,7 @@ function nativeProfilePanel(): NativePanelSource {
       })
   }
   const themeItems: NativePanelEntry[] = [
-    { id: 'customizer', title: t('theme.customizer.title'), icon: 'mdi-tune', invoke: showThemeCustomizerDrawer },
+    { id: 'customizer', title: t('common.theme'), icon: 'mdi-tune', invoke: showThemeCustomizerDrawer },
   ]
   const information: NativePanelEntry[] = [
     {
@@ -650,7 +650,7 @@ function nativeProfilePanel(): NativePanelSource {
     )
   }
   return {
-    title: t('common.userMenu'),
+    title: t('common.user'),
     onOpen: () => community.refresh(),
     profile: {
       name: userName.value,
@@ -659,11 +659,11 @@ function nativeProfilePanel(): NativePanelSource {
     },
     sections: [
       { id: 'account', items: account },
-      // App 固定玻璃、大圆角及原生布局，只开放主色；语言和原业务入口继续复用。
-      { id: 'theme', title: t('common.theme'), items: themeItems },
+      // 明暗、主色与语言放在同组，保留原顺序且不重复显示主题分类标题。
       {
-        id: 'language',
+        id: 'preferences',
         items: [
+          ...themeItems,
           {
             id: 'language',
             title: t('common.language'),

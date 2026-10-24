@@ -83,16 +83,23 @@ export class NativeRouteHistory {
    */
   private navigate(target: string, kind: 'root' | 'back', rootId: string) {
     if (!isNativeRoute(target)) return
-    const intent = { target, kind, rootId }
+    const normalized = this.canonicalPath(target)
+    const intent = { target: normalized, kind, rootId }
     this.intent = intent
     void this.router
-      .replace(target)
+      .replace(normalized)
       .finally(() => {
         if (this.intent === intent) this.intent = undefined
       })
       .catch(() => {
         /* Router 保留当前已确认页面，失败意图不重放。 */
       })
+  }
+
+  /** Router 对象形式统一编码 query/hash，避免中文 URL 恢复后被误记到当前其它入口。 */
+  private canonicalPath(path: string) {
+    const resolved = this.router.resolve(path)
+    return this.router.resolve({ path: resolved.path, query: resolved.query, hash: resolved.hash }).fullPath
   }
 
   /** 匹配实际入口；详情页沿用来源入口，普通业务页面归属更多。
@@ -111,18 +118,19 @@ export class NativeRouteHistory {
    */
   private record() {
     const route = this.router.currentRoute.value
+    const path = this.canonicalPath(route.fullPath)
     const position = this.router.options.history.state.position
     const numericPosition = typeof position === 'number' ? position : undefined
-    const intent = this.intent?.target === route.fullPath ? this.intent : undefined
+    const intent = this.intent?.target === path ? this.intent : undefined
     const rootId = intent?.rootId ?? this.rootFor(route.path)
     if (rootId) {
       const root = this.roots().find(item => item.id === rootId)
-      let trail = this.trails.get(rootId) ?? (root && route.fullPath !== root.path ? [root.path] : [])
+      let trail = this.trails.get(rootId) ?? (root && path !== root.path ? [root.path] : [])
       if (intent?.kind === 'back') {
-        const index = trail.lastIndexOf(route.fullPath)
-        trail = index >= 0 ? trail.slice(0, index + 1) : [...trail, route.fullPath]
+        const index = trail.lastIndexOf(path)
+        trail = index >= 0 ? trail.slice(0, index + 1) : [...trail, path]
       } else if (intent?.kind !== 'root') {
-        const index = trail.lastIndexOf(route.fullPath)
+        const index = trail.lastIndexOf(path)
         if (
           numericPosition !== undefined &&
           this.lastPosition !== undefined &&
@@ -131,10 +139,10 @@ export class NativeRouteHistory {
         )
           trail = trail.slice(0, index + 1)
         else if (numericPosition === this.lastPosition && rootId === this.currentRoot && trail.length)
-          trail = [...trail.slice(0, -1), route.fullPath]
-        else if (trail.at(-1) !== route.fullPath) trail = [...trail, route.fullPath]
-      } else if (root?.path === '/apps' && route.fullPath === root.path) trail = [root.path]
-      else if (!trail.length) trail = [route.fullPath]
+          trail = [...trail.slice(0, -1), path]
+        else if (trail.at(-1) !== path) trail = [...trail, path]
+      } else if (root?.path === '/apps' && path === root.path) trail = [root.path]
+      else if (!trail.length) trail = [path]
       this.trails.set(rootId, trail.slice(-128))
     }
     this.currentRoot = rootId

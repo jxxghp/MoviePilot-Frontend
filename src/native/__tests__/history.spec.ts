@@ -120,4 +120,27 @@ describe('网页业务路由是导航事实来源', () => {
     expect(router.currentRoute.value.fullPath).toBe('/dashboard')
     tooltip.remove()
   })
+
+  it('含中文查询和 hash 的榜单恢复不会污染其它根入口的路径', async () => {
+    const { router, history } = await harness()
+    const ranking = '/browse/recommend/tmdb_trending?title=流行趋势&keyword=A%2FB+100%25#列表'
+    await router.push(ranking)
+    for (let cycle = 0; cycle < 3; cycle++) {
+      history.selectRoot('/apps')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe('/apps')
+      expect(history.navigation.rootId).toBe('/apps')
+      history.selectRoot('/dashboard')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe('/browse/recommend/tmdb_trending')
+      expect(router.currentRoute.value.query).toEqual({ title: '流行趋势', keyword: 'A/B 100%' })
+      expect(history.navigation).toEqual({ rootId: '/dashboard', canGoBack: true, backTarget: '/dashboard' })
+    }
+    expect(history.back(document, window)).toBe(true)
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/dashboard')
+    history.selectRoot('/apps')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/apps')
+  })
 })

@@ -3,6 +3,7 @@ import * as components from 'vuetify/components'
 import { VBtn } from 'vuetify/components/VBtn'
 import * as labsComponents from 'vuetify/labs/components'
 import AppDialog from './AppDialog'
+import AppMenu from './AppMenu'
 import { createResponsiveInputAdapter } from './AppInput'
 import defaults from './defaults'
 import { icons } from './icons'
@@ -36,6 +37,7 @@ export default createVuetify({
     ...components,
     ...labsComponents,
     VDialog: AppDialog,
+    VMenu: AppMenu,
     ...responsiveInputComponents,
   },
 })
