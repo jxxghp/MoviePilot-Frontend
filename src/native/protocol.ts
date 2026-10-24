@@ -33,6 +33,7 @@ export interface NativePanelItem {
 export interface NativePanel {
   title: string
   subtitle?: string
+  profile?: { name: string; detail?: string; image?: string }
   search?: { text: string; placeholder: string }
   sections: Array<{ id: string; title?: string; items: NativePanelItem[] }>
   loading?: boolean

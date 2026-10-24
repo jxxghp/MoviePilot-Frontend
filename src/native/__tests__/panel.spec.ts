@@ -3,6 +3,26 @@ import { dispatchNativePanel, nativePanelId, projectNativePanel } from '../panel
 import type { NativePanelSource } from '../registry'
 
 describe('原生面板声明与当前业务回调隔离', () => {
+  it('账号摘要保留有界昵称、身份和缩略图，拒绝内联文档、凭据 URL 和超大头像', () => {
+    const images = [
+      'data:image/jpeg;base64,/9j/2Q==',
+      'https://image.example/avatar.png',
+      'data:image/svg+xml,<svg/>',
+      'data:image/jpeg;base64,' + 'a'.repeat(8192),
+      'https://user:pass@example/avatar.png',
+    ]
+    for (const [index, image] of images.entries()) {
+      const { panel } = projectNativePanel({
+        title: '用户菜单',
+        profile: { name: '当前\n用户', detail: '管理员', image },
+        sections: [],
+      })
+      expect(panel.profile?.name).toBe('当前 用户')
+      expect(panel.profile?.detail).toBe('管理员')
+      expect(panel.profile?.image).toBe(index < 2 ? image : undefined)
+    }
+  })
+
   it('只序列化有界展示数据，不把回调或控制字符交给原生', () => {
     const invoke = vi.fn()
     const { panel, callbacks } = projectNativePanel({

@@ -69,6 +69,15 @@ export function projectNativePanel(source: NativePanelSource) {
   const panel: NativePanel = {
     title: text(source.title) || 'MoviePilot',
     ...(text(source.subtitle) ? { subtitle: text(source.subtitle) } : {}),
+    ...(source.profile && text(source.profile.name)
+      ? {
+          profile: {
+            name: text(source.profile.name)!,
+            ...(text(source.profile.detail) ? { detail: text(source.profile.detail) } : {}),
+            ...(profileImage(source.profile.image) ? { image: profileImage(source.profile.image) } : {}),
+          },
+        }
+      : {}),
     ...(source.search
       ? {
           search: {
@@ -87,6 +96,12 @@ export function projectNativePanel(source: NativePanelSource) {
     ...(text(source.emptyText) ? { emptyText: text(source.emptyText) } : {}),
   }
   return { panel, callbacks, source }
+}
+
+/** 头像除原 HTTP 资源外只接受 App 生成的小型 JPEG，拒绝任意内联文档和超大载荷。 */
+function profileImage(value: string | undefined): string | undefined {
+  if (value && value.length <= 8192 && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/u.test(value)) return value
+  return imageReference(value)
 }
 
 /** 命令始终匹配最新面板的可见行，过期、禁用或未知项目不能调用旧闭包。 */

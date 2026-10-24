@@ -32,6 +32,7 @@ import CommunityMedalEntry from '@/layouts/default/components/CommunityMedalEntr
 import { isMedalKey, unseenMedalKeys } from '@/utils/communityMedals'
 import { useNativeGlobalAction, type NativePanelEntry, type NativePanelSource } from '@/native/registry'
 import { nativeChromeActive } from '@/native/layout'
+import { nativeProfileAvatar } from '@/native/profile'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
 const CommunityMedalDialog = defineAsyncComponent(() => import('@/components/dialog/CommunityMedalDialog.vue'))
@@ -267,6 +268,20 @@ const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 const userName = computed(() => userStore.userName)
 const avatar = computed(() => userStore.avatar || avatar1)
 const userLevel = computed(() => userStore.level)
+const nativeAvatar = ref<string>()
+// 仅 App 接管后准备原生头像；切换账号、头像或退出时作废迟到的缩略图。
+watch(
+  [nativeChromeActive, avatar],
+  async ([active, reference], _previous, onCleanup) => {
+    let stale = false
+    onCleanup(() => (stale = true))
+    nativeAvatar.value = undefined
+    if (!active) return
+    const image = await nativeProfileAvatar(reference)
+    if (!stale) nativeAvatar.value = image
+  },
+  { immediate: true },
+)
 // 社区勋章只对超级管理员开放，且受实例开关 COMMUNITY_MEDALS_ENABLED 控制；设置未加载时视为关闭。
 const globalSettingsStore = useGlobalSettingsStore()
 const community = useCommunityContribution(
@@ -741,7 +756,11 @@ function nativeProfilePanel(): NativePanelSource {
   }
   return {
     title: t('common.userMenu'),
-    subtitle: userName.value,
+    profile: {
+      name: userName.value,
+      detail: superUser.value ? t('user.admin') : t('user.normal'),
+      image: nativeAvatar.value,
+    },
     sections: [
       { id: 'account', items: account },
       // 主题仅有少量设置入口，直接展示在用户菜单内，避免再打开一个二级面板。
