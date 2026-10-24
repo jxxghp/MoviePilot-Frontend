@@ -144,6 +144,8 @@ export interface NativeTransport {
   confirmationsVersion?: 1
   /** 路由提交前可短暂等待原生保存离页预览；旧容器不等待。 */
   navigationPreviewVersion?: 1
+  /** 可选小组件登记桥；凭据只走相关的一次性结果，不进入导航快照。 */
+  widgetsVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
   notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */

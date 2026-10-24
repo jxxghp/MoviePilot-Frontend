@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { glassAppearancePreference } from '@/utils/themePalette'
 import { computed, nextTick, onScopeDispose, ref, toValue, watch, watchEffect } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { isNavigationFailure, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { useAuthStore, useUserStore, usePluginSidebarNavStore } from '@/stores'
@@ -24,6 +24,8 @@ import { readNativePresentation } from '@/native/presentation'
 import { NativeSheetAdapter } from '@/native/sheet'
 import { NativeConfirmationAdapter } from '@/native/confirmation'
 import { NativeChromeSession } from '@/native/session'
+import { NativeWidgetAdapter } from '@/native/widgets'
+import api from '@/api'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { NativeRouteHistory } from '@/native/history'
 import { NativeHeaderTabs } from '@/native/header'
@@ -75,6 +77,18 @@ const sheetAdapter = new NativeSheetAdapter(document)
 const confirmationAdapter = new NativeConfirmationAdapter(document)
 const headerProjection = new NativeHeaderTabs()
 let bridge: NativeChromeSession | undefined
+const widgetAdapter =
+  window.MoviePilotNative?.widgetsVersion === 1
+    ? new NativeWidgetAdapter({
+        api,
+        apiBase: new URL(import.meta.env.VITE_API_BASE_URL, document.baseURI),
+        origin: location.origin,
+        isActive: () => nativeChromeActive.value && authenticated.value,
+        readToken: () => auth.token,
+        canNavigate: () => !overlayOpen.value,
+        navigate: async path => !isNavigationFailure(await router.push(path)),
+      })
+    : undefined
 let ownerSequence = 0
 const legacyOwners = new WeakMap<object, string>()
 
@@ -476,6 +490,7 @@ watch(
           layout.syncAnchors(model.value.snapshot.actions.flatMap(action => (action.dataAttr ? [action.dataAttr] : [])))
       },
       lifecycle: state => appActivityLifecycle.setHostLifecycle(state),
+      ...(widgetAdapter ? { widgetRequest: (payload, signal) => widgetAdapter.request(payload, signal) } : {}),
     })
     bridge.start()
   },

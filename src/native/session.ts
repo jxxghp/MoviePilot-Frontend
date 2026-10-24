@@ -5,6 +5,7 @@ import {
   type NativeSnapshot,
   type NativeTransport,
 } from './protocol'
+import type { NativeWidgetResult } from './widgets'
 
 /** 桥接只操作导航声明及生命周期，所有业务操作由调用方回到既有回调。 */
 export interface NativeSessionOptions {
@@ -20,6 +21,8 @@ export interface NativeSessionOptions {
   execute(message: NativeEnvelope): boolean | Promise<boolean>
   /** 通知现有网页生命周期管理器，不启动另一套后台时钟。 */
   lifecycle(state: 'active' | 'inactive' | 'background'): void
+  /** 可选小组件窄接口；结果不进入普通命令重放缓存。 */
+  widgetRequest?(payload: Record<string, unknown>, signal: AbortSignal): Promise<NativeWidgetResult>
 }
 
 /** 单主文档的事务桥；没有 WebKit 门面时不会创建此对象。 */
@@ -34,6 +37,20 @@ export class NativeChromeSession {
   private readonly results = new Map<string, Promise<{ accepted: boolean; error?: string }>>()
   private readonly completed = new Set<string>()
   private readonly navigationPreviews = new Map<string, () => void>()
+  private widgetsNegotiated = false
+  private widgetsPaused = false
+  private widgetForeground = true
+  private widgetEpoch = 0
+  private widgetRequest?: AbortController
+  private widgetRequestId?: string
+  private readonly widgetRequests = new Set<string>()
+  /** 网页退出先同步通知宿主，再阻止本代次产生任何新的组件凭据。 */
+  private readonly widgetLogout = () => {
+    if (this.phase !== 'active' || !this.widgetsNegotiated) return
+    this.cancelWidgetRequest()
+    this.widgetsPaused = true
+    this.post('widget.logout', {})
+  }
   private readonly listener = (event: Event) => {
     void this.receive((event as CustomEvent<unknown>).detail).catch(() => this.fail())
   }
@@ -46,9 +63,17 @@ export class NativeChromeSession {
     if (this.phase !== 'web') return
     this.phase = 'waiting'
     this.options.target.addEventListener('moviepilot:native-message', this.listener)
+    this.options.target.addEventListener('moviepilot:widget-logout', this.widgetLogout)
     this.post('web.ready', {
       majors: [1],
-      capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1', 'notifications.v1'],
+      capabilities: [
+        'navigation.v1',
+        'actions.v1',
+        'layout.v1',
+        'menu.v1',
+        'notifications.v1',
+        ...(this.options.transport.widgetsVersion === 1 && this.options.widgetRequest ? ['widgets.v1'] : []),
+      ],
     })
     this.timer = setTimeout(() => {
       void this.fail()
@@ -90,8 +115,11 @@ export class NativeChromeSession {
   /** 卸载时撤销 DOM 模式及全部回调引用，不能把旧 owner 留给下一布局。 */
   async stop() {
     this.clearNavigationPreviews()
+    this.cancelWidgetRequest()
+    this.widgetsNegotiated = false
     clearTimeout(this.timer)
     this.options.target.removeEventListener('moviepilot:native-message', this.listener)
+    this.options.target.removeEventListener('moviepilot:widget-logout', this.widgetLogout)
     this.phase = 'closed'
     await this.options.setActive(false)
     this.results.clear()
@@ -102,6 +130,8 @@ export class NativeChromeSession {
   /** 当前认证或权限上下文变化时通知宿主清理旧命令，再发布新代次。 */
   identityChanged() {
     this.clearNavigationPreviews()
+    this.cancelWidgetRequest()
+    this.widgetsPaused = true
     if (!this.sessionId) return
     this.results.clear()
     this.completed.clear()
@@ -111,6 +141,65 @@ export class NativeChromeSession {
   /** 当前页面注册超出协议表达范围时恢复完整网页导航。 */
   fallback() {
     void this.fail()
+  }
+
+  /** 取消只释放当前等待，不清除本会话的请求标识，避免恢复前台时重放写请求。 */
+  private cancelWidgetRequest() {
+    this.widgetEpoch += 1
+    this.widgetRequest?.abort()
+    this.widgetRequest = undefined
+    this.widgetRequestId = undefined
+  }
+
+  /** 专用结果只发送一次；关闭、后台、身份变化和超时均不能留下旧凭据响应。 */
+  private async receiveWidget(message: NativeEnvelope) {
+    if (
+      this.phase !== 'active' ||
+      !this.widgetsNegotiated ||
+      this.widgetsPaused ||
+      !this.widgetForeground ||
+      !this.options.widgetRequest ||
+      this.widgetRequests.has(message.requestId)
+    )
+      return
+    const reply = (result: NativeWidgetResult) =>
+      this.post('widget.result', { requestId: message.requestId, ...result })
+    if (this.widgetRequests.size >= 128) return reply({ success: false, error: 'request_limit' })
+    this.widgetRequests.add(message.requestId)
+    if (message.routeRevision !== this.options.readState().routeRevision)
+      return reply({ success: false, error: 'stale_request' })
+    if (this.widgetRequest) return reply({ success: false, error: 'busy' })
+    const controller = new AbortController()
+    this.widgetRequest = controller
+    this.widgetRequestId = message.requestId
+    const epoch = this.widgetEpoch
+    const timer = setTimeout(() => controller.abort(), 15000)
+    const cancelled = new Promise<NativeWidgetResult>(resolve => {
+      controller.signal.addEventListener('abort', () => resolve({ success: false, error: 'cancelled' }), { once: true })
+    })
+    let result: NativeWidgetResult
+    try {
+      result = await Promise.race([this.options.widgetRequest(message.payload, controller.signal), cancelled])
+      if (new TextEncoder().encode(JSON.stringify(result)).length > 2048)
+        result = { success: false, error: 'invalid_data' }
+    } catch {
+      result = { success: false, error: 'unavailable' }
+    } finally {
+      clearTimeout(timer)
+      if (this.widgetRequest === controller) {
+        this.widgetRequest = undefined
+        this.widgetRequestId = undefined
+      }
+    }
+    if (
+      epoch === this.widgetEpoch &&
+      this.phase === 'active' &&
+      message.sessionId === this.sessionId &&
+      this.widgetsNegotiated &&
+      !this.widgetsPaused &&
+      this.widgetForeground
+    )
+      reply(result)
   }
 
   /** 只接受结构、大小、版本和当前会话均正确的封闭消息集合。 */
@@ -140,6 +229,11 @@ export class NativeChromeSession {
         return
       clearTimeout(this.timer)
       this.sessionId = message.sessionId
+      this.widgetsNegotiated = Boolean(
+        this.options.transport.widgetsVersion === 1 &&
+        this.options.widgetRequest &&
+        capabilities.includes('widgets.v1'),
+      )
       this.phase = 'configured'
       this.publish()
       this.timer = setTimeout(() => {
@@ -148,6 +242,19 @@ export class NativeChromeSession {
       return
     }
     if (!this.sessionId || message.sessionId !== this.sessionId) return
+    if (
+      message.type === 'widget.cancel' &&
+      this.widgetsNegotiated &&
+      isNativeIdentifier(message.payload.requestId) &&
+      message.payload.requestId === this.widgetRequestId
+    ) {
+      this.cancelWidgetRequest()
+      return
+    }
+    if (message.type === 'widget.request') {
+      await this.receiveWidget(message)
+      return
+    }
     if (message.type === 'navigation.previewed') {
       if (this.phase === 'active' && typeof message.payload.id === 'string')
         this.navigationPreviews.get(message.payload.id)?.()
@@ -155,11 +262,14 @@ export class NativeChromeSession {
     }
     if (message.type === 'host.rekey') {
       this.clearNavigationPreviews()
+      this.cancelWidgetRequest()
       if (this.phase !== 'active' || !isNativeIdentifier(message.payload.sessionId)) {
         await this.fail()
         return
       }
       this.sessionId = message.payload.sessionId
+      this.widgetRequests.clear()
+      this.widgetsPaused = false
       this.stateRevision = 0
       this.results.clear()
       this.completed.clear()
@@ -168,6 +278,8 @@ export class NativeChromeSession {
     }
     if (message.type === 'chrome.release') {
       this.clearNavigationPreviews()
+      this.cancelWidgetRequest()
+      this.widgetsNegotiated = false
       this.phase = 'closed'
       clearTimeout(this.timer)
       await this.options.setActive(false)
@@ -195,6 +307,8 @@ export class NativeChromeSession {
     if (message.type === 'host.lifecycle') {
       const state = message.payload.state
       if (state === 'active' || state === 'inactive' || state === 'background') {
+        this.widgetForeground = state === 'active'
+        if (!this.widgetForeground) this.cancelWidgetRequest()
         this.options.lifecycle(state)
         clearTimeout(this.timer)
         if (state === 'active' && ['configured', 'preparing'].includes(this.phase))
@@ -289,6 +403,8 @@ export class NativeChromeSession {
   /** 只有仍可执行 JS 时才能恢复网页；宿主另行处理进程终止。 */
   private async fail() {
     this.clearNavigationPreviews()
+    this.cancelWidgetRequest()
+    this.widgetsNegotiated = false
     if (this.phase === 'closed') return
     this.phase = 'closed'
     clearTimeout(this.timer)

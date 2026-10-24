@@ -51,17 +51,156 @@ function harness(overrides: Partial<NativeSessionOptions> = {}) {
 }
 
 /** 宿主协商和布局确认都必须经事件入口完成。 */
-async function activate() {
+async function activate(widgets = false) {
   await send('host.configure', {
     sessionId: 'session-1',
     major: 1,
-    capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1'],
+    capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1', ...(widgets ? ['widgets.v1'] : [])],
   })
   await send('chrome.prepare', { layoutRevision: 7 })
 }
 
+/** 小组件测试仍走真实事件协商，只有双方版本一致才提供专用处理器。 */
+function widgetHarness(request: NonNullable<NativeSessionOptions['widgetRequest']>) {
+  const messages: NativeEnvelope[] = []
+  const current = harness({
+    transport: { transportVersion: 1, widgetsVersion: 1, postMessage: message => messages.push(message) },
+    widgetRequest: request,
+  })
+  return { ...current, messages }
+}
+
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
+})
+
+describe('小组件专用会话与一次性结果', () => {
+  const value = {
+    success: true as const,
+    data: { version: 1 as const, owner: 'a'.repeat(32), availableContents: [], secret: 'synthetic-private-secret' },
+  }
+
+  it('仅新容器与网页双向协商后执行，旧会话和重复请求不能重放登记', async () => {
+    const request = vi.fn(async () => value)
+    const first = widgetHarness(request)
+    expect(first.messages[0].payload.capabilities).toContain('widgets.v1')
+    await activate()
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+    expect(request).not.toHaveBeenCalled()
+    await first.session.stop()
+    const h = widgetHarness(request)
+    await activate(true)
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-1', sessionId: 'old' })
+    expect(request).not.toHaveBeenCalled()
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+    expect(request).toHaveBeenCalledOnce()
+    const replies = h.messages.filter(message => message.type === 'widget.result')
+    expect(replies).toHaveLength(1)
+    expect(replies[0].payload).toEqual({ requestId: 'widget-1', ...value })
+    expect(JSON.stringify(h.messages.filter(message => message.type !== 'widget.result'))).not.toContain(
+      value.data.secret,
+    )
+    expect(h.messages.some(message => message.type === 'command.result')).toBe(false)
+  })
+
+  it('一个在途请求期间只返回忙碌，旧路由与重复ID都不执行', async () => {
+    let finish!: (result: typeof value) => void
+    const request = vi.fn(() => new Promise<typeof value>(resolve => (finish = resolve)))
+    const h = widgetHarness(request)
+    await activate(true)
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-2' })
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-3', routeRevision: 0 })
+    expect(request).toHaveBeenCalledOnce()
+    expect(h.messages.filter(message => message.type === 'widget.result').map(message => message.payload)).toEqual([
+      { requestId: 'widget-2', success: false, error: 'busy' },
+      { requestId: 'widget-3', success: false, error: 'stale_request' },
+    ])
+    finish(value)
+    await flushPromises()
+    await send('widget.request', { operation: 'register' }, { requestId: 'widget-2' })
+    expect(request).toHaveBeenCalledOnce()
+    expect(h.messages.filter(message => message.type === 'widget.result')).toHaveLength(3)
+  })
+
+  it.each(['identity', 'background', 'inactive', 'release', 'stop', 'logout', 'rekey', 'cancel'])(
+    '%s 取消等待；处理器迟到的凭据不能跨会话交付',
+    async change => {
+      let finish!: (result: typeof value) => void
+      let signal!: AbortSignal
+      const request = vi.fn((_payload, currentSignal: AbortSignal) => {
+        signal = currentSignal
+        return new Promise<typeof value>(resolve => (finish = resolve))
+      })
+      const h = widgetHarness(request)
+      await activate(true)
+      await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+      if (change === 'identity') h.session.identityChanged()
+      if (change === 'background' || change === 'inactive') await send('host.lifecycle', { state: change })
+      if (change === 'release') await send('chrome.release')
+      if (change === 'stop') await h.session.stop()
+      if (change === 'logout') window.dispatchEvent(new Event('moviepilot:widget-logout'))
+      if (change === 'rekey') await send('host.rekey', { sessionId: 'session-2' })
+      if (change === 'cancel') {
+        await send('widget.cancel', { requestId: 'other-request' })
+        expect(signal.aborted).toBe(false)
+        await send('widget.cancel', { requestId: 'widget-1' }, { sessionId: 'old' })
+        expect(signal.aborted).toBe(false)
+        await send('widget.cancel', { requestId: 'widget-1' })
+      }
+      expect(signal.aborted).toBe(true)
+      finish(value)
+      await flushPromises()
+      expect(h.messages.some(message => message.type === 'widget.result')).toBe(false)
+      expect(JSON.stringify(h.messages)).not.toContain(value.data.secret)
+      if (change === 'logout') {
+        expect(h.messages.find(message => message.type === 'widget.logout')?.payload).toEqual({})
+        await send('widget.request', { operation: 'context' }, { requestId: 'widget-2' })
+        expect(request).toHaveBeenCalledOnce()
+      }
+    },
+  )
+
+  it('超时立即结算且不接收迟到结果，后台恢复也不能重放旧ID', async () => {
+    let finish!: (result: typeof value) => void
+    const request = vi.fn(() => new Promise<typeof value>(resolve => (finish = resolve)))
+    const h = widgetHarness(request)
+    await activate(true)
+    vi.useFakeTimers()
+    try {
+      await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+      await vi.advanceTimersByTimeAsync(15001)
+      expect(h.messages.filter(message => message.type === 'widget.result').map(message => message.payload)).toEqual([
+        { requestId: 'widget-1', success: false, error: 'cancelled' },
+      ])
+      finish(value)
+      await flushPromises()
+      await send('host.lifecycle', { state: 'background' })
+      await send('host.lifecycle', { state: 'active' })
+      await send('widget.request', { operation: 'register' }, { requestId: 'widget-1' })
+      expect(request).toHaveBeenCalledOnce()
+      expect(h.messages.filter(message => message.type === 'widget.result')).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('请求账本与响应都有上限，超限不能执行额外操作或输出正文', async () => {
+    const request = vi.fn(async () => value)
+    const h = widgetHarness(request)
+    await activate(true)
+    for (let index = 0; index < 129; index++)
+      await send('widget.request', { operation: 'context' }, { requestId: `widget-${index}` })
+    expect(request).toHaveBeenCalledTimes(128)
+    expect(h.messages.at(-1)?.payload).toEqual({ requestId: 'widget-128', success: false, error: 'request_limit' })
+    await h.session.stop()
+    const oversized = widgetHarness(async () => ({ ...value, data: { ...value.data, owner: 'x'.repeat(3000) } }))
+    await activate(true)
+    await send('widget.request', { operation: 'context' }, { requestId: 'widget-1' })
+    expect(oversized.messages.at(-1)?.payload).toEqual({ requestId: 'widget-1', success: false, error: 'invalid_data' })
+  })
 })
 
 describe('原生导航接管事务', () => {

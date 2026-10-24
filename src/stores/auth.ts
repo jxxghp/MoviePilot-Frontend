@@ -5,6 +5,7 @@ import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useUserStore } from '@/stores/user'
 import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
 import { revokeNativeNotificationBinding } from '@/native/notifications'
+import { endNativeWidgetSession } from '@/native/widgets'
 
 export const useAuthStore = defineStore('auth', {
   state: (): authState => ({
@@ -38,8 +39,9 @@ export const useAuthStore = defineStore('auth', {
       this.setToken(payload.token)
       this.setRemember(payload.remember)
     },
-    /** 先请求撤销容器通知，再清理当前用户和依赖登录态的缓存。 */
+    /** 先通知容器撤销通知和小组件，再清理当前用户和依赖登录态的缓存。 */
     logout() {
+      endNativeWidgetSession()
       // 在清除现有认证之前撤销通知；失败不能阻断本地退出或恢复已失效会话。
       revokeNativeNotificationBinding(this.token)
       this.clearToken()
