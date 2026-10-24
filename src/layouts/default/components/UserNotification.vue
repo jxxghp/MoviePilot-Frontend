@@ -620,7 +620,8 @@ function notificationNativePanel() {
               .filter(Boolean)
               .join(' · '),
             icon: getNotificationIcon(item),
-            image: item.poster || undefined,
+            // 新后端优先使用独立竖版海报；已部署旧版本和历史通知沿用网页实际展示的 image 字段。
+            image: item.poster || item.image || undefined,
             keepOpen: true,
             invoke: () => toggleNotificationExpanded(item),
           })),

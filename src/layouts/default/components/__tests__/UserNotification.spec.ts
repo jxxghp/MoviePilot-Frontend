@@ -30,7 +30,7 @@ function deferNotifications() {
 }
 
 describe('UserNotification', () => {
-  it('原生通知只投影独立海报，旧消息不将背景图裁切成海报', async () => {
+  it('原生优先投影独立海报，旧版和历史通知兼容网页实际使用的 image 属性', async () => {
     const pending = deferNotifications()
     await renderWithProviders(UserNotification)
     const action = nativeGlobalActions.value.get('notifications')!
@@ -43,13 +43,13 @@ describe('UserNotification', () => {
         image: 'https://images.example.com/backdrop.jpg',
         poster: 'https://images.example.com/poster.jpg',
       },
-      { id: 82, title: '旧背景图消息', image: 'https://images.example.com/legacy-backdrop.jpg', poster: null },
+      { id: 82, title: '旧版图片消息', image: 'https://images.example.com/legacy-poster.jpg', poster: null },
     ])
     await opened
 
     const entries = action.panel!()!.sections.flatMap(section => section.items)
     expect(entries.find(item => item.title === '有独立海报')?.image).toBe('https://images.example.com/poster.jpg')
-    expect(entries.find(item => item.title === '旧背景图消息')?.image).toBeUndefined()
+    expect(entries.find(item => item.title === '旧版图片消息')?.image).toBe('https://images.example.com/legacy-poster.jpg')
   })
 
   it('普通网页通知继续展示原渠道图片', async () => {
