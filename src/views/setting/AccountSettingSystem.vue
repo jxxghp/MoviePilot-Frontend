@@ -12,7 +12,7 @@ import TransferHistoryMaintenancePanel from '@/components/system/TransferHistory
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
 import { filterAvailableServiceOptions } from '@/api/constants'
-import { useDisplay, useTheme } from 'vuetify'
+import { useDisplay } from 'vuetify'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -26,9 +26,7 @@ import { fetchAgentPetDeclarations, getAgentPetId } from '@/stores/agentPet'
 import type { AgentPetDeclaration } from '@/types/agentHost'
 
 const display = useDisplay()
-const theme = useTheme()
 
-const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 国际化
@@ -1584,7 +1582,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
             <CollapsibleSettingCard
               v-model:collapsed="aiAgentSettingsCollapsed"
               class="mt-6"
-              :transparent="isTransparentTheme"
               :title="t('setting.system.aiAgentSectionTitle')"
               :subtitle="t('setting.system.aiAgentSectionDesc')"
               icon="mdi-robot-outline"

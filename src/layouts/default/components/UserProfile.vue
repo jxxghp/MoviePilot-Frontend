@@ -8,14 +8,10 @@ import { useAuthStore, useGlobalSettingsStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
-import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
-import { saveLocalTheme } from '@/@core/utils/theme'
 import type { ThemeSwitcherTheme } from '@layouts/types'
 import { useConfirm } from '@/composables/useConfirm'
-import { themeManager } from '@/utils/themeManager'
 import { usePWA, type UIMode } from '@/composables/usePWA'
-import { applyStoredTransparencySettings } from '@/composables/useTransparencySettings'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
@@ -39,9 +35,6 @@ const CommunityMedalDialog = defineAsyncComponent(() => import('@/components/dia
 const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
 const GlassSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/GlassSettingsDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
-const TransparencySettingsDialog = defineAsyncComponent(
-  () => import('@/components/dialog/TransparencySettingsDialog.vue'),
-)
 const UserAuthDialog = defineAsyncComponent(() => import('@/components/dialog/UserAuthDialog.vue'))
 
 // 认证 Store
@@ -81,9 +74,6 @@ const showLanguageMenu = ref(false)
 
 // 自定义CSS
 const customCSS = ref('')
-
-const isTransparentTheme = computed(() => currentThemeName.value === 'transparent')
-const isGlassTheme = computed(() => currentThemeName.value === 'glass')
 
 // 重启轮询控制标识
 const restartPollingId = ref<number | null>(null)
@@ -453,41 +443,13 @@ const getUIModeIcon = computed(() => {
 
 // 主题相关功能
 const { global: globalTheme } = useTheme()
-const savedTheme = ref(localStorage.getItem('theme') ?? 'glass')
-const currentThemeName = ref(savedTheme.value)
 const themeCustomizerSettings = ref(readThemeCustomizerSettings())
+const currentThemeName = computed(() => themeCustomizerSettings.value.theme)
 
 const themes: ThemeSwitcherTheme[] = [
-  {
-    name: 'auto',
-    title: t('theme.auto'),
-    icon: 'mdi-laptop',
-  },
-  {
-    name: 'light',
-    title: t('theme.light'),
-    icon: 'mdi-weather-sunny',
-  },
-  {
-    name: 'dark',
-    title: t('theme.dark'),
-    icon: 'mdi-weather-night',
-  },
-  {
-    name: 'purple',
-    title: t('theme.purple'),
-    icon: 'mdi-brightness-4',
-  },
-  {
-    name: 'transparent',
-    title: t('theme.transparent'),
-    icon: 'mdi-gradient-horizontal',
-  },
-  {
-    name: 'glass',
-    title: t('theme.glass'),
-    icon: 'mdi-blur-radial',
-  },
+  { name: 'light', title: t('theme.light'), icon: 'mdi-weather-sunny' },
+  { name: 'dark', title: t('theme.dark'), icon: 'mdi-weather-night' },
+  { name: 'auto', title: t('theme.auto'), icon: 'mdi-laptop' },
 ]
 
 function getThemeLayoutTitle(layout: ThemeCustomizerSettings['layout']) {
@@ -513,33 +475,9 @@ const currentThemeSummary = computed(() => {
 // Ace 跟随 Vuetify 当前生效主题，避免 auto 模式或弹窗打开后切主题时颜色不同步。
 const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 
-/** 更新主题 */
-async function updateTheme() {
-  const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
-  const theme = currentThemeName.value === 'auto' ? autoTheme : currentThemeName.value
-
-  // 设置Vuetify主题
-  globalTheme.name.value = theme
-
-  // 统一处理主题切换 - 主题管理器会自动处理CSS加载和错误
-  await themeManager.setTheme(currentThemeName.value)
-
-  // 保存原始主题设置，而不是计算后的值
-  savedTheme.value = currentThemeName.value
-  // 保存主题到本地
-  saveLocalTheme(currentThemeName.value, globalTheme)
-}
-
+/** 同步主题定制面板的选择，不重复提交服务端设置。 */
 function handleThemeCustomizerSettingsChange(event: Event) {
-  const nextSettings = (event as CustomEvent<ThemeCustomizerSettings>).detail
-  const nextTheme = nextSettings.theme
-
-  themeCustomizerSettings.value = nextSettings
-
-  if (currentThemeName.value === nextTheme) return
-
-  currentThemeName.value = nextTheme
-  savedTheme.value = nextTheme
+  themeCustomizerSettings.value = (event as CustomEvent<ThemeCustomizerSettings>).detail
 }
 
 /** 获取自定义 CSS */
@@ -584,17 +522,12 @@ watch(editorTheme, theme => {
   customCssDialogController?.updateProps({ editorTheme: theme })
 })
 
-/** 打开透明主题设置共享弹窗。 */
-function showTransparencySettingsDialog() {
-  openSharedDialog(TransparencySettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
-}
-
 /** 打开玻璃主题的外观与质量设置共享弹窗。 */
 function showGlassSettingsDialog() {
   openSharedDialog(GlassSettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
 }
 
-/** 从用户菜单打开主题定制器，App 模式会在面板内部隐藏布局设置。 */
+/** 从用户菜单打开主题定制器，原生套壳显示明暗与主色选择。 */
 function showThemeCustomizerDrawer() {
   showUserMenu.value = false
   showThemeMenu.value = false
@@ -621,28 +554,6 @@ async function saveCustomCSS(css: string) {
   } catch {
     console.error(t('theme.customCssSaveFailed'))
   }
-}
-
-// 监听主题变化
-watch(
-  () => currentThemeName.value,
-  async () => {
-    await updateTheme()
-
-    // 如果切换到透明主题，应用透明度设置
-    if (currentThemeName.value === 'transparent') {
-      applyStoredTransparencySettings()
-    }
-  },
-)
-
-// 监听系统主题变化
-try {
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async () => {
-    await updateTheme()
-  })
-} catch {
-  console.error(t('theme.deviceNotSupport'))
 }
 
 // 语言相关功能
@@ -703,20 +614,6 @@ function nativeProfilePanel(): NativePanelSource {
   const themeItems: NativePanelEntry[] = [
     { id: 'customizer', title: t('theme.customizer.title'), icon: 'mdi-tune', invoke: showThemeCustomizerDrawer },
   ]
-  if (isTransparentTheme.value)
-    themeItems.push({
-      id: 'transparency',
-      title: t('theme.transparencyAdjust'),
-      icon: 'mdi-opacity',
-      invoke: showTransparencySettingsDialog,
-    })
-  else if (isGlassTheme.value)
-    themeItems.push({
-      id: 'glass',
-      title: t('theme.glassSettings'),
-      icon: 'mdi-blur-radial',
-      invoke: showGlassSettingsDialog,
-    })
   const information: NativePanelEntry[] = [
     {
       id: 'help',
@@ -762,7 +659,7 @@ function nativeProfilePanel(): NativePanelSource {
     },
     sections: [
       { id: 'account', items: account },
-      // App 布局由原生框架承载，不提供网页布局切换和附加 CSS；主题与语言仍沿用网页能力。
+      // App 固定玻璃、大圆角及原生布局，只开放主色；语言和原业务入口继续复用。
       { id: 'theme', title: t('common.theme'), items: themeItems },
       {
         id: 'language',
@@ -819,11 +716,6 @@ onMounted(() => {
   window.addEventListener(COMMUNITY_AUTH_CHANGED_EVENT, community.authChanged)
   if (canAdmin.value) getCustomCSS()
   window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerSettingsChange)
-
-  // 初始化透明度设置
-  if (isTransparentTheme.value) {
-    applyStoredTransparencySettings()
-  }
 })
 
 // 组件卸载时清理轮询
@@ -998,20 +890,7 @@ onUnmounted(() => {
 
               <VDivider class="my-2" />
 
-              <!-- 透明度调整 - 仅在透明主题下显示 -->
-              <template v-if="isTransparentTheme">
-                <VListItem @click="showTransparencySettingsDialog">
-                  <template #prepend>
-                    <VIcon icon="mdi-opacity" />
-                  </template>
-                  <VListItemTitle>{{ t('theme.transparencyAdjust') }}</VListItemTitle>
-                  <template #append>
-                    <VIcon icon="mdi-chevron-right" size="small" />
-                  </template>
-                </VListItem>
-              </template>
-
-              <VListItem v-else-if="isGlassTheme" @click="showGlassSettingsDialog">
+              <VListItem @click="showGlassSettingsDialog">
                 <template #prepend>
                   <VIcon icon="mdi-blur-radial" />
                 </template>

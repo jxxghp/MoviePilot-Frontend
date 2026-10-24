@@ -891,41 +891,6 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   background: rgba(3, 7, 18, 72%);
 }
 
-:global(html[data-theme='transparent'] .classification-category-dialog .classification-category-form) {
-  border-color: rgba(var(--v-theme-on-surface), 0.16) !important;
-  -webkit-backdrop-filter: blur(var(--transparent-blur-heavy)) !important;
-  backdrop-filter: blur(var(--transparent-blur-heavy)) !important;
-  background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28) !important;
-}
-
-:global(html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-field),
-:global(
-  html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-selection-control
-) {
-  --v-field-border-opacity: 0.72;
-}
-
-:global(
-  html[data-theme='transparent'] .classification-category-dialog .classification-category-form .v-field__overlay
-) {
-  background-color: rgba(var(--v-theme-surface), var(--transparent-opacity)) !important;
-}
-
-:global(
-  html[data-theme='transparent']
-    .classification-category-dialog
-    .classification-category-form
-    .v-field--focused
-    .v-field__overlay
-) {
-  background-color: rgba(var(--v-theme-primary), 0.14) !important;
-}
-
-:global(html[data-theme='transparent'] .classification-category-dialog-content .v-card-actions) {
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.14);
-}
-
 .sr-only {
   position: absolute;
   overflow: hidden;

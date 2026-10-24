@@ -2,17 +2,14 @@
 import {
   getDefaultGlassCustomizerSettings,
   themeCustomizerPrimaryColors,
-  themeCustomizerShadowLevels,
   useThemeCustomizer,
   type ThemeCustomizerLayout,
   type ThemeCustomizerRadius,
-  type ThemeCustomizerShadow,
-  type ThemeCustomizerSkin,
   type ThemeCustomizerTheme,
 } from '@/composables/useThemeCustomizer'
+import { nativeChromeActive } from '@/native/layout'
 import { usePWA } from '@/composables/usePWA'
 import { useI18n } from 'vue-i18n'
-import { useTheme } from 'vuetify'
 
 const emit = defineEmits<{
   'close': []
@@ -23,20 +20,17 @@ const customColorInput = ref<HTMLInputElement | null>(null)
 const {
   isCustomized,
   resetSettings,
+  updateSettings,
   setGlassAppearance,
   setGlassQuality,
   setLayout,
   setPrimaryColor,
   setRadius,
-  setSemiDarkMenu,
-  setShadow,
-  setSkin,
   setTheme,
   settings,
 } = useThemeCustomizer()
 const { appMode } = usePWA()
 const { t } = useI18n()
-const { global: globalTheme } = useTheme()
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const defaultAppModeGlassSettings = getDefaultGlassCustomizerSettings('css')
 
@@ -83,18 +77,7 @@ const themeOptions = computed<Array<{ icon: string; title: string; value: ThemeC
   { title: t('theme.light'), value: 'light', icon: 'mdi-white-balance-sunny' },
   { title: t('theme.dark'), value: 'dark', icon: 'mdi-weather-night' },
   { title: t('theme.auto'), value: 'auto', icon: 'mdi-monitor' },
-  { title: t('theme.purple'), value: 'purple', icon: 'mdi-theme-light-dark' },
-  { title: t('theme.transparent'), value: 'transparent', icon: 'mdi-blur' },
-  { title: t('theme.glass'), value: 'glass', icon: 'mdi-blur-radial' },
 ])
-
-const skinOptions = computed<Array<{ title: string; value: ThemeCustomizerSkin }>>(() => [
-  { title: t('theme.customizer.skinDefault'), value: 'default' },
-  { title: t('theme.customizer.skinBordered'), value: 'bordered' },
-])
-
-// 当前阴影滑杆数值，界面使用 number，主题设置继续存储 Vuetify elevation 字符串档位。
-const shadowSliderValue = computed(() => Number(settings.value.shadow))
 
 const radiusOptions = computed<
   Array<{
@@ -132,12 +115,6 @@ const layoutOptions = computed<Array<{ icon: string; title: string; value: Theme
 
 const showLayoutSection = computed(() => !appMode.value)
 
-// 玻璃表面依赖固定的高光描边维持轮廓，不提供与材质冲突的通用皮肤切换。
-const showSkinSection = computed(() => globalTheme.name.value !== 'glass')
-
-// 玻璃主题使用成套的外阴影与内高光，不提供不完整的 Vuetify elevation 调整。
-const showShadowSection = computed(() => globalTheme.name.value !== 'glass')
-
 const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
@@ -152,21 +129,17 @@ const hasAppModeCustomization = computed(() => {
     settings.value.glassTranslationStrength !== defaultAppModeGlassSettings.glassTranslationStrength ||
     settings.value.glassTransparencyStrength !== defaultAppModeGlassSettings.glassTransparencyStrength ||
     settings.value.radius !== 'default' ||
-    settings.value.shadow !== '0' ||
-    settings.value.skin !== 'default' ||
     settings.value.theme !== 'auto'
   )
 })
 
-const showResetBadge = computed(() => (appMode.value ? hasAppModeCustomization.value : isCustomized.value))
-
-const showSemiDarkMenuOption = computed(() => {
-  return (
-    !appMode.value &&
-    !globalTheme.current.value.dark &&
-    (settings.value.layout === 'vertical' || settings.value.layout === 'collapsed')
-  )
-})
+const showResetBadge = computed(() =>
+  nativeChromeActive.value
+    ? settings.value.primaryColor !== defaultPrimaryColor || settings.value.theme !== 'auto'
+    : appMode.value
+      ? hasAppModeCustomization.value
+      : isCustomized.value,
+)
 
 // 打开原生颜色选择器。
 function openColorPicker() {
@@ -188,21 +161,12 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
   setLayout(layout)
 }
 
-// 将 Vuetify 滑杆的数字步进写回字符串型 elevation 档位。
-function handleShadowSliderChange(value: unknown) {
-  const rawValue = Array.isArray(value) ? value[0] : value
-  const numericValue = Number(rawValue)
-
-  if (!Number.isFinite(numericValue)) return
-
-  const clampedValue = Math.min(24, Math.max(0, Math.round(numericValue)))
-  const shadow = String(clampedValue) as ThemeCustomizerShadow
-
-  if (themeCustomizerShadowLevels.includes(shadow)) setShadow(shadow)
-}
-
 // 重置主题定制设置，App 模式只恢复可调整的外观项。
 async function handleResetSettings() {
+  if (nativeChromeActive.value) {
+    await updateSettings({ primaryColor: defaultPrimaryColor, theme: 'auto' })
+    return
+  }
   if (!appMode.value) {
     await resetSettings()
 
@@ -214,14 +178,17 @@ async function handleResetSettings() {
   await setGlassAppearance('clear')
   await setGlassQuality('css')
   await setRadius('default')
-  await setShadow('0')
-  await setSkin('default')
-  await setTheme('glass')
+  await setTheme('auto')
 }
 </script>
 
 <template>
-  <aside class="theme-customizer-panel-host" role="dialog" :aria-label="t('theme.customizer.title')">
+  <aside
+    class="theme-customizer-panel-host"
+    role="dialog"
+    :data-native-sheet-size="nativeChromeActive ? 'medium' : undefined"
+    :aria-label="t('theme.customizer.title')"
+  >
     <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode, 'app-surface': appMode }">
       <div class="theme-customizer-header py-5 px-4">
         <div>
@@ -278,123 +245,43 @@ async function handleResetSettings() {
 
           <h3 class="theme-customizer-section-title">{{ t('common.theme') }}</h3>
           <div class="theme-customizer-option-grid theme-customizer-option-grid--theme">
-            <div
+            <button
               v-for="theme in themeOptions"
               :key="theme.value"
+              type="button"
               class="theme-customizer-card-option"
               :class="{ 'is-active': settings.theme === theme.value }"
+              :aria-pressed="settings.theme === theme.value"
               @click="setTheme(theme.value)"
             >
               <VIcon class="theme-customizer-theme-icon" :icon="theme.icon" size="36" />
               <span>{{ theme.title }}</span>
-            </div>
+            </button>
           </div>
 
-          <template v-if="showSkinSection">
+          <template v-if="!nativeChromeActive">
             <VDivider class="mt-7" />
 
-            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
-            <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
+            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.radius') }}</h3>
+            <div class="theme-customizer-preview-grid theme-customizer-preview-grid--radius">
               <div
-                v-for="skin in skinOptions"
-                :key="skin.value"
+                v-for="radius in radiusOptions"
+                :key="radius.value"
                 class="theme-customizer-preview-option"
-                :class="{ 'is-active': settings.skin === skin.value }"
-                @click="setSkin(skin.value)"
+                :class="{ 'is-active': settings.radius === radius.value }"
+                @click="setRadius(radius.value)"
               >
-                <span class="theme-customizer-border-scene" :class="`theme-customizer-border-scene--${skin.value}`">
-                  <span class="theme-customizer-border-scene__card">
-                    <i />
-                    <i />
-                  </span>
-                  <span class="theme-customizer-border-scene__dialog">
-                    <i />
-                  </span>
-                  <span class="theme-customizer-border-scene__menu">
-                    <i />
-                    <i />
-                    <i />
+                <span class="theme-customizer-radius-scene" :class="`theme-customizer-radius-scene--${radius.value}`">
+                  <span class="theme-customizer-radius-scene__card">
+                    <span class="theme-customizer-radius-scene__badge" />
+                    <span class="theme-customizer-radius-scene__line" />
+                    <span class="theme-customizer-radius-scene__line theme-customizer-radius-scene__line--short" />
                   </span>
                 </span>
-                <span>{{ skin.title }}</span>
+                <span>{{ radius.title }}</span>
               </div>
             </div>
           </template>
-
-          <VDivider class="mt-7" />
-
-          <h3 class="theme-customizer-section-title">{{ t('theme.customizer.radius') }}</h3>
-          <div class="theme-customizer-preview-grid theme-customizer-preview-grid--radius">
-            <div
-              v-for="radius in radiusOptions"
-              :key="radius.value"
-              class="theme-customizer-preview-option"
-              :class="{ 'is-active': settings.radius === radius.value }"
-              @click="setRadius(radius.value)"
-            >
-              <span class="theme-customizer-radius-scene" :class="`theme-customizer-radius-scene--${radius.value}`">
-                <span class="theme-customizer-radius-scene__card">
-                  <span class="theme-customizer-radius-scene__badge" />
-                  <span class="theme-customizer-radius-scene__line" />
-                  <span class="theme-customizer-radius-scene__line theme-customizer-radius-scene__line--short" />
-                </span>
-              </span>
-              <span>{{ radius.title }}</span>
-            </div>
-          </div>
-
-          <template v-if="showShadowSection">
-            <VDivider class="mt-7" />
-
-            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.shadow') }}</h3>
-            <div class="theme-customizer-shadow-slider">
-              <div class="theme-customizer-shadow-slider__header">
-                <span>{{ t('theme.customizer.shadowLevel', { level: settings.shadow }) }}</span>
-                <span>0 - 24</span>
-              </div>
-              <div class="theme-customizer-shadow-slider__control">
-                <span
-                  class="theme-customizer-shadow-slider__sample"
-                  :style="{ boxShadow: `var(--app-elevation-${settings.shadow})` }"
-                >
-                  <span class="theme-customizer-shadow-slider__sample-accent" />
-                  <span class="theme-customizer-shadow-slider__sample-line" />
-                  <span
-                    class="theme-customizer-shadow-slider__sample-line theme-customizer-shadow-slider__sample-line--short"
-                  />
-                </span>
-                <VSlider
-                  :model-value="shadowSliderValue"
-                  :aria-label="t('theme.customizer.shadow')"
-                  :max="24"
-                  :min="0"
-                  :step="1"
-                  color="primary"
-                  density="comfortable"
-                  hide-details
-                  show-ticks="always"
-                  thumb-label
-                  tick-size="2"
-                  @update:model-value="handleShadowSliderChange"
-                />
-              </div>
-              <div class="theme-customizer-shadow-slider__scale" aria-hidden="true">
-                <span>0</span>
-                <span>24</span>
-              </div>
-            </div>
-          </template>
-
-          <div v-if="showSemiDarkMenuOption" class="theme-customizer-semi-dark">
-            <span>{{ t('theme.customizer.semiDarkMenu') }}</span>
-            <VSwitch
-              :model-value="settings.semiDarkMenu"
-              color="primary"
-              inset
-              hide-details
-              @update:model-value="setSemiDarkMenu(Boolean($event))"
-            />
-          </div>
         </section>
 
         <VDivider v-if="showLayoutSection" />
@@ -649,10 +536,6 @@ async function handleResetSettings() {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.theme-customizer-preview-grid--skins {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .theme-customizer-preview-grid--radius {
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
 }
@@ -669,7 +552,6 @@ async function handleResetSettings() {
     box-shadow: none !important;
 
     .theme-customizer-mini-layout,
-    .theme-customizer-border-scene,
     .theme-customizer-radius-scene {
       border-width: 2px;
       border-color: rgb(var(--v-theme-primary));
@@ -686,18 +568,6 @@ async function handleResetSettings() {
     cursor: not-allowed;
     opacity: 0.52;
   }
-}
-
-.theme-customizer-semi-dark {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-block-start: 28px;
-  margin-inline: -32px;
-  padding-inline: 32px;
 }
 
 .theme-customizer-mini-layout {
@@ -723,97 +593,6 @@ async function handleResetSettings() {
     flex-direction: row;
     align-items: center;
   }
-}
-
-.theme-customizer-border-scene {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(var(--v-theme-on-surface), 0.02), rgba(var(--v-theme-on-surface), 0.05)),
-    rgb(var(--v-theme-surface));
-  block-size: 74px;
-  inline-size: 100%;
-  min-inline-size: 92px;
-}
-
-.theme-customizer-border-scene__card,
-.theme-customizer-border-scene__dialog,
-.theme-customizer-border-scene__menu {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  border: 0 solid rgba(var(--v-theme-on-surface), 0.14);
-  border-radius: 6px;
-  background: rgba(var(--v-theme-surface), 0.92);
-  gap: 5px;
-  padding: 7px;
-  box-shadow: var(--app-elevation-0);
-}
-
-.theme-customizer-border-scene__card {
-  block-size: 36px;
-  inline-size: 46%;
-  inset-block-start: 12px;
-  inset-inline-start: 10px;
-}
-
-.theme-customizer-border-scene__dialog {
-  block-size: 42px;
-  inline-size: 38%;
-  inset-block-start: 18px;
-  inset-inline-end: 13px;
-}
-
-.theme-customizer-border-scene__menu {
-  block-size: 30px;
-  inline-size: 30%;
-  inset-block-end: 10px;
-  inset-inline-start: 34%;
-}
-
-.theme-customizer-border-scene__card i,
-.theme-customizer-border-scene__dialog i,
-.theme-customizer-border-scene__menu i {
-  display: block;
-  border-radius: 3px;
-  background: rgba(var(--v-theme-on-surface), 0.1);
-  block-size: 5px;
-}
-
-.theme-customizer-border-scene--bordered {
-  .theme-customizer-border-scene__card,
-  .theme-customizer-border-scene__dialog,
-  .theme-customizer-border-scene__menu {
-    border-width: 1px;
-  }
-}
-
-.mini-sidebar,
-.mini-content {
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-  gap: 8px;
-}
-
-.mini-sidebar {
-  background: rgba(var(--v-theme-on-surface), 0.04);
-}
-
-.mini-sidebar i,
-.mini-content i {
-  display: block;
-  border-radius: 4px;
-  background: rgba(var(--v-theme-on-surface), 0.12);
-  block-size: 6px;
-}
-
-.mini-content i {
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  block-size: 18px;
 }
 
 .theme-customizer-radius-scene {
@@ -886,91 +665,6 @@ async function handleResetSettings() {
 
 .theme-customizer-radius-scene__line--short {
   inline-size: 66%;
-}
-
-.theme-customizer-shadow-slider {
-  padding: 16px 18px 12px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: var(--app-vuetify-rounded-lg);
-  background: rgba(var(--v-theme-surface), 0.72);
-}
-
-.theme-customizer-shadow-slider__header,
-.theme-customizer-shadow-slider__scale {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.theme-customizer-shadow-slider__header {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.875rem;
-  line-height: 1.3;
-  margin-block-end: 14px;
-
-  > span:first-child {
-    color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-    font-weight: 600;
-  }
-}
-
-.theme-customizer-shadow-slider__control {
-  display: grid;
-  align-items: center;
-  gap: 16px;
-  grid-template-columns: 56px minmax(0, 1fr);
-}
-
-.theme-customizer-shadow-slider__sample {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  border-radius: var(--app-vuetify-rounded);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background: rgb(var(--v-theme-surface));
-  block-size: 42px;
-  gap: 5px;
-  inline-size: 42px;
-  padding-block: 8px;
-  padding-inline: 9px;
-}
-
-.theme-customizer-shadow-slider__sample-accent,
-.theme-customizer-shadow-slider__sample-line {
-  display: block;
-  border-radius: 999px;
-}
-
-.theme-customizer-shadow-slider__sample-accent {
-  background: rgba(var(--v-theme-primary), 0.48);
-  block-size: 5px;
-  inline-size: 44%;
-}
-
-.theme-customizer-shadow-slider__sample-line {
-  background: rgba(var(--v-theme-on-surface), 0.12);
-  block-size: 4px;
-  inline-size: 100%;
-}
-
-.theme-customizer-shadow-slider__sample-line--short {
-  inline-size: 68%;
-}
-
-.theme-customizer-shadow-slider__scale {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.75rem;
-  line-height: 1;
-  margin-block-start: 2px;
-  margin-inline-start: 72px;
-}
-
-.theme-customizer-shadow-slider :deep(.v-slider.v-input) {
-  margin: 0;
-}
-
-.theme-customizer-shadow-slider :deep(.v-slider-track__tick) {
-  opacity: 0.5;
 }
 
 @media (width <= 600px) {

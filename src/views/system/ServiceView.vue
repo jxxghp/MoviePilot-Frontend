@@ -464,12 +464,6 @@ const { loading: schedulerLoading } = useDataRefresh(
   gap: 10px;
 }
 
-.v-theme--transparent .mobile-scheduler-card,
-html[data-theme='transparent'] .mobile-scheduler-card {
-  backdrop-filter: blur(var(--transparent-blur, 10px));
-  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-}
-
 @media (width <= 480px) {
   .mobile-scheduler-view {
     padding-inline: 14px;

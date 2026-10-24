@@ -40,94 +40,92 @@ function roundWeeklyBarTops(chartContext: { el: HTMLElement }) {
   })
 }
 
-const options = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => {
-    const currentTheme = ref(vuetifyTheme.current.value.colors)
-    const variableTheme = ref(vuetifyTheme.current.value.variables)
+/** 图表颜色同时响应主题主色和系统明暗，无需切换 glass 主题名。 */
+const options = computed(() => {
+  const currentTheme = ref(vuetifyTheme.current.value.colors)
+  const variableTheme = ref(vuetifyTheme.current.value.variables)
 
-    const disabledColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${
-      variableTheme.value['medium-emphasis-opacity']
-    })`
+  const disabledColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${
+    variableTheme.value['medium-emphasis-opacity']
+  })`
 
-    const borderColor = `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
-      variableTheme.value['border-opacity']
-    })`
+  const borderColor = `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
+    variableTheme.value['border-opacity']
+  })`
 
-    return {
-      chart: {
-        parentHeightOffset: 0,
-        toolbar: { show: false },
-        zoom: { enabled: false, allowMouseWheelZoom: false },
-        selection: { enabled: false },
-        animations: { enabled: false },
-        events: {
-          mounted: roundWeeklyBarTops,
-          updated: roundWeeklyBarTops,
+  return {
+    chart: {
+      parentHeightOffset: 0,
+      toolbar: { show: false },
+      zoom: { enabled: false, allowMouseWheelZoom: false },
+      selection: { enabled: false },
+      animations: { enabled: false },
+      events: {
+        mounted: roundWeeklyBarTops,
+        updated: roundWeeklyBarTops,
+      },
+    },
+    plotOptions: {
+      bar: {
+        borderRadius: WEEKLY_BAR_RADIUS,
+        borderRadiusApplication: 'end',
+        distributed: true,
+        columnWidth: '40%',
+      },
+    },
+    stroke: {
+      width: 2,
+      colors: [currentTheme.value.surface],
+    },
+    legend: { show: false },
+    tooltip: {
+      enabled: false,
+    },
+    grid: {
+      borderColor,
+      strokeDashArray: 7,
+      padding: {
+        top: -1,
+        right: 0,
+        left: -12,
+        bottom: 5,
+      },
+    },
+    dataLabels: { enabled: false },
+    colors: [currentTheme.value.primary],
+    states: {
+      hover: { filter: { type: 'none' } },
+      active: { filter: { type: 'none' } },
+    },
+    xaxis: {
+      categories: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      tickPlacement: 'on',
+      labels: { show: false },
+      crosshairs: { opacity: 0 },
+      axisTicks: { show: false },
+      axisBorder: { show: false },
+    },
+    yaxis: {
+      show: true,
+      tickAmount: 4,
+      labels: {
+        offsetX: -17,
+        style: {
+          colors: disabledColor,
+          fontSize: '12px',
+        },
+
+        formatter: (value: number) => {
+          if (value > 999) {
+            return (value / 1000).toFixed(1) + 'k'
+          } else {
+            return value.toString()
+          }
         },
       },
-      plotOptions: {
-        bar: {
-          borderRadius: WEEKLY_BAR_RADIUS,
-          borderRadiusApplication: 'end',
-          distributed: true,
-          columnWidth: '40%',
-        },
-      },
-      stroke: {
-        width: 2,
-        colors: [currentTheme.value.surface],
-      },
-      legend: { show: false },
-      tooltip: {
-        enabled: false,
-      },
-      grid: {
-        borderColor,
-        strokeDashArray: 7,
-        padding: {
-          top: -1,
-          right: 0,
-          left: -12,
-          bottom: 5,
-        },
-      },
-      dataLabels: { enabled: false },
-      colors: [currentTheme.value.primary],
-      states: {
-        hover: { filter: { type: 'none' } },
-        active: { filter: { type: 'none' } },
-      },
-      xaxis: {
-        categories: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        tickPlacement: 'on',
-        labels: { show: false },
-        crosshairs: { opacity: 0 },
-        axisTicks: { show: false },
-        axisBorder: { show: false },
-      },
-      yaxis: {
-        show: true,
-        tickAmount: 4,
-        labels: {
-          offsetX: -17,
-          style: {
-            colors: disabledColor,
-            fontSize: '12px',
-          },
-
-          formatter: (value: number) => {
-            if (value > 999) {
-              return (value / 1000).toFixed(1) + 'k'
-            } else {
-              return value.toString()
-            }
-          },
-        },
-      },
-    }
-  },
-)
+    },
+  }
+})
 
 // 图表数据
 const series = ref([{ data: [0, 0, 0, 0, 0, 0, 0] }])

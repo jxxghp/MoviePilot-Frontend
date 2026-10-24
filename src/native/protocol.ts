@@ -53,6 +53,8 @@ export interface NativeSheet {
   title: string
   fullscreen: boolean
   canDismiss: boolean
+  /** 简短设置使用系统中等高度，未提供时保持原业务弹窗高度。 */
+  prefersMediumDetent?: boolean
   /** 可选的底页准备握手；不提供时容器沿用直接接管流程。 */
   backdropReady?: boolean
   actions: Array<{ id: string; title: string; enabled: boolean }>

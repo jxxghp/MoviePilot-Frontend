@@ -185,6 +185,7 @@ describe('VerticalNavLayout shell states', () => {
     expandedWrapper.unmount()
 
     mocks.state = 'compact'
+    mocks.scrollY = 90
     mocks.direction = 'down'
     const compactWrapper = mountLayout()
 
@@ -226,9 +227,7 @@ describe('VerticalNavLayout shell states', () => {
     'protects glass %s navigation before the App collapse threshold',
     async layout => {
       const wrapper = mountLayout()
-      window.dispatchEvent(
-        new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout } }),
-      )
+      window.dispatchEvent(new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'auto', layout } }))
       await nextTick()
       const root = wrapper.get('.layout-wrapper')
       expect(root.classes()).not.toContain('layout-navbar-away-from-top')
@@ -252,7 +251,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.appMode = true
     const wrapper = mountLayout()
     window.dispatchEvent(
-      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout: 'vertical' } }),
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'auto', layout: 'vertical' } }),
     )
     mocks.scrollY = 24
     await refreshShell()
@@ -342,6 +341,7 @@ describe('VerticalNavLayout shell states', () => {
   it('keeps the compact Drawer gateway visible while App consumes the compact presentation', () => {
     mocks.mdAndDown = true
     mocks.state = 'compact'
+    mocks.scrollY = 90
     mocks.direction = 'down'
     const drawerWrapper = mountLayout()
 
@@ -403,6 +403,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.isStandaloneDisplayMode = true
     mocks.mdAndDown = true
     mocks.state = 'compact'
+    mocks.scrollY = 90
 
     const standaloneWrapper = mountLayout()
     const root = standaloneWrapper.get('.layout-wrapper')
@@ -418,6 +419,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.displayEnvironment = 'window-controls-overlay'
     mocks.isWindowControlsOverlayMode = true
     mocks.state = 'compact'
+    mocks.scrollY = 90
 
     const desktopWrapper = mountLayout()
     const desktopRoot = desktopWrapper.get('.layout-wrapper')
@@ -433,6 +435,7 @@ describe('VerticalNavLayout shell states', () => {
 
     mocks.appMode = true
     mocks.state = 'compact'
+    mocks.scrollY = 90
     const appWrapper = mountLayout()
     const appRoot = appWrapper.get('.layout-wrapper')
 
@@ -446,7 +449,7 @@ describe('VerticalNavLayout shell states', () => {
   it('responds to glass floating early with hysteresis without compacting App controls', async () => {
     const wrapper = mountLayout()
     window.dispatchEvent(
-      new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal', theme: 'glass' } }),
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal', theme: 'auto' } }),
     )
     await nextTick()
     const root = wrapper.get('.layout-wrapper')
@@ -465,6 +468,7 @@ describe('VerticalNavLayout shell states', () => {
 
   it('exposes floating eligibility only for an ordinary desktop horizontal environment', async () => {
     mocks.state = 'compact'
+    mocks.scrollY = 90
     const browserWrapper = mountLayout()
 
     window.dispatchEvent(new CustomEvent('moviepilot:theme-customizer-change', { detail: { layout: 'horizontal' } }))
@@ -508,7 +512,7 @@ describe('VerticalNavLayout shell states', () => {
       width: Math.min(width, 1440),
     } as DOMRect)
     window.dispatchEvent(
-      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout: 'horizontal' } }),
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'auto', layout: 'horizontal' } }),
     )
     await nextTick()
     const navbar = wrapper.get('.layout-navbar').element as HTMLElement
@@ -539,20 +543,18 @@ describe('VerticalNavLayout shell states', () => {
     wrapper.unmount()
   })
 
-  it('resets expansion outside eligible glass desktop horizontal layouts', async () => {
+  it('resets expansion outside eligible desktop horizontal layouts and keeps it across color modes', async () => {
     const wrapper = mountLayout()
     const navbar = wrapper.get('.layout-navbar').element as HTMLElement
     const progress = () => Number(navbar.style.getPropertyValue('--shell-navbar-scroll-progress'))
     mocks.scrollY = 1000
     for (const layout of ['vertical', 'collapsed']) {
-      window.dispatchEvent(
-        new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout } }),
-      )
+      window.dispatchEvent(new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'auto', layout } }))
       await refreshShell()
       expect(progress()).toBe(0)
     }
     window.dispatchEvent(
-      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'glass', layout: 'horizontal' } }),
+      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'auto', layout: 'horizontal' } }),
     )
     await refreshShell()
     expect(progress()).toBe(1)
@@ -568,11 +570,13 @@ describe('VerticalNavLayout shell states', () => {
     await refreshShell()
     expect(progress()).toBe(0)
     mocks.appMode = false
-    window.dispatchEvent(
-      new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'transparent', layout: 'horizontal' } }),
-    )
-    await refreshShell()
-    expect(progress()).toBe(0)
+    for (const theme of ['light', 'dark', 'auto']) {
+      window.dispatchEvent(
+        new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme, layout: 'horizontal' } }),
+      )
+      await refreshShell()
+      expect(progress()).toBe(1)
+    }
     wrapper.unmount()
   })
 })

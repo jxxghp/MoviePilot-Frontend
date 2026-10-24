@@ -31,7 +31,7 @@ $-custom-content-surfaces: (
 // V3 表面按信息角色统一材料；只改变承载层，不改变图表、业务数据与交互命中区。
 @mixin surfaces {
   html[data-theme='glass'] {
-    --glass-v3-ink: 28, 28, 30;
+    --glass-v3-ink: var(--glass-material-rgb);
     --glass-v3-fill: clamp(0.12, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2), 0.32);
     --glass-v3-rim: clamp(0.12, calc(0.16 + var(--glass-reflection, 0.38) * 0.28), 0.4);
     --glass-v3-sheen: clamp(0.04, calc(0.035 + var(--glass-reflection, 0.38) * 0.18), 0.2);
@@ -46,7 +46,10 @@ $-custom-content-surfaces: (
     --glass-v3-navigation-filter: saturate(118%) brightness(var(--glass-transmission-brightness, 1));
     // 自适应界面材质为导航、菜单和 FAB 提供共享阅读保护；弹窗使用更强的独立扩散。
     --glass-popup-blur: 8px;
-    --glass-popup-surface: rgba(44, 44, 46, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.62) * 0.16), 0.32));
+    --glass-popup-surface: rgba(
+      var(--glass-popup-rgb),
+      clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.62) * 0.16), 0.32)
+    );
     --glass-popup-filter: blur(var(--glass-popup-blur)) saturate(135%);
     --glass-dialog-blur: 16px;
     --glass-dialog-filter: blur(var(--glass-dialog-blur)) saturate(135%);
@@ -67,13 +70,13 @@ $-custom-content-surfaces: (
       --glass-v3-card-tint: clamp(0.025, calc(var(--glass-tint-density, 0.65) * 0.13), 0.15);
       --glass-popup-surface: color-mix(
         in srgb,
-        rgba(44, 44, 46, clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.72) * 0.16), 0.32)) 90%,
+        rgba(var(--glass-popup-rgb), clamp(0.2, calc(0.14 + var(--glass-surface-density, 0.72) * 0.16), 0.32)) 90%,
         rgba(var(--glass-material-accent-rgb), 0.18)
       );
     }
 
     &[data-glass-appearance='frosted'] {
-      --glass-v3-ink: 242, 242, 247;
+      --glass-v3-ink: var(--glass-frosted-rgb);
       --glass-v3-fill: clamp(0.08, calc(0.065 + var(--glass-surface-density, 0.86) * 0.11), 0.21);
       --glass-v3-sheen: clamp(0.08, calc(0.07 + var(--glass-reflection, 0.35) * 0.22), 0.24);
       --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
@@ -81,9 +84,7 @@ $-custom-content-surfaces: (
       --glass-popup-blur: 24px;
       --glass-dialog-blur: 24px;
       --glass-popup-surface: rgba(
-        44,
-        44,
-        46,
+        var(--glass-popup-rgb),
         clamp(0.24, calc(0.18 + var(--glass-surface-density, 0.86) * 0.14), 0.36)
       );
     }
@@ -94,9 +95,7 @@ $-custom-content-surfaces: (
       // 弹窗使用独立 token，保留比菜单更强、但比自适应更弱的阅读扩散。
       --glass-dialog-blur: 8px;
       --glass-popup-surface: rgba(
-        44,
-        44,
-        46,
+        var(--glass-popup-rgb),
         clamp(0.12, calc(0.08 + var(--glass-surface-density, 0.62) * 0.12), 0.24)
       );
     }
@@ -104,7 +103,7 @@ $-custom-content-surfaces: (
     &[data-glass-ui-style='clear'][data-glass-appearance='tinted'] {
       --glass-popup-surface: color-mix(
         in srgb,
-        rgba(44, 44, 46, clamp(0.12, calc(0.08 + var(--glass-surface-density, 0.72) * 0.12), 0.24)) 92%,
+        rgba(var(--glass-popup-rgb), clamp(0.12, calc(0.08 + var(--glass-surface-density, 0.72) * 0.12), 0.24)) 92%,
         rgba(var(--glass-material-accent-rgb), 0.12)
       );
     }
@@ -225,9 +224,9 @@ $-custom-content-surfaces: (
         // 电影画面仍可检查，文字所在的下半区才承担阅读吸收。
         background: linear-gradient(
           180deg,
-          rgba(28, 28, 30, 0.04),
-          rgba(28, 28, 30, 0.64) 52%,
-          rgba(28, 28, 30, 0.92)
+          rgba(var(--glass-material-rgb), 0.04),
+          rgba(var(--glass-material-rgb), 0.64) 52%,
+          rgba(var(--glass-material-rgb), 0.92)
         ) !important;
       }
     }
@@ -422,8 +421,8 @@ $-custom-content-surfaces: (
         clamp(0.64, calc(0.62 + var(--glass-surface-density, 0.62) * 0.18), 0.82)
       );
       --glass-control-prominent-focus: rgba(var(--glass-v3-ink), 0.84);
-      --glass-control-placeholder-color: rgba(242, 242, 247, 82%);
-      --glass-control-icon-color: rgba(242, 242, 247, 90%);
+      --glass-control-placeholder-color: rgba(var(--v-theme-on-surface), 82%);
+      --glass-control-icon-color: rgba(var(--v-theme-on-surface), 90%);
     }
 
     .v-card,
@@ -664,8 +663,8 @@ $-custom-content-surfaces: (
 
       --glass-navbar-frosted-background:
         linear-gradient(
-          rgba(28, 28, 30, var(--glass-navbar-frosted-separation)),
-          rgba(28, 28, 30, var(--glass-navbar-frosted-separation))
+          rgba(var(--glass-material-rgb), var(--glass-navbar-frosted-separation)),
+          rgba(var(--glass-material-rgb), var(--glass-navbar-frosted-separation))
         ),
         var(--glass-v3-card-background);
 
@@ -725,7 +724,7 @@ $-custom-content-surfaces: (
       .layout-wrapper[data-shell-mode] .layout-navbar,
       .layout-wrapper .layout-navbar::before,
       .footer-nav-card {
-        background: rgb(44, 44, 46) !important;
+        background: rgb(var(--glass-popup-rgb)) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
@@ -733,20 +732,20 @@ $-custom-content-surfaces: (
 
     html[data-theme='glass'] body[data-theme='glass'] :is(#{$-popup-hosts}) {
       --glass-overlay-backdrop-filter: none !important;
-      --glass-overlay-surface: rgb(44, 44, 46) !important;
+      --glass-overlay-surface: rgb(var(--glass-popup-rgb)) !important;
     }
   }
 
   @media (prefers-reduced-transparency: reduce) {
     html[data-theme='glass'] {
       --glass-v3-navigation-filter: none !important;
-      --glass-v3-card-background: linear-gradient(rgb(44, 44, 46), rgb(44, 44, 46)) !important;
+      --glass-v3-card-background: linear-gradient(rgb(var(--glass-popup-rgb)), rgb(var(--glass-popup-rgb))) !important;
     }
 
     html[data-theme='glass'][data-glass-appearance] body[data-theme='glass'] {
       :is(#{$-popup-hosts}) {
         --glass-overlay-backdrop-filter: none !important;
-        --glass-overlay-surface: rgb(44, 44, 46) !important;
+        --glass-overlay-surface: rgb(var(--glass-popup-rgb)) !important;
       }
 
       .v-dialog > .v-overlay__scrim {
@@ -765,7 +764,7 @@ $-custom-content-surfaces: (
       .layout-page-content :is(#{$-custom-content-surfaces}),
       .dashboard-grid-content-measure > .v-card,
       .dashboard-grid-content-measure > :first-child > .v-card {
-        background: rgb(44, 44, 46) !important;
+        background: rgb(var(--glass-popup-rgb)) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }

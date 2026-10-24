@@ -25,6 +25,8 @@ describe('菜单与全屏弹窗的导航语义', () => {
     customizer.setAttribute('role', 'dialog')
     document.body.append(customizer)
     expect(readNativePresentation(document)).toEqual({ overlayOpen: true, fullscreen: true })
+    customizer.dataset.nativeSheetSize = 'medium'
+    expect(readNativePresentation(document)).toEqual({ overlayOpen: true, fullscreen: false })
     customizer.remove()
     expect(readNativePresentation(document)).toEqual({ overlayOpen: false, fullscreen: false })
   })

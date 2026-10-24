@@ -155,11 +155,6 @@ let seasonNotExistsRequestId = 0
 let episodeExistsRequestId = 0
 let seasonEpisodesRequestGeneration = 0
 
-// 计算主题是否为透明
-const isTransparentTheme = computed(() => {
-  return theme.name.value === 'transparent'
-})
-
 // 计算主题是否为玻璃
 const isGlassTheme = computed(() => {
   return theme.name.value === 'glass'
@@ -858,7 +853,6 @@ useNativePageHeader({
     v-if="hasMediaIdentity()"
     class="max-w-8xl mx-auto px-4"
     :class="{
-      'media-detail-transparent': isTransparentTheme,
       'media-detail-glass': isGlassTheme,
     }"
   >
@@ -1480,12 +1474,10 @@ useNativePageHeader({
   background-image: none;
 }
 
-.media-detail-transparent .vue-media-back-overlay,
 .media-detail-glass .vue-media-back-overlay {
   display: none;
 }
 
-.media-detail-transparent .vue-media-back-image,
 .media-detail-glass .vue-media-back-image {
   mask-image:
     linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
@@ -1495,10 +1487,6 @@ useNativePageHeader({
     linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
   -webkit-mask-composite: source-in;
-}
-
-.media-detail-transparent .vue-media-back-image {
-  opacity: 0.78;
 }
 
 .media-detail-glass .vue-media-back-image {
@@ -1772,7 +1760,7 @@ a.crew-name {
   display: inline-flex;
   flex: 0 0 12rem;
   align-items: center;
-  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(6px));
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-surface), 0.82);
@@ -1849,7 +1837,7 @@ a.crew-name {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(6px));
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 9999px;
   background: rgba(var(--v-theme-surface), 0.96);
@@ -1883,28 +1871,6 @@ a.crew-name {
   color: rgba(var(--v-theme-on-surface), 0.66);
   font-size: 0.8125rem;
   line-height: 1.25rem;
-}
-
-.media-detail-transparent .episode-group-option {
-  backdrop-filter: blur(var(--transparent-blur, 10px));
-  background: rgba(var(--v-theme-surface), var(--transparent-opacity, 0.3));
-}
-
-.media-detail-transparent .episode-group-option:hover {
-  background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
-}
-
-.media-detail-transparent .episode-group-option--active {
-  background: rgba(var(--v-theme-primary), 0.22);
-}
-
-.media-detail-transparent .episode-group-option--active:hover {
-  background: rgba(var(--v-theme-primary), 0.28);
-}
-
-.media-detail-transparent .episode-group-nav {
-  backdrop-filter: blur(var(--transparent-blur, 10px));
-  background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
 }
 
 .media-detail-glass .episode-group-option {

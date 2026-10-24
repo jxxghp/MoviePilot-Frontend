@@ -3789,13 +3789,4 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   padding-block: 0.65rem;
   padding-inline: 0.75rem;
 }
-
-html[data-theme='transparent'] .transfer-history-mobile-page,
-.v-theme--transparent .transfer-history-mobile-page {
-  --transfer-history-mobile-surface-opacity: var(--transparent-opacity-light, 0.2);
-  --transfer-history-mobile-search-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-  --transfer-history-mobile-muted-bg: rgba(var(--v-theme-surface), var(--transparent-opacity, 0.3));
-  --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.14);
-  --transfer-history-mobile-surface-blur: blur(var(--transparent-blur, 10px));
-}
 </style>

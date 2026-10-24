@@ -1,7 +1,6 @@
 import {
   readRemoteUserConfig,
   THEME_CUSTOMIZER_REMOTE_KEY,
-  TRANSPARENCY_REMOTE_KEY,
   writeRemoteUserConfig,
 } from '@/utils/themeSettingsPersistence'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -35,20 +34,20 @@ describe('theme settings persistence', () => {
     mocks.get.mockRejectedValue(new Error('offline'))
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    await expect(readRemoteUserConfig(TRANSPARENCY_REMOTE_KEY)).resolves.toBeNull()
+    await expect(readRemoteUserConfig(THEME_CUSTOMIZER_REMOTE_KEY)).resolves.toBeNull()
   })
 
   it('writes the value and reports success', async () => {
     mocks.post.mockResolvedValue(null)
 
-    await expect(writeRemoteUserConfig(TRANSPARENCY_REMOTE_KEY, { opacity: 0.3 })).resolves.toBe(true)
-    expect(mocks.post).toHaveBeenCalledWith(`user/config/${TRANSPARENCY_REMOTE_KEY}`, { opacity: 0.3 })
+    await expect(writeRemoteUserConfig(THEME_CUSTOMIZER_REMOTE_KEY, { theme: 'light' })).resolves.toBe(true)
+    expect(mocks.post).toHaveBeenCalledWith(`user/config/${THEME_CUSTOMIZER_REMOTE_KEY}`, { theme: 'light' })
   })
 
   it('reports failure without throwing when the write is rejected', async () => {
     mocks.post.mockRejectedValue(new Error('forbidden'))
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    await expect(writeRemoteUserConfig(THEME_CUSTOMIZER_REMOTE_KEY, { theme: 'glass' })).resolves.toBe(false)
+    await expect(writeRemoteUserConfig(THEME_CUSTOMIZER_REMOTE_KEY, { theme: 'auto' })).resolves.toBe(false)
   })
 })

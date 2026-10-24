@@ -25,7 +25,7 @@ describe('plugin card accent styles', () => {
     )?.groups?.declarations
 
     expect(glassStyles.match(/rgba\(var\(--plugin-card-effective-accent-rgb\)/g)).toHaveLength(9)
-    expect(glassStyles.match(/rgba\(var\(--plugin-card-effective-accent-rgb\)[\s\S]*?\) 94%/g)).toHaveLength(2)
+    expect(tintedBannerRule?.match(/rgba\(var\(--plugin-card-effective-accent-rgb\)[\s\S]*?\) 94%/g)).toHaveLength(2)
     expect(tintedBannerRule?.match(/rgba\(var\(--glass-material-accent-rgb\)[\s\S]*?\)\s*\)/g)).toHaveLength(2)
     expect(glassStyles).not.toContain('var(--plugin-card-accent-rgb, 40, 169, 225)')
   })

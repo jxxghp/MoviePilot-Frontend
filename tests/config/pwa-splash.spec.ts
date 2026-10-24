@@ -44,13 +44,13 @@ describe('PWA 启动屏资源', () => {
   })
 
   it('保持启动层背景、可见回退和动效降级配置一致', () => {
-    expect(indexHtml.toLowerCase()).toContain('--initial-loader-bg: #0e1116')
+    expect(indexHtml.toLowerCase()).toContain('--initial-loader-bg: #000000')
     expect(indexHtml).toContain('prefers-reduced-motion: reduce')
     expect(indexHtml).toContain('inset: 0;')
     expect(indexHtml).toContain('inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 48px)')
     expect(indexHtml).toContain('document.documentElement.dataset.launchStartedAt')
-    expect(indexHtml).toContain('materio-initial-resolved-theme')
-    expect(indexHtml).toContain('getCachedLaunchBackground')
+    expect(indexHtml).toContain('function getSavedThemePreference()')
+    expect(indexHtml).not.toContain('getCachedLaunchBackground')
     expect(indexHtml).toContain('opacity: 1')
     expect(indexHtml).not.toContain('apple-mobile-web-app-orientations')
     expect(indexHtml).not.toContain('name="screen-orientation"')
@@ -59,7 +59,7 @@ describe('PWA 启动屏资源', () => {
 
   it('原生启动图不叠加网页接力层，普通浏览器继续使用网页动态加载层', () => {
     const detectionStart = indexHtml.indexOf('function hasActiveNativeLaunchScreen()')
-    const detectionEnd = indexHtml.indexOf('const launchThemePalettes', detectionStart)
+    const detectionEnd = indexHtml.indexOf('function getSavedThemePreference()', detectionStart)
     const detectionSource = indexHtml.slice(detectionStart, detectionEnd)
 
     expect(detectionStart).toBeGreaterThanOrEqual(0)

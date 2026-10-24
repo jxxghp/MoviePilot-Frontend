@@ -20,17 +20,11 @@ import {
   themeCustomizerPrimaryColors,
   useEffectiveGlassSettings,
 } from '@/composables/useThemeCustomizer'
-import {
-  applyStoredTransparencySettings,
-  restoreTransparencySettingsFromServer,
-  TRANSPARENCY_SETTINGS_CHANGED_EVENT,
-  type TransparencyGlassQuality,
-  type TransparencySettings,
-} from '@/composables/useTransparencySettings'
 import { completeLaunchLoading } from '@/composables/useLaunchLoading'
 import { usePWA } from '@/composables/usePWA'
-import { themeManager } from '@/utils/themeManager'
-import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette'
+import '@/styles/themes/glass.scss'
+import { nativeChromeActive } from '@/native/layout'
+import { applyDocumentThemeChrome, readThemePreference } from '@/utils/themePalette'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
@@ -61,7 +55,6 @@ import {
   activateLoginBackgroundLayer,
   createLoginBackgroundLayers,
   getLoginGlassOpticalSettings,
-  getLoginVisualProfile,
   prepareLoginBackgroundLayer,
   settleLoginBackgroundLayers,
   type LoginBackgroundLayer,
@@ -107,20 +100,6 @@ async function waitForMinimumLaunchVisibility() {
   }
 }
 
-function getCachedAutoResolvedTheme() {
-  const cachedTheme = localStorage.getItem('materio-initial-resolved-theme')
-
-  return cachedTheme === 'dark' || cachedTheme === 'light' ? cachedTheme : null
-}
-
-function resolveInitialThemeName(themePreference: string) {
-  if (themePreference === 'auto') {
-    return getCachedAutoResolvedTheme() || resolveThemeName(themePreference)
-  }
-
-  return resolveThemeName(themePreference)
-}
-
 function recordGlassLaunchTiming(stage: string, detail?: string) {
   const timingWindow = window as typeof window & {
     __glassPerformanceProbeEnabled?: boolean
@@ -140,20 +119,17 @@ const glassMaterialTintColor = computed(
     normalizeThemeMaterialAccent(globalTheme.current.value.colors.primary)?.hex ??
     normalizeThemeMaterialAccent(themeCustomizerPrimaryColors[0].value)!.hex,
 )
-let themeValue = localStorage.getItem('theme') || 'glass'
-let resumeThemeSyncTimer: number | null = null
-globalTheme.name.value = resolveInitialThemeName(themeValue)
+globalTheme.name.value = 'glass'
 applyStoredThemeCustomizerAppearance(vuetifyTheme)
 
 // 启动屏和 iOS safe area 在同一层显示，根节点底色需要尽早和当前主题保持一致。
 function syncRootLaunchPalette() {
   const { background, primary } = globalTheme.current.value.colors
 
-  applyDocumentThemeChrome(themeValue, {
+  applyDocumentThemeChrome(readThemePreference(), {
     background,
     persistLoaderColors: true,
     primary,
-    resolvedTheme: globalTheme.name.value,
   })
 }
 
@@ -222,13 +198,12 @@ const allowsBackgroundRotation = computed(
       preferredMotion.value === 'reduce',
     ),
 )
-const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
-const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
+const isBackdropTheme = computed(() => isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
-const loginVisualProfile = computed(() => getLoginVisualProfile(globalTheme.name.value))
+const loginVisualProfile = computed(() => 'glass' as const)
 const loginGlassSettings = computed(() =>
   getLoginGlassOpticalSettings({
     appearance: effectiveGlassSettings.value.glassAppearance,
@@ -272,7 +247,6 @@ const opticalTransmissionStrength = computed(() =>
     ? loginGlassSettings.value.transmissionStrength
     : effectiveGlassSettings.value.glassTransmissionStrength,
 )
-const shouldUseTransparentBackgroundTreatment = computed(() => isTransparentTheme.value && Boolean(isLogin.value))
 const shouldUseGlassBackgroundTreatment = computed(
   () => isGlassTheme.value && (Boolean(isLogin.value) || isLoginWallpaperRoute.value),
 )
@@ -309,16 +283,6 @@ watch(
   },
   { immediate: true },
 )
-const transparentBackgroundBlur = ref(16)
-const transparencyGlassQuality = ref<TransparencyGlassQuality>(
-  localStorage.getItem('transparency-glass-quality') === 'realtime' ? 'realtime' : 'lightweight',
-)
-const shouldRenderGlobalBlurLayer = computed(
-  () =>
-    shouldUseTransparentBackgroundTreatment.value &&
-    transparentBackgroundBlur.value > 0 &&
-    transparencyGlassQuality.value === 'realtime',
-)
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
@@ -329,22 +293,6 @@ let backgroundRecoveryAttemptedVersion = -1
 let backgroundRotationVersion = 0
 let backgroundPreloadIdleHandle: number | null = null
 let backgroundPreloadTimer: number | null = null
-
-// 读取并同步透明主题背景设置到根组件响应式状态。
-function applyTransparentBackgroundSettings() {
-  const settings = applyStoredTransparencySettings()
-
-  transparentBackgroundBlur.value = settings.backgroundBlur
-  transparencyGlassQuality.value = settings.glassQuality
-}
-
-// 响应透明主题设置变更事件，刷新背景模糊和玻璃质量。
-function handleTransparencySettingsChanged(event: Event) {
-  const { backgroundBlur, glassQuality } = (event as CustomEvent<TransparencySettings>).detail
-
-  transparentBackgroundBlur.value = backgroundBlur
-  transparencyGlassQuality.value = glassQuality
-}
 
 /** 让稳定双槽位分别携带当前壁纸的曝光，交叉淡化期间不共享新图参数。 */
 function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
@@ -400,8 +348,6 @@ provideGlassFixedShellBackplate({
   transitionDurationMs: BACKGROUND_CROSSFADE_DURATION_MS,
 })
 
-applyTransparentBackgroundSettings()
-
 /** 首路由完成导航后才允许玻璃材质接管页面，异常导航也要释放启动屏屏障。 */
 const initialRouteReadyPromise = router
   .isReady()
@@ -444,56 +390,24 @@ function updateHtmlThemeAttribute(themeName: string) {
   syncRootLaunchPalette()
 }
 
-// 从本地存储重新同步主题偏好、DOM 主题属性和相关外观配置。
-function syncThemePreferenceFromStorage(preferCachedAuto = false) {
-  if (resumeThemeSyncTimer !== null) {
-    window.clearTimeout(resumeThemeSyncTimer)
-    resumeThemeSyncTimer = null
-  }
-
-  themeValue = localStorage.getItem('theme') || 'glass'
-
-  const resolvedTheme =
-    themeValue === 'auto' && preferCachedAuto
-      ? getCachedAutoResolvedTheme() || resolveThemeName(themeValue)
-      : resolveThemeName(themeValue)
-  if (globalTheme.name.value !== resolvedTheme) {
-    globalTheme.name.value = resolvedTheme
-  }
-
+/** 恢复前台、跨窗口变更和原生接管变化时重新应用已保存的玻璃明暗与布局。 */
+function syncThemePreferenceFromStorage() {
   applyStoredThemeCustomizerAppearance(vuetifyTheme)
-  updateHtmlThemeAttribute(resolvedTheme)
-  configureApexChartsTheme(resolvedTheme)
-
-  // 前台恢复时重新跑一次主题管理器，补齐 transparent CSS 和 auto 的实际 DOM 主题。
-  void themeManager
-    .setTheme(themeValue === 'auto' ? resolvedTheme : themeValue)
-    .then(() => {
-      updateHtmlThemeAttribute(globalTheme.name.value)
-    })
-    .catch(error => {
-      console.error('同步主题管理器失败:', error)
-    })
-
-  if (preferCachedAuto && themeValue === 'auto') {
-    resumeThemeSyncTimer = window.setTimeout(() => {
-      resumeThemeSyncTimer = null
-      syncThemePreferenceFromStorage()
-    }, 180)
-  }
+  updateHtmlThemeAttribute('glass')
+  configureApexChartsTheme()
 }
 
-// 系统配色变化时，在自动主题模式下刷新当前实际主题。
+watch(nativeChromeActive, syncThemePreferenceFromStorage, { flush: 'sync' })
+
+/** 仅跟随系统时响应系统配色，手动选择保持不变。 */
 function handleSystemThemeChange() {
-  if ((localStorage.getItem('theme') || 'glass') === 'auto') {
-    syncThemePreferenceFromStorage()
-  }
+  if (readThemePreference() === 'auto') syncThemePreferenceFromStorage()
 }
 
 /** 页面重新可见时同步主题，并在连接异常时立即重新探测服务。 */
 function handleVisibilityThemeSync() {
   if (document.visibilityState === 'visible') {
-    syncThemePreferenceFromStorage(true)
+    syncThemePreferenceFromStorage()
     if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   }
 }
@@ -503,7 +417,7 @@ function handlePageShowThemeSync() {
   if (document.visibilityState === 'visible') {
     if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   }
-  syncThemePreferenceFromStorage(true)
+  syncThemePreferenceFromStorage()
 }
 
 // 清理背景图交叉淡入淡出定时器。
@@ -817,7 +731,7 @@ watch(backgroundRotationIntervalMs, () => {
   if (backgroundImages.value.length > 1) startBackgroundRotation()
 })
 
-// 停止登录页、透明主题或玻璃主题背景图加载、重试和轮播。
+// 停止玻璃背景图加载、重试和轮播。
 function stopBackgroundLoading() {
   backgroundLoadVersion += 1
   backgroundRequestController?.abort()
@@ -848,10 +762,7 @@ async function initializeAuthenticatedState() {
     await globalSettingsStore.loadUserSettings()
     // 清理站点数据后本地外观设置会丢失，这里用服务端副本恢复用户选择；
     // 本地已有设置时该调用直接返回，不会覆盖当前会话外观。
-    await Promise.all([
-      restoreThemeCustomizerSettingsFromServer(vuetifyTheme),
-      restoreTransparencySettingsFromServer(),
-    ]).catch(error => {
+    await Promise.all([restoreThemeCustomizerSettingsFromServer(vuetifyTheme)]).catch(error => {
       console.warn('[Theme] 从服务端恢复外观设置失败', error)
     })
     await Promise.all([loadMediaSources(), loadModuleCatalog(), loadStorageCatalog()])
@@ -1036,24 +947,23 @@ onMounted(async () => {
   }
 
   // 配置 ApexCharts
-  configureApexChartsTheme(globalTheme.name.value)
+  configureApexChartsTheme()
 
   // 初始化data-theme属性
   updateHtmlThemeAttribute(globalTheme.name.value)
 
-  // 初始化主题管理器 - 统一处理主题初始化
-  await themeManager.setTheme(themeValue === 'auto' ? globalTheme.name.value : themeValue)
+  // 玻璃样式静态加载，切换明暗不增删样式表。
   applyStoredThemeCustomizerAppearance(vuetifyTheme)
   updateHtmlThemeAttribute(globalTheme.name.value)
 
   // 监听主题变化
   watch(
-    () => globalTheme.name.value,
-    newTheme => {
+    () => [globalTheme.name.value, globalTheme.current.value.dark] as const,
+    ([newTheme]) => {
       // 更新HTML主题属性
       updateHtmlThemeAttribute(newTheme)
       // 重新配置ApexCharts以适应新主题
-      configureApexChartsTheme(newTheme)
+      configureApexChartsTheme()
     },
   )
 
@@ -1062,7 +972,6 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleVisibilityThemeSync)
   window.addEventListener('pageshow', handlePageShowThemeSync)
   window.addEventListener('focus', handlePageShowThemeSync)
-  window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 
   // 使用优化后的加载界面移除逻辑
   ensureRenderComplete(() => {
@@ -1104,7 +1013,6 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityThemeSync)
   window.removeEventListener('pageshow', handlePageShowThemeSync)
   window.removeEventListener('focus', handlePageShowThemeSync)
-  window.removeEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 })
 </script>
 
@@ -1120,15 +1028,12 @@ onUnmounted(() => {
     }"
     :data-app-activity-state="appActivityState"
   >
-    <!-- 登录页、透明主题和玻璃主题共用动态壁纸场景。 -->
+    <!-- 登录页与业务页面共用玻璃动态壁纸场景。 -->
     <div
       v-if="backgroundImages.length > 0 && (isBackdropTheme || !isLogin)"
       class="background-container"
       :class="{
-        'is-transparent-theme': shouldUseTransparentBackgroundTreatment,
         'is-glass-theme': shouldUseGlassBackgroundTreatment,
-        'is-transparent-glass-lightweight':
-          shouldUseTransparentBackgroundTreatment && transparencyGlassQuality === 'lightweight',
       }"
     >
       <div
@@ -1148,8 +1053,6 @@ onUnmounted(() => {
           draggable="false"
         />
       </div>
-      <!-- 全局磨砂层 -->
-      <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
     </div>
     <!-- 页面内容 -->
     <VApp
@@ -1262,10 +1165,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.background-container.is-transparent-theme .background-image.active {
-  opacity: var(--transparent-background-poster-opacity, 1);
-}
-
 .background-container.is-glass-theme .background-image.active,
 .background-container.is-glass-theme .background-image.previous {
   filter: brightness(var(--glass-wallpaper-brightness, 0.86)) saturate(0.95) contrast(1.02);
@@ -1278,8 +1177,11 @@ onUnmounted(() => {
 .background-container.is-glass-theme .background-image.active::after,
 .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, transparent 24%, rgba(0, 0, 0, 12%) 100%),
-    linear-gradient(rgba(0, 0, 0, 10%) 0%, rgba(0, 0, 0, 30%) 100%);
+    radial-gradient(circle at 50% 18%, transparent 24%, rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 12%) 100%),
+    linear-gradient(
+      rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 10%) 0%,
+      rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 30%) 100%
+    );
 }
 
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active,
@@ -1294,8 +1196,12 @@ html[data-glass-appearance='tinted'] .background-container.is-glass-theme .backg
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, transparent 22%, rgba(0, 0, 0, 14%) 100%),
-    linear-gradient(rgba(0, 0, 0, 10%) 0%, rgba(0, 0, 0, 32%) 100%), rgba(var(--glass-material-accent-rgb), 3%);
+    radial-gradient(circle at 50% 18%, transparent 22%, rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 14%) 100%),
+    linear-gradient(
+      rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 10%) 0%,
+      rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 32%) 100%
+    ),
+    rgba(var(--glass-material-accent-rgb), 3%);
 }
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active,
@@ -1309,40 +1215,15 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.previous::after {
-  background: linear-gradient(rgba(0, 0, 0, 24%) 0%, rgba(0, 0, 0, 48%) 100%), rgba(28, 28, 30, 8%);
-}
-
-.background-container.is-transparent-glass-lightweight .background-image.active,
-.background-container.is-transparent-glass-lightweight .background-image.previous {
-  filter: blur(var(--transparent-background-blur, 16px));
-  transform: scale(1.03);
-}
-
-.background-container.is-transparent-glass-lightweight .background-image.active::after,
-.background-container.is-transparent-glass-lightweight .background-image.previous::after {
-  background: linear-gradient(rgba(0, 0, 0, 30%) 0%, rgba(0, 0, 0, 60%) 100%), rgba(128, 128, 128, 30%);
-}
-
-/* 全局磨砂层 */
-.global-blur-layer {
-  position: absolute;
-  z-index: 3;
-  backdrop-filter: blur(var(--transparent-background-blur, 16px));
-  background-color: rgba(128, 128, 128, 30%);
-  block-size: 100%;
-  inline-size: 100%;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-}
-
-.app-wrapper--render-throttled {
-  .global-blur-layer {
-    backdrop-filter: none;
-  }
+  background:
+    linear-gradient(
+      rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 24%) 0%,
+      rgba(var(--glass-wallpaper-shade-rgb, 0, 0, 0), 48%) 100%
+    ),
+    rgba(var(--glass-material-rgb, 28, 28, 30), 8%);
 }
 
 .app-wrapper--decorative-motion-paused {
-  .login-ambient-light *,
   .login-logo,
   .login-logo-wrapper,
   .login-logo-wrapper::before,

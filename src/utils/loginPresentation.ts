@@ -1,7 +1,5 @@
 import type { GlassAppearance, GlassOpticalPreset } from '@/utils/glassOptics'
 
-export type LoginVisualProfile = 'classic' | 'glass' | 'transparent'
-
 export interface LoginGlassPreference {
   /** 用户选择的玻璃材质。 */
   appearance: GlassAppearance
@@ -28,13 +26,6 @@ export interface LoginBackgroundLayer {
   role: 'active' | 'previous' | 'standby'
   /** 当前槽位显示的壁纸地址。 */
   url: string
-}
-
-/** 将实际主题解析为互斥的登录视觉 profile。 */
-export function getLoginVisualProfile(themeName: string): LoginVisualProfile {
-  if (themeName === 'glass') return 'glass'
-  if (themeName === 'transparent') return 'transparent'
-  return 'classic'
 }
 
 /** 玻璃登录页只强制高质量能力，六个用户强度在登录前后保持一致。 */

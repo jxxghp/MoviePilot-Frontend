@@ -400,12 +400,6 @@ html[data-agent-assistant-open='true'] {
   --app-control-radius: var(--app-vuetify-rounded-pill);
   --app-surface-radius: var(--app-vuetify-rounded-pill);
 
-  // 透明主题下的特殊样式
-  .v-theme--transparent & {
-    backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
-    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
-  }
-
   .v-btn-toggle {
     block-size: auto;
     min-block-size: 56px;

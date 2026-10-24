@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const appSource = readFileSync(resolve(cwd(), 'src/App.vue'), 'utf8')
 const preloadWatchStart = appSource.indexOf("watch(\n  () => isGlassTheme.value && opticalQuality.value !== 'css',")
-const preloadWatchEnd = appSource.indexOf('const transparentBackgroundBlur', preloadWatchStart)
+const preloadWatchEnd = appSource.indexOf('let backgroundRetryTimer', preloadWatchStart)
 const preloadWatch = appSource.slice(preloadWatchStart, preloadWatchEnd)
 
 describe('App 玻璃光学模块预载', () => {

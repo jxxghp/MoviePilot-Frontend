@@ -1,7 +1,5 @@
 import { computed, onMounted, onScopeDispose, readonly, ref } from 'vue'
 import { useTheme } from 'vuetify'
-import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
-import { saveLocalTheme } from '@/@core/utils/theme'
 import vuetify from '@/plugins/vuetify'
 import {
   GLASS_OPTICAL_STRENGTH_DEFAULT,
@@ -20,8 +18,15 @@ import {
   type GlassOpticalPresetOverrides,
 } from '@/utils/glassOptics'
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
-import { themeManager } from '@/utils/themeManager'
-import { syncThemeFavicon } from '@/utils/themePalette'
+import {
+  applyDocumentThemeChrome,
+  applyGlassThemePalette,
+  normalizeThemePreference,
+  readThemePreference,
+  syncThemeFavicon,
+  type ThemePreference,
+} from '@/utils/themePalette'
+import { nativeChromeActive } from '@/native/layout'
 import {
   readRemoteUserConfig,
   THEME_CUSTOMIZER_REMOTE_KEY,
@@ -47,34 +52,6 @@ export const themeCustomizerPrimaryColors = [
   { name: 'Slate', value: '#607D8B' },
 ] as const
 
-export const themeCustomizerShadowLevels = [
-  '0',
-  '1',
-  '2',
-  '3',
-  '4',
-  '5',
-  '6',
-  '7',
-  '8',
-  '9',
-  '10',
-  '11',
-  '12',
-  '13',
-  '14',
-  '15',
-  '16',
-  '17',
-  '18',
-  '19',
-  '20',
-  '21',
-  '22',
-  '23',
-  '24',
-] as const
-
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
 export type ThemeCustomizerGlassAppearance = 'clear' | 'frosted' | 'tinted'
 /** 玻璃界面风格：clear 保留更多背景细节；adaptive 在顶栏、底部悬浮导航、弹出菜单、弹出窗口和 FAB 上提供更强的阅读保护。 */
@@ -83,10 +60,9 @@ export type ThemeCustomizerGlassUIStyle = 'adaptive' | 'clear'
 export type ThemeCustomizerGlassDynamicsMode = 'fluid' | 'ripple' | 'off'
 export type ThemeCustomizerGlassQuality = 'balanced' | 'css' | 'high'
 export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'none' | 'small'
-export type ThemeCustomizerShadow = (typeof themeCustomizerShadowLevels)[number]
-export type ThemeCustomizerSkin = 'bordered' | 'default'
-export type ThemeCustomizerTheme = 'auto' | 'dark' | 'glass' | 'light' | 'purple' | 'transparent'
+export type ThemeCustomizerTheme = ThemePreference
 
+/** 统一玻璃外观的持久化设置，App 运行时只投影原生所需限制。 */
 export interface ThemeCustomizerSettings {
   /** 玻璃主题的材质语义，与渲染质量保持独立。 */
   glassAppearance: ThemeCustomizerGlassAppearance
@@ -118,12 +94,6 @@ export interface ThemeCustomizerSettings {
   primaryColor: string
   /** 全局表面圆角档位。 */
   radius: ThemeCustomizerRadius
-  /** 浅色主题是否使用半深色侧栏。 */
-  semiDarkMenu: boolean
-  /** 非玻璃主题的表面阴影档位。 */
-  shadow: ThemeCustomizerShadow
-  /** 非玻璃主题的边框皮肤。 */
-  skin: ThemeCustomizerSkin
   /** 用户选择的主题偏好。 */
   theme: ThemeCustomizerTheme
 }
@@ -140,17 +110,6 @@ const defaultGlassQuality: ThemeCustomizerGlassQuality = 'css'
 const defaultGlassUIStyle: ThemeCustomizerGlassUIStyle = 'adaptive'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
-const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
-const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
-const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent', 'glass']
-const legacyShadowMap: Record<string, ThemeCustomizerShadow> = {
-  high: '24',
-  low: '6',
-  medium: '12',
-  none: '0',
-}
-
-let themeApplyVersion = 0
 
 type DefaultGlassCustomizerSettings = Pick<
   ThemeCustomizerSettings,
@@ -176,15 +135,6 @@ function isBrowser() {
 /** 校验主题主色是否为完整的六位十六进制颜色。 */
 function isHexColor(color: unknown): color is string {
   return typeof color === 'string' && /^#[\da-f]{6}$/i.test(color)
-}
-
-/** 读取并校验本地存储中的主题偏好。 */
-function readStoredThemePreference(): ThemeCustomizerTheme {
-  if (!isBrowser()) return 'glass'
-
-  const storedTheme = localStorage.getItem('theme')
-
-  return validThemes.includes(storedTheme as ThemeCustomizerTheme) ? (storedTheme as ThemeCustomizerTheme) : 'glass'
 }
 
 /** 从预设矩阵生成指定质量的清透自然玻璃默认设置。 */
@@ -216,10 +166,7 @@ function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
-    semiDarkMenu: false,
-    shadow: '0',
-    skin: 'default',
-    theme: readStoredThemePreference(),
+    theme: readThemePreference(),
   }
 }
 
@@ -277,14 +224,6 @@ function normalizeGlassPresetOverrides(value: unknown): GlassOpticalPresetOverri
   }
 
   return normalized
-}
-
-/** 将旧版语义阴影档位迁移到 Vuetify elevation 数值档位。 */
-function normalizeThemeCustomizerShadow(shadow: unknown): ThemeCustomizerShadow {
-  if (validShadows.includes(shadow as ThemeCustomizerShadow)) return shadow as ThemeCustomizerShadow
-  if (typeof shadow === 'string' && legacyShadowMap[shadow]) return legacyShadowMap[shadow]
-
-  return getDefaultThemeCustomizerSettings().shadow
 }
 
 /** 规范化持久化的主题定制设置并迁移旧值。 */
@@ -349,14 +288,7 @@ function normalizeThemeCustomizerSettings(
       : fallback.layout,
     primaryColor,
     radius: validRadii.includes(radius as ThemeCustomizerRadius) ? (radius as ThemeCustomizerRadius) : fallback.radius,
-    semiDarkMenu: typeof settings.semiDarkMenu === 'boolean' ? settings.semiDarkMenu : fallback.semiDarkMenu,
-    shadow: normalizeThemeCustomizerShadow(settings.shadow),
-    skin: validSkins.includes(settings.skin as ThemeCustomizerSkin)
-      ? (settings.skin as ThemeCustomizerSkin)
-      : fallback.skin,
-    theme: validThemes.includes(settings.theme as ThemeCustomizerTheme)
-      ? (settings.theme as ThemeCustomizerTheme)
-      : fallback.theme,
+    theme: normalizeThemePreference(settings.theme ?? fallback.theme),
   }
   if (preserveLegacyTransmission && settings.glassPresetOverrides === undefined) {
     const key = getGlassOpticalPresetKey(normalized.glassAppearance, normalized.glassQuality, normalized.glassPreset)
@@ -382,7 +314,7 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
   try {
     const stored = localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)
     const parsed = stored ? JSON.parse(stored) : {}
-    return normalizeThemeCustomizerSettings({ ...parsed, theme: readStoredThemePreference() }, Boolean(stored))
+    return normalizeThemeCustomizerSettings({ ...parsed, theme: readThemePreference() }, Boolean(stored))
   } catch (error) {
     console.warn('读取主题定制设置失败，已使用默认设置:', error)
 
@@ -392,6 +324,19 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
 
 // 生产构建会改写导出函数的声明形式，状态初始化必须放在读取函数定义之后，避免首屏执行时引用未完成赋值的函数。
 const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings())
+
+/** 原生套壳固定的外观仅在运行时投影，退出接管后恢复网页原有设置。 */
+function nativeAppearanceDefaults() {
+  return {
+    ...getDefaultGlassCustomizerSettings(),
+    layout: 'vertical' as const,
+    radius: 'large' as const,
+  }
+}
+
+const activeSettings = computed(() =>
+  nativeChromeActive.value ? { ...settingsState.value, ...nativeAppearanceDefaults() } : settingsState.value,
+)
 type ThemeCustomizerGlassSettings = Pick<
   ThemeCustomizerSettings,
   | 'glassAppearance'
@@ -408,25 +353,29 @@ type ThemeCustomizerGlassSettings = Pick<
   | 'glassTransparencyStrength'
 >
 const glassPreviewState = ref<ThemeCustomizerGlassSettings | null>(null)
-const effectiveGlassSettings = computed(() => ({
-  glassAppearance: glassPreviewState.value?.glassAppearance ?? settingsState.value.glassAppearance,
-  glassUIStyle: glassPreviewState.value?.glassUIStyle ?? settingsState.value.glassUIStyle,
-  glassDeformationStrength:
-    glassPreviewState.value?.glassDeformationStrength ?? settingsState.value.glassDeformationStrength,
-  glassDynamicsMode: glassPreviewState.value?.glassDynamicsMode ?? settingsState.value.glassDynamicsMode,
-  glassFlowStrength: glassPreviewState.value?.glassFlowStrength ?? settingsState.value.glassFlowStrength,
-  glassPreset: glassPreviewState.value?.glassPreset ?? settingsState.value.glassPreset,
-  glassPresetOverrides: glassPreviewState.value?.glassPresetOverrides ?? settingsState.value.glassPresetOverrides,
-  glassQuality: glassPreviewState.value?.glassQuality ?? settingsState.value.glassQuality,
-  glassReflectionStrength:
-    glassPreviewState.value?.glassReflectionStrength ?? settingsState.value.glassReflectionStrength,
-  glassTransmissionStrength:
-    glassPreviewState.value?.glassTransmissionStrength ?? settingsState.value.glassTransmissionStrength,
-  glassTranslationStrength:
-    glassPreviewState.value?.glassTranslationStrength ?? settingsState.value.glassTranslationStrength,
-  glassTransparencyStrength:
-    glassPreviewState.value?.glassTransparencyStrength ?? settingsState.value.glassTransparencyStrength,
-}))
+const effectiveGlassSettings = computed(() =>
+  nativeChromeActive.value
+    ? nativeAppearanceDefaults()
+    : {
+        glassAppearance: glassPreviewState.value?.glassAppearance ?? settingsState.value.glassAppearance,
+        glassUIStyle: glassPreviewState.value?.glassUIStyle ?? settingsState.value.glassUIStyle,
+        glassDeformationStrength:
+          glassPreviewState.value?.glassDeformationStrength ?? settingsState.value.glassDeformationStrength,
+        glassDynamicsMode: glassPreviewState.value?.glassDynamicsMode ?? settingsState.value.glassDynamicsMode,
+        glassFlowStrength: glassPreviewState.value?.glassFlowStrength ?? settingsState.value.glassFlowStrength,
+        glassPreset: glassPreviewState.value?.glassPreset ?? settingsState.value.glassPreset,
+        glassPresetOverrides: glassPreviewState.value?.glassPresetOverrides ?? settingsState.value.glassPresetOverrides,
+        glassQuality: glassPreviewState.value?.glassQuality ?? settingsState.value.glassQuality,
+        glassReflectionStrength:
+          glassPreviewState.value?.glassReflectionStrength ?? settingsState.value.glassReflectionStrength,
+        glassTransmissionStrength:
+          glassPreviewState.value?.glassTransmissionStrength ?? settingsState.value.glassTransmissionStrength,
+        glassTranslationStrength:
+          glassPreviewState.value?.glassTranslationStrength ?? settingsState.value.glassTranslationStrength,
+        glassTransparencyStrength:
+          glassPreviewState.value?.glassTransparencyStrength ?? settingsState.value.glassTransparencyStrength,
+      },
+)
 
 /** 提供当前实际生效的玻璃设置；临时预览优先于已持久化设置。 */
 export function useEffectiveGlassSettings() {
@@ -505,12 +454,10 @@ export function applyThemeCustomizerRootSettings(
     | 'layout'
     | 'primaryColor'
     | 'radius'
-    | 'semiDarkMenu'
-    | 'shadow'
-    | 'skin'
   >,
 ) {
   if (!isBrowser()) return
+  if (nativeChromeActive.value) settings = { ...settings, ...nativeAppearanceDefaults() }
 
   const materialResponse = getGlassMaterialResponse(settings.glassAppearance, settings.glassTransparencyStrength)
   const frostBlur = getGlassCssFrostBlur(settings.glassTransparencyStrength)
@@ -547,9 +494,6 @@ export function applyThemeCustomizerRootSettings(
   applyGlassResponse(document.documentElement)
   document.documentElement.setAttribute('data-theme-layout', settings.layout)
   document.documentElement.setAttribute('data-theme-radius', settings.radius)
-  document.documentElement.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
-  document.documentElement.setAttribute('data-theme-shadow', settings.shadow)
-  document.documentElement.setAttribute('data-theme-skin', settings.skin)
   document.body.setAttribute('data-glass-appearance', settings.glassAppearance)
   document.body.setAttribute('data-glass-ui-style', settings.glassUIStyle)
   document.body.setAttribute('data-glass-quality', settings.glassQuality)
@@ -568,45 +512,23 @@ export function applyThemeCustomizerRootSettings(
   applyGlassResponse(document.body)
   document.body.setAttribute('data-theme-layout', settings.layout)
   document.body.setAttribute('data-theme-radius', settings.radius)
-  document.body.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
-  document.body.setAttribute('data-theme-shadow', settings.shadow)
-  document.body.setAttribute('data-theme-skin', settings.skin)
 }
 
-/** 将自动主题偏好解析为当前系统对应的实际主题。 */
-function getResolvedThemeName(themePreference: ThemeCustomizerTheme) {
-  if (themePreference === 'auto') {
-    return checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
-  }
-
-  return themePreference
+/** 在同一玻璃主题内应用并保存明暗偏好，避免异步样式切换导致闪烁。 */
+function applyThemePreference(preference: ThemeCustomizerTheme, themeApi: VuetifyThemeApi) {
+  localStorage.setItem('theme', preference)
+  themeApi.global.name.value = 'glass'
+  applyGlassThemePalette(themeApi, preference)
+  applyDocumentThemeChrome(preference, {
+    persistLoaderColors: true,
+    primary: themeApi.global.current.value.colors.primary,
+  })
 }
 
-/** 将实际主题名称同步到文档根节点和 body。 */
-function syncThemeAttribute(themeName: string) {
-  document.documentElement.setAttribute('data-theme', themeName)
-  document.body.setAttribute('data-theme', themeName)
-}
-
-/** 应用主题偏好并避免异步样式加载造成旧主题回写。 */
-async function applyThemePreference(themePreference: ThemeCustomizerTheme, themeApi: VuetifyThemeApi) {
-  const currentVersion = ++themeApplyVersion
-  const resolvedTheme = getResolvedThemeName(themePreference)
-
-  themeApi.global.name.value = resolvedTheme
-
-  await themeManager.setTheme(themePreference)
-
-  // 这里再同步一次实际主题，确保自定义主题色应用后根节点底色也保持最新。
-  if (currentVersion === themeApplyVersion) {
-    syncThemeAttribute(resolvedTheme)
-    saveLocalTheme(themePreference, themeApi.global)
-  }
-}
-
-/** 应用已保存的主色、皮肤和布局，供 App 启动阶段在面板挂载前使用。 */
+/** 应用已保存的主色、明暗和布局，供 App 启动阶段在面板挂载前使用。 */
 export function applyStoredThemeCustomizerAppearance(themeApi: VuetifyThemeApi) {
   const settings = readThemeCustomizerSettings()
+  applyThemePreference(settings.theme, themeApi)
 
   glassPreviewState.value = null
   settingsState.value = settings
@@ -638,9 +560,7 @@ export async function restoreThemeCustomizerSettingsFromServer(
   applyPrimaryColorToVuetify(restored.primaryColor, themeApi)
   applyThemeCustomizerRootSettings(restored)
 
-  if (restored.theme !== themeApi.global.name.value) {
-    await applyThemePreference(restored.theme, themeApi)
-  }
+  applyThemePreference(restored.theme, themeApi)
 
   dispatchThemeCustomizerChange(restored)
 
@@ -723,10 +643,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
-    semiDarkMenu: false,
-    shadow: '0',
-    skin: 'default',
-    theme: 'glass',
+    theme: 'auto',
   })
 
   return (
@@ -745,9 +662,6 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     settings.layout === defaults.layout &&
     settings.primaryColor === defaults.primaryColor &&
     settings.radius === defaults.radius &&
-    settings.semiDarkMenu === defaults.semiDarkMenu &&
-    settings.shadow === defaults.shadow &&
-    settings.skin === defaults.skin &&
     settings.theme === defaults.theme
   )
 }
@@ -759,7 +673,14 @@ export function useThemeCustomizer() {
 
   /** 合并、保存并应用一组主题定制设置。 */
   async function updateSettings(patch: Partial<ThemeCustomizerSettings>) {
-    const previousTheme = settings.value.theme
+    // App 只允许明暗与主色变更，其它固定值仅投影，不覆盖网页的布局和材质偏好。
+    if (nativeChromeActive.value) {
+      patch = {
+        ...(patch.primaryColor ? { primaryColor: patch.primaryColor } : {}),
+        ...(patch.theme ? { theme: patch.theme } : {}),
+      }
+      if (!Object.keys(patch).length) return
+    }
     const nextSettings = normalizeThemeCustomizerSettings({
       ...settings.value,
       ...patch,
@@ -772,12 +693,7 @@ export function useThemeCustomizer() {
     applyPrimaryColorToVuetify(nextSettings.primaryColor, themeApi)
     applyThemeCustomizerRootSettings(nextSettings)
 
-    if (
-      previousTheme !== nextSettings.theme ||
-      themeApi.global.name.value !== getResolvedThemeName(nextSettings.theme)
-    ) {
-      await applyThemePreference(nextSettings.theme, themeApi)
-    }
+    applyThemePreference(nextSettings.theme, themeApi)
 
     dispatchThemeCustomizerChange(nextSettings)
   }
@@ -940,24 +856,9 @@ export function useThemeCustomizer() {
     return updateSettings({ theme })
   }
 
-  /** 更新全局阴影档位。 */
-  function setShadow(shadow: ThemeCustomizerShadow) {
-    return updateSettings({ shadow })
-  }
-
-  /** 更新表面皮肤。 */
-  function setSkin(skin: ThemeCustomizerSkin) {
-    return updateSettings({ skin })
-  }
-
   /** 更新桌面布局模式。 */
   function setLayout(layout: ThemeCustomizerLayout) {
     return updateSettings({ layout })
-  }
-
-  /** 更新浅色主题的半深色侧栏设置。 */
-  function setSemiDarkMenu(semiDarkMenu: boolean) {
-    return updateSettings({ semiDarkMenu })
   }
 
   /** 将主题定制器恢复到默认设置。 */
@@ -967,18 +868,13 @@ export function useThemeCustomizer() {
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       radius: 'default',
-      semiDarkMenu: false,
-      shadow: '0',
-      skin: 'default',
-      theme: 'glass',
+      theme: 'auto',
     })
   }
 
-  /** 在自动主题模式下响应系统配色变化。 */
+  /** 跟随系统时刷新语义色，手动明暗不受系统变化覆盖。 */
   function handleSystemThemeChange() {
-    if (settings.value.theme === 'auto') {
-      updateSettings({ theme: 'auto' })
-    }
+    if (settings.value.theme === 'auto') applyThemePreference('auto', themeApi)
   }
 
   let mediaQuery: MediaQueryList | null = null
@@ -999,6 +895,7 @@ export function useThemeCustomizer() {
   return {
     isCustomized: computed(() => !isDefaultThemeCustomizerSettings(settings.value)),
     resetSettings,
+    updateSettings,
     setGlassAppearance,
     setGlassUIStyle,
     setGlassDeformationStrength,
@@ -1013,10 +910,7 @@ export function useThemeCustomizer() {
     setLayout,
     setPrimaryColor,
     setRadius,
-    setSemiDarkMenu,
-    setShadow,
-    setSkin,
     setTheme,
-    settings: readonly(settings),
+    settings: readonly(activeSettings),
   }
 }

@@ -434,7 +434,7 @@ async function save() {
     }
 
     // 浅色主题下纱是浅色的，补一团更浓的同色光和一道柔和的落影，勋章仍有浮起的感觉。
-    .v-theme--light &::before {
+    [data-glass-color-scheme='light'] &::before {
       background: radial-gradient(
         closest-side,
         color-mix(in srgb, var(--medal-tone) 48%, transparent),
@@ -443,7 +443,7 @@ async function save() {
       );
     }
 
-    .v-theme--light &::after {
+    [data-glass-color-scheme='light'] &::after {
       position: absolute;
       background: radial-gradient(closest-side, rgba(0, 0, 0, 0.22), transparent);
       block-size: 6%;

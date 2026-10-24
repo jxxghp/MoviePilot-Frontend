@@ -29,15 +29,9 @@ const failedOperation = ref<'load' | 'refresh'>()
 
 const vuetifyTheme = useTheme()
 
-const currentTheme = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => vuetifyTheme.current.value.colors,
-)
+const currentTheme = computed(() => vuetifyTheme.current.value.colors)
 
-const variableTheme = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => vuetifyTheme.current.value.variables,
-)
+const variableTheme = computed(() => vuetifyTheme.current.value.variables)
 
 /** 将 Vuetify 主题颜色转换为 ApexCharts 使用的透明色。 */
 function toThemeRgba(color: unknown, opacity: string | number) {

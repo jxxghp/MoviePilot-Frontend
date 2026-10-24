@@ -22,14 +22,8 @@ const props = defineProps({
 
 const vuetifyTheme = useTheme()
 
-const currentTheme = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => vuetifyTheme.current.value.colors,
-)
-const variableTheme = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => vuetifyTheme.current.value.variables,
-)
+const currentTheme = computed(() => vuetifyTheme.current.value.colors)
+const variableTheme = computed(() => vuetifyTheme.current.value.variables)
 
 // 时间序列 - 上行和下行流量
 const series = ref([
@@ -69,101 +63,99 @@ const networkChartMax = computed(() => {
   return Math.max(unit, Math.ceil(peak / unit) * unit)
 })
 
-const chartOptions = controlledComputed(
-  () => `${vuetifyTheme.name.value}:${networkChartMax.value}`,
-  () => {
-    const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
+/** 同一 glass 主题的系统明暗及主色变化需要同步更新坐标和序列颜色。 */
+const chartOptions = computed(() => {
+  const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
 
-    return {
-      chart: {
-        parentHeightOffset: 0,
-        toolbar: { show: false },
-        zoom: { enabled: false, allowMouseWheelZoom: false },
-        selection: { enabled: false },
-        animations: { enabled: false },
-        foreColor: axisLabelColor,
-      },
-      tooltip: {
-        enabled: false,
-      },
-      grid: {
-        borderColor: `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
-          variableTheme.value['border-opacity']
-        })`,
-        strokeDashArray: 6,
-        xaxis: {
-          lines: { show: false },
-        },
-        yaxis: {
-          lines: { show: true },
-        },
-        padding: {
-          top: -10,
-          left: 0,
-          right: 5,
-          bottom: 5,
-        },
-      },
-      stroke: {
-        width: 3,
-        lineCap: 'butt',
-        curve: 'smooth',
-      },
-      colors: [currentTheme.value.warning, currentTheme.value.info],
-      fill: {
-        opacity: [0.2, 0.12],
-      },
-      markers: {
-        size: 6,
-        offsetY: 4,
-        offsetX: 4,
-        strokeWidth: 3,
-        colors: ['transparent'],
-        strokeColors: 'transparent',
-        discrete: [
-          {
-            size: 5.5,
-            seriesIndex: 0,
-            strokeColor: currentTheme.value.warning,
-            fillColor: currentTheme.value.surface,
-          },
-          {
-            size: 5.5,
-            seriesIndex: 1,
-            strokeColor: currentTheme.value.info,
-            fillColor: currentTheme.value.surface,
-          },
-        ],
-        hover: { size: 7 },
-      },
-      dataLabels: {
-        enabled: false,
-      },
+  return {
+    chart: {
+      parentHeightOffset: 0,
+      toolbar: { show: false },
+      zoom: { enabled: false, allowMouseWheelZoom: false },
+      selection: { enabled: false },
+      animations: { enabled: false },
+      foreColor: axisLabelColor,
+    },
+    tooltip: {
+      enabled: false,
+    },
+    grid: {
+      borderColor: `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
+        variableTheme.value['border-opacity']
+      })`,
+      strokeDashArray: 6,
       xaxis: {
-        labels: { show: false },
-        axisTicks: { show: false },
-        axisBorder: { show: false },
+        lines: { show: false },
       },
       yaxis: {
-        labels: {
-          show: true,
-          formatter: (value: number) =>
-            `${formatDashboardFileSize(value, value >= 1024 ** 2 ? 1 : 0, networkChartMax.value)}/s`,
-          style: {
-            colors: axisLabelColor,
-            fontSize: '10px',
-          },
+        lines: { show: true },
+      },
+      padding: {
+        top: -10,
+        left: 0,
+        right: 5,
+        bottom: 5,
+      },
+    },
+    stroke: {
+      width: 3,
+      lineCap: 'butt',
+      curve: 'smooth',
+    },
+    colors: [currentTheme.value.warning, currentTheme.value.info],
+    fill: {
+      opacity: [0.2, 0.12],
+    },
+    markers: {
+      size: 6,
+      offsetY: 4,
+      offsetX: 4,
+      strokeWidth: 3,
+      colors: ['transparent'],
+      strokeColors: 'transparent',
+      discrete: [
+        {
+          size: 5.5,
+          seriesIndex: 0,
+          strokeColor: currentTheme.value.warning,
+          fillColor: currentTheme.value.surface,
         },
-        tickAmount: 2,
-        max: networkChartMax.value,
-        min: 0,
+        {
+          size: 5.5,
+          seriesIndex: 1,
+          strokeColor: currentTheme.value.info,
+          fillColor: currentTheme.value.surface,
+        },
+      ],
+      hover: { size: 7 },
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    xaxis: {
+      labels: { show: false },
+      axisTicks: { show: false },
+      axisBorder: { show: false },
+    },
+    yaxis: {
+      labels: {
+        show: true,
+        formatter: (value: number) =>
+          `${formatDashboardFileSize(value, value >= 1024 ** 2 ? 1 : 0, networkChartMax.value)}/s`,
+        style: {
+          colors: axisLabelColor,
+          fontSize: '10px',
+        },
       },
-      legend: {
-        show: false,
-      },
-    }
-  },
-)
+      tickAmount: 2,
+      max: networkChartMax.value,
+      min: 0,
+    },
+    legend: {
+      show: false,
+    },
+  }
+})
 
 // 调用API接口获取最新网络流量
 async function getNetworkUsage() {

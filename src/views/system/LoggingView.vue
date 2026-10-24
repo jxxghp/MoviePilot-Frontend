@@ -86,7 +86,6 @@ const logColorMap: Record<string, string> = {
 }
 
 const isDarkTheme = computed(() => theme.global.current.value.dark)
-const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 const normalizedSearchQuery = computed(() => (searchQuery.value ?? '').trim().toLowerCase())
 const { availableHeight } = useAvailableHeight(96, 320)
 
@@ -611,11 +610,7 @@ onUnmounted(() => {
 
 <template>
   <VProgressLinear v-if="!isStreamPaused" class="logging-live-progress" indeterminate color="primary" height="1" />
-  <div
-    class="logging-view"
-    :class="{ 'is-dark-theme': isDarkTheme, 'is-transparent-theme': isTransparentTheme }"
-    :style="loggingViewStyle"
-  >
+  <div class="logging-view" :class="{ 'is-dark-theme': isDarkTheme }" :style="loggingViewStyle">
     <div class="logging-toolbar px-3">
       <VBtnToggle
         v-if="display.mdAndUp.value"
@@ -780,14 +775,6 @@ onUnmounted(() => {
   --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 4%);
 }
 
-.logging-view.is-transparent-theme {
-  --logging-shell-bg: transparent;
-  --logging-record-bg-even: transparent;
-  --logging-record-bg-odd: transparent;
-  --logging-border: rgba(var(--v-theme-on-surface), 0.1);
-  --logging-shadow: none;
-}
-
 .logging-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -939,11 +926,6 @@ onUnmounted(() => {
   box-shadow: var(--logging-shadow);
 }
 
-.logging-view.is-transparent-theme .logging-shell {
-  backdrop-filter: none;
-  background: transparent;
-}
-
 .logging-loading-overlay {
   position: sticky;
   z-index: 2;
@@ -961,11 +943,6 @@ onUnmounted(() => {
 
 .logging-view.is-dark-theme .logging-loading-overlay {
   background: linear-gradient(180deg, rgba(var(--v-theme-surface), 0.62), rgba(var(--v-theme-surface), 0.52));
-}
-
-.logging-view.is-transparent-theme .logging-loading-overlay {
-  backdrop-filter: none;
-  background: transparent;
 }
 
 .logging-loading-overlay :deep(.initial-loading-container) {

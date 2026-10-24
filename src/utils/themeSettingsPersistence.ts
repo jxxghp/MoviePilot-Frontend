@@ -14,9 +14,6 @@ import api from '@/api'
 /** 主题定制设置的服务端配置键。 */
 export const THEME_CUSTOMIZER_REMOTE_KEY = 'ThemeCustomizerSettings'
 
-/** 透明主题设置的服务端配置键。 */
-export const TRANSPARENCY_REMOTE_KEY = 'TransparencySettings'
-
 /** 服务端用户配置接口前缀。 */
 const USER_CONFIG_ENDPOINT = 'user/config'
 

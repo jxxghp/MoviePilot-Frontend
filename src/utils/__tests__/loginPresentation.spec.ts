@@ -2,20 +2,12 @@ import {
   activateLoginBackgroundLayer,
   createLoginBackgroundLayers,
   getLoginGlassOpticalSettings,
-  getLoginVisualProfile,
   prepareLoginBackgroundLayer,
   settleLoginBackgroundLayers,
 } from '@/utils/loginPresentation'
 import { describe, expect, it } from 'vitest'
 
 describe('login presentation', () => {
-  it('maps resolved themes to mutually exclusive visual profiles', () => {
-    expect(getLoginVisualProfile('glass')).toBe('glass')
-    expect(getLoginVisualProfile('transparent')).toBe('transparent')
-    expect(getLoginVisualProfile('purple')).toBe('classic')
-    expect(getLoginVisualProfile('light')).toBe('classic')
-  })
-
   it('forces high-quality capability while preserving all six user strengths', () => {
     expect(
       getLoginGlassOpticalSettings({

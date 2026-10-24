@@ -1299,7 +1299,7 @@ onActivated(() => {
   }
 }
 
-.v-theme--dark .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-drawerToggler-button {
+[data-glass-color-scheme='dark'] .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-drawerToggler-button {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' stroke='rgba(232,232,241,0.68)' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round' class='css-i6dzq1'%3E%3Cpath d='M3 12h18M3 6h18M3 18h18'/%3E%3C/svg%3E");
 }
 
@@ -1987,15 +1987,6 @@ onActivated(() => {
 
 .mobile-calendar-empty p {
   margin: 0;
-}
-
-html[data-theme='transparent'] .mobile-subscribe-calendar,
-.v-theme--transparent .mobile-subscribe-calendar {
-  --mobile-calendar-control-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-  --mobile-calendar-event-bg-opacity: var(--transparent-opacity-light, 0.2);
-  --mobile-calendar-placeholder-bg: rgba(var(--v-theme-surface), var(--transparent-opacity, 0.3));
-  --mobile-calendar-surface-bg-opacity: var(--transparent-opacity-light, 0.2);
-  --mobile-calendar-surface-blur: blur(var(--transparent-blur, 10px));
 }
 
 @media (width <= 420px) {

@@ -485,7 +485,7 @@ export default {
     dark: 'Dark',
     auto: 'Follow System',
     autoUI: 'Auto',
-    transparent: 'Transparent',
+
     glass: 'Glass',
     glassSettings: 'Glass Settings',
     glassAppearance: 'Material',
@@ -531,25 +531,9 @@ export default {
       'Clarity controls wallpaper texture visibility. Transmission Brightness controls the background inside the glass. Reflection Brightness controls surface reflections and highlights.',
     glassOpticalStrengthHint:
       'Sample Translation moves the shared wallpaper. Deformation controls local bending. Flow Strength controls trail range and inertia.',
-    purple: 'Purple',
+
     custom: 'Custom Style',
-    transparency: 'Transparency',
-    transparencyAdjust: 'Transparency Adjustment',
-    transparencyOpacity: 'Opacity',
-    transparencyBlur: 'Blur',
-    backgroundPosterOpacity: 'Background Opacity',
-    backgroundBlur: 'Background Frosted Blur',
-    transparencyGlassQuality: 'Glass Effect Quality',
-    transparencyGlassQualityLightweight: 'Lightweight',
-    transparencyGlassQualityRealtime: 'Realtime',
-    transparencyGlassQualityLightweightHint:
-      'Keeps a similar translucent glass look while reducing live background sampling on dense pages.',
-    transparencyGlassQualityRealtimeHint:
-      'Uses the full live glass rendering path for higher visual quality, but may increase GPU usage.',
-    transparencyReset: 'Reset',
-    transparencyLow: 'Low Transparency',
-    transparencyMedium: 'Medium Transparency',
-    transparencyHigh: 'High Transparency',
+
     customCssSaveSuccess: 'Custom CSS saved successfully, please refresh the page to take effect!',
     appearanceRestoreFailed: 'Failed to restore appearance settings from the server, local settings are used',
     appearanceSyncHint: 'Appearance settings are synced to your account and restored after clearing browser data.',
@@ -562,18 +546,14 @@ export default {
       primaryColor: 'Primary Color',
       usePrimaryColor: 'Use {color} primary color',
       chooseCustomColor: 'Choose custom primary color',
-      skins: 'Borders',
-      skinDefault: 'No Border',
-      skinBordered: 'Bordered',
+
       radius: 'Corners',
       radiusNone: 'Square',
       radiusSmall: 'Small',
       radiusDefault: 'Default',
       radiusLarge: 'Large',
       radiusExtra: 'Larger',
-      shadow: 'Shadows',
-      shadowLevel: 'Level {level}',
-      semiDarkMenu: 'Semi Dark Menu',
+
       layout: 'Layout',
       layoutVertical: 'Vertical',
       layoutCollapsed: 'Collapsed',

@@ -36,7 +36,6 @@ export default defineComponent({
     const navbarRefractionMode = supportsGlassNavbarLiveRefraction() ? 'chromium' : 'goal1'
     const initialThemeSettings = readThemeCustomizerSettings()
     const themeLayout = ref(initialThemeSettings.layout)
-    const shellTheme = ref(initialThemeSettings.theme)
     const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
     const isOverlayShell = computed(() => mdAndDown.value && !appMode.value)
     const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
@@ -77,7 +76,7 @@ export default defineComponent({
     const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
     const isGlassFloatingAway = ref(false)
     const navbarExpandProgress = computed(() =>
-      shellTheme.value === 'glass' && isFloatingNavbarEligible.value
+      isFloatingNavbarEligible.value
         ? getHorizontalNavbarProgress(shellScroll.scrollY.value, navbarGeometry.value.scrollDistance)
         : 0,
     )
@@ -91,9 +90,9 @@ export default defineComponent({
 
     // 桌面内容进入导航下方即启用阅读保护，不等待移动 App 的 64px 收起阈值。
     watch(
-      () => [shellScroll.scrollY.value, canUseDesktopLayout.value, shellTheme.value] as const,
-      ([scrollY, eligible, theme]) => {
-        if (!eligible || theme !== 'glass' || scrollY <= 4) isGlassFloatingAway.value = false
+      () => [shellScroll.scrollY.value, canUseDesktopLayout.value] as const,
+      ([scrollY, eligible]) => {
+        if (!eligible || scrollY <= 4) isGlassFloatingAway.value = false
         else if (scrollY >= 12) isGlassFloatingAway.value = true
       },
       { immediate: true },
@@ -102,7 +101,6 @@ export default defineComponent({
     const handleThemeCustomizerChange = (event: Event) => {
       const settings = (event as CustomEvent<ThemeCustomizerSettings>).detail
       themeLayout.value = settings.layout
-      shellTheme.value = settings.theme
     }
 
     // 监听弹窗状态变化
@@ -194,10 +192,9 @@ export default defineComponent({
 
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
-      const isNavbarAwayFromTop =
-        canUseDesktopLayout.value && shellTheme.value === 'glass'
-          ? isGlassFloatingAway.value
-          : shellScroll.state.value !== 'expanded'
+      const isNavbarAwayFromTop = canUseDesktopLayout.value
+        ? isGlassFloatingAway.value
+        : shellScroll.state.value !== 'expanded'
       // compact/revealed 是 App 上下文顶栏的呈现状态；其他 Shell 只消费 away-from-top 材质状态。
       const isNavbarCompact = appMode.value && shellScroll.state.value === 'compact'
       const isNavbarRevealed = appMode.value && shellScroll.state.value === 'revealed'
@@ -363,9 +360,7 @@ export default defineComponent({
 
   @at-root {
     // 只有具备连续透射背景的特殊主题可解释顶栏四周的空间；WCO 与连接式导航保持附着。
-    html:is([data-theme='transparent'], [data-theme='glass'])
-      .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible
-      .layout-navbar {
+    html[data-theme='glass'] .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible .layout-navbar {
       inset-block-start: 0;
       inset-inline: 0;
       transform: translate3d(0, 0, 0) scaleX(1);
@@ -390,7 +385,7 @@ export default defineComponent({
       }
     }
 
-    html:is([data-theme='transparent'], [data-theme='glass'])
+    html[data-theme='glass']
       .layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top
       .layout-navbar {
       border-radius: var(--shell-floating-navbar-radius);
@@ -635,87 +630,6 @@ export default defineComponent({
         background-color: transparent !important;
         content: none !important;
         filter: none !important;
-      }
-    }
-
-    html[data-theme='transparent'] .layout-wrapper.layout-horizontal-nav-active .layout-navbar,
-    .v-theme--transparent .layout-wrapper.layout-horizontal-nav-active .layout-navbar {
-      backdrop-filter: none !important;
-      background: transparent !important;
-      border-block-end-color: rgba(var(--v-theme-on-surface), 0.04);
-      box-shadow: none !important;
-    }
-
-    html[data-theme='transparent'] .layout-wrapper.layout-horizontal-nav-active .navbar-content-container,
-    .v-theme--transparent .layout-wrapper.layout-horizontal-nav-active .navbar-content-container {
-      backdrop-filter: none !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    // 透明主题的水平导航不叠加滚动磨砂层，避免中间区域出现一块更深的背景。
-    html[data-theme='transparent']
-      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
-      .layout-navbar,
-    .v-theme--transparent
-      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
-      .layout-navbar {
-      backdrop-filter: blur(var(--transparent-blur-light, 6px)) !important;
-      background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2)) !important;
-      box-shadow: none !important;
-    }
-
-    // 透明主题滚动时只让外层导航栏承载整屏背景，避免内部最大宽度容器单独变深。
-    html[data-theme='transparent']
-      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
-      .navbar-content-container,
-    .v-theme--transparent
-      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
-      .navbar-content-container {
-      backdrop-filter: none !important;
-      background: transparent !important;
-      background-color: transparent !important;
-      box-shadow: none !important;
-      filter: none !important;
-      padding-inline: 1.5rem !important;
-
-      &::before {
-        display: none !important;
-        backdrop-filter: none !important;
-        background: transparent !important;
-        background-color: transparent !important;
-        content: none !important;
-        filter: none !important;
-      }
-    }
-
-    html[data-theme='light'][data-theme-semi-dark-menu='true'][data-theme-layout='vertical']
-      .layout-wrapper.layout-nav-type-vertical:not(.layout-horizontal-nav-active)
-      .layout-vertical-nav:not(.overlay-nav),
-    html[data-theme='light'][data-theme-semi-dark-menu='true'][data-theme-layout='collapsed']
-      .layout-wrapper.layout-nav-type-vertical:not(.layout-horizontal-nav-active)
-      .layout-vertical-nav:not(.overlay-nav) {
-      background: #2f3349;
-      color: #e7e3fc;
-
-      .app-logo h1,
-      .nav-section-title,
-      .nav-link > a,
-      .nav-item-icon {
-        color: rgba(231, 227, 252, 78%) !important;
-      }
-
-      .nav-link > a:hover {
-        background-color: rgba(231, 227, 252, 6%);
-      }
-
-      .nav-link > .router-link-exact-active {
-        color: #fff !important;
-
-        .nav-item-icon,
-        .nav-item-title {
-          color: #fff !important;
-        }
       }
     }
   }

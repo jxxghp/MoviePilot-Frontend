@@ -8,12 +8,10 @@ const props = withDefaults(
     subtitle?: string
     icon: string
     collapsed?: boolean
-    transparent?: boolean
   }>(),
   {
     subtitle: '',
     collapsed: true,
-    transparent: false,
   },
 )
 
@@ -28,11 +26,7 @@ function toggleCollapsed() {
 </script>
 
 <template>
-  <VCard
-    variant="outlined"
-    class="collapsible-setting-card"
-    :class="{ 'collapsible-setting-card--transparent': props.transparent }"
-  >
+  <VCard variant="outlined" class="collapsible-setting-card">
     <div class="collapsible-setting-card__header">
       <button
         type="button"
@@ -76,11 +70,6 @@ function toggleCollapsed() {
 .collapsible-setting-card {
   border-color: rgba(var(--v-theme-primary), 0.15);
   background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
-}
-
-.collapsible-setting-card--transparent {
-  border-color: rgba(var(--v-theme-primary), 0);
-  background: rgba(var(--v-theme-surface), 0) !important;
 }
 
 .collapsible-setting-card__header {

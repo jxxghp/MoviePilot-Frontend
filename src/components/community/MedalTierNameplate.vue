@@ -71,7 +71,7 @@ const { t } = useI18n()
     font-size: 0.75rem;
   }
 
-  .v-theme--light & {
+  [data-glass-color-scheme='light'] & {
     color: var(--plate-light-ink);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%);
   }

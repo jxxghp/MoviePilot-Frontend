@@ -6,10 +6,15 @@
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
-  --glass-surface: rgba(28, 28, 30, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2));
-  --glass-surface-soft: rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.62) * 0.23));
-  --glass-surface-raised: rgba(28, 28, 30, calc(0.07 + var(--glass-surface-density, 0.62) * 0.36));
-  --glass-control: rgba(28, 28, 30, 52%);
+  --glass-material-rgb: 28, 28, 30;
+  --glass-popup-rgb: 44, 44, 46;
+  --glass-shell-rgb: 28, 28, 30;
+  --glass-frosted-rgb: 242, 242, 247;
+  --glass-wallpaper-shade-rgb: 0, 0, 0;
+  --glass-surface: rgba(var(--glass-material-rgb), calc(0.12 + var(--glass-surface-density, 0.62) * 0.2));
+  --glass-surface-soft: rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.62) * 0.23));
+  --glass-surface-raised: rgba(var(--glass-material-rgb), calc(0.07 + var(--glass-surface-density, 0.62) * 0.36));
+  --glass-control: rgba(var(--glass-material-rgb), 52%);
   --glass-control-prominent: rgba(255, 255, 255, 7%);
   --glass-control-prominent-focus: color-mix(in srgb, rgba(255, 255, 255, 10%) 84%, rgba(var(--v-theme-primary), 24%));
   --glass-border: rgba(255, 255, 255, calc(0.04 + var(--glass-reflection, 0.5) * 0.12));
@@ -57,21 +62,21 @@ html[data-theme='glass'] {
   --glass-navbar-live-filter: none;
   --glass-sidebar-live-filter: var(--glass-fixed-shell-backdrop-filter);
   // 清透弹层不散射背景，靠独立吸收层区分前后两组文字，不改变内容卡片的通透度。
-  --glass-overlay-surface: rgba(28, 28, 30, calc(0.58 + var(--glass-surface-density, 0.62) * 0.18));
+  --glass-overlay-surface: rgba(var(--glass-material-rgb), calc(0.58 + var(--glass-surface-density, 0.62) * 0.18));
   --glass-overlay-blur: 0px;
   --glass-overlay-saturate: 115%;
   --glass-overlay-scrim: rgba(0, 0, 0, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
-  --glass-control-icon-color: rgba(242, 242, 247, 70%);
-  --glass-control-placeholder-color: rgba(242, 242, 247, 54%);
+  --glass-control-icon-color: rgba(var(--v-theme-on-surface), 70%);
+  --glass-control-placeholder-color: rgba(var(--v-theme-on-surface), 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
   --glass-control-shortcut-border: rgba(255, 255, 255, 12%);
-  --glass-control-shortcut-color: rgba(242, 242, 247, 68%);
+  --glass-control-shortcut-color: rgba(var(--v-theme-on-surface), 68%);
   // 小标签由透光底色与镜面高光承载材质，不为每个标签重复采样背景；光学预算留给主要表面。
   --glass-chip-backdrop-filter: none;
   --glass-chip-sheen:
     linear-gradient(135deg, rgba(255, 255, 255, 12%), transparent 38%, rgba(255, 255, 255, 3%) 72%, transparent),
-    linear-gradient(rgba(28, 28, 30, 36%), rgba(28, 28, 30, 36%));
+    linear-gradient(rgba(var(--glass-material-rgb), 36%), rgba(var(--glass-material-rgb), 36%));
   --glass-chip-tint-opacity: calc(0.22 + var(--glass-tint-density, 0.65) * 0.18);
   --glass-button-surface: rgba(255, 255, 255, 8%);
   --glass-button-surface-hover: rgba(255, 255, 255, 12%);
@@ -111,39 +116,39 @@ html[data-theme='glass'] {
   --app-grouped-list-backdrop-filter: var(--glass-surface-backdrop-filter);
   --app-grouped-list-border: 1px solid var(--glass-border);
   --app-grouped-list-separator-color: rgba(255, 255, 255, 10%);
-  --app-grouped-list-header-color: rgba(242, 242, 247, 68%);
-  --app-grouped-list-chevron-color: rgba(242, 242, 247, 56%);
+  --app-grouped-list-header-color: rgba(var(--v-theme-on-surface), 68%);
+  --app-grouped-list-chevron-color: rgba(var(--v-theme-on-surface), 56%);
   --app-grouped-list-hover-background: rgba(255, 255, 255, 8%);
   --app-grouped-list-active-background: rgba(var(--v-theme-primary), 16%);
   --mp-motion-duration-page: 180ms;
   --mp-motion-duration-overlay: 180ms;
   --mp-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  background-color: #000000;
+  background-color: rgb(var(--v-theme-background));
   color-scheme: dark;
 
   body {
-    background-color: #000000;
+    background-color: rgb(var(--v-theme-background));
   }
 
   // 色调保持与透明材质接近的透光度，只叠加主色语义。
   &[data-glass-appearance='tinted'] {
     --glass-surface: color-mix(
       in srgb,
-      rgba(28, 28, 30, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
+      rgba(var(--glass-material-rgb), calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.28))
     );
     --glass-surface-soft: color-mix(
       in srgb,
-      rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%,
+      rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.26))
     );
     --glass-surface-raised: color-mix(
       in srgb,
-      rgba(28, 28, 30, calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%,
+      rgba(var(--glass-material-rgb), calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.32))
     );
-    --glass-control: color-mix(in srgb, rgba(28, 28, 30, 52%) 88%, rgba(var(--v-theme-primary), 28%));
+    --glass-control: color-mix(in srgb, rgba(var(--glass-material-rgb), 52%) 88%, rgba(var(--v-theme-primary), 28%));
     --glass-control-prominent: color-mix(in srgb, rgba(255, 255, 255, 7%) 82%, rgba(var(--v-theme-primary), 24%));
     --glass-control-prominent-focus: color-mix(
       in srgb,
@@ -184,7 +189,7 @@ html[data-theme='glass'] {
     );
     --glass-overlay-surface: color-mix(
       in srgb,
-      rgba(28, 28, 30, calc(0.58 + var(--glass-surface-density, 0.72) * 0.18)) 88%,
+      rgba(var(--glass-material-rgb), calc(0.58 + var(--glass-surface-density, 0.72) * 0.18)) 88%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
     --glass-overlay-blur: 0px;
@@ -263,16 +268,16 @@ html[data-theme='glass'] {
     // 高光负责透光感，轻量吸收底面隔开海报细节与标签文字，不重新建立背景滤镜。
     --glass-chip-sheen:
       linear-gradient(135deg, rgba(255, 255, 255, 14%), transparent 36%, rgba(255, 255, 255, 5%) 72%, transparent),
-      linear-gradient(rgba(28, 28, 30, 42%), rgba(28, 28, 30, 42%));
+      linear-gradient(rgba(var(--glass-material-rgb), 42%), rgba(var(--glass-material-rgb), 42%));
     --glass-blur-surface: 40px;
     --glass-blur: 40px;
     --glass-blur-raised: 60px;
     --glass-saturate: 180%;
-    --glass-control-icon-color: rgba(242, 242, 247, 78%);
-    --glass-control-placeholder-color: rgba(242, 242, 247, 62%);
+    --glass-control-icon-color: rgba(var(--v-theme-on-surface), 78%);
+    --glass-control-placeholder-color: rgba(var(--v-theme-on-surface), 62%);
     --glass-control-shortcut-background: rgba(255, 255, 255, 11%);
     --glass-control-shortcut-border: rgba(255, 255, 255, 16%);
-    --glass-control-shortcut-color: rgba(242, 242, 247, 76%);
+    --glass-control-shortcut-color: rgba(var(--v-theme-on-surface), 76%);
     --glass-button-surface: rgba(255, 255, 255, 10%);
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
     --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
@@ -522,8 +527,8 @@ html[data-theme='glass'] {
         var(--glass-sheen),
         linear-gradient(
           90deg,
-          rgba(28, 28, 30, var(--glass-sidebar-absorption-start)),
-          rgba(28, 28, 30, var(--glass-sidebar-absorption-end))
+          rgba(var(--glass-material-rgb), var(--glass-sidebar-absorption-start)),
+          rgba(var(--glass-material-rgb), var(--glass-sidebar-absorption-end))
         );
       box-shadow:
         inset -1px 0 0 rgba(255, 255, 255, var(--glass-sidebar-edge-opacity)),
@@ -553,8 +558,8 @@ html[data-theme='glass'] {
       background:
         var(--glass-sheen),
         linear-gradient(
-          rgba(28, 28, 30, var(--glass-sidebar-absorption-start)),
-          rgba(28, 28, 30, var(--glass-sidebar-absorption-end))
+          rgba(var(--glass-material-rgb), var(--glass-sidebar-absorption-start)),
+          rgba(var(--glass-material-rgb), var(--glass-sidebar-absorption-end))
         ) !important;
     }
   }
@@ -626,33 +631,6 @@ html[data-theme='glass'] {
   .theme-customizer-panel,
   .agent-assistant-shell {
     background-color: transparent !important;
-  }
-
-  :where(.theme-customizer-border-scene, .theme-customizer-radius-scene) {
-    border-color: var(--glass-border) !important;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 4%), rgba(255, 255, 255, 7%)), rgba(255, 255, 255, 3%) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 12%),
-      inset 0 -1px 0 rgba(0, 0, 0, 18%);
-  }
-
-  :where(
-    .theme-customizer-border-scene__card,
-    .theme-customizer-border-scene__dialog,
-    .theme-customizer-border-scene__menu,
-    .theme-customizer-radius-scene__card
-  ) {
-    border-color: rgba(255, 255, 255, 18%);
-    background: rgba(255, 255, 255, 7%) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 14%),
-      inset 0 -1px 0 rgba(0, 0, 0, 20%);
-  }
-
-  .theme-customizer-preview-option.is-active > :where(.theme-customizer-border-scene, .theme-customizer-radius-scene) {
-    border-color: rgb(var(--v-theme-primary)) !important;
-    background: rgba(var(--v-theme-primary), 8%) !important;
   }
 
   .agent-assistant-shell {
@@ -839,7 +817,7 @@ html[data-theme='glass'] {
 
   .v-field input::placeholder,
   .v-field textarea::placeholder {
-    color: rgba(242, 242, 247, 38%);
+    color: rgba(var(--v-theme-on-surface), 38%);
     opacity: 1;
   }
 
@@ -872,7 +850,7 @@ html[data-theme='glass'] {
   }
 
   .ace_editor .ace_gutter {
-    color: rgba(242, 242, 247, 44%) !important;
+    color: rgba(var(--v-theme-on-surface), 44%) !important;
   }
 
   .ace_editor .ace_marker-layer .ace_active-line,
@@ -1121,8 +1099,8 @@ html[data-theme='glass'] {
     --workflow-share-glass-start-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.38);
     --workflow-share-glass-end-opacity: calc(0.24 + var(--glass-tint-density, 0.65) * 0.42);
     --workflow-share-glass-scrim: linear-gradient(
-      rgba(28, 28, 30, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
-      rgba(28, 28, 30, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
+      rgba(var(--glass-material-rgb), calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
+      rgba(var(--glass-material-rgb), calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
     );
     // Glass V3 用更高优先级的整卡 background 覆盖普通卡片样式，这里把分享卡的色相接入同一材质 token。
     --workflow-share-glass-background:
@@ -1143,8 +1121,8 @@ html[data-theme='glass'] {
     border-block-end: 1px solid var(--glass-border);
 
     --plugin-card-banner-scrim: linear-gradient(
-      rgba(28, 28, 30, calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
-      rgba(28, 28, 30, calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
+      rgba(var(--glass-material-rgb), calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
     );
     --plugin-card-banner-tint: linear-gradient(
       135deg,
@@ -1171,8 +1149,8 @@ html[data-theme='glass'] {
   // 磨砂材质透光更强，染色需要同步减弱以免头部压过卡片本体。
   &[data-glass-appearance='frosted'] .plugin-card__banner {
     --plugin-card-banner-scrim: linear-gradient(
-      rgba(28, 28, 30, calc(0.1 + var(--glass-surface-density, 0.86) * 0.09)) 0%,
-      rgba(28, 28, 30, calc(0.14 + var(--glass-surface-density, 0.86) * 0.145)) 100%
+      rgba(var(--glass-material-rgb), calc(0.1 + var(--glass-surface-density, 0.86) * 0.09)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.14 + var(--glass-surface-density, 0.86) * 0.145)) 100%
     );
     --plugin-card-banner-tint: linear-gradient(
       135deg,
@@ -1201,8 +1179,8 @@ html[data-theme='glass'] {
     --workflow-share-glass-start-opacity: calc(0.12 + var(--glass-tint-density, 0.65) * 0.28);
     --workflow-share-glass-end-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.34);
     --workflow-share-glass-scrim: linear-gradient(
-      rgba(28, 28, 30, calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
-      rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
+      rgba(var(--glass-material-rgb), calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
+      rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
     );
   }
 
@@ -1255,8 +1233,8 @@ html[data-theme='glass'] {
     --workflow-share-glass-start-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.32);
     --workflow-share-glass-end-opacity: calc(0.21 + var(--glass-tint-density, 0.65) * 0.38);
     --workflow-share-glass-scrim: linear-gradient(
-      rgba(28, 28, 30, calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
-      rgba(28, 28, 30, calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
+      rgba(var(--glass-material-rgb), calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
+      rgba(var(--glass-material-rgb), calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
     );
   }
 
@@ -1276,8 +1254,8 @@ html[data-theme='glass'] {
 
   .plugin-folder-card__overlay {
     background: linear-gradient(
-      rgba(28, 28, 30, calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
-      rgba(28, 28, 30, calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
+      rgba(var(--glass-material-rgb), calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
     );
   }
 
@@ -1475,7 +1453,7 @@ html[data-theme='glass'] {
       .theme-customizer-panel-host,
       .agent-assistant-panel
     ) {
-      background-color: rgba(44, 44, 46, 94%) !important;
+      background-color: rgba(var(--glass-popup-rgb), 94%) !important;
     }
   }
 
@@ -1492,19 +1470,19 @@ html[data-theme='glass'] {
     ) {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: rgb(28, 28, 30) !important;
+      background-color: rgb(var(--glass-material-rgb)) !important;
     }
 
     .layout-vertical-nav::before {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: rgb(28, 28, 30) !important;
+      background-color: rgb(var(--glass-material-rgb)) !important;
     }
 
     .playing-card__percent {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: rgba(28, 28, 30, 88%) !important;
+      background-color: rgba(var(--glass-material-rgb), 88%) !important;
     }
   }
 
@@ -1656,12 +1634,12 @@ html[data-theme='glass'] body[data-theme='glass'] {
     backdrop-filter: brightness(var(--glass-transmission-brightness));
     background:
       linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 34%),
-      linear-gradient(rgba(28, 28, 30, 0.04), rgba(28, 28, 30, 0.1)) !important;
+      linear-gradient(rgba(var(--glass-material-rgb), 0.04), rgba(var(--glass-material-rgb), 0.1)) !important;
   }
 
   .native-login-field {
     border-color: rgba(255, 255, 255, 0.15);
-    background: rgba(28, 28, 30, 0.2);
+    background: rgba(var(--glass-material-rgb), 0.2);
     -webkit-backdrop-filter: var(--glass-control-backdrop-filter);
     backdrop-filter: var(--glass-control-backdrop-filter);
   }
@@ -1678,13 +1656,14 @@ html[data-theme='glass'][data-glass-appearance='tinted'] body[data-theme='glass'
     background:
       linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 36%),
       linear-gradient(rgba(var(--glass-material-accent-rgb), 0.08), rgba(var(--glass-material-accent-rgb), 0.03)),
-      linear-gradient(rgba(28, 28, 30, 0.16), rgba(28, 28, 30, 0.3)) !important;
+      linear-gradient(rgba(var(--glass-material-rgb), 0.16), rgba(var(--glass-material-rgb), 0.3)) !important;
   }
 
   .native-login-field {
     border-color: rgba(255, 255, 255, 0.15);
     background:
-      linear-gradient(rgba(var(--v-theme-primary), 0.07), rgba(var(--v-theme-primary), 0.07)), rgba(28, 28, 30, 0.2);
+      linear-gradient(rgba(var(--v-theme-primary), 0.07), rgba(var(--v-theme-primary), 0.07)),
+      rgba(var(--glass-material-rgb), 0.2);
   }
 }
 
@@ -1698,7 +1677,8 @@ html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass
       brightness(var(--glass-transmission-brightness));
     backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
-    background: var(--glass-sheen), linear-gradient(rgba(28, 28, 30, 0.34), rgba(28, 28, 30, 0.48)) !important;
+    background:
+      var(--glass-sheen), linear-gradient(rgba(var(--glass-material-rgb), 0.34), rgba(var(--glass-material-rgb), 0.48)) !important;
   }
 
   .native-login-field {
@@ -1853,8 +1833,8 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   );
   --glass-navbar-rim: rgba(255, 255, 255, var(--glass-navbar-rim-opacity));
   --glass-navbar-scrim: linear-gradient(
-    rgba(28, 28, 30, var(--glass-navbar-opacity)),
-    rgba(28, 28, 30, var(--glass-navbar-scrim-end))
+    rgba(var(--glass-material-rgb), var(--glass-navbar-opacity)),
+    rgba(var(--glass-material-rgb), var(--glass-navbar-scrim-end))
   );
   --glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18);
   --glass-navbar-shadow:
@@ -1964,7 +1944,7 @@ html[data-theme='glass'][data-glass-appearance='tinted']
 
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
-    background: rgb(28, 28, 30) !important;
+    background: rgb(var(--glass-material-rgb)) !important;
     background-image: none !important;
   }
 }
@@ -1983,3 +1963,52 @@ html[data-theme='glass'][data-glass-appearance='tinted']
 }
 
 @include glass-v3.surfaces;
+
+/* 明暗仅更换材质色系，玻璃质量、光学参数及网页布局设置保持独立。*/
+html[data-theme='glass'][data-glass-color-scheme='light'] {
+  --glass-material-rgb: 255, 255, 255;
+  --glass-popup-rgb: 255, 255, 255;
+  --glass-shell-rgb: 242, 242, 247;
+  --glass-frosted-rgb: 255, 255, 255;
+  --glass-wallpaper-shade-rgb: 255, 255, 255;
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance][data-glass-ui-style] {
+  --glass-control: rgba(118, 118, 128, 8%);
+  --glass-control-prominent: rgba(118, 118, 128, 8%);
+  --glass-control-prominent-focus: color-mix(in srgb, rgba(118, 118, 128, 10%) 84%, rgba(var(--v-theme-primary), 16%));
+  --glass-border: rgba(60, 60, 67, calc(0.06 + var(--glass-reflection, 0.5) * 0.12));
+  --glass-border-raised: rgba(60, 60, 67, calc(0.08 + var(--glass-reflection, 0.5) * 0.14));
+  --glass-border-hover: rgba(60, 60, 67, 24%);
+  --glass-control-prominent-border: rgba(60, 60, 67, 14%);
+  --glass-button-surface: rgba(118, 118, 128, 8%);
+  --glass-button-surface-hover: rgba(118, 118, 128, 14%);
+  --glass-shadow: 0 10px 28px rgba(0, 0, 0, 8%), inset 0 1px 0 rgba(255, 255, 255, 70%);
+  --glass-shadow-raised: 0 16px 40px rgba(0, 0, 0, 12%), inset 0 1px 0 rgba(255, 255, 255, 80%);
+  --glass-v3-fill: clamp(0.5, calc(0.5 + var(--glass-surface-density, 0.62) * 0.28), 0.84);
+  --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 6%);
+  --glass-v3-hover-shadow: 0 16px 34px rgba(0, 0, 0, 10%);
+  --glass-popup-surface: rgba(255, 255, 255, calc(0.64 + var(--glass-surface-density, 0.62) * 0.2));
+  --glass-navbar-frosted-background:
+    linear-gradient(rgba(255, 255, 255, 24%), rgba(255, 255, 255, 24%)), var(--glass-v3-card-background);
+
+  &[data-glass-ui-style='clear'] {
+    --glass-popup-surface: rgba(255, 255, 255, calc(0.48 + var(--glass-surface-density, 0.62) * 0.2));
+  }
+
+  &[data-glass-appearance='tinted'] {
+    --glass-popup-surface: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(0.66 + var(--glass-surface-density, 0.72) * 0.2)) 94%,
+      rgba(var(--glass-material-accent-rgb), 24%)
+    );
+  }
+}
+
+/* 浅色玻璃的半透明填充不能沿用白色按钮文字，否则与浅灰/淡主色背景对比不足。*/
+html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass'] {
+  .v-btn:is(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+  .layout-vertical-nav .nav-link > .router-link-exact-active {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+}

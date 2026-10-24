@@ -106,8 +106,9 @@ export class NativeSheetAdapter {
       title: title || 'MoviePilot',
       fullscreen:
         root.classList.contains('v-dialog--fullscreen') ||
-        root.matches('.theme-customizer-panel-host, .agent-assistant-panel'),
+        root.matches('.theme-customizer-panel-host:not([data-native-sheet-size="medium"]), .agent-assistant-panel'),
       canDismiss: Boolean(this.close && !this.close.disabled),
+      ...(root.dataset.nativeSheetSize === 'medium' ? { prefersMediumDetent: true } : {}),
       backdropReady: this.prepared === id,
       actions,
     }

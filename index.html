@@ -6,7 +6,7 @@
     overflow: hidden;
     --safe-area-inset-bottom: env(safe-area-inset-bottom);
     --safe-area-inset-top: env(safe-area-inset-top);
-    --initial-loader-bg: #0e1116;
+    --initial-loader-bg: #000000;
     --initial-loader-color: #8d51f9;
     --initial-loader-height: 100svh;
     --initial-loader-width: 100vw;
@@ -563,63 +563,17 @@
       document.documentElement.dataset.nativeLaunchScreen = String(hasNativeLaunchScreen)
 
       // 根据当前主题提前确定启动屏色彩，避免 iOS PWA 从原生启动图切到网页时露出默认白底。
-      const launchThemePalettes = {
-        light: {
-          background: '#F4F5FA',
-          primary: '#8D51F9',
-        },
-        dark: {
-          background: '#0E1116',
-          primary: '#6E66ED',
-        },
-        purple: {
-          background: '#28243D',
-          primary: '#8D51F9',
-        },
-        transparent: {
-          background: '#1C1C1C',
-          primary: '#A370F7',
-        },
-        glass: {
-          background: '#000000',
-          primary: '#8D51F9',
-        },
-      }
-
-      // iOS 从后台恢复或重新创建 WebView 时，媒体查询可能先返回浅色，
-      // 下一帧才恢复真实的系统深色。自动主题优先沿用最近一次已确认的明暗结果，
-      // 避免恢复首帧先绘制白底再切回深色。
-      function getCachedAutoLaunchTheme() {
-        const cachedTheme = getLocalStorageValue('materio-initial-resolved-theme')
-        return cachedTheme === 'dark' || cachedTheme === 'light' ? cachedTheme : null
-      }
-
-      function getCachedLaunchBackground() {
-        const cachedBackground = getLocalStorageValue('materio-initial-loader-bg')
-        return /^#[0-9a-f]{6}$/i.test(cachedBackground || '') ? cachedBackground : null
-      }
-
-      // 读取已保存的主题偏好，缺省时使用玻璃主题。
+      // 首帧沿用与运行时相同的旧值迁移，玻璃主题默认跟随系统。
       function getSavedThemePreference() {
-        return getLocalStorageValue('theme') || 'glass'
+        const stored = getLocalStorageValue('theme')
+        if (stored === 'light' || stored === 'default') return 'light'
+        if (stored === 'dark' || stored === 'purple' || stored === 'transparent') return 'dark'
+        return 'auto'
       }
 
-      // 将启动阶段的主题偏好解析为实际主题。
-      function resolveLaunchTheme(themePreference) {
-        if (themePreference === 'auto') {
-          return getCachedAutoLaunchTheme() || (checkPrefersColorSchemeIsDark() ? 'dark' : 'light')
-        }
-
-        if (themePreference === 'default') {
-          return 'light'
-        }
-
-        return launchThemePalettes[themePreference] ? themePreference : 'light'
-      }
-
-      // 返回启动阶段浏览器原生控件应使用的明暗配色。
-      function getLaunchColorScheme(themeName) {
-        return ['dark', 'glass', 'purple', 'transparent'].includes(themeName) ? 'dark' : 'light'
+      // 明确选择优先于系统；跟随系统不使用可能过期的背景颜色缓存。
+      function getLaunchColorScheme(preference) {
+        return preference === 'auto' ? (checkPrefersColorSchemeIsDark() ? 'dark' : 'light') : preference
       }
 
       // 批量同步匹配选择器的 meta 内容。
@@ -841,18 +795,12 @@
 
       function applyLaunchThemeChrome() {
         const themePreference = getSavedThemePreference()
-        const resolvedLaunchTheme = resolveLaunchTheme(themePreference)
-        const colorScheme = getLaunchColorScheme(resolvedLaunchTheme)
-        const palette = launchThemePalettes[resolvedLaunchTheme] || launchThemePalettes.light
+        const resolvedLaunchTheme = 'glass'
+        const colorScheme = getLaunchColorScheme(themePreference)
+        const loaderColor = colorScheme === 'dark' ? '#000000' : '#F2F2F7'
+        const primaryColor = getLocalStorageValue('materio-initial-loader-color') || '#8D51F9'
 
-        // 自动主题恢复时复用最近一次已确认的底色，避免 iOS 媒体查询短暂返回浅色。
-        const storedLoaderColor =
-          themePreference === 'auto' ? getCachedLaunchBackground() : getLocalStorageValue('materio-initial-loader-bg')
-        const isLegacyGlassBackground =
-          resolvedLaunchTheme === 'glass' && storedLoaderColor?.toLowerCase() === '#0b1322'
-        const loaderColor = isLegacyGlassBackground ? palette.background : storedLoaderColor || palette.background
-        const primaryColor = getLocalStorageValue('materio-initial-loader-color') || palette.primary
-
+        document.documentElement.setAttribute('data-glass-color-scheme', colorScheme)
         document.documentElement.setAttribute('data-launch-theme', resolvedLaunchTheme)
         document.documentElement.setAttribute('data-theme', resolvedLaunchTheme)
         document.documentElement.setAttribute('data-theme-preference', themePreference)

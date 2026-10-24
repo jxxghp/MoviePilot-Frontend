@@ -405,7 +405,6 @@ describe('WorkflowTaskCard redesign', () => {
 
   it('derives all custom card colors and geometry from global theme tokens', () => {
     const source = readFileSync('src/components/cards/WorkflowTaskCard.vue', 'utf8')
-    const transparentTheme = readFileSync('src/styles/themes/transparent.scss', 'utf8')
     const glassTheme = readFileSync('src/styles/themes/glass.scss', 'utf8')
 
     expect(source).toContain('var(--v-theme-primary)')
@@ -441,10 +440,6 @@ describe('WorkflowTaskCard redesign', () => {
     expect(source).not.toContain('--workflow-card-header-border')
     expect(source).not.toMatch(/#[\da-f]{3,8}\b/i)
 
-    expect(transparentTheme).toContain('.workflow-task-card')
-    expect(transparentTheme).toContain('var(--workflow-card-gradient-start-rgb)')
-    expect(transparentTheme).toContain('var(--transparent-opacity-heavy)')
-    expect(transparentTheme).not.toContain('--workflow-card-header-border')
     expect(glassTheme).toContain('var(--glass-sheen)')
     expect(glassTheme).toContain('var(--workflow-card-gradient-start-rgb)')
     expect(glassTheme).toContain("&[data-glass-appearance='frosted'] .workflow-task-card")

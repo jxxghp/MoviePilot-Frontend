@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { AxiosError } from 'axios'
 import type { Component } from 'vue'
-import { useTheme } from 'vuetify'
 import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
 import api, { createPluginInstanceApi, pluginApi } from '@/api'
@@ -15,7 +14,6 @@ import { getNavMenus } from '@/router/i18n-menu'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federationLoader'
 import type { MfaMethod } from '@/types/auth'
-import { getLoginVisualProfile } from '@/utils/loginPresentation'
 
 type LabTapTarget = 'logo' | 'title'
 
@@ -25,8 +23,7 @@ const labTapSequences: Record<LabTapTarget, { count: number; startedAt: number }
   logo: { count: 0, startedAt: 0 },
   title: { count: 0, startedAt: 0 },
 }
-const { global: loginTheme } = useTheme()
-const loginVisualProfile = computed(() => getLoginVisualProfile(loginTheme.name.value))
+const loginVisualProfile = 'glass'
 
 /** 在指定区域连续点击五次时进入隐藏的 Logo 实验室。 */
 function handleLabTap(target: LabTapTarget) {
@@ -843,11 +840,6 @@ onUnmounted(() => {
       </defs>
     </svg>
 
-    <!-- 经典主题保留一层低频品牌环境光；透明与玻璃 profile 不挂载该装饰。 -->
-    <div v-if="loginVisualProfile === 'classic'" class="login-ambient-light" aria-hidden="true">
-      <span class="login-ambient-light__wash" />
-    </div>
-
     <!-- 顶部漂浮语言切换 -->
     <VMenu v-model="langMenu" :close-on-content-click="false">
       <template #activator="{ props }">
@@ -1075,32 +1067,6 @@ onUnmounted(() => {
   padding-block: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px);
 }
 
-/* 经典 profile 只保留一层覆盖视口的低频品牌环境光。 */
-.login-ambient-light {
-  position: absolute;
-  z-index: 0;
-  overflow: hidden;
-  inset: 0;
-  pointer-events: none;
-}
-
-.login-ambient-light__wash {
-  position: absolute;
-  animation: ambient-drift 18s ease-in-out infinite alternate;
-  background:
-    radial-gradient(ellipse at 78% 18%, rgba(var(--v-theme-primary), 0.18), transparent 48%),
-    linear-gradient(145deg, transparent 28%, rgba(var(--v-theme-primary), 0.07) 72%, transparent);
-  filter: blur(40px);
-  inset: -12%;
-  transform: translate3d(1.5%, -1%, 0) scale(1.04);
-}
-
-@keyframes ambient-drift {
-  to {
-    transform: translate3d(-1.5%, 1%, 0) scale(1);
-  }
-}
-
 /* ===================== 浮动语言切换 ===================== */
 .lang-switch-btn {
   position: absolute;
@@ -1173,7 +1139,7 @@ onUnmounted(() => {
   }
 }
 
-/* 登录卡片拥有独立光学表面，不跟随透明主题的全局模糊开关。 */
+/* 登录卡片使用独立光学表面。 */
 .glass-effect {
   backdrop-filter: none !important;
   background: transparent !important;
@@ -1187,24 +1153,6 @@ onUnmounted(() => {
   inset: 0;
   pointer-events: none;
   transform: translateZ(0);
-}
-
-.login-root[data-login-visual-profile='classic'] .login-card__surface {
-  backdrop-filter: blur(22px) saturate(118%);
-  background: rgba(var(--v-theme-surface), 0.76);
-}
-
-.login-root[data-login-visual-profile='transparent'] .login-card__surface {
-  backdrop-filter: blur(var(--optical-glass-blur)) saturate(var(--optical-glass-saturate))
-    contrast(var(--optical-glass-contrast));
-  background:
-    radial-gradient(
-      180px 150px at 50% 0%,
-      rgba(255, 255, 255, var(--login-card-highlight-alpha, 0.035)),
-      rgba(var(--v-theme-primary), var(--login-card-primary-alpha, 0.02)) 44%,
-      transparent 76%
-    ),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 34%), rgba(var(--v-theme-surface), 0.7);
 }
 
 .login-root[data-login-visual-profile='glass'] .login-card__surface {
@@ -1494,7 +1442,7 @@ onUnmounted(() => {
 }
 
 /* 浅色主题下 passkey 按钮保持绿色辨识度 */
-:deep(.v-theme--light) .passkey-btn.v-btn--variant-outlined {
+:deep([data-glass-color-scheme='light']) .passkey-btn.v-btn--variant-outlined {
   color: rgb(86, 170, 0) !important;
 }
 
@@ -1557,10 +1505,6 @@ onUnmounted(() => {
 
   .login-submit {
     transition: none !important;
-  }
-
-  .login-ambient-light__wash {
-    animation: none !important;
   }
 }
 

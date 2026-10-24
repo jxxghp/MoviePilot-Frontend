@@ -1392,7 +1392,7 @@ onBeforeMount(() => {
   transform: translateY(0.25rem);
 }
 
-.subscribe-files-dialog.v-theme--light {
+.subscribe-files-dialog[data-glass-color-scheme='light'] {
   --sfd-accent-opacity: 0.08;
   --sfd-border-opacity: 0.11;
   --sfd-dialog-opacity: 0.96;

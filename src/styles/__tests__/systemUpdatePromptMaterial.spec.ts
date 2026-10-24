@@ -39,16 +39,4 @@ describe('system update prompt material styles', () => {
     expect(overlayRule).toContain('background-image: var(--glass-sheen) !important')
     expect(overlayRule).toContain('box-shadow: var(--glass-shadow-raised) !important')
   })
-
-  it('keeps transparent prompt material aligned across blur modes', () => {
-    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/transparent.scss'), 'utf8')
-    const promptRules = styles.match(
-      /\.system-update-prompt\s*\{[\s\S]*?backdrop-filter: blur\(var\(--transparent-blur\)\) !important;[\s\S]*?background-color: rgba\(var\(--v-theme-surface\), var\(--transparent-opacity-heavy\)\) !important;[\s\S]*?\}/g,
-    )
-
-    expect(promptRules).toHaveLength(1)
-    expect(styles).toMatch(
-      /\.agent-assistant-panel,\s*\.agent-assistant-fab__bubble,\s*\.system-update-prompt,[\s\S]*?backdrop-filter: none !important;/,
-    )
-  })
 })

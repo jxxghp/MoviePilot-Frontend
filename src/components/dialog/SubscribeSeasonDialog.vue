@@ -718,7 +718,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   flex: 0 0 12rem;
   align-items: center;
-  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(6px));
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 0.82);
@@ -791,7 +791,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(6px));
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 9999px;
   background: rgba(var(--v-theme-surface), 0.96);

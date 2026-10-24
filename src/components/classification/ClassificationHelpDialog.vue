@@ -144,18 +144,6 @@ function close(): void {
   border-block-start: 1px solid var(--glass-border);
 }
 
-:global(html[data-theme='transparent'] .classification-help-dialog .v-card) {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.16) !important;
-  -webkit-backdrop-filter: blur(var(--transparent-blur-heavy)) !important;
-  backdrop-filter: blur(var(--transparent-blur-heavy)) !important;
-  background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28) !important;
-}
-
-:global(html[data-theme='transparent'] .classification-help-dialog .v-card-actions) {
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.14);
-}
-
 @media (max-width: 599px) {
   .classification-help-dialog__actions {
     padding-inline: 14px;

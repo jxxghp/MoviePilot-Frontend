@@ -175,6 +175,25 @@ describe('原生 Sheet 与原 Vue 内容交接', () => {
     expect(adapter.execute('presentation.attach', { id: current.id })).toBe(false)
   })
 
+  it('主题面板声明半屏时保留原生标题和关闭职责，不声明网页全屏', () => {
+    const root = document.createElement('aside')
+    root.className = 'theme-customizer-panel-host'
+    root.setAttribute('role', 'dialog')
+    root.setAttribute('aria-label', '主题定制')
+    root.innerHTML =
+      '<header class="theme-customizer-header"><h2 class="theme-customizer-title">主题定制</h2><button data-native-dialog-close>关闭</button></header><button>Blue</button>'
+    document.body.append(root)
+    const adapter = new NativeSheetAdapter(document)
+    expect(adapter.read('页面')).toMatchObject({ title: '主题定制', fullscreen: true, canDismiss: true })
+    root.dataset.nativeSheetSize = 'medium'
+    expect(adapter.read('页面')).toMatchObject({
+      title: '主题定制',
+      fullscreen: false,
+      canDismiss: true,
+      prefersMediumDetent: true,
+    })
+  })
+
   it('助手只接管打开的面板，保留菜单的实际锚点并移走标题和关闭按钮', () => {
     const root = document.createElement('aside')
     root.className = 'agent-assistant-panel'

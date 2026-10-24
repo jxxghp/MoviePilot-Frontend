@@ -27,7 +27,6 @@ useNativePageHeader({ title: () => props.title })
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 透明与毛玻璃主题下背景图需要改用遮罩淡出，与影视详情页保持一致
-const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 const isGlassTheme = computed(() => theme.name.value === 'glass')
 
 // 封面加载失败后回退到占位图标
@@ -47,7 +46,6 @@ watch(displayCover, () => {
   <div
     class="max-w-8xl mx-auto px-4"
     :class="{
-      'music-detail-transparent': isTransparentTheme,
       'music-detail-glass': isGlassTheme,
     }"
   >
@@ -116,12 +114,10 @@ watch(displayCover, () => {
   background-image: none;
 }
 
-.music-detail-transparent .vue-music-back-overlay,
 .music-detail-glass .vue-music-back-overlay {
   display: none;
 }
 
-.music-detail-transparent .vue-music-back-image,
 .music-detail-glass .vue-music-back-image {
   mask-composite: intersect;
   mask-image:

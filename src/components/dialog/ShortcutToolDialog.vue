@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { useDisplay, useTheme } from 'vuetify'
+import { useDisplay } from 'vuetify'
 
 // 显示器宽度
 const display = useDisplay()
-const theme = useTheme()
 
 // 输入参数
 const props = withDefaults(
@@ -45,18 +44,6 @@ const visible = computed({
 })
 
 const isFullscreen = computed(() => !display.mdAndUp.value)
-const isTransparentTheme = computed(() => theme.name.value === 'transparent')
-const isSchedulerDialog = computed(() => props.cardClass.split(/\s+/).includes('scheduler-shortcut-dialog-card'))
-
-// 透明主题下仅定时服务全屏弹窗取消外层 VCard 的背景和模糊，避免整屏磨砂遮住界面。
-const cardClasses = computed(() => [
-  props.cardClass,
-  {
-    'scheduler-shortcut-dialog-card--transparent':
-      isFullscreen.value && isTransparentTheme.value && isSchedulerDialog.value,
-  },
-])
-
 // 仅系统健康检查弹窗需要在全屏时取消固定高度，避免其它快捷弹窗被误伤。
 const bodyClasses = computed(() => [
   props.bodyClass,
@@ -74,7 +61,7 @@ function closeDialog() {
 
 <template>
   <VDialog v-if="visible" v-model="visible" :max-width="props.maxWidth" scrollable :fullscreen="isFullscreen">
-    <VCard :class="cardClasses">
+    <VCard :class="props.cardClass">
       <VCardItem>
         <VCardTitle>
           <VIcon :icon="props.icon" class="me-2" />
@@ -124,12 +111,6 @@ function closeDialog() {
     inline-size: 100%;
     min-block-size: 0;
     padding: 0 !important;
-  }
-
-  .scheduler-shortcut-dialog-card--transparent {
-    background: transparent !important;
-    background-color: transparent !important;
-    backdrop-filter: none !important;
   }
 
   .cache-shortcut-dialog-card {

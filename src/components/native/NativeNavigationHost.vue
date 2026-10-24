@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { glassAppearancePreference } from '@/utils/themePalette'
 import { computed, nextTick, onScopeDispose, ref, toValue, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -276,7 +277,7 @@ const model = computed(() => {
     chrome: {
       topVisible: Boolean(route.meta.requiresAuth),
       bottomVisible: authenticated.value,
-      theme: theme.global.current.value.dark ? 'dark' : 'light',
+      theme: glassAppearancePreference.value === 'auto' ? 'system' : glassAppearancePreference.value,
       backgroundColor: theme.global.current.value.colors.background,
       surfaceColor: theme.global.current.value.colors.surface,
       ...(/^#[0-9a-f]{6}$/i.test(theme.global.current.value.colors.primary)

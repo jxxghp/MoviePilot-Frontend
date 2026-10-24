@@ -23,14 +23,8 @@ const props = defineProps({
 
 const vuetifyTheme = useTheme()
 
-const currentTheme = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => vuetifyTheme.current.value.colors,
-)
-const variableTheme = controlledComputed(
-  () => vuetifyTheme.name.value,
-  () => vuetifyTheme.current.value.variables,
-)
+const currentTheme = computed(() => vuetifyTheme.current.value.colors)
+const variableTheme = computed(() => vuetifyTheme.current.value.variables)
 
 // 时间序列
 const series = ref([
@@ -72,90 +66,88 @@ const animatedAvailableMemoryText = computed(() =>
 )
 const totalMemoryText = computed(() => formatDashboardFileSize(totalMemory.value, 2, totalMemory.value))
 
-const chartOptions = controlledComputed(
-  () => `${vuetifyTheme.name.value}:${totalMemory.value}`,
-  () => {
-    const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
+/** 同一 glass 主题的系统明暗及主色变化需要同步更新坐标和序列颜色。 */
+const chartOptions = computed(() => {
+  const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
 
-    return {
-      chart: {
-        parentHeightOffset: 0,
-        toolbar: { show: false },
-        zoom: { enabled: false, allowMouseWheelZoom: false },
-        selection: { enabled: false },
-        animations: { enabled: false },
-        foreColor: axisLabelColor,
-      },
-      tooltip: { enabled: false },
-      legend: { show: false },
-      grid: {
-        borderColor: `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
-          variableTheme.value['border-opacity']
-        })`,
-        strokeDashArray: 6,
-        xaxis: {
-          lines: { show: false },
-        },
-        yaxis: {
-          lines: { show: true },
-        },
-        padding: {
-          top: -10,
-          left: 0,
-          right: 5,
-          bottom: 5,
-        },
-      },
-      stroke: {
-        width: 3,
-        lineCap: 'butt',
-        curve: 'smooth',
-      },
-      colors: [currentTheme.value.primary, currentTheme.value.info],
-      fill: {
-        opacity: [0.22, 0.08],
-      },
-      markers: {
-        size: 6,
-        offsetY: 4,
-        offsetX: 4,
-        strokeWidth: 3,
-        colors: ['transparent'],
-        strokeColors: 'transparent',
-        discrete: [
-          {
-            size: 5.5,
-            seriesIndex: 0,
-            strokeColor: currentTheme.value.primary,
-            fillColor: currentTheme.value.surface,
-          },
-        ],
-        hover: { size: 7 },
-      },
-      dataLabels: {
-        enabled: false,
-      },
+  return {
+    chart: {
+      parentHeightOffset: 0,
+      toolbar: { show: false },
+      zoom: { enabled: false, allowMouseWheelZoom: false },
+      selection: { enabled: false },
+      animations: { enabled: false },
+      foreColor: axisLabelColor,
+    },
+    tooltip: { enabled: false },
+    legend: { show: false },
+    grid: {
+      borderColor: `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
+        variableTheme.value['border-opacity']
+      })`,
+      strokeDashArray: 6,
       xaxis: {
-        labels: { show: false },
-        axisTicks: { show: false },
-        axisBorder: { show: false },
+        lines: { show: false },
       },
       yaxis: {
-        labels: {
-          show: true,
-          formatter: (value: number) => formatDashboardFileSize(value, 0, totalMemory.value || value),
-          style: {
-            colors: axisLabelColor,
-            fontSize: '10px',
-          },
-        },
-        tickAmount: 2,
-        max: totalMemory.value || undefined,
-        min: 0,
+        lines: { show: true },
       },
-    }
-  },
-)
+      padding: {
+        top: -10,
+        left: 0,
+        right: 5,
+        bottom: 5,
+      },
+    },
+    stroke: {
+      width: 3,
+      lineCap: 'butt',
+      curve: 'smooth',
+    },
+    colors: [currentTheme.value.primary, currentTheme.value.info],
+    fill: {
+      opacity: [0.22, 0.08],
+    },
+    markers: {
+      size: 6,
+      offsetY: 4,
+      offsetX: 4,
+      strokeWidth: 3,
+      colors: ['transparent'],
+      strokeColors: 'transparent',
+      discrete: [
+        {
+          size: 5.5,
+          seriesIndex: 0,
+          strokeColor: currentTheme.value.primary,
+          fillColor: currentTheme.value.surface,
+        },
+      ],
+      hover: { size: 7 },
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    xaxis: {
+      labels: { show: false },
+      axisTicks: { show: false },
+      axisBorder: { show: false },
+    },
+    yaxis: {
+      labels: {
+        show: true,
+        formatter: (value: number) => formatDashboardFileSize(value, 0, totalMemory.value || value),
+        style: {
+          colors: axisLabelColor,
+          fontSize: '10px',
+        },
+      },
+      tickAmount: 2,
+      max: totalMemory.value || undefined,
+      min: 0,
+    },
+  }
+})
 
 // 调用API接口获取最新内存使用量
 async function loadMemoryData() {

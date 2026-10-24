@@ -1,5 +1,5 @@
-@use "../mixins";
-@use "@configured-variables" as variables;
+@use '../mixins';
+@use '@configured-variables' as variables;
 
 .v-application .fc {
   --fc-today-bg-color: rgba(var(--v-theme-on-surface), 0.04);
@@ -134,7 +134,7 @@
         display: block !important;
       }
 
-      .v-theme--dark & {
+      [data-glass-color-scheme='dark'] & {
         background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' stroke='rgba(232,232,241,0.68)' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round' class='css-i6dzq1'%3E%3Cpath d='M3 12h18M3 6h18M3 18h18'/%3E%3C/svg%3E");
       }
     }
@@ -189,8 +189,8 @@
     padding-inline: 0.25rem;
   }
 
-  tbody[role="rowgroup"] {
-    > tr > td[role="presentation"] {
+  tbody[role='rowgroup'] {
+    > tr > td[role='presentation'] {
       border: none;
     }
   }

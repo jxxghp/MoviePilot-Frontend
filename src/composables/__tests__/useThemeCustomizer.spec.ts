@@ -1,5 +1,6 @@
 import {
   applyThemeCustomizerRootSettings,
+  applyStoredThemeCustomizerAppearance,
   cancelGlassPreview,
   commitGlassPreview,
   getDefaultGlassCustomizerSettings,
@@ -13,10 +14,11 @@ import {
   useEffectiveGlassSettings,
 } from '@/composables/useThemeCustomizer'
 import vuetify from '@/plugins/vuetify'
+import { NativeLayoutAdapter } from '@/native/layout'
 import { normalizeThemeMaterialAccent } from '@/utils/glassColor'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const persistenceMocks = vi.hoisted(() => ({
   readRemoteUserConfig: vi.fn(),
@@ -27,7 +29,6 @@ vi.mock('@/utils/themeSettingsPersistence', () => ({
   readRemoteUserConfig: persistenceMocks.readRemoteUserConfig,
   writeRemoteUserConfig: persistenceMocks.writeRemoteUserConfig,
   THEME_CUSTOMIZER_REMOTE_KEY: 'ThemeCustomizerSettings',
-  TRANSPARENCY_REMOTE_KEY: 'TransparencySettings',
 }))
 
 describe('useThemeCustomizer glass settings', () => {
@@ -49,7 +50,11 @@ describe('useThemeCustomizer glass settings', () => {
     return { customizer, wrapper }
   }
 
+  const nativeLayout = new NativeLayoutAdapter(document, window)
+  afterEach(() => nativeLayout.setActive(false))
+
   beforeEach(() => {
+    nativeLayout.setActive(false)
     cancelGlassPreview()
     localStorage.clear()
     persistenceMocks.readRemoteUserConfig.mockReset()
@@ -59,10 +64,94 @@ describe('useThemeCustomizer glass settings', () => {
     localStorage.clear()
   })
 
+  it('only projects native defaults while negotiated, without changing existing Web preferences', async () => {
+    persistPartialThemeCustomizerSettings({
+      theme: 'dark',
+      radius: 'small',
+      layout: 'horizontal',
+      glassAppearance: 'frosted',
+      glassQuality: 'high',
+    })
+    localStorage.setItem('theme', 'dark')
+    const stored = localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)
+    const { customizer, wrapper } = mountThemeCustomizer()
+    expect(customizer.settings.value).toMatchObject({ theme: 'dark', radius: 'small', layout: 'horizontal' })
+    nativeLayout.setActive(true)
+    applyStoredThemeCustomizerAppearance(vuetify.theme)
+    expect(customizer.settings.value).toMatchObject({
+      theme: 'dark',
+      radius: 'large',
+      layout: 'vertical',
+      glassAppearance: 'clear',
+      glassQuality: 'css',
+    })
+    expect(useEffectiveGlassSettings().value).toMatchObject({ glassAppearance: 'clear', glassQuality: 'css' })
+    expect(vuetify.theme.global.name.value).toBe('glass')
+    expect(document.documentElement.dataset.themeRadius).toBe('large')
+    expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(stored)
+    expect(localStorage.getItem('theme')).toBe('dark')
+    persistenceMocks.writeRemoteUserConfig.mockClear()
+    await customizer.setRadius('default')
+    await customizer.setLayout('horizontal')
+    await customizer.setGlassQuality('high')
+    expect(persistenceMocks.writeRemoteUserConfig).not.toHaveBeenCalled()
+    expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(stored)
+    await customizer.setTheme('light')
+    expect(vuetify.theme.current.value.dark).toBe(false)
+    expect(localStorage.getItem('theme')).toBe('light')
+    await customizer.setPrimaryColor('#1976D2')
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      theme: 'light',
+      radius: 'small',
+      layout: 'horizontal',
+      primaryColor: '#1976D2',
+      glassQuality: 'high',
+    })
+    expect(persistenceMocks.writeRemoteUserConfig).toHaveBeenLastCalledWith(
+      'ThemeCustomizerSettings',
+      expect.objectContaining({ theme: 'light', radius: 'small', layout: 'horizontal', primaryColor: '#1976D2' }),
+    )
+    expect(localStorage.getItem('theme')).toBe('light')
+    expect(vuetify.theme.global.name.value).toBe('glass')
+    nativeLayout.setActive(false)
+    applyStoredThemeCustomizerAppearance(vuetify.theme)
+    expect(customizer.settings.value).toMatchObject({
+      theme: 'light',
+      radius: 'small',
+      layout: 'horizontal',
+      primaryColor: '#1976D2',
+    })
+    expect(document.documentElement.dataset.themeRadius).toBe('small')
+    wrapper.unmount()
+  })
+
+  it('restores a remote Web preference without applying it over the native fixed appearance', async () => {
+    persistenceMocks.writeRemoteUserConfig.mockClear()
+    nativeLayout.setActive(true)
+    const { customizer, wrapper } = mountThemeCustomizer()
+    persistenceMocks.readRemoteUserConfig.mockResolvedValue({
+      theme: 'light',
+      radius: 'small',
+      layout: 'horizontal',
+      primaryColor: '#00BCD4',
+    })
+    await restoreThemeCustomizerSettingsFromServer(vuetify.theme)
+    expect(readThemeCustomizerSettings()).toMatchObject({ theme: 'light', radius: 'small', layout: 'horizontal' })
+    expect(customizer.settings.value).toMatchObject({
+      theme: 'light',
+      radius: 'large',
+      layout: 'vertical',
+      primaryColor: '#00BCD4',
+    })
+    expect(vuetify.theme.global.name.value).toBe('glass')
+    expect(persistenceMocks.writeRemoteUserConfig).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('uses the checkpoint appearance, quality, and strength values by default', () => {
     const settings = readThemeCustomizerSettings()
 
-    expect(settings.theme).toBe('glass')
+    expect(settings.theme).toBe('auto')
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassUIStyle).toBe('adaptive')
     expect(settings.glassDeformationStrength).toBe(48)
@@ -88,7 +177,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     await customizer.resetSettings()
     expect(customizer.settings.value).toMatchObject(getDefaultGlassCustomizerSettings('css'))
-    expect(customizer.settings.value.theme).toBe('glass')
+    expect(customizer.settings.value.theme).toBe('auto')
     expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
     expect(customizer.isCustomized.value).toBe(false)
 

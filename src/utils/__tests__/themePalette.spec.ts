@@ -1,65 +1,77 @@
 import {
   applyDocumentThemeChrome,
+  applyGlassThemePalette,
+  getGlassThemePalette,
   getThemeColorScheme,
-  resolveThemeName,
-  themeRootPalettes,
+  glassAppearancePreference,
+  normalizeThemePreference,
+  readThemePreference,
 } from '@/utils/themePalette'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import vuetify from '@/plugins/vuetify'
 
-describe('theme palette', () => {
-  // 玻璃主题在首屏与运行阶段都应保持深色外壳和 iOS 暗色基础底色。
-  it('resolves glass as a dark theme with its dedicated launch palette', () => {
-    expect(resolveThemeName('glass')).toBe('glass')
-    expect(getThemeColorScheme('glass')).toBe('dark')
-    expect(themeRootPalettes.glass).toEqual({
-      background: '#000000',
-      primary: '#8D51F9',
-    })
+beforeEach(() => {
+  localStorage.clear()
+  vi.restoreAllMocks()
+})
+
+describe('glass appearance preference', () => {
+  it.each([
+    [null, 'auto'],
+    ['glass', 'auto'],
+    ['unknown', 'auto'],
+    ['default', 'light'],
+    ['light', 'light'],
+    ['dark', 'dark'],
+    ['purple', 'dark'],
+    ['transparent', 'dark'],
+    ['auto', 'auto'],
+  ])('migrates %s without retaining another theme implementation', (stored, expected) => {
+    if (stored !== null) localStorage.setItem('theme', stored)
+    expect(normalizeThemePreference(stored)).toBe(expected)
+    expect(readThemePreference()).toBe(expected)
   })
 
-  it('notifies the favicon renderer with the applied primary color', () => {
-    const handleFaviconChange = vi.fn()
-
-    window.addEventListener('moviepilot-theme-primary-color-change', handleFaviconChange)
-
-    try {
-      const result = applyDocumentThemeChrome('dark', {
-        background: '#0E1116',
-        primary: '#00BCD4',
-      })
-      const event = handleFaviconChange.mock.calls[0]?.[0] as CustomEvent<{ color: string }>
-
-      expect(result.primary).toBe('#00BCD4')
-      expect(document.documentElement.style.getPropertyValue('--initial-loader-color')).toBe('#00BCD4')
-      expect(handleFaviconChange).toHaveBeenCalledOnce()
-      expect(event.detail).toEqual({ color: '#00BCD4' })
-    } finally {
-      window.removeEventListener('moviepilot-theme-primary-color-change', handleFaviconChange)
+  it.each(['light', 'dark'] as const)('respects explicit choices and auto with a %s system', system => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      query => ({ matches: system === 'dark', media: query }) as MediaQueryList,
+    )
+    const glass = vuetify.theme.themes.value.glass
+    glass.colors.primary = '#00BCD4'
+    glass.colors['on-primary'] = '#000000'
+    for (const preference of ['light', 'dark', 'auto'] as const) {
+      localStorage.setItem('theme', preference)
+      applyGlassThemePalette(vuetify.theme)
+      const chrome = applyDocumentThemeChrome(preference, { persistLoaderColors: true })
+      const expected = preference === 'auto' ? system : preference
+      expect(getThemeColorScheme()).toBe(expected)
+      expect(glass.dark).toBe(expected === 'dark')
+      expect(glass.colors.background).toBe(expected === 'dark' ? '#000000' : '#F2F2F7')
+      expect(glass.colors.surface).toBe(expected === 'dark' ? '#1C1C1E' : '#FFFFFF')
+      expect(glass.colors.primary).toBe('#00BCD4')
+      expect(glass.colors['on-primary']).toBe('#000000')
+      expect(chrome.background).toBe(glass.colors.background)
+      expect(document.documentElement.style.colorScheme).toBe(expected)
+      expect(document.documentElement.dataset.glassColorScheme).toBe(expected)
+      expect(document.documentElement.dataset.theme).toBe('glass')
+      expect(document.documentElement.dataset.themePreference).toBe(preference)
+      expect(glassAppearancePreference.value).toBe(preference)
+      expect(localStorage.getItem('materio-initial-resolved-theme')).toBe(expected)
+      expect(getGlassThemePalette(expected).colors.primary).toBe('#8D51F9')
     }
   })
 
-  it('persists the resolved auto theme for the next PWA resume', () => {
-    applyDocumentThemeChrome('auto', {
-      background: '#0E1116',
-      persistLoaderColors: true,
-      primary: '#6E66ED',
-      resolvedTheme: 'dark',
-    })
-
-    expect(localStorage.getItem('materio-initial-loader-bg')).toBe('#0E1116')
-    expect(localStorage.getItem('materio-initial-resolved-theme')).toBe('dark')
-  })
-
-  it('updates the resolved theme cache when the actual theme is confirmed', () => {
-    localStorage.setItem('materio-initial-resolved-theme', 'dark')
-
-    applyDocumentThemeChrome('light', {
-      background: '#F4F5FA',
-      persistLoaderColors: true,
-      primary: '#8D51F9',
-      resolvedTheme: 'light',
-    })
-
-    expect(localStorage.getItem('materio-initial-resolved-theme')).toBe('light')
+  it('notifies the favicon renderer with the selected primary', () => {
+    const listener = vi.fn()
+    window.addEventListener('moviepilot-theme-primary-color-change', listener)
+    try {
+      const chrome = applyDocumentThemeChrome('dark', { primary: '#00BCD4' })
+      expect(chrome.primary).toBe('#00BCD4')
+      expect(document.documentElement.style.getPropertyValue('--initial-loader-color')).toBe('#00BCD4')
+      expect(listener).toHaveBeenCalledOnce()
+      expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({ color: '#00BCD4' })
+    } finally {
+      window.removeEventListener('moviepilot-theme-primary-color-change', listener)
+    }
   })
 })

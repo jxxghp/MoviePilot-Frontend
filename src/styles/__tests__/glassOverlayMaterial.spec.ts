@@ -35,7 +35,7 @@ describe('glass overlay material styles', () => {
     expect(reading).toContain('.layout-horizontal-nav-active')
     expect(reading).toContain('.layout-window-controls-overlay-shell')
     expect(reading).toContain('.search-desktop-activator')
-    expect(reading).toContain('--glass-control-placeholder-color: rgba(242, 242, 247, 82%)')
+    expect(reading).toContain('--glass-control-placeholder-color: rgba(var(--v-theme-on-surface), 82%)')
     expect(reading).not.toContain('backdrop-filter')
     expect(reading).not.toContain('border-radius:')
   })
@@ -183,12 +183,18 @@ describe('glass overlay material styles', () => {
   it('protects ordinary clear and tinted content without changing raised or frosted materials', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
-    expect(styles).toContain('rgba(28, 28, 30, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2))')
-    expect(styles).toContain('rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.62) * 0.23))')
-    expect(styles).toContain('rgba(28, 28, 30, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%')
-    expect(styles).toContain('rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%')
-    expect(styles).toContain('rgba(28, 28, 30, calc(0.07 + var(--glass-surface-density, 0.62) * 0.36))')
-    expect(styles).toContain('rgba(28, 28, 30, calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%')
+    expect(styles).toContain('rgba(var(--glass-material-rgb), calc(0.12 + var(--glass-surface-density, 0.62) * 0.2))')
+    expect(styles).toContain('rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.62) * 0.23))')
+    expect(styles).toContain(
+      'rgba(var(--glass-material-rgb), calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%',
+    )
+    expect(styles).toContain(
+      'rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%',
+    )
+    expect(styles).toContain('rgba(var(--glass-material-rgb), calc(0.07 + var(--glass-surface-density, 0.62) * 0.36))')
+    expect(styles).toContain(
+      'rgba(var(--glass-material-rgb), calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%',
+    )
     expect(styles).toContain('rgba(255, 255, 255, calc(0.035 + var(--glass-surface-density, 0.86) * 0.075))')
     expect(styles).toContain('rgba(255, 255, 255, calc(0.03 + var(--glass-surface-density, 0.86) * 0.07))')
     expect(styles).toContain('rgba(255, 255, 255, calc(0.045 + var(--glass-surface-density, 0.86) * 0.09))')
@@ -272,7 +278,9 @@ describe('glass overlay material styles', () => {
 
     expect(styles.match(/--glass-chip-backdrop-filter:[^;]+;/gu)).toEqual(['--glass-chip-backdrop-filter: none;'])
     expect(styles.match(/--glass-chip-sheen:/gu)).toHaveLength(2)
-    expect(styles).toContain('linear-gradient(rgba(28, 28, 30, 42%), rgba(28, 28, 30, 42%))')
+    expect(styles).toContain(
+      'linear-gradient(rgba(var(--glass-material-rgb), 42%), rgba(var(--glass-material-rgb), 42%))',
+    )
     expect(styles).toContain('--glass-chip-tint-opacity: calc(')
     expect(styles).toContain('--glass-sidebar-backdrop-filter: blur(var(--glass-sidebar-diffusion-blur))')
     expect(styles).toContain(
@@ -438,10 +446,10 @@ describe('glass overlay material styles', () => {
     )
   })
 
-  it('limits detached navbar geometry to eligible Transparent and Glass horizontal shells', () => {
+  it('limits detached navbar geometry to eligible glass horizontal shells', () => {
     const layout = readFileSync(resolve(cwd(), 'src/@layouts/components/VerticalNavLayout.vue'), 'utf8')
 
-    expect(layout).toContain("html:is([data-theme='transparent'], [data-theme='glass'])")
+    expect(layout).toContain("html[data-theme='glass']")
     expect(layout).toContain('--shell-floating-navbar-radius: 1rem')
     expect(layout).toContain('--shell-floating-navbar-inset: 1rem')
     expect(layout).toContain('--shell-floating-navbar-motion-duration: 150ms')
@@ -455,8 +463,8 @@ describe('glass overlay material styles', () => {
     expect(layout).toContain('transform: translate3d(0, 0, 0) scaleX(1)')
     expect(layout).toContain('scaleX(var(--shell-floating-navbar-scale-x))')
     expect(layout).toContain('scaleX(var(--shell-floating-navbar-content-scale-x))')
-    const floatingRuleStart = layout.indexOf(
-      '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible\n      .layout-navbar {',
+    const floatingRuleStart = layout.search(
+      /\.layout-wrapper\.layout-nav-type-vertical\.layout-navbar-floating-eligible\s*\.layout-navbar\s*\{/u,
     )
     const floatingStateStart = layout.indexOf(
       '.layout-wrapper.layout-nav-type-vertical.layout-navbar-floating-eligible.layout-navbar-away-from-top',
@@ -595,14 +603,11 @@ describe('glass overlay material styles', () => {
 
   it('keeps the audited content surfaces on the shared grouped-list material contract', () => {
     const commonStyles = readFileSync(resolve(cwd(), 'src/styles/common.scss'), 'utf8')
-    const transparentStyles = readFileSync(resolve(cwd(), 'src/styles/themes/transparent.scss'), 'utf8')
     const glassStyles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const resourcePage = readFileSync(resolve(cwd(), 'src/pages/resource.vue'), 'utf8')
     const appCenterPage = readFileSync(resolve(cwd(), 'src/pages/appcenter.vue'), 'utf8')
 
     expect(commonStyles).toContain('--app-grouped-list-backdrop-filter: none')
-    expect(transparentStyles).toContain('--app-grouped-list-backdrop-filter: blur(var(--transparent-blur))')
-    expect(transparentStyles.match(/--app-grouped-list-backdrop-filter:\s*none/g)).toHaveLength(3)
     expect(glassStyles).toContain('--app-grouped-list-backdrop-filter: var(--glass-surface-backdrop-filter)')
 
     for (const page of [resourcePage, appCenterPage]) {
@@ -686,7 +691,7 @@ describe('glass overlay material styles', () => {
     expect(reducedTransparencyRule).toContain('--glass-navbar-live-filter: none !important')
     expect(reducedTransparencyRule).toContain('-webkit-backdrop-filter: none !important')
     expect(reducedTransparencyRule).toContain('backdrop-filter: none !important')
-    expect(reducedTransparencyRule).toContain('background: rgb(28, 28, 30) !important')
+    expect(reducedTransparencyRule).toContain('background: rgb(var(--glass-material-rgb)) !important')
     expect(reducedTransparencyRule).toContain('background-image: none !important')
     expect(reducedMotionRule).toContain('.layout-navbar')
     expect(reducedMotionRule).toContain('.navbar-content-container')
