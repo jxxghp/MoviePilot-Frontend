@@ -71,6 +71,7 @@ export function projectNativePanel(source: NativePanelSource) {
   }
   const panel: NativePanel = {
     title: text(source.title) || 'MoviePilot',
+    ...(source.layout === 'grid' ? { layout: 'grid' } : {}),
     ...(text(source.subtitle) ? { subtitle: text(source.subtitle) } : {}),
     ...(source.profile && text(source.profile.name)
       ? {

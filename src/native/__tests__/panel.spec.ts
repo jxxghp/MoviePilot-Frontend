@@ -3,6 +3,41 @@ import { dispatchNativePanel, nativePanelId, projectNativePanel } from '../panel
 import type { NativePanelSource } from '../registry'
 
 describe('原生面板声明与当前业务回调隔离', () => {
+  it('网格保留插件实际图片及打开、固定回调，搜索移除后撤销旧项目', () => {
+    const open = vi.fn()
+    const pin = vi.fn()
+    const source: NativePanelSource = {
+      title: '插件面板',
+      layout: 'grid',
+      sections: [
+        {
+          id: 'all',
+          items: [
+            {
+              id: 'plugin-test',
+              title: '示例插件',
+              image: './plugin_icon/demo.png',
+              children: [
+                { id: 'open-test', title: '查看详情', primary: true, invoke: open },
+                { id: 'pin-test', title: '固定', keepOpen: true, invoke: pin },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const current = projectNativePanel(source)
+    expect(current.panel.layout).toBe('grid')
+    expect(current.panel.sections[0].items[0].image).toBe(new URL('./plugin_icon/demo.png', document.baseURI).href)
+    expect(dispatchNativePanel(current, { panelEvent: 'select', itemId: 'open-test' })).toBe(true)
+    expect(dispatchNativePanel(current, { panelEvent: 'select', itemId: 'pin-test' })).toBe(true)
+    expect(open).toHaveBeenCalledOnce()
+    expect(pin).toHaveBeenCalledOnce()
+    source.sections[0].items = []
+    expect(dispatchNativePanel(projectNativePanel(source), { panelEvent: 'select', itemId: 'open-test' })).toBe(false)
+    expect(projectNativePanel({ ...source, layout: undefined }).panel.layout).toBeUndefined()
+  })
+
   it('主要动作只投影为子菜单叶子按钮，执行仍复核最新权限和回调', () => {
     const invoke = vi.fn()
     const source: NativePanelSource = {

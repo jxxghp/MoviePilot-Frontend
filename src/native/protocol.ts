@@ -34,6 +34,8 @@ export interface NativePanelItem {
 /** 快捷入口共用系统列表与搜索控件，分组内容来自现有业务组件。 */
 export interface NativePanel {
   title: string
+  /** 仅原生容器使用网格和半屏系统 Sheet，缺省仍为锚定列表。 */
+  layout?: 'grid'
   subtitle?: string
   profile?: { name: string; detail?: string; image?: string }
   search?: { text: string; placeholder: string }

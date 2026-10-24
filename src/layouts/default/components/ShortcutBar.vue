@@ -18,6 +18,7 @@ useNativeGlobalAction({
   dataAttr: 'native-shortcuts',
   panel: () => ({
     title: t('shortcut.title'),
+    layout: 'grid',
     sections: [
       {
         id: 'tools',

@@ -241,16 +241,19 @@ useNativeGlobalAction({
       title: plugin.plugin_name || plugin.id || '',
       subtitle: plugin.plugin_desc,
       icon: 'mdi-puzzle-outline',
+      image: getPluginIcon(plugin),
       children: [
         {
           id: nativePanelId('open', plugin.id),
           title: t('common.viewDetails'),
           icon: 'mdi-puzzle-outline',
+          primary: true,
           invoke: () => handlePluginClick(plugin),
         },
         {
           id: nativePanelId('pin', plugin.id),
           title: t(isPinned(plugin) ? 'plugin.unpinPlugin' : 'plugin.pinPlugin', { name: plugin.plugin_name }),
+          icon: isPinned(plugin) ? 'mdi-pin-off-outline' : 'mdi-pin-outline',
           selected: isPinned(plugin),
           keepOpen: true,
           invoke: () => togglePluginPin(plugin),
@@ -262,6 +265,7 @@ useNativeGlobalAction({
     const used = new Set([...pinned, ...recent].map(plugin => plugin.id))
     return {
       title: t('plugin.quickAccess'),
+      layout: 'grid',
       loading: loading.value,
       emptyText: t(searchKeyword.value ? 'plugin.noMatchingContent' : 'plugin.noPluginsWithPage'),
       search: { text: searchKeyword.value, placeholder: t('common.search') },
