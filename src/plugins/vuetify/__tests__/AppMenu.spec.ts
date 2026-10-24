@@ -42,6 +42,16 @@ function menu(controlled = false) {
 }
 
 describe('原生 Sheet 前结束网页菜单', () => {
+  it('普通网页未绑定 v-model 的菜单保留 Vuetify 内部状态和原激活器', async () => {
+    const { wrapper } = menu()
+    await wrapper.get('button').trigger('click')
+    await nextTick()
+    expect(document.querySelector('.v-menu.v-overlay--active')).not.toBeNull()
+    closeNativeMenus()
+    await nextTick()
+    expect(document.querySelector('.v-menu.v-overlay--active')).not.toBeNull()
+  })
+
   it('普通网页保留原展开状态，协商后的新弹窗同步关闭原模型', async () => {
     const { model } = menu(true)
     await nextTick()

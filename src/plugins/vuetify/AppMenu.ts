@@ -38,7 +38,10 @@ export default defineComponent({
         VMenu,
         {
           ...attrs,
-          modelValue: native ? expanded.value : props.modelValue,
+          // 普通网页未绑定模型时必须省略该属性，显式 undefined 会让 Vuetify 误判为受控菜单。
+          ...(native || props.modelValue !== undefined
+            ? { modelValue: native ? expanded.value : props.modelValue }
+            : {}),
           'onUpdate:modelValue': update,
           ...(native && closingForSheet.value ? { transition: false } : {}),
         },
