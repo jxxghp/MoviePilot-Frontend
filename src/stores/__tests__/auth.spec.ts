@@ -2,7 +2,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useUserStore } from '@/stores/user'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('auth store', () => {
   beforeEach(() => {
@@ -81,5 +81,24 @@ describe('auth store', () => {
       userID: -1,
       userName: '',
     })
+  })
+
+  it('原生组件退出通知在清空主登录之前同步发出，消息没有认证载荷', () => {
+    const authStore = useAuthStore()
+    authStore.setToken('web-main-token')
+    window.MoviePilotNative = { transportVersion: 1, widgetsVersion: 1, postMessage: vi.fn() }
+    const listener = vi.fn((event: Event) => {
+      expect(authStore.token).toBe('web-main-token')
+      expect(event).not.toBeInstanceOf(CustomEvent)
+    })
+    window.addEventListener('moviepilot:widget-logout', listener)
+    try {
+      authStore.logout()
+      expect(listener).toHaveBeenCalledOnce()
+      expect(authStore.token).toBeNull()
+    } finally {
+      window.removeEventListener('moviepilot:widget-logout', listener)
+      delete window.MoviePilotNative
+    }
   })
 })
