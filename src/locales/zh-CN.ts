@@ -1207,10 +1207,15 @@ export default {
     },
     apppush: {
       name: 'App 私有推送',
-      server: '私有 Server 地址',
+      server: '消息中心地址（可选）',
+      serverHint: '留空使用 MoviePilot 已配置的中心服务；接入凭据由后台自动登记。',
+      manual: '手动接入现有服务',
       key: '实例中转密钥',
-      keyHint: '与 Server 的 PUSH_RELAY_KEYS 对应，至少 32 位；仅保存在后台。',
-      hint: '保存并启用后，在 App 的“连接与显示 → 通知”中绑定。免费自签使用主屏幕通知网页；支持 APNs 的签名可开启原生通知。',
+      keyHint: '通常无需填写。仅兼容已有 Server 手工密钥，至少 32 位；填写后停用自动接入。',
+      hint: '启用后自动接入消息中心，无需索取实例密钥。在 App 的“连接与显示 → 通知”中绑定设备；免费自签使用主屏幕通知网页。',
+      rotate: '轮换接入凭据',
+      rotated: '接入凭据已轮换，设备绑定保留',
+      rotateFailed: '凭据轮换失败，请稍后重试',
     },
     webpush: {
       name: 'WebPush',

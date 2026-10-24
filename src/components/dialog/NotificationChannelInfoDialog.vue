@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { manageNotificationChannel } from '@/api/manage'
+import { manageNotificationChannel, rotateAppPushInstance } from '@/api/manage'
 import { NotificationConf } from '@/api/types'
 import { useToast } from 'vue-toastification'
 import { cloneDeep } from 'lodash-es'
@@ -68,6 +68,35 @@ const notificationInfo = ref<NotificationConf>({
   enabled: false,
   config: {},
 })
+
+const appPushManualPanel = ref<string>()
+const appPushRotating = ref(false)
+const appPushCanRotate = computed(() => {
+  const saved = props.notifications.find(item => item.id === notificationInfo.value.id)
+  return Boolean(
+    saved?.enabled &&
+    saved.type === 'apppush' &&
+    saved.name === notificationInfo.value.name &&
+    !saved.config?.PUSH_RELAY_KEY &&
+    !notificationInfo.value.config?.PUSH_RELAY_KEY &&
+    String(saved.config?.PUSH_SERVER_URL || '').trim() ===
+      String(notificationInfo.value.config?.PUSH_SERVER_URL || '').trim(),
+  )
+})
+
+/** 仅为已保存的渠道发起轮换，草稿地址和手工密钥不会进入此请求。 */
+async function rotateAppPush() {
+  if (!appPushCanRotate.value) return
+  appPushRotating.value = true
+  try {
+    await rotateAppPushInstance(notificationInfo.value.name)
+    $toast.success(t('notification.apppush.rotated'))
+  } catch (error) {
+    $toast.error(error instanceof Error ? error.message : t('notification.apppush.rotateFailed'))
+  } finally {
+    appPushRotating.value = false
+  }
+}
 
 // 消息类型下拉字典
 const notificationTypes = [
@@ -230,6 +259,7 @@ const isWechatBotMode = computed({
 function openNotificationInfoDialog() {
   // 替换成深复制，避免修改时影响原数据
   notificationInfo.value = cloneDeep(props.notification)
+  appPushManualPanel.value = notificationInfo.value.config?.PUSH_RELAY_KEY ? 'manual' : undefined
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = true
@@ -1210,21 +1240,34 @@ onMounted(() => {
                 v-model="notificationInfo.config.PUSH_SERVER_URL"
                 :label="t('notification.apppush.server')"
                 placeholder="https://push.example.com"
+                :hint="t('notification.apppush.serverHint')"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12">
-              <VTextField
-                v-model="notificationInfo.config.PUSH_RELAY_KEY"
-                type="password"
-                autocomplete="new-password"
-                :label="t('notification.apppush.key')"
-                :hint="t('notification.apppush.keyHint')"
-                persistent-hint
-              />
+              <VExpansionPanels v-model="appPushManualPanel" variant="accordion">
+                <VExpansionPanel value="manual" :title="t('notification.apppush.manual')">
+                  <VExpansionPanelText>
+                    <VTextField
+                      v-model="notificationInfo.config.PUSH_RELAY_KEY"
+                      type="password"
+                      autocomplete="new-password"
+                      :label="t('notification.apppush.key')"
+                      :hint="t('notification.apppush.keyHint')"
+                      persistent-hint
+                    />
+                  </VExpansionPanelText>
+                </VExpansionPanel>
+              </VExpansionPanels>
             </VCol>
             <VCol cols="12"
               ><VAlert type="info" variant="tonal">{{ t('notification.apppush.hint') }}</VAlert></VCol
             >
+            <VCol v-if="appPushCanRotate" cols="12">
+              <VBtn variant="tonal" :loading="appPushRotating" prepend-icon="mdi-key-change" @click="rotateAppPush">
+                {{ t('notification.apppush.rotate') }}
+              </VBtn>
+            </VCol>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'webpush'">
             <VCol cols="12" md="6">

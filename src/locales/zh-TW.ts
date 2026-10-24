@@ -1204,10 +1204,15 @@ export default {
     },
     apppush: {
       name: 'App 私有推播',
-      server: '私有 Server 位址',
+      server: '訊息中心位址（選填）',
+      serverHint: '留空使用 MoviePilot 已設定的中心服務；接入憑據由後台自動登記。',
+      manual: '手動接入既有服務',
       key: '實例中轉金鑰',
-      keyHint: '與 Server 的 PUSH_RELAY_KEYS 對應，至少 32 位；僅保存在後台。',
-      hint: '儲存並啟用後，在 App 的「連線與顯示 → 通知」中綁定。免費自簽使用主畫面通知網頁；支援 APNs 的簽章可啟用原生通知。',
+      keyHint: '通常不需填寫。僅相容既有 Server 手動金鑰，至少 32 位；填寫後停用自動接入。',
+      hint: '啟用後自動接入訊息中心，無需索取實例金鑰。在 App 的「連線與顯示 → 通知」中綁定裝置；免費自簽使用主畫面通知網頁。',
+      rotate: '輪換接入憑據',
+      rotated: '接入憑據已輪換，裝置綁定保留',
+      rotateFailed: '憑據輪換失敗，請稍後重試',
     },
     webpush: {
       name: 'WebPush',

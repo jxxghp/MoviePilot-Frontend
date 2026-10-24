@@ -32,6 +32,11 @@ export function manageNotificationChannel<T = Record<string, unknown>>(
   return manageTarget<T>('notification/manage', { target: channel, action, params }, config)
 }
 
+/** 通过管理员专用入口轮换已保存渠道的自动接入凭据，不接收或返回密钥。 */
+export function rotateAppPushInstance(source: string): Promise<{ rotated: boolean }> {
+  return api.post('notification/app/instance', { action: 'rotate', source })
+}
+
 /** 对指定网盘存储执行管理动作，返回响应中的业务数据。 */
 export function manageStorage<T = Record<string, unknown>>(
   storage: string,

@@ -1239,10 +1239,16 @@ export default {
     },
     apppush: {
       name: 'Private App Push',
-      server: 'Private Server URL',
+      server: 'Notification service URL (optional)',
+      serverHint: 'Leave blank to use the configured MoviePilot service. The backend enrolls automatically.',
+      manual: 'Connect with an existing key',
       key: 'Instance relay key',
-      keyHint: 'Match a PUSH_RELAY_KEYS value on Server, at least 32 characters. Stored only on the backend.',
-      hint: 'Save and enable, then bind in the App under Connection and Display → Notifications. Free signing uses the Home Screen notification web app. APNs requires an eligible signing profile.',
+      keyHint:
+        'Usually unnecessary. Only for an existing manual Server key of at least 32 characters. Disables automatic enrollment.',
+      hint: 'Enable to enroll automatically, then bind your device in App → Connection & Display → Notifications. Free signing uses the Home Screen notification web app.',
+      rotate: 'Rotate access credentials',
+      rotated: 'Credentials rotated. Device bindings are preserved.',
+      rotateFailed: 'Could not rotate credentials. Try again later.',
     },
     webpush: {
       name: 'WebPush',
