@@ -218,6 +218,7 @@ export class NativeChromeSession {
         'presentation.detach',
         'presentation.dismiss',
         'presentation.action',
+        'confirmation.respond',
         'state.request',
       ].includes(message.type)
     )

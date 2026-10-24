@@ -50,7 +50,14 @@ export class NativeSheetAdapter {
         '.v-overlay--active.v-dialog, .theme-customizer-panel-host[role="dialog"], .agent-assistant-panel.is-open[role="dialog"]',
       ),
     )
-    const root = roots.sort((a, b) => this.zIndex(a) - this.zIndex(b)).at(-1)
+    const root = roots
+      .filter(
+        root =>
+          !this.document.documentElement.hasAttribute('data-native-confirmations') ||
+          !root.hasAttribute('data-native-confirm-dialog'),
+      )
+      .sort((a, b) => this.zIndex(a) - this.zIndex(b))
+      .at(-1)
     this.root = root
     this.buttons.clear()
     this.close = undefined

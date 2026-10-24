@@ -21,13 +21,14 @@ import { nativeGlobalActions, nativeHeaderRegistration, nativeRequestedPanel } f
 import { dispatchNativePanel, projectNativePanel } from '@/native/panel'
 import { readNativePresentation } from '@/native/presentation'
 import { NativeSheetAdapter } from '@/native/sheet'
+import { NativeConfirmationAdapter } from '@/native/confirmation'
 import { NativeChromeSession } from '@/native/session'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { NativeRouteHistory } from '@/native/history'
 import { NativeHeaderTabs } from '@/native/header'
 import { nativePageHeaders } from '@/native/page'
 import type { DynamicHeaderTabButton } from '@/composables/useDynamicHeaderTab'
-import type { NativeAction, NativeEnvelope, NativeSheet, NativeSnapshot } from '@/native/protocol'
+import type { NativeAction, NativeConfirmation, NativeEnvelope, NativeSheet, NativeSnapshot } from '@/native/protocol'
 import { isNativeRoute } from '@/native/protocol'
 import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 import '@/native/native.scss'
@@ -44,6 +45,7 @@ const overlayOpen = ref(false)
 const fullscreenOverlay = ref(false)
 const activePanel = ref<string>()
 const sheet = ref<NativeSheet>()
+const confirmation = ref<NativeConfirmation>()
 const permissions = computed(() => buildUserPermissionContext(user.superUser, user.permissions))
 const menus = computed(() => filterMenusByPermission(getNavMenus(t), permissions.value))
 const authenticated = computed(() => Boolean(auth.token) && user.userID >= 0 && Boolean(route.meta.requiresAuth))
@@ -69,6 +71,7 @@ const removePreviewHook = router.beforeResolve(async (to, from) => {
 })
 const layout = new NativeLayoutAdapter(document, window)
 const sheetAdapter = new NativeSheetAdapter(document)
+const confirmationAdapter = new NativeConfirmationAdapter(document)
 const headerProjection = new NativeHeaderTabs()
 let bridge: NativeChromeSession | undefined
 let ownerSequence = 0
@@ -266,6 +269,7 @@ const model = computed(() => {
       overlayOpen: overlayOpen.value,
       fullscreen: fullscreenOverlay.value,
       ...(sheet.value ? { sheet: sheet.value } : {}),
+      ...(confirmation.value ? { confirmation: confirmation.value } : {}),
       ...(nativeRequestedPanel.value ? { requestedPanel: nativeRequestedPanel.value } : {}),
     },
     ...(headerTabs ? { headerTabs } : {}),
@@ -296,6 +300,12 @@ const model = computed(() => {
 async function execute(message: NativeEnvelope) {
   const current = model.value
   const payload = message.payload
+  if (message.type === 'confirmation.respond') {
+    if (window.MoviePilotNative?.confirmationsVersion !== 1) return false
+    const accepted = confirmationAdapter.respond(payload)
+    confirmation.value = confirmationAdapter.read()
+    return accepted
+  }
   if (message.type.startsWith('presentation.')) {
     if (window.MoviePilotNative?.sheetsVersion !== 1) return false
     sheetAdapter.read(pageTitle())
@@ -402,6 +412,8 @@ const overlayObserver = new MutationObserver(records => {
     const presentation = readNativePresentation(document)
     overlayOpen.value = presentation.overlayOpen
     fullscreenOverlay.value = presentation.fullscreen
+    const nextConfirmation = confirmationAdapter.read()
+    if (JSON.stringify(nextConfirmation) !== JSON.stringify(confirmation.value)) confirmation.value = nextConfirmation
     const nextSheet = window.MoviePilotNative?.sheetsVersion === 1 ? sheetAdapter.read(pageTitle()) : undefined
     // 弹窗内动画或正文更新不重发相同的栏位声明，保留系统交互和键盘的稳定性。
     if (JSON.stringify(nextSheet) !== JSON.stringify(sheet.value)) sheet.value = nextSheet
@@ -426,6 +438,8 @@ watch(
       execute,
       setActive: async active => {
         layout.setActive(active)
+        confirmationAdapter.setActive(active && transport.confirmationsVersion === 1)
+        confirmation.value = confirmationAdapter.read()
         sheetAdapter.setActive(active && transport.sheetsVersion === 1)
         if (!active) {
           appActivityLifecycle.setHostLifecycle(undefined)
@@ -484,6 +498,7 @@ onScopeDispose(() => {
   void bridge?.stop()
   layout.setActive(false)
   sheetAdapter.setActive(false)
+  confirmationAdapter.setActive(false)
 })
 </script>
 

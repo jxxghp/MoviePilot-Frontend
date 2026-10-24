@@ -108,6 +108,12 @@ html[data-native-chrome='active'] {
 }
 
 // 能力协商后在首帧就等候系统接管，避免先闪出网页弹窗再变成原生 Sheet。
+html[data-native-chrome='active'][data-native-confirmations='active'] .v-overlay--active[data-native-confirm-dialog] {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 html[data-native-chrome='active'][data-native-sheets='active']:not([data-native-sheet]) {
   .v-overlay--active.v-dialog,
   .theme-customizer-panel-host[role='dialog'],

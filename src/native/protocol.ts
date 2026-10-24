@@ -58,6 +58,18 @@ export interface NativeSheet {
   actions: Array<{ id: string; title: string; enabled: boolean }>
 }
 
+/** 系统确认框只声明当前 Vue 提示文字和按钮；响应返回原始组件结算。 */
+export interface NativeConfirmation {
+  id: string
+  title: string
+  message: string
+  confirmText: string
+  cancelText: string
+  confirmEnabled: boolean
+  cancelEnabled: boolean
+  destructive: boolean
+}
+
 /** 已经经过网页权限过滤和路由守卫的完整原生显示状态。 */
 export interface NativeSnapshot {
   route: { fullPath: string; rootId: string | null; title: string; canGoBack: boolean; backTarget?: string }
@@ -65,7 +77,13 @@ export interface NativeSnapshot {
   headerTabs?: { ownerId: string; selectedId: string; items: Array<{ id: string; title: string }> }
   actions: NativeAction[]
   moreMenu?: NativeMenuSection[]
-  presentation?: { overlayOpen: boolean; fullscreen?: boolean; requestedPanel?: string; sheet?: NativeSheet }
+  presentation?: {
+    overlayOpen: boolean
+    fullscreen?: boolean
+    requestedPanel?: string
+    sheet?: NativeSheet
+    confirmation?: NativeConfirmation
+  }
   chrome: {
     topVisible: boolean
     bottomVisible: boolean
@@ -114,6 +132,8 @@ export interface NativeTransport {
   panelsVersion?: 1
   /** 可选原生业务弹窗容器；未协商时完整保留网页弹窗。 */
   sheetsVersion?: 1
+  /** 可选系统确认框，不支持时仍由原 HTML 弹窗结算。 */
+  confirmationsVersion?: 1
   /** 路由提交前可短暂等待原生保存离页预览；旧容器不等待。 */
   navigationPreviewVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
