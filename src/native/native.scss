@@ -170,6 +170,12 @@ html[data-native-chrome='active'][data-native-sheet] {
     background: transparent !important;
     transition: none !important;
 
+    // WebKit 搬入系统材质层时不保留零高度进度条的合成层；真正加载中的指示器继续显示。
+    .v-field__loader > .v-progress-linear:not(.v-progress-linear--active),
+    .v-card__loader > .v-progress-linear:not(.v-progress-linear--active) {
+      display: none !important;
+    }
+
     > .v-overlay__scrim,
     [data-native-sheet-header],
     [data-native-sheet-heading],
