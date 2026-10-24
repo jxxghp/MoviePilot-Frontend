@@ -14,6 +14,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
+import { nativeChromeActive } from '@/native/layout'
 import {
   collectSubscribeSourceNames,
   emptySubscribeSourceDirectory,
@@ -1004,6 +1005,17 @@ defineExpose({
 
   <VAlert v-if="loadError" type="error" variant="tonal" class="mb-4 mx-2">
     {{ t('subscribe.requestFailed') }}
+  </VAlert>
+
+  <VAlert v-if="nativeChromeActive && isBatchMode" role="status" variant="tonal" class="mb-4 mx-2">
+    <div class="d-flex align-center justify-space-between gap-2">
+      <div>
+        <div class="font-weight-medium">{{ t('subscribe.batchOperation') }}</div>
+        <div>{{ t('subscribe.selectedCount', { count: selectedSubscribes.length, total: displayList.length }) }}</div>
+      </div>
+      <VBtn variant="text" size="small" @click="exitBatchMode">{{ t('subscribe.exitBatchMode') }}</VBtn>
+    </div>
+    <div class="text-caption mt-1">{{ t('subscribe.batchSelectionHint') }}</div>
   </VAlert>
 
   <VAlert

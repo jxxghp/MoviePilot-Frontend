@@ -649,6 +649,10 @@ registerHeaderTab({
     },
     {
       icon: 'mdi-checkbox-multiple-marked-outline',
+      // 注册对象保留响应式读取，进入或退出批量选择后同步原生操作名称。
+      get title() {
+        return t(subscribeBatchState.value.enabled ? 'subscribe.exitBatchMode' : 'subscribe.batchOperation')
+      },
       variant: 'text',
       color: computed(() => (subscribeBatchState.value.enabled ? 'primary' : 'gray')),
       class: 'settings-icon-button',

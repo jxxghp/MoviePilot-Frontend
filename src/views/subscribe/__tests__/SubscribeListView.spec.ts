@@ -1,6 +1,7 @@
 import type { Subscribe, SubscriptionBatchStatus } from '@/api/types'
 import type { SubscribeSource } from '@/utils/subscribeSource'
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
+import { NativeLayoutAdapter } from '@/native/layout'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createSubscribe } from '@tests/support/factories/subscribe'
 import {
@@ -19,7 +20,10 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref, watch, type PropType } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const nativeLayout = new NativeLayoutAdapter(document, window)
+afterEach(() => nativeLayout.setActive(false))
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -1235,6 +1239,24 @@ describe('SubscribeListView sorting and refresh boundaries', () => {
 })
 
 describe('SubscribeListView batch operations', () => {
+  it('shows native batch selection feedback and exits through the existing list action', async () => {
+    await renderList({ listResponse: [movie(1, 'Alpha'), movie(2, 'Beta')] })
+    await screen.findByText('Alpha')
+    await fireEvent.click(screen.getByRole('button', { name: 'host-enter-batch' }))
+    expect(screen.queryByText('批量操作')).not.toBeInTheDocument()
+
+    nativeLayout.setActive(true)
+    expect(await screen.findByText('已选择 0/2 项')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'select-1' }))
+    expect(screen.getByText('已选择 1/2 项')).toBeInTheDocument()
+    expect(card(1)).toHaveAttribute('data-selected', 'true')
+
+    await fireEvent.click(screen.getByRole('button', { name: '退出批量操作' }))
+    expect(screen.queryByText('批量操作')).not.toBeInTheDocument()
+    expect(card(1)).toHaveAttribute('data-selected', 'false')
+    expect(batchState()).toMatchObject({ enabled: false, selectedCount: 0 })
+  })
+
   it('exits drag sorting when batch mode makes the list unsortable', async () => {
     await renderList({
       listResponse: [movie(1, 'Alpha'), movie(2, 'Beta')],

@@ -1881,6 +1881,8 @@ export default {
     },
     selectedCount: 'Selected {count}/{total} items',
     noSelectedItems: 'Please select subscriptions to operate',
+    batchOperation: 'Batch Actions',
+    batchSelectionHint: 'Tap cards to select subscriptions, then use the bottom-right action button.',
     batchSelectAll: 'Select All Subscriptions',
     batchDeselectAll: 'Deselect All Subscriptions',
     exitBatchMode: 'Exit Batch Mode',

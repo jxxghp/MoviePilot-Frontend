@@ -167,6 +167,7 @@ type MaybeRef<T> = T | Ref<T> | ComputedRef<T>
 
 interface HeaderButtonConfig {
   icon: string
+  title?: string
   dataAttr?: string
   action?: () => void
   color?: MaybeRef<string>
@@ -355,12 +356,14 @@ describe('subscribe page', () => {
   it('delegates PWA batch actions to the list public API', async () => {
     await renderSubscribe({ appMode: true })
     const batchButton = getHeaderButton(button => button.icon === 'mdi-checkbox-multiple-marked-outline')
+    expect(batchButton.title).toBe('批量操作')
 
     batchButton.action?.()
     await nextTick()
     expect(getListOutput('last list command')).toHaveTextContent('enter-batch')
 
     await fireEvent.click(screen.getByRole('button', { name: 'publish batch selection' }))
+    expect(batchButton.title).toBe('退出批量操作')
     const dynamicButton = getDynamicButtonConfig()
     const menuItems = unref(dynamicButton.menuItems) ?? []
 
@@ -382,6 +385,7 @@ describe('subscribe page', () => {
     dynamicButton.onClick?.()
     await nextTick()
     expect(getListOutput('last list command')).toHaveTextContent('exit-batch')
+    expect(batchButton.title).toBe('批量操作')
   })
 
   it('exits batch mode when the header leaves the personal subscription tab', async () => {

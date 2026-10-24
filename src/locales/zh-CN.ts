@@ -1848,6 +1848,8 @@ export default {
     },
     selectedCount: '已选择 {count}/{total} 项',
     noSelectedItems: '请先选择要操作的订阅',
+    batchOperation: '批量操作',
+    batchSelectionHint: '点击卡片选择订阅，再使用右下角按钮操作。',
     batchSelectAll: '选择全部订阅',
     batchDeselectAll: '取消全选订阅',
     exitBatchMode: '退出批量操作',

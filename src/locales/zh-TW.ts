@@ -1843,6 +1843,8 @@ export default {
     },
     selectedCount: '已選擇 {count}/{total} 項',
     noSelectedItems: '請先選擇要操作的訂閱',
+    batchOperation: '批量操作',
+    batchSelectionHint: '點擊卡片選擇訂閱，再使用右下角按鈕操作。',
     batchSelectAll: '選擇全部訂閱',
     batchDeselectAll: '取消全選訂閱',
     exitBatchMode: '退出批量操作',
