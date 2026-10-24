@@ -40,10 +40,8 @@ describe('原生用户菜单与网页状态同步', () => {
     expect(entries.value.map(item => item.id)).toEqual([
       'profile',
       'settings',
-      'ui',
       'customizer',
       'glass',
-      'css',
       'language',
       'help',
       'medals',
@@ -52,6 +50,7 @@ describe('原生用户菜单与网页状态同步', () => {
       'logout',
     ])
     expect(entries.value.some(item => item.id === 'auth')).toBe(false)
+    expect(entries.value.some(item => item.id === 'css' || item.id === 'ui')).toBe(false)
   })
 
   it('认证等级和身份变化使用最新 store，普通用户不继承管理员勋章或认证入口', async () => {

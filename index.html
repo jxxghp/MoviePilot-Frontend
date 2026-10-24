@@ -581,7 +581,7 @@
           primary: '#A370F7',
         },
         glass: {
-          background: '#0B1322',
+          background: '#000000',
           primary: '#8D51F9',
         },
       }
@@ -848,7 +848,9 @@
         // 自动主题恢复时复用最近一次已确认的底色，避免 iOS 媒体查询短暂返回浅色。
         const storedLoaderColor =
           themePreference === 'auto' ? getCachedLaunchBackground() : getLocalStorageValue('materio-initial-loader-bg')
-        const loaderColor = storedLoaderColor || palette.background
+        const isLegacyGlassBackground =
+          resolvedLaunchTheme === 'glass' && storedLoaderColor?.toLowerCase() === '#0b1322'
+        const loaderColor = isLegacyGlassBackground ? palette.background : storedLoaderColor || palette.background
         const primaryColor = getLocalStorageValue('materio-initial-loader-color') || palette.primary
 
         document.documentElement.setAttribute('data-launch-theme', resolvedLaunchTheme)

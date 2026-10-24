@@ -717,8 +717,6 @@ function nativeProfilePanel(): NativePanelSource {
       icon: 'mdi-blur-radial',
       invoke: showGlassSettingsDialog,
     })
-  if (canAdmin.value)
-    themeItems.push({ id: 'css', title: t('theme.custom'), icon: 'mdi-palette', invoke: showCustomCssDialog })
   const information: NativePanelEntry[] = [
     {
       id: 'help',
@@ -764,26 +762,7 @@ function nativeProfilePanel(): NativePanelSource {
     },
     sections: [
       { id: 'account', items: account },
-      {
-        id: 'ui-mode',
-        items: [
-          {
-            id: 'ui',
-            title: t('common.uiMode'),
-            icon: getUIModeIcon.value,
-            subtitle: uiModes.value.find(mode => mode.name === uiMode.value)?.title,
-            children: uiModes.value.map(mode => ({
-              id: `ui-${mode.name}`,
-              title: mode.title,
-              icon: mode.icon,
-              selected: uiMode.value === mode.name,
-              keepOpen: true,
-              invoke: () => changeUIMode(mode.name as UIMode),
-            })),
-          },
-        ],
-      },
-      // 顺序沿用网页的界面模式、主题、语言；少量主题入口仍直接展示。
+      // App 布局由原生框架承载，不提供网页布局切换和附加 CSS；主题与语言仍沿用网页能力。
       { id: 'theme', title: t('common.theme'), items: themeItems },
       {
         id: 'language',

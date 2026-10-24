@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
   --glass-fixed-shell-nav-inline-size: #{variables.$layout-vertical-nav-width};
 
   // 壁纸槽位以0.92透明度交叉淡化；不透明底板阻止未扩散的正文从槽位余量透穿。
-  background-color: rgb(23, 27, 32);
+  background-color: rgb(28, 28, 30);
   z-index: variables.$layout-vertical-nav-layout-navbar-z-index - 1;
   clip-path: polygon(
     0 0,
@@ -548,7 +548,7 @@ onBeforeUnmount(() => {
 
   &::after {
     position: absolute;
-    background: linear-gradient(rgba(6, 10, 19, 24%) 0%, rgba(6, 10, 19, 48%) 100%), rgba(11, 19, 34, 8%);
+    background: linear-gradient(rgba(0, 0, 0, 24%) 0%, rgba(0, 0, 0, 48%) 100%), rgba(28, 28, 30, 8%);
     content: '';
     inset: 0;
   }

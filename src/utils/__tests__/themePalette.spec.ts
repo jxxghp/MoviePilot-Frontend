@@ -7,12 +7,12 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 
 describe('theme palette', () => {
-  // 玻璃主题在首屏与运行阶段都应保持深色外壳和夜航底色。
+  // 玻璃主题在首屏与运行阶段都应保持深色外壳和 iOS 暗色基础底色。
   it('resolves glass as a dark theme with its dedicated launch palette', () => {
     expect(resolveThemeName('glass')).toBe('glass')
     expect(getThemeColorScheme('glass')).toBe('dark')
     expect(themeRootPalettes.glass).toEqual({
-      background: '#0B1322',
+      background: '#000000',
       primary: '#8D51F9',
     })
   })

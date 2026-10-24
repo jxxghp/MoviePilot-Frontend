@@ -1278,8 +1278,8 @@ onUnmounted(() => {
 .background-container.is-glass-theme .background-image.active::after,
 .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, transparent 24%, rgba(6, 10, 19, 12%) 100%),
-    linear-gradient(rgba(6, 10, 19, 10%) 0%, rgba(6, 10, 19, 30%) 100%);
+    radial-gradient(circle at 50% 18%, transparent 24%, rgba(0, 0, 0, 12%) 100%),
+    linear-gradient(rgba(0, 0, 0, 10%) 0%, rgba(0, 0, 0, 30%) 100%);
 }
 
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active,
@@ -1294,8 +1294,8 @@ html[data-glass-appearance='tinted'] .background-container.is-glass-theme .backg
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, transparent 22%, rgba(6, 10, 19, 14%) 100%),
-    linear-gradient(rgba(6, 10, 19, 10%) 0%, rgba(6, 10, 19, 32%) 100%), rgba(var(--glass-material-accent-rgb), 3%);
+    radial-gradient(circle at 50% 18%, transparent 22%, rgba(0, 0, 0, 14%) 100%),
+    linear-gradient(rgba(0, 0, 0, 10%) 0%, rgba(0, 0, 0, 32%) 100%), rgba(var(--glass-material-accent-rgb), 3%);
 }
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active,
@@ -1309,7 +1309,7 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.previous::after {
-  background: linear-gradient(rgba(6, 10, 19, 24%) 0%, rgba(6, 10, 19, 48%) 100%), rgba(11, 19, 34, 8%);
+  background: linear-gradient(rgba(0, 0, 0, 24%) 0%, rgba(0, 0, 0, 48%) 100%), rgba(28, 28, 30, 8%);
 }
 
 .background-container.is-transparent-glass-lightweight .background-image.active,

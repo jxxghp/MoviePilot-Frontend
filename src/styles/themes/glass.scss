@@ -6,10 +6,10 @@
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
-  --glass-surface: rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2));
-  --glass-surface-soft: rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.62) * 0.23));
-  --glass-surface-raised: rgba(11, 19, 34, calc(0.07 + var(--glass-surface-density, 0.62) * 0.36));
-  --glass-control: rgba(11, 19, 34, 52%);
+  --glass-surface: rgba(28, 28, 30, calc(0.12 + var(--glass-surface-density, 0.62) * 0.2));
+  --glass-surface-soft: rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.62) * 0.23));
+  --glass-surface-raised: rgba(28, 28, 30, calc(0.07 + var(--glass-surface-density, 0.62) * 0.36));
+  --glass-control: rgba(28, 28, 30, 52%);
   --glass-control-prominent: rgba(255, 255, 255, 7%);
   --glass-control-prominent-focus: color-mix(in srgb, rgba(255, 255, 255, 10%) 84%, rgba(var(--v-theme-primary), 24%));
   --glass-border: rgba(255, 255, 255, calc(0.04 + var(--glass-reflection, 0.5) * 0.12));
@@ -26,25 +26,25 @@ html[data-theme='glass'] {
     transparent
   );
   --glass-shadow:
-    0 10px 28px rgba(3, 7, 18, 24%), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
+    0 10px 28px rgba(0, 0, 0, 24%), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(0, 0, 0, 14%);
   --glass-dashboard-shadow: inset 0 1px 0 var(--glass-highlight);
   --glass-dashboard-shadow-hover:
     inset 0 1px 0 rgba(255, 255, 255, calc(0.16 + var(--glass-reflection, 0.5) * 0.24)),
-    inset -1px 0 0 rgba(2, 6, 16, calc(0.12 + var(--glass-reflection, 0.5) * 0.1)),
-    inset 0 -1px 0 rgba(2, 6, 16, calc(0.14 + var(--glass-reflection, 0.5) * 0.1));
+    inset -1px 0 0 rgba(0, 0, 0, calc(0.12 + var(--glass-reflection, 0.5) * 0.1)),
+    inset 0 -1px 0 rgba(0, 0, 0, calc(0.14 + var(--glass-reflection, 0.5) * 0.1));
   --glass-shadow-raised:
-    0 16px 40px rgba(3, 7, 18, 32%), inset 0 1px 0 rgba(255, 255, 255, 24%), inset 0 -1px 0 rgba(2, 6, 16, 18%);
+    0 16px 40px rgba(0, 0, 0, 32%), inset 0 1px 0 rgba(255, 255, 255, 24%), inset 0 -1px 0 rgba(0, 0, 0, 18%);
   --glass-shadow-hover:
-    0 18px 44px rgba(3, 7, 18, 36%), inset 0 1px 0 rgba(255, 255, 255, 28%), inset 0 -1px 0 rgba(2, 6, 16, 18%);
+    0 18px 44px rgba(0, 0, 0, 36%), inset 0 1px 0 rgba(255, 255, 255, 28%), inset 0 -1px 0 rgba(0, 0, 0, 18%);
   --glass-navbar-shadow:
-    0 3px 12px rgba(3, 7, 18, 18%), inset 0 1px 0 rgba(255, 255, 255, 10%), inset 0 -1px 0 rgba(2, 6, 16, 12%);
-  --glass-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 12%), inset 0 -1px 0 rgba(2, 6, 16, 14%);
-  --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 18%), inset 0 -1px 0 rgba(2, 6, 16, 12%);
-  --glass-control-shadow-active: inset 0 1px 0 rgba(255, 255, 255, 7%), inset 0 -1px 0 rgba(2, 6, 16, 20%);
-  --glass-control-prominent-shadow: inset 0 1px 0 rgba(255, 255, 255, 18%), inset 0 -1px 0 rgba(2, 6, 16, 18%);
+    0 3px 12px rgba(0, 0, 0, 18%), inset 0 1px 0 rgba(255, 255, 255, 10%), inset 0 -1px 0 rgba(0, 0, 0, 12%);
+  --glass-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 12%), inset 0 -1px 0 rgba(0, 0, 0, 14%);
+  --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 18%), inset 0 -1px 0 rgba(0, 0, 0, 12%);
+  --glass-control-shadow-active: inset 0 1px 0 rgba(255, 255, 255, 7%), inset 0 -1px 0 rgba(0, 0, 0, 20%);
+  --glass-control-prominent-shadow: inset 0 1px 0 rgba(255, 255, 255, 18%), inset 0 -1px 0 rgba(0, 0, 0, 18%);
   --glass-control-prominent-focus-shadow:
     0 0 0 2px rgba(var(--v-theme-primary), 16%), inset 0 1px 0 rgba(255, 255, 255, 24%),
-    inset 0 -1px 0 rgba(2, 6, 16, 16%);
+    inset 0 -1px 0 rgba(0, 0, 0, 16%);
   --glass-native-surface-backdrop-filter: brightness(var(--glass-transmission-brightness));
   --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-raised-backdrop-filter: brightness(var(--glass-transmission-brightness));
@@ -57,21 +57,21 @@ html[data-theme='glass'] {
   --glass-navbar-live-filter: none;
   --glass-sidebar-live-filter: var(--glass-fixed-shell-backdrop-filter);
   // 清透弹层不散射背景，靠独立吸收层区分前后两组文字，不改变内容卡片的通透度。
-  --glass-overlay-surface: rgba(11, 19, 34, calc(0.58 + var(--glass-surface-density, 0.62) * 0.18));
+  --glass-overlay-surface: rgba(28, 28, 30, calc(0.58 + var(--glass-surface-density, 0.62) * 0.18));
   --glass-overlay-blur: 0px;
   --glass-overlay-saturate: 115%;
-  --glass-overlay-scrim: rgba(3, 7, 18, 30%);
+  --glass-overlay-scrim: rgba(0, 0, 0, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
-  --glass-control-icon-color: rgba(242, 245, 250, 70%);
-  --glass-control-placeholder-color: rgba(242, 245, 250, 54%);
+  --glass-control-icon-color: rgba(242, 242, 247, 70%);
+  --glass-control-placeholder-color: rgba(242, 242, 247, 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
   --glass-control-shortcut-border: rgba(255, 255, 255, 12%);
-  --glass-control-shortcut-color: rgba(242, 245, 250, 68%);
+  --glass-control-shortcut-color: rgba(242, 242, 247, 68%);
   // 小标签由透光底色与镜面高光承载材质，不为每个标签重复采样背景；光学预算留给主要表面。
   --glass-chip-backdrop-filter: none;
   --glass-chip-sheen:
     linear-gradient(135deg, rgba(255, 255, 255, 12%), transparent 38%, rgba(255, 255, 255, 3%) 72%, transparent),
-    linear-gradient(rgba(11, 19, 34, 36%), rgba(11, 19, 34, 36%));
+    linear-gradient(rgba(28, 28, 30, 36%), rgba(28, 28, 30, 36%));
   --glass-chip-tint-opacity: calc(0.22 + var(--glass-tint-density, 0.65) * 0.18);
   --glass-button-surface: rgba(255, 255, 255, 8%);
   --glass-button-surface-hover: rgba(255, 255, 255, 12%);
@@ -111,39 +111,39 @@ html[data-theme='glass'] {
   --app-grouped-list-backdrop-filter: var(--glass-surface-backdrop-filter);
   --app-grouped-list-border: 1px solid var(--glass-border);
   --app-grouped-list-separator-color: rgba(255, 255, 255, 10%);
-  --app-grouped-list-header-color: rgba(242, 245, 250, 68%);
-  --app-grouped-list-chevron-color: rgba(242, 245, 250, 56%);
+  --app-grouped-list-header-color: rgba(242, 242, 247, 68%);
+  --app-grouped-list-chevron-color: rgba(242, 242, 247, 56%);
   --app-grouped-list-hover-background: rgba(255, 255, 255, 8%);
   --app-grouped-list-active-background: rgba(var(--v-theme-primary), 16%);
   --mp-motion-duration-page: 180ms;
   --mp-motion-duration-overlay: 180ms;
   --mp-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  background-color: #0b1322;
+  background-color: #000000;
   color-scheme: dark;
 
   body {
-    background-color: #0b1322;
+    background-color: #000000;
   }
 
   // 色调保持与透明材质接近的透光度，只叠加主色语义。
   &[data-glass-appearance='tinted'] {
     --glass-surface: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
+      rgba(28, 28, 30, calc(0.12 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.28))
     );
     --glass-surface-soft: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%,
+      rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.72) * 0.23)) 89%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.26))
     );
     --glass-surface-raised: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%,
+      rgba(28, 28, 30, calc(0.07 + var(--glass-surface-density, 0.72) * 0.36)) 84%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.32))
     );
-    --glass-control: color-mix(in srgb, rgba(11, 19, 34, 52%) 88%, rgba(var(--v-theme-primary), 28%));
+    --glass-control: color-mix(in srgb, rgba(28, 28, 30, 52%) 88%, rgba(var(--v-theme-primary), 28%));
     --glass-control-prominent: color-mix(in srgb, rgba(255, 255, 255, 7%) 82%, rgba(var(--v-theme-primary), 24%));
     --glass-control-prominent-focus: color-mix(
       in srgb,
@@ -184,12 +184,12 @@ html[data-theme='glass'] {
     );
     --glass-overlay-surface: color-mix(
       in srgb,
-      rgba(11, 19, 34, calc(0.58 + var(--glass-surface-density, 0.72) * 0.18)) 88%,
+      rgba(28, 28, 30, calc(0.58 + var(--glass-surface-density, 0.72) * 0.18)) 88%,
       rgba(var(--glass-material-accent-rgb), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
     --glass-overlay-blur: 0px;
     --glass-overlay-saturate: 120%;
-    --glass-overlay-scrim: rgba(3, 7, 18, 32%);
+    --glass-overlay-scrim: rgba(0, 0, 0, 32%);
   }
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
@@ -212,10 +212,10 @@ html[data-theme='glass'] {
       rgba(255, 255, 255, 2%) 72%,
       transparent
     );
-    --glass-control-prominent-shadow: inset 0 1px 0 rgba(255, 255, 255, 28%), inset 0 -1px 0 rgba(2, 6, 16, 20%);
+    --glass-control-prominent-shadow: inset 0 1px 0 rgba(255, 255, 255, 28%), inset 0 -1px 0 rgba(0, 0, 0, 20%);
     --glass-control-prominent-focus-shadow:
       0 0 0 2px rgba(var(--v-theme-primary), 17%), inset 0 1px 0 rgba(255, 255, 255, 34%),
-      inset 0 -1px 0 rgba(2, 6, 16, 18%);
+      inset 0 -1px 0 rgba(0, 0, 0, 18%);
     --glass-native-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
@@ -259,20 +259,20 @@ html[data-theme='glass'] {
     --glass-overlay-surface: rgba(var(--v-theme-background), calc(0.24 + var(--glass-surface-density, 0.86) * 0.12));
     --glass-overlay-blur: min(var(--glass-blur-raised), 36px);
     --glass-overlay-saturate: 135%;
-    --glass-overlay-scrim: rgba(3, 7, 18, 36%);
+    --glass-overlay-scrim: rgba(0, 0, 0, 36%);
     // 高光负责透光感，轻量吸收底面隔开海报细节与标签文字，不重新建立背景滤镜。
     --glass-chip-sheen:
       linear-gradient(135deg, rgba(255, 255, 255, 14%), transparent 36%, rgba(255, 255, 255, 5%) 72%, transparent),
-      linear-gradient(rgba(11, 19, 34, 42%), rgba(11, 19, 34, 42%));
+      linear-gradient(rgba(28, 28, 30, 42%), rgba(28, 28, 30, 42%));
     --glass-blur-surface: 40px;
     --glass-blur: 40px;
     --glass-blur-raised: 60px;
     --glass-saturate: 180%;
-    --glass-control-icon-color: rgba(242, 245, 250, 78%);
-    --glass-control-placeholder-color: rgba(242, 245, 250, 62%);
+    --glass-control-icon-color: rgba(242, 242, 247, 78%);
+    --glass-control-placeholder-color: rgba(242, 242, 247, 62%);
     --glass-control-shortcut-background: rgba(255, 255, 255, 11%);
     --glass-control-shortcut-border: rgba(255, 255, 255, 16%);
-    --glass-control-shortcut-color: rgba(242, 245, 250, 76%);
+    --glass-control-shortcut-color: rgba(242, 242, 247, 76%);
     --glass-button-surface: rgba(255, 255, 255, 10%);
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
     --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
@@ -522,12 +522,12 @@ html[data-theme='glass'] {
         var(--glass-sheen),
         linear-gradient(
           90deg,
-          rgba(7, 14, 25, var(--glass-sidebar-absorption-start)),
-          rgba(7, 14, 25, var(--glass-sidebar-absorption-end))
+          rgba(28, 28, 30, var(--glass-sidebar-absorption-start)),
+          rgba(28, 28, 30, var(--glass-sidebar-absorption-end))
         );
       box-shadow:
         inset -1px 0 0 rgba(255, 255, 255, var(--glass-sidebar-edge-opacity)),
-        0 8px 24px rgba(3, 7, 18, 0.12);
+        0 8px 24px rgba(0, 0, 0, 0.12);
     }
 
     .layout-wrapper[data-shell-mode='desktop'] > .glass-fixed-shell-backplate--main {
@@ -553,8 +553,8 @@ html[data-theme='glass'] {
       background:
         var(--glass-sheen),
         linear-gradient(
-          rgba(7, 14, 25, var(--glass-sidebar-absorption-start)),
-          rgba(7, 14, 25, var(--glass-sidebar-absorption-end))
+          rgba(28, 28, 30, var(--glass-sidebar-absorption-start)),
+          rgba(28, 28, 30, var(--glass-sidebar-absorption-end))
         ) !important;
     }
   }
@@ -634,7 +634,7 @@ html[data-theme='glass'] {
       linear-gradient(180deg, rgba(255, 255, 255, 4%), rgba(255, 255, 255, 7%)), rgba(255, 255, 255, 3%) !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 12%),
-      inset 0 -1px 0 rgba(2, 6, 16, 18%);
+      inset 0 -1px 0 rgba(0, 0, 0, 18%);
   }
 
   :where(
@@ -647,7 +647,7 @@ html[data-theme='glass'] {
     background: rgba(255, 255, 255, 7%) !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 14%),
-      inset 0 -1px 0 rgba(2, 6, 16, 20%);
+      inset 0 -1px 0 rgba(0, 0, 0, 20%);
   }
 
   .theme-customizer-preview-option.is-active > :where(.theme-customizer-border-scene, .theme-customizer-radius-scene) {
@@ -819,7 +819,7 @@ html[data-theme='glass'] {
 
   // Outlined 描边自身会为浮动标签留出缺口，移除贯穿整个顶部的 field 阴影线。
   .v-field.v-field--variant-outlined {
-    box-shadow: inset 0 -1px 0 rgba(2, 6, 16, 22%);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 22%);
   }
 
   .v-field.v-field--variant-underlined,
@@ -839,7 +839,7 @@ html[data-theme='glass'] {
 
   .v-field input::placeholder,
   .v-field textarea::placeholder {
-    color: rgba(242, 245, 250, 38%);
+    color: rgba(242, 242, 247, 38%);
     opacity: 1;
   }
 
@@ -872,7 +872,7 @@ html[data-theme='glass'] {
   }
 
   .ace_editor .ace_gutter {
-    color: rgba(242, 245, 250, 44%) !important;
+    color: rgba(242, 242, 247, 44%) !important;
   }
 
   .ace_editor .ace_marker-layer .ace_active-line,
@@ -1095,7 +1095,7 @@ html[data-theme='glass'] {
         rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.62) * 0.08)),
         rgba(var(--v-theme-background), calc(0.14 + var(--glass-surface-density, 0.62) * 0.12))
       );
-    --workflow-card-header-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
+    --workflow-card-header-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(0, 0, 0, 14%);
   }
 
   // 工作流编辑器组件选择栏
@@ -1121,8 +1121,8 @@ html[data-theme='glass'] {
     --workflow-share-glass-start-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.38);
     --workflow-share-glass-end-opacity: calc(0.24 + var(--glass-tint-density, 0.65) * 0.42);
     --workflow-share-glass-scrim: linear-gradient(
-      rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
-      rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
+      rgba(28, 28, 30, calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
+      rgba(28, 28, 30, calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
     );
     // Glass V3 用更高优先级的整卡 background 覆盖普通卡片样式，这里把分享卡的色相接入同一材质 token。
     --workflow-share-glass-background:
@@ -1143,8 +1143,8 @@ html[data-theme='glass'] {
     border-block-end: 1px solid var(--glass-border);
 
     --plugin-card-banner-scrim: linear-gradient(
-      rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
-      rgba(11, 19, 34, calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
+      rgba(28, 28, 30, calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
+      rgba(28, 28, 30, calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
     );
     --plugin-card-banner-tint: linear-gradient(
       135deg,
@@ -1171,8 +1171,8 @@ html[data-theme='glass'] {
   // 磨砂材质透光更强，染色需要同步减弱以免头部压过卡片本体。
   &[data-glass-appearance='frosted'] .plugin-card__banner {
     --plugin-card-banner-scrim: linear-gradient(
-      rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.86) * 0.09)) 0%,
-      rgba(11, 19, 34, calc(0.14 + var(--glass-surface-density, 0.86) * 0.145)) 100%
+      rgba(28, 28, 30, calc(0.1 + var(--glass-surface-density, 0.86) * 0.09)) 0%,
+      rgba(28, 28, 30, calc(0.14 + var(--glass-surface-density, 0.86) * 0.145)) 100%
     );
     --plugin-card-banner-tint: linear-gradient(
       135deg,
@@ -1201,8 +1201,8 @@ html[data-theme='glass'] {
     --workflow-share-glass-start-opacity: calc(0.12 + var(--glass-tint-density, 0.65) * 0.28);
     --workflow-share-glass-end-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.34);
     --workflow-share-glass-scrim: linear-gradient(
-      rgba(11, 19, 34, calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
-      rgba(11, 19, 34, calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
+      rgba(28, 28, 30, calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
+      rgba(28, 28, 30, calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
     );
   }
 
@@ -1255,8 +1255,8 @@ html[data-theme='glass'] {
     --workflow-share-glass-start-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.32);
     --workflow-share-glass-end-opacity: calc(0.21 + var(--glass-tint-density, 0.65) * 0.38);
     --workflow-share-glass-scrim: linear-gradient(
-      rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
-      rgba(11, 19, 34, calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
+      rgba(28, 28, 30, calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
+      rgba(28, 28, 30, calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
     );
   }
 
@@ -1276,8 +1276,8 @@ html[data-theme='glass'] {
 
   .plugin-folder-card__overlay {
     background: linear-gradient(
-      rgba(11, 19, 34, calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
-      rgba(11, 19, 34, calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
+      rgba(28, 28, 30, calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
+      rgba(28, 28, 30, calc(0.28 + var(--glass-surface-density, 0.62) * 0.16)) 100%
     );
   }
 
@@ -1475,7 +1475,7 @@ html[data-theme='glass'] {
       .theme-customizer-panel-host,
       .agent-assistant-panel
     ) {
-      background-color: rgba(18, 28, 45, 94%) !important;
+      background-color: rgba(44, 44, 46, 94%) !important;
     }
   }
 
@@ -1492,19 +1492,19 @@ html[data-theme='glass'] {
     ) {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: rgb(11, 19, 34) !important;
+      background-color: rgb(28, 28, 30) !important;
     }
 
     .layout-vertical-nav::before {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: rgb(11, 19, 34) !important;
+      background-color: rgb(28, 28, 30) !important;
     }
 
     .playing-card__percent {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: rgba(11, 19, 34, 88%) !important;
+      background-color: rgba(28, 28, 30, 88%) !important;
     }
   }
 
@@ -1648,7 +1648,7 @@ html[data-theme='glass'] body[data-theme='glass'] {
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.14),
       inset 0 1px 0 rgba(255, 255, 255, 0.18),
-      0 24px 64px rgba(1, 6, 15, 0.22) !important;
+      0 24px 64px rgba(0, 0, 0, 0.22) !important;
   }
 
   .login-card__surface {
@@ -1656,12 +1656,12 @@ html[data-theme='glass'] body[data-theme='glass'] {
     backdrop-filter: brightness(var(--glass-transmission-brightness));
     background:
       linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 34%),
-      linear-gradient(rgba(7, 14, 25, 0.04), rgba(7, 14, 25, 0.1)) !important;
+      linear-gradient(rgba(28, 28, 30, 0.04), rgba(28, 28, 30, 0.1)) !important;
   }
 
   .native-login-field {
     border-color: rgba(255, 255, 255, 0.15);
-    background: rgba(7, 16, 28, 0.2);
+    background: rgba(28, 28, 30, 0.2);
     -webkit-backdrop-filter: var(--glass-control-backdrop-filter);
     backdrop-filter: var(--glass-control-backdrop-filter);
   }
@@ -1678,13 +1678,13 @@ html[data-theme='glass'][data-glass-appearance='tinted'] body[data-theme='glass'
     background:
       linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 36%),
       linear-gradient(rgba(var(--glass-material-accent-rgb), 0.08), rgba(var(--glass-material-accent-rgb), 0.03)),
-      linear-gradient(rgba(7, 14, 25, 0.16), rgba(7, 14, 25, 0.3)) !important;
+      linear-gradient(rgba(28, 28, 30, 0.16), rgba(28, 28, 30, 0.3)) !important;
   }
 
   .native-login-field {
     border-color: rgba(255, 255, 255, 0.15);
     background:
-      linear-gradient(rgba(var(--v-theme-primary), 0.07), rgba(var(--v-theme-primary), 0.07)), rgba(7, 16, 28, 0.2);
+      linear-gradient(rgba(var(--v-theme-primary), 0.07), rgba(var(--v-theme-primary), 0.07)), rgba(28, 28, 30, 0.2);
   }
 }
 
@@ -1698,7 +1698,7 @@ html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass
       brightness(var(--glass-transmission-brightness));
     backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
-    background: var(--glass-sheen), linear-gradient(rgba(8, 15, 27, 0.34), rgba(8, 15, 27, 0.48)) !important;
+    background: var(--glass-sheen), linear-gradient(rgba(28, 28, 30, 0.34), rgba(28, 28, 30, 0.48)) !important;
   }
 
   .native-login-field {
@@ -1853,15 +1853,15 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   );
   --glass-navbar-rim: rgba(255, 255, 255, var(--glass-navbar-rim-opacity));
   --glass-navbar-scrim: linear-gradient(
-    rgba(7, 14, 25, var(--glass-navbar-opacity)),
-    rgba(7, 14, 25, var(--glass-navbar-scrim-end))
+    rgba(28, 28, 30, var(--glass-navbar-opacity)),
+    rgba(28, 28, 30, var(--glass-navbar-scrim-end))
   );
   --glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18);
   --glass-navbar-shadow:
     inset 0 0 0 1px var(--glass-navbar-rim), inset 0 1px 2px rgba(255, 255, 255, var(--glass-navbar-top-opacity)),
-    inset 0 -1px 2px rgba(4, 10, 20, calc(0.1 + var(--glass-surface-density, 0.62) * 0.12)),
+    inset 0 -1px 2px rgba(0, 0, 0, calc(0.1 + var(--glass-surface-density, 0.62) * 0.12)),
     0 12px 32px
-      rgba(3, 7, 18, calc(0.08 + var(--glass-reflection, 0.5) * 0.1 + var(--glass-surface-density, 0.62) * 0.08));
+      rgba(0, 0, 0, calc(0.08 + var(--glass-reflection, 0.5) * 0.1 + var(--glass-surface-density, 0.62) * 0.08));
   --glass-navbar-live-filter: var(--glass-navbar-reading-filter, saturate(100%))
     saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
 
@@ -1964,7 +1964,7 @@ html[data-theme='glass'][data-glass-appearance='tinted']
 
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
-    background: rgb(11, 19, 34) !important;
+    background: rgb(28, 28, 30) !important;
     background-image: none !important;
   }
 }

@@ -182,6 +182,6 @@ describe('glass navigation reading material', () => {
         background = declaration.value
       })
     })
-    expect(background).toBe('rgb(23, 27, 32)')
+    expect(background).toBe('rgb(28, 28, 30)')
   })
 })
