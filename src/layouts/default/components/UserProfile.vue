@@ -756,6 +756,7 @@ function nativeProfilePanel(): NativePanelSource {
   }
   return {
     title: t('common.userMenu'),
+    onOpen: () => community.refresh(),
     profile: {
       name: userName.value,
       detail: superUser.value ? t('user.admin') : t('user.normal'),
@@ -763,10 +764,8 @@ function nativeProfilePanel(): NativePanelSource {
     },
     sections: [
       { id: 'account', items: account },
-      // 主题仅有少量设置入口，直接展示在用户菜单内，避免再打开一个二级面板。
-      { id: 'theme', title: t('common.theme'), items: themeItems },
       {
-        id: 'appearance',
+        id: 'ui-mode',
         items: [
           {
             id: 'ui',
@@ -782,6 +781,13 @@ function nativeProfilePanel(): NativePanelSource {
               invoke: () => changeUIMode(mode.name as UIMode),
             })),
           },
+        ],
+      },
+      // 顺序沿用网页的界面模式、主题、语言；少量主题入口仍直接展示。
+      { id: 'theme', title: t('common.theme'), items: themeItems },
+      {
+        id: 'language',
+        items: [
           {
             id: 'language',
             title: t('common.language'),
