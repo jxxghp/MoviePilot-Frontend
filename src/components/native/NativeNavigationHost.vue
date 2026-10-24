@@ -295,10 +295,10 @@ function execute(message: NativeEnvelope) {
   if (message.type.startsWith('presentation.')) {
     if (window.MoviePilotNative?.sheetsVersion !== 1) return false
     sheetAdapter.read(pageTitle())
-    const accepted = sheetAdapter.execute(message.type, payload)
-    // 明确发布准备状态；原生保留底页后才搬走唯一 WebView，不等待无关 DOM 变更。
-    if (accepted && message.type === 'presentation.prepare') sheet.value = sheetAdapter.read(pageTitle())
-    return accepted
+    return sheetAdapter.executeWhenPainted(message.type, payload).then(accepted => {
+      if (accepted) sheet.value = sheetAdapter.read(pageTitle())
+      return accepted
+    })
   }
   if (message.type === 'navigation.selectRoot')
     return !overlayOpen.value && typeof payload.rootId === 'string' && history.selectRoot(payload.rootId)
@@ -417,8 +417,8 @@ watch(
       execute,
       setActive: async active => {
         layout.setActive(active)
+        sheetAdapter.setActive(active && transport.sheetsVersion === 1)
         if (!active) {
-          sheetAdapter.reset()
           appActivityLifecycle.setHostLifecycle(undefined)
           activePanel.value = undefined
           const requested = nativeRequestedPanel.value
@@ -473,7 +473,7 @@ onScopeDispose(() => {
   history.stop()
   void bridge?.stop()
   layout.setActive(false)
-  sheetAdapter.reset()
+  sheetAdapter.setActive(false)
 })
 </script>
 

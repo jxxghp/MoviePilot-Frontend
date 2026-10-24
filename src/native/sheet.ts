@@ -10,9 +10,38 @@ export class NativeSheetAdapter {
   private buttons = new Map<string, HTMLButtonElement>()
   private attached?: string
   private prepared?: string
+  private transition = 0
 
   /** 作用域限定当前文档；关闭文档或降级时必须调用 reset 恢复原页面。 */
   constructor(private document: Document) {}
+
+  /** 只有协商成功的 Sheet 宿主隐藏待接管弹窗，普通网页和降级页面保持原显示。 */
+  setActive(active: boolean) {
+    if (active) this.document.documentElement.setAttribute('data-native-sheets', 'active')
+    else {
+      this.document.documentElement.removeAttribute('data-native-sheets')
+      this.reset()
+    }
+  }
+
+  /** 布局交接确认等待真正的绘制机会；原生不能在旧标题或空白底页仍可见时启动转场。 */
+  async executeWhenPainted(type: string, payload: Record<string, unknown>): Promise<boolean> {
+    if (!this.execute(type, payload)) return false
+    if (!['presentation.prepare', 'presentation.attach', 'presentation.detach'].includes(type)) return true
+    const transition = ++this.transition
+    const root = this.root
+    const view = this.document.defaultView
+    if (!view) return false
+    await new Promise<void>(resolve => view.requestAnimationFrame(() => view.requestAnimationFrame(() => resolve())))
+    if (transition !== this.transition) return false
+    if (type === 'presentation.detach') return !this.attached
+    return Boolean(
+      root?.isConnected &&
+      root === this.root &&
+      this.ids.get(root) === payload.id &&
+      (type === 'presentation.prepare' ? this.prepared === payload.id : this.attached === payload.id),
+    )
+  }
 
   /** 每次重新读取活动最上层，嵌套弹窗撤销旧按钮的执行权限。 */
   read(fallbackTitle: string): NativeSheet | undefined {
@@ -106,6 +135,7 @@ export class NativeSheetAdapter {
 
   /** 宿主退出或协商失效时立即恢复原来的网页弹窗标题、背景和布局。 */
   reset() {
+    this.transition++
     this.attached = undefined
     this.clearMarkers()
     for (const header of this.document.querySelectorAll('[data-native-sheet-header]'))

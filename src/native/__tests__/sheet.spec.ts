@@ -13,12 +13,63 @@ function dialog(title: string, z = 2000) {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   document.body.innerHTML = ''
   document.documentElement.removeAttribute('data-native-sheet')
   document.documentElement.removeAttribute('data-native-sheet-preparing')
+  document.documentElement.removeAttribute('data-native-sheets')
 })
 
 describe('原生 Sheet 与原 Vue 内容交接', () => {
+  it('能力标记只在明确接管时启用，打开和归还均等待两次绘制机会才确认', async () => {
+    const frames: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback))
+    const root = dialog('名称识别')
+    const adapter = new NativeSheetAdapter(document)
+    const sheet = adapter.read('页面')!
+    expect(document.documentElement.hasAttribute('data-native-sheets')).toBe(false)
+    adapter.setActive(true)
+    expect(document.documentElement.getAttribute('data-native-sheets')).toBe('active')
+    const done = vi.fn()
+    const attach = adapter.executeWhenPainted('presentation.attach', { id: sheet.id }).then(done)
+    expect(done).not.toHaveBeenCalled()
+    frames.shift()!(0)
+    await Promise.resolve()
+    expect(done).not.toHaveBeenCalled()
+    frames.shift()!(16)
+    await attach
+    expect(done).toHaveBeenCalledExactlyOnceWith(true)
+    expect(root.querySelector('input')!.value).toBe('尚未保存')
+    const detached = vi.fn()
+    const detach = adapter.executeWhenPainted('presentation.detach', { id: sheet.id }).then(detached)
+    expect(document.documentElement.hasAttribute('data-native-sheet')).toBe(false)
+    expect(detached).not.toHaveBeenCalled()
+    frames.shift()!(32)
+    frames.shift()!(48)
+    await detach
+    expect(detached).toHaveBeenCalledExactlyOnceWith(true)
+    adapter.setActive(false)
+    expect(document.documentElement.hasAttribute('data-native-sheets')).toBe(false)
+  })
+
+  it.each(['关闭根', '切换根', '退出宿主'])('绘制期间%s不能迟到确认原弹窗', async operation => {
+    const frames: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback))
+    const root = dialog('父弹窗')
+    const adapter = new NativeSheetAdapter(document)
+    const sheet = adapter.read('页面')!
+    const waiting = adapter.executeWhenPainted('presentation.attach', { id: sheet.id })
+    if (operation === '关闭根') root.remove()
+    if (operation === '切换根') {
+      dialog('子弹窗', 2100)
+      adapter.read('页面')
+    }
+    if (operation === '退出宿主') adapter.setActive(false)
+    frames.shift()!(0)
+    frames.shift()!(16)
+    expect(await waiting).toBe(false)
+  })
+
   it('底页准备只响应当前原生请求，不触发业务按钮，接管或取消后立即清理', () => {
     const root = dialog('名称识别')
     const closed = vi.fn()
