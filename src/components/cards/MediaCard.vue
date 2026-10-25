@@ -12,6 +12,8 @@ function nextMediaCardId() {
 </script>
 
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n'
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import api from '@/api'
 import { formatRating } from '@/@core/utils/formatters'
@@ -42,6 +44,7 @@ import {
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
 
+/** 搜索和订阅动作共用的卡片媒体，补充来源提供的集数。 */
 interface MediaCardMedia extends MediaInfo {
   /** 已知总集数，用于订阅信息展示。 */
   total_episode?: number
@@ -58,6 +61,8 @@ const props = defineProps({
   /** 可选卡片高度，由海报比例决定时省略。 */
   height: String,
 })
+
+const { t } = useI18n()
 
 // 从 provide 中获取全局设置
 // 全局设置
@@ -202,11 +207,13 @@ function getMediaId() {
   return getMediaSubscribeId(props.media)
 }
 
+/** 订阅缓存按来源、音乐实体及季号隔离。 */
 function getSubscribeStatusKey(season: number | null = props.media?.season ?? null) {
   const identity = props.media?.type === '音乐' ? getMusicKey(props.media) : getMediaId()
   return `${identity}::${season ?? 'all'}`
 }
 
+/** 入库状态使用同一媒体身份与当前季号，避免卡片复用串用缓存。 */
 function getExistsStatusKey() {
   const identity = getMediaSubscribeIdentity(props.media)
   return [
@@ -219,6 +226,7 @@ function getExistsStatusKey() {
   ].join('::')
 }
 
+/** 匹配当前来源和音乐实体类型，不能将辅助 ID 当成订阅身份。 */
 function isSameSubscribeMedia(subscribe: Subscribe) {
   if (props.media?.type === '音乐') {
     const expectedMusicType = props.media.music_type ?? 'recording'
@@ -251,6 +259,7 @@ async function handleCheckSubscribe() {
   }
 }
 
+/** 已订阅剧集按需读取各季及模式，原按钮和原生菜单共用结果。 */
 async function querySubscribedSeasons() {
   if (
     props.media?.type !== '电视剧' ||
@@ -380,6 +389,7 @@ function handleMediaCardClick(isHovering: boolean | null | undefined) {
   goMediaDetail(isMediaCardActive(isHovering) || isMediaCardDetailVisible(isHovering))
 }
 
+/** 触摸卡片之外收起详情层，输入及菜单动作不改写当前媒体。 */
 function handleDocumentPointerDown(event: PointerEvent) {
   if (!isTouchLikePointer.value || activeTouchMediaCardId.value !== mediaCardId) return
   if (!(event.target instanceof Node)) return
@@ -559,6 +569,39 @@ const subscribeActions = useMediaSubscribe({
   getSubscribeStatusKey,
 })
 
+/** 长按只增加现有两项动作；权限、订阅状态及季选择仍由原按钮路径负责。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => {
+  const identity = getMediaSubscribeIdentity(props.media)
+  return {
+    key: identity
+      ? JSON.stringify([
+          identity.mediaKey,
+          props.media?.type,
+          props.media?.season ?? null,
+          props.media?.music_type ?? null,
+        ])
+      : undefined,
+    title: props.media?.title,
+    available: () => !props.media?.collection_id,
+    items: () => [
+      nativeCardAction('search', {
+        title: t('common.search'),
+        icon: 'mdi-magnify',
+        visible: canSearch.value,
+        invoke: clickSearch,
+      }),
+      nativeCardAction('subscribe', {
+        title: t(isSubscribed.value && props.media?.type !== '电视剧' ? 'common.unsubscribe' : 'common.subscribe'),
+        icon: isSubscribed.value ? 'mdi-heart' : 'mdi-heart-outline',
+        color: isSubscribed.value ? 'error' : undefined,
+        selected: isSubscribed.value,
+        visible: canSubscribe.value,
+        invoke: handleSubscribe,
+      }),
+    ],
+  }
+})
+
 watch(isSubscribed, subscribed => {
   subscribedSeasonsLoaded.value = false
   if (!subscribed) {
@@ -610,6 +653,7 @@ onBeforeUnmount(() => {
       <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
       <div ref="mediaCardRef" v-bind="hover.props" class="media-card-hover-area" @mouseenter="querySubscribedSeasons">
         <VCard
+          v-native-card-menu="nativeCardMenu"
           :height="props.height"
           :width="props.width"
           :ripple="false"

@@ -1,5 +1,6 @@
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
+import { nativeCardMenus } from '@/native/card'
 import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
 import { clearMediaPosterPresentationCache, wasMediaPosterRevealed } from '@/utils/mediaPosterPresentationCache'
 import { fireEvent, waitFor } from '@testing-library/vue'
@@ -15,8 +16,8 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
-import { defineComponent, h, reactive, ref, type PropType } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, nextTick, reactive, ref, type PropType } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   openSharedDialog: vi.fn(),
@@ -100,6 +101,7 @@ interface RenderCardOptions {
   superUser?: boolean
 }
 
+/** 控制图片请求和淡入事件，不替代卡片自身的状态生命周期。 */
 interface ControlledImageRequest {
   /** 图片是否在进入视口前发起加载。 */
   eager: boolean
@@ -125,6 +127,7 @@ function createControlledImageStub(requests: ControlledImageRequest[]) {
       eager: Boolean,
       transition: [Boolean, String, Object] as PropType<ControlledImageRequest['transition']>,
     },
+    /** 保留当前图片实例回调，允许测试发送旧请求的迟到事件。 */
     setup(props, { emit, slots }) {
       const src = props.src ?? ''
       const imageElement = ref<HTMLImageElement | null>(null)
@@ -225,6 +228,21 @@ function installSearchHandlers(
   )
 }
 
+/** 只补充可见几何与已协商范围，菜单及回调均来自真实 MediaCard 指令。 */
+function nativeMediaMenu(container: Element) {
+  const card = getCard(container)
+  vi.spyOn(card, 'getBoundingClientRect').mockReturnValue(new DOMRect(20, 100, 170, 255))
+  nativeCardMenus.setContext({ sessionId: 'media-card-test', routeRevision: 1 })
+  nativeCardMenus.synchronize()
+  const target = nativeCardMenus.targetFor(card)
+  return {
+    target,
+    menu: target && nativeCardMenus.menus.open(target.ownerId, target.menuId),
+  }
+}
+
+afterEach(() => nativeCardMenus.setContext(undefined))
+
 describe('MediaCard', () => {
   beforeEach(() => {
     intersectionObservers = []
@@ -234,6 +252,109 @@ describe('MediaCard', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
+  })
+
+  it('adds native search and subscribe actions while retaining both original buttons and search behavior', async () => {
+    const media = createMediaInfo({ tmdb_id: 9591, title: '长按媒体' })
+    installSearchHandlers([], [])
+    const { container } = await renderCard(media)
+    expect(nativeCardMenus.targetFor(getCard(container))).toBeUndefined()
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container)).toHaveLength(2))
+    const buttons = getActionButtons(container)
+    expect(buttons).toHaveLength(2)
+    const { menu } = nativeMediaMenu(container)
+    expect(menu?.items.map(item => [item.title, item.icon])).toEqual([
+      ['搜索', 'mdi-magnify'],
+      ['订阅', 'mdi-heart-outline'],
+    ])
+    expect(container.querySelector('[data-native-card-menu-trigger]')).toBeNull()
+    expect(getActionButtons(container)).toEqual(buttons)
+    expect(await nativeCardMenus.menus.select(menu!.presentationId, 'action-search', vi.fn())).toBe(true)
+    await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledOnce())
+    await fireEvent.click(buttons[0])
+    await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledTimes(2))
+    expect(mocks.routerPush.mock.calls[0]).toEqual(mocks.routerPush.mock.calls[1])
+    expect(mocks.routerPush.mock.calls[0][0]).toMatchObject({
+      path: '/resource',
+      query: { media_source: 'themoviedb', media_id: '9591', title: '长按媒体' },
+    })
+  })
+
+  it('uses the original TV season subscription dialog for native and inline subscribe', async () => {
+    const media = createMediaInfo({ tmdb_id: 9592, type: '电视剧', season: 3 })
+    server.use(
+      http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
+        apiJson({ value: {} }),
+      ),
+    )
+    const { container } = await renderCard(media)
+    const { menu } = nativeMediaMenu(container)
+    expect(await nativeCardMenus.menus.select(menu!.presentationId, 'action-subscribe', vi.fn())).toBe(true)
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const nativeProps = mocks.openSharedDialog.mock.calls[0][1]
+    expect(nativeProps).toMatchObject({ media, selectedSeason: undefined })
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await getSearchButton(container)
+    await fireEvent.click(getActionButtons(container)[1])
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledTimes(2))
+    expect(mocks.openSharedDialog.mock.calls[1][1]).toEqual(nativeProps)
+  })
+
+  it.each([
+    [true, false, ['搜索']],
+    [false, true, ['订阅']],
+    [false, false, []],
+  ])('keeps original search=%s subscribe=%s permissions in the native menu', async (search, subscribe, titles) => {
+    const { container } = await renderCard(createMediaInfo({ tmdb_id: 9593 }), {
+      superUser: false,
+      permissions: { search, subscribe },
+    })
+    const { target, menu } = nativeMediaMenu(container)
+    expect(menu?.items.map(item => item.title) ?? []).toEqual(titles)
+    if (!titles.length) expect(target).toBeUndefined()
+  })
+
+  it.each([{ collection_id: 42 }, { media_id: '' }])(
+    'does not add native actions to a collection or missing identity: %j',
+    async overrides => {
+      const { container } = await renderCard(createMediaInfo({ tmdb_id: 9594, ...overrides }))
+      expect(nativeMediaMenu(container).target).toBeUndefined()
+    },
+  )
+
+  it('revokes an old selection when a reused card changes season or unmounts', async () => {
+    const media = reactive(createMediaInfo({ tmdb_id: 9595, type: '电视剧', season: 1 }))
+    const { container, unmount } = await renderCard(media)
+    const first = nativeMediaMenu(container)
+    media.season = 2
+    await nextTick()
+    nativeCardMenus.synchronize()
+    const target = nativeCardMenus.targetFor(getCard(container))!
+    expect(target.ownerId).not.toBe(first.target?.ownerId)
+    expect(await nativeCardMenus.menus.select(first.menu!.presentationId, 'action-search', vi.fn())).toBe(false)
+    const second = nativeCardMenus.menus.open(target.ownerId, target.menuId)!
+    unmount()
+    expect(await nativeCardMenus.menus.select(second.presentationId, 'action-search', vi.fn())).toBe(false)
+    expect(mocks.routerPush).not.toHaveBeenCalled()
+  })
+
+  it('reflects the original subscribed heart state and unsubscribe action', async () => {
+    const media = createMediaInfo({ tmdb_id: 9596, type: '电影' })
+    server.use(
+      querySubscribeByMediaHandler('9596', { id: 96 }),
+      mediaExistsHandler({ data: { item: {} }, success: true }),
+    )
+    const { container } = await renderCard(media)
+    getStatusObservers()[0]?.trigger()
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await waitFor(() => expect(getActionButtons(container)[1]).toHaveClass('text-error'))
+    expect(nativeMediaMenu(container).menu?.items[1]).toMatchObject({
+      title: '取消订阅',
+      icon: 'mdi-heart',
+      color: 'error',
+      selected: true,
+    })
   })
 
   it('loads exact subscribe and exists status only after entering the viewport', async () => {
