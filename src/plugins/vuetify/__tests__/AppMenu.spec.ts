@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { h, nextTick, reactive, ref } from 'vue'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createVuetify } from 'vuetify'
 import AppMenu from '../AppMenu'
 import { NativeLayoutAdapter } from '@/native/layout'
@@ -11,6 +11,10 @@ import { nativeStandaloneMenus, type NativeStandaloneMenuBinding } from '@/nativ
 
 const layout = new NativeLayoutAdapter(document, window)
 const wrappers: ReturnType<typeof mount>[] = []
+
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(20, 30, 140, 44))
+})
 
 afterEach(() => {
   for (const wrapper of wrappers.splice(0)) wrapper.unmount()
@@ -62,6 +66,7 @@ describe('原生 Sheet 前结束网页菜单', () => {
     const bind = vi.spyOn(nativeStandaloneMenus, 'bind')
     const invoke = vi.fn()
     const { wrapper } = menu(false, { key: 'sort', items: action => [action('title', { title: '标题', invoke })] })
+    await nextTick()
     const token = bind.mock.calls.at(-1)![0]
     nativeStandaloneMenus.setContext({ sessionId: 'menu-component', routeRevision: 1 })
     nativeStandaloneMenus.synchronize()
@@ -81,6 +86,7 @@ describe('原生 Sheet 前结束网页菜单', () => {
       items: action => [action('title', { title: '标题', invoke })],
     })
     menu(false, binding)
+    await nextTick()
     const token = bind.mock.calls.at(-1)![0]
     nativeStandaloneMenus.setContext({ sessionId: 'menu-component', routeRevision: 1 })
     nativeStandaloneMenus.synchronize()

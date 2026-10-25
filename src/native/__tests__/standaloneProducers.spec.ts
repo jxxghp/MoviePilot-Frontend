@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@tests/support/render'
 import FileToolbar from '@/components/filebrowser/FileToolbar.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
@@ -6,13 +6,20 @@ import type { DataApiClient } from '@/api'
 import type { EndPoints, FileItem } from '@/api/types'
 import { nativeStandaloneMenus, type NativeStandaloneMenuBinding } from '../standalone'
 
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(20, 30, 140, 44))
+})
+
 afterEach(() => {
   nativeStandaloneMenus.setContext(undefined)
   vi.restoreAllMocks()
 })
 
 /** 从真实 AppMenu 的登记调用取得组件身份，不在测试中重写一份菜单生产者。 */
-function registeredMenu(bind: { mock: { calls: [object, NativeStandaloneMenuBinding | undefined][] } }, key: string) {
+function registeredMenu(
+  bind: { mock: { calls: [object, NativeStandaloneMenuBinding | undefined, (() => HTMLElement | undefined)?][] } },
+  key: string,
+) {
   const match = bind.mock.calls.find(([, binding]) => binding?.key === key)
   expect(match).toBeDefined()
   nativeStandaloneMenus.setContext({ sessionId: 'producer-document', routeRevision: 1 })

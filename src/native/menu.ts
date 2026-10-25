@@ -1,5 +1,5 @@
 import { nativeChromeActive } from './layout'
-import { isNativeIdentifier, type NativeOperationItem, type NativeOperationMenu } from './protocol'
+import { isNativeIdentifier, type NativeEnvelope, type NativeOperationItem, type NativeOperationMenu } from './protocol'
 
 /** 菜单项目只在网页内保留原回调；标识必须源自业务语义，不能使用列表位置。 */
 export interface NativeMenuEntry extends Omit<NativeOperationItem, 'items'> {
@@ -25,6 +25,14 @@ export interface NativeMenuSource {
 export interface NativeMenuContext {
   sessionId: string
   routeRevision: number
+}
+
+/** 当前前台文档的菜单窄通道，回调与业务数据不离开原网页。 */
+export interface NativeMenuChannel {
+  /** 失效时同步撤销所有待选项目和来源。 */
+  setContext(context: NativeMenuContext | undefined): void
+  /** 系统只回传展示、选择和取消意图，不直接执行业务。 */
+  receive(message: NativeEnvelope): Promise<void>
 }
 
 /** 注册代次以对象身份隔离同名替换，不让旧组件卸载清除新组件。 */
