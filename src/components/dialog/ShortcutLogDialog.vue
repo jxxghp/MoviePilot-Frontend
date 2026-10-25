@@ -39,6 +39,11 @@ function allLoggingUrl() {
 function allLoggingDownloadUrl() {
   return `${import.meta.env.VITE_API_BASE_URL}system/logging/download/moviepilot`
 }
+
+/** 复用现有日志地址，网页按钮和原生 Sheet 菜单均触发同一打开行为。 */
+function openLogging(download: boolean) {
+  window.open(download ? allLoggingDownloadUrl() : allLoggingUrl(), '_blank', 'noopener')
+}
 </script>
 
 <template>
@@ -51,23 +56,35 @@ function allLoggingDownloadUrl() {
   >
     <VCard class="logging-dialog-card">
       <VDialogCloseBtn v-model="visible" />
-      <VCardItem>
+      <VCardItem data-native-sheet-actions>
         <VCardTitle class="d-inline-flex">
           <VIcon icon="mdi-file-document" class="me-2" />
-          {{ t('shortcut.log.subtitle') }}
+          <span data-native-dialog-title>{{ t('shortcut.log.subtitle') }}</span>
           <span class="ms-4 d-inline-flex align-center ga-1">
-            <a class="d-inline-flex align-center" :href="allLoggingDownloadUrl()" target="_blank">
+            <button
+              type="button"
+              class="d-inline-flex align-center"
+              data-native-sheet-action="mdi-download"
+              :aria-label="t('common.download')"
+              @click="openLogging(true)"
+            >
               <VChip color="grey-darken-1" size="small">
                 <VIcon icon="mdi-download" size="small" start />
                 {{ t('common.download') }}
               </VChip>
-            </a>
-            <a class="d-inline-flex align-center" :href="allLoggingUrl()" target="_blank">
+            </button>
+            <button
+              type="button"
+              class="d-inline-flex align-center"
+              data-native-sheet-action="mdi-open-in-new"
+              :aria-label="t('common.openInNewWindow')"
+              @click="openLogging(false)"
+            >
               <VChip color="grey-darken-1" size="small">
                 <VIcon icon="mdi-open-in-new" size="small" start />
                 {{ t('common.openInNewWindow') }}
               </VChip>
-            </a>
+            </button>
           </span>
         </VCardTitle>
       </VCardItem>
