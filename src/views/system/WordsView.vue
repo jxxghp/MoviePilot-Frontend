@@ -19,6 +19,7 @@ const WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY = 'MP_WORDS_SYNTAX_HIGHLIGHTING'
 type TextSectionKey = 'identifiers' | 'releaseGroups' | 'customization' | 'excludeWords'
 type WordSectionKey = TextSectionKey | 'episodeRules'
 
+/** 集数定位规则的编辑副本，本地标识不提交到后端。 */
 interface EpisodeFormatRule {
   _localId: string
   name: string
@@ -28,6 +29,7 @@ interface EpisodeFormatRule {
   min_file_size_mb: number
 }
 
+/** 词表分类在桌面侧栏与移动分段栏共用的展示定义。 */
 interface WordSectionDefinition {
   color: string
   description: string
@@ -37,6 +39,7 @@ interface WordSectionDefinition {
   title: string
 }
 
+/** 多行词表分类对应的保存接口和结果文案。 */
 interface TextSectionSetting {
   endpoint: string
   failedMessage: string
@@ -54,6 +57,7 @@ const saving = ref(false)
 const showLineNumbers = ref(localStorage.getItem(WORDS_LINE_NUMBERS_STORAGE_KEY) === 'true')
 const showSyntaxHighlighting = ref(localStorage.getItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY) === 'true')
 
+/** 当前 Ace 会话的词表语法高亮配置。 */
 interface WordListModeConfig {
   path: 'ace/mode/word_list'
   syntax: boolean
@@ -61,12 +65,14 @@ interface WordListModeConfig {
 
 const aceEditor = shallowRef<Ace.Editor | null>(null)
 
+/** 初始化词表编辑器并同步用户保存的语法高亮设置。 */
 function onAceInit(editor: Ace.Editor) {
   aceEditor.value = editor
   configureAceEditorPadding(editor)
   applyWordListSyntax()
 }
 
+/** 切换当前 Ace 会话的词表语法模式，保留正在编辑的内容。 */
 function applyWordListSyntax() {
   if (!aceEditor.value) return
   const mode: WordListModeConfig = {

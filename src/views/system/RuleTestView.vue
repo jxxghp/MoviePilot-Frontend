@@ -6,6 +6,7 @@ import { listFilterRuleGroups } from '@/api/rule'
 import type { FilterRuleGroup, RuleTestData } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 
+/** 规则测试的解析阶段及其业务状态色。 */
 interface PipelineStep {
   icon: string
   title: string
@@ -13,10 +14,12 @@ interface PipelineStep {
   tone?: 'success' | 'warning' | 'primary'
 }
 
+/** 提交前由 Vuetify 表单返回的校验结果。 */
 interface FormValidationResult {
   valid: boolean
 }
 
+/** 规则测试仅消费表单的异步校验能力。 */
 interface RuleTestFormRef {
   validate: () => Promise<FormValidationResult>
 }
@@ -178,7 +181,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="shortcut-workbench">
+  <div class="shortcut-workbench native-tool-workbench native-tool-workbench--rules">
     <section class="shortcut-panel shortcut-input-panel">
       <VForm ref="ruleTestFormRef" validate-on="submit lazy" @submit.prevent="ruleTest">
         <VRow class="shortcut-form">

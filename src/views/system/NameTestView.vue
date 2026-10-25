@@ -13,6 +13,7 @@ import { useI18n } from 'vue-i18n'
 import { isMusicMediaSource } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
 
+/** 识别结果中一个可阅读的解析阶段，身份链接只在匹配成功时提供。 */
 interface PipelineStep {
   icon: string
   identity?: MediaIdentity
@@ -21,6 +22,7 @@ interface PipelineStep {
   value: string
 }
 
+/** 媒体源的原生标识与详情链接，避免跨数据源误用 TMDB ID。 */
 interface MediaIdentity {
   id: string
   link?: string
@@ -28,6 +30,7 @@ interface MediaIdentity {
   sourceKey: string
 }
 
+/** 媒体源的展示信息，在结果和解析阶段共用。 */
 interface MediaSourceDisplay {
   icon?: string
   iconColor?: string
@@ -36,6 +39,7 @@ interface MediaSourceDisplay {
   label: string
 }
 
+/** 本次识别测试的临时输入，不直接写入全局配置。 */
 interface NameTestForm {
   customWords: string | null
   source: MediaDataSource
@@ -348,7 +352,7 @@ async function saveCustomWords() {
 </script>
 
 <template>
-  <div class="shortcut-workbench">
+  <div class="shortcut-workbench native-tool-workbench native-tool-workbench--recognition">
     <section class="shortcut-panel shortcut-input-panel">
       <VForm validate-on="submit lazy" @submit.prevent="nameTest">
         <VRow class="shortcut-form">

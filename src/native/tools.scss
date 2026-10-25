@@ -1,0 +1,196 @@
+// 工具正文与系统 Sheet 共用一层材质；网页、PWA 和未接管的弹窗保留原布局。
+html[data-native-chrome='active'][data-native-sheet] [data-native-sheet-current] {
+  .native-tool-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    padding-block: 0.25rem 1rem;
+
+    .shortcut-panel {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .shortcut-result-panel {
+      padding-block-start: 1.5rem;
+      border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    }
+
+    .result-stack {
+      gap: 1.5rem;
+    }
+
+    .result-hero {
+      align-items: start;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      grid-template-columns: 4.25rem minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .hero-poster {
+      border: 0;
+      border-radius: 0.75rem;
+      background: rgba(var(--v-theme-on-surface), 0.06);
+    }
+
+    // 资源规格使用中性标签，成功/失败图标继续保留语义色。
+    .hero-chips .v-chip {
+      color: rgba(var(--v-theme-on-surface), 0.72) !important;
+    }
+
+    .pipeline-marker .text-primary {
+      color: rgba(var(--v-theme-on-surface), 0.55) !important;
+    }
+
+    .pipeline-connector {
+      inline-size: 1px;
+      background: rgba(var(--v-theme-on-surface), 0.12);
+    }
+
+    .pipeline-body {
+      padding-block-end: 1.15rem;
+    }
+
+    .empty-state {
+      min-block-size: 8rem;
+      gap: 0.5rem;
+    }
+  }
+
+  .native-tool-workbench--rules {
+    .result-hero {
+      grid-template-columns: 3.75rem minmax(0, 1fr);
+    }
+
+    .priority-badge {
+      align-content: start;
+      justify-content: center;
+      padding: 0.2rem 0 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      gap: 0.5rem;
+      grid-auto-flow: row;
+      min-block-size: 0;
+    }
+
+    .priority-value {
+      font-size: 1.65rem;
+    }
+  }
+
+  .words-view {
+    --words-surface-background: transparent;
+    --words-surface-filter: none;
+    --words-surface-border: 0;
+    --words-surface-radius: 0;
+    --words-separator-color: rgba(var(--v-theme-on-surface), 0.12);
+    --words-hover-background: rgba(var(--v-theme-on-surface), 0.04);
+    --words-active-background: rgba(var(--v-theme-on-surface), 0.08);
+
+    .words-mobile-tabs {
+      margin: 0.75rem 1rem 0;
+      padding: 0.25rem;
+      border: 0;
+      border-radius: 0.8rem;
+      background: rgba(var(--v-theme-on-surface), 0.06);
+    }
+
+    .words-mobile-tab {
+      flex: 1 1 0;
+      min-inline-size: 0;
+      min-block-size: 2.75rem;
+      padding: 0.5rem 0.2rem;
+      border-radius: 0.6rem;
+      font-size: 0.8125rem;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    .words-mobile-tab::after {
+      display: none;
+    }
+
+    .words-mobile-tab--active {
+      background: rgba(var(--v-theme-on-surface), 0.1);
+      color: rgb(var(--v-theme-on-surface));
+      font-weight: 600;
+    }
+
+    .words-mobile-tab-icon {
+      // 保留未保存标记，移除五个重复的大图标以缩短分段控件。
+      position: absolute;
+      inset-block-start: 0.4rem;
+      inset-inline-end: 0.45rem;
+
+      > .v-icon {
+        display: none;
+      }
+    }
+
+    .words-editor-heading h2 {
+      font-size: 1.125rem;
+    }
+
+    .words-text-editor {
+      border: 0;
+      border-radius: 0.75rem;
+      background: rgba(var(--v-theme-on-surface), 0.04) !important;
+      box-shadow: none;
+      backdrop-filter: none;
+      color: rgb(var(--v-theme-on-surface));
+
+      .ace_gutter {
+        background: transparent;
+        color: rgba(var(--v-theme-on-surface), 0.45);
+      }
+    }
+
+    .words-text-editor.ace_focus {
+      outline: 2px solid rgba(var(--v-theme-primary), 0.45);
+      outline-offset: 1px;
+      box-shadow: none;
+    }
+
+    .words-help-panels .v-expansion-panel {
+      border: 0;
+      border-block-start: 1px solid var(--words-separator-color);
+      border-radius: 0 !important;
+      background: transparent;
+      background-image: none !important;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .words-help-title {
+      color: rgb(var(--v-theme-on-surface));
+      font-weight: 500;
+    }
+
+    .words-help-panels .v-expansion-panel-title {
+      padding-inline: 0;
+    }
+
+    .words-help-panels .v-expansion-panel-text__wrapper {
+      padding-inline: 0;
+    }
+
+    .episode-rule-card {
+      padding-inline: 0;
+      border: 0;
+      border-block-end: 1px solid var(--words-separator-color);
+      border-radius: 0;
+    }
+
+    .words-empty-state {
+      border: 0;
+      border-radius: 0;
+    }
+  }
+}
