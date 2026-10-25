@@ -239,6 +239,30 @@ describe('UserNotification', () => {
     )
   })
 
+  it('原生正文保留媒体信息换行，旧容器仍能读取单行副标题，点击展开继续使用原业务状态', async () => {
+    const pending = deferNotifications()
+    await renderWithProviders(UserNotification)
+    const action = nativeGlobalActions.value.get('notifications')!
+    const opened = action.panel!()!.onOpen!()
+    const text = '站点：演示\n质量：WEB-DL 2160p\n大小：13.8 GB\n' + '保留完整长段落。'.repeat(30)
+    pending.resolve([{ id: 84, title: '媒体通知', text, reg_time: '2026-10-24 20:00:00' }])
+    await opened
+    const entry = action.panel!()!
+      .sections.flatMap(section => section.items)
+      .find(item => item.title === '媒体通知')!
+    expect(entry.body).toContain('\n站点：演示\n质量：WEB-DL 2160p\n大小：13.8 GB\n')
+    const projected = projectNativePanel(action.panel!()!)
+      .panel.sections.flatMap(section => section.items)
+      .find(item => item.id === entry.id)!
+    expect(projected.subtitle).not.toContain('\n')
+    expect(projected.body).toContain('\n质量：WEB-DL 2160p\n')
+    await entry.invoke!()
+    const expanded = action.panel!()!
+      .sections.flatMap(section => section.items)
+      .find(item => item.id === entry.id)!
+    expect(expanded.body).toContain(text)
+  })
+
   it('普通网页通知继续展示原渠道图片', async () => {
     const pending = deferNotifications()
     const { container } = await renderWithProviders(UserNotification, {

@@ -19,6 +19,8 @@ export interface NativePanelItem {
   id: string
   title: string
   subtitle?: string
+  /** 可换行的纯文本正文；旧容器忽略此字段并继续显示兼容副标题。 */
+  body?: string
   icon?: string
   /** 通知等现有内容的图片地址，仅用于展示，不能作为导航或业务命令。 */
   image?: string

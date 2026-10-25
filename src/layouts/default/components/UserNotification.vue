@@ -618,6 +618,12 @@ function nativeNotificationEntry(item: SystemNotification): NativePanelEntry {
     ]
       .filter(Boolean)
       .join(' · '),
+    body: [
+      [item.read === false ? '●' : '', formatDateDifference(getNotificationTime(item))].filter(Boolean).join(' '),
+      isNotificationExpanded(item) ? item.text : String(item.text || '').slice(0, 100),
+    ]
+      .filter(Boolean)
+      .join('\n'),
     icon: getNotificationIcon(item),
     // 兼容旧通知 image，同时优先采用新后端的独立竖版海报。
     image: item.poster || item.image || undefined,
