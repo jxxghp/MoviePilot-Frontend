@@ -84,8 +84,11 @@ export class NativeSheetAdapter {
     const title = this.label(root.getAttribute('aria-label') || heading?.textContent || fallbackTitle)
     const actions: NativeSheet['actions'] = []
     if (header) {
+      const explicitActions = header.hasAttribute('data-native-sheet-actions')
       header.setAttribute('data-native-sheet-header', '')
-      for (const button of header.querySelectorAll<HTMLButtonElement>('button')) {
+      for (const button of header.querySelectorAll<HTMLButtonElement>(
+        explicitActions ? 'button[data-native-sheet-action]' : 'button',
+      )) {
         if (button === this.close || button.closest('[aria-hidden="true"]')) continue
         const title = this.label(
           button.getAttribute('aria-label') || button.getAttribute('title') || button.textContent,
@@ -93,11 +96,21 @@ export class NativeSheetAdapter {
         if (!title || actions.length >= 8) continue
         let actionId = this.buttonIds.get(button)
         if (!actionId) this.buttonIds.set(button, (actionId = `sheet-button-${++this.sequence}`))
-        actions.push({ id: actionId, title, enabled: !button.disabled })
+        const icon = this.label(button.dataset.nativeSheetAction)
+        actions.push({ id: actionId, title, enabled: !button.disabled, ...(icon ? { icon } : {}) })
         this.buttons.set(actionId, button)
       }
       // 无法表达的标题栏控件继续留在内容中，避免删除插件自己的业务入口。
-      if (header.querySelector('input, select, textarea, [role="tablist"], [aria-haspopup="menu"], [aria-owns]')) {
+      if (
+        header.querySelector('input, select, textarea, [role="tablist"]') ||
+        Array.from(header.querySelectorAll('[aria-haspopup="menu"], [aria-owns]')).some(
+          control => !explicitActions || !control.matches('button[data-native-sheet-action]'),
+        ) ||
+        (explicitActions &&
+          Array.from(header.querySelectorAll('button')).some(
+            button => button !== this.close && !button.hasAttribute('data-native-sheet-action'),
+          ))
+      ) {
         header.removeAttribute('data-native-sheet-header')
         actions.length = 0
         this.buttons.clear()

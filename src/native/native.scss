@@ -237,6 +237,27 @@ html[data-native-chrome='active'][data-native-sheet] {
       display: none;
     }
 
+    // Agent 标题操作已由原生左上角接管，消息区独占剩余网格行。
+    > .agent-assistant-shell:has(> [data-native-sheet-header]) {
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .agent-assistant-history-dialog {
+      display: flex;
+      flex-direction: column;
+
+      > .v-divider {
+        display: none;
+      }
+
+      > .agent-assistant-history-list {
+        flex: 1 1 0;
+        block-size: auto;
+        min-block-size: 0;
+        max-block-size: none;
+      }
+    }
+
     // 加载、短历史与长列表共用满高列布局；页脚不跟随内容高度上移。
     .plugin-version-history-dialog {
       display: flex !important;

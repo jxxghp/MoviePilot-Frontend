@@ -63,7 +63,7 @@ export interface NativeSheet {
   prefersMediumDetent?: boolean
   /** 可选的底页准备握手；不提供时容器沿用直接接管流程。 */
   backdropReady?: boolean
-  actions: Array<{ id: string; title: string; enabled: boolean }>
+  actions: Array<{ id: string; title: string; enabled: boolean; icon?: string }>
 }
 
 /** 系统确认框只声明当前 Vue 提示文字和按钮；响应返回原始组件结算。 */
