@@ -1,4 +1,7 @@
 import type { MediaInfo } from '@/api/types'
+import api from '@/api'
+import { createPinia, setActivePinia } from 'pinia'
+import { nativeReadonlyCache } from '@/native/cache'
 import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createMediaInfo } from '@tests/support/factories/media'
@@ -6,7 +9,7 @@ import { recommendMediaHandler } from '@tests/support/msw/handlers/recommend'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, h, type PropType, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const SOURCE_PATH = 'recommend/tmdb_trending'
 
@@ -214,12 +217,32 @@ async function renderKeptAliveSlide() {
 }
 
 describe('MediaCardSlideView', () => {
+  afterEach(() => {
+    nativeReadonlyCache.setEnabled(false)
+    nativeReadonlyCache.setScope(undefined)
+  })
   beforeEach(() => {
     animationFrameCallbacks = []
     fallbackCallbacks = []
     intersectionCallbacks = []
     installLoadTriggerControls()
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('已协商 App 的横向卡片直接复用同页数据，仍遵循 ready 的渲染时机', async () => {
+    setActivePinia(createPinia())
+    const media = createMediaInfo({ title: '共享榜单第一页' })
+    const requested = vi.fn()
+    server.use(recommendMediaHandler(SOURCE_PATH, [media], 200, requested))
+    nativeReadonlyCache.setScope({ apiBase: 'http://localhost/api/v1/', userId: 7, locale: 'zh-CN' })
+    nativeReadonlyCache.setEnabled(true)
+    await nativeReadonlyCache.get(api, SOURCE_PATH, { params: { page: 1, title: '流行趋势' } })
+    const { rerender } = await renderSlide({ ready: false })
+    triggerAnimationFrame()
+    expect(screen.queryByRole('article', { name: '媒体卡片 共享榜单第一页' })).not.toBeInTheDocument()
+    await rerender({ ready: true })
+    expect(await screen.findByRole('article', { name: '媒体卡片 共享榜单第一页' })).toBeInTheDocument()
+    expect(requested).toHaveBeenCalledOnce()
   })
 
   it.each([

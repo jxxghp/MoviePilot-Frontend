@@ -4,7 +4,12 @@ import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategi
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import * as navigationPreload from 'workbox-navigation-preload'
-import { corsSafeCachePlugin, jsonOnlyCachePlugin, shouldCacheStaticResource } from '@/utils/serviceWorkerCache'
+import {
+  bypassNativeApiCache,
+  corsSafeCachePlugin,
+  jsonOnlyCachePlugin,
+  shouldCacheStaticResource,
+} from '@/utils/serviceWorkerCache'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
@@ -150,6 +155,7 @@ registerRoute(
   ({ url, request }) =>
     url.pathname.includes('/api/v1/') &&
     request.method === 'GET' &&
+    !bypassNativeApiCache(request) &&
     !url.pathname.includes('/api/v1/search/') && // 搜索接口结果动态变化，避免缓存导致重复搜索失效
     !url.pathname.includes('/api/v1/site/cookie/') && // 站点 Cookie 更新是副作用请求，不能缓存
     !url.pathname.includes('/api/v1/system/message') && // SSE实时消息流

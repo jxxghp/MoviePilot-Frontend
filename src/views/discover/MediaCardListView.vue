@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
+import { nativeReadonlyCache } from '@/native/cache'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
@@ -19,7 +20,7 @@ const props = defineProps({
   params: Object as PropType<Record<string, unknown>>,
 })
 
-// 判断是否有滚动条
+/** 未填满视口时继续取页，不能因缓存返回更快而改变原分页终止条件。 */
 function hasScroll() {
   return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
 }
@@ -45,7 +46,7 @@ const seenKeys = new Set<string>()
 // 保存本次列表生命周期内已经处理过的原始页签名。
 const seenPageSignatures = new Set<string>()
 
-// 拼装参数
+/** 每次读取都保留当前筛选，只由列表维护页码。 */
 function getParams(): Record<string, unknown> {
   return {
     ...props.params,
@@ -53,7 +54,7 @@ function getParams(): Record<string, unknown> {
   }
 }
 
-// 去重、分页终止和渲染必须共用同一媒体身份，避免状态与 DOM key 分叉。
+/** 去重、分页终止和渲染共用同一媒体身份，避免状态与 DOM key 分叉。 */
 function getMediaIdentity(item: MediaInfo) {
   if (item.media_source && item.media_id !== undefined && item.media_id !== null && String(item.media_id).trim()) {
     return JSON.stringify(['media', item.media_source, String(item.media_id), item.type ?? null, item.season ?? null])
@@ -71,6 +72,7 @@ function getMediaIdentity(item: MediaInfo) {
   ])
 }
 
+/** 只过滤本次列表生命周期已呈现的条目，不改写共享榜单数据。 */
 function deduplicate(items: MediaInfo[]): MediaInfo[] {
   return items.filter(item => {
     const key = getMediaIdentity(item)
@@ -82,13 +84,15 @@ function deduplicate(items: MediaInfo[]): MediaInfo[] {
   })
 }
 
+/** 以新数组追加当前页，保持 shallowRef 与渐进网格的更新约定。 */
 function appendData(items: MediaInfo[]) {
   dataList.value = dataList.value.concat(items)
 }
 
+/** 页面、筛选和去重逻辑保持在列表层；只读快照只复用当前这次分页 GET。 */
 async function loadPageData() {
   const params = getParams()
-  const rawData: MediaInfo[] = await api.get(props.apipath, {
+  const rawData = await nativeReadonlyCache.get<MediaInfo[]>(api, props.apipath, {
     params,
     ...(Array.isArray(params.media_source) ? { paramsSerializer: { indexes: null } } : {}),
   })
@@ -103,7 +107,7 @@ async function loadPageData() {
   }
 }
 
-// 获取列表数据
+/** 网络失败仍进入原重试状态，空页或重复页终止本轮无限滚动。 */
 async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading' | 'ok') => void }) {
   if (loading.value) {
     done('ok')

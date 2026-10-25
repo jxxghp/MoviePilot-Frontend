@@ -29,6 +29,15 @@ describe('useVersionChecker', () => {
     expect(mocks.toastInfo).toHaveBeenCalledOnce()
   })
 
+  it('手动清理先同步撤销 App 在途榜单，再等待浏览器缓存清理', async () => {
+    const { nativeReadonlyCache } = await import('@/native/cache')
+    const clear = vi.spyOn(nativeReadonlyCache, 'clear')
+    const { clearCachesAndServiceWorker } = await import('@/composables/useVersionChecker')
+    const clearing = clearCachesAndServiceWorker()
+    expect(clear).toHaveBeenCalledOnce()
+    await clearing
+  })
+
   it('没有可用 Service Worker 时保留版本不一致的清缓存兜底', async () => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     const { useVersionChecker } = await import('@/composables/useVersionChecker')

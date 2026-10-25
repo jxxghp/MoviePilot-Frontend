@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
+import { nativeReadonlyCache } from '@/native/cache'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import VirtualSlideView from '@/components/slide/VirtualSlideView.vue'
@@ -34,14 +35,14 @@ const dataList = shallowRef<MediaInfo[]>([])
 // 容器引用
 const containerRef = ref<HTMLElement | null>(null)
 
-// 获取订阅列表数据
+/** 首次进入或空榜单重试沿用原请求生命周期，只有已协商 App 复用短时榜单快照。 */
 async function fetchData() {
   if (loadingStarted.value) return
 
   loadingStarted.value = true
   try {
     if (!props.apipath) return
-    dataList.value = await api.get(props.apipath)
+    dataList.value = await nativeReadonlyCache.get<MediaInfo[]>(api, props.apipath)
     if (dataList.value.length > 0) {
       // 数据获取后，等待 ready 信号再渲染，避免阻塞动画
       await until(() => props.ready).toBe(true)
@@ -56,6 +57,7 @@ async function fetchData() {
   }
 }
 
+/** 在观察器延迟时判断首屏附近的列表，避免重复触发离屏请求。 */
 function isNearViewport(element: HTMLElement, rootMargin = 300) {
   const rect = element.getBoundingClientRect()
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight

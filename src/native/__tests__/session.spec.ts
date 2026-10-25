@@ -51,11 +51,18 @@ function harness(overrides: Partial<NativeSessionOptions> = {}) {
 }
 
 /** 宿主协商和布局确认都必须经事件入口完成。 */
-async function activate(widgets = false) {
+async function activate(widgets = false, cache = false) {
   await send('host.configure', {
     sessionId: 'session-1',
     major: 1,
-    capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1', ...(widgets ? ['widgets.v1'] : [])],
+    capabilities: [
+      'navigation.v1',
+      'actions.v1',
+      'layout.v1',
+      'menu.v1',
+      ...(widgets ? ['widgets.v1'] : []),
+      ...(cache ? ['readonly-cache.v1'] : []),
+    ],
   })
   await send('chrome.prepare', { layoutRevision: 7 })
 }
@@ -72,6 +79,88 @@ function widgetHarness(request: NonNullable<NativeSessionOptions['widgetRequest'
 
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
+})
+
+describe('原生只读缓存能力协商', () => {
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ])('传输声明 %s / 宿主能力 %s 必须双向一致且完成接管', async (transport, host) => {
+    const readonlyCache = vi.fn()
+    const h = harness({
+      transport: {
+        transportVersion: 1,
+        ...(transport ? { readonlyCacheVersion: 1 as const } : {}),
+        postMessage: vi.fn(),
+      },
+      readonlyCache,
+    })
+    await activate(false, host)
+    expect(readonlyCache.mock.calls).toEqual(transport && host ? [[true]] : [])
+    await h.session.stop()
+    if (transport && host) expect(readonlyCache.mock.calls).toEqual([[true], [false]])
+  })
+
+  it('等待 DOM 提交期间不启用，旧宿主或无处理器不发布能力', async () => {
+    let commit!: () => void
+    const readonlyCache = vi.fn()
+    const h = harness({
+      transport: { transportVersion: 1, readonlyCacheVersion: 1, postMessage: vi.fn() },
+      readonlyCache,
+      setActive: active =>
+        active
+          ? new Promise<void>(resolve => {
+              commit = resolve
+            })
+          : undefined,
+    })
+    await activate(false, true)
+    expect(readonlyCache).not.toHaveBeenCalled()
+    commit()
+    await flushPromises()
+    expect(readonlyCache).toHaveBeenCalledWith(true)
+    await h.session.stop()
+    const old = harness()
+    expect(old.messages[0].payload.capabilities).not.toContain('readonly-cache.v1')
+    await old.session.stop()
+    const noHandler = harness({ transport: { transportVersion: 1, readonlyCacheVersion: 1, postMessage: vi.fn() } })
+    expect(noHandler.options.readonlyCache).toBeUndefined()
+  })
+
+  it('后台和身份撤销立即禁用，只有当前代次恢复接管才能重启', async () => {
+    const readonlyCache = vi.fn()
+    const h = harness({
+      transport: { transportVersion: 1, readonlyCacheVersion: 1, postMessage: vi.fn() },
+      readonlyCache,
+    })
+    await activate(false, true)
+    await send('host.lifecycle', { state: 'background' })
+    await send('host.lifecycle', { state: 'active' })
+    h.session.identityChanged()
+    await send('host.lifecycle', { state: 'active' })
+    expect(readonlyCache.mock.calls).toEqual([[true], [false], [true], [false]])
+    await send('host.rekey', { sessionId: 'session-2' })
+    expect(readonlyCache).toHaveBeenLastCalledWith(true)
+    await send('chrome.release', {}, { sessionId: 'session-1' })
+    expect(readonlyCache).toHaveBeenLastCalledWith(true)
+    await send('chrome.release', {}, { sessionId: 'session-2' })
+    expect(readonlyCache).toHaveBeenLastCalledWith(false)
+  })
+
+  it('桥接降级与切换会话都清掉可用状态', async () => {
+    const readonlyCache = vi.fn()
+    const h = harness({
+      transport: { transportVersion: 1, readonlyCacheVersion: 1, postMessage: vi.fn() },
+      readonlyCache,
+    })
+    await activate(false, true)
+    await send('host.rekey', { sessionId: 'session-2' })
+    expect(readonlyCache.mock.calls).toEqual([[true], [false], [true]])
+    h.session.fallback()
+    expect(readonlyCache).toHaveBeenLastCalledWith(false)
+  })
 })
 
 describe('小组件专用会话与一次性结果', () => {

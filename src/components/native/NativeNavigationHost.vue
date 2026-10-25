@@ -25,6 +25,7 @@ import { NativeSheetAdapter } from '@/native/sheet'
 import { NativeConfirmationAdapter } from '@/native/confirmation'
 import { NativeChromeSession } from '@/native/session'
 import { NativeWidgetAdapter, navigateNativeWidget } from '@/native/widgets'
+import { useNativeReadonlyCache } from '@/composables/useNativeReadonlyCache'
 import api from '@/api'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { NativeRouteHistory } from '@/native/history'
@@ -432,6 +433,9 @@ async function execute(message: NativeEnvelope) {
 const canStart = computed(
   () => routerReady.value && authenticated.value && isMediaSourceCatalogLoaded().value && isModuleCatalogLoaded().value,
 )
+const cacheNegotiated = ref(false)
+if (window.MoviePilotNative?.readonlyCacheVersion === 1)
+  useNativeReadonlyCache(cacheNegotiated, canStart, new URL(import.meta.env.VITE_API_BASE_URL, document.baseURI).href)
 watch([routerReady, () => route.path], ([ready, path]) => {
   if (ready && path === '/login') window.MoviePilotNative?.authenticationRequired?.()
 })
@@ -495,6 +499,9 @@ watch(
           layout.syncAnchors(model.value.snapshot.actions.flatMap(action => (action.dataAttr ? [action.dataAttr] : [])))
       },
       lifecycle: state => appActivityLifecycle.setHostLifecycle(state),
+      readonlyCache: active => {
+        cacheNegotiated.value = active
+      },
       ...(widgetAdapter ? { widgetRequest: (payload, signal) => widgetAdapter.request(payload, signal) } : {}),
     })
     bridge.start()

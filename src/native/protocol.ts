@@ -152,6 +152,8 @@ export interface NativeTransport {
   navigationPreviewVersion?: 1
   /** 可选小组件登记桥；凭据只走相关的一次性结果，不进入导航快照。 */
   widgetsVersion?: 1
+  /** 可选内置榜单内存缓存；完成双向协商与导航接管后才生效。 */
+  readonlyCacheVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
   notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */
