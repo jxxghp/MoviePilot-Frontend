@@ -112,6 +112,36 @@ export interface NativeMenuSection {
   items: Array<{ id: string; path: string; title: string; icon: string; subtitle?: string }>
 }
 
+/** 原操作菜单的语义颜色；具体系统展示由宿主适配，不传递 CSS 或网页背景。 */
+export type NativeMenuColor = 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error'
+
+/** 有界操作菜单树保留原顺序、分隔、分组和子菜单，禁止包含业务回调。 */
+export interface NativeOperationItem {
+  id: string
+  kind: 'action' | 'submenu' | 'group' | 'separator'
+  title?: string
+  subtitle?: string
+  /** 使用原图标标识，由宿主做语义映射；不以无关的通用图标补位。 */
+  icon?: string
+  color?: NativeMenuColor
+  enabled?: boolean
+  selected?: boolean
+  loading?: boolean
+  destructive?: boolean
+  keepOpen?: boolean
+  items?: NativeOperationItem[]
+}
+
+/** 单次菜单声明独立于导航快照，原生返回展示标识和项目标识即可请求选择。 */
+export interface NativeOperationMenu {
+  ownerId: string
+  menuId: string
+  presentationId: string
+  kind: 'card' | 'standalone'
+  title?: string
+  items: NativeOperationItem[]
+}
+
 /** 系统 point 几何；网页通过实际 viewport 宽度换算 CSS 像素。 */
 export interface NativeLayout {
   layoutRevision: number
