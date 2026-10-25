@@ -6,6 +6,7 @@ import {
   type NativeTransport,
 } from './protocol'
 import type { NativeWidgetResult } from './widgets'
+import type { NativeCardMenuChannel } from './cardInteraction'
 
 /** 桥接只操作导航声明及生命周期，所有业务操作由调用方回到既有回调。 */
 export interface NativeSessionOptions {
@@ -25,6 +26,8 @@ export interface NativeSessionOptions {
   widgetRequest?(payload: Record<string, unknown>, signal: AbortSignal): Promise<NativeWidgetResult>
   /** 只发布可选只读缓存的接管状态，不通过桥传输数据或认证信息。 */
   readonlyCache?(active: boolean): void
+  /** 可选卡片菜单通道；普通网页、旧宿主和未完成接管的文档不会建立上下文。 */
+  cardMenus?: NativeCardMenuChannel
 }
 
 /** 单主文档的事务桥；没有 WebKit 门面时不会创建此对象。 */
@@ -50,6 +53,9 @@ export class NativeChromeSession {
   private cachePaused = false
   private cacheForeground = true
   private cacheActive = false
+  private cardMenusNegotiated = false
+  private cardMenusPaused = false
+  private cardMenusForeground = true
   /** 网页退出先同步通知宿主，再阻止本代次产生任何新的组件凭据。 */
   private readonly widgetLogout = () => {
     if (this.phase !== 'active' || !this.widgetsNegotiated) return
@@ -82,6 +88,7 @@ export class NativeChromeSession {
         ...(this.options.transport.readonlyCacheVersion === 1 && this.options.readonlyCache
           ? ['readonly-cache.v1']
           : []),
+        ...(this.options.transport.cardMenusVersion === 1 && this.options.cardMenus ? ['card-menus.v1'] : []),
       ],
     })
     this.timer = setTimeout(() => {
@@ -94,6 +101,7 @@ export class NativeChromeSession {
     if (!['configured', 'preparing', 'active'].includes(this.phase)) return
     const { routeRevision, snapshot } = this.options.readState()
     this.routeRevision = routeRevision
+    this.updateCardMenus()
     this.stateRevision += 1
     this.post('navigation.state', snapshot as unknown as Record<string, unknown>)
   }
@@ -123,6 +131,8 @@ export class NativeChromeSession {
 
   /** 卸载时撤销 DOM 模式及全部回调引用，不能把旧 owner 留给下一布局。 */
   async stop() {
+    this.cardMenusNegotiated = false
+    this.updateCardMenus()
     this.cacheNegotiated = false
     this.updateCache()
     this.clearNavigationPreviews()
@@ -140,6 +150,8 @@ export class NativeChromeSession {
 
   /** 当前认证或权限上下文变化时通知宿主清理旧命令，再发布新代次。 */
   identityChanged() {
+    this.cardMenusPaused = true
+    this.updateCardMenus()
     this.cachePaused = true
     this.updateCache()
     this.clearNavigationPreviews()
@@ -162,6 +174,34 @@ export class NativeChromeSession {
     if (active === this.cacheActive) return
     this.cacheActive = active
     this.options.readonlyCache?.(active)
+  }
+
+  /** 只为完成接管的前台身份发布当前路由范围；其它状态同步撤销手势和入口接管。 */
+  private updateCardMenus() {
+    const active =
+      this.phase === 'active' && this.cardMenusNegotiated && !this.cardMenusPaused && this.cardMenusForeground
+    this.options.cardMenus?.setContext(
+      active && this.sessionId
+        ? {
+            sessionId: this.sessionId,
+            routeRevision: this.options.readState().routeRevision,
+          }
+        : undefined,
+    )
+  }
+
+  /** 菜单不使用通用业务命令或重放缓存，只接受已协商范围内的窄消息名称。 */
+  postCardMenu(type: string, payload: Record<string, unknown>): boolean {
+    if (
+      this.phase !== 'active' ||
+      !this.cardMenusNegotiated ||
+      this.cardMenusPaused ||
+      !this.cardMenusForeground ||
+      !['cardMenu.prepare', 'cardMenu.accessible', 'cardMenu.invalidate', 'cardMenu.refresh'].includes(type)
+    )
+      return false
+    this.post(type, payload)
+    return true
   }
 
   /** 取消只释放当前等待，不清除本会话的请求标识，避免恢复前台时重放写请求。 */
@@ -260,6 +300,11 @@ export class NativeChromeSession {
         this.options.readonlyCache &&
         capabilities.includes('readonly-cache.v1'),
       )
+      this.cardMenusNegotiated = Boolean(
+        this.options.transport.cardMenusVersion === 1 &&
+        this.options.cardMenus &&
+        capabilities.includes('card-menus.v1'),
+      )
       this.phase = 'configured'
       this.publish()
       this.timer = setTimeout(() => {
@@ -268,6 +313,17 @@ export class NativeChromeSession {
       return
     }
     if (!this.sessionId || message.sessionId !== this.sessionId) return
+    if (['cardMenu.opened', 'cardMenu.select', 'cardMenu.dismissed'].includes(message.type)) {
+      if (
+        this.phase === 'active' &&
+        this.cardMenusNegotiated &&
+        !this.cardMenusPaused &&
+        this.cardMenusForeground &&
+        message.routeRevision === this.options.readState().routeRevision
+      )
+        await this.options.cardMenus?.receive(message)
+      return
+    }
     if (
       message.type === 'widget.cancel' &&
       this.widgetsNegotiated &&
@@ -299,6 +355,8 @@ export class NativeChromeSession {
       this.widgetRequests.clear()
       this.widgetsPaused = false
       this.cachePaused = false
+      this.cardMenusPaused = false
+      this.updateCardMenus()
       this.updateCache()
       this.stateRevision = 0
       this.results.clear()
@@ -307,6 +365,8 @@ export class NativeChromeSession {
       return
     }
     if (message.type === 'chrome.release') {
+      this.cardMenusNegotiated = false
+      this.updateCardMenus()
       this.cacheNegotiated = false
       this.updateCache()
       this.clearNavigationPreviews()
@@ -328,6 +388,7 @@ export class NativeChromeSession {
         return
       }
       this.phase = 'active'
+      this.updateCardMenus()
       this.updateCache()
       clearTimeout(this.timer)
       this.post('chrome.accepted', { layoutRevision: message.payload.layoutRevision })
@@ -342,6 +403,8 @@ export class NativeChromeSession {
       if (state === 'active' || state === 'inactive' || state === 'background') {
         this.widgetForeground = state === 'active'
         this.cacheForeground = state === 'active'
+        this.cardMenusForeground = state === 'active'
+        this.updateCardMenus()
         this.updateCache()
         if (!this.widgetForeground) this.cancelWidgetRequest()
         this.options.lifecycle(state)
@@ -437,6 +500,8 @@ export class NativeChromeSession {
 
   /** 只有仍可执行 JS 时才能恢复网页；宿主另行处理进程终止。 */
   private async fail() {
+    this.cardMenusNegotiated = false
+    this.updateCardMenus()
     this.cacheNegotiated = false
     this.updateCache()
     this.clearNavigationPreviews()

@@ -51,7 +51,7 @@ function harness(overrides: Partial<NativeSessionOptions> = {}) {
 }
 
 /** 宿主协商和布局确认都必须经事件入口完成。 */
-async function activate(widgets = false, cache = false) {
+async function activate(widgets = false, cache = false, cardMenus = false) {
   await send('host.configure', {
     sessionId: 'session-1',
     major: 1,
@@ -62,6 +62,7 @@ async function activate(widgets = false, cache = false) {
       'menu.v1',
       ...(widgets ? ['widgets.v1'] : []),
       ...(cache ? ['readonly-cache.v1'] : []),
+      ...(cardMenus ? ['card-menus.v1'] : []),
     ],
   })
   await send('chrome.prepare', { layoutRevision: 7 })
@@ -79,6 +80,78 @@ function widgetHarness(request: NonNullable<NativeSessionOptions['widgetRequest'
 
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
+})
+
+describe('原生卡片菜单的独立协商和上下文', () => {
+  it.each([
+    [false, true],
+    [true, false],
+    [true, true],
+  ])('宿主版本 %s、网页通道 %s 需要双方同时存在', async (host, channel) => {
+    const setContext = vi.fn()
+    const receive = vi.fn()
+    const messages: NativeEnvelope[] = []
+    harness({
+      transport: {
+        transportVersion: 1,
+        ...(host ? { cardMenusVersion: 1 as const } : {}),
+        postMessage: message => messages.push(message),
+      },
+      ...(channel ? { cardMenus: { setContext, receive } } : {}),
+    })
+    expect(messages[0].payload.capabilities).toEqual(
+      expect.arrayContaining(host && channel ? ['card-menus.v1'] : ['navigation.v1']),
+    )
+    if (!host || !channel) expect(messages[0].payload.capabilities).not.toContain('card-menus.v1')
+    await activate(false, false, true)
+    if (host && channel) expect(setContext).toHaveBeenLastCalledWith({ sessionId: 'session-1', routeRevision: 1 })
+    else expect(setContext.mock.calls.every(call => call[0] === undefined)).toBe(true)
+  })
+
+  it('没有宿主协商确认不启用菜单，也不发送准备声明', async () => {
+    const setContext = vi.fn()
+    const { session } = harness({
+      transport: { transportVersion: 1, cardMenusVersion: 1, postMessage: vi.fn() },
+      cardMenus: { setContext, receive: vi.fn() },
+    })
+    expect(session.postCardMenu('cardMenu.prepare', {})).toBe(false)
+    await activate()
+    expect(setContext.mock.calls.every(call => call[0] === undefined)).toBe(true)
+    expect(session.postCardMenu('cardMenu.prepare', {})).toBe(false)
+  })
+
+  it('仅分派当前路由、前台和身份范围的菜单消息，未知发送类型被拒绝', async () => {
+    const setContext = vi.fn()
+    const receive = vi.fn()
+    let revision = 1
+    const { session } = harness({
+      transport: { transportVersion: 1, cardMenusVersion: 1, postMessage: vi.fn() },
+      readState: () => ({ routeRevision: revision, snapshot }),
+      cardMenus: { setContext, receive },
+    })
+    await activate(false, false, true)
+    expect(session.postCardMenu('cardMenu.prepare', {})).toBe(true)
+    expect(session.postCardMenu('arbitrary.invoke', {})).toBe(false)
+    await send('cardMenu.select', { presentationId: 'menu-1', itemId: 'edit' })
+    expect(receive).toHaveBeenCalledOnce()
+    await send('cardMenu.select', {}, { routeRevision: 0 })
+    expect(receive).toHaveBeenCalledOnce()
+    revision = 2
+    session.publish()
+    expect(setContext).toHaveBeenLastCalledWith({ sessionId: 'session-1', routeRevision: 2 })
+    await send('host.lifecycle', { state: 'background' })
+    expect(setContext).toHaveBeenLastCalledWith(undefined)
+    expect(session.postCardMenu('cardMenu.prepare', {})).toBe(false)
+    await send('cardMenu.select')
+    expect(receive).toHaveBeenCalledOnce()
+    await send('host.lifecycle', { state: 'active' })
+    session.identityChanged()
+    expect(setContext).toHaveBeenLastCalledWith(undefined)
+    await send('host.rekey', { sessionId: 'session-2' })
+    expect(setContext).toHaveBeenLastCalledWith({ sessionId: 'session-2', routeRevision: 2 })
+    await session.stop()
+    expect(setContext).toHaveBeenLastCalledWith(undefined)
+  })
 })
 
 describe('原生只读缓存能力协商', () => {

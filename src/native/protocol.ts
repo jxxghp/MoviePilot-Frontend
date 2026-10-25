@@ -184,6 +184,8 @@ export interface NativeTransport {
   widgetsVersion?: 1
   /** 可选内置榜单内存缓存；完成双向协商与导航接管后才生效。 */
   readonlyCacheVersion?: 1
+  /** 可选卡片系统上下文菜单；完成双向协商后才替换卡片原菜单入口。 */
+  cardMenusVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
   notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */
