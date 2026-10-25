@@ -304,6 +304,7 @@ const inputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const pendingAttachments = ref<AgentPendingAttachment[]>([])
 const recording = ref(false)
+const recordingPermissionPending = ref(false)
 const recordingStartedAt = ref(0)
 const recordingDuration = ref(0)
 const historyLoading = ref(false)
@@ -321,6 +322,7 @@ let mediaRecorderStream: MediaStream | null = null
 let recordingTimer: number | null = null
 let thinkingTimer: number | null = null
 let recordingChunks: BlobPart[] = []
+let recordingRequest = 0
 let messageScrollFrame: number | null = null
 let pendingMessageScrollToBottom = false
 let streamPersistTimer: number | null = null
@@ -364,7 +366,9 @@ const canSend = computed(
   () =>
     (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
 )
-const canRecord = computed(() => !isBusy.value && !sending.value && !recording.value)
+const canRecord = computed(
+  () => !isBusy.value && !sending.value && !recording.value && !recordingPermissionPending.value,
+)
 // 获取当前输入对应的斜杠命令查询词。
 const slashCommandQuery = computed(() => {
   const text = inputText.value.trimStart()
@@ -2705,7 +2709,7 @@ function finishRecordingState() {
   stopRecordingStream()
 }
 
-// 开始录制语音消息。
+// 录音授权可能晚于关闭面板；只让仍有效的请求接管媒体流，避免后台残留录音。
 async function startVoiceRecording() {
   if (!canRecord.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
@@ -2713,14 +2717,26 @@ async function startVoiceRecording() {
     return
   }
 
+  const request = ++recordingRequest
+  recordingPermissionPending.value = true
   try {
     streamError.value = ''
     recordingChunks = []
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    if (
+      request !== recordingRequest ||
+      !isOpen.value ||
+      document.visibilityState === 'hidden' ||
+      isBusy.value ||
+      sending.value
+    ) {
+      stream.getTracks().forEach(track => track.stop())
+      return
+    }
+    mediaRecorderStream = stream
     const mimeType = getRecorderMimeType()
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
 
-    mediaRecorderStream = stream
     mediaRecorder = recorder
     recording.value = true
     recordingStartedAt.value = Date.now()
@@ -2763,9 +2779,12 @@ async function startVoiceRecording() {
     }
     recorder.start()
   } catch (error: any) {
+    if (request !== recordingRequest) return
     finishRecordingState()
     recordingChunks = []
     streamError.value = error?.message || t('agentAssistant.recordPermissionDenied')
+  } finally {
+    if (request === recordingRequest) recordingPermissionPending.value = false
   }
 }
 
@@ -2781,6 +2800,8 @@ function stopVoiceRecording() {
 
 // 取消当前录音并丢弃已录制内容。
 function cancelVoiceRecording() {
+  recordingRequest += 1
+  recordingPermissionPending.value = false
   if (mediaRecorder) {
     mediaRecorder.ondataavailable = null
     mediaRecorder.onstop = null
@@ -3040,6 +3061,7 @@ function togglePetPicker() {
 // 页面进入后台时保存流式占位，恢复可见时尝试拉取 WebAgent 后台完成后的会话快照。
 function handleVisibilityChange() {
   if (document.visibilityState === 'hidden') {
+    cancelVoiceRecording()
     if (runnerActive.value && activeStreamStartedAt && sessionId.value) {
       beginStreamRecovery(sessionId.value, activeStreamStartedAt)
     } else if (pendingStreamRecovery.value) {
@@ -3100,6 +3122,7 @@ watch(isOpen, open => {
   }
 
   petPickerOpen.value = false
+  cancelVoiceRecording()
   invalidateProtectedDeliveries()
 })
 
