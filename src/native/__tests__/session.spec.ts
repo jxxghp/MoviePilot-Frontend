@@ -51,7 +51,7 @@ function harness(overrides: Partial<NativeSessionOptions> = {}) {
 }
 
 /** 宿主协商和布局确认都必须经事件入口完成。 */
-async function activate(widgets = false, cache = false, cardMenus = false) {
+async function activate(widgets = false, cache = false, cardMenus = false, standaloneMenus = false) {
   await send('host.configure', {
     sessionId: 'session-1',
     major: 1,
@@ -63,6 +63,7 @@ async function activate(widgets = false, cache = false, cardMenus = false) {
       ...(widgets ? ['widgets.v1'] : []),
       ...(cache ? ['readonly-cache.v1'] : []),
       ...(cardMenus ? ['card-menus.v1'] : []),
+      ...(standaloneMenus ? ['standalone-menus.v1'] : []),
     ],
   })
   await send('chrome.prepare', { layoutRevision: 7 })
@@ -80,6 +81,69 @@ function widgetHarness(request: NonNullable<NativeSessionOptions['widgetRequest'
 
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
+})
+
+describe('原生独立菜单的可选协商和上下文', () => {
+  it.each([
+    [false, true, true],
+    [true, false, true],
+    [true, true, false],
+    [true, true, true],
+  ])('宿主版本 %s、网页通道 %s、宿主确认 %s 同时存在才启用', async (host, channel, acknowledged) => {
+    const setContext = vi.fn()
+    const messages: NativeEnvelope[] = []
+    const { session } = harness({
+      transport: {
+        transportVersion: 1,
+        ...(host ? { standaloneMenusVersion: 1 as const } : {}),
+        postMessage: message => messages.push(message),
+      },
+      ...(channel ? { standaloneMenus: { setContext, receive: vi.fn() } } : {}),
+    })
+    expect(messages[0].payload.capabilities).toEqual(
+      expect.arrayContaining(host && channel ? ['standalone-menus.v1'] : ['navigation.v1']),
+    )
+    if (!host || !channel) expect(messages[0].payload.capabilities).not.toContain('standalone-menus.v1')
+    expect(session.postStandaloneMenu('standaloneMenu.open', {})).toBe(false)
+    await activate(false, false, false, acknowledged)
+    expect(session.postStandaloneMenu('standaloneMenu.open', {})).toBe(host && channel && acknowledged)
+    if (host && channel && acknowledged)
+      expect(setContext).toHaveBeenLastCalledWith({ sessionId: 'session-1', routeRevision: 1 })
+    else expect(setContext.mock.calls.every(call => call[0] === undefined)).toBe(true)
+  })
+
+  it('当前路由/前台/身份与封闭消息表约束独立菜单，退出后不能发新展示', async () => {
+    const setContext = vi.fn()
+    const receive = vi.fn()
+    let revision = 1
+    const { session, options } = harness({
+      transport: { transportVersion: 1, standaloneMenusVersion: 1, postMessage: vi.fn() },
+      standaloneMenus: { setContext, receive },
+      readState: () => ({ routeRevision: revision, snapshot }),
+    })
+    await activate(false, false, false, true)
+    expect(session.postStandaloneMenu('arbitrary.invoke', {})).toBe(false)
+    await send('standaloneMenu.select', { presentationId: 'menu-1', itemId: 'title' })
+    expect(receive).toHaveBeenCalledOnce()
+    await send('standaloneMenu.select', {}, { routeRevision: 0 })
+    await send('standaloneMenu.select', {}, { sessionId: 'expired' })
+    expect(receive).toHaveBeenCalledOnce()
+    expect(options.execute).not.toHaveBeenCalled()
+    revision = 2
+    session.publish()
+    expect(setContext).toHaveBeenLastCalledWith({ sessionId: 'session-1', routeRevision: 2 })
+    await send('host.lifecycle', { state: 'background' })
+    expect(setContext).toHaveBeenLastCalledWith(undefined)
+    expect(session.postStandaloneMenu('standaloneMenu.open', {})).toBe(false)
+    await send('host.lifecycle', { state: 'active' })
+    session.identityChanged()
+    expect(setContext).toHaveBeenLastCalledWith(undefined)
+    await send('host.rekey', { sessionId: 'session-2' })
+    expect(setContext).toHaveBeenLastCalledWith({ sessionId: 'session-2', routeRevision: 2 })
+    await session.stop()
+    expect(setContext).toHaveBeenLastCalledWith(undefined)
+    expect(session.postStandaloneMenu('standaloneMenu.open', {})).toBe(false)
+  })
 })
 
 describe('原生卡片菜单的独立协商和上下文', () => {

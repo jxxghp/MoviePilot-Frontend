@@ -1,4 +1,4 @@
-import { defineComponent, h, onBeforeUnmount, ref, watch, type PropType } from 'vue'
+import { defineComponent, h, onBeforeUnmount, ref, shallowRef, watch, watchPostEffect, type PropType } from 'vue'
 import { VMenu } from 'vuetify/components/VMenu'
 import { nativeChromeActive } from '@/native/layout'
 import { registerNativeMenuClose } from '@/native/menu'
@@ -16,11 +16,17 @@ export default defineComponent({
   /** 保存受控或内部展开状态，宿主接管关闭时取消网页退出动画以完成绘制交接。 */
   setup(props, { attrs, slots, emit }) {
     const menuToken = {}
+    const menu = shallowRef<{ activatorEl?: HTMLElement }>()
     watch(
       [() => props.nativeMenu, () => props.nativeMenu?.key],
-      ([binding]) => nativeStandaloneMenus.bind(menuToken, binding),
+      ([binding]) => nativeStandaloneMenus.bind(menuToken, binding, () => menu.value?.activatorEl),
       { immediate: true },
     )
+    watchPostEffect(() => {
+      void nativeStandaloneMenus.revision.value
+      void props.nativeMenu
+      nativeStandaloneMenus.track(menuToken)
+    })
     const expanded = ref(props.modelValue ?? false)
     const closingForSheet = ref(false)
     watch(
@@ -51,6 +57,7 @@ export default defineComponent({
         VMenu,
         {
           ...attrs,
+          ref: menu,
           // 普通网页未绑定模型时必须省略该属性，显式 undefined 会让 Vuetify 误判为受控菜单。
           ...(native || props.modelValue !== undefined
             ? { modelValue: native ? expanded.value : props.modelValue }

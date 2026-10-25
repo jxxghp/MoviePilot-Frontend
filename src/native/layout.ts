@@ -12,7 +12,13 @@ export const nativeContentInsets = readonly(insets)
 export class NativeLayoutAdapter {
   private revision = -1
   private scale = 1
+  private layout?: NativeLayout
+  private enabled = false
   private readonly anchors = new Map<string, HTMLElement>()
+  /** 原生旋转消息可能早于 WebKit 的 resize；按最终 CSS viewport 重算同一份几何。 */
+  private readonly resize = () => {
+    if (this.enabled && this.layout) this.updateInsets(this.layout)
+  }
 
   /** 文档和 viewport 显式传入，测试不依赖设备像素密度。 */
   constructor(
@@ -44,6 +50,20 @@ export class NativeLayoutAdapter {
     )
       throw new Error('invalid_layout')
     this.revision = layout.layoutRevision
+    this.layout = {
+      ...layout,
+      viewportPoints: { ...layout.viewportPoints },
+      contentInsets: { ...layout.contentInsets },
+      systemSafeArea: { ...layout.systemSafeArea },
+      chromeOcclusion: { ...layout.chromeOcclusion },
+    }
+    this.updateInsets(this.layout)
+  }
+
+  /** 安全区只换算一次；WebKit 尺寸变化不需要原生重复发送或重新协商。 */
+  private updateInsets(layout: NativeLayout) {
+    const width = layout.viewportPoints.width
+    if (!Number.isFinite(this.viewport.innerWidth) || this.viewport.innerWidth <= 0) return
     this.scale = this.viewport.innerWidth / width
     const values = layout.consumedByNativeFrame ? { top: 0, left: 0, bottom: 0, right: 0 } : layout.contentInsets
     insets.value = Object.fromEntries(
@@ -61,8 +81,15 @@ export class NativeLayoutAdapter {
   /** 改变 DOM 模式只允许由桥接事务调用，释放时清理所有兼容锚点。 */
   setActive(value: boolean) {
     active.value = value
-    if (value) this.document.documentElement.dataset.nativeChrome = 'active'
-    else {
+    if (value) {
+      this.document.documentElement.dataset.nativeChrome = 'active'
+      if (!this.enabled) this.viewport.addEventListener('resize', this.resize)
+      this.enabled = true
+      this.resize()
+    } else {
+      this.viewport.removeEventListener('resize', this.resize)
+      this.enabled = false
+      this.layout = undefined
       delete this.document.documentElement.dataset.nativeChrome
       insets.value = { top: 0, left: 0, bottom: 0, right: 0 }
       for (const edge of ['top', 'left', 'bottom', 'right', 'keyboard-occlusion'])
@@ -70,6 +97,7 @@ export class NativeLayoutAdapter {
       for (const anchor of this.anchors.values()) anchor.remove()
       this.anchors.clear()
       this.revision = -1
+      this.scale = 1
     }
   }
 

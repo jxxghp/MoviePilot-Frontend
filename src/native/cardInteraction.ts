@@ -1,15 +1,10 @@
 import { nextTick } from 'vue'
 import { nativeCardMenus, type NativeCardMenuRegistry, type NativeCardMenuTarget } from './card'
-import { closeNativeMenus, type NativeMenuContext } from './menu'
+import { closeNativeMenus, type NativeMenuChannel, type NativeMenuContext } from './menu'
 import { isNativeIdentifier, type NativeEnvelope, type NativeOperationMenu } from './protocol'
 
 /** 会话只给当前前台文档开通菜单通道，回调和业务对象仍留在网页内存。 */
-export interface NativeCardMenuChannel {
-  /** 上下文失效时同步撤销来源、样式、手势和待选菜单。 */
-  setContext(context: NativeMenuContext | undefined): void
-  /** 只接收系统菜单已展示、选择和取消三个窄意图。 */
-  receive(message: NativeEnvelope): Promise<void>
-}
+export type NativeCardMenuChannel = NativeMenuChannel
 
 /** 原生同步手势准备使用短寿命票据；已展示菜单另由系统明确结束。 */
 interface CardPresentation {

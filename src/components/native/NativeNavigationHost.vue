@@ -2,6 +2,7 @@
 import { glassAppearancePreference } from '@/utils/themePalette'
 import { computed, nextTick, onScopeDispose, ref, toValue, watch, watchEffect } from 'vue'
 import { NativeCardMenuAdapter } from '@/native/cardInteraction'
+import { NativeStandaloneMenuAdapter } from '@/native/standaloneInteraction'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
@@ -481,6 +482,10 @@ watch(
       transport.cardMenusVersion === 1
         ? new NativeCardMenuAdapter((type, payload) => bridge?.postCardMenu(type, payload) ?? false)
         : undefined
+    const standaloneMenus =
+      transport.standaloneMenusVersion === 1
+        ? new NativeStandaloneMenuAdapter((type, payload) => bridge?.postStandaloneMenu(type, payload) ?? false)
+        : undefined
     bridge = new NativeChromeSession({
       target: window,
       transport,
@@ -508,6 +513,7 @@ watch(
         cacheNegotiated.value = active
       },
       ...(cardMenus ? { cardMenus } : {}),
+      ...(standaloneMenus ? { standaloneMenus } : {}),
       ...(widgetAdapter ? { widgetRequest: (payload, signal) => widgetAdapter.request(payload, signal) } : {}),
     })
     bridge.start()

@@ -1,13 +1,21 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NativeStandaloneMenuRegistry, type NativeStandaloneMenuBinding } from '../standalone'
 import type { NativeMenuBadge } from '../protocol'
 
 const context = { sessionId: 'standalone-document', routeRevision: 2 }
 
+afterEach(() => {
+  document.body.replaceChildren()
+  vi.restoreAllMocks()
+})
+
 /** 使用真实注册表及可变化的业务列表，测试重排、异步交接和单次选择。 */
 function menuHarness() {
   const registry = new NativeStandaloneMenuRegistry()
   const token = {}
+  const element = document.createElement('button')
+  document.body.append(element)
+  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 30, 100, 44))
   const invoke = vi.fn()
   let entries = [
     { key: '/私有目录/甲/', title: '甲' },
@@ -18,10 +26,11 @@ function menuHarness() {
     title: '路径',
     items: action => entries.map(entry => action(entry.key, { title: entry.title, invoke: () => invoke(entry.key) })),
   }
-  registry.bind(token, binding)
+  registry.bind(token, binding, () => element)
   return {
     registry,
     token,
+    element,
     binding,
     invoke,
     replace: (next: typeof entries) => {
@@ -123,9 +132,30 @@ describe('业务语义标识与撤销', () => {
     const h = menuHarness()
     h.activate()
     const other = {}
-    h.registry.bind(other, h.binding)
+    h.registry.bind(other, h.binding, () => h.element)
+    expect(h.registry.targetFor(other)).toBeDefined()
     expect(h.registry.targetFor(other)?.ownerId).not.toBe(h.registry.targetFor(h.token)?.ownerId)
   })
+
+  it.each(['hidden', 'disabled', 'inert', 'display', 'opacity', 'detached', 'offscreen'])(
+    '真实激活器 %s 后旧选择不能执行',
+    async state => {
+      const h = menuHarness()
+      h.activate()
+      const menu = h.open()
+      if (state === 'hidden') h.element.hidden = true
+      if (state === 'disabled') h.element.disabled = true
+      if (state === 'inert') h.element.setAttribute('inert', '')
+      if (state === 'display') h.element.style.display = 'none'
+      if (state === 'opacity') h.element.style.opacity = '0'
+      if (state === 'detached') h.element.remove()
+      if (state === 'offscreen')
+        vi.mocked(h.element.getBoundingClientRect).mockReturnValue(new DOMRect(-200, 20, 100, 40))
+      expect(h.registry.targetFor(h.token)).toBeUndefined()
+      expect(await h.registry.menus.select(menu.presentationId, menu.items[0].id, vi.fn())).toBe(false)
+      expect(h.invoke).not.toHaveBeenCalled()
+    },
+  )
 
   it.each(['scope', 'unmount', 'route', 'session', 'background', 'permission'])(
     '%s 撤销异步交接中的选择',
