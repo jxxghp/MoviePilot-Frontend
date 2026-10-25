@@ -1,5 +1,6 @@
 import type { Subscribe, SubscrbieInfo } from '@/api/types'
 import SubscribeFilesDialog from '@/components/dialog/SubscribeFilesDialog.vue'
+import { NativeSheetAdapter } from '@/native/sheet'
 import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { server } from '@tests/support/msw/server'
@@ -186,6 +187,19 @@ describe('SubscribeFilesDialog', () => {
     expect(statCards[1]).toHaveTextContent('入库')
     expect(statCards[1]).toHaveTextContent('1/4')
     expect(screen.getByText('缺失 3')).toBeInTheDocument()
+  })
+
+  it('原生接管后使用文件统计标题并继续调用原关闭事件', async () => {
+    useFilesResponse(3110, createTvFilesInfo() as unknown as JsonBodyType)
+    const { close } = await renderDialog(3110)
+    await screen.findByRole('heading', { name: '文件测试剧' })
+    const adapter = new NativeSheetAdapter(document)
+    const sheet = adapter.read('电视剧订阅')!
+    expect(sheet.title).toBe('文件统计')
+    expect(sheet.canDismiss).toBe(true)
+    expect(adapter.execute('presentation.dismiss', { id: sheet.id })).toBe(true)
+    expect(close).toHaveBeenCalledOnce()
+    adapter.reset()
   })
 
   it('counts a non-TMDB custom episode range instead of treating its ending episode as the total', async () => {

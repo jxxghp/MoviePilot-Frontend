@@ -215,7 +215,7 @@ describe('UserNotification', () => {
     expect(new TextEncoder().encode(JSON.stringify(projection.panel)).length).toBeLessThan(28000)
   })
 
-  it('原生优先投影独立海报，旧版和历史通知兼容网页实际使用的 image 属性', async () => {
+  it('原生优先投影独立海报，旧消息缺海报时保留原图片供原生竖版裁剪', async () => {
     const pending = deferNotifications()
     await renderWithProviders(UserNotification)
     const action = nativeGlobalActions.value.get('notifications')!
@@ -239,7 +239,31 @@ describe('UserNotification', () => {
     )
   })
 
-  it('普通网页通知继续展示原渠道图片', async () => {
+  it('原生正文保留媒体信息换行，旧容器仍能读取单行副标题，点击展开继续使用原业务状态', async () => {
+    const pending = deferNotifications()
+    await renderWithProviders(UserNotification)
+    const action = nativeGlobalActions.value.get('notifications')!
+    const opened = action.panel!()!.onOpen!()
+    const text = '站点：演示\n质量：WEB-DL 2160p\n大小：13.8 GB\n' + '保留完整长段落。'.repeat(30)
+    pending.resolve([{ id: 84, title: '媒体通知', text, reg_time: '2026-10-24 20:00:00' }])
+    await opened
+    const entry = action.panel!()!
+      .sections.flatMap(section => section.items)
+      .find(item => item.title === '媒体通知')!
+    expect(entry.body).toContain('\n站点：演示\n质量：WEB-DL 2160p\n大小：13.8 GB\n')
+    const projected = projectNativePanel(action.panel!()!)
+      .panel.sections.flatMap(section => section.items)
+      .find(item => item.id === entry.id)!
+    expect(projected.subtitle).not.toContain('\n')
+    expect(projected.body).toContain('\n质量：WEB-DL 2160p\n')
+    await entry.invoke!()
+    const expanded = action.panel!()!
+      .sections.flatMap(section => section.items)
+      .find(item => item.id === entry.id)!
+    expect(expanded.body).toContain(text)
+  })
+
+  it('普通网页通知优先展示独立海报，不改变原渠道图片字段', async () => {
     const pending = deferNotifications()
     const { container } = await renderWithProviders(UserNotification, {
       global: { stubs: { VImg: { props: ['src'], template: '<img :src="src" />' } } },
@@ -256,9 +280,22 @@ describe('UserNotification', () => {
     expect(await screen.findByText('网页媒体通知')).toBeInTheDocument()
     await waitFor(() => {
       expect(document.querySelector('.notification-panel img')?.getAttribute('src')).toBe(
-        'https://images.example.com/backdrop.jpg',
+        'https://images.example.com/poster.jpg',
       )
     })
+  })
+
+  it('网页历史消息没有 poster 时回退 image 并使用竖版 cover 缩略图', async () => {
+    const pending = deferNotifications()
+    const { container } = await renderWithProviders(UserNotification, {
+      global: { stubs: { VImg: { props: ['src'], template: '<img :src="src" />' } } },
+    })
+    await fireEvent.click(container.querySelector('button')!)
+    pending.resolve([{ id: 85, title: '历史媒体消息', image: 'https://images.example.com/backdrop.jpg' }])
+    expect(await screen.findByText('历史媒体消息')).toBeInTheDocument()
+    const media = document.querySelector('.notification-panel .notification-media')!
+    expect(media).toBeInTheDocument()
+    expect(media.querySelector('img')?.getAttribute('src')).toBe('https://images.example.com/backdrop.jpg')
   })
 
   it.each([390, 1440])('在 %ipx 窗口首次打开时显示加载动画，响应后显示消息', async width => {

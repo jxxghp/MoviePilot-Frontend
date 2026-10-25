@@ -3,6 +3,23 @@ import { dispatchNativePanel, nativePanelId, projectNativePanel } from '../panel
 import type { NativePanelSource } from '../registry'
 
 describe('原生面板声明与当前业务回调隔离', () => {
+  it('正文保留换行并规范化控制字符，旧副标题仍为单行，超长正文按 UTF-8 截断', () => {
+    const body = '站点：演示\r\n质量：2160p\r大小：13GB\t结尾\u0000\u202e'
+    const { panel } = projectNativePanel({
+      title: '通知中心',
+      sections: [{ id: 'messages', items: [{ id: 'one', title: '下载', subtitle: body, body }] }],
+    })
+    const row = panel.sections[0].items[0]
+    expect(row.body).toBe('站点：演示\n质量：2160p\n大小：13GB 结尾  ')
+    expect(row.subtitle).not.toContain('\n')
+    const long = projectNativePanel({
+      title: '通知中心',
+      sections: [{ id: 'messages', items: [{ id: 'one', title: '入库', body: '中🙂'.repeat(1000) }] }],
+    }).panel.sections[0].items[0].body!
+    expect(new TextEncoder().encode(long).length).toBeLessThanOrEqual(2048)
+    expect(long).not.toContain('\ufffd')
+  })
+
   it('连续列表只保留当前会话已展示行的回调，禁用行和旧会话仍不能执行', () => {
     const invoke = vi.fn(),
       onLoadMore = vi.fn()

@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores'
 import { computed, toValue } from 'vue'
 import { waitFor } from '@testing-library/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readThemeCustomizerSettings, THEME_CUSTOMIZER_CHANGE_EVENT } from '@/composables/useThemeCustomizer'
 
 const mocks = vi.hoisted(() => ({ community: vi.fn(), get: vi.fn() }))
 vi.mock('@/api', () => ({ default: { get: mocks.get } }))
@@ -54,8 +55,23 @@ describe('原生用户菜单与网页状态同步', () => {
     expect(preferences.title).toBeUndefined()
     expect(preferences.items.map(item => item.id)).toEqual(['customizer', 'language'])
     expect(preferences.items[0].title).toBe('主题')
+    expect(preferences.items[0].subtitle).toBe('跟随系统')
     expect(entries.value.some(item => item.id === 'auth')).toBe(false)
     expect(entries.value.some(item => ['css', 'ui', 'glass', 'transparency'].includes(item.id))).toBe(false)
+  })
+
+  it('主题副标题随已保存的明暗设置更新，不把当前系统明暗误显示为用户选择', async () => {
+    const { entries } = await renderProfile(2)
+    for (const [theme, title] of [
+      ['light', '浅色'],
+      ['dark', '深色'],
+      ['auto', '跟随系统'],
+    ] as const) {
+      window.dispatchEvent(
+        new CustomEvent(THEME_CUSTOMIZER_CHANGE_EVENT, { detail: { ...readThemeCustomizerSettings(), theme } }),
+      )
+      expect(entries.value.find(item => item.id === 'customizer')?.subtitle).toBe(title)
+    }
   })
 
   it('认证等级和身份变化使用最新 store，普通用户不继承管理员勋章或认证入口', async () => {

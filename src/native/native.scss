@@ -203,6 +203,11 @@ html[data-native-chrome='active'][data-native-sheet] {
       transition: none !important;
     }
 
+    // 仅新宿主明确声明原生进度能力时隐藏其 HTML 副本，旧 App 与普通网页仍显示原进度。
+    &[data-native-sheet-progress] > .v-overlay__content {
+      visibility: hidden !important;
+    }
+
     > .v-overlay__content > .v-card,
     > .v-overlay__content > .medal-showcase,
     > .theme-customizer-panel,
@@ -235,6 +240,27 @@ html[data-native-chrome='active'][data-native-sheet] {
 
     > .theme-customizer-panel > .v-divider {
       display: none;
+    }
+
+    // Agent 标题操作已由原生左上角接管，消息区独占剩余网格行。
+    > .agent-assistant-shell:has(> [data-native-sheet-header]) {
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .agent-assistant-history-dialog {
+      display: flex;
+      flex-direction: column;
+
+      > .v-divider {
+        display: none;
+      }
+
+      > .agent-assistant-history-list {
+        flex: 1 1 0;
+        block-size: auto;
+        min-block-size: 0;
+        max-block-size: none;
+      }
     }
 
     // 加载、短历史与长列表共用满高列布局；页脚不跟随内容高度上移。

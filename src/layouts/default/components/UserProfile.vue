@@ -612,7 +612,13 @@ function nativeProfilePanel(): NativePanelSource {
       })
   }
   const themeItems: NativePanelEntry[] = [
-    { id: 'customizer', title: t('common.theme'), icon: 'mdi-tune', invoke: showThemeCustomizerDrawer },
+    {
+      id: 'customizer',
+      title: t('common.theme'),
+      subtitle: t(`theme.${currentThemeName.value}`),
+      icon: 'mdi-tune',
+      invoke: showThemeCustomizerDrawer,
+    },
   ]
   const information: NativePanelEntry[] = [
     {

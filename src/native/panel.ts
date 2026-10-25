@@ -9,12 +9,15 @@ export function nativePanelId(prefix: string, value: unknown): string {
 }
 
 /** 限制跨进程展示文案的大小，并移除 UIKit 不需要的控制字符。 */
-function text(value: string | undefined, bytes = 512): string | undefined {
+function text(value: string | undefined, bytes = 512, multiline = false): string | undefined {
   if (!value) return undefined
   const encoder = new TextEncoder()
   let result = ''
   let size = 0
-  for (const character of value.replace(/[\p{Cc}\p{Cf}]/gu, ' ')) {
+  const normalized = value
+    .replace(/\r\n?/gu, '\n')
+    .replace(/[\p{Cc}\p{Cf}]/gu, character => (multiline && character === '\n' ? '\n' : ' '))
+  for (const character of normalized) {
     size += encoder.encode(character).length
     if (size > bytes) break
     result += character
@@ -53,6 +56,7 @@ export function projectNativePanel(source: NativePanelSource) {
         id: entry.id,
         title,
         ...(text(entry.subtitle, 2048) ? { subtitle: text(entry.subtitle, 2048) } : {}),
+        ...(text(entry.body, 2048, true) ? { body: text(entry.body, 2048, true) } : {}),
         ...(entry.icon ? { icon: text(entry.icon) } : {}),
         ...(imageReference(entry.image) ? { image: imageReference(entry.image) } : {}),
         enabled: entry.enabled !== false,

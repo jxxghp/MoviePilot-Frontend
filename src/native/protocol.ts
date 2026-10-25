@@ -19,6 +19,8 @@ export interface NativePanelItem {
   id: string
   title: string
   subtitle?: string
+  /** 可换行的纯文本正文；旧容器忽略此字段并继续显示兼容副标题。 */
+  body?: string
   icon?: string
   /** 通知等现有内容的图片地址，仅用于展示，不能作为导航或业务命令。 */
   image?: string
@@ -61,7 +63,9 @@ export interface NativeSheet {
   prefersMediumDetent?: boolean
   /** 可选的底页准备握手；不提供时容器沿用直接接管流程。 */
   backdropReady?: boolean
-  actions: Array<{ id: string; title: string; enabled: boolean }>
+  /** 支持的宿主用系统进度控件承载短暂处理状态，省略时保留原 HTML 内容。 */
+  progress?: { message: string; value?: number }
+  actions: Array<{ id: string; title: string; enabled: boolean; icon?: string }>
 }
 
 /** 系统确认框只声明当前 Vue 提示文字和按钮；响应返回原始组件结算。 */
@@ -140,6 +144,8 @@ export interface NativeTransport {
   panelFeedsVersion?: 1
   /** 可选原生业务弹窗容器；未协商时完整保留网页弹窗。 */
   sheetsVersion?: 1
+  /** 短暂处理状态可使用原生紧凑进度弹层，旧容器继续显示 HTML 进度。 */
+  progressSheetsVersion?: 1
   /** 可选系统确认框，不支持时仍由原 HTML 弹窗结算。 */
   confirmationsVersion?: 1
   /** 路由提交前可短暂等待原生保存离页预览；旧容器不等待。 */

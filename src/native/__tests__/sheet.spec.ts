@@ -241,7 +241,7 @@ describe('原生 Sheet 与原 Vue 内容交接', () => {
     })
   })
 
-  it('助手只接管打开的面板，保留菜单的实际锚点并移走标题和关闭按钮', () => {
+  it('旧助手没有显式动作声明时仍保留 HTML 菜单的实际锚点', () => {
     const root = document.createElement('aside')
     root.className = 'agent-assistant-panel'
     root.setAttribute('role', 'dialog')
@@ -259,5 +259,39 @@ describe('原生 Sheet 与原 Vue 内容交接', () => {
     adapter.execute('presentation.attach', { id: state.id })
     expect(root.querySelector('[aria-haspopup="menu"]')).not.toBeNull()
     expect(root.querySelector('textarea')!.value).toBe('草稿')
+  })
+
+  it('助手显式登记三个动作后接管整行，嵌套会话关闭后恢复当前按钮且不丢草稿', () => {
+    const root = document.createElement('aside')
+    root.className = 'agent-assistant-panel is-open'
+    root.setAttribute('role', 'dialog')
+    root.innerHTML =
+      '<header class="agent-assistant-header" data-native-sheet-actions><div class="agent-assistant-title">助手</div><button aria-haspopup="dialog" data-native-sheet-action="mdi-history">历史会话</button><button data-native-sheet-action="mdi-account-convert-outline">形象</button><button data-native-sheet-action="mdi-message-plus-outline" disabled>新增会话</button><button data-native-dialog-close>关闭</button></header><textarea>未发送草稿</textarea>'
+    document.body.append(root)
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-native-sheet-action]')]
+    const history = vi.fn()
+    buttons[0].addEventListener('click', history)
+    const adapter = new NativeSheetAdapter(document)
+    const state = adapter.read('页面')!
+    expect(state.actions.map(({ title, icon, enabled }) => ({ title, icon, enabled }))).toEqual([
+      { title: '历史会话', icon: 'mdi-history', enabled: true },
+      { title: '形象', icon: 'mdi-account-convert-outline', enabled: true },
+      { title: '新增会话', icon: 'mdi-message-plus-outline', enabled: false },
+    ])
+    expect(root.querySelector('[data-native-sheet-header]')).not.toBeNull()
+    adapter.execute('presentation.attach', { id: state.id })
+    expect(adapter.execute('presentation.action', { id: state.id, actionId: state.actions[0].id })).toBe(true)
+    expect(history).toHaveBeenCalledOnce()
+    expect(adapter.execute('presentation.action', { id: state.id, actionId: state.actions[2].id })).toBe(false)
+    const child = dialog('历史会话', 2100)
+    adapter.read('页面')
+    expect(adapter.execute('presentation.action', { id: state.id, actionId: state.actions[0].id })).toBe(false)
+    child.remove()
+    const restored = adapter.read('页面')!
+    expect(restored.id).toBe(state.id)
+    expect(restored.actions).toEqual(state.actions)
+    expect(root.querySelector('textarea')!.value).toBe('未发送草稿')
+    adapter.reset()
+    expect(root.querySelector('[data-native-sheet-header]')).toBeNull()
   })
 })

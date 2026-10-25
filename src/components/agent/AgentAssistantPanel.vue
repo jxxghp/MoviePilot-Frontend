@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
+import { VDialog, VMenu } from 'vuetify/components'
 import { useI18n } from 'vue-i18n'
 import { useId } from 'vue'
 import api, { isApiResponse } from '@/api'
@@ -10,6 +11,7 @@ import AgentMarkdownContent from './AgentMarkdownContent.vue'
 import type { AgentStreamPhaseEvent } from '@/utils/agentHostPhase'
 import type { AgentPetDeclaration } from '@/types/agentHost'
 import AgentPetAvatar from './pet/AgentPetAvatar.vue'
+import { nativeChromeActive } from '@/native/layout'
 
 // 形象选择视图按需加载，只在用户点开“更换形象”时才读取形象声明。
 const AgentPetPicker = defineAsyncComponent(() => import('./AgentPetPicker.vue'))
@@ -406,8 +408,10 @@ const recordingTimeText = computed(() => {
 })
 // 窄屏下直接全屏，桌面端则允许用户按需扩展对话区域。
 const drawerWidth = computed(() => (display.mdAndDown.value || fullscreen.value ? '100vw' : '30rem'))
-// 仅桌面宽屏展示全屏开关，窄屏已默认占满视口。
-const canToggleFullscreen = computed(() => !display.mdAndDown.value)
+/** 只有协商完成的 Sheet 容器隐藏 HTML 标题栏，普通网页继续使用原菜单。 */
+const nativeSheetActions = computed(() => nativeChromeActive.value && window.MoviePilotNative?.sheetsVersion === 1)
+// 仅网页桌面宽屏展示全屏开关，App 高度由系统 Sheet 控制。
+const canToggleFullscreen = computed(() => !nativeSheetActions.value && !display.mdAndDown.value)
 const hasConversationContent = computed(() => messages.value.length > 0 || protectedDeliveries.value.length > 0)
 const hasHistorySessions = computed(() => historySessions.value.length > 0)
 const currentUserName = computed(() => userStore.getUserName || t('common.user'))
@@ -3152,7 +3156,7 @@ onScopeDispose(() => {
     @focusin.stop
   >
     <div class="agent-assistant-shell">
-      <header class="agent-assistant-header">
+      <header class="agent-assistant-header" data-native-sheet-actions>
         <div class="agent-assistant-title">
           <div class="agent-assistant-title__mark">
             <AgentPetAvatar :pet="props.pet" size="1.85rem">
@@ -3182,23 +3186,44 @@ onScopeDispose(() => {
           </div>
         </div>
         <div class="d-flex align-center gap-1">
-          <VMenu
+          <component
+            :is="nativeSheetActions ? VDialog : VMenu"
             v-model="historyMenuOpen"
+            v-bind="
+              nativeSheetActions
+                ? { width: 640, 'data-native-sheet-size': 'medium' }
+                : { location: 'bottom end', offset: 8, maxWidth: 360 }
+            "
             :close-on-content-click="false"
-            location="bottom end"
-            offset="8"
-            max-width="360"
             :style="{ zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.overlay }"
             :z-index="AGENT_ASSISTANT_LAYER_Z_INDEX.overlay"
           >
             <template #activator="{ props }">
-              <IconBtn v-bind="props" :title="t('agentAssistant.history')" :aria-label="t('agentAssistant.history')">
+              <IconBtn
+                v-bind="props"
+                data-native-sheet-action="mdi-history"
+                :title="t('agentAssistant.history')"
+                :aria-label="t('agentAssistant.history')"
+              >
                 <VIcon icon="mdi-history" />
               </IconBtn>
             </template>
-            <VCard class="agent-assistant-history-menu" elevation="10">
-              <div class="agent-assistant-history-menu__header">
-                <span>{{ t('agentAssistant.history') }}</span>
+            <VCard
+              class="agent-assistant-history-menu"
+              :class="{ 'agent-assistant-history-dialog': nativeSheetActions }"
+              elevation="10"
+            >
+              <div class="agent-assistant-history-menu__header" data-native-dialog-header>
+                <span data-native-dialog-title>{{ t('agentAssistant.history') }}</span>
+                <IconBtn
+                  v-if="nativeSheetActions"
+                  data-native-dialog-close
+                  :title="t('common.close')"
+                  :aria-label="t('common.close')"
+                  @click="historyMenuOpen = false"
+                >
+                  <VIcon icon="mdi-close" />
+                </IconBtn>
               </div>
               <VDivider />
               <div
@@ -3260,9 +3285,10 @@ onScopeDispose(() => {
                 </VInfiniteScroll>
               </div>
             </VCard>
-          </VMenu>
+          </component>
           <IconBtn
             class="agent-assistant-pet-toggle"
+            data-native-sheet-action="mdi-account-convert-outline"
             :title="t('agentAssistant.pet.change')"
             :aria-label="t('agentAssistant.pet.change')"
             :aria-pressed="petPickerOpen"
@@ -3272,6 +3298,7 @@ onScopeDispose(() => {
             <VIcon icon="mdi-account-convert-outline" />
           </IconBtn>
           <IconBtn
+            data-native-sheet-action="mdi-message-plus-outline"
             :disabled="isBusy"
             :title="t('agentAssistant.newChat')"
             :aria-label="t('agentAssistant.newChat')"
