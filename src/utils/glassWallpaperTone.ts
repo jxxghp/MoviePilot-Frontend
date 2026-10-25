@@ -1,7 +1,8 @@
 import { preloadCorsImage } from '@/@core/utils/corsImage'
 
+/** DOM 背景与光学材质共用的壁纸亮度，保证采样和可见背景一致。 */
 export interface GlassWallpaperToneProfile {
-  /** 进入材质曲线前的有限整体曝光，避免壁纸明暗差异直接放大到操作表面。 */
+  /** 先按原图明暗有限补偿，再统一压低曝光，避免壁纸抢占正文对比度。 */
   exposure: number
   /** 壁纸采样的高亮分位亮度，用于约束亮场曝光。 */
   highlightLuminance: number
@@ -31,11 +32,12 @@ const PROFILE_CACHE_LIMIT = 32
 const PROFILE_LOAD_TIMEOUT_MS = 3000
 const EXPOSURE_MIN = 0.88
 const EXPOSURE_MAX = 1.14
+const READABILITY_EXPOSURE = 0.72
 const MEDIAN_TARGET = 0.38
 const HIGHLIGHT_TARGET = 0.82
 
 export const DEFAULT_GLASS_WALLPAPER_TONE_PROFILE: GlassWallpaperToneProfile = {
-  exposure: 1,
+  exposure: READABILITY_EXPOSURE,
   highlightLuminance: HIGHLIGHT_TARGET,
   medianLuminance: MEDIAN_TARGET,
 }
@@ -43,10 +45,12 @@ export const DEFAULT_GLASS_WALLPAPER_TONE_PROFILE: GlassWallpaperToneProfile = {
 const profileCache = new Map<string, Promise<GlassWallpaperToneLoadResult>>()
 const decodedSourceCache = new Map<string, GlassWallpaperDecodedSource>()
 
+/** 将图片采样和曝光约束在可预期的范围内。 */
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+/** 从排序后的有效亮度样本中取稳定分位，避免少量极值主导曝光。 */
 function readPercentile(sorted: number[], percentile: number) {
   if (!sorted.length) return 0
 
@@ -55,7 +59,7 @@ function readPercentile(sorted: number[], percentile: number) {
 
 /**
  * 以中位亮度为主、高亮分位为辅计算有限曝光。
- * 指数响应只缩小跨壁纸差异，保留亮场与暗场各自的视觉性格。
+ * 指数响应缩小跨壁纸差异后统一降低曝光，保留图像细节并优先保证正文可读性。
  */
 export function getGlassWallpaperToneProfile(luminances: number[]): GlassWallpaperToneProfile {
   const sorted = luminances
@@ -68,7 +72,8 @@ export function getGlassWallpaperToneProfile(luminances: number[]): GlassWallpap
   const highlightLuminance = readPercentile(sorted, 0.9)
   const medianExposure = (MEDIAN_TARGET / Math.max(medianLuminance, 0.06)) ** 0.22
   const highlightExposure = (HIGHLIGHT_TARGET / Math.max(highlightLuminance, 0.15)) ** 0.16
-  const exposure = clamp(medianExposure * 0.75 + highlightExposure * 0.25, EXPOSURE_MIN, EXPOSURE_MAX)
+  const exposure =
+    clamp(medianExposure * 0.75 + highlightExposure * 0.25, EXPOSURE_MIN, EXPOSURE_MAX) * READABILITY_EXPOSURE
 
   return {
     exposure,
@@ -106,6 +111,7 @@ export function analyzeGlassWallpaperTone(image: CanvasImageSource, width: numbe
   }
 }
 
+/** 有界保留已解码壁纸的分析结果，避免旋转时重复分析相同图片。 */
 function rememberProfile(url: string, profile: Promise<GlassWallpaperToneLoadResult>) {
   if (profileCache.size >= PROFILE_CACHE_LIMIT) {
     const oldestKey = profileCache.keys().next().value
@@ -138,6 +144,7 @@ export function takeGlassWallpaperDecodedSource(url: string): GlassWallpaperDeco
   return source
 }
 
+/** 在超时范围内解码并分析可跨域读取的壁纸，失败使用同样压暗的默认曝光。 */
 function loadCorsReadableToneProfile(url: string): Promise<GlassWallpaperToneLoadResult> {
   return new Promise(resolve => {
     const image = new Image()
@@ -212,7 +219,7 @@ export function loadGlassWallpaperTone(url: string): Promise<GlassWallpaperToneL
 }
 
 /**
- * 为 DOM 背景层加载可读像素。跨域来源不支持 CORS 时回落中性 profile，
+ * 为 DOM 背景层加载可读像素。跨域来源不支持 CORS 时回落默认压暗 profile，
  * 避免亮度分析阻断壁纸本身的 CSS 显示能力。
  */
 export async function loadGlassWallpaperToneProfile(url: string): Promise<GlassWallpaperToneProfile> {
