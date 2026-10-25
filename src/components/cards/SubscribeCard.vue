@@ -766,7 +766,7 @@ function handleCardClick() {
                 <VIcon :icon="bestVersionBadge.icon" color="white" size="16" />
               </div>
               <div v-if="!props.sortable && display.smAndUp.value" class="me-n3 absolute top-1 right-4">
-                <IconBtn @click.stop>
+                <IconBtn :aria-label="t('common.more')" @click.stop>
                   <VIcon icon="mdi-dots-vertical" color="white" />
                   <VMenu activator="parent" close-on-content-click>
                     <VList>
@@ -891,7 +891,13 @@ function handleCardClick() {
                         </span>
                       </component>
 
-                      <IconBtn v-if="!props.sortable" class="subscribe-card-mobile-menu" size="small" @click.stop>
+                      <IconBtn
+                        v-if="!props.sortable"
+                        class="subscribe-card-mobile-menu"
+                        size="small"
+                        :aria-label="t('common.more')"
+                        @click.stop
+                      >
                         <VIcon icon="mdi-dots-horizontal" size="18" />
                         <VMenu activator="parent" close-on-content-click>
                           <VList>

@@ -203,6 +203,11 @@ html[data-native-chrome='active'][data-native-sheet] {
       transition: none !important;
     }
 
+    // 仅新宿主明确声明原生进度能力时隐藏其 HTML 副本，旧 App 与普通网页仍显示原进度。
+    &[data-native-sheet-progress] > .v-overlay__content {
+      visibility: hidden !important;
+    }
+
     > .v-overlay__content > .v-card,
     > .v-overlay__content > .medal-showcase,
     > .theme-customizer-panel,

@@ -72,9 +72,11 @@ export class NativeSheetAdapter {
     if (!id) this.ids.set(root, (id = `sheet-${++this.sequence}`))
     if (this.prepared && this.prepared !== id) this.clearPreparation()
     this.close = root.querySelector<HTMLButtonElement>('[data-native-dialog-close]') ?? undefined
-    const header = root.querySelector<HTMLElement>(
-      '[data-native-dialog-header], .v-card-item, .v-toolbar, .theme-customizer-header, .agent-assistant-header, :scope > .v-overlay__content > .v-card > .v-card-title',
-    )
+    const header = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        '[data-native-dialog-header], .v-card-item, .v-toolbar, .theme-customizer-header, .agent-assistant-header, :scope > .v-overlay__content > .v-card > .v-card-title',
+      ),
+    ).find(element => !element.closest('[data-native-dialog-content]'))
     const heading =
       root.querySelector('[data-native-dialog-title]') ??
       (header?.matches('.v-card-title') ? header : undefined) ??
@@ -117,6 +119,12 @@ export class NativeSheetAdapter {
       }
     }
     if (this.attached) this.mark(root)
+    const progress =
+      root.hasAttribute('data-native-progress') &&
+      this.document.defaultView?.MoviePilotNative?.progressSheetsVersion === 1
+        ? this.progress(root, title)
+        : undefined
+    root.toggleAttribute('data-native-sheet-progress', Boolean(progress))
     return {
       id,
       title: title || 'MoviePilot',
@@ -126,6 +134,7 @@ export class NativeSheetAdapter {
       canDismiss: Boolean(this.close && !this.close.disabled),
       ...(root.dataset.nativeSheetSize === 'medium' ? { prefersMediumDetent: true } : {}),
       backdropReady: this.prepared === id,
+      ...(progress ? { progress } : {}),
       actions,
     }
   }
@@ -166,6 +175,8 @@ export class NativeSheetAdapter {
       header.removeAttribute('data-native-sheet-header')
     for (const heading of this.document.querySelectorAll('[data-native-sheet-heading]'))
       heading.removeAttribute('data-native-sheet-heading')
+    for (const progress of this.document.querySelectorAll('[data-native-sheet-progress]'))
+      progress.removeAttribute('data-native-sheet-progress')
   }
 
   /** 标记只影响当前活动弹窗，菜单仍在同一文档中保留原有交互。 */
@@ -225,6 +236,16 @@ export class NativeSheetAdapter {
   private clearPreparation() {
     this.prepared = undefined
     this.document.documentElement.removeAttribute('data-native-sheet-preparing')
+  }
+
+  /** 进度只读取当前真实控件的展示值；非法或未知百分比保留系统不确定加载状态。 */
+  private progress(root: HTMLElement, title: string) {
+    const raw = root.querySelector('[data-native-progress-value]')?.getAttribute('aria-valuenow')
+    const value = raw !== null && raw !== undefined ? Number(raw) : undefined
+    return {
+      message: this.label(root.querySelector('[data-native-progress-text]')?.textContent) || title,
+      ...(value !== undefined && Number.isFinite(value) && value >= 0 && value <= 100 ? { value } : {}),
+    }
   }
 
   /** Vuetify 层级优先，未声明层级时保持文档中的后开弹窗在上。 */
