@@ -1,5 +1,3 @@
-@use './tools';
-
 // 只有双方事务提交后的文档才采用此布局；普通网页/PWA 不匹配选择器。
 html[data-native-chrome='active'] {
   scroll-padding-block: var(--native-top) var(--native-bottom);
@@ -177,6 +175,21 @@ html[data-native-chrome='active'][data-native-sheet] {
     padding: 0 !important;
     background: transparent !important;
     transition: none !important;
+
+    // 助手沿用网页侧栏的外框和模糊层；原生 Sheet 接管后只保留内容，避免底部二次采样形成色带。
+    &.agent-assistant-panel {
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+
+      // 输入框紧邻 Sheet 底部安全区，保留填充和细边框，移除会在 WebView 边界截断的大幅外投影。
+      .agent-assistant-input {
+        box-shadow: none !important;
+        transition-property: border-radius !important;
+      }
+    }
 
     // WebKit 搬入系统材质层时不保留零高度进度条的合成层；真正加载中的指示器继续显示。
     .v-field__loader > .v-progress-linear:not(.v-progress-linear--active),
