@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { createRouter, createMemoryHistory, isNavigationFailure } from 'vue-router'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import { createApiClients } from '@/api/client'
-import { NativeWidgetAdapter, endNativeWidgetSession, type NativeWidgetContent } from '../widgets'
+import { NativeWidgetAdapter, endNativeWidgetSession, navigateNativeWidget, type NativeWidgetContent } from '../widgets'
 
 const owner = 'a'.repeat(32)
 const otherOwner = 'b'.repeat(32)
@@ -225,7 +225,7 @@ describe('默认关闭的小组件前端边界', () => {
       routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
     })
     await router.push('/dashboard')
-    const navigate = vi.fn(async (path: string) => !isNavigationFailure(await router.push(path)))
+    const navigate = vi.fn((path: string) => navigateNativeWidget(router, path))
     const signal = new AbortController().signal
     const adapter = new NativeWidgetAdapter({ ...h.options, navigate })
     expect(await adapter.request({ operation: 'open', owner, content: 'overview' }, signal)).toEqual({
@@ -250,6 +250,12 @@ describe('默认关闭的小组件前端边界', () => {
       data: { completed: true },
     })
     expect(router.currentRoute.value.path).toBe('/subscribe/tv')
+    const confirmed = router.currentRoute.value
+    expect(await adapter.request({ operation: 'open', owner, content: 'tvSubscriptions' }, signal)).toEqual({
+      success: true,
+      data: { completed: true },
+    })
+    expect(router.currentRoute.value).toBe(confirmed)
   })
 
   it.each([

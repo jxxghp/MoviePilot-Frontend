@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { glassAppearancePreference } from '@/utils/themePalette'
 import { computed, nextTick, onScopeDispose, ref, toValue, watch, watchEffect } from 'vue'
-import { isNavigationFailure, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { useAuthStore, useUserStore, usePluginSidebarNavStore } from '@/stores'
@@ -24,7 +24,7 @@ import { readNativePresentation } from '@/native/presentation'
 import { NativeSheetAdapter } from '@/native/sheet'
 import { NativeConfirmationAdapter } from '@/native/confirmation'
 import { NativeChromeSession } from '@/native/session'
-import { NativeWidgetAdapter } from '@/native/widgets'
+import { NativeWidgetAdapter, navigateNativeWidget } from '@/native/widgets'
 import api from '@/api'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { NativeRouteHistory } from '@/native/history'
@@ -86,7 +86,7 @@ const widgetAdapter =
         isActive: () => nativeChromeActive.value && authenticated.value,
         readToken: () => auth.token,
         canNavigate: () => !overlayOpen.value,
-        navigate: async path => !isNavigationFailure(await router.push(path)),
+        navigate: path => navigateNativeWidget(router, path),
       })
     : undefined
 let ownerSequence = 0
