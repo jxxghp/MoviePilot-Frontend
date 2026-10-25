@@ -701,6 +701,9 @@ watch(
   appActivityState,
   (state, previousState) => {
     if (state === 'active') {
+      if (nativeTransportAvailable && isLogin.value && (previousState === 'passive' || previousState === 'suspended')) {
+        offlineStatus.requestConnectionCheck()
+      }
       clearBackgroundRotationGrace()
       backgroundRotationGraceActive.value = false
       return

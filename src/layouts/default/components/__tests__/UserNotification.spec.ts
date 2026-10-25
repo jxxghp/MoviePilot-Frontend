@@ -8,12 +8,19 @@ import { server } from '@tests/support/msw/server'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
+import { nextTick, ref, type Ref } from 'vue'
+import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
+import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 
-const background = vi.hoisted(() => ({ receive: undefined as ((event: MessageEvent) => void) | undefined }))
+const background = vi.hoisted(() => ({
+  receive: undefined as ((event: MessageEvent) => void) | undefined,
+  connected: undefined as Ref<boolean> | undefined,
+}))
 vi.mock('@/composables/useBackground', () => ({
   useBackground: () => ({
     useDelayedSSE: (_url: string, receive: (event: MessageEvent) => void) => {
       background.receive = receive
+      return { isConnected: (background.connected = ref(false)) }
     },
   }),
 }))
@@ -36,6 +43,26 @@ function deferNotifications() {
 }
 
 describe('UserNotification', () => {
+  it.each([
+    { native: true, foreground: true, checks: 1 },
+    { native: true, foreground: false, checks: 0 },
+    { native: false, foreground: true, checks: 0 },
+  ])('通知流中断通过认证探测确认服务状态：%o', async ({ native, foreground, checks }) => {
+    vi.stubGlobal('MoviePilotNative', native ? { transportVersion: 1, postMessage: vi.fn() } : undefined)
+    vi.spyOn(appActivityLifecycle, 'getState').mockReturnValue(foreground ? 'active' : 'suspended')
+    const status = useGlobalOfflineStatus()
+    status.markServerOnline()
+    const start = status.connectionCheckRequestId.value
+    await renderWithProviders(UserNotification)
+    await nextTick()
+    expect(status.connectionCheckRequestId.value).toBe(start)
+    background.connected!.value = true
+    await nextTick()
+    background.connected!.value = false
+    await nextTick()
+    expect(status.connectionCheckRequestId.value - start).toBe(checks)
+  })
+
   it('连续三页无漏项，回看旧通知仍可展开，重新打开撤销上次会话的回调', async () => {
     vi.stubGlobal('MoviePilotNative', { transportVersion: 1, panelFeedsVersion: 1, postMessage: vi.fn() })
     const items = Array.from({ length: 65 }, (_, index) => ({
