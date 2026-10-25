@@ -86,6 +86,40 @@ afterEach(() => {
 })
 
 describe('默认关闭的小组件前端边界', () => {
+  it.each([
+    [['/subscribe/movie', '/subscribe/tv', '/subscribe/music'], '/subscribe/movie'],
+    [['/subscribe/tv'], '/subscribe/tv'],
+    [['/subscribe/music'], '/subscribe/music'],
+    [[], undefined],
+    [['/resource'], undefined],
+  ])('合并订阅只进入当前菜单允许的类型 %j', async (routes, target) => {
+    const h = harness()
+    h.reply.mockResolvedValue(context(['subscriptions']))
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+    })
+    await router.push('/dashboard')
+    const adapter = new NativeWidgetAdapter({
+      ...h.options,
+      navigate: path => navigateNativeWidget(router, path, routes as string[]),
+    })
+    const request = { operation: 'open', owner, content: 'subscriptions' }
+    const signal = new AbortController().signal
+    expect(await adapter.request(request, signal)).toEqual(
+      target ? { success: true, data: { completed: true } } : { success: false, error: 'unavailable' },
+    )
+    expect(router.currentRoute.value.path).toBe(target ?? '/dashboard')
+    if (target) {
+      const confirmed = router.currentRoute.value
+      expect(await adapter.request(request, signal)).toEqual({ success: true, data: { completed: true } })
+      expect(router.currentRoute.value).toBe(confirmed)
+      router.beforeEach(to => to.path !== target)
+      await router.push('/dashboard')
+      expect(await adapter.request(request, signal)).toEqual({ success: false, error: 'unavailable' })
+    }
+  })
+
   it('普通网页、未接管容器、无主登录及跨源配置都不读取组件数据', async () => {
     const h = harness()
     const signal = new AbortController().signal
