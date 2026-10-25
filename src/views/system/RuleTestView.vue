@@ -181,7 +181,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="shortcut-workbench native-tool-workbench native-tool-workbench--rules">
+  <div class="shortcut-workbench">
     <section class="shortcut-panel shortcut-input-panel">
       <VForm ref="ruleTestFormRef" validate-on="submit lazy" @submit.prevent="ruleTest">
         <VRow class="shortcut-form">
@@ -297,18 +297,24 @@ onMounted(() => {
 <style scoped>
 .shortcut-workbench {
   display: grid;
+  gap: 1.5rem;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 1rem;
-  padding-block-start: 0.5rem;
+  padding-block: 0.25rem 1rem;
 }
 
 .shortcut-panel {
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  backdrop-filter: var(--app-grouped-list-backdrop-filter);
-  background: var(--app-grouped-list-background);
-  box-shadow: var(--app-surface-shadow);
-  padding: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 桌面用分栏分隔，窄屏的输入与结果按阅读顺序纵向排列。 */
+.shortcut-result-panel {
+  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  padding-inline-start: 1.5rem;
 }
 
 .shortcut-form {
@@ -329,37 +335,32 @@ onMounted(() => {
 
 .result-stack {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .result-hero {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: 0.85rem;
-  align-items: center;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-warning), 0.08);
-  padding: 0.75rem;
-}
-
-.result-hero--matched {
-  background: rgba(var(--v-theme-success), 0.08);
+  align-items: start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 1rem;
+  grid-template-columns: 3.75rem minmax(0, 1fr);
 }
 
 .priority-badge {
   display: grid;
-  min-block-size: 5rem;
-  place-items: center;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface-variant), 0.32);
+  place-content: start center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 0.5rem;
+  grid-auto-flow: row;
+  min-block-size: 0;
+  padding-block: 0.2rem 0;
+  padding-inline: 0;
   text-align: center;
-}
-
-.priority-badge--matched {
-  border-color: rgba(var(--v-theme-success), 0.42);
-  background: rgba(var(--v-theme-success), 0.1);
 }
 
 .priority-badge--empty {
@@ -378,8 +379,8 @@ onMounted(() => {
 
 .hero-heading {
   display: flex;
-  gap: 0.5rem;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .hero-title-text {
@@ -392,6 +393,16 @@ onMounted(() => {
   gap: 0.35rem;
 }
 
+/* stylelint-disable selector-pseudo-class-no-unknown -- Vue scoped 样式需要穿透 Vuetify 子组件。 */
+.hero-chips :deep(.v-chip) {
+  color: rgba(var(--v-theme-on-surface), 0.72) !important;
+}
+
+.pipeline-marker :deep(.text-primary) {
+  color: rgba(var(--v-theme-on-surface), 0.55) !important;
+}
+/* stylelint-enable selector-pseudo-class-no-unknown */
+
 .pipeline {
   display: flex;
   flex-direction: column;
@@ -399,8 +410,8 @@ onMounted(() => {
 
 .pipeline-step {
   display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr);
   gap: 0.75rem;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
 }
 
 .pipeline-marker {
@@ -412,14 +423,14 @@ onMounted(() => {
 
 .pipeline-connector {
   flex: 1;
-  inline-size: 2px;
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  inline-size: 1px;
   margin-block-start: 0.3rem;
-  background: rgba(var(--v-theme-primary), 0.25);
 }
 
 .pipeline-body {
-  padding-block-end: 0.9rem;
   min-inline-size: 0;
+  padding-block-end: 1.15rem;
 }
 
 .pipeline-step:last-child .pipeline-body {
@@ -438,17 +449,24 @@ onMounted(() => {
 
 .empty-state {
   display: grid;
-  min-block-size: 14rem;
-  place-items: center;
   align-content: center;
-  gap: 0.75rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  gap: 0.5rem;
+  min-block-size: 8rem;
+  place-items: center;
   text-align: center;
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   .shortcut-workbench {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shortcut-result-panel {
+    border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    border-inline-start: 0;
+    padding-block-start: 1.5rem;
+    padding-inline-start: 0;
   }
 
   .hero-heading {
@@ -459,28 +477,6 @@ onMounted(() => {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-  }
-}
-
-@media (max-width: 420px) {
-  .shortcut-panel {
-    padding: 0.8rem;
-  }
-
-  .result-hero {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .priority-badge {
-    grid-auto-flow: column;
-    justify-content: start;
-    min-block-size: 0;
-    padding: 0.5rem 0.75rem;
-    gap: 0.5rem;
-  }
-
-  .priority-value {
-    font-size: 1.35rem;
   }
 }
 </style>

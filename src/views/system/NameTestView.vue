@@ -352,7 +352,7 @@ async function saveCustomWords() {
 </script>
 
 <template>
-  <div class="shortcut-workbench native-tool-workbench native-tool-workbench--recognition">
+  <div class="shortcut-workbench">
     <section class="shortcut-panel shortcut-input-panel">
       <VForm validate-on="submit lazy" @submit.prevent="nameTest">
         <VRow class="shortcut-form">
@@ -567,18 +567,24 @@ async function saveCustomWords() {
 <style scoped>
 .shortcut-workbench {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  padding-block-start: 0.5rem;
+  padding-block: 0.25rem 1rem;
 }
 
 .shortcut-panel {
-  padding: 1rem;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  backdrop-filter: var(--app-grouped-list-backdrop-filter);
-  background: var(--app-grouped-list-background);
-  box-shadow: var(--app-surface-shadow);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 桌面用分栏分隔，窄屏的输入与结果按阅读顺序纵向排列。 */
+.shortcut-result-panel {
+  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  padding-inline-start: 1.5rem;
 }
 
 .shortcut-form {
@@ -605,30 +611,26 @@ async function saveCustomWords() {
 
 .result-stack {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .result-hero {
   display: grid;
-  align-items: center;
-  padding: 0.75rem;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-primary), 0.08);
-  gap: 0.85rem;
-  grid-template-columns: 5rem minmax(0, 1fr);
-}
-
-.result-hero--failed {
-  background: rgba(var(--v-theme-error), 0.08);
+  align-items: start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 1rem;
+  grid-template-columns: 4.25rem minmax(0, 1fr);
 }
 
 .hero-poster {
   overflow: hidden;
-  border: var(--app-surface-border);
-  border-radius: var(--app-control-radius);
+  border: 0;
+  border-radius: 0.75rem;
   aspect-ratio: 2 / 3;
-  background: rgba(var(--v-theme-surface-variant), 0.35);
+  background: rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .hero-poster--empty {
@@ -668,6 +670,16 @@ async function saveCustomWords() {
   line-height: 1.5;
 }
 
+/* stylelint-disable selector-pseudo-class-no-unknown -- Vue scoped 样式需要穿透 Vuetify 子组件。 */
+.hero-chips :deep(.v-chip) {
+  color: rgba(var(--v-theme-on-surface), 0.72) !important;
+}
+
+.pipeline-marker :deep(.text-primary) {
+  color: rgba(var(--v-theme-on-surface), 0.55) !important;
+}
+/* stylelint-enable selector-pseudo-class-no-unknown */
+
 .pipeline {
   display: flex;
   flex-direction: column;
@@ -688,14 +700,14 @@ async function saveCustomWords() {
 
 .pipeline-connector {
   flex: 1;
-  background: rgba(var(--v-theme-primary), 0.25);
-  inline-size: 2px;
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  inline-size: 1px;
   margin-block-start: 0.3rem;
 }
 
 .pipeline-body {
   min-inline-size: 0;
-  padding-block-end: 0.9rem;
+  padding-block-end: 1.15rem;
 }
 
 .pipeline-step:last-child .pipeline-body {
@@ -751,8 +763,8 @@ async function saveCustomWords() {
   display: grid;
   align-content: center;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  gap: 0.75rem;
-  min-block-size: 14rem;
+  gap: 0.5rem;
+  min-block-size: 8rem;
   place-items: center;
   text-align: center;
 }
@@ -760,6 +772,13 @@ async function saveCustomWords() {
 @media (width <= 760px) {
   .shortcut-workbench {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shortcut-result-panel {
+    border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    border-inline-start: 0;
+    padding-block-start: 1.5rem;
+    padding-inline-start: 0;
   }
 
   .hero-heading {
@@ -770,16 +789,6 @@ async function saveCustomWords() {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-  }
-}
-
-@media (width <= 420px) {
-  .shortcut-panel {
-    padding: 0.8rem;
-  }
-
-  .result-hero {
-    grid-template-columns: 4.25rem minmax(0, 1fr);
   }
 }
 </style>
