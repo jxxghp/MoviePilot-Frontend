@@ -6,7 +6,6 @@ import { useAuthStore, useUserStore } from '@/stores'
 import i18n from '@/plugins/i18n'
 import { getMediaSourceCatalog } from '@/utils/mediaId'
 import { getModuleCatalog } from '@/composables/useModuleCatalog'
-import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 import { isApiRequestCancellation, type DataApiClient } from '@/api/client'
 import { NativeReadonlyCache } from '@/native/cache'
 import { useNativeReadonlyCache } from '../useNativeReadonlyCache'
@@ -15,7 +14,7 @@ const BASE = 'http://localhost/api/v1/'
 const PATH = 'recommend/tmdb_trending'
 let scope: EffectScope | undefined
 
-/** 使用真实 Pinia、语言和前后台管理器，缓存引擎不替换为假实现。 */
+/** 使用真实 Pinia、语言和缓存引擎；前台接管由 NativeSession 的回调登记。 */
 function harness() {
   const auth = useAuthStore()
   const user = useUserStore()
@@ -38,13 +37,11 @@ beforeEach(() => {
   vi.spyOn(document, 'hasFocus').mockReturnValue(true)
   vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
   i18n.global.locale.value = 'zh-CN'
-  appActivityLifecycle.setHostLifecycle('active')
 })
 
 afterEach(() => {
   scope?.stop()
   scope = undefined
-  appActivityLifecycle.setHostLifecycle(undefined)
   getMediaSourceCatalog().value = []
   getModuleCatalog().value = []
   i18n.global.locale.value = 'zh-CN'
@@ -106,14 +103,25 @@ describe('原生缓存的认证与活动范围', () => {
     },
   )
 
-  it.each(['inactive', 'background'] as const)('%s 暂停缓存，恢复前台重新请求', async state => {
+  it('原生控件获得焦点不暂停已完成前台协商的缓存', async () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false)
     const h = harness()
     h.negotiated.value = true
     await h.cache.get(h.client, PATH)
-    appActivityLifecycle.setHostLifecycle(state)
+    window.dispatchEvent(new Event('blur'))
+    await h.cache.get(h.client, PATH)
+    expect(h.read).toHaveBeenCalledOnce()
+    expect(h.read.mock.calls[0][1]?.headers).toMatchObject({ 'X-MoviePilot-Native': '1' })
+  })
+
+  it('原生会话撤销前台协商即暂停缓存，恢复后重新请求', async () => {
+    const h = harness()
+    h.negotiated.value = true
+    await h.cache.get(h.client, PATH)
+    h.negotiated.value = false
     await h.cache.get(h.client, PATH)
     expect(h.read.mock.calls[1][1]).toBeUndefined()
-    appActivityLifecycle.setHostLifecycle('active')
+    h.negotiated.value = true
     await h.cache.get(h.client, PATH)
     await h.cache.get(h.client, PATH)
     expect(h.read).toHaveBeenCalledTimes(3)
