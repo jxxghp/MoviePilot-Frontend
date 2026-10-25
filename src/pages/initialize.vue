@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useTheme } from 'vuetify'
 import { useToast } from 'vue-toastification'
 import api, { getApiBusinessErrorMessage } from '@/api'
@@ -12,6 +13,7 @@ import GithubTokenSetupCard from '@/components/github/GithubTokenSetupCard.vue'
 import { useGithubTokenAuth } from '@/composables/useGithubTokenAuth'
 import router from '@/router'
 
+/** 首次初始化继续使用原后端认证载荷，菜单适配不持有其中的凭据。 */
 interface InitializationPayload {
   username: string
   password: string
@@ -163,6 +165,20 @@ onMounted(() => {
   form.value.api_key = generateApiKey()
   void checkInitializationStatus()
 })
+/** 初始化语言菜单保留原顺序、旗帜及选中状态，调用原异步语言切换。 */
+const nativeLanguageMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'initialization-language',
+  title: SUPPORTED_LOCALES[currentLocale.value].title,
+  items: action =>
+    locales.map(locale =>
+      action(locale.name, {
+        title: locale.title,
+        icon: locale.flag ? `emoji:${locale.flag}` : 'mdi-translate',
+        selected: locale.name === currentLocale.value,
+        invoke: () => switchLanguage(locale.name as SupportedLocale),
+      }),
+    ),
+}))
 </script>
 
 <template>
@@ -170,7 +186,7 @@ onMounted(() => {
     <div class="initialize-page__ambient initialize-page__ambient--one" aria-hidden="true" />
     <div class="initialize-page__ambient initialize-page__ambient--two" aria-hidden="true" />
 
-    <VMenu v-model="langMenu" :close-on-content-click="false">
+    <VMenu v-model="langMenu" :close-on-content-click="false" :native-menu="nativeLanguageMenu">
       <template #activator="{ props }">
         <VBtn v-bind="props" class="initialize-language" variant="text" size="small">
           <span v-if="SUPPORTED_LOCALES[currentLocale].flag">{{ SUPPORTED_LOCALES[currentLocale].flag }}</span>

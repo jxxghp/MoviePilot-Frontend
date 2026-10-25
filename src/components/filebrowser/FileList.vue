@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import dayjs from 'dayjs'
 import type { AxiosRequestConfig } from 'axios'
@@ -987,6 +988,25 @@ onUnmounted(() => {
   closeProgressDialog()
   renameDialogController?.close()
 })
+/** 窄屏排序菜单保留原列顺序、选中列方向和原排序事件。 */
+const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'file-sort',
+  title: t('file.sort'),
+  items: action =>
+    sortColumns.value.map(column =>
+      action(column.key, {
+        title: column.title,
+        selected: inProps.sortKey === column.key,
+        icon:
+          inProps.sortKey === column.key
+            ? inProps.sortOrder === 'asc'
+              ? 'mdi-arrow-up'
+              : 'mdi-arrow-down'
+            : undefined,
+        invoke: () => changeSort(column.key),
+      }),
+    ),
+}))
 </script>
 
 <template>
@@ -1062,7 +1082,7 @@ onUnmounted(() => {
         <div class="file-list__columns" role="row">
           <template v-if="display.smAndDown.value">
             <span role="columnheader" :aria-sort="getAriaSort(inProps.sortKey)">
-              <VMenu location="bottom start">
+              <VMenu location="bottom start" :native-menu="nativeSortMenu">
                 <template #activator="{ props: menuProps }">
                   <button v-bind="menuProps" type="button" class="file-list__sort file-list__sort--active">
                     {{ activeSortTitle }}

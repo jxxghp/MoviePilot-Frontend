@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@vueuse/core'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -69,7 +70,7 @@ const getSelectedFilters = computed(() => {
   return filters
 })
 
-// 给定过滤类型返回不同图标
+/** 给定过滤类型返回原筛选图标。 */
 function getFilterIcon(key: string) {
   const icons: Record<string, string> = {
     site: 'mdi-server-network',
@@ -295,6 +296,31 @@ onUnmounted(() => {
   closeAllFilterDialog()
   closeFilterDialog()
 })
+/** 两种响应式布局共享原排序声明，方向与字段之间保留原分隔条。 */
+const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'torrent-sort',
+  title: t('file.sort'),
+  items: action => [
+    ...(['asc', 'desc'] as const).map(order =>
+      action(`order:${order}`, {
+        title: t(order === 'asc' ? 'common.ascending' : 'common.descending'),
+        icon: order === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending',
+        color: 'primary',
+        selected: props.sortType === order,
+        invoke: () => emit('update:sortType', order),
+      }),
+    ),
+    { id: 'sort-fields', kind: 'separator' },
+    ...Object.entries(props.sortTitles).map(([key, title]) =>
+      action(`field:${key}`, {
+        title,
+        color: 'primary',
+        selected: props.sortField === key,
+        invoke: () => emit('update:sortField', key),
+      }),
+    ),
+  ],
+}))
 </script>
 
 <template>
@@ -321,7 +347,7 @@ onUnmounted(() => {
             <span class="text-subtitle-2">{{ sortTitles[sortField] }}</span>
             <VIcon icon="mdi-chevron-down" size="16" class="ms-1" />
 
-            <VMenu activator="parent" transition="slide-y-transition">
+            <VMenu activator="parent" transition="slide-y-transition" :native-menu="nativeSortMenu">
               <VList density="compact" min-width="120" class="sort-menu-list">
                 <!-- 升序/降序 选项 -->
                 <VListItem
@@ -509,7 +535,7 @@ onUnmounted(() => {
             <span class="text-subtitle-2">{{ sortTitles[sortField] }}</span>
             <VIcon icon="mdi-chevron-down" size="16" class="ms-1" />
 
-            <VMenu activator="parent" transition="slide-y-transition">
+            <VMenu activator="parent" transition="slide-y-transition" :native-menu="nativeSortMenu">
               <VList density="compact" min-width="120" class="sort-menu-list">
                 <!-- 升序/降序 选项 -->
                 <VListItem

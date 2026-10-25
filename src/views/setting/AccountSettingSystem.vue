@@ -1,5 +1,6 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { manageLlmProvider } from '@/api/manage'
@@ -1248,7 +1249,7 @@ function createRandomString() {
   SystemSettings.value.Basic.API_TOKEN = Array.from(array, byte => charset[byte % charset.length]).join('')
 }
 
-// 添加下载器
+/** 根据原下载器类型创建待保存项，沿用页面的名称去重和默认设置。 */
 function addDownloader(downloader: string) {
   let name = `下载器${downloaders.value.length + 1}`
   while (downloaders.value.some(item => item.name === name)) {
@@ -1275,7 +1276,7 @@ function onDownloaderChange(downloader: DownloaderConf, name: string) {
   if (index !== -1) downloaders.value[index] = downloader
 }
 
-// 添加媒体服务器
+/** 根据原媒体服务器类型创建待保存项，沿用页面的名称去重和默认设置。 */
 function addMediaServer(mediaserver: string) {
   let name = `服务器${mediaServers.value.length + 1}`
   while (mediaServers.value.some(item => item.name === name)) {
@@ -1479,6 +1480,29 @@ useSilentSettingRefresh(
 watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
   if (snapshotKey !== previousSnapshotKey) invalidateLlmTestState()
 })
+/** 下载器菜单只使用原可用类型，末尾保留自定义入口。 */
+const nativeAddDownloaderMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'add-downloader',
+  title: t('setting.system.downloaders'),
+  items: action => [
+    ...availableDownloaderOptions.value.map(item =>
+      action(item.value, { title: item.title, invoke: () => addDownloader(item.value) }),
+    ),
+    action('custom', { title: t('setting.system.custom'), invoke: () => addDownloader('custom') }),
+  ],
+}))
+
+/** 媒体服务器菜单保留原列表、顺序与配置回调。 */
+const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'add-media-server',
+  title: t('setting.system.mediaServers'),
+  items: action => [
+    ...availableMediaServerOptions.value.map(item =>
+      action(item.value, { title: item.title, invoke: () => addMediaServer(item.value) }),
+    ),
+    action('custom', { title: t('setting.system.custom'), invoke: () => addMediaServer('custom') }),
+  ],
+}))
 </script>
 
 <template>
@@ -2217,7 +2241,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               </VBtn>
               <VBtn color="success" variant="tonal">
                 <VIcon icon="mdi-plus" />
-                <VMenu activator="parent" close-on-content-click>
+                <VMenu activator="parent" close-on-content-click :native-menu="nativeAddDownloaderMenu">
                   <VList>
                     <VListItem
                       v-for="item in availableDownloaderOptions"
@@ -2278,7 +2302,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               </VBtn>
               <VBtn color="success" variant="tonal">
                 <VIcon icon="mdi-plus" />
-                <VMenu activator="parent" close-on-content-click>
+                <VMenu activator="parent" close-on-content-click :native-menu="nativeAddMediaServerMenu">
                   <VList>
                     <VListItem
                       v-for="item in availableMediaServerOptions"

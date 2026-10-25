@@ -86,6 +86,10 @@ function projectMenu(registration: Registration) {
       const subtitle = menuText(entry.subtitle)
       const icon = menuText(entry.icon, false, 256)
       if (entry.color !== undefined && !colors.has(entry.color)) throw new Error('invalid_menu_color')
+      const badge = entry.badge
+        ? { title: menuText(entry.badge.title, true, 256)!, color: entry.badge.color }
+        : undefined
+      if (badge?.color !== undefined && !colors.has(badge.color)) throw new Error('invalid_menu_badge_color')
       const enabled = parentEnabled && entry.enabled !== false && entry.loading !== true
       const row: NativeOperationItem = {
         id: entry.id,
@@ -94,6 +98,7 @@ function projectMenu(registration: Registration) {
         ...(subtitle !== undefined ? { subtitle } : {}),
         ...(icon !== undefined ? { icon } : {}),
         ...(entry.color !== undefined ? { color: entry.color } : {}),
+        ...(badge ? { badge } : {}),
         enabled,
         selected: entry.selected === true,
         loading: entry.loading === true,

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
@@ -270,7 +271,7 @@ watch(editorTheme, theme => {
   editorDialogController?.updateProps({ editorTheme: theme })
 })
 
-// 添加通知渠道
+/** 根据原渠道类型创建本地待保存项，名称去重继续由原页面负责。 */
 function addNotification(notification: string) {
   const prefix = t('setting.notification.channel')
   let index = notifications.value.length + 1
@@ -470,6 +471,15 @@ onMounted(() => {
 useSilentSettingRefresh(loadPageData, {
   active: computed(() => props.active && !editorDialogOpen.value),
 })
+/** 通知渠道严格复用原可用列表，不额外开放已被业务过滤的渠道。 */
+const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'add-notification',
+  title: t('setting.notification.channel'),
+  items: action =>
+    availableNotificationOptions.value.map(item =>
+      action(item.value, { title: item.title, invoke: () => addNotification(item.value) }),
+    ),
+}))
 </script>
 
 <template>
@@ -515,7 +525,7 @@ useSilentSettingRefresh(loadPageData, {
               </VBtn>
               <VBtn color="success" variant="tonal">
                 <VIcon icon="mdi-plus" />
-                <VMenu :activator="'parent'" :close-on-content-click="true">
+                <VMenu :activator="'parent'" :close-on-content-click="true" :native-menu="nativeAddNotificationMenu">
                   <VList>
                     <VListItem
                       v-for="item in availableNotificationOptions"

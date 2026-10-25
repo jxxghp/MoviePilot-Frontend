@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import type { AxiosRequestConfig } from 'axios'
 import type { EndPoints, FileItem } from '@/api/types'
 import type { DataApiClient } from '@/api'
@@ -46,6 +47,7 @@ const inProps = defineProps({
 const emit = defineEmits(['storagechanged', 'pathchanged', 'loading', 'foldercreated', 'tree'])
 
 const display = useDisplay()
+const { t } = useI18n()
 // 先测量完整路径，桌面仅在可用宽度不足时折叠祖先目录。
 const pathRef = ref<HTMLElement | null>(null)
 const pathMeasureRef = ref<HTMLElement | null>(null)
@@ -161,11 +163,52 @@ onUnmounted(() => {
 defineExpose({
   openNewFolderDialog,
 })
+
+/** 存储菜单复用原切换动作和当前项禁用条件，文件路径只作为本地范围键。 */
+const nativeStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: JSON.stringify([inProps.item.storage, inProps.item.path]),
+  title: storageObject.value?.title,
+  items: action => [
+    ...(inProps.storages ?? []).map(storage =>
+      action(`storage:${storage.value}`, {
+        title: storage.title,
+        icon: storage.icon,
+        enabled: storage.value !== storageObject.value?.value,
+        invoke: () => changeStorage(storage.value),
+      }),
+    ),
+    action('root', {
+      title: t('file.rootDirectory'),
+      icon: 'mdi-home-outline',
+      invoke: () => changePath(inProps.itemstack[0]),
+    }),
+  ],
+}))
+
+/** 折叠面包屑逐项绑定原目录，项目增删或重排不使用数组位置识别动作。 */
+const nativePathMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: JSON.stringify([inProps.item.storage, inProps.item.path]),
+  title: t('file.path'),
+  items: action =>
+    inProps.itemstack
+      .slice(0, -visiblePathCount.value)
+      .map(entry => action(entry.path ?? entry.name ?? '', { title: entry.name, invoke: () => changePath(entry) })),
+}))
+
+/** 目录树入口仅声明原事件，不复制目录读取或文件管理逻辑。 */
+const nativeTreeMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'directory-tree',
+  title: t('file.directoryTree'),
+  available: () => inProps.showTreeMenu,
+  items: action => [
+    action('tree', { title: t('file.directoryTree'), icon: 'mdi-file-tree-outline', invoke: () => emit('tree') }),
+  ],
+}))
 </script>
 
 <template>
   <nav class="file-browser-toolbar" :aria-label="$t('file.path')">
-    <VMenu v-if="(storages?.length ?? 0) > 1">
+    <VMenu v-if="(storages?.length ?? 0) > 1" :native-menu="nativeStorageMenu">
       <template #activator="{ props }"
         ><VBtn
           v-bind="props"
@@ -209,7 +252,7 @@ defineExpose({
           <VBtn variant="text" color="default" class="text-none">{{ entry.name }}</VBtn>
         </template>
       </div>
-      <VMenu v-if="visiblePathCount">
+      <VMenu v-if="visiblePathCount" :native-menu="nativePathMenu">
         <template #activator="{ props }"
           ><VBtn v-bind="props" variant="text" color="default" :aria-label="$t('file.path')" icon="mdi-dots-horizontal"
         /></template>
@@ -236,7 +279,7 @@ defineExpose({
     <IconBtn v-if="pathSegments.length > 0" :aria-label="$t('file.moveUp')" @click="goUp"
       ><VIcon icon="mdi-arrow-up-bold-outline"
     /></IconBtn>
-    <VMenu v-if="showTreeMenu">
+    <VMenu v-if="showTreeMenu" :native-menu="nativeTreeMenu">
       <template #activator="{ props }"
         ><IconBtn v-bind="props" :aria-label="$t('file.directoryTree')"><VIcon icon="mdi-dots-horizontal" /></IconBtn
       ></template>
