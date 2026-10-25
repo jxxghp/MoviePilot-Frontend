@@ -163,6 +163,14 @@ export class NativeMenuRegistry {
     }
   }
 
+  /** 只有当前菜单能完整投影时，适配层才可隐藏原入口；预检不替换或消费正在展示的票据。 */
+  canPresent(ownerId: string, menuId: string): boolean {
+    const key = JSON.stringify([ownerId, menuId])
+    const registration = this.sources.get(key)
+    if (!this.context || !registration) return false
+    return !!this.read(registration) && this.sources.get(key) === registration
+  }
+
   /** 只为完整可投影的当前来源创建单次声明，不截掉菜单项，也不信任调用方缓存。 */
   open(ownerId: string, menuId: string): NativeOperationMenu | undefined {
     this.presentation = undefined

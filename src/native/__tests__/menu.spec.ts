@@ -115,6 +115,22 @@ describe('原生操作菜单的默认关闭声明', () => {
     expect(invoke).not.toHaveBeenCalled()
   })
 
+  it('入口预检不打断当前展示；无权限或不完整时必须保留原入口', async () => {
+    const { registry, source, invoke } = harness()
+    const menu = registry.open(source.ownerId, source.menuId)!
+    expect(registry.canPresent(source.ownerId, source.menuId)).toBe(true)
+    expect(registry.canPresent('unknown', source.menuId)).toBe(false)
+    expect(await registry.select(menu.presentationId, 'edit', vi.fn())).toBe(true)
+    expect(invoke).toHaveBeenCalledOnce()
+    source.available = () => false
+    expect(registry.canPresent(source.ownerId, source.menuId)).toBe(false)
+    source.available = () => true
+    source.items = () => [{ id: 'broken', kind: 'action', title: '不可用' }]
+    expect(registry.canPresent(source.ownerId, source.menuId)).toBe(false)
+    registry.setContext(undefined)
+    expect(registry.canPresent(source.ownerId, source.menuId)).toBe(false)
+  })
+
   it('局域网 HTTP 没有随机 UUID API 时仍可展示，跨注册表的展示票据不重复', () => {
     vi.stubGlobal('crypto', undefined)
     try {
