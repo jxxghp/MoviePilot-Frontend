@@ -2007,10 +2007,21 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   }
 }
 
-/* 浅色玻璃的半透明填充不能沿用白色按钮文字，否则与浅灰/淡主色背景对比不足。*/
+/* 浅色玻璃填充上的文字使用主题前景色，品牌染色与深色主题保持独立。*/
 html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass'] {
   .v-btn:is(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat, .v-chip--variant-tonal),
   .layout-vertical-nav .nav-link > .router-link-exact-active {
     color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
+  .plugin-card__banner .text-white,
+  .plugin-card__status--rating {
+    color: rgb(var(--v-theme-on-surface)) !important;
+    text-shadow: none;
+  }
+
+  .plugin-card__banner .text-gray-200 {
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)) !important;
   }
 }
