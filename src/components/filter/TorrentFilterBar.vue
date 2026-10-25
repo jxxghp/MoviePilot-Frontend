@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-import type { NativeStandaloneMenuBinding } from '@/native/standalone'
+import type { NativeStandaloneAction, NativeStandaloneMenuBinding } from '@/native/standalone'
+import type { NativeMenuEntry } from '@/native/menu'
+import { vNativeStandaloneMenu } from '@/native/standaloneDirective'
 import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@vueuse/core'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -178,22 +180,22 @@ function toggleFilterMenu(key: string) {
   }
 }
 
-// 处理筛选值变化
+/** 筛选值仍交给原页面受控状态，不在菜单适配层复制过滤逻辑。 */
 function handleFilterChange(key: string, values: string[]) {
   emit('update:filterForm', key, values)
 }
 
-// 全选某个过滤项
+/** 全选沿用原页面事件，原生菜单与网页表单共享同一结果。 */
 function selectAll(key: string) {
   emit('selectAll', key)
 }
 
-// 清除某个过滤项
+/** 清除当前分类，不改变其它分类的已选值。 */
 function clearFilter(key: string) {
   emit('clearFilter', key)
 }
 
-// 清除所有过滤条件
+/** 综合筛选的清空命令沿用原页面事件。 */
 function clearAllFilters() {
   emit('clearAllFilters')
 }
@@ -296,6 +298,98 @@ onUnmounted(() => {
   closeAllFilterDialog()
   closeFilterDialog()
 })
+
+/** 原单项表单即时更新，原生列表保留多选和各布局的全选/清空顺序。 */
+function nativeFilterItems(key: string, action: NativeStandaloneAction, clearFirst: boolean): NativeMenuEntry[] {
+  const controls = [
+    action(JSON.stringify(['all', key]), {
+      title: t('torrent.selectAll'),
+      icon: 'mdi-checkbox-multiple-marked-outline',
+      color: 'primary',
+      keepOpen: true,
+      invoke: () => selectAll(key),
+    }),
+  ]
+  if (props.filterForm[key]?.length) {
+    const clear = action(JSON.stringify(['clear', key]), {
+      title: t('torrent.clear'),
+      icon: 'mdi-filter-remove-outline',
+      color: 'error',
+      keepOpen: true,
+      invoke: () => clearFilter(key),
+    })
+    if (clearFirst) controls.unshift(clear)
+    else controls.push(clear)
+  }
+  return [
+    ...controls,
+    { id: `filter-options-${key}`, kind: 'separator' },
+    ...(props.filterOptions[key] ?? []).map(option =>
+      action(JSON.stringify(['option', key, option]), {
+        title: option,
+        selected: props.filterForm[key]?.includes(option) ?? false,
+        keepOpen: true,
+        invoke: () => {
+          const current = props.filterForm[key] ?? []
+          handleFilterChange(
+            key,
+            current.includes(option) ? current.filter(value => value !== option) : [...current, option],
+          )
+        },
+      }),
+    ),
+  ]
+}
+
+/** 桌面菜单和移动按钮只登记各自的真实入口，旧宿主仍打开原 VMenu 或共享弹窗。 */
+function nativeFilterMenu(key: string, mobile: boolean): NativeStandaloneMenuBinding {
+  return {
+    key: `torrent-filter-${key}`,
+    title: props.filterTitles[key],
+    available: () => (props.filterOptions[key]?.length ?? 0) > 0,
+    items: action => [
+      ...nativeFilterItems(key, action, mobile),
+      ...(mobile
+        ? [
+            action('confirm', {
+              title: t('torrent.confirm'),
+              icon: 'mdi-check',
+              color: 'primary',
+              invoke: closeFilterDialog,
+            }),
+          ]
+        : []),
+    ],
+  }
+}
+
+/** 综合筛选沿用原分类顺序和跨分类选择，分组在同一有界原生列表中滚动。 */
+const nativeAllFiltersMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'torrent-all-filters',
+  title: t('torrent.allFilters'),
+  items: action => [
+    ...(getFilterCount.value > 0
+      ? [
+          action('clear-all', {
+            title: t('torrent.clearAll'),
+            icon: 'mdi-filter-remove-outline',
+            color: 'error',
+            keepOpen: true,
+            invoke: clearAllFilters,
+          }),
+        ]
+      : []),
+    ...Object.entries(props.filterTitles)
+      .filter(([key]) => (props.filterOptions[key]?.length ?? 0) > 0)
+      .map(([key, title]): NativeMenuEntry => ({
+        id: `filter-group-${key}`,
+        kind: 'group',
+        title,
+        items: nativeFilterItems(key, action, false),
+      })),
+  ],
+}))
+
 /** 两种响应式布局共享原排序声明，方向与字段之间保留原分隔条。 */
 const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   key: 'torrent-sort',
@@ -414,7 +508,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
             <VChip v-if="filterForm[key].length > 0" size="small" color="primary" class="ms-1" variant="elevated">
               {{ filterForm[key].length }}
             </VChip>
-            <VMenu activator="parent" :close-on-content-click="false" scrim>
+            <VMenu activator="parent" :close-on-content-click="false" scrim :native-menu="nativeFilterMenu(key, false)">
               <VCard max-width="20rem">
                 <VCardText class="filter-menu-content">
                   <div class="flex justify-between">
@@ -457,6 +551,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
           <!-- 全部筛选按钮 -->
           <VBtn
+            v-native-standalone-menu="nativeAllFiltersMenu"
             variant="tonal"
             size="small"
             color="primary"
@@ -586,6 +681,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
         <div class="filter-buttons-grid w-100 mt-2">
           <VBtn
             v-for="(title, key) in filterTitles"
+            v-native-standalone-menu="nativeFilterMenu(key, true)"
             v-show="filterOptions[key].length > 0"
             :key="key"
             variant="tonal"
@@ -608,7 +704,13 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
           </VBtn>
 
           <!-- 全部筛选按钮 -->
-          <VBtn variant="tonal" color="primary" class="filter-btn-mobile" @click="toggleAllFilterMenu">
+          <VBtn
+            v-native-standalone-menu="nativeAllFiltersMenu"
+            variant="tonal"
+            color="primary"
+            class="filter-btn-mobile"
+            @click="toggleAllFilterMenu"
+          >
             <VIcon icon="mdi-filter-variant" class="filter-icon me-1"></VIcon>
             <span class="filter-label">
               {{ t('torrent.allFilters') }}

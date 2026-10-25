@@ -163,7 +163,8 @@ export class NativeStandaloneMenuRegistry {
     const element = source.activator?.()
     if (!element?.isConnected || this.sources.get(token) !== source || source.binding.available?.() === false)
       return false
-    if (element.closest('[inert], [hidden], [disabled], [aria-disabled="true"]')) return false
+    // VWindowItem 会把 disabled=false 透传到 div；只按表单语义及显式无障碍状态判定禁用。
+    if (element.matches(':disabled') || element.closest('[inert], [hidden], [aria-disabled="true"]')) return false
     for (let node: HTMLElement | null = element; node; node = node.parentElement) {
       const style = getComputedStyle(node)
       if (
