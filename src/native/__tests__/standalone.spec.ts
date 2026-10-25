@@ -137,6 +137,23 @@ describe('业务语义标识与撤销', () => {
     expect(h.registry.targetFor(other)?.ownerId).not.toBe(h.registry.targetFor(h.token)?.ownerId)
   })
 
+  it('标签容器上的 disabled=false 不是禁用，原生表单禁用状态仍须阻止菜单', () => {
+    const h = menuHarness()
+    const tab = document.createElement('div')
+    tab.setAttribute('disabled', 'false')
+    document.body.append(tab)
+    tab.append(h.element)
+    h.activate()
+    expect(h.registry.targetFor(h.token)).toBeDefined()
+    const fieldset = document.createElement('fieldset')
+    fieldset.disabled = true
+    tab.append(fieldset)
+    fieldset.append(h.element)
+    expect(h.registry.targetFor(h.token)).toBeUndefined()
+    fieldset.disabled = false
+    expect(h.registry.targetFor(h.token)).toBeDefined()
+  })
+
   it.each(['hidden', 'disabled', 'inert', 'display', 'opacity', 'detached', 'offscreen'])(
     '真实激活器 %s 后旧选择不能执行',
     async state => {
