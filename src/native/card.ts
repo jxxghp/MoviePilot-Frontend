@@ -118,6 +118,26 @@ export class NativeCardMenuRegistry {
     return targets
   }
 
+  /** 触摸只沿实际 DOM 祖先寻找显式来源，不通过卡片下标或文案推断业务对象。 */
+  targetFor(element: Element | null): NativeCardMenuTarget | undefined {
+    for (let node = element; node; node = node.parentElement) {
+      const card = this.cards.get(node as HTMLElement)
+      if (!card || !this.menus.canPresent(card.ownerId, 'operations')) continue
+      const { x, y, width, height } = node.getBoundingClientRect()
+      return { ownerId: card.ownerId, menuId: 'operations', rect: { x, y, width, height } }
+    }
+  }
+
+  /** 仅返回仍属当前注册代次的根，供接管层维护局部样式及无障碍入口。 */
+  elementFor(ownerId: string): HTMLElement | undefined {
+    for (const [element, card] of this.cards) if (card.ownerId === ownerId) return element
+  }
+
+  /** 无障碍入口关联原卡片名称，避免同页多个“操作菜单”无法区分来源。 */
+  titleFor(ownerId: string): string | undefined {
+    for (const card of this.cards.values()) if (card.ownerId === ownerId) return card.binding?.title
+  }
+
   /** 来源 getter 始终读取最新绑定；无协商时 register 不保留回调，且不读取生产者。 */
   private register(element: HTMLElement, card: CardRegistration) {
     if (card.unregister || !validKey(card.key)) return
@@ -163,7 +183,7 @@ export class NativeCardMenuRegistry {
   }
 }
 
-/** 宿主尚未启用此注册表；Web、PWA 与旧 App 只保留原菜单交互。 */
+/** 由可选宿主通道启用；Web、PWA 与旧 App 只保留原菜单交互。 */
 export const nativeCardMenus = new NativeCardMenuRegistry()
 
 /** 局部指令绑定卡片根，不通过最近 VCard 或惰性菜单 DOM 推断动作。 */

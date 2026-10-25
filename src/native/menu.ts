@@ -125,7 +125,7 @@ function projectMenu(registration: Registration) {
   return { menu, signature, callbacks }
 }
 
-/** 默认关闭的操作菜单注册表；尚未接入传输、DOM、手势或能力开关，不改变现有菜单。 */
+/** 默认关闭且与传输分离的操作菜单注册表；宿主确认上下文后才保留动作来源。 */
 export class NativeMenuRegistry {
   private context?: NativeMenuContext
   private readonly sources = new Map<string, Registration>()
@@ -186,6 +186,17 @@ export class NativeMenuRegistry {
   /** 取消或菜单退出只撤销其自身，不让迟到的关闭消息打断下一份菜单。 */
   dismiss(presentationId: string) {
     if (this.presentation?.id === presentationId) this.presentation = undefined
+  }
+
+  /** 展示期间状态或来源变化即失效；预检不消费票据，也不替换已有展示。 */
+  isCurrent(presentationId: string): boolean {
+    const presentation = this.presentation
+    if (!this.context || !presentation || presentation.id !== presentationId || presentation.consumed) return false
+    const { registration } = presentation
+    return (
+      this.sources.get(JSON.stringify([registration.ownerId, registration.menuId])) === registration &&
+      this.read(registration)?.signature === presentation.signature
+    )
   }
 
   /** 消费单次选择，等待原网页菜单和原生动画交接，再重新读取并复核整个原菜单。 */

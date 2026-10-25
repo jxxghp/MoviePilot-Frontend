@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { glassAppearancePreference } from '@/utils/themePalette'
 import { computed, nextTick, onScopeDispose, ref, toValue, watch, watchEffect } from 'vue'
+import { NativeCardMenuAdapter } from '@/native/cardInteraction'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
@@ -476,6 +477,10 @@ watch(
   ready => {
     const transport = window.MoviePilotNative
     if (!ready || bridge || transport?.transportVersion !== 1) return
+    const cardMenus =
+      transport.cardMenusVersion === 1
+        ? new NativeCardMenuAdapter((type, payload) => bridge?.postCardMenu(type, payload) ?? false)
+        : undefined
     bridge = new NativeChromeSession({
       target: window,
       transport,
@@ -502,6 +507,7 @@ watch(
       readonlyCache: active => {
         cacheNegotiated.value = active
       },
+      ...(cardMenus ? { cardMenus } : {}),
       ...(widgetAdapter ? { widgetRequest: (payload, signal) => widgetAdapter.request(payload, signal) } : {}),
     })
     bridge.start()

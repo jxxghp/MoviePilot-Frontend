@@ -1,0 +1,43 @@
+// 这些属性只由已完成双向协商的卡片适配器设置；普通网页和旧宿主没有此选择器入口。
+[data-native-card-menu-ready] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+
+  [data-native-card-menu-trigger] {
+    display: none !important;
+  }
+
+  // 保留可被 VoiceOver、Switch Control 与键盘发现的原生菜单入口，不增加可见三点按钮。
+  > [data-native-card-menu-accessible] {
+    position: absolute;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    clip-path: inset(50%);
+    block-size: 1px;
+    inline-size: 1px;
+    white-space: nowrap;
+
+    &:focus-visible {
+      z-index: 1;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgb(var(--v-theme-surface));
+      clip-path: none;
+      color: rgb(var(--v-theme-on-surface));
+      block-size: auto;
+      inline-size: auto;
+      inset-block-start: 8px;
+      inset-inline-start: 8px;
+    }
+  }
+
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable='false']) {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
