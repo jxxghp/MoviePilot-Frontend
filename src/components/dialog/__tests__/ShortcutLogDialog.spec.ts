@@ -5,6 +5,11 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+// 标题与动作测试不加载日志内容；仅使用组件 stub 仍会启动异步模块，可能在环境销毁后访问浏览器状态。
+vi.mock('@/views/system/LoggingView.vue', () => ({
+  default: { name: 'LoggingView', template: '<div />' },
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
   document.documentElement.removeAttribute('data-native-sheet')
