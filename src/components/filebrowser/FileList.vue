@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import dayjs from 'dayjs'
 import type { AxiosRequestConfig } from 'axios'
 import type { PropType } from 'vue'
@@ -570,6 +571,40 @@ function runAction(action: FileAction, item: FileItem) {
   else void deleteItem(target)
 }
 
+/** 将原菜单业务枚举转换为详情面板共用的动作，不以菜单位置识别操作。 */
+function fileMenuAction(value: number): FileAction {
+  if (value === 1) return 'recognize'
+  if (value === 2) return 'scrape'
+  if (value === 3) return 'rename'
+  if (value === 4) return 'reorganize'
+  return 'delete'
+}
+
+/** 文件与目录共用原操作；移动三点原本是详情入口，保持该功能独立存在。 */
+function nativeFileMenu(item: FileItem): NativeCardMenuBinding {
+  return {
+    key: item.path ? JSON.stringify([item.storage ?? inProps.item.storage, item.type, item.path]) : undefined,
+    title: item.name,
+    available: () => inProps.active && !selectMode.value,
+    items: () => [
+      ...dropdownItems.value.map(menu =>
+        nativeCardAction(menu.value, {
+          title: menu.title,
+          icon: menu.props.prependIcon,
+          color: menu.props.color,
+          invoke: () => runAction(fileMenuAction(menu.value), item),
+        }),
+      ),
+      nativeCardAction('download', {
+        title: t('file.download'),
+        icon: 'mdi-download',
+        visible: item.type === 'file',
+        invoke: () => runAction('download', item),
+      }),
+    ],
+  }
+}
+
 /** 全选仅针对当前筛选结果；隐藏的已选项保留，取消全选不误清除其它选择。 */
 function toggleSelectAll() {
   const allSelected = displayItems.value.length > 0 && displayItems.value.every(isSelected)
@@ -1087,6 +1122,7 @@ onUnmounted(() => {
         >
           <template #default="{ item }">
             <VListItem
+              v-native-card-menu="nativeFileMenu(item)"
               class="file-row"
               :class="{
                 'file-row--active': isSelected(item) || getFileItemKey(inspectedItem) === getFileItemKey(item),
@@ -1152,7 +1188,11 @@ onUnmounted(() => {
                 /></IconBtn>
                 <VMenu v-else-if="!selectMode">
                   <template #activator="{ props }"
-                    ><IconBtn v-bind="props" :aria-label="t('file.actionsFor', { name: item.name })" @click.stop
+                    ><IconBtn
+                      v-bind="props"
+                      data-native-card-menu-trigger
+                      :aria-label="t('file.actionsFor', { name: item.name })"
+                      @click.stop
                       ><VIcon icon="mdi-dots-horizontal" /></IconBtn
                   ></template>
                   <VList
@@ -1162,20 +1202,7 @@ onUnmounted(() => {
                       :title="menu.title"
                       :prepend-icon="menu.props.prependIcon"
                       :base-color="menu.props.color"
-                      @click="
-                        runAction(
-                          menu.value === 1
-                            ? 'recognize'
-                            : menu.value === 2
-                              ? 'scrape'
-                              : menu.value === 3
-                                ? 'rename'
-                                : menu.value === 4
-                                  ? 'reorganize'
-                                  : 'delete',
-                          item,
-                        )
-                      " />
+                      @click="runAction(fileMenuAction(menu.value), item)" />
                     <VListItem
                       v-if="item.type === 'file'"
                       :title="t('file.download')"

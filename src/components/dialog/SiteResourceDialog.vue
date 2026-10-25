@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import type { PropType } from 'vue'
 import api from '@/api'
 import type { Site, SiteCategory, TorrentInfo } from '@/api/types'
@@ -123,6 +124,28 @@ function getResourceIdentity(item: TorrentInfo): string {
 // 获取渐进网格使用的稳定键。
 function getResourceItemKey(item: TorrentInfo, index: number): string {
   return getResourceIdentity(item) || `${item.title ?? ''}-${item.pubdate ?? ''}-${index}`
+}
+
+/** 使用站点与资源身份登记原操作；做种人数等实时数据不参与实体标识。 */
+function nativeResourceMenu(item: TorrentInfo): NativeCardMenuBinding {
+  return {
+    key: JSON.stringify([props.site?.id, item.page_url || item.enclosure || [item.title, item.pubdate, item.size]]),
+    title: item.title,
+    items: () => [
+      nativeCardAction('details', {
+        title: t('dialog.siteResource.viewDetails'),
+        icon: 'mdi-open-in-new',
+        enabled: Boolean(item.page_url),
+        invoke: () => openTorrentDetail(item.page_url || ''),
+      }),
+      nativeCardAction('torrent', {
+        title: t('dialog.siteResource.downloadTorrent'),
+        icon: 'mdi-download-outline',
+        visible: item.enclosure?.startsWith('http') === true,
+        invoke: () => downloadTorrentFile(item.enclosure || ''),
+      }),
+    ],
+  }
 }
 
 // 打开种子详情页面。
@@ -429,7 +452,12 @@ onMounted(() => {
               :get-item-key="getResourceItemKey"
             >
               <template #default="{ item }">
-                <VCard class="site-resource-item" variant="flat" @click="addDownload(item)">
+                <VCard
+                  v-native-card-menu="nativeResourceMenu(item)"
+                  class="site-resource-item"
+                  variant="flat"
+                  @click="addDownload(item)"
+                >
                   <VCardText class="site-resource-item__body pa-3">
                     <div class="site-resource-item__layout">
                       <div class="site-resource-item__main">
@@ -474,6 +502,7 @@ onMounted(() => {
                           <template #activator="{ props: menuProps }">
                             <VBtn
                               v-bind="menuProps"
+                              data-native-card-menu-trigger
                               icon
                               variant="text"
                               size="small"

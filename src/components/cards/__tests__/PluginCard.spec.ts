@@ -5,6 +5,8 @@ import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { normalizePluginAccentColor } from '@/utils/glassColor'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { defineComponent } from 'vue'
@@ -122,6 +124,30 @@ describe('PluginCard lifecycle actions', () => {
     mocks.toastSuccess.mockReset()
     mocks.toastWarning.mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  })
+
+  it('keeps the advanced submenu at the original position when view data is hidden', async () => {
+    const { container, rerender } = await renderWithProviders(PluginCard, {
+      props: { plugin: { ...plugin, has_page: false } },
+    })
+    const root = container.querySelector('.plugin-card')!
+    const menu = readNativeCardMenu(root)!
+    expect(menu.items.slice(0, 3).map(item => item.id)).toEqual(['action-10', 'advanced', 'action-2'])
+    expect(menu.items.find(item => item.id === 'advanced')?.items?.map(item => item.title)).toEqual([
+      '运行能力',
+      '数据诊断',
+      '实例管理',
+      '重新加载',
+    ])
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-11', () => {})).toBe(true)
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.any(Object),
+      { plugin: { ...plugin, has_page: false } },
+      {},
+      { closeOn: ['close', 'update:modelValue'] },
+    )
+    await rerender({ plugin, sortable: true })
+    expect(readNativeCardMenu(root)).toBeUndefined()
   })
 
   it('refreshes plugin sidebar navigation after uninstall succeeds', async () => {

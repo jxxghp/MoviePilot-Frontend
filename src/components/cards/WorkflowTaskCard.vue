@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { Workflow } from '@/api/types'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
@@ -332,6 +333,64 @@ const executionStatus = computed(() => {
     text: t('workflow.task.info.neverExecuted'),
   }
 })
+/** 原工作流状态决定继续、重启或运行；原生选择仍调用现有确认及业务方法。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.workflow.id,
+  title: props.workflow.name,
+  items: () => [
+    nativeCardAction('edit', {
+      title: t('workflow.task.edit'),
+      icon: 'mdi-note-edit',
+      color: 'primary',
+      invoke: () => handleEdit(props.workflow),
+    }),
+    nativeCardAction('flow', {
+      title: t('workflow.task.editFlow'),
+      icon: 'mdi-vector-polyline',
+      color: 'success',
+      invoke: () => handleFlow(props.workflow),
+    }),
+    nativeCardAction('continue', {
+      title: t('workflow.task.continue'),
+      icon: 'mdi-play-speed',
+      color: 'info',
+      visible: Boolean(props.workflow.current_action),
+      invoke: () => handleRun(props.workflow, false),
+    }),
+    nativeCardAction('restart', {
+      title: t('workflow.task.restart'),
+      icon: 'mdi-replay',
+      color: 'info',
+      visible: Boolean(props.workflow.current_action),
+      invoke: () => handleRun(props.workflow, true),
+    }),
+    nativeCardAction('run', {
+      title: t('workflow.task.run'),
+      icon: 'mdi-run',
+      color: 'info',
+      visible: !props.workflow.current_action,
+      invoke: () => handleRun(props.workflow, true),
+    }),
+    nativeCardAction('reset', {
+      title: t('workflow.task.reset'),
+      icon: 'mdi-restore-alert',
+      color: 'warning',
+      invoke: () => handleReset(props.workflow),
+    }),
+    nativeCardAction('share', {
+      title: t('workflow.task.share'),
+      icon: 'mdi-share',
+      color: 'info',
+      invoke: () => handleShare(props.workflow),
+    }),
+    nativeCardAction('delete', {
+      title: t('workflow.task.delete'),
+      icon: 'mdi-delete',
+      color: 'error',
+      invoke: () => handleDelete(props.workflow),
+    }),
+  ],
+}))
 </script>
 <template>
   <div class="h-full">
@@ -339,6 +398,7 @@ const executionStatus = computed(() => {
       <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
       <div v-bind="hover.props" class="workflow-task-card-hover-area h-full">
         <VCard
+          v-native-card-menu="nativeCardMenu"
           class="workflow-task-card app-hover-lift-card mx-auto h-full"
           :style="gradientStyle"
           @click="handleFlow(workflow)"
@@ -371,6 +431,7 @@ const executionStatus = computed(() => {
 
             <template #append>
               <IconBtn
+                data-native-card-menu-trigger
                 class="workflow-task-card__menu"
                 size="small"
                 density="compact"

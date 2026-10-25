@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import type {
   ClassificationCategory,
   ClassificationConditionNode,
@@ -425,6 +426,45 @@ watch(
       ?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
   },
 )
+/** 按规则 ID 重新查找当前索引；过滤或重排后不会移动、复制或删除另一条规则。 */
+function nativeRuleMenu(rule: ClassificationRule): NativeCardMenuBinding {
+  return {
+    key: rule.id,
+    title: rule.name || rule.id,
+    available: () => visibleRuleIds.value.has(rule.id),
+    items: () => {
+      const index = draftRules.value.findIndex(item => item.id === rule.id)
+      if (index < 0) return []
+      const name = { name: rule.name || rule.id }
+      return [
+        nativeCardAction('up', {
+          title: t('setting.classification.rule.moveUp', name),
+          icon: 'mdi-arrow-up',
+          enabled: !isFiltering.value && index > 0,
+          invoke: () => moveRule(index, index - 1),
+        }),
+        nativeCardAction('down', {
+          title: t('setting.classification.rule.moveDown', name),
+          icon: 'mdi-arrow-down',
+          enabled: !isFiltering.value && index < draftRules.value.length - 1,
+          invoke: () => moveRule(index, index + 1),
+        }),
+        nativeCardAction('copy', {
+          title: t('setting.classification.rule.copy', name),
+          icon: 'mdi-content-copy',
+          enabled: !hasReachedLimit.value,
+          invoke: () => copyRule(index),
+        }),
+        nativeCardAction('delete', {
+          title: t('setting.classification.rule.delete', name),
+          icon: 'mdi-delete-outline',
+          color: 'error',
+          invoke: () => deleteRule(index),
+        }),
+      ]
+    },
+  }
+}
 </script>
 
 <template>
@@ -495,6 +535,7 @@ watch(
     >
       <template #item="{ element: rule, index }">
         <VCard
+          v-native-card-menu="nativeRuleMenu(rule)"
           v-show="visibleRuleIds.has(rule.id)"
           class="classification-rule"
           :class="{ 'classification-rule--expanded': expandedRuleId === rule.id }"
@@ -550,6 +591,7 @@ watch(
               <template #activator="{ props: menuProps }">
                 <IconBtn
                   v-bind="menuProps"
+                  data-native-card-menu-trigger
                   icon="mdi-dots-vertical"
                   variant="text"
                   :aria-label="t('setting.classification.rule.actionsAria', { name: rule.name || rule.id })"

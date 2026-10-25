@@ -2,6 +2,8 @@ import type { DownloadingInfo } from '@/api/types'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { deleteDownloadHandler, downloadActionHandler } from '@tests/support/msw/handlers/download'
 import { server } from '@tests/support/msw/server'
 import { defineComponent, h } from 'vue'
@@ -71,6 +73,22 @@ beforeEach(() => {
 })
 
 describe('DownloadingCard display and pause state', () => {
+  it('reuses the inline download action and revokes selections when its task identity changes', async () => {
+    const { container, rerender } = await renderCard()
+    const root = container.querySelector('.downloading-card')!
+    const menu = readNativeCardMenu(root)!
+    expect(menu.items.map(item => item.id)).toEqual(['action-toggle', 'action-settings', 'action-delete'])
+    expect(menu.items[0]).toMatchObject({ title: '暂停', icon: 'mdi-pause', color: 'info', enabled: true })
+    expect(actionButtons(container).settingsButton).toBeEnabled()
+    await rerender({ downloaderName: 'qb-main', info: downloading({ state: 'stopped' }) })
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-toggle', () => {})).toBe(false)
+    const paused = readNativeCardMenu(root)!
+    expect(paused.items[0]).toMatchObject({ title: '继续', icon: 'mdi-play', color: 'warning' })
+    await rerender({ downloaderName: 'qb-main', info: downloading({ hash: 'replacement-task' }) })
+    expect(await nativeCardMenus.menus.select(paused.presentationId, 'action-delete', () => {})).toBe(false)
+    expect(mocks.confirm).not.toHaveBeenCalled()
+  })
+
   it('renders task metadata, progress, speed and the current download state', async () => {
     const { container } = await renderCard()
 

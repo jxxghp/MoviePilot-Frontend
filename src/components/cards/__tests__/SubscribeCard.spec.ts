@@ -13,6 +13,8 @@ import {
 } from '@tests/support/msw/handlers/subscribe'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createI18n } from 'vue-i18n'
 import type { SubscribeSource } from '@/utils/subscribeSource'
@@ -136,6 +138,33 @@ describe('SubscribeCard display and progress', () => {
     mocks.loadPosterTone.mockResolvedValue(null)
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('projects live subscription state and original callbacks without opening the HTML menu', async () => {
+    const { container, media, rerender } = await renderCard({ type: '电视剧', state: 'R' })
+    const root = container.querySelector('.subscribe-card')!
+    const menu = readNativeCardMenu(root)!
+    expect(menu.items.find(item => item.id === 'action-5')).toMatchObject({
+      title: '暂停',
+      icon: 'mdi-pause',
+      color: 'info',
+    })
+    expect(menu.items.find(item => item.id === 'action-7')).toMatchObject({ title: '分享' })
+    expect(container.querySelector('[data-native-card-menu-trigger]')).toBeInTheDocument()
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-4', () => {})).toBe(true)
+    expect(getDialogCall().props).toEqual({ subid: media.id })
+
+    await rerender({ media: { ...media, state: 'S', type: '音乐' } })
+    const current = readNativeCardMenu(root)!
+    expect(current.items.find(item => item.id === 'action-5')).toMatchObject({
+      title: '启用',
+      icon: 'mdi-play',
+      color: 'success',
+    })
+    expect(current.items.some(item => ['action-7', 'action-4'].includes(item.id))).toBe(false)
+    await rerender({ media, sortable: true })
+    expect(readNativeCardMenu(root)).toBeUndefined()
   })
 
   it('hangs the source badge on the desktop poster corner with the name in the tooltip', async () => {

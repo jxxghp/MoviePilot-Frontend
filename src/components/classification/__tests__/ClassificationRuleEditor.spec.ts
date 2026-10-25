@@ -8,10 +8,12 @@ import ClassificationRuleEditor from '@/components/classification/Classification
 import userEvent from '@testing-library/user-event'
 import { fireEvent, screen, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('vuedraggable', async () => {
-  const { defineComponent, h } = await import('vue')
+  const { defineComponent, h, Fragment } = await import('vue')
   return {
     default: defineComponent({
       name: 'DraggableStub',
@@ -23,7 +25,9 @@ vi.mock('vuedraggable', async () => {
         return () =>
           h('div', { 'data-testid': 'rule-draggable' }, [
             h('button', { 'aria-label': '模拟拖拽反转', type: 'button', onClick: reverse }, 'reverse'),
-            ...(props.modelValue as ClassificationRule[]).map((element, index) => slots.item?.({ element, index })),
+            ...(props.modelValue as ClassificationRule[]).map((element, index) =>
+              h(Fragment, { key: element.id }, slots.item?.({ element, index })),
+            ),
           ])
       },
     }),
@@ -153,6 +157,18 @@ describe('ClassificationRuleEditor', () => {
       'confirm',
       vi.fn(() => true),
     )
+  })
+
+  it('排序后原生菜单仍复制同一条规则，并使用最新位置', async () => {
+    const rules = ['a', 'b', 'c', 'd'].map(id => createRule({ id, name: `规则 ${id}` }))
+    const editor = await renderEditor(rules)
+    const root = editor.container.querySelectorAll('.classification-rule')[1]!
+    const menu = readNativeCardMenu(root)!
+    expect(menu.items.map(item => item.id)).toEqual(['action-up', 'action-down', 'action-copy', 'action-delete'])
+    await userEvent.click(screen.getByRole('button', { name: '模拟拖拽反转' }))
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-copy', () => {})).toBe(true)
+    expect(editor.latestRules().map(rule => rule.id)).toEqual(['d', 'c', 'b', 'b-copy', 'a'])
+    expect(editor.latestRules()[3]!.name).toContain('规则 b')
   })
 
   it('新增、复制和删除规则，并为副本生成独立稳定 ID', async () => {

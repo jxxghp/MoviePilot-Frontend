@@ -1,6 +1,8 @@
 import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -46,6 +48,19 @@ describe('DatabaseBackupPanel', () => {
     mocks.deleteBackup.mockResolvedValue(undefined)
     mocks.confirm.mockResolvedValue(true)
     mocks.verifyBackup.mockResolvedValue({ valid: true, method: 'PRAGMA integrity_check' })
+  })
+
+  it('uses the current backup row and original verification callback', async () => {
+    await renderWithProviders(DatabaseBackupPanel, { props: { active: true } })
+    const row = (await screen.findByText(existingBackup.name)).closest('tr')!
+    const menu = readNativeCardMenu(row)!
+    expect(menu.items.map(item => [item.title, item.icon])).toEqual([
+      ['校验', 'mdi-shield-check-outline'],
+      ['删除', 'mdi-delete-outline'],
+    ])
+    expect(menu.items[1].destructive).toBe(true)
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-verify', () => {})).toBe(true)
+    expect(mocks.verifyBackup).toHaveBeenCalledExactlyOnceWith(existingBackup.name)
   })
 
   it('loads only after activation and exposes managed backup fields', async () => {

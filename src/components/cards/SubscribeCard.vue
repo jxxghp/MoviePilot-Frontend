@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import { formatDateDifference } from '@/@core/utils/formatters'
@@ -596,6 +597,23 @@ const dropdownItems = computed(() => [
   },
 ])
 
+/** 桌面和移动菜单共享同一订阅来源；批量选择或排序时不触发原生操作。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.media?.id,
+  title: props.media?.name,
+  available: () => !props.sortable && !props.batchMode,
+  items: () =>
+    dropdownItems.value.map(item =>
+      nativeCardAction(item.value, {
+        title: item.title,
+        icon: item.props.prependIcon,
+        color: item.props.color,
+        visible: item.show !== false,
+        invoke: item.props.click,
+      }),
+    ),
+}))
+
 // 监听插件窗口状态变化
 watch(
   () => props.media?.page_open,
@@ -744,6 +762,7 @@ function handleCardClick() {
             }"
           >
             <VCard
+              v-native-card-menu="nativeCardMenu"
               :key="props.media?.id"
               class="subscribe-card flex flex-col h-full overflow-hidden"
               :class="{
@@ -766,7 +785,7 @@ function handleCardClick() {
                 <VIcon :icon="bestVersionBadge.icon" color="white" size="16" />
               </div>
               <div v-if="!props.sortable && display.smAndUp.value" class="me-n3 absolute top-1 right-4">
-                <IconBtn :aria-label="t('nav.more')" @click.stop>
+                <IconBtn data-native-card-menu-trigger :aria-label="t('nav.more')" @click.stop>
                   <VIcon icon="mdi-dots-vertical" color="white" />
                   <VMenu activator="parent" close-on-content-click>
                     <VList>
@@ -892,6 +911,7 @@ function handleCardClick() {
                       </component>
 
                       <IconBtn
+                        data-native-card-menu-trigger
                         v-if="!props.sortable"
                         class="subscribe-card-mobile-menu"
                         size="small"

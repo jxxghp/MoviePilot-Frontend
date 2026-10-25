@@ -3,6 +3,8 @@ import type { Workflow } from '@/api/types'
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -84,6 +86,33 @@ describe('WorkflowTaskCard redesign', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('projects the current workflow branch and invokes the existing edit dialog once', async () => {
+    const { container, rerender } = await renderCard()
+    const root = container.querySelector('.workflow-task-card')!
+    const menu = readNativeCardMenu(root)!
+    expect(menu.items.map(item => item.id)).toEqual([
+      'action-edit',
+      'action-flow',
+      'action-run',
+      'action-reset',
+      'action-share',
+      'action-delete',
+    ])
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-edit', () => {})).toBe(true)
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toEqual({ workflow: createWorkflow() })
+    await rerender({ workflow: createWorkflow({ current_action: 'scan' }) })
+    expect(readNativeCardMenu(root)!.items.map(item => item.id)).toEqual([
+      'action-edit',
+      'action-flow',
+      'action-continue',
+      'action-restart',
+      'action-reset',
+      'action-share',
+      'action-delete',
+    ])
   })
 
   it('maps the generated card icon to the workflow trigger type', async () => {
