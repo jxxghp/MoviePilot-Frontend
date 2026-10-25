@@ -224,6 +224,135 @@ describe('AgentAssistantPanel stream recovery', () => {
     wrapper.unmount()
   })
 
+  it('releases a late microphone grant after the panel closes without recording or uploading', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    const permission = createDeferred<MediaStream>()
+    const stop = vi.fn()
+    const getUserMedia = vi.fn(() => permission.promise)
+    const recorder = vi.fn()
+    vi.stubGlobal('MediaRecorder', recorder)
+    const originalDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } })
+    const wrapper = mountPanel()
+    try {
+      await wrapper.get('.agent-assistant-record').trigger('click')
+      await wrapper.get('.agent-assistant-record').trigger('click')
+      expect(getUserMedia).toHaveBeenCalledTimes(1)
+      await wrapper.setProps({ modelValue: false })
+      permission.resolve({ getTracks: () => [{ stop }] } as unknown as MediaStream)
+      await flushPromises()
+      expect(stop).toHaveBeenCalledOnce()
+      expect(recorder).not.toHaveBeenCalled()
+      expect(wrapper.find('.agent-assistant-record.is-recording').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+      if (originalDevices) Object.defineProperty(navigator, 'mediaDevices', originalDevices)
+      else Reflect.deleteProperty(navigator, 'mediaDevices')
+    }
+  })
+
+  it('sends Safari mp4 recording as an m4a audio reference and releases the microphone', async () => {
+    const stop = vi.fn()
+    const stream = { getTracks: () => [{ stop }] } as unknown as MediaStream
+    const originalDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(async () => stream) },
+    })
+    /** 用 Safari 的 MP4 能力驱动真实组件录音完成路径，文件仍走原附件上传接口。 */
+    class Recorder {
+      static isTypeSupported = (type: string) => type === 'audio/mp4'
+      mimeType = 'audio/mp4'
+      state = 'inactive'
+      ondataavailable?: (event: { data: Blob }) => void
+      onstop?: () => void
+      onerror?: () => void
+      /** 模拟媒体流进入录音状态。 */
+      start() {
+        this.state = 'recording'
+      }
+      /** 完成录音后交付非空音频，组件负责上传与分派。 */
+      stop() {
+        this.state = 'inactive'
+        this.ondataavailable?.({ data: new Blob(['synthetic-audio'], { type: this.mimeType }) })
+        this.onstop?.()
+      }
+    }
+    vi.stubGlobal('MediaRecorder', Recorder)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/upload') && init?.method === 'POST') {
+        return createAgentResponse({ ref: 'voice-ref', url: '/audio.m4a', kind: 'audio', mime_type: 'audio/mp4' })
+      }
+      if (String(input).endsWith('/message/agent/stream')) {
+        return createAgentStreamResponse([legacySseFrame({ type: 'done' })])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    try {
+      await wrapper.get('.agent-assistant-record').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('.agent-assistant-record').classes()).toContain('is-recording')
+      await wrapper.get('.agent-assistant-record').trigger('click')
+      await flushPromises()
+      const upload = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/message/agent/upload'))
+      const file = (upload?.[1]?.body as FormData).get('file') as File
+      expect(file.name).toMatch(/^voice-\d+\.m4a$/)
+      expect(file.type).toBe('audio/mp4')
+      expect(file.size).toBeGreaterThan(0)
+      const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/message/agent/stream'))
+      expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ audio_refs: ['voice-ref'], files: [] })
+      expect(stop).toHaveBeenCalledOnce()
+    } finally {
+      wrapper.unmount()
+      if (originalDevices) Object.defineProperty(navigator, 'mediaDevices', originalDevices)
+      else Reflect.deleteProperty(navigator, 'mediaDevices')
+    }
+  })
+
+  it('cancels an active microphone stream when the panel is closed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    const stop = vi.fn()
+    const recorderStop = vi.fn()
+    const originalDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop }] })) },
+    })
+    /** 关闭面板必须取消录音，不能通过 stop 回调自动发送。 */
+    class Recorder {
+      static isTypeSupported = () => true
+      state = 'recording'
+      onstop?: () => void
+      /** 开始状态由此有限夹具直接声明。 */
+      start() {}
+      /** 只记录取消调用，验证组件已移除自动发送回调。 */
+      stop() {
+        recorderStop(this.onstop)
+      }
+    }
+    vi.stubGlobal('MediaRecorder', Recorder)
+    const wrapper = mountPanel()
+    try {
+      await wrapper.get('.agent-assistant-record').trigger('click')
+      await flushPromises()
+      await wrapper.setProps({ modelValue: false })
+      expect(recorderStop).toHaveBeenCalledWith(null)
+      expect(stop).toHaveBeenCalledOnce()
+    } finally {
+      wrapper.unmount()
+      if (originalDevices) Object.defineProperty(navigator, 'mediaDevices', originalDevices)
+      else Reflect.deleteProperty(navigator, 'mediaDevices')
+    }
+  })
+
   it('renders thinking as an ordered standalone row after existing assistant content', async () => {
     vi.stubGlobal(
       'fetch',
