@@ -46,6 +46,7 @@ const props = withDefaults(
   },
 )
 
+/** 当前虚拟窗口向原业务 slot 透传的条目及稳定身份。 */
 interface VirtualCell {
   /** 透传给条目 slot 的业务对象。 */
   item: any
@@ -55,6 +56,7 @@ interface VirtualCell {
   key: ItemKey
 }
 
+/** 滚动窗口的行范围与对应条目范围，末尾条目使用开区间。 */
 interface VirtualRange {
   /** 窗口最后一个条目的后一位索引。 */
   endIndex: number
@@ -261,7 +263,24 @@ const calculatedVisibleRange = computed<VirtualRange>(() => {
   }
 })
 
-const visibleRange = computed(() => frozenVisibleRange.value ?? calculatedVisibleRange.value)
+// 弹窗只冻结滚动窗口；原筛选缩短列表时必须同步约束行列，不能向 slot 传越界条目。
+const visibleRange = computed<VirtualRange>(() => {
+  const frozen = frozenVisibleRange.value
+  if (!frozen || !props.items.length) return calculatedVisibleRange.value
+  const rowCount = rowMetrics.value.rowCount
+  const startRow = clamp(frozen.startRow, 0, rowCount - 1)
+  const endRow = clamp(frozen.endRow, startRow, rowCount - 1)
+  const endIndex = Math.min(props.items.length, (endRow + 1) * columnCount.value)
+  const startIndex = startRow * columnCount.value
+  if (
+    startRow === frozen.startRow &&
+    endRow === frozen.endRow &&
+    startIndex === frozen.startIndex &&
+    endIndex === frozen.endIndex
+  )
+    return frozen
+  return { startRow, endRow, startIndex, endIndex }
+})
 
 // 视口首批内容同步提交，额外 overscan 分帧挂载；完整列表高度仍由 spacer 立即占位。
 const renderedVisibleRange = computed<VirtualRange>(previous => {
