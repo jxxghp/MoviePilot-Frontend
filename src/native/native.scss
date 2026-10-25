@@ -1,3 +1,5 @@
+@use './tools';
+
 // 只有双方事务提交后的文档才采用此布局；普通网页/PWA 不匹配选择器。
 html[data-native-chrome='active'] {
   scroll-padding-block: var(--native-top) var(--native-bottom);
