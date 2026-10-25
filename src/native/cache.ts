@@ -74,7 +74,8 @@ function normalizeBase(value: string): string | undefined {
 /** 保留原客户端所有特殊传输语义，只接管默认 GET 和普通参数对象。 */
 function requestKey(scope: NativeCacheScope, client: ListClient, path: string, config?: AxiosRequestConfig) {
   if (config && Object.keys(config).some(key => key !== 'params')) return
-  const clientBase = normalizeBase(new URL(client.defaults.baseURL ?? scope.apiBase, scope.apiBase).href)
+  // Axios 的相对 baseURL 由当前文档解析；生产 api/v1/ 不能再相对 API 根重复拼接。
+  const clientBase = normalizeBase(new URL(client.defaults.baseURL ?? scope.apiBase, document.baseURI).href)
   if (clientBase !== scope.apiBase) return
   const match = /^([a-z][a-z0-9/_-]*)(?:\?([^#]*))?$/.exec(path)
   if (!match) return

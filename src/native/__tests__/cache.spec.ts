@@ -294,6 +294,25 @@ describe('原生只读榜单缓存', () => {
     expect(read).toHaveBeenCalledTimes(2)
   })
 
+  it.each([
+    ['https://moviepilot.example/#/recommend', 'api/v1/', 'https://moviepilot.example/api/v1/'],
+    ['https://moviepilot.example/#/recommend', '/api/v1/', 'https://moviepilot.example/api/v1/'],
+    ['https://moviepilot.example/moviepilot/#/recommend', 'api/v1/', 'https://moviepilot.example/moviepilot/api/v1/'],
+  ])('文档 %s 的相对 API %s 与绝对范围 %s 一致时可以复用', async (documentBase, clientBase, apiBase) => {
+    vi.spyOn(document, 'baseURI', 'get').mockReturnValue(documentBase)
+    const { cache, client, read } = harness()
+    cache.setScope({ ...scope, apiBase })
+    client.defaults.baseURL = clientBase
+    await cache.get(client, PATH)
+    await cache.get(client, PATH)
+    expect(read).toHaveBeenCalledOnce()
+    expect(read.mock.calls[0][1]?.headers).toMatchObject({ 'X-MoviePilot-Native': '1', 'Cache-Control': 'no-store' })
+    client.defaults.baseURL = '../other/api/v1/'
+    await cache.get(client, PATH)
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(read.mock.calls[1][1]).toBeUndefined()
+  })
+
   it('键按 UTF-8 限制；不同客户端来源或非法身份不能命中', async () => {
     const { cache, client, read } = harness()
     await cache.get(client, 'recommend/tmdb_movies', { params: { sort_by: '中'.repeat(1500) } })

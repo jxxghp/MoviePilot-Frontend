@@ -1,9 +1,8 @@
-import { onScopeDispose, ref, watch, type Ref } from 'vue'
+import { onScopeDispose, watch, type Ref } from 'vue'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
 import { getMediaSourceCatalog } from '@/utils/mediaId'
 import { getModuleCatalog } from '@/composables/useModuleCatalog'
-import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 import { nativeReadonlyCache, type NativeReadonlyCache } from '@/native/cache'
 
 /** 宿主协商与现有认证目录共同决定缓存范围；普通网页不安装此适配器。 */
@@ -15,11 +14,6 @@ export function useNativeReadonlyCache(
 ) {
   const auth = useAuthStore()
   const user = useUserStore()
-  const foreground = ref(false)
-  const releaseActivity = appActivityLifecycle.acquire()
-  const unsubscribe = appActivityLifecycle.subscribe(state => {
-    foreground.value = state === 'active' || state === 'idle'
-  })
   watch(
     [
       () => auth.token,
@@ -40,13 +34,12 @@ export function useNativeReadonlyCache(
     { immediate: true, flush: 'sync' },
   )
   watch(
-    [negotiated, available, foreground],
-    () => cache.setEnabled(negotiated.value && available.value && foreground.value),
+    [negotiated, available],
+    // NativeSession 已合并接管、身份和系统前台状态；点原生导航不必令 WKWebView 获得 DOM 焦点。
+    () => cache.setEnabled(negotiated.value && available.value),
     { immediate: true, flush: 'sync' },
   )
   onScopeDispose(() => {
-    unsubscribe()
-    releaseActivity()
     cache.setEnabled(false)
     cache.setScope(undefined)
   })
