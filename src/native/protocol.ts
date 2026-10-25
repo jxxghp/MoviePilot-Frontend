@@ -115,6 +115,12 @@ export interface NativeMenuSection {
 /** 原操作菜单的语义颜色；具体系统展示由宿主适配，不传递 CSS 或网页背景。 */
 export type NativeMenuColor = 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error'
 
+/** 原菜单的状态徽标独立于主标题，不能用整行染色替代启用状态或密钥数量。 */
+export interface NativeMenuBadge {
+  title: string
+  color?: NativeMenuColor
+}
+
 /** 有界操作菜单树保留原顺序、分隔、分组和子菜单，禁止包含业务回调。 */
 export interface NativeOperationItem {
   id: string
@@ -124,6 +130,7 @@ export interface NativeOperationItem {
   /** 使用原图标标识，由宿主做语义映射；不以无关的通用图标补位。 */
   icon?: string
   color?: NativeMenuColor
+  badge?: NativeMenuBadge
   enabled?: boolean
   selected?: boolean
   loading?: boolean

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
@@ -245,6 +246,20 @@ onBeforeUnmount(() => {
   requestId += 1
   deactivateAutoplay()
 })
+/** 推荐来源复用原来源列表、图标与切换动作，加载状态仍由原推荐组件管理。 */
+const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'recommend-source',
+  title: t('dashboard.selectRecommendSource'),
+  items: action =>
+    sources.value.map(source =>
+      action(source.apipath, {
+        title: source.title,
+        icon: getSourceIcon(source),
+        selected: source.apipath === selectedSourcePath.value,
+        invoke: () => selectSource(source),
+      }),
+    ),
+}))
 </script>
 
 <template>
@@ -286,7 +301,7 @@ onBeforeUnmount(() => {
 
         <div class="dashboard-recommend-actions">
           <DashboardRetryButton v-if="loadFailed" deferred :label="t('dashboard.staleData')" @retry="loadMedia()" />
-          <VMenu location="bottom end">
+          <VMenu location="bottom end" :native-menu="nativeSourceMenu">
             <template #activator="{ props: menuProps }">
               <VBtn
                 v-bind="menuProps"

@@ -57,8 +57,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     vueJsx(),
     vuetify({
       autoImport: {
-        // 这些录入控件由 Vuetify 全局适配器接管，避免模板局部导入绕过移动布局。
-        ignore: [...responsiveInputCoreComponentNames],
+        // 全局适配器保留原控件行为，避免模板局部导入绕过菜单生命周期及移动布局。
+        ignore: ['VMenu', ...responsiveInputCoreComponentNames],
       },
       styles: {
         configFile: 'src/styles/variables/_vuetify.scss',

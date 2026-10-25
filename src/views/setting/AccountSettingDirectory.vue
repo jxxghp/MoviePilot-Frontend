@@ -1,5 +1,6 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useToast } from 'vue-toastification'
 import api, { getApiErrorMessage } from '@/api'
 import { listTransferDirectories } from '@/api/storage'
@@ -275,7 +276,7 @@ async function loadMediaCategories() {
   }
 }
 
-// 添加存储
+/** 根据原存储类型创建本地待保存项，不在菜单接管层复制配置流程。 */
 function addStorage(storageType = 'custom') {
   let name: string
   let type: string
@@ -348,6 +349,17 @@ onMounted(() => {
 useSilentSettingRefresh(loadPageData, {
   active: computed(() => props.active),
 })
+/** 添加存储菜单保留原可用类型与末尾自定义入口的顺序。 */
+const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'add-storage',
+  title: t('setting.directory.storage'),
+  items: action => [
+    ...storageOptions.value.map(item =>
+      action(item.value, { title: item.title, invoke: () => addStorage(item.value) }),
+    ),
+    action('custom', { title: t('storage.custom'), invoke: () => addStorage('custom') }),
+  ],
+}))
 </script>
 
 <template>
@@ -379,7 +391,7 @@ useSilentSettingRefresh(loadPageData, {
               </VBtn>
               <VBtn color="success" variant="tonal">
                 <VIcon icon="mdi-plus" />
-                <VMenu activator="parent" close-on-content-click>
+                <VMenu activator="parent" close-on-content-click :native-menu="nativeAddStorageMenu">
                   <VList>
                     <VListItem v-for="item in storageOptions" :key="item.value" @click="addStorage(item.value)">
                       <VListItemTitle>{{ item.title }}</VListItemTitle>

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useToast } from 'vue-toastification'
 import { VForm } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
@@ -83,7 +84,7 @@ let otpDialogController: ReturnType<typeof openSharedDialog> | null = null
 let passkeyDialogController: ReturnType<typeof openSharedDialog> | null = null
 let verifyPasswordDialogController: ReturnType<typeof openSharedDialog> | null = null
 
-// 打开共享 OTP 管理弹窗，并把状态变更回写到用户资料。
+/** 打开共享 OTP 管理弹窗，并把状态变更回写到用户资料。 */
 function openOtpDialog() {
   securityMenu.value = false
   otpDialogController?.close()
@@ -105,7 +106,7 @@ function openOtpDialog() {
   )
 }
 
-// 打开共享 PassKey 管理弹窗，并同步最新 PassKey 列表。
+/** 打开共享 PassKey 管理弹窗，并同步最新 PassKey 列表。 */
 function openPasskeyDialog() {
   securityMenu.value = false
   passkeyDialogController?.close()
@@ -340,6 +341,29 @@ watch(
     currentAvatar.value = userStore.avatar
   },
 )
+/** 账号安全菜单保留原副标题、启用徽标与密钥数量，不把状态并入主标题。 */
+const nativeSecurityMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'account-security',
+  title: t('profile.accountSecurity'),
+  items: action => [
+    action('otp', {
+      title: t('profile.authenticatorManagement'),
+      subtitle: t('profile.otpSecondFactor'),
+      icon: 'mdi-cellphone-key',
+      badge: accountInfo.value.is_otp ? { title: t('profile.enabled'), color: 'success' } : undefined,
+      invoke: openOtpDialog,
+    }),
+    action('passkey', {
+      title: t('profile.passkeyManagement'),
+      subtitle: t('profile.passkeyPasswordless'),
+      icon: 'material-symbols:passkey',
+      badge: passkeyList.value.length
+        ? { title: t('profile.keysCount', { count: passkeyList.value.length }), color: 'success' }
+        : undefined,
+      invoke: openPasskeyDialog,
+    }),
+  ],
+}))
 </script>
 
 <template>
@@ -386,7 +410,7 @@ watch(
                   <span v-if="display.mdAndUp.value" class="ms-2">{{ t('common.default') }}</span>
                 </VBtn>
 
-                <VMenu v-model="securityMenu" :close-on-content-click="false">
+                <VMenu v-model="securityMenu" :close-on-content-click="false" :native-menu="nativeSecurityMenu">
                   <template #activator="{ props }">
                     <VBtn color="primary" variant="tonal" v-bind="props" :aria-label="t('profile.accountSecurity')">
                       <VIcon icon="mdi-shield-key" />

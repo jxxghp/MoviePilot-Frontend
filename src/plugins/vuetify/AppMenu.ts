@@ -1,16 +1,26 @@
-import { defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
+import { defineComponent, h, onBeforeUnmount, ref, watch, type PropType } from 'vue'
 import { VMenu } from 'vuetify/components/VMenu'
 import { nativeChromeActive } from '@/native/layout'
 import { registerNativeMenuClose } from '@/native/menu'
+import { nativeStandaloneMenus, type NativeStandaloneMenuBinding } from '@/native/standalone'
 
 /** 复用 Vuetify 菜单及业务模型，只在原生 Sheet 接管时同步关闭旧菜单。 */
 export default defineComponent({
   name: 'AppMenu',
   inheritAttrs: false,
-  props: { modelValue: { type: Boolean, default: undefined } },
+  props: {
+    modelValue: { type: Boolean, default: undefined },
+    nativeMenu: { type: Object as PropType<NativeStandaloneMenuBinding>, default: undefined },
+  },
   emits: ['update:modelValue'],
   /** 保存受控或内部展开状态，宿主接管关闭时取消网页退出动画以完成绘制交接。 */
   setup(props, { attrs, slots, emit }) {
+    const menuToken = {}
+    watch(
+      [() => props.nativeMenu, () => props.nativeMenu?.key],
+      ([binding]) => nativeStandaloneMenus.bind(menuToken, binding),
+      { immediate: true },
+    )
     const expanded = ref(props.modelValue ?? false)
     const closingForSheet = ref(false)
     watch(
@@ -31,7 +41,10 @@ export default defineComponent({
       closingForSheet.value = true
       update(false)
     })
-    onBeforeUnmount(() => unregister())
+    onBeforeUnmount(() => {
+      unregister()
+      nativeStandaloneMenus.unbind(menuToken)
+    })
     return () => {
       const native = nativeChromeActive.value && window.MoviePilotNative?.sheetsVersion === 1
       return h(

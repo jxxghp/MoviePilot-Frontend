@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { debounce } from 'lodash-es'
 import { useToast } from 'vue-toastification'
@@ -2101,6 +2102,65 @@ onUnmounted(() => {
   closeProgressDialog()
   aiRedoProgressDialogController?.close()
 })
+/** 桌面状态菜单与移动端既有投影共用原状态枚举和选择方法。 */
+const nativeStatusMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'history-status',
+  title: t('transferHistory.statusFilter.label'),
+  items: action =>
+    statusFilterItems.value.map(option =>
+      action(option.value, {
+        title: option.title,
+        icon: option.icon,
+        color: option.color,
+        selected: statusFilter.value === option.value,
+        invoke: () => selectStatusFilter(option.value),
+      }),
+    ),
+}))
+
+/** 整理排序沿用字段和方向，保持原菜单选择后展开的行为及分隔条。 */
+const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'history-sort',
+  title: t('transferHistory.desktop.sort'),
+  items: action => [
+    ...desktopSortOptions.value.map(option =>
+      action(`field:${option.value}`, {
+        title: option.title,
+        selected: (desktopSortBy.value[0]?.key || '') === option.value,
+        keepOpen: true,
+        invoke: () => setDesktopSort(option.value),
+      }),
+    ),
+    { id: 'sort-order', kind: 'separator' },
+    action('order', {
+      title: desktopSortBy.value[0]?.order === 'desc' ? t('common.ascending') : t('common.descending'),
+      icon: desktopSortBy.value[0]?.order === 'desc' ? 'mdi-sort-descending' : 'mdi-sort-ascending',
+      enabled: desktopSortBy.value.length > 0,
+      keepOpen: true,
+      invoke: toggleDesktopSortOrder,
+    }),
+  ],
+}))
+
+/** 视图布局只切换原分组状态，不改变数据查询、选中集合或业务操作。 */
+const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
+  key: 'history-grouping',
+  title: t('transferHistory.groupMode'),
+  items: action => [
+    action('list', {
+      title: t('transferHistory.listMode'),
+      icon: 'mdi-format-list-bulleted',
+      selected: !group.value,
+      invoke: () => setDesktopGrouping(false),
+    }),
+    action('group', {
+      title: t('transferHistory.groupMode'),
+      icon: 'mdi-format-list-group',
+      selected: group.value,
+      invoke: () => setDesktopGrouping(true),
+    }),
+  ],
+}))
 </script>
 
 <template>
@@ -2127,7 +2187,7 @@ onUnmounted(() => {
           hide-details
           clearable
         />
-        <VMenu location="bottom end">
+        <VMenu location="bottom end" :native-menu="nativeStatusMenu">
           <template #activator="{ props }">
             <IconBtn
               v-bind="props"
@@ -2156,7 +2216,7 @@ onUnmounted(() => {
               </VListItem> </VList
           ></VCard>
         </VMenu>
-        <VMenu location="bottom end" :close-on-content-click="false">
+        <VMenu location="bottom end" :close-on-content-click="false" :native-menu="nativeSortMenu">
           <template #activator="{ props }">
             <IconBtn
               v-bind="props"
@@ -2192,7 +2252,7 @@ onUnmounted(() => {
             </VList></VCard
           >
         </VMenu>
-        <VMenu location="bottom end">
+        <VMenu location="bottom end" :native-menu="nativeGroupingMenu">
           <template #activator="{ props }">
             <IconBtn
               v-bind="props"
