@@ -86,7 +86,12 @@ const widgetAdapter =
         isActive: () => nativeChromeActive.value && authenticated.value,
         readToken: () => auth.token,
         canNavigate: () => !overlayOpen.value,
-        navigate: path => navigateNativeWidget(router, path),
+        navigate: path =>
+          navigateNativeWidget(
+            router,
+            path,
+            menus.value.flatMap(menu => (typeof menu.to === 'string' ? [menu.to] : [])),
+          ),
       })
     : undefined
 let ownerSequence = 0

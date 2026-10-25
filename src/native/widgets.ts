@@ -7,6 +7,7 @@ const widgetRoutes = {
   overview: '/dashboard',
   downloads: '/downloading',
   imports: '/history',
+  subscriptions: '/subscribe',
   movieSubscriptions: '/subscribe/movie',
   tvSubscriptions: '/subscribe/tv',
   musicSubscriptions: '/subscribe/music',
@@ -69,9 +70,18 @@ export interface NativeWidgetOptions {
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ownerPattern = /^[0-9a-f]{32}$/
 
-/** 已在目标页也完成固定意图；取消或守卫拒绝继续失败，不重载页面或追加重复历史。 */
-export async function navigateNativeWidget(router: Router, path: string): Promise<boolean> {
-  const failure = await router.push(path)
+/** 合并订阅选择原菜单中首个有权限的类型；已有目标页不重载，仍遵守 Router 守卫。 */
+export async function navigateNativeWidget(
+  router: Router,
+  path: string,
+  availableRoutes: readonly string[] = [],
+): Promise<boolean> {
+  const target =
+    path === '/subscribe'
+      ? ['/subscribe/movie', '/subscribe/tv', '/subscribe/music'].find(route => availableRoutes.includes(route))
+      : path
+  if (!target) return false
+  const failure = await router.push(target)
   return !isNavigationFailure(failure) || isNavigationFailure(failure, NavigationFailureType.duplicated)
 }
 
