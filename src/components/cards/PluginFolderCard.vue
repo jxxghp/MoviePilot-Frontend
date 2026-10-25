@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from 'vue-i18n'
@@ -237,6 +238,22 @@ const dropdownItems = ref([
     },
   },
 ])
+/** 文件夹排序时不接管；正常模式直接复用原外观、重命名和删除菜单。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.folderName,
+  title: props.folderName,
+  available: () => !props.sortable,
+  items: () =>
+    dropdownItems.value.map(item =>
+      nativeCardAction(item.value, {
+        title: item.title,
+        icon: item.props.prependIcon,
+        color: item.props.color,
+        visible: Boolean(item.show),
+        invoke: item.props.click,
+      }),
+    ),
+}))
 </script>
 
 <template>
@@ -247,6 +264,7 @@ const dropdownItems = ref([
         <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
         <div v-bind="hover.props" class="plugin-folder-card-hover-area h-full">
           <VCard
+            v-native-card-menu="nativeCardMenu"
             :ripple="false"
             :width="props.width"
             :height="props.height"
@@ -304,7 +322,7 @@ const dropdownItems = ref([
               <div v-if="!props.sortable" class="absolute top-0 right-0">
                 <VMenu v-model="menuVisible" location="top end" :close-on-content-click="true">
                   <template #activator="{ props: menuProps }">
-                    <IconBtn v-bind="menuProps" @click.stop>
+                    <IconBtn v-bind="menuProps" data-native-card-menu-trigger @click.stop>
                       <VIcon size="small" icon="mdi-dots-vertical" class="text-white" />
                     </IconBtn>
                   </template>

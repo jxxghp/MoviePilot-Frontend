@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import type { PropType } from 'vue'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import { useGlobalSettingsStore } from '@/stores'
@@ -233,6 +234,27 @@ function onSiteResourceDone() {
   emit('refresh-stats', cardProps.site?.domain)
 }
 
+/** 站点卡片只登记原更多菜单；测试、用户数据与更新按钮仍保留各自的独立功能。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: cardProps.site?.id,
+  title: cardProps.site?.name,
+  available: () => !cardProps.sortable,
+  items: () => [
+    nativeCardAction('edit', {
+      title: t('site.actions.edit'),
+      icon: 'mdi-file-edit-outline',
+      color: 'info',
+      invoke: handleSiteEdit,
+    }),
+    nativeCardAction('delete', {
+      title: t('site.deleteSite'),
+      icon: 'mdi-delete-outline',
+      color: 'error',
+      invoke: deleteSiteInfo,
+    }),
+  ],
+}))
+
 // 装载时查询站点图标
 onMounted(() => {
   getSiteIcon()
@@ -244,6 +266,7 @@ onMounted(() => {
     <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
     <div class="site-card-hover-area h-full">
       <VCard
+        v-native-card-menu="nativeCardMenu"
         class="site-card app-hover-lift-card relative h-full flex flex-col overflow-hidden group"
         :class="[
           cardProps.site?.is_active ? '' : 'opacity-70',
@@ -418,7 +441,7 @@ onMounted(() => {
           </VBtn>
 
           <!-- 更多选项按钮 -->
-          <VBtn icon variant="text" class="mt-auto" size="36" @click.stop>
+          <VBtn data-native-card-menu-trigger icon variant="text" class="mt-auto" size="36" @click.stop>
             <VIcon icon="mdi-dots-vertical" size="20" />
             <VMenu :activator="'parent'" :close-on-content-click="true" :location="'left'">
               <VList>

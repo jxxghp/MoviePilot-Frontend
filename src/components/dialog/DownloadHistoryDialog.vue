@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import api from '@/api'
 import type { DownloadHistory } from '@/api/types'
 import SourceClassificationDialog from '@/components/dialog/SourceClassificationDialog.vue'
@@ -84,6 +85,29 @@ function getHistoryTitle(item: DownloadHistory) {
 function getSeasonEpisode(item: DownloadHistory) {
   return `${item.seasons || ''}${item.episodes || ''}`
 }
+/** 历史行使用持久化 ID；有下载哈希时才显示原归类入口，删除保留危险样式。 */
+function nativeHistoryMenu(item: DownloadHistory): NativeCardMenuBinding {
+  return {
+    key: item.id,
+    title: getHistoryTitle(item),
+    items: () => [
+      nativeCardAction('classify', {
+        title: '识别与资源归类',
+        icon: 'mdi-folder-move-outline',
+        visible: Boolean(item.download_hash),
+        invoke: () => {
+          classifyTask.value = item
+        },
+      }),
+      nativeCardAction('delete', {
+        title: t('common.delete'),
+        icon: 'mdi-delete',
+        color: 'error',
+        invoke: () => deleteHistory(item),
+      }),
+    ],
+  }
+}
 </script>
 
 <template>
@@ -125,7 +149,7 @@ function getSeasonEpisode(item: DownloadHistory) {
           <VVirtualScroll v-if="historyList.length > 0" :renderless="true" :items="historyList" :item-height="120">
             <template #default="{ item, ...slotProps }">
               <div :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined">
-                <VListItem class="download-history-item">
+                <VListItem v-native-card-menu="nativeHistoryMenu(item)" class="download-history-item">
                   <template #prepend>
                     <VImg
                       height="96"
@@ -168,7 +192,7 @@ function getSeasonEpisode(item: DownloadHistory) {
                   </VListItemSubtitle>
 
                   <template #append>
-                    <IconBtn :aria-label="t('dialog.downloadHistory.actions')">
+                    <IconBtn data-native-card-menu-trigger :aria-label="t('dialog.downloadHistory.actions')">
                       <VIcon icon="mdi-dots-vertical" />
                       <VMenu activator="parent" close-on-content-click>
                         <VList>

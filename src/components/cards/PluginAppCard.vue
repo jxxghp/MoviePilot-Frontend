@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
 import type { Plugin, PluginInstallOutcome, PluginSourceOptions } from '@/api/types'
@@ -236,6 +237,21 @@ const dropdownItems = ref([
   },
 ])
 
+/** 市场卡片沿用原版本历史与项目入口，不在登记时加载详情或执行安装。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.plugin?.id && JSON.stringify([props.plugin.id, props.plugin.repo_url]),
+  title: props.plugin?.plugin_name,
+  items: () =>
+    dropdownItems.value.map(item =>
+      nativeCardAction(item.value, {
+        title: item.title,
+        icon: item.props.prependIcon,
+        visible: Boolean(item.show),
+        invoke: item.props.click,
+      }),
+    ),
+}))
+
 onUnmounted(() => {
   closeInstallProgress()
   versionHistoryDialogController?.close()
@@ -249,6 +265,7 @@ onUnmounted(() => {
         <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
         <div v-bind="hover.props" class="plugin-app-card-hover-area h-full">
           <VCard
+            v-native-card-menu="nativeCardMenu"
             :width="props.width"
             :height="props.height"
             @click="showPluginDetail"
@@ -326,7 +343,7 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="absolute bottom-0 right-0">
-                <IconBtn @click.stop>
+                <IconBtn data-native-card-menu-trigger @click.stop>
                   <VIcon size="small" icon="mdi-dots-vertical" />
                   <VMenu activator="parent" close-on-content-click>
                     <VList>

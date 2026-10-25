@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { MediaDataSource, MusicEntityType, TorrentCacheData, TorrentCacheItem } from '@/api/types'
@@ -13,6 +14,35 @@ import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import RecognitionCachePanel from '@/components/cache/RecognitionCachePanel.vue'
 
 const CacheReidentifyDialog = defineAsyncComponent(() => import('@/components/dialog/CacheReidentifyDialog.vue'))
+
+/** 种子缓存以域名与哈希绑定，资源链接缺失时沿用原菜单隐藏规则。 */
+function nativeCacheMenu(item: TorrentCacheItem): NativeCardMenuBinding {
+  return {
+    key: item.hash ? getCacheItemIdentity(item) : undefined,
+    title: item.title,
+    items: () => [
+      nativeCardAction('recognize', {
+        title: t('setting.cache.reidentify'),
+        icon: 'mdi-text-recognition',
+        color: 'primary',
+        invoke: () => openReidentifyDialog(item),
+      }),
+      nativeCardAction('source', {
+        title: t('common.openInNewWindow'),
+        icon: 'mdi-open-in-new',
+        color: 'info',
+        visible: Boolean(item.page_url),
+        invoke: () => openPageUrl(item.page_url || ''),
+      }),
+      nativeCardAction('delete', {
+        title: t('common.delete'),
+        icon: 'mdi-delete',
+        color: 'error',
+        invoke: () => deleteSingleItem(item),
+      }),
+    ],
+  }
+}
 
 type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
 type CacheManagerType = 'torrent' | 'recognition'
@@ -469,7 +499,7 @@ watch([titleFilter, siteFilter], () => {
               :get-item-key="getMobileCacheItemKey"
             >
               <template #default="{ item }">
-                <article class="cache-mobile-card">
+                <article v-native-card-menu="nativeCacheMenu(item)" class="cache-mobile-card">
                   <div class="cache-mobile-card__poster rounded-md">
                     <VChip
                       v-if="item.media_type"
@@ -524,6 +554,7 @@ watch([titleFilter, siteFilter], () => {
                     <template #activator="{ props: menuProps }">
                       <VBtn
                         v-bind="menuProps"
+                        data-native-card-menu-trigger
                         icon
                         variant="text"
                         class="cache-mobile-card__menu"

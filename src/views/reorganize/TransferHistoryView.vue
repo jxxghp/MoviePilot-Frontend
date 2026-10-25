@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { debounce } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 import api, { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api'
@@ -1371,6 +1372,25 @@ async function triggerBatchAiRedo() {
   }
 }
 
+/** 两种响应式记录共用原菜单；清理失败恢复项保持原位置和管理权限。 */
+function nativeHistoryMenu(item: TransferHistory): NativeCardMenuBinding {
+  return {
+    key: item.id,
+    title: getHistoryDisplayTitle(item),
+    available: () => historyViewActive && !mobileBatchMode.value,
+    items: () =>
+      getDropdownItems(item).map(menu =>
+        nativeCardAction(menu.value, {
+          title: menu.title,
+          icon: menu.props.prependIcon,
+          color: menu.props.color,
+          enabled: !menu.props.disabled,
+          invoke: menu.props.click,
+        }),
+      ),
+  }
+}
+
 // 计算下拉菜单
 function getDropdownItems(item: TransferHistory) {
   const items = [
@@ -2439,6 +2459,7 @@ onUnmounted(() => {
         <tr :ref="itemRef" class="transfer-history-desktop-record-row" :data-history-id="item.id">
           <td :colspan="columns.length">
             <article
+              v-native-card-menu="nativeHistoryMenu(item)"
               class="transfer-history-desktop-record"
               :class="{
                 'transfer-history-desktop-record--child': group,
@@ -2527,6 +2548,7 @@ onUnmounted(() => {
                     </template>
                   </VTooltip>
                   <IconBtn
+                    data-native-card-menu-trigger
                     :aria-label="t('transferHistory.desktop.recordActions', { title: getHistoryDisplayTitle(item) })"
                   >
                     <VIcon icon="mdi-dots-vertical" />
@@ -2701,6 +2723,7 @@ onUnmounted(() => {
       >
         <template #default="{ item }">
           <article
+            v-native-card-menu="nativeHistoryMenu(item)"
             class="transfer-history-mobile-record"
             :class="{
               'transfer-history-mobile-record--batch': mobileBatchMode,
@@ -2767,7 +2790,7 @@ onUnmounted(() => {
                 @update:model-value="checked => toggleHistorySelection(item, checked)"
               />
 
-              <IconBtn v-else class="transfer-history-mobile-record__menu" size="small">
+              <IconBtn v-else data-native-card-menu-trigger class="transfer-history-mobile-record__menu" size="small">
                 <VIcon icon="mdi-dots-vertical" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>

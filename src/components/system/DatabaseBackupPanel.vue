@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { formatBytes } from '@core/utils/formatters'
 import {
   createDatabaseBackup,
@@ -107,6 +108,28 @@ async function deleteBackup(name: string) {
   }
 }
 
+/** 备份行共用原验证和删除流程；原按钮忙碌期间不允许再次打开菜单。 */
+function nativeBackupMenu(backup: DatabaseBackupArtifact): NativeCardMenuBinding {
+  return {
+    key: backup.name,
+    title: backup.name,
+    available: () => props.active && !verifyingNames.value.has(backup.name) && !deletingNames.value.has(backup.name),
+    items: () => [
+      nativeCardAction('verify', {
+        title: t('setting.system.dbBackupVerify'),
+        icon: 'mdi-shield-check-outline',
+        invoke: () => verifyBackup(backup.name),
+      }),
+      nativeCardAction('delete', {
+        title: t('setting.system.dbBackupDelete'),
+        icon: 'mdi-delete-outline',
+        color: 'error',
+        invoke: () => deleteBackup(backup.name),
+      }),
+    ],
+  }
+}
+
 watch(
   () => props.active,
   active => {
@@ -184,7 +207,7 @@ watch(
           </tr>
         </thead>
         <tbody>
-          <tr v-for="backup in backups" :key="backup.name">
+          <tr v-for="backup in backups" :key="backup.name" v-native-card-menu="nativeBackupMenu(backup)">
             <td class="font-weight-medium text-no-wrap">{{ backup.name }}</td>
             <td>{{ databaseTypeLabel(backup.db_type) }}</td>
             <td class="text-no-wrap">{{ formatCreatedAt(backup.created_at) }}</td>
@@ -194,6 +217,7 @@ watch(
                 <template #activator="{ props: menuProps }">
                   <VBtn
                     v-bind="menuProps"
+                    data-native-card-menu-trigger
                     icon="mdi-dots-vertical"
                     size="small"
                     variant="text"

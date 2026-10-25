@@ -5,6 +5,8 @@ import type { FileSortKey, FileSortOrder } from '@/components/filebrowser/types'
 import i18n from '@/plugins/i18n'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import type { AxiosRequestConfig } from 'axios'
 import { defineComponent, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -217,6 +219,34 @@ describe('FileList list state', () => {
     mocks.confirm.mockResolvedValue(true)
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('projects file operations with original callbacks and keeps the mobile details entry separate', async () => {
+    mocks.narrowScreen = true
+    const file = createItem({ name: 'native-card.mkv', path: '/media/native-card.mkv' })
+    const { container } = await renderList(() => Promise.resolve([file]))
+    await screen.findByText(file.name!)
+    const root = container.querySelector('.file-row')!
+    const menu = readNativeCardMenu(root)!
+    expect(menu.items.map(item => item.id)).toEqual([
+      'action-1',
+      'action-2',
+      'action-3',
+      'action-4',
+      'action-5',
+      'action-download',
+    ])
+    expect(root.querySelector('[data-native-card-menu-trigger]')).not.toBeInTheDocument()
+    expect(
+      root.querySelector(`[aria-label="${i18n.global.t('file.actionsFor', { name: file.name })}"]`),
+    ).toBeInTheDocument()
+    expect(await nativeCardMenus.menus.select(menu.presentationId, 'action-3', () => {})).toBe(true)
+    expect(mocks.openSharedDialog).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ item: file }),
+      expect.any(Object),
+      expect.any(Object),
+    )
   })
 
   it('uses the endpoint method, sort URL and current file item payload, then renders directories before files', async () => {

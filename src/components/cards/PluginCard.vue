@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
+import type { NativeMenuEntry } from '@/native/menu'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
@@ -830,6 +832,42 @@ const advancedDropdownItems = [
   },
 ]
 
+/** 高级操作插在原“查看数据”之后，即使该项隐藏也保留原子菜单位置及运行时禁用规则。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.plugin?.id && JSON.stringify([props.plugin.id, props.plugin.repo_url]),
+  title: props.plugin?.plugin_name,
+  available: () => !props.sortable,
+  items: () =>
+    dropdownItems.value.flatMap<NativeMenuEntry>(item => [
+      nativeCardAction(item.value, {
+        title: item.title,
+        icon: item.props.prependIcon,
+        color: item.props.color,
+        visible: Boolean(item.show),
+        enabled: !isDropdownItemDisabled(item.value),
+        invoke: item.props.click,
+      }),
+      ...(item.value === 1 && props.plugin?.installed
+        ? [
+            {
+              id: 'advanced',
+              kind: 'submenu' as const,
+              title: t('plugin.advancedActions'),
+              icon: 'mdi-tools',
+              items: advancedDropdownItems.map(advancedItem =>
+                nativeCardAction(advancedItem.value, {
+                  title: advancedItem.title,
+                  icon: advancedItem.prependIcon,
+                  enabled: !isDropdownItemDisabled(advancedItem.value),
+                  invoke: advancedItem.click,
+                }),
+              ),
+            },
+          ]
+        : []),
+    ]),
+}))
+
 // 监听插件状态变化
 watch(
   () => [props.plugin?.has_update, props.plugin?.update_candidate?.is_bound] as const,
@@ -865,6 +903,7 @@ watch(
         <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
         <div v-if="isVisible" v-bind="hover.props" class="plugin-card-hover-area h-full">
           <VCard
+            v-native-card-menu="nativeCardMenu"
             :width="props.width"
             :height="props.height"
             @click="handleCardClick"
@@ -968,7 +1007,12 @@ watch(
                 </span>
               </div>
               <div v-if="!props.sortable" class="absolute bottom-0 right-0">
-                <IconBtn class="plugin-card__menu" :aria-label="t('nav.more')" @click.stop>
+                <IconBtn
+                  data-native-card-menu-trigger
+                  class="plugin-card__menu"
+                  :aria-label="t('nav.more')"
+                  @click.stop
+                >
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
                     <VList>

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
@@ -186,6 +187,37 @@ async function deleteDownload() {
     pendingAction.value = null
   }
 }
+/** 下载任务补充同语义的长按来源，保留原内联按钮及其忙碌、确认和设置流程。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.info?.hash && JSON.stringify([props.downloaderName, props.info.hash]),
+  title: mediaTitle.value,
+  available: () => cardState.value,
+  items: () => [
+    nativeCardAction('toggle', {
+      title: toggleActionText.value,
+      icon: isDownloading.value ? 'mdi-pause' : 'mdi-play',
+      color: isDownloading.value ? 'info' : 'warning',
+      enabled: pendingAction.value !== 'delete',
+      loading: pendingAction.value === 'toggle',
+      invoke: toggleDownload,
+    }),
+    nativeCardAction('settings', {
+      title: t('downloading.settings.title'),
+      icon: 'mdi-tune-variant',
+      enabled: !pendingAction.value && Boolean(props.info?.hash),
+      invoke: () => {
+        settingsDialog.value = true
+      },
+    }),
+    nativeCardAction('delete', {
+      title: t('common.delete'),
+      icon: 'mdi-trash-can-outline',
+      enabled: pendingAction.value !== 'toggle' && !deleteConfirmationPending.value,
+      loading: pendingAction.value === 'delete',
+      invoke: deleteDownload,
+    }),
+  ],
+}))
 </script>
 
 <template>
@@ -199,6 +231,7 @@ async function deleteDownload() {
         >
           <!-- 卡片高度固定为海报 2:3 的高度；无海报时去掉海报列但保持同一高度，网格行高一致。 -->
           <VCard
+            v-native-card-menu="nativeCardMenu"
             :key="props.info?.hash"
             class="downloading-card h-full overflow-hidden"
             :class="{ 'downloading-card--no-image': !hasPosterImage }"

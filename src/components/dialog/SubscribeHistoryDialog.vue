@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import api from '@/api'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 const SubscribeActivityDialog = defineAsyncComponent(() => import('./SubscribeActivityDialog.vue'))
@@ -154,6 +155,23 @@ const dropdownItems = ref([
   },
 ])
 
+/** 历史订阅仍传原记录给原回调，不把历史 ID 当成正在订阅的 ID。 */
+function nativeHistoryMenu(item: Subscribe): NativeCardMenuBinding {
+  return {
+    key: item.id,
+    title: item.name,
+    items: () =>
+      dropdownItems.value.map(menu =>
+        nativeCardAction(menu.value, {
+          title: menu.title,
+          icon: menu.props.prependIcon,
+          color: menu.color,
+          invoke: () => menu.props.click(item),
+        }),
+      ),
+  }
+}
+
 // 获取媒体类型文本
 function getMediaTypeText(type: string | undefined) {
   if (!type) return ''
@@ -186,7 +204,7 @@ function getMediaTypeText(type: string | undefined) {
           <VVirtualScroll v-if="historyList.length > 0" :renderless="true" :items="historyList" :item-height="104">
             <template #default="{ item, ...slotProps }">
               <div :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined">
-                <VListItem>
+                <VListItem v-native-card-menu="nativeHistoryMenu(item)">
                   <template #prepend>
                     <VImg
                       :height="item.type === '音乐' ? 64 : 75"
@@ -214,7 +232,7 @@ function getMediaTypeText(type: string | undefined) {
                   <VListItemSubtitle class="mt-2">{{ item.description }}</VListItemSubtitle>
                   <template #append>
                     <div class="me-n3">
-                      <IconBtn>
+                      <IconBtn data-native-card-menu-trigger>
                         <VIcon icon="mdi-dots-vertical" />
                         <VMenu activator="parent" close-on-content-click>
                           <VList>
