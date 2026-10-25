@@ -43,7 +43,7 @@ html[data-theme='glass'] {
   --glass-shadow-hover:
     0 18px 44px rgba(0, 0, 0, 36%), inset 0 1px 0 rgba(255, 255, 255, 28%), inset 0 -1px 0 rgba(0, 0, 0, 18%);
   --glass-navbar-shadow:
-    0 3px 12px rgba(0, 0, 0, 18%), inset 0 1px 0 rgba(255, 255, 255, 10%), inset 0 -1px 0 rgba(0, 0, 0, 12%);
+    0 2px 8px rgba(0, 0, 0, 8%), inset 0 1px 0 rgba(255, 255, 255, 6%), inset 0 -1px 0 rgba(0, 0, 0, 6%);
   --glass-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 12%), inset 0 -1px 0 rgba(0, 0, 0, 14%);
   --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 18%), inset 0 -1px 0 rgba(0, 0, 0, 12%);
   --glass-control-shadow-active: inset 0 1px 0 rgba(255, 255, 255, 7%), inset 0 -1px 0 rgba(0, 0, 0, 20%);
@@ -1840,9 +1840,9 @@ html[data-theme='glass']:is([data-glass-appearance='clear'], [data-glass-appeara
   --glass-navbar-tint: clamp(0, calc(var(--glass-tint-density, 0.65) * 0.12), 0.18);
   --glass-navbar-shadow:
     inset 0 0 0 1px var(--glass-navbar-rim), inset 0 1px 2px rgba(255, 255, 255, var(--glass-navbar-top-opacity)),
-    inset 0 -1px 2px rgba(0, 0, 0, calc(0.1 + var(--glass-surface-density, 0.62) * 0.12)),
-    0 12px 32px
-      rgba(0, 0, 0, calc(0.08 + var(--glass-reflection, 0.5) * 0.1 + var(--glass-surface-density, 0.62) * 0.08));
+    inset 0 -1px 2px rgba(0, 0, 0, calc(0.04 + var(--glass-surface-density, 0.62) * 0.04)),
+    0 4px 14px
+      rgba(0, 0, 0, calc(0.035 + var(--glass-reflection, 0.5) * 0.025 + var(--glass-surface-density, 0.62) * 0.02));
   --glass-navbar-live-filter: var(--glass-navbar-reading-filter, saturate(100%))
     saturate(var(--glass-navbar-saturation)) brightness(var(--glass-navbar-brightness));
 
