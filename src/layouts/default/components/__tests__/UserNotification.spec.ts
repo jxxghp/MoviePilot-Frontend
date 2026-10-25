@@ -215,7 +215,7 @@ describe('UserNotification', () => {
     expect(new TextEncoder().encode(JSON.stringify(projection.panel)).length).toBeLessThan(28000)
   })
 
-  it('原生优先投影独立海报，旧版和历史通知兼容网页实际使用的 image 属性', async () => {
+  it('原生优先投影独立海报，旧消息缺海报时保留原图片供原生竖版裁剪', async () => {
     const pending = deferNotifications()
     await renderWithProviders(UserNotification)
     const action = nativeGlobalActions.value.get('notifications')!
@@ -263,7 +263,7 @@ describe('UserNotification', () => {
     expect(expanded.body).toContain(text)
   })
 
-  it('普通网页通知继续展示原渠道图片', async () => {
+  it('普通网页通知优先展示独立海报，不改变原渠道图片字段', async () => {
     const pending = deferNotifications()
     const { container } = await renderWithProviders(UserNotification, {
       global: { stubs: { VImg: { props: ['src'], template: '<img :src="src" />' } } },
@@ -280,9 +280,22 @@ describe('UserNotification', () => {
     expect(await screen.findByText('网页媒体通知')).toBeInTheDocument()
     await waitFor(() => {
       expect(document.querySelector('.notification-panel img')?.getAttribute('src')).toBe(
-        'https://images.example.com/backdrop.jpg',
+        'https://images.example.com/poster.jpg',
       )
     })
+  })
+
+  it('网页历史消息没有 poster 时回退 image 并使用竖版 cover 缩略图', async () => {
+    const pending = deferNotifications()
+    const { container } = await renderWithProviders(UserNotification, {
+      global: { stubs: { VImg: { props: ['src'], template: '<img :src="src" />' } } },
+    })
+    await fireEvent.click(container.querySelector('button')!)
+    pending.resolve([{ id: 85, title: '历史媒体消息', image: 'https://images.example.com/backdrop.jpg' }])
+    expect(await screen.findByText('历史媒体消息')).toBeInTheDocument()
+    const media = document.querySelector('.notification-panel .notification-media')!
+    expect(media).toBeInTheDocument()
+    expect(media.querySelector('img')?.getAttribute('src')).toBe('https://images.example.com/backdrop.jpg')
   })
 
   it.each([390, 1440])('在 %ipx 窗口首次打开时显示加载动画，响应后显示消息', async width => {

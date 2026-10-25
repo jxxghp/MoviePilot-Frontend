@@ -625,7 +625,7 @@ function nativeNotificationEntry(item: SystemNotification): NativePanelEntry {
       .filter(Boolean)
       .join('\n'),
     icon: getNotificationIcon(item),
-    // 兼容旧通知 image，同时优先采用新后端的独立竖版海报。
+    // 优先使用独立海报；历史消息缺海报时兼容原图片，由中心按竖版居中裁剪。
     image: item.poster || item.image || undefined,
     keepOpen: true,
     invoke: () => {
@@ -868,10 +868,9 @@ function notificationNativePanel(): NativePanelSource {
                   @keydown.enter.prevent="toggleNotificationExpanded(item.notification)"
                   @keydown.space.prevent="toggleNotificationExpanded(item.notification)"
                 >
-                  <div v-if="item.notification.image" class="notification-media">
+                  <div v-if="item.notification.poster || item.notification.image" class="notification-media">
                     <VImg
-                      v-if="item.notification.image"
-                      :src="item.notification.image"
+                      :src="item.notification.poster || item.notification.image"
                       cover
                       class="notification-media__image"
                     >
