@@ -1,4 +1,5 @@
 import { ApiRequestError, type DataApiClient } from '@/api/client'
+import { isNavigationFailure, NavigationFailureType, type Router } from 'vue-router'
 import { isRecord } from './protocol'
 
 /** 小组件只携带固定内容意图，实际页面仍经过原有 Router 守卫。 */
@@ -67,6 +68,12 @@ export interface NativeWidgetOptions {
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ownerPattern = /^[0-9a-f]{32}$/
+
+/** 已在目标页也完成固定意图；取消或守卫拒绝继续失败，不重载页面或追加重复历史。 */
+export async function navigateNativeWidget(router: Router, path: string): Promise<boolean> {
+  const failure = await router.push(path)
+  return !isNavigationFailure(failure) || isNavigationFailure(failure, NavigationFailureType.duplicated)
+}
 
 /** 规范 UUID 后仅用于固定资源路径，不把任意标识拼进 URL。 */
 function uuid(value: unknown): string | undefined {

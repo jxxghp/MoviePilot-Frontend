@@ -17,6 +17,7 @@
 
 `content` 只接受 `overview`、`downloads`、`imports`、`movieSubscriptions`、`tvSubscriptions`
 和 `musicSubscriptions`。弹层打开时不执行跳转；路由守卫仍决定访问是否成功。
+已在目标页时也返回成功，不刷新页面或追加重复历史；守卫拒绝、取消及其他失败仍返回失败。
 这些请求不能指定任意 URL、HTTP 方法、主登录凭据、权限或业务命令。
 
 前端复用现有 API 客户端及主登录拦截器，只调用与主文档精确同源的固定 `api/v1/widget/`
