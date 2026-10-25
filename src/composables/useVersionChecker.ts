@@ -3,6 +3,7 @@ import { useToast } from 'vue-toastification'
 import { Workbox } from 'workbox-window'
 import i18n from '@/plugins/i18n'
 import VersionUpdateToast from '@/components/toast/VersionUpdateToast.vue'
+import { nativeReadonlyCache } from '@/native/cache'
 import {
   createServiceWorkerCoordinator,
   resolveServiceWorkerRegistration,
@@ -75,6 +76,7 @@ export const reloadWithTimestamp = (): void => {
  * 清除所有缓存和 Service Worker
  */
 export const clearCachesAndServiceWorker = async (): Promise<void> => {
+  nativeReadonlyCache.clear()
   try {
     // 1. 清除所有缓存
     if ('caches' in window) {

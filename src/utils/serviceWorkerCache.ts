@@ -1,12 +1,17 @@
 import type { WorkboxPlugin } from 'workbox-core'
 
+/** App 的短时内存榜单不能从 SW 旧落盘数据回退；普通 Web/PWA 沿用原缓存策略。 */
+export function bypassNativeApiCache(request: Pick<Request, 'headers'>): boolean {
+  return (
+    request.headers.get('X-MoviePilot-Native') === '1' &&
+    (request.headers.get('Cache-Control') ?? '').split(',').some(value => value.trim().toLowerCase() === 'no-store')
+  )
+}
+
 /**
  * 插件联邦静态文件由后端版本参数和 HTTP 缓存策略管理，不能进入应用脚本的 SWR 缓存。
  */
-export function shouldCacheStaticResource(
-  request: Pick<Request, 'destination'>,
-  url: Pick<URL, 'pathname'>,
-): boolean {
+export function shouldCacheStaticResource(request: Pick<Request, 'destination'>, url: Pick<URL, 'pathname'>): boolean {
   return ['style', 'script', 'worker'].includes(request.destination) && !url.pathname.includes('/api/v1/plugin/file/')
 }
 

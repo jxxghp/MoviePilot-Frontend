@@ -1,12 +1,31 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  bypassNativeApiCache,
   corsSafeCachePlugin,
   jsonOnlyCachePlugin,
   selectCorsSafeCachedResponse,
   shouldCacheStaticResource,
   shouldCacheJsonResponse,
 } from '../serviceWorkerCache'
+
+describe('App 短时内存缓存的 SW 边界', () => {
+  it.each([
+    [{}, false],
+    [{ 'X-MoviePilot-Native': '1' }, false],
+    [{ 'Cache-Control': 'no-store' }, false],
+    [{ 'X-MoviePilot-Native': '0', 'Cache-Control': 'no-store' }, false],
+    [{ 'X-MoviePilot-Native': '1', 'Cache-Control': 'no-cache' }, false],
+    [{ 'X-MoviePilot-Native': '1', 'Cache-Control': 'no-store' }, true],
+    [{ 'X-MoviePilot-Native': '1', 'Cache-Control': 'max-age=0, NO-STORE' }, true],
+  ])('仅完整专用请求标记跳过落盘缓存 %#', (headers, expected) => {
+    expect(
+      bypassNativeApiCache(
+        new Request('https://moviepilot/api/v1/recommend/tmdb_trending', { headers: headers as HeadersInit }),
+      ),
+    ).toBe(expected)
+  })
+})
 
 function createResponse(type: ResponseType) {
   const response = new Response('image')
@@ -114,12 +133,9 @@ describe('Service Worker static resource routing', () => {
     ['style', true],
     ['worker', true],
   ] as const)('caches ordinary %s resources', (destination, expected) => {
-    expect(
-      shouldCacheStaticResource(
-        { destination },
-        new URL('https://moviepilot.example/assets/app.js'),
-      ),
-    ).toBe(expected)
+    expect(shouldCacheStaticResource({ destination }, new URL('https://moviepilot.example/assets/app.js'))).toBe(
+      expected,
+    )
   })
 
   it('bypasses the application SWR cache for plugin federation files', () => {

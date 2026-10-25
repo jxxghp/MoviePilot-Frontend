@@ -23,6 +23,8 @@ export interface NativeSessionOptions {
   lifecycle(state: 'active' | 'inactive' | 'background'): void
   /** 可选小组件窄接口；结果不进入普通命令重放缓存。 */
   widgetRequest?(payload: Record<string, unknown>, signal: AbortSignal): Promise<NativeWidgetResult>
+  /** 只发布可选只读缓存的接管状态，不通过桥传输数据或认证信息。 */
+  readonlyCache?(active: boolean): void
 }
 
 /** 单主文档的事务桥；没有 WebKit 门面时不会创建此对象。 */
@@ -44,6 +46,10 @@ export class NativeChromeSession {
   private widgetRequest?: AbortController
   private widgetRequestId?: string
   private readonly widgetRequests = new Set<string>()
+  private cacheNegotiated = false
+  private cachePaused = false
+  private cacheForeground = true
+  private cacheActive = false
   /** 网页退出先同步通知宿主，再阻止本代次产生任何新的组件凭据。 */
   private readonly widgetLogout = () => {
     if (this.phase !== 'active' || !this.widgetsNegotiated) return
@@ -73,6 +79,9 @@ export class NativeChromeSession {
         'menu.v1',
         'notifications.v1',
         ...(this.options.transport.widgetsVersion === 1 && this.options.widgetRequest ? ['widgets.v1'] : []),
+        ...(this.options.transport.readonlyCacheVersion === 1 && this.options.readonlyCache
+          ? ['readonly-cache.v1']
+          : []),
       ],
     })
     this.timer = setTimeout(() => {
@@ -114,6 +123,8 @@ export class NativeChromeSession {
 
   /** 卸载时撤销 DOM 模式及全部回调引用，不能把旧 owner 留给下一布局。 */
   async stop() {
+    this.cacheNegotiated = false
+    this.updateCache()
     this.clearNavigationPreviews()
     this.cancelWidgetRequest()
     this.widgetsNegotiated = false
@@ -129,6 +140,8 @@ export class NativeChromeSession {
 
   /** 当前认证或权限上下文变化时通知宿主清理旧命令，再发布新代次。 */
   identityChanged() {
+    this.cachePaused = true
+    this.updateCache()
     this.clearNavigationPreviews()
     this.cancelWidgetRequest()
     this.widgetsPaused = true
@@ -141,6 +154,14 @@ export class NativeChromeSession {
   /** 当前页面注册超出协议表达范围时恢复完整网页导航。 */
   fallback() {
     void this.fail()
+  }
+
+  /** 只有前台、身份代次有效且接管完成时启用；每次释放都同步清掉网页快照。 */
+  private updateCache() {
+    const active = this.phase === 'active' && this.cacheNegotiated && !this.cachePaused && this.cacheForeground
+    if (active === this.cacheActive) return
+    this.cacheActive = active
+    this.options.readonlyCache?.(active)
   }
 
   /** 取消只释放当前等待，不清除本会话的请求标识，避免恢复前台时重放写请求。 */
@@ -234,6 +255,11 @@ export class NativeChromeSession {
         this.options.widgetRequest &&
         capabilities.includes('widgets.v1'),
       )
+      this.cacheNegotiated = Boolean(
+        this.options.transport.readonlyCacheVersion === 1 &&
+        this.options.readonlyCache &&
+        capabilities.includes('readonly-cache.v1'),
+      )
       this.phase = 'configured'
       this.publish()
       this.timer = setTimeout(() => {
@@ -261,6 +287,8 @@ export class NativeChromeSession {
       return
     }
     if (message.type === 'host.rekey') {
+      this.cachePaused = true
+      this.updateCache()
       this.clearNavigationPreviews()
       this.cancelWidgetRequest()
       if (this.phase !== 'active' || !isNativeIdentifier(message.payload.sessionId)) {
@@ -270,6 +298,8 @@ export class NativeChromeSession {
       this.sessionId = message.payload.sessionId
       this.widgetRequests.clear()
       this.widgetsPaused = false
+      this.cachePaused = false
+      this.updateCache()
       this.stateRevision = 0
       this.results.clear()
       this.completed.clear()
@@ -277,6 +307,8 @@ export class NativeChromeSession {
       return
     }
     if (message.type === 'chrome.release') {
+      this.cacheNegotiated = false
+      this.updateCache()
       this.clearNavigationPreviews()
       this.cancelWidgetRequest()
       this.widgetsNegotiated = false
@@ -296,6 +328,7 @@ export class NativeChromeSession {
         return
       }
       this.phase = 'active'
+      this.updateCache()
       clearTimeout(this.timer)
       this.post('chrome.accepted', { layoutRevision: message.payload.layoutRevision })
       return
@@ -308,6 +341,8 @@ export class NativeChromeSession {
       const state = message.payload.state
       if (state === 'active' || state === 'inactive' || state === 'background') {
         this.widgetForeground = state === 'active'
+        this.cacheForeground = state === 'active'
+        this.updateCache()
         if (!this.widgetForeground) this.cancelWidgetRequest()
         this.options.lifecycle(state)
         clearTimeout(this.timer)
@@ -402,6 +437,8 @@ export class NativeChromeSession {
 
   /** 只有仍可执行 JS 时才能恢复网页；宿主另行处理进程终止。 */
   private async fail() {
+    this.cacheNegotiated = false
+    this.updateCache()
     this.clearNavigationPreviews()
     this.cancelWidgetRequest()
     this.widgetsNegotiated = false

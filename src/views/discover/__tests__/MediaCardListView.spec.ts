@@ -1,4 +1,7 @@
 import type { MediaInfo } from '@/api/types'
+import api from '@/api'
+import { createPinia, setActivePinia } from 'pinia'
+import { nativeReadonlyCache } from '@/native/cache'
 import MediaCardListView from '@/views/discover/MediaCardListView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -8,7 +11,7 @@ import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 const LIST_PATH = 'test/discover/list'
@@ -168,9 +171,58 @@ function gridKeys() {
 }
 
 describe('MediaCardListView', () => {
+  afterEach(() => {
+    nativeReadonlyCache.setEnabled(false)
+    nativeReadonlyCache.setScope(undefined)
+  })
   beforeEach(() => {
     initialLoadMargins.length = 0
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('App 复用横向榜单第一页，分页仍保留原参数并继续请求下一页', async () => {
+    setActivePinia(createPinia())
+    setScrollHeight(() => 900)
+    const path = 'recommend/tmdb_trending'
+    const requested: Request[] = []
+    server.use(
+      http.get(new URL(path, API_BASE_URL).href, ({ request }) => {
+        requested.push(request)
+        const page = Number(new URL(request.url).searchParams.get('page') ?? '1')
+        return apiJson([createMediaInfo({ title: `缓存榜单第${page}页`, media_id: String(page) })])
+      }),
+    )
+    nativeReadonlyCache.setScope({ apiBase: API_BASE_URL, userId: 7, locale: 'zh-CN' })
+    nativeReadonlyCache.setEnabled(true)
+    await nativeReadonlyCache.get(api, path)
+    await renderList({ apipath: path, params: { title: '流行趋势' } })
+    expect(await screen.findByRole('article', { name: '媒体卡片 缓存榜单第1页' })).toBeInTheDocument()
+    expect(requested).toHaveLength(1)
+    await fireEvent.click(screen.getByRole('button', { name: '触发媒体列表加载' }))
+    expect(await screen.findByRole('article', { name: '媒体卡片 缓存榜单第2页' })).toBeInTheDocument()
+    expect(requested).toHaveLength(2)
+    expect(new URL(requested[1].url).searchParams.get('page')).toBe('2')
+    expect(requested[1].headers.get('X-MoviePilot-Native')).toBe('1')
+    expect(requested[1].headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  it('普通网页相同公开榜单重新进入仍请求网络，不附加原生标记', async () => {
+    setScrollHeight(() => 900)
+    const path = 'recommend/tmdb_trending'
+    const requested: Request[] = []
+    server.use(
+      http.get(new URL(path, API_BASE_URL).href, ({ request }) => {
+        requested.push(request)
+        return apiJson([createMediaInfo({ title: '普通网页榜单' })])
+      }),
+    )
+    const first = await renderList({ apipath: path })
+    await screen.findByRole('article', { name: '媒体卡片 普通网页榜单' })
+    first.unmount()
+    await renderList({ apipath: path })
+    await screen.findByRole('article', { name: '媒体卡片 普通网页榜单' })
+    expect(requested).toHaveLength(2)
+    expect(requested.every(request => !request.headers.has('X-MoviePilot-Native'))).toBe(true)
   })
 
   it('keeps the component-owned page ahead of a page value in browse query params', async () => {
