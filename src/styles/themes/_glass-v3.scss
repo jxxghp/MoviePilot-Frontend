@@ -269,6 +269,9 @@ $-custom-content-surfaces: (
     }
 
     .layout-navbar {
+      // 顶部导航单独收窄投影，避免浅色正文上方形成较宽的灰色带。
+      --glass-v3-navigation-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+
       border-radius: var(--glass-v3-navigation-radius) !important;
       box-shadow: var(--glass-v3-surface-edge), var(--glass-v3-navigation-shadow) !important;
       inline-size: calc(100% - var(--glass-v3-nav-reserved-width) - 2 * var(--glass-v3-navigation-inset)) !important;
