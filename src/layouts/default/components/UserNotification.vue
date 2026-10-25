@@ -12,6 +12,8 @@ import { useNativeGlobalAction, nativeRequestedPanel } from '@/native/registry'
 import { nativePanelId } from '@/native/panel'
 import type { NativePanelEntry, NativePanelSource } from '@/native/registry'
 import { nativeChromeActive } from '@/native/layout'
+import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
+import { appActivityLifecycle } from '@/utils/appActivityLifecycle'
 
 type NotificationDisplayItem =
   | { kind: 'section'; key: string; title: string; count: number }
@@ -542,7 +544,7 @@ function toggleNotificationExpanded(item: SystemNotification) {
   expandedNotificationKeys.value = expandedKeys
 }
 
-useDelayedSSE(
+const notificationStream = useDelayedSSE(
   `${import.meta.env.VITE_API_BASE_URL}system/message?role=notification`,
   handleMessage,
   'user-notification',
@@ -553,6 +555,13 @@ useDelayedSSE(
     maxReconnectAttempts: 3,
   },
 )
+
+// EventSource 不提供 HTTP 状态；前台流中断时用现有鉴权 ping 确认服务与会话状态。
+watch(notificationStream.isConnected, (connected, previouslyConnected) => {
+  if (connected || !previouslyConnected || window.MoviePilotNative?.transportVersion !== 1) return
+  const activity = appActivityLifecycle.getState()
+  if (activity === 'active' || activity === 'idle') useGlobalOfflineStatus().requestConnectionCheck()
+})
 
 /** 监听通知中心展开状态，展开时主动刷新首屏通知。 */
 function handleNotificationMenuVisibleChange(open: boolean) {

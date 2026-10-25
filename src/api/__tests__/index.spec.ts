@@ -1,5 +1,5 @@
 import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   i18nT: vi.fn((key: string) => `translated:${key}`),
@@ -63,6 +63,7 @@ async function installFailingAdapter(status: number, data: unknown) {
 }
 
 describe('API application wiring', () => {
+  afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => {
     mocks.authState.token = null
     mocks.logout.mockClear()
@@ -115,6 +116,37 @@ describe('API application wiring', () => {
 
     expect(mocks.logout).toHaveBeenCalledOnce()
     expect(mocks.routerPush).toHaveBeenCalledOnce()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('App 并发 401 立即交回原生登录，不等待网页路由或桥接状态更新', async () => {
+    const authenticationRequired = vi.fn()
+    vi.stubGlobal('MoviePilotNative', { transportVersion: 1, authenticationRequired })
+    mocks.authState.token = 'expired-native-token'
+    const module = await installFailingAdapter(401, { detail: 'Token signature invalid after restart' })
+
+    await Promise.allSettled([module.default.get('/dashboard'), module.default.get('/system/ping')])
+
+    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(authenticationRequired).toHaveBeenCalledOnce()
+    expect(mocks.routerPush).not.toHaveBeenCalled()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('旧宿主或原生认证交接失败时仍通过网页登录路由恢复', async () => {
+    vi.stubGlobal('MoviePilotNative', {
+      transportVersion: 1,
+      authenticationRequired: vi.fn(() => {
+        throw new Error('host unavailable')
+      }),
+    })
+    mocks.authState.token = 'expired-native-token'
+    const module = await installFailingAdapter(401, { detail: 'Not authenticated' })
+
+    await module.default.get('/system/ping').catch(() => {})
+
+    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.routerPush).toHaveBeenCalledWith('/login')
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
 

@@ -40,6 +40,16 @@ function handleUnauthorized(): true {
   const authStore = useAuthStore()
   if (authStore.token) {
     authStore.logout()
+    // 原生认证接管独立于 Vue Router，避免后端重启或桥重新协商时卡在网页恢复状态。
+    const transport = window.MoviePilotNative
+    if (transport?.transportVersion === 1 && transport.authenticationRequired) {
+      try {
+        transport.authenticationRequired()
+        return true
+      } catch {
+        // 旧宿主或认证 handler 已失效时仍保留既有路由恢复流程。
+      }
+    }
     void router.push('/login')
   }
   return true
