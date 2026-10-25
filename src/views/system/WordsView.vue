@@ -733,7 +733,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   background: transparent;
+  inline-size: 100%;
   min-block-size: 0;
+  /* 弹窗正文是横向 flex 容器，编辑器和标签的固有宽度不能反向撑大整张工作台。 */
+  min-inline-size: 0;
 }
 
 .words-summary {
@@ -756,6 +759,7 @@ onMounted(() => {
   block-size: min(40rem, calc(100dvh - 10rem));
   grid-template-columns: 19rem minmax(0, 1fr);
   min-block-size: 32rem;
+  min-inline-size: 0;
 }
 
 .words-sidebar {
@@ -861,6 +865,7 @@ onMounted(() => {
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  min-inline-size: 0;
 }
 
 .words-editor-header {
@@ -1392,6 +1397,7 @@ onMounted(() => {
 
   .words-editor-footer {
     position: relative;
+    flex-wrap: wrap;
     min-block-size: calc(5.25rem + env(safe-area-inset-bottom));
     padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
     padding-inline: 1.25rem;
@@ -1412,10 +1418,6 @@ onMounted(() => {
 }
 
 @media (width <= 420px) {
-  .words-mobile-tab {
-    min-inline-size: 4.85rem;
-  }
-
   .words-editor-header {
     padding-inline: 1rem;
   }
