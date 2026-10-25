@@ -2,6 +2,7 @@ import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
 import type { LlmModel, LlmProvider, LlmProviderAuthSession } from '@/composables/useLlmProviderDirectory'
 import type { GithubTokenStatus } from '@/composables/useGithubTokenAuth'
 import { useGlobalSettingsStore } from '@/stores'
+import vuetify from '@/plugins/vuetify'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
@@ -516,6 +517,8 @@ async function expandLlmSettings() {
 
 describe('AccountSettingSystem', () => {
   beforeEach(() => {
+    vuetify.theme.global.name.value = 'glass'
+    vuetify.theme.themes.value.glass.dark = true
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
@@ -958,6 +961,45 @@ describe('AccountSettingSystem', () => {
     await selectOption('背景壁纸', '无壁纸')
 
     expect(screen.queryByLabelText('壁纸轮换时间')).not.toBeInTheDocument()
+  })
+
+  it('hides every wallpaper control in effective light mode and preserves the dark wallpaper preference', async () => {
+    systemEnv = { ...systemEnv, WALLPAPER: 'static', WALLPAPER_IMAGE_URL: '/local/existing.jpg' }
+    vuetify.theme.themes.value.glass.dark = false
+    await renderSettings()
+    await screen.findByDisplayValue('https://moviepilot.example')
+
+    for (const label of ['背景壁纸', '静态壁纸地址', '自定义壁纸API地址', '壁纸轮换时间']) {
+      expect(screen.queryByLabelText(label)).not.toBeInTheDocument()
+    }
+    await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('基础设置保存成功'))
+    expect(findPost('system/env')?.[1]).toEqual(
+      expect.objectContaining({ WALLPAPER: 'static', WALLPAPER_IMAGE_URL: '/local/existing.jpg' }),
+    )
+
+    vuetify.theme.themes.value.glass.dark = true
+    await nextTick()
+    expect(screen.getByLabelText('背景壁纸')).toHaveValue('static')
+    expect(screen.getByLabelText('静态壁纸地址')).toHaveValue('/local/existing.jpg')
+    expect(mocks.apiPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('publishes the saved wallpaper configuration only after the save succeeds', async () => {
+    await renderSettings()
+    await screen.findByDisplayValue('https://moviepilot.example')
+    const store = useGlobalSettingsStore()
+    store.setData({ WALLPAPER: 'static', WALLPAPER_IMAGE_URL: '/local/old.jpg' })
+    await selectOption('背景壁纸', '静态图片')
+    await fireEvent.update(screen.getByLabelText('静态壁纸地址'), '/local/new.jpg')
+    expect(store.get('WALLPAPER_IMAGE_URL')).toBe('/local/old.jpg')
+    mocks.apiPost.mockRejectedValueOnce(new Error('Synthetic save failure'))
+    await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalled())
+    expect(store.get('WALLPAPER_IMAGE_URL')).toBe('/local/old.jpg')
+
+    await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(store.get('WALLPAPER_IMAGE_URL')).toBe('/local/new.jpg'))
   })
 
   it('round-trips the user-editable LLM connection and inference settings', async () => {

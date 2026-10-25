@@ -201,7 +201,7 @@ const allowsBackgroundRotation = computed(
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
-const isBackdropTheme = computed(() => isGlassTheme.value)
+const isBackdropTheme = computed(() => isGlassTheme.value && globalTheme.current.value.dark)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const loginVisualProfile = computed(() => 'glass' as const)
 const loginGlassSettings = computed(() =>
@@ -251,16 +251,19 @@ const shouldUseGlassBackgroundTreatment = computed(
   () => isGlassTheme.value && (Boolean(isLogin.value) || isLoginWallpaperRoute.value),
 )
 const shouldLoadBackgroundImages = computed(
-  () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
+  () => isBackdropTheme.value && (isLoginWallpaperRoute.value || Boolean(isLogin.value)),
 )
-const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
-const renderedBackgroundLayers = computed(() => backgroundLayers.value)
+const activeBackgroundImage = computed(() =>
+  shouldLoadBackgroundImages.value ? (backgroundImages.value[activeImageIndex.value] ?? '') : '',
+)
+const renderedBackgroundLayers = computed(() => (shouldLoadBackgroundImages.value ? backgroundLayers.value : []))
 const getOpticalBackgroundImage = (imageUrl: string) => imageUrl
 const getPreparedBackgroundImage = (imageUrl: string) => backgroundDisplayImages.value[imageUrl] ?? imageUrl
 const getPreparedOpticalBackgroundImage = (imageUrl: string) =>
   backgroundDisplayImages.value[imageUrl] ?? getOpticalBackgroundImage(imageUrl)
 const activeOpticalBackgroundImage = computed(() => getPreparedOpticalBackgroundImage(activeBackgroundImage.value))
 const previousOpticalBackgroundImage = computed(() => {
+  if (!shouldLoadBackgroundImages.value) return ''
   const previousIndex = previousImageIndex.value
   if (previousIndex === null) return ''
 
@@ -870,12 +873,19 @@ async function removeLoadingWithStateCheck() {
   }
 }
 
-// 加载背景图片
+/** 只提交当前配置仍有效的可用壁纸；关闭壁纸的空列表立即清空，不进入失败重试。 */
 async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
   const maxRetries = 3
   try {
     const images = resolveBackgroundCandidateOrder(await fetchBackgroundImages())
     if (loadVersion !== backgroundLoadVersion) return
+    if (images.length === 0) {
+      backgroundImages.value = []
+      activeImageIndex.value = 0
+      resetBackgroundCrossfade()
+      stopBackgroundRotation()
+      return
+    }
 
     const firstAvailableIndex = await findFirstAvailableBackground({
       urls: images,
@@ -887,13 +897,8 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
 
     const currentImage = activeBackgroundImage.value
     const currentIndex = images.indexOf(currentImage)
-    if (currentImage && currentIndex < 0) {
-      backgroundImages.value = [currentImage, ...images]
-      activeImageIndex.value = 0
-    } else {
-      backgroundImages.value = images
-      activeImageIndex.value = currentIndex >= 0 ? currentIndex : firstAvailableIndex
-    }
+    backgroundImages.value = images
+    activeImageIndex.value = currentIndex >= 0 ? currentIndex : firstAvailableIndex
     backgroundRecoveryAttemptedVersion = -1
     resetBackgroundCrossfade()
     recordGlassLaunchTiming('wallpaper-committed', activeBackgroundImage.value)
@@ -917,16 +922,23 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
   }
 }
 
-// 登录前后复用同一壁纸列表和活动项；请求与主题样式并行，避免玻璃 CSS 阻塞首张壁纸准备。
+// 明暗变化和已保存的来源/地址共用加载代次；浅色与关闭壁纸立即撤销所有可见层和在途提交。
 watch(
-  shouldLoadBackgroundImages,
-  shouldLoad => {
+  [
+    shouldLoadBackgroundImages,
+    () => globalSettingsStore.get('WALLPAPER'),
+    () => globalSettingsStore.get('WALLPAPER_IMAGE_URL'),
+    () => globalSettingsStore.get('CUSTOMIZE_WALLPAPER_API_URL'),
+  ],
+  ([shouldLoad]) => {
     stopBackgroundLoading()
-    if (shouldLoad) {
+    if (shouldLoad && globalSettingsStore.get('WALLPAPER') !== '') {
       const loadPromise = loadBackgroundImages(backgroundLoadVersion)
       if (!initialBackgroundLoadPromise) initialBackgroundLoadPromise = loadPromise
-    } else if (!isBackdropTheme.value) {
+    } else {
       backgroundImages.value = []
+      activeImageIndex.value = 0
+      resetBackgroundCrossfade()
     }
   },
   { immediate: true },
@@ -1033,7 +1045,7 @@ onUnmounted(() => {
   >
     <!-- 登录页与业务页面共用玻璃动态壁纸场景。 -->
     <div
-      v-if="backgroundImages.length > 0 && (isBackdropTheme || !isLogin)"
+      v-if="shouldLoadBackgroundImages && backgroundImages.length > 0"
       class="background-container"
       :class="{
         'is-glass-theme': shouldUseGlassBackgroundTreatment,
