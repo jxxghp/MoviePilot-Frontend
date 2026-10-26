@@ -124,11 +124,30 @@ function getRequestErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+/** 捕获组件上下文中的依赖，供后续独立订阅交互复用。 */
+export function useMediaSubscribeFactory() {
+  const dependencies = { t: useI18n().t, $toast: useToast(), createConfirm: useConfirm() }
+  return (options: UseMediaSubscribeOptions) => createMediaSubscribe(options, dependencies)
+}
+
 // 封装媒体卡片与详情页共用的订阅交互。
 export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
-  const { t } = useI18n()
-  const $toast = useToast()
-  const createConfirm = useConfirm()
+  return useMediaSubscribeFactory()(options)
+}
+
+/** 创建只绑定调用方媒体和状态的订阅动作，不在异步回调中重新注入组件依赖。 */
+function createMediaSubscribe(
+  options: UseMediaSubscribeOptions,
+  {
+    t,
+    $toast,
+    createConfirm,
+  }: {
+    t: ReturnType<typeof useI18n>['t']
+    $toast: ReturnType<typeof useToast>
+    createConfirm: ReturnType<typeof useConfirm>
+  },
+) {
   const episodeGroup = ref('')
 
   // 获取调用方当前媒体，避免在异步流程中持有旧对象。

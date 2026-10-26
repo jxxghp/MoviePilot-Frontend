@@ -49,13 +49,56 @@ const expandedFolders = ref<string[]>([])
 const loading = ref<{ [key: string]: boolean }>({})
 const nextPages = ref<Record<string, number>>({})
 
-/** 点击目录。 */
+// 存储切换后丢弃缓存与在途结果，同一路径不代表同一个存储目录。
+let storageGeneration = 0
+watch(
+  () => props.storage,
+  () => {
+    storageGeneration += 1
+    treeCache.value = {}
+    expandedFolders.value = []
+    loading.value = {}
+    nextPages.value = {}
+  },
+  { flush: 'sync' },
+)
+onUnmounted(() => {
+  storageGeneration += 1
+})
+
+/** 对齐目录尾部分隔符，匹配缓存中保留完整存储身份的文件项。 */
+function directoryPath(path: string) {
+  let end = path.length
+  while (end > 1 && path[end - 1] === '/') {
+    if (end === 3 && path[0] !== '/' && path[1] === ':') break
+    end -= 1
+  }
+  return path.slice(0, end) || '/'
+}
+
+/** 点击目录，同时传递树中已知的祖先标识供面包屑返回使用。 */
 function handleFolderClick(item: FileItem) {
-  emit('navigate', item)
+  if (item.storage !== props.storage) return
+  const targetPath = directoryPath(item.path)
+  const ancestors = new Map<string, FileItem>()
+  Object.values(treeCache.value)
+    .flat()
+    .forEach(directory => {
+      const path = directoryPath(directory.path)
+      const prefix = path.endsWith('/') ? path : `${path}/`
+      if (directory.storage === item.storage && (targetPath === path || targetPath.startsWith(prefix))) {
+        ancestors.set(path, directory)
+      }
+    })
+  ancestors.set(targetPath, item)
+  const lineage = [...ancestors.values()].sort((left, right) => left.path.length - right.path.length)
+  if (lineage.length > 1) emit('navigate', item, lineage)
+  else emit('navigate', item)
 }
 
 /** 切换文件夹展开状态。 */
 async function toggleFolder(path: string) {
+  path = directoryPath(path)
   const index = expandedFolders.value.indexOf(path)
   if (index >= 0) {
     // 折叠文件夹
@@ -72,7 +115,7 @@ async function toggleFolder(path: string) {
 
 /** 判断文件夹是否展开。 */
 function isFolderExpanded(path: string) {
-  return expandedFolders.value.includes(path)
+  return expandedFolders.value.includes(directoryPath(path))
 }
 
 /** 渲染文件夹图标。 */
@@ -85,21 +128,25 @@ function renderFolderIcon(isExpanded: boolean) {
 
 /** 加载子目录。 */
 async function loadSubdirectories(path: string, append = false) {
+  path = directoryPath(path)
   // 如果已经在加载中或已有缓存，跳过
   if (loading.value[path] || (!append && treeCache.value[path])) return
   const storage = props.storage
   const page = append ? (nextPages.value[path] ?? 1) : 1
 
+  const generation = storageGeneration
   // 标记为加载中
   loading.value[path] = true
 
   try {
-    // 构建假的文件项以加载目录内容
-    const fakeItem: FileItem = {
-      storage: props.storage,
+    // 云盘目录可能要求 fileid/drive_id；优先沿用列表返回的真实身份。
+    const directoryItem: FileItem = Object.values(treeCache.value)
+      .flat()
+      .find(item => item.storage === storage && directoryPath(item.path) === directoryPath(path)) ?? {
+      storage,
       type: 'dir',
-      name: path.split('/').pop() || '/',
-      path: path,
+      name: path.split('/').filter(Boolean).pop() || '/',
+      path,
     }
 
     // 调用API加载目录内容
@@ -108,13 +155,12 @@ async function loadSubdirectories(path: string, append = false) {
     const config: AxiosRequestConfig<FileItem> = {
       url,
       method: props.endpoints?.list.method || 'get',
-      data: fakeItem,
+      data: directoryItem,
       params: { page, count: 200 },
     }
 
     const result = await props.axios?.request<FileItem[]>(config)
-    if (storage !== props.storage) return
-    if (result && Array.isArray(result)) {
+    if (generation === storageGeneration && result && Array.isArray(result)) {
       // 过滤出目录项
       const dirs = result.filter(item => item.type === 'dir')
 
@@ -128,7 +174,7 @@ async function loadSubdirectories(path: string, append = false) {
     console.error('加载目录失败:', path, error)
   } finally {
     // 取消加载状态
-    loading.value[path] = false
+    if (generation === storageGeneration) loading.value[path] = false
   }
 }
 
@@ -142,15 +188,18 @@ watch(
   () => props.currentPath,
   async newPath => {
     if (!newPath) return
+    const generation = storageGeneration
 
     // 如果当前路径不是根目录，自动展开父目录
     if (newPath !== '/') {
       const parts = newPath.split('/').filter(p => p)
-      let currentPath = ''
+      let currentPath = newPath.startsWith('/') ? '/' : ''
 
       // 展开到当前路径的每一层
       for (const part of parts) {
-        currentPath += '/' + part
+        if (generation !== storageGeneration) return
+        currentPath += (currentPath && !currentPath.endsWith('/') ? '/' : '') + part
+        if (currentPath.length === 2 && currentPath[1] === ':') currentPath += '/'
 
         // 如果该路径未展开，则展开它
         if (!expandedFolders.value.includes(currentPath)) {
@@ -162,8 +211,11 @@ watch(
           }
         }
 
+        if (generation !== storageGeneration) return
         // 如果有上一级目录，确保它已加载
-        const parentPath = currentPath.substring(0, currentPath.lastIndexOf('/')) || '/'
+        let parentPath = currentPath.substring(0, currentPath.lastIndexOf('/')) || '/'
+        if (parentPath.length === 2 && parentPath[1] === ':') parentPath += '/'
+        if (parentPath === currentPath) parentPath = '/'
         if (!treeCache.value[parentPath]) {
           await loadSubdirectories(parentPath)
         }
@@ -182,8 +234,8 @@ watch(
       const dirs = newItems.filter(item => item.type === 'dir')
 
       // 缓存当前目录内容
-      treeCache.value[props.currentPath || '/'] = dirs
-      const path = props.currentPath || '/'
+      const path = directoryPath(props.currentPath || '/')
+      treeCache.value[path] = dirs
       if (newItems.length > 0 && newItems.length % 200 === 0) nextPages.value[path] = newItems.length / 200 + 1
       else delete nextPages.value[path]
     }
@@ -213,7 +265,7 @@ const visibleTreeRows = computed<TreeRow[]>(() => {
 
 /** 将展开的目录及其续载入口投影为虚拟列表行。 */
 function addVisibleDirectoryRows(dir: FileItem, level: number, rows: TreeRow[]) {
-  const path = dir.path || ''
+  const path = directoryPath(dir.path || '')
 
   rows.push({
     type: 'directory',
@@ -305,7 +357,13 @@ onMounted(async () => {
           :style="getTreeRowStyle(item.level)"
         >
           <div class="folder-toggle" @click.stop="toggleFolder(item.dir.path || '')">
-            <VProgressCircular v-if="loading[item.dir.path || '']" indeterminate size="14" width="2" color="primary" />
+            <VProgressCircular
+              v-if="loading[directoryPath(item.dir.path || '')]"
+              indeterminate
+              size="14"
+              width="2"
+              color="primary"
+            />
             <VIcon
               v-else
               size="small"

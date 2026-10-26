@@ -29,28 +29,34 @@ if (!props.conf.content) {
 // 定义事件
 const emit = defineEmits(['done', 'close'])
 
+// 保存和重置共享互斥状态，失败时保留编辑内容。
+const saving = ref(false)
+
 // 完成
 async function handleDone() {
-  await savaRcloneConfig()
-  emit('done')
-}
-
-// 保存rclone设置
-async function savaRcloneConfig() {
+  if (saving.value) return
+  saving.value = true
   try {
-    await manageStorage('rclone', 'save_config', { conf: props.conf })
-  } catch (e) {
-    console.error(e)
+    await manageStorage('rclone', 'save_config', { conf: { ...props.conf } })
+    emit('done')
+  } catch (error) {
+    console.error(error)
+  } finally {
+    saving.value = false
   }
 }
 
-// 重置配置
+// 重置成功后直接完成，避免重新写入旧配置。
 async function handleReset() {
+  if (saving.value) return
+  saving.value = true
   try {
     await manageStorage('rclone', 'reset_config')
-    handleDone()
-  } catch (e) {
-    console.error(e)
+    emit('done')
+  } catch (error) {
+    console.error(error)
+  } finally {
+    saving.value = false
   }
 }
 </script>
@@ -90,11 +96,19 @@ async function handleReset() {
         </VRow>
       </VCardText>
       <VCardActions class="app-dialog-actions">
-        <VBtn color="error" variant="tonal" @click="handleReset" prepend-icon="mdi-restore">
+        <VBtn color="error" variant="tonal" @click="handleReset" :disabled="saving" prepend-icon="mdi-restore">
           {{ t('dialog.rcloneConfig.reset') }}
         </VBtn>
         <VSpacer />
-        <VBtn color="primary" variant="flat" @click="handleDone" prepend-icon="mdi-check" class="px-5">
+        <VBtn
+          color="primary"
+          variant="flat"
+          @click="handleDone"
+          :loading="saving"
+          :disabled="saving"
+          prepend-icon="mdi-check"
+          class="px-5"
+        >
           {{ t('dialog.rcloneConfig.complete') }}
         </VBtn>
       </VCardActions>

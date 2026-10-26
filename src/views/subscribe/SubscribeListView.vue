@@ -317,7 +317,7 @@ const sortMode = computed({
   set: value => emit('update:sortMode', value),
 })
 const canDragSort = computed(() => sortMode.value && canSortContext.value)
-const shouldVirtualizeList = computed(() => !sortMode.value)
+const shouldVirtualizeList = computed(() => !canDragSort.value)
 const subscribeGridMinItemWidth = computed(() => (display.xs.value ? 144 : 240))
 const subscribeGridEstimatedItemHeight = computed(() => (display.xs.value ? 190 : 300))
 const subscribeGridGap = computed(() => (display.xs.value ? 12 : 16))
@@ -466,9 +466,9 @@ watch(
 )
 
 watch(
-  canSortContext,
-  canSort => {
-    if (!canSort && sortMode.value) {
+  [canSortContext, sortMode],
+  ([canSort, sorting]) => {
+    if (!canSort && sorting) {
       sortMode.value = false
     }
   },

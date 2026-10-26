@@ -27,11 +27,11 @@ const interestsTotal = ref(0)
 // 影评总数
 const reviewsTotal = ref(0)
 
-// 加载状态
-const loading = ref(false)
-
-// 是否已尝试加载
-const hasTriedLoading = ref(false)
+// 每个标签页独立记录请求状态，切换期间不重复追加同一页。
+const tabLoading = ref({ interests: false, reviews: false })
+const tabTriedLoading = ref({ interests: false, reviews: false })
+const loading = computed(() => tabLoading.value[activeTab.value])
+const hasTriedLoading = computed(() => tabTriedLoading.value[activeTab.value])
 
 // 每页数量
 const PAGE_SIZE = 10
@@ -70,10 +70,11 @@ function handleAvatarError(author?: MediaCommentAuthor) {
 
 // 拉取当前标签页数据；短评与影评共用分页协议，按已加载条数作为偏移
 async function fetchData() {
-  if (!props.doubanid) return
-  loading.value = true
+  const tab = activeTab.value
+  if (!props.doubanid || tabLoading.value[tab]) return
+  tabLoading.value[tab] = true
   try {
-    if (activeTab.value === 'interests') {
+    if (tab === 'interests') {
       const page: MediaCommentPage = await api.get(
         `douban/interests/${props.doubanid}/${props.type}?start=${interests.value.length}&count=${PAGE_SIZE}`,
       )
@@ -89,8 +90,8 @@ async function fetchData() {
   } catch (error) {
     console.error(error)
   } finally {
-    loading.value = false
-    hasTriedLoading.value = true
+    tabLoading.value[tab] = false
+    tabTriedLoading.value[tab] = true
   }
 }
 

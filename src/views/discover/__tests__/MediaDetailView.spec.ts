@@ -231,6 +231,14 @@ function createDeferred<T>() {
 }
 
 describe('MediaDetailView detail and actions', () => {
+  it('links TMDB directors with their source so person detail can load', async () => {
+    await renderDetail({
+      media: createMediaInfo({ tmdb_id: 8101, directors: [{ id: 42, name: '测试导演', job: 'Director' }] }),
+    })
+    const link = await screen.findByRole('link', { name: '测试导演' })
+    expect(link).toHaveAttribute('href', '/person?source=themoviedb&personid=42')
+  })
+
   beforeEach(() => {
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'error').mockImplementation(() => {})

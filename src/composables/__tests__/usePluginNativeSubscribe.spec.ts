@@ -37,7 +37,7 @@ vi.mock('@/composables/useMediaSubscribe', async importOriginal => {
   const actual = await importOriginal<typeof import('@/composables/useMediaSubscribe')>()
   return {
     ...actual,
-    useMediaSubscribe: (options: Record<string, unknown>) => {
+    useMediaSubscribeFactory: () => (options: Record<string, unknown>) => {
       mocks.subscribeOptions = options as unknown as CapturedSubscribeOptions
       return {
         checkSubscribe: mocks.checkSubscribe,
