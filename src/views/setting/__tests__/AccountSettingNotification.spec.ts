@@ -2,6 +2,7 @@ import vuetify from '@/plugins/vuetify'
 import AccountSettingNotification from '@/views/setting/AccountSettingNotification.vue'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
+import { flushPromises } from '@vue/test-utils'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -171,6 +172,72 @@ describe('AccountSettingNotification', () => {
     mocks.useSilentSettingRefresh.mockReset()
     mocks.openSharedDialog.mockImplementation(() => createDialogController())
     mockLoadedSettings()
+  })
+
+  it('模板读取逆序完成时只打开最后选择的模板并保存到相同目标', async () => {
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+    const pending: Array<(value: unknown) => void> = []
+    mocks.apiGet.mockImplementation(() => new Promise(resolve => pending.push(resolve)))
+    await user.click(screen.getByRole('button', { name: /资源入库/ }))
+    await user.click(screen.getByRole('button', { name: /资源下载/ }))
+    expect(pending).toHaveLength(2)
+    pending[1]({ success: true, data: { value: templateFixture } })
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    pending[0]({ success: true, data: { value: templateFixture } })
+    await flushPromises()
+    await waitFor(() => expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1].templateType).toBe('downloadAdded'))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    await getDialogEvents().save('edited-download')
+    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/NotificationTemplates', {
+      ...templateFixture,
+      downloadAdded: 'edited-download',
+    })
+  })
+
+  it('旧模板的延迟保存回调不能覆盖当前模板或关闭新编辑器', async () => {
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+    await user.click(screen.getByRole('button', { name: /资源入库/ }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const oldEvents = getDialogEvents()
+    await user.click(screen.getByRole('button', { name: /资源下载/ }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledTimes(2))
+    await oldEvents.save('stale-organize')
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+    await getDialogEvents().save('current-download')
+    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/NotificationTemplates', {
+      ...templateFixture,
+      downloadAdded: 'current-download',
+    })
+  })
+
+  it('已提交的旧模板保存完成时不会关闭后来打开的新编辑器', async () => {
+    const user = userEvent.setup()
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+    await user.click(screen.getByRole('button', { name: /资源入库/ }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    let finishSave!: (value: unknown) => void
+    mocks.apiPost.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finishSave = resolve
+        }),
+    )
+    const saving = getDialogEvents().save('edited-organize')
+    await user.click(screen.getByRole('button', { name: /资源下载/ }))
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledTimes(2))
+    const currentController = mocks.openSharedDialog.mock.results.at(-1)?.value
+    finishSave({ success: true })
+    await saving
+    expect(currentController.close).not.toHaveBeenCalled()
+    expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/NotificationTemplates', {
+      ...templateFixture,
+      organizeSuccess: 'edited-organize',
+    })
   })
 
   it('loads owned settings, adds missing switch defaults, and follows active refresh state', async () => {
