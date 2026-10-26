@@ -63,6 +63,8 @@ const page = ref(1)
 const loading = ref(false)
 const clearing = ref(false)
 const hasMore = ref(true)
+// 清理开始时撤销旧分页的写入权，迟到响应不能恢复已清除的通知。
+let notificationRequestGeneration = 0
 const notificationKeys = new Set<string>()
 const expandedNotificationKeys = ref(new Set<string>())
 const nativePageOffset = ref(0)
@@ -328,9 +330,10 @@ async function clearNotifications(scope: NotificationClearScope) {
     content: getClearConfirmText(scope),
     confirmText: t('notification.clear'),
   })
-  if (!confirmed) return
+  if (!confirmed || clearing.value) return
 
   clearing.value = true
+  notificationRequestGeneration += 1
   try {
     const cleared = await tryDeleteNotificationHistory(scope)
     if (!cleared) {
@@ -348,11 +351,13 @@ async function clearNotifications(scope: NotificationClearScope) {
     $toast.error(error?.response?.data?.message || error?.message || t('notification.clearFailed'))
   } finally {
     clearing.value = false
+    loading.value = false
   }
 }
 
 /** 按页请求历史通知，并合并到当前虚拟列表。 */
 async function fetchNotificationPage() {
+  const generation = notificationRequestGeneration
   const items = (await api.get('message/notification', {
     params: {
       page: page.value,
@@ -360,6 +365,7 @@ async function fetchNotificationPage() {
     },
   })) as SystemNotification[]
 
+  if (generation !== notificationRequestGeneration) return null
   if (items.length === 0) {
     hasMore.value = false
     return items
@@ -374,7 +380,8 @@ async function fetchNotificationPage() {
 
 /** 刷新通知中心首屏数据，确保点开红点时能立即看到后端已有的新消息。 */
 async function refreshNotificationsOnOpen() {
-  if (loading.value) return
+  if (loading.value || clearing.value) return
+  const generation = notificationRequestGeneration
 
   try {
     loading.value = true
@@ -386,16 +393,17 @@ async function refreshNotificationsOnOpen() {
     nativeLoadError.value = false
     await fetchNotificationPage()
   } catch (error) {
+    if (generation !== notificationRequestGeneration) return
     nativeLoadError.value = true
     console.error('刷新通知失败:', error)
   } finally {
-    loading.value = false
+    if (generation === notificationRequestGeneration) loading.value = false
   }
 }
 
 /** 按页加载历史通知，并合并到当前虚拟列表。 */
 async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'error') => void }) {
-  if (loading.value) {
+  if (loading.value || clearing.value) {
     done('ok')
     return
   }
@@ -405,10 +413,15 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
     return
   }
 
+  const generation = notificationRequestGeneration
   try {
     loading.value = true
 
     const items = await fetchNotificationPage()
+    if (items === null) {
+      done('ok')
+      return
+    }
     if (items.length === 0) {
       done('empty')
       return
@@ -416,10 +429,14 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
 
     done(hasMore.value ? 'ok' : 'empty')
   } catch (error) {
+    if (generation !== notificationRequestGeneration) {
+      done('ok')
+      return
+    }
     console.error('加载通知失败:', error)
     done('error')
   } finally {
-    loading.value = false
+    if (generation === notificationRequestGeneration) loading.value = false
   }
 }
 

@@ -15,7 +15,7 @@ export class PWALoadingStateManager {
     const wasLoading = this.isAnyLoading()
     this.loadingStates.set(key, loading)
     const isLoading = this.isAnyLoading()
-    
+
     // 如果总体加载状态发生变化，通知监听器
     if (wasLoading !== isLoading) {
       this.notifyListeners(isLoading)
@@ -30,24 +30,22 @@ export class PWALoadingStateManager {
   }
 
   /**
-   * 等待所有加载完成
+   * 等待所有加载完成，截止后仅释放等待者，不修改真实任务状态。
+   * @param timeoutMs 本次等待的最长毫秒数；默认10秒，非正数立即返回
    */
-  waitForAllComplete(): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.isAnyLoading()) {
+  waitForAllComplete(timeoutMs = 10_000): Promise<void> {
+    if (!this.isAnyLoading() || timeoutMs <= 0) return Promise.resolve()
+    return new Promise(resolve => {
+      const complete = () => {
+        clearTimeout(timer)
+        this.removeListener(listener)
         resolve()
-        return
       }
-
-      const checkComplete = () => {
-        if (!this.isAnyLoading()) {
-          resolve()
-        } else {
-          // 检查间隔
-          setTimeout(checkComplete, 50)
-        }
+      const listener = (isLoading: boolean) => {
+        if (!isLoading) complete()
       }
-      checkComplete()
+      const timer = setTimeout(complete, timeoutMs)
+      this.addListener(listener)
     })
   }
 
@@ -94,7 +92,7 @@ export class PWALoadingStateManager {
   reset(): void {
     const wasLoading = this.isAnyLoading()
     this.loadingStates.clear()
-    
+
     if (wasLoading) {
       this.notifyListeners(false)
     }

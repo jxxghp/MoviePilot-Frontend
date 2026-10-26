@@ -83,14 +83,20 @@ function getRemainingLaunchBudget() {
 }
 
 async function waitForLaunchTask(task: Promise<unknown>, timeoutMs: number, label: string) {
+  // 即使预算已耗尽，也接住后台任务拒绝，避免降级后产生未处理异常。
+  const settledTask = task.catch(error => console.warn(`[Launch] ${label} failed`, error))
   if (timeoutMs <= 0) return
-
-  await Promise.race([
-    task.catch(error => {
-      console.warn(`[Launch] ${label} failed`, error)
-    }),
-    new Promise<void>(resolve => window.setTimeout(resolve, timeoutMs)),
-  ])
+  let timer: number | undefined
+  try {
+    await Promise.race([
+      settledTask,
+      new Promise<void>(resolve => {
+        timer = window.setTimeout(resolve, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer)
+  }
 }
 
 async function waitForMinimumLaunchVisibility() {
@@ -504,6 +510,7 @@ async function fetchBackgroundImages() {
     const [images] = await Promise.all([
       api.get<string[], string[]>(`/login/wallpapers`, {
         signal: controller.signal,
+        timeout: 10_000,
       }),
       globalSettingsStore.initialize(),
     ])
@@ -779,16 +786,18 @@ async function initializeAuthenticatedState() {
 
 /** 等待首路由、首屏基础数据和首张壁纸完成，再交接给已渲染的应用外壳。 */
 async function waitForInitialContentReady() {
-  await initialRouteReadyPromise
-  // 背景请求会同时触发全局设置初始化，先等它结束，避免登录态初始化读到进行中的半成品状态。
-  if (initialBackgroundLoadPromise) await initialBackgroundLoadPromise
-  await initializeAuthenticatedState().catch(error => {
-    console.warn('[Launch] Authenticated state initialization failed', error)
-  })
-  // 路由页面可能还有自己的异步首屏任务；等这些任务释放启动门后再交接给真实页面。
-  await globalLoadingStateManager.waitForAllComplete()
-  await nextTick()
-  await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+  const contentReady = (async () => {
+    await initialRouteReadyPromise
+    // 背景和设置可在启动屏退场后继续完成，截止时间只约束对外壳交接的等待。
+    if (initialBackgroundLoadPromise) await initialBackgroundLoadPromise
+    await initializeAuthenticatedState().catch(error => {
+      console.warn('[Launch] Authenticated state initialization failed', error)
+    })
+    await globalLoadingStateManager.waitForAllComplete(getRemainingLaunchBudget())
+    await nextTick()
+    await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+  })()
+  await waitForLaunchTask(contentReady, getRemainingLaunchBudget(), 'Initial content')
 }
 
 // 延迟初始化登录态数据，避开登录成功后的即时路由跳转窗口。

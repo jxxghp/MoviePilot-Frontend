@@ -18,7 +18,8 @@ interface MediaSelectorItem {
   id: string
   // 媒体标题
   title: string
-  // 媒体简介，包含类型标签
+  // 独立展示的类型标签和纯文本简介，外部元数据不得进入 HTML sink。
+  label: string
   overview: string
   // 海报地址
   poster: string
@@ -114,12 +115,8 @@ async function searchMedias() {
         album_type: item.album_type,
         secondary_types: item.secondary_types,
         title: item.year ? `${item.title}（${item.year}）` : item.title || '',
-        overview:
-          item.type === '音乐'
-            ? `<span class="text-primary">${musicLabels.join(' · ') || item.type}</span> ${[item.artist, musicAlbum]
-                .filter(Boolean)
-                .join(' · ')}`
-            : `<span class="text-primary">${item.type}</span> ${item.overview || ''}`,
+        label: item.type === '音乐' ? musicLabels.join(' · ') || item.type : item.type || '',
+        overview: item.type === '音乐' ? [item.artist, musicAlbum].filter(Boolean).join(' · ') : item.overview || '',
       })
     }
   } catch (e) {
@@ -206,7 +203,9 @@ watch(
           <VListItemTitle>
             {{ item.title }}
           </VListItemTitle>
-          <VListItemSubtitle class="mt-2" v-html="item.overview" />
+          <VListItemSubtitle class="mt-2"
+            ><span class="text-primary">{{ item.label }}</span> {{ item.overview }}</VListItemSubtitle
+          >
         </VListItem>
       </template>
     </VList>

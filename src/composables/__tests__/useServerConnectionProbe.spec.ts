@@ -1,6 +1,7 @@
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useServerConnectionProbe } from '@/composables/useServerConnectionProbe'
 import { ref } from 'vue'
+import { createApiClients } from '@/api/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 function deferred<T>() {
@@ -43,6 +44,27 @@ describe('useServerConnectionProbe', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.restoreAllMocks()
+  })
+
+  it('ROOT-003 rejects a 200 HTML ping without mistaking its own response for independent success', async () => {
+    const status = useGlobalOfflineStatus()
+    status.markServerOnline()
+    const sequence = status.serverSuccessSequence.value
+    const { api } = createApiClients({
+      adapter: async config => ({ config, status: 200, statusText: 'OK', headers: {}, data: '<html>SPA</html>' }),
+      hooks: { markServerOnline: status.markServerOnline },
+    })
+    const probe = useServerConnectionProbe({
+      isLoggedIn: true,
+      isRestarting: false,
+      offlineStatus: status,
+      request: (path, config) => api.get(path, config),
+    })
+    expect(await probe.probeServerConnection()).toBe(false)
+    expect(status.serverSuccessSequence.value).toBe(sequence)
+    expect(status.connectionStatus.value).toBe('checking')
+    expect(vi.getTimerCount()).toBe(1)
+    probe.stopHeartbeat()
   })
 
   it('未登录时不探测，并用固定静默选项去重并发 ping', async () => {

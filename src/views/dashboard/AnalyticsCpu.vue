@@ -39,18 +39,23 @@ const animatedCurrent = useAnimatedDashboardNumber(current, {
 })
 const animatedCurrentText = computed(() => Math.round(animatedCurrent.value).toLocaleString())
 
-/** 计算指定采样窗口内的平均 CPU 使用率。 */
-function getAverageUsage(sampleCount: number) {
-  const samples = series.value[0].data.slice(-sampleCount)
-  if (!samples.length) return '0.0'
+// 图表继续展示最近30点；分钟均值保留独立的15分钟时间戳样本，不混用图表条数。
+const cpuSamples = ref<Array<{ at: number; usage: number }>>([])
+const CPU_HISTORY_MS = 15 * 60_000
+const sampleWindowTime = ref(Date.now())
 
-  return (samples.reduce((total, value) => total + value, 0) / samples.length).toFixed(1)
+/** 按实际时间范围计算均值，慢请求和刷新暂停不会被误当成固定采样间隔。 */
+function getAverageUsage(windowMs: number) {
+  const cutoff = sampleWindowTime.value - windowMs
+  const samples = cpuSamples.value.filter(sample => sample.at >= cutoff)
+  if (!samples.length) return '0.0'
+  return (samples.reduce((total, sample) => total + sample.usage, 0) / samples.length).toFixed(1)
 }
 
 const averageUsages = computed(() => [
-  { label: '1m', value: getAverageUsage(3) },
-  { label: '5m', value: getAverageUsage(10) },
-  { label: '15m', value: getAverageUsage(30) },
+  { label: '1m', value: getAverageUsage(60_000) },
+  { label: '5m', value: getAverageUsage(5 * 60_000) },
+  { label: '15m', value: getAverageUsage(CPU_HISTORY_MS) },
 ])
 
 // 根据最近采样动态收紧纵轴，低负载时仍能看清区域图变化。
@@ -145,9 +150,16 @@ const chartOptions = computed(() => {
 // 调用API接口获取最新CPU使用率
 async function loadCpuData() {
   if (!props.allowRefresh) return
+  sampleWindowTime.value = Date.now()
   try {
     // 请求数据
-    current.value = Number(await api.get('dashboard/cpu')) || 0
+    const usage = Number(await api.get('dashboard/cpu'))
+    if (!Number.isFinite(usage)) return
+    current.value = Math.min(100, Math.max(0, usage))
+    const at = Date.now()
+    sampleWindowTime.value = at
+    cpuSamples.value = cpuSamples.value.filter(sample => sample.at >= at - CPU_HISTORY_MS)
+    cpuSamples.value.push({ at, usage: current.value })
     // 使用nextTick确保DOM更新完成后再更新图表数据
     await nextTick()
     // 添加到序列
