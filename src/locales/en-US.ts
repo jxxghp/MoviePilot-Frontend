@@ -287,8 +287,6 @@ export default {
     exists: 'Exists',
     openInNewWindow: 'Open in new window',
     download: 'Download',
-    uploadSpeed: 'Upload speed',
-    downloadSpeed: 'Download speed',
     inputMessage: 'Enter message or command',
     send: 'Send',
     noData: 'No data',
@@ -1158,6 +1156,9 @@ export default {
       apiUrlPlaceholder: 'https://api.telegram.org',
     },
     slack: {
+      oauthTokenPlaceholder: 'Bot User OAuth Token (xoxb-...)',
+      appTokenPlaceholder: 'App-Level Token (xapp-...)',
+      channelPlaceholder: 'Channel ID (e.g. C0123456789)',
       name: 'Slack',
       oauthToken: 'Slack Bot User OAuth Token',
       oauthTokenHint: 'Bot User OAuth Token in Slack app OAuth & Permissions page',
@@ -1207,6 +1208,7 @@ export default {
       adminsPlaceholder: 'User IDs list, separated by commas',
     },
     vocechat: {
+      channelIdPlaceholder: 'Channel ID (e.g. 1)',
       name: 'VoceChat',
       host: 'Address',
       hostHint: 'VoceChat server address, format: http(s)://ip:port',
@@ -1581,6 +1583,8 @@ export default {
     noWorkflowDescription: 'Click the add button to create a workflow task.',
   },
   dashboard: {
+    uploadSpeed: 'Upload speed',
+    downloadSpeed: 'Download speed',
     storage: 'Storage',
     storageSummary: '{available} available / {total} total',
     mediaStatistic: 'Media Statistics',
@@ -3900,7 +3904,7 @@ export default {
       releaseGroupSaveFailed: 'Failed to save custom release/subtitle groups!',
 
       customization: 'Custom Placeholders',
-      customizationDesc: 'Add custom placeholder regex patterns, use {customization} in rename format.',
+      customizationDesc: "Add custom placeholder regex patterns, use {'{customization}'} in rename format.",
       customizationPlaceholder: 'Enter one placeholder regex per line',
       customizationHint:
         'Support regular expressions, special characters need \\ escape, separate multiple matches with new lines',
@@ -4843,8 +4847,8 @@ export default {
       episodeDetailHint: 'Episode number or range, e.g. 1 or 1,2',
       episodeDetailPlaceholder: 'Start episode,End episode',
       episodeFormat: 'Episode Positioning',
-      episodeFormatHint: 'Use {ep} to position episode number part in filename to assist recognition',
-      episodeFormatPlaceholder: 'Use {ep} to position episode',
+      episodeFormatHint: "Use {'{ep}'} to position episode number part in filename to assist recognition",
+      episodeFormatPlaceholder: "Use {'{ep}'} to position episode",
       episodeFormatRecommendAction: 'Generate',
       episodeFormatRecommendLoading: 'Generating...',
       episodeFormatRecommendSelectFile: 'Please select a single file, a single directory, or multiple files first',

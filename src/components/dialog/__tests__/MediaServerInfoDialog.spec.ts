@@ -31,6 +31,23 @@ describe('MediaServerInfoDialog Plex timeout', () => {
     mocks.toastError.mockReset()
   })
 
+  it.each(['', 'Existing'])('名称 %s 无效时展示本地化校验文案并阻止保存', async name => {
+    const onChange = vi.fn()
+    const server = { ...plexServer, name }
+    await renderWithProviders(MediaServerInfoDialog, {
+      props: {
+        modelValue: true,
+        mediaserver: server,
+        mediaservers: [server, { ...plexServer, name: 'Existing' }],
+        onChange,
+      },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(mocks.toastError).toHaveBeenCalledWith(name ? '【Existing】已存在，请替换为其他名称' : '必填，不可重名')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('shows the 30-second default and saves the configured Plex timeout', async () => {
     const onChange = vi.fn()
 

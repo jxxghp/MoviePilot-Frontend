@@ -96,11 +96,11 @@ function initializeMediaServerInfo() {
 /** 保存媒体服务器编辑结果并通知父级刷新。 */
 function saveMediaServerInfo() {
   if (!mediaServerInfo.value.name) {
-    $toast.error(t('common.nameRequired'))
+    $toast.error(t('mediaserver.nameRequired'))
     return
   }
   if (props.mediaservers.some(item => item.name === mediaServerInfo.value.name && item !== props.mediaserver)) {
-    $toast.error(t('common.nameExists', { name: mediaServerInfo.value.name }))
+    $toast.error(t('mediaserver.nameExists', { name: mediaServerInfo.value.name }))
     return
   }
   mediaServerInfoDialog.value = false
