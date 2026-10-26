@@ -1,5 +1,7 @@
 import copy from 'copy-to-clipboard'
 
+export { base64UrlToUint8Array, bufferToBase64Url } from './base64'
+
 // 请求和获取剪贴板内容
 export async function getClipboardContent() {
   if (navigator.clipboard && window.isSecureContext) {
@@ -33,19 +35,6 @@ export function urlBase64ToUint8Array(base64String: string) {
     outputArray[i] = rawData.charCodeAt(i)
   }
   return outputArray
-}
-
-// Uint8Array 转 Base64URL
-export function bufferToBase64Url(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '')
-}
-
-// Base64URL 转 Uint8Array
-export function base64UrlToUint8Array(base64Url: string): Uint8Array {
-  return Uint8Array.from(atob(base64Url.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
 }
 
 // 判断是否为PWA
