@@ -525,6 +525,7 @@ export default {
       primaryColor: '色调',
       usePrimaryColor: '使用 {color} 色调',
       chooseCustomColor: '选择自定义色调',
+      enableGlassEffects: '启用玻璃特效',
 
       radius: '圆角',
       radiusNone: '无圆角',

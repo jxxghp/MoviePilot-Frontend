@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   isWindowControlsOverlayMode: false,
   mdAndDown: false,
   navbarRefractionSupported: false,
+  glassEnabled: true,
   scrollY: 0,
   scrollRevision: undefined as { value: number } | undefined,
   revision: undefined as { value: number } | undefined,
@@ -97,10 +98,18 @@ vi.mock('@/utils/glassNavbarRefraction', () => ({
   supportsGlassNavbarLiveRefraction: () => mocks.navbarRefractionSupported,
 }))
 
-vi.mock('@/composables/useThemeCustomizer', () => ({
-  readThemeCustomizerSettings: () => ({ layout: 'vertical' }),
-  THEME_CUSTOMIZER_CHANGE_EVENT: 'moviepilot:theme-customizer-change',
-}))
+vi.mock('@/composables/useThemeCustomizer', async () => {
+  const { computed } = await import('vue')
+  return {
+    readThemeCustomizerSettings: () => ({ layout: 'vertical' }),
+    useGlassEffectsEnabled: () =>
+      computed(() => {
+        void mocks.revision!.value
+        return mocks.glassEnabled
+      }),
+    THEME_CUSTOMIZER_CHANGE_EVENT: 'moviepilot:theme-customizer-change',
+  }
+})
 
 vi.mock('@/components/theme/GlassFixedShellBackplate.vue', () => ({
   default: { template: '<div data-testid="fixed-shell-backplate" />' },
@@ -136,6 +145,7 @@ vi.mock('vuetify', async importOriginal => ({
   }),
 }))
 
+/** 提供真实布局槽位，玻璃子组件在边界处隔离。 */
 function mountLayout() {
   return mount(VerticalNavLayout, {
     slots: {
@@ -147,12 +157,14 @@ function mountLayout() {
   })
 }
 
+/** 刷新测试中的断点、开关和滚动状态。 */
 async function refreshShell() {
   mocks.revision!.value += 1
   mocks.scrollRevision!.value += 1
   await nextTick()
 }
 
+/** 仅刷新滚动依赖，以检测额外的页面重渲染。 */
 async function refreshScroll() {
   // 只使滚动依赖失效，不能用布局断点的刷新模拟滚动，否则无法检测额外 slot 重渲染。
   mocks.scrollRevision!.value += 1
@@ -171,6 +183,7 @@ describe('VerticalNavLayout shell states', () => {
     mocks.isWindowControlsOverlayMode = false
     mocks.mdAndDown = false
     mocks.navbarRefractionSupported = false
+    mocks.glassEnabled = true
     mocks.scrollY = 0
     mocks.state = 'expanded'
   })
@@ -221,6 +234,23 @@ describe('VerticalNavLayout shell states', () => {
     expect(chromiumWrapper.get('.layout-wrapper').attributes('data-glass-navbar-refraction')).toBe('chromium')
     expect(chromiumWrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(true)
     expect(chromiumWrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(true)
+  })
+
+  it('unmounts both refraction engines when glass is disabled and remounts on enable', async () => {
+    mocks.navbarRefractionSupported = true
+    mocks.glassEnabled = false
+    const wrapper = mountLayout()
+    expect(wrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(false)
+    mocks.glassEnabled = true
+    await refreshShell()
+    expect(wrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(true)
+    mocks.glassEnabled = false
+    await refreshShell()
+    expect(wrapper.find('[data-testid="navbar-refraction-defs"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="panel-refraction-defs"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it.each(['vertical', 'collapsed', 'horizontal'])(

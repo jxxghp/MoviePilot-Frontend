@@ -12,6 +12,7 @@ import {
   THEME_CUSTOMIZER_STORAGE_KEY,
   useThemeCustomizer,
   useEffectiveGlassSettings,
+  useGlassEffectsEnabled,
 } from '@/composables/useThemeCustomizer'
 import vuetify from '@/plugins/vuetify'
 import { NativeLayoutAdapter } from '@/native/layout'
@@ -32,6 +33,7 @@ vi.mock('@/utils/themeSettingsPersistence', () => ({
 }))
 
 describe('useThemeCustomizer glass settings', () => {
+  /** 在真实 Vuetify 上下文中读取和切换共享主题状态。 */
   function mountThemeCustomizer() {
     let customizer: ReturnType<typeof useThemeCustomizer> | undefined
     const wrapper = mount(
@@ -66,6 +68,7 @@ describe('useThemeCustomizer glass settings', () => {
 
   it('only projects native defaults while negotiated, without changing existing Web preferences', async () => {
     persistPartialThemeCustomizerSettings({
+      glassEnabled: false,
       theme: 'dark',
       radius: 'small',
       layout: 'horizontal',
@@ -87,6 +90,7 @@ describe('useThemeCustomizer glass settings', () => {
     })
     expect(useEffectiveGlassSettings().value).toMatchObject({ glassAppearance: 'clear', glassQuality: 'css' })
     expect(vuetify.theme.global.name.value).toBe('glass')
+    expect(useGlassEffectsEnabled().value).toBe(true)
     expect(document.documentElement.dataset.themeRadius).toBe('large')
     expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(stored)
     expect(localStorage.getItem('theme')).toBe('dark')
@@ -94,6 +98,7 @@ describe('useThemeCustomizer glass settings', () => {
     await customizer.setRadius('default')
     await customizer.setLayout('horizontal')
     await customizer.setGlassQuality('high')
+    await customizer.setGlassEnabled(true)
     expect(persistenceMocks.writeRemoteUserConfig).not.toHaveBeenCalled()
     expect(localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)).toBe(stored)
     await customizer.setTheme('light')
@@ -122,6 +127,8 @@ describe('useThemeCustomizer glass settings', () => {
       primaryColor: '#1976D2',
     })
     expect(document.documentElement.dataset.themeRadius).toBe('small')
+    expect(useGlassEffectsEnabled().value).toBe(false)
+    expect(vuetify.theme.global.name.value).toBe('plain')
     wrapper.unmount()
   })
 
@@ -151,6 +158,7 @@ describe('useThemeCustomizer glass settings', () => {
   it('uses the checkpoint appearance, quality, and strength values by default', () => {
     const settings = readThemeCustomizerSettings()
 
+    expect(settings.glassEnabled).toBe(true)
     expect(settings.theme).toBe('auto')
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassUIStyle).toBe('adaptive')
@@ -164,6 +172,65 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassTransmissionStrength).toBe(67)
     expect(settings.glassTranslationStrength).toBe(48)
     expect(settings.glassTransparencyStrength).toBe(52)
+  })
+
+  it.each([undefined, null, 'false', 1, true])('defaults glass to enabled for stored value %s', glassEnabled => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassEnabled, glassQuality: 'high' }))
+    applyStoredThemeCustomizerAppearance(vuetify.theme)
+
+    expect(readThemeCustomizerSettings().glassEnabled).toBe(true)
+    expect(useGlassEffectsEnabled().value).toBe(true)
+    expect(vuetify.theme.global.name.value).toBe('glass')
+    expect(document.documentElement.dataset.theme).toBe('glass')
+    expect(document.body.dataset.theme).toBe('glass')
+  })
+
+  it('persists the glass switch, preserves tuning and restores it after reload', async () => {
+    const { customizer, wrapper } = mountThemeCustomizer()
+    await customizer.setTheme('dark')
+    await customizer.setGlassQuality('high')
+    await customizer.setGlassDeformationStrength(73)
+    await customizer.setGlassEnabled(true)
+    expect(useGlassEffectsEnabled().value).toBe(true)
+    expect(vuetify.theme.global.name.value).toBe('glass')
+    expect(document.documentElement.dataset.theme).toBe('glass')
+
+    await customizer.setGlassEnabled(false)
+    expect(useGlassEffectsEnabled().value).toBe(false)
+    expect(vuetify.theme.global.name.value).toBe('plain')
+    expect(vuetify.theme.current.value.dark).toBe(true)
+    expect(document.documentElement.dataset.theme).toBe('plain')
+    expect(document.body.dataset.theme).toBe('plain')
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassEnabled: false,
+      glassQuality: 'high',
+      glassDeformationStrength: 73,
+    })
+    expect(persistenceMocks.writeRemoteUserConfig).toHaveBeenLastCalledWith(
+      'ThemeCustomizerSettings',
+      expect.objectContaining({ glassEnabled: false, glassQuality: 'high', glassDeformationStrength: 73 }),
+    )
+    applyStoredThemeCustomizerAppearance(vuetify.theme)
+    expect(useGlassEffectsEnabled().value).toBe(false)
+    await customizer.setGlassEnabled(true)
+    applyStoredThemeCustomizerAppearance(vuetify.theme)
+    expect(useGlassEffectsEnabled().value).toBe(true)
+    expect(customizer.settings.value.glassDeformationStrength).toBe(73)
+    await customizer.resetSettings()
+    expect(useGlassEffectsEnabled().value).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('restores the glass switch from the account backup', async () => {
+    persistenceMocks.readRemoteUserConfig.mockResolvedValue({
+      glassEnabled: true,
+      theme: 'light',
+      glassQuality: 'high',
+    })
+    await restoreThemeCustomizerSettingsFromServer(vuetify.theme)
+    expect(useGlassEffectsEnabled().value).toBe(true)
+    expect(vuetify.theme.global.name.value).toBe('glass')
+    expect(readThemeCustomizerSettings()).toMatchObject({ glassEnabled: true, glassQuality: 'high' })
   })
 
   it('recognizes matrix-derived reset settings as the default state', async () => {

@@ -119,7 +119,6 @@ const glassMaterialTintColor = computed(
     normalizeThemeMaterialAccent(globalTheme.current.value.colors.primary)?.hex ??
     normalizeThemeMaterialAccent(themeCustomizerPrimaryColors[0].value)!.hex,
 )
-globalTheme.name.value = 'glass'
 applyStoredThemeCustomizerAppearance(vuetifyTheme)
 
 // 启动屏和 iOS safe area 在同一层显示，根节点底色需要尽早和当前主题保持一致。
@@ -128,6 +127,7 @@ function syncRootLaunchPalette() {
 
   applyDocumentThemeChrome(readThemePreference(), {
     background,
+    glassEnabled: globalTheme.name.value === 'glass',
     persistLoaderColors: true,
     primary,
   })
@@ -203,7 +203,7 @@ const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
 const isBackdropTheme = computed(() => isGlassTheme.value && globalTheme.current.value.dark)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
-const loginVisualProfile = computed(() => 'glass' as const)
+const loginVisualProfile = computed(() => (isGlassTheme.value ? 'glass' : 'plain'))
 const loginGlassSettings = computed(() =>
   getLoginGlassOpticalSettings({
     appearance: effectiveGlassSettings.value.glassAppearance,
@@ -386,7 +386,7 @@ watch(
   },
 )
 
-// 更新data-theme属性以便CSS选择器能正确匹配
+/** 同步材质选择器和启动层配色，关闭玻璃后不恢复玻璃根属性。 */
 function updateHtmlThemeAttribute(themeName: string) {
   document.documentElement.setAttribute('data-theme', themeName)
   document.body.setAttribute('data-theme', themeName)
@@ -396,7 +396,7 @@ function updateHtmlThemeAttribute(themeName: string) {
 /** 恢复前台、跨窗口变更和原生接管变化时重新应用已保存的玻璃明暗与布局。 */
 function syncThemePreferenceFromStorage() {
   applyStoredThemeCustomizerAppearance(vuetifyTheme)
-  updateHtmlThemeAttribute('glass')
+  updateHtmlThemeAttribute(globalTheme.name.value)
   configureApexChartsTheme()
 }
 

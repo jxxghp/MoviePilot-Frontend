@@ -3,12 +3,16 @@ import { renderWithProviders } from '@tests/support/render'
 import { nativeGlobalActions } from '@/native/registry'
 import { useUserStore } from '@/stores'
 import { computed, toValue } from 'vue'
-import { waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { readThemeCustomizerSettings, THEME_CUSTOMIZER_CHANGE_EVENT } from '@/composables/useThemeCustomizer'
+import {
+  persistPartialThemeCustomizerSettings,
+  readThemeCustomizerSettings,
+  THEME_CUSTOMIZER_CHANGE_EVENT,
+} from '@/composables/useThemeCustomizer'
 
 const mocks = vi.hoisted(() => ({ community: vi.fn(), get: vi.fn() }))
-vi.mock('@/api', () => ({ default: { get: mocks.get } }))
+vi.mock('@/api', () => ({ default: { get: mocks.get, post: vi.fn().mockResolvedValue(null) } }))
 vi.mock('vue-toastification', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }))
 
 beforeEach(() => {
@@ -35,6 +39,18 @@ async function renderProfile(level = 1, superUser = true) {
 }
 
 describe('原生用户菜单与网页状态同步', () => {
+  it('网页主题菜单中的玻璃设置随总开关即时显示和隐藏', async () => {
+    await renderProfile(2)
+    persistPartialThemeCustomizerSettings({ glassEnabled: false })
+    await fireEvent.click(screen.getByRole('button', { name: '用户菜单' }))
+    await fireEvent.click(await screen.findByText('主题', { selector: '.v-list-item-title' }))
+    expect(screen.queryByText('玻璃设置')).not.toBeInTheDocument()
+    persistPartialThemeCustomizerSettings({ glassEnabled: true })
+    expect(await screen.findByText('玻璃设置')).toBeVisible()
+    persistPartialThemeCustomizerSettings({ glassEnabled: false })
+    await waitFor(() => expect(screen.queryByText('玻璃设置')).not.toBeInTheDocument())
+  })
+
   it('已认证账号隐藏认证入口，勋章资格异步完成后立即出现在原顺序中', async () => {
     const { entries, action } = await renderProfile(2)
     expect(toValue(action.title)).toBe('用户')

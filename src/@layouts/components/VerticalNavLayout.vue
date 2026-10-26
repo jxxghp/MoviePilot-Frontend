@@ -6,6 +6,7 @@ import GlassNavbarRefractionDefs from '@/components/theme/GlassNavbarRefractionD
 import GlassPanelRefractionDefs from '@/components/theme/GlassPanelRefractionDefs.vue'
 import {
   readThemeCustomizerSettings,
+  useGlassEffectsEnabled,
   THEME_CUSTOMIZER_CHANGE_EVENT,
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
@@ -33,6 +34,7 @@ export default defineComponent({
     // App Dock 通过 Teleport 挂载到 body，不参与内容流；将实际高度交给布局用于末尾避让。
     const { footerDockHeight } = useFooterDockHeight()
     const fixedShellBackplate = useGlassFixedShellBackplate()
+    const glassEnabled = useGlassEffectsEnabled()
     const navbarRefractionMode = supportsGlassNavbarLiveRefraction() ? 'chromium' : 'goal1'
     const initialThemeSettings = readThemeCustomizerSettings()
     const themeLayout = ref(initialThemeSettings.layout)
@@ -264,8 +266,8 @@ export default defineComponent({
           },
         },
         [
-          navbarRefractionMode === 'chromium' ? h(GlassNavbarRefractionDefs) : null,
-          navbarRefractionMode === 'chromium' ? h(GlassPanelRefractionDefs) : null,
+          glassEnabled.value && navbarRefractionMode === 'chromium' ? h(GlassNavbarRefractionDefs) : null,
+          glassEnabled.value && navbarRefractionMode === 'chromium' ? h(GlassPanelRefractionDefs) : null,
           fixedShellBackplateNode,
           verticalNav,
           h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]),

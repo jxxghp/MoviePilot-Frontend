@@ -9,6 +9,8 @@ export type ThemeColorScheme = 'light' | 'dark'
 /** 文档根节点与启动层的配色同步选项。 */
 interface ApplyDocumentThemeChromeOptions {
   background?: string
+  /** 关闭时不匹配玻璃材质 CSS，保留当前明暗配色。 */
+  glassEnabled?: boolean
   persistLoaderColors?: boolean
   primary?: string
 }
@@ -139,20 +141,22 @@ export function getGlassThemePalette(colorScheme: ThemeColorScheme = getThemeCol
   }
 }
 
-/** 在既有 glass 主题内切换系统明暗，保留主题名、主色和已加载材质。 */
+/** 同步普通与玻璃材质的系统明暗，保留用户主色。 */
 export function applyGlassThemePalette(
   themeApi: ReturnType<typeof useTheme>,
   preference: ThemePreference = readThemePreference(),
 ) {
   appearancePreference.value = preference
-  const glass = themeApi.themes.value.glass
-  if (!glass) return
   const palette = getGlassThemePalette(getThemeColorScheme(preference))
-  const primary = glass.colors.primary
-  const onPrimary = glass.colors['on-primary']
-  glass.dark = palette.dark
-  Object.assign(glass.colors, palette.colors, { primary, 'on-primary': onPrimary })
-  Object.assign(glass.variables, palette.variables)
+  for (const name of ['glass', 'plain']) {
+    const theme = themeApi.themes.value[name]
+    if (!theme) continue
+    const primary = theme.colors.primary
+    const onPrimary = theme.colors['on-primary']
+    theme.dark = palette.dark
+    Object.assign(theme.colors, palette.colors, { primary, 'on-primary': onPrimary })
+    Object.assign(theme.variables, palette.variables)
+  }
 }
 
 /** 批量同步匹配选择器的 meta 内容。 */
@@ -199,7 +203,7 @@ export function applyDocumentThemeChrome(
 ) {
   const preference = normalizeThemePreference(themePreference)
   appearancePreference.value = preference
-  const resolvedTheme = 'glass'
+  const resolvedTheme = options.glassEnabled === false ? 'plain' : 'glass'
   const colorScheme = getThemeColorScheme(preference)
   const palette = getGlassThemePalette(colorScheme).colors
   const background = options.background || palette.background

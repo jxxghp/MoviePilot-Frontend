@@ -14,6 +14,7 @@ import { getNavMenus } from '@/router/i18n-menu'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federationLoader'
 import type { MfaMethod } from '@/types/auth'
+import { useGlassEffectsEnabled } from '@/composables/useThemeCustomizer'
 
 type LabTapTarget = 'logo' | 'title'
 
@@ -23,7 +24,8 @@ const labTapSequences: Record<LabTapTarget, { count: number; startedAt: number }
   logo: { count: 0, startedAt: 0 },
   title: { count: 0, startedAt: 0 },
 }
-const loginVisualProfile = 'glass'
+const glassEnabled = useGlassEffectsEnabled()
+const loginVisualProfile = computed(() => (glassEnabled.value ? 'glass' : 'plain'))
 
 /** 在指定区域连续点击五次时进入隐藏的 Logo 实验室。 */
 function handleLabTap(target: LabTapTarget) {
@@ -830,7 +832,7 @@ onUnmounted(() => {
 <template>
   <!-- 登录页面容器 -->
   <div class="login-root" :data-login-visual-profile="loginVisualProfile">
-    <svg class="login-glass-filter-defs" aria-hidden="true">
+    <svg v-if="glassEnabled" class="login-glass-filter-defs" aria-hidden="true">
       <defs>
         <filter id="login-glass-static-refraction" x="-12%" y="-12%" width="124%" height="124%">
           <feTurbulence type="fractalNoise" baseFrequency="0.008 0.014" numOctaves="2" seed="8" result="noise" />
@@ -870,7 +872,8 @@ onUnmounted(() => {
     <!-- 登录表单 -->
     <div class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card login-card glass-effect no-blur pa-7 pa-sm-9 w-full h-full login-card--enter"
+        class="auth-card login-card no-blur pa-7 pa-sm-9 w-full h-full login-card--enter"
+        :class="{ 'glass-effect': glassEnabled }"
         max-width="24rem"
         flat
       >
@@ -1120,7 +1123,7 @@ onUnmounted(() => {
   }
 
   /* 顶部迎光棱镜保持单方向，不随指针另建一套光源。 */
-  &::before {
+  &.glass-effect::before {
     position: absolute;
     z-index: 4;
     background: linear-gradient(

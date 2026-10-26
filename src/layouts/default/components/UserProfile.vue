@@ -14,6 +14,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { usePWA, type UIMode } from '@/composables/usePWA'
 import {
   readThemeCustomizerSettings,
+  useGlassEffectsEnabled,
   THEME_CUSTOMIZER_CHANGE_EVENT,
   THEME_CUSTOMIZER_OPEN_EVENT,
   type ThemeCustomizerSettings,
@@ -45,6 +46,7 @@ const userStore = useUserStore()
 const { t } = useI18n()
 // PWA
 const { appMode, uiMode, setUIMode } = usePWA()
+const glassEnabled = useGlassEffectsEnabled()
 
 // 提示框
 const $toast = useToast()
@@ -524,6 +526,8 @@ watch(editorTheme, theme => {
 
 /** 打开玻璃主题的外观与质量设置共享弹窗。 */
 function showGlassSettingsDialog() {
+  if (!glassEnabled.value || nativeChromeActive.value) return
+
   openSharedDialog(GlassSettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
 }
 
@@ -896,7 +900,7 @@ onUnmounted(() => {
 
               <VDivider class="my-2" />
 
-              <VListItem @click="showGlassSettingsDialog">
+              <VListItem v-if="glassEnabled && !nativeChromeActive" @click="showGlassSettingsDialog">
                 <template #prepend>
                   <VIcon icon="mdi-blur-radial" />
                 </template>

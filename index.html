@@ -795,7 +795,13 @@
 
       function applyLaunchThemeChrome() {
         const themePreference = getSavedThemePreference()
-        const resolvedLaunchTheme = 'glass'
+        let glassEnabled = true
+        try {
+          glassEnabled = JSON.parse(getLocalStorageValue('moviepilot-theme-customizer') || '{}').glassEnabled !== false
+        } catch {
+          // 无效设置与应用默认值一致，保留玻璃外观。
+        }
+        const resolvedLaunchTheme = window.MoviePilotNative?.transportVersion === 1 || glassEnabled ? 'glass' : 'plain'
         const colorScheme = getLaunchColorScheme(themePreference)
         const loaderColor = colorScheme === 'dark' ? '#0B1322' : '#F2F2F7'
         const primaryColor = getLocalStorageValue('materio-initial-loader-color') || '#8D51F9'

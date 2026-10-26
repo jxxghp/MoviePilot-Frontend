@@ -64,6 +64,8 @@ export type ThemeCustomizerTheme = ThemePreference
 
 /** 统一玻璃外观的持久化设置，App 运行时只投影原生所需限制。 */
 export interface ThemeCustomizerSettings {
+  /** 仅在用户开启时启用网页玻璃材质及其实时计算，参数独立保留。 */
+  glassEnabled: boolean
   /** 玻璃主题的材质语义，与渲染质量保持独立。 */
   glassAppearance: ThemeCustomizerGlassAppearance
   /** 玻璃界面风格，同时应用到顶栏、底部悬浮导航栏、弹出菜单、弹出窗口和 FAB 悬浮按钮。 */
@@ -163,6 +165,7 @@ export function getDefaultGlassCustomizerSettings(
 function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
   return {
     ...getDefaultGlassCustomizerSettings(),
+    glassEnabled: true,
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -240,6 +243,7 @@ function normalizeThemeCustomizerSettings(
     : fallback.glassPreset
 
   const normalized: ThemeCustomizerSettings = {
+    glassEnabled: typeof settings.glassEnabled === 'boolean' ? settings.glassEnabled : fallback.glassEnabled,
     glassAppearance: validGlassAppearances.includes(settings.glassAppearance as ThemeCustomizerGlassAppearance)
       ? (settings.glassAppearance as ThemeCustomizerGlassAppearance)
       : fallback.glassAppearance,
@@ -329,6 +333,7 @@ const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings()
 function nativeAppearanceDefaults() {
   return {
     ...getDefaultGlassCustomizerSettings(),
+    glassEnabled: true,
     layout: 'vertical' as const,
     radius: 'large' as const,
   }
@@ -337,6 +342,13 @@ function nativeAppearanceDefaults() {
 const activeSettings = computed(() =>
   nativeChromeActive.value ? { ...settingsState.value, ...nativeAppearanceDefaults() } : settingsState.value,
 )
+const glassEffectsEnabled = computed(() => activeSettings.value.glassEnabled)
+
+/** 共享玻璃总开关；原生套壳只使用固定外观，不改写网页偏好。 */
+export function useGlassEffectsEnabled() {
+  return readonly(glassEffectsEnabled)
+}
+
 type ThemeCustomizerGlassSettings = Pick<
   ThemeCustomizerSettings,
   | 'glassAppearance'
@@ -514,12 +526,13 @@ export function applyThemeCustomizerRootSettings(
   document.body.setAttribute('data-theme-radius', settings.radius)
 }
 
-/** 在同一玻璃主题内应用并保存明暗偏好，避免异步样式切换导致闪烁。 */
+/** 使用相同语义色切换普通与玻璃材质，并保存明暗偏好。 */
 function applyThemePreference(preference: ThemeCustomizerTheme, themeApi: VuetifyThemeApi) {
   localStorage.setItem('theme', preference)
-  themeApi.global.name.value = 'glass'
+  themeApi.global.name.value = glassEffectsEnabled.value ? 'glass' : 'plain'
   applyGlassThemePalette(themeApi, preference)
   applyDocumentThemeChrome(preference, {
+    glassEnabled: glassEffectsEnabled.value,
     persistLoaderColors: true,
     primary: themeApi.global.current.value.colors.primary,
   })
@@ -528,10 +541,10 @@ function applyThemePreference(preference: ThemeCustomizerTheme, themeApi: Vuetif
 /** 应用已保存的主色、明暗和布局，供 App 启动阶段在面板挂载前使用。 */
 export function applyStoredThemeCustomizerAppearance(themeApi: VuetifyThemeApi) {
   const settings = readThemeCustomizerSettings()
-  applyThemePreference(settings.theme, themeApi)
 
   glassPreviewState.value = null
   settingsState.value = settings
+  applyThemePreference(settings.theme, themeApi)
   applyPrimaryColorToVuetify(settings.primaryColor, themeApi)
   applyThemeCustomizerRootSettings(settings)
 
@@ -580,6 +593,7 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
   syncThemeCustomizerSettingsToServer(nextSettings)
   applyPrimaryColorToVuetify(nextSettings.primaryColor, vuetify.theme)
   applyThemeCustomizerRootSettings(nextSettings)
+  applyThemePreference(nextSettings.theme, vuetify.theme)
   dispatchThemeCustomizerChange(nextSettings)
 
   return nextSettings
@@ -647,6 +661,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
   })
 
   return (
+    settings.glassEnabled === defaults.glassEnabled &&
     settings.glassAppearance === defaults.glassAppearance &&
     settings.glassUIStyle === defaults.glassUIStyle &&
     settings.glassDeformationStrength === defaults.glassDeformationStrength &&
@@ -701,6 +716,11 @@ export function useThemeCustomizer() {
   /** 更新主题主色。 */
   function setPrimaryColor(color: string) {
     return updateSettings({ primaryColor: color })
+  }
+
+  /** 切换玻璃材质与计算，不重置已保存的玻璃参数。 */
+  function setGlassEnabled(glassEnabled: boolean) {
+    return updateSettings({ glassEnabled })
   }
 
   /** 读取当前组合的六个具体参数。 */
@@ -865,6 +885,7 @@ export function useThemeCustomizer() {
   async function resetSettings() {
     await updateSettings({
       ...getDefaultGlassCustomizerSettings(),
+      glassEnabled: true,
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       radius: 'default',
@@ -896,6 +917,7 @@ export function useThemeCustomizer() {
     isCustomized: computed(() => !isDefaultThemeCustomizerSettings(settings.value)),
     resetSettings,
     updateSettings,
+    setGlassEnabled,
     setGlassAppearance,
     setGlassUIStyle,
     setGlassDeformationStrength,

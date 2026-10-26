@@ -547,6 +547,7 @@ export default {
       primaryColor: 'Primary Color',
       usePrimaryColor: 'Use {color} primary color',
       chooseCustomColor: 'Choose custom primary color',
+      enableGlassEffects: 'Enable glass effects',
 
       radius: 'Corners',
       radiusNone: 'Square',

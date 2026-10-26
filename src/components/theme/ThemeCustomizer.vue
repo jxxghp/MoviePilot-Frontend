@@ -21,6 +21,7 @@ const {
   isCustomized,
   resetSettings,
   updateSettings,
+  setGlassEnabled,
   setGlassAppearance,
   setGlassQuality,
   setLayout,
@@ -118,6 +119,7 @@ const showLayoutSection = computed(() => !appMode.value)
 const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
+    !settings.value.glassEnabled ||
     settings.value.glassAppearance !== defaultAppModeGlassSettings.glassAppearance ||
     settings.value.glassUIStyle !== defaultAppModeGlassSettings.glassUIStyle ||
     settings.value.glassDeformationStrength !== defaultAppModeGlassSettings.glassDeformationStrength ||
@@ -174,6 +176,7 @@ async function handleResetSettings() {
   }
 
   // App 模式共享定制器，但保留桌面导航相关偏好，只重置 App 侧可调整的外观设置。
+  await setGlassEnabled(true)
   await setPrimaryColor(defaultPrimaryColor)
   await setGlassAppearance('clear')
   await setGlassQuality('css')
@@ -258,6 +261,17 @@ async function handleResetSettings() {
               <span>{{ theme.title }}</span>
             </button>
           </div>
+
+          <VSwitch
+            v-if="!nativeChromeActive"
+            class="theme-customizer-glass-toggle"
+            :model-value="settings.glassEnabled"
+            :label="t('theme.customizer.enableGlassEffects')"
+            color="primary"
+            inset
+            hide-details
+            @update:model-value="setGlassEnabled($event === true)"
+          />
 
           <template v-if="!nativeChromeActive">
             <VDivider class="mt-7" />
@@ -497,6 +511,10 @@ async function handleResetSettings() {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
 
+.theme-customizer-glass-toggle {
+  margin-block-start: 20px;
+}
+
 .theme-customizer-card-option,
 .theme-customizer-preview-option {
   display: flex;
@@ -579,6 +597,35 @@ async function handleResetSettings() {
   grid-template-columns: 34% 1fr;
   inline-size: 100%;
   min-inline-size: 92px;
+
+  .mini-sidebar,
+  .mini-content {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 6px;
+    min-inline-size: 0;
+  }
+
+  .mini-sidebar {
+    background: rgba(var(--v-theme-on-surface), 0.1);
+  }
+
+  .mini-content {
+    background: rgba(var(--v-theme-on-surface), 0.03);
+  }
+
+  i {
+    display: block;
+    flex: 0 0 auto;
+    border-radius: 2px;
+    background: rgba(var(--v-theme-on-surface), 0.24);
+    block-size: 5px;
+  }
+
+  .mini-content i:last-child {
+    inline-size: 66%;
+  }
 }
 
 .theme-customizer-mini-layout--collapsed {
@@ -592,6 +639,11 @@ async function handleResetSettings() {
   .mini-sidebar {
     flex-direction: row;
     align-items: center;
+    padding-block: 4px;
+
+    i {
+      inline-size: 18%;
+    }
   }
 }
 
@@ -601,9 +653,7 @@ async function handleResetSettings() {
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(var(--v-theme-on-surface), 0.02), rgba(var(--v-theme-on-surface), 0.05)),
-    rgb(var(--v-theme-surface));
+  background: rgba(var(--v-theme-on-surface), 0.03);
   block-size: 90px;
   inline-size: 100%;
   min-inline-size: 0;
@@ -638,7 +688,7 @@ async function handleResetSettings() {
   flex-direction: column;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: var(--theme-customizer-preview-surface-radius);
-  background: rgb(var(--v-theme-surface));
+  background: rgba(var(--v-theme-on-surface), 0.1);
   gap: 8px;
   inset: 16px;
   padding-block: 12px;
