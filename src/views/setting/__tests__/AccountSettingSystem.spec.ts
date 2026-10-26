@@ -8,6 +8,8 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
+import { flushPromises } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
@@ -456,7 +458,8 @@ const PathFieldStub = createModelFieldStub('VPathFieldStub')
 
 /** 用实际系统设置组件验证加载、编辑和保存。 */
 async function renderSettings(props: { active?: boolean } = {}) {
-  return renderWithProviders(AccountSettingSystem, {
+  invalidateSharedData()
+  const result = await renderWithProviders(AccountSettingSystem, {
     props,
     global: {
       components: { VCronField: CronFieldStub, VPathField: PathFieldStub },
@@ -464,6 +467,8 @@ async function renderSettings(props: { active?: boolean } = {}) {
     },
     stubActions: false,
   })
+  await flushPromises()
+  return result
 }
 
 /** 限定基础设置卡片，避免与高级设置中的控件重名。 */

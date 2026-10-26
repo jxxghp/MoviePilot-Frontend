@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { getSharedConfiguration } from '@/api/configuration'
+import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { useToast } from 'vue-toastification'
 import { useNativePageHeader } from '@/native/page'
 import PersonCardSlideView from './PersonCardSlideView.vue'
@@ -13,7 +16,6 @@ import type {
   MediaSeason,
   NotExistMediaInfo,
   Site,
-  Subscribe,
   TmdbEpisode,
 } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
@@ -31,7 +33,6 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 import {
   getMediaSubscribeId,
   getMediaSubscribeIdentity,
-  getSubscribeMode,
   useMediaSubscribe,
   type SeasonSubscribeModes,
 } from '@/composables/useMediaSubscribe'
@@ -179,7 +180,7 @@ function openSearchSiteDialog() {
 async function querySites() {
   try {
     const mediaType = mediaDetail.value.type === '电视剧' ? 'tv' : 'movie'
-    const data: Site[] = await api.get(`site/media/${mediaType}`)
+    const data: Site[] = await getSharedConfiguration(`site/media/${mediaType}`)
 
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)
@@ -191,7 +192,7 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    const result = await getSharedConfiguration<{ value?: number[] }>('system/setting/public/IndexerSites')
     selectedSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
@@ -297,40 +298,12 @@ async function loadEpisodeExists() {
 // 查询当前媒体是否已入库（数据库）
 async function checkExists() {
   try {
-    const result = await api.get<{ item?: { id: string } }>('mediaserver/exists', {
-      params: {
-        media_source: mediaDetail.value.media_source,
-        media_id: mediaDetail.value.media_id,
-        title: mediaDetail.value.title,
-        year: mediaDetail.value.year,
-        season: mediaDetail.value.season,
-        mtype: mediaDetail.value.type,
-      },
-    })
-
-    existsItemId.value = result.item?.id || ''
+    const result = await getMediaStatus(mediaDetail.value)
+    if (result.legacyFailures?.exists) throw new Error(result.legacyFailures.exists)
+    existsItemId.value = result.item_id || ''
   } catch (error) {
     console.error(error)
   }
-}
-
-// 查询当前媒体是否已订阅
-async function checkSubscribe(season: number | null = null) {
-  try {
-    return await subscribeActions.checkSubscribe(season)
-  } catch (error) {
-    console.error(error)
-  }
-
-  return false
-}
-
-// 判断订阅记录是否属于当前媒体
-function isSameSubscribeMedia(subscribe: Subscribe) {
-  const identity = getMediaSubscribeIdentity(mediaDetail.value)
-  return Boolean(
-    identity && subscribe.media_source === identity.source && String(subscribe.media_id || '') === identity.mediaId,
-  )
 }
 
 // 检查所有季的缺失状态
@@ -361,7 +334,13 @@ async function checkSeasonsNotExists() {
 // 检查电影订阅状态
 async function checkMovieSubscribed() {
   if (mediaDetail.value.type !== '电影') return
-  isSubscribed.value = await checkSubscribe()
+  try {
+    const result = await getMediaStatus(mediaDetail.value)
+    if (result.legacyFailures?.subscribe) throw new Error(result.legacyFailures.subscribe)
+    isSubscribed.value = result.subscribed
+  } catch (error) {
+    console.error(error)
+  }
 }
 
 // 默认排序的总集数
@@ -483,26 +462,21 @@ function scrollEpisodeGroups(direction: 'backward' | 'forward') {
 async function checkSeasonsSubscribed() {
   if (mediaDetail.value.type !== '电视剧') return
   try {
-    const subscribes: Subscribe[] = await api.get('subscribe/')
-    const mediaSubscribes = subscribes.filter(
-      item => item.type === '电视剧' && item.season !== undefined && isSameSubscribeMedia(item),
-    )
+    const modes = await getMediaSubscribedSeasons(mediaDetail.value)
     const nextSubscribed: { [key: number]: boolean } = {}
-    const nextModes: SeasonSubscribeModes = {}
 
     mediaDetail.value?.season_info?.forEach(item => {
       const season = item.season_number ?? 0
       nextSubscribed[season] = false
     })
 
-    mediaSubscribes.forEach(item => {
-      const season = item.season as number
+    Object.keys(modes).forEach(key => {
+      const season = Number(key)
       nextSubscribed[season] = true
-      nextModes[season] = getSubscribeMode(item)
     })
 
     seasonsSubscribed.value = nextSubscribed
-    subscribedSeasonModes.value = nextModes
+    subscribedSeasonModes.value = modes
   } catch (error) {
     console.error(error)
   }
@@ -741,6 +715,7 @@ async function handlePlay() {
 
 // 删除订阅处理
 function onSubscribeEditRemove() {
+  invalidateSharedData('media-status')
   if (mediaDetail.value.type === '电影') checkMovieSubscribed()
   else checkSeasonsSubscribed()
 }
@@ -767,10 +742,7 @@ async function clickSearch(
   searchType.value = type
   pendingSearchResultType.value = resultType
   pendingSearchOptions.value = options
-  if (allSites.value?.length == 0) {
-    await querySites()
-    await querySelectedSites()
-  }
+  await Promise.all([querySites(), querySelectedSites()])
   if (allSites.value?.length > 0) {
     openSearchSiteDialog()
   } else {

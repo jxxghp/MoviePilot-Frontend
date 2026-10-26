@@ -1,11 +1,7 @@
 import api from '@/api'
-import type { MediaDataSource, MediaInfo, Subscribe } from '@/api/types'
-import {
-  getMediaSubscribeId,
-  getSubscribeMode,
-  type SeasonSubscribeModes,
-  useMediaSubscribeFactory,
-} from '@/composables/useMediaSubscribe'
+import { getMediaSubscribedSeasons } from '@/api/mediaStatus'
+import type { MediaDataSource, MediaInfo } from '@/api/types'
+import { type SeasonSubscribeModes, useMediaSubscribeFactory } from '@/composables/useMediaSubscribe'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { computed, ref } from 'vue'
@@ -98,11 +94,6 @@ export function normalizeNativeSubscribeMedia(input: unknown): MediaNormalizatio
   return { success: true, media: normalizedMedia }
 }
 
-/** 生成订阅记录的统一媒体标识，用于恢复电视剧已订阅季状态。 */
-function getSubscribeRecordMediaId(subscribe: Subscribe) {
-  return subscribe.media_source && subscribe.media_id ? `${subscribe.media_source}:${subscribe.media_id}` : ''
-}
-
 /** 为插件联邦组件创建主程序原生订阅入口。 */
 export function usePluginNativeSubscribe(): NativeSubscribe {
   const { t } = useI18n()
@@ -155,17 +146,11 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
     /** 查询电视剧全部订阅记录，让选季弹窗正确展示已订阅季和订阅模式。 */
     async function loadTvState(currentMedia: MediaInfo) {
       try {
-        const subscribes: Subscribe[] = await api.get('subscribe/')
-        const mediaId = getMediaSubscribeId(currentMedia)
-        const mediaSubscribes = subscribes.filter(
-          item => item.type === '电视剧' && item.season !== undefined && getSubscribeRecordMediaId(item) === mediaId,
-        )
-
-        subscribedSeasons.value = [...new Set(mediaSubscribes.map(item => item.season as number))].sort((a, b) => a - b)
-        subscribedSeasonModes.value = mediaSubscribes.reduce<SeasonSubscribeModes>((modes, item) => {
-          if (item.season !== undefined) modes[item.season] = getSubscribeMode(item)
-          return modes
-        }, {})
+        const modes = await getMediaSubscribedSeasons(currentMedia)
+        subscribedSeasons.value = Object.keys(modes)
+          .map(Number)
+          .sort((a, b) => a - b)
+        subscribedSeasonModes.value = modes
         isSubscribed.value = subscribedSeasons.value.length > 0
       } catch (error) {
         console.error(error)

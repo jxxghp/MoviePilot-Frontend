@@ -15,9 +15,10 @@ function nextMediaCardId() {
 import { useI18n } from 'vue-i18n'
 import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
-import api from '@/api'
+import { getSharedConfiguration } from '@/api/configuration'
+import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
 import { formatRating } from '@/@core/utils/formatters'
-import type { MediaInfo, Site, Subscribe } from '@/api/types'
+import type { MediaInfo, Site } from '@/api/types'
 import router from '@/router'
 import { useUserStore, useGlobalSettingsStore } from '@/stores'
 import { mediaTypeDict } from '@/api/constants'
@@ -26,7 +27,6 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import {
   getMediaSubscribeId,
   getMediaSubscribeIdentity,
-  getSubscribeMode,
   useMediaSubscribe,
   type SeasonSubscribeModes,
 } from '@/composables/useMediaSubscribe'
@@ -183,7 +183,7 @@ function openSearchSiteDialog() {
 async function querySites() {
   try {
     const mediaType = props.media?.type === '电视剧' ? 'tv' : props.media?.type === '音乐' ? 'music' : 'movie'
-    const data: Site[] = await api.get(`site/media/${mediaType}`)
+    const data: Site[] = await getSharedConfiguration(`site/media/${mediaType}`)
 
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)
@@ -195,7 +195,7 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    const result = await getSharedConfiguration<{ value?: number[] }>('system/setting/public/IndexerSites')
     selectedSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
@@ -226,19 +226,6 @@ function getExistsStatusKey() {
   ].join('::')
 }
 
-/** 匹配当前来源和音乐实体类型，不能将辅助 ID 当成订阅身份。 */
-function isSameSubscribeMedia(subscribe: Subscribe) {
-  if (props.media?.type === '音乐') {
-    const expectedMusicType = props.media.music_type ?? 'recording'
-    const subscribeMusicType = subscribe.music_type ?? 'recording'
-    if (subscribeMusicType !== expectedMusicType) return false
-  }
-  const identity = getMediaSubscribeIdentity(props.media)
-  return Boolean(
-    identity && subscribe.media_source === identity.source && String(subscribe.media_id || '') === identity.mediaId,
-  )
-}
-
 // 角标颜色
 function getChipColor(type: string) {
   if (type === '电影') return 'border-blue-500 bg-blue-600'
@@ -249,11 +236,12 @@ function getChipColor(type: string) {
 
 // 查询当前媒体是否已订阅
 async function handleCheckSubscribe() {
+  const media = props.media
   try {
     const subscribed = await getCachedMediaSubscribeStatus(getSubscribeStatusKey(props.media?.season ?? null), () =>
       checkSubscribe(props.media?.season ?? null),
     )
-    isSubscribed.value = subscribed
+    if (media === props.media) isSubscribed.value = subscribed
   } catch (error) {
     console.error(error)
   }
@@ -272,16 +260,14 @@ async function querySubscribedSeasons() {
 
   subscribedSeasonsLoading.value = true
   try {
-    const subscribes: Subscribe[] = await api.get('subscribe/')
-    const mediaSubscribes = subscribes.filter(
-      item => item.type === '电视剧' && item.season !== undefined && isSameSubscribeMedia(item),
-    )
-
-    subscribedSeasons.value = mediaSubscribes.map(item => item.season as number).sort((a, b) => a - b)
-    subscribedSeasonModes.value = mediaSubscribes.reduce<SeasonSubscribeModes>((modes, item) => {
-      if (item.season !== undefined) modes[item.season] = getSubscribeMode(item)
-      return modes
-    }, {})
+    const media = props.media
+    if (!media) return
+    const modes = await getMediaSubscribedSeasons(media)
+    if (media !== props.media) return
+    subscribedSeasons.value = Object.keys(modes)
+      .map(Number)
+      .sort((a, b) => a - b)
+    subscribedSeasonModes.value = modes
     subscribedSeasonsLoaded.value = true
   } catch (error) {
     console.error(error)
@@ -293,25 +279,18 @@ async function querySubscribedSeasons() {
 // 查询当前媒体是否已入库
 async function handleCheckExists() {
   if (props.media?.type === '音乐') return
+  const media = props.media
+  const key = getExistsStatusKey()
   try {
-    const exists = await getCachedMediaExistsStatus(getExistsStatusKey(), async () => {
-      const identity = getMediaSubscribeIdentity(props.media)
-      const result = await api.get<{ item?: { id?: string } }>('mediaserver/exists', {
-        feedback: 'silent',
-        params: {
-          ...(identity ? { media_source: identity.source, media_id: identity.mediaId } : {}),
-          title: props.media?.title,
-          year: props.media?.year,
-          season: props.media?.season,
-          mtype: props.media?.type,
-        },
-      })
-
-      return Boolean(result.item?.id)
+    const exists = await getCachedMediaExistsStatus(key, async () => {
+      if (!media) return false
+      const status = await getMediaStatus(media)
+      if (status.legacyFailures?.exists) throw new Error(status.legacyFailures.exists)
+      return Boolean(status.item_id)
     })
-
+    if (media !== props.media) return
     isExists.value = exists
-    setCachedMediaExistsStatus(getExistsStatusKey(), exists)
+    setCachedMediaExistsStatus(key, exists)
   } catch (error) {
     console.error(error)
   }
@@ -319,7 +298,10 @@ async function handleCheckExists() {
 
 // 调用API检查是否已订阅，电视剧需要指定季
 async function checkSubscribe(season: number | null) {
-  return subscribeActions.checkSubscribe(season)
+  if (!props.media) return false
+  const status = await getMediaStatus({ ...props.media, season: season ?? undefined })
+  if (status.legacyFailures?.subscribe) throw new Error(status.legacyFailures.subscribe)
+  return status.subscribed
 }
 
 // 爱心订阅按钮响应
@@ -400,10 +382,7 @@ function handleDocumentPointerDown(event: PointerEvent) {
 
 // 点击搜索
 async function clickSearch() {
-  if (allSites.value?.length == 0) {
-    await querySites()
-    await querySelectedSites()
-  }
+  await Promise.all([querySites(), querySelectedSites()])
   if (allSites.value?.length > 0) {
     openSearchSiteDialog()
   } else {

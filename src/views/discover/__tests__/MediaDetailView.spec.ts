@@ -33,8 +33,14 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { defineComponent, h, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+beforeEach(() => {
+  invalidateSharedData()
+  server.use(http.post('http://localhost/api/v1/media/status', () => new HttpResponse(null, { status: 404 })))
+})
 
 const mocks = vi.hoisted(() => ({
   openDoubanApp: vi.fn(),
@@ -136,6 +142,7 @@ interface RenderDetailOptions {
   type?: string
 }
 
+/** 为当前媒体提供受控的可用站点和默认选择。 */
 function installSiteHandlers(sites: Site[] = [], selected: number[] = [], type = '电影') {
   server.use(
     http.get(type === '电视剧' ? tvSiteListUrl : movieSiteListUrl, () => apiJson(sites)),
@@ -143,7 +150,9 @@ function installSiteHandlers(sites: Site[] = [], selected: number[] = [], type =
   )
 }
 
+/** 在独立应用状态下加载媒体详情，等待当前媒体的旧后端兼容查询完成。 */
 async function renderDetail(options: RenderDetailOptions = {}) {
+  invalidateSharedData()
   const media = options.media ?? createMediaInfo({ title: '详情测试电影', tmdb_id: 8101, type: '电影' })
   const mediaId = options.mediaId ?? String(media.media_id)
   const mediaSource =
@@ -160,7 +169,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
     ),
     mediaNotExistsHandler(options.notExists ?? [], options.notExistsStatus),
     subscribeListHandler(options.subscribes ?? [], options.subscribesStatus, subscribeRequest),
-    querySubscribeByMediaHandler(mediaId, options.movieSubscribe ?? {}, 200, subscribeRequest),
+    querySubscribeByMediaHandler(String(media.media_id), options.movieSubscribe ?? {}, 200, subscribeRequest),
   )
   if (media.tmdb_id) {
     server.use(
@@ -214,7 +223,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
   if (recognized && (options.detailStatus ?? 200) < 400) {
     await waitFor(() => {
       expect(existsRequest).toHaveBeenCalledOnce()
-      expect(subscribeRequest).toHaveBeenCalledOnce()
+      expect(subscribeRequest).toHaveBeenCalledTimes(type === '电视剧' ? 2 : 1)
     })
     if (type === '电视剧') await flushPromises()
   }
@@ -222,6 +231,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
   return result
 }
 
+/** 将响应完成时机交给测试，验证过期媒体与剧集组不会写回。 */
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>(done => {

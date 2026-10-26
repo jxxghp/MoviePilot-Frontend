@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { abortAllRequests } from '@/utils/requestOptimizer'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { cleanup } from '@testing-library/vue'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 import { createDataApiMock as buildDataApiMock } from './support/apiMock'
@@ -65,6 +66,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   abortAllRequests()
+  invalidateSharedData()
   server.resetHandlers()
   localStorage.clear()
   sessionStorage.clear()

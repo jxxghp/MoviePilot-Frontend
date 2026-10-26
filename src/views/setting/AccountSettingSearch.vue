@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { getSharedConfiguration } from '@/api/configuration'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
@@ -83,7 +84,7 @@ async function queryFilterRuleGroups() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+    const result = await getSharedConfiguration<{ value?: number[] }>('system/setting/public/IndexerSites')
     selectedSites.value = result.value ?? []
   } catch (error) {
     console.log(error)
@@ -153,9 +154,10 @@ async function saveSearchSetting() {
 }
 
 // 加载系统设置
-async function loadSystemSettings() {
+/** 共享初次读取，页面刷新时重新取回配置并与并发面板合并。 */
+async function loadSystemSettings(refresh = false) {
   try {
-    const result: { [key: string]: any } = await api.get('system/env')
+    const result: { [key: string]: any } = await getSharedConfiguration('system/env', refresh)
     // 将API返回的值赋值给SystemSettings
     for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
       Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
@@ -169,13 +171,14 @@ async function loadSystemSettings() {
   }
 }
 
-async function loadPageData() {
+/** 成组加载当前面板数据，刷新时保留原有重新读取语义。 */
+async function loadPageData(refresh = false) {
   await Promise.all([
     querySites(),
     queryFilterRuleGroups(),
     querySelectedSites(),
     loadSearchSetting(),
-    loadSystemSettings(),
+    loadSystemSettings(refresh),
   ])
 }
 
@@ -183,7 +186,7 @@ onMounted(() => {
   loadPageData()
 })
 
-useSilentSettingRefresh(loadPageData, {
+useSilentSettingRefresh(() => loadPageData(true), {
   active: computed(() => props.active),
 })
 </script>
