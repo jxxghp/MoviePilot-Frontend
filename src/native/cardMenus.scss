@@ -1,9 +1,21 @@
-// 这些属性只由已完成双向协商的卡片适配器设置；普通网页和旧宿主没有此选择器入口。
-[data-native-card-menu-ready] {
+// 原生布局接管时所有卡片都禁选，不依赖是否登记了菜单；Web/PWA 保留原行为。
+[data-native-card-menu-ready],
+html[data-native-chrome='active'] .v-card {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable='false']) {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+// 菜单就绪标记只由完成双向协商的卡片适配器设置，未登记卡片不添加菜单入口。
+[data-native-card-menu-ready] {
   [data-native-card-menu-trigger] {
     display: none !important;
   }
@@ -31,13 +43,5 @@
       inset-block-start: 8px;
       inset-inline-start: 8px;
     }
-  }
-
-  input,
-  textarea,
-  [contenteditable]:not([contenteditable='false']) {
-    -webkit-touch-callout: default;
-    -webkit-user-select: text;
-    user-select: text;
   }
 }

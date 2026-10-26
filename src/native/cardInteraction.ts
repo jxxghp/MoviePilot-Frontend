@@ -43,6 +43,8 @@ export class NativeCardMenuAdapter implements NativeCardMenuChannel {
   }
   /** 同步手势准备只接受主指针命中的卡片正文，独立控件保持原操作。 */
   private readonly pointerDown = (event: PointerEvent) => {
+    // UIKit 接手长按后 WebKit 可能重发按下；系统结束当前展示前不能用它替换票据。
+    if (this.current?.shown) return
     if (!event.isPrimary || event.button !== 0 || !(event.target instanceof Element)) return
     const target = this.registry.targetFor(event.target)
     const root = target && this.registry.elementFor(target.ownerId)
