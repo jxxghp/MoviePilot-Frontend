@@ -157,8 +157,9 @@ async function loadDownloadDirectories() {
     ]
     // 将初始数据拆分到堆栈中
     const paths = path.split('/').filter(Boolean)
+    const prefix = path.startsWith('/') ? '/' : ''
     paths.map((name, index) => {
-      const path = '/' + paths.slice(0, index + 1).join('/') + '/'
+      const path = prefix + paths.slice(0, index + 1).join('/') + '/'
       itemstack.value.push({
         storage,
         type: 'dir',
@@ -171,32 +172,47 @@ async function loadDownloadDirectories() {
   }
 }
 
+/** 对齐目录尾部分隔符，以保留同一目录已有的云盘身份。 */
+function directoryPath(path: string) {
+  let end = path.length
+  while (end > 1 && path[end - 1] === '/') end -= 1
+  return path.slice(0, end) || '/'
+}
+
 /** 切换当前路径并同步存储偏好及面包屑路径栈。 */
-function pathChanged(item: FileItem) {
+function pathChanged(item: FileItem, treeAncestors: FileItem[] = []) {
   // save storage to localStorage
   if (item.storage !== operItem.value?.storage) {
     localStorage.setItem(STORAGE_KEY, item.storage)
   }
 
+  // 路径栈表示当前路径的祖先，不是点击历史；树可以直接跳过任意中间层。
+  const knownItems = new Map(
+    [...itemstack.value, ...treeAncestors]
+      .filter(ancestor => ancestor.storage === item.storage)
+      .map(ancestor => [directoryPath(ancestor.path), ancestor]),
+  )
+  const root = knownItems.get('/') ?? { storage: item.storage, type: 'dir', name: '/', path: '/', fileid: 'root' }
+  const ancestors: FileItem[] = [
+    item.path === '/' ? { ...item, type: 'dir', name: '/', fileid: item.fileid || 'root' } : root,
+  ]
+  const segments = item.path.split('/').filter(Boolean)
+  const prefix = item.path.startsWith('/') ? '/' : ''
+  segments.forEach((name, index) => {
+    const path = prefix + segments.slice(0, index + 1).join('/') + '/'
+    ancestors.push(
+      index === segments.length - 1
+        ? item
+        : (knownItems.get(directoryPath(path)) ?? {
+            storage: item.storage,
+            type: 'dir',
+            name,
+            path,
+          }),
+    )
+  })
   operItem.value = item
-  if (item.path == '/') {
-    itemstack.value = [
-      {
-        storage: item.storage,
-        type: 'dir',
-        name: '/',
-        path: '/',
-        fileid: item.fileid || 'root',
-      },
-    ]
-    return
-  }
-  const index = itemstack.value.findIndex(i => i.path === item.path)
-  if (index >= 0) {
-    itemstack.value = itemstack.value.slice(0, index + 1)
-  } else {
-    itemstack.value.push(item)
-  }
+  itemstack.value = ancestors
 }
 
 // 加载初始目录

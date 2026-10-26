@@ -255,8 +255,9 @@ async function storageChanged(storage: string) {
 }
 
 /** 路径变化。 */
-function pathChanged(item: FileItem) {
-  emit('pathchanged', item)
+function pathChanged(item: FileItem, ancestors?: FileItem[]) {
+  if (ancestors) emit('pathchanged', item, ancestors)
+  else emit('pathchanged', item)
 }
 
 /** 排序变化只调整已加载列表的展示顺序，不重新请求目录。 */
@@ -273,8 +274,8 @@ function switchDirTree(state: boolean) {
 
 // 文件列表
 /** 从移动目录面板导航后关闭面板，后续列表加载由原路径流程负责。 */
-function navigateMobileTree(item: FileItem) {
-  pathChanged(item)
+function navigateMobileTree(item: FileItem, ancestors?: FileItem[]) {
+  pathChanged(item, ancestors)
   mobileTreeOpen.value = false
 }
 const fileListItems = ref<FileItem[]>([])

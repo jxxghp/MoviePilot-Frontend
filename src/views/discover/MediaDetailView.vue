@@ -967,7 +967,7 @@ useNativePageHeader({
           <ul v-if="mediaDetail.tmdb_id" class="media-crew">
             <li v-for="director in mediaDetail.directors" :key="director.id">
               <span>{{ director.job }}</span>
-              <RouterLink :to="`/person?personid=${director.id}`" class="crew-name" target="_blank">
+              <RouterLink :to="`/person?source=themoviedb&personid=${director.id}`" class="crew-name" target="_blank">
                 {{ director.name }}
               </RouterLink>
             </li>

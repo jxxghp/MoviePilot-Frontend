@@ -125,7 +125,7 @@ const siteUserDataMap = computed<Record<string, SiteUserData | undefined>>(() =>
 })
 
 const canDragSort = computed(() => sortMode.value && filterOption.value === 'all')
-const shouldVirtualizeList = computed(() => !sortMode.value)
+const shouldVirtualizeList = computed(() => !canDragSort.value)
 
 // 当前筛选选项的显示信息
 const currentFilter = computed(() => {
@@ -259,6 +259,7 @@ function selectFilter(value: string) {
 }
 
 function toggleSortMode() {
+  if (filterOption.value !== 'all') return
   sortMode.value = !sortMode.value
 }
 

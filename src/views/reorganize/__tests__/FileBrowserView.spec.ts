@@ -177,4 +177,101 @@ describe('FileBrowserView initialization', () => {
 
     expect(browser.props('itemstack').map((item: { path: string }) => item.path)).toEqual(['/', '/downloads/'])
   })
+
+  it('rebuilds every ancestor after a deep tree jump and preserves known file identities', async () => {
+    mockSettings([{ name: '本地', type: 'local' }], null)
+    const browser = (await mountView()).getComponent(FileBrowserStub)
+    browser.vm.$emit('pathchanged', {
+      name: 'shows',
+      path: '/shows/',
+      storage: 'local',
+      type: 'dir',
+      fileid: 'shows-id',
+    })
+    await flushPromises()
+    browser.vm.$emit('pathchanged', {
+      name: 'final',
+      path: '/shows/season/final/',
+      storage: 'local',
+      type: 'dir',
+      fileid: 'final-id',
+    })
+    await flushPromises()
+    expect(browser.props('itemstack').map((item: { path: string }) => item.path)).toEqual([
+      '/',
+      '/shows/',
+      '/shows/season/',
+      '/shows/season/final/',
+    ])
+    expect(browser.props('itemstack')[1].fileid).toBe('shows-id')
+    expect(browser.props('itemstack')[3].fileid).toBe('final-id')
+    browser.vm.$emit('pathchanged', {
+      name: 'final',
+      path: '/shows/season/final/',
+      storage: 'rclone',
+      type: 'dir',
+      fileid: 'remote-final',
+    })
+    await flushPromises()
+    expect(browser.props('itemstack').every((item: { storage: string }) => item.storage === 'rclone')).toBe(true)
+    expect(browser.props('itemstack')[1].fileid).toBeUndefined()
+  })
+
+  it('retains supplied tree ancestor identifiers for up-navigation on opaque-id storages', async () => {
+    mockSettings([{ name: '本地', type: 'local' }], null)
+    const browser = (await mountView()).getComponent(FileBrowserStub)
+    const parent = {
+      name: 'shows',
+      path: '/shows/',
+      storage: 'local',
+      type: 'dir',
+      fileid: 'shows-id',
+      drive_id: 'drive-id',
+    }
+    const child = {
+      name: 'season',
+      path: '/shows/season/',
+      storage: 'local',
+      type: 'dir',
+      fileid: 'season-id',
+      drive_id: 'drive-id',
+    }
+    browser.vm.$emit('pathchanged', child, [parent, child])
+    await flushPromises()
+    expect(browser.props('itemstack')).toEqual([expect.objectContaining({ path: '/' }), parent, child])
+  })
+
+  it('preserves Windows drive paths when rebuilding deep tree ancestors', async () => {
+    mockSettings([{ name: '本地', type: 'local' }], null)
+    const browser = (await mountView()).getComponent(FileBrowserStub)
+    const drive = { name: 'C:', path: 'C:/', storage: 'local', type: 'dir', fileid: 'drive-id' }
+    browser.vm.$emit('pathchanged', drive)
+    await flushPromises()
+    browser.vm.$emit('pathchanged', {
+      name: 'season',
+      path: 'C:/shows/season/',
+      storage: 'local',
+      type: 'dir',
+      fileid: 'season-id',
+    })
+    await flushPromises()
+    expect(browser.props('itemstack').map((item: { path: string }) => item.path)).toEqual([
+      '/',
+      'C:/',
+      'C:/shows/',
+      'C:/shows/season/',
+    ])
+    expect(browser.props('itemstack')[1]).toEqual(drive)
+  })
+
+  it('keeps the Windows drive prefix in the initial download-directory breadcrumbs', async () => {
+    mockSettings([{ name: '本地', type: 'local' }], [{ download_path: 'C:/downloads/tv', storage: 'local' }])
+    const browser = (await mountView()).getComponent(FileBrowserStub)
+    expect(browser.props('itemstack').map((item: { path: string }) => item.path)).toEqual([
+      '/',
+      'C:/',
+      'C:/downloads/',
+      'C:/downloads/tv/',
+    ])
+  })
 })

@@ -298,6 +298,15 @@ describe('SiteCardListView', () => {
     else expect(visibleCards).toHaveLength(1)
   })
 
+  it('keeps filtered cards visible when the sort action is requested', async () => {
+    await renderList({ sites: [createSite({ id: 300, name: '可见站点', is_active: true })] })
+    await screen.findByText('可见站点')
+    await selectFilter('激活')
+    await fireEvent.click(screen.getByText('mdi-sort-variant'))
+    expect(screen.getByTestId('site-card-300')).toBeInTheDocument()
+    expect(screen.queryByTestId('site-draggable')).not.toBeInTheDocument()
+  })
+
   it('reorders only the complete list and posts exact priorities', async () => {
     const saved = vi.fn()
     const first = createSite({ id: 301, name: '第一站' })

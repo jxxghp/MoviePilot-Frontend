@@ -1126,6 +1126,18 @@ describe('SubscribeListView loading and filtering', () => {
 })
 
 describe('SubscribeListView sorting and refresh boundaries', () => {
+  it('keeps filtered subscriptions visible when the host requests drag mode', async () => {
+    const { rerender } = await renderList({
+      listResponse: [movie(1, 'Visible movie')],
+      keyword: 'Visible',
+      sortBy: 'custom',
+    })
+    await screen.findByText('Visible movie')
+    await rerender({ keyword: 'Visible', sortBy: 'custom', sortMode: true })
+    expect(screen.getByTestId('subscribe-card-1')).toBeInTheDocument()
+    expect(screen.queryByTestId('draggable-list')).not.toBeInTheDocument()
+  })
+
   it('applies custom order first and appends unconfigured subscriptions by date', async () => {
     await renderList({
       listResponse: [

@@ -24,20 +24,40 @@ const props = defineProps({
 // 定义事件
 const emit = defineEmits(['done', 'close'])
 
+// 保存和重置共享互斥状态，失败时保留表单供重试。
+const saving = ref(false)
+
 // 完成
 async function handleDone() {
-  await savaAlistConfig()
-  emit('done')
+  if (saving.value) return
+  saving.value = true
+  try {
+    const conf = { ...props.conf }
+    if (loginType.value !== 'token') delete conf.token
+    if (loginType.value !== 'username') {
+      delete conf.username
+      delete conf.password
+    }
+    await manageStorage(props.type, 'save_config', { conf })
+    emit('done')
+  } catch (error) {
+    console.error(error)
+  } finally {
+    saving.value = false
+  }
 }
 
-// 重置配置
+// 重置成功后直接完成，不能再次保存旧凭据。
 async function handleReset() {
+  if (saving.value) return
+  saving.value = true
   try {
     await manageStorage(props.type, 'reset_config')
-    // 重置成功
-    handleDone()
-  } catch (e) {
-    console.error(e)
+    emit('done')
+  } catch (error) {
+    console.error(error)
+  } finally {
+    saving.value = false
   }
 }
 
@@ -60,15 +80,6 @@ const sourceItems = [
   { 'title': t('dialog.alistConfig.loginTypeOptions.token'), 'value': 'token' },
   { 'title': t('dialog.alistConfig.loginTypeOptions.guest'), 'value': 'guest' },
 ]
-
-// 保存alist设置
-async function savaAlistConfig() {
-  try {
-    await manageStorage(props.type, 'save_config', { conf: props.conf })
-  } catch (e) {
-    console.error(e)
-  }
-}
 </script>
 
 <template>
@@ -136,11 +147,19 @@ async function savaAlistConfig() {
         </VRow>
       </VCardText>
       <VCardActions class="app-dialog-actions">
-        <VBtn color="error" variant="tonal" @click="handleReset" prepend-icon="mdi-restore">
+        <VBtn color="error" variant="tonal" @click="handleReset" :disabled="saving" prepend-icon="mdi-restore">
           {{ t('dialog.alistConfig.reset') }}
         </VBtn>
         <VSpacer />
-        <VBtn color="primary" variant="flat" @click="handleDone" prepend-icon="mdi-check" class="px-5">
+        <VBtn
+          color="primary"
+          variant="flat"
+          @click="handleDone"
+          :loading="saving"
+          :disabled="saving"
+          prepend-icon="mdi-check"
+          class="px-5"
+        >
           {{ t('dialog.alistConfig.complete') }}
         </VBtn>
       </VCardActions>

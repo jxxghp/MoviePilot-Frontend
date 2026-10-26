@@ -281,6 +281,16 @@ describe('FileBrowser state and child contracts', () => {
     expect(wrapper.findComponent(FileNavigatorStub).exists()).toBe(true)
   })
 
+  it('forwards directory tree ancestor identities to the owning view', async () => {
+    localStorage.setItem('fileBrowser.showDirTree', 'true')
+    const wrapper = mountBrowser()
+    const parent = { name: 'shows', path: '/shows/', storage: 'local', type: 'dir', fileid: 'shows-id' }
+    const child = { name: 'season', path: '/shows/season/', storage: 'local', type: 'dir', fileid: 'season-id' }
+    wrapper.getComponent(FileNavigatorStub).vm.$emit('navigate', child, [parent, child])
+    await nextTick()
+    expect(wrapper.emitted('pathchanged')).toEqual([[child, [parent, child]]])
+  })
+
   it('forwards storage and path navigation events', async () => {
     const wrapper = mountBrowser()
 

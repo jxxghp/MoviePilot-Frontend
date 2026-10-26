@@ -4,11 +4,11 @@ import {
   getMediaSubscribeId,
   getSubscribeMode,
   type SeasonSubscribeModes,
-  useMediaSubscribe,
+  useMediaSubscribeFactory,
 } from '@/composables/useMediaSubscribe'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { isMediaDataSource } from '@/utils/mediaId'
@@ -108,73 +108,76 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
   const { t } = useI18n()
   const $toast = useToast()
   const userStore = useUserStore()
-  const media = shallowRef<MediaInfo>()
-  const isSubscribed = ref(false)
-  const isExists = ref(false)
-  const subscribedSeasons = ref<number[]>([])
-  const subscribedSeasonModes = ref<SeasonSubscribeModes>({})
   const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
   const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
+  const createSubscribeActions = useMediaSubscribeFactory()
 
-  const subscribeActions = useMediaSubscribe({
-    media: () => media.value,
-    canSubscribe: () => canSubscribe.value,
-    isSubscribed,
-    isExists: () => isExists.value,
-    subscribedSeasons,
-    subscribedSeasonModes,
-    primarySeason: () => media.value?.season ?? null,
-  })
+  /** 每次调用拥有独立媒体、加载状态和弹窗回调，异步操作不会切换到另一次调用的媒体。 */
+  function createInteraction(currentMedia: MediaInfo) {
+    const isSubscribed = ref(false)
+    const isExists = ref(false)
+    const subscribedSeasons = ref<number[]>([])
+    const subscribedSeasonModes = ref<SeasonSubscribeModes>({})
+    const subscribeActions = createSubscribeActions({
+      media: () => currentMedia,
+      canSubscribe: () => canSubscribe.value,
+      isSubscribed,
+      isExists: () => isExists.value,
+      subscribedSeasons,
+      subscribedSeasonModes,
+      primarySeason: () => currentMedia.season ?? null,
+    })
 
-  /** 清空上一次原生订阅调用的临时状态，避免不同媒体互相污染。 */
-  function resetSubscribeState() {
-    isSubscribed.value = false
-    isExists.value = false
-    subscribedSeasons.value = []
-    subscribedSeasonModes.value = {}
-  }
+    /** 查询电影订阅和入库状态，使插件入口与原生媒体卡片保持相同行为。 */
+    async function loadMovieState(currentMedia: MediaInfo) {
+      const [subscribeResult, existsResult] = await Promise.allSettled([
+        subscribeActions.checkSubscribe(null),
+        api.get('mediaserver/exists', {
+          feedback: 'silent',
+          params: {
+            mtype: currentMedia.type,
+            media_source: currentMedia.media_source,
+            media_id: currentMedia.media_id,
+            season: currentMedia.season,
+            title: currentMedia.title,
+            year: currentMedia.year,
+          },
+        }) as Promise<{ item?: { id?: string } }>,
+      ])
 
-  /** 查询电影订阅和入库状态，使插件入口与原生媒体卡片保持相同行为。 */
-  async function loadMovieState(currentMedia: MediaInfo) {
-    const [subscribeResult, existsResult] = await Promise.allSettled([
-      subscribeActions.checkSubscribe(null),
-      api.get('mediaserver/exists', {
-        feedback: 'silent',
-        params: {
-          mtype: currentMedia.type,
-          media_source: currentMedia.media_source,
-          media_id: currentMedia.media_id,
-          season: currentMedia.season,
-          title: currentMedia.title,
-          year: currentMedia.year,
-        },
-      }) as Promise<{ item?: { id?: string } }>,
-    ])
+      if (subscribeResult.status === 'fulfilled') isSubscribed.value = subscribeResult.value
+      else console.error(subscribeResult.reason)
 
-    if (subscribeResult.status === 'fulfilled') isSubscribed.value = subscribeResult.value
-    else console.error(subscribeResult.reason)
+      if (existsResult.status === 'fulfilled') isExists.value = Boolean(existsResult.value?.item?.id)
+      else console.error(existsResult.reason)
+    }
 
-    if (existsResult.status === 'fulfilled') isExists.value = Boolean(existsResult.value?.item?.id)
-    else console.error(existsResult.reason)
-  }
+    /** 查询电视剧全部订阅记录，让选季弹窗正确展示已订阅季和订阅模式。 */
+    async function loadTvState(currentMedia: MediaInfo) {
+      try {
+        const subscribes: Subscribe[] = await api.get('subscribe/')
+        const mediaId = getMediaSubscribeId(currentMedia)
+        const mediaSubscribes = subscribes.filter(
+          item => item.type === '电视剧' && item.season !== undefined && getSubscribeRecordMediaId(item) === mediaId,
+        )
 
-  /** 查询电视剧全部订阅记录，让选季弹窗正确展示已订阅季和订阅模式。 */
-  async function loadTvState(currentMedia: MediaInfo) {
-    try {
-      const subscribes: Subscribe[] = await api.get('subscribe/')
-      const mediaId = getMediaSubscribeId(currentMedia)
-      const mediaSubscribes = subscribes.filter(
-        item => item.type === '电视剧' && item.season !== undefined && getSubscribeRecordMediaId(item) === mediaId,
-      )
+        subscribedSeasons.value = [...new Set(mediaSubscribes.map(item => item.season as number))].sort((a, b) => a - b)
+        subscribedSeasonModes.value = mediaSubscribes.reduce<SeasonSubscribeModes>((modes, item) => {
+          if (item.season !== undefined) modes[item.season] = getSubscribeMode(item)
+          return modes
+        }, {})
+        isSubscribed.value = subscribedSeasons.value.length > 0
+      } catch (error) {
+        console.error(error)
+      }
+    }
 
-      subscribedSeasons.value = [...new Set(mediaSubscribes.map(item => item.season as number))].sort((a, b) => a - b)
-      subscribedSeasonModes.value = mediaSubscribes.reduce<SeasonSubscribeModes>((modes, item) => {
-        if (item.season !== undefined) modes[item.season] = getSubscribeMode(item)
-        return modes
-      }, {})
-      isSubscribed.value = subscribedSeasons.value.length > 0
-    } catch (error) {
-      console.error(error)
+    return {
+      async start() {
+        if (currentMedia.type === '电视剧') await loadTvState(currentMedia)
+        else await loadMovieState(currentMedia)
+        await subscribeActions.handleSubscribe()
+      },
     }
   }
 
@@ -194,13 +197,7 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
       return rejectNativeSubscribe('PERMISSION_DENIED', t('subscribe.native.permissionDenied'))
     }
 
-    media.value = normalized.media
-    resetSubscribeState()
-
-    if (normalized.media.type === '电视剧') await loadTvState(normalized.media)
-    else await loadMovieState(normalized.media)
-
-    await subscribeActions.handleSubscribe()
+    await createInteraction(normalized.media).start()
     return { success: true }
   }
 

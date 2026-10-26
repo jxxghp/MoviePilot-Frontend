@@ -214,4 +214,39 @@ describe('MediaCommentView', () => {
       expect(screen.getByText('暂无数据')).toBeTruthy()
     })
   })
+
+  it('appends an in-flight page once across rapid tab switches and uses the next real offset', async () => {
+    let release!: () => void
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
+    const offsets: string[] = []
+    server.use(
+      http.get(INTERESTS_URL, async ({ request }) => {
+        const start = new URL(request.url).searchParams.get('start')!
+        offsets.push(start)
+        if (start === '0') await gate
+        return apiJson({
+          start: Number(start),
+          count: 1,
+          total: 3,
+          items: [{ id: start, comment: `comment-${start}` }],
+        })
+      }),
+      http.get(REVIEWS_URL, () => apiJson({ start: 0, count: 0, total: 0, items: [] })),
+    )
+    await renderComments()
+    triggerIntersection()
+    await waitFor(() => expect(offsets).toEqual(['0']))
+    const { fireEvent } = await import('@testing-library/vue')
+    await fireEvent.click(screen.getByText('影评'))
+    await fireEvent.click(screen.getByText('短评'))
+    release()
+    await screen.findByText('comment-0')
+    await waitFor(() => expect(screen.getByRole('button', { name: '加载更多' })).toBeEnabled())
+    expect(screen.getAllByText('comment-0')).toHaveLength(1)
+    await fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
+    await screen.findByText('comment-1')
+    expect(offsets).toEqual(['0', '1'])
+  })
 })
