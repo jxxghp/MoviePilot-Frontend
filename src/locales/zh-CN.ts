@@ -1129,6 +1129,9 @@ export default {
       apiUrlPlaceholder: 'https://api.telegram.org',
     },
     slack: {
+      oauthTokenPlaceholder: '机器人用户 OAuth Token（xoxb-...）',
+      appTokenPlaceholder: 'App-Level Token (xapp-...)',
+      channelPlaceholder: '频道 ID（例如 C0123456789）',
       name: 'Slack',
       oauthToken: 'Slack Bot User OAuth Token',
       oauthTokenHint: 'Slack应用`OAuth & Permissions`页面中的`Bot User OAuth Token`',
@@ -1177,6 +1180,7 @@ export default {
       adminsPlaceholder: '用户ID列表，多个ID使用,分隔',
     },
     vocechat: {
+      channelIdPlaceholder: '频道 ID（例如 1）',
       name: 'VoceChat',
       host: '地址',
       hostHint: 'VoceChat服务端地址，格式：http(s)://ip:port',
@@ -3795,7 +3799,7 @@ export default {
       releaseGroupSaveFailed: '自定义制作组/字幕组保存失败！',
 
       customization: '自定义占位符',
-      customizationDesc: '添加自定义占位符识别正则，重命名格式中添加{customization}使用。',
+      customizationDesc: "添加自定义占位符识别正则，重命名格式中添加{'{customization}'}使用。",
       customizationPlaceholder: '每行输入一个占位符识别正则',
       customizationHint: '支持正则表达式，特殊字符需要\\转义，多个匹配对象请换行分隔',
       customizationSaveSuccess: '自定义占位符保存成功',
@@ -4715,8 +4719,8 @@ export default {
       episodeDetailHint: '集数或范围，如1或1,2',
       episodeDetailPlaceholder: '起始集,终止集',
       episodeFormat: '集数定位',
-      episodeFormatHint: '使用{ep}定位文件名中的集数部分以辅助识别',
-      episodeFormatPlaceholder: '使用{ep}定位集数',
+      episodeFormatHint: "使用{'{ep}'}定位文件名中的集数部分以辅助识别",
+      episodeFormatPlaceholder: "使用{'{ep}'}定位集数",
       episodeFormatRecommendAction: '智能生成',
       episodeFormatRecommendLoading: '生成中...',
       episodeFormatRecommendSelectFile: '请先选择单个文件、单个目录，或多个文件',

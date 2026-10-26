@@ -22,8 +22,6 @@ const {
   resetSettings,
   updateSettings,
   setGlassEnabled,
-  setGlassAppearance,
-  setGlassQuality,
   setLayout,
   setPrimaryColor,
   setRadius,
@@ -176,12 +174,13 @@ async function handleResetSettings() {
   }
 
   // App 模式共享定制器，但保留桌面导航相关偏好，只重置 App 侧可调整的外观设置。
-  await setGlassEnabled(true)
-  await setPrimaryColor(defaultPrimaryColor)
-  await setGlassAppearance('clear')
-  await setGlassQuality('css')
-  await setRadius('default')
-  await setTheme('auto')
+  await updateSettings({
+    ...defaultAppModeGlassSettings,
+    glassEnabled: true,
+    primaryColor: defaultPrimaryColor,
+    radius: 'default',
+    theme: 'auto',
+  })
 }
 </script>
 
@@ -215,18 +214,21 @@ async function handleResetSettings() {
         <section class="theme-customizer-section">
           <h3 class="theme-customizer-section-title">{{ t('theme.customizer.primaryColor') }}</h3>
           <div class="theme-customizer-color-grid">
-            <div
+            <button
+              type="button"
               v-for="color in themeCustomizerPrimaryColors"
               :key="color.value"
               class="theme-customizer-color-option"
               :class="{ 'is-active': settings.primaryColor === color.value }"
+              :aria-pressed="settings.primaryColor === color.value"
               :aria-label="t('theme.customizer.usePrimaryColor', { color: color.name })"
               @click="setPrimaryColor(color.value)"
             >
               <span class="theme-customizer-color-swatch" :style="{ backgroundColor: color.value }" />
-            </div>
+            </button>
 
-            <div
+            <button
+              type="button"
               v-if="!appMode"
               class="theme-customizer-color-option theme-customizer-color-option--picker"
               :class="{
@@ -236,14 +238,17 @@ async function handleResetSettings() {
               @click="openColorPicker"
             >
               <VIcon class="theme-customizer-native-icon" icon="mdi-palette-outline" size="30" />
-              <input
-                ref="customColorInput"
-                class="theme-customizer-native-color"
-                type="color"
-                :value="settings.primaryColor"
-                @input="handleCustomColorInput"
-              />
-            </div>
+            </button>
+            <input
+              v-if="!appMode"
+              ref="customColorInput"
+              class="theme-customizer-native-color"
+              type="color"
+              tabindex="-1"
+              :aria-label="t('theme.customizer.chooseCustomColor')"
+              :value="settings.primaryColor"
+              @input="handleCustomColorInput"
+            />
           </div>
 
           <h3 class="theme-customizer-section-title">{{ t('common.theme') }}</h3>
@@ -278,11 +283,13 @@ async function handleResetSettings() {
 
             <h3 class="theme-customizer-section-title">{{ t('theme.customizer.radius') }}</h3>
             <div class="theme-customizer-preview-grid theme-customizer-preview-grid--radius">
-              <div
+              <button
+                type="button"
                 v-for="radius in radiusOptions"
                 :key="radius.value"
                 class="theme-customizer-preview-option"
                 :class="{ 'is-active': settings.radius === radius.value }"
+                :aria-pressed="settings.radius === radius.value"
                 @click="setRadius(radius.value)"
               >
                 <span class="theme-customizer-radius-scene" :class="`theme-customizer-radius-scene--${radius.value}`">
@@ -293,7 +300,7 @@ async function handleResetSettings() {
                   </span>
                 </span>
                 <span>{{ radius.title }}</span>
-              </div>
+              </button>
             </div>
           </template>
         </section>
@@ -303,11 +310,14 @@ async function handleResetSettings() {
         <section v-if="showLayoutSection" class="theme-customizer-section">
           <h3 class="theme-customizer-section-title">{{ t('theme.customizer.layout') }}</h3>
           <div class="theme-customizer-preview-grid">
-            <div
+            <button
+              type="button"
               v-for="layout in layoutOptions"
               :key="layout.value"
               class="theme-customizer-preview-option"
               :class="{ 'is-active': settings.layout === layout.value, 'is-disabled': appMode }"
+              :aria-pressed="settings.layout === layout.value"
+              :disabled="appMode"
               @click="handleLayoutChange(layout.value)"
             >
               <span class="theme-customizer-mini-layout" :class="`theme-customizer-mini-layout--${layout.value}`">
@@ -323,7 +333,7 @@ async function handleResetSettings() {
                 </span>
               </span>
               <span>{{ layout.title }}</span>
-            </div>
+            </button>
           </div>
         </section>
       </div>
@@ -464,6 +474,8 @@ async function handleResetSettings() {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 10px;
   appearance: none;
+  background: transparent;
+  padding: 0;
   block-size: 48px;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   cursor: pointer;
@@ -478,6 +490,13 @@ async function handleResetSettings() {
     border-color: rgb(var(--v-theme-primary));
     box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.12);
   }
+}
+
+.theme-customizer-color-option:focus-visible,
+.theme-customizer-card-option:focus-visible,
+.theme-customizer-preview-option:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
 }
 
 .theme-customizer-color-swatch {
