@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getEventById: vi.fn(),
   openSharedDialog: vi.fn(),
   setExtendedProp: vi.fn(),
+  setRange: undefined as ((range: { start: Date; end: Date }) => void) | undefined,
 }))
 
 vi.mock('@/composables/useSharedDialog', () => ({
@@ -35,6 +36,7 @@ vi.mock('@fullcalendar/vue3', async () => {
         },
       },
       setup(props, { expose, slots }) {
+        mocks.setRange = (props.options as { datesSet?: typeof mocks.setRange }).datesSet
         const getEventById = (id: string) => {
           mocks.getEventById(id)
           const options = props.options as { events?: Record<string, unknown>[] }
@@ -79,11 +81,13 @@ vi.mock('@fullcalendar/vue3', async () => {
   }
 })
 
+/** 按真实 Vuetify 断点切换测试视口。 */
 function setViewport(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width, writable: true })
   window.dispatchEvent(new Event('resize'))
 }
 
+/** 按订阅标题定位移动端时间线卡片。 */
 function queryMobileCalendarEventCard(title: string) {
   return (
     Array.from(document.querySelectorAll<HTMLElement>('.mobile-calendar-event-card')).find(card =>
@@ -92,6 +96,7 @@ function queryMobileCalendarEventCard(title: string) {
   )
 }
 
+/** 构造可覆盖媒体身份和进度的电影订阅。 */
 function movieSubscribe(id: number, name: string, overrides: Partial<Subscribe> = {}) {
   return createSubscribe({
     id,
@@ -104,6 +109,7 @@ function movieSubscribe(id: number, name: string, overrides: Partial<Subscribe> 
   })
 }
 
+/** 构造具有季集信息的电视剧订阅。 */
 function tvSubscribe(id: number, name: string, overrides: Partial<Subscribe> = {}) {
   return createSubscribe({
     id,
@@ -118,10 +124,12 @@ function tvSubscribe(id: number, name: string, overrides: Partial<Subscribe> = {
   })
 }
 
+/** 使用生产 UI 插件渲染日历或其缓存生命周期载具。 */
 async function renderCalendar(component = FullCalendarView) {
   return renderWithProviders(component, { initialRoute: '/calendar' })
 }
 
+/** 提供停用和重新激活日历的交互入口。 */
 function keepAliveHarness() {
   return defineComponent({
     components: { FullCalendarView },
@@ -137,6 +145,7 @@ function keepAliveHarness() {
   })
 }
 
+/** 按次序重放旧后端订阅列表，验证刷新和错误恢复。 */
 function sequenceSubscribeList(responses: Array<{ body: Subscribe[]; status?: number }>, onRequest = vi.fn()) {
   let index = 0
   return http.get(subscribeApiUrls.list, () => {
@@ -149,9 +158,139 @@ function sequenceSubscribeList(responses: Array<{ body: Subscribe[]; status?: nu
 }
 
 describe('FullCalendarView', () => {
+  it('expands already downloaded mobile dates before requesting a later window', async () => {
+    setViewport(390)
+    let requests = 0
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', () => {
+        requests++
+        return apiJson({
+          total: 40,
+          items: Array.from({ length: 40 }, (_, index) => {
+            const day = new Date(today)
+            day.setDate(day.getDate() + index)
+            return {
+              subscribe: movieSubscribe(9500 + index, `已加载日期 ${index}`),
+              date: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`,
+              episodes: [],
+            }
+          }),
+        })
+      }),
+    )
+    await renderCalendar()
+    await screen.findByRole('heading', { name: '已加载日期 0' })
+    expect(document.querySelectorAll('.mobile-calendar-day')).toHaveLength(30)
+    await fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
+    expect(document.querySelectorAll('.mobile-calendar-day')).toHaveLength(40)
+    expect(requests).toBe(1)
+  })
+
+  it('requests the visible date window first and cancels stale pages when the month changes', async () => {
+    const requests: URL[] = []
+    let releaseOldWindow = () => {}
+    const oldWindowPending = new Promise<void>(resolve => {
+      releaseOldWindow = resolve
+    })
+    const oldMovie = movieSubscribe(9100, '旧月份迟到的电影')
+    const newMovies = Array.from({ length: 51 }, (_, index) => movieSubscribe(9200 + index, `新月份电影 ${index}`))
+    const subscriptionList = vi.fn()
+    server.use(
+      subscribeListHandler([], 200, subscriptionList),
+      http.get('http://localhost/api/v1/subscribe/calendar', async ({ request }) => {
+        const url = new URL(request.url)
+        requests.push(url)
+        expect(url.searchParams.get('count')).toBe('50')
+        if (url.searchParams.get('start') !== '2027-02-01') {
+          await oldWindowPending
+          return apiJson({ items: [{ subscribe: oldMovie, date: '2027-02-03', episodes: [] }], total: 100 })
+        }
+        const page = Number(url.searchParams.get('page'))
+        return apiJson({
+          items: newMovies.slice((page - 1) * 50, page * 50).map(subscribe => ({
+            subscribe,
+            date: page === 1 ? '2027-02-04' : '2027-02-05',
+            episodes: [],
+          })),
+          total: 51,
+        })
+      }),
+    )
+    await renderCalendar()
+    await waitFor(() => expect(requests).toHaveLength(1))
+    const today = new Date().toISOString().slice(0, 10)
+    expect(requests[0].searchParams.get('start')! <= today).toBe(true)
+    expect(requests[0].searchParams.get('end')! > today).toBe(true)
+    mocks.setRange?.({ start: new Date('2027-02-01T00:00:00'), end: new Date('2027-03-01T00:00:00') })
+    await screen.findByText('新月份电影 50')
+    releaseOldWindow()
+    await waitFor(() => expect(document.querySelector('[role="status"]')).not.toBeInTheDocument())
+    expect(requests.map(url => [url.searchParams.get('start'), url.searchParams.get('page')])).toEqual([
+      [requests[0].searchParams.get('start'), '1'],
+      ['2027-02-01', '1'],
+      ['2027-02-01', '2'],
+    ])
+    expect(screen.queryByText(oldMovie.name)).not.toBeInTheDocument()
+    expect(subscriptionList).not.toHaveBeenCalled()
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+  })
+
+  it('starts the mobile timeline near today and requests the next thirty days only on demand', async () => {
+    setViewport(390)
+    const requests: URL[] = []
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', ({ request }) => {
+        requests.push(new URL(request.url))
+        return apiJson({ items: [], total: 0 })
+      }),
+    )
+    await renderCalendar()
+    const more = await screen.findByRole('button', { name: '加载更多' })
+    expect(requests).toHaveLength(1)
+    const initialStart = new Date(requests[0].searchParams.get('start')!)
+    const initialEnd = new Date(requests[0].searchParams.get('end')!)
+    expect((initialEnd.getTime() - initialStart.getTime()) / 86400000).toBe(90)
+    await fireEvent.click(more)
+    await waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[1].searchParams.get('start')).toBe(requests[0].searchParams.get('end'))
+    expect((new Date(requests[1].searchParams.get('end')!).getTime() - initialEnd.getTime()) / 86400000).toBe(30)
+  })
+
+  it('pages subscriptions and caps detail concurrency before appending the next batch', async () => {
+    const subscriptions = Array.from({ length: 51 }, (_, index) =>
+      tvSubscribe(9000 + index, `分页订阅 ${index}`, { lack_episode: 4, note: [] }),
+    )
+    const pages: string[] = []
+    let active = 0
+    let peak = 0
+    server.use(
+      subscribeListHandler(url => {
+        pages.push(url.searchParams.get('page') ?? '')
+        expect(url.searchParams.get('count')).toBe('50')
+        const page = Number(url.searchParams.get('page'))
+        return subscriptions.slice((page - 1) * 50, page * 50)
+      }),
+      http.get('http://localhost/api/v1/tmdb/:id/:season', async () => {
+        active++
+        peak = Math.max(peak, active)
+        await new Promise(resolve => setTimeout(resolve, 5))
+        active--
+        return apiJson([createTmdbEpisode({ air_date: '2026-08-01', episode_number: 1 })])
+      }),
+    )
+    await renderCalendar()
+    await screen.findByText('分页订阅 0')
+    await waitFor(() => expect(pages).toEqual(['1', '2']))
+    await waitFor(() => expect(document.querySelector('[role="status"]')).not.toBeInTheDocument())
+    expect(peak).toBe(4)
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     setViewport(1280)
     server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', () => new HttpResponse(null, { status: 404 })),
       http.get('http://localhost/api/v1/subscribe/files/:id', () =>
         apiJson({
           subscribe: null,
@@ -214,8 +353,8 @@ describe('FullCalendarView', () => {
     expect(movieRequest.mock.calls[0][0].searchParams.get('type_name')).toBe('电影')
     expect(tvRequest).toHaveBeenCalledOnce()
     expect(tvRequest.mock.calls[0][0].searchParams.get('episode_group')).toBe('group-a')
-    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
-    expect(progressClose).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    expect(progressClose).not.toHaveBeenCalled()
   })
 
   it('distinguishes none, partial, complete, and best-version library states', async () => {

@@ -32,11 +32,6 @@
       "count": 3
     }
   },
-  "src/@core/utils/theme.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/@core/utils/workflow.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
@@ -276,11 +271,6 @@
   "src/components/filebrowser/FileList.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "src/components/input/PathInput.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
     }
   },
   "src/components/misc/DashboardElement.vue": {

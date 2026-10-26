@@ -365,29 +365,45 @@ const audioExtensions = new Set([
   'wma',
 ])
 
+/** 按扩展名判断可作为单曲整理的文件。 */
 function isAudioFile(item: FileItem) {
   if (item.type !== 'file') return false
   const extension = (item.extension || item.name?.split('.').pop() || '').toLowerCase().replace(/^\./, '')
   return audioExtensions.has(extension)
 }
 
+/** 识别艺术家合集下的单曲目录。 */
 function isSinglesDirectory(item: FileItem) {
   const name = (item.name || getFileName(item.path)).trim().toLowerCase()
   return /^(单曲|單曲|singles?|single[\s_-]*tracks?)$/.test(name)
 }
 
+const collectionScanController = new AbortController()
+
+/** 逐页扫描目录，保留完整整理输入且限制每次响应大小。 */
 async function listDirectoryItems(item: FileItem) {
-  return await api.post<FileItem[]>('storage/list?sort=name', item, { feedback: 'silent' })
+  const result: FileItem[] = []
+  for (let page = 1; ; page++) {
+    collectionScanController.signal.throwIfAborted()
+    const batch = await api.post<FileItem[]>('storage/list?sort=name', item, {
+      feedback: 'silent',
+      params: { page, count: 200 },
+      signal: collectionScanController.signal,
+    })
+    result.push(...batch)
+    if (batch.length < 200) return result
+  }
 }
 
+/** 顺序遍历单曲子目录，避免递归展开时产生无上限的并发请求。 */
 async function listSingleFiles(directory: FileItem, depth = 0): Promise<FileItem[]> {
   if (depth > 4) return []
   const children = await listDirectoryItems(directory)
   const directFiles = children.filter(isAudioFile)
-  const nestedFiles = await Promise.all(
-    children.filter(item => item.type === 'dir').map(item => listSingleFiles(item, depth + 1)),
-  )
-  return [...directFiles, ...nestedFiles.flat()]
+  for (const child of children.filter(item => item.type === 'dir')) {
+    directFiles.push(...(await listSingleFiles(child, depth + 1)))
+  }
+  return directFiles
 }
 
 /** 将艺术家合集根目录拆为专辑目录和独立单曲，避免整棵目录被逐文件识别。 */
@@ -1978,6 +1994,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  collectionScanController.abort()
   targetPathMatchRequestId += 1
   previewGeneration += 1
   musicCorrection.reset()

@@ -395,7 +395,12 @@ async function renderCache() {
 }
 
 async function waitForInitialLoad() {
-  await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('torrent/cache'))
+  await waitFor(() =>
+    expect(mocks.apiGet).toHaveBeenCalledWith(
+      'torrent/cache',
+      expect.objectContaining({ params: expect.objectContaining({ page: 1, count: 100, brief: true }) }),
+    ),
+  )
   await waitFor(() => expect(screen.getByLabelText('缓存加载状态')).toHaveTextContent('false'))
 }
 
@@ -411,6 +416,38 @@ describe('CacheView cache data and filtering', () => {
     mocks.toastSuccess.mockReset()
     mocks.toastWarning.mockReset()
     vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('continues a bounded cache window and searches sites that were absent from the loaded batch', async () => {
+    mocks.apiGet
+      .mockResolvedValueOnce(success({ ...createCacheData([createCacheItem()]), total: 2, site_names: ['远端站点'] }))
+      .mockResolvedValueOnce(
+        success({
+          ...createCacheData([createCacheItem({ title: 'Last.Movie', hash: 'last-hash' })]),
+          total: 2,
+          site_names: ['远端站点'],
+        }),
+      )
+    await renderCache()
+    await waitForInitialLoad()
+    await fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
+    expect(await screen.findByText('Last.Movie')).toBeInTheDocument()
+    expect(screen.getByText('Alpha.Movie.2026')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenNthCalledWith(
+      2,
+      'torrent/cache',
+      expect.objectContaining({ params: expect.objectContaining({ page: 2, count: 100 }) }),
+    )
+    expect(screen.queryByRole('button', { name: '加载更多' })).not.toBeInTheDocument()
+    mocks.apiGet.mockResolvedValueOnce(success({ ...createCacheData([]), total: 0, site_names: ['远端站点'] }))
+    await fireEvent.update(screen.getByLabelText('按站点筛选'), '远端站点')
+    await waitFor(() =>
+      expect(mocks.apiGet).toHaveBeenNthCalledWith(
+        3,
+        'torrent/cache',
+        expect.objectContaining({ params: expect.objectContaining({ page: 1, site: '远端站点' }) }),
+      ),
+    )
   })
 
   it('loads unwrapped cache data and filters titles case-insensitively and sites by exact source', async () => {

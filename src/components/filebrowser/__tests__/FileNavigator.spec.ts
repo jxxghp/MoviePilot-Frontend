@@ -128,6 +128,7 @@ describe('FileNavigator directory tree', () => {
       data: { name: 'shows', path: '/shows', storage: 'local', type: 'dir' },
       method: 'post',
       url: '/storage/list?sort=name',
+      params: { page: 1, count: 200 },
     })
     expect(wrapper.text()).toContain('Season 01')
     expect(wrapper.text()).not.toContain('poster.jpg')

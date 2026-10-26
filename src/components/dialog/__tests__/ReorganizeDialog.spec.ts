@@ -1705,11 +1705,25 @@ describe('ReorganizeDialog artist collection mode', () => {
     const singleB = createFileItem({ extension: 'mp3', name: '断桥残雪.mp3', path: `${singles.path}/断桥残雪.mp3` })
     const payloads: Array<Record<string, unknown>> = []
     const backgrounds: string[] = []
+    const listedPages: Array<[string, number]> = []
+    const fillerFiles = Array.from({ length: 200 }, (_, index) =>
+      createFileItem({
+        extension: 'txt',
+        name: `说明-${index}.txt`,
+        path: `${root.path}/说明-${index}.txt`,
+      }),
+    )
 
     server.use(
       http.post(new URL('storage/list', API_BASE_URL).href, async ({ request }) => {
         const item = (await request.json()) as FileItem
-        return HttpResponse.json(apiEnvelope(item.path === root.path ? [albumA, singles, albumB] : [singleA, singleB]))
+        const url = new URL(request.url)
+        const page = Number(url.searchParams.get('page'))
+        expect(url.searchParams.get('count')).toBe('200')
+        listedPages.push([item.path, page])
+        const entries =
+          item.path === root.path ? (page === 1 ? fillerFiles : [albumA, singles, albumB]) : [singleA, singleB]
+        return HttpResponse.json(apiEnvelope(entries))
       }),
       http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
         payloads.push((await request.json()) as Record<string, unknown>)
@@ -1729,6 +1743,11 @@ describe('ReorganizeDialog artist collection mode', () => {
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
     expect(backgrounds).toEqual(['true', 'true', 'true', 'true'])
+    expect(listedPages).toEqual([
+      [root.path, 1],
+      [root.path, 2],
+      [singles.path, 1],
+    ])
     expect(payloads).toEqual([
       expect.objectContaining({ fileitem: albumA, music_type: 'album', type_name: '音乐' }),
       expect.objectContaining({ fileitem: singleA, music_type: 'recording', type_name: '音乐' }),

@@ -232,6 +232,38 @@ export interface Subscribe {
   execution_status?: SubscriptionExecutionStatus
 }
 
+/** 单个订阅在某个播出日期的精简日历事件。 */
+export interface SubscribeCalendarEvent {
+  subscribe: CalendarSubscription
+  date: string
+  episodes: { episode_number: number; name?: string | null }[]
+  runtime?: number | null
+}
+
+/** 日历展示及补查媒体库所需的订阅字段。 */
+export type CalendarSubscription = Pick<
+  Subscribe,
+  | 'id'
+  | 'name'
+  | 'type'
+  | 'year'
+  | 'season'
+  | 'poster'
+  | 'total_episode'
+  | 'lack_episode'
+  | 'completed_episode'
+  | 'note'
+  | 'best_version'
+  | 'episode_priority'
+  | 'last_update'
+>
+
+/** 当前日期窗口内按日期排序的日历结果页。 */
+export interface SubscribeCalendarPage {
+  items: SubscribeCalendarEvent[]
+  total: number
+}
+
 /** 订阅删除成功后的机器可判断结果。 */
 export interface SubscribeDeletionResult {
   // 数据库删除事务已提交
@@ -2917,6 +2949,10 @@ export interface TorrentCacheItem {
 
 // 种子缓存数据
 export interface TorrentCacheData {
+  /** 当前筛选条件的完整数量，旧后端可能不提供。 */
+  total?: number
+  /** 全部缓存的可选站点，避免续载前无法筛选其他站点。 */
+  site_names?: string[]
   // 缓存数量
   count: number
   // 站点数量
