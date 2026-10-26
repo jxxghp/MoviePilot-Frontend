@@ -3,6 +3,17 @@ import { useTabStateRestore } from '@/composables/useStateRestore'
 import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
 import type { NativePanelSource } from '@/native/registry'
 
+/** 页头二级命令菜单保留当前组件回调，分组与选中状态仅用于原生展示。 */
+interface DynamicHeaderMenuItem {
+  id: string
+  title: string
+  icon: string
+  group?: string
+  selected?: boolean
+  disabled?: boolean
+  action: () => void
+}
+
 /** 页内标签附属按钮，回调只保留在当前页面。 */
 interface DynamicHeaderTabButton {
   /** 原生与辅助功能可使用的操作文案；旧页面可省略。 */
@@ -13,6 +24,8 @@ interface DynamicHeaderTabButton {
   size?: string
   class?: string
   action?: () => void
+  /** 当前页面的纯命令子菜单；不转为内容弹窗。 */
+  menuItems?: DynamicHeaderMenuItem[]
   /** 原生容器可选列表声明；普通网页继续使用 action 对应的原有菜单。 */
   panel?: () => NativePanelSource
   permission?: UserPermissionKey
@@ -208,4 +221,4 @@ export function useDynamicHeaderTab() {
 }
 
 // 导出类型以供其他地方使用
-export type { DynamicHeaderTabButton, DynamicHeaderTabItem, DynamicHeaderTabConfig }
+export type { DynamicHeaderMenuItem, DynamicHeaderTabButton, DynamicHeaderTabItem, DynamicHeaderTabConfig }

@@ -10,7 +10,14 @@ export interface NativeAction {
   enabled: boolean
   loading: boolean
   dataAttr?: string
-  menu?: Array<{ actionId: string; title: string; icon: string; enabled: boolean }>
+  menu?: Array<{
+    actionId: string
+    title: string
+    icon: string
+    enabled: boolean
+    selected?: boolean
+    group?: string
+  }>
   panel?: NativePanel
 }
 

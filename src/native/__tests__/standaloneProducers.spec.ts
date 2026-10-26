@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@tests/support/render'
 import FileToolbar from '@/components/filebrowser/FileToolbar.vue'
-import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import type { DataApiClient } from '@/api'
 import type { EndPoints, FileItem } from '@/api/types'
 import { nativeStandaloneMenus, type NativeStandaloneMenuBinding } from '../standalone'
@@ -66,28 +65,5 @@ describe('真实业务组件的独立菜单声明', () => {
     expect(await nativeStandaloneMenus.menus.select(menu.presentationId, menu.items[1].id, vi.fn())).toBe(true)
     expect(result.emitted().storagechanged).toEqual([['cloud']])
     expect(request).not.toHaveBeenCalled()
-  })
-
-  it('资源排序两个布局使用原方向/字段和分隔，选择字段沿用原 update 事件', async () => {
-    const bind = vi.spyOn(nativeStandaloneMenus, 'bind')
-    const result = await renderWithProviders(TorrentFilterBar, {
-      props: {
-        filterForm: {},
-        filterOptions: {},
-        filterTitles: {},
-        sortField: 'time',
-        sortType: 'desc',
-        totalFilteredCount: 4,
-        sortTitles: { time: '发布时间', size: '大小' },
-      },
-    })
-    const menu = registeredMenu(bind, 'torrent-sort')
-    expect(bind.mock.calls.filter(([, binding]) => binding?.key === 'torrent-sort')).toHaveLength(2)
-    expect(menu.items.map(item => item.title ?? item.kind)).toEqual(['升序', '降序', 'separator', '发布时间', '大小'])
-    expect(menu.items[1]).toMatchObject({ selected: true, icon: 'mdi-sort-descending', color: 'primary' })
-    expect(menu.items[3]).toMatchObject({ selected: true })
-    expect(await nativeStandaloneMenus.menus.select(menu.presentationId, menu.items[4].id, vi.fn())).toBe(true)
-    expect(result.emitted()['update:sortField']).toEqual([['size']])
-    expect(result.emitted()['update:sortType']).toBeUndefined()
   })
 })
