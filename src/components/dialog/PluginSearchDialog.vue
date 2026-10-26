@@ -83,7 +83,7 @@ function closeDialog() {
           :aria-label="t('plugin.searchPlugins')"
           :mobile-layout="false"
           single-line
-          :placeholder="t('plugin.searchPlugins')"
+          :placeholder="t('plugin.searchPlaceholder')"
           variant="solo"
           density="compact"
           prepend-inner-icon="mdi-magnify"
