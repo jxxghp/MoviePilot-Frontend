@@ -80,20 +80,13 @@ function closeDialog() {
     :max-height="display.mdAndUp.value ? Math.round(viewportHeight * 0.85) : viewportHeight"
     :fullscreen="!display.mdAndUp.value"
   >
-    <VCard class="plugin-search-dialog mx-auto" width="100%">
+    <VCard class="plugin-search-dialog">
       <VCardItem class="plugin-search-header" data-native-dialog-header>
         <VCardTitle data-native-dialog-title>{{ t('plugin.searchPlugins') }}</VCardTitle>
-        <template #append>
-          <VBtn
-            icon="mdi-close"
-            variant="text"
-            :aria-label="t('common.close')"
-            data-native-dialog-close
-            @click="closeDialog"
-          />
-        </template>
       </VCardItem>
-      <div class="plugin-search-controls">
+      <VDialogCloseBtn @click="closeDialog" />
+      <VDivider />
+      <VCardText class="flex-grow-0 flex-shrink-0 px-4 py-3">
         <VTextField
           v-model="searchKeyword"
           :aria-label="t('plugin.searchPlugins')"
@@ -108,7 +101,7 @@ function closeDialog() {
           hide-details
           class="plugin-search-input"
         />
-      </div>
+      </VCardText>
       <VCardText class="plugin-search-results pa-0">
         <VList v-if="plugins.length > 0" class="plugin-search-list">
           <VVirtualScroll :items="plugins" class="plugin-search-scroll">
@@ -161,26 +154,6 @@ function closeDialog() {
   flex-direction: column;
   min-inline-size: 0;
   max-inline-size: 100%;
-}
-
-// 网页全屏弹窗自行避开系统安全区；原生宿主已消费的边距通过 --native-* 归零。
-.plugin-search-overlay.v-dialog--fullscreen .plugin-search-dialog {
-  padding-block: var(--native-top, env(safe-area-inset-top, 0px)) var(--native-bottom, env(safe-area-inset-bottom, 0px));
-  padding-inline: var(--native-left, env(safe-area-inset-left, 0px))
-    var(--native-right, env(safe-area-inset-right, 0px));
-}
-
-.plugin-search-header {
-  flex: 0 0 auto;
-  padding-block: 8px 0;
-  padding-inline: 16px;
-}
-
-.plugin-search-controls {
-  flex: 0 0 auto;
-  min-inline-size: 0;
-  padding-block: 12px;
-  padding-inline: 16px;
 }
 
 .plugin-search-input {
