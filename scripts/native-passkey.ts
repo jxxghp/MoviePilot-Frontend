@@ -4,6 +4,8 @@ import type { Plugin } from 'vite'
 export function nativePasskeyPage(): Plugin {
   return {
     name: 'moviepilot-native-passkey-page',
+    // VitePWA 自身属于 post 插件，须在它注入 manifest 后再收口独立入口。
+    enforce: 'post',
     transformIndexHtml: {
       order: 'post',
       /** 只移除独立入口的合并样式引用，不改变主业务入口或内联安全策略。 */
