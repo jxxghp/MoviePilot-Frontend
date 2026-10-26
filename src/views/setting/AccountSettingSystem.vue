@@ -1,5 +1,6 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
+import { getSharedConfiguration } from '@/api/configuration'
 import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
@@ -903,10 +904,11 @@ async function saveMediaServerSetting() {
 }
 
 // 加载系统设置
-async function loadSystemSettings() {
+/** 共享初次读取，页面刷新时重新取回配置并与并发面板合并。 */
+async function loadSystemSettings(refresh = false) {
   invalidateLlmTestState()
   try {
-    const result = await api.get<Record<string, unknown>>('system/env')
+    const result = await getSharedConfiguration<Record<string, unknown>>('system/env', refresh)
     const defaultSyncInterval = Number(result.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
     legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
     // 将API返回的值赋值给SystemSettings
@@ -1427,12 +1429,13 @@ function agentPetItemProps(item: { subtitle?: string; prependAvatar?: string; pr
 }
 
 // 加载数据
-async function loadPageData() {
+/** 成组加载当前面板数据，刷新时保留原有重新读取语义。 */
+async function loadPageData(refresh = false) {
   await Promise.all([
     loadModuleCatalog(),
     loadDownloaderSetting(),
     loadMediaServerSetting(),
-    loadSystemSettings(),
+    loadSystemSettings(refresh),
     githubAuth.refreshStatus(),
     loadScrapingSwitchs(),
     loadModuleSettings(),
@@ -1470,7 +1473,7 @@ watch([authSession, authPolling, authPopupBlocked], () => {
 useSilentSettingRefresh(
   async () => {
     if (advancedDialog.value || testingLlm.value || savingBasic.value) return
-    await loadPageData()
+    await loadPageData(true)
   },
   {
     active: computed(() => props.active),

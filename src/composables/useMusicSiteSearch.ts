@@ -1,4 +1,5 @@
-import api from '@/api'
+import { getSharedConfiguration } from '@/api/configuration'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 import type { Site } from '@/api/types'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import type { RouteLocationRaw } from 'vue-router'
@@ -22,7 +23,7 @@ export function useMusicSiteSearch(buildRoute: MusicResourceRouteBuilder) {
   async function queryMusicSites() {
     musicSites.value = []
     try {
-      const sites: Site[] = await api.get('site/media/music')
+      const sites: Site[] = await getSharedConfiguration('site/media/music')
       musicSites.value = sites.filter(site => site.is_active)
     } catch (error) {
       console.error(error)
@@ -33,7 +34,7 @@ export function useMusicSiteSearch(buildRoute: MusicResourceRouteBuilder) {
   async function querySelectedSites() {
     selectedSites.value = []
     try {
-      const result = await api.get<{ value?: number[] }>('system/setting/public/IndexerSites')
+      const result = await getSharedConfiguration<{ value?: number[] }>('system/setting/public/IndexerSites')
       selectedSites.value = result.value ?? []
     } catch (error) {
       console.error(error)
@@ -42,6 +43,7 @@ export function useMusicSiteSearch(buildRoute: MusicResourceRouteBuilder) {
 
   /** 重新加载音乐站点，并同步更新已打开对话框的属性。 */
   async function reloadMusicSites() {
+    invalidateSharedData('configuration')
     await queryMusicSites()
     dialogController?.updateProps({
       sites: musicSites.value,

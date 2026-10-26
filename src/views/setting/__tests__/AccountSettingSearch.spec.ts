@@ -29,6 +29,7 @@ vi.mock('@/composables/useSilentSettingRefresh', () => ({
   useSilentSettingRefresh: mocks.useSilentSettingRefresh,
 }))
 
+/** 提供独立的站点、搜索配置与环境设置响应。 */
 function mockLoadedSettings() {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'site/') {
@@ -64,10 +65,12 @@ function mockLoadedSettings() {
   })
 }
 
+/** 使用真实表单组件渲染搜索设置面板。 */
 async function renderSettings() {
   return renderWithProviders(AccountSettingSearch)
 }
 
+/** 按标题定位设置卡片，避免多个保存按钮互相干扰。 */
 function getCard(title: string) {
   const card = screen.getByText(title).closest('.v-card')
   expect(card).not.toBeNull()
@@ -92,7 +95,7 @@ describe('AccountSettingSearch', () => {
     expect(await screen.findByDisplayValue('MOVIEPILOT')).toBeInTheDocument()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.queryByText('Disabled')).not.toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: '多名称资源搜索' })).toBeChecked()
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '多名称资源搜索' })).toBeChecked())
     expect(screen.getByRole('checkbox', { name: '下载站点字幕' })).toBeChecked()
 
     const refreshOptions = mocks.useSilentSettingRefresh.mock.calls[0]?.[1]
@@ -104,6 +107,7 @@ describe('AccountSettingSearch', () => {
   it('saves media sources, rule groups, and only the owned environment keys', async () => {
     await renderSettings()
     await screen.findByDisplayValue('MOVIEPILOT')
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '多名称资源搜索' })).toBeChecked())
 
     await fireEvent.update(screen.getByLabelText('下载任务标签'), 'UPDATED')
     await fireEvent.update(screen.getByLabelText('远程搜索自动下载用户'), '84')
@@ -157,10 +161,12 @@ describe('AccountSettingSearch', () => {
 
   it('saves selected search sites and exposes business and HTTP failures', async () => {
     await renderSettings()
-    await screen.findByText('Alpha')
+    const siteChip = (await screen.findByText('Alpha')).closest('.v-chip') as HTMLElement
+    await waitFor(() => expect(siteChip).toHaveClass('v-chip--selected'))
     const saveSites = getCard('搜索站点').getByRole('button', { name: '保存' })
 
-    await fireEvent.click(screen.getByText('Alpha'))
+    await fireEvent.click(siteChip)
+    await waitFor(() => expect(siteChip).not.toHaveClass('v-chip--selected'))
 
     await fireEvent.click(saveSites)
     await waitFor(() => expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/IndexerSites', []))

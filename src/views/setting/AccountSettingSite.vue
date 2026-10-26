@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { getSharedConfiguration } from '@/api/configuration'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { requestCookieCloudSync, resetSiteData } from '@/api/site'
@@ -116,9 +117,10 @@ async function syncCookieCloud() {
 }
 
 // 加载站点设置
-async function loadSiteSettings() {
+/** 共享初次配置读取，重新进入面板时合并刷新请求。 */
+async function loadSiteSettings(refresh = false) {
   try {
-    const result: { [key: string]: any } = await api.get('system/env')
+    const result: { [key: string]: any } = await getSharedConfiguration('system/env', refresh)
     // 将API返回的值赋值给SystemSettings
     for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof typeof siteSetting.value>) {
       Object.keys(siteSetting.value[sectionKey]).forEach((key: string) => {
@@ -148,7 +150,7 @@ onMounted(() => {
   loadSiteSettings()
 })
 
-useSilentSettingRefresh(loadSiteSettings, {
+useSilentSettingRefresh(() => loadSiteSettings(true), {
   active: computed(() => props.active),
 })
 </script>

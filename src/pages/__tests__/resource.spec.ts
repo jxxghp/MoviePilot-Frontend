@@ -547,6 +547,47 @@ describe('resource page search flow', () => {
     mocks.apiPost.mockResolvedValue({ success: true, data: { status: 'disabled' } })
   })
 
+  it('waits for each AI status request, pauses hidden tabs, and stops after unmount', async () => {
+    let checks = 0
+    let completePoll!: (value: unknown) => void
+    let signal: AbortSignal | undefined
+    mocks.apiPost.mockImplementation((_path, body, config) => {
+      if (!body.check_only) return Promise.resolve({ success: true, data: { status: 'running' } })
+      checks++
+      if (checks === 1) return Promise.resolve({ success: true, data: { status: 'idle' } })
+      signal = config?.signal
+      if (checks === 2)
+        return new Promise(resolve => {
+          completePoll = resolve
+        })
+      return Promise.resolve({ success: true, data: { status: 'running' } })
+    })
+    const view = await renderResource(
+      { path: '/resource', query: { keyword: '单路推荐', result_type: 'torrent' } },
+      true,
+    )
+    finishPage(await latestEventSource(), [createTorrent({ title: '单路推荐资源' })])
+    const button = (await screen.findAllByRole('button', { name: /智能推荐/ }))[0]
+    await waitFor(() => expect(button).toBeEnabled())
+    await fireEvent.click(button)
+    await waitFor(() => expect(checks).toBe(2))
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(checks).toBe(2)
+    completePoll({ success: true, data: { status: 'running' } })
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(checks).toBe(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(checks).toBe(3)
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(checks).toBe(3)
+    view.unmount()
+    expect(signal?.aborted).toBe(true)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(checks).toBe(3)
+  })
+
   it('keeps pagination available after filtering returns zero rows and advances only on a click', async () => {
     await renderResource({ path: '/resource', query: { keyword: '分页零条', result_type: 'torrent' } })
     const first = await latestEventSource()

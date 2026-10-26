@@ -86,7 +86,7 @@ describe('AccountSettingSubscribe', () => {
 
     expect(await screen.findByText('RSS Alpha')).toBeInTheDocument()
     expect(screen.queryByText('RSS Disabled')).not.toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: '订阅定时搜索' })).toBeChecked()
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '订阅定时搜索' })).toBeChecked())
     expect(screen.getByRole('checkbox', { name: '检查文件系统资源' })).toBeChecked()
     expect(screen.getByLabelText('补全搜索策略')).toHaveValue('smart')
     expect(screen.getByText('智能搜索（默认）')).toBeInTheDocument()

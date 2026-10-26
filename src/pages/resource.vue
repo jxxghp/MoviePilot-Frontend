@@ -311,7 +311,11 @@ const originalDataList = ref<Array<Context>>([]) // 原始搜索结果
 const aiRecommendedList = ref<Array<Context>>([]) // 智能推荐结果
 const savedFilterState = ref<FilterState | null>(null) // 保存的筛选状态
 const aiStatusChecked = ref(false) // 是否已完成首次AI状态检查
-let aiStatusCheckInterval: ReturnType<typeof setInterval> | null = null // AI状态检查定时器
+let aiStatusCheckTimer: ReturnType<typeof setTimeout> | undefined
+let aiStatusController: AbortController | undefined
+let aiPollGeneration = 0
+let resourceActive = true
+const AI_STATUS_POLL_DELAY = 5000
 
 // 是否有搜索标签
 const hasSearchTags = computed(() => {
@@ -1347,33 +1351,40 @@ async function sendInitialRequest(force: boolean = false): Promise<boolean> {
   } catch (error) {
     console.error('发送初始请求失败:', error)
     isRecommending.value = false
+    return false
   }
   return true
 }
 
-// 开始轮询智能推荐（使用 check_only 模式）
+/** 启动单路状态轮询，下一次请求在本次完成五秒后发出。 */
 function startAiRecommendPolling() {
-  // 停止可能存在的轮询
   stopAiRecommendPolling()
-
-  // 立即发送一次 check_only 请求
-  pollAiRecommend()
-
-  // 然后每2秒轮询一次（check_only）
-  aiStatusCheckInterval = setInterval(() => {
-    pollAiRecommend()
-  }, 2000)
+  if (resourceActive) void pollAiRecommend(aiPollGeneration)
 }
 
-// 轮询智能推荐状态（始终使用 check_only 模式）
-async function pollAiRecommend() {
+/** 仅查询推荐状态；后台标签暂停发包，旧页面响应不能恢复已停止的轮询。 */
+async function pollAiRecommend(generation: number) {
+  if (!resourceActive || generation !== aiPollGeneration) return
+  if (document.visibilityState === 'hidden') {
+    aiStatusCheckTimer = setTimeout(() => void pollAiRecommend(generation), AI_STATUS_POLL_DELAY)
+    return
+  }
+  aiStatusController = new AbortController()
   try {
-    const data = await api.post<AiRecommendStatusData>('search/recommend', { check_only: true }, { feedback: 'silent' })
+    const data = await api.post<AiRecommendStatusData>(
+      'search/recommend',
+      { check_only: true },
+      {
+        feedback: 'silent',
+        signal: aiStatusController.signal,
+      },
+    )
+    if (generation !== aiPollGeneration) return
     const status = data.status
 
     // 正在运行，继续轮询
     if (status === 'running') {
-      console.log('AI推理中...')
+      aiStatusCheckTimer = setTimeout(() => void pollAiRecommend(generation), AI_STATUS_POLL_DELAY)
       return
     }
 
@@ -1401,6 +1412,7 @@ async function pollAiRecommend() {
       toast.error(`${t('resource.aiRecommendError')}: ${errMsg}`)
     }
   } catch (error) {
+    if (generation !== aiPollGeneration) return
     console.error('智能推荐轮询失败:', error)
     stopAiRecommendPolling()
     isRecommending.value = false
@@ -1408,13 +1420,13 @@ async function pollAiRecommend() {
   }
 }
 
-// 停止轮询智能推荐
+/** 停止计时和当前请求，并使已返回但尚未应用的旧响应失效。 */
 function stopAiRecommendPolling() {
-  if (aiStatusCheckInterval) {
-    clearInterval(aiStatusCheckInterval)
-    aiStatusCheckInterval = null
-    console.log('停止智能推荐轮询')
-  }
+  aiPollGeneration++
+  clearTimeout(aiStatusCheckTimer)
+  aiStatusCheckTimer = undefined
+  aiStatusController?.abort()
+  aiStatusController = undefined
 }
 
 // 加载智能推荐结果（从索引数组提取数据）
@@ -1588,7 +1600,16 @@ useKeepAliveRefresh(async () => {
 })
 
 // 卸载时先让所有在途请求失效，并结束 EventSource.close() 不会主动完成的搜索 Promise。
+onDeactivated(() => {
+  resourceActive = false
+  stopAiRecommendPolling()
+})
+onActivated(() => {
+  resourceActive = true
+  if (isRecommending.value) startAiRecommendPolling()
+})
 onUnmounted(() => {
+  resourceActive = false
   activeSearchRequestId += 1
   cancelActiveSearchStream?.()
   closeSearchEventSource()

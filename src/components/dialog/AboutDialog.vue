@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { getSharedConfiguration } from '@/api/configuration'
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Process as SystemProcess } from '@/api/types'
@@ -253,7 +254,7 @@ async function showVersionStatisticDialog() {
 // 查询系统环境变量
 async function querySystemEnv() {
   try {
-    systemEnv.value = (await api.get<{ [key: string]: any } | null>('system/env')) ?? {}
+    systemEnv.value = (await getSharedConfiguration<{ [key: string]: any } | null>('system/env')) ?? {}
   } catch (error) {
     console.log(error)
   }

@@ -16,6 +16,7 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { defineComponent, h, nextTick, reactive, ref, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -245,6 +246,8 @@ afterEach(() => nativeCardMenus.setContext(undefined))
 
 describe('MediaCard', () => {
   beforeEach(() => {
+    invalidateSharedData()
+    server.use(http.post(`${API_BASE_URL}media/status`, () => new HttpResponse(null, { status: 404 })))
     intersectionObservers = []
     clearCachedMediaSubscribeStatuses()
     clearMediaPosterPresentationCache()

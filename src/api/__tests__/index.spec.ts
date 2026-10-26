@@ -1,5 +1,6 @@
 import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getSharedData, invalidateSharedData } from '@/utils/sharedDataCache'
 
 const mocks = vi.hoisted(() => ({
   i18nT: vi.fn((key: string) => `translated:${key}`),
@@ -65,10 +66,36 @@ async function installFailingAdapter(status: number, data: unknown) {
 describe('API application wiring', () => {
   afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => {
+    invalidateSharedData()
     mocks.authState.token = null
     mocks.logout.mockClear()
     mocks.routerPush.mockClear()
     mocks.toastError.mockClear()
+  })
+
+  it('invalidates shared configuration and media snapshots only after successful related writes', async () => {
+    const module = await import('@/api')
+    let success = true
+    module.default.defaults.adapter = async config => ({
+      config: config as InternalAxiosRequestConfig,
+      data: { success, message: success ? '' : '失败', data: null },
+      headers: new AxiosHeaders(),
+      status: 200,
+      statusText: 'OK',
+    })
+    const loader = vi.fn(async () => ({ value: 1 }))
+    await getSharedData('configuration:env', loader)
+    await module.default.post('media/status', [])
+    await getSharedData('configuration:env', loader)
+    expect(loader).toHaveBeenCalledOnce()
+    success = false
+    await module.default.post('system/env', {}).catch(() => {})
+    await getSharedData('configuration:env', loader)
+    expect(loader).toHaveBeenCalledOnce()
+    success = true
+    await module.default.post('system/env', {})
+    await getSharedData('configuration:env', loader)
+    expect(loader).toHaveBeenCalledTimes(2)
   })
 
   it('向 window 暴露插件最终 payload 客户端，而内部默认导出数据客户端', async () => {

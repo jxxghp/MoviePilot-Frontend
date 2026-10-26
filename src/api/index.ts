@@ -3,6 +3,7 @@ import { useToast } from 'vue-toastification'
 import router from '@/router'
 import { useAuthStore } from '@/stores'
 import { initializeRequestOptimizer } from '@/utils/requestOptimizer'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
 import i18n, { getCurrentLocale } from '@/plugins/i18n'
 import {
@@ -80,6 +81,19 @@ declare global {
 /** 为两个客户端安装同一套取消、认证和语言请求头。 */
 function initializeClient(instance: AxiosInstance | DataApiClient) {
   initializeRequestOptimizer(instance)
+  instance.interceptors.response.use(response => {
+    const method = response.config.method?.toLowerCase()
+    const path = response.config.url?.replace(/^\//, '') ?? ''
+    if (
+      method &&
+      !['get', 'head', 'options'].includes(method) &&
+      /^(site(?:\/|$)|subscribe(?:\/|$)|system\/(env|setting)(?:\/|$))/.test(path) &&
+      isApiResponse(response.data) &&
+      response.data.success
+    )
+      invalidateSharedData(path.startsWith('subscribe') ? 'media-status' : 'configuration')
+    return response
+  })
   instance.interceptors.request.use(config => {
     const authStore = useAuthStore()
     if (authStore.token) config.headers.Authorization = `Bearer ${authStore.token}`

@@ -7,7 +7,9 @@ import type { SeasonSubscribeModes } from '@/composables/useMediaSubscribe'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { invalidateSharedData } from '@/utils/sharedDataCache'
 
+/** 保留原生选季流程中用于断言的响应式订阅状态。 */
 interface CapturedSubscribeOptions {
   isExists: () => boolean
   isSubscribed: Ref<boolean>
@@ -17,6 +19,7 @@ interface CapturedSubscribeOptions {
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
+  apiPost: vi.fn(),
   checkSubscribe: vi.fn(),
   handleSubscribe: vi.fn(),
   subscribeOptions: undefined as CapturedSubscribeOptions | undefined,
@@ -26,6 +29,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/api', () => ({
   default: createDataApiMock({
     get: (...args: unknown[]) => mocks.apiGet(...args),
+    post: (...args: unknown[]) => mocks.apiPost(...args),
   }),
 }))
 
@@ -152,6 +156,8 @@ describe('native subscribe media normalization', () => {
 
 describe('plugin native subscribe flow', () => {
   beforeEach(() => {
+    invalidateSharedData()
+    mocks.apiPost.mockResolvedValue([{ subscribed: true, seasons: { 1: 'normal', 3: 'best_version' } }])
     mocks.checkSubscribe.mockResolvedValue(false)
     mocks.handleSubscribe.mockResolvedValue(undefined)
     mocks.apiGet.mockResolvedValue([])
@@ -170,7 +176,8 @@ describe('plugin native subscribe flow', () => {
       nativeSubscribe({ media_id: '500', media_source: 'themoviedb', title: '原生选季', type: 'tv' }),
     ).resolves.toEqual({ success: true })
 
-    expect(mocks.apiGet).toHaveBeenCalledWith('subscribe/')
+    expect(mocks.apiPost).toHaveBeenCalledWith('media/status', [expect.objectContaining({ media_id: '500' })])
+    expect(mocks.apiGet).not.toHaveBeenCalled()
     expect(mocks.subscribeOptions?.subscribedSeasons.value).toEqual([1, 3])
     expect(mocks.subscribeOptions?.subscribedSeasonModes.value).toEqual({ 1: 'normal', 3: 'best_version' })
     expect(mocks.handleSubscribe).toHaveBeenCalledOnce()
