@@ -70,6 +70,32 @@ describe('MediaIdSelector layout', () => {
     expect(results).toBeInstanceOf(HTMLElement)
   })
 
+  it.each(['themoviedb', 'musicbrainz'] as const)('renders external metadata as text for %s', async source => {
+    const html = '<img src=x onerror="window.__metadataExecuted=true">'
+    mocks.apiGet.mockResolvedValue([
+      {
+        media_id: 'unsafe',
+        media_source: source,
+        title: 'External',
+        type: source === 'musicbrainz' ? '音乐' : '电影',
+        overview: html,
+        artist: html,
+        album: html,
+        album_type: html,
+        secondary_types: [html],
+        music_type: source === 'musicbrainz' ? 'recording' : undefined,
+      },
+    ])
+    const { container } = await renderWithProviders(MediaIdSelector, {
+      props: { type: source, initialKeyword: 'external' },
+    })
+    await screen.findByText('External')
+    const subtitle = container.querySelector('.v-list-item-subtitle')!
+    expect(subtitle.textContent).toContain(html)
+    expect(subtitle.querySelector('img')).toBeNull()
+    expect(subtitle.querySelector('[onerror]')).toBeNull()
+  })
+
   it('omits the repeated album title for albums while keeping it for recordings', async () => {
     mocks.apiGet.mockResolvedValue([
       {

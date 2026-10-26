@@ -31,15 +31,24 @@ export function getBrowserLocale(): SupportedLocale | null {
     return storedLocale as SupportedLocale
   }
 
-  // 从浏览器获取
-  const navigatorLocale = navigator.languages?.[0] || navigator.language || 'zh-CN'
-
-  // 检查是否为支持的语言
-  const locale = Object.keys(SUPPORTED_LOCALES).find(locale => {
-    return navigatorLocale.includes(locale.split('-')[0])
-  })
-
-  return (locale as SupportedLocale) || 'zh-CN'
+  // 优先保留完整语言身份，再在同一语言族内选择受支持的地区版本。
+  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language || 'zh-CN']
+  for (const language of preferred) {
+    try {
+      const locale = new Intl.Locale(language.replaceAll('_', '-'))
+      const exact = Object.keys(SUPPORTED_LOCALES).find(key => key.toLowerCase() === locale.baseName.toLowerCase())
+      if (exact) return exact as SupportedLocale
+      if (locale.language === 'zh') {
+        if (locale.script === 'Hant' || (!locale.script && ['TW', 'HK', 'MO'].includes(locale.region || '')))
+          return 'zh-TW'
+        return 'zh-CN'
+      }
+      if (locale.language === 'en') return 'en-US'
+    } catch {
+      // 浏览器扩展可能提供无效语言标签，继续尝试后续首选语言。
+    }
+  }
+  return 'zh-CN'
 }
 
 /**

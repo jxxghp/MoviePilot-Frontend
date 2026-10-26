@@ -39,7 +39,7 @@ const recentPlugins = ref<Plugin[]>([])
 const pinnedPluginIds = ref<string[]>([])
 
 // 搜索关键词
-const searchKeyword = ref('')
+const searchKeyword = ref<string | null>('')
 
 // 是否处于常用插件编辑状态
 const isEditingFavorites = ref(false)
@@ -62,7 +62,7 @@ const sheetVisible = computed({
 })
 
 // 当前搜索关键词
-const normalizedSearchKeyword = computed(() => searchKeyword.value.trim().toLocaleLowerCase())
+const normalizedSearchKeyword = computed(() => (searchKeyword.value ?? '').trim().toLocaleLowerCase())
 
 // 是否正在搜索
 const hasSearchKeyword = computed(() => normalizedSearchKeyword.value.length > 0)
@@ -268,7 +268,7 @@ useNativeGlobalAction({
       layout: 'grid',
       loading: loading.value,
       emptyText: t(searchKeyword.value ? 'plugin.noMatchingContent' : 'plugin.noPluginsWithPage'),
-      search: { text: searchKeyword.value, placeholder: t('common.search') },
+      search: { text: searchKeyword.value ?? '', placeholder: t('common.search') },
       onQuery: value => {
         searchKeyword.value = value
       },

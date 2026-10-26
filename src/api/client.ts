@@ -230,14 +230,18 @@ function installResponseInterceptors(
 ) {
   instance.interceptors.response.use(
     response => {
-      hooks?.markServerOnline?.()
-
-      if (isBinarySuccess(response)) return response.data
+      if (isBinarySuccess(response)) {
+        hooks?.markServerOnline?.()
+        return response.data
+      }
 
       const payload: unknown = response.data
       if (!isApiResponse(payload)) {
         // 联邦插件自行声明 API 响应；非宿主 envelope 必须原样交给插件调用方。
-        if (responseMode === 'envelope') return payload
+        if (responseMode === 'envelope') {
+          hooks?.markServerOnline?.()
+          return payload
+        }
         const error = new ApiRequestError(resolveFallback('invalid-envelope', resolveFallbackMessage), {
           code: AxiosError.ERR_BAD_RESPONSE,
           config: response.config,
@@ -253,6 +257,7 @@ function installResponseInterceptors(
 
       // 只有通过 envelope 校验的真实响应才算“服务恢复在线”的证据，
       // 此时清空技术错误去重缓存，让新一轮故障可以再次提示，避免永久静默。
+      hooks?.markServerOnline?.()
       technicalErrorDedup?.clear()
 
       if (!payload.success) {
@@ -281,7 +286,9 @@ function installResponseInterceptors(
       const original = reason instanceof AxiosError ? reason : undefined
       const response = original?.response ? await normalizeErrorResponse(original.response) : undefined
       // 只有成功响应才算服务在线证据；网关错误响应说明后端当前不可达，不能恢复在线状态。
-      if (response && response.status >= 200 && response.status < 300) hooks?.markServerOnline?.()
+      if (response && response.status >= 200 && response.status < 300 && isApiResponse(response.data)) {
+        hooks?.markServerOnline?.()
+      }
 
       const payload = response?.data
       const error = new ApiRequestError(resolveErrorMessage(payload, original, resolveFallbackMessage), {
@@ -359,9 +366,7 @@ export function isApiRequestCancellation(reason: unknown): boolean {
   if (!reason || typeof reason !== 'object') return false
 
   const error = reason as { code?: unknown; name?: unknown }
-  return (
-    error.code === AxiosError.ERR_CANCELED || error.name === 'AbortError' || error.name === 'CanceledError'
-  )
+  return error.code === AxiosError.ERR_CANCELED || error.name === 'AbortError' || error.name === 'CanceledError'
 }
 
 /** 优先使用后端 message，并兼容尚未进入统一 envelope 的 detail 错误。 */
