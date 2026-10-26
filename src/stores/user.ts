@@ -1,3 +1,4 @@
+import { clearSharedDialogs } from '@/composables/useSharedDialog'
 import { defineStore } from 'pinia'
 import type { userState } from '@/stores/types'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
@@ -23,6 +24,7 @@ export const useUserStore = defineStore('user', {
       this.superUser = superUser
     },
     setUserID(userID: number) {
+      if (this.userID !== userID) clearSharedDialogs()
       this.userID = userID
     },
     setUserName(userName: string) {

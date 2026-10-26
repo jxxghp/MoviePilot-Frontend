@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentAssistantPanel from '@/components/agent/AgentAssistantPanel.vue'
 
 const displayState = vi.hoisted(() => ({ mdAndDown: { value: true } }))
+const identityState = vi.hoisted(() => ({
+  auth: null as unknown as { token: string | null },
+  user: null as unknown as { getUserName: string; getUserID: number },
+}))
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -13,10 +17,15 @@ vi.mock('vuetify', () => ({
   useDisplay: () => displayState,
 }))
 
-vi.mock('@/stores', () => ({
-  useAuthStore: () => ({ token: null }),
-  useUserStore: () => ({ getUserName: 'Tester' }),
-}))
+vi.mock('@/stores', async () => {
+  const { reactive } = await import('vue')
+  identityState.auth = reactive({ token: 'account-a-token' })
+  identityState.user = reactive({ getUserName: 'Tester', getUserID: 42 })
+  return {
+    useAuthStore: () => identityState.auth,
+    useUserStore: () => identityState.user,
+  }
+})
 
 vi.mock('@/plugins/i18n', () => ({
   getCurrentLocale: () => 'zh-CN',
@@ -201,6 +210,9 @@ describe('AgentAssistantPanel stream recovery', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     localStorage.clear()
+    identityState.auth.token = 'account-a-token'
+    identityState.user.getUserID = 42
+    identityState.user.getUserName = 'Tester'
   })
 
   afterEach(() => {
@@ -208,7 +220,153 @@ describe('AgentAssistantPanel stream recovery', () => {
     vi.useRealTimers()
   })
 
+  it('never adopts legacy unscoped state or another account history', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    const privateState = JSON.stringify({
+      sessionId: 'account-a-session',
+      messages: [
+        { id: 'private-a', role: 'user', content: 'account A private text', createdAt: Date.now(), status: 'done' },
+      ],
+    })
+    localStorage.setItem('moviepilot-agent-assistant-state', privateState)
+    localStorage.setItem('moviepilot-agent-assistant-state:user:7', privateState)
+    const wrapper = mountPanel()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('account A private text')
+    expect(localStorage.getItem('moviepilot-agent-assistant-state')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('restores only the current account namespace and clears visible state synchronously on logout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({
+        sessionId: 'account-a-session',
+        messages: [
+          {
+            id: 'private-a',
+            role: 'user',
+            content: 'current account private text',
+            createdAt: Date.now(),
+            status: 'done',
+          },
+        ],
+      }),
+    )
+    const wrapper = mountPanel()
+    await flushPromises()
+    expect(wrapper.text()).toContain('current account private text')
+    identityState.auth.token = null
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('current account private text')
+    wrapper.unmount()
+  })
+
+  it('aborts old streams and ignores late stream/history replies after the identity changes', async () => {
+    const stream = createControllableAgentStream()
+    const history = createDeferred<Response>()
+    let historyRequests = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return stream.response
+      if (String(input).includes('/message/agent/sessions?') && ++historyRequests === 1) return history.promise
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await wrapper.get('textarea').setValue('private A request')
+    await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    const streamCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/message/agent/stream'))
+    identityState.auth.token = null
+    identityState.user.getUserID = 7
+    identityState.auth.token = 'account-b-token'
+    await flushPromises()
+    expect((streamCall?.[1] as RequestInit | undefined)?.signal?.aborted).toBe(true)
+    const nextAccountPanel = mountPanel()
+    await flushPromises()
+    stream.emit(legacySseFrame({ type: 'delta', content: 'late A reply' }))
+    stream.emit(legacySseFrame({ type: 'done' }))
+    stream.close()
+    history.resolve(
+      createAgentResponse([
+        { session_id: 'web-agent:A', title: 'late private A history', updated_at: new Date().toISOString() },
+      ]),
+    )
+    await flushPromises()
+    expect(nextAccountPanel.text()).not.toContain('private A request')
+    expect(nextAccountPanel.text()).not.toContain('late private A history')
+    expect(nextAccountPanel.text()).not.toContain('late A reply')
+    expect(wrapper.text()).not.toContain('private A request')
+    expect(wrapper.text()).not.toContain('late A reply')
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:7') || '').not.toContain('late A')
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:7') || '').not.toContain('late private A')
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/display'))).toHaveLength(0)
+    wrapper.unmount()
+    nextAccountPanel.unmount()
+  })
+
+  it('revokes a replaced nonempty authentication token even before user information changes', async () => {
+    const stream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return stream.response
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await wrapper.get('textarea').setValue('old authenticated request')
+    await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    identityState.auth.token = 'replacement-nonempty-token'
+    await flushPromises()
+    const call = fetchMock.mock.calls.find(([path]) => String(path).endsWith('/message/agent/stream'))
+    expect(call?.[1]?.signal?.aborted).toBe(true)
+    stream.emit(legacySseFrame({ type: 'delta', content: 'late old authentication reply' }))
+    stream.close()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('old authenticated request')
+    expect(wrapper.text()).not.toContain('late old authentication reply')
+    expect(fetchMock.mock.calls.filter(([path]) => String(path).endsWith('/display'))).toHaveLength(0)
+    wrapper.unmount()
+  })
+
+  it('does not start a stream with an old attachment after account disposal', async () => {
+    const upload = createDeferred<Response>()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/upload') && init?.method === 'POST') return upload.promise
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    const fileInput = wrapper.get('input[type="file"]')
+    Object.defineProperty(fileInput.element, 'files', {
+      configurable: true,
+      value: [new File(['private A attachment'], 'private.txt', { type: 'text/plain' })],
+    })
+    await fileInput.trigger('change')
+    await wrapper.get('textarea').setValue('private A question')
+    await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    wrapper.unmount()
+    identityState.user.getUserID = 7
+    identityState.auth.token = 'account-b-token'
+    upload.resolve(createAgentResponse({ ref: 'private-a-ref', url: '/private-a', name: 'private.txt' }))
+    await flushPromises()
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/message/agent/stream'))).toHaveLength(0)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:7')).toBeNull()
+  })
+
   it('exposes unique semantic controls for file attachments and messages', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createAgentResponse([])),
+    )
     const wrapper = mountPanel()
     const fileInput = wrapper.get('input[type="file"]')
     const messageInput = wrapper.get('textarea')
@@ -359,7 +517,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       vi.fn(async () => createAgentResponse([])),
     )
     localStorage.setItem(
-      'moviepilot-agent-assistant-state',
+      'moviepilot-agent-assistant-state:user:42',
       JSON.stringify({
         sessionId: 'web-agent:thinking-row',
         messages: [
@@ -430,7 +588,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     expect(wrapper.find('.agent-assistant-thinking').exists()).toBe(false)
-    const stoppedSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const stoppedSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     const stoppedAssistant = stoppedSnapshot.messages.find((message: { role: string }) => message.role === 'assistant')
     expect(stoppedAssistant).toMatchObject({ status: 'done', thinking: false })
     const stoppedElapsedMs = stoppedAssistant.thinkingElapsedMs
@@ -439,7 +597,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
     expect(wrapper.find('.agent-assistant-thinking').exists()).toBe(false)
     expect(
-      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages.find(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').messages.find(
         (message: { role: string }) => message.role === 'assistant',
       ).thinkingElapsedMs,
     ).toBe(stoppedElapsedMs)
@@ -501,7 +659,9 @@ describe('AgentAssistantPanel stream recovery', () => {
       .findAll('.agent-assistant-message--user')
       .find(message => message.text().includes('补充检查下载目录'))
     expect(queuedMessage).toBeDefined()
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').messages,
+    ).toContainEqual(
       expect.objectContaining({
         content: '补充检查下载目录',
         steeringMessageId: 'steering-1',
@@ -524,9 +684,9 @@ describe('AgentAssistantPanel stream recovery', () => {
     )
     await flushPromises()
     expect(wrapper.text()).toContain('agentAssistant.steeringApplied')
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
-      expect.objectContaining({ content: '补充检查下载目录', steeringStatus: 'applied' }),
-    )
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').messages,
+    ).toContainEqual(expect.objectContaining({ content: '补充检查下载目录', steeringStatus: 'applied' }))
 
     primaryStream.emit(legacySseFrame({ type: 'done' }))
     primaryStream.close()
@@ -579,7 +739,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
 
-    const activeSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const activeSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     const activeAssistant = activeSnapshot.messages.find((message: { role: string }) => message.role === 'assistant')
     expect(activeAssistant.tools).toEqual([
       expect.objectContaining({ id: 'tool-search', status: 'done' }),
@@ -594,7 +754,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     primaryStream.close()
     await flushPromises()
 
-    const finishedSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const finishedSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     const finishedAssistant = finishedSnapshot.messages.find(
       (message: { role: string }) => message.role === 'assistant',
     )
@@ -765,7 +925,7 @@ describe('AgentAssistantPanel stream recovery', () => {
 
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
-    const snapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const snapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     const assistantMessages = snapshot.messages.filter((message: { role: string }) => message.role === 'assistant')
     expect(assistantMessages[0].tools).toEqual([
       expect.objectContaining({ id: 'tool-before-steering', status: 'done' }),
@@ -994,7 +1154,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(renderedMessages[1].text).toContain('排队后工具')
     expect(renderedMessages[2].text).toContain('补充：在下一个工具前处理')
     expect(renderedMessages[3].text).toContain('消费补充消息后的工具')
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toEqual(
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').messages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'assistant-stable-boundary', status: 'done' }),
         expect.objectContaining({ id: 'assistant-stable-continuation', status: 'streaming' }),
@@ -1143,9 +1303,9 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('即使 ACK 断开也保留')
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
-      expect.objectContaining({ content: '即使 ACK 断开也保留', steeringStatus: 'queued' }),
-    )
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').messages,
+    ).toContainEqual(expect.objectContaining({ content: '即使 ACK 断开也保留', steeringStatus: 'queued' }))
 
     primaryStream.emit(
       legacySseFrame({
@@ -1157,7 +1317,9 @@ describe('AgentAssistantPanel stream recovery', () => {
     )
     await flushPromises()
     expect(wrapper.text()).toContain('agentAssistant.steeringApplied')
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').messages).toContainEqual(
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').messages,
+    ).toContainEqual(
       expect.objectContaining({
         content: '即使 ACK 断开也保留',
         steeringMessageId: 'steering-disconnected',
@@ -1422,7 +1584,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     localStorage.setItem(
-      'moviepilot-agent-assistant-state',
+      'moviepilot-agent-assistant-state:user:42',
       JSON.stringify({
         sessionId: localSessionId,
         messages: [userMessage, assistantPlaceholder],
@@ -1456,7 +1618,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(wrapper.find('.agent-assistant-typing').exists()).toBe(false)
     expect(wrapper.text()).toContain('后台任务已经完成')
     expect(wrapper.text()).toContain('agentAssistant.ready')
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')).toMatchObject({
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')).toMatchObject({
       sessionId: serverSessionId,
       streamRecovery: null,
     })
@@ -1543,7 +1705,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     document.dispatchEvent(new Event('visibilitychange'))
     await flushPromises()
 
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')).toMatchObject({
+    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')).toMatchObject({
       sessionId: serverSessionId,
       streamRecovery: {
         sessionId: serverSessionId,
@@ -1681,8 +1843,8 @@ describe('AgentAssistantPanel stream recovery', () => {
       expect(new Headers(init?.headers).has('X-MoviePilot-Agent-Interaction')).toBe(false)
       expect(String(init?.body)).not.toContain(protectedMarker)
     })
-    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(protectedMarker)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:42')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:42')).not.toContain(protectedMarker)
     expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
 
     wrapper.unmount()
@@ -1764,8 +1926,8 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(wrapper.get('.agent-assistant-message--assistant').text()).toContain('未知协议后的普通回复')
     expect(wrapper.text()).not.toContain(rejectedMarker)
     expect(wrapper.find('.agent-assistant-message--error').exists()).toBe(false)
-    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(rejectedMarker)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(rejectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:42')).not.toContain(rejectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:42')).not.toContain(rejectedMarker)
     expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(rejectedMarker)
     fetchMock.mock.calls
       .filter(([input]) => String(input).includes('/display'))
@@ -1834,7 +1996,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     expect(wrapper.get('.agent-assistant-message--assistant').text()).toContain('具名普通回复')
-    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     expect(persistedState.streamRecovery).toBeNull()
 
     wrapper.unmount()
@@ -1931,11 +2093,11 @@ describe('AgentAssistantPanel stream recovery', () => {
     stream.close()
     await flushPromises()
 
-    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     expect(wrapper.text()).not.toContain(protectedMarker)
     expect(persistedState.streamRecovery).toMatchObject({ attempts: 0 })
     expect(JSON.stringify(persistedState)).not.toContain(protectedMarker)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:42')).not.toContain(protectedMarker)
     expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
     fetchMock.mock.calls
       .filter(([input]) => String(input).includes('/display'))
@@ -1965,12 +2127,12 @@ describe('AgentAssistantPanel stream recovery', () => {
     stream.fail(new TypeError('Failed to fetch'))
     await flushPromises()
 
-    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const persistedState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     expect(wrapper.text()).not.toContain(protectedMarker)
     expect(persistedState.streamRecovery).toMatchObject({ attempts: 0 })
     expect(persistedState.messages.at(-1)).toMatchObject({ role: 'assistant', status: 'streaming' })
     expect(JSON.stringify(persistedState)).not.toContain(protectedMarker)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:42')).not.toContain(protectedMarker)
     expect(JSON.stringify(wrapper.emitted('assistant-preview') || [])).not.toContain(protectedMarker)
     fetchMock.mock.calls
       .filter(([input]) => String(input).includes('/display'))
@@ -2005,8 +2167,8 @@ describe('AgentAssistantPanel stream recovery', () => {
     const remounted = mountPanel()
     await flushPromises()
     expect(remounted.text()).not.toContain(protectedMarker)
-    expect(localStorage.getItem('moviepilot-agent-assistant-state')).not.toContain(protectedMarker)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:42')).not.toContain(protectedMarker)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:42')).not.toContain(protectedMarker)
     fetchMock.mock.calls
       .filter(([input]) => String(input).includes('/display'))
       .forEach(([, init]) => expect(String(init?.body)).not.toContain(protectedMarker))
@@ -2091,8 +2253,8 @@ describe('AgentAssistantPanel stream recovery', () => {
     expect(streamBody).toMatchObject({ text: controlText, display_text: controlText, echo_user: true })
     expect(wrapper.text()).toContain(backendFeedback)
     expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
-    const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
-    const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history') || '[]')
+    const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
+    const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history:user:42') || '[]')
     expect(localState.messages || []).not.toContainEqual(
       expect.objectContaining({ role: 'user', content: controlText }),
     )
@@ -2128,8 +2290,8 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
-    expect(localStorage.getItem('moviepilot-agent-assistant-state') || '').not.toContain(controlText)
-    expect(localStorage.getItem('moviepilot-agent-assistant-history') || '').not.toContain(controlText)
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '').not.toContain(controlText)
+    expect(localStorage.getItem('moviepilot-agent-assistant-history:user:42') || '').not.toContain(controlText)
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/display'))).toBe(false)
 
     deferredStreamResponse.resolve(
@@ -2142,8 +2304,8 @@ describe('AgentAssistantPanel stream recovery', () => {
 
     expect(wrapper.text()).toContain(backendFeedback)
     expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
-    const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
-    const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history') || '[]')
+    const localState = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
+    const localHistory = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-history:user:42') || '[]')
     expect(localState.messages || []).not.toContainEqual(
       expect.objectContaining({ role: 'user', content: controlText }),
     )
@@ -2211,8 +2373,10 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
 
     expect(wrapper.find('.agent-assistant-message--user').exists()).toBe(false)
-    expect(localStorage.getItem('moviepilot-agent-assistant-state') || '').not.toContain(userText)
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').streamRecovery).toMatchObject({
+    expect(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '').not.toContain(userText)
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').streamRecovery,
+    ).toMatchObject({
       sessionId: requestedSessionId,
       attempts: 0,
     })
@@ -2222,7 +2386,9 @@ describe('AgentAssistantPanel stream recovery', () => {
 
     expect(wrapper.text()).toContain(userText)
     expect(wrapper.text()).toContain(assistantText)
-    expect(JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}').streamRecovery).toBeNull()
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').streamRecovery,
+    ).toBeNull()
 
     wrapper.unmount()
   })
@@ -2625,7 +2791,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     // 第二次统计仍在同一个助手消息中实时合并，后续正文尚未到达。
     expect(wrapper.findAll('.agent-assistant-tool')).toHaveLength(1)
     expect(wrapper.find('.agent-assistant-tool').text()).toContain('执行了 2 次搜索')
-    const activeSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state') || '{}')
+    const activeSnapshot = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
     const activeAssistant = activeSnapshot.messages.find((message: { role: string }) => message.role === 'assistant')
     expect(activeAssistant.content).toBe('')
 
@@ -2687,6 +2853,9 @@ describe('AgentAssistantPanel agent host bridge', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     localStorage.clear()
+    identityState.auth.token = 'account-a-token'
+    identityState.user.getUserID = 42
+    identityState.user.getUserName = 'Tester'
   })
 
   afterEach(() => {
@@ -2719,7 +2888,7 @@ describe('AgentAssistantPanel agent host bridge', () => {
       vi.fn(async () => createAgentResponse([])),
     )
     localStorage.setItem(
-      'moviepilot-agent-assistant-state',
+      'moviepilot-agent-assistant-state:user:42',
       JSON.stringify({
         sessionId: 'web-agent:pet-avatar',
         messages: [

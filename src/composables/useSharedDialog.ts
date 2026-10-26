@@ -87,6 +87,16 @@ export function closeSharedDialog(id?: number) {
   setDialogStack(dialogStack.value.filter(entry => entry.id !== id))
 }
 
+/** 身份退出或切换时立即释放共享栈里的凭据、组件和业务回调。 */
+export function clearSharedDialogs() {
+  setDialogStack([])
+}
+
+/** 已撤销的弹窗不得再转发迟到的业务事件。 */
+export function isSharedDialogActive(id: number) {
+  return dialogStack.value.some(entry => entry.id === id)
+}
+
 // 合并更新指定弹窗的 props，供进度弹窗等需要刷新内容的场景使用。
 export function updateSharedDialogProps(id: number, props: Record<string, unknown>) {
   setDialogStack(
