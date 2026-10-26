@@ -14,6 +14,7 @@ import federation from '@originjs/vite-plugin-federation'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import { readFileSync } from 'node:fs'
 import { responsiveInputCoreComponentNames } from './src/plugins/vuetify/responsiveInputNames'
+import { nativePasskeyPage } from './scripts/native-passkey'
 import {
   createDevServiceWorkerCleanupPlugin,
   isPwaDevelopmentEnabled,
@@ -238,6 +239,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
         // The function to generate import names of top-level await promise in each chunk module
         promiseImportName: i => `__mp_tla_${i}`,
       }),
+    nativePasskeyPage(),
   ],
   define: {
     'process.env': {},
@@ -259,6 +261,12 @@ export default defineConfig(({ command, mode, isPreview }) => ({
   },
   build: {
     target: 'esnext',
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        nativePasskey: resolve(__dirname, 'native-passkey.html'),
+      },
+    },
     minify: 'terser',
     terserOptions: {
       compress: {

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; connect-src 'none'; img-src 'none'"
+    />
+    <title>通行密钥 · MoviePilot</title>
+    <style>
+      html,
+      body.native-passkey {
+        margin: 0;
+        min-width: 0;
+        min-height: 100%;
+        background: #f2f2f7;
+        color: #1c1c1e;
+        font:
+          17px -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+      }
+      .native-passkey main {
+        box-sizing: border-box;
+        max-width: 420px;
+        margin: 0 auto;
+        padding: max(64px, env(safe-area-inset-top)) 28px max(28px, env(safe-area-inset-bottom));
+        text-align: center;
+      }
+      .native-passkey h1 {
+        margin: 24px 0 12px;
+        font:
+          600 25px -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+      }
+      .native-passkey p {
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .native-passkey #hostname {
+        color: #636366;
+      }
+      .native-passkey #message {
+        min-height: 78px;
+        margin: 28px 0;
+      }
+      .native-passkey button {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 48px;
+        margin: 8px 0;
+        padding: 12px;
+        border: 0;
+        border-radius: 14px;
+        background: #007aff;
+        color: white;
+        font:
+          600 17px -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        cursor: pointer;
+      }
+      .native-passkey #cancel {
+        background: transparent;
+        color: #007aff;
+      }
+      .native-passkey button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .native-passkey [hidden] {
+        display: none !important;
+      }
+      @media (prefers-color-scheme: dark) {
+        html,
+        body.native-passkey {
+          background: #0b1322;
+          color: #f2f2f7;
+        }
+        .native-passkey #hostname {
+          color: #aeaeb2;
+        }
+        .native-passkey #cancel {
+          color: #64a8ff;
+        }
+      }
+    </style>
+  </head>
+  <body class="native-passkey">
+    <main>
+      <h1>使用通行密钥登录</h1>
+      <p id="hostname"></p>
+      <p id="message" role="status" aria-live="polite">使用已为此实例保存的通行密钥完成验证。</p>
+      <button id="cancel" type="button" hidden>返回 App</button>
+    </main>
+    <script type="module" src="/src/native-passkey/page.ts"></script>
+  </body>
+</html>
