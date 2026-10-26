@@ -275,8 +275,33 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const STORAGE_KEY = 'moviepilot-agent-assistant-state'
-const HISTORY_STORAGE_KEY = 'moviepilot-agent-assistant-history'
+/** 本地记录只按已认证的稳定用户 ID 恢复，未归属的旧键不能安全迁移。 */
+function getAccountIdentity() {
+  return authStore.token && Number.isInteger(userStore.getUserID) && userStore.getUserID >= 0
+    ? `user:${userStore.getUserID}`
+    : ''
+}
+const accountIdentity = getAccountIdentity()
+const accountToken = authStore.token
+const STORAGE_KEY = `moviepilot-agent-assistant-state:${accountIdentity}`
+const HISTORY_STORAGE_KEY = `moviepilot-agent-assistant-history:${accountIdentity}`
+const accountAbortController = new AbortController()
+let accountDisposed = false
+
+/** 旧组件的异步回执即使忽略 AbortSignal，也不能写回新会话。 */
+function isAccountActive() {
+  return (
+    !accountDisposed &&
+    Boolean(accountIdentity) &&
+    authStore.token === accountToken &&
+    getAccountIdentity() === accountIdentity
+  )
+}
+
+/** 身份变化后中止后续附件上传和恢复等异步链。 */
+function assertAccountActive() {
+  if (!isAccountActive()) throw new DOMException('Agent account session ended', 'AbortError')
+}
 const HISTORY_PAGE_SIZE = 30
 const MAX_LOCAL_HISTORY_SESSIONS = 120
 const MAX_PERSISTED_MESSAGES = 30
@@ -860,6 +885,8 @@ function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
 
 // 从 localStorage 读取历史会话索引，读取失败时回退为空列表。
 function restoreHistorySessions() {
+  if (!isAccountActive()) return
+
   try {
     historySessions.value = normalizeHistorySessions(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]'))
   } catch {
@@ -889,13 +916,17 @@ function restorePendingSteeringMessages() {
 
 // 加载第一页服务端历史会话。
 async function loadServerHistorySessions() {
+  if (!isAccountActive()) return
+
   historyPage.value = 1
   historyHasMore.value = true
   historyLoading.value = true
   try {
     const data = await api.get<unknown>(`message/agent/sessions?page=1&count=${HISTORY_PAGE_SIZE}`, {
       feedback: 'silent',
+      signal: accountAbortController.signal,
     })
+    assertAccountActive()
     const sessions = Array.isArray(data)
       ? (data
           .map(item => normalizeServerSession(item as AgentServerSession))
@@ -905,6 +936,7 @@ async function loadServerHistorySessions() {
     historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
     persistHistorySessions()
   } catch {
+    if (!isAccountActive()) return
     restoreHistorySessions()
     historyHasMore.value = false
   } finally {
@@ -914,6 +946,8 @@ async function loadServerHistorySessions() {
 
 // 加载下一页服务端历史会话。
 async function loadMoreServerHistorySessions(options?: { done?: (status: InfiniteScrollStatus) => void }) {
+  if (!isAccountActive()) return
+
   if (historyLoading.value || historyLoadingMore.value || !historyHasMore.value) {
     options?.done?.(historyHasMore.value ? 'ok' : 'empty')
     return
@@ -924,7 +958,9 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
     const nextPage = historyPage.value + 1
     const data = await api.get<unknown>(`message/agent/sessions?page=${nextPage}&count=${HISTORY_PAGE_SIZE}`, {
       feedback: 'silent',
+      signal: accountAbortController.signal,
     })
+    assertAccountActive()
     const sessions = Array.isArray(data)
       ? (data
           .map(item => normalizeServerSession(item as AgentServerSession))
@@ -948,11 +984,17 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
 
 // 加载 Web 智能助手可补全的斜杠命令列表。
 async function loadSlashCommands() {
+  if (!isAccountActive()) return
+
   if (slashCommandsLoaded.value || slashCommandsLoading.value) return
 
   slashCommandsLoading.value = true
   try {
-    const data = await api.get<unknown>('message/agent/commands', { feedback: 'silent' })
+    const data = await api.get<unknown>('message/agent/commands', {
+      feedback: 'silent',
+      signal: accountAbortController.signal,
+    })
+    assertAccountActive()
     slashCommands.value = Array.isArray(data)
       ? data
           .map(item => ({
@@ -966,6 +1008,7 @@ async function loadSlashCommands() {
       : []
     slashCommandsLoaded.value = true
   } catch (error: any) {
+    if (!isAccountActive()) return
     streamError.value = error?.message || t('agentAssistant.commandLoadFailed')
   } finally {
     slashCommandsLoading.value = false
@@ -999,9 +1042,12 @@ async function handleHistoryInfiniteLoad({
 
 // 加载服务端历史会话详情，并更新本地缓存。
 async function loadServerHistorySession(targetSessionId: string) {
+  assertAccountActive()
   const data = await api.get<unknown>(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
     feedback: 'silent',
+    signal: accountAbortController.signal,
   })
+  assertAccountActive()
   const session = normalizeServerSession(data as AgentServerSession, true)
   if (!session) throw new Error(t('agentAssistant.historyLoadFailed'))
 
@@ -1108,6 +1154,7 @@ function mergeServerMessagesWithLocalSteering(serverMessages: AgentChatMessage[]
 // 从服务端拉取当前会话展示快照，用于移动端后台断开 SSE 后恢复最终结果。
 async function restoreCurrentSessionFromServer(targetSessionId: string, startedAt: number) {
   const session = await loadServerHistorySession(targetSessionId)
+  assertAccountActive()
   const activeRecovery = pendingStreamRecovery.value
   if (!activeRecovery || activeRecovery.sessionId !== targetSessionId) return { restored: false, pending: false }
   if (!matchesStreamRecoverySession(session, targetSessionId)) return { restored: false, pending: false }
@@ -1198,6 +1245,8 @@ function restorePendingStreamRecovery(value: unknown) {
 
 // 恢复当前会话状态，优先使用本地状态，缺失时使用最近历史。
 function restoreState() {
+  if (!isAccountActive()) return
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
@@ -1230,6 +1279,8 @@ function restoreState() {
 
 // 将历史会话列表写入 localStorage，空间不足时保留最近的一半会话重试。
 function persistHistorySessions() {
+  if (!isAccountActive()) return
+
   const sessions = dedupeHistorySessions(historySessions.value).slice(0, MAX_LOCAL_HISTORY_SESSIONS)
   historySessions.value = sessions
 
@@ -1314,6 +1365,8 @@ function upsertCurrentSessionHistory() {
 
 // 将当前会话展示消息保存到服务端历史。
 async function saveCurrentSessionToServer() {
+  assertAccountActive()
+
   if (!sessionId.value || messages.value.length === 0) return
 
   await api.put<unknown>(
@@ -1322,12 +1375,15 @@ async function saveCurrentSessionToServer() {
       title: buildSessionHistoryTitle(messages.value),
       messages: serializeMessagesForServer(messages.value),
     },
-    { feedback: 'silent' },
+    { feedback: 'silent', signal: accountAbortController.signal },
   )
+  assertAccountActive()
 }
 
 // 持久化当前会话状态，并按需同步到历史会话列表。
 function persistState(options: { syncHistory?: boolean } = {}) {
+  if (!isAccountActive()) return
+
   const { syncHistory = true } = options
 
   try {
@@ -2215,6 +2271,7 @@ async function readAgentStream(
 
   // 应用事件并记录服务端是否明确结束本轮流，区分正常完成与无异常的后台断流。
   const consumeBlock = (block: string) => {
+    assertAccountActive()
     const parsedBlock = splitSseBlock(block)
     if (!parsedBlock) return
 
@@ -2252,6 +2309,7 @@ async function readAgentStream(
   try {
     while (true) {
       const { value, done } = await reader.read()
+      assertAccountActive()
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
@@ -2268,7 +2326,7 @@ async function readAgentStream(
       consumeBlock(buffer)
     }
   } finally {
-    flushPendingStreamDelta()
+    if (isAccountActive()) flushPendingStreamDelta()
   }
 
   return { receivedTerminalEvent, assistantMessage: activeAssistantMessage }
@@ -2401,17 +2459,24 @@ function readFileAsDataUrl(file: File) {
 
 // 上传智能助手附件，返回后端可引用的附件描述。
 async function uploadAgentAttachment(file: File) {
+  assertAccountActive()
+
   const formData = new FormData()
   formData.append('file', file)
   formData.append('session_id', sessionId.value)
 
-  return await api.post<AgentMessageAttachment & AgentOutgoingFile>('message/agent/upload', formData, {
+  const uploaded = await api.post<AgentMessageAttachment & AgentOutgoingFile>('message/agent/upload', formData, {
     feedback: 'silent',
+    signal: accountAbortController.signal,
   })
+  assertAccountActive()
+  return uploaded
 }
 
 // 准备本轮发送给 Agent 的图片、文件、音频和展示附件。
 async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise<PreparedAgentAttachments> {
+  assertAccountActive()
+
   const images: string[] = []
   const files: AgentOutgoingFile[] = []
   const audioRefs: string[] = []
@@ -2419,7 +2484,9 @@ async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise
 
   for (const item of items) {
     const imageDataUrl = item.kind === 'image' ? await readFileAsDataUrl(item.file) : ''
+    assertAccountActive()
     const uploaded = await uploadAgentAttachment(item.file)
+    assertAccountActive()
     const displayAttachment: AgentMessageAttachment = {
       kind: item.kind,
       url: item.kind === 'image' ? imageDataUrl : uploaded.url,
@@ -2459,6 +2526,7 @@ async function streamAgentMessage(
   userAttachments: AgentMessageAttachment[] = [],
   options: AgentStreamMessageOptions | boolean = {},
 ) {
+  assertAccountActive()
   const content = text.trim()
   const streamOptions = typeof options === 'boolean' ? { echoUser: options } : options
   const {
@@ -2514,6 +2582,7 @@ async function streamAgentMessage(
       signal: requestAbortController.signal,
     })
 
+    assertAccountActive()
     const isSecretConfirmation = response.headers.get('X-MoviePilot-Agent-Control') === 'secret-confirmation'
     steeringResponse = response.headers.get('X-MoviePilot-Agent-Control') === 'steering'
     if (steeringResponse) {
@@ -2540,6 +2609,7 @@ async function streamAgentMessage(
     }
 
     const streamResult = await readAgentStream(response, assistantMessage, streamProtectedDeliveryGeneration)
+    assertAccountActive()
     assistantMessage = streamResult.assistantMessage
     if (!ownsRunner && steeringResponse) {
       return
@@ -2569,6 +2639,7 @@ async function streamAgentMessage(
       refreshMessageList()
     }
   } catch (error: any) {
+    if (!isAccountActive()) return
     if (error?.name === 'AbortError' && streamRecoveryAbortRequested) return
 
     if (error?.name === 'AbortError' && userAbortRequested) {
@@ -2619,32 +2690,36 @@ async function streamAgentMessage(
     markToolsDone(assistantMessage)
     refreshMessageList()
   } finally {
-    if (abortController === requestAbortController) abortController = null
-    steeringAbortControllers.delete(requestAbortController)
-    if (ownsRunner) {
-      activeStreamStartedAt = 0
-      runnerActive.value = false
-    }
-    if (ownsRunner) {
-      userAbortRequested = false
-      streamRecoveryAbortRequested = false
-    }
-    if (ownsRunner) clearStreamPersistTimer()
-    persistState()
-    if (shouldSaveClientSnapshot) {
-      try {
-        await saveCurrentSessionToServer()
-        await loadServerHistorySessions()
-      } catch {
-        // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
+    if (isAccountActive()) {
+      if (abortController === requestAbortController) abortController = null
+      steeringAbortControllers.delete(requestAbortController)
+      if (ownsRunner) {
+        activeStreamStartedAt = 0
+        runnerActive.value = false
       }
+      if (ownsRunner) {
+        userAbortRequested = false
+        streamRecoveryAbortRequested = false
+      }
+      if (ownsRunner) clearStreamPersistTimer()
+      persistState()
+      if (shouldSaveClientSnapshot) {
+        try {
+          await saveCurrentSessionToServer()
+          await loadServerHistorySessions()
+        } catch {
+          // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
+        }
+      }
+      if (shouldFollowBottomAfterStream) scrollToBottom()
     }
-    if (shouldFollowBottomAfterStream) scrollToBottom()
   }
 }
 
 // 发送输入框中的文本和附件。
 async function sendMessage() {
+  if (!isAccountActive()) return
+
   const rawText = inputText.value
   const text = rawText.trim()
   const attachments = [...pendingAttachments.value]
@@ -2660,10 +2735,12 @@ async function sendMessage() {
 
   try {
     const prepared = await prepareAgentAttachments(attachments)
+    assertAccountActive()
     await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments, {
       steering,
     })
   } catch (error: any) {
+    if (!isAccountActive()) return
     // 附件准备失败同样落到对话消息里，底部提示条只保留给没有消息承载的本地错误。
     if (steering) streamError.value = error?.message || t('agentAssistant.uploadFailed')
     else addMessage('assistant', error?.message || t('agentAssistant.uploadFailed'), 'error')
@@ -2711,6 +2788,8 @@ function finishRecordingState() {
 
 // 录音授权可能晚于关闭面板；只让仍有效的请求接管媒体流，避免后台残留录音。
 async function startVoiceRecording() {
+  if (!isAccountActive()) return
+
   if (!canRecord.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
     streamError.value = t('agentAssistant.recordUnsupported')
@@ -2825,6 +2904,7 @@ function toggleVoiceRecording() {
 
 // 处理选择按钮点击，保存可读选择描述并把真实值发给 Agent。
 async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceCard, button: AgentChoiceButton) {
+  if (!isAccountActive()) return
   if (isBusy.value || choice.status !== 'pending') return
 
   sending.value = true
@@ -2839,8 +2919,9 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
         original_message_id: message.id,
         original_chat_id: sessionId.value,
       },
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: accountAbortController.signal },
     )
+    assertAccountActive()
 
     const agentMessage = String(data.message || '')
     if (data.traditional) {
@@ -2879,6 +2960,7 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
       choiceSelection,
     })
   } catch (error: any) {
+    if (!isAccountActive()) return
     choice.status = 'expired'
     streamError.value = error?.message || t('agentAssistant.choiceExpired')
     refreshMessageList()
@@ -2890,6 +2972,8 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
 
 // 中止当前流式回复。
 function stopGeneration(options: { stopRemote?: boolean } = {}) {
+  if (!isAccountActive()) return
+
   const { stopRemote = true } = options
   userAbortRequested = true
   runnerActive.value = false
@@ -2914,6 +2998,7 @@ function stopGeneration(options: { stopRemote?: boolean } = {}) {
     api
       .post<unknown>(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/stop`, undefined, {
         feedback: 'silent',
+        signal: accountAbortController.signal,
       })
       .catch(() => {
         // 本地中止优先，停止接口失败不阻塞用户操作。
@@ -2925,6 +3010,8 @@ function stopGeneration(options: { stopRemote?: boolean } = {}) {
 
 // 开始新的空白会话。
 function startNewSession() {
+  if (!isAccountActive()) return
+
   petPickerOpen.value = false
   invalidateProtectedDeliveries()
   stopGeneration({ stopRemote: false })
@@ -2944,6 +3031,8 @@ function startNewSession() {
 
 // 从历史列表恢复指定会话，同时把它设为当前本地会话。
 async function loadHistorySession(targetSessionId: string) {
+  if (!isAccountActive()) return
+
   if (isBusy.value) return
   petPickerOpen.value = false
 
@@ -2955,6 +3044,7 @@ async function loadHistorySession(targetSessionId: string) {
     stopGeneration({ stopRemote: false })
     if (!historySession.messages.length) {
       historySession = await loadServerHistorySession(targetSessionId)
+      assertAccountActive()
     }
     sessionId.value = historySession.sessionId
     messages.value = normalizeStoredMessages(historySession.messages)
@@ -2965,23 +3055,30 @@ async function loadHistorySession(targetSessionId: string) {
     persistState({ syncHistory: false })
     scrollToBottom()
   } catch (error: any) {
+    if (!isAccountActive()) return
     streamError.value = error?.message || t('agentAssistant.historyLoadFailed')
   }
 }
 
 // 删除指定历史会话；若删除的是当前会话，则切换到新的空会话。
 async function deleteHistorySession(targetSessionId: string) {
+  if (!isAccountActive()) return
+
   if (isBusy.value && targetSessionId === sessionId.value) return
 
   try {
     await api.delete<null>(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
       feedback: 'silent',
+      signal: accountAbortController.signal,
     })
+    assertAccountActive()
   } catch {
     // 删除接口失败时仍允许清理本地兜底历史，避免坏记录一直挡在列表里。
   } finally {
-    historySessions.value = historySessions.value.filter(item => item.sessionId !== targetSessionId)
-    persistHistorySessions()
+    if (isAccountActive()) {
+      historySessions.value = historySessions.value.filter(item => item.sessionId !== targetSessionId)
+      persistHistorySessions()
+    }
   }
 
   if (targetSessionId === sessionId.value) startNewSession()
@@ -3084,6 +3181,8 @@ function handlePageShow() {
  * 输入框已有内容时不覆盖用户正在写的文字，草稿以空行分隔追加在后面。
  */
 function setDraft(draft: string) {
+  if (!isAccountActive()) return
+
   petPickerOpen.value = false
   const current = inputText.value.trimEnd()
   // 同一插件重复调用时输入框末尾已经是这段草稿，不再叠加。
@@ -3110,6 +3209,47 @@ function handleCompositionEnd() {
   isComposing.value = false
 }
 
+/** 撤销旧身份的所有本地工作；不向服务器发送使用新令牌的旧会话请求。 */
+function disposeAccountSession() {
+  if (accountDisposed) return
+  accountDisposed = true
+  accountAbortController.abort()
+  abortController?.abort()
+  abortController = null
+  steeringAbortControllers.forEach(controller => controller.abort())
+  steeringAbortControllers.clear()
+  clearStreamRecoveryTimer()
+  clearStreamPersistTimer()
+  clearPendingStreamDelta()
+  cancelVoiceRecording()
+  clearPendingAttachments()
+  invalidateProtectedDeliveries()
+  messages.value = []
+  historySessions.value = []
+  pendingSteeringDrafts.clear()
+  pendingSteeringMessages.clear()
+  acknowledgedSteeringMessages.clear()
+  steeringContinuationMessages.clear()
+  assistantContinuationMessages.clear()
+  inputText.value = ''
+  sessionId.value = ''
+  pendingStreamRecovery.value = null
+  streamError.value = ''
+  runnerActive.value = false
+  sending.value = false
+  historyMenuOpen.value = false
+  petPickerOpen.value = false
+}
+
+watch(
+  () => [authStore.token, userStore.getUserID],
+  () => {
+    if (!isAccountActive()) disposeAccountSession()
+  },
+  { flush: 'sync' },
+)
+onScopeDispose(disposeAccountSession)
+
 watch(isOpen, syncAgentAssistantOpenState, { immediate: true })
 watch(drawerWidth, () => {
   if (isOpen.value) syncAgentAssistantOpenState(true)
@@ -3132,9 +3272,18 @@ onMounted(() => {
   thinkingTimer = window.setInterval(() => {
     if (activeThinkingMessage.value) thinkingClock.value = Date.now()
   }, 1000)
-  restoreHistorySessions()
-  restoreState()
-  loadServerHistorySessions()
+  // 旧版本没有身份信息，不能推断属于当前登录人，直接移除而不迁移正文。
+  try {
+    localStorage.removeItem('moviepilot-agent-assistant-state')
+    localStorage.removeItem('moviepilot-agent-assistant-history')
+  } catch {
+    // 浏览器禁用存储时仍可使用仅内存会话。
+  }
+  if (isAccountActive()) {
+    restoreHistorySessions()
+    restoreState()
+    loadServerHistorySessions()
+  }
   if (pendingStreamRecovery.value && document.visibilityState === 'visible') scheduleStreamRecovery(0)
   syncInputHeight()
   window.addEventListener('keydown', handleGlobalKeydown)

@@ -1,6 +1,6 @@
 import type { WorkboxPlugin } from 'workbox-core'
 
-/** App 的短时内存榜单不能从 SW 旧落盘数据回退；普通 Web/PWA 沿用原缓存策略。 */
+/** 识别原生榜单的专用 no-store 标记；业务 API 现统一走 NetworkOnly，不以此标记授予缓存权限。 */
 export function bypassNativeApiCache(request: Pick<Request, 'headers'>): boolean {
   return (
     request.headers.get('X-MoviePilot-Native') === '1' &&
@@ -36,7 +36,7 @@ export const corsSafeCachePlugin: WorkboxPlugin = {
 }
 
 /**
- * 判定响应是否允许写入 API 运行时缓存。
+ * 保留旧缓存插件的 JSON 格式校验合同；当前 Worker 不再为业务 API 启用运行时缓存。
  *
  * API 缓存的消费方要求 JSON envelope；SPA 回退页等 HTML 或损坏体一旦被写入，
  * NetworkFirst 超时回退时会以 200 返回坏体，前端 envelope 校验失败后逐条弹

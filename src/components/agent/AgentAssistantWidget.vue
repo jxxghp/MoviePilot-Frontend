@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAuthStore, useUserStore } from '@/stores'
 import AgentAssistantEntry from './AgentAssistantEntry.vue'
 import AgentAssistantPanel from './AgentAssistantPanel.vue'
 import { useAgentHostEnvironment } from './useAgentHostEnvironment'
@@ -26,6 +27,17 @@ const AgentPetRemote = defineAsyncComponent(() => import('./pet/AgentPetRemote.v
 type AgentAssistantEntryRef = InstanceType<typeof AgentAssistantEntry>
 type AgentAssistantPanelRef = InstanceType<typeof AgentAssistantPanel>
 
+const authStore = useAuthStore()
+const userStore = useUserStore()
+/** 账号切换时销毁整个面板，旧实例的输入和会话不能进入新身份。 */
+const accountKey = ref(0)
+watch(
+  () => [authStore.token, userStore.getUserID],
+  () => {
+    accountKey.value++
+  },
+  { flush: 'sync' },
+)
 const panelOpen = ref(false)
 const thinking = ref(false)
 const entryRef = ref<AgentAssistantEntryRef | null>(null)
@@ -305,6 +317,7 @@ onScopeDispose(() => {
         @open="openPanel"
       />
       <AgentAssistantPanel
+        :key="accountKey"
         ref="panelRef"
         v-model="panelOpen"
         :pet="effectivePet"

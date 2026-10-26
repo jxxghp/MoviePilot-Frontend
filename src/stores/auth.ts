@@ -1,3 +1,4 @@
+import { clearSharedDialogs } from '@/composables/useSharedDialog'
 import { clearAgentPetCache } from '@/utils/agentPetCache'
 import { defineStore } from 'pinia'
 import type { authState } from '@/stores/types'
@@ -20,10 +21,12 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     /** 登录或刷新时替换当前认证令牌，持久化由原 store 插件统一管理。 */
     setToken(token: string | null) {
+      if (this.token !== token) clearSharedDialogs()
       this.token = token
     },
     /** 清除本地认证，调用方负责先撤销需要旧身份的系统绑定。 */
     clearToken() {
+      clearSharedDialogs()
       this.token = null
     },
     /** 保存用户明确选择的登录记忆偏好。 */

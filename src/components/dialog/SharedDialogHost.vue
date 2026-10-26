@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { SharedDialogEntry } from '@/composables/useSharedDialog'
-import { closeSharedDialog, useSharedDialog } from '@/composables/useSharedDialog'
+import { closeSharedDialog, isSharedDialogActive, useSharedDialog } from '@/composables/useSharedDialog'
 
 const { dialogs } = useSharedDialog()
 type ReadonlySharedDialogEntry = Readonly<SharedDialogEntry> & {
@@ -21,6 +21,8 @@ function handleModelUpdate(entry: ReadonlySharedDialogEntry, value: boolean) {
 
 // 转发业务事件给调用方，并按配置自动关闭当前弹窗。
 function handleDialogEvent(entry: ReadonlySharedDialogEntry, eventName: string, args: any[]) {
+  if (!isSharedDialogActive(entry.id)) return
+
   entry.events[eventName]?.(...args)
 
   if (entry.closeOn.includes(eventName) && (eventName !== 'update:modelValue' || args[0] === false)) {
@@ -33,6 +35,8 @@ function createDialogListeners(entry: ReadonlySharedDialogEntry) {
   const listeners: Record<string, (...args: any[]) => void> = {}
 
   listeners['update:modelValue'] = value => {
+    if (!isSharedDialogActive(entry.id)) return
+
     handleModelUpdate(entry, Boolean(value))
     entry.events['update:modelValue']?.(value)
   }

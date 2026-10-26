@@ -1,15 +1,10 @@
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute, setCatchHandler } from 'workbox-routing'
-import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
+import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import * as navigationPreload from 'workbox-navigation-preload'
-import {
-  bypassNativeApiCache,
-  corsSafeCachePlugin,
-  jsonOnlyCachePlugin,
-  shouldCacheStaticResource,
-} from '@/utils/serviceWorkerCache'
+import { corsSafeCachePlugin, shouldCacheStaticResource } from '@/utils/serviceWorkerCache'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
@@ -69,6 +64,10 @@ const options = {
 const UNREAD_COUNT_KEY = 'mp_unread_count'
 
 // --- 缓存策略配置 ---
+
+// 业务 API 可能携带会话身份或资源 Cookie，不按 URL 共享离线数据。
+// 放在图片、脚本等资源路由之前，防止私有 API 文件被其他缓存策略截获。
+registerRoute(({ url }) => url.pathname.includes('/api/v1/'), new NetworkOnly({ fetchOptions: { cache: 'no-store' } }))
 
 // 导航请求与 App Shell - 优先网络
 registerRoute(
@@ -150,43 +149,6 @@ registerRoute(
   }),
 )
 
-// API GET 请求 - 优先网络
-registerRoute(
-  ({ url, request }) =>
-    url.pathname.includes('/api/v1/') &&
-    request.method === 'GET' &&
-    !bypassNativeApiCache(request) &&
-    !url.pathname.includes('/api/v1/search/') && // 搜索接口结果动态变化，避免缓存导致重复搜索失效
-    !url.pathname.includes('/api/v1/site/cookie/') && // 站点 Cookie 更新是副作用请求，不能缓存
-    !url.pathname.includes('/api/v1/system/message') && // SSE实时消息流
-    !url.pathname.includes('/api/v1/system/progress/') && // SSE实时进度流
-    !url.pathname.includes('/api/v1/system/logging') && // SSE实时日志流
-    !url.pathname.includes('/api/v1/system/ping') && // 连接探测心跳，缓存回退会掩盖真实离线
-    !url.pathname.includes('/api/v1/message/') && // 用户消息接口
-    !url.pathname.includes('/api/v1/system/global') && // 系统配置接口
-    !url.pathname.includes('/api/v1/mfa/') && // 多因素认证接口
-    !url.pathname.includes('/api/v1/auth/') && // 登录认证入口与票据交换
-    !url.pathname.includes('/api/v1/dashboard/') && // Dashboard实时监控数据
-    !url.pathname.includes('/api/v1/plugin/') && // 插件接口
-    !url.pathname.includes('/api/v1/subscribe/'), // 订阅接口
-  new NetworkFirst({
-    cacheName: `api-cache-${CACHE_VERSION}`,
-    networkTimeoutSeconds: 5,
-    plugins: [
-      // 只缓存 JSON 响应，并排除 opaque（状态 0）：坏体或 HTML 落入 API 缓存后，
-      // NetworkFirst 超时回退会返回不可解析的 200，导致前端反复弹“无效响应”。
-      jsonOnlyCachePlugin,
-      new CacheableResponsePlugin({
-        statuses: [200],
-      }),
-      new ExpirationPlugin({
-        maxEntries: 500,
-        maxAgeSeconds: 24 * 60 * 60, // 24小时
-      }),
-    ],
-  }),
-)
-
 // 设置默认离线页面
 setCatchHandler(async ({ request }) => {
   if (request?.destination === 'document') {
@@ -216,7 +178,6 @@ async function cleanupRuntimeCaches(onlyOld: boolean = false) {
     `image-cache-${RESOURCE_VERSION}`,
     `font-cache-${RESOURCE_VERSION}`,
     `tmdb-image-cache-${RESOURCE_VERSION}`,
-    `api-cache-${CACHE_VERSION}`,
   ]
 
   await Promise.all(
