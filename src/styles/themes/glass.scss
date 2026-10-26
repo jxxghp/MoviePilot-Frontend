@@ -16,6 +16,18 @@ html[data-theme='plain'] {
   .v-overlay__content :is(.v-card, .v-list):not(.bg-primary) {
     background-color: rgb(var(--v-theme-surface));
   }
+
+  body .layout-wrapper.layout-nav-type-vertical.layout-navbar-fixed .layout-navbar,
+  body .footer-nav-card {
+    -webkit-backdrop-filter: blur(12px) !important;
+    backdrop-filter: blur(12px) !important;
+    background: rgba(var(--v-theme-surface), 0.82) !important;
+  }
+
+  body .layout-wrapper.layout-nav-type-vertical.layout-navbar-fixed .navbar-content-container {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
 }
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
