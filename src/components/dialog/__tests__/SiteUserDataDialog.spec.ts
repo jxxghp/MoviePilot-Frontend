@@ -10,6 +10,8 @@ import { getActiveRequestsCount } from '@/utils/requestOptimizer'
 import { flushPromises } from '@vue/test-utils'
 import { defineComponent, h, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { http } from 'msw'
+import { apiJson } from '@tests/support/msw/response'
 
 type ChartInput = {
   options: Record<string, unknown>
@@ -107,6 +109,32 @@ describe('SiteUserDataDialog projections', () => {
     vuetify.theme.global.name.value = 'light'
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('requests a bounded history and samples large seeding charts while retaining both endpoints', async () => {
+    const points = Array.from({ length: 1000 }, (_, index) => [index, index * 1024 ** 3])
+    const { site } = await renderDialog({ data: [createSiteUserData({ seeding_info: points })], success: true })
+    await waitFor(() => expect(getChart('scatter').series[0].data).toHaveLength(200))
+    expect(getChart('scatter').series[0].data?.at(0)).toEqual([0, 0])
+    expect(getChart('scatter').series[0].data?.at(-1)).toEqual([999, 999])
+    expect(screen.getByText('显示最近 90 条采集记录')).toBeInTheDocument()
+    expect(screen.getByText('已等距采样为 200 个点')).toBeInTheDocument()
+
+    const requests: URL[] = []
+    server.use(refreshSiteUserDataHandler(site.id, { success: true, data: {} }))
+    server.use(
+      http.get('http://localhost/api/v1/site/userdata/:id', ({ request }) => {
+        requests.push(new URL(request.url))
+        return apiJson([createSiteUserData()])
+      }),
+    )
+    await fireEvent.click(getRefreshButton())
+    await waitFor(() => expect(requests).toHaveLength(1))
+    expect(Object.fromEntries(requests[0].searchParams)).toMatchObject({
+      page: '1',
+      count: '90',
+      latest_seeding_only: 'true',
+    })
   })
 
   it('sorts history, renders the latest record, and projects positive, negative, and zero deltas', async () => {
@@ -374,7 +402,7 @@ describe('SiteUserDataDialog refresh and recovery', () => {
     await screen.findByText('1')
 
     await fireEvent.click(getRefreshButton())
-    expect(screen.getByTestId('refresh-progress')).toHaveTextContent('正在刷新站点数据...')
+    expect(document.querySelector('.v-progress-linear[aria-label="加载中"]')).toBeInTheDocument()
     server.use(
       siteUserDataHandler(site.id, { data: [refreshed], success: true }, 200, () => {
         loadCount += 1
@@ -383,7 +411,9 @@ describe('SiteUserDataDialog refresh and recovery', () => {
     refreshRequest.resolve()
 
     await screen.findByText('222')
-    await waitFor(() => expect(screen.queryByTestId('refresh-progress')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(document.querySelector('.v-progress-linear[aria-label="加载中"]')).not.toBeInTheDocument(),
+    )
     expect(loadCount).toBe(2)
   })
 
@@ -468,7 +498,9 @@ describe('SiteUserDataDialog refresh and recovery', () => {
     await fireEvent.click(getRefreshButton())
 
     await waitFor(() => expect(refreshRequested).toHaveBeenCalledOnce())
-    await waitFor(() => expect(screen.queryByTestId('refresh-progress')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(document.querySelector('.v-progress-linear[aria-label="加载中"]')).not.toBeInTheDocument(),
+    )
     expect(await screen.findByText(/刷新站点数据失败/)).toBeInTheDocument()
     expect(getRetryButton()).toBeInTheDocument()
 

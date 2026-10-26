@@ -110,6 +110,10 @@ const progressValue = ref(0)
 
 // 内容列表
 const items = ref<FileItem[]>([])
+const DIRECTORY_PAGE_SIZE = 200
+const directoryPage = ref(1)
+const hasMoreFiles = ref(false)
+const loadingMoreFiles = ref(false)
 
 // 过滤条件
 const filter = ref('')
@@ -318,9 +322,11 @@ function exitSelectMode() {
 }
 
 /** 调API加载文件夹内的内容。 */
-async function list_files(context: KeepAliveRefreshContext = {}) {
+async function list_files(context: KeepAliveRefreshContext = {}, append = false) {
   const requestSeed = ++listRequestSeed
   const silentRefresh = Boolean(context.silent && items.value.length > 0)
+  const page = append ? directoryPage.value + 1 : 1
+  if (append) loadingMoreFiles.value = true
 
   if (!silentRefresh) {
     listLoadingRequestSeed = requestSeed
@@ -336,16 +342,19 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
       url,
       method: inProps.endpoints?.list.method || 'get',
       data: inProps.item,
+      params: { page, count: DIRECTORY_PAGE_SIZE },
     }
 
     // 加载数据
     const data = (await inProps.axios.request<FileItem[], FileItem[]>(config)) ?? []
     if (requestSeed !== listRequestSeed) return
 
-    items.value = data
-    syncSelectedItems(data)
+    items.value = append ? dedupeFileItems([...items.value, ...data]) : data
+    directoryPage.value = page
+    hasMoreFiles.value = !isFile.value && data.length === DIRECTORY_PAGE_SIZE
+    syncSelectedItems(items.value)
     if (inspectedItem.value) {
-      const updated = data.find(item => getFileItemKey(item) === getFileItemKey(inspectedItem.value))
+      const updated = items.value.find(item => getFileItemKey(item) === getFileItemKey(inspectedItem.value))
       inspectedItem.value = updated ? { ...inspectedItem.value, ...updated } : undefined
     }
 
@@ -358,7 +367,13 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
       emit('loading', false)
       if (requestSeed === listLoadingRequestSeed) loading.value = false
     }
+    if (requestSeed === listRequestSeed) loadingMoreFiles.value = false
   }
+}
+
+/** 用户主动续载当前目录，保持现有虚拟滚动与选择状态。 */
+function loadMoreFiles() {
+  if (!loadingMoreFiles.value && !loading.value) void list_files({ silent: true }, true)
 }
 
 /** 请求删除文件项，由单项或批量操作分别决定反馈和刷新策略。 */
@@ -1237,6 +1252,12 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
         <div v-else class="file-list__empty">
           <VIcon icon="mdi-folder-open-outline" size="40" />
           <p>{{ t(filter ? 'file.noFiles' : 'file.emptyDirectory') }}</p>
+        </div>
+        <div v-if="hasMoreFiles" class="d-flex align-center justify-space-between pa-2 gap-2">
+          <span class="text-caption"
+            >{{ t('common.loadedCount', { count: items.length }) }} · {{ t('file.partialListing') }}</span
+          >
+          <VBtn variant="text" :loading="loadingMoreFiles" @click="loadMoreFiles">{{ t('common.loadMore') }}</VBtn>
         </div>
       </div>
       <FileDetails

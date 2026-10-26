@@ -221,6 +221,25 @@ describe('FileList list state', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
+  it('loads the next directory batch on demand without replacing the first batch', async () => {
+    const batch = Array.from({ length: 200 }, (_, index) =>
+      createItem({ name: `part-${index}`, path: `/media/${index}` }),
+    )
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(batch)
+      .mockResolvedValueOnce([createItem({ name: 'last-part', path: '/media/last' })])
+    const { axios } = await renderList(request)
+    await screen.findByText('part-0')
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(getRequestConfig(axios, 0).params).toEqual({ page: 1, count: 200 })
+    await fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
+    expect(await screen.findByText('last-part')).toBeInTheDocument()
+    expect(screen.getByText('part-0')).toBeInTheDocument()
+    expect(getRequestConfig(axios, 1).params).toEqual({ page: 2, count: 200 })
+    expect(screen.queryByRole('button', { name: '加载更多' })).not.toBeInTheDocument()
+  })
+
   it('projects file operations with original callbacks and keeps the mobile details entry separate', async () => {
     mocks.narrowScreen = true
     const file = createItem({ name: 'native-card.mkv', path: '/media/native-card.mkv' })

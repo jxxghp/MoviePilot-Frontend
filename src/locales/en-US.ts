@@ -268,6 +268,7 @@ export default {
     },
   },
   common: {
+    loadedCount: 'Loaded {count} items',
     confirm: 'Confirm',
     cancel: 'Cancel',
     back: 'Back',
@@ -5153,6 +5154,8 @@ export default {
       joinTime: 'Join Time',
       trafficHistory: 'Traffic History',
       seedingDistribution: 'Seeding Distribution',
+      historyWindow: 'Showing the latest {count} collected records',
+      sampledPoints: 'Sampled evenly to {count} points',
       volumeTitle: 'Volume',
       countTitle: 'Count:',
       noData: 'None',
@@ -5199,6 +5202,7 @@ export default {
     },
   },
   file: {
+    partialListing: 'Filtering and sorting apply to loaded items',
     details: 'File Details',
     folderDetails: 'Folder Details',
     fileActions: 'File Actions',

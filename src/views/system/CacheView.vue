@@ -48,6 +48,10 @@ type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
 type CacheManagerType = 'torrent' | 'recognition'
 
 const MOBILE_CACHE_PAGE_SIZE = 20
+const CACHE_BATCH_SIZE = 100
+const cachePage = ref(1)
+const hasMoreCache = ref(false)
+let cacheLoadGeneration = 0
 
 const activeCacheType = ref<CacheManagerType>('torrent')
 
@@ -90,7 +94,7 @@ const siteOptions = computed(() => {
       sites.add(item.site_name)
     }
   })
-  return Array.from(sites).sort()
+  return cacheData.value.site_names ?? Array.from(sites).sort()
 })
 
 // 筛选后的数据
@@ -135,19 +139,54 @@ function resetMobilePagination() {
 }
 
 /** 调用 API 加载缓存数据。 */
-async function loadCacheData() {
+async function loadCacheData(append = false) {
+  const generation = ++cacheLoadGeneration
+  const page = append ? cachePage.value + 1 : 1
   try {
     loading.value = true
-    const data = await api.get<TorrentCacheData | null>('torrent/cache', { feedback: 'silent' })
-    if (data) cacheData.value = data
-    resetMobilePagination()
+    const data = await api.get<TorrentCacheData | null>('torrent/cache', {
+      feedback: 'silent',
+      params: {
+        page,
+        count: CACHE_BATCH_SIZE,
+        title: titleFilter.value || undefined,
+        site: siteFilter.value || undefined,
+        brief: true,
+      },
+    })
+    if (generation !== cacheLoadGeneration) return
+    if (data) {
+      const previous = append ? cacheData.value.data : []
+      const unique = new Map([...previous, ...data.data].map(item => [getCacheItemIdentity(item), item]))
+      cacheData.value = { ...data, data: Array.from(unique.values()) }
+      cachePage.value = page
+      hasMoreCache.value =
+        data.total !== undefined
+          ? cacheData.value.data.length < data.total && data.data.length > 0
+          : data.data.length === CACHE_BATCH_SIZE
+    }
+    if (!append) resetMobilePagination()
   } catch (e) {
+    if (generation !== cacheLoadGeneration) return
     console.log(e)
     $toast.error(t('setting.cache.loadFailed'))
   } finally {
-    loading.value = false
+    if (generation === cacheLoadGeneration) loading.value = false
   }
 }
+
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+watch([titleFilter, siteFilter], () => {
+  cacheLoadGeneration++
+  clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => {
+    void loadCacheData()
+  }, 300)
+})
+onBeforeUnmount(() => {
+  cacheLoadGeneration++
+  clearTimeout(filterTimer)
+})
 
 /** 追加移动端下一页数据，并通过虚拟滚动限制实际渲染节点数量。 */
 function loadMoreMobileCache({ done }: { done: (status: InfiniteScrollStatus) => void }) {
@@ -408,6 +447,12 @@ watch([titleFilter, siteFilter], () => {
       <RecognitionCachePanel v-if="activeCacheType === 'recognition'" />
 
       <template v-else>
+        <div v-if="hasMoreCache" class="d-flex align-center justify-space-between pa-2 gap-2">
+          <span class="text-caption">{{ t('common.loadedCount', { count: cacheData.data.length }) }}</span>
+          <VBtn variant="text" :loading="loading" :disabled="loading" @click="loadCacheData(true)">{{
+            t('common.loadMore')
+          }}</VBtn>
+        </div>
         <section v-if="isMobile" class="cache-mobile-page">
           <div class="cache-mobile-stats">
             <div class="cache-mobile-stat cache-mobile-stat--primary">

@@ -3,7 +3,6 @@ import type { Site, SiteUserData } from '@/api/types'
 import api from '@/api'
 import { useDisplay, useTheme } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { hexToRgb } from '@layouts/utils'
 
@@ -22,7 +21,9 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 // 进度框
-const progressDialog = ref(false)
+const loading = ref(false)
+const HISTORY_LIMIT = 90
+const SEEDING_POINT_LIMIT = 200
 
 // 失败状态保留对应操作，重试时不改变已展示的站点数据。
 const failedOperation = ref<'load' | 'refresh'>()
@@ -51,7 +52,7 @@ function formatChartDate(value: string) {
 }
 
 // 站点数据列表
-const siteDatas = ref<SiteUserData[]>([])
+const siteDatas = shallowRef<SiteUserData[]>([])
 
 // 只有最近一次加载或刷新操作可以更新弹窗状态，避免异步响应覆盖较新的操作结果。
 let operationGeneration = 0
@@ -85,7 +86,7 @@ const historyChartOptions = computed(() => {
       parentHeightOffset: 0,
       toolbar: { show: false },
       animations: {
-        enabled: true,
+        enabled: false,
         easing: 'easeinout',
         speed: 450,
         animateGradually: { enabled: true, delay: 100 },
@@ -185,11 +186,18 @@ const historyChartOptions = computed(() => {
 // 做种分布列，seeding_info的格式为[[x, y], [x, y], ...]，x为做种数，y为做种体积，做种体积需要转换为GB
 const seedingSeries = computed(() => {
   const seedingInfo = siteData.value?.seeding_info as [number?, number?][] | undefined
+  // 等距采样保留首尾点，避免大做种列表为每个点创建 SVG 与动画。
+  const source = seedingInfo ?? []
+  const count = Math.min(source.length, SEEDING_POINT_LIMIT)
+  const points = Array.from(
+    { length: count },
+    (_, index) => source[Math.round((index * (source.length - 1)) / Math.max(count - 1, 1))],
+  )
 
   return [
     {
       name: t('dialog.siteUserData.volumeTitle'),
-      data: seedingInfo?.map(item => [item[0] ?? 0, Math.round((item[1] ?? 0) / 1024 / 1024 / 1024)]) ?? [],
+      data: points.map(item => [item[0] ?? 0, Math.round((item[1] ?? 0) / 1024 / 1024 / 1024)]),
     },
   ]
 })
@@ -206,7 +214,7 @@ const seedingChartOptions = computed(() => {
       parentHeightOffset: 0,
       toolbar: { show: false },
       animations: {
-        enabled: true,
+        enabled: false,
         easing: 'easeinout',
         speed: 420,
         dynamicAnimation: { speed: 320 },
@@ -342,16 +350,22 @@ function getDiffClass(diff: number | undefined) {
 /** 加载当前站点历史，仅允许最近一次操作更新弹窗。 */
 async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', generation?: number) {
   const activeGeneration = generation ?? ++operationGeneration
+  loading.value = true
 
   try {
-    const result = await api.get<SiteUserData[]>(`site/userdata/${props.site?.id}`, { feedback: 'silent' })
+    const result = await api.get<SiteUserData[]>(`site/userdata/${props.site?.id}`, {
+      feedback: 'silent',
+      params: { page: 1, count: HISTORY_LIMIT, latest_seeding_only: true },
+    })
     if (activeGeneration !== operationGeneration) return false
 
     // 使用nextTick确保DOM更新完成后再更新图表数据
     await nextTick()
     if (activeGeneration !== operationGeneration) return false
 
-    siteDatas.value = result.sort((a, b) => (a.updated_day || '').localeCompare(b.updated_day || ''))
+    siteDatas.value = result
+      .sort((a, b) => (a.updated_day || '').localeCompare(b.updated_day || ''))
+      .slice(-HISTORY_LIMIT)
 
     failedOperation.value = undefined
     return true
@@ -360,6 +374,8 @@ async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', 
 
     console.error(error)
     failedOperation.value = failureOperation
+  } finally {
+    if (activeGeneration === operationGeneration) loading.value = false
   }
 
   return false
@@ -368,7 +384,7 @@ async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', 
 /** 刷新站点后重新加载历史，并在失败时保留旧数据。 */
 async function refreshSiteData() {
   const generation = ++operationGeneration
-  progressDialog.value = true
+  loading.value = true
   try {
     await api.post<null>(`site/userdata/${props.site?.id}`, undefined, { feedback: 'silent' })
     if (generation !== operationGeneration) return
@@ -381,7 +397,7 @@ async function refreshSiteData() {
     failedOperation.value = 'refresh'
   } finally {
     if (generation === operationGeneration) {
-      progressDialog.value = false
+      loading.value = false
     }
   }
 }
@@ -395,6 +411,10 @@ function retryFailedOperation() {
   }
 }
 
+onBeforeUnmount(() => {
+  operationGeneration++
+})
+
 onBeforeMount(() => {
   // 延迟加载，确保组件完全挂载
   nextTick(() => {
@@ -404,7 +424,7 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <VDialog scrollable eager max-width="80rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable eager max-width="80rem" :fullscreen="!display.mdAndUp.value" :scrim="false" :retain-focus="false">
     <VCard>
       <VCardItem>
         <VCardTitle>
@@ -414,7 +434,11 @@ onBeforeMount(() => {
         <VDialogCloseBtn @click="emit('close')" />
       </VCardItem>
       <VDivider />
+      <VProgressLinear v-if="loading" indeterminate color="primary" :aria-label="t('common.loading')" />
       <VCardText class="pt-5">
+        <p class="text-caption text-medium-emphasis" role="status">
+          {{ t('dialog.siteUserData.historyWindow', { count: HISTORY_LIMIT }) }}
+        </p>
         <VAlert v-if="failedOperation" type="error" variant="tonal" class="mb-5">
           <div class="d-flex flex-wrap align-center justify-space-between gap-3">
             <span>
@@ -689,6 +713,9 @@ onBeforeMount(() => {
                 </div>
                 <div class="site-data-chart-legend">
                   <span><i class="site-data-legend-dot site-data-legend-dot--seed" />{{ seedingSeries[0].name }}</span>
+                  <span v-if="(siteData?.seeding_info?.length ?? 0) > SEEDING_POINT_LIMIT">
+                    {{ t('dialog.siteUserData.sampledPoints', { count: SEEDING_POINT_LIMIT }) }}
+                  </span>
                 </div>
               </VCardText>
             </VCard>
@@ -696,8 +723,6 @@ onBeforeMount(() => {
         </VRow>
       </VCardText>
     </VCard>
-    <!-- 进度框 -->
-    <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('dialog.siteUserData.refreshing')" />
   </VDialog>
 </template>
 

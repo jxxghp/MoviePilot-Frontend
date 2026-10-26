@@ -5,15 +5,20 @@ import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import FullCalendar from '@fullcalendar/vue3'
 import type { Ref } from 'vue'
-import type { MediaInfo, Subscribe, SubscrbieInfo, TmdbEpisode } from '@/api/types'
+import type {
+  CalendarSubscription,
+  MediaInfo,
+  Subscribe,
+  SubscribeCalendarEvent,
+  SubscribeCalendarPage,
+  SubscrbieInfo,
+  TmdbEpisode,
+} from '@/api/types'
 import api from '@/api'
 import { formatDateDifference, formatEp, formatSeasonEpisode, parseDate } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { getCurrentLocale } from '@/plugins/i18n'
-import { openSharedDialog } from '@/composables/useSharedDialog'
-
-const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
 const COLLAPSED_DAY_CARD_LIMIT = 5
 const COLLAPSED_VISIBLE_CARD_LIMIT = COLLAPSED_DAY_CARD_LIMIT
@@ -38,7 +43,13 @@ const isLoaded = ref(false)
 const i18nLocale = getCurrentLocale()
 const currentLocale = i18nLocale.split('-')[0]
 
-let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+const loadedSubscriptionCount = ref(0)
+const visibleRange = shallowRef<{ start: Date; end: Date }>()
+const mobileVisibleDayCount = ref(30)
+const mobileWindowEnd = shallowRef<Date>()
+let calendarMounted = false
+let legacyCalendarApi = false
+let calendarRequestController: AbortController | undefined
 
 type CalendarLibraryState = 'none' | 'partial' | 'complete'
 
@@ -87,23 +98,6 @@ interface MobileCalendarDayGroup {
   events: CalendarEventInfo[]
 }
 
-// 打开订阅日历共享进度弹窗。
-function openProgressDialog() {
-  progressDialogController?.close()
-  progressDialogController = openSharedDialog(
-    ProgressDialog,
-    { text: `${t('common.loading')} ...` },
-    {},
-    { closeOn: false },
-  )
-}
-
-// 关闭订阅日历共享进度弹窗。
-function closeProgressDialog() {
-  progressDialogController?.close()
-  progressDialogController = null
-}
-
 // 日历属性
 const calendarOptions: Ref<CalendarOptions> = ref({
   height: 'auto',
@@ -133,6 +127,13 @@ const calendarOptions: Ref<CalendarOptions> = ref({
     },
   },
   events: [],
+  datesSet: ({ start, end }) => {
+    const changed =
+      visibleRange.value?.start.getTime() !== start.getTime() || visibleRange.value?.end.getTime() !== end.getTime()
+    visibleRange.value = { start, end }
+    renderVisibleCalendarEvents()
+    if (changed && calendarMounted && display.mdAndUp.value) void getSubscribes()
+  },
 })
 
 // 原始日历事件与已展开日期分离，避免依赖 FullCalendar 的弹窗式 more 链接。
@@ -325,6 +326,12 @@ function renderVisibleCalendarEvents() {
   const groupedEvents = new Map<string, CalendarEventInfo[]>()
 
   rawCalendarEvents.value.filter(matchesMediaTypeFilter).forEach(event => {
+    if (
+      visibleRange.value &&
+      event.start &&
+      (event.start < visibleRange.value.start || event.start >= visibleRange.value.end)
+    )
+      return
     const dateKey = getDateKey(event.start)
     if (!dateKey) return
 
@@ -364,7 +371,7 @@ function clampEpisodeCount(value: number, total: number) {
 }
 
 // 获取订阅已入库集数。
-function getLibraryEpisodeCount(subscribe: Subscribe) {
+function getLibraryEpisodeCount(subscribe: CalendarSubscription) {
   const totalEpisode = subscribe.total_episode || 0
   if (!totalEpisode) return 0
 
@@ -377,7 +384,7 @@ function getLibraryEpisodeCount(subscribe: Subscribe) {
 }
 
 // 获取订阅缺失集数。
-function getLackEpisodeCount(subscribe: Subscribe) {
+function getLackEpisodeCount(subscribe: CalendarSubscription) {
   const totalEpisode = subscribe.total_episode || 0
   if (!totalEpisode) return 0
 
@@ -397,7 +404,7 @@ function isEnabledFlag(value: unknown) {
 }
 
 // 获取已经入库的具体集号列表。
-function getLibraryEpisodeNumbers(subscribe: Subscribe) {
+function getLibraryEpisodeNumbers(subscribe: CalendarSubscription) {
   if (isEnabledFlag(subscribe.best_version)) {
     return Object.entries(subscribe.episode_priority || {})
       .filter(([episode, priority]) => Number.isFinite(Number(episode)) && priority === 100)
@@ -409,7 +416,7 @@ function getLibraryEpisodeNumbers(subscribe: Subscribe) {
 
 // 判断订阅列表中的集号明细是否可能落后于聚合入库数。
 function shouldLoadCalendarLibraryDetails(
-  subscribe: Subscribe,
+  subscribe: CalendarSubscription,
   libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe),
 ) {
   return (
@@ -421,7 +428,7 @@ function shouldLoadCalendarLibraryDetails(
 }
 
 // 订阅明细落后于媒体库聚合进度时，补充媒体库实际存在的集号。
-async function getCalendarLibraryEpisodeNumbers(subscribe: Subscribe) {
+async function getCalendarLibraryEpisodeNumbers(subscribe: CalendarSubscription) {
   const libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe)
 
   if (!shouldLoadCalendarLibraryDetails(subscribe, libraryEpisodeNumbers)) return libraryEpisodeNumbers
@@ -470,7 +477,7 @@ function getLibraryState(
 
 // 构建订阅日历事件。
 function buildCalendarEventInfo(
-  subscribe: Subscribe,
+  subscribe: CalendarSubscription,
   payload: Pick<CalendarEventInfo, 'subtitle' | 'start' | 'episodeNumbers' | 'len'> &
     Partial<Pick<CalendarEventInfo, 'episodeTitle' | 'episodeTitles' | 'runtime'>>,
 ): CalendarEventInfo {
@@ -728,7 +735,7 @@ async function eventsHander(subscribe: Subscribe) {
 }
 
 // 后台补查疑似过期的媒体库集号，并在每批结果到达后更新日历状态。
-async function enrichCalendarLibraryEpisodes(subscribes: Subscribe[], generation: number) {
+async function enrichCalendarLibraryEpisodes(subscribes: CalendarSubscription[], generation: number) {
   const candidates = subscribes.filter(subscribe => shouldLoadCalendarLibraryDetails(subscribe))
   if (!candidates.length) return
 
@@ -765,32 +772,162 @@ async function enrichCalendarLibraryEpisodes(subscribes: Subscribe[], generation
   )
 }
 
-// 调用API查询所有订阅
-async function getSubscribes() {
-  const generation = ++calendarLoadGeneration
-  if (!isLoaded.value && display.mdAndUp.value) openProgressDialog()
-  loading.value = true
-  try {
-    // 订阅
-    const subscribes: Subscribe[] = await api.get('subscribe/')
-    const subEvents = await Promise.allSettled(subscribes.map(async sub => eventsHander(sub)))
-    const succEvents = subEvents.filter(result => result.status === 'fulfilled').map(result => result.value)
-    rawCalendarEvents.value = normalizeCalendarEventOrder(succEvents.flat().filter(event => event.start))
+/** 兼容旧后端：逐页加载订阅，每页最多四个详情请求并发。 */
+async function loadLegacyCalendar(generation: number) {
+  for (let page = 1; ; page++) {
+    if (generation !== calendarLoadGeneration) return
+    const subscribes = await api.get<Subscribe[]>('subscribe/', { params: { page, count: 50 } })
+    if (generation !== calendarLoadGeneration) return
+    const events: CalendarEventInfo[] = []
+    let nextIndex = 0
+    /** 单个工作协程依次处理详情，过期批次不再派发请求。 */
+    const worker = async () => {
+      while (nextIndex < subscribes.length && generation === calendarLoadGeneration) {
+        const subscribe = subscribes[nextIndex++]
+        try {
+          events.push(...[await eventsHander(subscribe)].flat())
+        } catch (error) {
+          console.error(error)
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(4, subscribes.length) }, worker))
+    if (generation !== calendarLoadGeneration) return
+    rawCalendarEvents.value = normalizeCalendarEventOrder(
+      [...(page === 1 ? [] : rawCalendarEvents.value), ...events].filter(event => event.start),
+    )
+    loadedSubscriptionCount.value += subscribes.length
     renderVisibleCalendarEvents()
     isLoaded.value = true
-    void enrichCalendarLibraryEpisodes(subscribes, generation)
+    await enrichCalendarLibraryEpisodes(subscribes, generation)
+    if (subscribes.length < 50) break
+  }
+  isLoaded.value = true
+}
+
+/** 获取当前可见日期范围，移动端默认从近三十天到未来六十天。 */
+function getCalendarLoadRange() {
+  if (display.mdAndUp.value && visibleRange.value) return visibleRange.value
+  const start = getTodayStart()
+  const end = getTodayStart()
+  if (display.mdAndUp.value) {
+    start.setDate(1)
+    end.setDate(1)
+    end.setMonth(end.getMonth() + 1)
+  } else {
+    start.setDate(start.getDate() - 30)
+    end.setDate(end.getDate() + 60)
+  }
+  return { start, end }
+}
+
+/** 将后端同日分集摘要投影为共用的日历卡片。 */
+function buildWindowCalendarEvent(item: SubscribeCalendarEvent) {
+  const episodeNumbers = item.episodes.map(episode => episode.episode_number).filter(number => number > 0)
+  return buildCalendarEventInfo(item.subscribe, {
+    start: parseDate(item.date),
+    len: Math.max(item.episodes.length, 1),
+    subtitle: formatEp(episodeNumbers),
+    episodeNumbers,
+    episodeTitle: getEpisodeTitle(
+      episodeNumbers,
+      item.episodes.map(episode => episode.name || ''),
+    ),
+    runtime: item.runtime || undefined,
+  })
+}
+
+/** 优先请求当前日期窗口；翻月时取消旧请求并分页展示新窗口。 */
+async function getSubscribes(range = getCalendarLoadRange(), append = false) {
+  const generation = ++calendarLoadGeneration
+  calendarRequestController?.abort()
+  calendarRequestController = new AbortController()
+  const signal = calendarRequestController.signal
+  loading.value = true
+  loadedSubscriptionCount.value = 0
+  if (!append) mobileVisibleDayCount.value = 30
+  try {
+    if (legacyCalendarApi) {
+      await loadLegacyCalendar(generation)
+      return
+    }
+    const subscribes = new Map<number, CalendarSubscription>()
+    for (let page = 1; ; page++) {
+      const result = await api.get<SubscribeCalendarPage>('subscribe/calendar', {
+        params: { start: getDateKey(range.start), end: getDateKey(range.end), page, count: 50 },
+        signal,
+        feedback: 'silent',
+        timeout: 120000,
+      })
+      if (generation !== calendarLoadGeneration) return
+      const events = result.items.map(buildWindowCalendarEvent).filter(event => event.start)
+      rawCalendarEvents.value = normalizeCalendarEventOrder([
+        ...(page === 1 && !append ? [] : rawCalendarEvents.value),
+        ...events,
+      ])
+      result.items.forEach(item => {
+        if (item.subscribe.id) subscribes.set(item.subscribe.id, item.subscribe)
+      })
+      loadedSubscriptionCount.value = subscribes.size
+      renderVisibleCalendarEvents()
+      isLoaded.value = true
+      if (page * 50 >= result.total || !result.items.length) break
+    }
+    if (!display.mdAndUp.value) mobileWindowEnd.value = range.end
+    await enrichCalendarLibraryEpisodes([...subscribes.values()], generation)
   } catch (error) {
-    console.error(error)
+    if (generation !== calendarLoadGeneration || signal.aborted) return
+    if ((error as { response?: { status?: number } }).response?.status === 404) {
+      legacyCalendarApi = true
+      try {
+        await loadLegacyCalendar(generation)
+      } catch (legacyError) {
+        if (generation === calendarLoadGeneration) console.error(legacyError)
+      }
+    } else {
+      console.error(error)
+    }
   } finally {
-    loading.value = false
-    closeProgressDialog()
+    if (generation === calendarLoadGeneration) loading.value = false
   }
 }
 
-// 页面加载时调用API查询所有订阅
+/** 先展开已下载日期，再按需请求接下来的三十天。 */
+function loadMoreMobileDates() {
+  if (mobileCalendarDayGroups.value.length > mobileVisibleDayCount.value) {
+    mobileVisibleDayCount.value += 30
+    return
+  }
+  if (!mobileWindowEnd.value || loading.value) return
+  mobileVisibleDayCount.value += 30
+  const start = mobileWindowEnd.value
+  const end = new Date(start)
+  end.setDate(end.getDate() + 30)
+  void getSubscribes({ start, end }, true)
+}
+
+/** 离开页面后停止旧窗口派发和在途的窗口请求。 */
+function cancelCalendarLoad() {
+  calendarLoadGeneration++
+  calendarRequestController?.abort()
+  loading.value = false
+}
+
+onBeforeUnmount(cancelCalendarLoad)
+onDeactivated(cancelCalendarLoad)
+
+// 页面加载时只查询当前可见的日期窗口。
 onMounted(() => {
-  getSubscribes()
+  calendarMounted = true
+  void getSubscribes()
 })
+
+watch(
+  () => display.mdAndUp.value,
+  () => {
+    if (calendarMounted) void getSubscribes()
+  },
+)
 
 onActivated(() => {
   if (!loading.value) {
@@ -800,6 +937,12 @@ onActivated(() => {
 </script>
 
 <template>
+  <div v-if="loading" role="status" class="mb-2">
+    <VProgressLinear indeterminate color="primary" />
+    <span class="text-caption"
+      >{{ t('common.loading') }} · {{ t('common.loadedCount', { count: loadedSubscriptionCount }) }}</span
+    >
+  </div>
   <div
     v-if="display.mdAndUp.value"
     class="calendar-media-type-filter"
@@ -962,7 +1105,11 @@ onActivated(() => {
       </section>
 
       <div v-if="mobileCalendarDayGroups.length" class="mobile-calendar-timeline">
-        <section v-for="group in mobileCalendarDayGroups" :key="group.dateKey" class="mobile-calendar-day">
+        <section
+          v-for="group in mobileCalendarDayGroups.slice(0, mobileVisibleDayCount)"
+          :key="group.dateKey"
+          class="mobile-calendar-day"
+        >
           <div class="mobile-calendar-day-marker">
             <span
               class="mobile-calendar-day-dot"
@@ -994,7 +1141,10 @@ onActivated(() => {
 
             <div class="mobile-calendar-event-list">
               <article
-                v-for="calendarEvent in group.events"
+                v-for="calendarEvent in group.events.slice(
+                  0,
+                  expandedDateKeys.has(group.dateKey) ? undefined : COLLAPSED_DAY_CARD_LIMIT,
+                )"
                 :key="`${group.dateKey}-${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
                 class="mobile-calendar-event-card"
                 :class="`mobile-calendar-event-card--${calendarEvent.libraryState}`"
@@ -1044,15 +1194,33 @@ onActivated(() => {
                   </div>
                 </div>
               </article>
+              <VBtn
+                v-if="group.events.length > COLLAPSED_DAY_CARD_LIMIT && !expandedDateKeys.has(group.dateKey)"
+                variant="text"
+                @click="expandCalendarDay(group.dateKey)"
+              >
+                {{ t('common.loadMore') }} (+{{ group.events.length - COLLAPSED_DAY_CARD_LIMIT }})
+              </VBtn>
             </div>
           </div>
         </section>
+        <VBtn
+          v-if="mobileCalendarDayGroups.length > mobileVisibleDayCount || mobileWindowEnd"
+          :disabled="loading"
+          variant="text"
+          @click="loadMoreMobileDates"
+        >
+          {{ t('common.loadMore') }}
+        </VBtn>
       </div>
 
       <div v-else class="mobile-calendar-empty">
         <VIcon icon="mdi-calendar-blank-outline" size="44" />
         <h2>{{ t('common.noData') }}</h2>
         <p>{{ t('calendar.noMatchingEvents') }}</p>
+        <VBtn v-if="mobileWindowEnd" :disabled="loading" variant="text" @click="loadMoreMobileDates">
+          {{ t('common.loadMore') }}
+        </VBtn>
       </div>
     </template>
   </div>

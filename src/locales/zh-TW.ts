@@ -258,6 +258,7 @@ export default {
     },
   },
   common: {
+    loadedCount: '已載入 {count} 條',
     confirm: '確認',
     cancel: '取消',
     back: '返回',
@@ -4970,6 +4971,8 @@ export default {
       joinTime: '加入時間',
       trafficHistory: '歷史流量',
       seedingDistribution: '做種分佈',
+      historyWindow: '顯示最近 {count} 條採集記錄',
+      sampledPoints: '已等距抽樣為 {count} 個點',
       volumeTitle: '體積',
       countTitle: '數量：',
       noData: '無',
@@ -5016,6 +5019,7 @@ export default {
     },
   },
   file: {
+    partialListing: '篩選和排序僅作用於已載入內容',
     details: '文件詳情',
     folderDetails: '資料夾詳情',
     fileActions: '文件操作',

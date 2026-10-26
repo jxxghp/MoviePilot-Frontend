@@ -11,6 +11,7 @@ const { t } = useI18n()
 type TreeRow =
   | { type: 'root'; key: string; level: number }
   | { type: 'loading'; key: string; path: string; level: number }
+  | { type: 'more'; key: string; path: string; level: number }
   | { type: 'directory'; key: string; dir: FileItem; level: number }
 
 // 输入参数
@@ -46,6 +47,7 @@ const expandedFolders = ref<string[]>([])
 
 // 是否正在加载
 const loading = ref<{ [key: string]: boolean }>({})
+const nextPages = ref<Record<string, number>>({})
 
 /** 点击目录。 */
 function handleFolderClick(item: FileItem) {
@@ -82,9 +84,11 @@ function renderFolderIcon(isExpanded: boolean) {
 }
 
 /** 加载子目录。 */
-async function loadSubdirectories(path: string) {
+async function loadSubdirectories(path: string, append = false) {
   // 如果已经在加载中或已有缓存，跳过
-  if (loading.value[path] || treeCache.value[path]) return
+  if (loading.value[path] || (!append && treeCache.value[path])) return
+  const storage = props.storage
+  const page = append ? (nextPages.value[path] ?? 1) : 1
 
   // 标记为加载中
   loading.value[path] = true
@@ -105,15 +109,20 @@ async function loadSubdirectories(path: string) {
       url,
       method: props.endpoints?.list.method || 'get',
       data: fakeItem,
+      params: { page, count: 200 },
     }
 
     const result = await props.axios?.request<FileItem[]>(config)
+    if (storage !== props.storage) return
     if (result && Array.isArray(result)) {
       // 过滤出目录项
       const dirs = result.filter(item => item.type === 'dir')
 
       // 缓存目录内容
-      treeCache.value[path] = dirs
+      const previous = append ? (treeCache.value[path] ?? []) : []
+      treeCache.value[path] = Array.from(new Map([...previous, ...dirs].map(item => [item.path, item])).values())
+      if (result.length === 200) nextPages.value[path] = page + 1
+      else delete nextPages.value[path]
     }
   } catch (error) {
     console.error('加载目录失败:', path, error)
@@ -174,6 +183,9 @@ watch(
 
       // 缓存当前目录内容
       treeCache.value[props.currentPath || '/'] = dirs
+      const path = props.currentPath || '/'
+      if (newItems.length > 0 && newItems.length % 200 === 0) nextPages.value[path] = newItems.length / 200 + 1
+      else delete nextPages.value[path]
     }
   },
   { immediate: true },
@@ -194,10 +206,12 @@ const visibleTreeRows = computed<TreeRow[]>(() => {
   }
 
   rootDirectories.value.forEach(dir => addVisibleDirectoryRows(dir, 0, rows))
+  if (nextPages.value['/']) rows.push({ type: 'more', key: 'more:/', path: '/', level: 0 })
 
   return rows
 })
 
+/** 将展开的目录及其续载入口投影为虚拟列表行。 */
 function addVisibleDirectoryRows(dir: FileItem, level: number, rows: TreeRow[]) {
   const path = dir.path || ''
 
@@ -223,8 +237,10 @@ function addVisibleDirectoryRows(dir: FileItem, level: number, rows: TreeRow[]) 
   }
 
   treeCache.value[path]?.forEach(child => addVisibleDirectoryRows(child, level + 1, rows))
+  if (nextPages.value[path]) rows.push({ type: 'more', key: `more:${path}`, path, level: level + 1 })
 }
 
+/** 按目录层级计算缩进，保持虚拟列表行高固定。 */
 function getTreeRowStyle(level: number) {
   return {
     paddingInlineStart: level > 0 ? `${16 + level * 12}px` : undefined,
@@ -273,6 +289,14 @@ onMounted(async () => {
           </span>
         </div>
 
+        <VBtn
+          v-else-if="item.type === 'more'"
+          variant="text"
+          :style="getTreeRowStyle(item.level)"
+          @click="loadSubdirectories(item.path, true)"
+        >
+          {{ t('common.loadMore') }}
+        </VBtn>
         <div
           v-else
           :key="item.key"
