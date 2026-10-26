@@ -106,7 +106,6 @@ const notificationSaveLoading = ref(false)
 const $toast = useToast()
 
 const editorDialogOpen = ref(false)
-const currentTemplate = ref<NotificationTemplateType | ''>('')
 const editorContent = ref('')
 
 // 消息类型开关
@@ -156,6 +155,9 @@ const notificationTime = ref({
 })
 
 let editorDialogController: ReturnType<typeof openSharedDialog> | null = null
+let templateRequestId = 0
+let editorGeneration = 0
+let disposed = false
 
 /** 创建仅用于新建渠道的稳定身份；保存后以后端归一化身份为准。 */
 function createNotificationId() {
@@ -227,6 +229,8 @@ const canSaveNotifications = computed(() => notificationLoadState.value === 'rea
 
 // 关闭通知模板共享弹窗，并同步本页的弹窗占用状态。
 function closeTemplateEditorDialog() {
+  templateRequestId++
+  editorGeneration++
   editorDialogOpen.value = false
   editorDialogController?.close()
   editorDialogController = null
@@ -235,6 +239,8 @@ function closeTemplateEditorDialog() {
 // 打开通知模板共享弹窗，保持内容通过事件回写到设置页。
 function openTemplateEditorDialog(type: NotificationTemplateType) {
   closeTemplateEditorDialog()
+  const generation = editorGeneration
+  const active = () => !disposed && generation === editorGeneration && editorDialogOpen.value
   editorDialogOpen.value = true
   editorDialogController = openSharedDialog(
     NotificationTemplateEditorDialog,
@@ -246,18 +252,16 @@ function openTemplateEditorDialog(type: NotificationTemplateType) {
     },
     {
       close: () => {
-        editorDialogOpen.value = false
-        editorDialogController = null
+        if (active()) closeTemplateEditorDialog()
       },
-      save: saveTemplate,
+      save: (value: string) => {
+        if (active()) return saveTemplate(value, type, generation)
+      },
       'update:content': (value: string) => {
-        editorContent.value = value
+        if (active()) editorContent.value = value
       },
       'update:modelValue': (value: boolean) => {
-        if (!value) {
-          editorDialogOpen.value = false
-          editorDialogController = null
-        }
+        if (!value && active()) closeTemplateEditorDialog()
       },
     },
     { closeOn: ['close', 'update:modelValue'] },
@@ -310,33 +314,34 @@ async function loadNotificationSetting() {
 }
 
 async function openEditor(type: NotificationTemplateType) {
+  const requestId = ++templateRequestId
   try {
-    currentTemplate.value = type
     const result = await api.get<{ value?: Record<string, string> }>('system/setting/NotificationTemplates', {
       feedback: 'silent',
     })
+    if (disposed || requestId !== templateRequestId) return
     templateConfigs.value = result.value || {}
     editorContent.value = templateConfigs.value[type] || '{}'
     openTemplateEditorDialog(type)
   } catch (error) {
+    if (disposed || requestId !== templateRequestId) return
     console.error(error)
     $toast.error(t('setting.notification.templateLoadFailed'))
   }
 }
 
-async function saveTemplate(value = editorContent.value) {
+async function saveTemplate(value: string, type: NotificationTemplateType, generation: number) {
   try {
     await api.post(
       'system/setting/NotificationTemplates',
-      {
-        ...templateConfigs.value,
-        [currentTemplate.value]: value,
-      },
+      { ...templateConfigs.value, [type]: value },
       { feedback: 'silent' },
     )
+    if (disposed || generation !== editorGeneration) return
     $toast.success(t('setting.notification.templateSaveSuccess'))
     closeTemplateEditorDialog()
   } catch (error) {
+    if (disposed || generation !== editorGeneration) return
     console.error(error)
     $toast.error(t('setting.notification.templateSaveFailed'))
   }
@@ -462,6 +467,11 @@ async function loadPageData() {
     loadTemplateConfigs(),
   ])
 }
+
+onBeforeUnmount(() => {
+  disposed = true
+  closeTemplateEditorDialog()
+})
 
 // 加载数据
 onMounted(() => {

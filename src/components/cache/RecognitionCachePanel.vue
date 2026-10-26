@@ -35,7 +35,7 @@ const musicSourceName = computed(() => t('setting.cache.recognitionSource.musicb
 const recognitionIdLabel = computed(() => t('setting.cache.tmdbId'))
 const recognitionFilterPlaceholder = computed(() => t('setting.cache.filterAllRecognitionCache'))
 const loading = ref(false)
-const searchFilter = ref('')
+const searchFilter = ref<string | null>('')
 const statusFilter = ref<RecognitionStatusFilter>('all')
 // 类型筛选：全部 / 影视（TMDB）/ 音乐（MusicBrainz），切换后对应表格切换显示
 const typeFilter = ref<RecognitionTypeFilter>('all')
@@ -97,7 +97,7 @@ const tableHeaders = computed(() => [
 ])
 
 const filteredData = computed(() => {
-  const keyword = searchFilter.value.trim().toLowerCase()
+  const keyword = (searchFilter.value ?? '').trim().toLowerCase()
   return cacheData.value.data.filter(item => {
     const matchesKeyword =
       !keyword ||
@@ -109,7 +109,7 @@ const filteredData = computed(() => {
 })
 
 const filteredMusicData = computed(() => {
-  const keyword = searchFilter.value.trim().toLowerCase()
+  const keyword = (searchFilter.value ?? '').trim().toLowerCase()
   return musicCacheData.value.data.filter(item => {
     const matchesKeyword =
       !keyword ||
@@ -341,11 +341,15 @@ onMounted(() => {
 })
 
 // 小屏幕下切换到"全部"时回退为影视，避免两个列表同时渲染
-watch(isMobile, mobile => {
-  if (mobile && typeFilter.value === 'all') {
-    typeFilter.value = 'media'
-  }
-}, { immediate: true })
+watch(
+  isMobile,
+  mobile => {
+    if (mobile && typeFilter.value === 'all') {
+      typeFilter.value = 'media'
+    }
+  },
+  { immediate: true },
+)
 
 watch([searchFilter, statusFilter, typeFilter], () => {
   resetMobilePagination()

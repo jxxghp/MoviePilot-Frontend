@@ -80,14 +80,6 @@ const extraRecommendSources = ref<RecommendSource[]>([])
 async function loadExtraRecommendSources() {
   try {
     extraRecommendSources.value = await api.get('recommend/source')
-    if (extraRecommendSources.value.length > 0) {
-      innerList.push(
-        ...extraRecommendSources.value.map(source => ({
-          api_path: source.api_path,
-          name: source.name,
-        })),
-      )
-    }
   } catch (error) {
     console.log(error)
   }
@@ -100,7 +92,9 @@ const sourceTypeOptions = [
 ]
 
 // 计算下拉框
-const sourceOptions = computed(() => innerList.map(item => ({ value: item.api_path, title: item.name })))
+const sourceOptions = computed(() =>
+  [...innerList, ...extraRecommendSources.value].map(item => ({ value: item.api_path, title: item.name })),
+)
 
 onMounted(() => {
   loadExtraRecommendSources()

@@ -41,6 +41,9 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
   const error = ref('')
   const popupBlocked = ref(false)
   let pollTimer: number | null = null
+  let authGeneration = 0
+  let authController: AbortController | null = null
+  let disposed = false
 
   const endpoint = computed(() => (mode === 'initialization' ? 'login/github-auth' : 'github/auth'))
 
@@ -70,21 +73,25 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
 
   /** 启动 GitHub Device Flow，并返回是否成功拿到设备码。 */
   async function startAuth(): Promise<boolean> {
-    clearPollTimer()
-    session.value = null
+    if (disposed) return false
+    cancelAuth()
+    const generation = authGeneration
+    authController = new AbortController()
     error.value = ''
-    popupBlocked.value = false
     loading.value = true
     try {
-      session.value = await api.post<GithubDeviceAuthSession>(`${endpoint.value}/start`, undefined, {
+      const result = await api.post<GithubDeviceAuthSession>(`${endpoint.value}/start`, undefined, {
         feedback: 'silent',
+        signal: authController.signal,
       })
+      if (disposed || generation !== authGeneration) return false
+      session.value = result
       return true
     } catch (reason) {
-      error.value = resolveErrorMessage(reason)
+      if (generation === authGeneration && !disposed) error.value = resolveErrorMessage(reason)
       return false
     } finally {
-      loading.value = false
+      if (generation === authGeneration) loading.value = false
     }
   }
 
@@ -97,22 +104,25 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
 
   /** 执行一次设备码轮询，并按后端建议自动安排下一次轮询。 */
   async function pollAuth() {
-    if (!session.value || polling.value) return
+    if (!session.value || polling.value || disposed) return
+    const generation = authGeneration
+    const activeSession = session.value
     polling.value = true
     error.value = ''
     try {
       const result = await api.post<GithubDeviceAuthPollResult>(
         `${endpoint.value}/poll`,
-        { session_id: session.value.session_id },
-        { feedback: 'silent' },
+        { session_id: activeSession.session_id },
+        { feedback: 'silent', signal: authController?.signal },
       )
+      if (disposed || generation !== authGeneration || session.value?.session_id !== activeSession.session_id) return
       if (result.status) status.value = result.status
       if (result.state === 'authorized') {
         notifyCommunityAuthChanged()
         clearPollTimer()
         session.value = null
       } else if (result.state === 'pending' || result.state === 'slow_down') {
-        const delay = Math.max(result.retry_after ?? session.value.interval_seconds, 1) * 1000
+        const delay = Math.max(result.retry_after ?? activeSession.interval_seconds, 1) * 1000
         clearPollTimer()
         pollTimer = window.setTimeout(() => void pollAuth(), delay)
       } else {
@@ -120,15 +130,20 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
         error.value = result.message
       }
     } catch (reason) {
+      if (disposed || generation !== authGeneration) return
       clearPollTimer()
       error.value = resolveErrorMessage(reason)
     } finally {
-      polling.value = false
+      if (generation === authGeneration) polling.value = false
     }
   }
 
   /** 取消当前设备授权会话的前端轮询。 */
   function cancelAuth() {
+    authGeneration++
+    authController?.abort()
+    authController = null
+    loading.value = false
     clearPollTimer()
     session.value = null
     polling.value = false
@@ -169,7 +184,10 @@ export function useGithubTokenAuth(mode: GithubTokenAuthMode) {
   }
 
   /** 组件卸载时停止设备码轮询。 */
-  onBeforeUnmount(clearPollTimer)
+  onBeforeUnmount(() => {
+    disposed = true
+    cancelAuth()
+  })
 
   return {
     status,

@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, ref, type Ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 import { manageLlmProvider } from '@/api/manage'
 
 export interface LlmProviderAuthMethod {
@@ -113,6 +113,25 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   const authSession = ref<LlmProviderAuthSession | null>(null)
 
   let pollTimer: number | null = null
+  let modelRequestId = 0
+  let disposed = false
+
+  // 切换后再切回相同配置也必须使原请求失效，不能只在响应时比较当前值。
+  watch(
+    () => [
+      options.provider.value,
+      options.apiKey.value,
+      options.baseUrl.value,
+      options.baseUrlPreset?.value,
+      options.useProxy?.value,
+      options.userAgent?.value,
+    ],
+    () => {
+      modelRequestId++
+      loadingModels.value = false
+    },
+    { flush: 'sync' },
+  )
 
   const selectedProvider = computed(
     () => providers.value.find(item => item.id === normalizeValue(options.provider.value)) || null,
@@ -262,12 +281,14 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   }
 
   async function loadModels(forceRefresh = false) {
-    if (!selectedProvider.value) return []
+    if (!selectedProvider.value || disposed) return []
 
+    const requestId = ++modelRequestId
+    const providerId = normalizeValue(options.provider.value)
     loadingModels.value = true
     try {
       const payload = await manageLlmProvider<{ auth_status?: LlmProviderAuthStatus; models?: LlmModel[] }>(
-        normalizeValue(options.provider.value),
+        providerId,
         'list_models',
         {
           api_key: normalizeValue(options.apiKey.value) || undefined,
@@ -278,8 +299,9 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
           force_refresh: forceRefresh,
         },
       )
+      if (disposed || requestId !== modelRequestId) return []
       models.value = Array.isArray(payload.models) ? payload.models : []
-      updateProviderAuthStatus(normalizeValue(options.provider.value), payload.auth_status)
+      updateProviderAuthStatus(providerId, payload.auth_status)
 
       const currentModelId = normalizeValue(options.model.value)
       const matchedModel = currentModelId ? models.value.find(item => item.id === currentModelId) : null
@@ -292,8 +314,11 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
       }
 
       return models.value
+    } catch (error) {
+      if (disposed || requestId !== modelRequestId) return []
+      throw error
     } finally {
-      loadingModels.value = false
+      if (requestId === modelRequestId) loadingModels.value = false
     }
   }
 
@@ -378,6 +403,9 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   }
 
   onBeforeUnmount(() => {
+    disposed = true
+    modelRequestId++
+    loadingModels.value = false
     clearPollTimer()
   })
 

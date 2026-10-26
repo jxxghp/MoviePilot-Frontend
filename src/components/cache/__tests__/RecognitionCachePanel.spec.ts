@@ -1,5 +1,5 @@
 import RecognitionCachePanel from '@/components/cache/RecognitionCachePanel.vue'
-import { screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -109,6 +109,44 @@ describe('RecognitionCachePanel shared recognition statistics', () => {
 })
 
 describe('RecognitionCachePanel unified movie/TV and music management', () => {
+  it('真实清除按钮写入 null 后仍能展示影视与音乐列表', async () => {
+    mocks.apiGet.mockImplementation((url: string) =>
+      Promise.resolve({
+        data: {
+          count: 1,
+          recognized: 1,
+          unrecognized: 0,
+          data:
+            url === 'music/cache'
+              ? [
+                  {
+                    key: 'music-key',
+                    media_id: 'song-1',
+                    title: '音乐记录',
+                    artists: ['歌手'],
+                    album: '专辑',
+                    year: 2026,
+                    music_type: 'recording',
+                    cover_url: '',
+                  },
+                ]
+              : [{ key: 'movie-key', title: '影视记录', year: '2026', tmdb_id: '123', type: '电影' }],
+        },
+      }),
+    )
+    const { container } = await renderRecognitionCachePanel()
+    expect(await screen.findByText('音乐记录')).toBeInTheDocument()
+    const input = container.querySelector<HTMLInputElement>('.cache-panel-filter input')!
+    await fireEvent.update(input, 'does-not-match')
+    expect(screen.queryByText('音乐记录')).not.toBeInTheDocument()
+    const clear = container.querySelector<HTMLElement>('.v-field__clearable [role="button"]')!
+    expect(clear).not.toBeNull()
+    await fireEvent.click(clear)
+    expect(await screen.findByText('音乐记录')).toBeInTheDocument()
+    expect(screen.getByText('影视记录')).toBeInTheDocument()
+    expect(input.value).toBe('')
+  })
+
   beforeEach(() => {
     mocks.apiGet.mockReset()
     mocks.toastError.mockReset()

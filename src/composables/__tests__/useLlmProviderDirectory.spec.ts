@@ -109,6 +109,74 @@ function mountDirectory(
 }
 
 describe('useLlmProviderDirectory', () => {
+  it('切换后又返回同一 Provider 也不会恢复旧请求的结果', async () => {
+    const state = mountDirectory({ provider: 'a' })
+    state.directory.providers.value = [createProvider('a'), createProvider('b')]
+    let resolve!: (value: unknown) => void
+    mocks.manageLlmProvider.mockImplementation(
+      () =>
+        new Promise(done => {
+          resolve = done
+        }),
+    )
+    const pending = state.directory.loadModels()
+    state.provider.value = 'b'
+    state.provider.value = 'a'
+    resolve({ models: [createModel('stale-model')] })
+    await pending
+    expect(state.directory.models.value).toEqual([])
+    expect(state.model.value).toBe('')
+    expect(state.directory.loadingModels.value).toBe(false)
+  })
+
+  it('丢弃旧 Provider 的模型响应，并保留新请求的 loading 和认证状态', async () => {
+    const state = mountDirectory({ provider: 'a' })
+    state.directory.providers.value = [createProvider('a'), createProvider('b')]
+    let resolveA!: (value: unknown) => void
+    let resolveB!: (value: unknown) => void
+    mocks.manageLlmProvider.mockImplementation(
+      (provider: string) =>
+        new Promise(resolve => {
+          if (provider === 'a') resolveA = resolve
+          else resolveB = resolve
+        }),
+    )
+    const first = state.directory.loadModels()
+    state.provider.value = 'b'
+    state.directory.handleProviderSelection()
+    const second = state.directory.loadModels()
+    resolveA({ models: [createModel('a-model')], auth_status: { connected: true, label: 'a-account' } })
+    await first
+    expect(state.directory.models.value).toEqual([])
+    expect(state.directory.loadingModels.value).toBe(true)
+    expect(state.directory.providers.value[1].auth_status.connected).toBe(false)
+    resolveB({ models: [createModel('b-model')], auth_status: { connected: true, label: 'b-account' } })
+    await second
+    expect(state.model.value).toBe('b-model')
+    expect(state.directory.selectedProvider.value?.auth_status.label).toBe('b-account')
+    expect(state.directory.loadingModels.value).toBe(false)
+  })
+
+  it('同一 Provider 重复刷新时只接受最新配置的模型，并在卸载后丢弃响应', async () => {
+    const state = mountDirectory({ provider: 'a', apiKey: 'old' })
+    state.directory.providers.value = [createProvider('a')]
+    const pending: Array<(value: unknown) => void> = []
+    mocks.manageLlmProvider.mockImplementation(() => new Promise(resolve => pending.push(resolve)))
+    const first = state.directory.loadModels()
+    state.apiKey.value = 'new'
+    const second = state.directory.loadModels()
+    pending[1]({ models: [createModel('new-model')] })
+    await second
+    pending[0]({ models: [createModel('old-model')] })
+    await first
+    expect(state.model.value).toBe('new-model')
+    const third = state.directory.loadModels()
+    state.wrapper.unmount()
+    pending[2]({ models: [createModel('disposed-model')] })
+    await third
+    expect(state.model.value).toBe('new-model')
+  })
+
   beforeEach(() => {
     mocks.manageLlmProvider.mockReset()
   })
