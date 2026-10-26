@@ -186,7 +186,7 @@ watch(
   () => {
     if (!isInitializingSources) sourcesTouched = true
   },
-  { deep: true },
+  { deep: true, flush: 'sync' },
 )
 
 // 按后端实际能力限定每类搜索可选的数据源。
@@ -202,6 +202,15 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
     ),
   }
 })
+
+// 来源目录也可能晚于组件装载完成；仅补齐尚未被用户修改的默认选择。
+watch(
+  mediaSearchSourceOptions,
+  () => {
+    if (!sourcesTouched) initializeMediaSearchSources()
+  },
+  { deep: true },
+)
 
 // 搜索项及其来源组共用同一份声明，避免显示能力与请求类型不一致。
 const mediaSearchActions = computed(() => {

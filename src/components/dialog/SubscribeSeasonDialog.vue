@@ -66,6 +66,10 @@ const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 是否刷新过
 const isRefreshed = ref(false)
+let seasonRequestId = 0
+let episodeGroupRequestId = 0
+let disposed = false
+const missingStateStatus = ref<'loading' | 'ready' | 'error'>('loading')
 
 // 所有剧集组
 const episodeGroups = ref<{ [key: string]: any }[]>([])
@@ -139,6 +143,22 @@ const hasSelectionChanges = computed(() => {
   return false
 })
 
+// 自动订阅模式必须有本代入库依据；未知时允许用户明确选择已有合法模式。
+const canSubmitSelection = computed(
+  () =>
+    isRefreshed.value &&
+    !disposed &&
+    seasonsSelected.value.every(season => {
+      if (missingStateStatus.value === 'ready') return true
+      if (
+        subscribedSeasonSet.value.has(season) &&
+        seasonModes.value[season] === (props.subscribedSeasonModes?.[season] ?? 'normal')
+      )
+        return true
+      return manuallySelectedModeSeasons.value.has(season) && isSubscribeMode(seasonModes.value[season])
+    }),
+)
+
 const submitButtonText = computed(() => {
   if (!hasSelectionChanges.value && seasonsSelected.value.length === 0) return t('dialog.subscribeSeason.selectSeasons')
 
@@ -172,13 +192,15 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
 
 // 查询所有剧集组
 async function getEpisodeGroups() {
+  const requestId = ++episodeGroupRequestId
   if (getMediaSubscribeIdentity(props.media)?.source !== 'themoviedb') return
   if (!props.media?.tmdb_id) {
     console.warn('tmdb_id is not set or is empty')
     return
   }
   try {
-    episodeGroups.value = await api.get(`media/groups/${props.media?.tmdb_id}`)
+    const groups = await api.get<typeof episodeGroups.value>(`media/groups/${props.media?.tmdb_id}`)
+    if (!disposed && requestId === episodeGroupRequestId) episodeGroups.value = groups
   } catch (error) {
     console.error(error)
   } finally {
@@ -187,12 +209,12 @@ async function getEpisodeGroups() {
 }
 
 // 查询媒体的季信息
-async function getMediaSeasons() {
+async function getMediaSeasons(requestId: number) {
   const identity = getMediaSubscribeIdentity(props.media)
   if (!identity) return
   isRefreshed.value = false
   try {
-    seasonInfos.value = await api.get('media/seasons', {
+    const seasons = await api.get<MediaSeason[]>('media/seasons', {
       params: {
         media_source: identity.source,
         media_id: identity.mediaId,
@@ -201,27 +223,32 @@ async function getMediaSeasons() {
         season: props.media?.season,
       },
     })
+    if (!disposed && requestId === seasonRequestId) seasonInfos.value = seasons
   } catch (error) {
     console.error(error)
   } finally {
-    isRefreshed.value = true
+    if (!disposed && requestId === seasonRequestId) isRefreshed.value = true
   }
 }
 
 // 查询剧集组的剧集
-async function getGroupSeasons() {
+async function getGroupSeasons(requestId: number) {
   if (getMediaSubscribeIdentity(props.media)?.source !== 'themoviedb' || !episodeGroup.value) return
   isRefreshed.value = false
   try {
-    seasonInfos.value = await api.get(`media/group/seasons/${episodeGroup.value}`)
+    const seasons = await api.get<MediaSeason[]>(`media/group/seasons/${episodeGroup.value}`)
+    if (!disposed && requestId === seasonRequestId) seasonInfos.value = seasons
   } catch (error) {
     console.error(error)
+  } finally {
+    if (!disposed && requestId === seasonRequestId) isRefreshed.value = true
   }
-  isRefreshed.value = true
 }
 
 // 检查所有季的缺失状态（数据库）
-async function checkSeasonsNotExists() {
+async function checkSeasonsNotExists(requestId: number) {
+  if (disposed || requestId !== seasonRequestId) return
+  missingStateStatus.value = 'loading'
   // 开始处理
   try {
     const tmpMedia = {
@@ -229,22 +256,30 @@ async function checkSeasonsNotExists() {
       episode_group: episodeGroup.value || '',
     }
     const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', tmpMedia)
-    if (result) {
-      result.forEach(item => {
-        // 0-已入库 1-部分缺失 2-全部缺失
-        let state = 0
-        if (item.episodes.length === 0) state = 2
-        else if (item.episodes.length < item.total_episode) state = 1
-        seasonsNotExisted.value[item.season] = state
-      })
-    }
+    if (disposed || requestId !== seasonRequestId) return
+    if (!Array.isArray(result)) throw new Error(t('common.apiRequestFailed'))
+    const states: Record<number, number> = {}
+    result.forEach(item => {
+      // 0-已入库 1-部分缺失 2-全部缺失；完整解析后才提交本代状态。
+      let state = 0
+      if (item.episodes.length === 0) state = 2
+      else if (item.episodes.length < item.total_episode) state = 1
+      states[item.season] = state
+    })
+    seasonsNotExisted.value = states
+    missingStateStatus.value = 'ready'
+    syncDefaultSeasonModes()
   } catch (error) {
+    if (disposed || requestId !== seasonRequestId) return
+    seasonsNotExisted.value = {}
+    missingStateStatus.value = 'error'
     console.error(error)
   }
 }
 
 // 计算存在状态的颜色
 function getExistColor(season: number) {
+  if (missingStateStatus.value !== 'ready') return 'warning'
   const state = seasonsNotExisted.value[season]
   if (!state) return 'success'
 
@@ -255,6 +290,7 @@ function getExistColor(season: number) {
 
 // 计算存在状态的文本
 function getExistText(season: number) {
+  if (missingStateStatus.value !== 'ready') return t('common.unknown')
   const state = seasonsNotExisted.value[season]
   if (!state) return t('dialog.subscribeSeason.status.exists')
 
@@ -356,6 +392,7 @@ function scrollEpisodeGroups(direction: 'backward' | 'forward') {
 
 // 提交当前剧集组下选中的季及其订阅模式。
 function subscribeSeasons() {
+  if (!canSubmitSelection.value) return
   const selectedSeasons = seasonInfos.value.filter(item => {
     const seasonNumber = item.season_number ?? null
     return seasonNumber !== null && selectedSeasonSet.value.has(seasonNumber)
@@ -388,6 +425,7 @@ function updateSeasonMode(season: number, mode: unknown) {
 
 // 根据入库状态和系统配置计算指定季的默认订阅模式。
 function getDefaultSeasonMode(season: number) {
+  if (missingStateStatus.value !== 'ready') return props.defaultSubscribeMode ?? 'normal'
   if (!seasonsNotExisted.value[season]) return 'best_version_full'
 
   return props.defaultSubscribeMode ?? 'normal'
@@ -457,12 +495,24 @@ function syncSelectedSeason() {
   })
 }
 
-// 季信息与缺失状态共享剧集组上下文，剧集组变化时统一刷新两者。
-watchEffect(() => {
-  if (episodeGroup.value) getGroupSeasons()
-  else getMediaSeasons()
-  checkSeasonsNotExists()
-})
+// 季信息、入库状态和提交选项始终属于同一媒体/剧集组代次。
+watch(
+  [() => getMediaSubscribeIdentity(props.media)?.mediaKey, episodeGroup],
+  () => {
+    const requestId = ++seasonRequestId
+    isRefreshed.value = false
+    missingStateStatus.value = 'loading'
+    seasonInfos.value = []
+    seasonsNotExisted.value = {}
+    seasonsSelected.value = []
+    seasonModes.value = {}
+    manuallySelectedModeSeasons.value.clear()
+    if (episodeGroup.value) void getGroupSeasons(requestId)
+    else void getMediaSeasons(requestId)
+    void checkSeasonsNotExists(requestId)
+  },
+  { immediate: true, flush: 'sync' },
+)
 
 watch(seasonInfos, syncSelectedSeason)
 
@@ -482,6 +532,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
+  seasonRequestId++
+  episodeGroupRequestId++
   window.removeEventListener('resize', updateEpisodeGroupScrollState)
 })
 </script>
@@ -548,6 +601,10 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
+        <VAlert v-if="missingStateStatus === 'error'" type="warning" variant="tonal" class="mb-3">
+          {{ t('common.apiRequestFailed') }}
+          <VBtn variant="text" @click="checkSeasonsNotExists(seasonRequestId)">{{ t('common.retry') }}</VBtn>
+        </VAlert>
         <LoadingBanner v-if="!isRefreshed" class="mt-5" />
         <div v-else-if="seasonInfos.length > 0">
           <VList lines="three" class="subscribe-season-list">
@@ -635,6 +692,7 @@ onBeforeUnmount(() => {
                       v-for="mode in subscribeModeOptions"
                       :key="mode.value"
                       :value="mode.value"
+                      @click.stop="updateSeasonMode(item.season_number ?? 0, mode.value)"
                       :color="getSubscribeModeColor(mode.value)"
                       size="small"
                       class="subscribe-season-mode-button"
@@ -652,7 +710,7 @@ onBeforeUnmount(() => {
       </VCardText>
       <VCardActions class="justify-center py-3">
         <VBtn
-          :disabled="!hasSelectionChanges"
+          :disabled="!hasSelectionChanges || !canSubmitSelection"
           width="30%"
           min-width="8rem"
           color="primary"

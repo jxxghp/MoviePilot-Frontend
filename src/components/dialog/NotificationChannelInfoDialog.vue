@@ -173,6 +173,20 @@ const wechatClawBotStatus = ref<WechatClawBotStatus | null>(null)
 const wechatClawBotQrImage = ref('')
 const wechatClawBotExpiredRefreshAttempted = ref(false)
 let wechatClawBotTimer: number | null = null
+let disposed = false
+let wechatGeneration = 0
+let wechatController = new AbortController()
+
+/** 撤销已关闭编辑器的在途状态、二维码转换和轮询。 */
+function cancelWechatSession() {
+  wechatGeneration++
+  wechatController.abort()
+  wechatController = new AbortController()
+  clearWechatClawBotTimer()
+}
+function isWechatSessionActive(generation = wechatGeneration) {
+  return !disposed && notificationInfoDialog.value && generation === wechatGeneration
+}
 
 /** 判断二维码数据是否可以直接作为图片地址使用。 */
 function isImageSource(value?: string | null) {
@@ -203,7 +217,8 @@ function getWechatClawBotQrText(status?: WechatClawBotStatus | null) {
 }
 
 /** 根据微信客服状态刷新二维码图片。 */
-async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null) {
+async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null, generation = wechatGeneration) {
+  if (!isWechatSessionActive(generation)) return
   const directUrl = status?.qrcode_url?.trim()
   if (isImageSource(directUrl)) {
     wechatClawBotQrImage.value = directUrl || ''
@@ -215,10 +230,11 @@ async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null) {
     return
   }
   try {
-    wechatClawBotQrImage.value = await QRCode.toDataURL(qrText, {
+    const image = await QRCode.toDataURL(qrText, {
       width: 220,
       margin: 1,
     })
+    if (isWechatSessionActive(generation)) wechatClawBotQrImage.value = image
   } catch (error) {
     console.error(error)
     wechatClawBotQrImage.value = ''
@@ -300,7 +316,7 @@ function saveNotificationInfo() {
   // 为空不保存，跳出警告框
   const normalizedName = notificationInfo.value.name.trim()
   if (!normalizedName) {
-    $toast.error(t('notification.name') + t('common.required'))
+    $toast.error(t('notification.nameRequired'))
     return
   }
   // 重名判断
@@ -330,7 +346,7 @@ function clearWechatClawBotTimer() {
 /** 按当前登录状态安排下一次微信客服状态刷新。 */
 function scheduleWechatClawBotRefresh() {
   clearWechatClawBotTimer()
-  if (!notificationInfoDialog.value || notificationInfo.value.type !== 'wechatclawbot') {
+  if (!isWechatSessionActive() || !notificationInfoDialog.value || notificationInfo.value.type !== 'wechatclawbot') {
     return
   }
   const connected = wechatClawBotStatus.value?.connected
@@ -350,6 +366,8 @@ function scheduleWechatClawBotRefresh() {
 
 /** 查询微信客服登录状态和二维码信息。 */
 async function fetchWechatClawBotStatus(options: WechatClawBotStatusFetchOptions = {}) {
+  if (!isWechatSessionActive()) return
+  const generation = wechatGeneration
   const { autoGenerateQrcode = false, silent = false, autoRefreshExpired = false, showErrorToast = true } = options
   if (notificationInfo.value.type !== 'wechatclawbot' || !notificationInfo.value.name) {
     return
@@ -362,10 +380,12 @@ async function fetchWechatClawBotStatus(options: WechatClawBotStatusFetchOptions
       'WechatClawBot',
       'status',
       getWechatClawBotRequestParams({ auto_generate_qrcode: autoGenerateQrcode }),
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: wechatController.signal },
     )
+    if (!isWechatSessionActive(generation)) return
     wechatClawBotStatus.value = result
-    await updateWechatClawBotQrImage(result)
+    await updateWechatClawBotQrImage(result, generation)
+    if (!isWechatSessionActive(generation)) return
     const status = (result.qrcode_status || '').toLowerCase()
     if (status !== 'expired') {
       wechatClawBotExpiredRefreshAttempted.value = false
@@ -385,6 +405,7 @@ async function fetchWechatClawBotStatus(options: WechatClawBotStatusFetchOptions
     }
     scheduleWechatClawBotRefresh()
   } catch (error) {
+    if (!isWechatSessionActive(generation)) return
     console.error(error)
     wechatClawBotStatus.value = null
     wechatClawBotQrImage.value = ''
@@ -401,6 +422,8 @@ async function fetchWechatClawBotStatus(options: WechatClawBotStatusFetchOptions
 
 /** 刷新微信客服登录二维码。 */
 async function refreshWechatClawBotQrcode(options: WechatClawBotRefreshOptions = {}) {
+  if (!isWechatSessionActive()) return
+  const generation = wechatGeneration
   const { silent = false, showToast = true } = options
   if (!notificationInfo.value.name) {
     return
@@ -413,16 +436,19 @@ async function refreshWechatClawBotQrcode(options: WechatClawBotRefreshOptions =
       'WechatClawBot',
       'refresh_qrcode',
       getWechatClawBotRequestParams(),
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: wechatController.signal },
     )
+    if (!isWechatSessionActive(generation)) return
     wechatClawBotStatus.value = result
-    await updateWechatClawBotQrImage(result)
+    await updateWechatClawBotQrImage(result, generation)
+    if (!isWechatSessionActive(generation)) return
     wechatClawBotExpiredRefreshAttempted.value = false
     scheduleWechatClawBotRefresh()
     if (showToast) {
       $toast.success(t('notification.wechatclawbot.qrcodeRefreshSuccess'))
     }
   } catch (error) {
+    if (!isWechatSessionActive(generation)) return
     console.error(error)
     if (showToast) {
       $toast.error(error instanceof Error ? error.message : t('notification.wechatclawbot.qrcodeRefreshFailed'))
@@ -436,18 +462,25 @@ async function refreshWechatClawBotQrcode(options: WechatClawBotRefreshOptions =
 
 /** 退出当前微信客服登录会话。 */
 async function logoutWechatClawBot() {
+  if (!isWechatSessionActive()) return
+  const generation = wechatGeneration
   if (!notificationInfo.value.name) {
     return
   }
   wechatClawBotActionLoading.value = true
   try {
-    await manageNotificationChannel('WechatClawBot', 'logout', getWechatClawBotRequestParams(), { feedback: 'silent' })
+    await manageNotificationChannel('WechatClawBot', 'logout', getWechatClawBotRequestParams(), {
+      feedback: 'silent',
+      signal: wechatController.signal,
+    })
+    if (!isWechatSessionActive(generation)) return
     $toast.success(t('notification.wechatclawbot.logoutSuccess'))
     await fetchWechatClawBotStatus({
       autoGenerateQrcode: true,
       autoRefreshExpired: true,
     })
   } catch (error) {
+    if (!isWechatSessionActive(generation)) return
     console.error(error)
     $toast.error(error instanceof Error ? error.message : t('notification.wechatclawbot.logoutFailed'))
   } finally {
@@ -480,12 +513,21 @@ const wechatClawBotStatusText = computed(() => {
   return t('notification.wechatclawbot.waiting')
 })
 
-watch(notificationInfoDialog, value => {
-  if (!value) {
-    clearWechatClawBotTimer()
-    wechatClawBotQrImage.value = ''
-    wechatClawBotExpiredRefreshAttempted.value = false
-  }
+watch(
+  notificationInfoDialog,
+  value => {
+    if (!value) {
+      cancelWechatSession()
+      wechatClawBotQrImage.value = ''
+      wechatClawBotExpiredRefreshAttempted.value = false
+    }
+  },
+  { flush: 'sync' },
+)
+
+onBeforeUnmount(() => {
+  disposed = true
+  cancelWechatSession()
 })
 
 onMounted(() => {
