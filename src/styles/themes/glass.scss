@@ -21,7 +21,7 @@ html[data-theme='plain'] {
   body .footer-nav-card {
     -webkit-backdrop-filter: blur(12px) !important;
     backdrop-filter: blur(12px) !important;
-    background: rgba(var(--v-theme-surface), 0.82) !important;
+    background: transparent !important;
   }
 
   body .layout-wrapper.layout-nav-type-vertical.layout-navbar-fixed .navbar-content-container {
