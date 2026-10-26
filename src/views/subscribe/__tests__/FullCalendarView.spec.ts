@@ -158,6 +158,91 @@ function sequenceSubscribeList(responses: Array<{ body: Subscribe[]; status?: nu
 }
 
 describe('FullCalendarView', () => {
+  it('falls back when an older backend parses calendar as an integer subscription id', async () => {
+    const fallback = vi.fn()
+    const subscribe = movieSubscribe(9600, '旧后端兼容日历')
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', () =>
+        HttpResponse.json(
+          { detail: [{ type: 'int_parsing', loc: ['path', 'subscribe_id'], input: 'calendar' }] },
+          { status: 422 },
+        ),
+      ),
+      subscribeListHandler([subscribe], 200, fallback),
+      mediaDetailsHandler(subscribe.media_id!, createMediaInfo({ title: subscribe.name, release_date: '2027-02-02' })),
+    )
+    await renderCalendar()
+    await waitFor(() => expect(fallback).toHaveBeenCalledOnce())
+    expect(await screen.findByText('旧后端兼容日历')).toBeInTheDocument()
+  })
+
+  it('does not treat calendar query validation errors as an older backend', async () => {
+    const fallback = vi.fn()
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', () =>
+        HttpResponse.json(
+          { detail: [{ type: 'date_from_datetime_parsing', loc: ['query', 'start'], input: 'invalid' }] },
+          { status: 422 },
+        ),
+      ),
+      subscribeListHandler([], 200, fallback),
+    )
+    await renderCalendar()
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+    expect(fallback).not.toHaveBeenCalled()
+  })
+
+  it('does not duplicate a mobile window when retrying after a later page fails', async () => {
+    setViewport(390)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    let initialEnd = ''
+    let failedPage = false
+    let laterPageCalls = 0
+    const dateKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const eventDate = new Date(today)
+    eventDate.setDate(eventDate.getDate() + 65)
+    const laterItems = Array.from({ length: 51 }, (_, index) => ({
+      subscribe: movieSubscribe(9800 + index, `重试窗口 ${index}`),
+      date: dateKey(eventDate),
+      episodes: [],
+    }))
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', ({ request }) => {
+        const url = new URL(request.url)
+        initialEnd ||= url.searchParams.get('end')!
+        if (url.searchParams.get('end') === initialEnd) {
+          return apiJson({
+            total: 1,
+            items: [{ subscribe: movieSubscribe(9700, '初始窗口'), date: dateKey(today), episodes: [] }],
+          })
+        }
+        const page = Number(url.searchParams.get('page'))
+        laterPageCalls++
+        if (page === 2 && !failedPage) {
+          failedPage = true
+          return HttpResponse.json({ detail: 'retry later' }, { status: 503 })
+        }
+        return apiJson({ total: 51, items: laterItems.slice((page - 1) * 50, page * 50) })
+      }),
+    )
+    await renderCalendar()
+    await screen.findByRole('heading', { name: '初始窗口' })
+    await fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
+    await waitFor(() => expect(laterPageCalls).toBe(2))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^加载更多/ }).at(-1)).toBeEnabled())
+    await fireEvent.click(screen.getAllByRole('button', { name: /^加载更多/ }).at(-1)!)
+    await waitFor(() => expect(laterPageCalls).toBe(4))
+    const laterGroup = [...document.querySelectorAll('.mobile-calendar-day')].find(group =>
+      group.textContent?.includes('重试窗口'),
+    )!
+    const expand = [...laterGroup.querySelectorAll('button')].find(button => button.textContent?.includes('加载更多'))
+    if (expand) await fireEvent.click(expand)
+    await waitFor(() => expect(laterGroup.querySelectorAll('.mobile-calendar-event-card')).toHaveLength(51))
+    expect(screen.getAllByRole('heading', { name: '重试窗口 0' })).toHaveLength(1)
+  })
+
   it('expands already downloaded mobile dates before requesting a later window', async () => {
     setViewport(390)
     let requests = 0
@@ -529,7 +614,8 @@ describe('FullCalendarView', () => {
 
   it('renders mobile date boundaries and filters without restoring events older than 30 days', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-07-17T12:00:00+08:00'))
+    // 日历按浏览器本地日期分组，固定本地正午而不是其他时区的绝对时刻。
+    vi.setSystemTime(new Date(2026, 6, 17, 12))
     setViewport(480)
     const today = movieSubscribe(3501, '今日电影', { year: '' })
     const future = movieSubscribe(3502, '未来电影')
@@ -560,6 +646,11 @@ describe('FullCalendarView', () => {
     expect(queryMobileCalendarEventCard('过久电影')).not.toBeInTheDocument()
     expect(screen.getByText('5 项')).toBeInTheDocument()
     expect(screen.getByText('即将播出')).toBeInTheDocument()
+    expect(
+      queryMobileCalendarEventCard('今日电影')
+        ?.closest('.mobile-calendar-day')
+        ?.querySelector('.mobile-calendar-day-status--upcoming'),
+    ).toBeNull()
 
     await fireEvent.click(screen.getByRole('button', { name: '隐藏过期' }))
     await waitFor(() => expect(queryMobileCalendarEventCard('近期过期电影')).toBeInTheDocument())

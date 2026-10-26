@@ -837,6 +837,22 @@ function buildWindowCalendarEvent(item: SubscribeCalendarEvent) {
   })
 }
 
+/** 旧版订阅详情路由会把 calendar 当作整数 ID，使用精确错误位置识别该契约。 */
+function isLegacyCalendarEndpoint(error: unknown) {
+  const response = (error as { response?: { status?: number; data?: { detail?: unknown } } })?.response
+  if (response?.status === 404) return true
+  if (response?.status !== 422 || !Array.isArray(response.data?.detail)) return false
+  return response.data.detail.some(
+    detail =>
+      detail?.type === 'int_parsing' &&
+      detail?.input === 'calendar' &&
+      Array.isArray(detail?.loc) &&
+      detail.loc.length === 2 &&
+      detail.loc[0] === 'path' &&
+      detail.loc[1] === 'subscribe_id',
+  )
+}
+
 /** 优先请求当前日期窗口；翻月时取消旧请求并分页展示新窗口。 */
 async function getSubscribes(range = getCalendarLoadRange(), append = false) {
   const generation = ++calendarLoadGeneration
@@ -861,10 +877,14 @@ async function getSubscribes(range = getCalendarLoadRange(), append = false) {
       })
       if (generation !== calendarLoadGeneration) return
       const events = result.items.map(buildWindowCalendarEvent).filter(event => event.start)
-      rawCalendarEvents.value = normalizeCalendarEventOrder([
-        ...(page === 1 && !append ? [] : rawCalendarEvents.value),
-        ...events,
-      ])
+      // 同一订阅同一天只有一份窗口摘要；后页失败后的重试覆盖已经展示的摘要。
+      const mergedEvents = new Map(
+        [...(page === 1 && !append ? [] : rawCalendarEvents.value), ...events].map(event => [
+          JSON.stringify([event.subscribeId, getDateKey(event.start)]),
+          event,
+        ]),
+      )
+      rawCalendarEvents.value = normalizeCalendarEventOrder([...mergedEvents.values()])
       result.items.forEach(item => {
         if (item.subscribe.id) subscribes.set(item.subscribe.id, item.subscribe)
       })
@@ -877,7 +897,7 @@ async function getSubscribes(range = getCalendarLoadRange(), append = false) {
     await enrichCalendarLibraryEpisodes([...subscribes.values()], generation)
   } catch (error) {
     if (generation !== calendarLoadGeneration || signal.aborted) return
-    if ((error as { response?: { status?: number } }).response?.status === 404) {
+    if (isLegacyCalendarEndpoint(error)) {
       legacyCalendarApi = true
       try {
         await loadLegacyCalendar(generation)
