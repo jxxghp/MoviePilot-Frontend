@@ -45,16 +45,6 @@ const passthroughStub = (name: string, tag = 'div') =>
     },
   })
 
-const VHoverStub = defineComponent({
-  name: 'VHover',
-  inheritAttrs: false,
-  setup(_props, { slots }) {
-    return () => slots.default?.({ props: { onMouseenter: hoverMouseenter } })
-  },
-})
-
-const hoverMouseenter = vi.fn()
-
 const VCardStub = passthroughStub('VCard', 'article')
 
 const globalStubs = {
@@ -63,7 +53,6 @@ const globalStubs = {
   VCard: VCardStub,
   VCardText: passthroughStub('VCardText'),
   VDialogCloseBtn: passthroughStub('VDialogCloseBtn', 'button'),
-  VHover: VHoverStub,
   VIcon: passthroughStub('VIcon', 'span'),
   VImg: defineComponent({
     name: 'VImg',
@@ -83,10 +72,9 @@ const downloader = {
 }
 
 describe('DownloaderCard', () => {
-  it('places draggable attributes on the card DOM instead of the hover wrapper', async () => {
+  it('uses a single card DOM root for draggable attributes', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const externalMouseenter = vi.fn()
-    hoverMouseenter.mockClear()
     const Harness = defineComponent({
       setup() {
         return () =>
@@ -114,7 +102,7 @@ describe('DownloaderCard', () => {
     expect(container.querySelectorAll('[data-draggable]')).toHaveLength(1)
     card?.dispatchEvent(new MouseEvent('mouseenter'))
     expect(externalMouseenter).toHaveBeenCalledOnce()
-    expect(hoverMouseenter).toHaveBeenCalledOnce()
+    expect(container.childNodes).toHaveLength(1)
 
     const attributeWarnings = warn.mock.calls.filter(([message]) =>
       String(message).includes('Extraneous non-props attributes'),
