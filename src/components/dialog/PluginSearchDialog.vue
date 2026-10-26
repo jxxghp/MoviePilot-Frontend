@@ -77,18 +77,20 @@ function closeDialog() {
     :fullscreen="!display.mdAndUp.value"
   >
     <VCard class="mx-auto" width="100%">
-      <VToolbar flat class="p-0">
+      <VToolbar flat class="plugin-search-toolbar" height="72">
         <VTextField
           v-model="searchKeyword"
-          :label="t('plugin.searchPlugins')"
+          :aria-label="t('plugin.searchPlugins')"
           :mobile-layout="false"
           single-line
           :placeholder="t('plugin.searchPlaceholder')"
           variant="solo"
+          density="compact"
           prepend-inner-icon="mdi-magnify"
           flat
           autofocus
-          class="mx-1"
+          hide-details
+          class="plugin-search-input"
         />
       </VToolbar>
       <VDialogCloseBtn @click="closeDialog" />
@@ -132,7 +134,33 @@ function closeDialog() {
     </VCard>
   </VDialog>
 </template>
-<style lang="scss" scoped>
+<style lang="scss">
+.plugin-search-toolbar {
+  padding-inline: 16px;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+// 搜索属于弹窗内容，使用明暗主题的中性填充，避免全局表单底色和聚焦光晕形成第二块面板。
+.plugin-search-input {
+  min-inline-size: 0;
+
+  .v-field {
+    border-radius: 12px !important;
+    background-color: rgba(var(--v-theme-on-surface), 8%) !important;
+    box-shadow: none !important;
+  }
+
+  .v-field__input {
+    padding-block: 10px;
+    min-block-size: 44px;
+  }
+
+  .v-field__prepend-inner {
+    color: rgba(var(--v-theme-on-surface), 60%);
+  }
+}
+
 .plugin-search-list {
   border-radius: 0 !important;
 }
