@@ -3,6 +3,7 @@ import { getLogoUrl } from '@/utils/imageUtils'
 import type { Plugin } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { useWindowSize } from '@vueuse/core'
 
 const props = defineProps({
   keyword: {
@@ -28,6 +29,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const display = useDisplay()
+// 随软键盘和浏览器工具栏变化收窄弹窗高度，列表只使用当前可见区域。
+const { height: viewportHeight } = useWindowSize({ type: 'visual' })
 const pluginIconLoaded = ref<Record<string, boolean>>({})
 
 const dialogVisible = computed({
@@ -72,12 +75,25 @@ function closeDialog() {
   <VDialog
     v-model="dialogVisible"
     scrollable
+    class="plugin-search-overlay"
     max-width="40rem"
-    :max-height="!display.mdAndUp.value ? '' : '85vh'"
+    :max-height="display.mdAndUp.value ? Math.round(viewportHeight * 0.85) : viewportHeight"
     :fullscreen="!display.mdAndUp.value"
   >
-    <VCard class="mx-auto" width="100%">
-      <VToolbar flat class="plugin-search-toolbar" height="72">
+    <VCard class="plugin-search-dialog mx-auto" width="100%">
+      <VCardItem class="plugin-search-header" data-native-dialog-header>
+        <VCardTitle data-native-dialog-title>{{ t('plugin.searchPlugins') }}</VCardTitle>
+        <template #append>
+          <VBtn
+            icon="mdi-close"
+            variant="text"
+            :aria-label="t('common.close')"
+            data-native-dialog-close
+            @click="closeDialog"
+          />
+        </template>
+      </VCardItem>
+      <div class="plugin-search-controls">
         <VTextField
           v-model="searchKeyword"
           :aria-label="t('plugin.searchPlugins')"
@@ -92,76 +108,151 @@ function closeDialog() {
           hide-details
           class="plugin-search-input"
         />
-      </VToolbar>
-      <VDialogCloseBtn @click="closeDialog" />
-      <VList v-if="plugins.length > 0" class="plugin-search-list" lines="two">
-        <VVirtualScroll :items="plugins">
-          <template #default="{ item }">
-            <VListItem @click="emit('open-plugin', item)">
-              <template #prepend>
-                <VAvatar>
-                  <VImg :src="pluginIcon(item)" @error="pluginIconError(item)">
-                    <template #placeholder>
-                      <div class="w-full h-full">
-                        <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
-                      </div>
-                    </template>
-                  </VImg>
-                </VAvatar>
-              </template>
-              <VListItemTitle>
-                {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
-                <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
-              </VListItemTitle>
-              <VListItemSubtitle>
-                <VChip
-                  v-for="label in pluginLabels(item.plugin_label)"
-                  :key="label"
-                  variant="tonal"
-                  size="small"
-                  class="me-1 my-1"
-                  color="info"
-                  label
-                >
-                  {{ label }}
-                </VChip>
-                {{ item.plugin_desc }}
-              </VListItemSubtitle>
-            </VListItem>
-          </template>
-        </VVirtualScroll>
-      </VList>
+      </div>
+      <VCardText class="plugin-search-results pa-0">
+        <VList v-if="plugins.length > 0" class="plugin-search-list">
+          <VVirtualScroll :items="plugins" class="plugin-search-scroll">
+            <template #default="{ item }">
+              <VListItem class="plugin-search-result" @click="emit('open-plugin', item)">
+                <template #prepend>
+                  <VAvatar>
+                    <VImg :src="pluginIcon(item)" @error="pluginIconError(item)">
+                      <template #placeholder>
+                        <div class="w-full h-full">
+                          <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
+                        </div>
+                      </template>
+                    </VImg>
+                  </VAvatar>
+                </template>
+                <div class="plugin-search-result-heading">
+                  <VListItemTitle class="plugin-search-result-name">{{ item.plugin_name }}</VListItemTitle>
+                  <span class="plugin-search-result-version text-caption text-medium-emphasis">
+                    v{{ item.plugin_version }}
+                  </span>
+                  <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" size="small" />
+                </div>
+                <p class="plugin-search-result-description text-body-2 text-medium-emphasis">{{ item.plugin_desc }}</p>
+                <div v-if="item.plugin_label" class="plugin-search-result-labels">
+                  <VChip
+                    v-for="label in pluginLabels(item.plugin_label)"
+                    :key="label"
+                    variant="tonal"
+                    size="small"
+                    color="info"
+                    label
+                  >
+                    {{ label }}
+                  </VChip>
+                </div>
+              </VListItem>
+            </template>
+          </VVirtualScroll>
+        </VList>
+        <div v-else class="plugin-search-empty text-medium-emphasis">{{ t('plugin.noMatchingContent') }}</div>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>
-<style lang="scss">
-.plugin-search-toolbar {
-  padding-inline: 16px;
-  background: transparent !important;
-  box-shadow: none !important;
+<style lang="scss" scoped>
+.plugin-search-dialog {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
-// 搜索属于弹窗内容，使用明暗主题的中性填充，避免全局表单底色和聚焦光晕形成第二块面板。
+// 网页全屏弹窗自行避开系统安全区；原生宿主已消费的边距通过 --native-* 归零。
+.plugin-search-overlay.v-dialog--fullscreen .plugin-search-dialog {
+  padding-block: var(--native-top, env(safe-area-inset-top, 0px)) var(--native-bottom, env(safe-area-inset-bottom, 0px));
+  padding-inline: var(--native-left, env(safe-area-inset-left, 0px))
+    var(--native-right, env(safe-area-inset-right, 0px));
+}
+
+.plugin-search-header {
+  flex: 0 0 auto;
+  padding-block: 8px 0;
+  padding-inline: 16px;
+}
+
+.plugin-search-controls {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  padding-block: 12px;
+  padding-inline: 16px;
+}
+
 .plugin-search-input {
   min-inline-size: 0;
+}
 
-  .v-field {
-    border-radius: 12px !important;
-    background-color: rgba(var(--v-theme-on-surface), 8%) !important;
-    box-shadow: none !important;
-  }
-
-  .v-field__input {
-    padding-block: 10px;
-    min-block-size: 44px;
-  }
-
-  .v-field__prepend-inner {
-    color: rgba(var(--v-theme-on-surface), 60%);
-  }
+.plugin-search-results,
+.plugin-search-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
 }
 
 .plugin-search-list {
+  padding-block: 0;
   border-radius: 0 !important;
+}
+
+.plugin-search-scroll {
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.plugin-search-result {
+  align-items: start;
+  padding-block: 12px;
+  padding-inline: 16px;
+}
+
+.plugin-search-result-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-inline-size: 0;
+}
+
+.plugin-search-result-name {
+  flex: 0 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.plugin-search-result-version {
+  flex: 0 0 auto;
+}
+
+.plugin-search-result-description {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-block: 4px 0;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.plugin-search-result-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block-start: 6px;
+
+  .v-chip {
+    max-inline-size: 100%;
+  }
+}
+
+.plugin-search-empty {
+  padding: 32px 16px;
+  text-align: center;
 }
 </style>
