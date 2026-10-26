@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@vueuse/core'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useNativePageHeader } from '@/native/page'
 
 const TorrentAllFiltersDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentAllFiltersDialog.vue'))
 const TorrentSingleFilterDialog = defineAsyncComponent(
@@ -297,31 +297,42 @@ onUnmounted(() => {
   closeFilterDialog()
 })
 
-/** 两种响应式布局共享原排序声明，方向与字段之间保留原分隔条。 */
-const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
-  key: 'torrent-sort',
-  title: t('file.sort'),
-  items: action => [
-    ...(['asc', 'desc'] as const).map(order =>
-      action(`order:${order}`, {
-        title: t(order === 'asc' ? 'common.ascending' : 'common.descending'),
-        icon: order === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending',
-        color: 'primary',
-        selected: props.sortType === order,
-        invoke: () => emit('update:sortType', order),
-      }),
-    ),
-    { id: 'sort-fields', kind: 'separator' },
-    ...Object.entries(props.sortTitles).map(([key, title]) =>
-      action(`field:${key}`, {
-        title,
-        color: 'primary',
-        selected: props.sortField === key,
-        invoke: () => emit('update:sortField', key),
-      }),
-    ),
-  ],
-}))
+// 排序字段按业务含义选择图标，避免不同选项都退化为排序箭头。
+const sortIcons: Record<string, string> = {
+  default: 'mdi-sort-variant',
+  site: 'mdi-server-network-outline',
+  size: 'mdi-harddisk',
+  seeder: 'mdi-account-group-outline',
+  publishTime: 'mdi-clock-outline',
+}
+
+// 排序属于当前页的系统下拉菜单，原筛选表单仍由 HTML 弹窗处理。
+useNativePageHeader({
+  actions: computed(() => [
+    {
+      title: t('file.sort'),
+      icon: 'mdi-sort-variant',
+      menuItems: [
+        ...(['asc', 'desc'] as const).map(order => ({
+          id: `order-${order}`,
+          title: t(order === 'asc' ? 'common.ascending' : 'common.descending'),
+          icon: order === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending',
+          group: 'direction',
+          selected: props.sortType === order,
+          action: () => emit('update:sortType', order),
+        })),
+        ...Object.entries(props.sortTitles).map(([key, title]) => ({
+          id: `field-${key}`,
+          title,
+          icon: sortIcons[key] || 'mdi-sort-variant',
+          group: 'field',
+          selected: props.sortField === key,
+          action: () => emit('update:sortField', key),
+        })),
+      ],
+    },
+  ]),
+})
 </script>
 
 <template>
@@ -341,14 +352,14 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
             {{ totalFilteredCount }} {{ t('torrent.resources') }}
           </VChip>
 
-          <VBtn variant="text" size="small" class="sort-btn" :color="undefined">
+          <VBtn variant="text" size="small" class="sort-btn" :color="undefined" data-native-page-actions>
             <template #prepend>
               <VIcon :icon="sortType === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'" class="me-1" />
             </template>
             <span class="text-subtitle-2">{{ sortTitles[sortField] }}</span>
             <VIcon icon="mdi-chevron-down" size="16" class="ms-1" />
 
-            <VMenu activator="parent" transition="slide-y-transition" :native-menu="nativeSortMenu">
+            <VMenu activator="parent" transition="slide-y-transition">
               <VList density="compact" min-width="120" class="sort-menu-list">
                 <!-- 升序/降序 选项 -->
                 <VListItem
@@ -394,7 +405,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
             </VMenu>
           </VBtn>
 
-          <div class="filter-divider"></div>
+          <div class="filter-divider" data-native-page-actions></div>
         </div>
 
         <!-- 滚动区域：筛选条件 -->
@@ -529,14 +540,20 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
           </VChip>
 
           <!-- 排序选择 -->
-          <VBtn variant="text" size="small" class="sort-btn mobile-sort-btn" :color="undefined">
+          <VBtn
+            variant="text"
+            size="small"
+            class="sort-btn mobile-sort-btn"
+            :color="undefined"
+            data-native-page-actions
+          >
             <template #prepend>
               <VIcon :icon="sortType === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'" class="me-1" />
             </template>
             <span class="text-subtitle-2">{{ sortTitles[sortField] }}</span>
             <VIcon icon="mdi-chevron-down" size="16" class="ms-1" />
 
-            <VMenu activator="parent" transition="slide-y-transition" :native-menu="nativeSortMenu">
+            <VMenu activator="parent" transition="slide-y-transition">
               <VList density="compact" min-width="120" class="sort-menu-list">
                 <!-- 升序/降序 选项 -->
                 <VListItem

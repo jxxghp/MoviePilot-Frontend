@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/vue'
+import { toValue } from 'vue'
 import { renderWithProviders } from '@tests/support/render'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { nativeStandaloneMenus } from '../standalone'
 import { NativeStandaloneMenuAdapter } from '../standaloneInteraction'
+import { nativePageHeaders } from '../page'
 
 const shared = vi.hoisted(() => ({ open: vi.fn(() => ({ close: vi.fn(), updateProps: vi.fn() })) }))
 vi.mock('@/composables/useSharedDialog', () => ({ openSharedDialog: shared.open }))
@@ -41,6 +43,58 @@ function mobileButton(container: Element, title: string) {
 }
 
 describe('App 原生弹窗中的 HTML 资源筛选表单', () => {
+  it('排序登记为当前页面二级命令菜单，方向与字段沿用原受控事件并撤销失效 owner', async () => {
+    const bind = vi.spyOn(nativeStandaloneMenus, 'bind')
+    const result = await renderWithProviders(TorrentFilterBar, {
+      props: {
+        ...props,
+        sortField: 'publishTime',
+        sortTitles: { default: '默认', site: '站点', size: '大小', seeder: '做种数', publishTime: '发布时间' },
+      },
+    })
+    const header = [...nativePageHeaders.value.values()].at(-1)!
+    const action = toValue(header.actions)![0]
+    expect(action.title).toBe('排序')
+    expect(action.panel).toBeUndefined()
+    const items = action.menuItems!
+    expect(items.map(item => item.title)).toEqual(['升序', '降序', '默认', '站点', '大小', '做种数', '发布时间'])
+    expect(items.map(item => item.icon)).toEqual([
+      'mdi-sort-ascending',
+      'mdi-sort-descending',
+      'mdi-sort-variant',
+      'mdi-server-network-outline',
+      'mdi-harddisk',
+      'mdi-account-group-outline',
+      'mdi-clock-outline',
+    ])
+    expect(items.map(item => item.group)).toEqual([
+      'direction',
+      'direction',
+      'field',
+      'field',
+      'field',
+      'field',
+      'field',
+    ])
+    expect(items.filter(item => item.selected).map(item => item.id)).toEqual(['order-desc', 'field-publishTime'])
+    expect(bind.mock.calls.some(([, binding]) => binding?.key === 'torrent-sort')).toBe(false)
+    expect(result.container.querySelectorAll('.sort-btn[data-native-page-actions]')).toHaveLength(2)
+
+    items[0].action()
+    items[4].action()
+    expect(result.emitted()['update:sortType']).toEqual([['asc']])
+    expect(result.emitted()['update:sortField']).toEqual([['size']])
+    expect(props.sortType).toBe('desc')
+    await result.rerender({ sortType: 'asc', sortField: 'size' })
+    expect(
+      toValue(header.actions)![0]
+        .menuItems!.filter(item => item.selected)
+        .map(item => item.id),
+    ).toEqual(['order-asc', 'field-size'])
+    result.unmount()
+    expect(nativePageHeaders.value.has(header.ownerId)).toBe(false)
+  })
+
   it.each(['站点', '综合筛选'])('已协商原生操作菜单仍打开原 %s HTML 弹窗并复用原回调', async title => {
     const result = await renderFilters()
     const messages: string[] = []

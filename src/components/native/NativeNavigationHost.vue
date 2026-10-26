@@ -168,9 +168,21 @@ const model = computed(() => {
   function appendHeaderActions(buttons: DynamicHeaderTabButton[], ownerId: string, source: string) {
     for (const [index, button] of buttons.entries()) {
       if (toValue(button.show) === false || !hasItemPermission(button, permissions.value)) continue
-      if (!button.action) throw new Error('unsupported_header_action')
+      if (!button.action && !button.menuItems?.length) throw new Error('unsupported_header_action')
       const actionId = `r${revision}:${source}:${index}`
       const loading = Boolean(toValue(button.loading))
+      const menu = button.menuItems?.map(item => {
+        const id = `${actionId}:menu:${item.id}`
+        if (!item.disabled) callbacks.set(id, item.action)
+        return {
+          actionId: id,
+          title: item.title,
+          icon: item.icon,
+          enabled: !item.disabled,
+          selected: item.selected,
+          group: item.group,
+        }
+      })
       const panel = button.panel?.()
       const projection = panel
         ? projectNativePanel(
@@ -196,10 +208,11 @@ const model = computed(() => {
         scope: 'page',
         enabled: !loading && !toValue(button.disabled),
         loading,
+        ...(menu?.length ? { menu } : {}),
         ...(projection ? { panel: projection.panel } : {}),
         ...(button.dataAttr ? { dataAttr: button.dataAttr } : {}),
       })
-      callbacks.set(actionId, button.action)
+      if (button.action) callbacks.set(actionId, button.action)
     }
   }
   if (authenticated.value && header && header.routePath === route.path) {
