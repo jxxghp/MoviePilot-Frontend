@@ -43,7 +43,8 @@
         display: grid;
         flex: 1;
         min-height: 0;
-        place-items: center;
+        /* 系统凭证面板覆盖窗口下半部，图标紧随标题保留在可见区域。 */
+        place-items: start center;
         padding: 24px 24px max(24px, env(safe-area-inset-bottom));
       }
       .native-passkey svg {
