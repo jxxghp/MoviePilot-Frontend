@@ -207,6 +207,28 @@ describe('手势准备、系统关闭和单次业务交接', () => {
     expect(h.invoke).not.toHaveBeenCalled()
   })
 
+  it('系统展示期间 WebKit 重发按下不替换票据，关闭后才接受下一次触摸', async () => {
+    const h = harness()
+    await paint()
+    pointer(h.element, 'pointerdown')
+    await paint()
+    const menu = h.menu()
+    await h.adapter.receive(message(menu, 'cardMenu.opened'))
+    pointer(h.element, 'pointercancel')
+    const count = h.messages.length
+    pointer(h.element, 'pointerdown')
+    await paint()
+    pointer(h.element, 'pointerup')
+    expect(h.messages).toHaveLength(count)
+    expect(h.registry.menus.isCurrent(menu.presentationId)).toBe(true)
+    await h.adapter.receive(message(menu, 'cardMenu.dismissed'))
+    pointer(h.element, 'pointerdown')
+    await paint()
+    expect(h.menu().presentationId).not.toBe(menu.presentationId)
+    expect(h.registry.menus.isCurrent(h.menu().presentationId)).toBe(true)
+    expect(h.invoke).not.toHaveBeenCalled()
+  })
+
   it('选择等待绘制交接，重复系统消息只执行一次原动作', async () => {
     const h = harness()
     await paint()
