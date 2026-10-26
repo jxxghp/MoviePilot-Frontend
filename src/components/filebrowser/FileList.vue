@@ -1372,7 +1372,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   align-content: center;
   flex: 0 0 2rem;
   margin-inline-end: var(--file-scrollbar-width, 0px);
-  padding-inline: 1rem 0.25rem;
+  padding-inline: 1rem 0.5rem;
   gap: 1rem;
   font-size: 0.75rem;
   // 表头不铺底色，只用分隔线与弱化文字区分；玻璃主题下整条底色会显得过曝。
@@ -1402,9 +1402,9 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   opacity: 0;
   transition: opacity 120ms ease;
 }
+.file-list__sort--active .file-list__sort-icon,
 .file-list__sort:hover .file-list__sort-icon,
-.file-list__sort:focus-visible .file-list__sort-icon,
-.file-list__sort--active .file-list__sort-icon {
+.file-list__sort:focus-visible .file-list__sort-icon {
   opacity: 1;
 }
 .file-list__sort:not(.file-list__sort--active):hover .file-list__sort-icon {
@@ -1421,7 +1421,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 }
 .file-row {
   min-block-size: 3.625rem;
-  padding-inline: 1rem 0.25rem;
+  padding-inline: 1rem 0.5rem;
   border-block-end: 1px solid var(--app-grouped-list-separator-color);
   border-radius: 0;
   display: grid;
@@ -1435,17 +1435,37 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   gap: 1rem;
 }
 .file-row :deep(.v-list-item__append) {
+  flex: 0 0 auto;
   inline-size: 2.75rem;
   margin-inline-start: 1rem;
   justify-content: center;
 }
-.file-row:hover,
-.file-row:focus-visible,
-.file-row--active {
-  border-radius: var(--app-control-radius);
+.file-row :deep(.v-list-item__append .v-btn) {
+  flex: 0 0 auto;
+  min-inline-size: 2.75rem;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  padding: 0;
+}
+// 触屏点按不能遗留 Vuetify 的 hover 遮罩；选中与键盘焦点由行本身明确绘制。
+.file-row :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+.file-row:focus-visible {
+  border-radius: 12px;
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 .file-row--active {
+  border-block-end-color: transparent;
+  border-radius: 12px;
   background: var(--app-grouped-list-active-background);
+}
+@media (hover: hover) and (pointer: fine) {
+  .file-row:hover:not(.file-row--active) {
+    border-radius: 12px;
+    background: rgba(var(--v-theme-on-surface), 4%);
+  }
 }
 .file-row__name {
   display: flex;
@@ -1538,8 +1558,8 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   }
   // 窄屏只保留文件名列，大小与时间由 .file-row__meta 在文件名下方展示。
   .file-list__columns {
-    grid-template-columns: minmax(0, 1fr) 2rem;
-    padding-inline: 0.5rem 0;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+    padding-inline: 0.5rem;
     gap: 0.375rem;
     font-size: 0.75rem;
   }
@@ -1551,14 +1571,13 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   }
   .file-row {
     min-block-size: 4rem;
-    padding-inline: 0.5rem 0;
+    padding-inline: 0.5rem;
   }
   .file-row :deep(.v-list-item__content) {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.375rem;
   }
   .file-row :deep(.v-list-item__append) {
-    inline-size: 2rem;
     margin-inline-start: 0.375rem;
   }
   .file-row__name {
@@ -1593,9 +1612,6 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
     font-size: 0.6875rem;
     font-variant-numeric: tabular-nums;
     line-height: 1.3;
-  }
-  .file-row :deep(.v-list-item__append .v-btn) {
-    inline-size: 2rem;
   }
 }
 </style>
