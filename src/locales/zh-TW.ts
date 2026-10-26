@@ -348,6 +348,7 @@ export default {
     exit: '退出',
   },
   systemUpdate: {
+    failedTitle: '更新失敗',
     downloadAllDescription: '檢查並下載最新主程式、配套前端和站點資源，全部驗證完成後再確認重新啟動。',
     installAllDescription: '安裝全部已下載的主程式、配套前端和站點資源，系統只重新啟動一次。',
     applicationAvailableTitle: '發現 MoviePilot 主程式更新',

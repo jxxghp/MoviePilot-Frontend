@@ -360,6 +360,7 @@ export default {
     exit: 'Exit',
   },
   systemUpdate: {
+    failedTitle: 'Update failed',
     downloadAllDescription:
       'Check and download the latest application, matching frontend and site resources before confirming a restart.',
     installAllDescription:

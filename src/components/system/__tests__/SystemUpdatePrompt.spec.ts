@@ -106,6 +106,32 @@ describe('SystemUpdatePrompt', () => {
     }
   }
 
+  it.each(['application', 'resources'] as const)(
+    'shows a failure title while keeping %s retry available',
+    async type => {
+      const failedItem: SystemUpdateItemStatus = {
+        ...availableStatus,
+        type,
+        state: 'failed',
+        error: '下载更新包失败：HTTP 503',
+        can_update: true,
+      }
+      mocks.updateStatus!.value = { ...availableStatus, state: 'failed', updates: [failedItem] }
+      mocks.post.mockResolvedValue({ ...availableStatus, state: 'downloading' })
+
+      await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+      expect(screen.getByText('systemUpdate.failedTitle')).toBeInTheDocument()
+      expect(screen.queryByText('systemUpdate.resourcesAvailableTitle')).not.toBeInTheDocument()
+      expect(screen.queryByText('systemUpdate.applicationAvailableTitle')).not.toBeInTheDocument()
+      expect(screen.getByText('下载更新包失败：HTTP 503')).toBeInTheDocument()
+      await fireEvent.click(screen.getByRole('button', { name: 'common.retry' }))
+      await waitFor(() =>
+        expect(mocks.post).toHaveBeenCalledExactlyOnceWith('system/update/download', { target: type }),
+      )
+    },
+  )
+
   it('uses one existing upgrade button to prepare all updates without a duplicate toolbar', async () => {
     mocks.updateStatus!.value = batchStatus('available', 'available')
     mocks.post.mockResolvedValue(batchStatus('downloading', 'downloading'))

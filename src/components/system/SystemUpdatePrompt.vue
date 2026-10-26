@@ -407,8 +407,9 @@ function pollServiceRecovery(attempt = 0) {
   )
 }
 
-/** 根据更新类型和准备阶段选择提示框标题。 */
+/** 失败阶段优先展示操作结果，允许重试不代表仍处于发现更新阶段。 */
 function titleFor(item: SystemUpdateItemStatus): string {
+  if (item.state === 'failed') return t('systemUpdate.failedTitle')
   if (item.type === 'resources')
     return item.state === 'ready' ? t('systemUpdate.resourcesReadyTitle') : t('systemUpdate.resourcesAvailableTitle')
   return item.state === 'ready' ? t('systemUpdate.applicationReadyTitle') : t('systemUpdate.applicationAvailableTitle')
