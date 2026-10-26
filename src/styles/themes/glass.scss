@@ -17,7 +17,10 @@ html[data-theme='plain'] {
     background-color: rgb(var(--v-theme-surface));
   }
 
-  body .layout-wrapper.layout-nav-type-vertical.layout-navbar-fixed .layout-navbar,
+  body .layout-wrapper.layout-nav-type-vertical.layout-navbar-fixed .layout-navbar {
+    background: rgb(var(--v-theme-surface)) !important;
+  }
+
   body .footer-nav-card {
     -webkit-backdrop-filter: blur(12px) !important;
     backdrop-filter: blur(12px) !important;
