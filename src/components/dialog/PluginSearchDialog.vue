@@ -141,26 +141,6 @@ function closeDialog() {
   box-shadow: none !important;
 }
 
-// 搜索属于弹窗内容，使用明暗主题的中性填充，避免全局表单底色和聚焦光晕形成第二块面板。
-.plugin-search-input {
-  min-inline-size: 0;
-
-  .v-field {
-    border-radius: 12px !important;
-    background-color: rgba(var(--v-theme-on-surface), 8%) !important;
-    box-shadow: none !important;
-  }
-
-  .v-field__input {
-    padding-block: 10px;
-    min-block-size: 44px;
-  }
-
-  .v-field__prepend-inner {
-    color: rgba(var(--v-theme-on-surface), 60%);
-  }
-}
-
 .plugin-search-list {
   border-radius: 0 !important;
 }
