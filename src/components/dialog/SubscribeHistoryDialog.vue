@@ -35,6 +35,7 @@ const currData = ref<Subscribe[]>([])
 
 // 当前页
 const currentPage = ref(1)
+let historyGeneration = 0
 
 // 每页数量
 const pageSize = ref(30)
@@ -59,16 +60,22 @@ async function loadHistory({ done }: { done: any }) {
     return
   }
 
+  const generation = historyGeneration
   // 调用API查询列表
   try {
     // 设置加载中
     loading.value = true
-    currData.value = await api.get(`subscribe/history/${props.type}`, {
+    const pageData: Subscribe[] = await api.get(`subscribe/history/${props.type}`, {
       params: {
         page: currentPage.value,
         count: pageSize.value,
       },
     })
+    if (generation !== historyGeneration) {
+      done('ok')
+      return
+    }
+    currData.value = pageData
     // 标计为已请求完成
     isRefreshed.value = true
     if (currData.value.length === 0) {
@@ -76,18 +83,23 @@ async function loadHistory({ done }: { done: any }) {
       done('empty')
     } else {
       // 合并数据
-      historyList.value = [...historyList.value, ...currData.value]
+      const existing = new Set(historyList.value.map(item => item.id))
+      historyList.value = [...historyList.value, ...currData.value.filter(item => !existing.has(item.id))]
       // 页码+1
       currentPage.value++
       // 返回加载成功
       done('ok')
     }
   } catch (e) {
+    if (generation !== historyGeneration) {
+      done('ok')
+      return
+    }
     console.error(e)
     // 返回加载失败
     done('error')
   } finally {
-    loading.value = false
+    if (generation === historyGeneration) loading.value = false
   }
 }
 
@@ -111,11 +123,18 @@ async function reSubscribe(item: Subscribe) {
   progressDialog.value = false
 }
 
+onBeforeUnmount(() => {
+  historyGeneration++
+})
+
 // 删除记录
 async function deleteHistory(item: Subscribe) {
   try {
     await api.delete(`subscribe/history/${item.id}`, { feedback: 'silent' })
     historyList.value = historyList.value.filter(i => i.id !== item.id)
+    historyGeneration++
+    loading.value = false
+    currentPage.value = Math.floor(historyList.value.length / pageSize.value) + 1
   } catch (e) {
     console.error(e)
     $toast.error(t('subscribe.requestFailed'))

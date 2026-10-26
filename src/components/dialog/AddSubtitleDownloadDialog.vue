@@ -62,6 +62,15 @@ const showAdvancedOptions = ref(!initialMediaId)
 // 当前数据源的原生媒体ID
 const selectedMediaId = ref<string | undefined>(initialMediaId)
 
+// 不同来源的原生 ID 不可复用；同步清理以覆盖同一事件内立即提交。
+watch(
+  mediaSource,
+  () => {
+    selectedMediaId.value = undefined
+  },
+  { flush: 'sync' },
+)
+
 const normalizedMediaId = computed(() => selectedMediaId.value?.trim() || undefined)
 const hasValidMediaIdentity = computed(
   () => Boolean(normalizedMediaId.value) && isValidMediaSourceId(normalizedMediaId.value, mediaSource.value),

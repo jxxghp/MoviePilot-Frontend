@@ -40,6 +40,18 @@ describe('NotificationChannelInfoDialog', () => {
     })
   })
 
+  it('空渠道名校验使用已存在的本地化消息', async () => {
+    const onChange = vi.fn()
+    const notification = { ...webPushNotification, name: '   ' }
+    await renderWithProviders(NotificationChannelInfoDialog, {
+      props: { modelValue: true, notification, notifications: [notification], onChange },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(mocks.toastError).toHaveBeenCalledWith('请输入名称')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('自动接入不要求填写密钥，修改草稿地址后禁止轮换旧中心的凭据', async () => {
     const notification = { id: 'app-auto', name: '手机通知', type: 'apppush', enabled: true, config: {} }
     await renderWithProviders(NotificationChannelInfoDialog, {

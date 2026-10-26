@@ -32,24 +32,42 @@ const alertType = ref<'success' | 'info' | 'error' | 'warning' | undefined>('inf
 // timeout定时器
 let timeoutTimer: NodeJS.Timeout | undefined = undefined
 
+let disposed = false
+const authController = new AbortController()
+
+/** 关闭后立即撤销整个授权会话，而不只取消已经建立的定时器。 */
+function cleanup() {
+  disposed = true
+  authController.abort()
+  clearTimeout(timeoutTimer)
+}
+function handleClose() {
+  cleanup()
+  emit('close')
+}
+
 // 完成
 async function handleDone() {
-  clearTimeout(timeoutTimer)
+  if (disposed) return
+  cleanup()
   emit('done')
 }
 
 // 调用存储统一管理接口生成二维码
 async function getQrcode() {
+  if (disposed) return
   try {
     const result = await manageStorage<{ codeUrl: string }>(
       'alipan',
       'generate_qrcode',
       {},
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: authController.signal },
     )
+    if (disposed) return
     qrCodeUrl.value = result.codeUrl
     timeoutTimer = setTimeout(checkQrcode, 3000)
   } catch (e) {
+    if (disposed) return
     console.error(e)
     text.value = e instanceof Error ? e.message : t('common.apiRequestFailed')
   }
@@ -57,13 +75,15 @@ async function getQrcode() {
 
 // 调用存储统一管理接口验证二维码
 async function checkQrcode() {
+  if (disposed) return
   try {
     const result = await manageStorage<{ status: string; tip: string }>(
       'alipan',
       'check_login',
       {},
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: authController.signal },
     )
+    if (disposed) return
     const qrCodeStatus = result.status
     text.value = result.tip
     if (qrCodeStatus == 'LoginSuccess') {
@@ -80,6 +100,7 @@ async function checkQrcode() {
       alertType.value = 'error'
     }
   } catch (e) {
+    if (disposed) return
     console.error(e)
     alertType.value = 'error'
     text.value = e instanceof Error ? e.message : t('common.apiRequestFailed')
@@ -88,12 +109,15 @@ async function checkQrcode() {
 
 // 重置配置
 async function handleReset() {
+  if (disposed) return
   try {
-    await manageStorage('alipan', 'reset_config', {}, { feedback: 'silent' })
+    await manageStorage('alipan', 'reset_config', {}, { feedback: 'silent', signal: authController.signal })
+    if (disposed) return
     // 重置成功
     alertType.value = 'success'
     handleDone()
   } catch (e) {
+    if (disposed) return
     console.error(e)
     alertType.value = 'error'
     text.value = e instanceof Error ? e.message : t('common.apiRequestFailed')
@@ -104,15 +128,13 @@ onMounted(async () => {
   await getQrcode()
 })
 
-onUnmounted(() => {
-  if (timeoutTimer) clearTimeout(timeoutTimer)
-})
+onBeforeUnmount(cleanup)
 </script>
 
 <template>
   <VDialog width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard>
-      <VDialogCloseBtn @click="emit('close')" />
+      <VDialogCloseBtn @click="handleClose" />
       <VCardItem>
         <template #prepend>
           <VIcon icon="mdi-qrcode" class="me-2" />

@@ -324,7 +324,13 @@ async function addUser() {
   isAdding.value = true
   startNProgress()
   try {
-    await api.post<null>('user/', userForm.value, { feedback: 'silent' })
+    const { nickname, ...form } = userForm.value
+    const payload = {
+      ...form,
+      avatar: currentAvatar.value,
+      settings: { ...form.settings, nickname: nickname ?? '' },
+    }
+    await api.post<null>('user/', payload, { feedback: 'silent' })
     $toast.success(t('dialog.userAddEdit.userCreated', { name: userForm.value.name }))
     emit('save')
   } catch (error) {

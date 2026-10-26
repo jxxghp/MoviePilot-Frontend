@@ -36,9 +36,15 @@ const alertType = ref<'success' | 'info' | 'error' | 'warning'>('info')
 // 授权窗口引用
 let authWindow: Window | null = null
 let pollTimer: NodeJS.Timeout | undefined
+let disposed = false
+let authGeneration = 0
+let authController = new AbortController()
 
 // 清理资源
 function cleanup() {
+  authGeneration++
+  authController.abort()
+  authController = new AbortController()
   if (pollTimer) {
     clearTimeout(pollTimer)
     pollTimer = undefined
@@ -57,17 +63,22 @@ function setMessage(type: typeof alertType.value, message: string) {
 
 // 完成授权
 function handleDone() {
+  if (disposed) return
   cleanup()
   emit('done')
 }
 
 // 重置配置
 async function handleReset() {
+  if (disposed) return
+  const generation = authGeneration
   try {
-    await manageStorage('u115', 'reset_config', {}, { feedback: 'silent' })
+    await manageStorage('u115', 'reset_config', {}, { feedback: 'silent', signal: authController.signal })
+    if (disposed || generation !== authGeneration) return
     setMessage('success', t('dialog.u115Auth.authSuccess'))
     handleDone()
   } catch (error) {
+    if (disposed || generation !== authGeneration) return
     console.error('Reset failed:', error)
     setMessage('error', error instanceof Error ? error.message : t('dialog.u115Auth.authFailed'))
   }
@@ -75,16 +86,20 @@ async function handleReset() {
 
 // 获取授权URL
 async function fetchAuthUrl() {
+  if (disposed) return
+  const generation = authGeneration
   try {
     const result = await manageStorage<{ authUrl: string; state: string }>(
       'u115',
       'generate_auth_url',
       {},
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: authController.signal },
     )
+    if (disposed || generation !== authGeneration) return
     authUrl.value = result.authUrl
     authState.value = result.state
   } catch (error) {
+    if (disposed || generation !== authGeneration) return
     console.error('Fetch auth URL failed:', error)
     setMessage('error', error instanceof Error ? error.message : t('dialog.u115Auth.urlFetchFailed'))
   }
@@ -92,6 +107,8 @@ async function fetchAuthUrl() {
 
 // 打开授权窗口
 function openAuthWindow() {
+  if (disposed) return
+  cleanup()
   if (!authUrl.value) {
     setMessage('error', t('dialog.u115Auth.urlEmpty'))
     return
@@ -124,13 +141,16 @@ function openAuthWindow() {
 
 // 检查授权状态
 async function checkAuthStatus() {
+  if (disposed) return
+  const generation = authGeneration
   try {
     const result = await manageStorage<{ status: number; tip?: string }>(
       'u115',
       'check_login',
       {},
-      { feedback: 'silent' },
+      { feedback: 'silent', signal: authController.signal },
     )
+    if (disposed || generation !== authGeneration) return
     const { status, tip } = result
 
     if (status === AUTH_STATUS_SUCCESS) {
@@ -149,10 +169,12 @@ async function checkAuthStatus() {
 
     // status === 0 或 1，继续等待
   } catch (error) {
+    if (disposed || generation !== authGeneration) return
     console.error('Check auth status failed:', error)
   }
 
   // 检查窗口是否被用户关闭
+  if (disposed || generation !== authGeneration) return
   if (authWindow?.closed) {
     setMessage('warning', t('dialog.u115Auth.authCanceled'))
     cleanup()
@@ -163,12 +185,19 @@ async function checkAuthStatus() {
   pollTimer = setTimeout(checkAuthStatus, POLL_INTERVAL)
 }
 
+function handleClose() {
+  disposed = true
+  cleanup()
+  emit('close')
+}
+
 // 生命周期钩子
 onMounted(() => {
   fetchAuthUrl()
 })
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
+  disposed = true
   cleanup()
 })
 </script>
@@ -176,7 +205,7 @@ onUnmounted(() => {
 <template>
   <VDialog width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard>
-      <VDialogCloseBtn @click="emit('close')" />
+      <VDialogCloseBtn @click="handleClose" />
 
       <VCardItem>
         <template #prepend>

@@ -457,6 +457,7 @@ const episodeGroups = ref<{ [key: string]: any }[]>([])
 const episodeGroupLoading = ref(false)
 
 // 剧集组查询防抖句柄
+let episodeGroupRequestId = 0
 let episodeGroupQueryTimer: ReturnType<typeof setTimeout> | undefined
 
 // 查询存储
@@ -533,20 +534,24 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
 
 // 查询指定 TMDB 剧集的所有剧集组。
 async function getEpisodeGroups(tmdbId?: number | string) {
+  const requestId = ++episodeGroupRequestId
   const normalizedTmdbId = Number(tmdbId)
   if (!Number.isInteger(normalizedTmdbId) || normalizedTmdbId <= 0) {
     episodeGroups.value = []
+    episodeGroupLoading.value = false
     return
   }
 
   episodeGroupLoading.value = true
   try {
-    episodeGroups.value = await api.get(`media/groups/${normalizedTmdbId}`)
+    const groups = await api.get<typeof episodeGroups.value>(`media/groups/${normalizedTmdbId}`)
+    if (requestId === episodeGroupRequestId) episodeGroups.value = groups
   } catch (error) {
+    if (requestId !== episodeGroupRequestId) return
     console.error(error)
     episodeGroups.value = []
   } finally {
-    episodeGroupLoading.value = false
+    if (requestId === episodeGroupRequestId) episodeGroupLoading.value = false
   }
 }
 
@@ -793,27 +798,20 @@ watch(
   },
 )
 
-// 监听媒体编号变化，仅在TMDB电视剧场景加载剧集组。
+// 同步撤销上一媒体的查询，防抖等待期间也不得接收旧结果。
 watch(
-  () => transferForm.media_id,
-  mediaId => {
+  [() => transferForm.media_id, () => transferForm.type_name, () => mediaSource.value],
+  ([mediaId, typeName, source]) => {
+    episodeGroupRequestId++
+    episodeGroupLoading.value = false
     transferForm.episode_group = null
     episodeGroups.value = []
     if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
-    if (transferForm.type_name !== '电视剧' || mediaSource.value !== 'themoviedb') return
+    if (typeName !== '电视剧' || source !== 'themoviedb') return
     episodeGroupQueryTimer = setTimeout(() => getEpisodeGroups(mediaId ?? undefined), 400)
   },
+  { flush: 'sync' },
 )
-
-// 切换媒体类型或识别源时，非 TMDB 电视剧不保留剧集组选择。
-watch([() => transferForm.type_name, () => mediaSource.value], ([typeName, source]) => {
-  if (typeName === '电视剧' && source === 'themoviedb' && transferForm.media_id) {
-    getEpisodeGroups(transferForm.media_id)
-    return
-  }
-  transferForm.episode_group = null
-  episodeGroups.value = []
-})
 
 // 切换媒体类型时，若当前数据源与新类型不兼容则回退到自动，
 // 避免音乐源在影视整理中残留；音乐类型未显式选择来源时由 mediaSource 兜底为 MusicBrainz。
@@ -1991,6 +1989,11 @@ onMounted(async () => {
   await Promise.all([loadDirectories(), loadManualTransferHistory(), loadTargetPathMatch()])
   loadStorages()
   loadEpisodeFormatRuleConfiguration()
+})
+
+onBeforeUnmount(() => {
+  episodeGroupRequestId++
+  if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
 })
 
 onUnmounted(() => {

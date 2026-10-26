@@ -450,7 +450,7 @@ describe('SubscribeSeasonDialog', () => {
     expect(consoleError).toHaveBeenCalledOnce()
   })
 
-  it('keeps season selection usable when the missing-state request fails', async () => {
+  it('keeps season selection usable after a missing-state failure but requires an explicit normal mode', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const media = createTvMedia({ tmdb_id: 7313 })
     const missingRequested = vi.fn()
@@ -466,6 +466,9 @@ describe('SubscribeSeasonDialog', () => {
     await waitFor(() => expect(missingRequested).toHaveBeenCalledOnce())
     await settleRequests()
     await user.click(seasonRow(1))
+    expect(screen.getByRole('button', { name: '提交订阅' })).toBeDisabled()
+    expect(screen.getByText('未知')).toBeInTheDocument()
+    await user.click(within(seasonRow(1)).getByRole('button', { name: '普通订阅' }))
     await user.click(screen.getByRole('button', { name: '提交订阅' }))
 
     expect(events.subscribe).toHaveBeenCalledOnce()

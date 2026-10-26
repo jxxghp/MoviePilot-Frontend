@@ -214,6 +214,7 @@ async function requestResourcePage(page: number, requestId: number): Promise<Tor
 // 重新查询第一页，保留旧结果直到新请求成功，避免搜索时内容突然空白。
 async function getResourceList(): Promise<void> {
   const requestId = ++resourceRequestId
+  resourceLoadingMore.value = false
   resourceLoading.value = true
   resourceError.value = false
   resourceLoadMoreError.value = false
@@ -296,6 +297,10 @@ async function getSiteCategoryList(): Promise<void> {
     console.error(error)
   }
 }
+
+onBeforeUnmount(() => {
+  resourceRequestId++
+})
 
 // 装载时同时初始化分类和第一页资源。
 onMounted(() => {

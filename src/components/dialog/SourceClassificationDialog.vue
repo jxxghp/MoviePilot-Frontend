@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toDownloadDirectoryValue, type DownloadDirectoryOption } from '@/utils/downloadDirectory'
 import api, { getApiBusinessErrorMessage } from '@/api'
 import type { DownloadHistory, MediaDataSource, MusicEntityType } from '@/api/types'
 import MediaIdSelector from '@/components/misc/MediaIdSelector.vue'
@@ -47,6 +48,12 @@ const mediaId = ref(props.task.media_id || '')
 const musicType = ref<MusicEntityType>(props.task.music_type === 'artist' ? 'artist' : 'album')
 const episodeGroup = ref('')
 const targetPath = ref('')
+const targetPathSelection = computed({
+  get: () => targetPath.value,
+  set: (value: string | DownloadDirectoryOption | null) => {
+    targetPath.value = toDownloadDirectoryValue(value) ?? ''
+  },
+})
 const targetPathItems = ref<{ title: string; value: string }[]>([])
 const smartRename = ref(true)
 const selectorVisible = ref(false)
@@ -197,7 +204,8 @@ async function submit(execute = false) {
           </VCol>
           <VCol v-if="mode === 'manual'" cols="12">
             <VCombobox
-              v-model="targetPath"
+              v-model="targetPathSelection"
+              :return-object="false"
               :items="targetPathItems"
               label="目标资源目录"
               placeholder="/volume1/UT/Musics/Album"

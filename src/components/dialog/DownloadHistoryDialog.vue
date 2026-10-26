@@ -20,6 +20,7 @@ const $toast = useToast()
 
 const historyList = ref<DownloadHistory[]>([])
 const currentPage = ref(1)
+let historyGeneration = 0
 const pageSize = 30
 const loading = ref(false)
 const isRefreshed = ref(false)
@@ -32,6 +33,7 @@ async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') 
     return
   }
 
+  const generation = historyGeneration
   try {
     loading.value = true
     const currentData: DownloadHistory[] = await api.get('history/download', {
@@ -40,6 +42,10 @@ async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') 
         count: pageSize,
       },
     })
+    if (generation !== historyGeneration) {
+      done('ok')
+      return
+    }
     isRefreshed.value = true
 
     if (currentData.length === 0) {
@@ -47,22 +53,34 @@ async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') 
       return
     }
 
-    historyList.value = [...historyList.value, ...currentData]
+    const existing = new Set(historyList.value.map(item => item.id))
+    historyList.value = [...historyList.value, ...currentData.filter(item => !existing.has(item.id))]
     currentPage.value++
     done('ok')
   } catch (error) {
+    if (generation !== historyGeneration) {
+      done('ok')
+      return
+    }
     console.error(error)
     done('error')
   } finally {
-    loading.value = false
+    if (generation === historyGeneration) loading.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  historyGeneration++
+})
 
 /** 删除指定下载历史，并在成功后同步移除当前列表项。 */
 async function deleteHistory(item: DownloadHistory) {
   try {
     await api.delete('history/download', { data: item, feedback: 'silent' })
     historyList.value = historyList.value.filter(history => history.id !== item.id)
+    historyGeneration++
+    loading.value = false
+    currentPage.value = Math.floor(historyList.value.length / pageSize) + 1
   } catch (error) {
     console.error(error)
     $toast.error(t('dialog.downloadHistory.deleteFailed'))
