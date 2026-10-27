@@ -5203,6 +5203,7 @@ export default {
     projectHome: '项目主页',
     versionHistory: '版本历史',
     documentation: '使用说明',
+    viewDocumentation: '查看文档',
     releaseVersionsLoadFailed: 'Release 版本加载失败',
     latestVersion: '最新',
     currentVersion: '当前',

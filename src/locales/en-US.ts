@@ -5341,6 +5341,7 @@ export default {
     projectHome: 'Project Home',
     versionHistory: 'Version History',
     documentation: 'Documentation',
+    viewDocumentation: 'Read docs',
     releaseVersionsLoadFailed: 'Failed to load Release versions',
     latestVersion: 'Latest',
     currentVersion: 'Current',
