@@ -3,17 +3,18 @@ import { getTorrentTitle, isMusicResource, isUnconfirmedResource } from '@/utils
 import { cloneDeepWith } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 
-// 卡片视图的分组数据类型
+/** 卡片视图中的资源及同组备选资源。 */
 interface SearchTorrent extends Context {
   more?: Array<Context>
 }
 
+/** 分组资源及其用于批量操作的原始位置。 */
 interface GroupedItem {
   data: SearchTorrent
   originalIndex: number
 }
 
-// 筛选状态类型
+/** 可恢复的搜索筛选与排序状态，兼容未包含新增维度的旧状态。 */
 export interface FilterState {
   filterForm: Record<string, string[]>
   filterOptions: Record<string, string[]>
@@ -21,7 +22,7 @@ export interface FilterState {
   sortType: 'asc' | 'desc'
 }
 
-// useTorrentFilter composable
+/** 统一管理列表和卡片视图的级联筛选、分组、排序及状态恢复。 */
 export function useTorrentFilter() {
   const { t } = useI18n()
 
@@ -34,6 +35,8 @@ export function useTorrentFilter() {
     freeState: [] as string[],
     edition: [] as string[],
     resolution: [] as string[],
+    webSource: [] as string[],
+    chineseSubtitle: [] as string[],
   })
 
   // 统一存储过滤选项
@@ -45,6 +48,8 @@ export function useTorrentFilter() {
     resolution: [] as string[],
     videoCode: [] as string[],
     releaseGroup: [] as string[],
+    webSource: [] as string[],
+    chineseSubtitle: [] as string[],
   })
 
   // 排序字段
@@ -56,6 +61,8 @@ export function useTorrentFilter() {
   const filterTitles: Record<string, string> = {
     site: t('torrent.filterSite'),
     season: t('torrent.filterSeason'),
+    webSource: t('torrent.filterWebSource'),
+    chineseSubtitle: t('torrent.filterChineseSubtitle'),
     freeState: t('torrent.filterFreeState'),
     videoCode: t('torrent.filterVideoCode'),
     edition: t('torrent.filterEdition'),
@@ -87,10 +94,13 @@ export function useTorrentFilter() {
     freeState: data => data.torrent_info?.volume_factor,
     edition: data => data.meta_info?.edition,
     resolution: data => data.meta_info?.resource_pix,
+    webSource: data => data.meta_info?.web_source,
+    // 与资源卡片使用相同的站点标签，不从片名或国语标签推断字幕。
+    chineseSubtitle: data => (data.torrent_info?.labels?.includes('中字') ? '中字' : undefined),
   }
   const filterKeys = Object.keys(filterValueGetters)
 
-  // 直接对季集选项进行排序的函数
+  /** 将整季排在单集前，同类按季号和集号降序稳定排列。 */
   function sortSeasonOptions() {
     if (filterOptions.season.length <= 1) {
       return
@@ -154,35 +164,37 @@ export function useTorrentFilter() {
     filterOptions.season = sortedOptions
   }
 
-  // 匹配过滤函数
+  /** 空条件不过滤，同一维度的多个选项按并集匹配。 */
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (!!value && filter.includes(value))
 
-  // 搜索结果必须同时包含可展示的元数据和种子信息。
+  /** 搜索结果必须同时包含可展示的元数据和种子信息。 */
   function isRenderableContext(data: Context | null | undefined): data is Context {
     return Boolean(data?.meta_info && data?.torrent_info)
   }
 
-  // 资源是否满足某个维度当前选中的筛选条件
+  /** 使用与选项收集相同的字段口径匹配单一维度。 */
   function matchesFilter(key: string, data: Context) {
     return match(filterForm[key], filterValueGetters[key](data))
   }
 
-  // 资源是否同时满足全部维度的筛选条件
+  /** 不同维度按交集匹配，列表和卡片分组共用相同条件。 */
   function matchesAllFilters(data: Context) {
     return filterKeys.every(key => matchesFilter(key, data))
   }
 
-  // 清空全部过滤选项
+  /** 无资源时清空可选项，保留用户的已选条件。 */
   function resetOptions() {
     for (const key of filterKeys) {
       filterOptions[key] = []
     }
   }
 
-  // 级联收集过滤选项：每个维度只提供“满足其余维度筛选条件”的资源取值，自身维度不参与约束。
-  // 例如选中促销=免费后，站点选项只剩仍有免费资源的站点，而促销维度本身仍可切换或多选。
-  // 已选中的值始终保留在选项中，保证对应筹码可见、可取消，不会因其他维度收窄而静默丢失。
+  /**
+   * 每个维度只收集满足其余维度条件的资源取值，自身维度不参与约束。
+   * 例如选中免费后，站点选项只保留仍有免费资源的站点，促销本身仍可切换或多选。
+   * 已选值始终可见、可取消，不会因其他维度收窄而静默丢失。
+   */
   function collectOptions(items: Context[]) {
     const collected: Record<string, Set<string>> = {}
     for (const key of filterKeys) {
@@ -212,7 +224,7 @@ export function useTorrentFilter() {
     sortSeasonOptions()
   }
 
-  // 续页按原始数组位置保留展示顺序，不比较或合并资源身份。
+  /** 续页按原始数组位置保留展示顺序，不比较或合并资源身份。 */
   function keepDisplayOrder<T>(data: T[], indices: Map<T, number[]>, previous: number[]): T[] {
     const order = new Map(previous.map((index, position) => [index, position]))
     return data.sort(
@@ -221,7 +233,7 @@ export function useTorrentFilter() {
     )
   }
 
-  // 筛选列表视图数据（不分组）；续页追加时保留已展示记录的位置。
+  /** 筛选列表视图数据（不分组）；续页追加时保留已展示记录的位置。 */
   function filterRowData(items: Context[] | undefined, append: boolean = false): Context[] {
     const previous = filteredIndices.value
     // 重置状态
@@ -259,7 +271,7 @@ export function useTorrentFilter() {
     return filteredData
   }
 
-  // 筛选卡片视图数据（分组）；续页只保持展示顺序，沿用原有分组。
+  /** 筛选卡片视图数据（分组）；续页只保持展示顺序，沿用原有分组。 */
   function filterCardData(items: Context[] | undefined, append: boolean = false): SearchTorrent[] {
     const previous = filteredIndices.value
     // 重置状态
@@ -332,12 +344,12 @@ export function useTorrentFilter() {
     return sortedData
   }
 
-  // 排序列表数据
+  /** 按当前字段和方向排列匹配后的资源。 */
   function sortData(data: Context[]): Context[] {
     const sortOrder = sortType.value === 'asc' ? 1 : -1
 
     return data.sort((a, b) => {
-      let result = 0
+      let result: number
       switch (sortField.value) {
         case 'site':
           result = (a.torrent_info.site_name || '').localeCompare(b.torrent_info.site_name || '')
@@ -360,7 +372,7 @@ export function useTorrentFilter() {
     })
   }
 
-  // 排序卡片数据
+  /** 默认顺序保留分组位置，其他字段按组内首个匹配资源排序。 */
   function sortCardData(data: SearchTorrent[]): SearchTorrent[] {
     if (sortField.value === 'default') {
       return data
@@ -406,7 +418,7 @@ export function useTorrentFilter() {
     return filters
   })
 
-  // 移除单个过滤条件
+  /** 移除单个过滤条件 */
   function removeFilter(key: string, value: string) {
     const index = filterForm[key].indexOf(value)
     if (index !== -1) {
@@ -414,24 +426,24 @@ export function useTorrentFilter() {
     }
   }
 
-  // 清除所有过滤条件
+  /** 清除所有过滤条件 */
   function clearAllFilters() {
     for (const key in filterForm) {
       filterForm[key] = []
     }
   }
 
-  // 清除某个过滤项
+  /** 清除某个过滤项 */
   function clearFilter(key: string) {
     filterForm[key] = []
   }
 
-  // 全选某个过滤项
+  /** 复制当前可选值，避免已选条件与联动选项共享数组。 */
   function selectAll(key: string) {
     filterForm[key] = [...filterOptions[key]]
   }
 
-  // 给定过滤类型返回不同图标
+  /** 给定过滤类型返回不同图标 */
   function getFilterIcon(key: string) {
     const icons: Record<string, string> = {
       site: 'mdi-server-network',
@@ -441,21 +453,23 @@ export function useTorrentFilter() {
       videoCode: 'mdi-video-vintage',
       edition: 'mdi-quality-high',
       releaseGroup: 'mdi-account-group-outline',
+      webSource: 'mdi-television-play',
+      chineseSubtitle: 'mdi-subtitles-outline',
     }
     return icons[key] || 'mdi-filter-variant'
   }
 
-  // 处理排序图标点击
+  /** 处理排序图标点击 */
   const handleSortIconClick = () => {
     sortType.value = sortType.value === 'asc' ? 'desc' : 'asc'
   }
 
-  // 获取筛选后的原始索引列表
+  /** 获取筛选后的原始索引列表 */
   function getFilteredIndices() {
     return filteredIndices.value
   }
 
-  // 检查是否有活动的筛选条件
+  /** 检查是否有活动的筛选条件 */
   function hasActiveFilters() {
     for (const key in filterForm) {
       if (filterForm[key] && filterForm[key].length > 0) {
@@ -465,7 +479,7 @@ export function useTorrentFilter() {
     return false
   }
 
-  // 获取当前筛选条件
+  /** 获取当前筛选条件 */
   function getFilterForm() {
     const filters: Record<string, string[]> = {}
     for (const key in filterForm) {
@@ -474,14 +488,14 @@ export function useTorrentFilter() {
     return filters
   }
 
-  // 设置筛选条件
+  /** 复制筛选条件，旧快照缺少的新维度按未选择恢复。 */
   function setFilterForm(filters: Record<string, string[]>) {
     for (const key in filterForm) {
       filterForm[key] = filters[key] ? [...filters[key]] : []
     }
   }
 
-  // 获取完整的筛选状态
+  /** 获取完整的筛选状态 */
   function getFilterState(): FilterState {
     return {
       filterForm: getFilterForm(),
@@ -491,7 +505,7 @@ export function useTorrentFilter() {
     }
   }
 
-  // 设置完整的筛选状态
+  /** 设置完整的筛选状态 */
   function setFilterState(state: FilterState) {
     setFilterForm(state.filterForm)
     sortField.value = state.sortField

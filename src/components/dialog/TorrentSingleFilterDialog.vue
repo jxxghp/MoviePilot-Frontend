@@ -35,7 +35,7 @@ const visible = computed({
 const filterValues = computed(() => props.filterForm[props.filterKey] ?? [])
 const options = computed(() => props.filterOptions[props.filterKey] ?? [])
 
-// 给定过滤类型返回不同图标。
+/** 为移动端单项筛选显示对应分类图标。 */
 function getFilterIcon(key: string) {
   const icons: Record<string, string> = {
     site: 'mdi-server-network',
@@ -45,11 +45,13 @@ function getFilterIcon(key: string) {
     videoCode: 'mdi-video-vintage',
     edition: 'mdi-quality-high',
     releaseGroup: 'mdi-account-group-outline',
+    webSource: 'mdi-television-play',
+    chineseSubtitle: 'mdi-subtitles-outline',
   }
   return icons[key] || 'mdi-filter-variant'
 }
 
-// 将当前筛选值变化回传给过滤条。
+/** 将当前筛选值变化回传给过滤条，复用页面的筛选结果。 */
 function updateFilter(values: string[]) {
   emit('update:filterForm', props.filterKey, values)
 }

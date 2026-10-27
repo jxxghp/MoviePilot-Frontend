@@ -2014,6 +2014,8 @@ export default {
     sortPublishTime: '发布时间',
     filterSite: '站点',
     filterSeason: '季',
+    filterWebSource: '源',
+    filterChineseSubtitle: '中字',
     filterFreeState: '促销状态',
     filterVideoCode: '视频编码',
     filterEdition: '质量',

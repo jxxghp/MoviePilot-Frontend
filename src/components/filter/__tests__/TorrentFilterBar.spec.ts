@@ -102,6 +102,7 @@ const defaultProps = {
   totalFilteredCount: 2,
 }
 
+/** 使用受控表单渲染过滤条，菜单边界由轻量替身负责。 */
 async function renderFilterBar() {
   return renderWithProviders(TorrentFilterBar, {
     props: defaultProps,
@@ -118,6 +119,41 @@ describe('TorrentFilterBar', () => {
         ? { close: mocks.closeSingle, id: 1, updateProps: mocks.updateSingle }
         : { close: mocks.closeAll, id: 2, updateProps: mocks.updateAll }
     })
+  })
+
+  it('offers source and Chinese subtitle filters on desktop, mobile and the combined dialog', async () => {
+    const props = {
+      ...defaultProps,
+      filterForm: { ...defaultProps.filterForm, webSource: [], chineseSubtitle: [] },
+      filterOptions: { ...defaultProps.filterOptions, webSource: ['Netflix', 'Disney+'], chineseSubtitle: ['中字'] },
+      filterTitles: { ...defaultProps.filterTitles, webSource: '源', chineseSubtitle: '中字' },
+    }
+    const result = await renderWithProviders(TorrentFilterBar, { props, global: { stubs: componentStubs } })
+    const desktopButtons = Array.from(result.container.querySelectorAll('.filter-bar > .filter-btn'))
+    expect(desktopButtons.some(button => button.textContent?.trim().startsWith('源'))).toBe(true)
+    expect(desktopButtons.some(button => button.textContent?.trim().startsWith('中字'))).toBe(true)
+
+    const mobileButtons = Array.from(result.container.querySelectorAll<HTMLButtonElement>('.filter-btn-mobile'))
+    await fireEvent.click(mobileButtons.find(button => button.textContent?.trim() === '源') as HTMLButtonElement)
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({ filterKey: 'webSource', filterTitle: '源' })
+    const events = mocks.openSharedDialog.mock.calls[0][2] as Record<string, (...args: unknown[]) => void>
+    events['update:filterForm']('webSource', ['Netflix'])
+    expect(result.emitted()['update:filterForm']).toEqual([['webSource', ['Netflix']]])
+
+    await fireEvent.click(mobileButtons.find(button => button.textContent?.trim() === '中字') as HTMLButtonElement)
+    expect(mocks.updateSingle).toHaveBeenCalledWith(
+      expect.objectContaining({ filterKey: 'chineseSubtitle', filterTitle: '中字' }),
+    )
+    events['update:filterForm']('chineseSubtitle', ['中字'])
+    expect(result.emitted()['update:filterForm']?.[1]).toEqual(['chineseSubtitle', ['中字']])
+
+    await fireEvent.click(mobileButtons.find(button => button.textContent?.includes('综合筛选')) as HTMLButtonElement)
+    expect(mocks.openSharedDialog.mock.calls[1][1]).toMatchObject({
+      filterForm: props.filterForm,
+      filterOptions: props.filterOptions,
+      filterTitles: props.filterTitles,
+    })
+    result.unmount()
   })
 
   it('emits desktop sorting, filtering, selection and clearing commands without mutating props', async () => {

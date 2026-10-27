@@ -6,9 +6,11 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
+/** 资源筛选用例中可独立变化的元数据与站点字段。 */
 interface TorrentOverrides {
   edition?: string
   freeState?: string
+  labels?: string[] | null
   name?: string
   pageUrl?: string
   priOrder?: number
@@ -21,8 +23,10 @@ interface TorrentOverrides {
   size?: number
   title?: string
   videoCode?: string
+  webSource?: string
 }
 
+/** 构造最小搜索结果，缺省字幕标签与流媒体字段保留旧缓存形态。 */
 function createTorrent(overrides: TorrentOverrides = {}): Context {
   return {
     media_info: {},
@@ -33,8 +37,10 @@ function createTorrent(overrides: TorrentOverrides = {}): Context {
       resource_team: overrides.releaseGroup ?? 'Team A',
       season_episode: overrides.season ?? 'S01',
       video_encode: overrides.videoCode ?? 'H.264',
+      web_source: overrides.webSource,
     },
     torrent_info: {
+      labels: overrides.labels,
       page_url: overrides.pageUrl ?? `https://example.test/${overrides.title ?? 'torrent'}`,
       pri_order: overrides.priOrder ?? 0,
       pubdate: overrides.publishTime ?? '2025-01-01T00:00:00Z',
@@ -48,6 +54,112 @@ function createTorrent(overrides: TorrentOverrides = {}): Context {
 }
 
 describe('useTorrentFilter', () => {
+  it('collects source and Chinese subtitle options from the same fields shown on resource cards', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ labels: ['中字'], webSource: 'Netflix' }),
+      createTorrent({ labels: ['中字', '中字'], webSource: 'Disney+' }),
+      createTorrent({ labels: ['国语'], title: '片名含中字不代表带字幕', webSource: 'Netflix' }),
+      createTorrent({ labels: null }),
+      createTorrent(),
+    ]
+
+    filter.filterRowData(torrents)
+
+    expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+'])
+    expect(filter.filterOptions.chineseSubtitle).toEqual(['中字'])
+    filter.filterForm.chineseSubtitle = ['中字']
+    expect(filter.filterRowData(torrents)).toEqual(torrents.slice(0, 2))
+    expect(filter.getFilteredIndices()).toEqual([0, 1])
+
+    filter.clearAllFilters()
+    filter.filterRowData(torrents.slice(2))
+    expect(filter.filterOptions.chineseSubtitle).toEqual([])
+  })
+
+  it.each(['filterRowData', 'filterCardData'] as const)(
+    '%s combines source and Chinese subtitle filters before returning rows or grouped alternatives',
+    view => {
+      const filter = useTorrentFilter()
+      const torrents = [
+        createTorrent({ title: 'Netflix 未标中字', webSource: 'Netflix' }),
+        createTorrent({ labels: ['中字'], title: 'Netflix 中字', webSource: 'Netflix' }),
+        createTorrent({ labels: ['中字'], title: 'Disney+ 中字', webSource: 'Disney+' }),
+        createTorrent({ labels: ['国语'], title: 'Netflix 仅国语', webSource: 'Netflix' }),
+        createTorrent({ labels: ['中字'], title: '未知源中字' }),
+      ]
+      filter.filterForm.webSource = ['Netflix']
+      filter.filterForm.chineseSubtitle = ['中字']
+
+      const results = filter[view](torrents)
+
+      expect(results.map(item => item.torrent_info.title)).toEqual(['Netflix 中字'])
+      expect(results[0]).not.toHaveProperty('more')
+      expect(filter.totalFilteredCount.value).toBe(1)
+      expect(filter.getFilteredIndices()).toEqual([1])
+      expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+'])
+      expect(filter.filterOptions.chineseSubtitle).toEqual(['中字'])
+
+      filter.filterForm.webSource = ['Netflix', 'Disney+']
+      const multiSource = filter[view](torrents)
+      expect(filter.totalFilteredCount.value).toBe(2)
+      expect(filter.getFilteredIndices()).toEqual([1, 2])
+      if (view === 'filterCardData') {
+        expect(multiSource).toHaveLength(1)
+        expect(multiSource[0]).toHaveProperty('more', [torrents[2]])
+      } else {
+        expect(multiSource).toEqual([torrents[1], torrents[2]])
+      }
+    },
+  )
+
+  it('cascades source and subtitle options with site filters while retaining selected values', () => {
+    const filter = useTorrentFilter()
+    const torrents = [
+      createTorrent({ labels: ['中字'], site: 'Site A', webSource: 'Netflix' }),
+      createTorrent({ site: 'Site B', webSource: 'Disney+' }),
+      createTorrent({ labels: ['中字'], site: 'Site C', webSource: 'Disney+' }),
+    ]
+    filter.filterForm.chineseSubtitle = ['中字']
+    filter.filterForm.site = ['Site A']
+    filter.filterRowData(torrents)
+
+    expect(filter.filterOptions.webSource).toEqual(['Netflix'])
+    expect(filter.filterOptions.site).toEqual(['Site A', 'Site C'])
+
+    filter.filterForm.webSource = ['Disney+']
+    expect(filter.filterRowData(torrents)).toEqual([])
+    expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+'])
+    expect(filter.filterOptions.chineseSubtitle).toEqual(['中字'])
+    expect(filter.getSelectedFilters.value).toMatchObject({ webSource: ['Disney+'], chineseSubtitle: ['中字'] })
+
+    filter.clearFilter('site')
+    expect(filter.filterRowData(torrents)).toEqual([torrents[2]])
+  })
+
+  it('restores, removes and clears the new filters and accepts snapshots from before they existed', () => {
+    const filter = useTorrentFilter()
+    filter.filterRowData([createTorrent({ labels: ['中字'], webSource: 'Netflix' })])
+    filter.selectAll('webSource')
+    filter.selectAll('chineseSubtitle')
+    const snapshot = filter.getFilterState()
+
+    expect(filter.getFilterCount.value).toBe(2)
+    filter.removeFilter('webSource', 'Netflix')
+    expect(filter.filterForm.webSource).toEqual([])
+    filter.clearAllFilters()
+    expect(filter.hasActiveFilters()).toBe(false)
+    filter.setFilterState(snapshot)
+    expect(filter.getSelectedFilters.value).toEqual({ webSource: ['Netflix'], chineseSubtitle: ['中字'] })
+    snapshot.filterForm.webSource.push('Disney+')
+    expect(filter.filterForm.webSource).toEqual(['Netflix'])
+
+    filter.setFilterForm({ site: ['Site A'] })
+    expect(filter.filterForm.webSource).toEqual([])
+    expect(filter.filterForm.chineseSubtitle).toEqual([])
+    expect(filter.filterForm.site).toEqual(['Site A'])
+  })
+
   it('does not merge different music tracks merely because they share an album', () => {
     const filter = useTorrentFilter()
     const first = createTorrent({ name: '同一专辑', title: '第一首' })

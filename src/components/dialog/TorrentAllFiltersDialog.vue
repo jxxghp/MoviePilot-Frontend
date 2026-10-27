@@ -38,7 +38,7 @@ const selectedCount = computed(() => {
   return Object.values(props.filterForm).reduce((count, values) => count + values.length, 0)
 })
 
-// 给定过滤类型返回不同图标。
+/** 为综合筛选中的分类显示对应图标。 */
 function getFilterIcon(key: string) {
   const icons: Record<string, string> = {
     site: 'mdi-server-network',
@@ -48,18 +48,27 @@ function getFilterIcon(key: string) {
     videoCode: 'mdi-video-vintage',
     edition: 'mdi-quality-high',
     releaseGroup: 'mdi-account-group-outline',
+    webSource: 'mdi-television-play',
+    chineseSubtitle: 'mdi-subtitles-outline',
   }
   return icons[key] || 'mdi-filter-variant'
 }
 
-// 将筛选值变化回传给过滤条。
+/** 将筛选值变化回传给过滤条，保持所有入口的受控状态一致。 */
 function updateFilter(key: string, values: string[]) {
   emit('update:filterForm', key, values)
 }
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" max-width="50rem" location="center" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog
+    v-if="visible"
+    v-model="visible"
+    max-width="50rem"
+    location="center"
+    scrollable
+    :fullscreen="!display.mdAndUp.value"
+  >
     <VCard>
       <VDialogCloseBtn v-model="visible" />
       <VCardTitle class="py-3 d-flex align-center">
