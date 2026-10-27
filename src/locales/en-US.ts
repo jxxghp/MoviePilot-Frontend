@@ -2047,6 +2047,8 @@ export default {
     sortPublishTime: 'Publish Time',
     filterSite: 'Site',
     filterSeason: 'Season',
+    filterWebSource: 'Source',
+    filterChineseSubtitle: 'Chinese Subtitles',
     filterFreeState: 'Free State',
     filterVideoCode: 'Video Code',
     filterEdition: 'Edition',

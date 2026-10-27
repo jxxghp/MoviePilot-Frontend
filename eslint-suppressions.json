@@ -459,11 +459,6 @@
       "count": 1
     }
   },
-  "src/composables/useTorrentFilter.ts": {
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
   "src/layouts/default/components/QuickAccess.vue": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2

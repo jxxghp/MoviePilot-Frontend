@@ -80,11 +80,13 @@ function getFilterIcon(key: string) {
     videoCode: 'mdi-video-vintage',
     edition: 'mdi-quality-high',
     releaseGroup: 'mdi-account-group-outline',
+    webSource: 'mdi-television-play',
+    chineseSubtitle: 'mdi-subtitles-outline',
   }
   return icons[key] || 'mdi-filter-variant'
 }
 
-// 生成全部筛选共享弹窗的最新参数。
+/** 生成全部筛选共享弹窗的最新参数。 */
 function getAllFiltersDialogProps() {
   return {
     filterForm: props.filterForm,
@@ -93,7 +95,7 @@ function getAllFiltersDialogProps() {
   }
 }
 
-// 生成单项筛选共享弹窗的最新参数。
+/** 生成单项筛选共享弹窗的最新参数。 */
 function getSingleFilterDialogProps() {
   return {
     filterForm: props.filterForm,
@@ -103,19 +105,19 @@ function getSingleFilterDialogProps() {
   }
 }
 
-// 关闭全部筛选共享弹窗。
+/** 关闭全部筛选共享弹窗。 */
 function closeAllFilterDialog() {
   allFilterDialogController?.close()
   allFilterDialogController = null
 }
 
-// 关闭单项筛选共享弹窗。
+/** 关闭单项筛选共享弹窗。 */
 function closeFilterDialog() {
   filterDialogController?.close()
   filterDialogController = null
 }
 
-// 打开全部筛选共享弹窗。
+/** 打开全部筛选共享弹窗。 */
 function openAllFilterDialog() {
   allFilterDialogController?.close()
   allFilterDialogController = openSharedDialog(
@@ -137,7 +139,7 @@ function openAllFilterDialog() {
   )
 }
 
-// 打开单项筛选共享弹窗。
+/** 打开单项筛选共享弹窗。 */
 function openFilterDialog() {
   if (filterDialogController) {
     filterDialogController.updateProps(getSingleFilterDialogProps())
@@ -162,13 +164,13 @@ function openFilterDialog() {
   )
 }
 
-// 开关全部筛选菜单。
+/** 开关全部筛选菜单。 */
 function toggleAllFilterMenu() {
   if (allFilterDialogController) closeAllFilterDialog()
   else openAllFilterDialog()
 }
 
-// 切换单项筛选共享弹窗。
+/** 切换单项筛选共享弹窗。 */
 function toggleFilterMenu(key: string) {
   if (currentFilter.value === key && filterDialogController) {
     closeFilterDialog()
@@ -198,7 +200,7 @@ function clearAllFilters() {
   emit('clearAllFilters')
 }
 
-// 移除单个过滤条件
+/** 移除单个过滤条件 */
 function removeFilter(key: string, value: string) {
   emit('removeFilter', key, value)
 }
@@ -217,6 +219,7 @@ function smoothScroll(element: HTMLElement, target: number, duration: number) {
   const change = target - start
   let startTime: number | null = null
 
+  /** 按动画帧推进筛选条的滚动位置。 */
   function animate(currentTime: number) {
     if (startTime === null) startTime = currentTime
     const timeElapsed = currentTime - startTime
