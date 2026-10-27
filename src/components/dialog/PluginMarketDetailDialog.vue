@@ -705,6 +705,21 @@ onUnmounted(() => {
               </button>
             </dd>
           </div>
+          <div v-if="documentationUrl" class="plugin-market-detail__metadata-row">
+            <dt>{{ t('plugin.documentation') }}：</dt>
+            <dd>
+              <a
+                class="plugin-market-detail__documentation"
+                :href="documentationUrl"
+                :aria-label="t('plugin.documentation')"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ t('plugin.viewDocumentation') }}
+                <VIcon icon="mdi-open-in-new" size="14" aria-hidden="true" />
+              </a>
+            </dd>
+          </div>
         </dl>
 
         <p v-if="installBlock" class="plugin-market-detail__compatibility" role="alert">
@@ -930,16 +945,6 @@ onUnmounted(() => {
             </VBtn>
             <VBtn variant="tonal" prepend-icon="mdi-update" @click="showUpdateHistory">
               {{ t('plugin.versionHistory') }}
-            </VBtn>
-            <VBtn
-              v-if="documentationUrl"
-              variant="tonal"
-              prepend-icon="mdi-book-open-page-variant-outline"
-              :href="documentationUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {{ t('plugin.documentation') }}
             </VBtn>
           </div>
           <div v-if="props.count" class="plugin-market-detail-actions__downloads">
@@ -1236,6 +1241,23 @@ onUnmounted(() => {
 .plugin-market-detail__author:hover,
 .plugin-market-detail__author:focus-visible {
   color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
+}
+
+.plugin-market-detail__documentation {
+  display: inline-flex;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  padding-block: 0.125rem;
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.875rem;
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.plugin-market-detail__documentation:hover,
+.plugin-market-detail__documentation:focus-visible {
   text-decoration: underline;
 }
 
