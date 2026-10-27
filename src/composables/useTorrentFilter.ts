@@ -3,6 +3,9 @@ import { getTorrentTitle, isMusicResource, isUnconfirmedResource } from '@/utils
 import { cloneDeepWith } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 
+// 站点明确标注的字幕类型，选项与资源卡片上的标签保持一致。
+const subtitleLabels = new Set(['中字', '特效'])
+
 /** 卡片视图中的资源及同组备选资源。 */
 interface SearchTorrent extends Context {
   more?: Array<Context>
@@ -36,7 +39,7 @@ export function useTorrentFilter() {
     edition: [] as string[],
     resolution: [] as string[],
     webSource: [] as string[],
-    chineseSubtitle: [] as string[],
+    subtitle: [] as string[],
   })
 
   // 统一存储过滤选项
@@ -49,7 +52,7 @@ export function useTorrentFilter() {
     videoCode: [] as string[],
     releaseGroup: [] as string[],
     webSource: [] as string[],
-    chineseSubtitle: [] as string[],
+    subtitle: [] as string[],
   })
 
   // 排序字段
@@ -62,7 +65,7 @@ export function useTorrentFilter() {
     site: t('torrent.filterSite'),
     season: t('torrent.filterSeason'),
     webSource: t('torrent.filterWebSource'),
-    chineseSubtitle: t('torrent.filterChineseSubtitle'),
+    subtitle: t('torrent.filterSubtitle'),
     freeState: t('torrent.filterFreeState'),
     videoCode: t('torrent.filterVideoCode'),
     edition: t('torrent.filterEdition'),
@@ -86,7 +89,7 @@ export function useTorrentFilter() {
   const totalFilteredCount = ref(0)
 
   // 各筛选维度对应的资源字段读取器，选项收集与结果筛选共用同一来源
-  const filterValueGetters: Record<string, (data: Context) => string | undefined> = {
+  const filterValueGetters: Record<string, (data: Context) => string | string[] | undefined> = {
     site: data => data.torrent_info?.site_name,
     season: data => data.meta_info?.season_episode,
     releaseGroup: data => data.meta_info?.resource_team,
@@ -95,10 +98,15 @@ export function useTorrentFilter() {
     edition: data => data.meta_info?.edition,
     resolution: data => data.meta_info?.resource_pix,
     webSource: data => data.meta_info?.web_source,
-    // 与资源卡片使用相同的站点标签，不从片名或国语标签推断字幕。
-    chineseSubtitle: data => (data.torrent_info?.labels?.includes('中字') ? '中字' : undefined),
+    subtitle: data => data.torrent_info?.labels?.filter(label => subtitleLabels.has(label)),
   }
   const filterKeys = Object.keys(filterValueGetters)
+
+  /** 将单值元数据和多值字幕标签统一为候选值，供联动选项与匹配共用。 */
+  function getFilterValues(key: string, data: Context): string[] {
+    const value = filterValueGetters[key](data)
+    return Array.isArray(value) ? value : value ? [value] : []
+  }
 
   /** 将整季排在单集前，同类按季号和集号降序稳定排列。 */
   function sortSeasonOptions() {
@@ -165,8 +173,8 @@ export function useTorrentFilter() {
   }
 
   /** 空条件不过滤，同一维度的多个选项按并集匹配。 */
-  const match = (filter: Array<string>, value: string | undefined) =>
-    filter.length === 0 || (!!value && filter.includes(value))
+  const match = (filter: Array<string>, values: string[]) =>
+    filter.length === 0 || values.some(value => filter.includes(value))
 
   /** 搜索结果必须同时包含可展示的元数据和种子信息。 */
   function isRenderableContext(data: Context | null | undefined): data is Context {
@@ -175,7 +183,7 @@ export function useTorrentFilter() {
 
   /** 使用与选项收集相同的字段口径匹配单一维度。 */
   function matchesFilter(key: string, data: Context) {
-    return match(filterForm[key], filterValueGetters[key](data))
+    return match(filterForm[key], getFilterValues(key, data))
   }
 
   /** 不同维度按交集匹配，列表和卡片分组共用相同条件。 */
@@ -210,8 +218,9 @@ export function useTorrentFilter() {
       // 全部满足时贡献到每个维度；仅一个维度不满足时只贡献到该维度（即排除自身维度）
       const targetKeys = unmatchedKeys.length === 1 ? unmatchedKeys : filterKeys
       for (const key of targetKeys) {
-        const value = filterValueGetters[key](data)
-        if (value) collected[key].add(value)
+        for (const value of getFilterValues(key, data)) {
+          collected[key].add(value)
+        }
       }
     }
 
@@ -454,7 +463,7 @@ export function useTorrentFilter() {
       edition: 'mdi-quality-high',
       releaseGroup: 'mdi-account-group-outline',
       webSource: 'mdi-television-play',
-      chineseSubtitle: 'mdi-subtitles-outline',
+      subtitle: 'mdi-subtitles-outline',
     }
     return icons[key] || 'mdi-filter-variant'
   }
@@ -488,10 +497,11 @@ export function useTorrentFilter() {
     return filters
   }
 
-  /** 复制筛选条件，旧快照缺少的新维度按未选择恢复。 */
+  /** 复制筛选条件，兼容旧版中字维度以及缺少新维度的快照。 */
   function setFilterForm(filters: Record<string, string[]>) {
     for (const key in filterForm) {
-      filterForm[key] = filters[key] ? [...filters[key]] : []
+      const values = filters[key] ?? (key === 'subtitle' ? filters.chineseSubtitle : undefined)
+      filterForm[key] = values ? [...values] : []
     }
   }
 

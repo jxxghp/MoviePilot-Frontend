@@ -81,7 +81,7 @@ function getFilterIcon(key: string) {
     edition: 'mdi-quality-high',
     releaseGroup: 'mdi-account-group-outline',
     webSource: 'mdi-television-play',
-    chineseSubtitle: 'mdi-subtitles-outline',
+    subtitle: 'mdi-subtitles-outline',
   }
   return icons[key] || 'mdi-filter-variant'
 }
