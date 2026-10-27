@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api/client'
+import { getPluginDocumentationUrl, normalizePluginDocumentationUrl } from '@/api/pluginDocumentation'
 import {
   changePluginSource,
   getPluginSourceOptions,
@@ -143,6 +144,16 @@ const sourceNeedsSelection = computed(() =>
 const selectedInstallSource = computed(() =>
   installSourceCandidates.value.find(candidate => candidateSelectionKey(candidate) === selectedInstallSourceKey.value),
 )
+const documentationUrl = ref<string>()
+const documentationRepo = computed(() => {
+  if (!isInstalled.value) return selectedInstallSource.value?.repo_url || props.plugin?.repo_url
+  const trustedSourceKey = sourceOptions.value?.identity?.trusted_source_key
+  return (
+    onlineSourceCandidates.value.find(candidate => candidate.source_key === trustedSourceKey)?.repo_url ||
+    props.plugin?.repo_url
+  )
+})
+
 const selectedChangeSource = computed(() =>
   sourceActionCandidates.value.find(candidate => candidate.source_key === selectedChangeSourceKey.value),
 )
@@ -624,6 +635,37 @@ watch(
   { immediate: true },
 )
 
+// 切换插件或来源后废弃旧查询，避免把另一仓库的说明展示在当前安装按钮旁。
+watch(
+  () =>
+    [
+      visible.value,
+      props.plugin?.source_plugin_id || props.plugin?.id,
+      documentationRepo.value,
+      props.plugin?.plugin_readme,
+    ] as const,
+  async ([isVisible, pluginId, repoUrl, declaredUrl], _previous, onCleanup) => {
+    let active = true
+    onCleanup(() => {
+      active = false
+    })
+    documentationUrl.value = undefined
+    if (!isVisible || !pluginId) return
+    if (repoUrl === props.plugin?.repo_url) {
+      documentationUrl.value = normalizePluginDocumentationUrl(declaredUrl)
+      if (documentationUrl.value) return
+    }
+    if (!repoUrl) return
+    try {
+      const url = await getPluginDocumentationUrl(pluginId, repoUrl)
+      if (active) documentationUrl.value = url
+    } catch {
+      // 说明缺失、网络失败或旧后端均不影响安装和来源选择。
+    }
+  },
+  { immediate: true },
+)
+
 onUnmounted(() => {
   closeInstallProgress()
   versionHistoryDialogController?.close()
@@ -888,6 +930,16 @@ onUnmounted(() => {
             </VBtn>
             <VBtn variant="tonal" prepend-icon="mdi-update" @click="showUpdateHistory">
               {{ t('plugin.versionHistory') }}
+            </VBtn>
+            <VBtn
+              v-if="documentationUrl"
+              variant="tonal"
+              prepend-icon="mdi-book-open-page-variant-outline"
+              :href="documentationUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ t('plugin.documentation') }}
             </VBtn>
           </div>
           <div v-if="props.count" class="plugin-market-detail-actions__downloads">

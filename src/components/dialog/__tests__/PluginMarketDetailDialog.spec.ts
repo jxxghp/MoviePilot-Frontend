@@ -88,6 +88,7 @@ const ImageStub = defineComponent({
   template: '<button data-testid="plugin-image" @contextmenu.prevent="$emit(\'error\')" />',
 })
 
+/** 挂载真实详情弹窗并保留用户可见的操作与外链。 */
 async function renderDialog(plugin: Plugin, stubs: Stubs = {}, extraProps: Record<string, unknown> = {}) {
   return renderWithProviders(PluginMarketDetailDialog, {
     props: {
@@ -136,6 +137,73 @@ describe('PluginMarketDetailDialog', () => {
     expect(screen.queryByText('检测到多个同名插件，请选择仓库。')).not.toBeInTheDocument()
     expect(screen.queryByText('提交评分')).not.toBeInTheDocument()
     expect(screen.getByLabelText('4.3 / 5')).toBeInTheDocument()
+  })
+
+  it('shows declared documentation before installation without probing README', async () => {
+    await renderDialog({ ...basePlugin, installed: false, plugin_readme: 'https://docs.example.com/demo' })
+    const link = await screen.findByRole('link', { name: '使用说明' })
+    expect(link).toHaveAttribute('href', 'https://docs.example.com/demo')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/readme/DemoPlugin', expect.anything())
+    expect(screen.getByRole('button', { name: '安装到本地' })).toBeEnabled()
+  })
+
+  it('shows a discovered README and hides it when the backend is unavailable', async () => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/readme/DemoPlugin')
+        return Promise.resolve({ url: 'https://github.com/example/plugins/blob/main/plugins.v2/demoplugin/README.md' })
+      if (url === 'plugin/readme/AnotherPlugin') return Promise.reject(new Error('old backend'))
+      if (url.startsWith('plugin/rating/')) return Promise.resolve(ratingResult)
+      return Promise.resolve(defaultSourceOptions)
+    })
+    const view = await renderDialog({ ...basePlugin, installed: false })
+    expect(await screen.findByRole('link', { name: '使用说明' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('plugins.v2/demoplugin/README.md'),
+    )
+    await view.rerender({ plugin: { ...basePlugin, id: 'AnotherPlugin' } })
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('plugin/readme/AnotherPlugin', expect.anything()))
+    expect(screen.queryByRole('link', { name: '使用说明' })).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: '安装到本地' })).toBeEnabled())
+  })
+
+  it('switches documentation with the selected repository and discards a late response', async () => {
+    let resolveOld!: (value: { url: string }) => void
+    mocks.apiGet.mockImplementation((url: string, options?: { params?: { repo_url?: string } }) => {
+      if (url === 'plugin/rating/DemoPlugin') return Promise.resolve(ratingResult)
+      if (url === 'plugin/source/DemoPlugin/options')
+        return Promise.resolve({
+          ...defaultSourceOptions,
+          identity: null,
+          candidates: [
+            defaultSourceOptions.candidates[0],
+            {
+              ...defaultSourceOptions.candidates[0],
+              source_key: 'github:another/plugins',
+              repo_url: 'https://github.com/another/plugins',
+            },
+          ],
+        })
+      if (options?.params?.repo_url === 'https://github.com/another/plugins')
+        return Promise.resolve({ url: 'https://docs.example.com/another' })
+      return new Promise<{ url: string }>(resolve => {
+        resolveOld = resolve
+      })
+    })
+    await renderDialog({ ...basePlugin, installed: false })
+    await fireEvent.click(await screen.findByRole('radio', { name: /another\/plugins/ }))
+    expect(await screen.findByRole('link', { name: '使用说明' })).toHaveAttribute(
+      'href',
+      'https://docs.example.com/another',
+    )
+    resolveOld({ url: 'https://docs.example.com/old' })
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: '使用说明' })).toHaveAttribute(
+        'href',
+        'https://docs.example.com/another',
+      ),
+    )
   })
 
   it('requires an explicit repository when multiple sources publish the same plugin ID', async () => {

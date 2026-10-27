@@ -1277,6 +1277,8 @@ export interface Plugin {
   plugin_author?: string
   // 作者主页
   author_url?: string
+  // 安装前可用的使用说明外链；未声明时按需探测 README
+  plugin_readme?: string | null
   // 插件配置项ID前缀
   plugin_config_prefix?: string
   // 加载顺序

@@ -5236,6 +5236,7 @@ export default {
     about: '關於',
     projectHome: '項目主頁',
     versionHistory: '版本歷史',
+    documentation: '使用說明',
     releaseVersionsLoadFailed: 'Release 版本載入失敗',
     latestVersion: '最新',
     currentVersion: '當前',

@@ -5340,6 +5340,7 @@ export default {
     about: 'About',
     projectHome: 'Project Home',
     versionHistory: 'Version History',
+    documentation: 'Documentation',
     releaseVersionsLoadFailed: 'Failed to load Release versions',
     latestVersion: 'Latest',
     currentVersion: 'Current',
