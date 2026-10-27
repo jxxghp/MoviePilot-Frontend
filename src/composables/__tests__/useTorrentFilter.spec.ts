@@ -54,28 +54,61 @@ function createTorrent(overrides: TorrentOverrides = {}): Context {
 }
 
 describe('useTorrentFilter', () => {
-  it('collects source and Chinese subtitle options from the same fields shown on resource cards', () => {
+  it('collects source and subtitle options from the same fields shown on resource cards', () => {
     const filter = useTorrentFilter()
     const torrents = [
       createTorrent({ labels: ['中字'], webSource: 'Netflix' }),
-      createTorrent({ labels: ['中字', '中字'], webSource: 'Disney+' }),
+      createTorrent({ labels: ['中字', '特效', '中字'], webSource: 'Disney+' }),
       createTorrent({ labels: ['国语'], title: '片名含中字不代表带字幕', webSource: 'Netflix' }),
       createTorrent({ labels: null }),
       createTorrent(),
+      createTorrent({ labels: ['特效'], webSource: 'Amazon' }),
     ]
 
     filter.filterRowData(torrents)
 
-    expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+'])
-    expect(filter.filterOptions.chineseSubtitle).toEqual(['中字'])
-    filter.filterForm.chineseSubtitle = ['中字']
+    expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+', 'Amazon'])
+    expect(filter.filterOptions.subtitle).toEqual(['中字', '特效'])
+    filter.filterForm.subtitle = ['中字']
     expect(filter.filterRowData(torrents)).toEqual(torrents.slice(0, 2))
     expect(filter.getFilteredIndices()).toEqual([0, 1])
 
+    filter.filterForm.subtitle = ['特效']
+    expect(filter.filterRowData(torrents)).toEqual([torrents[1], torrents[5]])
+    expect(filter.getFilteredIndices()).toEqual([1, 5])
+
     filter.clearAllFilters()
-    filter.filterRowData(torrents.slice(2))
-    expect(filter.filterOptions.chineseSubtitle).toEqual([])
+    filter.filterRowData(torrents.slice(2, 5))
+    expect(filter.filterOptions.subtitle).toEqual([])
   })
+
+  it.each(['filterRowData', 'filterCardData'] as const)(
+    '%s treats Chinese and effects subtitles as alternatives without counting a dual-label resource twice',
+    view => {
+      const filter = useTorrentFilter()
+      const torrents = [
+        createTorrent({ labels: ['中字'], title: '中字资源', webSource: 'Netflix' }),
+        createTorrent({ labels: ['特效'], title: '特效资源', webSource: 'Netflix' }),
+        createTorrent({ labels: ['中字', '特效'], title: '双标签资源', webSource: 'Netflix' }),
+        createTorrent({ labels: ['国语'], title: '仅国语', webSource: 'Netflix' }),
+        createTorrent({ labels: ['特效'], title: '其他源特效', webSource: 'Disney+' }),
+      ]
+      filter.filterForm.webSource = ['Netflix']
+      filter.filterForm.subtitle = ['中字', '特效']
+
+      const results = filter[view](torrents)
+
+      expect(filter.getFilteredIndices()).toEqual([0, 1, 2])
+      expect(filter.totalFilteredCount.value).toBe(3)
+      expect(filter.filterOptions.subtitle).toEqual(['中字', '特效'])
+      if (view === 'filterCardData') {
+        expect(results).toHaveLength(1)
+        expect(results[0]).toHaveProperty('more', [torrents[1], torrents[2]])
+      } else {
+        expect(results).toEqual(torrents.slice(0, 3))
+      }
+    },
+  )
 
   it.each(['filterRowData', 'filterCardData'] as const)(
     '%s combines source and Chinese subtitle filters before returning rows or grouped alternatives',
@@ -89,7 +122,7 @@ describe('useTorrentFilter', () => {
         createTorrent({ labels: ['中字'], title: '未知源中字' }),
       ]
       filter.filterForm.webSource = ['Netflix']
-      filter.filterForm.chineseSubtitle = ['中字']
+      filter.filterForm.subtitle = ['中字']
 
       const results = filter[view](torrents)
 
@@ -98,7 +131,7 @@ describe('useTorrentFilter', () => {
       expect(filter.totalFilteredCount.value).toBe(1)
       expect(filter.getFilteredIndices()).toEqual([1])
       expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+'])
-      expect(filter.filterOptions.chineseSubtitle).toEqual(['中字'])
+      expect(filter.filterOptions.subtitle).toEqual(['中字'])
 
       filter.filterForm.webSource = ['Netflix', 'Disney+']
       const multiSource = filter[view](torrents)
@@ -120,7 +153,7 @@ describe('useTorrentFilter', () => {
       createTorrent({ site: 'Site B', webSource: 'Disney+' }),
       createTorrent({ labels: ['中字'], site: 'Site C', webSource: 'Disney+' }),
     ]
-    filter.filterForm.chineseSubtitle = ['中字']
+    filter.filterForm.subtitle = ['中字']
     filter.filterForm.site = ['Site A']
     filter.filterRowData(torrents)
 
@@ -130,8 +163,8 @@ describe('useTorrentFilter', () => {
     filter.filterForm.webSource = ['Disney+']
     expect(filter.filterRowData(torrents)).toEqual([])
     expect(filter.filterOptions.webSource).toEqual(['Netflix', 'Disney+'])
-    expect(filter.filterOptions.chineseSubtitle).toEqual(['中字'])
-    expect(filter.getSelectedFilters.value).toMatchObject({ webSource: ['Disney+'], chineseSubtitle: ['中字'] })
+    expect(filter.filterOptions.subtitle).toEqual(['中字'])
+    expect(filter.getSelectedFilters.value).toMatchObject({ webSource: ['Disney+'], subtitle: ['中字'] })
 
     filter.clearFilter('site')
     expect(filter.filterRowData(torrents)).toEqual([torrents[2]])
@@ -139,24 +172,31 @@ describe('useTorrentFilter', () => {
 
   it('restores, removes and clears the new filters and accepts snapshots from before they existed', () => {
     const filter = useTorrentFilter()
-    filter.filterRowData([createTorrent({ labels: ['中字'], webSource: 'Netflix' })])
+    filter.filterRowData([createTorrent({ labels: ['中字', '特效'], webSource: 'Netflix' })])
     filter.selectAll('webSource')
-    filter.selectAll('chineseSubtitle')
+    filter.selectAll('subtitle')
     const snapshot = filter.getFilterState()
 
-    expect(filter.getFilterCount.value).toBe(2)
+    expect(filter.getFilterCount.value).toBe(3)
     filter.removeFilter('webSource', 'Netflix')
     expect(filter.filterForm.webSource).toEqual([])
     filter.clearAllFilters()
     expect(filter.hasActiveFilters()).toBe(false)
     filter.setFilterState(snapshot)
-    expect(filter.getSelectedFilters.value).toEqual({ webSource: ['Netflix'], chineseSubtitle: ['中字'] })
+    expect(filter.getSelectedFilters.value).toEqual({ webSource: ['Netflix'], subtitle: ['中字', '特效'] })
     snapshot.filterForm.webSource.push('Disney+')
     expect(filter.filterForm.webSource).toEqual(['Netflix'])
 
+    filter.setFilterForm({ chineseSubtitle: ['中字'] })
+    expect(filter.filterForm.subtitle).toEqual(['中字'])
+    expect(filter.getSelectedFilters.value).toEqual({ subtitle: ['中字'] })
+
+    filter.setFilterForm({ subtitle: [], chineseSubtitle: ['中字'] })
+    expect(filter.hasActiveFilters()).toBe(false)
+
     filter.setFilterForm({ site: ['Site A'] })
     expect(filter.filterForm.webSource).toEqual([])
-    expect(filter.filterForm.chineseSubtitle).toEqual([])
+    expect(filter.filterForm.subtitle).toEqual([])
     expect(filter.filterForm.site).toEqual(['Site A'])
   })
 

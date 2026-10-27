@@ -121,17 +121,17 @@ describe('TorrentFilterBar', () => {
     })
   })
 
-  it('offers source and Chinese subtitle filters on desktop, mobile and the combined dialog', async () => {
+  it('offers source and subtitle filters on desktop, mobile and the combined dialog', async () => {
     const props = {
       ...defaultProps,
-      filterForm: { ...defaultProps.filterForm, webSource: [], chineseSubtitle: [] },
-      filterOptions: { ...defaultProps.filterOptions, webSource: ['Netflix', 'Disney+'], chineseSubtitle: ['中字'] },
-      filterTitles: { ...defaultProps.filterTitles, webSource: '源', chineseSubtitle: '中字' },
+      filterForm: { ...defaultProps.filterForm, webSource: [], subtitle: [] },
+      filterOptions: { ...defaultProps.filterOptions, webSource: ['Netflix', 'Disney+'], subtitle: ['中字', '特效'] },
+      filterTitles: { ...defaultProps.filterTitles, webSource: '源', subtitle: '字幕' },
     }
     const result = await renderWithProviders(TorrentFilterBar, { props, global: { stubs: componentStubs } })
     const desktopButtons = Array.from(result.container.querySelectorAll('.filter-bar > .filter-btn'))
     expect(desktopButtons.some(button => button.textContent?.trim().startsWith('源'))).toBe(true)
-    expect(desktopButtons.some(button => button.textContent?.trim().startsWith('中字'))).toBe(true)
+    expect(desktopButtons.some(button => button.textContent?.trim().startsWith('字幕'))).toBe(true)
 
     const mobileButtons = Array.from(result.container.querySelectorAll<HTMLButtonElement>('.filter-btn-mobile'))
     await fireEvent.click(mobileButtons.find(button => button.textContent?.trim() === '源') as HTMLButtonElement)
@@ -140,12 +140,12 @@ describe('TorrentFilterBar', () => {
     events['update:filterForm']('webSource', ['Netflix'])
     expect(result.emitted()['update:filterForm']).toEqual([['webSource', ['Netflix']]])
 
-    await fireEvent.click(mobileButtons.find(button => button.textContent?.trim() === '中字') as HTMLButtonElement)
+    await fireEvent.click(mobileButtons.find(button => button.textContent?.trim() === '字幕') as HTMLButtonElement)
     expect(mocks.updateSingle).toHaveBeenCalledWith(
-      expect.objectContaining({ filterKey: 'chineseSubtitle', filterTitle: '中字' }),
+      expect.objectContaining({ filterKey: 'subtitle', filterTitle: '字幕' }),
     )
-    events['update:filterForm']('chineseSubtitle', ['中字'])
-    expect(result.emitted()['update:filterForm']?.[1]).toEqual(['chineseSubtitle', ['中字']])
+    events['update:filterForm']('subtitle', ['特效'])
+    expect(result.emitted()['update:filterForm']?.[1]).toEqual(['subtitle', ['特效']])
 
     await fireEvent.click(mobileButtons.find(button => button.textContent?.includes('综合筛选')) as HTMLButtonElement)
     expect(mocks.openSharedDialog.mock.calls[1][1]).toMatchObject({
