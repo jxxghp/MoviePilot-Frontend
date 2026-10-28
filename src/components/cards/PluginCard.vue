@@ -371,8 +371,19 @@ const iconPath: Ref<string> = computed(() => {
 // 插件作者头像路径
 const authorPath: Ref<string> = computed(() => {
   if (!props.plugin?.author_url) return ''
+  let avatarUrl = `${props.plugin.author_url}.png`
+  try {
+    const url = new URL(props.plugin.author_url)
+    if (['http:', 'https:'].includes(url.protocol) && url.hostname.toLowerCase() === 'github.com') {
+      const owner = url.pathname.split('/').filter(Boolean)[0]
+      if (!owner) return ''
+      avatarUrl = `https://github.com/${owner.replace(/\.png$/i, '')}.png`
+    }
+  } catch {
+    // 非标准地址保持原有处理方式。
+  }
   // 网络图片则使用代理后返回
-  return getProxyImageUrl(`${props.plugin.author_url}.png`, {
+  return getProxyImageUrl(avatarUrl, {
     proxy: true,
     useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
   })
