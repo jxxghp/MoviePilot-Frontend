@@ -153,6 +153,41 @@ function handleCustomColorInput(event: Event) {
   setPrimaryColor(color)
 }
 
+// 自定义色调输入框的绑定值，与已保存主色保持同步。
+const customColorText = ref(settings.value.primaryColor)
+
+// 标记手输色值是否无法识别，用于展示错误提示。
+const customColorInvalid = ref(false)
+
+// 预设色块或原生取色器改变主色后回填输入框，并清除错误状态。
+watch(
+  () => settings.value.primaryColor,
+  color => {
+    customColorText.value = color
+    customColorInvalid.value = false
+  },
+)
+
+// 规范化手输的十六进制色值，支持 #RGB 缩写并统一为大写六位形式。
+function normalizeCustomColorText(input: string) {
+  const body = input.trim().replace(/^#/, '')
+  const hex = body.length === 3 ? body.split('').map(char => char + char).join('') : body
+
+  return /^[\da-f]{6}$/i.test(hex) ? `#${hex.toUpperCase()}` : null
+}
+
+// 应用手输的自定义色调，非法色值只标记错误，不写入设置。
+function applyCustomColorText() {
+  const color = normalizeCustomColorText(customColorText.value)
+  if (!color) {
+    customColorInvalid.value = true
+    return
+  }
+
+  customColorInvalid.value = false
+  if (color !== settings.value.primaryColor) setPrimaryColor(color)
+}
+
 // 切换布局类型，App 模式下保留移动端固定布局。
 function handleLayoutChange(layout: ThemeCustomizerLayout) {
   // App 模式固定使用移动端导航，避免切换桌面布局后破坏底部导航体验。
@@ -229,7 +264,6 @@ async function handleResetSettings() {
 
             <button
               type="button"
-              v-if="!appMode"
               class="theme-customizer-color-option theme-customizer-color-option--picker"
               :class="{
                 'is-active': !themeCustomizerPrimaryColors.some(color => color.value === settings.primaryColor),
@@ -240,7 +274,6 @@ async function handleResetSettings() {
               <VIcon class="theme-customizer-native-icon" icon="mdi-palette-outline" size="30" />
             </button>
             <input
-              v-if="!appMode"
               ref="customColorInput"
               class="theme-customizer-native-color"
               type="color"
@@ -249,6 +282,35 @@ async function handleResetSettings() {
               :value="settings.primaryColor"
               @input="handleCustomColorInput"
             />
+          </div>
+
+          <div class="theme-customizer-custom-color">
+            <input
+              v-model="customColorText"
+              class="theme-customizer-hex-input"
+              :class="{ 'is-invalid': customColorInvalid }"
+              type="text"
+              maxlength="7"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="#RRGGBB"
+              :aria-label="t('theme.customizer.customColorHex')"
+              :aria-invalid="customColorInvalid"
+              :aria-describedby="customColorInvalid ? 'theme-customizer-custom-color-error' : undefined"
+              @keyup.enter="applyCustomColorText"
+              @blur="applyCustomColorText"
+            />
+            <button type="button" class="theme-customizer-custom-color-apply" @click="applyCustomColorText">
+              {{ t('theme.customizer.applyCustomColor') }}
+            </button>
+            <span
+              v-if="customColorInvalid"
+              id="theme-customizer-custom-color-error"
+              class="theme-customizer-custom-color-error"
+              role="status"
+            >
+              {{ t('theme.customizer.customColorInvalid') }}
+            </span>
           </div>
 
           <h3 class="theme-customizer-section-title">{{ t('common.theme') }}</h3>
@@ -518,6 +580,60 @@ async function handleResetSettings() {
   inset-inline: 50% auto;
   opacity: 0;
   pointer-events: none;
+}
+
+.theme-customizer-custom-color {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+.theme-customizer-hex-input {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 10px;
+  appearance: none;
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  padding: 0 12px;
+  block-size: 36px;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-family: inherit;
+  font-size: 13px;
+  inline-size: 128px;
+  text-transform: uppercase;
+
+  &::placeholder {
+    color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+    text-transform: none;
+  }
+
+  &.is-invalid {
+    border-color: rgb(var(--v-theme-error));
+  }
+}
+
+.theme-customizer-hex-input:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 1px;
+}
+
+.theme-customizer-custom-color-apply {
+  border: none;
+  border-radius: 10px;
+  appearance: none;
+  background: rgb(var(--v-theme-primary));
+  padding: 0 16px;
+  block-size: 36px;
+  color: rgb(var(--v-theme-on-primary));
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.theme-customizer-custom-color-error {
+  flex-basis: 100%;
+  color: rgb(var(--v-theme-error));
+  font-size: 12px;
 }
 
 .theme-customizer-option-grid {
