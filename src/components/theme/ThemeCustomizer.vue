@@ -171,7 +171,7 @@ watch(
 // 规范化手输的十六进制色值，支持 #RGB 缩写并统一为大写六位形式。
 function normalizeCustomColorText(input: string) {
   const body = input.trim().replace(/^#/, '')
-  const hex = body.length === 3 ? body.split('').map(char => char + char).join('') : body
+  const hex = body.replace(/^([\da-f])([\da-f])([\da-f])$/i, '$1$1$2$2$3$3')
 
   return /^[\da-f]{6}$/i.test(hex) ? `#${hex.toUpperCase()}` : null
 }
