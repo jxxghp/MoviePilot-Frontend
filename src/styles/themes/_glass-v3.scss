@@ -221,12 +221,12 @@ $-custom-content-surfaces: (
       }
 
       .layout-page-content .media-card > .v-card-text {
-        // 电影画面仍可检查，文字所在的下半区才承担阅读吸收。
+        // 海报详情固定使用白色文字与图标，遮罩保持深色，避免浅色主题下白底白字。
         background: linear-gradient(
           180deg,
-          rgba(var(--glass-material-rgb), 0.04),
-          rgba(var(--glass-material-rgb), 0.64) 52%,
-          rgba(var(--glass-material-rgb), 0.92)
+          rgba(11, 19, 34, 0.04),
+          rgba(11, 19, 34, 0.64) 52%,
+          rgba(11, 19, 34, 0.92)
         ) !important;
       }
     }
