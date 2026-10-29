@@ -507,7 +507,15 @@ export class NativeChromeSession {
   private async dispatch(message: NativeEnvelope) {
     if (this.phase !== 'active') return { accepted: false, error: 'busy' }
     try {
-      if (message.type !== 'state.request' && message.routeRevision !== this.options.readState().routeRevision)
+      const routeRevision = this.options.readState().routeRevision
+      // 关闭弹窗与搜索跳转可交错；归还属于当前文档，由 Sheet 适配器复核已接管 ID。
+      const detachingSheet =
+        message.type === 'presentation.detach' &&
+        typeof message.routeRevision === 'number' &&
+        Number.isSafeInteger(message.routeRevision) &&
+        message.routeRevision >= 0 &&
+        message.routeRevision <= routeRevision
+      if (message.type !== 'state.request' && !detachingSheet && message.routeRevision !== routeRevision)
         return { accepted: false, error: 'stale_route' }
       const accepted = message.type === 'state.request' || (await this.options.execute(message))
       return accepted ? { accepted: true } : { accepted: false, error: 'action_not_available' }
