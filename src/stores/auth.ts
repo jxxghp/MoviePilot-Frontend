@@ -47,11 +47,9 @@ export const useAuthStore = defineStore('auth', {
       this.setToken(payload.token)
       this.setRemember(payload.remember)
     },
-    /** 先通知容器撤销通知和小组件，再清理当前用户和依赖登录态的缓存。 */
-    logout() {
+    /** 重启或认证失效时清理会话与账号缓存，保留独立于登录态的通知绑定。 */
+    resetSession() {
       endNativeWidgetSession()
-      // 在清除现有认证之前撤销通知；失败不能阻断本地退出或恢复已失效会话。
-      revokeNativeNotificationBinding(this.token)
       this.clearToken()
       this.setOriginalPath(null)
       // 身份和权限属于登录会话；退出后不得被同一浏览器中的下一个账号继承。
@@ -60,6 +58,12 @@ export const useAuthStore = defineStore('auth', {
       userStore.reset()
       clearCachedMediaSubscribeStatuses()
       usePluginSidebarNavStore().reset()
+    },
+    /** 用户主动退出时先撤销本机及配对网页通知，再清理当前登录会话。 */
+    logout() {
+      // 撤销需要当前认证；重启和认证失效只调用 resetSession，不能借此解绑设备。
+      revokeNativeNotificationBinding(this.token)
+      this.resetSession()
     },
   },
 

@@ -40,7 +40,7 @@ const fallbackMessageKeys: Record<ApiFallbackMessageKey, string> = {
 function handleUnauthorized(): true {
   const authStore = useAuthStore()
   if (authStore.token) {
-    authStore.logout()
+    authStore.resetSession()
     // 原生认证接管独立于 Vue Router，避免后端重启或桥重新协商时卡在网页恢复状态。
     const transport = window.MoviePilotNative
     if (transport?.transportVersion === 1 && transport.authenticationRequired) {

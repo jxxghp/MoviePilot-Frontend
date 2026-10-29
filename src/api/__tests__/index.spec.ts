@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   i18nT: vi.fn((key: string) => `translated:${key}`),
   authState: { token: null as string | null },
   logout: vi.fn(),
+  resetSession: vi.fn(),
   routerPush: vi.fn(),
   toastError: vi.fn(),
 }))
@@ -18,8 +19,9 @@ vi.mock('@/stores', () => ({
     get token() {
       return mocks.authState.token
     },
-    // 与真实 store 一致：登出时清空 token，后续在途请求按无 token 处理。
-    logout: mocks.logout.mockImplementation(() => {
+    logout: mocks.logout,
+    // 与真实 store 一致：认证失效只清空会话，不调用主动退出时的设备解绑。
+    resetSession: mocks.resetSession.mockImplementation(() => {
       mocks.authState.token = null
     }),
   }),
@@ -69,6 +71,7 @@ describe('API application wiring', () => {
     invalidateSharedData()
     mocks.authState.token = null
     mocks.logout.mockClear()
+    mocks.resetSession.mockClear()
     mocks.routerPush.mockClear()
     mocks.toastError.mockClear()
   })
@@ -122,13 +125,14 @@ describe('API application wiring', () => {
     expect(mocks.i18nT).toHaveBeenCalledWith('common.invalidApiResponse')
   })
 
-  it('已登录时并发 401 只统一登出并静默返回登录页', async () => {
+  it('已登录时并发 401 只清理一次会话并静默返回登录页', async () => {
     mocks.authState.token = 'expired-token'
     const module = await installFailingAdapter(401, { detail: 'Not authenticated' })
 
     await Promise.allSettled([module.default.get('/dashboard'), module.default.get('/subscribe')])
 
-    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.resetSession).toHaveBeenCalledOnce()
+    expect(mocks.logout).not.toHaveBeenCalled()
     expect(mocks.routerPush).toHaveBeenCalledWith('/login')
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
@@ -141,7 +145,8 @@ describe('API application wiring', () => {
     await module.default.get('/subscribe').catch(() => {})
     await module.default.get('/resource').catch(() => {})
 
-    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.resetSession).toHaveBeenCalledOnce()
+    expect(mocks.logout).not.toHaveBeenCalled()
     expect(mocks.routerPush).toHaveBeenCalledOnce()
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
@@ -154,7 +159,8 @@ describe('API application wiring', () => {
 
     await Promise.allSettled([module.default.get('/dashboard'), module.default.get('/system/ping')])
 
-    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.resetSession).toHaveBeenCalledOnce()
+    expect(mocks.logout).not.toHaveBeenCalled()
     expect(authenticationRequired).toHaveBeenCalledOnce()
     expect(mocks.routerPush).not.toHaveBeenCalled()
     expect(mocks.toastError).not.toHaveBeenCalled()
@@ -172,7 +178,8 @@ describe('API application wiring', () => {
 
     await module.default.get('/system/ping').catch(() => {})
 
-    expect(mocks.logout).toHaveBeenCalledOnce()
+    expect(mocks.resetSession).toHaveBeenCalledOnce()
+    expect(mocks.logout).not.toHaveBeenCalled()
     expect(mocks.routerPush).toHaveBeenCalledWith('/login')
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
@@ -184,6 +191,7 @@ describe('API application wiring', () => {
     await Promise.allSettled([module.default.get('/dashboard'), module.default.get('/subscribe')])
 
     expect(mocks.logout).not.toHaveBeenCalled()
+    expect(mocks.resetSession).not.toHaveBeenCalled()
     expect(mocks.routerPush).not.toHaveBeenCalled()
     expect(mocks.authState.token).toBe('invalid-token')
     expect(mocks.toastError).toHaveBeenCalledWith('token校验不通过')
