@@ -243,6 +243,14 @@ function actionLabel(item: SystemUpdateItemStatus): string {
   return 'systemUpdate.updateNow'
 }
 
+/** 行内显示操作进度，保留请求等待、下载和安装阶段的按钮文字。 */
+function isActionBusy(item: SystemUpdateItemStatus): boolean {
+  return (
+    ['downloading', 'installing'].includes(actionState(item)) ||
+    (actionPending.value && (pendingTarget.value === 'all' || pendingTarget.value === item.type))
+  )
+}
+
 /** 沿用升级和重启按钮；新宿主依次准备全部更新，旧宿主保持单类操作。 */
 async function runUpdate(item: SystemUpdateItemStatus) {
   if (actionPending.value || updateBusy.value) return
@@ -552,10 +560,20 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
               class="system-update-prompt__primary"
               color="primary"
               :disabled="actionPending || updateBusy"
-              :loading="actionPending && (pendingTarget === 'all' || pendingTarget === item.type)"
+              :aria-busy="isActionBusy(item)"
               @click="runUpdate(item)"
             >
+              <VProgressCircular
+                v-if="isActionBusy(item)"
+                class="mr-2"
+                color="currentColor"
+                indeterminate
+                :size="18"
+                :width="2"
+                aria-hidden="true"
+              />
               <VIcon
+                v-else
                 :icon="
                   actionState(item) === 'ready'
                     ? 'mdi-restart'
@@ -728,7 +746,15 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
 }
 
 .system-update-prompt :deep(.v-card-actions .system-update-prompt__primary .v-btn__content) {
-  color: #fff !important;
+  color: inherit !important;
+}
+
+/* 禁用时保留文字和进度图标的对比度，用背景和阴影区分可操作状态。 */
+.system-update-prompt :deep(.v-card-actions .system-update-prompt__primary.v-btn--disabled) {
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  color: rgba(var(--v-theme-on-surface), 0.72) !important;
+  box-shadow: none;
+  opacity: 1;
 }
 
 .system-update-prompt-enter-active,
