@@ -93,8 +93,8 @@ let customCssDialogController: ReturnType<typeof openSharedDialog> | null = null
 // 确认框
 const { createConfirm } = useConfirm()
 
-/** 清理当前会话及重启状态，再使用原登录路由完成退出。 */
-function logout() {
+/** 清理会话及重启状态；只有用户主动退出才撤销通知绑定。 */
+function resetSession(explicitLogout = false) {
   // 清理重启相关状态
   finishSystemRestart()
   if (restartPollingId.value) {
@@ -103,10 +103,16 @@ function logout() {
   }
 
   // 清除登录状态信息
-  authStore.logout()
+  if (explicitLogout) authStore.logout()
+  else authStore.resetSession()
   userStore.reset()
   // 重定向到登录页面或其他适当的页面
   router.push('/login')
+}
+
+/** 用户主动退出时撤销通知绑定，再执行与重新登录相同的页面清理。 */
+function logout() {
+  resetSession(true)
 }
 
 /** 打开重启进度共享弹窗。 */
@@ -154,13 +160,13 @@ async function pollServiceStatus() {
     const isServiceUp = await checkServiceStatus()
 
     if (isServiceUp) {
-      // 服务已恢复，清理状态并执行注销
+      // 服务已恢复，重新登录只清理会话，不撤销本机及配对网页的通知绑定。
       finishSystemRestart()
       closeRestartProgress()
       restartPollingId.value = null
 
       setTimeout(() => {
-        logout()
+        resetSession()
       }, 1000)
       return
     }
@@ -250,7 +256,7 @@ function showAboutDialog() {
 function siteAuthDone() {
   siteAuthDialogController?.close()
   siteAuthDialogController = null
-  logout()
+  resetSession()
 }
 
 // 从用户 Store中获取信息

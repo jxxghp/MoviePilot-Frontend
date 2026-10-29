@@ -1,7 +1,8 @@
 import UserProfile from '../UserProfile.vue'
 import { renderWithProviders } from '@tests/support/render'
 import { nativeGlobalActions } from '@/native/registry'
-import { useUserStore } from '@/stores'
+import { useAuthStore, useUserStore } from '@/stores'
+import { flushPromises } from '@vue/test-utils'
 import { computed, toValue } from 'vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -11,11 +12,16 @@ import {
   THEME_CUSTOMIZER_CHANGE_EVENT,
 } from '@/composables/useThemeCustomizer'
 
-const mocks = vi.hoisted(() => ({ community: vi.fn(), get: vi.fn() }))
+const mocks = vi.hoisted(() => ({ community: vi.fn(), get: vi.fn(), confirm: vi.fn(), routerPush: vi.fn() }))
 vi.mock('@/api', () => ({ default: { get: mocks.get, post: vi.fn().mockResolvedValue(null) } }))
+vi.mock('@/router', () => ({ default: { push: mocks.routerPush } }))
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ createConfirm: mocks.confirm }) }))
 vi.mock('vue-toastification', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }))
 
 beforeEach(() => {
+  mocks.get.mockClear()
+  mocks.routerPush.mockReset()
+  mocks.confirm.mockReset().mockResolvedValue(true)
   mocks.community.mockResolvedValue({ state: 'ready', user_id: 123, medals: [{ key: 'tester' }] })
   mocks.get.mockImplementation((path: string) => {
     if (path === 'github/community') return mocks.community()
@@ -39,6 +45,35 @@ async function renderProfile(level = 1, superUser = true) {
 }
 
 describe('原生用户菜单与网页状态同步', () => {
+  it('重启恢复后清理登录会话，保留 App 及配对网页通知绑定', async () => {
+    const { entries, pinia } = await renderProfile(2)
+    await flushPromises()
+    const auth = useAuthStore(pinia)
+    auth.login({ token: 'restart-session-token', remember: true })
+    const fetch = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetch)
+    vi.stubGlobal('MoviePilotNative', {
+      transportVersion: 1,
+      postMessage: vi.fn(),
+      notificationInstallation: 'installation-restart-001',
+    })
+    const logout = vi.spyOn(auth, 'logout')
+    const clearToken = vi.spyOn(auth, 'clearToken')
+    const restart = entries.value.find(item => item.id === 'restart')!
+    vi.useFakeTimers()
+
+    await restart.invoke?.()
+    await vi.advanceTimersByTimeAsync(6000)
+
+    expect(mocks.get).toHaveBeenCalledWith('system/restart')
+    expect(mocks.get).toHaveBeenCalledWith('system/ping', expect.any(Object))
+    expect(fetch).not.toHaveBeenCalled()
+    expect(clearToken).toHaveBeenCalledOnce()
+    expect(logout).not.toHaveBeenCalled()
+    expect(auth.token).toBeNull()
+    expect(mocks.routerPush).toHaveBeenCalledWith('/login')
+  })
+
   it('网页主题菜单中的玻璃设置随总开关即时显示和隐藏', async () => {
     await renderProfile(2)
     persistPartialThemeCustomizerSettings({ glassEnabled: false })

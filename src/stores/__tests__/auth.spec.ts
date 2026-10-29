@@ -2,11 +2,16 @@ import { useAuthStore } from '@/stores/auth'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useUserStore } from '@/stores/user'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('auth store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    delete window.MoviePilotNative
+    vi.unstubAllGlobals()
   })
 
   it('starts with the unauthenticated state and matching getters', () => {
@@ -34,7 +39,7 @@ describe('auth store', () => {
     expect(authStore.getToken).toBeNull()
   })
 
-  it('logs out and clears all account-scoped state', () => {
+  it.each(['logout', 'resetSession'] as const)('%s 清理全部账号会话状态', action => {
     const authStore = useAuthStore()
     const pluginNavStore = usePluginSidebarNavStore()
     const userStore = useUserStore()
@@ -65,7 +70,7 @@ describe('auth store', () => {
       loaded: true,
     })
 
-    authStore.logout()
+    authStore[action]()
 
     expect(authStore.token).toBeNull()
     expect(authStore.originalPath).toBeNull()
@@ -81,6 +86,35 @@ describe('auth store', () => {
       userID: -1,
       userName: '',
     })
+  })
+
+  it('重启或认证失效后重新登录保留通知绑定，主动退出仍撤销当前安装', () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetch)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      postMessage: vi.fn(),
+      notificationInstallation: 'installation-0001',
+    }
+    const authStore = useAuthStore()
+    authStore.login({ token: 'before-restart', remember: true })
+
+    authStore.resetSession()
+    expect(authStore.token).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+
+    authStore.login({ token: 'after-restart', remember: true })
+    expect(fetch).not.toHaveBeenCalled()
+    authStore.logout()
+
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer after-restart')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      action: 'unregister',
+      installation: 'installation-0001',
+      origin: location.origin,
+    })
+    expect(authStore.token).toBeNull()
   })
 
   it('原生组件退出通知在清空主登录之前同步发出，消息没有认证载荷', () => {
