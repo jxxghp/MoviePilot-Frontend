@@ -172,9 +172,36 @@ describe('SystemUpdatePrompt', () => {
   it('blocks early installation while another update is downloading', async () => {
     mocks.updateStatus!.value = batchStatus('ready', 'downloading')
     await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
-    expect(screen.getByRole('button', { name: 'systemUpdate.downloading' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'systemUpdate.updateNow' })).toBeDisabled()
+    expect(screen.getAllByText('systemUpdate.downloading')).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'systemUpdate.restartNow' })).not.toBeInTheDocument()
   })
+
+  it.each([
+    { state: 'downloading' as const, action: 'systemUpdate.updateNow' },
+    { state: 'installing' as const, action: 'systemUpdate.restartNow' },
+  ])(
+    'shows $state details only in the body while the disabled button retains its action',
+    async ({ state, action }) => {
+      mocks.updateStatus!.value = {
+        ...availableStatus,
+        state,
+        supports_batch_update: true,
+        updates: [{ ...availableStatus, type: 'application', state }],
+      }
+
+      await renderWithProviders(SystemUpdatePrompt, { props: { enabled: true } })
+
+      const button = screen.getByRole('button', { name: action })
+      expect(button).toBeDisabled()
+      expect(button).toHaveAttribute('aria-busy', 'true')
+      expect(button).toBeVisible()
+      expect(screen.getAllByText(`systemUpdate.${state}`)).toHaveLength(1)
+      await fireEvent.click(button)
+      expect(mocks.post).not.toHaveBeenCalled()
+      expect(mocks.confirm).not.toHaveBeenCalled()
+    },
+  )
 
   it('downloads the remaining available update before offering a restart', async () => {
     mocks.updateStatus!.value = batchStatus('ready', 'available')

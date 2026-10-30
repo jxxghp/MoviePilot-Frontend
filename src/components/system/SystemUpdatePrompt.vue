@@ -233,13 +233,11 @@ function actionState(item: SystemUpdateItemStatus): SystemUpdateState {
   return updateItems.value.some(current => current.state === 'failed' || current.error) ? 'failed' : 'available'
 }
 
-/** 将原有按钮映射到当前整体阶段，避免部分包就绪时提示提前重启。 */
+/** 按整体阶段保留操作名称，详细进度由正文展示，避免按钮重复状态文案。 */
 function actionLabel(item: SystemUpdateItemStatus): string {
   const state = actionState(item)
-  if (state === 'ready') return 'systemUpdate.restartNow'
+  if (state === 'ready' || state === 'installing') return 'systemUpdate.restartNow'
   if (state === 'failed') return 'common.retry'
-  if (state === 'downloading') return 'systemUpdate.downloading'
-  if (state === 'installing') return 'systemUpdate.installing'
   return 'systemUpdate.updateNow'
 }
 
