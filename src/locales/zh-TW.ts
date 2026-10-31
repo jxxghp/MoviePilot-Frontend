@@ -3020,6 +3020,7 @@ export default {
       active30Days: '30日活躍',
       backendVersionStatistic: '後端版本',
       frontendVersionStatistic: '前端版本',
+      iosAppVersionStatistic: 'iOS App 版本',
       version: '版本',
       users: '用戶數',
       lastUpdated: '更新時間',

@@ -26,7 +26,7 @@ const DialogStub = defineComponent({
 })
 
 describe('AboutDialog version statistics', () => {
-  it('hides backend and frontend versions with fewer than ten installations', async () => {
+  it('hides backend, frontend and iOS versions with fewer than ten installations', async () => {
     mocks.apiGet.mockImplementation((path: string) => {
       if (path === 'system/env') {
         return Promise.resolve({
@@ -40,6 +40,10 @@ describe('AboutDialog version statistics', () => {
       if (path === 'site/supporting') return Promise.resolve({})
       if (path === 'system/usage/statistic') {
         return Promise.resolve({
+          ios_app_versions: [
+            { version: 'ios-hidden', count: 9 },
+            { version: 'ios-visible', count: 10 },
+          ],
           backend_versions: [
             { version: 'backend-hidden', count: 9 },
             { version: 'backend-visible', count: 10 },
@@ -66,6 +70,8 @@ describe('AboutDialog version statistics', () => {
     await fireEvent.click(statisticButton!)
 
     expect(await screen.findByText('backend-visible')).toBeInTheDocument()
+    expect(screen.getByText('ios-visible')).toBeInTheDocument()
+    expect(screen.queryByText('ios-hidden')).not.toBeInTheDocument()
     expect(screen.getByText('frontend-visible')).toBeInTheDocument()
     expect(screen.queryByText('backend-hidden')).not.toBeInTheDocument()
     expect(screen.queryByText('frontend-hidden')).not.toBeInTheDocument()
