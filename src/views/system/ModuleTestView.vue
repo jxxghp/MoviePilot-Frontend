@@ -9,6 +9,7 @@ const { t } = useI18n()
 // 主题
 const theme = useTheme()
 
+/** 健康检查目录保留后端模块标识和可选的本地化名称。 */
 interface ModuleListItem {
   id: string
   name: string
@@ -34,7 +35,7 @@ const overallProgress = ref(0)
 const isChecking = ref(false)
 const checkComplete = ref(false)
 
-// 调用API查询模块列表
+/** 读取模块目录并启动逐项检查，汇总进度由实际完成的请求推进。 */
 async function getModules() {
   try {
     isChecking.value = true
@@ -63,7 +64,7 @@ async function getModules() {
   }
 }
 
-// 开始模块检查
+/** 顺序检查各模块，完成后保留结果并显示重新检查入口。 */
 async function startModuleCheck() {
   const totalModules = modules.value.length
 
@@ -89,7 +90,7 @@ async function startModuleCheck() {
   }, 500)
 }
 
-// 调用API测试模块
+/** 将单项检查结果映射为正常、未启用或错误，保留后端失败信息。 */
 async function moduleTest(index: number) {
   try {
     const target = modules.value[index]
@@ -117,7 +118,7 @@ async function moduleTest(index: number) {
   }
 }
 
-// 重新检查
+/** 清空上一轮展示状态，重新读取模块目录并执行检查。 */
 function recheck() {
   modules.value = []
   overallProgress.value = 0
@@ -134,15 +135,15 @@ onMounted(getModules)
   <div class="system-health-check">
     <!-- 动态进度框 - 固定在顶部 -->
     <div class="progress-container">
-      <div class="progress-card app-surface" :class="{ 'dark-theme': theme.global.current.value.dark }">
+      <div class="progress-card app-surface">
         <div class="progress-header">
           <VIcon
             :icon="isChecking ? 'mdi-cog-sync' : checkComplete ? 'mdi-check-circle' : 'mdi-cog'"
             :class="isChecking ? 'rotating' : ''"
             size="28"
-            color="white"
+            color="primary"
           />
-          <h3 class="progress-title text-white">
+          <h3 class="progress-title">
             {{
               isChecking
                 ? t('moduleTest.checking')
@@ -156,7 +157,7 @@ onMounted(getModules)
         <div class="progress-bar-container">
           <VProgressLinear
             v-model="overallProgress"
-            :color="checkComplete ? 'success' : 'white'"
+            :color="checkComplete ? 'success' : 'primary'"
             height="6"
             rounded
             class="progress-bar"
@@ -247,8 +248,9 @@ onMounted(getModules)
 .progress-card {
   padding: 20px;
   margin: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  /* 玻璃主题可清除卡片底色，前景必须随当前表面明暗切换。 */
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .progress-header {
@@ -269,15 +271,11 @@ onMounted(getModules)
   margin-block-end: 16px;
 }
 
-.progress-bar {
-  background: rgba(255, 255, 255, 20%) !important;
-}
-
 .progress-text {
   position: absolute;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 90%);
-  color: #333;
+  background: rgba(var(--v-theme-on-surface), 8%);
+  color: rgb(var(--v-theme-on-surface));
   font-size: 0.75rem;
   font-weight: 600;
   inset-block-start: -6px;
@@ -305,11 +303,11 @@ onMounted(getModules)
 }
 
 .stat-number.success {
-  color: #4caf50;
+  color: rgb(var(--v-theme-success));
 }
 
 .stat-number.error {
-  color: #f44336;
+  color: rgb(var(--v-theme-error));
 }
 
 .stat-label {
