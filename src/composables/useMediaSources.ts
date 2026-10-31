@@ -12,13 +12,13 @@ export type MediaSourceOptionKind = 'media' | 'music'
 
 let mediaSourceLoadPromise: Promise<void> | null = null
 
-/** 加载后端注册的媒体来源目录；同一页面会话只发起一次请求。 */
+/** 共享媒体来源目录请求；单次等待有上限，失败后允许启动恢复流程重新查询。 */
 export function loadMediaSources(force = false): Promise<void> {
   if (force) mediaSourceLoadPromise = null
   if (mediaSourceLoadPromise) return mediaSourceLoadPromise
   let loaded = false
   mediaSourceLoadPromise = api
-    .get<MediaSourceInfo[]>('media/source')
+    .get<MediaSourceInfo[]>('media/source', { timeout: 8000 })
     .then(sources => {
       setMediaSourceCatalog(Array.isArray(sources) ? sources : [])
       loaded = true

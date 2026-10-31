@@ -14,8 +14,7 @@ import {
   filterMenusByPermission,
   hasItemPermission,
 } from '@/utils/permission'
-import { isMediaSourceCatalogLoaded } from '@/utils/mediaId'
-import { isModuleCatalogLoaded } from '@/composables/useModuleCatalog'
+import { useNativeStartupCatalogs } from '@/composables/useNativeStartupCatalogs'
 import { dynamicButtonRegistry } from '@/composables/dynamicButtonRegistry'
 import { buildFooterMenus } from '@/utils/footerNavigation'
 import { groupAppMenus } from '@/utils/appNavigation'
@@ -445,9 +444,8 @@ async function execute(message: NativeEnvelope) {
   return true
 }
 
-const canStart = computed(
-  () => routerReady.value && authenticated.value && isMediaSourceCatalogLoaded().value && isModuleCatalogLoaded().value,
-)
+const catalogsReady = useNativeStartupCatalogs(computed(() => routerReady.value && authenticated.value))
+const canStart = computed(() => routerReady.value && authenticated.value && catalogsReady.value)
 const cacheNegotiated = ref(false)
 if (window.MoviePilotNative?.readonlyCacheVersion === 1)
   useNativeReadonlyCache(cacheNegotiated, canStart, new URL(import.meta.env.VITE_API_BASE_URL, document.baseURI).href)

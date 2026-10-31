@@ -4,6 +4,7 @@ import type { ModuleCatalogInfo } from '@/api/types'
 
 export type ModuleCatalogType = 'downloader' | 'mediaserver' | 'notification' | string
 
+/** 将宿主模块投影为配置表单可选项，不复制模块运行状态。 */
 export interface ModuleOption {
   moduleId: string
   title: string
@@ -14,14 +15,14 @@ const moduleCatalog = ref<ModuleCatalogInfo[]>([])
 const moduleCatalogLoaded = ref(false)
 let moduleCatalogLoadPromise: Promise<void> | null = null
 
-/** 加载后端宿主模块目录，并在当前页面会话中共享请求结果。 */
+/** 共享宿主模块目录请求；单次等待有上限，失败后允许启动恢复流程重新查询。 */
 export function loadModuleCatalog(force = false): Promise<void> {
   if (force) moduleCatalogLoadPromise = null
   if (moduleCatalogLoadPromise) return moduleCatalogLoadPromise
   let loaded = false
 
   moduleCatalogLoadPromise = api
-    .get<{ modules?: ModuleCatalogInfo[] }>('system/module-catalog')
+    .get<{ modules?: ModuleCatalogInfo[] }>('system/module-catalog', { timeout: 8000 })
     .then(result => {
       moduleCatalog.value = Array.isArray(result?.modules) ? result.modules : []
       moduleCatalogLoaded.value = true
