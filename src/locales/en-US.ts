@@ -546,6 +546,9 @@ export default {
       primaryColor: 'Primary Color',
       usePrimaryColor: 'Use {color} primary color',
       chooseCustomColor: 'Choose custom primary color',
+      customColorHex: 'Custom hex color',
+      applyCustomColor: 'Apply',
+      customColorInvalid: 'Enter a 6-digit hex color, e.g. #1AC6FF',
       enableGlassEffects: 'Enable glass effects',
 
       radius: 'Corners',
