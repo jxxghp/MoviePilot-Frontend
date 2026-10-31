@@ -116,6 +116,9 @@ const backendVersionStatistics = computed(() => filterVersionStatistics(versionS
 // 前端版本统计
 const frontendVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.frontend_versions))
 
+// iOS App 按匿名安装统计，沿用版本最少安装量展示规则。
+const iosAppVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.ios_app_versions))
+
 // 活跃用户统计
 const activeUsers = computed(() => versionStatistic.value?.active_users ?? {})
 
@@ -674,6 +677,28 @@ onBeforeUnmount(() => {
                   <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
                 </tr>
                 <tr v-if="!frontendVersionStatistics.length">
+                  <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
+                </tr>
+              </tbody>
+            </VTable>
+          </div>
+          <div class="mt-5">
+            <div class="text-subtitle-2 mb-2">{{ t('setting.about.iosAppVersionStatistic') }}</div>
+            <VTable density="compact">
+              <thead>
+                <tr>
+                  <th>{{ t('setting.about.version') }}</th>
+                  <th class="text-end">{{ t('setting.about.users') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in iosAppVersionStatistics" :key="`ios-${item.version}`">
+                  <td>
+                    <code>{{ item.version }}</code>
+                  </td>
+                  <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
+                </tr>
+                <tr v-if="!iosAppVersionStatistics.length">
                   <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
                 </tr>
               </tbody>
