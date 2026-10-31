@@ -36,7 +36,7 @@ describe('Vyo 媒体服务器接入', () => {
     const { moduleOptions } = useModuleCatalog()
 
     expect(moduleOptions('mediaserver').value).toEqual([{ moduleId: 'VyoModule', title: 'Vyo', value: 'mediavault' }])
-    expect(mocks.apiGet).toHaveBeenCalledWith('system/module-catalog')
+    expect(mocks.apiGet).toHaveBeenCalledWith('system/module-catalog', { timeout: 8000 })
   })
 
   it('有自己的图标，不落到通用媒体服务器图标', () => {
