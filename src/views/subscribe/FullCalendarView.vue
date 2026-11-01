@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { CalendarOptions, EventInput, EventSourceInput } from '@fullcalendar/core'
+import type { CalendarOptions, EventApi, EventInput, EventSourceInput } from '@fullcalendar/core'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -403,15 +403,19 @@ function isEnabledFlag(value: unknown) {
   return value === true || value === 1 || value === '1'
 }
 
-// 获取已经入库的具体集号列表。
+// 获取任意版本的已入库集号，洗版完成度不作为是否入库的条件。
 function getLibraryEpisodeNumbers(subscribe: CalendarSubscription) {
-  if (isEnabledFlag(subscribe.best_version)) {
-    return Object.entries(subscribe.episode_priority || {})
-      .filter(([episode, priority]) => Number.isFinite(Number(episode)) && priority === 100)
-      .map(([episode]) => Number(episode))
-  }
+  const recordedEpisodes = normalizeEpisodeNumbers(subscribe.note)
+  if (!isEnabledFlag(subscribe.best_version)) return recordedEpisodes
 
-  return normalizeEpisodeNumbers(subscribe.note)
+  // 0 可能只是初始化占位；有 note 记录或正优先级才表示已下载过某个版本。
+  const priorityEpisodes = Object.entries(subscribe.episode_priority || {})
+    .filter(([, priority]) => priority > 0)
+    .map(([episode]) => episode)
+
+  return [...new Set(normalizeEpisodeNumbers([...recordedEpisodes, ...priorityEpisodes]))].sort(
+    (first, second) => first - second,
+  )
 }
 
 // 判断订阅列表中的集号明细是否可能落后于聚合入库数。
@@ -421,7 +425,6 @@ function shouldLoadCalendarLibraryDetails(
 ) {
   return (
     subscribe.type === '电视剧' &&
-    !isEnabledFlag(subscribe.best_version) &&
     Boolean(subscribe.id) &&
     getLibraryEpisodeCount(subscribe) > libraryEpisodeNumbers.length
   )
@@ -505,7 +508,7 @@ function buildCalendarEventInfo(
 }
 
 // 获取折叠事件展开按钮文案。
-function getExpandCalendarEventLabel(event: any) {
+function getExpandCalendarEventLabel(event: Pick<EventApi, 'extendedProps'>) {
   const props = event.extendedProps as CalendarEventInfo
 
   return t('calendar.expandDayEvents', { count: props.hiddenEventCount || 0 })

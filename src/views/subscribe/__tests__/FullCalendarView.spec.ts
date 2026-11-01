@@ -35,8 +35,10 @@ vi.mock('@fullcalendar/vue3', async () => {
           type: Object,
         },
       },
+      /** 保留日历事件插槽与按日展开所需的公开接口。 */
       setup(props, { expose, slots }) {
         mocks.setRange = (props.options as { datesSet?: typeof mocks.setRange }).datesSet
+        // 按稳定事件 ID 定位测试事件，模拟 FullCalendar 的局部更新。
         const getEventById = (id: string) => {
           mocks.getEventById(id)
           const options = props.options as { events?: Record<string, unknown>[] }
@@ -44,6 +46,7 @@ vi.mock('@fullcalendar/vue3', async () => {
           if (!event) return undefined
 
           return {
+            /** 记录局部更新并让插槽读取最新扩展属性。 */
             setExtendedProp(key: string, value: unknown) {
               mocks.setExtendedProp(id, key, value)
               event[key] = value
@@ -133,6 +136,7 @@ async function renderCalendar(component = FullCalendarView) {
 function keepAliveHarness() {
   return defineComponent({
     components: { FullCalendarView },
+    /** 通过公开按钮切换 KeepAlive 激活状态。 */
     setup() {
       const active = ref(true)
       return { active }
@@ -447,7 +451,7 @@ describe('FullCalendarView', () => {
       tvSubscribe(3201, '未入库', { lack_episode: 4, note: [] }),
       tvSubscribe(3202, '部分入库', { lack_episode: 2, note: [1] }),
       tvSubscribe(3203, '全部入库', { lack_episode: 0, note: [1, 2] }),
-      tvSubscribe(3204, '洗版部分入库', {
+      tvSubscribe(3204, '洗版已有版本', {
         best_version: '1',
         episode_priority: { '1': 100, '2': 50 },
         lack_episode: 0,
@@ -467,11 +471,160 @@ describe('FullCalendarView', () => {
     const noneCard = (await screen.findByText('未入库')).closest('.calendar-event-card')
     const partialCard = (await screen.findByText('部分入库')).closest('.calendar-event-card')
     const completeCard = (await screen.findByText('全部入库')).closest('.calendar-event-card')
-    const washCard = (await screen.findByText('洗版部分入库')).closest('.calendar-event-card')
+    const washCard = (await screen.findByText('洗版已有版本')).closest('.calendar-event-card')
     expect(noneCard).toHaveClass('calendar-event-card--none')
     expect(partialCard).toHaveClass('calendar-event-card--partial')
     expect(completeCard).toHaveClass('calendar-event-card--complete')
-    expect(washCard).toHaveClass('calendar-event-card--partial')
+    expect(washCard).toHaveClass('calendar-event-card--complete')
+  })
+
+  it.each([
+    { apiMode: 'legacy', width: 1280, bestVersion: 1 },
+    { apiMode: 'window', width: 1280, bestVersion: true },
+    { apiMode: 'legacy', width: 390, bestVersion: '1' },
+    { apiMode: 'window', width: 390, bestVersion: 1 },
+  ])(
+    'shows recorded episodes of any quality as in library ($apiMode, $width)',
+    async ({ apiMode, width, bestVersion }) => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-08-10T12:00:00+08:00'))
+      setViewport(width)
+      const subscribe = tvSubscribe(3241, '洗版任意版本入库', {
+        best_version: bestVersion,
+        total_episode: 8,
+        lack_episode: 2,
+        completed_episode: 2,
+        note: [1, 2, 3, 4, 5, 6],
+        episode_priority: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 100, '6': 100 },
+      })
+      const episodes = [
+        createTmdbEpisode({ air_date: '2026-08-10', episode_number: 3 }),
+        createTmdbEpisode({ air_date: '2026-08-10', episode_number: 4 }),
+      ]
+      const filesRequest = vi.fn()
+      server.use(
+        subscribeListHandler([subscribe]),
+        tmdbSeasonEpisodesHandler(3241, 1, episodes),
+        http.get(subscribeApiUrls.filesById(3241), () => {
+          filesRequest()
+          return apiJson({ episodes: {} })
+        }),
+      )
+      if (apiMode === 'window') {
+        server.use(
+          http.get('http://localhost/api/v1/subscribe/calendar', () =>
+            apiJson({ items: [{ subscribe, date: '2026-08-10', episodes }], total: 1 }),
+          ),
+        )
+      }
+
+      await renderCalendar()
+
+      await waitFor(() => {
+        const card =
+          width < 960
+            ? queryMobileCalendarEventCard(subscribe.name)
+            : screen.getByText(subscribe.name).closest('.calendar-event-card')
+        expect(card).toHaveClass(width < 960 ? 'mobile-calendar-event-card--complete' : 'calendar-event-card--complete')
+        expect(card).toHaveAttribute('title', expect.stringContaining('已入库 6/8'))
+      })
+      await waitFor(() => expect(document.querySelector('[role="status"]')).not.toBeInTheDocument())
+      expect(filesRequest).not.toHaveBeenCalled()
+    },
+  )
+
+  it('does not infer library presence from zero-priority placeholders without download records', async () => {
+    const subscribe = tvSubscribe(3242, '洗版占位集号', {
+      best_version: 1,
+      lack_episode: 2,
+      note: [3, 4],
+      episode_priority: { '1': 0, '3': 0, '4': 50 },
+    })
+    server.use(
+      subscribeListHandler([subscribe]),
+      tmdbSeasonEpisodesHandler(3242, 1, [createTmdbEpisode({ air_date: '2026-07-23', episode_number: 1 })]),
+    )
+
+    await renderCalendar()
+
+    const card = (await screen.findByText(subscribe.name)).closest('.calendar-event-card')
+    expect(card).toHaveClass('calendar-event-card--none')
+  })
+
+  it.each(['legacy', 'window'])('backfills stale best-version library facts with actual files (%s)', async apiMode => {
+    const subscribe = tvSubscribe(3243, '洗版手动入库', {
+      best_version: 1,
+      lack_episode: 2,
+      note: [1],
+      episode_priority: { '1': 100, '3': 0, '4': 0 },
+    })
+    const episodes = [
+      createTmdbEpisode({ air_date: '2026-07-23', episode_number: 3 }),
+      createTmdbEpisode({ air_date: '2026-07-23', episode_number: 4 }),
+    ]
+    const filesRequest = vi.fn()
+    let resolveFiles: (() => void) | undefined
+    const filesReady = new Promise<void>(resolve => {
+      resolveFiles = resolve
+    })
+    server.use(
+      subscribeListHandler([subscribe]),
+      tmdbSeasonEpisodesHandler(3243, 1, episodes),
+      http.get(subscribeApiUrls.filesById(3243), async () => {
+        filesRequest()
+        await filesReady
+        return apiJson({
+          episodes: {
+            3: { library: [{ file_path: '/media/洗版手动入库/S01E03.mkv', storage: 'local' }] },
+            4: { download: [{ file_path: '/downloads/S01E04.mkv' }] },
+          },
+        })
+      }),
+    )
+    if (apiMode === 'window') {
+      server.use(
+        http.get('http://localhost/api/v1/subscribe/calendar', () =>
+          apiJson({ items: [{ subscribe, date: '2026-07-23', episodes }], total: 1 }),
+        ),
+      )
+    }
+
+    await renderCalendar()
+
+    await screen.findByText(subscribe.name)
+    expect(screen.getByText('未入库 (2/4)')).toBeInTheDocument()
+    await waitFor(() => expect(filesRequest).toHaveBeenCalledOnce())
+    resolveFiles?.()
+    await waitFor(() => expect(screen.getByText('部分入库 (2/4)')).toBeInTheDocument())
+  })
+
+  it('keeps known best-version library episodes when the detail lookup fails', async () => {
+    const subscribe = tvSubscribe(3244, '洗版补查失败', {
+      best_version: 1,
+      total_episode: 8,
+      lack_episode: 2,
+      note: [3],
+      episode_priority: { '4': 50 },
+    })
+    const filesRequest = vi.fn()
+    server.use(
+      subscribeListHandler([subscribe]),
+      tmdbSeasonEpisodesHandler(3244, 1, [
+        createTmdbEpisode({ air_date: '2026-07-23', episode_number: 3 }),
+        createTmdbEpisode({ air_date: '2026-07-23', episode_number: 4 }),
+      ]),
+      http.get(subscribeApiUrls.filesById(3244), () => {
+        filesRequest()
+        return HttpResponse.json({ detail: 'unavailable' }, { status: 500 })
+      }),
+    )
+
+    await renderCalendar()
+
+    await screen.findByText(subscribe.name)
+    await waitFor(() => expect(filesRequest).toHaveBeenCalledOnce())
+    await waitFor(() => expect(document.querySelector('[role="status"]')).not.toBeInTheDocument())
+    expect(screen.getByText('已入库 (6/8)')).toBeInTheDocument()
   })
 
   it('uses media-library episode details when subscription facts lag behind aggregate progress', async () => {
@@ -518,7 +671,7 @@ describe('FullCalendarView', () => {
   it('limits background media-library detail requests', async () => {
     const subscriptions = [
       tvSubscribe(3261, '后台补查一', { lack_episode: 1, note: [1] }),
-      tvSubscribe(3262, '后台补查二', { lack_episode: 1, note: [1] }),
+      tvSubscribe(3262, '洗版后台补查二', { best_version: 1, lack_episode: 1, note: [1] }),
       tvSubscribe(3263, '后台补查三', { lack_episode: 1, note: [1] }),
     ]
     let activeRequests = 0
