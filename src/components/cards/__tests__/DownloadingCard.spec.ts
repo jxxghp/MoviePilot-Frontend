@@ -1,5 +1,6 @@
 import type { DownloadingInfo } from '@/api/types'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
+import i18n from '@/plugins/i18n'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
@@ -98,6 +99,46 @@ describe('DownloadingCard display and pause state', () => {
     expect(screen.getByText('剩余 1 小时')).toBeInTheDocument()
     expect(container.querySelector('.v-card-text .v-progress-linear')).toBeInTheDocument()
     expect(container.querySelector('.downloading-card__progress')).toHaveClass('downloading-card__progress--active')
+  })
+
+  it.each(['1分26秒', '1小时20分', '2天3小时', '999天23时59分59秒'])(
+    'exposes the complete remaining time %s without changing the task actions',
+    async leftTime => {
+      const { container } = await renderCard(downloading({ left_time: ` ${leftTime} ` }))
+
+      const remainingTime = screen.getByTitle(`剩余 ${leftTime}`)
+      expect(remainingTime).toHaveTextContent(`剩余 ${leftTime}`)
+      expect(remainingTime).toBeVisible()
+      expect(actionButtons(container).toggleButton).toHaveAccessibleName('暂停')
+      expect(actionButtons(container).settingsButton).toBeEnabled()
+      expect(actionButtons(container).deleteButton).toBeEnabled()
+    },
+  )
+
+  it('updates the complete time hint with polling and removes it when no estimate is available', async () => {
+    const { rerender } = await renderCard(downloading({ left_time: '1分26秒' }))
+
+    expect(screen.getByTitle('剩余 1分26秒')).toBeVisible()
+    await rerender({ info: downloading({ left_time: '58秒' }) })
+    expect(screen.queryByTitle('剩余 1分26秒')).not.toBeInTheDocument()
+    expect(screen.getByTitle('剩余 58秒')).toBeVisible()
+
+    for (const leftTime of ['--', '', ' ']) {
+      await rerender({ info: downloading({ left_time: leftTime }) })
+      expect(screen.queryByTitle(/^剩余 /)).not.toBeInTheDocument()
+    }
+  })
+
+  it('localizes the complete time hint and removes it while the task is paused', async () => {
+    const { rerender } = await renderCard(downloading({ left_time: '2 days 3 hours' }))
+    i18n.global.locale.value = 'en-US'
+
+    expect(await screen.findByTitle('2 days 3 hours left')).toBeVisible()
+    expect(screen.getByRole('progressbar', { name: 'Downloading' })).toBeInTheDocument()
+
+    await rerender({ info: downloading({ left_time: '2 days 3 hours', state: 'stopped' }) })
+    expect(screen.queryByTitle('2 days 3 hours left')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeEnabled()
   })
 
   it('falls back to the task name and season string when media recognition is incomplete', async () => {

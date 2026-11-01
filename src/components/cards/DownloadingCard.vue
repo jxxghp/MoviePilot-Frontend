@@ -229,7 +229,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
           class="downloading-card-shell app-hover-lift-card h-full"
           :class="{ 'app-hover-lift-card--hovering': hover.isHovering }"
         >
-          <!-- 卡片高度固定为海报 2:3 的高度；无海报时去掉海报列但保持同一高度，网格行高一致。 -->
+          <!-- 以海报 2:3 的高度为下限，较长的剩余时间可撑开卡片，避免被固定高度裁切。 -->
           <VCard
             v-native-card-menu="nativeCardMenu"
             :key="props.info?.hash"
@@ -277,7 +277,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
                 </template>
               </div>
 
-              <!-- 速率与百分比同一行、状态与操作同一行，各行都保持单行，内容总高不超过海报高度。 -->
+              <!-- 速率与百分比同一行；状态与剩余时间纵向排列，右侧保留操作按钮。 -->
               <div
                 class="downloading-card__progress"
                 :class="isDownloading ? 'downloading-card__progress--active' : 'downloading-card__progress--paused'"
@@ -316,8 +316,11 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
                       <VIcon :icon="isDownloading ? 'mdi-download' : 'mdi-pause'" size="14" />
                       {{ stateText }}
                     </span>
-                    <span v-if="remainingTimeText" class="downloading-card__progress-remaining">
-                      <span aria-hidden="true" class="downloading-card__progress-separator">·</span>
+                    <span
+                      v-if="remainingTimeText"
+                      class="downloading-card__progress-remaining"
+                      :title="remainingTimeText"
+                    >
                       {{ remainingTimeText }}
                     </span>
                   </div>
@@ -395,13 +398,14 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
   border-radius: var(--app-surface-radius);
 }
 
-// 海报列宽与卡片高度按 2:3 固定，海报不会因内容行数变化被拉长裁窄。
+// 海报列宽保持稳定，卡片在默认 2:3 高度不足以展示完整时间时允许增高。
 .downloading-card {
   --downloading-card-poster-width: 6rem;
   --downloading-card-height: 9rem;
 
   display: grid;
-  block-size: var(--downloading-card-height);
+  block-size: auto;
+  min-block-size: var(--downloading-card-height);
   color: rgb(var(--v-theme-on-surface));
   grid-template-columns: var(--downloading-card-poster-width) minmax(0, 1fr);
 }
@@ -420,6 +424,11 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 .downloading-card__image-loader {
   block-size: 100%;
   inline-size: 100%;
+}
+
+.downloading-card__image {
+  position: absolute;
+  inset: 0;
 }
 
 .downloading-card__poster-edge {
@@ -536,6 +545,11 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
   gap: 0.5rem;
 }
 
+.downloading-card__footer {
+  // 窄卡片或放大字体下让按钮整体换行，不把剩余时间挤成单个字符。
+  flex-wrap: wrap;
+}
+
 .downloading-card__progress-value {
   flex: 0 0 auto;
   color: var(--downloading-card-status-color);
@@ -588,12 +602,14 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 
 .downloading-card__progress-copy {
   display: flex;
-  overflow: hidden;
   min-inline-size: 0;
-  align-items: center;
+  flex: 1 1 5.5rem;
+  flex-direction: column;
+  align-items: flex-start;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.72rem;
   gap: 0.15rem;
+  line-height: 1.3;
 }
 
 .downloading-card__progress-state {
@@ -606,18 +622,15 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 }
 
 .downloading-card__progress-remaining {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.downloading-card__progress-separator {
-  padding-inline: 0.12rem;
+  inline-size: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .downloading-card__actions {
   display: flex;
   flex: 0 0 auto;
+  margin-inline-start: auto;
   gap: 0.125rem;
   min-block-size: 0;
 }
