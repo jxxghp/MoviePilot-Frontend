@@ -1100,7 +1100,7 @@ function failStreamRecovery() {
     assistantMessage.status = 'error'
     removeThinkingSegments(assistantMessage)
     if (!assistantMessage.content) appendAssistantTextSegment(assistantMessage, t('agentAssistant.recoveryFailed'))
-    markToolsDone(assistantMessage)
+    finalizeAssistantMessages(messages.value)
     refreshMessageList()
   } else {
     streamError.value = t('agentAssistant.recoveryFailed')
@@ -2243,7 +2243,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
         )
       }
       emit('assistant-preview', routedAssistantMessage.content)
-      markToolsDone(routedAssistantMessage)
+      finalizeAssistantMessages(messages.value)
       emit('stream-phase', { type: 'error', message: event.message_i18n || event.message || undefined })
       break
     case 'start':
@@ -2767,7 +2767,7 @@ async function streamAgentMessage(
       if (!assistantMessage) return
       assistantMessage.status = 'done'
       removeThinkingSegments(assistantMessage)
-      markToolsDone(assistantMessage)
+      finalizeAssistantMessages(messages.value)
       refreshMessageList()
       return
     }
@@ -2804,7 +2804,7 @@ async function streamAgentMessage(
     assistantMessage.status = 'error'
     removeThinkingSegments(assistantMessage)
     replaceAssistantTextSegments(assistantMessage, error?.message || t('agentAssistant.error'))
-    markToolsDone(assistantMessage)
+    finalizeAssistantMessages(messages.value)
     refreshMessageList()
   } finally {
     if (isAccountActive()) {
@@ -3107,8 +3107,8 @@ function stopGeneration(options: { stopRemote?: boolean } = {}) {
       messages.value = messages.value.filter(message => message.id !== assistantMessage.id)
     } else {
       assistantMessage.status = 'done'
-      markToolsDone(assistantMessage)
     }
+    finalizeAssistantMessages(messages.value)
     refreshMessageList()
   }
   persistState()

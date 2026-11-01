@@ -3436,4 +3436,59 @@ describe('AgentAssistantPanel agent host bridge', () => {
     expect(wrapper.get('.agent-assistant-tool v-icon-stub').attributes('icon')).toBe('mdi-check-circle-outline')
     wrapper.unmount()
   })
+
+  it.each(['error', 'stop'])(
+    'closes tools in every steering segment on %s without reporting success',
+    async terminal => {
+      const stream = createControllableAgentStream()
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) =>
+          String(input).endsWith('/message/agent/stream') ? stream.response : createAgentResponse([]),
+        ),
+      )
+      const wrapper = mountPanel()
+      await wrapper.find('textarea').setValue('检查任务')
+      await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+      stream.emit(
+        legacySseFrame({ type: 'start', session_id: 'web-terminal', assistant_message_id: 'before-terminal' }),
+      )
+      stream.emit(
+        legacySseFrame({ type: 'tool', tool_id: 'unfinished-before', status: 'running', message: '前段工具' }),
+      )
+      stream.emit(
+        legacySseFrame({
+          type: 'steering',
+          status: 'applied',
+          message_id: 'steer-terminal',
+          content: '补充要求',
+          assistant_message_id: 'before-terminal',
+          continuation_message_id: 'after-terminal',
+        }),
+      )
+      stream.emit(
+        legacySseFrame({
+          type: 'tool',
+          tool_id: 'unfinished-after',
+          status: 'running',
+          message: '后段工具',
+          assistant_message_id: 'after-terminal',
+        }),
+      )
+      await flushPromises()
+      if (terminal === 'stop') await wrapper.get('.agent-assistant-stop').trigger('click')
+      else
+        stream.emit(legacySseFrame({ type: 'error', message: '本轮执行失败', assistant_message_id: 'after-terminal' }))
+      await flushPromises()
+      expect(wrapper.findAll('.agent-assistant-tool').map(tool => tool.get('v-icon-stub').attributes('icon'))).toEqual([
+        'mdi-alert-circle-outline',
+        'mdi-alert-circle-outline',
+      ])
+      stream.emit(legacySseFrame({ type: 'done' }))
+      stream.close()
+      await flushPromises()
+      wrapper.unmount()
+    },
+  )
 })
