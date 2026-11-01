@@ -3078,4 +3078,362 @@ describe('AgentAssistantPanel agent host bridge', () => {
 
     wrapper.unmount()
   })
+
+  it('refreshes the current completed conversation when the panel opens', async () => {
+    const now = Date.now()
+    const oldMessage = {
+      id: 'answer-sync',
+      role: 'assistant',
+      content: '缓存中的旧回复',
+      createdAt: now - 2000,
+      status: 'done',
+    }
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({ sessionId: 'web-sync', messages: [oldMessage] }),
+    )
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/sessions/web-sync'))
+        return createAgentResponse({
+          session_id: 'web-agent:sync',
+          client_session_id: 'web-sync',
+          updated_at: new Date(now).toISOString(),
+          is_processing: false,
+          messages: [
+            {
+              ...oldMessage,
+              content: '服务端的新回复',
+              tools: [
+                {
+                  id: 'unfinished-tool',
+                  message: '未返回完成状态的工具',
+                  tool_name: 'search_media',
+                  status: 'running',
+                },
+              ],
+            },
+          ],
+        })
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await flushPromises()
+    expect(wrapper.text()).toContain('服务端的新回复')
+    expect(wrapper.get('.agent-assistant-tool v-icon-stub').attributes('icon')).toBe('mdi-alert-circle-outline')
+    expect(wrapper.text()).not.toContain('缓存中的旧回复')
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/sessions/web-sync'))).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows saved progress while recovery is pending and keeps the unsaved current turn', async () => {
+    const now = Date.now()
+    const oldMessage = {
+      id: 'answer-pending',
+      role: 'assistant',
+      content: '先前进展',
+      createdAt: now - 2000,
+      status: 'done',
+    }
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({
+        sessionId: 'web-pending',
+        streamRecovery: { sessionId: 'web-pending', startedAt: now - 1000, attempts: 0 },
+        messages: [
+          oldMessage,
+          { id: 'unsaved-user', role: 'user', content: '本轮补充要求', createdAt: now - 1000, status: 'done' },
+          {
+            id: 'unsaved-answer',
+            role: 'assistant',
+            content: '尚未落库的输出',
+            createdAt: now - 500,
+            status: 'streaming',
+          },
+        ],
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/sessions/web-pending'))
+          return createAgentResponse({
+            session_id: 'web-agent:pending',
+            client_session_id: 'web-pending',
+            updated_at: new Date(now).toISOString(),
+            is_processing: true,
+            messages: [{ ...oldMessage, content: '服务端已保存的新进展' }],
+          })
+        return createAgentResponse([])
+      }),
+    )
+    const wrapper = mountPanel()
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+    expect(wrapper.text()).toContain('服务端已保存的新进展')
+    expect(wrapper.text()).toContain('本轮补充要求')
+    expect(wrapper.text()).toContain('尚未落库的输出')
+    expect(
+      JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}').streamRecovery,
+    ).not.toBeNull()
+    wrapper.unmount()
+  })
+
+  it('ignores an opening snapshot that arrives after a new stream has started', async () => {
+    const now = Date.now()
+    const detail = createDeferred<Response>()
+    const primaryStream = createControllableAgentStream()
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({
+        sessionId: 'web-sync-race',
+        messages: [{ id: 'cached', role: 'assistant', content: '旧记录', status: 'done', createdAt: now - 1000 }],
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/sessions/web-sync-race')) return detail.promise
+        if (String(input).endsWith('/message/agent/stream')) return primaryStream.response
+        return createAgentResponse([])
+      }),
+    )
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('新请求')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    primaryStream.emit(legacySseFrame({ type: 'delta', content: '本轮新输出' }))
+    await vi.advanceTimersByTimeAsync(20)
+    primaryStream.emit(legacySseFrame({ type: 'done' }))
+    primaryStream.close()
+    await flushPromises()
+    detail.resolve(
+      createAgentResponse({
+        session_id: 'web-sync-race',
+        updated_at: new Date(now).toISOString(),
+        is_processing: false,
+        messages: [
+          { id: 'old-server', role: 'assistant', content: '迟到的旧快照', status: 'done', createdAt: now - 1000 },
+        ],
+      }),
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain('本轮新输出')
+    expect(wrapper.get('.agent-assistant-messages').text()).not.toContain('迟到的旧快照')
+    wrapper.unmount()
+  })
+
+  it('collapses an accepted choice and does not dispatch an already accepted callback again', async () => {
+    const now = Date.now()
+    const choice = {
+      id: 'choice-repeat',
+      title: '继续任务',
+      prompt: '是否继续补齐？',
+      status: 'pending',
+      buttons: [
+        { label: '继续补齐', callback_data: 'choice:continue' },
+        { label: '停止', callback_data: 'choice:stop' },
+      ],
+    }
+    const message = {
+      id: 'choice-message',
+      role: 'assistant',
+      content: '',
+      status: 'done',
+      createdAt: now,
+      choices: [choice],
+    }
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({ sessionId: 'web-choice-repeat', messages: [message] }),
+    )
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/sessions/web-choice-repeat'))
+        return createAgentResponse({
+          session_id: 'web-choice-repeat',
+          updated_at: new Date(now).toISOString(),
+          is_processing: false,
+          messages: [message],
+        })
+      if (url.endsWith('/message/agent/callback'))
+        return createAgentResponse({
+          already_selected: true,
+          message: '继续补齐',
+          choice_selection: { choice_id: choice.id, selected_label: '继续补齐', selected_value: '继续补齐' },
+        })
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await flushPromises()
+    await wrapper.find('.agent-assistant-choice__button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-choice__buttons').exists()).toBe(false)
+    expect(wrapper.get('details.agent-assistant-choice__details').attributes('open')).toBeUndefined()
+    expect(wrapper.get('summary').text()).toContain('agentAssistant.choiceSelected')
+    expect(wrapper.get('details .agent-assistant-choice__prompt').text()).toContain('是否继续补齐')
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/message/agent/stream'))).toBe(false)
+    const stored = JSON.parse(localStorage.getItem('moviepilot-agent-assistant-state:user:42') || '{}')
+    expect(stored.messages[0].choices[0]).toMatchObject({ status: 'selected', selected_label: '继续补齐' })
+    wrapper.unmount()
+  })
+
+  it('restores a selected choice without reviving its buttons on a new device', async () => {
+    const now = Date.now()
+    const pending = {
+      id: 'choice-device',
+      title: '继续',
+      prompt: '选择后继续',
+      status: 'pending',
+      buttons: [{ label: '继续', callback_data: 'choice:device' }],
+    }
+    const message = {
+      id: 'choice-device-message',
+      role: 'assistant',
+      content: '',
+      createdAt: now,
+      status: 'done',
+      choices: [pending],
+    }
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({ sessionId: 'web-choice-device', messages: [message] }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/sessions/web-choice-device'))
+          return createAgentResponse({
+            session_id: 'web-choice-device',
+            updated_at: new Date(now).toISOString(),
+            is_processing: false,
+            messages: [
+              {
+                ...message,
+                choices: [{ ...pending, status: 'selected', selected_label: '继续', selected_value: 'continue' }],
+              },
+            ],
+          })
+        return createAgentResponse([])
+      }),
+    )
+    const wrapper = mountPanel()
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-choice__button').exists()).toBe(false)
+    expect(wrapper.find('summary.agent-assistant-choice__selected').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('finishes a tool in its original segment even when its terminal event names the continuation', async () => {
+    const stream = createControllableAgentStream()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith('/message/agent/stream') ? stream.response : createAgentResponse([]),
+      ),
+    )
+    const wrapper = mountPanel()
+    await wrapper.find('textarea').setValue('执行任务')
+    await wrapper.find('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    stream.emit(legacySseFrame({ type: 'start', session_id: 'web-tools', assistant_message_id: 'before-tools' }))
+    stream.emit(
+      legacySseFrame({
+        type: 'tool',
+        tool_id: 'original-tool',
+        status: 'running',
+        message: '原工具',
+        assistant_message_id: 'before-tools',
+      }),
+    )
+    stream.emit(
+      legacySseFrame({
+        type: 'steering',
+        status: 'applied',
+        message_id: 'steering-tools',
+        content: '追加要求',
+        assistant_message_id: 'before-tools',
+        continuation_message_id: 'after-tools',
+      }),
+    )
+    stream.emit(
+      legacySseFrame({
+        type: 'tool',
+        tool_id: 'new-tool',
+        status: 'running',
+        message: '新工具',
+        assistant_message_id: 'after-tools',
+      }),
+    )
+    stream.emit(
+      legacySseFrame({ type: 'tool', tool_id: 'original-tool', status: 'done', assistant_message_id: 'after-tools' }),
+    )
+    await flushPromises()
+    const tools = wrapper.findAll('.agent-assistant-tool')
+    expect(tools[0].find('v-icon-stub').attributes('icon')).toBe('mdi-check-circle-outline')
+    expect(tools[1].find('v-icon-stub').attributes('icon')).toBe('line-md:loading-twotone-loop')
+    stream.emit(legacySseFrame({ type: 'done', assistant_message_id: 'after-tools' }))
+    stream.close()
+    await flushPromises()
+    expect(wrapper.findAll('.agent-assistant-tool')[1].find('v-icon-stub').attributes('icon')).toBe(
+      'mdi-alert-circle-outline',
+    )
+    wrapper.unmount()
+  })
+
+  it('matches only current-turn user echoes and keeps terminal tools from a shorter server snapshot', async () => {
+    const now = Date.now()
+    const oldUser = { id: 'old-user', role: 'user', content: '再检查一次', createdAt: now - 3000, status: 'done' }
+    const oldAnswer = { id: 'old-answer', role: 'assistant', content: '旧答复', createdAt: now - 2500, status: 'done' }
+    const currentUser = { ...oldUser, id: 'local-user', createdAt: now - 1000 }
+    const currentAnswer = {
+      id: 'current-answer',
+      role: 'assistant',
+      content: '已经收到的完整进展',
+      createdAt: now - 500,
+      status: 'streaming',
+      tools: [{ id: 'saved-tool', message: '工具进展', tool_name: 'search_media', status: 'running' }],
+    }
+    localStorage.setItem(
+      'moviepilot-agent-assistant-state:user:42',
+      JSON.stringify({
+        sessionId: 'web-merge',
+        messages: [oldUser, oldAnswer, currentUser, currentAnswer],
+        streamRecovery: { sessionId: 'web-merge', startedAt: now - 1000, attempts: 0 },
+      }),
+    )
+    let snapshots = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (!String(input).endsWith('/sessions/web-merge')) return createAgentResponse([])
+        snapshots += 1
+        return createAgentResponse({
+          session_id: 'web-merge',
+          updated_at: new Date(now).toISOString(),
+          is_processing: true,
+          messages:
+            snapshots === 1
+              ? [oldUser, oldAnswer]
+              : [
+                  oldUser,
+                  oldAnswer,
+                  { ...currentUser, id: 'server-user' },
+                  { ...currentAnswer, content: '进展', tools: [{ ...currentAnswer.tools[0], status: 'done' }] },
+                ],
+        })
+      }),
+    )
+    const wrapper = mountPanel()
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+    expect(wrapper.findAll('.agent-assistant-message--user')).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(1200)
+    await flushPromises()
+    expect(wrapper.findAll('.agent-assistant-message--user')).toHaveLength(2)
+    expect(wrapper.get('.agent-assistant-messages').text()).toContain('已经收到的完整进展')
+    expect(wrapper.get('.agent-assistant-tool v-icon-stub').attributes('icon')).toBe('mdi-check-circle-outline')
+    wrapper.unmount()
+  })
 })

@@ -27,6 +27,7 @@ interface AgentToolCall {
   id: string
   message: string
   tool_name?: string
+  structured?: boolean
   status: 'running' | 'done' | 'error'
 }
 
@@ -91,6 +92,7 @@ interface AgentChoiceSelection {
 }
 
 interface AgentChoiceCallbackData {
+  already_selected?: boolean
   message?: string
   traditional?: boolean
   original_message_id?: string
@@ -370,6 +372,7 @@ const steeringContinuationMessages = new Map<string, AgentChatMessage>()
 const assistantContinuationMessages = new Map<string, AgentChatMessage>()
 const steeringAbortControllers = new Set<AbortController>()
 let sendingRequestId = 0
+let currentSessionSyncRequest = 0
 
 // 汇总正在运行的 Agent 与后台恢复状态；提交输入单独由 sending 控制。
 const isBusy = computed(() => runnerActive.value || Boolean(pendingStreamRecovery.value))
@@ -694,6 +697,7 @@ function normalizeToolCalls(value: unknown): AgentToolCall[] {
         id: stringifyChoiceField(tool.id || tool.tool_id || tool.tool_call_id) || `tool-${index}`,
         message: normalizeToolMessage(stringifyChoiceField(tool.message || tool.text || tool.tool_name)),
         tool_name: stringifyChoiceField(tool.tool_name || tool.toolName) || undefined,
+        structured: tool.structured === true || typeof tool.tool_name === 'string',
         status,
       }
     })
@@ -1106,6 +1110,18 @@ function failStreamRecovery() {
 
 // 合并服务端恢复快照与尚未写入服务端的本地 steering 消息，避免恢复过程丢失用户输入。
 function mergeServerMessagesWithLocalSteering(serverMessages: AgentChatMessage[]) {
+  const selectedChoices = new Map(
+    messages.value
+      .flatMap(message => message.choices)
+      .filter(choice => choice.status === 'selected')
+      .map(choice => [choice.id, choice]),
+  )
+  serverMessages.forEach(message => {
+    message.choices = message.choices.map(choice =>
+      choice.status === 'pending' && selectedChoices.has(choice.id) ? { ...selectedChoices.get(choice.id)! } : choice,
+    )
+  })
+
   const localSteeringMessages = messages.value.filter(
     message => message.role === 'user' && Boolean(message.steeringStatus),
   )
@@ -1151,7 +1167,53 @@ function mergeServerMessagesWithLocalSteering(serverMessages: AgentChatMessage[]
   return mergedMessages
 }
 
-// 从服务端拉取当前会话展示快照，用于移动端后台断开 SSE 后恢复最终结果。
+// 合并正在恢复的展示快照，保留尚未落库的本轮消息及已确认的选择。
+function mergePendingSessionMessages(serverMessages: AgentChatMessage[]) {
+  const localMessages = messages.value
+  const localById = new Map(localMessages.map(message => [message.id, message]))
+  const mergedMessages = serverMessages.map(message => {
+    const local = localById.get(message.id)
+    if (
+      local?.status === 'streaming' &&
+      message.status === 'streaming' &&
+      local.content.length > message.content.length
+    ) {
+      const serverTools = new Map(message.tools.map(tool => [tool.id, tool]))
+      const tools = local.tools.map(tool => {
+        const serverTool = serverTools.get(tool.id)
+        return serverTool && serverTool.status !== 'running' ? serverTool : tool
+      })
+      message.tools.forEach(tool => {
+        if (!tools.some(item => item.id === tool.id)) tools.push(tool)
+      })
+      return { ...local, tools }
+    }
+    return message
+  })
+  const serverIds = new Set(serverMessages.map(message => message.id))
+  const lastSharedMessage = localMessages.findLastIndex(message => serverIds.has(message.id))
+  const pendingTail = localMessages.slice(lastSharedMessage + 1)
+  const sharedId = localMessages[lastSharedMessage]?.id
+  const serverTail = serverMessages.slice(
+    sharedId ? serverMessages.findIndex(message => message.id === sharedId) + 1 : 0,
+  )
+  const unmatchedServerUsers = serverTail.filter(message => message.role === 'user')
+  pendingTail.forEach(message => {
+    if (serverIds.has(message.id)) return
+    if (message.role === 'user') {
+      const matchingUser = unmatchedServerUsers.findIndex(server => server.content === message.content)
+      if (matchingUser >= 0) {
+        unmatchedServerUsers.splice(matchingUser, 1)
+        return
+      }
+    }
+    if (message.role !== 'user' && message.status !== 'streaming') return
+    mergedMessages.push(message)
+  })
+  return mergeServerMessagesWithLocalSteering(mergedMessages)
+}
+
+// 从服务端合并已保存的进展；后台仍忙只决定是否继续恢复，不阻止消息更新。
 async function restoreCurrentSessionFromServer(targetSessionId: string, startedAt: number) {
   const session = await loadServerHistorySession(targetSessionId)
   assertAccountActive()
@@ -1159,17 +1221,16 @@ async function restoreCurrentSessionFromServer(targetSessionId: string, startedA
   if (!activeRecovery || activeRecovery.sessionId !== targetSessionId) return { restored: false, pending: false }
   if (!matchesStreamRecoverySession(session, targetSessionId)) return { restored: false, pending: false }
   if (session.updatedAt < startedAt - 1000) return { restored: false, pending: Boolean(session.isProcessing) }
-  if (session.isProcessing) return { restored: false, pending: true }
-  if (!session.messages.length) return { restored: false, pending: false }
+  if (!session.messages.length) return { restored: false, pending: Boolean(session.isProcessing) }
 
   const restoredMessages = normalizeStoredMessages(session.messages)
-  restoredMessages.forEach(message => {
-    if (message.status !== 'streaming') return
-
-    message.status = 'done'
-    removeThinkingSegments(message)
-    markToolsDone(message)
-  })
+  if (session.isProcessing) {
+    messages.value = mergePendingSessionMessages(restoredMessages)
+    refreshMessageList()
+    persistState({ syncHistory: false })
+    return { restored: false, pending: true }
+  }
+  finalizeAssistantMessages(restoredMessages)
   messages.value = mergeServerMessagesWithLocalSteering(restoredMessages)
   restorePendingSteeringMessages()
   sessionId.value = session.sessionId
@@ -1182,6 +1243,38 @@ async function restoreCurrentSessionFromServer(targetSessionId: string, startedA
     abortController.abort()
   }
   return { restored: true, pending: false }
+}
+
+// 重新打开面板时核对当前正文，而不只刷新历史索引。
+async function synchronizeCurrentSession() {
+  if (!isAccountActive() || !sessionId.value || !messages.value.length || runnerActive.value) return
+  if (pendingStreamRecovery.value) {
+    scheduleStreamRecovery(0)
+    return
+  }
+  const requestId = ++currentSessionSyncRequest
+  const targetSessionId = sessionId.value
+  try {
+    const session = await loadServerHistorySession(targetSessionId)
+    assertAccountActive()
+    if (requestId !== currentSessionSyncRequest || sessionId.value !== targetSessionId || runnerActive.value) return
+    if (!matchesStreamRecoverySession(session, targetSessionId) || !session.messages.length) return
+    const restoredMessages = normalizeStoredMessages(session.messages)
+    if (!session.isProcessing) finalizeAssistantMessages(restoredMessages)
+    messages.value = session.isProcessing
+      ? mergePendingSessionMessages(restoredMessages)
+      : mergeServerMessagesWithLocalSteering(restoredMessages)
+    restorePendingSteeringMessages()
+    sessionId.value = session.sessionId
+    if (session.isProcessing) {
+      beginStreamRecovery(session.sessionId, session.updatedAt)
+      scheduleStreamRecovery(1200)
+    }
+    refreshMessageList()
+    persistState({ syncHistory: false })
+  } catch {
+    // 离线时保留已有正文，回到前台或再次打开时重试。
+  }
 }
 
 // WebAgent SSE 断流后，后台任务仍会完成并保存快照；前端回到前台后轮询拉取。
@@ -1728,6 +1821,23 @@ function markToolsDone(message: AgentChatMessage) {
   })
 }
 
+// 整轮结束仍缺完成回执时，不把结构化工具伪装成执行成功。
+function finalizeToolCalls(message: AgentChatMessage) {
+  message.tools.forEach(tool => {
+    if (tool.status === 'running') tool.status = tool.structured ? 'error' : 'done'
+  })
+}
+
+// 整轮完成后收口所有助手段，包括 steering 前已结束的文本段。
+function finalizeAssistantMessages(sessionMessages: AgentChatMessage[]) {
+  sessionMessages.forEach(message => {
+    if (message.role !== 'assistant') return
+    if (message.status === 'streaming') message.status = 'done'
+    removeThinkingSegments(message)
+    finalizeToolCalls(message)
+  })
+}
+
 // 追加助手文本，并只合并紧邻的文本片段以保留工具事件边界。
 function appendAssistantTextSegment(message: AgentChatMessage, content: string) {
   if (!content) return
@@ -1858,6 +1968,9 @@ function applyMessageUpdate(event: AgentStreamEvent) {
 // 按工具调用 ID 应用结构化生命周期；旧事件没有 ID 时沿用兼容路径。
 function applyToolLifecycleEvent(event: AgentStreamEvent, message: AgentChatMessage) {
   const toolId = String(event.tool_id || event.tool_call_id || '')
+  if (toolId) {
+    message = messages.value.find(item => item.tools.some(tool => tool.id === toolId)) || message
+  }
   if (!toolId) {
     if (event.status === 'done' || event.status === 'error') return
     markToolsDone(message)
@@ -1882,6 +1995,7 @@ function applyToolLifecycleEvent(event: AgentStreamEvent, message: AgentChatMess
       id: toolId,
       message: normalizeToolMessage(event.message || event.tool_name || ''),
       tool_name: event.tool_name,
+      structured: true,
       status,
     }
     message.tools.push(tool)
@@ -1919,6 +2033,7 @@ function splitAssistantAtSteeringBoundary(
   }
 
   currentAssistant.status = 'done'
+  removeThinkingSegments(currentAssistant)
   messages.value.splice(assistantIndex + 1, 0, steeringMessage)
   const continuationMessage = createChatMessage('assistant', '', 'streaming')
   if (continuationMessageId) continuationMessage.id = continuationMessageId
@@ -2109,6 +2224,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       applyMessageUpdate(event)
       break
     case 'done':
+      finalizeAssistantMessages(messages.value)
       removeThinkingSegments(routedAssistantMessage)
       if (routedAssistantMessage.status !== 'error') {
         routedAssistantMessage.status = 'done'
@@ -2544,6 +2660,7 @@ async function streamAgentMessage(
   if (!steering) abortController = requestAbortController
   else steeringAbortControllers.add(requestAbortController)
   if (!steering) {
+    currentSessionSyncRequest += 1
     userAbortRequested = false
     streamRecoveryAbortRequested = false
   }
@@ -2953,6 +3070,7 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
     markChoiceSelected(choice, button, choiceSelection)
     refreshMessageList()
     persistState()
+    if (data.already_selected) return
 
     await streamAgentMessage(agentMessage, [], [], [], [], {
       echoUser: false,
@@ -3168,12 +3286,15 @@ function handleVisibilityChange() {
     return
   }
 
-  scheduleStreamRecovery(0)
+  if (pendingStreamRecovery.value) scheduleStreamRecovery(0)
+  else if (isOpen.value) void synchronizeCurrentSession()
 }
 
 // PWA 从页面缓存或系统挂起状态返回时补触发恢复，兼容未派发 visibilitychange 的浏览器。
 function handlePageShow() {
-  if (document.visibilityState === 'visible') scheduleStreamRecovery(0)
+  if (document.visibilityState !== 'visible') return
+  if (pendingStreamRecovery.value) scheduleStreamRecovery(0)
+  else if (isOpen.value) void synchronizeCurrentSession()
 }
 
 /**
@@ -3257,6 +3378,7 @@ watch(drawerWidth, () => {
 
 watch(isOpen, open => {
   if (open) {
+    void synchronizeCurrentSession()
     scrollToBottom()
     return
   }
@@ -3283,6 +3405,7 @@ onMounted(() => {
     restoreHistorySessions()
     restoreState()
     loadServerHistorySessions()
+    if (isOpen.value) void synchronizeCurrentSession()
   }
   if (pendingStreamRecovery.value && document.visibilityState === 'visible') scheduleStreamRecovery(0)
   syncInputHeight()
@@ -3583,23 +3706,30 @@ onScopeDispose(() => {
 
             <div v-if="message.choices.length" class="agent-assistant-choices">
               <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
-                <div class="agent-assistant-choice__bubble">
-                  <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
-                  <AgentMarkdownContent :content="choice.prompt" variant="choice" />
-                  <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
+                <details v-if="choice.status === 'selected'" class="agent-assistant-choice__details">
+                  <summary class="agent-assistant-choice__selected">
                     <VIcon icon="mdi-check-circle-outline" size="16" />
                     <span>{{
                       t('agentAssistant.choiceSelected', {
                         option: choice.selected_label || choice.selected_description,
                       })
                     }}</span>
+                    <VIcon class="agent-assistant-choice__toggle" icon="mdi-chevron-down" size="16" />
+                  </summary>
+                  <div class="agent-assistant-choice__bubble">
+                    <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
+                    <AgentMarkdownContent :content="choice.prompt" variant="choice" />
                   </div>
-                  <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
+                </details>
+                <div v-else class="agent-assistant-choice__bubble">
+                  <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
+                  <AgentMarkdownContent :content="choice.prompt" variant="choice" />
+                  <div v-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
                     <VIcon icon="mdi-alert-circle-outline" size="16" />
                     <span>{{ t('agentAssistant.choiceExpired') }}</span>
                   </div>
                 </div>
-                <div class="agent-assistant-choice__buttons">
+                <div v-if="choice.status === 'pending'" class="agent-assistant-choice__buttons">
                   <VBtn
                     v-for="button in choice.buttons"
                     :key="button.callback_data"
@@ -4460,6 +4590,15 @@ onScopeDispose(() => {
   font-size: 0.92rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.agent-assistant-choice__details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.agent-assistant-choice__details[open] .agent-assistant-choice__toggle {
+  transform: rotate(180deg);
 }
 
 .agent-assistant-choice__selected {
