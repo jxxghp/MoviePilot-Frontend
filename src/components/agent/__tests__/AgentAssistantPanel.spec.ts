@@ -192,6 +192,7 @@ function mountPanel(props: Record<string, unknown> = {}) {
     props: { modelValue: true, ...props },
     global: {
       stubs: {
+        VDialog: slotContainerStub,
         AgentPetAvatar: false,
         AgentMarkdownContent: agentMarkdownContentStub,
         IconBtn: { template: '<button><slot /></button>' },
@@ -1472,6 +1473,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -1513,6 +1515,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -1595,6 +1598,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -1688,6 +1692,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -1732,6 +1737,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -1770,6 +1776,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2576,7 +2583,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     await flushPromises()
     expect(wrapper.text()).toContain(protectedMarker)
 
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.get('textarea').trigger('keydown', { key: 'Escape' })
     await flushPromises()
     expect(wrapper.text()).not.toContain(protectedMarker)
 
@@ -2618,6 +2625,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2679,6 +2687,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2728,6 +2737,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2763,6 +2773,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2829,6 +2840,7 @@ describe('AgentAssistantPanel stream recovery', () => {
       props: { modelValue: true },
       global: {
         stubs: {
+          VDialog: slotContainerStub,
           AgentMarkdownContent: agentMarkdownContentStub,
           IconBtn: { template: '<button><slot /></button>' },
           PerfectScrollbar: { template: '<div><slot /></div>' },
@@ -2921,7 +2933,7 @@ describe('AgentAssistantPanel agent host bridge', () => {
     const wrapper = mountPanel({ pet })
     await flushPromises()
 
-    expect(wrapper.get('.agent-assistant-panel').attributes('aria-label')).toBe('小映')
+    expect(wrapper.get('.agent-assistant-modal').attributes('aria-label')).toBe('小映')
     expect(wrapper.get('.agent-assistant-title').text()).toContain('小映')
     expect(wrapper.find('.agent-assistant-title__mark img').attributes('src')).toBe('/avatar.png')
     expect(wrapper.find('.agent-assistant-title__mark .agent-assistant-mini-bot').exists()).toBe(false)
@@ -2988,7 +3000,7 @@ describe('AgentAssistantPanel agent host bridge', () => {
     expect((wrapper.get('.agent-assistant-composer').element as HTMLElement).style.display).toBe('none')
 
     // Esc 先回到对话，不直接关闭面板。
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.get('textarea').trigger('keydown', { key: 'Escape' })
     await flushPromises()
     expect(wrapper.find('.agent-assistant-pet-picker').exists()).toBe(false)
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()

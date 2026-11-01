@@ -3,6 +3,7 @@ import { useDisplay } from 'vuetify'
 import { VDialog, VMenu } from 'vuetify/components'
 import { useI18n } from 'vue-i18n'
 import { useId } from 'vue'
+import { useWindowSize } from '@vueuse/core'
 import api, { isApiResponse } from '@/api'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
@@ -439,6 +440,9 @@ const recordingTimeText = computed(() => {
 const drawerWidth = computed(() => (display.mdAndDown.value || fullscreen.value ? '100vw' : '30rem'))
 /** 只有协商完成的 Sheet 容器隐藏 HTML 标题栏，普通网页继续使用原菜单。 */
 const nativeSheetActions = computed(() => nativeChromeActive.value && window.MoviePilotNative?.sheetsVersion === 1)
+// 网页窄屏由 Vuetify 管理模态层；原生 Sheet 和桌面侧栏继续沿用原内容节点。
+const mobileModal = computed(() => display.mdAndDown.value && !nativeSheetActions.value)
+const { height: visualViewportHeight } = useWindowSize({ type: 'visual' })
 // 仅网页桌面宽屏展示全屏开关，App 高度由系统 Sheet 控制。
 const canToggleFullscreen = computed(() => !nativeSheetActions.value && !display.mdAndDown.value)
 const hasConversationContent = computed(() => messages.value.length > 0 || protectedDeliveries.value.length > 0)
@@ -450,11 +454,36 @@ const isOpen = computed({
 })
 const drawerStyle = computed(() => ({
   '--agent-assistant-panel-width': drawerWidth.value,
+  '--agent-assistant-content-height': mobileModal.value ? `${visualViewportHeight.value}px` : undefined,
   zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel,
 }))
 const inputGroupId = useId()
 const fileInputId = `agent-assistant-file-input-${inputGroupId}`
 const messageInputId = `agent-assistant-message-input-${inputGroupId}`
+let modalReturnFocus: HTMLElement | null = null
+
+/** 对话框没有内置 activator 插槽，关闭时把焦点还给实际打开助手的控件。 */
+function restoreModalFocus(disposed = false) {
+  const target = modalReturnFocus
+  modalReturnFocus = null
+  nextTick(() => {
+    if (target?.isConnected && (disposed || !isOpen.value)) target.focus({ preventScroll: true })
+  })
+}
+
+watch(
+  () => isOpen.value && mobileModal.value,
+  active => {
+    if (active) {
+      const target = document.activeElement
+      modalReturnFocus = target instanceof HTMLElement && target !== document.body ? target : null
+    } else {
+      restoreModalFocus()
+    }
+  },
+  { immediate: true, flush: 'sync' },
+)
+onScopeDispose(() => restoreModalFocus(true))
 
 // 创建前端展示用的临时 ID。
 function createId(prefix: string) {
@@ -3140,13 +3169,24 @@ function clearAgentAssistantOpenState() {
 
 // 处理全局快捷键。
 function handleGlobalKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape' || !isOpen.value) return
+  if (event.key !== 'Escape' || !isOpen.value || mobileModal.value || event.defaultPrevented) return
+  // 菜单和子弹窗由 Vuetify 栈处理，不能同时把底下的助手也关掉。
+  if (document.querySelector('.v-overlay--active')) return
   // 形象选择视图打开时 Esc 先回到对话，再按一次才关闭面板。
   if (petPickerOpen.value) {
     petPickerOpen.value = false
     return
   }
   closeDrawer()
+}
+
+/** 内容区的 Esc 先退回子视图；Teleport 菜单的 Esc 仍交给它自己的浮层处理。 */
+function handlePanelKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !mobileModal.value) return
+  event.stopPropagation()
+  if (historyMenuOpen.value) historyMenuOpen.value = false
+  else if (petPickerOpen.value) petPickerOpen.value = false
+  else closeDrawer()
 }
 
 /** 切换面板内的形象选择视图。 */
@@ -3262,6 +3302,7 @@ watch(isOpen, open => {
   }
 
   petPickerOpen.value = false
+  historyMenuOpen.value = false
   cancelVoiceRecording()
   invalidateProtectedDeliveries()
 })
@@ -3314,528 +3355,556 @@ onScopeDispose(() => {
 </script>
 
 <template>
-  <aside
-    v-show="isOpen"
-    class="agent-assistant-panel"
-    :class="{
-      'is-fullscreen': fullscreen,
-      'is-motion-paused': !props.motionActive,
-      'is-open': isOpen,
-    }"
-    :style="drawerStyle"
-    role="dialog"
-    :aria-label="assistantTitle"
-    @focusin.stop
+  <component
+    :is="mobileModal ? VDialog : 'div'"
+    class="agent-assistant-modal"
+    v-bind="
+      mobileModal
+        ? {
+            modelValue: isOpen,
+            fullscreen: true,
+            eager: true,
+            transition: false,
+            persistent: historyMenuOpen || petPickerOpen,
+            noClickAnimation: true,
+            contentClass: 'agent-assistant-modal__content',
+            zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel,
+          }
+        : {}
+    "
+    :aria-label="mobileModal ? assistantTitle : undefined"
+    :aria-hidden="mobileModal && !isOpen ? true : undefined"
+    :style="mobileModal ? { zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel } : undefined"
+    @update:model-value="isOpen = $event"
+    @keydown="handlePanelKeydown"
   >
-    <div class="agent-assistant-shell">
-      <header class="agent-assistant-header" data-native-sheet-actions>
-        <div class="agent-assistant-title">
-          <div class="agent-assistant-title__mark">
-            <AgentPetAvatar :pet="props.pet" size="1.85rem">
-              <span class="agent-assistant-mini-bot" aria-hidden="true">
-                <span class="agent-assistant-mini-bot__antenna" />
-                <span class="agent-assistant-mini-bot__head">
-                  <span class="agent-assistant-mini-bot__face">
-                    <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--left" />
-                    <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--right" />
+    <aside
+      v-show="isOpen"
+      class="agent-assistant-panel"
+      :class="{
+        'is-fullscreen': fullscreen,
+        'is-motion-paused': !props.motionActive,
+        'is-open': isOpen,
+      }"
+      :style="drawerStyle"
+      :role="mobileModal ? undefined : 'dialog'"
+      :aria-label="mobileModal ? undefined : assistantTitle"
+      @focusin.stop
+    >
+      <div class="agent-assistant-shell">
+        <header class="agent-assistant-header" data-native-sheet-actions>
+          <div class="agent-assistant-title">
+            <div class="agent-assistant-title__mark">
+              <AgentPetAvatar :pet="props.pet" size="1.85rem">
+                <span class="agent-assistant-mini-bot" aria-hidden="true">
+                  <span class="agent-assistant-mini-bot__antenna" />
+                  <span class="agent-assistant-mini-bot__head">
+                    <span class="agent-assistant-mini-bot__face">
+                      <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--left" />
+                      <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--right" />
+                    </span>
                   </span>
+                  <span class="agent-assistant-mini-bot__body" />
                 </span>
-                <span class="agent-assistant-mini-bot__body" />
-              </span>
-            </AgentPetAvatar>
-          </div>
-          <div class="agent-assistant-title__text">
-            <div class="text-subtitle-1 font-weight-semibold text-truncate">{{ assistantTitle }}</div>
-            <div class="agent-assistant-status">
-              {{
-                activeThinkingMessage
-                  ? `${t('agentAssistant.thinking')} · ${formatThinkingDuration(activeThinkingMessage)}`
-                  : isBusy
-                    ? t('agentAssistant.thinking')
-                    : t('agentAssistant.ready')
-              }}
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-center gap-1">
-          <component
-            :is="nativeSheetActions ? VDialog : VMenu"
-            v-model="historyMenuOpen"
-            v-bind="
-              nativeSheetActions
-                ? { width: 640, 'data-native-sheet-size': 'medium' }
-                : { location: 'bottom end', offset: 8, maxWidth: 360 }
-            "
-            :close-on-content-click="false"
-            :style="{ zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.overlay }"
-            :z-index="AGENT_ASSISTANT_LAYER_Z_INDEX.overlay"
-          >
-            <template #activator="{ props }">
-              <IconBtn
-                v-bind="props"
-                data-native-sheet-action="mdi-history"
-                :title="t('agentAssistant.history')"
-                :aria-label="t('agentAssistant.history')"
-              >
-                <VIcon icon="mdi-history" />
-              </IconBtn>
-            </template>
-            <VCard
-              class="agent-assistant-history-menu"
-              :class="{ 'agent-assistant-history-dialog': nativeSheetActions }"
-              elevation="10"
-            >
-              <div class="agent-assistant-history-menu__header" data-native-dialog-header>
-                <span data-native-dialog-title>{{ t('agentAssistant.history') }}</span>
-                <IconBtn
-                  v-if="nativeSheetActions"
-                  data-native-dialog-close
-                  :title="t('common.close')"
-                  :aria-label="t('common.close')"
-                  @click="historyMenuOpen = false"
-                >
-                  <VIcon icon="mdi-close" />
-                </IconBtn>
-              </div>
-              <VDivider />
-              <div
-                class="agent-assistant-history-list"
-                :class="{ 'agent-assistant-history-list--empty': historyLoading || !hasHistorySessions }"
-              >
-                <div v-if="historyLoading" class="agent-assistant-history-empty">
-                  {{ t('agentAssistant.historyLoading') }}
-                </div>
-                <div v-else-if="!hasHistorySessions" class="agent-assistant-history-empty">
-                  {{ t('agentAssistant.noHistory') }}
-                </div>
-                <VInfiniteScroll
-                  v-else
-                  mode="intersect"
-                  side="end"
-                  :items="historySessions"
-                  class="agent-assistant-history-infinite"
-                  @load="handleHistoryInfiniteLoad"
-                >
-                  <VVirtualScroll :renderless="true" :items="historySessions" :item-height="HISTORY_ITEM_HEIGHT">
-                    <template #default="{ item: historySession, ...slotProps }">
-                      <button
-                        :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined"
-                        :key="historySession.sessionId"
-                        class="agent-assistant-history-item"
-                        :class="{ 'is-active': isCurrentHistorySession(historySession.sessionId) }"
-                        type="button"
-                        :disabled="isBusy"
-                        @click="loadHistorySession(historySession.sessionId)"
-                      >
-                        <span class="agent-assistant-history-item__content">
-                          <span class="agent-assistant-history-item__title">{{ historySession.title }}</span>
-                          <span class="agent-assistant-history-item__channel">
-                            {{ getSessionChannelLabel(historySession) }}
-                          </span>
-                          <span class="agent-assistant-history-item__time">
-                            {{ formatHistoryTime(historySession.updatedAt) }}
-                          </span>
-                        </span>
-                        <IconBtn
-                          size="x-small"
-                          :disabled="isBusy"
-                          :title="t('agentAssistant.deleteHistory')"
-                          :aria-label="t('agentAssistant.deleteHistory')"
-                          @click.stop="deleteHistorySession(historySession.sessionId)"
-                        >
-                          <VIcon icon="mdi-delete-outline" size="16" />
-                        </IconBtn>
-                      </button>
-                    </template>
-                  </VVirtualScroll>
-                  <template #empty />
-                  <template #loading>
-                    <div class="agent-assistant-history-loading">
-                      {{ t('agentAssistant.historyLoading') }}
-                    </div>
-                  </template>
-                </VInfiniteScroll>
-              </div>
-            </VCard>
-          </component>
-          <IconBtn
-            class="agent-assistant-pet-toggle"
-            data-native-sheet-action="mdi-account-convert-outline"
-            :title="t('agentAssistant.pet.change')"
-            :aria-label="t('agentAssistant.pet.change')"
-            :aria-pressed="petPickerOpen"
-            :color="petPickerOpen ? 'primary' : undefined"
-            @click="togglePetPicker"
-          >
-            <VIcon icon="mdi-account-convert-outline" />
-          </IconBtn>
-          <IconBtn
-            data-native-sheet-action="mdi-message-plus-outline"
-            :disabled="isBusy"
-            :title="t('agentAssistant.newChat')"
-            :aria-label="t('agentAssistant.newChat')"
-            @click="startNewSession"
-          >
-            <VIcon icon="mdi-message-plus-outline" />
-          </IconBtn>
-          <IconBtn
-            v-if="canToggleFullscreen"
-            class="agent-assistant-fullscreen-toggle"
-            :title="t(fullscreen ? 'agentAssistant.exitFullscreen' : 'agentAssistant.enterFullscreen')"
-            :aria-label="t(fullscreen ? 'agentAssistant.exitFullscreen' : 'agentAssistant.enterFullscreen')"
-            :aria-pressed="fullscreen"
-            @click="toggleFullscreen"
-          >
-            <VIcon :icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
-          </IconBtn>
-          <IconBtn
-            data-native-dialog-close
-            :title="t('common.close')"
-            :aria-label="t('common.close')"
-            @click="closeDrawer"
-          >
-            <VIcon icon="mdi-close" />
-          </IconBtn>
-        </div>
-      </header>
-
-      <AgentPetPicker v-if="petPickerOpen" class="agent-assistant-pet-picker" @back="petPickerOpen = false" />
-
-      <main
-        v-show="!petPickerOpen"
-        ref="messageListRef"
-        class="agent-assistant-messages"
-        :class="{ 'agent-assistant-messages--has-content': hasConversationContent }"
-        @scroll.passive="handleMessageScrollerScroll"
-      >
-        <div class="agent-assistant-messages__content">
-          <div v-if="!hasConversationContent" class="agent-assistant-empty">
-            <div class="agent-assistant-empty__mark">
-              <AgentPetAvatar :pet="props.pet" size="3.5rem">
-                <VIcon icon="lucide:sparkles" size="28" />
               </AgentPetAvatar>
             </div>
-            <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
-            <div class="agent-assistant-empty__subtitle">{{ t('agentAssistant.emptySubtitle') }}</div>
-          </div>
-
-          <div
-            v-for="message in messages"
-            :key="message.id"
-            class="agent-assistant-message"
-            :class="`agent-assistant-message--${message.role}`"
-          >
-            <div class="agent-assistant-message__meta">
-              <VIcon v-if="message.role === 'user'" icon="mdi-account-circle-outline" size="16" />
-              <AgentPetAvatar v-else :pet="props.pet" size="1rem">
-                <VIcon icon="lucide:bot" size="16" />
-              </AgentPetAvatar>
-              <span>{{ message.role === 'user' ? currentUserName : assistantSpeakerName }}</span>
-              <span
-                v-if="message.steeringStatus"
-                class="agent-assistant-message__steering-status"
-                :class="`is-${message.steeringStatus}`"
-              >
+            <div class="agent-assistant-title__text">
+              <div class="text-subtitle-1 font-weight-semibold text-truncate">{{ assistantTitle }}</div>
+              <div class="agent-assistant-status">
                 {{
-                  message.steeringStatus === 'applied'
-                    ? t('agentAssistant.steeringApplied')
-                    : t('agentAssistant.steeringQueued')
+                  activeThinkingMessage
+                    ? `${t('agentAssistant.thinking')} · ${formatThinkingDuration(activeThinkingMessage)}`
+                    : isBusy
+                      ? t('agentAssistant.thinking')
+                      : t('agentAssistant.ready')
                 }}
-              </span>
-            </div>
-
-            <div v-if="message.role === 'assistant' && message.segments.length" class="agent-assistant-segments">
-              <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
-                <div v-if="segment.type === 'thinking'" class="agent-assistant-thinking" role="status">
-                  <span class="agent-assistant-thinking__dots" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                  <span>{{ t('agentAssistant.thinking') }} · {{ formatThinkingDuration(message) }}</span>
-                </div>
-                <AgentMarkdownContent
-                  v-else-if="segment.type === 'text'"
-                  :content="segment.content"
-                  :streaming="message.status === 'streaming'"
-                />
-                <div v-else class="agent-assistant-tool">
-                  <VIcon
-                    :icon="
-                      segment.tool.status === 'running'
-                        ? 'line-md:loading-twotone-loop'
-                        : segment.tool.status === 'error'
-                          ? 'mdi-alert-circle-outline'
-                          : 'mdi-check-circle-outline'
-                    "
-                    size="16"
-                  />
-                  <span>{{ segment.tool.message }}</span>
-                </div>
-              </template>
-            </div>
-
-            <AgentMarkdownContent
-              v-else-if="message.content"
-              :content="message.content"
-              :streaming="message.status === 'streaming'"
-            />
-
-            <div v-if="message.choices.length" class="agent-assistant-choices">
-              <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
-                <div class="agent-assistant-choice__bubble">
-                  <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
-                  <AgentMarkdownContent :content="choice.prompt" variant="choice" />
-                  <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
-                    <VIcon icon="mdi-check-circle-outline" size="16" />
-                    <span>{{
-                      t('agentAssistant.choiceSelected', {
-                        option: choice.selected_label || choice.selected_description,
-                      })
-                    }}</span>
-                  </div>
-                  <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
-                    <VIcon icon="mdi-alert-circle-outline" size="16" />
-                    <span>{{ t('agentAssistant.choiceExpired') }}</span>
-                  </div>
-                </div>
-                <div class="agent-assistant-choice__buttons">
-                  <VBtn
-                    v-for="button in choice.buttons"
-                    :key="button.callback_data"
-                    class="agent-assistant-choice__button"
-                    size="small"
-                    variant="flat"
-                    :disabled="isBusy || choice.status !== 'pending'"
-                    @click="handleChoiceClick(message, choice, button)"
-                  >
-                    {{ button.label }}
-                  </VBtn>
-                </div>
               </div>
             </div>
-
-            <div v-if="message.attachments.length" class="agent-assistant-attachments">
-              <div
-                v-for="attachment in message.attachments"
-                :key="`${message.id}-${attachment.url}`"
-                class="agent-assistant-attachment"
-                :class="`agent-assistant-attachment--${attachment.kind}`"
+          </div>
+          <div class="d-flex align-center gap-1">
+            <component
+              :is="nativeSheetActions ? VDialog : VMenu"
+              v-model="historyMenuOpen"
+              v-bind="
+                nativeSheetActions
+                  ? { width: 640, 'data-native-sheet-size': 'medium' }
+                  : { location: 'bottom end', offset: 8, maxWidth: 360 }
+              "
+              :close-on-content-click="false"
+              :style="{ zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.overlay }"
+              :z-index="AGENT_ASSISTANT_LAYER_Z_INDEX.overlay"
+            >
+              <template #activator="{ props }">
+                <IconBtn
+                  v-bind="props"
+                  data-native-sheet-action="mdi-history"
+                  :title="t('agentAssistant.history')"
+                  :aria-label="t('agentAssistant.history')"
+                >
+                  <VIcon icon="mdi-history" />
+                </IconBtn>
+              </template>
+              <VCard
+                class="agent-assistant-history-menu"
+                :class="{ 'agent-assistant-history-dialog': nativeSheetActions }"
+                elevation="10"
               >
-                <img
-                  v-if="attachment.kind === 'image'"
-                  class="agent-assistant-attachment__image"
-                  :src="resolveAttachmentUrl(attachment.url)"
-                  :alt="getAttachmentName(attachment)"
-                  loading="lazy"
-                />
-
-                <template v-else-if="attachment.kind === 'audio'">
-                  <div class="agent-assistant-attachment__meta">
-                    <VIcon :icon="getAttachmentIcon(attachment)" size="18" />
-                    <span>{{ getAttachmentName(attachment) }}</span>
-                  </div>
-                  <audio
-                    class="agent-assistant-attachment__audio"
-                    controls
-                    :src="resolveAttachmentUrl(attachment.url)"
-                  />
-                  <VBtn
-                    class="agent-assistant-surface-btn"
-                    :href="getAttachmentDownloadUrl(attachment)"
-                    :download="getAttachmentName(attachment)"
-                    size="small"
-                    variant="tonal"
-                    color="primary"
-                    prepend-icon="mdi-download"
+                <div class="agent-assistant-history-menu__header" data-native-dialog-header>
+                  <span data-native-dialog-title>{{ t('agentAssistant.history') }}</span>
+                  <IconBtn
+                    v-if="nativeSheetActions"
+                    data-native-dialog-close
+                    :title="t('common.close')"
+                    :aria-label="t('common.close')"
+                    @click="historyMenuOpen = false"
                   >
-                    {{ t('agentAssistant.download') }}
-                  </VBtn>
-                </template>
+                    <VIcon icon="mdi-close" />
+                  </IconBtn>
+                </div>
+                <VDivider />
+                <div
+                  class="agent-assistant-history-list"
+                  :class="{ 'agent-assistant-history-list--empty': historyLoading || !hasHistorySessions }"
+                >
+                  <div v-if="historyLoading" class="agent-assistant-history-empty">
+                    {{ t('agentAssistant.historyLoading') }}
+                  </div>
+                  <div v-else-if="!hasHistorySessions" class="agent-assistant-history-empty">
+                    {{ t('agentAssistant.noHistory') }}
+                  </div>
+                  <VInfiniteScroll
+                    v-else
+                    mode="intersect"
+                    side="end"
+                    :items="historySessions"
+                    class="agent-assistant-history-infinite"
+                    @load="handleHistoryInfiniteLoad"
+                  >
+                    <VVirtualScroll :renderless="true" :items="historySessions" :item-height="HISTORY_ITEM_HEIGHT">
+                      <template #default="{ item: historySession, ...slotProps }">
+                        <button
+                          :ref="'itemRef' in slotProps ? slotProps.itemRef : undefined"
+                          :key="historySession.sessionId"
+                          class="agent-assistant-history-item"
+                          :class="{ 'is-active': isCurrentHistorySession(historySession.sessionId) }"
+                          type="button"
+                          :disabled="isBusy"
+                          @click="loadHistorySession(historySession.sessionId)"
+                        >
+                          <span class="agent-assistant-history-item__content">
+                            <span class="agent-assistant-history-item__title">{{ historySession.title }}</span>
+                            <span class="agent-assistant-history-item__channel">
+                              {{ getSessionChannelLabel(historySession) }}
+                            </span>
+                            <span class="agent-assistant-history-item__time">
+                              {{ formatHistoryTime(historySession.updatedAt) }}
+                            </span>
+                          </span>
+                          <IconBtn
+                            size="x-small"
+                            :disabled="isBusy"
+                            :title="t('agentAssistant.deleteHistory')"
+                            :aria-label="t('agentAssistant.deleteHistory')"
+                            @click.stop="deleteHistorySession(historySession.sessionId)"
+                          >
+                            <VIcon icon="mdi-delete-outline" size="16" />
+                          </IconBtn>
+                        </button>
+                      </template>
+                    </VVirtualScroll>
+                    <template #empty />
+                    <template #loading>
+                      <div class="agent-assistant-history-loading">
+                        {{ t('agentAssistant.historyLoading') }}
+                      </div>
+                    </template>
+                  </VInfiniteScroll>
+                </div>
+              </VCard>
+            </component>
+            <IconBtn
+              class="agent-assistant-pet-toggle"
+              data-native-sheet-action="mdi-account-convert-outline"
+              :title="t('agentAssistant.pet.change')"
+              :aria-label="t('agentAssistant.pet.change')"
+              :aria-pressed="petPickerOpen"
+              :color="petPickerOpen ? 'primary' : undefined"
+              @click="togglePetPicker"
+            >
+              <VIcon icon="mdi-account-convert-outline" />
+            </IconBtn>
+            <IconBtn
+              data-native-sheet-action="mdi-message-plus-outline"
+              :disabled="isBusy"
+              :title="t('agentAssistant.newChat')"
+              :aria-label="t('agentAssistant.newChat')"
+              @click="startNewSession"
+            >
+              <VIcon icon="mdi-message-plus-outline" />
+            </IconBtn>
+            <IconBtn
+              v-if="canToggleFullscreen"
+              class="agent-assistant-fullscreen-toggle"
+              :title="t(fullscreen ? 'agentAssistant.exitFullscreen' : 'agentAssistant.enterFullscreen')"
+              :aria-label="t(fullscreen ? 'agentAssistant.exitFullscreen' : 'agentAssistant.enterFullscreen')"
+              :aria-pressed="fullscreen"
+              @click="toggleFullscreen"
+            >
+              <VIcon :icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
+            </IconBtn>
+            <IconBtn
+              data-native-dialog-close
+              :title="t('common.close')"
+              :aria-label="t('common.close')"
+              @click="closeDrawer"
+            >
+              <VIcon icon="mdi-close" />
+            </IconBtn>
+          </div>
+        </header>
 
-                <template v-else>
-                  <div class="agent-assistant-attachment__file">
-                    <VIcon :icon="getAttachmentIcon(attachment)" size="22" />
-                    <div class="agent-assistant-attachment__file-text">
-                      <span>{{ getAttachmentName(attachment) }}</span>
-                      <small>{{ attachment.mime_type || formatAttachmentSize(attachment.size) }}</small>
+        <AgentPetPicker v-if="petPickerOpen" class="agent-assistant-pet-picker" @back="petPickerOpen = false" />
+
+        <main
+          v-show="!petPickerOpen"
+          ref="messageListRef"
+          class="agent-assistant-messages"
+          :class="{ 'agent-assistant-messages--has-content': hasConversationContent }"
+          @scroll.passive="handleMessageScrollerScroll"
+        >
+          <div class="agent-assistant-messages__content">
+            <div v-if="!hasConversationContent" class="agent-assistant-empty">
+              <div class="agent-assistant-empty__mark">
+                <AgentPetAvatar :pet="props.pet" size="3.5rem">
+                  <VIcon icon="lucide:sparkles" size="28" />
+                </AgentPetAvatar>
+              </div>
+              <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
+              <div class="agent-assistant-empty__subtitle">{{ t('agentAssistant.emptySubtitle') }}</div>
+            </div>
+
+            <div
+              v-for="message in messages"
+              :key="message.id"
+              class="agent-assistant-message"
+              :class="`agent-assistant-message--${message.role}`"
+            >
+              <div class="agent-assistant-message__meta">
+                <VIcon v-if="message.role === 'user'" icon="mdi-account-circle-outline" size="16" />
+                <AgentPetAvatar v-else :pet="props.pet" size="1rem">
+                  <VIcon icon="lucide:bot" size="16" />
+                </AgentPetAvatar>
+                <span>{{ message.role === 'user' ? currentUserName : assistantSpeakerName }}</span>
+                <span
+                  v-if="message.steeringStatus"
+                  class="agent-assistant-message__steering-status"
+                  :class="`is-${message.steeringStatus}`"
+                >
+                  {{
+                    message.steeringStatus === 'applied'
+                      ? t('agentAssistant.steeringApplied')
+                      : t('agentAssistant.steeringQueued')
+                  }}
+                </span>
+              </div>
+
+              <div v-if="message.role === 'assistant' && message.segments.length" class="agent-assistant-segments">
+                <template v-for="segment in getRenderableMessageSegments(message)" :key="segment.key">
+                  <div v-if="segment.type === 'thinking'" class="agent-assistant-thinking" role="status">
+                    <span class="agent-assistant-thinking__dots" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <span>{{ t('agentAssistant.thinking') }} · {{ formatThinkingDuration(message) }}</span>
+                  </div>
+                  <AgentMarkdownContent
+                    v-else-if="segment.type === 'text'"
+                    :content="segment.content"
+                    :streaming="message.status === 'streaming'"
+                  />
+                  <div v-else class="agent-assistant-tool">
+                    <VIcon
+                      :icon="
+                        segment.tool.status === 'running'
+                          ? 'line-md:loading-twotone-loop'
+                          : segment.tool.status === 'error'
+                            ? 'mdi-alert-circle-outline'
+                            : 'mdi-check-circle-outline'
+                      "
+                      size="16"
+                    />
+                    <span>{{ segment.tool.message }}</span>
+                  </div>
+                </template>
+              </div>
+
+              <AgentMarkdownContent
+                v-else-if="message.content"
+                :content="message.content"
+                :streaming="message.status === 'streaming'"
+              />
+
+              <div v-if="message.choices.length" class="agent-assistant-choices">
+                <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
+                  <div class="agent-assistant-choice__bubble">
+                    <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
+                    <AgentMarkdownContent :content="choice.prompt" variant="choice" />
+                    <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
+                      <VIcon icon="mdi-check-circle-outline" size="16" />
+                      <span>{{
+                        t('agentAssistant.choiceSelected', {
+                          option: choice.selected_label || choice.selected_description,
+                        })
+                      }}</span>
                     </div>
+                    <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
+                      <VIcon icon="mdi-alert-circle-outline" size="16" />
+                      <span>{{ t('agentAssistant.choiceExpired') }}</span>
+                    </div>
+                  </div>
+                  <div class="agent-assistant-choice__buttons">
+                    <VBtn
+                      v-for="button in choice.buttons"
+                      :key="button.callback_data"
+                      class="agent-assistant-choice__button"
+                      size="small"
+                      variant="flat"
+                      :disabled="isBusy || choice.status !== 'pending'"
+                      @click="handleChoiceClick(message, choice, button)"
+                    >
+                      {{ button.label }}
+                    </VBtn>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="message.attachments.length" class="agent-assistant-attachments">
+                <div
+                  v-for="attachment in message.attachments"
+                  :key="`${message.id}-${attachment.url}`"
+                  class="agent-assistant-attachment"
+                  :class="`agent-assistant-attachment--${attachment.kind}`"
+                >
+                  <img
+                    v-if="attachment.kind === 'image'"
+                    class="agent-assistant-attachment__image"
+                    :src="resolveAttachmentUrl(attachment.url)"
+                    :alt="getAttachmentName(attachment)"
+                    loading="lazy"
+                  />
+
+                  <template v-else-if="attachment.kind === 'audio'">
+                    <div class="agent-assistant-attachment__meta">
+                      <VIcon :icon="getAttachmentIcon(attachment)" size="18" />
+                      <span>{{ getAttachmentName(attachment) }}</span>
+                    </div>
+                    <audio
+                      class="agent-assistant-attachment__audio"
+                      controls
+                      :src="resolveAttachmentUrl(attachment.url)"
+                    />
                     <VBtn
                       class="agent-assistant-surface-btn"
                       :href="getAttachmentDownloadUrl(attachment)"
                       :download="getAttachmentName(attachment)"
-                      icon
-                      variant="text"
+                      size="small"
+                      variant="tonal"
                       color="primary"
-                      :aria-label="t('agentAssistant.download')"
+                      prepend-icon="mdi-download"
                     >
-                      <VIcon icon="mdi-download" />
+                      {{ t('agentAssistant.download') }}
                     </VBtn>
-                  </div>
-                </template>
+                  </template>
+
+                  <template v-else>
+                    <div class="agent-assistant-attachment__file">
+                      <VIcon :icon="getAttachmentIcon(attachment)" size="22" />
+                      <div class="agent-assistant-attachment__file-text">
+                        <span>{{ getAttachmentName(attachment) }}</span>
+                        <small>{{ attachment.mime_type || formatAttachmentSize(attachment.size) }}</small>
+                      </div>
+                      <VBtn
+                        class="agent-assistant-surface-btn"
+                        :href="getAttachmentDownloadUrl(attachment)"
+                        :download="getAttachmentName(attachment)"
+                        icon
+                        variant="text"
+                        color="primary"
+                        :aria-label="t('agentAssistant.download')"
+                      >
+                        <VIcon icon="mdi-download" />
+                      </VBtn>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div
+                v-if="
+                  !message.content &&
+                  !message.segments.length &&
+                  !message.attachments.length &&
+                  !message.choices.length &&
+                  message.status === 'streaming'
+                "
+                class="agent-assistant-typing"
+              >
+                <span />
+                <span />
+                <span />
               </div>
             </div>
 
-            <div
-              v-if="
-                !message.content &&
-                !message.segments.length &&
-                !message.attachments.length &&
-                !message.choices.length &&
-                message.status === 'streaming'
-              "
-              class="agent-assistant-typing"
-            >
-              <span />
-              <span />
-              <span />
+            <div v-if="protectedDeliveries.length" class="agent-assistant-protected-deliveries">
+              <div
+                v-for="(content, index) in protectedDeliveries"
+                :key="index"
+                class="agent-assistant-protected-delivery"
+              >
+                <VIcon icon="mdi-shield-lock-outline" size="16" aria-hidden="true" />
+                <span v-text="content" />
+              </div>
             </div>
           </div>
+        </main>
 
-          <div v-if="protectedDeliveries.length" class="agent-assistant-protected-deliveries">
+        <footer v-show="!petPickerOpen" class="agent-assistant-composer">
+          <VAlert v-if="streamError" type="error" variant="tonal" density="compact" class="mb-3">
+            {{ streamError }}
+          </VAlert>
+          <PerfectScrollbar
+            v-if="pendingAttachments.length"
+            class="agent-assistant-pending-files"
+            :options="{ wheelPropagation: false }"
+          >
+            <div v-for="attachment in pendingAttachments" :key="attachment.id" class="agent-assistant-pending-file">
+              <img
+                v-if="attachment.kind === 'image' && attachment.preview_url"
+                class="agent-assistant-pending-file__preview"
+                :src="attachment.preview_url"
+                :alt="attachment.name"
+              />
+              <VIcon v-else :icon="getAttachmentIcon(attachment)" size="18" />
+              <div class="agent-assistant-pending-file__text">
+                <span>{{ attachment.name }}</span>
+                <small>{{ formatAttachmentSize(attachment.size) || attachment.mime_type }}</small>
+              </div>
+              <IconBtn
+                class="agent-assistant-surface-btn"
+                size="x-small"
+                :disabled="sending"
+                :title="t('agentAssistant.removeAttachment')"
+                :aria-label="t('agentAssistant.removeAttachment')"
+                @click="removePendingAttachment(attachment.id)"
+              >
+                <VIcon icon="mdi-close" size="16" />
+              </IconBtn>
+            </div>
+          </PerfectScrollbar>
+          <div v-if="showSlashCommandMenu" class="agent-assistant-command-menu">
             <div
-              v-for="(content, index) in protectedDeliveries"
-              :key="index"
-              class="agent-assistant-protected-delivery"
+              v-for="command in filteredSlashCommands"
+              :key="command.command"
+              class="agent-assistant-command"
+              role="button"
+              tabindex="0"
+              @click="selectSlashCommand(command)"
+              @keydown.enter.prevent="selectSlashCommand(command)"
             >
-              <VIcon icon="mdi-shield-lock-outline" size="16" aria-hidden="true" />
-              <span v-text="content" />
+              <span class="agent-assistant-command__name">{{ command.command }}</span>
+              <span class="agent-assistant-command__desc">{{ command.description }}</span>
+            </div>
+            <div v-if="slashCommandsLoading" class="agent-assistant-command is-loading">
+              {{ t('agentAssistant.commandLoading') }}
             </div>
           </div>
-        </div>
-      </main>
-
-      <footer v-show="!petPickerOpen" class="agent-assistant-composer">
-        <VAlert v-if="streamError" type="error" variant="tonal" density="compact" class="mb-3">
-          {{ streamError }}
-        </VAlert>
-        <PerfectScrollbar
-          v-if="pendingAttachments.length"
-          class="agent-assistant-pending-files"
-          :options="{ wheelPropagation: false }"
-        >
-          <div v-for="attachment in pendingAttachments" :key="attachment.id" class="agent-assistant-pending-file">
-            <img
-              v-if="attachment.kind === 'image' && attachment.preview_url"
-              class="agent-assistant-pending-file__preview"
-              :src="attachment.preview_url"
-              :alt="attachment.name"
+          <div class="agent-assistant-input">
+            <input
+              ref="fileInputRef"
+              :id="fileInputId"
+              class="agent-assistant-file-input"
+              type="file"
+              multiple
+              name="attachments"
+              :disabled="sending || recording"
+              @change="handleFileSelection"
             />
-            <VIcon v-else :icon="getAttachmentIcon(attachment)" size="18" />
-            <div class="agent-assistant-pending-file__text">
-              <span>{{ attachment.name }}</span>
-              <small>{{ formatAttachmentSize(attachment.size) || attachment.mime_type }}</small>
-            </div>
             <IconBtn
-              class="agent-assistant-surface-btn"
-              size="x-small"
-              :disabled="sending"
-              :title="t('agentAssistant.removeAttachment')"
-              :aria-label="t('agentAssistant.removeAttachment')"
-              @click="removePendingAttachment(attachment.id)"
+              class="agent-assistant-attach agent-assistant-surface-btn"
+              :disabled="sending || recording"
+              :title="t('agentAssistant.attachFile')"
+              :aria-label="t('agentAssistant.attachFile')"
+              :aria-controls="fileInputId"
+              @click="openFilePicker"
             >
-              <VIcon icon="mdi-close" size="16" />
+              <VIcon icon="mdi-plus" />
+            </IconBtn>
+            <textarea
+              ref="inputRef"
+              :id="messageInputId"
+              v-model="inputText"
+              class="agent-assistant-textarea"
+              name="message"
+              rows="1"
+              :disabled="sending || recording"
+              :placeholder="inputPlaceholder"
+              @input="handleInputChange"
+              @keydown="handleInputKeydown"
+              @paste="handleInputPaste"
+              @compositionstart="handleCompositionStart"
+              @compositionend="handleCompositionEnd"
+            />
+            <IconBtn
+              class="agent-assistant-record agent-assistant-surface-btn"
+              :class="{ 'is-recording': recording }"
+              :disabled="!recording && !canRecord"
+              :title="
+                recording
+                  ? t('agentAssistant.stopRecording', { time: recordingTimeText })
+                  : t('agentAssistant.recordVoice')
+              "
+              :aria-label="
+                recording
+                  ? t('agentAssistant.stopRecording', { time: recordingTimeText })
+                  : t('agentAssistant.recordVoice')
+              "
+              @click="toggleVoiceRecording"
+            >
+              <VIcon :icon="recording ? 'mdi-stop-circle-outline' : 'mdi-microphone-outline'" />
+            </IconBtn>
+            <IconBtn
+              v-if="isBusy"
+              class="agent-assistant-stop agent-assistant-surface-btn"
+              :title="t('agentAssistant.stop')"
+              :aria-label="t('agentAssistant.stop')"
+              @click="stopGeneration"
+            >
+              <VIcon icon="mdi-stop" />
+            </IconBtn>
+            <IconBtn
+              class="agent-assistant-send agent-assistant-surface-btn"
+              :disabled="!canSend"
+              :title="t('common.send')"
+              :aria-label="t('common.send')"
+              @click="sendMessage"
+            >
+              <VIcon icon="mdi-send" />
             </IconBtn>
           </div>
-        </PerfectScrollbar>
-        <div v-if="showSlashCommandMenu" class="agent-assistant-command-menu">
-          <div
-            v-for="command in filteredSlashCommands"
-            :key="command.command"
-            class="agent-assistant-command"
-            role="button"
-            tabindex="0"
-            @click="selectSlashCommand(command)"
-            @keydown.enter.prevent="selectSlashCommand(command)"
-          >
-            <span class="agent-assistant-command__name">{{ command.command }}</span>
-            <span class="agent-assistant-command__desc">{{ command.description }}</span>
-          </div>
-          <div v-if="slashCommandsLoading" class="agent-assistant-command is-loading">
-            {{ t('agentAssistant.commandLoading') }}
-          </div>
-        </div>
-        <div class="agent-assistant-input">
-          <input
-            ref="fileInputRef"
-            :id="fileInputId"
-            class="agent-assistant-file-input"
-            type="file"
-            multiple
-            name="attachments"
-            :disabled="sending || recording"
-            @change="handleFileSelection"
-          />
-          <IconBtn
-            class="agent-assistant-attach agent-assistant-surface-btn"
-            :disabled="sending || recording"
-            :title="t('agentAssistant.attachFile')"
-            :aria-label="t('agentAssistant.attachFile')"
-            :aria-controls="fileInputId"
-            @click="openFilePicker"
-          >
-            <VIcon icon="mdi-plus" />
-          </IconBtn>
-          <textarea
-            ref="inputRef"
-            :id="messageInputId"
-            v-model="inputText"
-            class="agent-assistant-textarea"
-            name="message"
-            rows="1"
-            :disabled="sending || recording"
-            :placeholder="inputPlaceholder"
-            @input="handleInputChange"
-            @keydown="handleInputKeydown"
-            @paste="handleInputPaste"
-            @compositionstart="handleCompositionStart"
-            @compositionend="handleCompositionEnd"
-          />
-          <IconBtn
-            class="agent-assistant-record agent-assistant-surface-btn"
-            :class="{ 'is-recording': recording }"
-            :disabled="!recording && !canRecord"
-            :title="
-              recording
-                ? t('agentAssistant.stopRecording', { time: recordingTimeText })
-                : t('agentAssistant.recordVoice')
-            "
-            :aria-label="
-              recording
-                ? t('agentAssistant.stopRecording', { time: recordingTimeText })
-                : t('agentAssistant.recordVoice')
-            "
-            @click="toggleVoiceRecording"
-          >
-            <VIcon :icon="recording ? 'mdi-stop-circle-outline' : 'mdi-microphone-outline'" />
-          </IconBtn>
-          <IconBtn
-            v-if="isBusy"
-            class="agent-assistant-stop agent-assistant-surface-btn"
-            :title="t('agentAssistant.stop')"
-            :aria-label="t('agentAssistant.stop')"
-            @click="stopGeneration"
-          >
-            <VIcon icon="mdi-stop" />
-          </IconBtn>
-          <IconBtn
-            class="agent-assistant-send agent-assistant-surface-btn"
-            :disabled="!canSend"
-            :title="t('common.send')"
-            :aria-label="t('common.send')"
-            @click="sendMessage"
-          >
-            <VIcon icon="mdi-send" />
-          </IconBtn>
-        </div>
-      </footer>
-    </div>
-  </aside>
+        </footer>
+      </div>
+    </aside>
+  </component>
 </template>
 
 <style lang="scss" scoped>
 /* stylelint-disable selector-pseudo-class-no-unknown */
 /* stylelint-disable no-descending-specificity */
+
+.agent-assistant-modal :deep(.agent-assistant-modal__content) {
+  overflow: hidden;
+}
 
 .agent-assistant-panel {
   position: fixed;
@@ -3885,7 +3954,7 @@ onScopeDispose(() => {
 .agent-assistant-shell {
   position: relative;
   display: grid;
-  block-size: 100vh;
+  block-size: var(--agent-assistant-content-height, 100vh);
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 0;
@@ -3900,7 +3969,7 @@ onScopeDispose(() => {
 
 @supports (block-size: 100dvh) {
   .agent-assistant-shell {
-    block-size: 100dvh;
+    block-size: var(--agent-assistant-content-height, 100dvh);
   }
 }
 
