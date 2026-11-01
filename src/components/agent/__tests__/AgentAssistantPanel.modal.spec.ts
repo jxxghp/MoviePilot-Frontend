@@ -18,14 +18,19 @@ function resize(width: number) {
 }
 
 /** 保留真实 Vuetify 弹层、按钮和受控开关，只替换与模态交互无关的形象列表。 */
-async function renderPanel(backgroundDialog = false) {
+async function renderPanel(backgroundDialog = false, initiallyOpen = false) {
   const host = defineComponent({
     setup() {
-      const open = ref(false)
+      const open = ref(initiallyOpen)
+      const pageActions = ref(0)
       return () =>
         h('div', [
-          h('button', { onClick: () => (open.value = true) }, '打开助手'),
-          h('button', '底层页面操作'),
+          h('main', { 'aria-label': '资源页面' }, [
+            h('h1', '资源列表'),
+            h('button', { onClick: () => (open.value = true) }, '打开助手'),
+            h('button', { onClick: () => pageActions.value++ }, '底层页面操作'),
+            h('output', `页面操作次数：${pageActions.value}`),
+          ]),
           backgroundDialog ? h(VDialog, { modelValue: true, transition: false }, () => h('div', '已打开的弹窗')) : null,
           h(AgentAssistantPanel, {
             modelValue: open.value,
@@ -43,8 +48,10 @@ async function renderPanel(backgroundDialog = false) {
     },
   })
   const opener = screen.getByRole('button', { name: '打开助手' })
-  opener.focus()
-  await fireEvent.click(opener)
+  if (!initiallyOpen) {
+    opener.focus()
+    await fireEvent.click(opener)
+  }
   await screen.findByRole('dialog', { name: '智能助手' })
   return { ...view, opener }
 }
@@ -68,6 +75,28 @@ afterEach(() => {
 })
 
 describe('AgentAssistantPanel modal presentation', () => {
+  it('removes the closed fullscreen surface so the background main can be used and reopened', async () => {
+    const { opener } = await renderPanel(false, true)
+    const dialog = screen.getByRole('dialog', { name: '智能助手' })
+    const page = screen.getByRole('main', { name: '资源页面' })
+    const content = dialog.querySelector('.agent-assistant-shell')
+    await fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
+
+    await waitFor(() => expect(dialog).not.toBeVisible())
+    expect(page).toBeVisible()
+    expect(within(page).getByRole('heading', { name: '资源列表' })).toBeVisible()
+    expect(document.querySelector('.agent-assistant-modal.v-overlay--active')).not.toBeInTheDocument()
+    expect(dialog.querySelector('.v-overlay__scrim')).not.toBeInTheDocument()
+    expect(document.documentElement).not.toHaveClass('v-overlay-scroll-blocked')
+    await fireEvent.click(within(page).getByRole('button', { name: '底层页面操作' }))
+    expect(within(page).getByText('页面操作次数：1')).toBeVisible()
+
+    await fireEvent.click(opener)
+    const reopened = await screen.findByRole('dialog', { name: '智能助手' })
+    expect(reopened).toBeVisible()
+    expect(reopened.querySelector('.agent-assistant-shell')).toBe(content)
+  })
+
   it('locks the mobile page, keeps focus inside, and restores focus and scroll when closed', async () => {
     const { opener } = await renderPanel()
     const dialog = screen.getByRole('dialog', { name: '智能助手' })

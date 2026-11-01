@@ -3374,7 +3374,9 @@ onScopeDispose(() => {
     "
     :aria-label="mobileModal ? assistantTitle : undefined"
     :aria-hidden="mobileModal && !isOpen ? true : undefined"
-    :style="mobileModal ? { zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel } : undefined"
+    :style="
+      mobileModal ? { zIndex: AGENT_ASSISTANT_LAYER_Z_INDEX.panel, display: isOpen ? undefined : 'none' } : undefined
+    "
     @update:model-value="isOpen = $event"
     @keydown="handlePanelKeydown"
   >
