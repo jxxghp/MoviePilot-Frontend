@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "search_id": "16d6fc481ae5485180c8f0a1337b6c1b",
+  "scope": "page",
+  "searched_sites": [
+    {
+      "site_id": 1,
+      "site_name": "A",
+      "attempted": true,
+      "outcome": "success",
+      "raw_count": 1
+    },
+    {
+      "site_id": null,
+      "site_name": "插件资源源",
+      "attempted": true,
+      "outcome": "empty",
+      "raw_count": 0
+    },
+    {
+      "site_id": 2,
+      "site_name": "B",
+      "attempted": true,
+      "outcome": "success",
+      "raw_count": 1
+    }
+  ],
+  "stage_counts": {
+    "candidates": 2,
+    "retained": 0
+  },
+  "rejection_reasons": [
+    {
+      "code": "identity_mismatch",
+      "count": 2
+    }
+  ],
+  "rule_groups": [
+    {
+      "name": "中文字幕",
+      "status": "skipped",
+      "reason": "rule_group_not_applicable",
+      "media_type": "电影",
+      "categories": ["外语电影"]
+    }
+  ],
+  "warnings": [
+    {
+      "code": "rule_group_not_applicable",
+      "rule_group": "中文字幕"
+    }
+  ]
+}

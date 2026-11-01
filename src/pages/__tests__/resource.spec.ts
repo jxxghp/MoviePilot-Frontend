@@ -1,6 +1,7 @@
-import type { Context, SearchSourcePage, SubtitleInfo } from '@/api/types'
+import type { Context, SearchDiagnostics, SearchSourcePage, SubtitleInfo } from '@/api/types'
 import ResourcePage from '@/pages/resource.vue'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
+import { createSearchDiagnostics } from '@tests/support/fixtures/searchDiagnostics'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
 import { defineComponent, nextTick } from 'vue'
@@ -375,7 +376,13 @@ function finishStream(source: EventSourceFake, items: Array<Context | SubtitleIn
 }
 
 // 后端决定是否允许继续；页号由前端推进，摘要供后端比较下一次返回的原始页。
-function finishPage(source: EventSourceFake, items: Context[], page = 0, canContinue = true) {
+function finishPage(
+  source: EventSourceFake,
+  items: Context[],
+  page = 0,
+  canContinue = true,
+  diagnostics?: SearchDiagnostics,
+) {
   const sources: SearchSourcePage[] = [
     {
       source: 'opaque-source-a',
@@ -386,7 +393,7 @@ function finishPage(source: EventSourceFake, items: Context[], page = 0, canCont
     },
   ]
   source.message({ type: 'replace', items, sources, total_items: items.length, value: 100 })
-  source.message({ type: 'done', sources })
+  source.message({ type: 'done', sources, diagnostics })
   source.fail()
 }
 
@@ -545,6 +552,56 @@ describe('resource page search flow', () => {
       throw new Error(`Unexpected GET ${endpoint}`)
     })
     mocks.apiPost.mockResolvedValue({ success: true, data: { status: 'disabled' } })
+  })
+
+  it('shows diagnostics only after the current successful terminal event', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '诊断测试', result_type: 'torrent' } })
+    const source = await latestEventSource()
+    source.message({ type: 'replace', items: [], diagnostics: createSearchDiagnostics(), value: 100 })
+    expect(screen.queryByRole('status', { name: '本页搜索情况' })).not.toBeInTheDocument()
+    source.message({ type: 'done', diagnostics: createSearchDiagnostics() })
+    source.fail()
+    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toHaveTextContent('规则“中文字幕”未应用')
+  })
+
+  it('restores optional diagnostics with the matching remembered results', async () => {
+    mocks.apiGet.mockResolvedValueOnce({
+      success: true,
+      data: {
+        params: { keyword: '记住的搜索' },
+        results: [],
+        diagnostics: createSearchDiagnostics(),
+      },
+    })
+    await renderResource()
+    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toBeInTheDocument()
+  })
+
+  it('ignores diagnostics from a canceled stream and supports old backend events', async () => {
+    const rendered = await renderResource({ path: '/resource', query: { keyword: '旧搜索', result_type: 'torrent' } })
+    const old = await latestEventSource()
+    await rendered.router.push({ path: '/resource', query: { keyword: '新搜索', result_type: 'torrent' } })
+    const current = await latestEventSource(2)
+    old.message({ type: 'done', diagnostics: createSearchDiagnostics() })
+    finishStream(current, [createTorrent({ title: '新结果' })])
+    expect(await screen.findByText('新结果')).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: '本页搜索情况' })).not.toBeInTheDocument()
+  })
+
+  it('replaces page diagnostics on continuation instead of presenting accumulated results as page counts', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '分页诊断', result_type: 'torrent' } })
+    const first = await latestEventSource()
+    finishPage(first, [createTorrent({ name: '第一页媒体', title: '第一页资源' })])
+    await fireEvent.click((await screen.findAllByRole('button', { name: '继续加载' }))[0])
+    const next = await latestEventSource(2)
+    const diagnostics = createSearchDiagnostics()
+    diagnostics.stage_counts = { candidates: 3, retained: 1 }
+    finishPage(next, [createTorrent({ name: '第二页媒体', title: '第二页资源' })], 1, false, diagnostics)
+    expect(await screen.findByText('第二页资源')).toBeInTheDocument()
+    expect(screen.getByText('第一页资源')).toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toHaveTextContent(
+      '收到 3 个候选资源，保留 1 个',
+    )
   })
 
   it('waits for each AI status request, pauses hidden tabs, and stops after unmount', async () => {

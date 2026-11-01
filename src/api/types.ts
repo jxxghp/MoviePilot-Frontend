@@ -1656,6 +1656,30 @@ export interface SearchSourcePage {
   error?: string | null
 }
 
+/** 后端提供的可选搜索诊断；单页统计不能当作整次搜索总数。 */
+export interface SearchDiagnostics {
+  version: 1
+  search_id: string
+  scope: 'page' | 'search'
+  searched_sites: Array<{
+    site_id: number | null
+    site_name: string
+    attempted: boolean
+    outcome: 'success' | 'empty' | 'error' | 'cooldown' | 'unknown'
+    raw_count: number
+  }>
+  stage_counts: { candidates: number; retained: number }
+  rejection_reasons: Array<{ code: string; count: number }>
+  rule_groups: Array<{
+    name: string
+    status: 'effective' | 'skipped'
+    reason: 'rule_group_not_applicable' | 'rule_group_missing' | null
+    media_type: string | null
+    categories: string[]
+  }>
+  warnings: Array<{ code: string; rule_group?: string | null }>
+}
+
 // 种子信息
 export interface TorrentInfo {
   // 站点ID

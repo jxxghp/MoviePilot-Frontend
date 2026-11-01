@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { LocationQuery } from 'vue-router'
 import ResourceSearchEmptyState from '@/components/states/ResourceSearchEmptyState.vue'
+import SearchDiagnosticsPanel from '@/components/states/SearchDiagnosticsPanel.vue'
+import { normalizeSearchDiagnostics } from '@/utils/searchDiagnostics'
 import api from '@/api'
-import type { Context, MediaDataSource, SearchSourcePage, SubtitleInfo } from '@/api/types'
+import type { Context, MediaDataSource, SearchDiagnostics, SearchSourcePage, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
 import SubtitleCard from '@/components/cards/SubtitleCard.vue'
@@ -63,6 +65,7 @@ interface SearchParams {
 }
 
 interface LastSearchContextResponse {
+  diagnostics?: unknown
   params?: Partial<SearchParams>
   results?: Array<Context | SubtitleInfo>
 }
@@ -80,6 +83,7 @@ const resourceSearchParamsStorageKey = 'MP_ResourceSearchParams'
 type TorrentViewType = 'card' | 'row'
 // 只有最新搜索可以提交结果和可重放参数，避免旧请求覆盖新查询。
 let activeSearchRequestId = 0
+const searchDiagnostics = shallowRef<SearchDiagnostics | null>(null)
 
 /** 接受内置或插件扩展来源，并拒绝格式非法的来源标识。 */
 function normalizeMediaSource(value: unknown): MediaDataSource | '' {
@@ -222,10 +226,12 @@ async function fetchLastSearchContext() {
     const result = (await api.get('search/last/context')) as LastSearchContextResponse
     if (requestId === activeSearchRequestId) {
       applyRememberedSearchParams(result?.params, true)
+      searchDiagnostics.value = normalizeSearchDiagnostics(result?.diagnostics)
     }
     return Array.isArray(result?.results) ? result.results : []
   } catch (error) {
     console.warn('读取上次搜索上下文失败，回退到仅加载结果:', error)
+    if (requestId === activeSearchRequestId) searchDiagnostics.value = null
     const results = await api.get('search/last')
     return (results as unknown as Context[]) || []
   }
@@ -724,6 +730,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
 
 // 重置搜索结果
 function resetSearchResults() {
+  searchDiagnostics.value = null
   clientPagination.reset()
   firstPageResultCount = null
   loadingNextPage.value = false
@@ -886,6 +893,7 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
   if (eventData.type === 'heartbeat') return
 
   if (eventData.type === 'error') {
+    searchDiagnostics.value = null
     updateSearchProgress(eventData, true)
     errorDescription.value = eventData.message_i18n || eventData.message || t('resource.noResourceFound')
     if (loadingNextPage.value) {
@@ -929,6 +937,9 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
     return
   }
 
+  if (eventData.type === 'done') {
+    searchDiagnostics.value = normalizeSearchDiagnostics(eventData.diagnostics)
+  }
   const items = Array.isArray(eventData.items) ? (eventData.items as Context[]) : []
   updateStreamCandidateCount(eventData)
   if (eventData.type === 'append') {
@@ -955,6 +966,7 @@ async function searchByRequest(params: SearchParams, requestToken: string | unde
   const items = await requestSearchResults(params, requestToken)
   if (requestId !== activeSearchRequestId) return false
 
+  searchDiagnostics.value = null
   // 普通请求接管结果后没有续页信息，不能沿用断流前的 SSE 分页状态。
   clientPagination.reset()
   errorDescription.value = t('resource.noResourceFound')
@@ -1041,6 +1053,7 @@ async function loadNextPage() {
       url.searchParams.set('page', String(source.nextPage))
       url.searchParams.set('source', source.source)
       continuingSource = source
+      searchDiagnostics.value = null
       try {
         await searchByStream(params, undefined, url.toString())
       } catch (error) {
@@ -1178,6 +1191,7 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
       }
       if (requestId !== activeSearchRequestId) return
       errorDescription.value = t('resource.noResourceFound')
+      searchDiagnostics.value = null
       streamTotalCount.value = results.length
       if (currentSearchParams.result_type === 'subtitle') {
         setSubtitleStreamResults(results as SubtitleInfo[])
@@ -1821,6 +1835,11 @@ useNativePageHeader({
     <VAlert v-if="searchErrorMessages.length" type="warning" variant="tonal" density="compact" class="my-3">
       {{ searchErrorMessages.join('；') }}
     </VAlert>
+
+    <SearchDiagnosticsPanel
+      v-if="isRefreshed && !progressActive && !loadingNextPage && !isSubtitleSearch && searchDiagnostics"
+      :diagnostics="searchDiagnostics"
+    />
 
     <!-- 搜索结果 -->
     <div v-if="isRefreshed && hasData" class="search-results-container">
