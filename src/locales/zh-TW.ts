@@ -1949,7 +1949,7 @@ export default {
     diagnostics: {
       page: '本頁搜尋情況',
       search: '本次搜尋情況',
-      counts: '收到 {candidates} 個候選資源，保留 {retained} 個。',
+      counts: '候選 {candidates} · 保留 {retained}',
       rawCount: '（傳回 {count} 個）',
       success: '已完成',
       empty: '已完成，無資源',
@@ -1958,6 +1958,10 @@ export default {
       unknown: '結果狀態未確認',
       notAttempted: '未執行檢索',
       unnamedRule: '未命名規則',
+      details: '查看詳情',
+      hideDetails: '收起',
+      sources: '來源',
+      excluded: '排除原因',
       reasons: {
         filter_params: '搜尋條件篩選',
         filter_rules: '優先級規則篩選',

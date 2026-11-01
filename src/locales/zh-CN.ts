@@ -1949,7 +1949,7 @@ export default {
     diagnostics: {
       page: '本页搜索情况',
       search: '本次搜索情况',
-      counts: '收到 {candidates} 个候选资源，保留 {retained} 个。',
+      counts: '候选 {candidates} · 保留 {retained}',
       rawCount: '（返回 {count} 个）',
       success: '已完成',
       empty: '已完成，无资源',
@@ -1958,6 +1958,10 @@ export default {
       unknown: '结果状态未确认',
       notAttempted: '未执行检索',
       unnamedRule: '未命名规则',
+      details: '查看详情',
+      hideDetails: '收起',
+      sources: '来源',
+      excluded: '排除原因',
       reasons: {
         filter_params: '搜索条件过滤',
         filter_rules: '优先级规则过滤',

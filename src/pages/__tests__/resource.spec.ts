@@ -599,9 +599,7 @@ describe('resource page search flow', () => {
     finishPage(next, [createTorrent({ name: '第二页媒体', title: '第二页资源' })], 1, false, diagnostics)
     expect(await screen.findByText('第二页资源')).toBeInTheDocument()
     expect(screen.getByText('第一页资源')).toBeInTheDocument()
-    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toHaveTextContent(
-      '收到 3 个候选资源，保留 1 个',
-    )
+    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toHaveTextContent('候选 3 · 保留 1')
   })
 
   it('waits for each AI status request, pauses hidden tabs, and stops after unmount', async () => {

@@ -1981,7 +1981,7 @@ export default {
     diagnostics: {
       page: 'Search details for this page',
       search: 'Search details',
-      counts: 'Received {candidates} candidates; retained {retained}.',
+      counts: '{candidates} candidates · {retained} retained',
       rawCount: '({count} returned)',
       success: 'Completed',
       empty: 'Completed, no resources',
@@ -1990,6 +1990,10 @@ export default {
       unknown: 'Completion status unknown',
       notAttempted: 'Not searched',
       unnamedRule: 'Unnamed rule',
+      details: 'Details',
+      hideDetails: 'Hide',
+      sources: 'Sources',
+      excluded: 'Excluded',
       reasons: {
         filter_params: 'Search conditions',
         filter_rules: 'Priority rules',
