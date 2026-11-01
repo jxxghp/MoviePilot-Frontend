@@ -36,6 +36,9 @@ const processing = ref(false)
 // 删除中
 const deleting = ref(false)
 
+// 分享管理权限与后端删除接口一致
+const canDeleteShare = computed(() => Boolean(globalSettings.WORKFLOW_SHARE_MANAGE))
+
 // 根据事件类型值获取显示文本
 const getEventTypeText = (eventTypeValue: string) => {
   const eventType = props.eventTypes.find(item => item.value === eventTypeValue)
@@ -98,15 +101,14 @@ async function doFork() {
 
 // 删除工作流分享
 async function doDelete() {
+  if (!props.workflow?.id || !canDeleteShare.value) return
+
   // 开始处理
   startNProgress()
   try {
     deleting.value = true
     // 请求API
     await api.delete(`workflow/share/${props.workflow?.id}`, {
-      params: {
-        share_uid: globalSettings.USER_UNIQUE_ID,
-      },
       feedback: 'silent',
     })
     $toast.success(t('workflow.cancelSuccess'))
@@ -187,10 +189,7 @@ async function doDelete() {
                       {{ t('workflow.normalFork') }}
                     </VBtn>
                     <VBtn
-                      v-if="
-                        (props.workflow?.share_uid && props.workflow?.share_uid === globalSettings.USER_UNIQUE_ID) ||
-                        globalSettings.WORKFLOW_SHARE_MANAGE
-                      "
+                      v-if="canDeleteShare"
                       color="error"
                       :disabled="deleting"
                       @click="doDelete"

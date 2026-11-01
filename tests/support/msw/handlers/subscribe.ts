@@ -224,10 +224,10 @@ export function deleteSubscribeShareHandler(
   id: number,
   response: SubscribeMutationResponse = { success: true },
   status = 200,
-  onRequest: (url: URL) => void | Promise<void> = () => {},
+  onRequest: (url: URL, request: Request) => void | Promise<void> = () => {},
 ) {
   return http.delete(subscribeApiUrls.shareById(id), async ({ request }) => {
-    await onRequest(new URL(request.url))
+    await onRequest(new URL(request.url), request)
     return mutationResponse(response, status)
   })
 }

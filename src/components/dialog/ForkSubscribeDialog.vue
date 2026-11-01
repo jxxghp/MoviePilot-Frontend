@@ -36,6 +36,9 @@ const processing = ref(false)
 // 删除中
 const deleting = ref(false)
 
+// 分享管理权限与后端删除接口一致
+const canDeleteShare = computed(() => Boolean(globalSettings.SUBSCRIBE_SHARE_MANAGE))
+
 // 是否折叠
 const isExpanded = ref(false)
 
@@ -139,15 +142,14 @@ async function doFork() {
 
 // 删除订阅分享
 async function doDelete() {
+  if (!props.media?.id || !canDeleteShare.value) return
+
   // 开始处理
   startNProgress()
   try {
     deleting.value = true
     // 请求API
     await api.delete<null>(`subscribe/share/${props.media?.id}`, {
-      params: {
-        share_uid: globalSettings.USER_UNIQUE_ID,
-      },
       feedback: 'silent',
     })
     $toast.success(t('subscribe.cancelSuccess'))
@@ -262,10 +264,7 @@ onMounted(() => {
                       {{ t('subscribe.follow') }}
                     </VBtn>
                     <VBtn
-                      v-if="
-                        (props.media?.share_uid && props.media?.share_uid === globalSettings.USER_UNIQUE_ID) ||
-                        globalSettings.SUBSCRIBE_SHARE_MANAGE
-                      "
+                      v-if="canDeleteShare"
                       color="error"
                       :disabled="deleting"
                       @click="doDelete"

@@ -192,30 +192,33 @@ describe('ForkWorkflowDialog', () => {
   })
 
   it.each([
-    ['the owner', 'owner-id', false, true],
+    ['the share owner', 'owner-id', false, false],
     ['a share manager', 'other-user', true, true],
     ['another ordinary user', 'other-user', false, false],
-  ])('shows delete permission for %s', async (_case, shareUid, canManage, visible) => {
-    await renderDialog(createWorkflowShare({ share_uid: shareUid }), { WORKFLOW_SHARE_MANAGE: canManage })
+  ])(
+    'controls delete visibility by share management permission for %s',
+    async (_case, shareUid, canManage, visible) => {
+      await renderDialog(createWorkflowShare({ share_uid: shareUid }), { WORKFLOW_SHARE_MANAGE: canManage })
 
-    if (visible) expect(screen.getByRole('button', { name: '取消分享' })).toBeInTheDocument()
-    else expect(screen.queryByRole('button', { name: '取消分享' })).not.toBeInTheDocument()
-  })
+      if (visible) expect(screen.getByRole('button', { name: '取消分享' })).toBeInTheDocument()
+      else expect(screen.queryByRole('button', { name: '取消分享' })).not.toBeInTheDocument()
+    },
+  )
 
   it('deletes the exact share and completes a Response[None] success without reading data.id', async () => {
     const deferred = createDeferred()
-    const requested = vi.fn(async (url: URL) => {
+    const requested = vi.fn(async (url: URL, headers: Headers) => {
       await deferred.promise
-      return url
+      return { headers, url }
     })
     server.use(
       http.delete('/api/v1/workflow/share/:id', async ({ request }) => {
-        await requested(new URL(request.url))
+        await requested(new URL(request.url), request.headers)
         return apiJson(null)
       }),
     )
     const user = userEvent.setup()
-    const { events } = await renderDialog()
+    const { events } = await renderDialog(createWorkflowShare(), { WORKFLOW_SHARE_MANAGE: true })
     const button = screen.getByRole('button', { name: '取消分享' })
 
     await user.click(button)
@@ -227,14 +230,15 @@ describe('ForkWorkflowDialog', () => {
     await waitFor(() => expect(events.delete).toHaveBeenCalledOnce())
     expect(events.delete).toHaveBeenCalledWith()
     expect(requested.mock.calls[0][0].pathname).toBe('/api/v1/workflow/share/91')
-    expect(requested.mock.calls[0][0].searchParams.get('share_uid')).toBe('owner-id')
+    expect(requested.mock.calls[0][0].searchParams.has('share_uid')).toBe(false)
+    expect(requested.mock.calls[0][1].get('X-Share-Owner-Token')).toBeNull()
     expect(mocks.toastSuccess).toHaveBeenCalledWith('取消分享成功')
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
 
   it('reports delete business and HTTP failures without emitting completion', async () => {
     const user = userEvent.setup()
-    const { events } = await renderDialog()
+    const { events } = await renderDialog(createWorkflowShare(), { WORKFLOW_SHARE_MANAGE: true })
 
     server.use(http.delete('/api/v1/workflow/share/:id', () => apiFailureJson('没有删除权限')))
     await user.click(screen.getByRole('button', { name: '取消分享' }))

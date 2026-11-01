@@ -248,11 +248,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/__tests__/ForkSubscribeDialog.spec.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/components/dialog/__tests__/SubscribeSeasonDialog.spec.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2

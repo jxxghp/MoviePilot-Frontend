@@ -285,35 +285,40 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
   })
 
   it.each([
-    ['the owner', 'owned-share', false, true],
+    ['the share owner', 'owned-share', false, false],
     ['a share manager', 'other-user', true, true],
     ['another ordinary user', 'other-user', false, false],
-  ])('shows delete permission for %s', async (_case, shareUid, canManage, visible) => {
-    server.use(followedSubscribersHandler([]))
+  ])(
+    'controls delete visibility by share management permission for %s',
+    async (_case, shareUid, canManage, visible) => {
+      server.use(followedSubscribersHandler([]))
 
-    await renderDialog(createSubscribeShare({ share_uid: shareUid }), {
-      SUBSCRIBE_SHARE_MANAGE: canManage,
-      USER_UNIQUE_ID: 'owned-share',
-    })
-    await waitFor(() => expect(screen.getByRole('button', { name: '订阅' })).toBeInTheDocument())
+      await renderDialog(createSubscribeShare({ share_uid: shareUid }), {
+        SUBSCRIBE_SHARE_MANAGE: canManage,
+        USER_UNIQUE_ID: 'owned-share',
+      })
+      await waitFor(() => expect(screen.getByRole('button', { name: '订阅' })).toBeInTheDocument())
 
-    if (visible) expect(screen.getByRole('button', { name: '取消分享' })).toBeInTheDocument()
-    else expect(screen.queryByRole('button', { name: '取消分享' })).not.toBeInTheDocument()
-  })
+      if (visible) expect(screen.getByRole('button', { name: '取消分享' })).toBeInTheDocument()
+      else expect(screen.queryByRole('button', { name: '取消分享' })).not.toBeInTheDocument()
+    },
+  )
 
   it('deletes the exact share and emits success without relying on response data.id', async () => {
     const media = createSubscribeShare({ id: 6201, share_uid: 'owned-share' })
     const deferred = createDeferred()
-    const deleteRequest = vi.fn((_url: URL) => deferred.promise)
+    const deleteRequest = vi.fn<(url: URL, request: Request) => Promise<void>>(() => deferred.promise)
     server.use(followedSubscribersHandler([]), deleteSubscribeShareHandler(6201, { success: true }, 200, deleteRequest))
     const user = userEvent.setup()
-    const { events } = await renderDialog(media, { USER_UNIQUE_ID: 'owned-share' })
+    const { events } = await renderDialog(media, { SUBSCRIBE_SHARE_MANAGE: true, USER_UNIQUE_ID: 'owned-share' })
     const deleteButton = screen.getByRole('button', { name: '取消分享' })
 
     await user.click(deleteButton)
     await waitFor(() => expect(deleteRequest).toHaveBeenCalledOnce())
     expect(deleteButton).toBeDisabled()
     expect(deleteRequest.mock.calls[0][0].pathname).toBe('/api/v1/subscribe/share/6201')
+    expect(deleteRequest.mock.calls[0][0].searchParams.has('share_uid')).toBe(false)
+    expect(deleteRequest.mock.calls[0][1].headers.get('X-Share-Owner-Token')).toBeNull()
 
     deferred.resolve()
     await waitFor(() => expect(events.delete).toHaveBeenCalledOnce())
@@ -328,7 +333,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
       deleteSubscribeShareHandler(6202, { message: '没有删除权限', success: false }),
     )
     const user = userEvent.setup()
-    const { events } = await renderDialog(media, { USER_UNIQUE_ID: 'owned-share' })
+    const { events } = await renderDialog(media, { SUBSCRIBE_SHARE_MANAGE: true, USER_UNIQUE_ID: 'owned-share' })
 
     await user.click(screen.getByRole('button', { name: '取消分享' }))
 
@@ -341,7 +346,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
     const media = createSubscribeShare({ id: 6203, share_uid: 'owned-share' })
     server.use(followedSubscribersHandler([]), deleteSubscribeShareHandler(6203, { success: true }, 500))
     const user = userEvent.setup()
-    const { events } = await renderDialog(media, { USER_UNIQUE_ID: 'owned-share' })
+    const { events } = await renderDialog(media, { SUBSCRIBE_SHARE_MANAGE: true, USER_UNIQUE_ID: 'owned-share' })
 
     await user.click(screen.getByRole('button', { name: '取消分享' }))
 
