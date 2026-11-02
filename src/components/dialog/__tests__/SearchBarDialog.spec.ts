@@ -157,13 +157,13 @@ describe('SearchBarDialog media source selection', () => {
     expect(
       category('torrent')
         .children!.filter(item => item.id.startsWith('native-sites-select-'))
-        .map(item => item.subtitle),
+        .map(item => item.title),
     ).toEqual(['音乐站、综合站'])
     await category('music').invoke?.()
     expect(
       category('music')
         .children!.filter(item => item.id.startsWith('native-sites-select-'))
-        .map(item => item.subtitle),
+        .map(item => item.title),
     ).toEqual(['音乐站'])
     expect(category('subtitle').children!.find(item => item.primary)!.enabled).toBe(false)
     await category('music')
@@ -199,19 +199,19 @@ describe('SearchBarDialog media source selection', () => {
       category(type).children!.find(item => item.id === `native-sites-select-${type}`)!
     await category('torrent').invoke?.()
     expect(category('torrent').children).toHaveLength(2)
-    expect(selection('torrent').subtitle).toBe('站点 11')
+    expect(selection('torrent').title).toBe('站点 11')
     await selection('torrent').invoke?.()
     expect(await screen.findByText('站点 40')).toBeInTheDocument()
     await user.click(screen.getByText('站点 40'))
     await user.click(screen.getByRole('button', { name: '确认' }))
     expect(router.currentRoute.value.path).toBe('/')
-    expect(selection('torrent').subtitle).toBe('站点 11、站点 40')
+    expect(selection('torrent').title).toBe('站点 11、站点 40')
     await category('music').invoke?.()
-    expect(selection('music').subtitle).toBe('音乐站')
+    expect(selection('music').title).toBe('音乐站')
     await selection('torrent').invoke?.()
     await user.click(await screen.findByText('站点 40'))
     await user.keyboard('{Escape}')
-    expect(selection('torrent').subtitle).toBe('站点 11、站点 40')
+    expect(selection('torrent').title).toBe('站点 11、站点 40')
     await category('torrent')
       .children!.find(item => item.primary)!
       .invoke?.()

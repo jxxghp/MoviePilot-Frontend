@@ -894,8 +894,7 @@ function nativeSearchPage(): NativePanelSource {
               ? [
                   {
                     id: `native-sites-select-${type}`,
-                    title: t('dialog.searchBar.selectSites'),
-                    subtitle:
+                    title:
                       state.sites
                         .filter(site => state.selected.includes(site.id))
                         .map(site => site.name)
