@@ -1915,7 +1915,7 @@ export default {
     selectNone: 'Select None',
   },
   discover: {
-    customizeTabs: 'Customize Explore Tabs',
+    customizeTabs: 'Customize Explore',
     configureTabsHint: 'Drag to reorder tabs and choose which tabs to display',
     selectAll: 'Select All',
     selectNone: 'Select None',

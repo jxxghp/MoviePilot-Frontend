@@ -449,10 +449,10 @@ describe('discover page', () => {
       expect.objectContaining({
         icon: 'mdi-tune',
         permission: 'discovery',
-        title: expect.objectContaining({ value: '自定义探索标签' }),
+        title: expect.objectContaining({ value: '自定义探索' }),
       }),
     )
-    expect(getSettingsButton()).toHaveAccessibleName('自定义探索标签')
+    expect(getSettingsButton()).toHaveAccessibleName('自定义探索')
   })
 
   it.each([

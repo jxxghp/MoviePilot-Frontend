@@ -1884,7 +1884,7 @@ export default {
     selectNone: '全不選',
   },
   discover: {
-    customizeTabs: '自定義探索標籤',
+    customizeTabs: '自定義探索',
     configureTabsHint: '拖動調整標籤順序，並選擇要顯示的標籤',
     selectAll: '全選',
     selectNone: '全不選',
