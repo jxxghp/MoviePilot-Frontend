@@ -5,9 +5,12 @@
   "type": "module",
   "bin": "dist/service.js",
   "scripts": {
+    "predev": "npm run build:plugin-sdk",
     "dev": "vite --host",
+    "build:plugin-sdk": "node scripts/build-plugin-sdk.mjs",
+    "check:plugin-sdk": "node scripts/build-plugin-sdk.mjs --check",
     "dev:pwa": "vite --host --port 5174",
-    "prebuild": "npm run build:icons && npm run generate:pwa-icons && npm run generate:pwa-splash",
+    "prebuild": "npm run build:plugin-sdk && npm run build:icons && npm run generate:pwa-icons && npm run generate:pwa-splash",
     "build": "vite build",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "generate:pwa-splash": "node scripts/generate-pwa-splash.mjs",

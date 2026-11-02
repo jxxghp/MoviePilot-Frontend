@@ -1,3 +1,4 @@
+import type { PluginHostSDK } from '@/sdk/plugin'
 import type { Plugin } from '@/api/types'
 import PluginDataDialog from '@/components/dialog/PluginDataDialog.vue'
 import { NativeSheetAdapter } from '@/native/sheet'
@@ -104,6 +105,10 @@ const PageRenderStub = defineComponent({
 })
 
 type RemoteCapture = {
+  hostSdk: PluginHostSDK | undefined
+  injectedSdk: unknown
+  subscriptionManager: unknown
+  injectedManager: unknown
   api: unknown
   injectedNativeSubscribe: unknown
   injectedToast: unknown
@@ -128,11 +133,17 @@ function createRemotePage(captures: RemoteCapture[]): Component {
     props: {
       api: Object,
       nativeSubscribe: Function,
+      hostSdk: { type: Object as PropType<PluginHostSDK> },
+      subscriptionManager: Function,
       show_switch: Boolean,
     },
     emits: ['action', 'close', 'layout', 'switch'],
     setup(props, { emit }) {
       captures.push({
+        hostSdk: props.hostSdk,
+        injectedSdk: inject('moviepilot:sdk'),
+        subscriptionManager: props.subscriptionManager,
+        injectedManager: inject('moviepilot:subscriptionManager'),
         api: props.api,
         injectedNativeSubscribe: inject('moviepilot:nativeSubscribe'),
         injectedToast: inject('moviepilot:toast'),
@@ -230,6 +241,10 @@ describe('PluginDataDialog', () => {
     expect(captures[0].injectedToast).toBe(mocks.toast)
     expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
     expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
+    expect(captures[0].hostSdk).toBe(captures[0].injectedSdk)
+    expect(captures[0].hostSdk?.supports('subscription.manage.edit')).toBe(true)
+    expect(captures[0].subscriptionManager).toBe(captures[0].injectedManager)
+    expect(captures[0].subscriptionManager).toBe(captures[0].hostSdk?.subscriptions?.manage)
 
     expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '80rem')
     await fireEvent.click(screen.getByRole('button', { name: '刷新远程页面' }))

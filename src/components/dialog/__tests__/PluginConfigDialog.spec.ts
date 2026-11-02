@@ -1,3 +1,4 @@
+import type { PluginHostSDK } from '@/sdk/plugin'
 import type { Plugin } from '@/api/types'
 import PluginConfigDialog from '@/components/dialog/PluginConfigDialog.vue'
 import { renderWithProviders } from '@tests/support/render'
@@ -96,6 +97,10 @@ const FormRenderStub = defineComponent({
 })
 
 type RemoteCapture = {
+  hostSdk: PluginHostSDK | undefined
+  injectedSdk: unknown
+  subscriptionManager: unknown
+  injectedManager: unknown
   api: unknown
   initialConfig: Record<string, unknown>
   injectedNativeSubscribe: unknown
@@ -123,10 +128,16 @@ function createRemoteConfig(captures: RemoteCapture[]): Component {
       api: Object,
       initialConfig: { type: Object as PropType<Record<string, unknown>>, required: true },
       nativeSubscribe: Function,
+      hostSdk: { type: Object as PropType<PluginHostSDK> },
+      subscriptionManager: Function,
     },
     emits: ['close', 'layout', 'save', 'switch'],
     setup(props, { emit }) {
       captures.push({
+        hostSdk: props.hostSdk,
+        injectedSdk: inject('moviepilot:sdk'),
+        subscriptionManager: props.subscriptionManager,
+        injectedManager: inject('moviepilot:subscriptionManager'),
         api: props.api,
         initialConfig: props.initialConfig,
         injectedNativeSubscribe: inject('moviepilot:nativeSubscribe'),
@@ -248,6 +259,10 @@ describe('PluginConfigDialog', () => {
     expect(captures[0].injectedToast).toBe(mocks.toast)
     expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
     expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
+    expect(captures[0].hostSdk).toBe(captures[0].injectedSdk)
+    expect(captures[0].hostSdk?.supports('subscription.manage.edit')).toBe(true)
+    expect(captures[0].subscriptionManager).toBe(captures[0].injectedManager)
+    expect(captures[0].subscriptionManager).toBe(captures[0].hostSdk?.subscriptions?.manage)
 
     await fireEvent.click(screen.getByRole('button', { name: '调整布局' }))
     expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '72rem')

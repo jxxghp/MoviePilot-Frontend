@@ -1,3 +1,4 @@
+import type { PluginHostSDK } from '@/sdk/plugin'
 import type { DashboardItem } from '@/api/types'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { renderWithProviders } from '@tests/support/render'
@@ -42,6 +43,10 @@ vi.mock('vue-toastification', () => ({
 }))
 
 type RemoteCapture = {
+  hostSdk: PluginHostSDK | undefined
+  injectedSdk: unknown
+  subscriptionManager: unknown
+  injectedManager: unknown
   allowRefresh: boolean
   api: unknown
   config: DashboardItem
@@ -71,9 +76,15 @@ function createRemoteDashboard(captures: RemoteCapture[], label = 'remote'): Com
       api: Object,
       config: { type: Object as PropType<DashboardItem>, required: true },
       nativeSubscribe: Function,
+      hostSdk: { type: Object as PropType<PluginHostSDK> },
+      subscriptionManager: Function,
     },
     setup(props) {
       captures.push({
+        hostSdk: props.hostSdk,
+        injectedSdk: inject('moviepilot:sdk'),
+        subscriptionManager: props.subscriptionManager,
+        injectedManager: inject('moviepilot:subscriptionManager'),
         allowRefresh: props.allowRefresh,
         api: props.api,
         config: props.config,
@@ -135,6 +146,10 @@ describe('DashboardElement plugin host', () => {
     expect(captures[0].injectedToast).toBe(mocks.toast)
     expect(captures[0].injectedDialog).toBe(mocks.openSharedDialog)
     expect(captures[0].injectedConfirm).toBe(mocks.createConfirm)
+    expect(captures[0].hostSdk).toBe(captures[0].injectedSdk)
+    expect(captures[0].hostSdk?.supports('subscription.manage.edit')).toBe(true)
+    expect(captures[0].subscriptionManager).toBe(captures[0].injectedManager)
+    expect(captures[0].subscriptionManager).toBe(captures[0].hostSdk?.subscriptions?.manage)
     await waitFor(() => expect(result.emitted().loaded).toHaveLength(1))
 
     result.unmount()
