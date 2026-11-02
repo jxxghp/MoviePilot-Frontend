@@ -15,6 +15,7 @@ import type {
 import { agentHost } from '@/utils/agentHost'
 import { suspendAgentPet } from '@/composables/useAgentPetSuspension'
 import { resetAgentPetComponentLoads } from '@/utils/agentPetLoader'
+import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
@@ -179,13 +180,13 @@ describe('AgentAssistantWidget agent host', () => {
     },
   })
 
-  function createPanelStub(setDraft = vi.fn()) {
+  function createPanelStub(setDraft = vi.fn(), startDiagnostic = vi.fn()) {
     return defineComponent({
       name: 'AgentAssistantPanel',
       props: { modelValue: Boolean },
       emits: ['assistant-preview', 'thinking-change', 'stream-phase', 'update:modelValue'],
       setup(props, { expose }) {
-        expose({ setDraft })
+        expose({ setDraft, startDiagnostic })
         return () => h('aside', { class: 'agent-assistant-panel', 'data-open': String(props.modelValue) })
       },
     })
@@ -229,6 +230,24 @@ describe('AgentAssistantWidget agent host', () => {
     plugin.open({ draft: 'ignored' })
     expect(setDraft).toHaveBeenCalledTimes(1)
     plugin.dispose()
+  })
+
+  it('opens the panel and forwards log diagnostics to the read-only panel entry', async () => {
+    const setDraft = vi.fn()
+    const startDiagnostic = vi.fn()
+    const panelStub = createPanelStub(setDraft, startDiagnostic)
+    const wrapper = mountWidget(panelStub)
+    await flushPromises()
+
+    requestAgentAssistantDiagnostic('分析 moviepilot.log')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent(panelStub).props('modelValue')).toBe(true)
+    expect(startDiagnostic).toHaveBeenCalledWith('分析 moviepilot.log')
+    expect(setDraft).not.toHaveBeenCalled()
+
+    wrapper.unmount()
   })
 
   it('mounts a stage pet in a click-through viewport layer and anchors host bubbles to it', async () => {

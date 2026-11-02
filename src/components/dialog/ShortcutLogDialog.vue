@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 
 const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 
@@ -44,6 +45,12 @@ function allLoggingDownloadUrl() {
 function openLogging(download: boolean) {
   window.open(download ? allLoggingDownloadUrl() : allLoggingUrl(), '_blank', 'noopener')
 }
+
+/** 呼叫智能助手以只读诊断会话分析主程序日志；关闭日志弹窗，避免遮挡助手面板。 */
+function diagnoseLogging() {
+  requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile: 'moviepilot.log' }))
+  visible.value = false
+}
 </script>
 
 <template>
@@ -83,6 +90,18 @@ function openLogging(download: boolean) {
               <VChip color="grey-darken-1" size="small">
                 <VIcon icon="mdi-open-in-new" size="small" start />
                 {{ t('common.openInNewWindow') }}
+              </VChip>
+            </button>
+            <button
+              type="button"
+              class="d-inline-flex align-center"
+              data-native-sheet-action="mdi-robot-happy-outline"
+              :aria-label="t('agentAssistant.diagnosticAction')"
+              @click="diagnoseLogging"
+            >
+              <VChip color="primary" size="small">
+                <VIcon icon="mdi-robot-happy-outline" size="small" start />
+                {{ t('agentAssistant.diagnosticAction') }}
               </VChip>
             </button>
           </span>

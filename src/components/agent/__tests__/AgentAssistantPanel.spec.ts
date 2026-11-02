@@ -197,6 +197,7 @@ function mountPanel(props: Record<string, unknown> = {}) {
         AgentMarkdownContent: agentMarkdownContentStub,
         IconBtn: { template: '<button><slot /></button>' },
         PerfectScrollbar: { template: '<div><slot /></div>' },
+        VAlert: { template: '<div class="v-alert-stub"><slot /></div>' },
         VCard: slotContainerStub,
         VInfiniteScroll: slotContainerStub,
         VIcon: true,
@@ -3503,4 +3504,52 @@ describe('AgentAssistantPanel agent host bridge', () => {
       wrapper.unmount()
     },
   )
+
+  it('sends log diagnostics with the read-only flag and keeps the user draft', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
+        return createAgentStreamResponse([legacySseFrame({ type: 'done' })])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await wrapper.get('textarea').setValue('尚未发送的草稿')
+
+    await (wrapper.vm as unknown as { startDiagnostic: (prompt: string) => Promise<void> }).startDiagnostic('分析 moviepilot.log')
+    await flushPromises()
+
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/message/agent/stream'))
+    expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({
+      text: '分析 moviepilot.log',
+      diagnostic: true,
+    })
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('尚未发送的草稿')
+
+    wrapper.unmount()
+  })
+
+  it('refuses log diagnostics while a run is active instead of steering into it', async () => {
+    const stream = createControllableAgentStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') return stream.response
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mountPanel()
+    await wrapper.get('textarea').setValue('正在分析的问题')
+    await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { startDiagnostic: (prompt: string) => Promise<void> }).startDiagnostic('分析插件日志')
+    await flushPromises()
+
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/message/agent/stream'))).toHaveLength(1)
+    expect(wrapper.text()).toContain('agentAssistant.diagnosticBusy')
+
+    stream.emit(legacySseFrame({ type: 'done' }))
+    stream.close()
+    await flushPromises()
+    wrapper.unmount()
+  })
 })

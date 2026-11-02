@@ -207,6 +207,8 @@ interface AgentStreamMessageOptions {
   originalMessageId?: string
   originalChatId?: string
   steering?: boolean
+  /** 只读诊断会话，后端仅开放日志读取等只读工具。 */
+  diagnostic?: boolean
 }
 
 interface AgentPendingStreamRecovery {
@@ -2681,6 +2683,7 @@ async function streamAgentMessage(
     originalMessageId,
     originalChatId,
     steering = false,
+    diagnostic = false,
   } = streamOptions
   const displayContent = (displayText ?? content).trim()
   if (!content && !images.length && !files.length && !audioRefs.length) return
@@ -2723,6 +2726,7 @@ async function streamAgentMessage(
         original_message_id: originalMessageId,
         original_chat_id: originalChatId,
         echo_user: echoUser,
+        diagnostic,
       }),
       credentials: 'include',
       signal: requestAbortController.signal,
@@ -3353,6 +3357,36 @@ function setDraft(draft: string) {
   nextTick(() => inputRef.value?.focus())
 }
 
+/**
+ * 以只读诊断模式发送日志分析请求，供日志页「AI 诊断」入口调用。
+ * 面板正在处理消息时拒绝发送：运行中的补充输入会被后端并入原会话，无法保证只读。
+ */
+async function startDiagnostic(prompt: string) {
+  if (!isAccountActive()) return
+
+  const content = prompt.trim()
+  if (!content) return
+
+  petPickerOpen.value = false
+  if (isBusy.value || sending.value) {
+    streamError.value = t('agentAssistant.diagnosticBusy')
+    return
+  }
+
+  streamError.value = ''
+  sending.value = true
+  const requestId = ++sendingRequestId
+  try {
+    await streamAgentMessage(content, [], [], [], [], { diagnostic: true })
+  } catch (error) {
+    if (!isAccountActive()) return
+    const message = error instanceof Error ? error.message : ''
+    addMessage('assistant', message || t('agentAssistant.error'), 'error')
+  } finally {
+    if (sendingRequestId === requestId) sending.value = false
+  }
+}
+
 // 处理输入框回车发送。
 function handleInputKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey || isComposing.value || event.isComposing || event.keyCode === 229) return
@@ -3455,7 +3489,7 @@ onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
-defineExpose({ setDraft })
+defineExpose({ setDraft, startDiagnostic })
 
 onScopeDispose(clearAgentAssistantOpenState)
 onScopeDispose(() => {

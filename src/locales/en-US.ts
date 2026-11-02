@@ -1329,6 +1329,11 @@ export default {
     ready: 'Ready',
     thinking: 'Thinking',
     newChat: 'New Chat',
+    diagnosticAction: 'AI diagnosis',
+    diagnosticPrompt:
+      'Read the log file {logfile}, analyze the root cause of the problems it exposes, and give repair suggestions. Do not perform any fixes directly; wait for my confirmation before executing anything.',
+    diagnosticBusy:
+      'The assistant is still processing the previous message. Please wait for the reply to finish before running the log diagnosis.',
     enterFullscreen: 'Enter fullscreen',
     exitFullscreen: 'Exit fullscreen',
     history: 'Chat History',

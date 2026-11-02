@@ -1299,6 +1299,10 @@ export default {
     ready: '随时待命',
     thinking: '思考中',
     newChat: '新会话',
+    diagnosticAction: 'AI 诊断',
+    diagnosticPrompt:
+      '请读取日志文件 {logfile}，分析其中暴露的问题原因，并给出修复建议。不要直接执行任何修复动作，等我确认后再执行。',
+    diagnosticBusy: '智能助手正在处理上一条消息，请等待当前回复结束后再发起日志诊断。',
     enterFullscreen: '全屏显示',
     exitFullscreen: '退出全屏',
     history: '历史会话',
