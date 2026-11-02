@@ -49,7 +49,11 @@ export class NativeRouteHistory {
     const root = this.roots().find(item => item.id === id)
     if (!root || this.intent) return false
     // “更多”是目录入口，每次点击都回到目录，其他 Tab 保留最近业务位置。
-    const target = root.path === '/apps' ? root.path : (this.trails.get(id)?.at(-1) ?? root.path)
+    const trail = this.trails.get(id) ?? []
+    // 独立搜索及其后续结果只参与搜索返回链，不能覆盖栏目原有的恢复位置。
+    const searchIndex = trail.findIndex(path => this.router.resolve(path).path === '/search')
+    const restored = searchIndex >= 0 ? trail.slice(0, searchIndex) : trail
+    const target = root.path === '/apps' ? root.path : (restored.at(-1) ?? root.path)
     this.navigate(target, 'root', id)
     return true
   }
@@ -142,7 +146,10 @@ export class NativeRouteHistory {
           trail = [...trail.slice(0, -1), path]
         else if (trail.at(-1) !== path) trail = [...trail, path]
       } else if (root?.path === '/apps' && path === root.path) trail = [root.path]
-      else if (!trail.length) trail = [path]
+      else {
+        const index = trail.lastIndexOf(path)
+        trail = index >= 0 ? trail.slice(0, index + 1) : [path]
+      }
       this.trails.set(rootId, trail.slice(-128))
     }
     this.currentRoot = rootId
