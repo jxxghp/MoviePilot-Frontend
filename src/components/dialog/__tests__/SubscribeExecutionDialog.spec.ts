@@ -27,11 +27,13 @@ describe('SubscribeExecutionDialog', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-09T12:00:00+08:00'))
     try {
+      const resumeAt = new Date('2026-09-09T12:02:20+08:00')
+      const time = resumeAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
       const { unmount } = await renderDetails({
         error: '测试站 站点设置的访问次数已用完，到时自动继续',
-        next_run_at: '2026-09-09T12:02:20+08:00',
+        next_run_at: resumeAt.toISOString(),
       })
-      expect(screen.getByText('12:02 再搜')).toBeInTheDocument()
+      expect(screen.getByText(`${time} 再搜`)).toBeInTheDocument()
       expect(screen.getByText('测试站 站点设置的访问次数已用完，到时自动继续')).toBeVisible()
       expect(screen.queryByRole('button', { name: '重新搜索' })).not.toBeInTheDocument()
       await vi.advanceTimersByTimeAsync(30_000)
