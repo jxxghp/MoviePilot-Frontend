@@ -170,7 +170,9 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
     )
 
     const outcome = await api.get<PluginInstallOutcome | null>(`plugin/install/${props.plugin?.id}`, {
+      // 安装事务跨页面继续完成，切换路由不能中断等待结果。
       feedback: 'silent',
+      skipNavigationCancellation: true,
       params: {
         release_version: releaseVersion,
         force: props.plugin?.has_update || Boolean(releaseVersion),

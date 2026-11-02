@@ -119,8 +119,12 @@ describe('plugin source API adapters', () => {
     await installPluginFromSource('DemoPlugin', installRequest)
     await changePluginSource('DemoPlugin', changeRequest)
 
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'plugin/source/DemoPlugin/install', installRequest)
-    expect(mocks.apiPost).toHaveBeenNthCalledWith(2, 'plugin/source/DemoPlugin', changeRequest)
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(1, 'plugin/source/DemoPlugin/install', installRequest, {
+      skipNavigationCancellation: true,
+    })
+    expect(mocks.apiPost).toHaveBeenNthCalledWith(2, 'plugin/source/DemoPlugin', changeRequest, {
+      skipNavigationCancellation: true,
+    })
   })
 
   it('不吞掉后端业务失败，调用方仍可捕获 ApiRequestError', async () => {

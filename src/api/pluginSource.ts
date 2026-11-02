@@ -44,22 +44,24 @@ export function requiresExplicitPluginSourceInstall(options: PluginSourceOptions
   )
 }
 
-/** 按管理员明确选择的在线来源安装未绑定插件。 */
+/** 按明确来源安装插件，切换页面后继续等待安装结果。 */
 export function installPluginFromSource(
   pluginId: string,
   request: PluginSourceInstallRequest,
 ): Promise<PluginInstallOutcome | null> {
   return api.post<PluginInstallOutcome | null>(`plugin/source/${encodeURIComponent(pluginId)}/install`, request, {
     feedback: 'silent',
+    skipNavigationCancellation: true,
   })
 }
 
-/** 按当前身份 revision 进行 CAS 保护的在线来源切换。 */
+/** 按当前身份 revision 换源安装，切换页面后继续等待事务结果。 */
 export function changePluginSource(
   pluginId: string,
   request: PluginSourceChangeRequest,
 ): Promise<PluginInstallOutcome | null> {
   return api.post<PluginInstallOutcome | null>(`plugin/source/${encodeURIComponent(pluginId)}`, request, {
     feedback: 'silent',
+    skipNavigationCancellation: true,
   })
 }

@@ -173,6 +173,7 @@ describe('PluginAppCard rating badge', () => {
 
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/install/DemoPlugin', {
+      skipNavigationCancellation: true,
       params: {
         force: true,
         release_version: '0.9.0',

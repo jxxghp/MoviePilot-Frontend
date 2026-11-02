@@ -243,11 +243,15 @@ describe('PluginMarketDetailDialog', () => {
     await fireEvent.click(installButton)
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
-        repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
-        release_version: undefined,
-        force: false,
-      })
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'plugin/source/DemoPlugin/install',
+        {
+          repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+          release_version: undefined,
+          force: false,
+        },
+        { skipNavigationCancellation: true },
+      )
     })
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toHaveLength(1)
@@ -316,11 +320,15 @@ describe('PluginMarketDetailDialog', () => {
     await fireEvent.click(installButton)
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
-        repo_url: 'https://github.com/example/plugins',
-        release_version: undefined,
-        force: false,
-      })
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'plugin/source/DemoPlugin/install',
+        {
+          repo_url: 'https://github.com/example/plugins',
+          release_version: undefined,
+          force: false,
+        },
+        { skipNavigationCancellation: true },
+      )
     })
     expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/install/DemoPlugin', expect.anything())
     expect(emitted().install).toHaveLength(1)
@@ -352,11 +360,15 @@ describe('PluginMarketDetailDialog', () => {
     await fireEvent.click(installButton)
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin', {
-        repo_url: 'https://github.com/example/plugins',
-        expected_revision: 3,
-        release_version: undefined,
-      })
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'plugin/source/DemoPlugin',
+        {
+          repo_url: 'https://github.com/example/plugins',
+          expected_revision: 3,
+          release_version: undefined,
+        },
+        { skipNavigationCancellation: true },
+      )
     })
     expect(emitted().install).toHaveLength(1)
   })
@@ -526,6 +538,7 @@ describe('PluginMarketDetailDialog', () => {
       expect.objectContaining({
         repo_url: 'https://github.com/example/plugins',
       }),
+      { skipNavigationCancellation: true },
     )
     expect(mocks.apiPost).not.toHaveBeenCalledWith('plugin/source/DemoPlugin', expect.anything())
     expect(emitted()['update:modelValue']).toContainEqual([false])
@@ -703,11 +716,15 @@ describe('PluginMarketDetailDialog', () => {
     await fireEvent.click(await screen.findByRole('button', { name: '安装到本地' }))
 
     await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
-        repo_url: 'https://github.com/example/plugins',
-        release_version: undefined,
-        force: false,
-      })
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'plugin/source/DemoPlugin/install',
+        {
+          repo_url: 'https://github.com/example/plugins',
+          release_version: undefined,
+          force: false,
+        },
+        { skipNavigationCancellation: true },
+      )
     })
     expect(mocks.confirm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -802,11 +819,15 @@ describe('PluginMarketDetailDialog', () => {
     await versionEvents.update('0.9.0', 'https://github.com/example/releases')
 
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('v0.9.0') }))
-    expect(mocks.apiPost).toHaveBeenCalledWith('plugin/source/DemoPlugin/install', {
-      repo_url: 'https://github.com/example/plugins',
-      release_version: '0.9.0',
-      force: true,
-    })
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      'plugin/source/DemoPlugin/install',
+      {
+        repo_url: 'https://github.com/example/plugins',
+        release_version: '0.9.0',
+        force: true,
+      },
+      { skipNavigationCancellation: true },
+    )
     expect(emitted().install).toHaveLength(1)
   })
 
@@ -816,6 +837,7 @@ describe('PluginMarketDetailDialog', () => {
     await fireEvent.click(await screen.findByRole('button', { name: '更新' }))
 
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/install/DemoPlugin', {
+      skipNavigationCancellation: true,
       params: {
         force: true,
         release_version: undefined,
@@ -866,6 +888,7 @@ describe('PluginMarketDetailDialog', () => {
     await versionEvents.update(undefined, 'https://github.com/example/releases')
 
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/install/DemoPlugin', {
+      skipNavigationCancellation: true,
       params: {
         force: true,
         release_version: undefined,

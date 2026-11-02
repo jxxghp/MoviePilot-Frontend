@@ -527,7 +527,9 @@ async function installPlugin(releaseVersion?: string, repoUrl?: string) {
           force: isInstalled.value || props.plugin?.has_update || Boolean(releaseVersion),
           ...(selectedRepoUrl ? { repo_url: selectedRepoUrl } : {}),
         },
+        // 安装事务跨页面继续完成，切换路由不能中断等待结果。
         feedback: 'silent',
+        skipNavigationCancellation: true,
       })
     }
 

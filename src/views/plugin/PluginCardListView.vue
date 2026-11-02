@@ -975,7 +975,7 @@ function pluginDialogClose() {
   PluginAppDialog.value = false
 }
 
-// 安装插件
+/** 安装或更新插件，并在跨页面完成后反馈结果和刷新共享状态。 */
 async function installPlugin(
   item: Plugin,
   releaseVersion?: string,
@@ -1097,7 +1097,9 @@ async function installPlugin(
           force: item?.has_update || Boolean(releaseVersion),
           ...(repoUrl ? { repo_url: repoUrl } : {}),
         },
+        // 安装事务跨页面继续完成，切换路由不能中断等待结果。
         feedback: 'silent',
+        skipNavigationCancellation: true,
       })
     }
     const toastKey = item.installed ? 'plugin.updateSuccess' : 'plugin.installSuccess'

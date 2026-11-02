@@ -4,7 +4,7 @@ import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { usePluginRuntimeStore } from '@/stores/pluginRuntime'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
-import { getActiveRequestsCount } from '@/utils/requestOptimizer'
+import { getActiveRequestsCount, setNavigatingState } from '@/utils/requestOptimizer'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
@@ -1774,7 +1774,7 @@ describe('PluginCardListView search installation', () => {
     expect(getHeaderConfig().modelValue.value).toBe('market')
   })
 
-  it('shows a per-plugin loading card while installation is still running', async () => {
+  it('keeps installation running across navigation and reports success when it completes', async () => {
     const installGate = createDeferred<void>()
     const installStarted = createDeferred<void>()
     let installed = false
@@ -1815,6 +1815,9 @@ describe('PluginCardListView search installation', () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
 
     await installStarted.promise
+    setNavigatingState(true)
+    setNavigatingState(false)
+    expect(mocks.toastError).not.toHaveBeenCalled()
     await mocks.keepAliveHandler?.({ silent: true })
     expect(screen.getByLabelText('installing-PendingPlugin')).toHaveTextContent('true')
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
