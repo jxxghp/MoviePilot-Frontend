@@ -156,14 +156,14 @@ describe('SearchBarDialog media source selection', () => {
     await category('torrent').invoke?.()
     expect(
       category('torrent')
-        .children!.filter(item => item.id.startsWith('native-site-'))
-        .map(item => item.title),
-    ).toEqual(['音乐站', '综合站'])
+        .children!.filter(item => item.id.startsWith('native-sites-select-'))
+        .map(item => item.subtitle),
+    ).toEqual(['音乐站、综合站'])
     await category('music').invoke?.()
     expect(
       category('music')
-        .children!.filter(item => item.id.startsWith('native-site-'))
-        .map(item => item.title),
+        .children!.filter(item => item.id.startsWith('native-sites-select-'))
+        .map(item => item.subtitle),
     ).toEqual(['音乐站'])
     expect(category('subtitle').children!.find(item => item.primary)!.enabled).toBe(false)
     await category('music')
@@ -171,6 +171,52 @@ describe('SearchBarDialog media source selection', () => {
       .invoke?.()
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
     expect(router.currentRoute.value.query).toMatchObject({ type: '音乐', sites: '11', result_type: 'torrent' })
+  })
+
+  it('站点目录收起为已选摘要，弹窗确认只保存当前资源类型，取消保留选择', async () => {
+    const defaultGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((path: string) =>
+      path === 'site/'
+        ? Promise.resolve(
+            Array.from({ length: 40 }, (_, index) => ({ id: index + 1, is_active: true, name: `站点 ${index + 1}` })),
+          )
+        : defaultGet(path),
+    )
+    const user = userEvent.setup()
+    const dialog = ref<InstanceType<typeof SearchBarDialog>>()
+    const host = defineComponent({
+      inheritAttrs: false,
+      setup: () => () => h(SearchBarDialog, { ref: dialog, modelValue: false }),
+    })
+    const { router } = await renderSearchBar({ searchPermission: true }, host)
+    const page = () => dialog.value!.nativeSearchPage()
+    page().onQuery?.('关键词')
+    const category = (type: string) =>
+      page()
+        .sections.find(section => section.id === 'resources')!
+        .items.find(item => item.id === `resource-${type}`)!
+    const selection = (type: string) =>
+      category(type).children!.find(item => item.id === `native-sites-select-${type}`)!
+    await category('torrent').invoke?.()
+    expect(category('torrent').children).toHaveLength(2)
+    expect(selection('torrent').subtitle).toBe('站点 11')
+    await selection('torrent').invoke?.()
+    expect(await screen.findByText('站点 40')).toBeInTheDocument()
+    await user.click(screen.getByText('站点 40'))
+    await user.click(screen.getByRole('button', { name: '确认' }))
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(selection('torrent').subtitle).toBe('站点 11、站点 40')
+    await category('music').invoke?.()
+    expect(selection('music').subtitle).toBe('音乐站')
+    await selection('torrent').invoke?.()
+    await user.click(await screen.findByText('站点 40'))
+    await user.keyboard('{Escape}')
+    expect(selection('torrent').subtitle).toBe('站点 11、站点 40')
+    await category('torrent')
+      .children!.find(item => item.primary)!
+      .invoke?.()
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
+    expect(router.currentRoute.value.query.sites).toBe('11,40')
   })
 
   it('站点加载失败禁用提交，显式重试成功后才恢复', async () => {

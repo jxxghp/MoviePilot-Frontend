@@ -15,6 +15,8 @@ const props = defineProps({
     required: true,
   },
   selected: Array as PropType<number[]>,
+  // 原生独立搜索页先确认选择，再通过页面主按钮搜索。
+  selectionOnly: Boolean,
 })
 
 // 定义事件
@@ -26,7 +28,7 @@ const siteFilter = ref('')
 // 已选择站点
 const selectedSites = ref<number[]>([])
 
-// 根据当前可用站点清理选中项，避免停用或已删除站点参与计数。
+/** 根据当前可用站点清理选中项，避免停用或已删除站点参与计数。 */
 function normalizeSelectedSites(selectedSiteIds: number[] = []) {
   const availableSiteIds = new Set(props.sites.map((site: Site) => site.id))
   const normalizedSiteIds: number[] = []
@@ -55,7 +57,7 @@ const checkAllText = computed(() => {
     : t('dialog.searchSite.deselectAll')
 })
 
-// 全选/全不选
+/** 以完整目录切换全选，不受列表过滤条件影响。 */
 const checkAllSitesorNot = () => {
   if (selectedSites.value.length < props.sites.length) {
     selectedSites.value = props.sites.map((item: Site) => item.id)
@@ -64,7 +66,7 @@ const checkAllSitesorNot = () => {
   }
 }
 
-// 切换单个站点的选择状态。
+/** 切换单个站点的选择状态。 */
 function toggleSiteSelection(siteId: number) {
   const index = selectedSites.value.indexOf(siteId)
   if (index === -1) {
@@ -74,7 +76,7 @@ function toggleSiteSelection(siteId: number) {
   }
 }
 
-// 确认搜索时只提交当前可用站点。
+/** 只提交当前可用站点，是否立即搜索由调用方决定。 */
 function confirmSearch() {
   emit('search', normalizeSelectedSites(selectedSites.value))
 }
@@ -186,10 +188,10 @@ const filteredSites = computed(() => {
           variant="flat"
           :disabled="selectedSites.length === 0"
           @click="confirmSearch"
-          prepend-icon="mdi-magnify"
+          :prepend-icon="selectionOnly ? 'mdi-check' : 'mdi-magnify'"
           class="d-flex align-center justify-center px-5"
         >
-          {{ t('common.search') }}
+          {{ t(selectionOnly ? 'common.confirm' : 'common.search') }}
         </VBtn>
       </VCardActions>
     </VCard>
