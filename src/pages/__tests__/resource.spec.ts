@@ -4,19 +4,24 @@ import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { createSearchDiagnostics } from '@tests/support/fixtures/searchDiagnostics'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, nextTick, type ComputedRef } from 'vue'
+import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { useRoute } from 'vue-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
-  dynamicButtonOptions: undefined as unknown as { onClick: () => void },
+  appMode: false,
+  dynamicButtonOptions: undefined as unknown as { onClick: () => void; show: ComputedRef<boolean> },
   keepAliveRefresh: undefined as unknown as () => Promise<void>,
   toastError: vi.fn(),
   toastWarning: vi.fn(),
   useDynamicButton: vi.fn(),
 }))
+
+const nativeLayout = new NativeLayoutAdapter(document, window)
+afterEach(() => nativeLayout.setActive(false))
 
 const musicBrainzAlbumId = '695f5ac8-cfd5-4e7b-96a0-6d545f5c9f17'
 
@@ -28,7 +33,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/composables/useDynamicButton', () => ({
-  useDynamicButton: (options: { onClick: () => void }) => {
+  useDynamicButton: (options: { onClick: () => void; show: ComputedRef<boolean> }) => {
     mocks.dynamicButtonOptions = options
     mocks.useDynamicButton(options)
   },
@@ -42,9 +47,9 @@ vi.mock('@/composables/useKeepAliveRefresh', () => ({
 }))
 
 vi.mock('@/composables/usePWA', async () => {
-  const { ref } = await import('vue')
+  const { computed } = await import('vue')
   return {
-    usePWA: () => ({ appMode: ref(false) }),
+    usePWA: () => ({ appMode: computed(() => nativeChromeActive.value || mocks.appMode) }),
   }
 })
 
@@ -540,6 +545,8 @@ const searchRouteCases: SearchRouteCase[] = [
 
 describe('resource page search flow', () => {
   beforeEach(() => {
+    nativeLayout.setActive(false)
+    mocks.appMode = false
     EventSourceFake.instances = []
     vi.stubGlobal('EventSource', EventSourceFake)
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -1354,7 +1361,8 @@ describe('resource page search flow', () => {
     expect(await screen.findByTestId('torrent-card')).toHaveTextContent('可见卡片结果')
   })
 
-  it('restores row view and persists the dynamic card/row toggle', async () => {
+  it('restores row view and persists the dynamic card/row toggle in PWA mode', async () => {
+    mocks.appMode = true
     localStorage.setItem('MPTorrentsViewType', 'row')
     await renderResource({
       path: '/resource',
@@ -1365,11 +1373,43 @@ describe('resource page search flow', () => {
 
     expect(await screen.findByTestId('torrent-row')).toHaveTextContent('切换视图结果')
 
+    expect(mocks.dynamicButtonOptions.show.value).toBe(true)
     mocks.dynamicButtonOptions.onClick()
     await nextTick()
 
     expect(screen.getByTestId('torrent-card')).toHaveTextContent('切换视图结果')
     expect(localStorage.getItem('MPTorrentsViewType')).toBe('card')
+  })
+
+  it.each(['torrent', 'subtitle'] as const)('原生 App 的 %s 结果固定卡片并让出右下角按钮', async resultType => {
+    localStorage.setItem('MPTorrentsViewType', 'row')
+    nativeLayout.setActive(true)
+    await renderResource({ path: '/resource', query: { keyword: '原生卡片', result_type: resultType } })
+    const source = await latestEventSource()
+    finishStream(source, [
+      resultType === 'subtitle' ? createSubtitle('原生字幕结果') : createTorrent({ title: '原生资源结果' }),
+    ])
+    expect(await screen.findByTestId(resultType === 'subtitle' ? 'subtitle-card' : 'torrent-card')).toBeInTheDocument()
+    expect(screen.queryByTestId(resultType === 'subtitle' ? 'subtitle-row' : 'torrent-row')).not.toBeInTheDocument()
+    expect(mocks.dynamicButtonOptions.show.value).toBe(false)
+    mocks.dynamicButtonOptions.onClick()
+    await nextTick()
+    expect(localStorage.getItem('MPTorrentsViewType')).toBe('row')
+    expect(screen.getByTestId(resultType === 'subtitle' ? 'subtitle-card' : 'torrent-card')).toBeInTheDocument()
+  })
+
+  it('原生协商在结果恢复之后完成时重新分组，退出后恢复网页行视图', async () => {
+    localStorage.setItem('MPTorrentsViewType', 'row')
+    await renderResource({ path: '/resource', query: { keyword: '延迟接管' } })
+    const source = await latestEventSource()
+    finishStream(source, [createTorrent({ title: '已有结果' })])
+    expect(await screen.findByTestId('torrent-row')).toHaveTextContent('已有结果')
+    nativeLayout.setActive(true)
+    expect(await screen.findByTestId('torrent-card')).toHaveTextContent('已有结果')
+    expect(screen.queryByTestId('torrent-row')).not.toBeInTheDocument()
+    nativeLayout.setActive(false)
+    expect(await screen.findByTestId('torrent-row')).toHaveTextContent('已有结果')
+    expect(localStorage.getItem('MPTorrentsViewType')).toBe('row')
   })
 
   it('clears filters for a new route search', async () => {

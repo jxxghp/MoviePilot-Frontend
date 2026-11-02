@@ -26,6 +26,7 @@ import { getCurrentLocale } from '@/plugins/i18n'
 import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { requiresMusicConfirmation } from '@/utils/music'
 import { useNativePageHeader } from '@/native/page'
+import { nativeChromeActive } from '@/native/layout'
 
 // 国际化
 const { t } = useI18n()
@@ -289,8 +290,9 @@ const resultType = computed(() => (activeSearchParams.value.result_type === 'sub
 // 是否为字幕搜索
 const isSubtitleSearch = computed(() => resultType.value === 'subtitle')
 
-// 视图类型，从localStorage中读取
-const viewType = ref<TorrentViewType>(normalizeTorrentViewType(localStorage.getItem('MPTorrentsViewType')))
+// 原生 App 固定使用卡片；网页的持久化视图偏好保留，退出原生接管后继续恢复。
+const preferredViewType = ref<TorrentViewType>(normalizeTorrentViewType(localStorage.getItem('MPTorrentsViewType')))
+const viewType = computed<TorrentViewType>(() => (nativeChromeActive.value ? 'card' : preferredViewType.value))
 
 // 排序条件与方向，从localStorage中读取，让上次的选择在下次进入结果页时继续生效
 const torrentSortFieldStorageKey = 'MPTorrentsSortField'
@@ -370,7 +372,7 @@ const isRefreshed = ref(false)
 
 const viewToggleIcon = computed(() => (viewType.value === 'card' ? 'mdi-view-list-outline' : 'mdi-view-grid-outline'))
 
-// 搜索结果视图切换收纳到页面动态按钮中，和仪表盘的设置按钮保持一致。
+/** 网页和 PWA 的视图切换复用原筛选结果；原生 App 不提供此动作。 */
 function toggleViewType() {
   changeViewType(viewType.value === 'card' ? 'row' : 'card')
 }
@@ -379,7 +381,7 @@ useDynamicButton({
   icon: viewToggleIcon,
   onClick: toggleViewType,
   permission: 'search',
-  show: computed(() => appMode.value && isRefreshed.value),
+  show: computed(() => appMode.value && !nativeChromeActive.value && isRefreshed.value),
 })
 
 // 是否正在重新搜索
@@ -496,6 +498,9 @@ watch(
   },
   { deep: true },
 )
+
+// 原生接管可能晚于缓存结果恢复；显示模式改变时重建对应分组，避免卡片列表为空。
+watch(nativeChromeActive, () => applyFilter())
 
 // 记住排序选择
 watch([() => torrentFilter.sortField.value, () => torrentFilter.sortType.value], ([field, type]) => {
@@ -1144,11 +1149,12 @@ function searchByStream(params: SearchParams, requestToken?: string, continuatio
   })
 }
 
-// 设置视图类型
+/** 仅允许网页切换并保存视图，原生接管期间的旧回调不能改变偏好。 */
 function changeViewType(newType: TorrentViewType) {
+  if (nativeChromeActive.value) return
   if (viewType.value !== newType) {
     // 立即更新视图类型
-    viewType.value = newType
+    preferredViewType.value = newType
     localStorage.setItem('MPTorrentsViewType', newType)
 
     // 切换视图时重新应用筛选
