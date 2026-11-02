@@ -8,6 +8,7 @@ import type {
   SubscrbieInfo,
 } from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
+import { nativeChromeActive } from '@/native/layout'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -16,6 +17,7 @@ import { useToast } from 'vue-toastification'
 type SubscribeFileTab = 'download' | 'library'
 type EpisodeStatus = 'library' | 'download' | 'missing'
 
+/** 将下载与媒体库记录归并到同一集，供桌面和移动布局共享。 */
 interface SubscribeEpisodeGroup {
   episodeNumber: number
   episodeLabel: string
@@ -27,6 +29,7 @@ interface SubscribeEpisodeGroup {
   status: EpisodeStatus
 }
 
+/** 头部统计项同时驱动数量文案和完成进度。 */
 interface FileStatItem {
   key: string
   label: string
@@ -410,7 +413,7 @@ onBeforeMount(() => {
     :height="display.mdAndUp.value ? '90vh' : undefined"
     :fullscreen="!display.mdAndUp.value"
   >
-    <VCard class="subscribe-files-dialog no-blur">
+    <VCard class="subscribe-files-dialog no-blur" :class="{ 'subscribe-files-dialog--native': nativeChromeActive }">
       <VBtn
         data-native-dialog-close
         class="subscribe-files-dialog__close"
@@ -847,6 +850,13 @@ onBeforeMount(() => {
       rgba(var(--v-theme-surface), var(--sfd-hero-end-opacity))
     ),
     var(--subscribe-files-backdrop) center / cover;
+}
+
+/* 原生 Sheet 已提供外框，头部作为独立卡片留白，避免沿用网页贴边的半圆角。 */
+.subscribe-files-dialog--native .subscribe-files-hero {
+  border-radius: var(--app-surface-radius);
+  margin-block: 0.75rem 0;
+  margin-inline: 1rem;
 }
 
 .subscribe-files-hero__shade {
