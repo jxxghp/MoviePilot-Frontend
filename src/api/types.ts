@@ -51,6 +51,8 @@ export interface SubscriptionExecutionStatus {
   next_run_at?: string
   error?: string
   can_cancel: boolean
+  /** 本次任务已添加的下载数量，用于区分已添加下载与暂无资源 */
+  submitted_count?: number
 }
 
 /** 用户主动发起订阅搜索后的安排结果。 */

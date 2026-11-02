@@ -15,6 +15,7 @@ import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
 import { nativeChromeActive } from '@/native/layout'
+import { subscriptionExecutionLabel } from '@/utils/subscriptionExecution'
 import {
   collectSubscribeSourceNames,
   emptySubscribeSourceDirectory,
@@ -86,7 +87,7 @@ interface SubscribeBatchState {
 }
 
 // 是否刷新过
-let isRefreshed = ref(false)
+const isRefreshed = ref(false)
 
 // 刷新状态
 const loading = ref(false)
@@ -121,10 +122,10 @@ const activeExecutionStates = new Set([
 ])
 const terminalExecutionStates = new Set(['completed', 'failed', 'cancelled', 'skipped'])
 const userRequestedExecutionSources = new Set(['manual', 'targeted'])
+// 全部跳过的批次没有需要用户关注的信息，不展示横幅。
 const terminalBatchVisibleMs: Record<string, number> = {
   failed: 60_000,
   cancelled: 10_000,
-  skipped: 10_000,
 }
 const dismissedExecutionBatchIds = ref<Set<string>>(new Set())
 
@@ -176,16 +177,13 @@ const visibleExecutionBatchAppearance = computed(() => {
   if (batch.state === 'failed') {
     return { color: 'error', icon: 'mdi-alert-outline' }
   }
-  if (batch.state === 'skipped') {
-    return { color: 'secondary', icon: 'mdi-skip-next-circle-outline' }
-  }
   return { color: 'secondary', icon: 'mdi-cancel' }
 })
 
-const visibleExecutionBatchState = computed(() => {
+// 批次没有继续时间，站点等待统一显示为搜索中，具体原因在各订阅详情里。
+const visibleExecutionBatchLabel = computed(() => {
   const batch = visibleExecutionBatch.value
-  if (!batch) return 'queued'
-  return terminalExecutionStates.has(batch.state) ? batch.state : batch.phase
+  return (batch && subscriptionExecutionLabel(batch, Date.now())) || 'queued'
 })
 
 const batchProgress = computed(() => {
@@ -1034,7 +1032,7 @@ defineExpose({
             :aria-label="t('subscribe.execution.details')"
             @click="executionDetailsOpen = true"
           >
-            {{ t(`subscribe.execution.state.${visibleExecutionBatchState}`) }}
+            {{ t(`subscribe.execution.label.${visibleExecutionBatchLabel}`) }}
           </button>
           <span class="flex-shrink-0">
             {{
@@ -1053,9 +1051,6 @@ defineExpose({
           height="3"
           class="mt-2"
         />
-        <div v-if="visibleExecutionBatchState === 'waiting_site_budget'" class="text-caption mt-1">
-          {{ t('subscribe.execution.autoResume') }}
-        </div>
       </div>
       <IconBtn
         v-if="visibleExecutionBatch.can_cancel"

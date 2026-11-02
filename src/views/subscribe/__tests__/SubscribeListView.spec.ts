@@ -457,7 +457,7 @@ describe('SubscribeListView loading and filtering', () => {
       await flushAsync()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     }
-    expect(screen.getByRole('button', { name: '搜索详情' })).toHaveTextContent('稍后继续')
+    expect(screen.getByRole('button', { name: '搜索详情' })).toHaveTextContent('搜索中')
     unmount()
   })
 
@@ -894,7 +894,7 @@ describe('SubscribeListView loading and filtering', () => {
     expect(listRequested).toHaveBeenCalledTimes(2)
   })
 
-  it('shows a skipped batch and uses its processed count in the progress label', async () => {
+  it('hides a finished batch that skipped some subscriptions, like a completed batch', async () => {
     await renderList({
       batchResponse: [
         executionBatch({
@@ -913,8 +913,8 @@ describe('SubscribeListView loading and filtering', () => {
     })
 
     expect(await screen.findByText('跳过批次订阅')).toBeInTheDocument()
-    expect(await screen.findByText('已跳过')).toBeInTheDocument()
-    expect(await screen.findByText('2/3')).toBeInTheDocument()
+    expect(screen.queryByText('已跳过')).not.toBeInTheDocument()
+    expect(document.querySelector('.subscribe-execution-banner')).not.toBeInTheDocument()
   })
 
   it('does not show background automatic batches in the user action banner', async () => {
@@ -924,7 +924,7 @@ describe('SubscribeListView loading and filtering', () => {
     })
 
     expect(await screen.findByText('后台自动搜索订阅')).toBeInTheDocument()
-    expect(screen.queryByText('待搜索')).not.toBeInTheDocument()
+    expect(screen.queryByText('排队中')).not.toBeInTheDocument()
     expect(document.querySelector('.subscribe-execution-banner')).not.toBeInTheDocument()
   })
 

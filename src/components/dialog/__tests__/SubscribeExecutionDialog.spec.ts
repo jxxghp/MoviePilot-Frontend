@@ -23,20 +23,37 @@ async function renderDetails(
 }
 
 describe('SubscribeExecutionDialog', () => {
-  it('shows a local resume estimate, then acknowledges the due time without claiming it has resumed', async () => {
+  it('shows the site wait reason only while the wait is long, then falls back to searching', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-09T12:00:00+08:00'))
     try {
-      const { unmount } = await renderDetails({ next_run_at: '2026-09-09T12:00:02+08:00' })
-      expect(screen.getByText(/预计 .* 自动继续（本地时间）/)).toBeVisible()
+      const { unmount } = await renderDetails({
+        error: '测试站 站点设置的访问次数已用完，到时自动继续',
+        next_run_at: '2026-09-09T12:02:20+08:00',
+      })
+      expect(screen.getByText('12:02 再搜')).toBeInTheDocument()
+      expect(screen.getByText('测试站 站点设置的访问次数已用完，到时自动继续')).toBeVisible()
       expect(screen.queryByRole('button', { name: '重新搜索' })).not.toBeInTheDocument()
-      await vi.advanceTimersByTimeAsync(3000)
-      expect(screen.getByText('已到预计时间，正在等待自动继续。')).toBeVisible()
-      expect(screen.getByText('稍后继续')).toBeInTheDocument()
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(screen.getByText('搜索中')).toBeInTheDocument()
+      expect(screen.queryByText('测试站 站点设置的访问次数已用完，到时自动继续')).not.toBeInTheDocument()
       unmount()
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it.each([
+    [{ phase: 'waiting_subscription', state: 'queued' }, '排队中', '前面的订阅搜完后自动开始，不用重复点搜索。'],
+    [
+      { phase: 'completed', state: 'completed', submitted_count: 0 },
+      '暂无资源',
+      '这次没找到符合条件的资源，订阅会继续定时检查。',
+    ],
+  ])('explains states the user may act on: %j', async (execution, label, hint) => {
+    await renderDetails(execution)
+    expect(screen.getByText(label)).toBeInTheDocument()
+    expect(screen.getByText(hint)).toBeVisible()
   })
 
   it('folds failure details while exposing retry and the permitted site manager', async () => {
@@ -72,7 +89,7 @@ describe('SubscribeExecutionDialog', () => {
     })
     expect(screen.getByText('搜索中')).toBeInTheDocument()
     expect(screen.queryByText('此前站点暂时繁忙')).not.toBeInTheDocument()
-    expect(screen.queryByText(/预计时间/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/再搜/)).not.toBeInTheDocument()
   })
 })
 

@@ -9,6 +9,7 @@ import { getApiBusinessErrorMessage } from '@/api/client'
 import { resetSubscription, searchSubscription } from '@/api/subscription'
 import type { Subscribe } from '@/api/types'
 import router from '@/router'
+import { useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
@@ -19,10 +20,15 @@ import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from
 import SubscribeExecutionDialog from '@/components/dialog/SubscribeExecutionDialog.vue'
 import SubscribeSourceMark from '@/components/misc/SubscribeSourceMark.vue'
 import type { SubscribeSource } from '@/utils/subscribeSource'
+import {
+  formatSubscriptionResumeTime,
+  subscriptionExecutionLabel,
+  subscriptionExecutionResumeAt,
+  type SubscriptionExecutionLabel,
+} from '@/utils/subscriptionExecution'
 
 const TERMINAL_EXECUTION_VISIBLE_MS: Record<string, number> = {
   completed: 5_000,
-  skipped: 10_000,
   cancelled: 10_000,
   failed: 60_000,
 }
@@ -37,7 +43,7 @@ const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/Subscr
 const display = useDisplay()
 
 // 国际化
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // 输入参数
 const props = defineProps({
@@ -104,7 +110,11 @@ function clearExecutionStatusTimer() {
 // 活动状态持续展示；各种结束状态按重要程度短暂显示后恢复卡片原始信息。
 function syncVisibleExecutionStatus(execution: Subscribe['execution_status']) {
   clearExecutionStatusTimer()
-  if (execution?.source && BACKGROUND_EXECUTION_SOURCES.has(execution.source)) {
+  // 后台自动检查和被跳过的任务没有需要用户关注的信息，保留卡片原始信息。
+  if (
+    (execution?.source && BACKGROUND_EXECUTION_SOURCES.has(execution.source)) ||
+    (execution && subscriptionExecutionLabel(execution, Date.now()) === null)
+  ) {
     visibleExecutionStatus.value = null
     return
   }
@@ -132,33 +142,33 @@ function syncVisibleExecutionStatus(execution: Subscribe['execution_status']) {
   }, remaining)
 }
 
-// 将后端稳定业务状态映射为紧凑、可本地化的卡片展示。
+// 站点长等待的继续时间随时间推移失效，定期刷新让卡片回到「搜索中」。
+const now = useNow({ interval: 15_000 })
+
+const EXECUTION_APPEARANCE: Record<SubscriptionExecutionLabel, { color: string; icon: string }> = {
+  queued: { color: 'info', icon: 'mdi-clock-outline' },
+  searching: { color: 'primary', icon: 'mdi-magnify-scan' },
+  waiting: { color: 'info', icon: 'mdi-timer-sand' },
+  submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
+  submitted: { color: 'success', icon: 'mdi-check-circle-outline' },
+  noResult: { color: 'secondary', icon: 'mdi-magnify-close' },
+  failed: { color: 'error', icon: 'mdi-alert-outline' },
+  cancelling: { color: 'warning', icon: 'mdi-cancel' },
+  cancelled: { color: 'secondary', icon: 'mdi-cancel' },
+}
+
+// 将后端执行状态归并为紧凑、可本地化的卡片展示词。
 const executionStateDisplay = computed(() => {
   const execution = visibleExecutionStatus.value
   if (!execution) return null
-  const displays: Record<string, { color: string; icon: string }> = {
-    queued: { color: 'info', icon: 'mdi-clock-outline' },
-    scheduled: { color: 'info', icon: 'mdi-calendar-clock-outline' },
-    running: { color: 'info', icon: 'mdi-progress-clock' },
-    matching: { color: 'info', icon: 'mdi-filter-search-outline' },
-    searching: { color: 'primary', icon: 'mdi-magnify-scan' },
-    waiting_subscription: { color: 'warning', icon: 'mdi-timer-sync-outline' },
-    waiting_site_budget: { color: 'info', icon: 'mdi-timer-sand' },
-    preparing: { color: 'primary', icon: 'mdi-package-variant-closed' },
-    submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
-    skipped: { color: 'secondary', icon: 'mdi-skip-next-circle-outline' },
-    failed: { color: 'error', icon: 'mdi-alert-outline' },
-    cancelling: { color: 'warning', icon: 'mdi-cancel' },
-    cancelled: { color: 'secondary', icon: 'mdi-cancel' },
-    completed: { color: 'success', icon: 'mdi-check-circle-outline' },
-  }
-  const displayState = TERMINAL_EXECUTION_VISIBLE_MS[execution.state]
-    ? execution.state
-    : execution.phase || execution.state
-  const display = displays[displayState] || displays[execution.state] || displays.running
+  const label = subscriptionExecutionLabel(execution, now.value.getTime())
+  if (!label) return null
+  const resumeAt = subscriptionExecutionResumeAt(execution, now.value.getTime())
   return {
-    ...display,
-    label: t(`subscribe.execution.state.${displayState}`),
+    ...EXECUTION_APPEARANCE[label],
+    label: t(`subscribe.execution.label.${label}`, {
+      time: resumeAt === null ? '' : formatSubscriptionResumeTime(resumeAt, locale.value),
+    }),
   }
 })
 
@@ -173,7 +183,7 @@ function openExecutionDetails(event: Event) {
 }
 
 // 判断后端数字/布尔开关是否启用
-function isEnabledFlag(value: any) {
+function isEnabledFlag(value: unknown) {
   return value === true || value === 1 || value === '1'
 }
 
@@ -617,7 +627,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 // 监听插件窗口状态变化
 watch(
   () => props.media?.page_open,
-  (newOpenState, _) => {
+  newOpenState => {
     if (newOpenState) editSubscribeDialog()
   },
   { immediate: true },
@@ -794,7 +804,7 @@ function handleCardClick() {
                           <template #prepend>
                             <VIcon :icon="item.props.prependIcon" />
                           </template>
-                          <VListItemTitle v-text="item.title" />
+                          <VListItemTitle>{{ item.title }}</VListItemTitle>
                         </VListItem>
                       </template>
                     </VList>
@@ -930,7 +940,7 @@ function handleCardClick() {
                                 <template #prepend>
                                   <VIcon :icon="item.props.prependIcon" />
                                 </template>
-                                <VListItemTitle v-text="item.title" />
+                                <VListItemTitle>{{ item.title }}</VListItemTitle>
                               </VListItem>
                             </template>
                           </VList>
