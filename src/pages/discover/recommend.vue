@@ -45,7 +45,7 @@ const { registerHeaderTab } = useDynamicHeaderTab()
 
 let settingsDialogController: ReturnType<typeof openSharedDialog> | null = null
 
-// 打开推荐内容共享设置弹窗。
+/** 打开推荐内容共享设置弹窗。 */
 function openRecommendSettings() {
   settingsDialogController?.close()
   settingsDialogController = openSharedDialog(
@@ -239,6 +239,7 @@ registerHeaderTab({
 })
 
 useDynamicButton({
+  title: computed(() => t('recommend.customizeContent')),
   icon: 'mdi-tune',
   onClick: openRecommendSettings,
   permission: 'discovery',

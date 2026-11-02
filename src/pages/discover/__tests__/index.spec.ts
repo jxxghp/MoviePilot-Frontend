@@ -446,7 +446,11 @@ describe('discover page', () => {
 
     expect(getHeaderConfig().appendButtons).toBeUndefined()
     expect(mocks.useDynamicButton).toHaveBeenCalledWith(
-      expect.objectContaining({ icon: 'mdi-tune', permission: 'discovery' }),
+      expect.objectContaining({
+        icon: 'mdi-tune',
+        permission: 'discovery',
+        title: expect.objectContaining({ value: '自定义探索标签' }),
+      }),
     )
     expect(getSettingsButton()).toHaveAccessibleName('自定义探索标签')
   })
