@@ -4279,6 +4279,8 @@ export default {
       },
     },
     searchBar: {
+      filmTV: '影视',
+      people: '人物',
       search: '搜索',
       searchPlaceholder: '搜索电影、剧集以及更多...',
       recentSearches: '最近搜索',

@@ -112,6 +112,86 @@ describe('SearchBarDialog media source selection', () => {
     })
   })
 
+  it('独立页面按类型提供不同来源，空关键词禁止提交但保留近期搜索', async () => {
+    localStorage.setItem('MP_RecentSearches', JSON.stringify(['星际穿越']))
+    const dialog = ref<InstanceType<typeof SearchBarDialog>>()
+    const host = defineComponent({
+      inheritAttrs: false,
+      setup: () => () => h(SearchBarDialog, { ref: dialog, modelValue: false }),
+    })
+    const { router } = await renderSearchBar({ searchPermission: true }, host)
+    const page = () => dialog.value!.nativeSearchPage()
+    const media = page().sections.find(section => section.id === 'media')!.items
+    const sources = (type: string) =>
+      media.find(item => item.id === `media-${type}`)!.children!.filter(item => !item.primary)
+    expect(sources('media').some(item => item.id.endsWith('douban'))).toBe(true)
+    expect(sources('music').every(item => !item.id.endsWith('douban'))).toBe(true)
+    expect(sources('collection').map(item => item.id)).toEqual(['source-collection-themoviedb'])
+    expect(sources('person').map(item => item.id)).toEqual([
+      'source-person-themoviedb',
+      'source-person-douban',
+      'source-person-musicbrainz',
+    ])
+    expect(media.every(item => item.children!.find(child => child.primary)!.enabled === false)).toBe(true)
+    const recent = page().sections.find(section => section.id === 'recent')!.items[0]
+    recent.invoke?.()
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(page().search!.text).toBe('星际穿越')
+    expect(page().sections.find(section => section.id === 'recent')!.items).toEqual([])
+  })
+
+  it('独立资源页面隔离音乐站点和普通站点，提交使用当前类型选择', async () => {
+    const dialog = ref<InstanceType<typeof SearchBarDialog>>()
+    const host = defineComponent({
+      inheritAttrs: false,
+      setup: () => () => h(SearchBarDialog, { ref: dialog, modelValue: false }),
+    })
+    const { router } = await renderSearchBar({ searchPermission: true }, host)
+    const page = () => dialog.value!.nativeSearchPage()
+    page().onQuery?.('关键词')
+    const category = (type: string) =>
+      page()
+        .sections.find(section => section.id === 'resources')!
+        .items.find(item => item.id === `resource-${type}`)!
+    await category('torrent').invoke?.()
+    expect(
+      category('torrent')
+        .children!.filter(item => item.id.startsWith('native-site-'))
+        .map(item => item.title),
+    ).toEqual(['音乐站', '综合站'])
+    await category('music').invoke?.()
+    expect(
+      category('music')
+        .children!.filter(item => item.id.startsWith('native-site-'))
+        .map(item => item.title),
+    ).toEqual(['音乐站'])
+    expect(category('subtitle').children!.find(item => item.primary)!.enabled).toBe(false)
+    await category('music')
+      .children!.find(item => item.primary)!
+      .invoke?.()
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/resource'))
+    expect(router.currentRoute.value.query).toMatchObject({ type: '音乐', sites: '11', result_type: 'torrent' })
+  })
+
+  it('站点加载失败禁用提交，显式重试成功后才恢复', async () => {
+    const dialog = ref<InstanceType<typeof SearchBarDialog>>()
+    const host = defineComponent({
+      inheritAttrs: false,
+      setup: () => () => h(SearchBarDialog, { ref: dialog, modelValue: false }),
+    })
+    await renderSearchBar({ searchPermission: true }, host)
+    const page = () => dialog.value!.nativeSearchPage()
+    page().onQuery?.('关键词')
+    const category = () => page().sections.find(section => section.id === 'resources')!.items[1]
+    mocks.apiGet.mockRejectedValueOnce(new Error('offline'))
+    await category().invoke?.()
+    expect(category().children!.find(item => item.primary)!.enabled).toBe(false)
+    await category()
+      .children!.find(item => item.id === 'native-sites-load-music')!
+      .invoke?.()
+    expect(category().children!.find(item => item.primary)!.enabled).toBe(true)
+  })
+
   it.each(['media', 'music', 'collection', 'person'] as const)(
     '原生 %s 子菜单有明确搜索按钮，来源多选不执行搜索',
     async type => {
@@ -165,7 +245,7 @@ describe('SearchBarDialog media source selection', () => {
     expect(screen.getByText('Alpha visible')).toBeInTheDocument()
     expect(Boolean(screen.queryByText('Alpha private'))).toBe(superUser)
     expect(screen.queryByText('Unrelated')).not.toBeInTheDocument()
-    expect(getSearchItem('电影、电视剧')).toBeInTheDocument()
+    expect(getSearchItem('影视')).toBeInTheDocument()
     expect(getSearchItem('搜索订阅分享')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: '选择站点' })).toHaveLength(3)
   })
@@ -212,9 +292,9 @@ describe('SearchBarDialog media source selection', () => {
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
     await user.type(input, '芙莉莲')
-    const mediaItem = getSearchItem('电影、电视剧')
+    const mediaItem = getSearchItem('影视')
 
-    const mediaGroup = within(mediaItem).getByRole('group', { name: '电影、电视剧搜索数据源' })
+    const mediaGroup = within(mediaItem).getByRole('group', { name: '影视搜索数据源' })
     expect(within(mediaGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' })).toHaveClass(
       'media-source-button--active',
     )
@@ -243,15 +323,15 @@ describe('SearchBarDialog media source selection', () => {
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
     await user.type(input, '芙莉莲')
-    const mediaItem = getSearchItem('电影、电视剧')
+    const mediaItem = getSearchItem('影视')
     const musicItem = getSearchItem('音乐')
     const collectionItem = getSearchItem('系列合集')
-    const personItem = getSearchItem('演员/艺术家')
+    const personItem = getSearchItem('人物')
 
-    const mediaGroup = within(mediaItem).getByRole('group', { name: '电影、电视剧搜索数据源' })
+    const mediaGroup = within(mediaItem).getByRole('group', { name: '影视搜索数据源' })
     const musicGroup = within(musicItem).getByRole('group', { name: '音乐搜索数据源' })
     const collectionGroup = within(collectionItem).getByRole('group', { name: '系列合集搜索数据源' })
-    const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
+    const personGroup = within(personItem).getByRole('group', { name: '人物搜索数据源' })
 
     expect(within(mediaGroup).getAllByRole('button')).toHaveLength(6)
     expect(within(musicGroup).getAllByRole('button')).toHaveLength(3)
@@ -332,8 +412,8 @@ describe('SearchBarDialog media source selection', () => {
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
     await user.type(input, '周星驰')
-    const personItem = getSearchItem('演员/艺术家')
-    const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
+    const personItem = getSearchItem('人物')
+    const personGroup = within(personItem).getByRole('group', { name: '人物搜索数据源' })
     await user.click(within(personGroup).getByRole('button', { name: '使用 豆瓣 搜索' }))
     await user.click(within(personGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' }))
     await user.click(personItem)
@@ -433,9 +513,9 @@ describe('SearchBarDialog media source selection', () => {
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
     await user.type(input, '刘德华')
-    const personItem = getSearchItem('演员/艺术家')
+    const personItem = getSearchItem('人物')
 
-    const personGroup = within(personItem).getByRole('group', { name: '演员/艺术家搜索数据源' })
+    const personGroup = within(personItem).getByRole('group', { name: '人物搜索数据源' })
     // 追加选择 MusicBrainz 并取消默认的 TheMovieDb，仅保留 MusicBrainz 来源。
     await user.click(within(personGroup).getByRole('button', { name: '使用 MusicBrainz 搜索' }))
     await user.click(within(personGroup).getByRole('button', { name: '使用 TheMovieDb 搜索' }))

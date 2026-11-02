@@ -109,7 +109,7 @@ export class NativeRouteHistory {
     if (!this.router.currentRoute.value.meta.requiresAuth) return null
     const explicit = roots.find(root => path === root.path || path.startsWith(`${root.path}/`))
     if (explicit) return explicit.id
-    if (/^\/(media|person|browse|credits)(\/|$)/.test(path) && roots.some(root => root.id === this.currentRoot))
+    if (/^\/(search|media|person|browse|credits)(\/|$)/.test(path) && roots.some(root => root.id === this.currentRoot))
       return this.currentRoot
     return roots.find(root => root.path === '/apps')?.id ?? roots[0]?.id ?? null
   }

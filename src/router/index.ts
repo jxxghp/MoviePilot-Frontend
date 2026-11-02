@@ -42,6 +42,13 @@ const router = createRouter({
       component: () => import('../layouts/default.vue'),
       children: [
         {
+          path: '/search',
+          component: () => import('../pages/native-search.vue'),
+          meta: { requiresAuth: true },
+          // 独立搜索仅由协商了该能力的原生宿主呈现，网页保留原搜索弹窗。
+          beforeEnter: () => window.MoviePilotNative?.searchPageVersion === 1 || '/apps',
+        },
+        {
           path: '/dashboard',
           component: () => import('../pages/dashboard.vue'),
           meta: {

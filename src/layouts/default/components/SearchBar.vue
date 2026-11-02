@@ -6,12 +6,17 @@ import { useNativeGlobalAction } from '@/native/registry'
 import { nativeChromeActive } from '@/native/layout'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const searchOpen = ref(false)
 const searchBar = ref<InstanceType<typeof SearchBarDialog> | null>(null)
 
 /** 打开全局搜索，并在桌面端聚焦常驻搜索输入框。 */
 function openSearch() {
+  if (nativeChromeActive.value && window.MoviePilotNative?.searchPageVersion === 1) {
+    void router.push('/search')
+    return false
+  }
   searchOpen.value = true
   nextTick(() => searchBar.value?.focusSearchInput())
   return false
@@ -26,8 +31,12 @@ useNativeGlobalAction({
   id: 'search',
   title: () => t('common.search'),
   icon: 'search',
+  dataAttr: window.MoviePilotNative?.searchPageVersion === 1 ? 'native-search-page' : undefined,
   invoke: openSearch,
-  panel: () => searchBar.value?.nativePanel(),
+  panel: () =>
+    window.MoviePilotNative?.searchPageVersion === 1 && router.currentRoute.value.path === '/search'
+      ? searchBar.value?.nativeSearchPage()
+      : searchBar.value?.nativePanel(),
 })
 
 onMounted(() => {

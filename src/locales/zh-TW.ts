@@ -4280,6 +4280,8 @@ export default {
       },
     },
     searchBar: {
+      filmTV: '影視',
+      people: '人物',
       search: '搜索',
       searchPlaceholder: '搜索電影、劇集以及更多...',
       recentSearches: '最近搜索',

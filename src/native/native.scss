@@ -305,3 +305,16 @@ html[data-native-chrome='active'][data-native-sheet] {
     }
   }
 }
+
+// 搜索和更多正文由 UIKit 承载；全局 Teleport 提示须从实时壁纸采样层排除。
+// 业务 Sheet 仍需显示同一文档的表单与反馈，归还后恢复纯壁纸背景。
+html[data-native-chrome='active']:is([data-native-content='search'], [data-native-content='menu']):not(
+    [data-native-sheet]
+  ) {
+  .github-token-prompt,
+  .Vue-Toastification__container,
+  .agent-assistant-fab {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}

@@ -112,6 +112,7 @@ function ownerFor(object: object, explicit?: string | null) {
 
 /** 菜单页使用原目录标题；详情沿用业务路由携带的标题，不改变主入口名称。 */
 function pageTitle() {
+  if (route.path === '/search') return t('common.search')
   const menu = [...menus.value]
     .sort((a, b) => String(b.to).length - String(a.to).length)
     .find(item => typeof item.to === 'string' && (route.path === item.to || route.path.startsWith(`${item.to}/`)))
@@ -233,7 +234,7 @@ const model = computed(() => {
       const source = action.panel?.()
       const projection = source
         ? projectNativePanel(
-            activePanel.value === actionId
+            activePanel.value === actionId || (route.path === '/search' && action.id === 'search')
               ? source
               : {
                   ...source,
@@ -282,7 +283,11 @@ const model = computed(() => {
         ownerId,
         title: actionTitle(button),
         icon: button.icon,
-        position: 'accessory',
+        position:
+          window.MoviePilotNative?.searchPageVersion === 1 &&
+          ['/dashboard', '/recommend', '/discover'].includes(route.path)
+            ? 'trailing'
+            : 'accessory',
         scope: 'page',
         enabled: true,
         loading: false,
@@ -339,7 +344,12 @@ const model = computed(() => {
       ...(/^#[0-9a-f]{6}$/i.test(theme.global.current.value.colors.primary)
         ? { accentColor: theme.global.current.value.colors.primary }
         : {}),
-      content: route.path === '/apps' && authenticated.value ? 'menu' : 'web',
+      content:
+        route.path === '/search' && window.MoviePilotNative?.searchPageVersion === 1
+          ? 'search'
+          : route.path === '/apps' && authenticated.value
+            ? 'menu'
+            : 'web',
     },
   }
   if (overlayOpen.value) for (const action of actions) action.enabled = false
@@ -432,7 +442,11 @@ async function execute(message: NativeEnvelope) {
     if (payload.panelEvent === 'open') {
       activePanel.value = action.actionId
       nativeRequestedPanel.value = undefined
-    } else if (activePanel.value !== action.actionId) return false
+    } else if (
+      activePanel.value !== action.actionId &&
+      !(current.snapshot.chrome.content === 'search' && action.actionId.endsWith(':global:search'))
+    )
+      return false
     const accepted = dispatchNativePanel(model.value.panels.get(action.actionId)!, payload)
     if (accepted && payload.panelEvent === 'select' && !panel.callbacks.get(String(payload.itemId))?.keepOpen)
       activePanel.value = undefined

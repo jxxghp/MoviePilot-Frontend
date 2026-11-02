@@ -42,6 +42,20 @@ afterEach(() => {
 })
 
 describe('网页业务路由是导航事实来源', () => {
+  it('独立搜索保留来源入口，返回结果再返回搜索和原页面', async () => {
+    const { router, history } = await harness()
+    await router.push('/search')
+    expect(history.navigation).toEqual({ rootId: '/dashboard', canGoBack: true, backTarget: '/dashboard' })
+    await router.push('/browse/media/search?title=星际穿越')
+    expect(history.navigation.backTarget).toBe('/search')
+    history.back(document, window)
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/search')
+    history.back(document, window)
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+  })
+
   it('push/replace/pop 与 Tab 恢复均不要求重建文档', async () => {
     const { router, history } = await harness()
     await router.push('/media/1')

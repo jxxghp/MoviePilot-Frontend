@@ -218,7 +218,7 @@ const mediaSearchActions = computed(() => {
     {
       type: 'media',
       icon: 'mdi-movie-search',
-      title: `${t('recommend.categoryMovie')}、${t('recommend.categoryTV')}`,
+      title: t('dialog.searchBar.filmTV'),
       description: t('resource.title'),
     },
     {
@@ -236,7 +236,7 @@ const mediaSearchActions = computed(() => {
     {
       type: 'person',
       icon: 'mdi-account-search',
-      title: t('browse.actor'),
+      title: t('dialog.searchBar.people'),
       description: t('dialog.searchBar.actorSearch'),
     },
   ] satisfies MediaSearchAction[]
@@ -761,7 +761,172 @@ function nativePanel(): NativePanelSource {
   }
 }
 
-defineExpose({ focusSearchInput, nativePanel })
+type NativeResourceType = 'torrent' | 'music' | 'subtitle'
+
+/** 每类资源独立保存站点和选择，切换到音乐时不能沿用普通站点。 */
+interface NativeResourceSelection {
+  sites: Site[]
+  selected: number[]
+  loading: boolean
+  ready: boolean
+  failed: boolean
+}
+const nativeResourceType = ref<NativeResourceType>('torrent')
+const nativeResourceSelections = reactive<Record<NativeResourceType, NativeResourceSelection>>({
+  torrent: { sites: [], selected: [], loading: false, ready: false, failed: false },
+  music: { sites: [], selected: [], loading: false, ready: false, failed: false },
+  subtitle: { sites: [], selected: [], loading: false, ready: false, failed: false },
+})
+
+/** 站点请求按类型隔离；失败保留显式重试，不能把失败当作无站点并搜索全部。 */
+async function loadNativeResourceSites(type: NativeResourceType) {
+  nativeResourceType.value = type
+  const state = nativeResourceSelections[type]
+  if (state.loading || state.ready) return
+  state.loading = true
+  state.failed = false
+  try {
+    const [sites, preferences] = await Promise.all([
+      api.get<Site[]>(type === 'music' ? 'site/media/music' : 'site/'),
+      api.get<{ value?: number[] }>('system/setting/public/IndexerSites'),
+    ])
+    state.sites = sites.filter(site => site.is_active)
+    const available = new Set(state.sites.map(site => site.id))
+    state.selected = (preferences.value ?? []).filter(id => available.has(id))
+    if (!state.selected.length) state.selected = [...available]
+    state.ready = true
+  } catch (error) {
+    state.failed = true
+    console.error(error)
+  } finally {
+    state.loading = false
+  }
+}
+
+/** 将现有搜索状态投影为独立页面；宿主仅切换展示分组，不维护第二套业务接口。 */
+function nativeSearchPage(): NativePanelSource {
+  const keyword = searchWord.value?.trim() || ''
+  const existing = nativePanel()
+  const media: NativePanelEntry[] = hasDiscoveryPermission.value
+    ? mediaSearchActions.value.map(action => ({
+        id: `media-${action.type}`,
+        title: action.title,
+        icon: action.icon,
+        subtitle: action.description,
+        children: [
+          {
+            id: `run-${action.type}`,
+            title: `${t('common.search')} ${action.title}`,
+            icon: 'search',
+            primary: true,
+            enabled: Boolean(keyword),
+            invoke: () => searchMedia(action.type),
+          },
+          ...mediaSearchSourceOptions.value[action.type].map(source => ({
+            id: `source-${action.type}-${source.value}`,
+            title: source.label,
+            selected: selectedMediaSearchSources[action.type].includes(source.value),
+            keepOpen: true,
+            invoke: () => {
+              const selected = selectedMediaSearchSources[action.type]
+              if (!selected.includes(source.value)) selected.push(source.value)
+              else if (selected.length > 1)
+                selectedMediaSearchSources[action.type] = selected.filter(value => value !== source.value)
+            },
+          })),
+        ],
+      }))
+    : []
+  const resources: NativePanelEntry[] = hasSearchPermission.value
+    ? (
+        [
+          ['torrent', t('dialog.searchBar.relatedResources')],
+          ['music', t('dialog.searchBar.relatedMusicResources')],
+          ['subtitle', t('dialog.searchBar.relatedSubtitles')],
+        ] as const
+      ).map(([type, title]) => {
+        const state = nativeResourceSelections[type]
+        return {
+          id: `resource-${type}`,
+          title,
+          icon: type === 'music' ? 'mdi-music-note-outline' : type === 'subtitle' ? 'mdi-subtitles-outline' : 'search',
+          keepOpen: true,
+          invoke: () => loadNativeResourceSites(type),
+          children: [
+            {
+              id: `run-resource-${type}`,
+              title: `${t('common.search')} ${title}`,
+              icon: 'search',
+              primary: true,
+              enabled: Boolean(keyword) && state.ready && state.selected.length > 0,
+              invoke: () => {
+                selectedSites.value = [...state.selected]
+                if (type === 'music') searchMusicTorrent()
+                else if (type === 'subtitle') searchSubtitle()
+                else searchTorrent()
+              },
+            },
+            ...(type === nativeResourceType.value ? state.sites.slice(0, 32) : []).map(site => ({
+              id: `native-site-${type}-${site.id}`,
+              title: site.name,
+              selected: state.selected.includes(site.id),
+              keepOpen: true,
+              invoke: () => {
+                state.selected = state.selected.includes(site.id)
+                  ? state.selected.filter(id => id !== site.id)
+                  : [...state.selected, site.id]
+              },
+            })),
+            ...(state.ready && !state.sites.length
+              ? [
+                  {
+                    id: `native-sites-empty-${type}`,
+                    title: t('common.noData'),
+                    enabled: false,
+                  },
+                ]
+              : []),
+            ...(state.sites.length > 32
+              ? [
+                  {
+                    id: `native-sites-all-${type}`,
+                    title: t('dialog.searchBar.selectSites'),
+                    invoke: () => openSiteDialog(type),
+                  },
+                ]
+              : []),
+            ...(!state.ready
+              ? [
+                  {
+                    id: `native-sites-load-${type}`,
+                    title: state.loading ? t('common.loading') : t('common.retry'),
+                    subtitle: state.failed ? t('common.retry') : undefined,
+                    enabled: !state.loading,
+                    keepOpen: true,
+                    invoke: () => loadNativeResourceSites(type),
+                  },
+                ]
+              : []),
+          ],
+        }
+      })
+    : []
+  return {
+    ...existing,
+    sections: [
+      { id: 'media', title: t('common.media'), items: media },
+      { id: 'resources', title: t('resource.title'), items: resources },
+      {
+        id: 'local',
+        title: t('dialog.searchBar.functions'),
+        items: existing.sections[0].items.filter(item => ['shares', 'history'].includes(item.id)),
+      },
+      ...existing.sections.slice(1),
+    ],
+  }
+}
+
+defineExpose({ focusSearchInput, nativePanel, nativeSearchPage })
 
 onMounted(() => {
   // 搜索来源默认跟随全局媒体搜索数据源配置，保证基础设置生效

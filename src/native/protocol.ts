@@ -105,7 +105,7 @@ export interface NativeSnapshot {
     topVisible: boolean
     bottomVisible: boolean
     theme: 'system' | 'light' | 'dark'
-    content?: 'web' | 'menu'
+    content?: 'web' | 'menu' | 'search'
     accentColor?: string
     backgroundColor?: string
     surfaceColor?: string
@@ -182,6 +182,8 @@ export interface NativeEnvelope {
 /** 由主文档开始时注入的最小 WebKit 传输门面。 */
 export interface NativeTransport {
   transportVersion: 1
+  /** 独立搜索页复用当前 Vue 搜索状态；仅明确支持的容器进入该路由。 */
+  searchPageVersion?: 1
   /** 可选原生快捷面板能力；旧容器仍使用原有 HTML 回调。 */
   panelsVersion?: 1
   /** 连续列表的分片保留和触底加载；旧容器仍使用已有分页。 */
