@@ -102,17 +102,6 @@
       "count": 2
     }
   },
-  "src/components/cards/SubscribeCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "vue/no-v-text-v-html-on-component": {
-      "count": 2
-    }
-  },
   "src/components/dialog/AboutDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
@@ -665,11 +654,6 @@
   },
   "src/views/setting/AccountSettingSystem.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/subscribe/SubscribeListView.vue": {
-    "prefer-const": {
       "count": 1
     }
   },

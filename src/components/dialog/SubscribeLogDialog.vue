@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import type { Subscribe } from '@/api/types'
 import { formatSeasonLabel } from '@/@core/utils/season'
+import {
+  formatSubscriptionResumeTime,
+  subscriptionExecutionLabel,
+  subscriptionExecutionResumeAt,
+} from '@/utils/subscriptionExecution'
+import { useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -18,7 +24,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   close: []
 }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const display = useDisplay()
 const visible = computed({
   get: () => props.modelValue !== false,
@@ -37,11 +43,18 @@ const title = computed(() =>
     .filter(Boolean)
     .join(' · '),
 )
+// 站点长等待的继续时间会过期，定期刷新让状态回到「搜索中」。
+const currentTime = useNow({ interval: 15_000 })
 const state = computed(() => {
   const execution = props.subscription.execution_status
   if (!execution) return ''
-  const terminal = ['completed', 'failed', 'cancelled', 'skipped'].includes(execution.state)
-  return t(`subscribe.execution.state.${terminal ? execution.state : execution.phase || execution.state}`)
+  const now = currentTime.value.getTime()
+  const label = subscriptionExecutionLabel(execution, now)
+  if (!label) return ''
+  const resumeAt = subscriptionExecutionResumeAt(execution, now)
+  return t(`subscribe.execution.label.${label}`, {
+    time: resumeAt === null ? '' : formatSubscriptionResumeTime(resumeAt, locale.value),
+  })
 })
 
 /** 下载接口使用现有资源 Cookie，凭据不进入 URL。 */
