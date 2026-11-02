@@ -42,23 +42,22 @@ afterEach(() => {
 })
 
 describe('网页业务路由是导航事实来源', () => {
-  it('独立搜索保留来源入口，返回结果再返回搜索和原页面', async () => {
+  it('独立搜索不携带来源历史，结果只能返回搜索首页', async () => {
     const { router, history } = await harness()
-    await router.push('/search')
-    expect(history.navigation).toEqual({ rootId: '/dashboard', canGoBack: true, backTarget: '/dashboard' })
+    await router.replace('/search')
+    expect(history.navigation).toEqual({ rootId: null, canGoBack: false })
     await router.push('/browse/media/search?title=星际穿越')
     expect(history.navigation.backTarget).toBe('/search')
     history.back(document, window)
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/search')
-    history.back(document, window)
-    await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(history.back(document, window)).toBe(false)
+    expect(router.currentRoute.value.path).toBe('/search')
   })
 
   it('搜索页重选来源栏目直接恢复原页面，重复点击不会复活搜索', async () => {
     const { router, history } = await harness()
-    await router.push('/search')
+    await router.replace('/search')
     history.selectRoot('/dashboard')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/dashboard')
@@ -73,7 +72,7 @@ describe('网页业务路由是导航事实来源', () => {
   it('离开搜索结果切换栏目恢复搜索前的业务位置和返回链', async () => {
     const { router, history } = await harness()
     await router.push('/browse/recommend/list?title=榜单')
-    await router.push('/search')
+    await router.replace('/search')
     await router.push('/browse/media/search?title=星际穿越')
     history.selectRoot('/apps')
     await flushPromises()
@@ -86,28 +85,53 @@ describe('网页业务路由是导航事实来源', () => {
 
   it('从搜索跳转菜单页面后可以恢复来源栏目，更多仍回到目录', async () => {
     const { router, history } = await harness()
-    await router.push('/search')
+    await router.replace('/search')
     await router.push('/plugins')
     history.selectRoot('/dashboard')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/dashboard')
     history.selectRoot('/apps')
     await flushPromises()
-    await router.push('/search')
+    await router.replace('/search')
     history.selectRoot('/apps')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/apps')
     expect(history.navigation.canGoBack).toBe(false)
   })
 
-  it('栏目守卫取消时仍保留独立搜索及其返回来源', async () => {
+  it('栏目守卫取消时仍保留独立搜索首页', async () => {
     const { router, history } = await harness()
-    await router.push('/search')
+    await router.replace('/search')
     router.beforeEach(to => to.path !== '/dashboard')
     history.selectRoot('/dashboard')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/search')
-    expect(history.navigation.backTarget).toBe('/dashboard')
+    expect(history.navigation).toEqual({ rootId: null, canGoBack: false })
+  })
+
+  it.each(['/resource?keyword=测试', '/music?query=测试', '/browse/media/search?title=测试'])(
+    '搜索入口独立承载结果 %s，重新进入搜索不继承结果历史',
+    async result => {
+      const { router, history } = await harness()
+      await router.push('/media/123')
+      await router.replace('/search')
+      expect(history.navigation).toEqual({ rootId: null, canGoBack: false })
+      await router.push(result)
+      expect(history.navigation).toEqual({ rootId: null, canGoBack: true, backTarget: '/search' })
+      await router.replace('/search')
+      expect(history.navigation).toEqual({ rootId: null, canGoBack: false })
+      history.selectRoot('/dashboard')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe('/media/123')
+      expect(history.navigation.backTarget).toBe('/dashboard')
+    },
+  )
+
+  it('从搜索进入业务榜单菜单时结束搜索返回链', async () => {
+    const { router, history } = await harness()
+    await router.replace('/search')
+    await router.push('/browse/recommend/list')
+    expect(history.navigation).toEqual({ rootId: '/dashboard', canGoBack: true, backTarget: '/dashboard' })
   })
 
   it('push/replace/pop 与 Tab 恢复均不要求重建文档', async () => {

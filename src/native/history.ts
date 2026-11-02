@@ -9,8 +9,9 @@ export class NativeRouteHistory {
   readonly revision = shallowRef(0)
   private readonly trails = new Map<string, string[]>()
   private currentRoot: string | null = null
+  private searchTrail?: string[]
   private lastPosition?: number
-  private intent?: { target: string; kind: 'root' | 'back'; rootId: string }
+  private intent?: { target: string; kind: 'root' | 'back'; rootId: string | null }
   private readonly removeHook: () => void
 
   /** 使用当前 Vue Router 的公开 history.state.position 识别 push/replace/pop，并以实际成功路由为准。
@@ -30,6 +31,7 @@ export class NativeRouteHistory {
   reset() {
     this.trails.clear()
     this.currentRoot = null
+    this.searchTrail = undefined
     this.lastPosition = undefined
     this.intent = undefined
     this.record()
@@ -38,9 +40,13 @@ export class NativeRouteHistory {
   /** 读取已确认的根入口与返回目标；直接深链接也能回到所属入口。
    */
   get navigation() {
-    const trail = this.currentRoot ? this.trails.get(this.currentRoot) : undefined
+    const trail = this.searchTrail ?? (this.currentRoot ? this.trails.get(this.currentRoot) : undefined)
     const backTarget = trail && trail.length > 1 ? trail[trail.length - 2] : undefined
-    return { rootId: this.currentRoot, canGoBack: Boolean(backTarget), ...(backTarget ? { backTarget } : {}) }
+    return {
+      rootId: this.searchTrail ? null : this.currentRoot,
+      canGoBack: Boolean(backTarget),
+      ...(backTarget ? { backTarget } : {}),
+    }
   }
 
   /** Tab 使用 replace 恢复该入口最后位置，取消守卫不会提前改变栈或选中项。
@@ -49,11 +55,7 @@ export class NativeRouteHistory {
     const root = this.roots().find(item => item.id === id)
     if (!root || this.intent) return false
     // “更多”是目录入口，每次点击都回到目录，其他 Tab 保留最近业务位置。
-    const trail = this.trails.get(id) ?? []
-    // 独立搜索及其后续结果只参与搜索返回链，不能覆盖栏目原有的恢复位置。
-    const searchIndex = trail.findIndex(path => this.router.resolve(path).path === '/search')
-    const restored = searchIndex >= 0 ? trail.slice(0, searchIndex) : trail
-    const target = root.path === '/apps' ? root.path : (restored.at(-1) ?? root.path)
+    const target = root.path === '/apps' ? root.path : (this.trails.get(id)?.at(-1) ?? root.path)
     this.navigate(target, 'root', id)
     return true
   }
@@ -71,7 +73,7 @@ export class NativeRouteHistory {
       return true
     }
     const target = this.navigation.backTarget
-    if (!target || !this.currentRoot || this.intent) return false
+    if (!target || (!this.currentRoot && !this.searchTrail) || this.intent) return false
     this.navigate(target, 'back', this.currentRoot)
     return true
   }
@@ -81,11 +83,12 @@ export class NativeRouteHistory {
   stop() {
     this.removeHook()
     this.trails.clear()
+    this.searchTrail = undefined
   }
 
   /** 只为一次当前意图保留关联；确认后才处理路径栈，失败不重放。
    */
-  private navigate(target: string, kind: 'root' | 'back', rootId: string) {
+  private navigate(target: string, kind: 'root' | 'back', rootId: string | null) {
     if (!isNativeRoute(target)) return
     const normalized = this.canonicalPath(target)
     const intent = { target: normalized, kind, rootId }
@@ -113,7 +116,7 @@ export class NativeRouteHistory {
     if (!this.router.currentRoute.value.meta.requiresAuth) return null
     const explicit = roots.find(root => path === root.path || path.startsWith(`${root.path}/`))
     if (explicit) return explicit.id
-    if (/^\/(search|media|person|browse|credits)(\/|$)/.test(path) && roots.some(root => root.id === this.currentRoot))
+    if (/^\/(media|person|browse|credits)(\/|$)/.test(path) && roots.some(root => root.id === this.currentRoot))
       return this.currentRoot
     return roots.find(root => root.path === '/apps')?.id ?? roots[0]?.id ?? null
   }
@@ -126,6 +129,23 @@ export class NativeRouteHistory {
     const position = this.router.options.history.state.position
     const numericPosition = typeof position === 'number' ? position : undefined
     const intent = this.intent?.target === path ? this.intent : undefined
+    // 搜索首页是独立入口，只保存搜索结果自己的返回链，不写入任何业务栏目。
+    const searchResult =
+      /^\/(media|person|credits|resource|music)(\/|$)|^\/browse\/(media|collection|person)(\/|$)/.test(route.path)
+    if (route.path === '/search' || (this.searchTrail && searchResult && intent?.kind !== 'root')) {
+      let trail = this.searchTrail ?? ['/search']
+      const index = trail.lastIndexOf(path)
+      if (route.path === '/search') trail = [path]
+      else if (index >= 0 && (intent?.kind === 'back' || (numericPosition ?? 0) < (this.lastPosition ?? 0)))
+        trail = trail.slice(0, index + 1)
+      else if (numericPosition === this.lastPosition && trail.length > 1) trail = [...trail.slice(0, -1), path]
+      else if (trail.at(-1) !== path) trail = [...trail, path]
+      this.searchTrail = trail.slice(-128)
+      this.lastPosition = numericPosition
+      this.revision.value += 1
+      return
+    }
+    this.searchTrail = undefined
     const rootId = intent?.rootId ?? this.rootFor(route.path)
     if (rootId) {
       const root = this.roots().find(item => item.id === rootId)
