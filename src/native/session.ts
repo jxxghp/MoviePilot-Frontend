@@ -39,6 +39,8 @@ export class NativeChromeSession {
   private stateRevision = 0
   private routeRevision = 0
   private sequence = 0
+  /** 首次接管沿用前台协商状态；等待期间到达的宿主场景信号必须保留。 */
+  private hostLifecycle: 'active' | 'inactive' | 'background' = 'active'
   private timer?: ReturnType<typeof setTimeout>
   private runningCommands = 0
   private readonly results = new Map<string, Promise<{ accepted: boolean; error?: string }>>()
@@ -427,6 +429,8 @@ export class NativeChromeSession {
         return
       }
       this.phase = 'active'
+      // 首次进入也要初始化生命周期，不能等待一次前后台切换才唤醒无焦点的 WebView。
+      this.options.lifecycle(this.hostLifecycle)
       this.updateMenus()
       this.updateCache()
       clearTimeout(this.timer)
@@ -440,6 +444,7 @@ export class NativeChromeSession {
     if (message.type === 'host.lifecycle') {
       const state = message.payload.state
       if (state === 'active' || state === 'inactive' || state === 'background') {
+        this.hostLifecycle = state
         this.widgetForeground = state === 'active'
         this.cacheForeground = state === 'active'
         this.menusForeground = state === 'active'

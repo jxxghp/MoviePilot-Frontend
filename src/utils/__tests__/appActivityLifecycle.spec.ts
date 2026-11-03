@@ -112,4 +112,45 @@ describe('AppActivityLifecycle', () => {
     window.dispatchEvent(new Event('blur'))
     expect(lifecycle.getState()).toBe('passive')
   })
+
+  it('原生前台不依赖 WebView 焦点，原生控件失焦后仍可空闲并由触摸唤醒', () => {
+    focused = false
+    window.dispatchEvent(new Event('blur'))
+    lifecycle.setHostLifecycle('active')
+    expect(lifecycle.getState()).toBe('active')
+
+    window.dispatchEvent(new Event('blur'))
+    vi.advanceTimersByTime(APP_ACTIVITY_SUSPEND_DELAY_MS)
+    expect(lifecycle.getState()).toBe('active')
+
+    vi.advanceTimersByTime(APP_ACTIVITY_IDLE_DELAY_MS - APP_ACTIVITY_SUSPEND_DELAY_MS)
+    expect(lifecycle.getState()).toBe('idle')
+    document.dispatchEvent(new Event('touchstart'))
+    expect(lifecycle.getState()).toBe('active')
+
+    lifecycle.setHostLifecycle('background')
+    document.dispatchEvent(new Event('touchstart'))
+    expect(lifecycle.getState()).toBe('suspended')
+    lifecycle.setHostLifecycle('active')
+    expect(lifecycle.getState()).toBe('active')
+  })
+
+  it('原生前台仍在文档隐藏时暂停，重新可见后无需焦点恢复', () => {
+    focused = false
+    lifecycle.setHostLifecycle('active')
+    visibility = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(lifecycle.getState()).toBe('suspended')
+    document.dispatchEvent(new Event('pointerdown'))
+    expect(lifecycle.getState()).toBe('suspended')
+
+    visibility = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(lifecycle.getState()).toBe('active')
+
+    lifecycle.setHostLifecycle(undefined)
+    expect(lifecycle.getState()).toBe('passive')
+    vi.advanceTimersByTime(APP_ACTIVITY_SUSPEND_DELAY_MS)
+    expect(lifecycle.getState()).toBe('suspended')
+  })
 })

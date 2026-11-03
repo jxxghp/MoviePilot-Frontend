@@ -326,42 +326,6 @@
 }
 
 @media (width <= 600px) {
-  .agent-assistant-fab {
-    block-size: 6.65rem;
-    inline-size: min(12.4rem, calc(100vw - 1rem));
-  }
-
-  .agent-assistant-fab.is-docked {
-    inline-size: 3.45rem;
-  }
-
-  .agent-assistant-fab__bubbles {
-    inline-size: min(16.5rem, calc(100vw - 5.6rem));
-    max-block-size: min(30rem, calc(100vh - 9.2rem));
-  }
-
-  .agent-assistant-fab__bubble-stack {
-    gap: 0.38rem;
-  }
-
-  .agent-assistant-fab__bubble {
-    padding-block: 0.56rem;
-    padding-inline: 0.72rem 1.62rem;
-  }
-
-  .agent-assistant-fab__bubble-title {
-    font-size: 1.05rem;
-  }
-
-  .agent-assistant-fab__bubble > span {
-    font-size: 1rem;
-  }
-
-  .agent-assistant-fab__trigger {
-    block-size: 4.8rem;
-    inline-size: 5rem;
-  }
-
   .agent-assistant-fab__bot {
     inset-inline-end: 1.02rem;
     transform-origin: 70% 78%;

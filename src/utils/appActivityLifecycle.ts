@@ -24,17 +24,19 @@ export class AppActivityLifecycle {
   private started = false
   private hostLifecycle?: 'active' | 'inactive' | 'background'
 
+  /** 原生前台交互以场景状态为准，WebView 无焦点时触摸仍能唤醒装饰动效。 */
   private readonly handleActivity = () => {
-    if (this.hostLifecycle && this.hostLifecycle !== 'active') return
-    if (document.visibilityState !== 'visible' || !document.hasFocus()) return
+    if (!this.isForeground()) return
 
+    this.clearSuspendTimer()
     this.lastActivityAt = Date.now()
     this.setState('active')
     this.scheduleIdle()
   }
 
+  /** 原生控件取得焦点不代表 App 失活；接管期间只接受宿主的场景切换。 */
   private readonly handleBlur = () => {
-    if (this.hostLifecycle === 'background') return
+    if (this.hostLifecycle) return
     if (document.visibilityState === 'hidden') return
 
     this.clearIdleTimer()
@@ -42,6 +44,7 @@ export class AppActivityLifecycle {
     this.scheduleSuspend()
   }
 
+  /** 恢复有效前台窗口，并重新安排空闲检查。 */
   private readonly handleFocus = () => {
     if (this.hostLifecycle && this.hostLifecycle !== 'active') return
     if (document.visibilityState !== 'visible') return
@@ -52,6 +55,7 @@ export class AppActivityLifecycle {
     this.scheduleIdle()
   }
 
+  /** 文档隐藏始终暂停；可见原生页面不依赖浏览器焦点恢复。 */
   private readonly handleVisibilityChange = () => {
     if (this.hostLifecycle === 'background') {
       this.clearTimers()
@@ -69,7 +73,7 @@ export class AppActivityLifecycle {
       return
     }
 
-    if (document.hasFocus()) {
+    if (this.isForeground()) {
       this.handleFocus()
     } else {
       this.handleBlur()
@@ -158,6 +162,14 @@ export class AppActivityLifecycle {
     this.listeners.forEach(listener => listener(state))
   }
 
+  /** 系统场景接管后替代浏览器焦点判断，同时保留文档可见性约束。 */
+  private isForeground() {
+    return (
+      document.visibilityState === 'visible' &&
+      (this.hostLifecycle ? this.hostLifecycle === 'active' : document.hasFocus())
+    )
+  }
+
   /** 复用最近活动时间安排前台空闲检查。 */
   private scheduleIdle() {
     if (this.idleTimer !== null) return
@@ -167,7 +179,7 @@ export class AppActivityLifecycle {
 
     this.idleTimer = window.setTimeout(() => {
       this.idleTimer = null
-      if (document.visibilityState !== 'visible' || !document.hasFocus()) return
+      if (!this.isForeground()) return
 
       const remaining = APP_ACTIVITY_IDLE_DELAY_MS - (Date.now() - this.lastActivityAt)
       if (remaining > 0) {
@@ -184,7 +196,8 @@ export class AppActivityLifecycle {
     this.clearSuspendTimer()
     this.suspendTimer = window.setTimeout(() => {
       this.suspendTimer = null
-      if (document.visibilityState === 'visible' && !document.hasFocus()) this.setState('suspended')
+      if (!this.hostLifecycle && document.visibilityState === 'visible' && !document.hasFocus())
+        this.setState('suspended')
     }, APP_ACTIVITY_SUSPEND_DELAY_MS)
   }
 

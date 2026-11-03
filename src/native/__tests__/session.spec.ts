@@ -504,7 +504,26 @@ describe('原生导航接管事务', () => {
     expect(messages.map(message => message.type)).toEqual(['web.ready', 'navigation.state', 'chrome.accepted'])
     expect(options.applyLayout).toHaveBeenCalledBefore(options.setActive as ReturnType<typeof vi.fn>)
     expect(options.setActive).toHaveBeenCalledWith(true)
+    expect(options.lifecycle).toHaveBeenCalledExactlyOnceWith('active')
     expect(messages.at(-1)?.payload.layoutRevision).toBe(7)
+  })
+
+  it('接管等待期间进入后台时，提交不能把后台页面误唤醒', async () => {
+    let commit!: () => void
+    const { options } = harness({
+      setActive: active =>
+        active
+          ? new Promise<void>(resolve => {
+              commit = resolve
+            })
+          : undefined,
+    })
+    await activate()
+    await send('host.lifecycle', { state: 'background' })
+    commit()
+    await flushPromises()
+    expect(options.lifecycle).toHaveBeenLastCalledWith('background')
+    expect(options.lifecycle).not.toHaveBeenCalledWith('active')
   })
 
   it('过期会话和过期路由不能执行动作，重复请求只分派一次', async () => {
