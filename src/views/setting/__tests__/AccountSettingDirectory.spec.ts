@@ -37,12 +37,14 @@ vi.mock('@/components/cards/DirectoryCard.vue', async () => {
         directory: { type: Object, required: true },
         categories: { type: Array, default: () => [] },
       },
-      emits: ['close', 'update:modelValue'],
+      emits: ['close', 'update:modelValue', 'update:downloadMediaFolder'],
       template: `
       <section :aria-label="'directory-' + directory.name">
         <span>{{ directory.name }}</span>
         <span :data-testid="'category-path-' + directory.name">{{ directory.media_category }}</span>
         <span :data-testid="'category-count-' + directory.name">{{ categories.length }}</span>
+        <span :data-testid="'media-folder-' + directory.name">{{ directory.download_media_folder }}</span>
+        <button :aria-label="'media-folder-' + directory.name" @click="$emit('update:downloadMediaFolder', true)">media folder</button>
         <button :aria-label="'rename-' + directory.name" @click="directory.name = '目录1'">rename</button>
         <button :aria-label="'remove-' + directory.name" @click="$emit('close')">remove</button>
         <button
@@ -442,6 +444,27 @@ describe('AccountSettingDirectory', () => {
     await waitFor(() => expect(directoryReads()).toBe(2))
     expect(screen.getByTestId('category-path-目录1')).toHaveTextContent('电影/动画')
     expect(mocks.toastSuccess).toHaveBeenCalledWith('目录设置保存成功')
+  })
+
+  it('persists the media folder option emitted by a directory card and keeps it after reload', async () => {
+    const user = userEvent.setup()
+    const initial = { ...directoriesFixture[0], download_media_folder: false }
+    mockLoadedSettings({
+      directories: [initial],
+      reloadedDirectories: [{ ...initial, download_media_folder: true }],
+    })
+    await renderDirectorySettings()
+    await screen.findByText('目录1')
+
+    await user.click(screen.getByRole('button', { name: 'media-folder-目录1' }))
+    await user.click(getCard('目录').getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith('system/setting/Directories', [
+        expect.objectContaining({ name: '目录1', download_media_folder: true }),
+      ]),
+    )
+    await waitFor(() => expect(screen.getByTestId('media-folder-目录1')).toHaveTextContent('true'))
   })
 
   it('removes directories and storages and persists the remaining collections', async () => {

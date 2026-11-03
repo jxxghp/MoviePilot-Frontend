@@ -6237,6 +6237,9 @@ export default {
     resourceStorage: 'Resource Storage',
     resourceDirectory: 'Resource Directory',
     sortByType: 'Sort by Type',
+    sortByMediaFolder: 'Group by Media Folder',
+    mediaFolderHint:
+      'Off by default. Use the title folder from the movie or TV rename template after type and category folders. Applies to new downloads.',
     sortByCategory: 'Sort by Category',
     autoTransfer: 'Auto Transfer',
     monitorMode: 'Monitor Mode',

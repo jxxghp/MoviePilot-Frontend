@@ -68,12 +68,40 @@ async function renderExpandedDirectory(
       directory,
       categories: availableCategories,
       storages: availableStorages,
+      'onUpdate:downloadMediaFolder': (value: boolean) => {
+        directory.download_media_folder = value
+      },
     },
     global: { components: { VPathField: PathField } },
   })
   await userEvent.setup().click(screen.getByTestId('directory-card-toggle'))
   return directory
 }
+
+describe('DirectoryCard media folders', () => {
+  it('defaults off and lets the parent enable the media folder option', async () => {
+    const directory = await renderExpandedDirectory()
+    const toggle = screen.getByRole('checkbox', { name: '按媒体文件夹分类' })
+    expect(toggle).not.toBeChecked()
+
+    await userEvent.setup().click(toggle)
+
+    expect(directory.download_media_folder).toBe(true)
+    expect(screen.getByText(/使用影视重命名模板的标题目录/)).toBeInTheDocument()
+  })
+
+  it('clears and hides the option when switching to music', async () => {
+    const user = userEvent.setup()
+    const directory = await renderExpandedDirectory({ download_media_folder: true })
+    expect(screen.getByRole('checkbox', { name: '按媒体文件夹分类' })).toBeChecked()
+
+    await user.click(screen.getByLabelText('媒体类型'))
+    await user.click(await screen.findByRole('option', { name: '音乐' }))
+
+    await waitFor(() => expect(directory.download_media_folder).toBe(false))
+    expect(screen.queryByRole('checkbox', { name: '按媒体文件夹分类' })).not.toBeInTheDocument()
+  })
+})
 
 describe('DirectoryCard download storage', () => {
   it.each(['downloader', 'monitor', 'manual', ''])('lists every configured storage in %s mode', async monitorType => {

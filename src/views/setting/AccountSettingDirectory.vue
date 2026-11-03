@@ -73,8 +73,11 @@ const storageOptions = computed(() => {
     }))
 })
 
+/** 目录卡片保留的路径更新事件载荷。 */
+type DirectoryPaths = { download?: string; library?: string }
+
 // 系统设置
-const SystemSettings = ref<any>({
+const SystemSettings = ref<{ Basic: Record<string, string | null> }>({
   Basic: {
     SCRAP_SOURCE: 'themoviedb',
     MOVIE_RENAME_FORMAT: null,
@@ -285,7 +288,7 @@ function addStorage(storageType = 'custom') {
     // 自定义存储需要数字序号
     name = `${t(`storage.${storageType}`)} ${storages.value.length + 1}`
     while (storages.value.some(item => item.name === name)) {
-      const num = parseInt(name.match(/\d+$/)?.[0] || '1') + 1
+      const num = parseInt(name.split(/\D/).at(-1) || '1') + 1
       name = `${t(`storage.${storageType}`)} ${num}`
     }
     type = `custom${storages.value.length + 1}`
@@ -314,7 +317,7 @@ function removeStorage(storage: StorageConf) {
 }
 
 // 保存设置
-async function saveSystemSettings(value: any) {
+async function saveSystemSettings(value: Record<string, string | null>) {
   try {
     await Promise.all([
       api.post('system/env', value, { feedback: 'silent' }),
@@ -447,8 +450,9 @@ const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 :directory="element"
                 :categories="mediaCategories"
                 :storages="storages"
+                @update:download-media-folder="(value: boolean) => (element.download_media_folder = value)"
                 @update:modelValue="
-                  (value: any) => {
+                  (value: DirectoryPaths) => {
                     element.download_path = value?.download
                     element.library_path = value?.library
                   }

@@ -6072,6 +6072,8 @@ export default {
     resourceStorage: '资源存储',
     resourceDirectory: '资源目录',
     sortByType: '按类型分类',
+    sortByMediaFolder: '按媒体文件夹分类',
+    mediaFolderHint: '默认关闭。使用影视重命名模板的标题目录，放在类型和类别目录后；仅影响新下载。',
     sortByCategory: '按类别分类',
     autoTransfer: '自动整理',
     monitorMode: '监控模式',

@@ -2391,6 +2391,8 @@ export interface TransferDirectoryConf {
   download_type_folder?: boolean
   // 下载类别子目录
   download_category_folder?: boolean
+  // 下载媒体子目录，默认关闭；仅适用于电影和电视剧
+  download_media_folder?: boolean
   // 监控方式 downloader/monitor，None为不监控
   monitor_type?: string
   // 监控模式 fast/compatibility

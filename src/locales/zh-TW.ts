@@ -6074,6 +6074,8 @@ export default {
     resourceStorage: '資源存儲',
     resourceDirectory: '資源目錄',
     sortByType: '按類型排序',
+    sortByMediaFolder: '按媒體資料夾分類',
+    mediaFolderHint: '預設關閉。使用影視重新命名範本的標題目錄，放在類型與類別目錄後；僅影響新下載。',
     sortByCategory: '按分類排序',
     autoTransfer: '自動轉移',
     monitorMode: '監控模式',

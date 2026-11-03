@@ -85,7 +85,7 @@ function hexToRgbString(hexColor: string) {
 
 /** 根据自定义存储序号选取离散的强调色。 */
 function getCustomStoragePaletteColor(storageType?: string) {
-  const customStorageIndex = Math.max(Number(storageType?.match(/\d+$/)?.[0] ?? 1) - 1, 0)
+  const customStorageIndex = Math.max(Number(storageType?.split(/\D/).at(-1) ?? 1) - 1, 0)
   const customStorageColors = ['#F97316', '#8B5CF6', '#06B6D4', '#84CC16', '#EC4899', '#14B8A6']
 
   return customStorageColors[customStorageIndex % customStorageColors.length]
@@ -200,7 +200,14 @@ const overwriteModeItems = computed(() => [
 ])
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'changed', 'update:modelValue'])
+const emit = defineEmits(['close', 'changed', 'update:modelValue', 'update:downloadMediaFolder'])
+
+const supportsMediaFolder = computed(() => ['', '电影', '电视剧'].includes(props.directory.media_type ?? ''))
+
+/** 由父页面更新目录草稿，避免为新开关增加属性原地写入。 */
+function onDownloadMediaFolderChanged(value: boolean | null): void {
+  emit('update:downloadMediaFolder', value === true)
+}
 
 /** 通知父页面移除当前目录卡片。 */
 function onClose() {
@@ -346,6 +353,9 @@ watch(
     if (newMediaType && newMediaType !== oldMediaType) {
       props.directory.download_type_folder = false
       props.directory.library_type_folder = false
+      if (!supportsMediaFolder.value) {
+        onDownloadMediaFolderChanged(false)
+      }
     }
   },
 )
@@ -454,6 +464,16 @@ watch(
               :label="t('directory.sortByCategory')"
               mobile-control-width="65%"
             ></VSwitch>
+          </VCol>
+          <VCol cols="12" v-if="supportsMediaFolder">
+            <VSwitch
+              :model-value="props.directory.download_media_folder ?? false"
+              :label="t('directory.sortByMediaFolder')"
+              :hint="t('directory.mediaFolderHint')"
+              persistent-hint
+              mobile-control-width="65%"
+              @update:model-value="onDownloadMediaFolderChanged"
+            />
           </VCol>
         </VRow>
         <VDivider v-if="$props.directory.monitor_type" class="my-3 bg-primary" />
