@@ -6,7 +6,7 @@ export interface RangeSelectionOptions<T> {
   getKey: (item: T) => PropertyKey
   /** 判断列表项当前是否已选中 */
   isSelected: (item: T) => boolean
-  /** 批量设置列表项的选中状态 */
+  /** 同步批量设置列表项的选中状态 */
   setSelected: (items: readonly T[], checked: boolean) => void
 }
 
@@ -49,10 +49,19 @@ export function useRangeSelection<T>(options: RangeSelectionOptions<T>) {
     checkboxShiftKey = false
   }
 
-  /** 清除起点，用于退出选择模式或切换数据源。 */
-  function reset() {
-    anchorKey = null
+  /** input 冒泡时选择已同步更新；范围可能保留原状态，需校正浏览器提前切换的原生勾选值。 */
+  function onCheckboxInput(item: T, event: Event) {
+    const input = event.target
+    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+      input.checked = options.isSelected(item)
+    }
   }
 
-  return { select, onCheckboxClick, selectFromCheckbox, reset }
+  /** 清除起点和临时按键状态，用于退出选择模式或切换数据源。 */
+  function reset() {
+    anchorKey = null
+    checkboxShiftKey = false
+  }
+
+  return { select, onCheckboxClick, selectFromCheckbox, onCheckboxInput, reset }
 }

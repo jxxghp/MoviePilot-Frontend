@@ -5,6 +5,7 @@ import type { TransferHistory } from '@/api/types'
 import i18n from '@/plugins/i18n'
 import TransferHistoryView from '@/views/reorganize/TransferHistoryView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { computed, defineComponent, h, KeepAlive, nextTick, ref, unref, type PropType } from 'vue'
@@ -1165,26 +1166,59 @@ describe('TransferHistoryView', () => {
     expect(screen.queryByRole('button', { name: '转移队列' })).not.toBeInTheDocument()
   })
 
-  it('selects a Shift range in the order the desktop table displays', async () => {
-    const histories = [1, 2, 3, 4].map(id => createHistory(id, `记录${id}`))
-    // 模拟表格按某列倒序显示，连选范围应跟随显示顺序而不是接口返回顺序。
-    stubDisplayOrder = items => [...items].reverse()
-    mocks.apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
-    )
-    await renderHistory('/history?grouped=false')
-    await screen.findByText('记录4')
+  it.each(['pointer', 'space'] as const)(
+    'keeps Shift %s selection in displayed order and synchronizes native checkboxes',
+    async activation => {
+      const histories = [1, 2, 3, 4].map(id => createHistory(id, `记录${id}`))
+      // 模拟表格倒序，真实复选框应按显示顺序连选，并保留节点与焦点。
+      stubDisplayOrder = items => [...items].reverse()
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+      )
+      await renderHistory('/history?grouped=false')
+      await screen.findByText('记录4')
+      const user = userEvent.setup()
+      const checkbox = (id: number) => screen.getByRole('checkbox', { name: `选择 记录${id}` }) as HTMLInputElement
+      const inputs = histories.map(item => checkbox(item.id))
+      const activate = async (id: number, shift = false) => {
+        const input = checkbox(id)
+        if (activation === 'space') input.focus()
+        if (shift) await user.keyboard('{Shift>}')
+        if (activation === 'pointer') await user.click(input)
+        else await user.keyboard(' ')
+        if (shift) await user.keyboard('{/Shift}')
+        expect(document.activeElement).toBe(input)
+      }
+      const expectSelection = (ids: number[]) => {
+        expect(screen.getByText(`已选择 ${ids.length}/4 项`)).toBeInTheDocument()
+        for (const item of histories) {
+          const input = checkbox(item.id)
+          const selected = ids.includes(item.id)
+          expect(input.checked).toBe(selected)
+          expect(input.closest('.v-selection-control')?.classList.contains('v-selection-control--dirty')).toBe(selected)
+          expect(
+            input
+              .closest('.transfer-history-desktop-record')
+              ?.classList.contains('transfer-history-desktop-record--selected'),
+          ).toBe(selected)
+        }
+      }
 
-    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录3' }))
-    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录1' }), { shiftKey: true })
-    expect(screen.getByText('已选择 3/4 项')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: '选择 记录4' })).not.toBeChecked()
-
-    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录2' }))
-    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录4' }), { shiftKey: true })
-    expect(screen.getByText('已选择 1/4 项')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: '选择 记录1' })).toBeChecked()
-  })
+      await activate(3)
+      expectSelection([3])
+      await activate(1, true)
+      expectSelection([1, 2, 3])
+      await activate(3, true)
+      expectSelection([1, 2, 3])
+      await activate(2)
+      expectSelection([1, 3])
+      await activate(4, true)
+      expectSelection([1])
+      histories.forEach((item, index) => expect(checkbox(item.id)).toBe(inputs[index]))
+      await fireEvent.click(screen.getByRole('button', { name: '批量重新整理' }))
+      expect(getDialogCall().props).toMatchObject({ logids: [1] })
+    },
+  )
 
   it('keeps desktop record, page, and group selection in sync with batch actions', async () => {
     const histories = [createHistory(1, '多选一'), createHistory(2, '多选二')]
@@ -1204,6 +1238,50 @@ describe('TransferHistoryView', () => {
     await fireEvent.click(screen.getByRole('button', { name: '取消全选' }))
     expect(screen.getByText('共 2 条记录 · 1 页')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: '批量选择' })).not.toBeInTheDocument()
+  })
+
+  it('extends a Shift range across visible rows without selecting a collapsed group', async () => {
+    // jsdom 没有布局测量；只提供视口高度，行高继续由真实虚拟表格按既有估值计算。
+    class ViewportResizeObserver implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      disconnect() {}
+      unobserve() {}
+      observe(target: Element) {
+        if (target.classList.contains('v-table__wrapper')) {
+          this.callback([{ target, contentRect: new DOMRect(0, 0, 1000, 900) } as ResizeObserverEntry], this)
+        }
+      }
+    }
+    vi.stubGlobal('ResizeObserver', ViewportResizeObserver)
+    const histories = ['第一组', '第二组', '第三组'].flatMap((title, group) =>
+      [1, 2].map(episode =>
+        createHistory(group * 2 + episode, title, { type: '电视剧', seasons: 'S01', episodes: `E0${episode}` }),
+      ),
+    )
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=true', true, true)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '展开' })).toHaveLength(3))
+    await fireEvent.click(screen.getAllByRole('button', { name: '展开' })[0])
+    const remainingGroups = await screen.findAllByRole('button', { name: '展开' })
+    await fireEvent.click(remainingGroups.at(-1)!)
+    const rows = await waitFor(() => {
+      const visible = [...container.querySelectorAll<HTMLElement>('.transfer-history-desktop-record-row')]
+      expect(visible).toHaveLength(4)
+      return visible
+    })
+    const expectedIds = rows.slice(1, 3).map(row => Number(row.dataset.historyId))
+    await fireEvent.click(rows[1].querySelector('input[type="checkbox"]')!)
+    await fireEvent.click(rows[2].querySelector('input[type="checkbox"]')!, { shiftKey: true })
+    expect(screen.getByText('已选择 2/6 项')).toBeInTheDocument()
+    for (const row of rows) {
+      expect(row.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(
+        expectedIds.includes(Number(row.dataset.historyId)),
+      )
+    }
+    await fireEvent.click(screen.getByRole('button', { name: '批量重新整理' }))
+    expect(getDialogCall().props).toMatchObject({ logids: expectedIds })
   })
 
   it('uses real virtual-table grouping to select collapsed records and retain them after expansion', async () => {

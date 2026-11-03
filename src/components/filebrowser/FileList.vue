@@ -331,8 +331,8 @@ function revokeCurrentImgLink() {
 
 /** 调整选择模式。 */
 function changeSelectMode() {
-  selectMode.value = !selectMode.value
-  if (!selectMode.value) selected.value = []
+  if (selectMode.value) exitSelectMode()
+  else selectMode.value = true
 }
 
 /** 退出多选模式。 */
@@ -1187,8 +1187,6 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
               tabindex="0"
               @click="listItemClick(item, $event)"
               @mousedown.shift.prevent
-              @keydown.enter.prevent="listItemClick(item, $event)"
-              @keydown.space.prevent="listItemClick(item, $event)"
             >
               <div class="file-row__name">
                 <VCheckbox
@@ -1199,6 +1197,9 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   density="compact"
                   @update:model-value="rangeSelection.selectFromCheckbox(item, !!$event)"
                   @click.stop="rangeSelection.onCheckboxClick"
+                  @input="rangeSelection.onCheckboxInput(item, $event)"
+                  @keydown.enter.stop
+                  @keydown.space.stop
                 />
                 <VIcon
                   v-else
