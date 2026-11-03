@@ -153,6 +153,7 @@ interface TransferHistoryStatusFilterItem {
 
 // 独立状态筛选，不再把本地化文案作为 title 的后端协议。
 const statusFilter = ref<TransferHistoryStatusFilter>(getRouteStatusFilter(route.query.status))
+const externalOnly = ref(route.query.origin === 'external')
 const mobileStatusFilterMenu = ref(false)
 
 const statusFilterItems = computed<TransferHistoryStatusFilterItem[]>(() => [
@@ -209,9 +210,26 @@ function sortByTitle(a: TransferHistory, b: TransferHistory) {
   return 0
 }
 
-// 按源文件体积排序历史记录。
-function sortBySourceSize(a: TransferHistory, b: TransferHistory) {
-  return (a.src_fileitem?.size ?? 0) - (b.src_fileitem?.size ?? 0)
+// 外部移动不保留源大小事实，缺失时使用已核验的目标快照。
+function usesDestinationSize(item: TransferHistory) {
+  return item.origin === 'external' && item.mode === 'move' && item.src_fileitem?.size == null
+}
+
+// 大小显示与排序共享同一个事实来源；旧记录保留原有源大小行为。
+function getHistorySize(item: TransferHistory) {
+  return usesDestinationSize(item) ? item.dest_fileitem?.size : (item.src_fileitem?.size ?? 0)
+}
+
+// 标明目标大小；两端均没有大小事实时显示未知，不能补成零。
+function getHistorySizeText(item: TransferHistory) {
+  const size = getHistorySize(item)
+  const text = size == null ? '—' : formatFileSize(size)
+  return usesDestinationSize(item) ? t('transferHistory.destinationSize', { size: text }) : text
+}
+
+// 按页面实际显示的文件体积排序历史记录。
+function sortBySize(a: TransferHistory, b: TransferHistory) {
+  return (getHistorySize(a) ?? 0) - (getHistorySize(b) ?? 0)
 }
 
 // 排序字段沿用原表头协议，卡片视图的排序选择器与虚拟列表共享比较器。
@@ -236,7 +254,7 @@ const headers = [
     title: t('transferHistory.sizeColumn'),
     key: 'size',
     sortable: true,
-    sortRaw: sortBySourceSize,
+    sortRaw: sortBySize,
   },
   {
     title: t('transferHistory.dateColumn'),
@@ -550,6 +568,13 @@ watch(
   },
 )
 
+// 来源筛选由后端同时过滤列表和总数；清除跨页选择并回到第一页。
+watch(externalOnly, () => {
+  if (!historyViewActive || syncingRouteQuery) return
+  selected.value = []
+  void reloadPage(true)
+})
+
 // 分组模式变化时同步到地址栏，方便返回页面时恢复用户选择。
 watch(
   () => group.value,
@@ -714,6 +739,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         count,
         title: search.value ?? '',
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
+        ...(externalOnly.value ? { origin: 'external' } : {}),
       },
     })
     if (!historyViewActive || requestSeed !== fetchDataRequestSeed) return
@@ -882,6 +908,7 @@ function syncMobileSearchFromRouteQuery() {
   try {
     search.value = getRouteQueryString(route.query.search)
     statusFilter.value = getRouteStatusFilter(route.query.status)
+    externalOnly.value = route.query.origin === 'external'
     restoreHistoryGroupingPreference()
   } finally {
     void nextTick(() => {
@@ -912,6 +939,7 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
         count: mobilePageSize,
         title: search.value ?? '',
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
+        ...(externalOnly.value ? { origin: 'external' } : {}),
       },
     })
     if (requestSeed !== mobileFetchDataRequestSeed) {
@@ -979,6 +1007,7 @@ async function syncStateFromRouteQuery() {
   try {
     search.value = getRouteQueryString(route.query.search)
     statusFilter.value = getRouteStatusFilter(route.query.status)
+    externalOnly.value = route.query.origin === 'external'
     itemsPerPage.value = ensurePageSize(route.query.itemsPerPage, 50)
     currentPage.value = Math.max(1, ensureNumber(route.query.currentPage, 1))
     restoreHistoryGroupingPreference()
@@ -1458,6 +1487,7 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
   if (statusFilter.value !== 'all') {
     query.status = statusFilter.value
   }
+  if (externalOnly.value) query.origin = 'external'
   if (itemsPerPage.value) {
     query.itemsPerPage = String(itemsPerPage.value)
   }
@@ -1472,6 +1502,19 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
     path: '/history',
     query,
   }
+}
+
+/** 显示服务端登记审计；未知旧记录不推断来源或操作者。 */
+function getRegistrationText(item: TransferHistory) {
+  const audit = item.origin === 'external' ? item.registration : undefined
+  if (!audit) return ''
+  const timestamp = new Date(audit.registered_at)
+  const registeredAt = Number.isNaN(timestamp.getTime()) ? audit.registered_at : timestamp.toLocaleString()
+  return t('transferHistory.registrationDetail', {
+    actor: audit.actor_name,
+    time: registeredAt,
+    verification: t(`transferHistory.registrationVerification.${audit.verification}`),
+  })
 }
 
 // 重载页面，先更新路由，再由路由监听统一拉取列表数据。
@@ -2227,6 +2270,13 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
           hide-details
           clearable
         />
+        <VCheckbox
+          v-model="externalOnly"
+          :label="t('transferHistory.externalOnly')"
+          density="compact"
+          hide-details
+          class="flex-grow-0 flex-shrink-0"
+        />
         <VMenu location="bottom end" :native-menu="nativeStatusMenu">
           <template #activator="{ props }">
             <IconBtn
@@ -2676,8 +2726,14 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   <VChip variant="tonal" size="x-small">{{
                     TransferDict[item.mode ?? ''] || t('common.unknown')
                   }}</VChip>
-                  <span>{{ formatFileSize(item.src_fileitem?.size || 0) }}</span>
+                  <span>{{ getHistorySizeText(item) }}</span>
                   <time :datetime="item.date" :title="item.date">{{ getDesktopRelativeTime(item.date) }}</time>
+                  <VChip v-if="item.origin === 'external'" variant="tonal" color="info" size="x-small">
+                    {{ t('transferHistory.externalRegistration') }}
+                  </VChip>
+                </div>
+                <div v-if="item.origin === 'external'" class="text-caption text-medium-emphasis text-break">
+                  {{ getRegistrationText(item) }}
                 </div>
               </div>
             </article>
@@ -2759,6 +2815,14 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
       flat
       rounded="pill"
       clearable
+    />
+
+    <VCheckbox
+      v-model="externalOnly"
+      :label="t('transferHistory.externalOnly')"
+      density="compact"
+      hide-details
+      class="mx-3"
     />
 
     <Teleport to="body" v-if="mobileStatusFilterMenu">
@@ -2918,11 +2982,18 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
                   {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
                 </VChip>
-                <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
+                <span v-if="!usesDestinationSize(item)">{{ getHistorySizeText(item) }}</span>
                 <span class="transfer-history-mobile-record__dot">·</span>
                 <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
               </div>
             </header>
+            <div v-if="item.origin === 'external'" class="text-caption text-medium-emphasis px-3 pb-2">
+              <VChip class="mb-1" variant="tonal" color="info" size="x-small">
+                {{ t('transferHistory.externalRegistration') }}
+              </VChip>
+              <div v-if="usesDestinationSize(item)">{{ getHistorySizeText(item) }}</div>
+              <div class="text-break">{{ getRegistrationText(item) }}</div>
+            </div>
 
             <button
               type="button"

@@ -574,6 +574,158 @@ describe('TransferHistoryView', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
+  it.each([true, false])(
+    'shows external registration audit on desktop=%s without inventing old-row origins',
+    async desktop => {
+      mocks.desktop = desktop
+      const external = createHistory(101, '外部电影', {
+        origin: 'external',
+        registration: {
+          actor_id: 7,
+          actor_name: '登记管理员',
+          registered_at: '2026-10-31T10:20:00+00:00',
+          verification: 'destination_only',
+          source_state: 'absent',
+        },
+      })
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(
+          path === 'storage/options' ? storageResponse() : historyResponse([external, createHistory(102, '旧电影')]),
+        ),
+      )
+      await renderHistory()
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      expect(await screen.findByText('外部登记')).toBeInTheDocument()
+      expect(screen.getByText(/登记管理员/)).toBeInTheDocument()
+      expect(screen.getByText(/仅目标核验/)).toBeInTheDocument()
+      expect(screen.getAllByText('外部登记')).toHaveLength(1)
+      expect(screen.getByText('旧电影')).toBeInTheDocument()
+    },
+  )
+
+  it.each([true, false])('shows the verified destination size for external moves on desktop=%s', async desktop => {
+    mocks.desktop = desktop
+    const item = createHistory(101, '外部移动', {
+      origin: 'external',
+      mode: 'move',
+      src_fileitem: { path: '/downloads/movie.mkv', storage: 'local' } as TransferHistory['src_fileitem'],
+      dest_fileitem: { size: 2 * 1024 ** 3 } as TransferHistory['dest_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    await renderHistory()
+    if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    expect(await screen.findByText('目标大小：2.00 GB')).toBeInTheDocument()
+    expect(screen.queryByText('0.00 B')).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])('keeps an unknown external move size unknown on desktop=%s', async desktop => {
+    mocks.desktop = desktop
+    const item = createHistory(101, '未知移动大小', {
+      origin: 'external',
+      mode: 'move',
+      src_fileitem: { path: '/downloads/movie.mkv', storage: 'local' } as TransferHistory['src_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    await renderHistory()
+    if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    expect(await screen.findByText('目标大小：—')).toBeInTheDocument()
+    expect(screen.queryByText('0.00 B')).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])('shows a verified zero destination size for external moves on desktop=%s', async desktop => {
+    mocks.desktop = desktop
+    const item = createHistory(101, '空目标文件', {
+      origin: 'external',
+      mode: 'move',
+      dest_fileitem: { size: 0 } as TransferHistory['dest_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    await renderHistory()
+    if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+    expect(await screen.findByText('目标大小：0.00 B')).toBeInTheDocument()
+  })
+
+  it.each(
+    [true, false].flatMap(desktop => [
+      { desktop, origin: undefined, mode: 'move', size: 1024, expected: '1.00 KB' },
+      { desktop, origin: 'external' as const, mode: 'copy', size: 1024, expected: '1.00 KB' },
+      { desktop, origin: undefined, mode: 'move', size: undefined, expected: '0.00 B' },
+      { desktop, origin: 'external' as const, mode: 'copy', size: undefined, expected: '0.00 B' },
+      { desktop, origin: 'external' as const, mode: 'move', size: 0, expected: '0.00 B' },
+    ]),
+  )(
+    'preserves known source sizes and old/copy display on desktop=$desktop origin=$origin mode=$mode size=$size',
+    async ({ desktop, origin, mode, size, expected }) => {
+      mocks.desktop = desktop
+      const item = createHistory(101, '源大小记录', {
+        origin,
+        mode,
+        src_fileitem: { size } as TransferHistory['src_fileitem'],
+        dest_fileitem: { size: 2 * 1024 ** 3 } as TransferHistory['dest_fileitem'],
+      })
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+      )
+      await renderHistory()
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      expect(await screen.findByText(expected)).toBeInTheDocument()
+      expect(screen.queryByText(/目标大小/)).not.toBeInTheDocument()
+    },
+  )
+
+  it.each([true, false])(
+    'sends the external-only filter to the server and resets pagination on desktop=%s',
+    async desktop => {
+      mocks.desktop = desktop
+      const requests: Array<Record<string, unknown>> = []
+      mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+        if (path === 'storage/options') return Promise.resolve(storageResponse())
+        requests.push(config?.params || {})
+        return Promise.resolve(historyResponse([createHistory(103, '筛选记录')], 100))
+      })
+      const { router, container } = await renderHistory('/history?currentPage=3&status=success')
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await screen.findByText('筛选记录')
+      if (desktop) {
+        await fireEvent.click(screen.getByRole('checkbox', { name: '选择 筛选记录' }))
+      } else {
+        await fireEvent.click(screen.getByRole('button', { name: '批量选择' }))
+        await fireEvent.click(container.querySelector('.transfer-history-mobile-record') as HTMLElement)
+      }
+      await fireEvent.click(screen.getByRole('checkbox', { name: '仅外部登记' }))
+      await waitFor(() => expect(router.currentRoute.value.query.origin).toBe('external'))
+      expect(router.currentRoute.value.query.currentPage).toBe('1')
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await waitFor(() =>
+        expect(requests).toContainEqual({
+          count: desktop ? 50 : 25,
+          page: 1,
+          status: true,
+          title: '',
+          origin: 'external',
+        }),
+      )
+      expect(container.querySelector('[class*="record--selected"]')).toBeNull()
+      await fireEvent.click(screen.getByRole('checkbox', { name: '仅外部登记' }))
+      await waitFor(() => expect(router.currentRoute.value.query.origin).toBeUndefined())
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await waitFor(() =>
+        expect(requests.at(-1)).toEqual({
+          count: desktop ? 50 : 25,
+          page: 1,
+          status: true,
+          title: '',
+        }),
+      )
+    },
+  )
+
   it('uses the desktop URL query as the request source and falls back from invalid pagination values', async () => {
     const requests: Array<Record<string, unknown>> = []
     mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
@@ -1276,6 +1428,34 @@ describe('TransferHistoryView', () => {
     const { container } = await renderHistory('/history?grouped=false', true, true)
     await screen.findByText('大文件')
     // 从可见业务身份读取顺序，验证真实虚拟列表排序。
+    const getOrder = () =>
+      [...container.querySelectorAll<HTMLElement>('.transfer-history-desktop-record-row')].map(
+        row => row.dataset.historyId,
+      )
+    const requests = mocks.apiGet.mock.calls.length
+    await fireEvent.click(screen.getByRole('button', { name: '大小' }))
+    await waitFor(() => expect(getOrder()).toEqual(['2', '1']))
+    await fireEvent.click(screen.getByRole('button', { name: '降序' }))
+    await waitFor(() => expect(getOrder()).toEqual(['1', '2']))
+    expect(mocks.apiGet.mock.calls).toHaveLength(requests)
+  })
+
+  it('sorts external moves by their displayed destination size in the real virtual list', async () => {
+    const histories = [
+      createHistory(1, '外部大文件', {
+        origin: 'external',
+        mode: 'move',
+        dest_fileitem: { size: 2 * 1024 ** 3 } as TransferHistory['dest_fileitem'],
+      }),
+      createHistory(2, '原有小文件', {
+        src_fileitem: { size: 1024 ** 3 } as TransferHistory['src_fileitem'],
+      }),
+    ]
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=false', true, true)
+    await screen.findByText('外部大文件')
     const getOrder = () =>
       [...container.querySelectorAll<HTMLElement>('.transfer-history-desktop-record-row')].map(
         row => row.dataset.historyId,

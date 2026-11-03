@@ -5737,6 +5737,15 @@ export default {
     },
   },
   transferHistory: {
+    externalOnly: 'External registrations only',
+    externalRegistration: 'External registration',
+    destinationSize: 'Destination size: {size}',
+    registrationDetail: 'Registered by {actor} · {time} · {verification}',
+    registrationVerification: {
+      matching_sizes: 'Matching file sizes',
+      native_hardlink: 'Native hard link verified',
+      destination_only: 'Destination only verified',
+    },
     desktop: {
       summary: '{count} records · {pages} pages',
       title: 'Media Organization History',

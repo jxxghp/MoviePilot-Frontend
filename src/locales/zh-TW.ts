@@ -5577,6 +5577,15 @@ export default {
     },
   },
   transferHistory: {
+    externalOnly: '僅外部登記',
+    externalRegistration: '外部登記',
+    destinationSize: '目標大小：{size}',
+    registrationDetail: '登記人：{actor} · {time} · {verification}',
+    registrationVerification: {
+      matching_sizes: '兩端檔案大小相符',
+      native_hardlink: '本機硬連結驗證',
+      destination_only: '僅目標驗證',
+    },
     desktop: {
       summary: '共 {count} 筆記錄 · {pages} 頁',
       title: '媒體整理歷史',
