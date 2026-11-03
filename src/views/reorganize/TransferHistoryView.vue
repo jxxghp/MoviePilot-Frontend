@@ -27,6 +27,8 @@ import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useRangeSelection } from '@/composables/useRangeSelection'
+import type { PropType } from 'vue'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { getNameTail } from '@/components/filebrowser/tailEllipsis'
@@ -1785,6 +1787,44 @@ function toggleHistorySelection(item: TransferHistory, checked: boolean | null) 
   updateHistorySelection([item], checked)
 }
 
+// 桌面表格经排序、分组并去掉折叠分组后的显示顺序。Vuetify 3.7 只在表格插槽参数中提供这份顺序，由探针组件同步。
+const desktopDisplayedHistory = shallowRef<readonly TransferHistory[]>([])
+
+/** 表格插槽 groupedItems 的条目：分组标题或记录行，只包含展开分组内的记录。 */
+type DesktopGroupedEntry = { type: 'group' } | { type: 'item'; raw: TransferHistory }
+
+// 渲染在表格主体插槽中的无界面探针，把插槽参数里的显示顺序同步给连选使用。
+// 插槽的 items 会包含折叠分组内的记录，因此改用 groupedItems 并去掉分组标题。
+const DesktopDisplayOrderProbe = defineComponent({
+  props: {
+    groupedItems: { type: Array as PropType<readonly DesktopGroupedEntry[]>, required: true },
+  },
+  setup(probeProps) {
+    watchEffect(() => {
+      desktopDisplayedHistory.value = probeProps.groupedItems.flatMap(entry =>
+        entry.type === 'item' ? [entry.raw] : [],
+      )
+    })
+    return () => null
+  },
+})
+
+// 桌面表格按住 Shift 连选，范围只覆盖当前可见的记录，不会选中折叠分组内的记录。
+const historyRangeSelection = useRangeSelection<TransferHistory>({
+  items: () => desktopDisplayedHistory.value,
+  getKey: item => item.id,
+  isSelected: isHistorySelected,
+  setSelected: updateHistorySelection,
+})
+
+// 选择被清空后（如批量操作完成）不再沿用旧起点。
+watch(
+  () => selected.value.length === 0,
+  empty => {
+    if (empty) historyRangeSelection.reset()
+  },
+)
+
 // 切换移动端批量选择模式，退出时清空移动端选择状态。
 function toggleMobileBatchMode() {
   if (mobileBatchMode.value) {
@@ -2515,6 +2555,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
           </td>
         </tr>
       </template>
+      <template #body.prepend="{ groupedItems }">
+        <DesktopDisplayOrderProbe :grouped-items="groupedItems" />
+      </template>
       <template #item="{ item, columns, itemRef }">
         <tr :ref="itemRef" class="transfer-history-desktop-record-row" :data-history-id="item.id">
           <td :colspan="columns.length">
@@ -2532,7 +2575,8 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 density="compact"
                 hide-details
                 :aria-label="t('transferHistory.desktop.selectRecord', { title: getHistoryDisplayTitle(item) })"
-                @update:model-value="checked => toggleHistorySelection(item, checked)"
+                @click="historyRangeSelection.onCheckboxClick"
+                @update:model-value="checked => historyRangeSelection.selectFromCheckbox(item, !!checked)"
               />
               <div class="transfer-history-desktop-media-cell">
                 <div class="transfer-history-desktop-poster-frame rounded-md">
