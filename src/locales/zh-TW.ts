@@ -5131,6 +5131,7 @@ export default {
     download: '下載',
     preview: '預覽',
     selectAll: '全選',
+    selectPage: '本頁全選',
     deselectAll: '取消全選',
     moveUp: '返回上一級',
     sortByName: '按名稱排序',

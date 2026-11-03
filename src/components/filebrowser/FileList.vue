@@ -114,6 +114,10 @@ const DIRECTORY_PAGE_SIZE = 200
 const directoryPage = ref(1)
 const hasMoreFiles = ref(false)
 const loadingMoreFiles = ref(false)
+// 显示分页只切分已加载内容，不改变目录 API 的续载批次。
+const pageSizes = [50, 100, 200]
+const itemsPerPage = ref(50)
+const displayPage = ref(1)
 
 // 过滤条件
 const filter = ref('')
@@ -204,7 +208,17 @@ function closeProgressDialog() {
 }
 
 // 弹出菜单
-const dropdownItems = ref<{ [key: string]: any }[]>([])
+interface FileMenuItem {
+  title: string
+  value: number
+  show: boolean
+  props: {
+    prependIcon: string
+    color?: string
+    click: (item: FileItem) => void | Promise<boolean | undefined>
+  }
+}
+const dropdownItems = ref<FileMenuItem[]>([])
 
 // 进度是否激活
 const progressActive = ref(false)
@@ -287,6 +301,32 @@ const activeSortTitle = computed(
 
 // 虚拟列表数据，保持引用稳定，避免模板内联展开数组导致虚拟列表重算。
 const displayItems = computed(() => [...dirs.value, ...files.value])
+const displayPageCount = computed(() => Math.max(1, Math.ceil(displayItems.value.length / itemsPerPage.value)))
+const pageStart = computed(() => (displayPage.value - 1) * itemsPerPage.value)
+const pageItems = computed(() => displayItems.value.slice(pageStart.value, pageStart.value + itemsPerPage.value))
+const pageText = computed(() =>
+  t('common.pageText', [
+    pageStart.value + 1,
+    Math.min(pageStart.value + itemsPerPage.value, displayItems.value.length),
+    displayItems.value.length,
+  ]),
+)
+
+watch([filter, ignoreCase, itemsPerPage, () => inProps.sortKey, () => inProps.sortOrder], () => {
+  displayPage.value = 1
+})
+watch(displayPageCount, count => {
+  displayPage.value = Math.min(displayPage.value, count)
+})
+watch(
+  displayPage,
+  () => {
+    const list = tableRef.value?.querySelector<HTMLElement>('.file-list-container')
+    if (list) list.scrollTop = 0
+  },
+  { flush: 'post' },
+)
+
 // 是否文件
 const isFile = computed(() => inProps.item.type == 'file')
 
@@ -621,10 +661,10 @@ function nativeFileMenu(item: FileItem): NativeCardMenuBinding {
   }
 }
 
-/** 全选仅针对当前筛选结果；隐藏的已选项保留，取消全选不误清除其它选择。 */
+/** 全选仅针对当前显示页；其它页和筛选隐藏的已选项保留。 */
 function toggleSelectAll() {
-  const allSelected = displayItems.value.length > 0 && displayItems.value.every(isSelected)
-  displayItems.value.forEach(item => setItemSelected(item, !allSelected))
+  const allSelected = pageItems.value.length > 0 && pageItems.value.every(isSelected)
+  pageItems.value.forEach(item => setItemSelected(item, !allSelected))
 }
 
 /** 列表时间列优先保持固定宽度，移动端仅展示本地日期。 */
@@ -793,6 +833,7 @@ watch(
     // 清空列表
     items.value = []
     selected.value = []
+    displayPage.value = 1
     // 关闭弹窗
     nameTestResult.value = undefined
     // 重置菜单
@@ -1069,7 +1110,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
       >
     </div>
     <div v-if="selectMode" class="file-list__selection">
-      <VBtn variant="text" @click="toggleSelectAll">{{ t('file.selectAll') }}</VBtn>
+      <VBtn variant="text" @click="toggleSelectAll">{{ t('file.selectPage') }}</VBtn>
       <span>{{ t('file.selectedItems', { count: selected.length }) }}</span>
       <div class="file-list__batch">
         <IconBtn :disabled="!selected.length" :aria-label="t('file.scrape')" @click="showBatchScrape"
@@ -1149,7 +1190,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
         <LoadingBanner v-if="loading" />
         <VVirtualScroll
           v-else-if="displayItems.length"
-          :items="displayItems"
+          :items="pageItems"
           :item-height="display.mdAndUp.value ? 58 : 64"
           class="file-list-container"
           role="list"
@@ -1259,6 +1300,25 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
           >
           <VBtn variant="text" :loading="loadingMoreFiles" @click="loadMoreFiles">{{ t('common.loadMore') }}</VBtn>
         </div>
+        <footer v-if="!loading && displayItems.length" class="file-list__pagination">
+          <VSelect
+            v-model="itemsPerPage"
+            :items="pageSizes"
+            :aria-label="t('common.itemsPerPage')"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="file-list__page-size"
+          />
+          <span class="text-caption">{{ pageText }}</span>
+          <VPagination
+            v-model="displayPage"
+            :length="displayPageCount"
+            :total-visible="display.smAndDown.value ? 3 : 5"
+            density="compact"
+            size="small"
+          />
+        </footer>
       </div>
       <FileDetails
         v-if="detailItem && (display.mdAndUp.value || isFile)"
@@ -1439,6 +1499,19 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   border-radius: 0;
+}
+.file-list__pagination {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-block-start: 1px solid var(--app-grouped-list-separator-color);
+}
+.file-list__page-size {
+  flex: 0 0 5rem;
 }
 .file-row {
   min-block-size: 3.625rem;

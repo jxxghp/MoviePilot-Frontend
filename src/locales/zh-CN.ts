@@ -5129,6 +5129,7 @@ export default {
     download: '下载',
     preview: '预览',
     selectAll: '全选',
+    selectPage: '本页全选',
     deselectAll: '取消全选',
     moveUp: '返回上一级',
     sortByName: '按名称排序',

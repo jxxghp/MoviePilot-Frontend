@@ -96,6 +96,20 @@ const VirtualScrollStub = defineComponent({
   template: '<div><slot v-for="item in items" :item="item" /></div>',
 })
 
+const PaginationStub = defineComponent({
+  props: ['modelValue', 'length'],
+  emits: ['update:modelValue'],
+  template:
+    '<nav aria-label="Pagination"><button v-for="page in length" :key="page" type="button" :aria-label="`Page ${page}`" :aria-current="page === modelValue ? \'page\' : undefined" @click="$emit(\'update:modelValue\', page)">{{ page }}</button></nav>',
+})
+
+const SelectStub = defineComponent({
+  props: ['modelValue', 'items'],
+  emits: ['update:modelValue'],
+  template:
+    '<select :value="modelValue" @change="$emit(\'update:modelValue\', Number($event.target.value))"><option v-for="item in items" :key="item" :value="item">{{ item }}</option></select>',
+})
+
 const ListItemStub = defineComponent({
   props: ['title', 'prependIcon'],
   template:
@@ -131,6 +145,8 @@ const stubs = {
   VListItemAction: true,
   VListItemSubtitle: defineComponent({ template: '<span><slot /></span>' }),
   VListItemTitle: defineComponent({ template: '<span><slot /></span>' }),
+  VPagination: PaginationStub,
+  VSelect: SelectStub,
   VTextField: TextFieldStub,
   VVirtualScroll: VirtualScrollStub,
 }
@@ -152,6 +168,24 @@ function createItem(overrides: Partial<FileItem> = {}): FileItem {
     type: 'file',
     ...overrides,
   }
+}
+
+function createItems(count: number, prefix = 'item', type: FileItem['type'] = 'file'): FileItem[] {
+  return Array.from({ length: count }, (_, index) =>
+    createItem({ name: `${prefix}-${index + 1}`, path: `/media/${prefix}-${index + 1}`, type }),
+  )
+}
+
+function visibleNames() {
+  return Array.from(document.querySelectorAll('.file-row__filename')).map(item => item.textContent?.trim())
+}
+
+async function goToPage(page: number) {
+  await fireEvent.click(screen.getByRole('button', { name: `Page ${page}` }))
+}
+
+function expectPageRange(begin: number, end: number, total: number) {
+  expect(screen.getByText(i18n.global.t('common.pageText', [begin, end, total]))).toBeInTheDocument()
 }
 
 function deferred<T>() {
@@ -221,23 +255,217 @@ describe('FileList list state', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  it('loads the next directory batch on demand without replacing the first batch', async () => {
+  it('loads the next directory batch on demand and retains earlier entries on their sorted display pages', async () => {
     const batch = Array.from({ length: 200 }, (_, index) =>
       createItem({ name: `part-${index}`, path: `/media/${index}` }),
     )
     const request = vi
       .fn()
       .mockResolvedValueOnce(batch)
-      .mockResolvedValueOnce([createItem({ name: 'last-part', path: '/media/last' })])
-    const { axios } = await renderList(request)
+      .mockResolvedValueOnce([createItem({ name: 'z-last-part', path: '/media/last' })])
+    const { axios, emitted } = await renderList(request)
     await screen.findByText('part-0')
     expect(request).toHaveBeenCalledTimes(1)
     expect(getRequestConfig(axios, 0).params).toEqual({ page: 1, count: 200 })
+    expect(screen.getByText(/筛选和排序仅作用于已加载内容/)).toHaveTextContent('已加载 200')
+    expectPageRange(1, 50, 200)
     await fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
-    expect(await screen.findByText('last-part')).toBeInTheDocument()
+    await waitFor(() => expect(emitted()['items-updated']).toHaveLength(2))
+    const loaded = (emitted()['items-updated'] as Array<[FileItem[]]>).at(-1)![0]
+    expect(loaded).toEqual([...batch, createItem({ name: 'z-last-part', path: '/media/last' })])
     expect(screen.getByText('part-0')).toBeInTheDocument()
+    expect(screen.queryByText('z-last-part')).not.toBeInTheDocument()
     expect(getRequestConfig(axios, 1).params).toEqual({ page: 2, count: 200 })
     expect(screen.queryByRole('button', { name: '加载更多' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/筛选和排序仅作用于已加载内容/)).not.toBeInTheDocument()
+
+    await goToPage(5)
+    expect(screen.getByText('z-last-part')).toBeInTheDocument()
+    expectPageRange(201, 201, 201)
+    await goToPage(1)
+    expect(screen.getByText('part-0')).toBeInTheDocument()
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows three local pages for 120 loaded entries without requesting another directory batch', async () => {
+    const { axios, container } = await renderList(() => Promise.resolve(createItems(120)))
+    await screen.findByText('item-1')
+    expect(visibleNames()).toEqual(createItems(50).map(item => item.name))
+    expectPageRange(1, 50, 120)
+    expect(screen.getByRole('button', { name: 'Page 3' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Page 4' })).not.toBeInTheDocument()
+
+    const list = container.querySelector('.file-list-container')!
+    list.scrollTop = 240
+    await goToPage(2)
+    expect(visibleNames()).toEqual(
+      createItems(120)
+        .slice(50, 100)
+        .map(item => item.name),
+    )
+    expectPageRange(51, 100, 120)
+    expect(list.scrollTop).toBe(0)
+
+    await goToPage(3)
+    expect(visibleNames()).toEqual(
+      createItems(120)
+        .slice(100)
+        .map(item => item.name),
+    )
+    expectPageRange(101, 120, 120)
+    expect(axios.request).toHaveBeenCalledOnce()
+  })
+
+  it('offers 50, 100 and 200 entries per page and resets to page one when the size changes', async () => {
+    const { axios } = await renderList(() => Promise.resolve(createItems(120)))
+    await screen.findByText('item-1')
+    const pageSize = screen.getByRole('combobox', { name: i18n.global.t('common.itemsPerPage') })
+    expect(Array.from(pageSize.querySelectorAll('option')).map(option => option.value)).toEqual(['50', '100', '200'])
+    await goToPage(3)
+    await fireEvent.update(pageSize, '100')
+    expect(visibleNames()).toHaveLength(100)
+    expectPageRange(1, 100, 120)
+    await goToPage(2)
+    expectPageRange(101, 120, 120)
+    await fireEvent.update(pageSize, '200')
+    expect(visibleNames()).toHaveLength(120)
+    expectPageRange(1, 120, 120)
+    expect(axios.request).toHaveBeenCalledOnce()
+  })
+
+  it('selects and deselects only the displayed page and passes selections from other pages to batch actions', async () => {
+    const items = createItems(120)
+    await renderList(() => Promise.resolve(items))
+    await screen.findByText('item-1')
+    await fireEvent.click(getIconButton('mdi-select'))
+    const selectPage = () => fireEvent.click(screen.getByRole('button', { name: '本页全选' }))
+    await selectPage()
+    expect(screen.getByText(i18n.global.t('file.selectedItems', { count: 50 }))).toBeInTheDocument()
+
+    await goToPage(2)
+    await selectPage()
+    expect(screen.getByText(i18n.global.t('file.selectedItems', { count: 100 }))).toBeInTheDocument()
+    await selectPage()
+    expect(screen.getByText(i18n.global.t('file.selectedItems', { count: 50 }))).toBeInTheDocument()
+    await goToPage(3)
+    await selectPage()
+    expect(screen.getByText(i18n.global.t('file.selectedItems', { count: 70 }))).toBeInTheDocument()
+    await fireEvent.click(getIconButton('mdi-folder-arrow-right'))
+    expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({
+      items: [...items.slice(0, 50), ...items.slice(100)],
+    })
+  })
+
+  it('preserves filter-hidden selections when the current filtered page is selected and deselected', async () => {
+    const items = createItems(120)
+    await renderList(() => Promise.resolve(items))
+    await screen.findByText('item-1')
+    await fireEvent.click(getIconButton('mdi-select'))
+    await fireEvent.click(screen.getByText('item-1').closest('.file-row')!)
+    await fireEvent.update(screen.getByRole('searchbox'), 'item-11*')
+    const selectPage = screen.getByRole('button', { name: '本页全选' })
+    await fireEvent.click(selectPage)
+    expect(screen.getByText(i18n.global.t('file.selectedItems', { count: 12 }))).toBeInTheDocument()
+    await fireEvent.click(selectPage)
+    expect(screen.getByText(i18n.global.t('file.selectedItems', { count: 1 }))).toBeInTheDocument()
+    await fireEvent.click(getIconButton('mdi-folder-arrow-right'))
+    expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({ items: [items[0]] })
+  })
+
+  it('filters all loaded entries before paginating and resets the page for filter and case changes', async () => {
+    const items = [...createItems(70, 'Alpha'), ...createItems(70, 'Beta')]
+    const { axios } = await renderList(() => Promise.resolve(items))
+    await screen.findByText('Alpha-1')
+    await goToPage(3)
+    await fireEvent.update(screen.getByRole('searchbox'), 'beta')
+    expect(visibleNames()).toEqual(createItems(50, 'Beta').map(item => item.name))
+    expectPageRange(1, 50, 70)
+    await goToPage(2)
+    expectPageRange(51, 70, 70)
+    await fireEvent.click(getIconButton('mdi-format-letter-case'))
+    expect(screen.getByText(i18n.global.t('file.noFiles'))).toBeInTheDocument()
+    await fireEvent.update(screen.getByRole('searchbox'), 'Beta')
+    expectPageRange(1, 50, 70)
+    await goToPage(2)
+    await fireEvent.click(getIconButton('mdi-format-letter-case'))
+    expectPageRange(1, 50, 70)
+    expect(axios.request).toHaveBeenCalledOnce()
+  })
+
+  it('sorts all loaded directories before all files across page boundaries and resets on column or direction changes', async () => {
+    const directories = createItems(60, 'directory', 'dir')
+    const files = createItems(60, 'file')
+    const { rerender } = await renderList(() => Promise.resolve([...files, ...directories].reverse()))
+    await screen.findByText('directory-1')
+    expect(visibleNames()).toEqual(directories.slice(0, 50).map(item => item.name))
+    await goToPage(2)
+    expect(visibleNames()).toEqual([...directories.slice(50), ...files.slice(0, 40)].map(item => item.name))
+
+    await rerender({ sortOrder: 'desc' })
+    expect(visibleNames()).toEqual(
+      directories
+        .toReversed()
+        .slice(0, 50)
+        .map(item => item.name),
+    )
+    expectPageRange(1, 50, 120)
+    await goToPage(3)
+    await rerender({ sortKey: 'size' })
+    expectPageRange(1, 50, 120)
+    expect(visibleNames()).toEqual(directories.slice(0, 50).map(item => item.name))
+  })
+
+  it('resets the displayed page when navigating to another directory or storage', async () => {
+    const { axios, rerender } = await renderList(() => Promise.resolve(createItems(120)))
+    await screen.findByText('item-1')
+    await goToPage(3)
+    await rerender({ item: createItem({ name: 'other', path: '/other/', type: 'dir' }) })
+    await screen.findByText('item-1')
+    expectPageRange(1, 50, 120)
+    await goToPage(3)
+    await rerender({ item: createItem({ name: 'other', path: '/other/', storage: 'alist', type: 'dir' }) })
+    await screen.findByText('item-1')
+    expectPageRange(1, 50, 120)
+    expect(axios.request).toHaveBeenCalledTimes(3)
+    expect(getRequestConfig(axios, 2).data).toMatchObject({ path: '/other/', storage: 'alist' })
+  })
+
+  it('clamps the displayed page when a refreshed directory shrinks', async () => {
+    const request = vi.fn().mockResolvedValueOnce(createItems(120)).mockResolvedValueOnce(createItems(70))
+    const { rerender } = await renderList(request)
+    await screen.findByText('item-1')
+    await goToPage(3)
+    await rerender({ refreshpending: true })
+    await screen.findByText('item-51')
+    expect(visibleNames()).toEqual(
+      createItems(70)
+        .slice(50)
+        .map(item => item.name),
+    )
+    expectPageRange(51, 70, 70)
+    expect(screen.getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('keeps an open preview when switching local display pages', async () => {
+    const items = createItems(120)
+    const { axios } = await renderList(config =>
+      Promise.resolve((config.data as FileItem).type === 'file' ? [config.data as FileItem] : items),
+    )
+    await screen.findByText('item-1')
+    await fireEvent.click(screen.getByText('item-1').closest('.file-row')!)
+    await screen.findByRole('heading', { name: 'item-1' })
+    await goToPage(2)
+    expect(screen.getByRole('heading', { name: 'item-1' })).toBeInTheDocument()
+    expect(visibleNames()).not.toContain('item-1')
+    expect(axios.request).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not show directory pagination when displaying a file directly', async () => {
+    const file = createItem({ name: 'direct-file.mkv', path: '/media/direct-file.mkv' })
+    await renderList(() => Promise.resolve([file]), { item: file })
+    await screen.findByRole('heading', { name: file.name })
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: i18n.global.t('common.itemsPerPage') })).not.toBeInTheDocument()
   })
 
   it('projects file operations with original callbacks and keeps the mobile details entry separate', async () => {

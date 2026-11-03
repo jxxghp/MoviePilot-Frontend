@@ -5267,6 +5267,7 @@ export default {
     download: 'Download',
     preview: 'Preview',
     selectAll: 'Select All',
+    selectPage: 'Select Page',
     deselectAll: 'Deselect All',
     moveUp: 'Go Back',
     sortByName: 'Sort by Name',
