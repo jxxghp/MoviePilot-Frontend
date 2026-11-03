@@ -594,6 +594,31 @@ describe('FileList list state', () => {
       items: [expect.objectContaining({ size: 20 })],
     })
   })
+
+  it('selects and clears a displayed range with Shift from the last toggled entry', async () => {
+    const names = ['a.mkv', 'b.mkv', 'c.mkv', 'd.mkv', 'e.mkv']
+    const files = names.map(name => createItem({ name, path: `/media/${name}` }))
+    await renderList(vi.fn().mockResolvedValue(files))
+    await screen.findByText('a.mkv')
+    const row = (name: string) => screen.getByText(name).closest('.file-row') as Element
+    const reorganizedNames = async () => {
+      await fireEvent.click(getIconButton('mdi-folder-arrow-right'))
+      return (mocks.openSharedDialog.mock.calls.at(-1)?.[1] as { items: FileItem[] }).items.map(item => item.name)
+    }
+
+    await fireEvent.click(getIconButton('mdi-select'))
+    await fireEvent.click(row('b.mkv'))
+    await fireEvent.click(row('d.mkv'), { shiftKey: true })
+    expect(await reorganizedNames()).toEqual(['b.mkv', 'c.mkv', 'd.mkv'])
+
+    await fireEvent.click(row('e.mkv'))
+    await fireEvent.click(row('c.mkv'), { shiftKey: true })
+    expect(await reorganizedNames()).toEqual(['b.mkv', 'c.mkv', 'd.mkv', 'e.mkv'])
+
+    await fireEvent.click(row('d.mkv'))
+    await fireEvent.click(row('b.mkv'), { shiftKey: true })
+    expect(await reorganizedNames()).toEqual(['e.mkv'])
+  })
 })
 
 describe('FileList destructive operations', () => {
