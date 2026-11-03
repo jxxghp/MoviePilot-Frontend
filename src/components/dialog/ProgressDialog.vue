@@ -14,12 +14,13 @@ const hasProgressValue = computed(() => typeof props.value === 'number' && Numbe
 <template>
   <!-- Progress Dialog -->
   <VDialog :scrim="false" width="25rem" data-native-progress :aria-label="t('dialog.progress.processing')">
-    <VCard elevation="3" color="primary">
+    <!-- 弹窗材质可能覆盖背景色，文字需跟随表面语义色，避免浅色玻璃上的白字。 -->
+    <VCard elevation="3" class="text-on-surface">
       <VCardText class="text-center">
         <span data-native-progress-text>{{ props.text || t('dialog.progress.processing') }}</span>
         <VProgressLinear
           data-native-progress-value
-          color="white"
+          color="primary"
           class="mb-0 mt-1"
           :model-value="hasProgressValue ? props.value : undefined"
           :indeterminate="!hasProgressValue"
