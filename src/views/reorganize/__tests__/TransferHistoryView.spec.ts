@@ -88,6 +88,9 @@ vi.mock('@/composables/useDynamicButton', () => ({
   },
 }))
 
+/** 替身表格的显示顺序；默认与接口顺序一致，用例可改为别的顺序模拟表格排序或分组后的结果。 */
+let stubDisplayOrder: (items: TransferHistory[]) => TransferHistory[] = items => items
+
 /** 桌面列表替身仅提供槽位与选择协议，真实排序和分组另有集成用例。 */
 const HistoryTableStub = defineComponent({
   name: 'VDataTableVirtual',
@@ -150,10 +153,13 @@ const HistoryTableStub = defineComponent({
         )
       })
 
+      const displayedItems = stubDisplayOrder(props.items)
+
       return h('section', { 'aria-label': '整理历史桌面列表', 'data-grouped': Boolean(groupKey) }, [
         h('output', { 'aria-label': '整理历史排序结果' }, JSON.stringify(sortResults)),
+        ...(slots['body.prepend']?.({ groupedItems: displayedItems.map(raw => ({ type: 'item', raw })) }) ?? []),
         ...groupHeaders,
-        ...props.items.map(item =>
+        ...displayedItems.map(item =>
           h(
             'article',
             {
@@ -549,6 +555,7 @@ function getDialogCall(index = 0) {
 
 describe('TransferHistoryView', () => {
   beforeEach(() => {
+    stubDisplayOrder = items => items
     mocks.appMode = true
     mocks.desktop = true
     mocks.dynamicButtonConfig = undefined
@@ -1156,6 +1163,27 @@ describe('TransferHistoryView', () => {
     first.unmount()
     await renderHistory('/history', false)
     expect(screen.queryByRole('button', { name: '转移队列' })).not.toBeInTheDocument()
+  })
+
+  it('selects a Shift range in the order the desktop table displays', async () => {
+    const histories = [1, 2, 3, 4].map(id => createHistory(id, `记录${id}`))
+    // 模拟表格按某列倒序显示，连选范围应跟随显示顺序而不是接口返回顺序。
+    stubDisplayOrder = items => [...items].reverse()
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    await renderHistory('/history?grouped=false')
+    await screen.findByText('记录4')
+
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录3' }))
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录1' }), { shiftKey: true })
+    expect(screen.getByText('已选择 3/4 项')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '选择 记录4' })).not.toBeChecked()
+
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录2' }))
+    await fireEvent.click(screen.getByRole('checkbox', { name: '选择 记录4' }), { shiftKey: true })
+    expect(screen.getByText('已选择 1/4 项')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '选择 记录1' })).toBeChecked()
   })
 
   it('keeps desktop record, page, and group selection in sync with batch actions', async () => {
