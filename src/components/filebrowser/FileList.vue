@@ -185,6 +185,43 @@ function setItemSelected(item: FileItem, checked: boolean) {
   selected.value = selected.value.filter(selectedItem => getFileItemKey(selectedItem) !== itemKey)
 }
 
+// 最近一次勾选操作的文件项，按住 Shift 勾选时以它为连选起点
+let selectionAnchorKey: string | null = null
+// 复选框的状态更新事件不带键盘修饰键，由先触发的点击事件记录是否按住 Shift
+let checkboxShiftKey = false
+
+/**
+ * 勾选文件项。extendRange 为真且起点仍在当前显示列表中时，把从起点到该项的整段设为起点的勾选状态，
+ * 即起点刚被勾选则整段勾选、刚被取消则整段取消；否则只切换该项。
+ */
+function selectItem(item: FileItem, checked: boolean, extendRange = false) {
+  const itemKey = getFileItemKey(item)
+  const anchorIndex = extendRange
+    ? displayItems.value.findIndex(displayItem => getFileItemKey(displayItem) === selectionAnchorKey)
+    : -1
+  const itemIndex = displayItems.value.findIndex(displayItem => getFileItemKey(displayItem) === itemKey)
+
+  if (anchorIndex >= 0 && itemIndex >= 0) {
+    const anchorChecked = isSelected(displayItems.value[anchorIndex])
+    const [start, end] = anchorIndex < itemIndex ? [anchorIndex, itemIndex] : [itemIndex, anchorIndex]
+    displayItems.value.slice(start, end + 1).forEach(rangeItem => setItemSelected(rangeItem, anchorChecked))
+  } else {
+    setItemSelected(item, checked)
+  }
+  selectionAnchorKey = itemKey
+}
+
+/** 记录复选框点击时是否按住 Shift，供随后的状态更新决定是否连选。 */
+function onCheckboxClick(event: MouseEvent) {
+  checkboxShiftKey = event.shiftKey
+}
+
+/** 复选框状态更新时按记录的 Shift 状态勾选。 */
+function onCheckboxUpdate(item: FileItem, checked: boolean) {
+  selectItem(item, checked, checkboxShiftKey)
+  checkboxShiftKey = false
+}
+
 // 识别结果
 const nameTestResult = ref<Context>()
 
@@ -203,8 +240,19 @@ function closeProgressDialog() {
   progressDialogController = null
 }
 
-// 弹出菜单
-const dropdownItems = ref<{ [key: string]: any }[]>([])
+/** 文件行操作菜单项；value 经 fileMenuAction 映射为实际操作，props 提供图标、颜色与点击处理。 */
+interface FileDropdownItem {
+  title: string
+  value: number
+  show: boolean
+  props: {
+    prependIcon: string
+    color?: string
+    click: (item: FileItem) => unknown
+  }
+}
+
+const dropdownItems = ref<FileDropdownItem[]>([])
 
 // 进度是否激活
 const progressActive = ref(false)
@@ -319,6 +367,7 @@ function changeSelectMode() {
 function exitSelectMode() {
   selectMode.value = false
   selected.value = []
+  selectionAnchorKey = null
 }
 
 /** 调API加载文件夹内的内容。 */
@@ -476,9 +525,9 @@ function changePath(item: FileItem) {
 }
 
 /** 点击列表项。 */
-function listItemClick(item: FileItem) {
+function listItemClick(item: FileItem, event?: MouseEvent | KeyboardEvent) {
   if (selectMode.value) {
-    setItemSelected(item, !isSelected(item))
+    selectItem(item, !isSelected(item), !!event?.shiftKey)
     return false
   }
   if (item.type === 'dir') changePath(item)
@@ -1164,9 +1213,10 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
               }"
               role="listitem"
               tabindex="0"
-              @click="listItemClick(item)"
-              @keydown.enter.prevent="listItemClick(item)"
-              @keydown.space.prevent="listItemClick(item)"
+              @click="listItemClick(item, $event)"
+              @mousedown.shift.prevent
+              @keydown.enter.prevent="listItemClick(item, $event)"
+              @keydown.space.prevent="listItemClick(item, $event)"
             >
               <div class="file-row__name">
                 <VCheckbox
@@ -1175,8 +1225,8 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   :aria-label="item.name"
                   hide-details
                   density="compact"
-                  @update:model-value="setItemSelected(item, !!$event)"
-                  @click.stop
+                  @update:model-value="onCheckboxUpdate(item, !!$event)"
+                  @click.stop="onCheckboxClick"
                 />
                 <VIcon
                   v-else
