@@ -2,7 +2,8 @@
 import type { Component } from 'vue'
 import { createPluginInstanceApi } from '@/api'
 import api from '@/api'
-import { AGENT_HOST_INJECTION_KEY, useScopedAgentHost } from '@/composables/useAgentHost'
+import { useScopedAgentHost } from '@/composables/useAgentHost'
+import { providePluginHostSDK } from '@/composables/usePluginHostSDK'
 import { useAgentPetStore } from '@/stores/agentPet'
 import type { AgentHostRect, AgentPetContext, AgentPetDeclaration } from '@/types/agentHost'
 import { AgentPetLoadTimeoutError, loadAgentPetComponent } from '@/utils/agentPetLoader'
@@ -46,7 +47,6 @@ const sourcePluginId = computed(() => props.pet.source_plugin_id || props.pet.pl
 
 // 形象与插件其他联邦组件共享同一条宿主事件总线，卸载时清空本实例的订阅。
 const scopedAgent = useScopedAgentHost(pluginId)
-provide(AGENT_HOST_INJECTION_KEY, scopedAgent)
 
 // renderer 的 motionActive 与 stage 的 motionAllowed 一致，同样遵循系统“减少动态效果”。
 const reducedMotion = ref(scopedAgent.getState().reducedMotion)
@@ -112,6 +112,16 @@ const petContext: AgentPetContext = {
   },
 }
 
+// 形象宿主只声明自身已经提供的 Agent、实例 API 与形象上下文能力。
+const hostSdk = providePluginHostSDK({
+  surface: 'agent-pet',
+  pluginId,
+  sourcePluginId,
+  api: scopedPluginApi,
+  agent: scopedAgent,
+  pet: petContext,
+})
+
 let loadGeneration = 0
 
 /** 加载联邦形象组件（可能复用 store 已开始的预加载），失败或超时记录到 store 以回退内置机器人。 */
@@ -159,6 +169,7 @@ onBeforeUnmount(() => {
     :agent="scopedAgent"
     :pet="petContext"
     :api="scopedPluginApi"
+    :host-sdk="hostSdk"
     :plugin-id="pluginId"
     :source-plugin-id="sourcePluginId"
   />
@@ -168,6 +179,7 @@ onBeforeUnmount(() => {
     :agent="scopedAgent"
     :pet="petContext"
     :api="scopedPluginApi"
+    :host-sdk="hostSdk"
     :plugin-id="pluginId"
     :source-plugin-id="sourcePluginId"
     :action="props.action"

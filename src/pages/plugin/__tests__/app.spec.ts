@@ -5,6 +5,7 @@ import { defineComponent, h, inject, nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { agentHost } from '@/utils/agentHost'
 import type { AgentHostEvent, MoviePilotAgentHost } from '@/types/agentHost'
+import { isPluginHostSDK } from '@/sdk/plugin'
 
 const mocks = vi.hoisted(() => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -77,11 +78,19 @@ function capabilityPage() {
     props: {
       api: Object,
       nativeSubscribe: Function,
+      hostSdk: Object,
+      subscriptionManager: Function,
       navKey: String,
       pluginId: String,
     },
     emits: ['action'],
     setup(props, { emit }) {
+      const sdk = inject('moviepilot:sdk')
+      expect(props.hostSdk).toBe(sdk)
+      if (!isPluginHostSDK(sdk)) throw new Error('联邦宿主没有提供 SDK v1')
+      expect(sdk.supports('subscription.manage.edit')).toBe(true)
+      expect(props.subscriptionManager).toBe(sdk.subscriptions?.manage)
+      expect(sdk.context.pluginId).toBe(props.pluginId)
       const injectedToast = inject('moviepilot:toast')
       const injectedNativeSubscribe = inject('moviepilot:nativeSubscribe')
       const injectedDialog = inject('moviepilot:dialog')

@@ -1,17 +1,13 @@
 <script setup lang="ts">
+import { providePluginHostSDK } from '@/composables/usePluginHostSDK'
 import { useDisplay } from 'vuetify'
 import type { Plugin, RenderProps } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import api, { createPluginInstanceApi } from '@/api'
-import { useToast } from 'vue-toastification'
 import FormRender from '../render/FormRender.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { loadRemoteComponent } from '@/utils/federationLoader'
-import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
-import { provideScopedAgentHost } from '@/composables/useAgentHost'
-import { useConfirm } from '@/composables/useConfirm'
-import { openSharedDialog } from '@/composables/useSharedDialog'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
 import RemoteComponentLoading from '@/components/misc/RemoteComponentLoading.vue'
@@ -44,25 +40,16 @@ const progressDialog = ref(false)
 // 进度文字
 const progressText = ref('')
 
-// 提示框
-const $toast = useToast()
-
-// 向联邦插件提供主应用 Toast，避免远程组件自行创建通知容器。
-provide('moviepilot:toast', $toast)
-
-// 向联邦插件提供主应用公共弹窗，内容由 App 的 SharedDialogHost 统一承载。
-provide('moviepilot:dialog', openSharedDialog)
-
-// 确认弹窗单独提供，保持简单确认调用的兼容性。
-const createConfirm = useConfirm()
-provide('moviepilot:confirm', createConfirm)
-
-// 配置联邦组件沿用与其它插件宿主一致的原生订阅能力。
-const nativeSubscribe = usePluginNativeSubscribe()
-provide('moviepilot:nativeSubscribe', nativeSubscribe)
-
-// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
-provideScopedAgentHost(() => props.plugin?.id)
+// 统一 SDK 与兼容注入共用同一组宿主服务。
+const hostSdk = providePluginHostSDK({
+  surface: 'config',
+  pluginId: () => props.plugin?.id,
+  sourcePluginId: () => props.plugin?.source_plugin_id,
+  api: () => scopedPluginApi.value,
+})
+const nativeSubscribe = hostSdk.subscriptions.create
+const subscriptionManager = hostSdk.subscriptions.manage
+const $toast = hostSdk.ui.toast
 
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 
@@ -248,6 +235,8 @@ onBeforeMount(async () => {
           :is="dynamicComponent"
           :initial-config="pluginConfigForm"
           :api="scopedPluginApi"
+          :host-sdk="hostSdk"
+          :subscription-manager="subscriptionManager"
           :plugin-id="props.plugin?.id"
           :source-plugin-id="props.plugin?.source_plugin_id"
           :native-subscribe="nativeSubscribe"

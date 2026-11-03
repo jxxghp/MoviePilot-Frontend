@@ -1,7 +1,10 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { config, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick, ref, type PropType } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import i18n from '@/plugins/i18n'
+import vuetify from '@/plugins/vuetify'
 import AgentAssistantWidget from '@/components/agent/AgentAssistantWidget.vue'
 import { AGENT_ASSISTANT_LAYER_Z_INDEX } from '@/constants/agentAssistant'
 import { AGENT_PET_RESOLVE_WAIT, useAgentPetStore } from '@/stores/agentPet'
@@ -23,7 +26,8 @@ const mocks = vi.hoisted(() => ({
   globalSettings: {} as Record<string, unknown>,
 }))
 
-vi.mock('vuetify', () => ({
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
   useTheme: () => ({ themeClasses: ref('v-theme--test'), global: { current: ref({ dark: true }) } }),
 }))
 
@@ -67,14 +71,32 @@ function mockPetBackend(pets: AgentPetDeclaration[], selection: unknown) {
   })
 }
 
+const originalPlugins = config.global.plugins
+
 beforeEach(() => {
-  setActivePinia(createPinia())
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  // 形象加载后使用真实 SDK；保持与登录应用一致的 Store、语言、显示器和路由注入。
+  config.global.plugins = [
+    ...originalPlugins,
+    pinia,
+    i18n,
+    vuetify,
+    createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { render: () => null } }],
+    }),
+  ]
   mocks.globalSettings = {}
   mocks.apiGet.mockReset()
   mocks.apiPost.mockReset()
   mocks.loadRemoteComponent.mockReset()
   resetAgentPetComponentLoads()
   mockPetBackend([], null)
+})
+
+afterEach(() => {
+  config.global.plugins = originalPlugins
 })
 
 vi.mock('@/composables/useAppActivityLifecycle', () => ({

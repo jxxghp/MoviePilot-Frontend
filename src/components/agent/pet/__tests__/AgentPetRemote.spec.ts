@@ -1,4 +1,8 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
+import vuetify from '@/plugins/vuetify'
+import i18n from '@/plugins/i18n'
+import { config, flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h, onMounted, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentHostEvent, AgentPetContext, AgentPetDeclaration, MoviePilotAgentHost } from '@/types/agentHost'
@@ -7,6 +11,25 @@ import { resetAgentPetComponentLoads } from '@/utils/agentPetLoader'
 import AgentPetRemote from '../AgentPetRemote.vue'
 import AgentPetStage from '../AgentPetStage.vue'
 import { AGENT_PET_SAY_INJECTION_KEY } from '@/utils/agentPetSay'
+import type { PluginHostSDK } from '@/sdk/plugin'
+
+const originalPlugins = config.global.plugins
+
+beforeEach(() => {
+  config.global.plugins = [
+    ...originalPlugins,
+    createPinia(),
+    vuetify,
+    i18n,
+    createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { render: () => null } }],
+    }),
+  ]
+})
+afterEach(() => {
+  config.global.plugins = originalPlugins
+})
 
 const mocks = vi.hoisted(() => ({
   loadRemoteComponent: vi.fn(),
@@ -58,6 +81,7 @@ function createFakePet() {
       agent: { type: Object as PropType<MoviePilotAgentHost>, required: true },
       pet: { type: Object as PropType<AgentPetContext>, required: true },
       api: Object,
+      hostSdk: { type: Object as PropType<PluginHostSDK>, required: true },
       pluginId: String,
       sourcePluginId: String,
       action: { type: String, default: undefined },
@@ -66,6 +90,11 @@ function createFakePet() {
       motionActive: { type: Boolean, default: undefined },
     },
     setup(props) {
+      expect(props.hostSdk.context.surface).toBe('agent-pet')
+      expect(props.hostSdk.agent).toBe(props.agent)
+      expect(props.hostSdk.pet).toBe(props.pet)
+      expect(props.hostSdk.supports('agent.pet')).toBe(true)
+      expect(props.hostSdk.supports('subscription.manage')).toBe(false)
       received.props = props as unknown as Record<string, unknown>
       props.agent.on('pet.config', payload => received.events.push(payload))
       props.agent.subscribe(() => {

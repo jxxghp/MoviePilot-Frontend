@@ -1,12 +1,8 @@
 <script setup lang="ts">
+import { providePluginHostSDK } from '@/composables/usePluginHostSDK'
 import type { Component } from 'vue'
 import { createPluginInstanceApi } from '@/api'
 import { getRemoteModuleInfo, loadRemoteAppPageComponent } from '@/utils/federationLoader'
-import { useToast } from 'vue-toastification'
-import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
-import { provideScopedAgentHost } from '@/composables/useAgentHost'
-import { useConfirm } from '@/composables/useConfirm'
-import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const route = useRoute()
 
@@ -18,23 +14,15 @@ const pluginSourceId = ref<string>()
 const loadError = ref(false)
 let loadGeneration = 0
 
-// 侧栏联邦页面复用主应用 Toast 实例。
-const $toast = useToast()
-provide('moviepilot:toast', $toast)
-
-// 向侧栏全页联邦组件导出主应用公共弹窗入口。
-provide('moviepilot:dialog', openSharedDialog)
-
-// 确认弹窗单独提供，保留简单的 Promise<boolean> 调用方式。
-const createConfirm = useConfirm()
-provide('moviepilot:confirm', createConfirm)
-
-// 向侧栏全页联邦组件导出主程序原生订阅入口。
-const nativeSubscribe = usePluginNativeSubscribe()
-provide('moviepilot:nativeSubscribe', nativeSubscribe)
-
-// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
-provideScopedAgentHost(pluginId)
+// 统一 SDK 与兼容注入共用同一组宿主服务。
+const hostSdk = providePluginHostSDK({
+  surface: 'app',
+  pluginId,
+  sourcePluginId: pluginSourceId,
+  api: () => scopedPluginApi.value,
+})
+const nativeSubscribe = hostSdk.subscriptions.create
+const subscriptionManager = hostSdk.subscriptions.manage
 
 watch(
   [pluginId, navKey],
@@ -77,6 +65,8 @@ const scopedPluginApi = computed(() => createPluginInstanceApi(pluginId.value, p
       :is="RemoteView"
       :key="`${pluginId}-${navKey}`"
       :api="scopedPluginApi"
+      :host-sdk="hostSdk"
+      :subscription-manager="subscriptionManager"
       :native-subscribe="nativeSubscribe"
       :nav-key="navKey"
       :plugin-id="pluginId"

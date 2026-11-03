@@ -1,6 +1,6 @@
 # MoviePilot-Frontend
 
-*中文 | [English](README_EN.md)*
+_中文 | [English](README_EN.md)_
 
 [MoviePilot](https://github.com/jxxghp/MoviePilot) 的前端项目，最低支持 Node.js `20.19`，推荐使用 Node.js `24`。
 
@@ -10,7 +10,6 @@
 - 使用 Vite 作为构建工具，提供快速的开发体验
 - 支持多语言（中文/英文）
 - 完整的插件系统支持，包括远程组件动态加载
-
 
 ## 开发部署
 
@@ -68,11 +67,11 @@ ESLint、Prettier、Node 兼容范围及渐进式 CI 门禁见[前端代码质�
 node dist/service.js
 ```
 
-
 ### 模块联邦功能
 
 MoviePilot 现已支持模块联邦（Module Federation）功能，允许插件开发者创建可动态加载的远程组件，实现更丰富的插件用户界面。
 
 - [模块联邦开发指南](docs/module-federation-guide.md) - 如何开发远程组件插件
+- [插件前端 SDK v1](docs/plugin-frontend-sdk.md) - 宿主能力、公开类型与原生订阅管理
 - [模块联邦问题排查指南](docs/federation-troubleshooting.md) - 常见问题和解决方案
-- [插件远程组件示例](examples/plugin-component/) - 开发插件组件的完整示例项目 
+- [插件远程组件示例](examples/plugin-component/) - 开发插件组件的完整示例项目

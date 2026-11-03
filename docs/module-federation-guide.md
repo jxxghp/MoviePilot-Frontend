@@ -331,6 +331,7 @@ const emit = defineEmits(['action'])
 | 当前实例 ID      | ✓    | ✓      | ✓         | ✓       | ✓        | `pluginId` prop                                                   |
 | 共享源码 ID      | ✓    | ✓      | ✓         | ✓       | ✓        | `sourcePluginId` prop；普通插件为空                               |
 | 原生订阅交互     | ✓    | ✓      | ✓         | ✓       |          | `nativeSubscribe` prop 或 `inject('moviepilot:nativeSubscribe')`  |
+| 原生订阅管理     | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:subscriptionManager')`                        |
 | 主应用统一 Toast | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:toast')`                                      |
 | 主应用公共弹窗   | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:dialog')`                                     |
 | 主应用确认弹窗   | ✓    | ✓      | ✓         | ✓       |          | `inject('moviepilot:confirm')`                                    |
@@ -359,6 +360,12 @@ V3 新建插件分身会复用源插件的同一份联邦产物。宿主传入�
 
 动态模式只在主应用启用玻璃主题和实时光学能力时生效。其他主题、降低动态效果或光学能力不可用时，插件必须保持内容与交互正常，不应依赖动态光学表达业务状态或必要反馈。
 
+### 统一的前端插件 SDK
+
+新插件优先通过 `hostSdk` prop 或 `inject('moviepilot:sdk')` 获取版本化宿主能力。SDK v1 提供实例 API、公共界面、媒体选择与详情、资源搜索下载、订阅新增与管理、文件整理刮削、公共目录、环境权限、偏好、事件、导航工具栏、工作流及 Agent 能力；使用 `supports()` 检测具体能力，旧注入键继续兼容。公开类型及 ESM 文件位于前端部署目录的 `plugin-sdk/v1/`，由同一份契约源生成。
+
+完整类型、能力矩阵、管理动作、错误码和迁移示例见[插件前端 SDK v1](plugin-frontend-sdk.md)。SDK 随包含该实现的前端发行包提供，不应单凭主程序版本号推断支持情况。
+
 ### 5.7 调用主应用原生订阅
 
 `Page`、`Config`、`Dashboard` 与 `AppPage` 都会收到 `nativeSubscribe(mediaInfo)` prop。插件传入媒体信息后，电视剧会打开主应用的选季抽屉，电影会进入现有电影订阅流程。宿主也会用 `moviepilot:nativeSubscribe` 键提供同一个方法，深层子组件可以使用 `inject`，无需逐层传递 prop。
@@ -367,7 +374,7 @@ V3 新建插件分身会复用源插件的同一份联邦产物。宿主传入�
 
 - `type`：`电影` / `电视剧`，也兼容 `movie` / `tv`；
 - `title`；
-- 至少一个有效媒体标识：`tmdb_id` / `tmdbid`、`douban_id` / `doubanid`、`bangumi_id` / `bangumiid`、`anilist_id` / `anilistid`，或者 `media_id` 与 `mediaid_prefix` / `source` / `media_source` 的组合。
+- 统一媒体身份 `media_source` 与 `media_id`，例如 `{ media_source: 'themoviedb', media_id: '123' }`。辅助来源 ID 和旧别名不能替代这两个字段。
 
 ```vue
 <script setup lang="ts">
@@ -558,6 +565,27 @@ exposes: {
   // ...
 }
 ```
+
+### 5.10.1 管理现有订阅
+
+`Page`、`Config`、`Dashboard` 与 `AppPage` 可使用 SDK 的 `subscriptions.manage`、`subscriptionManager` prop，或兼容的 `moviepilot:subscriptionManager` 注入键：
+
+```js
+import { inject } from 'vue'
+
+const manageSubscription = inject('moviepilot:subscriptionManager', null)
+const result = await manageSubscription?.({
+  action: 'edit',
+  subscriptionId: subscription.id,
+  onChanged: refreshSubscriptions,
+})
+```
+
+支持 `edit`、`search`、`pause`、`resume`、`reset`、`activity`、`detail`、`delete`、`logs`、`files`、`execution` 和 `share`。编辑与订阅活动复用原生公共弹窗；媒体详情进入原生路由；搜索、状态切换、重置和取消订阅复用原生 API，重置保留清除下载记录的确认提示。
+
+入口只接收订阅 ID，宿主重新获取当前用户有权访问的完整记录，不采信插件提供的媒体身份或用户名。成功返回 `{ success:true, status:'opened'|'completed' }`；编辑弹窗打开时不会立即调用 `onChanged`，只有保存或移除后才通知刷新。失败包含稳定 `code`，取消另带 `cancelled:true`；完整语义见 SDK 文档。
+
+该入口需要提供此能力的主程序前端。旧宿主中注入值可能为空，插件应提示能力缺失并保留可用的旧管理入口，不自行复制原生编辑或活动弹窗。
 
 ### 5.11 Agent 助手形象（AgentPet）
 
