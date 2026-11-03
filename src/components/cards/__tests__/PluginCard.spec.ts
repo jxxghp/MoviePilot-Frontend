@@ -375,7 +375,7 @@ describe('PluginCard lifecycle actions', () => {
     await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
 
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
-      params: { force: false },
+      params: { force: true },
     })
     expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
       initialSourceSelectionOpen: true,

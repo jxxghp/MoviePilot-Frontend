@@ -489,15 +489,19 @@ async function fetchMarketPlugin(pluginId?: string) {
   }
 }
 
-/** 读取已安装插件的最新市场详情，并保留本地运行状态字段。 */
-async function fetchInstalledPluginDetail() {
+/**
+ * 读取已安装插件的最新市场详情，并保留本地运行状态字段。
+ *
+ * @param force 是否让宿主忽略市场索引缓存重新取一次；「更新」按市场当前版本安装时必须为真
+ */
+async function fetchInstalledPluginDetail(force = false) {
   let pluginDetail = props.plugin
   if (!props.plugin?.id) return pluginDetail
 
   try {
     const historyPlugin: Plugin = await api.get(`plugin/history/${props.plugin.id}`, {
       params: {
-        force: false,
+        force,
       },
     })
     pluginDetail = { ...(props.plugin || {}), ...(historyPlugin || {}), installed: true } as Plugin
@@ -535,7 +539,11 @@ function showPluginAbout(initialSourceSelectionOpen = false) {
   )
   marketDetailDialogController = controller
 
-  void fetchInstalledPluginDetail().then(latestPluginDetail => {
+  // 卡片的「更新」不带版本号，宿主安装链路按设计不刷新市场索引
+  // （application/plugin/gateway.py: 安装 force 只控制载荷覆盖），tag 由索引里的版本拼出。
+  // 因此标记有更新时必须在这里强制取一次当前索引，否则索引缓存期内点更新
+  // 会重装同一个旧版本并提示成功；「版本历史」入口本来就是 force 读取，行为才一致。
+  void fetchInstalledPluginDetail(Boolean(props.plugin?.has_update)).then(latestPluginDetail => {
     if (latestPluginDetail && marketDetailDialogController === controller) {
       controller.updateProps({ plugin: latestPluginDetail })
     }

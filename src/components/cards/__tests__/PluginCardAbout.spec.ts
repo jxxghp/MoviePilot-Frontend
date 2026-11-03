@@ -100,6 +100,23 @@ describe('PluginCard about menu', () => {
     expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
   })
 
+  it('refreshes the market index before an update started from the about dialog', async () => {
+    // 卡片的「更新」不传版本号，宿主安装链路按市场索引里的版本拼 Release tag；
+    // 索引缓存期内打开关于必须强刷一次，否则会重装同一个旧版本并提示更新成功。
+    const { container } = await renderWithProviders(PluginCard, {
+      props: { plugin: { ...plugin, has_update: true } },
+    })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('关于'))
+
+    await waitFor(() => {
+      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
+        params: { force: true },
+      })
+    })
+  })
+
   it('routes a history source action into the source management dialog', async () => {
     const { container } = await renderWithProviders(PluginCard, {
       props: { plugin: { ...plugin, has_update: true }, count: 24 },
@@ -116,7 +133,7 @@ describe('PluginCard about menu', () => {
 
     expect(mocks.closeDialog).toHaveBeenCalled()
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
-      params: { force: false },
+      params: { force: true },
     })
     expect(mocks.openSharedDialog).toHaveBeenCalledTimes(2)
     expect(mocks.openSharedDialog.mock.calls[1][1].plugin).toMatchObject({
