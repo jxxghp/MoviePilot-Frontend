@@ -536,8 +536,24 @@ const { manager, isConnected } = useSSE(
 const failureListenerId = `${listenerId}:failure`
 manager.addStatusListener(failureListenerId, status => {
   streamFailed.value = status === 'error'
+  // 服务端在每次建立连接时都会先重发历史尾部，重连后清空已显示内容，避免同一批日志重复出现。
+  // 暂停期间本视图不接收消息，保留现有内容，恢复后继续追加。
+  if (status === 'open' && !isStreamPaused.value) {
+    resetDisplayedLogs()
+  }
 })
 onUnmounted(() => manager.removeStatusListener(failureListenerId))
+
+/** 清空待写入缓冲和已显示日志，供重连后接收服务端重发的历史尾部。 */
+function resetDisplayedLogs() {
+  if (timeoutId) {
+    clearTimeout(timeoutId)
+    timeoutId = null
+  }
+  buffer.length = 0
+  parsedLogs.value = []
+  pendingLogCount.value = 0
+}
 
 /** 暂停实时日志流。 */
 function pauseStream() {
