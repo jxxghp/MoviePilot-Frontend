@@ -3516,7 +3516,9 @@ describe('AgentAssistantPanel agent host bridge', () => {
     const wrapper = mountPanel()
     await wrapper.get('textarea').setValue('尚未发送的草稿')
 
-    await (wrapper.vm as unknown as { startDiagnostic: (prompt: string) => Promise<void> }).startDiagnostic('分析 moviepilot.log')
+    await (wrapper.vm as unknown as { startDiagnostic: (prompt: string) => Promise<void> }).startDiagnostic(
+      '分析 moviepilot.log',
+    )
     await flushPromises()
 
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/message/agent/stream'))
@@ -3541,7 +3543,9 @@ describe('AgentAssistantPanel agent host bridge', () => {
     await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
     await flushPromises()
 
-    await (wrapper.vm as unknown as { startDiagnostic: (prompt: string) => Promise<void> }).startDiagnostic('分析插件日志')
+    await (wrapper.vm as unknown as { startDiagnostic: (prompt: string) => Promise<void> }).startDiagnostic(
+      '分析插件日志',
+    )
     await flushPromises()
 
     expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/message/agent/stream'))).toHaveLength(1)
