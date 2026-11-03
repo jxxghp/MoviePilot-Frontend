@@ -325,6 +325,32 @@ describe('LoggingView', () => {
     expect(screen.getByTitle('暂停日志流')).toBeInTheDocument()
   })
 
+  it('重连后用服务端重发的历史尾部替换已显示内容，不重复展示同一批日志', async () => {
+    const { container, handler } = await mountReady()
+    const statusListener = mocks.addStatusListener.mock.calls.at(-1)?.[1] as (status: string) => void
+    const history = 'INFO: 2026-08-19 10:00:00,000 source - history line'
+    await emitAndFlush(handler, history)
+
+    handler(new MessageEvent('message', { data: 'INFO: 2026-08-19 10:00:01,000 source - stale buffered line' }))
+    statusListener('error')
+    statusListener('open')
+    await emitAndFlush(handler, history)
+
+    expect(recordBodies(container)).toEqual(['10:00:00,000 history line'])
+  })
+
+  it('暂停期间连接重新打开时保留已显示日志', async () => {
+    const { container, handler } = await mountReady()
+    const statusListener = mocks.addStatusListener.mock.calls.at(-1)?.[1] as (status: string) => void
+    await emitAndFlush(handler, 'INFO: 2026-08-19 10:00:00,000 source - kept while paused')
+
+    await fireEvent.click(screen.getByTitle('暂停日志流'))
+    statusListener('open')
+    await nextTick()
+
+    expect(recordBodies(container)).toEqual(['10:00:00,000 kept while paused'])
+  })
+
   it('卸载时清空尚未刷新的组件缓冲定时器', async () => {
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout')
     const { handler, unmount } = await mountReady()
