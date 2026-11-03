@@ -46,6 +46,15 @@ describe('useRangeSelection', () => {
     expect(list.selected()).toEqual(['a', 'b', 'd'])
   })
 
+  it('clears a pending checkbox modifier when resetting the selection session', () => {
+    const list = createList(['a', 'b', 'c', 'd'])
+    list.selection.onCheckboxClick(new MouseEvent('click', { shiftKey: true }))
+    list.selection.reset()
+    list.selection.select('b', true)
+    list.selection.selectFromCheckbox('d', true)
+    expect(list.selected()).toEqual(['b', 'd'])
+  })
+
   it('uses the Shift state recorded by the preceding checkbox click once', () => {
     const list = createList(['a', 'b', 'c'])
     list.selection.selectFromCheckbox('a', true)

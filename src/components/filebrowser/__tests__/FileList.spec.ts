@@ -4,6 +4,7 @@ import FileList from '@/components/filebrowser/FileList.vue'
 import type { FileSortKey, FileSortOrder } from '@/components/filebrowser/types'
 import i18n from '@/plugins/i18n'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
 import { nativeCardMenus } from '@/native/card'
@@ -188,6 +189,7 @@ async function renderList(
     active?: boolean
     item?: FileItem
     refreshpending?: boolean
+    realSelectionControls?: boolean
     sort?: string
     sortKey?: FileSortKey
     sortOrder?: FileSortOrder
@@ -195,7 +197,7 @@ async function renderList(
 ) {
   const axios = Object.assign(vi.fn(), { request: vi.fn(request) }) as unknown as DataApiClient
   const result = await renderWithProviders(FileList, {
-    global: { stubs },
+    global: { stubs: options.realSelectionControls ? { ...stubs, VCheckbox: false, VListItem: false } : stubs },
     props: {
       active: options.active ?? true,
       axios,
@@ -618,6 +620,140 @@ describe('FileList list state', () => {
     await fireEvent.click(row('d.mkv'))
     await fireEvent.click(row('b.mkv'), { shiftKey: true })
     expect(await reorganizedNames()).toEqual(['e.mkv'])
+  })
+})
+
+describe('FileList native selection events', () => {
+  const names = ['a.mkv', 'b.mkv', 'c.mkv', 'd.mkv']
+  const files = names.map(name => createItem({ name, path: `/media/${name}` }))
+
+  beforeEach(() => {
+    mocks.narrowScreen = false
+    mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
+  })
+
+  /** 使用真实 Vuetify 行和复选框，保留测试网络与虚拟滚动边界。 */
+  async function renderSelection() {
+    const result = await renderList(() => Promise.resolve(files), { realSelectionControls: true })
+    await screen.findByText('a.mkv')
+    await fireEvent.click(getIconButton('mdi-select'))
+    return result
+  }
+
+  /** 从可访问名称读取真实原生复选框。 */
+  function checkbox(name: string) {
+    return screen.getByRole('checkbox', { name }) as HTMLInputElement
+  }
+
+  /** 文件名所在的真实可聚焦列表项。 */
+  function row(name: string) {
+    return screen.getByText(name).closest('.file-row') as HTMLElement
+  }
+
+  /** 同时核对用户可见计数、原生勾选、Vuetify 状态与行高亮。 */
+  function expectSelection(selectedNames: string[]) {
+    expect(screen.getByText(`已选择 ${selectedNames.length} 项`)).toBeInTheDocument()
+    for (const name of names) {
+      const selected = selectedNames.includes(name)
+      expect(checkbox(name).checked).toBe(selected)
+      expect(checkbox(name).closest('.v-selection-control')?.classList.contains('v-selection-control--dirty')).toBe(
+        selected,
+      )
+      expect(row(name).classList.contains('file-row--active')).toBe(selected)
+    }
+  }
+
+  /** 从整理入口读取实际传出的文件集合，不读取组件内部状态。 */
+  async function expectReorganizedFiles(selectedNames: string[]) {
+    await fireEvent.click(getIconButton('mdi-folder-arrow-right'))
+    const selectedItems = (mocks.openSharedDialog.mock.calls.at(-1)?.[1] as { items: FileItem[] }).items
+    expect(selectedItems).toEqual(files.filter(item => selectedNames.includes(item.name!)))
+  }
+
+  it.each(['checkbox', 'filename', 'row-enter', 'row-space', 'checkbox-space'] as const)(
+    'keeps single and Shift %s activations in sync without replacing the focused control',
+    async activation => {
+      await renderSelection()
+      const user = userEvent.setup()
+      const inputs = names.map(checkbox)
+      const rows = names.map(row)
+      const activate = async (name: string, shift = false) => {
+        const target = activation.startsWith('row-') ? row(name) : checkbox(name)
+        if (activation.endsWith('space') || activation.endsWith('enter')) target.focus()
+        if (shift) await user.keyboard('{Shift>}')
+        if (activation === 'checkbox') await user.click(target)
+        else if (activation === 'filename') await user.click(screen.getByText(name))
+        else await user.keyboard(activation.endsWith('enter') ? '{Enter}' : ' ')
+        if (shift) await user.keyboard('{/Shift}')
+        if (activation !== 'filename' && (!shift || activation !== 'checkbox')) {
+          expect(document.activeElement).toBe(target)
+        }
+      }
+
+      await activate('a.mkv')
+      expectSelection(['a.mkv'])
+      await activate('c.mkv', true)
+      expectSelection(['a.mkv', 'b.mkv', 'c.mkv'])
+      await activate('a.mkv', true)
+      expectSelection(['a.mkv', 'b.mkv', 'c.mkv'])
+      await activate('b.mkv')
+      expectSelection(['a.mkv', 'c.mkv'])
+      const previousFocus = document.activeElement
+      await activate('d.mkv', true)
+      expectSelection(['a.mkv'])
+      if (activation === 'checkbox') expect(document.activeElement).toBe(previousFocus)
+      names.forEach((name, index) => {
+        expect(checkbox(name)).toBe(inputs[index])
+        expect(row(name)).toBe(rows[index])
+      })
+      await expectReorganizedFiles(['a.mkv'])
+    },
+  )
+
+  it('discards the old range anchor after finishing and reentering selection', async () => {
+    await renderSelection()
+    await fireEvent.click(checkbox('a.mkv'))
+    await fireEvent.click(getIconButton('mdi-selection-remove'))
+    await fireEvent.click(getIconButton('mdi-select'))
+    await fireEvent.click(checkbox('c.mkv'), { shiftKey: true })
+    expectSelection(['c.mkv'])
+    await expectReorganizedFiles(['c.mkv'])
+  })
+
+  it('retains hidden selections without extending from a filtered-out anchor', async () => {
+    await renderSelection()
+    await fireEvent.click(checkbox('a.mkv'))
+    await fireEvent.update(screen.getByRole('searchbox'), 'd.mkv')
+    expect(screen.queryByRole('checkbox', { name: 'a.mkv' })).not.toBeInTheDocument()
+    await fireEvent.click(checkbox('d.mkv'), { shiftKey: true })
+    await fireEvent.update(screen.getByRole('searchbox'), '')
+    expectSelection(['a.mkv', 'd.mkv'])
+    await expectReorganizedFiles(['a.mkv', 'd.mkv'])
+  })
+
+  it('lets Escape and Tab reach host keyboard listeners from the checkbox', async () => {
+    await renderSelection()
+    const keys: string[] = []
+    const onKeydown = (event: KeyboardEvent) => keys.push(event.key)
+    window.addEventListener('keydown', onKeydown)
+    try {
+      checkbox('a.mkv').focus()
+      await userEvent.setup().keyboard('{Escape}{Tab}')
+      expect(keys).toEqual(['Escape', 'Tab'])
+      expectSelection([])
+    } finally {
+      window.removeEventListener('keydown', onKeydown)
+    }
+  })
+
+  it('keeps row Enter navigation active outside selection mode', async () => {
+    const directory = createItem({ name: 'shows', path: '/media/shows/', type: 'dir' })
+    const { emitted } = await renderList(() => Promise.resolve([directory]), { realSelectionControls: true })
+    await screen.findByText('shows')
+    row('shows').focus()
+    await userEvent.setup().keyboard('{Enter}')
+    expect((emitted().pathchanged as Array<[FileItem]>).at(-1)?.[0]).toEqual(directory)
+    expect(emitted().pathchanged).toHaveLength(1)
   })
 })
 
