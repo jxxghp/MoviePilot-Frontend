@@ -23,9 +23,11 @@ import FilterRuleGroupCard from '@/components/cards/FilterRuleGroupCard.vue'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useUserStore } from '@/stores'
 
 // 国际化
 const { t } = useI18n()
+const userStore = useUserStore()
 
 const props = defineProps({
   active: {
@@ -37,6 +39,12 @@ const props = defineProps({
 // 拖拽库和导入弹窗只在规则编辑交互中需要，拆出设置页入口 chunk。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const ImportCodeDialog = defineAsyncComponent(() => import('@/components/dialog/ImportCodeDialog.vue'))
+const TorrentBlacklistDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentBlacklistDialog.vue'))
+
+/** 管理员入口复用下载历史中的黑名单管理组件。 */
+function openBlacklist() {
+  if (userStore.superUser) openSharedDialog(TorrentBlacklistDialog)
+}
 
 const originalCustomRuleId = Symbol('originalCustomRuleId')
 const originalRuleGroupName = Symbol('originalRuleGroupName')
@@ -58,7 +66,7 @@ const savingFilterRuleGroups = ref(false)
 const selectedTorrentPriority = ref<string[]>(['seeder'])
 
 // 二级分类策略
-const mediaCategories = ref<{ [key: string]: any }>({})
+const mediaCategories = ref<Record<string, string[]>>({})
 
 // 提示框
 const $toast = useToast()
@@ -405,9 +413,9 @@ async function importRules(ruleType: string) {
 }
 
 // 保存导入的代码
-function saveCodeString(type: string, codeString: any) {
+function saveCodeString(type: string, codeString: { value: string }) {
   // codeString从子组件传递过来，从对象转换为JSON
-  let parsedCode
+  let parsedCode: unknown
   try {
     parsedCode = JSON.parse(codeString.value)
   } catch (e) {
@@ -420,11 +428,11 @@ function saveCodeString(type: string, codeString: any) {
   try {
     if (type === 'custom') {
       if (!checkValueValidity(parsedCode, type)) return false
-      const newCustomRules = extractCustomRules(parsedCode) || []
+      const newCustomRules = extractCustomRules(parsedCode as CustomRule[]) || []
       customRules.value = [...customRules.value, ...newCustomRules]
     } else if (type === 'group') {
       if (!checkValueValidity(parsedCode, type)) return false
-      const newFilterRuleGroups = extractFilterRuleGroups(parsedCode) || []
+      const newFilterRuleGroups = extractFilterRuleGroups(parsedCode as FilterRuleGroup[]) || []
       filterRuleGroups.value = [...filterRuleGroups.value, ...newFilterRuleGroups]
     } else {
       $toast.error(t('setting.rule.importUnknownType'))
@@ -436,9 +444,9 @@ function saveCodeString(type: string, codeString: any) {
 }
 
 // 赋值自定义规则，避免存在多余的属性
-function extractCustomRules(value: any) {
+function extractCustomRules(value: CustomRule[]) {
   try {
-    return value.map((item: any) => {
+    return value.map(item => {
       return {
         id: item.id,
         name: item.name,
@@ -455,9 +463,9 @@ function extractCustomRules(value: any) {
 }
 
 // 赋值规则组，避免存在多余的属性
-function extractFilterRuleGroups(value: any) {
+function extractFilterRuleGroups(value: FilterRuleGroup[]) {
   try {
-    return value.map((item: any) => {
+    return value.map(item => {
       return {
         name: item.name,
         rule_string: item.rule_string,
@@ -471,10 +479,11 @@ function extractFilterRuleGroups(value: any) {
 }
 
 // 根据ID简单区分规则与规则组
-function checkValueValidity(values: any, type: string): boolean {
+function checkValueValidity(values: unknown, type: string): boolean {
   try {
     if (!values) return true
     if (!type) return false
+    if (!Array.isArray(values)) return false
 
     for (const value of values) {
       if (!isValidValue(value, type)) return false
@@ -486,7 +495,8 @@ function checkValueValidity(values: any, type: string): boolean {
   }
 }
 
-function isValidValue(value: any, type: string): boolean {
+function isValidValue(value: unknown, type: string): boolean {
+  if (value === null || typeof value !== 'object') return false
   const keys = Object.keys(value)
   const uniqueKeys = new Set(keys)
   const hasName = keys.includes('name')
@@ -751,6 +761,9 @@ useSilentSettingRefresh(loadPageData, {
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn type="submit" @click="saveTorrentPriority" prepend-icon="mdi-content-save">
                 {{ t('common.save') }}
+              </VBtn>
+              <VBtn v-if="userStore.superUser" variant="tonal" prepend-icon="mdi-cancel" @click="openBlacklist">
+                {{ t('dialog.blacklist.title') }}
               </VBtn>
             </div>
           </VForm>

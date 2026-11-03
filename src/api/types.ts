@@ -1684,6 +1684,12 @@ export interface SearchDiagnostics {
 
 // 种子信息
 export interface TorrentInfo {
+  /** 来源或插件返回的发布者，未知时不匹配发布者规则。 */
+  uploader?: string | null
+  /** 具体种子 ID，不是资源分组 ID。 */
+  torrent_id?: string | null
+  /** 来源或插件返回的 BitTorrent 内容哈希。 */
+  info_hash?: string | null
   // 站点ID
   site?: number
   // 站点名称

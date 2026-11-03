@@ -1,9 +1,11 @@
 <script lang="ts" setup>
 import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import api from '@/api'
+import { blacklistHistory } from '@/api/blacklist'
+import { getApiErrorMessage } from '@/api/client'
 import type { DownloadHistory } from '@/api/types'
 import SourceClassificationDialog from '@/components/dialog/SourceClassificationDialog.vue'
-import { useGlobalSettingsStore } from '@/stores'
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { formatDateDifference } from '@core/utils/formatters'
 import noImage from '@images/no-image.jpeg'
@@ -16,6 +18,7 @@ const emit = defineEmits(['close'])
 const { t } = useI18n()
 const display = useDisplay()
 const globalSettingsStore = useGlobalSettingsStore()
+const userStore = useUserStore()
 const $toast = useToast()
 
 const historyList = ref<DownloadHistory[]>([])
@@ -25,6 +28,23 @@ const pageSize = 30
 const loading = ref(false)
 const isRefreshed = ref(false)
 const classifyTask = ref<DownloadHistory>()
+const blacklistOpen = ref(false)
+const pendingBlacklist = ref(new Set<number>())
+const TorrentBlacklistDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentBlacklistDialog.vue'))
+
+/** 桌面和原生菜单共用一键屏蔽，按历史 ID 防重入并保留历史行。 */
+async function addHistoryToBlacklist(item: DownloadHistory) {
+  if (!userStore.superUser || pendingBlacklist.value.has(item.id)) return
+  pendingBlacklist.value.add(item.id)
+  try {
+    const result = await blacklistHistory(item.id)
+    $toast.success(t(result.created ? 'dialog.blacklist.added' : 'dialog.blacklist.duplicate'))
+  } catch (error) {
+    $toast.error(getApiErrorMessage(error) || t('dialog.blacklist.addFailed'))
+  } finally {
+    pendingBlacklist.value.delete(item.id)
+  }
+}
 
 /** 分页加载下载历史，并将新页追加到现有列表。 */
 async function loadHistory({ done }: { done: (status: 'empty' | 'error' | 'ok') => void }) {
@@ -123,6 +143,13 @@ function nativeHistoryMenu(item: DownloadHistory): NativeCardMenuBinding {
         color: 'error',
         invoke: () => deleteHistory(item),
       }),
+      nativeCardAction('blacklist', {
+        title: t('dialog.blacklist.fromHistory'),
+        icon: 'mdi-cancel',
+        visible: userStore.superUser,
+        enabled: !pendingBlacklist.value.has(item.id),
+        invoke: () => addHistoryToBlacklist(item),
+      }),
     ],
   }
 }
@@ -137,7 +164,18 @@ function nativeHistoryMenu(item: DownloadHistory): NativeCardMenuBinding {
   >
     <VCard class="download-history-dialog mx-auto d-flex flex-column" width="100%">
       <VCardItem class="flex-none">
-        <VCardTitle>{{ t('dialog.downloadHistory.title') }}</VCardTitle>
+        <VCardTitle class="d-flex align-center flex-wrap ga-2">
+          {{ t('dialog.downloadHistory.title') }}
+          <VBtn
+            v-if="userStore.superUser"
+            variant="text"
+            size="small"
+            prepend-icon="mdi-cancel"
+            @click="blacklistOpen = true"
+          >
+            {{ t('dialog.blacklist.title') }}
+          </VBtn>
+        </VCardTitle>
       </VCardItem>
       <VDivider class="flex-none" />
       <VDialogCloseBtn @click="emit('close')" />
@@ -224,6 +262,14 @@ function nativeHistoryMenu(item: DownloadHistory): NativeCardMenuBinding {
                             </template>
                             <VListItemTitle>{{ t('common.delete') }}</VListItemTitle>
                           </VListItem>
+                          <VListItem
+                            v-if="userStore.superUser"
+                            :disabled="pendingBlacklist.has(item.id)"
+                            @click="addHistoryToBlacklist(item)"
+                          >
+                            <template #prepend><VIcon icon="mdi-cancel" /></template>
+                            <VListItemTitle>{{ t('dialog.blacklist.fromHistory') }}</VListItemTitle>
+                          </VListItem>
                         </VList>
                       </VMenu>
                     </IconBtn>
@@ -246,6 +292,7 @@ function nativeHistoryMenu(item: DownloadHistory): NativeCardMenuBinding {
       </VCardText>
 
       <SourceClassificationDialog v-if="classifyTask" :task="classifyTask" @close="classifyTask = undefined" />
+      <TorrentBlacklistDialog v-if="blacklistOpen && userStore.superUser" @close="blacklistOpen = false" />
     </VCard>
   </VDialog>
 </template>

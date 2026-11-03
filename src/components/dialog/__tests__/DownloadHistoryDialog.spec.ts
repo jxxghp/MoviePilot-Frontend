@@ -12,10 +12,17 @@ import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
+import { apiFailureJson } from '@tests/support/msw/response'
+import { blacklistEntry, blacklistListHandler, blacklistUrl } from '@tests/support/msw/handlers/blacklist'
+import { readNativeCardMenu } from '@tests/support/nativeCardMenu'
+import { nativeCardMenus } from '@/native/card'
 import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type InfiniteScrollStatus = 'empty' | 'error' | 'ok'
+
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
+vi.mock('vue-toastification', () => ({ useToast: () => toast }))
 
 const InfiniteScrollStub = defineComponent({
   name: 'VInfiniteScroll',
@@ -137,9 +144,10 @@ function historyRow(item: DownloadHistory) {
   return row as HTMLElement
 }
 
-async function renderDialog() {
+async function renderDialog(admin = false) {
   const close = vi.fn()
   const result = await renderWithProviders(DownloadHistoryDialog, {
+    initialState: { user: { superUser: admin } },
     props: {
       modelValue: true,
       onClose: close,
@@ -162,6 +170,75 @@ async function renderDialog() {
 describe('DownloadHistoryDialog', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    toast.success.mockClear()
+    toast.error.mockClear()
+  })
+
+  it('管理员从标题打开共享黑名单管理，普通用户没有入口', async () => {
+    const user = userEvent.setup()
+    server.use(
+      downloadHistoryHandler([]),
+      blacklistListHandler({ items: [], total: 0, page: 1, count: 20 }),
+      http.get('http://localhost/api/v1/site/', () => apiJson([])),
+    )
+    const normal = await renderDialog()
+    expect(screen.queryByRole('button', { name: '种子黑名单' })).not.toBeInTheDocument()
+    normal.unmount()
+    await renderDialog(true)
+    await user.click(screen.getByRole('button', { name: '种子黑名单' }))
+    expect(await screen.findByRole('button', { name: '添加规则' })).toBeInTheDocument()
+  })
+
+  it('历史一键屏蔽按行防重复点击，成功后保留原历史', async () => {
+    const user = userEvent.setup()
+    const item = createHistory({ id: 7, title: '保留历史' })
+    let finish!: () => void
+    const delayed = new Promise<void>(resolve => {
+      finish = resolve
+    })
+    const requests = vi.fn()
+    server.use(
+      downloadHistoryHandler([item]),
+      http.post(`${blacklistUrl}/history/7`, async () => {
+        requests()
+        await delayed
+        return apiJson({ entry: blacklistEntry(), created: true })
+      }),
+    )
+    await renderDialog(true)
+    await user.click(await screen.findByText('加入种子黑名单'))
+    await user.click(screen.getByText('加入种子黑名单'))
+    await waitFor(() => expect(requests).toHaveBeenCalledOnce())
+    finish()
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('已加入种子黑名单'))
+    expect(screen.getByText('保留历史')).toBeInTheDocument()
+  })
+
+  it('原生历史菜单调用同一接口，失败显示服务端手动规则指引', async () => {
+    const item = createHistory({ id: 8, title: '旧历史' })
+    server.use(
+      downloadHistoryHandler([item]),
+      http.post(`${blacklistUrl}/history/8`, () => apiFailureJson('请添加手动黑名单规则', null)),
+    )
+    await renderDialog(true)
+    await screen.findByText('旧历史')
+    const menu = readNativeCardMenu(historyRow(item))!
+    expect(menu.items.find(entry => entry.id === 'action-blacklist')).toMatchObject({
+      title: '加入种子黑名单',
+      enabled: true,
+    })
+    await nativeCardMenus.menus.select(menu.presentationId, 'action-blacklist', () => {})
+    expect(toast.error).toHaveBeenCalledWith('请添加手动黑名单规则')
+    expect(screen.getByText('旧历史')).toBeInTheDocument()
+  })
+
+  it('普通用户的原生和桌面历史菜单都不显示黑名单动作', async () => {
+    const item = createHistory({ title: '普通用户历史' })
+    server.use(downloadHistoryHandler([item]))
+    await renderDialog()
+    await screen.findByText('普通用户历史')
+    expect(screen.queryByText('加入种子黑名单')).not.toBeInTheDocument()
+    expect(readNativeCardMenu(historyRow(item))!.items.some(entry => entry.id === 'action-blacklist')).toBe(false)
   })
 
   it('loads and renders download history with page parameters', async () => {

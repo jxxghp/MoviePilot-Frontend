@@ -179,6 +179,16 @@ describe('AccountSettingRule', () => {
     mockLoadedRules()
   })
 
+  it('下载规则卡片只向管理员提供共享黑名单入口', async () => {
+    const user = userEvent.setup()
+    const normal = await renderRuleSettings()
+    expect(screen.queryByRole('button', { name: '种子黑名单' })).not.toBeInTheDocument()
+    normal.unmount()
+    await renderWithProviders(AccountSettingRule, { initialState: { user: { superUser: true } } })
+    await user.click(screen.getByRole('button', { name: '种子黑名单' }))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+  })
+
   it('loads rules, groups, priority, and follows active refresh state', async () => {
     const { rerender } = await renderRuleSettings()
 
