@@ -174,6 +174,15 @@ describe('AccountSettingNotification', () => {
     mockLoadedSettings()
   })
 
+  it('通知页面不重复提供智能体主动通知配置，也不读取该策略', async () => {
+    await renderNotificationSettings()
+    await screen.findByText('Alpha / wechatclawbot')
+    expect(screen.queryByRole('region', { name: '自动整理接管通知' })).not.toBeInTheDocument()
+    expect(screen.queryByText('智能体主动通知')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '保存通知策略' })).not.toBeInTheDocument()
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('system/setting/NotificationPolicies')
+  })
+
   it('模板读取逆序完成时只打开最后选择的模板并保存到相同目标', async () => {
     const user = userEvent.setup()
     await renderNotificationSettings()

@@ -3857,12 +3857,11 @@ export default {
       templateLoadFailed: 'Failed to load template!',
       scope: 'Notification Scope',
       agentTransferPolicy: {
-        section: 'Proactive Agent Notifications',
         title: 'Automatic Transfer Takeover Notifications',
         all: 'All notifications',
         attention: 'Only when attention is needed',
         off: 'Disable proactive notifications',
-        hint: 'Controls only automatic takeover pushes, not automatic processing, manual replies or normal import notices. Full reports remain in message history. Channels must allow the Agent message type. Both settings pages use this same policy; save it separately to apply immediately.',
+        hint: 'Controls only automatic takeover pushes, not automatic processing, manual replies or normal import notices. Full reports remain in message history. Channels must allow the Agent message type. Save this policy separately to apply immediately.',
         save: 'Save notification policy',
         saved: 'Notification policy saved',
         loadFailed:

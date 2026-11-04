@@ -1,4 +1,3 @@
-import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
@@ -18,20 +17,16 @@ describe('自动整理接管通知策略控件', () => {
     mocks.post.mockResolvedValue({ success: true })
   })
 
-  it('两个入口同步编辑，并且仅保存同一个通知策略接口', async () => {
-    const pair = defineComponent({
-      components: { AgentTransferNotificationPolicy },
-      template: '<AgentTransferNotificationPolicy /><AgentTransferNotificationPolicy />',
-    })
+  it('单一入口编辑并独立保存通知策略，不提交智能体系统设置', async () => {
     const user = userEvent.setup()
-    await renderWithProviders(pair, { stubActions: false })
-    const fields = screen.getAllByRole('combobox', { name: '自动整理接管通知' })
-    await waitFor(() => expect(fields[0]).toHaveAttribute('aria-disabled', 'false'))
-    await user.click(fields[0])
+    await renderWithProviders(AgentTransferNotificationPolicy, { stubActions: false })
+    const field = screen.getByRole('combobox', { name: '自动整理接管通知' })
+    await waitFor(() => expect(field).toHaveAttribute('aria-disabled', 'false'))
+    await user.click(field)
     await user.click(await screen.findByRole('option', { name: '仅需人工处理时通知' }))
-    const sections = screen.getAllByRole('region', { name: '自动整理接管通知' })
-    for (const section of sections) expect(within(section).getByText('仅需人工处理时通知')).toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: '保存通知策略' })[0])
+    const section = screen.getByRole('region', { name: '自动整理接管通知' })
+    expect(within(section).getByText('仅需人工处理时通知')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '保存通知策略' }))
     await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('通知策略已保存'))
     expect(mocks.get).toHaveBeenCalledTimes(1)
     expect(mocks.post).toHaveBeenCalledTimes(1)

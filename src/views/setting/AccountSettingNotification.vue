@@ -4,7 +4,6 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
-import AgentTransferNotificationPolicy from '@/components/system/AgentTransferNotificationPolicy.vue'
 import { useI18n } from 'vue-i18n'
 import { filterAvailableServiceOptions, notificationSwitchDict } from '@/api/constants'
 import { useTheme } from 'vuetify'
@@ -581,18 +580,6 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
               <VIcon class="template-card-arrow" icon="mdi-chevron-right" size="22" />
             </button>
           </div>
-        </VCardText>
-      </VCard>
-    </VCol>
-  </VRow>
-  <VRow>
-    <VCol cols="12">
-      <VCard>
-        <VCardItem>
-          <VCardTitle>{{ t('setting.notification.agentTransferPolicy.section') }}</VCardTitle>
-        </VCardItem>
-        <VCardText>
-          <AgentTransferNotificationPolicy :active="props.active" />
         </VCardText>
       </VCard>
     </VCol>
