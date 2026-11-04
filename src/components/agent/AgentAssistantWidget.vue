@@ -255,7 +255,7 @@ const stopBubbleForward = onAgentAssistantBubble(payload => {
   })
 })
 
-// 日志页「AI 诊断」：打开面板并以只读诊断模式发送分析请求，不占用输入框草稿。
+// 日志页「AI 诊断」：打开面板并发送带提示词约束的分析请求，不占用输入框草稿。
 const stopLogDiagnostic = onAgentAssistantDiagnostic(({ prompt }) => {
   openPanel()
   void nextTick(() => panelRef.value?.startDiagnostic(prompt))

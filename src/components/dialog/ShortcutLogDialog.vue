@@ -46,7 +46,7 @@ function openLogging(download: boolean) {
   window.open(download ? allLoggingDownloadUrl() : allLoggingUrl(), '_blank', 'noopener')
 }
 
-/** 呼叫智能助手以只读诊断会话分析主程序日志；关闭日志弹窗，避免遮挡助手面板。 */
+/** 呼叫智能助手按提示词约束分析主程序日志；关闭日志弹窗，避免遮挡助手面板。 */
 function diagnoseLogging() {
   requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile: 'moviepilot.log' }))
   visible.value = false

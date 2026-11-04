@@ -232,7 +232,7 @@ describe('AgentAssistantWidget agent host', () => {
     plugin.dispose()
   })
 
-  it('opens the panel and forwards log diagnostics to the read-only panel entry', async () => {
+  it('opens the panel and forwards log diagnostics to the prompt-constrained panel entry', async () => {
     const setDraft = vi.fn()
     const startDiagnostic = vi.fn()
     const panelStub = createPanelStub(setDraft, startDiagnostic)

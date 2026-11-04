@@ -3505,7 +3505,7 @@ describe('AgentAssistantPanel agent host bridge', () => {
     },
   )
 
-  it('sends log diagnostics with the read-only flag and keeps the user draft', async () => {
+  it('sends log diagnostics through the ordinary chat stream and keeps the user draft', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith('/message/agent/stream') && init?.method === 'POST') {
         return createAgentStreamResponse([legacySseFrame({ type: 'done' })])
@@ -3522,10 +3522,9 @@ describe('AgentAssistantPanel agent host bridge', () => {
     await flushPromises()
 
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/message/agent/stream'))
-    expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({
-      text: '分析 moviepilot.log',
-      diagnostic: true,
-    })
+    const body = JSON.parse(String(request?.[1]?.body))
+    expect(body).toMatchObject({ text: '分析 moviepilot.log' })
+    expect(body).not.toHaveProperty('diagnostic')
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('尚未发送的草稿')
 
     wrapper.unmount()

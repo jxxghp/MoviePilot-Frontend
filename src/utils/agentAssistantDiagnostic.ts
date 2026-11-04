@@ -1,13 +1,13 @@
 const AGENT_ASSISTANT_DIAGNOSTIC_EVENT = 'agentAssistantDiagnostic'
 
 export interface AgentAssistantDiagnosticRequest {
-  /** 发给只读诊断会话的分析提示词。 */
+  /** 发给智能助手的分析提示词，只分析、不执行修复的约束由提示词自身提供。 */
   prompt: string
 }
 
 /**
- * 日志页与智能助手面板没有父子关系，通过全局事件发起只读诊断请求。
- * 面板只在空闲时发送，避免运行中的补充输入被后端并入可写会话。
+ * 日志页与智能助手面板没有父子关系，通过全局事件发起日志诊断请求。
+ * 面板只在空闲时发送，避免运行中的补充输入被后端并入原会话、绕开诊断提示词约束。
  */
 export function requestAgentAssistantDiagnostic(prompt: string) {
   if (typeof window === 'undefined') return

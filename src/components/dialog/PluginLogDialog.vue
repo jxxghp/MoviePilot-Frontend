@@ -50,7 +50,7 @@ function downloadLogger() {
   window.open(url, '_blank')
 }
 
-/** 呼叫智能助手以只读诊断会话分析当前插件日志；关闭日志弹窗，避免遮挡助手面板。 */
+/** 呼叫智能助手按提示词约束分析当前插件日志；关闭日志弹窗，避免遮挡助手面板。 */
 function diagnoseLogger() {
   const logfile = `plugins/${props.plugin?.id?.toLowerCase()}.log`
   requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile }))
