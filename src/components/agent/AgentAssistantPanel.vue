@@ -3353,6 +3353,36 @@ function setDraft(draft: string) {
   nextTick(() => inputRef.value?.focus())
 }
 
+/**
+ * 发送日志分析请求，供日志页「AI 诊断」入口调用；只分析、不执行修复的约束由提示词提供。
+ * 面板正在处理消息时拒绝发送：运行中的补充输入会被后端并入原会话，绕开诊断提示词约束。
+ */
+async function startDiagnostic(prompt: string) {
+  if (!isAccountActive()) return
+
+  const content = prompt.trim()
+  if (!content) return
+
+  petPickerOpen.value = false
+  if (isBusy.value || sending.value) {
+    streamError.value = t('agentAssistant.diagnosticBusy')
+    return
+  }
+
+  streamError.value = ''
+  sending.value = true
+  const requestId = ++sendingRequestId
+  try {
+    await streamAgentMessage(content, [], [], [], [])
+  } catch (error) {
+    if (!isAccountActive()) return
+    const message = error instanceof Error ? error.message : ''
+    addMessage('assistant', message || t('agentAssistant.error'), 'error')
+  } finally {
+    if (sendingRequestId === requestId) sending.value = false
+  }
+}
+
 // 处理输入框回车发送。
 function handleInputKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey || isComposing.value || event.isComposing || event.keyCode === 229) return
@@ -3455,7 +3485,7 @@ onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
-defineExpose({ setDraft })
+defineExpose({ setDraft, startDiagnostic })
 
 onScopeDispose(clearAgentAssistantOpenState)
 onScopeDispose(() => {
