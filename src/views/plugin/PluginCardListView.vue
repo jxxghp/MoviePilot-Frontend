@@ -975,7 +975,7 @@ function pluginDialogClose() {
   PluginAppDialog.value = false
 }
 
-/** 安装或更新插件，并在跨页面完成后反馈结果和刷新共享状态。 */
+/** 安装或更新插件；仅首次安装定位新卡片，更新保留用户当前的浏览位置。 */
 async function installPlugin(
   item: Plugin,
   releaseVersion?: string,
@@ -986,6 +986,7 @@ async function installPlugin(
   if (!pluginId || installingPluginIds.value.has(pluginId)) {
     return
   }
+  const isUpdate = Boolean(item.installed)
 
   // 安装/更新前的统一兜底判据：运行时不兼容优先于主程序版本不兼容，与卡片和弹窗保持一致
   const installBlock = resolvePluginInstallBlock(item)
@@ -995,8 +996,9 @@ async function installPlugin(
   }
 
   installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
-  if (item.installed) updatingPluginIds.value = new Set([...updatingPluginIds.value, pluginId])
+  if (isUpdate) updatingPluginIds.value = new Set([...updatingPluginIds.value, pluginId])
 
+  /** 释放插件级事务占位，供来源检查退出和请求结束时共用。 */
   const releaseInstallReservation = () => {
     const pending = new Set(installingPluginIds.value)
     pending.delete(pluginId)
@@ -1013,8 +1015,7 @@ async function installPlugin(
     const sourceOptions = inspectedSourceOptions || (await getPluginSourceOptions(pluginId))
     const sourceRequiresExplicitInstall =
       sourceOptions.selection_status === 'conflict' ||
-      (sourceOptions.selection_status === 'incomplete' &&
-        requiresExplicitPluginSourceInstall(sourceOptions, Boolean(item.installed)))
+      (sourceOptions.selection_status === 'incomplete' && requiresExplicitPluginSourceInstall(sourceOptions, isUpdate))
     if (sourceRequiresExplicitInstall && !repoUrl) {
       releaseInstallReservation()
       openPluginMarketDetail(item)
@@ -1056,24 +1057,28 @@ async function installPlugin(
 
   const previousIndex = dataList.value.findIndex(plugin => plugin.id === item.id)
   const previousPlugin = previousIndex >= 0 ? dataList.value[previousIndex] : undefined
-  sortMode.value = false
-  currentFolder.value = ''
-  filterMarketPluginDialog.value = false
-  installedFilter.value = null
-  hasUpdateFilter.value = false
-  enabledFilter.value = false
-  tabScrollPositions.installed = 0
-  installScrollPluginId.value = pluginId
-  dataList.value = [
-    ...dataList.value.filter(plugin => plugin.id !== pluginId),
-    {
-      ...item,
-      installed: true,
-      state: false,
-      runtime_status: undefined,
-    },
-  ]
-  activeTab.value = 'installed'
+  // 已安装插件由独立的 updating 状态展示进度，保留原卡片的顺序和运行状态，
+  // 避免更新期间因重新插入卡片或启用筛选而改变当前列表与滚动位置。
+  if (!isUpdate) {
+    sortMode.value = false
+    currentFolder.value = ''
+    filterMarketPluginDialog.value = false
+    installedFilter.value = null
+    hasUpdateFilter.value = false
+    enabledFilter.value = false
+    tabScrollPositions.installed = 0
+    installScrollPluginId.value = pluginId
+    dataList.value = [
+      ...dataList.value.filter(plugin => plugin.id !== pluginId),
+      {
+        ...item,
+        installed: true,
+        state: false,
+        runtime_status: undefined,
+      },
+    ]
+    activeTab.value = 'installed'
+  }
   pluginDialogClose()
 
   try {
@@ -1102,33 +1107,36 @@ async function installPlugin(
         skipNavigationCancellation: true,
       })
     }
-    const toastKey = item.installed ? 'plugin.updateSuccess' : 'plugin.installSuccess'
-    const restartToastKey = item.installed ? 'plugin.updateRestartRequired' : 'plugin.installRestartRequired'
+    const toastKey = isUpdate ? 'plugin.updateSuccess' : 'plugin.installSuccess'
+    const restartToastKey = isUpdate ? 'plugin.updateRestartRequired' : 'plugin.installRestartRequired'
     const toast = t(outcome?.restart_required ? restartToastKey : toastKey, { name: item?.plugin_name })
     if (outcome?.restart_required) $toast.warning(toast)
     else $toast.success(toast)
     if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
     await pluginSidebarNavStore.ensureSidebarNav(true)
-    // 安装期间可能有市场刷新或共享弹窗回调重新写入标签状态，成功后再次收口，
-    // 确保用户看到的是刚安装的插件，而不是市场中的其它本地候选。
-    activeTab.value = 'installed'
-    currentFolder.value = ''
-    installedFilter.value = null
-    hasUpdateFilter.value = false
-    enabledFilter.value = false
-    await nextTick()
-    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
+    // 首次安装成功后定位新插件；更新完成时尊重用户在等待期间选择的新位置。
+    if (!isUpdate) {
+      activeTab.value = 'installed'
+      currentFolder.value = ''
+      installedFilter.value = null
+      hasUpdateFilter.value = false
+      enabledFilter.value = false
+      await nextTick()
+      if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
+    }
   } catch (error) {
     releaseInstallReservation()
-    const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
-    if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
-    dataList.value = nextData
+    if (!isUpdate) {
+      const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
+      if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
+      dataList.value = nextData
+      if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
+    }
     if (wasInMarket) restorePluginToMarket(item)
-    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
     console.error(error)
     $toast.error(
-      t(item.installed ? 'plugin.updateFailed' : 'plugin.installFailed', {
+      t(isUpdate ? 'plugin.updateFailed' : 'plugin.installFailed', {
         name: item?.plugin_name,
         message: getApiBusinessErrorMessage(error) || (error instanceof Error ? error.message : ''),
       }),

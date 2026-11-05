@@ -62,7 +62,7 @@ function openNotificationInfoDialog() {
   )
 }
 
-// 根据存储类型选择图标
+// 根据通知渠道类型选择图标，App 私有推送使用 MoviePilot 品牌标志。
 const getIcon = computed(() => {
   switch (props.notification.type) {
     case 'wechat':
@@ -87,6 +87,8 @@ const getIcon = computed(() => {
       return getLogoUrl('dingtalk')
     case 'webpush':
       return getLogoUrl('chrome')
+    case 'apppush':
+      return getLogoUrl('apppush')
     default:
       return getLogoUrl('notification')
   }

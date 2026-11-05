@@ -1394,8 +1394,10 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     const installGate = createDeferred<void>()
     let installed = false
     const target = createPlugin({ id: 'MarketInstall', plugin_name: '市场安装插件' })
+    const existing = createPlugin({ id: 'Existing', installed: true, plugin_name: '原有插件', state: true })
     await renderList({
-      installed: () => (installed ? [{ ...target, installed: true }] : []),
+      folders: () => ({ Tools: ['Existing'] }),
+      installed: () => (installed ? [existing, { ...target, installed: true }] : [existing]),
       market: () => [target],
     })
     await waitForRequestsToFinish()
@@ -1408,13 +1410,19 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
       }),
     )
 
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    getHeaderButton('mdi-filter-multiple-outline').action?.()
+    await nextTick()
+    await fireEvent.update(screen.getByRole('textbox', { name: '名称' }), '原有')
+    await fireEvent.click(screen.getByText('运行中'))
     getHeaderConfig().modelValue.value = 'market'
     await nextTick()
     await fireEvent.click(screen.getByRole('button', { name: 'installed-MarketInstall' }))
 
     await waitFor(() => expect(getHeaderConfig().modelValue.value).toBe('installed'))
     expect(await screen.findByText('plugin:市场安装插件')).toBeInTheDocument()
-    expect(document.querySelector('[data-scroll-to-index="0"]')).toBeInTheDocument()
+    expect(screen.getByText('folder:Tools')).toBeInTheDocument()
+    expect(document.querySelector('[data-scroll-to-index="1"]')).toBeInTheDocument()
     getHeaderConfig().modelValue.value = 'market'
     await nextTick()
     expect(screen.queryByTestId('market-MarketInstall')).not.toBeInTheDocument()
@@ -1424,6 +1432,8 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
     await waitForRequestsToFinish()
 
     await waitFor(() => expect(screen.queryByTestId('market-MarketInstall')).not.toBeInTheDocument())
+    expect(getHeaderConfig().modelValue.value).toBe('installed')
+    expect(screen.getByTestId('plugin-MarketInstall')).toBeInTheDocument()
   })
 
   it('restores a market plugin after an installation failure', async () => {
@@ -2143,6 +2153,208 @@ describe('PluginCardListView search installation', () => {
     expect(screen.getByLabelText('installing-FailedSourcePlugin')).toHaveTextContent('false')
     await waitFor(() => expect(installedRequests).toBeGreaterThan(installedRequestsBeforeChange))
     await waitForRequestsToFinish()
+  })
+})
+
+describe('PluginCardListView update browsing context', () => {
+  beforeEach(() => {
+    mocks.appMode = false
+    mocks.keepAliveHandler = undefined
+    mocks.openSharedDialog.mockImplementation(() => ({ close: vi.fn(), id: 1, updateProps: vi.fn() }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  /** 通过页面注册的公开操作打开已安装插件筛选菜单。 */
+  async function openInstalledFilterMenu() {
+    const button = getHeaderConfig().appendButtons.find(button => button.dataAttr === 'installed-filter-btn')
+    if (!button?.action) throw new Error('未注册已安装过滤操作')
+    button.action()
+    await nextTick()
+  }
+
+  it.each([
+    { appMode: false, succeeds: true },
+    { appMode: false, succeeds: false },
+    { appMode: true, succeeds: true },
+    { appMode: true, succeeds: false },
+  ])(
+    'keeps the folder, filters, order and scroll during an update ($appMode, $succeeds)',
+    async ({ appMode, succeeds }) => {
+      mocks.appMode = appMode
+      const updateGate = createDeferred<void>()
+      const updateStarted = createDeferred<void>()
+      const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      let scrollTop = 950
+      vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollTop)
+      const target = createPlugin({ id: 'Target', installed: true, plugin_name: 'Folder target', state: true })
+      const sibling = createPlugin({ id: 'Sibling', installed: true, plugin_name: 'Folder sibling', state: true })
+      const stopped = createPlugin({ id: 'Stopped', installed: true, plugin_name: 'Stopped', state: false })
+      let updated = false
+      await renderList({
+        folders: () => ({ Tools: ['Target', 'Sibling', 'Stopped'] }),
+        installed: () => [target, sibling, stopped],
+        market: () => (updated ? [] : [{ ...target, has_update: true }]),
+      })
+      await waitForRequestsToFinish()
+      server.use(
+        http.get(apiUrls.install('Target'), async () => {
+          updateStarted.resolve()
+          await updateGate.promise
+          updated = succeeds
+          return succeeds ? apiJson(null) : apiFailureJson('更新失败')
+        }),
+      )
+
+      await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+      await openInstalledFilterMenu()
+      await fireEvent.update(screen.getByRole('textbox', { name: '名称' }), 'Folder')
+      await fireEvent.click(screen.getByText('运行中'))
+      const expectedLabels = ['plugin:Folder target', 'plugin:Folder sibling']
+      expect(getInstalledLabels()).toEqual(expectedLabels)
+      scrollTo.mockClear()
+
+      await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-Target' }))
+      await updateStarted.promise
+      try {
+        expect(getInstalledLabels()).toEqual(expectedLabels)
+        expect(screen.getByLabelText('updating-Target')).toHaveTextContent('true')
+        expect(screen.queryByText('folder:Tools')).not.toBeInTheDocument()
+        expect(scrollTo).not.toHaveBeenCalled()
+      } finally {
+        updateGate.resolve()
+        await waitForRequestsToFinish()
+      }
+
+      await waitFor(() => expect(screen.getByLabelText('updating-Target')).toHaveTextContent('false'))
+      await waitForRequestsToFinish()
+      expect(getInstalledLabels()).toEqual(expectedLabels)
+      expect(screen.getByLabelText('update-Target')).toHaveTextContent(String(!succeeds))
+      expect(succeeds ? mocks.toastSuccess : mocks.toastError).toHaveBeenCalled()
+      expect(scrollTo).not.toHaveBeenCalled()
+      await openInstalledFilterMenu()
+      expect(screen.getByRole('textbox', { name: '名称' })).toHaveValue('Folder')
+      await fireEvent.keyUp(screen.getByRole('textbox', { name: '名称' }), { key: 'Enter' })
+
+      getHeaderConfig().modelValue.value = 'market'
+      await nextTick()
+      scrollTop = 2800
+      getHeaderConfig().modelValue.value = 'installed'
+      await nextTick()
+      await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ behavior: 'auto', top: 950 }))
+    },
+  )
+
+  it.each([
+    { destination: 'folder', succeeds: true },
+    { destination: 'folder', succeeds: false },
+    { destination: 'market', succeeds: true },
+    { destination: 'market', succeeds: false },
+  ])('respects navigation to $destination before an update finishes ($succeeds)', async ({ destination, succeeds }) => {
+    const updateGate = createDeferred<void>()
+    const updateStarted = createDeferred<void>()
+    const target = createPlugin({ id: 'Target', installed: true, plugin_name: 'Target' })
+    await renderList({
+      folders: () => ({ Tools: ['Target'], Other: ['Sibling'] }),
+      installed: () => [target, createPlugin({ id: 'Sibling', installed: true, plugin_name: 'Sibling' })],
+      market: () => [{ ...target, has_update: true }],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('Target'), async () => {
+        updateStarted.resolve()
+        await updateGate.promise
+        return succeeds ? apiJson(null) : apiFailureJson('更新失败')
+      }),
+    )
+
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-Target' }))
+    await updateStarted.promise
+    await getHeaderButton('mdi-arrow-left').action?.()
+    await nextTick()
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Other' }))
+    await openInstalledFilterMenu()
+    await fireEvent.update(screen.getByRole('textbox', { name: '名称' }), 'Sibling')
+    await fireEvent.keyUp(screen.getByRole('textbox', { name: '名称' }), { key: 'Enter' })
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    if (destination === 'market') {
+      getHeaderConfig().modelValue.value = 'market'
+      await waitFor(() => expect(scrollTo).toHaveBeenCalled())
+    }
+    scrollTo.mockClear()
+
+    updateGate.resolve()
+    await waitFor(() => expect(succeeds ? mocks.toastSuccess : mocks.toastError).toHaveBeenCalled())
+    await waitForRequestsToFinish()
+
+    expect(getHeaderConfig().modelValue.value).toBe(destination === 'market' ? 'market' : 'installed')
+    expect(getInstalledLabels()).toEqual(['plugin:Sibling'])
+    expect(scrollTo).not.toHaveBeenCalled()
+    if (destination === 'market') {
+      getHeaderConfig().modelValue.value = 'installed'
+      await nextTick()
+    }
+    await openInstalledFilterMenu()
+    expect(screen.getByRole('textbox', { name: '名称' })).toHaveValue('Sibling')
+  })
+
+  it('keeps the top-level card order without requesting scroll-to-card during an update', async () => {
+    const updateGate = createDeferred<void>()
+    const updateStarted = createDeferred<void>()
+    const target = createPlugin({ id: 'Target', installed: true, plugin_name: 'Target' })
+    await renderList({
+      installed: () => [target, createPlugin({ id: 'Sibling', installed: true, plugin_name: 'Sibling' })],
+      market: () => [{ ...target, has_update: true }],
+    })
+    await waitForRequestsToFinish()
+    server.use(
+      http.get(apiUrls.install('Target'), async () => {
+        updateStarted.resolve()
+        await updateGate.promise
+        return apiJson(null)
+      }),
+    )
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-Target' }))
+    await updateStarted.promise
+    try {
+      expect(getInstalledLabels()).toEqual(['plugin:Target', 'plugin:Sibling'])
+      expect(document.querySelector('[data-scroll-to-index]')).toHaveAttribute('data-scroll-to-index', '')
+      expect(scrollTo).not.toHaveBeenCalled()
+    } finally {
+      updateGate.resolve()
+      await waitForRequestsToFinish()
+    }
+    expect(getInstalledLabels()).toEqual(['plugin:Target', 'plugin:Sibling'])
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])('keeps the update filter after an update finishes (success: %s)', async succeeds => {
+    const target = createPlugin({ id: 'Target', installed: true, plugin_name: 'Target' })
+    const sibling = createPlugin({ id: 'Sibling', installed: true, plugin_name: 'Sibling' })
+    await renderList({
+      folders: () => ({ Tools: ['Target', 'Sibling'] }),
+      installed: () => [target, sibling],
+      market: () => [{ ...target, has_update: true }],
+    })
+    await waitForRequestsToFinish()
+    server.use(http.get(apiUrls.install('Target'), () => (succeeds ? apiJson(null) : apiFailureJson('更新失败'))))
+
+    await fireEvent.click(screen.getByRole('button', { name: 'open-folder-Tools' }))
+    await openInstalledFilterMenu()
+    await fireEvent.click(screen.getByText('有新版本'))
+    expect(screen.queryByTestId('plugin-Sibling')).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'update-plugin-Target' }))
+    await waitFor(() => expect(succeeds ? mocks.toastSuccess : mocks.toastError).toHaveBeenCalled())
+    await waitForRequestsToFinish()
+
+    expect(screen.queryByTestId('plugin-Sibling')).not.toBeInTheDocument()
+    expect(screen.queryByText('folder:Tools')).not.toBeInTheDocument()
+    expect(getInstalledLabels()).toEqual(succeeds ? [] : ['plugin:Target'])
+    await openInstalledFilterMenu()
+    await fireEvent.click(screen.getByText('有新版本'))
+    expect(getInstalledLabels()).toEqual(['plugin:Target', 'plugin:Sibling'])
   })
 })
 

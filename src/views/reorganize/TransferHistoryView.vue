@@ -2627,6 +2627,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 :aria-label="t('transferHistory.desktop.selectRecord', { title: getHistoryDisplayTitle(item) })"
                 @click="historyRangeSelection.onCheckboxClick"
                 @update:model-value="checked => historyRangeSelection.selectFromCheckbox(item, !!checked)"
+                @input="historyRangeSelection.onCheckboxInput(item, $event)"
               />
               <div class="transfer-history-desktop-media-cell">
                 <div class="transfer-history-desktop-poster-frame rounded-md">
