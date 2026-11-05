@@ -28,9 +28,9 @@ federation({
   shared: {
     vue: {
       singleton: true,
-      requiredVersion: false // 关闭版本检查
-    }
-  }
+      requiredVersion: false, // 关闭版本检查
+    },
+  },
 })
 ```
 
@@ -40,7 +40,7 @@ federation({
 federation({
   name: 'host',
   remotes: {},
-  shared: ['vue', 'vuetify']
+  shared: ['vue', 'vuetify'],
 })
 ```
 
@@ -104,7 +104,7 @@ localStorage.setItem('debug', 'vite:*')
 
 ## 其他资源
 
-- [MoviePilot 插件组件示例](../examples/plugin-component/) 
-- [Vite 模块联邦插件文档](https://github.com/originjs/vite-plugin-federation)
+- [MoviePilot 插件组件示例](../examples/plugin-component/)
+- [Module Federation for Vite 文档](https://github.com/module-federation/vite)
 - [Vite 官方文档](https://vitejs.dev/guide/build.html)
-- [Origin.js 模块联邦示例](https://github.com/originjs/vite-plugin-federation/tree/main/packages/examples)
+- [从 OriginJS 迁移到 @module-federation/vite](https://github.com/module-federation/vite/blob/main/docs/MIGRATING_FROM_ORIGINJS.md)

@@ -10,7 +10,7 @@ MoviePilot前端采用模块联邦(Module Federation)技术实现插件的动态
 
 - Node.js 20+
 - Vue 3
-- Vite 4+
+- Vite 5–8（`@module-federation/vite` 要求 Node.js `^20.19.0` 或 `>=22.12.0`）
 - TypeScript 5+
 
 ## 3. 核心概念
@@ -47,14 +47,15 @@ yarn
 ```typescript
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import federation from '@originjs/vite-plugin-federation'
+import { federation } from '@module-federation/vite'
 
 export default defineConfig({
   plugins: [
     vue(),
     federation({
       name: 'MyPlugin',
-      filename: 'remoteEntry.js',
+      // 入口保持在 dist/assets/remoteEntry.js，与 get_render_mode() 返回的产物目录一致
+      filename: 'assets/remoteEntry.js',
       exposes: {
         './Page': './src/components/Page.vue',
         './Config': './src/components/Config.vue',
@@ -64,23 +65,25 @@ export default defineConfig({
         // 可选：Agent 助手形象，见 5.11
         './AgentPet': './src/components/AgentPet.vue',
       },
+      // 插件不发布联邦类型时关闭 dts，避免构建时查找 tsconfig 生成类型。
+      dts: false,
+      // import: false 表示插件不打包这些依赖的副本，运行时始终使用主应用提供的实例。
       shared: {
         vue: {
           requiredVersion: false,
-          generate: false,
+          import: false,
         },
         vuetify: {
           requiredVersion: false,
-          generate: false,
+          import: false,
           singleton: true,
         },
         'vuetify/styles': {
           requiredVersion: false,
-          generate: false,
+          import: false,
           singleton: true,
         },
       },
-      format: 'esm',
     }),
   ],
   build: {
@@ -994,7 +997,9 @@ yarn build
 
 - 将生成的dist文件夹上传到插件后端目录下（默认为`dist/assets`）
 
-**注意： `__federation_shared_vuetify` 目录以及 `index-`、`date-`、`runtime-` 开头的文件不需要上传**，只需要上传以下命名格式文件：`__federation_*`、`_plugin-vue_export-helper-*`、`remoteEntry.js`
+**注意：** 使用 `@module-federation/vite` 构建时，`remoteEntry.js` 会引用 `dist/assets` 下的 Module Federation 运行时等多个分块（如 `index-*`、`hostInit-*`、`vite-preload-helper-*`），需完整上传 `dist/assets` 目录，不能再按旧版 OriginJS 的文件名前缀挑选。
+
+**兼容性：** 主应用使用 Module Federation 运行时加载插件，同时兼容仍由 `@originjs/vite-plugin-federation`（`format: 'esm'`）构建的旧插件，旧插件无需立即迁移。
 
 - 在插件的后端python代码中，实现以下方法来集成远程组件：
 
@@ -1094,7 +1099,8 @@ yarn dev
 
 ## 10. 参考资料
 
-- [Vite Plugin Federation](https://github.com/originjs/vite-plugin-federation)
+- [Module Federation for Vite](https://github.com/module-federation/vite)
+- [从 OriginJS 迁移](https://github.com/module-federation/vite/blob/main/docs/MIGRATING_FROM_ORIGINJS.md)
 - [Vue 3官方文档](https://vuejs.org/)
 
 ---

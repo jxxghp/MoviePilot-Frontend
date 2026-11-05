@@ -24,10 +24,10 @@ vi.mock('@/api', () => ({
   },
 }))
 
-vi.mock('virtual:__federation__', () => ({
-  __federation_method_getRemote: (...args: unknown[]) => mocks.getRemote(...args),
-  __federation_method_setRemote: (...args: unknown[]) => mocks.setRemote(...args),
-  __federation_method_unwrapDefault: (...args: unknown[]) => mocks.unwrapDefault(...args),
+vi.mock('@/utils/federationRuntime', () => ({
+  getFederationRemote: (...args: unknown[]) => mocks.getRemote(...args),
+  setFederationRemote: (...args: unknown[]) => mocks.setRemote(...args),
+  unwrapFederationDefault: (...args: unknown[]) => mocks.unwrapDefault(...args),
 }))
 
 function deferred<T>() {
