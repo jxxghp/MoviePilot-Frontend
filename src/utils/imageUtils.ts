@@ -28,6 +28,7 @@ import vocechatLogo from '@/assets/images/logos/vocechat.png'
 import downloaderLogo from '@/assets/images/logos/downloader.png'
 import mediaserverLogo from '@/assets/images/logos/mediaserver.png'
 import notificationLogo from '@/assets/images/logos/notification.png'
+import appPushLogo from '@/assets/images/logo.png'
 import chromeLogo from '@/assets/images/logos/chrome.png'
 import doubanLogo from '@/assets/images/logos/douban.png'
 import githubLogo from '@/assets/images/logos/github.png'
@@ -72,6 +73,7 @@ const logoMap: Record<string, string> = {
   downloader: downloaderLogo,
   mediaserver: mediaserverLogo,
   notification: notificationLogo,
+  apppush: appPushLogo,
   chrome: chromeLogo,
   douban: doubanLogo,
   github: githubLogo,
