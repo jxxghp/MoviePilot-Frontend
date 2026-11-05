@@ -2,13 +2,19 @@ import { readFileSync } from 'node:fs'
 import { cwd } from 'node:process'
 import { resolve } from 'node:path'
 import type { TransferHistory } from '@/api/types'
+import { nativePageHeaders } from '@/native/page'
+import { nativeCardAction } from '@/native/card'
+import { nativeStandaloneMenus } from '@/native/standalone'
+import { NativeMenuRegistry } from '@/native/menu'
+import type { NativeEnvelope, NativeSnapshot } from '@/native/protocol'
+import NativeNavigationHost from '@/components/native/NativeNavigationHost.vue'
 import i18n from '@/plugins/i18n'
 import TransferHistoryView from '@/views/reorganize/TransferHistoryView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
-import { computed, defineComponent, h, KeepAlive, nextTick, ref, unref, type PropType } from 'vue'
+import { computed, defineComponent, h, KeepAlive, nextTick, ref, toValue, unref, type PropType } from 'vue'
 import { RouterView } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -58,6 +64,8 @@ vi.mock('vuetify', async importOriginal => {
     }),
   }
 })
+
+vi.mock('@/composables/useNativeStartupCatalogs', () => ({ useNativeStartupCatalogs: () => computed(() => true) }))
 
 vi.mock('@/composables/usePWA', () => ({
   usePWA: () => ({ appMode: computed(() => mocks.appMode) }),
@@ -436,8 +444,16 @@ function createDeferred<T>() {
 }
 
 /** 用指定路由和管理权限渲染历史列表的真实交互入口。 */
-async function renderHistory(initialRoute = '/history', canManage = true, realVirtualTable = false) {
-  return renderWithProviders(TransferHistoryView, {
+async function renderHistory(
+  initialRoute = '/history',
+  canManage = true,
+  realVirtualTable = false,
+  nativeHost = false,
+) {
+  const component = nativeHost
+    ? defineComponent({ setup: () => () => [h(TransferHistoryView), h(NativeNavigationHost)] })
+    : TransferHistoryView
+  return renderWithProviders(component, {
     global: {
       stubs: {
         ProgressiveCardGrid: ProgressiveGridStub,
@@ -458,7 +474,9 @@ async function renderHistory(initialRoute = '/history', canManage = true, realVi
       },
     },
     initialRoute,
+    initialRouteMeta: { requiresAuth: nativeHost },
     initialState: {
+      auth: { token: nativeHost ? 'native-test-token' : null },
       globalSettings: {
         data: {
           AI_AGENT_ENABLE: true,
@@ -466,6 +484,7 @@ async function renderHistory(initialRoute = '/history', canManage = true, realVi
         },
       },
       user: {
+        userID: nativeHost ? 101 : -1,
         permissions: canManage ? ['manage'] : [],
         superUser: canManage,
       },
@@ -576,7 +595,7 @@ describe('TransferHistoryView', () => {
   })
 
   it.each([true, false])(
-    'shows external registration audit on desktop=%s without inventing old-row origins',
+    'opens external audit details on demand without selecting the row on desktop=%s',
     async desktop => {
       mocks.desktop = desktop
       const external = createHistory(101, '外部电影', {
@@ -594,13 +613,24 @@ describe('TransferHistoryView', () => {
           path === 'storage/options' ? storageResponse() : historyResponse([external, createHistory(102, '旧电影')]),
         ),
       )
-      await renderHistory()
+      const { container } = await renderHistory()
       if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
-      expect(await screen.findByText('外部登记')).toBeInTheDocument()
-      expect(screen.getByText(/登记管理员/)).toBeInTheDocument()
-      expect(screen.getByText(/仅目标核验/)).toBeInTheDocument()
-      expect(screen.getAllByText('外部登记')).toHaveLength(1)
+      const source = await screen.findByRole('button', { name: '外部登记' })
+      expect(screen.queryByText(/登记管理员/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/仅目标核验/)).not.toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: '外部登记' })).toHaveLength(1)
       expect(screen.getByText('旧电影')).toBeInTheDocument()
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '批量选择' }))
+      await fireEvent.click(source)
+      expect(getDialogCall().props.history).toMatchObject(external)
+      expect(getDialogCall().component.__name).toBe('TransferRegistrationDialog')
+      expect(container.querySelector('[class*="record--selected"]')).toBeNull()
+      const user = userEvent.setup()
+      source.focus()
+      await user.keyboard('{Enter}')
+      await user.keyboard(' ')
+      expect(mocks.openSharedDialog).toHaveBeenCalledTimes(3)
+      expect(container.querySelector('[class*="record--selected"]')).toBeNull()
     },
   )
 
@@ -617,7 +647,7 @@ describe('TransferHistoryView', () => {
     )
     await renderHistory()
     if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
-    expect(await screen.findByText('目标大小：2.00 GB')).toBeInTheDocument()
+    expect(await screen.findByText('2.00 GB（目标）')).toBeInTheDocument()
     expect(screen.queryByText('0.00 B')).not.toBeInTheDocument()
   })
 
@@ -633,7 +663,7 @@ describe('TransferHistoryView', () => {
     )
     await renderHistory()
     if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
-    expect(await screen.findByText('目标大小：—')).toBeInTheDocument()
+    expect(await screen.findByText('—（目标）')).toBeInTheDocument()
     expect(screen.queryByText('0.00 B')).not.toBeInTheDocument()
   })
 
@@ -649,7 +679,7 @@ describe('TransferHistoryView', () => {
     )
     await renderHistory()
     if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
-    expect(await screen.findByText('目标大小：0.00 B')).toBeInTheDocument()
+    expect(await screen.findByText('0.00 B（目标）')).toBeInTheDocument()
   })
 
   it.each(
@@ -676,7 +706,7 @@ describe('TransferHistoryView', () => {
       await renderHistory()
       if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
       expect(await screen.findByText(expected)).toBeInTheDocument()
-      expect(screen.queryByText(/目标大小/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/（目标）/)).not.toBeInTheDocument()
     },
   )
 
@@ -699,7 +729,8 @@ describe('TransferHistoryView', () => {
         await fireEvent.click(screen.getByRole('button', { name: '批量选择' }))
         await fireEvent.click(container.querySelector('.transfer-history-mobile-record') as HTMLElement)
       }
-      await fireEvent.click(screen.getByRole('checkbox', { name: '仅外部登记' }))
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '筛选' }))
+      await fireEvent.click(screen.getByRole('button', { name: '仅外部登记' }))
       await waitFor(() => expect(router.currentRoute.value.query.origin).toBe('external'))
       expect(router.currentRoute.value.query.currentPage).toBe('1')
       if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
@@ -713,7 +744,8 @@ describe('TransferHistoryView', () => {
         }),
       )
       expect(container.querySelector('[class*="record--selected"]')).toBeNull()
-      await fireEvent.click(screen.getByRole('checkbox', { name: '仅外部登记' }))
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '筛选' }))
+      await fireEvent.click(screen.getByRole('button', { name: '全部来源' }))
       await waitFor(() => expect(router.currentRoute.value.query.origin).toBeUndefined())
       if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
       await waitFor(() =>
@@ -726,6 +758,159 @@ describe('TransferHistoryView', () => {
       )
     },
   )
+
+  it.each([true, false])(
+    'clears status and source together without an intermediate query on desktop=%s',
+    async desktop => {
+      mocks.desktop = desktop
+      const requests: Array<Record<string, unknown>> = []
+      mocks.apiGet.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+        if (path === 'storage/options') return Promise.resolve(storageResponse())
+        requests.push(config?.params || {})
+        return Promise.resolve(historyResponse([createHistory(101, '组合筛选')], 100))
+      })
+      const { router, container } = await renderHistory(
+        '/history?search=movie&currentPage=3&status=failed&origin=external',
+      )
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await screen.findByText('组合筛选')
+      if (desktop) await fireEvent.click(screen.getByRole('checkbox', { name: '选择 组合筛选' }))
+      else {
+        await fireEvent.click(screen.getByRole('button', { name: '批量选择' }))
+        await fireEvent.click(container.querySelector('.transfer-history-mobile-record') as HTMLElement)
+        await fireEvent.click(screen.getByRole('button', { name: '筛选' }))
+      }
+      const push = vi.spyOn(router, 'push')
+      requests.length = 0
+      await fireEvent.click(screen.getByRole('button', { name: '清除筛选' }))
+      await waitFor(() => expect(router.currentRoute.value.query).toMatchObject({ currentPage: '1', search: 'movie' }))
+      expect(router.currentRoute.value.query.status).toBeUndefined()
+      expect(router.currentRoute.value.query.origin).toBeUndefined()
+      if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await waitFor(() => expect(requests).toEqual([{ count: desktop ? 50 : 25, page: 1, title: 'movie' }]))
+      expect(push).toHaveBeenCalledTimes(1)
+      expect(container.querySelector('[class*="record--selected"]')).toBeNull()
+      expect(screen.queryByRole('checkbox', { name: '仅外部登记' })).not.toBeInTheDocument()
+    },
+  )
+
+  it.each(['standalone', 'header'] as const)(
+    'keeps native %s filters aligned with server and route state',
+    async kind => {
+      mocks.desktop = kind === 'standalone'
+      const bind = vi.spyOn(nativeStandaloneMenus, 'bind')
+      const { router } = await renderHistory('/history?currentPage=3')
+      function items() {
+        if (kind === 'standalone') {
+          const binding = bind.mock.calls.findLast(([, binding]) => binding?.key === 'history-status')![1]!
+          return binding
+            .items((key, action) => nativeCardAction(String(key), action))
+            .flatMap(item => (item.kind === 'group' ? (item.items ?? []) : [item]))
+            .filter(item => item.kind === 'action')
+        }
+        const header = [...nativePageHeaders.value.values()].find(entry => entry.routePath === '/history')!
+        return toValue(header.actions)![0].panel!().sections.flatMap(section => section.items)
+      }
+      function select(title: string) {
+        const item = items().find(item => item.title === title)
+        expect(item, title).toBeDefined()
+        return item!.invoke?.()
+      }
+      expect(
+        items()
+          .filter(item => item.selected)
+          .map(item => item.title),
+      ).toEqual(['全部', '全部来源'])
+      expect(items().find(item => item.title === '清除筛选')?.enabled).toBe(false)
+      select('仅外部登记')
+      await waitFor(() => expect(router.currentRoute.value.query.origin).toBe('external'))
+      select('失败')
+      await waitFor(() => expect(router.currentRoute.value.query.status).toBe('failed'))
+      expect(router.currentRoute.value.query.origin).toBe('external')
+      expect(
+        items()
+          .filter(item => item.selected)
+          .map(item => item.title),
+      ).toEqual(['失败', '仅外部登记'])
+      expect(items().find(item => item.title === '清除筛选')?.enabled).toBe(true)
+      select('清除筛选')
+      await waitFor(() => expect(router.currentRoute.value.query.origin).toBeUndefined())
+      expect(router.currentRoute.value.query.status).toBeUndefined()
+    },
+  )
+
+  it('serializes status and source as labeled native menu groups with working actions', async () => {
+    const bind = vi.spyOn(nativeStandaloneMenus, 'bind')
+    const { router } = await renderHistory('/history?status=failed&origin=external')
+    const registry = new NativeMenuRegistry()
+    registry.setContext({ sessionId: 'history-native-test', routeRevision: 1 })
+    registry.register({
+      ownerId: 'history',
+      menuId: 'filter',
+      kind: 'standalone',
+      items: () =>
+        bind.mock.calls
+          .findLast(([, binding]) => binding?.key === 'history-status')![1]!
+          .items((key, action) => nativeCardAction(String(key), action)),
+    })
+    const menu = registry.open('history', 'filter')!
+    const serialized = JSON.parse(JSON.stringify(menu)) as typeof menu
+    expect(serialized.items.slice(0, 2).map(item => ({ kind: item.kind, title: item.title }))).toEqual([
+      { kind: 'group', title: '状态' },
+      { kind: 'group', title: '来源' },
+    ])
+    expect(serialized.items[0].items?.filter(item => item.selected).map(item => item.title)).toEqual(['失败'])
+    expect(serialized.items[1].items?.filter(item => item.selected).map(item => item.title)).toEqual(['仅外部登记'])
+    const allOrigins = serialized.items[1].items!.find(item => item.title === '全部来源')!
+    expect(await registry.select(menu.presentationId, allOrigins.id, () => {})).toBe(true)
+    await waitFor(() => expect(router.currentRoute.value.query.origin).toBeUndefined())
+    expect(router.currentRoute.value.query.status).toBe('failed')
+  })
+
+  it('publishes an active filter icon in the real native navigation snapshot', async () => {
+    mocks.desktop = false
+    const previousTransport = window.MoviePilotNative
+    const messages: NativeEnvelope[] = []
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      postMessage: message => messages.push(JSON.parse(JSON.stringify(message))),
+    }
+    const result = await renderHistory('/history', true, false, true)
+    try {
+      await waitFor(() => expect(messages.some(message => message.type === 'web.ready')).toBe(true))
+      window.dispatchEvent(
+        new CustomEvent('moviepilot:native-message', {
+          detail: {
+            protocol: 'moviepilot.chrome',
+            major: 1,
+            type: 'host.configure',
+            requestId: 'configure-history',
+            sessionId: 'history-native-test',
+            routeRevision: 1,
+            payload: {
+              sessionId: 'history-native-test',
+              major: 1,
+              capabilities: ['navigation.v1', 'actions.v1', 'layout.v1', 'menu.v1'],
+            },
+          },
+        }),
+      )
+      const filterIcon = () =>
+        (
+          messages.findLast(message => message.type === 'navigation.state')?.payload as unknown as NativeSnapshot
+        )?.actions.find(action => action.dataAttr === 'history-status-filter-btn')?.icon
+      await waitFor(() => expect(filterIcon()).toBe('mdi-filter-multiple-outline'))
+      await result.router.push('/history?origin=external')
+      await waitFor(() => expect(filterIcon()).toBe('mdi-filter-check'))
+      await result.router.push('/history?status=failed')
+      await waitFor(() => expect(filterIcon()).toBe('mdi-filter-check'))
+      await result.router.push('/history')
+      await waitFor(() => expect(filterIcon()).toBe('mdi-filter-multiple-outline'))
+    } finally {
+      result.unmount()
+      window.MoviePilotNative = previousTransport
+    }
+  })
 
   it('uses the desktop URL query as the request source and falls back from invalid pagination values', async () => {
     const requests: Array<Record<string, unknown>> = []
@@ -1186,7 +1371,7 @@ describe('TransferHistoryView', () => {
     })
 
     const { router } = await renderHistory()
-    await fireEvent.click(screen.getByRole('button', { name: '状态筛选' }))
+    await fireEvent.click(screen.getByRole('button', { name: '筛选' }))
     await fireEvent.click(screen.getByRole('button', { name: '失败' }))
 
     await waitFor(() => expect(router.currentRoute.value.query.status).toBe('failed'))

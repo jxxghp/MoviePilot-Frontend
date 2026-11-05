@@ -5739,8 +5739,15 @@ export default {
   transferHistory: {
     externalOnly: 'External registrations only',
     externalRegistration: 'External registration',
-    destinationSize: 'Destination size: {size}',
-    registrationDetail: 'Registered by {actor} · {time} · {verification}',
+    destinationSize: '{size} (target)',
+    filterStatus: 'Status',
+    filterOrigin: 'Source',
+    allOrigins: 'All sources',
+    clearFilters: 'Clear filters',
+    registrationActor: 'Registered by',
+    registrationTime: 'Registered at',
+    registrationScope: 'Verification',
+    registrationUnavailable: 'Registration details unavailable',
     registrationVerification: {
       matching_sizes: 'Matching file sizes',
       native_hardlink: 'Native hard link verified',

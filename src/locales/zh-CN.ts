@@ -5577,8 +5577,15 @@ export default {
   transferHistory: {
     externalOnly: '仅外部登记',
     externalRegistration: '外部登记',
-    destinationSize: '目标大小：{size}',
-    registrationDetail: '登记人：{actor} · {time} · {verification}',
+    destinationSize: '{size}（目标）',
+    filterStatus: '状态',
+    filterOrigin: '来源',
+    allOrigins: '全部来源',
+    clearFilters: '清除筛选',
+    registrationActor: '登记人',
+    registrationTime: '登记时间',
+    registrationScope: '核验范围',
+    registrationUnavailable: '暂无登记详情',
     registrationVerification: {
       matching_sizes: '两端文件大小匹配',
       native_hardlink: '本地硬链接核验',

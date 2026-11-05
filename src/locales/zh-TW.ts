@@ -5579,8 +5579,15 @@ export default {
   transferHistory: {
     externalOnly: '僅外部登記',
     externalRegistration: '外部登記',
-    destinationSize: '目標大小：{size}',
-    registrationDetail: '登記人：{actor} · {time} · {verification}',
+    destinationSize: '{size}（目標）',
+    filterStatus: '狀態',
+    filterOrigin: '來源',
+    allOrigins: '全部來源',
+    clearFilters: '清除篩選',
+    registrationActor: '登記人',
+    registrationTime: '登記時間',
+    registrationScope: '核驗範圍',
+    registrationUnavailable: '暫無登記詳情',
     registrationVerification: {
       matching_sizes: '兩端檔案大小相符',
       native_hardlink: '本機硬連結驗證',
