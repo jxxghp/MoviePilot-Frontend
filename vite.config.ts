@@ -10,7 +10,7 @@ import vuetify from 'vite-plugin-vuetify'
 import { VitePWA } from 'vite-plugin-pwa'
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import { resolve } from 'node:path'
-import federation from '@originjs/vite-plugin-federation'
+import { federation } from '@module-federation/vite'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import { readFileSync } from 'node:fs'
 import { responsiveInputCoreComponentNames } from './src/plugins/vuetify/responsiveInputNames'
@@ -26,32 +26,10 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const buildTime = new Date().getTime().toString()
 const isTestMode = (mode: string) => mode === 'test' || process.env.VITEST === 'true'
 
-/** 仅为单测提供可 mock 的 virtual federation 模块，不启用生产 federation 插件。 */
-function federationRuntimeTestModule() {
-  const moduleId = 'virtual:__federation__'
-  const resolvedModuleId = `\0${moduleId}`
-
-  return {
-    name: 'moviepilot-federation-runtime-test-module',
-    resolveId(source: string) {
-      if (source === moduleId) return resolvedModuleId
-    },
-    load(id: string) {
-      if (id !== resolvedModuleId) return
-      return `
-        export function __federation_method_getRemote() { throw new Error('Federation runtime must be mocked in tests') }
-        export function __federation_method_setRemote() { throw new Error('Federation runtime must be mocked in tests') }
-        export function __federation_method_unwrapDefault() { throw new Error('Federation runtime must be mocked in tests') }
-      `
-    },
-  }
-}
-
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode, isPreview }) => ({
   base: './',
   plugins: [
-    isTestMode(mode) && federationRuntimeTestModule(),
     shouldEnableDevServiceWorkerCleanup(command, mode, isPreview, process.env.npm_lifecycle_event) &&
       createDevServiceWorkerCleanupPlugin(),
     vue(),
@@ -81,14 +59,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
       federation({
         name: 'MoviePilot',
         filename: 'remoteEntry.js',
-        // @ts-ignore
-        remotes: {
-          // 动态remotes将在运行时注入
-          dummy: {
-            external: '',
-            format: 'var',
-          },
-        },
+        // 插件 remote 由 federationRuntime 在运行时通过 registerRemotes() 注册，构建期不声明 remote。
+        remotes: {},
         shared: ['vue', 'vuetify'],
       }),
     !isTestMode(mode) &&
