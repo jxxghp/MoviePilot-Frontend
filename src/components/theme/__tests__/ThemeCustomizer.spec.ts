@@ -96,6 +96,37 @@ describe('主题设置的原生与网页边界', () => {
     expect(open).toHaveBeenCalledOnce()
   })
 
+  it('App模式同样提供自定义色调入口且支持手输缩写色值', async () => {
+    pwa.appMode = true
+    const user = userEvent.setup()
+    const { container, getByLabelText } = await renderWithProviders(ThemeCustomizer)
+    expect(container.querySelector('.theme-customizer-color-option--picker')).not.toBeNull()
+    expect(container.querySelector('input[type="color"]')).not.toBeNull()
+    const hex = getByLabelText('自定义色值') as HTMLInputElement
+    await user.clear(hex)
+    await user.type(hex, '#f80{enter}')
+    await waitFor(() => expect(readThemeCustomizerSettings().primaryColor).toBe('#FF8800'))
+  })
+
+  it('非法手输色值只提示且不写入设置', async () => {
+    const user = userEvent.setup()
+    const { getByLabelText, findByText } = await renderWithProviders(ThemeCustomizer)
+    const before = readThemeCustomizerSettings().primaryColor
+    const hex = getByLabelText('自定义色值') as HTMLInputElement
+    await user.clear(hex)
+    await user.type(hex, '#12{enter}')
+    expect(await findByText('请输入 6 位十六进制色值，例如 #1AC6FF')).not.toBeNull()
+    expect(hex.getAttribute('aria-invalid')).toBe('true')
+    expect(readThemeCustomizerSettings().primaryColor).toBe(before)
+  })
+
+  it('切换预设色调后自定义输入框同步当前色值', async () => {
+    const { container, getByLabelText } = await renderWithProviders(ThemeCustomizer)
+    const hex = getByLabelText('自定义色值') as HTMLInputElement
+    await fireEvent.click(container.querySelectorAll<HTMLElement>('.theme-customizer-color-option')[2])
+    await waitFor(() => expect(hex.value).toBe('#1976D2'))
+  })
+
   it('网页保留主题、圆角和布局控件', async () => {
     const { container } = await renderWithProviders(ThemeCustomizer)
     expect(container.querySelector('.theme-customizer-option-grid--theme')).not.toBeNull()

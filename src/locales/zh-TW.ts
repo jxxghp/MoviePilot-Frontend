@@ -526,6 +526,9 @@ export default {
       primaryColor: '色调',
       usePrimaryColor: '使用 {color} 色調',
       chooseCustomColor: '選擇自定義色調',
+      customColorHex: '自定義色值',
+      applyCustomColor: '套用',
+      customColorInvalid: '請輸入 6 位十六進制色值，例如 #1AC6FF',
       enableGlassEffects: '啟用玻璃特效',
 
       radius: '圓角',
