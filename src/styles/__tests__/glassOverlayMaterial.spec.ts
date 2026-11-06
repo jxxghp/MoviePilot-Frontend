@@ -505,7 +505,7 @@ describe('glass overlay material styles', () => {
   it('keeps tooltip and snackbar text readable on light glass surfaces', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
     const overlayRule = styles.match(
-      /\.v-tooltip > \.v-overlay__content,\s*\.v-snackbar__wrapper\s*\{(?<declarations>[\s\S]*?)\n  \}/u,
+      /\.v-tooltip > \.v-overlay__content,\s*\.v-snackbar__wrapper\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u,
     )?.groups?.declarations
 
     expect(overlayRule).toBeDefined()
