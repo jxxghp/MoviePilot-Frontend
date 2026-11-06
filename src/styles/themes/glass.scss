@@ -799,6 +799,8 @@ html[data-theme='glass'] {
     backdrop-filter: var(--glass-overlay-backdrop-filter);
     background: var(--glass-overlay-surface) !important;
     box-shadow: var(--glass-shadow);
+    // 浅色玻璃覆盖了 Vuetify 的暗色提示底，前景色也必须跟随当前主题。
+    color: rgb(var(--v-theme-on-surface)) !important;
   }
 
   .v-field {

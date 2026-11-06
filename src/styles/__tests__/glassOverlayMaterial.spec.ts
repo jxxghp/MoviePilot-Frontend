@@ -502,6 +502,16 @@ describe('glass overlay material styles', () => {
     )
   })
 
+  it('keeps tooltip and snackbar text readable on light glass surfaces', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const overlayRule = styles.match(
+      /\.v-tooltip > \.v-overlay__content,\s*\.v-snackbar__wrapper\s*\{(?<declarations>[\s\S]*?)\n  \}/u,
+    )?.groups?.declarations
+
+    expect(overlayRule).toBeDefined()
+    expect(overlayRule).toContain('color: rgb(var(--v-theme-on-surface)) !important')
+  })
+
   it('keeps the PWA install description on the theme emphasis color', () => {
     const component = readFileSync(resolve(cwd(), 'src/components/pwa/PWAInstallPrompt.vue'), 'utf8')
 
