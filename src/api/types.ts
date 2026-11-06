@@ -378,6 +378,15 @@ export interface WorkflowShare {
 export interface TransferHistory {
   // ID
   id: number
+  // 旧历史未记录来源；仅新登记回执携带外部来源和服务器审计。
+  origin?: 'external' | null
+  registration?: {
+    actor_id: number
+    actor_name: string
+    registered_at: string
+    verification: 'matching_sizes' | 'native_hardlink' | 'destination_only'
+    source_state: 'present' | 'absent'
+  } | null
   // 源存储
   src_storage?: string
   // 目标存储
@@ -446,6 +455,8 @@ export interface TransferHistory {
   bitrate?: number
   // 源文件项
   src_fileitem?: FileItem
+  // 目标文件项；外部移动登记的大小事实来自已核验目标。
+  dest_fileitem?: FileItem
 }
 
 /** 整理历史删除的单个文件步骤状态。 */
