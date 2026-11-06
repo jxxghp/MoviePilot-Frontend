@@ -256,6 +256,9 @@ const BASIC_SETTING_KEYS = [
 function mockLoadedSettings() {
   mocks.apiGet.mockImplementation((endpoint: string) => {
     if (endpoint === 'system/env') return { success: true, data: systemEnv }
+    if (endpoint === 'system/setting/NotificationPolicies') {
+      return { success: true, data: { value: { agent_transfer_takeover: 'attention' } } }
+    }
     if (endpoint === 'github/auth/status') {
       return {
         success: true,
@@ -1071,6 +1074,27 @@ describe('AccountSettingSystem', () => {
         LLM_WEB_SEARCH_MODE: 'disabled',
       }),
     )
+  })
+
+  it('智能体配置保留唯一通知策略入口，读取已有值并独立保存', async () => {
+    systemEnv = { ...systemEnv, AI_AGENT_ENABLE: true }
+    await renderSettings()
+    await expandLlmSettings()
+    const section = screen.getByRole('region', { name: '自动整理接管通知' })
+    const field = within(section).getByRole('combobox', { name: '自动整理接管通知' })
+    await waitFor(() => expect(field).not.toBeDisabled())
+    expect(field).toHaveValue('attention')
+    expect(screen.getAllByRole('region', { name: '自动整理接管通知' })).toHaveLength(1)
+    await fireEvent.update(field, 'off')
+    await fireEvent.click(within(section).getByRole('button', { name: '保存通知策略' }))
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('通知策略已保存'))
+    expect(mocks.apiPost).toHaveBeenCalledTimes(1)
+    expect(findPost('system/settings')?.[1]).toEqual({
+      setting_key: 'NotificationPolicies',
+      operation: 'replace',
+      value: { agent_transfer_takeover: 'off' },
+    })
+    expect(findPost('system/env')).toBeUndefined()
   })
 
   it('round-trips assistant, audio, and recommendation settings', async () => {

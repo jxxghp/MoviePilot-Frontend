@@ -11,6 +11,7 @@ import DownloaderCard from '@/components/cards/DownloaderCard.vue'
 import MediaServerCard from '@/components/cards/MediaServerCard.vue'
 import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
 import TransferHistoryMaintenancePanel from '@/components/system/TransferHistoryMaintenancePanel.vue'
+import AgentTransferNotificationPolicy from '@/components/system/AgentTransferNotificationPolicy.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
 import { filterAvailableServiceOptions } from '@/api/constants'
@@ -2137,6 +2138,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     :hint="t('setting.system.aiAgentRetryTransferHint')"
                     persistent-hint
                   />
+                  <AgentTransferNotificationPolicy :active="props.active" class="mt-4" />
                 </VCol>
               </VRow>
               <VRow>

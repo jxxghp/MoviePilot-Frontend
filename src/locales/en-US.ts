@@ -3856,6 +3856,18 @@ export default {
       templateSaveSuccess: 'Template saved successfully',
       templateLoadFailed: 'Failed to load template!',
       scope: 'Notification Scope',
+      agentTransferPolicy: {
+        title: 'Automatic Transfer Takeover Notifications',
+        all: 'All notifications',
+        attention: 'Only when attention is needed',
+        off: 'Disable proactive notifications',
+        hint: 'Controls only automatic takeover pushes, not automatic processing, manual replies or normal import notices. Full reports remain in message history. Channels must allow the Agent message type. Save this policy separately to apply immediately.',
+        save: 'Save notification policy',
+        saved: 'Notification policy saved',
+        loadFailed:
+          'Could not load the policy. Upgrade the backend if needed and retry. Saving is disabled until loading succeeds.',
+        saveFailed: 'Could not save the policy. Your changes are not active; please retry.',
+      },
       scopeDesc: 'Corresponding message types will only be sent to specified users.',
       messageType: 'Message Type',
       scopeRange: 'Scope',
