@@ -20,6 +20,9 @@ const remoteConfigs = new Map<string, FederationRemoteConfig>()
 // 已写入 Module Federation 运行时的 remote 及其入口地址。
 const registeredEntries = new Map<string, string>()
 
+// 失败的容器在下次加载前重新注册，清除运行时记住的失败 Promise。
+const failedRemotes = new Set<string>()
+
 /** 注册模块联邦远程入口。 */
 export function setFederationRemote(id: string, config: FederationRemoteConfig): void {
   remoteConfigs.set(id, config)
@@ -32,21 +35,27 @@ async function ensureRuntimeRemote(id: string): Promise<void> {
 
   const entry = await config.url()
   const previousEntry = registeredEntries.get(id)
-  if (previousEntry === entry) return
+  if (previousEntry === entry && !failedRemotes.has(id)) return
 
   registerRemotes([{ name: id, entry, type: 'module' }], { force: previousEntry !== undefined })
   registeredEntries.set(id, entry)
+  failedRemotes.delete(id)
 }
 
 /** 从已注册远程入口加载指定 expose。 */
 export async function getFederationRemote(id: string, componentName: string): Promise<unknown> {
   await ensureRuntimeRemote(id)
   const expose = componentName.replace(/^\.\//, '')
-  const module = await loadRemote(`${id}/${expose}`)
-  if (module === null || module === undefined) {
-    throw new Error(`Federation remote module is unavailable: ${id}/${expose}`)
+  try {
+    const module = await loadRemote(`${id}/${expose}`)
+    if (module === null || module === undefined) {
+      throw new Error(`Federation remote module is unavailable: ${id}/${expose}`)
+    }
+    return module
+  } catch (error) {
+    failedRemotes.add(id)
+    throw error
   }
-  return module
 }
 
 /** 解包默认导出；插件契约中的每个 expose 都是 Vue 组件，宿主按组件使用其结果。 */

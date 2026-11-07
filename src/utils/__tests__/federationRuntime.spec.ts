@@ -94,6 +94,12 @@ describe('federationRuntime', () => {
     mocks.loadRemote.mockRejectedValue(new Error('chunk failed'))
 
     await expect(runtime.getFederationRemote('demo', './Page')).rejects.toThrow('chunk failed')
+    mocks.loadRemote.mockResolvedValue({ default: 'recovered' })
+    await expect(runtime.getFederationRemote('demo', './Page')).resolves.toEqual({ default: 'recovered' })
+    expect(mocks.registerRemotes).toHaveBeenLastCalledWith(
+      [{ name: 'demo', entry: '/remoteEntry.js', type: 'module' }],
+      { force: true },
+    )
   })
 
   it('unwraps default exports and passes through modules without one', async () => {

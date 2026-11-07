@@ -6,8 +6,7 @@ import PageRender from '@/components/render/PageRender.vue'
 import api, { createPluginInstanceApi } from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
-import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
-import RemoteComponentLoading from '@/components/misc/RemoteComponentLoading.vue'
+import { useRetryableRemoteComponent } from '@/composables/useRetryableRemoteComponent'
 
 // 输入参数
 const props = defineProps({
@@ -78,30 +77,21 @@ function handleVueComponentLayout(layout?: PluginDataLayout | null) {
 }
 
 // Vue 模式：动态加载的组件
-const dynamicComponent = defineAsyncComponent({
-  // 工厂函数
-  loader: async () => {
-    try {
-      if (!props.plugin?.id) {
-        throw new Error('插件ID不存在')
-      }
-
-      // 动态加载远程组件
-      const module = await loadRemoteComponent(props.plugin.id, 'Page')
-      componentLoaded.value = true
-      return module
-    } catch (error) {
-      console.error('加载远程组件失败:', error)
-      componentLoaded.value = false
-      throw error
+const dynamicComponent = useRetryableRemoteComponent(async () => {
+  try {
+    if (!props.plugin?.id) {
+      throw new Error('插件ID不存在')
     }
-  },
-  // 加载中显示的组件
-  loadingComponent: RemoteComponentLoading,
-  // 添加错误处理
-  errorComponent: RemoteComponentError,
-  // 添加超时设置
-  timeout: 20000,
+
+    // 动态加载远程组件
+    const module = await loadRemoteComponent(props.plugin.id, 'Page')
+    componentLoaded.value = true
+    return module
+  } catch (error) {
+    console.error('加载远程组件失败:', error)
+    componentLoaded.value = false
+    throw error
+  }
 })
 
 /** 读取当前插件实例的页面声明，加载状态和错误不替代业务内容。 */

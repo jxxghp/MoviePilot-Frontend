@@ -284,6 +284,10 @@ describe('PluginConfigDialog', () => {
     await renderDialog()
 
     expect(await screen.findByText('无法加载组件，请稍后再试')).toBeInTheDocument()
+    mocks.loadRemoteComponent.mockResolvedValue(createRemoteConfig([]))
+    await fireEvent.click(screen.getByRole('button', { name: '重新加载' }))
+    expect(await screen.findByTestId('remote-config')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
   })
 
   it('renders the precompiled loading state while the remote Config is pending', async () => {
