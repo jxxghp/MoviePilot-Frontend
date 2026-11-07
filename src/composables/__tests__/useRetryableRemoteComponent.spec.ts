@@ -18,6 +18,7 @@ describe('useRetryableRemoteComponent', () => {
       .mockReturnValueOnce(new Promise(() => {}))
       .mockResolvedValueOnce(defineComponent({ setup: () => () => h('p', '组件已恢复') }))
     const Host = defineComponent({
+      /** 通过组合函数的公开返回值渲染测试宿主，保留真实异步组件生命周期。 */
       setup() {
         const component = useRetryableRemoteComponent(loader)
         return () => h(component.value)
