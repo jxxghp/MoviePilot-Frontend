@@ -55,6 +55,8 @@ describe.each([
     expect(image?.src).toContain('system/img/0?imgurl=')
     expect(image?.src).toContain('&cache=true')
     expect(image?.src).toContain('&use_cookies=true')
+    expect(image?.src).toContain(component === PosterCard ? '&maxWidth=500' : '&maxWidth=1280')
+    expect(image?.src).toContain('&quality=80')
   })
 })
 
@@ -76,5 +78,7 @@ describe('BackdropCard image request mode', () => {
     expect(image?.src).toContain('system/img/0?imgurl=')
     expect(image?.src).toContain('&cache=true')
     expect(image?.src).toContain('&use_cookies=true')
+    expect(image?.src).toContain('&maxWidth=1280')
+    expect(image?.src).toContain('&quality=80')
   })
 })

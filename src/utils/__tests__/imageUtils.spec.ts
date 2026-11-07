@@ -51,6 +51,14 @@ describe('image URL helpers', () => {
     expect(getProxyImageUrl('', { useCache: true })).toBe('')
   })
 
+  it('keeps signed source URLs intact and passes thumbnail controls outside the URL', () => {
+    const image = 'https://media.example/Items/1/Images/Primary?tag=v1&mp_signature=test'
+    const proxied = new URL(getProxyImageUrl(image, { maxWidth: 500, quality: 80 }), 'https://moviepilot.test')
+    expect(proxied.searchParams.get('imgurl')).toBe(image)
+    expect(proxied.searchParams.get('maxWidth')).toBe('500')
+    expect(proxied.searchParams.get('quality')).toBe('80')
+  })
+
   it('exposes the official DingTalk logo for notification channels', () => {
     expect(hasLogo('dingtalk')).toBe(true)
     expect(getLogoUrl('dingtalk')).toContain('dingtalk')

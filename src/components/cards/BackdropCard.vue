@@ -22,17 +22,17 @@ const cardStyle = computed(() => ({
   inlineSize: props.width || '100%',
 }))
 
-// 图片加载完成响应
+/** 标记背景图已经可以展示。 */
 function imageLoadHandler() {
   imageLoaded.value = true
 }
 
-// 图片加载失败响应
+/** 加载失败后切换到本地占位图片。 */
 function imageErrorHandler() {
   imageLoadError.value = true
 }
 
-// 跳转播放
+/** 在卡片操作层打开对应媒体服务器条目。 */
 async function goPlay() {
   if (props.media) {
     await openMediaServerItem(props.media)
@@ -46,6 +46,8 @@ const getImgUrl = computed(() => {
   return getProxyImageUrl(image, {
     useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
     useCookies: props.media?.use_cookies,
+    maxWidth: 1280,
+    quality: 80,
   })
 })
 </script>

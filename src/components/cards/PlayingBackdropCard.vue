@@ -58,6 +58,8 @@ const imageUrl = computed(() => {
   return getProxyImageUrl(image, {
     useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
     useCookies: props.media?.use_cookies,
+    maxWidth: 1280,
+    quality: 80,
   })
 })
 
