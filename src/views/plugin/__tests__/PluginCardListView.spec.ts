@@ -1015,13 +1015,66 @@ describe('PluginCardListView rating concurrency', () => {
       await waitFor(() => expect(requests).toBe(3))
       expect(peak).toBe(3)
       expect(screen.getByTestId('market-Market-0')).toBeInTheDocument()
-      gates.slice(0, 3).forEach(gate => gate.resolve({}))
-      await waitFor(() => expect(requests).toBe(6))
+      // 一批完成就领取下一批，不等待另外两批；在途上限仍是三批。
+      gates[0].resolve({})
+      await waitFor(() => expect(requests).toBe(4))
+      gates[3].resolve({})
+      await waitFor(() => expect(requests).toBe(5))
       expect(peak).toBe(3)
     } finally {
       gates.forEach(gate => gate.resolve({}))
       await waitForRequestsToFinish()
     }
+  })
+})
+
+describe('PluginCardListView market snapshot reuse', () => {
+  it('keeps the full catalog on tab switches and reuses it on reactivation for five minutes', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1000)
+    let marketRequests = 0
+    await renderList({
+      market: () => {
+        marketRequests += 1
+        return [createPlugin({ id: 'Cached', plugin_name: '已缓存市场插件' })]
+      },
+    })
+    try {
+      await waitForRequestsToFinish()
+      getHeaderConfig().modelValue.value = 'market'
+      await nextTick()
+      getHeaderConfig().modelValue.value = 'installed'
+      await nextTick()
+      expect(marketRequests).toBe(1)
+      await mocks.keepAliveHandler?.({ silent: true, source: 'activated' })
+      expect(marketRequests).toBe(1)
+      now.mockReturnValue(301001)
+      await mocks.keepAliveHandler?.({ silent: true, source: 'activated' })
+      expect(marketRequests).toBe(2)
+      getHeaderButton('mdi-refresh').action?.()
+      await waitFor(() => expect(marketRequests).toBe(3))
+      await waitForRequestsToFinish()
+    } finally {
+      now.mockRestore()
+    }
+  })
+
+  it('fetches a new catalog after an installed plugin changes version', async () => {
+    let version = '1.0.0'
+    let marketRequests = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true, plugin_version: version })],
+      market: () => {
+        marketRequests += 1
+        return [createPlugin({ id: 'Market' })]
+      },
+    })
+    await waitForRequestsToFinish()
+    version = '2.0.0'
+    await mocks.keepAliveHandler?.({ silent: true, source: 'activated' })
+    expect(marketRequests).toBe(2)
+    await mocks.keepAliveHandler?.({ silent: true, source: 'activated' })
+    expect(marketRequests).toBe(2)
+    await waitForRequestsToFinish()
   })
 })
 
@@ -1309,6 +1362,10 @@ describe('PluginCardListView market filtering and pagination', () => {
 
     expect(screen.getByText('market:刷新前插件')).toBeInTheDocument()
     expect(screen.queryByText('market:刷新后插件')).not.toBeInTheDocument()
+    server.use(http.get(apiUrls.statistic, () => apiJson({ AfterRefresh: 11 })))
+    await mocks.keepAliveHandler?.({ silent: true, source: 'activated' })
+    expect(marketRequests).toBe(3)
+    expect(await screen.findByText('market:刷新后插件')).toBeInTheDocument()
   })
 })
 

@@ -26,7 +26,7 @@ const cardStyle = computed(() => ({
   inlineSize: props.width || '100%',
 }))
 
-// 角标颜色
+/** 按媒体类型选择海报角标颜色。 */
 function getChipColor(type: string) {
   if (type === '电影') return 'border-blue-500 bg-blue-600'
   else if (type === '电视剧') return ' bg-indigo-500 border-indigo-600'
@@ -40,10 +40,12 @@ const getImgUrl = computed(() => {
   return getProxyImageUrl(image, {
     useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
     useCookies: props.media?.use_cookies,
+    maxWidth: 500,
+    quality: 80,
   })
 })
 
-// 跳转播放
+/** 用户在海报操作层点击时打开对应媒体服务器条目。 */
 async function goPlay(isHovering: boolean | null = false) {
   if (props.media && isHovering) {
     await openMediaServerItem(props.media)
@@ -64,7 +66,7 @@ async function goPlay(isHovering: boolean | null = false) {
             'ring-1': isImageLoaded,
           }"
         >
-          <!-- 媒体服务器图片统一采用匿名 CORS，避免同一代理资源分裂为两种请求与缓存模式；Safari 普通 dev 可能重复请求，PWA 下由图片缓存路由统一处理。 -->
+          <!-- 媒体服务器缩略图统一采用匿名 CORS，由浏览器按代理响应头复用 HTTP 缓存。 -->
           <VImg
             aspect-ratio="2/3"
             :src="getImgUrl"

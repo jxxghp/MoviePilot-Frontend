@@ -193,7 +193,7 @@ async function getNetworkUsage() {
 const { refresh } = useDataRefresh(
   'dashboard-network',
   getNetworkUsage,
-  2000, // 2秒间隔
+  5000, // 五秒采样，减少仪表盘常驻时的请求竞争。
   true, // 立即执行
 )
 

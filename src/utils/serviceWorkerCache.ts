@@ -1,5 +1,10 @@
 import type { WorkboxPlugin } from 'workbox-core'
 
+/** 已有 HTTP 缓存协议的资源交由浏览器管理，避免通用 API 的 no-store 覆盖响应缓存策略。 */
+export function usesHttpResourceCache(url: Pick<URL, 'pathname'>): boolean {
+  return /\/api\/v1\/(?:plugin\/file\/[^/]+\/.+|system\/(?:img\/[01]|cache\/image))$/.test(url.pathname)
+}
+
 /** 识别原生榜单的专用 no-store 标记；业务 API 现统一走 NetworkOnly，不以此标记授予缓存权限。 */
 export function bypassNativeApiCache(request: Pick<Request, 'headers'>): boolean {
   return (

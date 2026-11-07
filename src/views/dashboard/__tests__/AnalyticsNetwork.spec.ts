@@ -130,7 +130,7 @@ describe('AnalyticsNetwork', () => {
     const registration = getRefreshRegistration()
     expect(registration).toMatchObject({
       id: 'dashboard-network',
-      interval: 2000,
+      interval: 5000,
       immediate: true,
     })
     expect(mocks.keepAliveHandler).toBe(registration.refresh)
