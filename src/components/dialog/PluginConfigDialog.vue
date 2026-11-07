@@ -9,8 +9,7 @@ import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
-import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
-import RemoteComponentLoading from '@/components/misc/RemoteComponentLoading.vue'
+import { useRetryableRemoteComponent } from '@/composables/useRetryableRemoteComponent'
 
 // 国际化
 const { t } = useI18n()
@@ -74,35 +73,27 @@ interface PluginConfigLayout {
   maxWidth?: string
 }
 
+/** 只接受宿主支持的页面模式，非法响应保留错误与重试入口。 */
 function isPluginRenderMode(value: unknown): value is PluginRenderMode {
   return value === 'vue' || value === 'vuetify'
 }
 
 // Vue 模式：动态加载的组件
-const dynamicComponent = defineAsyncComponent({
-  // 工厂函数
-  loader: async () => {
-    try {
-      if (!props.plugin?.id) {
-        throw new Error('插件ID不存在')
-      }
-
-      // 动态加载远程组件
-      const module = await loadRemoteComponent(props.plugin.id, 'Config')
-
-      // 直接返回加载的组件，无需再获取default
-      return module
-    } catch (error) {
-      console.error('加载远程组件失败:', error)
-      throw error
+const dynamicComponent = useRetryableRemoteComponent(async () => {
+  try {
+    if (!props.plugin?.id) {
+      throw new Error('插件ID不存在')
     }
-  },
-  // 加载中显示的组件
-  loadingComponent: RemoteComponentLoading,
-  // 添加错误处理
-  errorComponent: RemoteComponentError,
-  // 添加超时设置
-  timeout: 20000,
+
+    // 动态加载远程组件
+    const module = await loadRemoteComponent(props.plugin.id, 'Config')
+
+    // 直接返回加载的组件，无需再获取default
+    return module
+  } catch (error) {
+    console.error('加载远程组件失败:', error)
+    throw error
+  }
 })
 
 //调用API读取UI和配置数据

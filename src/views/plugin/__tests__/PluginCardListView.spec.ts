@@ -990,6 +990,41 @@ describe('PluginCardListView loading and request ownership', () => {
   })
 })
 
+describe('PluginCardListView rating concurrency', () => {
+  it('starts three batches before any response and bounds a 600-plugin query to three flights', async () => {
+    const gates = Array.from({ length: 6 }, () => createDeferred<Record<string, PluginRating>>())
+    let requests = 0
+    let active = 0
+    let peak = 0
+    await renderList({
+      installed: () => [createPlugin({ id: 'Installed', installed: true })],
+      market: () => Array.from({ length: 599 }, (_, index) => createPlugin({ id: `Market-${index}` })),
+      rating: async () => {
+        const index = requests++
+        active += 1
+        peak = Math.max(peak, active)
+        try {
+          return await gates[index].promise
+        } finally {
+          active -= 1
+        }
+      },
+    })
+
+    try {
+      await waitFor(() => expect(requests).toBe(3))
+      expect(peak).toBe(3)
+      expect(screen.getByTestId('market-Market-0')).toBeInTheDocument()
+      gates.slice(0, 3).forEach(gate => gate.resolve({}))
+      await waitFor(() => expect(requests).toBe(6))
+      expect(peak).toBe(3)
+    } finally {
+      gates.forEach(gate => gate.resolve({}))
+      await waitForRequestsToFinish()
+    }
+  })
+})
+
 describe('PluginCardListView market filtering and pagination', () => {
   beforeEach(() => {
     mocks.appMode = false

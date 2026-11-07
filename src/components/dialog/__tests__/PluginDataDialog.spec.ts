@@ -265,6 +265,10 @@ describe('PluginDataDialog', () => {
     await renderDialog()
 
     expect(await screen.findByText('无法加载组件，请稍后再试')).toBeInTheDocument()
+    mocks.loadRemoteComponent.mockResolvedValue(createRemotePage([]))
+    await fireEvent.click(screen.getByRole('button', { name: '重新加载' }))
+    expect(await screen.findByTestId('remote-page')).toBeInTheDocument()
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
   })
 
   it('preserves native title and host dismissal while the remote Page loads and replaces its content', async () => {

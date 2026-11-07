@@ -1461,14 +1461,19 @@ async function fetchPluginRatings(
 
   try {
     const ratings: { [key: string]: PluginRating } = {}
-    for (let start = 0; start < pluginIds.length; start += 100) {
-      const chunk = pluginIds.slice(start, start + 100)
-      const response: { [key: string]: PluginRating } = await api.get('plugin/rating', {
-        params: {
-          plugin_ids: chunk.join(','),
-        },
-      })
-      Object.assign(ratings, response)
+    // 每轮最多三批并发，为插件组件等同源请求保留连接，不把所有评分排成串行。
+    for (let start = 0; start < pluginIds.length; start += 300) {
+      const chunks = [0, 100, 200]
+        .map(offset => pluginIds.slice(start + offset, start + offset + 100))
+        .filter(chunk => chunk.length > 0)
+      const responses = await Promise.all(
+        chunks.map(chunk =>
+          api.get<Record<string, PluginRating>, Record<string, PluginRating>>('plugin/rating', {
+            params: { plugin_ids: chunk.join(',') },
+          }),
+        ),
+      )
+      responses.forEach(response => Object.assign(ratings, response))
     }
 
     const currentPluginIds = Array.from(
