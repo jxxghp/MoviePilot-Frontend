@@ -2,6 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
+import { getPluginRatings } from '@/api/pluginRating'
 import {
   changePluginSource,
   getPluginSourceOptions,
@@ -1383,6 +1384,7 @@ function restorePluginToMarket(plugin: Plugin) {
   initOptions(plugin)
 }
 
+/** 同一轮市场刷新的下载统计和评分快照，缺失项表示对应请求失败。 */
 interface PluginMarketMetrics {
   statistics?: { [key: string]: number }
   ratings?: { [key: string]: PluginRating }
@@ -1465,7 +1467,7 @@ async function fetchUninstalledPlugins(
   }
 }
 
-// 加载插件统计数据
+/** 加载插件安装统计，丢弃被新一轮刷新替代的结果。 */
 async function fetchPluginStatistics(): Promise<{ [key: string]: number } | undefined> {
   const generation = ++statisticWriterGeneration
   try {
@@ -1477,7 +1479,7 @@ async function fetchPluginStatistics(): Promise<{ [key: string]: number } | unde
   }
 }
 
-/** 批量加载插件评分并合并到已安装和市场插件对象。 */
+/** 不在 URL 中传递 ID 列表，加载完整评分后仅返回当前列表仍可接纳的快照。 */
 async function fetchPluginRatings(
   plugins: Plugin[] = marketList.value,
   marketGeneration = marketWriterGeneration,
@@ -1489,28 +1491,7 @@ async function fetchPluginRatings(
   }
 
   try {
-    const ratings: { [key: string]: PluginRating } = {}
-    let nextStart = 0
-    let failed = false
-    /** 每个空闲槽立即领取下一批，最多三批在途，失败或被新一轮替代后停止领取。 */
-    async function loadNextBatch(): Promise<void> {
-      while (!failed && generation === ratingWriterGeneration && nextStart < pluginIds.length) {
-        const chunk = pluginIds.slice(nextStart, nextStart + 100)
-        nextStart += 100
-        try {
-          Object.assign(
-            ratings,
-            await api.get<Record<string, PluginRating>, Record<string, PluginRating>>('plugin/rating', {
-              params: { plugin_ids: chunk.join(',') },
-            }),
-          )
-        } catch (error) {
-          failed = true
-          throw error
-        }
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(3, Math.ceil(pluginIds.length / 100)) }, loadNextBatch))
+    const ratings = await getPluginRatings(pluginIds)
 
     const currentPluginIds = Array.from(
       new Set([...dataList.value, ...plugins].map(plugin => plugin.id).filter(Boolean)),
