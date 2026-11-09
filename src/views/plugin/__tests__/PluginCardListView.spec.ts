@@ -79,27 +79,32 @@ vi.mock('@/composables/useSharedDialog', () => ({
 
 type MaybeRef<T> = T | Ref<T> | ComputedRef<T>
 
+/** 页头操作按钮在测试中使用的最小契约。 */
 interface HeaderButton {
   action?: () => void | Promise<void>
   dataAttr?: string
   icon: string
 }
 
+/** 页头标签和按钮的注册快照。 */
 interface HeaderConfig {
   appendButtons: HeaderButton[]
   modelValue: Ref<string>
 }
 
+/** 页面动态操作菜单的测试契约。 */
 interface DynamicButtonConfig {
   menuItems?: MaybeRef<DynamicButtonMenuItem[] | undefined>
   onClick: () => void
 }
 
+/** 由用例控制响应完成时机的异步结果。 */
 interface Deferred<T> {
   promise: Promise<T>
   resolve: (value: T) => void
 }
 
+/** 创建可手动完成的异步结果，用于验证并发请求的写入顺序。 */
 function createDeferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void
   const promise = new Promise<T>(nextResolve => {
@@ -108,6 +113,7 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
+/** 创建带最小市场元数据的插件，并允许用例覆盖业务字段。 */
 function createPlugin(overrides: Partial<Plugin> = {}): Plugin {
   return {
     id: 'DemoPlugin',
@@ -123,6 +129,7 @@ function createPlugin(overrides: Partial<Plugin> = {}): Plugin {
 
 const PassthroughStub = defineComponent({
   name: 'PassthroughStub',
+  /** 保留默认插槽内容，省略与业务断言无关的布局。 */
   setup(_props, { slots }) {
     return () => h('div', slots.default?.())
   },
@@ -135,6 +142,7 @@ const ProgressiveCardGridStub = defineComponent({
     items: { type: Array as PropType<unknown[]>, required: true },
     scrollToIndex: { type: Number, default: undefined },
   },
+  /** 渲染渐进列表条目并保留键和定位属性。 */
   setup(props, { slots }) {
     return () =>
       h(
@@ -181,6 +189,7 @@ const PluginMixedSortCardStub = defineComponent({
     'update',
     'update-folder-config',
   ],
+  /** 暴露安装卡片状态及用户操作，供父组件交互测试使用。 */
   setup(props, { emit }) {
     return () => {
       const item = props.item
@@ -322,6 +331,7 @@ const PluginAppCardStub = defineComponent({
     installHandler: Function as PropType<() => unknown>,
   },
   emits: ['install'],
+  /** 渲染市场卡片指标并转发安装操作。 */
   setup(props, { emit }) {
     return () =>
       h('article', { 'data-testid': `market-${props.plugin.id}` }, [
@@ -344,7 +354,9 @@ const DraggableStub = defineComponent({
   name: 'Draggable',
   props: { modelValue: { type: Array as PropType<unknown[]>, required: true } },
   emits: ['end', 'start', 'update:modelValue'],
+  /** 保留拖拽排序的值更新、开始和结束事件。 */
   setup(props, { emit, slots }) {
+    /** 模拟用户完成一次反向排序。 */
     async function reverse() {
       emit('update:modelValue', [...props.modelValue].reverse())
       await nextTick()
@@ -381,6 +393,7 @@ const NoDataFoundStub = defineComponent({
 const InfiniteScrollStub = defineComponent({
   name: 'VInfiniteScroll',
   emits: ['load'],
+  /** 通过按钮触发下一页加载并保留完成回调。 */
   setup(_props, { emit, slots }) {
     return () =>
       h('section', [
@@ -395,6 +408,7 @@ const FieldStub = defineComponent({
   inheritAttrs: false,
   props: { label: String, modelValue: [String, Number], placeholder: String },
   emits: ['keyup', 'update:modelValue'],
+  /** 用原生输入框保留过滤字段的双向绑定和键盘事件。 */
   setup(props, { emit }) {
     return () =>
       h('input', {
@@ -414,6 +428,7 @@ const SelectStub = defineComponent({
     modelValue: { type: Array as PropType<string[]>, default: () => [] },
   },
   emits: ['update:modelValue'],
+  /** 用按钮保留多选筛选项的添加和移除行为。 */
   setup(props, { emit }) {
     return () =>
       h('fieldset', { 'aria-label': props.label }, [
@@ -437,6 +452,7 @@ const SelectStub = defineComponent({
   },
 })
 
+/** 每个用例按需覆盖的插件页面 HTTP 响应。 */
 interface ListResponses {
   folders?: () => JsonBodyType | Promise<JsonBodyType>
   installed?: () => Plugin[] | Promise<Plugin[]>
@@ -444,12 +460,13 @@ interface ListResponses {
   market?: () => Plugin[] | Promise<Plugin[]>
   marketStatus?: number
   order?: unknown[]
-  rating?: (ids: string[]) => Record<string, PluginRating> | Promise<Record<string, PluginRating>>
+  rating?: (request: Request) => Record<string, PluginRating> | Promise<Record<string, PluginRating>>
   runtime?: () => PluginRuntimeSummary | Promise<PluginRuntimeSummary>
   sourceOptions?: (pluginId: string) => PluginSourceOptions | Promise<PluginSourceOptions>
   statistic?: () => Record<string, number> | Promise<Record<string, number>>
 }
 
+/** 在真实 API 客户端的 HTTP 边界注册页面所需的隔离响应。 */
 function registerListHandlers(responses: ListResponses = {}) {
   server.use(
     http.get(apiUrls.order, () => apiJson({ value: responses.order ?? [] })),
@@ -502,12 +519,12 @@ function registerListHandlers(responses: ListResponses = {}) {
       )
     }),
     http.get(apiUrls.rating, async ({ request }) => {
-      const ids = new URL(request.url).searchParams.get('plugin_ids')?.split(',').filter(Boolean) ?? []
-      return apiJson(((await responses.rating?.(ids)) ?? {}) as unknown as JsonBodyType)
+      return apiJson(((await responses.rating?.(request)) ?? {}) as unknown as JsonBodyType)
     }),
   )
 }
 
+/** 挂载插件页面，注入权限和轻量 UI 替身。 */
 async function renderList(responses: ListResponses = {}, options: { superUser?: boolean } = {}) {
   registerListHandlers(responses)
   return renderWithProviders(PluginCardListView, {
@@ -539,44 +556,52 @@ async function renderList(responses: ListResponses = {}, options: { superUser?: 
   })
 }
 
+/** 读取页面最近一次注册的页头契约。 */
 function getHeaderConfig() {
   return mocks.registerHeaderTab.mock.calls.at(-1)?.[0] as HeaderConfig
 }
 
+/** 读取页面最近一次注册的动态操作菜单。 */
 function getDynamicButtonConfig() {
   return mocks.useDynamicButton.mock.calls.at(-1)?.[0] as DynamicButtonConfig
 }
 
+/** 按标题键定位用户可执行的动态菜单项。 */
 function getDynamicMenuItem(titleKey: string) {
   const item = unref(getDynamicButtonConfig().menuItems)?.find(candidate => candidate.titleKey === titleKey)
   if (!item) throw new Error(`未注册动态操作 ${titleKey}`)
   return item
 }
 
+/** 按图标定位带操作回调的页头按钮。 */
 function getHeaderButton(icon: string) {
   const button = getHeaderConfig().appendButtons.find(candidate => candidate.icon === icon)
   if (!button?.action) throw new Error(`未注册 header 操作 ${icon}`)
   return button
 }
 
+/** 按当前 DOM 顺序读取插件和文件夹标签。 */
 function getInstalledLabels() {
   return [...document.querySelectorAll('[data-testid^="folder-"], [data-testid^="plugin-"]')].map(
     node => node.querySelector('span')?.textContent,
   )
 }
 
+/** 读取指定共享弹窗向页面暴露的事件回调。 */
 function getDialogEvents(index = -1) {
   const call = mocks.openSharedDialog.mock.calls.at(index)
   if (!call) throw new Error('未打开共享弹窗')
   return call[2] as Record<string, (...args: unknown[]) => unknown>
 }
 
+/** 读取指定共享弹窗接收的插件和安装参数。 */
 function getDialogProps(index = -1) {
   const call = mocks.openSharedDialog.mock.calls.at(index)
   if (!call) throw new Error('未打开共享弹窗')
   return call[1] as { plugin?: Plugin; installHandler?: (...args: unknown[]) => unknown }
 }
 
+/** 等待请求及其 Vue 提交完成，防止用例结束时仍有在途写入。 */
 async function waitForRequestsToFinish() {
   await new Promise(resolve => setTimeout(resolve, 0))
   await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
@@ -964,8 +989,8 @@ describe('PluginCardListView loading and request ownership', () => {
     await waitForRequestsToFinish()
   })
 
-  it('batches ratings by 100 plugin IDs and merges the returned values into current cards', async () => {
-    const requestedChunks: string[][] = []
+  it('loads one rating snapshot without plugin ID parameters and maps lowercase keys into current cards', async () => {
+    const requestedUrls: URL[] = []
     const installed = Array.from({ length: 101 }, (_, index) =>
       createPlugin({ id: `Installed-${index}`, installed: true, plugin_name: `已安装-${index}` }),
     )
@@ -975,56 +1000,46 @@ describe('PluginCardListView loading and request ownership', () => {
     await renderList({
       installed: () => installed,
       market: () => market,
-      rating: ids => {
-        requestedChunks.push(ids)
+      rating: request => {
+        requestedUrls.push(new URL(request.url))
         return Object.fromEntries(
-          ids.map(id => [id, { average_rating: id === 'Market-0' ? 4.8 : 4, plugin_id: id, rating_count: 2 }]),
+          [...installed, ...market].map(({ id }) => [
+            id.toLowerCase(),
+            { average_rating: id === 'Market-0' ? 4.8 : 4, plugin_id: id.toLowerCase(), rating_count: 2 },
+          ]),
         )
       },
     })
 
-    await waitFor(() => expect(requestedChunks).toHaveLength(3))
-    expect(requestedChunks.map(chunk => chunk.length)).toEqual([100, 100, 2])
-    expect(await screen.findByLabelText('rating-Market-0')).toHaveTextContent('4.8')
     await waitForRequestsToFinish()
+    expect(requestedUrls.map(url => url.href)).toEqual([apiUrls.rating])
+    expect(screen.getByLabelText('installed-rating-Installed-0')).toHaveTextContent('4')
+    expect(await screen.findByLabelText('rating-Market-0')).toHaveTextContent('4.8')
   })
 })
 
-describe('PluginCardListView rating concurrency', () => {
-  it('starts three batches before any response and bounds a 600-plugin query to three flights', async () => {
-    const gates = Array.from({ length: 6 }, () => createDeferred<Record<string, PluginRating>>())
-    let requests = 0
-    let active = 0
-    let peak = 0
+describe('PluginCardListView rating snapshot requests', () => {
+  it('keeps a 600-plugin catalog to one in-flight rating request while the list remains visible', async () => {
+    const ratings = createDeferred<Record<string, PluginRating>>()
+    const requestedUrls: string[] = []
     await renderList({
       installed: () => [createPlugin({ id: 'Installed', installed: true })],
       market: () => Array.from({ length: 599 }, (_, index) => createPlugin({ id: `Market-${index}` })),
-      rating: async () => {
-        const index = requests++
-        active += 1
-        peak = Math.max(peak, active)
-        try {
-          return await gates[index].promise
-        } finally {
-          active -= 1
-        }
+      rating: request => {
+        requestedUrls.push(request.url)
+        return ratings.promise
       },
     })
 
     try {
-      await waitFor(() => expect(requests).toBe(3))
-      expect(peak).toBe(3)
-      expect(screen.getByTestId('market-Market-0')).toBeInTheDocument()
-      // 一批完成就领取下一批，不等待另外两批；在途上限仍是三批。
-      gates[0].resolve({})
-      await waitFor(() => expect(requests).toBe(4))
-      gates[3].resolve({})
-      await waitFor(() => expect(requests).toBe(5))
-      expect(peak).toBe(3)
+      expect(await screen.findByTestId('market-Market-0')).toBeInTheDocument()
+      await waitFor(() => expect(requestedUrls.length).toBeGreaterThan(0))
+      expect(requestedUrls).toEqual([apiUrls.rating])
     } finally {
-      gates.forEach(gate => gate.resolve({}))
+      ratings.resolve({})
       await waitForRequestsToFinish()
     }
+    expect(screen.getByLabelText('rating-Market-0')).toHaveTextContent('0')
   })
 })
 
