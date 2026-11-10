@@ -247,6 +247,41 @@ describe('FullCalendarView', () => {
     expect(screen.getAllByRole('heading', { name: '重试窗口 0' })).toHaveLength(1)
   })
 
+  it('reports loaded calendar items instead of unique subscriptions while paging', async () => {
+    setViewport(390)
+    let releaseSecondPage: (() => void) | undefined
+    const secondPageReady = new Promise<void>(resolve => {
+      releaseSecondPage = resolve
+    })
+    const subscribe = movieSubscribe(9750, '日历条目计数')
+    const dateKey = (offset: number) => {
+      const date = new Date(2026, 10, 1)
+      date.setDate(date.getDate() + offset)
+      return date.toISOString().slice(0, 10)
+    }
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({
+      subscribe,
+      date: dateKey(index),
+      episodes: [],
+    }))
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', async ({ request }) => {
+        if (Number(new URL(request.url).searchParams.get('page')) === 1) {
+          return apiJson({ items: firstPage, total: 51 })
+        }
+        await secondPageReady
+        return apiJson({ items: [{ subscribe, date: dateKey(50), episodes: [] }], total: 51 })
+      }),
+    )
+
+    await renderCalendar()
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('已加载 50 条'))
+    expect(screen.getByText('50 项')).toBeInTheDocument()
+    releaseSecondPage?.()
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+  })
+
   it('expands already downloaded mobile dates before requesting a later window', async () => {
     setViewport(390)
     let requests = 0
@@ -594,6 +629,7 @@ describe('FullCalendarView', () => {
     await screen.findByText(subscribe.name)
     expect(screen.getByText('未入库 (2/4)')).toBeInTheDocument()
     await waitFor(() => expect(filesRequest).toHaveBeenCalledOnce())
+    await waitFor(() => expect(document.querySelector('[role="status"]')).not.toBeInTheDocument())
     resolveFiles?.()
     await waitFor(() => expect(screen.getByText('部分入库 (2/4)')).toBeInTheDocument())
   })

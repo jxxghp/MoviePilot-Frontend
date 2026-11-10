@@ -43,7 +43,6 @@ const isLoaded = ref(false)
 const i18nLocale = getCurrentLocale()
 const currentLocale = i18nLocale.split('-')[0]
 
-const loadedSubscriptionCount = ref(0)
 const visibleRange = shallowRef<{ start: Date; end: Date }>()
 const mobileVisibleDayCount = ref(30)
 const mobileWindowEnd = shallowRef<Date>()
@@ -141,6 +140,13 @@ const rawCalendarEvents = ref<CalendarEventInfo[]>([])
 const expandedDateKeys = ref(new Set<string>())
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
 
+/** 统计当前日历中已加载的剧集或电影条目，和移动端总数使用同一口径。 */
+function getCalendarItemCount(events: CalendarEventInfo[]) {
+  return events.reduce((total, event) => total + (event.len || 1), 0)
+}
+
+const loadedCalendarItemCount = computed(() => getCalendarItemCount(rawCalendarEvents.value))
+
 // 移动端当前剧集筛选值。
 const mobileSelectedFilterValue = ref(ALL_MOBILE_FILTER_VALUE)
 
@@ -198,7 +204,7 @@ const mobileSeriesFilterOptions = computed<MobileCalendarFilterOption[]>(() => {
     {
       label: t('common.all'),
       value: ALL_MOBILE_FILTER_VALUE,
-      count: rawCalendarEvents.value.reduce((total, event) => total + (event.len || 1), 0),
+      count: loadedCalendarItemCount.value,
     },
     ...Array.from(optionMap.values()),
   ]
@@ -775,12 +781,21 @@ async function enrichCalendarLibraryEpisodes(subscribes: CalendarSubscription[],
   )
 }
 
+/** 在日历条目加载完成后异步补查媒体库集号，不阻塞首屏加载状态。 */
+function startCalendarLibraryEnrichment(subscribes: CalendarSubscription[], generation: number) {
+  void enrichCalendarLibraryEpisodes(subscribes, generation).catch(error => {
+    if (generation === calendarLoadGeneration) console.error(error)
+  })
+}
+
 /** 兼容旧后端：逐页加载订阅，每页最多四个详情请求并发。 */
 async function loadLegacyCalendar(generation: number) {
+  const allSubscribes: Subscribe[] = []
   for (let page = 1; ; page++) {
     if (generation !== calendarLoadGeneration) return
     const subscribes = await api.get<Subscribe[]>('subscribe/', { params: { page, count: 50 } })
     if (generation !== calendarLoadGeneration) return
+    allSubscribes.push(...subscribes)
     const events: CalendarEventInfo[] = []
     let nextIndex = 0
     /** 单个工作协程依次处理详情，过期批次不再派发请求。 */
@@ -799,13 +814,12 @@ async function loadLegacyCalendar(generation: number) {
     rawCalendarEvents.value = normalizeCalendarEventOrder(
       [...(page === 1 ? [] : rawCalendarEvents.value), ...events].filter(event => event.start),
     )
-    loadedSubscriptionCount.value += subscribes.length
     renderVisibleCalendarEvents()
     isLoaded.value = true
-    await enrichCalendarLibraryEpisodes(subscribes, generation)
     if (subscribes.length < 50) break
   }
   isLoaded.value = true
+  startCalendarLibraryEnrichment(allSubscribes, generation)
 }
 
 /** 获取当前可见日期范围，移动端默认从近三十天到未来六十天。 */
@@ -863,7 +877,6 @@ async function getSubscribes(range = getCalendarLoadRange(), append = false) {
   calendarRequestController = new AbortController()
   const signal = calendarRequestController.signal
   loading.value = true
-  loadedSubscriptionCount.value = 0
   if (!append) mobileVisibleDayCount.value = 30
   try {
     if (legacyCalendarApi) {
@@ -891,13 +904,12 @@ async function getSubscribes(range = getCalendarLoadRange(), append = false) {
       result.items.forEach(item => {
         if (item.subscribe.id) subscribes.set(item.subscribe.id, item.subscribe)
       })
-      loadedSubscriptionCount.value = subscribes.size
       renderVisibleCalendarEvents()
       isLoaded.value = true
       if (page * 50 >= result.total || !result.items.length) break
     }
     if (!display.mdAndUp.value) mobileWindowEnd.value = range.end
-    await enrichCalendarLibraryEpisodes([...subscribes.values()], generation)
+    startCalendarLibraryEnrichment([...subscribes.values()], generation)
   } catch (error) {
     if (generation !== calendarLoadGeneration || signal.aborted) return
     if (isLegacyCalendarEndpoint(error)) {
@@ -963,7 +975,7 @@ onActivated(() => {
   <div v-if="loading" role="status" class="mb-2">
     <VProgressLinear indeterminate color="primary" />
     <span class="text-caption"
-      >{{ t('common.loading') }} · {{ t('common.loadedCount', { count: loadedSubscriptionCount }) }}</span
+      >{{ t('common.loading') }} · {{ t('common.loadedCount', { count: loadedCalendarItemCount }) }}</span
     >
   </div>
   <div
