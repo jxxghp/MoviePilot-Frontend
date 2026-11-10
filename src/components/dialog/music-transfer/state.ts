@@ -90,7 +90,17 @@ export function canCorrectMusicGroup(group: MusicPreviewGroup) {
   )
 }
 
-/** 按同一完整范围替换预览，拒绝服务返回缺项、额外文件或重复文件。 */
+/** 判断预览项是否为后端确认的音频主文件。 */
+function isMusicAudioPreviewItem(item: ManualTransferPreviewItem) {
+  return item.music?.file_role === 'audio'
+}
+
+/** 判断预览项是否为可以由服务端补充的配套文件。 */
+function isMusicCompanionPreviewItem(item: ManualTransferPreviewItem) {
+  return item.music?.file_role === 'companion'
+}
+
+/** 仅按音频源文件校验纠正范围，接受服务端增删配套文件并以响应为准。 */
 export function replaceMusicGroup(
   data: ManualTransferPreviewData,
   group: MusicPreviewGroup,
@@ -98,10 +108,32 @@ export function replaceMusicGroup(
 ) {
   const expected = new Set(group.items.map(previewSourceKey))
   const actual = replacement.items.map(previewSourceKey)
-  if (!previewFileScope(replacement.items) || actual.length !== expected.size || actual.some(key => !expected.has(key)))
+  const expectedAudio = new Set(group.items.filter(isMusicAudioPreviewItem).map(previewSourceKey))
+  const actualAudio = replacement.items.filter(isMusicAudioPreviewItem).map(previewSourceKey)
+  const actualAudioSet = new Set(actualAudio)
+  const dataKeys = new Set(data.items.map(previewSourceKey))
+  if (
+    !previewFileScope(replacement.items) ||
+    expectedAudio.size === 0 ||
+    actualAudio.length !== expectedAudio.size ||
+    actualAudioSet.size !== actualAudio.length ||
+    [...expectedAudio].some(key => !actualAudioSet.has(key)) ||
+    replacement.items.some((item, index) => {
+      const key = actual[index]
+      return !expected.has(key) && (!isMusicCompanionPreviewItem(item) || dataKeys.has(key))
+    })
+  )
     return
   const updated = new Map(replacement.items.map(item => [previewSourceKey(item), item]))
-  const items = data.items.map(item => updated.get(previewSourceKey(item)) ?? item)
+  const items = data.items.flatMap(item => {
+    const key = previewSourceKey(item)
+    if (!expected.has(key)) return [item]
+    const changed = updated.get(key)
+    return changed ? [changed] : []
+  })
+  replacement.items.forEach(item => {
+    if (!expected.has(previewSourceKey(item))) items.push(item)
+  })
   return {
     ...data,
     items,
@@ -146,8 +178,8 @@ export function useMusicTransferCorrection(data: Ref<ManualTransferPreviewData |
       if (current !== generation || !data.value) return false
       const next = replaceMusicGroup(data.value, group, result)
       if (!next) throw new MusicTransferScopeChangedError(result.message)
-      // 新响应可能修正发行分组，覆盖以稳定源文件身份保存，不能依赖展示标题。
-      for (const item of group.items) selections.value.set(previewSourceKey(item), { ...selection })
+      // 新响应可能修正发行分组或补充配套文件，按响应中的源文件保存选择，不能依赖展示标题。
+      for (const item of result.items) selections.value.set(previewSourceKey(item), { ...selection })
       data.value = next
       return true
     } catch (error) {

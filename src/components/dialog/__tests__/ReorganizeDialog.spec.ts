@@ -1959,6 +1959,66 @@ describe('ReorganizeDialog music correction', () => {
     )
   })
 
+  it('accepts backend companion changes while keeping the selected edition', async () => {
+    const audio = musicRow('Album A', 'image.dsf')
+    const cover = musicRow('Album A', 'folder.jpg')
+    cover.music = { ...cover.music!, file_role: 'companion', read_status: 'companion' }
+    const addedLyrics = musicRow('Album A result', 'image.lrc')
+    addedLyrics.music = {
+      ...addedLyrics.music!,
+      file_role: 'companion',
+      read_status: 'companion',
+    }
+    const requests: ManualTransferPayload[] = []
+    server.use(
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, ({ request }) =>
+        HttpResponse.json(
+          apiEnvelope(musicAlbum(new URL(request.url).searchParams.get('musicbrainz_release_id') ?? MUSIC_RELEASE_A)),
+        ),
+      ),
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        const payload = (await request.json()) as ManualTransferPayload
+        requests.push(payload)
+        if (!payload.preview) return HttpResponse.json(apiEnvelope(null))
+        const correctedAudio = {
+          ...audio,
+          music: {
+            ...audio.music!,
+            group_id: 'Album A result',
+            status: 'manual' as const,
+            musicbrainz_release_id: payload.musicbrainz_release_id,
+          },
+        }
+        return HttpResponse.json(
+          previewResponse(payload.musicbrainz_release_id ? [correctedAudio, addedLyrics] : [audio, cover]),
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    const { onDone } = await renderDialog({
+      items: [createFileItem({ path: '/downloads/Collection', type: 'dir' })],
+    })
+    await selectOption('类型', 3)
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    await screen.findByText('Original track')
+    await selectOption('具体发行版本', 1)
+    await user.click(screen.getByRole('button', { name: '应用并重新预览' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: '应用并重新预览' })).not.toBeInTheDocument())
+    expect(mocks.toastError).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '立即整理' }))
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    const execution = requests.filter(payload => !payload.preview)
+    expect(execution).toHaveLength(1)
+    expect(execution[0]).toMatchObject({
+      fileitems: [audio.source_item, addedLyrics.source_item],
+      media_source: 'musicbrainz',
+      media_id: MUSIC_GROUP_ID,
+      musicbrainz_release_id: MUSIC_RELEASE_B,
+    })
+  })
+
   it('cannot apply previous tracks after a different release fails to load', async () => {
     server.use(
       http.post(new URL('transfer/manual', API_BASE_URL).href, () =>
