@@ -33,7 +33,12 @@ import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
 import MusicTransferPreview from './music-transfer/Preview.vue'
 import MusicTransferCorrectionDialog from './music-transfer/CorrectionDialog.vue'
-import { useMusicTransferCorrection, type MusicAlbumSelection, type MusicPreviewGroup } from './music-transfer/state'
+import {
+  MusicTransferScopeChangedError,
+  useMusicTransferCorrection,
+  type MusicAlbumSelection,
+  type MusicPreviewGroup,
+} from './music-transfer/state'
 
 // 主整理弹窗继续接收调用方的 v-model，纠正弹窗不共享可见状态。
 defineOptions({ inheritAttrs: false })
@@ -1770,7 +1775,10 @@ async function correctMusicAlbum(selection: MusicAlbumSelection) {
     )
     if (accepted) musicCorrectionGroup.value = undefined
   } catch (error) {
-    $toast.error(getApiBusinessErrorMessage(error) || t('dialog.reorganize.musicPreview.correctionFailed'))
+    const correctionMessage = error instanceof MusicTransferScopeChangedError ? error.businessMessage : undefined
+    $toast.error(
+      getApiBusinessErrorMessage(error) || correctionMessage || t('dialog.reorganize.musicPreview.correctionFailed'),
+    )
   }
 }
 

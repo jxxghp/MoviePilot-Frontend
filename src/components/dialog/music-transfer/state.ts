@@ -20,6 +20,19 @@ export interface MusicPreviewGroup {
   items: ManualTransferPreviewItem[]
 }
 
+/** 纠正响应改变文件范围时，保留后端给用户的可操作业务提示。 */
+export class MusicTransferScopeChangedError extends Error {
+  readonly businessMessage?: string
+
+  /** 保存范围变更代码和响应中的可操作消息。 */
+  constructor(message?: string) {
+    super('music-transfer-scope-changed')
+    this.name = 'MusicTransferScopeChangedError'
+    this.businessMessage = message?.trim() || undefined
+    Object.setPrototypeOf(this, new.target.prototype)
+  }
+}
+
 /** 存储是文件身份的一部分，跨存储同名路径不能合并。 */
 export function previewSourceKey(item: ManualTransferPreviewItem) {
   return JSON.stringify([item.source_item?.storage ?? item.source_storage, item.source_item?.path ?? item.source])
@@ -132,7 +145,7 @@ export function useMusicTransferCorrection(data: Ref<ManualTransferPreviewData |
       const result = await request(files, selection)
       if (current !== generation || !data.value) return false
       const next = replaceMusicGroup(data.value, group, result)
-      if (!next) throw new Error('music-transfer-scope-changed')
+      if (!next) throw new MusicTransferScopeChangedError(result.message)
       // 新响应可能修正发行分组，覆盖以稳定源文件身份保存，不能依赖展示标题。
       for (const item of group.items) selections.value.set(previewSourceKey(item), { ...selection })
       data.value = next

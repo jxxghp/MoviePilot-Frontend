@@ -2005,6 +2005,34 @@ describe('ReorganizeDialog music correction', () => {
     expect(screen.queryByText('/downloads/Collection/new.flac')).not.toBeInTheDocument()
   })
 
+  it('shows the backend correction message when its response changes the file range', async () => {
+    let previewCount = 0
+    const row = musicRow('Album A', '01.flac')
+    const message = '所选专辑只能对齐 0 / 1 个音频文件，请按单个发行版本选择文件并核对曲目'
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, () => {
+        previewCount += 1
+        return HttpResponse.json(
+          previewResponse(
+            previewCount === 1 ? [row] : [row, musicRow('Album A', 'new.flac')],
+            previewCount === 1 ? '' : message,
+          ),
+        )
+      }),
+      http.get(new URL(`music/album/${MUSIC_GROUP_ID}`, API_BASE_URL).href, () =>
+        HttpResponse.json(apiEnvelope(musicAlbum())),
+      ),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await user.click(await screen.findByRole('button', { name: '纠正专辑：Album A' }))
+    await screen.findByText('Original track')
+    await user.click(screen.getByRole('button', { name: '应用并重新预览' }))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(message))
+    expect(mocks.toastError).not.toHaveBeenCalledWith(expect.stringContaining('返回的文件范围已改变'))
+  })
+
   it('ignores an in-flight correction when the source selection changes', async () => {
     const pending = createDeferred<ReturnType<typeof previewResponse>>()
     let previewCount = 0
