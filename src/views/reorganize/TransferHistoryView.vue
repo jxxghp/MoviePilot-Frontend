@@ -13,6 +13,7 @@ import type {
 } from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import TransferRecoveryDialog from '@/components/dialog/TransferRecoveryDialog.vue'
+import TransferRegistrationDialog from '@/components/dialog/TransferRegistrationDialog.vue'
 import TransferQueueDialog from '@/components/dialog/TransferQueueDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -153,6 +154,7 @@ interface TransferHistoryStatusFilterItem {
 
 // 独立状态筛选，不再把本地化文案作为 title 的后端协议。
 const statusFilter = ref<TransferHistoryStatusFilter>(getRouteStatusFilter(route.query.status))
+const externalOnly = ref(route.query.origin === 'external')
 const mobileStatusFilterMenu = ref(false)
 
 const statusFilterItems = computed<TransferHistoryStatusFilterItem[]>(() => [
@@ -161,26 +163,53 @@ const statusFilterItems = computed<TransferHistoryStatusFilterItem[]>(() => [
   { title: t('transferHistory.status.failed'), value: 'failed', icon: 'mdi-alert-circle', color: 'error' },
 ])
 
-const currentStatusFilter = computed<TransferHistoryStatusFilterItem>(() => {
-  return (
-    statusFilterItems.value.find(item => item.value === statusFilter.value) ?? {
-      title: t('transferHistory.statusFilter.all'),
-      value: 'all',
-      icon: 'mdi-filter-multiple-outline',
-    }
-  )
-})
+const historyFiltersActive = computed(() => statusFilter.value !== 'all' || externalOnly.value)
 
-const statusFilterButtonColor = computed(() =>
-  statusFilter.value === 'all' ? 'gray' : currentStatusFilter.value.color,
-)
+// 所有筛选入口共用两组状态与回调，原生投影不维护第二份查询条件。
+const historyFilterSections = computed(() => [
+  {
+    id: 'history-status',
+    title: t('transferHistory.filterStatus'),
+    items: statusFilterItems.value.map(option => ({
+      id: `status-${option.value}`,
+      title: option.title,
+      icon: option.icon,
+      color: option.color,
+      selected: statusFilter.value === option.value,
+      invoke: () => selectStatusFilter(option.value),
+    })),
+  },
+  {
+    id: 'history-origin',
+    title: t('transferHistory.filterOrigin'),
+    items: [false, true].map(external => ({
+      id: external ? 'origin-external' : 'origin-all',
+      title: t(external ? 'transferHistory.externalOnly' : 'transferHistory.allOrigins'),
+      icon: external ? 'mdi-import' : 'mdi-source-branch',
+      color: undefined,
+      selected: externalOnly.value === external,
+      invoke: () => selectOriginFilter(external),
+    })),
+  },
+])
 
-// 移动端状态筛选沿用订阅页的外部激活器菜单，确保按钮固定在标题栏右侧。
+// 移动端筛选沿用外部激活器，按钮固定在标题栏右侧。
 const mobileStatusFilterActivator = computed(() => '[data-menu-activator="history-status-filter-btn"]')
 
-// 选择移动端状态后立即关闭菜单，状态监听器负责刷新列表并同步地址栏。
 function selectStatusFilter(value: TransferHistoryStatusFilter) {
   statusFilter.value = value
+  mobileStatusFilterMenu.value = false
+}
+
+function selectOriginFilter(value: boolean) {
+  externalOnly.value = value
+  mobileStatusFilterMenu.value = false
+}
+
+// 同一轮同步修改由组合监听器一次写入路由，避免清除时发出中间查询。
+function clearHistoryFilters() {
+  statusFilter.value = 'all'
+  externalOnly.value = false
   mobileStatusFilterMenu.value = false
 }
 
@@ -209,9 +238,26 @@ function sortByTitle(a: TransferHistory, b: TransferHistory) {
   return 0
 }
 
-// 按源文件体积排序历史记录。
-function sortBySourceSize(a: TransferHistory, b: TransferHistory) {
-  return (a.src_fileitem?.size ?? 0) - (b.src_fileitem?.size ?? 0)
+// 外部移动不保留源大小事实，缺失时使用已核验的目标快照。
+function usesDestinationSize(item: TransferHistory) {
+  return item.origin === 'external' && item.mode === 'move' && item.src_fileitem?.size == null
+}
+
+// 大小显示与排序共享同一个事实来源；旧记录保留原有源大小行为。
+function getHistorySize(item: TransferHistory) {
+  return usesDestinationSize(item) ? item.dest_fileitem?.size : (item.src_fileitem?.size ?? 0)
+}
+
+// 标明目标大小；两端均没有大小事实时显示未知，不能补成零。
+function getHistorySizeText(item: TransferHistory) {
+  const size = getHistorySize(item)
+  const text = size == null ? '—' : formatFileSize(size)
+  return usesDestinationSize(item) ? t('transferHistory.destinationSize', { size: text }) : text
+}
+
+// 按页面实际显示的文件体积排序历史记录。
+function sortBySize(a: TransferHistory, b: TransferHistory) {
+  return (getHistorySize(a) ?? 0) - (getHistorySize(b) ?? 0)
 }
 
 // 排序字段沿用原表头协议，卡片视图的排序选择器与虚拟列表共享比较器。
@@ -236,7 +282,7 @@ const headers = [
     title: t('transferHistory.sizeColumn'),
     key: 'size',
     sortable: true,
-    sortRaw: sortBySourceSize,
+    sortRaw: sortBySize,
   },
   {
     title: t('transferHistory.dateColumn'),
@@ -537,18 +583,16 @@ watch([() => search.value, () => isComposing.value], () => {
   debouncedReloadSearchPage()
 })
 
-// 状态筛选变化时重置页码，并由地址栏保存可分享的查询条件。
-watch(
-  () => statusFilter.value,
-  () => {
-    if (!historyViewActive || syncingRouteQuery) return
-    if (isMobile.value) {
-      void reloadMobileSearchPage()
-      return
-    }
-    void reloadPage(true)
-  },
-)
+// 状态和来源共同重置分页与选择，由后端使用同一组条件过滤列表和总数。
+watch([statusFilter, externalOnly], () => {
+  if (!historyViewActive || syncingRouteQuery) return
+  selected.value = []
+  if (isMobile.value) {
+    void reloadMobileSearchPage()
+    return
+  }
+  void reloadPage(true)
+})
 
 // 分组模式变化时同步到地址栏，方便返回页面时恢复用户选择。
 watch(
@@ -714,6 +758,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         count,
         title: search.value ?? '',
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
+        ...(externalOnly.value ? { origin: 'external' } : {}),
       },
     })
     if (!historyViewActive || requestSeed !== fetchDataRequestSeed) return
@@ -882,6 +927,7 @@ function syncMobileSearchFromRouteQuery() {
   try {
     search.value = getRouteQueryString(route.query.search)
     statusFilter.value = getRouteStatusFilter(route.query.status)
+    externalOnly.value = route.query.origin === 'external'
     restoreHistoryGroupingPreference()
   } finally {
     void nextTick(() => {
@@ -912,6 +958,7 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
         count: mobilePageSize,
         title: search.value ?? '',
         ...(statusFilter.value === 'all' ? {} : { status: statusFilter.value === 'success' }),
+        ...(externalOnly.value ? { origin: 'external' } : {}),
       },
     })
     if (requestSeed !== mobileFetchDataRequestSeed) {
@@ -979,6 +1026,7 @@ async function syncStateFromRouteQuery() {
   try {
     search.value = getRouteQueryString(route.query.search)
     statusFilter.value = getRouteStatusFilter(route.query.status)
+    externalOnly.value = route.query.origin === 'external'
     itemsPerPage.value = ensurePageSize(route.query.itemsPerPage, 50)
     currentPage.value = Math.max(1, ensureNumber(route.query.currentPage, 1))
     restoreHistoryGroupingPreference()
@@ -1458,6 +1506,7 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
   if (statusFilter.value !== 'all') {
     query.status = statusFilter.value
   }
+  if (externalOnly.value) query.origin = 'external'
   if (itemsPerPage.value) {
     query.itemsPerPage = String(itemsPerPage.value)
   }
@@ -1472,6 +1521,16 @@ function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.
     path: '/history',
     query,
   }
+}
+
+/** 来源标记仅打开已记录的审计详情；交互与行选择相互独立。 */
+function openRegistrationDialog(item: TransferHistory, event: MouseEvent) {
+  openSharedDialog(
+    TransferRegistrationDialog,
+    { history: item, returnFocus: event.currentTarget },
+    {},
+    { closeOn: ['close'] },
+  )
 }
 
 // 重载页面，先更新路由，再由路由监听统一拉取列表数据。
@@ -2053,21 +2112,25 @@ useDynamicButton({
 useNativePageHeader({
   actions: computed(() => [
     {
-      title: t('transferHistory.statusFilter.label'),
-      icon: 'mdi-filter-multiple-outline',
+      title: t('common.filter'),
+      icon: historyFiltersActive.value ? 'mdi-filter-check' : 'mdi-filter-multiple-outline',
+      color: historyFiltersActive.value ? 'primary' : 'gray',
       dataAttr: 'history-status-filter-btn',
       panel: () => ({
-        title: t('transferHistory.statusFilter.label'),
+        title: t('common.filter'),
         sections: [
+          ...historyFilterSections.value,
           {
-            id: 'history-status',
-            items: statusFilterItems.value.map(option => ({
-              id: option.value,
-              title: option.title,
-              icon: option.icon,
-              selected: statusFilter.value === option.value,
-              invoke: () => selectStatusFilter(option.value),
-            })),
+            id: 'history-clear',
+            items: [
+              {
+                id: 'clear',
+                title: t('transferHistory.clearFilters'),
+                icon: 'mdi-filter-remove-outline',
+                enabled: historyFiltersActive.value,
+                invoke: clearHistoryFilters,
+              },
+            ],
           },
         ],
       }),
@@ -2142,20 +2205,25 @@ onUnmounted(() => {
   closeProgressDialog()
   aiRedoProgressDialogController?.close()
 })
-/** 桌面状态菜单与移动端既有投影共用原状态枚举和选择方法。 */
+/** 独立原生菜单投影与网页、原生标题栏共享的筛选项目。 */
 const nativeStatusMenu = computed<NativeStandaloneMenuBinding>(() => ({
   key: 'history-status',
-  title: t('transferHistory.statusFilter.label'),
-  items: action =>
-    statusFilterItems.value.map(option =>
-      action(option.value, {
-        title: option.title,
-        icon: option.icon,
-        color: option.color,
-        selected: statusFilter.value === option.value,
-        invoke: () => selectStatusFilter(option.value),
-      }),
-    ),
+  title: t('common.filter'),
+  items: action => [
+    ...historyFilterSections.value.map(section => ({
+      id: section.id,
+      kind: 'group' as const,
+      title: section.title,
+      items: section.items.map(option => action(option.id, option)),
+    })),
+    { id: 'history-clear', kind: 'separator' },
+    action('clear', {
+      title: t('transferHistory.clearFilters'),
+      icon: 'mdi-filter-remove-outline',
+      enabled: historyFiltersActive.value,
+      invoke: clearHistoryFilters,
+    }),
+  ],
 }))
 
 /** 整理排序沿用字段和方向，保持原菜单选择后展开的行为及分隔条。 */
@@ -2231,30 +2299,42 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <template #activator="{ props }">
             <IconBtn
               v-bind="props"
-              :color="statusFilterButtonColor"
-              :variant="statusFilter === 'all' ? 'text' : 'tonal'"
-              :aria-label="t('transferHistory.statusFilter.label')"
-              :title="t('transferHistory.statusFilter.label')"
+              :color="historyFiltersActive ? 'primary' : 'gray'"
+              :variant="historyFiltersActive ? 'tonal' : 'text'"
+              :aria-label="t('common.filter')"
+              :title="t('common.filter')"
             >
-              <VIcon :icon="currentStatusFilter.icon" />
+              <VIcon icon="mdi-filter-multiple-outline" />
             </IconBtn>
           </template>
-          <VCard min-width="200"
-            ><VList class="px-2">
-              <VListSubheader>{{ t('transferHistory.statusFilter.label') }}</VListSubheader>
+          <VCard min-width="220">
+            <VList density="compact" class="px-2 py-1">
+              <template v-for="section in historyFilterSections" :key="section.id">
+                <VListSubheader>{{ section.title }}</VListSubheader>
+                <VListItem
+                  v-for="option in section.items"
+                  :key="option.id"
+                  :active="option.selected"
+                  density="compact"
+                  @click="option.invoke"
+                >
+                  <template #prepend><VIcon :icon="option.icon" :color="option.color" size="small" /></template>
+                  <VListItemTitle>{{ option.title }}</VListItemTitle>
+                  <template #append
+                    ><VIcon v-if="option.selected" icon="mdi-check" color="primary" size="small"
+                  /></template>
+                </VListItem>
+              </template>
+              <VDivider class="my-1" />
               <VListItem
-                v-for="option in statusFilterItems"
-                :key="option.value"
-                :active="statusFilter === option.value"
-                @click="selectStatusFilter(option.value)"
+                :disabled="!historyFiltersActive"
+                prepend-icon="mdi-filter-remove-outline"
+                @click="clearHistoryFilters"
               >
-                <template #prepend><VIcon :icon="option.icon" :color="option.color" /></template>
-                <VListItemTitle>{{ option.title }}</VListItemTitle>
-                <template #append
-                  ><VIcon v-if="statusFilter === option.value" icon="mdi-check" color="primary"
-                /></template>
-              </VListItem> </VList
-          ></VCard>
+                <VListItemTitle>{{ t('transferHistory.clearFilters') }}</VListItemTitle>
+              </VListItem>
+            </VList>
+          </VCard>
         </VMenu>
         <VMenu location="bottom end" :close-on-content-click="false" :native-menu="nativeSortMenu">
           <template #activator="{ props }">
@@ -2638,20 +2718,36 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
               </div>
               <div class="transfer-history-desktop-record__facts">
                 <div class="transfer-history-desktop-record__status">
-                  <VTooltip :text="getHistoryFailureHint(item)" :disabled="!getHistoryFailureHint(item)">
-                    <template #activator="{ props }">
-                      <VChip
-                        v-bind="props"
-                        tag="button"
-                        type="button"
-                        :color="getHistoryStatusColor(item)"
-                        variant="tonal"
-                        size="small"
-                        @click.stop="openRecoveryDialog(item)"
-                        >{{ getHistoryStatusText(item) }}</VChip
-                      >
-                    </template>
-                  </VTooltip>
+                  <div class="transfer-history-record-status">
+                    <VTooltip :text="getHistoryFailureHint(item)" :disabled="!getHistoryFailureHint(item)">
+                      <template #activator="{ props }">
+                        <VChip
+                          v-bind="props"
+                          tag="button"
+                          type="button"
+                          :color="getHistoryStatusColor(item)"
+                          variant="tonal"
+                          size="small"
+                          @click.stop="openRecoveryDialog(item)"
+                          >{{ getHistoryStatusText(item) }}</VChip
+                        >
+                      </template>
+                    </VTooltip>
+                    <VTooltip v-if="item.origin === 'external'" :text="t('transferHistory.externalRegistration')">
+                      <template #activator="{ props }">
+                        <IconBtn
+                          v-bind="props"
+                          class="transfer-history-origin"
+                          size="small"
+                          :aria-label="t('transferHistory.externalRegistration')"
+                          @click.stop="openRegistrationDialog(item, $event)"
+                          @keydown.enter.stop
+                          @keydown.space.stop
+                          ><VIcon icon="mdi-import" size="18"
+                        /></IconBtn>
+                      </template>
+                    </VTooltip>
+                  </div>
                   <IconBtn
                     data-native-card-menu-trigger
                     :aria-label="t('transferHistory.desktop.recordActions', { title: getHistoryDisplayTitle(item) })"
@@ -2677,7 +2773,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   <VChip variant="tonal" size="x-small">{{
                     TransferDict[item.mode ?? ''] || t('common.unknown')
                   }}</VChip>
-                  <span>{{ formatFileSize(item.src_fileitem?.size || 0) }}</span>
+                  <span>{{ getHistorySizeText(item) }}</span>
                   <time :datetime="item.date" :title="item.date">{{ getDesktopRelativeTime(item.date) }}</time>
                 </div>
               </div>
@@ -2716,9 +2812,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
       />
       <div class="transfer-history-mobile-titlebar__actions">
         <IconBtn
-          :color="statusFilterButtonColor"
-          :aria-label="t('transferHistory.statusFilter.label')"
-          :title="t('transferHistory.statusFilter.label')"
+          :color="historyFiltersActive ? 'primary' : 'gray'"
+          :aria-label="t('common.filter')"
+          :title="t('common.filter')"
           variant="text"
           data-menu-activator="history-status-filter-btn"
           @click="mobileStatusFilterMenu = true"
@@ -2764,23 +2860,31 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
     <Teleport to="body" v-if="mobileStatusFilterMenu">
       <VMenu v-model="mobileStatusFilterMenu" :activator="mobileStatusFilterActivator" location="bottom end">
-        <VCard min-width="200">
+        <VCard min-width="220">
           <VList density="compact" class="px-2 py-1">
-            <VListSubheader>{{ t('transferHistory.statusFilter.label') }}</VListSubheader>
+            <template v-for="section in historyFilterSections" :key="section.id">
+              <VListSubheader>{{ section.title }}</VListSubheader>
+              <VListItem
+                v-for="option in section.items"
+                :key="option.id"
+                :active="option.selected"
+                density="compact"
+                @click="option.invoke"
+              >
+                <template #prepend><VIcon :icon="option.icon" :color="option.color" size="small" /></template>
+                <VListItemTitle>{{ option.title }}</VListItemTitle>
+                <template #append
+                  ><VIcon v-if="option.selected" icon="mdi-check" color="primary" size="small"
+                /></template>
+              </VListItem>
+            </template>
+            <VDivider class="my-1" />
             <VListItem
-              v-for="option in statusFilterItems"
-              :key="option.value"
-              :active="statusFilter === option.value"
-              density="compact"
-              @click="selectStatusFilter(option.value)"
+              :disabled="!historyFiltersActive"
+              prepend-icon="mdi-filter-remove-outline"
+              @click="clearHistoryFilters"
             >
-              <template #prepend>
-                <VIcon :icon="option.icon" :color="option.color" size="small" />
-              </template>
-              <VListItemTitle>{{ option.title }}</VListItemTitle>
-              <template #append>
-                <VIcon v-if="statusFilter === option.value" icon="mdi-check" color="primary" size="small" />
-              </template>
+              <VListItemTitle>{{ t('transferHistory.clearFilters') }}</VListItemTitle>
             </VListItem>
           </VList>
         </VCard>
@@ -2873,17 +2977,34 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 </div>
               </div>
 
-              <VChip
-                class="transfer-history-mobile-record__status"
-                tag="button"
-                type="button"
-                @click.stop="openRecoveryDialog(item)"
-                variant="tonal"
-                :color="getHistoryStatusColor(item)"
-                size="small"
-              >
-                {{ getHistoryStatusText(item) }}
-              </VChip>
+              <div class="transfer-history-record-status">
+                <VChip
+                  class="transfer-history-mobile-record__status"
+                  tag="button"
+                  type="button"
+                  @click.stop="openRecoveryDialog(item)"
+                  variant="tonal"
+                  :color="getHistoryStatusColor(item)"
+                  size="small"
+                >
+                  {{ getHistoryStatusText(item) }}
+                </VChip>
+
+                <VTooltip v-if="item.origin === 'external'" :text="t('transferHistory.externalRegistration')">
+                  <template #activator="{ props }">
+                    <IconBtn
+                      v-bind="props"
+                      class="transfer-history-origin"
+                      size="small"
+                      :aria-label="t('transferHistory.externalRegistration')"
+                      @click.stop="openRegistrationDialog(item, $event)"
+                      @keydown.enter.stop
+                      @keydown.space.stop
+                      ><VIcon icon="mdi-import" size="18"
+                    /></IconBtn>
+                  </template>
+                </VTooltip>
+              </div>
 
               <VCheckbox
                 v-if="mobileBatchMode"
@@ -2919,7 +3040,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
                   {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
                 </VChip>
-                <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
+                <span class="transfer-history-mobile-record__size">{{ getHistorySizeText(item) }}</span>
                 <span class="transfer-history-mobile-record__dot">·</span>
                 <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
               </div>
@@ -3795,6 +3916,21 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   margin-block-start: 0;
   min-inline-size: 0;
   white-space: nowrap;
+}
+
+.transfer-history-record-status {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.transfer-history-origin {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.transfer-history-mobile-record__meta > .transfer-history-mobile-record__size {
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .transfer-history-mobile-record__meta > span {
