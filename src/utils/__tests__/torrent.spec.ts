@@ -1,5 +1,5 @@
-import type { Context } from '@/api/types'
-import { buildTorrentDownloadProps, getTorrentTitle } from '@/utils/torrent'
+import type { Context, TorrentInfo } from '@/api/types'
+import { buildTorrentDownloadProps, getTorrentTitle, getTorrentPromotionKind } from '@/utils/torrent'
 import { describe, expect, it } from 'vitest'
 
 /** 构造携带旧目标信息的未确认音乐缓存，验证下载边界不会采信它。 */
@@ -53,5 +53,36 @@ describe('torrent presentation and manual confirmation', () => {
     expect(props.title).toBe('旧目标 (2003)')
     expect(props.media).toBe(context.media_info)
     expect(props.torrent).toBe(context.torrent_info)
+  })
+})
+
+describe('torrent promotion facts', () => {
+  it.each([
+    [{ downloadvolumefactor: 0, volume_factor: 'FREE' }, 'free'],
+    [{ downloadvolumefactor: 0.5, volume_factor: '50%' }, 'discount'],
+    [{ uploadvolumefactor: 2, volume_factor: '2X' }, 'bonus'],
+    [{ downloadvolumefactor: 2, volume_factor: '2x' }, 'other'],
+    [{}, undefined],
+    [{ downloadvolumefactor: null, uploadvolumefactor: null, volume_factor: '未知' }, undefined],
+    [{ downloadvolumefactor: undefined, uploadvolumefactor: undefined, volume_factor: '未知' }, undefined],
+    [{ downloadvolumefactor: 0, uploadvolumefactor: null, volume_factor: '未知' }, undefined],
+    [{ downloadvolumefactor: null, uploadvolumefactor: 2, volume_factor: '未知' }, undefined],
+    [{ downloadvolumefactor: NaN, volume_factor: '未知' }, undefined],
+    [{ uploadvolumefactor: Infinity, volume_factor: '未知' }, undefined],
+    [{ downloadvolumefactor: -1, volume_factor: '未知' }, undefined],
+    [{ downloadvolumefactor: 0, volume_factor: '' }, undefined],
+  ] satisfies [Partial<TorrentInfo>, string | undefined][])(
+    'classifies known promotion without assuming missing values: %j',
+    (override, expected) => {
+      const torrent = { downloadvolumefactor: 1, uploadvolumefactor: 1, volume_factor: '1x', ...override }
+      const snapshot = { ...torrent }
+      expect(getTorrentPromotionKind(torrent)).toBe(expected)
+      expect(torrent).toEqual(snapshot)
+    },
+  )
+
+  it('does not create promotion from a missing torrent', () => {
+    expect(getTorrentPromotionKind()).toBeUndefined()
+    expect(getTorrentPromotionKind(null)).toBeUndefined()
   })
 })

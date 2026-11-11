@@ -191,6 +191,27 @@ describe('TorrentItem display and interactions', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
+  it.each([
+    [null, null],
+    [undefined, undefined],
+    [0, null],
+    [null, 2],
+  ] as const)('does not display an unknown promotion as free with factors %s / %s', async (download, upload) => {
+    const { container } = await renderItem(
+      createContext({
+        torrent: {
+          downloadvolumefactor: download,
+          uploadvolumefactor: upload,
+          volume_factor: '未知',
+          labels: ['国语'],
+        },
+      }),
+    )
+    expect(container.querySelector('.discount-banner')).not.toBeInTheDocument()
+    expect(screen.queryByText('未知')).not.toBeInTheDocument()
+    expect(screen.getByText('国语')).toBeInTheDocument()
+  })
+
   it('renders the current title, release metadata, tracker state, labels, size, and time', async () => {
     const context = createContext({
       media: { title: '列表媒体' },
