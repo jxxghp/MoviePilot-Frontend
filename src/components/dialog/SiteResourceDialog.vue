@@ -4,6 +4,7 @@ import type { PropType } from 'vue'
 import api from '@/api'
 import type { Site, SiteCategory, TorrentInfo } from '@/api/types'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { getTorrentPromotionKind } from '@/utils/torrent'
 import { formatFileSize } from '@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -160,10 +161,11 @@ function downloadTorrentFile(enclosure: string): void {
   window.open(enclosure, '_blank')
 }
 
-// 根据促销因子返回 Vuetify 主题色，避免绑定具体主题的 CSS 类。
-function getVolumeFactorColor(downloadVolume: number, uploadVolume: number): string {
-  if (downloadVolume < 1) return 'success'
-  if (uploadVolume > 1) return 'info'
+/** 根据已知促销返回主题色，不将未知倍率显示成免费。 */
+function getVolumeFactorColor(resource: TorrentInfo): string {
+  const kind = getTorrentPromotionKind(resource)
+  if (kind === 'free' || kind === 'discount') return 'success'
+  if (kind === 'bonus') return 'info'
   return 'secondary'
 }
 
@@ -478,12 +480,15 @@ onMounted(() => {
                           </div>
                         </div>
 
-                        <div class="site-resource-item__chips mt-2" :aria-label="t('dialog.siteResource.tags')">
+                        <div
+                          class="site-resource-item__chips mt-2"
+                          :aria-label="
+                            [t('dialog.siteResource.resourceCategory'), t('dialog.siteResource.tags')].join(' · ')
+                          "
+                        >
                           <VChip
-                            v-if="
-                              item.volume_factor && (item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1)
-                            "
-                            :color="getVolumeFactorColor(item.downloadvolumefactor, item.uploadvolumefactor)"
+                            v-if="getTorrentPromotionKind(item)"
+                            :color="getVolumeFactorColor(item)"
                             variant="tonal"
                             size="small"
                           >
@@ -494,7 +499,7 @@ onMounted(() => {
                             {{ item.freedate_diff }}
                           </VChip>
                           <VChip v-if="item.category" color="primary" variant="tonal" size="small">
-                            {{ item.category }}
+                            {{ t('dialog.siteResource.resourceCategory') }}：{{ item.category }}
                           </VChip>
                           <VChip v-for="label in item.labels" :key="label" color="info" variant="tonal" size="small">
                             {{ label }}

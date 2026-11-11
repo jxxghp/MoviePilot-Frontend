@@ -9,7 +9,12 @@ import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDown
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
-import { buildTorrentDownloadProps, getTorrentTitle } from '@/utils/torrent'
+import {
+  buildTorrentDownloadProps,
+  getTorrentTitle,
+  getTorrentPromotionKind,
+  type TorrentPromotionKind,
+} from '@/utils/torrent'
 import MusicMatchBadge from '@/components/misc/MusicMatchBadge.vue'
 
 const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
@@ -27,6 +32,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info)
+const promotionKind = computed(() => getTorrentPromotionKind(torrent.value))
 
 // 识别元数据
 const meta = ref(props.torrent?.meta_info)
@@ -95,13 +101,9 @@ function openTorrentDetail(item: Context | null = null) {
   }
 }
 
-// 获取优惠类型样式
-function getPromotionClass(downloadVolumeFactor: number | undefined, uploadVolumeFactor: number | undefined) {
-  if (!downloadVolumeFactor) return 'bg-success'
-  if (downloadVolumeFactor === 0) return 'bg-success'
-  else if (downloadVolumeFactor < 1) return 'bg-orange'
-  else if (uploadVolumeFactor !== undefined && uploadVolumeFactor > 1) return 'bg-purple'
-  else return ''
+/** 为已确认的促销选择样式，未知倍率不落入免费颜色。 */
+function getPromotionClass(kind?: TorrentPromotionKind) {
+  return kind ? { free: 'bg-success', discount: 'bg-orange', bonus: 'bg-purple', other: '' }[kind] : ''
 }
 
 // 打开更多来源对话框
@@ -148,9 +150,9 @@ watch(
     >
       <!-- 优惠标签 -->
       <div
-        v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1"
+        v-if="promotionKind"
         class="discount-banner text-white px-2 py-1 text-sm font-weight-bold rounded-bl-lg"
-        :class="getPromotionClass(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)"
+        :class="getPromotionClass(promotionKind)"
       >
         {{ torrent?.volume_factor }}
       </div>

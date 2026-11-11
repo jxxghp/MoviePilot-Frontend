@@ -1722,10 +1722,10 @@ export interface TorrentInfo {
   pubdate?: string
   // 已过时间
   date_elapsed?: string
-  // 上传因子
-  uploadvolumefactor: number
-  // 下载因子
-  downloadvolumefactor: number
+  // 上传因子，null 表示接口未提供
+  uploadvolumefactor: number | null
+  // 下载因子，null 表示接口未提供，不能视为免费
+  downloadvolumefactor: number | null
   // HR
   hit_and_run: boolean
   // 种子标签

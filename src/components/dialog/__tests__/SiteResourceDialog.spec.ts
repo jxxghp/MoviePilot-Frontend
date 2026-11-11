@@ -361,6 +361,30 @@ describe('SiteResourceDialog', () => {
     expect(screen.queryByTestId('add-download-dialog')).not.toBeInTheDocument()
   })
 
+  it.each([1280, 390])('distinguishes true labels from category and hides unknown promotion at %s px', async width => {
+    setViewport(width)
+    server.use(
+      siteCategoriesHandler(501, []),
+      siteResourcesHandler(501, [
+        createTorrentInfo({
+          category: '电影',
+          downloadvolumefactor: null,
+          uploadvolumefactor: null,
+          volume_factor: '未知',
+          labels: ['国语', '双语'],
+          title: '具有真实站点标签的资源',
+        }),
+      ]),
+    )
+
+    await renderDialog()
+    await screen.findByText('具有真实站点标签的资源')
+    expect(screen.getByText('国语').closest('.v-chip')).toHaveClass('text-info')
+    expect(screen.getByText('双语').closest('.v-chip')).toHaveClass('text-info')
+    expect(screen.getByText('资源分类：电影')).toBeInTheDocument()
+    expect(screen.queryByText('未知', { exact: true })).not.toBeInTheDocument()
+  })
+
   it('loads the next resource page when the desktop list reaches the scroll threshold', async () => {
     const requests: URL[] = []
     const firstPage = Array.from({ length: 100 }, (_, index) =>
