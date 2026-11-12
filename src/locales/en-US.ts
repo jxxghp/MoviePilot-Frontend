@@ -4911,7 +4911,8 @@ export default {
       categoryFolderOption: 'Classify by Category',
       categoryFolderHint: 'Add subdirectory by media category in target path during organization',
       scrapeOption: 'Scrape Metadata',
-      scrapeHint: 'Automatically scrape metadata after organization',
+      scrapeHint:
+        'Automatically scrape metadata after organization; when off, files keep their source tags and can be scraped again from the details page',
       fromHistoryOption: 'Reuse Historical Recognition Info',
       fromHistoryHint: 'Use media info already recognized in historical organization records',
       previewTitle: 'Preview Result',
@@ -5031,6 +5032,8 @@ export default {
       auto: 'Auto',
       processing: 'Processing ...',
       successMessage: 'File {name} has been added to the organization queue!',
+      scrapeSkippedHint:
+        'Organization submitted without scraping; files keep their source tags and can be scraped again from the details page.',
     },
     subscribeMode: {
       title: 'Choose Subscription Type',

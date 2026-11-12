@@ -4782,7 +4782,7 @@ export default {
       categoryFolderOption: '按类别分类',
       categoryFolderHint: '整理时在目的路径下按媒体类别添加子目录',
       scrapeOption: '刮削元数据',
-      scrapeHint: '整理完成后自动刮削元数据',
+      scrapeHint: '整理完成后自动刮削元数据；关闭时文件保留源标签，可到详情页再次刮削',
       fromHistoryOption: '复用历史识别信息',
       fromHistoryHint: '使用历史整理记录中已识别的媒体信息',
       previewTitle: '整理结果预览',
@@ -4894,6 +4894,7 @@ export default {
       auto: '自动',
       processing: '正在处理 ...',
       successMessage: '文件 {name} 已加入整理队列！',
+      scrapeSkippedHint: '整理已提交，但未开启刮削；文件将保留源标签，可到详情页再次刮削。',
     },
     subscribeMode: {
       title: '选择订阅方式',

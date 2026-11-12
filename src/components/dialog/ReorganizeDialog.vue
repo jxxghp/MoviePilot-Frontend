@@ -624,6 +624,18 @@ watch(skipSuccessfulRecords, () => {
 // 当前是否保留后端自动匹配目的路径的语义。
 const isAutomaticTargetPath = computed(() => !normalizeTargetPath(transferForm.target_path))
 
+// 未显式切换时展示目标目录的刮削设置，保留提交空值以跟随后端自动匹配。
+const effectiveScrape = computed(() => {
+  if (transferForm.scrape !== null) return transferForm.scrape
+  if (isAutomaticTargetPath.value && targetPathMatch.value?.scrape != null) return targetPathMatch.value.scrape
+  return false
+})
+
+/** 用户显式切换刮削开关后，提交本次选择而不再跟随目录默认值。 */
+function setScrape(value: boolean | null) {
+  transferForm.scrape = value
+}
+
 // 自动匹配返回的存储使用用户配置名称展示，未知类型回退到稳定标识。
 const matchedTargetStorageLabel = computed(() => {
   const storage = targetPathMatch.value?.target_storage
@@ -1798,7 +1810,7 @@ async function transferCorrectedMusic(background: boolean) {
       $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     }
   }
-  if (succeeded && !submissionResults.value.length) emit('done')
+  if (succeeded && !submissionResults.value.length) finishTransfer()
   return true
 }
 
@@ -1913,6 +1925,12 @@ function stopLoadingProgress() {
   }
 }
 
+/** 成功收尾时说明未开启刮削，避免用户把仅整理入库误认为已完成刮削。 */
+function finishTransfer() {
+  if (!effectiveScrape.value) $toast.warning(t('dialog.reorganize.scrapeSkippedHint'))
+  emit('done')
+}
+
 // 整理文件
 async function transfer(background: boolean = false) {
   if (
@@ -1945,7 +1963,7 @@ async function transfer(background: boolean = false) {
           })
           allSucceeded = (await handleTransfer(entry.item, background, entry.musicType)) && allSucceeded
         }
-        if (allSucceeded && !submissionResults.value.length) emit('done')
+        if (allSucceeded && !submissionResults.value.length) finishTransfer()
       } catch (error: unknown) {
         allSucceeded = false
         $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.artistCollectionScanFailed')))
@@ -1983,7 +2001,7 @@ async function transfer(background: boolean = false) {
       allSucceeded = (await handleTransferLogs(props.logids, background)) && allSucceeded
     }
 
-    if (allSucceeded && !submissionResults.value.length) emit('done')
+    if (allSucceeded && !submissionResults.value.length) finishTransfer()
   } finally {
     if (!background) stopLoadingProgress()
     progressDialog.value = false
@@ -2403,10 +2421,11 @@ onUnmounted(() => {
                   </VCol>
                   <VCol cols="12" md="6">
                     <VSwitch
-                      v-model="transferForm.scrape"
+                      :model-value="effectiveScrape"
                       :label="t('dialog.reorganize.scrapeOption')"
                       :hint="t('dialog.reorganize.scrapeHint')"
                       persistent-hint
+                      @update:model-value="setScrape"
                     />
                   </VCol>
                   <VCol cols="12" md="6" v-if="props.logids?.length">

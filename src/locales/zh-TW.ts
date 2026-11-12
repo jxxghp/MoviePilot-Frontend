@@ -4784,7 +4784,7 @@ export default {
       categoryFolderOption: '按類別分類',
       categoryFolderHint: '整理時在目的路徑下按媒體類別新增子目錄',
       scrapeOption: '刮削元數據',
-      scrapeHint: '整理完成後自動刮削元數據',
+      scrapeHint: '整理完成後自動刮削元數據；關閉時文件保留源標籤，可到詳情頁再次刮削',
       fromHistoryOption: '復用歷史識別資訊',
       fromHistoryHint: '使用歷史整理記錄中已識別的媒體資訊',
       previewTitle: '整理結果預覽',
@@ -4896,6 +4896,7 @@ export default {
       auto: '自動',
       processing: '正在處理 ...',
       successMessage: '文件 {name} 已加入整理隊列！',
+      scrapeSkippedHint: '整理已提交，但未開啟刮削；文件將保留源標籤，可到詳情頁再次刮削。',
     },
     subscribeMode: {
       title: '選擇訂閱方式',
