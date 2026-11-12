@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SearchDiagnostics } from '@/api/types'
+import { ruleConfigurationWarningCodes } from '@/utils/searchDiagnostics'
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -20,6 +21,7 @@ const reasonCodes = new Set([
   'duplicate',
 ])
 const warningCodes = new Set([
+  ...ruleConfigurationWarningCodes,
   'rule_group_not_applicable',
   'rule_group_missing',
   'provider_error',
@@ -85,6 +87,7 @@ const warningCodes = new Set([
           {{
             t(`resource.diagnostics.warnings.${warningCodes.has(warning.code) ? warning.code : 'other'}`, {
               name: warning.rule_group || t('resource.diagnostics.unnamedRule'),
+              ids: warning.rule_ids?.map(id => JSON.stringify(id)).join(', ') || t('resource.diagnostics.unnamedRule'),
             })
           }}
         </span>

@@ -2,7 +2,7 @@
 import type { LocationQuery } from 'vue-router'
 import ResourceSearchEmptyState from '@/components/states/ResourceSearchEmptyState.vue'
 import SearchDiagnosticsPanel from '@/components/states/SearchDiagnosticsPanel.vue'
-import { normalizeSearchDiagnostics } from '@/utils/searchDiagnostics'
+import { hasRuleConfigurationError, normalizeSearchDiagnostics } from '@/utils/searchDiagnostics'
 import api from '@/api'
 import type { Context, MediaDataSource, SearchDiagnostics, SearchSourcePage, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
@@ -1555,13 +1555,18 @@ const hasRefreshableSearch = computed(
     Boolean(lastSearchParams.value && hasSearchKeyword(lastSearchParams.value)),
 )
 
-const searchEmptyTitle = computed(() =>
-  errorDescription.value === t('resource.noResourceFound') ? t('torrent.noResults') : errorDescription.value,
+const ruleConfigurationError = computed(
+  () => !isSubtitleSearch.value && hasRuleConfigurationError(searchDiagnostics.value),
 )
+const searchEmptyTitle = computed(() => {
+  if (ruleConfigurationError.value) return t('resource.ruleConfigurationError')
+  return errorDescription.value === t('resource.noResourceFound') ? t('torrent.noResults') : errorDescription.value
+})
 
-const searchEmptyDescription = computed(() =>
-  hasRefreshableSearch.value ? t('resource.emptySearchHint') : t('resource.emptyStartHint'),
-)
+const searchEmptyDescription = computed(() => {
+  if (ruleConfigurationError.value) return t('resource.ruleConfigurationErrorHint')
+  return hasRefreshableSearch.value ? t('resource.emptySearchHint') : t('resource.emptyStartHint')
+})
 
 const resultEmptyTitle = computed(() =>
   hasActiveTorrentFilters.value ? t('resource.filteredEmptyTitle') : searchEmptyTitle.value,

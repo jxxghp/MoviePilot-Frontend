@@ -1969,6 +1969,9 @@ export default {
       warnings: {
         rule_group_not_applicable: '规则“{name}”未应用：类型或分类不符',
         rule_group_missing: '规则“{name}”不存在',
+        rule_id_invalid: '规则组“{name}”引用了无效的规则 ID：{ids}，请改用英文字母和数字（至少包含一个字母）',
+        rule_id_missing: '规则组“{name}”引用的规则 ID 不存在：{ids}，请修复引用',
+        rule_syntax_invalid: '规则组“{name}”表达式语法无效，请检查运算符、括号和优先级层级',
         provider_error: '部分来源请求失败，暂时无法确认结果',
         provider_cooldown: '部分来源暂时冷却，本页未搜索',
         provider_outcome_unknown: '部分来源状态未知',
@@ -1988,6 +1991,8 @@ export default {
     noResourceFound: '未搜索到任何资源',
     loadNextPage: '继续加载',
     filteredNoResults: '找到 {count} 个资源，但均不符合过滤规则',
+    ruleConfigurationError: '发现过滤规则配置异常',
+    ruleConfigurationErrorHint: '请根据上方提示修复规则 ID 或规则组表达式，然后重新搜索。',
     emptySearchHint: '可以重新搜索，或调整关键词和站点范围后再试。',
     emptyStartHint: '返回首页后可通过搜索入口发起新的搜索。',
     filteredEmptyTitle: '当前筛选条件没有匹配项',

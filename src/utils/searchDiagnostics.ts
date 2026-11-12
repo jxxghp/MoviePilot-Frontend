@@ -5,6 +5,14 @@ const record = (value: unknown): value is Record<string, unknown> =>
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0
 const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every(v => typeof v === 'string')
 
+/** 配置错误与普通资源不匹配不同，不能提示用户仅调整搜索条件。 */
+export const ruleConfigurationWarningCodes = new Set(['rule_id_invalid', 'rule_id_missing', 'rule_syntax_invalid'])
+
+/** 仅根据后端的配置诊断判断，不从保留数量推测规则故障。 */
+export function hasRuleConfigurationError(diagnostics: SearchDiagnostics | null): boolean {
+  return diagnostics?.warnings.some(warning => ruleConfigurationWarningCodes.has(warning.code)) ?? false
+}
+
 /** 校验可选诊断合同；旧后端、未知版本和损坏数据均不展示，扩展原因码交给界面通用文案。 */
 export function normalizeSearchDiagnostics(value: unknown): SearchDiagnostics | null {
   if (
@@ -61,7 +69,8 @@ export function normalizeSearchDiagnostics(value: unknown): SearchDiagnostics | 
       warning =>
         record(warning) &&
         typeof warning.code === 'string' &&
-        (warning.rule_group == null || typeof warning.rule_group === 'string'),
+        (warning.rule_group == null || typeof warning.rule_group === 'string') &&
+        (warning.rule_ids === undefined || strings(warning.rule_ids)),
     )
   )
     return null
