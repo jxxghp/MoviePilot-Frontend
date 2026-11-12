@@ -1025,6 +1025,54 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     )
   })
 
+  it('shows the matched directory scrape setting while keeping automatic payload semantics', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({
+      storages: [{ name: '本机存储', type: 'local' }],
+      targetPathMatch: {
+        scrape: true,
+        target_path: '/library/music',
+        target_storage: 'local',
+        transfer_type: 'copy',
+      },
+    })
+
+    expect(await screen.findByText('自动匹配到 本机存储 · /library/music')).toBeInTheDocument()
+    expect((screen.getByLabelText('刮削元数据') as HTMLInputElement).checked).toBe(true)
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual(expect.objectContaining({ scrape: null, target_path: null }))
+    expect(mocks.toastWarning).not.toHaveBeenCalledWith(
+      '整理已提交，但未开启刮削；文件将保留源标签，可到详情页再次刮削。',
+    )
+  })
+
+  it('warns after a successful transfer when scraping stays disabled', async () => {
+    server.use(http.post(new URL('transfer/manual', API_BASE_URL).href, () => HttpResponse.json(apiEnvelope(null))))
+    const user = userEvent.setup()
+    await renderDialog({
+      storages: [{ name: '本机存储', type: 'local' }],
+      targetPathMatch: { scrape: false, target_path: '/library/music', target_storage: 'local' },
+    })
+
+    expect(await screen.findByText('自动匹配到 本机存储 · /library/music')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+
+    await waitFor(() =>
+      expect(mocks.toastWarning).toHaveBeenCalledWith(
+        '整理已提交，但未开启刮削；文件将保留源标签，可到详情页再次刮削。',
+      ),
+    )
+  })
+
   it('does not request or overwrite an explicit target path', async () => {
     const bodies: unknown[] = []
     const targetRequest = vi.fn()
