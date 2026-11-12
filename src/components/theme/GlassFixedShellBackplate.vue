@@ -559,6 +559,30 @@ onBeforeUnmount(() => {
   }
 }
 
+// 浅色玻璃背板同步晨雾柔白遮罩与日光饱和度，使侧栏底图与主视口壁纸保持同一色温
+html[data-glass-color-scheme='light'] .glass-fixed-shell-backplate__wallpaper {
+  filter: brightness(var(--glass-wallpaper-brightness, 1)) saturate(0.96);
+
+  &::after {
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
+      linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%);
+  }
+}
+
+html[data-glass-color-scheme='light'][data-glass-appearance='tinted'] .glass-fixed-shell-backplate__wallpaper::after {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
+    linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%),
+    rgba(var(--glass-material-accent-rgb), 4%);
+}
+
+html[data-glass-color-scheme='light'][data-glass-appearance='frosted'] .glass-fixed-shell-backplate__wallpaper::after {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.28) 0%, rgba(244, 246, 251, 0.52) 100%),
+    linear-gradient(rgba(248, 249, 252, 0.52) 0%, rgba(242, 244, 249, 0.7) 100%);
+}
+
 .glass-fixed-shell-backplate__source {
   position: absolute;
   display: block;

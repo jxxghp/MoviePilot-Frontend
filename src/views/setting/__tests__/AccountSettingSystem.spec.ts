@@ -968,25 +968,23 @@ describe('AccountSettingSystem', () => {
     expect(screen.queryByLabelText('壁纸轮换时间')).not.toBeInTheDocument()
   })
 
-  it('hides every wallpaper control in effective light mode and preserves the dark wallpaper preference', async () => {
+  it('keeps wallpaper controls visible and editable in effective light mode', async () => {
     systemEnv = { ...systemEnv, WALLPAPER: 'static', WALLPAPER_IMAGE_URL: '/local/existing.jpg' }
     vuetify.theme.themes.value.glass.dark = false
     await renderSettings()
     await screen.findByDisplayValue('https://moviepilot.example')
 
-    for (const label of ['背景壁纸', '静态壁纸地址', '自定义壁纸API地址', '壁纸轮换时间']) {
-      expect(screen.queryByLabelText(label)).not.toBeInTheDocument()
-    }
+    expect(screen.getByLabelText('背景壁纸')).toHaveValue('static')
+    expect(screen.getByLabelText('静态壁纸地址')).toHaveValue('/local/existing.jpg')
+    expect(screen.queryByLabelText('自定义壁纸API地址')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('壁纸轮换时间')).not.toBeInTheDocument()
+
+    await fireEvent.update(screen.getByLabelText('静态壁纸地址'), '/local/daylight.jpg')
     await fireEvent.click(getBasicCard().getByRole('button', { name: '保存' }))
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('基础设置保存成功'))
     expect(findPost('system/env')?.[1]).toEqual(
-      expect.objectContaining({ WALLPAPER: 'static', WALLPAPER_IMAGE_URL: '/local/existing.jpg' }),
+      expect.objectContaining({ WALLPAPER: 'static', WALLPAPER_IMAGE_URL: '/local/daylight.jpg' }),
     )
-
-    vuetify.theme.themes.value.glass.dark = true
-    await nextTick()
-    expect(screen.getByLabelText('背景壁纸')).toHaveValue('static')
-    expect(screen.getByLabelText('静态壁纸地址')).toHaveValue('/local/existing.jpg')
     expect(mocks.apiPost).toHaveBeenCalledTimes(1)
   })
 

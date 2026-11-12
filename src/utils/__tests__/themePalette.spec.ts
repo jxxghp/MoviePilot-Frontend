@@ -48,6 +48,13 @@ describe('glass appearance preference', () => {
       expect(glass.dark).toBe(expected === 'dark')
       expect(glass.colors.background).toBe(expected === 'dark' ? '#0B1322' : '#F2F2F7')
       expect(glass.colors.surface).toBe(expected === 'dark' ? '#182235' : '#FFFFFF')
+      expect(glass.colors['on-background']).toBe(expected === 'dark' ? '#F2F5FA' : '#18181B')
+      expect(glass.colors['on-surface']).toBe(expected === 'dark' ? '#F2F5FA' : '#18181B')
+      expect(glass.colors['on-surface-variant']).toBe(
+        expected === 'dark' ? 'rgba(242, 245, 250, 0.72)' : 'rgba(82, 82, 91, 0.82)',
+      )
+      expect(glass.colors.warning).toBe(expected === 'dark' ? '#E4B863' : '#D97706')
+      expect(glass.colors['on-warning']).toBe(expected === 'dark' ? '#171106' : '#FFFFFF')
       expect(glass.colors.primary).toBe('#00BCD4')
       expect(glass.colors['on-primary']).toBe('#000000')
       expect(chrome.background).toBe(glass.colors.background)

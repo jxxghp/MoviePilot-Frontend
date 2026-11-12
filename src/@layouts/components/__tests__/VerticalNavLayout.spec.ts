@@ -609,4 +609,46 @@ describe('VerticalNavLayout shell states', () => {
     }
     wrapper.unmount()
   })
+
+  it('recomputes horizontal top gutter when page content finishes expanding from vertical sidebar padding', async () => {
+    const observers: ResizeObserverCallback[] = []
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class MockResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        observers.push(cb)
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+
+    try {
+      const viewport = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1440)
+      const wrapper = mountLayout()
+      const content = wrapper.get('.layout-page-content').element
+      let currentWidth = 1440 - 260
+      const geometry = vi
+        .spyOn(content, 'getBoundingClientRect')
+        .mockImplementation(() => ({ width: currentWidth }) as DOMRect)
+
+      window.dispatchEvent(
+        new CustomEvent('moviepilot:theme-customizer-change', { detail: { theme: 'auto', layout: 'horizontal' } }),
+      )
+      await nextTick()
+      const root = wrapper.get('.layout-wrapper').element as HTMLElement
+      expect(root.style.getPropertyValue('--shell-navbar-content-top-gutter')).toBe('130px')
+
+      currentWidth = 1440
+      observers[0]?.([], {} as ResizeObserver)
+      await nextTick()
+      expect(root.style.getPropertyValue('--shell-navbar-content-top-gutter')).toBe('0px')
+
+      geometry.mockRestore()
+      viewport.mockRestore()
+      wrapper.unmount()
+    } finally {
+      vi.stubGlobal('ResizeObserver', OriginalResizeObserver)
+    }
+  })
 })

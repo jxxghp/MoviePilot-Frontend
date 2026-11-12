@@ -3,7 +3,38 @@ export { preloadCorsImage } from './corsImage'
 
 const DEFAULT_DOMINANT_COLOR = '#28A9E1'
 const DOMINANT_COLOR_CACHE_LIMIT = 100
-const colorThief = new ColorThief()
+const PALETTE_SWATCH_COUNT = 6
+const DEFAULT_PALETTE_QUALITY = 16
+const DEFAULT_DOMINANT_QUALITY = 20
+const NEAR_WHITE_CHANNEL_THRESHOLD = 238
+const NEAR_BLACK_CHANNEL_THRESHOLD = 18
+const MIN_BRAND_CHROMA = 0.08
+const MIN_BRAND_SATURATION = 0.14
+
+interface ColorThiefInstance {
+  getColor: (image: HTMLImageElement, quality?: number) => number[]
+  getPalette?: (image: HTMLImageElement, colorCount?: number, quality?: number) => number[][] | null
+}
+
+let colorThiefInstance: ColorThiefInstance | undefined
+
+function resolveColorThiefConstructor(mod: unknown): new () => ColorThiefInstance {
+  if (typeof mod === 'function') {
+    return mod as new () => ColorThiefInstance
+  }
+  if (mod && typeof mod === 'object' && 'default' in mod && typeof mod.default === 'function') {
+    return mod.default as new () => ColorThiefInstance
+  }
+  throw new Error('ColorThief constructor unavailable')
+}
+
+function getColorThief(): ColorThiefInstance {
+  if (!colorThiefInstance) {
+    const Ctor = resolveColorThiefConstructor(ColorThief)
+    colorThiefInstance = new Ctor()
+  }
+  return colorThiefInstance
+}
 const dominantColorCache = new Map<string, string>()
 const pendingDominantColorRequests = new Map<string, Promise<string | undefined>>()
 
@@ -41,7 +72,44 @@ function rememberDominantColor(key: string, color: string) {
   dominantColorCache.set(key, color)
 }
 
-/** 提取真实主色；失败不写入成功缓存，允许后续请求重试。 */
+/**
+ * 从候选调色板中筛选高饱和度品牌色，排除近白圆底、近黑背景与抗锯齿中性灰边。
+ * 若全部色板均为中性灰或极端明度，则返回 undefined 交由主色回退处理。
+ */
+export function selectVibrantSwatch(palette: number[][]): number[] | undefined {
+  let bestSwatch: number[] | undefined
+  let bestScore = -1
+
+  palette.forEach((swatch, index) => {
+    if (!Array.isArray(swatch) || swatch.length !== 3 || swatch.some(Number.isNaN)) return
+
+    const [r, g, b] = swatch
+    if (r > NEAR_WHITE_CHANNEL_THRESHOLD && g > NEAR_WHITE_CHANNEL_THRESHOLD && b > NEAR_WHITE_CHANNEL_THRESHOLD) {
+      return
+    }
+    if (r < NEAR_BLACK_CHANNEL_THRESHOLD && g < NEAR_BLACK_CHANNEL_THRESHOLD && b < NEAR_BLACK_CHANNEL_THRESHOLD) {
+      return
+    }
+
+    const max = Math.max(r, g, b) / 255
+    const min = Math.min(r, g, b) / 255
+    const chroma = max - min
+    const saturation = max === 0 ? 0 : chroma / max
+    if (chroma < MIN_BRAND_CHROMA && saturation < MIN_BRAND_SATURATION) return
+
+    // 兼顾色彩纯度与色簇像素占比，避免极小面积杂色压过主品牌色相。
+    const prominenceWeight = Math.max(0.55, 1 - index * 0.06)
+    const score = (chroma * 0.68 + saturation * 0.32) * prominenceWeight
+    if (score > bestScore) {
+      bestScore = score
+      bestSwatch = swatch
+    }
+  })
+
+  return bestSwatch
+}
+
+/** 提取真实主色；优先选取调色板中的高饱和品牌色相，失败不写入成功缓存以便后续重试。 */
 export async function extractDominantColor(
   image: HTMLImageElement | undefined | null,
   options: Pick<DominantColorOptions, 'quality'> = {},
@@ -57,7 +125,16 @@ export async function extractDominantColor(
 
   const colorPromise = Promise.resolve()
     .then(() => {
-      const dominantColor = colorThief.getColor(image, options.quality ?? 20)
+      const colorThief = getColorThief()
+      let selectedColor: number[] | undefined
+      if (typeof colorThief.getPalette === 'function') {
+        const palette = colorThief.getPalette(image, PALETTE_SWATCH_COUNT, options.quality ?? DEFAULT_PALETTE_QUALITY)
+        if (Array.isArray(palette) && palette.length > 0) {
+          selectedColor = selectVibrantSwatch(palette)
+        }
+      }
+
+      const dominantColor = selectedColor ?? colorThief.getColor(image, options.quality ?? DEFAULT_DOMINANT_QUALITY)
       const color = rgbStringToHex(dominantColor)
       rememberDominantColor(cacheKey, color)
 

@@ -177,15 +177,58 @@ describe('PluginCard about menu', () => {
     expect(popup.opener).toBeNull()
   })
 
-  it('prioritizes the update status over the rating status', async () => {
-    await renderWithProviders(PluginCard, {
+  it('keeps both the update badge and the creator plaque rating visible simultaneously', async () => {
+    const { container } = await renderWithProviders(PluginCard, {
       props: {
         plugin: { ...plugin, has_update: true, average_rating: 4.3, rating_count: 12 },
       },
     })
 
     expect(screen.getByLabelText('有更新')).toBeInTheDocument()
-    expect(screen.queryByLabelText('4.3 分，共 12 人评分')).not.toBeInTheDocument()
+    const ratingStatus = screen.getByLabelText('4.3 分，共 12 人评分')
+    expect(ratingStatus).toBeInTheDocument()
+    expect(ratingStatus).toHaveClass('plugin-card__status--rating')
+    expect(container.querySelector('.plugin-card__creator-bar')).toContainElement(ratingStatus)
+  })
+
+  it('opens the market detail dialog directly when clicking the rating capsule without opening plugin config', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_page: false, has_update: true, average_rating: 4.6, rating_count: 8 },
+        count: 42,
+      },
+    })
+
+    await fireEvent.click(screen.getByLabelText('4.6 分，共 8 人评分'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      count: 42,
+      initialSourceSelectionOpen: false,
+      plugin: expect.objectContaining({ id: 'DemoPlugin' }),
+    })
+    expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({
+      closeOn: ['close', 'install', 'update:modelValue'],
+    })
+  })
+
+  it('triggers the update flow directly when clicking the has_update badge without opening plugin config', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_page: false, has_update: true, average_rating: 4.6, rating_count: 8 },
+      },
+    })
+
+    await fireEvent.click(screen.getByLabelText('有更新'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      plugin: expect.objectContaining({ id: 'DemoPlugin', has_update: true }),
+      showUpdateAction: true,
+    })
+    expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({
+      closeOn: ['close', 'update:modelValue'],
+    })
   })
 
   it('shows the rating status when no update is available', async () => {

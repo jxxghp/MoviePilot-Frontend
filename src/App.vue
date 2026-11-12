@@ -207,7 +207,7 @@ const allowsBackgroundRotation = computed(
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
-const isBackdropTheme = computed(() => isGlassTheme.value && globalTheme.current.value.dark)
+const isBackdropTheme = computed(() => isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const loginVisualProfile = computed(() => (isGlassTheme.value ? 'glass' : 'plain'))
 const loginGlassSettings = computed(() =>
@@ -308,12 +308,15 @@ function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
   const profile = backgroundToneProfiles.value[layer.url] ?? DEFAULT_GLASS_WALLPAPER_TONE_PROFILE
   const appearance = effectiveGlassSettings.value.glassAppearance
   const materialExposure = appearance === 'frosted' ? 0.82 : appearance === 'tinted' ? 0.85 : 0.86
+  // 浅色玻璃保留自然日光亮度，避免暗色曝光压暗参数把亮色壁纸染成灰蒙底色
+  const lightExposure = Math.min(1.06, Math.max(0.94, 1.02 + (0.5 - profile.medianLuminance) * 0.14))
+  const wallpaperBrightness = globalTheme.current.value.dark ? materialExposure * profile.exposure : lightExposure
   const displayUrl = isGlassTheme.value ? getPreparedBackgroundImage(layer.url) : layer.url
   const usesCorsImageElement = isGlassTheme.value && Object.hasOwn(backgroundDisplayImages.value, layer.url)
 
   return {
     'backgroundImage': !usesCorsImageElement && displayUrl ? `url(${displayUrl})` : undefined,
-    '--glass-wallpaper-brightness': String(materialExposure * profile.exposure),
+    '--glass-wallpaper-brightness': String(wallpaperBrightness),
   }
 }
 
@@ -931,7 +934,7 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
   }
 }
 
-// 明暗变化和已保存的来源/地址共用加载代次；浅色与关闭壁纸立即撤销所有可见层和在途提交。
+// 玻璃材质开关与已保存的壁纸来源共用加载代次，切回平面或关闭壁纸时立即撤销可见层和在途提交
 watch(
   [
     shouldLoadBackgroundImages,
@@ -1245,6 +1248,46 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
       rgba(var(--glass-wallpaper-shade-rgb, 6, 10, 19), 48%) 100%
     ),
     rgba(var(--glass-material-rgb, 28, 28, 30), 8%);
+}
+
+// 浅色玻璃壁纸叠加晨雾柔白遮罩，保证深石板色正文与半透白卡在鲜艳底图上清晰可读
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active,
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous {
+  filter: brightness(var(--glass-wallpaper-brightness, 1)) saturate(0.96);
+}
+
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active {
+  opacity: 0.96;
+}
+
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active::after,
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous::after {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
+    linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%);
+}
+
+html[data-glass-color-scheme='light'][data-glass-appearance='tinted']
+  .background-container.is-glass-theme
+  .background-image.active::after,
+html[data-glass-color-scheme='light'][data-glass-appearance='tinted']
+  .background-container.is-glass-theme
+  .background-image.previous::after {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
+    linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%),
+    rgba(var(--glass-material-accent-rgb), 4%);
+}
+
+html[data-glass-color-scheme='light'][data-glass-appearance='frosted']
+  .background-container.is-glass-theme
+  .background-image.active::after,
+html[data-glass-color-scheme='light'][data-glass-appearance='frosted']
+  .background-container.is-glass-theme
+  .background-image.previous::after {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.28) 0%, rgba(244, 246, 251, 0.52) 100%),
+    linear-gradient(rgba(248, 249, 252, 0.52) 0%, rgba(242, 244, 249, 0.7) 100%);
 }
 
 .app-wrapper--decorative-motion-paused {
