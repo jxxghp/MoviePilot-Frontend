@@ -822,8 +822,14 @@ onMounted(async () => {
   block-size: auto;
   gap: 0.25rem;
   min-inline-size: 0;
-  overflow: visible;
-  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .theme-horizontal-nav__item {

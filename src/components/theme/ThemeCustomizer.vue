@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import {
   getDefaultGlassCustomizerSettings,
   themeCustomizerPrimaryColors,
   useThemeCustomizer,
+  type ThemeCustomizerGlassAppearance,
+  type ThemeCustomizerGlassQuality,
   type ThemeCustomizerLayout,
   type ThemeCustomizerRadius,
   type ThemeCustomizerTheme,
@@ -10,6 +13,8 @@ import {
 import { nativeChromeActive } from '@/native/layout'
 import { usePWA } from '@/composables/usePWA'
 import { useI18n } from 'vue-i18n'
+
+const GlassSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/GlassSettingsDialog.vue'))
 
 const emit = defineEmits<{
   'close': []
@@ -21,7 +26,9 @@ const {
   isCustomized,
   resetSettings,
   updateSettings,
+  setGlassAppearance,
   setGlassEnabled,
+  setGlassQuality,
   setLayout,
   setPrimaryColor,
   setRadius,
@@ -56,7 +63,11 @@ function clearThemeCustomizerOpenState() {
 // 处理固定面板的全局 Esc 关闭快捷键。
 function handleGlobalKeydown(event: KeyboardEvent) {
   // 固定侧栏不再依赖 Vuetify overlay，手动补上常见的 Esc 关闭行为。
-  if (event.key === 'Escape') emit('close')
+  if (event.key !== 'Escape') return
+  // 高阶玻璃设置等共享弹窗打开时交由 Vuetify overlay 栈优先响应 Esc，避免同时关闭底下的定制面板。
+  if (document.querySelector('.v-overlay--active')) return
+
+  emit('close')
 }
 
 onMounted(() => {
@@ -76,6 +87,30 @@ const themeOptions = computed<Array<{ icon: string; title: string; value: ThemeC
   { title: t('theme.light'), value: 'light', icon: 'mdi-white-balance-sunny' },
   { title: t('theme.dark'), value: 'dark', icon: 'mdi-weather-night' },
   { title: t('theme.auto'), value: 'auto', icon: 'mdi-monitor' },
+])
+
+/** 主题定制抽屉内联玻璃材质选项，覆盖清透、色调与磨砂三档语义外观。 */
+const glassAppearanceOptions = computed<
+  Array<{
+    title: string
+    value: ThemeCustomizerGlassAppearance
+  }>
+>(() => [
+  { title: t('theme.glassAppearanceClear'), value: 'clear' },
+  { title: t('theme.glassAppearanceTinted'), value: 'tinted' },
+  { title: t('theme.glassAppearanceFrosted'), value: 'frosted' },
+])
+
+/** 主题定制抽屉内联玻璃渲染画质选项，联动切换标准 CSS 与实时光学档位。 */
+const glassQualityOptions = computed<
+  Array<{
+    title: string
+    value: ThemeCustomizerGlassQuality
+  }>
+>(() => [
+  { title: t('theme.glassQualityCss'), value: 'css' },
+  { title: t('theme.glassQualityBalanced'), value: 'balanced' },
+  { title: t('theme.glassQualityHigh'), value: 'high' },
 ])
 
 const radiusOptions = computed<
@@ -159,6 +194,13 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
   if (appMode.value) return
 
   setLayout(layout)
+}
+
+/** 打开高阶玻璃光学调节共享弹窗，供桌面与独立 PWA 细调通透度、反射与动态强度。 */
+function openGlassSettingsDialog() {
+  if (!settings.value.glassEnabled || nativeChromeActive.value) return
+
+  openSharedDialog(GlassSettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
 }
 
 // 重置主题定制设置，App 模式只恢复可调整的外观项。
@@ -277,6 +319,64 @@ async function handleResetSettings() {
             hide-details
             @update:model-value="setGlassEnabled($event === true)"
           />
+
+          <div v-if="!nativeChromeActive && settings.glassEnabled" class="theme-customizer-glass-panel">
+            <div class="theme-customizer-glass-field">
+              <span id="theme-customizer-glass-appearance-label" class="theme-customizer-glass-label">
+                {{ t('theme.glassAppearance') }}
+              </span>
+              <div
+                class="theme-customizer-segmented theme-customizer-segmented--appearance"
+                role="group"
+                aria-labelledby="theme-customizer-glass-appearance-label"
+              >
+                <button
+                  v-for="appearance in glassAppearanceOptions"
+                  :key="appearance.value"
+                  type="button"
+                  class="theme-customizer-segmented-option"
+                  :class="{ 'is-active': settings.glassAppearance === appearance.value }"
+                  :data-glass-appearance="appearance.value"
+                  :aria-pressed="settings.glassAppearance === appearance.value"
+                  @click="setGlassAppearance(appearance.value)"
+                >
+                  {{ appearance.title }}
+                </button>
+              </div>
+            </div>
+
+            <div class="theme-customizer-glass-field">
+              <span id="theme-customizer-glass-quality-label" class="theme-customizer-glass-label">
+                {{ t('theme.glassQuality') }}
+              </span>
+              <div
+                class="theme-customizer-segmented theme-customizer-segmented--quality"
+                role="group"
+                aria-labelledby="theme-customizer-glass-quality-label"
+              >
+                <button
+                  v-for="quality in glassQualityOptions"
+                  :key="quality.value"
+                  type="button"
+                  class="theme-customizer-segmented-option"
+                  :class="{ 'is-active': settings.glassQuality === quality.value }"
+                  :data-glass-quality="quality.value"
+                  :aria-pressed="settings.glassQuality === quality.value"
+                  @click="setGlassQuality(quality.value)"
+                >
+                  {{ quality.title }}
+                </button>
+              </div>
+            </div>
+
+            <button type="button" class="theme-customizer-glass-tuning-btn" @click="openGlassSettingsDialog">
+              <span class="theme-customizer-glass-tuning-btn__main">
+                <VIcon class="theme-customizer-glass-tuning-btn__icon" icon="mdi-tune-variant" size="18" />
+                <span>{{ t('theme.glassSettings') }}</span>
+              </span>
+              <VIcon class="theme-customizer-glass-tuning-btn__chevron" icon="mdi-chevron-right" size="18" />
+            </button>
+          </div>
 
           <template v-if="!nativeChromeActive">
             <VDivider class="mt-7" />
@@ -534,6 +634,142 @@ async function handleResetSettings() {
   margin-block-start: 20px;
 }
 
+/* 玻璃材质联动子面板消费 muted 静态吸收底座与同心控件圆角，不叠加二层模糊或外阴影。 */
+.theme-customizer-glass-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border: 1px solid var(--mp-border, rgba(var(--v-theme-on-surface), 0.08));
+  border-radius: var(--app-control-radius, 10px);
+  background: var(--mp-muted, rgba(var(--v-theme-on-surface), 0.04));
+  box-shadow: none;
+  gap: 14px;
+  margin-block-start: 14px;
+}
+
+.theme-customizer-glass-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-customizer-glass-label {
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.theme-customizer-segmented {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--mp-border, rgba(var(--v-theme-on-surface), 0.08));
+  border-radius: var(--app-control-radius, 10px);
+  background: rgba(var(--v-theme-on-surface), 0.035);
+  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.theme-customizer-segmented-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: max(4px, calc(var(--app-control-radius, 10px) - 3px));
+  appearance: none;
+  background: transparent;
+  color: var(--mp-fg, rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)));
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  min-block-size: 34px;
+  min-inline-size: 0;
+  padding-block: 6px;
+  padding-inline: 8px;
+  text-align: center;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease;
+
+  @media (hover: hover) {
+    &:hover:not(.is-active) {
+      background: rgba(var(--v-theme-on-surface), 0.05);
+    }
+  }
+
+  &.is-active {
+    border-color: rgba(var(--v-theme-primary), 0.38);
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-weight: 600;
+  }
+}
+
+.theme-customizer-glass-tuning-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--mp-border, rgba(var(--v-theme-on-surface), 0.08));
+  border-radius: var(--app-control-radius, 10px);
+  appearance: none;
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  color: var(--mp-fg, rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)));
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  gap: 10px;
+  inline-size: 100%;
+  letter-spacing: 0;
+  line-height: 1.35;
+  min-block-size: 38px;
+  padding-block: 8px;
+  padding-inline: 12px;
+  text-align: start;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease;
+
+  @media (hover: hover) {
+    &:hover {
+      border-color: rgba(var(--v-theme-primary), 0.3);
+      background: rgba(var(--v-theme-primary), 0.06);
+      color: rgb(var(--v-theme-primary));
+    }
+  }
+}
+
+.theme-customizer-glass-tuning-btn__main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.theme-customizer-glass-tuning-btn__icon,
+.theme-customizer-glass-tuning-btn__chevron {
+  flex: 0 0 auto;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  transition: color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .theme-customizer-glass-tuning-btn:hover .theme-customizer-glass-tuning-btn__icon,
+  .theme-customizer-glass-tuning-btn:hover .theme-customizer-glass-tuning-btn__chevron {
+    color: rgb(var(--v-theme-primary));
+  }
+}
+
+.theme-customizer-segmented-option:focus-visible,
+.theme-customizer-glass-tuning-btn:focus-visible {
+  outline: 2px solid var(--mp-ring, rgb(var(--v-theme-primary)));
+  outline-offset: 2px;
+}
+
 .theme-customizer-card-option,
 .theme-customizer-preview-option {
   display: flex;
@@ -677,28 +913,28 @@ async function handleResetSettings() {
   inline-size: 100%;
   min-inline-size: 0;
 
-  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded);
-  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-lg);
+  --theme-customizer-preview-control-radius: 6px;
+  --theme-customizer-preview-surface-radius: 12px;
 }
 
 .theme-customizer-radius-scene--none {
-  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded-sm);
-  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-sm);
+  --theme-customizer-preview-control-radius: 3px;
+  --theme-customizer-preview-surface-radius: 4px;
 }
 
 .theme-customizer-radius-scene--small {
-  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded);
-  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded);
+  --theme-customizer-preview-control-radius: 4px;
+  --theme-customizer-preview-surface-radius: 8px;
 }
 
 .theme-customizer-radius-scene--large {
-  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded-lg);
-  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-lg);
+  --theme-customizer-preview-control-radius: 8px;
+  --theme-customizer-preview-surface-radius: 17px;
 }
 
 .theme-customizer-radius-scene--extra {
-  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded-xl);
-  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-xl);
+  --theme-customizer-preview-control-radius: 10px;
+  --theme-customizer-preview-surface-radius: 22px;
 }
 
 .theme-customizer-radius-scene__card {
@@ -744,6 +980,14 @@ async function handleResetSettings() {
 
   .theme-customizer-preview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .theme-customizer-segmented-option {
+    min-block-size: 38px;
+  }
+
+  .theme-customizer-glass-tuning-btn {
+    min-block-size: 44px;
   }
 }
 </style>

@@ -40,6 +40,7 @@ import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import type { NativePanelSource } from '@/native/registry'
 import { nativePanelId } from '@/native/panel'
+import { nativeChromeActive } from '@/native/layout'
 
 // 国际化
 const { t } = useI18n()
@@ -2355,7 +2356,13 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
 </script>
 
 <template>
-  <div>
+  <div
+    class="plugin-card-list-view"
+    :class="{
+      'plugin-card-list-view--fab-clearance': !nativeChromeActive && !appMode,
+      'plugin-card-list-view--app-shell': !nativeChromeActive && appMode,
+    }"
+  >
     <!-- 已安装插件过滤下拉菜单 -->
     <Teleport to="body" v-if="filterInstalledPluginDialog">
       <VMenu
@@ -2785,6 +2792,16 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
 
 <style scoped lang="scss">
 /* stylelint-disable selector-pseudo-class-no-unknown */
+
+// 网页端末尾预留悬浮操作按钮避让高度，PWA 壳已由外层容器处理底部导航安全区，仅补轻量呼吸间距。
+.plugin-card-list-view--fab-clearance {
+  padding-block-end: var(--mp-bottom-clearance, var(--app-fab-clearance, 5.5rem));
+}
+
+.plugin-card-list-view--app-shell,
+:global(.layout-wrapper.layout-app-shell) .plugin-card-list-view--fab-clearance {
+  padding-block-end: 1rem;
+}
 
 @media (width < 960px) {
   // 弹出菜单使用紧凑录入行，避免叠加全局移动表单高度与列表项纵向留白。

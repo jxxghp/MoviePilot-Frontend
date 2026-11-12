@@ -4,13 +4,59 @@
 @use '@configured-variables' as variables;
 @use 'glass-v3';
 
+// 精致平面模式赋予一级卡片清晰细描边，浅色叠加轻量双层微投影，深色靠明度阶梯与细线分层
 html[data-theme='plain'] {
+  --app-surface-border-width: 1px;
+  --app-surface-border-opacity: 0.08;
+  --app-surface-border: var(--app-surface-border-width) solid rgba(24, 24, 27, var(--app-surface-border-opacity));
+  --app-card-light-border-width: 1px;
+  --app-card-light-border-opacity: 0.09;
+  --app-card-light-border: var(--app-card-light-border-width) solid
+    rgba(24, 24, 27, var(--app-card-light-border-opacity));
+  --app-overlay-border: var(--app-surface-border);
+
+  &[data-glass-color-scheme='light'] {
+    --app-surface-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
+    --app-surface-hover-shadow: 0 4px 14px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(15, 23, 42, 0.04);
+    --app-card-rest-shadow: var(--app-surface-shadow);
+    --app-card-hover-shadow: var(--app-surface-hover-shadow);
+    --app-overlay-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+    --app-fab-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+    --app-fab-shadow-strong: 0 6px 18px rgba(15, 23, 42, 0.14);
+    --app-fab-shadow-hover: 0 8px 20px rgba(15, 23, 42, 0.16);
+    --app-fab-shadow-strong-hover: 0 8px 22px rgba(15, 23, 42, 0.18);
+  }
+
+  &[data-glass-color-scheme='dark'] {
+    --app-surface-border-opacity: 0.075;
+    --app-card-light-border-opacity: 0.075;
+    --app-surface-border: var(--app-surface-border-width) solid rgba(255, 255, 255, 0.075);
+    --app-card-light-border: var(--app-card-light-border-width) solid rgba(255, 255, 255, 0.075);
+    --app-overlay-border: 1px solid rgba(255, 255, 255, 0.09);
+    --app-surface-shadow: none;
+    --app-surface-hover-shadow: none;
+    --app-card-rest-shadow: none;
+    --app-card-hover-shadow: none;
+    --app-overlay-shadow: 0 16px 36px rgba(0, 0, 0, 0.42);
+    --app-fab-shadow: 0 8px 20px rgba(0, 0, 0, 0.36);
+    --app-fab-shadow-strong: 0 10px 24px rgba(0, 0, 0, 0.42);
+    --app-fab-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.46);
+    --app-fab-shadow-strong-hover: 0 12px 28px rgba(0, 0, 0, 0.48);
+  }
+
   body,
   body *,
   body *::before,
   body *::after {
-    backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  // 卡片内部嵌套子卡片与面板保持无外框扁平态，避免叠加双层细描边
+  :where(.v-card, .v-sheet)
+    :where(.v-card, .v-sheet, .v-list, .v-expansion-panel):not([class*='border'], .ai-agent-settings-card) {
+    --app-surface-border: 0 solid transparent;
+    --app-card-light-border: 0 solid transparent;
   }
 
   .v-overlay__content :is(.v-card, .v-list):not(.bg-primary) {

@@ -877,4 +877,38 @@ describe('PluginCard lifecycle actions', () => {
     await fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
   })
+
+  it('softens inactive cards and lets clicking the update capsule open the update flow directly', async () => {
+    const updatableInactivePlugin: Plugin = {
+      ...plugin,
+      state: false,
+      has_update: true,
+      average_rating: 4.8,
+      rating_count: 19,
+      update_candidate: {
+        source_type: 'official',
+        source_key: 'github:jxxghp/moviepilot-plugins',
+        repo_url: 'https://github.com/jxxghp/MoviePilot-Plugins',
+        version: '2.1.0',
+        is_bound: false,
+      },
+    }
+    mocks.apiGet.mockResolvedValue(updatableInactivePlugin)
+    const { container, rerender } = await renderWithProviders(PluginCard, {
+      props: { plugin: updatableInactivePlugin },
+    })
+
+    expect(container.querySelector('.plugin-card')).toHaveClass('plugin-card--inactive')
+    expect(screen.getByLabelText('4.8 分，共 19 人评分')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByLabelText('有更新'))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      initialSourceSelectionOpen: true,
+      plugin: expect.objectContaining({ id: 'DemoPlugin' }),
+    })
+
+    await rerender({ plugin: { ...updatableInactivePlugin, state: true } })
+    expect(container.querySelector('.plugin-card')).not.toHaveClass('plugin-card--inactive')
+  })
 })

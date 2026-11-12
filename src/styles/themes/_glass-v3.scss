@@ -213,7 +213,7 @@ $-custom-content-surfaces: (
 
       .layout-page-content .plugin-card__banner {
         // 品牌染色与吸收继续由各材质公式决定，轮廓只补充轻量的透光边缘。
-        border-block-end: 1px solid rgba(255, 255, 255, 0.12);
+        border-block-end: 1px solid var(--glass-border);
       }
 
       .layout-page-content .plugin-card__banner .text-shadow {

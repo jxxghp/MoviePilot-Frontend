@@ -74,20 +74,24 @@ describe('PluginAppCard rating badge', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
-  it('shows the top-right score only after the plugin has ratings', async () => {
+  it('shows the creator plaque score when rated and opens market details on click', async () => {
     const unrated = await renderWithProviders(PluginAppCard, {
       props: { plugin: { ...plugin, average_rating: 0, rating_count: 0 } },
     })
     expect(unrated.container.querySelector('.plugin-app-card__rating')).toBeNull()
-    expect(unrated.container.querySelector('.plugin-app-card__title--with-rating')).toBeNull()
     unrated.unmount()
 
     const rated = await renderWithProviders(PluginAppCard, {
-      props: { plugin: { ...plugin, average_rating: 4.3, rating_count: 12 } },
+      props: { plugin: { ...plugin, average_rating: 4.3, rating_count: 12 }, count: 35 },
     })
-    const badge = rated.container.querySelector('.plugin-app-card__rating')
+    const badge = rated.container.querySelector<HTMLButtonElement>('.plugin-app-card__rating')
+    expect(badge).not.toBeNull()
     expect(badge).toHaveTextContent('4.3')
-    expect(rated.container.querySelector('.plugin-app-card__title--with-rating')).not.toBeNull()
+    expect(rated.container.querySelector('.plugin-card__creator-bar')).toContainElement(badge)
+
+    await fireEvent.click(badge!)
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({ count: 35 })
   })
 
   it('reports an HTTP failure without emitting install or hiding the card', async () => {
@@ -270,8 +274,10 @@ describe('PluginAppCard rating badge', () => {
 
     expect(screen.getAllByText('工具')).toHaveLength(2)
     expect(screen.getByText('自动化')).toBeInTheDocument()
-    const image = screen.getByTestId('plugin-image')
+    const [image, authorImage] = screen.getAllByTestId('plugin-image')
     await fireEvent.click(image)
+    await fireEvent.click(authorImage)
+    await fireEvent.contextMenu(authorImage)
     await waitFor(() => expect(mocks.accentFromImage).toHaveBeenCalled())
     expect(
       container.querySelector<HTMLElement>('.plugin-card')?.style.getPropertyValue('--plugin-card-accent-rgb'),

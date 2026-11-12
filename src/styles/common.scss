@@ -79,19 +79,19 @@ html {
     --app-elevation-#{$level}: #{app-vuetify-elevation($level)};
   }
 
-  --app-theme-surface-radius: var(--app-vuetify-rounded-lg);
+  --app-theme-surface-radius: 20px;
   --app-surface-radius: var(--app-theme-surface-radius);
-  --app-field-radius: var(--app-vuetify-rounded-lg);
-  --app-control-radius: var(--app-vuetify-rounded);
-  --app-overlay-radius: var(--app-vuetify-rounded-lg);
+  --app-field-radius: 16px;
+  --app-control-radius: 14px;
+  --app-overlay-radius: 22px;
   --app-surface-border-width: 0;
   --app-surface-border-opacity: 0.06;
   --app-surface-border: var(--app-surface-border-width) solid
-    rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
+    rgba(var(--v-theme-on-surface, var(--mp-fg-rgb, 24, 24, 27)), var(--app-surface-border-opacity));
   --app-card-light-border-width: var(--app-surface-border-width);
   --app-card-light-border-opacity: 0.12;
   --app-card-light-border: var(--app-card-light-border-width) solid
-    rgba(var(--v-theme-on-surface), var(--app-card-light-border-opacity));
+    rgba(var(--v-theme-on-surface, var(--mp-fg-rgb, 24, 24, 27)), var(--app-card-light-border-opacity));
   --app-overlay-border: var(--app-surface-border);
   --app-card-rest-shadow: var(--app-elevation-0);
   --app-card-hover-shadow: var(--app-elevation-0);
@@ -132,40 +132,40 @@ html {
   --mp-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
-// 默认档位保留按钮等 control 的 Vuetify 原始圆角，同时让卡片、列表、弹窗和输入区使用更舒展的大圆角。
+// 平面与玻璃共用同一套五档几何尺度，切换玻璃开关不产生圆角跳变
 html[data-theme-radius='default'] {
-  --app-theme-surface-radius: var(--app-vuetify-rounded-lg);
-  --app-field-radius: var(--app-vuetify-rounded-lg);
-  --app-control-radius: var(--app-vuetify-rounded);
-  --app-overlay-radius: var(--app-vuetify-rounded-lg);
+  --app-theme-surface-radius: 20px;
+  --app-field-radius: 16px;
+  --app-control-radius: 14px;
+  --app-overlay-radius: 22px;
 }
 
 html[data-theme-radius='none'] {
-  --app-theme-surface-radius: var(--app-vuetify-rounded-sm);
-  --app-field-radius: var(--app-vuetify-rounded-sm);
-  --app-control-radius: var(--app-vuetify-rounded-sm);
-  --app-overlay-radius: var(--app-vuetify-rounded-sm);
+  --app-theme-surface-radius: 8px;
+  --app-field-radius: 8px;
+  --app-control-radius: 8px;
+  --app-overlay-radius: 10px;
 }
 
 html[data-theme-radius='small'] {
-  --app-theme-surface-radius: var(--app-vuetify-rounded);
-  --app-field-radius: var(--app-vuetify-rounded);
-  --app-control-radius: var(--app-vuetify-rounded);
-  --app-overlay-radius: var(--app-vuetify-rounded);
+  --app-theme-surface-radius: 12px;
+  --app-field-radius: 12px;
+  --app-control-radius: 10px;
+  --app-overlay-radius: 14px;
 }
 
 html[data-theme-radius='large'] {
-  --app-theme-surface-radius: var(--app-vuetify-rounded-lg);
-  --app-field-radius: var(--app-vuetify-rounded-lg);
-  --app-control-radius: var(--app-vuetify-rounded-lg);
-  --app-overlay-radius: var(--app-vuetify-rounded-lg);
+  --app-theme-surface-radius: 24px;
+  --app-field-radius: 20px;
+  --app-control-radius: 16px;
+  --app-overlay-radius: 26px;
 }
 
 html[data-theme-radius='extra'] {
-  --app-theme-surface-radius: var(--app-vuetify-rounded-xl);
-  --app-field-radius: var(--app-vuetify-rounded-xl);
-  --app-control-radius: var(--app-vuetify-rounded-xl);
-  --app-overlay-radius: var(--app-vuetify-rounded-xl);
+  --app-theme-surface-radius: 28px;
+  --app-field-radius: 24px;
+  --app-control-radius: 18px;
+  --app-overlay-radius: 30px;
 }
 
 // 进度条样式
@@ -1262,9 +1262,10 @@ html[data-theme-radius='extra'] {
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
 }
 
-// 插件卡片头部染色层：普通主题保持原有实色底＋压暗遮罩，玻璃主题只替换色层与材质。
+// 插件卡片头部染色层在平面主题下随明暗切换柔光渐变，玻璃主题只替换色层与材质
 .plugin-card__banner {
   position: relative;
+  border-block-end: 1px solid var(--mp-border-subtle);
   -webkit-backdrop-filter: var(--plugin-card-banner-backdrop-filter, none);
   backdrop-filter: var(--plugin-card-banner-backdrop-filter, none);
   background-image: var(--plugin-card-banner-scrim), var(--plugin-card-banner-tint);
@@ -1274,10 +1275,20 @@ html[data-theme-radius='extra'] {
     --plugin-card-accent-rgb,
     var(--glass-material-accent-rgb, var(--v-theme-primary))
   );
-  --plugin-card-banner-scrim: linear-gradient(rgba(0, 0, 0, 60%) 0%, rgba(0, 0, 0, 50%) 100%);
+  --plugin-card-banner-scrim: linear-gradient(180deg, rgba(24, 34, 53, 0.24) 0%, rgba(24, 34, 53, 0.56) 100%);
   --plugin-card-banner-tint: linear-gradient(
-    rgb(var(--plugin-card-effective-accent-rgb)) 0%,
-    rgb(var(--plugin-card-effective-accent-rgb)) 100%
+    135deg,
+    rgba(var(--plugin-card-effective-accent-rgb), 0.32) 0%,
+    rgba(var(--plugin-card-effective-accent-rgb), 0.12) 100%
+  );
+}
+
+html[data-theme='plain'][data-glass-color-scheme='light'] .plugin-card__banner {
+  --plugin-card-banner-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.72) 100%);
+  --plugin-card-banner-tint: linear-gradient(
+    135deg,
+    rgba(var(--plugin-card-effective-accent-rgb), 0.18) 0%,
+    rgba(var(--plugin-card-effective-accent-rgb), 0.06) 100%
   );
 }
 

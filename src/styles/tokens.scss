@@ -1,0 +1,144 @@
+/* stylelint-disable no-descending-specificity */
+
+// 全局语义设计令牌定义页面画布、卡片层级、前景对比度、状态胶囊与几何间隙
+// 同时驱动平面材质与玻璃透射材质，兼容网页端、独立应用与原生套壳容器
+html {
+  --mp-bg-rgb: 242, 242, 247;
+  --mp-surface-rgb: 255, 255, 255;
+  --mp-popover-rgb: 255, 255, 255;
+  --mp-fg-rgb: 24, 24, 27;
+  --mp-primary-rgb: 141, 81, 249;
+  --mp-success-rgb: 36, 138, 61;
+  --mp-warning-rgb: 217, 119, 6;
+  --mp-info-rgb: 0, 122, 255;
+  --mp-destructive-rgb: 220, 38, 38;
+  --mp-badge-soft-alpha: 0.12;
+  --mp-badge-border-alpha: 0.26;
+  --mp-warning-border-alpha: 0.28;
+
+  // 页面与表面颜色令牌（默认对应浅色平面）
+  --mp-bg: rgb(var(--v-theme-background, var(--mp-bg-rgb)));
+  --mp-surface: rgb(var(--v-theme-surface, var(--mp-surface-rgb)));
+  --mp-card: var(--mp-surface);
+  // 次级底座采用纯静态吸收色层，严禁叠加第二层背景模糊
+  --mp-muted: #f4f5f8;
+  --mp-popover: rgb(var(--mp-popover-rgb));
+  --mp-fg: rgb(var(--v-theme-on-surface, var(--mp-fg-rgb)));
+  --mp-muted-fg: rgba(var(--v-theme-on-surface, var(--mp-fg-rgb)), var(--v-medium-emphasis-opacity, 0.72));
+  --mp-faint: rgba(var(--v-theme-on-surface, var(--mp-fg-rgb)), 0.46);
+
+  // 压在海报或剧照底图上的文字与压暗遮罩不随浅色主题反转为深色
+  --mp-on-media: #f8fafc;
+  --mp-on-media-muted: rgba(248, 250, 252, 0.78);
+  --mp-media-scrim: linear-gradient(
+    180deg,
+    rgba(11, 19, 34, 0.06) 0%,
+    rgba(11, 19, 34, 0.66) 54%,
+    rgba(11, 19, 34, 0.92) 100%
+  );
+
+  // 描边与键盘可见焦点环
+  --mp-border: rgba(24, 24, 27, 0.08);
+  --mp-border-subtle: rgba(24, 24, 27, 0.05);
+  --mp-input: rgba(24, 24, 27, 0.14);
+  --mp-ring: color-mix(in oklab, rgb(var(--v-theme-primary, var(--mp-primary-rgb))) 68%, transparent);
+
+  // 柔和语义胶囊令牌
+  --mp-success-soft: rgba(var(--v-theme-success, var(--mp-success-rgb)), var(--mp-badge-soft-alpha));
+  --mp-success-border: rgba(var(--v-theme-success, var(--mp-success-rgb)), var(--mp-badge-border-alpha));
+  --mp-warning-soft: rgba(var(--v-theme-warning, var(--mp-warning-rgb)), var(--mp-badge-soft-alpha));
+  --mp-warning-border: rgba(var(--v-theme-warning, var(--mp-warning-rgb)), var(--mp-warning-border-alpha));
+  --mp-info-soft: rgba(var(--v-theme-info, var(--mp-info-rgb)), var(--mp-badge-soft-alpha));
+  --mp-info-border: rgba(var(--v-theme-info, var(--mp-info-rgb)), var(--mp-badge-border-alpha));
+  --mp-destructive-soft: rgba(var(--v-theme-error, var(--mp-destructive-rgb)), var(--mp-badge-soft-alpha));
+  --mp-destructive-border: rgba(var(--v-theme-error, var(--mp-destructive-rgb)), var(--mp-badge-border-alpha));
+  --mp-primary-soft: rgba(var(--v-theme-primary, var(--mp-primary-rgb)), var(--mp-badge-soft-alpha));
+  --mp-primary-border: rgba(var(--v-theme-primary, var(--mp-primary-rgb)), var(--mp-badge-border-alpha));
+
+  // 品牌染色卡片底座与圆角、底部避让间隙别名
+  --mp-card-dock-bg: var(--mp-muted);
+  --mp-card-dock-border: var(--mp-border-subtle);
+  --radius: var(--app-theme-surface-radius);
+  --mp-bottom-clearance: var(--app-fab-clearance);
+}
+
+// 深色配色切换表面明度阶梯、细线对比度与柔和胶囊透明度
+html[data-glass-color-scheme='dark'],
+html[data-theme='glass']:not([data-glass-color-scheme='light']) {
+  --mp-bg-rgb: 11, 19, 34;
+  --mp-surface-rgb: 24, 34, 53;
+  --mp-popover-rgb: 32, 44, 66;
+  --mp-fg-rgb: 242, 245, 250;
+  --mp-success-rgb: 105, 197, 154;
+  --mp-warning-rgb: 228, 184, 99;
+  --mp-info-rgb: 124, 156, 196;
+  --mp-destructive-rgb: 255, 123, 123;
+  --mp-badge-soft-alpha: 0.16;
+  --mp-badge-border-alpha: 0.32;
+  --mp-warning-border-alpha: 0.32;
+  --mp-muted: #131b2b;
+  --mp-border: rgba(255, 255, 255, 0.08);
+  --mp-border-subtle: rgba(255, 255, 255, 0.05);
+  --mp-input: rgba(255, 255, 255, 0.14);
+}
+
+// 玻璃材质透出底层壁纸，卡片与弹层改走共享玻璃透射表面，次级底座保持静态吸光
+html[data-theme='glass'] {
+  --mp-bg: transparent;
+  --mp-surface: var(--glass-surface);
+  --mp-card: var(--glass-surface);
+  --mp-muted: rgba(15, 19, 26, 0.18);
+  --mp-popover: var(--glass-popup-surface, var(--glass-overlay-surface));
+  --mp-border: var(--glass-border);
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'] {
+  --mp-muted: rgba(24, 24, 27, 0.045);
+}
+
+// 在 Vuetify 实际挂载主题变量的节点重新求值依赖动态主色与强调度的语义令牌
+:where(.v-theme--glass, .v-theme--plain) {
+  --mp-fg: rgb(var(--v-theme-on-surface));
+  --mp-muted-fg: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  --mp-faint: rgba(var(--v-theme-on-surface), 0.46);
+  --mp-ring: color-mix(in oklab, rgb(var(--v-theme-primary)) 68%, transparent);
+  --mp-success-soft: rgba(var(--v-theme-success), var(--mp-badge-soft-alpha));
+  --mp-success-border: rgba(var(--v-theme-success), var(--mp-badge-border-alpha));
+  --mp-warning-soft: rgba(var(--v-theme-warning), var(--mp-badge-soft-alpha));
+  --mp-warning-border: rgba(var(--v-theme-warning), var(--mp-warning-border-alpha));
+  --mp-info-soft: rgba(var(--v-theme-info), var(--mp-badge-soft-alpha));
+  --mp-info-border: rgba(var(--v-theme-info), var(--mp-badge-border-alpha));
+  --mp-destructive-soft: rgba(var(--v-theme-error), var(--mp-badge-soft-alpha));
+  --mp-destructive-border: rgba(var(--v-theme-error), var(--mp-badge-border-alpha));
+  --mp-primary-soft: rgba(var(--v-theme-primary), var(--mp-badge-soft-alpha));
+  --mp-primary-border: rgba(var(--v-theme-primary), var(--mp-badge-border-alpha));
+}
+
+:where(.v-theme--plain) {
+  --mp-bg: rgb(var(--v-theme-background));
+  --mp-surface: rgb(var(--v-theme-surface));
+  --mp-card: var(--mp-surface);
+}
+
+// 原生套壳由宿主系统接管底部导航安全区，网页列表不再重复叠加悬浮按钮留白
+html[data-native-chrome='active'] {
+  --mp-bottom-clearance: 0px;
+}
+
+body {
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
+}
+
+// 统计读数、版本号、速率与评分开启等宽数字，刷新时不发生横向跳动
+.num {
+  font-variant-numeric: tabular-nums;
+}
