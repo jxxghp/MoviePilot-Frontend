@@ -5,6 +5,33 @@ import { renderWithProviders } from '@tests/support/render'
 import { describe, expect, it } from 'vitest'
 
 describe('SearchDiagnosticsPanel', () => {
+  it('shows the full invalid ID and rule group without rendering ID content as markup', async () => {
+    const diagnostics = createSearchDiagnostics()
+    diagnostics.warnings = [
+      {
+        code: 'rule_id_invalid',
+        rule_group: '国产剧',
+        rule_ids: [' Pre Candidate', '<img src=x onerror=alert(1)>'],
+      },
+    ]
+    await renderWithProviders(SearchDiagnosticsPanel, { props: { diagnostics } })
+    const panel = screen.getByRole('status')
+    expect(panel).toHaveTextContent('规则组“国产剧”引用了无效的规则 ID：" Pre Candidate"')
+    expect(panel).toHaveTextContent('至少包含一个字母')
+    expect(panel.querySelector('img')).toBeNull()
+  })
+
+  it.each([
+    ['rule_id_missing', '引用的规则 ID 不存在'],
+    ['rule_syntax_invalid', '表达式语法无效'],
+  ])('explains rule configuration warnings (%s)', async (code, message) => {
+    const diagnostics = createSearchDiagnostics()
+    diagnostics.warnings = [{ code, rule_group: '国产剧', rule_ids: ['Missing'] }]
+    await renderWithProviders(SearchDiagnosticsPanel, { props: { diagnostics } })
+    expect(screen.getByRole('status')).toHaveTextContent(message)
+    expect(screen.getByRole('status')).toHaveTextContent('国产剧')
+  })
+
   it('omits the details control when only warnings are available', async () => {
     const diagnostics = createSearchDiagnostics()
     diagnostics.searched_sites = []

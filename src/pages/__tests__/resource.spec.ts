@@ -1237,6 +1237,22 @@ describe('resource page search flow', () => {
     expect(await screen.findByTestId('resource-empty-state')).toHaveTextContent('找到 5 个资源，但均不符合过滤规则')
   })
 
+  it('distinguishes an invalid rule configuration from candidates that simply do not match', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '旧规则搜索', result_type: 'torrent' } })
+    const source = await latestEventSource()
+    const diagnostics = createSearchDiagnostics()
+    diagnostics.stage_counts = { candidates: 146, retained: 0 }
+    diagnostics.warnings = [{ code: 'rule_id_invalid', rule_group: '国产剧', rule_ids: [' Pre Candidate'] }]
+    source.message({ type: 'replace', stage: 'filtered', items: [], candidate_items: 146, total_items: 0, value: 100 })
+    source.message({ type: 'done', stage: 'done', diagnostics })
+    source.fail()
+    const empty = await screen.findByTestId('resource-empty-state')
+    expect(empty).toHaveTextContent('发现过滤规则配置异常')
+    expect(empty).toHaveTextContent('修复规则 ID 或规则组表达式')
+    expect(empty).not.toHaveTextContent('均不符合过滤规则')
+    expect(screen.getByRole('status', { name: '本页搜索情况' })).toHaveTextContent('" Pre Candidate"')
+  })
+
   it.each([false, true])(
     'clears completed SSE pagination when the initial search falls back to HTTP (batched=%s)',
     async batched => {

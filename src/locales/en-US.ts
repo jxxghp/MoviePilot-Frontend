@@ -2001,6 +2001,11 @@ export default {
       warnings: {
         rule_group_not_applicable: 'Rule “{name}” was not applied: type or category mismatch.',
         rule_group_missing: 'Rule “{name}” does not exist.',
+        rule_id_invalid:
+          'Rule group “{name}” references invalid rule IDs: {ids}. Use letters and digits, including at least one letter.',
+        rule_id_missing: 'Rule group “{name}” references missing rule IDs: {ids}. Repair the references.',
+        rule_syntax_invalid:
+          'Rule group “{name}” has invalid syntax. Check operators, parentheses and priority levels.',
         provider_error: 'Some sources failed; availability is unknown.',
         provider_cooldown: 'Some sources are cooling down and were not searched.',
         provider_outcome_unknown: 'Some source statuses are unknown.',
@@ -2020,6 +2025,8 @@ export default {
     noResourceFound: 'No resources found',
     loadNextPage: 'Continue loading',
     filteredNoResults: 'Found {count} resource(s), but none match the filter rules',
+    ruleConfigurationError: 'Filter rule configuration errors were found',
+    ruleConfigurationErrorHint: 'Repair the rule IDs or expressions described above, then search again.',
     emptySearchHint: 'Search again, or adjust the keyword and site scope before retrying.',
     emptyStartHint: 'Return home to start a new search.',
     filteredEmptyTitle: 'No resources match the current filters',

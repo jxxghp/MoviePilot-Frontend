@@ -1679,7 +1679,7 @@ export interface SearchDiagnostics {
     media_type: string | null
     categories: string[]
   }>
-  warnings: Array<{ code: string; rule_group?: string | null }>
+  warnings: Array<{ code: string; rule_group?: string | null; rule_ids?: string[] }>
 }
 
 // 种子信息

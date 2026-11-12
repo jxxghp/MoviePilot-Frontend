@@ -1969,6 +1969,9 @@ export default {
       warnings: {
         rule_group_not_applicable: '規則「{name}」未套用：類型或分類不符',
         rule_group_missing: '規則「{name}」不存在',
+        rule_id_invalid: '規則組「{name}」引用了無效的規則 ID：{ids}，請改用英文字母和數字（至少包含一個字母）',
+        rule_id_missing: '規則組「{name}」引用的規則 ID 不存在：{ids}，請修復引用',
+        rule_syntax_invalid: '規則組「{name}」運算式語法無效，請檢查運算子、括號和優先級層級',
         provider_error: '部分來源請求失敗，暫時無法確認結果',
         provider_cooldown: '部分來源暫時冷卻，本頁未搜尋',
         provider_outcome_unknown: '部分來源狀態未知',
@@ -1988,6 +1991,8 @@ export default {
     noResourceFound: '未搜索到任何資源',
     loadNextPage: '繼續載入',
     filteredNoResults: '找到 {count} 個資源，但均不符合過濾規則',
+    ruleConfigurationError: '發現過濾規則配置異常',
+    ruleConfigurationErrorHint: '請根據上方提示修復規則 ID 或規則組運算式，然後重新搜尋。',
     emptySearchHint: '可以重新搜尋，或調整關鍵詞和站點範圍後再試。',
     emptyStartHint: '返回首頁後可通過搜索入口發起新的搜索。',
     filteredEmptyTitle: '當前篩選條件沒有匹配項',
