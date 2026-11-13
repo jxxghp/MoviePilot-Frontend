@@ -482,25 +482,6 @@ function resolvePluginPageUrl(plugin?: Plugin) {
   return repoUrl || plugin.author_url || ''
 }
 
-/** 从插件市场中查找同 ID 插件，补齐已安装插件缺失的 repo_url。 */
-async function fetchMarketPlugin(pluginId?: string) {
-  if (!pluginId) return null
-
-  try {
-    const marketPlugins: Plugin[] = await api.get('plugin/', {
-      params: {
-        state: 'market',
-        force: false,
-      },
-    })
-
-    return marketPlugins.find(plugin => plugin.id === pluginId) || null
-  } catch (error) {
-    console.error(error)
-    return null
-  }
-}
-
 /**
  * 读取已安装插件的最新市场详情，并保留本地运行状态字段。
  *
@@ -571,21 +552,12 @@ function handleUpdateAction() {
   showUpdateHistory()
 }
 
-// 访问插件项目主页
+/** 使用单插件查询返回的可信仓库打开主页，未绑定来源时沿用作者主页。 */
 async function visitPluginPage() {
   const popup = window.open('about:blank', '_blank')
-  let pluginDetail = await fetchInstalledPluginDetail()
+  const pluginDetail = await fetchInstalledPluginDetail()
 
   if (popup) popup.opener = null
-
-  if (!hasRemoteRepoUrl(pluginDetail)) {
-    const marketPlugin = await fetchMarketPlugin(props.plugin?.id)
-
-    if (marketPlugin) {
-      // 插件市场条目通常包含真实仓库地址，优先使用它来对齐市场卡片跳转。
-      pluginDetail = { ...(pluginDetail || {}), ...marketPlugin } as Plugin
-    }
-  }
 
   const repoUrl = resolvePluginPageUrl(pluginDetail)
 
