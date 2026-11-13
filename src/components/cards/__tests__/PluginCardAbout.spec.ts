@@ -142,17 +142,13 @@ describe('PluginCard about menu', () => {
     })
   })
 
-  it('resolves a missing installed repo from market metadata before opening the project page', async () => {
+  it('resolves the bound repository through a single plugin query before opening the project page', async () => {
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'plugin/history/DemoPlugin') return Promise.resolve({ ...plugin, repo_url: 'local://DemoPlugin' })
-      if (url === 'plugin/') {
-        return Promise.resolve([
-          {
-            ...plugin,
-            repo_url: 'https://raw.githubusercontent.com/example/plugins/main/package.json',
-          },
-        ])
-      }
+      if (url === 'plugin/history/DemoPlugin')
+        return Promise.resolve({
+          ...plugin,
+          repo_url: 'https://raw.githubusercontent.com/example/plugins/main/package.json',
+        })
       throw new Error(`Unexpected request: ${url}`)
     })
     const replace = vi.fn()
@@ -168,10 +164,11 @@ describe('PluginCard about menu', () => {
     await fireEvent.click(await screen.findByText('项目主页'))
 
     await waitFor(() => {
-      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/', {
-        params: { force: false, state: 'market' },
+      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
+        params: { force: false },
       })
     })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/', expect.anything())
     expect(open).toHaveBeenCalledWith('about:blank', '_blank')
     await waitFor(() => expect(replace).toHaveBeenCalledWith('https://github.com/example/plugins'))
     expect(popup.opener).toBeNull()
@@ -189,6 +186,24 @@ describe('PluginCard about menu', () => {
     expect(ratingStatus).toBeInTheDocument()
     expect(ratingStatus).toHaveClass('plugin-card__status--rating')
     expect(container.querySelector('.plugin-card__creator-bar')).toContainElement(ratingStatus)
+  })
+
+  it('uses the author page for an unbound local plugin without aggregating the market', async () => {
+    mocks.apiGet.mockResolvedValue({ ...plugin, repo_url: 'local://DemoPlugin' })
+    const replace = vi.fn()
+    vi.spyOn(window, 'open').mockReturnValue({
+      close: vi.fn(),
+      location: { replace },
+      opener: window,
+    } as unknown as Window)
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('项目主页'))
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(plugin.author_url))
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', { params: { force: false } })
   })
 
   it('opens the market detail dialog directly when clicking the rating capsule without opening plugin config', async () => {
