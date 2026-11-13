@@ -1256,6 +1256,62 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     },
   )
 
+  it.each([
+    { modeIndex: 1, mode: 'ignore_duration', background: false },
+    { modeIndex: 2, mode: 'sequential', background: true },
+  ])('keeps music alignment and final directory consistent for preview and execution ($mode)', async options => {
+    const bodies: ManualTransferPayload[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        const body = (await request.json()) as ManualTransferPayload
+        bodies.push(body)
+        return HttpResponse.json(body.preview ? previewResponse([]) : apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog({ items: [createFileItem({ name: '专辑', path: '/downloads/专辑', type: 'dir' })] })
+    await selectOption('类型', 3)
+    expect(screen.getByLabelText('本次曲目对齐方式')).toHaveDisplayValue('严格校验')
+    await selectOption('本次曲目对齐方式', options.modeIndex)
+    await fireEvent.input(screen.getByLabelText('MusicBrainz ID'), {
+      target: { value: '977e6978-139d-425c-bb98-6b0c62d1e45e' },
+    })
+    await fireEvent.input(screen.getByLabelText('本次音乐最终目录'), { target: { value: '/library/OST/专辑' } })
+    if (options.mode === 'sequential') expect(screen.getByText(/源文件按完整路径自然排序/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '预览' }))
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    await user.click(screen.getByRole('button', { name: options.background ? '加入整理队列' : '立即整理' }))
+    await waitFor(() => expect(bodies).toHaveLength(2))
+    expect(bodies.map(body => [body.music_track_match, body.music_target_path])).toEqual([
+      [options.mode, '/library/OST/专辑'],
+      [options.mode, '/library/OST/专辑'],
+    ])
+    expect(bodies[0].preview).toBe(true)
+    expect(bodies[1].preview).not.toBe(true)
+  })
+
+  it('clears music-only overrides when switching to a movie', async () => {
+    const bodies: ManualTransferPayload[] = []
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        bodies.push((await request.json()) as ManualTransferPayload)
+        return HttpResponse.json(apiEnvelope(null))
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    await selectOption('类型', 3)
+    await selectOption('音乐实体', 1)
+    await selectOption('本次曲目对齐方式', 1)
+    await fireEvent.input(screen.getByLabelText('本次音乐最终目录'), { target: { value: '/library/music' } })
+    await selectOption('类型', 1)
+    expect(screen.queryByLabelText('本次音乐最终目录')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '加入整理队列' }))
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0].music_target_path).toBeUndefined()
+    expect(bodies[0].music_track_match).toBeUndefined()
+  })
+
   it('inherits music release preferences by default and can override them for one request', async () => {
     const bodies: Array<Record<string, unknown>> = []
     server.use(

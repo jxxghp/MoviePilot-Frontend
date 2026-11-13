@@ -2561,6 +2561,10 @@ export interface TransferForm {
   music_release_scripts?: string[] | null
   // 本次是否识别 CUE；未传时继承系统设置
   music_cue_enable?: boolean | null
+  // 本次手选专辑的对齐方式；默认严格校验，顺序模式按源路径自然排序。
+  music_track_match?: 'strict' | 'ignore_duration' | 'sequential'
+  // 本次音乐最终目录；留空沿用目录模板，填写时仅应用文件名模板。
+  music_target_path?: string | null
   // 季号
   season?: number
   // 类型

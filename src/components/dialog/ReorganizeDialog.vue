@@ -152,7 +152,7 @@ const progressValue = ref(0)
 const transferSubmitting = ref(false)
 
 // 进度SSE连接
-const progressSSE = ref<any>(null)
+const progressSSE = ref<ReturnType<typeof useProgressSSE> | null>(null)
 
 // 预览加载状态
 const previewLoading = ref(false)
@@ -456,7 +456,7 @@ const previewPageSize = ref(20)
 const storages = ref<StorageOption[]>([])
 
 // 所有剧集组
-const episodeGroups = ref<{ [key: string]: any }[]>([])
+const episodeGroups = ref<{ id: string; name: string; group_count: number; episode_count: number }[]>([])
 
 // 剧集组加载状态
 const episodeGroupLoading = ref(false)
@@ -600,6 +600,8 @@ const transferForm = reactive<TransferForm>({
   music_release_regions: null,
   music_release_scripts: null,
   music_cue_enable: globalSettings.MUSIC_CUE_ENABLE !== false,
+  music_track_match: 'strict',
+  music_target_path: null,
   transfer_type: null,
   min_filesize: 0,
   scrape: initialTargetPath ? false : null,
@@ -845,6 +847,8 @@ watch(
       customMusicReleasePreference.value = false
       transferForm.music_release_regions = null
       transferForm.music_release_scripts = null
+      transferForm.music_track_match = 'strict'
+      transferForm.music_target_path = null
     }
   },
 )
@@ -853,6 +857,7 @@ watch(
   () => transferForm.music_type,
   musicType => {
     artistCollectionEntries.value = undefined
+    if (musicType !== 'album') transferForm.music_track_match = 'strict'
     if (musicType === 'artist_collection') {
       transferForm.media_id = null
       mediaSelectorDialog.value = false
@@ -1003,9 +1008,7 @@ function normalizePath(path?: string) {
 
 // 获取文件名
 function getFileName(path?: string) {
-  const normalizedPath = normalizePath(path).replace(/\/+$/, '')
-  if (!normalizedPath) return '-'
-  return normalizedPath.split('/').pop() || normalizedPath
+  return normalizePath(path).split('/').filter(Boolean).pop() || '-'
 }
 
 // 获取唯一非空值
@@ -1390,6 +1393,12 @@ function createTransferPayload(options: {
     music_type:
       options.musicType ?? (transferForm.music_type === 'artist_collection' ? 'album' : transferForm.music_type),
   }
+  if (transferForm.type_name === '音乐') {
+    payload.music_target_path = normalizeOptionalText(transferForm.music_target_path)
+  } else {
+    delete payload.music_target_path
+    delete payload.music_track_match
+  }
 
   if (normalizedMediaId) {
     payload.media_source = mediaSource.value
@@ -1527,9 +1536,9 @@ async function handleRecommendEpisodeFormat() {
         ? t('dialog.reorganize.episodeFormatRecommendOverwriteSuccess')
         : t('dialog.reorganize.episodeFormatRecommendSuccess'),
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log(error)
-    $toast.error(error?.message || t('dialog.reorganize.episodeFormatRecommendFailed'))
+    $toast.error(error instanceof Error ? error.message : t('dialog.reorganize.episodeFormatRecommendFailed'))
   } finally {
     episodeFormatRecommendState.loading = false
   }
@@ -2250,6 +2259,40 @@ onUnmounted(() => {
                       :hint="t('dialog.reorganize.musicCueEnableHint')"
                       persistent-hint
                       :disabled="transferSubmitting || hasAcceptedSubmission"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-if="transferForm.type_name === '音乐'">
+                  <VCol v-if="transferForm.music_type === 'album'" cols="12">
+                    <VSelect
+                      v-model="transferForm.music_track_match"
+                      :label="t('dialog.reorganize.musicTrackMatch')"
+                      :items="[
+                        { title: t('dialog.reorganize.musicTrackMatchStrict'), value: 'strict' },
+                        { title: t('dialog.reorganize.musicTrackMatchIgnoreDuration'), value: 'ignore_duration' },
+                        { title: t('dialog.reorganize.musicTrackMatchSequential'), value: 'sequential' },
+                      ]"
+                      :hint="t('dialog.reorganize.musicTrackMatchHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-playlist-check"
+                    />
+                    <VAlert
+                      v-if="transferForm.music_track_match === 'sequential'"
+                      type="warning"
+                      variant="tonal"
+                      class="mt-3"
+                    >
+                      {{ t('dialog.reorganize.musicTrackMatchWarning') }}
+                    </VAlert>
+                  </VCol>
+                  <VCol cols="12">
+                    <VTextField
+                      v-model="transferForm.music_target_path"
+                      :label="t('dialog.reorganize.musicTargetPath')"
+                      :hint="t('dialog.reorganize.musicTargetPathHint')"
+                      clearable
+                      persistent-hint
+                      prepend-inner-icon="mdi-folder-edit-outline"
                     />
                   </VCol>
                 </VRow>

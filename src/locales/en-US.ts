@@ -4840,6 +4840,17 @@ export default {
       artistCollectionScanFailed: 'Failed to scan the artist collection',
       musicEntityHint: 'Album folders default to Album; individual audio files default to Recording.',
       musicReleasePreferenceOverride: 'Override release preference',
+      musicTrackMatch: 'Track alignment for this transfer',
+      musicTrackMatchStrict: 'Strict validation',
+      musicTrackMatchIgnoreDuration: 'Ignore duration validation',
+      musicTrackMatchSequential: 'Skip alignment validation and apply in file order',
+      musicTrackMatchHint:
+        'For a manually selected album. Enter its ID or choose it in the preview. Ignoring duration still requires unique track matches.',
+      musicTrackMatchWarning:
+        'Source paths are naturally sorted (2 before 10) and paired with the selected release. Track counts must match. Titles, positions and durations are unchecked, which may assign incorrect tags. Check the preview before proceeding.',
+      musicTargetPath: 'Final music directory for this transfer',
+      musicTargetPathHint:
+        'Leave empty to use directory templates. An absolute path applies only the filename template and places all tracks here. With no online entry, leave the media ID empty to organize using complete local tags.',
       musicCueEnable: 'Recognize CUE for this task',
       musicCueEnableHint:
         'Defaults to system settings and applies to this preview and task only. Turn off for split tracks with an invalid CUE; keep on for single-file albums',

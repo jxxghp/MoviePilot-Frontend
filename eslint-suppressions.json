@@ -155,14 +155,6 @@
       "count": 4
     }
   },
-  "src/components/dialog/ReorganizeDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    }
-  },
   "src/components/dialog/SharedDialogHost.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4

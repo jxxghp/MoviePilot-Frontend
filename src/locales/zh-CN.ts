@@ -4713,6 +4713,16 @@ export default {
       artistCollectionScanFailed: '艺术家合集扫描失败',
       musicEntityHint: '选择专辑目录时默认按专辑整理，单个音频文件默认按单曲整理',
       musicReleasePreferenceOverride: '本次覆盖发行偏好',
+      musicTrackMatch: '本次曲目对齐方式',
+      musicTrackMatchStrict: '严格校验',
+      musicTrackMatchIgnoreDuration: '忽略时长校验',
+      musicTrackMatchSequential: '跳过对齐校验，按文件顺序套用',
+      musicTrackMatchHint: '适用于手选专辑。可填写专辑 ID，或在预览中选择专辑。忽略时长时仍需曲目唯一对位',
+      musicTrackMatchWarning:
+        '源文件按完整路径自然排序（2 在 10 前）对应所选发行版曲目，数量必须一致。曲名、曲序和时长将跳过核验，可能写入错误歌曲标签，请先核对预览。',
+      musicTargetPath: '本次音乐最终目录',
+      musicTargetPathHint:
+        '留空沿用目录模板。填写绝对路径后仅应用文件名模板，所有曲目存入此目录。没有线上条目时，可留空媒体 ID，使用完整的本地标签整理',
       musicCueEnable: '本次识别 CUE',
       musicCueEnableHint: '默认采用系统设置，仅影响本次预览和整理。已分轨专辑附带错误 CUE 时可关闭；整轨专辑请保持开启',
       musicReleasePreferenceOverrideHint: '关闭时继承系统设置；开启后仅影响本次手动整理',
